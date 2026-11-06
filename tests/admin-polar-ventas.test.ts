@@ -201,7 +201,8 @@ test('8 · Cargar pago: lo que falta se dice antes, y el pedido va con su formul
   assert.equal(pedido.pagos[0].fecha, '2026-11-06T12:00')
   // El orden y la página, en memoria.
   const ord = ordenar(PEDIDOS_EJEMPLO, { id: 'net_amount', desc: true }, COMPARADORES_PEDIDO)
-  assert.deepEqual(ord.map((p) => p.id), ['p-501', 'r-8', 'p-488'])
+  // (6/11/2026: el ejemplo del Pro pasó de US$ 297 a US$ 97, su precio en lib/planes-mako.ts: el orden por monto cambió.)
+  assert.deepEqual(ord.map((p) => p.id), ['r-8', 'p-488', 'p-501'])
   assert.deepEqual(paginar(ord, 5, 2), { filas: [ord[2]], total: 3, paginas: 2, pagina: 1 }, 'una página de más cae en la última')
   assert.ok(COBROS_EJEMPLO.length > 0)
 })

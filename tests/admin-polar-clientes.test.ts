@@ -184,8 +184,8 @@ test('Cost Drivers: el corte por negocio sólo si es atribuible, con su parte de
 })
 
 test('los ejemplos se arman con las funciones de verdad y no nombran a nadie real', () => {
-  assert.equal(LISTA_EJEMPLO.length, 7)
-  assert.equal(OVERVIEW_EJEMPLO.creados.length, 7)
+  assert.equal(LISTA_EJEMPLO.length, 9, 'los nueve negocios de app/admin/_polar/datos/ejemplo/negocios.ts')
+  assert.equal(OVERVIEW_EJEMPLO.creados.length, 9)
   assert.ok((OVERVIEW_EJEMPLO.atRisk ?? []).length <= 5)
   assert.ok((TOP_EJEMPLO.datos?.pagos.length ?? 0) > 0)
   assert.ok((AT_RISK_EJEMPLO.atRisk ?? []).some((c) => c.motivo === 'atrasado'))

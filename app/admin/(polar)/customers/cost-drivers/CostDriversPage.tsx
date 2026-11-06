@@ -20,28 +20,34 @@ import { Alert, DataTable, DataTableColumnDef, Text } from '@/app/admin/_polar/o
 import { Coins } from '@/app/admin/_polar/orbit/icons'
 import { useRouter } from '@/app/_ui/Link'
 
+// MaKo: anchos en porcentajes; en una caja angosta se esconden las llamadas y la parte del gasto, y queda el costo
+// (`DataTableColumnMeta`; con los 150 px fijos de Polar, en el teléfono el costo quedaba detrás del scroll).
 const columns: DataTableColumnDef<ClienteCosto>[] = [
   {
     id: 'customer',
     enableSorting: false,
+    meta: { width: '40%' },
     header: 'Cliente',
     cell: ({ row: { original: stat } }) => <CustomerCell name={stat.nombre} />,
   },
   {
     accessorKey: 'llamadas',
     enableSorting: false,
+    meta: { width: '20%', className: 'hidden @lg:table-cell' },
     header: 'Llamadas a la IA',
     cell: ({ getValue }) => (getValue() as number).toLocaleString('es-AR'),
   },
   {
     accessorKey: 'share',
     enableSorting: false,
+    meta: { width: '15%', className: 'hidden @md:table-cell' },
     header: 'Parte del gasto',
     cell: ({ getValue }) => `${Math.round((getValue() as number) * 100)}%`,
   },
   {
     accessorKey: 'costoCentavos',
     enableSorting: false,
+    meta: { width: '25%', className: 'whitespace-nowrap' },
     header: 'Costo',
     cell: ({ getValue }) =>
       formatCurrency('subcent')(getValue() as number, 'usd'),
@@ -75,6 +81,7 @@ export const CostDriversPage = ({ costos, error, mesDeCostos }: PropsCostos) => 
         />
       ) : (
         <DataTable
+          className="@container"
           columns={columns}
           data={pageItems}
           isLoading={false}

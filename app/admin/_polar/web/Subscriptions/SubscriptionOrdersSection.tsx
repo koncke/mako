@@ -15,6 +15,12 @@ import { fechaCorta } from './SubscriptionStatus'
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const nombreDelMes = (mes: string) => `${MESES[Number(mes.slice(5, 7)) - 1] ?? mes} ${mes.slice(0, 4)}`
 
+/** «Subió (de US$ 238)», «Empezó»: lo que cambió ese mes, en un renglón. */
+export const textoDelCambio = (m: Pick<MesVenta, 'cambio' | 'antesUsd' | 'esperadoUsd'>): string =>
+  m.cambio
+    ? `${ROTULO_CAMBIO_MES[m.cambio]}${m.antesUsd != null && m.esperadoUsd != null ? ` (de ${usdEnTexto(m.antesUsd, 'compact')})` : ''}`
+    : ''
+
 const COLOR_ESTADO: Record<MesVenta['estado'], StatusColor> = {
   pagado: 'green', parcial: 'yellow', vencido: 'red', 'vence-hoy': 'yellow', 'por-cobrar': 'blue', proximo: 'gray', cortado: 'gray',
 }
@@ -27,19 +33,21 @@ const SubscriptionOrdersSection = ({ subscription, hoy }: { subscription: Suscri
   return (
     <div className="flex flex-col gap-4">
       <h3 className="text-lg">Mes a mes</h3>
+      {/* MaKo: `@container` (el `meta` de cada columna): angosta quedan el Mes, el Estado y lo que entró. */}
       <DataTable
         data={meses}
         columns={[
           {
             header: 'Mes',
             accessorKey: 'mes',
+            meta: { width: '24%' },
+            // MaKo: el cambio va DEBAJO del mes y cada uno en un renglón: al lado, «Subió (de US$ 238)» se apilaba en tres.
             cell: ({ row: { original } }) => (
-              <span className="flex items-center gap-2">
-                <span className="capitalize">{nombreDelMes(original.mes)}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate capitalize">{nombreDelMes(original.mes)}</span>
                 {original.cambio && (
-                  <span className="dark:text-polar-500 text-xs text-gray-500">
-                    {ROTULO_CAMBIO_MES[original.cambio]}
-                    {original.antesUsd != null && original.esperadoUsd != null ? ` (de ${usdEnTexto(original.antesUsd, 'compact')})` : ''}
+                  <span className="dark:text-polar-500 truncate text-xs text-gray-500">
+                    {textoDelCambio(original)}
                   </span>
                 )}
               </span>
@@ -48,6 +56,7 @@ const SubscriptionOrdersSection = ({ subscription, hoy }: { subscription: Suscri
           {
             header: 'Vence',
             accessorKey: 'vence',
+            meta: { width: '14%', className: 'hidden @xl:table-cell' },
             cell: ({ row: { original } }) => (
               <span className="dark:text-polar-500 text-sm text-gray-500">{fechaCorta(original.vence, hoy)}</span>
             ),
@@ -55,21 +64,25 @@ const SubscriptionOrdersSection = ({ subscription, hoy }: { subscription: Suscri
           {
             header: 'Estado',
             accessorKey: 'estado',
+            meta: { width: '18%' },
             cell: ({ row: { original } }) => <Status color={COLOR_ESTADO[original.estado]} status={ROTULO_ESTADO_MES[original.estado]} />,
           },
           {
             header: 'Tocaba',
             accessorKey: 'esperadoUsd',
+            meta: { width: '15%', className: 'hidden @xl:table-cell whitespace-nowrap' },
             cell: ({ row: { original } }) => (original.esperadoUsd != null ? usdEnTexto(original.esperadoUsd, 'compact') : 'Sin monto'),
           },
           {
             header: 'Entró',
             accessorKey: 'pagadoUsd',
+            meta: { width: '15%', className: 'whitespace-nowrap' },
             cell: ({ row: { original } }) => usdEnTexto(original.pagadoUsd, 'compact'),
           },
           {
             header: '',
             accessorKey: 'pedidos',
+            meta: { width: '14%', className: 'hidden @md:table-cell' },
             cell: ({ row: { original } }) =>
               original.pedidos[0] ? (
                 <div className="flex justify-end">
@@ -83,7 +96,7 @@ const SubscriptionOrdersSection = ({ subscription, hoy }: { subscription: Suscri
           },
         ]}
         isLoading={false}
-        className="text-sm"
+        className="@container text-sm"
       />
     </div>
   )

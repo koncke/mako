@@ -40,7 +40,9 @@ export const SubscriptionDetailsGrid = ({ subscription: s, hoy }: { subscription
             : undefined
         }
       />
-      <DetailCell label="La cobra" value={s.fuente === 'manual' ? 'A mano (se registra cada pago)' : 'La pasarela'} />
+      {/* «A mano» a secas: el porqué («entra cuando se registra el pago en el CRM») lo dice Próximo cobro, abajo. Con la
+          aclaración entre paréntesis la celda se cortaba en «A mano (se registra cada …». */}
+      <DetailCell label="La cobra" value={s.fuente === 'manual' ? 'A mano' : 'La pasarela'} />
       <DetailCell label="Pagó en total" value={usdEnTexto(s.pagadoUsd, 'compact')} />
       {s.deudaUsd > 0 && (
         <DetailCell

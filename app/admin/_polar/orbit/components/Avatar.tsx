@@ -4,6 +4,7 @@
 
 import { ComponentProps, useCallback, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { getInitials } from './avatar-iniciales'
 
 export interface AvatarProps {
   name: string
@@ -100,18 +101,4 @@ export const Avatar = (props: ComponentProps<typeof AvatarComponent>) => {
   return <AvatarComponent {...props} key={props.avatar_url} />
 }
 
-const getInitials = (fullName: string) => {
-  const allNames = fullName
-    .split('@')[0] // In case it's passed an email
-    .replace(/[^a-zA-Z ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ')
-  const initials = allNames.reduce((acc, curr, index) => {
-    if (index === 0 || index === allNames.length - 1) {
-      acc = `${acc}${curr.charAt(0).toUpperCase()}`
-    }
-    return acc
-  }, '')
-  return initials
-}
+// MaKo: `getInitials` vive en ./avatar-iniciales.ts (la de Polar tiraba las letras con tilde: «Ana Gómez» daba «AM»).

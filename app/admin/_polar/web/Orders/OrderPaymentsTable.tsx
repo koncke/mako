@@ -51,12 +51,16 @@ export const filasDePagos = (order: Pedido): Fila[] =>
 export const OrderPaymentsTable = ({ order }: { order: Pedido }) => {
   return (
     <OrderSection title="Pagos">
+      {/* MaKo: la tabla es un `@container` (el `meta` de cada columna, DataTable de orbit): angosta quedan la Fecha, el Medio
+          y el Monto; la Referencia y el comprobante vuelven con lugar. A 390 se veían sólo Fecha y Medio. */}
       <DataTable
+        className="@container"
         isLoading={false}
         columns={[
           {
             accessorKey: 'fecha',
             header: 'Fecha',
+            meta: { width: '30%' },
             cell: ({ row: { original } }) => (
               <FormattedDateTime
                 locale="es-AR"
@@ -69,6 +73,7 @@ export const OrderPaymentsTable = ({ order }: { order: Pedido }) => {
           {
             accessorKey: 'medio',
             header: 'Medio',
+            meta: { width: '22%' },
             cell: ({ row: { original } }) => (
               <span>
                 {medioEnTexto(original.medio)}
@@ -83,6 +88,7 @@ export const OrderPaymentsTable = ({ order }: { order: Pedido }) => {
           {
             accessorKey: 'referencia',
             header: 'Referencia',
+            meta: { width: '18%', className: 'hidden @xl:table-cell' },
             cell: ({ row: { original } }) =>
               original.referencia ? (
                 <Text as="span" monospace truncate>
@@ -95,6 +101,7 @@ export const OrderPaymentsTable = ({ order }: { order: Pedido }) => {
           {
             accessorKey: 'monto',
             header: 'Monto',
+            meta: { width: '15%', className: 'whitespace-nowrap' },
             cell: ({ row: { original } }) => (
               <Text as="span" tabularNums>
                 {original.monto}
@@ -104,6 +111,7 @@ export const OrderPaymentsTable = ({ order }: { order: Pedido }) => {
           {
             accessorKey: 'comprobante',
             header: '',
+            meta: { width: '15%', className: 'hidden @xl:table-cell' },
             cell: ({ row: { original } }) =>
               original.comprobante ? (
                 <div className="flex justify-end">

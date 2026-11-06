@@ -304,18 +304,18 @@ test('índice: los negocios y sus personas, sin la plataforma ni quien no tiene 
   const ind = armarIndice({
     workspaces: [
       { id: 9, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' },
-      { id: 21, nombre: 'Estudio Norte', capa: 'completo', estado: 'activo' },
-      { id: 22, nombre: 'Panadería', capa: 'esencial', estado: 'pausado' },
+      { id: 42, nombre: 'Estudio Norte', capa: 'completo', estado: 'activo' },
+      { id: 43, nombre: 'Panadería', capa: 'esencial', estado: 'pausado' },
     ],
     usuarios: [
       { id: 1, nombre: 'Equipo', email: 'e@ejemplo.com', workspace_id: 9 },
-      { id: 2, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', workspace_id: 21 },
+      { id: 2, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', workspace_id: 42 },
       { id: 3, nombre: 'Global', email: 'g@ejemplo.com', workspace_id: null },
     ],
     plataforma: 9,
     plan: (c) => c.toUpperCase(),
   })
-  assert.deepEqual(ind.negocios.map((n) => n.ws), [21, 22])
+  assert.deepEqual(ind.negocios.map((n) => n.ws), [42, 43])
   assert.equal(ind.negocios[1].detalle, 'ESENCIAL · Pausado')
   assert.deepEqual(ind.personas.map((p) => p.id), [2])
   assert.equal(ind.personas[0].negocio, 'Estudio Norte')

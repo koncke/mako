@@ -40,7 +40,7 @@ export const COBROS_EJEMPLO: CobroDeVenta[] = [
   cobro({ id: 101, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', url: 'https://hola-mako.com/pagar/tok-ejemplo-1' }),
   cobro({
     id: 102, nombre: 'Estudio Norte', email: 'hola@estudionorte.example', alta_capa: 'agencia', monto: 97, monto_usd: 97, estado: 'pagado',
-    pagado_at: '2026-11-02T13:05:00Z', created_at: '2026-11-01T10:00:00Z', alta_ws: 9001, alta_estado: 'hecha', alta_ws_nombre: 'Estudio Norte',
+    pagado_at: '2026-11-02T13:05:00Z', created_at: '2026-11-01T10:00:00Z', alta_ws: 42, alta_estado: 'hecha', alta_ws_nombre: 'Estudio Norte',
   }),
   cobro({
     id: 103, nombre: 'Luis Prado', email: 'luis@ejemplo.com', proveedor: 'mercadopago', moneda: 'ARS', monto: 56000, monto_usd: null,

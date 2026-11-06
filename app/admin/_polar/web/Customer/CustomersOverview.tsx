@@ -9,7 +9,6 @@
 import { ToplistHeader } from '@/app/admin/_polar/web/Customer/Toplist'
 import type { PropsOverview } from '@/app/admin/_polar/datos/clientes'
 import { ChartRange, getChartRangeParams } from '@/app/admin/_polar/web/utils/metrics'
-import { Grid } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useMemo, useState } from 'react'
 import { AtRiskList } from './AtRiskList'
@@ -48,36 +47,37 @@ export const CustomersOverview = ({
           end={endDate}
           interval={interval}
         />
-        <Grid
-          templateColumns={{
-            base: '1fr',
-            md: '1fr',
-            xl: '1fr 1fr 1fr',
-          }}
-          gap="3xl"
-        >
-          <Box flexDirection="column" rowGap="l">
-            <ToplistHeader title="Top Customers" caption="Por lo pagado" />
-            <TopCustomersList
-              datos={top}
-              error={topError}
-              avisos={topAvisos}
-              start={startDate}
-              end={endDate}
-            />
-          </Box>
-          <Box flexDirection="column" rowGap="l">
-            <ToplistHeader title="At Risk" caption="Atrasados, pausados y sin uso" />
-            <AtRiskList atRisk={atRisk} error={atRiskError} avisos={atRiskAvisos} />
-          </Box>
-          <Box flexDirection="column" rowGap="l">
-            <ToplistHeader
-              title="Cost Drivers"
-              caption={`Gasto de IA de ${mesDeCostos}`}
-            />
-            <TopCostCustomersList costos={costos} error={costosError} />
-          </Box>
-        </Grid>
+        {/* MaKo: Polar prende las tres columnas por el ancho de la VENTANA (`xl: '1fr 1fr 1fr'`, ≥ 1280 px). Acá el panel mide
+            ~770 px con la ventana a 1440 (la barra de MaKo, la de secciones y la lista de negocios se comen el resto): con tres
+            columnas, Cost Drivers salía cortado a la derecha y «At Risk» se partía en dos renglones. Las columnas las decide el
+            ancho de la CAJA (`@container`, la regla de la casa: lo que cede por ancho no mira la ventana), y se prenden donde cada
+            una tiene lo que tenía en Polar (≥ 896 px de caja, `@4xl`). `min-w-0` en cada columna: un nombre largo se corta con
+            «…» en vez de ensanchar la columna. El `gap` es el `3xl` de Polar (48 px). */}
+        <div className="@container min-w-0">
+          <div className="grid min-w-0 grid-cols-1 gap-12 @4xl:grid-cols-3">
+            <Box flexDirection="column" rowGap="l" minWidth={0}>
+              <ToplistHeader title="Top Customers" caption="Por lo pagado" />
+              <TopCustomersList
+                datos={top}
+                error={topError}
+                avisos={topAvisos}
+                start={startDate}
+                end={endDate}
+              />
+            </Box>
+            <Box flexDirection="column" rowGap="l" minWidth={0}>
+              <ToplistHeader title="At Risk" caption="Atrasados, pausados y sin uso" />
+              <AtRiskList atRisk={atRisk} error={atRiskError} avisos={atRiskAvisos} />
+            </Box>
+            <Box flexDirection="column" rowGap="l" minWidth={0}>
+              <ToplistHeader
+                title="Cost Drivers"
+                caption={`Gasto de IA de ${mesDeCostos}`}
+              />
+              <TopCostCustomersList costos={costos} error={costosError} />
+            </Box>
+          </div>
+        </div>
       </Box>
     </CustomersPageShell>
   )

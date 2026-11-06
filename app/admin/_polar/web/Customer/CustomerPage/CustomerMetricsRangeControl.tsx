@@ -5,15 +5,15 @@
 // MaKo: el principio de «All Time» es el de la actividad del negocio (`inicio`, lo manda el server) en vez de
 // `getCustomerActivityStart(customer)`.
 
-import { CHART_RANGES, ChartRange, dateRangeToInterval, getChartRangeParams } from '@/app/admin/_polar/web/utils/metrics'
+import { ChartRange, dateRangeToInterval, getChartRangeParams } from '@/app/admin/_polar/web/utils/metrics'
 import { SegmentedControl } from '@/app/admin/_polar/orbit'
 import { endOfToday, isSameDay, startOfDay } from 'date-fns'
 import { useState } from 'react'
+import { OPCIONES_DE_RANGO } from '../rangos'
 import { useCustomerMetricsParams } from './useCustomerMetricsParams'
 
-const RANGE_OPTIONS = (
-  Object.entries(CHART_RANGES) as [ChartRange, string][]
-).map(([value, label]) => ({ value, label }))
+// MaKo: las de Customers (../rangos.ts: «Todo» en vez de «Desde siempre», que no entraba en el teléfono).
+const RANGE_OPTIONS = [...OPCIONES_DE_RANGO]
 
 const getRangeDates = (range: ChartRange, inicio: string) => {
   const [startDate] = getChartRangeParams(range, `${inicio.slice(0, 10)}T00:00:00`)
@@ -55,6 +55,7 @@ export const CustomerMetricsRangeControl = ({
       options={RANGE_OPTIONS}
       value={activeRange}
       onChange={selectRange}
+      className="max-w-full whitespace-nowrap"
     />
   )
 }

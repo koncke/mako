@@ -222,8 +222,27 @@ export function filasDeRiesgo(
 
 /** Un próximo cobro: de quién, cuándo vence y cuánto. `atrasado`: ya venció (hoy incluido) y no está completo. */
 export type FilaPorCobrar = { id: string; nombre: string; ws: number | null; fecha: string; cuando: string; atrasado: boolean; centavos: number; href: string | null }
-/** `totalCentavos` es la suma de TODAS las filas (la lista no se corta: la tarjeta scrollea, como la de Polar). */
+/** `totalCentavos` es la suma de TODAS las filas (la tarjeta muestra las primeras: `tarjetaPorCobrar`). */
 export type PorCobrarResumen = { filas: FilaPorCobrar[]; totalCentavos: number }
+
+/** Las filas que se ven en la tarjeta (Polar: `VISIBLE_ROWS = 5`, el de Activity y At Risk). */
+export const FILAS_POR_COBRAR = 5
+
+/**
+ * Lo que dibuja la tarjeta «Por cobrar» (6/11/2026): las primeras `n` filas (la tarjeta tiene el alto fijo de Polar y una sexta
+ * quedaba cortada a la mitad por el borde), el número grande con el total de TODAS, y si hay más de las que se ven, cuántas son
+ * («en 8 cobros»). El resto está en «Ver todo».
+ */
+export function tarjetaPorCobrar(
+  r: PorCobrarResumen,
+  n = FILAS_POR_COBRAR,
+): { visibles: FilaPorCobrar[]; totalCentavos: number; cuantos: string | null } {
+  return {
+    visibles: r.filas.slice(0, n),
+    totalCentavos: r.totalCentavos,
+    cuantos: r.filas.length > n ? `en ${r.filas.length.toLocaleString('es-AR')} cobros` : null,
+  }
+}
 
 /**
  * La tarjeta «Por cobrar»: lo que `vistaDeIngresos()` ya calculó en `porCobrar` (lo atrasado y lo que vence en los próximos

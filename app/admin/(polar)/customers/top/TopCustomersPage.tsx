@@ -27,10 +27,14 @@ import { useMemo, useState } from 'react'
 // El máximo que acepta `/v1/customers/top` de Polar.
 const LIMIT = 50
 
+// MaKo: los anchos en porcentajes y la columna secundaria escondida en una caja angosta (`DataTableColumnMeta`): con los
+// 150 px fijos de Polar, en el teléfono la tabla se corría de costado y lo pagado quedaba detrás del scroll, y en la
+// computadora los nombres se cortaban con lugar libre al lado. El nombre toma el espacio; en el teléfono se ve lo pagado.
 const columns: DataTableColumnDef<ClienteTop>[] = [
   {
     accessorKey: 'nombre',
     enableSorting: false,
+    meta: { width: '50%' },
     header: 'Cliente',
     cell: ({ row: { original: customer } }) => (
       <CustomerCell
@@ -42,12 +46,14 @@ const columns: DataTableColumnDef<ClienteTop>[] = [
   {
     accessorKey: 'pagos',
     enableSorting: false,
+    meta: { width: '15%', className: 'hidden @md:table-cell' },
     header: 'Pagos',
     cell: ({ getValue }) => (getValue() as number).toLocaleString('es-AR'),
   },
   {
     accessorKey: 'totalCentavos',
     enableSorting: false,
+    meta: { width: '35%', className: 'whitespace-nowrap' },
     header: 'Pagado',
     cell: ({ getValue }) =>
       formatCurrency('statistics')(getValue() as number, 'usd'),
@@ -109,6 +115,7 @@ export const TopCustomersPage = ({ datos, error, avisos, desde }: PropsTop) => {
         <>
           <AvisosDeLectura avisos={avisos} />
           <DataTable
+            className="@container"
             columns={columns}
             data={pageItems}
             isLoading={isLoading}

@@ -14,6 +14,7 @@ import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
+import { FIJO } from './fila'
 
 const WIDGET_TITLE = 'Actividad'
 
@@ -60,15 +61,17 @@ export const ActivityWidget = ({ className, actividad }: ActivityWidgetProps) =>
         <Box flexDirection="column" paddingBottom="m">
           {rows.map((row) => (
             <ListRow key={row.id} href={row.href ?? undefined}>
+              {/* MaKo: el detalle empieza con el nombre del negocio, así que cede la mitad que el título (`flex-shrink` 1 contra
+                  2) y el «cuándo» no se parte («hace 12 min» en dos renglones cortaba la quinta fila): ./fila.ts. */}
               <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                <Text truncate>{row.titulo}</Text>
+                <Text truncate style={{ flex: '0 2 auto', minWidth: 0 }}>{row.titulo}</Text>
                 {row.detalle && (
-                  <Text color="muted" truncate>
+                  <Text color="muted" truncate style={{ flex: '0 1 auto', minWidth: 0 }}>
                     {row.detalle}
                   </Text>
                 )}
               </Box>
-              <Text color="muted" tabularNums>
+              <Text color="muted" tabularNums style={FIJO}>
                 {row.cuando}
               </Text>
             </ListRow>

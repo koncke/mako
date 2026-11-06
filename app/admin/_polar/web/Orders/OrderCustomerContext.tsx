@@ -60,8 +60,21 @@ export const OrderCustomerContext = ({ customer, plataforma }: { customer: Clien
       </ContextCard>
       <ContextCard>
         <div className="flex flex-col gap-3 md:gap-0">
-          <DetailRow label="Cuenta" value={customer.ws != null ? `Workspace ${customer.ws}` : 'Sin cuenta en MaKo'} valueClassName="font-mono text-xs" />
-          <DetailRow label="Nombre" value={customer.nombre} />
+          {/* MaKo: Polar muestra aquí el ID del cliente en monoespaciada; el de MaKo es el número de un workspace, que no le dice
+              nada a nadie. Va el NOMBRE del negocio, con el link a su ficha (Customers › <negocio>). */}
+          <DetailRow
+            label="Cuenta"
+            value={
+              customer.ws != null ? (
+                <Link href={`/admin/customers/${customer.ws}`} className="min-w-0 truncate text-blue-500 hover:underline">
+                  {customer.nombre || 'Su negocio'}
+                </Link>
+              ) : (
+                'Sin cuenta en MaKo'
+              )
+            }
+          />
+          {customer.ws == null && <DetailRow label="Nombre" value={customer.nombre} />}
           <DetailRow label="Email" value={customer.email} />
           {customer.ws != null && <DetailRow label="Entrar" value={<Link href={`/inicio?ws=${customer.ws}`} className="text-blue-500 hover:underline">Abrir su MaKo</Link>} />}
         </div>

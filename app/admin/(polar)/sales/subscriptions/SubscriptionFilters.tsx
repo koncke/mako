@@ -7,7 +7,7 @@
 
 import SubscriptionStatusSelect from '@/app/admin/_polar/web/Subscriptions/SubscriptionStatusSelect'
 import { DateRangeSelect } from '@/app/admin/_polar/web/Orders/DateRangeSelect'
-import type { FiltroEstadoSuscripcion, Intervalo } from '@/app/admin/_polar/datos/ventas'
+import type { FechaElegida, FiltroEstadoSuscripcion } from '@/app/admin/_polar/datos/ventas'
 import { FileDownloadOutlined } from '@/app/admin/_polar/orbit/icons'
 import { Button, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
@@ -16,12 +16,14 @@ import React from 'react'
 interface SubscriptionFiltersProps {
   status: FiltroEstadoSuscripcion
   onStatusSelect: (value: FiltroEstadoSuscripcion) => void
-  intervalo: Intervalo
-  onDateChange: (value: Intervalo) => void
+  fecha: FechaElegida
+  hoy: string
+  desde: string
+  onDateChange: (value: FechaElegida) => void
   onExport: () => void
 }
 
-const SubscriptionFilters: React.FC<SubscriptionFiltersProps> = ({ status, onStatusSelect, intervalo, onDateChange, onExport }) => {
+const SubscriptionFilters: React.FC<SubscriptionFiltersProps> = ({ status, onStatusSelect, fecha, hoy, desde, onDateChange, onExport }) => {
   return (
     <Box
       flexDirection={{ base: 'column', md: 'row' }}
@@ -33,7 +35,7 @@ const SubscriptionFilters: React.FC<SubscriptionFiltersProps> = ({ status, onSta
         <Box display="block">
           <SubscriptionStatusSelect value={status} onChange={onStatusSelect} />
         </Box>
-        <DateRangeSelect value={intervalo} onChange={onDateChange} />
+        <DateRangeSelect value={fecha} hoy={hoy} desde={desde} onChange={onDateChange} />
       </Box>
       <Button onClick={onExport} className="flex w-full flex-row items-center md:w-auto" variant="secondary" wrapperClassNames="gap-x-2">
         <FileDownloadOutlined fontSize="inherit" />

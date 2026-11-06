@@ -145,10 +145,11 @@ test('Timeline: los últimos eventos del negocio, de la misma lista que Analytic
   assert.equal(otro.length, 1, 'el alta de ESTE negocio, no la del de al lado')
   assert.ok(!EVENTOS_EJEMPLO.some((e) => e.id === 'pago:p-40'), 'un pago de otro negocio no entra')
   assert.ok(EVENTOS_EJEMPLO.every((e, i) => i === 0 || EVENTOS_EJEMPLO[i - 1].timestamp >= e.timestamp), 'el más nuevo primero')
-  const pago = EVENTOS_EJEMPLO.find((e) => e.id === 'pago:p-31')!
-  assert.deepEqual([pago.label, pago.resumen, pago.href, pago.source, pago.importancia], ['Pago recibido', 'US$ 238 · Transferencia', '/admin/sales/p-31', 'system', 'high'])
+  // La mensualidad de noviembre de Estudio Norte (MaKo Pro, US$ 97: app/admin/_polar/datos/ejemplo/negocios.ts).
+  const pago = EVENTOS_EJEMPLO.find((e) => e.id === 'pago:pg-42-2026-11-01')!
+  assert.deepEqual([pago.label, pago.resumen, pago.href, pago.source, pago.importancia], ['Pago recibido', 'US$ 97 · Stripe', '/admin/sales/pg-42-2026-11-01', 'system', 'high'])
   const subio = EVENTOS_EJEMPLO.find((e) => e.nombre === 'suscripcion' && e.label === 'Subió lo que paga por mes')!
-  assert.deepEqual([subio.resumen, subio.importancia], ['US$ 238 por mes', 'medium'])
+  assert.deepEqual([subio.resumen, subio.importancia], ['US$ 97 por mes', 'medium'], 'de Esencial a Pro')
   const fallo = EVENTOS_EJEMPLO.find((e) => e.nombre === 'mako' && e.negativo)!
   assert.deepEqual([fallo.label, fallo.resumen, fallo.source], ['Mandar un email (falló)', 'En la app · No salió', 'user'])
   assert.ok(!('campos' in pago) && !('texto' in pago), 'al navegador va sólo lo que dibuja el Timeline')
@@ -181,14 +182,14 @@ test('Usage: las tabs que usa con sus pantallas, acciones y personas; la IA apar
   assert.equal(crm.personas, 2)
   assert.equal(crm.ultimo, '2026-11-05')
   const ia = u.medidores.find((m) => m.key === 'ia')
-  assert.equal(ia?.consumido, 65)
+  assert.equal(ia?.consumido, 268, 'las de noviembre: las mismas que reparte Cost Drivers')
   assert.equal(ia?.unidad, 'llamadas')
-  assert.equal(ia?.costoUsd, 0.2)
+  assert.equal(ia?.costoUsd, 1.26)
   assert.ok(!u.series.some((s) => s.key === 'ia'), 'la IA no va en el gráfico (otra unidad)')
   assert.deepEqual(u.sinUso.map((t) => t.key), ['automations'], 'lo que nadie abrió')
   const dia5 = u.serie.find((p) => p.timestamp === '2026-11-05T00:00:00.000Z')
   assert.equal(dia5?.crm, 12, 'el punto del gráfico suma las pantallas del día de todas las personas')
-  const fuera = usoDelNegocio(USO_EJEMPLO.filas, USO_EJEMPLO.tabs, USO_EJEMPLO.ia, '2026-10-01', '2026-10-31', 'day')
+  const fuera = usoDelNegocio(USO_EJEMPLO.filas, USO_EJEMPLO.tabs, USO_EJEMPLO.ia, '2026-07-01', '2026-07-31', 'day')
   assert.equal(fuera.medidores.length, 0, 'fuera del rango no hay uso')
   assert.equal(fuera.sinUso.length, 3)
 })
@@ -201,7 +202,8 @@ test('Usage: dos keys que se dibujan igual son UNA tab, y el gráfico se agrupa 
   ], tabs, [], '2026-11-01', '2026-11-30', 'week')
   assert.equal(u.medidores.length, 1)
   assert.equal(u.medidores[0].consumido, 3)
-  assert.equal(u.serie.length, 1, 'los dos días caen en la misma semana')
+  assert.equal(u.serie.find((p) => p.timestamp === '2026-11-02T00:00:00.000Z')?.mako, 3, 'los dos días caen en la misma semana')
+  assert.equal(u.serie.filter((p) => Number(p.mako) > 0).length, 1, 'y es la única semana con uso')
   assert.equal(cubetaDe('2026-11-04', 'week'), '2026-11-02T00:00:00.000Z', 'la semana empieza el lunes')
   assert.equal(cubetaDe('2026-11-04', 'month'), '2026-11-01T00:00:00.000Z')
 })

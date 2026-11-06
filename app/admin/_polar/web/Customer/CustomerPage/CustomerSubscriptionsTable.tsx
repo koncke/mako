@@ -13,6 +13,7 @@ import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Button, DataTable, Status, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import Link from '@/app/_ui/Link'
+import { PRINCIPAL, SECUNDARIO } from '@/app/admin/_polar/web/Widgets/fila'
 
 interface CustomerSubscriptionsTableProps {
   suscripciones: SuscripcionVenta[]
@@ -36,15 +37,15 @@ export const CustomerSubscriptionsTable = ({
           {
             header: 'Producto',
             accessorKey: 'producto',
+            // MaKo: en UNA línea con «…», como la descripción de Orders (CustomerOrdersTable.tsx); en una caja angosta se
+            // esconde el monto (está en Metrics, arriba) y quedan qué es y cómo está.
+            meta: { width: '45%' },
             cell: ({ row: { original } }) => (
-              <Box
-                as="span"
-                display="inline-flex"
-                alignItems="center"
-                columnGap="s"
-              >
-                {original.producto || 'Suscripción'}
-                <Text as="span" variant="caption" color="muted">
+              <Box alignItems="baseline" columnGap="s" minWidth={0}>
+                <Text as="span" truncate style={PRINCIPAL}>
+                  {original.producto || 'Suscripción'}
+                </Text>
+                <Text as="span" variant="caption" color="muted" truncate style={SECUNDARIO}>
                   {original.fuente === 'pasarela' ? 'Por la pasarela' : 'A mano'}
                 </Text>
               </Box>
@@ -53,6 +54,7 @@ export const CustomerSubscriptionsTable = ({
           {
             header: 'Estado',
             accessorKey: 'estado',
+            meta: { width: '20%' },
             cell: ({ row: { original } }) => (
               <Status
                 size="small"
@@ -64,6 +66,7 @@ export const CustomerSubscriptionsTable = ({
           {
             header: 'Monto',
             accessorKey: 'mensualidadUsd',
+            meta: { width: '21%', className: 'hidden @md:table-cell whitespace-nowrap' },
             cell: ({ row: { original } }) =>
               original.mensualidadUsd != null ? (
                 <span>
@@ -76,6 +79,7 @@ export const CustomerSubscriptionsTable = ({
           {
             header: '',
             accessorKey: 'action',
+            meta: { width: '14%', className: 'px-1 @md:px-4' },
             cell: ({ row: { original } }) => (
               <Box justifyContent="end">
                 <Link href={rutaDeSuscripcion(original)}>
@@ -88,7 +92,7 @@ export const CustomerSubscriptionsTable = ({
           },
         ]}
         isLoading={false}
-        className="text-sm"
+        className="@container text-sm"
       />
     </Box>
   )

@@ -19,22 +19,27 @@ import { Alert, DataTable, DataTableColumnDef, Text } from '@/app/admin/_polar/o
 import { ShieldCheck } from '@/app/admin/_polar/orbit/icons'
 import { useRouter } from '@/app/_ui/Link'
 
+// MaKo: anchos en porcentajes; en una caja angosta se esconden el plan y el monto, y queda lo que importa: quién y por qué
+// (`DataTableColumnMeta`; con los 150 px fijos de Polar, en el teléfono el estado quedaba detrás del scroll).
 const columns: DataTableColumnDef<ClienteEnRiesgo>[] = [
   {
     id: 'customer',
     enableSorting: false,
+    meta: { width: '38%' },
     header: 'Cliente',
     cell: ({ row: { original } }) => <CustomerCell name={original.nombre} />,
   },
   {
     id: 'product',
     enableSorting: false,
+    meta: { width: '20%', className: 'hidden @lg:table-cell' },
     header: 'Plan',
     cell: ({ row: { original } }) => original.plan ?? 'Sin cuenta en MaKo',
   },
   {
     id: 'amount',
     enableSorting: false,
+    meta: { width: '15%', className: 'hidden @md:table-cell whitespace-nowrap' },
     header: 'Monto',
     cell: ({ row: { original } }) =>
       original.montoCentavos != null
@@ -44,6 +49,7 @@ const columns: DataTableColumnDef<ClienteEnRiesgo>[] = [
   {
     id: 'status',
     enableSorting: false,
+    meta: { width: '27%' },
     header: 'Estado',
     cell: ({ row: { original } }) => (
       <Text color={original.grave ? 'danger' : 'warning'}>{original.texto}</Text>
@@ -79,6 +85,7 @@ export const AtRiskPage = ({ atRisk, error, avisos }: PropsAtRisk) => {
         <>
           <AvisosDeLectura avisos={avisos} />
           <DataTable
+            className="@container"
             columns={columns}
             data={pageItems}
             isLoading={false}

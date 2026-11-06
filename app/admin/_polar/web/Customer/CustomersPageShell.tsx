@@ -4,11 +4,12 @@
 // MaKo: sin la organización (la subnav no la necesita).
 
 import { MasterDetailLayoutContent } from '@/app/admin/_polar/web/Layout/MasterDetailLayout'
-import { CHART_RANGES, ChartRange } from '@/app/admin/_polar/web/utils/metrics'
+import type { ChartRange } from '@/app/admin/_polar/web/utils/metrics'
 import { SegmentedControl, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { PropsWithChildren } from 'react'
 import { CustomersSubnav } from './CustomersSubnav'
+import { OPCIONES_DE_RANGO } from './rangos'
 
 interface CustomersPageShellProps extends PropsWithChildren {
   range?: ChartRange
@@ -22,25 +23,30 @@ export const CustomersPageShell = ({
 }: CustomersPageShellProps) => (
   <MasterDetailLayoutContent
     header={
+      // MaKo: Polar fija el alto (`height="2rem"`) y deja el título y el selector en un renglón. En el teléfono no entran juntos
+      // y el selector se salía del panel (la página se corría de costado): acá el renglón envuelve y el selector baja debajo del
+      // título; en la computadora se ven igual que en Polar. Las opciones, de ./rangos.ts («Todo» en vez de «Desde siempre»).
       <Box
-        height="2rem"
+        minHeight="2rem"
         display="flex"
         flexDirection="row"
+        flexWrap="wrap"
         alignItems="center"
         justifyContent="between"
-        rowGap="xl"
+        columnGap="l"
+        rowGap="m"
         width="100%"
+        minWidth={0}
       >
         <Text variant="heading-xs" as="h1">
           Customers
         </Text>
         {range && onRangeChange ? (
           <SegmentedControl
-            options={(
-              Object.entries(CHART_RANGES) as [ChartRange, string][]
-            ).map(([value, label]) => ({ value, label }))}
+            options={[...OPCIONES_DE_RANGO]}
             value={range}
             onChange={onRangeChange}
+            className="max-w-full whitespace-nowrap"
           />
         ) : null}
       </Box>

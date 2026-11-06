@@ -21,11 +21,10 @@ import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_PEDIDO, METRICA_AOV, METRICA_ORDERS, METRICA_REVENUE, PAGINA_POR_DEFECTO,
-  esEstadoPedido, esIntervalo, csvDePedidos, filtrarPedidos, medioEnTexto, ordenar, paginar, totalesDePedidos,
-  type EstadoPedido, type Intervalo, type Pedido,
+  esEstadoPedido, csvDePedidos, fechaDeParams, filtrarPedidos, medioEnTexto, ordenar, paginar, paramsDeFecha, primerDia, totalesDePedidos,
+  type EstadoPedido, type FechaElegida, type Pedido,
 } from '@/app/admin/_polar/datos/ventas'
 import type { DatosCargarPago, EstadoLibro } from '@/app/admin/_polar/datos/ventas-server'
-import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { Avatar, DataTable, DataTableColumnDef, DataTableColumnHeader, InlineModal, Status, Text, Truncated } from '@/app/admin/_polar/orbit'
 import { ShoppingBagOutlined } from '@/app/admin/_polar/orbit/icons'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
@@ -51,13 +50,16 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
 
   const statusParam = params.get('status')
   const status: EstadoPedido | null = esEstadoPedido(statusParam) ? statusParam : null
-  const rangoParam = params.get('range')
-  const intervalo: Intervalo = esIntervalo(rangoParam) ? rangoParam : 'allTime'
+  const rangeParam = params.get('range')
+  const fromParam = params.get('from')
+  const toParam = params.get('to')
+  const fecha = useMemo(() => fechaDeParams(rangeParam, fromParam, toParam), [rangeParam, fromParam, toParam])
+  const desde = useMemo(() => primerDia(pedidos.map((p) => p.fecha), hoy), [pedidos, hoy])
 
   const onStatusSelect = (value: EstadoPedido | null) => setParams({ status: value, page: null })
-  const onDateChange = (value: Intervalo) => setParams({ range: value === 'allTime' ? null : value, page: null })
+  const onDateChange = (value: FechaElegida) => setParams({ ...paramsDeFecha(value), page: null })
 
-  const filtrados = useMemo(() => filtrarPedidos(pedidos, { estado: status, intervalo }, hoy), [pedidos, status, intervalo, hoy])
+  const filtrados = useMemo(() => filtrarPedidos(pedidos, { estado: status, ...fecha }, hoy), [pedidos, status, fecha, hoy])
   const ordenados = useMemo(
     () => ordenar(filtrados, sorting[0] ? { id: sorting[0].id, desc: sorting[0].desc } : null, COMPARADORES_PEDIDO),
     [filtrados, sorting],
@@ -65,24 +67,29 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
   const pagina = paginar(ordenados, pagination.pageIndex, pagination.pageSize)
   const totales = totalesDePedidos(filtrados)
 
+  // MaKo: la tabla es un `@container` y las columnas ceden por el ancho de SU caja (el `meta` de las columnas, DataTable de
+  // orbit): con la tabla de Polar (cinco columnas de ancho fijo), a 390 sólo se veían Fecha y Cliente y el monto y el estado
+  // quedaban detrás de un scroll lateral. Angosta, quedan el Cliente (con la fecha debajo) y el Monto (con el estado debajo);
+  // un poco más ancha vuelve el Estado; ancha, todas, como en Polar.
+  const fechaDelPedido = (order: Pedido) => <FormattedDateTime locale="es-AR" datetime={`${order.fecha}T12:00:00`} />
   const columns: DataTableColumnDef<Pedido>[] = [
     {
       accessorKey: 'created_at',
       enableSorting: true,
       size: 160,
+      meta: { width: '17%', className: 'hidden @2xl:table-cell' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Fecha" />
       ),
       cell: ({ row: { original: order } }) => (
-        <Text tabularNums>
-          <FormattedDateTime locale="es-AR" datetime={`${order.fecha}T12:00:00`} />
-        </Text>
+        <Text tabularNums>{fechaDelPedido(order)}</Text>
       ),
     },
     {
       accessorKey: 'customer',
       enableSorting: true,
       size: 200,
+      meta: { width: '27%' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Cliente" />
       ),
@@ -93,18 +100,23 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
             ? order.recibo.aNombre
             : null
         return (
-          <div className="flex flex-row items-center gap-2">
-            <Avatar className="h-8 w-8" avatar_url={null} name={nombre} />
-            <Truncated>
-              <Text as="span">
-                {nombre}
-                {aNombre && (
-                  <span className="dark:text-polar-500 ml-2 text-gray-500">
-                    {aNombre}
-                  </span>
-                )}
-              </Text>
-            </Truncated>
+          <div className="flex min-w-0 flex-row items-center gap-2">
+            <span className="hidden shrink-0 @md:inline-flex">
+              <Avatar className="h-8 w-8" avatar_url={null} name={nombre} />
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <Truncated>
+                <Text as="span">
+                  {nombre}
+                  {aNombre && (
+                    <span className="dark:text-polar-500 ml-2 text-gray-500">
+                      {aNombre}
+                    </span>
+                  )}
+                </Text>
+              </Truncated>
+              <span className="dark:text-polar-500 text-xs text-gray-500 tabular-nums @2xl:hidden">{fechaDelPedido(order)}</span>
+            </div>
           </div>
         )
       },
@@ -113,6 +125,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
       accessorKey: 'product',
       enableSorting: false,
       size: 200,
+      meta: { width: '22%', className: 'hidden @2xl:table-cell' },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -133,6 +146,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
       accessorKey: 'status',
       enableSorting: true,
       size: 140,
+      meta: { width: '14%', className: 'hidden @md:table-cell' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Estado" />
       ),
@@ -144,6 +158,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
       accessorKey: 'net_amount',
       enableSorting: true,
       size: 80,
+      meta: { width: '20%', className: 'whitespace-nowrap' },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -152,9 +167,12 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
         />
       ),
       cell: ({ row: { original: order } }) => (
-        <Box display="block" textAlign="right">
+        <div className="flex flex-col items-end gap-1">
           <Text tabularNums>{usdEnTexto(order.usd)}</Text>
-        </Box>
+          <span className="@md:hidden">
+            <OrderStatus status={order.estado} size="small" />
+          </span>
+        </div>
       ),
     },
   ]
@@ -177,7 +195,9 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
         <SalesFilters
           status={status}
           onStatusSelect={onStatusSelect}
-          intervalo={intervalo}
+          fecha={fecha}
+          hoy={hoy}
+          desde={desde}
           onDateChange={onDateChange}
           onExport={showExportModal}
           onCargarPago={cargarPago ? showCargar : undefined}
@@ -196,6 +216,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
           />
         ) : (
           <DataTable
+            className="@container"
             columns={columns}
             data={pagina.filas}
             rowCount={pagina.total}

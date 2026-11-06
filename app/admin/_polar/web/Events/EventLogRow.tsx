@@ -10,20 +10,9 @@ import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { twMerge } from 'tailwind-merge'
 import { EventTimestamp } from './EventTimestamp'
+import { horaDelEvento } from './hora'
 
-export const formatEventTimestamp = (timestamp: string, soloDia = false) =>
-  new Date(timestamp).toLocaleString('es-AR', {
-    month: 'short',
-    day: '2-digit',
-    ...(soloDia
-      ? { year: 'numeric' as const, timeZone: 'UTC' }
-      : {
-          hour: '2-digit' as const,
-          minute: '2-digit' as const,
-          second: '2-digit' as const,
-          hour12: false,
-        }),
-  })
+export const formatEventTimestamp = (timestamp: string, soloDia = false) => horaDelEvento(timestamp, soloDia)
 
 /** Los negocios del evento, como se leen en una celda: el primero y «+N» si hay más. */
 export const eventCustomerLabel = (event: EventoAdmin) =>

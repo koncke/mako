@@ -8,7 +8,10 @@
 
 import 'server-only'
 import { gastoPorDia, resumenDelPeriodo, type Corte } from '@/lib/costos-ia'
-import { armarCostos, mesAnterior, type VistaCostos } from './costos'
+import { CATALOGO_MODELOS } from '@/lib/model-registry'
+import { armarCostos, mesAnterior, nombresDeFeatures, type VistaCostos } from './costos'
+
+const NOMBRE_DE_FEATURE = nombresDeFeatures(CATALOGO_MODELOS)
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -26,6 +29,7 @@ export async function leerCostos(periodo: string, hoy = new Date()): Promise<Vis
     previo: previo.status === 'fulfilled' ? previo.value : null,
     hoy,
     avisos,
+    nombreDeFeature: NOMBRE_DE_FEATURE,
   })
 }
 

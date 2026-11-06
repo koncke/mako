@@ -18,7 +18,7 @@
    · los portales (menús, selects, diálogos, el ⌘K) se montan en un contenedor ADENTRO de `.pl` (app/admin/_polar/portal.ts).
    · LA LETRA: la de Polar es «PP Neue Montreal», una fuente comercial de Pangram Pangram que NO está bajo la licencia del
      repo: no se copia. Polar la declara con Inter de respaldo (`'PP Neue Montreal', 'Inter', sans-serif`) y ésa es la que se
-     ve acá (Inter, OFL, de Google Fonts). La mono es GeistMono, como en Polar.
+     ve acá (Inter, OFL, de Google Fonts). La mono es Geist Mono, como en Polar (la que carga app/layout.tsx).
 
    Este archivo lo importa app/globals.css: las directivas @theme sólo valen dentro de la entrada de Tailwind. */
 
@@ -138,7 +138,9 @@
   --pl-border-warning: oklch(0.879 0.169 91.605);
   --pl-font-sans: 'PlInter', 'Inter', sans-serif;
   --pl-font-display: 'PlInter', 'InterDisplay', 'Inter', sans-serif;
-  --pl-font-mono: 'GeistMono', ui-monospace, monospace;
+  /* La mono de Polar es «GeistMono» (su propio @font-face en globals.css); MaKo carga la misma familia de Google Fonts con
+     otro nombre, «Geist Mono» (app/layout.tsx). Con sólo 'GeistMono' no cargaba nunca y caía a la mono del sistema. */
+  --pl-font-mono: 'Geist Mono', 'GeistMono', ui-monospace, monospace;
 
   /* El body de Polar (globals.css @layer base). */
   color: var(--foreground);
@@ -194,6 +196,10 @@
   --pl-border-secondary: var(--color-polar-800);
   --pl-border-warning: oklch(0.555 0.163 48.998);
   color-scheme: dark;
+  /* El texto de Polar en oscuro es BLANCO: su layout principal lleva `dark:text-white` (clients/apps/web/src/app/(main)/
+     layout.tsx); `--foreground` (polar-500, un gris apagado) es sólo para lo que lo pide por nombre. Sin esto, todo lo que no
+     pone su propio color —la lista de negocios, las celdas de las tablas— heredaba ese gris (6/11/2026). */
+  color: #ffffff;
 }
 
 /* Las sombras de Polar (globals.css @theme: --shadow-md/lg/xl/3xl). */

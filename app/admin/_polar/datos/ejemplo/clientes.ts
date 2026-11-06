@@ -3,7 +3,8 @@
 // pruebas de las vistas de app/admin/_polar/web/Customer y app/admin/(polar)/customers.
 // =============================================================================
 // FICTICIOS: ningún negocio, nombre ni monto es de un cliente real. Se arman con las mismas funciones puras que usa el
-// server (app/admin/_polar/datos/clientes.ts), así lo que se ve es lo que la página dibujaría con esos datos.
+// server (app/admin/_polar/datos/clientes.ts), así lo que se ve es lo que la página dibujaría con esos datos. Los negocios,
+// sus números, sus planes y sus pagos son los de ./negocios.ts (los mismos que el Overview y la ficha).
 
 import type { ClienteResumen, Entrada } from '@/lib/admin-ingresos-reglas'
 import type { FilaCliente } from '@/lib/clientes-plataforma'
@@ -21,6 +22,7 @@ import {
   type PropsOverview,
   type PropsTop,
 } from '../clientes'
+import { LEAD_SIN_CUENTA, MRR_EJEMPLO, NEGOCIOS, PAGOS_EJEMPLO, WS_PLATAFORMA_EJEMPLO, pagadoPor, type NegocioEjemplo } from './negocios'
 
 /** «Ahora» de los ejemplos: el 6 de noviembre de 2026 a las 15:00 (hora de Buenos Aires). */
 export const AHORA_EJEMPLO = Date.parse('2026-11-06T18:00:00Z')
@@ -28,42 +30,51 @@ export const MES_EJEMPLO = '2026-11'
 
 type FilaEjemplo = Pick<FilaCliente, 'ws' | 'nombre' | 'capa' | 'estado' | 'creado' | 'motivoRiesgo' | 'sinEntrar' | 'mrrUsd' | 'planAManoTxt' | 'segmentos'>
 
-const fila = (ws: number, nombre: string, creado: string, extra: Partial<FilaEjemplo> = {}): FilaEjemplo => ({
-  ws, nombre, capa: 'completo', estado: 'activo', creado, motivoRiesgo: null, sinEntrar: 2, mrrUsd: 0, planAManoTxt: null, segmentos: ['cliente'], ...extra,
+/** Un negocio de ./negocios.ts como lo lee `vistaDeClientes`: la capa de su plan y lo que paga hoy por mes. */
+const fila = (n: NegocioEjemplo, extra: Partial<FilaEjemplo> = {}): FilaEjemplo => ({
+  ws: n.ws, nombre: n.nombre, capa: n.plan?.capa ?? 'agencia', estado: 'activo', creado: n.alta, motivoRiesgo: null, sinEntrar: 2,
+  mrrUsd: MRR_EJEMPLO[n.ws] ?? 0, planAManoTxt: null, segmentos: ['cliente'], ...extra,
 })
 
 const filas: FilaEjemplo[] = [
-  fila(21, 'Estudio Norte', '2026-04-12T15:00:00Z', { mrrUsd: 470 }),
-  fila(22, 'Panadería La Espiga', '2026-06-03T13:00:00Z', { mrrUsd: 470 }),
-  fila(23, 'Clínica Dental Sonríe', '2026-07-20T16:30:00Z', { capa: 'agencia', mrrUsd: 970 }),
-  fila(24, 'Óptica Visión Clara', '2026-09-01T12:00:00Z', { motivoRiesgo: 'sin-uso', sinEntrar: 19 }),
-  fila(25, 'Gimnasio Fuerza Sur', '2026-09-28T18:00:00Z', { estado: 'pausado', motivoRiesgo: 'pausado' }),
-  fila(26, 'Taller Mecánico Ruta 9', '2026-10-15T14:00:00Z', { motivoRiesgo: 'cobro', mrrUsd: 470 }),
-  fila(27, 'Floristería Pétalo', '2026-11-02T11:00:00Z', { sinEntrar: 0 }),
+  fila(NEGOCIOS.estudioNorte, { sinEntrar: 0 }),
+  fila(NEGOCIOS.panaderia, { sinEntrar: 1 }),
+  fila(NEGOCIOS.clinica),
+  fila(NEGOCIOS.optica, { motivoRiesgo: 'sin-uso', sinEntrar: 19 }),
+  fila(NEGOCIOS.gimnasio, { estado: 'pausado', motivoRiesgo: 'pausado', sinEntrar: 12 }),
+  fila(NEGOCIOS.taller, { motivoRiesgo: 'cobro', sinEntrar: 3 }),
+  fila(NEGOCIOS.floristeria, { sinEntrar: 0 }),
+  fila(NEGOCIOS.viajes, { motivoRiesgo: 'cobro', sinEntrar: 1 }),
+  fila(NEGOCIOS.agencia, { segmentos: ['agency'], sinEntrar: 0 }),
 ]
 
-const resumen = (clave: string, ws: number | null, nombre: string, extra: Partial<ClienteResumen>): ClienteResumen => ({
-  clave, ws, nombre, leadId: null, total: 0, sinDolares: 0, pagos: 0, primerPago: null, ultimoPago: null, mrr: 0,
-  estado: 'pago-unico', proximo: null, diasAtraso: null, ...extra,
-})
+const resumen = (clave: string, ws: number | null, nombre: string, extra: Partial<ClienteResumen>): ClienteResumen => {
+  const pagado = pagadoPor(clave)
+  return {
+    clave, ws, nombre, leadId: null, total: pagado.total, sinDolares: pagado.sinDolares, pagos: pagado.pagos,
+    primerPago: pagado.primero, ultimoPago: pagado.ultimo, mrr: ws != null ? (MRR_EJEMPLO[ws] ?? 0) : 0, estado: 'al-dia',
+    proximo: null, diasAtraso: null, ...extra,
+  }
+}
 
+const de = (n: NegocioEjemplo, extra: Partial<ClienteResumen> = {}) => resumen(`ws:${n.ws}`, n.ws, n.nombre, extra)
+
+/** Lo que dice `vistaDeIngresos().clientes` de cada uno: lo que pagó sale de los pagos de ./negocios.ts. */
 const clientesIngreso: ClienteResumen[] = [
-  resumen('ws:21', 21, 'Estudio Norte', { total: 3290, pagos: 7, mrr: 470, estado: 'al-dia' }),
-  resumen('ws:22', 22, 'Panadería La Espiga', { total: 2350, pagos: 5, mrr: 470, estado: 'atrasado', diasAtraso: 4 }),
-  resumen('ws:23', 23, 'Clínica Dental Sonríe', { total: 3880, pagos: 4, mrr: 970, estado: 'al-dia' }),
-  resumen('lead:501', null, 'Ana Gómez', { total: 300, pagos: 1, estado: 'pago-unico' }),
+  de(NEGOCIOS.estudioNorte, { proximo: '2026-12-01' }),
+  de(NEGOCIOS.panaderia, { estado: 'atrasado', proximo: '2026-11-02', diasAtraso: 4 }),
+  de(NEGOCIOS.clinica, { proximo: '2026-12-01' }),
+  de(NEGOCIOS.optica, { proximo: '2026-12-05' }),
+  de(NEGOCIOS.gimnasio, { estado: 'cortado' }),
+  de(NEGOCIOS.taller, { estado: 'atrasado', proximo: '2026-10-15', diasAtraso: 22 }),
+  de(NEGOCIOS.floristeria, { proximo: '2026-12-02' }),
+  de(NEGOCIOS.viajes, { estado: 'atrasado', proximo: '2026-11-02', diasAtraso: 4 }),
+  resumen(LEAD_SIN_CUENTA.clave, null, LEAD_SIN_CUENTA.nombre, { leadId: LEAD_SIN_CUENTA.leadId, estado: 'pago-unico' }),
 ]
 
-const entrada = (cliente: string, nombre: string, fecha: string, usd: number): Entrada => ({
-  fecha, usd, medio: 'transferencia', recurrente: true, nombre, cliente,
-})
-
-const entradas: Entrada[] = [
-  ...['2026-05-05', '2026-06-05', '2026-07-05', '2026-08-05', '2026-09-05', '2026-10-05', '2026-11-05'].map((f) => entrada('ws:21', 'Estudio Norte', f, 470)),
-  ...['2026-06-10', '2026-07-10', '2026-08-10', '2026-09-10', '2026-10-10'].map((f) => entrada('ws:22', 'Panadería La Espiga', f, 470)),
-  ...['2026-08-01', '2026-09-01', '2026-10-01', '2026-11-01'].map((f) => entrada('ws:23', 'Clínica Dental Sonríe', f, 970)),
-  entrada('lead:501', 'Ana Gómez', '2026-10-22', 300),
-]
+const entradas: Entrada[] = PAGOS_EJEMPLO.map((p) => ({
+  fecha: p.fecha, usd: p.usd, medio: p.medio, recurrente: p.recurrente, nombre: p.nombre, cliente: p.cliente, id: p.id, concepto: p.concepto,
+}))
 
 const lecturaClientes: Lectura<{ filas: FilaEjemplo[] }> = { ok: true, datos: { filas }, avisos: [] }
 const lecturaIngresos: Lectura<{ entradas: Entrada[]; clientes: ClienteResumen[] }> = {
@@ -76,7 +87,13 @@ const lecturaCostos: Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWo
   datos: {
     periodo: MES_EJEMPLO,
     costUsd: 4.2,
-    porWorkspace: [corte('23', 412, 2.1), corte('21', 268, 1.26), corte('24', 90, 0.42), corte('9', 120, 0.42)],
+    // El de la plataforma (MaKo) no es de ningún cliente: no entra en la lista.
+    porWorkspace: [
+      corte(String(NEGOCIOS.clinica.ws), 412, 2.1),
+      corte(String(NEGOCIOS.estudioNorte.ws), 268, 1.26),
+      corte(String(NEGOCIOS.optica.ws), 90, 0.42),
+      corte(String(WS_PLATAFORMA_EJEMPLO), 120, 0.42),
+    ],
   },
   avisos: [],
 }

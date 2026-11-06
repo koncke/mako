@@ -184,7 +184,7 @@ export const CheckoutLinkForm = ({ productos, pasarelas, monedaMp, checkoutLink,
                 </Select>
               )}
               <FormMessage />
-              <FormDescription>Al pagar, MaKo crea su cuenta con este plan y le manda el acceso.</FormDescription>
+              <FormDescription className="text-xs">Al pagar, MaKo crea su cuenta con este plan y le manda el acceso.</FormDescription>
             </FormItem>
           )}
         />

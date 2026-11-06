@@ -10,6 +10,11 @@
 // vende lugares por persona) y External ID (no tiene). El menú de cada fila: «Editar persona» (nombre y rol), «Reenviar el
 // acceso» (en el lugar de «Copy login link»: le manda el mail de entrada) y «Suspender» / «Reactivar», todo por
 // /api/admin/usuarios, que no deja al negocio sin un admin. ⚠️ Lo que pasó se dice arriba de la tabla (Admin no tiene el toast).
+// ⚠️ Siete columnas no entran con los 150 px fijos de Polar en el panel de ~745 px (6/11/2026: «Último ingreso» salía cortada
+//    a la derecha y «Sin acceso enviado» se partía en tres renglones). Van en porcentajes (`DataTableColumnMeta`), lo que
+//    acompaña al estado va DEBAJO de la insignia en una línea, y en una caja angosta se esconden de a poco las secundarias
+//    (Alta, después el 2FA y el último ingreso, después el rol). La persona, su estado y su menú no se esconden nunca: el menú
+//    es la única forma de editarla.
 
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import {
@@ -97,8 +102,9 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
             header: 'Persona',
             accessorKey: 'email',
             size: 260,
+            meta: { width: '25%' },
             cell: ({ row: { original } }) => (
-              <Box alignItems="center" gap="m">
+              <Box alignItems="center" gap="m" minWidth={0}>
                 <Avatar
                   className="h-8 w-8"
                   name={original.nombre || original.email}
@@ -118,6 +124,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             header: 'Rol',
             accessorKey: 'rol',
+            meta: { width: '12%', className: 'hidden @md:table-cell' },
             cell: ({ row: { original } }) => {
               if (!original.rol) return <Text>—</Text>
               const [label, color] = ROTULO_ROL[original.rol]
@@ -127,13 +134,14 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             header: 'Estado',
             id: 'estado',
+            meta: { width: '17%' },
             cell: ({ row: { original } }) => {
               const [label, color] = ROTULO_ESTADO_MIEMBRO[original.estado]
               return (
-                <Box alignItems="center" gap="s">
+                <Box flexDirection="column" alignItems="start" rowGap="xs" minWidth={0}>
                   <Status color={color} status={label} size="small" />
                   {original.estado === 'invitado' && (
-                    <Text variant="caption" color="muted">
+                    <Text variant="caption" color="muted" truncate style={{ maxWidth: '100%' }}>
                       {original.accesoEnviado ? 'Acceso enviado' : 'Sin acceso enviado'}
                     </Text>
                   )}
@@ -145,6 +153,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
             header: '2FA',
             id: 'mfa',
             size: 80,
+            meta: { width: '10%', className: 'hidden @lg:table-cell' },
             cell: ({ row: { original } }) =>
               original.mfa == null ? (
                 <Text>—</Text>
@@ -159,6 +168,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             header: 'Último ingreso',
             accessorKey: 'ultimoIngreso',
+            meta: { width: '17%', className: 'hidden @lg:table-cell whitespace-nowrap' },
             cell: ({ row: { original } }) =>
               original.ultimoIngreso ? (
                 <FormattedDateTime datetime={original.ultimoIngreso} />
@@ -169,6 +179,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             header: 'Alta',
             accessorKey: 'creado',
+            meta: { width: '11%', className: 'hidden @4xl:table-cell whitespace-nowrap' },
             cell: ({ row: { original } }) => (
               <FormattedDateTime datetime={original.creado} />
             ),
@@ -177,6 +188,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
             id: 'actions',
             header: () => null,
             size: 60,
+            meta: { width: '8%', className: 'px-1 @md:px-4' },
             cell: ({ row: { original } }) => (
               <Box justifyContent="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
@@ -207,7 +219,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           },
         ]}
         isLoading={false}
-        className="text-sm"
+        className="@container text-sm"
       />
       <InlineModal
         isShown={isEditMemberModalShown}

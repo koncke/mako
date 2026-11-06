@@ -17,7 +17,7 @@
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { MetricGroup } from '@/app/admin/_polar/web/Metrics/dashboards/MetricGroup'
-import { COST_METRICS, type FilaCosto, type VistaCostos } from '@/app/admin/_polar/datos/costos'
+import { COST_METRICS, plataDeCosto, type FilaCosto, type VistaCostos } from '@/app/admin/_polar/datos/costos'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -47,15 +47,19 @@ import { fmtPct } from './utils'
 
 export default function ClientPage({ vista }: { vista: VistaCostos }) {
   const router = useRouter()
+  // MaKo: los límites del mes vienen en UTC («2026-11-01T00:00:00.000Z»); leídos con `new Date()` en México eran el 31 de
+  // octubre a las 18 h, y el rango decía «31 oct – 30 nov». Se toma el DÍA y se arma a medianoche del navegador.
   const dateRange = useMemo(
-    () => ({ from: new Date(vista.desde), to: new Date(vista.hasta) }),
+    () => ({ from: diaLocal(vista.desde), to: diaLocal(vista.hasta) }),
     [vista.desde, vista.hasta],
   )
-  const prevStart = vista.previo ? new Date(vista.previo.desde) : null
-  const prevEnd = vista.previo ? new Date(vista.previo.hasta) : null
+  const prevStart = vista.previo ? diaLocal(vista.previo.desde) : null
+  const prevEnd = vista.previo ? diaLocal(vista.previo.hasta) : null
 
   const fmt = formatCurrency('accounting')
-  const fmtSub = formatCurrency('subcent')
+  // MaKo: Polar muestra los costos chicos con seis decimales («US$ 0,029286»); acá en centavos, y lo que no llega a uno
+  // dice «< US$ 0,01» (`plataDeCosto`, datos/costos.ts).
+  const fmtSub = (centavos: number) => plataDeCosto(centavos, fmt)
 
   const tendencia = (r: FilaCosto) =>
     r.pct !== null && prevStart && prevEnd ? (
@@ -91,7 +95,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                 {r.llamadas.toLocaleString('es-AR')} llamadas
               </Text>
               <Text as="span" variant="caption" color="muted" tabularNums>
-                Promedio {fmtSub(r.promedio, 'usd')}
+                Promedio {fmtSub(r.promedio)}
               </Text>
             </>
           }
@@ -130,6 +134,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
             metricKeys={[...COST_METRICS]}
             data={vista.metricas}
             interval="day"
+            completarFila
           />
 
           {/* Where money is going */}
@@ -166,7 +171,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                           {s.llamadas.toLocaleString('es-AR')} llamadas
                         </Text>
                         <Text as="span" variant="caption" color="muted" tabularNums>
-                          Promedio {fmtSub(s.promedio, 'usd')}
+                          Promedio {fmtSub(s.promedio)}
                         </Text>
                       </>
                     }
@@ -265,7 +270,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                 description="Este mes ningún modelo gastó con las claves de MaKo."
               />
             ) : (
-              ranked(vista.porModelo, (r) => fmtSub(r.costo, 'usd'))
+              ranked(vista.porModelo, (r) => fmtSub(r.costo))
             )}
           </section>
 
@@ -281,7 +286,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                 description="Este mes ningún proveedor cobró con las claves de MaKo."
               />
             ) : (
-              ranked(vista.porProveedor, (r) => fmtSub(r.costo, 'usd'))
+              ranked(vista.porProveedor, (r) => fmtSub(r.costo))
             )}
           </section>
         </div>
@@ -313,6 +318,12 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
       {content}
     </DashboardBody>
   )
+}
+
+/** «2026-11-01T00:00:00.000Z» o «2026-11-01» → la medianoche de ese día en el navegador. */
+function diaLocal(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 
 function SectionHeader({

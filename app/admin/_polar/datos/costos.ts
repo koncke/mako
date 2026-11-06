@@ -155,6 +155,27 @@ const limites = (mes: string) => {
   return { desde: new Date(Date.UTC(y, m - 1, 1)).toISOString(), hasta: new Date(Date.UTC(y, m, 1) - 1).toISOString() }
 }
 
+/**
+ * El nombre para personas de cada función de MaKo (la `feature` con la que se registra el gasto): el `label` del catálogo de
+ * modelos (lib/model-catalogo.ts, el mismo que muestra /modelos-ia). Lo que no está en el catálogo sale con su nombre tal
+ * cual: un nombre interno se lee mal, pero inventarle otro sería peor. El catálogo lo pasa quien lee (costos-server.ts): esta
+ * vista viaja al navegador y el catálogo entero no tiene por qué.
+ */
+export function nombresDeFeatures(catalogo: ReadonlyArray<{ feature: string; label: string }>): (clave: string) => string {
+  const nombres = new Map(catalogo.map((f) => [f.feature, f.label]))
+  return (clave) => nombres.get(clave) ?? clave
+}
+
+/**
+ * La plata de esta pantalla, como el resto de Admin: en centavos de dólar (dos decimales). Un costo de IA es muchas veces de
+ * fracciones de centavo: Polar lo muestra con seis decimales («US$ 0,029286»); acá, lo que no llega a un centavo dice
+ * «< US$ 0,01», y el cero, cero. `fmt` es `formatCurrency('accounting')` (recibe centavos).
+ */
+export function plataDeCosto(centavos: number, fmt: (centavos: number, moneda: string) => string): string {
+  if (centavos > 0 && centavos < 1) return `< ${fmt(1, 'usd')}`
+  return fmt(centavos, 'usd')
+}
+
 export function armarCostos(e: {
   periodo: string
   actual: ResumenPeriodo
@@ -162,6 +183,8 @@ export function armarCostos(e: {
   previo: ResumenPeriodo | null
   hoy: Date
   avisos: string[]
+  /** El nombre para personas de cada feature (`nombresDeFeatures`). Sin esto, la clave tal cual. */
+  nombreDeFeature?: (clave: string) => string
 }): VistaCostos {
   const prev = e.previo
   const meses = [...new Set([e.periodo, ...e.actual.mesesDisponibles])].sort().reverse()
@@ -171,8 +194,8 @@ export function armarCostos(e: {
     ...limites(e.periodo),
     previo: prev ? { periodo: mesAnterior(e.periodo), ...limites(mesAnterior(e.periodo)) } : null,
     metricas: metricasDeCostos(e.actual.porDia, e.periodo, e.hoy),
-    porFeature: filasDe(e.actual.porFeature, prev?.porFeature ?? null),
-    cambios: cambiosDe(e.actual.porFeature, prev?.porFeature ?? null),
+    porFeature: filasDe(e.actual.porFeature, prev?.porFeature ?? null, e.nombreDeFeature),
+    cambios: cambiosDe(e.actual.porFeature, prev?.porFeature ?? null, e.nombreDeFeature),
     porModelo: filasDe(e.actual.porModelo, prev?.porModelo ?? null),
     porProveedor: filasDe(e.actual.porProveedor, prev?.porProveedor ?? null),
     avisos: e.avisos,

@@ -40,7 +40,9 @@ const CommandInput = ({
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        'placeholder:text-muted-foreground flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
+        // MaKo: `px-3` es el `padding: 0.5rem 0.75rem` que @tailwindcss/forms le da a todo `input[type=text]` en Polar
+        // (globals.css `@plugin '@tailwindcss/forms'`). MaKo no carga ese plugin: sin esto, la lupa tocaba el texto escrito.
+        'placeholder:text-muted-foreground flex h-11 w-full rounded-md bg-transparent px-3 py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       {...props}

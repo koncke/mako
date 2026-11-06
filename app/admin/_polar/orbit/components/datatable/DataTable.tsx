@@ -33,6 +33,7 @@ import {
   DataTableCell,
   DataTableColumnDef,
   DataTableRow,
+  metaDeColumna,
 } from './features'
 
 export interface ReactQueryLoading {
@@ -149,15 +150,20 @@ export function DataTable<TData extends RowData>({
                 {headerGroup.headers.map((header) => {
                   const isSelectColumn =
                     header.column.id === SELECTION_COLUMN_ID
+                  // MaKo: el `meta` de la columna (features.ts, `DataTableColumnMeta`): sus clases y su ancho en CSS.
+                  const meta = metaDeColumna(header.column.columnDef)
 
                   return (
                     <TableHead
                       key={header.id}
-                      className={isSelectColumn ? 'w-12' : undefined}
+                      className={
+                        twMerge(isSelectColumn ? 'w-12' : undefined, meta.className) ||
+                        undefined
+                      }
                       style={
                         isSelectColumn
                           ? { width: SELECTION_COLUMN_WIDTH }
-                          : { width: header.column.getSize() }
+                          : { width: meta.width ?? header.column.getSize() }
                       }
                     >
                       {header.isPlaceholder
@@ -206,17 +212,21 @@ export function DataTable<TData extends RowData>({
                           : 1
                         const isSelectColumn =
                           cell.column.id === SELECTION_COLUMN_ID
+                        const meta = metaDeColumna(cell.column.columnDef)
 
                         return (
                           <React.Fragment key={cell.id}>
                             {colSpan ? (
                               <TableCell
                                 colSpan={colSpan}
-                                className={isSelectColumn ? 'w-12' : undefined}
+                                className={
+                                  twMerge(isSelectColumn ? 'w-12' : undefined, meta.className) ||
+                                  undefined
+                                }
                                 style={
                                   isSelectColumn
                                     ? { width: SELECTION_COLUMN_WIDTH }
-                                    : { width: cell.column.getSize() }
+                                    : { width: meta.width ?? cell.column.getSize() }
                                 }
                               >
                                 {flexRender(

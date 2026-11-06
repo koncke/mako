@@ -6,6 +6,7 @@ import MetricChartBox from '@/app/admin/_polar/web/Metrics/MetricChartBox'
 import type { ParsedMetricsResponse, schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import { useRef, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { claseDeAncho } from './reparto'
 
 interface MetricGroupProps {
   data?: ParsedMetricsResponse
@@ -13,6 +14,8 @@ interface MetricGroupProps {
   interval: schemas['TimeInterval']
   loading?: boolean
   context?: string
+  /** MaKo: el último gráfico estira lo que falta de su fila (./reparto.ts). Sin esto, la grilla de Polar tal cual. */
+  completarFila?: boolean
 }
 
 export function MetricGroup({
@@ -21,6 +24,7 @@ export function MetricGroup({
   interval,
   loading,
   context,
+  completarFila = false,
 }: MetricGroupProps) {
   const [hoveredPeriodIndex, setHoveredPeriodIndex] = useState<number | null>(
     null,
@@ -54,7 +58,7 @@ export function MetricGroup({
               }}
               className={twMerge(
                 'rounded-none! bg-transparent dark:bg-transparent',
-                index === 0 && 'lg:col-span-2',
+                claseDeAncho(index, metricKeys.length, completarFila),
                 'dark:border-polar-700 border-t-0 border-r border-b border-l-0 border-gray-200 shadow-none',
               )}
             />

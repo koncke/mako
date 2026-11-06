@@ -5,6 +5,11 @@
 // MaKo: los pedidos del negocio son los de Admin › Sales (app/admin/_polar/datos/ventas.ts, `Pedido`): cada pago que entró, a
 // mano o por la pasarela, con su recibo y su estado (pagado, devuelto, anulado). Polar muestra el producto y su versión: MaKo no
 // ata un pago a un producto, así que va el concepto y el medio. «Ver» lleva a su detalle en Sales.
+// ⚠️ La descripción va en UNA línea con «…» (el concepto cede último y el medio primero, ./Widgets/fila.ts): con el
+//    `inline-flex` de Polar y un concepto en español («Mensualidad de septiembre»), la columna se partía en tres renglones y el
+//    medio de pago se dibujaba ENCIMA de la insignia «Pagado» de la columna de al lado (6/11/2026). Los anchos van en
+//    porcentajes (`DataTableColumnMeta`), y en una caja angosta se esconden el estado, la fecha y «Ver» (la descripción ya
+//    lleva al pedido, como en Polar): quedan qué y cuánto.
 
 import { rutaDePedido } from '@/app/admin/_polar/datos/cliente'
 import { medioEnTexto, ROTULO_ESTADO_PEDIDO, type Pedido } from '@/app/admin/_polar/datos/ventas'
@@ -13,6 +18,7 @@ import { Button, DataTable, Status, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
 import Link from '@/app/_ui/Link'
+import { PRINCIPAL, SECUNDARIO } from '@/app/admin/_polar/web/Widgets/fila'
 
 interface CustomerOrdersTableProps {
   pedidos: Pedido[]
@@ -34,25 +40,26 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
           {
             header: 'Descripción',
             accessorKey: 'concepto',
+            meta: { width: '34%' },
             cell: ({ row: { original } }) => (
-              <Link href={rutaDePedido(original)} key={original.id}>
-                <Box
-                  as="span"
-                  display="inline-flex"
-                  alignItems="center"
-                  columnGap="s"
-                >
+              <Link
+                href={rutaDePedido(original)}
+                key={original.id}
+                className="flex min-w-0 items-baseline gap-x-2"
+              >
+                <Text as="span" truncate style={PRINCIPAL}>
                   {original.concepto || (original.recurrente ? 'Mensualidad' : 'Pago')}
-                  <Text as="span" variant="caption" color="muted">
-                    {medioEnTexto(original.medio)}
-                  </Text>
-                </Box>
+                </Text>
+                <Text as="span" variant="caption" color="muted" truncate style={SECUNDARIO}>
+                  {medioEnTexto(original.medio)}
+                </Text>
               </Link>
             ),
           },
           {
             header: 'Estado',
             accessorKey: 'estado',
+            meta: { width: '16%', className: 'hidden @md:table-cell' },
             cell: ({ row: { original } }) => (
               <Status
                 size="small"
@@ -64,14 +71,22 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
           {
             header: 'Monto',
             accessorKey: 'usd',
+            meta: { width: '22%' },
             cell: ({ row: { original } }) =>
-              original.usd == null
-                ? 'Sin su valor en dólares'
-                : formatCurrency('compact')(Math.round(original.usd * 100), 'usd'),
+              original.usd == null ? (
+                <Text as="span" color="muted" truncate title="Sin su valor en dólares">
+                  Sin su valor en dólares
+                </Text>
+              ) : (
+                <Text as="span" wrap="nowrap">
+                  {formatCurrency('compact')(Math.round(original.usd * 100), 'usd')}
+                </Text>
+              ),
           },
           {
             header: 'Fecha',
             accessorKey: 'fecha',
+            meta: { width: '18%', className: 'hidden @lg:table-cell whitespace-nowrap' },
             cell: ({ row: { original } }) => (
               <FormattedDateTime datetime={`${original.fecha}T12:00:00`} />
             ),
@@ -79,6 +94,7 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
           {
             header: '',
             accessorKey: 'action',
+            meta: { width: '10%', className: 'hidden @lg:table-cell' },
             cell: ({ row: { original } }) => (
               <Box justifyContent="end">
                 <Link href={rutaDePedido(original)}>
@@ -91,7 +107,7 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
           },
         ]}
         isLoading={false}
-        className="text-sm"
+        className="@container text-sm"
       />
     </Box>
   )

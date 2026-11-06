@@ -9,6 +9,7 @@ import { differenceInDays } from 'date-fns'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { X, ZoomIn, ZoomOut } from '@/app/admin/_polar/orbit/icons'
 import { ReactNode } from 'react'
+import { formatearIntervalo } from '@/app/admin/_polar/atoms/intervalo'
 
 export const formatEventCount = (count: number) =>
   new Intl.NumberFormat('es-AR', {
@@ -47,20 +48,18 @@ const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
 
 // Period ends are exclusive, so the last covered instant is a millisecond earlier.
 // Parts shared with the start (day, month) are left out of the end.
-export const formatTimeRange = ({ from, to }: TimeRange, hourly: boolean) => {
+// MaKo: con el AÑO (6/11/2026: el rango de «Últimos 3 meses» decía «6 ago – 6 nov» y no se sabía de qué año). Por días, el
+// rango de FormattedInterval en español («6 ago – 6 nov 2026», «5 dic 2025 – 6 nov 2026»); por horas (35 días o menos), el
+// año sólo si no es el de hoy, para que entre en la píldora.
+export const formatTimeRange = ({ from, to }: TimeRange, hourly: boolean, ahora: Date = new Date()) => {
   const last = new Date(to.getTime() - 1)
   if (hourly) {
+    const anio = (d: Date) => (d.getFullYear() !== ahora.getFullYear() || from.getFullYear() !== last.getFullYear() ? ` ${d.getFullYear()}` : '')
     return isSameDay(from, last)
-      ? `${formatDay(from)}, ${formatTime(from)}–${formatTime(to)}`
-      : `${formatDay(from)}, ${formatTime(from)} – ${formatDay(last)}, ${formatTime(to)}`
+      ? `${formatDay(from)}${anio(from)}, ${formatTime(from)}–${formatTime(to)}`
+      : `${formatDay(from)}${anio(from)}, ${formatTime(from)} – ${formatDay(last)}${anio(last)}, ${formatTime(to)}`
   }
-  if (isSameDay(from, last)) return formatDay(from)
-  if (
-    from.getMonth() === last.getMonth() &&
-    from.getFullYear() === last.getFullYear()
-  )
-    return `${formatDay(from)}–${last.getDate()}`
-  return `${formatDay(from)} – ${formatDay(last)}`
+  return formatearIntervalo(from, last, { locale: 'es-AR', hideCurrentYear: false, ahora })
 }
 
 const IconButton = ({

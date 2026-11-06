@@ -18,7 +18,8 @@ export const OrderSection = ({
   children: ReactNode
 }) => (
   <Box as="section" flexDirection="column" rowGap="xl">
-    <Box justifyContent="between" alignItems="start" columnGap="m">
+    {/* MaKo: el título y la acción bajan de renglón si no entran (a 390, «Devolver el pago» se salía del borde). */}
+    <Box justifyContent="between" alignItems="start" columnGap="m" rowGap="m" flexWrap="wrap">
       <Box flexDirection="column" rowGap="xs">
         <Text variant="heading-xs" as="h3">
           {title}

@@ -93,6 +93,46 @@ export function rangoDe(intervalo: Intervalo, hoy: string): { desde: string; has
 export const enRango = (fecha: string, rango: { desde: string; hasta: string } | null): boolean =>
   !rango || (fecha.slice(0, 10) >= rango.desde && fecha.slice(0, 10) <= rango.hasta)
 
+/**
+ * La fecha elegida en Sales: uno de los intervalos de Polar o un rango a mano (el calendario de su DateRangePicker). En la URL
+ * va como `range=<intervalo>` o `from`/`to` (YYYY-MM-DD, días del negocio); sin nada, «Desde siempre».
+ */
+export type FechaElegida = { intervalo: Intervalo } | { desde: string; hasta: string }
+export type RangoDias = { desde: string; hasta: string }
+
+const ISO_DIA = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+
+/** Lo que dice la URL. Un rango a mano válido gana sobre el intervalo; dado vuelta, se ordena. */
+export function fechaDeParams(range: string | null, from: string | null, to: string | null): FechaElegida {
+  if (from && to && ISO_DIA.test(from) && ISO_DIA.test(to)) return from <= to ? { desde: from, hasta: to } : { desde: to, hasta: from }
+  return { intervalo: esIntervalo(range) ? range : 'allTime' }
+}
+
+/** Lo que se escribe en la URL (null saca el parámetro): un intervalo borra el rango a mano y al revés. */
+export function paramsDeFecha(f: FechaElegida): Record<'range' | 'from' | 'to', string | null> {
+  return 'desde' in f
+    ? { range: null, from: f.desde, to: f.hasta }
+    : { range: f.intervalo === 'allTime' ? null : f.intervalo, from: null, to: null }
+}
+
+/** El rango de días de lo elegido. `null` = desde siempre. */
+export const rangoDeFecha = (f: FechaElegida, hoy: string): RangoDias | null => ('desde' in f ? { desde: f.desde, hasta: f.hasta } : rangoDe(f.intervalo, hoy))
+
+/** El primer día con datos (para «Desde siempre» y el piso del calendario): la fecha más vieja, o hoy si no hay ninguna. */
+export function primerDia(fechas: ReadonlyArray<string | null | undefined>, hoy: string): string {
+  let min = hoy
+  for (const f of fechas) {
+    const d = f ? f.slice(0, 10) : ''
+    if (ISO_DIA.test(d) && d < min) min = d
+  }
+  return min
+}
+
+/** Los intervalos de Polar con su rango en días del negocio (lo que dibuja el selector); «Desde siempre» arranca en `desde`. */
+export function intervalosConRango(hoy: string, desde: string): Array<{ slug: Intervalo; label: string } & RangoDias> {
+  return INTERVALOS.map((i) => ({ slug: i, label: ROTULO_INTERVALO[i], ...(rangoDe(i, hoy) ?? { desde, hasta: hoy }) }))
+}
+
 // ── El orden y la página (DataTable de Polar pagina y ordena en su server: acá en memoria) ───────────────────────────
 
 export type Orden = { id: string; desc: boolean }
@@ -277,10 +317,10 @@ export function pedidosDe(e: {
   return out.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.id.localeCompare(a.id)))
 }
 
-export type FiltroPedidos = { estado: EstadoPedido | null; intervalo: Intervalo }
+export type FiltroPedidos = { estado: EstadoPedido | null } & FechaElegida
 
 export function filtrarPedidos(pedidos: readonly Pedido[], f: FiltroPedidos, hoy: string): Pedido[] {
-  const rango = rangoDe(f.intervalo, hoy)
+  const rango = rangoDeFecha(f, hoy)
   return pedidos.filter((p) => (!f.estado || p.estado === f.estado) && enRango(p.fecha, rango))
 }
 
@@ -634,11 +674,11 @@ export function suscripcionesDe(e: {
   return out
 }
 
-export type FiltroSuscripciones = { estado: FiltroEstadoSuscripcion; intervalo: Intervalo }
+export type FiltroSuscripciones = { estado: FiltroEstadoSuscripcion } & FechaElegida
 
 /** Polar filtra por estado y por la fecha en que EMPEZÓ (`started_after`/`started_before`). */
 export function filtrarSuscripciones(subs: readonly SuscripcionVenta[], f: FiltroSuscripciones, hoy: string): SuscripcionVenta[] {
-  const rango = rangoDe(f.intervalo, hoy)
+  const rango = rangoDeFecha(f, hoy)
   return subs.filter((s) => (f.estado === 'any' || s.estado === f.estado) && (rango == null || (s.empezo != null && enRango(s.empezo, rango))))
 }
 

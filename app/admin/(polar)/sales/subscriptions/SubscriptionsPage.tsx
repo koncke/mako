@@ -18,8 +18,8 @@ import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_SUSCRIPCION, ESTADOS_SUSCRIPCION, ESTADO_SUSCRIPCION_POR_DEFECTO, PAGINA_POR_DEFECTO,
-  esIntervalo, csvDeSuscripciones, filtrarSuscripciones, ordenar, paginar,
-  type FiltroEstadoSuscripcion, type Intervalo, type SuscripcionVenta,
+  csvDeSuscripciones, fechaDeParams, filtrarSuscripciones, ordenar, paginar, paramsDeFecha, primerDia,
+  type FechaElegida, type FiltroEstadoSuscripcion, type SuscripcionVenta,
 } from '@/app/admin/_polar/datos/ventas'
 import { Avatar, DataTable, DataTableColumnDef, DataTableColumnHeader, InlineModal, Status, Text } from '@/app/admin/_polar/orbit'
 import { AllInclusiveOutlined } from '@/app/admin/_polar/orbit/icons'
@@ -44,13 +44,16 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
 
   const statusParam = params.get('status')
   const status: FiltroEstadoSuscripcion = esFiltro(statusParam) ? statusParam : ESTADO_SUSCRIPCION_POR_DEFECTO
-  const rangoParam = params.get('range')
-  const intervalo: Intervalo = esIntervalo(rangoParam) ? rangoParam : 'allTime'
+  const rangeParam = params.get('range')
+  const fromParam = params.get('from')
+  const toParam = params.get('to')
+  const fecha = useMemo(() => fechaDeParams(rangeParam, fromParam, toParam), [rangeParam, fromParam, toParam])
+  const desde = useMemo(() => primerDia(suscripciones.map((s) => s.empezo), hoy), [suscripciones, hoy])
 
   const onStatusSelect = (value: FiltroEstadoSuscripcion) => setParams({ status: value === ESTADO_SUSCRIPCION_POR_DEFECTO ? null : value, page: null })
-  const onDateChange = (value: Intervalo) => setParams({ range: value === 'allTime' ? null : value, page: null })
+  const onDateChange = (value: FechaElegida) => setParams({ ...paramsDeFecha(value), page: null })
 
-  const filtradas = useMemo(() => filtrarSuscripciones(suscripciones, { estado: status, intervalo }, hoy), [suscripciones, status, intervalo, hoy])
+  const filtradas = useMemo(() => filtrarSuscripciones(suscripciones, { estado: status, ...fecha }, hoy), [suscripciones, status, fecha, hoy])
   const ordenadas = useMemo(
     () => ordenar(filtradas, sorting[0] ? { id: sorting[0].id, desc: sorting[0].desc } : null, COMPARADORES_SUSCRIPCION),
     [filtradas, sorting],
@@ -63,34 +66,50 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
     hide: hideExportModal,
   } = useModal()
 
+  // MaKo: la tabla es un `@container` y las columnas ceden por el ancho de SU caja (el `meta`, DataTable de orbit): a 390, con
+  // las cinco de Polar sólo se veían Cliente y el Estado cortado. Angosta, el Cliente (con el producto debajo) y el Estado;
+  // un poco más ancha vuelven Desde y Próxima; ancha, el Producto, como en Polar.
   const columns: DataTableColumnDef<SuscripcionVenta>[] = [
     {
       id: 'customer',
       accessorKey: 'customer',
       enableSorting: true,
+      meta: { width: '28%' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
       cell: ({ row: { original: subscription } }) => (
-        <div className="flex flex-row items-center gap-2 overflow-hidden">
-          <Avatar avatar_url={null} name={subscription.cliente.nombre || '—'} />
-          <div className="overflow-hidden text-ellipsis">{subscription.cliente.nombre || '—'}</div>
+        <div className="flex min-w-0 flex-row items-center gap-2 overflow-hidden">
+          <span className="hidden shrink-0 @md:inline-flex">
+            <Avatar avatar_url={null} name={subscription.cliente.nombre || '—'} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <div className="truncate">{subscription.cliente.nombre || '—'}</div>
+            <span className="dark:text-polar-500 truncate text-xs text-gray-500 @2xl:hidden">{subscription.producto ?? '—'}</span>
+          </div>
         </div>
       ),
     },
     {
       accessorKey: 'status',
       enableSorting: true,
+      meta: { width: '22%' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-      cell: ({ row: { original: subscription } }) => <SubscriptionStatusComponent subscription={subscription} />,
+      cell: ({ row: { original: subscription } }) => (
+        <div className="[&>div]:flex-wrap [&>div]:gap-y-1">
+          <SubscriptionStatusComponent subscription={subscription} />
+        </div>
+      ),
     },
     {
       accessorKey: 'started_at',
       enableSorting: true,
+      meta: { width: '15%', className: 'hidden @xl:table-cell' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Desde" />,
       cell: ({ row: { original } }) => (original.empezo ? <Text as="span" tabularNums>{fechaCorta(original.empezo, hoy)}</Text> : '—'),
     },
     {
       accessorKey: 'current_period_end',
       enableSorting: true,
+      meta: { width: '15%', className: 'hidden @xl:table-cell' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Próxima" />,
       cell: ({ row: { original } }) => (original.renovacion ? <Text as="span" tabularNums>{fechaCorta(original.renovacion, hoy)}</Text> : '—'),
     },
@@ -98,6 +117,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
       accessorKey: 'product',
       id: 'product',
       enableSorting: true,
+      meta: { width: '20%', className: 'hidden @2xl:table-cell' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Producto" />,
       cell: ({ row: { original } }) => (
         <div className="flex flex-row items-center gap-2">
@@ -115,7 +135,9 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
         <SubscriptionFilters
           status={status}
           onStatusSelect={onStatusSelect}
-          intervalo={intervalo}
+          fecha={fecha}
+          hoy={hoy}
+          desde={desde}
           onDateChange={onDateChange}
           onExport={showExportModal}
         />
@@ -127,6 +149,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
           />
         ) : (
           <DataTable
+            className="@container"
             columns={columns}
             data={pagina.filas}
             rowCount={pagina.total}

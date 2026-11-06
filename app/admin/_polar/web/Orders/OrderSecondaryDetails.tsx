@@ -27,7 +27,11 @@ export const OrderSecondaryDetails = ({ order }: { order: Pedido }) => {
     {
       key: 'emitido',
       label: 'Emitido',
-      value: <FormattedDateTime locale="es-AR" dateStyle="medium" resolution="time" datetime={recibo.emitidoAt} />,
+      value: (
+        <Text as="span" align="right" wrap="nowrap">
+          <FormattedDateTime locale="es-AR" dateStyle="medium" resolution="time" datetime={recibo.emitidoAt} />
+        </Text>
+      ),
     },
     { key: 'origen', label: 'Origen', value: recibo.origen === 'manual' ? 'Cargado a mano' : 'La pasarela' },
   ]
@@ -64,7 +68,9 @@ export const OrderSecondaryDetails = ({ order }: { order: Pedido }) => {
       borderStyle="solid"
       borderColor="border-primary"
       paddingTop="4xl"
-      templateColumns={{ base: '1fr', md: 'repeat(3, minmax(0, 1fr))' }}
+      /* MaKo: dos columnas (Recibo y Envío; Polar tiene tres con Metadata y Custom Fields, que MaKo no tiene): con la grilla
+         de tres quedaban apretadas en dos tercios y «Emitido» se partía en dos renglones. */
+      templateColumns={{ base: '1fr', md: 'repeat(2, minmax(0, 1fr))' }}
       columnGap="2xl"
       rowGap="2xl"
     >

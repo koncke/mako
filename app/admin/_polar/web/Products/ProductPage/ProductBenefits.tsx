@@ -4,7 +4,11 @@
 //
 // Los «Benefits» de Polar = lo que incluye un plan de MaKo (`incluye`, lib/planes-mako.ts): un renglón por beneficio.
 // ⚠️ LO QUE SE SACÓ: el link «View all» y el de cada beneficio (MaKo no tiene una página de beneficios), el tipo de cada
-//    uno y el «Hidden from customers» (un renglón de un plan no tiene tipo ni visibilidad propia). La paginación de 5 queda.
+//    uno y el «Hidden from customers» (un renglón de un plan no tiene tipo ni visibilidad propia).
+// ⚠️ ENTEROS (6/11/2026): Polar corta cada beneficio a un renglón y pagina de a 5. Un renglón de un plan de MaKo es una frase
+//    entera («Todo lo de Esencial, sin tope de contactos, páginas ni seguimientos automáticos») y cortada no se lee, así que
+//    baja de renglón. Y un plan tiene a lo sumo 8 renglones (`incluye` se corta en 8 al guardar, lib/planes-mako.ts): con la
+//    página de 5, el sexto quedaba solo en otra página. La página es de 8, y el paginador de Polar sigue para lo que pase de ahí.
 
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { Pagination } from '@/app/admin/_polar/web/Products/Benefits/components/Pagination'
@@ -14,7 +18,7 @@ import { Gift } from '@/app/admin/_polar/orbit/icons'
 import { useMemo, useState } from 'react'
 import type { ProductoMako } from '@/app/admin/_polar/datos/productos'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 8
 
 export interface ProductBenefitsProps {
   product: Pick<ProductoMako, 'nombre' | 'incluye'>
@@ -62,7 +66,7 @@ export const ProductBenefits = ({ product }: ProductBenefitsProps) => {
                     <Gift className="h-4 w-4" />
                   </Box>
                   <Box flexDirection="column" minWidth={0}>
-                    <Text truncate>{benefit}</Text>
+                    <Text wrap="pretty">{benefit}</Text>
                   </Box>
                 </Box>
               </ListItem>

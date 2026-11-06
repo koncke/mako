@@ -104,7 +104,16 @@ export const NavList = ({
                   {route.icon}
                 </span>
               ) : undefined}
-              <span className="relative ml-2 overflow-visible! text-sm font-medium">
+              {/* MaKo: con Inter (la fuente de Polar es más angosta), «Customer Notifications» no entra en la barra; con el
+                  `overflow-visible!` de Polar el texto se cortaba seco, sin «…». Ese overflow existe para el globito de
+                  `extra`: sólo lo lleva la fila que lo tiene, y las demás se cortan con «…» (y el nombre entero en `title`). */}
+              <span
+                className={twMerge(
+                  'relative ml-2 text-sm font-medium',
+                  route.extra ? 'overflow-visible!' : 'min-w-0 truncate',
+                )}
+                title={route.extra ? undefined : route.title}
+              >
                 {route.title}
                 {route.extra && (
                   <span className="absolute -top-0.5 -right-2 flex">

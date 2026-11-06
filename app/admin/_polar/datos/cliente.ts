@@ -209,10 +209,38 @@ export function cubetaDe(dia: string, intervalo: TimeInterval): string {
   return d.toISOString()
 }
 
+/** El principio del intervalo que sigue al de `cubeta` (un ISO de `cubetaDe`). La hora se cuenta como el día: el uso se anota por día. */
+function siguienteCubeta(cubeta: string, intervalo: TimeInterval): string {
+  const d = new Date(cubeta)
+  if (intervalo === 'week') d.setUTCDate(d.getUTCDate() + 7)
+  else if (intervalo === 'month') d.setUTCMonth(d.getUTCMonth() + 1, 1)
+  else if (intervalo === 'year') d.setUTCFullYear(d.getUTCFullYear() + 1, 0, 1)
+  else d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString()
+}
+
+/** Tope de períodos del gráfico (un rango de años por día serían miles de barras). */
+const TOPE_CUBETAS = 400
+
+/**
+ * Los períodos del gráfico, de `desde` a `hasta` (YYYY-MM-DD), uno por intervalo, TODOS: también los que no tuvieron uso, como
+ * la serie de Polar (un punto por período, en cero si no hubo nada). Con sólo los períodos con uso, un rango de meses se dibujaba
+ * como una barra suelta (6/11/2026). Vacío si `desde` es posterior a `hasta`.
+ */
+export function cubetasDelRango(desde: string, hasta: string, intervalo: TimeInterval): string[] {
+  const out: string[] = []
+  if (desde > hasta) return out
+  const fin = cubetaDe(hasta, intervalo)
+  for (let c = cubetaDe(desde, intervalo); c <= fin && out.length < TOPE_CUBETAS; c = siguienteCubeta(c, intervalo)) out.push(c)
+  return out
+}
+
 /**
  * Lo que usó el negocio entre `desde` y `hasta` (YYYY-MM-DD, incluidos): una fila por tab con uso, la IA si tuvo llamadas, las
  * tabs que no abrió nadie, y la serie del gráfico. `tabs` son las de los negocios (lib/actividad-reglas.ts `tabsDeNegocios`),
  * juntas por su nombre: dos keys que se dibujan igual son una tab.
+ * La serie trae un punto por período del rango, desde que se mide (`medidoDesde`, el primer día medido): un período de antes
+ * no es un cero, es que no se medía, y no se dibuja.
  */
 export function usoDelNegocio(
   filas: ReadonlyArray<Pick<FilaUso, 'dia' | 'usuario' | 'tab' | 'pantallas' | 'acciones'>>,
@@ -221,6 +249,7 @@ export function usoDelNegocio(
   desde: string,
   hasta: string,
   intervalo: TimeInterval,
+  medidoDesde: string | null = null,
 ): UsoDelNegocio {
   const tabDe = new Map<string, { key: string; label: string }>()
   for (const t of tabs) for (const k of t.keys) tabDe.set(k, { key: t.key, label: t.label })
@@ -260,6 +289,10 @@ export function usoDelNegocio(
   const usadas = new Set(porTab.keys())
   const sinUso = tabs.filter((t) => !usadas.has(t.key)).map(({ key, label }) => ({ key, label }))
   const series = medidores.filter((m) => m.key !== 'ia').map((m) => ({ key: m.key, label: m.nombre, color: m.color }))
+  const vacio = (timestamp: string): Record<string, number | string> =>
+    Object.fromEntries([['timestamp', timestamp], ...series.map((x) => [x.key, 0])])
+  const periodos = series.length === 0 ? [] : cubetasDelRango(medidoDesde && medidoDesde > desde ? medidoDesde : desde, hasta, intervalo)
+  for (const c of periodos) cubetas.set(c, { ...vacio(c), ...cubetas.get(c) })
   const serie = [...cubetas.values()].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
   return { medidores, sinUso, serie, series }
 }

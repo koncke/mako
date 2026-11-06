@@ -80,6 +80,16 @@ export const ProductListItem = ({ product }: ProductListItemProps) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="dark:bg-polar-800 bg-gray-50 shadow-lg">
+                  {/* MaKo: en el teléfono el botón «Compartir» de Polar se esconde (`hidden md:inline-flex`) y la fila no tiene
+                      lugar para él: va acá, primero, sólo donde el botón no se ve. */}
+                  <DropdownMenuItem
+                    className="md:hidden"
+                    onClick={handleContextMenuCallback(() => {
+                      router.push(`/admin/products/checkout-links?productId=${product.id}`)
+                    })}
+                  >
+                    Compartir
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleContextMenuCallback(() => {
                       if (typeof navigator !== 'undefined') {

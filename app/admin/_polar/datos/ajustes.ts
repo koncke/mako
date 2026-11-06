@@ -18,7 +18,7 @@
 //    sus cambios encima (`emisorConCambios`).
 // =============================================================================
 
-import type { Emisor } from '@/lib/recibos-reglas'
+import { textoCorreo, type DatosDelTexto, type Emisor } from '@/lib/recibos-reglas'
 import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas'
 
 export type { Emisor, PrecioClienteAgencia }
@@ -84,4 +84,45 @@ export function problemaDelPerfil(v: { nombre: string; correo: string }): { camp
   if (!v.nombre.trim()) return { campo: 'nombre', mensaje: 'El nombre sale en cada recibo: no puede quedar vacío.' }
   if (v.correo.trim() && !EMAIL_RE.test(v.correo.trim())) return { campo: 'correo', mensaje: 'Revisa el correo de contacto.' }
   return null
+}
+
+// ── Customer Notifications: los datos que puede llevar el correo del recibo ─────────────────────────────────────────
+
+/**
+ * Los datos de cada pago que el asunto y la primera frase pueden llevar (los que reemplaza `textoCorreo`, lib/recibos-reglas.ts).
+ * La pantalla los ofrece con su nombre («N.º del recibo»), nunca con las llaves: al tocar uno se agrega su marca al campo, y
+ * abajo se ve cómo llega con un pago de ejemplo.
+ */
+export type DatoDelCorreo = { marca: string; rotulo: string }
+export const DATOS_DEL_ASUNTO: readonly DatoDelCorreo[] = [
+  { marca: '{{numero}}', rotulo: 'N.º del recibo' },
+  { marca: '{{nombre}}', rotulo: 'A nombre de' },
+]
+export const DATOS_DE_LA_FRASE: readonly DatoDelCorreo[] = [
+  { marca: '{{monto}}', rotulo: 'Monto' },
+  { marca: '{{concepto}}', rotulo: 'Concepto' },
+  { marca: '{{fecha}}', rotulo: 'Fecha' },
+  { marca: '{{medio}}', rotulo: 'Medio de pago' },
+  { marca: '{{numero}}', rotulo: 'N.º del recibo' },
+  { marca: '{{nombre}}', rotulo: 'A nombre de' },
+]
+
+/** Un pago de EJEMPLO (ficticio) para mostrar cómo llega el correo. */
+export const PAGO_DE_EJEMPLO: DatosDelTexto = {
+  numero: 12, monto: 'US$ 97', concepto: 'MaKo Pro', fecha: '5 nov 2026', medio: 'transferencia', aNombre: 'Estudio Norte',
+}
+
+/** El texto con un dato más al final (con un espacio en el medio si hace falta). */
+export function conDato(texto: string, marca: string): string {
+  if (!texto) return marca
+  return /\s$/.test(texto) ? `${texto}${marca}` : `${texto} ${marca}`
+}
+
+/**
+ * Cómo llega el correo con el pago de ejemplo: el asunto y la primera frase ya con los datos puestos (lo que escribió la
+ * persona, o el texto de siempre si el campo está vacío). Es la MISMA cuenta que arma el correo de verdad (`textoCorreo`).
+ */
+export function vistaPreviaDelCorreo(asunto: string, intro: string, pago: DatosDelTexto = PAGO_DE_EJEMPLO): { asunto: string; intro: string } {
+  const t = textoCorreo({ ...pago, leyenda: null, contacto: '', titulo: 'Recibo', asunto: asunto.trim() || null, intro: intro.trim() || null })
+  return { asunto: t.asunto, intro: t.cuerpo.split('\n')[2] ?? '' }
 }

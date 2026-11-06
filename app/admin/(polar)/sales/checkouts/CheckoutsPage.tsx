@@ -116,11 +116,16 @@ const ClientPage: React.FC<ClientPageProps> = ({ checkouts, avisos }) => {
       <div className="flex flex-col gap-8">
         <AvisosDeLectura avisos={avisos} />
         <div className="flex w-full flex-row items-center justify-between gap-2">
-          <div className="grid w-full grid-cols-2 gap-4 sm:w-auto sm:grid-cols-3">
+          {/* MaKo: Polar reparte tres filtros (email, estado, producto) en tres columnas, y en el teléfono el estado y el
+              producto comparten un renglón. Sin el producto (MaKo no lo tiene), son dos: en el teléfono el estado va entero en
+              su renglón (a medio ancho se leía «Cualquier e…»). */}
+          <div className="grid w-full grid-cols-2 gap-4 sm:w-auto sm:grid-cols-2">
             <div className="col-span-2 sm:col-span-1">
               <Input type="text" placeholder="Filtrar por email" value={texto} onChange={(e) => setTexto(e.target.value)} />
             </div>
-            <CheckoutStatusSelect value={status} onChange={onStatusSelect} />
+            <div className="col-span-2 sm:col-span-1 sm:min-w-48">
+              <CheckoutStatusSelect value={status} onChange={onStatusSelect} />
+            </div>
           </div>
         </div>
         {checkouts.length === 0 ? (

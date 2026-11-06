@@ -1,7 +1,10 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/ui/src/components/atoms/FormattedInterval.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: la cuenta vive en ./intervalo.ts (pura, con test): en español va el orden del español («1–6 nov 2026»), no el del
+// inglés de Polar («1 nov – 6, 2026»).
 
-import { isSameDay } from 'date-fns/isSameDay'
 import { useMemo } from 'react'
+import { formatearIntervalo } from './intervalo'
 
 interface FormattedIntervalProps {
   startDatetime: Date | string
@@ -16,66 +19,10 @@ const FormattedInterval: React.FC<FormattedIntervalProps> = ({
   locale = 'es',
   hideCurrentYear = true,
 }) => {
-  const formatted = useMemo(() => {
-    const startDate = new Date(startDatetime)
-    const endDate = new Date(endDatetime)
-    const currentYear = new Date().getFullYear()
-
-    const startYear = startDate.getFullYear()
-    const endYear = endDate.getFullYear()
-    const startMonth = startDate.getMonth()
-    const endMonth = endDate.getMonth()
-
-    const separator = '–'
-
-    const shouldHideYear =
-      hideCurrentYear && endYear === currentYear && startYear === endYear
-
-    if (isSameDay(startDate, endDate)) {
-      return endDate.toLocaleDateString(locale, {
-        month: 'short',
-        day: 'numeric',
-        ...(shouldHideYear ? {} : { year: 'numeric' }),
-      })
-    }
-
-    if (startYear === endYear && startMonth === endMonth) {
-      const startFormatted = startDate.toLocaleDateString(locale, {
-        month: 'short',
-        day: 'numeric',
-      })
-      const endFormatted = `${endDate.toLocaleDateString(locale, {
-        day: 'numeric',
-      })}${shouldHideYear ? '' : `, ${endYear}`}`
-      return `${startFormatted} ${separator} ${endFormatted}`
-    }
-
-    if (startYear === endYear) {
-      const startFormatted = startDate.toLocaleDateString(locale, {
-        month: 'short',
-        day: 'numeric',
-      })
-      const endFormatted = endDate.toLocaleDateString(locale, {
-        month: 'short',
-        day: 'numeric',
-        ...(shouldHideYear ? {} : { year: 'numeric' }),
-      })
-      return `${startFormatted} ${separator} ${endFormatted}`
-    }
-
-    const startFormatted = startDate.toLocaleDateString(locale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-
-    const endFormatted = endDate.toLocaleDateString(locale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-    return `${startFormatted} ${separator} ${endFormatted}`
-  }, [startDatetime, endDatetime, locale, hideCurrentYear])
+  const formatted = useMemo(
+    () => formatearIntervalo(startDatetime, endDatetime, { locale, hideCurrentYear }),
+    [startDatetime, endDatetime, locale, hideCurrentYear],
+  )
 
   return <>{formatted}</>
 }

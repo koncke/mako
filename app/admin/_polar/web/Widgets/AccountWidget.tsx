@@ -13,19 +13,22 @@
 //     `PayoutStatusIcon` de cada retiro: en su lugar, «Atrasado» en rojo en el cobro que ya venció;
 //   · el vacío «You may only withdraw funds above $10» (el mínimo para retirar de Polar): MaKo no retira; el vacío dice qué
 //     aparece acá;
-//   · el límite de 10 filas de `usePayouts`: la lista son TODOS los próximos cobros, así el número grande es la suma de lo que
-//     se ve (la tarjeta scrollea, como la de Polar).
+//   · el límite de 10 filas de `usePayouts`: se ven los primeros cinco (VISIBLE_ROWS, como Activity y At Risk de Polar: la
+//     tarjeta tiene el alto fijo de Polar y una sexta fila quedaba cortada a la mitad por el borde). El número grande sigue
+//     siendo el total de TODOS los próximos cobros, y si hay más de los que se ven, al lado se dice cuántos son; el resto está
+//     en «Ver todo».
 // «Ver todo» lleva a Sales › Subscriptions (donde está cada suscripción con su próximo cobro), no a Finance.
 
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useRouter } from '@/app/_ui/Link'
-import type { Lectura, PorCobrarResumen } from '@/app/admin/_polar/datos/resumen'
+import { tarjetaPorCobrar, type Lectura, type PorCobrarResumen } from '@/app/admin/_polar/datos/resumen'
 import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
+import { FIJO, PRINCIPAL, SECUNDARIO } from './fila'
 
 export interface AccountWidgetProps {
   className?: string
@@ -36,18 +39,22 @@ const WIDGET_TITLE = 'Por cobrar'
 
 export const AccountWidget = ({ className, porCobrar }: AccountWidgetProps) => {
   const router = useRouter()
-  const cobros = porCobrar.ok ? porCobrar.datos.filas : []
-  const total = porCobrar.ok
-    ? formatCurrency('statistics')(porCobrar.datos.totalCentavos, 'usd')
+  const tarjeta = porCobrar.ok ? tarjetaPorCobrar(porCobrar.datos) : null
+  const cobros = tarjeta?.visibles ?? []
+  const total = tarjeta
+    ? formatCurrency('statistics')(tarjeta.totalCentavos, 'usd')
     : '–'
 
   return (
     <WidgetContainer
       title={WIDGET_TITLE}
       headline={
-        <Text variant="heading-m" weight="book">
-          {total}
-        </Text>
+        <Box alignItems="baseline" columnGap="m">
+          <Text variant="heading-m" weight="book">
+            {total}
+          </Text>
+          {tarjeta?.cuantos && <Text color="muted">{tarjeta.cuantos}</Text>}
+        </Box>
       }
       action={<WidgetLink href="/admin/sales/subscriptions" />}
       className={className}
@@ -59,12 +66,12 @@ export const AccountWidget = ({ className, porCobrar }: AccountWidgetProps) => {
           {cobros.map((cobro) => (
             <ListRow key={cobro.id} href={cobro.href ?? undefined}>
               <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                <Text truncate>{cobro.nombre}</Text>
-                <Text color={cobro.atrasado ? 'danger' : 'muted'} truncate>
+                <Text truncate style={PRINCIPAL}>{cobro.nombre}</Text>
+                <Text color={cobro.atrasado ? 'danger' : 'muted'} truncate style={SECUNDARIO}>
                   {cobro.atrasado ? `Atrasado · ${cobro.cuando}` : cobro.cuando}
                 </Text>
               </Box>
-              <Text tabularNums>
+              <Text tabularNums style={FIJO}>
                 {formatCurrency('statistics')(cobro.centavos, 'usd')}
               </Text>
             </ListRow>

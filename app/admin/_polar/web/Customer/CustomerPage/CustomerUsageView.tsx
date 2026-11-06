@@ -9,6 +9,11 @@
 // abrió en el rango. Se sacaron Credited, Balance, Overages y «Add credits»: MaKo no da créditos por cliente. La IA no va en el
 // gráfico: se cuenta en llamadas, no en pantallas, y apilarla con las tabs sumaría dos cosas distintas.
 // ⚠️ «No usa» sólo se afirma desde que se mide: antes del primer día medido no hay nada que mirar, y se dice.
+// ⚠️ La IA cuenta las llamadas ANOTADAS en este negocio, las pague quien las pague (su clave, el crédito de MaKo); Claude con
+//    la clave de MaKo se anota en la plataforma y no entra acá. Eso se explicaba en un párrafo debajo de la tabla: la pantalla
+//    dice QUÉ, el porqué va acá (la regla de la casa, 6/11/2026).
+// ⚠️ El gráfico dibuja TODOS los períodos del rango desde que se mide, también los vacíos (`usoDelNegocio`, como la serie de
+//    Polar, que trae un punto por período): con sólo los períodos con uso, un rango de meses era una sola barra suelta.
 
 import { usoDelNegocio, type IaDelDia } from '@/app/admin/_polar/datos/cliente'
 import type { FilaUso } from '@/lib/actividad-reglas'
@@ -60,8 +65,8 @@ export const CustomerUsageView = ({
   const [sorting, setSorting] = useState<DataTableSortingState>([])
 
   const uso = useMemo(
-    () => usoDelNegocio(filas, tabs, ia, desde, hasta, interval),
-    [filas, tabs, ia, desde, hasta, interval],
+    () => usoDelNegocio(filas, tabs, ia, desde, hasta, interval, desdeMedido),
+    [filas, tabs, ia, desde, hasta, interval, desdeMedido],
   )
 
   const tableRows = useMemo(() => {
@@ -114,6 +119,7 @@ export const CustomerUsageView = ({
             </ShadowBox>
           )}
           <DataTable
+            className="@container"
             isLoading={false}
             data={tableRows}
             sorting={sorting}
@@ -125,18 +131,14 @@ export const CustomerUsageView = ({
                 ),
                 accessorKey: 'nombre',
                 size: 200,
+                meta: { width: '26%' },
                 cell: ({ row }) => (
-                  <div className="flex items-center gap-x-2">
+                  <div className="flex min-w-0 items-center gap-x-2">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
                       style={{ backgroundColor: row.original.color }}
                     />
-                    <span>{row.original.nombre}</span>
-                    {row.original.key === 'ia' && (
-                      <span className="dark:text-polar-500 text-gray-500">
-                        Inteligencia artificial
-                      </span>
-                    )}
+                    <span className="truncate">{row.original.nombre}</span>
                   </div>
                 ),
               },
@@ -145,6 +147,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Consumido" />
                 ),
                 accessorKey: 'consumido',
+                meta: { width: '18%', className: 'whitespace-nowrap' },
                 size: 130,
                 cell: ({ row }) => <span>{unidadTxt(row.original.consumido, row.original.unidad)}</span>,
               },
@@ -153,6 +156,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Acciones" />
                 ),
                 accessorKey: 'acciones',
+                meta: { width: '12%', className: 'hidden @lg:table-cell' },
                 size: 100,
                 cell: ({ row }) =>
                   row.original.acciones == null ? (
@@ -166,6 +170,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Personas" />
                 ),
                 accessorKey: 'personas',
+                meta: { width: '12%', className: 'hidden @lg:table-cell' },
                 size: 100,
                 cell: ({ row }) =>
                   row.original.personas == null ? (
@@ -179,6 +184,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Costo" />
                 ),
                 accessorKey: 'costoUsd',
+                meta: { width: '14%', className: 'hidden @md:table-cell whitespace-nowrap' },
                 size: 100,
                 cell: ({ row }) =>
                   row.original.costoUsd == null ? (
@@ -192,6 +198,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Último uso" />
                 ),
                 accessorKey: 'ultimo',
+                meta: { width: '18%', className: 'hidden @md:table-cell whitespace-nowrap' },
                 size: 120,
                 cell: ({ row }) =>
                   row.original.ultimo ? (
@@ -213,8 +220,8 @@ export const CustomerUsageView = ({
             {uso.sinUso.length === 0
               ? 'Usó todas las tabs en el rango.'
               : medidoDesde
-                ? `Las tabs que nadie del negocio abrió desde que se mide (el ${new Date(`${medidoDesde}T12:00:00`).toLocaleDateString('es-AR', { dateStyle: 'medium' })}).`
-                : 'Las tabs que nadie del negocio abrió en el rango.'}
+                ? `Nadie del negocio las abrió desde el ${new Date(`${medidoDesde}T12:00:00`).toLocaleDateString('es-AR', { dateStyle: 'medium' })}.`
+                : 'Nadie del negocio las abrió en el rango.'}
           </Text>
           {uso.sinUso.length > 0 && (
             <Box flexWrap="wrap" gap="s">
@@ -224,11 +231,6 @@ export const CustomerUsageView = ({
             </Box>
           )}
         </Box>
-      )}
-      {uso.medidores.some((m) => m.key === 'ia') && (
-        <Text variant="caption" color="muted">
-          La IA cuenta las llamadas anotadas en este negocio, las pague quien las pague; Claude con la clave de MaKo se anota en la plataforma y no entra.
-        </Text>
       )}
     </Box>
   )

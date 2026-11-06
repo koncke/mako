@@ -22,11 +22,13 @@ export const ToplistHeader = ({
     borderStyle="solid"
     borderColor="border-primary"
   >
-    <Text variant="body" as="h2">
+    {/* MaKo: el nombre de la sección no se parte («At / Risk» en dos renglones) y la bajada es la que cede: se acomoda al
+        lado y, si no entra, baja de renglón, como en la referencia de Polar. */}
+    <Text variant="body" as="h2" wrap="nowrap" style={{ flexShrink: 0 }}>
       {title}
     </Text>
     {caption ? (
-      <Text color="muted" variant="body">
+      <Text color="muted" variant="body" style={{ minWidth: 0 }}>
         {caption}
       </Text>
     ) : null}
@@ -95,10 +97,11 @@ export const ToplistValue = ({
   caption?: ReactNode
   captionColor?: TextColor
 }) => (
-  <Box flexDirection="column" alignItems="end">
-    <Text>{value}</Text>
+  // MaKo: el monto y su leyenda no ceden ni se parten (el nombre de la izquierda es el que se corta con «…»).
+  <Box flexDirection="column" alignItems="end" flexShrink={0}>
+    <Text wrap="nowrap">{value}</Text>
     {caption ? (
-      <Text color={captionColor} variant="caption">
+      <Text color={captionColor} variant="caption" wrap="nowrap">
         {caption}
       </Text>
     ) : null}

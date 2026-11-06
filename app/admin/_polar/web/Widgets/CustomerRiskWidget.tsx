@@ -14,9 +14,9 @@ import type { Lectura, Riesgo } from '@/app/admin/_polar/datos/resumen'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
+import { FIJO, PRINCIPAL, SECUNDARIO, VISIBLE_ROWS } from './fila'
 
 const WIDGET_TITLE = 'At Risk'
-const VISIBLE_ROWS = 5
 
 export interface CustomerRiskWidgetProps {
   className?: string
@@ -67,16 +67,17 @@ export const CustomerRiskWidget = ({ className, riesgo }: CustomerRiskWidgetProp
                 borderStyle="solid"
                 borderColor="border-secondary"
               >
+                {/* MaKo: el plan cede antes que el nombre, y el motivo no se parte (./fila.ts). */}
                 <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                  <Text truncate>{item.nombre}</Text>
-                  <Text color="muted" truncate>
+                  <Text truncate style={PRINCIPAL}>{item.nombre}</Text>
+                  <Text color="muted" truncate style={SECUNDARIO}>
                     {item.plan}
                   </Text>
                 </Box>
                 <Box alignItems="baseline" columnGap="m" flexShrink={0}>
-                  <Text color="muted">{item.motivo}</Text>
+                  <Text color="muted" style={FIJO}>{item.motivo}</Text>
                   {item.mrrCentavos > 0 && (
-                    <Text tabularNums>{formatCurrency('statistics')(item.mrrCentavos, 'usd')}</Text>
+                    <Text tabularNums style={FIJO}>{formatCurrency('statistics')(item.mrrCentavos, 'usd')}</Text>
                   )}
                 </Box>
               </Box>
