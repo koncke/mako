@@ -27,6 +27,68 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
+
+**El diagnóstico obvio era el equivocado.** Para avisarle al equipo de un pago rechazado, lo natural es copiar la tarjeta de
+«Entró un Pago», que dice `{{pago_monto}}` y `{{pago_concepto}}`. No se resuelven: esos datos tienen `alcance: 'pago'`
+(lib/variables-aviso.ts) y `alcanzaPara` los da sólo con `conPago`, que lo pone `datosDelEvento('pago_recibido')` — el
+**Evento de MaKo**, cuyo emisor (`avisarPagoRecibido`, lib/cobros.ts) los pasa en `datos`. El **CRON «Pagos»** es otra
+puerta: `enrolarPorPago` (lib/pago-entrante.ts) manda `{ subtipo }` y nada más, así que una tarjeta de ese CRON se
+resuelve con `{ destino: 'equipo', conLead: true }` y nunca ve el pago. Medido: `problemasDeTokens(…, TRIGGER_PAGO)`
+devuelve «No existe: {{pago_monto}}, {{pago_concepto}}», y con el evento `pago_recibido`, vacío. **Regla:** dos CRON
+distintos hablan del mismo hecho con datos distintos; antes de copiar un texto de una plantilla vecina, mirá si su CRON es
+el mismo. Lo frena Publicar (`problemasDeTokens`), no el compilador.
+
+**SIN HACER:** para que una plantilla del CRON «Pagos» pueda citar monto y concepto hay que pasar los datos del pago por
+`enrolarPorPago` → `enrolarPorEvento` (lib/nutricion.ts: `CtxEvento` hoy no tiene dónde ponerlos) y que `alcanzaPara('pago')`
+dé true en ese contexto. Mientras no esté, el aviso manda a la ficha: el concepto y el motivo ya quedan escritos ahí por el
+`logLeadEvent('Pago rechazado', …)` que corre al lado del disparo.
+
+**⚠️ `{{link_pago}}` tampoco sirve para un rechazo.** Resuelve el cobro **PENDIENTE** más nuevo del lead
+(`cobroPendienteDelLead`, lib/cobros.ts) y `aplicarPagoFallido` deja el cobro en `fallido` (o lo deja `pagado`, si lo que
+falló fue la renovación). Y como «no tiene link» es un HECHO, no queda crudo: sale el texto «sin link de pago pendiente»
+justo en el mensaje de la persona que tiene que pagar. El link vuelve a existir recién cuando alguien aprieta «Volver a
+intentar» (`urlParaPagar` devuelve el cobro a `pendiente`). **Regla:** un dato que no queda crudo igual puede mentir.
+
+**⚠️ La condición «Pagó» silencia justo el caso más común.** `aplicarPagoFallido` dispara `rechazado` por TRES caminos
+(lib/cobros.ts): el cobro pendiente, el reintento de una prueba autorizada y la renovación de una suscripción. En el tercero
+el lead YA pagó, así que una plantilla de rechazo filtrada por «no pagó» no le llega nunca a un suscriptor.
+
+**⚠️ Un aviso al equipo que cuelga del canal del lead se pierde ENTERO.** Un WhatsApp a quien no tiene teléfono cancela la
+INSCRIPCIÓN completa (lib/nutricion.ts), no ese mensaje: lo que cuelga de esa rama no sale, y el aviso al grupo se va con
+él. Medido en la galería de hoy: **siete** avisos cuelgan de «Tiene WhatsApp» / «Tiene email» (`le_mk`, `la_mk1`, `la_mk2`,
+`la_mk3`, `ln_mk`, `lt_mk`, `lc_mk`), todos de plantillas de etapa, donde a quien sólo tiene email le corre el camino de
+email. **Regla (medida sólo en el CRON «Pagos», que es el de la plata):** el aviso al equipo va ARRIBA de la condición que
+pregunta el canal. **SIN HACER:** decidir si los siete de etapa suben — es otro pedido, y cambia qué recibe el equipo hoy.
+
+**⚠️ «La plata y lo sensible, para aprobar» no se medía en los mensajes.** La regla está en la cabecera de
+lib/plantillas-automatizaciones.ts y el test sólo la chequeaba en los escenarios del AI Step: un mensaje al lead que habla de
+pago con «Sale sola» salía sin que nadie lo leyera. Ahora se mide con el MISMO regex (`/precio|cuesta|pago|descuento/i`);
+hoy la cumplen las dos únicas que la tocan (`lc_w1` y `rp_w1`).
+
+**⚠️ La plantilla nueva pagó 17 caracteres del turno de WhatsApp.** El id entra al `enum` de
+`crear_automatizacion_desde_plantilla` (`IDS_PLANTILLAS`, lib/api-mako/areas/chatbot.def.ts): el margen de
+`cambiar_crons_secuencia` bajó de 336 a **319** (piso 300, tests/ops-center-bateria.test.ts, el 4). Quedan 19: la próxima
+plantilla con un id de más de ~16 caracteres cruza el piso y paga texto de otra descripción.
+
+**⚠️ Las tablas a mano del test son DOS, pero los lugares son CUATRO.** `LAS_13` (id, nombre, objetivo) y `CANALES` (por
+dónde sale) son las que avisan con un mensaje claro; además, `filtrarPlantillas` fija a mano la lista de
+`{ canal: 'whatsapp', objetivo: 'cobrar' }` y la de `{ objetivo: 'cobrar' }`, así que una plantilla de cobrar que sale por
+WhatsApp mueve las cuatro. Y `LAS_13` ya son 19 (el nombre quedó viejo, igual que el «Son 13» de la cabecera de la lib).
+
+**⚠️ Y el archivo es CRLF, con dos trampas que lo tapan.** `sed -n '…p' archivo | cat -A` muestra `$` y no `^M` —`sed` se come
+el CR— así que parece LF y un reemplazo escrito con `\n` da «0 ocurrencias». Y el heredoc del Bash de esta máquina se come
+un backslash: un `\\n` escrito en un heredoc llega como `\n` y te parte el string literal del TS. Los parches a este
+archivo se escriben con un script Python que lee con `newline=''` y pone los `\n` literales por sustitución, no escritos.
+
+**Probado rompiéndolo:** 8 roturas sobre tests/plantillas-automatizaciones.test.ts (base 40 pass / 0 fail), las 8 CAYERON.
+Dos salieron VERDES en la primera pasada y por eso están los dos tests nuevos: el WhatsApp al lead puesto ARRIBA del aviso
+al equipo, y el mensaje de plata con `revisar: false`.
+
+**Vive en:** lib/plantillas-automatizaciones.ts · lib/variables-aviso.ts (`alcanzaPara`) · lib/pago-entrante.ts ·
+lib/cobros.ts (`aplicarPagoFallido`, `cobroPendienteDelLead`) · tests/plantillas-automatizaciones.test.ts ·
+*6/11/2026, pendiente 288.*
+
 ## «No reprodujo el VSL» se cumplía para TODOS con la base caída (6/11/2026, barrido de pendientes, nube)
 
 `getVslEngagementMap` (lib/leads.ts) atrapaba cualquier error y devolvía el mapa VACÍO. Lo lee el motor en tres lugares
