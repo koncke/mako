@@ -1017,3 +1017,62 @@ La cadena, por si hay que volver a verificarla de punta a punta:
 renglón y la del trabajo son el mismo día, lo primero es `git log` del archivo que nombra, no leerlo y creerle. Y cuando se
 confirma que estaba hecho, **se corrige el renglón en el mismo commit**: el fantasma no cuesta una línea de código, cuesta
 la pasada de lectura entera, y la paga cada chat que lo vuelve a tomar.
+
+## Los cuatro tickets «de clientes sin contestar»: medidos uno por uno (6/11/2026)
+
+Venían en un reparto como «cuatro clientes esperando: 38, 39, 43 y 58». Leídos en producción
+(`node --import tsx scripts/tickets.ts ver <n>`, que sólo lee), **ninguno de los cuatro es lo que decía el rótulo**, y los
+cuatro están frenados por algo distinto. Vale escribirlo porque el rótulo hace trabajar a un chat en lo que no es.
+
+| # | Lo que decía el reparto | Lo que es |
+|---|---|---|
+| 38 | Un cliente esperando | **No es de un cliente: lo levantó Martín** desde su línea `…3479`, en el negocio «Martin Koncke» (ws 9, SuperAdmin). Y la investigación **está hecha**: `docs/funnel-coach.md` §9 arranca con «De dónde sale: ticket #38». Sí, es el mismo pedido: el ticket **no se llevó el link**, se pescó en `mako_doer_conv` un minuto antes. Falta sólo la respuesta, que es de Martín |
+| 39 | Un cliente esperando | Es **automático** (`canal = 'sistema'`): lo abrió MaKo, no Brigitte. El texto que ella ve es «MaKo lo detectó solo». Ver abajo |
+| 43 | Un cliente esperando | Es automático también, y **ya tiene el veredicto del Cerebro del 2/11**: no es un bug, es una función que no existe. Lo que falta son DOS decisiones de producto, no código. Ver abajo |
+| 58 | «Agendar la segunda cuota de Giselle Belanti para el 19 de diciembre» | ⚠️ **El ticket no dice eso.** Dice, tal cual: «agendame eso que te pedi en el audio», de Código Inmobiliario (ws 13), y MaKo contestó que no entendía. No hay ningún nombre ni ninguna fecha en el ticket: el audio no viaja con él. Ver abajo |
+
+### #39: cinco días después, sigue en UNA vez
+
+Lo que había que mirar ya estaba escrito acá («cuántas veces pasó y si la persona siguió trabajando»). Medido el 6/11 sobre
+`errores_app` (huella `0345a6ecd695d0dc`): **`veces` = 1**, un solo afectado, `primera_vez` = `ultima_vez` =
+2026-11-01T11:35:54Z. No volvió a pasar en cinco días.
+
+⚠️ **Y la fila NO trae `pistas`**, así que el plan de «si el próximo caso trae `font=0` y ninguna ajena, entonces sí es
+nuestro» **todavía no se puede ejecutar**: esta fila es de ANTES de que el reporte las juntara (el mismo 1/11). La huella
+agrupa, así que una repetición hubiera caído en esta misma fila, sin pistas. Para que haya pistas tiene que pasar de nuevo
+**después** del deploy de ese día. No hay nada más que diagnosticar de este caso.
+
+**Dato al costado que sí sirve:** el #52 fue el MISMO React #418 (`args[]=text`) en la pantalla «Plan», y ése sí se arregló
+y se cerró el 4/11 («La pantalla Plan ya no se vuelve a dibujar sola de noche»). Antes de volver a investigar el #39, mirar
+si ese arreglo cubre también /crm: es el único hilo abierto que queda.
+
+### #43: el veredicto del Cerebro no se pudo guardar donde se mira
+
+El Cerebro lo diagnosticó el 2/11 y lo dejó escrito: **no es un bug**, `agregar_web_archivero` quedó afuera de todas las
+áreas de la API porque su lógica vive inline en la ruta (`procesarLink`, app/api/onboarding/archivero) y primero hay que
+extraerla a `lib/`. Las dos decisiones que lo frenan, y por eso no lo hizo solo: cargar un archivo **por WhatsApp** es
+recibir y guardar un adjunto (bastante más que exponer una función), y quien lo pide es plan **Agencia** y quiere cargarlo
+al Second Brain de SU cliente, o sea **otro workspace**: es una escritura cross-tenant.
+
+⚠️ **Y acá está la falla de la herramienta, que es lo que hay que arreglar:** el Cerebro cierra su nota con «sugerencia:
+reclasificarlo a 'pedido'; **no lo hice yo porque desde `esperando_decision` el script no deja**». Es cierto:
+`reclasificar` (lib/tickets-db.ts) filtra `.in('estado', ['en_curso', 'nuevo'])`. Y como `reclasificar` **deja** el ticket
+en `esperando_decision`, ese estado es una **puerta de una sola dirección**: un ticket que espera a Martín desde el triage
+—el caso más común— no puede que nadie le corrija el tipo nunca. El resultado concreto: el #43 figura como **bug** en la
+bandeja y en la prioridad, mientras el veredicto «es un pedido» vive sólo en el texto de una nota que no mueve nada.
+
+**Sin hacer:** que `reclasificar` acepte `esperando_decision` (es el estado donde más hace falta). Es una línea en
+`lib/tickets-db.ts`, pero cambia qué puede tocar un chat sin Martín, así que **lo decide él**: hoy la única forma de
+corregir el tipo de un ticket que lo espera es que lo toque él en la bandeja.
+
+### #58: no se puede ejecutar desde el ticket, y el bloqueo que le pusieron ya no es el que lo frena
+
+- **El eco de MaKo en el grupo YA está arreglado**: `punta/doer-eco-dos-lineas` (6564711292) es ancestro de `origin/main`.
+  O sea que la condición que traía el reparto («esto espera el arreglo del eco») está cumplida. No es eso lo que lo frena.
+- **Lo que lo frena es el ticket mismo:** pide «eso que te pedí en el audio», y el audio no viaja con el ticket. Agendar
+  una cuota a nombre de alguien que el ticket no nombra, con una fecha que el ticket no dice, sería inventar el dato.
+- Y es una **ACCIÓN DELEGADA que el triage mandó a Martín** («lo pidió alguien del grupo que no es admin de ese negocio»),
+  así que su propio texto dice «si espera a Martín, no se toca sin su sí». Además es una escritura en producción.
+
+**Lo que hace falta para desbloquearlo** (y no es trabajo de código): el contenido del audio, de boca de Martín o de quien
+lo mandó, y su sí. Con eso, es una carga de cobranza normal.
