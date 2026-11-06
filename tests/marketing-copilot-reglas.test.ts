@@ -115,15 +115,21 @@ test('cada pastilla que ofrece un paso la entiende ese mismo paso (ninguna queda
 });
 
 test('un referente trae su funnel y se ve «Inspirado en»', () => {
-  const doglio = charla(['Seguir la estrategia de un referente', 'Francisco Doglio: webinars que preparan la venta']);
-  assert.equal(doglio.referente, 'francisco-doglio');
-  assert.equal(pasoDeCopiloto(doglio), 'ticket', 'no vuelve a preguntar el funnel: ya lo trae el referente');
+  // Doglio enseña dos (medido: historias de Instagram y webinars), así que pregunta cuál, y SÓLO ofrece esos dos.
+  const doglio0 = charla(['Seguir la estrategia de un referente', 'Francisco Doglio']);
+  assert.equal(doglio0.referente, 'francisco-doglio');
+  assert.equal(pasoDeCopiloto(doglio0), 'funnel');
+  assert.deepEqual(opcionesDeCopiloto('funnel', doglio0), ['Orgánico en Instagram', 'Webinar']);
+  const doglio = charla(['Webinar'], doglio0);
+  assert.equal(pasoDeCopiloto(doglio), 'ticket');
+  // Uno que enseña uno solo lo trae, sin preguntar.
+  assert.equal(pasoDeCopiloto(charla(['Seguir la estrategia de un referente', 'Julián Otálora'])), 'ticket');
   const listo = charla(['$3,000', '$2,000 al mes', 'Un equipo', 'Más adelante'], doglio);
   assert.equal(propuestaDe(listo)!.titulo, 'Webinar');
   assert.equal(propuestaDe(listo)!.inspirado, 'Inspirado en Francisco Doglio');
   // Los referentes que se ofrecen existen en lib/asesores.
   for (const r of REFERENTES_COPILOTO) assert.ok(ASESORES.some((a) => a.id === r.id), r.id);
-  const sofia = charla(['Seguir la estrategia de un referente', 'Sofía Contreras: marketing perpetuo, sin lanzamientos']);
+  const sofia = charla(['Seguir la estrategia de un referente', 'Sofía Contreras']);
   assert.equal(sofia.referente, 'sofia-contreras');
   // Si cambia al funnel que MaKo propone, la propuesta ya no dice «Inspirado en» alguien que no hace ese funnel.
   const cambiado = aplicarCambio(doglio, { funnel: 'carrito', referente: undefined });

@@ -8,17 +8,21 @@
 //   2. EL NEGOCIO: lo que respondió en la primera entrada y lo que dicen las REGLAS PURAS (lib/media-buyer/copiloto.ts) con eso. El
 //      modelo no decide solo qué funnel conviene: recibe lo que decide `recomendarFunnel`/`evaluarFunnel`, y si la persona elige otro, lo
 //      discute con ese dato adelante.
-//   3. LO QUE SABES: anuncios de ticket alto (copiloto-conocimiento.ts) y, según el funnel, la ficha de un referente de Instagram,
-//      YouTube, webinar o lead magnets (lib/asesores). A lo sumo DOS fichas por mensaje: cada una son ~5.000 caracteres en el system.
+//   3. LO QUE SABES: anuncios de ticket alto (copiloto-conocimiento.ts), QUIÉN ENSEÑA QUÉ (la tabla medida de cada referente,
+//      ./copiloto-referentes.ts: una línea por funnel, sin fichas) y a lo sumo DOS fichas: la del referente elegido SÓLO si enseña el
+//      funnel elegido (o si enseña otra parte de la venta y la eligió para eso) y la de quien mejor cubre el funnel. Cada ficha son
+//      ~5.000 caracteres en el system: una que no viene al caso no viaja (Martín, 6/11/2026: «fijate bien, Doglio no creo que te
+//      enseñe a hacer webinar»).
 // ⚠️ NO nombra a nadie del documento de anuncios (sus fuentes son internas); a un referente de lib/asesores sí, con «Inspirado en».
 // =============================================================================
 
 import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { FICHA_POR_FUNNEL, QUE_ENSENA, ensenaElFunnel, quienesEnsenan } from './copiloto-referentes';
 import { contextoDeReferente } from '@/lib/asesores/contexto';
 import { fmtDinero } from '@/lib/format';
 import { CONOCIMIENTO_ANUNCIOS } from './copiloto-conocimiento';
 import {
-  conCampanas, evaluarFunnel, funnelElegido, planOrganico, recomendarFunnel, seccionesDe, usaAnuncios, usaLlamadas, type IdFunnel, type PerfilCopiloto,
+  FUNNELS, conCampanas, nombreDelReferente, evaluarFunnel, funnelElegido, funnelsDelReferente, planOrganico, recomendarFunnel, seccionesDe, usaAnuncios, usaLlamadas, type PerfilCopiloto,
 } from './copiloto';
 
 export { ORIGEN_COPILOTO } from './copiloto';
@@ -40,18 +44,39 @@ LAS REGLAS, que no se negocian:
 9. SI NO SABES O NO HAY DATO, lo dices. No inventas costos de una cuenta que no leíste: míralos con ver_media_buyer o pídeselos. Hoy NO tienes cifras ni fuentes de Google Ads ni de LinkedIn Ads (no se investigaron): dices el criterio y que no hay números. Google en búsqueda capta a quien YA busca el servicio (sirve si hay búsquedas con intención, p. ej. un servicio local; no crea demanda); LinkedIn sólo cuando el cliente es una empresa con un decisor al que se llega por cargo, y sale bastante más caro por contacto. Lo sano: probar Meta primero y sumar otro canal cuando Meta tenga costo por llamada calificada estable. Aquí no los administras: no los lanzas ni los lees.
 10. ORGÁNICO Y YOUTUBE: si no hay presupuesto, no hay Campañas: trabajas el qué publicar, cuánto, con qué objetivo (viralidad o ventas) y en qué formato, y lo bajas al Calendario. Viralidad atrae gente nueva; ventas convence a quien ya te sigue; y las ventas se cierran por mensaje o llamada, no en la publicación. Para «cuánto publico», usa el reparto que MaKo ya calculó (en EL NEGOCIO) y nunca más piezas de las que la persona dijo que puede sostener: mejor poco y constante.`;
 
-/** Qué fichas de lib/asesores viajan: la del referente elegido y una por tipo de funnel (a lo sumo dos). */
+/**
+ * Qué fichas de lib/asesores viajan (a lo sumo dos):
+ *   · la del referente elegido, si enseña el funnel elegido, si todavía no hay funnel (está eligiendo una de sus estrategias) o si
+ *     enseña otra parte de la venta (la oferta, la llamada: lo eligió para eso);
+ *   · si el elegido no cubre el funnel, la de quien mejor lo cubre (`FICHA_POR_FUNNEL`), medida en su curso.
+ * Un referente que enseña funnels, pero no ÉSTE, no viaja: su ficha hablaría de otra cosa. Sin funnel ni referente, la de anuncios.
+ */
 export function fichasDelCopiloto(p: PerfilCopiloto): IdAsesor[] {
-  const porFunnel: Record<IdFunnel, IdAsesor> = {
-    'vsl-llamada': 'juan-ads', mensajes: 'juan-ads', formulario: 'juan-ads', carrito: 'juan-ads', webinar: 'francisco-doglio',
-    'lead-magnet': 'sofia-contreras', youtube: 'derek-chamizo', organico: 'julian-otalora',
-  };
   const f = funnelElegido(p);
   const out: IdAsesor[] = [];
-  if (p.referente && asesorPorId(p.referente)) out.push(p.referente);
-  const base = f ? porFunnel[f.id] : 'juan-ads';
-  if (!out.includes(base)) out.push(base);
+  const r = p.referente && asesorPorId(p.referente) ? p.referente : null;
+  if (r && (!f || ensenaElFunnel(r, f.id) || funnelsDelReferente(r).length === 0)) out.push(r);
+  // Si el elegido enseña ESTE funnel, su ficha alcanza: una segunda sobre lo mismo pesa ~5.000 caracteres más en cada mensaje.
+  const cubre = !!r && !!f && ensenaElFunnel(r, f.id);
+  const base = cubre ? null : f ? FICHA_POR_FUNNEL[f.id] : out.length ? null : 'juan-ads';
+  if (base && !out.includes(base)) out.push(base);
   return out.slice(0, 2);
+}
+
+/**
+ * QUIÉN ENSEÑA QUÉ: la tabla medida, corta (una línea por funnel y una por los que enseñan otra parte), para que el agente diga
+ * qué enseña cada uno sin tener su ficha, y a quién proponer cuando le piden algo que el elegido no enseña.
+ */
+export function quienEnsenaQue(p: PerfilCopiloto): string {
+  const lineas = FUNNELS.map((f) => `· ${f.corto}: ${quienesEnsenan(f.id).map(nombreDelReferente).join(', ') || 'ningún referente de MaKo'}.`);
+  const otros = (Object.keys(QUE_ENSENA) as IdAsesor[]).filter((id) => QUE_ENSENA[id].funnels.length === 0)
+    .map((id) => `${nombreDelReferente(id)} (${QUE_ENSENA[id].canal.toLowerCase()})`);
+  const r = p.referente ? asesorPorId(p.referente) : null;
+  const q = r ? QUE_ENSENA[r.id] : null;
+  const suyo = r && q
+    ? `\nEL REFERENTE ELEGIDO, ${r.completo}, enseña en «${r.curso}»: ${q.tema}. Canal: ${q.canal}. Para: ${q.para.toLowerCase()}. ${q.funnels.length ? `Sus estrategias en el CoPilot: ${q.funnels.map((id) => FUNNELS.find((x) => x.id === id)!.corto).join(', ')}.` : 'No enseña un funnel para conseguir clientes: úsalo sólo para esa parte de la venta.'}${q.nota ? ` ${q.nota}` : ''} Si te piden algo que su curso no enseña, dilo («eso no está en su curso») y propone a quien sí, de la lista de arriba; nunca se lo atribuyas.`
+    : '';
+  return `QUIÉN ENSEÑA QUÉ (medido en el curso de cada referente de MaKo; sólo atribuyes a alguien lo que está acá):\n${lineas.join('\n')}\n· Otra parte de la venta, no un funnel: ${otros.join('; ')}.${suyo}`;
 }
 
 const us = (n: number) => fmtDinero(n);
@@ -63,7 +88,10 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
   if (!f && p.entrada == null) {
     return 'EL NEGOCIO: todavía no hizo la primera entrada del Marketing CoPilot (no hay funnel elegido). Si pregunta qué hacer, empieza por lo que hace falta saber, una pregunta por vez: cuánto le deja una venta, cuánto puede poner en anuncios por mes y quién toma las llamadas. O lo lleva a la primera entrada (/ads-manager?estrategia=1).';
   }
-  lineas.push(`FUNNEL ELEGIDO: ${f ? f.nombre : 'ninguno todavía'}${p.referente ? ` (con la estrategia inspirada en ${asesorPorId(p.referente)?.completo ?? p.referente})` : ''}.`);
+  const ref = p.referente ? asesorPorId(p.referente) : null;
+  const conRef = !ref ? '' : !f || ensenaElFunnel(ref.id, f.id) ? ` (con la estrategia inspirada en ${ref.completo})`
+    : funnelsDelReferente(ref.id).length === 0 ? ` (eligió a ${ref.completo} para ${QUE_ENSENA[ref.id].tema}, no para el funnel)` : '';
+  lineas.push(`FUNNEL ELEGIDO: ${f ? f.nombre : 'ninguno todavía'}${conRef}.`);
   if (p.ticket != null) lineas.push(`Una venta le deja ${us(p.ticket)}.`);
   if (p.presupuestoMes != null) lineas.push(p.presupuestoMes > 0 ? `Puede poner ${us(p.presupuestoMes)} al mes en anuncios (unos ${us(p.presupuestoMes / 30)} por día).` : 'No tiene presupuesto para anuncios por ahora.');
   if (p.llamadas) lineas.push({ yo: 'Las llamadas y los mensajes los atiende él o ella.', equipo: 'Tiene un equipo que toma las llamadas.', nadie: 'Nadie toma llamadas todavía.' }[p.llamadas]);
@@ -84,7 +112,7 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
     const pl = planOrganico(p);
     lineas.push(`REPARTO que calcula MaKo para ${p.ritmo} por semana${p.objetivo ? ` con objetivo ${p.objetivo}` : ' (si no dijo el objetivo, supone mixto: pregúntaselo)'}: ${pl.puntos.join(' ')}`);
   }
-  if (f?.id === 'youtube') lineas.push('YOUTUBE PARA ESTE NEGOCIO: la ficha del referente habla de canales automatizados que viven del CPM; un negocio de servicios lo usa para que lo conozcan y lleguen a su oferta, así que ignora lo de nichos por CPM, canales sin cara y los 40 videos. Con pocas horas por semana: un video bueno por semana (guion, grabación y edición ocupan las tres horas), y dile que el efecto tarda meses (entre 6 y 24 según lo que dicen las fuentes de contenido permanente): si necesita clientes en las próximas semanas, YouTube solo no se los da; que lo acompañe con mensajes directos a quien ya le escribe.');
+  if (f?.id === 'youtube') lineas.push(`YOUTUBE PARA ESTE NEGOCIO: un negocio de servicios lo usa para que lo conozcan y lleguen a su oferta${fichasDelCopiloto(p).includes('derek-chamizo') ? '; la ficha de Derek Chamizo habla de canales automatizados que viven del CPM, así que ignora lo de nichos por CPM, canales sin cara y los 40 videos' : ''}. Con pocas horas por semana: un video bueno por semana (guion, grabación y edición ocupan las tres horas), y dile que el efecto tarda meses (entre 6 y 24 según lo que dicen las fuentes de contenido permanente): si necesita clientes en las próximas semanas, YouTube solo no se los da; que lo acompañe con mensajes directos a quien ya le escribe.`);
   if (p.competencia === 'si') lineas.push('Pidió que investigues a su competencia (Competitor Spy).');
   if (p.ticket != null && p.llamadas) {
     const d = { ticket: p.ticket, presupuestoMes: p.presupuestoMes ?? 0, llamadas: p.llamadas };
@@ -102,5 +130,5 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
 /** El contexto entero del turno de la tab. */
 export function contextoDelCopiloto(p: PerfilCopiloto): string {
   const fichas = fichasDelCopiloto(p).map((id) => contextoDeReferente(id)).filter(Boolean).join('\n\n');
-  return [REGLAS_DEL_COPILOTO, negocioDelCopiloto(p), CONOCIMIENTO_ANUNCIOS, fichas].filter(Boolean).join('\n\n');
+  return [REGLAS_DEL_COPILOTO, negocioDelCopiloto(p), CONOCIMIENTO_ANUNCIOS, quienEnsenaQue(p), fichas].filter(Boolean).join('\n\n');
 }

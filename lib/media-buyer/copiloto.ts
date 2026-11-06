@@ -19,7 +19,8 @@
 
 import type { OfferMensaje } from '@/lib/offer-marco';
 import type { Desde } from '@/lib/chat-desde';
-import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import { ASESORES, asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import { QUE_ENSENA, ensenaElFunnel, queEnsena, quienesEnsenan } from './copiloto-referentes';
 import { fmtDinero } from '@/lib/format';
 import { montoDelTexto } from './monto';
 
@@ -48,6 +49,8 @@ export type PerfilCopiloto = {
   llamadas?: Llamadas;
   /** Qué hizo con el aviso de que el funnel elegido no le sirve: cambió al propuesto o siguió con el suyo. */
   ajuste?: 'cambio' | 'sigo';
+  /** Lo que había elegido antes de aceptar el funnel que propuso MaKo: con «Volver» se recupera (sin esto, volver dejaba el propuesto). */
+  antesDelAjuste?: { funnel?: IdFunnel; referente?: IdAsesor };
   objetivo?: ObjetivoOrganico;
   /** Piezas (o videos) por semana. */
   ritmo?: number;
@@ -59,6 +62,8 @@ export type PerfilCopiloto = {
 export type Funnel = {
   id: IdFunnel;
   nombre: string;
+  /** El nombre corto: el chip de la tarjeta de un referente («Webinar», «Instagram orgánico»). */
+  corto: string;
   /** Una línea para la pastilla y la tarjeta. */
   que: string;
   /** ¿Lleva anuncios? 'si': es un funnel de anuncios. 'opcional': puede correr sin ellos (un webinar o un regalo se difunden también en orgánico). 'no': nunca.
@@ -69,27 +74,28 @@ export type Funnel = {
 };
 
 export const FUNNELS: readonly Funnel[] = [
-  { id: 'vsl-llamada', nombre: 'Anuncios a un VSL con llamada', que: 'Anuncio, video de venta, agenda y llamada', anuncios: 'si', conLlamada: true },
-  { id: 'mensajes', nombre: 'Anuncios a mensajes', que: 'Anuncio que abre una conversación por WhatsApp o Instagram', anuncios: 'si', conLlamada: true },
-  { id: 'formulario', nombre: 'Anuncios a un formulario', que: 'Anuncio, formulario con filtro y seguimiento', anuncios: 'si', conLlamada: true },
-  { id: 'carrito', nombre: 'Anuncios a compra directa', que: 'Anuncio, página y carrito: se compra sin llamada', anuncios: 'si', conLlamada: false },
-  { id: 'webinar', nombre: 'Webinar', que: 'Una clase en vivo o grabada que prepara la venta', anuncios: 'opcional', conLlamada: true },
-  { id: 'lead-magnet', nombre: 'Lead magnets', que: 'Un regalo útil a cambio del contacto, y secuencia de seguimiento', anuncios: 'opcional', conLlamada: false },
-  { id: 'youtube', nombre: 'YouTube', que: 'Videos que educan y llevan a tu oferta', anuncios: 'no', conLlamada: false },
-  { id: 'organico', nombre: 'Orgánico en Instagram', que: 'Reels, stories y carruseles que atraen y venden', anuncios: 'no', conLlamada: false },
+  { id: 'vsl-llamada', nombre: 'Anuncios a un VSL con llamada', corto: 'VSL con llamada', que: 'Anuncio, video de venta, agenda y llamada', anuncios: 'si', conLlamada: true },
+  { id: 'mensajes', nombre: 'Anuncios a mensajes', corto: 'Anuncios a mensajes', que: 'Anuncio que abre una conversación por WhatsApp o Instagram', anuncios: 'si', conLlamada: true },
+  { id: 'formulario', nombre: 'Anuncios a un formulario', corto: 'Anuncios a formulario', que: 'Anuncio, formulario con filtro y seguimiento', anuncios: 'si', conLlamada: true },
+  { id: 'carrito', nombre: 'Anuncios a compra directa', corto: 'Compra directa', que: 'Anuncio, página y carrito: se compra sin llamada', anuncios: 'si', conLlamada: false },
+  { id: 'webinar', nombre: 'Webinar', corto: 'Webinar', que: 'Una clase en vivo o grabada que prepara la venta', anuncios: 'opcional', conLlamada: true },
+  { id: 'lead-magnet', nombre: 'Lead magnets', corto: 'Lead magnets', que: 'Un regalo útil a cambio del contacto, y secuencia de seguimiento', anuncios: 'opcional', conLlamada: false },
+  { id: 'youtube', nombre: 'YouTube', corto: 'YouTube', que: 'Videos que educan y llevan a tu oferta', anuncios: 'no', conLlamada: false },
+  { id: 'organico', nombre: 'Orgánico en Instagram', corto: 'Instagram orgánico', que: 'Reels, stories y carruseles que atraen y venden', anuncios: 'no', conLlamada: false },
 ];
 export const funnelPorId = (id: unknown): Funnel | null => FUNNELS.find((f) => f.id === id) ?? null;
 
-/** Los referentes que se ofrecen al empezar: el funnel con el que cada uno trabaja. El resto de lib/asesores sigue en el Funnel Coach. */
-export const REFERENTES_COPILOTO: ReadonlyArray<{ id: IdAsesor; funnel: IdFunnel; frase: string }> = [
-  { id: 'francisco-doglio', funnel: 'webinar', frase: 'webinars que preparan la venta' },
-  { id: 'sofia-contreras', funnel: 'lead-magnet', frase: 'marketing perpetuo, sin lanzamientos' },
-  { id: 'juan-ads', funnel: 'formulario', frase: 'anuncios en Meta, empezando chico' },
-  { id: 'emilio-puigrredon', funnel: 'organico', frase: 'el perfil como embudo, cerrando por mensaje' },
-  { id: 'julian-otalora', funnel: 'organico', frase: 'contenido orgánico con objetivo' },
-  { id: 'guille-collado', funnel: 'organico', frase: 'contenido viral en Instagram' },
-  { id: 'derek-chamizo', funnel: 'youtube', frase: 'canales de YouTube' },
-];
+/**
+ * Los referentes que se ofrecen al empezar: TODOS los de lib/asesores (los que tienen su cara y su ficha), con lo que enseña cada uno
+ * MEDIDO en su curso (./copiloto-referentes.ts). Primero los que enseñan un funnel para conseguir clientes; después los que enseñan
+ * otra parte de la venta (la oferta, la llamada, la voz). Martín, 6/11/2026: «no creo que hayas puesto a todos, pusiste a pocos».
+ */
+export const REFERENTES_COPILOTO: ReadonlyArray<{ id: IdAsesor; funnels: readonly IdFunnel[]; frase: string }> = [...ASESORES]
+  .map((a) => ({ id: a.id, funnels: QUE_ENSENA[a.id].funnels, frase: QUE_ENSENA[a.id].tema }))
+  .sort((a, b) => Number(b.funnels.length > 0) - Number(a.funnels.length > 0));
+
+/** Las estrategias del CoPilot que enseña un referente (vacía: enseña otra parte de la venta). */
+export const funnelsDelReferente = (id: IdAsesor | null | undefined): readonly IdFunnel[] => queEnsena(id)?.funnels ?? [];
 
 export const usaAnuncios = (f: IdFunnel | undefined) => !!f && funnelPorId(f)?.anuncios !== 'no';
 export const usaLlamadas = (f: IdFunnel | undefined) => f === 'vsl-llamada' || f === 'mensajes' || f === 'formulario' || f === 'webinar';
@@ -176,7 +182,18 @@ export function evaluarFunnel(f: IdFunnel, d: DatosDeDecision): Veredicto {
 export type PasoCopiloto = 'entrada' | 'referente' | 'funnel' | 'ticket' | 'presupuesto' | 'llamadas' | 'ajuste' | 'objetivo' | 'ritmo' | 'formato'
   | 'competencia' | 'propuesta' | 'listo';
 
-const funnelDe = (p: PerfilCopiloto): IdFunnel | undefined => p.funnel ?? (p.referente ? REFERENTES_COPILOTO.find((r) => r.id === p.referente)?.funnel : undefined);
+/** El funnel: el elegido, o el ÚNICO que enseña el referente. Si enseña varios (o ninguno), se pregunta cuál. */
+const funnelDe = (p: PerfilCopiloto): IdFunnel | undefined => {
+  if (p.funnel) return p.funnel;
+  const fs = funnelsDelReferente(p.referente);
+  return p.referente && fs.length === 1 ? fs[0] : undefined;
+};
+
+/** Los funnels que se ofrecen en el paso «funnel»: con un referente que enseña alguno, SÓLO los suyos; si no, todos. */
+export function funnelsOfrecidos(p: PerfilCopiloto): Funnel[] {
+  const suyos = p.entrada === 'referente' ? funnelsDelReferente(p.referente) : [];
+  return suyos.length ? suyos.map((id) => funnelPorId(id)!) : [...FUNNELS];
+}
 export const funnelElegido = (p: PerfilCopiloto): Funnel | null => funnelPorId(funnelDe(p));
 
 const datosDe = (p: PerfilCopiloto): DatosDeDecision | null =>
@@ -195,8 +212,8 @@ export function avisoPendiente(p: PerfilCopiloto): Veredicto | null {
 export function pasoDeCopiloto(p: PerfilCopiloto): PasoCopiloto {
   if (!p.entrada) return 'entrada';
   if (p.entrada === 'referente' && !p.referente && !p.funnel) return 'referente';
-  if (p.entrada === 'funnel' && !p.funnel) return 'funnel';
   const f = funnelDe(p);
+  if (!f) return 'funnel';
   if (p.ticket == null) return 'ticket';
   if (usaAnuncios(f) && p.presupuestoMes == null) return 'presupuesto';
   // Lo que no se pregunta (orgánico y YouTube no llevan plata ni llamadas) se completa en `completar`.
@@ -225,22 +242,56 @@ const RITMOS_ORGANICO = [3, 5, 7] as const;
 const RITMOS_YOUTUBE = [1, 2] as const;
 
 const TXT_ENTRADA = ['Elegir un tipo de funnel', 'Seguir la estrategia de un referente'] as const;
-const nombreDelReferente = (id: IdAsesor) => asesorPorId(id)?.completo ?? id;
-const pastillaReferente = (r: { id: IdAsesor; frase: string }) => `${nombreDelReferente(r.id)}: ${r.frase}`;
+/** La salida del paso de los referentes para quien prefiere elegir el funnel (la «otra opción» del primer paso). */
+export const SIN_REFERENTE = 'Prefiero elegir el funnel yo';
+/** Su nombre, y el que usa si es otro («Juan Osorio (Juan ADS)»). */
+export const nombreDelReferente = (id: IdAsesor): string => {
+  const a = asesorPorId(id);
+  if (!a) return id;
+  return plano(a.completo).includes(plano(a.nombre)) ? a.completo : `${a.completo} (${a.nombre})`;
+};
+
+/** Sin tildes y en minúsculas: para reconocer lo que la persona escribe («julian otalora», «sofia»). */
+/** Un nombre de funnel adentro de una frase: baja sólo la primera letra, y no la de una marca o una sigla («orgánico en Instagram»,
+ *  «anuncios a un VSL con llamada», «YouTube»). Con `toLowerCase()` entero salía «Para orgánico en instagram». */
+export function enFrase(nombre: string): string {
+  const primera = nombre.split(' ')[0];
+  if (/^(Instagram|WhatsApp|TikTok|YouTube|Meta|Google)$/.test(primera) || /[A-ZÁÉÍÓÚÑ]/.test(primera.slice(1))) return nombre;
+  return nombre.charAt(0).toLowerCase() + nombre.slice(1);
+}
+
+export const plano = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/**
+ * El referente que nombra un texto: por su nombre completo, el que se usa (Juan ADS) o su apellido si nadie más lo tiene. Gana la
+ * coincidencia más larga («Julián Otálora» antes que cualquier «Julián»).
+ */
+export function referenteDelTexto(texto: string): IdAsesor | null {
+  const t = ` ${plano(texto).replace(/[^a-z0-9 ]+/g, ' ')} `;
+  const apellidos = new Map<string, number>();
+  for (const a of ASESORES) { const ap = plano(a.completo).split(/\s+/).at(-1)!; apellidos.set(ap, (apellidos.get(ap) ?? 0) + 1); }
+  let mejor: { id: IdAsesor; largo: number } | null = null;
+  for (const a of ASESORES) {
+    const ap = plano(a.completo).split(/\s+/).at(-1)!;
+    const claves = [plano(a.completo), plano(a.nombre), ...(ap.length >= 5 && apellidos.get(ap) === 1 ? [ap] : [])];
+    for (const c of claves) if (t.includes(` ${c} `) && (!mejor || c.length > mejor.largo)) mejor = { id: a.id, largo: c.length };
+  }
+  return mejor?.id ?? null;
+}
 
 /** Las respuestas rápidas del paso. */
 export function opcionesDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): string[] {
   const f = funnelDe(p);
   switch (paso) {
     case 'entrada': return [...TXT_ENTRADA];
-    case 'referente': return REFERENTES_COPILOTO.map(pastillaReferente);
-    case 'funnel': return FUNNELS.map((x) => x.nombre);
+    case 'referente': return [...REFERENTES_COPILOTO.map((r) => nombreDelReferente(r.id)), SIN_REFERENTE];
+    case 'funnel': return funnelsOfrecidos(p).map((x) => x.nombre);
     case 'ticket': return TICKETS.map(us);
     case 'presupuesto': return [NADA, ...PRESUPUESTOS.map((n) => `${us(n)} al mes`)];
     case 'llamadas': return ['Yo', 'Un equipo', 'Nadie todavía'];
     case 'ajuste': {
       const v = avisoPendiente(completar(p));
-      return v?.mejor ? [`Sí, ${funnelPorId(v.mejor.funnel)!.nombre.toLowerCase()}`, 'Sigo con el mío'] : [];
+      return v?.mejor ? [`Sí, ${enFrase(funnelPorId(v.mejor.funnel)!.nombre)}`, 'Sigo con el mío'] : [];
     }
     case 'objetivo': return ['Viralidad', 'Ventas', 'Un poco de cada'];
     case 'ritmo': return (f === 'youtube' ? RITMOS_YOUTUBE : RITMOS_ORGANICO).map((n) => (f === 'youtube' ? `${n} por semana` : `${n} piezas por semana`));
@@ -257,14 +308,20 @@ export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre
   switch (paso) {
     case 'entrada': return `Hola, ${nombre}. Soy tu copiloto de marketing: armamos juntos qué hacer para conseguir clientes. ¿Cómo quieres empezar?`;
     case 'referente': return '¿A quién seguimos? Uso su método como guía: no soy esa persona ni participa en MaKo.';
-    case 'funnel': return '¿Qué funnel quieres armar? Si no lo sabes, elige cualquiera: te aviso si no te conviene.';
-    case 'ticket': return f ? `Para ${f.nombre.toLowerCase()}: ¿cuánto te deja una venta, en dólares?` : '¿Cuánto te deja una venta, en dólares?';
+    case 'funnel': {
+      const ref = p.entrada === 'referente' && p.referente ? asesorPorId(p.referente) : null;
+      const q = ref ? queEnsena(ref.id) : null;
+      if (ref && q?.funnels.length) return `${ref.completo} enseña ${q.tema}. ¿Cuál de sus estrategias armamos?`;
+      if (ref && q) return `${ref.completo} enseña ${q.tema}. No es un funnel para conseguir clientes, así que lo uso para esa parte. ¿Con qué funnel los conseguimos?`;
+      return '¿Qué funnel quieres armar? Si no lo sabes, elige cualquiera: te aviso si no te conviene.';
+    }
+    case 'ticket': return f ? `Para ${enFrase(f.nombre)}: ¿cuánto te deja una venta, en dólares?` : '¿Cuánto te deja una venta, en dólares?';
     case 'presupuesto': return '¿Cuánto puedes poner en anuncios por mes? Es lo que puedes perder sin quedar afuera, no lo que te gustaría.';
     case 'llamadas': return '¿Quién toma las llamadas o contesta los mensajes de quien se interesa?';
     case 'ajuste': {
       const v = avisoPendiente(completar(p));
       const alt = v?.mejor ? funnelPorId(v.mejor.funnel) : null;
-      return v && alt ? `${v.motivo} Con lo que me cuentas, propongo ${alt.nombre.toLowerCase()}. ${v.mejor!.porque}` : '¿Seguimos?';
+      return v && alt ? `${v.motivo} Con lo que me cuentas, propongo ${enFrase(alt.nombre)}. ${v.mejor!.porque}` : '¿Seguimos?';
     }
     case 'objetivo': return '¿Qué buscas con el contenido: que te conozca mucha gente (viralidad) o que te compren (ventas)? Una cosa pesa más que la otra, y sin elegir no sé qué publicar.';
     case 'ritmo': return f?.id === 'youtube' ? '¿Cuántos videos puedes subir por semana, sin dejarlo a las dos semanas?' : '¿Cuántas piezas puedes publicar por semana? Mejor menos y constante.';
@@ -276,11 +333,12 @@ export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre
   }
 }
 
-function respuestaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): string | null {
+export function respuestaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): string | null {
   switch (paso) {
     case 'entrada': return p.entrada === 'funnel' ? TXT_ENTRADA[0] : p.entrada === 'referente' ? TXT_ENTRADA[1] : null;
-    case 'referente': { const r = REFERENTES_COPILOTO.find((x) => x.id === p.referente); return r ? pastillaReferente(r) : null; }
-    case 'funnel': return funnelPorId(p.funnel)?.nombre ?? null;
+    // Lo que eligió en su momento: si después aceptó el funnel que propuso MaKo, el original queda en `antesDelAjuste`.
+    case 'referente': { const id = p.ajuste === 'cambio' && p.antesDelAjuste ? p.antesDelAjuste.referente : p.referente; return id ? nombreDelReferente(id) : null; }
+    case 'funnel': return funnelPorId(p.ajuste === 'cambio' && p.antesDelAjuste ? p.antesDelAjuste.funnel : p.funnel)?.nombre ?? null;
     case 'ticket': return p.ticket != null ? us(p.ticket) : null;
     case 'presupuesto': return p.presupuestoMes != null ? (p.presupuestoMes === 0 ? NADA : `${us(p.presupuestoMes)} al mes`) : null;
     case 'llamadas': return p.llamadas ? { yo: 'Yo', equipo: 'Un equipo', nadie: 'Nadie todavía' }[p.llamadas] : null;
@@ -322,12 +380,15 @@ export function leerRespuestaCopiloto(paso: PasoCopiloto, texto: string, p: Perf
       if (/funnel|tipo|elegir/i.test(t)) return { entrada: 'funnel' };
       return null;
     case 'referente': {
-      const r = REFERENTES_COPILOTO.find((x) => l.includes(nombreDelReferente(x.id).toLowerCase()) || l.includes((asesorPorId(x.id)?.nombre ?? '').toLowerCase()));
-      return r ? { referente: r.id } : null;
+      const id = referenteDelTexto(t);
+      if (id) return { referente: id };
+      if (/funnel|sin referente|ninguno|prefiero elegir|elijo yo/.test(plano(t))) return { entrada: 'funnel' };
+      return null;
     }
     case 'funnel': {
-      const f = FUNNELS.find((x) => x.nombre.toLowerCase() === l) ?? FUNNELS.find((x) => l.includes(x.id.replace('-llamada', '')) || l.includes(x.nombre.toLowerCase()));
-      return f ? { funnel: f.id } : null;
+      // Sólo lo que se ofrece: con un referente, sus estrategias (lo demás lo explica `interpretarEscrito`, «no lo enseña»).
+      const f = funnelDelTexto(t);
+      return f && funnelsOfrecidos(p).some((x) => x.id === f) ? { funnel: f } : null;
     }
     case 'ticket': return num && num > 0 ? { ticket: num } : null;
     case 'presupuesto':
@@ -343,7 +404,9 @@ export function leerRespuestaCopiloto(paso: PasoCopiloto, texto: string, p: Perf
       if (!v?.mejor) return null;
       if (/sigo|mío|mio|igual|^no\b/.test(l)) return { ajuste: 'sigo' };
       if (/^s[ií]|cambi/.test(l) || l.includes(funnelPorId(v.mejor.funnel)!.nombre.toLowerCase())) {
-        return { funnel: v.mejor.funnel, referente: undefined, ajuste: 'cambio' };
+        // El referente se queda si también enseña el funnel nuevo; lo de antes se guarda para poder volver.
+        const antes = { ...(p.funnel ? { funnel: p.funnel } : {}), ...(p.referente ? { referente: p.referente } : {}) };
+        return { funnel: v.mejor.funnel, referente: ensenaElFunnel(p.referente, v.mejor.funnel) ? p.referente : undefined, ajuste: 'cambio', antesDelAjuste: antes };
       }
       return null;
     }
@@ -372,8 +435,8 @@ export function leerRespuestaCopiloto(paso: PasoCopiloto, texto: string, p: Perf
       return null;
     case 'propuesta':
       if (/sirve|empec|ok|dale/.test(l)) return { aceptado: true };
-      if (/funnel/.test(l)) return { funnel: undefined, referente: undefined, entrada: undefined, ajuste: undefined, ticket: undefined, presupuestoMes: undefined, llamadas: undefined, objetivo: undefined, ritmo: undefined, formato: undefined, competencia: undefined };
-      if (/n[uú]mero/.test(l)) return { ticket: undefined, presupuestoMes: undefined, llamadas: undefined, ajuste: undefined };
+      if (/funnel/.test(l)) return { funnel: undefined, referente: undefined, entrada: undefined, ajuste: undefined, antesDelAjuste: undefined, ticket: undefined, presupuestoMes: undefined, llamadas: undefined, objetivo: undefined, ritmo: undefined, formato: undefined, competencia: undefined };
+      if (/n[uú]mero/.test(l)) return { ticket: undefined, presupuestoMes: undefined, llamadas: undefined, ajuste: undefined, antesDelAjuste: undefined };
       return null;
     default: return null;
   }
@@ -384,6 +447,155 @@ export function aplicarCambio(p: PerfilCopiloto, cambio: Partial<PerfilCopiloto>
   const sig: PerfilCopiloto = { ...p, ...cambio };
   for (const [k, v] of Object.entries(cambio)) if (v === undefined) delete (sig as Record<string, unknown>)[k];
   return sig;
+}
+
+// ── Lo que se escribe: volver atrás, empezar de nuevo y lo que un referente no enseña (sin IA) ──
+// Martín, 6/11/2026: «le dije "Volvamos a empezar" porque seleccioné por error a un influencer y quería la otra opción y no funcionó».
+// Lo escrito se lee en este orden: un pedido de volver o de empezar de nuevo (antes que la respuesta, porque «no era eso» lleva un
+// «no» que el paso de la competencia tomaría por «más adelante»), la respuesta del paso, un «cambiar» suelto, un funnel que el
+// referente elegido no enseña, y recién lo que queda va a MaKo (el chat de la charla, con la IA del negocio).
+
+/** El funnel que nombra un texto, si nombra uno solo. */
+export function funnelDelTexto(texto: string): IdFunnel | null {
+  const l = plano(texto);
+  const exacto = FUNNELS.find((x) => plano(x.nombre) === l || plano(x.corto) === l);
+  if (exacto) return exacto.id;
+  const PISTAS: Array<[IdFunnel, RegExp]> = [
+    ['vsl-llamada', /\bvsl\b|video de venta/], ['formulario', /formulario/], ['carrito', /carrito|compra directa|checkout/],
+    ['webinar', /webinar|clase en vivo|masterclass/], ['lead-magnet', /lead ?magnet|regalo/], ['youtube', /youtube/],
+    ['organico', /organico|instagram|\breels?\b|stories|historias|carrusel/], ['mensajes', /anuncios? a mensajes|whatsapp|\bmensajes\b/],
+  ];
+  const nombrados = [...new Set(PISTAS.filter(([, re]) => re.test(l)).map(([id]) => id))];
+  return nombrados.length === 1 ? nombrados[0] : null;
+}
+
+export type ComandoCopiloto = 'volver' | 'empezar';
+
+/**
+ * ¿Pide volver atrás o empezar de nuevo? `fuerte` = lo que se dice sólo para eso («me equivoqué», «volvamos a empezar», «la otra
+ * opción»); se mira ANTES que la respuesta del paso. Un «cambiar» suelto es débil: en el aviso y en la propuesta «cambiar» es una
+ * respuesta, así que se mira DESPUÉS.
+ */
+export function comandoDeCopiloto(texto: string, fuerza: 'fuerte' | 'debil'): ComandoCopiloto | null {
+  const l = plano(texto).replace(/[¡!¿?.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (fuerza === 'fuerte') {
+    if (/\b(volv\w*|vuelv\w*|empez\w*|empec\w*|empiez\w*|arranc\w*|arranqu\w*|comenz\w*|comienz\w*|comenc\w*) (a empezar|a arrancar|de nuevo|de cero|otra vez|desde (el )?(principio|cero|inicio))\b|\bdesde (el )?(principio|cero)\b|\breinici\w*|\bresete\w*|\bborr\w* todo\b|\bde cero\b/.test(l)) return 'empezar';
+    // «Volver» sólo como pedido de moverse («volver», «volvamos atrás»): «quiero volver a vender como antes» es una charla.
+    if (/\bme equivoqu\w*|\bme confund\w*|\beleg\w* mal\b|\btoqu\w* mal\b|\bsin querer\b|\bpor error\b|^(no )?(quiero |prefiero )?la otra( opcion)?$|\botra opcion\b|\bno era (eso|esa|ese|asi)\b|^(quiero |podemos |vamos a )?(volver|volvamos|vuelvo)( atras| para atras| a la (pregunta|opcion) anterior| al paso anterior)?$|\bvolv(er|amos|emos) (atras|para atras|a la anterior|al paso anterior|a la pregunta anterior)\b|^atras$|\bir atras\b|\bpaso anterior\b|^deshac\w*$|\bcorreg(ir|i)\b/.test(l)) return 'volver';
+    return null;
+  }
+  return /^(quiero |prefiero |me gustaria |puedo )?(cambiar|cambiarlo|cambialo|cambiarla|cambiar eso|cambiar esto|cambiar la respuesta|otra cosa|eso no)$/.test(l) ? 'volver' : null;
+}
+
+/** Los campos que contesta cada paso. Volver a un paso borra los suyos y los de los pasos siguientes. */
+const CAMPOS: Record<PasoCopiloto, Array<keyof PerfilCopiloto>> = {
+  entrada: ['entrada'], referente: ['referente'], funnel: ['funnel'], ticket: ['ticket'], presupuesto: ['presupuestoMes'], llamadas: ['llamadas'],
+  ajuste: ['ajuste', 'antesDelAjuste'], objetivo: ['objetivo'], ritmo: ['ritmo'], formato: ['formato'], competencia: ['competencia'], propuesta: ['aceptado'], listo: [],
+};
+
+/** Los pasos que ya contestó, en orden. */
+export function pasosRespondidos(p: PerfilCopiloto): PasoCopiloto[] {
+  const actual = pasoDeCopiloto(p);
+  const out: PasoCopiloto[] = [];
+  for (const paso of ORDEN) {
+    if (paso === actual) break;
+    if (respuestaDeCopiloto(paso, p) != null) out.push(paso);
+  }
+  return out;
+}
+
+/** Vuelve al último paso contestado: lo deja sin contestar (y todo lo que vino después). null = no hay nada antes. */
+export function volverUnPaso(p: PerfilCopiloto): { perfil: PerfilCopiloto; paso: PasoCopiloto } | null {
+  const ultimo = pasosRespondidos(p).at(-1);
+  if (!ultimo) return null;
+  const sig: PerfilCopiloto = { ...p };
+  for (const k of ORDEN.slice(ORDEN.indexOf(ultimo)).flatMap((x) => CAMPOS[x])) delete (sig as Record<string, unknown>)[k];
+  // Volver del «Sí, cambiemos» devuelve lo que había elegido: si no, el funnel propuesto quedaba como si lo hubiera elegido.
+  if (ultimo === 'ajuste' && p.ajuste === 'cambio' && p.antesDelAjuste) {
+    delete sig.funnel; delete sig.referente;
+    if (p.antesDelAjuste.funnel) sig.funnel = p.antesDelAjuste.funnel;
+    if (p.antesDelAjuste.referente) sig.referente = p.antesDelAjuste.referente;
+  }
+  return { perfil: sig, paso: ultimo };
+}
+
+/** Lo que un referente no enseña: quién sí, para ofrecerlo (sin IA). */
+export type FueraDelReferente = { referente: IdAsesor; funnel: IdFunnel; quienes: IdAsesor[] };
+
+/** Lo que MaKo dice al volver por lo escrito, en una línea: sin eso, lo escrito queda debajo de la pregunta de antes y no se sabe si se
+ *  entendió. Si con lo escrito ya se contestó el paso al que se volvió («quiero la otra opción»), dice qué quedó. */
+export function acuseDeVolver(antes: PerfilCopiloto, despues: PerfilCopiloto): string {
+  const atras = volverUnPaso(antes)?.paso;
+  const quedo = atras && atras !== pasoDeCopiloto(despues) ? respuestaDeCopiloto(atras, despues) : null;
+  return quedo ? `Listo, cambiado: ${quedo}.` : 'Volvemos un paso.';
+}
+
+export type Interpretado =
+  | { tipo: 'respuesta' | 'volver' | 'empezar'; perfil: PerfilCopiloto }
+  | { tipo: 'fuera'; fuera: FueraDelReferente }
+  | { tipo: 'nada' }
+  | { tipo: 'libre' };
+
+/** El funnel nombrado no lo enseña el referente que eligió. */
+function fueraDe(p: PerfilCopiloto, texto: string): FueraDelReferente | null {
+  if (p.entrada !== 'referente' || !p.referente) return null;
+  const f = funnelDelTexto(texto);
+  if (!f || !funnelsDelReferente(p.referente).length || ensenaElFunnel(p.referente, f)) return null;
+  return { referente: p.referente, funnel: f, quienes: quienesEnsenan(f, p.referente) };
+}
+
+/** ¿Es una pregunta? Con signo, o empezando por una palabra que pregunta. */
+export const esPregunta = (t: string): boolean => /\?/.test(t) || /^(que|como|cual|cuales|cuanto|cuanta|cuantos|cuantas|por que|para que|donde|cuando|quien|sirve|conviene|puedo|se puede|es mejor)\b/.test(plano(t).replace(/^[¿¡\s]+/, ''));
+
+/** Lo que la persona escribió en la charla, leído sin IA. `libre` = va a MaKo. */
+export function interpretarEscrito(p: PerfilCopiloto, texto: string): Interpretado {
+  const t = texto.trim();
+  if (!t) return { tipo: 'nada' };
+  const fuerte = comandoDeCopiloto(t, 'fuerte');
+  if (fuerte === 'empezar') return { tipo: 'empezar', perfil: {} };
+  const volver = (): Interpretado => {
+    const v = volverUnPaso(p);
+    if (!v) return { tipo: 'nada' };
+    // Lo que viene con el pedido se lee en el paso al que se volvió: «me equivoqué, son 3.000» corrige el ticket de una.
+    const ahora = pasoDeCopiloto(v.perfil);
+    let c = leerRespuestaCopiloto(ahora, t, v.perfil);
+    // «La otra opción» en un paso de dos: la que no había elegido.
+    if (!c && /\botra\b/.test(plano(t))) {
+      const ops = opcionesDeCopiloto(ahora, v.perfil);
+      const antes = respuestaDeCopiloto(ahora, p);
+      const otra = ops.length === 2 && antes ? ops.find((o) => o !== antes) : undefined;
+      if (otra) c = leerRespuestaCopiloto(ahora, otra, v.perfil);
+    }
+    return { tipo: 'volver', perfil: c ? aplicarCambio(v.perfil, c) : v.perfil };
+  };
+  if (fuerte === 'volver') return volver();
+  const paso = pasoDeCopiloto(p);
+  // Una PREGUNTA no es una respuesta («¿qué es un webinar?» no elige el webinar): va a MaKo, salvo que sea una pastilla tal cual.
+  const esPastilla = opcionesDeCopiloto(paso, p).some((o) => plano(o) === plano(t));
+  const c = esPregunta(t) && !esPastilla ? null : leerRespuestaCopiloto(paso, t, p);
+  if (c) return { tipo: 'respuesta', perfil: aplicarCambio(p, c) };
+  if (comandoDeCopiloto(t, 'debil') === 'volver') return volver();
+  const fuera = fueraDe(p, t);
+  if (fuera) return { tipo: 'fuera', fuera };
+  return { tipo: 'libre' };
+}
+
+/** Lo que dice MaKo cuando el referente no enseña lo que se pidió, y lo que ofrece (cada opción con su cambio; null = seguir igual). */
+export function textoDeFuera(x: FueraDelReferente): { texto: string; opciones: Array<{ texto: string; cambio: Partial<PerfilCopiloto> | null }> } {
+  const ref = asesorPorId(x.referente)!;
+  const f = funnelPorId(x.funnel)!;
+  const quienes = x.quienes.slice(0, 3);
+  const lista = quienes.map(nombreDelReferente);
+  const de = lista.length > 1 ? `${lista.slice(0, -1).join(', ')} y ${lista.at(-1)}` : lista[0];
+  const texto = `${ref.completo} no enseña ${enFrase(f.corto)} en «${ref.curso}». ${quienes.length ? `Lo enseña${quienes.length > 1 ? 'n' : ''} ${de}.` : 'Ningún referente de MaKo lo enseña.'}`;
+  return {
+    texto,
+    opciones: [
+      ...quienes.map((id) => ({ texto: `Seguir a ${nombreDelReferente(id)}`, cambio: { entrada: 'referente' as const, referente: id, funnel: x.funnel } })),
+      { texto: `${f.corto} sin referente`, cambio: { entrada: 'funnel' as const, referente: undefined, funnel: x.funnel } },
+      { texto: `Seguir con ${ref.nombre}`, cambio: null },
+    ],
+  };
 }
 
 // ── La propuesta ─────────────────────────────────────────────────────────────
@@ -419,7 +631,8 @@ export function propuestaDe(p: PerfilCopiloto): Propuesta | null {
   const f = funnelElegido(p);
   if (!f) return null;
   const R = RUTAS_COPILOTO;
-  const ref = p.referente && REFERENTES_COPILOTO.find((r) => r.id === p.referente)?.funnel === f.id ? asesorPorId(p.referente) : null;
+  // «Inspirado en» sólo si el referente enseña ESTE funnel (medido en su curso: ./copiloto-referentes.ts).
+  const ref = ensenaElFunnel(p.referente, f.id) ? asesorPorId(p.referente) : null;
   const inspirado = ref ? inspiradoEn(ref) : null;
   const plata = numerosDeAnuncios(f.id, p.presupuestoMes ?? 0);
   const investigar = p.competencia === 'si' ? [{ texto: 'Mirar qué anuncia y publica tu competencia', href: R.competencia }] : [];
@@ -623,12 +836,17 @@ export function sanearPerfil(x: unknown): PerfilCopiloto {
   const n = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? Math.round(v * 100) / 100 : undefined);
   const out: PerfilCopiloto = {};
   if (o.entrada === 'funnel' || o.entrada === 'referente') out.entrada = o.entrada;
-  if (typeof o.referente === 'string' && REFERENTES_COPILOTO.some((r) => r.id === o.referente)) out.referente = o.referente as IdAsesor;
+  if (asesorPorId(o.referente)) out.referente = o.referente as IdAsesor;
   if (funnelPorId(o.funnel)) out.funnel = o.funnel as IdFunnel;
   const pm = n(o.presupuestoMes, 0, 1e8); if (pm !== undefined) out.presupuestoMes = pm;
   const tk = n(o.ticket, 0.01, 1e8); if (tk !== undefined) out.ticket = tk;
   if (o.llamadas === 'yo' || o.llamadas === 'equipo' || o.llamadas === 'nadie') out.llamadas = o.llamadas;
   if (o.ajuste === 'cambio' || o.ajuste === 'sigo') out.ajuste = o.ajuste;
+  if (o.antesDelAjuste && typeof o.antesDelAjuste === 'object' && !Array.isArray(o.antesDelAjuste)) {
+    const a = o.antesDelAjuste as Record<string, unknown>;
+    const antes = { ...(funnelPorId(a.funnel) ? { funnel: a.funnel as IdFunnel } : {}), ...(asesorPorId(a.referente) ? { referente: a.referente as IdAsesor } : {}) };
+    if (Object.keys(antes).length) out.antesDelAjuste = antes;
+  }
   if (o.objetivo === 'viralidad' || o.objetivo === 'ventas' || o.objetivo === 'mixto') out.objetivo = o.objetivo;
   const rt = n(o.ritmo, 1, 21); if (rt !== undefined) out.ritmo = Math.round(rt);
   if (typeof o.formato === 'string' && ['reels', 'stories', 'carruseles', 'mezcla', 'largos', 'shorts'].includes(o.formato)) out.formato = o.formato as FormatoOrganico;

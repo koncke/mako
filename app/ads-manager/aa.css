@@ -10,12 +10,15 @@
 .aa {
   --aa-radio: 14px;
   --aa-borde: var(--border);
-  /* El fondo «apenas cálido» de la 04: el de la casa con una pizca del dorado de MaKo (en oscuro, igual de sutil). */
-  --aa-calido: color-mix(in oklab, var(--bg) 95%, var(--mako) 5%);
   --aa-rama: color-mix(in oklab, var(--primary) 55%, transparent);
   font-family: 'Geist', system-ui, sans-serif;
   color: var(--ink);
-  background: var(--aa-calido);
+  /* UN SOLO FONDO (Martín, 6/11/2026: «el background no es igual en toda la tab de copilot, es blanco y crema en algunos lados, eso
+     esta mal, ya varias veces cometes el mismo error»). Hasta ese día acá iba el «apenas cálido» de AdAmigo (el fondo de la casa con
+     5% del dorado de MaKo): esta caja termina donde termina su contenido, y alrededor y debajo quedaba el fondo del layout, otro
+     color. El fondo de la página es el de la casa (var(--bg)), el mismo del layout: lo que se pinta encima son tarjetas.
+     Regla en AGENTS.md («Una pantalla no pinta su propio fondo»); lo fija tests/un-solo-fondo.test.ts. */
+  background: var(--bg);
   min-height: 100%;
   padding: 18px 32px 56px calc(32px + var(--ancho-panel-mako, 0px));
   transition: padding-left .2s ease;
@@ -243,13 +246,29 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .aa-insp { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--primary); }
 .aa-nota { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
 .aa-nota a, .aa-prop a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
-.aa-refs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.aa-ref { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--ink); cursor: pointer; font: inherit; }
+/* Los referentes (6/11/2026): TODOS, con un buscador. La grilla se arma sola por ancho (`auto-fill` con un mínimo topeado al 100%):
+   no se rompe con el panel de MaKo ni a 390; cada tarjeta deja que el texto baje de renglón y nunca lo corta. */
+.aa-refs-caja { margin-top: 10px; display: grid; gap: 8px; }
+.aa-refs-buscar { width: 100%; height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; }
+.aa-refs-buscar:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
+.aa-refs-grupo { margin: 6px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--faint); }
+.aa-refs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr)); gap: 8px; }
+.aa-ref { width: 100%; height: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; text-align: left; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--ink); cursor: pointer; font: inherit; }
 .aa-ref:hover:not(:disabled) { border-color: var(--primary); }
 .aa-ref img { flex: none; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--surface); }
-.aa-ref span { min-width: 0; display: grid; gap: 1px; }
-.aa-ref b { font-size: 13.5px; font-weight: 600; }
-.aa-ref small { font-size: 12px; line-height: 1.3; color: var(--dim); }
+.aa-ref > span { min-width: 0; display: grid; gap: 2px; }
+.aa-ref b { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.aa-ref small { font-size: 12px; line-height: 1.35; color: var(--dim); }
+.aa-ref-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.aa-ref-chips i { font-style: normal; font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 7px; border-radius: 999px; background: color-mix(in oklab, var(--primary) 10%, var(--surface)); color: var(--primary); white-space: nowrap; }
+.aa-ref-chips i[data-otro] { background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--dim); }
+.aa-refs-sin { justify-self: start; margin-top: 2px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); font-size: 13px; font-weight: 600; color: var(--ink); }
+.aa-refs-sin:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+/* Volver y empezar de nuevo (6/11/2026, Martín: «le dije "Volvamos a empezar" … y no funcionó»): siempre a mano, abajo de la charla. */
+.aa-nav-charla { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 2px 2px 0; }
+.aa-nav-charla button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--dim); }
+.aa-nav-charla button:hover:not(:disabled) { color: var(--primary); }
+.aa-rapidas--nota { margin-top: 10px; }
 .aa-prop { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 12px; background: var(--bg); }
 .aa-prop h3 { margin: 0 0 2px; font-size: 16px; font-weight: 650; }
 .aa-prop h4 { margin: 12px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
@@ -384,7 +403,6 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
   .aa-tramos li { padding: 3px 8px 3px 4px; gap: 5px; font-size: 11.5px; }
   .aa-tramos li span { width: 18px; height: 18px; font-size: 10px; }
   .aa-arranque-hilo { border-radius: 14px; }
-  .aa-refs { grid-template-columns: minmax(0, 1fr); }
   .aa-tarea { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .aa-boton { width: 100%; }
   .aa-etiqueta { display: none; }
