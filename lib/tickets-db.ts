@@ -73,6 +73,12 @@ export type FilaTicket = {
   aviso_motivo: string | null;
   /** Cuándo se tomó (o resolvió) el último intento de entrega al Cerebro. */
   aviso_at?: string | null;
+  /** La entrega al Cerebro de un ticket que espera la decisión de Martín (mig 0343). Es OTRA marca que `aviso_*`, que es la de
+   *  los bugs del triage: `entregaAlCerebro` dibuja las dos. Opcionales porque una base sin la 0343 no las tiene. */
+  cerebro_estado?: string | null;
+  cerebro_intentos?: number;
+  cerebro_motivo?: string | null;
+  cerebro_at?: string | null;
   arreglado_at: string | null;
   arreglo_nota: string | null;
   resuelto_at: string | null;
@@ -97,7 +103,12 @@ export const TIPOS_NOTA = ['reclasificado', 'nota', 'comentario'] as const;
 
 export type Evento = { id: number; at: string; actor: string; tipo: string; texto: string | null; datos: Record<string, unknown> | null };
 
-const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, aviso_at, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
+// ⚠️ `cerebro_*` (mig 0343) ESTÁ ACÁ DESDE EL 6/11/2026, y antes no: la bandeja no podía decir «Entregado al Cerebro» de un
+// ticket que espera a Martín porque esas columnas no se leían. La 0343 está en producción desde el 29/10 (los 22 tickets de
+// entonces quedaron en 'pendiente'), así que pedirlas ya no tumba la bandeja. En una base SIN la 0343 —un entorno viejo— este
+// select falla entero: ahí la columna no existe y Supabase devuelve error, no null. Si eso vuelve a pasar, el arreglo es
+// aplicar la 0343 (sólo agrega, es idempotente), no sacarlas de acá.
+const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, aviso_at, cerebro_estado, cerebro_intentos, cerebro_motivo, cerebro_at, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
 
 function aFila(f: Record<string, unknown>): FilaTicket {
   const { workspaces: ws, usuarios: us, ...resto } = f as { workspaces?: { nombre?: unknown } | null; usuarios?: { foto_url?: unknown } | null };
@@ -113,6 +124,9 @@ function aFila(f: Record<string, unknown>): FilaTicket {
     prioridad: (PRIORIDADES as readonly unknown[]).includes(f.prioridad) ? f.prioridad as Prioridad : 'media',
     tipo: esTipo(f.tipo) ? f.tipo : 'bug',
     aviso_intentos: Number(f.aviso_intentos) || 0,
+    // Igual que aviso_intentos, y sólo si la columna vino: en una base sin la 0343 no se inventa un 0, que se leería como
+    // «nunca se intentó» en vez de «no se sabe».
+    ...(f.cerebro_intentos !== undefined ? { cerebro_intentos: Number(f.cerebro_intentos) || 0 } : {}),
     ...(ws !== undefined ? { negocio: typeof ws?.nombre === 'string' ? ws.nombre : null } : {}),
     ...(us !== undefined ? { foto } : {}),
   };

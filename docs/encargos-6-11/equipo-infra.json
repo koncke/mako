@@ -1,0 +1,647 @@
+[
+ {
+  "id": 1,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Mañana vencen las líneas de WhatsApp: hay que reparar el espejo de cada una",
+  "porque": "Pasada la fecha, la línea deja de recibir mensajes y nadie se entera: ya pasó una vez.",
+  "tecnico": "Entrar a /whatsapp y tocar «Reparar espejo» en cada línea muda; ninguna línea debe quedar sobre la URL legada. lib/evolution-firma.ts:29 (CORTE_LEGADO) · docs/relevo/pendientes-barrido.md P1 · docs/pendientes.md:267",
+  "original": {
+   "titulo": "La URL vieja del webhook del WhatsApp no oficial vence MAÑANA (7/11)",
+   "queFalta": "Entrar a /whatsapp y tocar «Reparar espejo» en cada línea que siga muda. Hecho = ninguna línea queda sobre la URL legada. Pasada la fecha, el espejo de esa línea muere en silencio (ya pasó el 10/07).",
+   "donde": "lib/evolution-firma.ts:29 (CORTE_LEGADO) · docs/relevo/pendientes-barrido.md P1 · docs/pendientes.md:267",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 3,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Hay 6 mensajes del Runner sin contestar y los primeros vencen el 8/11",
+  "porque": "Son pedidos esperando respuesta: si vencen, se pierden y nadie sabe qué quedó sin hacer.",
+  "tecnico": "Cerrar los 6 del limbo desde el Ops Center antes del 8/11; hecho = limbo en 0. app/admin/operaciones · docs/relevo/pendientes-barrido.md P2",
+  "original": {
+   "titulo": "El limbo del Runner: 6 mensajes, los primeros vencen el 8/11",
+   "queFalta": "Cerrarlos desde el Ops Center antes del 8/11. Hecho = el limbo en 0.",
+   "donde": "docs/relevo/pendientes-barrido.md P2 · app/admin/operaciones",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 5,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Cinco cambios ya subidos que nadie miró en pantalla",
+  "porque": "Están en producción sin revisar: si alguno quedó mal, el primero que lo ve es un cliente.",
+  "tecnico": "Abrir con capturas y contra los pedidos de Martín: punta/copilot-feedback (eaec41da6), punta/carruseles-thumbnails (25fbdc8a1), punta/dashboards-edicion (f6b9301d6, su chat seguía corriendo 16:05 UTC), punta/nada-por-detras (2cb406043), punta/github-minutos (f7c2f57da). Lo que falle va al chat de origen. docs/relevo/cerebro.md:13",
+  "original": {
+   "titulo": "Revisar a mano las cinco puntas que entraron a main sin que nadie las mire",
+   "queFalta": "Abrirlas con capturas y contra los pedidos de Martín; lo que falle se le manda a su chat sin pasar por Martín. Son punta/copilot-feedback (eaec41da6), punta/carruseles-thumbnails (25fbdc8a1), punta/dashboards-edicion (f6b9301d6, ese chat seguía corriendo a las 16:05 UTC), punta/nada-por-detras (2cb406043) y punta/github-minutos (f7c2f57da).",
+   "donde": "docs/relevo/cerebro.md:13",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 34,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La alarma del gasto de GitHub da rojo todos los días y el número es falso",
+  "porque": "Nadie le cree a la alarma, y si el saldo de verdad se termina, ningún cambio puede subir.",
+  "tecnico": "El panel dice US$15,94 de US$30 (16:05 UTC del 6/11) y scripts/minutos-actions.mjs dice US$51,87. Se pidió corregir al chat «Bajar lo que gasta GitHub Actions» sin confirmación. Falta medir si el recorte del 6/11 bajó el gasto: a US$6,7 por día quedaban ~2 días. github.com/settings/billing · docs/relevo/cerebro.md:18",
+  "original": {
+   "titulo": "La alarma de minutos de GitHub Actions es falsa y da rojo todos los días",
+   "queFalta": "El panel dice US$15,94 de US$30 (16:05 UTC del 6/11) y `scripts/minutos-actions.mjs` dice US$51,87. Se lo pidió corregir al chat «Bajar lo que gasta GitHub Actions» sin confirmación. Y falta medir si el recorte del 6/11 bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.",
+   "donde": "scripts/minutos-actions.mjs · github.com/settings/billing · docs/relevo/cerebro.md:18",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 36,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Marketing CoPilot: su cambio nunca subió y el chat que lo hacía está colgado",
+  "porque": "Lo hecho no llega a producción, y una cuenta nueva sigue sin ver la primera entrada del CoPilot.",
+  "tecnico": "Llevar punta/marketing-copilot (361c64223) a main, desplegar con scripts/desplegar-ya.mjs desde C:/dev/wt-puntas y borrar C:/dev/wt-copilot (primero `cmd //c rmdir` del enlace node_modules, después `git worktree remove`). El chat figura «waiting on a human» desde antes de 05:45 UTC del 6/11. El agente del CoPilot nunca se probó con la IA real (14 conversaciones en docs/marketing-copilot/conversaciones.md). docs/relevo/cerebro.md:29,31,34",
+  "original": {
+   "titulo": "`punta/marketing-copilot` (361c64223) no llegó a main y su chat está trabado",
+   "queFalta": "Llevarlo a main, desplegar con `scripts/desplegar-ya.mjs` desde C:/dev/wt-puntas y borrar C:/dev/wt-copilot (primero `cmd //c rmdir` del enlace node_modules, después `git worktree remove`). Trae que una cuenta vacía también vea la primera entrada. Y el agente del CoPilot nunca se probó con la IA real (14 conversaciones en docs/marketing-copilot/conversaciones.md).",
+   "donde": "docs/relevo/cerebro.md:29,31,34 · scripts/desplegar-ya.mjs",
+   "bloqueo": "El chat «Marketing CoPilot» figura «waiting on a human» desde antes de las 05:45 UTC del 6/11 y no subió nada",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 37,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El chat que ordenaba los pendientes dejó de responder: hay que abrir uno nuevo",
+  "porque": "Su lista de arreglos está escrita y priorizada, y nadie la está tomando: queda todo parado.",
+  "tecnico": "Recibió dos veces «seguí con nada por detrás y las funciones» y no se movió: hace falta un chat NUEVO. Cola: C3 (embeddings sin recordUsage), C4 (borrador de automatización pausada), C8 (aviso de reunión no leída → chat Plan), C11 (etapa de CRM agregado → Automations + Martín), C12 (página de «no encontrado») y la familia Plan de «nada por detrás» (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence). docs/relevo/pendientes-barrido.md · docs/relevo/nube-nada-por-detras.md §«Lo que sigue»",
+  "original": {
+   "titulo": "El Barrido de pendientes quedó quieto con su lista priorizada sin tomar",
+   "queFalta": "Recibió dos veces «seguí con nada por detrás y las funciones» y no se movió: hace falta un chat NUEVO. La cola está escrita y priorizada: C3 (embeddings sin recordUsage, decisión de cómo registrarlo), C4 (borrador de automatización pausada, decisión), C8 (aviso de reunión no leída → chat Plan), C11 (etapa de CRM agregado → Automations + Martín), C12 (página de «no encontrado»), y la familia Plan de «nada por detrás» (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence).",
+   "donde": "docs/relevo/pendientes-barrido.md §«Cola de CÓDIGO que hace este barrido» · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md · docs/relevo/nube-nada-por-detras.md §«Lo que sigue»",
+   "bloqueo": "Hace falta abrir un chat nuevo; el anterior no reacciona",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 40,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Seis cambios viejos de la base nunca se comprobaron; uno afecta al Archivero",
+  "porque": "Si falta uno, el Archivero no guarda de dónde vino cada documento y nadie lo sabe hasta que alguien lo busca.",
+  "tecnico": "Correr `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) desde la 0298 y aplicar las ausentes en el orden de despliegue de la cabecera del .sql. Sin medir: 0298, 0299, 0302, 0314, 0316 y 0330 (sin la 0316 El Archivero no guarda el origen de cada documento). De la 0331 en adelante: 48 aplicadas, 0 ausentes, 4 sin verificar (0336, 0347, 0348, 0352). docs/relevo/pendientes-barrido.md P4",
+  "original": {
+   "titulo": "Seis migraciones anteriores a la 0331 nunca se midieron",
+   "queFalta": "De la 0331 en adelante están medidas: 48 aplicadas, 0 ausentes, 4 «sin verificar» (0336, 0347, 0348, 0352, que sólo recrean algo que ya existía). Quedan sin medir 0298, 0299, 0302, 0314, 0316 y 0330. Correr `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) desde la 0298 y aplicar las ausentes en su orden de despliegue (cabecera del .sql). Sin la 0316 El Archivero no guarda de dónde vino cada documento.",
+   "donde": "scripts/verificar-migraciones-aplicadas.mjs · docs/relevo/pendientes-barrido.md P4 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §Conteos",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 99,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El guion de un video puede salir cortado y nadie midió cuánto pasa",
+  "porque": "Si el respaldo que transcribe es justo el que corta, el aviso de «guion corto» va a salir seguido y el arreglo de fondo es otro.",
+  "tecnico": "lib/ai-cheap.ts:1863 (guionDeYoutubeConGemini, PISO_GUION_YT_CPM, pisoDeGuionYt), lib/spy-transcripcion.ts (NOTA_GUION_CORTO) · el 6/11 se puso un piso de 600 caracteres por minuto porque Gemini cortaba con finishReason=STOP y sin error (22 de 49 tramos); medir con qué frecuencia gemini-flash-lite-latest pasa el piso · las 7 pruebas desde la PC dieron 503",
+  "original": {
+   "titulo": "El respaldo que transcribe YouTube puede estar cortando guiones y nadie lo midio",
+   "queFalta": "El 6/11 se puso un piso de 600 caracteres por minuto porque Gemini cortaba tramos con `finishReason=STOP` y sin error (22 de 49 tramos en un modelo). Lo que falta medir en produccion: con que frecuencia el respaldo `gemini-flash-lite-latest` pasa el piso. Si resulta que el respaldo es justo el que corta, la nota «guion corto» va a salir seguido y el arreglo de fondo es otro modelo de respaldo para el STT de video, no el piso. Hecho = el numero medido con pedidos reales.",
+   "donde": "C:/dev/wt-puntas/lib/ai-cheap.ts:1863 (`guionDeYoutubeConGemini`, `PISO_GUION_YT_CPM`, `pisoDeGuionYt`), C:/dev/wt-puntas/lib/spy-transcripcion.ts (`NOTA_GUION_CORTO`)",
+   "bloqueo": "Hace falta que salgan pedidos reales (las 7 pruebas desde la PC dieron 503).",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 100,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La tarjeta de Apify dice «Sin conectar» aunque Spy esté leyendo perfecto",
+  "porque": "El cliente que borró su primera clave y dejó la segunda cree que algo se rompió y vuelve a configurar al vicio.",
+  "tecnico": "lib/credenciales.ts:285-307 (integracionConectada) — OJO: el relevo dice lib/integraciones.ts pero la función vive en credenciales.ts; el catálogo de las claves extra en lib/metodo-catalogo.ts:848-872 · hecho = mirar si hay AL MENOS UNA clave de CLAVES_APIFY_DE_SPY con valor real (el patrón existe en esa función para las pasarelas con sufijo, 303-307)",
+  "original": {
+   "titulo": "Con la clave 1 de Apify quitada y la 2 puesta, Spy anda y la tarjeta dice «Sin conectar»",
+   "queFalta": "`integracionConectada` mira solo los campos NO opcionales del servicio, y de Apify el unico obligatorio es `APIFY_INSTAGRAM_TOKEN` (la clave 1); las extra son `opcional`. Asi que un negocio que borro la 1 y dejo la 2 ve la tarjeta desconectada aunque Spy este leyendo perfectamente con la 2. Hecho = el estado de la tarjeta mira si hay AL MENOS UNA clave de `CLAVES_APIFY_DE_SPY` con valor real (el patron ya existe en esa misma funcion para las pasarelas con sufijo, lineas 303-307).",
+   "donde": "C:/dev/wt-puntas/lib/credenciales.ts:285-307 (integracionConectada) — OJO: el relevo dice `lib/integraciones.ts`, pero la funcion vive en credenciales.ts; el catalogo de las claves extra en C:/dev/wt-puntas/lib/metodo-catalogo.ts:848-872",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 101,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La tarjeta de Apify le dice al cliente 40 lecturas por día y el tope real es 150",
+  "porque": "El cliente cree que puede mucho menos de lo que puede y no usa Spy todo lo que podría.",
+  "tecnico": "lib/metodo-catalogo.ts:854 (la nota del campo APIFY_INSTAGRAM_TOKEN) vs lib/instagram-perfil.ts:236 (APIFY_TOPE_POR_DIA=40, el del buscador del alta del CRM), :246 (TOPE_LECTURAS_SPY_POR_DIA=150, subió el 4/11), :253 (TOPE_BUSQUEDAS_SPY_POR_DIA=60)",
+  "original": {
+   "titulo": "La tarjeta de Apify le dice al cliente «un tope de 40 lecturas por dia» y el tope real de Spy es 150",
+   "queFalta": "La nota del campo `APIFY_INSTAGRAM_TOKEN` quedo con el numero viejo: el tope de Spy con la clave del negocio subio de 40 a 150 el 4/11 (`TOPE_LECTURAS_SPY_POR_DIA`), y 40 es otro cupo (`APIFY_TOPE_POR_DIA`, el del buscador del alta del CRM). Es texto que el cliente lee y que subestima lo que puede gastar. Hecho = la nota con el numero de la constante, y las busquedas (60 corridas) nombradas si corresponde.",
+   "donde": "C:/dev/wt-puntas/lib/metodo-catalogo.ts:854 vs C:/dev/wt-puntas/lib/instagram-perfil.ts:236 (APIFY_TOPE_POR_DIA = 40) y :246 (TOPE_LECTURAS_SPY_POR_DIA = 150), :253 (TOPE_BUSQUEDAS_SPY_POR_DIA = 60)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 104,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La pantalla de varias claves de Apify nunca se vio en pantalla",
+  "porque": "Nadie miró si el bloque «Crédito de este mes» se ve bien ni si el script lista el crédito sin filtrar ninguna clave.",
+  "tecnico": "app/integraciones/ServicioConfigForm.tsx, app/integraciones/CreditoApify.tsx, lib/metodo-verificar.ts, scripts/carruseles-biblioteca.mts · (1) /integraciones?abrir=apify-instagram en el ws 3, agregar una segunda clave con nombre y mirar «Crédito de este mes» en computadora y teléfono (2) node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts estado · hace falta levantar la app y una clave con crédito",
+  "original": {
+   "titulo": "Verificar la pantalla de varias claves de Apify y el script de la biblioteca",
+   "queFalta": "Dos pasadas que la nube no pudo hacer: (1) abrir `/integraciones?abrir=apify-instagram` en el ws 3, agregar una segunda clave con nombre y mirar el bloque «Credito de este mes» (en computadora y telefono) — nadie lo vio en pantalla; (2) desde la PC, `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts estado`: tiene que listar las claves de Spy de la plataforma con su credito y el total, sin imprimir ninguna clave.",
+   "donde": "C:/dev/wt-puntas/app/integraciones/ServicioConfigForm.tsx, C:/dev/wt-puntas/app/integraciones/CreditoApify.tsx, C:/dev/wt-puntas/lib/metodo-verificar.ts, C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts",
+   "bloqueo": "Hace falta levantar la app y una clave con credito.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 234,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Mañana 7/11 vence el enlace viejo de WhatsApp y las líneas quedan mudas",
+  "porque": "Si no se repara hoy, los mensajes de WhatsApp dejan de llegar a la app y los clientes escriben al vacío.",
+  "tecnico": "/whatsapp → «Reparar espejo» en cada línea que siga muda · lib/evolution-firma.ts:29 (`CORTE_LEGADO`) · docs/relevo/pendientes-barrido.md:145 — es el pendiente más urgente del barrido",
+  "original": {
+   "titulo": "La URL vieja del webhook de WhatsApp no oficial vence el 7/11",
+   "queFalta": "En /whatsapp, «Reparar espejo» en cada linea que siga muda. Es el pendiente mas urgente del barrido: vence maniana.",
+   "donde": "docs/relevo/pendientes-barrido.md:145 · lib/evolution-firma.ts:29 (CORTE_LEGADO)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 235,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Seis mensajes quedaron colgados y los primeros se vencen el 8/11",
+  "porque": "Si no se cierran antes del 8/11, se pierde lo que pedían y nadie va a saber qué eran.",
+  "tecnico": "limbo del Runner: 6 mensajes, cerrarlos desde el Ops Center antes del 8/11 · docs/relevo/pendientes-barrido.md:146",
+  "original": {
+   "titulo": "El limbo del Runner: 6 mensajes y los primeros vencen el 8/11",
+   "queFalta": "Cerrarlos desde el Ops Center antes del 8/11.",
+   "donde": "docs/relevo/pendientes-barrido.md:146",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 236,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El 11/11 se apaga el reloj que vigila todo y hay que rearmarlo antes",
+  "porque": "Cuando se apaga, nadie avisa si algo se rompe: los problemas aparecen recién cuando los ve un cliente.",
+  "tecnico": "rearmar el cron del Runner con `CronCreate` desde el chat del Runner antes del 11/11 · docs/relevo/pendientes-barrido.md:147 — los crons mueren con la sesión y `/clear` los borra",
+  "original": {
+   "titulo": "El cron del Runner vence el 11/11 y con el se va el vigia",
+   "queFalta": "Rearmarlo con `CronCreate` desde el chat del Runner antes del 11/11. Ojo: los crons mueren con la sesion y `/clear` los borra.",
+   "donde": "docs/relevo/pendientes-barrido.md:147",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 237,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Seis cambios viejos de la base de datos sin confirmar si están aplicados",
+  "porque": "Si alguno falta, una pantalla puede fallar o guardar mal sin que nadie entienda por qué.",
+  "tecnico": "migraciones 0298, 0299, 0302, 0314, 0316 y 0330: correr `scripts/verificar-migraciones-aplicadas.mjs` desde la 0298 y aplicar las ausentes con `scripts/apply-migration.mjs` en su orden de despliegue. De la 0331 en adelante: 48 aplicadas, 0 ausentes · docs/relevo/pendientes-barrido.md:148",
+  "original": {
+   "titulo": "Migraciones viejas sin medir: 0298, 0299, 0302, 0314, 0316, 0330",
+   "queFalta": "De la 0331 en adelante estan todas medidas (48 aplicadas, 0 ausentes). Falta correr `verificar-migraciones-aplicadas` desde la 0298 y aplicar las ausentes en su orden de despliegue.",
+   "donde": "docs/relevo/pendientes-barrido.md:148 · scripts/verificar-migraciones-aplicadas.mjs · scripts/apply-migration.mjs",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 238,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Tres tipos de avisos no se mudaron todavía y uno es la alerta de Meta",
+  "porque": "Sin eso, un cliente de agencia no recibe el aviso de que Meta le frenó la cuenta publicitaria y la pauta queda muerta.",
+  "tecnico": "P5, P6, P7: `scripts/mudanza-avisos-plataforma.mts --aplicar` con `--eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia` (alta), `social_tope` y `reunion_tareas_al_plan` · docs/relevo/pendientes-barrido.md:149-151 · docs/relevo/nube-nada-por-detras.md — antes de prender `reunion_tareas_al_plan` hay que excluir al ws13 (pedidos-otras-cuentas-6-11.md:103)",
+  "original": {
+   "titulo": "Tres mudanzas de avisos a la plataforma sin correr (P5, P6, P7)",
+   "queFalta": "`mudanza-avisos-plataforma.mts --aplicar` con `--eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia` (alta), `social_tope` y `reunion_tareas_al_plan`. Sin la primera, un cliente de agencia no recibe la alerta de Meta.",
+   "donde": "docs/relevo/pendientes-barrido.md:149-151 · scripts/mudanza-avisos-plataforma.mts · docs/relevo/nube-nada-por-detras.md",
+   "bloqueo": "Antes de prender `reunion_tareas_al_plan` hay que excluir al ws13 (pedidos-otras-cuentas-6-11.md:103)",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 239,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta el aviso de cambio de contraseña y dos textos dicen «cuenta» a secas",
+  "porque": "El cliente que cambia la contraseña no recibe aviso, y dos mensajes hablan de «tu cuenta» cuando es la cuenta publicitaria.",
+  "tecnico": "P8: mirar si existe la plantilla «Tu contraseña cambió» en `mako.plantillas.store` del ws 9 y crearla si falta. P9: corregir la fila viva #261, donde `gracia` y `liquidacion` dicen «Tu cuenta» sin «publicitaria» · docs/relevo/pendientes-barrido.md:152-153",
+  "original": {
+   "titulo": "Dos textos de avisos de la plataforma sin corregir (P8, P9)",
+   "queFalta": "Mirar si existe la plantilla «Tu contraseña cambio» en `mako.plantillas.store` del ws 9 y crearla si falta; y corregir la fila viva #261, donde `gracia` y `liquidacion` dicen «Tu cuenta» sin «publicitaria».",
+   "donde": "docs/relevo/pendientes-barrido.md:152-153",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 242,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Una subida de código puede quedarse colgada esperando memoria y no avanza",
+  "porque": "El arreglo quedó a medias: si vuelve a pasar, quien sube cambios se traba y no entra nada a producción.",
+  "tecnico": "el arreglo quedó sólo en `C:/dev/con-turno.mjs` (la fila espera afuera); falta el mismo arreglo en el pre-push `scripts/tipos-respaldo-push.mjs:113,122` y cosechar el hallazgo en `docs/hallazgos-infra.md`. Test: lock de tipos tomado + pausa prendida + un pre-push pidiendo el lock, que no se trabe · docs/relevo/pendientes-pc/por-repartir.md:125-135,144",
+  "original": {
+   "titulo": "`tipos-respaldo-push.mjs` espera RAM con el lock de tipos ya tomado",
+   "queFalta": "El arreglo quedo solo en `C:/dev/con-turno.mjs` (la fila espera afuera). Falta el mismo arreglo en el pre-push y cosechar el hallazgo en `docs/hallazgos-infra.md`. Test: lock tomado + pausa prendida + un pre-push pidiendo el lock, que no se trabe.",
+   "donde": "docs/relevo/pendientes-pc/por-repartir.md:125-135,144 · scripts/tipos-respaldo-push.mjs:113,122 · docs/hallazgos-infra.md",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 426,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta prender en la base la marca de qué mensajes de WhatsApp los manda el sistema",
+  "porque": "Sin eso, los automáticos cuentan como escritos a mano y la métrica de primer contacto de Código Inmobiliario queda mal.",
+  "tecnico": "Aplicar supabase/migrations/0396_wa_mensajes_automatico.sql (suma `automatico` a wa_mensajes) y después comprobar que el primer WhatsApp automático queda con automatico = true. Va DESPUÉS del deploy a propósito: antes, la versión vieja dejaría los automáticos como de una persona. lib/primer-contacto.ts ; docs/relevo/cerebro.md:21 y :80",
+  "original": {
+   "titulo": "La migración 0396 sigue sin aplicar y va DESPUÉS del deploy",
+   "queFalta": "Aplicar `0396_wa_mensajes_automatico.sql` (suma `automatico` a wa_mensajes) y después comprobar que el primer WhatsApp automático queda con `automatico = true`. Va después del deploy a propósito: antes, la versión vieja dejaría automáticos como si los hubiera escrito una persona, y eso rompe la métrica de primer contacto de Código Inmobiliario.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/0396_wa_mensajes_automatico.sql ; lib/primer-contacto.ts ; docs/relevo/cerebro.md:21 y :80",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 429,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Cinco trabajos entraron a producción sin que nadie los revisara",
+  "porque": "Ya están en la plataforma que usan los clientes y nadie comprobó que hagan lo que Martín pidió.",
+  "tecnico": "Revisar a mano, con capturas y contra los pedidos: punta/copilot-feedback (eaec41da6), punta/carruseles-thumbnails (25fbdc8a1), punta/dashboards-edicion (f6b9301d6, ese chat seguía corriendo a las 16:05 UTC), punta/nada-por-detras (2cb406043) y punta/github-minutos (f7c2f57da). Lo que falle va al chat que lo escribió sin pasar por Martín. docs/relevo/cerebro.md:13",
+  "original": {
+   "titulo": "Cinco puntas entraron a main sin que nadie las revisara",
+   "queFalta": "Revisar a mano, con capturas y contra los pedidos de Martín: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails` (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6, ese chat seguía corriendo a las 16:05 UTC), `punta/nada-por-detras` (2cb406043) y `punta/github-minutos` (f7c2f57da). Lo que falle va al chat que lo escribió sin pasar por Martín.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/cerebro.md:13",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 430,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La alarma de gasto de GitHub da rojo todos los días y el número es falso",
+  "porque": "El panel dice US$15,94 y el nuestro US$51,87. Si de verdad se corta el saldo, nada nuevo puede entrar a producción.",
+  "tecnico": "El panel github.com/settings/billing dice US$15,94 de US$30; scripts/minutos-actions.mjs dice US$51,87. Se le pidió corregir al chat «Bajar lo que gasta GitHub Actions» y no hay confirmación. Falta medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días. docs/relevo/cerebro.md:18",
+  "original": {
+   "titulo": "La alarma de minutos de GitHub Actions da rojo todos los días y es falsa",
+   "queFalta": "El panel dice US$15,94 de US$30; `scripts/minutos-actions.mjs` dice US$51,87. Se le pidió corregir al chat «Bajar lo que gasta GitHub Actions» y no hay confirmación. Falta además medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.",
+   "donde": "C:/dev/wt-puntas/scripts/minutos-actions.mjs ; panel github.com/settings/billing ; docs/relevo/cerebro.md:18",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 431,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta confirmar en el panel que el gasto de Vercel bajó",
+  "porque": "La factura iba en US$291,94 contra US$40 de antes. Los frenos ya están puestos, pero nadie mira si sirvieron.",
+  "tecnico": "US$248 de los US$291,94 son builds. Ya está activo: claude/** no construye, lo que sólo cambia documentos no construye, y «un build por rama»; la máquina quedó fija en Turbo. Medirlo en /~/usage con la sesión de Martín en el navegador, NO en /v1/billing/charges. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build. El gasto desde el 16/11 está en «Sin hacer». docs/hallazgos-infra.md («El gasto de Vercel») ; docs/relevo/cerebro.md:55 y :21",
+  "original": {
+   "titulo": "Falta medir el ahorro de Vercel en el panel",
+   "queFalta": "La factura en curso iba US$291,94 contra US$40 de antes (US$248 son builds). Ya está activo: `claude/**` no construye, lo que sólo cambia documentos no construye, y «un build por rama»; la máquina quedó fija en Turbo. Medirlo en `/~/usage` con la sesión de Martín en el navegador, NO en `/v1/billing/charges`. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build. Aparte, el gasto desde el 16/11 está en la lista de «Sin hacer».",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-infra.md («El gasto de Vercel») ; docs/relevo/cerebro.md:55 y :21",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 432,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Los trabajos firmados con el correo de Anthropic los bloquea Vercel",
+  "porque": "Uno ya entró a producción así y el despliegue queda bloqueado: hay que frenarlo antes, no descubrirlo después.",
+  "tecnico": "La nube viene firmando con noreply@anthropic.com y Vercel bloquea esos deploys. Las puntas de rescate se firmaron a mano con el correo del equipo, pero la mezcla de punta/spy-busqueda entró a main con noreply (9202c22d2). Falta que .github/workflows/punta.yml frene ese correo como frena [bot]. Lo decide Integración. docs/relevo/nube-ramas.md:33-35",
+  "original": {
+   "titulo": "`punta.yml` no frena el correo noreply@anthropic.com y Vercel bloquea esos deploys",
+   "queFalta": "La nube viene firmando con `noreply@anthropic.com` y Vercel bloquea esos deploys. Las puntas de rescate se firmaron a mano con el correo del equipo, pero la mezcla de `punta/spy-busqueda` entró a main con `noreply` (9202c22d2). Falta que `punta.yml` frene ese correo como frena `[bot]`. Lo decide Integración.",
+   "donde": "C:/dev/wt-puntas/.github/workflows/punta.yml ; docs/relevo/nube-ramas.md:33-35",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 433,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El chat que barría pendientes quedó quieto: hay que abrir uno nuevo",
+  "porque": "Recibió el pedido dos veces y no se movió. La lista de avisos y funciones que faltan está escrita y nadie la está haciendo.",
+  "tecnico": "Lista priorizada ya escrita: «Nada por detrás» familia Plan y objetivos (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence) y después las funciones 4.11, 4.12, 4.5, 4.8, 4.9, 4.4, 4.3, 4.13, 4.1. docs/relevo/pendientes-barrido.md ; docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md ; docs/relevo/nube-nada-por-detras.md:31-37 ; docs/relevo/cerebro.md:36",
+  "original": {
+   "titulo": "El chat «Barrido de pendientes» quedó quieto después de dos pedidos",
+   "queFalta": "Recibió dos veces «seguí con nada por detrás y las funciones» y no se movió: hace falta un chat nuevo. La lista priorizada ya está escrita: «Nada por detrás» familia Plan y objetivos (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence) y después las funciones 4.11, 4.12, 4.5, 4.8, 4.9, 4.4, 4.3, 4.13, 4.1.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/pendientes-barrido.md y docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md ; docs/relevo/nube-nada-por-detras.md:31-37 ; docs/relevo/cerebro.md:36",
+   "bloqueo": "El chat recibió el pedido dos veces y no avanzó. Hay que abrir uno nuevo con la lista.",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 434,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Tres controles del proceso de subida nunca se midieron",
+  "porque": "Dos alarmas pueden dar rojo sin que haya nada roto, y el filtro que se probó en la nube puede no aguantar en la notebook.",
+  "tecnico": "(1) Si repository_dispatch (vercel.deployment.*) llega a .github/workflows/despues-del-deploy.yml y si github.silent lo corta: el vigía da rojo si en 48 h hubo commits en main y no llegó ninguno. (2) El firewall de Vercel con el runner de GitHub: la prueba de humo puede dar rojo por un 403 y no por una caída. (3) El filtro en la PC con 8 chats: el tope de 90 s se midió en la nube (4 CPU, 15 GB libres). docs/relevo/nube-metodologia.md:89-99",
+  "original": {
+   "titulo": "Tres cosas de la metodología de subida quedaron sin medir",
+   "queFalta": "(1) Si `repository_dispatch` (vercel.deployment.*) llega a `despues-del-deploy.yml` y si `github.silent` lo corta — el vigía da rojo si en 48 h hubo commits en main y no llegó ninguno. (2) El firewall de Vercel con el runner de GitHub: la prueba de humo puede dar rojo por un 403 y no por una caída. (3) El filtro en la PC con 8 chats: el tope de 90 s se midió en la nube (4 CPU, 15 GB libres); en la notebook va a entrar menos.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-metodologia.md:89-99 ; .github/workflows/despues-del-deploy.yml",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 435,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "La copia editable de una landing nunca se miró con datos de verdad",
+  "porque": "Hay dos errores marcados que podrían seguir ahí, y los cambios ya están en producción sin que nadie los haya visto.",
+  "tecnico": "Abrir las copias #68 y #69 en el editor y ver si los dos ❌ se fueron; mirar las capturas 1440/390; correr el chat de punta a punta en #70–#72; y mandar las copias #68–#72 a la papelera al cerrar. Los 24 commits ya están en main (33d6a73f1). docs/hallazgos-editor-landing.md («La réplica editable») ; docs/relevo/nube-ramas.md:31-32",
+  "original": {
+   "titulo": "La réplica editable quedó sin ver con la base",
+   "queFalta": "Abrir las copias #68 y #69 en el editor y ver si los dos ❌ se fueron; mirar las capturas 1440/390; correr el chat de punta a punta en #70–#72; y mandar las copias #68–#72 a la papelera al cerrar. Los 24 commits ya están en main (33d6a73f1).",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-editor-landing.md («La réplica editable») ; docs/relevo/nube-ramas.md:31-32",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 437,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Los modelos de Gemini están escritos a mano en varios archivos sueltos",
+  "porque": "Cuando haya que cambiar de modelo hay que acordarse de ocho lugares: el que se olvide queda con el viejo.",
+  "tecnico": "Juntarlos en una constante. Son todos alias -latest (no envejecen como un id con versión, pero viven en varios lugares): lib/ai-cheap.ts (MODELOS_RESPALDO y cuatro usos más), lib/model-catalogo.ts:100, lib/offer-ia.ts:75, lib/transcribe-plataforma.ts:113, y tres scripts. Es trabajo de la capa de IA (Infra), no de Spy. Lista en docs/relevo/nube-spy.md:246-259",
+  "original": {
+   "titulo": "Los modelos de Gemini escritos a mano siguen repartidos en varios archivos",
+   "queFalta": "Juntarlos en una constante. Son todos alias `-latest` (no envejecen como un id con versión, pero viven en varios lugares): lib/ai-cheap.ts (MODELOS_RESPALDO y cuatro usos más), lib/model-catalogo.ts:100, lib/offer-ia.ts:75, lib/transcribe-plataforma.ts:113, y tres scripts. Es trabajo de la capa de IA (Infra), no de Spy: Spy no los tocó.",
+   "donde": "C:/dev/wt-puntas/lib/ai-cheap.ts ; lib/model-catalogo.ts:100 ; lib/offer-ia.ts:75 ; lib/transcribe-plataforma.ts:113 ; lista en docs/relevo/nube-spy.md:246-259",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 482,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta prender en la base lo que guarda los movimientos de las suscripciones",
+  "porque": "Hasta que no se haga, la ficha de suscripción avisa que falta una columna y no muestra los pagos mes a mes.",
+  "tecnico": "Correr C:/dev/wt-puntas/supabase/migrations/0401_suscripcion_movimientos.sql con scripts/apply-migration.mjs · pendiente anotado en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799",
+  "original": {
+   "titulo": "Aplicar la migración 0401 (movimientos de suscripción) en producción",
+   "queFalta": "Correr supabase/migrations/0401_suscripcion_movimientos.sql con scripts/apply-migration.mjs. Hecho = la ficha de suscripción muestra los movimientos mes a mes sin el aviso de columna faltante.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/0401_suscripcion_movimientos.sql · pendiente anotado en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 483,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta prender en la base el enlace entre un email del Calendario y un envío masivo",
+  "porque": "Sin eso, enlazar un email del Calendario a un envío masivo no se guarda y mover la fecha no reprograma nada.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/ (la 0406), antes o junto con el deploy · lib/calendario-email.ts · app/calendario/EnlazarEmail.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40",
+  "original": {
+   "titulo": "Aplicar la migración 0406 (email del Calendario enlazado a un broadcast)",
+   "queFalta": "Aplicar la 0406 antes o junto con el deploy. Hecho = enlazar un Email del Calendario a un broadcast de Email Marketing guarda el enlace y moverlo reprograma el envío.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/ (la 0406) · lib/calendario-email.ts · app/calendario/EnlazarEmail.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 484,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Falta prender en la base el guardado de las plantillas propias",
+  "porque": "Hasta que no se haga, «Guardar como plantilla» no guarda nada y el cliente pierde lo que armó.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/ (la 0407; confirmar su número antes, hay números repetidos en el directorio) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:127",
+  "original": {
+   "titulo": "Aplicar la migración 0407 (plantillas propias)",
+   "queFalta": "Aplicar la 0407 y confirmar su número antes (hay números repetidos en el directorio). Hecho = «Guardar como plantilla» persiste una plantilla propia.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/ (la 0407) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:127",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 485,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El botón de ignorar una decisión contesta «Todavía no se puede»",
+  "porque": "Las decisiones viejas no se pueden sacar de la pantalla del Ops Center y tapan las nuevas.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/ (la 0394, columna ignorada_at) · lib/admin-decisiones.ts (ignorarDecision) · app/admin/operaciones/PreguntasDelChat.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:3847 — OJO: el relevo del ítem 456 (docs/relevo/nube-ops-ignorar.md) dice que la 0394 ya está aplicada; los dos documentos se contradicen, conviene medirlo antes de correr nada.",
+  "original": {
+   "titulo": "Aplicar la 0394: «Ignorar» una decisión de la Ticketera no hace nada",
+   "queFalta": "Aplicar la 0394 (columna ignorada_at). Hoy el botón contesta «Todavía no se puede». Hecho = ignorar una decisión de la Ticketera la saca del bloque del Ops Center.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/ (la 0394) · lib/admin-decisiones.ts (ignorarDecision) · app/admin/operaciones/PreguntasDelChat.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:3847",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 486,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El grupo del negocio no abre en el Ops Center: dice «No pude abrir el grupo»",
+  "porque": "Nadie puede leer ni escribir en el grupo de un negocio desde el Ops Center.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/ (la 0372) · app/_chat/grupo/HiloDelGrupo.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120",
+  "original": {
+   "titulo": "Aplicar la 0372: sin ella el grupo del Ops Center da «No pude abrir el grupo»",
+   "queFalta": "Aplicar la 0372. Hecho = el grupo del negocio abre en el Ops Center sin ese cartel.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/ (la 0372) · app/_chat/grupo/HiloDelGrupo.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 531,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Diez pantallas cortan en mil registros sin avisar y muestran menos de lo real",
+  "porque": "Un negocio con mucha historia ve números más chicos de lo real en el embudo, la cobranza y el tablero, y los toma por buenos.",
+  "tecnico": "Pasar a leerTodo/leerPorPaginas (con orden único): closing_analyses (428 en ws9), plan_tareas del board del super admin (643/1000), experimento_tareas (212), vsl_events/landing_visits por visitante (612 en ws13), leads y pagos del embudo y la cobranza, cashUsd/soldUsd, bloqueados y ocultos del inbox, leads de las conversaciones, y el patrón por nombre de leads con .limit(100). C:/dev/wt-puntas/app/crm/insights-actions.ts:56 · lib/plan-board.ts:101,180,302,405,583,656,735,906 · lib/plan-proyecto-vacio.ts:53,107 · app/admin/dev/roadmap.ts:142 · lib/todo.ts:184,192,373,453 · lib/leads.ts:367,1482,2264,2286 · lib/leads-duplicados.ts · lib/queries.ts:2989 · lib/pagos.ts:411,503 · lib/objectives-fuentes.ts:109,127 · lib/evolution-block.ts:36,59 · lib/evolution-mensajes.ts:~320 · lista en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351",
+  "original": {
+   "titulo": "Techos de 1000 filas sin paginar: diez lecturas que truncan con un 200",
+   "queFalta": "Pasar a leerTodo/leerPorPaginas (con orden único) las que siguen abiertas: closing_analyses entera (428 en ws9), plan_tareas del board del super admin (643/1000), experimento_tareas (212), vsl_events/landing_visits por visitante (612 en ws13), leads y pagos del embudo y la cobranza, cashUsd/soldUsd, bloqueados y ocultos del inbox, leads de las conversaciones, y el patrón por nombre de leads con .limit(100). Hecho = ninguna de las diez corta en silencio.",
+   "donde": "C:/dev/wt-puntas/app/crm/insights-actions.ts:56 · lib/plan-board.ts:101,180,302,405,583,656,735,906 · lib/plan-proyecto-vacio.ts:53,107 · app/admin/dev/roadmap.ts:142 · lib/todo.ts:184,192,373,453 · lib/leads.ts:367,1482,2264,2286 · lib/leads-duplicados.ts · lib/queries.ts:2989 · lib/pagos.ts:411,503 · lib/objectives-fuentes.ts:109,127 · lib/evolution-block.ts:36,59 · lib/evolution-mensajes.ts:~320 · lista en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 534,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Todas las fechas se cuentan con el horario de Tijuana, no con el del negocio",
+  "porque": "Un cliente en otro país ve el día cerrado a una hora que no es la suya, y los envíos automáticos le salen fuera de hora.",
+  "tecnico": "hoyEnTijuana, ayerEnTijuana, lunesActualEnTijuana y primerDiaDelMesEnTijuana deciden bordes de día que definen cohortes y disparos (no es display): pasarlas a la zona del workspace, escritura y lectura juntas, en ~60 call-sites. C:/dev/wt-puntas/lib/date-utils.ts · anotado en lib/timezone.ts:47 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:4396",
+  "original": {
+   "titulo": "Las primitivas de fecha siguen ancladas a Tijuana en ~60 call-sites",
+   "queFalta": "hoyEnTijuana, ayerEnTijuana, lunesActualEnTijuana y primerDiaDelMesEnTijuana deciden bordes de día que definen cohortes y disparos (no es display): pasarlas a la zona del workspace, escritura y lectura juntas. Hecho = un workspace en otra zona cuenta sus días.",
+   "donde": "C:/dev/wt-puntas/lib/date-utils.ts · anotado en lib/timezone.ts:47 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:4396",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 535,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Borrar un negocio no deja constancia de quién lo borró y le quedan archivos",
+  "porque": "Si se borra un cliente por error, no hay forma de saber quién lo pidió, y sus videos e imágenes siguen guardados.",
+  "tecnico": "1) Registro de quién borró un cliente y cuándo: las filas de agencia_clientes y agencia_altas cascadean, contra lo que dicen las migs 0175 y 0178. 2) video-clips y ads-creatives guardan bajo video-generator/<planId>/ y nueva/, no bajo <ws>/, así que sobreviven al borrado. C:/dev/wt-puntas/lib/reset-workspace.ts · supabase/migrations/0175, 0178 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:7096",
+  "original": {
+   "titulo": "No hay auditoría de borrados, y dos buckets no se limpian por prefijo",
+   "queFalta": "1) Registro de quién borró un cliente y cuándo (las filas de agencia_clientes y agencia_altas cascadean, así que se lleva el registro de que la agencia lo pidió y el super admin lo firmó, contra lo que dicen las migs 0175 y 0178). 2) video-clips y ads-creatives guardan bajo video-generator/<planId>/ y nueva/, no bajo <ws>/: lo que quede ahí sobrevive al borrado. Hecho = borrar un negocio deja rastro y no deja archivos.",
+   "donde": "C:/dev/wt-puntas/lib/reset-workspace.ts · supabase/migrations/0175, 0178 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:7096",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 536,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Unos scripts llenan el disco: hasta 1 GB por día que nadie borra",
+  "porque": "El disco se llena solo y en algún momento la PC deja de poder compilar o guardar nada.",
+  "tecnico": "Un borrado en finally para los mkdtempSync de mako-cdp-, y una tarea semanal que vacíe tsx-marti. C:/dev/wt-puntas/scripts/mirar-consola.mjs:25 · scripts/mirar-pantalla.mjs:55 · scripts/onboarding-vg-recorrer.mjs:25 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:9288",
+  "original": {
+   "titulo": "Tres scripts dejan perfiles de Chrome en Temp y nada poda tsx-marti (1 GB por día)",
+   "queFalta": "Un borrado en finally para los mkdtempSync de mako-cdp-, y decidir una tarea semanal que vacíe tsx-marti. Hecho = correr los scripts no deja carpetas y el disco no crece solo.",
+   "donde": "C:/dev/wt-puntas/scripts/mirar-consola.mjs:25 · scripts/mirar-pantalla.mjs:55 · scripts/onboarding-vg-recorrer.mjs:25 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:9288",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 611,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El índice de hallazgos quedó a medias: 194 renglones para 53 documentos",
+  "porque": "Buscar un tema obliga a mirar hasta 27 renglones de la misma área: nadie lo abre y lo aprendido se vuelve a descubrir.",
+  "tecnico": "C:/dev/wt-puntas/docs/hallazgos.md:15 (la regla «Una fila por area», 6/11/2026) y toda la tabla desde :18; las dos de Carruseles son :45 y :48. Hoy 194 filas para 109 rótulos y solo 53 documentos distintos: Competitors Spy 27 filas, Infraestructura 16, Comunicación 8, «Planes, capas y cobro» 7, Plan 6, Agency Dashboard 6, y 22 áreas con 2 a 5. Hecho = una fila por documento con el conteo en la cabecera",
+  "original": {
+   "titulo": "El indice docs/hallazgos.md quedo a MEDIO consolidar: 194 filas para 109 areas, no «dos de Carruseles»",
+   "queFalta": "La lista trajo esto como «dos filas de Carruseles». Es mucho mas grande: el propio documento declara la regla en su linea 15 («**Una fila por area** (6/11/2026)») y cuenta que ese dia eran 362 filas para 76 areas. Hoy quedan 194 filas de tabla para 109 rotulos de area y solo 53 documentos distintos: Competitors Spy tiene 27 filas, Infraestructura 16, Comunicacion 8, «Planes, capas y cobro» 7, Plan 6, Agency Dashboard 6, y 22 areas mas con 2 a 5. La consolidacion se arranco y se dejo a mitad. Hecho = una fila por documento (53), con el resumen integrado, y el conteo escrito en la cabecera.",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos.md:15 (la regla) y toda la tabla desde :18; las dos de Carruseles son :45 y :48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 612,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Nada avisa cuando una función nueva no queda disponible en la API: ya hay 174",
+  "porque": "Cada función nueva puede nacer sin estar en la API y nadie se entera; la última auditoría contó 174 sin declarar.",
+  "tecnico": "faltan C:/dev/wt-puntas/scripts/api-cobertura.mjs y C:/dev/wt-puntas/lib/api-mako/cobertura.ts (verificado con ls; viven solo en la rama cantera wip/api-acciones-1410, que el Cerebro decidió el 23/10 no mergear) · C:/dev/wt-puntas/docs/relevo/api-mako.md:7-12 · C:/dev/cerebro-herramientas/auditoria-api-mako-23-10.md (las 174). Rehacerla como pieza propia copiando archivo y tests desde la cantera, como se hizo con `comunidad` el 17/10, y correrla en el pre-push",
+  "original": {
+   "titulo": "La guarda de cobertura de server actions de la API de MaKo no esta en main: 174 acciones sin declarar y nada que las cace",
+   "queFalta": "`scripts/api-cobertura.mjs` y `lib/api-mako/cobertura.ts` NO existen en el arbol (lo verifique con ls); viven solo en la rama cantera `wip/api-acciones-1410`, que el Cerebro decidio el 23/10 no mergear nunca. Sin la guarda, cada server action nueva puede nacer sin su operacion en la API y nadie se entera: la auditoria del 23/10 conto 174 acciones sin declarar. Hay que rehacerla como pieza propia (copiar el archivo y sus tests desde la cantera, como se hizo con `comunidad` el 17/10). Hecho = `node scripts/api-cobertura.mjs` corre en el pre-push y el numero de acciones sin declarar baja de 174, medido.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/api-mako.md:7-12 (la decision y el inventario) · C:/dev/cerebro-herramientas/auditoria-api-mako-23-10.md (las 174) · faltan C:/dev/wt-puntas/scripts/api-cobertura.mjs y C:/dev/wt-puntas/lib/api-mako/cobertura.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 613,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El relevamiento de 343 funciones de la API está en una copia suelta sin subir",
+  "porque": "Si alguien limpia esa carpeta, y el disco lleno ya es un problema, se pierde el relevamiento de 20 áreas y 13 pruebas.",
+  "tecnico": "docs/api-acciones-relevo.json NO está en main (ls falla). Está en C:/dev/mako-api, rama wip/api-acciones-0910, commit bf5d86f73 del 9/10, que git merge-base --is-ancestor dice que NO es ancestro de HEAD · C:/dev/mako-api2 (wip/api-acciones-1410, b85971b9b) · C:/dev/wt-puntas/docs/relevo/api-mako.md:160-200. 343 operaciones aprobadas (83 con código, 260 relevadas: crm 42, curso 42, video 30, plan 27, cs 26, chatbot 24, ads 20, negocio 18, equipo 17) y 13 archivos de test. Hay 70 worktrees en la máquina",
+  "original": {
+   "titulo": "Las 343 operaciones aprobadas de la API de MaKo viven en un worktree sin pushear y se pierden si alguien lo limpia",
+   "queFalta": "`docs/api-acciones-relevo.json` NO esta en main (ls falla). Esta solo en `C:/dev/mako-api`, rama `wip/api-acciones-0910`, commit bf5d86f73 del 9/10, que `git merge-base --is-ancestor` dice que NO es ancestro de HEAD. Ahi estan las 343 operaciones aprobadas de la corrida de 20 areas (83 llegaron a tener codigo, 260 quedaron solo relevadas y verificadas: crm 42, curso 42, video 30, plan 27, cs 26, chatbot 24, ads 20, negocio 18, equipo 17) y 13 archivos de test que main no tiene. Hay 70 worktrees en la maquina y el disco lleno ya es un problema conocido: si ese se limpia, el relevamiento se va con el. Hecho = el JSON commiteado en main (es solo un documento, no toca codigo) y la cantera anotada en el indice.",
+   "donde": "C:/dev/mako-api (rama wip/api-acciones-0910, bf5d86f73) · C:/dev/mako-api2 (wip/api-acciones-1410, b85971b9b) · C:/dev/wt-puntas/docs/relevo/api-mako.md:160-200",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 621,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Si se vence el reloj del Runner, el vigía se apaga y nada lo avisa",
+  "porque": "La guardia se queda callada y nadie se entera de que dejó de vigilar.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/runner.md:37-40 (§Sin hacer, primer punto). Si el cron vence sin rearmarse, la medición sigue por `medirYa` de la guardia pero el vigía se apaga. Esto es código y no depende de Martín: que la guardia chequee si el cron existe y reporte «el cron del Runner no está». Aparte está el «rearmar el cron antes del 11/11», que solo puede pedir Martín",
+  "original": {
+   "titulo": "Si el cron del Runner vence el 11/11, el vigia se apaga y la guardia no lo mira",
+   "queFalta": "El relevo del Runner lo deja escrito: si el cron vence sin rearmarse, la medicion sigue por `medirYa` de la guardia, pero el vigia se apaga y nada avisa. La lista trae el «rearmar el cron antes del 11/11» (que solo puede pedir Martin), pero no esto, que es codigo y no depende de el: que la guardia chequee si el cron existe y lo diga. Hecho = la guardia reporta «el cron del Runner no esta» en vez de quedarse callada.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/runner.md:37-40 (§Sin hacer, primer punto)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 622,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Las reglas para reenviar un mensaje perdido existen y no hay pantalla que las use",
+  "porque": "Un mensaje que cae en el limbo solo se puede cerrar escribiendo a mano en la base.",
+  "tecnico": "C:/dev/wt-puntas/lib/centro-limbo.ts (originalParaReenviar, queHacer, chatsParaMandarle, textoDelCartel: verificado con grep, chatsParaMandarle no tiene más uso que su definición y originalParaReenviar solo aparece en su definición y en una bitácora) · C:/dev/wt-puntas/app/admin/operaciones/acciones.ts (descartarDelLimboAction declarada sin botón que la dispare) · C:/dev/wt-puntas/docs/relevo/runner.md:37-48. O la pantalla las usa (el limbo se cierra desde el Ops Center sin SQL) o se borran con su test",
+  "original": {
+   "titulo": "`lib/centro-limbo.ts` quedo con cuatro funciones sin ninguna pantalla que las llame",
+   "queFalta": "Verificado con grep: `chatsParaMandarle` no tiene mas uso que su propia definicion, y `originalParaReenviar` solo aparece en su definicion y en un documento de bitacora; `queHacer` y `textoDelCartel` existen en otros modulos pero no para el limbo. `descartarDelLimboAction` esta declarada en `app/admin/operaciones/acciones.ts` sin boton que la dispare. O sea: hay reglas escritas para reenviar un mensaje del limbo y para decirle a la persona que hacer, y no hay pantalla. Hecho = o la pantalla las usa (el limbo se cierra desde el Ops Center sin SQL), o se borran con su test.",
+   "donde": "C:/dev/wt-puntas/lib/centro-limbo.ts (`originalParaReenviar`, `queHacer`, `chatsParaMandarle`, `textoDelCartel`) · C:/dev/wt-puntas/app/admin/operaciones/acciones.ts (`descartarDelLimboAction`) · C:/dev/wt-puntas/docs/relevo/runner.md:37-48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 623,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "El control de antes de subir código está viejo en una copia del Runner",
+  "porque": "Desde esa copia se puede subir algo que el control nuevo habría frenado.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/runner.md:37-48 (§Sin hacer): el hook pre-push del clon del Runner dice «rama integracion» y no corre el filtro chico · C:/dev/wt-puntas/docs/relevo/nube-metodologia.md (cómo se reinstala)",
+  "original": {
+   "titulo": "El hook `pre-push` del clon del Runner es viejo: dice «rama integracion» y no corre el filtro chico",
+   "queFalta": "Anotado en el relevo del Runner y en ninguno de los items de la lista. Un pre-push viejo no corre el filtro chico, asi que ese clon puede empujar algo que el pre-push nuevo habria frenado. Se reinstala con lo escrito en `docs/relevo/nube-metodologia.md`. Hecho = el hook de ese clon corre el filtro chico y no nombra una rama que ya no existe.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/runner.md:37-48 (§Sin hacer) · C:/dev/wt-puntas/docs/relevo/nube-metodologia.md (como se instala)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 629,
+  "area": "Infra",
+  "quien": "equipo",
+  "titulo": "Un documento con 39 pendientes no lo leyó nadie y un tercio ya está hecho",
+  "porque": "Nadie lo abre porque buena parte está vencida, así que lo que sigue vivo ahí dentro no lo va a tomar nadie.",
+  "tecnico": "C:/dev/wt-puntas/docs/estado-del-arte.md:165-230 (§Pendientes vivos: 39 items priorizados por riesgo, marcados [FRAGIL] y [ESPERA]). Tres verificados y YA CERRADOS: vistas de cohortes con security_invoker (mig 0231), docs/guia-produccion-mauricio.md commiteada, purga de turnos del agente con cron. Siguen abiertos y medidos: los subtítulos, el case 'funnel' sin caller, el TOAST de wa_mensajes.raw",
+  "original": {
+   "titulo": "Nadie paso por los 39 pendientes vivos de docs/estado-del-arte.md, y el documento esta en parte vencido",
+   "queFalta": "`docs/estado-del-arte.md` tiene una seccion «Pendientes vivos» con 39 items priorizados por riesgo, marcados [FRAGIL] (se pierde o empeora si nadie lo toca) y [ESPERA]. Ninguna de las siete familias lo leyo. Verifique tres contra el codigo y YA ESTAN CERRADOS (las vistas de cohortes con `security_invoker`, mig 0231; `docs/guia-produccion-mauricio.md` ya commiteada; la purga de turnos del agente, que ahora tiene cron). Otros siguen abiertos y medidos (los subtitulos, el `case 'funnel'` sin caller, el TOAST de `wa_mensajes.raw`). Hecho = una pasada que tache lo cerrado y reparta lo que sigue vivo; un documento con 39 items de los que un tercio ya no corresponde no lo abre nadie.",
+   "donde": "C:/dev/wt-puntas/docs/estado-del-arte.md:165-230 (§Pendientes vivos)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

@@ -1,0 +1,227 @@
+[
+ {
+  "id": 340,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Un nombre con emoji rompe la pantalla en varias partes de la app",
+  "porque": "Al cliente con un emoji en el nombre se le queda la pantalla en blanco. Hay que confirmar si sigue pasando.",
+  "tecnico": "Ticket #10, error React #418 con las iniciales. Quien leyó los documentos dice que comparó «las iniciales» contra origin/main: confirmar antes de darlo por abierto. docs/relevo/pedidos-perdidos-2810.md:144,249 · docs/hallazgos-ui.md:139-146,221-228",
+  "original": {
+   "titulo": "Las iniciales con emoji rompen pantallas (React #418) en otras tabs",
+   "queFalta": "Ticket #10. Quien leyo los documentos dice que comparo «las iniciales» contra origin/main: hay que confirmar antes de darlo por abierto.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:144,249 · docs/hallazgos-ui.md:139-146,221-228",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 341,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "«Cliente de Diseño» comparte el pixel y las claves con la cuenta de Mauricio",
+  "porque": "Mientras estén juntas, los datos de medición de un cliente se mezclan con los del otro.",
+  "tecnico": "Separar la cuenta ws1/ws4. Pedido del 24/10 sin dueño confirmado. docs/relevo/pedidos-perdidos-2810.md:145 · docs/feedback-24-10.md:34",
+  "original": {
+   "titulo": "Quitar «Cliente de Diseno», que comparte pixel y tokens con Mauricio",
+   "queFalta": "Separar la cuenta ws1/ws4. Pedido del 24/10 sin dueno confirmado.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:145 · docs/feedback-24-10.md:34",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 342,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Un arranque por rubro que no deje seguir sin dejar todo conectado",
+  "porque": "Hoy un cliente nuevo avanza sin conectar la app de escritorio, la extensión ni Meta, y después nada le funciona.",
+  "tecnico": "Onboarding para todos los nichos: app de escritorio, extensión y Meta con login, detectando lo ya hecho, y no por cliente sino por nicho. docs/relevo/pedidos-perdidos-2810.md:147",
+  "original": {
+   "titulo": "Onboarding para todos los nichos que no deje avanzar sin el setup",
+   "queFalta": "App de escritorio, extension y Meta con login, detectando lo ya hecho, y no por cliente sino por nicho.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:147",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 343,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "La landing principal con la frase nueva, dejada como borrador sin publicar",
+  "porque": "La frase elegida no está escrita en ningún lado, y después se decidió cambiar «SaaS» por «software»: hay que resolver cuál manda.",
+  "tecnico": "Documento #32: «El mejor SaaS para ventas High Ticket, de punta a punta», sin «VSL Funnel» y con el scraper. Se escribe por la API o el editor, sin publicar. Choca con la decisión del 30/10. docs/relevo/pedidos-perdidos-2810.md:118 · landing_docs id 32 · docs/relevo/pendientes-pc/pendientes-30-10.md:123",
+  "original": {
+   "titulo": "Landing principal #32 con la frase nueva, como borrador sin publicar",
+   "queFalta": "«El mejor SaaS para ventas High Ticket, de punta a punta», sin «VSL Funnel» y con el scraper. Es escribir el documento #32 por la API o el editor, sin publicar. Choca con la decision posterior de cambiar «SaaS» por «software» en la landing (30/10).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:118 · landing_docs id 32 · docs/relevo/pendientes-pc/pendientes-30-10.md:123",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 344,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Marcar el video de una landing desmarca el de la otra",
+  "porque": "Al marcar el video de la landing nueva, la vieja deja de medir: los datos de una de las dos se pierden.",
+  "tecnico": "Terminar y commitear lo que quedó en C:/dev/wt-landings-av (el worktree vive solo en la PC). Hecho = marcar el VSL de la landing nueva sin desmarcar el de la vieja. docs/relevo/pedidos-perdidos-2810.md:119 · lib/landing-videos.ts",
+  "original": {
+   "titulo": "Pixel: un VSL POR PAGINA (marcar el nuevo desmarca el viejo)",
+   "queFalta": "Terminar y commitear lo que quedo en `C:/dev/wt-landings-av`. Hecho = marcar el VSL de la landing nueva sin desmarcar el de la vieja.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:119 · lib/landing-videos.ts · C:/dev/wt-landings-av",
+   "bloqueo": "El worktree vive solo en la PC",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 345,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Una landing que prueba sola distintos títulos y detecta la parte que nadie ve",
+  "porque": "Hoy cada prueba se arma a mano, así que casi no se prueba nada y no se sabe qué sección hace perder visitas.",
+  "tecnico": "Detectar la sección que nadie ve y generar variaciones del hook y los copies. Hay diseño en docs/diseno-pruebas-ab.md:57-58. docs/relevo/pedidos-perdidos-2810.md:121 · docs/relevo/landing-generator.md:11-23",
+  "original": {
+   "titulo": "Landing que hace pruebas A/B sola",
+   "queFalta": "Detectar la seccion que nadie ve y generar variaciones del hook y los copies. Hay disenio en `docs/diseno-pruebas-ab.md:57-58`.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:121 · docs/diseno-pruebas-ab.md:57-58 · docs/relevo/landing-generator.md:11-23",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 354,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Un asistente por WhatsApp que avise la agenda y agende en el primer hueco",
+  "porque": "Dos cosas prometidas a Teo que todavía no existen. Además el WhatsApp de salida de MaKo se está cortando.",
+  "tecnico": "Un asistente que avise «cobrale a tal, tenés la visita», y una acción de automatización que agende en el primer hueco libre sobre la reserva del CRM (proponer_agendar_reunion). docs/relevo/pedidos-perdidos-2810.md:82-83 · C:/dev/revisiones/2810-promesas-teo.md:58,94",
+  "original": {
+   "titulo": "Asistente por WhatsApp con la agenda del dia y «Agendar llamada» en el primer hueco",
+   "queFalta": "Dos promesas a Teo sin dueno: un asistente que avisa «cobrale a tal, tenes la visita», y una accion de automatizacion que agende en el primer hueco libre sobre la reserva del CRM (`proponer_agendar_reunion`).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:82-83 · C:/dev/revisiones/2810-promesas-teo.md:58,94",
+   "bloqueo": "El canal de WhatsApp saliente de MaKo se esta cortando",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 357,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "A la conexión para programadores le faltan acciones, empezando por los cursos",
+  "porque": "Hoy no se puede dar ni quitar el acceso a un curso desde afuera, y faltan acciones de Automations, Web y Copywriter.",
+  "tecnico": "Revisión completa de la API de MaKo. El inventario reparte por área: Automations (P0-7), Web Generator (P0-9), Copywriter (P0-10 y P0-11). docs/relevo/pedidos-perdidos-2810.md:140 · app/admin/dev/api-mako/bitacora.ts:320-461",
+  "original": {
+   "titulo": "Revision completa de la API de MaKo: faltan acciones",
+   "queFalta": "Empezando por dar y quitar el acceso a un curso. El inventario reparte por area: Automations (P0-7), Web Generator (P0-9), Copywriter (P0-10 y P0-11).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:140 · app/admin/dev/api-mako/bitacora.ts:320-461",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 358,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Que el Ops Center use la IA barata para explorar y la cara para ejecutar",
+  "porque": "Hoy usa siempre la cara: se paga de más en IA en cada trabajo. Lo pidió Aarón y no estaba en ninguna lista.",
+  "tecnico": "Sonnet para explorar, Opus para ejecutar, midiendo el consumo antes y después. Pedido de Aaron vía Martín, ticket 876825880-11. Hallado al comprobar. docs/relevo/pedidos-perdidos-2810.md:106",
+  "original": {
+   "titulo": "El Ops Center elige modelo y esfuerzo por fase, con el consumo medido",
+   "queFalta": "Sonnet para explorar, Opus para ejecutar, midiendo el consumo antes y despues (pedido de Aaron via Martin, ticket 876825880-11). Hallado al comprobar, no estaba en ninguna lista.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:106",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 360,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Que MaKo guarde un dato del negocio dicho de paso en el chat",
+  "porque": "Leila le dijo el horario en el chat y no quedó guardado: hay que volver a cargarlo a mano en el perfil.",
+  "tecnico": "Pedido de Leila: «LiderMente es de 7:30 a 9:30» dicho en el chat tendría que quedar guardado. Sin dueño. docs/relevo/pedidos-perdidos-2810.md:154 · C:/dev/revisiones/2710-leila-leila.md:105-111",
+  "original": {
+   "titulo": "Que MaKo corrija o recuerde un dato del perfil desde el chat",
+   "queFalta": "Pedido de Leila: «LiderMente es de 7:30 a 9:30» dicho en el chat tendria que quedar guardado. Sin dueno.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:154 · C:/dev/revisiones/2710-leila-leila.md:105-111",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 363,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Que al escribir un guion se usen los anuncios que ya ganaron",
+  "porque": "El material está guardado y el escritor no lo lee: los guiones salen sin lo que ya se sabe que funciona.",
+  "tecnico": "Existen lib/avatares-ganados.ts y lib/etiquetas-motor.ts; no se vio que el Copywriter los consuma. Incluye etiquetar anuncios externos al generar guiones. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:212-213",
+  "original": {
+   "titulo": "Usar los ganadores de Ads Analyst y etiquetar anuncios externos al generar guiones",
+   "queFalta": "Existen `lib/avatares-ganados.ts` y `lib/etiquetas-motor.ts`; no se vio que el Copywriter los consuma.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:212-213 · lib/avatares-ganados.ts · lib/etiquetas-motor.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 365,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Cuatro restos del Copywriter que quedaron sueltos al cerrar ese chat",
+  "porque": "Entre ellos, las tres VSL ocultas sin ejemplos y un texto que todavía promete un botón que ya no existe.",
+  "tecnico": "Los evals del experto, los ejemplos de las 3 VSL ocultas, y cargar extracto y chips en la tarjeta cuando la tanda 0 de Create llegue a main. app/_crear/ejemplo.ts todavía dice que el Copywriter abre con «Adaptar a mi negocio». docs/relevo/pendientes-pc/por-repartir.md:191-192,262",
+  "original": {
+   "titulo": "Restos del Copywriter que quedaron al archivar el chat",
+   "queFalta": "Los evals del experto, los ejemplos de las 3 VSL ocultas, y cargar extracto y chips en la tarjeta cuando la tanda 0 de Create llegue a main. Ademas `app/_crear/ejemplo.ts` todavia dice que el Copywriter abre con «Adaptar a mi negocio».",
+   "donde": "docs/relevo/pendientes-pc/por-repartir.md:191-192,262 · app/_crear/ejemplo.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 369,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Mudar la landing de Mauricio a nuestro servidor",
+  "porque": "Pedido del 16/8 sin una sola señal de que se haya hecho. Con eso van también su pixel y la apertura del Sprint.",
+  "tecnico": "De Lovable a Vercel. Sin resultados en docs, lib ni app. Relacionado: el Pixel y el UUID en sprint.mauriciobustos.com y la apertura del Sprint a 65 por día de 9 a 21. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:134-135,215-216 · docs/hallazgos-landing.md:4519-4527",
+  "original": {
+   "titulo": "Migrar la landing de Mauricio de Lovable a Vercel",
+   "queFalta": "Pedido del 16/8, sin resultados en docs, lib ni app. Relacionado: el Pixel y el UUID en `sprint.mauriciobustos.com` y la apertura del Sprint a 65 por dia de 9 a 21.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:134-135,215-216 · docs/hallazgos-landing.md:4519-4527",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 371,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "En la marca faltan las animaciones sin texto y la vista previa de las imágenes",
+  "porque": "Pedido del 27/7 que nunca se verificó: quien busca el logo sin texto no lo encuentra en la lista.",
+  "tecnico": "BrandingMaKo.datos.ts no lista las variantes sin texto; falta además el preview de PNG. Sin verificar. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:221-222",
+  "original": {
+   "titulo": "Branding MaKo: animaciones crudas aparte y preview de PNG",
+   "queFalta": "`BrandingMaKo.datos.ts` no lista las variantes sin texto. Pedido del 27/7, sin verificar.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:221-222 · BrandingMaKo.datos.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 375,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Dos pedidos sueltos: averiguar qué es «Grockbot» y leer un archivo de feedback",
+  "porque": "El documento del que sale no explica para qué servía.",
+  "tecnico": "De la lista «por mirar»: el archivo «Feedback Chatbot.txt» está anotado como no legible y Grockbot nunca se investigó. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:228 (4.27, 841877e6 y 36f4eb6c)",
+  "original": {
+   "titulo": "Investigar «Grockbot» y leer el archivo «Feedback Chatbot.txt»",
+   "queFalta": "Dos pedidos sueltos de la lista «por mirar»: el archivo no es legible y Grockbot nunca se investigo.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:228 (4.27, `841877e6` y `36f4eb6c`)",
+   "bloqueo": "El archivo «Feedback Chatbot.txt» esta anotado como no legible",
+   "estado": "dudoso"
+  }
+ }
+]

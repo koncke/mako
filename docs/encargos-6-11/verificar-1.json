@@ -1,0 +1,227 @@
+[
+ {
+  "id": 21,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "La historia de un competidor sólo avanza si alguien aprieta un botón",
+  "porque": "Nadie va a apretar ese botón todos los días, así que la línea de tiempo del competidor queda con huecos.",
+  "tecnico": "Existen `spy-poda` y `spy-todo`, no `spy-snapshots`: falta app/api/cron/spy-snapshots/route.ts con `correrRonda`, escalonado (calientes diario, fríos semanal; ≈8.080 de 10.000 unidades de cuota de YouTube con 4.000 canales). Entra ENTERO en el commit que lo registre en vercel.json:228,232. DUDOSO: `spy-todo` (cada hora) puede cubrir parte. lib/cron-workspaces.ts",
+  "original": {
+   "titulo": "No hay cron de snapshots: la línea de tiempo de un competidor sólo avanza si alguien aprieta «Revisar ahora»",
+   "queFalta": "Existen `spy-poda` y `spy-todo`, no `spy-snapshots`. Falta app/api/cron/spy-snapshots/route.ts con `correrRonda`, escalonado (calientes diario, fríos semanal: la cuota de YouTube no aguanta todo diario, ≈8.080 de 10.000 unidades con 4.000 canales). Entra ENTERO en el commit que lo registre en vercel.json, porque un worktree no puede tocar ese archivo. DUDOSO: puede que `spy-todo` (la traída larga, cada hora) ya cubra parte.",
+   "donde": "vercel.json:228,232 (sólo spy-poda y spy-todo) · docs/hallazgos-competitors-spy.md → «El cron de snapshots (la Etapa 2…)» · lib/cron-workspaces.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 22,
+  "area": "Carruseles",
+  "quien": "verificar",
+  "titulo": "Las capturas de Top Carousels nunca llegaron: la pantalla se copió de memoria",
+  "porque": "La pantalla está hecha con lo que se contó del pedido, no con lo que se vio: puede no parecerse en nada.",
+  "tecnico": "docs/carruseles/referencia-top-carousels/ no está en main ni en ninguna rama y la nube no abre su sitio. Top Carousels prohíbe bajar su catálogo: sirve de referencia de diseño y nada más. docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer»",
+  "original": {
+   "titulo": "Las capturas de Top Carousels nunca llegaron: la pantalla se copió de la descripción del pedido",
+   "queFalta": "docs/carruseles/referencia-top-carousels/ no está en main ni en ninguna rama, y la nube no abre su sitio. Cuando estén, se ajustan los valores de la pantalla. Ojo: la memoria dice que Top Carousels prohíbe bajar su catálogo, así que sirve de referencia de diseño y nada más.",
+   "donde": "docs/carruseles/referencia-top-carousels/ · docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer»",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 29,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "Al editor de imágenes le faltan 8 funciones de Canva y las letras son de afuera",
+  "porque": "El que edita no tiene dibujo, tablas ni efectos de texto, y si el proveedor de las letras se cae, los diseños se ven mal.",
+  "tecnico": "8 paquetes relevados y sin empezar: atajos, texto en formas, dibujo, ajustes de foto, efectos de texto, conectores, gráficos y tablas. Más alojar las fuentes en MaKo (hoy salen de un CDN ajeno), marca, versiones, compartir y comentarios. VIENE DE UN DOC DEL 17/10: medir contra el código antes de arrancar. docs/relevo/image-editor.md §«Lo que sigue» 2 y 3 · app/image-editor/",
+  "original": {
+   "titulo": "Image Editor: las funciones de Canva que faltan y las fuentes en un CDN ajeno",
+   "queFalta": "Los 8 paquetes están relevados y sin empezar: atajos, texto en formas, dibujo, ajustes de foto, efectos de texto, conectores, gráficos y tablas. Y alojar las fuentes en MaKo (hoy salen de un CDN ajeno) más marca, versiones, compartir y comentarios. VIENE DE UN DOC DEL 17/10: medir contra el código antes de arrancar.",
+   "donde": "docs/relevo/image-editor.md §«Lo que sigue» 2 y 3 · app/image-editor/",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 43,
+  "area": "Admin",
+  "quien": "verificar",
+  "titulo": "La pantalla de Offer sigue existiendo y Martín pidió que no exista",
+  "porque": "Está fuera del menú pero se llega por link: si se borra de golpe, cualquier link viejo le da error a un cliente.",
+  "tecnico": "Offer ya salió de la barra (`fueraDeLaBarra: true` en app/_components/nav.ts:419) sin borrar la key, que es contrato con la base, pero app/offer/ sigue entera (page.tsx, OfferApp.tsx, ChatOffer.tsx…). CONTRADICCIÓN: el tablero dice que la ruta se dejó a propósito (enforcement server-side y al Offer Coach se llega desde el Ops Center). Antes de borrar, medir qué hace /offer que el Ops Center no haga y todos los href, router.push, redirects, API de MaKo, avisos y onboarding que apunten ahí. docs/relevo/pendientes-0311.md §4 · docs/pendientes-martin.md:938-961",
+  "original": {
+   "titulo": "La ruta /offer sigue existiendo, y Martín pidió que no exista",
+   "queFalta": "Offer YA salió de la barra (`fueraDeLaBarra: true`) sin borrar la key, que es contrato con la base. Pero `app/offer/` sigue entera (page.tsx, OfferApp.tsx, ChatOffer.tsx…) y Martín dijo el 2/11 «ya no debería existir la ruta de offer». CONTRADICCIÓN ANOTADA: el tablero explica que la ruta se dejó a propósito (el enforcement es server-side y al Offer Coach se llega desde el Ops Center). Antes de borrarla hay que medir qué hace /offer que el Ops Center no haga y todos los links internos que apunten ahí (href, router.push, redirects, la API de MaKo, los avisos, el onboarding): un link a una ruta muerta es un 404 para un cliente.",
+   "donde": "app/offer/ · app/_components/nav.ts:419 · docs/relevo/pendientes-0311.md §4 («/offer no existe» como criterio de Listo) · docs/pendientes-martin.md:938-961",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 44,
+  "area": "Admin",
+  "quien": "verificar",
+  "titulo": "Hacer clic en un coach no abre nada si no se habló antes con él",
+  "porque": "El cliente aprieta y no pasa nada: parece roto.",
+  "tecnico": "`f353bcbce` sacó el redirect, pero `ElegidoChat` sólo admite `{ coach: 'funnel' }` (lib/chat-mako-reglas.ts:257). Martín: «no me tiene que redirigir a ningún lado». DUDOSO: el commit a7c0c050a («un solo coach, el Funnel Coach…») puede haberlo resuelto; hay que probarlo en pantalla. docs/relevo/pendientes-0311.md §4",
+  "original": {
+   "titulo": "El clic en un coach no abre nada sin conversación previa",
+   "queFalta": "`f353bcbce` sacó el redirect, pero `ElegidoChat` sólo admite `{ coach: 'funnel' }` (lib/chat-mako-reglas.ts:257): sin conversación previa el clic no hace nada. Martín: «no me tiene que redirigir a ningún lado». DUDOSO: el commit a7c0c050a («un solo coach, el Funnel Coach, con la oferta adentro y Hormozi al frente») puede haberlo resuelto; hay que probarlo en pantalla.",
+   "donde": "lib/chat-mako-reglas.ts:257 · docs/relevo/pendientes-0311.md §4",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 57,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "Al borrar un lead se borra todo su historial y no queda quién lo borró",
+  "porque": "Quedaron 4.457 registros de leads que ya no existen y la papelera está vacía: no se puede recuperar nada.",
+  "tecnico": "4.457 filas de historial de leads inexistentes y la papelera en 0 en todos los negocios (a los 30 días se purga y dos caminos no pasan por ella): agujero de trazabilidad. VIENE DE UN DOC DEL 30/10: medir contra el código antes de tomarlo. lib/leads-papelera.ts · lib/leads-unificar.ts:190 · lib/zernio-entrante.ts:235 · docs/hallazgos-crm.md (arriba) · docs/pendientes.md:139 (A0)",
+  "original": {
+   "titulo": "Un lead borrado se lleva en cascada sus envíos y no queda quién lo borró",
+   "queFalta": "4.457 filas de historial de leads que ya no existen y la papelera en 0 en todos los negocios (a los 30 días se purga, y dos caminos no pasan por ella). Es un agujero de trazabilidad. VIENE DE UN DOC DEL 30/10: medir contra el código antes de tomarlo.",
+   "donde": "lib/leads-papelera.ts · lib/leads-unificar.ts:190 · lib/zernio-entrante.ts:235 · docs/hallazgos-crm.md (arriba) · docs/pendientes.md:139 (A0)",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 60,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "MaKo le dice a Leila que no puede cambiar el precio de su oferta, y sí puede",
+  "porque": "El cliente pide algo que MaKo sabe hacer y recibe un no: deja de confiar en que sirva para algo.",
+  "tecnico": "Ticket #46, mismo error que el #45. lib/api-mako/areas/negocio.def.ts:652 PROPONE crear o editar una oferta —precio incluido— y devuelve un link para confirmarla; lib/api-mako/areas/crm.def.ts:1063 hace lo mismo con un producto del catálogo. El arreglo es que la respuesta ofrezca ese camino en vez de negar. Además, inconsistencia marcada por MaKo a resolver CON Leila: su perfil dice 800 MXN/mes y el producto «LíderMente» dice USD 49/mes. DUDOSO: viene del 3/11. docs/pendientes-martin.md:54-60",
+  "original": {
+   "titulo": "#46 de Leila: MaKo niega cambiar el precio de su oferta y sí puede proponerlo",
+   "queFalta": "Es el mismo error que el #45: MaKo niega algo que SÍ puede hacer. `negocio.def.ts:652` PROPONE crear o editar una oferta —el precio incluido— y devuelve un link para confirmarla; `crm.def.ts:1063` hace lo mismo con un producto del catálogo. El arreglo es que la respuesta ofrezca ese camino en vez de negar. Y hay una inconsistencia de datos que marcó MaKo sola y hay que resolver CON Leila: su perfil dice 800 MXN/mes y el producto «LíderMente» del catálogo dice USD 49/mes. DUDOSO: viene del 3/11 y no pude confirmar si ya se arregló.",
+   "donde": "lib/api-mako/areas/negocio.def.ts:652 · lib/api-mako/areas/crm.def.ts:1063 · docs/pendientes-martin.md:54-60",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 61,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "Los tickets 47 y 48 entraron el 3/11 y nunca se abrieron",
+  "porque": "Hay dos clientes que escribieron y nadie leyó qué estaban pidiendo.",
+  "tecnico": "Entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55 y quedaron sin leer porque la guardia de RAM bloqueó Bash. Leer con `node --import tsx scripts/tickets.ts ver 47` y `… ver 48`. DUDOSO: pasaron tres días, pueden estar atendidos. docs/pendientes-martin.md:61-63",
+  "original": {
+   "titulo": "Los tickets #47 y #48 nunca se leyeron",
+   "queFalta": "Entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55 y quedaron sin leer porque la guardia de RAM bloqueó Bash. Se leen con `node --import tsx scripts/tickets.ts ver 47` y `… ver 48`. DUDOSO: pasaron tres días, pueden estar atendidos.",
+   "donde": "scripts/tickets.ts · docs/pendientes-martin.md:61-63",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 64,
+  "area": "Chat",
+  "quien": "verificar",
+  "titulo": "MaKo se contesta a sí misma cuando hay dos líneas en un grupo",
+  "porque": "El cliente ve a MaKo hablando sola en el grupo, y ese eco ya trabó el pedido de un ticket.",
+  "tecnico": "Marcado URGENTE el 4/11 y repartido a la nube (`punta/doer-eco-dos-lineas`), más el diseño de grupos con Participantes e Invitar a la derecha (`punta/grupos-diseno`). Falta probar los grupos de la app en producción en el ws 3 (7 pruebas). DUDOSO: viene del 4/11 y no se confirmó si entró. lib/mako-doer-in.ts · docs/relevo/nube-grupos.md · docs/relevo/cerebro.md:147,152,173",
+  "original": {
+   "titulo": "El eco de MaKo con dos líneas en un grupo, y el diseño de grupos tipo WhatsApp",
+   "queFalta": "Se marcó URGENTE el 4/11 y se repartió a la nube (`punta/doer-eco-dos-lineas`), más el diseño con Participantes e Invitar a la derecha (`punta/grupos-diseno`). Y falta probar los grupos de la app en producción, en el ws 3 (7 pruebas). DUDOSO: viene del 4/11 y no pude confirmar si entró; el eco trabó el ticket #58.",
+   "donde": "docs/relevo/nube-grupos.md · docs/relevo/cerebro.md:147,152,173 · lib/mako-doer-in.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 66,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Las landings no tienen cuenta regresiva, prueba social ni avisos de escasez",
+  "porque": "Martín lo marcó súper importante: sin eso la página de venta no apura a comprar. Viene de un documento del 31/10.",
+  "tecnico": "docs/relevo/landing-generator.md → Tanda 8, etapas 4, 6 y 9 · docs/pendientes.md:92-93 · app/web-generator/ · incluye animaciones y carruseles del Web Generator (2.14 · 3.9 · 4.10)",
+  "original": {
+   "titulo": "Elementos de marketing en las landings: cuenta regresiva, prueba social, escasez",
+   "queFalta": "Martín lo marcó «súper importante» (punto 2.10) y no existe. VIENE DE UN DOC DEL 31/10 o anterior: medir contra el código antes de arrancar. Junto con esto quedan las animaciones del Web Generator (efectos al scroll, cinta, carrusel, contador, plantillas animadas, transiciones) y los carruseles también en Web Generator (2.14 · 3.9 · 4.10).",
+   "donde": "docs/relevo/landing-generator.md → Tanda 8, etapas 4, 6 y 9 · docs/pendientes.md:92-93 · app/web-generator/",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 73,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Muchas pantallas en el teléfono siguen diciendo «En la computadora»",
+  "porque": "Quien trabaja del teléfono no puede usar Strategy, Offer, Chats con audios, el Web Generator ni cobrar con link.",
+  "tecnico": "lib/movil-rutas.ts (EN_CAMINO) · docs/relevo/mako-mobile.md → Mobile 1, 2 y 3 · docs/pendientes.md:359-364 · faltan Strategy, Offer Playbook, MaKo WhatsApp, MaKo Partners (super admin), conectar integración, Video Editor, adjuntos y notas de voz en Chats, Web Generator, cobrar con link, hojas de la ficha del lead y el «+» de alta · viene de un doc del 17/10",
+  "original": {
+   "titulo": "Mobile: las pantallas que siguen diciendo «En la computadora»",
+   "queFalta": "Faltan Strategy, Offer Playbook y MaKo WhatsApp (sin dueño), MaKo Partners para el super admin, conectar una integración desde el teléfono, el Video Editor del teléfono con texto, audio, efectos y «Editar con IA», los adjuntos y notas de voz en Chats, el Web Generator con crear/Crear con IA/Analizar/Replicar, cobrar con link, las hojas propias de la ficha del lead y el «+» para cargar un lead. VIENE DE UN DOC DEL 17/10: medir contra `lib/movil-rutas.ts` antes de arrancar.",
+   "donde": "lib/movil-rutas.ts (EN_CAMINO) · docs/relevo/mako-mobile.md → Mobile 1, 2 y 3 · docs/pendientes.md:359-364",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 86,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "La historia diaria de los competidores tiene agujeros: nadie la guarda sola",
+  "porque": "La línea de tiempo sólo avanza cuando alguien abre la pantalla: los días que nadie entra quedan vacíos.",
+  "tecnico": "falta app/api/cron/spy-snapshots/route.ts (patrón: correrRonda de lib/cron-workspaces.ts); registro en vercel.json (los dos de Spy en las líneas 228 y 232; lo exige tests/cron-registrado.test.ts y no se toca desde un worktree: lo pone quien integra) · después entró el cron spy-todo (4/11): decidir si ya cubre la historia",
+  "original": {
+   "titulo": "El cron de snapshots (la historia diaria, Etapa 2) no existe",
+   "queFalta": "En vercel.json solo hay `/api/cron/spy-poda` y `/api/cron/spy-todo`; no hay `spy-snapshots`. Sin una pasada diaria escalonada (calientes diario, frios semanal, porque la cuota de YouTube no aguanta todo diario) la linea de tiempo tiene agujeros: la historia solo avanza cuando alguien abre o revisa. ATENCION: el cron tiene que declararse en vercel.json (lo exige tests/cron-registrado.test.ts) y la regla del repo prohibe tocar vercel.json desde un worktree: entra entero en el commit que lo registre, lo pone quien integra.",
+   "donde": "Falta C:/dev/wt-puntas/app/api/cron/spy-snapshots/route.ts (patron: `correrRonda` de C:/dev/wt-puntas/lib/cron-workspaces.ts); registro en C:/dev/wt-puntas/vercel.json (los dos de Spy estan en las lineas 228 y 232)",
+   "bloqueo": "El documento que lo pide es del 31/10 (anterior al 1/11). Despues entro el cron `spy-todo` (4/11), que avanza la traida larga cada hora: hay que decidir si eso ya cubre la historia o si el snapshot diario sigue haciendo falta. No lo pude confirmar sin mirar la base.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 88,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "Falta el botón para seguir al que publicó la pieza que estás mirando",
+  "porque": "Hoy hay que salir y cargarlo a mano de nuevo, aunque la pieza ya trae todos sus datos. Viene de un relevamiento del 31/10.",
+  "tecnico": "app/competitor-spy/DetallePieza.tsx (donde iría) y el alta existente en app/competitor-spy/actions.ts (sumarCompetidorAction) · grep de «Seguir a este» / seguirAEste no devuelve nada · la ficha se rediseñó entera después: puede estar descartado",
+  "original": {
+   "titulo": "«Seguir a este» desde una pieza",
+   "queFalta": "grep de «Seguir a este» / `seguirAEste` en app y lib no devuelve nada: no esta escrito. Es dar de alta como competidor a quien publico una pieza que se esta mirando. Hecho = el boton en el detalle de la pieza que llama al alta con los datos que esa pieza ya trae.",
+   "donde": "C:/dev/wt-puntas/app/competitor-spy/DetallePieza.tsx (donde iria) y el alta existente en C:/dev/wt-puntas/app/competitor-spy/actions.ts (`sumarCompetidorAction`)",
+   "bloqueo": "Viene del relevamiento del 31/10 (anterior al 1/11) y la ficha se rediseno entera despues: puede haber quedado descartado y no haberse tachado. Hay que preguntarlo.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 89,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "No existe la galería pública de plantillas ni las tendencias del nicho",
+  "porque": "Es la parte que le muestra a cualquier negocio qué funciona en su rubro; hoy sólo existe la ficha privada de cada uno.",
+  "tecnico": "lib/spy-reglas.ts (la distinción público/privado y PALABRAS_DE_DUELO:458); docs/diseno-competitors-spy.md · regla de Martín del 29/10: ni cara, ni nombre, ni @ de un gurú real, arquetipos de estilo · las tendencias van DESPUÉS del cron de snapshots · documento anterior al 1/11",
+  "original": {
+   "titulo": "La galeria publica de plantillas y las tendencias del nicho (Etapa 5)",
+   "queFalta": "No existe nada. Cuando se haga entra la regla de Martin del 29/10: ni cara, ni nombre, ni @ de un guru real, arquetipos de estilo (hoy solo existe la ficha PRIVADA, donde el @ del competidor que ESE negocio eligio si se ve, y la distincion esta escrita en spy-reglas.ts). Las tendencias son un subproducto de la historia acumulada, asi que van DESPUES del cron de snapshots.",
+   "donde": "C:/dev/wt-puntas/lib/spy-reglas.ts (la distincion publico/privado y PALABRAS_DE_DUELO:458); C:/dev/wt-puntas/docs/diseno-competitors-spy.md",
+   "bloqueo": "Depende del cron de snapshots. Documento anterior al 1/11: no pude confirmar que siga en el plan de Martin.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 90,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "No hay pantalla propia de anuncios: hoy son un formato más del desplegable",
+  "porque": "Con pocos anuncios por competidor alcanza; si entra volumen, buscar entre ellos se vuelve incómodo.",
+  "tecnico": "app/competitor-spy/GrillaPiezas.tsx y OrdenSpy.tsx (grilla y filtros hoy); el plan en docs/diseno-competitors-spy.md §4.1 · copiable de athm793/meta-ads-scraper: AdGrid, AdModal, FiltersPanel y el clasificador de hooks.ts (Apache-2.0); su scraper de Playwright NO se copia · doc del 31/10: los anuncios entraron a Contenido el 3-4/11 y puede que ya alcance",
+  "original": {
+   "titulo": "La galeria de anuncios con riel de filtros (lo que se copia de athm793/meta-ads-scraper)",
+   "queFalta": "Lo copiable esta identificado (`AdGrid`, `AdModal`, `FiltersPanel` y el clasificador de `hooks.ts`, Apache-2.0; su scraper de Playwright NO se copia nunca). Hoy los anuncios son un formato mas del desplegable de Contenido. Se escribe cuando haya volumen de anuncios que justifique una pantalla propia.",
+   "donde": "C:/dev/wt-puntas/app/competitor-spy/GrillaPiezas.tsx y OrdenSpy.tsx (donde viven la grilla y los filtros hoy); el plan en C:/dev/wt-puntas/docs/diseno-competitors-spy.md §4.1",
+   "bloqueo": "Documento del 31/10. Despues (3-4/11) los anuncios entraron a Contenido con su filtro y su múltiplo: puede que ya alcance.",
+   "estado": "dudoso"
+  }
+ }
+]

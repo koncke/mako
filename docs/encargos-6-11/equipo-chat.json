@@ -1,0 +1,407 @@
+[
+ {
+  "id": 278,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Si se cae la línea principal de WhatsApp, el aviso nunca se probó de verdad",
+  "porque": "Hoy el aviso llega por mail y nadie lo vio funcionar con una caída real: la línea puede estar caída y no enterarse nadie.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:111-113 · docs/hallazgos-comunicacion.md:368 · lib/lineas-vigilante.ts. El webhook ya guarda cuál número se cayó (tanda 5 del barrido).",
+  "original": {
+   "titulo": "El aviso por la linea secundaria cuando se cae la principal",
+   "queFalta": "Hoy el aviso sale por mail y nunca se probo con una caida real. El webhook ya guarda cual numero se cayo (tanda 5 del barrido).",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:111-113 · docs/hallazgos-comunicacion.md:368 · lib/lineas-vigilante.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 282,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Mauricio no tiene un solo mensaje en su grupo desde el 4 de octubre",
+  "porque": "Es el cliente más activo: o dejó de escribir, o la entrada está rota y se perdieron todos sus pedidos. Hay que saber cuál de las dos es.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:40,218,282 (mako_doer_buffer / mako_doer_conv). ws1; los ws 9, 18 y 22 tampoco tienen filas desde el 22/10.",
+  "original": {
+   "titulo": "Mauricio (ws1) no tiene un solo mensaje en su grupo desde el 4/10",
+   "queFalta": "Es el cliente mas activo y puede ser que no escriba o que la entrada este rota (los ws 9, 18 y 22 tampoco tienen filas desde el 22/10). Si esta rota, se perdieron todos sus pedidos. Hecho = saber cual de las dos es.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:40,218,282 (mako_doer_buffer / mako_doer_conv)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 283,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Ocho audios de Martín y de Leandro siguen sin transcribir",
+  "porque": "Lo que dicen esos audios es justamente lo que nunca se contestó: hasta escucharlos, no se sabe qué pidieron.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:56,228-231,262,278. Cinco .ogg de Martín (15/10, dos del 22/10, 23/10 «También revisa esto», Florencia 25/10) y tres de Leandro (buffer 316, 318 y 327). Los archivos viven en ~/.claude/operaciones/adjuntos y el buffer: la nube no los ve, va desde la PC.",
+  "original": {
+   "titulo": "Ocho audios de Martin y de Leandro sin transcribir",
+   "queFalta": "Cinco .ogg de Martin (15/10, dos del 22/10, 23/10 «Tambien revisa esto», Florencia 25/10) y tres de Leandro (buffer 316, 318 y 327). Su contenido es justo lo que nunca se contesto.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:56,228-231,262,278",
+   "bloqueo": "Los archivos viven en la PC (~/.claude/operaciones/adjuntos y el buffer): la nube no los ve",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 284,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El vigía que mira todos los grupos venció el 27/10 y no se volvió a prender",
+  "porque": "Mientras esté apagado, nadie revisa lo que MaKo escribe en los grupos de los clientes. Se apaga solo cada vez que se cierra la sesión.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:124,244 · scripts/vigia-mako-grupos.mts · VIGIA_GRUPOS en Vercel. Existe desde el 17/10 pero su cron se borra al cerrarse la sesión. Prenderlo en seco, mirar el conteo y dejarlo en on.",
+  "original": {
+   "titulo": "El vigia de MaKo en todos los grupos: vencio el 27/10 y no consta recreado",
+   "queFalta": "Existe desde el 17/10 (`scripts/vigia-mako-grupos.mts`), pero su cron se borra al cerrarse la sesion. Prenderlo en seco, mirar el conteo y despues dejarlo en on.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:124,244 · scripts/vigia-mako-grupos.mts · VIGIA_GRUPOS en Vercel",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 287,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El chat del editor de automatizaciones borra los links de las tarjetas",
+  "porque": "Al pedir un cambio reescribe tarjetas que nadie nombró y les borra el link que ya tenían: el lead recibe el mensaje sin link.",
+  "tecnico": "docs/relevo/pendientes-barrido.md:212 · lib/flujo-ia.ts · scripts/probar-chats/automations.mts. `limpiarTexto` borra todo link que no esté en el pedido. El arnés con IA real no se puede correr desde la nube: va desde la PC.",
+  "original": {
+   "titulo": "El chat del lienzo reescribe una tarjeta no nombrada y le borra el link",
+   "queFalta": "`limpiarTexto` borra todo link que no este en el pedido, incluso el que el mensaje ya tenia. Pide correr su arnes con IA real.",
+   "donde": "docs/relevo/pendientes-barrido.md:212 · lib/flujo-ia.ts · scripts/probar-chats/automations.mts",
+   "bloqueo": "El arnes con IA real no se puede correr desde la nube: va desde la PC",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 288,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Falta la automatización lista para cuando rechazan un pago",
+  "porque": "El sistema ya detecta el pago rechazado y nadie lo usa: no hay nada que salga a cobrar ni aviso al equipo cuando pasa.",
+  "tecnico": "docs/relevo/pendientes-barrido.md:134-136 · lib/cobros.ts · tests/plantillas-automatizaciones.test.ts. El CRON existe («Pagos: Se rechaza un pago», `alCron(c,'rechazado')`) y el evento del lead también; falta la plantilla con objetivo `cobrar`, una tarjeta MaKo al equipo y sumarla a la lista escrita a mano `LAS_13`.",
+  "original": {
+   "titulo": "Falta la plantilla «Rechazaron un Pago» en la galeria de Automations",
+   "queFalta": "El motor ya tiene el CRON («Pagos: Se rechaza un pago», `alCron(c,'rechazado')`) y el evento del lead; falta la plantilla con objetivo `cobrar` y una tarjeta MaKo al equipo, y sumarla a la lista escrita a mano `LAS_13`.",
+   "donde": "docs/relevo/pendientes-barrido.md:134-136 · lib/cobros.ts · tests/plantillas-automatizaciones.test.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 290,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El aviso diario de cuando un proveedor cambia algo nunca se programó",
+  "porque": "Pedido del 14 de agosto sin una línea de código. Y el canal hay que repensarlo: el WhatsApp que sale de MaKo se está cortando.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:143-145 (4.1) · vercel.json (crons). Grep sin resultados en `lib`, `app/api/cron` y los hallazgos; los crons de `vercel.json` no lo cubren.",
+  "original": {
+   "titulo": "El aviso por WhatsApp cuando un proveedor cambia algo, con cron diario",
+   "queFalta": "Pedido del 14/8 y sin una linea de codigo: grep sin resultados en `lib`, `app/api/cron` y los hallazgos. Los crons de `vercel.json` no lo cubren.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:143-145 (4.1) · vercel.json (crons)",
+   "bloqueo": "El canal hay que redefinirlo: el WhatsApp saliente de MaKo se esta cortando",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 291,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "TikTok en las automatizaciones: falta el botón que las dispara",
+  "porque": "Hoy no se puede automatizar nada que llegue por TikTok. El diseño ya dice que solo contesta, con tope de 10 mensajes en 48 horas.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:185-186 · lib/nutricion.ts:155 · docs/diseno-tiktok-linkedin.md. Solo está la fase 0; falta el disparador: el botón de TikTok al lado del de Instagram en el CRON.",
+  "original": {
+   "titulo": "TikTok en Automations: solo esta la fase 0",
+   "queFalta": "Falta el disparador (el boton de TikTok al lado del de IG en el CRON). El disenio limita a contestar, con tope de 10 mensajes en 48 h.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:185-186 · lib/nutricion.ts:155 · docs/diseno-tiktok-linkedin.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 294,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El arranque de a poco no se aplica a los envíos de WhatsApp, solo al mail",
+  "porque": "Por eso el número de Mauricio quedó bloqueado 24 horas: las secuencias mandan el tope completo de WhatsApp desde el primer día.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:40 (5.8) · lib/goteo-db.ts:42 · lib/limites-envio.ts. `topeConRampa` solo rampa el email; el `wa.dia` de las secuencias es fijo. Aplicar `arranqueDia` y `arranqueSube` también a `limites.wa`.",
+  "original": {
+   "titulo": "El ramp-up gradual no se aplica al tope diario de WhatsApp de las secuencias",
+   "queFalta": "`topeConRampa` solo rampa el email; el `wa.dia` de las secuencias es fijo. Aplicar `arranqueDia` y `arranqueSube` tambien a `limites.wa`. Es la leccion del bloqueo de 24 h del numero de Mauricio.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:40 (5.8) · lib/goteo-db.ts:42 · lib/limites-envio.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 295,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Falta ponerle horario a las automatizaciones ya prendidas de seis clientes",
+  "porque": "Sin horario pueden mandar mensajes de madrugada. Leila ya quedó de 10 a 20; para los demás hay que esperar que sea de día en su país.",
+  "tecnico": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:24-36 (A2) · scripts/horario-de-fabrica-prendidas.mts · docs/relevo/pendientes-barrido.md:154. Leila (ws 11) quedó de 10 a 20 el 6/11. Pendientes: 6 en «esperar» (ws 13, 15, 17, 18, 19, 20) y 1 en «marcar» (ws 23 #726). Correr de día con `--aplicar` y respaldo.",
+  "original": {
+   "titulo": "El horario de fabrica para las automatizaciones ya prendidas (barrido pendiente)",
+   "queFalta": "Leila (ws 11) quedo de 10 a 20 el 6/11. Falta el barrido a los demas: 6 quedaron en «esperar» porque era de noche alla (ws 13, 15, 17, 18, 19, 20) y 1 en «marcar» (ws 23 #726). Se corre de dia en cada pais con `--aplicar` y respaldo.",
+   "donde": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:24-36 (A2) · scripts/horario-de-fabrica-prendidas.mts · docs/relevo/pendientes-barrido.md:154",
+   "bloqueo": "Hay que esperar el horario diurno de cada negocio",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 296,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Medir si el número de Leila pasa los 40 mensajes por día",
+  "porque": "Si pasa el límite, WhatsApp le puede bloquear la línea. Hoy no se puede separar lo que escribió una persona de lo que mandó el sistema.",
+  "tecnico": "docs/relevo/pendientes-barrido.md:155 (P11) · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:88. Salientes de 96 a 260 por día, mezclados; con `automatico=null` no se separan. Si no llega, poner `waArranqueDia: 40`.",
+  "original": {
+   "titulo": "P11: medir si el numero de Leila llega a 40 envios por dia",
+   "queFalta": "Sus salientes fueron 96-260 por dia, pero mezclan personas y automaticas y con `automatico=null` no se pueden separar. Si no llega, poner `waArranqueDia: 40`.",
+   "donde": "docs/relevo/pendientes-barrido.md:155 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:88",
+   "bloqueo": "No se puede separar hasta que haya filas con `automatico` cargado",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 449,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Las cinco defensas contra el bloqueo de WhatsApp nunca se probaron en la línea real",
+  "porque": "Si el freno no funciona de verdad, Meta puede bloquear la línea de MaKo y se cortan todas las conversaciones con clientes.",
+  "tecnico": "C:/dev/wt-puntas/lib/linea-freno.ts ; lib/mako-salida-reglas.ts ; docs/relevo/nube-whatsapp.md:32-41 — falta: mensaje de wa.me al webhook por la voz mako_ws9 con el número del remitente (si llega @lid sin remoteJidAlt ni senderPn no se confirma); qué devuelve Evolution 2.3.7 para un 463 y un rate-overlimit al MANDAR; que llegue el mail del freno; el link wa.me en iPhone y Android con texto con tilde.",
+  "original": {
+   "titulo": "Cinco cosas del anti-ban de WhatsApp sin probar con la línea de verdad",
+   "queFalta": "(1) Que el mensaje del `wa.me` llegue al webhook por la voz `mako_ws9` con el número de quien lo manda — si llega como `@lid` sin `remoteJidAlt` ni `senderPn`, no se confirma. (2) Que Martín vea esos mensajes en su WhatsApp personal y le parezca bien. (3) Qué devuelve Evolution 2.3.7 para un 463 y un «rate-overlimit» al MANDAR. (4) Que el mail del freno llegue. (5) El link `wa.me` en iPhone y Android con el texto con tilde.",
+   "donde": "C:/dev/wt-puntas/lib/linea-freno.ts ; lib/mako-salida-reglas.ts ; docs/relevo/nube-whatsapp.md:32-41",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 451,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Falta pasar a los demás negocios el horario de 10 a 20; sólo quedó el de Leila",
+  "porque": "Los negocios que quedaron sin el cambio pueden mandar mensajes a cualquier hora, incluso de madrugada.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/pendientes-pc/pasos-cerebro-6-11.md (A2) ; docs/relevo/cerebro.md:20 y :37 ; lib/horario-de-fabrica — la automatización #721 de Leila queda de 0 a 24 por decisión de Martín. El barrido se corre de día en México para no frenar a nadie de golpe ni mandar lo acumulado junto.",
+  "original": {
+   "titulo": "El horario de 10 a 20 no se barrió a los demás negocios",
+   "queFalta": "El negocio de Leila ya quedó de 10 a 20 (su automatización #721 sigue de 0 a 24 por decisión de Martín: no se cambia ni se vuelve a preguntar). El barrido a los demás negocios no se corrió.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/pendientes-pc/pasos-cerebro-6-11.md (A2) ; docs/relevo/cerebro.md:20 y :37 ; lib/horario-de-fabrica",
+   "bloqueo": "Se corre de día en México (hay que esperar la ventana horaria para no frenar a nadie de golpe ni mandar lo acumulado junto).",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 452,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Los grupos de la app nunca se miraron entrando de verdad, sólo con capturas",
+  "porque": "Si algo está roto para un invitado o en un teléfono Android, nadie lo vio todavía: lo va a descubrir el cliente.",
+  "tecnico": "C:/dev/wt-puntas/docs/hallazgos-ops-center.md (las dos listas «Lo que quedó sin hacer», 3 y 4/11) ; docs/relevo/nube-grupos.md:85-99 — punta/grupos-diseno se vio con capturas en Chromium, no con sesión. Pendiente: sesión real de un invitado (y si Joan y Juanfran comparten fila en usuarios), push en Android, el ?ws= de WsFetch contra las rutas del grupo, el autollamado que aborta a los 5 s en arranque en frío, el id de WhatsApp atado por posición, reacciones/fijar/eliminar.",
+  "original": {
+   "titulo": "El diseño de los grupos de la app nunca se vio con sesión",
+   "queFalta": "`punta/grupos-diseno` (quiénes están debajo del nombre, Invitar y Participantes a la derecha, el modal sin saltos, la cita de MaKo y el 👍 sobre el borde) se miró con capturas en Chromium, no en la app con sesión. Y queda la lista de hallazgos-ops-center: la sesión real de un invitado (y si Joan y Juanfran comparten fila en `usuarios`), el push en un Android, el `?ws=` de WsFetch contra las rutas del grupo, el autollamado que se aborta a los 5 s en arranque en frío, el id de WhatsApp atado por posición, y reacciones/fijar/eliminar.",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-ops-center.md (las dos listas «Lo que quedó sin hacer», 3 y 4/11) ; docs/relevo/nube-grupos.md:85-99",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 454,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Ningún email salió nunca a un buzón real: todo se probó de mentira",
+  "porque": "Los emails pueden no llegar, o no saberse quién los abrió, y nadie se entera hasta que un cliente reclama.",
+  "tecnico": "C:/dev/wt-puntas/lib/resend-dominios.ts ; tests/resend-clave-admin.test.ts ; docs/relevo/nube-email.md:172-199 — sin medir: que el PATCH prenda el seguimiento, que lleguen con píxel y links envueltos, el valor real de bounce.type en un rebote (el código acepta Permanent, hard y hardbounce), la rampa con días reales en la zona del negocio, la verificación DNS de un dominio real y la forma exacta del error de tope de dominios (esTopeDeDominios, se reconoce por el texto).",
+  "original": {
+   "titulo": "Nada del email salió nunca a un buzón real",
+   "queFalta": "Resend fue siempre de mentira. Sin medir: que Resend prenda de verdad el seguimiento con el PATCH y que los emails lleguen con el píxel y los links envueltos; el valor real de `bounce.type` en un rebote (el código acepta Permanent, hard y hardbounce; si Resend manda otra cosa, el rebote no cuenta para el freno); la rampa con días reales en la zona del negocio; la verificación DNS de un dominio de verdad; y la forma exacta del error del tope de dominios (se reconoce por el texto, `esTopeDeDominios`).",
+   "donde": "C:/dev/wt-puntas/lib/resend-dominios.ts ; tests/resend-clave-admin.test.ts ; docs/relevo/nube-email.md:172-199",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 455,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Black November de Leila: dos cosas sin revisar antes de lanzar",
+  "porque": "La línea de Leila puede arrancar el día del lanzamiento a la mitad de envíos, y la landing nunca se vio en un teléfono de verdad.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/nube-black-november.md:96-104 ; lib/limites-envio ; lib/editor-landing/ — si el número de Leila no venía llegando a sus 40 envíos/día, el lanzamiento arranca en 20 y llega a 40 al día siguiente; para 40 desde el día uno: cambiar_limites_envio con waArranqueDia: 40. Falta ver la landing publicada en producción con cuenta regresiva, pop de prueba social y barra de escasez en un teléfono real (sólo se vio en Chromium a 1280 y 390).",
+  "original": {
+   "titulo": "Black November de Leila: dos cosas sin verificar antes del lanzamiento",
+   "queFalta": "(1) Si el número de Leila ya llega a sus 40 envíos por día: si no venía llegando a su tope, el día del lanzamiento arranca en 20 y llega a 40 al día siguiente. Para lanzar con 40 desde el primer día, `cambiar_limites_envio` con `waArranqueDia: 40`. (2) Una landing publicada en producción con los tres bloques (cuenta regresiva, pop de prueba social, barra de escasez) en un teléfono de verdad; acá sólo se miró en Chromium a 1280 y 390.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-black-november.md:96-104 ; lib/limites-envio ; lib/editor-landing/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 456,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El botón de ignorar avisos nunca se probó en el teléfono de Martín",
+  "porque": "Si no anda en el teléfono, los avisos y decisiones viejas siguen apilados y tapan los nuevos.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/nube-ops-ignorar.md:51-56 ; app/admin/operaciones/ — la 0394 figura aplicada acá, así que las decisiones de la Ticketera también se ignoran. Falta verlo en el Ops Center real, en su teléfono. «Ignorar todas las viejas» de un toque no se hizo porque no lo pidió.",
+  "original": {
+   "titulo": "«Ignorar» del Ops Center nunca se vio en el teléfono de Martín",
+   "queFalta": "La 0394 ya está aplicada, así que las decisiones de la Ticketera también se ignoran. Falta mirarlo en el Ops Center de verdad, en su teléfono. Y si Martín quiere, «Ignorar todas las viejas» de un toque: no se hizo porque no lo pidió.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-ops-ignorar.md:51-56 ; app/admin/operaciones/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 457,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Falta crear el aviso que manda las tareas de una reunión al plan",
+  "porque": "Hasta que no se cree, lo que se decide en una reunión no le llega a nadie como aviso y queda sólo anotado.",
+  "tecnico": "C:/dev/wt-puntas/scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar, DESPUÉS del deploy que trae la tanda ; lib/plantillas-automatizaciones.ts ; docs/relevo/nube-nada-por-detras.md:25-29 ; docs/relevo/cerebro.md:14 — nace pausada, con la exclusión del negocio 13; prenderla es decisión de SuperAdmin mirando el texto. El Cerebro anotó «No corrí ninguno».",
+  "original": {
+   "titulo": "Crear la fila de «Tareas de Reuniones al Plan» después del deploy",
+   "queFalta": "Correr `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` DESPUÉS del deploy que trae la tanda. Nace pausada, con la exclusión del negocio 13. Prenderla es decisión de SuperAdmin, mirando el texto. El Cerebro anotó «No corrí ninguno».",
+   "donde": "C:/dev/wt-puntas/scripts/mudanza-avisos-plataforma.mts ; lib/plantillas-automatizaciones.ts ; docs/relevo/nube-nada-por-detras.md:25-29 ; docs/relevo/cerebro.md:14",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 517,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Si el lead contesta por Instagram, la máquina le sigue escribiendo por WhatsApp",
+  "porque": "El lead ya contestó y le siguen llegando mensajes automáticos, encima por otro canal: parece que nadie lo lee.",
+  "tecnico": "Que pausarPorRespuesta conteste por el canal de entrada. C:/dev/wt-puntas/lib/nutricion.ts (pausarPorRespuesta) · lib/zernio-entrante.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2578",
+  "original": {
+   "titulo": "Una respuesta por Instagram no pausa la salida, y el motor contesta siempre por WhatsApp",
+   "queFalta": "Que pausarPorRespuesta conteste por el canal donde le escribieron. Hecho = responder por Instagram pausa y la respuesta sale por Instagram.",
+   "donde": "C:/dev/wt-puntas/lib/nutricion.ts (pausarPorRespuesta) · lib/zernio-entrante.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2578",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 520,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Si el lead contesta por email, la automatización le sigue escribiendo",
+  "porque": "El lead ya respondió y le siguen llegando mensajes automáticos: parece que nadie le presta atención.",
+  "tecnico": "Una línea con origen: 'email' en recibirEmailEntrante que llame a pausarPorRespuesta. C:/dev/wt-puntas/lib/email-entrante.ts (recibirEmailEntrante) · lib/nutricion.ts (pausarPorRespuesta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:3272",
+  "original": {
+   "titulo": "Un email del lead no pausa la automatización que le está escribiendo",
+   "queFalta": "Una línea con origen: 'email' en recibirEmailEntrante que llame a pausarPorRespuesta. Hecho = contestar por email pausa la secuencia igual que contestar por WhatsApp.",
+   "donde": "C:/dev/wt-puntas/lib/email-entrante.ts (recibirEmailEntrante) · lib/nutricion.ts (pausarPorRespuesta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:3272",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 523,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Un aviso con paso «esperar» nunca se manda: queda colgado",
+  "porque": "El aviso que tenía que salir pasado un rato no sale nunca, y el flujo entero se detiene ahí.",
+  "tecnico": "El paso existe, la UI lo ofrece y corta la ejecución: falta el drenador que lo reanude. C:/dev/wt-puntas/lib/flujo-aviso.ts · app/agencia/FlujoAviso.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:7097",
+  "original": {
+   "titulo": "El paso «esperar» de los avisos sigue sin drenador",
+   "queFalta": "El paso existe, la UI lo ofrece y corta la ejecución: nadie lo reanuda. Hecho = un aviso con «esperar» sale al vencer la espera.",
+   "donde": "C:/dev/wt-puntas/lib/flujo-aviso.ts · app/agencia/FlujoAviso.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:7097",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 524,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Al copiar la configuración de un cliente a otro, los mensajes no salen",
+  "porque": "El negocio nuevo queda con una automatización que no manda nada y con horarios de disparo de menos.",
+  "tecnico": "Sumar `linea` a la lista que se vacía al clonar (con su aviso) y copiar `disparadores` de nutricion_secuencias. En el destino elegirLinea la rechaza y el mensaje no sale, sin caer a la de default; y una automatización con varios CRON llega con uno. C:/dev/wt-puntas/lib/clonar-config.ts (secuenciaParaElDestino, TABLAS) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2783 y :3272",
+  "original": {
+   "titulo": "El clon de configuración se lleva la línea POR MENSAJE y no copia los disparadores",
+   "queFalta": "Sumar `linea` a la lista que se vacía al clonar (con su aviso) y copiar `disparadores` de nutricion_secuencias. Hoy en el destino elegirLinea la rechaza y ese mensaje no sale, sin caer a la de default; y una automatización con varios CRON llega con uno. Hecho = clonar una configuración deja la automatización mandando por la línea del destino y con todos sus CRON.",
+   "donde": "C:/dev/wt-puntas/lib/clonar-config.ts (secuenciaParaElDestino, TABLAS) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2783 y :3272",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 526,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El reporte semanal del negocio dejó de llegar por WhatsApp",
+  "porque": "El dueño no recibe más el resumen de la semana: o entra a mirar, o directamente no se enteró de nada.",
+  "tecnico": "Volver a enchufar despacharReporte al canal vigente (se rompió al borrar Chatwoot). C:/dev/wt-puntas/lib/notify.ts (despacharReporte) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037",
+  "original": {
+   "titulo": "El reporte semanal no sale por WhatsApp desde que se borró Chatwoot",
+   "queFalta": "Volver a enchufar despacharReporte al canal vigente. Hecho = el reporte semanal llega al grupo del negocio.",
+   "donde": "C:/dev/wt-puntas/lib/notify.ts (despacharReporte) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 527,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Un negocio sin plantillas propias usa las de MaKo como si fueran suyas",
+  "porque": "Al cliente le salen mensajes escritos para MaKo, con nuestras palabras y nuestra oferta, hacia sus propios leads.",
+  "tecnico": "Que leerPar no caiga al par del ws9 para un negocio sin el suyo. C:/dev/wt-puntas/lib/plantillas.ts (leerPar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037",
+  "original": {
+   "titulo": "El store de mensajes del ws9 es el default de todos los clientes",
+   "queFalta": "Que leerPar no caiga al par del ws9 para un negocio sin el suyo. Hecho = un negocio sin plantillas propias no lee las de MaKo.",
+   "donde": "C:/dev/wt-puntas/lib/plantillas.ts (leerPar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 530,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Cinco textos de la IA llevan los datos de Mauricio para todos los clientes",
+  "porque": "Un email generado para otro cliente invita a agendar en la agenda de Mauricio: manda a sus leads al lugar equivocado.",
+  "tecnico": "Cinco prompts con identidad hardcodeada, ninguno en el registry. El peor: app/api/email/generar/route.ts:18-24 mete el Calendly de Mauricio como CTA. C:/dev/wt-puntas/app/api/email/generar/route.ts:18-24 (y los otros cuatro) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+  "original": {
+   "titulo": "Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces",
+   "queFalta": "El peor: app/api/email/generar/route.ts mete el Calendly de Mauricio como CTA de cualquier cliente. Ninguno está en el registry. Hecho = cada prompt toma la identidad del negocio.",
+   "donde": "C:/dev/wt-puntas/app/api/email/generar/route.ts:18-24 (y los otros cuatro) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 624,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "El chat de Automations tiene que pasar a la caja de chat del resto de la app",
+  "porque": "Hoy Automations tiene un chat propio y distinto, con sus propios errores de espera y de reintento.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/automations.md:451-485 (§Sin hacer, bloque AU4) · C:/dev/wt-puntas/app/_chat/ · C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts. Tres piezas: (1) ChatMako pasa a CajaChat + HiloMako con su motor (crear en el lienzo vacío, las fases, el borrador en vivo) y «Discutir/Editar» al slot de modo (Discutir = 'analizar', Editar = 'editar'); (2) CajaPedido de la galería pasa a CajaChat; (3) MakoEnLaTab CONVIVE con tab=«Automations» y entidad 'automatizacion', NO la reemplaza. Cuidar lo del 22/10: mensaje al instante, «Reintentar», capa en toda la pantalla, fases en una línea. Va DESPUÉS de AU2. Hecho = tests/chat-mako-envio-a-la-vista.test.ts verde",
+  "original": {
+   "titulo": "AU4: ChatMako de Automations tiene que pasar a CajaChat + HiloMako y la estrella CONVIVE, no reemplaza",
+   "queFalta": "De `docs/relevo/automations.md` §Sin hacer, que ninguna familia leyo. Tres piezas: (1) ChatMako pasa a `CajaChat` + `HiloMako` (app/_chat) con su propio motor (`/api/chat-agent/secuencias/ia`: crear en el lienzo vacio, las fases, el borrador en vivo) y «Discutir/Editar» va al slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); (2) la «Pideselo a MaKo» de la galeria (CajaPedido) pasa a CajaChat; (3) la estrella (`MakoEnLaTab`) CONVIVE con tab=«Automations» y entidad de tipo 'automatizacion', NO la reemplaza. Cuidar lo del 22/10: el mensaje al instante, «Reintentar», la capa en toda la pantalla y las fases en una linea. Que la estrella edite el lienzo en vivo es otra pieza y se decide con Martin antes. Va DESPUES de que entre AU2. Hecho = `tests/chat-mako-envio-a-la-vista.test.ts` verde con la caja nueva.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/automations.md:451-485 (§Sin hacer, bloque AU4) · C:/dev/wt-puntas/app/_chat/ · C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts",
+   "bloqueo": "Espera que AU2 este en main.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 628,
+  "area": "Chat",
+  "quien": "equipo",
+  "titulo": "Quedan cuatro avisos que dan al cliente un motivo que ya no puede pasar",
+  "porque": "El cliente lee que la IA gratis de MaKo llegó a su tope cuando eso ya no existe para él, y queda sin saber qué hacer.",
+  "tecnico": "C:/dev/wt-puntas/lib/flujo-ia.ts:4068,4074,4137 (sinIAPropia; 27 menciones de tope/saturada) · C:/dev/wt-puntas/tests/ia-aviso-sin-ia-propia.test.ts · C:/dev/wt-puntas/docs/relevo/automations.md:482-485. Con IA16 en main la red no corre fuera del ws9: dejar solo «No tienes una IA conectada: conecta {SU_IA}» más los dos marcadores de red salteada. Espera que IA16 esté en main (retenido hasta que el ws1 conectara su IA)",
+  "original": {
+   "titulo": "Cuando IA16 entre a main hay que sacar cuatro ramas de `sinIAPropia` que ya no pueden pasar",
+   "queFalta": "Del §Sin hacer de automations.md: con IA16 («la IA del cliente») en main la red no corre fuera del ws9, asi que las ramas «La IA gratis de MaKo llego a su tope / esta al tope / esta saturada / no contesto» de `sinIAPropia` dejan de ser posibles y hay que dejar solo «No tienes una IA conectada: conecta {SU_IA}» mas los dos marcadores de red salteada. Si se dejan, el cliente lee un motivo que no puede ocurrir. `lib/flujo-ia.ts` todavia tiene 27 menciones de tope/saturada. Hecho = las cuatro ramas fuera y `tests/ia-aviso-sin-ia-propia.test.ts` reescrito.",
+   "donde": "C:/dev/wt-puntas/lib/flujo-ia.ts:4068,4074,4137 (`sinIAPropia`) · C:/dev/wt-puntas/tests/ia-aviso-sin-ia-propia.test.ts · C:/dev/wt-puntas/docs/relevo/automations.md:482-485",
+   "bloqueo": "Espera que IA16 este en main (estaba retenido hasta que el ws1 conectara su IA).",
+   "estado": "abierto"
+  }
+ }
+]

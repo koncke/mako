@@ -134,5 +134,12 @@ test('B5: la bandeja dibuja los dos avisos y marca en la lista el ticket cuyo av
   // Desde el 22/10 la lista es la TABLA (app/tickets/bandeja/TablaTickets.tsx, tests/ticketera-mazo.test.ts).
   assert.match(leer('app/tickets/bandeja/TablaTickets.tsx'), /avisoAlCliente\(t, ahoraLista\)\?\.tono === 'bad' \? ' · ⚠ sin avisar'/, 'la tabla lo muestra sin abrir el ticket');
   // La columna que hace falta para el tope de «tomado» se lee: sin ella el Cerebro siempre parecería «sin acuse».
-  assert.match(leer('lib/tickets-db.ts'), /aviso_motivo, aviso_at, arreglado_at/);
+  // ⚠️ Se mira columna por columna y NO el texto `aviso_at, arreglado_at` de antes: ese pedía que fueran VECINAS en el select,
+  // y el 6/11 meter `cerebro_*` en el medio (para «Entregado al Cerebro» de lo que espera a Martín) lo puso rojo sin que
+  // faltara ninguna. Lo que importa es que estén pedidas, no en qué orden.
+  const cols = /^const COLS = '([^']+)';$/m.exec(leer('lib/tickets-db.ts'))?.[1] ?? '';
+  const pedidas = cols.split(',').map((c) => c.trim());
+  for (const c of ['aviso_estado', 'aviso_intentos', 'aviso_motivo', 'aviso_at']) {
+    assert.ok(pedidas.includes(c), `COLS no pide ${c}`);
+  }
 });

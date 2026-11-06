@@ -1,0 +1,497 @@
+[
+ {
+  "id": 13,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "El guion de un video de YouTube nunca salió: las 7 pruebas fallaron",
+  "porque": "El bloque del guion no se puede entregar y nadie sabe cuánto cuesta cada minuto de video.",
+  "tecnico": "Las 7 pruebas dieron 503. Conseguir un pedido real que termine y medir su costo (`usageMetadata` queda en anthropic_usage con feature='spy'). lib/spy-transcripcion-servidor.ts (`tramoDeYoutube`) · docs/relevo/nube-spy.md:83 · docs/hallazgos-competitors-spy.md:1500",
+  "original": {
+   "titulo": "El guion de un video de YouTube nunca salió de verdad: las 7 pruebas dieron 503",
+   "queFalta": "Conseguir un pedido real que termine y medir su costo (`usageMetadata` queda en anthropic_usage con feature='spy'). Hecho = un guion completo en pantalla y el costo por minuto escrito en el relevo.",
+   "donde": "lib/spy-transcripcion-servidor.ts (`tramoDeYoutube`) · docs/relevo/nube-spy.md:83 · docs/hallazgos-competitors-spy.md:1500 («Gemini corta transcripciones sin avisar»)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 15,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Nadie miró qué devuelve la traída de anuncios: falta una corrida de verdad",
+  "porque": "Sin eso la Página del competidor se sigue reconociendo por el nombre, que se repite y se puede confundir.",
+  "tecnico": "`ANUNCIOS_POR_APIFY` ya está prendido pero nunca se leyó la forma de la respuesta del actor: ver si trae `pageID`. scripts/probar-anuncios-apify.mjs · lib/spy-todo-reglas.ts · docs/relevo/nube-spy.md:96",
+  "original": {
+   "titulo": "La primera corrida real de anuncios por Apify, para saber si el actor trae pageID",
+   "queFalta": "`ANUNCIOS_POR_APIFY` ya está prendido, pero la forma de la respuesta del actor nunca se leyó. Hecho = una corrida real que diga si viene `pageID`; si no viene, la Página se sigue verificando por nombre, como hoy.",
+   "donde": "docs/relevo/nube-spy.md:96 · lib/spy-todo-reglas.ts · scripts/probar-anuncios-apify.mjs",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 17,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Un competidor de Leila quedó con sólo 12 piezas y nadie miró por qué",
+  "porque": "Si la traída se corta, el dueño compara contra un competidor con la mitad de los datos y decide mal.",
+  "tecnico": "Competidor 13 del ws 11, quedó en 12 piezas. Lo pidió la sesión de la nube al Cerebro porque desde la nube no se ve la base; ver si la traída larga lo completa. docs/relevo/nube-spy.md:191 → «Qué medir en la base de producción»",
+  "original": {
+   "titulo": "Medir el competidor 13 del ws 11, que quedó en 12 piezas",
+   "queFalta": "Lo pidió la sesión de la nube expresamente al Cerebro, porque desde la nube no se ve la base. Hecho = saber por qué quedó corto y si la traída larga lo completa.",
+   "donde": "docs/relevo/nube-spy.md:191 → «Qué medir en la base de producción»",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 18,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Spy no tiene pantalla en el teléfono: dice que se usa en la computadora",
+  "porque": "Quien entra desde el celular no puede ver a sus competidores.",
+  "tecnico": "Escribir app/m/competitor-spy/page.tsx y sacar `market-an` de EN_CAMINO en lib/movil-rutas.ts (SECCIONES_MAS, rutaMovil). Diseño ya decidido: un bloque por pantalla plegado, galería a una columna, filtros en hoja que sube; lo que no va al teléfono se dice en vez de desaparecer. `GraficoSpy` se monta tal cual (probado a 390 px). La página va en el MISMO deploy que su fila. docs/diseno-competitors-spy.md §8 · docs/relevo/nube-spy.md:213",
+  "original": {
+   "titulo": "Spy no tiene pantalla en el teléfono",
+   "queFalta": "Escribir app/m/competitor-spy/page.tsx y sacar `market-an` de EN_CAMINO (hoy el teléfono ve «se usa en la computadora»). El diseño ya está decidido: un bloque por pantalla, plegados; galería a una columna; filtros en una hoja que sube. Lo que NO va al teléfono se dice en vez de desaparecer (replicar el sitio y el recorrido con la extensión). `GraficoSpy` se monta tal cual: ya se probó a 390 px. La página va en el MISMO deploy que su fila.",
+   "donde": "lib/movil-rutas.ts (EN_CAMINO, SECCIONES_MAS, rutaMovil) · docs/diseno-competitors-spy.md §8 · docs/relevo/nube-spy.md:213",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 19,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Copiar el sitio de un competidor: lo que se captura se tira a la basura",
+  "porque": "El diseño capturado no queda guardado, hay que volver a capturarlo cada vez y todavía no alimenta la copia.",
+  "tecnico": "`spy-miniaturas` es público y sólo de imágenes: hace falta un bucket privado, o sea una migración (siguiente libre: 0410, nadie asignó el número). lib/spy-miniaturas.ts · docs/relevo/nube-spy.md:146-147",
+  "original": {
+   "titulo": "«Copiar su sitio»: el HTML ya dibujado no se guarda y hace falta un bucket privado",
+   "queFalta": "`spy-miniaturas` es público y sólo de imágenes, así que el diseño capturado se tira. Hace falta un bucket privado, o sea una migración (la sesión de la nube pidió el número y nadie lo dio). Y lo capturado todavía no alimenta la réplica.",
+   "donde": "docs/relevo/nube-spy.md:146-147 · lib/spy-miniaturas.ts · siguiente migración libre: 0410",
+   "bloqueo": "Falta asignar el número de migración",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 20,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Nadie miró si compartir las lecturas entre negocios ahorra algo",
+  "porque": "Si el ahorro es cero, se está manteniendo algo que no sirve para nada.",
+  "tecnico": "Leer `spy_lecturas_canal.ahorros` y escribir el número con fecha en el relevo; es la única medida de si el ítem 13 sirvió. lib/spy-compartido-db.ts (`anotarAhorro`) · docs/pendientes-martin.md:1005-1007",
+  "original": {
+   "titulo": "Nadie miró si la caché compartida ahorra algo",
+   "queFalta": "Leer `spy_lecturas_canal.ahorros`. Si queda en cero, nadie mira a los mismos competidores y la tabla no se ganó el lugar: es la única medida de si el ítem 13 sirvió. Hecho = el número escrito en el relevo, con fecha.",
+   "donde": "lib/spy-compartido-db.ts (`anotarAhorro`) · docs/pendientes-martin.md:1005-1007",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 76,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Spy mira sólo 50 publicaciones por vez de cada competidor",
+  "porque": "Un competidor que publica mucho se lee cortado: entran 50 piezas y el resto queda afuera.",
+  "tecnico": "lib/spy-reglas.ts:538 (TOPES.piezasPorVuelta: 50); consumidores: lib/spy.ts:769, lib/spy-youtube.ts:386,390, lib/spy-captura-db.ts:79 · en Meta (Business Discovery) un límite no aceptado tira la consulta ENTERA: no subir a ciegas; por Apify el techo real lo pone APIFY_TOPE_USD",
+  "original": {
+   "titulo": "El tope de 50 publicaciones por vuelta sigue en pie (#12)",
+   "queFalta": "`TOPES.piezasPorVuelta: 50` sigue literal en el codigo. La lectura normal de un competidor (y lo que guarda la captura de la extension) se corta en 50 piezas; solo la traida larga pasa de ahi (Instagram 300 la primera vez, YouTube `VIDEOS_POR_LECTURA_COMPLETA`). Hecho = subir el tope de la vuelta normal y que el conteo de la ficha lo refleje. ATENCION: por Meta (Business Discovery) un limite que no acepte tira la consulta ENTERA, asi que no se sube a ciegas; sin credencial de Business Discovery (item aparte) no hay forma de probarlo contra Meta, y por Apify el techo real lo pone `APIFY_TOPE_USD`.",
+   "donde": "C:/dev/wt-puntas/lib/spy-reglas.ts:538 (TOPES.piezasPorVuelta); consumidores: C:/dev/wt-puntas/lib/spy.ts:769, C:/dev/wt-puntas/lib/spy-youtube.ts:386,390, C:/dev/wt-puntas/lib/spy-captura-db.ts:79",
+   "bloqueo": "Para la mitad de Meta, espera la credencial de Business Discovery. Por Apify se puede subir ya.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 77,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "La caricatura de un competidor nunca se generó ni una vez",
+  "porque": "Las tarjetas quedan sin dibujo, y si Canva no está conectado no se anota el error en ningún lado.",
+  "tecnico": "scripts/spy-caricaturas-pendientes.mjs y scripts/spy-caricatura-guardar.mjs <ws> <id> <archivo>; lib/spy-caricatura-cola.ts, lib/spy-caricatura-reglas.ts · primera prueba pactada: Den Borg, ws 9, competidor 17 · el camino por Google Flow (lib/spy-caricatura-flow.ts) se borró el 4/11 · lo corre el Runner en la PC con base de producción y Canva conectado",
+  "original": {
+   "titulo": "La caricatura de un competidor que NO es referente nunca se genero ni una vez",
+   "queFalta": "El camino por Google Flow YA NO EXISTE: `lib/spy-caricatura-flow.ts` NO esta en el arbol (lo verifique con ls) y el 4/11 se borro a proposito, reemplazado por la cola del Runner con Canva. Lo que falta es correr por primera vez los dos scripts contra la base de produccion: `spy-caricaturas-pendientes.mjs` (lista) y `spy-caricatura-guardar.mjs <ws> <id> <archivo>` (sube y marca). Primera prueba pactada: Den Borg, ws 9, competidor 17; hecho = el script dice «Marcada en N competidor(es)» y la tarjeta la muestra al recargar Spy. Sin Canva conectado en la cuenta de Claude del Runner no se anota nada y no hay error en ningun lado.",
+   "donde": "C:/dev/wt-puntas/scripts/spy-caricaturas-pendientes.mjs, C:/dev/wt-puntas/scripts/spy-caricatura-guardar.mjs, C:/dev/wt-puntas/lib/spy-caricatura-cola.ts, C:/dev/wt-puntas/lib/spy-caricatura-reglas.ts",
+   "bloqueo": "Lo corre el Runner en la PC, con la base de produccion y Canva conectado.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 78,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Si la cola de caricaturas se para, no se ve en ninguna pantalla",
+  "porque": "Puede estar frenada hace días y nadie se entera: sólo se ve corriendo un comando a mano.",
+  "tecnico": "lib/spy-caricatura-cola.ts:84 (type Cola, campo masVieja), lib/spy-caricatura-reglas.ts:209-254 · no hay cron ni pantalla que lea masVieja",
+  "original": {
+   "titulo": "Nadie vigila la cola de caricaturas: si se atasca, no se ve en ninguna pantalla",
+   "queFalta": "`masVieja` (desde cuando espera la pendiente mas vieja) solo sale por el JSON del script; grep -rn masVieja no encuentra ninguna pantalla ni ruta que lo lea. Y no hay cron: la cola es 100% a mano. Consecuencia: una cola parada (Canva desconectado, nadie corre el script) es invisible. Hecho = el super admin ve la cola y su `masVieja` sin correr un script, o un aviso cuando pasa de X dias.",
+   "donde": "C:/dev/wt-puntas/lib/spy-caricatura-cola.ts:84 (type Cola), C:/dev/wt-puntas/lib/spy-caricatura-reglas.ts:209-254",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 84,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Una página capturada con la extensión no entra al análisis de su oferta",
+  "porque": "Si la web del competidor tiene barrera, Offer se queda sin leer su oferta aunque la página ya esté guardada.",
+  "tecnico": "lib/spy-oferta-servidor.ts, lib/spy-oferta.ts; la fuente ya existe en lib/spy-pagina-capturada-servidor.ts (paginasCapturadas, paginasSuyas)",
+  "original": {
+   "titulo": "Lo capturado con la extension no alimenta la lectura de su oferta",
+   "queFalta": "La oferta de un competidor sigue bajando la web desde el servidor; grep de «capturada» en lib/spy-oferta*.ts no devuelve NADA, asi que una pagina que solo se pudo leer con la extension (Beacons con barrera) no entra al analisis de Offer. Hecho = `paginasCapturadas` como fuente de texto para la oferta cuando el servidor no pudo, y que la pantalla diga de donde salio.",
+   "donde": "C:/dev/wt-puntas/lib/spy-oferta-servidor.ts, C:/dev/wt-puntas/lib/spy-oferta.ts; la fuente ya existe en C:/dev/wt-puntas/lib/spy-pagina-capturada-servidor.ts (`paginasCapturadas`, `paginasSuyas`)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 85,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Spy no existe en el teléfono: en More se ve «En la computadora»",
+  "porque": "Quien trabaja del teléfono no puede mirar a sus competidores, aunque el diseño ya está decidido.",
+  "tecnico": "lib/movil-rutas.ts:507-519 (EN_CAMINO, 'market-an'); falta crear app/m/competitor-spy/page.tsx; montar app/competitor-spy/GraficoSpy.tsx (probado a 390 px, hasta 90 miniaturas) · diseño en diseno-competitors-spy.md §8 · la tab sale de EN_CAMINO en el MISMO commit que su pantalla o el guardián falla · no van al teléfono: replicar el sitio y el recorrido con la extensión",
+  "original": {
+   "titulo": "Spy no tiene pantalla de telefono",
+   "queFalta": "No existe `app/m/competitor-spy/page.tsx` (lo verifique: la carpeta no esta) y `market-an` sigue anotada en `EN_CAMINO`, asi que en More se ve como «En la computadora». El diseno esta decidido (diseno-competitors-spy.md §8: un bloque por pantalla plegados, galeria a una columna, filtros en una hoja que sube). Lo que NO va al telefono se dice en vez de desaparecer: replicar el sitio y el recorrido con la extension. ATENCION: la tab sale de `EN_CAMINO` en el MISMO commit que su pantalla o el guardian falla. `GraficoSpy` se monta tal cual (probado a 390 px con datos inventados, hasta 90 miniaturas).",
+   "donde": "C:/dev/wt-puntas/lib/movil-rutas.ts:507-519 (EN_CAMINO, 'market-an'); falta crear C:/dev/wt-puntas/app/m/competitor-spy/page.tsx; el componente a montar: C:/dev/wt-puntas/app/competitor-spy/GraficoSpy.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 87,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Spy no sabe de qué país es cada competidor y nunca se lo pregunta",
+  "porque": "Sin el país, la búsqueda de sus anuncios no sabe si la biblioteca de ese país cubre lo comercial y puede venir vacía.",
+  "tecnico": "spy_competidores.pais siempre llega null · lib/spy.ts:93,164 (la columna en el select); lib/spy-reglas.ts:353 (adLibraryCubreComercial); lib/spy-funnel.ts:399,404 (busquedaDeSusAnuncios); la barra en app/competitor-spy/SpyApp.tsx",
+  "original": {
+   "titulo": "El chip de pais de la barra: la columna existe y nadie la escribe",
+   "queFalta": "`spy_competidores.pais` se LEE (`adLibraryCubreComercial(pais)` para saber si la Ad Library de ese pais cubre lo comercial, y `busquedaDeSusAnuncios` lo recibe) pero grep de escrituras (`pais:`) no encuentra NINGUNA en todo Spy: siempre llega null. Hecho = el chip en la barra que lo setea, o deducirlo del perfil, y que la busqueda de anuncios lo use.",
+   "donde": "C:/dev/wt-puntas/lib/spy.ts:93,164 (la columna en el select); C:/dev/wt-puntas/lib/spy-reglas.ts:353 (adLibraryCubreComercial); C:/dev/wt-puntas/lib/spy-funnel.ts:399,404; la barra en C:/dev/wt-puntas/app/competitor-spy/SpyApp.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 92,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Tres cosas de Apify se escribieron sin probarlas nunca contra el servicio real",
+  "porque": "Si Apify avisa el fin de crédito con otro texto del que se supuso, las claves no rotan y Spy deja de leer sin que nadie se entere.",
+  "tecnico": "lib/spy-todo.ts:164,189,352; lib/spy-todo-reglas.ts:82 (ANUNCIOS_POR_APIFY, esFaltaDeCredito, ajustarAlCredito); app/api/cron/spy-todo/route.ts; vercel.json:232; scripts/probar-anuncios-apify.mjs · (1) primera corrida real de anuncios: ¿el actor trae pageID? (2) corridas largas punta a punta y el cron spy-todo corriendo en Vercel (3) el cuerpo REAL del fin de crédito (se asumió not-enough-usage-to-run-paid-actor) · desde la PC con una clave con crédito",
+  "original": {
+   "titulo": "Lo de Apify contra el servicio de verdad, que nunca corrio: anuncios, traida larga y credito agotado",
+   "queFalta": "Tres cosas que se escribieron contra dobles y nadie midio: (1) la PRIMERA corrida real de anuncios por Apify, que confirme si el actor trae `pageID` (si no, la Pagina se sigue verificando por nombre); (2) las corridas largas de Apify punta a punta (empezar, mirar, leer el dataset) y que el cron `spy-todo` corra de verdad en Vercel; (3) el cuerpo REAL que manda Apify cuando una cuenta se queda sin el credito del mes: se asumio `not-enough-usage-to-run-paid-actor`, y si viene con otro tipo hay que sumarlo a `esFaltaDeCredito` o las claves no rotan. Hecho = las tres medidas, con el cuerpo real anotado.",
+   "donde": "C:/dev/wt-puntas/lib/spy-todo.ts:164,189,352; C:/dev/wt-puntas/lib/spy-todo-reglas.ts:82 (ANUNCIOS_POR_APIFY, `esFaltaDeCredito`, `ajustarAlCredito`); C:/dev/wt-puntas/app/api/cron/spy-todo/route.ts; C:/dev/wt-puntas/vercel.json:232; C:/dev/wt-puntas/scripts/probar-anuncios-apify.mjs",
+   "bloqueo": "Hay que correrlo desde la PC con una clave de Apify con credito; la nube no llega a Apify.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 93,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Capturar una página con la extensión nunca se probó en un navegador real",
+  "porque": "Se probó con una extensión y una base de mentira: nadie sabe si en la realidad guarda bien lo que captura.",
+  "tecnico": "lib/spy-captura-db.ts, lib/spy-captura.ts, lib/spy-captura-cliente.ts, app/api/competitor-spy/extension/route.ts, app/competitor-spy/SusPaginas.tsx, extension/spy-pagina.js · dos recorridos en el ws 3: (a) «Capturar» en «Sus páginas» con un competidor con Beacons, pasando la barrera a mano (b) «Guardar en Spy» contra PRODUCCIÓN (en el ws 3 lo frenó el clasificador de permisos) · necesita Chrome con la extensión cargada",
+  "original": {
+   "titulo": "La captura con la extension nunca se probo en un navegador de verdad ni se escribio en produccion",
+   "queFalta": "Dos recorridos que faltan, los dos en el ws 3: (a) «Capturar» en «Sus paginas» con un competidor con Beacons — pasar la barrera a mano, tocar el icono de MaKo, y ver que Spy muestre la pagina sola (la vista de prueba uso una extension de mentira); (b) «Guardar en Spy» escribiendo contra PRODUCCION, que en el ws 3 lo freno el clasificador de permisos y quedo probado solo con base de mentira. Hecho = las dos pasadas, con lo que quedo guardado mirado en la base.",
+   "donde": "C:/dev/wt-puntas/lib/spy-captura-db.ts, C:/dev/wt-puntas/lib/spy-captura.ts, C:/dev/wt-puntas/lib/spy-captura-cliente.ts, C:/dev/wt-puntas/app/api/competitor-spy/extension/route.ts, C:/dev/wt-puntas/app/competitor-spy/SusPaginas.tsx, C:/dev/wt-puntas/extension/spy-pagina.js",
+   "bloqueo": "Necesita Chrome con la extension cargada y una persona que pase la barrera; y para que lo haga un cliente, la extension publicada.",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 94,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Dos revisiones en la base sin hacer: el YouTube de Leila y un competidor cortado",
+  "porque": "Son sólo lecturas y dicen si dos arreglos ya escritos funcionaron; sin ellas no se sabe si quedaron bien.",
+  "tecnico": "las consultas en docs/relevo/nube-spy.md:99-107 y :191-208; el código que decide en lib/spy-todo.ts y lib/spy-cadena.ts · (1) youtube_id de Leila en el ws 9 sin piezas de canal youtube (2) competidor 13 del ws 11 en 12 publicaciones: app_settings key spy.todo, y con el run/dataset preguntar a Apify status/stats.itemCount y el primer item · hace falta la base de producción desde la PC",
+  "original": {
+   "titulo": "Dos mediciones en la base que quedaron pedidas y nadie corrio",
+   "queFalta": "Son solo lecturas y deciden si un arreglo ya escrito funciono: (1) el YouTube de Leila en el ws 9 — si `youtube_id` esta y no hay piezas de canal `youtube`, es el corte que ya se arreglo y al abrir la ficha se lee sola; (2) el competidor 13 del ws 11, que quedo en 12 publicaciones — `app_settings` key `spy.todo`, si tiene la clave de Spy, y con el `run`/`dataset` preguntarle a Apify `status`/`stats.itemCount` y el primer item del dataset. Las consultas exactas estan escritas en el relevo. Hecho = saber cual de las tres causas le toco (la corrida no se recogio, termino vacia, o no hay clave).",
+   "donde": "Las consultas en C:/dev/wt-puntas/docs/relevo/nube-spy.md:99-107 y :191-208; el codigo que decide en C:/dev/wt-puntas/lib/spy-todo.ts y C:/dev/wt-puntas/lib/spy-cadena.ts",
+   "bloqueo": "Hace falta la base de produccion desde la PC.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 95,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Media docena de pantallas de Spy nunca se miraron con un competidor real",
+  "porque": "Se escribieron contra datos inventados: puede haber cosas rotas que ningún cliente reportó todavía.",
+  "tecnico": "app/competitor-spy/ (SpyApp.tsx, GraficoSpy.tsx, SuOferta.tsx, SuFunnelTipo.tsx, DetallePieza.tsx, Esqueletos.tsx, recorrido-spy.ts) · una pasada por la tab en hola-mako.com con un competidor real, en computadora y teléfono · falta ver el gráfico y su animación, Funnel, el guion de una pieza, el recorrido de seis pasos, los esqueletos, «Sugeridos» y la velocidad con Den Borg (la prueba dio 3,9 s → 3,2 s sin el CDN de Meta)",
+  "original": {
+   "titulo": "Casi nada de las vueltas 2 a 5 se vio en pantalla en produccion",
+   "queFalta": "Lo que se escribio contra dobles y nadie mirO con un competidor real: el grafico y su animacion de entrada, la pestana Funnel con su oferta y el tipo de funnel, el detalle de una pieza con su guion («Transcribiendo…» y despues el texto), el recorrido de seis pasos, los esqueletos por seccion, «Sugeridos» (un negocio cualquiera tiene que ver a los del ws 9 y sumarlos sin que suba su uso de Apify), y la velocidad medida en PRODUCCION con Den Borg (la vista de prueba dio 3,9 s → 3,2 s, pero no tiene el CDN de Meta). Hecho = una pasada por la tab en hola-mako.com con un competidor real, en computadora y telefono, anotando lo que no coincide.",
+   "donde": "C:/dev/wt-puntas/app/competitor-spy/ (SpyApp.tsx, GraficoSpy.tsx, SuOferta.tsx, SuFunnelTipo.tsx, DetallePieza.tsx, Esqueletos.tsx, recorrido-spy.ts)",
+   "bloqueo": "Hace falta levantar la app o mirar produccion; varias sesiones de la nube no pudieron.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 96,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Competidores cargados dos veces con nombres distintos siguen duplicados",
+  "porque": "El cliente los ve repetidos y hay que borrarlos de a uno: borrar se lleva todas sus piezas y no se puede deshacer.",
+  "tecnico": "app/competitor-spy/SpyApp.tsx:760 (el tacho de la tarjeta), :1989 (la confirmación); app/competitor-spy/actions.ts:43-54 (soloAdmin), :216 (quitarCompetidorAction) · ejemplos: «sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs «acquisition.com» (este último no se junta nunca: un dominio no se empareja con una persona) · on delete cascade; sólo puede el administrador del negocio",
+  "original": {
+   "titulo": "Los competidores duplicados que ya estan en la base no se arreglan solos",
+   "queFalta": "El arreglo del alta impide los NUEVOS duplicados, no limpia los viejos: «sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs «acquisition.com». Hay que borrarlos a mano desde el tacho de la tarjeta, y solo puede el administrador del negocio. ATENCION: `acquisition.com` no se va a juntar con Hormozi nunca (un dominio no se empareja con una persona; hacerlo pediria una tabla de dominios). Borrar se lleva TODAS sus piezas (`on delete cascade`) y no se deshace.",
+   "donde": "C:/dev/wt-puntas/app/competitor-spy/SpyApp.tsx:760 (el tacho de la tarjeta), :1989 (la confirmacion); C:/dev/wt-puntas/app/competitor-spy/actions.ts:43-54 (soloAdmin), :216 (quitarCompetidorAction)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 179,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "La página capturada de un competidor no se guarda en ningún lado",
+  "porque": "Cada vez hay que volver a capturarla, y lo capturado todavía no sirve para armar la copia del sitio del competidor.",
+  "tecnico": "Hoy el HTML ya dibujado de «Copiar su sitio» no se guarda: `spy-miniaturas` es público y solo de imágenes. Hace falta un bucket privado, o sea una migración (el número libre es 0410). Además lo capturado todavía no alimenta la réplica. docs/relevo/nube-spy.md:146-147 · docs/relevo/cerebro.md:15",
+  "original": {
+   "titulo": "Guardar el diseno capturado de «Copiar su sitio» en un bucket privado",
+   "queFalta": "Hoy el HTML ya dibujado no se guarda: `spy-miniaturas` es publico y solo de imagenes. Hace falta un bucket privado, o sea una migracion (el numero libre es 0410). Ademas, lo capturado todavia no alimenta la replica.",
+   "donde": "docs/relevo/nube-spy.md:146-147 · docs/relevo/cerebro.md:15 (siguiente libre 0410)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 182,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Los formatos nuevos del catálogo todavía no se usan al analizar las piezas",
+  "porque": "El análisis de una pieza del competidor no reconoce los formatos que se agregaron, así que los clasifica mal o los deja sin tipo.",
+  "tecnico": "El tipo de funnel con citas y la oferta arriba ya están; el relevo deja explícito que los formatos nuevos del catálogo en el análisis de piezas quedan pendientes. docs/relevo/nube-spy.md:79",
+  "original": {
+   "titulo": "Los formatos nuevos del catalogo todavia no entran en el analisis de piezas",
+   "queFalta": "El tipo de funnel con citas y la oferta arriba ya estan; el relevo deja explicito que los formatos nuevos del catalogo en el analisis de piezas quedan pendientes.",
+   "donde": "docs/relevo/nube-spy.md:79",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 186,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Correr contra la base la medición del YouTube de Leila que dejó pedida la nube",
+  "porque": "La consulta está escrita y nadie la corrió: sin eso no se sabe si lo de YouTube quedó bien cargado para Leila.",
+  "tecnico": "La nube dejó la consulta escrita para que la corra el Cerebro contra producción (ws 9). docs/relevo/nube-spy.md:99 y las consultas en el mismo archivo, ~:191-205. Hecho = la medición corrida y anotada en el relevo.",
+  "original": {
+   "titulo": "Medir en la base el YouTube de Leila (ws 9), que la nube dejo pedido",
+   "queFalta": "La nube dejo la consulta escrita para que la corra el Cerebro contra produccion. Hecho = la medicion corrida y anotada en el relevo.",
+   "donde": "docs/relevo/nube-spy.md:99 · (consultas en el mismo archivo, ~:191-205)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 391,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "El guion de un video de YouTube nunca se logró sacar: las 7 pruebas fallaron",
+  "porque": "No se sabe si funciona ni cuánto cuesta por minuto. Si un cliente lo pide hoy, puede no salir nada.",
+  "tecnico": "Las 7 pruebas dieron 503. Transcribir un video real con el Gemini del negocio y medir el costo por minuto (usageMetadata), que queda en anthropic_usage con feature='spy'. Hecho = un guion completo en pantalla y un renglón de costo medido. lib/spy-transcripcion-servidor.ts (tramoDeYoutube) ; lib/ai-cheap.ts (modelosSttGemini) ; docs/relevo/nube-spy.md:83",
+  "original": {
+   "titulo": "El guion de videos de YouTube nunca se pidió de verdad: las 7 pruebas dieron 503",
+   "queFalta": "Transcribir un video real con el Gemini del negocio y medir el costo por minuto (`usageMetadata`), que queda en `anthropic_usage` con feature='spy'. Hecho = un guion completo en pantalla y un renglón de costo medido. Hoy no hay ni un pedido real.",
+   "donde": "C:/dev/wt-puntas/lib/spy-transcripcion-servidor.ts (tramoDeYoutube) ; lib/ai-cheap.ts (modelosSttGemini) ; docs/relevo/nube-spy.md:83",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 392,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "La cola de caricaturas de competidores nunca se probó con la base real",
+  "porque": "Si falla, la caricatura no aparece en la tarjeta del competidor y nadie se entera: la pendiente espera en silencio.",
+  "tecnico": "Correr scripts/spy-caricaturas-pendientes.mjs (sólo lee) y después scripts/spy-caricatura-guardar.mjs 9 17 <archivo> con la imagen de Den Borg ya generada. Hecho = dice «Marcada en N competidor(es)» y la tarjeta la muestra al recargar Spy. Sin Canva conectado en la cuenta de Claude del Runner no se anota nada; lo único que lo delata es `masVieja` creciendo. Contrato en docs/relevo/nube-spy.md:152-189",
+  "original": {
+   "titulo": "La cola de caricaturas: los dos scripts nunca corrieron contra la base real",
+   "queFalta": "Correr `spy-caricaturas-pendientes.mjs` (sólo lee) y después `spy-caricatura-guardar.mjs 9 17 <archivo>` con la imagen de Den Borg ya generada. Hecho = dice «Marcada en N competidor(es)» y la tarjeta la muestra al recargar Spy. Sin Canva conectado en la cuenta de Claude del Runner no se anota nada y la pendiente espera en silencio: lo único que lo delata es `masVieja` creciendo.",
+   "donde": "C:/dev/wt-puntas/scripts/spy-caricaturas-pendientes.mjs y scripts/spy-caricatura-guardar.mjs ; contrato en docs/relevo/nube-spy.md:152-189",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 394,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Falta publicar la nueva versión de la extensión de Chrome con «Capturar»",
+  "porque": "Hasta que no esté en la tienda de Chrome, nadie puede usar «Capturar» en Sus páginas.",
+  "tecnico": "Publicar public/mako-puente-0.76.0.zip en la Chrome Web Store. No pide permisos nuevos (alcanza activeTab). La política ya está en /privacidad/extension con fecha 4/11. Primer recorrido después: ws 3, un competidor con Beacons, «Capturar», pasar la barrera, tocar el ícono. docs/relevo/nube-spy.md:141-150 ; docs/relevo/cerebro.md:21",
+  "original": {
+   "titulo": "La extensión 0.76.0 («Capturar» en Sus páginas) sigue sin publicarse",
+   "queFalta": "Publicar `public/mako-puente-0.76.0.zip` en la Chrome Web Store. No pide ningún permiso nuevo (alcanza `activeTab`). La política ya está en /privacidad/extension con fecha 4/11. El Cerebro la tiene en su lista de «Sin hacer». Primer recorrido después: ws 3, un competidor con Beacons, «Capturar», pasar la barrera, tocar el ícono.",
+   "donde": "C:/dev/wt-puntas/public/mako-puente-0.76.0.zip ; docs/relevo/nube-spy.md:141-150 ; docs/relevo/cerebro.md:21",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 395,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Competitors Spy no se puede usar desde el teléfono",
+  "porque": "Quien entra desde el celular ve un cartel que dice que se usa en la computadora y no puede mirar a sus competidores.",
+  "tecnico": "Está EN_CAMINO en lib/movil-rutas.ts desde antes del pedido. Lo nuevo (gráfico, detalle, «Copiar estructura») ya se probó a 390 px en Chromium: entra sin scroll de costado con hasta 90 miniaturas. Al escribir la pantalla, montar GraficoSpy tal cual. app/m/ ; docs/relevo/nube-spy.md:213-218",
+  "original": {
+   "titulo": "Competitors Spy no tiene pantalla propia en el teléfono",
+   "queFalta": "Está `EN_CAMINO` en lib/movil-rutas.ts desde antes del pedido: un teléfono ve la cubierta «se usa en la computadora». Lo nuevo (gráfico, detalle, «Copiar estructura») ya se probó a 390 px en Chromium y entra sin scroll de costado con hasta 90 miniaturas. Cuando se escriba la pantalla, montar `GraficoSpy` tal cual.",
+   "donde": "C:/dev/wt-puntas/lib/movil-rutas.ts (EN_CAMINO) ; app/m/ ; docs/relevo/nube-spy.md:213-218",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 396,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Averiguar por qué de un competidor sólo se trajeron 12 piezas",
+  "porque": "Hay tres causas posibles y hasta no mirarlo no se sabe si al resto de los clientes le está pasando lo mismo.",
+  "tecnico": "Competidor 13 del ws 11. Correr las 4 consultas de lectura que dejó la nube (app_settings 'spy.todo', credenciales APIFY_INSTAGRAM_TOKEN, spy_competidores, spy_piezas por canal y fuente) y después, con el run y el dataset, GET /v2/actor-runs/<run> y GET /v2/datasets/<dataset>/items?limit=1 contra Apify. Dice cuál de las tres causas fue: la corrida nunca se recogió, terminó vacía, o no hay clave. Consultas textuales en docs/relevo/nube-spy.md:191-208",
+  "original": {
+   "titulo": "Medir en la base por qué el competidor 13 del ws 11 quedó en 12 piezas",
+   "queFalta": "Correr las 4 consultas de lectura que dejó la nube (app_settings 'spy.todo', credenciales APIFY_INSTAGRAM_TOKEN, spy_competidores, spy_piezas por canal y fuente) y después, con el run y el dataset, `GET /v2/actor-runs/<run>` y `GET /v2/datasets/<dataset>/items?limit=1` contra Apify. Dice cuál de las tres causas le tocó: la corrida nunca se recogió, terminó vacía, o no hay clave.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:191-208 (las consultas, textuales)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 397,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Confirmar que los videos de YouTube de Leila ya se están trayendo",
+  "porque": "Si no entraron, al abrir su ficha no se ven sus videos y se pierde la mitad de lo que ella hace.",
+  "tecnico": "Leila es el ws 9. Correr las dos consultas de docs/relevo/nube-spy.md:101-104: si youtube_id está y no hay piezas de 'youtube', es el corte ya arreglado por punta/spy-canal-sumado y al abrir su ficha se lee sola. Hecho = abrir la ficha de Leila y ver sus videos. docs/relevo/nube-spy.md:99-107",
+  "original": {
+   "titulo": "Medir en la base que el YouTube de Leila (ws 9) trajo sus videos",
+   "queFalta": "Correr las dos consultas de nube-spy.md:101-104. Si `youtube_id` está y no hay piezas de 'youtube', es el corte ya arreglado por `punta/spy-canal-sumado`: al abrir su ficha se lee sola. Hecho = abrir la ficha de Leila y ver sus videos.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:99-107",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 398,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Falta la primera lectura real de anuncios por Apify",
+  "porque": "Hasta que no corra una vez de verdad, no se sabe si los anuncios quedan verificados en la ficha del competidor.",
+  "tecnico": "ANUNCIOS_POR_APIFY ya está en true (confirmado en lib/spy-todo-reglas.ts:82). Si el actor no devuelve pageID, la Página se verifica por nombre como hoy. Hecho = anuncios verificados en una ficha y la Página aprendida por view_all_page_id. docs/relevo/nube-spy.md:96",
+  "original": {
+   "titulo": "La primera corrida real de anuncios por Apify: que el actor traiga `pageID`",
+   "queFalta": "`ANUNCIOS_POR_APIFY` ya está en `true` (confirmado en lib/spy-todo-reglas.ts:82). Falta la primera corrida real: si el actor no devuelve `pageID`, la Página se verifica por nombre como hoy. Hecho = anuncios verificados en una ficha y la Página aprendida por `view_all_page_id`.",
+   "donde": "C:/dev/wt-puntas/lib/spy-todo-reglas.ts:82 ; docs/relevo/nube-spy.md:96",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 399,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Medir en producción cuánto tarda en abrirse la ficha de un competidor",
+  "porque": "En la prueba bajó de 3,9 a 3,2 segundos, pero esa prueba no carga las imágenes de Meta: el número real puede ser otro.",
+  "tecnico": "2.369 → 1.664 elementos. La vista de prueba NO tiene el CDN de Meta: repetir la medición en producción con Den Borg. Método y números en docs/hallazgos-competitors-spy.md ; docs/relevo/nube-spy.md:77",
+  "original": {
+   "titulo": "Medir en producción la velocidad de la ficha con Den Borg",
+   "queFalta": "En la vista de prueba bajó de 3,9 s a 3,2 s hasta el gráfico (2.369 → 1.664 elementos), pero la vista de prueba NO tiene el CDN de Meta. Repetir la medición en producción con Den Borg. Método y números en docs/hallazgos-competitors-spy.md.",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-competitors-spy.md ; docs/relevo/nube-spy.md:77",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 400,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Las piezas ya analizadas quedaron con los formatos viejos, no con los 19 nuevos",
+  "porque": "El cliente ve el formato viejo en todo lo analizado antes, y los dos criterios conviven sin que nada lo avise.",
+  "tecnico": "Los 19 formatos del catálogo ya están y la IA recibe qué es cada uno, pero lo ya analizado no se vuelve a mandar solo. Falta decidir y correr una repasada. Lo mismo bloquea «los formatos nuevos del catálogo en el análisis de piezas». spy_piezas.analisis (el formato va dentro del mismo jsonb) ; docs/relevo/nube-spy.md:79-80",
+  "original": {
+   "titulo": "Volver a analizar con IA las piezas ya analizadas para que tomen los 19 formatos del catálogo",
+   "queFalta": "Los 19 formatos del catálogo ya están y la IA recibe qué es cada uno, pero lo ya analizado no se vuelve a mandar solo: queda con el formato viejo. Falta decidir y correr una repasada. Lo mismo bloquea «los formatos nuevos del catálogo en el análisis de piezas», que el relevo marca pendiente.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:79-80 ; spy_piezas.analisis (el formato va dentro del mismo jsonb)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 401,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Sin probar: un link acortado de un competidor en «Sus páginas»",
+  "porque": "Si no redirige como se espera, el cliente toca la página del competidor y no llega a ningún lado.",
+  "tecnico": "El acortador es linktw.in/pywydg. Correr los dos curl que dejó la nube para saber si redirige por HTTP, por JavaScript/refresh, o si es una página de «continuar» con botón (en ese caso queda «Abrir», sin marco). Desde la nube no se llega. Comandos textuales en docs/relevo/nube-spy.md:121-131",
+  "original": {
+   "titulo": "Sin probar: el acortador `linktw.in/pywydg` de verdad en «Sus páginas»",
+   "queFalta": "Correr los dos curl que dejó la nube para saber si redirige por HTTP, por JavaScript/refresh, o si es una página de «continuar» con botón (en ese caso queda «Abrir», sin marco). Desde la nube no se llega.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:121-131 (los comandos, textuales)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 402,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "«Sugeridos» nunca se vio en pantalla con competidores de verdad",
+  "porque": "Es lo que hace que un cliente nuevo arranque con competidores sin gastar su propio Apify: si falla, arranca vacío.",
+  "tecnico": "Un negocio cualquiera tiene que ver a los del ws 9 (Den Borg, Víctor Heras…) y poder sumarlos sin que suba el uso de SU Apify (copia lo ya leído). API: ver_sugeridos y sumar_sugerido. docs/relevo/nube-spy.md:58",
+  "original": {
+   "titulo": "Ver «Sugeridos» en pantalla con los competidores de verdad",
+   "queFalta": "Un negocio cualquiera tiene que ver a los del ws 9 (Den Borg, Víctor Heras…) y poder sumarlos sin que suba el uso de SU Apify (copia lo ya leído). Nunca se vio con datos reales.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:58 ; la API: ver_sugeridos y sumar_sugerido",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 403,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Sin probar: el análisis de la oferta de un competidor con un negocio real",
+  "porque": "Si habla en primera persona, el informe suena como si la oferta del competidor fuera la del propio cliente.",
+  "tecnico": "El diagnóstico de Offer sobre la web del competidor usa bloqueOfertaDeOtro para hablar de él en tercera persona, con la IA del negocio y sin crédito de la plataforma (soloDelNegocio). Nunca corrió contra un modelo real ni contra una web de verdad. /api/competitor-spy/oferta ; docs/relevo/nube-spy.md:62",
+  "original": {
+   "titulo": "Sin probar: que la lectura de la oferta hable en tercera persona con un negocio real",
+   "queFalta": "El diagnóstico de Offer sobre la web del competidor usa `bloqueOfertaDeOtro` para hablar de él en tercera persona, con la IA del negocio y sin crédito de la plataforma (`soloDelNegocio`). Nunca corrió contra un modelo real ni contra una web de verdad.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:62 ; /api/competitor-spy/oferta",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 404,
+  "area": "Spy",
+  "quien": "equipo",
+  "titulo": "Sin probar: sacar el guion de un reel de un competidor",
+  "porque": "Se pide solo al abrir el detalle: si el video no llega o la IA no lo escucha, el guion le queda vacío al cliente.",
+  "tecnico": "Apify trae el video fresco (UNA publicación con la clave de Spy, tope de 40 por día) y lo escucha la IA del negocio. Falta comprobar que el actor devuelve videoUrl con directUrls de UN reel y que la IA de un negocio escucha ese mp4. lib/spy-transcripcion-servidor.ts ; docs/relevo/nube-spy.md:63",
+  "original": {
+   "titulo": "Sin probar: el guion de un reel (que el actor devuelva `videoUrl` con `directUrls`)",
+   "queFalta": "El guion de un reel se pide solo al abrir el detalle: Apify trae su video fresco (UNA publicación con la clave de Spy, tope de 40 por día) y lo escucha la IA del negocio. Falta comprobar que el actor devuelve `videoUrl` con `directUrls` de UN reel y que la IA de un negocio escucha ese mp4.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-spy.md:63 ; lib/spy-transcripcion-servidor.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

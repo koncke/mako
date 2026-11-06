@@ -1,0 +1,227 @@
+[
+ {
+  "id": 33,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Cinco avisos de la plataforma están escritos pero no existen en producción",
+  "porque": "Si a un cliente de agencia se le frena la cuenta de Meta, el aviso no le llega a nadie.",
+  "tecnico": "scripts/mudanza-avisos-plataforma.mts --aplicar para `meta_cuenta_frenada_agencia` y `meta_cuenta_recuperada_agencia` (alta), `social_tope` y `reunion_tareas_al_plan` (nace pausada, excluyendo ws 13). Más: crear la plantilla «Tu contraseña cambió» en ws 9 y corregir la fila viva #261 (`gracia` y `liquidacion` dicen «Tu cuenta» sin «publicitaria»). docs/relevo/pendientes-barrido.md P5-P9 · docs/pendientes.md:21-22",
+  "original": {
+   "titulo": "Cinco filas de avisos de la plataforma escritas y sin crear en producción",
+   "queFalta": "Correr `scripts/mudanza-avisos-plataforma.mts --aplicar` para `meta_cuenta_frenada_agencia` y `meta_cuenta_recuperada_agencia` (alta: sin ellas la alerta de Meta de un cliente de agencia no le sale a nadie), `social_tope` y `reunion_tareas_al_plan` (ésta nace pausada, con la exclusión del ws 13). Más: crear la plantilla «Tu contraseña cambió» en el ws 9, y corregir el texto de la fila viva #261 (dos estados dicen «Tu cuenta» sin «publicitaria»: `gracia` y `liquidacion`).",
+   "donde": "scripts/mudanza-avisos-plataforma.mts · docs/relevo/pendientes-barrido.md P5-P9 · docs/relevo/nube-nada-por-detras.md §«Para el Cerebro» · docs/pendientes.md:21-22",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 45,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Admin: el runway quedó en octubre y el próximo cobro a Código figura mal",
+  "porque": "Se decide con plata y fechas de hace un mes, y el cobro a Código aparece con fecha y monto equivocados.",
+  "tecnico": "Actualizar capital y fechas en app/admin/runway/datos.ts (foto del 3/10) o que mande Strategy; borrar app/tickets/decisiones/Mazo.tsx, app/admin/runway/Tablero.tsx y sus rutas-puerta (/tickets/decisiones, /admin/runway) con sus tests; falta el registro de todo lo que hace cada usuario (lo pidió Martín); el historial de /admin/dev está congelado al 11/10. En la copia de Polar, `porCobrar` dice 4/12 por US$238 y lo real es 5/12 por US$426. docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Admin",
+  "original": {
+   "titulo": "Admin: Runway con la foto del 3/10, el mazo viejo sin borrar y el historial congelado",
+   "queFalta": "Actualizar capital y fechas del runway (o que mande Strategy); borrar Mazo.tsx, Tablero.tsx y sus rutas-puerta (/tickets/decisiones, /admin/runway) con sus tests, que ya nadie dibuja; el registro de todo lo que hace cada usuario, que Martín pidió y nadie tomó; el historial de /admin/dev congelado al 11/10. Y el arreglo pendiente de la copia de Polar: `porCobrar` le pone a Código 4/12 por US$238 y lo real es 5/12 por US$426.",
+   "donde": "app/admin/runway/datos.ts · app/tickets/decisiones/Mazo.tsx · app/admin/runway/Tablero.tsx · docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Admin · docs/relevo/cerebro.md:85",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 228,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "En Admin, cargar un pago, devolverlo y borrarlo nunca se probó de verdad",
+  "porque": "Son las tres acciones que tocan la plata de un cliente y nadie las ejerció desde que se rehizo la pantalla el 6/11.",
+  "tecnico": "app/admin — «Cargar pago», devolver y eliminar · la copia de Polar con los 43 arreglos entró a producción el 6/11 · docs/relevo/cerebro.md:27,31",
+  "original": {
+   "titulo": "«Cargar pago», devolver y eliminar en Admin, sin probar con datos reales",
+   "queFalta": "La copia de Polar con los 43 arreglos entro a produccion el 6/11, pero esas tres acciones nunca se ejercieron con datos de verdad.",
+   "donde": "docs/relevo/cerebro.md:27,31 · app/admin",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 230,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "El Marketing CoPilot nunca se probó con la IA de verdad",
+  "porque": "Hay 14 conversaciones de prueba escritas y ninguna corrida: no se sabe si contesta bien cuando lo usa un cliente.",
+  "tecnico": "docs/marketing-copilot/conversaciones.md (14 conversaciones) · docs/relevo/cerebro.md:31 — Hecho = las 14 corridas con IA real y su resultado anotado",
+  "original": {
+   "titulo": "El agente del Marketing CoPilot nunca se probo con IA real",
+   "queFalta": "Hay 14 conversaciones escritas para probarlo. Hecho = las 14 corridas con IA real y su resultado anotado.",
+   "donde": "docs/marketing-copilot/conversaciones.md · docs/relevo/cerebro.md:31",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 231,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "La pantalla de caja de Admin muestra datos del 3/10 y falta el registro de acciones",
+  "porque": "Martín mira cuánta plata le queda y ve una foto de hace un mes; y no hay rastro de quién tocó qué en Admin.",
+  "tecnico": "app/admin/runway/datos.ts y app/admin/runway/Tablero.tsx (foto del 3/10) · app/tickets/decisiones/Mazo.tsx (borrar el mazo viejo) · falta el registro de acciones por usuario y el historial de /admin/dev · docs/relevo/pendientes-barrido.md:119-120 (anotado «para otros chats»)",
+  "original": {
+   "titulo": "Restos de Admin: Runway con foto vieja, el mazo viejo y el registro de acciones",
+   "queFalta": "Runway tiene una foto del 3/10; hay que borrar el mazo viejo, hacer el registro de acciones por usuario y el historial de /admin/dev. Anotado como «para otros chats».",
+   "donde": "docs/relevo/pendientes-barrido.md:119-120 · app/admin/runway/datos.ts · app/tickets/decisiones/Mazo.tsx · app/admin/runway/Tablero.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 421,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Sin probar en Admin: cargar un pago, devolverlo y eliminarlo",
+  "porque": "Si «Cargar pago» no registra en el CRM, el pago queda anotado en un solo lado y las cuentas del cliente no cierran.",
+  "tecnico": "El Cerebro lo dejó anotado como «sin probar». La 0408 ya está aplicada, así que «Cargar pago» debería registrar el pago en el CRM; hasta que se pruebe, no se sabe. app/admin/ ; docs/relevo/cerebro.md:31",
+  "original": {
+   "titulo": "Sin probar en Admin: «Cargar pago», devolver y eliminar con datos reales",
+   "queFalta": "El Cerebro lo dejó anotado como «sin probar». La 0408 ya está aplicada, así que «Cargar pago» debería registrar el pago en el CRM; hasta que se pruebe, no se sabe.",
+   "donde": "C:/dev/wt-puntas/app/admin/ ; docs/relevo/cerebro.md:31",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 422,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Avisar al chat que maneja la barra lateral que Admin la pliega",
+  "porque": "Si no lo sabe, el próximo cambio en la barra puede pisar lo que hace Admin sin que nadie lo note.",
+  "tecnico": "/admin pliega la barra como el Ops Center (pliegaLaBarra con SECCIONES_ADMIN, exportada de app/_components/nav.ts). No cambia las familias ni el menú, pero el jefe Sidebar tiene que saberlo. docs/relevo/nube-admin-polar.md:131-132",
+  "original": {
+   "titulo": "Avisarle al jefe «Sidebar» que /admin pliega la barra de MaKo",
+   "queFalta": "/admin pliega la barra como el Ops Center (`pliegaLaBarra` con `SECCIONES_ADMIN`, exportada de app/_components/nav.ts). No cambia las familias ni el menú, pero el jefe Sidebar tiene que saberlo.",
+   "donde": "C:/dev/wt-puntas/app/_components/nav.ts (SECCIONES_ADMIN, pliegaLaBarra) ; docs/relevo/nube-admin-polar.md:131-132",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 423,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "En la ficha de un cliente no se ve qué hace cada persona de ese negocio",
+  "porque": "Los datos ya se juntan pero no se muestran: no se puede ver quién usa la plataforma y quién la tiene abandonada.",
+  "tecnico": "vistaDeActividad ya trae la actividad por negocio; falta pintarla en la ficha. Queda la opción de Usage como pestaña aparte (hoy vive dentro de Activity, copiado de PostHog): si Martín la quiere aparte, son las mismas cuentas en otra pestaña. lib/admin-actividad (vistaDeActividad) ; app/admin/ ; docs/relevo/nube-admin.md:80-86",
+  "original": {
+   "titulo": "Lo que hace cada persona no se dibuja en la ficha de su negocio (Customers)",
+   "queFalta": "`vistaDeActividad` ya trae la actividad por negocio; falta pintarla en la ficha. Y queda la opción de Usage como pestaña aparte (hoy vive dentro de Activity, copiado de PostHog): si Martín la quiere aparte, son las mismas cuentas en otra pestaña.",
+   "donde": "C:/dev/wt-puntas/lib/admin-actividad (vistaDeActividad) ; app/admin/ ; docs/relevo/nube-admin.md:80-86",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 424,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Tres arreglos de Admin que ningún chat tocó: un texto y dos cuentas mal",
+  "porque": "Las cuentas de prueba se cuentan como clientes reales, y dos números que parecen comparables miden cosas distintas.",
+  "tecnico": "SB1: la caja dice «Escribe a Chat nuevo» (app/admin/operaciones/Conversacion.tsx:250 y PiezasCliente.tsx:179). CU1 y CU2: cuentas de prueba contadas como clientes (lib/clientes-plataforma.ts:164) y «Nuevos en 30 días» vs «Para mirar» con alcances distintos sin decirlo (lib/customers-vista.ts:74,78). Quedaron fuera porque el brief decía «No toques Admin».",
+  "original": {
+   "titulo": "Tres arreglos del recorrido visual en Admin que ningún chat tocó",
+   "queFalta": "SB1: la caja dice «Escribe a Chat nuevo» (app/admin/operaciones/Conversacion.tsx:250 y PiezasCliente.tsx:179). CU1 y CU2: las cuentas de prueba cuentan como clientes, y «Nuevos en 30 días» y «Para mirar» tienen alcances distintos sin decirlo. Quedaron fuera porque el brief decía «No toques Admin».",
+   "donde": "C:/dev/wt-puntas/app/admin/operaciones/Conversacion.tsx:250 ; app/admin/operaciones/PiezasCliente.tsx:179 ; lib/clientes-plataforma.ts:164 ; lib/customers-vista.ts:74,78",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 425,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Tres áreas no anotaron en el registro interno lo que hicieron",
+  "porque": "Lo que se hizo no queda en el registro que después se lee: el próximo chat no se entera de que ya está hecho.",
+  "tecnico": "Dashboards, Carruseles y Recorrido visual no escribieron su hito porque el brief prohibía tocar app/admin. Los commits y el pedido textual de Martín están en cada relevo, listos para pegar. El Copywriter además no es un área de /admin/dev (ningún vive[] declara app/copywriter) y Offer no tiene bitácora. app/admin/dev/dashboard/bitacora.ts ; app/admin/dev/admin/bitacora.ts ; docs/relevo/nube-dashboards.md:49-50 ; docs/relevo/nube-recorrido-visual.md:81-83",
+  "original": {
+   "titulo": "Faltan los hitos en las bitácoras de /admin/dev de varias áreas",
+   "queFalta": "Dashboards, Carruseles y Recorrido visual no escribieron su hito porque el brief prohibía tocar app/admin. Los commits y el pedido textual de Martín están en cada relevo, listos para pegar. El Copywriter además no es un área de /admin/dev (ningún `vive[]` declara app/copywriter) y Offer no tiene bitácora.",
+   "donde": "C:/dev/wt-puntas/app/admin/dev/dashboard/bitacora.ts ; app/admin/dev/admin/bitacora.ts ; docs/relevo/nube-dashboards.md:49-50 ; docs/relevo/nube-recorrido-visual.md:81-83",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 540,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "Del Centro de Operaciones faltan dos etapas: el consumo y el señalador",
+  "porque": "No se ve cuánto queda de cuota y no se puede señalar nada: el Centro queda a mitad de camino.",
+  "tecnico": "Etapa 2 (la cuota) y etapa 3 (el señalador) quedaron escritas y sin hacer. C:/dev/wt-puntas/app/admin/operaciones/ · C:/dev/wt-puntas/docs/relevo/centro-operaciones.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:2340",
+  "original": {
+   "titulo": "El Ops Center: etapa 2 (la cuota) y etapa 3 (el señalador) sin empezar",
+   "queFalta": "Las dos etapas del Centro de Operaciones quedaron escritas y sin hacer. Hecho = la cuota se ve y el señalador funciona.",
+   "donde": "C:/dev/wt-puntas/app/admin/operaciones/ · C:/dev/wt-puntas/docs/relevo/centro-operaciones.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:2340",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 542,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "El Centro de Operaciones no se probó nunca con una sesión de verdad",
+  "porque": "No sabemos si un invitado puede entrar, si el aviso al teléfono llega ni si el grupo anda: se descubre con gente adentro.",
+  "tecnico": "Falta la sesión de un invitado real (requireMovil; Joan y Juanfran: si comparten fila en usuarios no se puede invitar a los dos), el push tocado en un Android, y el ?ws= de WsFetch contra las rutas del grupo. C:/dev/wt-puntas/app/_chat/grupo/HiloDelGrupo.tsx · app/admin/operaciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120",
+  "original": {
+   "titulo": "Ops Center: nada se miró en la app de verdad, con la sesión de Martín",
+   "queFalta": "Falta la sesión de un invitado real (requireMovil; Joan y Juanfran: si comparten fila en usuarios no se puede invitar a los dos), el push tocado en un Android, y el ?ws= de WsFetch contra las rutas del grupo. Hecho = recorrido con la sesión real y lo visto anotado.",
+   "donde": "C:/dev/wt-puntas/app/_chat/grupo/HiloDelGrupo.tsx · app/admin/operaciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 543,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "A la ficha de cada negocio en el panel le faltan seis cosas",
+  "porque": "El dinero mes a mes está dibujado, no medido; no se ve la actividad de cada negocio; y con más de mil clientes la lista corta sin avisar.",
+  "tecnico": "1) MRR mes a mes real (hoy se dibuja lo cobrado; el histórico pide una foto por día que nadie guarda). 2) Fichas de agencia con sus clientes adentro. 3) Administrar desde el teléfono. 4) Pasar onboardingsHechos y leadsDe a leerPorPaginas. 5) Activity por negocio dentro de su ficha. 6) Marcar la entrada de una agencia (/api/agencia/entrar) en la fila del cliente para que no caiga en «Sin uso». C:/dev/wt-puntas/lib/clientes-plataforma.ts · app/admin/ · app/api/agencia/entrar · pendiente en C:/dev/wt-puntas/docs/hallazgos-customers.md:255",
+  "original": {
+   "titulo": "Customers: seis pendientes de la ficha de un negocio",
+   "queFalta": "El MRR mes a mes de verdad (hoy se dibuja lo cobrado; el histórico pide una foto por día que nadie guarda); las fichas de agencia con sus clientes adentro; administrar desde el teléfono; pasar onboardingsHechos y leadsDe a leerPorPaginas (con más de 1000 negocios la primera corta en silencio); Activity por negocio dentro de su ficha; y marcar la entrada de una agencia (/api/agencia/entrar) en la fila del cliente para que un cliente de agencia pueda entrar en «Sin uso». Hecho = los seis verificados en /admin.",
+   "donde": "C:/dev/wt-puntas/lib/clientes-plataforma.ts · app/admin/ · app/api/agencia/entrar · pendiente en C:/dev/wt-puntas/docs/hallazgos-customers.md:255",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 614,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "El pedido de rehacer la pantalla de clientes como Admin no lo tomó nadie",
+  "porque": "Martín sigue sin ver en un solo lugar quién se conecta, quién dejó de entrar, qué se cobró y qué se debe.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/admin-encargo.md (encargo del Cerebro del 5/11, seis bloques: Actividad, Uso por tab y negocio, Errores y tickets, Ingresos con pasarela MÁS lo cobrado a mano, Cobros, Usuarios) · C:/dev/wt-puntas/docs/relevo/admin-medicion.md (153 líneas, tampoco se leyó) · C:/dev/wt-puntas/app/customers/ (entera) · C:/dev/wt-puntas/app/_components/nav.ts:225 (SECCIONES_ADMIN arranca con 'customers')",
+  "original": {
+   "titulo": "El encargo de rehacer la tab Customers como «Admin» (5/11) no lo tomo nadie y ninguna familia lo leyo",
+   "queFalta": "`docs/relevo/admin-encargo.md` es un encargo completo del Cerebro, escrito el 5/11 para una sesion de la nube, y no figura en ninguno de los items que trajeron las siete familias. Pide seis bloques: Actividad (quien se conecta y quien dejo de entrar), Uso por tab y por negocio, Errores y tickets, Ingresos (total por cliente, mes a mes, MRR, movimientos, sumando pasarela MAS lo cobrado a mano), Cobros (suscripciones, deudas, proximos, recibos) y Usuarios (alta, suspender, inspeccionar). Sigue sin empezar: `app/customers/` esta entera y `SECCIONES_ADMIN` todavia arranca con 'customers'. La medicion que lo acompana (`admin-medicion.md`, 153 lineas) tampoco se leyo. Hecho = la tab se llama Admin y los seis bloques muestran los numeros de la medicion.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/admin-encargo.md · C:/dev/wt-puntas/docs/relevo/admin-medicion.md · C:/dev/wt-puntas/app/customers/ · C:/dev/wt-puntas/app/_components/nav.ts:225 (SECCIONES_ADMIN)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 615,
+  "area": "Admin",
+  "quien": "equipo",
+  "titulo": "La pantalla de Admin dice que entraron 0 dólares cuando entraron 578",
+  "porque": "Martín mira el ingreso del mes y ve cero; y el cartel afirma que los planes se cargaron a mano, cosa que la base no dice.",
+  "tecnico": "C:/dev/wt-puntas/lib/clientes-plataforma.ts (cobrosDeLugares, factura, cuotasDeLaPlataforma: el MRR solo cuenta filas de `cobros` con alta_ws o cliente_ws y activa; las 2 filas que hay no cumplen ninguna, así que MRR = 0 y «pagan» = 0) · C:/dev/wt-puntas/app/customers/ (CustomersApp, bloque «Plata»: el número grande es el del mes en curso, no el cobrado ni el MRR; el texto de vacío dice «tus clientes tienen el plan dado a mano» sin una sola fila plan.a_mano en app_settings) · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1. Cobrado real US$578: Leila 97, Código 146 + 238 sin cargar, Florencia 97",
+  "original": {
+   "titulo": "La tab de Admin le muestra a Martin «Lo que entro este mes · US$0» y un texto que es falso",
+   "queFalta": "Medido el 5/11 contra produccion: `lib/clientes-plataforma.ts` calcula el MRR solo con filas de `cobros` que tengan `alta_ws` o `cliente_ws` y esten `activa`; las 2 filas que hay no cumplen ninguna de las dos, asi que MRR = 0 y «pagan» = 0. El numero grande que se ve es el del mes en curso, no el cobrado ni el MRR. Y el texto de «sin plata» dice «tus clientes tienen el plan dado a mano» cuando no hay ni una fila `plan.a_mano` en `app_settings`: es una frase falsa en pantalla. Lo cobrado de verdad son US$578 (Leila 97, Codigo 146 + 238 sin cargar, Florencia 97). Hecho = el numero grande dice que es, el MRR cuenta lo manual, y el texto de vacio no afirma algo que la base no dice.",
+   "donde": "C:/dev/wt-puntas/lib/clientes-plataforma.ts (`cobrosDeLugares`, `factura`, `cuotasDeLaPlataforma`) · C:/dev/wt-puntas/app/customers/ (CustomersApp, bloque «Plata») · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

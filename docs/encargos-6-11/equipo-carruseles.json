@@ -1,0 +1,527 @@
+[
+ {
+  "id": 7,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Casi todos los carruseles no tienen tipo: no se reconocen los otros idiomas",
+  "porque": "Sin tipo no se pueden filtrar: el dueño que busca uno de su rubro tiene que mirar los 1.470.",
+  "tecnico": "Es trabajo de CÓDIGO, no un script: `reclasificar` en seco dio «1.253 → 1.253», 0 cambios. 1.213 de 1.470 sin tipo, muchos en portugués, alemán e inglés; 512 piezas con `parece_contenido` nulo. lib/carruseles/biblioteca.ts (función `reclasificacion`) · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A3",
+  "original": {
+   "titulo": "1.213 de 1.470 carruseles siguen sin tipo: el problema es el clasificador, no el comando",
+   "queFalta": "Es trabajo de CÓDIGO, no un script: `reclasificar` en seco ya dio «1.253 → 1.253», 0 cambios, así que correrlo con --de-verdad no sirve. El 85 % sigue sin tipo y muchos son textos en portugués, alemán e inglés; quedan 512 piezas con `parece_contenido` nulo. Hecho = el clasificador reconoce otros idiomas y el porcentaje sin tipo baja, medido en seco antes de aplicar.",
+   "donde": "lib/carruseles/biblioteca.ts (función `reclasificacion`) · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A3",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 8,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El botón de editar un carrusel nunca se probó con la IA de verdad",
+  "porque": "Puede salir con recuadros grises, letras cambiadas o el aviso de que la IA no contestó, y eso lo ve el cliente.",
+  "tecnico": "scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas, y también con un carrusel CON láminas. Comprobar en producción el diseño que falló: /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727. lib/carruseles/replica-servidor.ts (`replicarEjemplo`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 1",
+  "original": {
+   "titulo": "«Editar» de carruseles nunca se probó con la IA real",
+   "queFalta": "Correr `scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas` y también con un carrusel CON láminas, y comprobar en producción el diseño que falló (/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727). Hecho = el texto es del negocio, las letras son las del editor, no hay recuadros grises y no vuelve «Tu IA no contestó ahora».",
+   "donde": "scripts/carruseles-probar-editar.mts · lib/carruseles/replica-servidor.ts (`replicarEjemplo`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 1 · docs/relevo/cerebro.md:19",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 23,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Falta limpiar la biblioteca de carruseles y sumar cuentas de referentes",
+  "porque": "Quedan 990 carruseles a la vista y muchos no le sirven a un dueño de negocio: la portada se llena de ruido.",
+  "tecnico": "scripts/carruseles-biblioteca.mts (`excluir`, `ocultar`, `sumar`). Los 388 escondidos el 6/11 se deshacen con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json. Sumar cuentas nuevas, incluidas las de los referentes. lib/asesores/catalogo.ts · docs/relevo/cerebro.md:19",
+  "original": {
+   "titulo": "Curar la biblioteca y sumar más cuentas, también de referentes",
+   "queFalta": "Quedan 990 carruseles a la vista (388 se escondieron el 6/11; se deshace con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json). Falta seguir escondiendo lo que no le sirve a un dueño de negocio y sumar cuentas nuevas, incluidas las de los referentes. Hecho = la portada de Image sólo muestra carruseles que le sirven a un dueño.",
+   "donde": "scripts/carruseles-biblioteca.mts (`excluir`, `ocultar`, `sumar`) · lib/asesores/catalogo.ts · docs/relevo/cerebro.md:19",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 24,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Los carruseles no se pueden filtrar por rubro (finanzas, salud, marketing…)",
+  "porque": "El dueño de una clínica tiene que mirar carruseles de cualquier rubro hasta encontrar uno que le sirva.",
+  "tecnico": "Decidir si se clasifica cada carrusel con IA para sumar el filtro por tema y hacerlo; hoy el rubro no existe en carruseles (en Thumbnails lo pone la búsqueda, no un clasificador). lib/carruseles/biblioteca.ts · docs/relevo/nube-carruseles-rediseno.md:118 punto 3",
+  "original": {
+   "titulo": "Falta el filtro por «tema» (finanzas, salud, marketing…) de la referencia",
+   "queFalta": "Decidir si se clasifica cada carrusel con IA para sumar ese filtro, y hacerlo. Hoy el rubro no existe en carruseles (en Thumbnails lo pone la búsqueda, no un clasificador).",
+   "donde": "docs/relevo/nube-carruseles-rediseno.md:118 punto 3 · lib/carruseles/biblioteca.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 25,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Cuando el ejemplo tiene una persona, la lámina sale con un recuadro vacío",
+  "porque": "El carrusel editado queda con un hueco y una nota adentro en vez de la cara de la marca: así no se publica.",
+  "tecnico": "Generar la lámina con la IA de imagen y el avatar del cliente (camino de Flow); hoy «Editar» deja el hueco con una guía escrita. lib/carruseles/replica-servidor.ts · lib/flow-imagen.ts · docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer»",
+  "original": {
+   "titulo": "Una persona en una lámina que no es el cliente queda como un recuadro con su guía",
+   "queFalta": "Generarla con la IA de imagen y el avatar del cliente (camino de Flow). Hoy «Editar» deja el hueco con una guía escrita. Hecho = la lámina sale con la cara de marca del negocio donde el ejemplo tenía una persona.",
+   "donde": "docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer» · lib/carruseles/replica-servidor.ts · lib/flow-imagen.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 26,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Las instrucciones de carruseles y stories están fijas y no se pueden tocar",
+  "porque": "Para cambiar cómo escribe MaKo un carrusel hay que pedirle un cambio de código a alguien del equipo.",
+  "tecnico": "Pasar los prompts hardcodeados a prompt EDITABLE con el skill .claude/skills/add-editable-prompt; el historial vive en memoria. lib/ig-writer.ts · docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Carruseles / Stories",
+  "original": {
+   "titulo": "Los prompts de carruseles y stories siguen hardcodeados",
+   "queFalta": "Pasarlos a prompt EDITABLE con el skill `add-editable-prompt`: hoy Martín no los puede ajustar. Y el historial vive en memoria.",
+   "donde": "lib/ig-writer.ts · .claude/skills/add-editable-prompt · docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Carruseles / Stories",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 27,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "En «Anuncios» hay videos mezclados con imágenes y no se pueden separar",
+  "porque": "Lo guardado antes no dice si era video, así que al dueño le aparecen tapas de video como si fueran imágenes.",
+  "tecnico": "Lo guardado de antes no tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video. Se corrige solo en la próxima lectura de Spy de cada cuenta; si hace falta antes, releer los anuncios de las cuentas seguidas. lib/carruseles/anuncios.ts (`esAnuncioEnVideo`) · lib/spy-todo-reglas.ts (`guardarMedios`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 3",
+  "original": {
+   "titulo": "Los anuncios en VIDEO ya guardados no se pueden distinguir de las imágenes",
+   "queFalta": "Lo guardado de antes no tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video. Se corrige solo en la próxima lectura de Spy de cada cuenta; si hace falta antes, volver a leer los anuncios de las cuentas seguidas. Hecho = en «Anuncios» no queda ningún video.",
+   "donde": "lib/carruseles/anuncios.ts (`esAnuncioEnVideo`) · lib/spy-todo-reglas.ts (`guardarMedios`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 3",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 106,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "La traída de láminas se corta sin explicar por qué y nadie lo revisó",
+  "porque": "Se gastó un tercio de lo permitido y se detuvo diciendo «al techo»: así no se sabe si falta crédito o es un límite interno.",
+  "tecnico": "scripts/carruseles-biblioteca.mts:490 (B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD)) y 495 (const DE_A=40); docs/relevo/cerebro.md:19 · la corrida del 6/11 paró con US$0,54 de un tope de US$1,50; sospecha: el techo efectivo se recalcula contra el crédito libre menos la reserva de US$2, y cada tanda de 40 lleva su propio techo de 1,5× (US$0,14)",
+  "original": {
+   "titulo": "Nadie miró por qué `laminas` cortó «al techo» con US$0,54 de un tope de US$1,50",
+   "queFalta": "Diagnosticar el corte: la corrida del 6/11 se detuvo diciendo «al techo» habiendo gastado US$0,54 de un tope pedido de US$1,50. Sospecha a verificar: el techo efectivo se recalcula contra el crédito libre (`techoConCredito` menos la reserva de US$2), no contra lo pedido, y cada tanda de 40 lleva su propio techo de 1,5× (US$0,14). Hecho = el mensaje de corte dice el techo REAL y por qué (crédito, reserva o techo de tanda), no «al techo» a secas.",
+   "donde": "scripts/carruseles-biblioteca.mts:490 (`B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD)`) y 495 (`const DE_A = 40`); docs/relevo/cerebro.md:19",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 107,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Falta correr la pasada que le pone tipo a 40 carruseles más: es gratis",
+  "porque": "El clasificador ya aprendió portugués, alemán e inglés, pero hasta que no se corra esos 40 siguen sin tipo.",
+  "tecnico": "scripts/carruseles-biblioteca.mts:543 (case 'reclasificar'); lib/carruseles/clasificar.ts; docs/relevo/nube-carruseles-rediseno.md:122-129 · primero en seco (debe decir «Carruseles sin tipo: 1253 → 1213») y después con --de-verdad · no le pide nada a Apify · el CTA de lo guardado queda escrito con la 0404, ya aplicada",
+  "original": {
+   "titulo": "Correr `reclasificar --de-verdad` con el clasificador nuevo (1.253 → 1.213 sin tipo)",
+   "queFalta": "El pulido del 6/11 amplió el clasificador a portugués, alemán e inglés y mueve 40 piezas, pero el `--de-verdad` no se corrió después de que eso entrara a main. Correr primero en seco y confirmar que dice «Carruseles sin tipo: 1253 → 1213», y después: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar --de-verdad` Es GRATIS (no le pide nada a Apify). Hecho = `estado` dice 1.213 sin tipo (y el CTA de lo guardado queda escrito con la 0404, ya aplicada).",
+   "donde": "scripts/carruseles-biblioteca.mts:543 (`case 'reclasificar'`); lib/carruseles/clasificar.ts; docs/relevo/nube-carruseles-rediseno.md:122-129",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 109,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El arreglo de «Editar» un carrusel está hecho pero no llegó a producción",
+  "porque": "Hasta que compile, el cliente sigue viendo «Tu IA no contestó ahora» y un carrusel con el texto del ejemplo.",
+  "tecnico": "lib/carruseles/replica-servidor.ts:221-242 (el arreglo: chatCheapCascade con 8.000 tokens en lugar de chatCheap con 512, portada con fetchSeguro, camino de guías mostrando sus láminas), lib/carruseles/replica.ts:457 (avisoSinIA) y :481 (vuelveASinVer) · el deploy del 11:08 UTC fue antes del commit; producción compila a las 08:05 ART · probar: node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas (y con láminas, y --que thumbnail --id <id>); en pantalla /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727",
+  "original": {
+   "titulo": "«Editar» con una IA real nunca se probó, y el arreglo está en main pero no en producción",
+   "queFalta": "El arreglo de «Tu IA no contestó ahora» YA está en main (`chatCheapCascade` con 8.000 tokens de salida en lugar de `chatCheap` con 512, la portada bajada con `fetchSeguro`, y el camino de guías mostrando sus láminas). Falta: (1) que entre a producción — el deploy del 11:08 UTC fue ANTES de este commit, y producción compila sola a las 08:05 ART; (2) probarlo con la IA real desde la PC: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas` (y el mismo con un carrusel CON láminas, y `--que thumbnail --id <id>` para una miniatura). Hecho = el texto es del negocio y no del ejemplo, las letras son las del editor, no hay recuadros grises, y el aviso de falla nombra la causa. Comprobarlo también en pantalla con `/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727`.",
+   "donde": "lib/carruseles/replica-servidor.ts:221-242 (el arreglo), lib/carruseles/replica.ts:457 (`avisoSinIA`) y :481 (`vuelveASinVer`); scripts/carruseles-probar-editar.mts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 110,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Un ejemplo nuevo entra a la biblioteca sin que nadie lo mire antes",
+  "porque": "Cualquier cosa que traiga una lectura nueva le aparece al cliente, y ya se midió que el filtro automático no sirve.",
+  "tecnico": "lib/carruseles/biblioteca-servidor.ts:87 (dejo_de_verse_en), scripts/carruseles-biblioteca.mts (comando leer); docs/hallazgos-carruseles.md:210 · ya medido: el modelo barato se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis (laminas ?? 0) >= 3 && parece_contenido === true tiraba 457 piezas, de las cuales 363 servían · hecho = estado «sin mirar», o el script deja la hoja de descartes para revisar antes de aplicar",
+  "original": {
+   "titulo": "Lo que entre de ahora en más a la biblioteca no pasa por ninguna curaduría",
+   "queFalta": "Una lectura nueva (`leer`) queda visible sin que nadie la mire, y ya se midió que el filtro automático no alcanza: el modelo barato se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true` tiraba 457 piezas por falta de dato, de las cuales 363 servían. Hecho = una pieza nueva entra en un estado «sin mirar» que no se muestra hasta que alguien la aprueba, o el script deja la hoja de descartes para revisar antes de aplicar.",
+   "donde": "lib/carruseles/biblioteca-servidor.ts:87 (`dejo_de_verse_en`), scripts/carruseles-biblioteca.mts (comando `leer`); docs/hallazgos-carruseles.md:210",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 113,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Anuncios en video ya guardados siguen apareciendo donde no corresponde",
+  "porque": "El contador de «Anuncios» cuenta videos que no debería; se arregla solo en la próxima lectura de Spy de cada cuenta.",
+  "tecnico": "lib/carruseles/anuncios.ts (esAnuncioEnVideo), lib/spy-todo-reglas.ts y lib/spy-medio.ts (medioDeAnuncio), lib/spy.ts (guardarMedios); docs/relevo/nube-carruseles-rediseno.md:205-206 · el código nuevo ya guarda medio (displayFormat de Apify), pero lo ya guardado no lo tiene, y si su miniatura se copió a nuestro bucket se perdió la pista (/t15. del CDN de Meta) · si hace falta antes: volver a leer los anuncios desde Competitors Spy",
+  "original": {
+   "titulo": "Los anuncios en video ya guardados siguen apareciendo hasta la próxima lectura de Spy",
+   "queFalta": "El código nuevo ya guarda `medio` para los anuncios (`displayFormat` de Apify) y el explorador no muestra ni cuenta un video, pero lo que YA está guardado no tiene `medio`, y si su miniatura ya se copió a nuestro bucket se perdió la única pista (la carpeta de cuadros de video del CDN de Meta, `/t15.`). Se corrige solo en la próxima lectura de Spy de cada cuenta; si hace falta antes, volver a leer los anuncios de las cuentas seguidas desde Competitors Spy. Hecho = «Anuncios N» no cuenta videos en el ws de prueba.",
+   "donde": "lib/carruseles/anuncios.ts (`esAnuncioEnVideo`), lib/spy-todo-reglas.ts y lib/spy-medio.ts (`medioDeAnuncio`), lib/spy.ts (`guardarMedios`); docs/relevo/nube-carruseles-rediseno.md:205-206",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 114,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "No hay forma de sumar un carrusel a la biblioteca pasando su link",
+  "porque": "Si Martín manda un link que quiere en la biblioteca, hoy no hay con qué cargarlo: el comando vivía en una copia ya borrada.",
+  "tecnico": "scripts/carruseles-biblioteca.mts:505 (el único uso de directUrls, dentro de laminas); docs/hallazgos-carruseles.md:74-80 y :211 · receta medida: por link 244 de 245 a ~US$0,0025; por perfil US$4,71 y 1 de 245 · entrada al actor de Instagram de Apify, de a 40 links: { \"directUrls\": [\"https://www.instagram.com/p/XXX/\"], \"resultsType\": \"posts\", \"resultsLimit\": 1, \"addParentData\": false }",
+  "original": {
+   "titulo": "Traer una pieza nueva por su link no existe como comando del script oficial",
+   "queFalta": "La receta medida (por link, 244 de 245 a ~US$0,0025; por perfil, US$4,71 y 1 de 245) sólo está implementada dentro del comando `laminas`, que lee las láminas de piezas YA guardadas. Para SUMAR un carrusel que Martín pase por link no hay comando: vivía en una copia temporal, ya borrada. Hecho = un comando que acepte una lista de links y los sume a la biblioteca, con esta entrada al actor de Instagram de Apify, de a 40 links por lectura: `{ \"directUrls\": [\"https://www.instagram.com/p/XXX/\"], \"resultsType\": \"posts\", \"resultsLimit\": 1, \"addParentData\": false }`",
+   "donde": "scripts/carruseles-biblioteca.mts:505 (el único uso de `directUrls`, dentro de `laminas`); docs/hallazgos-carruseles.md:74-80 y :211",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 116,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "De los referentes del catálogo sólo 4 tienen cuenta cargada en la biblioteca",
+  "porque": "Un cliente que elige un referente casi nunca encuentra ejemplos suyos: hay 456 cuentas y sólo 4 con referente.",
+  "tecnico": "lib/asesores/catalogo.ts y lib/asesores/clases-de-referentes.json; scripts/carruseles-biblioteca.mts:541-542; docs/relevo/cerebro.md:19 · hasta 20 por corrida, ~US$0,003 cada uno · buscar --techo-usd 0.5 · verificar @hormozi --referente hormozi · sumar @usuario --nombre \"Nombre\" --referente hormozi · «✔ confirmada» se suma; «? dudosa» y «✖ no parece» los decide una persona mirando el perfil · hoy: hormozi, victor-heras, sofia-contreras, vilma-nunez",
+  "original": {
+   "titulo": "Sumar más cuentas a la biblioteca, también las de los referentes del Ops Center",
+   "queFalta": "Hoy hay 456 cuentas, de las cuales sólo 4 tienen referente (hormozi, victor-heras, sofia-contreras, vilma-nunez). Falta barrer los referentes del catálogo y confirmar los @ antes de sumarlos (hasta 20 por corrida, ~US$0,003 cada uno): `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts buscar --techo-usd 0.5` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts verificar @hormozi --referente hormozi` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts sumar @usuario --nombre \"Nombre\" --referente hormozi` «✔ confirmada» se suma; «? dudosa» y «✖ no parece» los decide una persona mirando el perfil. Hecho = los referentes del catálogo tienen su @ en la lista.",
+   "donde": "lib/asesores/catalogo.ts y lib/asesores/clases-de-referentes.json; scripts/carruseles-biblioteca.mts:541-542; docs/relevo/cerebro.md:19",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 117,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Hay 32 temas prendidos que traen de todo y nadie decidió cuáles apagar",
+  "porque": "Mientras sigan prendidos, la biblioteca se llena de ejemplos que no le sirven a un dueño de negocio.",
+  "tecnico": "docs/hallazgos-carruseles.md:213; scripts/carruseles-biblioteca.mts:553 (case 'tema') · se apagan desde el panel de la plataforma («Cuentas» → «Editar la biblioteca de ejemplos») o con el comando tema · de arranque: #marketingdigital, #emprendimiento, #marcapersonal, #ventasonline, #coachdenegocios, #negociosdigitales, #agenciademarketing, #copywriting, #infoproductos, #consultoria; se sumaron hasta 32",
+  "original": {
+   "titulo": "Los 32 temas de hashtag siguen prendidos sin decidir si conviene apagarlos",
+   "queFalta": "Traen de todo (los temas de arranque son #marketingdigital, #emprendimiento, #marcapersonal, #ventasonline, #coachdenegocios, #negociosdigitales, #agenciademarketing, #copywriting, #infoproductos, #consultoria, y se sumaron hasta 32). Decidir si se apagan los que traen ruido: se apagan desde el panel de la plataforma («Cuentas» → «Editar la biblioteca de ejemplos») o con el comando `tema`. Hecho = la decisión queda escrita y los temas que sobran, apagados.",
+   "donde": "docs/hallazgos-carruseles.md:213; scripts/carruseles-biblioteca.mts:553 (`case 'tema'`)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 118,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Varias partes del mismo carrusel ocupan lugares distintos en la grilla",
+  "porque": "El cliente ve el mismo contenido repetido y pierde lugares de la grilla que podrían traer ejemplos nuevos.",
+  "tecnico": "lib/carruseles/variedad.ts (conVariedad), lib/carruseles/explorar.ts (filtrarCarruseles); docs/hallazgos-carruseles.md:214 · el reparto por variedad (máximo 2 de la misma cuenta por tramo de 12) no resuelve el duplicado de CONTENIDO · ejemplos: las partes de «you can find anything on the internet», meal prep de una misma cuenta",
+  "original": {
+   "titulo": "Series y duplicados sin marcar: varias partes del mismo carrusel ocupan la grilla",
+   "queFalta": "Por ejemplo las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta. El reparto por variedad (máximo 2 de la misma cuenta por tramo de 12) no resuelve el duplicado de CONTENIDO. Hecho = una serie se muestra una vez, con sus partes adentro, o se marca y se esconde la repetida.",
+   "donde": "lib/carruseles/variedad.ts (`conVariedad`), lib/carruseles/explorar.ts (`filtrarCarruseles`); docs/hallazgos-carruseles.md:214",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 120,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Si el ejemplo tiene una persona, el carrusel sale con un recuadro vacío",
+  "porque": "El cliente recibe una lámina con un cuadro y una instrucción en vez de una imagen terminada.",
+  "tecnico": "lib/carruseles/replica.ts y lib/carruseles/documento.ts (documentoDeReplica); docs/hallazgos-carruseles.md:218-219 · el paso siguiente es generarla con la IA de imagen del avatar del cliente (Flow)",
+  "original": {
+   "titulo": "Las fotos de personas que no son el cliente quedan como un recuadro con su guía",
+   "queFalta": "Cuando el ejemplo tiene una persona que no es el cliente, «Editar» deja un recuadro con una guía en vez de una imagen. El paso siguiente es generarla con la IA de imagen del avatar del cliente (Flow). Hecho = la lámina sale con una persona generada y no con un recuadro.",
+   "donde": "lib/carruseles/replica.ts y lib/carruseles/documento.ts (`documentoDeReplica`); docs/hallazgos-carruseles.md:218-219",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 121,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "La pantalla de carruseles no se comparó con la referencia en un monitor real",
+  "porque": "Lo grueso ya está; faltan los detalles de tamaño, letras y espacios, que es lo que hace que se vea copiada.",
+  "tecnico": "docs/carruseles/referencia-top-carousels/LEEME.md; app/image-editor/carruseles/ExplorarCarruseles.tsx; docs/hallazgos-carruseles.md:209 · ya ajustado: 4 columnas en 1440, modal en dos partes, filtros con deslizadores de dos puntas, colores del múltiplo · una pasada lado a lado con docs/carruseles/referencia-top-carousels/ y docs/carruseles/pulido-2026-11-06/",
+  "original": {
+   "titulo": "Las medidas finas de la referencia de Top Carousels sin ajustar contra un monitor real",
+   "queFalta": "Los valores gruesos ya se ajustaron con las capturas (4 columnas en 1440, modal en dos partes, filtros con deslizadores de dos puntas, colores del múltiplo). Faltan los finos: medidas exactas de tarjeta, tipografías y espaciados, comparando la pantalla contra las capturas en un monitor real. Hecho = una pasada lado a lado con docs/carruseles/referencia-top-carousels/ y docs/carruseles/pulido-2026-11-06/.",
+   "donde": "docs/carruseles/referencia-top-carousels/LEEME.md; app/image-editor/carruseles/ExplorarCarruseles.tsx; docs/hallazgos-carruseles.md:209",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 122,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Limpieza: un filtro viejo de largo de carrusel quedó dando vueltas",
+  "porque": "No molesta hoy, pero deja dos formas de pedir lo mismo y confunde al próximo que toque la pantalla. No es urgente.",
+  "tecnico": "lib/carruseles/explorar.ts:190, :244-247, :341, :446, :472, :562; lib/carruseles/opciones.ts (LARGOS_CARRUSEL); docs/relevo/nube-carruseles-rediseno.md:116 · largo (cortos 2-4, medios 5-7, 8+) sigue en el filtro, la URL y la API de MaKo aunque la pantalla usa el deslizador de láminas · o se saca, o se documenta que queda por los links viejos",
+  "original": {
+   "titulo": "El parámetro `largo` sobra: la pantalla usa el deslizador de láminas y él sigue en la API",
+   "queFalta": "`largo` (cortos 2-4, medios 5-7, 8+) sigue viviendo en el filtro, en la URL y en la API de MaKo aunque la pantalla usa el deslizador de láminas de dos puntas. Hecho = o se saca de la API y del parseo de URL dejando sólo el deslizador, o se documenta que queda por los links viejos. Es limpieza, no urgencia.",
+   "donde": "lib/carruseles/explorar.ts:190, :244-247, :341, :446, :472, :562; lib/carruseles/opciones.ts (`LARGOS_CARRUSEL`); docs/relevo/nube-carruseles-rediseno.md:116",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 124,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Un paquete grande de cambios entró a la app sin que nadie lo revise",
+  "porque": "Trae tu feedback del 6/11 y nadie lo comparó contra lo que pediste: puede haber cosas que no quedaron como querías.",
+  "tecnico": "docs/relevo/cerebro.md:13; docs/carruseles/capturas-2026-11-06/ (13 capturas, 1440 y 390, claro y oscuro) · commit 25fbdc8a1, ya en main (HEAD a11e7540f): portada de Image, el CTA fuera, variedad por cuenta, anuncios sin video, flechas en el teléfono, el arreglo de «Editar» y la tab Thumbnails · pasada punto por punto contra docs/relevo/nube-carruseles-rediseno.md:135-139; lo que falle vuelve a su chat sin pasar por Martín",
+  "original": {
+   "titulo": "Revisar a mano `punta/carruseles-thumbnails`, que entró a main sin que nadie lo mire",
+   "queFalta": "El commit 25fbdc8a1 (ya en main, HEAD a11e7540f) trae el feedback de producción del 6/11 tarde: portada de Image, el CTA fuera, variedad por cuenta, anuncios sin video, flechas en el teléfono, el arreglo de «Editar» y la tab Thumbnails. Nadie lo revisó contra los pedidos de Martín con las capturas. Hecho = una pasada punto por punto contra el pedido citado en docs/relevo/nube-carruseles-rediseno.md:135-139 y las capturas de docs/carruseles/capturas-2026-11-06/; lo que falle vuelve a su chat sin pasar por Martín.",
+   "donde": "docs/relevo/cerebro.md:13; docs/carruseles/capturas-2026-11-06/ (13 capturas, 1440 y 390, claro y oscuro)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 126,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Un carrusel generado sale sin los colores ni el logo del negocio",
+  "porque": "Es un pedido de Leila del 30/10: hoy sale con el fondo y la tipografía del negocio, pero con los colores del ejemplo.",
+  "tecnico": "lib/landing-writer.ts:153 (lo que hoy recibe el chat: persona y núcleo MaKo), lib/image-editor/chat/ia.ts y lib/image-editor/chat/prompts.ts (donde hay que pasar colores, logo y fuentes); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43 · atado a que el Segundo Cerebro conozca el brand board (ítem 2.9 de la auditoría)",
+  "original": {
+   "titulo": "Carruseles: de la marca del negocio sólo se aplican texto, tipografía y fondo",
+   "queFalta": "El chat de Imagen sólo recibe persona y núcleo MaKo, sin colores ni logo, así que la marca no se aplica entera (pedido de Leila del 30/10, medido A MEDIAS el 5/11). Falta pasar colores, logo y fuentes al prompt. Hecho = un carrusel generado sale con los colores y el logo del brand board del negocio, no sólo con su fondo. Va atado a que el Segundo Cerebro conozca el brand board (ítem 2.9 de la auditoría).",
+   "donde": "lib/landing-writer.ts:153 (lo que hoy recibe el chat), lib/image-editor/chat/ia.ts y lib/image-editor/chat/prompts.ts (donde hay que pasarlo); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 127,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El carrusel vertical sólo se puede armar en Imagen, no en el Web Generator",
+  "porque": "Leila lo pidió tres veces: en el Web Generator le sale mucho más rápido que emulando Canva.",
+  "tecnico": "app/web-generator (donde hay que ofrecer el formato 4:5 con las plantillas de carrusel), lib/carruseles/ y app/image-editor/carruseles/ (lo que ya existe); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66 · pedidos 2.14 · 3.9 · 4.10",
+  "original": {
+   "titulo": "El carrusel 4:5 sólo se puede hacer en Imagen, no en el Web Generator",
+   "queFalta": "Pedido de Leila repetido tres veces (2.14, 3.9, 4.10): que el carrusel 4:5 se pueda armar también en el Web Generator, porque en Gamma le sale «mucho más rápido» que emulando Canva. Existe en Imagen. Hecho = el Web Generator ofrece el formato 4:5 con las plantillas de carrusel.",
+   "donde": "app/web-generator (donde hay que ofrecerlo), lib/carruseles/ y app/image-editor/carruseles/ (lo que ya existe); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 129,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Las instrucciones de la IA de carruseles no se editan y el chat se borra al recargar",
+  "porque": "Cada ajuste de tono o de formato obliga a publicar una versión nueva, y si el cliente recarga la página pierde toda la conversación.",
+  "tecnico": "lib/ig-writer.ts: prompts de carruseles y stories hardcodeados; pasarlos al patrón de prompt editable (skill add-editable-prompt). El historial del chat vive en memoria y se pierde. Hecho = prompts editables sin desplegar e historial que sobrevive a recargar. docs/relevo/pendientes-barrido.md:131",
+  "original": {
+   "titulo": "Los prompts de carruseles y stories están incrustados en el código y el historial vive en memoria",
+   "queFalta": "`lib/ig-writer.ts` tiene los prompts hardcodeados (deberían pasar por el patrón de prompt editable, skill `add-editable-prompt`) y el historial del chat vive en memoria, así que se pierde. Hecho = los prompts se editan sin desplegar y el historial sobrevive a recargar la página.",
+   "donde": "lib/ig-writer.ts; docs/relevo/pendientes-barrido.md:131",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 131,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El índice de aprendizajes tiene dos renglones de Carruseles duplicados",
+  "porque": "Quien busque lo aprendido de carruseles ve dos resúmenes distintos y solapados, y no sabe cuál vale.",
+  "tecnico": "docs/hallazgos.md:45 y docs/hallazgos.md:48, las dos «Carruseles → hallazgos-carruseles.md». Hecho = una sola fila con el resumen integrado, en el mismo commit que el próximo cambio del documento.",
+  "original": {
+   "titulo": "El índice docs/hallazgos.md tiene DOS filas de Carruseles apuntando al mismo documento",
+   "queFalta": "Las líneas 45 y 48 son las dos «Carruseles → hallazgos-carruseles.md» con resúmenes distintos y solapados. Hecho = una sola fila, con el resumen integrado, en el mismo commit que el próximo cambio del documento.",
+   "donde": "docs/hallazgos.md:45 y docs/hallazgos.md:48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 189,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El 85 por ciento de los carruseles queda sin tipo: el clasificador no da",
+  "porque": "El cliente filtra por tipo de carrusel y casi no aparece nada. Hay muchos textos en portugués, alemán e inglés que no clasifica.",
+  "tecnico": "`reclasificar` ya no cambia nada (1.253 sin tipo de 1.470, 0 cierres nuevos): el problema es el clasificador, con muchos textos en portugués, alemán e inglés, y 512 piezas con `parece_contenido` nulo. Es trabajo de código, no un comando. docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:38-41 · lib/carruseles/biblioteca.ts (reclasificación)",
+  "original": {
+   "titulo": "El clasificador deja el 85 % de los carruseles sin tipo",
+   "queFalta": "`reclasificar` ya no cambia nada (1.253 sin tipo de 1.470, 0 cierres nuevos): el problema es el clasificador, con muchos textos en portugues, aleman e ingles, y 512 piezas con `parece_contenido` nulo. Es trabajo de codigo, no un comando.",
+   "donde": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:38-41 · lib/carruseles/biblioteca.ts (reclasificacion)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 190,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Editar de un carrusel daba error en producción y nunca se confirmó el arreglo",
+  "porque": "El cliente toca Editar sobre un carrusel y puede recibir un aviso de error en vez de que se le abra el diseño en el editor.",
+  "tecnico": "Comprobarlo con IA real en /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727. El chat tenía encargada la causa; nunca se confirmó. docs/relevo/cerebro.md:19,31 · docs/relevo/nube-carruseles-rediseno.md:82-91. Hecho = el ejemplo se replica y abre el diseño en el editor.",
+  "original": {
+   "titulo": "«Editar» de carruseles daba «Tu IA no contesto ahora» en produccion",
+   "queFalta": "Comprobarlo con IA real en `/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727`. El chat tenia encargada la causa; nunca se confirmo. Hecho = el ejemplo se replica y abre el diseno en el editor.",
+   "donde": "docs/relevo/cerebro.md:19,31 · docs/relevo/nube-carruseles-rediseno.md:82-91",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 193,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "En los carruseles, la lámina con la cara del cliente sale como un recuadro vacío",
+  "porque": "El cliente recibe un carrusel con un cuadro gris en lugar de su foto y no lo puede publicar.",
+  "tecnico": "docs/relevo/nube-carruseles-rediseno.md:97-98 — generar esa lámina con la IA de imagen y el avatar del cliente (Flow). Hecho = la lámina sale con la cara del cliente, no con un recuadro.",
+  "original": {
+   "titulo": "La persona de una lamina que no es el cliente queda como un recuadro con guia",
+   "queFalta": "Generar esa lamina con la IA de imagen y el avatar del cliente (Flow). Hecho = la lamina sale con la cara del cliente, no con un recuadro.",
+   "donde": "docs/relevo/nube-carruseles-rediseno.md:97-98",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 195,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Falta el formato vertical 4:5 en Web Generator; Leila lo pidió tres veces",
+  "porque": "Leila tiene que armar el carrusel en el editor lento porque el rápido no ofrece ese tamaño.",
+  "tecnico": "app/web-generator · lib/carruseles/ · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66 — pedido repetido tres veces (2.14 = 3.9 = 4.10); Leila dice que en Gamma sale mucho más rápido",
+  "original": {
+   "titulo": "El carrusel 4:5 solo se puede hacer en Imagen, no en Web Generator",
+   "queFalta": "Ofrecer el formato 4:5 tambien en `app/web-generator` (Leila dice que en Gamma sale mucho mas rapido). Pedido repetido tres veces (2.14 = 3.9 = 4.10).",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66 · lib/carruseles/ · app/web-generator",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 197,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Las instrucciones del escritor de Instagram no se editan y el historial se pierde",
+  "porque": "Para cambiar cómo escribe los textos de Instagram hay que tocar código, y lo generado antes no queda guardado.",
+  "tecnico": "lib/ig-writer.ts — pasar los prompts al patrón editable (skill `add-editable-prompt`) y persistir el historial · docs/relevo/pendientes-barrido.md:131 (anotado «para otros chats», no lo tocó el barrido)",
+  "original": {
+   "titulo": "Prompts de `lib/ig-writer.ts` escritos a mano y el historial solo en memoria",
+   "queFalta": "Pasar los prompts al patron editable (skill `add-editable-prompt`) y persistir el historial. Esta anotado como «para otros chats», no lo toco el barrido.",
+   "donde": "docs/relevo/pendientes-barrido.md:131 · lib/ig-writer.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 384,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "El «Editar» de carruseles fallaba en producción: falta comprobar que ya no",
+  "porque": "El arreglo está escrito y nunca se probó con una IA real: puede seguir fallando con un cliente adentro.",
+  "tecnico": "Pasó de chatCheap a chatCheapCascade con 8.000 tokens y la portada de Instagram/Meta/YouTube se baja con fetchSeguro. Comprobar en /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727 y con carruseles-probar-editar.mts --ws 3 --sin-laminas. Hecho = texto del negocio, letras del editor, sin recuadros grises. C:/dev/wt-puntas/lib/carruseles/replica-servidor.ts ; docs/relevo/nube-carruseles-rediseno.md:166-169 y cerebro.md:19",
+  "original": {
+   "titulo": "«Editar» daba «Tu IA no contestó ahora» en producción: verificar que el arreglo lo cerró",
+   "queFalta": "El arreglo está escrito (pasó de `chatCheap` a `chatCheapCascade` con 8.000 tokens, y la portada de Instagram/Meta/YouTube se baja con `fetchSeguro`), pero nunca se comprobó contra una IA real. Comprobarlo en el diseño que Martín ya tenía abierto: /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727, y con `carruseles-probar-editar.mts --ws 3 --sin-laminas`. Hecho = texto del negocio, letras del editor, sin recuadros grises.",
+   "donde": "C:/dev/wt-puntas/lib/carruseles/replica-servidor.ts ; scripts/carruseles-probar-editar.mts ; docs/relevo/nube-carruseles-rediseno.md:166-169 y cerebro.md:19",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 385,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "1.213 de los 1.470 carruseles no tienen clasificado qué tipo son",
+  "porque": "Quien filtra por tipo de carrusel ve apenas una parte: la mayoría queda afuera porque no está clasificada.",
+  "tecnico": "scripts/carruseles-biblioteca.mts (reclasificar) ya bajó de 1.253 a 1.213 leyendo el texto (portugués, alemán, inglés). Bajar de ahí necesita las láminas bajadas y leerlas con visión: depende del item de las 111 láminas. Hecho = el número de «sin tipo» no se mueve al correr reclasificar. docs/relevo/nube-carruseles-rediseno.md:122-129",
+  "original": {
+   "titulo": "1.213 carruseles de 1.470 siguen sin tipo",
+   "queFalta": "`reclasificar` ya bajó de 1.253 a 1.213 leyendo el texto (portugués, alemán e inglés). Bajar de ahí necesita las láminas bajadas y leerlas con visión — o sea depende del item de las 111 láminas. Hecho = un número de «sin tipo» que no se mueva al correr `reclasificar` y el filtro de tipo con cobertura real.",
+   "donde": "C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts (reclasificar) ; docs/relevo/nube-carruseles-rediseno.md:122-129",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 386,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Seguir limpiando la biblioteca de carruseles y sumarle más cuentas",
+  "porque": "Hoy quedan 990 a la vista y muchos no le sirven a un dueño de negocio: si no se cura, la biblioteca le muestra ruido.",
+  "tecnico": "scripts/carruseles-biblioteca.mts (excluir/ocultar). Hoy 388 escondidos; se deshace con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json. Sumar más cuentas, también referentes de lib/asesores. Estado en docs/relevo/cerebro.md:19. Es trabajo de la PC.",
+  "original": {
+   "titulo": "Curar la biblioteca: quedan 990 carruseles a la vista y hay que sumar más cuentas",
+   "queFalta": "Seguir escondiendo lo que no le sirve a un dueño de negocio (hoy 388 escondidos, se deshace con el JSON del ticket) y sumar más cuentas, también de referentes de `lib/asesores`. Martín fue explícito: «solo quiero carruseles que le sirvan a dueños de negocio». Es trabajo de la PC.",
+   "donde": "C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts (excluir/ocultar) ; lib/asesores ; estado en docs/relevo/cerebro.md:19 ; deshacer con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 387,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Si la lámina pide otra persona que no es el cliente, queda un recuadro vacío",
+  "porque": "El carrusel copiado sale incompleto: donde iba una persona se ve un cuadro con instrucciones en vez de una imagen.",
+  "tecnico": "Generar esa persona con la IA de imagen y el avatar del cliente (camino Flow). Hoy «Editar» pone la foto del cliente donde el ejemplo tiene una persona. lib/carruseles/replica-servidor.ts ; docs/relevo/nube-carruseles-rediseno.md:97-98",
+  "original": {
+   "titulo": "Una persona en una lámina que no es el cliente queda como recuadro con guía",
+   "queFalta": "Generar esa persona con la IA de imagen y el avatar del cliente (camino Flow). Hoy «Editar» pone la foto del cliente donde el ejemplo tiene una persona, pero si la lámina pide otra persona queda un recuadro con su guía. Es el paso siguiente declarado del rediseño.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:97-98 ; lib/carruseles/replica-servidor.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 389,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Los anuncios en video guardados antes no se pueden esconder de la biblioteca",
+  "porque": "Quedan videos mezclados entre los carruseles viejos; los nuevos ya se esconden solos en la próxima lectura de cada cuenta.",
+  "tecnico": "lib/carruseles/anuncios.ts (esAnuncioEnVideo) ; lib/spy-todo-reglas.ts (guardarMedios guarda `medio` = displayFormat de Apify). Lo ya guardado cuya miniatura se copió a nuestro bucket no tiene forma de saberse que era video. Si hace falta antes: volver a leer los anuncios de las cuentas seguidas desde Spy. docs/relevo/nube-carruseles-rediseno.md:156-160",
+  "original": {
+   "titulo": "Los anuncios en video ya guardados no tienen `medio` y no se pueden esconder",
+   "queFalta": "La lectura nueva de Spy guarda `medio` (displayFormat de Apify), así que los videos se esconden solos en la próxima lectura de cada cuenta. Lo ya guardado cuya miniatura se copió a nuestro bucket no tiene forma de saberse que era video. Si hace falta antes, volver a leer los anuncios de las cuentas seguidas desde Spy.",
+   "donde": "C:/dev/wt-puntas/lib/carruseles/anuncios.ts (esAnuncioEnVideo) ; lib/spy-todo-reglas.ts (guardarMedios) ; docs/relevo/nube-carruseles-rediseno.md:156-160",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 390,
+  "area": "Carruseles",
+  "quien": "equipo",
+  "titulo": "Sacar el filtro viejo de cantidad de láminas que ya no se usa",
+  "porque": "La pantalla usa el deslizador, pero el filtro viejo sigue vivo por detrás y los links de antes pueden dar otro resultado.",
+  "tecnico": "Parámetro `largo` (2 a 4, 5 a 7, 8+) sigue en la API y en los links viejos: limpiarlo o dejarlo documentado como compatibilidad. lib/api-mako/areas/imagen (buscar_carruseles) ; lo declara la autocrítica del rediseño en docs/relevo/nube-carruseles-rediseno.md:116",
+  "original": {
+   "titulo": "Sobra el parámetro `largo` en la API y en los links viejos",
+   "queFalta": "La pantalla usa el deslizador de láminas, pero `largo` (2 a 4, 5 a 7, 8+) sigue en la API y en los links viejos. Limpiarlo o dejarlo documentado como compatibilidad. Lo declara la propia autocrítica del rediseño.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:116 ; lib/api-mako/areas/imagen (buscar_carruseles)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

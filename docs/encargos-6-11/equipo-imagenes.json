@@ -1,0 +1,497 @@
+[
+ {
+  "id": 145,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Reescribir el editor de imágenes prestado para que su licencia deje de aplicar",
+  "porque": "Mientras quede código de ese autor su licencia sigue aplicando, aunque el crédito ya no se muestre: es riesgo legal sobre el editor entero.",
+  "tecnico": "Martín sacó el crédito de Doory el 29/10 a su riesgo, pero la Attribution Assurance License sigue aplicando «in whole or part, with or without modification»: un archivo adaptado alcanza. Hoy `_doory/` son 444 archivos y ~39 mil líneas. Orden medido: 1) editor/chrome (8 archivos, 630 líneas), 2) editor/strings.ts (1.509), 3) editor/workspace (34/4.053), 4) editor/panels (41/4.866), 5) editor/dialogs + ui (57/5.521), 6) toolbar + drawers + fonts + presenter (58/6.617), último editor/engine (107/14.924). Cada parte se escribe desde lo que HACE: renombrar no deja de ser derivado. C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:45-63 · app/image-editor/_doory/ · _doory/LICENSE-DOORY",
+  "original": {
+   "titulo": "Reemplazar `_doory/` de a poco para que la licencia deje de aplicar",
+   "queFalta": "Martin saco el credito visible de Doory el 29/10 a su riesgo, pero la Attribution Assurance License sigue aplicando mientras quede codigo suyo, y «in whole or part, with or without modification»: un archivo adaptado alcanza. Hoy `_doory/` son 444 archivos y ~39 mil lineas. El orden medido esta en la tabla: 1) editor/chrome (8 archivos, 630 lineas), 2) editor/strings.ts (1.509), 3) editor/workspace (34 / 4.053), 4) editor/panels (41 / 4.866), 5) editor/dialogs + ui (57 / 5.521), 6) toolbar + drawers + fonts + presenter (58 / 6.617), ultimo editor/engine (107 / 14.924). Cada parte se escribe desde lo que HACE, no copiando y renombrando: renombrar no deja de ser derivado. HECHO cuando no quede ningun archivo de `_doory/`.",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:45-63 (la tabla con el orden) · C:/dev/wt-puntas/app/image-editor/_doory/ · C:/dev/wt-puntas/app/image-editor/_doory/LICENSE-DOORY",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 146,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Borrar la co-edición del editor de imágenes: está apagada y no corre",
+  "porque": "Son 4.400 líneas prestadas que nadie usa. Sacarlas es la forma más barata y rápida de reducir el código con licencia ajena.",
+  "tecnico": "18 archivos y 4.396 líneas de co-edición que no corren (decisión 6 de docs/diseno-editor-imagen.md). C:/dev/wt-puntas/app/image-editor/_doory/editor/collab/ · docs/hallazgos-editor-imagen.md:60. Hecho = la carpeta no existe, el typecheck acotado de app/image-editor está limpio y el editor abre y guarda igual.",
+  "original": {
+   "titulo": "Borrar `_doory/editor/collab`: la co-edicion esta apagada",
+   "queFalta": "18 archivos y 4.396 lineas de co-edicion que no corren (decision 6 de docs/diseno-editor-imagen.md). Borrarlo no es reemplazarlo: es el trozo mas barato de sacar de encima de la licencia. HECHO cuando la carpeta no exista, el typecheck acotado de app/image-editor este limpio y el editor abra y guarde igual.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/_doory/editor/collab/ · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:60",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 148,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Las fuentes del editor se bajan de afuera y pueden tardar demasiado",
+  "porque": "Si tarda más de 8 segundos el texto sale con otra fuente y sin aviso: el diseño que baja el cliente no es el que vio en pantalla.",
+  "tecnico": "Hoy las 499 variantes salen de jsDelivr; un archivo frío tardó 12,6 s y el motor corta a los 8 s (`LOAD_TIMEOUT_MS`), así que la primera vez el texto puede caer a la fuente del sistema SIN error. REGLA que queda: nada de `next/font/google` (rompió el build de producción de todos los chats el 15/10, porque baja la fuente AL COMPILAR); si hace falta, `next/font/local` con el woff2 en el repo. C:/dev/wt-puntas/app/image-editor/mako/fuentes.ts · _doory/editor/engine/fonts.ts (LOAD_TIMEOUT_MS) · docs/hallazgos-editor-imagen.md:216-225 y 375-390",
+  "original": {
+   "titulo": "Tanda 4: alojar las fuentes nosotros en vez de jsDelivr",
+   "queFalta": "Hoy las 499 variantes salen de jsDelivr. Un archivo frio tardo 12,6 s y el motor corta la carga a los 8 s (`LOAD_TIMEOUT_MS`): la primera vez el texto puede caer a la fuente del sistema SIN error, y el chat ya pierde texto por fuentes que el editor no tiene. Alojarlas saca el problema de raiz. Regla que queda: nada de `next/font/google` (rompio el build de produccion de todos los chats el 15/10, porque baja la fuente AL COMPILAR); si hace falta, `next/font/local` con el woff2 en el repo. HECHO cuando las fuentes se sirvan de nuestro origen y una carga en frio no caiga a la del sistema.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/fuentes.ts · C:/dev/wt-puntas/app/image-editor/_doory/editor/engine/fonts.ts (LOAD_TIMEOUT_MS) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:216-225 y 375-390",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 149,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Marca, fotos de stock, versiones, compartir y comentarios están vacíos en el editor",
+  "porque": "El cliente abre esos paneles y no hay nada: no puede volver a una versión anterior, ni compartir un diseño, ni dejar comentarios.",
+  "tecnico": "Cinco servicios del editor devuelven null y piden tablas propias. Ojo: los kits de marca en app_settings (5/11) entraron por el PROMPT del chat de Image, no por este hueco: el panel «Marca» del editor sigue vacío. C:/dev/wt-puntas/app/image-editor/mako/adaptadorNube.ts:147-151 (brand, stock, versions, sharing, comments) · docs/hallazgos-editor-imagen.md:461. Hecho = cada uno con su tabla y su pantalla, o el documento dice cuál se descarta y por qué.",
+  "original": {
+   "titulo": "El adaptador del editor tiene marca, stock, versiones, compartir y comentarios en `null`",
+   "queFalta": "Cinco servicios del editor devuelven null y piden tablas propias. Ojo: la marca del negocio (kits en app_settings, 5/11) entro por el PROMPT del chat de Image, no por este hueco: el panel «Marca» del editor sigue vacio. HECHO cuando cada uno tenga su tabla y su pantalla, o cuando el documento diga cual se descarta y por que.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/adaptadorNube.ts:147-151 (brand, stock, versions, sharing, comments) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:461",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 150,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Faltan funciones de Canva en el editor: notas, dibujo, tablas, copiar estilo y más",
+  "porque": "El cliente que viene de Canva busca esas herramientas, no las encuentra y se vuelve a Canva a terminar el trabajo.",
+  "tecnico": "Tanda 5: notas adhesivas, dibujo y tablas (drawers/ToolsPanel.tsx), copiar estilo, líneas en codo y curva, texto alternativo, descargar la selección, bloquear y ocultar página, «Ir a la página». Los 8 paquetes están en orden en el relevamiento. C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md · docs/hallazgos-editor-imagen.md:454-455 · docs/relevo/image-editor.md:61. Hecho = cada paquete con su fila marcada en ese documento.",
+  "original": {
+   "titulo": "Tanda 5: lo de Canva que Doory no trae",
+   "queFalta": "Notas adhesivas, dibujo y tablas (drawers/ToolsPanel.tsx), copiar estilo, lineas en codo y curva, texto alternativo, descargar la seleccion, bloquear y ocultar pagina, «Ir a la pagina». Los 8 paquetes estan en orden en el relevamiento. HECHO cuando cada paquete tenga su fila marcada en ese documento.",
+   "donde": "C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md (los 8 paquetes) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:454-455 · C:/dev/wt-puntas/docs/relevo/image-editor.md:61",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 151,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Siete detalles de la pantalla del editor todavía no están como en Canva",
+  "porque": "Son detalles de uso diario: la vista rápida del riel, la barra pegada a lo seleccionado, las marcas de la regla y las carpetas de Proyectos.",
+  "tecnico": "La vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño (chrome/RielCanva.tsx); la mini-barra pegada a la selección (falta la posición en pantalla del objeto); las marcas de la regla con la posición del elemento (workspace/Rulers.tsx); el «...» por mosaico de la cuadrícula (workspace/PageGrid.tsx); «Editando ▾» y el avatar (no hay modos ni co-edición: puede ir a la basura con collab); y «Carpetas» en Proyectos. C:/dev/wt-puntas/app/image-editor/_doory/editor/chrome/RielCanva.tsx · workspace/Rulers.tsx · workspace/PageGrid.tsx · docs/hallazgos-editor-imagen.md:456-459",
+  "original": {
+   "titulo": "Del armazon de Canva faltan siete detalles",
+   "queFalta": "La vista rapida al pasar el mouse por el riel y la pestania «Estilos» de Diseno (chrome/RielCanva.tsx); la mini-barra pegada a la seleccion (falta la posicion en pantalla del objeto); las marcas de la regla con la posicion del elemento (workspace/Rulers.tsx); el «...» por mosaico de la cuadricula (workspace/PageGrid.tsx); «Editando ▾» y el avatar (no hay modos ni co-edicion, puede ir a la basura con collab); y «Carpetas» en Proyectos. HECHO uno por uno, mirandolo al lado de Canva.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/_doory/editor/chrome/RielCanva.tsx · workspace/Rulers.tsx · workspace/PageGrid.tsx · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:456-459",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 152,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Un logo vectorial que el cliente suba se guarda como imagen común y se pixela",
+  "porque": "Si agranda su logo dentro del diseño sale borroso: al subirlo se convierte y pierde la calidad que tenía el archivo original.",
+  "tecnico": "El bucket de Supabase no acepta SVG ni AVIF (un SVG es un documento activo bajo su dominio), así que el adaptador los dibuja a PNG antes de subir. Canva conserva el SVG vectorial. Para conservarlo hay que sanearlo en el server y servirlo desde un origen SIN cookies. C:/dev/wt-puntas/app/image-editor/mako/nube.ts (aRaster) · docs/hallazgos-editor-imagen.md:344-345 y 462-463. Hecho = un SVG subido se agranda sin pixelarse y el export sigue saliendo.",
+  "original": {
+   "titulo": "Un SVG subido se guarda como PNG y se pierde el vector",
+   "queFalta": "El bucket de Supabase no acepta SVG ni AVIF (un SVG es un documento activo bajo su dominio), asi que el adaptador los dibuja a PNG antes de subir. Canva conserva el SVG vectorial. Para conservarlo hay que sanearlo en el server y servirlo desde un origen SIN cookies. HECHO cuando un SVG subido se agrande sin pixelarse y el export siga saliendo.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/nube.ts (aRaster) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:344-345 y 462-463",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 153,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Cambiar el nombre de un diseño abre el cuadro gris del navegador",
+  "porque": "Se ve como un error del sistema y no como parte de MaKo. Tendría que editarse ahí mismo, como en el generador de webs.",
+  "tecnico": "Sigue siendo window.prompt. Tiene que editarse EN EL LUGAR, como el Web Generator. Lo mismo «Nombre de la búsqueda» del explorador de carruseles. C:/dev/wt-puntas/app/image-editor/ImageEditorCliente.tsx:115 · app/image-editor/carruseles/ExplorarCarruseles.tsx:213 · docs/hallazgos-editor-imagen.md:540",
+  "original": {
+   "titulo": "«Cambiar nombre» de un diseno usa window.prompt",
+   "queFalta": "Sigue siendo el cuadro del navegador. Tiene que editarse EN EL LUGAR, como el Web Generator. Lo mismo «Nombre de la busqueda» del explorador de carruseles (ExplorarCarruseles.tsx:213). HECHO cuando renombrar sea un campo en la tarjeta y no un prompt del navegador.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/ImageEditorCliente.tsx:115 · C:/dev/wt-puntas/app/image-editor/carruseles/ExplorarCarruseles.tsx:213 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:540",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 154,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Una nota vieja en el código de las plantillas dice dos cosas que ya son falsas",
+  "porque": "Esa nota ya hizo que un plan repitiera el error del texto en inglés: el que venga a programar se guía por algo que no es cierto.",
+  "tecnico": "En plantillas.ts el comentario de cabecera dice «el crédito ya se muestra» (falso: Martín lo sacó el 29/10) y «el TEXTO del lienzo sigue en inglés porque la miniatura lo muestra así» (falso desde el 14/10: b9a7dae2f lo pasó a español y redibujó las miniaturas; bold-sale-announcement.json dice «FIN DE TEMPORADA»). C:/dev/wt-puntas/app/image-editor/mako/plantillas.ts:4-13 · docs/hallazgos-editor-imagen.md:553-557 · docs/plantillas-reales/image.md 5.1. Hecho = las líneas 4-13 dicen lo que el código hace hoy.",
+  "original": {
+   "titulo": "El comentario de cabecera de las plantillas miente dos veces",
+   "queFalta": "En plantillas.ts, el comentario de cabecera dice «el credito ya se muestra» (falso: Martin lo saco el 29/10) y «el TEXTO del lienzo sigue en ingles porque la miniatura lo muestra asi» (falso desde el 14/10: b9a7dae2f lo paso a espanol y redibujo las miniaturas; bold-sale-announcement.json dice «FIN DE TEMPORADA»). Ese comentario ya hizo que un plan repitiera el error hasta la revision. HECHO cuando las lineas 4-13 digan lo que el codigo hace hoy.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/plantillas.ts:4-13 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:553-557 · docs/plantillas-reales/image.md 5.1",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 155,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Las diez plantillas prestadas siguen en el editor: hay que borrarlas",
+  "porque": "Son las plantillas del autor del editor: mientras estén, el cliente las ve en el panel de diseño y siguen dentro del problema de licencia.",
+  "tecnico": "Las 10 plantillas de Doory salieron de «Nuevo diseño» pero NO se borraron: siguen en el panel «Diseño» y en la API (`plantillas`). Hay que borrarlas con sus JSON y sus WebP. Toca el panel, la API y TRES tests, y dos se rompen a propósito (el 1 de plantillas-crear, «primero lo en blanco», y el 5, la lista literal PLANTILLAS_NUEVO_DISENO): se reescriben, no se fuerzan. C:/dev/wt-puntas/app/image-editor/mako/plantillas/ · public/cv/plantillas/ · tests/api-mako-imagen, tests/plantillas-sugeridas-editores, tests/_bloques-tarjeta-hijo · docs/relevo/nube-plantillas.md:70-73 · docs/plantillas-reales/image.md §5 punto 3",
+  "original": {
+   "titulo": "Las 10 plantillas de Doory salieron de «Nuevo diseno» pero NO se borraron",
+   "queFalta": "Siguen en el panel «Diseno» del editor y en la API (`plantillas`). El plan pide borrarlas con sus JSON y sus WebP. Toca el panel del editor, la API y TRES tests, y dos se rompen a proposito (el 1 de plantillas-crear, «primero lo en blanco», y el 5, la lista literal PLANTILLAS_NUEVO_DISENO): se reescriben con el cambio, no se fuerzan. El relevo de plantillas lo deja explicitamente «para el chat de Image». HECHO cuando no quede ningun slug de Doory en el panel ni en la API y los tres tests esten reescritos y verdes.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/plantillas/ · public/cv/plantillas/ · tests/api-mako-imagen, tests/plantillas-sugeridas-editores, tests/_bloques-tarjeta-hijo · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:70-73 · docs/plantillas-reales/image.md §5 punto 3",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 156,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Las plantillas de Imagen abren con recuadros vacíos que dicen Tu foto",
+  "porque": "El cliente abre una plantilla y en vez de un diseño terminado ve huecos, y tocar el recuadro no le ofrece poner su propia foto.",
+  "tecnico": "(a) faltan las fotos de muestra del ejemplo (hoy el marco es un `rect` con `isPlaceholder` que dice «Tu foto»); (b) «toca la foto y pon la tuya» pide un marcador de verdad (`isPlaceholder` + `slot`), porque una `image` común no ofrece reemplazarla; (c) que MaKo pregunte los hechos de `pide` al crear la plantilla. Regla de las caras: ninguna cara de stock junto a un pago, una cifra del negocio o una credencial, ni en la tarjeta pública de la galería; ahí va `persona-silueta.webp`. Las 5 fotos de muestra no están elegidas (docs/plantillas-reales/README.md:396). C:/dev/wt-puntas/lib/image-editor/plantillas-reales.ts · app/image-editor/EjemploPlantillaImagen.tsx · public/cv/plantillas/fotos/ · _doory/editor/engine/objects/dory.ts:39-41 · _doory/types/document.ts:138 (SlotSpec) · docs/relevo/nube-plantillas.md:74-76",
+  "original": {
+   "titulo": "Las plantillas reales de Image abren con marcos vacios «Tu foto»",
+   "queFalta": "Tres cosas del plan quedaron: (a) las fotos de muestra del ejemplo (hoy el marco es un `rect` con `isPlaceholder` y dice «Tu foto»); (b) «toca la foto y pon la tuya», que pide que sea un marcador de verdad (`isPlaceholder` + `slot`), porque una `image` comun no ofrece reemplazarla; (c) que MaKo pregunte los hechos de `pide` al crear la plantilla (hoy el diseno abre con la estructura y el chat la llena a pedido). Ojo con la regla de las caras: ninguna cara de stock va junto a un pago, una cifra del negocio o una credencial, ni en la tarjeta publica de la galeria; ahi va `persona-silueta.webp`. HECHO cuando crear una plantilla real abra con foto y tocarla ofrezca cambiarla.",
+   "donde": "C:/dev/wt-puntas/lib/image-editor/plantillas-reales.ts · C:/dev/wt-puntas/app/image-editor/EjemploPlantillaImagen.tsx · public/cv/plantillas/fotos/ · app/image-editor/_doory/editor/engine/objects/dory.ts:39-41 (isPlaceholder, slot) · _doory/types/document.ts:138 (SlotSpec) · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:74-76",
+   "bloqueo": "Las 5 fotos de muestra no estan elegidas y nadie las eligio a mano todavia (docs/plantillas-reales/README.md:396).",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 157,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "En el teléfono no se ven Tus plantillas ni las De la comunidad",
+  "porque": "Quien entra del celular no encuentra las plantillas que él mismo guardó ni las de la comunidad, y no puede crear a partir de una.",
+  "tecnico": "La pantalla del teléfono usa la lista de MaKo y no monta `usePlantillasPropias`. Lo mismo «Hacer el mío» y «Ver ejemplo» de carruseles: en el teléfono se crea con la plantilla, sin el diálogo. C:/dev/wt-puntas/app/m/image-editor/InicioImagenM.tsx · docs/relevo/nube-plantillas.md:41 · docs/hallazgos-editor-imagen.md:798-800. Hecho = en /m/image-editor se ven «Tus plantillas» y «De la comunidad» y se puede crear desde una.",
+  "original": {
+   "titulo": "«Tus plantillas» de Image no esta en el telefono",
+   "queFalta": "La pantalla del telefono usa la lista de MaKo y no monta `usePlantillasPropias`, asi que las plantillas propias y «De la comunidad» solo se ven en la computadora. Lo mismo «Hacer el mio» y «Ver ejemplo» de carruseles: en el telefono se crea con la plantilla, sin el dialogo. HECHO cuando en /m/image-editor se vean «Tus plantillas» y «De la comunidad» y se pueda crear desde una.",
+   "donde": "C:/dev/wt-puntas/app/m/image-editor/InicioImagenM.tsx · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:41 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:798-800",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 158,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "La apertura del chat de Imagen quedó a medias: falta la sugerida y la guía",
+  "porque": "MaKo pregunta dónde se va a publicar y ofrece tres tamaños, pero no sugiere una plantilla ni muestra el recorrido guiado de la pestaña.",
+  "tecnico": "T12. La apertura con el diseño en blanco («¿Dónde lo vas a publicar?» → historia 1080x1920, carrusel 1080x1350, anuncio 1080x1080) está hecha y probada. Faltan: (a) «la sugerida de esa familia» como cuarta respuesta, que llega con las plantillas reales; (b) guardar el slug de la plantilla elegida; (c) la GUÍA de la pestaña (anclas por `donde` sobre sus `data-testid`), que en Image no existe. La miniatura de YouTube quedó afuera por el tope de cuatro botones (MAX_BOTONES): sigue solo en el panel de tamaño. C:/dev/wt-puntas/lib/aperturas/image.ts · app/image-editor/mako/chat/PanelMakoIA.tsx · tests/iniciativa-image.test.ts · docs/relevo/nube-iniciativa.md:46 · docs/mako-iniciativa/guia.md §6",
+  "original": {
+   "titulo": "La iniciativa de Image (T12): falta la sugerida de la familia, el slug y la guia de la pestania",
+   "queFalta": "La apertura con el diseno en blanco («Donde lo vas a publicar?» -> historia 1080x1920, carrusel 1080x1350, anuncio 1080x1080) esta hecha y probada. Faltan tres: (a) «la sugerida de esa familia» como cuarta respuesta, que llega con las plantillas reales; (b) guardar el slug de la plantilla elegida; (c) la GUIA de la pestania (anclas por `donde` sobre sus `data-testid`), que en Image no existe. Y la miniatura de YouTube quedo afuera de la apertura por el tope de cuatro botones (MAX_BOTONES): sigue solo en el panel de tamano. HECHO cuando las tres filas de Image en la tabla de guia.md §6 esten marcadas.",
+   "donde": "C:/dev/wt-puntas/lib/aperturas/image.ts · C:/dev/wt-puntas/app/image-editor/mako/chat/PanelMakoIA.tsx · tests/iniciativa-image.test.ts · C:/dev/wt-puntas/docs/relevo/nube-iniciativa.md:46 · docs/mako-iniciativa/guia.md §6",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 159,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Hay una lista larga de cosas que el chat del editor contesta que no puede hacer",
+  "porque": "El cliente le pide iconos, quitar el fondo, recortar, filtros, degradados o usar una plantilla, y MaKo le contesta que no puede.",
+  "tecnico": "La lista literal que la IA declara imposible: iconos o gráficos de la biblioteca; poner una foto que no esté en «fotos»; generar imágenes con IA; quitar el fondo; recortar o cambiar el encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar y desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo. Las fotos SÍ se cerraron el 30/10 (agregar_foto y fondo_foto). Dos atan a otros pendientes: quitar fondo está apagado en el motor, y Claude no genera imágenes (las skills copiables están atadas a Gemini o Nano Banana). C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts:96-97 (NO_SE_PUEDE_CHAT_IMAGEN) · app/image-editor/mako/chat/acciones.ts · docs/hallazgos-editor-imagen.md:445-446",
+  "original": {
+   "titulo": "Lo que el chat del editor todavia no sabe hacer",
+   "queFalta": "La lista literal que la IA declara imposible: agregar iconos o graficos de la biblioteca; poner una foto que no este en «fotos»; generar imagenes con IA; quitar el fondo; recortar o cambiar el encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar y desagrupar; cambiar el tamano del diseno (Redimensionar); usar una plantilla; tablas, graficos de datos y codigos QR; y lo que va adentro de un grupo. Las fotos SI se cerraron el 30/10 (agregar_foto y fondo_foto). Dos atan a otros pendientes: quitar fondo esta apagado en el motor, y Claude no genera imagenes (las skills copiables estan atadas a Gemini o Nano Banana). HECHO cada vez que una operacion salga de esa constante con su validacion, su aplicacion y su test.",
+   "donde": "C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts:96-97 (NO_SE_PUEDE_CHAT_IMAGEN) · app/image-editor/mako/chat/acciones.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:445-446",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 160,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Por WhatsApp todavía no se puede pedirle un cambio al diseño abierto",
+  "porque": "El cliente pide cambios desde la pantalla, pero no desde la API ni por WhatsApp, como ya se puede con el editor de video.",
+  "tecnico": "Tanda 2: las operaciones del chat que PROPONEN, con su tabla de propuestas. Tanda 3: «entender el pedido», o sea /api/mako/pedidos con `tab: 'imagen'` ANTES de la IA, como ya lo hace el Video Editor. Los objetos del área `imagen` ya están en el server. Se dejaron para después del 90 % semanal de claude3 el 16/10 y nunca se retomaron. C:/dev/wt-puntas/lib/api-mako/areas/imagen.run.ts · app/video-editor/_opencut/chat/pedidos.ts (el molde) · docs/hallazgos-editor-imagen.md:442-444",
+  "original": {
+   "titulo": "El chat de Image en la API de MaKo: las tandas 2 y 3 nunca se hicieron",
+   "queFalta": "Tanda 2: las operaciones del chat que PROPONEN, con su tabla de propuestas. Tanda 3: «entender el pedido», o sea /api/mako/pedidos con `tab: 'imagen'` ANTES de la IA, como ya lo hace el Video Editor (app/video-editor/_opencut/chat/pedidos.ts). Los objetos del area `imagen` ya estan en el server. Se dejaron para despues del 90 % semanal de claude3 el 16/10 y nunca se retomaron. HECHO cuando por la API (o por WhatsApp) se pueda pedir un cambio al diseno abierto y quede como propuesta.",
+   "donde": "C:/dev/wt-puntas/lib/api-mako/areas/imagen.run.ts · C:/dev/wt-puntas/app/video-editor/_opencut/chat/pedidos.ts (el molde) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:442-444",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 161,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Si el cliente pide dos cambios seguidos y acepta los dos, se le duplican las páginas",
+  "porque": "El diseño queda con las páginas repetidas y el cliente las tiene que borrar a mano sin entender qué pasó.",
+  "tecnico": "Pedir de nuevo no cierra la propuesta anterior. Hoy pide dos clics y sale el aviso «Cambiaste el diseño», pero el agujero está. C:/dev/wt-puntas/app/image-editor/mako/chat/acciones.ts · docs/hallazgos-editor-imagen.md:695. Hecho = un pedido nuevo cierra o invalida la propuesta anterior, probado aceptando las dos.",
+  "original": {
+   "titulo": "Dos propuestas pendientes del chat duplican las paginas",
+   "queFalta": "Pedir de nuevo no cierra la propuesta anterior: aceptar las dos duplica las paginas. Hoy pide dos clics y sale el aviso «Cambiaste el diseno», pero el agujero esta. HECHO cuando un pedido nuevo cierre o invalide la propuesta anterior, probado aceptando las dos.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/mako/chat/acciones.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:695",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 162,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Cuando MaKo no puede aplicar un cambio, el motivo está escrito en jerga técnica",
+  "porque": "El cliente lee algo como estilo no es algo de... y no entiende qué pasó ni qué tiene que pedir distinto para que funcione.",
+  "tecnico": "Los descartes que ve la persona dicen cosas como «estilo no es algo de...». C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (validarOperacion, los motivos) · docs/hallazgos-editor-imagen.md:700. Hecho = ningún motivo visible nombra un campo del JSON.",
+  "original": {
+   "titulo": "Los motivos de «No se aplica» estan escritos para el programador",
+   "queFalta": "Los descartes que ve la persona dicen cosas como «estilo no es algo de...». Tienen que decir, en el idioma de un dueno de negocio, que no se pudo y por que. HECHO cuando ningun motivo visible nombre un campo del JSON.",
+   "donde": "C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (validarOperacion, los motivos) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:700",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 163,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Si la foto que el cliente manda al chat no sube, queda corriendo para siempre",
+  "porque": "Con la red trabada el cliente ve corriendo sin fin y nunca le decimos que falló: tiene que cerrar y empezar de nuevo.",
+  "tecnico": "El XHR va sin `timeout` (copiado de app/customer-success/curso/): con la red trabada «corriendo» espera a que el navegador se rinda. C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:736 · el `useAdjuntosDelChat` del chat de Image · app/customer-success/curso/. Hecho = la subida tiene plazo y, al vencerse, lo dice en «No se aplica» sin tirar el pedido.",
+  "original": {
+   "titulo": "La subida de una foto del chat no tiene plazo",
+   "queFalta": "El XHR va sin `timeout` (copiado de app/customer-success/curso/): con la red trabada, «corriendo» espera a que el navegador se rinda y la persona no sabe que paso. HECHO cuando la subida tenga plazo y, al vencerse, lo diga en «No se aplica» sin tirar el pedido.",
+   "donde": "C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:736 · el `useAdjuntosDelChat` del chat de Image · C:/dev/wt-puntas/app/customer-success/curso/ (de donde se copio)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 164,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Nunca se vio en pantalla que MaKo elija una foto y la ponga en el diseño",
+  "porque": "Si falla, el cliente pide una foto y el diseño queda vacío. Además solo ofrece las 40 fotos subidas más nuevas, no las de stock.",
+  "tecnico": "El banco probó el objeto y el cargador (entera, cubriendo y de fondo), no el flujo de la pantalla: queda correr `vivo-carrusel` con «fotos» en la vista. Tres huecos: la lista es solo de Subidos (las 40 más nuevas, adjuntas primero) y el panel de stock no entra; una foto borrada de Subidos después de proponer cae a `fallbackObject` y la propuesta no lo dice; y el Video Editor no tiene nada de esto. Gasta IA del negocio de prueba: el ws3 no tiene IA conectada, hay que usar el ws9. C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (agregar_foto, fondo_foto) · aplicar.ts (objetoFoto) · vista.ts · hilo.ts (fotosGuardadas) · docs/hallazgos-editor-imagen.md:734-740",
+  "original": {
+   "titulo": "Las fotos desde el chat nunca se vieron en el editor completo con la IA de verdad",
+   "queFalta": "El banco probo el objeto y el cargador (entera, cubriendo y de fondo), no el flujo de la pantalla: queda correr `vivo-carrusel` con «fotos» en la vista. Y tres huecos conocidos: la lista es solo de Subidos (las 40 mas nuevas, adjuntas primero), el panel de fotos de stock no entra; una foto borrada de Subidos despues de proponer cae a `fallbackObject` y la propuesta no lo dice; y el Video Editor no tiene nada de esto. HECHO cuando una corrida con la IA de verdad elija una foto, la ponga y se vea dibujada en el editor.",
+   "donde": "C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (agregar_foto, fondo_foto) · aplicar.ts (objetoFoto) · vista.ts · hilo.ts (fotosGuardadas) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:734-740",
+   "bloqueo": "Gasta IA del negocio de prueba; el ws3 no tiene IA conectada, hay que usar el ws9.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 166,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "El documento que explica el editor describe cosas que ya no existen",
+  "porque": "Un plano que miente ya hizo repetir el error del texto en inglés: el próximo que lo lea va a programar sobre algo falso.",
+  "tecnico": "Todavía habla de `inicio/`, de Proyectos, de Noto Sans y del violeta de Canva (reglas 2 y 9), y nada de eso es así desde el 29/10 (los --cv-* son los tokens de MaKo, la tab monta app/_crear/PantallaCrear.tsx y Noto Sans entra como hoja de Google desde el navegador). C:/dev/wt-puntas/docs/diseno-editor-imagen.md (reglas 2 y 9) · docs/hallazgos-editor-imagen.md:539-542",
+  "original": {
+   "titulo": "El plano del editor (diseno-editor-imagen.md) describe cosas que ya no existen",
+   "queFalta": "Todavia habla de `inicio/`, de Proyectos, de Noto Sans y del violeta de Canva (reglas 2 y 9), y nada de eso es asi desde el 29/10 (los --cv-* son los tokens de MaKo, la tab monta app/_crear/PantallaCrear.tsx y Noto Sans entra como hoja de Google desde el navegador). Un plano que miente ya hizo repetir el error del texto en ingles. HECHO cuando las reglas 2 y 9 digan lo que el codigo hace hoy.",
+   "donde": "C:/dev/wt-puntas/docs/diseno-editor-imagen.md (reglas 2 y 9) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:539-542",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 167,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Falta mirar en producción el editor con la barra fijada y el chat abierto",
+  "porque": "Se midió en un banco de prueba, no en la pantalla real: si falló, el panel de herramientas tapa el diseño en pantallas chicas.",
+  "tecnico": "El arreglo del 6/11 (el panel de herramientas pasa a `position: absolute` encima del lienzo por debajo de 820 px de editor, con @container y sin container-name) se midió en un banco con una barra falsa de 240 y una tarjeta falsa de 348. Falta mirarlo en PRODUCCIÓN a 1280 y a 1366 contra docs/recorrido-visual/imagen-barra-chat-despues-1280.png. Tampoco hay captura a 390 px: el teléfono no abre el editor y el «<» de salir nunca se vio. Hay que esperar el deploy de Vercel en Ready y entrar con una sesión que no sea de un cliente. C:/dev/wt-puntas/app/image-editor/_doory/editor/EditorApp.module.css · _doory/editor/chrome/ToolHost.module.css · tests/recorrido-imagen-panel.test.ts · docs/relevo/nube-recorrido-visual.md:64-69 · docs/hallazgos-editor-imagen.md:896-913",
+  "original": {
+   "titulo": "Verificar en produccion el editor angosto (barra fijada + chat) y el telefono",
+   "queFalta": "El arreglo del 6/11 (el panel de herramientas pasa a `position: absolute` encima del lienzo por debajo de 820 px de editor, con @container y sin container-name) se midio en un banco con una barra falsa de 240 y una tarjeta falsa de 348. Falta mirarlo en PRODUCCION a 1280 y a 1366 con la barra fijada y el chat abierto, contra docs/recorrido-visual/imagen-barra-chat-despues-1280.png. Y el editor no tiene captura a 390 px: el telefono no abre el editor, y el «<» de salir del editor del telefono nunca se vio. HECHO con las dos capturas de produccion al lado de las del banco.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/_doory/editor/EditorApp.module.css · _doory/editor/chrome/ToolHost.module.css · tests/recorrido-imagen-panel.test.ts · C:/dev/wt-puntas/docs/relevo/nube-recorrido-visual.md:64-69 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:896-913",
+   "bloqueo": "Hay que esperar el deploy de Vercel en Ready y entrar con una sesion que no sea de un cliente.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 168,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Tres fallas chicas del editor quedaron anotadas y sin arreglar",
+  "porque": "Un menú de la barra de abajo tapa su propio botón, un enlace de solo lectura pierde el tamaño en pantalla angosta, y faltan tamaños.",
+  "tecnico": "(a) `ui/Menu` no tiene el prop `overModal` y no se da vuelta hacia arriba: abierto desde la barra inferior tapa su propio botón (la lista del zoom lo esquiva con Popover placement=\"top\"). (b) En un enlace de solo lectura, una página angosta pierde el tamaño. (c) Los 30 tamaños de Canva menos usados y «Tamaño personalizado» viven SOLO en Redimensionar, no en el Inicio ni en el popover de la página. C:/dev/wt-puntas/app/image-editor/_doory/editor/ui/Menu.tsx · _doory/editor/dialogs/resizeSizes.ts · docs/hallazgos-editor-imagen.md:180-182, 541-542, 697",
+  "original": {
+   "titulo": "Tres trampas chicas del motor y del CSS que quedaron anotadas sin arreglar",
+   "queFalta": "(a) `ui/Menu` no tiene el prop `overModal` y no se da vuelta hacia arriba: abierto desde la barra inferior tapa su propio boton (la lista del zoom lo esquiva con Popover placement=\"top\"). (b) En un enlace de solo lectura, una pagina angosta pierde el tamano. (c) Los 30 tamanos de Canva menos usados y «Tamano personalizado» viven SOLO en Redimensionar, no en el Inicio ni en el popover de la pagina. HECHO una por una, con su test.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/_doory/editor/ui/Menu.tsx · _doory/editor/dialogs/resizeSizes.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:180-182, 541-542, 697",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 174,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Un hueco en el filtro que protege a la IA de los textos de afuera",
+  "porque": "Lo usan todos los chats de MaKo: un texto preparado así podría darle órdenes a la IA. Acá el riesgo es bajo porque el texto es propio.",
+  "tecnico": "`contenidoNoConfiable` no neutraliza `</etiqueta >` (con espacio antes del >). C:/dev/wt-puntas/lib/prompt-render-pure.ts (contenidoNoConfiable) · docs/hallazgos-editor-imagen.md:696. Hecho = el test cubre la variante con espacio y pasa.",
+  "original": {
+   "titulo": "`contenidoNoConfiable` no neutraliza una etiqueta de cierre con espacio",
+   "queFalta": "`</etiqueta >` (con espacio antes del >) pasa sin neutralizar. Lo usan TODOS los prompts de MaKo, no solo el chat de Image; en este chat el texto es de la misma persona, asi que aca el riesgo es bajo, pero vive en una funcion compartida. HECHO cuando el test cubra la variante con espacio y pase.",
+   "donde": "C:/dev/wt-puntas/lib/prompt-render-pure.ts (contenidoNoConfiable) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:696",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 202,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Falta que MaKo pida y guarde la identidad de marca del cliente (colores, logo)",
+  "porque": "Sin eso los carruseles salen con colores que no son del cliente y hay que corregirlos a mano cada vez.",
+  "tecnico": "app/onboarding/ (pedir el brand board en PDF) · app/second-brain/ (guardarlo) · lib/image-editor/chat/ia.ts · lib/editor-video/chat-catalogo.ts (ofrecerlo al entrar: «¿lo hacemos con tu turquesa?») · soportar varios kits (el de ella y los de sus clientes) · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:44 (2.9)",
+  "original": {
+   "titulo": "Brand board (PDF) en el Segundo Cerebro y varios kits de marca",
+   "queFalta": "Que MaKo pida el brand board en el onboarding, lo guarde en el Second Brain y lo ofrezca al entrar a cualquier editor («lo hacemos con tu turquesa?»), soportando varios kits (el de ella y el de sus clientes). Sin esto fallan los carruseles.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:44 (2.9) · app/second-brain/ · app/onboarding/ · lib/image-editor/chat/ia.ts · lib/editor-video/chat-catalogo.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 203,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "En los chats de imagen y video no se puede elegir entre charlar o editar",
+  "porque": "El cliente pide una opinión y el chat le cambia el diseño igual, porque hoy siempre edita.",
+  "tecnico": "`SelectorIntencion` (ya está en Automations, Copywriter y Web Generator) → app/image-editor/mako/chat/PanelMakoIA.tsx y app/video-editor/_opencut/chat/PanelChat.tsx; además lib/image-editor/chat/ia.ts debe respetar «Discutir» · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:50",
+  "original": {
+   "titulo": "Los botones Discutir / Editar no estan en el chat de Imagen ni en el de Video",
+   "queFalta": "`SelectorIntencion` esta en Automations, Copywriter y Web Generator. Sumarlo a los dos chats de edicion y que `lib/image-editor/chat/ia.ts` respete «Discutir» (hoy edita siempre).",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:50 · app/image-editor/mako/chat/PanelMakoIA.tsx · app/video-editor/_opencut/chat/PanelChat.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 405,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Las plantillas de imagen muestran cuadros vacíos «Tu foto» en vez de ejemplos",
+  "porque": "El cliente no entiende cómo va a quedar su imagen: ve el molde con huecos y no un ejemplo terminado.",
+  "tecnico": "Tres cosas declaradas: las fotos de muestra del ejemplo (hoy el marco es un rect con isPlaceholder), «toca la foto y pon la tuya» con slot, y que MaKo pregunte los hechos de `pide` al crear la plantilla (hoy abre con la estructura y el chat la llena a pedido). app/image-editor/EjemploPlantillaImagen.tsx ; docs/plantillas-reales/image.md (trampa 6) ; docs/relevo/nube-plantillas.md:74-76",
+  "original": {
+   "titulo": "Las plantillas de imagen muestran marcos vacíos «Tu foto» en vez de fotos de muestra",
+   "queFalta": "Tres cosas declaradas: las fotos de muestra del ejemplo (hoy el marco es un `rect` con `isPlaceholder`), «toca la foto y pon la tuya» con `slot`, y que MaKo pregunte los hechos de `pide` al crear la plantilla (hoy abre con la estructura y el chat la llena a pedido).",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:74-76 ; docs/plantillas-reales/image.md (trampa 6) ; app/image-editor/EjemploPlantillaImagen.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 406,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "«Tus plantillas» no aparece en el teléfono, sólo en la computadora",
+  "porque": "Desde el celular el cliente no ve las plantillas que él mismo guardó: sólo la lista de MaKo.",
+  "tecnico": "app/m/image-editor/InicioImagenM.tsx. Hecho = «Tus plantillas» y «De la comunidad» visibles en /m/image-editor. docs/relevo/nube-plantillas.md:41",
+  "original": {
+   "titulo": "«Tus plantillas» no existe en el teléfono",
+   "queFalta": "La pestaña de plantillas propias quedó sólo en la computadora; el teléfono usa la lista de MaKo. Hecho = «Tus plantillas» y «De la comunidad» visibles en /m/image-editor.",
+   "donde": "C:/dev/wt-puntas/app/m/image-editor/InicioImagenM.tsx ; docs/relevo/nube-plantillas.md:41",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 407,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "La pantalla de la marca del negocio nunca se miró en un navegador",
+  "porque": "No se sabe si subir un manual de marca real funciona ni si el logo se recorta bien; y en el teléfono no tiene su versión.",
+  "tecnico": "Mirar /second-brain?area=voz&vista=marca en computadora y teléfono, subir un manual real (imagen y PDF) y ver cuánto acierta la visión con la caja del logo. Si la caja se sale de la imagen no se recorta y hay que subirlo a mano. Un PDF de más de 4 MB se rechaza en la pantalla. app/second-brain/MarcaView.tsx ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:54-57",
+  "original": {
+   "titulo": "La marca del negocio (brand kit) nunca se miró en un navegador",
+   "queFalta": "Mirar /second-brain?area=voz&vista=marca en computadora y teléfono, subir un manual real (imagen y PDF) y ver cuánto acierta la visión con la caja del logo. Si la caja se sale de la imagen no se recorta y hay que subirlo a mano. Un PDF de más de 4 MB se rechaza en la pantalla. La pantalla no tiene versión de teléfono propia.",
+   "donde": "C:/dev/wt-puntas/app/second-brain/MarcaView.tsx ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:54-57",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 408,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Cuando falta la marca, MaKo lo dice con un link y no como suele avisar",
+  "porque": "Queda distinto al resto: no es el aviso de MaKo que el cliente ya reconoce, es un link suelto en el saludo.",
+  "tecnico": "Es un link en el saludo del chat de Image, no una apertura de lib/aperturas/ (el chat de Image no monta AperturaMako). Si se quiere el formato de apertura, es trabajo del chat que lleva las aperturas. app/image-editor/mako/chat/ ; docs/relevo/nube-image-marca.md:58-59",
+  "original": {
+   "titulo": "«MaKo pide la marca cuando falta» quedó como un link, no como apertura",
+   "queFalta": "Es un link en el saludo del chat de Image, no una apertura de `lib/aperturas/` (el chat de Image no monta `AperturaMako`). Si se quiere el formato de apertura, es trabajo del chat que lleva las aperturas.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-image-marca.md:58-59 ; lib/aperturas/ ; app/image-editor/mako/chat/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 409,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Leer el manual de marca en imagen todavía usa el Gemini del cliente",
+  "porque": "Image ya no usa Gemini en ningún lado menos acá: queda una excepción que nadie espera.",
+  "tecnico": "Image ya corre sin Gemini (deSuIA, fallback: []), pero leer una IMAGEN del manual de marca sigue usando el Gemini del negocio si es lo único que tiene. La visión de leerDocumentoIA no pasa por sinGemini. Inconsistencia declarada D6b. lib/ai-cheap.ts (sinGemini) ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:61-62",
+  "original": {
+   "titulo": "La visión de `leerDocumentoIA` no pasa por `sinGemini`",
+   "queFalta": "Image ya corre sin Gemini (`deSuIA`, `fallback: []`), pero leer una IMAGEN del manual de marca sigue usando el Gemini del negocio si es lo único que tiene. Queda como inconsistencia declarada (D6b).",
+   "donde": "C:/dev/wt-puntas/lib/ai-cheap.ts (sinGemini) ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:61-62",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 411,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "MaKo todavía no abre la conversación en el editor de imágenes",
+  "porque": "Falta que arranque él en cada familia de plantillas y que guíe por la pantalla: hoy el cliente mira y no sabe por dónde empezar.",
+  "tecnico": "Hecha la apertura del diseño en blanco (sin la miniatura: no entraba el cuarto botón). Falta la apertura sugerida de cada familia, guardar el slug, y la guía (anclas por `donde` sobre data-testid). lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; docs/relevo/nube-iniciativa.md:46",
+  "original": {
+   "titulo": "La iniciativa de MaKo en Image está a medias",
+   "queFalta": "Hecha la apertura del diseño en blanco (sin la miniatura: no entraba el cuarto botón). Falta la apertura sugerida de cada familia, guardar el slug, y la guía (anclas por `donde` sobre `data-testid`).",
+   "donde": "C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; docs/relevo/nube-iniciativa.md:46",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 412,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Falta ver en producción el editor de imágenes en pantallas chicas",
+  "porque": "El arreglo está hecho y tiene prueba, pero nadie lo miró en producción: en una pantalla angosta la barra puede tapar el dibujo.",
+  "tecnico": "Verificar a 1280 y 1366 con la barra fijada y el chat. El panel de herramientas va encima del lienzo con el editor angosto. Comparar con docs/recorrido-visual/imagen-barra-chat-despues-1280.png. No hay captura a 390: el teléfono no abre el editor. tests/recorrido-imagen-panel.test.ts ; commit e7c51f1b2 ; docs/relevo/nube-recorrido-visual.md:66-69",
+  "original": {
+   "titulo": "Verificar en producción el Image Editor a 1280 y 1366 con la barra fijada y el chat",
+   "queFalta": "El arreglo está (el panel de herramientas va encima del lienzo con el editor angosto) y tiene test, pero no se vio en producción. Comparar con docs/recorrido-visual/imagen-barra-chat-despues-1280.png. No hay captura a 390: el teléfono no abre el editor.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-recorrido-visual.md:66-69 ; tests/recorrido-imagen-panel.test.ts ; commit e7c51f1b2",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 548,
+  "area": "Imagenes",
+  "quien": "equipo",
+  "titulo": "Hay que borrar diez plantillas de Doory del editor de imágenes",
+  "porque": "El cliente ve plantillas que no son suyas, y al crear una le preguntan cosas que ya no van.",
+  "tecnico": "Borrar las 10 plantillas de Doory del editor y de la API, las fotos de muestra del ejemplo, y las preguntas al crear. C:/dev/wt-puntas/app/image-editor/ · lib/api-mako/areas/ (imagen) · detalle en C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:125",
+  "original": {
+   "titulo": "Las plantillas del editor de imagen: borrar las 10 de Doory y las preguntas al crear",
+   "queFalta": "Borrar las 10 plantillas de Doory del editor y de la API, las fotos de muestra del ejemplo, y las preguntas al crear (detalle en docs/relevo/nube-plantillas.md). Hecho = la galería de Image no muestra las de Doory y crear no pregunta.",
+   "donde": "C:/dev/wt-puntas/app/image-editor/ · lib/api-mako/areas/ (imagen) · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:125",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]
