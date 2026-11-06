@@ -24,6 +24,7 @@
 
 import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
+import { Parte } from './parte';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { marcasDelEje, type Delta, type SerieCurso, type VistaCurso } from '@/lib/curso-diseno';
 import { enElPeriodo, entero } from '@/lib/marketing-diseno';
@@ -125,7 +126,7 @@ function Area({ serie, grad }: { serie: SerieCurso; grad: string }) {
     <div className="vit-plot">
       <div className="vit-plot__y">{serie.marcas.map((m, i) => <span key={i}>{rotuloEje(m)}</span>)}</div>
       <svg className="vit-plot__svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
-        <defs><linearGradient id={grad} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7aaef0" stopOpacity=".26" /><stop offset="1" stopColor="#7aaef0" stopOpacity=".04" /></linearGradient></defs>
+        <defs><linearGradient id={grad} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: 'var(--accent-line)' }} stopOpacity=".26" /><stop offset="1" style={{ stopColor: 'var(--accent-line)' }} stopOpacity=".04" /></linearGradient></defs>
         <path className="vit-plot__grid" d={`M0 .5H${W}M0 99.5H${W}M0 197.5H${W}`} />
         {n > 1 && <path d={`${d} L${W} ${H} L0 ${H} Z`} fill={`url(#${grad})`} />}
         <path className="vit-plot__line" d={d} />
@@ -194,6 +195,7 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
       <main className="vit-main">
         {/* LA CABECERA: el título por palabra y los tres números de arriba (en lugar de lo cobrado en la tienda, las descargas y la
             nota): los alumnos que vieron clases, las ventas y lo cobrado, cada uno contra el período anterior. */}
+        <Parte id="cabecera">
         <div className="vit-head">
           <h1 className="vit-head__title">{titulo.split(/\s+/).map((w, i) => <Fragment key={i}>{i > 0 && ' '}<span className="vit-w"><span className="vit-w__i">{w}</span></span></Fragment>)}</h1>
           {numeros.map((x) => (
@@ -208,10 +210,12 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
           {problemas.numeros && <p className="vit-stat__l">{problemas.numeros}</p>}
           {onGrilla && <div className="vit-head__acts"><button type="button" className="vit-btn vit-btn--ghost" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button></div>}
         </div>
+        </Parte>
 
         <div className="vit-grid">
           {/* LO QUE VIERON («Proceeds»): los alumnos de cada día, o con «Clases», las clases de cada semana. */}
-          <section className="vit-card vit-ov-chart">
+          <Parte id="vieron">
+        <section className="vit-card vit-ov-chart">
             <div className="vit-card__h">
               <h2 className="vit-card__t">{modo === 'alumnos' ? 'Alumnos que vieron clases' : 'Clases vistas'}</h2>
               <div className="vit-card__acts">
@@ -235,9 +239,11 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </>
             )}
           </section>
+        </Parte>
 
           {/* POR ÁREA («Your apps»): una tarjeta de color por área, con sus alumnos y su parte. */}
-          <section className="vit-card vit-ov-apps">
+          <Parte id="areas">
+        <section className="vit-card vit-ov-apps">
             <div className="vit-card__h">
               <h2 className="vit-card__t">Por área</h2>
               <div className="vit-card__acts">
@@ -261,9 +267,11 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </div>
             )}
           </section>
+        </Parte>
 
           {/* CUÁNTO AVANZAN («Ratings»): el avance promedio con su barra (en lugar de las estrellas) y cuántos van en cada estado. */}
-          <section className="vit-card vit-ov-rate">
+          <Parte id="avance">
+        <section className="vit-card vit-ov-rate">
             <div className="vit-card__h"><h2 className="vit-card__t">Cuánto avanzan</h2></div>
             {problemas.avance ? <Vacio titulo={problemas.avance} /> : !estados || !estados.estados.length ? (
               <Vacio titulo="Todavía no hay alumnos en tus cursos" />
@@ -293,10 +301,12 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </>
             )}
           </section>
+        </Parte>
 
           {/* QUIÉN TE NECESITA («Release train»): hace cuánto no hablan, por tramo (en lugar de las etapas del tren), y los clientes
               que piden atención primero. */}
-          <section className="vit-card vit-ov-train">
+          <Parte id="necesitan">
+        <section className="vit-card vit-ov-train">
             <div className="vit-card__h">
               <h2 className="vit-card__t">Quién te necesita</h2>
               <div className="vit-card__acts">
@@ -336,9 +346,11 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </>
             )}
           </section>
+        </Parte>
 
           {/* LO QUE VAS A PUBLICAR («Waiting for a reply»): las próximas publicaciones del Calendario. */}
-          <section className="vit-card vit-ov-rev">
+          <Parte id="publicar">
+        <section className="vit-card vit-ov-rev">
             <div className="vit-card__h">
               <h2 className="vit-card__t">Lo que vas a publicar</h2>
               <div className="vit-card__acts">
@@ -366,9 +378,11 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </>
             )}
           </section>
+        </Parte>
 
           {/* HOY («Today»): lo de hoy en el Calendario, con lo que ya pasó tildado y tachado. */}
-          <section className="vit-card vit-ov-today">
+          <Parte id="hoy">
+        <section className="vit-card vit-ov-today">
             <div className="vit-card__h">
               <h2 className="vit-card__t">Hoy</h2>
               {!compartido && <Ir href="/calendario?vista=dia" className="vit-btn vit-btn--accent"><Icono id="plus" />Agendar</Ir>}
@@ -390,6 +404,7 @@ export function HojaCurso({ hoja, vista, titulo, periodo, onGrilla, onFila, comp
               </>
             )}
           </section>
+        </Parte>
         </div>
       </main>
     </div>

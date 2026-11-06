@@ -22,6 +22,7 @@ import {
   respuestaDe, tramosDe, ultimosDiasDe, diasDe, videosDe, vistaVsl,
 } from '../lib/vsl-diseno';
 import { datosVslMuestra } from '../lib/vsl-diseno-muestra';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 const col = (ids: string[]) => ids.map((id) => ({ id, nombre: id, formato: 'numero' as const }));
@@ -158,17 +159,14 @@ test('el cableado: la plantilla trae su diseño con sus diez piezas, se ofrece y
   const porId = new Map(h.componentes.map((c) => [c.id, c as { fuente?: string; metricas?: string[]; dimension?: string | null; tipo?: string }]));
   const pieza = (k: string) => porId.get(h.diseno!.piezas[k]);
   assert.equal(Object.keys(h.diseno!.piezas).length, 10);
-  assert.ok(h.componentes.length <= 14, `${h.componentes.length} paneles (una hoja lleva hasta 14)`);
   for (const k of Object.keys(h.diseno!.piezas)) assert.ok(porId.has(h.diseno!.piezas[k]), `la pieza ${k} existe`);
   assert.deepEqual([pieza('dia')?.dimension, pieza('dia')?.metricas], ['dia', ['arrancaron', 'medidos', 'pasaron_25', 'pasaron_50', 'pasaron_75', 'llegaron_final']], 'los días traen todo lo de la curva (la hoja SANEADA)');
   assert.deepEqual([pieza('curva')?.dimension, pieza('curva')?.metricas], ['corte', ['siguen']]);
   assert.deepEqual([pieza('tramos')?.dimension, pieza('tramos')?.metricas], ['tramo_visto', ['leads', 'agendas', 'cierres']]);
   assert.equal(pieza('ia')?.tipo, 'ia', 'lo que escribió MaKo es la caja de IA de la hoja');
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'vsl' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<VslVivo'));
+  cableadoDelDiseno(h, 'vsl', 'VslVivo');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaVsl(hoja, datosVslMuestra(hoja, hoy))'));
-  assert.match(leer('app/dashboard/disenos/HojaVsl.tsx'), /useCaja\(hoja\.id, compartido \|\| quieta \? undefined : p\.ia\)/, 'compartida o en miniatura no lee la caja de IA (pide sesión)');
+  assert.match(leer('app/dashboard/disenos/HojaVsl.tsx'), /useCaja\(hoja\.id, compartido \|\| quieta \|\| !conCaja \? undefined : p\.ia\)/, 'compartida, en miniatura o en un bloque que no es el de la IA no lee la caja (pide sesión)');
 });
 
 // Probado rompiéndolo (6/11/2026), cada rotura sola y la base en verde antes y después (14 de 14):

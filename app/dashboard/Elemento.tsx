@@ -40,7 +40,8 @@
 //    test mide.
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
-import { TIPOS_ELEMENTO, topeDeTextoElemento, urlDeEnlace, urlDeImagen, type Elemento, type Hoja, type TipoElemento, type VistaValores } from '@/lib/graficos-catalogo';
+import { TIPOS_ELEMENTO, esGrafico, tituloDe, topeDeTextoElemento, urlDeEnlace, urlDeImagen, type Elemento, type Hoja, type TipoElemento, type VistaValores } from '@/lib/graficos-catalogo';
+import { nombreDeBloque, parteDe } from '@/lib/disenos-partes';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { Button } from '@/app/_ui';
@@ -601,6 +602,8 @@ export function IconoElemento({ tipo, size = 18 }: { tipo: TipoElemento; size?: 
     linea: <path d="M4 12h16" />,
     seccion: <><rect x="3.5" y="4" width="17" height="5" rx="1.5" /><path d="M5 14h14M5 18.5h9" /></>,
     flecha: <><path d="M4 12h15" /><path d="m14 7 5 5-5 5" /></>,
+    // Un bloque (una tarjeta de un diseño): dos tarjetas de distinto ancho, como las de una hoja.
+    diseno: <><rect x="3.5" y="4" width="10" height="7" rx="2" /><rect x="15.5" y="4" width="5" height="7" rx="2" /><rect x="3.5" y="13" width="17" height="7" rx="2" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}
@@ -736,10 +739,49 @@ export type PropsPanelElemento = {
   /** Qué entidad abre el pop-up donde vive (sus piezas y sus acciones); null = en la hoja. */
   entidad?: TipoEntidad | null;
   vista?: VistaValores;
+  /** Un bloque de un diseño: abrir una de las piezas de donde lee (su panel, para cambiar qué mide). */
+  onElegirPieza?: (id: string) => void;
 };
 
 export function PropsElemento(p: PropsPanelElemento) {
   return <PanelElemento key={p.e.id} {...p} />;
+}
+
+/**
+ * El panel de un BLOQUE de un diseño copiado (6/11/2026, lib/disenos-partes.ts). Lo que la tarjeta muestra sale de sus PIEZAS (los
+ * gráficos de «Todas las piezas»): cada una se abre acá para cambiar qué mide, de qué conjunto o con qué filtro. Una tarjeta sin
+ * piezas se arma con lo que MaKo ya sabe del negocio (el Plan, el Calendario, el CRM) y no tiene qué configurar.
+ */
+function PropsDiseno({ e, hoja, onElegirPieza }: { e: Elemento; hoja?: Hoja; onElegirPieza?: (id: string) => void }) {
+  const d = e.diseno;
+  const parte = d ? parteDe(d.id, d.parte) : undefined;
+  if (!d || !parte) return null;
+  const vistas = new Set<string>();
+  const piezas = parte.lee.flatMap((k) => {
+    const id = d.piezas[k];
+    const c = id && !vistas.has(id) ? hoja?.componentes.find((x) => x.id === id) : undefined;
+    if (!c || !esGrafico(c)) return [];
+    vistas.add(id);
+    return [{ id, titulo: tituloDe(c) }];
+  });
+  return (
+    <Seccion titulo="Lee de">
+      {piezas.length ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {piezas.map((x) => (
+            <button key={x.id} type="button" className="lk-pill" style={{ justifyContent: 'space-between' }} disabled={!onElegirPieza}
+              onClick={() => onElegirPieza?.(x.id)} title="Abrir esta pieza para cambiar qué mide">
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.titulo}</span>
+              <span aria-hidden style={{ color: 'var(--dim)' }}>Configurar</span>
+            </button>
+          ))}
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)' }}>Las piezas están en «Todas las piezas», al final de la hoja.</p>
+        </div>
+      ) : (
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Se arma con los datos del negocio: no tiene piezas que configurar.</p>
+      )}
+    </Seccion>
+  );
 }
 
 /** Los tipos que llevan cada sección del panel. */
@@ -748,9 +790,9 @@ const CON_ALINEAR: readonly TipoElemento[] = ['texto', 'enlace', 'ia'];
 // Lo que trae su propio color (una foto, un reproductor, una página ajena, una ficha, un botón) no lleva el de la paleta.
 const CON_COLOR: readonly TipoElemento[] = ['texto', 'enlace', 'linea', 'flecha', 'seccion', 'ia'];
 
-function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, hoja, popupDe = null, contexto = null, entidad = null, vista }: PropsPanelElemento) {
+function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, hoja, popupDe = null, contexto = null, entidad = null, vista, onElegirPieza }: PropsPanelElemento) {
   const idTexto = useId();
-  const nombre = TIPOS_ELEMENTO.find((t) => t.id === e.tipo)?.nombre ?? 'Elemento';
+  const nombre = e.tipo === 'diseno' && e.diseno ? nombreDeBloque(e.diseno) : TIPOS_ELEMENTO.find((t) => t.id === e.tipo)?.nombre ?? 'Elemento';
   const trazada = e.tipo === 'linea' || e.tipo === 'flecha';
 
   return (
@@ -781,6 +823,7 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
       {e.tipo === 'accion' && <PropsAccion e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'entidad' && <PropsEntidad e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'general' && <PropsGeneral e={e} onCambiar={onCambiar} />}
+      {e.tipo === 'diseno' && <PropsDiseno e={e} hoja={hoja} onElegirPieza={onElegirPieza} />}
       {e.tipo === 'texto' && <AyudaVariables />}
 
       {CON_TAMANO.includes(e.tipo) && (

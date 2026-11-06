@@ -12,6 +12,9 @@
 //
 // ⚠️ ESTA HOJA ES SÓLO DE GENERAL: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana. Su corte es el de Orvel (760, medido a 390).
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): la base es la clara de Orvel y `data-tema="oscuro"`
+//    la da vuelta (mismos tonos, superficies que suben con la elevación). Todo color de una regla sale de una variable.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
 // =============================================================================
 
@@ -26,10 +29,22 @@ export const CSS_GENERAL = `
   --text: #1b1813; --muted: #5b554a; --faint: #6f685c;
   --primary: #f0a31a; --on-primary: #1f1400; --accent-text: #8a5200; --pill: #1b1813; --on-pill: #fbf6ea; --pill-glyph: #f5b23a;
   --ink: #1b1813; --in: #0f6a45; --out: #2c2822;
-  --saffron: #e39a12; --teal: #138a7a; --sky: #2f7bc4; --violet: #7458d0; --rose: #d0475e; --lime: #5d9a2a; --slate: #66707d; --clay: #b5653a;
+  --saffron: #bd7a05; --teal: #138a7a; --sky: #2f7bc4; --violet: #7458d0; --rose: #d0475e; --lime: #5d9a2a; --slate: #66707d; --clay: #b5653a;
   --good: #0f6a45; --warn: #7f4d00; --bad: #a92d2f; --soft: 14%;
   --r-card: 22px; --r-tile: 14px; --gap: 16px;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --mix-end: #000; --seg-sombra: #2e220c1f; --btn-sombra: #00000014;
+}
+.gv:where([data-tema="oscuro"] *) {
+  --bg: #12110f; --glow-a: #33280f; --glow-b: #1a2028;
+  --surface: #1b1a17; --surface-2: #23211d; --raised: #2a2824; --well: #ffffff12; --line: #ffffff17; --line-2: #ffffff2e;
+  --shadow: 0 1px 2px #00000066, 0 14px 32px -20px #000000b3;
+  --text: #ede9e0; --muted: #aaa497; --faint: #8f897c;
+  --primary: #f0a31a; --on-primary: #1f1400; --accent-text: #f2b24a; --pill: #ede9e0; --on-pill: #1b1813; --pill-glyph: #f5b23a;
+  --ink: #ede9e0; --in: #4cc58c; --out: #c9c2b4;
+  --saffron: #f0ad2c; --teal: #3cb8a6; --sky: #5aa2e8; --violet: #9a82ec; --rose: #ec6b82; --lime: #8bc34a; --slate: #8b95a1; --clay: #d28a5c;
+  --good: #4cc58c; --warn: #e5a63a; --bad: #ee6a6c;
+  --mix-end: #fff; --seg-sombra: #00000066; --btn-sombra: #00000040;
 }
 .gv { min-height: 100%; color: var(--text); font: 500 15px/1.5 var(--font); -webkit-font-smoothing: antialiased;
   background: radial-gradient(60% 520px at 22% -80px, color-mix(in srgb, var(--glow-a) 70%, transparent), transparent 70%),
@@ -39,7 +54,7 @@ export const CSS_GENERAL = `
 .gv :where(ul) { list-style: none; }
 .gv :where(button) { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .gv :where(a) { color: inherit; text-decoration: none; }
-.gv :where(a, button, [role=button]):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.gv :where(a, button, [role=button]):focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .gv svg.gv-i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .gv .gv-page { margin: 0 auto; max-width: 1188px; padding: 26px 26px 48px; }
 
@@ -52,7 +67,7 @@ export const CSS_GENERAL = `
 .gv .gv-head__acts { margin-left: auto; display: flex; gap: 10px; margin-bottom: 1px; }
 .gv .gv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 12px; font-size: 15px; font-weight: 750; white-space: nowrap; transition: background-color .15s, filter .15s; }
 .gv .gv-btn svg.gv-i { width: 16px; height: 16px; }
-.gv .gv-btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 1px 0 #00000014, 0 6px 14px -8px color-mix(in srgb, var(--primary) 80%, transparent); }
+.gv .gv-btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 1px 0 var(--btn-sombra), 0 6px 14px -8px color-mix(in srgb, var(--primary) 80%, transparent); }
 .gv .gv-btn--primary:hover { filter: brightness(1.06); }
 .gv .gv-btn--ghost { background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
 .gv .gv-btn--ghost:hover { background: var(--surface-2); }
@@ -98,7 +113,7 @@ export const CSS_GENERAL = `
 /* Money in and out */
 .gv .gv-seg { margin-left: auto; display: inline-flex; padding: 4px; border-radius: 14px; background: var(--well); }
 .gv .gv-seg button { height: 34px; padding: 0 14px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 750; transition: background-color .15s, color .15s; }
-.gv .gv-seg button[aria-pressed=true] { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px #2e220c1f; }
+.gv .gv-seg button[aria-pressed=true] { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px var(--seg-sombra); }
 .gv .gv-flow__k { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 21px; }
 .gv .gv-flow__k p { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; font-weight: 600; line-height: 21px; }
 .gv .gv-flow__k p i { width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
@@ -157,7 +172,7 @@ export const CSS_GENERAL = `
 /* Where it went */
 .gv .gv-spend__l { margin-top: 9px; }
 .gv .gv-spend__l li { display: grid; grid-template-columns: minmax(0, 1fr) 75px 45px; column-gap: 24px; align-items: center; height: 35.2px; }
-.gv .gv-chip { justify-self: start; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 8px; background: color-mix(in srgb, var(--c) 12%, var(--surface)); color: color-mix(in srgb, var(--c) 72%, #000); font-size: 13px; font-weight: 700; white-space: nowrap; transition: background-color .15s; }
+.gv .gv-chip { justify-self: start; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 8px; background: color-mix(in srgb, var(--c) 12%, var(--surface)); color: color-mix(in srgb, var(--c) 72%, var(--mix-end)); font-size: 13px; font-weight: 700; white-space: nowrap; transition: background-color .15s; }
 .gv .gv-chip svg.gv-i { width: 12px; height: 12px; }
 .gv .gv-chip:hover { background: var(--surface-2); }
 .gv .gv-sb { display: grid; gap: 4px; }

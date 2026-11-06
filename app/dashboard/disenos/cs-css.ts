@@ -17,6 +17,9 @@
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
 //    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo»):
+//    nace clara y, con data-tema="oscuro" en html, la regla de abajo de la raíz cambia las MISMAS variables. Todo color de acá
+//    va por variable, así el cambio es de CSS puro y en vivo.
 // =============================================================================
 
 export const CSS_CS = `
@@ -29,18 +32,38 @@ export const CSS_CS = `
   --panel: #ffffff6b; --panel-strong: #ffffff8c; --panel-rim: #ffffffc7;
   --card: #fffc; --card-solid: #f8faf9; --card-rim: #fffffff5; --card-hover: #fffffff5;
   --field: #f2f5f3; --field-rim: #15201c14; --sheet: #ebf0ed; --scrim: #e1e8e49e;
-  --ink: #15201c; --ink-2: #3c4843; --ink-3: #56625d; --ink-4: #a6b0ab; --on-ink: #f1f5f3;
+  --ink: #15201c; --ink-2: #3c4843; --ink-3: #56625d; --ink-4: #86928d; --on-ink: #f1f5f3;
   --line: #15201c17; --line-2: #15201c33;
   --emerald: #177e60; --coral: #e0573f; --amber: #e2a127;
   --emerald-ink: #11624a; --coral-ink: #a8361f; --amber-ink: #7d5203;
   --emerald-soft: #177e6021; --coral-soft: #e0573f24; --amber-soft: #e2a12733;
   --mark-pad: #e7ece9;
+  --stem: #15201c2b; --track: #15201c12;
+  --av-a: #d6ece0; --av-b: #e1e6f0; --av-b-fg: #33415e; --av-c: #f7dcd2; --av-d: #f5e8cd; --av-e: #dfe6e2;
   --shadow-card: 0 1px 1px #15201c0a, 0 8px 22px -14px #15201c4d;
   --shadow-pop: 0 2px 6px #15201c14, 0 28px 60px -22px #15201c61;
   --shadow-panel: 0 30px 60px -44px #15201c59;
   --ease: cubic-bezier(.22, 1, .36, 1);
   position: relative; isolation: isolate; color: var(--ink); font: 400 14px/1.4 var(--font); -webkit-font-smoothing: antialiased;
-  background: radial-gradient(600px 450px at 94px 70px, var(--glow-a), #177e6000), var(--bg);
+  background: radial-gradient(600px 450px at 94px 70px, var(--glow-a), color-mix(in srgb, var(--glow-a) 0%, transparent)), var(--bg);
+}
+/* Modo oscuro de MaKo: las superficies suben de luminosidad, las líneas son opacas y los acentos se aclaran sin cambiar de tono. */
+.mnd:where([data-tema="oscuro"] *) {
+  --bg: #0e1110; --bg-solid: #121614; --glow-a: #3fb8921c; --glow-b: #f0775f12; --top-bg: #0e1110db;
+  --panel: #151918; --panel-strong: #1a1f1d; --panel-rim: #262d2a;
+  --card: #1d2321; --card-solid: #1d2321; --card-rim: #2b3330; --card-hover: #252c29;
+  --field: #1b201e; --field-rim: #2e3633; --sheet: #181d1b; --scrim: #0b0e0dc4;
+  --ink: #ededeb; --ink-2: #c3cbc7; --ink-3: #a3ada8; --ink-4: #8a948f; --on-ink: #0e1110;
+  --line: #2b3330; --line-2: #3a4541;
+  --emerald: #3fb892; --coral: #f0775f; --amber: #eab34a;
+  --emerald-ink: #6fd3ae; --coral-ink: #f59580; --amber-ink: #f0c56a;
+  --emerald-soft: #3fb89233; --coral-soft: #f0775f33; --amber-soft: #eab34a33;
+  --mark-pad: #0e1110;
+  --stem: #3a4541; --track: #2b3330;
+  --av-a: #1d3b31; --av-b: #272e42; --av-b-fg: #a9b8d8; --av-c: #432a24; --av-d: #3f3519; --av-e: #2b3330;
+  --shadow-card: 0 1px 1px #0006, 0 8px 22px -14px #000c;
+  --shadow-pop: 0 2px 6px #00000080, 0 28px 60px -22px #000d;
+  --shadow-panel: 0 30px 60px -44px #000d;
 }
 .mnd *, .mnd *::before, .mnd *::after { box-sizing: border-box; }
 .mnd button { font: inherit; color: inherit; cursor: pointer; }
@@ -58,7 +81,7 @@ export const CSS_CS = `
 .mnd .mnd-iconbtn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--card); border: 1px solid var(--field-rim); color: var(--ink-2); padding: 0; transition: background-color .2s, color .2s; }
 .mnd .mnd-iconbtn:hover { background: var(--card-hover); color: var(--ink); }
 .mnd .mnd-page-t { font-size: 33.12px; font-weight: 700; line-height: 36.432px; letter-spacing: -.92736px; padding-left: 4px; margin: 0 0 22px; }
-.mnd .mnd-panel { position: relative; background: #ffffff6b; border: 1px solid #ffffffc7; border-radius: 32px; box-shadow: var(--shadow-panel); padding: 20px 22px 24px; backdrop-filter: blur(14px); }
+.mnd .mnd-panel { position: relative; background: var(--panel); border: 1px solid var(--panel-rim); border-radius: 32px; box-shadow: var(--shadow-panel); padding: 20px 22px 24px; backdrop-filter: blur(14px); }
 .mnd .mnd-panel-t { font-size: 17px; font-weight: 700; line-height: 23.8px; letter-spacing: -.17px; }
 .mnd .mnd-panel-s { margin-top: 1px; font-size: 12.5px; line-height: 17.5px; color: var(--ink-3); }
 .mnd .mnd-board-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 50px; margin-top: -1px; }
@@ -79,7 +102,7 @@ export const CSS_CS = `
 .mnd .mnd-lane__h { height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-2); border-radius: 23px; font-size: 14px; font-weight: 600; line-height: 19.6px; color: var(--ink-2); }
 .mnd .mnd-lane__n { min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; display: grid; place-items: center; background: var(--card); font-size: 12px; font-weight: 700; line-height: 16.8px; color: var(--ink-2); }
 .mnd .mnd-lane__list > li { position: relative; padding-top: 18px; }
-.mnd .mnd-lane__list > li::before { content: ''; position: absolute; left: 50%; top: 2px; width: 1px; height: 15px; margin-left: -.5px; background: #15201c2b; }
+.mnd .mnd-lane__list > li::before { content: ''; position: absolute; left: 50%; top: 2px; width: 1px; height: 15px; margin-left: -.5px; background: var(--stem); }
 .mnd .mnd-lane__list > li::after { content: ''; position: absolute; left: 50%; top: 1px; width: 5px; height: 17px; margin-left: -2.5px; background: radial-gradient(circle 2.5px at 2.5px 3.5px, var(--ink-4) 98%, #0000) top / 5px 7px no-repeat, radial-gradient(circle 2.5px at 2.5px 3.5px, var(--ink-4) 98%, #0000) bottom / 5px 7px no-repeat; }
 .mnd .mnd-case { position: relative; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 22px; background: var(--card); box-shadow: var(--shadow-card); transition: background-color .2s; }
 .mnd .mnd-case:hover { background: var(--card-hover); }
@@ -91,11 +114,11 @@ export const CSS_CS = `
 .mnd .mnd-case__act:hover { background: var(--line); color: var(--ink); }
 .mnd .mnd-case__act svg { width: 17px; height: 17px; }
 .mnd .mnd-av { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; letter-spacing: .2px; }
-.mnd .mnd-av--a { background: #d6ece0; color: var(--emerald-ink); }
-.mnd .mnd-av--b { background: #e1e6f0; color: #33415e; }
-.mnd .mnd-av--c { background: #f7dcd2; color: var(--coral-ink); }
-.mnd .mnd-av--d { background: #f5e8cd; color: var(--amber-ink); }
-.mnd .mnd-av--e { background: #dfe6e2; color: var(--ink-2); }
+.mnd .mnd-av--a { background: var(--av-a); color: var(--emerald-ink); }
+.mnd .mnd-av--b { background: var(--av-b); color: var(--av-b-fg); }
+.mnd .mnd-av--c { background: var(--av-c); color: var(--coral-ink); }
+.mnd .mnd-av--d { background: var(--av-d); color: var(--amber-ink); }
+.mnd .mnd-av--e { background: var(--av-e); color: var(--ink-2); }
 .mnd .mnd-case.mnd-is-late .mnd-av { box-shadow: 0 0 0 2px var(--card-solid), 0 0 0 4px var(--coral); }
 .mnd .mnd-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; }
 .mnd .mnd-row2 .mnd-panel { height: 299px; }
@@ -121,7 +144,7 @@ export const CSS_CS = `
 .mnd .mnd-gauge { display: grid; justify-items: center; text-align: center; }
 .mnd .mnd-ring { position: relative; width: 118px; height: 118px; }
 .mnd .mnd-ring svg { display: block; width: 118px; height: 118px; transform: rotate(123.6deg); }
-.mnd .mnd-ring__track { stroke: #15201c12; }
+.mnd .mnd-ring__track { stroke: var(--track); }
 .mnd .mnd-ring__val { stroke: var(--tone); }
 .mnd .mnd-ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; font-weight: 800; line-height: 36.4px; letter-spacing: -.78px; }
 .mnd .mnd-gauge__l { margin-top: 13px; font-size: 14px; font-weight: 600; line-height: 19.6px; }

@@ -24,6 +24,7 @@ import Link from '@/app/_ui/Link';
 import { plata, plataCorta } from '@/lib/cobranza-diseno';
 import { escalaGeneral, type MesGeneral, type Necesita, type VistaGeneral } from '@/lib/general-diseno';
 import { CSS_GENERAL } from './general-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -111,7 +112,7 @@ function Grafico({ meses }: { meses: MesGeneral[] }) {
       <>
         <defs>
           <linearGradient id={grad} x1={0} x2={0} y1={0} y2={1}>
-            <stop offset={0} stopColor="#0f6a45" stopOpacity={0.22} /><stop offset={1} stopColor="#0f6a45" stopOpacity={0.02} />
+            <stop offset={0} style={{ stopColor: 'var(--in)' }} stopOpacity={0.22} /><stop offset={1} style={{ stopColor: 'var(--in)' }} stopOpacity={0.02} />
           </linearGradient>
         </defs>
         {[tope, paso, 0].map((v, i) => {
@@ -127,8 +128,8 @@ function Grafico({ meses }: { meses: MesGeneral[] }) {
           <text key={m.clave} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : i === meses.length - 1 ? 'end' : 'middle'}>{m.corto}</text>
         )))}
         <path d={`${lin} L${pin[pin.length - 1][0]},${y(0)} L${pin[0][0]},${y(0)} Z`} fill={`url(#${grad})`} />
-        <path d={curva(pout)} fill="none" stroke="#66707d" strokeWidth={2} strokeLinecap="round" />
-        <path d={lin} fill="none" stroke="#0f6a45" strokeWidth={2.2} strokeLinecap="round" />
+        <path d={curva(pout)} fill="none" style={{ stroke: 'var(--slate)' }} strokeWidth={2} strokeLinecap="round" />
+        <path d={lin} fill="none" style={{ stroke: 'var(--in)' }} strokeWidth={2.2} strokeLinecap="round" />
       </>
     );
   }
@@ -169,6 +170,7 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&family=Geist+Mono:wght@400..600&display=swap" precedence="default" />
       <div className="gv-page">
         {/* LA CABECERA: la fecha, el saludo y la frase del mes, con dos botones. */}
+        <Parte id="cabecera">
         <div className="gv-head">
           <div>
             {fecha && <p className="gv-head__date">{mayuscula(fecha)}</p>}
@@ -183,10 +185,12 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
             <Ir href="/crm" className="gv-btn gv-btn--primary"><Icono id="contact" />Abrir el CRM</Ir>
           </div>
         </div>
+        </Parte>
 
         <div className="gv-grid gv-row1">
           {/* ESTE MES (el «Cash» de Orvel): lo cobrado contra el mismo período del mes pasado, la barra contra la proyección,
               los cuatro números del mes y la meta del trimestre. */}
+          <Parte id="mes">
           <section className="gv-card gv-cash" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="wallet" /></span><h2 className="gv-card__t">Este mes</h2><Ir href="/crm" className="gv-link">Ver los cobros<Icono id="chev" /></Ir></div>
             {mes == null ? <p className="gv-vacio">No pude comparar el mes.</p> : (
@@ -224,8 +228,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
               </div>
             )}
           </section>
+          </Parte>
 
           {/* LO QUE ENTRÓ Y LO QUE INVERTISTE («Money in and out»): las dos líneas mes a mes (6M · 12M: MaKo guarda el mes). */}
+          <Parte id="flujo">
           <section className="gv-card gv-flow" data-card="">
             <div className="gv-card__h">
               <span className="gv-card__ic"><Icono id="bars" /></span><h2 className="gv-card__t">Lo que entró y lo que invertiste</h2>
@@ -245,10 +251,12 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
               : sinMeses ? <p className="gv-vacio">Todavía no hay cobros ni inversión para dibujar.</p>
               : <Grafico meses={mesesVistos!} />}
           </section>
+          </Parte>
         </div>
 
         <div className="gv-grid gv-row3">
           {/* TE NECESITA («Needs you»): las cuotas vencidas, los leads por marcar, las tareas vencidas y las alertas en rojo. */}
+          <Parte id="necesita">
           <section className="gv-card gv-needs" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="bell" /></span><h2 className="gv-card__t">Te necesita</h2></div>
             {necesita == null ? <p className="gv-vacio">No pude leer lo que te está esperando.</p>
@@ -266,8 +274,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
                 </div>
               )}
           </section>
+          </Parte>
 
           {/* LO QUE VENCE («Next 3 weeks»): las tareas y los proyectos del Plan, por fecha. */}
+          <Parte id="vence">
           <section className="gv-card gv-up" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="cal" /></span><h2 className="gv-card__t">Lo que vence</h2><Ir href="/plan" className="gv-link">El Plan<Icono id="chev" /></Ir></div>
             {vence == null ? <p className="gv-vacio">No pude leer tu Plan.</p>
@@ -291,8 +301,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
                 </>
               )}
           </section>
+          </Parte>
 
           {/* TE DEBEN («Owed to you»): lo que falta cobrar por tramo de atraso, y las tres cuotas más urgentes. */}
+          <Parte id="deben">
           <section className="gv-card gv-owed" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="doc" /></span><h2 className="gv-card__t">Te deben</h2><Ir href="/crm" className="gv-link">Las cuotas<Icono id="chev" /></Ir></div>
             {deben == null ? <p className="gv-vacio">No pude leer lo que te deben.</p> : (
@@ -328,10 +340,12 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
               </>
             )}
           </section>
+          </Parte>
         </div>
 
         <div className="gv-grid gv-row3">
           {/* TU FUNNEL HOY («Where it went»): cada etapa del funnel principal con su barra. */}
+          <Parte id="funnel">
           <section className="gv-card gv-spend" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="layers" /></span><h2 className="gv-card__t">Tu funnel hoy</h2>{funnel && <span className="gv-card__s" title={funnel.nombre}>{funnel.nombre}</span>}</div>
             {funnel == null ? <p className="gv-vacio">No pude contar tu funnel.</p>
@@ -354,8 +368,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
                 </>
               )}
           </section>
+          </Parte>
 
           {/* PRÓXIMAS LLAMADAS («Latest payments»): lo que viene en el Calendario del CRM. */}
+          <Parte id="llamadas">
           <section className="gv-card gv-recent" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="phone" /></span><h2 className="gv-card__t">Próximas llamadas</h2><Ir href="/calendario" className="gv-link">Calendario<Icono id="chev" /></Ir></div>
             {llamadas == null ? <p className="gv-vacio">No pude leer tu calendario.</p>
@@ -374,8 +390,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
                 </ul>
               )}
           </section>
+          </Parte>
 
           {/* SALUD DEL NEGOCIO («Who did what»): las alertas del semáforo. */}
+          <Parte id="salud">
           <section className="gv-card gv-act" data-card="">
             <div className="gv-card__h"><span className="gv-card__ic"><Icono id="check" /></span><h2 className="gv-card__t">Salud del negocio</h2></div>
             {salud == null ? <p className="gv-vacio">No pude leer el semáforo.</p>
@@ -391,6 +409,7 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
                 </ul>
               )}
           </section>
+          </Parte>
         </div>
       </div>
     </div>

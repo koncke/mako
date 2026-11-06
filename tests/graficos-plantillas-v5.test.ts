@@ -51,6 +51,7 @@ import {
 } from '../lib/graficos-plantillas';
 import { DEFINICIONES_GENERALES, filtrarPlantillasHoja } from '../lib/graficos-plantillas-generales';
 import { ACCIONES_ELEMENTO, PIEZAS_ENTIDAD } from '../lib/graficos-acciones';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 type Crudo = Record<string, unknown> & {
   id: string; clase?: string; tipo?: string;
@@ -110,7 +111,8 @@ test('cada gráfico de cada plantilla pasa el saneo SIN cambiar de conjunto, tip
   let vistos = 0;
   for (const { id, hoja } of CRUDAS) {
     const h = sanearHoja(hoja, 0)!;
-    assert.equal(h.componentes.length, hoja.componentes.length, `${id}: el saneo se comió un componente`);
+    // Una hoja con diseño copiado pasa a BLOQUES al sanearse (6/11/2026, lib/disenos-partes.ts): se cuentan sus piezas de antes.
+    assert.equal(sinBloquesDeDiseno(h.componentes).length, sinBloquesDeDiseno(hoja.componentes as unknown as Componente[]).length, `${id}: el saneo se comió un componente`);
     for (const c of hoja.componentes) {
       const s = h.componentes.find((x) => x.id === c.id);
       assert.ok(s, `${id}/${c.id}: el id fijo no pasa idValido (hasta 40, letras, números y guiones)`);

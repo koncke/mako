@@ -44,6 +44,8 @@ import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
 import { marcoDePortada } from '@/lib/graficos-identidad';
 import { tilesDeComponentes } from './Grafico';
 import { DisenoEnMiniatura } from './disenos/DisenoEnMiniatura';
+import { CSS_BLOQUE_DISENO } from './disenos/BloqueDeDiseno';
+import { ParteSola } from './disenos/parte';
 
 /** El ancho de la página que se dibuja (px): la grilla y el lugar de cada componente salen de `lugarEnMiniatura`. */
 const ANCHO_REF = PAGINA_MINIATURA.ancho;
@@ -101,6 +103,17 @@ function Pieza({ c, hoja, vivo, hoy, tile }: { c: Componente; hoja: Hoja; vivo: 
     }
     case 'seccion':
       return <div className="lk-comp lk-comp--elemento" style={{ flex: 1 }}><CuerpoSeccion e={e} colores={paletaDe(hoja.tema)} /></div>;
+    // Una tarjeta de un diseño copiado (6/11/2026, lib/disenos-partes.ts): la misma tarjeta, con sus datos de ejemplo.
+    case 'diseno': {
+      const d = e.diseno;
+      if (!d) return null;
+      return (
+        <div className="lk-diseno" style={{ flex: 1, position: 'relative' }} data-parte-sola={d.parte}>
+          <style href="dash-bloque-diseno" precedence="high">{CSS_BLOQUE_DISENO}</style>
+          {vivo && <ParteSola.Provider value={d.parte}><DisenoEnMiniatura hoja={{ ...hoja, diseno: { id: d.id, piezas: d.piezas } }} hoy={hoy} /></ParteSola.Provider>}
+        </div>
+      );
+    }
     case 'general': {
       const p = e.general?.pieza;
       if (!esPiezaGeneral(p)) return null;

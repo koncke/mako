@@ -28,6 +28,7 @@ import Link from '@/app/_ui/Link';
 import { horaEn } from '@/lib/focus-diseno';
 import { duracion, resumenDelDia, type BloqueCinta, type TonoMiDia, type VistaMiDia } from '@/lib/mi-dia-diseno';
 import { CSS_MI_DIA } from './mi-dia-css';
+import { Parte } from './parte';
 
 // Las curvas de GSAP de Lumora, traducidas (las mismas de docs/diseno/mockups-dashboard/focus-lumora/lumora.js).
 const P4O = 'cubic-bezier(.165,.84,.44,1)';
@@ -41,7 +42,8 @@ const Compartido = createContext(false);
 
 const DOTS: Record<TonoMiDia, string> = { sky: 'var(--sky)', pine: 'var(--pine)', clay: 'var(--clay)', lemon: 'var(--marigold)' };
 const DONA = ['var(--sky)', 'var(--pine)', 'var(--marigold)', 'var(--rose)'];
-const DEBE = { vencida: '#e8d5c8', pronto: '#f3dcad', nada: '#dfe7e4' };
+// De las variables de la hoja (claro y oscuro), no hex: el texto del avatar es la tinta, que en oscuro es clara.
+const DEBE = { vencida: 'var(--av-vencida)', pronto: 'var(--av-pronto)', nada: 'var(--av-nada)' };
 const iniciales = (s: string) => [...s.trim().split(/\s+/).slice(0, 2).map((p) => [...p][0] ?? '')].join('').toUpperCase() || '·';
 const mayuscula = (s: string) => (s ? s[0].toLocaleUpperCase('es') + s.slice(1) : s);
 
@@ -268,6 +270,7 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
       <div className="ld-dash">
         <div className="ld-dash__main">
           {/* EL HERO: la fecha y la semana, el saludo, el resumen del día y la CINTA (lo de hoy en el Calendario). */}
+          <Parte id="cabecera">
           <section className="ld-card ld-hero" data-card="">
             {fechaLinea && <p className="ld-hero__date">{fechaLinea}</p>}
             <h1 className="ld-hero__title" aria-label={titulo}><span className="ld-w">{[...titulo].map((c, i) => <span key={i} className="ld-l" aria-hidden>{c}</span>)}</span></h1>
@@ -301,30 +304,38 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                 </div>
               )}
           </section>
+          </Parte>
 
           {/* LAS DOS TARJETAS DE LA IA: preparar la próxima llamada (su ficha) y preguntarle a MaKo (su chat). */}
           <div className="ld-two ld-two--ai">
             {proxima ? (
+              <Parte id="llamada">
               <Ir href={proxima.href ?? '/calendario?vista=dia'} className="ld-card ld-ai-card" data-card="">
                 <span className="ld-ai-card__ic"><Icono id="wand" /></span>
                 <span><b>Prepara tu próxima llamada</b><small>{proxima.titulo} · {proxima.hora}</small></span>
                 <span className="ld-btn ld-btn--xs">{proxima.href ? 'Abrir la ficha' : 'Ver el calendario'}<Icono id="arrow" /></span>
               </Ir>
+              </Parte>
             ) : (
+              <Parte id="llamada">
               <Ir href="/plan" className="ld-card ld-ai-card" data-card="">
                 <span className="ld-ai-card__ic"><Icono id="wand" /></span>
                 <span><b>Prepara lo que sigue</b><small>Lo que vence y lo que quedó atrasado, en tu Plan.</small></span>
                 <span className="ld-btn ld-btn--xs">Abrir el Plan<Icono id="arrow" /></span>
               </Ir>
+              </Parte>
             )}
+            <Parte id="pregunta">
             <Ir href="/inicio" className="ld-card ld-ai-card ld-ai-card--b" data-card="">
               <span className="ld-ai-card__ic" style={{ color: 'var(--coral)' }}><Icono id="sparkle" /></span>
               <span><b>Pregúntale a MaKo</b><small>Qué te falta hoy, qué está atrasado y qué va primero.</small></span>
               <span className="ld-btn ld-btn--xs">Abrir el chat<Icono id="arrow" /></span>
             </Ir>
+            </Parte>
           </div>
 
           {/* LOS CUATRO NÚMEROS: con la barrita de Lumora (MaKo no guarda la serie de la línea). */}
+          <Parte id="numeros">
           <div className="ld-kpis">
             {numeros.map((n) => {
               const k = KPI[n.id];
@@ -342,8 +353,10 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
               );
             })}
           </div>
+          </Parte>
 
           {/* ACCESOS: las tabs de MaKo. */}
+          <Parte id="accesos">
           <section className="ld-card ld-quick" data-card="">
             <div className="ld-card__h"><h2 className="ld-card__t">Accesos</h2></div>
             <div className="ld-quick__grid">
@@ -352,9 +365,11 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
               ))}
             </div>
           </section>
+          </Parte>
 
           <div className="ld-two ld-upc-hw">
             {/* LO QUE VENCE: las tareas y los proyectos del Plan, por fecha. */}
+            <Parte id="vence">
             <section className="ld-card ld-upc" data-card="">
               <div className="ld-card__h"><h2 className="ld-card__t">Lo que vence</h2><Ir href="/plan" className="ld-card__link">Ver el Plan</Ir></div>
               {vence == null ? <p className="ld-vacio">No pude leer tu Plan.</p>
@@ -370,7 +385,9 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                   </ul>
                 )}
             </section>
+            </Parte>
             {/* TU FUNNEL HOY: la dona por etapa del funnel principal. */}
+            <Parte id="funnel">
             <section className="ld-card ld-hw" data-card="">
               <div className="ld-card__h"><h2 className="ld-card__t">Tu funnel hoy</h2>{funnel && <span className="ld-select" title={funnel.nombre}>{funnel.nombre}</span>}</div>
               {funnel == null ? <p className="ld-vacio">No pude contar tu funnel.</p>
@@ -388,9 +405,11 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                 )}
               <Ir href={funnel && !funnel.principal ? `/crm?funnel=${funnel.id}` : '/crm'} className="ld-card__link ld-hw__more">Abrir el CRM<Icono id="arrow" /></Ir>
             </section>
+            </Parte>
           </div>
 
           {/* CÓMO VAS CON TUS OKRS: el avance contra lo esperado a hoy (las barras de Lumora). */}
+          <Parte id="okrs">
           <section className="ld-card ld-perf" data-card="">
             <div className="ld-card__h"><h2 className="ld-card__t">Cómo vas con tus OKRs</h2></div>
             {okrs == null ? <p className="ld-vacio">No pude leer tus OKRs.</p>
@@ -402,9 +421,11 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                 </>
               )}
           </section>
+          </Parte>
 
           <div className="ld-two ld-risk-notes">
             {/* LOS QUE TE DEBEN: las cuotas por cobrar, lo más urgente primero. */}
+            <Parte id="deben">
             <section className="ld-card ld-risk" data-card="">
               <div className="ld-card__h">
                 <div><h2 className="ld-card__t ld-risk__h" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icono id="sparkle" />Los que te deben</h2><p className="ld-card__s">Lo más urgente primero</p></div>
@@ -427,7 +448,9 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                   </ul>
                 )}
             </section>
+            </Parte>
             {/* EL SEMÁFORO: sus alertas. */}
+            <Parte id="semaforo">
             <section className="ld-card ld-notes" data-card="">
               <div className="ld-card__h"><h2 className="ld-card__t">El semáforo</h2></div>
               {semaforo == null ? <p className="ld-vacio">No pude leer el semáforo.</p>
@@ -446,11 +469,13 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                   </ul>
                 )}
             </section>
+            </Parte>
           </div>
         </div>
 
         <aside className="ld-dash__rail">
           {/* EL MES: lo que tiene el Calendario, en puntos. */}
+          <Parte id="mes">
           <section className="ld-card ld-cal" data-card="">
             {mes == null ? <p className="ld-vacio">No pude leer tu calendario.</p> : (
               <>
@@ -467,7 +492,9 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
               </>
             )}
           </section>
+          </Parte>
           {/* TU DÍA: lo de hoy en el Calendario, con lo que está corriendo. */}
+          <Parte id="dia">
           <section className="ld-card ld-sch" data-card="">
             <div className="ld-card__h">
               <div><h2 className="ld-card__t">Tu día</h2><p className="ld-card__s">{llamadas == null ? 'Hoy' : `Hoy · ${llamadas === 1 ? '1 llamada' : `${llamadas} llamadas`}`}</p></div>
@@ -487,7 +514,9 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                 </div>
               )}
           </section>
+          </Parte>
           {/* RECORDATORIOS: lo próximo, lo vencido, el próximo hueco y las tareas de hoy para tildar. */}
+          <Parte id="recordatorios">
           <section className="ld-card ld-rem" data-card="">
             <div className="ld-card__h"><h2 className="ld-card__t">Recordatorios</h2></div>
             {recordatorios == null && aTildar == null ? <p className="ld-vacio">No pude leer tu día.</p>
@@ -521,6 +550,7 @@ export function HojaMiDia({ vista, titulo, fecha, tz, ahora, hechas, onCompletar
                 </div>
               )}
           </section>
+          </Parte>
         </aside>
       </div>
       {pie}

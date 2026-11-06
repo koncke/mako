@@ -28,6 +28,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { entero, plata, plataEntera } from '@/lib/marketing-diseno';
 import { pct, uno, type Gajo, type NumeroAn, type VistaAnuncio } from '@/lib/anuncio-diseno';
 import { CSS_ANUNCIO } from './anuncio-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -133,7 +134,7 @@ function GraficoAgendas({ a }: { a: NonNullable<VistaAnuncio['agendas']> }) {
     <div className="prs-plot" ref={ref}>
       {listo && (
         <svg viewBox={`0 0 ${w} ${h}`} aria-hidden>
-          <defs><linearGradient id="prs-g-rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2ee6d6" /><stop offset="1" stopColor="#2ee6d6" stopOpacity=".25" /></linearGradient></defs>
+          <defs><linearGradient id="prs-g-rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--s1)" /><stop offset="1" stopColor="var(--s1)" stopOpacity=".25" /></linearGradient></defs>
           {lineas.map((t) => { const y = Math.round(y1 - t * k) + 0.5; return <g key={t}><line className="prs-gridln" x1={x0} x2={x1} y1={y} y2={y} /><text className="prs-ax" x={x0 - 8} y={y + 4} textAnchor="end">{entero(t)}</text></g>; })}
           <text className="prs-ax" x={x0 - 8} y={y1 + 4} textAnchor="end">0</text>
           <line x1={x0} x2={x1} y1={y1 + 0.5} y2={y1 + 0.5} stroke="var(--axis)" />
@@ -144,7 +145,7 @@ function GraficoAgendas({ a }: { a: NonNullable<VistaAnuncio['agendas']> }) {
           ))}
           {a.marcas.map((i) => <text key={i} className="prs-ax" x={xDe(i)} y={h - 6} textAnchor="middle">{a.dias[i].rotulo}</text>)}
           {d && <path className="prs-ritmo" d={d} fill="none" stroke="var(--s2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
-          {ult && <circle cx={xDe(n - 1)} cy={y1 - ult.valor * k} r="3.5" fill="var(--s1)" stroke="#071222" strokeWidth="1.5" />}
+          {ult && <circle cx={xDe(n - 1)} cy={y1 - ult.valor * k} r="3.5" fill="var(--s1)" stroke="var(--card)" strokeWidth="1.5" />}
         </svg>
       )}
       {listo && ult && <span className="prs-tag" style={{ left: xDe(n - 1) + 12, top: y1 - ult.valor * k }}>{`${ult.rotulo}: ${entero(ult.valor)}`}</span>}
@@ -200,7 +201,7 @@ function Chispa({ v, tono }: { v: Array<number | null>; tono: string }) {
           <path d={`${d} L${u[0]} ${h} L${pts[0][0]} ${h} Z`} fill={`color-mix(in oklab, var(--${tono}) 22%, transparent)`} />
           <path className="prs-chispa" d={d} fill="none" stroke="var(--spark)" strokeWidth="1.6" />
           <path className="prs-chispa" d={curva(pts.slice(-2))} fill="none" stroke={`var(--${tono})`} strokeWidth="1.8" />
-          <circle cx={u[0]} cy={u[1]} r="3" fill={`var(--${tono})`} stroke="#071222" strokeWidth="1.5" />
+          <circle cx={u[0]} cy={u[1]} r="3" fill={`var(--${tono})`} stroke="var(--card)" strokeWidth="1.5" />
         </svg>
       )}
     </div>
@@ -215,7 +216,7 @@ function Medidor({ valor }: { valor: number }) {
   const arco = `M${ax.toFixed(1)} ${ay.toFixed(1)} A${r} ${r} 0 1 1 ${bx.toFixed(1)} ${by.toFixed(1)}`;
   return (
     <svg viewBox="0 0 180 140" aria-hidden>
-      <path d={arco} fill="none" stroke="#2ee6d633" strokeWidth="10" strokeLinecap="round" />
+      <path d={arco} fill="none" stroke="var(--s1)" strokeOpacity=".2" strokeWidth="10" strokeLinecap="round" />
       <path className="prs-medidor" d={arco} fill="none" stroke="var(--s1)" strokeWidth="10" strokeLinecap="round" pathLength={100} strokeDasharray={`${Math.max(0.01, valor)} 100`} />
       {Array.from({ length: 21 }, (_, i) => { const ang = a0 + (i / 20) * 240, [x0, y0] = punto(ang, r - 12), [x1, y1] = punto(ang, r - (i % 5 === 0 ? 20 : 16)); return <line key={i} x1={x0} y1={y0} x2={x1} y2={y1} stroke={i % 5 === 0 ? 'var(--dim)' : 'var(--axis)'} strokeWidth="1.2" />; })}
       {[[25, -60], [50, 0], [75, 60]].map(([t, ang]) => { const [x, y] = punto(ang, r - 26); return <text key={t} className="prs-gauge__tk" x={x} y={y + 3} textAnchor="middle">{t}</text>; })}
@@ -240,7 +241,7 @@ function GraficoMeses({ m }: { m: NonNullable<VistaAnuncio['meses']> }) {
       {listo && (
         <svg viewBox={`0 0 ${w} ${h}`} aria-hidden>
           <defs>
-            <linearGradient id="prs-g-q" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c6f432" /><stop offset="1" stopColor="#7d9a1c" /></linearGradient>
+            <linearGradient id="prs-g-q" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--s3)" /><stop offset="1" stopColor="var(--s3-deep)" /></linearGradient>
             <filter id="prs-f-glow" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="3" /></filter>
           </defs>
           {[guia * 2, guia].filter((t) => t <= tope).map((t) => { const y = Math.round(y1 - t * k) + 0.5; return <g key={t}><line className="prs-gridln" x1={x0} x2={x1} y1={y} y2={y} /><text className="prs-ax" x={38} y={y + 4} textAnchor="end">{entero(t)}</text></g>; })}
@@ -256,7 +257,7 @@ function GraficoMeses({ m }: { m: NonNullable<VistaAnuncio['meses']> }) {
             );
           })}
           {m.cambioAgendas && n >= 2 && <>
-            <path d={d} fill="none" stroke="#c6f43266" strokeWidth="7" strokeLinecap="round" filter="url(#prs-f-glow)" />
+            <path d={d} fill="none" stroke="var(--s3)" strokeOpacity=".4" strokeWidth="7" strokeLinecap="round" filter="url(#prs-f-glow)" />
             <path className="prs-flecha" d={d} fill="none" stroke="var(--s3)" strokeWidth="3.2" strokeLinecap="round" />
             <path d={`M${xb - 11} ${yb - 2} L${xb} ${yb} L${xb - 5} ${yb + 9}`} fill="none" stroke="var(--s3)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
           </>}
@@ -277,7 +278,7 @@ function GraficoSemanas({ s }: { s: NonNullable<VistaAnuncio['semanas']> }) {
       {listo && (
         <svg viewBox={`0 0 ${w} ${h}`} aria-hidden>
           <defs>
-            {[['prs-g-s1', '#2ee6d6'], ['prs-g-s2', '#ff5cc8']].map(([id, c]) => <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c} /><stop offset="1" stopColor={c} stopOpacity=".45" /></linearGradient>)}
+            {[['prs-g-s1', 'var(--s1)'], ['prs-g-s2', 'var(--s2)']].map(([id, c]) => <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c} /><stop offset="1" stopColor={c} stopOpacity=".45" /></linearGradient>)}
           </defs>
           {[s.tope, s.tope / 2, 0].map((t) => <text key={t} className="prs-ax" x={38} y={y1 - t * k + 4} textAnchor="end">{entero(t)}</text>)}
           <line x1={x0} x2={x1} y1={y1 + 0.5} y2={y1 + 0.5} stroke="var(--axis)" />
@@ -394,6 +395,7 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
     <Compartido.Provider value={compartido}>
     <div className="prs" ref={raiz} data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-anuncio" precedence="medium">{CSS_ANUNCIO}</style>
+      <Parte id="cabecera">
       <header className="prs-top">
         <span className="prs-brand"><span className="prs-brand__i"><Icono id="trofeo" /></span>{titulo}</span>
         <span className="prs-org">Los guiones de tus anuncios <span className="prs-env">{periodo}</span></span>
@@ -402,18 +404,22 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
           <Ir href="/ads-manager" className="prs-icon-btn" etiqueta="Abrir el Ads Manager"><Icono id="salir" /></Ir>
         </div>
       </header>
+      </Parte>
 
       {vacia ? (
         <main className="prs-view">
+          <Parte id="vacia">
           <section className="prs-card prs-c-vacia"><Hud />
             <h2 className="prs-card__t">Todavía no hay anuncios con su guion analizado</h2>
             <p className="prs-card__s">Cuando MaKo analice los guiones de tus anuncios de Meta, aquí se ve cuál gana y con cuánta muestra.</p>
           </section>
+          </Parte>
         </main>
       ) : (
       <main className="prs-view">
         <div className="prs-row prs-row--1">
           {/* «Revenue» → las agendas que trajeron tus anuncios, por día */}
+          <Parte id="agendas">
           <section className="prs-card prs-c-rev"><Hud />
             <div className="prs-card__h">
               <div><h2 className="prs-card__t">Agendas de tus anuncios</h2><p className="prs-card__s">Por día{agendas?.recortado ? ' · los últimos 42 días' : ''}</p></div>
@@ -426,26 +432,32 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
             </div>
             {agendas && agendas.dias.length ? <GraficoAgendas a={agendas} /> : sinDatos(agendas)}
           </section>
+          </Parte>
 
           {/* «Traffic sources» → qué hacer con cada guion */}
+          <Parte id="veredictos">
           <section className="prs-card prs-c-traffic"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">Qué hacer con cada uno</h2><p className="prs-card__s">El veredicto de cada guion</p></div></div>
             {veredictos && veredictos.gajos.length
               ? <Anillo gajos={veredictos.gajos} centro={entero(veredictos.total)} sub={veredictos.total === 1 ? 'guion' : 'guiones'} cuenta abrir={(k) => abrir(p.veredicto, k)} />
               : sinDatos(veredictos)}
           </section>
+          </Parte>
 
           {/* «Revenue by region» → con cuánta muestra */}
+          <Parte id="muestra">
           <section className="prs-card prs-c-region"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">Con cuánta muestra</h2><p className="prs-card__s">Las impresiones de cada guion</p></div></div>
             {muestra && muestra.gajos.length
               ? <Anillo gajos={muestra.gajos} centro={`${muestra.conMuestra ?? 0}%`} sub="con muestra" conRegla abrir={(k) => abrir(p.confianza, k)} />
               : sinDatos(muestra)}
           </section>
+          </Parte>
         </div>
 
         <div className="prs-row prs-row--2">
           {/* «Campaign ROAS» → qué guion rinde más */}
+          <Parte id="ganadores">
           <section className="prs-card prs-c-camp"><Hud />
             <div className="prs-card__h">
               <div><h2 className="prs-card__t">Qué guion rinde más</h2><p className="prs-card__s">Agendas por US$1.000 · con muestra</p></div>
@@ -463,8 +475,10 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </ul>
             ) : ganadores ? <Vacio>Ningún guion juntó 8 mil impresiones todavía: con menos, no se puede juzgar.</Vacio> : sinDatos(ganadores)}
           </section>
+          </Parte>
 
           {/* «Key metrics» → los tres costos */}
+          <Parte id="costos">
           <section className="prs-card prs-c-kpi"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">Cuánto cuesta</h2><p className="prs-card__s">Contra el período anterior · su evolución</p></div></div>
             <div className="prs-kpis">
@@ -478,8 +492,10 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               ))}
             </div>
           </section>
+          </Parte>
 
           {/* «Platform health» → listos para escalar */}
+          <Parte id="escalar">
           <section className="prs-card prs-c-health"><Hud />
             <div className="prs-card__h">
               <div><h2 className="prs-card__t">Listos para escalar</h2><p className="prs-card__s">Qué parte de lo invertido va a ellos</p></div>
@@ -499,16 +515,20 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </div>
             </div>
           </section>
+          </Parte>
         </div>
 
         <div className="prs-row prs-row--3">
           {/* «Quarterly revenue» → las agendas de los seis meses cerrados */}
+          <Parte id="meses">
           <section className="prs-card prs-c-growth"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">Agendas por mes</h2><p className="prs-card__s">Vista larga · seis meses cerrados, sin el período</p></div></div>
             {meses && meses.meses.length ? <GraficoMeses m={meses} /> : sinDatos(meses)}
           </section>
+          </Parte>
 
           {/* «Signups & activations» → agendas y cierres por semana */}
+          <Parte id="semanas">
           <section className="prs-card prs-c-signup"><Hud />
             <div className="prs-card__h">
               <div><h2 className="prs-card__t">Agendas y cierres</h2><p className="prs-card__s">Por semana</p></div>
@@ -520,8 +540,10 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
             </div>
             {semanas && semanas.semanas.length ? <GraficoSemanas s={semanas} /> : sinDatos(semanas)}
           </section>
+          </Parte>
 
           {/* «Active customers» → lo invertido de los seis meses cerrados */}
+          <Parte id="invertido">
           <section className="prs-card prs-c-cust"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">Lo invertido por mes</h2><p className="prs-card__s">Vista larga · seis meses cerrados</p></div></div>
             {meses && meses.meses.length ? (
@@ -540,10 +562,12 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </ul>
             ) : sinDatos(meses)}
           </section>
+          </Parte>
         </div>
 
         <div className="prs-row prs-row--4">
           {/* «Checkout latency» → el gancho en el tiempo */}
+          <Parte id="gancho">
           <section className="prs-card prs-c-lat"><Hud />
             <div className="prs-card__h">
               <div><h2 className="prs-card__t">El gancho en el tiempo</h2><p className="prs-card__s">Por día · de los anuncios con video</p></div>
@@ -553,8 +577,10 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
             </div>
             {gancho && gancho.dias.length > 1 ? <GraficoGancho g={gancho} /> : sinDatos(gancho)}
           </section>
+          </Parte>
 
           {/* «Feed» → el guion que más agendó, y los atajos */}
+          <Parte id="ganador">
           <section className="prs-card prs-c-dock"><Hud />
             <div className="prs-card__h"><div><h2 className="prs-card__t">El que más agendó</h2></div><div className="prs-card__r"><span className="prs-card__s">En el período</span></div></div>
             <div className="prs-ticker" {...accionDe(ganador ? abrir(p.guiones, ganador.clave) : undefined)}>
@@ -573,6 +599,7 @@ export function HojaAnuncio({ hoja, vista, titulo, periodo, onGrilla, onFila, co
                 : <span className="prs-dock__btn"><span className="prs-dock__ring"><Icono id="grilla" /></span>La grilla</span>}
             </nav>
           </section>
+          </Parte>
         </div>
       </main>
       )}

@@ -11,6 +11,9 @@
 // ⚠️ ESTA HOJA ES SÓLO DE FOCUS: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
 // ⚠️ PANE ES UN TEMA OSCURO DE VIDRIO, A PROPÓSITO: es la copia. Sus colores van en hex, como en el demo; el fondo es su
 //    degradé medido (la foto borrosa de atrás no se copia).
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): el oscuro de Pane es la paleta de `data-tema="oscuro"`
+//    y la de base es una versión CLARA con los mismos tonos. Todo color de una regla sale de una variable de las dos paletas.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana: el lienzo del Dashboard tiene la barra
 //    de la app al lado. El medio (641 a 1040) NO está medido en Pane (sus capturas son 1440 y 390) y es nuestro.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
@@ -23,25 +26,58 @@ export const CSS_FOCUS = `
   --r-xl:30px; --r-lg:24px; --r-md:18px; --r-sm:12px;
   --gap:clamp(12px,.6vw + 8px,20px);
   --ease:cubic-bezier(.22,.8,.24,1);
+  /* paleta base: CLARA (el modo claro de MaKo); los tonos de Pane, un escalón más hondos para leerse sobre claro */
+  --blue:#2f6fe0; --purple:#7a55e0; --pink:#d8407f; --orange:#c9560a; --green:#1f9d52; --teal:#0e9794; --indigo:#5a5ad8; --yellow:#b8860b;
+  --ring-tasks:#e0245e; --ring-focus:#139a3f; --ring-meet:#0a8bb8; --danger:#d93844;
+  --accent-soft:color-mix(in srgb,#1f6fe6 14%,transparent);
+  --glass:rgb(255 255 255 / .62);
+  --text:#16171c; --muted:#555966; --faint:#666a77;
+  --fill:rgba(60,72,110,.08); --fill-hover:rgba(60,72,110,.13); --hair:rgba(20,24,40,.09);
+  --link:#1f63d6; --up:#17803f; --bad-t:#b3202e;
+  --fondo:linear-gradient(#f7f8fb 0,#eef0f5 900px,#e9ebf1 900px) #e9ebf1;
+  --glass-sombra:rgba(255,255,255,.9) 0 1px 1px 0 inset,rgba(20,24,40,.07) 0 0 0 1px,rgba(20,24,40,.06) 0 1px 2px 0,rgba(20,24,40,.14) 0 12px 30px -14px;
+  --btn-glass:rgba(255,255,255,.7); --btn-glass-h:rgba(255,255,255,.95);
+  --btn-glass-sombra:rgba(255,255,255,.9) 0 1px 1px 0 inset,rgba(20,24,40,.1) 0 0 0 1px,rgba(20,24,40,.1) 0 2px 6px -2px;
+  --btn-acc:linear-gradient(180deg,#3569dd,#2459cc); --btn-acc-t:#fff; --btn-acc-sombra:rgba(255,255,255,.35) 0 1px 1px 0 inset,rgba(0,0,0,.14) 0 -2px 4px 0 inset,rgba(36,89,204,.4) 0 8px 22px -8px;
+  --seg-pill:#fff; --seg-pill-sombra:rgba(20,24,40,.14) 0 1px 3px 0,rgba(255,255,255,.9) 0 1px 1px 0 inset;
+  --next-base:rgba(255,255,255,.7); --next-base-h:rgba(255,255,255,.85);
+  --track:rgba(70,80,120,.2); --track-lo:rgba(70,80,120,.12);
+  --check:#7b7f8e; --check-h:#4c5060;
+  --prio-alta-t:#9a4504; --prio-alta-f:rgba(220,106,20,.14); --prio-urg-t:#b3202e; --prio-urg-f:rgba(217,56,68,.12);
+  --bar-a:#5a88cc; --bar-b:#4575b8; --bar-hoy-a:#3a7ae6; --bar-hoy-b:#2a63cf; --bar-cero:#8aa3c8;
+  --mas-bg:#e3e6ee; --ava-borde:#f6f7fa;
+}
+.fp:where([data-tema="oscuro"] *){
+  /* paleta de Pane tal cual (la copia): vidrio oscuro */
   --blue:#4b8eff; --purple:#a07cff; --pink:#f2649f; --orange:#ff8a3d; --green:#34c46b; --teal:#22c3c0; --indigo:#7a7af0; --yellow:#f5b82e;
   --ring-tasks:#ff2d6f; --ring-focus:#4ade6b; --ring-meet:#22c3f0; --danger:#ff5a64;
-  --accent-soft:color-mix(in srgb,#1f6fe6 14%,transparent);
   --glass:rgb(26 26 36 / .42);
   --text:#f5f5f7; --muted:rgba(235,235,245,.7); --faint:rgba(235,235,245,.55);
   --fill:rgba(150,150,175,.16); --fill-hover:rgba(150,150,175,.22); --hair:rgba(255,255,255,.08);
-  --link:#7db4ff; --up:#5fd88a;
+  --link:#7db4ff; --up:#5fd88a; --bad-t:#ff8b92;
+  --fondo:linear-gradient(#232428 0,#16171b 900px,#101010 900px) #101010;
   --glass-sombra:rgba(255,255,255,.3) 0 1px 1px 0 inset,rgba(255,255,255,.1) 0 -1px 1px 0 inset,rgba(255,255,255,.24) 3px 4px 12px -6px inset,
     rgba(255,255,255,.12) -4px -6px 14px -8px inset,rgba(0,0,0,.45) 0 -16px 28px -18px inset,rgba(0,0,0,.3) 0 1px 2px 0,rgba(0,0,0,.25) 0 12px 30px -12px;
+  --btn-glass:rgba(255,255,255,.14); --btn-glass-h:rgba(255,255,255,.2);
+  --btn-glass-sombra:rgba(255,255,255,.4) 0 1px 1px 0 inset,rgba(255,255,255,.06) 0 -1px 2px 0 inset,rgba(0,0,0,.3) 0 2px 6px -2px;
+  --btn-acc:linear-gradient(180deg,#6aa6ff,#3d82f5); --btn-acc-t:#08142e; --btn-acc-sombra:rgba(255,255,255,.6) 0 1px 1px 0 inset,rgba(0,0,0,.14) 0 -2px 4px 0 inset,rgba(61,130,245,.45) 0 8px 22px -8px;
+  --seg-pill:rgba(255,255,255,.18); --seg-pill-sombra:rgba(255,255,255,.3) 0 1px 1px 0 inset;
+  --next-base:rgba(255,255,255,.04); --next-base-h:rgba(255,255,255,.05);
+  --track:rgba(150,150,175,.24); --track-lo:rgba(150,150,175,.16);
+  --check:rgba(235,235,245,.38); --check-h:rgba(235,235,245,.7);
+  --prio-alta-t:#ffb27a; --prio-alta-f:rgba(255,138,61,.16); --prio-urg-t:#ff8b92; --prio-urg-f:rgba(255,90,100,.14);
+  --bar-a:#6c98d6; --bar-b:#5b85c0; --bar-hoy-a:#8cc0ff; --bar-hoy-b:#6fa6f2; --bar-cero:#4e6fa3;
+  --mas-bg:#34343c; --ava-borde:#1c1c22;
 }
 .fp{color:var(--text);font:400 15px/1.45 var(--font);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;min-height:100%;
-  background:linear-gradient(#232428 0,#16171b 900px,#101010 900px) #101010}
+  background:var(--fondo)}
 .fp *{box-sizing:border-box}
 .fp :where(h1,h2,p,ul,li){margin:0;padding:0}
 .fp :where(ul){list-style:none}
 .fp :where(button){font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 .fp :where(a){color:inherit;text-decoration:none}
 .fp-i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.fp :where(a,button,[role=button]):focus-visible{outline:2.5px solid #7db4ff;outline-offset:2px}
+.fp :where(a,button,[role=button]):focus-visible{outline:2.5px solid var(--link);outline-offset:2px}
 
 .fp-glass{background:var(--glass);box-shadow:var(--glass-sombra);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4)}
 
@@ -59,9 +95,9 @@ export const CSS_FOCUS = `
 .fp-stat__v small{color:var(--muted);font-size:14px;font-weight:600;letter-spacing:-.44px}
 .fp-actions{margin-left:auto;display:flex;gap:10px;margin-bottom:12px}
 .fp-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:42px;padding:0 20px 0 18px;border-radius:21px;font-size:15px;font-weight:600;white-space:nowrap;transition:background .2s,color .2s,box-shadow .2s}
-.fp-btn--glass{background:rgba(255,255,255,.14);box-shadow:rgba(255,255,255,.4) 0 1px 1px 0 inset,rgba(255,255,255,.06) 0 -1px 2px 0 inset,rgba(0,0,0,.3) 0 2px 6px -2px}
-.fp-btn--glass:hover{background:rgba(255,255,255,.2)}
-.fp-btn--accent{color:#fff;background:linear-gradient(180deg,#6aa6ff,#3d82f5);box-shadow:rgba(255,255,255,.6) 0 1px 1px 0 inset,rgba(0,0,0,.14) 0 -2px 4px 0 inset,rgba(61,130,245,.45) 0 8px 22px -8px}
+.fp-btn--glass{background:var(--btn-glass);box-shadow:var(--btn-glass-sombra)}
+.fp-btn--glass:hover{background:var(--btn-glass-h)}
+.fp-btn--accent{color:var(--btn-acc-t);background:var(--btn-acc);box-shadow:var(--btn-acc-sombra)}
 .fp-btn--accent:hover{filter:brightness(1.06)}
 .fp-btn--sm{height:34px;padding:0 13px;border-radius:17px;font-size:14px}
 .fp-btn--ghost{color:var(--link)}
@@ -94,8 +130,8 @@ export const CSS_FOCUS = `
 
 /* Lo que viene */
 .fp-next{display:flex;flex-direction:column;gap:6px;margin-top:14px;padding:16px;border-radius:20px;text-align:left;color:var(--text);
-  background:color-mix(in srgb,var(--blue) 16%,rgba(255,255,255,.04));box-shadow:color-mix(in srgb,var(--blue) 26%,transparent) 0 0 0 1px inset;transition:background .2s}
-a.fp-next:hover{background:color-mix(in srgb,var(--blue) 20%,rgba(255,255,255,.05))}
+  background:color-mix(in srgb,var(--blue) 16%,var(--next-base));box-shadow:color-mix(in srgb,var(--blue) 26%,transparent) 0 0 0 1px inset;transition:background .2s}
+.fp a.fp-next:hover{background:color-mix(in srgb,var(--blue) 20%,var(--next-base-h))}
 .fp-next__en{color:var(--muted);font-size:13px;font-weight:650;line-height:18.85px}
 .fp-next__en b{color:var(--text);font-weight:700}
 .fp-next__t{font-size:19px;font-weight:650;line-height:22.8px;letter-spacing:-.19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -110,11 +146,11 @@ a.fp-next:hover{background:color-mix(in srgb,var(--blue) 20%,rgba(255,255,255,.0
 
 /* La meta (en Pane, el temporizador de foco) */
 .fp-seg{position:relative;display:inline-flex;flex:none;padding:3px;border-radius:17px;background:var(--fill)}
-.fp-seg__pill{position:absolute;top:3px;left:0;width:100px;height:28px;border-radius:14px;background:rgba(255,255,255,.18);box-shadow:rgba(255,255,255,.3) 0 1px 1px 0 inset;transform-origin:left center}
+.fp-seg__pill{position:absolute;top:3px;left:0;width:100px;height:28px;border-radius:14px;background:var(--seg-pill);box-shadow:var(--seg-pill-sombra);transform-origin:left center}
 .fp-seg__btn{position:relative;z-index:1;height:28px;padding:0 11px;border-radius:14px;color:var(--muted);font-size:13px;font-weight:600;transition:color .2s}
 .fp-seg__btn[aria-pressed=true]{color:var(--text)}
 .fp-focus__b{display:flex;align-items:center;gap:22px;margin-top:17px;padding-left:5px}
-.fp-timer{position:relative;width:98px;height:98px;flex:none;display:grid;place-content:center;text-align:center;border-radius:50%;box-shadow:inset 0 0 0 6px rgba(150,150,175,.22)}
+.fp-timer{position:relative;width:98px;height:98px;flex:none;display:grid;place-content:center;text-align:center;border-radius:50%;box-shadow:inset 0 0 0 6px var(--track)}
 .fp-timer b{display:block;font-size:24px;font-weight:650;line-height:24px;letter-spacing:-.48px;font-variant-numeric:tabular-nums}
 .fp-timer small{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:600;line-height:17.4px}
 .fp-focus__c{flex:1;min-width:0}
@@ -124,15 +160,15 @@ a.fp-next:hover{background:color-mix(in srgb,var(--blue) 20%,rgba(255,255,255,.0
 .fp-well{margin-top:auto;padding:13px 14px 12px;border-radius:var(--r-md);background:var(--fill)}
 .fp-well__r{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px;font-weight:560;line-height:18.85px}
 .fp-well__r b{color:var(--text);font-size:14px;font-weight:650;white-space:nowrap}
-.fp-bar{height:5px;margin-top:9px;border-radius:3px;background:rgba(150,150,175,.28);overflow:hidden}
+.fp-bar{height:5px;margin-top:9px;border-radius:3px;background:var(--track);overflow:hidden}
 .fp-bar i{display:block;height:100%;border-radius:3px;background:var(--orange);transform-origin:left center}
 
 /* Mis tareas */
 .fp-tasks{margin-top:14px;min-height:0;overflow:hidden}
 .fp-task{display:grid;grid-template-columns:22px minmax(0,1fr) auto;column-gap:12px;align-items:center;height:67px;padding:0 4px;border-bottom:1px solid var(--hair)}
 .fp-task:last-child{border-bottom:0}
-.fp-check{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(235,235,245,.38);display:grid;place-items:center;transition:background .2s,border-color .2s}
-button.fp-check:hover{border-color:rgba(235,235,245,.7)}
+.fp-check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--check);display:grid;place-items:center;transition:background .2s,border-color .2s}
+.fp button.fp-check:hover{border-color:var(--check-h)}
 .fp-check--on{background:var(--blue);border-color:var(--blue)}
 .fp-check--on .fp-i{width:14px;height:14px;stroke-width:2.6;color:#fff}
 .fp-task__t{font-size:15px;font-weight:560;line-height:21.75px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -141,8 +177,8 @@ button.fp-check:hover{border-color:rgba(235,235,245,.7)}
 .fp-chip{display:inline-flex;align-items:center;gap:6px;height:21px;padding:0 8px 0 7px;border-radius:7px;font-size:12px;font-weight:600;line-height:12px;color:var(--text);background:color-mix(in srgb,var(--c) 22%,transparent);min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .fp-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--c)}
 .fp-prio{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:7px;font-size:12px;font-weight:650;line-height:12px}
-.fp-prio--alta{color:#ffb27a;background:rgba(255,138,61,.16)}
-.fp-prio--urgente{color:#ff8b92;background:rgba(255,90,100,.14)}
+.fp-prio--alta{color:var(--prio-alta-t);background:var(--prio-alta-f)}
+.fp-prio--urgente{color:var(--prio-urg-t);background:var(--prio-urg-f)}
 .fp-prio .fp-i{width:12px;height:12px;stroke-width:2}
 
 /* La semana */
@@ -150,33 +186,33 @@ button.fp-check:hover{border-color:rgba(235,235,245,.7)}
 .fp-big>b{font-size:28px;font-weight:700;line-height:28px;letter-spacing:-.56px}
 .fp-big>span{color:var(--muted);font-size:15px}
 .fp-big>em{margin-left:4px;font-style:normal;color:var(--up);font-size:12.5px;font-weight:650}
-.fp-big em.fp-malo{color:#ff8b92}
+.fp-big em.fp-malo{color:var(--bad-t)}
 .fp-bars{flex:1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));column-gap:9px;margin-top:16px;min-height:0}
 .fp-bar7{display:flex;flex-direction:column;min-height:0}
-.fp-bar7__t{position:relative;flex:1;border-radius:13px;background:rgba(150,150,175,.16);overflow:hidden}
-.fp-bar7__f{position:absolute;left:0;right:0;bottom:0;border-radius:13px;background:linear-gradient(180deg,#6c98d6,#5b85c0);transform-origin:bottom center}
-.fp-bar7--hoy .fp-bar7__f{background:linear-gradient(180deg,#8cc0ff,#6fa6f2)}
-.fp-bar7__f--cero{height:3px !important;border-radius:2px;background:#4e6fa3}
+.fp-bar7__t{position:relative;flex:1;border-radius:13px;background:var(--track-lo);overflow:hidden}
+.fp-bar7__f{position:absolute;left:0;right:0;bottom:0;border-radius:13px;background:linear-gradient(180deg,var(--bar-a),var(--bar-b));transform-origin:bottom center}
+.fp-bar7--hoy .fp-bar7__f{background:linear-gradient(180deg,var(--bar-hoy-a),var(--bar-hoy-b))}
+.fp-bar7__f--cero{height:3px !important;border-radius:2px;background:var(--bar-cero)}
 .fp-bar7__l{margin-top:9px;text-align:center;color:var(--muted);font-size:12px;font-weight:560;line-height:17.4px}
 .fp-bar7--hoy .fp-bar7__l{color:var(--text)}
 
 /* Proyectos */
 .fp-projs{margin-top:15px;min-height:0;overflow:hidden}
 .fp-hproject{display:grid;grid-template-columns:38px minmax(0,1fr) 171px 42px 64px;column-gap:14px;align-items:center;height:61.5px;border-bottom:1px solid var(--hair);padding:0 7px 0 6px}
-li:last-child>.fp-hproject{border-bottom:0}
+.fp li:last-child>.fp-hproject{border-bottom:0}
 .fp-tile{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;color:#fff;font-size:17px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 82%,#fff),var(--c));box-shadow:rgba(255,255,255,.4) 0 1px 1px 0 inset}
 .fp-hproject b{display:block;font-size:15px;font-weight:600;line-height:21px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fp-hproject small{display:block;color:var(--muted);font-size:13px;line-height:18.85px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fp-hproject__bar{height:6px;border-radius:3px;background:rgba(150,150,175,.2);overflow:hidden}
+.fp-hproject__bar{height:6px;border-radius:3px;background:var(--track);overflow:hidden}
 .fp-hproject__bar i{display:block;height:100%;border-radius:3px;background:var(--c);transform-origin:left center}
 .fp-hproject__pct{text-align:right;font-size:13.5px;font-weight:650}
-.fp-mas{display:grid;place-items:center;justify-self:end;height:24px;min-width:24px;padding:0 5px;border-radius:12px;background:#34343c;color:var(--muted);font-size:12px;font-weight:650;line-height:12px;border:2px solid #1c1c22;white-space:nowrap}
+.fp-mas{display:grid;place-items:center;justify-self:end;height:24px;min-width:24px;padding:0 5px;border-radius:12px;background:var(--mas-bg);color:var(--muted);font-size:12px;font-weight:650;line-height:12px;border:2px solid var(--ava-borde);white-space:nowrap}
 
 /* Te está esperando (en Pane, «Right now») */
 .fp-people{margin-top:12px;min-height:0;overflow:hidden}
 .fp-person{display:flex;align-items:center;gap:12px;height:58px;padding:0 4px;min-width:0}
 .fp-ava{position:relative;width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;color:#1a1a20}
-.fp-ava i{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;border:2px solid #1c1c22}
+.fp-ava i{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;border:2px solid var(--ava-borde)}
 .fp-person b{display:block;font-size:15px;font-weight:600;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fp-person small{display:block;color:var(--muted);font-size:13px;line-height:18.85px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fp-person>span:last-child{min-width:0}

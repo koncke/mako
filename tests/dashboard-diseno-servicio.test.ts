@@ -24,6 +24,7 @@ import { datosServicioMuestra, generalServicioMuestra } from '../lib/servicio-di
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_GENERAL_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -203,9 +204,7 @@ test('el cableado: la plantilla trae su diseño con sus once piezas, se ofrece y
   assert.deepEqual([pieza('deudores')?.fuente, pieza('deudores')?.dimension], ['pagos', 'cliente']);
   assert.deepEqual([pieza('quien')?.fuente, pieza('quien')?.dimension], ['cartera', 'cliente']);
   assert.deepEqual([pieza('ritmo')?.fuente, pieza('ritmo')?.dimension], ['entrega', 'semana']);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'servicio' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<ServicioVivo'));
+  cableadoDelDiseno(h, 'servicio', 'ServicioVivo');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaServicio(hoja, datosServicioMuestra(hoja, hoy), generalServicioMuestra(hoy)'));
 });
 

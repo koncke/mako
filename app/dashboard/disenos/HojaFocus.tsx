@@ -26,6 +26,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import Link from '@/app/_ui/Link';
 import { enCuanto, horaEn, lineaProyecto, type VistaFocus } from '@/lib/focus-diseno';
 import { CSS_FOCUS } from './focus-css';
+import { Parte } from './parte';
 
 // Las curvas de GSAP de Pane, traducidas (las mismas de docs/diseno/mockups-dashboard/focus-pane/pane.js).
 const P4O = 'cubic-bezier(.165,.84,.44,1)';
@@ -224,6 +225,7 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
       {/* La letra de la captura de Pane (Inter 4, con su tamaño óptico), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" precedence="default" />
       <div className="fp-page">
+        <Parte id="cabecera">
         <div className="fp-head">
           <div style={{ minWidth: 0 }}>
             <h1 className="fp-title" aria-label={titulo}><span className="fp-w">{[...titulo].map((c, i) => <span key={i} className="fp-l" aria-hidden>{c}</span>)}</span></h1>
@@ -250,9 +252,11 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
               : <Ir href="/plan" className="fp-btn fp-btn--accent">Abrir el Plan</Ir>}
           </div>
         </div>
+        </Parte>
 
         <section className="fp-grid fp-row1">
           {/* HOY: los anillos (en Pane, «Today»): tareas de hoy, llamadas de hoy y los KPIs del día en verde. */}
+          <Parte id="hoy">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><div><h2 className="fp-card__t">Hoy</h2><p className="fp-card__s">Cierra tus anillos</p></div></div>
             <div className="fp-rings">
@@ -267,8 +271,10 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
               </div>
             </div>
           </article>
+          </Parte>
 
           {/* LO QUE VIENE (en Pane, «Up next»): lo de hoy en el Calendario, desde ahora. */}
+          <Parte id="viene">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><h2 className="fp-card__t">Lo que viene</h2><Ir href="/calendario" className="fp-btn fp-btn--ghost fp-btn--sm">Calendario</Ir></div>
             {viene == null ? <p className="fp-vacio">No pude leer tu calendario.</p>
@@ -291,8 +297,10 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
                 </>
               )}
           </article>
+          </Parte>
 
           {/* LA META (en Pane, el temporizador «Focus»): cuánto lleva la meta objetivo y cuánto debería llevar a hoy. */}
+          <Parte id="meta">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><div><h2 className="fp-card__t">La meta</h2><p className="fp-card__s">{!meta || meta.atrasado == null ? 'Tu meta objetivo' : meta.atrasado ? 'Vas atrás del ritmo' : 'Vas a tiempo'}</p></div></div>
             {meta ? (
@@ -314,10 +322,12 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
               <div className="fp-focus__b"><div className="fp-focus__c"><p className="fp-vacio" style={{ textAlign: 'left', padding: '0 0 10px' }}>Todavía no tienes una meta para este trimestre.</p>{metaAccion}</div></div>
             )}
           </article>
+          </Parte>
         </section>
 
         <section className="fp-grid fp-row2">
           {/* MIS TAREAS: las de hoy y atrasadas; si no hay, las que más mueven la aguja. */}
+          <Parte id="tareas">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><div><h2 className="fp-card__t">Mis tareas</h2><p className="fp-card__s">{tareas && !tareas.deHoy ? 'Las que más mueven la aguja' : 'De hoy y atrasadas'}</p></div><Ir href="/plan" className="fp-btn fp-btn--ghost fp-btn--sm">Ver el Plan</Ir></div>
             {tareas == null ? <p className="fp-vacio">No pude leer tu Plan.</p>
@@ -342,8 +352,10 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
                 </ul>
               )}
           </article>
+          </Parte>
 
           {/* LA SEMANA (en Pane, las tareas cerradas por día): lo que vence cada día en el Plan, y hoy más claro. */}
+          <Parte id="semana">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><div><h2 className="fp-card__t">La semana</h2><p className="fp-card__s">Lo que vence cada día</p></div><Ir href="/plan" className="fp-ibtn" label="Ver el Plan"><Icono id="expand" /></Ir></div>
             {semana == null ? <p className="fp-vacio">No pude leer tu Plan.</p> : (
@@ -360,10 +372,12 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
               </>
             )}
           </article>
+          </Parte>
         </section>
 
         <section className="fp-grid fp-row3">
           {/* PROYECTOS: los abiertos del Plan, con su avance y sus tareas abiertas. */}
+          <Parte id="proyectos">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h"><h2 className="fp-card__t">Proyectos</h2><Ir href="/plan" className="fp-btn fp-btn--ghost fp-btn--sm">Ver todos</Ir></div>
             {proyectos == null ? <p className="fp-vacio">No pude leer tu Plan.</p>
@@ -384,8 +398,10 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
                 </ul>
               )}
           </article>
+          </Parte>
 
           {/* TE ESTÁ ESPERANDO (en Pane, «Right now»): los cobros por hacer y los leads por marcar. */}
+          <Parte id="espera">
           <article className="fp-card fp-glass" data-card>
             <div className="fp-card__h">
               <h2 className="fp-card__t">Te está esperando</h2>
@@ -426,6 +442,7 @@ export function HojaFocus({ vista, titulo, sub, hoy, tz, ahora, metaAccion, hech
                 )
             )}
           </article>
+          </Parte>
         </section>
       </div>
       {pie}

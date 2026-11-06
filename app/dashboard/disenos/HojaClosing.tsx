@@ -31,6 +31,7 @@ import { duracionLegible } from '@/lib/primer-contacto';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { leerCaja } from '../ElementoIA';
 import { CSS_CLOSING } from './closing-css';
+import { Parte, useSeDibuja } from './parte';
 
 /** Quién mira, para el saludo de Halden («Good morning, Amara»). La arma la página (app/dashboard/page.tsx). */
 export type QuienMira = { saludo: string; nombre: string; fecha: string };
@@ -48,7 +49,7 @@ const decimal = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits
 const ordinal = (r: string | null) => (r === 'R2' ? '2.ª llamada' : r === 'R1' ? '1.ª llamada' : r ?? 'Llamada');
 const iniciales = (s: string) => [...s.trim().split(/\s+/).slice(0, 2).map((p) => [...p][0] ?? '')].join('').toUpperCase() || '·';
 const TONOS_TILE = ['hc-t-cyan', 'hc-t-rose', 'hc-t-violet', 'hc-t-amber', 'hc-t-blue'];
-const AVATARES = ['#f3cdb8', '#f6e5b9', '#cfe0f6', '#d6efd6', '#f1dcf2'];
+const AVATARES = ['var(--av-1)', 'var(--av-2)', 'var(--av-3)', 'var(--av-4)', 'var(--av-5)'];
 const COLOR_SEGMENTO = { r1: 'var(--st-2)', r2: 'var(--st-4)', sin: 'var(--st-1)', perdida: 'var(--rosa-st)' } as const;
 
 /**
@@ -207,7 +208,9 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
   const raiz = useRef<HTMLDivElement>(null);
   // Las tarjetas arrancan ocultas hasta que corre la entrada (si no, se verían un cuadro antes de animarse).
   const [entro, setEntro] = useState(false);
-  const caja = useCaja(hoja.id, compartido || quieta ? undefined : hoja.diseno?.piezas.ia);
+  // En un bloque (./parte.tsx) la caja se lee sólo en el suyo: diez bloques de la hoja no piden diez veces lo mismo.
+  const conCaja = useSeDibuja('ia');
+  const caja = useCaja(hoja.id, compartido || quieta || !conCaja ? undefined : hoja.diseno?.piezas.ia);
   const tablaUltimas = hoja.componentes.find((c): c is Grafico => c.id === hoja.diseno?.piezas.ultimas && c.clase === 'grafico');
   const quien = extras?.quien ?? null;
   const contacto = extras?.contacto ?? null;
@@ -283,6 +286,7 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
       {/* La letra de Halden (Manrope), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" precedence="default" />
       <div className="hc-vista">
+        <Parte id="cabecera">
         <div className="hc-cab">
           <div>
             <p className="hc-eyebrow">{[periodo, quien?.fecha].filter(Boolean).join(' · ')}</p>
@@ -294,9 +298,11 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
             {onGrilla && <button type="button" className="hc-btn hc-btn--primary" onClick={onGrilla}><Icono d={I.grilla} /><span>Ver todo<span className="hc-solo-compu"> en la grilla</span></span></button>}
           </div>
         </div>
+        </Parte>
 
         <section className="hc-grid">
           {/* LA TASA DE CIERRE (era «Revenue won»): el ancla, con su diferencia; a la derecha, analizadas, score y ganadas. */}
+          <Parte id="tasa">
           <article className="hc-card hc-hero hc-c7 hc-o-1" data-card>
             <div className="hc-hero__main">
               <div className="hc-hero__h">
@@ -325,8 +331,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               <div className="hc-stat"><dt>Ganadas</dt><dd><Cuenta valor={v.stats.ganadas} formato={entero} demora={0.35} /></dd></div>
             </dl>
           </article>
+          </Parte>
 
           {/* CÓMO TERMINARON (era «Open pipeline»): las llamadas partidas por desenlace. */}
+          <Parte id="desenlace">
           <article className="hc-card hc-c5 hc-o-2" data-card>
             <div className="hc-card__h"><h2 className="hc-card__t">Cómo terminaron</h2>{!compartido && <Link className="hc-link" href="/crm">Ver en el CRM</Link>}</div>
             {v.desenlace?.llamadas ? (
@@ -346,8 +354,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               </>
             ) : <p className="hc-vacio">Todavía no hay llamadas analizadas en este período.</p>}
           </article>
+          </Parte>
 
           {/* LAS LLAMADAS DE LA SEMANA (era «Revenue this week»): hechas hasta hoy y, rayadas, las agendadas. */}
+          <Parte id="semana">
           <article className="hc-card hc-rev hc-c5 hc-o-4" data-card>
             <div className="hc-card__h">
               <div>
@@ -369,8 +379,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
             ) : <p className="hc-vacio">Sin datos de la semana.</p>}
             {semana && <span className="hc-tip" ref={tip} aria-hidden>{textoTip}</span>}
           </article>
+          </Parte>
 
           {/* LAS ÚLTIMAS LLAMADAS (era «Hot deals»): de la más nueva a la más vieja; un clic abre su ficha. */}
+          <Parte id="ultimas">
           <article className="hc-card hc-c4 hc-o-5" data-card>
             <div className="hc-card__h"><h2 className="hc-card__t">Últimas llamadas</h2>{onGrilla && <button type="button" className="hc-link" onClick={onGrilla}>Ver todas</button>}</div>
             {v.ultimas.length ? (
@@ -392,8 +404,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               </ul>
             ) : <p className="hc-vacio">No hubo llamadas en los últimos 14 días.</p>}
           </article>
+          </Parte>
 
           {/* LA PRÓXIMA LLAMADA (era «Next up»): la que sigue en la agenda del CRM. */}
+          <Parte id="proxima">
           <article className="hc-card hc-nextup hc-c3 hc-o-3" data-card>
             <div className="hc-card__h"><h2 className="hc-card__t">Próxima llamada</h2>{cuando && <span className="hc-chip hc-chip--soft">{cuando}</span>}</div>
             {proxima ? (
@@ -404,8 +418,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
             ) : <p className="hc-vacio">{extras?.agenda ? 'No hay llamadas agendadas.' : 'La agenda se ve desde el Calendario.'}</p>}
             {!compartido && <Link className="hc-join" href="/calendario"><Icono d={I.video} />Ver en el calendario</Link>}
           </article>
+          </Parte>
 
           {/* CADA CLOSER (era «Quota this quarter»): su tasa de cierre, de la más alta a la más baja. */}
+          <Parte id="closers">
           <article className="hc-card hc-c5 hc-o-7" data-card>
             <div className="hc-card__h"><h2 className="hc-card__t">Tasa de cierre por closer</h2>{onGrilla && <button type="button" className="hc-link" onClick={onGrilla}>Ver el equipo</button>}</div>
             {v.closers.length ? (
@@ -424,8 +440,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               </ul>
             ) : <p className="hc-vacio">Todavía no hay closers con llamadas en este período.</p>}
           </article>
+          </Parte>
 
           {/* LO QUE VE MaKo (era «Assist»): las conclusiones de la caja de IA de la hoja. */}
+          <Parte id="ia">
           <article className="hc-card hc-c4 hc-o-6" data-card>
             <div className="hc-card__h">
               <div className="hc-assist__h"><span className="hc-assist__ic"><Icono d={I.chispa} /></span><h2 className="hc-card__t">Qué decide tus cierres</h2></div>
@@ -444,8 +462,10 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
             ) : <p className="hc-vacio">{caja.cargando ? 'Leyendo lo que escribió MaKo…' : 'MaKo todavía no escribió sus conclusiones de esta hoja.'}</p>}
             {onGrilla && <button type="button" className="hc-btn-line" onClick={onGrilla}>Ver los factores <Icono d={I.flecha} /></button>}
           </article>
+          </Parte>
 
           {/* LA DURACIÓN (era «Call session»): el promedio con el reloj que rueda, y cuánto se habló en total. */}
+          <Parte id="duracion">
           <article className="hc-card hc-c3 hc-o-8" data-card>
             <div className="hc-card__h"><h2 className="hc-card__t">Duración promedio</h2>{v.duracion.llamadas != null && <span className="hc-chip hc-chip--grey">{entero(v.duracion.llamadas)} llamadas</span>}</div>
             <Reloj minutos={v.duracion.minutos} />
@@ -453,10 +473,12 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               <span className="hc-dur hc-dur--gana"><Icono d={I.reloj} />En total <b>{v.duracion.minutos != null && v.duracion.llamadas != null ? `${entero((v.duracion.minutos * v.duracion.llamadas) / 60)} h` : '—'}</b></span>
             </div>
           </article>
+          </Parte>
 
           {/* EL PRIMER CONTACTO (5/11/2026): lo de antes de la llamada. Sólo con el dato (`extras.contacto`): el closer, el setter,
               un link compartido y la miniatura no lo reciben, y la tarjeta no se dibuja. */}
           {contacto && (
+            <Parte id="contacto">
             <article className="hc-card hc-c12 hc-o-9" data-card data-primer-contacto>
               <div className="hc-card__h">
                 <div>
@@ -471,6 +493,7 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
                   ? <p className="hc-vacio">No entraron leads nuevos en los últimos {contacto.dias} días.</p>
                   : <CuerpoContacto c={contacto} compartido={compartido} />}
             </article>
+            </Parte>
           )}
         </section>
       </div>

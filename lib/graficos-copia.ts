@@ -151,6 +151,8 @@ export function hojaConIdsNuevos(h: Hoja, nombre?: string): Hoja {
   });
   const seguir = (cs: readonly Componente[]): Componente[] => cs.map((c) => {
     if (c.clase === 'elemento' && c.ia?.fuentes) return { ...c, ia: { ...c.ia, fuentes: c.ia.fuentes.map((id) => nuevoDe.get(id) ?? id) } };
+    // Un BLOQUE (una tarjeta de un diseño, lib/disenos-partes.ts) lee de sus piezas: las sigue al id nuevo, como la caja de IA.
+    if (c.clase === 'elemento' && c.diseno) return { ...c, diseno: { ...c.diseno, piezas: Object.fromEntries(Object.entries(c.diseno.piezas).map(([k, v]) => [k, nuevoDe.get(v) ?? v])) } };
     if (c.clase === 'grafico' && c.popup) return { ...c, popup: { ...c.popup, componentes: seguir(c.popup.componentes) } };
     return c;
   });
@@ -164,7 +166,7 @@ export function hojaConIdsNuevos(h: Hoja, nombre?: string): Hoja {
   else delete copia.conectores;
   // El diseño propio sigue a sus componentes por el id NUEVO, como los conectores (sin esto, la copia se quedaba con
   // un diseño que no encuentra ninguna pieza).
-  if (h.diseno) copia.diseno = { id: h.diseno.id, piezas: Object.fromEntries(Object.entries(h.diseno.piezas).flatMap(([k, v]) => { const n = nuevoDe.get(v); return n ? [[k, n]] : []; })) };
+  if (h.diseno) copia.diseno = { id: h.diseno.id, piezas: Object.fromEntries(Object.entries(h.diseno.piezas).flatMap(([k, v]) => { const n = nuevoDe.get(v); return n ? [[k, n]] : []; })), ...(h.diseno.v === 2 ? { v: 2 as const } : {}) };
   return copia;
 }
 

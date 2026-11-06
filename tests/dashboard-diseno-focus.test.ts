@@ -24,6 +24,9 @@ import {
   cuandoVence, enCuanto, lineaProyecto, loQueViene, semanaDe, subtituloFocus, tareaFocus, vistaFocus,
 } from '../lib/focus-diseno';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
+import { cableadoDelDiseno } from './_diseno-cableado';
+import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { instanciarPlantilla } from '../lib/graficos-plantillas';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -198,7 +201,6 @@ test('en cuánto empieza lo próximo', () => {
 test('Focus es un diseño del catálogo, su plantilla lo trae, y el editor lo dibuja sólo con los datos de General', () => {
   assert.ok((DISENOS_HOJA as readonly string[]).includes('foco'));
   assert.match(leer('lib/general-plantillas.ts'), /id: 'foco'[\s\S]{0,900}diseno: \{ id: 'foco', piezas: \{\} \}/);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.match(editor, /hoja\.diseno\?\.id === 'foco' && general\?\.datos && !enGrilla && !editando && !dueno \? \(/);
+  cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_GENERAL.find((p) => p.id === 'foco')!), 'foco', 'FocusVivo', ['conGeneral ?']);
   assert.match(leer('app/general/ProveedorGeneral.tsx'), /\n\s+datos,\n\s+\}\), \[datos, variables\]\)/, 'General presta sus datos a la hoja');
 });

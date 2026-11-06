@@ -16,12 +16,12 @@ import { HojaMarketing } from './HojaMarketing';
 
 export type ExtrasMarketing = { quien: QuienMira | null };
 
-export default function MarketingVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onFila, compartido }: {
+export default function MarketingVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onPeriodo, onFila, compartido }: {
   hoja: Hoja; hoy: string; datos: Record<string, DatosPieza>; extras: ExtrasMarketing | null; periodo: string;
-  onGrilla?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
+  onGrilla?: () => void; onPeriodo?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
 }) {
   const vista = useMemo(() => vistaMarketing(hoja, datos, hoy), [hoja, datos, hoy]);
   const quien = extras?.quien ?? null;
   const titulo = quien?.nombre ? `${quien.saludo}, ${quien.nombre}` : hoja.nombre;
-  return <HojaMarketing hoja={hoja} vista={vista} titulo={titulo} fecha={quien?.fecha || null} periodo={periodo} onGrilla={onGrilla} onFila={onFila} compartido={compartido} />;
+  return <HojaMarketing hoja={hoja} vista={vista} titulo={titulo} fecha={quien?.fecha || null} periodo={periodo} onGrilla={onGrilla} onPeriodo={onPeriodo} onFila={onFila} compartido={compartido} />;
 }

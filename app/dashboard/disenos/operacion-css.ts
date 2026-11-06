@@ -13,6 +13,9 @@
 //
 // ⚠️ ESTA HOJA ES SÓLO DE «OPERACIÓN DIARIA»: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana. Su corte es el de Moorly (760, medido a 390).
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): la base es la clara de Moorly (cielo y mar de día) y
+//    `data-tema="oscuro"` la da vuelta (el mismo mar, de noche). Todo color de una regla sale de una variable de las dos paletas.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
 // =============================================================================
 
@@ -28,17 +31,41 @@ export const CSS_OPERACION = `
   --line: oklch(30% .03 230/.09); --line-2: oklch(30% .03 230/.16);
   --shadow: 0 1px 1px oklch(30% .05 230/.04), 0 12px 32px -18px oklch(35% .06 225/.32);
   --shadow-lg: 0 2px 6px oklch(30% .05 230/.06), 0 32px 70px -26px oklch(30% .07 225/.45);
-  --accent: oklch(50% .09 205); --accent-hi: oklch(56% .095 205); --accent-ink: #fff; --accent-soft: oklch(50% .09 205/.13); --accent-text: oklch(44% .085 205);
+  --accent: oklch(50% .09 205); --accent-hi: oklch(54% .095 205); --accent-ink: #fff; --accent-soft: oklch(50% .09 205/.13); --accent-text: oklch(44% .085 205);
   --warm: oklch(74% .13 62); --warm-text: oklch(52% .11 55); --warm-soft: oklch(74% .13 62/.18);
   --good: oklch(50% .11 155); --warn: oklch(52% .11 68); --bad: oklch(52% .16 25); --info: oklch(50% .12 250);
   --good-soft: oklch(60% .12 155/.15); --warn-soft: oklch(75% .13 75/.22); --bad-soft: oklch(60% .16 25/.13); --info-soft: oklch(60% .12 250/.13);
-  --c-hull: oklch(56% .12 250); --c-cargo: oklch(72% .13 78); --c-marina: oklch(60% .11 165); --c-build: oklch(62% .13 40); --c-fish: oklch(64% .11 125); --c-charter: oklch(62% .13 8);
+  --c-hull: oklch(56% .12 250); --c-cargo: oklch(64% .13 78); --c-marina: oklch(60% .11 165); --c-build: oklch(62% .13 40); --c-fish: oklch(64% .11 125); --c-charter: oklch(62% .13 8);
   --tile-sea: oklch(88% .06 195/.62); --tile-sand: oklch(92% .06 80/.66); --tile-coral: oklch(89% .06 40/.62); --tile-sky: oklch(89% .05 245/.62);
   --tile-ink: oklch(22% .025 230); --tile-muted: oklch(22% .025 230/.68);
   --sky1: oklch(97.5% .012 230); --sky2: oklch(94.5% .03 210); --sun: oklch(93% .075 70);
   --w1: oklch(90% .045 195); --w2: oklch(86% .06 205); --w3: oklch(82% .07 215); --w4: oklch(78% .075 228); --crest: #ffffffbf;
   --rim: inset 0 1px 0 #fffffff2, inset 0 0 0 1px #ffffffb3;
   --ease: cubic-bezier(.22, 1, .36, 1);
+  --ctl: #fff; --card-bg: #ffffff9e; --up-t: rgb(23, 97, 59); --spark-a: oklch(22% .025 230/.12); --btn-sombra: oklch(30% .05 230/.06);
+  --salud-rojo: oklch(90% .05 25); --salud-ambar: oklch(91% .05 75); --salud-verde: oklch(91% .04 155);
+}
+.mo:where([data-tema="oscuro"] *) {
+  /* Moorly de noche: el mismo cielo y el mismo mar, hondos; las tarjetas de vidrio suben de luminosidad */
+  --bg: oklch(17% .022 232);
+  --glass: #1a2a32cc; --glass-strong: #172229d6; --glass-rim: #ffffff1f; --glass-hi: #ffffff26;
+  --card: #1b2830db; --card-2: oklch(90% .02 220/.07); --card-3: oklch(90% .02 220/.12);
+  --ink: oklch(94% .01 230); --ink-2: oklch(84% .015 230); --muted: oklch(74% .02 230);
+  --line: oklch(90% .02 230/.1); --line-2: oklch(90% .02 230/.2);
+  --shadow: 0 1px 1px #00000040, 0 12px 32px -18px #000000b3;
+  --shadow-lg: 0 2px 6px #00000059, 0 32px 70px -26px #000000d9;
+  --accent: oklch(66% .1 205); --accent-hi: oklch(72% .105 205); --accent-ink: oklch(16% .03 220); --accent-soft: oklch(66% .1 205/.2); --accent-text: oklch(80% .09 205);
+  --warm: oklch(76% .13 62); --warm-text: oklch(82% .12 72); --warm-soft: oklch(74% .13 62/.2);
+  --good: oklch(78% .13 155); --warn: oklch(82% .12 78); --bad: oklch(74% .15 25); --info: oklch(76% .11 250);
+  --good-soft: oklch(70% .12 155/.2); --warn-soft: oklch(75% .13 75/.2); --bad-soft: oklch(68% .16 25/.2); --info-soft: oklch(70% .12 250/.2);
+  --c-hull: oklch(68% .12 250); --c-cargo: oklch(78% .13 78); --c-marina: oklch(72% .11 165); --c-build: oklch(72% .13 40); --c-fish: oklch(74% .11 125); --c-charter: oklch(72% .13 8);
+  --tile-sea: oklch(34% .06 195/.7); --tile-sand: oklch(36% .06 80/.7); --tile-coral: oklch(34% .06 40/.7); --tile-sky: oklch(34% .06 245/.7);
+  --tile-ink: oklch(95% .01 230); --tile-muted: oklch(95% .01 230/.74);
+  --sky1: oklch(19% .03 238); --sky2: oklch(22% .045 222); --sun: oklch(38% .07 70);
+  --w1: oklch(27% .05 200); --w2: oklch(24% .055 207); --w3: oklch(21% .058 217); --w4: oklch(18.5% .058 230); --crest: #ffffff29;
+  --rim: inset 0 1px 0 #ffffff1f, inset 0 0 0 1px #ffffff14;
+  --ctl: oklch(30% .03 228); --card-bg: oklch(24% .028 228/.74); --up-t: oklch(82% .13 155); --spark-a: oklch(95% .01 230/.14); --btn-sombra: #00000059;
+  --salud-rojo: oklch(40% .1 25); --salud-ambar: oklch(42% .08 75); --salud-verde: oklch(38% .07 155);
 }
 .mo { position: relative; overflow: hidden; min-height: 100%; color: var(--ink); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
   background: radial-gradient(420px 300px at 76% 208px, color-mix(in srgb, var(--sun) 80%, transparent), transparent 70%),
@@ -60,7 +87,7 @@ export const CSS_OPERACION = `
 .mo .mo-hero p { max-width: 580px; margin-top: 9px; color: var(--muted); font-size: 14px; font-weight: 500; line-height: 20.3px; }
 .mo .mo-hero p b { color: var(--ink); font-weight: 600; }
 .mo .mo-hero__acts { margin-left: auto; display: flex; gap: 8px; }
-.mo .mo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; font-size: 14px; font-weight: 600; white-space: nowrap; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 2px oklch(30% .05 230/.06); transition: background-color .15s; }
+.mo .mo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; font-size: 14px; font-weight: 600; white-space: nowrap; background: var(--ctl); box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 2px var(--btn-sombra); transition: background-color .15s; }
 .mo .mo-btn:hover { background: var(--card-2); }
 .mo .mo-btn--primary { background: linear-gradient(180deg, var(--accent-hi), var(--accent)); color: var(--accent-ink); box-shadow: inset 0 1px 0 #ffffff33, 0 8px 18px -10px var(--accent); }
 .mo .mo-btn--primary:hover { background: linear-gradient(180deg, var(--accent-hi), var(--accent-hi)); }
@@ -76,15 +103,15 @@ export const CSS_OPERACION = `
 .mo .mo-kpi__l svg.mo-i { width: 14px; height: 14px; }
 .mo .mo-kpi__v { margin-top: 9px; font-size: 22px; font-weight: 600; line-height: 24.2px; letter-spacing: -.22px; font-variant-numeric: tabular-nums; }
 .mo .mo-kpi__f { position: absolute; left: 18px; bottom: 14px; display: flex; align-items: center; gap: 8px; color: var(--tile-muted); font-size: 12px; font-weight: 600; line-height: 17.4px; }
-.mo .mo-up { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 10px; background: #fff; color: rgb(23, 97, 59); font-size: 11px; font-weight: 700; }
+.mo .mo-up { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 10px; background: var(--ctl); color: var(--up-t); font-size: 11px; font-weight: 700; }
 .mo .mo-spark { position: absolute; right: 18px; bottom: 14px; width: 90px; height: 30px; overflow: visible; }
-.mo .mo-spark .mo-a { fill: oklch(22% .025 230/.12); }
+.mo .mo-spark .mo-a { fill: var(--spark-a); }
 .mo .mo-spark .mo-l { fill: none; stroke: var(--tile-ink); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
 
 .mo .mo-row2 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--gap); }
 .mo .mo-row2 > .mo-desk__chart { grid-column: span 2; }
 .mo .mo-row3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--gap); }
-.mo .mo-card { position: relative; min-width: 0; padding: 18px 20px 20px; border-radius: 16px; background: #ffffff9e; box-shadow: var(--rim), var(--shadow); backdrop-filter: blur(var(--blur)); }
+.mo .mo-card { position: relative; min-width: 0; padding: 18px 20px 20px; border-radius: 16px; background: var(--card-bg); box-shadow: var(--rim), var(--shadow); backdrop-filter: blur(var(--blur)); }
 .mo .mo-card__h { display: flex; align-items: flex-start; gap: 12px; }
 .mo .mo-card__h > div { min-width: 0; }
 .mo .mo-card__t { font-size: 15px; font-weight: 600; line-height: 18.75px; letter-spacing: -.075px; }
@@ -98,7 +125,7 @@ export const CSS_OPERACION = `
 .mo .mo-tabs { margin-left: auto; display: inline-flex; padding: 3px; border-radius: 12px; background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
 .mo .mo-tabs button { height: 30px; padding: 0 11px; border-radius: 9px; color: var(--muted); font-size: 13.5px; font-weight: 600; }
 .mo .mo-tabs button:hover { color: var(--ink); }
-.mo .mo-tabs button[aria-selected=true] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px oklch(30% .05 230/.12); }
+.mo .mo-tabs button[aria-selected=true] { background: var(--ctl); color: var(--ink); box-shadow: 0 1px 2px var(--btn-sombra); }
 .mo .mo-chart { position: relative; height: 254px; margin-top: 14px; }
 .mo .mo-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .mo .mo-chart .mo-gl { stroke: var(--line-2); stroke-dasharray: 3 3; }
@@ -125,7 +152,7 @@ export const CSS_OPERACION = `
 /* Pipeline */
 .mo .mo-pipe { margin-top: 14px; }
 .mo .mo-pipe li { display: grid; grid-template-columns: 26px 90px minmax(0, 1fr) 50px; column-gap: 12px; align-items: center; height: 46px; }
-.mo .mo-pipe .mo-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); font-size: 12.5px; font-weight: 700; }
+.mo .mo-pipe .mo-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ctl); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 12.5px; font-weight: 700; }
 .mo .mo-pipe span { font-size: 13.5px; font-weight: 600; }
 .mo .mo-pipe .mo-bar { height: 8px; border-radius: 4px; background: var(--card-2); overflow: hidden; }
 .mo .mo-pipe .mo-bar i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
@@ -153,14 +180,14 @@ export const CSS_OPERACION = `
 .mo .mo-mix li b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* To-dos */
-.mo .mo-add { display: flex; align-items: center; height: 42px; margin-top: 16px; padding: 0 12px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--muted); font-size: 14px; font-weight: 500; }
+.mo .mo-add { display: flex; align-items: center; height: 42px; margin-top: 16px; padding: 0 12px; border-radius: 12px; background: var(--ctl); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--muted); font-size: 14px; font-weight: 500; }
 .mo .mo-add input { width: 100%; outline: none; }
 .mo .mo-add input::placeholder { color: var(--muted); }
 .mo .mo-todos ul { margin-top: 8px; }
 .mo .mo-todo { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; column-gap: 11px; align-items: center; min-height: 37.2px; padding: 8.45px 0; border-top: 1px solid var(--line); }
 .mo .mo-todo span { font-size: 14px; font-weight: 600; line-height: 20.3px; }
-.mo .mo-todo button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line-2); color: #fff; }
-.mo .mo-todo button[aria-checked=true] { background: var(--accent); box-shadow: none; }
+.mo .mo-todo button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--ctl); box-shadow: inset 0 0 0 1.5px var(--line-2); color: var(--ctl); }
+.mo .mo-todo button[aria-checked=true] { background: var(--accent); box-shadow: none; color: var(--accent-ink); }
 .mo .mo-todo button svg.mo-i { width: 12px; height: 12px; stroke-width: 2.4; }
 .mo .mo-todo.mo-is-done span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-2); text-decoration-thickness: 1.5px; }
 .mo .mo-todo small { color: var(--muted); font-size: 12px; font-weight: 500; }
@@ -219,7 +246,7 @@ export const CSS_OPERACION = `
 .mo .mo-mix li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mo .mo-av { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--c); color: var(--ink); font-size: 12px; font-weight: 700; }
 .mo .mo-feed .mo-av svg.mo-i { width: 13px; height: 13px; }
-.mo .mo-ibtn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 2px oklch(30% .05 230/.06); color: var(--ink); transition: background-color .15s; }
+.mo .mo-ibtn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--ctl); box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 2px var(--btn-sombra); color: var(--ink); transition: background-color .15s; }
 .mo .mo-ibtn:hover { background: var(--card-2); }
 
 /* ── el medio (761 a 1040: no está medido en Moorly) ───────────────────────────────────────────── */

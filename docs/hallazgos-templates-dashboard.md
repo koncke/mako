@@ -693,6 +693,43 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **El botón «Grabar llamada» de la hoja abre la misma grabadora de la ficha** (`GrabarEnFrio`) y al cerrarla la hoja vuelve a leer
   (`refrescar` del editor). En el arnés de captura la grabadora se reemplaza: trae acciones del servidor que no se empaquetan en el navegador.
 
+## 36. «Se rompen en edición»: una hoja con dos caras, y las trampas de partir un diseño en bloques (6/11/2026, chat en la nube)
+
+**Síntoma:** Martín, 6/11: «se rompen todos en la vista de EDICIÓN y hay algunos que los botones no son funcionales».
+**Causa real:** no era una hoja rota, eran DOS hojas: mirando se dibujaba el diseño copiado entero (`HojaX`), y editando la grilla de las
+piezas de donde ese diseño leía, que nunca se había diseñado para verse. Arreglar la grilla de cada una era arreglar 22 cosas que nadie
+mira. **Lo que quedó:** cada tarjeta de un diseño es un elemento de la grilla (`tipo: 'diseno'`) que se dibuja con el mismo componente;
+la hoja guardada se migra al leerse (piezas plegadas en «Todas las piezas», con sus ids).
+**Vive en:** lib/disenos-partes.ts, app/dashboard/disenos/BloqueDeDiseno.tsx, app/dashboard/disenos/DisenoVivo.tsx, lib/graficos-catalogo.ts
+
+Las trampas, medidas:
+- **El diseño elige su versión de teléfono por el ancho de SU página (`@container`).** Dentro de un bloque esa página mide lo que la
+  tarjeta: una tarjeta de 4 columnas se dibujaba como en un celular. La hoja de estilos del bloque le saca el contenedor
+  (`container-type: normal`) en la grilla y lo deja en la pila del celular.
+- **Aplanar el armazón con `:has([data-parte])` necesita `!important`:** las reglas de cada diseño (`.hc .hc-grid {…}`) ganan por
+  especificidad, y escribir un selector por diseño es 22 reglas que se desincronizan.
+- **Una tarjeta que no tiene qué mostrar** (la de «Primer contacto» para quien no ve leads, una de General sin sus datos) dejaba un hueco
+  gris del alto de la tarjeta. Mirando, la grilla le saca el lugar (h = 1 y oculta); editando se dice qué bloque es. Lo que sólo se ve con
+  un dato que no viene de las piezas va declarado en el catálogo (`soloSi`), el resto se detecta en el DOM.
+- **Una tarjeta de la biblioteca no puede ser un `<button>`:** la vista previa es la tarjeta de verdad y trae sus botones; un botón adentro
+  de otro no es HTML (React lo avisa al hidratar).
+- **Un saneo que agrega piezas cambia el ORDEN de sus campos** (los bloques nacen con `x, y, w, h` antes de `diseno`, el saneo después):
+  la API compara la hoja consigo misma para decir «ya está así», y dejaba de decirlo. Lo que agrega la migración vuelve a pasar por
+  `sanearComponente`.
+- **Las guardas viejas contaban `componentes.length`** (14 paneles, «el saneo no se comió nada», «la frase abre la hoja»). En el modelo
+  de bloques esas cuentas se hacen sobre `panelesALaVista` (lo que se ve) y `sinBloquesDeDiseno` (lo que la plantilla escribió): la
+  protección es la misma y el número no miente.
+- **Un modo oscuro que dependa de `:root` o `html` lo rechaza la guarda de cada hoja** («todo adentro de su raíz»): la forma que sirve es
+  `.raiz:where([data-tema="oscuro"] *)`, que empieza por la raíz y tiene su misma especificidad.
+- **La guarda del modo mide colores opacos:** un brillo `#ffffff14` sobre fondo oscuro «parece» blanco si se ignora el alfa; y un diseño
+  en `oklch` (Operación) se lee por su L al cubo.
+- **El servidor de desarrollo no entra en el contenedor de la nube:** Turbopack llega a 13 GB con el Dashboard y el kernel lo mata (con
+  cuatro agentes corriendo tests, antes). Webpack no compila este repo (`node:crypto` en el grafo del cliente). Las capturas largas van de
+  a una hoja por arranque, o desde una sesión local.
+
+Lo que quedó SIN hacer: las capturas a 390 px y en oscuro; borrar los bloques de General viejos (sólo con el sí de Martín: tienen
+opciones que las tarjetas no tienen; la tabla de candidatos está en docs/relevo/nube-dashboards.md).
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

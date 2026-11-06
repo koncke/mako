@@ -6,6 +6,8 @@
 // (la barra de la izquierda, la de arriba, la del reloj y las dos del teléfono), los resets por etiqueta con
 // :where() y con @container en lugar de @media. Lo de la adaptación va al final (el paso del medio, los vacíos y lo que se toca). Se
 // escribió desde lo MEDIDO del demo: nada del código de la tienda.
+// Paleta doble (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si
+// tiene dark mode, automáticamente pasarse a allí»): claro por defecto y oscuro bajo [data-tema="oscuro"] de <html>, sólo con variables.
 // ⚠️ En un template literal no va ningún backtick (ni en un comentario) ni un «dólar con llave».
 // =============================================================================
 
@@ -49,6 +51,16 @@ export const CSS_INMOBILIARIA = `
   --good: #2c8a47;
   --warn: #a86a08;
   --bad: #c9382a;
+  --ink: #17181b;
+  --on-ink: #ecebe6;
+  --pill-mix: #000;
+  --stage-hi: #fff;
+  --post: #cfcdc6;
+  --av-in: #d4e4f7;
+  --av-cr: #f8cfae;
+  --av-ta: #c8ebe2;
+  --av-lb: #d9ecc6;
+  --av-jk: #e2dcf7;
   --r-card: 20px;
   --r-tile: 14px;
   --gap: 16px;
@@ -56,6 +68,47 @@ export const CSS_INMOBILIARIA = `
   --gutter: clamp(16px, 1.8vw, 30px);
   --ease: cubic-bezier(.2, .8, .2, 1);
   position: relative; padding: 4px 26px 56px; color: var(--text); background: radial-gradient(900px 520px at 0 0, var(--glow-a), transparent 60%), radial-gradient(1100px 600px at 100% 0, var(--glow-b), transparent 60%), var(--bg); font: 500 15px/22.5px var(--font); -webkit-font-smoothing: antialiased;
+}
+/* Oscuro: grafito con las superficies subiendo de luz; los acentos conservan su tono y suben de luminosidad. La placa del auto queda blanca (es un objeto). */
+.tq:where([data-tema="oscuro"] *) {
+  --bg: #101114;
+  --glow-a: #1f1812;
+  --glow-b: #14181d;
+  --surface: #191a1e;
+  --surface-2: #212227;
+  --raised: #27282d;
+  --well: #25262b;
+  --line: #2c2d33;
+  --line-2: #3e3f46;
+  --shadow: 0 1px 2px #00000080, 0 12px 30px -18px #000000d9;
+  --shadow-pop: 0 24px 60px -18px #000000e6, 0 2px 6px #00000080;
+  --text: #ecebe8;
+  --muted: #a9aaaf;
+  --faint: #8b8c92;
+  --primary: #f27a3e;
+  --on-primary: #1b0c03;
+  --soft-ink: #ff9d62;
+  --orange: #f27a3e;
+  --amber: #e8a92a;
+  --sky: #61a5ea;
+  --teal: #33bda3;
+  --violet: #a28ff2;
+  --rose: #ef6c82;
+  --lime: #7fc557;
+  --slate: #929daa;
+  --good: #5ecb86;
+  --warn: #e8b04c;
+  --bad: #f26d5e;
+  --ink: #ecebe6;
+  --on-ink: #17181b;
+  --pill-mix: #fff;
+  --stage-hi: #ffffff12;
+  --post: #4a4b52;
+  --av-in: #1f3350;
+  --av-cr: #523521;
+  --av-ta: #1d4339;
+  --av-lb: #2f4420;
+  --av-jk: #382f58;
 }
 
 /* ── la copia ─────────────────────────────────────────────────────────────────────────────────────── */
@@ -75,7 +128,7 @@ export const CSS_INMOBILIARIA = `
 .tq .tq-btn--ghost:hover { background: var(--surface-2); }
 .tq .tq-btn--soft { background: color-mix(in srgb, var(--orange) 20%, transparent); color: var(--soft-ink); }
 .tq .tq-btn--soft:hover { background: color-mix(in srgb, var(--orange) 24%, transparent); }
-.tq .tq-btn--dark { background: var(--ink, #17181b); color: #ecebe6; }
+.tq .tq-btn--dark { background: var(--ink); color: var(--on-ink); }
 .tq .tq-btn--dark:hover { filter: brightness(1.25); }
 .tq .tq-btn--sm { height: 38px; padding: 0 16px; gap: 8px; font-size: 14px; }
 .tq .tq-btn--xs { height: 32px; padding: 0 10px; gap: 6px; font-size: 14px; }
@@ -91,8 +144,8 @@ export const CSS_INMOBILIARIA = `
 .tq .tq-stat__v { margin-top: 2px; font-size: 34px; font-weight: 900; line-height: 35.7px; letter-spacing: -1.02px; }
 .tq .tq-stat__v small { margin-left: 6px; font-size: 17px; font-weight: 600; line-height: 17.85px; letter-spacing: 0; color: var(--muted); }
 .tq .tq-chip { margin-top: 2px; justify-self: start; display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 99px; font-size: 13px; font-weight: 700; line-height: 13.65px; background: var(--well); color: var(--muted); }
-.tq .tq-chip--warn { background: #d6940a2e; color: var(--warn); }
-.tq .tq-chip--good { background: #2c8a4724; color: var(--good); }
+.tq .tq-chip--warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.tq .tq-chip--good { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
 .tq .tq-card { position: relative; min-width: 0; padding: 20px; border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .tq .tq-card__h { display: flex; align-items: center; gap: 12px; min-height: 40px; }
 .tq .tq-card__t { font-size: 18px; font-weight: 700; line-height: 27px; letter-spacing: -.27px; white-space: nowrap; }
@@ -109,19 +162,19 @@ export const CSS_INMOBILIARIA = `
 .tq .tq-bay--diagnosis { --tone: var(--violet); }
 .tq .tq-bay__h { display: flex; align-items: center; gap: 8px; height: 25px; }
 .tq .tq-bay__n { font-size: 16px; font-weight: 700; line-height: 24px; letter-spacing: .64px; text-transform: uppercase; }
-.tq .tq-pill { margin-left: auto; height: 25px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 99px; font-size: 13px; font-weight: 650; line-height: 19.5px; background: color-mix(in srgb, var(--tone, var(--sky)) 15%, transparent); color: color-mix(in srgb, var(--tone, var(--sky)) 72%, #000); }
+.tq .tq-pill { margin-left: auto; height: 25px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 99px; font-size: 13px; font-weight: 650; line-height: 19.5px; background: color-mix(in srgb, var(--tone, var(--sky)) 15%, transparent); color: color-mix(in srgb, var(--tone, var(--sky)) 72%, var(--pill-mix)); }
 .tq .tq-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--tone, var(--sky)); }
-.tq .tq-bay__stage { position: relative; height: 92px; margin-top: 9px; border-radius: 12px; background: radial-gradient(120px 60px at 50% 40%, #fff, transparent 70%), var(--surface-2); overflow: hidden; }
+.tq .tq-bay__stage { position: relative; height: 92px; margin-top: 9px; border-radius: 12px; background: radial-gradient(120px 60px at 50% 40%, var(--stage-hi), transparent 70%), var(--surface-2); overflow: hidden; }
 .tq .tq-bay__stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .tq .tq-bay__car { display: block; margin-top: 12px; font-size: 17px; font-weight: 700; line-height: 25.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tq .tq-bay__who { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 14px; font-weight: 500; color: var(--muted); }
 .tq .tq-plate { display: inline-flex; align-items: center; height: 21px; padding: 0 5px; border-radius: 6px; border: 1.5px solid #1b2a55; background: #fff; font: 600 13px/13px var(--mono); letter-spacing: .52px; color: #1b2a55; }
 .tq .tq-av { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 700; letter-spacing: .22px; color: var(--text); }
-.tq .tq-t-in { background: #d4e4f7; }
-.tq .tq-t-cr { background: #f8cfae; }
-.tq .tq-t-ta { background: #c8ebe2; }
-.tq .tq-t-lb { background: #d9ecc6; }
-.tq .tq-t-jk { background: #e2dcf7; }
+.tq .tq-t-in { background: var(--av-in); }
+.tq .tq-t-cr { background: var(--av-cr); }
+.tq .tq-t-ta { background: var(--av-ta); }
+.tq .tq-t-lb { background: var(--av-lb); }
+.tq .tq-t-jk { background: var(--av-jk); }
 .tq .tq-bay__time { display: flex; align-items: center; gap: 8px; margin-top: 8px; height: 34px; }
 .tq .tq-bay__time svg.tq-i { width: 12px; height: 12px; color: var(--good); }
 .tq .tq-bay__time b { font: 700 17px/25.5px var(--mono); letter-spacing: -.34px; }
@@ -154,8 +207,8 @@ export const CSS_INMOBILIARIA = `
 .tq .tq-jc__bay { margin-left: auto; height: 21px; padding: 0 6px; display: grid; place-items: center; border-radius: 6px; background: var(--well); font-size: 13px; font-weight: 700; color: var(--muted); }
 .tq .tq-jc__tag { width: 21px; height: 21px; display: grid; place-items: center; border-radius: 6px; }
 .tq .tq-jc__tag svg.tq-i { width: 12px; height: 12px; }
-.tq .tq-jc__tag--rush { background: #d6455c1f; color: var(--rose); }
-.tq .tq-jc__tag--walk { background: #d6940a2e; color: var(--warn); }
+.tq .tq-jc__tag--rush { background: color-mix(in srgb, var(--rose) 13%, transparent); color: var(--rose); }
+.tq .tq-jc__tag--walk { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .tq .tq-jc__name { margin-top: 0; font-size: 16px; font-weight: 700; line-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tq .tq-jc__own { font-size: 14px; font-weight: 500; line-height: 21px; color: var(--muted); margin-top: 2px; }
 .tq .tq-jc__st { margin-top: -1px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 650; line-height: 21px; color: var(--muted); }
@@ -306,7 +359,7 @@ export const CSS_INMOBILIARIA = `
 .tq .tq-bay__u { font-size: 13px; font-weight: 600; color: var(--muted); }
 .tq .tq-lane__n { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tq .tq-lane__nada { padding: 6px 4px; font-size: 13px; font-weight: 500; line-height: 19.5px; color: var(--muted); }
-.tq .tq-jc__tag--ok { background: #2c8a4724; color: var(--good); }
+.tq .tq-jc__tag--ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
 .tq .tq-jc__own { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tq .tq-tech__h b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tq .tq-feed li[role='button']:hover p b, .tq .tq-stock li[role='button']:hover b { text-decoration: underline; }

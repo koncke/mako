@@ -22,6 +22,7 @@ import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { escalaVentas, plata, type NumeroCm, type SerieVentas, type VistaComercial } from '@/lib/comercial-diseno';
 import { CSS_COMERCIAL } from './comercial-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -136,10 +137,11 @@ function Ventas({ s }: { s: SerieVentas }) {
   );
 }
 
-function Tile({ n, feature, className }: { n: NumeroCm; feature?: boolean; className: string }) {
+// `data-parte` lo pone <Parte> (./parte.tsx) sobre este elemento: va a la tarjeta, que es lo que se dibuja sola en un bloque.
+function Tile({ n, feature, className, ...resto }: { n: NumeroCm; feature?: boolean; className: string; 'data-parte'?: string }) {
   const ico = n.id === 'tasa' ? 'trophy' : n.id === 'ticket' ? 'dollar' : n.id === 'ciclo' ? 'hour' : 'layers';
   return (
-    <article className={`cm-tile ${className}${feature ? ' cm-tile--feature' : ''}`}>
+    <article className={`cm-tile ${className}${feature ? ' cm-tile--feature' : ''}`} {...resto}>
       <div className="cm-tile__k"><span className="cm-tile__ico"><Icono id={ico} /></span>{n.titulo}</div>
       <div className="cm-tile__v">{n.valor ?? '—'}</div>
       {(n.cambio || (feature && n.pie)) && (
@@ -189,6 +191,7 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..800&display=swap" precedence="default" />
       <div className="cm-page">
         {/* LA CABECERA: la fecha con el período, el saludo y la frase, con dos botones. */}
+        <Parte id="cabecera">
         <section className="cm-hero">
           <div className="cm-hero__txt">
             <div className="cm-hero__date"><Icono id="sun" />{[fecha ? fecha.charAt(0).toUpperCase() + fecha.slice(1) : null, periodo].filter(Boolean).join(' · ')}</div>
@@ -200,9 +203,11 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
             {!compartido && <Link className="cm-btn cm-btn--primary" href="/crm"><Icono id="board" />Abrir el CRM</Link>}
           </div>
         </section>
+        </Parte>
 
         <div className="cm-grid">
           {/* VENDIDO (el «Closed-won» de Selvar): lo vendido, lo invertido y qué pasó con las agendas. */}
+          <Parte id="vendido">
           <section className="cm-card cm-runway">
             <div className="cm-runway__top">
               <div>
@@ -231,7 +236,7 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 <div className="cm-legend">
                   {desenlace.segmentos.map((s) => (
                     <span key={s.id}>
-                      <i className={`cm-sw${s.id === 'sin-marcar' ? ' cm-sw--hatch' : ''}`} style={s.id === 'vinieron' ? ({ '--c': 'var(--c-amber)' } as CSSProperties) : s.id === 'no-vino' ? ({ '--c': '#bccdf5' } as CSSProperties) : undefined} />
+                      <i className={`cm-sw${s.id === 'sin-marcar' ? ' cm-sw--hatch' : ''}`} style={s.id === 'vinieron' ? ({ '--c': 'var(--c-amber)' } as CSSProperties) : s.id === 'no-vino' ? ({ '--c': 'var(--best)' } as CSSProperties) : undefined} />
                       {s.nombre} <b>{s.n.toLocaleString('es-MX')}</b>
                     </span>
                   ))}
@@ -244,8 +249,10 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               <div><dt>Retorno de los anuncios</dt><dd>{inversion.roas != null ? `${Math.round(inversion.roas * 10) / 10}×` : '—'}{inversion.roas != null && <small>lo vendido ÷ lo invertido</small>}</dd></div>
             </dl>
           </section>
+          </Parte>
 
           {/* POR QUÉ NO SE CERRÓ (el «Copilot» de Selvar): los motivos de pérdida más repetidos. */}
+          <Parte id="motivos">
           <section className="cm-card cm-copilot">
             <div className="cm-copilot__h">
               <svg className="cm-copilot__orb" viewBox="0 0 40 40" aria-hidden><circle cx="20" cy="20" r="18" fill="none" stroke="#2f56d6" strokeWidth="2" strokeDasharray="9 5" /><circle cx="20" cy="20" r="13" fill="none" stroke="#e3952a" strokeWidth="2" strokeDasharray="12 6" /><circle cx="20" cy="20" r="7.5" fill="#2f56d6" /></svg>
@@ -273,10 +280,15 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               </>
             ) : <p className="cm-vacio">{motivos ? 'Todavía no hay motivos de pérdida marcados. Se marcan al perder un lead en el CRM.' : 'No pude leer los motivos de pérdida.'}</p>}
           </section>
+          </Parte>
 
-          {numeros.map((n, i) => <Tile key={n.id} n={n} feature={i === 0} className={`cm-t${i + 1}`} />)}
+          {numeros[0] && <Parte id="tasa-cierre"><Tile n={numeros[0]} feature className="cm-t1" /></Parte>}
+          {numeros[1] && <Parte id="ticket"><Tile n={numeros[1]} className="cm-t2" /></Parte>}
+          {numeros[2] && <Parte id="ciclo"><Tile n={numeros[2]} className="cm-t3" /></Parte>}
+          {numeros[3] && <Parte id="costo"><Tile n={numeros[3]} className="cm-t4" /></Parte>}
 
           {/* LO VENDIDO (el «Bookings» de Selvar): por semana o por mes, apilado por funnel. */}
+          <Parte id="ventas">
           <section className="cm-card cm-book">
             <div className="cm-card__h">
               <div><h2>Lo vendido</h2><div className="cm-card__sub">{serie ? `${queVentas === 'semanas' ? 'Por semana' : 'Por mes'} · ${plata(serie.total)} en ${queVentas === 'semanas' ? 'los últimos 90 días' : 'los últimos 12 meses'}` : 'Por semana y por mes'}</div></div>
@@ -295,8 +307,10 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               </>
             ) : <p className="cm-vacio">{serie ? 'Sin ventas en este tiempo.' : 'No pude leer lo vendido.'}</p>}
           </section>
+          </Parte>
 
           {/* DE AGENDA A CIERRE (el «Where deals sit» de Selvar): las cohortes maduras, paso por paso. */}
+          <Parte id="embudo">
           <section className="cm-card cm-where">
             <div className="cm-card__h"><div><h2>De agenda a cierre</h2><div className="cm-card__sub">Las cohortes maduras, de todo el historial</div></div><Ir className="cm-ibtn" href="/crm" label="Abrir el CRM"><Icono id="out" /></Ir></div>
             {embudo ? (
@@ -311,10 +325,12 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
             ) : <p className="cm-vacio">Todavía no hay cohortes maduras: se ven cuando las agendas tuvieron tiempo de cerrar.</p>}
             {motivos && motivos.total > 0 && <div className="cm-where__foot"><Icono id="info" />{motivos.total.toLocaleString('es-MX')} se perdieron con motivo; el más común, «{motivos.filas[0].nombre}».</div>}
           </section>
+          </Parte>
         </div>
 
         <div className="cm-row4">
           {/* HOY (el «Today» de Selvar): las llamadas de venta de hoy, con la línea de «Ahora». */}
+          <Parte id="hoy">
           <section className="cm-card cm-today">
             <div className="cm-card__h">
               <div><h2>Hoy</h2><div className="cm-card__sub">{[fecha ? fecha.charAt(0).toUpperCase() + fecha.slice(1) : null, hoy ? `${hoy.llamadas.length} ${hoy.llamadas.length === 1 ? 'llamada' : 'llamadas'} de venta` : null].filter(Boolean).join(' · ')}</div></div>
@@ -337,8 +353,10 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               </ul>
             ) : <p className="cm-vacio">{hoy ? 'Hoy no hay llamadas de venta agendadas.' : 'Las llamadas de hoy se ven en el Calendario.'}</p>}
           </section>
+          </Parte>
 
           {/* DE DÓNDE VIENEN LOS QUE CIERRAN (el «Deals that need you» de Selvar): cada origen con su tasa y lo vendido. */}
+          <Parte id="origen">
           <section className="cm-card cm-deals">
             <div className="cm-card__h"><div><h2>De dónde vienen los que cierran</h2><div className="cm-card__sub">Por origen del lead · {periodo}</div></div><Ir className="cm-ibtn" href="/crm" label="Abrir el CRM"><Icono id="out" /></Ir></div>
             {origenes && origenes.length ? (
@@ -354,8 +372,10 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               </ul>
             ) : <p className="cm-vacio">{origenes ? 'Sin agendas con origen en este período.' : 'No pude leer los orígenes.'}</p>}
           </section>
+          </Parte>
 
           {/* QUIÉN CIERRA (el «Quota race» de Selvar): la tasa de cierre de cada closer. */}
+          <Parte id="closers">
           <section className="cm-card cm-race">
             <div className="cm-card__h"><div><h2>Quién cierra</h2><div className="cm-card__sub">La tasa de cierre de cada closer</div></div><Ir className="cm-ibtn" href="/crm" label="Abrir el CRM"><Icono id="out" /></Ir></div>
             {closers && closers.length ? (
@@ -371,6 +391,7 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
               </ul>
             ) : <p className="cm-vacio">{closers ? 'Todavía no hay closers con llamadas en este período.' : 'No pude leer a los closers.'}</p>}
           </section>
+          </Parte>
         </div>
       </div>
     </div>

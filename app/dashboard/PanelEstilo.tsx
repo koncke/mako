@@ -35,17 +35,24 @@ import {
   AJUSTES_TEMA, PLANTILLAS_TEMA, TIPOGRAFIAS, ajusteDe, hexONull, paletaDe, plantillaDe, plantillaEfectiva, tipografiaDe,
   type AjustesTema, type PlantillaTema, type TemaHoja,
 } from '@/lib/graficos-temas';
+import { ENTRADAS, ENTRADA_SIN, correrEntrada, entradaDe } from '@/lib/graficos-entradas';
 
 const RESPIRO_COLOR_MS = 450;
 
 /** Elegir otra plantilla trae lo suyo: el color y los ajustes vuelven a los de ella. */
 const SIN_AJUSTES = Object.fromEntries(AJUSTES_TEMA.map((a) => [a.id, undefined])) as AjustesTema;
 
-export function PanelEstilo({ tema, onCambiar, ajustes = false }: {
+export function PanelEstilo({ tema, onCambiar, ajustes = false, entrada }: {
   tema: TemaHoja;
   onCambiar: (parche: Partial<TemaHoja>) => void;
   /** Mostrar los ajustes de tarjetas y gráficos (sólo si quien monta el panel los guarda). */
   ajustes?: boolean;
+  /**
+   * LA ANIMACIÓN DE ENTRADA de la hoja (6/11/2026, lib/graficos-entradas.ts). `elegida`: la guardada (null = la de su diseño);
+   * `efectiva`: la que corre. Elegir una la guarda y la muestra en la hoja (`onVer`). Sin esto, la sección no se dibuja (la
+   * ficha del CRM no tiene entrada).
+   */
+  entrada?: { elegida: string | null; efectiva: string; onElegir: (id: string) => void; onVer: () => void };
 }) {
   useHojasDeFuentes(TIPOGRAFIAS.map((t) => t.id));
   const p = plantillaDe(tema.plantilla);
@@ -134,6 +141,9 @@ export function PanelEstilo({ tema, onCambiar, ajustes = false }: {
         ))}
       </div>
 
+      {/* La animación de entrada (6/11/2026), después de la letra: es de toda la hoja, como el color, y su lista es la más larga. */}
+      {entrada && <ElegirEntrada {...entrada} />}
+
       {ajustes && ['Tarjetas', 'Gráficos'].map((grupo) => (
         <div key={grupo} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="lk-estilo-tit">{grupo}</div>
@@ -147,6 +157,45 @@ export function PanelEstilo({ tema, onCambiar, ajustes = false }: {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * La animación de entrada: cada una con una muestra chiquita que la corre al pasar el cursor (o al tabular), su nombre y de qué hoja
+ * viene. Elegir la guarda y la corre en la hoja (la vista previa de verdad); «Ver» la vuelve a correr. Con «reducir movimiento» del
+ * sistema no corre ninguna (`correrEntrada`), y se dice.
+ */
+function ElegirEntrada({ efectiva, onElegir, onVer }: { elegida: string | null; efectiva: string; onElegir: (id: string) => void; onVer: () => void }) {
+  const [quieto, setQuieto] = useState(false);
+  useEffect(() => { setQuieto(!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches); }, []);
+  const previa = (el: HTMLElement | null, id: string) => {
+    const e = entradaDe(id);
+    if (!el || !e) return;
+    for (const a of el.getAnimations({ subtree: true })) a.cancel();
+    correrEntrada([...el.querySelectorAll('.lk-entrada-tarjeta')], { ...e, demora: 0 });
+  };
+  return (
+    <>
+      <div className="lk-estilo-tit" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Animación de entrada
+        <button type="button" className="lk-entrada-ver" onClick={onVer} disabled={quieto || efectiva === ENTRADA_SIN}>Ver en la hoja</button>
+      </div>
+      <div className="lk-entradas" role="radiogroup" aria-label="Animación de entrada">
+        {ENTRADAS.map((e) => (
+          <button key={e.id} type="button" role="radio" className="lk-entrada" aria-checked={e.id === efectiva}
+            title={e.de ? `${e.nombre}: la de la hoja ${e.de}` : e.nombre}
+            onMouseEnter={(ev) => previa(ev.currentTarget.querySelector('.lk-entrada-muestra'), e.id)}
+            onFocus={(ev) => previa(ev.currentTarget.querySelector('.lk-entrada-muestra'), e.id)}
+            onClick={() => { if (e.id !== efectiva) onElegir(e.id); else onVer(); }}>
+            <span className="lk-entrada-muestra" aria-hidden>
+              <span className="lk-entrada-tarjeta" /><span className="lk-entrada-tarjeta" /><span className="lk-entrada-tarjeta" />
+            </span>
+            <span className="lk-entrada-nom">{e.nombre}</span>
+          </button>
+        ))}
+      </div>
+      {quieto && <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)' }}>Tu sistema pide reducir el movimiento: la hoja entra sin animación.</p>}
+    </>
   );
 }
 

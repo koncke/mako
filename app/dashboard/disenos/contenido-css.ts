@@ -18,6 +18,9 @@
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
 //    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo»):
+//    nace clara y, con data-tema="oscuro" en html, la regla de abajo de la raíz cambia las MISMAS variables. Todo color de acá
+//    va por variable, así el cambio es de CSS puro y en vivo.
 // =============================================================================
 
 export const CSS_CONTENIDO = `
@@ -38,9 +41,21 @@ export const CSS_CONTENIDO = `
   --r-lg: 16px; --r-md: 12px; --r-sm: 9px; --gap: 16px;
   --shadow: 0 1px 2px #14141a0a;
   --ease: cubic-bezier(.22, 1, .36, 1);
-  --focus: 0 0 0 2px #fdfdfd, 0 0 0 4px #5a4bd1;
+  --focus: 0 0 0 2px var(--card), 0 0 0 4px var(--a-600);
+  --grid: #e8e8ed;
   position: relative; isolation: isolate; color: var(--ink); font: 400 15px/1.5 var(--font); -webkit-font-smoothing: antialiased;
   background: var(--page);
+}
+/* Modo oscuro de MaKo: las superficies suben de luminosidad, las líneas son opacas y el violeta se aclara sin cambiar de tono. */
+.orr:where([data-tema="oscuro"] *) {
+  --a-950: #d4d0ff; --a-800: #bdb7fb; --a-700: #9f95f4; --a-600: #a39af5; --a-400: #6f63d6; --a-100: #26234a;
+  --page: #0e0e12; --panel: #20202a; --card: #17171c; --side: #131318; --hair: #2a2a33; --hair-strong: #3a3a46;
+  --ink: #ededf0; --muted: #a8a8b4; --faint: #8c8c99;
+  --accent: #8f84f2; --accent-soft: #8f84f229; --accent-ink: #c4beff; --on-accent: #100c33;
+  --good: #5fcf8f; --good-bg: #17301f; --amber: #e8aa4a; --amber-bg: #3a2c10; --rose: #f08585; --rose-bg: #3b1d1f;
+  --cat-1: #5a9be8; --cat-2: #f08655; --cat-3: #35c994; --cat-4: #f0b52e;
+  --shadow: 0 1px 2px #0008;
+  --grid: #2a2a33;
 }
 .orr *, .orr *::before, .orr *::after { box-sizing: border-box; }
 .orr button { font: inherit; color: inherit; cursor: pointer; }
@@ -95,7 +110,7 @@ export const CSS_CONTENIDO = `
 .orr .orr-live i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .orr .orr-plot { position: relative; margin-top: 28px; height: 333px; margin-left: 46px; }
 .orr .orr-plot__svg { display: block; width: 100%; height: 333px; overflow: visible; }
-.orr .orr-plot__grid { fill: none; stroke: #e8e8ed; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.orr .orr-plot__grid { fill: none; stroke: var(--grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .orr .orr-plot__line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .orr .orr-plot__dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--card); }
 .orr .orr-plot__y { position: absolute; left: -46px; top: 0; bottom: 0; width: 35px; }

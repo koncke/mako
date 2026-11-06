@@ -25,6 +25,9 @@ import type { Label } from '../app/plan/board/types';
 import type { ItemCalendario } from '../lib/calendario-modelo';
 import type { CobroM } from '../app/m/dashboard/modelo';
 import { cintaDelDia, duracion, etapasDeLaDona, mesDe, resumenDelDia, tonoDe, vistaMiDia } from '../lib/mi-dia-diseno';
+import { cableadoDelDiseno } from './_diseno-cableado';
+import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { instanciarPlantilla } from '../lib/graficos-plantillas';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -249,7 +252,5 @@ test('cableado: el diseño está en el catálogo, la plantilla lo lleva, y el ed
   // `ok` y no `match`: con el archivo entero en el mensaje, un fallo no se lee.
   assert.ok(/DISENOS_HOJA = \[[^\]]*'mi-dia'/.test(leer('lib/graficos-catalogo.ts')), 'el diseño en el catálogo');
   assert.ok(/diseno: \{ id: 'mi-dia', piezas: \{\} \}/.test(leer('lib/general-plantillas.ts')), 'la plantilla con el diseño');
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(/hoja\.diseno\?\.id === 'mi-dia' && general\?\.datos/.test(editor), 'el editor lo dibuja con los datos de General');
-  assert.ok(/dynamic\(\(\) => import\('\.\/disenos\/MiDiaVivo'\)\)/.test(editor), 'cargado aparte');
+  cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_GENERAL.find((p) => p.id === 'mi-dia')!), 'mi-dia', 'MiDiaVivo', ['conGeneral ?']);
 });

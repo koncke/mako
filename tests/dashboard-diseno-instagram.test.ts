@@ -24,6 +24,7 @@ import { datosInstagramMuestra, generalInstagramMuestra } from '../lib/instagram
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_GENERAL_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -169,9 +170,7 @@ test('el cableado: la plantilla trae su diseño con sus once piezas, se ofrece y
   assert.deepEqual([pieza('region')?.metricas, pieza('region')?.titulo], [['impresiones'], 'Dónde te ven'], 'Meta no da agendas por región');
   assert.deepEqual([pieza('leads')?.fuente, pieza('leads')?.dimension], ['meta', 'dia']);
   assert.ok(!h.componentes.some((c) => (c as { titulo?: string }).titulo === 'Alcance en Instagram'), 'el número que nunca tuvo valor ya no está');
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'instagram' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<InstagramVivo'));
+  cableadoDelDiseno(h, 'instagram', 'InstagramVivo');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaInstagram(hoja, datosInstagramMuestra(hoja, hoy), generalInstagramMuestra(hoy)'));
 });
 

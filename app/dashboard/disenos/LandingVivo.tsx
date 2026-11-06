@@ -16,12 +16,12 @@ import { HojaLanding } from './HojaLanding';
 
 export type ExtrasLanding = { quien: QuienMira | null };
 
-export default function LandingVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onFila, compartido }: {
+export default function LandingVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onPeriodo, onFila, compartido }: {
   hoja: Hoja; hoy: string; datos: Record<string, DatosPieza>; extras: ExtrasLanding | null; periodo: string;
-  onGrilla?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
+  onGrilla?: () => void; onPeriodo?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
 }) {
   const vista = useMemo(() => vistaLanding(hoja, datos, hoy), [hoja, datos, hoy]);
   const quien = extras?.quien ?? null;
   const titulo = quien?.nombre ? `${quien.saludo}, ${quien.nombre}` : hoja.nombre;
-  return <HojaLanding hoja={hoja} vista={vista} titulo={titulo} periodo={periodo} onGrilla={onGrilla} onFila={onFila} compartido={compartido} />;
+  return <HojaLanding hoja={hoja} vista={vista} titulo={titulo} periodo={periodo} onGrilla={onGrilla} onPeriodo={onPeriodo} onFila={onFila} compartido={compartido} />;
 }

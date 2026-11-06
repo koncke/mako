@@ -20,6 +20,7 @@ import {
 import { datosChatMuestra } from '../lib/chat-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { HOJA_DE_ROL, PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -158,7 +159,6 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   for (const k of ['apertura', 'recibidos', 'rapidos']) assert.equal(pieza(k)?.comparar, true, `${k} se compara con el período anterior`);
   assert.deepEqual([pieza('tipos')?.fuente, pieza('tipos')?.dimension, pieza('tipos')?.desglose], ['whatsapp', 'tipo', 'direccion']);
   assert.deepEqual(pieza('respondidos')?.metricas, ['turnos', 'respondidos']);
-  assert.ok(h.componentes.length <= 14, 'una hoja no pasa de 14 paneles');
   // Es la hoja del setter: todo lo que dibuja sale de SUS conjuntos.
   const setter = HOJA_DE_ROL.setter!;
   for (const c of h.componentes) if ((c as { fuente?: string }).fuente) assert.ok(setter.conjuntos.includes((c as { fuente: string }).fuente), `${c.id}: ${(c as { fuente: string }).fuente} es del setter`);
@@ -170,9 +170,7 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   assert.equal(v.tipos?.totales.recibidos, v.hero.total, 'el reparto por tipo suma los recibidos');
   assert.equal(v.setters.reduce((a, s) => a + s.turnos, 0), v.rapidos.de, 'los setters suman las veces');
   assert.equal(v.dias?.columnas.length, 12);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'chat' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.chat ?? null}'));
+  cableadoDelDiseno(h, 'chat', 'ChatVivo', ['extras={extras?.chat ?? null}']);
   assert.ok(leer('app/dashboard/page.tsx').includes('chat: hayDisenoChat ? { quien } : null'));
 });
 

@@ -29,6 +29,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { CASILLAS, casillasDe, conDecimal, duracion, duracionTexto, META_MINUTOS, porSemana, type Cambio, type VistaChat } from '@/lib/chat-diseno';
 import { corto, entero } from '@/lib/marketing-diseno';
 import { CSS_CHAT } from './chat-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -133,7 +134,7 @@ const R = 56, C = 2 * Math.PI * R, HUECO = 12, TRAZO = 16;
 const COLORES = ['var(--c-tangerine)', 'var(--c-teal)', 'var(--c-violet)'];
 const FONDOS = ['var(--c-tangerine-soft)', 'var(--c-violet-soft)', 'var(--c-teal-soft)', 'var(--c-violet-soft)', 'var(--c-tangerine-soft)'];
 
-export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compartido = false, quieta = false }: {
+export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onPeriodo, onFila, compartido = false, quieta = false }: {
   hoja: Hoja;
   vista: VistaChat;
   /** «Buenos días, Ana» (quién mira); sin nombre, el de la hoja. */
@@ -141,6 +142,8 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
   /** El nombre del período elegido («Últimos 30 días»): el de la barra de controles de la hoja. */
   periodo: string;
   onGrilla?: () => void;
+  /** Tocar el período abre el de la hoja (el «Filtro» de arriba). Sin esto, el período se lee y no se toca. */
+  onPeriodo?: () => void;
   /** Abrir una fila de una pieza: su detalle de siempre, como al tocarla en la grilla. */
   onFila?: (g: Grafico, clave: string) => void;
   compartido?: boolean;
@@ -223,20 +226,23 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
       <div className="parl-pagina">
         {/* LA CABECERA: el saludo, la frase (en lugar de «Here's how your conversations moved today») y, en lugar del buscador, el
             «Last sync» y el avatar: el período, la grilla y los chats. */}
+        <Parte id="cabecera">
         <header className="parl-top">
           <div className="parl-top__h">
             <h1 className="parl-top__title">{titulo.split(' ').map((w, i) => <span key={i}>{i ? ' ' : ''}<span className="parl-w">{w}</span></span>)}</h1>
             {frase.length > 0 && <p className="parl-top__sub">{frase.map((t, i) => (t.tipo === 'fuerte' ? <b key={i}>{t.s}</b> : <span key={i}>{t.s}</span>))}</p>}
           </div>
           <div className="parl-top__tools">
-            <span className="parl-search parl-periodo"><Icono id="cal" />{periodo}</span>
+            {onPeriodo && !quieta ? <button type="button" className="parl-search parl-periodo" onClick={onPeriodo} title="Cambiar el período"><Icono id="cal" />{periodo}</button> : <span className="parl-search parl-periodo"><Icono id="cal" />{periodo}</span>}
             {onGrilla && <button type="button" className="parl-sync" onClick={onGrilla}><Icono id="grid" /><span className="parl-sync__t"><b>Ver la grilla</b><small>Todas las piezas</small></span></button>}
             {!compartido && <Ir href="/chats" className="parl-avatar" etiqueta="Abrir tus chats"><Icono id="chat" /></Ir>}
           </div>
         </header>
+        </Parte>
 
         <main className="parl-grid">
           {/* LA TARJETA NARANJA («Audience»): los mensajes recibidos, los chats, su cambio y las últimas columnas del período. */}
+          <Parte id="recibidos">
           <article className="parl-card parl-card--hero parl-g-aud">
             <div className="parl-card__head"><h2 className="parl-card__title">Mensajes recibidos</h2>{hero.hoy != null && <span className="parl-live"><i />{entero(hero.hoy)} hoy</span>}</div>
             {fallos.hero ? <Vacio titulo={fallos.hero} /> : hero.total == null ? <Vacio titulo="Todavía no hay mensajes" texto="Cuando te escriban por WhatsApp, aparecen aquí." /> : (
@@ -259,8 +265,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* RESPONDIDOS («Delivery rate»): qué parte de las veces que te escribieron tuvo respuesta, y cuántos esperan hoy. */}
+          <Parte id="respondidos">
           <article className="parl-card parl-g-del">
             <div className="parl-card__head"><h2 className="parl-card__title">Respondidos</h2>{respondidos.esperando != null && <Ir href="/chats" className="parl-card__meta">{entero(respondidos.esperando)} esperando</Ir>}</div>
             {fallos.respondidos ? <Vacio titulo={fallos.respondidos} /> : respondidos.pct == null ? <Vacio titulo="Todavía no te escribieron" /> : (
@@ -270,8 +278,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* EN 15 MINUTOS («Active campaigns»): cuántas veces se respondió en menos de 15 minutos, de cuántas. */}
+          <Parte id="rapidos">
           <article className="parl-card parl-g-camp">
             <div className="parl-card__head"><h2 className="parl-card__title">En menos de {META_MINUTOS} min</h2>{rapidos.pct != null && <span className="parl-card__meta">el {Math.round(rapidos.pct)}% del total</span>}</div>
             {fallos.rapidos ? <Vacio titulo={fallos.rapidos} /> : rapidos.n == null || rapidos.de == null ? <Vacio titulo="Todavía no te escribieron" /> : (
@@ -281,8 +291,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* EL TIEMPO DE RESPUESTA («Credits»): la mediana, su barra contra los 15 minutos de MaKo y el 10 % más lento. */}
+          <Parte id="tiempo">
           <article className="parl-card parl-g-cred">
             <div className="parl-card__head">
               <h2 className="parl-card__title"><Icono id="reloj" />Tiempo de respuesta</h2>
@@ -301,8 +313,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* LOS ENVIADOS (la tarjeta oscura, «Messages sent»): lo que mandaste día por día, con el de hoy punteado. */}
+          <Parte id="enviados">
           <article className="parl-card parl-card--dark parl-g-sent">
             <div className="parl-card__head">
               <h2 className="parl-card__title">Mensajes enviados</h2>
@@ -324,8 +338,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* POR DÍA («Messages by month»): lo respondido y, rayado, lo que quedó sin respuesta. */}
+          <Parte id="por-dia">
           <article className="parl-card parl-card--month parl-g-month">
             <div className="parl-month__head">
               <h2 className="parl-card__title">{agrupar === 'Semanas' || dias?.paso === 'semana' ? 'Por semana' : dias?.paso === 'mes' ? 'Por mes' : 'Por día'}</h2>
@@ -364,8 +380,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </div>
             )}
           </article>
+          </Parte>
 
           {/* POR TIPO («Channel mix»): el reparto entre texto, audio, imagen… de lo recibido o de lo enviado. */}
+          <Parte id="tipos">
           <article className="parl-card parl-g-mix">
             <div className="parl-card__head"><h2 className="parl-card__title">Por tipo</h2><Seg opciones={['Recibidos', 'Enviados']} valor={mezcla} onCambio={(v) => setMezcla(v as 'Recibidos' | 'Enviados')} /></div>
             {fallos.tipos ? <Vacio titulo={fallos.tipos} /> : !partes.length ? <Vacio titulo={mezcla === 'Recibidos' ? 'Todavía no te escribieron' : 'Todavía no mandaste mensajes'} /> : (
@@ -373,7 +391,7 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
                 <div className="parl-donut">
                   <div className="parl-donut__w">
                     <svg viewBox="0 0 128 128" aria-hidden key={mezcla}>
-                      <circle cx="64" cy="64" r={R} fill="none" stroke="#f7f2eb" strokeWidth={TRAZO} />
+                      <circle cx="64" cy="64" r={R} fill="none" style={{ stroke: 'var(--surface-2)' }} strokeWidth={TRAZO} />
                       {partes.map((x, i) => {
                         const largo = (x.pct / 100) * C;
                         // Una sola parte es el anillo entero; si no, cada parte con su hueco y sus puntas redondas, como Parley.
@@ -396,8 +414,10 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </>
             )}
           </article>
+          </Parte>
 
           {/* POR SETTER («Top contacts»): cuántas veces le escribieron a cada uno, qué parte del total y cuánto respondió rápido. */}
+          <Parte id="setters">
           <article className="parl-card parl-g-top">
             <div className="parl-card__head"><h2 className="parl-card__title">Por setter</h2><Seg opciones={['Mensajes', 'En 15 min']} valor={gente} onCambio={(v) => setGente(v as 'Mensajes' | 'En 15 min')} /></div>
             {fallos.setters ? <Vacio titulo={fallos.setters} /> : !setters.length ? <Vacio titulo="Todavía no hay mensajes con setter" texto="Cuando un setter tenga chats asignados, aparece aquí." /> : (
@@ -422,6 +442,7 @@ export function HojaChat({ hoja, vista, titulo, periodo, onGrilla, onFila, compa
               </ul>
             )}
           </article>
+          </Parte>
         </main>
       </div>
     </div>

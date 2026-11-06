@@ -79,8 +79,15 @@ export const TIPOS_QUE_NO_SALEN: Readonly<Record<string, string>> = {
   mapa_calor: 'es la página de un cliente en vivo, y lee los toques fuera del endpoint del link',
 };
 
-/** Los ELEMENTOS que salen, EN POSITIVO: uno nuevo no sale hasta que alguien lo agregue acá. */
-export const ELEMENTOS_QUE_SALEN: readonly TipoElemento[] = ['texto', 'enlace', 'imagen', 'video', 'insertado', 'linea', 'flecha', 'seccion'];
+/**
+ * Los ELEMENTOS que salen, EN POSITIVO: uno nuevo no sale hasta que alguien lo agregue acá.
+ * `diseno` (6/11/2026): la tarjeta de una hoja con diseño copiado (lib/disenos-partes.ts). Sale porque antes salía la hoja
+ * entera con su diseño, y porque sólo dibuja lo que leen sus PIEZAS, que son gráficos y pasan por el filtro de arriba (una pieza
+ * que no sale llega como «No se comparte» y la tarjeta dice que no la pudo leer). Lo que nombra leads y no sale de una pieza
+ * (la agenda de Comercial, el primer contacto de Closing) viene en los extras de /dashboard, que el link no tiene; la caja de IA
+ * y la grabadora no se abren compartidas (el diseño lo mira con `compartido`).
+ */
+export const ELEMENTOS_QUE_SALEN: readonly TipoElemento[] = ['texto', 'enlace', 'imagen', 'video', 'insertado', 'linea', 'flecha', 'seccion', 'diseno'];
 /** Los que no, con su porqué (el test exige que cada tipo del catálogo esté en una de las dos listas). */
 export const ELEMENTOS_QUE_NO_SALEN: Readonly<Partial<Record<TipoElemento, string>>> = {
   ia: 'su texto vive en otra tabla y puede nombrar personas',

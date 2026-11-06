@@ -27,6 +27,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { CELDAS, dolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
 import { enElPeriodo, entero } from '@/lib/marketing-diseno';
 import { CSS_CONTENIDO } from './contenido-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -162,6 +163,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
       <main className="orr-main">
         {/* LA CABECERA: el período (en lugar de «Production · us-east»), el saludo y la frase del uso de la IA. En lugar de «Open
             Playground» y «Create key», la grilla y tus cuentas de IA. */}
+        <Parte id="cabecera">
         <div className="orr-phead">
           <div>
             <p className="orr-phead__k">{periodo}</p>
@@ -174,21 +176,27 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
             {!compartido && <Ir href="/integraciones?abrir=ia" className="orr-btn orr-btn--acc" etiqueta="Tus cuentas de IA"><Icono id="llave" />Tus cuentas de IA</Ir>}
           </div>
         </div>
+        </Parte>
 
         {/* LAS CUATRO TARJETAS: el costo de la IA, el costo por llamada, qué parte de lo pedido a Flow salió bien y los pedidos. */}
         <div className="orr-kpis">
+          <Parte id="costo">
           <article className="orr-card orr-kpi">
             <h3 className="orr-kpi__t">Costo de la IA</h3>
             <p className="orr-kpi__n orr-mono" key={costo.valor ?? '—'} data-cuenta="">{costo.valor ?? '—'}</p>
             <p className="orr-kpi__d"><Cambio delta={costo.delta} /><span>{costo.delta ? 'contra el período anterior' : problemas.tarjetas ?? 'en este período'}</span></p>
             <div className="orr-kpi__s"><Linea valores={costo.linea} /></div>
           </article>
+          </Parte>
+          <Parte id="llamada">
           <article className="orr-card orr-kpi">
             <h3 className="orr-kpi__t">Costo por llamada</h3>
             <p className="orr-kpi__n orr-mono" key={prom.valor ?? '—'} data-cuenta="">{prom.valor ?? '—'}</p>
             <p className="orr-kpi__d"><Cambio delta={prom.delta} /><span>{prom.delta ? 'contra el período anterior' : 'en promedio'}</span></p>
             <div className="orr-kpi__s"><Linea valores={prom.linea} /></div>
           </article>
+          </Parte>
+          <Parte id="bien">
           <article className="orr-card orr-kpi">
             <h3 className="orr-kpi__t">Salieron bien</h3>
             <p className="orr-kpi__n orr-mono" key={exito.valor ?? '—'} data-cuenta="">{exito.valor ?? '—'}</p>
@@ -198,6 +206,8 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               {exito.fallidos ? <span>{entero(exito.fallidos)} {exito.fallidos === 1 ? 'falló' : 'fallaron'}</span> : null}
             </p>
           </article>
+          </Parte>
+          <Parte id="pedidos">
           <article className="orr-card orr-kpi">
             <h3 className="orr-kpi__t">Pedidos a Flow</h3>
             <p className="orr-kpi__n orr-mono" key={pedidos.valor ?? '—'} data-cuenta="">{pedidos.valor ?? '—'}</p>
@@ -208,10 +218,12 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
             <p className="orr-kpi__e">{pedidos.fallidos ? `${pedidos.fallidos === 1 ? 'falló' : 'fallaron'}, de lo que MaKo le pidió` : 'Lo que MaKo le pidió a Flow'}</p>
             <div className="orr-kpi__s orr-kpi__s--line"><Linea valores={pedidos.linea} area={false} /></div>
           </article>
+          </Parte>
         </div>
 
         <div className="orr-row1">
           {/* LO GASTADO POR DÍA («Requests per hour»): el área del costo de cada día del período. */}
+          <Parte id="gasto">
           <article className="orr-card orr-chart">
             <div className="orr-card__h">
               <div><h2 className="orr-card__t">Lo gastado por día</h2><p className="orr-card__s">{gasto ? `${dolares(gasto.total)} ${enElPeriodo(periodo)}` : ' '}</p></div>
@@ -223,7 +235,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               <div className="orr-plot">
                 <div className="orr-plot__y">{marcas.map((m, i) => <span key={i}>{rotuloEje(m)}</span>)}</div>
                 <svg className="orr-plot__svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
-                  <defs><linearGradient id={grad} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4a3dbf" stopOpacity=".14" /><stop offset="1" stopColor="#4a3dbf" stopOpacity=".02" /></linearGradient></defs>
+                  <defs><linearGradient id={grad} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: 'var(--accent)' }} stopOpacity=".14" /><stop offset="1" style={{ stopColor: 'var(--accent)' }} stopOpacity=".02" /></linearGradient></defs>
                   <path className="orr-plot__grid" d={`M0 0.5H${W}M0 111.5H${W}M0 222.5H${W}M0 332.5H${W}`} />
                   <path d={`${linea} L${px(n - 1).toFixed(1)} ${H} L${px(0).toFixed(1)} ${H} Z`} fill={`url(#${grad})`} />
                   <path className="orr-plot__line" d={linea} pathLength={1} strokeDasharray="1" />
@@ -235,8 +247,10 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </div>
             )}
           </article>
+          </Parte>
 
           {/* VIDEOS E IMÁGENES («Model status»): cada tipo de pedido a Flow con la franja de lo que salió bien y lo que falló. */}
+          <Parte id="flow">
           <article className="orr-card orr-status">
             <div className="orr-card__h">
               <div><h2 className="orr-card__t">Videos e imágenes</h2><p className="orr-card__s">De cada 30 pedidos, los que fallaron</p></div>
@@ -259,10 +273,12 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </ul>
             )}
           </article>
+          </Parte>
         </div>
 
         <div className="orr-row2">
           {/* QUÉ MODELO CUESTA MÁS («Spend by model»): el costo de cada modelo y su parte del total. */}
+          <Parte id="modelos">
           <article className="orr-card orr-spend">
             <div className="orr-card__h">
               <div><h2 className="orr-card__t">Qué modelo cuesta más</h2><p className="orr-card__s">Lo gastado en este período</p></div>
@@ -280,8 +296,10 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </ul>
             )}
           </article>
+          </Parte>
 
           {/* PARA QUÉ SE USA («Recent requests»): las llamadas de cada función de MaKo, con su parte. */}
+          <Parte id="funciones">
           <article className="orr-card orr-recent">
             <div className="orr-card__h"><div><h2 className="orr-card__t">Para qué se usa</h2><p className="orr-card__s">Las llamadas de cada función</p></div></div>
             {problemas.funciones ? <Vacio titulo={problemas.funciones} /> : !funciones || !funciones.filas.length ? <Vacio titulo="No usaste la IA en este período" /> : (
@@ -296,8 +314,10 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </ul>
             )}
           </article>
+          </Parte>
 
           {/* QUIÉN LE ESCRIBE A MaKo («Quickstart»): los mensajes de cada persona, en el recuadro gris. */}
+          <Parte id="quien">
           <article className="orr-card orr-quick">
             <div className="orr-card__h"><div><h2 className="orr-card__t">Quién le escribe a MaKo</h2><p className="orr-card__s">Los mensajes de cada persona</p></div></div>
             {problemas.quien ? <Vacio titulo={problemas.quien} /> : !quien || !quien.filas.length ? <Vacio titulo="Nadie le escribió a MaKo en este período" /> : (
@@ -312,6 +332,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </div>
             )}
           </article>
+          </Parte>
         </div>
       </main>
     </div>

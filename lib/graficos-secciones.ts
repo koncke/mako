@@ -175,3 +175,14 @@ export function fondosDe(grupos: readonly GrupoSeccion[], plegadas: ReadonlySet<
   }
   return out;
 }
+
+/**
+ * Los paneles que se ven al abrir la hoja (6/11/2026): sin las secciones mismas y sin lo que guardan las plegadas. Desde que
+ * cada tarjeta de un diseño copiado es un bloque (lib/disenos-partes.ts), los gráficos de donde leen esos bloques viven en
+ * «Todas las piezas», plegada: piden datos (los bloques los leen) pero no son paneles a la vista. Lo leen las guardas de
+ * «una hoja no pasa de 14 paneles» (tests/dashboard-diseno-*.test.ts, tests/graficos-corbel.test.ts).
+ */
+export function panelesALaVista<T extends Componente>(componentes: readonly T[]): T[] {
+  const ocultos = ocultosPorPlegado(componentes, plegadasDeEntrada(componentes));
+  return componentes.filter((c) => !esSeccion(c) && !ocultos.has(c.id));
+}

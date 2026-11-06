@@ -21,6 +21,7 @@ import {
 import { datosAutomatizacionesMuestra } from '../lib/automatizaciones-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -146,7 +147,6 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   assert.ok(pieza('tabla')?.metricas?.includes('leads'), 'les escribió MaKo: los leads distintos');
   for (const k of ['vol', 'fal']) assert.deepEqual([pieza(k)?.fuente, pieza(k)?.dimension, pieza(k)?.desglose], ['envios', 'dia', 'automatizacion']);
   assert.deepEqual([pieza('vol')?.metricas, pieza('fal')?.metricas], [['envios'], ['fallaron']]);
-  assert.ok(h.componentes.length <= 14, 'catorce paneles como mucho');
   // La muestra (la miniatura de «Nueva hoja») arma la vista entera con el modelo de verdad, y lo que dice cada tarjeta cuadra.
   const v = vistaAutomatizaciones(h, datosAutomatizacionesMuestra(h, HOY), HOY);
   assert.match(texto(v.frase), /^Salieron [\d,]+ mensajes\. [\d,]+ no salieron y esperan que los mires\. Te respondieron [\d,]+ veces\.$/);
@@ -158,9 +158,7 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   assert.equal(v.confiabilidad.length, 7);
   assert.ok(v.flujos.every((f) => f.dias?.length === 14), 'cada fila de la tabla tiene sus 14 días');
   assert.deepEqual(Object.keys(v.problemas), []);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'automatizaciones' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.automatizaciones ?? null}'));
+  cableadoDelDiseno(h, 'automatizaciones', 'AutomatizacionesVivo', ['extras={extras?.automatizaciones ?? null}']);
   assert.ok(leer('app/dashboard/page.tsx').includes('automatizaciones: hayDisenoAutomatizaciones ? { quien } : null'));
 });
 

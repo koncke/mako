@@ -21,6 +21,7 @@ import {
   LLAMADOS, MINIMO_AGENDAN, QUIEN, acumuladoCold, cambioDe, diasDe, llamadosDe, numerosDe, pendientesDe, quienDe, terminanDe, vistaColdCalling,
 } from '../lib/cold-calling-diseno';
 import { datosColdCallingMuestra } from '../lib/cold-calling-diseno-muestra';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 const col = (ids: string[]) => ids.map((id) => ({ id, nombre: id, formato: 'numero' as const }));
@@ -144,9 +145,8 @@ test('el cableado: la plantilla trae su diseño con sus siete piezas, se ofrece,
   assert.deepEqual([pieza('terminan')?.dimension, pieza('quien')?.dimension, pieza('leads')?.dimension], ['resultado', 'autor', 'lead']);
   assert.deepEqual(pieza('leads')?.tabla?.columnas, ['resultado'], 'cada lead trae cómo terminó');
   assert.ok(pieza('leads')?.metricas?.includes('minutos'));
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'cold-calling' && !enGrilla && !editando && !dueno"));
-  assert.match(editor, /<ColdCallingVivo[\s\S]{0,400}onCambio=\{refrescar\}/, 'después de grabar, la hoja vuelve a leer');
+  cableadoDelDiseno(h, 'cold-calling', 'ColdCallingVivo', ['onCambio={onCambio}']);
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /<BloqueDeDiseno[\s\S]{0,800}onCambio=\{refrescar\}/, 'después de grabar, la hoja vuelve a leer');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaColdCalling(hoja, datosColdCallingMuestra(hoja, hoy))'));
   const hojaSrc = leer('app/dashboard/disenos/HojaColdCalling.tsx');
   assert.ok(hojaSrc.includes("import('@/app/_components/grabar/GrabarEnFrio')"), 'la grabadora es la de la ficha del lead');

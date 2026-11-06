@@ -16,12 +16,12 @@ import { HojaChat } from './HojaChat';
 
 export type ExtrasChat = { quien: QuienMira | null };
 
-export default function ChatVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onFila, compartido }: {
+export default function ChatVivo({ hoja, hoy, datos, extras, periodo, onGrilla, onPeriodo, onFila, compartido }: {
   hoja: Hoja; hoy: string; datos: Record<string, DatosPieza>; extras: ExtrasChat | null; periodo: string;
-  onGrilla?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
+  onGrilla?: () => void; onPeriodo?: () => void; onFila?: (g: Grafico, clave: string) => void; compartido?: boolean;
 }) {
   const vista = useMemo(() => vistaChat(hoja, datos, hoy), [hoja, datos, hoy]);
   const quien = extras?.quien ?? null;
   const titulo = quien?.nombre ? `${quien.saludo}, ${quien.nombre}` : hoja.nombre;
-  return <HojaChat hoja={hoja} vista={vista} titulo={titulo} periodo={periodo} onGrilla={onGrilla} onFila={onFila} compartido={compartido} />;
+  return <HojaChat hoja={hoja} vista={vista} titulo={titulo} periodo={periodo} onGrilla={onGrilla} onPeriodo={onPeriodo} onFila={onFila} compartido={compartido} />;
 }

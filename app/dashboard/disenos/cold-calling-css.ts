@@ -6,6 +6,8 @@
 // Corvane (la barra de la izquierda, la de arriba y la de abajo del teléfono), los resets por etiqueta con :where() y con @container en
 // lugar de @media. Lo de la adaptación va al final (los vacíos, lo que se toca y la grabadora). Se escribió desde lo MEDIDO del demo:
 // nada del código de la tienda.
+// Paleta doble (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si
+// tiene dark mode, automáticamente pasarse a allí»): claro por defecto y oscuro bajo [data-tema="oscuro"] de <html>, sólo con variables.
 // ⚠️ En un template literal no va ningún backtick (ni en un comentario) ni un «dólar con llave».
 // =============================================================================
 
@@ -60,6 +62,11 @@ export const CSS_COLD_CALLING = `
   --av-e: #e3d0d4;
   --av-f: #d2e3e3;
   --on-av: #2a2622;
+  --amex-bg: #dcebf0;
+  --amex-ink: #1f5f7a;
+  --mc-ink: #8a3a12;
+  --visa-bg: #dfe4f3;
+  --visa-ink: #1f3f9a;
   --r-card: 18px;
   --r-ctl: 11px;
   --side-w: 248px;
@@ -67,6 +74,47 @@ export const CSS_COLD_CALLING = `
   --gap: 16px;
   --gutter: clamp(16px, 2vw, 32px);
   position: relative; padding: 4px 26px 56px; color: var(--text); background: var(--bg); font: 500 14px/20.3px var(--font); -webkit-font-smoothing: antialiased;
+}
+/* Oscuro: tinta cálida con las superficies subiendo de luz; los mosaicos y avatares pastel pasan a tonos hondos con texto claro. */
+.cv:where([data-tema="oscuro"] *) {
+  --bg: #121110;
+  --card: #1b1a18;
+  --card-2: #232220;
+  --well: #262422;
+  --line: #2d2b28;
+  --line-2: #3e3b36;
+  --shadow: 0 1px 2px #00000080, 0 12px 32px -22px #000000d9;
+  --shadow-pop: 0 24px 60px -18px #000000e6, 0 2px 6px #00000080;
+  --text: #eceae6;
+  --muted: #aba8a2;
+  --faint: #8e8b85;
+  --ink: #ecebe6;
+  --on-ink: #17161a;
+  --accent: #e8874d;
+  --accent-text: #f19b66;
+  --on-accent: #1d0e05;
+  --accent-soft: #3a2619;
+  --good: #5ecb8b;
+  --warn: #e4af4d;
+  --bad: #f17a8b;
+  --info: #7cb1ef;
+  --t-sand: #3a3326;
+  --t-sage: #2a3529;
+  --t-mist: #2a3441;
+  --t-clay: #3d2a24;
+  --on-tile: #eceae6;
+  --av-a: #4a382c;
+  --av-b: #2e4437;
+  --av-c: #333f55;
+  --av-d: #4d4224;
+  --av-e: #4b3338;
+  --av-f: #2c4444;
+  --on-av: #f1eee9;
+  --amex-bg: #1e3a46;
+  --amex-ink: #8fcce3;
+  --mc-ink: #f2a478;
+  --visa-bg: #26335a;
+  --visa-ink: #adc0f6;
 }
 
 /* ── la copia ─────────────────────────────────────────────────────────────────────────────────────── */
@@ -100,7 +148,7 @@ export const CSS_COLD_CALLING = `
 .cv .cv-r2 { margin-top: var(--gap); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
 .cv .cv-r3 { margin-top: var(--gap); display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
 .cv .cv-seg { position: relative; display: inline-flex; padding: 3px; border-radius: var(--r-ctl); background: var(--well); }
-.cv .cv-seg__pill { position: absolute; top: 3px; left: 3px; height: 30px; border-radius: 8px; background: var(--card); box-shadow: 0 1px 2px #28221a1f, inset 0 0 0 1px #1c1a160f; transition: translate .28s cubic-bezier(.3, 1.4, .5, 1), width .28s cubic-bezier(.3, 1.4, .5, 1); }
+.cv .cv-seg__pill { position: absolute; top: 3px; left: 3px; height: 30px; border-radius: 8px; background: var(--card); box-shadow: 0 1px 2px #28221a1f, inset 0 0 0 1px var(--line); transition: translate .28s cubic-bezier(.3, 1.4, .5, 1), width .28s cubic-bezier(.3, 1.4, .5, 1); }
 .cv .cv-seg__opt { position: relative; z-index: 1; height: 30px; padding: 0 12px; border-radius: 8px; font: 600 13px/18.85px var(--font); color: var(--muted); }
 .cv .cv-seg__opt[aria-pressed='true'] { color: var(--text); }
 .cv .cv-seg__opt:hover { color: var(--text); }
@@ -121,8 +169,8 @@ export const CSS_COLD_CALLING = `
 .cv .cv-chart .cv-grid { stroke: var(--line); stroke-width: 1; }
 .cv .cv-hero__foot { margin-top: 10px; font: 500 12px/17.4px var(--font); color: var(--muted); }
 .cv .cv-needs { margin-top: 14px; display: grid; gap: 8px; }
-.cv .cv-needs__item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: var(--card-2); box-shadow: inset 0 0 0 1px #1c1a1614; transition: box-shadow .2s; }
-.cv .cv-needs__item:hover { box-shadow: inset 0 0 0 1px #1c1a1626; }
+.cv .cv-needs__item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); transition: box-shadow .2s; }
+.cv .cv-needs__item:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .cv .cv-needs__ic { width: 40px; height: 40px; flex: none; border-radius: 10px; display: grid; place-items: center; }
 .cv .cv-needs__ic svg.cv-i { width: 17px; height: 17px; stroke-width: 1.9; }
 .cv .cv-needs__ic--warn { background: color-mix(in srgb, var(--warn) var(--soft), var(--card)); color: var(--warn); }
@@ -146,10 +194,10 @@ export const CSS_COLD_CALLING = `
 .cv .cv-feed li { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
 .cv .cv-feed li + li { border-top: 1px solid var(--line); }
 .cv .cv-chip { width: 38px; height: 22px; flex: none; border-radius: 6px; display: grid; place-items: center; font: 700 9.5px/13.775px var(--font); letter-spacing: 0.38px; }
-.cv .cv-chip--amex { background: #dcebf0; color: #1f5f7a; }
+.cv .cv-chip--amex { background: var(--amex-bg); color: var(--amex-ink); }
 .cv .cv-chip--pay { background: var(--ink); color: var(--on-ink); }
-.cv .cv-chip--mc { background: var(--accent-soft); color: #8a3a12; }
-.cv .cv-chip--visa { background: #dfe4f3; color: #1f3f9a; }
+.cv .cv-chip--mc { background: var(--accent-soft); color: var(--mc-ink); }
+.cv .cv-chip--visa { background: var(--visa-bg); color: var(--visa-ink); }
 .cv .cv-feed__who b { display: block; font: 600 14px/20.3px var(--font); }
 .cv .cv-feed__who small { display: block; font: 500 12px/17.4px var(--font); color: var(--muted); }
 .cv .cv-feed__amt { margin-left: auto; display: grid; justify-items: end; gap: 3px; font: 600 15px/21.75px var(--font); }

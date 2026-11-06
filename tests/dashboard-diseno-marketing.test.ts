@@ -20,6 +20,7 @@ import {
 import { datosMarketingMuestra } from '../lib/marketing-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -141,16 +142,13 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   for (const k of ['cpa', 'roas', 'agendas', 'gasto', 'ctr', 'cpl']) assert.equal(pieza(k)?.comparar, true, `${k} se compara con el período anterior`);
   assert.deepEqual(pieza('tendencias')?.metricas, ['gasto', 'leads', 'agendas']);
   assert.deepEqual(pieza('funnel')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl', 'leads', 'agendas']);
-  assert.ok(h.componentes.length <= 14, 'una hoja no pasa de 14 paneles');
   // La muestra (la miniatura de «Nueva hoja») arma la vista entera con el modelo de verdad.
   const v = vistaMarketing(h, datosMarketingMuestra(h, HOY), HOY);
   assert.equal(texto(v.frase), 'Gastaste US$2,460 en anuncios, trajeron 27 agendas y cada una costó US$91.11.');
   assert.deepEqual(v.numeros.map((n) => n.texto), ['US$91.11', '3.4×', '27', 'US$2,460', '2.8%', 'US$14.73']);
   assert.equal(v.pestanas[0].filas.length, 10);
   assert.equal(v.embudo?.llega, 74);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'marketing' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.marketing ?? null}'));
+  cableadoDelDiseno(h, 'marketing', 'MarketingVivo', ['extras={extras?.marketing ?? null}']);
   assert.ok(leer('app/dashboard/page.tsx').includes('marketing: hayDisenoMarketing ? { quien } : null'));
 });
 

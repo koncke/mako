@@ -18,6 +18,7 @@ import { ALTO_MAX, arcoDe, columnasDe, estadoQuieta, fraseProductividad, priorid
 import { datosProductividadMuestra } from '../lib/productividad-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -125,9 +126,7 @@ test('lo que no se pudo leer se dice en su bloque, sin inventar', () => {
 test('el cableado: el diseño se ofrece, se dibuja mirando y la página saluda', () => {
   assert.ok((DISENOS_HOJA as readonly string[]).includes('productividad'));
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'productividad'));
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'productividad' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.productividad ?? null}'));
+  cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_HOJA.find((p) => p.id === 'productividad')!), 'productividad', 'ProductividadVivo', ['extras={extras?.productividad ?? null}']);
   assert.ok(leer('app/dashboard/page.tsx').includes('productividad: hayDisenoProductividad ? { quien } : null'));
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaProductividad(hoja, datosProductividadMuestra(hoja, hoy), hoy)'));
 });

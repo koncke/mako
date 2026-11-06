@@ -13,6 +13,10 @@
 // ⚠️ LAS LETRAS SON BRICOLAGE GROTESQUE Y GEIST DE VERDAD: en MaKo «Geist» es Urbanist (app/globals.css), por eso acá se llaman
 //    «Parley Bricolage» y «Parley Geist» y se cargan de Google Fonts (como «Kestrel Geist» en Marketing).
 // ⚠️ ESTA HOJA ES SÓLO DE CHAT ANALYST: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): claro por defecto (el de Parley) y, con
+//    data-tema="oscuro" en <html>, la regla que viene justo después de la raíz redefine las MISMAS variables. Sólo CSS: cambia
+//    en vivo. El oscuro es nuestro (no se midió en Parley); el héroe naranja y las tarjetas oscuras son acentos y valen en los dos.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y DESPUÉS del medio: dos @container que se
 //    pisan los decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
@@ -35,9 +39,23 @@ export const CSS_CHAT = `
   --shadow: 0 1px 0 #221b260a, 0 12px 32px -18px #221b262e;
   --shadow-hover: 0 1px 0 #221b260a, 0 18px 40px -20px #221b2642;
   --ease-out: cubic-bezier(.22, 1, .36, 1);
+  /* lo que antes estaba escrito en hex dentro de las reglas */
+  --glow-a: #f3dccc; --glow-b: #e8dde9; --line-hover: #d9cfc2; --card-edge: #221b260f; --card-edge-h: #221b261f;
+  --pill-on: #fffdf9; --on-ink: #fff6ee; --ink-h: #3a2f40; --tip-bg: #221b26;
   --hatch: repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 5px);
   position: relative; isolation: isolate; color: var(--ink); font: 400 15px/1.45 var(--font-body); -webkit-font-smoothing: antialiased;
-  background: radial-gradient(70% 55% at 88% -6%, #f3dccc 0%, #f3dccc00 70%), radial-gradient(45% 35% at -4% 104%, #e8dde9 0%, #e8dde900 70%), var(--bg);
+  background: radial-gradient(70% 55% at 88% -6%, var(--glow-a) 0%, transparent 70%), radial-gradient(45% 35% at -4% 104%, var(--glow-b) 0%, transparent 70%), var(--bg);
+}
+/* En oscuro las superficies SUBEN de luminosidad al elevarse (fondo < tarjeta < pozo), las líneas son colores opacos a dos
+   pasos del fondo y la tinta es un blanco cálido. Los tonos de las series suben de luz sin cambiar de matiz. */
+.parl:where([data-tema="oscuro"] *) {
+  --bg: #131016; --bg-2: #1a151d; --surface: #1e1822; --surface-2: #271f2d; --line: #332a3a; --line-strong: #463b4f;
+  --ink: #f2ede7; --ink-2: #cfc7d1; --ink-3: #a99fb0;
+  --c-tangerine: #ee6a42; --c-teal: #35b5a5; --c-violet: #a487e3; --c-tangerine-soft: #4a2a20; --c-tangerine-deep: #f28b69;
+  --c-violet-soft: #3b2f55; --c-teal-soft: #1c3a37; --good: #4fc88c; --good-bg: #143324; --bad: #f08a82; --bad-bg: #3d1e1d;
+  --shadow: 0 1px 0 #00000040, 0 12px 32px -18px #000000a0; --shadow-hover: 0 1px 0 #00000040, 0 18px 40px -20px #000000c0;
+  --glow-a: #3a2218; --glow-b: #221a2c; --line-hover: #4c4256; --card-edge: #2c2433; --card-edge-h: #3d3346;
+  --pill-on: #3a3043; --on-ink: #221b26; --ink-h: #ffffff; --tip-bg: #3a2f42;
 }
 .parl *, .parl *::before, .parl *::after { box-sizing: border-box; }
 .parl button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -57,13 +75,16 @@ export const CSS_CHAT = `
 .parl .parl-top__sub { margin: 6px 0 0; color: var(--ink-3); font-size: 15px; line-height: 1.45; }
 .parl .parl-top__tools { display: flex; align-items: center; gap: 10px; flex: none; margin-top: 18px; }
 .parl .parl-search { width: 262px; height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 9px 0 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s; }
-.parl .parl-search:focus-within { border-color: var(--c-violet); box-shadow: 0 0 0 3px #5b3e8c24; }
+.parl .parl-search:focus-within { border-color: var(--c-violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-violet) 15%, transparent); }
 .parl .parl-search .parl-i { width: 17px; height: 17px; color: var(--ink-3); }
+/* El período como BOTÓN (6/11/2026): abre el de la hoja. */
+.parl button.parl-search { font: 400 15px/1.45 var(--font-body); color: var(--ink); cursor: pointer; text-align: left; }
+.parl button.parl-search:hover { border-color: var(--c-violet); }
 .parl .parl-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 15px/1.45 var(--font-body); color: var(--ink); }
 .parl .parl-search input::placeholder { color: var(--ink-3); }
 .parl .parl-search kbd { font: 500 11px/1 var(--font-body); color: var(--ink-3); padding: 5px 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
 .parl .parl-sync { height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 16px 0 13px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); text-align: left; transition: border-color .25s, box-shadow .25s; }
-.parl .parl-sync:hover { border-color: #d9cfc2; }
+.parl .parl-sync:hover { border-color: var(--line-hover); }
 .parl .parl-sync .parl-i { width: 20px; height: 20px; color: var(--ink-2); }
 .parl .parl-sync__t { display: flex; flex-direction: column; }
 .parl .parl-sync__t b { font: 600 13px/1.15 var(--font-body); }
@@ -79,8 +100,8 @@ export const CSS_CHAT = `
 .parl .parl-g-month { grid-area: month; }
 .parl .parl-g-mix { grid-area: mix; }
 .parl .parl-g-top { grid-area: top; }
-.parl .parl-card { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: var(--pad); border-radius: var(--r-card); background: var(--surface); border: 1px solid #221b260f; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; }
-.parl .parl-card:hover { border-color: #221b261f; box-shadow: var(--shadow-hover); }
+.parl .parl-card { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: var(--pad); border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--card-edge); box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; }
+.parl .parl-card:hover { border-color: var(--card-edge-h); box-shadow: var(--shadow-hover); }
 .parl .parl-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-height: 26px; }
 .parl .parl-card__title { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 18px/1.45 var(--font-body); letter-spacing: -.01em; }
 .parl .parl-card__title .parl-i { width: 16px; height: 16px; color: var(--ink-2); }
@@ -118,8 +139,8 @@ export const CSS_CHAT = `
 .parl .parl-hbar:hover .parl-hbar__val, .parl .parl-hbar.parl-is-peak .parl-hbar__val { opacity: 1; }
 .parl .parl-hbar__m { text-align: center; font: 500 12px/1.45 var(--font-body); color: #fff6eed1; }
 .parl .parl-topup { position: relative; margin: -4px -4px 0 0; }
-.parl .parl-topup__btn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--cream); transition: background-color .2s; }
-.parl .parl-topup__btn:hover { background: #3a2f40; }
+.parl .parl-topup__btn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--on-ink); transition: background-color .2s; }
+.parl .parl-topup__btn:hover { background: var(--ink-h); }
 .parl .parl-topup__btn .parl-i { width: 16px; height: 16px; stroke-width: 2; }
 .parl .parl-fig__u--soft { font-size: 16.8px; color: var(--ink-3); margin-left: -4px; margin-bottom: 2px; }
 .parl .parl-budget { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
@@ -132,7 +153,7 @@ export const CSS_CHAT = `
 .parl .parl-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); flex: none; }
 .parl .parl-seg button { padding: 5px 10px; border-radius: 9px; font: 600 12px/17px var(--font-body); color: var(--ink-3); transition: color .2s, background-color .2s, box-shadow .2s; }
 .parl .parl-seg button:hover { color: var(--ink); }
-.parl .parl-seg button.parl-is-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #221b2614, 0 0 0 1px #221b260a; }
+.parl .parl-seg button.parl-is-on { background: var(--pill-on); color: var(--ink); box-shadow: 0 1px 2px #221b2614, 0 0 0 1px #221b260a; }
 .parl .parl-seg--dark { background: #fff6ee0d; border-color: #fff6ee1a; }
 .parl .parl-seg--dark button { color: #fff6ee9e; }
 .parl .parl-seg--dark button:hover { color: var(--cream); }
@@ -164,7 +185,7 @@ export const CSS_CHAT = `
 .parl .parl-mcol.parl-is-on .parl-mcol__x { color: var(--ink); font-weight: 700; }
 .parl .parl-mcol__x .parl-c { display: none; }
 .parl .parl-mchart.parl-is-hovering .parl-mcol:not(.parl-is-on) .parl-mcol__stack { opacity: .5; }
-.parl .parl-mtip { position: absolute; z-index: 3; width: 133px; padding: 10px 12px 10px; border-radius: 11px; background: var(--ink); color: var(--cream); box-shadow: 0 14px 30px -14px #221b2699; pointer-events: none; transform: translateX(-50%); transition: left .35s var(--ease-out), top .35s var(--ease-out); }
+.parl .parl-mtip { position: absolute; z-index: 3; width: 133px; padding: 10px 12px 10px; border-radius: 11px; background: var(--tip-bg); color: var(--cream); box-shadow: 0 14px 30px -14px #221b2699; pointer-events: none; transform: translateX(-50%); transition: left .35s var(--ease-out), top .35s var(--ease-out); }
 .parl .parl-mtip b { display: block; font: 700 13px/1.5 var(--font-body); white-space: nowrap; margin-bottom: 2px; }
 .parl .parl-mtip div { display: flex; align-items: center; gap: 6px; font: 400 12px/1.5 var(--font-body); }
 .parl .parl-mtip div span:first-of-type { color: #fff6eebf; flex: 1; display: inline-flex; align-items: center; gap: 6px; }

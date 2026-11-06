@@ -10,6 +10,8 @@
 // y sin leer la caja de IA. Lo escala ./MiniaturaHoja.tsx.
 //
 // ⚠️ UN DISEÑO NUEVO NO COMPILA HASTA TENER SU MINIATURA: `MINIATURAS` es total sobre `DISENOS_HOJA`.
+// ⚠️ SIN `onGrilla` (6/11/2026): desde que cada tarjeta es un bloque de la grilla, la hoja no tiene «Ver la grilla» ni «Ver
+//    todas»; la miniatura (la de «Nueva hoja» y la vista previa de la biblioteca «Bloques») no los dibuja tampoco.
 // ⚠️ LOS NOMBRES DE EJEMPLO SON FICTICIOS (AGENTS.md: un ejemplo de pantalla nunca es de un cliente real).
 // =============================================================================
 
@@ -459,93 +461,93 @@ function vistaComercialMuestra(hoy: string): VistaComercial {
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
-    <HojaClosing hoja={hoja} datos={{ ...datos, ...datosClosing(hoja, hoy) }} extras={extrasClosing(hoy)} hoy={hoy} periodo="Este mes" onGrilla={() => {}} quieta />
+    <HojaClosing hoja={hoja} datos={{ ...datos, ...datosClosing(hoja, hoy) }} extras={extrasClosing(hoy)} hoy={hoy} periodo="Este mes" quieta />
   ),
   cobranza: ({ hoja, datos, hoy }) => (
     <HojaCobranza hoja={hoja} datos={{ ...datos, ...datosCobranza(hoja, hoy) }} extras={{ quien: { saludo: 'Buenos días', nombre: 'Ana', fecha: '' } }}
-      hoy={hoy} periodo="Este mes" onGrilla={() => {}} onFila={() => {}} quieta />
+      hoy={hoy} periodo="Este mes" onFila={() => {}} quieta />
   ),
   foco: ({ hoy }) => (
     <HojaFocus vista={vistaFocusMuestra(hoy)} titulo="Buenos días, Ana" sub="Miércoles 4 de noviembre · 3 llamadas y 7 tareas para hoy" hoy={hoy} tz="UTC"
-      ahora={null} metaAccion={<span className="fp-btn fp-btn--accent fp-focus__go">Editar la meta</span>} onGrilla={() => {}} quieta />
+      ahora={null} metaAccion={<span className="fp-btn fp-btn--accent fp-focus__go">Editar la meta</span>} quieta />
   ),
   'mi-dia': ({ hoy }) => (
-    <HojaMiDia vista={vistaMiDiaMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" tz="UTC" ahora={null} onGrilla={() => {}} quieta />
+    <HojaMiDia vista={vistaMiDiaMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" tz="UTC" ahora={null} quieta />
   ),
   general: ({ hoy }) => (
-    <HojaGeneral vista={vistaGeneralMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+    <HojaGeneral vista={vistaGeneralMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" quieta />
   ),
   operacion: ({ hoy }) => (
-    <HojaOperacion vista={vistaOperacionMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+    <HojaOperacion vista={vistaOperacionMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" quieta />
   ),
   comercial: ({ hoja, hoy }) => (
-    <HojaComercial hoja={hoja} vista={vistaComercialMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaComercial hoja={hoja} vista={vistaComercialMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" quieta />
   ),
   // La de Marketing pasa por el MISMO vistaMarketing que la hoja de verdad, con los datos de la adaptación (marketing-kestrel/mako.html).
   marketing: ({ hoja, hoy }) => (
-    <HojaMarketing hoja={hoja} vista={vistaMarketing(hoja, datosMarketingMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaMarketing hoja={hoja} vista={vistaMarketing(hoja, datosMarketingMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" quieta />
   ),
   // La de Landing, igual: el MISMO vistaLanding que la hoja de verdad, con los datos de la adaptación (landing-corbel/mako.html).
   landing: ({ hoja, hoy }) => (
-    <HojaLanding hoja={hoja} vista={vistaLanding(hoja, datosLandingMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaLanding hoja={hoja} vista={vistaLanding(hoja, datosLandingMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" quieta />
   ),
   // La de Chat Analyst, igual: el MISMO vistaChat que la hoja de verdad, con los datos de la adaptación (chat-parley/mako.html).
   chat: ({ hoja, hoy }) => (
-    <HojaChat hoja={hoja} vista={vistaChat(hoja, datosChatMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaChat hoja={hoja} vista={vistaChat(hoja, datosChatMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" quieta />
   ),
   // La de Automatizaciones, igual: el MISMO vistaAutomatizaciones que la hoja de verdad, con los datos de la adaptación
   // (automatizaciones-noria/mako.html).
   automatizaciones: ({ hoja, hoy }) => (
-    <HojaAutomatizaciones hoja={hoja} vista={vistaAutomatizaciones(hoja, datosAutomatizacionesMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" hoy={hoy} onGrilla={() => {}} quieta />
+    <HojaAutomatizaciones hoja={hoja} vista={vistaAutomatizaciones(hoja, datosAutomatizacionesMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" hoy={hoy} quieta />
   ),
   // La de CS Analyst, igual: el MISMO vistaCs que la hoja de verdad, con los datos de la adaptación (cs-mender/mako.html).
   cs: ({ hoja }) => (
-    <HojaCs hoja={hoja} vista={vistaCs(hoja, datosCsMuestra(hoja), ETAPAS_MUESTRA)} titulo="Buenos días, Ana" onGrilla={() => {}} quieta />
+    <HojaCs hoja={hoja} vista={vistaCs(hoja, datosCsMuestra(hoja), ETAPAS_MUESTRA)} titulo="Buenos días, Ana" quieta />
   ),
   // La de Productividad, igual: el MISMO vistaProductividad que la hoja de verdad, con los datos de la adaptación
   // (productividad-fernly/mako.html).
   productividad: ({ hoja, hoy }) => (
-    <HojaProductividad hoja={hoja} vista={vistaProductividad(hoja, datosProductividadMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" onGrilla={() => {}} quieta />
+    <HojaProductividad hoja={hoja} vista={vistaProductividad(hoja, datosProductividadMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" quieta />
   ),
   // La de Contenido e IA, igual: el MISMO vistaContenido que la hoja de verdad, con los datos de la adaptación
   // (contenido-orrery/mako.html).
   contenido: ({ hoja, hoy }) => (
-    <HojaContenido hoja={hoja} vista={vistaContenido(hoja, datosContenidoMuestra(hoja, hoy))} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaContenido hoja={hoja} vista={vistaContenido(hoja, datosContenidoMuestra(hoja, hoy))} titulo="Buenos días, Ana" periodo="Últimos 30 días" quieta />
   ),
   // La de «Curso o comunidad», igual: el MISMO vistaCurso que la hoja de verdad, con los datos y el Calendario de la adaptación
   // (curso-vitrea/mako.html). El reloj del ejemplo marca las 11:10 de hoy (la primera cosa del día ya pasó).
   curso: ({ hoja, hoy }) => (
-    <HojaCurso hoja={hoja} vista={vistaCurso(hoja, datosCursoMuestra(hoja, hoy), calendarioCursoMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Tus alumnos" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaCurso hoja={hoja} vista={vistaCurso(hoja, datosCursoMuestra(hoja, hoy), calendarioCursoMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Tus alumnos" periodo="Últimos 30 días" quieta />
   ),
   // La de «Agencia o servicio», igual: el MISMO vistaServicio que la hoja de verdad, con los datos y lo de General de la adaptación
   // (servicio-sunrow/mako.html). El reloj del ejemplo marca las 11:10 de hoy (la primera sesión del día ya pasó).
   servicio: ({ hoja, hoy }) => (
-    <HojaServicio hoja={hoja} vista={vistaServicio(hoja, datosServicioMuestra(hoja, hoy), generalServicioMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Buenos días, Ana" fecha="miércoles 5 de noviembre" onGrilla={() => {}} quieta />
+    <HojaServicio hoja={hoja} vista={vistaServicio(hoja, datosServicioMuestra(hoja, hoy), generalServicioMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Buenos días, Ana" fecha="miércoles 5 de noviembre" quieta />
   ),
   // La de «Instagram y redes», igual: el MISMO vistaInstagram que la hoja de verdad, con los datos y las publicaciones de la adaptación
   // (instagram-murmura/mako.html). El reloj del ejemplo marca las 15:00 de hoy (la primera publicación sale a las 16:30).
   instagram: ({ hoja, hoy }) => (
-    <HojaInstagram hoja={hoja} vista={vistaInstagram(hoja, datosInstagramMuestra(hoja, hoy), generalInstagramMuestra(hoy), Date.parse(`${hoy}T15:00:00Z`))} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaInstagram hoja={hoja} vista={vistaInstagram(hoja, datosInstagramMuestra(hoja, hoy), generalInstagramMuestra(hoy), Date.parse(`${hoy}T15:00:00Z`))} titulo="Buenos días, Ana" periodo="Últimos 30 días" quieta />
   ),
   // La de «Anuncio ganador», igual: el MISMO vistaAnuncio que la hoja de verdad, con los datos de la adaptación (anuncio-prism/mako.html).
   anuncio: ({ hoja, hoy }) => (
-    <HojaAnuncio hoja={hoja} vista={vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)} titulo="Anuncio ganador" periodo="Todo" onGrilla={() => {}} quieta />
+    <HojaAnuncio hoja={hoja} vista={vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)} titulo="Anuncio ganador" periodo="Todo" quieta />
   ),
   // La de «Hooks y retención», igual: el MISMO vistaHooks que la hoja de verdad, con los datos de la adaptación (hooks-ondra/captura/mako-1200.png).
   hooks: ({ hoja, hoy }) => (
-    <HojaHooks hoja={hoja} vista={vistaHooks(hoja, datosHooksMuestra(hoja, hoy))} titulo="Hooks y retención" hoy={hoy} periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaHooks hoja={hoja} vista={vistaHooks(hoja, datosHooksMuestra(hoja, hoy))} titulo="Hooks y retención" hoy={hoy} periodo="Últimos 30 días" quieta />
   ),
   // La de «VSL y YouTube», igual: el MISMO vistaVsl que la hoja de verdad, con los datos de la adaptación (vsl-pelago/captura/mako-1200.png).
   vsl: ({ hoja, hoy }) => (
-    <HojaVsl hoja={hoja} vista={vistaVsl(hoja, datosVslMuestra(hoja, hoy))} titulo="VSL y YouTube" hoy={hoy} periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+    <HojaVsl hoja={hoja} vista={vistaVsl(hoja, datosVslMuestra(hoja, hoy))} titulo="VSL y YouTube" hoy={hoy} periodo="Últimos 30 días" quieta />
   ),
   // La de «Inmobiliaria», igual: el MISMO vistaInmobiliaria que la hoja de verdad, con los datos de la adaptación (inmobiliaria-torque/captura/mako-1200.png).
   inmobiliaria: ({ hoja, hoy }) => (
-    <HojaInmobiliaria hoja={hoja} vista={vistaInmobiliaria(hoja, datosInmobiliariaMuestra(hoja, hoy))} titulo="Inmobiliaria" hoy={hoy} periodo="Últimos 90 días" onGrilla={() => {}} quieta />
+    <HojaInmobiliaria hoja={hoja} vista={vistaInmobiliaria(hoja, datosInmobiliariaMuestra(hoja, hoy))} titulo="Inmobiliaria" hoy={hoy} periodo="Últimos 90 días" quieta />
   ),
   // La de «Cold Calling», igual: el MISMO vistaColdCalling que la hoja de verdad, con los datos de la adaptación (cold-calling-corvane/captura/mako-1200.png).
   'cold-calling': ({ hoja, hoy }) => (
-    <HojaColdCalling hoja={hoja} vista={vistaColdCalling(hoja, datosColdCallingMuestra(hoja, hoy))} titulo="Cold Calling" hoy={hoy} periodo="Últimos 7 días" onGrilla={() => {}} quieta />
+    <HojaColdCalling hoja={hoja} vista={vistaColdCalling(hoja, datosColdCallingMuestra(hoja, hoy))} titulo="Cold Calling" hoy={hoy} periodo="Últimos 7 días" quieta />
   ),
 };
 

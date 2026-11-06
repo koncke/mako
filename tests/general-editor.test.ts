@@ -41,6 +41,7 @@ import {
   DEFINICIONES_GENERAL, PLANTILLAS_GENERAL, PORTADAS_GENERAL, elegirPersona, esPlantillaGeneral, informeGeneralInicial, type PersonaGeneral,
 } from '../lib/general-plantillas';
 import { PIEZAS_GENERAL, conVariables, esPiezaGeneral, piezaPorFunnel, saludoDeHora } from '../lib/general-piezas';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se escribió', () => {
   let bloques = 0, graficos = 0;
@@ -130,8 +131,12 @@ test('el informe con que arranca es la General de siempre, con la frase y la cab
   assert.equal(t.hojas.length, 1);
   const h = t.hojas[0];
   assert.equal(h.plantilla, 'general');
-  // 4/11/2026: abre con la oración de cómo viene el mes (Orvel), y la Meta objetivo es lo primero debajo, a la izquierda.
-  const orden = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x);
+  // 6/11/2026: la hoja trae su diseño copiado y abre con sus tarjetas como BLOQUES (lib/disenos-partes.ts), la del título primero.
+  const primero = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+  assert.ok(primero.clase === 'elemento' && primero.diseno?.id === 'general' && primero.diseno.parte === 'cabecera', 'la tarjeta del título no abre la hoja');
+  // 4/11/2026: sus piezas (plegadas en «Todas las piezas») abren con la oración de cómo viene el mes (Orvel), y la Meta objetivo
+  // es lo primero debajo, a la izquierda.
+  const orden = sinBloquesDeDiseno(h.componentes).sort((a, b) => a.y - b.y || a.x - b.x);
   assert.ok(orden[0].clase === 'grafico' && orden[0].tipo === 'frase', 'la frase de apertura no abre la hoja');
   const arriba = orden[1];
   assert.ok(arriba.clase === 'elemento' && arriba.general?.pieza === 'cabecera', 'la cabecera (el objetivo y la acción del día) no va arriba');

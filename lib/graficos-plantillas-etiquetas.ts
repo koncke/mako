@@ -36,6 +36,10 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   // Para quien sale a buscar (escribe o llama primero, en frío). NO por el canal «llamadas»: con eso le ganaba el lugar a Marketing a
   // quien vende por llamada con leads que entran solos de anuncios (tests/plantillas-sugeridas.test.ts, 04/11/2026).
   'cold-calling': { entrada: ['chat_saliente'] },
+  // La de los clientes de una agencia inmobiliaria (6/11/2026). Sin etiquetas, como Inmobiliaria: con «llamadas» y «anuncios» le
+  // sacaba el lugar a Marketing a quien vende por llamada con leads de anuncios (tests/plantillas-sugeridas.test.ts). Se encuentra
+  // por su nombre y por «inmobiliaria», «primer contacto» o «grabar».
+  'velocidad-llamada': {},
 };
 
 /** La galería de General (`PLANTILLAS_GENERAL`). */

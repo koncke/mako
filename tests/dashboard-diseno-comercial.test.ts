@@ -20,6 +20,7 @@ import {
 } from '../lib/comercial-diseno';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -139,12 +140,9 @@ test('el cableado: la plantilla trae el diseño, se ofrece, y el editor lo dibuj
   const pieza = (k: string) => h.componentes.find((c) => c.id === h.diseno!.piezas[k]) as { metricas?: string[]; desglose?: string; dimension?: string } | undefined;
   for (const k of ['apertura', 'plata', 'tasa', 'ticket', 'ciclo', 'costo', 'semanas', 'meses', 'embudo', 'motivos', 'origen', 'closers']) assert.ok(pieza(k), `la pieza ${k}`);
   assert.deepEqual(pieza('plata')?.metricas, ['vendido', 'gasto']);
-  assert.ok(h.componentes.length <= 14, 'una hoja no pasa de 14 paneles');
   assert.deepEqual([pieza('semanas')?.dimension, pieza('semanas')?.desglose], ['semana', 'producto']);
   assert.deepEqual(pieza('apertura')?.metricas, ['agendas', 'asistencias', 'no_show', 'cierres']);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'comercial' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.comercial ?? null}'));
+  cableadoDelDiseno(h, 'comercial', 'ComercialVivo', ['extras={extras?.comercial ?? null}']);
   // La agenda de hoy nombra leads: la página no la pide para el closer ni el setter (`unica`).
   assert.ok(leer('app/dashboard/page.tsx').includes("const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);"));
 });

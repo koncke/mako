@@ -14,6 +14,9 @@
 // ⚠️ ESTA HOJA ES SÓLO DE «MI DÍA»: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana. Su corte es el de Lumora (760, medido a
 //    390); el medio (761 a 1040) NO está medido en Lumora (sus capturas son 1440 y 390) y es nuestro.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): la base es la clara de Lumora y `data-tema="oscuro"`
+//    la da vuelta (tintes pastel hondos, tinta clara). Todo color de una regla sale de una variable de las dos paletas.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
 
 export const CSS_MI_DIA = `
@@ -26,10 +29,31 @@ export const CSS_MI_DIA = `
   --text: #1c2524; --muted: #59645f; --faint: #6e7975; --ink: #1c2524; --pill: #1c2524; --on-pill: #f7f9f4;
   --primary: #13695d; --on-primary: #f2fbf8;
   --t-mint: #bfe6d1; --t-sky: #c5dbf5; --t-peach: #f8cdb7; --t-lemon: #f3e19d; --tile-dim: #1c2524ad; --tile-well: #ffffff8c;
-  --pine: #1d9a85; --marigold: #d8960f; --coral: #e5694a; --sky: #3f84d8; --clay: #a8714b; --moss: #4f9a2c; --rose: #d9475f; --slate: #66737a;
-  --good: #23864a; --warn: #a96b05; --bad: #c2372b;
+  --pine: #168673; --marigold: #ad7000; --coral: #d65536; --sky: #3a7ed2; --clay: #a06a44; --moss: #458526; --rose: #d9475f; --slate: #66737a;
+  --good: #1d7a42; --warn: #94600a; --bad: #c2372b;
   --r-card: 26px; --r-tile: 18px; --gap: 16px;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --ghost-bg: #ffffff8c; --dots: #16221f1c; --stripe: #16221f0a; --stripe-2: #16221f0d;
+  --dim-1: #818c87; --dim-2: #88938d; --warn-t: #94600a; --mix-end: #000;
+  --now-bg: #c9472a; --on-now: #fff; --sky-fill: #2f72c6; --on-sky-fill: #fff;
+  --pill-hi-bg: #f6dcdc; --pill-hi-t: #7c2f28; --pill-med-bg: #f6ead2; --pill-med-t: #7f560e;
+  --av-vencida: #e8d5c8; --av-pronto: #f3dcad; --av-nada: #dfe7e4;
+}
+.ld:where([data-tema="oscuro"] *) {
+  /* Mi día en oscuro: superficies que SUBEN con la elevación, líneas opacas a dos escalones, tintes pastel hondos del mismo tono */
+  --bg: #0f1413; --card: #171d1c; --surface-2: #1d2423; --control: #232b2a; --well: #ffffff0f;
+  --line: #ffffff14; --line-2: #ffffff2e; --edge: #ffffff14;
+  --shadow: 0 1px 2px #00000066, 0 10px 28px -18px #000000b3;
+  --text: #ededeb; --muted: #a9b2ae; --faint: #8e9894; --ink: #ededeb; --pill: #ededeb; --on-pill: #16221f;
+  --primary: #4fc7b0; --on-primary: #06231d;
+  --t-mint: #235a4d; --t-sky: #234666; --t-peach: #5e3a28; --t-lemon: #574a17; --tile-dim: #ededebc2; --tile-well: #ffffff1f;
+  --pine: #3dbba4; --marigold: #e8ae33; --coral: #f0805f; --sky: #6aa6ee; --clay: #c9936b; --moss: #7dbb55; --rose: #ec6c82; --slate: #93a0a6;
+  --good: #52c27a; --warn: #e5a63a; --bad: #ef6a5e;
+  --ghost-bg: #ffffff0f; --dots: #ffffff1a; --stripe: #ffffff0f; --stripe-2: #ffffff12;
+  --dim-1: #7f8a86; --dim-2: #6d7873; --warn-t: #e5a63a; --mix-end: #fff;
+  --now-bg: #f0805f; --on-now: #2a0f08; --sky-fill: #6aa6ee; --on-sky-fill: #08213f;
+  --pill-hi-bg: #4a2523; --pill-hi-t: #f6b8b1; --pill-med-bg: #4a3a17; --pill-med-t: #f2cf8a;
+  --av-vencida: #5a3d2e; --av-pronto: #5a4a1d; --av-nada: #24433a;
 }
 .ld { min-height: 100%; background: var(--bg); color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
 .ld * { box-sizing: border-box; }
@@ -44,7 +68,7 @@ export const CSS_MI_DIA = `
 .ld-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 44px; padding: 0 20px; border-radius: 22px; font-size: 14px; font-weight: 600; white-space: nowrap; transition: background-color .15s, filter .15s; }
 .ld-btn--primary { background: var(--pill); color: var(--on-pill); }
 .ld-btn--primary:hover { filter: brightness(1.2); }
-.ld-btn--ghost { box-shadow: inset 0 0 0 1px var(--line-2); background: #ffffff8c; }
+.ld-btn--ghost { box-shadow: inset 0 0 0 1px var(--line-2); background: var(--ghost-bg); }
 .ld-btn--ghost:hover { background: var(--control); }
 .ld-btn--xs { height: 34px; padding: 0 14px; border-radius: 12px; font-size: 13px; background: var(--control); box-shadow: inset 0 0 0 1px var(--line-2); gap: 8px; }
 .ld-btn .ld-i { width: 16px; height: 16px; }
@@ -53,7 +77,7 @@ export const CSS_MI_DIA = `
 .ld-dash { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); align-items: start;
   margin: 0 auto; max-width: 1340px; padding: 24px 26px 48px; }
 .ld-dash__main, .ld-dash__rail { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
-.ld-card { position: relative; border-radius: var(--r-card); background: var(--card); border: 1px solid #16221f12; box-shadow: var(--shadow); padding: 20px; min-width: 0; }
+.ld-card { position: relative; border-radius: var(--r-card); background: var(--card); border: 1px solid var(--edge); box-shadow: var(--shadow); padding: 20px; min-width: 0; }
 .ld-card__h { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
 .ld-card__h:has(> div) { align-items: flex-start; }
 .ld-card__t { font-size: 15px; font-weight: 600; line-height: 21.75px; letter-spacing: -.075px; }
@@ -65,8 +89,8 @@ export const CSS_MI_DIA = `
 
 /* El hero: la fecha, el saludo, el resumen, dos botones y la cinta del día con la línea del ahora */
 .ld-hero { padding: 24px; overflow: hidden;
-  background: radial-gradient(48% 70% at 92% 6%, #bfe6d166, transparent 72%), radial-gradient(42% 60% at 6% 104%, #f8cdb729, transparent 72%), var(--card); }
-.ld-hero::before { content: ""; position: absolute; inset: 0 0 0 48%; background: radial-gradient(#16221f1c 1px, transparent 1.3px) 0 0 / 16px 16px;
+  background: radial-gradient(48% 70% at 92% 6%, color-mix(in srgb, var(--t-mint) 40%, transparent), transparent 72%), radial-gradient(42% 60% at 6% 104%, color-mix(in srgb, var(--t-peach) 16%, transparent), transparent 72%), var(--card); }
+.ld-hero::before { content: ""; position: absolute; inset: 0 0 0 48%; background: radial-gradient(var(--dots) 1px, transparent 1.3px) 0 0 / 16px 16px;
   -webkit-mask: linear-gradient(90deg, transparent, #000 40%); mask: linear-gradient(90deg, transparent, #000 40%); pointer-events: none; }
 .ld-hero > * { position: relative; }
 .ld-hero__date { color: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 18.125px; }
@@ -76,7 +100,7 @@ export const CSS_MI_DIA = `
 .ld-hero__sum { margin-top: 6px; color: var(--muted); font-size: 14px; font-weight: 500; line-height: 20.3px; }
 .ld-hero__sum b { color: var(--text); font-weight: 600; }
 .ld-hero__sum a { color: var(--primary); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.ld-hero__warn { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; color: #94600a; font-weight: 600; }
+.ld-hero__warn { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; color: var(--warn-t); font-weight: 600; }
 .ld-hero__warn .ld-i { width: 15px; height: 15px; }
 .ld-hero__acts { display: flex; gap: 10px; margin-top: 16px; }
 .ld-ribbon-caja { margin-top: 6px; padding-top: 34px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -86,7 +110,7 @@ export const CSS_MI_DIA = `
 .ld-ribbon__it span { color: var(--muted); font-size: 11px; font-weight: 600; line-height: 15.95px; }
 .ld-ribbon__it--slot { background: color-mix(in srgb, var(--tone) 32%, var(--card)); box-shadow: inset 3px 0 0 var(--tone-edge, transparent); }
 .ld-ribbon__it.ld-is-ppa { --tone: #fff; color: var(--faint); opacity: .78;
-  background: repeating-linear-gradient(135deg, #16221f0a 0 7px, transparent 7px 14px), var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+  background: repeating-linear-gradient(135deg, var(--stripe) 0 7px, transparent 7px 14px), var(--card); box-shadow: inset 0 0 0 1px var(--line); }
 .ld-ribbon__it.ld-is-ppa b { color: var(--faint); font-weight: 600; }
 .ld-ribbon__it.ld-is-now { --tone: var(--t-sky); box-shadow: inset 0 0 0 2px var(--sky); }
 .ld-ribbon__it.ld-is-pine { --tone: var(--t-mint); --tone-edge: var(--pine); }
@@ -94,11 +118,11 @@ export const CSS_MI_DIA = `
 .ld-ribbon__it.ld-is-sky { --tone: var(--t-sky); --tone-edge: var(--sky); }
 .ld-ribbon__it.ld-is-lemon { --tone: var(--t-lemon); --tone-edge: var(--marigold); }
 .ld-ribbon__it--free { width: 141px; border: 1px dashed var(--line-2); }
-.ld-ribbon__it--break { width: 30px; display: grid; place-items: center; padding: 0; color: #8b9691; }
+.ld-ribbon__it--break { width: 30px; display: grid; place-items: center; padding: 0; color: var(--dim-1); }
 .ld-ribbon__it--break .ld-i { width: 14px; height: 14px; }
 .ld-ribbon__now { position: absolute; left: 158px; top: -34px; bottom: 0; width: 0; pointer-events: none; z-index: 2; }
 .ld-ribbon__now::before { content: ""; position: absolute; left: -1px; top: 24px; bottom: 0; width: 2px; background: var(--coral); }
-.ld-ribbon__now b { position: absolute; left: 0; top: 0; transform: translateX(-50%); padding: 2px 6px; border-radius: 6px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 600; line-height: 13px; }
+.ld-ribbon__now b { position: absolute; left: 0; top: 0; transform: translateX(-50%); padding: 2px 6px; border-radius: 6px; background: var(--now-bg); color: var(--on-now); font-size: 11px; font-weight: 600; line-height: 13px; }
 .ld-ribbon__now i { position: absolute; left: -5px; top: 21px; width: 10px; height: 10px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 3px #e5694a40; }
 
 /* Las dos tarjetas de la IA */
@@ -136,7 +160,7 @@ export const CSS_MI_DIA = `
 /* Lo que viene */
 .ld-upc__list { margin-top: 17px; }
 .ld-upc__row { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 14px; align-items: center; height: 61px; padding: 0 4px; border-radius: 12px; }
-.ld-upc__d { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: color-mix(in srgb, var(--tone) 16%, var(--card)); color: color-mix(in srgb, var(--tone) 80%, #000); }
+.ld-upc__d { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: color-mix(in srgb, var(--tone) 16%, var(--card)); color: color-mix(in srgb, var(--tone) 80%, var(--mix-end)); }
 .ld-upc__d small { font-size: 11px; font-weight: 600; line-height: 11.55px; letter-spacing: .44px; text-transform: uppercase; }
 .ld-upc__d b { font-size: 20px; font-weight: 600; line-height: 21px; letter-spacing: -.4px; }
 .ld-upc__row strong { display: block; font-size: 14px; font-weight: 600; line-height: 20.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -180,8 +204,8 @@ export const CSS_MI_DIA = `
 .ld-risk__who small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; line-height: 17.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ld-pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .ld-pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .9; }
-.ld-pill--high { background: #f6dcdc; color: #7c2f28; } .ld-pill--high i { background: var(--bad); }
-.ld-pill--med { background: #f6ead2; color: #7f560e; } .ld-pill--med i { background: var(--marigold); }
+.ld-pill--high { background: var(--pill-hi-bg); color: var(--pill-hi-t); } .ld-pill--high i { background: var(--bad); }
+.ld-pill--med { background: var(--pill-med-bg); color: var(--pill-med-t); } .ld-pill--med i { background: var(--marigold); }
 .ld-risk__h .ld-i { width: 16px; height: 16px; color: var(--marigold); }
 
 /* Avisos */
@@ -200,9 +224,9 @@ export const CSS_MI_DIA = `
 .ld-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; }
 .ld-cal__dow { height: 30px; display: grid; place-items: center; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .44px; }
 .ld-cal__d { position: relative; display: grid; place-items: center; height: 40px; margin: 1px 1px 0; border-radius: 12px; font-size: 12.5px; font-weight: 600; }
-.ld-cal__d.ld-is-out { color: #8b9691; }
-.ld-cal__d.ld-is-we { color: #a6b1ac; }
-.ld-cal__d.ld-is-hol { background: repeating-linear-gradient(135deg, #16221f0d 0 5px, transparent 5px 10px); }
+.ld-cal__d.ld-is-out { color: var(--dim-1); }
+.ld-cal__d.ld-is-we { color: var(--dim-2); }
+.ld-cal__d.ld-is-hol { background: repeating-linear-gradient(135deg, var(--stripe-2) 0 5px, transparent 5px 10px); }
 .ld-cal__d.ld-is-today { background: var(--primary); color: var(--on-primary); }
 .ld-cal__d .ld-dots { position: absolute; bottom: 5px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; }
 .ld-cal__d .ld-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--c); }
@@ -223,8 +247,8 @@ export const CSS_MI_DIA = `
 .ld-sch__x { min-width: 0; }
 .ld-sch__x b { display: block; font-size: 12.5px; font-weight: 600; line-height: 18.125px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ld-sch__x small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; line-height: 17.4px; }
-.ld-now { padding: 2px 8px; border-radius: 6px; background: var(--sky); color: #fff; font-size: 11px; font-weight: 600; line-height: 15.95px; }
-.ld-rem__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 24px; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); box-shadow: inset 0 0 0 1px #16221f14; }
+.ld-now { padding: 2px 8px; border-radius: 6px; background: var(--sky-fill); color: var(--on-sky-fill); font-size: 11px; font-weight: 600; line-height: 15.95px; }
+.ld-rem__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 24px; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
 .ld-rem__row--todo { background: transparent; box-shadow: none; border: 1px dashed var(--line-2); grid-template-columns: 20px minmax(0, 1fr) 24px; padding: 6px 10px 6px 12px; }
 .ld-rem__ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--tone) 18%, var(--card)); color: var(--tone); }
 .ld-rem__ic .ld-i { width: 16px; height: 16px; }

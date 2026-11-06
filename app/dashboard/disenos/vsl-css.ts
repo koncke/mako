@@ -6,6 +6,8 @@
 // (la barra de la izquierda, la de arriba y la del teléfono, el interruptor de comparar con el año pasado), los resets por etiqueta con
 // :where() y con @container en lugar de @media. Lo de la adaptación va al final (el paso del medio, los vacíos y lo que se toca). Se
 // escribió desde lo MEDIDO del demo: nada del código de la tienda.
+// Paleta doble (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si
+// tiene dark mode, automáticamente pasarse a allí»): claro por defecto y oscuro bajo [data-tema="oscuro"] de <html>, sólo con variables.
 // ⚠️ En un template literal no va ningún backtick (ni en un comentario) ni un «dólar con llave».
 // =============================================================================
 
@@ -49,6 +51,14 @@ export const CSS_VSL = `
   --good: #156b41;
   --warn: #7a5103;
   --bad: #b8344c;
+  --av-rose: #f2d3da;
+  --av-ochre: #f3e1bd;
+  --av-sea: #d4ece8;
+  --av-moss: #dfeccf;
+  --paid-ink: #17403f;
+  --dial-sp: #3a3732;
+  --dial-dot: #d6d3cc;
+  --ly: #5d5a53;
   --r-card: 22px;
   --r-tile: 14px;
   --gap: 16px;
@@ -56,6 +66,43 @@ export const CSS_VSL = `
   --gutter: clamp(16px, 1.8vw, 30px);
   --ease: cubic-bezier(.2, .8, .2, 1);
   position: relative; padding: 4px 26px 56px; color: var(--text); background: radial-gradient(1200px 520px at 100% -10%, var(--glow-b), transparent 60%), radial-gradient(900px 600px at 30% -20%, var(--glow-a), transparent 60%), var(--bg); font: 500 15px/22.5px var(--font); -webkit-font-smoothing: antialiased;
+}
+/* Oscuro: la tarjeta esmaltada (pel-glazed) y el botón primario conservan su verde petróleo en los dos modos; todo lo demás sube de luz. */
+.pel:where([data-tema="oscuro"] *) {
+  --bg: #121110;
+  --glow-a: #14211f;
+  --glow-b: #221c10;
+  --surface: #1b1a17;
+  --surface-2: #232220;
+  --raised: #2c2b27;
+  --well: #262521;
+  --line: #2e2c28;
+  --line-2: #403d37;
+  --shadow: 0 1px 1px #00000066, 0 10px 26px -18px #000000cc;
+  --shadow-pop: 0 24px 60px -18px #000000e6, 0 2px 6px #00000080;
+  --text: #ece9e2;
+  --muted: #aaa69d;
+  --faint: #8d897f;
+  --primary: #45b4b7;
+  --petrol: #45b4b7;
+  --ochre: #e0aa3a;
+  --clay: #dc7d54;
+  --rose: #e5667e;
+  --sand: #bd9a6b;
+  --moss: #86b755;
+  --sky: #5ca8db;
+  --slate: #99a1aa;
+  --good: #5fcf92;
+  --warn: #e6b350;
+  --bad: #f27a8e;
+  --av-rose: #4b2a33;
+  --av-ochre: #4a3a1b;
+  --av-sea: #1f3f3c;
+  --av-moss: #2f3f22;
+  --paid-ink: #c3e6e4;
+  --dial-sp: #c9c6be;
+  --dial-dot: #4a4843;
+  --ly: #aaa69d;
 }
 
 /* ── la copia ─────────────────────────────────────────────────────────────────────────────────────── */
@@ -67,7 +114,7 @@ export const CSS_VSL = `
 .pel svg.pel-i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .pel :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .pel .pel-av { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 800; letter-spacing: .12px; color: var(--text); }
-.pel .pel-ibtn { position: relative; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid #201c1617; box-shadow: var(--shadow); transition: background-color .15s; }
+.pel .pel-ibtn { position: relative; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); transition: background-color .15s; }
 .pel .pel-ibtn:hover { background: var(--surface-2); }
 .pel .pel-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 20px; border-radius: 99px; font-size: 16px; font-weight: 700; line-height: 24px; white-space: nowrap; transition: transform .3s var(--ease); }
 .pel .pel-btn:active { filter: brightness(.93); }
@@ -76,7 +123,7 @@ export const CSS_VSL = `
 .pel .pel-btn--ghost { background: var(--surface); color: var(--text); border: 1px solid var(--line-2); }
 .pel .pel-btn--ghost:hover { background: var(--surface-2); }
 .pel .pel-btn--xs { height: 32px; padding: 0 13px; gap: 7px; font-size: 14px; }
-.pel .pel-btn--soft { background: #1364692b; color: var(--primary); border: 0; }
+.pel .pel-btn--soft { background: color-mix(in srgb, var(--primary) 17%, transparent); color: var(--primary); border: 0; }
 .pel .pel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 22px; }
 .pel .pel-head__date { font-size: 15px; font-weight: 650; line-height: 22.5px; color: var(--muted); }
 .pel .pel-head__title { margin-top: 4px; font-size: 37.44px; font-weight: 800; line-height: 40.4352px; letter-spacing: -1.4976px; }
@@ -87,9 +134,9 @@ export const CSS_VSL = `
 .pel .pel-ov__r1 { display: grid; grid-template-columns: minmax(0, 462fr) minmax(0, 367fr) minmax(0, 271fr); gap: var(--gap); }
 .pel .pel-ov__r3 { display: grid; grid-template-columns: minmax(0, 654fr) minmax(0, 462fr); gap: var(--gap); }
 .pel .pel-ov__r4 { display: grid; grid-template-columns: minmax(0, 462fr) minmax(0, 654fr); gap: var(--gap); }
-.pel .pel-card { position: relative; min-width: 0; padding: 20px; border-radius: var(--r-card); background: var(--surface); border: 1px solid #201c1617; box-shadow: var(--shadow); }
+.pel .pel-card { position: relative; min-width: 0; padding: 20px; border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .pel .pel-card__h { display: flex; align-items: center; gap: 12px; min-height: 38px; }
-.pel .pel-card__ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #1364691c; color: var(--primary); }
+.pel .pel-card__ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--primary) 11%, transparent); color: var(--primary); }
 .pel .pel-card__t { font-size: 18px; font-weight: 800; line-height: 27px; letter-spacing: -.36px; white-space: nowrap; }
 .pel .pel-card__h > .pel-card__aside { margin-left: auto; }
 .pel .pel-card__sub { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--muted); }
@@ -125,9 +172,9 @@ export const CSS_VSL = `
 .pel .pel-dial svg { width: 100%; height: 100%; overflow: visible; }
 .pel .pel-dial__lab { font: 700 11px var(--font); fill: var(--text); }
 .pel .pel-dial__ring { fill: none; stroke: var(--line-2); stroke-width: 1.4; stroke-dasharray: 1 5; stroke-linecap: round; }
-.pel .pel-dial__sp { stroke: #3a3732; stroke-width: 7; stroke-linecap: round; transition: opacity .2s; }
+.pel .pel-dial__sp { stroke: var(--dial-sp); stroke-width: 7; stroke-linecap: round; transition: opacity .2s; }
 .pel .pel-dial__sp.pel-is-now { stroke: var(--primary); }
-.pel .pel-dial__dot { fill: #d6d3cc; }
+.pel .pel-dial__dot { fill: var(--dial-dot); }
 .pel .pel-dial__pulse { fill: none; stroke: var(--primary); animation: pel-dial-pulse 1.8s var(--ease) infinite; }
 .pel .pel-dial__mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
 .pel .pel-dial__mid b { font-size: 36px; font-weight: 800; line-height: 36px; letter-spacing: -1.44px; }
@@ -145,7 +192,7 @@ export const CSS_VSL = `
 .pel .pel-kiln__row b { display: block; font-size: 15px; font-weight: 700; line-height: 18.75px; white-space: nowrap; }
 .pel .pel-kiln__row small { display: block; margin-top: 4px; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--muted); }
 .pel .pel-kiln__list .pel-ibtn { width: 32px; height: 32px; box-shadow: none; background: transparent; border-color: var(--line-2); color: var(--text); }
-.pel .pel-kiln__list .pel-ibtn--add { color: var(--primary); border-color: #1364694d; }
+.pel .pel-kiln__list .pel-ibtn--add { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
 .pel .pel-gl-tide { background: radial-gradient(circle at 32% 28%, #8fd3cf 0, #2f8f8f 34%, #0f4a4d 78%); }
 .pel .pel-gl-celadon { background: radial-gradient(circle at 32% 28%, #e3f1df 0, #a9cf9d 40%, #6f9f64 85%); }
 .pel .pel-gl-tenmoku { background: radial-gradient(circle at 70% 26%, #f2a065 0, #b65a29 38%, #4a1d0e 82%); }
@@ -159,7 +206,7 @@ export const CSS_VSL = `
 .pel .pel-dem__leg i.pel-dash { background: none; border: 1.5px dashed var(--faint); }
 .pel .pel-dem__body { display: grid; grid-template-columns: 236px minmax(0, 1fr) 270px; gap: 0; margin-top: 15px; height: 476px; }
 .pel .pel-rail { position: relative; display: grid; align-content: start; gap: 2px; }
-.pel .pel-rail__pill { position: absolute; left: 0; top: 0; width: 100%; height: 51px; border-radius: 16px; background: var(--surface-2); box-shadow: inset 0 0 0 1px #201c162b; transition: transform .35s var(--ease); }
+.pel .pel-rail__pill { position: absolute; left: 0; top: 0; width: 100%; height: 51px; border-radius: 16px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); transition: transform .35s var(--ease); }
 .pel .pel-rail__item { position: relative; height: 51px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; border-radius: 16px; text-align: left; }
 .pel .pel-rail__item:hover { background: var(--well); }
 .pel .pel-rail__item[aria-selected='true']:hover { background: none; }
@@ -179,16 +226,16 @@ export const CSS_VSL = `
 .pel .pel-chart__col .pel-seg-solid { opacity: 0; transition: opacity .2s; }
 .pel .pel-chart__col:hover .pel-seg-dot, .pel .pel-chart__col.pel-is-hi .pel-seg-dot { opacity: 0; }
 .pel .pel-chart__col:hover .pel-seg-solid, .pel .pel-chart__col.pel-is-hi .pel-seg-solid { opacity: 1; }
-.pel .pel-chart__ly { fill: none; stroke: #5d5a53; stroke-width: 1.3; stroke-dasharray: 3 3; }
+.pel .pel-chart__ly { fill: none; stroke: var(--ly); stroke-width: 1.3; stroke-dasharray: 3 3; }
 .pel .pel-chart__pace { fill: none; stroke: var(--primary); stroke-width: 1.6; stroke-dasharray: 4 3; }
 .pel .pel-chart__tip { position: absolute; transform: translate(-50%, -100%); padding: 5px 10px; border-radius: 99px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 900; line-height: 21px; white-space: nowrap; pointer-events: none; transition: left .3s var(--ease), top .3s var(--ease); }
 .pel .pel-chart__tip::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px; z-index: -1; }
 .pel .pel-mp { border-left: 1px solid var(--line); padding: 0 0 0 20px; display: flex; flex-direction: column; }
 .pel .pel-mp__h { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 15px; font-weight: 750; line-height: 22.5px; }
-.pel .pel-mp__soft { height: 24px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 99px; background: #156b411f; color: var(--good); font-size: 13px; font-weight: 750; }
+.pel .pel-mp__soft { height: 24px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 99px; background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--good); font-size: 13px; font-weight: 750; }
 .pel .pel-mp__cat { margin-top: 6px; font-size: 15px; font-weight: 500; line-height: 22.5px; color: var(--muted); }
 .pel .pel-mp__v { margin-top: 9px; font-size: 40px; font-weight: 800; line-height: 40px; letter-spacing: -1.8px; }
-.pel .pel-mp__chg { align-self: flex-start; height: 26px; display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; padding: 0 11px; border-radius: 99px; background: #b8344c24; color: var(--bad); font-size: 13px; font-weight: 750; }
+.pel .pel-mp__chg { align-self: flex-start; height: 26px; display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; padding: 0 11px; border-radius: 99px; background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); font-size: 13px; font-weight: 750; }
 .pel .pel-mp__chg svg.pel-i { width: 13px; height: 13px; stroke-width: 2.2; }
 .pel .pel-mp__ch { margin-top: 15px; display: grid; gap: 10.5px; }
 .pel .pel-mp__row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; font-size: 15px; font-weight: 600; line-height: 18px; color: var(--muted); }
@@ -196,14 +243,14 @@ export const CSS_VSL = `
 .pel .pel-mp__row b { font-weight: 800; color: var(--text); }
 .pel .pel-mp__row .pel-meter { grid-column: 2 / 4; height: 6px; margin-top: 6px; border-radius: 99px; background: var(--well); overflow: hidden; }
 .pel .pel-mp__row .pel-meter span { display: block; height: 100%; border-radius: inherit; transform-origin: left; }
-.pel .pel-mp__stub { position: relative; margin-top: 14px; display: grid; gap: 8px; padding: 12px 14px; height: 97px; border-radius: 16px; background: var(--surface-2); border: 1px solid #201c1617; }
+.pel .pel-mp__stub { position: relative; margin-top: 14px; display: grid; gap: 8px; padding: 12px 14px; height: 97px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); }
 .pel .pel-mp__stub + .pel-mp__stub { margin-top: 8px; }
-.pel .pel-mp__stub::before, .pel .pel-mp__stub::after { content: ''; position: absolute; top: 50%; width: 10px; height: 14px; margin-top: -7px; background: var(--surface); border: 1px solid #201c1617; }
+.pel .pel-mp__stub::before, .pel .pel-mp__stub::after { content: ''; position: absolute; top: 50%; width: 10px; height: 14px; margin-top: -7px; background: var(--surface); border: 1px solid var(--line); }
 .pel .pel-mp__stub::before { left: -1px; border-left: 0; border-radius: 0 8px 8px 0; }
 .pel .pel-mp__stub::after { right: -1px; border-right: 0; border-radius: 8px 0 0 8px; }
 .pel .pel-mp__lab { font-size: 13px; font-weight: 750; line-height: 16px; letter-spacing: .91px; text-transform: uppercase; color: var(--muted); }
 .pel .pel-mp__who { display: flex; align-items: center; gap: 12px; }
-.pel .pel-mp__who .pel-av { width: 40px; height: 40px; font-size: 14px; background: #dfeccf; }
+.pel .pel-mp__who .pel-av { width: 40px; height: 40px; font-size: 14px; background: var(--av-moss); }
 .pel .pel-mp__who .pel-kiln__th { width: 40px; height: 40px; border-radius: 10px; }
 .pel .pel-mp__who b { display: block; font-size: 15px; font-weight: 700; line-height: 20px; }
 .pel .pel-mp__who small { display: block; margin-top: 2px; font-size: 14px; font-weight: 500; line-height: 20px; color: var(--muted); }
@@ -222,12 +269,12 @@ export const CSS_VSL = `
 .pel .pel-ord small { display: block; font-size: 14px; font-weight: 500; line-height: 21px; color: var(--muted); }
 .pel .pel-chan { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--muted); }
 .pel .pel-chan svg.pel-i { width: 13px; height: 13px; color: var(--primary); }
-.pel .pel-paid { height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; border-radius: 99px; background: #1364691f; color: #17403f; font-size: 14px; font-weight: 700; }
+.pel .pel-paid { height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; border-radius: 99px; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--paid-ink); font-size: 14px; font-weight: 700; }
 .pel .pel-paid i { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
 .pel .pel-td-total { font-weight: 800; }
-.pel .pel-av.pel-t-rose { background: #f2d3da; }
-.pel .pel-av.pel-t-ochre { background: #f3e1bd; }
-.pel .pel-av.pel-t-sea { background: #d4ece8; }
+.pel .pel-av.pel-t-rose { background: var(--av-rose); }
+.pel .pel-av.pel-t-ochre { background: var(--av-ochre); }
+.pel .pel-av.pel-t-sea { background: var(--av-sea); }
 .pel .pel-best { margin-top: 14px; display: grid; gap: 0; }
 .pel .pel-best__row { width: 100%; height: 71px; display: grid; grid-template-columns: 22px 38px minmax(0, 1fr); align-items: center; column-gap: 12px; padding: 0 6px 0 4px; text-align: left; border-radius: 14px; }
 .pel .pel-best__row:active { background: var(--well); }
@@ -351,11 +398,11 @@ export const CSS_VSL = `
 .pel .pel-kiln__tx, .pel .pel-rail__tx, .pel .pel-mp__txt { min-width: 0; }
 .pel .pel-kiln__row b, .pel .pel-kiln__row small, .pel .pel-mp__who b, .pel .pel-mp__who small, .pel .pel-best__m b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pel .pel-kiln__row:hover { background: var(--surface-2); }
-.pel .pel-best__th { display: grid; place-items: center; background: #1364691c; color: var(--primary); font-size: 11.5px; font-weight: 800; letter-spacing: -.23px; }
+.pel .pel-best__th { display: grid; place-items: center; background: color-mix(in srgb, var(--primary) 11%, transparent); color: var(--primary); font-size: 11.5px; font-weight: 800; letter-spacing: -.23px; }
 .pel .pel-feed li { height: auto; min-height: 65.5px; padding-bottom: 10px; }
 .pel .pel-feed li > div { min-width: 0; }
 .pel .pel-feed__t { display: block; font-size: 15px; font-weight: 650; line-height: 22.5px; }
-.pel .pel-mp__chg--up { background: #156b411f; color: var(--good); }
+.pel .pel-mp__chg--up { background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--good); }
 .pel .pel-mp__who .pel-av { font-size: 13px; letter-spacing: -.3px; }
 .pel .pel-mg__leg { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .pel .pel-mg__leg li { min-width: 0; white-space: nowrap; }

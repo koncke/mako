@@ -41,6 +41,8 @@ import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
 import { identidadDe } from './graficos-identidad';
 import { destinoDe } from './graficos-destinos';
 import { TOPE_FRASE } from './graficos-frase';
+import { conBloquesDeDiseno } from './disenos-partes';
+import { sanearEntrada } from './graficos-entradas';
 
 export { AREAS };
 export type { Area, ClaseDim, Dimension, Formato, Fuente, Metrica };
@@ -1167,8 +1169,8 @@ export type Bloque = {
  *   · `accion`   — un botón que corre una acción de ACCIONES_ELEMENTO (lib/graficos-acciones.ts): «Sincronizar
  *                  llamadas» en la hoja Closing.
  */
-export type TipoElemento = 'texto' | 'enlace' | 'imagen' | 'video' | 'insertado' | 'linea' | 'flecha' | 'seccion' | 'ia' | 'entidad' | 'accion' | 'general' | 'experimento';
-export type GrupoElemento = 'texto' | 'medios' | 'formas' | 'estructura' | 'mako' | 'entidad' | 'general';
+export type TipoElemento = 'texto' | 'enlace' | 'imagen' | 'video' | 'insertado' | 'linea' | 'flecha' | 'seccion' | 'ia' | 'entidad' | 'accion' | 'general' | 'experimento' | 'diseno';
+export type GrupoElemento = 'texto' | 'medios' | 'formas' | 'estructura' | 'mako' | 'entidad' | 'general' | 'bloques';
 export type InfoElemento = { id: TipoElemento; nombre: string; w: number; h: number; minW: number; minH: number; grupo: GrupoElemento };
 export const TIPOS_ELEMENTO: ReadonlyArray<InfoElemento> = [
   { id: 'texto', nombre: 'Texto', w: 12, h: 2, minW: 1, minH: 1, grupo: 'texto' },
@@ -1186,6 +1188,9 @@ export const TIPOS_ELEMENTO: ReadonlyArray<InfoElemento> = [
   { id: 'general', nombre: 'Bloque de General', w: 12, h: 10, minW: 3, minH: 3, grupo: 'general' },
   // 17/10/2026: un experimento («probemos X» en «Editar con MaKo»): la propuesta y, al arrancarlo, su medición en vivo.
   { id: 'experimento', nombre: 'Experimento', w: 6, h: 9, minW: 4, minH: 6, grupo: 'mako' },
+  // 6/11/2026: una TARJETA de una hoja con diseño propio (lib/disenos-partes.ts): la tasa de cierre de Halden, las tendencias de
+  // Kestrel… Se ve igual mirando y editando, y se inserta en cualquier hoja con las piezas de las que lee.
+  { id: 'diseno', nombre: 'Bloque', w: 6, h: 8, minW: 2, minH: 2, grupo: 'bloques' },
 ];
 /** Cuántas cajas de «Conclusiones de MaKo» entran en una hoja: cada una gasta cuota de IA gratis al correr. */
 export const MAX_IA_POR_HOJA = 4;
@@ -1205,7 +1210,7 @@ export function minimoDeElemento(tipo: string): { w: number; h: number } {
  */
 export const minimoDeComponente = (c: Componente): { w: number; h: number } => (esElemento(c) ? minimoDeElemento(c.tipo) : { w: 2, h: 2 });
 /** Lo más largo del texto de cada tipo: el párrafo de un Texto, el de un Enlace, el título de un Video. */
-const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120, seccion: 80, ia: 80, entidad: 80, accion: 80, general: 80, experimento: 80 };
+const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120, seccion: 80, ia: 80, entidad: 80, accion: 80, general: 80, experimento: 80, diseno: 80 };
 /** El tope del texto de un tipo: el MISMO para el saneo y para los campos de la pantalla (su `maxLength`). */
 export const topeDeTextoElemento = (tipo: TipoElemento): number => TOPE_TEXTO_ELEMENTO[tipo] ?? 2000;
 export type Elemento = {
@@ -1254,6 +1259,11 @@ export type Elemento = {
    * `propuesta` que armó MaKo y todavía nadie arrancó. Siempre una de las dos.
    */
   experimento?: { id: number; propuesta: null } | { id: null; propuesta: PropuestaExperimento };
+  /**
+   * Bloque (6/11/2026, lib/disenos-partes.ts): una TARJETA de una hoja con diseño propio. `id`, el diseño; `parte`, la tarjeta
+   * (una clave del catálogo); `piezas`, de qué componentes de la hoja lee (los nombres son los de `Hoja.diseno.piezas`).
+   */
+  diseno?: { id: DisenoHoja['id']; parte: string; piezas: Record<string, string> };
   /** La portada (15/10/2026), como la de un gráfico: un bloque de General o un texto pintados con su color. */
   portada?: string;
   x: number; y: number; w: number; h: number;
@@ -1312,6 +1322,11 @@ export type Hoja = {
    * El DISEÑO PROPIO de la hoja (4/11/2026). Ausente = la grilla de siempre. Ver `DISENOS_HOJA`.
    */
   diseno?: DisenoHoja;
+  /**
+   * La ANIMACIÓN DE ENTRADA de la hoja (6/11/2026, lib/graficos-entradas.ts), elegida en «Estilo de la hoja». Ausente = la de su
+   * diseño (la de su demo), o ninguna. Corre al abrir la hoja, sobre sus tarjetas, en el orden en que se leen.
+   */
+  entrada?: string;
 };
 /**
  * Las hojas con DISEÑO PROPIO. Martín, 4/11/2026, al rechazar las 20 hojas iguales: «Quiero hacerlo de manera muy
@@ -1355,7 +1370,12 @@ export type Hoja = {
 // · 'cold-calling' (6/11/2026, la copia de Corvane): del Dashboard, con las siete piezas de Cold Calling (`cold-calling`) y el botón
 //   «Grabar llamada» arriba.
 export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl', 'inmobiliaria', 'cold-calling'] as const;
-export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
+/**
+ * `v: 2` (6/11/2026): la hoja ya está en BLOQUES (lib/disenos-partes.ts, `conBloquesDeDiseno`): cada tarjeta es un elemento de la
+ * grilla y `diseno` queda como la marca de qué diseño es (la miniatura de «Nueva hoja», la animación de entrada). Sin `v`, la hoja
+ * se dibuja con su diseño entero, como hasta ese día (los diseños que todavía no tienen sus partes).
+ */
+export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string>; v?: 2 };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
 /** El diseño de una hoja, saneado: un id del catálogo y sólo las piezas que apuntan a un componente que existe. */
@@ -1370,7 +1390,7 @@ export function sanearDiseno(raw: unknown, ids: ReadonlySet<string>): DisenoHoja
       if (PIEZA_DISENO.test(k) && typeof v === 'string' && ids.has(v)) piezas[k] = v;
     }
   }
-  return { id, piezas };
+  return { id, piezas, ...(o as { v?: unknown }).v === 2 ? { v: 2 as const } : {} };
 }
 /**
  * `archivadas` (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas, también para dashboard. Y en el
@@ -1813,7 +1833,7 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
   if (!info) return null;
   // ── El objeto de cada tipo nuevo (v5). Una ficha sólo vive en un pop-up (en la hoja no hay qué abrir), y
   //    una ficha o un botón sin lo que dicen ser no dibujan nada: se descartan.
-  const tipoEspecial: Pick<Elemento, 'seccion' | 'ia' | 'entidad' | 'accion' | 'general' | 'experimento'> = {};
+  const tipoEspecial: Pick<Elemento, 'seccion' | 'ia' | 'entidad' | 'accion' | 'general' | 'experimento' | 'diseno'> = {};
   if (info.id === 'seccion') {
     const s = esObj(o.seccion) ? o.seccion : {};
     tipoEspecial.seccion = { fondo: colorDe(s.fondo), plegable: s.plegable === true, abierto: s.abierto !== false };
@@ -1839,6 +1859,16 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     if (ctx.enPopup || (!(Number.isSafeInteger(id) && id > 0) && !propuesta)) return null;
     if (Number.isSafeInteger(id) && id > 0) tipoEspecial.experimento = { id, propuesta: null };
     else if (propuesta) tipoEspecial.experimento = { id: null, propuesta };
+  } else if (info.id === 'diseno') {
+    // Un bloque (una tarjeta de un diseño) vive en una hoja, y uno que no dice de qué diseño y qué tarjeta no dibuja nada. Las
+    // piezas se podan contra los componentes que existen en `sanearHoja` (acá no se sabe cuáles hay).
+    const d = esObj(o.diseno) ? o.diseno : null;
+    const id = d ? DISENOS_HOJA.find((x) => x === d.id) : undefined;
+    const parte = d && typeof d.parte === 'string' && PIEZA_DISENO.test(d.parte) ? d.parte : '';
+    if (ctx.enPopup || !id || !parte) return null;
+    const piezas: Record<string, string> = {};
+    if (d && esObj(d.piezas)) for (const [k, v] of Object.entries(d.piezas).slice(0, 30)) { const i = idValido(v); if (PIEZA_DISENO.test(k) && i) piezas[k] = i; }
+    tipoEspecial.diseno = { id, parte, piezas };
   } else if (info.id === 'general') {
     // Un bloque de General vive en una hoja (en un pop-up no hay General que dibujar), y uno que no dice cuál, no dibuja nada.
     const pieza = esObj(o.general) ? o.general.pieza : null;
@@ -1937,6 +1967,16 @@ function idsUnicosEnPopups(componentes: readonly Componente[]): void {
   }
 }
 
+/** Un bloque (una tarjeta de un diseño) lee sólo de componentes que existen: la pieza de uno que se borró se va. */
+function podarPiezasDeBloques(componentes: Componente[]): void {
+  const ids = new Set(componentes.map((c) => c.id));
+  for (const c of componentes) {
+    if (c.clase !== 'elemento' || c.tipo !== 'diseno' || !c.diseno) continue;
+    const piezas = Object.fromEntries(Object.entries(c.diseno.piezas).filter(([, v]) => ids.has(v)));
+    if (Object.keys(piezas).length !== Object.keys(c.diseno.piezas).length) c.diseno = { ...c.diseno, piezas };
+  }
+}
+
 export function sanearHoja(raw: unknown, i: number): Hoja | null {
   if (!raw || typeof raw !== 'object') return null;
   // v5: los BLOQUES de antes se convierten en sus piezas ANTES de sanear (lib/graficos-migrar-v5.ts). Una hoja
@@ -1966,9 +2006,19 @@ export function sanearHoja(raw: unknown, i: number): Hoja | null {
   const controles = sanearControles([...(Array.isArray(o.controles) ? o.controles : []), ...viejos]);
   const nombre = typeof o.nombre === 'string' && o.nombre.trim() ? o.nombre.trim().slice(0, 40) : `Página ${i + 1}`;
   const plantilla = idValido(o.plantilla);
-  const conectores = sanearConectores(o.conectores, new Set(componentes.map((c) => c.id)));
-  const diseno = sanearDiseno(o.diseno, new Set(componentes.map((c) => c.id)));
   const id = idValido(o.id) ?? nuevoId();
+  let diseno = sanearDiseno(o.diseno, new Set(componentes.map((c) => c.id)));
+  // 6/11/2026: una hoja con su diseño ENTERO pasa a BLOQUES al leerse (lib/disenos-partes.ts): arriba una tarjeta por bloque,
+  // abajo, plegado, todo lo que tenía. Nada se borra, y lo que se dibuja sale de las mismas piezas.
+  if (diseno && diseno.v !== 2) {
+    const migrada = conBloquesDeDiseno(id, componentes, diseno, MAX_COMPONENTES);
+    // Pasan otra vez por el saneo: así quedan con la forma de siempre (el orden de sus campos), y una hoja leída dos veces es
+    // IGUAL a sí misma (la API compara para decir «ya está así»).
+    if (migrada) { componentes.splice(0, componentes.length, ...migrada.map((c) => sanearComponente(c, {}) ?? c)); diseno = { ...diseno, v: 2 }; }
+  }
+  podarPiezasDeBloques(componentes);
+  const entrada = sanearEntrada(o.entrada);
+  const conectores = sanearConectores(o.conectores, new Set(componentes.map((c) => c.id)));
   return {
     id, nombre,
     emoji: emojiValido(o.emoji), subtitulo: texto(o.subtitulo, 140),
@@ -1976,6 +2026,7 @@ export function sanearHoja(raw: unknown, i: number): Hoja | null {
     ...(plantilla ? { plantilla } : {}),
     ...(conectores.length ? { conectores } : {}),
     ...(diseno ? { diseno } : {}),
+    ...(entrada ? { entrada } : {}),
   };
 }
 

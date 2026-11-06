@@ -13,6 +13,10 @@
 // ⚠️ LA LETRA ES GEIST, Y EN MaKo «Geist» ES URBANIST (app/globals.css): por eso acá se declara «Kestrel Geist», con los archivos
 //    de Google. Cargar la hoja de Google de Geist le cambiaría la letra a TODA la app mientras el Dashboard está abierto.
 // ⚠️ ESTA HOJA ES SÓLO DE MARKETING: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): claro por defecto (el de Kestrel) y, con
+//    data-tema="oscuro" en <html>, la regla que viene justo después de la raíz redefine las MISMAS variables. Sólo CSS: cambia
+//    en vivo. El oscuro es nuestro (no se midió en Kestrel).
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y DESPUÉS del medio: dos @container que se
 //    pisan los decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
@@ -34,7 +38,20 @@ export const CSS_MARKETING = `
   --ease: cubic-bezier(.22, 1, .36, 1); --t-fast: .18s; --t-med: .32s;
    --gap: 16px; --pad: 20px;
   --focus: 0 0 0 2px #fbfcfd, 0 0 0 4px #1d62de;
+  --av-bg: #e7d6c6; --av-t: #5b3a20;
   background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+/* En oscuro las superficies SUBEN de luminosidad al elevarse (página < tarjeta < pozo), las líneas son colores opacos a dos
+   pasos del fondo y las series suben de luz sin cambiar de tono. brand-soft se vuelve a mezclar con la tarjeta de ahora. */
+.kt:where([data-tema="oscuro"] *) {
+  --page: #0c0f14; --panel: #12161d; --card: #161b23; --well: #1c222c; --well-2: #262d39; --hair: #262d38; --hair-strong: #384151;
+  --ink: #ededee; --muted: #a8b0be; --faint: #8c95a5; --brand: #4f86ee; --brand-ink: #9dbbf7; --on-brand: #fff;
+  --brand-soft: color-mix(in oklab, var(--brand) 16%, var(--card)); --brand-soft-2: color-mix(in oklab, var(--brand) 28%, var(--card));
+  --s1: #5b8ef0; --s2: #e0a447; --s3: #e4688a; --other: #6d7789;
+  --good: #4fc487; --good-bg: #12301f; --warn: #e3a547; --warn-bg: #3a2c10; --bad: #ee7c72; --bad-bg: #3e1c1a;
+  --shadow: 0 1px 2px #0008, 0 12px 32px -16px #000a; --shadow-lg: 0 2px 4px #0008, 0 24px 60px -20px #000c;
+  --focus: 0 0 0 2px #161b23, 0 0 0 4px #5b8ef0;
+  --av-bg: #43342a; --av-t: #ecd3bd;
 }
 .kt *, .kt *::before, .kt *::after { box-sizing: border-box; }
 .kt svg.kt-i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -104,7 +121,7 @@ export const CSS_MARKETING = `
 .kt .kt-chart .kt-ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .kt .kt-chart .kt-end { font: 600 12px var(--font); fill: var(--ink); }
 .kt .kt-chart .kt-cross { stroke: var(--hair-strong); stroke-dasharray: 3 3; }
-.kt .kt-chart__tip { position: absolute; pointer-events: none; min-width: 150px; padding: 10px 12px; border-radius: 12px; background: var(--ink); color: #fbfcfd; box-shadow: var(--shadow-lg); font-size: 12px; line-height: 18px; transform: translate(-50%, calc(-100% - 12px)); transition: opacity var(--t-fast); }
+.kt .kt-chart__tip { position: absolute; pointer-events: none; min-width: 150px; padding: 10px 12px; border-radius: 12px; background: var(--ink); color: var(--card); box-shadow: var(--shadow-lg); font-size: 12px; line-height: 18px; transform: translate(-50%, calc(-100% - 12px)); transition: opacity var(--t-fast); }
 .kt .kt-chart__tip[hidden] { display: block; opacity: 0; }
 .kt .kt-chart__tip b { display: block; font-weight: 600; margin-bottom: 4px; }
 .kt .kt-chart__tip-row { display: flex; align-items: center; gap: 8px; }
@@ -141,7 +158,7 @@ export const CSS_MARKETING = `
 .kt .kt-lead__mail { color: var(--muted); }
 .kt .kt-lead__acc { text-align: right; width: 90px; }
 .kt .kt-lead__acc > span { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
-.kt .kt-lead__acc .kt-av { width: 26px; height: 26px; border-radius: 50%; font-size: 10px; font-weight: 600; display: grid; place-items: center; background: #e7d6c6; color: #5b3a20; box-shadow: 0 0 0 2px var(--card); }
+.kt .kt-lead__acc .kt-av { width: 26px; height: 26px; border-radius: 50%; font-size: 10px; font-weight: 600; display: grid; place-items: center; background: var(--av-bg); color: var(--av-t); box-shadow: 0 0 0 2px var(--card); }
 .kt .kt-lead__acc .kt-avs { display: inline-flex; }
 .kt .kt-lead__acc .kt-av + .kt-av { margin-left: -10px; }
 .kt .kt-lead__chev { transition: transform var(--t-med) var(--ease); }

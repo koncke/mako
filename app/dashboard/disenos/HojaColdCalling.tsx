@@ -23,6 +23,7 @@ import { createContext, useContext, useLayoutEffect, useRef, useState, type Keyb
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
+import { Parte } from './parte';
 import { Modal } from '@/app/_ui/Modal';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { entero, enElPeriodo } from '@/lib/marketing-diseno';
@@ -113,10 +114,10 @@ function Grafico({ filas, metrica }: { filas: DiaCold[]; metrica: Metrica }) {
   return (
     <div className="cv-chart" ref={ref}>
       <svg viewBox={`0 0 ${w} ${H}`} role="img" aria-label={`${METRICAS.find((m) => m.id === metrica)?.nombre}, día por día`}>
-        <defs><linearGradient id="cv-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#b0521f" stopOpacity=".24" /><stop offset="1" stopColor="#b0521f" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id="cv-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--accent)" stopOpacity=".24" /><stop offset="1" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
         {[0, 1, 2, 3, 4].map((k) => { const y = y0 + ((y1 - y0) * k) / 4; return <g key={k}><line className="cv-grid" x1={x0} x2={x1} y1={y} y2={y} /><text x={x0 - 11} y={y + 4} textAnchor="end">{entero(tope - paso * k)}</text></g>; })}
         <path d={`${d}L${x1},${y1}L${x0},${y1}Z`} fill="url(#cv-area)" />
-        <path d={d} fill="none" stroke="#b0521f" strokeWidth="2.2" strokeLinecap="round" />
+        <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" />
         {filas.map((f, i) => {
           const ult = i === filas.length - 1;
           if (!ult && (i % cada !== 0 || filas.length - 1 - i < cada / 2)) return null;
@@ -195,6 +196,7 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
     <div className="cv" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-cold-calling" precedence="medium">{CSS_COLD_CALLING}</style>
       <div className="cv-cuerpo">
+      <Parte id="cabecera">
       <div className="cv-head">
         <div>
           <p className="cv-head__eyebrow">{fechaLarga(hoy)} · {periodo}</p>
@@ -206,17 +208,21 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
           {botonGrabar}
         </div>
       </div>
+      </Parte>
 
       {v.vacia ? (
-        <section className="cv-card cv-c-vacia">
+        <Parte id="vacia">
+      <section className="cv-card cv-c-vacia">
           <h2 className="cv-card__t">Todavía no grabaste llamadas en este período</h2>
           <p className="cv-vacio">Toca «Grabar llamada», elige el lead y graba: aquí ves cuántas contestan, cuántas agendan y quién llama más.</p>
         </section>
+      </Parte>
       ) : (
       <>
       <div className="cv-r1">
         {/* «Captured today» → las llamadas */}
-        <section className="cv-card cv-ov__hero">
+        <Parte id="llamadas">
+      <section className="cv-card cv-ov__hero">
           <div className="cv-hero__head">
             <div>
               <h2 className="cv-card__t">Llamadas</h2>
@@ -239,9 +245,11 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
           {v.dias ? <Grafico filas={dias} metrica={metrica} /> : <div className="cv-chart">{sinDatos(v.dias)}</div>}
           <p className="cv-hero__foot">{v.llamadas != null ? `${plural(v.llamadas, 'llamada grabada', 'llamadas grabadas')} ${enElPeriodo(periodo)}` : ''}</p>
         </section>
+      </Parte>
 
         {/* «Needs you» → lo que sigue */}
-        <section className="cv-card cv-ov__needs">
+        <Parte id="siguen">
+      <section className="cv-card cv-ov__needs">
           <div className="cv-card__h"><h2 className="cv-card__t">Lo que sigue</h2>{v.terminan && <span className="cv-card__aside">de {plural(v.terminan.total, 'llamada', 'llamadas')}</span>}</div>
           {v.pendientes.length ? (
             <div className="cv-needs">
@@ -255,9 +263,11 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
             </div>
           ) : sinDatos(v.terminan)}
         </section>
+      </Parte>
       </div>
 
       {/* Los cuatro números */}
+      <Parte id="numeros">
       <div className="cv-r2">
         {v.numeros.map((n) => (
           <article key={n.id} className={`cv-kpi cv-kpi--${n.tono}`}>
@@ -267,10 +277,12 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
           </article>
         ))}
       </div>
+      </Parte>
 
       <div className="cv-r3">
         {/* «Live payments» → a quién llamaste */}
-        <section className="cv-card cv-ov__feed">
+        <Parte id="llamados">
+      <section className="cv-card cv-ov__feed">
           <div className="cv-card__h"><span className="cv-dot" /><h2 className="cv-card__t">A quién llamaste</h2>{v.llamados && <span className="cv-card__aside">{plural(v.llamados.total, 'lead', 'leads')}</span>}</div>
           {v.llamados && v.llamados.filas.length ? (
             <ul className="cv-feed">
@@ -285,9 +297,11 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
           ) : v.cargando && v.llamados == null ? null : <Vacio>Todavía no llamaste a nadie en este período.</Vacio>}
           <Ir href="/crm" className="cv-feed__more">Abrir el CRM <Icono id="flecha" /></Ir>
         </section>
+      </Parte>
 
         {/* «Top merchants» → quién llamó */}
-        <section className="cv-card cv-ov__tm">
+        <Parte id="quien">
+      <section className="cv-card cv-ov__tm">
           <div className="cv-card__h">
             <h2 className="cv-card__t">Quién llamó</h2>
             <span className="cv-card__h-seg"><Selector opciones={[{ id: 'llamadas', nombre: 'Llamadas' }, { id: 'agendaron', nombre: 'Agendaron' }] as const} valor={porQuien} onCambio={setPorQuien} etiqueta="Ordenar por" /></span>
@@ -303,9 +317,11 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
             </ul>
           ) : sinDatos(v.quien)}
         </section>
+      </Parte>
 
         {/* «Merchant money» → cómo terminan */}
-        <section className="cv-card cv-ov__money">
+        <Parte id="terminan">
+      <section className="cv-card cv-ov__money">
           <div className="cv-card__h"><h2 className="cv-card__t">Cómo terminan</h2><Ir href="/crm" className="cv-link cv-card__link">En el CRM</Ir></div>
           {v.terminan && v.terminan.filas.length ? (
             <>
@@ -325,6 +341,7 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
             </>
           ) : sinDatos(v.terminan)}
         </section>
+      </Parte>
       </div>
       </>
       )}

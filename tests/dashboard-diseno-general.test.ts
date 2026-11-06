@@ -22,6 +22,7 @@ import { cambio, diaDeLlamada, escalaGeneral, etapasDelFunnel, faltaParaLlamada,
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -206,9 +207,8 @@ test('cableado: la plantilla General trae su diseño con sus dos piezas, y el ed
   assert.deepEqual(meses?.metricas, ['cobrado', 'gasto'], 'la pieza de los meses trae lo cobrado y la inversión');
   assert.equal(meses?.dimension, 'mes');
   assert.equal(deben?.dimension, 'atraso', 'lo que te deben, por tramo de atraso (como Cobranza)');
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'general' && general?.datos && !enGrilla && !editando && !dueno"), 'el editor dibuja la General con su diseño sólo mirando');
-  assert.ok(editor.includes('<GeneralVivo hoja={hoja} hoy={hoy} datos={datos}'), 'con los datos de sus piezas');
+  cableadoDelDiseno(h, 'general', 'GeneralVivo', ['conGeneral ?', 'datos={datos}']);
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /<BloqueDeDiseno[\s\S]{0,600}conGeneral=\{!!general\?\.datos\}/, 'sólo con los datos de General');
 });
 
 // Probado rompiéndolo (4/11/2026), cada rotura sola y la base en verde antes:

@@ -24,6 +24,7 @@ import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { entero, plata, plataEntera, type FilaCosto, type Pestana, type Tendencias, type VistaMarketing } from '@/lib/marketing-diseno';
 import { CSS_MARKETING } from './marketing-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -155,7 +156,7 @@ function Tendencia({ t, quieta, demora }: { t: Tendencias; quieta: boolean; demo
           {i != null && (
             <g>
               <line className="kt-cross" x1={x(i)} x2={x(i)} y1={arriba} y2={abajo} />
-              {t.series.map((s) => (s.pct[i] == null ? null : <circle key={s.id} cx={x(i)} cy={y(s.pct[i]!)} r={4} fill={COLOR[s.color]} stroke="#fbfcfd" strokeWidth={2} />))}
+              {t.series.map((s) => (s.pct[i] == null ? null : <circle key={s.id} cx={x(i)} cy={y(s.pct[i]!)} r={4} fill={COLOR[s.color]} style={{ stroke: 'var(--card)' }} strokeWidth={2} />))}
             </g>
           )}
           {!quieta && <rect x={izq} y={0} width={der - izq} height={h} fill="transparent" onPointerMove={mover} onPointerLeave={() => setI(null)} />}
@@ -199,7 +200,7 @@ const CHIP: Record<NonNullable<FilaCosto['veredicto']>, { tono: string; icono: k
   barata: { tono: 'good', icono: 'check' }, media: { tono: 'warn', icono: 'dash' }, cara: { tono: 'bad', icono: 'warn' }, 'sin-agendas': { tono: 'bad', icono: 'warn' },
 };
 
-export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, onFila, compartido = false, quieta = false }: {
+export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, onPeriodo, onFila, compartido = false, quieta = false }: {
   hoja: Hoja;
   vista: VistaMarketing;
   /** «Buenos días, Ana» (quién mira); sin nombre, el de la hoja. */
@@ -209,6 +210,8 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
   /** El nombre del período elegido («Últimos 30 días»): el de la barra de controles de la hoja. */
   periodo: string;
   onGrilla?: () => void;
+  /** Tocar el período abre el de la hoja (el «Filtro» de arriba). Sin esto, el período se lee y no se toca. */
+  onPeriodo?: () => void;
   /** Abrir una fila de una pieza: su detalle de siempre, como al tocarla en la grilla. */
   onFila?: (g: Grafico, clave: string) => void;
   compartido?: boolean;
@@ -296,19 +299,22 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
       <div className="kt-pagina">
         <div className="kt-page">
           {/* LA CABECERA: el saludo, la fecha en lugar del «Live» (los datos de Meta no son en tiempo real) y la frase. */}
+          <Parte id="cabecera">
           <div className="kt-pagehead">
             <div>
               <div className="kt-pagehead__row"><h1 className="kt-pagehead__title">{titulo}</h1>{fecha && <span className="kt-pagehead__fecha">{fecha.charAt(0).toUpperCase() + fecha.slice(1)}</span>}</div>
               {frase.length > 0 && <p className="kt-pagehead__sub">{frase.map((t, i) => (t.tipo === 'fuerte' ? <b key={i}>{t.s}</b> : <span key={i}>{t.s}</span>))}</p>}
             </div>
             <span className="kt-pagehead__acts">
-              <span className="kt-pill kt-pill--range kt-pill--quieta"><Icono id="cal" />{periodo}</span>
+              {onPeriodo && !quieta ? <button type="button" className="kt-pill kt-pill--range" onClick={onPeriodo} title="Cambiar el período"><Icono id="cal" />{periodo}</button> : <span className="kt-pill kt-pill--range kt-pill--quieta"><Icono id="cal" />{periodo}</span>}
               {onGrilla && <button type="button" className="kt-pill kt-pill--range" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button>}
             </span>
           </div>
+          </Parte>
 
           <div className="kt-col">
             {/* LOS SEIS NÚMEROS de Kestrel, con su cambio contra el período anterior. */}
+            <Parte id="kpis">
             <section className="kt-card kt-kpis" aria-label="Los números de la pauta">
               {numeros.map((x) => (
                 <div key={x.id} className="kt-kpi">
@@ -322,8 +328,10 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 </div>
               ))}
             </section>
+            </Parte>
 
             {/* TRENDS: cómo se movieron el gasto, los leads y las agendas contra la primera semana. */}
+            <Parte id="tendencias">
             <section className="kt-card kt-trends">
               <div className="kt-card__h">
                 <h2 className="kt-card__t">Tendencias</h2>
@@ -355,8 +363,10 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 <div className="kt-vacio">{fallos.tendencias ?? (tendencias?.sinBase.length ? 'La primera semana no tuvo pauta: no hay contra qué comparar.' : 'Todavía no hay pauta en este período.')}</div>
               )}
             </section>
+            </Parte>
 
             {/* LA TABLA CON PESTAÑAS («Lead quality» de Kestrel): por anuncio, por campaña y día por día, con el costo marcado. */}
+            <Parte id="tabla">
             <section className="kt-card kt-leads">
               <div className="kt-tabs">
                 <div className="kt-tabs__list" role="tablist" ref={lista}>
@@ -387,10 +397,12 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 </tbody>
               </table>
             </section>
+            </Parte>
           </div>
 
           <div className="kt-col">
             {/* EL BLOQUE DE INSTAGRAM: lo que trae la pauta, del anuncio a la agenda, y los anuncios que más agendas trajeron. */}
+            <Parte id="pauta">
             <section className="kt-card kt-social">
               <div className="kt-card__h">
                 <h2 className="kt-card__t"><Icono id="ads" />Lo que trae la pauta</h2>
@@ -442,8 +454,10 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 </>
               ) : <div className="kt-vacio">{fallos.embudo ?? 'Todavía no hay pauta en este período.'}</div>}
             </section>
+            </Parte>
 
             {/* EL BLOQUE DE X.COM: qué red trae agendas, en vivo de Meta. */}
+            <Parte id="redes">
             <section className="kt-card kt-social">
               <div className="kt-card__h">
                 <h2 className="kt-card__t"><Icono id="net" />Qué red trae agendas</h2>
@@ -461,6 +475,7 @@ export function HojaMarketing({ hoja, vista, titulo, fecha, periodo, onGrilla, o
                 </>
               ) : <div className="kt-vacio">{fallos.redes ?? 'Meta no devolvió las redes de este período.'}</div>}
             </section>
+            </Parte>
           </div>
         </div>
       </div>

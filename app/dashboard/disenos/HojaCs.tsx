@@ -27,6 +27,7 @@ import { entero } from '@/lib/marketing-diseno';
 import { plata } from '@/lib/cobranza-diseno';
 import { RUTA_CLIENTES } from '@/lib/clients-rutas';
 import { CSS_CS } from './cs-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -211,14 +212,17 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
       <style href="dash-hoja-cs" precedence="medium">{CSS_CS}</style>
       <div className="mnd-pagina">
         {/* LA CABECERA: el saludo (en lugar de «Cases overview») y la frase de la cartera. */}
+        <Parte id="cabecera">
         <div className="mnd-head">
           <h1 className="mnd-page-t">{titulo}</h1>
           {frase.length > 0 && <p className="mnd-lede">{frase.map((t, i) => (t.tipo === 'fuerte' ? <b key={i} className="mnd-num">{t.s}</b> : <span key={i}>{t.s}</span>))}</p>}
           {problemas.frase && <p className="mnd-lede">{problemas.frase}</p>}
         </div>
+        </Parte>
 
         {/* TU CARTERA POR ETAPA («Case pipeline»): un carril por etapa de la entrega; las pestañas filtran. En lugar de «New case» y
             «Export», los clientes y la grilla. */}
+        <Parte id="cartera">
         <div className="mnd-panel mnd-panel--board">
           <div className="mnd-board-head">
             <h2 className="mnd-panel-t">Tu cartera por etapa</h2>
@@ -246,9 +250,11 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
           )}
           {cartera.fuera > 0 && !problemas.cartera && <p className="mnd-nota">Se ven los primeros 50 clientes. <Ir href={RUTA_CLIENTES}>Ver los {entero(cartera.fuera)} que faltan</Ir></p>}
         </div>
+        </Parte>
 
         <div className="mnd-row2">
           {/* POR QUÉ PIDEN ATENCIÓN («Top case drivers»): el anillo de los motivos de la señal, o de la señal de toda la cartera. */}
+          <Parte id="motivos">
           <section className="mnd-panel mnd-panel--drivers">
             <div className="mnd-p-head">
               <div>
@@ -284,8 +290,10 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
               </div>
             )}
           </section>
+          </Parte>
 
           {/* CÓMO ESTÁ TU CARTERA («Case health»): tres medidores en lugar de la primera respuesta, la satisfacción y el SLA. */}
+          <Parte id="salud">
           <section className="mnd-panel mnd-panel--metrics">
             <div className="mnd-p-head"><div><h2 className="mnd-panel-t">Cómo está tu cartera</h2><p className="mnd-panel-s">Hoy, en toda tu cartera</p></div></div>
             {problemas.medidores ? <Vacio titulo={problemas.medidores} /> : (
@@ -309,6 +317,7 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
               </div>
             )}
           </section>
+          </Parte>
         </div>
       </div>
     </div>

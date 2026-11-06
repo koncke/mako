@@ -111,6 +111,7 @@ import { cuadranteDe, metricasProductividad } from '../lib/productividad-metrica
 import { marcasDeVoseo } from '../lib/puestas-data';
 import type { ScriptView } from '../lib/ads-analyst';
 import type { BoardTask, Label } from '../app/plan/board/types';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 const RAIZ = join(__dirname, '..');
 const leer = (ruta: string) => readFileSync(join(RAIZ, ruta), 'utf8').replace(/\r\n/g, '\n');
@@ -129,8 +130,11 @@ test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes
   assert.deepEqual(PLANTILLAS_ANALYSTS.map((p) => p.id), IDS_ANALYSTS);
   for (const p of PLANTILLAS_ANALYSTS) {
     const crudo = p.armar((l) => l) as { id: string; controles: Crudo[]; componentes: Crudo[] };
-    const h = sanearHoja(crudo, 0)!;
-    assert.ok(h, `${p.id}: no es una hoja`);
+    const saneada = sanearHoja(crudo, 0)!;
+    assert.ok(saneada, `${p.id}: no es una hoja`);
+    // Una hoja con diseño copiado pasa a BLOQUES al sanearse (6/11/2026, lib/disenos-partes.ts): lo que se compara con lo escrito
+    // son sus piezas de antes, en sus filas de antes.
+    const h = { ...saneada, componentes: sinBloquesDeDiseno(saneada.componentes) };
     assert.equal(h.id, crudo.id, `${p.id}: el id fijo no pasó el saneo (lo usa el redirect ?hoja=)`);
     assert.equal(h.controles.length, crudo.controles.length, `${p.id}: se perdió un control de la barra`);
     assert.equal(h.componentes.length, crudo.componentes.length, `${p.id}: se perdió un componente`);

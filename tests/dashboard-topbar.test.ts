@@ -329,7 +329,10 @@ test('la barra de inserción: cada tipo del catálogo en UN lugar, en el orden d
   // la tab General (app/dashboard/EditorInforme.tsx, `esGeneral`). En el Dashboard no hay de dónde sacar lo que dibuja.
   // Tampoco el Experimento (17/10/2026): nace de «probemos X» en «Editar con MaKo» con su propuesta; uno insertado a mano
   // no tendría qué medir (lib/experimentos-catalogo.ts).
-  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).filter((t) => t !== 'general' && t !== 'experimento').sort(), 'un tipo del catálogo sin lugar en la barra');
+  // Ni el Bloque de un diseño (6/11/2026): tiene su botón propio, «Bloques», con las tarjetas de cada diseño copiado
+  // (app/dashboard/disenos/BibliotecaBloques.tsx), y un bloque suelto sin su tarjeta no dibujaría nada.
+  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).filter((t) => t !== 'general' && t !== 'experimento' && t !== 'diseno').sort(), 'un tipo del catálogo sin lugar en la barra');
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /onClick=\{abrirMenu\('piezas'\)\}>\s*<IconoElemento tipo="diseno" size=\{19\} \/> Bloques <SvgFlecha \/>/, 'el botón «Bloques» de la barra');
   for (const [t, ls] of lugaresDe) assert.equal(ls.length, 1, `«${t}» está en ${ls.length} lugares`);
   const pos = (t: string) => lugaresDe.get(t)![0];
   const orden = ['insertado', 'imagen', 'texto', 'linea', 'seccion', 'ia'].map(pos);

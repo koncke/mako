@@ -22,6 +22,7 @@ import { escalaOperacion } from '../app/dashboard/disenos/HojaOperacion';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -160,9 +161,7 @@ test('cableado: la plantilla «Operación diaria» trae su diseño con sus seis 
   assert.deepEqual(pieza('meses')?.metricas, ['cobrado', 'agendas', 'cierres']);
   assert.equal(pieza('deben')?.dimension, 'atraso');
   for (const k of ['agendas', 'pendiente', 'cierres', 'cobrado']) assert.deepEqual(pieza(k)?.metricas, [k], `el número ${k}`);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'operacion' && general?.datos && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<OperacionVivo hoja={hoja} hoy={hoy} datos={datos}'));
+  cableadoDelDiseno(h, 'operacion', 'OperacionVivo', ['conGeneral ?', 'datos={datos}']);
 });
 
 // Probado rompiéndolo (4/11/2026), cada rotura sola y la base en verde antes (6 de 6, cada una 1 fallo y 9 pases):

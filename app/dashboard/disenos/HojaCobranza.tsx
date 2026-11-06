@@ -32,6 +32,7 @@ import {
 } from '@/lib/cobranza-diseno';
 import type { QuienMira } from './HojaClosing';
 import { CSS_COBRANZA } from './cobranza-css';
+import { Parte } from './parte';
 
 export type ExtrasCobranza = { quien: QuienMira | null };
 
@@ -276,6 +277,7 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
       {/* La letra de Coffer (Manrope), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" precedence="default" />
       <div className="cbz-vista">
+        <Parte id="cabecera">
         <div className="cbz-head">
           <div>
             {quien?.nombre && <p className="cbz-hello">{quien.saludo}, {quien.nombre}</p>}
@@ -287,9 +289,11 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
             {onGrilla && <button type="button" className="cbz-btn cbz-btn--primary" onClick={onGrilla}><Icono id="grid" />Ver todo en la grilla</button>}
           </div>
         </div>
+        </Parte>
 
         <section className="cbz-fila cbz-fila--top">
           {/* TE DEBEN (era «Owed to you»): todo lo pendiente hoy, lo vencido y la barra por días de atraso. */}
+          <Parte id="deben">
           <article className="cbz-card cbz-owed" data-card>
             <div className="cbz-owed__top">
               <div>
@@ -328,6 +332,8 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </>
             ) : <p className="cbz-vacio">Cuando cargues los planes de pago de tus clientes, aquí ves lo que te deben.</p>}
           </article>
+          </Parte>
+          <Parte id="kpis">
           <div className="cbz-kpis">
             {kpis.map((k) => (
               <article key={k.t} className="cbz-card cbz-kpi" data-card>
@@ -337,10 +343,12 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </article>
             ))}
           </div>
+          </Parte>
         </section>
 
         <section className="cbz-fila cbz-fila--mid">
           {/* LO QUE VENCÍA CADA MES (era «Cash flow»): de lo que vencía, lo que entró arriba y lo que sigue sin pagar abajo. */}
+          <Parte id="meses">
           <article className="cbz-card cbz-flow" data-card>
             <div className="cbz-card__h">
               <div>
@@ -354,8 +362,10 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               ? <Flujo meses={meses} etiqueta="Lo que vencía cada mes" />
               : <p className="cbz-vacio">Todavía no hay cuotas en estos meses.</p>}
           </article>
+          </Parte>
 
           {/* A QUIÉN PERSEGUIR (era «Due soon»): el más atrasado arriba; «Ver cuota» abre su detalle, con «Marcar cobrada». */}
+          <Parte id="perseguir">
           <article className="cbz-card" data-card>
             <div className="cbz-card__h"><h2 className="cbz-card__t">A quién perseguir</h2>{onGrilla && <button type="button" className="cbz-link" onClick={onGrilla}>Ver todas</button>}</div>
             {v.perseguir.length ? (
@@ -378,10 +388,12 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </ul>
             ) : <p className="cbz-vacio">Nadie te debe una cuota ahora.</p>}
           </article>
+          </Parte>
         </section>
 
         <section className="cbz-fila cbz-fila--bot">
           {/* LO ÚLTIMO QUE ENTRÓ (era «Latest»): cada cuota cobrada en los últimos 30 días, la más nueva arriba. */}
+          <Parte id="ultimos">
           <article className="cbz-card" data-card>
             <h2 className="cbz-card__t">Lo último que entró</h2>
             {v.ultimos.length ? (
@@ -401,8 +413,10 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </ul>
             ) : <p className="cbz-vacio">No entró ninguna cuota en los últimos 30 días.</p>}
           </article>
+          </Parte>
 
           {/* LOS QUE MÁS PAGARON (era «Top clients»): los últimos 12 meses. */}
+          <Parte id="pagaron">
           <article className="cbz-card" data-card>
             <div className="cbz-card__h"><h2 className="cbz-card__t">Los que más pagaron</h2><span className="cbz-meta">Últimos 12 meses</span></div>
             {v.pagaron.length ? (
@@ -419,8 +433,10 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </ul>
             ) : <p className="cbz-vacio">Nadie pagó una cuota en los últimos 12 meses.</p>}
           </article>
+          </Parte>
 
           {/* PENDIENTE POR FUNNEL (era «Spending»): en qué oferta está la plata que falta, con el anillo. */}
+          <Parte id="funnel">
           <article className="cbz-card" data-card>
             <div className="cbz-card__h"><h2 className="cbz-card__t">Pendiente por funnel</h2><span className="cbz-meta">{periodo}</span></div>
             {funnel && funnel.filas.length ? (
@@ -442,6 +458,7 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               </div>
             ) : <p className="cbz-vacio">No hay nada pendiente en este período.</p>}
           </article>
+          </Parte>
         </section>
       </div>
     </div>

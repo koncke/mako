@@ -1,5 +1,74 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## 📬 Para el Cerebro (6/11/2026, noche): la EDICIÓN, en `punta/dashboards-edicion`
+
+Martín, 6/11: «Los dashboard puede que estén, pero se rompen todos en la vista de EDICIÓN y hay algunos que los botones no son funcionales.
+Haz que todo sea funcional y editable… Y los que vienen en dark mode, deben acompañar siempre el white mode… armes un dashboard especial
+para [Código Inmobiliario]… todos los bloques nuevos se conviertan en bloques utilizables… las animaciones de entrada sean configurables en
+"Personalización"».
+
+**Qué quedó hecho (todo con tests; las capturas, abajo, por qué faltan):**
+
+1. **La causa de «se rompen en edición» era UNA:** una hoja copiada tenía dos caras, el diseño mirando y la grilla genérica editando
+   (otra cosa, con otras piezas). Ahora **cada tarjeta de un diseño es un BLOQUE de la grilla** (`Elemento.tipo: 'diseno'`,
+   `lib/disenos-partes.ts`, `app/dashboard/disenos/BloqueDeDiseno.tsx`) que se dibuja con el MISMO componente del diseño
+   (`DisenoVivo.tsx`, un despachador en lugar de 22 ramas del editor): mirando y editando se ve igual, y cada tarjeta se elige, se mueve,
+   se agranda, se duplica y se borra como cualquier pieza. Las 204 tarjetas de los 22 diseños están en el catálogo, cada una marcada en su
+   archivo con `<Parte id>` (`parte.tsx`); un test cruza las dos listas.
+2. **Las hojas guardadas no se rompen:** el saneo las pasa a bloques al leerse (`conBloquesDeDiseno`, `diseno.v = 2`): arriba las
+   tarjetas, abajo, plegadas en «Todas las piezas», TODAS sus piezas de antes con los mismos ids (de ahí leen los bloques; se piden aunque
+   estén plegadas). Nada se borra. La que no entra (más de 60 piezas) sigue con su diseño entero, como antes.
+3. **Configurable:** el panel de un bloque dice de qué piezas lee («Lee de») y cada una se abre para cambiar qué mide.
+4. **Biblioteca «Bloques»** (botón de la barra de edición, en el Dashboard y en General): los diseños del informe y sus tarjetas con su
+   vista previa de verdad; elegir una la pone en la hoja con sólo las piezas que lee (`insertarBloque`). En General, el primer grupo son
+   los «Bloques de General» de antes (el botón viejo se fue).
+5. **Botones:** los «Ver la grilla» y «Ver todas» de las tarjetas no se dibujan en bloques (la hoja YA es la grilla); la pastilla del
+   período de Marketing, Chat y Landing, que parecía un botón y no hacía nada, ahora abre el «Filtro» de la hoja. No hay otros botones sin
+   acción (barrido de los 22 `Hoja*.tsx`).
+6. **Claro y oscuro:** los 22 diseños siguen el modo de MaKo, en vivo: su paleta de siempre (clara) y la oscura bajo
+   `[data-tema="oscuro"]`. Los que eran oscuros (Anuncio ganador/Prism, Curso/Vitrea, Focus/Pane) ahora abren claros. Contraste medido en
+   los dos modos (texto ≥ 4,5:1). Lo fija el test 12 de `tests/dashboard-bloques-diseno.test.ts`.
+7. **Animación de entrada en «Personalización»** (el botón se llamaba «Estilo de la hoja»): las 13 medidas de los demos copiados
+   (`lib/graficos-entradas.ts`), con su vista previa al pasar el mouse, «Ver en la hoja», guardada por hoja (`Hoja.entrada`) y nunca con
+   «reducir movimiento». Cada diseño arranca con la suya.
+8. **Código Inmobiliario:** plantilla **«Velocidad de llamada»** en la galería del Dashboard (`VELOCIDAD_LLAMADA`,
+   lib/graficos-plantillas.ts), armada SÓLO con tarjetas copiadas: el título con «Grabar llamada» y las llamadas grabadas (Cold Calling),
+   el «Primer contacto» de Closing (cuánto tardaron y los más lentos) y la tabla de anuncios de Marketing. Período de 30 días. Nombra
+   leads: un closer o un setter no la ven (tienen su hoja única). Base: `docs/dashboards/metodologia-codigo-inmobiliario.md` (en main).
+
+**Tabla de reemplazo de bloques:** ningún bloque de diseño se borró ni se renombró. Lo que «se reemplazó» es el modelo: la hoja con su
+diseño entero pasa a bloques (punto 2). Los **bloques de General viejos (`PIEZAS_GENERAL`) siguen**: no los borré porque los que se
+parecen a una tarjeta nueva tienen opciones que la tarjeta no tiene (cuántas, de qué funnel, «Marcar cobrada»), y borrarlos le saca algo a
+quien los usa. Candidatos, si Martín confirma: Meta objetivo → Focus «La meta»; OKRs → Mi día «Cómo vas con tus OKRs»; Semáforo → Mi día
+«El semáforo»; Próximos deadlines → General «Lo que vence»; Proyectos del Plan → Focus «Proyectos»; Mi día → Mi día «Tu día»; Próximas
+llamadas → General «Próximas llamadas»; El mes → General «Este mes». Sin reemplazo: KPIs, Acción del día, Prioridades del Plan, Pendientes
+del CRM, Tu funnel hoy (elige el funnel), A quién cobrarle («Marcar cobrada»).
+
+**Migraciones:** ninguna (todo vive en el JSON de la hoja).
+
+**Falta el hito en `/admin/dev` (app/admin/dev/dashboard/bitacora.ts):** no lo escribí porque esa carpeta es de Admin, que otro chat está
+rehaciendo (orden del Cerebro). Lo pega quien tenga Admin, con el pedido de Martín textual de arriba y el commit de esta punta.
+
+**Capturas:** `docs/dashboards/edicion/` (Marketing y Mi día editando, 1.440, claro; sacadas antes de los modos claro/oscuro).
+
+**Autocrítica (lo que cambié al revisarlo, y lo que no pude):**
+- La biblioteca mostraba las tarjetas a 1.324 px achicadas a 244: una tarjeta a lo ancho quedaba como una raya. Ahora se dibujan a 960 px.
+- Cada tarjeta de la biblioteca era un `<button>` con la tarjeta de verdad adentro, que trae sus botones: HTML inválido (React lo
+  avisaba). Es un `div role="menuitem"` con teclado, y la vista previa va `inert`.
+- La lista de animaciones empujaba la plantilla, el color y la letra fuera de la vista: va después de la letra, en tres columnas.
+- La tarjeta «Primer contacto» de Closing, editando y sin datos, ocupa su lugar con un recuadro punteado («se ve cuando…»); mirando, no
+  ocupa nada.
+- **NO pude sacar las capturas a 390 px ni las de oscuro**: el servidor de desarrollo (Turbopack) llega a 13 GB y el contenedor lo mata
+  (lo mismo con webpack, que además no compila este repo por `node:crypto`). Las de 1.440 en claro de las 22 hojas, editando, sí salieron
+  (al principio de la tanda, sin errores de consola). **Falta mirar en el navegador:** el modo oscuro de cada diseño (se midió el contraste
+  con un script, no se miró), el celular y la hoja «Velocidad de llamada». Lo hace una sesión local o la próxima ventana.
+- Los diseños copiados traen tonos de serie y semánticos claros bajo 3:1 o 4,5:1 (los listan los agentes: Marketing `good`/`warn`, Closing
+  `amber`, Hooks el dorado, VSL el ocre, Inmobiliaria `good`/`warn`): no los toqué para no alejarme de la copia. Es decisión de Martín.
+
+**Dudas que dejó la metodología (para Martín, no frenan nada):** si «llamar en menos de 60 s» ya es regla para sus clientes, quién llama
+en cada cliente, cómo les reportan hoy y si los clientes ven la hoja o sólo Juanfran y Joan (`docs/dashboards/metodologia-codigo-inmobiliario.md`, «Dudas»).
+
+
 ## 📬 Para el Cerebro (6/11/2026, tarde, chat en la nube)
 
 - **No queda ninguna hoja pendiente.** Las 15 plantillas del Dashboard y las 7 de General traen su diseño propio y se ofrecen en «Nueva

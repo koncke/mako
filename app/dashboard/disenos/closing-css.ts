@@ -8,8 +8,11 @@
 //
 // ⚠️ ESTA HOJA ES SÓLO DE CLOSING. Martín rechazó las 20 hojas porque compartían la cara: otra hoja con diseño escribe
 //    la suya (la de su demo), no reusa ésta.
-// ⚠️ LOS COLORES SON LOS DEL DEMO, EN HEX, A PROPÓSITO: es la copia de una referencia CLARA. No se da vuelta con el modo
-//    oscuro de la app (Halden tiene uno, que no se midió: docs/relevo/nube-dashboards.md).
+// ⚠️ LOS COLORES CLAROS SON LOS DEL DEMO, EN HEX, A PROPÓSITO: es la copia de una referencia CLARA. Paleta DOBLE (6/11/2026,
+//    Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si tiene
+//    dark mode, automáticamente pasarse a allí»): claro por defecto y, con data-tema="oscuro" en <html>, la regla que viene
+//    justo después de la raíz redefine las MISMAS variables. Sólo CSS: cambia en vivo. El oscuro NO es de Halden (no se midió):
+//    es nuestro, con el tono de la casa.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana: el lienzo del Dashboard tiene la
 //    barra de la app al lado.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
@@ -39,6 +42,26 @@ export const CSS_CLOSING = `
   --b2:cubic-bezier(.34,1.56,.64,1);
   --font:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
   --focus:0 0 0 2px #fdfdfc,0 0 0 4px #198591;
+  /* lo que antes estaba escrito en hex dentro de las reglas: ahora son variables para que el oscuro las cambie */
+  --hoy:#0a3338; --you:#2a8089; --rose-t:#9c2f2f; --av-ink:#111a1bc7;
+  --av-1:#f3cdb8; --av-2:#f6e5b9; --av-3:#cfe0f6; --av-4:#d6efd6; --av-5:#f1dcf2;
+  --tn-amber-bg:#fbeedb; --tn-amber:#9a5b0b; --tn-cyan-bg:#ddf0f6; --tn-cyan:#0d6580; --tn-violet-bg:#efe5fb; --tn-violet:#6d36ad;
+  --tn-blue-bg:#e2ebfb; --tn-blue:#1d4fa3; --tn-rose-bg:#fbe5e5; --tn-rose:#b13535; --tn-sky-bg:#e2eaf8; --tn-sky:#2a5698;
+}
+/* En oscuro las superficies SUBEN de luminosidad al elevarse (página < tarjeta < pozo), las líneas son colores opacos a dos
+   pasos del fondo y la tinta es un blanco cálido. La tarjeta oscura del héroe (la tasa) es un acento y queda oscura en los
+   dos modos: sus colores van escritos en la regla, no en variables. :where deja la especificidad igual a la de .hc. */
+.hc:where([data-tema="oscuro"] *){
+  --page:#0b1112; --panel:#1a2324; --card:#141c1d; --hair:#243031; --hair-strong:#33413f;
+  --ink:#ededeb; --muted:#a9b2b1; --faint:#8e9897;
+  --accent:#4fb4bd; --accent-soft:#12383c; --hatch:#7d8a8b; --on-accent:#041a1d;
+  --a-100:#123a3f; --a-800:#7ccdd4;
+  --good:#4fc088; --good-bg:#12301f; --amber:#e3a24a; --amber-bg:#3a2a10; --rose:#f08581; --rose-bg:#3b1b1b;
+  --shadow:0 1px 2px #0008; --focus:0 0 0 2px #141c1d,0 0 0 4px #4fb4bd;
+  --hoy:#e6f6f7; --you:#7ccdd4; --rose-t:#f2a3a0; --av-ink:#f2eeea;
+  --av-1:#5c3b2d; --av-2:#5c4a22; --av-3:#2a4566; --av-4:#2b5a2f; --av-5:#5a3a5c;
+  --tn-amber-bg:#3a2a10; --tn-amber:#e8b062; --tn-cyan-bg:#10343f; --tn-cyan:#6cc6e0; --tn-violet-bg:#2d2141; --tn-violet:#b79cef;
+  --tn-blue-bg:#16294a; --tn-blue:#8fb2f2; --tn-rose-bg:#3b1b1b; --tn-rose:#f09a9a; --tn-sky-bg:#172a45; --tn-sky:#8fb5ee;
 }
 .hc{background:var(--page);color:var(--ink);font:500 14px/1.45 var(--font);-webkit-font-smoothing:antialiased;min-height:100%}
 .hc *{box-sizing:border-box;margin:0;padding:0}
@@ -77,7 +100,7 @@ export const CSS_CLOSING = `
 .hc-chip{height:19px;padding:0 7px;border-radius:7px;display:inline-flex;align-items:center;font-size:11px;font-weight:700;white-space:nowrap}
 .hc-chip--amber{background:var(--amber-bg);color:var(--amber)}
 .hc-chip--grey{background:var(--panel);color:var(--muted);font-size:11.5px}
-.hc-chip--soft{background:var(--card);color:var(--accent);box-shadow:inset 0 0 0 1px #12707a59}
+.hc-chip--soft{background:var(--card);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
 
 /* ── El héroe: lo ganado y la meta ────────────────────────────────────────────────────── */
 .hc-hero{background:var(--deep);color:#eef7f7;box-shadow:none;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 94.4px;
@@ -140,7 +163,7 @@ export const CSS_CLOSING = `
 .hc-bar__track{width:44px;flex:1;display:flex;align-items:flex-end;overflow:hidden;border-radius:9px 9px 0 0;margin-bottom:1px}
 .hc-bar__fill{width:100%;border-radius:9px;background:var(--accent);transition:filter .2s}
 .hc-bar:hover .hc-bar__fill{filter:brightness(1.08)}
-.hc-bar--hoy .hc-bar__fill{background:var(--deep)}
+.hc-bar--hoy .hc-bar__fill{background:var(--hoy)}
 .hc-bar--plan .hc-bar__fill{background:var(--card) repeating-linear-gradient(135deg,var(--hatch) 0 2.1px,transparent 2.1px 7.07px);
   box-shadow:inset 0 0 0 1px var(--hatch)}
 .hc-bar__l{font-size:12px;font-weight:600;color:var(--faint);line-height:17.4px;margin-top:7px;margin-bottom:2px}
@@ -154,8 +177,8 @@ export const CSS_CLOSING = `
 .hc-ditem{display:flex;align-items:center;gap:12px;padding:6px 0 5px;border-bottom:1px solid var(--hair)}
 .hc-ditem:last-child{border-bottom:0}
 .hc-tile{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:12.5px;font-weight:800;letter-spacing:-.25px;flex:none}
-.hc-t-amber{background:#fbeedb;color:#9a5b0b}.hc-t-cyan{background:#ddf0f6;color:#0d6580}.hc-t-violet{background:#efe5fb;color:#6d36ad}
-.hc-t-blue{background:#e2ebfb;color:#1d4fa3}.hc-t-rose{background:#fbe5e5;color:#b13535}.hc-t-sky{background:#e2eaf8;color:#2a5698}
+.hc-t-amber{background:var(--tn-amber-bg);color:var(--tn-amber)}.hc-t-cyan{background:var(--tn-cyan-bg);color:var(--tn-cyan)}.hc-t-violet{background:var(--tn-violet-bg);color:var(--tn-violet)}
+.hc-t-blue{background:var(--tn-blue-bg);color:var(--tn-blue)}.hc-t-rose{background:var(--tn-rose-bg);color:var(--tn-rose)}.hc-t-sky{background:var(--tn-sky-bg);color:var(--tn-sky)}
 .hc-ditem__b{flex:1;min-width:0}
 .hc-ditem__n{font-size:14px;font-weight:700;line-height:18.2px}
 .hc-ditem__m{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);line-height:17.4px}
@@ -164,7 +187,7 @@ export const CSS_CLOSING = `
 .hc-ditem__v small{display:block;font-size:11.5px;font-weight:600;color:var(--faint);line-height:16.675px}
 
 /* ── Lo que viene ─────────────────────────────────────────────────────────────────────── */
-.hc-nextup{background:var(--a-100);box-shadow:inset 0 0 0 1px #12707a38}
+.hc-nextup{background:var(--a-100);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
 .hc-nextup__t{font-size:21px;font-weight:800;letter-spacing:-.63px;line-height:25.2px;margin-top:12px}
 .hc-nextup__s{font-size:13px;color:var(--muted);margin-top:8px;line-height:18.85px}
 .hc-join{margin-top:auto;height:42px;border-radius:11px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;
@@ -174,9 +197,9 @@ export const CSS_CLOSING = `
 /* ── La cuota de cada uno ─────────────────────────────────────────────────────────────── */
 .hc-quota{list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .hc-lrow{display:grid;grid-template-columns:30px 1fr auto;column-gap:12px;align-items:center}
-.hc-ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;font-weight:700;letter-spacing:.21px;color:#111a1bc7;grid-row:span 2}
+.hc-ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;font-weight:700;letter-spacing:.21px;color:var(--av-ink);grid-row:span 2}
 .hc-lrow__n{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;line-height:20.3px}
-.hc-you{height:18px;padding:0 6px;border-radius:6px;font-size:11px;font-weight:700;color:#2a8089;background:var(--accent-soft);box-shadow:inset 0 0 0 1px #12707a40;display:inline-flex;align-items:center}
+.hc-you{height:18px;padding:0 6px;border-radius:6px;font-size:11px;font-weight:700;color:var(--you);background:var(--accent-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent);display:inline-flex;align-items:center}
 .hc-lrow__v{font-size:12.5px;font-weight:700;line-height:18.125px;font-variant-numeric:tabular-nums}
 .hc-lrow__v span{font-weight:500;color:var(--muted)}
 .hc-meter{grid-column:2/4;height:6px;border-radius:999px;background:var(--panel);overflow:hidden;margin-top:2px}
@@ -209,7 +232,7 @@ export const CSS_CLOSING = `
 .hc-tbtns{display:flex;justify-content:center;gap:10px;margin-top:18px}
 .hc-tbtn{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--panel);color:var(--ink);transition:background .2s}
 .hc-tbtn:hover{background:var(--hair-strong)}
-.hc-tbtn--log{background:var(--accent);color:#fff}.hc-tbtn--log:hover{background:var(--a-800)}
+.hc-tbtn--log{background:var(--accent);color:var(--on-accent)}.hc-tbtn--log:hover{background:var(--a-800)}
 .hc-tbtn--stop{background:#c43636;color:#fff}.hc-tbtn--stop:hover{background:#a82b2b}
 .hc-tbtn .hc-fill{fill:currentColor;stroke:none}
 
@@ -219,7 +242,7 @@ export const CSS_CLOSING = `
 .hc-dur b{font-weight:800}
 .hc-dur .hc-ic{width:14px;height:14px}
 .hc-dur--gana{background:var(--accent-soft);color:var(--a-800)}
-.hc-dur--pierde{background:var(--rose-bg);color:#9c2f2f}
+.hc-dur--pierde{background:var(--rose-bg);color:var(--rose-t)}
 
 /* ── El medio (641 a 1040 de lienzo): NO está medido en Halden (sus capturas son 1440 y 390) y es nuestro. Con la barra
    lateral y la lista de hojas, una ventana de 1024 deja ~780 de lienzo, y ahí tres columnas ya no entran: dos, en el

@@ -18,6 +18,9 @@
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
 //    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo»):
+//    nace clara y, con data-tema="oscuro" en html, la regla de abajo de la raíz cambia las MISMAS variables. Todo color de acá
+//    va por variable, así el cambio es de CSS puro y en vivo.
 // =============================================================================
 
 export const CSS_AUTOMATIZACIONES = `
@@ -31,6 +34,12 @@ export const CSS_AUTOMATIZACIONES = `
   --surface: #fbfcfa; --surface-2: #f3f5f1; --raised: #fff; --well: #14221e0e; --line: #14221e1a; --line-2: #14221e2e;
   --shadow: 0 1px 2px #14221e0d, 0 14px 32px -22px #14221e47;
   --shadow-pop: 0 26px 60px -18px #0e1a1757, 0 2px 6px #0e1a1714;
+  --shadow-seg: 0 1px 2px #14221e14, 0 4px 10px -4px #14221e2e;
+  --grid: #14221e1f; --rail: #14221e09; --rail-line: #14221e24; --rail-hover: #14221e12; --q0: #14221e0c;
+  --on-text: #fff; --on-text-dim: #e3eeeacc; --look-bg: #f2ece7;
+  --av-mint: #b6e6dc; --av-rose: #f3c6d2; --av-sand: #f0d9a4; --av-sky: #c4e2f2; --av-peach: #f6d1bd; --av-ink: #11201c;
+  --ap-bw-bg: #dce8f4; --ap-bw-bd: #c2d6ec; --ap-bw-fg: #295b91; --ap-dv-bg: #f6e0d6; --ap-dv-bd: #eec7b7; --ap-dv-fg: #9d4e2c;
+  --ap-oi-bg: #f2e8cf; --ap-oi-bd: #e7d4a6; --ap-oi-fg: #886620; --ap-pw-bg: #e5e8e7; --ap-pw-bd: #cfd4d3; --ap-pw-fg: #475155;
   --text: #121a17; --muted: #56615c; --faint: #67716c;
   --primary: #0b6b5f; --on-primary: #effcf8; --primary-soft: #0b6b5f1f;
   --side: #10201c; --on-side: #e3eeea; --side-dim: #e3eeea99; --side-hover: #ffffff0f; --side-pill: #e8b54d; --on-side-pill: #241803;
@@ -41,7 +50,23 @@ export const CSS_AUTOMATIZACIONES = `
   --gutter: clamp(16px, 1.8vw, 28px);
   --ease: cubic-bezier(.2, .8, .2, 1);
   position: relative; isolation: isolate; color: var(--text); font: 500 var(--nor-fs-base)/1.45 var(--font); -webkit-font-smoothing: antialiased;
-  background: radial-gradient(60% 50% at 0% 0%, var(--glow-a) 0%, #d9ebe500 70%), radial-gradient(50% 45% at 100% 0%, var(--glow-b) 0%, #efe6d200 70%), var(--bg);
+  background: radial-gradient(60% 50% at 0% 0%, var(--glow-a) 0%, color-mix(in srgb, var(--glow-a) 0%, transparent) 70%), radial-gradient(50% 45% at 100% 0%, var(--glow-b) 0%, color-mix(in srgb, var(--glow-b) 0%, transparent) 70%), var(--bg);
+}
+/* Modo oscuro de MaKo: superficies que suben de luminosidad, líneas opacas a dos escalones del fondo, series con el mismo tono. */
+.nor:where([data-tema="oscuro"] *) {
+  --bg: #0f1312; --glow-a: #123029; --glow-b: #2b2310;
+  --surface: #171c1a; --surface-2: #1e2422; --raised: #262d2a; --well: #232a28; --line: #2b3330; --line-2: #3a4541;
+  --shadow: 0 1px 2px #0008, 0 14px 32px -22px #000c;
+  --shadow-pop: 0 26px 60px -18px #000c, 0 2px 6px #00000080;
+  --shadow-seg: 0 1px 2px #0008, 0 4px 10px -4px #000a;
+  --text: #ededeb; --muted: #a9b3ae; --faint: #8e9893;
+  --primary: #3dbfa9; --on-primary: #04211c; --primary-soft: #3dbfa933;
+  --good: #6fd696; --bad: #f19482; --info: #85abf3; --warn: #e5ac45; --idle: #8a948f;
+  --grid: #2b3330; --rail: #1e2522; --rail-line: #323b37; --rail-hover: #252d2a; --q0: #232a28;
+  --on-text: #121a17; --on-text-dim: #121a17b3; --look-bg: #2a1e1c;
+  --av-mint: #1f4a42; --av-rose: #4a2832; --av-sand: #4a3e1c; --av-sky: #1f3a4a; --av-peach: #4a3022; --av-ink: #e8efec;
+  --ap-bw-bg: #1d2a3a; --ap-bw-bd: #2c4057; --ap-bw-fg: #9cc2ef; --ap-dv-bg: #3a2a22; --ap-dv-bd: #55392c; --ap-dv-fg: #f0a98a;
+  --ap-oi-bg: #38301a; --ap-oi-bd: #52461f; --ap-oi-fg: #e4c06a; --ap-pw-bg: #272d2b; --ap-pw-bd: #38403d; --ap-pw-fg: #b2bcb8;
 }
 .nor *, .nor *::before, .nor *::after { box-sizing: border-box; }
 .nor button { font: inherit; color: inherit; cursor: pointer; }
@@ -54,15 +79,15 @@ export const CSS_AUTOMATIZACIONES = `
 .nor * { box-sizing: border-box; }
 .nor .nor-ibtn { width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; padding: 0; transition: background-color .15s; }
 .nor .nor-ibtn:hover { background: var(--well); }
-.nor .nor-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 12.5px; font-weight: 600; letter-spacing: .125px; color: #11201c; }
-.nor .nor-av--mint { background: #b6e6dc; }
-.nor .nor-av--rose { background: #f3c6d2; }
-.nor .nor-av--sand { background: #f0d9a4; }
-.nor .nor-av--sky { background: #c4e2f2; }
-.nor .nor-av--peach { background: #f6d1bd; }
+.nor .nor-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 12.5px; font-weight: 600; letter-spacing: .125px; color: var(--av-ink); }
+.nor .nor-av--mint { background: var(--av-mint); }
+.nor .nor-av--rose { background: var(--av-rose); }
+.nor .nor-av--sand { background: var(--av-sand); }
+.nor .nor-av--sky { background: var(--av-sky); }
+.nor .nor-av--peach { background: var(--av-peach); }
 @keyframes nor-breathe { 0%, to { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info-c) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--info-c) 0%, transparent); } }
 .nor .nor-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 19px; border-radius: 14px; border: 1px solid transparent; font-size: var(--nor-fs-md); font-weight: 600; white-space: nowrap; transition: background-color .15s, filter .15s; }
-.nor .nor-btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 12px 22px -12px #0b6b5fb3; }
+.nor .nor-btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 12px 22px -12px color-mix(in srgb, var(--primary) 70%, transparent); }
 .nor .nor-btn--primary:hover { filter: brightness(1.1); }
 .nor .nor-btn--ghost { background: var(--surface); border-color: var(--line); color: var(--text); }
 .nor .nor-btn--ghost:hover { background: var(--surface-2); }
@@ -91,7 +116,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-seg { display: inline-flex; padding: 4px; border-radius: 13px; background: var(--surface-2); gap: 2px; height: 37px; }
 .nor .nor-seg__btn { border: 0; background: transparent; height: 29px; padding: 0 12px; border-radius: 10px; font-size: var(--nor-fs-sm); font-weight: 700; color: var(--muted); transition: color .15s; position: relative; }
 .nor .nor-seg__btn:hover { color: var(--text); }
-.nor .nor-seg__btn.nor-is-on { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px #14221e14, 0 4px 10px -4px #14221e2e; }
+.nor .nor-seg__btn.nor-is-on { background: var(--raised); color: var(--text); box-shadow: var(--shadow-seg); }
 .nor .nor-ibtn--sm { width: 32px; height: 32px; border-radius: 10px; margin-top: 3px; }
 .nor .nor-ibtn--sm svg { width: 15px; height: 15px; }
 .nor .nor-kpis { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; min-height: 118px; }
@@ -114,12 +139,12 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-chip--down { background: #dd5a4329; color: var(--bad); }
 .nor .nor-pulse { position: relative; margin-top: 21px; height: 367px; }
 .nor .nor-pulse__plot { position: absolute; left: 39px; right: 7px; top: 18px; height: 298px; }
-.nor .nor-pulse__grid { position: absolute; left: 0; right: 0; border-top: 1px dashed #14221e1f; }
+.nor .nor-pulse__grid { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--grid); }
 .nor .nor-pulse__y { position: absolute; left: -39px; width: 30px; text-align: right; font-size: var(--nor-fs-2xs); font-weight: 600; color: var(--muted); line-height: 15.95px; transform: translateY(-50%); }
 .nor .nor-pulse__cols { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, 1fr); }
 .nor .nor-pcol { position: relative; }
-.nor .nor-pcol__rail { position: absolute; left: 50%; width: 16px; margin-left: -8px; top: 0; bottom: 0; border-radius: 8px; background: #14221e09; }
-.nor .nor-pcol--fut .nor-pcol__rail { background: transparent; border-left: 1px dashed #14221e24; border-right: 1px dashed #14221e24; border-radius: 0; }
+.nor .nor-pcol__rail { position: absolute; left: 50%; width: 16px; margin-left: -8px; top: 0; bottom: 0; border-radius: 8px; background: var(--rail); }
+.nor .nor-pcol--fut .nor-pcol__rail { background: transparent; border-left: 1px dashed var(--rail-line); border-right: 1px dashed var(--rail-line); border-radius: 0; }
 .nor .nor-pcol__ok, .nor .nor-pcol__ko { position: absolute; left: 50%; width: 16px; margin-left: -8px; border-radius: 7px; transform-origin: bottom; }
 .nor .nor-pcol__ok { bottom: 0; background: var(--primary); }
 .nor .nor-pcol__ko { background: var(--bad-c); }
@@ -127,7 +152,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-pulse__line { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .nor .nor-pulse__line path { fill: none; stroke: var(--brass); stroke-width: 2; stroke-dasharray: 6 5; stroke-linecap: round; }
 .nor .nor-pulse__now { position: absolute; top: -12px; bottom: 0; width: 1.5px; margin-left: -.75px; background: repeating-linear-gradient(to bottom, var(--text) 0 1.5px, transparent 1.5px 5px); }
-.nor .nor-pulse__now span { position: absolute; top: -9px; left: .75px; transform: translateX(-50%); height: 19px; padding: 0 7px; border-radius: 99px; background: var(--text); color: #fff; font-size: 11px; font-weight: 700; line-height: 19px; }
+.nor .nor-pulse__now span { position: absolute; top: -9px; left: .75px; transform: translateX(-50%); height: 19px; padding: 0 7px; border-radius: 99px; background: var(--text); color: var(--on-text); font-size: 11px; font-weight: 700; line-height: 19px; }
 .nor .nor-pulse__now i { position: absolute; bottom: -5px; left: -5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); }
 .nor .nor-legend { position: absolute; left: 0; bottom: 0; display: flex; gap: 15px; font-size: var(--nor-fs-sm); color: var(--muted); line-height: 18.125px; }
 .nor .nor-legend span { display: inline-flex; align-items: center; gap: 7px; }
@@ -145,15 +170,15 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-step:last-child { margin-bottom: 0; }
 .nor .nor-step::before { content: ''; position: absolute; left: 13px; top: 28px; height: 20px; width: 2px; background: var(--primary); }
 .nor .nor-step:last-child::before { display: none; }
-.nor .nor-step__ck { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; }
+.nor .nor-step__ck { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; }
 .nor .nor-step__ck svg { width: 13px; height: 13px; stroke-width: 2.4; }
-.nor .nor-step--doing .nor-step__ck { background: var(--info-c); box-shadow: inset 0 0 0 3px #fff, 0 0 0 1px var(--info-c); }
+.nor .nor-step--doing .nor-step__ck { background: var(--info-c); box-shadow: inset 0 0 0 3px var(--surface), 0 0 0 1px var(--info-c); }
 .nor .nor-step--todo .nor-step__ck { background: transparent; border: 1.5px solid var(--line-2); }
 .nor .nor-ap { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 600; letter-spacing: -.22px; border: 1px solid; }
-.nor .nor-ap--bw { background: #dce8f4; border-color: #c2d6ec; color: #295b91; }
-.nor .nor-ap--dv { background: #f6e0d6; border-color: #eec7b7; color: #9d4e2c; }
-.nor .nor-ap--oi { background: #f2e8cf; border-color: #e7d4a6; color: #886620; }
-.nor .nor-ap--pw { background: #e5e8e7; border-color: #cfd4d3; color: #475155; }
+.nor .nor-ap--bw { background: var(--ap-bw-bg); border-color: var(--ap-bw-bd); color: var(--ap-bw-fg); }
+.nor .nor-ap--dv { background: var(--ap-dv-bg); border-color: var(--ap-dv-bd); color: var(--ap-dv-fg); }
+.nor .nor-ap--oi { background: var(--ap-oi-bg); border-color: var(--ap-oi-bd); color: var(--ap-oi-fg); }
+.nor .nor-ap--pw { background: var(--ap-pw-bg); border-color: var(--ap-pw-bd); color: var(--ap-pw-fg); }
 .nor .nor-ap--lg { width: 36px; height: 36px; border-radius: 10px; font-size: 12px; letter-spacing: -.24px; }
 .nor .nor-step__t { min-width: 0; padding-left: 0; }
 .nor .nor-step__t b { display: block; font-size: 13.5px; font-weight: 700; line-height: 16.875px; }
@@ -170,7 +195,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-jf__t { color: var(--muted); font-size: 12.5px; }
 .nor .nor-look { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
 .nor .nor-look__row > div { min-width: 0; }
-.nor .nor-look__row { display: grid; grid-template-columns: 34px 1fr; gap: 8px 10px; padding: 10px; border-radius: 14px; background: #f2ece7; border: 1px solid #dd5a432e; min-height: 117px; }
+.nor .nor-look__row { display: grid; grid-template-columns: 34px 1fr; gap: 8px 10px; padding: 10px; border-radius: 14px; background: var(--look-bg); border: 1px solid #dd5a432e; min-height: 117px; }
 .nor .nor-look__ic { width: 34px; height: 34px; border-radius: 10px; background: #dd5a4321; color: var(--bad); display: grid; place-items: center; }
 .nor .nor-look__ic svg { width: 17px; height: 17px; }
 .nor .nor-look__t { font-size: 14px; font-weight: 600; line-height: 19px; }
@@ -192,7 +217,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-q2 { background: #8fcaa6; }
 .nor .nor-q3 { background: #d99a1e; }
 .nor .nor-q4 { background: #dd5a43; }
-.nor .nor-q0 { background: #14221e0c; }
+.nor .nor-q0 { background: var(--q0); }
 .nor .nor-rel__leg { display: flex; gap: 14px; margin-top: 11px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .nor .nor-rel__leg span { display: inline-flex; align-items: center; gap: 6px; }
 .nor .nor-rel__leg i { width: 10px; height: 10px; border-radius: 3px; }
@@ -230,7 +255,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-fl b + span { display: block; font-size: 13px; color: var(--muted); line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nor .nor-pill--live { height: 26px; }
 .nor .nor-spark { width: 110px; height: 26px; display: block; }
-.nor .nor-spark path.nor-a { fill: #0b6b5f1c; stroke: none; }
+.nor .nor-spark path.nor-a { fill: color-mix(in srgb, var(--primary) 11%, transparent); stroke: none; }
 .nor .nor-spark path.nor-l { fill: none; stroke: var(--primary); stroke-width: 1.6; }
 .nor .nor-tnum { font-size: 13.5px; font-weight: 600; }
 .nor .nor-tpct { font-size: 13.5px; }
@@ -306,11 +331,11 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-pill--bad::before, .nor .nor-pill--idle::before { background: currentColor; }
 .nor .nor-pcol { border: 0; background: none; padding: 0; margin: 0; display: block; height: 100%; cursor: default; }
 .nor .nor-pcol.nor-fila { cursor: pointer; }
-.nor .nor-pcol.nor-fila:hover .nor-pcol__rail { background: #14221e12; }
+.nor .nor-pcol.nor-fila:hover .nor-pcol__rail { background: var(--rail-hover); }
 .nor .nor-pulse__plot.nor-con-marca .nor-pcol:not(.nor-is-on) .nor-pcol__ok, .nor .nor-pulse__plot.nor-con-marca .nor-pcol:not(.nor-is-on) .nor-pcol__ko { opacity: .55; }
 .nor .nor-pcol__ok, .nor .nor-pcol__ko { transition: opacity .15s; }
-.nor .nor-pulse__tip { position: absolute; z-index: 2; transform: translateX(-50%); white-space: nowrap; padding: 6px 10px; border-radius: 10px; background: var(--text); color: #fff; font-size: 12px; font-weight: 600; line-height: 16px; pointer-events: none; box-shadow: var(--shadow-pop); }
-.nor .nor-pulse__tip span { display: block; font-weight: 500; color: #e3eeeacc; }
+.nor .nor-pulse__tip { position: absolute; z-index: 2; transform: translateX(-50%); white-space: nowrap; padding: 6px 10px; border-radius: 10px; background: var(--text); color: var(--on-text); font-size: 12px; font-weight: 600; line-height: 16px; pointer-events: none; box-shadow: var(--shadow-pop); }
+.nor .nor-pulse__tip span { display: block; font-weight: 500; color: var(--on-text-dim); }
 .nor .nor-step--todo .nor-step__ck svg { display: none; }
 .nor .nor-step--todo::before { background: var(--line-2); }
 .nor .nor-ap svg { width: 14px; height: 14px; stroke-width: 1.8; }
@@ -322,7 +347,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-ok { display: grid; place-items: center; gap: 6px; padding: 26px 12px; border-radius: 14px; background: #2f9a5a14; border: 1px solid #2f9a5a29; text-align: center; color: var(--good); font-size: 13px; }
 .nor .nor-ok b { color: var(--text); font-weight: 600; }
 .nor .nor-rel__row.nor-fila:hover { background: var(--surface-2); }
-.nor .nor-q0 { background: #14221e0c; }
+.nor .nor-q0 { background: var(--q0); }
 .nor .nor-rel__leg i.nor-q0 { box-shadow: inset 0 0 0 1px var(--line); }
 .nor .nor-ask { text-decoration: none; cursor: pointer; }
 .nor .nor-ask:hover { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }

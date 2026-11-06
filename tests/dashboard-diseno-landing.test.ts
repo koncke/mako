@@ -21,6 +21,7 @@ import { datosLandingMuestra } from '../lib/landing-diseno-muestra';
 import { DIAS_SEMANA, FRANJAS_HORA, momentoDeVisita } from '../lib/visitas-momento';
 import { DISENOS_HOJA, fuenteDe } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -153,7 +154,6 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   for (const k of ['apertura', 'mitad', 'final', 'tocan']) assert.equal(pieza(k)?.comparar, true, `${k} se compara con el período anterior`);
   assert.deepEqual([pieza('cuando')?.tipo, pieza('cuando')?.fuente, pieza('cuando')?.dimension, pieza('cuando')?.desglose], ['dinamica_calor', 'visitas', 'franja', 'dia_semana']);
   assert.deepEqual(pieza('visitas')?.metricas, ['visitas', 'visitantes']);
-  assert.ok(h.componentes.length <= 14, 'una hoja no pasa de 14 paneles');
   // La muestra (la miniatura de «Nueva hoja») arma la vista entera con el modelo de verdad.
   const v = vistaLanding(h, datosLandingMuestra(h, HOY), HOY);
   assert.match(texto(v.frase), /^Entraron [\d,]+ visitas de [\d,]+ personas, 12% más que el período anterior\.$/);
@@ -163,9 +163,7 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   assert.equal(v.hoy, 23, 'las visitas de hoy, en lugar del «live now»');
   assert.equal(v.cuando?.max, 64);
   assert.equal(v.origen?.total, v.tiles[0].valor, 'el total de «De dónde llegan» es el de las visitas');
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'landing' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.landing ?? null}'));
+  cableadoDelDiseno(h, 'landing', 'LandingVivo', ['extras={extras?.landing ?? null}']);
   assert.ok(leer('app/dashboard/page.tsx').includes('landing: hayDisenoLanding ? { quien } : null'));
 });
 

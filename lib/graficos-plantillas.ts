@@ -33,13 +33,14 @@
 //     reexportan acá.
 
 import {
-  MAX_HOJAS, NOMBRE_INICIAL, campoDe, esElemento, esGrafico, hojaVacia, nuevoId, sanearComponente, sanearGrafico, sanearHoja,
+  COLS, MAX_HOJAS, NOMBRE_INICIAL, campoDe, esElemento, esGrafico, hojaVacia, nuevoId, sanearComponente, sanearGrafico, sanearHoja,
   type Componente, type Hoja, type Tablero,
 } from './graficos-catalogo';
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
 import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
 import { comoDenso, portadasDashboard } from './graficos-portadas';
 import { PLANTILLAS_GENERAL } from './general-plantillas';
+import { bloqueDeDiseno, idDeBloque, parteDe, seccionDePiezas, type DisenoId } from './disenos-partes';
 import type { RolWorkspace } from './auth-session';
 import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
 
@@ -215,11 +216,70 @@ const COMERCIAL: PlantillaHoja = {
 const PORTADAS = portadasDashboard();
 const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoDenso(p.armar(id), PORTADAS[p.id], id) });
 
+// ── «Velocidad de llamada» (6/11/2026): la hoja de los clientes de Código Inmobiliario ──────────────────────────────────────
+// Martín: «investigues la metodología que tiene Código Inmobiliario con sus clientes, lo de que les corren campañas, les obligan
+// a llamar rápido cuando entra un lead, necesitan el botón de grabar… quiero que armes un dashboard especial para ellos». La
+// metodología, con lo dicho, lo medido y las dudas: docs/dashboards/metodologia-codigo-inmobiliario.md. Lo que mira es el CAMINO
+// del lead de un cliente inmobiliario: entra por el formulario de Meta, alguien tiene que llamarlo rápido, la llamada se graba, y
+// el anuncio que lo trajo se paga. Se arma SÓLO con tarjetas que ya existen (copiadas, lib/disenos-partes.ts): la de Cold Calling
+// (el título con «Grabar llamada», sus números, las llamadas, a quién y cómo terminan), la de «Primer contacto» de Closing (cuánto
+// tardaron y los más lentos) y la de anuncios de Marketing. Nada se inventa: sin datos, cada tarjeta lo dice.
+// ⚠️ NOMBRA LEADS (el primer contacto, a quién llamaste): no la ve ni un closer ni un setter, que tienen su hoja única
+//    (`HOJA_DE_ROL`), y el primer contacto lo pide /dashboard sólo para el admin (app/dashboard/page.tsx, `unica`).
+// ⚠️ NO PASA POR `conPortadaDe`: su lugar es el de las tarjetas, no el de una portada de la grilla.
+const LUGARES_VELOCIDAD: ReadonlyArray<readonly [DisenoId, string, number, number, number, number]> = [
+  ['cold-calling', 'cabecera', 0, 0, 12, 3],
+  ['closing', 'contacto', 0, 3, 12, 9],
+  ['cold-calling', 'numeros', 0, 12, 12, 3],
+  ['cold-calling', 'llamadas', 0, 15, 8, 10],
+  ['cold-calling', 'siguen', 8, 15, 4, 10],
+  ['cold-calling', 'llamados', 0, 25, 6, 12],
+  ['cold-calling', 'quien', 6, 25, 3, 12],
+  ['cold-calling', 'terminan', 9, 25, 3, 12],
+  ['marketing', 'tabla', 0, 37, 12, 15],
+];
+type Armada = { controles: Array<Record<string, unknown>>; componentes: Array<Componente & { h: number }>; diseno: { piezas: Record<string, string> } };
+
+export const VELOCIDAD_LLAMADA: PlantillaHoja = {
+  id: 'velocidad-llamada', nombre: 'Velocidad de llamada', emoji: '⏱️',
+  linea: 'Cuánto tardan en llamar a cada lead nuevo, las llamadas grabadas y qué anuncio trae los leads.',
+  buscar: 'inmobiliaria agencia primer contacto grabar llamada rápido lead nuevo',
+  armar: (id) => {
+    const hojaId = id('hoja');
+    const cc = PLANTILLAS_GENERALES.find((p) => p.id === 'cold-calling')!.armar((l) => id(`cc-${l}`)) as unknown as Armada;
+    const mk = MARKETING.armar((l) => id(`mk-${l}`)) as unknown as Armada;
+    const tabla = parteDe('marketing', 'tabla')!;
+    const deMk = Object.fromEntries(tabla.lee.map((k) => [k, mk.diseno.piezas[k]]));
+    const idsMk = new Set(Object.values(deMk));
+    // Las piezas de donde leen las tarjetas: las de Cold Calling (menos su botón: lo dibuja su tarjeta) y las de la tabla de anuncios.
+    const piezas = [...cc.componentes.filter((c) => c.clase === 'grafico'), ...mk.componentes.filter((c) => idsMk.has(c.id))];
+    const leen: Record<string, Record<string, string>> = { 'cold-calling': cc.diseno.piezas, closing: {}, marketing: deMk };
+    const usados = new Set(piezas.map((c) => c.id));
+    const bloques = LUGARES_VELOCIDAD.map(([d, parte, x, y, w, h]) => ({ ...bloqueDeDiseno(idDeBloque(hojaId, parte, usados), d, parteDe(d, parte)!, leen[d], 0), x, y, w, h }));
+    const fondo = bloques.reduce((m, b) => Math.max(m, b.y + b.h), 0);
+    const seccion = seccionDePiezas(hojaId, fondo, usados);
+    // Plegadas, sin huecos: en filas de 12 columnas, una al lado de la otra mientras entren (los números van de a tres).
+    const plegadas: Array<Componente & { h: number }> = [];
+    let fila = fondo + seccion.h, x = 0, alto = 0;
+    for (const c of piezas) {
+      if (x + c.w > COLS) { fila += alto; x = 0; alto = 0; }
+      plegadas.push({ ...c, x, y: fila });
+      x += c.w; alto = Math.max(alto, c.h);
+    }
+    // El período: el de una semana de Cold Calling queda corto para ver cuántos leads entraron; Código mira 7 y 30 días.
+    const controles = cc.controles.map((k) => (k.tipo === 'periodo' ? { ...k, preset: 'ult30' } : k));
+    return {
+      id: hojaId, nombre: 'Velocidad de llamada', subtitulo: 'Cuánto tardas en llamar a cada lead nuevo, y qué pasa en la llamada.',
+      entrada: 'suben', controles, componentes: [...bloques, seccion, ...plegadas],
+    };
+  },
+};
+
 /**
  * La galería de «Nueva hoja», en orden. Marketing y Comercial son las del informe inicial; el resto
  * se arma con los conjuntos del catálogo.
  */
-export const PLANTILLAS_HOJA: readonly PlantillaHoja[] = [MARKETING, COMERCIAL, ...PLANTILLAS_ANALYSTS, ...PLANTILLAS_GENERALES].map(conPortadaDe);
+export const PLANTILLAS_HOJA: readonly PlantillaHoja[] = [...[MARKETING, COMERCIAL, ...PLANTILLAS_ANALYSTS, ...PLANTILLAS_GENERALES].map(conPortadaDe), VELOCIDAD_LLAMADA];
 
 /**
  * Las plantillas que se fueron, y la que las reemplaza (v5): la general «WhatsApp y MaKo» es Chat Analyst y

@@ -17,6 +17,7 @@ import { anilloDe, carrilesDe, fraseCs, iconoDe, medidoresDe, pasaFiltro, textoC
 import { datosCsMuestra, ETAPAS_MUESTRA } from '../lib/cs-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -138,9 +139,7 @@ test('lo que no se pudo leer se dice en su bloque, sin inventar', () => {
 test('el cableado: el diseño se ofrece, se dibuja mirando y la página le pasa el orden de las etapas', () => {
   assert.ok((DISENOS_HOJA as readonly string[]).includes('cs'));
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'cs-analyst'));
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'cs' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.cs ?? null}'));
+  cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_HOJA.find((p) => p.id === 'cs-analyst')!), 'cs', 'CsVivo', ['extras={extras?.cs ?? null}']);
   const pagina = leer('app/dashboard/page.tsx');
   assert.ok(pagina.includes('cs: hayDisenoCs ? { quien, etapas } : null'));
   assert.ok(pagina.includes("const etapasCs = hayDisenoCs ? etapasDeLaEntregaEnOrden() : Promise.resolve(null);"));

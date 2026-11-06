@@ -21,6 +21,7 @@ import {
   vistaInmobiliaria,
 } from '../lib/inmobiliaria-diseno';
 import { datosInmobiliariaMuestra } from '../lib/inmobiliaria-diseno-muestra';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 const col = (ids: string[]) => ids.map((id) => ({ id, nombre: id, formato: 'numero' as const }));
@@ -156,14 +157,11 @@ test('el cableado: la plantilla trae su diseño con sus doce piezas, se ofrece y
   const porId = new Map(h.componentes.map((c) => [c.id, c as { fuente?: string; metricas?: string[]; dimension?: string | null; tabla?: { columnas?: string[] } }]));
   const pieza = (k: string) => porId.get(h.diseno!.piezas[k]);
   assert.equal(Object.keys(h.diseno!.piezas).length, 12, 'una plantilla general lleva hasta 12 piezas (TOPE_COMPONENTES_IA)');
-  assert.ok(h.componentes.length <= 14, `${h.componentes.length} paneles (una hoja lleva hasta 14)`);
   for (const k of Object.keys(h.diseno!.piezas)) assert.ok(porId.has(h.diseno!.piezas[k]), `la pieza ${k} existe`);
   assert.deepEqual([pieza('tablero')?.dimension, pieza('tablero')?.tabla?.columnas], ['lead', ['etapa', 'producto', 'closer']], 'el tablero trae la etapa, el proyecto y el asesor de cada interesado (la hoja SANEADA)');
   assert.deepEqual(pieza('proyectos')?.metricas, ['leads', 'agendas', 'cierres']);
   assert.deepEqual(pieza('asesores')?.metricas, ['asistencias', 'cierres', 'tasa_cierre', 'vendido']);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'inmobiliaria' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<InmobiliariaVivo'));
+  cableadoDelDiseno(h, 'inmobiliaria', 'InmobiliariaVivo');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaInmobiliaria(hoja, datosInmobiliariaMuestra(hoja, hoy))'));
 });
 

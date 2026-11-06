@@ -27,6 +27,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { escalaColumnas, rotuloEje, type TileLanding, type VistaLanding } from '@/lib/landing-diseno';
 import { corto, entero } from '@/lib/marketing-diseno';
 import { CSS_LANDING } from './landing-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -132,7 +133,7 @@ function Visual({ t }: { t: TileLanding }) {
     const [ux, uy] = pts[pts.length - 1];
     return (
       <svg className="cb-tile__vis cb-spark" viewBox="0 0 80 40" aria-hidden>
-        <defs><linearGradient id="cb-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#14202a" stopOpacity=".18" /><stop offset="1" stopColor="#14202a" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id="cb-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style={{ stopColor: 'var(--on-tile)' }} stopOpacity=".18" /><stop offset="1" style={{ stopColor: 'var(--on-tile)' }} stopOpacity="0" /></linearGradient></defs>
         <path className="cb-spark__area" d={`${d} L${ux.toFixed(1)} 40 L${pts[0][0].toFixed(1)} 40 Z`} />
         <path className="cb-spark__line" pathLength={100} d={d} />
         <circle className="cb-spark__dot" cx={ux} cy={uy} r="3.2" />
@@ -180,7 +181,7 @@ function Medidor({ valor, t }: { valor: number | null; t: number }) {
   );
 }
 
-export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, compartido = false, quieta = false }: {
+export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onPeriodo, onFila, compartido = false, quieta = false }: {
   hoja: Hoja;
   vista: VistaLanding;
   /** «Buenos días, Ana» (quién mira); sin nombre, el de la hoja. */
@@ -188,6 +189,8 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
   /** El nombre del período elegido («Últimos 30 días»): el de la barra de controles de la hoja. */
   periodo: string;
   onGrilla?: () => void;
+  /** Tocar el período abre el de la hoja (el «Filtro» de arriba). Sin esto, el período se lee y no se toca. */
+  onPeriodo?: () => void;
   /** Abrir una fila de una pieza: su detalle de siempre, como al tocarla en la grilla. */
   onFila?: (g: Grafico, clave: string) => void;
   compartido?: boolean;
@@ -287,33 +290,9 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
   const total = origen?.total ?? null;
   const primera = origen?.partes[0];
   const COLORES = ['var(--c1)', 'var(--c2)', 'var(--c3)'];
-  let acum = 0;
-
-  return (
-    <Compartido.Provider value={compartido}>
-    <div className="cb" ref={raiz} data-quieta={quieta ? '' : undefined}>
-      <style href="dash-hoja-landing" precedence="medium">{CSS_LANDING}</style>
-      <div className="cb-fondo" aria-hidden><i /><i /><i /></div>
-      <div className="cb-pagina">
-        {/* LA CABECERA: el saludo y, en lugar del «live now», las visitas de hoy (el Pixel no cuenta presencia). */}
-        <div className="cb-head">
-          <h1>{titulo}</h1>
-          {hoy != null && <span className="cb-live"><span className="cb-live__dot" /><span className="cb-live__n" data-cuenta="">{entero(hoy)}</span><span className="cb-live__w">{hoy === 1 ? 'visita hoy' : 'visitas hoy'}</span></span>}
-        </div>
-        {/* LA BARRA: el período (en lugar del selector de canal), la frase (en lugar de la fecha) y los botones. */}
-        <div className="cb-bar">
-          <span className="cb-seg cb-seg--uno"><span className="cb-seg__solo"><Icono id="cal" />{periodo}</span></span>
-          {frase.length > 0 ? <span className="cb-bar__frase"><Icono id="reloj" /><span>{frase.map((t, i) => (t.tipo === 'fuerte' ? <b key={i}>{t.s}</b> : <span key={i}>{t.s}</span>))}</span></span> : <span />}
-          <div className="cb-bar__acc">
-            {onGrilla && <button type="button" className="cb-btn" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button>}
-            {!compartido && <Ir href="/web-generator" className="cb-btn cb-btn--dark"><Icono id="out" />Abrir tus páginas</Ir>}
-          </div>
-        </div>
-
-        <div className="cb-board">
-          {/* LOS CUATRO NÚMEROS de Corbel, con su cambio contra el período anterior y su dibujo chico. */}
-          {tiles.map((t, i) => (
-            <article key={t.id} className={`cb-tile cb-tile--${i + 1}`} data-lift="">
+  // Una de las cuatro tarjetas de números (cada una es su <Parte>, ver ./parte.tsx).
+  const tarjetaTile = (t: TileLanding, i: number) => (
+    <article className={`cb-tile cb-tile--${i + 1}`} data-lift="">
               <div className="cb-tile__head">{t.titulo} <Info que={t.id} /></div>
               <div className="cb-tile__body">
                 <div>
@@ -323,10 +302,44 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
                 <Visual t={t} />
               </div>
               <div className="cb-tile__foot"><LinkTile link={t.link} onGrilla={onGrilla} /></div>
-            </article>
-          ))}
+    </article>
+  );
+  let acum = 0;
+
+  return (
+    <Compartido.Provider value={compartido}>
+    <div className="cb" ref={raiz} data-quieta={quieta ? '' : undefined}>
+      <style href="dash-hoja-landing" precedence="medium">{CSS_LANDING}</style>
+      <div className="cb-fondo" aria-hidden><i /><i /><i /></div>
+      <div className="cb-pagina">
+        {/* LA CABECERA: el saludo y, en lugar del «live now», las visitas de hoy (el Pixel no cuenta presencia). */}
+        <Parte id="cabecera">
+        <div className="cb-head">
+          <h1>{titulo}</h1>
+          {hoy != null && <span className="cb-live"><span className="cb-live__dot" /><span className="cb-live__n" data-cuenta="">{entero(hoy)}</span><span className="cb-live__w">{hoy === 1 ? 'visita hoy' : 'visitas hoy'}</span></span>}
+        </div>
+        </Parte>
+        {/* LA BARRA: el período (en lugar del selector de canal), la frase (en lugar de la fecha) y los botones. */}
+        <Parte id="barra">
+        <div className="cb-bar">
+          <span className="cb-seg cb-seg--uno">{onPeriodo && !quieta ? <button type="button" className="cb-seg__solo" onClick={onPeriodo} title="Cambiar el período"><Icono id="cal" />{periodo}</button> : <span className="cb-seg__solo"><Icono id="cal" />{periodo}</span>}</span>
+          {frase.length > 0 ? <span className="cb-bar__frase"><Icono id="reloj" /><span>{frase.map((t, i) => (t.tipo === 'fuerte' ? <b key={i}>{t.s}</b> : <span key={i}>{t.s}</span>))}</span></span> : <span />}
+          <div className="cb-bar__acc">
+            {onGrilla && <button type="button" className="cb-btn" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button>}
+            {!compartido && <Ir href="/web-generator" className="cb-btn cb-btn--dark"><Icono id="out" />Abrir tus páginas</Ir>}
+          </div>
+        </div>
+        </Parte>
+
+        <div className="cb-board">
+          {/* LOS CUATRO NÚMEROS de Corbel, con su cambio contra el período anterior y su dibujo chico. */}
+          {tiles[0] && <Parte id="visitas">{tarjetaTile(tiles[0], 0)}</Parte>}
+          {tiles[1] && <Parte id="mitad">{tarjetaTile(tiles[1], 1)}</Parte>}
+          {tiles[2] && <Parte id="final">{tarjetaTile(tiles[2], 2)}</Parte>}
+          {tiles[3] && <Parte id="tocan">{tarjetaTile(tiles[3], 3)}</Parte>}
 
           {/* EL MEDIDOR («Sales performance»): el puntaje del diagnóstico, su veredicto y el porqué. */}
+          <Parte id="puntaje">
           <section className="cb-card cb-card--dark cb-score">
             <div className="cb-card__head"><h2>Puntaje de la página</h2><Info que="puntaje" /></div>
             {fallos.puntaje ? <div className="cb-vacio">{fallos.puntaje}</div> : (
@@ -343,8 +356,10 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </>
             )}
           </section>
+          </Parte>
 
           {/* LAS COLUMNAS («Revenue»): las visitas o las personas de cada día, la de hoy en negro, el promedio y la burbuja. */}
+          <Parte id="columnas">
           <section className="cb-card cb-rev">
             <div className="cb-card__head">
               <h2>{metrica === 'visitas' ? 'Visitas' : 'Personas'}</h2><Info que="visitas" />
@@ -388,8 +403,10 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </div>
             )}
           </section>
+          </Parte>
 
           {/* CUÁNDO ENTRAN («Visits by time»): las visitas por franja horaria y día de la semana, en cinco tonos. */}
+          <Parte id="cuando">
           <section className="cb-card cb-heat">
             <div className="cb-card__head"><h2>Cuándo entran</h2><Info que="cuando" />
               {cuando && cuando.max > 0 && <span className="cb-heat__ley" aria-hidden><span>0</span>{[0, 1, 2, 3, 4].map((k) => <i key={k} style={{ background: `var(--heat-${k})` }} />)}<span>{corto(cuando.max)}</span></span>}
@@ -408,8 +425,10 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </div>
             )}
           </section>
+          </Parte>
 
           {/* DE DÓNDE LLEGAN («Total visits»): las visitas, su cambio y el reparto entre los orígenes, con el anillo del primero. */}
+          <Parte id="origen">
           <section className="cb-card cb-visits">
             <div className="cb-card__head"><h2>De dónde llegan</h2><Info que="origen" /></div>
             {fallos.origen ? <div className="cb-vacio">{fallos.origen}</div> : !origen || !origen.partes.length ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Aquí verás de qué sitio llega la gente a tus páginas.</div> : (
@@ -437,6 +456,7 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
               </div>
             )}
           </section>
+          </Parte>
         </div>
       </div>
     </div>

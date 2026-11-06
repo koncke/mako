@@ -18,6 +18,9 @@
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
 //    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo»):
+//    Vitrea nació oscura, pero acá la raíz es CLARA (vidrio blanco sobre gris) y la regla de abajo de la raíz, con data-tema="oscuro"
+//    en html, trae la paleta original de la copia. Las mismas variables en los dos modos; todo color va por variable.
 // =============================================================================
 
 export const CSS_CURSO = `
@@ -25,6 +28,36 @@ export const CSS_CURSO = `
 .vit {
   container-type: inline-size; container-name: vit;
   --font: 'Vitrea Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bg: #eceef3; --glass: #ffffffb8; --glass-chrome: #ffffff99; --glass-thick: #fffffff0; --glass-solid: #ffffff;
+  --surface-2: #1018280a; --well: #10182812; --line: #1018281a; --line-2: #10182833;
+  --lens: linear-gradient(180deg, #ffffff, #ffffffe0);
+  --lens-shadow: 0 0 0 .5px #10182824, 0 1px 2px #1018281a, 0 4px 10px -4px #10182833;
+  --card-shadow: inset 0 1px 1px #ffffffe6, 0 0 0 .5px #10182814, 0 1px 2px #1018280a, 0 18px 36px -20px #1018283d;
+  --text: #14171d; --muted: #4a5363; --faint: #6b7483;
+  --accent: #2f6fd0; --on-accent: #ffffff; --accent-text: #1f56ad; --accent-line: #2f6fd0; --ink-mark: #7a8291;
+  --good: #1d7a43; --good-fill: #2f9a5a; --warn: #a66400; --warn-fill: #b17200; --bad: #b8382c; --bad-fill: #d4503f;
+  --blue: linear-gradient(160deg, #c3dbfa, #a4c7f4); --on-blue: #14304f;
+  --teal: linear-gradient(160deg, #bfe9e0, #9bd9cd); --on-teal: #123d37;
+  --orange: linear-gradient(160deg, #fddcb3, #fbc283); --on-orange: #5a3306;
+  --coral: linear-gradient(160deg, #fcd0c7, #f8ae9f); --on-coral: #6a2318;
+  --green: linear-gradient(160deg, #c9eed3, #a6dfb8); --on-green: #17442a;
+  --ink: linear-gradient(160deg, #dde0e6, #c3c8d1); --on-ink: #1d2127;
+  --ico-blue: linear-gradient(160deg, #eaf3ff, #cfe3fc); --ico-teal: linear-gradient(160deg, #e3f6f2, #c4ebe3);
+  --ico-orange: linear-gradient(160deg, #fff0dc, #ffdcb4); --ico-coral: linear-gradient(160deg, #ffe6e1, #ffc8bd);
+  --ico-green: linear-gradient(160deg, #e4f6ea, #c3e8cf); --ico-ink: linear-gradient(160deg, #f1f2f5, #d9dce2);
+  --fondo: radial-gradient(120% 90% at 30% 10%, #ffffff 0%, #f4f6f9 45%, #e8ebf0 100%);
+  --fondo-a: radial-gradient(closest-side, #ffffff 70%, #f5f7fa 100%); --fondo-a-sombra: inset 2px 2px 0 #ffffffb3;
+  --fondo-b: #1018280f; --fondo-c: #dfe3ea; --fondo-c-aro: #10182814;
+  --grid: #10182824; --rate-bg: #ffffff66; --rate-ring: #ffffff99; --more-ring: #10182833;
+  --paso: #1018281f; --paso-hecho: #6f86a8; --tick-bg: #1018280d; --tick-ring: #10182833;
+  --accent-glow: #2f6fd066; --count-bg: #2f6fd024;
+  --r-card: 26px; --r-tile: 22px; --gap: 16px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  position: relative; isolation: isolate; overflow: clip; color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+}
+/* Modo oscuro de MaKo: la paleta original de la copia (vidrio oscuro sobre grafito). */
+.vit:where([data-tema="oscuro"] *) {
   --bg: #111113; --glass: #1e1e226b; --glass-chrome: #2020245c; --glass-thick: #1c1c20db; --glass-solid: #1d1d21;
   --surface-2: #ffffff14; --well: #c8c8d71a; --line: #ffffff1a; --line-2: #ffffff2e;
   --lens: linear-gradient(180deg, #ffffff52, #ffffff1f);
@@ -42,10 +75,12 @@ export const CSS_CURSO = `
   --ico-blue: linear-gradient(160deg, #d2e4ff, #9fc6f8); --ico-teal: linear-gradient(160deg, #c8efe8, #8fd8cc);
   --ico-orange: linear-gradient(160deg, #ffe3bf, #ffc286); --ico-coral: linear-gradient(160deg, #ffd5cd, #ffa99b);
   --ico-green: linear-gradient(160deg, #d0efd9, #98daad); --ico-ink: linear-gradient(160deg, #e6e8ec, #bcc0c8);
-  --r-card: 26px; --r-tile: 22px; --gap: 16px;
-  --ease: cubic-bezier(.2, .8, .2, 1);
-  position: relative; isolation: isolate; overflow: clip; color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
-  background: var(--bg);
+  --fondo: radial-gradient(120% 90% at 30% 10%, #2c2c31 0%, #232327 45%, #161618 100%);
+  --fondo-a: radial-gradient(closest-side, #2a2a2f 70%, #303036 100%); --fondo-a-sombra: inset 2px 2px 0 #ffffff14;
+  --fondo-b: #ffffff10; --fondo-c: #0c0c0e; --fondo-c-aro: #ffffff18;
+  --grid: #ffffff1f; --rate-bg: #ffffff21; --rate-ring: #ffffff2e; --more-ring: #ffffff4d;
+  --paso: #ffffff1f; --paso-hecho: #6f86a8; --tick-bg: #ffffff0f; --tick-ring: #ffffff38;
+  --accent-glow: #7aaef0cc; --count-bg: #7aaef02e;
 }
 .vit *, .vit *::before, .vit *::after { box-sizing: border-box; }
 .vit button { font: inherit; color: inherit; cursor: pointer; }
@@ -58,11 +93,11 @@ export const CSS_CURSO = `
 /* ── la copia ──────────────────────────────────────────────────────────────────────────────── */
 .vit * { box-sizing: border-box; }
 .vit .vit-num { font-variant-numeric: tabular-nums; }
-.vit .vit-fondo { position: absolute; inset: 0 0 auto 0; height: 900px; overflow: hidden; pointer-events: none; background: radial-gradient(120% 90% at 30% 10%, #2c2c31 0%, #232327 45%, #161618 100%); }
+.vit .vit-fondo { position: absolute; inset: 0 0 auto 0; height: 900px; overflow: hidden; pointer-events: none; background: var(--fondo); }
 .vit .vit-fondo::after { content: ''; position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(180deg, transparent, var(--bg)); }
-.vit .vit-fondo__a { position: absolute; left: 1088px; top: -40px; width: 900px; height: 900px; border-radius: 50%; background: radial-gradient(closest-side, #2a2a2f 70%, #303036 100%); box-shadow: inset 2px 2px 0 #ffffff14; }
-.vit .vit-fondo__b { position: absolute; left: -200px; top: 60px; width: 1500px; height: 1500px; border-radius: 50%; border: 1px solid #ffffff10; }
-.vit .vit-fondo__c { position: absolute; left: 760px; top: -760px; width: 1200px; height: 1200px; border-radius: 50%; background: #0c0c0e; box-shadow: 0 0 0 1px #ffffff18; }
+.vit .vit-fondo__a { position: absolute; left: 1088px; top: -40px; width: 900px; height: 900px; border-radius: 50%; background: var(--fondo-a); box-shadow: var(--fondo-a-sombra); }
+.vit .vit-fondo__b { position: absolute; left: -200px; top: 60px; width: 1500px; height: 1500px; border-radius: 50%; border: 1px solid var(--fondo-b); }
+.vit .vit-fondo__c { position: absolute; left: 760px; top: -760px; width: 1200px; height: 1200px; border-radius: 50%; background: var(--fondo-c); box-shadow: 0 0 0 1px var(--fondo-c-aro); }
 .vit .vit-fondo__bola { position: absolute; left: 45px; top: 782px; width: 55px; height: 55px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5a5a60, #1d1d21 70%); box-shadow: inset 0 1px 1px #ffffff40, 0 10px 20px -8px #000; }
 .vit .vit-ibtn { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text); transition: background-color .15s; }
 .vit .vit-ibtn:hover { background: var(--well); }
@@ -105,7 +140,7 @@ export const CSS_CURSO = `
 .vit .vit-btn svg { width: 15px; height: 15px; }
 .vit .vit-btn--ghost { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); }
 .vit .vit-btn--ghost:hover { background: var(--well); }
-.vit .vit-btn--accent { height: 33px; padding: 0 16px 0 14px; background: var(--accent); color: var(--on-accent); box-shadow: inset 0 1px 1px #ffffff80, 0 8px 18px -8px #7aaef0cc; }
+.vit .vit-btn--accent { height: 33px; padding: 0 16px 0 14px; background: var(--accent); color: var(--on-accent); box-shadow: inset 0 1px 1px #ffffff80, 0 8px 18px -8px var(--accent-glow); }
 .vit .vit-btn--accent:hover { filter: brightness(1.08); }
 .vit .vit-big { margin-top: 16px; display: flex; align-items: baseline; gap: 13px; }
 .vit .vit-big b { font-size: 34px; font-weight: 600; line-height: 34px; letter-spacing: -.85px; }
@@ -117,7 +152,7 @@ export const CSS_CURSO = `
 .vit .vit-legend__dash { width: 14px; height: 0; border-top: 1.5px dashed var(--ink-mark); }
 .vit .vit-plot { position: relative; margin: 19px 12px 0 43px; height: 198px; }
 .vit .vit-plot__svg { display: block; width: 100%; height: 198px; overflow: visible; }
-.vit .vit-plot__grid { fill: none; stroke: #ffffff1f; stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.vit .vit-plot__grid { fill: none; stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
 .vit .vit-plot__line { fill: none; stroke: var(--accent-line); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linecap: round; }
 .vit .vit-plot__last { fill: none; stroke: var(--ink-mark); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .vit .vit-plot__y { position: absolute; left: -43px; top: 0; bottom: 0; width: 36px; }
@@ -163,9 +198,9 @@ export const CSS_CURSO = `
 .vit .vit-ico--coral { background: var(--ico-coral); color: #9a3a2c; }
 .vit .vit-ico--green { background: var(--ico-green); color: #2c6b40; }
 .vit .vit-ico--ink { background: var(--ico-ink); color: #3b3f47; }
-.vit .vit-rate { height: 26px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px 0 8px; border-radius: 999px; background: #ffffff21; box-shadow: inset 0 0 0 1px #ffffff2e; font-style: normal; font-size: 12px; font-weight: 700; line-height: 17.4px; }
+.vit .vit-rate { height: 26px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px 0 8px; border-radius: 999px; background: var(--rate-bg); box-shadow: inset 0 0 0 1px var(--rate-ring); font-style: normal; font-size: 12px; font-weight: 700; line-height: 17.4px; }
 .vit .vit-rate svg { width: 11px; height: 11px; fill: currentColor; stroke: none; }
-.vit .vit-tile__more { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; box-shadow: inset 0 0 0 1px #ffffff4d; }
+.vit .vit-tile__more { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; box-shadow: inset 0 0 0 1px var(--more-ring); }
 .vit .vit-tile__more svg { width: 15px; height: 15px; }
 .vit .vit-tile__n { position: relative; margin-top: 12px; font-size: 20px; font-weight: 600; line-height: 22px; letter-spacing: -.3px; }
 .vit .vit-tile__m { position: relative; margin-top: 2px; font-size: 12.5px; line-height: 18.125px; opacity: .85; }
@@ -187,15 +222,15 @@ export const CSS_CURSO = `
 .vit .vit-rel b, .vit .vit-rev__h b, .vit .vit-agenda b { font-size: 14px; font-weight: 600; line-height: 20.3px; }
 .vit .vit-rel li > div > span { font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
 .vit .vit-steps { margin-top: 6px; display: grid; grid-template-columns: repeat(5, 33px); gap: 5px; }
-.vit .vit-steps i { height: 3px; border-radius: 2px; background: #ffffff1f; }
-.vit .vit-steps[data-n='4'] i:nth-child(-n+3), .vit .vit-steps[data-n='3'] i:nth-child(-n+2), .vit .vit-steps[data-n='2'] i:nth-child(-n+1) { background: #6f86a8; }
+.vit .vit-steps i { height: 3px; border-radius: 2px; background: var(--paso); }
+.vit .vit-steps[data-n='4'] i:nth-child(-n+3), .vit .vit-steps[data-n='3'] i:nth-child(-n+2), .vit .vit-steps[data-n='2'] i:nth-child(-n+1) { background: var(--paso-hecho); }
 .vit .vit-steps[data-n='4'] i:nth-child(4), .vit .vit-steps[data-n='3'] i:nth-child(3), .vit .vit-steps[data-n='2'] i:nth-child(2) { background: var(--accent); }
-.vit .vit-count { height: 22px; min-width: 26px; display: inline-grid; place-items: center; padding: 0 7px; border-radius: 7px; background: #7aaef02e; font-style: normal; font-size: 11px; font-weight: 700; line-height: 15.95px; letter-spacing: .11px; color: var(--accent-text); }
+.vit .vit-count { height: 22px; min-width: 26px; display: inline-grid; place-items: center; padding: 0 7px; border-radius: 7px; background: var(--count-bg); font-style: normal; font-size: 11px; font-weight: 700; line-height: 15.95px; letter-spacing: .11px; color: var(--accent-text); }
 .vit .vit-revs { margin-top: 16px; display: grid; gap: 10px; }
 .vit .vit-ov-review { padding: 12px 14px; border-radius: 18px; background: var(--well); }
 .vit .vit-rev__h { display: flex; align-items: center; gap: 8px; }
 .vit .vit-mini-stars { margin-left: auto; display: flex; gap: 2px; }
-.vit .vit-mini-stars i { width: 11px; height: 11px; background: #ffffff2e; clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 61%, 80% 100%, 50% 78%, 20% 100%, 30% 61%, 0 38%, 38% 35%); }
+.vit .vit-mini-stars i { width: 11px; height: 11px; background: var(--paso); clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 61%, 80% 100%, 50% 78%, 20% 100%, 30% 61%, 0 38%, 38% 35%); }
 .vit .vit-mini-stars[data-n='1'] i:nth-child(-n+1), .vit .vit-mini-stars[data-n='2'] i:nth-child(-n+2) { background: var(--warn); }
 .vit .vit-rev__t { margin-top: 5px; font-size: 13.5px; line-height: 20px; color: var(--muted); }
 .vit .vit-rev__f { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
@@ -207,7 +242,7 @@ export const CSS_CURSO = `
 .vit .vit-agenda { margin-top: 8px; }
 .vit .vit-agenda li { display: grid; grid-template-columns: 22px 64px minmax(0, 1fr); align-items: center; column-gap: 10px; padding: 10px 0 10px; }
 .vit .vit-agenda li + li { border-top: 1px solid var(--line); }
-.vit .vit-tick { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #ffffff0f; box-shadow: inset 0 0 0 1.5px #ffffff38; }
+.vit .vit-tick { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--tick-bg); box-shadow: inset 0 0 0 1.5px var(--tick-ring); }
 .vit .vit-tick svg { width: 13px; height: 13px; stroke-width: 2.4; }
 .vit .vit-is-done .vit-tick { background: var(--accent); color: var(--on-accent); box-shadow: none; }
 .vit .vit-agenda__h { font-size: 12.5px; font-weight: 600; line-height: 18.125px; color: var(--muted); white-space: nowrap; }

@@ -22,6 +22,7 @@ import {
   veredictosDe, vistaAnuncio,
 } from '../lib/anuncio-diseno';
 import { datosAnuncioMuestra } from '../lib/anuncio-diseno-muestra';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 const col = (ids: string[]) => ids.map((id) => ({ id, nombre: id, formato: 'numero' as const }));
@@ -181,8 +182,6 @@ test('el cableado: la plantilla trae su diseño con sus doce piezas, se ofrece y
   const porId = new Map(h.componentes.map((c) => [c.id, c as { fuente?: string; metricas?: string[]; dimension?: string | null; comparar?: boolean; controles?: Array<{ campo?: string; valores?: string[]; preset?: string }> }]));
   const pieza = (k: string) => porId.get(h.diseno!.piezas[k]);
   assert.equal(Object.keys(h.diseno!.piezas).length, 12);
-  // Una hoja lleva hasta 14 paneles (tests/graficos-corbel.test.ts): los listos para escalar y las semanas se calculan, no se piden.
-  assert.ok(h.componentes.length <= 14, `${h.componentes.length} paneles`);
   assert.deepEqual(['escalar', 'semanas'].filter((k) => k in h.diseno!.piezas), [], 'no hay piezas aparte para lo que se calcula');
   assert.deepEqual(pieza('dia')?.metricas, ['agendas', 'cierres'], 'las semanas suman los días: la pieza trae los cierres');
   for (const k of Object.keys(h.diseno!.piezas)) assert.equal(pieza(k)?.fuente, 'guiones', `la pieza ${k} existe y es de los guiones`);
@@ -190,9 +189,7 @@ test('el cableado: la plantilla trae su diseño con sus doce piezas, se ofrece y
   assert.equal(pieza('meses')?.controles?.find((c) => c.preset)?.preset, 'ult12m', 'la vista larga no obedece al período');
   assert.deepEqual([pieza('invertido')?.dimension, pieza('invertido')?.metricas], ['veredicto', ['gasto']], 'lo invertido en cada veredicto, en su pieza (un anillo lleva una sola métrica)');
   for (const k of ['cpa', 'cierre', 'sinretorno', 'dia']) assert.equal(pieza(k)?.comparar, true, `${k} se compara con el período anterior`);
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'anuncio' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('<AnuncioVivo'));
+  cableadoDelDiseno(h, 'anuncio', 'AnuncioVivo');
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)'));
 });
 

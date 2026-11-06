@@ -7,7 +7,10 @@
 // el original, captura contra captura, está en docs/relevo/nube-dashboards.md («Cobranza»).
 //
 // ⚠️ ESTA HOJA ES SÓLO DE COBRANZA: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta ni la de Closing.
-// ⚠️ LOS COLORES SON LOS DEL DEMO, EN HEX, A PROPÓSITO: es la copia de una referencia CLARA (Coffer tiene un modo oscuro,
+// ⚠️ LOS COLORES CLAROS SON LOS DEL DEMO, EN HEX, A PROPÓSITO: es la copia de una referencia CLARA. Paleta DOBLE (6/11/2026,
+//    Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si tiene
+//    dark mode, automáticamente pasarse a allí»): claro por defecto y, con data-tema="oscuro" en <html>, la regla que viene
+//    justo después de la raíz redefine las MISMAS variables. Sólo CSS: cambia en vivo. El oscuro es nuestro (Coffer tiene uno
 //    que no se midió).
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana: el lienzo del Dashboard tiene la barra
 //    de la app al lado. El medio (641 a 1040) NO está medido en Coffer (sus capturas son 1440 y 390) y es nuestro.
@@ -28,6 +31,22 @@ export const CSS_COBRANZA = `
   --r-lg:12px; --r-md:10px; --r-sm:8px;
   --shadow-card:0 1px 2px #1018280a;
   --focus:0 0 0 2px #fdfdfe,0 0 0 4px #3a4150;
+  /* lo que antes estaba escrito en hex dentro de las reglas */
+  --pill:#fdfdfe; --on-rose:#fff8f7; --av-rose:#f4d7e1; --av-rose-t:#602438; --av-teal:#d7edf4; --av-teal-t:#245160;
+}
+/* En oscuro las superficies SUBEN de luminosidad al elevarse, las líneas son opacas a dos pasos del fondo y el primario
+   (que en claro es tinta sobre blanco) pasa a ser blanco sobre oscuro: por eso on-accent se oscurece. */
+.cbz:where([data-tema="oscuro"] *){
+  --a-800:#ffffff;
+  --page:#0d0f14; --panel:#1e232c; --card:#161a21; --hair:#272d38; --hair-strong:#363e4c;
+  --ink:#ecedef; --muted:#a9aeb8; --faint:#8e94a1;
+  --accent-soft:#252b37; --on-accent:#111622; --ring:#c4cad4;
+  --info:#7aa2f0; --info-bg:#16264a; --good:#4cc487; --good-bg:#12301f;
+  --amber:#e3a548; --amber-bg:#3a2a0e; --rose:#f08581; --rose-bg:#3d1b1a;
+  --c-in:#aeb6c6; --c-out:#6a7488; --c-net:#ecedef; --grid:#262c37;
+  --cat-1:#5b9bf0; --cat-2:#f2845a; --cat-3:#2fcf94; --cat-4:#f2b632; --cat-5:#a98af0; --cat-other:#6d7587;
+  --shadow-card:0 1px 2px #0008; --focus:0 0 0 2px #161a21,0 0 0 4px #c4cad4;
+  --pill:#323a48; --on-rose:#2a0d0c; --av-rose:#4a2230; --av-rose-t:#f4c4d2; --av-teal:#173843; --av-teal-t:#a8dbe9;
 }
 .cbz{background:var(--page);color:var(--ink);font:400 15px/1.5 var(--font);-webkit-font-smoothing:antialiased;min-height:100%}
 .cbz *{box-sizing:border-box}
@@ -74,7 +93,7 @@ export const CSS_COBRANZA = `
 .cbz-owed__sub{margin-top:2px;color:var(--faint);font-size:13px;line-height:19.5px}
 .cbz-owed__late{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
 .cbz-owed__late-n{margin-top:8px;color:var(--rose);font-size:26px;font-weight:700;line-height:29.9px;letter-spacing:-.78px;font-variant-numeric:tabular-nums}
-.cbz-btn--rose{margin-top:8px;height:34px;padding:0 14px;gap:8px;border-radius:var(--r-sm);background:var(--rose);color:#fff8f7;font-size:13px}
+.cbz-btn--rose{margin-top:8px;height:34px;padding:0 14px;gap:8px;border-radius:var(--r-sm);background:var(--rose);color:var(--on-rose);font-size:13px}
 .cbz-aging{position:relative;height:14px;margin-top:auto;border-radius:7px;overflow:hidden;background:var(--panel)}
 .cbz-aging__seg{position:absolute;inset:0;transform-origin:left center}
 .cbz-aging__legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
@@ -94,7 +113,7 @@ export const CSS_COBRANZA = `
 .cbz-legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:10px;color:var(--muted);font-size:13px;line-height:19.5px}
 .cbz-legend span{display:inline-flex;align-items:center;gap:7px}
 .cbz-seg{position:relative;display:inline-flex;flex:none;padding:3px;border:1px solid var(--hair);border-radius:var(--r-sm);background:var(--panel)}
-.cbz-seg__pill{position:absolute;top:3px;left:0;width:100px;height:calc(100% - 6px);border-radius:6px;background:var(--card);box-shadow:0 1px 2px #10182814;transform-origin:left center}
+.cbz-seg__pill{position:absolute;top:3px;left:0;width:100px;height:calc(100% - 6px);border-radius:6px;background:var(--pill);box-shadow:0 1px 2px #10182814;transform-origin:left center}
 .cbz-seg__btn{position:relative;z-index:1;height:28px;padding:0 12px;border-radius:6px;color:var(--muted);font-size:13px;font-weight:600;transition:color .2s}
 .cbz-seg__btn[aria-pressed=true]{color:var(--ink)}
 .cbz-chart{margin-top:9px;min-height:261px}
@@ -118,8 +137,8 @@ export const CSS_COBRANZA = `
 .cbz-due__amt{grid-area:amt;justify-self:end;font-size:15px;font-weight:700;line-height:22.5px;font-variant-numeric:tabular-nums}
 .cbz-btn--soft{grid-area:act;justify-self:end;height:34px;padding:0 13px;gap:8px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--ink);font-size:13px}
 .cbz-avatar{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;flex:none;font-size:12px;font-weight:700;letter-spacing:.24px}
-.cbz-av-rose{background:#f4d7e1;color:#602438}
-.cbz-av-teal{background:#d7edf4;color:#245160}
+.cbz-av-rose{background:var(--av-rose);color:var(--av-rose-t)}
+.cbz-av-teal{background:var(--av-teal);color:var(--av-teal-t)}
 
 /* Lo último que entró */
 .cbz-feed{margin:22px 0 10px;display:flex;flex-direction:column;gap:18px}

@@ -20,6 +20,7 @@ import { agregar } from '../lib/graficos-agregar';
 import { fuenteDe, type Grafico } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { accionElementoDe } from '../lib/graficos-acciones';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 const llamada = (o: Partial<Parameters<typeof filaDeLlamadaGrabada>[0]> = {}) => filaDeLlamadaGrabada({
   lead_id: 7, origen: 'cold-calling', autor: 'Ana', estado: 'lista', resultado: null, duracion_seg: 60, created_at: '2026-11-03T15:00:00Z', ...o,
@@ -74,7 +75,11 @@ test('3. la hoja Cold Calling: «Grabar llamada» es la primera tarjeta (no a lo
   const p = PLANTILLAS_HOJA.find((x) => x.id === 'cold-calling');
   assert.ok(p, 'la plantilla está en la galería');
   const hoja = instanciarPlantilla(p);
-  const comps = hoja.componentes as Array<Record<string, unknown>>;
+  // Desde el 6/11/2026 la hoja abre con las tarjetas de su diseño como BLOQUES (lib/disenos-partes.ts): la primera es la del
+  // título con «Grabar llamada». Las piezas de la plantilla siguen como se escribieron, plegadas en «Todas las piezas».
+  const primero = [...hoja.componentes].sort((a, b) => a.y - b.y || a.x - b.x)[0] as { tipo?: string; diseno?: { id: string; parte: string } };
+  assert.deepEqual([primero.tipo, primero.diseno?.id, primero.diseno?.parte], ['diseno', 'cold-calling', 'cabecera'], 'lo primero es el título con «Grabar llamada»');
+  const comps = sinBloquesDeDiseno(hoja.componentes) as Array<Record<string, unknown>>;
   const boton = comps.find((c) => c.tipo === 'accion');
   assert.ok(boton, 'la hoja tiene el botón');
   assert.equal((boton.accion as { id: string }).id, 'grabar_llamada');

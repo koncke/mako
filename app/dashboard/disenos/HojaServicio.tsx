@@ -31,6 +31,7 @@ import { plata } from '@/lib/cobranza-diseno';
 import { entero } from '@/lib/marketing-diseno';
 import { textoDeContacto, type AvanceServicio, type DiaServicio, type VistaServicio } from '@/lib/servicio-diseno';
 import { CSS_SERVICIO } from './servicio-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -285,6 +286,7 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
         <div className="srw-dash__main">
           {/* ARRIBA: el saludo con lo que tienes hoy (en lugar de las obras, el clima y el viento) y lo que queda de tu agenda (en lugar de
               la luz del día), y la tarjeta oscura con tu cartera (en lugar del pronóstico de la IA). */}
+          <Parte id="cabecera">
           <section className="srw-hero">
             <div className="srw-hero__l">
               <div className="srw-hero__txt">
@@ -322,8 +324,10 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               <Ir href="/clients" className="srw-btn srw-btn--primary srw-btn--sm">Ver tus clientes<Icono id="arrow" /></Ir>
             </div>
           </section>
+          </Parte>
 
           {/* LOS SEIS NÚMEROS (en lugar de los proyectos, las obras, las aprobaciones y la asistencia). */}
+          <Parte id="numeros">
           <div className="srw-kpis">
             {numeros.map((x) => (
               <div key={x.id} className={`srw-kpi${x.tile ? ` srw-tile--${x.tile}` : ''}`} data-lift>
@@ -337,8 +341,10 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               </div>
             ))}
           </div>
+          </Parte>
 
           {/* AVANZARON DE ETAPA («Timeline progress»): los que llegaron a una etapa cada semana, sumados. Sin plan ni pronóstico. */}
+          <Parte id="etapas-semana">
           <section className="srw-card srw-dash-time">
             <div className="srw-card__h"><span className="srw-card__ico"><Icono id="trend" /></span><h2 className="srw-card__t">Avanzaron de etapa</h2>
               <div className="srw-card__tools"><span className="srw-select srw-select--quieto"><span>Últimos 90 días</span></span>
@@ -355,9 +361,11 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               </>
             )}
           </section>
+          </Parte>
 
           <div className="srw-dash__row3">
             {/* LO QUE TE DEBEN («Budget utilization»): lo que falta cobrar por días de atraso, y los que más deben. */}
+            <Parte id="deben">
             <section className="srw-card srw-dash-budget">
               <div className="srw-card__h"><span className="srw-card__ico"><Icono id="wallet" /></span><h2 className="srw-card__t">Lo que te deben</h2></div>
               {problemas.deben ? <Vacio titulo={problemas.deben} /> : !deben || !deben.total ? <Vacio titulo="No te deben nada" texto="Todas las cuotas están cobradas." /> : (
@@ -391,8 +399,10 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               )}
               <Ir href="/crm" className="srw-card__more srw-card__more--block">Ver las cuotas en el CRM<Icono id="arrow" /></Ir>
             </section>
+            </Parte>
 
             {/* QUIÉN TE NECESITA («Site-wise performance»): cada cliente con su señal, hace cuánto no hablan y lo que debe. */}
+            <Parte id="necesita">
             <section className="srw-card srw-dash-sites">
               <div className="srw-card__h"><span className="srw-card__ico"><Icono id="pin" /></span><h2 className="srw-card__t">Quién te necesita</h2><Ir href="/clients" className="srw-card__more">Ver todos<Icono id="arrow" /></Ir></div>
               {problemas.quien ? <Vacio titulo={problemas.quien} /> : !quien || !quien.lista.length ? <Vacio titulo="Todavía no hay clientes en tu cartera" /> : (
@@ -416,9 +426,11 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
                 </ul>
               )}
             </section>
+            </Parte>
           </div>
 
           {/* LOS ATAJOS («Quick links»): las pantallas de MaKo donde se trabaja esto. */}
+          <Parte id="atajos">
           <section className="srw-card srw-quick">
             <b className="srw-quick__t">Atajos</b>
             <div className="srw-quick__l">
@@ -426,9 +438,11 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               {ATAJOS.map((a) => <Ir key={a.href} href={a.href} className="srw-quick__a"><span className={`srw-quick__i${a.ia ? ' srw-quick__i--ai' : ''}`}><Icono id={a.i} /></span>{a.texto}</Ir>)}
             </div>
           </section>
+          </Parte>
 
           <div className="srw-dash__row3 srw-dash__row3--lists">
             {/* CLIENTES POR ETAPA («Recent project updates»): cuántos hay en cada etapa de la entrega, y qué parte son. */}
+            <Parte id="por-etapa">
             <section className="srw-card">
               <div className="srw-card__h"><span className="srw-card__ico"><Icono id="layers" /></span><h2 className="srw-card__t">Clientes por etapa</h2><Ir href="/clients" className="srw-card__more">Ver el tablero<Icono id="arrow" /></Ir></div>
               {problemas.etapas ? <Vacio titulo={problemas.etapas} /> : !etapas || !etapas.lista.length ? <Vacio titulo="Todavía no hay clientes en la entrega" /> : (
@@ -445,7 +459,9 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
                 </ul>
               )}
             </section>
+            </Parte>
             {/* SALUD DEL NEGOCIO («Critical issue alerts»): las alertas del Semáforo de General. */}
+            <Parte id="salud">
             <section className="srw-card srw-dash-alerts">
               <div className="srw-card__h"><span className="srw-card__ico"><Icono id="alert" /></span><h2 className="srw-card__t">Salud del negocio</h2></div>
               {problemas.salud ? <Vacio titulo={problemas.salud} /> : !salud || !salud.length ? <Vacio titulo="Todo en orden" texto="No hay alertas." /> : (
@@ -461,7 +477,9 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
                 </ul>
               )}
             </section>
+            </Parte>
             {/* LO QUE VENCE («Upcoming deadlines»): las tareas del Plan con fecha, lo vencido primero. */}
+            <Parte id="vence">
             <section className="srw-card srw-dash-dead">
               <div className="srw-card__h"><span className="srw-card__ico"><Icono id="flag" /></span><h2 className="srw-card__t">Lo que vence</h2><Ir href="/plan" className="srw-card__more">Ver el Plan<Icono id="arrow" /></Ir></div>
               {problemas.plan ? <Vacio titulo={problemas.plan} /> : !vence || !vence.lista.length ? <Vacio titulo="Nada vence en los próximos 30 días" /> : (
@@ -478,11 +496,13 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
                 </ul>
               )}
             </section>
+            </Parte>
           </div>
         </div>
 
         <aside className="srw-dash__aside" aria-label="Tu día">
           {/* EL CALENDARIO: el mes con lo agendado y lo de hoy. */}
+          <Parte id="calendario">
           <section className="srw-card srw-cal">
             <div className="srw-card__h"><span className="srw-card__ico"><Icono id="cal" /></span><h2 className="srw-card__t">Calendario</h2></div>
             {problemas.calendario || !calendario ? <Vacio titulo={problemas.calendario ?? 'No pude leer tu Calendario.'} /> : (
@@ -504,8 +524,10 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               </>
             )}
           </section>
+          </Parte>
 
           {/* PRIORIDADES («My tasks»): las de la vista Prioridades del Plan, para tildar. */}
+          <Parte id="prioridades">
           <section className="srw-card">
             <div className="srw-card__h"><span className="srw-card__ico"><Icono id="check" /></span><h2 className="srw-card__t">Prioridades</h2>
               <Ir href="/plan" className="srw-ibtn srw-ibtn--sm" etiqueta="Agregar una tarea en el Plan"><Icono id="plus" /></Ir>
@@ -526,8 +548,10 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               </ul>
             )}
           </section>
+          </Parte>
 
           {/* LO QUE VIENE («Notifications»): lo de los próximos días en el Calendario. */}
+          <Parte id="viene">
           <section className="srw-card">
             <div className="srw-card__h"><span className="srw-card__ico"><Icono id="bell" /></span><h2 className="srw-card__t">Lo que viene</h2><Ir href="/calendario" className="srw-card__more">Ver todo<Icono id="arrow" /></Ir></div>
             {problemas.calendario ? <Vacio titulo={problemas.calendario} /> : !viene || !viene.lista.length ? <Vacio titulo="Nada agendado en los próximos días" /> : (
@@ -543,6 +567,7 @@ export function HojaServicio({ hoja, vista, titulo, fecha, hechas, onCompletar, 
               </ul>
             )}
           </section>
+          </Parte>
         </aside>
       </main>
       {pie}

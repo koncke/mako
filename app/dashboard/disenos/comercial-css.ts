@@ -10,6 +10,10 @@
 // medio de 761 a 1040, que Selvar no tiene medido (sus capturas son 1440 y 390).
 //
 // ⚠️ ESTA HOJA ES SÓLO DE COMERCIAL: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): claro por defecto (el de Selvar) y, con
+//    data-tema="oscuro" en <html>, la regla que viene justo después de la raíz redefine las MISMAS variables. Sólo CSS: cambia
+//    en vivo. El oscuro es nuestro (no se midió en Selvar).
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y DESPUÉS del medio: dos @container que se
 //    pisan los decide el orden (docs/hallazgos-templates-dashboard.md §18).
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
@@ -31,7 +35,23 @@ export const CSS_COMERCIAL = `
   --av-slate: #e0e3ea; --av-slate-t: #3e4658;
   --r-card: 22px; --r-tile: 18px; --r-ctl: 12px; --gap: 16px; --gutter: clamp(16px, 2vw, 32px);
   --ease: cubic-bezier(.2, .8, .2, 1);
+  /* lo que antes estaba escrito en hex dentro de las reglas */
+  --hatch-a: #e3e6ec; --hatch-b: #eef0f4; --pill: #fbfbfc; --best: #bccdf5; --sw-hatch-a: #cfd3dc; --copilot-top: #e8ebf9; --amber-ico: #a8700f;
   background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased;
+}
+/* En oscuro las superficies SUBEN de luminosidad al elevarse (fondo < tarjeta < pozo), las líneas son colores opacos a dos
+   pasos del fondo (no un gris lavado con opacidad) y los colores de las series suben de luz sin cambiar de tono. */
+.cm:where([data-tema="oscuro"] *) {
+  --bg: #0d0f14; --card: #161a22; --card-2: #1e232d; --well: #1e232d; --line: #262c38; --line-2: #384050;
+  --shadow: 0 1px 2px #0008, 0 12px 32px -22px #000b;
+  --text: #ededee; --muted: #a9afbc; --faint: #8e95a4; --primary: #4366e0; --on-primary: #ffffff; --ink: #ededee; --on-ink: #151a26;
+  --c-cobalt: #6c8cf0; --c-amber: #eda23a; --c-amber-solid: #f2ab45; --c-sky: #8fb0f5; --c-coral: #ea8a76; --c-teal: #35b5a9; --c-slate: #7d8599;
+  --c-good: #2ebd98; --c-bad: #e5675a;
+  --t-good: #4fd0aa; --t-bad: #f08a7e; --t-amber: #e8aa4c;
+  --av-cobalt: #223165; --av-cobalt-t: #b4c5fa; --av-amber: #4a3513; --av-amber-t: #f0c985; --av-sky: #1f3556; --av-sky-t: #a9c8f5;
+  --av-coral: #53281f; --av-coral-t: #f2b3a4; --av-teal: #14403c; --av-teal-t: #8ad8cf; --av-sand: #43351f; --av-sand-t: #e5cfa6;
+  --av-slate: #2b3140; --av-slate-t: #c3c9d6;
+  --pill: #2d3443; --hatch-a: #222834; --hatch-b: #1a1f29; --best: #34457f; --sw-hatch-a: #4a5264; --copilot-top: #1b2340; --amber-ico: #e3a43f;
 }
 .cm *, .cm *::before, .cm *::after { box-sizing: border-box; }
 .cm svg.cm-i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -62,7 +82,7 @@ export const CSS_COMERCIAL = `
 .cm .cm-seg { display: inline-flex; padding: 3px; border-radius: var(--r-ctl); background: var(--card-2); }
 .cm .cm-seg__opt { height: 32px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .cm .cm-seg__opt:hover { color: var(--text); }
-.cm .cm-seg__opt[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 2px #151c2e1f; }
+.cm .cm-seg__opt[aria-pressed="true"] { background: var(--pill); color: var(--text); box-shadow: 0 1px 2px #151c2e1f; }
 .cm .cm-up { color: var(--t-good); } .cm-down { color: var(--t-bad); }
 
 /* ── la página ─────────────────────────────────────────────────────────────────────────────── */
@@ -92,24 +112,24 @@ export const CSS_COMERCIAL = `
 .cm .cm-runway__quota { text-align: right; font-size: 12px; font-weight: 500; color: var(--muted); line-height: 15px; }
 .cm .cm-runway__quota strong { display: block; margin: 0; font-size: 22px; font-weight: 600; line-height: 27.5px; letter-spacing: -.22px; color: var(--text); }
 .cm .cm-track { position: relative; margin-top: 54px; height: 54px; }
-.cm .cm-track__bar { position: absolute; inset: 0; display: flex; border-radius: 27px; overflow: hidden; background: repeating-linear-gradient(135deg, #e3e6ec 0 6px, #eef0f4 6px 12px); }
+.cm .cm-track__bar { position: absolute; inset: 0; display: flex; border-radius: 27px; overflow: hidden; background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); }
 .cm .cm-track__seg { position: relative; height: 100%; }
 .cm .cm-track__seg i { position: absolute; top: 20%; bottom: 20%; width: 1px; background: #ffffff59; }
 .cm .cm-track__seg--won { background: var(--c-cobalt); } .cm-track__seg--commit { background: var(--c-amber); }
-.cm .cm-track__seg--best { background: #bccdf5; box-shadow: inset -2px 0 0 var(--c-sky); }
+.cm .cm-track__seg--best { background: var(--best); box-shadow: inset -2px 0 0 var(--c-sky); }
 .cm .cm-track__pace { position: absolute; top: -13px; bottom: -11px; width: 2px; margin-left: -1px; background: var(--ink); }
 .cm .cm-track__pace::before { content: ""; position: absolute; top: -5px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); }
 .cm .cm-track__pace span { position: absolute; top: calc(100% + 2px); left: 8px; white-space: nowrap; font-size: 12px; font-weight: 700; line-height: 17.4px; }
 .cm .cm-track__pace small { display: block; font-weight: 500; color: var(--muted); }
 .cm .cm-track__fc { position: absolute; top: -34px; height: 17px; border-radius: 9px; border: 1px dashed var(--c-amber); background: color-mix(in srgb, var(--c-amber) 20%, var(--card)); }
-.cm .cm-track__fc::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--c-amber); box-shadow: 0 0 0 2px #fff; }
+.cm .cm-track__fc::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--c-amber); box-shadow: 0 0 0 2px var(--card); }
 .cm .cm-track__fc span { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 700; color: var(--t-amber); }
 .cm .cm-track__flag { position: absolute; right: 15px; top: -11px; color: var(--text); }
 .cm .cm-legend { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 46px; font-size: 13.5px; font-weight: 500; color: var(--muted); }
 .cm .cm-legend span { display: inline-flex; align-items: center; gap: 8px; }
 .cm .cm-legend b { color: var(--text); font-weight: 600; }
 .cm .cm-sw { width: 12px; height: 12px; border-radius: 3px; background: var(--c, var(--c-cobalt)); flex: none; }
-.cm .cm-sw--hatch { background: repeating-linear-gradient(135deg, #cfd3dc 0 2px, #eef0f4 2px 4px); }
+.cm .cm-sw--hatch { background: repeating-linear-gradient(135deg, var(--sw-hatch-a) 0 2px, var(--hatch-b) 2px 4px); }
 .cm .cm-sw--dash { width: 12px; height: 2px; border-radius: 1px; background: var(--ink); }
 .cm .cm-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 22px 0 0; border: 1px solid var(--line); border-radius: 16px; background: var(--line); overflow: hidden; }
 .cm .cm-stats > div { background: var(--card); padding: 12px 16px; }
@@ -118,10 +138,11 @@ export const CSS_COMERCIAL = `
 .cm .cm-stats dd small { line-height: 1; margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 
 /* el copiloto */
-.cm .cm-copilot { grid-area: cop; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(180deg, #e8ebf9 0%, var(--card) 42%); }
+.cm .cm-copilot { grid-area: cop; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(180deg, var(--copilot-top) 0%, var(--card) 42%); }
 .cm .cm-copilot__h { display: flex; align-items: center; gap: 12px; }
 .cm .cm-copilot__h > div { flex: 1; }
 .cm .cm-copilot__orb { width: 40px; height: 40px; flex: none; }
+.cm .cm-copilot__orb circle:nth-child(1) { stroke: var(--c-cobalt); } .cm .cm-copilot__orb circle:nth-child(2) { stroke: var(--c-amber); } .cm .cm-copilot__orb circle:nth-child(3) { fill: var(--c-cobalt); }
 .cm .cm-copilot__say { margin: 2px 0 20px; font-size: 17px; font-weight: 600; line-height: 22.95px; letter-spacing: -.17px; }
 .cm .cm-sigs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .cm .cm-sig { display: flex; gap: 12px; padding: 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
@@ -212,7 +233,7 @@ export const CSS_COMERCIAL = `
 .cm .cm-rc { list-style: none; margin: 0; padding: 0; }
 .cm .cm-rc__row { display: grid; grid-template-columns: 16px 32px minmax(0, 1fr) 40px; align-items: center; gap: 12px; height: 48px; }
 .cm .cm-rc__pos { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
-.cm .cm-rc__pos .cm-i { color: #a8700f; }
+.cm .cm-rc__pos .cm-i { color: var(--amber-ico); }
 .cm .cm-rc__n { min-width: 0; font-size: 14px; font-weight: 600; line-height: 18px; }
 .cm .cm-rc__bar { margin-top: 6px; height: 6px; border-radius: 3px; background: var(--card-2); overflow: hidden; }
 .cm .cm-rc__bar i { display: block; height: 100%; border-radius: 3px; background: var(--c, var(--c-good)); }

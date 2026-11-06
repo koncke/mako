@@ -17,6 +17,10 @@
 // ⚠️ ESTA HOJA ES SÓLO DE «INSTAGRAM Y REDES»: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
 // ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
 //    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
+// ⚠️ PALETA DOBLE (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene
+//    así en MaKo, y si tiene dark mode, automáticamente pasarse a allí»): la base es la clara de Murmura y `data-tema="oscuro"`
+//    la da vuelta. Las superficies OSCURAS de acento (la tarjeta destacada, el día de hoy) siguen oscuras en las dos; las fichas
+//    blancas de cada red (el ícono con su color de marca) siguen claras, porque el color de marca se lee sobre claro.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
 // =============================================================================
 
@@ -36,8 +40,23 @@ export const CSS_INSTAGRAM = `
   --n-instagram: #c13584; --n-facebook: #1665d8; --n-x: #16191d; --n-linkedin: #0a66c2; --n-tiktok: #16191d; --n-youtube: #d61f1f; --n-pinterest: #d0021b; --n-threads: #16191d;
   --dock: #16191d; --on-dock: #f6f7f5;
   --r-card: 26px; --r-tile: 22px; --gap: 16px; --ease: cubic-bezier(.2, .8, .2, 1);
+  --focus: #1f68a8; --ink-fill: #16191d; --hoy-bg: #16191d; --btn-ink-bg: #16191d; --btn-ink-t: #f6f7f5; --on-white: #16191d;
+  --net-bg: #fff; --hov: #fff; --seg-on: #fff; --grid: #161a1e1f;
+  --av-0: #dfe7e4; --av-a: #e9dccb; --av-b: #d6e4ea; --av-c: #e6d4d6; --av-d: #d9e2d4; --av-e: #e2dccf;
   position: relative; isolation: isolate; overflow: clip; color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
   background: var(--bg);
+}
+.mur:where([data-tema="oscuro"] *) {
+  --bg: #0e1112; --mesh-a: #12312c; --mesh-b: #3a2f1c; --mesh-c: #1a2f3e;
+  --glass: #ffffff0f; --glass-2: #ffffff17; --glass-3: #ffffff24; --solid: #171b1d; --float: #1d2225;
+  --well: #ffffff12; --line: #ffffff17; --line-2: #ffffff2e; --rim: #ffffff14;
+  --shadow: 0 1px 0 #ffffff0d inset, 0 24px 48px -30px #000000cc; --shadow-pop: 0 24px 60px -18px #000000cc, 0 2px 6px #00000066;
+  --text: #ececea; --muted: #a8aeb2; --faint: #8b9296;
+  --pine: #12806a; --coral: #c93f35; --sea: #2b6fb3; --lilac: #3fb7c4; --ink: #ececea; --on-ink: #16191d;
+  --good: #3dbd9a; --bad: #f0786c; --warn: #e8ae33;
+  --dock: #ececea; --on-dock: #16191d; --focus: #7ab0e8;
+  --ink-fill: #2a3238; --hoy-bg: #36414a; --btn-ink-bg: #ececea; --btn-ink-t: #16191d; --net-bg: #eef0ee; --hov: #ffffff24; --seg-on: #2d373d; --grid: #ffffff1f;
+  --av-0: #2c3b37; --av-a: #43392d; --av-b: #2b3d46; --av-c: #46323a; --av-d: #34402f; --av-e: #3f3a2e;
 }
 .mur *, .mur *::before, .mur *::after { box-sizing: border-box; }
 .mur button { font: inherit; color: inherit; cursor: pointer; }
@@ -55,13 +74,13 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ibtn--ring { box-shadow: inset 0 0 0 1px var(--line-2); }
 .mur .mur-ibtn--on-dark { color: var(--cream); box-shadow: inset 0 0 0 1px #ffffff40; }
 .mur .mur-ibtn--on-dark:hover { background: #ffffff24; }
-.mur .mur-av { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #dfe7e4; font-size: 12px; font-weight: 700; color: var(--text); }
+.mur .mur-av { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--av-0); font-size: 12px; font-weight: 700; color: var(--text); }
 .mur .mur-av--sm { width: 28px; height: 28px; font-size: 11px; }
-.mur .mur-av--a { background: #e9dccb; }
-.mur .mur-av--b { background: #d6e4ea; }
-.mur .mur-av--c { background: #e6d4d6; }
-.mur .mur-av--d { background: #d9e2d4; }
-.mur .mur-av--e { background: #e2dccf; }
+.mur .mur-av--a { background: var(--av-a); }
+.mur .mur-av--b { background: var(--av-b); }
+.mur .mur-av--c { background: var(--av-c); }
+.mur .mur-av--d { background: var(--av-d); }
+.mur .mur-av--e { background: var(--av-e); }
 .mur .mur-head { height: 93px; margin-bottom: 16px; display: grid; grid-template-columns: 206px 300px 277px minmax(0, 1fr) auto; align-items: center; }
 .mur .mur-head__title { max-width: 170px; font-size: 38.88px; font-weight: 600; line-height: 40.4352px; letter-spacing: -.972px; }
 .mur .mur-head__title .mur-w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
@@ -79,7 +98,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-pill--butter { background: var(--butter); color: var(--on-butter); }
 .mur .mur-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600; line-height: 21.75px; white-space: nowrap; transition: filter .15s, background-color .15s; }
 .mur .mur-btn svg { width: 16px; height: 16px; }
-.mur .mur-btn--ink { background: var(--ink); color: var(--on-ink); }
+.mur .mur-btn--ink { background: var(--btn-ink-bg); color: var(--btn-ink-t); }
 .mur .mur-btn--ink:hover { filter: brightness(1.15); }
 .mur .mur-btn--sm { height: 36px; padding: 0 14px; font-size: 13px; line-height: 18.85px; }
 .mur .mur-btn--sm svg { width: 15px; height: 15px; }
@@ -90,7 +109,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-r { display: grid; gap: 16px; align-items: stretch; }
 .mur .mur-ov-r--a, .mur .mur-ov-r--b { grid-template-columns: minmax(0, 748fr) minmax(0, 529fr); }
 .mur .mur-ov-r--c { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.mur .mur-card { position: relative; min-width: 0; padding: 20px; border: 1px solid #ffffffd1; border-radius: var(--r-card); background: #ffffff85; box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(140%); }
+.mur .mur-card { position: relative; min-width: 0; padding: 20px; border: 1px solid var(--rim); border-radius: var(--r-card); background: var(--glass); box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(140%); }
 .mur .mur-card__h { height: 42px; display: flex; align-items: center; gap: 10px; }
 .mur .mur-card__t { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 24.65px; letter-spacing: -.085px; }
 .mur .mur-live { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; line-height: 18.85px; color: var(--muted); }
@@ -107,7 +126,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ph--garage { background: radial-gradient(ellipse at 55% 62%, #2c5b5a 0 18%, transparent 40%), radial-gradient(ellipse at 50% 20%, #8fb7c0 0 4%, transparent 22%), linear-gradient(180deg, #1d2629 0%, #0b0f11 100%); }
 .mur .mur-thumb { width: 50px; height: 50px; flex: none; border-radius: 12px; }
 .mur .mur-thumb--44 { width: 44px; height: 44px; border-radius: 10px; }
-.mur .mur-net { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1px var(--line); color: var(--text); }
+.mur .mur-net { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--net-bg); box-shadow: inset 0 0 0 1px var(--line); color: var(--on-white); }
 .mur .mur-net:has(use[href='#n-instagram']) { color: var(--n-instagram); }
 .mur .mur-net svg { width: 13px; height: 13px; }
 .mur .mur-net--fb { color: var(--n-facebook); }
@@ -123,12 +142,12 @@ export const CSS_INSTAGRAM = `
 .mur .mur-nets--leg .mur-net + .mur-net { margin-left: 0; }
 .mur .mur-bdg { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border-radius: 8px; font-style: normal; font-size: 12.5px; font-weight: 700; line-height: 18.125px; letter-spacing: -.25px; color: var(--cream); }
 .mur .mur-bdg--coral { background: var(--coral); }
-.mur .mur-bdg--ink { background: var(--ink); }
+.mur .mur-bdg--ink { background: var(--ink-fill); }
 .mur .mur-bdg--pine { background: var(--pine); }
 .mur .mur-bdg--sea { background: var(--sea); }
 .mur .mur-bdg--butter { background: var(--butter); color: var(--on-butter); }
 .mur .mur-brandchip { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; line-height: 20.3px; color: var(--cream); }
-.mur .mur-ov-hero { margin-top: 15px; height: 288px; display: grid; grid-template-columns: 203.25px minmax(0, 1fr); gap: 20px; padding: 14px; border-radius: 22px; background: var(--ink); color: var(--cream); }
+.mur .mur-ov-hero { margin-top: 15px; height: 288px; display: grid; grid-template-columns: 203.25px minmax(0, 1fr); gap: 20px; padding: 14px; border-radius: 22px; background: var(--ink-fill); color: var(--cream); }
 .mur .mur-ov-hero__media { width: 100%; height: 260px; padding: 0; border: 0; border-radius: 16px; overflow: hidden; background: #ffffff0f; }
 .mur .mur-ov-hero__media .mur-ph { width: 100%; height: 100%; }
 .mur .mur-ov-hero__b { min-width: 0; display: flex; flex-direction: column; padding: 4px 6px 0 0; }
@@ -141,8 +160,8 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-hero__f { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; }
 .mur .mur-ov-hero__f .mur-net { box-shadow: none; }
 .mur .mur-ov-after { margin-top: 9px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.mur .mur-ov-after__item { min-width: 0; height: 68px; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; border: 1px solid #161a1e17; border-radius: 18px; background: #ffffffb3; text-align: left; transition: background-color .15s; }
-.mur .mur-ov-after__item:hover { background: #fff; }
+.mur .mur-ov-after__item { min-width: 0; height: 68px; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; border: 1px solid var(--line); border-radius: 18px; background: var(--glass-2); text-align: left; transition: background-color .15s; }
+.mur .mur-ov-after__item:hover { background: var(--hov); }
 .mur .mur-ov-after__m { flex: 1; min-width: 0; display: grid; }
 .mur .mur-ov-after__m b, .mur .mur-ov-todo__m b { font-size: 14px; font-weight: 600; line-height: 20.3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mur .mur-ov-after__m span, .mur .mur-ov-todo__m > span { font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -152,7 +171,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-st--butter::before { background: var(--butter); }
 .mur .mur-count { min-width: 26px; height: 26px; display: grid; place-items: center; padding: 0 7px; border-radius: 999px; background: var(--coral); color: var(--on-coral); font-style: normal; font-size: 12.5px; font-weight: 700; }
 .mur .mur-ov-todos { margin-top: 15px; display: grid; gap: 8px; }
-.mur .mur-ov-todo { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 12px; padding: 12px; border: 1px solid #161a1e17; border-radius: 18px; background: #ffffffb3; }
+.mur .mur-ov-todo { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--glass-2); }
 .mur .mur-ov-todo--fail { grid-template-columns: 40px minmax(0, 1fr); }
 .mur .mur-ov-todo__m { min-width: 0; display: grid; }
 .mur .mur-ov-todo__m > span.mur-wrap { white-space: normal; }
@@ -161,7 +180,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-more { margin-top: 12px; display: flex; justify-content: center; }
 .mur .mur-seg { height: 42px; display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: var(--well); }
 .mur .mur-seg__btn { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; font-size: 13px; font-weight: 600; line-height: 18.85px; color: var(--muted); }
-.mur .mur-seg__btn[aria-pressed=true] { background: #fff; color: var(--text); box-shadow: 0 1px 2px #14181c1f; }
+.mur .mur-seg__btn[aria-pressed=true] { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px #14181c1f; }
 .mur .mur-ov-growth__big { margin-top: 10px; display: flex; align-items: baseline; gap: 10px; }
 .mur .mur-ov-growth__big b { font-size: 43.2px; font-weight: 600; line-height: 62.64px; letter-spacing: -1.296px; }
 .mur .mur-ov-growth__big span { font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
@@ -170,7 +189,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-lg { width: 8px; height: 8px; border-radius: 50%; background: var(--sea); }
 .mur .mur-chart { position: relative; margin: 26px 12px 0 43px; height: 191px; }
 .mur .mur-chart__svg { display: block; width: 100%; height: 191px; overflow: visible; }
-.mur .mur-chart__grid { fill: none; stroke: #161a1e1f; stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.mur .mur-chart__grid { fill: none; stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
 .mur .mur-chart__line { fill: none; stroke: var(--sea); stroke-width: 2.2; vector-effect: non-scaling-stroke; }
 .mur .mur-chart__y { position: absolute; left: -43px; top: 0; bottom: 0; width: 34px; }
 .mur .mur-chart__y span { position: absolute; right: 0; transform: translateY(-50%); font-size: 12px; font-weight: 500; line-height: 17.4px; color: var(--muted); }
@@ -195,9 +214,9 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-topcard__s span { display: grid; font-size: 13px; font-weight: 500; line-height: 18.85px; color: #f6f7f5cc; }
 .mur .mur-ov-topcard__s b { font-size: 22px; font-weight: 700; line-height: 31.9px; letter-spacing: -.44px; color: var(--cream); }
 .mur .mur-ov-days { margin-top: 15px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
-.mur .mur-ov-day { min-width: 0; height: 231px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #161a1e17; border-radius: 20px; background: #ffffffb3; transition: background-color .15s; }
-.mur .mur-ov-day:hover { background: #fff; }
-.mur .mur-ov-day.mur-is-today { background: var(--ink); color: var(--cream); border-color: transparent; }
+.mur .mur-ov-day { min-width: 0; height: 231px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--glass-2); transition: background-color .15s; }
+.mur .mur-ov-day:hover { background: var(--hov); }
+.mur .mur-ov-day.mur-is-today { background: var(--hoy-bg); color: var(--cream); border-color: transparent; }
 .mur .mur-ov-day__h { display: flex; align-items: baseline; justify-content: space-between; font-size: 14px; font-weight: 600; line-height: 20.3px; }
 .mur .mur-ov-day__h b { font-size: 24px; font-weight: 600; line-height: 34.8px; letter-spacing: -.48px; }
 .mur .mur-slot { height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; line-height: 18.125px; color: var(--cream); }
@@ -211,7 +230,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-netlist { margin-top: 12px; }
 .mur .mur-ov-netlist li { display: flex; align-items: center; gap: 12px; padding: 13.5px 0; }
 .mur .mur-ov-netlist li + li { border-top: 1px solid var(--line); }
-.mur .mur-net--lg { width: 36px; height: 36px; color: var(--text); }
+.mur .mur-net--lg { width: 36px; height: 36px; color: var(--on-white); }
 .mur .mur-net--lg svg { width: 16px; height: 16px; }
 .mur .mur-ov-net__m { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .mur .mur-ov-net__m > span { display: flex; justify-content: space-between; font-size: 14px; font-weight: 500; line-height: 20.3px; }
@@ -223,7 +242,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-net__r b { font-size: 14px; font-weight: 700; line-height: 20.3px; color: var(--good); }
 .mur .mur-ov-net__r span { font-size: 12.5px; font-weight: 500; line-height: 18.125px; color: var(--muted); }
 .mur .mur-ov-ib__tiles { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.mur .mur-ov-ib__tiles span { height: 80px; display: grid; align-content: center; padding: 0 13px; border: 1px solid #161a1e17; border-radius: 16px; background: #ffffffb3; font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-ov-ib__tiles span { height: 80px; display: grid; align-content: center; padding: 0 13px; border: 1px solid var(--line); border-radius: 16px; background: var(--glass-2); font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
 .mur .mur-ov-ib__tiles b { font-size: 24px; font-weight: 700; line-height: 34.8px; letter-spacing: -.48px; color: var(--text); }
 .mur .mur-ov-ib__sent { margin-top: 14px; display: flex; gap: 4px; }
 .mur .mur-ov-ib__sent .mur-s { height: 10px; flex: var(--f); border-radius: 5px; transform-origin: 0 50%; }
@@ -331,7 +350,7 @@ export const CSS_INSTAGRAM = `
 .mur .mur-ov-netlist li[role='button'], .mur .mur-ov-feed li[role='button'] { margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 14px; transition: background-color .15s; }
 .mur .mur-ov-netlist li[role='button']:hover, .mur .mur-ov-feed li[role='button']:hover { background: var(--well); }
 .mur .mur-ov-ib__tiles span[role='button'] { transition: background-color .15s; }
-.mur .mur-ov-ib__tiles span[role='button']:hover { background: #fff; }
+.mur .mur-ov-ib__tiles span[role='button']:hover { background: var(--hov); }
 .mur .mur-ov-feed__mas { justify-content: center; }
 .mur .mur-ov-week__nada { margin-top: 10px; font-size: 13px; line-height: 19px; color: var(--muted); }
 .mur .mur-chart__x span { transform: translateX(-50%); }

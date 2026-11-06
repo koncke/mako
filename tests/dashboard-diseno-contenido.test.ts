@@ -20,6 +20,7 @@ import {
 import { datosContenidoMuestra } from '../lib/contenido-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
+import { cableadoDelDiseno } from './_diseno-cableado';
 
 const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
 
@@ -126,9 +127,8 @@ test('lo que no se pudo leer se dice en su bloque, sin inventar', () => {
 test('el cableado: el diseño se ofrece, se dibuja mirando y la página saluda', () => {
   assert.ok((DISENOS_HOJA as readonly string[]).includes('contenido'));
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'ia-contenido'));
-  const editor = leer('app/dashboard/EditorInforme.tsx');
-  assert.ok(editor.includes("hoja.diseno?.id === 'contenido' && !enGrilla && !editando && !dueno"));
-  assert.ok(editor.includes('extras={disenos?.contenido ?? null} periodo={periodoDiseno}'));
+  cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_HOJA.find((p) => p.id === 'ia-contenido')!), 'contenido', 'ContenidoVivo', ['extras={extras?.contenido ?? null}', 'periodo={periodo}']);
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /<BloqueDeDiseno[\s\S]{0,400}periodo=\{periodoDiseno\}/, 'el bloque lee con el período de la hoja');
   assert.ok(leer('app/dashboard/page.tsx').includes('contenido: hayDisenoContenido ? { quien } : null'));
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaContenido(hoja, datosContenidoMuestra(hoja, hoy))'));
 });

@@ -5,6 +5,9 @@
 // adentro de `.prs`, cada clase con el prefijo `prs-`, sin el armazón de Prism (el fondo fijo, el rango, el reloj, el avatar y el logo,
 // que es su dibujo) y con @container en lugar de @media. Lo de la adaptación va al final (los pasos de 1320 y 1000 px, la cabecera de
 // la hoja, los vacíos y las filas que se tocan). Se escribió desde lo MEDIDO del demo: nada del código de la tienda.
+// Paleta doble (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si
+// tiene dark mode, automáticamente pasarse a allí»): Prism nació oscuro (marino con teal); ahora el claro es el de partida (tarjetas blancas,
+// tinta marina) y el marino original queda bajo [data-tema="oscuro"] de <html>, sólo con variables.
 // ⚠️ En un template literal no va ningún backtick (ni en un comentario) ni un «dólar con llave».
 // =============================================================================
 
@@ -15,6 +18,53 @@ export const CSS_ANUNCIO = `
   container-type: inline-size; container-name: prs;
   --font: 'Prism Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Prism Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --page: #edf1f8;
+  --page-hi: #dce7fb;
+  --card: #ffffff;
+  --card-top: #f8faff;
+  --well: #eaeff7;
+  --hair: #dbe2ee;
+  --hair-2: #c4cee1;
+  --grid: #e1e7f1;
+  --axis: #b3bfd5;
+  --dots: #1b3a7a14;
+  --ink: #0b1a33;
+  --dim: #44536f;
+  --faint: #5a6987;
+  --spark: #44536f8c;
+  --s1: #0b8f86;
+  --s2: #d02a9a;
+  --s3: #6f8f06;
+  --s4: #6a45e0;
+  --s5: #b78900;
+  --s6: #2a61e0;
+  --s-muted: #7385a4;
+  --good: #12794a;
+  --warn: #9a5b00;
+  --crit: #c4243a;
+  --accent: #0b8f86;
+  --on-accent: #04121a;
+  --hud: color-mix(in oklab, #0b8f86 60%, transparent);
+  --glow: color-mix(in oklab, #0b8f86 12%, transparent);
+  --shadow: 0 18px 40px -22px #1b2a4a59;
+  --card-edge: #ffffff;
+  --btn-bg: #ffffffcc;
+  --tag-bg: #ffffffee;
+  --hover: #1b3a7a0f;
+  --bar-a: #9fb0cc;
+  --bar-b: #7d90b2;
+  --s3-deep: #4f6a04;
+  --s5-deep: #8a6700;
+  --s5-glow: #b7890033;
+  --ticker-bg: #eef2f9;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --r: 14px;
+  --gap: 12px;
+  position: relative; isolation: isolate; overflow: clip; color: var(--ink); font: 400 13px/18.2px var(--font); -webkit-font-smoothing: antialiased;
+  background: radial-gradient(1200px 600px at 70% -10%, var(--page-hi), transparent 60%), radial-gradient(circle, var(--dots) 1px, transparent 1.4px) 0 0 / 22px 22px, var(--page);
+}
+/* Oscuro: el marino original de Prism (tarjetas azul noche, series neón). Sólo cambian variables. */
+.prs:where([data-tema="oscuro"] *) {
   --page: #050a14;
   --page-hi: #0d1b36;
   --card: #0b1424;
@@ -35,7 +85,7 @@ export const CSS_ANUNCIO = `
   --s4: #8f6bff;
   --s5: #ffe14d;
   --s6: #3d7bff;
-  --s-muted: #4a5d80;
+  --s-muted: #5d7299;
   --good: #3ddc84;
   --warn: #ffb020;
   --crit: #ff5d6c;
@@ -44,11 +94,16 @@ export const CSS_ANUNCIO = `
   --hud: color-mix(in oklab, #2ee6d6 60%, transparent);
   --glow: color-mix(in oklab, #2ee6d6 12%, transparent);
   --shadow: 0 18px 40px -18px #000000e6;
-  --ease: cubic-bezier(.22, 1, .36, 1);
-  --r: 14px;
-  --gap: 12px;
-  position: relative; isolation: isolate; overflow: clip; color: var(--ink); font: 400 13px/18.2px var(--font); -webkit-font-smoothing: antialiased;
-  background: radial-gradient(1200px 600px at 70% -10%, var(--page-hi), transparent 60%), radial-gradient(circle, var(--dots) 1px, transparent 1.4px) 0 0 / 22px 22px, var(--page);
+  --card-edge: #ffffff0a;
+  --btn-bg: #0b142499;
+  --tag-bg: #071222e6;
+  --hover: #7aa6ff14;
+  --bar-a: #56688a;
+  --bar-b: #34425e;
+  --s3-deep: #7d9a1c;
+  --s5-deep: #b89a1f;
+  --s5-glow: #ffe14d33;
+  --ticker-bg: #142139b3;
 }
 .prs *, .prs *::before, .prs *::after { box-sizing: border-box; }
 .prs button { font: inherit; color: inherit; cursor: pointer; }
@@ -65,8 +120,8 @@ export const CSS_ANUNCIO = `
 .prs .prs-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; line-height: 19.6px; letter-spacing: 1.96px; }
 .prs .prs-org { display: inline-flex; align-items: center; gap: 8px; padding-left: 16px; border-left: 1px solid var(--hair); font-size: 12.5px; line-height: 17.5px; color: var(--dim); }
 .prs .prs-env { padding: 3px 7px; border: 1px solid var(--hair-2); border-radius: 6px; font: 500 10.5px/10.5px var(--mono); letter-spacing: .63px; text-transform: uppercase; color: var(--dim); }
-.prs .prs-btn { height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--hair-2); border-radius: 10px; background: #0b142499; font-size: 12.5px; font-weight: 600; line-height: 17.5px; transition: border-color .2s, background-color .2s; }
-.prs .prs-icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--hair-2); border-radius: 10px; background: #0b142499; transition: border-color .2s, background-color .2s; }
+.prs .prs-btn { height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--hair-2); border-radius: 10px; background: var(--btn-bg); font-size: 12.5px; font-weight: 600; line-height: 17.5px; transition: border-color .2s, background-color .2s; }
+.prs .prs-icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--hair-2); border-radius: 10px; background: var(--btn-bg); transition: border-color .2s, background-color .2s; }
 .prs .prs-btn:hover, .prs .prs-icon-btn:hover { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
 .prs .prs-top__r { display: flex; align-items: center; gap: 10px; }
 .prs .prs-view { padding: 13px 18px 18px; display: grid; gap: var(--gap); }
@@ -78,7 +133,7 @@ export const CSS_ANUNCIO = `
 .prs .prs-row--2 > .prs-card { height: 206px; }
 .prs .prs-row--3 > .prs-card { height: 179px; }
 .prs .prs-row--4 > .prs-card { height: 137px; }
-.prs .prs-card { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--hair); border-radius: var(--r); background: linear-gradient(180deg, var(--card-top), var(--card)); box-shadow: 0 1px 0 #ffffff0a inset, var(--shadow); overflow: hidden; }
+.prs .prs-card { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--hair); border-radius: var(--r); background: linear-gradient(180deg, var(--card-top), var(--card)); box-shadow: 0 1px 0 var(--card-edge) inset, var(--shadow); overflow: hidden; }
 .prs .prs-hud { position: absolute; inset: 6px; pointer-events: none; opacity: .55; }
 .prs .prs-hud i { position: absolute; width: 10px; height: 10px; border: 0 solid var(--hud); }
 .prs .prs-hud i:nth-child(1) { left: 0; top: 0; border-left-width: 1.5px; border-top-width: 1.5px; }
@@ -110,7 +165,7 @@ export const CSS_ANUNCIO = `
 .prs .prs-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .prs .prs-ax { font: 500 10.5px/10.5px var(--mono); fill: var(--faint); }
 .prs .prs-gridln { stroke: var(--grid); stroke-width: 1; }
-.prs .prs-tag { position: absolute; padding: 4px 6px; border: 1px solid color-mix(in oklab, var(--accent) 70%, transparent); border-radius: 6px; background: #071222e6; font: 600 11px/11px var(--mono); color: var(--ink); transform: translate(-100%, -130%); white-space: nowrap; }
+.prs .prs-tag { position: absolute; padding: 4px 6px; border: 1px solid color-mix(in oklab, var(--accent) 70%, transparent); border-radius: 6px; background: var(--tag-bg); font: 600 11px/11px var(--mono); color: var(--ink); transform: translate(-100%, -130%); white-space: nowrap; }
 .prs .prs-donut { flex: 1; min-height: 0; display: grid; grid-template-columns: 144px minmax(0, 1fr); align-items: center; gap: 22px; }
 .prs .prs-donut__g { position: relative; width: 144px; height: 144px; }
 .prs .prs-donut__g svg { width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
@@ -130,7 +185,7 @@ export const CSS_ANUNCIO = `
 .prs .prs-hb__track { position: relative; height: 10px; margin-right: 12px; border-radius: 3px; background: var(--well); }
 .prs .prs-hb__fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; transform-origin: 0 50%; }
 .prs .prs-hb__fill.prs-s1 { background: linear-gradient(90deg, color-mix(in oklab, var(--s1) 55%, transparent), var(--s1)); }
-.prs .prs-hb__fill.prs-sm { background: linear-gradient(90deg, #4a5d8099, var(--s-muted)); }
+.prs .prs-hb__fill.prs-sm { background: linear-gradient(90deg, color-mix(in srgb, var(--s-muted) 60%, transparent), var(--s-muted)); }
 .prs .prs-hb__target { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
 .prs .prs-hb__val { font: 600 12px/12px var(--mono); text-align: right; }
 .prs .prs-kpis { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -141,7 +196,7 @@ export const CSS_ANUNCIO = `
 .prs .prs-kpi__d svg { width: 11px; height: 11px; stroke-width: 2.4; }
 .prs .prs-kpi__sp { position: relative; flex: 1; min-height: 30px; margin-top: 6px; }
 .prs .prs-kpi__sp svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.prs .prs-badge { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid color-mix(in oklab, var(--good) 60%, transparent); border-radius: 999px; background: #3ddc8414; font-size: 11.5px; font-weight: 600; line-height: 16.1px; color: var(--good); }
+.prs .prs-badge { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid color-mix(in oklab, var(--good) 60%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--good) 9%, transparent); font-size: 11.5px; font-weight: 600; line-height: 16.1px; color: var(--good); }
 .prs .prs-badge svg { width: 14px; height: 14px; }
 .prs .prs-health { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 184px; gap: 12px; align-items: center; }
 .prs .prs-gauge { position: relative; width: 180px; height: 140px; margin: -6px auto 0; }
@@ -164,14 +219,14 @@ export const CSS_ANUNCIO = `
 .prs .prs-cust li { display: grid; justify-items: center; gap: 6px; }
 .prs .prs-cust li .prs-cust__l { margin-top: -6px; }
 .prs .prs-cust li > b { font-size: 11px; font-weight: 600; line-height: 11px; }
-.prs .prs-cust__bar { width: 24px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #56688a, #34425e); transform-origin: 50% 100%; }
-.prs .prs-cust li.prs-is-now .prs-cust__bar { background: linear-gradient(180deg, var(--s5), #b89a1f); box-shadow: 0 0 16px #ffe14d33; }
+.prs .prs-cust__bar { width: 24px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--bar-a), var(--bar-b)); transform-origin: 50% 100%; }
+.prs .prs-cust li.prs-is-now .prs-cust__bar { background: linear-gradient(180deg, var(--s5), var(--s5-deep)); box-shadow: 0 0 16px var(--s5-glow); }
 .prs .prs-cust__l { width: 100%; padding-top: 8px; border-top: 1px solid var(--axis); text-align: center; font: 500 10.5px/10.5px var(--mono); color: var(--dim); }
 .prs .prs-cust__d { font: 500 10px/10px var(--mono); color: var(--faint); }
 .prs .prs-lat__leg b { font: 700 11.5px/11.5px var(--mono); color: var(--ink); }
 .prs .prs-slo { font: 500 10px/10px var(--mono); fill: var(--faint); }
 .prs .prs-c-dock { gap: 6px; }
-.prs .prs-ticker { position: relative; flex: none; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--hair-2); border-radius: 8px; background: #142139b3; overflow: hidden; }
+.prs .prs-ticker { position: relative; flex: none; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--hair-2); border-radius: 8px; background: var(--ticker-bg); overflow: hidden; }
 .prs .prs-ticker svg { color: var(--accent); }
 .prs .prs-ticker__k { font: 500 10.5px/10.5px var(--mono); color: var(--faint); }
 .prs .prs-ticker__v { display: inline-flex; align-items: baseline; gap: 8px; font-size: 12px; line-height: 16.8px; color: var(--dim); }
@@ -241,7 +296,7 @@ export const CSS_ANUNCIO = `
 .prs .prs-delta.prs-sin { font-weight: 500; font-size: 11px; }
 .prs .prs-hb__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
 .prs .prs-hb li[role='button'], .prs .prs-dlist li[role='button'] { margin: 0 -6px; padding: 0 6px; border-radius: 6px; transition: background-color .2s; }
-.prs .prs-hb li[role='button']:hover, .prs .prs-dlist li[role='button']:hover { background: #7aa6ff14; }
+.prs .prs-hb li[role='button']:hover, .prs .prs-dlist li[role='button']:hover { background: var(--hover); }
 .prs .prs-dlist li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prs .prs-dlist--d li { grid-template-columns: 9px minmax(0, 1fr) auto auto; }
 .prs .prs-dlist--d li em { color: var(--faint); font-weight: 500; }

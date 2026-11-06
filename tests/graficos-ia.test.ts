@@ -53,6 +53,7 @@ import {
 import { DEFINICIONES_GENERALES, PLANTILLAS_GENERALES, filtrarPlantillasHoja } from '../lib/graficos-plantillas-generales';
 import { PLANTILLAS_HOJA, componentesDe, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -271,10 +272,12 @@ test('cada plantilla general: válida, con su período arriba, sin superposicion
     const a = instanciarPlantilla(p);
     const b = instanciarPlantilla(p);
     // La sección plegada de «Más detalle» es una pieza más que las escritas (31/10/2026, `comoCorbel`), y una portada nueva, otra.
-    const extras = a.componentes.filter((c) => (c as { tipo?: unknown }).tipo === 'seccion').length;
+    // Una hoja con diseño copiado nace en BLOQUES (6/11/2026, lib/disenos-partes.ts): se cuentan sus piezas, sin los bloques.
+    const piezas = sinBloquesDeDiseno(a.componentes);
+    const extras = piezas.filter((c) => (c as { tipo?: unknown }).tipo === 'seccion').length;
     const nueva = componentesDe(p).filter((c) => /-portada$/.test(c.id)).length;
     // Los botones (`acciones`, el «Grabar llamada» de Cold Calling) van aparte de las piezas: también cuentan.
-    assert.equal(a.componentes.length, d.piezas.length + (d.acciones?.length ?? 0) + extras + nueva, `${p.id}: el saneo se comió una pieza`);
+    assert.equal(piezas.length, d.piezas.length + (d.acciones?.length ?? 0) + extras + nueva, `${p.id}: el saneo se comió una pieza`);
     assert.equal(a.controles[0]?.tipo, 'periodo', `${p.id}: sin el período arriba`);
     assert.equal(a.controles[0].preset, d.periodo);
     assert.equal(sinSuperposicion(a.componentes), null, `${p.id}: ${sinSuperposicion(a.componentes)}`);

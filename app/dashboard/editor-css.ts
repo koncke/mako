@@ -152,6 +152,18 @@ export const CSS = `
 .lk-comp--filete { border-top: 3px solid var(--lk-filete, var(--border-strong)); }
 .lk-comp--elemento { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
 .lk-comp--elemento { container-type: inline-size; }
+/* UN BLOQUE (6/11/2026, ./disenos/BloqueDeDiseno.tsx): la tarjeta del diseño trae su marco, su fondo y su radio; el de la grilla no va.
+   overflow visible para que la sombra de la tarjeta no se corte en el borde de la celda. Editando, la tapa toma el clic. */
+.lk-comp--diseno { background: transparent; border-color: transparent; box-shadow: none; padding: 0; gap: 0; overflow: visible; position: relative; }
+/* La ANIMACIÓN DE ENTRADA de la hoja (lib/graficos-entradas.ts): hasta que corre, las tarjetas no se ven. Si el JavaScript no llega, a
+   los 1,2 s se muestran igual; con «reducir movimiento» del sistema, nunca se esconden. */
+.lk-grilla[data-antes] .react-grid-item.lk-comp, .lk-pila[data-antes] > .lk-comp { opacity: 0; animation: lkMostrarIgual 0s 1.2s forwards; }
+@keyframes lkMostrarIgual { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lk-grilla[data-antes] .react-grid-item.lk-comp, .lk-pila[data-antes] > .lk-comp { opacity: 1; animation: none; } }
+.lk-comp--diseno[data-vacio] { visibility: hidden; }
+.lk-pila > .lk-comp--diseno[data-vacio] { display: none; }
+.lk-diseno-tapa { position: absolute; inset: 0; z-index: 3; border-radius: 14px; cursor: move; }
+.lk--editando .lk-comp--diseno:hover > .lk-diseno-tapa { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
 /* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
    diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo
    de la tarjeta, para lo que se dibuja ENCIMA de ella (la caja del placeholder, las tarjetas del Plan). Con «Fondo:
@@ -394,6 +406,17 @@ a.lk-comp-ir:hover { color: var(--ink); text-decoration: underline; text-underli
 /* El estilo de la hoja (punto 8): plantillas con su muestra, el color y la letra. */
 .lk-estilo { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 4px; }
 .lk-estilo-tit { font-size: 12px; font-weight: 600; color: var(--dim); margin: 8px 0 4px; }
+/* La animación de entrada (6/11/2026, lib/graficos-entradas.ts): una tarjeta por animación, con su muestra que la corre al pasar. */
+.lk-entradas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.lk-entrada { display: flex; flex-direction: column; align-items: stretch; gap: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: 6px; cursor: pointer; text-align: left; color: var(--ink); min-width: 0; font: inherit; }
+.lk-entrada:hover { border-color: var(--border-strong); }
+.lk-entrada[aria-checked="true"] { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.lk-entrada-muestra { display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; width: 100%; height: 30px; margin-bottom: 3px; }
+.lk-entrada-tarjeta { border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); }
+.lk-entrada-tarjeta:first-child { grid-row: span 2; }
+.lk-entrada-nom { font-size: 11.5px; font-weight: 600; line-height: 1.2; }
+.lk-entrada-ver { border: none; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--primary); cursor: pointer; }
+.lk-entrada-ver:disabled { color: var(--dim); cursor: default; }
 .lk-plantillas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .lk-plantilla { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); padding: 8px; cursor: pointer; text-align: left; color: var(--ink); }
 .lk-plantilla:hover { border-color: var(--primary); }

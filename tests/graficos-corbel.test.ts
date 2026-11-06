@@ -16,6 +16,7 @@ import { PLANTILLAS_GENERAL, PORTADAS_GENERAL } from '../lib/general-plantillas'
 import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
 import { componentesDe, instanciarPlantilla, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
 import { comoDenso, portadasDashboard, MOLDES, ALTO_MEDIANO, ALTO_NUMEROS, ALTO_PROTAGONISTA, ALTO_FRASE } from '../lib/graficos-portadas';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 const MEDIDO = JSON.parse(readFileSync('docs/diseno/tokens-corbel.json', 'utf8'));
 const leer = (r: string) => readFileSync(r, 'utf8').replace(/\r\n/g, '\n');
@@ -193,7 +194,8 @@ test('el teléfono, con lo medido a 390', () => {
 test('Focus: la frase del día, cuatro números bajos y los OKR a lo ancho, que son filas largas', () => {
   const p = PLANTILLAS_GENERAL.find((x) => x.id === 'foco')!;
   const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
-  const c = h.componentes as Array<Record<string, any>>;
+  // Sus piezas, sin los bloques de su diseño (6/11/2026: la hoja nace con las tarjetas de Focus arriba, lib/disenos-partes.ts).
+  const c = sinBloquesDeDiseno(h.componentes) as Array<Record<string, any>>;
   // 4/11/2026 (Pane · Lumora): abre con lo que te queda hoy, y debajo lo de siempre.
   const frase = c.find((x) => x.tipo === 'frase')!;
   assert.deepEqual([frase.x, frase.y, frase.w, frase.h], [0, 0, 12, ALTO_FRASE]);
@@ -207,6 +209,12 @@ test('Focus: la frase del día, cuatro números bajos y los OKR a lo ancho, que 
 });
 
 const PLANTILLAS_TODAS = [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL];
+/**
+ * Las piezas de una plantilla como se escribieron. Una hoja con diseño copiado nace en BLOQUES (6/11/2026, lib/disenos-partes.ts):
+ * arriba las tarjetas de su diseño y, plegadas en «Todas las piezas», estas piezas. Lo que se mide acá es la estructura de las
+ * piezas (la que se ve en una hoja sin diseño, y en la de un diseño al abrir «Todas las piezas»).
+ */
+const piezasDe = (p: (typeof PLANTILLAS_TODAS)[number]) => sinBloquesDeDiseno(componentesDe(p));
 const MEDIDO_DENSO = () => JSON.parse(leer('docs/diseno/densidad-codeandchill.json'));
 /** La forma de una hoja: sus filas, con los anchos. */
 const formaDe = (c: Array<Record<string, any>>) => [...new Set(c.map((x) => x.y))].sort((a, b) => a - b).map((y) => c.filter((x) => x.y === y).sort((a, b) => a.x - b.x).map((x) => x.w).join('+')).join(' / ');
@@ -214,7 +222,11 @@ const formaDe = (c: Array<Record<string, any>>) => [...new Set(c.map((x) => x.y)
 test('CADA PLANTILLA TIENE SU ESTRUCTURA: la asignación escrita es la que se usa, con su porqué, y ninguna forma domina', () => {
   const m = MEDIDO_DENSO();
   const portadas = portadasDashboard() as Record<string, { molde?: string }>;
-  for (const p of PLANTILLAS_HOJA) {
+  // Una plantilla armada con TARJETAS de diseños copiados (6/11/2026, «Velocidad de llamada»: lib/graficos-plantillas.ts) no tiene
+  // molde ni portada: su lugar es el de sus tarjetas. Las demás, sí.
+  const deTarjetas = (p: (typeof PLANTILLAS_HOJA)[number]) => (p.armar((l) => l) as { componentes: Array<{ tipo?: string }> }).componentes.some((c) => c.tipo === 'diseno');
+  assert.deepEqual(PLANTILLAS_HOJA.filter(deTarjetas).map((p) => p.id), ['velocidad-llamada']);
+  for (const p of PLANTILLAS_HOJA.filter((x) => !deTarjetas(x))) {
     const [molde, porque] = m.asignacion.dashboard[p.id];
     assert.equal(portadas[p.id]?.molde, molde, p.id);
     assert.ok(porque.length > 20, `${p.id}: sin porqué`);
@@ -231,9 +243,9 @@ test('CADA PLANTILLA TIENE SU ESTRUCTURA: la asignación escrita es la que se us
   // Y se ve: lo que abre cada hoja no es siempre lo mismo.
   // La frase de apertura (4/11/2026) es una línea a lo ancho que abre casi todas: la estructura empieza DEBAJO de ella.
   const sinFrase = (c: Array<Record<string, any>>) => c.filter((x) => x.tipo !== 'frase');
-  const aperturas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(sinFrase(componentesDe(p) as never)).split(' / ')[0]));
+  const aperturas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(sinFrase(piezasDe(p) as never)).split(' / ')[0]));
   assert.ok(aperturas.size >= 4, `abren igual: ${[...aperturas]}`);
-  const formas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(componentesDe(p) as never)));
+  const formas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(piezasDe(p) as never)));
   assert.ok(formas.size >= 8, `${formas.size} formas distintas en ${PLANTILLAS_TODAS.length} plantillas`);
 });
 
@@ -246,7 +258,7 @@ test('LO MEDIDO A 1440: sin losa, sin títulos sueltos, densas, y cada fila llen
   assert.equal(px(ALTO_PROTAGONISTA), 352);
   assert.equal(px(ALTO_MEDIANO), 306, 'los 306 de las tres iguales de Wharf');
   for (const p of PLANTILLAS_TODAS) {
-    const c = componentesDe(p) as unknown as Array<Record<string, any>>;
+    const c = piezasDe(p) as unknown as Array<Record<string, any>>;
     assert.ok(!c.some((x) => x.portada), `${p.id}: volvió la losa`);
     assert.ok(!c.some((x) => x.tipo === 'seccion'), `${p.id}: en la referencia el título vive en la tarjeta`);
     // La oración de apertura (tipo «frase», 4/11/2026) SÍ va a lo ancho y primera: es una línea de texto sin marco, no la losa que

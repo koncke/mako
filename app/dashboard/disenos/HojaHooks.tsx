@@ -25,6 +25,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
+import { Parte, useSeDibuja } from './parte';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conNombres } from '@/lib/graficos-analisis';
 import type { VistaCaja } from '@/lib/graficos-ia-elemento';
@@ -235,7 +236,8 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
   const [metrica, setMetrica] = useState<'hook' | 'cta' | 'thru'>('hook');
   const [kpis, barra] = usePastilla(elegido, 6);
   const [seg, pastilla] = usePastilla(metrica, 3);
-  const caja = useCaja(hoja.id, compartido || quieta ? undefined : p.ia);
+  const conCaja = useSeDibuja('ia');
+  const caja = useCaja(hoja.id, compartido || quieta || !conCaja ? undefined : p.ia);
   const numero = numeros.find((n) => n.id === elegido) ?? numeros[0];
 
   // ── La entrada (una vez, al montarse) ──────────────────────────────────────────────────────────────────────────────
@@ -274,6 +276,7 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
     <Compartido.Provider value={compartido}>
     <div className="ond" ref={raiz} data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-hooks" precedence="medium">{CSS_HOOKS}</style>
+      <Parte id="cabecera">
       <div className="ond-ov__head">
         <div>
           <div className="ond-ov__date"><Icono id="cal" />{fechaLarga(hoy)} · {periodo}</div>
@@ -288,16 +291,20 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
           <Ir href="/ads-writer" className="ond-btn ond-btn--primary"><Icono id="pluma" />Escribir un guion</Ir>
         </div>
       </div>
+      </Parte>
 
       {vacia ? (
+        <Parte id="vacia">
         <section className="ond-card ond-c-vacia">
           <h2 className="ond-card__t">Todavía no hay anuncios con su guion analizado</h2>
           <p className="ond-card__s">Cuando MaKo analice los guiones de tus anuncios de Meta, aquí se ve en qué parte del video se va la gente y qué gancho la retiene.</p>
         </section>
+        </Parte>
       ) : (
       <>
       <div className="ond-ov__grid ond-ov__r1">
         {/* «Performance» → los cuatro números, con su curva */}
+        <Parte id="numeros">
         <section className="ond-card ond-ov__hero">
           <div className="ond-card__h">
             <div><h2 className="ond-card__t">Cuánto ven tus anuncios</h2><p className="ond-card__s">Cada número contra el período anterior</p></div>
@@ -318,8 +325,10 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
           {numero && numero.dias.length > 1 ? <Curva n={numero} /> : <div className="ond-chart">{sinDatos(numero?.texto ?? null)}</div>}
           <div className="ond-legend"><span><i />Este período</span>{numero?.anterior != null && <span><i className="ond-dash" />Promedio del período anterior</span>}</div>
         </section>
+        </Parte>
 
         {/* «Where it came from» → qué gancho retiene */}
+        <Parte id="ganchos">
         <section className="ond-card ond-ov__mix">
           <div><h2 className="ond-card__t">Qué gancho retiene</h2><p className="ond-card__s">Por tipo de gancho, en el período</p></div>
           <div className="ond-seg ond-seg--full" ref={seg}>
@@ -352,10 +361,12 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </>
           ) : sinDatos(ganchos)}
         </section>
+        </Parte>
       </div>
 
       <div className="ond-ov__grid ond-ov__r2">
         {/* «Running now» → cada guion */}
+        <Parte id="guiones">
         <section className="ond-card">
           <div className="ond-card__h">
             <div><h2 className="ond-card__t">Cada guion</h2><p className="ond-card__s">{guiones ? `${plural(guiones.total, 'guion', 'guiones')} · del que más retiene al que menos` : 'Del que más retiene al que menos'}</p></div>
@@ -376,8 +387,10 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </div>
           ) : sinDatos(guiones)}
         </section>
+        </Parte>
 
         {/* «Checkout funnel» → en qué parte del video se van */}
+        <Parte id="caida">
         <section className="ond-card">
           <div className="ond-card__h"><div><h2 className="ond-card__t">En qué parte se van</h2><p className="ond-card__s">De los que vieron los 3 primeros segundos</p></div></div>
           {caida ? (
@@ -392,10 +405,12 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </div>
           ) : sinDatos(caida)}
         </section>
+        </Parte>
       </div>
 
       <div className="ond-ov__grid ond-ov__r3">
         {/* «Hottest leads» → el hook rate por avatar */}
+        <Parte id="avatares">
         <section className="ond-card">
           <div className="ond-card__h"><div><h2 className="ond-card__t">Hook rate por avatar</h2><p className="ond-card__s">A quién le habla cada guion</p></div></div>
           {avatares && avatares.length ? (
@@ -415,8 +430,10 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </div>
           ) : sinDatos(avatares)}
         </section>
+        </Parte>
 
         {/* «October budget» → tu gancho contra el bueno */}
+        <Parte id="medidor">
         <section className="ond-card">
           <div className="ond-card__h"><div><h2 className="ond-card__t">Tu gancho</h2><p className="ond-card__s">Contra el bueno, que está en 28%</p></div></div>
           {medidor.valor != null ? (
@@ -433,8 +450,10 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </>
           ) : sinDatos(medidor.valor)}
         </section>
+        </Parte>
 
         {/* «Team activity» → lo que escribió MaKo */}
+        <Parte id="ia">
         <section className="ond-card">
           <div className="ond-card__h"><div><h2 className="ond-card__t">Qué gancho funciona</h2><p className="ond-card__s">Lo que escribió MaKo sobre esta hoja</p></div></div>
           {puntos.length ? (
@@ -445,6 +464,7 @@ export function HojaHooks({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila,
             </ul>
           ) : <Vacio>{caja.cargando ? 'Leyendo lo que escribió MaKo…' : quieta ? 'Aquí van las conclusiones de MaKo sobre tus ganchos.' : 'MaKo todavía no escribió sus conclusiones de esta hoja: se piden desde la grilla.'}</Vacio>}
         </section>
+        </Parte>
       </div>
       </>
       )}

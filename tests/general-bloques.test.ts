@@ -192,9 +192,12 @@ test('el editor (Dashboard y General): se agranda desde los ocho lados, y sin la
 test('el menú «Bloques de General»: sin títulos de grupo, una vista previa por bloque, tres por fila', async () => {
   const editor = leer('app/dashboard/EditorInforme.tsx');
   const menu = editor.slice(editor.indexOf("{menu?.tipo === 'piezas' && ("), editor.indexOf("{menu?.tipo === 'estilo' && ("));
-  assert.ok(menu.length > 200 && menu.length < 1500, `el recorte mide ${menu.length}`);
+  assert.ok(menu.length > 200 && menu.length < 2200, `el recorte mide ${menu.length}`);
   assert.doesNotMatch(menu, /lk-lista-grupo/, 'volvieron los títulos internos');
-  assert.match(menu, /<Flotante ancla=\{menu\.ancla\} onCerrar=\{\(\) => setMenu\(null\)\} ancho=\{812\}>/);
+  // 6/11/2026: «Bloques de General» es el primer grupo de la biblioteca «Bloques» (app/dashboard/disenos/BibliotecaBloques.tsx), al
+  // lado de las tarjetas de los diseños copiados; la columna de las vistas previas mide lo que medía este menú.
+  assert.match(menu, /<Flotante ancla=\{menu\.ancla\} onCerrar=\{\(\) => setMenu\(null\)\} ancho=\{860\}>\s*<BibliotecaBloques/);
+  assert.match(menu, /id: 'general', nombre: 'Bloques de General'/);
   assert.match(menu, /\{general\?\.muestra\(x\.id\)\}/, 'sin vista previa');
   const { CSS } = await import('../app/dashboard/editor-css');
   assert.match(CSS, /\.lk-bloques \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);

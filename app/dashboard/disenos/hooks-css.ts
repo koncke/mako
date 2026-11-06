@@ -6,6 +6,8 @@
 // del teléfono, el logo, que es su dibujo, el interruptor de las campañas y los filtros por canal) y con @container en lugar de
 // @media. Lo de la adaptación va al final (el paso de 1000 px, los vacíos y las filas que se tocan). Se escribió desde lo MEDIDO del
 // demo: nada del código de la tienda.
+// Paleta doble (6/11/2026, Martín: «los que vienen en dark mode deben acompañar siempre el white mode si el usuario lo tiene así en MaKo, y si
+// tiene dark mode, automáticamente pasarse a allí»): claro por defecto y oscuro bajo [data-tema="oscuro"] de <html>, sólo con variables.
 // ⚠️ En un template literal no va ningún backtick (ni en un comentario) ni un «dólar con llave».
 // =============================================================================
 
@@ -47,6 +49,7 @@ export const CSS_HOOKS = `
   --warn: oklch(52% .11 70);
   --bad: oklch(52% .18 25);
   --info: oklch(50% .12 250);
+  --on-tone: #fff;
   --side-accent: oklch(80% .1 45);
   --r-card: 20px;
   --r-tile: 14px;
@@ -54,6 +57,38 @@ export const CSS_HOOKS = `
   --gap: 16px;
   --ease: cubic-bezier(.2, .8, .2, 1);
   position: relative; padding: 4px 26px 56px; color: var(--text); background: var(--bg); font: 500 14px/20.3px var(--font); -webkit-font-smoothing: antialiased;
+}
+/* Oscuro: las superficies suben de luminosidad al elevarse, las líneas son opacas a dos pasos del fondo y las series suben de luz sin cambiar de tono. */
+.ond:where([data-tema="oscuro"] *) {
+  --bg: #0e1311;
+  --surface: #161c19;
+  --surface-2: #1c2320;
+  --raised: #252e29;
+  --well: #202823;
+  --line: #28312d;
+  --line-2: #39443e;
+  --rim: inset 0 0 0 1px #28312d;
+  --shadow: 0 1px 2px #00000080, 0 10px 28px -20px #000000cc;
+  --text: #ececea;
+  --muted: #a8b0ab;
+  --faint: #8b9590;
+  --primary: #f0805a;
+  --on-primary: #1d0d06;
+  --primary-soft: #f0805a26;
+  --ember: oklch(72% .15 42);
+  --steel: oklch(71% .12 250);
+  --gold: oklch(80% .13 80);
+  --sea: oklch(72% .1 192);
+  --moss: oklch(73% .13 138);
+  --rose: oklch(71% .14 10);
+  --slate: oklch(68% .04 240);
+  --pine: oklch(66% .09 165);
+  --clay: oklch(70% .08 55);
+  --good: oklch(77% .15 150);
+  --warn: oklch(79% .13 75);
+  --bad: oklch(71% .16 25);
+  --info: oklch(75% .12 250);
+  --on-tone: #0f1411;
 }
 .ond *, .ond *::before, .ond *::after { box-sizing: border-box; }
 .ond button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
@@ -105,7 +140,7 @@ export const CSS_HOOKS = `
 .ond .ond-kpi[aria-pressed='true'] .ond-kpi__l { color: var(--text); }
 .ond .ond-kpi__i { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: var(--well); color: var(--muted); }
 .ond .ond-kpi__i .ond-i { width: 13px; height: 13px; }
-.ond .ond-kpi[aria-pressed='true'] .ond-kpi__i { background: var(--tone); color: #fff; }
+.ond .ond-kpi[aria-pressed='true'] .ond-kpi__i { background: var(--tone); color: var(--on-tone); }
 .ond .ond-kpi__v { font-size: 22px; font-weight: 600; line-height: 24.2px; letter-spacing: -.33px; }
 .ond .ond-kpi__d { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; line-height: 17.4px; color: var(--muted); }
 .ond .ond-chg { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; line-height: 17.4px; }

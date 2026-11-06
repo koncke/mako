@@ -108,7 +108,7 @@ import {
 import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, pintaPortada, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
 import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
-import { PLANTILLAS_OFRECIDAS, conHojaAgregada, instanciarPlantilla } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_OFRECIDAS, conHojaAgregada, instanciarPlantilla, plantillaHojaDe } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
@@ -159,17 +159,11 @@ import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
-import { HojaClosing, type ExtrasClosing } from './disenos/HojaClosing';
-import { HojaCobranza, type ExtrasCobranza } from './disenos/HojaCobranza';
-import type { ExtrasComercial } from './disenos/ComercialVivo';
-import type { ExtrasMarketing } from './disenos/MarketingVivo';
-import type { ExtrasLanding } from './disenos/LandingVivo';
-import type { ExtrasChat } from './disenos/ChatVivo';
-import type { ExtrasAutomatizaciones } from './disenos/AutomatizacionesVivo';
-import type { ExtrasProductividad } from './disenos/ProductividadVivo';
-import type { ExtrasCs } from './disenos/CsVivo';
-import type { ExtrasContenido } from './disenos/ContenidoVivo';
-import dynamic from 'next/dynamic';
+import { DisenoVivo, type ExtrasDisenos } from './disenos/DisenoVivo';
+import { BloqueDeDiseno } from './disenos/BloqueDeDiseno';
+import { BibliotecaBloques } from './disenos/BibliotecaBloques';
+import { DISENOS, insertarBloque, nombreDeBloque, seDibujaMirando, sinBloquesDeDiseno, type DisenoId } from '@/lib/disenos-partes';
+import { ENTRADA_SIN, correrEntrada, entradaDe, entradaEfectiva, type EntradaHoja } from '@/lib/graficos-entradas';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
@@ -182,28 +176,10 @@ import { PLANTILLA_DE, SUPERFICIE_DASHBOARD, type AccionDashboard } from '@/lib/
 import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregunta, type PreguntaGrafico } from './pregunta-grafico';
 
 // La hoja Focus con su diseño (la copia de Pane) lee los datos de General: se carga sólo si hay un Focus que dibujar.
-const FocusVivo = dynamic(() => import('./disenos/FocusVivo'));
-const MiDiaVivo = dynamic(() => import('./disenos/MiDiaVivo'));
-const GeneralVivo = dynamic(() => import('./disenos/GeneralVivo'));
-const OperacionVivo = dynamic(() => import('./disenos/OperacionVivo'));
-const ComercialVivo = dynamic(() => import('./disenos/ComercialVivo'));
-const MarketingVivo = dynamic(() => import('./disenos/MarketingVivo'));
-const LandingVivo = dynamic(() => import('./disenos/LandingVivo'));
-const ChatVivo = dynamic(() => import('./disenos/ChatVivo'));
-const AutomatizacionesVivo = dynamic(() => import('./disenos/AutomatizacionesVivo'));
-const ProductividadVivo = dynamic(() => import('./disenos/ProductividadVivo'));
-const CsVivo = dynamic(() => import('./disenos/CsVivo'));
-const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
-const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
-const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
-const InstagramVivo = dynamic(() => import('./disenos/InstagramVivo'));
-const AnuncioVivo = dynamic(() => import('./disenos/AnuncioVivo'));
-const HooksVivo = dynamic(() => import('./disenos/HooksVivo'));
-const VslVivo = dynamic(() => import('./disenos/VslVivo'));
-const InmobiliariaVivo = dynamic(() => import('./disenos/InmobiliariaVivo'));
-const ColdCallingVivo = dynamic(() => import('./disenos/ColdCallingVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
+/** Los diseños que se arman con los datos de General (sin ellos, no hay qué dibujar). */
+const DISENOS_CON_GENERAL: ReadonlySet<string> = new Set(['foco', 'mi-dia', 'general', 'operacion']);
 const FILA = 30;
 const MARGEN = 16;
 /**
@@ -364,7 +340,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null; productividad?: ExtrasProductividad | null; contenido?: ExtrasContenido | null } | null;
+  disenos?: ExtrasDisenos | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -517,6 +493,8 @@ export function EditorInforme({
   const informeRef = useRef(informe);
 
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
+  const hojaRef = useRef(hoja);
+  hojaRef.current = hoja;
   // ── El LIENZO: la hoja, o la mini-hoja del pop-up que se está editando (con la primera fila del gráfico de
   // muestra: sus gráficos se filtran por ella, y las piezas de la ficha la abren).
   const dueno = editando && editPopup ? (hoja.componentes.find((c): c is Grafico => c.id === editPopup && esGrafico(c) && !!c.popup) ?? null) : null;
@@ -853,6 +831,36 @@ export function EditorInforme({
   const renombrarHoja = (id: string, nombre: string) => mutarHoja((h) => ({ ...h, nombre: nombre.slice(0, 40) }), id);
   const cambiarCabecera = (p: Partial<Pick<Hoja, 'nombre' | 'emoji' | 'subtitulo'>>) => mutarHoja((h) => ({ ...h, ...p }));
   const cambiarTema = (p: Partial<TemaHoja>) => mutarHoja((h) => ({ ...h, tema: sanearTema({ ...h.tema, ...p }) }));
+  // LA ANIMACIÓN DE ENTRADA (6/11/2026, lib/graficos-entradas.ts): corre sobre las tarjetas de la grilla, en el orden en que se
+  // leen, al abrir una hoja (mirando) y cuando se elige una en «Personalización» (también editando: es la vista previa). Con
+  // «reducir movimiento» del sistema no corre (`correrEntrada`).
+  const corriendoEntrada = useRef<Animation[]>([]);
+  const verEntrada = useCallback((e?: EntradaHoja) => {
+    const g = containerRef.current;
+    if (!g) return;
+    for (const a of corriendoEntrada.current) a.cancel();
+    const tarjetas = [...g.querySelectorAll<HTMLElement>('.react-grid-item.lk-comp, .lk-pila > .lk-comp')]
+      .map((n) => ({ n, r: n.getBoundingClientRect() }))
+      .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
+      .map((x) => x.n);
+    corriendoEntrada.current = correrEntrada(tarjetas, e ?? entradaEfectiva(hojaRef.current));
+  }, [containerRef]);
+  // Al ABRIR una hoja (mirando), una vez por hoja. Hasta que corre, las tarjetas no se ven (`data-antes`, ./editor-css.ts): si no,
+  // se verían un cuadro y recién después arrancarían desde abajo. Con «Sin animación» no se esconden nunca.
+  const entradaCorrida = useRef<string | null>(null);
+  const [antesDeEntrar, setAntesDeEntrar] = useState(true);
+  useEffect(() => {
+    if (editando || enBlanco || !mounted || entradaCorrida.current === hoja.id) { setAntesDeEntrar(false); return; }
+    entradaCorrida.current = hoja.id;
+    const r = window.requestAnimationFrame(() => { verEntrada(); setAntesDeEntrar(false); });
+    return () => window.cancelAnimationFrame(r);
+  }, [hoja.id, editando, enBlanco, mounted, verEntrada]);
+  const conEntrada = entradaEfectiva(hoja).id !== ENTRADA_SIN;
+  const elegirEntrada = (id: string) => {
+    mutarHoja((h) => ({ ...h, entrada: id }));
+    const e = entradaDe(id);
+    if (e) window.requestAnimationFrame(() => verEntrada(e));
+  };
 
   // ── Los componentes ──────────────────────────────────────────────────────────────────────────
   const cambiar = useCallback((id: string, parche: Record<string, unknown>) => {
@@ -926,6 +934,16 @@ export function EditorInforme({
     const c = hoja.controles.find((k) => k.tipo === 'periodo');
     return nombrePreset((c ? conVista(c, vista).preset : null) ?? PRESET_AUTOMATICO);
   }, [hoja.controles, vista]);
+  // La hoja con su DISEÑO ENTERO (el modelo de antes del 6/11/2026): sólo la hoja guardada que el saneo no pudo pasar a bloques
+  // (no le entraban: lib/disenos-partes.ts → `conBloquesDeDiseno`, con MAX_COMPONENTES). Mirando, el diseño; editando o con «Ver
+  // todo», la grilla. Los de General (Focus, Mi día…) sin los datos de General van a la grilla.
+  // Lo que una tarjeta de un diseño puede necesitar para dibujarse y no sale de sus piezas (lib/disenos-partes.ts, `soloSi`).
+  const hechosDeLaHoja = useMemo(() => ({ contacto: !!disenos?.closing?.contacto, general: !!general?.datos }), [disenos, general]);
+  const disenoEntero = !!hoja.diseno && hoja.diseno.v !== 2 && !enGrilla && !editando && !dueno
+    && (!DISENOS_CON_GENERAL.has(hoja.diseno.id) || !!general?.datos);
+  // El período que una tarjeta muestra como pastilla (Marketing, Chat, Landing) se cambia en el «Filtro» de la hoja, que ya lo tiene
+  // primero: tocar la pastilla lo abre. Sin el botón (un pop-up, la pila del celular), la pastilla queda como texto.
+  const abrirPeriodo = useCallback(() => { containerRef.current?.closest('.lk')?.querySelector<HTMLButtonElement>('.bc-barra .mf-btn')?.click(); }, [containerRef]);
   const abrirPopup = useCallback((g: Grafico, s: SelDetalle) => {
     const ef = efectivosHoja[g.id] ?? efectivoDe(g, hoja, vista, hoy);
     setPopup({ g, ctx: contextoPopupDe(g, s, datos[g.id]?.resultado), periodo: { desde: ef.desde, hasta: ef.hasta }, hoja });
@@ -1129,14 +1147,26 @@ export function EditorInforme({
   const noSeDibujan = useMemo(() => {
     const out = new Set(noSePiden);
     if (!editando) for (const c of lienzo.componentes) if (esGrafico(c) && c.ocultarSiCero && ocultaSiCero(c, datos[c.id] ?? { cargando: true })) out.add(c.id);
+    // Un BLOQUE cuya tarjeta pide un dato que no llegó (lib/disenos-partes.ts, `soloSi`): mirando no ocupa lugar.
+    if (!editando) for (const c of lienzo.componentes) if (!seDibujaMirando(c, hechosDeLaHoja)) out.add(c.id);
     return out;
-  }, [noSePiden, editando, lienzo.componentes, datos]);
+  }, [noSePiden, editando, lienzo.componentes, datos, hechosDeLaHoja]);
   // El acomodo según el ancho (lib/graficos-acomodo.ts): se calcula al dibujar y nunca se guarda. Editando, el de verdad, que es el que se edita.
   const numerosDeLaHoja = useMemo(() => new Set(lienzo.componentes.filter((c) => esGrafico(c) && esTarjetaNumero(c.tipo)).map((c) => c.id)), [lienzo.componentes]);
+  // Los BLOQUES que no tienen qué mostrar (./disenos/BloqueDeDiseno.tsx los avisa): mirando, una fila y sin dibujarse, y lo de abajo
+  // sube (el diseño de antes, sin datos, dibujaba una sola tarjeta que lo decía en lugar de todas). Editando, a su tamaño.
+  const [bloquesVacios, setBloquesVacios] = useState<ReadonlySet<string>>(() => new Set());
+  const alVaciarse = useCallback((id: string, vacio: boolean) => setBloquesVacios((v) => {
+    if (v.has(id) === vacio) return v;
+    const n = new Set(v);
+    if (vacio) n.add(id); else n.delete(id);
+    return n;
+  }), []);
   const layout: Layout = useMemo(() => {
-    const visto = aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas);
+    const visto = aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas)
+      .map((it) => (!editando && bloquesVacios.has(it.i) ? { ...it, h: 1, minH: 1 } : it));
     return editando || imprimiendo ? visto : acomodoPorAncho(visto, width, (id) => numerosDeLaHoja.has(id));
-  }, [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas, editando, imprimiendo, width, numerosDeLaHoja]);
+  }, [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas, editando, imprimiendo, width, numerosDeLaHoja, bloquesVacios]);
   const visibles = useMemo(() => lienzo.componentes.filter((c) => !noSeDibujan.has(c.id)), [lienzo.componentes, noSeDibujan]);
   const fondos = useMemo(() => fondosDe(grupos, plegadas), [grupos, plegadas]);
   const cajasDibujadas = useMemo(() => new Map(layout.map((it) => [it.i, { x: it.x, y: it.y, w: it.w, h: it.h }] as const)), [layout]);
@@ -1187,6 +1217,25 @@ export function EditorInforme({
     const info = piezaGeneral(pieza);
     const e = sanearElemento({ id: nuevoId(), clase: 'elemento', tipo: 'general', texto: '', general: { pieza }, x: 0, y: abajoDeTodo(lienzo.componentes), w: info.w, h: info.h }, { enPopup: !!dueno });
     if (e) agregarComponente(e);
+  };
+  /**
+   * Una tarjeta de un diseño copiado, desde la biblioteca «Bloques» (6/11/2026, ./disenos/BibliotecaBloques.tsx): entra con las
+   * piezas que lee (las que la hoja ya tiene de ese diseño, o las de su plantilla, plegadas en «Todas las piezas»).
+   */
+  const insertarBloqueDiseno = (d: DisenoId, parte: string) => {
+    setMenu(null);
+    const pl = plantillaHojaDe(DISENOS[d].plantilla);
+    const f = pl ? instanciarPlantilla(pl) : null;
+    const r = insertarBloque({
+      hojaId: hoja.id, componentes: lienzo.componentes, diseno: hoja.diseno, d, parte,
+      fuente: f?.diseno ? { piezas: f.diseno.piezas, componentes: sinBloquesDeDiseno(f.componentes) } : null,
+      max: MAX_COMPONENTES, maxIa: MAX_IA_POR_HOJA,
+    });
+    if ('error' in r) { show(r.error); return; }
+    mutarComponentes(() => r.componentes);
+    setSelId(r.id);
+    setConSel(null);
+    aMirar.current = r.id;
   };
   /** Abre (o cierra, si ya estaba abierto) un flotante anclado a `ancla`. */
   const alternarMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar' | 'contextual' | 'mako'>, ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
@@ -1317,6 +1366,29 @@ export function EditorInforme({
       setSelId(c.id);
       setConSel(null);
     };
+    if (esElemento(c) && c.tipo === 'diseno') {
+      // UN BLOQUE (6/11/2026, ./disenos/BloqueDeDiseno.tsx): una tarjeta de un diseño copiado, dibujada con su diseño, sin el marco
+      // de la grilla (la tarjeta trae el suyo). Editando, una tapa transparente toma el clic: elegir el bloque no abre lo que la
+      // tarjeta abre (un link, una llamada), y arrastrar lo mueve. En la pila del celular mide lo que dibuja.
+      const lugar = enPila ? { ...base, height: 'auto', minHeight: altoDe(Math.min(c.h, 4)) } : base;
+      return (
+        <div key={c.id} data-comp={c.id} className={`lk-comp lk-comp--diseno${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic}
+          data-vacio={!editando && bloquesVacios.has(c.id) ? '' : undefined}>
+          <RedDeBloque nombre={c.diseno ? nombreDeBloque(c.diseno) : 'Bloque'} reiniciarCon={[c, datos]}>
+            <BloqueDeDiseno
+              e={c} hoja={hoja} editando={editando} enPila={enPila} datos={datos} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido} extras={disenos}
+              conGeneral={!!general?.datos}
+              onFila={editando ? undefined : (g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              onLlamada={editando ? undefined : (g, clave) => abrirPopup(g, { dimension: g.dimension ?? null, valor: clave })}
+              onCambio={refrescar}
+              onPeriodo={editando ? undefined : abrirPeriodo}
+              onVacio={(v) => alVaciarse(c.id, v)}
+            />
+          </RedDeBloque>
+          {editando && <div className="lk-diseno-tapa" aria-hidden />}
+        </div>
+      );
+    }
     if (esElemento(c)) {
       // Un bloque de General lleva el marco de una tarjeta de la hoja (el de un gráfico: ./editor-css.ts), y en la pila
       // del celular mide lo que dibuja: el alto de la grilla es del escritorio, y en el teléfono sobraría o cortaría.
@@ -1527,11 +1599,12 @@ export function EditorInforme({
           <span className="lk-sep" />
           <button type="button" className="lk-herr" data-recorrido="dash-datos" onClick={() => setModalDatos(true)}><SvgAgregarDatos /> Añadir datos</button>
           <span className="lk-sep" />
-          {/* Los bloques de General (lib/general-piezas.ts), sólo en General y nunca en un pop-up. */}
-          {esGeneral && !dueno && (
+          {/* «Bloques» (6/11/2026, ./disenos/BibliotecaBloques.tsx): las tarjetas de los diseños copiados del informe y, en General,
+              los bloques de General (lib/general-piezas.ts). Nunca en un pop-up ni en las métricas de una automatización. */}
+          {!dueno && !esAutomatizacion && (
             <>
-              <button type="button" className="lk-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'piezas'} onClick={abrirMenu('piezas')}>
-                <IconoElemento tipo="general" size={19} /> Bloques de General <SvgFlecha />
+              <button type="button" className="lk-herr" data-recorrido="dash-bloques" aria-haspopup="menu" aria-expanded={menu?.tipo === 'piezas'} onClick={abrirMenu('piezas')}>
+                <IconoElemento tipo="diseno" size={19} /> Bloques <SvgFlecha />
               </button>
               <span className="lk-sep" />
             </>
@@ -1571,7 +1644,7 @@ export function EditorInforme({
           </div>
           <span className="lk-sep" />
           <button type="button" className="lk-herr" data-recorrido="dash-estilo" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'estilo'} onClick={abrirMenu('estilo')}>
-            <SvgEstilo /> Estilo de la hoja <SvgFlecha />
+            <SvgEstilo /> Personalización <SvgFlecha />
           </button>
         </div>
       )}
@@ -1597,7 +1670,7 @@ export function EditorInforme({
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
               </div>
             )}
-            {hoja.diseno && enGrilla && !editando && !dueno && !enBlanco && (
+            {hoja.diseno && hoja.diseno.v !== 2 && enGrilla && !editando && !dueno && !enBlanco && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>Aquí ves todas las piezas de la hoja.</span>
                 <button type="button" className="lk-aviso-hoja__accion" onClick={() => setEnGrilla(false)}>Volver al diseño</button>
@@ -1613,169 +1686,15 @@ export function EditorInforme({
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
                 {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
-            ) : hoja.diseno?.id === 'closing' && !enGrilla && !editando && !dueno ? (
-              // La hoja Closing con su DISEÑO PROPIO (la copia de Halden, ./disenos/HojaClosing.tsx): los datos de sus
-              // componentes, la agenda que trae la página y el pop-up de siempre al tocar una llamada.
-              <HojaClosing
-                hoja={hoja} datos={datos} extras={disenos?.closing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+            ) : disenoEntero ? (
+              // Una hoja con su DISEÑO ENTERO (el modelo de antes del 6/11/2026): sólo la guardada que no entró en bloques
+              // (`disenoEntero`). Las demás dibujan cada tarjeta como un BLOQUE de la grilla de abajo, mirando y editando igual.
+              <DisenoVivo
+                hoja={hoja} datos={datos} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido} extras={disenos} conGeneral={!!general?.datos}
                 onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
                 onLlamada={(g, clave) => abrirPopup(g, { dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'cobranza' && !enGrilla && !editando && !dueno ? (
-              // La hoja Cobranza con su DISEÑO PROPIO (la copia de Coffer, ./disenos/HojaCobranza.tsx): los datos de sus
-              // componentes, y una fila abre lo de siempre de su pieza (el detalle con «Marcar cobrada», o su pop-up).
-              <HojaCobranza
-                hoja={hoja} datos={datos} extras={disenos?.cobranza ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'comercial' && !enGrilla && !editando && !dueno ? (
-              // La hoja Comercial con su DISEÑO PROPIO (la copia de Selvar, ./disenos/HojaComercial.tsx): los datos de sus
-              // componentes y las llamadas de venta de hoy; una fila (un origen, un closer, un motivo) abre lo de siempre de su pieza.
-              <ComercialVivo
-                hoja={hoja} datos={datos} extras={disenos?.comercial ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'marketing' && !enGrilla && !editando && !dueno ? (
-              // La hoja Marketing con su DISEÑO PROPIO (la copia de Kestrel, ./disenos/HojaMarketing.tsx): los datos de sus
-              // componentes; una fila (un anuncio, una campaña) abre lo de siempre de su pieza (el anuncio abre su pop-up).
-              <MarketingVivo
-                hoja={hoja} datos={datos} extras={disenos?.marketing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'landing' && !enGrilla && !editando && !dueno ? (
-              // La hoja Landing con su DISEÑO PROPIO (la copia de Corbel, ./disenos/HojaLanding.tsx): los datos de sus componentes;
-              // un origen abre lo de siempre de su pieza.
-              <LandingVivo
-                hoja={hoja} datos={datos} extras={disenos?.landing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'chat' && !enGrilla && !editando && !dueno ? (
-              // La hoja Chat Analyst con su DISEÑO PROPIO (la copia de Parley, ./disenos/HojaChat.tsx): los datos de sus componentes;
-              // un setter o un tipo de mensaje abre lo de siempre de su pieza.
-              <ChatVivo
-                hoja={hoja} datos={datos} extras={disenos?.chat ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'automatizaciones' && !enGrilla && !editando && !dueno ? (
-              // La hoja Automatizaciones con su DISEÑO PROPIO (la copia de Noria, ./disenos/HojaAutomatizaciones.tsx): los datos de sus
-              // componentes; un día, una automatización o un desenlace abre lo de siempre de su pieza.
-              <AutomatizacionesVivo
-                hoja={hoja} datos={datos} extras={disenos?.automatizaciones ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'cs' && !enGrilla && !editando && !dueno ? (
-              // La hoja CS Analyst con su DISEÑO PROPIO (la copia de Mender, ./disenos/HojaCs.tsx): los datos de sus componentes y el
-              // orden de las etapas de la entrega; un cliente, un motivo o una señal abre lo de siempre de su pieza.
-              <CsVivo
-                hoja={hoja} datos={datos} extras={disenos?.cs ?? null} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'productividad' && !enGrilla && !editando && !dueno ? (
-              // La hoja Productividad con su DISEÑO PROPIO (la copia de Fernly, ./disenos/HojaProductividad.tsx): los datos de sus
-              // componentes; una semana, una tarea, un proyecto o una prioridad abre lo de siempre de su pieza.
-              <ProductividadVivo
-                hoja={hoja} datos={datos} extras={disenos?.productividad ?? null} hoy={hoy} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'contenido' && !enGrilla && !editando && !dueno ? (
-              // La hoja Contenido e IA con su DISEÑO PROPIO (la copia de Orrery, ./disenos/HojaContenido.tsx): los datos de sus
-              // componentes; un tipo de pedido a Flow, un modelo, una función o una persona abre lo de siempre de su pieza.
-              <ContenidoVivo
-                hoja={hoja} datos={datos} extras={disenos?.contenido ?? null} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'foco' && general?.datos && !enGrilla && !editando && !dueno ? (
-              // La hoja Focus con su DISEÑO PROPIO (la copia de Pane, ./disenos/HojaFocus.tsx): los datos de los bloques de
-              // General (sólo existe en General: fuera de ahí, la grilla de siempre).
-              <FocusVivo hoja={hoja} hoy={hoy} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
-            ) : hoja.diseno?.id === 'mi-dia' && general?.datos && !enGrilla && !editando && !dueno ? (
-              // «Mi día» con su DISEÑO PROPIO (la copia de Lumora, la otra referencia de Focus: ./disenos/HojaMiDia.tsx), con los
-              // mismos datos de General.
-              <MiDiaVivo hoja={hoja} hoy={hoy} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
-            ) : hoja.diseno?.id === 'general' && general?.datos && !enGrilla && !editando && !dueno ? (
-              // La hoja General con su DISEÑO PROPIO (la copia de Orvel, ./disenos/HojaGeneral.tsx): los datos de los bloques de
-              // General y los de dos de sus componentes (lo de cada mes y lo que te deben).
-              <GeneralVivo hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
-            ) : hoja.diseno?.id === 'operacion' && general?.datos && !enGrilla && !editando && !dueno ? (
-              // «Operación diaria» con su DISEÑO PROPIO (la copia de Moorly, ./disenos/HojaOperacion.tsx): los datos de los bloques de
-              // General y los de seis de sus componentes (los cuatro números, los meses y lo que te deben).
-              <OperacionVivo hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
-            ) : hoja.diseno?.id === 'curso' && !enGrilla && !editando && !dueno ? (
-              // «Curso o comunidad» con su DISEÑO PROPIO (la copia de Vitrea, ./disenos/HojaCurso.tsx): los datos de sus componentes y el
-              // Calendario de los datos de General (sin ellos, esas dos tarjetas dicen que no pudieron leerlo); un área, un estado, un
-              // tramo o un cliente abre lo de siempre de su pieza.
-              <CursoVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'servicio' && !enGrilla && !editando && !dueno ? (
-              // «Agencia o servicio» con su DISEÑO PROPIO (la copia de Sunrow, ./disenos/HojaServicio.tsx): los datos de sus componentes y el
-              // Calendario, el Plan y el Semáforo de los datos de General (sin ellos, esas tarjetas dicen que no pudieron leerlos); un
-              // cliente, una etapa o un deudor abre lo de siempre de su pieza.
-              <ServicioVivo
-                hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'instagram' && !enGrilla && !editando && !dueno ? (
-              // «Instagram y redes» con su DISEÑO PROPIO (la copia de Murmura, ./disenos/HojaInstagram.tsx): los datos de sus componentes y
-              // las publicaciones del Calendario de General (sin ellas, esas tarjetas dicen que no pudieron leerlo); un anuncio, una red,
-              // una edad, una región o un origen abre lo de siempre de su pieza.
-              <InstagramVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'anuncio' && !enGrilla && !editando && !dueno ? (
-              // «Anuncio ganador» con su DISEÑO PROPIO (la copia de Prism, ./disenos/HojaAnuncio.tsx): los datos de sus componentes; un
-              // guion abre su pop-up, y un veredicto o una confianza, lo de siempre de su pieza.
-              <AnuncioVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'hooks' && !enGrilla && !editando && !dueno ? (
-              // «Hooks y retención» con su DISEÑO PROPIO (la copia de Ondra, ./disenos/HojaHooks.tsx): los datos de sus componentes y lo
-              // que escribió MaKo en su caja de IA; un guion abre su pop-up, y un avatar, lo de siempre de su pieza.
-              <HooksVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'inmobiliaria' && !enGrilla && !editando && !dueno ? (
-              // «Inmobiliaria» con su DISEÑO PROPIO (la copia de Torque, ./disenos/HojaInmobiliaria.tsx): los datos de sus componentes; un
-              // proyecto, un interesado, un origen, un asesor o un motivo abre lo de siempre de su pieza.
-              <InmobiliariaVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
-              />
-            ) : hoja.diseno?.id === 'cold-calling' && !enGrilla && !editando && !dueno ? (
-              // «Cold Calling» con su DISEÑO PROPIO (la copia de Corvane, ./disenos/HojaColdCalling.tsx): los datos de sus componentes y el
-              // botón «Grabar llamada» arriba (la misma grabadora); después de grabar, la hoja vuelve a leer (`refrescar`).
-              <ColdCallingVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
                 onCambio={refrescar}
-              />
-            ) : hoja.diseno?.id === 'vsl' && !enGrilla && !editando && !dueno ? (
-              // «VSL y YouTube» con su DISEÑO PROPIO (la copia de Pelago, ./disenos/HojaVsl.tsx): los datos de sus componentes y lo que
-              // escribió MaKo en su caja de IA; un video o un día abre lo de siempre de su pieza.
-              <VslVivo
-                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
-                onGrilla={() => setEnGrilla(true)}
-                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1789,9 +1708,9 @@ export function EditorInforme({
             ) : angosto ? (
               // En el celular la grilla de 12 columnas no se lee: una tarjeta abajo de la otra, en el orden
               // en que se leen. No se arrastra (no hay dónde), pero se elige y se edita igual.
-              <div className="lk-pila">{ordenados.map((c) => tarjeta(c, true))}</div>
+              <div className="lk-pila" data-antes={antesDeEntrar && conEntrada && !editando ? '' : undefined}>{ordenados.map((c) => tarjeta(c, true))}</div>
             ) : mounted && (
-              <div className="lk-grilla" ref={grillaRef}>
+              <div className="lk-grilla" ref={grillaRef} data-antes={antesDeEntrar && conEntrada && !editando ? '' : undefined}>
                 <FondosSecciones fondos={fondos} colores={colores} ancho={width} fila={FILA} margen={MARGEN} />
                 {/* ⚠️ `absoluteStrategy` (top/left) y NO el transform de siempre: un ancestro con `transform`
                     vuelve a un `position: fixed` relativo a ÉL. El modal del chat de MaKo (antes MakoButton), el
@@ -1841,7 +1760,8 @@ export function EditorInforme({
             ) : esElemento(sel) ? (
               <PropsElemento key={sel.id} e={sel} colores={colores} hoja={hoja} popupDe={duenoId} contexto={dueno ? abiertoEnPopup : null}
                 entidad={dueno ? entidadDeGrafico(dueno) : null} vista={vista} onCambiar={(p) => cambiar(sel.id, p)}
-                onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} onCerrar={() => setSelId(null)} />
+                onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} onCerrar={() => setSelId(null)}
+                onElegirPieza={(id) => { setSelId(id); setConSel(null); }} />
             ) : null}
           </aside>
         )}
@@ -1891,21 +1811,31 @@ export function EditorInforme({
           una tarjeta con su vista previa (el bloque con datos de ejemplo, achicado) y su nombre. El orden del catálogo
           ya agrupa (el norte, hoy, la plata, el contenido). */}
       {menu?.tipo === 'piezas' && (
-        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={812}>
-          <div className="lk-bloques" role="menu">
-            {PIEZAS_GENERAL.map((x) => (
-              <button key={x.id} type="button" role="menuitem" className="lk-bloque" onClick={() => insertarPieza(x.id)}>
-                <span className="lk-bloque-vista" aria-hidden><span className="lk-bloque-escala">{general?.muestra(x.id)}</span></span>
-                <span className="lk-bloque-nombre">{x.nombre}</span>
-                <span className="lk-bloque-linea">{x.linea}</span>
-              </button>
-            ))}
-          </div>
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={860}>
+          <BibliotecaBloques
+            informe={esGeneral ? 'general' : 'dashboard'} hoy={hoy}
+            inicial={hoja.diseno?.id ?? lienzo.componentes.filter(esElemento).find((c) => c.tipo === 'diseno')?.diseno?.id ?? null}
+            onElegir={insertarBloqueDiseno}
+            otros={esGeneral ? [{
+              id: 'general', nombre: 'Bloques de General', contenido: (
+                <div className="lk-bloques" role="group" aria-label="Bloques de General">
+                  {PIEZAS_GENERAL.map((x) => (
+                    <button key={x.id} type="button" role="menuitem" className="lk-bloque" onClick={() => insertarPieza(x.id)}>
+                      <span className="lk-bloque-vista" aria-hidden><span className="lk-bloque-escala">{general?.muestra(x.id)}</span></span>
+                      <span className="lk-bloque-nombre">{x.nombre}</span>
+                      <span className="lk-bloque-linea">{x.linea}</span>
+                    </button>
+                  ))}
+                </div>
+              ),
+            }] : []}
+          />
         </Flotante>
       )}
       {menu?.tipo === 'estilo' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={340}>
-          <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} ajustes />
+          <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} ajustes
+            entrada={{ elegida: hoja.entrada ?? null, efectiva: entradaEfectiva(hoja).id, onElegir: elegirEntrada, onVer: () => verEntrada() }} />
         </Flotante>
       )}
       {/* El ⋮: Compartir, Exportar y la guía (no en un link). Sin el AI Analyst desde el 24/10/2026: lo hace la criatura. */}

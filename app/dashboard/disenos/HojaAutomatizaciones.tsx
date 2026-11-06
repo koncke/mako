@@ -27,6 +27,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conDecimal, horasTexto, type Cambio, type Nivel, type VistaAutomatizaciones } from '@/lib/automatizaciones-diseno';
 import { entero } from '@/lib/marketing-diseno';
 import { CSS_AUTOMATIZACIONES } from './automatizaciones-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -97,7 +98,7 @@ function Seg({ opciones, valor, onCambio }: { opciones: readonly string[]; valor
   }, [valor, opciones.length]);
   return (
     <div className="nor-seg" role="group" ref={caja} style={{ position: 'relative' }}>
-      <span ref={marca} aria-hidden style={{ position: 'absolute', top: 4, left: 0, height: 29, borderRadius: 10, background: 'var(--raised)', boxShadow: '0 1px 2px #14221e14, 0 4px 10px -4px #14221e2e', transition: 'transform .35s var(--ease), width .35s var(--ease)', pointerEvents: 'none' }} />
+      <span ref={marca} aria-hidden style={{ position: 'absolute', top: 4, left: 0, height: 29, borderRadius: 10, background: 'var(--raised)', boxShadow: 'var(--shadow-seg)', transition: 'transform .35s var(--ease), width .35s var(--ease)', pointerEvents: 'none' }} />
       {opciones.map((o) => (
         <button key={o} type="button" className={`nor-seg__btn${o === valor ? ' nor-is-on' : ''}`} style={{ position: 'relative', zIndex: 1, background: 'transparent', boxShadow: 'none' }} aria-pressed={o === valor} onClick={() => onCambio(o)}>{o}</button>
       ))}
@@ -210,6 +211,7 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
       <div className="nor-pagina">
         {/* LA CABECERA: las migas (la fecha y el período), el saludo, la frase (en lugar de «110 runs since midnight…») y, en lugar
             de «Ask Copilot» y «New flow», la grilla y las automatizaciones. */}
+        <Parte id="cabecera">
         <div className="nor-ov__head">
           <div>
             <div className="nor-crumbs"><span>{fechaLarga(hoy)}</span><Icono id="chev" /><span>{periodo}</span></div>
@@ -221,9 +223,11 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
             {!compartido && <Ir href="/automations" className="nor-btn nor-btn--primary"><Icono id="plus" />Nueva automatización</Ir>}
           </div>
         </div>
+        </Parte>
 
         <main className="nor-ov">
           {/* EL PULSO («Run pulse»): los cuatro números y, por día, lo que salió y lo que falló, con la línea de una semana antes. */}
+          <Parte id="pulso">
           <section className="nor-card nor-ov__pulse">
             <div className="nor-card__head">
               <div><h2 className="nor-card__t">El pulso</h2><p className="nor-card__s">Lo que salió cada día. La línea dorada es lo que se intentó {pasoLinea}.</p></div>
@@ -292,8 +296,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </div>
             )}
           </section>
+          </Parte>
 
           {/* EL RECORRIDO («Live now»): de entrar a responder en cuatro pasos, cuánto tardan en responder y cómo terminaron. */}
+          <Parte id="recorrido">
           <section className="nor-card nor-ov__live">
             <div className="nor-card__head">
               <div><h2 className="nor-card__t">El recorrido</h2><p className="nor-card__s">De entrar a responder, en el período.</p></div>
@@ -338,8 +344,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </>
             )}
           </section>
+          </Parte>
 
           {/* DÓNDE FALLÓ («Needs a look»): las automatizaciones con mensajes que no salieron. */}
+          <Parte id="fallos">
           <section className="nor-card nor-ov__look">
             <div><h2 className="nor-card__t">Dónde falló {fallos.total ? <span className="nor-cnt">{entero(fallos.total)}</span> : null}</h2><p className="nor-card__s">Lo que no salió, por automatización.</p></div>
             {problemas.fallos ? <Vacio titulo={problemas.fallos} /> : fallos.total == null ? <Vacio titulo="Todavía no hay envíos" /> : !fallos.filas.length ? (
@@ -366,8 +374,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </>
             )}
           </section>
+          </Parte>
 
           {/* QUÉ TAN BIEN SALEN («Reliability»): los últimos 14 días de cada automatización, las que más mandan primero. */}
+          <Parte id="confiable">
           <section className="nor-card nor-ov__rel">
             <div><h2 className="nor-card__t">Qué tan bien salen</h2><p className="nor-card__s">Los últimos 14 días, las que más mandan primero.</p></div>
             {problemas.confiabilidad ? <Vacio titulo={problemas.confiabilidad} /> : !confiabilidad.length ? <Vacio titulo="Todavía no hay envíos" texto="Aquí verás, día por día, qué parte de cada automatización salió bien." /> : (
@@ -388,8 +398,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </>
             )}
           </section>
+          </Parte>
 
           {/* PREGÚNTALE A MaKo («Ask Copilot»): la caja abre su chat, y debajo, lo que conviene hacer con lo que muestra la hoja. */}
+          <Parte id="pregunta">
           <section className="nor-card nor-ov__ask">
             <div className="nor-card__head" style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 12 }}><span className="nor-ask__ic"><Icono id="spark" /></span><h2 className="nor-card__t">Pregúntale a MaKo</h2></div>
             <p className="nor-card__s" style={{ marginTop: 2 }}>Lee tus automatizaciones y lo que mandaron.</p>
@@ -405,8 +417,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </div>
             )}
           </section>
+          </Parte>
 
           {/* LAS QUE MÁS MANDAN («Busiest flows»): la tabla por automatización, con sus últimos 14 días. */}
+          <Parte id="mas-mandan">
           <section className="nor-card nor-ov__flows">
             <div className="nor-card__head">
               <div><h2 className="nor-card__t">Las que más mandan</h2><p className="nor-card__s">En el período, por envíos.</p></div>
@@ -437,8 +451,10 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </div>
             )}
           </section>
+          </Parte>
 
           {/* EN CUÁNTAS HORAS RESPONDEN («Team activity»): cada automatización con lo que tardan en contestarle. */}
+          <Parte id="horas">
           <section className="nor-card nor-ov__feed">
             <div><h2 className="nor-card__t">En cuántas horas responden</h2><p className="nor-card__s">Desde que entran hasta que contestan.</p></div>
             {problemas.horas ? <Vacio titulo={problemas.horas} /> : !horas.length ? <Vacio titulo="Todavía nadie respondió" texto="Cuando alguien conteste una automatización, aquí verás en cuánto." /> : (
@@ -455,6 +471,7 @@ export function HojaAutomatizaciones({ hoja, vista, titulo, periodo, hoy, onGril
               </ul>
             )}
           </section>
+          </Parte>
         </main>
       </div>
     </div>

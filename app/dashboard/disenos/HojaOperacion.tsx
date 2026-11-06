@@ -24,6 +24,7 @@ import Link from '@/app/_ui/Link';
 import { plata, plataCorta } from '@/lib/cobranza-diseno';
 import { resumenDeMeses, type MesOp, type NumeroOp, type VistaOperacion } from '@/lib/operacion-diseno';
 import { CSS_OPERACION } from './operacion-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -119,14 +120,14 @@ function Grafico({ meses, campo }: { meses: MesOp[]; campo: Campo }) {
     const lin = curva(pts);
     dibujo = (
       <>
-        <defs><linearGradient id={grad} x1={0} x2={0} y1={0} y2={1}><stop offset={0} stopColor="oklch(50% .09 205)" stopOpacity={0.2} /><stop offset={1} stopColor="oklch(50% .09 205)" stopOpacity={0} /></linearGradient></defs>
+        <defs><linearGradient id={grad} x1={0} x2={0} y1={0} y2={1}><stop offset={0} style={{ stopColor: 'var(--accent)' }} stopOpacity={0.2} /><stop offset={1} style={{ stopColor: 'var(--accent)' }} stopOpacity={0} /></linearGradient></defs>
         {[4, 3, 2, 1, 0].map((k) => {
           const yy = y(paso * k);
           return <g key={k}><line className="mo-gl" x1={izq} x2={W} y1={yy} y2={yy} /><text x={0} y={yy + 4}>{rotulo(paso * k)}</text></g>;
         })}
         {meses.map((m, i) => (i % cada && i !== meses.length - 1 ? null : <text key={m.clave} x={x(i)} y={H - 4} textAnchor="middle">{m.corto}</text>))}
         <path d={`${lin} L${pts[pts.length - 1][0]},${y(0)} L${pts[0][0]},${y(0)} Z`} fill={`url(#${grad})`} />
-        <path d={lin} fill="none" stroke="oklch(50% .09 205)" strokeWidth={2.2} strokeLinecap="round" />
+        <path d={lin} fill="none" style={{ stroke: 'var(--accent)' }} strokeWidth={2.2} strokeLinecap="round" />
       </>
     );
   }
@@ -145,12 +146,12 @@ function Marea({ porDia }: { porDia: NonNullable<VistaOperacion['llamadas']>['po
     dibujo = (
       <>
         {[0, 1, 2, 3].map((k) => <line key={k} className="mo-gl" x1={0} x2={W} y1={arriba + 30 * k} y2={arriba + 30 * k} />)}
-        <line x1={0} x2={W} y1={alto} y2={alto} stroke="oklch(30% .03 230/.16)" />
+        <line x1={0} x2={W} y1={alto} y2={alto} style={{ stroke: 'var(--line-2)' }} />
         {porDia.map((p, i) => {
           const h = 119 * (p.n / tope);
           return (
             <g key={p.dia}>
-              {h > 0 && <rect x={col * i + (col - ancho) / 2} y={alto - h} width={ancho} height={h} rx={3} fill={i === hi ? 'oklch(50% .09 205)' : 'oklch(50% .09 205/.5)'}><title>{`${p.rotulo}: ${p.n}`}</title></rect>}
+              {h > 0 && <rect x={col * i + (col - ancho) / 2} y={alto - h} width={ancho} height={h} rx={3} style={{ fill: i === hi ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 50%, transparent)' }}><title>{`${p.rotulo}: ${p.n}`}</title></rect>}
               {i % 2 === 0 && <text x={col * i + col / 2} y={H - 2} textAnchor="middle">{p.rotulo}</text>}
             </g>
           );
@@ -170,7 +171,8 @@ const TILE: Record<NumeroOp['id'], { clase: string; icono: keyof typeof P; href:
 const TONO = { bad: { t: 'var(--bad-soft)', c: 'var(--bad)', pill: 'mo-pill--bad' }, warn: { t: 'var(--warm-soft)', c: 'var(--warm-text)', pill: 'mo-pill--warn' }, info: { t: 'var(--accent-soft)', c: 'var(--accent-text)', pill: 'mo-pill--info' } } as const;
 const ICONO_ESPERA = { cobro: 'wallet', tarea: 'clip', leads: 'contact' } as const;
 const MIX = ['var(--c-hull)', 'var(--c-cargo)', 'var(--c-build)', 'var(--c-charter)'];
-const SALUD = { rojo: { c: 'oklch(90% .05 25)', i: 'warn' }, ambar: { c: 'oklch(91% .05 75)', i: 'warn' }, verde: { c: 'oklch(91% .04 155)', i: 'check' } } as const;
+// Variables de la hoja (claro y oscuro): el ícono del avatar va en la tinta, que de noche es clara.
+const SALUD = { rojo: { c: 'var(--salud-rojo)', i: 'warn' }, ambar: { c: 'var(--salud-ambar)', i: 'warn' }, verde: { c: 'var(--salud-verde)', i: 'check' } } as const;
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 const mayuscula = (s: string) => (s ? s[0].toLocaleUpperCase('es') + s.slice(1) : s);
 
@@ -213,6 +215,7 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
       </svg>
       <div className="mo-page">
         {/* LA CABECERA: el saludo, la fecha y lo de hoy, con dos botones. */}
+        <Parte id="cabecera">
         <div className="mo-hero">
           <div>
             <h1>{titulo}</h1>
@@ -227,8 +230,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
             <Ir href="/crm" className="mo-btn mo-btn--primary"><Icono id="contact" />Abrir el CRM</Ir>
           </div>
         </div>
+        </Parte>
 
         {/* LOS CUATRO NÚMEROS, con su línea de los días del período. */}
+        <Parte id="numeros">
         <div className="mo-grid mo-kpis">
           {numeros.map((n) => {
             const t = TILE[n.id];
@@ -244,9 +249,11 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
             );
           })}
         </div>
+        </Parte>
 
         <div className="mo-grid mo-row2">
           {/* MES A MES (el «Premium on the water»): la curva de los 12 meses, con Cobrado · Agendas · Cierres. */}
+          <Parte id="mesames">
           <section className="mo-card mo-desk__chart">
             <div className="mo-card__h">
               <div><h2 className="mo-card__t">Mes a mes</h2><p className="mo-card__s">{campo === 'cobrado' ? 'La plata que entró' : campo === 'agendas' ? 'Las llamadas agendadas' : 'Los cierres'} cada mes · últimos 12 meses</p></div>
@@ -266,8 +273,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
               </div>
             )}
           </section>
+          </Parte>
 
           {/* TE ESTÁ ESPERANDO (el «Waiting on you»): lo vencido primero, después lo que vence pronto. */}
+          <Parte id="espera">
           <section className="mo-card mo-desk__wait">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Te está esperando</h2><p className="mo-card__s">{espera ? (espera.total ? plural(espera.total, 'cosa entre cobros, tareas y leads', 'cosas entre cobros, tareas y leads') : 'Nada pendiente') : 'Cobros, tareas y leads'}</p></div></div>
             {espera == null ? <p className="mo-vacio">No pude leer lo que te está esperando.</p>
@@ -286,10 +295,12 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
                 </ul>
               )}
           </section>
+          </Parte>
         </div>
 
         <div className="mo-grid mo-row3">
           {/* TU FUNNEL HOY (el «Pipeline»): cuántos hay en cada etapa del funnel principal. */}
+          <Parte id="funnel">
           <section className="mo-card">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Tu funnel hoy</h2><p className="mo-card__s">{funnel ? `${plural(funnel.total, 'lead', 'leads')} · ${funnel.nombre}` : 'El funnel principal'}</p></div><Ir href={funnel && !funnel.principal ? `/crm?funnel=${funnel.id}` : '/crm'} className="mo-linkbtn">El CRM</Ir></div>
             {funnel == null ? <p className="mo-vacio">No pude contar tu funnel.</p>
@@ -306,8 +317,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
                 </ul>
               )}
           </section>
+          </Parte>
 
           {/* LAS LLAMADAS QUE VIENEN (el «Renewal tide»): cuántas hay cada día de las próximas dos semanas, y las tres que siguen. */}
+          <Parte id="llamadas">
           <section className="mo-card">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Las llamadas que vienen</h2><p className="mo-card__s">Agendadas por día · próximas 2 semanas</p></div><Ir href="/calendario" className="mo-linkbtn">Calendario</Ir></div>
             {llamadas == null ? <p className="mo-vacio">No pude leer tu calendario.</p> : (
@@ -329,8 +342,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
               </>
             )}
           </section>
+          </Parte>
 
           {/* TE DEBEN (el «Book by program»): lo que falta cobrar, por días de atraso (las cuentas de la hoja Cobranza). */}
+          <Parte id="deben">
           <section className="mo-card mo-mix">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Te deben</h2><p className="mo-card__s">{deben ? `${plural(deben.cuotas, 'cuota', 'cuotas')} · ${plata(deben.total)}` : 'Por días de atraso'}</p></div><Ir href="/crm" className="mo-linkbtn">Las cuotas</Ir></div>
             {deben == null ? <p className="mo-vacio">No pude leer lo que te deben.</p>
@@ -342,10 +357,12 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
                 </>
               )}
           </section>
+          </Parte>
         </div>
 
         <div className="mo-grid mo-row3">
           {/* PARA TILDAR HOY (los «To-dos»): lo que vence hoy y lo vencido; se tilda ahí mismo. */}
+          <Parte id="tildar">
           <section className="mo-card mo-todos">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Para tildar hoy</h2><p className="mo-card__s">{tildar ? plural(abiertas, 'abierta', 'abiertas') : 'Tu Plan'}</p></div><Ir href="/plan" className="mo-linkbtn">El Plan</Ir></div>
             {tildar == null ? <p className="mo-vacio">No pude leer tu Plan.</p>
@@ -364,8 +381,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
                 </ul>
               )}
           </section>
+          </Parte>
 
           {/* SALUD DEL NEGOCIO (la «Activity»): las alertas del semáforo. */}
+          <Parte id="salud">
           <section className="mo-card mo-desk__feed">
             <div className="mo-card__h"><div><h2 className="mo-card__t">Salud del negocio</h2><p className="mo-card__s">Lo que dice el semáforo</p></div></div>
             {salud == null ? <p className="mo-vacio">No pude leer el semáforo.</p>
@@ -378,8 +397,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
                 </ul>
               )}
           </section>
+          </Parte>
 
           {/* LA META DEL TRIMESTRE (el «Next agency bill»): cuánto va, lo esperado a hoy y los días que faltan. */}
+          <Parte id="meta">
           <section className="mo-card mo-bill">
             <div className="mo-card__h">
               <div><h2 className="mo-card__t">La meta del trimestre</h2><p className="mo-card__s">{meta ? meta.titulo : 'Tu meta'}</p></div>
@@ -395,6 +416,7 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
             )}
             <Ir href="/general" className="mo-btn"><Icono id="flag" />Ver la meta</Ir>
           </section>
+          </Parte>
         </div>
       </div>
       {pie}

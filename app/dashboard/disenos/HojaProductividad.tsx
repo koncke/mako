@@ -25,6 +25,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { FILAS_LISTA, ROTULO_ESTADO, textoQuieta, type ArcoPr, type VistaProductividad } from '@/lib/productividad-diseno';
 import { entero } from '@/lib/marketing-diseno';
 import { CSS_PRODUCTIVIDAD } from './productividad-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 const PLAN = '/plan';
@@ -82,10 +83,10 @@ function Medio({ arco: a }: { arco: ArcoPr }) {
   const h = a.hechas / a.total, c = (a.hechas + a.enCurso) / a.total;
   return (
     <svg viewBox="0 0 250 149" aria-hidden>
-      <defs><pattern id={raya} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#fdfdfc" /><rect width="2" height="7" fill="#8d9a92" /></pattern></defs>
+      <defs><pattern id={raya} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" style={{ fill: 'var(--card)' }} /><rect width="2" height="7" style={{ fill: 'var(--hatch)' }} /></pattern></defs>
       {a.porEmpezar > 0 && <path d={arco(c, 1)} fill="none" stroke={`url(#${raya})`} strokeWidth={W} strokeLinecap="round" />}
-      {a.enCurso > 0 && <path className="frn-seg" d={arco(h, c)} fill="none" stroke="#0d3a23" strokeWidth={W} strokeLinecap="round" pathLength={100} />}
-      {a.hechas > 0 && <path className="frn-seg" d={arco(0, h)} fill="none" stroke="#1d7347" strokeWidth={W} strokeLinecap="round" pathLength={100} />}
+      {a.enCurso > 0 && <path className="frn-seg" d={arco(h, c)} fill="none" style={{ stroke: 'var(--g-950)' }} strokeWidth={W} strokeLinecap="round" pathLength={100} />}
+      {a.hechas > 0 && <path className="frn-seg" d={arco(0, h)} fill="none" style={{ stroke: 'var(--g-700)' }} strokeWidth={W} strokeLinecap="round" pathLength={100} />}
     </svg>
   );
 }
@@ -95,8 +96,8 @@ function Aro({ avance }: { avance: number | null }) {
   const v = avance == null ? 0 : Math.max(0, Math.min(100, avance));
   return (
     <svg className="frn-plist__ic" viewBox="0 0 30 30" aria-hidden>
-      <circle cx="15" cy="15" r="11" fill="none" stroke="#e3f2e9" strokeWidth="6" />
-      {v > 0 && <circle cx="15" cy="15" r="11" fill="none" stroke={v >= 100 ? '#0d3a23' : '#1d7347'} strokeWidth="6" pathLength={100} strokeDasharray={`${v} 100`} transform="rotate(-90 15 15)" />}
+      <circle cx="15" cy="15" r="11" fill="none" style={{ stroke: 'var(--g-100)' }} strokeWidth="6" />
+      {v > 0 && <circle cx="15" cy="15" r="11" fill="none" style={{ stroke: v >= 100 ? 'var(--g-950)' : 'var(--g-700)' }} strokeWidth="6" pathLength={100} strokeDasharray={`${v} 100`} transform="rotate(-90 15 15)" />}
     </svg>
   );
 }
@@ -153,6 +154,7 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
       <main className="frn-board">
         {/* LA CABECERA: el saludo (en lugar de «Dashboard») y la frase del tablero. En lugar de «Add Project» e «Import Data», el
             Plan y la grilla. */}
+        <Parte id="cabecera">
         <div className="frn-head">
           <div>
             <h1>{titulo}</h1>
@@ -164,9 +166,11 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
             {onGrilla && <button type="button" className="frn-btn frn-btn--ghost" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button>}
           </div>
         </div>
+        </Parte>
 
         <div className="frn-grid">
           {/* LAS CUATRO TARJETAS: el avance global, las estancadas, las de Alta sin deadline y cuántas se cerraron a tiempo. */}
+          <Parte id="tarjetas">
           <div className="frn-stats">
             {tarjetas.map((t, i) => (
               <article key={t.id} className={`frn-card frn-stat${i === 0 ? ' frn-stat--hero' : ''}`} data-lift="">
@@ -177,10 +181,12 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
               </article>
             ))}
           </div>
+          </Parte>
 
           <div className="frn-left">
             <div className="frn-row">
               {/* LO QUE VENCE, POR SEMANA («Project Analytics»): esta semana oscura, las que tienen algo verdes y las vacías rayadas. */}
+              <Parte id="semanas">
               <section className="frn-card frn-analytics">
                 <h2 className="frn-card__t">Lo que vence, por semana</h2>
                 {problemas.columnas ? <Vacio titulo={problemas.columnas} /> : !columnas || !columnas.length || columnas.every((c) => !c.n) ? (
@@ -197,8 +203,10 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                   </div>
                 )}
               </section>
+              </Parte>
 
               {/* LO QUE MÁS TIEMPO LLEVA QUIETO («Reminders»): la primera de «Lo que huele mal». */}
+              <Parte id="quieta">
               <section className="frn-card frn-rem">
                 <h2 className="frn-card__t">Lo más quieto</h2>
                 {problemas.quietas ? <Vacio titulo={problemas.quietas} /> : !primera ? (
@@ -211,10 +219,12 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                   </>
                 )}
               </section>
+              </Parte>
             </div>
 
             <div className="frn-row frn-row--2">
               {/* LO QUE HUELE MAL («Team Collaboration»): las que siguen, con cuánto llevan quietas y si su deadline se corre. */}
+              <Parte id="huele-mal">
               <section className="frn-card frn-team">
                 <div className="frn-card__head">
                   <h2 className="frn-card__t">Lo que huele mal</h2>
@@ -234,8 +244,10 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                   </ul>
                 )}
               </section>
+              </Parte>
 
               {/* TUS TAREAS («Project Progress»): el medio arco de las hechas, las en curso y las que no empezaron. */}
+              <Parte id="tareas">
               <section className="frn-card frn-progress">
                 <h2 className="frn-card__t">Tus tareas</h2>
                 {problemas.frase ? <Vacio titulo={problemas.frase} /> : !medio ? (
@@ -250,11 +262,13 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                   </>
                 )}
               </section>
+              </Parte>
             </div>
           </div>
 
           <div className="frn-right">
             {/* PROYECTOS («Project»): los proyectos activos con su avance. */}
+            <Parte id="proyectos">
             <section className="frn-card frn-projects">
               <div className="frn-card__head">
                 <h2 className="frn-card__t">Proyectos</h2>
@@ -273,8 +287,10 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                 </ul>
               )}
             </section>
+            </Parte>
 
             {/* ACTIVAS POR PRIORIDAD («Time Tracker»): cuántas activas hay en Alta, en Media y en Baja. */}
+            <Parte id="prioridad">
             <section className="frn-card frn-tracker">
               <h2 className="frn-card__t">Activas por prioridad</h2>
               {problemas.prioridades ? <p className="frn-prio__fut">{problemas.prioridades}</p> : !prioridades ? null : (
@@ -291,6 +307,7 @@ export function HojaProductividad({ hoja, vista, titulo, onGrilla, onFila, compa
                 </>
               )}
             </section>
+            </Parte>
           </div>
         </div>
       </main>

@@ -24,6 +24,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
+import { Parte, useSeDibuja } from './parte';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conNombres } from '@/lib/graficos-analisis';
 import type { VistaCaja } from '@/lib/graficos-ia-elemento';
@@ -142,7 +143,8 @@ const RIEL: Readonly<Record<string, { ic: IconoId; tono: string; fondo: string }
   'Sin medir': { ic: 'play', tono: '#b85a36', fondo: '#f4e3dc' },
   'No lo vio': { ic: 'nada', tono: '#c4425a', fondo: '#f6e0e4' },
 };
-const COLOR = { clay: '#b85a36', ochre: '#c88e1c', petrol: '#136469' } as const;
+// Con variables del diseño: así las series siguen al modo claro u oscuro (6/11/2026).
+const COLOR = { clay: 'var(--clay)', ochre: 'var(--ochre)', petrol: 'var(--petrol)' } as const;
 type Tono = keyof typeof COLOR;
 
 // ── «Today, by the hour» → dónde se van (un reloj: arriba el inicio y el final, a la derecha el 25%, abajo la mitad) ───────────────
@@ -269,7 +271,8 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
   const pieza = (id: string | undefined) => hoja.componentes.find((c): c is Grafico => c.id === id && c.clase === 'grafico');
   const abrir = (id: string | undefined, clave: string) => { const g = pieza(id); return g && onFila && !quieta ? () => onFila(g, clave) : undefined; };
   const raiz = useRef<HTMLDivElement>(null);
-  const caja = useCaja(hoja.id, compartido || quieta ? undefined : p.ia);
+  const conCaja = useSeDibuja('ia');
+  const caja = useCaja(hoja.id, compartido || quieta || !conCaja ? undefined : p.ia);
   const [rayo, setRayo] = useState<number | null>(null);
   const tramos = v.tramos?.tramos ?? [];
   const inicial = tramos.find((t) => t.clave === '75-100%' && t.leads > 0) ? '75-100%' : v.tramos?.mejor?.clave ?? null;
@@ -335,7 +338,8 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
     <Compartido.Provider value={compartido}>
     <div className="pel" ref={raiz} data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-vsl" precedence="medium">{CSS_VSL}</style>
-      <section className="pel-head">
+      <Parte id="cabecera">
+          <section className="pel-head">
         <div>
           <div className="pel-head__date">{fechaLarga(hoy)} · {periodo}</div>
           <h1 className="pel-head__title">{titulo}</h1>
@@ -349,16 +353,20 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
           <Ir href="/web-generator" className="pel-btn pel-btn--primary"><Icono id="pagina" />Tu página</Ir>
         </div>
       </section>
+          </Parte>
 
       {v.vacia ? (
-        <section className="pel-card pel-c-vacia">
+        <Parte id="vacia">
+          <section className="pel-card pel-c-vacia">
           <h2 className="pel-card__t">Todavía nadie le dio play a tu video</h2>
           <p className="pel-vacio">Cuando tu página tenga el Pixel de MaKo y alguien le dé play al video, aquí se ve hasta dónde llega cada uno y si los que lo ven más agendan más.</p>
         </section>
+          </Parte>
       ) : (
       <div className="pel-ov">
         <div className="pel-ov__r1">
           {/* «Revenue» → le dieron play */}
+          <Parte id="play">
           <section className="pel-card pel-glazed pel-ov-rev">
             <div className="pel-rev__h"><h2 className="pel-rev__t">Le dieron play</h2><span className="pel-rev__p">{periodo}</span></div>
             <div className="pel-rev__big">
@@ -381,8 +389,10 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               {v.numeros.map((n) => <div key={n.id}><span>{n.nombre}</span>{n.texto != null ? <b data-cuenta>{n.texto}</b> : <b className="pel-sin">—</b>}</div>)}
             </div>
           </section>
+          </Parte>
 
           {/* «Today, by the hour» → dónde se van */}
+          <Parte id="curva">
           <section className="pel-card pel-ov-today">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="reloj" /></span><h2 className="pel-card__t">Dónde se van</h2><Ir href="/web-generator" className="pel-btn pel-btn--xs pel-btn--ghost pel-card__aside"><Icono id="play" chico />Tu video</Ir></div>
             {v.curva ? (
@@ -399,8 +409,10 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </>
             ) : sinDatos(v.curva)}
           </section>
+          </Parte>
 
           {/* «From the kiln» → tus videos */}
+          <Parte id="videos">
           <section className="pel-card pel-ov-kiln">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="play" /></span><h2 className="pel-card__t">Tus videos</h2>{onGrilla && !quieta && <button type="button" className="pel-btn pel-btn--xs pel-btn--ghost pel-card__aside" onClick={onGrilla}>Todos</button>}</div>
             {videos.length ? (
@@ -424,10 +436,12 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </>
             ) : sinDatos(v.videos)}
           </section>
+          </Parte>
         </div>
 
         {/* «Demand by category» → ¿los que más ven, más agendan? */}
-        <section className="pel-card pel-ov-demand">
+        <Parte id="tramos">
+          <section className="pel-card pel-ov-demand">
           <div className="pel-dem__h">
             <span className="pel-card__ic"><Icono id="barras" /></span><h2 className="pel-card__t">¿Los que más ven, más agendan?</h2>
             <div className="pel-dem__leg"><span><i className="pel-tone-petrol" />Compraron</span><span><i className="pel-tone-ochre" />Agendaron</span><span><i className="pel-tone-clay" />No agendaron</span></div>
@@ -443,7 +457,7 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
                     <button key={t.clave} type="button" className="pel-rail__item" role="tab" aria-selected={(elegido ?? 'todos') === t.clave} onClick={() => setElegido(t.clave)}>
                       <span className="pel-rail__ic" style={{ background: r.fondo, color: r.tono }}><Icono id={r.ic} /></span>
                       <span className="pel-rail__tx"><b>{t.nombre}</b><small>{plural(t.leads, 'lead', 'leads')}{t.tasa != null ? ` · ${pct(t.tasa)} agendó` : ''}</small></span>
-                      <svg className="pel-rail__sp" viewBox="0 0 56 22" aria-hidden><path d="M3 11H53" stroke="#201c1612" strokeWidth="4" strokeLinecap="round" fill="none" />{ancho > 0 && <path className="pel-rail__fill" d={`M3 11H${(3 + ancho).toFixed(1)}`} stroke={r.tono} strokeWidth="4" strokeLinecap="round" fill="none" />}</svg>
+                      <svg className="pel-rail__sp" viewBox="0 0 56 22" aria-hidden><path d="M3 11H53" stroke="var(--line)" strokeWidth="4" strokeLinecap="round" fill="none" />{ancho > 0 && <path className="pel-rail__fill" d={`M3 11H${(3 + ancho).toFixed(1)}`} stroke={r.tono} strokeWidth="4" strokeLinecap="round" fill="none" />}</svg>
                     </button>
                   );
                 })}
@@ -471,9 +485,11 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
             </div>
           ) : sinDatos(v.tramos)}
         </section>
+          </Parte>
 
         <div className="pel-ov__r3">
           {/* «Latest orders» → los últimos días */}
+          <Parte id="ultimos">
           <section className="pel-card pel-ov-orders">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="dia" /></span><h2 className="pel-card__t">Los últimos días</h2>
               {onGrilla && !quieta && <span className="pel-card__aside"><button type="button" className="pel-btn pel-btn--xs pel-btn--ghost" onClick={onGrilla}>Todos</button></span>}</div>
@@ -494,8 +510,10 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </table>
             ) : sinDatos(null)}
           </section>
+          </Parte>
 
           {/* «Best sellers» → dónde más se van */}
+          <Parte id="fugas">
           <section className="pel-card pel-ov-best">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="fuga" /></span><h2 className="pel-card__t">Dónde más se van</h2><span className="pel-card__sub">De cada 100</span></div>
             {v.fugas && v.fugas.length ? (
@@ -510,10 +528,12 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </div>
             ) : sinDatos(v.fugas)}
           </section>
+          </Parte>
         </div>
 
         <div className="pel-ov__r4">
           {/* «Where each $100 goes» → de cada 100 que le dan play */}
+          <Parte id="cien">
           <section className="pel-card pel-ov-margin">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="cien" /></span><h2 className="pel-card__t">De cada 100 que le dan play</h2></div>
             {cien ? (
@@ -526,8 +546,10 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </>
             ) : sinDatos(cien)}
           </section>
+          </Parte>
 
           {/* «Activity» → lo que escribió MaKo */}
+          <Parte id="ia">
           <section className="pel-card pel-ov-feed">
             <div className="pel-card__h"><span className="pel-card__ic"><Icono id="chispa" /></span><h2 className="pel-card__t">Qué dice tu video</h2></div>
             {puntos.length ? (
@@ -538,6 +560,7 @@ export function HojaVsl({ hoja, vista, titulo, hoy, periodo, onGrilla, onFila, c
               </ul>
             ) : <Vacio>{caja.cargando ? 'Leyendo lo que escribió MaKo…' : quieta ? 'Aquí van las conclusiones de MaKo sobre tu video.' : 'MaKo todavía no escribió sus conclusiones de esta hoja: se piden desde la grilla.'}</Vacio>}
           </section>
+          </Parte>
         </div>
       </div>
       )}

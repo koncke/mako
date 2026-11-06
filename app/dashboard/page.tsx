@@ -173,7 +173,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // La hoja Closing con DISEÑO PROPIO (la copia de Halden, app/dashboard/disenos/HojaClosing.tsx) lee además la agenda
   // del CRM (las llamadas que vienen) y quién mira (el saludo). La agenda nombra leads: NO para el closer ni el setter
   // (`unica`, su hoja sin los leads); el saludo sí.
-  const hayDiseno = (id: string) => !sinPaginas && (tablero.hojas.some((h) => h.diseno?.id === id) || agregar?.diseno?.id === id);
+  // Una hoja con ese diseño, o un BLOQUE de ese diseño en cualquier hoja (6/11/2026, lib/disenos-partes.ts: una tarjeta insertada).
+  const conDiseno = (h: Hoja, id: string) => h.diseno?.id === id || h.componentes.some((c) => c.clase === 'elemento' && c.tipo === 'diseno' && c.diseno?.id === id);
+  const hayDiseno = (id: string) => !sinPaginas && (tablero.hojas.some((h) => conDiseno(h, id)) || (!!agregar && conDiseno(agregar, id)));
   const hayDisenoClosing = hayDiseno('closing');
   // La de Cobranza (la copia de Coffer, app/dashboard/disenos/HojaCobranza.tsx) saluda a quien mira, como Coffer.
   const hayDisenoCobranza = hayDiseno('cobranza');

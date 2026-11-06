@@ -26,6 +26,7 @@ import {
 } from '../lib/graficos-catalogo';
 import { tableroInicial } from '../lib/graficos-plantillas';
 import { agregar, chipComparar, clavesDelRango, fmtValor, histograma, OTROS, periodoAnterior, SIN_DATO, tramosDeDias, type Fila } from '../lib/graficos-agregar';
+import { sinBloquesDeDiseno } from '../lib/disenos-partes';
 
 const g = (r: Partial<Grafico> & Record<string, unknown>): Grafico => sanearGrafico({ id: 'g1', ...r })!;
 
@@ -207,7 +208,14 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 // sin la sección que la cierra · el funnel maduro sin el filtro FIJO de la madurez · el Outstanding sin su
 // período a la vista.
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
-  const [mk, co] = tableroInicial().hojas;
+  // Las dos hojas tienen diseño copiado y nacen en BLOQUES (6/11/2026, lib/disenos-partes.ts): arriba sus tarjetas, y las piezas de
+  // abajo son las de la réplica, como se escribieron. Lo que se mira acá son esas piezas; lo primero que se ve es su apertura.
+  const [mk0, co0] = tableroInicial().hojas;
+  for (const h of [mk0, co0]) {
+    const primero = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+    assert.ok(primero.clase === 'elemento' && primero.tipo === 'diseno' && primero.diseno?.parte === 'cabecera', `${h.nombre}: abre con la tarjeta de su título`);
+  }
+  const [mk, co] = [mk0, co0].map((h) => ({ ...h, componentes: sinBloquesDeDiseno(h.componentes) }));
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
   // Marketing: desde el 4/11/2026 (Kestrel · Ondra) abre con la frase de la pauta, sigue con la estructura de Prism (`comoDenso`,
   // lib/graficos-portadas.ts): la tendencia y dos gráficos, y los números en fila, con el costo por agenda como pregunta.

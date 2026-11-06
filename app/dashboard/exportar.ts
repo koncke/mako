@@ -34,6 +34,7 @@ import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, dimensionPublica, etiquetaSegura } from '@/lib/graficos-analisis';
 import { campoDeDimension } from '@/lib/graficos-controles-texto';
 import { idDeParte } from '@/lib/graficos-migrar-v5';
+import { idsQueLeenLosBloques } from '@/lib/disenos-partes';
 import type { Formato } from '@/lib/graficos-constructores';
 
 // ── El pedido de datos ─────────────────────────────────────────────────────────────────────
@@ -89,8 +90,11 @@ export function conBusqueda<T extends Grafico>(g: T): T {
  */
 export function pedidosDeHoja(hoja: Hoja, vista: VistaValores, hoy: string, version: number, ocultos?: ReadonlySet<string>): PedidosHoja {
   const out: PedidosHoja = { graficos: [] };
+  // Lo que lee un BLOQUE (una tarjeta de un diseño, lib/disenos-partes.ts) se pide aunque esté plegado: vive en «Todas las
+  // piezas», que arranca cerrada, y el bloque se dibuja arriba con sus datos.
+  const leidos = ocultos?.size ? idsQueLeenLosBloques(hoja.componentes) : null;
   for (const c of hoja.componentes) {
-    if (ocultos?.has(c.id)) continue;
+    if (ocultos?.has(c.id) && !leidos?.has(c.id)) continue;
     // Sólo los gráficos piden datos: un elemento no lee nada, y un bloque ya no llega (v5: el saneo los
     // convierte en gráficos, lib/graficos-migrar-v5.ts).
     if (esGrafico(c)) {

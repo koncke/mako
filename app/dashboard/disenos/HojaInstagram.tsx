@@ -31,6 +31,7 @@ import { textoSemana, type AnuncioIg, type RedIg, type VistaInstagram } from '@/
 import type { FormatoPublicacion } from '@/lib/calendario-modelo';
 import { iniciales } from '@/lib/unicode-seguro';
 import { CSS_INSTAGRAM } from './instagram-css';
+import { Parte } from './parte';
 
 const Compartido = createContext(false);
 
@@ -184,6 +185,7 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
       <main className="mur-dash">
         {/* ARRIBA: el saludo, lo que Instagram te mostró y los tres números (en lugar de la audiencia, la interacción y lo que sale esta
             semana, que en MaKo va en la tarjeta de la semana). */}
+        <Parte id="cabecera">
         <section className="mur-head">
           <h1 className="mur-head__title">{titulo.split(/\s+/).map((w, i) => <Fragment key={i}>{i > 0 && ' '}<span className="mur-w"><span className="mur-w__i">{w}</span></span></Fragment>)}</h1>
           {frase.length > 0 ? <p className="mur-head__frase">{frase.map((t, i) => t.tipo === 'fuerte' ? <b key={i}>{t.s}</b> : <Fragment key={i}>{t.s}</Fragment>)}</p>
@@ -201,10 +203,12 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
             <Ir href="/calendario" className="mur-btn mur-btn--ink"><Icono id="pen" />Agendar una publicación</Ir>
           </div>
         </section>
+        </Parte>
 
         <div className="mur-ov">
           <div className="mur-ov-r mur-ov-r--a">
             {/* LA PRÓXIMA PUBLICACIÓN («Up next»): la próxima publicación del Calendario, con lo que falta, y las que siguen. */}
+            <Parte id="proxima">
             <section className="mur-card mur-ov-next">
               <div className="mur-card__h">
                 <h2 className="mur-card__t">Próxima publicación</h2>
@@ -246,8 +250,10 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </>
               )}
             </section>
+            </Parte>
 
             {/* LOS OTROS ANUNCIOS QUE TRAJERON CLIENTES («Needs you»): del segundo en adelante (el primero va en la tarjeta grande). */}
+            <Parte id="anuncios">
             <section className="mur-card mur-ov-needs">
               <div className="mur-card__h"><h2 className="mur-card__t">Más anuncios que trajeron clientes</h2>{anuncios && anuncios.resto.length > 0 && <i className="mur-count">{entero(anuncios.resto.length)}</i>}</div>
               {problemas.anuncios ? <Vacio titulo={problemas.anuncios} /> : !anuncios || !anuncios.resto.length ? <Vacio titulo={top ? 'Sólo un anuncio trajo leads' : 'Todavía no hay anuncios con leads'} texto={top ? 'Está en la tarjeta de al lado.' : undefined} /> : (
@@ -276,10 +282,12 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </>
               )}
             </section>
+            </Parte>
           </div>
 
           <div className="mur-ov-r mur-ov-r--b">
             {/* LOS LEADS DE TUS ANUNCIOS («Audience growth»): lo que llegó de tus anuncios de Meta cada día, con las agendas. */}
+            <Parte id="leads">
             <section className="mur-card mur-ov-growth">
               <div className="mur-card__h"><h2 className="mur-card__t">Leads de tus anuncios</h2><Ir href="/ads-manager" className="mur-ibtn mur-ibtn--ring" etiqueta="Abrir Ads Manager"><Icono id="out" /></Ir></div>
               {problemas.leads ? <Vacio titulo={problemas.leads} /> : !leads || !leads.total ? <Vacio titulo="Tus anuncios no trajeron leads" texto={`Nada ${enElPeriodo(periodo)}.`} /> : (
@@ -300,8 +308,10 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </>
               )}
             </section>
+            </Parte>
 
             {/* EL ANUNCIO QUE MÁS CLIENTES TRAJO («Top post this month»): el primero de la pieza, con sus leads, agendas y clientes. */}
+            <Parte id="mejor">
             <section className="mur-card mur-ov-top">
               <div className="mur-card__h"><h2 className="mur-card__t">El que más clientes trajo</h2></div>
               {problemas.anuncios ? <Vacio titulo={problemas.anuncios} /> : !top ? <Vacio titulo="Todavía no hay anuncios con leads" texto="Cuando un anuncio traiga gente, aparece aquí." /> : (
@@ -320,9 +330,11 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </div>
               )}
             </section>
+            </Parte>
           </div>
 
           {/* ESTA SEMANA («The week ahead»): los siete días desde hoy con lo agendado en el Calendario. */}
+          <Parte id="semana">
           <section className="mur-card mur-ov-week">
             <div className="mur-card__h">
               <h2 className="mur-card__t">Esta semana</h2>
@@ -344,9 +356,11 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
               </>
             )}
           </section>
+          </Parte>
 
           <div className="mur-ov-r mur-ov-r--c">
             {/* CADA RED («Network pulse»): lo que te vieron en cada red de Meta, cuántos agendaron y cuántos tocan. */}
+            <Parte id="redes">
             <section className="mur-card mur-ov-nets">
               <div className="mur-card__h"><h2 className="mur-card__t">Cada red</h2><Ir href="/ads-manager" className="mur-ibtn mur-ibtn--ring" etiqueta="Abrir Ads Manager"><Icono id="link" /></Ir></div>
               {problemas.redes ? <Vacio titulo={problemas.redes} /> : !redes || !redes.length ? <Vacio titulo="Meta todavía no mostró tus anuncios" /> : (
@@ -361,8 +375,10 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </ul>
               )}
             </section>
+            </Parte>
 
             {/* QUIÉN TE VE («Inbox pulse»): las tres edades que más te ven, el reparto por género y dónde te ven. */}
+            <Parte id="quien-ve">
             <section className="mur-card mur-ov-inbox">
               <div className="mur-card__h"><h2 className="mur-card__t">Quién te ve en Instagram</h2><Ir href="/ads-manager" className="mur-ibtn mur-ibtn--ring" etiqueta="Abrir Ads Manager"><Icono id="people" /></Ir></div>
               {problemas.quien ? <Vacio titulo={problemas.quien} /> : !quien.edades?.length && !quien.genero?.length && !quien.regiones?.length ? <Vacio titulo="Instagram todavía no mostró tus anuncios" /> : (
@@ -392,8 +408,10 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </>
               )}
             </section>
+            </Parte>
 
             {/* DE DÓNDE LLEGAN TUS LEADS («Team activity»): cada origen con sus leads y su parte. */}
+            <Parte id="origen">
             <section className="mur-card mur-ov-team">
               <div className="mur-card__h"><h2 className="mur-card__t">De dónde llegan tus leads</h2><Ir href="/crm" className="mur-ibtn mur-ibtn--ring" etiqueta="Abrir el CRM"><Icono id="out" /></Ir></div>
               {problemas.origen ? <Vacio titulo={problemas.origen} /> : !origen || !origen.lista.length ? <Vacio titulo="Todavía no llegaron leads" texto={`Nada ${enElPeriodo(periodo)}.`} /> : (
@@ -408,9 +426,10 @@ export function HojaInstagram({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 </ul>
               )}
             </section>
+            </Parte>
           </div>
         </div>
-        {onGrilla && !quieta && <div className="mur-pie"><button type="button" className="mur-btn mur-btn--sm mur-btn--ghost" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button></div>}
+        {onGrilla && !quieta && <div className="mur-pie" data-acompana=""><button type="button" className="mur-btn mur-btn--sm mur-btn--ghost" onClick={onGrilla}><Icono id="grid" />Ver la grilla</button></div>}
       </main>
     </div>
     </Compartido.Provider>

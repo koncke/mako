@@ -23,6 +23,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
+import { Parte } from './parte';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { entero, enElPeriodo, plata } from '@/lib/marketing-diseno';
 import { acumulado, pct, type ProyectoInmo, type SemanaInmo, type VistaInmo } from '@/lib/inmobiliaria-diseno';
@@ -132,7 +133,7 @@ function Fachada({ color, n }: { color: string; n: number }) {
   for (let f = 0; f < 2; f++) for (let c = 0; c < 3; c++) ventanas.push(<rect key={`b${f}${c}`} x={88 + c * 9} y={48 + f * 9} width="5" height="5" rx="1" fill="#fff" opacity=".78" />);
   return (
     <svg viewBox="0 0 149 92" preserveAspectRatio="none" aria-hidden>
-      <rect x="10" y="6" width="6" height="80" rx="3" fill="#cfcdc6" /><rect x="133" y="6" width="6" height="80" rx="3" fill="#cfcdc6" />
+      <rect x="10" y="6" width="6" height="80" rx="3" fill="var(--post)" /><rect x="133" y="6" width="6" height="80" rx="3" fill="var(--post)" />
       <rect x="44" y={72 - alto - 6} width={ancho} height={alto + 6} rx="2" fill={color} />
       <rect x="84" y="42" width="34" height="30" rx="2" fill={color} opacity=".82" />
       {ventanas}
@@ -145,7 +146,7 @@ function Anillo({ p }: { p: number | null }) {
   const r = 14, L = 2 * Math.PI * r, v = p == null ? 0 : Math.max(0, Math.min(100, p));
   return (
     <span className="tq-ring" title="Compran, de los que visitan">
-      <svg viewBox="0 0 34 34"><circle cx="17" cy="17" r={r} fill="none" stroke="#1c1a160f" strokeWidth="3.5" /><circle className="tq-ring__v" cx="17" cy="17" r={r} fill="none" stroke="var(--sky)" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(L * v) / 100} ${L}`} /></svg>
+      <svg viewBox="0 0 34 34"><circle cx="17" cy="17" r={r} fill="none" stroke="var(--well)" strokeWidth="3.5" /><circle className="tq-ring__v" cx="17" cy="17" r={r} fill="none" stroke="var(--sky)" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(L * v) / 100} ${L}`} /></svg>
       <span>{p == null ? '—' : `${Math.round(v)}%`}</span>
     </span>
   );
@@ -185,11 +186,11 @@ function Medidor({ p }: { p: number }) {
   const aguja = A0 + ((A1 - A0) * v) / 100, [nx, ny] = pt(aguja, 58);
   return (
     <svg viewBox="0 0 210 180" aria-hidden>
-      <path d={arco(A0, A1)} fill="none" stroke="#1c1a160f" strokeWidth="16" strokeLinecap="round" />
+      <path d={arco(A0, A1)} fill="none" stroke="var(--well)" strokeWidth="16" strokeLinecap="round" />
       {v > 0.5 && <path className="tq-gauge__v" d={arco(A0, aguja)} fill="none" stroke="var(--orange)" strokeWidth="16" strokeLinecap="round" />}
       {Array.from({ length: 11 }, (_, i) => { const a = A0 + i * 24, [x1, y1] = pt(a, i % 5 ? 70 : 66), [x2, y2] = pt(a, 76); return <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)} stroke={i % 5 ? '#c9c7c0' : '#3a3b3f'} strokeWidth={i % 5 ? 1.4 : 2.2} strokeLinecap="round" />; })}
-      <g className="tq-gauge__needle" style={{ transformOrigin: `${cx}px ${cy}px` }} data-giro={aguja - A0}><path d={`M${cx - 3},${cy} L${nx.toFixed(1)},${ny.toFixed(1)} L${cx + 3},${cy}Z`} fill="#17181b" /></g>
-      <circle cx={cx} cy={cy} r="7" fill="#17181b" /><circle cx={cx} cy={cy} r="3" fill="#fff" />
+      <g className="tq-gauge__needle" style={{ transformOrigin: `${cx}px ${cy}px` }} data-giro={aguja - A0}><path d={`M${cx - 3},${cy} L${nx.toFixed(1)},${ny.toFixed(1)} L${cx + 3},${cy}Z`} fill="var(--text)" /></g>
+      <circle cx={cx} cy={cy} r="7" fill="var(--text)" /><circle cx={cx} cy={cy} r="3" fill="var(--surface)" />
     </svg>
   );
 }
@@ -282,6 +283,7 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
     <div className="tq" ref={raiz} data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-inmobiliaria" precedence="medium">{CSS_INMOBILIARIA}</style>
       <div className="tq-cuerpo">
+      <Parte id="cabecera">
       <section className="tq-head">
         <div>
           <div className="tq-head__eyebrow">{fechaLarga(hoy)} · {periodo}</div>
@@ -292,7 +294,9 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
           <Ir href="/crm" className="tq-btn tq-btn--primary"><Icono id="usuarios" />Abrir el CRM</Ir>
         </div>
       </section>
+      </Parte>
 
+      <Parte id="numeros">
       <div className="tq-stats">
         {v.numeros.map((n) => (
           <div key={n.id} className="tq-stat" data-lift>
@@ -302,15 +306,19 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
           </div>
         ))}
       </div>
+      </Parte>
 
       {v.vacia ? (
-        <section className="tq-card tq-c-vacia">
+        <Parte id="vacia">
+      <section className="tq-card tq-c-vacia">
           <h2 className="tq-card__t">Todavía no entró ningún interesado en este período</h2>
           <p className="tq-vacio">Cuando entren interesados a tu CRM, aquí ves tus proyectos, quién visita, quién compra y por qué no.</p>
         </section>
+      </Parte>
       ) : (
       <>
       {/* «The floor» → tus proyectos */}
+      <Parte id="proyectos">
       <section className="tq-card tq-fl-bays">
         <div className="tq-card__h"><span className="tq-ic"><Icono id="edificio" /></span><h2 className="tq-card__t">Tus proyectos</h2>
           <span className="tq-card__aside">{v.proyectos ? `${entero(v.proyectos.conVisitas)} de ${entero(v.proyectos.total)} con visitas` : ''}</span></div>
@@ -337,7 +345,7 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             {Array.from({ length: libres }, (_, i) => (
               <article key={`libre-${i}`} className="tq-bay tq-bay--free">
                 <div className="tq-bay__h"><span className="tq-bay__n">N.º {proyectos.length + i + 1}</span><small>Otro proyecto</small></div>
-                <div className="tq-bay__stage tq-is-free"><svg viewBox="0 0 149 92" preserveAspectRatio="none" aria-hidden><rect x="10" y="6" width="6" height="80" rx="3" fill="#cfcdc6" /><rect x="133" y="6" width="6" height="80" rx="3" fill="#cfcdc6" />{[40, 60, 80, 100, 120].map((x) => <line key={x} x1={x} x2={x} y1="10" y2="74" stroke="#1c1a1614" />)}<rect x="16" y="74" width="117" height="4" rx="2" fill="#dcdad3" /></svg><span>Libre</span></div>
+                <div className="tq-bay__stage tq-is-free"><svg viewBox="0 0 149 92" preserveAspectRatio="none" aria-hidden><rect x="10" y="6" width="6" height="80" rx="3" fill="var(--post)" /><rect x="133" y="6" width="6" height="80" rx="3" fill="var(--post)" />{[40, 60, 80, 100, 120].map((x) => <line key={x} x1={x} x2={x} y1="10" y2="74" stroke="#1c1a1614" />)}<rect x="16" y="74" width="117" height="4" rx="2" fill="#dcdad3" /></svg><span>Libre</span></div>
                 <p className="tq-bay__note">{i === 0 ? 'Un proyecto nuevo del CRM aparece aquí.' : ''}</p>
                 {i === 0 && <div className="tq-bay__act"><Ir href="/crm" className="tq-btn tq-btn--sm tq-btn--soft"><Icono id="mas" />Crear un proyecto</Ir></div>}
               </article>
@@ -345,8 +353,10 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
           </div>
         ) : sinDatos(v.proyectos)}
       </section>
+      </Parte>
 
       {/* «Job board» → tus interesados, por etapa */}
+      <Parte id="tablero">
       <section className="tq-card tq-fl-board">
         <div className="tq-card__h"><span className="tq-ic"><Icono id="tablero" /></span><h2 className="tq-card__t">Tus interesados, por etapa</h2>
           <span className="tq-card__aside">{v.tablero && v.medidor.leads != null ? `${plural(v.medidor.leads, 'interesado', 'interesados')} en el período · se mueven en el CRM` : ''}</span>
@@ -380,10 +390,12 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
           </div>
         ) : sinDatos(v.tablero)}
       </section>
+      </Parte>
 
       <div className="tq-fl-r3">
         {/* «Arriving today» → de dónde llegan */}
-        <section className="tq-card tq-fl-arr">
+        <Parte id="origen">
+      <section className="tq-card tq-fl-arr">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="pin" /></span><h2 className="tq-card__t">De dónde llegan</h2><Ir href="/crm" className="tq-btn tq-btn--sm tq-btn--ghost tq-card__btn">En el CRM</Ir></div>
           {v.origen && v.origen.filas.length ? (
             <ul className="tq-arr">
@@ -400,9 +412,11 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             </ul>
           ) : sinDatos(v.origen)}
         </section>
+      </Parte>
 
         {/* «Sales» → interesados y visitas, por semana */}
-        <section className="tq-card tq-fl-sales">
+        <Parte id="semanas">
+      <section className="tq-card tq-fl-sales">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="tendencia" /></span><h2 className="tq-card__t">Interesados</h2>
             <div className="tq-seg" ref={seg}><span className="tq-seg__pill" ref={segPill} />
               <button type="button" className="tq-seg__btn" aria-pressed={modo === 'semana'} onClick={() => setModo('semana')}>Semanal</button>
@@ -417,9 +431,11 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             </>
           ) : sinDatos(v.semanas)}
         </section>
+      </Parte>
 
         {/* «Technicians» → quién vende */}
-        <section className="tq-card tq-fl-techs">
+        <Parte id="asesores">
+      <section className="tq-card tq-fl-techs">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="usuarios" /></span><h2 className="tq-card__t">Quién vende</h2></div>
           {v.asesores && v.asesores.length ? (
             <div className="tq-techs">
@@ -436,11 +452,13 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             </div>
           ) : sinDatos(v.asesores)}
         </section>
+      </Parte>
       </div>
 
       <div className="tq-fl-r4">
         {/* «Running low» → por qué no compraron */}
-        <section className="tq-card tq-fl-stock">
+        <Parte id="motivos">
+      <section className="tq-card tq-fl-stock">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="caja" /></span><h2 className="tq-card__t">Por qué no compran</h2><Ir href="/crm" className="tq-btn tq-btn--sm tq-btn--soft tq-card__btn">En el CRM</Ir></div>
           {v.motivos && v.motivos.filas.length ? (
             <ul className="tq-stock">
@@ -453,9 +471,11 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             </ul>
           ) : v.cargando && v.motivos == null ? null : <Vacio>Nadie marcó por qué no compró en este período: se marca al pasar un interesado a perdido.</Vacio>}
         </section>
+      </Parte>
 
         {/* «Shop load» → cuántos agendan una visita */}
-        <section className="tq-card tq-fl-load">
+        <Parte id="medidor">
+      <section className="tq-card tq-fl-load">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="medidor" /></span><h2 className="tq-card__t">Agendan una visita</h2></div>
           {v.medidor.pct != null ? (
             <div className="tq-gauge"><Medidor p={v.medidor.pct} /><div className="tq-gauge__mid"><b data-cuenta>{pct(v.medidor.pct)}</b><span>de los interesados agendan</span></div></div>
@@ -466,9 +486,11 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             <div><span>Ya compraron</span><b>{v.medidor.cierres != null ? entero(v.medidor.cierres) : '—'}</b></div>
           </div>
         </section>
+      </Parte>
 
         {/* «Team activity» → los que avanzan (compraron o agendaron una visita), sacados del tablero */}
-        <section className="tq-card tq-fl-feed">
+        <Parte id="avances">
+      <section className="tq-card tq-fl-feed">
           <div className="tq-card__h"><span className="tq-ic"><Icono id="llave" /></span><h2 className="tq-card__t">Los que avanzan</h2>{v.medidor.cierres != null ? <span className="tq-card__aside">{plural(v.medidor.cierres, 'compró', 'compraron')}</span> : null}</div>
           {v.avances && v.avances.length ? (
             <ul className="tq-feed">
@@ -481,6 +503,7 @@ export function HojaInmobiliaria({ hoja, vista, titulo, hoy, periodo, onGrilla, 
             </ul>
           ) : v.cargando && v.avances == null ? null : <Vacio>Nadie compró ni agendó una visita todavía en este período.</Vacio>}
         </section>
+      </Parte>
       </div>
       </>
       )}
