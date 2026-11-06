@@ -12931,7 +12931,7 @@ curl -L \
 | --- | --- | --- | --- |
 | `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
 | `formato` | string (landing \\| presentacion) | no | landing o presentacion. |
-| `proporcion` | string (16:9 \\| 4:3 \\| fluido) | no | Sólo una presentación: 16:9, 4:3 o fluido. |
+| `proporcion` | string (16:9 \\| 4:3 \\| 4:5 \\| fluido) | no | Sólo una presentación: 16:9, 4:3, 4:5 (un carrusel de Instagram) o fluido. |
 | `animaciones` | boolean | no | true las prende, false las apaga. |
 | `fondoImagen` | string | no | El enlace de una imagen de fondo (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla. |
 | `ancho` | string (angosto \\| normal \\| amplio \\| completo) | no | El ancho de todas las secciones. |

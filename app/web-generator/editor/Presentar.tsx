@@ -44,7 +44,7 @@ import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useEditorLanding } from './contexto';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
-import { esPresentacion, proporcionDe, relacionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
+import { ANCHO_DIAPO_EM, esPresentacion, formaFija, proporcionDe, relacionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { EstilosContenido, EstilosPanelesB, Ico } from './paneles/PanelAgente';
 import { idDe, tarjetasDelDoc, tituloVisible } from './diff-tarjetas';
 
@@ -54,8 +54,7 @@ type Diapo = { id: string; titulo: string; html: string; notas: string };
 const SEL_BLOQUES = '.gm-tarjeta > .gm-tarjeta-cuerpo > *';
 /** Cuánto se queda quieta la barra antes de esconderse. */
 const BARRA_MS = 2500;
-/** El ancho de una diapositiva en em de la letra base (la tarjeta de css.ts) y el aire alrededor. */
-const ANCHO_EM = 64.5;
+/** El ancho de una diapositiva en em de la letra base: el de la tarjeta de css.ts, por forma (`ANCHO_DIAPO_EM`, api-tipos.ts). */
 /** El piso del achique del contenido de una diapositiva fija (más chico ya no se lee). */
 const ESCALA_MIN = 0.55;
 
@@ -63,9 +62,9 @@ const ESCALA_MIN = 0.55;
  * La letra base que hace entrar una diapositiva de `relacion` (ancho / alto) en un escenario de
  * W × H, con el 4 % de aire a los lados y el 6 % arriba y abajo.
  */
-function baseDiapositiva(W: number, H: number, relacion: number): number {
-  const porAncho = (W * 0.96) / ANCHO_EM;
-  const porAlto = (H * 0.94 * relacion) / ANCHO_EM;
+function baseDiapositiva(W: number, H: number, relacion: number, anchoEm: number): number {
+  const porAncho = (W * 0.96) / anchoEm;
+  const porAlto = (H * 0.94 * relacion) / anchoEm;
   return Math.max(4, Math.min(porAncho, porAlto, 60));
 }
 
@@ -109,6 +108,8 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
   const plural = terminoTarjeta(ctx.config, { plural: true });
   const uno = terminoTarjeta(ctx.config);
   const formaRef = useRef(forma.relacion);
+  // El ancho en em de ESTA forma (4:5 es más angosta): en un ref, como la relación, para que `ajustar` no cambie.
+  const anchoEmRef = useRef(ANCHO_DIAPO_EM[formaFija(forma.proporcion)]);
 
   // Las secciones como están AL ENTRAR (presentar no sigue la edición).
   const [diapos] = useState<Diapo[]>(() => {
@@ -222,7 +223,7 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
     // `--gm-base-movil` también: en una ventana angosta la hoja usa ésa y la diapositiva no entraría.
     const relacion = formaRef.current;
     if (relacion) {
-      const base = `${baseDiapositiva(W, H, relacion)}px`;
+      const base = `${baseDiapositiva(W, H, relacion, anchoEmRef.current)}px`;
       el.style.setProperty('--gm-base', base);
       el.style.setProperty('--gm-base-movil', base);
       const sec = el.querySelector<HTMLElement>('.gm-tarjeta');
@@ -393,6 +394,7 @@ const CSS_PRESENTAR = `
 .gma-pr .gma-pr-lienzo[data-fija] .gm-doc .gm-tarjeta{width:64.5em;max-width:none;margin:0 auto;min-height:0;overflow:hidden}
 .gma-pr .gma-pr-lienzo[data-fija="16:9"] .gm-doc .gm-tarjeta{aspect-ratio:16/9}
 .gma-pr .gma-pr-lienzo[data-fija="4:3"] .gm-doc .gm-tarjeta{aspect-ratio:4/3}
+.gma-pr .gma-pr-lienzo[data-fija="4:5"] .gm-doc .gm-tarjeta{width:43em;aspect-ratio:4/5}
 .gma-pr [data-gma-foco]{transition:opacity .35s ease,filter .35s ease}
 .gma-pr [data-gma-foco="visto"]{opacity:.45}
 .gma-pr [data-gma-foco="futuro"]{opacity:.12;filter:blur(3px)}
