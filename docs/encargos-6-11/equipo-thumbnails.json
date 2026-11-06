@@ -1,0 +1,272 @@
+[
+ {
+  "id": 9,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "La pantalla de miniaturas de YouTube está vacía: falta cargar la biblioteca",
+  "porque": "Hasta que no se cargue, todos entran a la pestaña y leen que la biblioteca todavía no está cargada.",
+  "tecnico": "1) node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql; 2) thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad; 3) … leer --max 120 --de-verdad; 4) curar con estado/excluir/ocultar/sumar. docs/carruseles/thumbnails.md → «Cargarla, desde la PC» · docs/relevo/cerebro.md:14-15,83",
+  "original": {
+   "titulo": "La biblioteca de Thumbnails no está cargada: falta la 0409 y los tres pasos desde la PC",
+   "queFalta": "1) `node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql`; 2) `thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad`; 3) `… leer --max 120 --de-verdad`; 4) curar con `estado`/`excluir`/`ocultar`/`sumar`. Hasta entonces la pestaña dice que la biblioteca todavía no está cargada. Hecho = la pestaña Thumbnails de Image muestra tarjetas 16:9 con sus filtros.",
+   "donde": "supabase/migrations/0409_thumbnails_biblioteca.sql · scripts/thumbnails-biblioteca.mts · docs/carruseles/thumbnails.md → «Cargarla, desde la PC» · docs/relevo/cerebro.md:14-15,83",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 10,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Las miniaturas guardadas vencen a los 30 días y el catálogo se vacía solo",
+  "porque": "YouTube obliga a borrar lo guardado al mes: si nadie lo renueva, la pantalla vuelve a quedar vacía.",
+  "tecnico": "Agendar `leer` + `podar --de-verdad` una vez por mes; hoy no hay cron. scripts/thumbnails-biblioteca.mts · lib/thumbnails/carga.ts · docs/carruseles/thumbnails.md punto 5 de «Cargarla, desde la PC»",
+  "original": {
+   "titulo": "Volver a leer y podar cada mes, porque sin la enmienda de YouTube lo guardado vence a los 30 días",
+   "queFalta": "Dejar agendado `leer` + `podar --de-verdad` una vez por mes. Hoy no hay cron: la pantalla deja de mostrar lo leído hace más de 30 días y el catálogo se vacía solo. Hecho = la biblioteca nunca aparece vacía por vencimiento.",
+   "donde": "scripts/thumbnails-biblioteca.mts (`leer`, `podar`) · docs/carruseles/thumbnails.md punto 5 de «Cargarla, desde la PC» · lib/thumbnails/carga.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 132,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "La galería de miniaturas de YouTube está vacía: falta cargarla",
+  "porque": "Hasta que no se cargue, la pantalla de miniaturas le aparece vacía a todos: dice que la biblioteca todavía no está cargada.",
+  "tecnico": "Migración 0409 ya aplicada (6/11). Desde la raíz del clon con el .env.local de producción: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180`, lo mismo con `--de-verdad`, y después `... leer --max 120 --de-verdad`. Cuota: search.list tiene 100 llamadas por día para TODA la app y `descubrir` usa una por rubro e idioma (--max-busquedas, 12 por defecto). scripts/thumbnails-biblioteca.mts:20-32; docs/carruseles/thumbnails.md:53-86; supabase/migrations/0409_thumbnails_biblioteca.sql. Hecho = /image-editor?que=thumbnails muestra tarjetas 16:9 con vistas y «Ver en YouTube».",
+  "original": {
+   "titulo": "La biblioteca de Thumbnails está vacía: falta descubrir canales y leer sus videos",
+   "queFalta": "La migración 0409 ya está aplicada (6/11), pero no hay ni un canal ni un video, así que la pestaña dice que la biblioteca no está cargada. Correr, desde la raíz del clon con el .env.local de producción: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts leer --max 120 --de-verdad` Ojo con la cuota: `search.list` tiene un balde propio de 100 llamadas por día para TODA la app, y `descubrir` usa una por rubro e idioma (tope `--max-busquedas`, 12 por defecto). Hecho = `/image-editor?que=thumbnails` muestra tarjetas 16:9 con vistas y «Ver en YouTube».",
+   "donde": "scripts/thumbnails-biblioteca.mts (cabecera con el uso, líneas 20-32); docs/carruseles/thumbnails.md:53-86; supabase/migrations/0409_thumbnails_biblioteca.sql",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 133,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Después de cargar las miniaturas, sacar las que no le sirven a un dueño de negocio",
+  "porque": "Si no se limpia, el cliente abre la galería y ve videos que no tienen nada que ver con su negocio.",
+  "tecnico": "Igual que la biblioteca de carruseles: mirar los descartes antes de aplicar (ya se midió que el modelo barato se pasa de estricto). `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts estado` / `... excluir @canal --motivo \"No sirve a dueños de negocio\" --de-verdad` / `... ocultar <idDelVideo> --de-verdad` / `... sumar @canal --nicho ventas --idioma es --de-verdad`. scripts/thumbnails-biblioteca.mts:28-31; docs/carruseles/thumbnails.md:77-84. Depende de que primero se cargue la biblioteca.",
+  "original": {
+   "titulo": "Curar la biblioteca de Thumbnails después de cargarla",
+   "queFalta": "Igual que la de carruseles: se esconde lo que no le sirve a un dueño de negocio, mirando los descartes antes de aplicar (ya se midió que el modelo barato se pasa de estricto). Comandos: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts estado` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts excluir @canal --motivo \"No sirve a dueños de negocio\" --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts ocultar <idDelVideo> --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts sumar @canal --nicho ventas --idioma es --de-verdad` Hecho = `estado` muestra los canales por rubro e idioma y nada obviamente fuera de lugar en la grilla.",
+   "donde": "scripts/thumbnails-biblioteca.mts:28-31; docs/carruseles/thumbnails.md:77-84",
+   "bloqueo": "Depende de que primero se cargue la biblioteca.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 134,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Lo que se guarda de YouTube vence al mes y nadie programó volver a leerlo",
+  "porque": "Al mes la galería de miniaturas se vacía sola: lo vencido deja de mostrarse y hay que borrarlo a mano.",
+  "tecnico": "Sin la enmienda III.L lo guardado de la API (títulos, vistas) vence a los 30 días: la pantalla no lo muestra (`vigente`) y hay que borrarlo. Cada mes: `leer` de nuevo y `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts podar --de-verdad`. scripts/thumbnails-biblioteca.mts:31 (`podar`); lib/thumbnails/ (`vigente`, `podar`); docs/carruseles/thumbnails.md:86. Hecho = tarea programada mensual, o la fecha anotada donde alguien la vea.",
+  "original": {
+   "titulo": "Lo leído de YouTube vence a los 30 días y nadie programó la relectura mensual",
+   "queFalta": "Sin la enmienda III.L, lo que se guarda de la API (títulos, vistas) vence a los 30 días: la pantalla no lo muestra (`vigente`) y hay que borrarlo. Falta dejarlo corriendo solo o anotado en el calendario: `leer` de nuevo y después `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts podar --de-verdad` Hecho = o hay una tarea programada que lo hace cada mes, o la fecha está anotada donde alguien la vea.",
+   "donde": "scripts/thumbnails-biblioteca.mts:31 (`podar`); lib/thumbnails/ (`vigente`, `podar`); docs/carruseles/thumbnails.md:86",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 137,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "El rubro de una miniatura sale del canal, así que algunos videos quedan mal puestos",
+  "porque": "Un canal de ventas que sube un video de marketing queda en ventas: el cliente filtra por rubro y le aparece algo que no buscaba.",
+  "tecnico": "El rubro lo pone la búsqueda, no un clasificador. Limitación conocida, no un bug. lib/thumbnails/carga.ts; docs/carruseles/thumbnails.md:94. Hecho = o se clasifica el video con una pasada de IA (como el «tema» de carruseles), o queda documentado que el rubro es del canal y no del video.",
+  "original": {
+   "titulo": "El rubro de un canal lo pone la búsqueda, no un clasificador",
+   "queFalta": "Un canal de ventas que hace un video de marketing queda en ventas. Es una limitación conocida, no un bug. Hecho = o se clasifica el video (pasada de IA, como el «tema» de carruseles) o queda documentado que el rubro es del canal y no del video.",
+   "donde": "lib/thumbnails/carga.ts; docs/carruseles/thumbnails.md:94",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 138,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Cargar la galería de miniaturas desde la PC: la base ya quedó lista",
+  "porque": "Hasta que no se corra, la pestaña de miniaturas sigue diciendo que la biblioteca no está cargada. Solo se puede desde la PC.",
+  "tecnico": "Pasos 2 y 3 de «Cargarla, desde la PC» con el .env.local de PRODUCCIÓN, desde la raíz del clon; en seco por defecto (sin --de-verdad no escribe). `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180` / lo mismo con `--de-verdad` / `... leer --max 120 --de-verdad`. El paso 1 (`node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql`) NO hace falta: 0409 aplicada el 6/11. La nube no llega a la YouTube Data API ni a la base. `descubrir` gasta del balde de search.list (100 por día para TODA la app, tope --max-busquedas 12): una corrida mal apuntada deja a Spy sin búsquedas ese día. C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-75 · scripts/thumbnails-biblioteca.mts · lib/thumbnails/carga.ts",
+  "original": {
+   "titulo": "Cargar la biblioteca de Thumbnails desde la PC: descubrir y leer (la migracion 0409 ya esta aplicada)",
+   "queFalta": "Correr los pasos 2 y 3 de «Cargarla, desde la PC» con el .env.local de PRODUCCION, desde la raiz del clon. En seco por defecto: sin --de-verdad no escribe nada. Comandos TEXTUALES: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180` / `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` / `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts leer --max 120 --de-verdad`. El paso 1 (`node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql`) NO hace falta: el relevo mas nuevo dice 0409 aplicada el 6/11. HECHO cuando `estado` liste canales y videos y /image-editor?que=thumbnails deje de decir que la biblioteca todavia no esta cargada.",
+   "donde": "C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-75 (los comandos) · C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts · C:/dev/wt-puntas/lib/thumbnails/carga.ts",
+   "bloqueo": "Solo se puede desde la PC: la nube no llega a la YouTube Data API ni a la base. `descubrir` gasta del balde de search.list, que son 100 llamadas por dia para TODA la app (tope del script: --max-busquedas, 12 por defecto), asi que una corrida mal apuntada deja a Spy sin busquedas ese dia.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 139,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Curar la galería de miniaturas: sacar los canales fuera del público de MaKo",
+  "porque": "Sin curar, la galería le muestra al cliente canales que no le sirven y la pestaña pierde el valor que tenía que tener.",
+  "tecnico": "`... estado` / `... excluir @canal --motivo \"No sirve a dueños de negocio\" --de-verdad` / `... ocultar <idDelVideo> --de-verdad` / `... sumar @canal --nicho ventas --idioma es --de-verdad`. Depende de que primero corra la carga (descubrir + leer). Trampa de consola ya medida en el script hermano de carruseles: una palabra que empieza con # le llega al script vacía, hay que escribirla entre comillas. C:/dev/wt-puntas/docs/carruseles/thumbnails.md:77-84 · scripts/thumbnails-biblioteca.mts",
+  "original": {
+   "titulo": "Curar la biblioteca de Thumbnails: sacar lo que no le sirve a un dueno de negocio",
+   "queFalta": "Despues de la carga, mirar y curar como la biblioteca de carruseles. Comandos TEXTUALES: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts estado` / `... excluir @canal --motivo \"No sirve a duenos de negocio\" --de-verdad` / `... ocultar <idDelVideo> --de-verdad` / `... sumar @canal --nicho ventas --idioma es --de-verdad`. HECHO cuando `estado` no liste canales fuera del publico de MaKo y la pestania se vea con tarjetas utiles a un dueno de negocio.",
+   "donde": "C:/dev/wt-puntas/docs/carruseles/thumbnails.md:77-84 · C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts",
+   "bloqueo": "Depende de que primero corra la carga (descubrir + leer). Trampa de consola ya medida en el script hermano de carruseles: una palabra que empieza con # le llega al script vacia, hay que escribirla entre comillas.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 140,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "La limpieza mensual de las miniaturas vencidas es a mano y nadie la automatizó",
+  "porque": "Si nadie se acuerda de correrla, la galería va mostrando cada vez menos miniaturas y el cliente la ve vaciarse.",
+  "tecnico": "Sin la enmienda III.L lo guardado de la YouTube Data API vence a los 30 días: la pantalla no muestra lo leído hace más (`vigente`) y hay que borrarlo (`podar`). El documento lo deja como «cada mes: `leer` de nuevo y `podar --de-verdad`» y no hay cron ni tarea programada que lo llame. C:/dev/wt-puntas/docs/carruseles/thumbnails.md:86 · lib/spy-reglas.ts:313 (metricasVencidas) · lib/thumbnails/explorar.ts",
+  "original": {
+   "titulo": "La poda de los 30 dias de Thumbnails es a mano y nadie la automatizo",
+   "queFalta": "Sin la enmienda III.L, lo que se guarda de la YouTube Data API (titulos, vistas) vence a los 30 dias: la pantalla no muestra lo leido hace mas (`vigente`) y hay que borrarlo (`podar`). El documento lo deja como «cada mes: `leer` de nuevo y `podar --de-verdad`», y no hay cron ni tarea programada que lo llame. HECHO cuando exista una tarea programada que corra `leer` + `podar --de-verdad`, o cuando quede anotado como paso fijo del Cerebro con su fecha.",
+   "donde": "C:/dev/wt-puntas/docs/carruseles/thumbnails.md:86 · C:/dev/wt-puntas/lib/spy-reglas.ts:313 (metricasVencidas) · C:/dev/wt-puntas/lib/thumbnails/explorar.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 142,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Nunca se probó el botón Editar de una miniatura con la IA de verdad",
+  "porque": "Si falla, el cliente toca Editar y se lleva un diseño roto: sin el texto de su negocio o con recuadros grises donde debería ir la foto.",
+  "tecnico": "La nube no tiene claves. Después de cargar la biblioteca: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>` (con --guardar queda en Image). Gasta unos centavos de la IA del ws3. C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:195-202 · lib/carruseles/replica-servidor.ts (replicarEjemplo con que: 'thumbnail'). Hecho = diseño de 1280x720 con el texto del negocio, con las fuentes del editor y sin recuadros grises.",
+  "original": {
+   "titulo": "Probar «Editar» de una miniatura con la IA de verdad",
+   "queFalta": "Nunca se probo: la nube no tiene claves. Despues de cargar la biblioteca, correr `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>` (con --guardar queda en Image). HECHO cuando el diseno de 1280x720 salga con el texto del negocio, con las fuentes que el editor tiene y sin recuadros grises donde deberia haber foto.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:195-202 · C:/dev/wt-puntas/lib/carruseles/replica-servidor.ts (replicarEjemplo con que: 'thumbnail')",
+   "bloqueo": "Depende de la carga de la biblioteca. Gasta unos centavos de la IA del ws3.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 143,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Editar contestaba que la IA no contestó: hay arreglo y falta probarlo en vivo",
+  "porque": "Martín lo vio en producción el 6/11. Si el arreglo no sirvió, el cliente toca Editar y recibe un aviso de error en vez de un diseño.",
+  "tecnico": "Dos causas arregladas por el chat de carruseles: la portada se pedía al CDN de la biblioteca y no a nuestro bucket (ahora se baja con `fetchSeguro`), y el camino de solo texto usaba `chatCheap`, que corta en 512 tokens (ahora `chatCheapCascade` con 8.000). Falta comprobarlo en producción en /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727 con una sesión que no sea de un cliente. C:/dev/wt-puntas/docs/relevo/cerebro.md:19 · docs/relevo/nube-carruseles-rediseno.md:163-169",
+  "original": {
+   "titulo": "«Editar» contestaba «Tu IA no contesto ahora» en produccion: falta comprobar el arreglo",
+   "queFalta": "Martin lo vio en produccion el 6/11. El chat de carruseles encontro dos causas y las arreglo (la portada se pedia al CDN de la biblioteca y no a nuestro bucket, asi que la IA no recibia ninguna imagen, y el camino de solo texto usaba `chatCheap`, que corta en 512 tokens; ahora es `chatCheapCascade` con 8.000 y la portada se baja con `fetchSeguro`). Falta COMPROBARLO en produccion con /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727. HECHO cuando «Editar» devuelva un diseno y no el aviso.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/cerebro.md:19 · C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:163-169",
+   "bloqueo": "Hay que mirarlo en produccion con una sesion que no sea de un cliente.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 199,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "La biblioteca de miniaturas de YouTube está vacía: nadie corrió la carga",
+  "porque": "Hasta que no se cargue, la pestaña de miniaturas avisa a todos que la biblioteca no está cargada y no muestra ningún ejemplo.",
+  "tecnico": "scripts/thumbnails-biblioteca.mts: `descubrir --por-par 8 --dias 180`, `leer --max 120`, `estado` y la curaduría (`excluir`, `ocultar`, `sumar`); primero en seco y después con `--de-verdad` · docs/carruseles/thumbnails.md:53-83 · docs/relevo/cerebro.md:14 — `descubrir` gasta del cupo de 100 búsquedas diarias de YouTube",
+  "original": {
+   "titulo": "Cargar la biblioteca de Thumbnails desde la PC (nadie corrio ningun paso)",
+   "queFalta": "Correr los cuatro pasos de `thumbnails-biblioteca.mts`: `descubrir --por-par 8 --dias 180`, `leer --max 120`, `estado` y la curaduria (`excluir`, `ocultar`, `sumar`), primero en seco y despues con `--de-verdad`. Hecho = la pestania Thumbnails de Image deja de decir que la biblioteca no esta cargada.",
+   "donde": "docs/carruseles/thumbnails.md:53-83 · scripts/thumbnails-biblioteca.mts · docs/relevo/cerebro.md:14",
+   "bloqueo": "`descubrir` gasta del balde de 100 busquedas por dia de YouTube",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 200,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Nadie abrió la pestaña de miniaturas para ver si el botón Editar funciona",
+  "porque": "Si el Editar está roto, el cliente lo descubre solo cuando intenta cambiar una miniatura.",
+  "tecnico": "docs/relevo/cerebro.md:14 · docs/relevo/nube-carruseles-rediseno.md:82-91 — la nube deja «la carga de Thumbnails y la prueba de Editar»; la carga ya tiene su comando, la prueba en pantalla no se hizo. Depende de que la biblioteca esté cargada primero",
+  "original": {
+   "titulo": "Probar en pantalla la pestania Thumbnails y el «Editar» que dejo la nube",
+   "queFalta": "El relevo de la nube deja para el Cerebro «la carga de Thumbnails y la prueba de Editar». La carga ya tiene su comando; la prueba en pantalla no se hizo.",
+   "donde": "docs/relevo/cerebro.md:14 · docs/relevo/nube-carruseles-rediseno.md:82-91",
+   "bloqueo": "Depende de que primero este cargada la biblioteca",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 378,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "La pantalla de miniaturas está vacía: nunca se corrió la carga de ejemplos",
+  "porque": "Hasta que no se haga, la pestaña de miniaturas le aparece vacía a todos, con el cartel de que no está cargada.",
+  "tecnico": "Correr thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad y después leer --max 120 --de-verdad desde la PC con el .env.local de producción. La migración 0409 ya está aplicada. El Cerebro dice textual «No corrí ninguno» (cerebro.md:14). Usa del balde de 100 búsquedas de search.list por día. C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts ; pasos en C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-86",
+  "original": {
+   "titulo": "Cargar la biblioteca de Thumbnails: la migración 0409 ya está aplicada pero nunca se corrió la carga",
+   "queFalta": "Correr `thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` y después `leer --max 120 --de-verdad` desde la PC con el .env.local de producción. Hecho = la pestaña /image-editor?que=thumbnails muestra tarjetas 16:9 en vez de «la biblioteca todavía no está cargada». El Cerebro lo dice textual: «No corrí ninguno» (cerebro.md:14). Usa del balde de 100 búsquedas de search.list por día.",
+   "donde": "C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts ; pasos en C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-86",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 380,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Probar el botón «Editar» de una miniatura con una IA de verdad",
+  "porque": "Nunca se probó: si falla, el cliente abre el editor y le aparece el texto del ejemplo en lugar del suyo.",
+  "tecnico": "Después de cargar la biblioteca, correr carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>. Hecho = diseño de 1280×720 en el Image Editor con texto del negocio. La nube no tiene claves. C:/dev/wt-puntas/scripts/carruseles-probar-editar.mts ; lib/carruseles/replica-servidor.ts (replicarEjemplo con que:'thumbnail')",
+  "original": {
+   "titulo": "Probar «Editar» de una miniatura con una IA real",
+   "queFalta": "Después de cargar la biblioteca, correr `carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>`. Hecho = se abre un diseño de 1280×720 en el Image Editor con texto del negocio, no del ejemplo. Nunca se probó: la nube no tiene claves.",
+   "donde": "C:/dev/wt-puntas/scripts/carruseles-probar-editar.mts ; lib/carruseles/replica-servidor.ts (replicarEjemplo con que:'thumbnail')",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 382,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Las miniaturas guardadas vencen a los 30 días y nadie las renueva",
+  "porque": "Al mes la pantalla empieza a mostrar menos tarjetas hasta quedar vacía otra vez, y no hay nada programado que lo evite.",
+  "tecnico": "Sin la enmienda III.L lo guardado de la API de YouTube vence a los 30 días: la pantalla no muestra lo leído hace más (vigente). Hay que correr leer otra vez y podar --de-verdad, como tarea mensual desde la primera carga; hoy no existe cron ni tarea programada. C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts ; docs/carruseles/thumbnails.md:86",
+  "original": {
+   "titulo": "Volver a leer y podar la biblioteca cada mes (vence a los 30 días)",
+   "queFalta": "Sin la enmienda III.L lo guardado de la API de YouTube vence a los 30 días: la pantalla no muestra lo leído hace más (`vigente`) y hay que correr `leer` otra vez y `podar --de-verdad`. Queda como tarea mensual recurrente desde la primera carga; hoy no existe cron ni tarea programada que lo haga.",
+   "donde": "C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts (podar) ; docs/carruseles/thumbnails.md:86",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 544,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Diez caras de referentes se ven borrosas porque están agrandadas",
+  "porque": "En la tarjeta de Spy la cara sale blanda y la pantalla queda con aire de hecha a la apurada.",
+  "tecnico": "Los grandes/ de los diez últimos son los 200×200 de Canva escalados a 600 con bicúbica (los catorce primeros son los 1264 reducidos). Para rehacerlos hay que exportar el original desde Canva (un diseño con la imagen y export-design); los ids de media de los diez están anotados. C:/dev/wt-puntas/public/asesores/grandes/ · lib/asesores/catalogo.ts · ids y procedimiento en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:467",
+  "original": {
+   "titulo": "Las diez caras nuevas de gurús tienen los `grandes/` agrandados, no el original",
+   "queFalta": "Los grandes/ de los diez últimos son los 200×200 de Canva escalados a 600 con bicúbica (los catorce primeros son los 1264 reducidos): en la tarjeta de Spy se ven blandos. Para rehacerlos hay que exportar el original desde Canva (un diseño con la imagen y export-design); los ids de media de los diez están anotados. Hecho = los diez grandes/ a 600 reales y la tarjeta nítida.",
+   "donde": "C:/dev/wt-puntas/public/asesores/grandes/ · lib/asesores/catalogo.ts · ids y procedimiento en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:467",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 546,
+  "area": "Thumbnails",
+  "quien": "equipo",
+  "titulo": "Las plantillas de Video no muestran ninguna imagen en la galería",
+  "porque": "El cliente elige una plantilla de video a ciegas, sin ver qué va a salir.",
+  "tecnico": "De los enchufes de «plantillas propias», Video espera al editor: los 6 templates nuevos, retirar dos, los clips de Pexels y la miniatura dibujada. C:/dev/wt-puntas/app/video-generator/ · lib/plantillas-propias/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:122",
+  "original": {
+   "titulo": "La miniatura dibujada de las plantillas de Video sigue sin hacerse",
+   "queFalta": "De los enchufes de «plantillas propias», Video espera al editor: los 6 templates nuevos, retirar dos, los clips de Pexels y la miniatura dibujada. Hecho = una plantilla de Video muestra su miniatura en la galería.",
+   "donde": "C:/dev/wt-puntas/app/video-generator/ · lib/plantillas-propias/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:122",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

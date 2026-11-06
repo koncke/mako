@@ -1,0 +1,227 @@
+[
+ {
+  "id": 376,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Ver una clave propia desde la cuenta madre: quedó cerrado a propósito",
+  "porque": "Se decidió así por seguridad y el relevo del 6/11 lo deja cerrado: no se reabre, solo hay que sacarlo de la lista.",
+  "tecnico": "puedeRevelar exige ser admin del workspace dueño; el comentario muestra que cerrar la lectura ajena fue decisión de seguridad. NO reabrir. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:5,123-125 · app/api/integraciones/credencial/route.ts:115-119",
+  "original": {
+   "titulo": "El superadmin no puede ver su propia credencial (el ojito)",
+   "queFalta": "`puedeRevelar` exige ser admin del workspace dueno y el comentario muestra que cerrar la lectura ajena fue decision de seguridad. NO reabrir: el relevo del 6/11 lo deja cerrado explicitamente.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:5,123-125 · app/api/integraciones/credencial/route.ts:115-119",
+   "bloqueo": "Decidido como seguridad: no se reabre",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 419,
+  "area": "Cobros",
+  "quien": "verificar",
+  "titulo": "Cargar los dos primeros recibos y revisar dos nombres mal escritos",
+  "porque": "No hay registro de si ya se cargaron; y en la base dos clientes figuran con el apellido mal, distinto del que salió en el recibo.",
+  "tecnico": "Correr scripts/recibos-cargar-codigo.mts primero en seco y después con --aplicar (es idempotente por clave; NO manda nada). Los renglones del 0002 van como «Natalia Krywyj» y «Sergio Arratia» (como salió el PDF) y la base dice «Natalia» y «Arriata», que está mal. Falta probar la carrera de emitir_recibo con dos conexiones a la vez y mirar GET /api/admin/recibos/ejemplo en un preview antes de confiar en el correo. El relevo es del 5/11 y la 0397 ya está aplicada: mirar Billing › Recibos antes de volver a correrla. Pasos 2 a 6 en docs/relevo/nube-recibos.md:29-48",
+  "original": {
+   "titulo": "Cargar los recibos 0001 y 0002 y probar la carrera de `emitir_recibo`",
+   "queFalta": "Correr `recibos-cargar-codigo.mts` primero en seco y después con `--aplicar` (es idempotente por clave; NO manda nada). Ojo: los renglones del 0002 van como «Natalia Krywyj» y «Sergio Arratia» (como salió el PDF) y la base dice «Natalia» y «Arriata», que está mal. Falta también probar la carrera con dos conexiones a la vez y mirar `GET /api/admin/recibos/ejemplo` en un preview antes de confiar en el correo.",
+   "donde": "C:/dev/wt-puntas/scripts/recibos-cargar-codigo.mts ; pasos 2 a 6 en docs/relevo/nube-recibos.md:29-48",
+   "bloqueo": "El relevo es del 5/11 y la 0397 ya está aplicada; no hay registro de que la carga de 0001/0002 se haya corrido ni de que no. Hay que mirar Billing › Recibos antes de volver a correrla.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 438,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "23 controles automáticos están en rojo y lo último que se midió es del 4/11",
+  "porque": "Si siguen rojos, los controles de cobros, agenda y WhatsApp no avisan cuando algo se rompe.",
+  "tecnico": "Importan lib/mako-doer-acciones.ts (o lib/landing-token.ts) como ESM y node contesta que no exporta MAKO_ACCION_TOOLS, que sí exporta. Medido en un worktree limpio de origin/main, en Linux, el 4/11: iguales en main y en las ramas. Afecta mako-no-puedo-falsos, ops-center-estrella-desde, mako-turno-app, agenda-whatsapp, automatizacion-whatsapp, api-mako-cobros y otros. Desde entonces entraron muchas puntas en verde: hay que volver a correrlos. docs/relevo/nube-gurus.md:61-66",
+  "original": {
+   "titulo": "23 archivos de tests están rojos en main por un import ESM",
+   "queFalta": "Importan `lib/mako-doer-acciones.ts` (o `lib/landing-token.ts`) como ESM y node contesta que no exporta `MAKO_ACCION_TOOLS`, que sí exporta. Medido en un worktree limpio de origin/main, en Linux, el 4/11: iguales en main y en las ramas. Afecta mako-no-puedo-falsos, ops-center-estrella-desde, mako-turno-app, agenda-whatsapp, automatizacion-whatsapp, api-mako-cobros y otros.",
+   "donde": "C:/dev/wt-puntas/lib/mako-doer-acciones.ts ; lib/landing-token.ts ; docs/relevo/nube-gurus.md:61-66",
+   "bloqueo": "La medición es del 4/11 y desde entonces entraron muchas puntas en verde. Hay que volver a correrlos para saber si siguen rojos.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 459,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "Revisar que los correos de avance de tickets lleguen y que nadie reciba de más",
+  "porque": "Si se repiten, una persona recibe varios correos por el mismo ticket; si no salen, se queda sin saber que la atendieron.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:19-31 (las tres consultas, textuales) — confirmar que la 0364 esté aplicada (avance_email, avance_email_at); la primera vuelta del cron tras el deploy (el registro dice «correos de avance N (fallidos M)»; si M > 0 cada ticket lo tiene en ticket_eventos); y contar por persona en el día. El commit dbc64bdd7 dice que la 0364 está aplicada, pero no figura en la tabla de migraciones del Cerebro y nadie lo midió.",
+  "original": {
+   "titulo": "Verificar los correos de avance en producción y que nadie reciba de más",
+   "queFalta": "Tres consultas listas: que la 0364 esté aplicada (`avance_email`, `avance_email_at`); la primera vuelta del cron después del deploy (el registro dice «correos de avance N (fallidos M)»; si M > 0 cada ticket lo tiene anotado en `ticket_eventos`); y que nadie reciba de más, contando por persona en el día.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:19-31 (las consultas, textuales)",
+   "bloqueo": "El commit dbc64bdd7 dice que la 0364 está aplicada, pero no está en la tabla de migraciones del Cerebro y nadie lo midió.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 480,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "No se sabe si la base ya está lista para guardar las llamadas grabadas",
+  "porque": "Si no está, el botón de grabar avisa que todavía no se puede y la hoja de velocidad de llamada sale vacía.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/0390_llamadas_grabadas.sql (crea llamadas_grabadas, llamadas_grabadas_partes y el bucket privado llamadas-grabadas) ; docs/relevo/nube-grabar.md:47-55 — sólo agrega y va antes o junto con el deploy. No figura en la tabla de migraciones aplicadas del Cerebro (que lista 0394, 0397, 0398, 0401, 0402, 0403 y 0404 a 0409), pero el relevo que la pide es del 4/11 y nadie anotó haberla corrido. La plantilla «Velocidad de llamada» del Dashboard lee llamadas grabadas.",
+  "original": {
+   "titulo": "La migración 0390 (llamadas grabadas) no figura como aplicada",
+   "queFalta": "El archivo existe en disco y crea las tablas `llamadas_grabadas`, `llamadas_grabadas_partes` y el bucket privado `llamadas-grabadas`. Sólo agrega, y va antes o junto con el deploy (sin las tablas el botón dice que la grabación todavía no está lista y no graba). Hay que medir si está aplicada: la plantilla «Velocidad de llamada» del Dashboard lee llamadas grabadas, así que si no estuviera, esa hoja saldría vacía.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/0390_llamadas_grabadas.sql ; docs/relevo/nube-grabar.md:47-55",
+   "bloqueo": "No está en la tabla de migraciones aplicadas del Cerebro (que lista 0394, 0397, 0398, 0401, 0402, 0403 y 0404 a 0409), pero el relevo que la pide es del 4/11 y nadie anotó haberla corrido.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 487,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Falta limpiar los datos personales que quedaron guardados en links de landing",
+  "porque": "Hay datos personales de gente guardados donde no corresponde: es un problema de privacidad y sigue ahí.",
+  "tecnico": "C:/dev/wt-puntas/supabase/migrations/ (la 0357) · lib/landing-paginas.ts (normalizarUrl) · pendiente en C:/dev/wt-puntas/docs/hallazgos-landing.md:4710 — está ensayada en seco y sin aplicar; va DESPUÉS del deploy del commit que la acompaña (si va antes, la próxima visita vuelve a escribir lo que limpia). Hecho = su guard final no encuentra filas con datos personales. El documento dice que la aplica el Cerebro, pero nadie confirmó que ese deploy salió.",
+  "original": {
+   "titulo": "Aplicar la 0357 (limpiar URLs con datos personales de landing) DESPUÉS del deploy",
+   "queFalta": "Está ensayada en seco y sin aplicar. Va después del deploy del commit que la acompaña (si va antes, la próxima visita vuelve a escribir lo que limpia). Hecho = su guard final no encuentra filas con datos personales.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/ (la 0357) · lib/landing-paginas.ts (normalizarUrl) · pendiente en C:/dev/wt-puntas/docs/hallazgos-landing.md:4710",
+   "bloqueo": "El documento dice que la aplica el Cerebro y va después del deploy; nadie confirmó que ese deploy salió.",
+   "estado": "martin"
+  }
+ },
+ {
+  "id": 489,
+  "area": "Cobros",
+  "quien": "verificar",
+  "titulo": "El corte de acceso por falta de pago sigue apagado y se hace a mano",
+  "porque": "Un negocio que dejó de pagar sigue usando todo hasta que alguien se acuerda de sacarle el acceso a mano.",
+  "tecnico": "C:/dev/wt-puntas/lib/plan-acceso-reglas.ts (CORTE_DE_ACCESO_PRENDIDO) · lib/plan-acceso.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1567 — aplicar la 0330, correr la revisión adversarial y pasar el interruptor a true. Entrada del 23/10/2026; no se pudo confirmar si se prendió después del 1/11.",
+  "original": {
+   "titulo": "Prender el corte de acceso por falta de pago (CORTE_DE_ACCESO_PRENDIDO) con la 0330 aplicada",
+   "queFalta": "Aplicar la 0330, correr la revisión adversarial y pasar el interruptor a true. Hecho = un negocio sin pago pierde el acceso por el camino nuevo, no a mano desde /admin.",
+   "donde": "C:/dev/wt-puntas/lib/plan-acceso-reglas.ts (CORTE_DE_ACCESO_PRENDIDO) · lib/plan-acceso.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1567",
+   "bloqueo": "Entrada del 23/10/2026; no pude confirmar si se prendió después del 1/11.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 490,
+  "area": "Cobros",
+  "quien": "verificar",
+  "titulo": "Cuando alguien se da de baja se le corta el cobro pero no el acceso",
+  "porque": "Un negocio dado de baja sigue usando gratis el plan que pagaba, hasta que alguien se lo saca a mano.",
+  "tecnico": "C:/dev/wt-puntas/lib/cobros.ts (aplicarSuscripcionCancelada) · lib/workspace.ts (la capa) · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367 — entrada del 04/10/2026; una fila posterior de la misma tabla dice que el estado de suscripción por workspace sí se hizo el 17/10, así que puede estar resuelto en parte.",
+  "original": {
+   "titulo": "La baja del plan corta la PLATA pero no el ACCESO",
+   "queFalta": "Un workspace que se da de baja conserva su capa; hoy el acceso se saca a mano desde /admin. Hecho = al cancelar, el workspace queda sin la capa que pagaba, sin intervención manual.",
+   "donde": "C:/dev/wt-puntas/lib/cobros.ts (aplicarSuscripcionCancelada) · lib/workspace.ts (la capa) · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367",
+   "bloqueo": "Entrada del 04/10/2026; una fila posterior de la misma tabla dice que el estado de suscripción por workspace sí se hizo el 17/10, así que puede estar resuelto en parte.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 499,
+  "area": "Cobros",
+  "quien": "verificar",
+  "titulo": "No se sabe si la pantalla de Pagos de clientes ya quedó armada por bloques",
+  "porque": "Dos documentos se contradicen: si ya está hecho se trabaja de gusto, y si no, queda código viejo dando vueltas.",
+  "tecnico": "C:/dev/wt-puntas/app/customer-success/FichaPestanas.tsx:84 · app/crm/[id]/LeadDetailBody.tsx:207 · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379 — pasar la tab Pagos de CS a bloques (tanda T3 del CRM) borra juntos EditarDeal, ?edit=1, «✦ Completar con IA», saveDealSectionsAction y saveCuotasAction. Pero docs/hallazgos-customer-success.md:5665 (17/10) dice que ya pasó a bloques y que DealDetailsCard se borró.",
+  "original": {
+   "titulo": "La tab Pagos de Customer Success sigue montando DealDetailsCard",
+   "queFalta": "Pasar la tab Pagos de CS a bloques (tanda T3 del CRM). Con eso se borran juntos EditarDeal, ?edit=1, «✦ Completar con IA», saveDealSectionsAction y saveCuotasAction. Hecho = CS muestra Pagos por bloques y esos cinco no existen.",
+   "donde": "C:/dev/wt-puntas/app/customer-success/FichaPestanas.tsx:84 · app/crm/[id]/LeadDetailBody.tsx:207 · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379",
+   "bloqueo": "Otra entrada del 17/10 (docs/hallazgos-customer-success.md:5665) dice que la tab Pagos de CS ya pasó a bloques y que DealDetailsCard se borró: los dos documentos se contradicen.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 528,
+  "area": "Chat",
+  "quien": "verificar",
+  "titulo": "La nota de voz sale como archivo adjunto, no como audio de WhatsApp",
+  "porque": "Del otro lado llega un archivo que hay que bajar en vez de un audio que se escucha apretando play.",
+  "tecnico": "El backend ya acepta audio/ogg (AUDIO_OK). Falta opus-recorder (~175 KB gzip servido desde /public, import dinámico con ssr:false) en vez de MediaRecorder + re-encode a MP3 con lamejs. Verificar antes que el canal exponga voice:true hacia la Cloud API. C:/dev/wt-puntas/app/whatsapp/audio.ts (blobToMp3) · app/whatsapp/EmpresaInbox.tsx:374 · app/api/whatsapp/contacts/[id]/attachments/route.ts:34 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2394 (entrada 2026-06-23, sin confirmar tras el cambio a Evolution)",
+  "original": {
+   "titulo": "La nota de voz nativa de WhatsApp necesita un encoder OGG/OPUS del lado del cliente",
+   "queFalta": "El backend ya acepta audio/ogg (AUDIO_OK). Falta opus-recorder (~175 KB gzip servido desde /public, import dinámico con ssr:false) en vez de grabar con MediaRecorder y re-encodear a MP3 con lamejs. Antes de prometerlo, verificar que el canal exponga voice:true hacia la Cloud API. Hecho = la burbuja sale como nota de voz, no como archivo.",
+   "donde": "C:/dev/wt-puntas/app/whatsapp/audio.ts (blobToMp3) · app/whatsapp/EmpresaInbox.tsx:374 · app/api/whatsapp/contacts/[id]/attachments/route.ts:34 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2394",
+   "bloqueo": "Entrada de 2026-06-23; no pude confirmar si sigue abierto después del cambio de canal a Evolution.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 529,
+  "area": "Chat",
+  "quien": "verificar",
+  "titulo": "En el chat no se puede ver un PDF y «Ocultar contacto» no oculta nada",
+  "porque": "Hay que bajar cada PDF para leerlo, y las conversaciones personales del dueño siguen a la vista en MaKo.",
+  "tecnico": "Dos pedidos repetidos del inbox: vista previa del PDF («ha rechazado la conexión») y botón de ocultar/desocultar con confirmación. C:/dev/wt-puntas/app/whatsapp/ · lib/evolution-block.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2184 (reportes de julio de 2026, sin confirmar contra el código)",
+  "original": {
+   "titulo": "Los PDF no se previsualizan y «Ocultar contacto» no oculta nada",
+   "queFalta": "Dos pedidos repetidos del inbox: la vista previa del PDF («ha rechazado la conexión») y el botón de ocultar/desocultar con su confirmación, para las conversaciones personales que el dueño no quiere ver en MaKo. Hecho = un PDF abre en la vista previa y un contacto oculto desaparece del inbox.",
+   "donde": "C:/dev/wt-puntas/app/whatsapp/ · lib/evolution-block.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2184",
+   "bloqueo": "Reportes de julio de 2026; no pude confirmar contra el código si siguen.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 532,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Tres consultas contestan «no hay nada» cuando en realidad fallaron",
+  "porque": "Con la base caída la plataforma da por cierto que nadie vio el video y les manda el mensaje equivocado a todos.",
+  "tecnico": "Variantes estrictas para el catch → [] de videosDetectados, getVslEngagementMap y el warn de getUsageSummary. C:/dev/wt-puntas/lib/landing-token.ts (videosDetectados) · lib/leads.ts (getVslEngagementMap) · lib/anthropic-usage.ts (getUsageSummary) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351. docs/hallazgos-chatbot.md:30 dice que «No reprodujo el VSL» con la base caída se cerró el 6/11/2026; las otras dos no se confirman",
+  "original": {
+   "titulo": "Tres lecturas devuelven VACÍO cuando fallan: mienten «no hay»",
+   "queFalta": "Variantes estrictas para el catch → [] de videosDetectados, getVslEngagementMap y el warn de getUsageSummary. Con la base caída, «No reprodujo el VSL» se cumple para TODOS. Hecho = el motor usa una lectura que tira en vez de devolver [].",
+   "donde": "C:/dev/wt-puntas/lib/landing-token.ts (videosDetectados) · lib/leads.ts (getVslEngagementMap) · lib/anthropic-usage.ts (getUsageSummary) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351",
+   "bloqueo": "docs/hallazgos-chatbot.md:30 dice que «No reprodujo el VSL» con la base caída se cerró el 6/11/2026 en el barrido de pendientes; las otras dos lecturas no se confirman.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 533,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Vaciar el Cliente de Prueba deja datos de la prueba anterior",
+  "porque": "La prueba siguiente arranca con datos viejos mezclados y lo que se mida ahí no se puede creer.",
+  "tecnico": "Derivar TABLAS_RESET de TENANT_TABLES (excluyendo las vistas v_cohortes_*) o un test que falle cuando no coincidan. Faltan cuatro: chat_agent_handoffs, mako_doer_buffer, mako_doer_lock y productos. C:/dev/wt-puntas/lib/reset-workspace.ts:29-60 · lib/workspace.ts:43-60 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2584. Contradicción: docs/hallazgos-infra.md:7096 dice que completar TABLAS_RESET ya se hizo",
+  "original": {
+   "titulo": "TABLAS_RESET y TENANT_TABLES se separan solas y nada avisa",
+   "queFalta": "Derivar TABLAS_RESET de TENANT_TABLES (excluyendo las vistas v_cohortes_*) o un test que falle cuando no coincidan. Faltan cuatro: chat_agent_handoffs, mako_doer_buffer, mako_doer_lock y productos. Hecho = vaciar el Cliente de Prueba no deja datos de la corrida anterior.",
+   "donde": "C:/dev/wt-puntas/lib/reset-workspace.ts:29-60 · lib/workspace.ts:43-60 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2584",
+   "bloqueo": "Entrada de 2026-08-05; docs/hallazgos-infra.md:7096 dice que completar TABLAS_RESET ya se hizo y cambió el alcance del reset. Los dos se contradicen.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 537,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Cuatro cosas de la pantalla de Integraciones que el dueño reportó y siguen",
+  "porque": "No se puede conectar Cerebras, GitHub no aparece, falta el tutorial de Fathom y el historial dice que nunca hubo problemas.",
+  "tecnico": "1) Cerebras no deja conectarse y las integraciones nuevas no aparecen en /integraciones. 2) GitHub no aparece en las de super admin. 3) Falta el tutorial para poner el link de MaKo dentro de Fathom. 4) El historial dice «Sin incidentes registrados»: tiene que marcar de qué día y hora a qué día y hora pasó cada incidente. C:/dev/wt-puntas/app/integraciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2831 (reportes de julio y agosto de 2026)",
+  "original": {
+   "titulo": "Cuatro pendientes abiertos de /integraciones reportados por el dueño",
+   "queFalta": "Cerebras no deja conectarse y las integraciones nuevas no aparecen en /integraciones; GitHub no aparece en las integraciones de super admin; falta el tutorial para poner el link de MaKo dentro de Fathom; el historial de problemas dice «Sin incidentes registrados» habiendo habido muchos (tiene que marcar de qué día y hora a qué día y hora pasó cada incidente). Hecho = los cuatro verificados en la pantalla.",
+   "donde": "C:/dev/wt-puntas/app/integraciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2831",
+   "bloqueo": "Reportes de julio y agosto de 2026; no pude confirmar cuáles siguen.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 539,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Muchas cosas no tienen link propio: no se pueden compartir ni guardar",
+  "porque": "No se puede mandar el link de una llamada analizada, un anuncio ganador o una tarea: hay que explicar dónde hacer clic.",
+  "tecnico": "Ruta propia (deep link) para cada llamada de ventas analizada, cada anuncio ganador, cada retro y cada task/proyecto, más mapear todo lo que se queda sin ruta. C:/dev/wt-puntas/app/ (sub-tabs) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:3506, docs/hallazgos-ia.md:3094 y docs/hallazgos-ads.md:1254 (pedido del 2026-07-15, sin confirmar cuánto se hizo)",
+  "original": {
+   "titulo": "Ruta propia (deep link) para cada entidad que hoy vive en sub-tabs",
+   "queFalta": "Cada llamada de ventas analizada, cada anuncio ganador, cada retro, cada task/proyecto necesita su deep link, y el pedido incluye mapear todo lo que se está quedando sin ruta. Hecho = el mapa escrito y cada entidad con URL propia.",
+   "donde": "C:/dev/wt-puntas/app/ (sub-tabs) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:3506, C:/dev/wt-puntas/docs/hallazgos-ia.md:3094 y C:/dev/wt-puntas/docs/hallazgos-ads.md:1254",
+   "bloqueo": "Pedido del 2026-07-15 repetido en tres documentos; no pude confirmar cuánto se hizo.",
+   "estado": "dudoso"
+  }
+ }
+]

@@ -1,0 +1,1097 @@
+[
+ {
+  "id": 65,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Falta cargar los cursos y las plantillas de influencers al conocimiento de la app",
+  "porque": "El estante está armado y vacío: ningún negocio recibe todavía el conocimiento de los cursos.",
+  "tecnico": "lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md · docs/pendientes.md:69-79 · OJO: una ficha cargada de la pantalla sale con fuente:'manual' y no llega a ningún negocio; la curación escribe fuente:'mako'. Se ve en Classroom › Methodology.",
+  "original": {
+   "titulo": "Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers",
+   "queFalta": "El esqueleto está construido y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build): 7 módulos por tema, capa del Second Brain, índice en el prompt de todos los chats, dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. Falta destilar los cursos en fichas —Martín decidió hacerlo AFUERA de la app por los créditos de IA— y las «plantillas de influencers» del pedido del 30/10, de las que no hay análisis en ninguna parte y cuyos links scrapeados no están en el repo. OJO: una ficha cargada desde la pantalla sale con `fuente: 'manual'` y NO le llega a ningún negocio; la curación escribe `fuente: 'mako'`. Se ve en Classroom › Methodology, no es una tab nueva.",
+   "donde": "lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app» · docs/pendientes.md:69-79",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 67,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Si alguien entra a una dirección que no existe, la app se ve rota",
+  "porque": "Un cliente que toca un link viejo cree que la app se cayó, no que se equivocó de dirección.",
+  "tecnico": "app/not-found.tsx (no existe) · docs/relevo/pendientes-barrido.md C12 · docs/hallazgos-seguridad.md · una pantalla nueva se copia de una app que la resolvió (AGENTS.md): necesita un chat con navegador",
+  "original": {
+   "titulo": "Falta la página propia de «no encontrado»",
+   "queFalta": "No existe app/not-found.tsx, así que un 404 se ve como app rota. Está sin hacer a propósito: una pantalla nueva se copia de una app que la resolvió (AGENTS.md) y desde la nube no se abre ninguna. Queda para un chat con navegador.",
+   "donde": "app/not-found.tsx (no existe) · docs/relevo/pendientes-barrido.md C12 · docs/hallazgos-seguridad.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 72,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Nunca se midió qué puede hacer en la base la clave que viaja al navegador",
+  "porque": "Es una revisión de seguridad que no se hizo nunca: si algo quedó abierto, hoy no lo sabemos.",
+  "tecnico": "node scripts/medir-funciones-publicas.mjs · docs/relevo/pendientes-barrido.md P12",
+  "original": {
+   "titulo": "Medir qué funciones de `public` puede ejecutar la clave pública",
+   "queFalta": "Correr `node scripts/medir-funciones-publicas.mjs`. Es una medición de seguridad que nunca se hizo.",
+   "donde": "scripts/medir-funciones-publicas.mjs · docs/relevo/pendientes-barrido.md P12",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 304,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Hay fuentes de pedidos de clientes que nadie leyó nunca",
+  "porque": "Es lo más grande que falta: el reparto del 27/10, el feedback del 22/10, la llamada con Mauricio y el correo del equipo. Hay pedidos sin leer.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:59-69,199-225,291-292 · docs/feedback-22-10.md · C:/dev/cerebro-herramientas/llamada-mau-22-10.txt. Reparto del 27/10 (workflow wf_1f30be35-c5e, con los MAU-xx, MK-xx y las llamadas de Leandro, Leila y Aaron), docs/feedback-22-10.md (76 líneas), la llamada con Mauricio del 22/10 (C3, C4, C5), el WhatsApp personal de Martín, los chats de clientes dentro de la app sin ticket, los mensajes del Ops Center que el Runner no levantó el 27/10, las capturas y equipo@hola-mako.com. Varias viven solo en la PC o en side-session-notes.",
+  "original": {
+   "titulo": "Las fuentes de pedidos que NADIE leyo (lo mas grande que falta)",
+   "queFalta": "El reparto del 27/10 (workflow wf_1f30be35-c5e, con los MAU-xx, MK-xx y las llamadas de Leandro, Leila y Aaron), `docs/feedback-22-10.md` (76 lineas, nadie), la llamada con Mauricio del 22/10 (C3, C4, C5), el WhatsApp personal de Martin con los clientes, los chats de clientes dentro de la app que no terminaron en ticket, los mensajes del Ops Center que el Runner no levanto el 27/10, las capturas y el correo equipo@hola-mako.com. Hecho = cada fuente leida y sus pedidos repartidos.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:59-69,199-225,291-292 · docs/feedback-22-10.md · C:/dev/cerebro-herramientas/llamada-mau-22-10.txt",
+   "bloqueo": "Varias viven solo en la PC o en side-session-notes; el WhatsApp personal pide su telefono",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 305,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Seis cosas que marcó Leandro en su llamada siguen sin repartir",
+  "porque": "Entre ellas: MaKo inventa un bloque de Instagram que no existe, un icono equivocado y la criatura que se esconde detrás del menú.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:204-213 · docs/feedback-24-10.md · docs/feedback-25-10-tarde.md · lib/api-mako/areas/curso.def.ts · cs.def.ts. f11 que completar datos se descubra sola; f18 que en «Editar» MaKo responda una pregunta de «Discutir»; f19 el icono equivocado; f22 bloque de Instagram inventado; f30 el contexto dice «Customer Success > Curso»; f34 la criatura detrás de la sidebar. Más el punto 16 y el link de la tarjeta de feedback-25-10-tarde.",
+  "original": {
+   "titulo": "Los items f11, f18, f19, f22, f30 y f34 de la llamada con Leandro, sin repartir",
+   "queFalta": "f11 que la opcion de completar datos se descubra sola; f18 que en «Editar» MaKo responda una pregunta de «Discutir»; f19 el icono equivocado; f22 MaKo inventa un bloque de Instagram que no existe; f30 el contexto dice «Customer Success > Curso»; f34 la criatura se esconde detras de la sidebar. Mas el punto 16 y el link de la tarjeta de feedback-25-10-tarde.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:204-213 · docs/feedback-24-10.md · docs/feedback-25-10-tarde.md · lib/api-mako/areas/curso.def.ts · cs.def.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 306,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "MaKo todavía no abre la conversación en casi ninguna pantalla",
+  "porque": "Está hecho solo para el Centro de Operaciones. Falta la bienvenida del primer ingreso y la apertura de cada pantalla: el cliente entra y nadie le habla.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:127 · lib/aperturas/ · app/api/aperturas/route.ts · docs/mako-iniciativa/plan.md. `lib/aperturas/` solo tiene `ops.ts`, `comunes.ts` y `reglas.ts`. Faltan bienvenida, cargar la oferta, elegir funnel, y las aperturas de CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image, Classroom, AI Avatar y Mobile: un archivo por tab.",
+  "original": {
+   "titulo": "MaKo toma la iniciativa: faltan el primer ingreso y las aperturas por tab",
+   "queFalta": "`lib/aperturas/` solo tiene `ops.ts`, `comunes.ts` y `reglas.ts`. Faltan bienvenida, cargar la oferta, elegir funnel, y las aperturas de CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image, Classroom, AI Avatar y Mobile: un archivo por tab.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:127 · lib/aperturas/ · app/api/aperturas/route.ts · docs/mako-iniciativa/plan.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 307,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El Second Brain no mira todos los datos del cliente, solo una parte",
+  "porque": "Lee menos de un tercio de lo que hay y arma el resumen con cuatro listas fijas: contesta sin saber la mitad de lo que pasa en el negocio.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:191-192 · app/admin/dev/second-brain/bitacora.ts:33 · lib/cerebro-para-chat.ts:146 · docs/relevo/pedidos-perdidos-2810.md:103. `construirCerebro()` hace 21 lecturas sobre ~70 tablas y el brief sale de 4 listas fijas. El Second Brain de SuperAdmin tiene que conocer todas las funciones (capa en lib/cerebro-para-chat.ts:146, cobertura sin verificar). Falta además que ande bien en el teléfono.",
+  "original": {
+   "titulo": "El Second Brain no toma «absolutamente todos» los datos del cliente",
+   "queFalta": "`construirCerebro()` hace 21 lecturas sobre ~70 tablas y el brief sale de 4 listas fijas. Y el Second Brain de SuperAdmin tiene que conocer todas las funciones (capa en `lib/cerebro-para-chat.ts:146`, cobertura sin verificar). Ademas, el Second Brain bien en el telefono.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:191-192 · app/admin/dev/second-brain/bitacora.ts:33 · lib/cerebro-para-chat.ts:146 · docs/relevo/pedidos-perdidos-2810.md:103",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 308,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Faltan 401 recursos en diez cursos y hay 2.342 cosas sin publicar",
+  "porque": "El pedido fue «todas las clases, todos los recursos»: hoy el cliente entra al curso y le falta material. Diez clases sanas quedaron rechazadas.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41. 401 recursos faltan en 10 cursos y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazó diez clases sanas.",
+  "original": {
+   "titulo": "Los cursos completos en Conocimientos: 401 recursos faltan en 10 cursos",
+   "queFalta": "Y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazo diez clases sanas. Pedido textual: «No quiero que quede nada. Todas las clases, todos los recursos».",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 309,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El índice de hallazgos tiene filas repetidas",
+  "porque": "Ads aparece cinco veces y AI Avatar tres: el que busca algo abre la fila equivocada. Se arregla en una sola pasada.",
+  "tecnico": "docs/hallazgos.md:145,163,164,180,181,188,302,303 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:230-231. `| Ads |` 5 veces (145, 163, 164, 180, 303) y `| AI Avatar |` 3 veces (181, 188, 302).",
+  "original": {
+   "titulo": "El indice de hallazgos tiene filas duplicadas",
+   "queFalta": "`| Ads |` aparece 5 veces (145, 163, 164, 180, 303) y `| AI Avatar |` 3 veces (181, 188, 302). Se hace en una pasada.",
+   "donde": "docs/hallazgos.md:145,163,164,180,181,188,302,303 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:230-231",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 310,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El generador de ganchos para anuncios quedó anotado y nunca se hizo",
+  "porque": "Martín lo dejó como backlog y no hay nada escrito. Sin eso, el gancho de cada anuncio se sigue pensando a mano.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173. Cita: «Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.",
+  "original": {
+   "titulo": "Hook generator (backlog explicito de Martin)",
+   "queFalta": "«Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 311,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Generar anuncios en cantidad: 100 en menos de una hora",
+  "porque": "No existe nada de código. Hoy cada anuncio se hace de uno en uno, que es el cuello de botella de cualquiera que pauta en serio.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:151-153 · docs/como-venden-otros.md:146. Sin código en `lib/image-editor`, `lib/video-generator`, `app/image-generator`, `app/video-generator` ni `app/image-editor`.",
+  "original": {
+   "titulo": "Generar anuncios «en cantidad»: 100 en menos de una hora",
+   "queFalta": "Sin codigo en `lib/image-editor`, `lib/video-generator`, `app/image-generator`, `app/video-generator` ni `app/image-editor`. Solo figura en `docs/como-venden-otros.md:146`.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:151-153 · docs/como-venden-otros.md:146",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 312,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El generador de VSL sigue en «Próximamente» y el analista tampoco está",
+  "porque": "El menú lo muestra como que viene y no existe. La medición le puso prioridad baja, así que puede esperar, pero está prometido en pantalla.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:165-167 · app/admin/dev/vsl-generator/bitacora.ts:28-32 · app/_components/nav.ts:474 (`comingSoon`). 5 entradas en «cola» en la bitácora; prioridad BAJA según la medición.",
+  "original": {
+   "titulo": "VSL Generator completo (y VSL Analyst)",
+   "queFalta": "5 entradas en 'cola' en la bitacora y `app/_components/nav.ts:474` con `comingSoon`. Prioridad BAJA segun la medicion.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:165-167 · app/admin/dev/vsl-generator/bitacora.ts:28-32 · app/_components/nav.ts:474",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 313,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Conectar Google Drive para que MaKo lea los links que pasan los clientes",
+  "porque": "Hoy solo abre un link público: si el cliente comparte una carpeta o un archivo privado, MaKo no lo puede leer. Lo pidieron varias veces.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:169-170 · lib/google-calendar.ts:37,43 · docs/relevo/pedidos-perdidos-2810.md:151. Solo existe bajar un link público (`lib/api-mako/areas/ads.run.ts:896`) y los scopes de Google son solo Calendar y el vigía. Pedido repetido (26/10 y antes).",
+  "original": {
+   "titulo": "Conectar Google Drive para que MaKo lea los links que pasan los clientes",
+   "queFalta": "Solo existe bajar un link publico (`lib/api-mako/areas/ads.run.ts:896`) y los scopes de Google son solo Calendar y el vigia. Pedido repetido (26/10 y antes).",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:169-170 · lib/google-calendar.ts:37,43 · docs/relevo/pedidos-perdidos-2810.md:151",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 314,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El historial de decisiones, con aviso cuando Martín cambia de opinión",
+  "porque": "Hoy no queda registro: si cambia una decisión, el chat que estaba trabajando con la vieja no se entera y sigue en la dirección equivocada.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:159-160. «Se manda como un prompt que el usuario cambió de opinión»; historial en «progreso». Grep sin resultados en `app/admin/operaciones`, `lib/operaciones*` ni `lib/centro*`.",
+  "original": {
+   "titulo": "Historial de decisiones de Martin en «progreso», con aviso si cambia de opinion",
+   "queFalta": "«Se manda como un prompt que el usuario cambio de opinion». Grep sin resultados en `app/admin/operaciones`, `lib/operaciones*` ni `lib/centro*`.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:159-160",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 315,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El medidor de tiempo de trabajo y su analista: no hay nada hecho",
+  "porque": "No aparece una línea de código. Puede estar anotado como tarea en el plan, así que primero hay que buscarlo ahí antes de empezar de cero.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:162-163. Focus Tracker (Toggl por BYOK) y Productivity Analyst. `git grep` de «Focus Tracker» y «toggl» sin resultados en app, lib ni docs; puede estar como tarea en la base del /plan.",
+  "original": {
+   "titulo": "Focus Tracker (Toggl por BYOK) y Productivity Analyst",
+   "queFalta": "`git grep` de «Focus Tracker» y «toggl» sin resultados en app, lib ni docs. Puede estar como tarea en la base del /plan.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:162-163",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 319,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Faltan cuenta regresiva, avisos de prueba social y escasez en las landings",
+  "porque": "Martín lo marcó «super importante» y lo necesitaba la landing de Black November: sin esos bloques, la página vende menos.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:65 (2.10/5.14) · app/web-generator/BloqueWeb.tsx · lib/editor-landing/. No hay nada en `app/web-generator/` ni `lib/editor-landing/`; van bloques nuevos en `BloqueWeb.tsx`.",
+  "original": {
+   "titulo": "Cuenta regresiva, pops de prueba social y escasez en las landings",
+   "queFalta": "No hay nada en `app/web-generator/` ni `lib/editor-landing/`. Martin lo marco «super importante» y lo necesitaba la landing de Black November. Van bloques nuevos en `BloqueWeb.tsx`.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:65 (2.10/5.14) · app/web-generator/BloqueWeb.tsx · lib/editor-landing/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 320,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Varios logos no son los reales: el de Meet está dibujado a mano",
+  "porque": "El cliente ve logos que no son los de verdad y la pantalla parece hecha a mano. Hecho = el logo real en su lugar.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55. `LogoMeet` está dibujado a mano.",
+  "original": {
+   "titulo": "El logo real de Meet (y los logos dibujados a mano)",
+   "queFalta": "«Muchos logos no son los logos reales»: `LogoMeet` esta dibujado a mano. Hecho = el logo real en su lugar.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 325,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Cuando un link no existe, no hay una pantalla propia de «no encontrado»",
+  "porque": "Quien entra a un link viejo o mal escrito ve una pantalla ajena a MaKo, sin ninguna salida hacia la app.",
+  "tecnico": "C12. No existe app/not-found.tsx. Se dejó a propósito: una pantalla nueva se copia de una app que la resolvió y desde la nube no se abre ninguna; pide un chat con navegador. docs/relevo/pendientes-barrido.md:111",
+  "original": {
+   "titulo": "C12: no hay pagina propia de «no encontrado»",
+   "queFalta": "No existe `app/not-found.tsx`. Se dejo sin hacer a proposito: una pantalla nueva se copia de una app que la resolvio y desde la nube no se abre ninguna. Queda para un chat con navegador.",
+   "donde": "docs/relevo/pendientes-barrido.md:111 · app/not-found.tsx",
+   "bloqueo": "Pide un navegador para copiar la referencia",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 333,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El Ops Center tiene ocho cosas pendientes sin nadie asignado",
+  "porque": "Quedan a medias el renombrar por fila, el chat del grupo, los adjuntos y la limpieza de archivos que nunca se enviaron.",
+  "tecnico": "Muñecos y «Renombrar» por fila, chat del grupo en la barra, riel «Lo que hizo», retirar /api/mako-doer, las funciones del limbo sin pantalla, CARTERO_VIVO_MS derivado del intervalo real (pide columna y cartero nuevo), adjuntos solo foto y PDF, y la purga de adjuntos que nunca se mandaron. docs/relevo/pendientes-barrido.md:121-124 · app/admin/operaciones · lib/operaciones-reglas.ts:37",
+  "original": {
+   "titulo": "Ops Center: ocho restos sin dueno",
+   "queFalta": "Muniecos y «Renombrar» por fila, chat del grupo en la barra, riel «Lo que hizo», retirar `/api/mako-doer`, las funciones del limbo sin pantalla, `CARTERO_VIVO_MS` derivado del intervalo real (pide columna y cartero nuevo), adjuntos solo foto y PDF, y la purga de adjuntos que nunca se mandaron.",
+   "donde": "docs/relevo/pendientes-barrido.md:121-124 · app/admin/operaciones · lib/operaciones-reglas.ts:37",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 335,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Los patrones de email están cargados pero nadie comprobó que se usen",
+  "porque": "Si no se usan, Copywriter, Newsletter, Automations y WhatsApp siguen escribiendo sin apoyarse en los 5.050 emails ya estudiados.",
+  "tecnico": "El documento está en producción (70 remitentes, ~5.050 emails) y no se verificó que Copywriter, Newsletter, Automations y WhatsApp lo consuman. Quedaron sin ficha ~59 posteos de Razzetti en Skool y ~120 emails de un autor en inglés. docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:130 · docs/conocimiento/patrones-email.md · docs/relevo/pendientes-pc/por-repartir.md:377",
+  "original": {
+   "titulo": "Los patrones de email nunca se comprobaron en uso",
+   "queFalta": "El documento esta en produccion (70 remitentes, ~5.050 emails) pero no se verifico que Copywriter, Newsletter, Automations y WhatsApp los usen. Y quedaron sin ficha ~59 posteos de Razzetti en Skool y ~120 emails de un autor en ingles.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:130 · docs/conocimiento/patrones-email.md · docs/relevo/pendientes-pc/por-repartir.md:377",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 336,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Ver si los cursos cargados enseñan a hacer anuncios para servicios caros",
+  "porque": "Martín cree que no están. Si faltan, la IA le aconseja anuncios de producto barato a quien vende servicios caros.",
+  "tecnico": "Se investiga desde la PC porque transcribir YouTube pide la clave de Gemini. El resultado va a docs/conocimiento/anuncios-high-ticket.md. docs/relevo/cerebro.md:51",
+  "original": {
+   "titulo": "High ticket: medir si los cursos cubren anuncios para servicios caros",
+   "queFalta": "Martin cree que no. Se investiga desde la PC porque transcribir YouTube pide la clave de Gemini, y va a `docs/conocimiento/anuncios-high-ticket.md`.",
+   "donde": "docs/relevo/cerebro.md:51 · docs/conocimiento/anuncios-high-ticket.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 361,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Que MaKo arme el curso: qué módulos lleva y en qué orden según la oferta",
+  "porque": "Hoy el cliente arma el curso de cero y a mano, sin que MaKo le diga qué le falta ni cómo ordenarlo.",
+  "tecnico": "Classroom y cursos armados desde el Segundo Cerebro: que MaKo diga, según la promesa de valor, qué cápsulas o módulos necesita el curso y los ordene según la oferta. Marcado FALTA. docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.17) · docs/relevo/pendientes-pc/pendientes-30-10.md:125",
+  "original": {
+   "titulo": "Classroom y cursos armados desde el Segundo Cerebro",
+   "queFalta": "Que MaKo diga, segun la promesa de valor, que capsulas o modulos necesita el curso y los ordene segun la oferta. Marcado FALTA en la auditoria.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.17) · docs/relevo/pendientes-pc/pendientes-30-10.md:125",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 364,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Al mover un bloque en el Copywriter, lo que estaba dentro se queda atrás",
+  "porque": "El cliente mueve un título y el texto que iba debajo queda suelto: tiene que rearmar el documento a mano.",
+  "tecnico": "BlockNote mueve solo el bloque arrastrado: hay que arrastrar con sus hijos (DragHandleMenu/SideMenu). Marcado FALTA y «sin hacer» en el recorrido visual. docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:54 (1.8) · app/copywriter/editor/CuerpoNotion.tsx",
+  "original": {
+   "titulo": "Arrastrar un bloque en el Copywriter deja su contenido atras",
+   "queFalta": "BlockNote mueve solo el bloque arrastrado: hay que arrastrar con sus hijos (`DragHandleMenu`/`SideMenu`). Marcado FALTA y «sin hacer» en el recorrido visual.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:54 (1.8) · app/copywriter/editor/CuerpoNotion.tsx",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 367,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Que la IA use MaKo como si fuera un cliente, para encontrar errores sola",
+  "porque": "Hoy los errores los encuentra un cliente. Nunca se escribió lo que haría falta para automatizarlo.",
+  "tecnico": "Martín iba a pedirle a su Claude que simule muchas experiencias de usuario para detectar errores. La auditoría dice «sin script». docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.8) · docs/relevo/pendientes-pc/pendientes-30-10.md:107,159",
+  "original": {
+   "titulo": "QA con Claude simulando usuarios dentro de MaKo",
+   "queFalta": "Martin iba a pedirle a su Claude que simule muchas experiencias de usuario para detectar errores. La auditoria dice «sin script».",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.8) · docs/relevo/pendientes-pc/pendientes-30-10.md:107,159",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 368,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Lo que falta de lo prometido a la agencia de Thiago",
+  "porque": "Quedan el calendario con anuncio y email enlazados, subir un video ya hecho, variar el llamado a la acción y las reservas en el CRM.",
+  "tecnico": "Calendario con anuncio y email enlazados (no recordatorio) y reuniones del equipo por persona; «Subir creativos» del Media Buyer aceptando un video ya generado; en Ads, variar el CTA, hooks de video con el avatar y pausar el original cuando una variación gana; en el CRM, reservas de Google Calendar como etapa. El resto entró a producción el 6/11. docs/relevo/pendientes-pc/por-repartir.md:176-186 · docs/promesas/2910-llamada-thiago.md · docs/relevo/cerebro.md:27",
+  "original": {
+   "titulo": "Lo que falta repartir de las promesas a la agencia de Thiago",
+   "queFalta": "Calendario con anuncio y email enlazados (no recordatorio) y reuniones del equipo por persona; «Subir creativos» del Media Buyer aceptando un video ya generado; en Ads, variar el CTA, hooks de video con el avatar y pausar el original cuando una variacion gana; en el CRM, reservas de Google Calendar como etapa. Lo demas (guia de migrar, token, «Usar en un anuncio», «Guardar en MaKo») entro a produccion el 6/11.",
+   "donde": "docs/relevo/pendientes-pc/por-repartir.md:176-186 · docs/promesas/2910-llamada-thiago.md · docs/relevo/cerebro.md:27",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 372,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "En el Plan faltan ver los filtros en pantalla y el aviso de reunión no leída",
+  "porque": "Los filtros nuevos nunca se vieron en escritorio ni en teléfono, y el aviso espera que antes se aplique otro cambio.",
+  "tecnico": "Filtros agrupados en 4 desplegables y el popup de tareas creadas: la bitácora dice «falta verlos en escritorio y teléfono». C8: el aviso de reunión no leída es un evento nuevo y espera que P7 (mudanza-avisos-plataforma --eventos=reunion_tareas_al_plan) esté aplicado. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:224-225 · app/admin/dev/plan/bitacora.ts:27 · docs/relevo/pendientes-barrido.md:107 · lib/reunion-plan-aviso.ts",
+  "original": {
+   "titulo": "Plan: filtros agrupados en 4 desplegables y el popup de tareas creadas",
+   "queFalta": "Falta mirar la pantalla; la bitacora del Plan dice «falta verlos en escritorio y telefono». Aparte, C8: el aviso cuando una reunion no se pudo leer es un evento nuevo que depende de que primero se aplique P7.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:224-225 · app/admin/dev/plan/bitacora.ts:27 · docs/relevo/pendientes-barrido.md:107 · lib/reunion-plan-aviso.ts",
+   "bloqueo": "C8 espera que P7 (`mudanza-avisos-plataforma --eventos=reunion_tareas_al_plan`) este aplicado",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 373,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "A Mauricio le falta la respuesta de la fecha y medir si la extracción acierta",
+  "porque": "El motor está armado y nadie lo comparó con notas hechas a mano: no se sabe si lo que saca sirve.",
+  "tecnico": "La cadena de extracción está construida. Falta responderle la fecha y medirla contra dos reuniones con notas manuales (hay una). docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:197-198 · memory/criterio-extraccion-mauricio.md",
+  "original": {
+   "titulo": "Compromisos de Mauricio: falta responderle la fecha y medir el criterio",
+   "queFalta": "La cadena de extraccion esta construida. Falta responderle la fecha y medirla contra dos reuniones con notas manuales (hay una).",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:197-198 · memory/criterio-extraccion-mauricio.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 464,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "MaKo no toma la iniciativa en 12 pantallas; la más grande es la del Ops Center",
+  "porque": "En esas pantallas MaKo espera callado en vez de abrir con una pregunta, y el cliente no sabe qué hacer ahí.",
+  "tecnico": "C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; tabla en docs/relevo/nube-iniciativa.md:30-51 — la escalera del Ops Center (T3) necesita lector de servidor y «un paso por día» (hoy lib/aperturas/ops.ts sólo tiene el paso 3); Dashboard necesita la hoja de General y sacar BotonMako (lo miran ocho tests); faltan Offer, Copywriter (mudar lib/copywriter/iniciativa.ts a lib/aperturas/copywriter.ts), Automations, Web Generator (el Pixel), Video, Classroom, Plan, AI Avatar y Mobile (necesita T3). «Ver ejemplo» falta en Video, AI Avatar y Offer (montan PantallaCrear).",
+  "original": {
+   "titulo": "La iniciativa de MaKo falta en 12 tabs, con la escalera del Ops Center como la primera",
+   "queFalta": "La tabla completa con qué falta en cada tab está en el relevo. Lo más grande: la escalera del Ops Center (T3) necesita su lector de servidor y «un paso por día» (hoy `lib/aperturas/ops.ts` sólo tiene el paso 3); Dashboard necesita la hoja de General y sacar `BotonMako` (lo miran ocho tests); Offer, Copywriter (mudarlo de `lib/copywriter/iniciativa.ts` a `lib/aperturas/copywriter.ts`), Automations, Web Generator (el Pixel), Video, Classroom, Plan, AI Avatar y Mobile (necesita T3). Y «Ver ejemplo» falta en Video, AI Avatar y Offer, que montan `PantallaCrear`.",
+   "donde": "C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; la tabla en docs/relevo/nube-iniciativa.md:30-51",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 465,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Cuatro pantallas todavía no dejan guardar ni usar plantillas",
+  "porque": "En esas cuatro nadie puede guardar lo que hizo para reusarlo, y en AI Avatar usar una plantilla pierde el guion.",
+  "tecnico": "C:/dev/wt-puntas/lib/creaciones-enchufes.ts ; app/m/offer/HojasOfferM.tsx ; docs/plantillas-reales/offer.md §3.3 ; docs/relevo/nube-plantillas.md:33-48 — Offer, AI Avatar, Web Generator y Dashboard: cada una es un enchufe con su paraPublico, <ModalGuardarPlantilla> en el «⋯» y usePlantillasPropias(tipo) en «Nuevo …», como Copywriter e Image. En Offer faltan offer.experto, «Ver ejemplo» dentro de la conversación, el teléfono y el bug de precioDe con «al mes». En AI Avatar faltan el Director (AV-3), retratos, pósters y loops (esperan al motor) y la guarda de crearVideoAction.",
+  "original": {
+   "titulo": "Plantillas: Offer, AI Avatar, Web Generator y Dashboard sin empezar",
+   "queFalta": "Cada una es un enchufe en `lib/creaciones-enchufes.ts` con su `paraPublico`, el `<ModalGuardarPlantilla>` en el «⋯» y `usePlantillasPropias(tipo)` en «Nuevo …», como ya están Copywriter e Image. Aparte, en Offer falta el experto `offer.experto`, «Ver ejemplo» dentro de la conversación, el teléfono, y el bug de `precioDe` con «al mes». En AI Avatar faltan el Director (AV-3), los retratos, pósters y loops (esperan al motor) y la guarda de `crearVideoAction`: usar una plantilla hoy pone el preset y la escena, pero el guion con su estructura no llega al proyecto.",
+   "donde": "C:/dev/wt-puntas/lib/creaciones-enchufes.ts ; app/m/offer/HojasOfferM.tsx ; docs/plantillas-reales/offer.md §3.3 ; docs/relevo/nube-plantillas.md:33-48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 466,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Falta poder retirar lo que publica un cliente y sembrar las plantillas de MaKo",
+  "porque": "Si un cliente publica algo que no corresponde, nadie lo puede bajar; y la comunidad arranca sin ninguna plantilla de MaKo.",
+  "tecnico": "C:/dev/wt-puntas/app/admin/ ; lib/creaciones (retirarCreacion, listarCreaciones) ; docs/relevo/nube-plantillas.md:50-60 — falta una lista de creaciones con estado publicada de todos los negocios con «Retirar»; el server ya lo deja (retirarCreacion), se lee con listarCreaciones o con una lectura nueva que traiga el negocio de origen SÓLO para super admin. Sembrar las de MaKo es publicarlas desde el workspace de la plataforma con «Guardar como plantilla» → «Toda la comunidad». No se hizo porque el brief prohibía tocar app/admin.",
+  "original": {
+   "titulo": "Moderar lo publicado y sembrar las plantillas «de MaKo» desde el super admin",
+   "queFalta": "Falta una lista de `creaciones` con estado `publicada` de todos los negocios con «Retirar». El server ya lo deja (`retirarCreacion`): se lee con `listarCreaciones` o con una lectura nueva que traiga el negocio de origen SÓLO para el super admin. Y sembrar las plantillas de MaKo es publicarlas desde el workspace de la plataforma con «Guardar como plantilla» → «Toda la comunidad». No se hizo porque el brief prohibía tocar app/admin.",
+   "donde": "C:/dev/wt-puntas/app/admin/ ; lib/creaciones (retirarCreacion, listarCreaciones) ; docs/relevo/nube-plantillas.md:50-60",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 467,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "La tarjeta de Apify dice que no está conectada cuando sí está funcionando",
+  "porque": "El cliente ve «Sin conectar», cree que está roto y vuelve a cargar claves que ya había puesto.",
+  "tecnico": "C:/dev/wt-puntas/lib/integraciones.ts (integracionConectada mira los campos obligatorios de la clave 1) ; lib/instagram-perfil.ts y lib/spy-todo-reglas.ts (los topes) ; docs/relevo/nube-apify.md:42-49 — con la clave 1 quitada y la 2 puesta, Spy anda y la tarjeta miente. Aparte: los topes por día de Spy (150 lecturas, 60 búsquedas, 6 traídas) son POR NEGOCIO, más claves no los suben, y una clave recién agregada puede tardar hasta un minuto por la caché.",
+  "original": {
+   "titulo": "La tarjeta de Apify dice «Sin conectar» si se quita la clave 1 y queda la 2",
+   "queFalta": "El estado de la tarjeta sale de la clave 1 (`integracionConectada` mira los campos obligatorios): con la 1 quitada y la 2 puesta, Spy anda y la tarjeta miente. Es un bug chico y concreto. Aparte: los topes por día de Spy (150 lecturas, 60 búsquedas, 6 traídas) siguen siendo POR NEGOCIO — más claves no los suben — y una clave recién agregada puede tardar hasta un minuto en usarse por la caché.",
+   "donde": "C:/dev/wt-puntas/lib/integraciones.ts (integracionConectada) ; lib/instagram-perfil.ts y lib/spy-todo-reglas.ts (los topes) ; docs/relevo/nube-apify.md:42-49",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 468,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Las varias claves de Apify y el aviso de «sin crédito» nunca se vieron en pantalla",
+  "porque": "Si Apify se queda sin crédito del mes y el aviso no se reconoce, el espía de competencia deja de traer datos sin decir por qué.",
+  "tecnico": "C:/dev/wt-puntas/lib/spy-claves.ts (esFaltaDeCredito) ; app/integraciones/CreditoApify.tsx ; docs/relevo/nube-apify.md:33-40 — abrir /integraciones?abrir=apify-instagram en el ws 3, agregar una segunda clave con nombre y mirar «Crédito de este mes» en computadora y teléfono; carruseles-biblioteca.mts estado tiene que listar las claves de Spy de la plataforma con su crédito y el total sin imprimir ninguna clave; confirmar el cuerpo REAL de Apify al quedarse sin crédito (se usó not-enough-usage-to-run-paid-actor).",
+  "original": {
+   "titulo": "Verificar en pantalla las varias claves de Apify y el cuerpo real del «sin crédito»",
+   "queFalta": "(1) Abrir `/integraciones?abrir=apify-instagram` en el ws 3, agregar una segunda clave con nombre y mirar «Crédito de este mes» (computadora y teléfono): nadie lo vio en pantalla. (2) `carruseles-biblioteca.mts estado` tiene que listar las claves de Spy de la plataforma con su crédito y el total, sin imprimir ninguna clave. (3) El cuerpo REAL que manda Apify cuando una cuenta se queda sin crédito del mes: se usó `not-enough-usage-to-run-paid-actor`; si viene con otro tipo, va en `esFaltaDeCredito`.",
+   "donde": "C:/dev/wt-puntas/lib/spy-claves.ts (esFaltaDeCredito) ; app/integraciones/CreditoApify.tsx ; docs/relevo/nube-apify.md:33-40",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 469,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Los textos de los cuatro carteles de aprobación se escribieron a ciegas",
+  "porque": "Si el cartel real dice otra cosa, la tarea que aprueba sola no entiende y vuelve con «no pude» en vez de resolver.",
+  "tecnico": "C:/dev/wt-puntas/lib/vigia-aprobaciones.ts (ITEMS[].panel, panel.traduccion) ; scripts/vigia-paneles.mts ; docs/relevo/nube-approvals.md:58-67 — la nube no ve los paneles. La primera vez que la tarea lea cada uno conviene --guardar <id> auto \"<texto del panel>\": lo que no esté en la tabla vuelve como «no pude» con el texto literal y se corrige la tabla. El orden importa: lo negado va antes de lo aprobado, y un test lo cuida.",
+  "original": {
+   "titulo": "Los textos de los cuatro paneles de aprobaciones son los esperados, no medidos",
+   "queFalta": "La tabla de traducción de `lib/vigia-aprobaciones.ts` (`panel.traduccion`) se escribió a ciegas: la nube no ve los paneles. La primera vez que la tarea lea cada uno conviene `--guardar <id> auto \"<texto del panel>\"`: lo que no esté en la tabla vuelve como «no pude» con el texto literal, y se corrige la tabla. El orden importa: lo negado va antes de lo aprobado, y un test lo cuida.",
+   "donde": "C:/dev/wt-puntas/lib/vigia-aprobaciones.ts (ITEMS[].panel) ; scripts/vigia-paneles.mts ; docs/relevo/nube-approvals.md:58-67",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 472,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "La cuenta para los revisores de las tiendas nunca se probó de verdad",
+  "porque": "Si el revisor entra y la cuenta falla, rechaza la app y hay que empezar la revisión de cero.",
+  "tecnico": "C:/dev/wt-puntas/lib/cuenta-revision-reglas.ts ; lib/revision-guarda.ts ; docs/relevo/nube-tiendas.md:97-102 — el script se corrió contra un PostgREST de mentira: faltan el id 900001 en producción, createLead con las columnas reales y el funnel por defecto. Falta la entrada real en un teléfono (app de Play, TestFlight, el aviso a equipo@ y la pantalla de error de una acción cortada) y el proxy en Vercel (se probó llamando a proxy() con una cookie firmada en un test).",
+  "original": {
+   "titulo": "Lo que no se pudo probar de la cuenta de revisión de las tiendas",
+   "queFalta": "El script contra la base real (se corrió contra un PostgREST de mentira): faltan el id 900001 en producción, `createLead` con las columnas reales y el funnel por defecto. La entrada de verdad en un teléfono: la app de Play, TestFlight, el aviso a equipo@ y la pantalla de error de una acción cortada. El proxy en Vercel (se probó llamando a `proxy()` con una cookie firmada en un test).",
+   "donde": "C:/dev/wt-puntas/lib/cuenta-revision-reglas.ts ; lib/revision-guarda.ts ; docs/relevo/nube-tiendas.md:97-102",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 473,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "La guía que leen todos los chats dice algo que ya no es cierto sobre moderación",
+  "porque": "Hoy nadie revisa las imágenes y los videos que genera la IA, y la guía hace creer que Creem los sigue moderando.",
+  "tecnico": "C:/dev/wt-puntas/AGENTS.md (la sección de encolar) ; lib/creem-moderacion-reglas.ts (PROVEEDOR_DE_MODERACION vale null) ; texto propuesto, listo para pegar, en docs/relevo/nube-creem-fuera.md:49-59 — la regla operativa sigue valiendo (lo que genera pasa por encolar con el prompt final en pedido.prompt), la premisa no. No se tocó porque es la configuración que leen todos los chats.",
+  "original": {
+   "titulo": "AGENTS.md quedó viejo: dice que Creem modera lo que genera imagen o video",
+   "queFalta": "Creem cerró la tienda y `PROVEEDOR_DE_MODERACION` vale `null`: hoy no modera nadie. La regla operativa sigue valiendo (lo que genera pasa por `encolar` con el prompt final en `pedido.prompt`), pero la premisa no. La propuesta de texto exacta ya está escrita en el relevo, lista para pegar. No se tocó porque es la configuración que leen todos los chats.",
+   "donde": "C:/dev/wt-puntas/AGENTS.md (la sección de `encolar`) ; lib/creem-moderacion-reglas.ts ; el texto propuesto en docs/relevo/nube-creem-fuera.md:49-59",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 475,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El cartelito de «rinde tantas veces» nunca se vio en pantalla",
+  "porque": "Puede estar mal puesto o tapado, y casi ninguna pieza llega a tener el número porque faltan publicaciones para calcularlo.",
+  "tecnico": "C:/dev/wt-puntas/lib/multiplo-rendimiento.ts ; app/competitor-spy/SpyApp.tsx (.spy-pcard__veces) ; docs/relevo/nube-multiplo.md:33-42 — no se levantó la app (la nube no tiene base). El chip va arriba a la derecha y baja una fila si está «Analizando…»; verlo en /competitor-spy y /image-editor. Con 13 publicaciones por cuenta alcanza para 7 piezas y no para 20: hay que contar los chips en producción.",
+  "original": {
+   "titulo": "El múltiplo de rendimiento nunca se miró en pantalla",
+   "queFalta": "No se levantó la app (la nube no tiene base). El chip de la tarjeta de Spy va arriba a la derecha y baja una fila si está «Analizando…» (`.spy-pcard__veces`). Verlo en /competitor-spy y /image-editor. Y medir cuántas piezas reales quedan sin número: con 13 publicaciones por cuenta alcanza para 7 y no para 20, así que hay que contar los chips en producción.",
+   "donde": "C:/dev/wt-puntas/lib/multiplo-rendimiento.ts ; app/competitor-spy/SpyApp.tsx (.spy-pcard__veces) ; docs/relevo/nube-multiplo.md:33-42",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 476,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El asistente del Marketing CoPilot nunca habló con una IA de verdad",
+  "porque": "Nadie sabe qué contesta en una conversación real, y los negocios viejos todavía no ven la pantalla de entrada.",
+  "tecnico": "C:/dev/wt-puntas/docs/marketing-copilot/conversaciones.md (las 14 conversaciones, correr en el ws 3, nunca el ws 1) ; lib/media-buyer/copiloto-contexto.ts ; app/api/mako/chat/route.ts ; docs/relevo/nube-marketing-copilot.md:46-57 — los tests prueban que al system llega lo correcto (reglas, perfil, veredicto, conocimiento), no lo que contesta. Faltan los 12 recorridos del relevo. Aparte: «Esta semana» no tiene checks (atajos sin estado), el banco no cubre MediaBuyer.tsx entero, y falta un botón si se quiere ofrecer la entrada a todos.",
+  "original": {
+   "titulo": "El agente del Marketing CoPilot nunca corrió con una IA real",
+   "queFalta": "Los tests prueban que al system llega lo correcto (reglas, perfil, veredicto, conocimiento), no lo que contesta. Falta correr las 14 conversaciones de `docs/marketing-copilot/conversaciones.md` en el ws 3 (nunca el ws 1) y los 12 recorridos que dejó el relevo. Aparte: «Esta semana» no tiene checks (son atajos sin estado), el banco no cubre `MediaBuyer.tsx` entero, y los negocios de antes no ven la primera entrada — si Martín quiere que a todos se les ofrezca, hay un botón por poner.",
+   "donde": "C:/dev/wt-puntas/docs/marketing-copilot/conversaciones.md ; lib/media-buyer/copiloto-contexto.ts ; app/api/mako/chat/route.ts ; docs/relevo/nube-marketing-copilot.md:46-57",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 477,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "En el mapa del negocio se puede cortar un título pegado al borde",
+  "porque": "Un título cortado no se lee; es el mismo arreglo que ya se hizo en el mapa de los cursos, aplicado al otro modo.",
+  "tecnico": "C:/dev/wt-puntas/app/second-brain/Grafo.tsx (la función ajustar: deja la mitad del título más largo a los costados) ; docs/relevo/nube-gurus.md:68-71",
+  "original": {
+   "titulo": "El encuadre del grafo del NEGOCIO puede cortar un título pegado al borde",
+   "queFalta": "En el grafo de un curso se arregló (`ajustar` en Grafo.tsx deja la mitad del título más largo a los costados); en el del negocio no se tocó. Es el mismo arreglo, aplicado al otro modo.",
+   "donde": "C:/dev/wt-puntas/app/second-brain/Grafo.tsx (ajustar) ; docs/relevo/nube-gurus.md:68-71",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 481,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Grabar llamadas no se probó nunca de punta a punta ni en un teléfono real",
+  "porque": "El primero que grabe una llamada de verdad puede perderla, y no se sabe si anda en iPhone ni en otros navegadores.",
+  "tecnico": "C:/dev/wt-puntas/app/_components/grabar/grabadora.ts ; tests/grabar-llamada.test.ts ; docs/relevo/nube-grabar.md:66-77 — la transcripción y el análisis están probados con lógica pura, no de punta a punta. Sin probar: subida contra Vercel y Supabase reales; teléfono real, Safari, Firefox y app de iPhone (la explicación del micrófono ya nombra las llamadas en Info.plist y entra con el próximo build de Codemagic); que el AudioContext de la mezcla se cree en el clic. Prueba en el ws 3 con la migración aplicada: abrir un lead, «Grabar», hablar 4 minutos (2 partes), cortar y elegir cómo terminó.",
+  "original": {
+   "titulo": "Grabar llamadas: nada se probó de punta a punta ni en un teléfono real",
+   "queFalta": "La transcripción y el análisis con una IA de verdad están probados con su lógica pura, no de punta a punta. Sin probar: la subida contra Vercel y Supabase de verdad; un teléfono real, Safari, Firefox ni la app de iPhone (su explicación del micrófono ya nombra las llamadas en Info.plist, y eso entra con el próximo build de Codemagic); y que el `AudioContext` de la mezcla se cree en el clic. Para probarlo en el ws 3 con la migración aplicada: abrir un lead, «Grabar», hablar 4 minutos (para que haya 2 partes), cortar y elegir cómo terminó.",
+   "donde": "C:/dev/wt-puntas/app/_components/grabar/grabadora.ts ; tests/grabar-llamada.test.ts ; docs/relevo/nube-grabar.md:66-77",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 561,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El CoPilot de Marketing no tiene números de Google Ads ni de LinkedIn",
+  "porque": "Pregunta por esos canales y sólo contesta criterio, sin cifras. Encima pide el país cada vez y mezcla dos formatos de plata.",
+  "tecnico": "El documento de anuncios marca Google Ads y LinkedIn Ads como pendientes. El perfil no guarda país ni «tiene casos» (se pregunta cada vez) y los montos del bloque del negocio salen «$3,000» mientras el conocimiento escribe «US$3.000». C:/dev/wt-puntas/docs/conocimiento/anuncios-high-ticket.md:176 · lib/media-buyer/copiloto-contexto.ts (negocioDelCopiloto) · lib/media-buyer/copiloto-conocimiento.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:41",
+  "original": {
+   "titulo": "Marketing CoPilot: Google Ads y LinkedIn Ads no tienen cifras y el agente sólo da criterio",
+   "queFalta": "El documento de anuncios los marca como pendientes (línea 176). Además el perfil no guarda país ni «tiene casos» (se pregunta cada vez) y los montos del bloque del negocio salen «$3,000» mientras el conocimiento escribe «US$3.000». Hecho = los dos canales con cifras citables, el perfil guardando país y casos, y un solo separador.",
+   "donde": "C:/dev/wt-puntas/docs/conocimiento/anuncios-high-ticket.md:176 · lib/media-buyer/copiloto-contexto.ts (negocioDelCopiloto) · lib/media-buyer/copiloto-conocimiento.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:41",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 562,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Quedó sin decidir si entran reglas y una jugada que el CoPilot perdió",
+  "porque": "Hay reglas de fatiga de anuncios y de cómo escalar presupuesto escritas y afuera: o entran o se escribe por qué no.",
+  "tecnico": "Dos cosas de la sesión descartada: la operación recomendar_estrategia_marketing (propone la estrategia por canal sin pasar por la charla) y reglas de criterio parafraseadas de dos repos MIT (fatiga con frecuencia de 7 días mayor a 3, grave a 4, y CTR 20 % abajo; escalar de a 20 % cada 3 a 5 días; landing con 5 % o más de conversión, si no formulario; un webinar se paga en frío recién cuando anduvo en orgánico). Si alguna se suma, va a REGLAS_DEL_COPILOTO con su licencia en el commit. C:/dev/wt-puntas/lib/media-buyer/copiloto-contexto.ts (REGLAS_DEL_COPILOTO) · lib/api-mako/areas/ads.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:48",
+  "original": {
+   "titulo": "Lo que la sesión duplicada del CoPilot dejó sin portar",
+   "queFalta": "Dos cosas de la sesión que se descartó: la operación recomendar_estrategia_marketing (propone la estrategia por canal sin pasar por la charla) y reglas de criterio parafraseadas de dos repos MIT (fatiga con frecuencia de 7 días mayor a 3, grave a 4, y CTR 20 % abajo; escalar de a 20 % cada 3 a 5 días; landing con 5 % o más de conversión, si no formulario; un webinar se paga en frío recién cuando anduvo en orgánico). Si alguna se suma, va a REGLAS_DEL_COPILOTO con su licencia en el commit. Hecho = portadas o descartadas con su motivo.",
+   "donde": "C:/dev/wt-puntas/lib/media-buyer/copiloto-contexto.ts (REGLAS_DEL_COPILOTO) · lib/api-mako/areas/ads.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 563,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "En Autopilot la tarjeta dice una cosa y hace otra: pausa en vez de probar",
+  "porque": "El dueño aprueba creyendo que prueba textos nuevos y en realidad pausa un anuncio que estaba andando.",
+  "tecnico": "Darle su rótulo propio a la decisión tipo 'pausar'/tactica 'ganador' (hoy dice «Anuncio ganador» y «probar textos nuevos…»), y pintar v.cta (la variación del botón viaja en gancho). Lo rehace el chat Marketing CoPilot porque sumar una táctica rompe el Record<Tactica,…> de mb-modelo.ts. C:/dev/wt-puntas/app/ads-manager/Autopilot.tsx · app/ads-manager/mb-modelo.ts · lib/media-buyer/variacion-boton.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:31",
+  "original": {
+   "titulo": "Autopilot rotula «pausar el original» con los textos del ganador: la tarjeta dice una cosa y hace otra",
+   "queFalta": "Darle su rótulo propio a la decisión tipo 'pausar'/tactica 'ganador' (hoy dice «Anuncio ganador» y «probar textos nuevos…»), y pintar v.cta (la variación del botón viaja en gancho). Lo rehace el chat Marketing CoPilot porque sumar una táctica rompe el Record<Tactica,…> de mb-modelo.ts. Hecho = la tarjeta dice que pausa el original.",
+   "donde": "C:/dev/wt-puntas/app/ads-manager/Autopilot.tsx · app/ads-manager/mb-modelo.ts · lib/media-buyer/variacion-boton.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:31",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 566,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "No se puede programar un anuncio desde el Calendario",
+  "porque": "La campaña nace en pausa y alguien tiene que prenderla a mano a la hora justa: si se olvida, no sale.",
+  "tecnico": "Hoy una campaña nace en pausa (proponer_crear_campana) y no hay «fecha de inicio». Programar un anuncio es empezar a gastar a una hora: tiene que pasar por lanzar (con la zona, la fecha de fin y los topes) y por una revisión adversarial. C:/dev/wt-puntas/lib/media-buyer/ejecutar.ts (lanzar) · lib/calendario.ts · camino propuesto en C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40",
+  "original": {
+   "titulo": "Programar un ANUNCIO desde el Calendario no existe",
+   "queFalta": "Hoy una campaña nace en pausa (proponer_crear_campana) y no hay «fecha de inicio». Programar un anuncio es empezar a gastar a una hora: tiene que pasar por lanzar (con la zona, la fecha de fin y los topes) y por una revisión adversarial. El camino propuesto está en docs/relevo/nube-thiago-migrar.md. Hecho = un Anuncio del Calendario lanza la campaña a su hora.",
+   "donde": "C:/dev/wt-puntas/lib/media-buyer/ejecutar.ts (lanzar) · lib/calendario.ts · C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 569,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Un campo nuevo del cuestionario no aparece en el mapa del negocio",
+  "porque": "El cliente contesta algo, la IA lo usa, y el mapa que promete «todo lo que MaKo sabe de tu negocio» no lo muestra.",
+  "tecnico": "CAMPOS_NORTE, CAMPOS_OFERTA, CAMPOS_CLIENTE y CAMPOS_MARCA son fijas mientras getSchema() lee el esquema vivo: sin error y sin aviso. Latente porque ningún workspace tiene esquema propio, pero /onboarding ya tiene addField. C:/dev/wt-puntas/lib/cerebro-grafo.ts (las cuatro constantes) · app/onboarding/ (addField) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1423",
+  "original": {
+   "titulo": "El brief entra al grafo por cuatro listas hardcodeadas mientras getSchema() lee el esquema vivo",
+   "queFalta": "CAMPOS_NORTE, CAMPOS_OFERTA, CAMPOS_CLIENTE y CAMPOS_MARCA son fijas: se le agrega un campo al brief de un cliente, el cliente lo contesta, el dato alimenta los prompts y no existe en el mapa que dice «todo lo que MaKo sabe de tu negocio». Sin error y sin aviso. Hoy es latente porque ningún workspace tiene esquema propio, pero /onboarding ya tiene addField. Hecho = un campo nuevo del brief aparece en el grafo.",
+   "donde": "C:/dev/wt-puntas/lib/cerebro-grafo.ts (las cuatro constantes) · app/onboarding/ (addField) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1423",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 570,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Nada vigila el mapa del Second Brain: se rompe sin que salte una alarma",
+  "porque": "Todo lo que se midió y se acomodó del mapa se puede romper en un cambio posterior y nadie se entera hasta verlo roto.",
+  "tecnico": "lib/cerebro-grafo.ts lleva server-only, así que ningún test lo puede importar. La salida ya está probada: mover la parte pura a un módulo sin la marca. C:/dev/wt-puntas/lib/cerebro-grafo.ts (server-only) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1264",
+  "original": {
+   "titulo": "No hay ningún test que mire la topología del grafo, y no se puede escribir hoy",
+   "queFalta": "lib/cerebro-grafo.ts lleva server-only, así que ningún test lo puede importar: todo lo medido se puede romper en un commit posterior sin una señal roja. La salida ya está probada: mover la parte pura a un módulo sin la marca. Hecho = un test recorre la topología del grafo.",
+   "donde": "C:/dev/wt-puntas/lib/cerebro-grafo.ts (server-only) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1264",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 571,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Las 20 plantillas de tablero nunca se vieron dibujadas con datos reales",
+  "porque": "Un cliente abre su tablero y puede encontrar gráficos vacíos o mal armados: sería la primera vez que alguien los mira.",
+  "tecnico": "Se verificó la composición (qué pieza va dónde, con un script sobre componentesDe), los tests y los tipos; falta mirarlas. Closing sigue sin probar contra la base de un cliente: crearlo en el ws3 y el ws1. C:/dev/wt-puntas/app/dashboard/disenos/ · lib/graficos-plantillas.ts (PLANTILLAS_HOJA) · punta dash-closing-producto · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748",
+  "original": {
+   "titulo": "Ninguna hoja de las 20 plantillas del Dashboard se vio dibujada con datos reales",
+   "queFalta": "Se verificó la composición (qué pieza va dónde, con un script sobre componentesDe), los tests y los tipos; falta mirarlas. Y Closing sigue sin probar contra la base de un cliente: hay que crearlo en el ws3 y el ws1. Hecho = las hojas abiertas con datos de un workspace y lo visto anotado.",
+   "donde": "C:/dev/wt-puntas/app/dashboard/disenos/ · lib/graficos-plantillas.ts (PLANTILLAS_HOJA) · punta dash-closing-producto · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 572,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Hay seis mediciones que MaKo no tiene y los tableros no las pueden mostrar",
+  "porque": "No se puede ver la retención del video segundo a segundo, si un A/B es confiable, los motivos de baja ni si cada cliente va en fecha.",
+  "tecnico": "Faltan: retención por SEGUNDO del video (Hooks y VSL van por cuartiles), confianza estadística de un A/B (Anuncio ganador usa la confianza por muestra), cohortes M0–M5 (Curso y CS), motivos de baja contados (CS), tiempo de foco por tarea (Focus no tiene temporizador) y horas que ahorra una automatización. «¿Cada cliente va en fecha?» pide una fecha comprometida por etapa de la entrega, que no se guarda. C:/dev/wt-puntas/lib/graficos-datos.ts · lib/vsl-retencion.ts · app/customer-success/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748",
+  "original": {
+   "titulo": "Seis mediciones que MaKo no tiene, y por eso las hojas no las prometen",
+   "queFalta": "Retención por SEGUNDO del video (Hooks y VSL van por cuartiles), confianza estadística de un A/B (Anuncio ganador usa la confianza por muestra), cohortes M0–M5 (Curso y CS), motivos de baja contados (CS), el tiempo de foco por tarea (Focus no tiene el temporizador) y las horas que ahorra una automatización. Y «¿Cada cliente va en fecha?» pide una fecha comprometida por etapa de la entrega, que no se guarda. Hecho = cada medición existe o queda escrito que no se promete.",
+   "donde": "C:/dev/wt-puntas/lib/graficos-datos.ts · lib/vsl-retencion.ts · app/customer-success/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 573,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "En General los filtros no afectan los bloques y la plata va en dos formatos",
+  "porque": "Se filtra un mes, los gráficos cambian y los números de arriba siguen mostrando todo el negocio: la hoja se contradice sola.",
+  "tecnico": "Un filtro de período o de campo recorta los gráficos y no los bloques (el objetivo, los KPIs, el semáforo, el mes y los pendientes salen de leerVistaGeneral sin alcance). Los gráficos del catálogo escriben «US$2.882» con punto mientras los bloques usan fmtUSD, «$18,600» con coma. C:/dev/wt-puntas/app/general/datos.ts · lib/vista-general.ts (leerVistaGeneral) · lib/format.ts (fmtUSD) · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928",
+  "original": {
+   "titulo": "Los bloques de General no obedecen los filtros de la hoja, y la plata se escribe en dos formatos",
+   "queFalta": "Un filtro de período o de campo recorta los gráficos y no los bloques (el objetivo, los KPIs, el semáforo, el mes y los pendientes miden el negocio entero, salen de leerVistaGeneral sin alcance). Y los gráficos del catálogo escriben «US$2.882» con punto mientras los bloques usan fmtUSD, «$18,600» con coma: una hoja muestra los dos. Hecho = los bloques siguen el filtro y hay un solo formateador.",
+   "donde": "C:/dev/wt-puntas/app/general/datos.ts · lib/vista-general.ts (leerVistaGeneral) · lib/format.ts (fmtUSD) · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 574,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Pagar en una landing saca al comprador del dominio del cliente y no vuelve",
+  "porque": "El comprador ve otra dirección al pagar y no regresa a la página, y la venta más cara queda sin saber de dónde vino.",
+  "tecnico": "Cuatro puntas atadas: 1) servir el paso de pago EN el dominio propio (reescribir el GET /pagar/<id> a app/l/[slug]/pagar/[bloque]). 2) Darle a crearCobro una base de retorno del host que sirvió la landing (hoy el 303 y el regreso de Stripe salen de APP_BASE_URL). 3) Que el Pixel decore los enlaces /pagar/ con utm_*, fbclid y visitor_id y el paso los pase saneados a createLead. 4) Los rechazos del POST no dejan rastro consultable (trampa, Origin, topes, tamaño: a lo sumo un console.warn). C:/dev/wt-puntas/lib/editor-landing/dominios-reglas.ts (decidirHost, conEnlacesDelDominio) · proxy.ts · lib/cobros.ts:62-64 · lib/landing-token.ts · lib/editor-landing/pago-pagina.ts (responderPagoPost) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:555 y :628",
+  "original": {
+   "titulo": "El Web Generator: la cadena de pago sale del dominio del cliente y pierde la atribución",
+   "queFalta": "Cuatro puntas atadas: 1) servir el paso de pago EN el dominio propio (reescribir el GET /pagar/<id> a app/l/[slug]/pagar/[bloque]); 2) darle a crearCobro una base de retorno del host que sirvió la landing (hoy el 303 y el regreso de Stripe salen de APP_BASE_URL, así que el comprador sale del dominio del cliente y no vuelve); 3) que el Pixel decore los enlaces /pagar/ con utm_*, fbclid y visitor_id y el paso los pase saneados a createLead (hoy el lead de la conversión más cara nace sin atribución); 4) los rechazos del POST no dejan rastro consultable (trampa, Origin, topes, tamaño: a lo sumo un console.warn). Hecho = un pago desde un dominio propio se cobra en ese dominio, con atribución, y sus rechazos se cuentan.",
+   "donde": "C:/dev/wt-puntas/lib/editor-landing/dominios-reglas.ts (decidirHost, conEnlacesDelDominio) · proxy.ts · lib/cobros.ts:62-64 · lib/landing-token.ts · lib/editor-landing/pago-pagina.ts (responderPagoPost) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:555 y :628",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 575,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Los pedidos de pago no se limpian y el cobro en dominio propio no se probó",
+  "porque": "Si el navegador corta el paso al pago, el comprador queda en una página en blanco con el cobro ya creado.",
+  "tecnico": "Un cron que borre lo terminado de más de unos días (con el techo, como mucho 120 filas por landing y hora). Medir el form-action con un checkout de Stripe en dominio propio: la política nombra sólo checkout.stripe.com, y si Chrome corta un 302 a pay.sunegocio.com queda página en blanco con el cobro creado. Medirlo en Chrome y Safari. C:/dev/wt-puntas/supabase/migrations/0276_landing_pago_pedidos.sql · lib/editor-landing/pago-pagina.ts (ORIGENES_CHECKOUT) · lib/editor-landing/pago-pedido.ts (cobroReusable) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:628",
+  "original": {
+   "titulo": "Nadie poda landing_pago_pedidos y un cobro de prueba puede reusarse con claves reales",
+   "queFalta": "Un cron que borre lo terminado de más de unos días (con el techo, como mucho 120 filas por landing y hora). Y medir el form-action con un checkout de Stripe en dominio propio: la política nombra sólo checkout.stripe.com, y si Chrome corta un 302 a pay.sunegocio.com queda una página en blanco con el cobro creado. Hecho = la tabla se poda y el checkout en dominio propio está medido en Chrome y Safari.",
+   "donde": "C:/dev/wt-puntas/supabase/migrations/0276_landing_pago_pedidos.sql · lib/editor-landing/pago-pagina.ts (ORIGENES_CHECKOUT) · lib/editor-landing/pago-pedido.ts (cobroReusable) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:628",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 576,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Al negocio no le avisan cuando le rechazan un pago o se cae la pasarela",
+  "porque": "Se cae el cobro de una landing y el dueño se entera cuando mira: puede estar horas sin vender sin saberlo.",
+  "tecnico": "Decidido el 14/10 (plantilla del catálogo, un evento de MaKo como pago_recibido) y no se hizo: toca el motor de avisos que el chat Automations reescribía ese día. C:/dev/wt-puntas/lib/disparadores.ts · lib/avisos-catalogo.ts · lib/variables-aviso.ts · lib/plantillas-automatizaciones.ts · plan en C:/dev/wt-puntas/docs/relevo/landing-generator.md → «Lo que sigue (17/10)» · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:2177",
+  "original": {
+   "titulo": "Avisarle al negocio un pago rechazado o una pasarela caída",
+   "queFalta": "Decidido el 14/10 (plantilla del catálogo, un evento de MaKo como pago_recibido) y no se hizo: toca el motor de avisos que el chat Automations reescribía ese día. El plan está en docs/relevo/landing-generator.md → «Lo que sigue (17/10)». Hecho = un pago rechazado en una landing le llega al dueño en el momento.",
+   "donde": "C:/dev/wt-puntas/lib/disparadores.ts · lib/avisos-catalogo.ts · lib/variables-aviso.ts · lib/plantillas-automatizaciones.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:2177",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 577,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Faltan publicar los diseños de páginas web con animaciones",
+  "porque": "Hasta que no estén, nadie puede elegir un diseño con animaciones al armar su página web.",
+  "tecnico": "C:/dev/wt-puntas/app/web-generator/editor/ · lib/mako-intencion.ts · lib/api-mako/areas/landing-editor.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:1414 y :2177 (acomodar_bloque_landing no entra en el presupuesto del turno)",
+  "original": {
+   "titulo": "Los diseños con animaciones del Web Generator quedaron para la próxima tanda",
+   "queFalta": "La segunda mitad del punto 8, con las decisiones ya tomadas (ver «Etapas propuestas… y lo que falta decidir»). Y «sacá el video de la web» ya es editar, pero acomodar_bloque_landing no entra en el presupuesto del turno. Hecho = los diseños con animaciones publicados y el pedido por chat llegando con la herramienta correcta.",
+   "donde": "C:/dev/wt-puntas/app/web-generator/editor/ · lib/mako-intencion.ts · lib/api-mako/areas/landing-editor.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:1414 y :2177",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 580,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Customer Success: cinco pendientes, y un cliente puede recibir el aviso dos veces",
+  "porque": "El cliente recibe dos veces el mismo mensaje de etapa, y alguien sin permiso puede ejecutar acciones de esa pantalla.",
+  "tecnico": "C:/dev/wt-puntas/lib/cs-mover-etapa.ts (moverClienteDeEtapa, sin compare-and-set) · app/customer-success/actions.ts (piden workspace pero no la CAPA; requireCapa vive en la página y la server action es un POST) · pendiente en C:/dev/wt-puntas/docs/hallazgos-customer-success.md:3960 y :5665. También: llamada del curso leída de Calendly, importar de Skool o Hotmart, reordenar el curso con el dedo",
+  "original": {
+   "titulo": "Customer Success: cinco pendientes, incluido un compare-and-set que manda dos mensajes",
+   "queFalta": "moverClienteDeEtapa sin compare-and-set (si el cliente manda las dos últimas tareas en el mismo segundo desde dos pestañas, sale dos veces el mensaje de la etapa nueva y dos líneas de historial); las actions de app/customer-success/actions.ts preguntan el workspace pero no la CAPA (el requireCapa vive en la página y una server action es un POST que no pasa por ella); la llamada del curso leída de Calendly; importar cursos de Skool o Hotmart; y reordenar el curso con el dedo. Hecho = los cinco cerrados o descartados con su motivo.",
+   "donde": "C:/dev/wt-puntas/lib/cs-mover-etapa.ts (moverClienteDeEtapa) · app/customer-success/actions.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-customer-success.md:3960 y :5665",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 583,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Una tarea que se repite no se puede crear por WhatsApp ni desde el asistente",
+  "porque": "Se pide una tarea semanal y se crea como tarea única, sin aviso de que el dato se perdió.",
+  "tecnico": "C:/dev/wt-puntas/lib/mako-doer-acciones.ts:844 · app/api/agente/plan/route.ts:105 (no preguntan ni mandan `recurrente`, se cae en el map sin error) · lib/plan-propuesta.ts (TareaExtra, tareasDesdeRespuestas) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1269. Además nadie llama a juzgarConCriterio: el juez está completo y sin consumidor, se llama o se borra",
+  "original": {
+   "titulo": "El Plan: `recurrente` no entra por WhatsApp ni por la API, y juzgarConCriterio es código muerto",
+   "queFalta": "La cadena quedó cerrada para la reunión de Fathom, el cron y el archivo subido; los otros dos productores de borradores no preguntan ni mandan el campo, y se cae en el map sin error. También tareasDesdeRespuestas: una tarea que nace del wizard no puede nacer recurrente. Y nadie llama a juzgarConCriterio: el juez del criterio de compromisos está completo y sin consumidor. Hecho = una tarea recurrente se crea por WhatsApp y por la API, y el juez se llama o se borra.",
+   "donde": "C:/dev/wt-puntas/lib/mako-doer-acciones.ts:844 · app/api/agente/plan/route.ts:105 · lib/plan-propuesta.ts (TareaExtra, tareasDesdeRespuestas) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1269",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 587,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "La API de MaKo tiene nueve pendientes y uno rompe lo ya instalado en clientes",
+  "porque": "Hay errores que salen como si todo hubiera ido bien, pedidos que se pueden duplicar, y una consulta que rompe conexiones ya instaladas.",
+  "tecnico": "C:/dev/wt-puntas/lib/api-mako/ejecutar.ts · lib/propuestas.ts (idempotencia por ref) · lib/mako-pendientes.ts (reclamada_at y barrido de confirmada colgadas: pide columna nueva) · lib/api-mako/acciones.ts (actor fuera de resultado; mover listar_productos/guardar_producto a negocio) · lib/agente-consultas.ts (historial_whatsapp y reuniones_lead por /api/agente/consultar rompe skills instaladas) · lib/mako-tools.ts (tools viejas devuelven el error en un 200) · app/mako/ctx-bandeja.ts (no dejar confirmar a un no-admin lo que no lleva rolMinimo) · lib/mako-doer-in.ts (/whatsapp?chat= escrito por código: resolver el jid contra el espejo) · tabla en C:/dev/wt-puntas/docs/hallazgos-api-mako.md:1069",
+  "original": {
+   "titulo": "La API de MaKo: nueve pendientes del núcleo, con su archivo",
+   "queFalta": "Idempotencia de las propuestas genéricas (una ref que bloquee sólo contra una pendiente); distinguir «vacío» de «ausente» en la pantalla genérica; reclamada_at y barrido de pendientes confirmada colgadas (pide columna nueva); actor fuera de resultado; historial_whatsapp y reuniones_lead por /api/agente/consultar (rompe skills instaladas); las tools viejas que devuelven el error en un 200; que la bandeja no deje confirmar a un no-admin lo que no lleva rolMinimo; mover listar_productos/guardar_producto a negocio; y /whatsapp?chat= escrito por código (falta resolver el jid contra el espejo en cada área). Hecho = los nueve cerrados o descartados con su motivo.",
+   "donde": "C:/dev/wt-puntas/lib/api-mako/ejecutar.ts · lib/propuestas.ts · lib/mako-pendientes.ts · lib/api-mako/acciones.ts · lib/agente-consultas.ts · lib/mako-tools.ts · app/mako/ctx-bandeja.ts · lib/mako-doer-in.ts · tabla en C:/dev/wt-puntas/docs/hallazgos-api-mako.md:1069",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 590,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Fuera del CRM quedan pantallas que no revisan si la persona inició sesión",
+  "porque": "Alguien sin sesión puede ejecutar acciones de esas pantallas; a una se entraba escribiendo la dirección a mano.",
+  "tecnico": "C:/dev/wt-puntas/lib/sesion-accion.ts (exigirSesion) · tests/crm-acciones-sesion.test.ts (el molde) · los 'use server' del resto de app/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402 y :1329. 85 de 145 server actions de app/crm ya arrancan con exigirSesion(). Leer getUsuarioActual() NO corta: el guard acepta solo las formas que cortan, en positivo. Falta también el barrido de entrada por URL (a /conocimiento se entraba escribiendo la dirección)",
+  "original": {
+   "titulo": "Seguridad: el barrido de server actions sin corte de sesión sólo se hizo en el CRM",
+   "queFalta": "85 de las 145 server actions de app/crm no miraban la sesión y ahora arrancan con exigirSesion(). Falta el mismo barrido en los 'use server' de las otras tabs. Ojo: leer getUsuarioActual() NO es cortar, así que el guard tiene que aceptar sólo las formas que cortan, en positivo. Y falta el barrido de entrada por URL al resto de las tabs (a /conocimiento se entraba escribiendo la dirección). Hecho = ninguna server action de ninguna tab queda sin corte, con su guard.",
+   "donde": "C:/dev/wt-puntas/lib/sesion-accion.ts (exigirSesion) · tests/crm-acciones-sesion.test.ts (el molde) · los 'use server' del resto de app/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402 y :1329",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 591,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Cinco listas de datos quedan fuera del cerco que separa a cada negocio",
+  "porque": "Al vaciar el Cliente de Prueba esos datos quedaron ahí, y nada garantiza que un negocio no termine viendo los de otro.",
+  "tecnico": "C:/dev/wt-puntas/lib/tablas-de-inquilino.ts (TABLAS_DE_INQUILINO, FUERA_DEL_PROXY) · lib/workspace.ts (TENANT_TABLES) · tests/tenant-tables-contract.test.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402. Las cinco con workspace_id y fuera del proxy: avisos_programados, flujo_corridas, insistencias, replay_sesiones, replay_lotes",
+  "original": {
+   "titulo": "Seguridad: cinco tablas con workspace_id quedan fuera del proxy de inquilino",
+   "queFalta": "El inverso del contrato de TENANT_TABLES encontró contra producción avisos_programados, flujo_corridas, insistencias, replay_sesiones y replay_lotes con workspace_id y fuera de TABLAS_DE_INQUILINO: vaciar el Cliente de Prueba las dejaba. Hecho = las cinco dentro del proxy o declaradas en FUERA_DEL_PROXY con su porqué.",
+   "donde": "C:/dev/wt-puntas/lib/tablas-de-inquilino.ts (TABLAS_DE_INQUILINO, FUERA_DEL_PROXY) · lib/workspace.ts (TENANT_TABLES) · tests/tenant-tables-contract.test.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 594,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Dos transcripciones siguen clavadas en OpenAI y no bajan al proveedor barato",
+  "porque": "Transcribir las clases y el video de cada anuncio de Meta se paga en OpenAI, que es lo más caro, y es lo de más volumen.",
+  "tecnico": "C:/dev/wt-puntas/lib/transcribe.ts:171 (transcribeMediaBuffer) y :257 (transcribeAd): arman su propio form con model: 'whisper-1' y no llaman a transcribirAudio · lib/ai-cheap.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:876. Al migrar conservar el tope de 25 MB y response_format: verbose_json (duration se usa para el costo); bajar a Groq cuando hay GROQ_API_KEY",
+  "original": {
+   "titulo": "IA: dos STT hardcodeados a whisper-1 no pasan por el choke point",
+   "queFalta": "transcribeMediaBuffer (clases del portal) y transcribeAd (video de cada anuncio de Meta) arman su propio form con model: 'whisper-1' y no llaman a transcribirAudio: quedan clavados en OpenAI. El de ads es el de más volumen (cron y backfill sobre cientos de anuncios). Al migrarlos hay que conservar el tope de 25 MB y response_format: verbose_json (se usa duration para el costo). Hecho = los dos pasan por transcribirAudio y bajan a Groq cuando hay GROQ_API_KEY.",
+   "donde": "C:/dev/wt-puntas/lib/transcribe.ts:171 y :257 · lib/ai-cheap.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:876",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 596,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Si los leads de Meta dejan de llegar, ninguna pantalla lo avisa",
+  "porque": "Un lead perdido no vuelve: se reintenta siete veces y se descarta, sin barrido para recuperarlo ni aviso de que faltó.",
+  "tecnico": "C:/dev/wt-puntas/lib/zernio.ts (leadsEnElWebhook, EVENTO_LEADS: ninguna pantalla lo usa, ni Ads Manager ni el modal de Zernio) · lib/zernio-lead.ts (cargarLeadDeZernio) · app/api/webhooks/zernio/route.ts · lib/leads.ts (upsertLeadFromMeta: un fallo DESPUÉS del insert deja created: false y nadie dispara el aviso ni las automatizaciones) · existe GET /v1/ads/leads?accountId&since= para el barrido · pendiente en C:/dev/wt-puntas/docs/hallazgos-integraciones.md:1685",
+  "original": {
+   "titulo": "Integraciones: nada le dice al negocio que sus leads de Meta no llegan por Zernio",
+   "queFalta": "leadsEnElWebhook(ws) mide si el webhook registrado escucha el evento y ninguna pantalla lo usa (Ads Manager o el modal de Zernio). Y no hay red de seguridad si un evento se pierde: Zernio reintenta 7 veces y descarta, y el poll de Meta usa el token de página propio, que un negocio sólo-Zernio no tiene (existe GET /v1/ads/leads?accountId&since= para un barrido). Además un fallo DESPUÉS del insert deja el lead sin anunciar: el reintento encuentra created: false y nadie dispara el aviso ni las automatizaciones. Hecho = la pantalla avisa, hay barrido y un reintento dispara los avisos.",
+   "donde": "C:/dev/wt-puntas/lib/zernio.ts (leadsEnElWebhook, EVENTO_LEADS) · lib/zernio-lead.ts (cargarLeadDeZernio) · app/api/webhooks/zernio/route.ts · lib/leads.ts (upsertLeadFromMeta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-integraciones.md:1685",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 599,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El PDF de Offer solo sirve para el dueño: falta uno para el prospecto",
+  "porque": "El de hoy trae diagnóstico, números y campos sin llenar, así que no se le puede mandar a nadie; y leer archivos le cobra al cliente.",
+  "tecnico": "C:/dev/wt-puntas/lib/offer-reglas.ts (alertaFoco sin medir contra productos y ofertas reales) · lib/ai-cheap.ts (leerDocumentoIA, transcribirAudio: archivoATexto usa las cascadas compartidas y cobra en la OpenAI del cliente; cerrarlo es un sinPago) · app/offer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-offer.md:379",
+  "original": {
+   "titulo": "Offer: falta la versión EXTERNA del PDF y el umbral de la alerta de foco sin medir",
+   "queFalta": "El PDF de hoy es para el dueño (trae diagnóstico, números y datos «[completar]»): falta una versión para mandarle a un prospecto. Y alertaFoco no está medido contra los productos y ofertas reales de los clientes. Además leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente (archivoATexto usa las cascadas compartidas): cerrarlo es un sinPago en leerDocumentoIA y transcribirAudio. Hecho = el PDF externo existe, el umbral está medido y leer no cobra.",
+   "donde": "C:/dev/wt-puntas/lib/offer-reglas.ts (alertaFoco) · lib/ai-cheap.ts (leerDocumentoIA, transcribirAudio) · app/offer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-offer.md:379",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 600,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Copywriter: un documento se puede borrar al crearlo, y cuatro fallas más",
+  "porque": "La persona escribe, se guarda bien y la pantalla igual dice «No existe»; y un link compartido de algo en la papelera se sigue editando.",
+  "tecnico": "C:/dev/wt-puntas/lib/copywriter/server.ts (crear borra el documento si el índice «falla» aunque haya llegado, B7; con el índice casi lleno no entra nada y la marca queda «hecha» con 0, B4) · app/api/compartido/guion/route.ts (falta escondida(paginas, id), B6) · /copywriter abre una página mudada y no la última porque nacen con actualizado = ahora (B3) · reels.historial con JSON roto se toma como «no hay» (B5) · informe en C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373",
+  "original": {
+   "titulo": "Copywriter: cinco bajas de la verificación de la mudanza, sin arreglar",
+   "queFalta": "crear() borra el documento si el índice «falla» aunque haya llegado, y abre «No existe» (B7); el link compartido de una página cuya madre está en la Papelera sigue editando (falta escondida(paginas, id)) (B6); después de mudar, /copywriter abre una página mudada y no la última del usuario, porque nacen con actualizado = ahora (B3); con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4); y un reels.historial con JSON roto se toma como «no hay» (B5). Hecho = las cinco cerradas.",
+   "donde": "C:/dev/wt-puntas/lib/copywriter/server.ts (crear) · app/api/compartido/guion/route.ts · informe en C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 601,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El Copywriter sigue armando su contexto con la versión vieja del negocio",
+  "porque": "Escribe con datos viejos del negocio aunque la versión nueva ya está lista y en uso. Es un solo cambio.",
+  "tecnico": "C:/dev/wt-puntas/lib/copywriter/contexto.ts (const GRAFO) · lib/cerebro-para-chat.ts (grafoParaChat, c272b97dd, ya en main) · C:/dev/wt-puntas/docs/plantillas-reales/README.md (tanda 0) · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373",
+  "original": {
+   "titulo": "Copywriter: grafoParaChat ya está en main y contexto.ts sigue con el GRAFO viejo",
+   "queFalta": "Cambiar `const GRAFO` en lib/copywriter/contexto.ts para que use grafoParaChat (lib/cerebro-para-chat.ts, c272b97dd). Hecho = el Copywriter arma su contexto con el grafo nuevo.",
+   "donde": "C:/dev/wt-puntas/lib/copywriter/contexto.ts (const GRAFO) · lib/cerebro-para-chat.ts (grafoParaChat) · C:/dev/wt-puntas/docs/plantillas-reales/README.md (tanda 0) · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 602,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El menú del clic derecho no figura en el catálogo de piezas de la app",
+  "porque": "Quien arme una pantalla nueva no sabe que esa pieza existe y la vuelve a hacer distinta; y le faltan dos flechas.",
+  "tecnico": "C:/dev/wt-puntas/app/_ui/MenuContextual.tsx (ESTILOS: mudar los :hover/:focus a ui.css, regla de crecimiento 3 del LEEME, una línea) · app/_ui/index.ts (sumarlo al barrel) · app/_ui/ui.css · app/_ui/iconos-menu.tsx (faltan flechas izquierda/derecha; hoy usa las de app/crm/iconos) · app/admin/ui/CatalogoUI.tsx (regla 5) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:4376. Decidir si un clic izquierdo afuera cierra sin que el clic siga de largo",
+  "original": {
+   "titulo": "UI: el MenuContextual quedó fuera del barrel y del catálogo /admin/ui",
+   "queFalta": "Mudar los :hover/:focus de ESTILOS a app/_ui/ui.css (regla de crecimiento 3 del LEEME, una línea); sumar la pieza al barrel app/_ui/index.ts y al catálogo /admin/ui (regla 5); sumar flechas izquierda/derecha a app/_ui/iconos-menu.tsx (hoy usa las de app/crm/iconos); y decidir si un clic izquierdo afuera cierra sin que el clic siga de largo (el menú nativo de Chrome se lo traga; el nuestro abre la ficha si cae en una tarjeta). Hecho = la pieza en el barrel y el catálogo, con sus estilos en ui.css.",
+   "donde": "C:/dev/wt-puntas/app/_ui/MenuContextual.tsx (ESTILOS) · app/_ui/index.ts · app/_ui/ui.css · app/_ui/iconos-menu.tsx · app/admin/ui/CatalogoUI.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:4376",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 603,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El menú del clic derecho falta en Chats, Web Generator, Offer y dos listas",
+  "porque": "En esas pantallas el clic derecho no hace lo mismo que en el resto: abre el menú de Chrome o la ficha equivocada.",
+  "tecnico": "C:/dev/wt-puntas/app/chats/ChatsApp.tsx y app/web-generator/ (que el «⋯» abra ESE menú) · app/integraciones/ (el clic derecho debe hacer lo mismo que el clic, abrirTarjeta: una red social abre Zernio) · app/web-generator/editor/paneles/PanelLandings.tsx y PanelPartner (sin «⋯») · app/offer/ (el selector de arriba es el Dropdown de la casa: tocarlo cambia el desplegable de toda la app) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:70",
+  "original": {
+   "titulo": "UI: el menú contextual no está en Chats, Web Generator, Offer ni en dos listas",
+   "queFalta": "Que el «⋯» de Chats y del Web Generator abran ESE menú; que el clic derecho en Integraciones haga lo mismo que el clic (abrirTarjeta: una red social abre Zernio) y no abra la tarjeta suelta; el selector de arriba de Offer es el Dropdown de la casa, así que un clic derecho en sus renglones cambia el desplegable de toda la app (sin hacer); y PanelLandings y PanelPartner no tienen «⋯». Hecho = los cinco lugares con su menú o con la decisión escrita.",
+   "donde": "C:/dev/wt-puntas/app/chats/ChatsApp.tsx · app/web-generator/ · app/integraciones/ · app/web-generator/editor/paneles/PanelLandings.tsx · app/offer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:70",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 604,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Las pruebas A/B no se ven en los gráficos y no hay ninguna corriendo",
+  "porque": "No se pueden comparar las dos versiones en pantalla, así que una prueba no se puede leer ni decidir.",
+  "tecnico": "C:/dev/wt-puntas/lib/pruebas/automatizacion.ts (historiaDe) · lib/pruebas/ (MEDIDORES: los de Landings no están en MEDIDORES.landing del cron, aunque hay firmas y store) · app/dashboard/ (falta la dimensión «rama»; Métricas la muestra en una franja fija) · primera prueba real en el Cliente de Prueba ws3, la migración ya está aplicada · el plan de una prueba de «Agendó» usa la tasa de «Respondió» y el n queda corto · pendiente en C:/dev/wt-puntas/docs/hallazgos-pruebas.md:98",
+  "original": {
+   "titulo": "Pruebas A/B: falta la dimensión «rama» en los gráficos y la primera prueba real",
+   "queFalta": "La dimensión «rama» en los gráficos del Dashboard (Métricas la muestra en una franja fija), verla en pantalla, y la primera prueba real en el Cliente de Prueba (la migración ya está aplicada). Además el plan de una prueba de «Agendó» usa la tasa de «Respondió», así que el n del plan queda corto. Y Landings tiene las firmas y el store pero sus medidores no están en MEDIDORES.landing del cron. Hecho = los tres cerrados y una prueba corriendo en el ws3.",
+   "donde": "C:/dev/wt-puntas/lib/pruebas/automatizacion.ts (historiaDe) · lib/pruebas/ (MEDIDORES) · app/dashboard/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-pruebas.md:98",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 606,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Hay dos metas distintas: la del reporte de WhatsApp y la de la pantalla",
+  "porque": "El reporte que llega por WhatsApp dice una meta y la pantalla dice otra, con los mismos datos.",
+  "tecnico": "C:/dev/wt-puntas/lib/reportes.ts:66 y :174 (getObjetivoProgreso y tres settings viejos: mover los dos call-sites a objetivosContextoTexto()) · lib/objectives-fuentes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928",
+  "original": {
+   "titulo": "Objectives: getObjetivoProgreso y tres settings viejos siguen alimentando los reportes",
+   "queFalta": "Mientras existan hay dos fuentes para «cuál es la meta»: la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es mover esos dos call-sites a objetivosContextoTexto(). Hecho = una sola fuente de la meta.",
+   "donde": "C:/dev/wt-puntas/lib/reportes.ts:66 y :174 · lib/objectives-fuentes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 608,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El complemento del asistente nunca se probó en una instalación de verdad",
+  "porque": "Todo se probó contra un servidor simulado: en un cliente real puede no reportar nada y nadie se entera.",
+  "tecnico": "C:/dev/wt-puntas/lib/agente-plugin.ts (AGENTE_HOOK_SETTINGS; confirmar los nombres de los eventos UserPromptSubmit y SessionEnd y los campos del stdin) · lib/agente-consentimiento-texto.ts · el reporte de sesiones es solo de Claude Code (hook Stop de .claude/settings.json): desde la app de Claude la skill funciona y no reporta · pendiente en C:/dev/wt-puntas/docs/hallazgos-agente.md:129 y C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1654",
+  "original": {
+   "titulo": "El plugin del agente: nada reporta desde una instalación real",
+   "queFalta": "Todo lo verificado es contra un servidor de mentira y con los tests; falta un cliente con el hook puesto de verdad. Los nombres de los eventos (UserPromptSubmit, SessionEnd) y los campos del stdin son la parte a confirmar. Y el reporte de sesiones sigue siendo sólo de Claude Code (el hook es un Stop de .claude/settings.json): desde la app de Claude la skill funciona pero no reporta. Hecho = un acta escrita desde una instalación real.",
+   "donde": "C:/dev/wt-puntas/lib/agente-plugin.ts (AGENTE_HOOK_SETTINGS) · lib/agente-consentimiento-texto.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agente.md:129 y C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1654",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 609,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Cinco pantallas no pueden guardar ni usar plantillas propias",
+  "porque": "El cliente no puede reutilizar lo que ya armó y empieza de cero cada vez; y nadie puede moderar lo que se publica.",
+  "tecnico": "C:/dev/wt-puntas/app/_crear/ (faltan los enchufes de Video, Offer, AI Avatar, Web Generator y Dashboard; «Tus plantillas» solo en la computadora; falta el ítem en la barra de /creaciones) · app/admin/ (vista para moderar lo publicado: retirar ya existe en el server con puedeRetirar; sembrar las «de MaKo») · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:119",
+  "original": {
+   "titulo": "Plantillas propias: faltan los enchufes de Video, Offer, AI Avatar, Web Generator y Dashboard",
+   "queFalta": "Más «Tus plantillas» en el teléfono (hoy sólo en la computadora), el ítem en la barra de /creaciones, y en el super admin una vista para moderar lo publicado (retirar ya existe en el server con puedeRetirar) y sembrar las «de MaKo». El detalle está en docs/relevo/nube-plantillas.md. Hecho = las cinco tabs guardan y usan plantillas propias.",
+   "donde": "C:/dev/wt-puntas/app/_crear/ · app/admin/ · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:119",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 618,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Una hoja del Dashboard todavía no se puede publicar como creación",
+  "porque": "Lo que el cliente armó en el Dashboard no se puede exportar, resumir ni reutilizar desde Creaciones.",
+  "tecnico": "C:/dev/wt-puntas/lib/creaciones-reglas.ts:45 (ENCHUFADOS) y :47-52 (POR_ENCHUFAR tiene DOS entradas vivas: dashboard: 'Graphics' y formato_video: 'Video Editor') · C:/dev/wt-puntas/lib/creaciones-enchufes.ts:6-14 (los pasos del enchufe). Hecho = `dashboard` pasa a ENCHUFADOS con sus cuatro funciones (opciones, exportar, resumir, usar) y el botón «Publicar» en la pantalla. Dueño: el chat de Graphics",
+  "original": {
+   "titulo": "`dashboard` tambien sigue sin enchufe en creaciones, no solo `formato_video`",
+   "queFalta": "La lista dice que «de los dos tipos sin enchufe queda solo `formato_video`». No: `POR_ENCHUFAR` tiene DOS entradas vivas, `dashboard: 'Graphics'` y `formato_video: 'Video Editor'`. O sea que publicar una hoja del Dashboard como creacion sigue sin enchufe, y su dueno es el chat de Graphics. Hecho = `dashboard` sale de POR_ENCHUFAR y entra a ENCHUFADOS con sus cuatro funciones (`opciones`, `exportar`, `resumir`, `usar`) y el boton «Publicar» en la pantalla del Dashboard.",
+   "donde": "C:/dev/wt-puntas/lib/creaciones-reglas.ts:45 (ENCHUFADOS) y :47-52 (POR_ENCHUFAR) · C:/dev/wt-puntas/lib/creaciones-enchufes.ts:6-14 (los pasos del enchufe)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 619,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Seis datos no existen en MaKo y las hojas nuevas del Dashboard nacen vacías",
+  "porque": "El cliente abre una hoja nueva y ve un tablero en blanco, sin que nada le diga que ese dato todavía no se mide.",
+  "tecnico": "C:/dev/wt-puntas/docs/templates-dashboard-propuesta.md:238-244 (§7.4) · C:/dev/wt-puntas/docs/relevo/templates-dashboard.md:52-62 punto 3 · C:/dev/wt-puntas/app/dashboard/disenos/. Las seis: retención por segundo del video con hook rate y curva de abandono (Hooks, VSL/YouTube); confianza estadística de un A/B entre dos creativos (Anuncio ganador); cohortes de permanencia M0-M5 (Curso, CS); motivos de baja contados (CS); alcance y CTR antes del clic (Marketing arranca en el gasto); tiempo de foco por tarea (temporizador de Focus)",
+  "original": {
+   "titulo": "Las seis mediciones que MaKo no tiene y dejan vacias las hojas nuevas del Dashboard",
+   "queFalta": "Las hojas ya estan copiadas y ofreciendose, pero seis numeros no existen en MaKo, asi que nacen vacias: (1) retencion por segundo del video, con hook rate y curva de abandono, para Hooks y para VSL/YouTube; (2) confianza estadistica de un A/B entre dos creativos, para Anuncio ganador; (3) cohortes de permanencia M0-M5, para Curso y CS; (4) motivos de baja contados, para CS; (5) alcance y CTR antes del clic (Marketing hoy arranca en el gasto); (6) tiempo de foco por tarea, para el temporizador de Focus. Ninguna familia lo trajo. Hecho = cada hoja nueva dibuja datos de verdad, o dice que ese dato todavia no se mide en vez de mostrar una hoja en blanco.",
+   "donde": "C:/dev/wt-puntas/docs/templates-dashboard-propuesta.md:238-244 (§7.4) · C:/dev/wt-puntas/docs/relevo/templates-dashboard.md:52-62 punto 3 · C:/dev/wt-puntas/app/dashboard/disenos/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 625,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Probar una automatización exige WhatsApp conectado aunque no mande nada",
+  "porque": "Un negocio que todavía no conectó su línea no puede ni simular su automatización antes de publicarla.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/automations.md:451-470 (§Sin hacer) · C:/dev/wt-puntas/app/automations/ (ConectarMedio, PanelProbar.tsx). Hecho = «Probar» corre sin línea conectada y solo Publicar la pide",
+  "original": {
+   "titulo": "Automations: Publicar y «Probar» exigen una linea conectada aun para el simulador",
+   "queFalta": "Del §Sin hacer de `docs/relevo/automations.md`, sin leer por ninguna familia: el boton «Probar» es un simulador y no manda nada, pero igual pide una linea de WhatsApp conectada, asi que un negocio que todavia no conecto no puede ni simular su automatizacion. Hecho = «Probar» corre sin linea conectada y solo Publicar la pide.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/automations.md:451-470 · C:/dev/wt-puntas/app/automations/ (`ConectarMedio`, `PanelProbar.tsx`)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 626,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "Al crear, la IA escribe el texto de un audio que la persona tiene que grabar",
+  "porque": "La persona recibe palabras que no son suyas para grabar con su voz, y al crear no puede discutir ni editar lo propuesto.",
+  "tecnico": "C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts (rama `crear`) · C:/dev/wt-puntas/docs/relevo/automations.md:451-475. Hecho = al crear, una tarjeta de audio sale vacía pidiendo la grabación, y crear ofrece Discutir/Editar como editar",
+  "original": {
+   "titulo": "Automations: al CREAR, el modelo inventa el texto de una tarjeta de audio que la persona graba ella",
+   "queFalta": "Otro punto del §Sin hacer de automations.md que nadie trajo: en la rama `crear` de `/api/chat-agent/secuencias/ia`, el modelo escribe el texto de una tarjeta de audio que la persona tiene que grabar con su voz, y crear no ofrece «Discutir / Editar» (editar si lo tiene). Hecho = al crear, una tarjeta de audio sale vacia pidiendo la grabacion, y crear ofrece Discutir/Editar como editar.",
+   "donde": "C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts (rama `crear`) · C:/dev/wt-puntas/docs/relevo/automations.md:451-475",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 627,
+  "area": "Otro",
+  "quien": "equipo",
+  "titulo": "El goteo no se puede limitar a ciertos días sin achicar todo el horario",
+  "porque": "Quien quiere escribir solo de lunes a jueves tiene que apagar la automatización entera el resto de los días.",
+  "tecnico": "C:/dev/wt-puntas/lib/config-automatizacion.ts · C:/dev/wt-puntas/docs/relevo/automations.md:451-475 (§Sin hacer). Hecho = la configuración acepta días del goteo distintos del horario de la automatización",
+  "original": {
+   "titulo": "Automations: no hay «solo estos dias» del goteo aparte del horario de la automatizacion",
+   "queFalta": "Del §Sin hacer de automations.md: los dias del goteo son los del horario propio de la automatizacion, y no existe una eleccion de dias aparte. Quien quiere gotear solo de lunes a jueves tiene que achicar el horario entero. Hecho = la configuracion de una automatizacion acepta dias del goteo distintos de su horario.",
+   "donde": "C:/dev/wt-puntas/lib/config-automatizacion.ts · C:/dev/wt-puntas/docs/relevo/automations.md:451-475",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

@@ -1,0 +1,317 @@
+[
+ {
+  "id": 2,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El primer cobro automático a Código Inmobiliario sale el 9/11 y nunca se probó",
+  "porque": "Si no sale, tres clientes no reciben el cobro y después hay que devolverles o cortarles el acceso a mano.",
+  "tecnico": "Tareas programadas codigo-diferencial-pablo-9-11, -giselle-12-11, -marcela-14-11. Giselle US$37,60 el 9/11 14:07 UTC, Pablo máximo el 9/11, Marcela el 13/11. Al llegar el comprobante devolver acceso a usuarios 15 y 19; sin pago, suspender el 11/11 a Giselle (13, 25, 26) y el 13/11 a Marcela (27, 28). docs/relevo/nube-agencia-cobro.md · docs/relevo/cerebro.md:57,115-120",
+  "original": {
+   "titulo": "El primer envío real del cobro a Código Inmobiliario: Pablo vence el 9/11 14:07 UTC",
+   "queFalta": "Mirar que el cron salga de verdad (nunca se envió): Giselle US$37,60 el 9/11 14:07 UTC, Pablo máximo el 9/11, Marcela el 13/11. Al llegar el comprobante, devolver el acceso a los usuarios 15 y 19; sin pago el 11/11 suspender a Giselle (13, 25, 26) y el 13/11 a Marcela (27, 28). Hecho = el envío salió y el acceso quedó como corresponde.",
+   "donde": "docs/relevo/nube-agencia-cobro.md · docs/relevo/cerebro.md:57,115-120 · tareas programadas codigo-diferencial-pablo-9-11, -giselle-12-11, -marcela-14-11",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 212,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El lunes 9/11 sale el primer cobro automático de verdad y hay que mirarlo",
+  "porque": "Ese día entra Giselle por US$37,60 y vence Pablo: si el cobro no sale, Martín tiene que reclamarlo a mano.",
+  "tecnico": "primer envío real 9/11 14:07 UTC; nunca se envió de verdad · controles programados `codigo-diferencial-pablo-9-11`, `-giselle-12-11`, `-marcela-14-11` (miran y avisan, no escriben) · docs/relevo/cerebro.md:21,57,115-121 · docs/relevo/nube-agencia-cobro.md",
+  "original": {
+   "titulo": "Mirar que el primer envio real del cobro de Codigo salga el lunes 9/11 a las 14:07 UTC",
+   "queFalta": "Nunca se envio de verdad. Ese dia entra Giselle por US$37,60 y vence Pablo. Si no sale, Martin cobra a mano. Controles programados: `codigo-diferencial-pablo-9-11`, `-giselle-12-11`, `-marcela-14-11` (miran y avisan, no escriben).",
+   "donde": "docs/relevo/cerebro.md:21,57,115-121 · docs/relevo/nube-agencia-cobro.md",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 214,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Falta el aviso del total que cobra la agencia cada mes (Juanfran y Joan)",
+  "porque": "Juanfran y Joan no reciben el resumen de lo que les toca cobrar y tienen que sumarlo cliente por cliente.",
+  "tecnico": "A5: no hay consolidación mensual de agencia. Hace falta un cron del día 1 que sume los clientes de la agencia y avise · lib/agencia-cobro.ts · app/api/cron/ · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:84",
+  "original": {
+   "titulo": "A5: el aviso con el total de la agencia del 1 al 5 no existe",
+   "queFalta": "No hay consolidacion mensual de agencia. Hace falta un cron del dia 1 que sume los clientes de la agencia y avise. Prometido a Juanfran y Joan.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:84 · lib/agencia-cobro.ts · app/api/cron/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 215,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El mes del cliente de agencia arranca cuando termina el alta, no a los 14 días",
+  "porque": "Un cliente que tarda en terminar el alta corre su fecha de cobro y la agencia le factura más tarde de lo acordado.",
+  "tecnico": "A6: falta `inicio_at = alta + 14 dias` y que el cron de renovaciones lo respete · lib/agencia-cobro-reglas.ts:10 · lib/agencia-cobro.ts · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:85",
+  "original": {
+   "titulo": "A6: no hay reloj fijo de 14 dias por cliente de agencia",
+   "queFalta": "Hoy el mes corre desde que el cliente termina el onboarding. Hace falta `inicio_at = alta + 14 dias` y que el cron de renovaciones lo respete.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:85 · lib/agencia-cobro-reglas.ts:10 · lib/agencia-cobro.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 220,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "La pantalla de ingresos muestra mal lo que va a cobrar Código: fecha y monto",
+  "porque": "Martín mira cuánto va a entrar y ve US$238 el 4/12 cuando son US$426 el 5/12: decide con el número equivocado.",
+  "tecnico": "`porCobrar` en `vistaDeIngresos` · docs/relevo/cerebro.md:85 — arreglo chico; se pasó al chat de la copia de Admin, sin confirmar. Ojo: NO registrar de nuevo los pagos ya cargados",
+  "original": {
+   "titulo": "`porCobrar` le pone a Codigo 4/12 por US$238 y lo real es 5/12 por US$426",
+   "queFalta": "Arreglo chico en la vista de ingresos. Se le paso al chat de la copia de Admin, sin confirmar. Ojo: NO registrar de nuevo los pagos ya cargados.",
+   "donde": "docs/relevo/cerebro.md:85 (vistaDeIngresos)",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 221,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "No se probó qué pasa si dos recibos se emiten en el mismo instante",
+  "porque": "Si dos pedidos caen juntos puede salir un recibo repetido o con número salteado y el cliente lo recibe así.",
+  "tecnico": "probar la carrera de `emitir_recibo` con dos conexiones: `begin; select emitir_recibo(...); rollback;` · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:87 — no se corrió porque escribe aunque se deshaga y el encargo era sólo lectura",
+  "original": {
+   "titulo": "La carrera de `emitir_recibo` nunca se probo",
+   "queFalta": "Probarla con dos conexiones (`begin; select emitir_recibo(...); rollback;`). No se corrio porque escribe aunque se deshaga y el encargo era solo lectura.",
+   "donde": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:87",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 413,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El lunes 9/11 sale el primer cobro real a una agencia y nunca se probó",
+  "porque": "Si falla, Código Inmobiliario no recibe su factura por WhatsApp o se le pausa a alguien por error, el primer día que se cobra.",
+  "tecnico": "9/11 14:07 UTC: entrada de Giselle (US$37,60) al grupo de MaKo con Código Inmobiliario. Nunca se mandó un PDF real, ni se leyó un comprobante real de Binance, ni se pausó a nadie de verdad. Antes, el 7 u 8/11, correr el cron en seco (?dry=1): tiene que decir nada del mes, ninguna entrada todavía y ninguna pausa nueva. app/api/cron/agencia-mensualidad/route.ts ; pasos 6 a 8 en docs/relevo/nube-agencia-cobro.md:56-70 ; docs/relevo/cerebro.md:57",
+  "original": {
+   "titulo": "El lunes 9/11 a las 14:07 UTC sale el primer cobro real de una agencia y nunca se envió nada de verdad",
+   "queFalta": "Mirar que salga el PDF de la entrada de Giselle (US$37,60) al grupo de MaKo con Código Inmobiliario. Nunca se mandó un PDF real ni se leyó un comprobante real de Binance ni se pausó a nadie de verdad. Antes, el 7 u 8/11, correr el cron en seco (`?dry=1`): tiene que decir nada del mes, ninguna entrada todavía y ninguna pausa nueva.",
+   "donde": "C:/dev/wt-puntas/app/api/cron/agencia-mensualidad/route.ts ; pasos 6 a 8 en docs/relevo/nube-agencia-cobro.md:56-70 ; estado en docs/relevo/cerebro.md:57",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 414,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Seis cosas del cobro a agencias siguen sin probarse ni una vez",
+  "porque": "Un comprobante real puede no leerse, la factura puede no generarse y el recibo puede salir mal: cada una le llega al cliente.",
+  "tecnico": "Sin medir: un comprobante real de Binance leído; la lectura de un PDF de comprobante (WhatsApp lo guarda como documento, sólo se probó foto); jsPDF dentro del bundle de Next con este PDF; que el grupo de MaKo de Código exista (mako.grupo_jid del 13); un comprobante que llega por el grupo de la APP no se lee (sólo el de WhatsApp); el recibo cuando una sola orden completa entrada y mensualidad a la vez. lib/agencia-mes-comprobante.ts ; lib/agencia-mes-pdf.ts ; docs/relevo/nube-agencia-cobro.md:100-108",
+  "original": {
+   "titulo": "Nada del cobro de agencias está verificado contra la base ni producción",
+   "queFalta": "Seis cosas sin medir: un comprobante real de Binance leído; la lectura de un PDF de comprobante (WhatsApp lo guarda como documento, sólo se probó foto); jsPDF dentro del bundle de Next con este PDF; que el grupo de MaKo de Código exista (`mako.grupo_jid` del 13); un comprobante que llega por el grupo de la APP no se lee (sólo el de WhatsApp); el recibo cuando una sola orden completa entrada y mensualidad a la vez.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md:100-108 ; lib/agencia-mes-comprobante.ts ; lib/agencia-mes-pdf.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 415,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Revisar la pantalla de cobro de la agencia antes del cobro del lunes",
+  "porque": "Si los montos, las entradas por pagar o las pausas están mal, el lunes se cobra mal y el cliente lo ve.",
+  "tecnico": "Mirar /agency?ws=13: tarjeta de diciembre en US$332 proyectado, «Entradas por pagar» con Pablo y Patricia, y «En pausa: Pablo · Patricia». Y decidir si las tres tareas programadas codigo-diferencial-* (9/11, 12/11 y 14/11, que avisan y no escriben) quedan o se apagan. app/agency/Mensualidad.tsx ; pasos 7 y 8 de docs/relevo/nube-agencia-cobro.md:67-70",
+  "original": {
+   "titulo": "Mirar /agency?ws=13 y decidir las tres tareas programadas `codigo-diferencial-*`",
+   "queFalta": "Comprobar la tarjeta de diciembre en US$332 proyectado, «Entradas por pagar» con Pablo y Patricia, y «En pausa: Pablo · Patricia». Y decidir si las tres tareas programadas (9/11, 12/11 y 14/11, que avisan y no escriben) quedan o se apagan.",
+   "donde": "C:/dev/wt-puntas/app/agency/Mensualidad.tsx ; pasos 7 y 8 de docs/relevo/nube-agencia-cobro.md:67-70",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 418,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El cobro mes a mes no se ve en el teléfono y le faltan tres cosas",
+  "porque": "Desde el celular la ficha del cliente muestra el estado de cuenta viejo: no se ve lo que paga por mes.",
+  "tecnico": "En /m la ficha dibuja el estado de cuenta viejo, no el bloque «Mes a mes». Sin hacer: el prorrateo del diferencial (hoy lo calcula Martín y se registra como ajuste), una suscripción cobrada por la pasarela (su monto sale del lead, no del cobro) y cambiar el medio de un pago ya cobrado (sin botón ni operación). app/m/ (ficha del lead) ; lib/cobros.ts ; docs/relevo/nube-suscripciones.md:98-104",
+  "original": {
+   "titulo": "La suscripción mes a mes no existe en el teléfono",
+   "queFalta": "En /m la ficha dibuja el estado de cuenta viejo, no el bloque «Mes a mes». Además quedaron sin hacer: el prorrateo del diferencial (hoy lo calcula Martín y se registra como ajuste), una suscripción cobrada por la pasarela (su monto sale del lead, no del cobro) y cambiar el medio de un pago cobrado (sin botón ni operación).",
+   "donde": "C:/dev/wt-puntas/app/m/ (ficha del lead) ; lib/cobros.ts ; docs/relevo/nube-suscripciones.md:98-104",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 493,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Terminar el cobro de agencias: la fecha de Giselle y tres pases a «Paga para entrar»",
+  "porque": "Hasta que no se cierre, la pantalla de cartera muestra mensualidades equivocadas y se le cobra mal a las agencias.",
+  "tecnico": "Seguir el orden de C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md · supabase/migrations/ (0402 si falta, y 0403) · lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74 — corregir la fecha de Giselle (17) al 2026-10-28, prender la mensualidad del 13 desde 2026-12 y pasar 19, 22 y 15 a «Paga para entrar».",
+  "original": {
+   "titulo": "Terminar el cobro de agencias: 0402/0403, fecha de Giselle, mensualidad del 13 y tres «Paga para entrar»",
+   "queFalta": "Seguir el orden de docs/relevo/nube-agencia-cobro.md: aplicar la 0402 (si falta) y la 0403, corregir la fecha de Giselle (17) al 2026-10-28, prender la mensualidad del 13 desde 2026-12 y pasar a 19, 22 y 15 a «Paga para entrar». Hecho = la pantalla de cartera muestra las mensualidades correctas con la cartera real.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md · supabase/migrations/ (0402, 0403) · lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 494,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "A los clientes de una agencia les aparece «Pasa a MaKo Pro», que no les sirve",
+  "porque": "El cliente de una agencia hace clic para pagarle a MaKo, en vez de pedirle el cambio de plan a su agencia.",
+  "tecnico": "Usar clienteDeAgencia de /api/auth/me para esconder el link y cambiar el texto en las siete pantallas: C:/dev/wt-puntas/app/crm/PasarAPro.tsx · app/crm/TraerDeGrupoWA.tsx · app/whatsapp/EvolutionConnect.tsx · app/equipo/EquipoView.tsx · app/m/configuraciones/equipo/EquipoM.tsx · app/web-generator/editor/dialogos/DialogoPublicar.tsx · app/integraciones/CuentasDePago.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:487",
+  "original": {
+   "titulo": "Los carteles de tope le dicen «Pasa a MaKo Pro» al cliente de una agencia",
+   "queFalta": "Usar `clienteDeAgencia` de /api/auth/me para esconder el link y cambiar el texto a «pídele a tu agencia que te pase a Pro», en las siete pantallas que lo dibujan. Hecho = un cliente de agencia no ve ningún «Pasar a Pro».",
+   "donde": "C:/dev/wt-puntas/app/crm/PasarAPro.tsx · app/crm/TraerDeGrupoWA.tsx · app/whatsapp/EvolutionConnect.tsx · app/equipo/EquipoView.tsx · app/m/configuraciones/equipo/EquipoM.tsx · app/web-generator/editor/dialogos/DialogoPublicar.tsx · app/integraciones/CuentasDePago.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:487",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 495,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Arreglos del cobro de agencias quedaron en una rama aparte y no están en el sistema",
+  "porque": "Sin ellos se puede dar de baja a la plataforma misma o a un negocio con plan propio, y hay cobros que se pausan mal.",
+  "tecnico": "Portar desde la rama agency-thiago-2910: la guarda de «es la plataforma» y «tiene plan propio» en darDeBajaClienteDeAgencia y cambiarPlanDeCliente; negocioPausado sin guarda del ws1; H5 aceptando sólo «pagado + suscripcion_estado null»; la pausa programada que sigue pidiendo al-dia; el diálogo de «Elegir Esencial»; aplicarSubidasPendientes con .limit(2000). Archivos: C:/dev/wt-puntas/lib/agencia-baja.ts:81 · lib/agencia-plan.ts:70 y :197 · lib/workspace.ts:340 · lib/plan-acceso-reglas.ts:353 · lib/plan-acceso.ts:166 · app/agency/AgencyApp.tsx · pendiente en docs/hallazgos-agencias.md:299",
+  "original": {
+   "titulo": "Tres bajas y una media del cobro de agencias viven en una rama y no se pueden tocar desde main",
+   "queFalta": "Portar desde `agency-thiago-2910`: la guarda de «es la plataforma» y «tiene plan propio» en darDeBajaClienteDeAgencia y cambiarPlanDeCliente; negocioPausado sin guarda del ws1; H5 aceptando sólo «pagado + suscripcion_estado null»; la pausa programada que sigue pidiendo al-dia; el diálogo de «Elegir Esencial»; y aplicarSubidasPendientes con .limit(2000).",
+   "donde": "C:/dev/wt-puntas/lib/agencia-baja.ts:81 · lib/agencia-plan.ts:70 y :197 · lib/workspace.ts:340 · lib/plan-acceso-reglas.ts:353 · lib/plan-acceso.ts:166 · app/agency/AgencyApp.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:299",
+   "bloqueo": "El código vive en la rama agency-thiago-2910 y no está en main.",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 496,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Un link de pago anulado puede seguir cobrando, y la plata entra sin quedar anotada",
+  "porque": "Un cliente puede pagar por un link ya dado de baja: la plata entra y el pago no queda registrado.",
+  "tecnico": "C:/dev/wt-puntas/lib/cobros.ts:1318 (anularCobro → cerrarLinkEnLaPasarela, hoy con mejor esfuerzo) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:299 y :487 — que anularCobro devuelva si la pasarela cerró el link y que quien lo rehace no deje dos links vivos (hoy el índice impide anotar el pago). Hecho = anular un link falla ruidosamente si la pasarela no lo cerró.",
+  "original": {
+   "titulo": "anularCobro cierra el link viejo con mejor esfuerzo: un link anulado puede seguir cobrable",
+   "queFalta": "Que anularCobro devuelva si la pasarela cerró el link, y que quien lo rehace no deje dos links vivos (hoy la plata puede entrar y el pago no quedar anotado por el índice). Hecho = anular un link falla ruidosamente si la pasarela no lo cerró.",
+   "donde": "C:/dev/wt-puntas/lib/cobros.ts:1318 (anularCobro → cerrarLinkEnLaPasarela) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:299 y :487",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 497,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Un comprobante subido al grupo de la app no se lee; sólo el de WhatsApp",
+  "porque": "La agencia paga, sube el comprobante en la app y el sistema la sigue mostrando como que no pagó.",
+  "tecnico": "C:/dev/wt-puntas/lib/agencia-cobro.ts (el lector de comprobantes) · app/_chat/grupo/ (los adjuntos del grupo de la app) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74",
+  "original": {
+   "titulo": "Un comprobante que llega por el grupo de la APP no se lee (sólo el de WhatsApp)",
+   "queFalta": "Que el lector de comprobantes del cobro de agencias también mire los adjuntos del grupo de la app. Hecho = subir un comprobante en el grupo de la app marca el «Pagado».",
+   "donde": "C:/dev/wt-puntas/lib/agencia-cobro.ts · app/_chat/grupo/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 498,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Nadie avisa cuando pasa el día 5 y una agencia no pagó",
+  "porque": "Si nadie entra a mirar la pantalla, una agencia puede quedar meses sin pagar y no se da cuenta nadie.",
+  "tecnico": "C:/dev/wt-puntas/lib/agencia-cobro.ts · lib/api-mako/areas/ (ver_mensualidades_agencias) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74 — falta un aviso (push o grupo) al super admin pasado el día 5. Hecho = el 6 llega el aviso con las agencias que no pagaron.",
+  "original": {
+   "titulo": "Nada avisa al super admin cuando pasa el día 5 sin el «Pagado» de una agencia",
+   "queFalta": "Un aviso (push o grupo) al super admin pasado el día 5; hoy sólo se ve entrando a la pantalla o con ver_mensualidades_agencias. Hecho = el 6 llega el aviso con las agencias que no pagaron.",
+   "donde": "C:/dev/wt-puntas/lib/agencia-cobro.ts · lib/api-mako/areas/ (ver_mensualidades_agencias) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 500,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Cuatro bloques de la pantalla de Pagos no existen y se saltean sin avisar",
+  "porque": "Si una plantilla los pide, al cliente le quedan huecos: no ve la confirmación de pago ni los recordatorios de cobro.",
+  "tecnico": "Escribir confirmacion-de-pago, recordatorios-de-cobro, excepciones y cliente-en-cs en C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/ · reglas en app/crm/lead-view/ficha/reglas-pagos.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379 — para los recordatorios hace falta primero la columna lead_id (migración 0186).",
+  "original": {
+   "titulo": "Cuatro bloques del catálogo de Pagos no tienen componente y se saltean",
+   "queFalta": "Escribir confirmacion-de-pago, recordatorios-de-cobro, excepciones y cliente-en-cs. Para los recordatorios hace falta primero la columna lead_id (mig 0186). Hecho = los cuatro se dibujan cuando la plantilla los pide.",
+   "donde": "C:/dev/wt-puntas/app/crm/lead-view/ficha/reglas-pagos.ts · app/crm/lead-view/ficha/pagos/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 501,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Entre las 18 y la medianoche en México, una cuota que vence hoy figura vencida",
+  "porque": "El cliente ve vencida una cuota que todavía no vence, y MaKo le dice algo distinto de lo que muestra la pantalla.",
+  "tecnico": "Sumar la zona del negocio a LeadFullData en getLeadFullAction y usar hoyEnTz en las dos pantallas: C:/dev/wt-puntas/app/crm/lead-view/ficha/FichaPorBloques.tsx:135 · app/customer-success/PagosCliente.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379 — hoy «hoy» se cuenta en UTC.",
+  "original": {
+   "titulo": "La ficha cuenta «hoy» en UTC: de 18 a 24 h de México una cuota que vence hoy sale vencida",
+   "queFalta": "Sumar la zona del negocio a LeadFullData en getLeadFullAction y usar hoyEnTz en las dos pantallas. Hecho = la ficha, General y lo que dice MaKo coinciden sobre qué cuota está vencida.",
+   "donde": "C:/dev/wt-puntas/app/crm/lead-view/ficha/FichaPorBloques.tsx:135 · app/customer-success/PagosCliente.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 502,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "El prorrateo de los días de un cliente nuevo de agencia lo hace Martín a mano",
+  "porque": "Cada cliente nuevo de una agencia obliga a calcular y cargar el diferencial a mano, y ahí se cuelan errores.",
+  "tecnico": "C:/dev/wt-puntas/lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799 y C:/dev/wt-puntas/docs/hallazgos-agencias.md:517 — automatizar el prorrateo de los días hasta el próximo 5 por cada cliente nuevo (hoy se registra como ajuste). Hecho = el diferencial sale calculado sin que nadie lo cargue.",
+  "original": {
+   "titulo": "El prorrateo del diferencial de agencias lo calcula Martín a mano",
+   "queFalta": "Automatizar el prorrateo de los días hasta el próximo 5 por cada cliente nuevo (hoy se registra como ajuste). Hecho = el diferencial sale calculado sin que nadie lo cargue.",
+   "donde": "C:/dev/wt-puntas/lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799 y C:/dev/wt-puntas/docs/hallazgos-agencias.md:517",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 503,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Siete cosas de Stripe y Mercado Pago nunca se probaron, ni con claves de prueba",
+  "porque": "Si algo de eso no anda como se supone, un cobro queda colgado o una suscripción sigue cobrando cuando ya debía cortarse.",
+  "tecnico": "C:/dev/wt-puntas/lib/cobros-conexion.ts · lib/pasarela-plan-api.ts · lib/mercadopago-api.ts · app/api/webhooks/mercadopago/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367 y :1567 — probar con claves de PRUEBA: si una rk_ restringida lee GET /v1/account; si la notification_url de MP llega firmada; si MP respeta el vencimiento de una preferencia anulada con el checkout abierto; en qué estado queda una suscripción de MP al llegar su end_date; el PUT del monto de un preapproval; hosted_invoice_url con la suscripción past_due; y la factura de $0.",
+  "original": {
+   "titulo": "Medir con claves de PRUEBA lo que nunca se probó de Stripe y Mercado Pago",
+   "queFalta": "Probar: si una rk_ restringida lee GET /v1/account; si la notification_url de MP llega firmada; si MP respeta el vencimiento de una preferencia anulada con el checkout abierto; en qué estado queda una suscripción de MP al llegar su end_date; el PUT del monto de un preapproval; hosted_invoice_url con la suscripción past_due; y la factura de $0. Hecho = cada punto con su medición escrita.",
+   "donde": "C:/dev/wt-puntas/lib/cobros-conexion.ts · lib/pasarela-plan-api.ts · lib/mercadopago-api.ts · app/api/webhooks/mercadopago/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367 y :1567",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 617,
+  "area": "Cobros",
+  "quien": "equipo",
+  "titulo": "Los 66 pagos de la base no dicen en qué moneda se cobraron",
+  "porque": "Los USDT de Código se cuentan como dólares, y todo total que se muestre arriba —ingresos, MRR, runway— hereda el error.",
+  "tecnico": "C:/dev/wt-puntas/lib/pagos.ts · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/ · C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md §1 · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1. Medido el 5/11: tabla `pagos` son 66 filas (49 pagadas) y las 66 tienen `moneda` y `monto_original` en null; `metodo` en null en 57 de 66; el pago de Juanfran figura `transferencia` y fue Binance",
+  "original": {
+   "titulo": "Los 66 pagos de la base tienen `moneda` en null: los USDT de Codigo se cuentan como dolares sin rastro",
+   "queFalta": "Medido el 5/11: la tabla `pagos` entera son 66 filas (49 pagadas) y las 66 tienen `moneda` y `monto_original` en null. Los pagos manuales de Codigo entraron por Binance en USDT y quedan tratados como dolares sin que nada lo diga. Ademas `metodo` esta en null en 57 de 66, y el pago de Juanfran figura `transferencia` cuando fue Binance. Cualquier total que se muestre arriba de eso (MRR, Revenue, el runway) hereda el error. Hecho = los pagos nuevos guardan moneda y monto original, y las filas viejas quedan con su moneda real o marcadas como «sin dato».",
+   "donde": "C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md §1 · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1 · C:/dev/wt-puntas/lib/pagos.ts · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

@@ -1,0 +1,227 @@
+[
+ {
+  "id": 128,
+  "area": "Carruseles",
+  "quien": "verificar",
+  "titulo": "Leila no pudo llevar un carrusel al Web Generator como presentación",
+  "porque": "Le apareció una opción «usar de guía» que no se podía personalizar, y nadie sabe qué pantalla era.",
+  "tecnico": "app/image-editor/carruseles/, lib/editor-landing/plantillas-presentaciones.ts; docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48, docs/relevo/pendientes-pc/pendientes-30-10.md:21 · «usar de guía» no aparece en el código: hay que preguntarle a Leila qué pantalla vio, reproducirlo y arreglarlo",
+  "original": {
+   "titulo": "Llevar un carrusel al Web Generator «como presentación» no funciona y sigue sin diagnosticar",
+   "queFalta": "Leila intentó llevar el carrusel «como presentación» y no pudo («no puedo, no puedo»); apareció una opción «usar de guía» que no se podía personalizar. «usar de guía» no aparece en el código, así que no se sabe qué pantalla era. Hecho = preguntarle a Leila qué pantalla vio, reproducirlo y arreglarlo.",
+   "donde": "app/image-editor/carruseles/, lib/editor-landing/plantillas-presentaciones.ts; docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48, docs/relevo/pendientes-pc/pendientes-30-10.md:21",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 130,
+  "area": "Carruseles",
+  "quien": "verificar",
+  "titulo": "Seguir una cuenta solo para carruseles, sin sumarla a Competitors Spy",
+  "porque": "Hoy, para ver los carruseles de una cuenta hay que meterla entre los competidores. Puede haber quedado descartado el 6/11: primero hay que confirmarlo.",
+  "tecnico": "docs/relevo/nube-carruseles.md:184; lib/carruseles/explorar-servidor.ts (donde se mezclan las cuentas de Spy y la biblioteca). No reaparece en los documentos del rediseño del 6/11. Si Martín lo sigue queriendo: lista de cuentas de carruseles aparte de los competidores de Spy.",
+  "original": {
+   "titulo": "Las cuentas que el negocio sigue SÓLO para carruseles siguen entrando por Competitors Spy",
+   "queFalta": "Hoy, para que un carrusel de una cuenta aparezca, hay que sumarla en Competitors Spy con todo lo demás de Spy. El pedido era poder seguir una cuenta sólo para carruseles. No vuelve a aparecer en los documentos del rediseño del 6/11, así que puede haber quedado descartado. Hecho = confirmar con Martín si lo sigue queriendo; si sí, una lista de cuentas de carruseles aparte de los competidores de Spy.",
+   "donde": "docs/relevo/nube-carruseles.md:184; lib/carruseles/explorar-servidor.ts (donde se mezclan las cuentas de Spy y la biblioteca)",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 144,
+  "area": "Thumbnails",
+  "quien": "verificar",
+  "titulo": "De tus cuentas en miniaturas: dos documentos del mismo día se contradicen",
+  "porque": "Uno dice que se puede hacer y el otro que está descartado. Mientras no se decida, nadie sabe si falta programarlo o no.",
+  "tecnico": "docs/carruseles/thumbnails.md:91-93 lo deja abierto («se puede sumar como De tus cuentas, igual que en carruseles») y docs/relevo/nube-carruseles-rediseno.md:189, de la MISMA punta y el MISMO día, lo declara descartado («cambia de quién es cada tarjeta»). Spy ya guarda las miniaturas en `spy_piezas.miniatura`. Hecho = se implementa la franja, o thumbnails.md dice que está descartado y por qué.",
+  "original": {
+   "titulo": "«De tus cuentas» en Thumbnails: dos documentos del mismo dia se contradicen",
+   "queFalta": "docs/carruseles/thumbnails.md lo deja abierto («se puede sumar como De tus cuentas, igual que en carruseles») y la autocritica del MISMO dia y la MISMA punta lo declara descartado («cambia de quien es cada tarjeta»). Spy ya guarda las miniaturas de las cuentas que sigue el negocio en `spy_piezas.miniatura`. HECHO cuando uno de los dos documentos se corrija: o se implementa la franja, o thumbnails.md dice que esta descartado y por que.",
+   "donde": "C:/dev/wt-puntas/docs/carruseles/thumbnails.md:91-93 contra C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:189",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 172,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "La lista de funciones de Canva se escribió sin mirar Canva: puede estar mal",
+  "porque": "Cualquier fila de esa lista puede estar equivocada. Además quedó un diseño sin título abierto en la cuenta de Canva, para borrar a mano.",
+  "tecnico": "Del 14/10 a la noche: (a) el relevamiento se escribió contra el CÓDIGO, sin navegar canva.com (no había Chrome para claude1); la galería de Canva da 403 a WebFetch. (b) Quedó una pestaña abierta en el grupo de los agentes («Diseño sin título - Presentación», canva.com/design/DAHX-ICTUd4): si se creó en la cuenta de Martín, va a la papelera a mano. C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md · docs/hallazgos-editor-imagen.md:464-472",
+  "original": {
+   "titulo": "El relevamiento de funciones de Canva se escribio sin navegar Canva, y quedo una pestania abierta",
+   "queFalta": "Dos cosas del 14/10 a la noche: (a) el relevamiento se escribio contra el CODIGO, sin navegar canva.com (no habia Chrome para claude1), asi que cualquier fila puede estar mal y se corrige al mirarla; la galeria de Canva da 403 a WebFetch. (b) Quedo una pestania abierta en el grupo de los agentes («Diseno sin titulo - Presentacion», canva.com/design/DAHX-ICTUd4): si se creo en la cuenta de Martin, va a la papelera a mano. HECHO cuando el relevamiento tenga una pasada mirando Canva y la pestania este cerrada.",
+   "donde": "C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:464-472",
+   "bloqueo": "Lo de la pestania es en la cuenta de Canva de Martin.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 173,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "Descargar un diseño de varias páginas en un solo archivo nunca se probó",
+  "porque": "Si la versión que corre en la nube no sirve, el cliente toca descargar y no se baja nada, o se baja algo que no abre.",
+  "tecnico": "En el node_modules del clon quedó `fflate` 0.4.9 (la de rrweb) anidada y el package.json pide ^0.8.3; en Vercel se instala la 0.8 arriba. El ZIP de varias páginas de Doory usa `zipSync`, que la 0.4.9 ya tiene, pero NO se probó. C:/dev/wt-puntas/package.json · docs/hallazgos-editor-imagen.md:76-77. Hecho = se descarga un diseño de varias páginas como ZIP en producción y abre bien.",
+  "original": {
+   "titulo": "`fflate` local quedo en 0.4.9 y el package.json pide ^0.8.3",
+   "queFalta": "En el node_modules del clon quedo la 0.4.9 (la de rrweb) anidada, y en Vercel se instala la 0.8 arriba. El ZIP de varias paginas de Doory usa `zipSync`, que la 0.4.9 ya tiene, pero NO se probo. HECHO cuando se descargue un diseno de varias paginas como ZIP en produccion y abra bien.",
+   "donde": "C:/dev/wt-puntas/package.json · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:76-77",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 177,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "Miniaturas en blanco en Imagen: dos documentos del 6/11 no coinciden",
+  "porque": "Martín dijo que no puede haber miniaturas en blanco. Un documento dice que sigue pasando y el otro que ya se dibujan bien.",
+  "tecnico": "El recorrido visual deja CR1 abierto («miniaturas en blanco en Video, Image y Offer», regla de Martín del 29/10) y el relevo de plantillas del MISMO día dice que la tarjeta de Image ya dibuja la estructura en SVG (MiniaturaDiseno.tsx, sin el motor, con las fuentes del catálogo). Lo que sigue en blanco en Image son los TAMAÑOS en blanco, que son tamaños y no plantillas. C:/dev/wt-puntas/docs/recorrido-visual-30-10.md:26 y :72 contra docs/relevo/nube-plantillas.md:64-69 · app/image-editor/MiniaturaDiseno.tsx · app/_crear/reglas.ts:49",
+  "original": {
+   "titulo": "CR1 del recorrido visual: dos documentos del 6/11 no coinciden sobre las miniaturas en blanco de Image",
+   "queFalta": "El recorrido visual deja CR1 abierto («miniaturas en blanco en Video, Image y Offer», regla de Martin del 29/10: «No pueden haber miniaturas en blanco»), y el relevo de plantillas del MISMO dia dice que la tarjeta de Image ya dibuja la estructura en SVG (MiniaturaDiseno.tsx, sin el motor, con las fuentes del catalogo). Lo que sigue en blanco en Image son los TAMANOS en blanco, que son tamanos y no plantillas. HECHO cuando se mire /image-editor en produccion y uno de los dos documentos se corrija.",
+   "donde": "C:/dev/wt-puntas/docs/recorrido-visual-30-10.md:26 y :72 contra C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:64-69 · C:/dev/wt-puntas/app/image-editor/MiniaturaDiseno.tsx · app/_crear/reglas.ts:49",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 184,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "Las piezas de Spy sin el número de rendimiento: falta confirmar si se resolvió",
+  "porque": "Se le pasó el tema a un chat de la nube y nunca confirmó si entregó. Si no, el cliente ve piezas sin el dato que las compara.",
+  "tecnico": "El múltiplo («3,7x») es lo que dibuja la pantalla, no una columna: no se puede medir desde la base. El chat de la nube es `punta/multiplo-rendimiento`. docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:89 · docs/relevo/pendientes-pc/por-repartir.md:441",
+  "original": {
+   "titulo": "Las piezas de Spy sin el multiplo de rendimiento («3,7x»)",
+   "queFalta": "El multiplo es lo que dibuja la pantalla, no una columna: no se puede medir desde la base. Hay un chat en la nube (`punta/multiplo-rendimiento`) al que se le paso el tema; falta confirmar si entrego.",
+   "donde": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:89 · docs/relevo/pendientes-pc/por-repartir.md:441",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 187,
+  "area": "Spy",
+  "quien": "verificar",
+  "titulo": "Los catorce pedidos de Martín en Spy del 4/11 dicen hecho pero nadie los miró",
+  "porque": "Cada fila deja algo sin medir: si alguno no quedó, Martín ya lo da por hecho y el que se lo encuentra roto es el cliente.",
+  "tecnico": "Modal de canales, anuncios por Instagram y dentro de Contenido, Funnel con la oferta arriba, catálogo de formatos y funnels, animación, velocidad, @herasmedia que no lee y el tope de 45 s en Google. La tabla de 14 puntos da casi todo «Hecho», pero cada fila deja una columna «lo que falta medir». docs/relevo/cerebro.md:149 · docs/relevo/nube-spy.md:38-83",
+  "original": {
+   "titulo": "La tanda del 4/11 de Martin en Spy, sin confirmar en pantalla",
+   "queFalta": "Modal de canales, anuncios por Instagram y dentro de Contenido, Funnel con la oferta arriba, catalogo de formatos y funnels, animacion, velocidad, @herasmedia que no lee y el tope de 45 s en Google. La tabla de 14 puntos da casi todo «Hecho», pero cada fila deja una columna «lo que falta medir».",
+   "donde": "docs/relevo/cerebro.md:149 · docs/relevo/nube-spy.md:38-83 (tabla de los 14 puntos)",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 196,
+  "area": "Carruseles",
+  "quien": "verificar",
+  "titulo": "Leila no pudo pasar un carrusel a presentación y no se sabe en qué pantalla fue",
+  "porque": "Hasta que Leila no diga qué pantalla era, nadie puede arreglarlo y ella sigue sin poder pasar el carrusel.",
+  "tecnico": "app/image-editor/carruseles/ · lib/editor-landing/plantillas-presentaciones.ts · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48 (1.5) — aparecía una opción «usar de guía» no personalizable; viene de la llamada del 30/10, sin diagnosticar",
+  "original": {
+   "titulo": "Llevar un carrusel a Web Generator «como presentacion» no se pudo",
+   "queFalta": "Leila lo intento y no pudo; aparecia una opcion «usar de guia» que no se podia personalizar. Sin diagnosticar: hay que preguntarle a Leila que pantalla era.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48 (1.5) · app/image-editor/carruseles/ · lib/editor-landing/plantillas-presentaciones.ts",
+   "bloqueo": "No se entiende de que pantalla hablaba (llamada del 30/10)",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 198,
+  "area": "Carruseles",
+  "quien": "verificar",
+  "titulo": "Nadie chequeó, uno por uno, los seis pedidos de carruseles que hizo Martín",
+  "porque": "El rediseño ya está publicado, pero no se sabe si quedaron el botón «hacer el mío», el filtro y el resto de lo pedido.",
+  "tecnico": "docs/relevo/nube-carruseles-rediseno.md:17-38 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:238 · docs/relevo/cerebro.md:27 — raspar topcarousels.com, multiplicador de rendimiento tipo 3.7x, filtro CTA, carruseles editables, botón «hacer el mío», rediseño de la pestaña. Rediseño en producción el 6/11 11:08",
+  "original": {
+   "titulo": "Los pedidos de carruseles del 5 y 6/11 de Martin, sin confirmar uno por uno",
+   "queFalta": "Raspar topcarousels.com, multiplicador de rendimiento tipo 3.7x, filtro CTA, carruseles editables, boton «hacer el mio» y rediseniar la pestania. El rediseno entro a produccion el 6/11 11:08, pero nadie midio pedido por pedido cual quedo.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:238 · docs/relevo/cerebro.md:27 · docs/relevo/nube-carruseles-rediseno.md:17-38",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 204,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "El chat de imagen puede estar ignorando colores, logo y tipografía del cliente",
+  "porque": "Si los ignora, cada imagen sale con la marca equivocada; pero puede que ya esté arreglado y nadie lo mire.",
+  "tecnico": "lib/image-editor/chat/ia.ts · prompts.ts · lib/landing-writer.ts:153 — el chat sólo recibe persona y núcleo MaKo; texto, tipografía y fondo se aplican, el resto no. Ojo: `punta/image-marca` figura «ya en main» el 5/11 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43 (1.3) · docs/relevo/cerebro.md:134",
+  "original": {
+   "titulo": "La marca completa en el chat de Imagen (colores, logo y fuentes)",
+   "queFalta": "El chat solo recibe persona y nucleo MaKo; texto, tipografia y fondo se aplican pero no el resto. Pasar colores, logo y fuentes al prompt. Ojo: `punta/image-marca` figura «ya en main» el 5/11, asi que puede estar hecho.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43 (1.3) · lib/image-editor/chat/ia.ts · prompts.ts · lib/landing-writer.ts:153 · docs/relevo/cerebro.md:134",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 205,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "El editor de imágenes se desarma al abrir el menú y el chat a la vez",
+  "porque": "Leila ve la pantalla rota y los títulos de las páginas pisados; se arregló en una copia, no en el editor de verdad.",
+  "tecnico": "PageSlot.module.css · el commit `122071b5c` arregló el encabezado en una réplica, no en el editor real · mirar con la barra fijada y el chat abierto, y el texto al lado de los títulos «Página 1, 2, 3» de las plantillas · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:47 (1.4) — Leila dice que puede depender de la pantalla de cada computadora",
+  "original": {
+   "titulo": "La pantalla de Imagen se rompe con la sidebar y el chat abiertos a la vez",
+   "queFalta": "Tambien se rompe el texto al lado de los titulos «Pagina 1, 2, 3» de las plantillas. `122071b5c` arreglo el encabezado en una replica, no en el editor real. Hay que mirarlo con la barra fijada y el chat abierto.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:47 (1.4) · PageSlot.module.css",
+   "bloqueo": "Leila dijo que puede depender de la pantalla de cada computadora; pide mirarlo",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 206,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "No se puede guardar una plantilla propia en video e imagen ni compartirla",
+  "porque": "El cliente arma un diseño que le funciona y tiene que rehacerlo desde cero la próxima vez.",
+  "tecnico": "app/creaciones/* (ya hay estrellas y galería; «Guardar como plantilla» existe en Web Generator y en tarjetas del CRM). Faltan plantillas propias en Video e Imagen y el compartir público con ranking · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:69-70 (2.5/2.6/3.7) · docs/relevo/cerebro.md:27 — «Plantillas» entró a producción el 6/11: medir qué quedó",
+  "original": {
+   "titulo": "Plantillas propias en Video e Imagen, y compartirlas con la comunidad",
+   "queFalta": "Hay «Guardar como plantilla» en Web Generator y tarjetas del CRM, con estrellas y galeria en `app/creaciones/*`. Faltan las plantillas propias en Video e Imagen y el compartir publico con ranking. «Plantillas» entro a produccion el 6/11: hay que ver que quedo.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:69-70 (2.5/2.6/3.7) · app/creaciones/ · docs/relevo/cerebro.md:27",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 207,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "El editor guarda una miniatura y no la imagen, así que no se puede pautar",
+  "porque": "No se puede subir un anuncio de imagen desde MaKo: hay que bajar el archivo y cargarlo a mano en Meta.",
+  "tecnico": "docs/relevo/ads-manager.md:117 — hace falta guardar el archivo real del diseño. Sólo se leyó la línea del relevo, no el código",
+  "original": {
+   "titulo": "El Image Editor guarda solo una miniatura del diseno, no la imagen",
+   "queFalta": "Por eso no se puede subir un anuncio de IMAGEN desde MaKo. Hace falta guardar el archivo real del diseno. Solo lei la linea del relevo, no el codigo.",
+   "donde": "docs/relevo/ads-manager.md:117",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 208,
+  "area": "Imagenes",
+  "quien": "verificar",
+  "titulo": "El chat de MaKo al costado de los editores de video e imagen quedó sin subir",
+  "porque": "El trabajo está hecho en una rama que nunca se publicó: hoy nadie lo tiene y nadie lo vio funcionando.",
+  "tecnico": "rama `motion-imagen-2610` (sin subir y sin mirar en un navegador) · pedido del 27/10, figura entre los pedidos con dueño sin repartir · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:240 · docs/relevo/pedidos-perdidos-2810.md:305",
+  "original": {
+   "titulo": "El chat de MaKo dentro de las tabs de Video e Imagen (pedido del 27/10)",
+   "queFalta": "Figura entre los pedidos con dueno, sin repartir. El chat al costado del editor existia solo en la rama `motion-imagen-2610`, sin subir y sin mirar en un navegador.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:240 · docs/relevo/pedidos-perdidos-2810.md:305",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ }
+]

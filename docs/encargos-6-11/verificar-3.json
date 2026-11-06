@@ -1,0 +1,227 @@
+[
+ {
+  "id": 226,
+  "area": "Cobros",
+  "quien": "verificar",
+  "titulo": "En el newsletter, cualquier administrador entra y un envío puede salir doble",
+  "porque": "Hoy no hay daño porque ningún negocio tiene el correo prendido; cuando se prenda, un cliente puede recibir el mismo mail dos veces.",
+  "tecnico": "M1 y tres fallas de envío: doble envío en «Enviar ahora», lo programado vencido con el email apagado y archivar en el CRM que no frena sus ediciones. El barrido del 6/11 dice que `app/newsletters/puerta.ts` ya exige super admin: medir qué queda · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:118 · docs/relevo/pendientes-barrido.md:196 · docs/hallazgos-newsletters.md",
+  "original": {
+   "titulo": "Newsletter: M1 y las tres fallas de envio",
+   "queFalta": "La auditoria del 5/11 dice que cualquier admin de negocio entra a la tab y a su API, con doble envio en «Enviar ahora», lo programado vencido con el email apagado y archivar el CRM que no frena sus ediciones. El barrido del 6/11 dice que `app/newsletters/puerta.ts` ya exige super admin: hay que medir que queda.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:118 · docs/relevo/pendientes-barrido.md:196 · app/newsletters/puerta.ts · docs/hallazgos-newsletters.md",
+   "bloqueo": "Hoy sin riesgo: ningun negocio tiene el email prendido",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 232,
+  "area": "Admin",
+  "quien": "verificar",
+  "titulo": "Los pedidos viejos de la pestaña Clientes pueden haberse perdido al rehacer Admin",
+  "porque": "Admin se rehizo el 6/11 copiando otra pantalla: el buscador, los filtros y las tarjetas de avisos pueden no estar más.",
+  "tecnico": "card «Nuevo cliente», buscador, tabla y filtros (27/9); links de Conocimientos; sidebar de Dev con «Regresar a Admin»; tarjetas «Está pasando algo» / «Tenés que decidir» · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:237 · docs/relevo/cerebro.md:27,59",
+  "original": {
+   "titulo": "Los pedidos viejos de la pestania Clientes y el semaforo de Admin",
+   "queFalta": "Card «Nuevo cliente», buscador, tabla y filtros (27/9); links de Conocimientos; sidebar de Dev con «Regresar a Admin»; tarjetas «Esta pasando algo» / «Tenes que decidir». Admin se rehizo copiando Polar el 6/11: hay que medir cual sobrevivio.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:237 · docs/relevo/cerebro.md:27,59",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 250,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Cinco pantallas van lentas y nunca se midió la app con mucha información",
+  "porque": "Es lo que se le prometió a Teo: hoy el CRM y el tablero tardan y no se sabe qué pasa con un cliente que tiene mucha data.",
+  "tecnico": "Automations, Configuraciones, Second Brain, CRM y Dashboard lentos; falta la prueba de carga (velocidad con mucha información, promesa a Teo); nunca se midió el Dashboard en producción · docs/relevo/pedidos-perdidos-2810.md:97,99 · app/admin/dev/mako-ux-ui/bitacora.ts:268,281",
+  "original": {
+   "titulo": "Revision de eficiencia de toda la app y prueba de carga",
+   "queFalta": "Automations, Configuraciones, Second Brain, CRM y Dashboard lentos; y velocidad con mucha informacion (promesa a Teo). Nunca se midio el Dashboard en produccion.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:97,99 · app/admin/dev/mako-ux-ui/bitacora.ts:268,281",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 254,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "Si un contacto se anota dos veces, se pierde de dónde vino",
+  "porque": "No se puede saber qué anuncio trajo a ese contacto y la medición de la campaña queda incompleta.",
+  "tecnico": "la cookie ya lleva `domain=`; falta que el `visitor_id` pase de la propuesta duplicada a la ficha (`git grep visitor_id` sin resultados en `lib/leads-duplicados.ts` ni `app/crm/leads-importar.ts`). El barrido del mismo día lo da por hecho: hay que medirlo · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:48-51 · docs/relevo/pendientes-barrido.md:200 · docs/hallazgos-landing.md:3441",
+  "original": {
+   "titulo": "El opt-in con lead duplicado pierde el `visitor_id`",
+   "queFalta": "La cookie ya lleva `domain=`. Falta que el `visitor_id` pase de la propuesta duplicada a la ficha (`git grep visitor_id` sin resultados en `lib/leads-duplicados.ts` ni `app/crm/leads-importar.ts`). El barrido del mismo dia lo da por hecho: hay que medirlo.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:48-51 · docs/relevo/pendientes-barrido.md:200 · lib/leads-duplicados.ts · docs/hallazgos-landing.md:3441",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 257,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "Los contactos que se traen de un grupo caen en el embudo equivocado",
+  "porque": "Pasó con los de Leila: aparecieron en el embudo de Lidermente y hubo que sacarlos a mano. Falta que el sistema pregunte a dónde van.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:60 (1.17) · app/crm/CrmBoard.tsx:3778. `ExtraccionModal` recibe `funnelActivo`; probarlo sin funnel elegido y obligar a elegir destino.",
+  "original": {
+   "titulo": "El scrapeo de grupos cae en un funnel por defecto",
+   "queFalta": "Los contactos scrapeados de Leila aparecieron en el funnel de Lidermente y los saco a mano. `ExtraccionModal` recibe `funnelActivo` pero no se ve que pasa sin funnel activo: probarlo sin funnel elegido y obligar a elegir destino.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:60 (1.17) · app/crm/CrmBoard.tsx:3778",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 259,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "No se pueden cargar los datos fiscales de un lead ni adjuntar la constancia",
+  "porque": "Al intentar cargarlos solo aparecen los roles de setter y closer, y la constancia no se puede subir: el lead queda sin datos para facturar.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:85 · docs/relevo/pendientes-pc/por-repartir.md:33 · C:/dev/revisiones/2710-leila-leila.md:95-101. Lead Fabi Pedraza. Hubo una punta `crm-fiscal-2910` en verde el 29/10: medir si entró. Falta poder adjuntar la constancia a la ficha desde el chat.",
+  "original": {
+   "titulo": "Lead Fabi Pedraza: los datos fiscales no se pueden cargar y falta adjuntar la constancia",
+   "queFalta": "Al cargarlos solo salen SETTER y CLOSER; y hay que poder adjuntar la constancia fiscal a la ficha desde el chat. Hubo una punta `crm-fiscal-2910` en verde el 29/10: medir si entro.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:85 · docs/relevo/pendientes-pc/por-repartir.md:33 · C:/dev/revisiones/2710-leila-leila.md:95-101",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 261,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "Quedan 61 pedidos de diseño del CRM, de 341, sin hacer",
+  "porque": "Hay que medirlos otra vez contra lo que ya está en producción: puede que varios ya estén hechos, y el resto hay que ponerlos en orden.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:89,246. Volver a medir los 61 contra main y sumarlos a su orden. El crítico del relevamiento avisa que esto tiene dueño y no estaba perdido.",
+  "original": {
+   "titulo": "Los 61 de 341 pedidos de disenio del CRM sin implementar",
+   "queFalta": "Volver a medir los 61 contra main y sumarlos a su orden. El critico del relevamiento avisa que esto tiene dueno y no estaba perdido.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:89,246",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 262,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "En los chats del teléfono no se puede cambiar entre el número propio y el de MaKo",
+  "porque": "Pedido del 24/10 a medio hacer: desde el celular se contesta siempre con la misma línea, sin poder elegir con cuál se escribe.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:92 · app/admin/dev/chats/bitacora.ts:118 · /m/chats. Resto sin hacer del pedido del 24/10: «que simplemente pueda cambiar entre mi número y el de MaKo».",
+  "original": {
+   "titulo": "Chats en el telefono: el super admin no puede cambiar entre su numero y el de MaKo",
+   "queFalta": "Resto sin hacer del pedido del 24/10 («que simplemente pueda cambiar entre mi numero y el de MaKo»).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:92 · app/admin/dev/chats/bitacora.ts:118 · /m/chats",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 264,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "Pasar a MaKo lo que Leila todavía paga aparte (GoHighLevel, Skool)",
+  "porque": "Mientras siga pagando esas herramientas por su cuenta, MaKo no le reemplaza nada y la cuenta le sale el doble.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:110 · app/crm/leads-importar.ts · memory/leila-apps-y-pro-97.md:16-18. Importar contactos, etapas y automatizaciones por la API de GoHighLevel y bajar la comunidad de Skool. CapCut, Canva y Gamma también están en su lista.",
+  "original": {
+   "titulo": "Migrar lo que Leila paga aparte (GoHighLevel por API, Skool)",
+   "queFalta": "Que deje de pagar lo que MaKo reemplaza: importar contactos, etapas y automatizaciones por la API, y bajar su comunidad de Skool. CapCut, Canva y Gamma tambien estan en su lista.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:110 · app/crm/leads-importar.ts · memory/leila-apps-y-pro-97.md:16-18",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 265,
+  "area": "Video",
+  "quien": "verificar",
+  "titulo": "La barra de arriba del editor de video quedó trabada y frena el paso 3",
+  "porque": "El trabajo quedó parado en ese punto: hasta destrabarlo, el paso 3 del editor de video no avanza.",
+  "tecnico": "docs/relevo/pendientes-pc/por-repartir.md:381,383 · rama motion-imagen-2610 @75c5c8f82. `EditorHeader` arrastra código de servidor al banco (@opentelemetry/api, http...). Banco en C:/dev/revisiones/editor-pantalla-3010/banco/.",
+  "original": {
+   "titulo": "Paso 3 del Video Editor (la cabecera) quedo trabado",
+   "queFalta": "`EditorHeader` arrastra codigo de servidor al banco (@opentelemetry/api, http...). Relevo en `motion-imagen-2610` @ 75c5c8f82 y banco en C:/dev/revisiones/editor-pantalla-3010/banco/.",
+   "donde": "docs/relevo/pendientes-pc/por-repartir.md:381,383 · rama motion-imagen-2610 @75c5c8f82",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 273,
+  "area": "Video",
+  "quien": "verificar",
+  "titulo": "Los videos que edita el cliente quedan guardados en su navegador, no en MaKo",
+  "porque": "Si borra el historial o cambia de computadora, pierde todo lo que editó. Y no hay límite de espacio por plan, como se prometió a Teo.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:115 · C:/dev/revisiones/2810-promesas-teo.md:152. Promesa a Teo sin resolver: almacenamiento del editor y tope por plan.",
+  "original": {
+   "titulo": "Los proyectos del Video Editor viven en el navegador y no hay tope por plan",
+   "queFalta": "Promesa a Teo sin resolver: almacenamiento del editor y tope por plan.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:115 · C:/dev/revisiones/2810-promesas-teo.md:152",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 274,
+  "area": "Video",
+  "quien": "verificar",
+  "titulo": "Pedir por chat que se edite un video y que lo armen los servidores de MaKo",
+  "porque": "Hoy el cliente tiene que editar todo a mano. Sin esto, el editor no se maneja conversando, que es lo que se pidió el 28/10.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:112. Pedido de Martín del 28/10 (respuesta a D7a), con la parte de MaKo Desktop aparte. Sin medir contra main.",
+  "original": {
+   "titulo": "Editar un video pedido por chat, renderizando en un servidor de MaKo",
+   "queFalta": "Pedido de Martin del 28/10 (respuesta a D7a), con la parte de MaKo Desktop aparte. Sin medir contra main.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:112",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 275,
+  "area": "Video",
+  "quien": "verificar",
+  "titulo": "El editor de video no abre un video que mandó Leila",
+  "porque": "Es un ticket sin cerrar: ella no puede subir su archivo y no hay reporte nuevo que diga si todavía pasa.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:176 · app/admin/dev/video-editor/bitacora.ts:27. Ticket #15, archivo «ESP_Fabi sentada_limpio.mp4». Esperaba un reporte nuevo del chat de Video.",
+  "original": {
+   "titulo": "Ticket #15: el Video Editor no importa un mp4 de Leila",
+   "queFalta": "«ESP_Fabi sentada_limpio.mp4». Esperaba un reporte nuevo del chat de Video; el ticket sigue sin cerrar en la fuente que lei.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:176 · app/admin/dev/video-editor/bitacora.ts:27",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 279,
+  "area": "Chat",
+  "quien": "verificar",
+  "titulo": "Joan pidió dos cosas en su grupo y nadie le contestó",
+  "porque": "Quiere los nombres de las llamadas que quedaron sin marcar y los links de la semana pasada. Los números además no coinciden entre sí.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:42-44,128-129 · scripts/mensaje-equipo-al-grupo.mts. Cifras contradictorias: 25 vs 28 no-shows, 14 vs 10 sin marcar. El cálculo sale del CRM; la respuesta la manda el Cerebro.",
+  "original": {
+   "titulo": "Joan pidio dos cosas en su grupo y nadie le contesto",
+   "queFalta": "Nombre y apellido de las llamadas que quedaron sin marcar (y las cifras se contradicen: 25 vs 28 no-shows, 14 vs 10 sin marcar) y los links de las llamadas de la semana pasada. El calculo es del CRM; la respuesta la manda el Cerebro.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:42-44,128-129 · scripts/mensaje-equipo-al-grupo.mts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 280,
+  "area": "Chat",
+  "quien": "verificar",
+  "titulo": "MaKo mandó al grupo de Código Inmobiliario un link con un dominio inventado",
+  "porque": "El cliente recibe links que no existen y no llevan a ningún lado. Falta revisar los links antes de que salgan al grupo.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:48,126 · C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md:183. El link fue «hola-malo.com/crm/2761»: falta el saneo de la salida al grupo. Hecho = ningún link de la salida con dominio que no sea el real.",
+  "original": {
+   "titulo": "MaKo mando al grupo de Codigo un link con un dominio inventado",
+   "queFalta": "«hola-malo.com/crm/2761»: falta el saneo de la salida al grupo. Hecho = ningun link de la salida con dominio que no sea el real.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:48,126 · C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md:183",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ }
+]

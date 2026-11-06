@@ -1,0 +1,227 @@
+[
+ {
+  "id": 301,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "Medir cuánto tarda cada ticket y avisar si pasa de 24 horas",
+  "porque": "Se le prometió a Teo. Sin eso, un ticket puede quedar días abierto y nadie se entera de que el cliente está esperando.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:105 · C:/dev/revisiones/2810-promesas-teo.md:83. Promesa del 28/10 sin dueño confirmado. Hecho = un ticket que pasa 24 h abierto dispara el aviso.",
+  "original": {
+   "titulo": "Medir el tiempo de cada ticket, con alerta a las 24 h",
+   "queFalta": "Promesa a Teo del 28/10, sin dueno confirmado. Hecho = un ticket que pasa 24 h abierto dispara el aviso.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:105 · C:/dev/revisiones/2810-promesas-teo.md:83",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 302,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "Cuatro tickets no tienen cierre anotado: el 11, el 12, el 21 y el 22",
+  "porque": "No se sabe si se resolvieron: del 11 y el 12 no quedó rastro de qué pedían, y el 21 y el 22 (394 leads de Leila) están duplicados en dos lados.",
+  "tecnico": "docs/relevo/pedidos-perdidos-2810.md:258,303. El #7 al #10 y el #13 al #18 sí tienen hito; el #11 y el #12 no están en ninguna bitácora. Los #21/#22 están duplicados entre CRM y la ticketera.",
+  "original": {
+   "titulo": "Tickets sin cierre registrado: #11, #12, #21 y #22",
+   "queFalta": "Ninguna bitacora cierra el #11 ni el #12, aunque el #7 al #10 y el #13 al #18 si tienen hito; su contenido no esta en ninguna bitacora. Los #21/#22 (394 leads de Leila) estan duplicados entre CRM y la ticketera.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:258,303",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 303,
+  "area": "Tickets",
+  "quien": "verificar",
+  "titulo": "Ticket 57 del Funnel Coach: el arreglo chocó al subirlo y quedó sin saber",
+  "porque": "La medición del 6/11 dice que el aviso decía la verdad: hay que confirmar si el arreglo entró o si el ticket se cierra como que no era falla.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:145 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:63 · docs/relevo/cerebro.md:151. `punta/ticket-57` chocó al llevarlo a main; el ws 9 tiene 2 ofertas manuales y «Tu oferta ya está cargada» decía la verdad.",
+  "original": {
+   "titulo": "Ticket #57 / Funnel Coach: `punta/ticket-57` choco al llevarlo a main",
+   "queFalta": "La medicion del 6/11 dice que el ws 9 tiene 2 ofertas manuales y que «Tu oferta ya esta cargada» decia la verdad. Falta confirmar si la punta entro o si el ticket se cierra como no-bug.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:145 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:63 · docs/relevo/cerebro.md:151",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 318,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "El editor de landings dibuja con medidas de tableta y el menú fijo corre todo",
+  "porque": "Son dos cosas aprobadas y sin hacer: la página se diseña con el ancho equivocado y el menú fijo desplaza todo el contenido.",
+  "tecnico": "docs/relevo/pendientes-pc/por-repartir.md:86-96 · HtmlEditableVista. Dibujar a 1440 escalado: hoy a ~980 elige el diseño de tableta. El menú fijo de holo y respond corre todo 40-280 px. Camino dejado: montar `HtmlEditableVista` en una página de prueba con un Chrome sin ventana y medir de a una página. Después, volver a replicar #68-#72 en el ws9 sin pisar las viejas.",
+  "original": {
+   "titulo": "Web Generator: dibujar a 1440 escalado y lo FIJO del menu, que quedaron sin hacer",
+   "queFalta": "Dos cosas aprobadas y no hechas: hoy a ~980 elige el disenio de tableta, y el menu fijo de holo y respond corre todo 40-280 px. El camino dejado: montar `HtmlEditableVista` en una pagina de prueba con un Chrome sin ventana y medir de a una pagina. Despues, volver a replicar #68-#72 en el ws9 sin pisar las viejas.",
+   "donde": "docs/relevo/pendientes-pc/por-repartir.md:86-96 · HtmlEditableVista",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 321,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Revisar si un negocio puede ver datos de otro en el generador de video",
+  "porque": "Si se cruzan, un cliente vería los videos y las colas de otro negocio. Esa parte nunca se comprobó.",
+  "tecnico": "Pedido del 31/8: «Revisa que el resto de workspace no tengan problema de que se crucen datos». docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:53-56 · docs/relevo/seguridad-aislamiento.md trata el aislamiento en general; no hay nada específico de flow_puentes ni de las colas de video.",
+  "original": {
+   "titulo": "Posible cruce de datos entre workspaces en el video generator",
+   "queFalta": "«Revisa que el resto de workspace no tengan problema de que se crucen datos» (31/8). `docs/relevo/seguridad-aislamiento.md` trata el aislamiento en general; no hay nada especifico de `flow_puentes` ni de las colas de video.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:53-56 · docs/relevo/seguridad-aislamiento.md",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 322,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "En el chat de MaKo el PDF se abre en otra pestaña y saca de la pantalla",
+  "porque": "El cliente pierde el hilo de la conversación cada vez que quiere mirar un documento adjunto.",
+  "tecnico": "app/chats/Hilo.tsx:281 abre el documento en pestaña nueva, sin visor embebido. No se sabe si el pedido era sobre este chat. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:58-61",
+  "original": {
+   "titulo": "La vista previa del PDF en el chat de MaKo saca de la tab",
+   "queFalta": "`app/chats/Hilo.tsx:281` abre el documento en pestania nueva, sin visor embebido. No se sabe si el pedido era sobre este chat.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:58-61 · app/chats/Hilo.tsx:281",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 323,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Los contactos de WhatsApp aparecen con un código en vez del nombre y la foto",
+  "porque": "Al conectar WhatsApp el cliente ve una lista de códigos y no reconoce a ninguno de sus contactos.",
+  "tecnico": "Onboarding del Chat Agent, contactos de Evolution: «Los estás trayendo por ID no por el número». Las fotos ya se guardan en el bucket; falta mirarlo en pantalla. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:63-66 · docs/hallazgos-comunicacion.md:1720-1730",
+  "original": {
+   "titulo": "Nombres y fotos de los contactos de Evolution en el onboarding del Chat Agent",
+   "queFalta": "«Los estas trayendo por ID no por el numero». Las fotos ya se guardan en el bucket; falta mirarlo en pantalla.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:63-66 · docs/hallazgos-comunicacion.md:1720-1730",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 324,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Falta revisar 14 de las 22 pantallas y hay 22 problemas ya vistos sin asignar",
+  "porque": "Son fallas que el cliente ya está viendo hoy en Plan, CRM, Dashboard, Automations, el Ops Center y la landing, además de textos en inglés.",
+  "tecnico": "Recorrido visual: 8 de 22 pantallas miradas, 27 problemas, el más grave (botón flotante de MaKo) ya arreglado. punta/recorrido-visual entró a producción el 6/11: hay que medir qué cubrió. Necesita Chrome y una sesión. docs/relevo/pendientes-pc/pendientes-30-10.md:256-260 · docs/relevo/cerebro.md:27 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:131",
+  "original": {
+   "titulo": "El recorrido visual: faltan 14 de 22 pantallas y 22 hallazgos sin repartir",
+   "queFalta": "Se miraron 8 de 22 pantallas y salieron 27 problemas; el mas grave (el boton flotante de MaKo) ya se arreglo. Quedan 22 sin repartir (Plan, CRM, Dashboard, Automations, Ops Center, la landing y textos en ingles) y 14 pantallas sin recorrer. `punta/recorrido-visual` entro a produccion el 6/11: hay que medir que cubrio.",
+   "donde": "docs/relevo/pendientes-pc/pendientes-30-10.md:256-260 · docs/relevo/cerebro.md:27 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:131",
+   "bloqueo": "Necesita Chrome y una sesion",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 328,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Al elegir «Por tiempo» en un aviso, se agenda en ese mismo momento",
+  "porque": "Si no era a propósito, el aviso sale apenas se elige la opción y no cuando el cliente lo quería.",
+  "tecnico": "C16. CRON_DEFAULT en app/agencia/FlujoAviso.tsx. La bitácora lo da como decisión 5.1 de Martín: hay que confirmar si es a propósito. docs/relevo/pendientes-barrido.md:115",
+  "original": {
+   "titulo": "C16: «Por tiempo» agenda al instante al elegirlo",
+   "queFalta": "`CRON_DEFAULT` en `app/agencia/FlujoAviso.tsx`. La bitacora lo da como decision 5.1 de Martin: hay que confirmar si es a proposito.",
+   "donde": "docs/relevo/pendientes-barrido.md:115 · app/agencia/FlujoAviso.tsx",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 329,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Zernio: faltan editar público, crear campaña, barrido de leads y el reproductor",
+  "porque": "Sin eso hay que entrar a Meta a mano para armar campañas, y Leila no puede elegir qué clave usa cada red.",
+  "tecnico": "Tanda C de la deprecación del token: editar el público de un conjunto, crear campaña y conjunto, barrido de leads por Zernio, reproductor del anuncio, crear públicos y alcance. Más: varias claves de Zernio en un negocio eligiendo cuál usa cada red (pedido de Leila). docs/relevo/pedidos-perdidos-2810.md:132,135 · docs/relevo/zernio-capi.md:136-162 · docs/hallazgos-integraciones.md:2107",
+  "original": {
+   "titulo": "Zernio, tanda C de la deprecacion del token",
+   "queFalta": "Editar el publico de un conjunto, crear campania y conjunto, barrido de leads por Zernio, reproductor del anuncio, crear publicos y alcance. Tambien: varias claves de Zernio en un negocio eligiendo cual usa cada red (pedido de Leila).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:132,135 · docs/relevo/zernio-capi.md:136-162 · docs/hallazgos-integraciones.md:2107",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 331,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Hay 14 pedidos anotados de Ads Manager y Marketing CoPilot sin empezar",
+  "porque": "Son cosas pedidas en reuniones: filtros, tabla, subir creativos a una campaña ya hecha, avisos de Meta y errores al publicar.",
+  "tecnico": "Los 8 de b1c92d31 (filtros, tabla, selección múltiple, productos múltiples), los 6 de 2da0bd61 (subir creativos a campaña existente, aviso de seguridad de Meta, nomenclatura, guardar transcripción del anuncio), d443439d (error al publicar, cerrar tareas, vista previa, estado de la app de Meta), publicación y códigos postales, y copiar la interfaz de Madgicx. docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:236",
+  "original": {
+   "titulo": "Los 14 pedidos de Ads Manager y Marketing CoPilot anotados sin repartir",
+   "queFalta": "Los 8 de `b1c92d31` (filtros, tabla, seleccion multiple, productos multiples), los 6 de `2da0bd61` (subir creativos a campania existente, aviso de seguridad de Meta, nomenclatura, guardar transcripcion del anuncio), `d443439d` (error al publicar, cerrar tareas, vista previa, estado de la app de Meta), publicacion y codigos postales, y copiar la interfaz de Madgicx.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:236",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 332,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Dashboards: quedan cinco cosas anotadas y una nota dice que no queda nada",
+  "porque": "Hasta aclararlo nadie sabe si los filtros de General, la hoja por fecha de cierre y «Publicar en Creaciones» están hechos o no.",
+  "tecnico": "La hoja por fecha de cierre con funnel agregado, /api/graficos que acepte cualquier tablero en vista, bloques de General que no siguen los filtros, «Publicar en Creaciones» y plantillas de Instagram sobre fuente orgánica. El 6/11 dice «no queda hoja pendiente», lo que choca con la lista. docs/relevo/pendientes-barrido.md:125-126 · lib/graficos-datos.ts:256 · docs/relevo/cerebro.md:27",
+  "original": {
+   "titulo": "Dashboards: cinco restos anotados para otro chat",
+   "queFalta": "La hoja por fecha de cierre con funnel agregado, `/api/graficos` que acepta cualquier tablero en vista, bloques de General que no siguen los filtros, «Publicar en Creaciones» y plantillas de Instagram sobre fuente organica. El 6/11 dice «no queda hoja pendiente», lo que choca con esta lista.",
+   "donde": "docs/relevo/pendientes-barrido.md:125-126 · lib/graficos-datos.ts:256 · docs/relevo/cerebro.md:27",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 337,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Faltan los tutoriales guiados en cada pantalla, prometidos a Teo",
+  "porque": "El cliente entra a una pantalla nueva y no tiene nada que le explique qué puede hacer ahí.",
+  "tecnico": "Recorridos en Plan, Chats, Offer, Video, Image, Copywriting y Ads Manager, más videos cortos. Y la guía de IA por pestaña («¿qué hago acá?»), que hoy solo tiene app/_ui/guia/. docs/relevo/pedidos-perdidos-2810.md:156 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153",
+  "original": {
+   "titulo": "Tutoriales y recorridos por tab (promesa a Teo)",
+   "queFalta": "Recorridos en Plan, Chats, Offer, Video, Image, Copywriting y Ads Manager, mas videos cortos. Y la guia de IA por pestania («que hago aca?») que tiene solo `app/_ui/guia/`.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:156 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 · app/_ui/guia/",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 338,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Al dar de baja a un alumno, el curso le sigue quedando abierto",
+  "porque": "Alguien que ya no paga sigue viendo el curso completo. Leandro lo reportó dos veces.",
+  "tecnico": "f32 y f33 de Leandro. Los sacados de antes siguen con el curso abierto y volver a invitar lo reabre. docs/relevo/pedidos-perdidos-2810.md:142 · docs/hallazgos-customer-success.md:5882-5891 · app/admin/dev/customer-success/bitacora.ts:1124",
+  "original": {
+   "titulo": "Sacar a un alumno del producto y de todos los cursos",
+   "queFalta": "Los sacados de antes siguen con el curso abierto y volver a invitar lo reabre (f32, f33 de Leandro).",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:142 · docs/hallazgos-customer-success.md:5882-5891 · app/admin/dev/customer-success/bitacora.ts:1124",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 339,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Que se vea cómo MaKo va armando las cosas, en toda la app y no en dos lugares",
+  "porque": "Hoy en casi todas las pantallas el cliente espera frente a algo quieto y no sabe si está funcionando.",
+  "tecnico": "Hoy solo pasa en el «Replicar» del Web Generator y el nuevo «Editar» de carruseles. Falta en Automations (lienzo nodo por nodo), editores y dashboards. docs/relevo/pedidos-perdidos-2810.md:143 · memory/construir-a-la-vista.md",
+  "original": {
+   "titulo": "Que todo lo que MaKo arma por prompt se vea construyendose, en toda la app",
+   "queFalta": "Hoy solo pasa en algunos lugares (el «Replicar» del Web Generator y el nuevo «Editar» de carruseles). Falta en Automations (lienzo nodo por nodo), editores y dashboards.",
+   "donde": "docs/relevo/pedidos-perdidos-2810.md:143 · memory/construir-a-la-vista.md",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ }
+]

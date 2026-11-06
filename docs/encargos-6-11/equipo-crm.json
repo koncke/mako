@@ -1,0 +1,362 @@
+[
+ {
+  "id": 32,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Falta ponerle horario de atención a los demás negocios: Leila ya quedó lista",
+  "porque": "Sin horario, el sistema le puede escribir a un cliente a las tres de la mañana.",
+  "tecnico": "scripts/horario-de-fabrica-prendidas.mts. Leila (ws 11) quedó en 10 a 20 el 6/11 15:13 UTC. En seco: «poner 0 · marcar 1 · esperar 6 · nada 28»; las 6 que esperan son ws 13 #264, 15 #266, 17 #703, 18 #265, 19 #698, 20 #702 (correr de DÍA en su zona) y la de marcar es ws 23 #726. La #721 de Leila sigue 0 a 24 por decisión de Martín: no se toca. docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A2",
+  "original": {
+   "titulo": "El barrido de horario de fábrica a los demás negocios no se corrió",
+   "queFalta": "Leila (ws 11) ya quedó en 10 a 20 el 6/11 15:13 UTC. Faltan los demás: medido en seco da «poner 0 · marcar 1 · esperar 6 · nada 28». Las 6 «esperar» son negocios donde es de noche (ws 13 #264, 15 #266, 17 #703, 18 #265, 19 #698, 20 #702) y la «marcar» es ws 23 #726. Se corre de DÍA en la zona de cada uno. La #721 de Leila sigue de 0 a 24 por decisión de Martín: no se toca ni se vuelve a preguntar.",
+   "donde": "scripts/horario-de-fabrica-prendidas.mts · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A2 · docs/relevo/cerebro.md:20,37",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 55,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Código Inmobiliario: 21 errores y 10 mensajes sin enviar, sin investigar",
+  "porque": "Es un cliente que paga y puede ser culpa nuestra: hay mensajes que quedaron a medio salir.",
+  "tecnico": "Leer `errores_app` y `wa_borradores` del ws 13 y decir qué pasó; el relevo de `crm-bajas-3010` dice «puede ser error nuestro». docs/relevo/pendientes-barrido.md P15 · docs/relevo/pendientes-0311.md §3",
+  "original": {
+   "titulo": "Código Inmobiliario: 21 fallos y 10 borradores de WhatsApp sin investigar",
+   "queFalta": "El relevo de `crm-bajas-3010` lo deja escrito y dice «puede ser error nuestro». Hay que leer `errores_app` y `wa_borradores` del ws 13 y decir qué pasó. Es de un cliente que paga.",
+   "donde": "docs/relevo/pendientes-barrido.md P15 · docs/relevo/pendientes-0311.md §3 («Código Inmobiliario, sin ticket») · errores_app y wa_borradores del ws 13",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 252,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Falta ver el primer mensaje de WhatsApp que el sistema marque como automático",
+  "porque": "Si no marca bien, lo que manda el sistema figura como escrito a mano y las métricas de atención quedan infladas.",
+  "tecnico": "Hecho = una fila `automatico=true` en `wa_mensajes` de un envío automático · lib/evolution-envio.ts · la 0396 está aplicada y el código que marca los automáticos (`1d12673f8`) ya estaba en producción antes de la migración: el UPDATE del relevo NO se corre · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:1,13-22 (A1) · docs/relevo/cerebro.md:21,31",
+  "original": {
+   "titulo": "Ver el primer `automatico = true` cuando salga un envio automatico de WhatsApp",
+   "queFalta": "La 0396 esta aplicada y el codigo que marca los automaticos (`1d12673f8`) ya estaba en produccion antes de la migracion: el UPDATE del relevo NO se corre. Lo que falta es ver la primera fila en `true`. Hecho = una fila `automatico=true` en `wa_mensajes` de un envio automatico.",
+   "donde": "docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:1,13-22 (A1) · lib/evolution-envio.ts · docs/relevo/cerebro.md:21,31",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 253,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Código Inmobiliario no puede ver cuánto tardan en contestarle a un contacto nuevo",
+  "porque": "Es lo que pidió Código: hoy sólo se mide la conversación entera, no cuánto se tarda en el primer mensaje.",
+  "tecnico": "A1 de Código: no hay campo de primer contacto en el lead; sólo existe el «Tiempo de respuesta» de Chat Analyst, que mide conversaciones. Faltan el campo, la métrica y la pieza en la plantilla Closing · lib/leads.ts · lib/closing-diseno.ts · lib/graficos-fuentes-extra.ts · hay chat `punta/codigo-primer-contacto` · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:80",
+  "original": {
+   "titulo": "A1 de Codigo: la metrica de tiempo de respuesta de leads (primer contacto)",
+   "queFalta": "No hay campo de primer contacto en el lead; solo existe el «Tiempo de respuesta» de Chat Analyst, que mide conversaciones. Falta el campo, la metrica y la pieza en la plantilla Closing. Hay chat `punta/codigo-primer-contacto`.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:80 · lib/leads.ts · lib/closing-diseno.ts · lib/graficos-fuentes-extra.ts",
+   "bloqueo": "",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 255,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "El buscador del CRM es una cajita simple y falta la búsqueda que pidió Martín",
+  "porque": "Martín ya lo pidió: hoy no se puede buscar por campo ni con IA, así que encontrar un contacto cuesta más de lo que debería.",
+  "tecnico": "ID, acentos y orden libre ya están; faltan elegir campos, la búsqueda con IA y la flechita — el `Buscador` sigue siendo un input simple · app/crm/CrmToolbar.tsx:351-362 · lib/buscar-texto.ts · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:178-180",
+  "original": {
+   "titulo": "La busqueda avanzada del CRM, como la del plan",
+   "queFalta": "ID, acentos y orden libre ya estan. Faltan elegir campos, la busqueda con IA y la flechita: el `Buscador` sigue siendo un input simple. Martin lo marco como «te lo pedi».",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:178-180 · app/crm/CrmToolbar.tsx:351-362 · lib/buscar-texto.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 256,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "El alta no sirve para inmobiliarias: les pide closer y reuniones que no usan",
+  "porque": "Una inmobiliaria tiene que inventar datos para terminar el alta, o se traba en el paso obligatorio de la primera reunión.",
+  "tecnico": "sin resultados para «inmobil» ni «closer» en `lib/onboarding*` ni `app/onboarding`; además que nada pida R1/R2 si el negocio no las usa (sacar el «Tipo de evento de R1» obligatorio al conectar Calendly) · lib/onboarding-crm.ts:1-12 · lib/calendly-aviso-reglas.ts · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:182-183 · docs/relevo/pedidos-perdidos-2810.md:86",
+  "original": {
+   "titulo": "Onboarding para inmobiliarias (sin closer, sin R1/R2)",
+   "queFalta": "Sin resultados para «inmobil» ni «closer» en `lib/onboarding*` ni `app/onboarding`. Ademas, que nada pida R1/R2 si el negocio no las usa (sacar el «Tipo de evento de R1» obligatorio al conectar Calendly).",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:182-183 · lib/onboarding-crm.ts:1-12 · docs/relevo/pedidos-perdidos-2810.md:86 · lib/calendly-aviso-reglas.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 263,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Código Inmobiliario tiene 21 fallas y 10 borradores de WhatsApp sin mirar",
+  "porque": "Es un cliente con fallas acumuladas que nadie leyó: puede haber algo roto que él ya está sufriendo y de lo que nadie se enteró.",
+  "tecnico": "docs/relevo/pendientes-barrido.md:159 (P15). Leer `errores_app` y `wa_borradores` del ws 13 y repartir lo que aparezca. Marcado «cliente» en el barrido.",
+  "original": {
+   "titulo": "P15: Codigo Inmobiliario tiene 21 fallos y 10 borradores de WhatsApp sin mirar",
+   "queFalta": "Leer `errores_app` y `wa_borradores` del ws 13 y repartir lo que aparezca. Marcado «cliente» en el barrido.",
+   "donde": "docs/relevo/pendientes-barrido.md:159",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 440,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "«Guardar en MaKo» de la extensión nunca se probó en Instagram ni LinkedIn",
+  "porque": "Si el nombre no sale bien, el lead nace vacío y hay que escribirlo a mano; y la versión nueva no se publica hasta probarlo.",
+  "tecnico": "Probar en el Chrome de Martín con un perfil de Instagram y uno de LinkedIn: que el botón aparezca, que el nombre salga bien (sale del título y de las etiquetas «og:»; si no, el campo queda vacío) y que el lead nazca con su foto. Después, publicar la 0.77.0. El manifest de la extensión ; docs/relevo/nube-thiago-anuncios.md:54-58",
+  "original": {
+   "titulo": "«Guardar en MaKo» de la extensión nunca se vio en una página real",
+   "queFalta": "Probar en el Chrome de Martín con un perfil de Instagram y uno de LinkedIn: que el botón aparezca, que el nombre salga bien (sale del título y de las etiquetas «og:»; si no, el campo queda vacío y se escribe a mano) y que el lead nazca con su foto. Después, publicar la 0.77.0.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-thiago-anuncios.md:54-58 ; el manifest de la extensión",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 442,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Los contactos traídos de otro CRM aparecen como leads nuevos de ese día",
+  "porque": "Migrar 5.000 contactos pinta 5.000 leads nuevos en un solo día y el panel de ese mes queda inservible.",
+  "tecnico": "Ya se guarda fecha_original: contarlo en su fecha es usar coalesce(fecha_original, created_at) en los lectores de leads por período. docs/relevo/nube-thiago-migrar.md:46-47",
+  "original": {
+   "titulo": "Los paneles cuentan a un lead migrado el día que se migró",
+   "queFalta": "Migrar 5.000 contactos pinta 5.000 «leads nuevos» ese día. Ya se guarda `fecha_original`: contarlo en su fecha es usar `coalesce(fecha_original, created_at)` en los lectores de leads por período.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md:46-47 ; los lectores de leads por período",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 443,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "No se puede programar un anuncio para que arranque solo un día y hora",
+  "porque": "Es la mitad que falta de una promesa: hoy la campaña nace en pausa y alguien tiene que prenderla a mano.",
+  "tecnico": "Hoy proponer_crear_campana nace EN PAUSA y no hay «fecha de inicio». Camino recomendado: enlazar el evento Anuncio a una campaña en pausa del Media Buyer y, a la hora del evento, un cron la prende por `lanzar` (zona, fecha de fin, topes), con la misma revisión adversarial de todo lo que gasta. La alternativa (pasarle a Meta un start_time) depende de que Zernio lo acepte y eso no está medido. lib/media-buyer/ejecutar.ts (lanzar) ; docs/relevo/nube-thiago-migrar.md:51-55",
+  "original": {
+   "titulo": "El anuncio programado (la mitad que falta de la promesa 5a)",
+   "queFalta": "Hoy una campaña nace EN PAUSA (`proponer_crear_campana`) y no hay «fecha de inicio». El camino recomendado: enlazar el evento Anuncio a una campaña en pausa del Media Buyer y, a la hora del evento, un cron la prende por `lanzar` (zona, fecha de fin, topes), con la misma revisión adversarial de todo lo que gasta. La alternativa (pasarle a Meta un `start_time`) depende de que Zernio lo acepte y eso no está medido.",
+   "donde": "C:/dev/wt-puntas/lib/media-buyer/ejecutar.ts (lanzar) ; docs/relevo/nube-thiago-migrar.md:51-55",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 444,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "MaKo no arranca la conversación ni guía dentro del CRM",
+  "porque": "El cliente entra al CRM y nadie le dice qué hacer con los contactos nuevos: tiene que descubrirlo solo.",
+  "tecnico": "Falta la apertura del funnel sin declarar (necesita el canal y el diagnóstico en la estrella, y declararEntradasAction), la guía de la ficha del lead (recorrido-ficha.ts, Senalar), y /crm?nuevo=1 («Ver los 12») que tampoco existe. lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 ; docs/relevo/nube-iniciativa.md:38",
+  "original": {
+   "titulo": "La iniciativa de MaKo en el CRM está sin hacer",
+   "queFalta": "Falta la apertura del funnel sin declarar (necesita el canal y el diagnóstico en la estrella, y `declararEntradasAction`), la guía de la ficha del lead (`recorrido-ficha.ts`, `Senalar`), y `/crm?nuevo=1` («Ver los 12») que tampoco existe.",
+   "donde": "C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 ; docs/relevo/nube-iniciativa.md:38",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 504,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "El botón de editar de la ficha no se puede sacar: cuelgan siete cosas de él",
+  "porque": "Si se saca ahora se pierden el motivo de pérdida, la fecha de la reunión y los links de Fathom: no tienen otro lugar.",
+  "tecnico": "C:/dev/wt-puntas/app/crm/[id]/DealDetailsCard.tsx (799 líneas, prop editing) · app/crm/[id]/EditLeadForm.tsx · app/crm/LeadSheet.tsx:211 y :327 · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7709 — primero darle a DealDetailsCard su propio modo de edición dentro de la pestaña Pagos, y recién entonces mudar motivo de pérdida, deadline de nutrición manual, fecha de agendamiento, links de Fathom R1/R2, «Borrar lead» y la confirmación con el diff.",
+  "original": {
+   "titulo": "El botón «Editar» de la ficha no se pudo sacar y de él cuelgan siete cosas sin otro lugar",
+   "queFalta": "Darle al DealDetailsCard su propio modo de edición dentro de la pestaña Pagos, y recién entonces mudar motivo de pérdida, deadline de nutrición manual, fecha de agendamiento, links de Fathom R1/R2, «Borrar lead» y la confirmación con el diff a lugares donde se lean. Hecho = el botón se puede borrar sin perder la edición del deal.",
+   "donde": "C:/dev/wt-puntas/app/crm/[id]/DealDetailsCard.tsx (799 líneas, prop `editing`) · app/crm/[id]/EditLeadForm.tsx · app/crm/LeadSheet.tsx:211 y :327 · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7709",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 505,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Un lead calificado viejo que se vuelve a marcar le cuenta doble a Meta",
+  "porque": "Meta recibe dos veces el mismo lead calificado y el costo por lead que muestra queda mentiroso.",
+  "tecnico": "C:/dev/wt-puntas/lib/leads.ts:922-946 · lib/meta-capi.ts:33 · lib/calificado-reunion.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7821 — un lead marcado antes del 17/10 no tiene la línea del historial, y volver a marcarlo pasadas las 48 h del dedup de Meta cuenta dos veces. Hecho = volver a marcar un calificado viejo no manda un segundo evento.",
+  "original": {
+   "titulo": "El evento «Calificado» a Meta no es idempotente para lo mandado antes del 17/10",
+   "queFalta": "Hacer idempotente el envío a Meta (hoy un lead marcado antes del 17/10 no tiene la línea del historial y volver a marcarlo pasadas las 48 h del dedup de Meta cuenta dos veces). Hecho = volver a marcar un calificado viejo no manda un segundo evento.",
+   "donde": "C:/dev/wt-puntas/lib/leads.ts:922-946 · lib/meta-capi.ts:33 · lib/calificado-reunion.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7821",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 506,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Falta la pantalla donde el cliente elige cómo vende, y sin eso no entra al CRM",
+  "porque": "El CRM es la primera pantalla de todos los roles: si se declara sin esa pregunta, nadie puede entrar y sus etapas no se arman.",
+  "tecnico": "C:/dev/wt-puntas/lib/tab-onboarding-catalogo.ts (declarar un onboarding con prefijo crm_ en TAB_ONBOARDINGS) · lib/fase-diagnostico.ts (CANALES) · lib/pipeline.ts (FUNNEL_TEMPLATES, templateDeCanal) · app/funnel/EntradasCard.tsx · app/api/onboarding/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1479 — además: cambiar «cómo vendo» después tiene que mover el funnel (la siembra corre una sola vez y funnels.canal está NULL en los 11 funnels de producción), y montar EntradasCard también en el onboarding y el Segundo Cerebro (entradas vacío en 6 workspaces con declarado=true).",
+  "original": {
+   "titulo": "El onboarding del CRM: la mitad existe y falta la PUERTA, con tres huecos medidos",
+   "queFalta": "1) Declarar un onboarding con prefijo crm_ en TAB_ONBOARDINGS (sin pantalla que lo complete deja a todos afuera del CRM, que es la primera tab de todos los roles). 2) Que cambiar «cómo vendo» después mueva el funnel (hoy la siembra corre una sola vez y funnels.canal está NULL en los 11 funnels de producción). 3) Montar EntradasCard también en el onboarding y el Segundo Cerebro (entradas está vacío en 6 workspaces con declarado=true). Hecho = un cliente elige su canal en el onboarding del CRM y sus etapas se siembran, y cambiarlo después las mueve.",
+   "donde": "C:/dev/wt-puntas/lib/tab-onboarding-catalogo.ts · lib/fase-diagnostico.ts (CANALES) · lib/pipeline.ts (FUNNEL_TEMPLATES, templateDeCanal) · app/funnel/EntradasCard.tsx · app/api/onboarding/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1479",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 507,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "El tablero del cliente le muestra tareas internas que no son suyas",
+  "porque": "El cliente ve tareas de la Retro y de experimentos mezcladas con las suyas y no entiende qué tiene que hacer.",
+  "tecnico": "C:/dev/wt-puntas/lib/todo.ts (listTareas: filtrar con esDelPlanCliente, como ya lo hace «Re-priorizar todo») · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701 — la SPEC lo pedía y ninguna tanda lo hizo.",
+  "original": {
+   "titulo": "El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos",
+   "queFalta": "Filtrar en listTareas como ya lo hace «Re-priorizar todo» con esDelPlanCliente. La SPEC lo pedía y ninguna tanda lo hizo. Hecho = el tablero del cliente no muestra tareas de Retro ni de experimentos.",
+   "donde": "C:/dev/wt-puntas/lib/todo.ts (listTareas) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 508,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "No se puede filtrar el tablero por quién es el responsable",
+  "porque": "El dueño no puede ver de un vistazo qué le toca a cada uno y tiene que leer tarea por tarea.",
+  "tecnico": "C:/dev/wt-puntas/app/plan/board/ · supabase/migrations/ (migración aditiva para plan_tareas.responsable_tipo, más alguien que lo escriba) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701",
+  "original": {
+   "titulo": "El filtro «Responsable» no existe en el tablero del dueño",
+   "queFalta": "Migración aditiva para plan_tareas.responsable_tipo y alguien que lo escriba, más el filtro en el tablero. Hecho = se puede filtrar el tablero del dueño por responsable.",
+   "donde": "C:/dev/wt-puntas/app/plan/board/ · supabase/migrations/ (plan_tareas.responsable_tipo) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 509,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "En el inbox de WhatsApp todos los leads quedan en «Abierto» para siempre",
+  "porque": "Un negocio que vende por chat no ve en qué etapa va cada lead, y el asistente de WhatsApp aconseja con ese dato.",
+  "tecnico": "Las cuatro copias del funnel hardcodeado, ciegas a funnel_config: C:/dev/wt-puntas/lib/wa-etapas.ts:48 · app/api/whatsapp/conversations/route.ts:29 · lib/meta-rules.ts:78 · app/whatsapp/WhatsAppApp.tsx:227 · lib/whatsapp-advisor.ts:175 (recibe sólo ese label) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+  "original": {
+   "titulo": "El inbox de WhatsApp tiene su funnel hardcodeado en cuatro copias y es ciego a funnel_config",
+   "queFalta": "Que las cuatro lecturas usen el funnel configurado. Hoy todos los leads de un cliente que vende por chat quedan en «Abierto» para siempre, y ese label es lo único que recibe whatsapp-advisor. Hecho = el inbox muestra las etapas reales del funnel del negocio.",
+   "donde": "C:/dev/wt-puntas/lib/wa-etapas.ts:48 · app/api/whatsapp/conversations/route.ts:29 · lib/meta-rules.ts:78 · app/whatsapp/WhatsAppApp.tsx:227 · lib/whatsapp-advisor.ts:175 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 510,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "El corte del día está fijo en una zona horaria: frena o deja pasar un día antes",
+  "porque": "A un negocio de otro país MaKo le pide la asistencia de una reunión un día antes, o lo deja avanzar sin pedirla.",
+  "tecnico": "C:/dev/wt-puntas/lib/leads.ts:1570 (faltantesParaMover decide con hoyEnTijuana() fijo) · lib/date-utils.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:1971 — pasar el gating a la zona del workspace: no es display, decide si una reunión «ya pasó» y si se exige asistencia o Fathom.",
+  "original": {
+   "titulo": "faltantesParaMover decide con hoyEnTijuana() fijo: bloquea o destraba a MaKo un día antes o después",
+   "queFalta": "Pasar el gating a la zona del workspace (no es display: decide si una reunión «ya pasó» y si se exige asistencia o Fathom). Hecho = para un workspace en Madrid el borde del día es el suyo.",
+   "donde": "C:/dev/wt-puntas/lib/leads.ts:1570 · lib/date-utils.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:1971",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 511,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Cualquiera del equipo puede cambiar el funnel, aunque no le corresponda",
+  "porque": "Un closer puede cambiarle el funnel a todo el negocio y romperle las etapas a los demás.",
+  "tecnico": "C:/dev/wt-puntas/app/crm/actions.ts:1771 (saveFunnelAction no valida rol; sumarle el corte de rol como las demás server actions del CRM) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+  "original": {
+   "titulo": "saveFunnelAction no valida rol",
+   "queFalta": "Sumarle el corte de rol como las demás server actions del CRM. Hecho = un closer no puede guardar el funnel.",
+   "donde": "C:/dev/wt-puntas/app/crm/actions.ts:1771 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 512,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Una nota dictada desde el teléfono se corta sola y nadie se entera",
+  "porque": "Si la nota es larga se guarda cortada sin avisar, y lo que se dijo en la reunión se pierde.",
+  "tecnico": "C:/dev/wt-puntas/app/m/crm/acciones.ts:80 (notaLeadAction, slice(0,4000) antes de llamar al alta, así que el rechazo del escritorio nunca la ve) · app/crm/notas-reglas.ts (TOPE_NOTA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-mobile.md:1507 — rechazar con TOPE_NOTA y decirlo en el toast.",
+  "original": {
+   "titulo": "Una nota dictada desde el teléfono se recorta a 4000 caracteres en silencio",
+   "queFalta": "Rechazar con TOPE_NOTA y decirlo en el toast, en vez de cortar antes de llamar al alta (el rechazo del escritorio nunca la ve). Hecho = una nota más larga que el tope da error visible y no se guarda cortada.",
+   "donde": "C:/dev/wt-puntas/app/m/crm/acciones.ts:80 (notaLeadAction, slice(0,4000)) · app/crm/notas-reglas.ts (TOPE_NOTA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-mobile.md:1507",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 513,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "La lista de prospectos no se puede abrir desde el teléfono",
+  "porque": "Desde el teléfono dice que eso se usa en la computadora: para ver prospectos hay que ir a la PC.",
+  "tecnico": "Falta la página de prospectos en app/m/crm/ (C:/dev/wt-puntas/app/m/crm/) y las escrituras de la API en lib/api-mako/areas/crm.def.ts (listar_prospectos, busquedas_prospeccion): buscar cuesta plata y pasar al CRM escribe en lote, piden pantalla propia. Pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:10031",
+  "original": {
+   "titulo": "/crm/prospectos no tiene pantalla en MaKo Mobile, y buscar/pasar al CRM no está en la API",
+   "queFalta": "Página de prospectos en /m, y las escrituras de la API (buscar cuesta plata, pasar escribe en lote: piden pantalla propia). Hecho = en un teléfono se abre prospectos sin la cubierta de «se usa en la computadora».",
+   "donde": "C:/dev/wt-puntas/app/m/crm/ · lib/api-mako/areas/crm.def.ts (listar_prospectos, busquedas_prospeccion) · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:10031",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 514,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Apretar «Hacerlo» en dos pestañas del CRM puede hacer la tarea dos veces",
+  "porque": "El cliente queda con la misma acción repetida: dos mensajes o dos tareas por un solo clic.",
+  "tecnico": "Reclamar con cambiarSettingSi en la base antes de calcular; hoy el candado EN_CURSO vive en memoria. C:/dev/wt-puntas/lib/sugerencias-crm-server.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306",
+  "original": {
+   "titulo": "«Hacerlo» del chat de MaKo en el CRM puede duplicar entre instancias",
+   "queFalta": "Reclamar con cambiarSettingSi en la base antes de calcular; hoy el candado EN_CURSO vive en memoria. Hecho = dos pestañas apretando «Hacerlo» crean una sola vez.",
+   "donde": "C:/dev/wt-puntas/lib/sugerencias-crm-server.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 515,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "Faltan cuatro de las sugerencias que MaKo tendría que dar en el CRM",
+  "porque": "MaKo no avisa de los leads perdidos hace dos meses ni de la etapa donde se cae la mitad: esas ventas se pierden sin que nadie las vea.",
+  "tecnico": "Clases 2 y 4: gestos repetidos (clase 2), «llega algo nuevo» (clase 4), «Perdidos hace 60 a 90 días» y «la etapa donde se cae la mitad». C:/dev/wt-puntas/lib/sugerencias-crm.ts · C:/dev/wt-puntas/docs/sugerencias-mako-crm.md:4 todavía dice «Nada de esto existe todavía» · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306",
+  "original": {
+   "titulo": "Las clases 2 y 4 de las sugerencias de MaKo en el CRM no se hicieron",
+   "queFalta": "Gestos repetidos (clase 2), «llega algo nuevo» (clase 4), «Perdidos hace 60 a 90 días» y «la etapa donde se cae la mitad». docs/sugerencias-mako-crm.md:4 todavía dice «Nada de esto existe todavía». Hecho = las cuatro sugerencias aparecen y se pueden callar.",
+   "donde": "C:/dev/wt-puntas/lib/sugerencias-crm.ts · C:/dev/wt-puntas/docs/sugerencias-mako-crm.md:4 · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 616,
+  "area": "CRM",
+  "quien": "equipo",
+  "titulo": "La ficha del cliente no aguanta una cuota que cambia de monto cada mes",
+  "porque": "Código Inmobiliario pagó 146 en octubre y 238 en noviembre: eso hoy no entra, y tres clientes están cargados sin monto.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/suscripciones-ficha-encargo.md · C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md (110 líneas) · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/bloques-cobro.tsx:54,497,756. Medido: 15 leads suscripcion en producción (3 del ws9, 12 del ws11); los 3 del ws9 con suscripcion_monto_usd y suscripcion_meses en NULL aunque están en Ganado y pagaron; el lead de Florencia con cliente_ws en null. Pedido también: «vista de edición» de las pestañas del detalle sin perder la personalización",
+  "original": {
+   "titulo": "El encargo de la suscripcion en la ficha del lead y la vista de edicion (5/11) tampoco lo tomo nadie",
+   "queFalta": "`docs/relevo/suscripciones-ficha-encargo.md` y su medicion (`suscripciones-medicion.md`, 110 lineas) no aparecen en ningun item de la lista. Lo pedido: que la ficha aguante una mensualidad que CAMBIA mes a mes (el caso real de Codigo Inmobiliario: 146 en octubre, 238 en noviembre en dos pagos) y una «vista de edicion» de las pestanas del detalle sin perder la personalizacion. Medido: produccion tiene 15 leads `suscripcion` (3 del ws9, 12 del ws11); los 3 del ws9 tienen `suscripcion_monto_usd` y `suscripcion_meses` en NULL aunque estan en Ganado y pagaron; el lead de Florencia tiene `cliente_ws` en null, asi que su pago no se puede atribuir por dato. Hecho = los 3 leads del ws9 con su monto, y el caso de Codigo entrando sin explicar nada.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/suscripciones-ficha-encargo.md · C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/bloques-cobro.tsx:54,497,756",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

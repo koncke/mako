@@ -1,0 +1,122 @@
+[
+ {
+  "id": 58,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Cuatro tickets de clientes siguen abiertos sin contestar: 38, 39, 43 y 58",
+  "porque": "Son clientes esperando respuesta; uno pide agendar el pago de una cuota para el 19/12 y nadie lo tomó.",
+  "tecnico": "#38 (Fastlane): sólo se hizo la investigación (docs/funnel-coach.md §9, 2a31f80c5); ver si el «link de Fastlane» del reparto es el mismo pedido. #39 (Brigitte, ws 15): 8f19b1229 arregló la alarma, no la causa; leer `errores_app` de ese ticket antes de responder, y no se sabe si ese negocio tiene grupo. #43: espera la decisión de Martín. #58 (Joan, por audio): agendar el pago de la segunda cuota de Giselle Belanti para el 19/12; lo trabó el eco. Los dos primeros se cierran A MANO: el cron no los toma. docs/relevo/pendientes-0311.md (textos ya redactados) · scripts/tickets.ts",
+  "original": {
+   "titulo": "Tickets abiertos sin cerrar ni contestar: #38, #39, #43, #58",
+   "queFalta": "#38 (Fastlane): sólo se hizo la investigación (docs/funnel-coach.md §9, 2a31f80c5); antes de cerrar, ver si el «link de Fastlane» del reparto es el mismo pedido. #39 (Brigitte, ws 15): 8f19b1229 arregló la alarma, no la causa; leer `errores_app` de ese ticket antes de mandar la respuesta, y no se sabe si ese negocio tiene grupo. #43 (agencia): espera la decisión de Martín. #58 (Joan, por audio): agendar el pago de la segunda cuota de Giselle Belanti para el 19/12; lo trabó el eco y hay que pedírselo de nuevo. Los dos primeros se cierran A MANO: el cron no los toma.",
+   "donde": "docs/relevo/pendientes-0311.md §«Tickets a cerrar y avisar» (con los textos ya redactados) · docs/relevo/cerebro.md:152 · scripts/tickets.ts",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 298,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Agendar la segunda cuota de Giselle Belanti para el 19 de diciembre",
+  "porque": "Joan lo pidió por audio y se perdió por el eco de MaKo en el grupo: hay que volver a pedírselo cuando el eco esté arreglado.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:144 · docs/relevo/cerebro.md:152. Ticket #58; espera el arreglo del eco (`punta/doer-eco-dos-lineas`).",
+  "original": {
+   "titulo": "Ticket #58: agendar el pago de la segunda cuota de Giselle Belanti para el 19/12",
+   "queFalta": "Lo pidio Joan por audio y lo trabo el eco de MaKo en el grupo: hay que pedirselo de nuevo cuando llegue el arreglo del eco.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:144 · docs/relevo/cerebro.md:152",
+   "bloqueo": "Espera el arreglo del eco (`punta/doer-eco-dos-lineas`)",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 299,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Tres tickets siguen abiertos: el 38 (Fastlane), el 39 y el 43",
+  "porque": "Figuran abiertos desde el 4/11 y nadie los cerró: son pedidos de clientes esperando. El 38 además necesita una decisión de producto.",
+  "tecnico": "docs/relevo/cerebro.md:152 · docs/relevo/pendientes-barrido.md:188. Tickets #38 (Fastlane), #39 y #43; el #38 está en la lista de decisiones de producto de Martín.",
+  "original": {
+   "titulo": "Tickets abiertos sin cerrar: #38 (Fastlane), #39 y #43",
+   "queFalta": "Figuran abiertos en el relevo del 4/11 y ninguno aparece cerrado despues. El #38 esta ademas en la lista de decisiones de producto de Martin.",
+   "donde": "docs/relevo/cerebro.md:152 · docs/relevo/pendientes-barrido.md:188",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 300,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Los tickets de Joan y de Juanfran no tienen prioridad por ser agencias",
+  "porque": "Se prometió en la llamada que iban primero y hoy la prioridad sale solo del texto del ticket: sus pedidos esperan igual que el resto.",
+  "tecnico": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:88 (A8) · lib/tickets-reglas.ts:401. Falta subir prioridad por agencia en el triage.",
+  "original": {
+   "titulo": "A8: no hay prioridad por agencia para los tickets de Joan y Juanfran",
+   "queFalta": "La prioridad sale solo del texto del ticket. Falta subir prioridad por agencia en el triage. Prometido en la llamada.",
+   "donde": "docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:88 · lib/tickets-reglas.ts:401",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 458,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Cuatro tickets de clientes están en manos de otro chat y nadie los toca",
+  "porque": "Mientras nadie confirme quién los tiene, esos cuatro reclamos no avanzan y el cliente sigue esperando respuesta.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:42 — tickets #50, #51, #52 y #53 asignados a otro agente; el chat de tickets tiene orden de no tocarlos hasta que el Cerebro los pase. Queda confirmar quién los tiene y pasarlos o retomarlos.",
+  "original": {
+   "titulo": "Los tickets #50, #51, #52 y #53 están en manos de otro agente",
+   "queFalta": "No se tocan hasta que el Cerebro los pase. Queda confirmar quién los tiene y pasarlos, o retomarlos.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:42",
+   "bloqueo": "Están asignados a otro agente y el chat de tickets tiene orden de no tocarlos hasta que el Cerebro los pase.",
+   "estado": "trabado"
+  }
+ },
+ {
+  "id": 460,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Quien pide no recibir más correos de tickets y no tiene cuenta, no queda anotado",
+  "porque": "Una persona que pidió no recibir más correos los sigue recibiendo: eso es un reclamo, o una denuncia de spam.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:33-38 ; lib/tickets — un ticket que entra por WhatsApp sin perfil, o de un alumno de un curso, no tiene dónde anotar la baja: haría falta una tabla de bajas por email (migración). Quedó afuera a propósito. Falta además una casilla en Notificaciones para prender y apagar los correos de avance (hoy sólo desde el link del correo, que también los vuelve a prender).",
+  "original": {
+   "titulo": "Los tickets sin cuenta no tienen dónde guardar «no me escribas»",
+   "queFalta": "Un ticket que entra por WhatsApp sin perfil, o de un alumno de un curso, no tiene dónde anotar la baja de los correos. Si hace falta, se necesita una tabla de bajas por email, o sea una migración. Quedó afuera a propósito. Aparte: falta una casilla en Notificaciones para prender y apagar los correos de avance (hoy sólo desde el link del correo, que también los vuelve a prender).",
+   "donde": "C:/dev/wt-puntas/docs/relevo/nube-tickets.md:33-38 ; lib/tickets",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 549,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "Siete cosas pendientes de la bandeja de tickets",
+  "porque": "Un ticket que espera a Martín no se ve como entregado, los nuevos no llegan a su PC, y si el aviso al cliente falla queda así para siempre.",
+  "tecnico": "1) Que la bandeja diga «Entregado al Cerebro» (sumar cerebro_* a COLS; la 0343 ya está en producción). 2) Actualizar el Runner de la PC a 1.23.0 (el servidor sólo da tickets nuevos a un cartero ≥ 1.23.0). 3) /api/errores manda la ruta con los tokens (/pagar/<token>, /compartido/<token> viajan enteros; la query conserva números de hasta 12 cifras). 4) Un canal propio para «Reportar a Soporte». 5) Captura de pantalla en el ticket del botón. 6) MaKo de Soporte con IA. 7) Avisar al cliente por otro canal cuando ninguno sale. C:/dev/wt-puntas/lib/tickets-aviso.ts (entregaAlCerebro) · lib/tickets-db.ts (COLS) · scripts/operaciones/cartero.mjs · lib/errores-app-reglas.ts (rutaSinDatos) · lib/tickets-reglas.ts (CANAL_PARA_EL_CLIENTE) · app/_ui/ReportarASoporte.tsx · lib/soporte-chat.ts · lib/tickets-cierre.ts · tabla en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642",
+  "original": {
+   "titulo": "Siete pendientes de la Ticketera, con su archivo",
+   "queFalta": "Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín (sumar cerebro_* a COLS; la 0343 ya está en producción); actualizar el Runner de la PC a 1.23.0 (el servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0); /api/errores manda la ruta con los tokens del camino (/pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras); un canal propio para «Reportar a Soporte» (hoy sale por formulario); una captura de pantalla en el ticket del botón; MaKo de Soporte con IA; y avisar al cliente por otro canal cuando ninguno sale (hoy queda «El aviso al cliente no salió» para siempre). Hecho = los siete verificados en la bandeja.",
+   "donde": "C:/dev/wt-puntas/lib/tickets-aviso.ts (entregaAlCerebro) · lib/tickets-db.ts (COLS) · scripts/operaciones/cartero.mjs · lib/errores-app-reglas.ts (rutaSinDatos) · lib/tickets-reglas.ts (CANAL_PARA_EL_CLIENTE) · app/_ui/ReportarASoporte.tsx · lib/soporte-chat.ts · lib/tickets-cierre.ts · tabla en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 550,
+  "area": "Tickets",
+  "quien": "equipo",
+  "titulo": "La foto de perfil puede ser cualquier dirección de internet",
+  "porque": "Un cliente puede poner una imagen suya y enterarse de cuándo Martín abre la bandeja de tickets, y desde dónde entra.",
+  "tecnico": "avatarUrl se guarda sin filtro. Aceptar sólo el storage propio y Google, para toda la app. C:/dev/wt-puntas/lib/perfil.ts (setPerfil, avatarUrl) · lib/tickets-db.ts (aFila) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642",
+  "original": {
+   "titulo": "La foto de quien levanta un ticket puede ser CUALQUIER https",
+   "queFalta": "avatarUrl se guarda sin filtro, así que un cliente que pone una URL suya se entera de cuándo Martín abre la Ticketera (y su IP). Arreglarlo es aceptar sólo el storage propio y Google, para toda la app. Hecho = una foto de perfil externa se rechaza.",
+   "donde": "C:/dev/wt-puntas/lib/perfil.ts (setPerfil, avatarUrl) · lib/tickets-db.ts (aFila) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

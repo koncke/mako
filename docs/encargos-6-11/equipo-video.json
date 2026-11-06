@@ -1,0 +1,182 @@
+[
+ {
+  "id": 175,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Tres cambios por chat llegan al editor de video por primera vez y pueden romper",
+  "porque": "Cambiar un texto lo devuelve a su lugar original y deshace lo anterior sin avisar, y el grosor o el fondo pueden no hacer nada.",
+  "tecnico": "Salió del arreglo del 30/10 en Image (la doble validación que tiraba todo el texto): `agregar_texto`, `estilo_texto`, `transformar` y `ajustar_color` no pasaban NUNCA en los dos editores. Ahora pasan, y en Video quedan tres huecos: `cambiar_texto` sobre un texto de plantilla lo devuelve a su ancla y deshace un `transformar` anterior sin avisar; `opacidad_fondo` o `grosor_trazo` sueltos pueden no hacer nada o prender un trazo que la revisión no muestra; y una propuesta vieja con solo esas operaciones puede reaparecer una vez al abrir el proyecto (no se midió si hay alguna). El Video Editor tampoco tiene las fotos desde el chat. El código vive en app/video-editor: es del chat de Video. C:/dev/wt-puntas/app/video-editor/_opencut/chat/comandos.ts · _opencut/chat/linea.ts · docs/hallazgos-editor-imagen.md:692-694 y 740",
+  "original": {
+   "titulo": "Tres operaciones del chat llegan al Video Editor por primera vez y pueden romper",
+   "queFalta": "Salio del arreglo del 30/10 en Image (la doble validacion que tiraba todo el texto): `agregar_texto`, `estilo_texto`, `transformar` y `ajustar_color` no pasaban NUNCA, en los dos editores. Ahora pasan, y en Video quedan tres huecos: `cambiar_texto` sobre un texto de plantilla lo devuelve a su ancla y deshace un `transformar` anterior sin avisar; `opacidad_fondo` o `grosor_trazo` sueltos pueden no hacer nada o prender un trazo que la revision no muestra; y una propuesta vieja que solo tenia esas operaciones puede reaparecer una vez al abrir el proyecto (no se midio si hay alguna). Ademas el Video Editor no tiene las fotos desde el chat. HECHO cuando las tres se prueben en el Video Editor con una propuesta real.",
+   "donde": "C:/dev/wt-puntas/app/video-editor/_opencut/chat/comandos.ts · _opencut/chat/linea.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:692-694 y 740",
+   "bloqueo": "El codigo vive en app/video-editor: es del chat de Video, aunque el hallazgo salio del de Image.",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 269,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Sumar Muapi como segundo motor para generar videos",
+  "porque": "Hoy todo depende de un solo proveedor: si Google Flow se cae o cambia, no hay con qué generar videos. Está el diseño escrito y nada de código.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:147-149 · docs/diseno-ai-avatar-estudios.md:53. Diseño en `459bd7c0f`; `git grep -i muapi` no da nada en `lib/` ni `app/`. Hecho = un video generado por Muapi como alternativa a Flow.",
+  "original": {
+   "titulo": "Muapi como segundo motor de video",
+   "queFalta": "Hay disenio escrito (`459bd7c0f`) y `git grep -i muapi` no da nada en `lib/` ni `app/`. Hecho = un video generado por Muapi como alternativa a Flow.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:147-149 · docs/diseno-ai-avatar-estudios.md:53",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 270,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Falta el «Creador de formatos» que pidió Martín",
+  "porque": "Los datos ya están cargados y la pantalla no existe: el pedido quedó a mitad de camino y hoy no se puede usar.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:155-157 · app/video-generator/formatos-datos.ts · docs/hallazgos-generativa.md:4622. El archivo existe y nadie lo importa; falta la pantalla y el flujo.",
+  "original": {
+   "titulo": "El «Creador de formatos» que pidio Martin",
+   "queFalta": "`app/video-generator/formatos-datos.ts` existe y nadie lo importa. Falta la pantalla y el flujo.",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:155-157 · app/video-generator/formatos-datos.ts · docs/hallazgos-generativa.md:4622",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 271,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "No se puede ver la curva de retención de cada video",
+  "porque": "El pedido era «que todos los videos se puedan medir»: el cálculo ya existe, pero nadie le dice de qué video, así que no se muestra.",
+  "tecnico": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:206-207 · app/admin/dev/vsl-tracking/bitacora.ts:34. `curvaRetencion` acepta `videoId` y nadie se lo pasa.",
+  "original": {
+   "titulo": "La curva de retencion por video no se puede ver",
+   "queFalta": "`curvaRetencion` acepta `videoId` y nadie se lo pasa. Pedido: «que todos los videos se puedan medir».",
+   "donde": "docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:206-207 · app/admin/dev/vsl-tracking/bitacora.ts:34",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 446,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Subtítulos, B-roll y clips del editor de video nunca se vieron funcionando",
+  "porque": "Tres cosas grandes del editor de video pueden estar rotas y nadie lo sabe: la nube no puede abrir el editor.",
+  "tecnico": "La nube no corre el editor (necesita WebGPU y el WASM). Falta: palabras clave (subtítulos automáticos con el interruptor, el panel, guardar un preset y verlo en Plantillas «De tu marca»); B-roll (scripts/probar-broll-ia.mts --ws 3, conectar Pexels, «Proponer», borde punteado, Dejar/Sacar y Ctrl+Z); clips (scripts/probar-clips-ia.mts --ws 3, «Buscar los mejores momentos», «Ver», «Abrir», y probar con un video de 30 min o más). docs/relevo/nube-video-clips.md:37-48",
+  "original": {
+   "titulo": "Nada del Video Editor (subtítulos, B-roll y clips) se miró en un navegador",
+   "queFalta": "La nube no corre el editor (necesita WebGPU y el WASM). Falta: palabras clave (subtítulos automáticos con el interruptor, el panel, guardar un preset y verlo en Plantillas «De tu marca»); B-roll (`probar-broll-ia.mts --ws 3`, conectar Pexels, «Proponer», borde punteado, Dejar/Sacar y Ctrl+Z); clips (`probar-clips-ia.mts --ws 3`, «Buscar los mejores momentos», «Ver», «Abrir», y probar con un video de 30 min o más).",
+   "donde": "C:/dev/wt-puntas/scripts/probar-broll-ia.mts y scripts/probar-clips-ia.mts ; docs/relevo/nube-video-clips.md:37-48",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 447,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Los 6 modelos nuevos de video quedaron sin entrar",
+  "porque": "El cliente sigue viendo los modelos viejos, dos de ellos ya descartados, y sin miniatura para elegir.",
+  "tecnico": "Sumar los 6 templates nuevos, retirar gancho-escrito y oferta-glitch, sumar los clips de Pexels y la miniatura dibujada (MiniaturaPlantilla). Lo que no entró está listado en la cabecera de lib/editor-video/plantillas-ejemplos.ts. Es trabajo del chat de Video. docs/relevo/nube-plantillas.md:43-46",
+  "original": {
+   "titulo": "Los 6 templates nuevos de Video no entraron",
+   "queFalta": "Sumar los 6 templates nuevos, retirar `gancho-escrito` y `oferta-glitch`, sumar los clips de Pexels y la miniatura dibujada (`MiniaturaPlantilla`). Lo que no entró está listado en la cabecera del archivo de ejemplos. Es trabajo del chat de Video.",
+   "donde": "C:/dev/wt-puntas/lib/editor-video/plantillas-ejemplos.ts (la cabecera) ; docs/relevo/nube-plantillas.md:43-46",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 448,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "No se pueden guardar plantillas propias de video, ni en cuatro pantallas más",
+  "porque": "El cliente arma algo bueno en video y no lo puede volver a usar: cada vez empieza de cero.",
+  "tecnico": "El enchufe de lib/creaciones-enchufes.ts (POR_ENCHUFAR) necesita que el editor arme la plantilla: el proyecto vive en el navegador, no en el servidor. Dueño declarado: el chat de Video. Aparte, Offer, AI Avatar, Web Generator y Dashboard están sin empezar (Dashboard ya tiene hojaParaCopiar). lib/creaciones-reglas.ts ; docs/relevo/nube-plantillas.md:37-41",
+  "original": {
+   "titulo": "Las plantillas propias no funcionan en Video porque el proyecto vive en el navegador",
+   "queFalta": "El enchufe de `lib/creaciones-enchufes.ts` necesita que el editor arme la plantilla (el proyecto no está en el servidor). Dueño declarado: el chat de Video. Aparte, Offer, AI Avatar, Web Generator y Dashboard están sin empezar (Dashboard ya tiene `hojaParaCopiar`).",
+   "donde": "C:/dev/wt-puntas/lib/creaciones-enchufes.ts (POR_ENCHUFAR) ; lib/creaciones-reglas.ts ; docs/relevo/nube-plantillas.md:37-41",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 551,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "No se puede pedir por chat que armen un anuncio en video",
+  "porque": "Lo que Martín pidió el 25/10 no está: hay que armar el video a mano en el editor y exportarlo desde el navegador.",
+  "tecnico": "1) La operación montar_anuncio_video (la API sólo lee, con ver_montaje_anuncio). 2) Editar un video pedido por chat y que salga renderizado: el Video Editor exporta sólo en el navegador, no hay render en servidor ni en MaKo Desktop. Martín quiere las dos vías, «también con servidor de MaKo». C:/dev/wt-puntas/lib/api-mako/areas/video.def.ts · app/video-editor/_opencut/services/renderer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1304",
+  "original": {
+   "titulo": "Montar un anuncio desde el chat y renderizar en servidor no existen",
+   "queFalta": "Lo que pidió Martín el 25/10 y no se construyó: (1) la operación montar_anuncio_video (la API sólo lee, con ver_montaje_anuncio); (2) editar un video pedido por chat y que salga renderizado (el Video Editor exporta sólo en el navegador, no hay render en servidor ni en MaKo Desktop). Martín quiere las dos vías, «también con servidor de MaKo». Hecho = se pide un montaje por chat y vuelve el archivo.",
+   "donde": "C:/dev/wt-puntas/lib/api-mako/areas/video.def.ts · app/video-editor/_opencut/services/renderer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1304",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 553,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "El armado de videos corta las tomas largas y promete que no pierde nada",
+  "porque": "Lo que se dice al final de una toma larga se pierde, y la pantalla le asegura al cliente que no se perdió ni una palabra.",
+  "tecnico": "Pasarle segundosPorToma entero al script y que plan-cortes-anuncio tope cada toma con la suya; medir segundosAntes del audio real o rotularlo estimado; e invocar el verificador de palabras (verificar-corte-anuncio.mjs está en el Dockerfile y no lo llama nadie, así que palabrasPerdidas no llega nunca). C:/dev/wt-puntas/worker/montar-cola.mjs:126-132 · scripts/plan-cortes-anuncio.mjs:78 · app/video-generator/PasoMontaje.tsx:144-152 · app/api/montaje/worker/route.ts:43 · scripts/verificar-corte-anuncio.mjs · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1100 y :1139",
+  "original": {
+   "titulo": "El worker usa la duración de la PRIMERA toma para todas y la pantalla afirma «no una palabra»",
+   "queFalta": "Pasarle segundosPorToma entero al script y que plan-cortes-anuncio tope cada toma con la suya; medir segundosAntes del audio real o rotularlo estimado; e invocar el verificador de palabras (verificar-corte-anuncio.mjs está en el Dockerfile y no lo llama nadie, así que palabrasPerdidas no llega nunca). Hecho = una toma más larga que la primera no pierde lo que se dice después del tope, y la frase de la pantalla está medida.",
+   "donde": "C:/dev/wt-puntas/worker/montar-cola.mjs:126-132 · scripts/plan-cortes-anuncio.mjs:78 · app/video-generator/PasoMontaje.tsx:144-152 · app/api/montaje/worker/route.ts:43 · scripts/verificar-corte-anuncio.mjs · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1100 y :1139",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 554,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Los subtítulos están calibrados para otra tipografía, no para la que se usa",
+  "porque": "Los renglones salen más cortos de lo que dan, así que el subtítulo se ve desparejo en el video terminado.",
+  "tecnico": "MAX_CHARS=18, CUERPO=52 e Y=950 venían de Segoe UI Black; Anton es más angosta. Si esos números salieron de mirar cuadros, los renglones quedan cortos: hace falta un render con Anton mirado cuadro a cuadro. C:/dev/wt-puntas/scripts/montar-anuncio-vertical.sh · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:956",
+  "original": {
+   "titulo": "Recalibrar los subtítulos para Anton (MAX_CHARS, CUERPO, Y venían de Segoe UI Black)",
+   "queFalta": "Anton es más angosta: si esos números salieron de mirar cuadros, los renglones quedan cortos. Sin verificar, y la sesión que los eligió ya cerró. Hecho = un render con Anton mirado cuadro a cuadro y los tres números ajustados.",
+   "donde": "C:/dev/wt-puntas/scripts/montar-anuncio-vertical.sh (MAX_CHARS=18, CUERPO=52, Y=950) · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:956",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 555,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "El editor de video no tiene Deshacer, no reordena tomas y no tiene música",
+  "porque": "Un error en el editor no se puede volver atrás: hay que rehacer el trabajo desde cero.",
+  "tecnico": "Ctrl+Z (una pila de planes en un useRef, con las operaciones puras ya en editor-cortes.ts); el arrastre para mover un tramo de lugar (el plan ya lo soporta: es un array ordenado); y la música, esperando Epidemic Sound Connect (una fila en PISTAS y anda). C:/dev/wt-puntas/app/video-editor/_opencut/ · lib/editor-cortes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1139",
+  "original": {
+   "titulo": "El Video Editor no tiene Deshacer, no reordena tomas y no tiene música",
+   "queFalta": "Ctrl+Z (una pila de planes en un useRef, con las operaciones puras ya en editor-cortes.ts); el arrastre para mover un tramo de lugar (el plan ya lo soporta: es un array ordenado); y la música, esperando Epidemic Sound Connect (una fila en PISTAS y anda). Hecho = los tres andan en el editor.",
+   "donde": "C:/dev/wt-puntas/app/video-editor/_opencut/ · lib/editor-cortes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1139",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ },
+ {
+  "id": 558,
+  "area": "Video",
+  "quien": "equipo",
+  "titulo": "Hacer videos de avatar borra anuncios viejos del historial",
+  "porque": "El historial guarda diez: cada avatar nuevo saca un anuncio y se pierde el único acceso a sus clips.",
+  "tecnico": "Los videos de avatar son un plan del historial del Video Generator, con MAX_HISTORIAL = 10 (los LOOKS no tienen el problema: viven en ai-avatar.looks). C:/dev/wt-puntas/app/ai-avatar/actions.ts (crearVideoAction) · app/video-editor/avatar/actions.ts · app/video-generator/video-datos.ts (MAX_HISTORIAL) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ai-avatar.md:280",
+  "original": {
+   "titulo": "Cada video de avatar empuja anuncios viejos afuera del historial (tope de 10)",
+   "queFalta": "Los videos de avatar son un plan del historial del Video Generator, con MAX_HISTORIAL = 10: hacer muchos saca anuncios viejos con el único puntero a sus clips (los LOOKS no tienen ese problema, viven en ai-avatar.looks). Hecho = los videos de avatar no comparten el tope con los anuncios.",
+   "donde": "C:/dev/wt-puntas/app/ai-avatar/actions.ts (crearVideoAction) · app/video-editor/avatar/actions.ts · app/video-generator/video-datos.ts (MAX_HISTORIAL) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ai-avatar.md:280",
+   "bloqueo": "",
+   "estado": "abierto"
+  }
+ }
+]

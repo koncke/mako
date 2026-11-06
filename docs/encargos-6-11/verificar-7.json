@@ -1,0 +1,197 @@
+[
+ {
+  "id": 565,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Cuatro pedidos del armado de campañas y de los públicos sin cerrar",
+  "porque": "No se pueden crear públicos sin entrar a Meta, faltan los formularios y los UTM, y un público de web de más de 180 días falla al crearse.",
+  "tecnico": "1) Listar los instant forms disponibles, dejar crear uno nuevo y hacerlo opcional. 2) UTMs automáticos al crear un ad. 3) Crear públicos nuevos sin entrar a Meta. 4) Públicos personalizados completos (faltan los que vieron los anuncios con % de retención y los que rellenaron el instant form, y más de 180 días). Tope: createCustomAudience topea dias en 365 para todos pero Meta limita a 180 la retención de un público de sitio web (tipo pixel): pasa todas las validaciones y falla al crear. El Ads Manager no trae anuncios de imagen, solo videos. C:/dev/wt-puntas/app/ads-manager/NuevaCampanaModal.tsx · lib/meta-ads-create.ts:735 (JSDoc de :732 dice «1..180») · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:385 y :738 (pedidos de junio y julio de 2026; sólo el tope por tipo está medido, 16/09)",
+  "original": {
+   "titulo": "Cuatro pedidos del wizard de campaña y la vista de públicos sin cerrar",
+   "queFalta": "Listar los instant forms disponibles, dejar crear uno nuevo y hacerlo opcional; UTMs automáticos al crear un ad; crear públicos nuevos sin entrar a Meta; y públicos personalizados completos (faltan los que vieron los anuncios con % de retención y los que rellenaron el instant form, y más de 180 días). Ojo con el tope: createCustomAudience topea dias en 365 para todos pero Meta limita a 180 la retención de un público de sitio web (tipo pixel), caso que pasa todas las validaciones y falla recién al crear. Y el Ads Manager no trae anuncios de imagen, solo videos.",
+   "donde": "C:/dev/wt-puntas/app/ads-manager/NuevaCampanaModal.tsx · lib/meta-ads-create.ts:735 (y el JSDoc de :732, que dice «1..180») · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:385 y :738",
+   "bloqueo": "Pedidos de junio y julio de 2026; sólo el tope por tipo de público está medido (16/09).",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 578,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Los cursos muestran las clases en una sola tira y uno puede perder 242 clases",
+  "porque": "El alumno ve 78 clases seguidas sin secciones, y regenerar un curso borra sus 242 clases sin un solo error.",
+  "tecnico": "C:/dev/wt-puntas/app/conocimientos/CursoReplica.tsx · C:/cursos/<slug>/drive.json · scripts/curso-a-portal.mjs:439 · scripts/cursos-cola-armar.mjs:41-43 · scripts/curso-pipeline.mjs:152 · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:5746. Seis puntos: subgrupo no se dibuja (MasteryHaus «MKT Perpetuo»), vender-por-fb-e-ig-ads con scope en carpeta sin videos, «Mateo Maffia - BYF» con PDF de BlueHacker, 46 .zip/.cube sin vista previa, cola da por publicado todo .ts, log corta la causa a 150 caracteres",
+  "original": {
+   "titulo": "Conocimiento: 785 clases pierden su sección y un curso regenerado tiraría 242 clases",
+   "queFalta": "Del barrido del 29/08, verificado y sin hacer: subgrupo no se dibuja (MasteryHaus «MKT Perpetuo» son 78 clases en una tira sin sus 11 secciones); vender-por-fb-e-ig-ads tiene el scope de Drive en una carpeta con CERO videos y una regeneración tiraría sus 242 clases sin un solo error; «Mateo Maffia - BYF» tiene en su drive.json el PDF de onboarding de BlueHacker; 46 recursos .zip/.cube abren un iframe que dice «sin vista previa» mientras la tarjeta promete «Descarga»; el armador de la cola da por publicado todo curso con archivo .ts sin contar clases; y el log corta la causa del fallo de transcripción a 150 caracteres. Hecho = los seis cerrados.",
+   "donde": "C:/dev/wt-puntas/app/conocimientos/CursoReplica.tsx · C:/cursos/<slug>/drive.json · scripts/curso-a-portal.mjs:439 · scripts/cursos-cola-armar.mjs:41-43 · scripts/curso-pipeline.mjs:152 · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:5746",
+   "bloqueo": "Barrido del 29/08/2026; no pude confirmar cuáles se cerraron después.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 579,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Una clase en video no se puede transcribir y hay que subirlas de a una",
+  "porque": "Cargar un curso entero lleva horas a mano, y una transcripción que falla queda como terminada: la clase se queda sin texto.",
+  "tecnico": "C:/dev/wt-puntas/scripts/ (falta el paso de extraer audio) · lib/transcribe.ts (asegurarCreds) · app/conocimientos/ConocimientoView.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:1924. Molde a no repetir: un fallo de transcripción no debe quedar como estado terminal (status error contado como ya transcrito dejó 9 anuncios sin texto)",
+  "original": {
+   "titulo": "Conocimiento: no existe el paso de extraer audio antes de transcribir, ni ingesta por lote",
+   "queFalta": "Es el único paso que falta para que una clase entera entre por la puerta que ya existe. Y ConocimientoView sube de a una clase a mano. Cuidado con el molde a no repetir: un fallo de transcripción no debe quedar como estado terminal (en el cron de anuncios una credencial a medio hidratar guardó status error y eso contaba como ya transcrito, dejando 9 anuncios sin texto para siempre). Hecho = una clase entera se transcribe y un lote se sube de una vez.",
+   "donde": "C:/dev/wt-puntas/scripts/ · lib/transcribe.ts (asegurarCreds) · app/conocimientos/ConocimientoView.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:1924",
+   "bloqueo": "Entrada de 2026-08-11; no pude confirmar si el paso se escribió.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 582,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "En el Plan no se puede descargar nada y subir un archivo deja la ventana colgada",
+  "porque": "No hay forma de bajar el plan para compartirlo, y quien sube un documento se queda esperando sin que pase nada.",
+  "tecnico": "C:/dev/wt-puntas/app/plan/board/ (exportar/importar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1589. Falta el modal de «¿Qué quieres descargar?» con elección de proyectos/tareas y campos (ID del proyecto, descripciones, justificación de prioridad); el nombre del archivo es siempre «plan-completo-2026-08-06»; al reabrir el modal se pierde la importación pendiente",
+  "original": {
+   "titulo": "El Plan: exportar no funciona e importar un .md deja el modal pensando para siempre",
+   "queFalta": "El botón de exportar no funciona y falta el modal para elegir qué proyectos/tareas y qué campos (hoy faltan el ID del proyecto, las descripciones y la justificación de prioridad); el flujo tiene que arrancar por «¿Qué quieres descargar?»; el nombre del archivo es siempre el mismo («plan-completo-2026-08-06»); y subir un .md deja el modal pensando con textos sin sentido («Leyendo la reunión») y al reabrirlo se pierde la importación pendiente. Hecho = se exporta eligiendo campos y se importa un .md.",
+   "donde": "C:/dev/wt-puntas/app/plan/board/ (exportar/importar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1589",
+   "bloqueo": "Pedidos del 05-06/08/2026; no pude confirmar si se arreglaron.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 584,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "El Perro Guardián se vuelve a ejecutar cada vez que se recarga la pantalla",
+  "porque": "Cada corrida cuesta plata, así que recargar el Plan gasta de más; y medir un experimento obliga a medir todos.",
+  "tecnico": "C:/dev/wt-puntas/app/plan/ (el Perro: falta en la Retro, que corra solo, con fecha de creación/ejecución y conectado a Plan y WhatsApp) · lib/experimentos.ts:278 (medir no exportada; hasta 23 getMarketingWindow por experimento) · lib/api-mako/areas/experimentos.helpers.ts (la copia, borrar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:638 y :1574",
+  "original": {
+   "titulo": "El Plan: el Perro se re-ejecuta y re-prioriza en cada refresh, y no participa de la Retro",
+   "queFalta": "«No debería para nada correr cada que le doy refresh»: cada corrida es plata. Y falta el Perro en la Retro, que se ejecute sola, con fecha de creación/ejecución y conectada con Plan y WhatsApp. Además medir() no está exportada, así que medir UN experimento cuesta medir todos (hasta 23 getMarketingWindow por experimento), y la API de MaKo copió la función con el mismo criterio. Hecho = el Perro no corre por un refresh, está en la Retro, y medir() exportada con la copia borrada.",
+   "donde": "C:/dev/wt-puntas/app/plan/ (el Perro) · lib/experimentos.ts:278 (medir) · lib/api-mako/areas/experimentos.helpers.ts (la copia) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:638 y :1574",
+   "bloqueo": "Reportes de julio de 2026 (el Perro) y 2026-09-16 (medir); no pude confirmarlos.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 592,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Donde la app pide una clave no dice que la clave es del cliente",
+  "porque": "El cliente entrega su clave sin que nada le diga quién puede leerla ni qué la protege.",
+  "tecnico": "C:/dev/wt-puntas/app/integraciones/ServicioConfigForm.tsx · lib/metodo-catalogo.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:1204 (pedido del 2026-07-15). Si el texto tuviera que admitir que la agencia puede leerla, se cambia el mecanismo, no el texto",
+  "original": {
+   "titulo": "Seguridad: decir en cada pedido de API que el método es BYOK",
+   "queFalta": "En todo lugar donde la app pide una key falta la aclaración de que la credencial es del cliente y qué la protege. Está atado a la regla de arriba: si el texto tuviera que admitir que la agencia puede leerla, el que se cambia es el mecanismo, no el texto. Hecho = cada campo de key lleva su aclaración.",
+   "donde": "C:/dev/wt-puntas/app/integraciones/ServicioConfigForm.tsx · lib/metodo-catalogo.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:1204",
+   "bloqueo": "Pedido del 2026-07-15; no pude confirmar si los textos ya lo dicen.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 593,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "El saldo de IA que muestra MaKo no coincide con el de los proveedores",
+  "porque": "Se cargaron 20 dólares y la pantalla muestra saldo negativo: nadie puede saber cuánto queda ni cuánto se gastó.",
+  "tecnico": "C:/dev/wt-puntas/lib/anthropic-usage.ts (Claude en $-0.14 tras cargar 20 USD) · lib/ia-cuotas.ts (Gemini: el panel dice $9.85 y MaKo otra cosa; el historial marca como pagos tokens gratuitos previos a la carga; Groq se mide en tokens hasta el límite, no en dólares) · app/integraciones (Saldo de IA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:2767",
+  "original": {
+   "titulo": "IA: los números del saldo no cierran en Claude, Gemini y Groq",
+   "queFalta": "El saldo de Claude aparece en $-0.14 después de cargar 20 USD; el costo de Gemini se calcula mal (el dashboard dice $9.85 y MaKo otra cosa) y el historial marca como pagos tokens gratuitos de antes de la carga de créditos; el de Groq no se mide en dólares sino en tokens que faltan para el límite. Hecho = los tres saldos coinciden con el panel del proveedor.",
+   "donde": "C:/dev/wt-puntas/lib/anthropic-usage.ts · lib/ia-cuotas.ts · app/integraciones (Saldo de IA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:2767",
+   "bloqueo": "Reportes de julio de 2026 sin cerrar en el documento; no pude confirmarlos contra producción desde este árbol.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 605,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "Cinco partes de la app obligan a elegir un solo funnel cuando hay varios",
+  "porque": "Un negocio con varios funnels ve números incompletos: campañas, automatizaciones y reportes toman siempre uno solo.",
+  "tecnico": "C:/dev/wt-puntas/lib/campana-config.ts:62 · lib/condiciones-catalogo.ts:553 («Está en el funnel de») · app/offer/Conclusion.tsx:259 («Guardar en este funnel») · lib/queries.ts:1292 (retro y métricas, siempre el principal) · lib/api-mako/areas/crm.def.ts:118 (ver_funnel sin parámetro) · lib/graficos-datos.ts (filtro «Producto» de los LEADS mira solo la casa) · arreglo de fondo: que el PAGO guarde de qué funnel es · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928. docs/hallazgos-graficos.md:1614 dice que el filtro de LEADS se arregló el 17/10/2026",
+  "original": {
+   "titulo": "Objectives: cinco configuraciones de la app siguen eligiendo UN solo funnel",
+   "queFalta": "Repartido por tab: campañas → funnel; la condición «Está en el funnel de» de las automatizaciones; «Guardar en este funnel» de Offer; la retro y la API de métricas (siempre el principal); y ver_funnel sin parámetro. El arreglo de fondo es del CRM: que el PAGO guarde de qué funnel es. Y el filtro «Producto» de los LEADS del Dashboard mira sólo la casa, así que filtrar por «Renovación» no muestra a los 5 agregados (sin decidir: un lead en dos funnels contado en los dos duplica los totales). Hecho = las cinco eligen varios funnels y el filtro de leads decidido.",
+   "donde": "C:/dev/wt-puntas/lib/campana-config.ts:62 · lib/condiciones-catalogo.ts:553 · app/offer/Conclusion.tsx:259 · lib/queries.ts:1292 · lib/api-mako/areas/crm.def.ts:118 · lib/graficos-datos.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928",
+   "bloqueo": "docs/hallazgos-graficos.md:1614 dice que el filtro «Producto» de los LEADS se arregló el 17/10/2026; el documento de objectives sigue dándolo por abierto.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 630,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Los mensajes de WhatsApp suman 200 MB por mes y el disco contratado no baja",
+  "porque": "El espacio se paga y no se devuelve: la factura de la base sube todos los meses por un dato crudo que nadie usa.",
+  "tecnico": "C:/dev/wt-puntas/docs/estado-del-arte.md (§Riesgo alto — se degrada solo, punto 14) · C:/dev/wt-puntas/lib/evolution-mensajes.ts. 292 de 374 MB del TOAST son de wa_mensajes.raw, con filas de hasta 4,3 MB y +200 MB por mes; Supabase aprovisiona disco y no lo devuelve. La corrección escrita es recortar el `raw` viejo, NO borrar la fila. Medición anterior al 1/11: volver a medir antes de tocar",
+  "original": {
+   "titulo": "El TOAST de `wa_mensajes.raw` crece ~200 MB por mes y el disco de Supabase no baja",
+   "queFalta": "De los pendientes vivos de estado-del-arte.md, sin leer por nadie: 292 de 374 MB del TOAST son de `wa_mensajes.raw`, con filas de hasta 4,3 MB y +200 MB por mes, y el disco de Supabase se aprovisiona y no se devuelve. La correccion escrita es recortar el `raw` viejo, NO borrar la fila (el mensaje tiene que seguir). Hecho = la medicion repetida con fecha y el recorte corriendo, con el tamano del TOAST antes y despues.",
+   "donde": "C:/dev/wt-puntas/docs/estado-del-arte.md (§Riesgo alto — se degrada solo, punto 14) · C:/dev/wt-puntas/lib/evolution-mensajes.ts",
+   "bloqueo": "La medicion es anterior al 1/11 y no pude confirmarla sin la base: hay que volver a medir antes de tocar nada.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 631,
+  "area": "Video",
+  "quien": "verificar",
+  "titulo": "No hay subtítulos: la transcripción no devuelve el tiempo de cada palabra",
+  "porque": "El Video Editor no puede dibujar un subtítulo, así que todo video sale sin texto en pantalla.",
+  "tecnico": "C:/dev/wt-puntas/lib/transcribe.ts (las dos llamadas, ~:172 y :258 según el documento): grep de `timestamp_granularities` no devuelve nada · C:/dev/wt-puntas/lib/elevenlabs.ts (ya existe) · C:/dev/wt-puntas/docs/estado-del-arte.md punto 35. Falta el parámetro en las dos llamadas y el campo de palabras en los dos tipos",
+  "original": {
+   "titulo": "Los subtitulos siguen sin habilitar: `timestamp_granularities` no esta en lib/transcribe.ts",
+   "queFalta": "De estado-del-arte.md (punto 35). Verificado hoy: grep de `timestamp_granularities` en `lib/transcribe.ts` no devuelve NADA, asi que la transcripcion no pide marcas por palabra y sin eso no hay subtitulos. `lib/elevenlabs.ts` ya existe (eso si se escribio). Falta el parametro en las dos llamadas y el campo de palabras en los dos tipos. Hecho = una transcripcion devuelve palabras con tiempo y el Video Editor dibuja el subtitulo.",
+   "donde": "C:/dev/wt-puntas/lib/transcribe.ts (las dos llamadas, ~:172 y :258 segun el documento) · C:/dev/wt-puntas/lib/elevenlabs.ts · C:/dev/wt-puntas/docs/estado-del-arte.md punto 35",
+   "bloqueo": "El pedido viene de un documento anterior al 1/11; la ausencia del parametro si la confirme, pero no que siga siendo lo que Martin quiere.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 632,
+  "area": "CRM",
+  "quien": "verificar",
+  "titulo": "El funnel de un negocio nuevo no se arma con el canal que la persona eligió",
+  "porque": "El negocio arranca con el funnel vacío aunque contestó la pregunta, y eso frena llevar sus etapas al Second Brain.",
+  "tecnico": "C:/dev/wt-puntas/app/api/onboarding/route.ts:324 (el case 'funnel' existe; el documento dice que no tiene caller) · C:/dev/wt-puntas/docs/estado-del-arte.md punto 30. Documento anterior al 1/11: buscar quién lo invoca antes de escribir",
+  "original": {
+   "titulo": "El `case 'funnel'` del onboarding existe y nadie lo llama: el funnel no se siembra con el canal elegido",
+   "queFalta": "De estado-del-arte.md (punto 30). Verificado: `app/api/onboarding/route.ts:324` tiene un `case 'funnel'` escrito. El documento dice que no tiene caller, asi que el funnel nunca se siembra con el canal que la persona eligio, y eso bloquea meter las etapas del funnel en el Second Brain. Hecho = el caso se llama desde el paso del onboarding y un negocio nuevo arranca con su funnel sembrado.",
+   "donde": "C:/dev/wt-puntas/app/api/onboarding/route.ts:324 · C:/dev/wt-puntas/docs/estado-del-arte.md punto 30",
+   "bloqueo": "Documento anterior al 1/11: confirme que el `case` existe, no que siga sin caller (hay que buscar quien lo invoca antes de escribir).",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 633,
+  "area": "Infra",
+  "quien": "verificar",
+  "titulo": "Hay avisos que salen dos veces, y sus marcas suman 3.600 filas por año",
+  "porque": "El cliente recibe repetido el mismo aviso de reunión cancelada o de lead nuevo, y la base se llena de marcas viejas.",
+  "tecnico": "C:/dev/wt-puntas/lib/avisos-catalogo.ts · C:/dev/wt-puntas/docs/estado-del-arte.md punto 15. Las marcas de deduplicación crecen ~3.600 filas al año por negocio y conviene un barrido; hay avisos por entidad sin `dedupKey`: reunion-cancelada, lead-formulario-meta, wa-m…. Medición anterior al 1/11: volver a contar las filas antes de decidir el barrido",
+  "original": {
+   "titulo": "Las marcas de dedup de avisos se acumulan ~3.600 filas por ano y por negocio, y hay avisos sin `dedupKey`",
+   "queFalta": "De estado-del-arte.md (punto 15), sin leer por ninguna familia: las marcas de deduplicacion de avisos crecen ~3.600 filas al ano por negocio y conviene un barrido; y hay avisos por entidad sin `dedupKey` (`reunion-cancelada`, `lead-formulario-meta`, `wa-m…`), que es lo que hace que el mismo aviso pueda salir dos veces. Hecho = el barrido corriendo y cada aviso por entidad con su dedupKey.",
+   "donde": "C:/dev/wt-puntas/lib/avisos-catalogo.ts · C:/dev/wt-puntas/docs/estado-del-arte.md punto 15",
+   "bloqueo": "Medicion anterior al 1/11: hay que volver a contar las filas antes de decidir el barrido.",
+   "estado": "dudoso"
+  }
+ },
+ {
+  "id": 634,
+  "area": "Otro",
+  "quien": "verificar",
+  "titulo": "En las páginas copiadas los menús fijos tapan el contenido y hay cinco a rehacer",
+  "porque": "La copia no se ve igual que la original: el menú corre la página y a cierto ancho elige el diseño de tableta.",
+  "tecnico": "C:/dev/wt-puntas/docs/relevo/web-generator-replicar.md:57-80 · C:/dev/wt-puntas/app/web-generator/editor/nodos/HtmlEditableVista.tsx · C:/dev/wt-puntas/lib/editor-landing/html-editable.ts (escalaDeCopia, ANCHO_COPIA_ESCRITORIO). Tres puntos: (1) lo fijo/pegajoso (menú de respond y de holo) encima de lo que sigue, hoy corre la página 40-280 px; (2) dibujar la copia al ancho de la original y escalarla al lienzo (a ~980 px elige tableta); (3) replicar de nuevo las páginas #68-#72. Hecho = las 5 clonadas del ws9 más 100ads medidas antes y después a 1440/390/980, con tabla de distancias por ancla, sin pisar las copias viejas. El P0 del 29/10 ya está en main (c3c6849bc es ancestro de HEAD)",
+  "original": {
+   "titulo": "Web Generator: lo fijo/pegajoso y replicar de nuevo las paginas #68-#72",
+   "queFalta": "`docs/relevo/web-generator-replicar.md` no lo leyo ninguna familia. El P0 del 29/10 («las paginas clonadas se desfasaron todas») YA ESTA en main (verifique que c3c6849bc es ancestro de HEAD), pero el documento deja «lo proximo» en `HtmlEditableVista.tsx`, con el editor REAL para verificarlo: (1) lo fijo/pegajoso (el menu de respond y de holo) encima de lo que sigue — hoy corre la pagina 40-280 px; (2) dibujar la copia al ancho de la original y escalarla al lienzo (a ~980 px hoy elige el diseno de tableta); (3) replicar de nuevo las paginas #68-#72 con el arreglo puesto. Hecho = las 5 clonadas del ws9 mas 100ads medidas antes y despues a 1440/390/980, con la tabla de distancias por ancla, sin pisar las copias viejas.",
+   "donde": "C:/dev/wt-puntas/docs/relevo/web-generator-replicar.md:57-80 · C:/dev/wt-puntas/app/web-generator/editor/nodos/HtmlEditableVista.tsx · C:/dev/wt-puntas/lib/editor-landing/html-editable.ts (`escalaDeCopia`, `ANCHO_COPIA_ESCRITORIO`)",
+   "bloqueo": "El pedido es del 29/10 y parte de lo que lista ya entro con c3c6849bc: hay que medir cuanto queda antes de arrancar.",
+   "estado": "dudoso"
+  }
+ }
+]
