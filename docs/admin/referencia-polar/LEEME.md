@@ -26,6 +26,16 @@ El cartel de «sandbox», la tarjeta «Introducing Polar Plans», Support, Docum
 
 Fondo oscuro con bordes `rgb(33, 33, 33)`, título 24 px peso 500 en blanco, texto 16 px peso 450 en `rgb(117, 117, 117)`, barra de 208 px.
 
-## Falta
+## La ficha de un cliente
 
-La ficha de un cliente con datos: la cuenta no tiene clientes. Hasta tener su captura, sale del código (`components/Customer/CustomerPage/`).
+Capturada con un cliente de prueba, sin pagos, en la misma cuenta (`ficha-1.jpg` a `ficha-3.jpg`, `ficha-usage.png`). La lista de clientes queda a la izquierda, con el elegido marcado. A la derecha, de arriba abajo:
+
+1. Nombre y correo, y un «⋮» con las acciones.
+2. Overview, Usage y Events. **Events no es una página de la ficha:** abre Analytics › Events filtrado por ese cliente. Members aparece sólo si el cliente es un equipo; en MaKo todo negocio lo es, así que va siempre.
+3. «Metrics» con All Time, 12m, 3m, 30d y Today: Revenue grande, y debajo de a dos Costs, Profit, Profit Margin y Orders.
+4. Details (ID, External ID, Email, Name, Type, Created) y Billing (Balance, Name, Tax ID, Country), en dos columnas de clave y valor.
+5. Las tablas Subscriptions, Orders, Recent Payments y Benefit Grants, cada una con su título. Benefit Grants no va en MaKo.
+
+`customers-overview.jpg` es Customers con un cliente: el gráfico «New Customers» con New y Total, y debajo Top Customers, At Risk y Cost Drivers, en tres columnas.
+
+Las capturas con partes más oscuras son la entrada animada de la página, a medio camino: no es el diseño.
