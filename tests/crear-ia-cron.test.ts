@@ -113,7 +113,7 @@ test('1: los valores EXACTOS de §3.1', () => {
   assert.deepEqual(valores([seccion(secs, 'Instagram')!]), ['instagram:comentario', 'instagram:historia', 'instagram:dm', 'instagram:en_vivo', 'instagram:ref']);
   assert.deepEqual(valores([seccion(secs, 'Messenger')!]), ['messenger:comentario', 'messenger:dm', 'messenger:ref', 'messenger:qr']);
   assert.deepEqual(valores([seccion(secs, 'Email')!]), ['email_recibido:recibido']);
-  assert.deepEqual(valores([seccion(secs, 'Pagos')!]), ['pago:aprobado', 'pago:rechazado', 'pago:reembolsado', 'pago:suscripcion_cancelada']);
+  assert.deepEqual(valores([seccion(secs, 'Pagos')!]), ['pago:aprobado', 'pago:rechazado', 'pago:reembolsado', 'pago:suscripcion_cancelada', 'pago:comprobante']);
   assert.deepEqual(valores([seccion(secs, 'Etiqueta')!]), ['etiqueta_agregada', 'etiqueta_quitada']);
   // El orden de las secciones nuevas es el de la primera pantalla del CRON.
   assert.deepEqual(secs.map((s) => s.title).slice(-5), ['Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
@@ -142,7 +142,7 @@ test('2: `disparadorDeValorIA` para cada clase, y todo lo ofrecido pasa la valid
   // TODO lo que ve el modelo se puede guardar: la misma validación que `guardarDisparadores` (`listaValida`), y el
   // PRIMERO escribe su clase en las columnas (lo que lee el 409 de la ruta de IA).
   const ofrecidos = valores(opcionesCronIA(entrada(TODOS)));
-  assert.equal(ofrecidos.length, 23, 'seis etapas, una etiqueta, dos genéricas y 14 eventos');
+  assert.equal(ofrecidos.length, 24, 'seis etapas, una etiqueta, dos genéricas y 15 eventos (el 15.º, «Llega un comprobante», 5/11/2026)');
   for (const v of ofrecidos) {
     const r = disparadorDeValorIA(v);
     assert.equal(r.length, 1, `«${v}» se ofrece y no se entiende`);

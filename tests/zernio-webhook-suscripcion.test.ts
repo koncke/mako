@@ -188,3 +188,32 @@ test('el webhook de un negocio con key propia lleva SU secreto y su `?w=` (no el
   assert.notEqual(a.secret, MAESTRO);
   assert.match(a.ruta, new RegExp(`\\?w=${WS}$`));
 });
+
+// ── avisoDeLeadsZernio (5/11/2026): el aviso del modal «Anuncios de Meta», EJECUTADO contra el webhook y la API de Zernio ──
+// Probado rompiéndolo (5/11/2026, el archivo en 21/0): `avisoDeLeadsZernio` sin preguntar a la API (sólo el webhook) → 19/2 (los dos
+// de abajo que la necesitan).
+
+test('avisoDeLeadsZernio: con el webhook escuchando, «si» y un solo pedido (no se le pregunta a la API)', async () => {
+  const { avisoDeLeadsZernio, EVENTOS_WEBHOOK, EVENTO_LEADS } = await zernio();
+  assert.equal(await correr([lista(propio([...EVENTOS_WEBHOOK, EVENTO_LEADS]))], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'si');
+  assert.equal(pedidos.length, 1);
+});
+
+test('avisoDeLeadsZernio: sin webhook (o pausado, o sin los leads) y la API los entrega → «tarde», nunca «no recibe»', async () => {
+  const { avisoDeLeadsZernio, EVENTOS_WEBHOOK, EVENTO_LEADS } = await zernio();
+  assert.equal(await correr([lista(), ok({ leads: [] })], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'tarde');
+  assert.match(pedidos[1].ruta, /^\/ads\/leads\?.*accountIds=acc_ads/, 'el mismo pedido del barrido');
+  assert.equal(await correr([lista(propio([...EVENTOS_WEBHOOK, EVENTO_LEADS], { isActive: false })), ok({ leads: [] })], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'tarde');
+  assert.equal(await correr([lista(propio([...EVENTOS_WEBHOOK])), ok({ leads: [] })], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'tarde', 'un webhook viejo sin los leads no es «falta el complemento»');
+});
+
+test('avisoDeLeadsZernio: 403 de la API = falta el complemento; otra falla o sin el secreto maestro = no se afirma nada', async () => {
+  const { avisoDeLeadsZernio } = await zernio();
+  assert.equal(await correr([lista(), rechazo(403, 'ads_addon_required')], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'sin-permiso');
+  assert.equal(await correr([lista(), rechazo(500)], () => avisoDeLeadsZernio(WS, 'acc_ads')), null);
+  hayMaestro = false;
+  try {
+    assert.equal(await correr([ok({ leads: [] })], () => avisoDeLeadsZernio(WS, 'acc_ads')), null, '«Volver a conectar» no arreglaría nada');
+    assert.equal(await correr([rechazo(403)], () => avisoDeLeadsZernio(WS, 'acc_ads')), 'sin-permiso');
+  } finally { hayMaestro = true; }
+});

@@ -1,8 +1,8 @@
-# Relevo: los recibos de MaKo — lo que le toca al Cerebro (5/11/2026)
+# Relevo: los recibos de MaKo y la tarjeta Pagos de Automations — lo que le toca al Cerebro (5/11/2026)
 
 > Lo escribió la sesión de la nube que lo construyó (cuenta `nube`, sesión `cli_c5ed70d4-0cef-5e9e-8637-8606741b3ad5`), a partir de
-> [recibos-encargo.md](recibos-encargo.md). La tarjeta Pagos de Automations ([pagos-automations-encargo.md](pagos-automations-encargo.md))
-> la hace la misma sesión después, en `punta/automations-pagos`, y suma su parte acá. **Esta sesión no vio la
+> [recibos-encargo.md](recibos-encargo.md) (en `punta/recibos`) y [pagos-automations-encargo.md](pagos-automations-encargo.md) (en
+> `punta/automations-pagos`, que sale DESPUÉS: trae los recibos adentro). **Esta sesión no vio la
 > base ni producción**: lo que dice «medido» acá es en la nube (tests, PGlite, Node); lo de producción, lo mide el Cerebro.
 
 ## Para decirle a Martín, con estas palabras
@@ -94,3 +94,57 @@
 - Que un PDF mandado por la línea de MaKo llegue a un grupo que no sea el de Código, y que el eco lo ate a su copia.
 - La zona de la plataforma: las fechas del PDF salen de `zonaDelNegocioEstricta(plataforma)`; si no tiene, la de por defecto (Tijuana).
   Las de 0001 y 0002 se cargan en ART.
+
+---
+
+# La tarjeta Pagos de Automations (punta/automations-pagos)
+
+## Para decirle a Martín
+
+- **En Automations hay dos tarjetas nuevas de Pagos, en el ＋:** «Leer comprobante» lee la foto o el PDF que te manda un lead y
+  te dice si cubre su cuota; «Emitir recibo» le manda a tu cliente su recibo en PDF, con la plantilla que elijas (Clásico,
+  Compacto o Con tu marca).
+- **Dos plantillas nuevas en la galería:** «Le Llegó un Comprobante» y «Emitir Recibo al Cobrar».
+- **Nunca marca nada cobrado sola:** si el comprobante cubre la cuota te avisa, y la marcas tú. Lo que no cuadra (pagó menos,
+  ese N.º de operación ya se usó, no se lee bien) te llega aparte para revisarlo.
+- **Es un recibo de pago, no una factura fiscal**, y lo dice. Una factura depende del país y de cada negocio: no se ofrece.
+- **El WhatsApp no le escribe primero a nadie:** el recibo sale al lead que acaba de pagar, por la línea del negocio.
+- **Funciona para MaKo con sus clientes:** en el negocio de la plataforma, con Código mandando su comprobante de Binance, pero
+  sólo por un chat 1 a 1. **El comprobante que llega al GRUPO de un negocio no dispara nada** (el disparador mira los chats de
+  leads): para eso falta un camino que hoy no existe.
+
+## Lo que hay que hacer, en este orden
+
+1. **Aplicar la 0400 y la 0399** (`supabase/migrations/0400_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`), ANTES del
+   deploy o junto. Sólo agregan. Números elegidos en la nube: confirmarlos al aplicar (0397 son los recibos de MaKo).
+   Lo que garantizan, probado contra Postgres: `PGLITE=<carpeta con @electric-sql/pglite> node scripts/probar-0399-0400-pglite.mjs`.
+2. **El deploy de `punta/automations-pagos`** (trae `punta/recibos` adentro: sale después de ésa).
+3. **Probar en el ws 3, no en el 1:** armar «Le Llegó un Comprobante», prenderla, mandar una foto de un comprobante desde un
+   teléfono de prueba a la línea del ws 3, y mirar que llegue el aviso al grupo. Después «Emitir recibo» sobre una cuota cobrada
+   de un lead de prueba, con «Ver ejemplo en PDF» de las tres plantillas.
+4. **La IA del negocio:** la lectura usa la IA que el negocio conectó (Gemini, su Claude o su GPT), nunca la red de MaKo. Un
+   negocio sin IA ve «No pude leer el comprobante con tu IA» en el historial del lead y el aviso de revisar.
+
+## Qué quedó declarado en la API de MaKo
+
+Área `cobros` (lib/api-mako/areas/cobros.def.ts y .run.ts), las dos con `canales: ['whatsapp', 'app']` (sin HTTP: un comprobante
+y un recibo son datos de un cliente del negocio) y entran a los flujos como «⚡ Acción», que es como las dibuja la tarjeta:
+
+- **`leer_comprobante`** (acción, `costo: 'ia'`, `leadId`): lee el último archivo que mandó el lead en 48 h con la IA del negocio
+  y deja la lectura en `comprobantes_leidos`. Es lo que corre la tarjeta «Leer comprobante»; la condición «El comprobante…» lee
+  su resultado (`cubre`, `parcial`, `repetido`, `dudoso`, `no_es`, `no_llego`).
+- **`emitir_recibo`** (acción, `aTerceros: true`, `confirmacion: 'chat'`, `leadId`, `plantilla`, `canal`, `cuotaId`): emite el
+  recibo con su número del negocio (`emitir_recibo_negocio`, mig 0399) y lo manda. `cuotaId` es el `pagoId` de `cobranza_lead`;
+  sin valor, la última cuota cobrada. Por WhatsApp, con «sí» pelado (`aTerceros`).
+
+## Con `punta/agencia-cobro`
+
+Esa rama todavía no lee comprobantes. Cuando lo haga, usa `leerComprobanteDelLead` (lib/comprobantes.ts) o las reglas puras
+(lib/comprobante-reglas.ts: `lecturaDe`, `estadoDeLectura`, `coberturaDe`), nunca otra lectura: el N.º de operación cuenta una
+vez en `comprobantes_leidos`, y el de un recibo de MaKo en `recibo_pagos` (`reciboDePago('binance', orden)`).
+
+## Lo que NO está verificado
+
+- Ninguna foto real pasó por la lectura (no hay base desde la nube): que Evolution guarde un PDF como documento y se lea bien.
+- Un recibo enviado de verdad por WhatsApp, por correo con dominio propio y al grupo.
+- Las miniaturas de las plantillas en la pantalla (están armadas en HTML con el mismo orden que el PDF; no se miró en el navegador).

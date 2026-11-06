@@ -270,7 +270,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_automatizacion_desde_plantilla', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización desde una plantilla',
-    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations: trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Pide antes el id con listar_plantillas_automatizaciones.',
+    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations: trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir.',
     parametros: [
       { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla (de listar_plantillas_automatizaciones).' },
       { nombre: 'etapa', tipo: 'string', max: 120, descripcion: 'opcional: el nombre de la etapa del embudo (o de la etiqueta) donde arranca, como se ve en el CRM.' },

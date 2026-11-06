@@ -841,6 +841,56 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // ── La tarjeta «Leer comprobante» (5/11/2026, lib/comprobantes.ts). Lee y guarda; nunca marca nada cobrado.
+  leer_comprobante: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      return { payload: { leadId: lead.id }, resumen: `Leer con tu IA el último comprobante que mandó ${lead.nombre} por WhatsApp y compararlo con la cuota que le toca. No marca nada cobrado.` };
+    },
+    ejecutar: (payload, ctx) => seguro('leer el comprobante', async () => {
+      const { leerComprobanteDelLead } = await import('@/lib/comprobantes');
+      const leadId = Number(payload.leadId);
+      const flujo = ctx.canalKey.startsWith(PREFIJO_FLUJO);
+      const r = await leerComprobanteDelLead(ctx.ws, leadId, { origen: flujo ? 'flujo' : ctx.canal === 'http' ? 'api' : 'chat' });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.ya) await logLeadEvent(leadId, 'Comprobante leído', r.comprobante.resumen, autorDe(ctx));
+      return {
+        ok: true, resumen: r.ya ? `Ese comprobante ya estaba leído. ${r.comprobante.resumen}` : r.comprobante.resumen,
+        datos: { comprobanteId: r.comprobante.id, resultado: r.comprobante.resultado, monto: r.comprobante.lectura.monto, moneda: r.comprobante.lectura.moneda, operacion: r.comprobante.lectura.operacion },
+      };
+    }),
+  },
+
+  // ── La tarjeta «Emitir recibo» (5/11/2026, lib/recibos-negocio.ts). Un recibo por pago; sale como el negocio.
+  emitir_recibo: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const { esPlantillaRecibo, esCanalRecibo, PLANTILLAS_RECIBO, ROTULO_CANAL_RECIBO } = await import('@/lib/recibo-negocio-reglas');
+      const plantilla = input.plantilla == null || input.plantilla === '' ? 'clasico' : input.plantilla;
+      const canal = input.canal == null || input.canal === '' ? 'whatsapp' : input.canal;
+      if (!esPlantillaRecibo(plantilla)) return { error: 'Esa plantilla no existe: clasico, compacto o marca.' };
+      if (!esCanalRecibo(canal)) return { error: 'El recibo sale por whatsapp, email o grupo.' };
+      const cuotaId = input.cuotaId == null ? null : Number(input.cuotaId);
+      const nombre = PLANTILLAS_RECIBO.find((x) => x.id === plantilla)?.nombre ?? plantilla;
+      return {
+        payload: { leadId: lead.id, plantilla, canal, cuotaId },
+        resumen: `Emitir el recibo de ${cuotaId ? `la cuota #${cuotaId}` : 'la última cuota cobrada'} de ${lead.nombre} con la plantilla «${nombre}» y mandarlo ${ROTULO_CANAL_RECIBO[canal].toLowerCase()}. No se deshace.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('emitir el recibo', async () => {
+      const { emitirReciboDelLead } = await import('@/lib/recibos-negocio');
+      const leadId = Number(payload.leadId);
+      const r = await emitirReciboDelLead(ctx.ws, leadId, {
+        pagoId: payload.cuotaId == null ? null : Number(payload.cuotaId), plantilla: payload.plantilla as never, canal: payload.canal as never, autor: autorDe(ctx),
+      });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.yaEstaba) await logLeadEvent(leadId, 'Recibo de pago', r.resumen, autorDe(ctx));
+      return { ok: true, resumen: r.resumen, datos: { numero: r.numero, yaEstaba: r.yaEstaba } };
+    }),
+  },
+
   // ── La suscripción mes a mes (5/11/2026): la misma cuenta y la misma escritura que la tab Pagos ───────────────────────
   ver_suscripcion_lead: {
     leer: async (input, ctx) => {

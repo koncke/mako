@@ -367,10 +367,20 @@ test('`asegurarWebhook` pide los leads y, si Zernio los rechaza, registra los de
   assert.match(f, /method: 'POST', body: JSON\.stringify\(\{ name: 'MaKo', url, secret, events \}\)/);
 });
 
-test('`leadsEnElWebhook` mide lo registrado: nuestra URL exacta, activo y con el evento', () => {
-  const f = funcion(ZERNIO, 'export async function leadsEnElWebhook(');
-  assert.match(f, /if \(!maestro\) return null;/);
-  assert.match(f, /\.find\(\(w\) => \(w\.url \?\? ''\)\.trim\(\) === url\)/, 'sólo la URL EXACTA, como `asegurarWebhook`');
-  assert.match(f, /if \(!nuestro\) return null;/);
-  assert.match(f, /return nuestro\.isActive !== false && \(nuestro\.events \?\? \[\]\)\.includes\(EVENTO_LEADS\);/);
+// 5/11/2026: la regla salió a lib/zernio-leads-estado.ts (pura) y se EJECUTA acá; lo que queda del fuente es la unión: la URL que
+// arma el webhook de la cuenta y el evento de los leads. Ejecutado también con fetch de mentira: tests/zernio-webhook-suscripcion.test.ts.
+test('`leadsEnElWebhook` mide lo registrado: nuestra URL exacta, activo y con el evento', async () => {
+  const { escuchaDelWebhook, escuchaComoBooleano } = await import('../lib/zernio-leads-estado');
+  const url = 'https://hola-mako.com/api/webhooks/zernio?w=13';
+  const ev = 'lead.received';
+  const de = (ws: Array<{ url?: string; events?: string[]; isActive?: boolean }>) => escuchaComoBooleano(escuchaDelWebhook(ws, url, ev));
+  assert.equal(de([{ url, events: [ev] }]), true);
+  assert.equal(de([{ url: `${url}&x=1`, events: [ev] }]), null, 'sólo la URL EXACTA, como `asegurarWebhook`');
+  assert.equal(de([]), null, 'sin el nuestro: null');
+  assert.equal(de([{ url, events: [ev], isActive: false }]), false, 'apagado');
+  assert.equal(de([{ url, events: ['message.received'] }]), false, 'sin el evento');
+  const f = funcion(ZERNIO, 'export async function webhookDeLeads(');
+  assert.match(f, /if \(!maestro\) return \{ hayMaestro: false, escucha: 'no-esta' \};/, 'sin el secreto maestro no se afirma nada');
+  assert.match(f, /escuchaDelWebhook\(r\.webhooks \?\? \[\], linkApp\(ruta, null\), EVENTO_LEADS\)/);
+  assert.match(funcion(ZERNIO, 'export async function leadsEnElWebhook('), /return w\.hayMaestro \? escuchaComoBooleano\(w\.escucha\) : null;/);
 });

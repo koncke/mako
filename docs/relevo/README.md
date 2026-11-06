@@ -60,11 +60,12 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | La suscripción en la ficha del lead y la vista de edición (5/11) | `Lee docs/relevo/suscripciones-ficha-encargo.md y construilo.` |
 | La tab Customers de SuperAdmin pasa a ser Admin, entera de nuevo (5/11) | `Lee docs/relevo/admin-encargo.md y construilo.` |
-| La tarjeta Pagos de Automations, después de los recibos (5/11) | `Lee docs/relevo/pagos-automations-encargo.md y construilo.` |
+| La tarjeta Pagos de Automations (construida en `punta/automations-pagos`, 5/11: falta aplicar la 0400 y la 0399 y probarla en el ws 3) | `Lee docs/relevo/nube-recibos.md, desde «La tarjeta Pagos de Automations», y seguimos desde ahí.` |
 | Recibos de pago por correo y WhatsApp, con registro en SuperAdmin (construido en `punta/recibos`, 5/11: falta aplicar la 0397 y cargar el 0001 y el 0002) | `Lee docs/relevo/nube-recibos.md y seguimos desde ahí.` |
 | Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
 | Agency Dashboard: la mensualidad de una agencia (14 días sin costo, un pago por mes por Binance) | `Lee docs/relevo/nube-agencia-cobro.md y seguimos desde ahí.` |
+| Código Inmobiliario: el primer contacto, los tickets de una agencia y el aviso de Meta (5/11) | `Lee docs/relevo/nube-codigo.md y seguimos desde ahí.` |
 | Approvals (la pestaña, los paneles sin API y la extensión que se publica sola, 5/11) | `Lee docs/relevo/nube-approvals.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | Black November de Leila (la rampa del número, el horario de las prendidas y los bloques de venta de las landings, 5/11) | `Lee docs/relevo/nube-black-november.md y seguimos desde ahí.` |

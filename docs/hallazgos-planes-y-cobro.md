@@ -10,6 +10,23 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El recibo que un NEGOCIO le manda a su cliente: la tarjeta «Pagos › Emitir recibo» (5/11/2026, nube)
+
+Lo de abajo (los recibos de MaKo) es el libro de la PLATAFORMA. Éste es el de cada negocio con SUS clientes, desde Automations
+(docs/hallazgos-chatbot.md, «La tarjeta Pagos»). **Vive en:** lib/recibos-negocio.ts y lib/recibo-negocio-reglas.ts.
+
+- **Un recibo por pago, numerado POR NEGOCIO** (mig 0399, `emitir_recibo_negocio`): cada negocio arranca en su 0001, y pedirlo
+  otra vez (el motor reintenta, dos automatizaciones) devuelve el mismo número. Sólo sobre una cuota COBRADA.
+- **El PDF es el de los recibos de MaKo** (lib/recibo-pdf.ts) con una plantilla: «Clásico» (el layout del 0001, que no cambia),
+  «Compacto» (dos renglones, sin tablas ni comprobantes) y «Con tu marca» (una franja con el nombre). Las tres dicen «No es una
+  factura fiscal»: «Factura» no se ofrece.
+- **El emisor es «Facturado por»** (`identidades_fiscales`, la del lead o la de por defecto); sin ninguna, el nombre del negocio.
+  Nunca un dato fiscal inventado.
+- **Sale como el negocio:** el correo sin `from` (lo firma su remitente; sin dominio propio, `sendEmail` se niega y el recibo
+  queda emitido con el motivo); el WhatsApp por su línea; al grupo, con `copiarAlGrupo` antes.
+- **El medio y el N.º** salen de la pasarela o del comprobante que leyó la tarjeta «Leer comprobante» para esa cuota; si no,
+  «Pago #<id>».
+
 ## Los recibos de MaKo (5/11/2026): el número lo da la base, el monto lo dice la pasarela, y el grupo no es privado
 
 **El pedido:** «es súper importante que hagas un template que eso se envíe siempre por email de los recibos de compra. En este

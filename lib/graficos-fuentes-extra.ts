@@ -32,6 +32,7 @@
 import { TIEMPO, cat, dist, m, r, type Dimension, type Fuente, type Metrica } from './graficos-constructores';
 import { CORTES_VSL, TRAMOS_CONTACTO, TRAMOS_VISTO } from './graficos-datos-puro';
 import { COLORES_RESULTADO, ROTULO_ORIGEN, VALORES_RESULTADO } from './grabar-llamada-reglas';
+import { TRAMOS_PRIMER_CONTACTO } from './primer-contacto';
 
 const atributo = (id: string, nombre: string): Metrica => ({ ...m(id, nombre), sinTotal: true });
 /** Lo que es mejor que BAJE (un costo, un atraso, la deuda): la barra y el color lo respetan. */
@@ -316,6 +317,34 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       menos(percentil('mediana_respuesta', 'Mediana de respuesta (min)', 'minutos_respuesta', 50)),
       menos(percentil('p90_respuesta', 'Respuesta más lenta, p90 (min)', 'minutos_respuesta', 90)),
       menos(m('sin_responder', 'Esperando respuesta')), dist('chats', 'Chats'),
+    ],
+  },
+  // ── El primer contacto (5/11/2026) ───────────────────────────────────────────────────
+  {
+    // Lo que Martín le prometió a Código Inmobiliario el 30/10/2026: cuánto tardó una PERSONA del negocio en escribirle o
+    // llamar a cada lead nuevo, desde que entró al CRM. Una fila por lead que LLEGÓ solo (`cuentaParaPrimerContacto`), fechada
+    // por cuando entró. Los mensajes automáticos no cuentan (van aparte, `con_automatico`), y lo que no se sabe se dice («No se
+    // sabe»: un WhatsApp de antes de la marca de la 0396). La regla: lib/primer-contacto.ts. `lead` es una PERSONA (fuera de
+    // DIMENSIONES_PUBLICAS), con su id en `r.lead`: el detalle de un número lista los leads y cada uno abre su ficha.
+    id: 'primer_contacto', nombre: 'Primer contacto', area: 'CRM y ventas',
+    descripcion: 'Cuánto tardó una persona en escribirle o llamar a cada lead nuevo, sin contar los mensajes automáticos.',
+    fechas: [{ id: 'alta', nombre: 'Entró' }],
+    dimensiones: [
+      ...TIEMPO,
+      escala(cat('tramo', 'Cuánto tardó'), TRAMOS_PRIMER_CONTACTO, {
+        'En la primera hora': 'var(--good)', 'Más de 3 días': 'var(--bad)', 'Sin contactar': 'var(--bad)', 'No se sabe': 'var(--faint)', 'Ya hablaban antes': 'var(--faint)',
+      }),
+      cat('canal', 'Por dónde'), cat('setter', 'Setter'), cat('producto', 'Funnel'), cat('origen', 'Origen'), cat('lead', 'Lead'),
+    ],
+    metricas: [
+      m('leads', 'Leads'), m('contactados', 'Contactados'), menos(m('sin_contactar', 'Sin contactar')), m('no_se_sabe', 'No se sabe'), m('ya_hablaban', 'Ya hablaban antes'),
+      m('en_1h', 'Contactados en la primera hora'), m('base_1h', 'Leads que cuentan para la primera hora'),
+      r('pct_1h', 'Contactados en la primera hora (%)', 'pct', 'en_1h', 'base_1h', 100),
+      // Un promedio de tiempos mentiría (uno de diez días lo arrastra todo): mediana y p90, como `conversaciones`.
+      atributo('minutos_contacto', 'Minutos hasta el primer contacto'),
+      menos(percentil('mediana_contacto', 'Mediana del primer contacto (min)', 'minutos_contacto', 50)),
+      menos(percentil('p90_contacto', 'Primer contacto más lento, p90 (min)', 'minutos_contacto', 90)),
+      m('con_automatico', 'Les escribió primero una automatización'),
     ],
   },
   // ── Llamadas grabadas en MaKo (Cold Calling) ─────────────────────────────────────────

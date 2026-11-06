@@ -14,7 +14,8 @@
 import 'server-only';
 import { auditarCredencial, credWs, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
 import { claveZernioAnuncios } from './zernio-ads';
-import { zFetch, ZernioError, leadsEnElWebhook } from './zernio';
+import { zFetch, ZernioError, avisoDeLeadsZernio } from './zernio';
+import type { AvisoLeads } from './zernio-leads-estado';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { errorDeLecturaZernio } from './zernio-redes';
 import { canalMeta, zernioMetaActivo } from './meta-via';
@@ -95,11 +96,12 @@ export type EstadoMetaZernio = {
   /** Lo que no se pudo leer (Zernio caído, la conexión vencida): la pantalla lo dice, no lo esconde. */
   error: string | null;
   /**
-   * ¿Le llegan a MaKo los leads de los formularios? (29/10/2026, `leadsEnElWebhook`): `si`; `sin-permiso` = el webhook de MaKo está y
-   * NO escucha `lead.received` (Zernio lo rechazó: falta su complemento de anuncios); `sin-webhook` = MaKo no tiene su webhook en esa
-   * cuenta de Zernio; null = sin conexión, o no se pudo leer (no se afirma nada).
+   * ¿Le llegan a MaKo los leads de los formularios? (`avisoDeLeads`, lib/zernio-leads-estado.ts; 5/11/2026): `si` al instante (el
+   * webhook los escucha); `tarde` cada media hora (el webhook no los escucha, pero el barrido los lee por la API: «Volver a conectar»
+   * los trae al instante); `sin-permiso` no llegan (la API de Zernio contesta 403: falta su complemento de anuncios); null = sin
+   * conexión, o no se pudo saber (no se afirma nada). Hasta el 5/11 decía «no recibe» con sólo mirar el webhook, y era falso.
    */
-  leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
+  leads?: AvisoLeads;
   /** Con un 429 de Zernio (su tope por minuto): en cuánto se vuelve a leer sola (ticket #34). null = no se relee. */
   reintentarEnMs?: number | null;
 };
@@ -120,11 +122,10 @@ export async function estadoMetaZernio(ws: number): Promise<EstadoMetaZernio> {
   if (!conexion) return conPaginas;
   if (!clave) return { ...conPaginas, error: 'Falta tu clave de Zernio.' };
   try {
-    const [cuentas, pixeles, escucha] = await Promise.all([
+    const [cuentas, pixeles, leads] = await Promise.all([
       cuentasPorZernio(clave, conexion), pixelesPorZernio(clave, conexion).catch(() => [] as PixelZernio[]),
-      leadsEnElWebhook(ws, conexion).catch(() => undefined),
+      avisoDeLeadsZernio(ws, conexion).catch(() => null),
     ]);
-    const leads = escucha === true ? 'si' : escucha === false ? 'sin-permiso' : escucha === null ? 'sin-webhook' : null;
     return { ...conPaginas, cuentas, pixeles, leads };
   } catch (e) {
     if (e instanceof ZernioError) return { ...conPaginas, ...errorDeLecturaZernio(e.status, e.esperaMs) };

@@ -1,9 +1,9 @@
 // =============================================================================
 // vigia-paneles — lo que dicen los paneles que no tienen API, guardado para el vigía (5/11/2026)
 // =============================================================================
-// Martín, 5/11/2026: «todo deberías poder revisarlo tú, no hay nada que debería hacerlo yo a mano». Cinco aprobaciones no
-// tienen API: la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem y el certificado de Windows
-// (SSL.com). Las lee una TAREA PROGRAMADA DEL CEREBRO, en la PC, con el navegador y la sesión de Martín: abre cada página,
+// Martín, 5/11/2026: «todo deberías poder revisarlo tú, no hay nada que debería hacerlo yo a mano». Cuatro aprobaciones no
+// tienen API: la cuenta de Play Console, las verificaciones de Meta, la app de Google y el certificado de Windows (SSL.com).
+// (Creem rechazó la tienda el 5/11/2026 y es definitivo: es un hecho registrado, no un panel que leer.) Las lee una TAREA PROGRAMADA DEL CEREBRO, en la PC, con el navegador y la sesión de Martín: abre cada página,
 // mira lo que dice y lo guarda con este script. El vigía (el cron de cada hora) lo toma en su próxima vuelta, lo muestra en
 // Approvals y avisa si cambió. Una lectura vale un día: sin otra, la fila dice «no pude leerlo» y el vigía avisa una vez.
 //

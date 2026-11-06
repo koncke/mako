@@ -32,7 +32,7 @@ import assert from 'node:assert/strict';
 import {
   ITEMS, leerGuardado, listaDeAprobaciones, mensajeDeAvisos, textoDeLaLista, vuelta, SIN_LEER_AVISA_MS, VIEJO_MS, itemPorId,
   faltaEnPalabras, FALTA_EN_PALABRAS, FALTA_LECTURA_PANEL, lecturaDePanel, anotarPanel, leerPaneles, estadoDeTextoDePanel,
-  MAX_NOTA_PANEL, type Guardado, type Lectura,
+  MAX_NOTA_PANEL, lecturaDefinitiva, type Guardado, type Lectura,
 } from '../lib/vigia-aprobaciones';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -49,7 +49,10 @@ const HORA = 3600_000;
 /** Todas las lecturas de una vuelta: lo que se pasa pisa a una base donde todo se leyó (los paneles, sin leer todavía). */
 function lecturas(o: Record<string, Lectura>): Record<string, Lectura> {
   const base: Record<string, Lectura> = {};
-  for (const it of ITEMS) base[it.id] = it.panel ? { tipo: 'sin_credencial', faltan: [FALTA_LECTURA_PANEL] } : { tipo: 'leido', fuente: 'x', estado: 'en_revision' };
+  for (const it of ITEMS) {
+    base[it.id] = lecturaDefinitiva(it)
+      ?? (it.panel ? { tipo: 'sin_credencial', faltan: [FALTA_LECTURA_PANEL] } : { tipo: 'leido', fuente: 'x', estado: 'en_revision' });
+  }
   return { ...base, ...o };
 }
 
@@ -118,7 +121,8 @@ test('regla 3: lo que falta para leer algo solo se dice UNA vez, en palabras; y 
   const r1 = vuelta(null, lecturas({ 'play-prueba-cerrada': { tipo: 'sin_credencial', faltan: ['TIENDAS_GOOGLE_CUENTA_SERVICIO'] } }), T0);
   const faltas = r1.avisos.filter((a) => a.tipo === 'falta').map((a) => a.item).sort();
   assert.deepEqual(faltas, [...ITEMS.filter((i) => i.panel).map((i) => i.id), 'play-prueba-cerrada'].sort());
-  const m = mensajeDeAvisos(r1.avisos)!;
+  // Creem (un hecho registrado: rechazada) avisa aparte en esa misma primera vuelta; acá se mira sólo lo que falta.
+  const m = mensajeDeAvisos(r1.avisos.filter((a) => a.tipo === 'falta'))!;
   assert.equal(m.titulo, 'Aprobaciones: falta algo para leerlas solas');
   assert.match(m.texto, /Para leer esto solo falta:/);
   assert.match(m.texto, /prueba cerrada \(Google Play\): la cuenta de servicio de Google\./);
@@ -134,7 +138,7 @@ test('regla 3: lo que falta para leer algo solo se dice UNA vez, en palabras; y 
 test('regla 3: una fila de antes del 5/11 («míralo…», `aManoAvisado`) no avisa de nuevo por el cambio de nombre', () => {
   const viejo: Guardado = { v: 1, items: Object.fromEntries(ITEMS.filter((i) => i.panel).map((i) => [i.id, { aManoAvisado: true }])) };
   const r = vuelta(viejo, lecturas({}), T0);
-  assert.deepEqual(r.avisos, []);
+  assert.deepEqual(r.avisos.filter((a) => a.tipo === 'falta'), []);
   assert.ok(Object.values(r.nuevo.items).every((x) => !('aManoAvisado' in x)), 'la marca vieja se reemplaza por la nueva');
 });
 
@@ -143,7 +147,7 @@ test('regla 4: la primera lectura no avisa una aprobación vieja, pero sí lo qu
     'chrome-web-store': { tipo: 'leido', fuente: 'cws-ficha', estado: 'aprobado', version: '0.74.3' },
     'app-store': { tipo: 'leido', fuente: 'asc-api', estado: 'rechazado', version: '1.0' },
   }), T0);
-  const deEstado = r.avisos.filter((a) => a.tipo !== 'falta');
+  const deEstado = r.avisos.filter((a) => a.tipo !== 'falta' && !itemPorId(a.item)?.definitivo);
   assert.deepEqual(deEstado.map((a) => [a.item, a.tipo]), [['app-store', 'rechazado']]);
   // Cambiar de fuente (se cargó la clave) es otra primera lectura: un «aprobado» no se anuncia por eso.
   const g = arrancado({ 'chrome-web-store': { tipo: 'leido', fuente: 'cws-ficha', estado: 'aprobado', version: '0.74.3' } });
@@ -249,10 +253,10 @@ test('el inventario y los lectores son los mismos: ninguno sin el otro', () => {
 
 test('los ítems sin API leen lo guardado de su panel, sin red', async () => {
   const sinRed = { fetch: () => { throw new Error('no debe pedir nada'); }, ahoraMs: () => T0 };
-  const paneles = { v: 1 as const, items: { 'creem-tienda': { estado: 'en_revision' as const, nota: 'Under review', leidoAt: new Date(T0 - HORA).toISOString() } } };
+  const paneles = { v: 1 as const, items: { 'firma-windows': { estado: 'en_revision' as const, nota: 'Validating', leidoAt: new Date(T0 - HORA).toISOString() } } };
   for (const it of ITEMS.filter((i) => i.panel)) {
     const l = await LECTORES[it.id]({ ...sinRed, paneles } as never, async () => ({ token: 'x' }));
-    if (it.id === 'creem-tienda') assert.deepEqual(l, { tipo: 'leido', fuente: 'panel', estado: 'en_revision', detalle: 'Under review', leidoAt: new Date(T0 - HORA).toISOString() });
+    if (it.id === 'firma-windows') assert.deepEqual(l, { tipo: 'leido', fuente: 'panel', estado: 'en_revision', detalle: 'Validating', leidoAt: new Date(T0 - HORA).toISOString() });
     else assert.deepEqual(l, { tipo: 'sin_credencial', faltan: [FALTA_LECTURA_PANEL] }, it.id);
     const caida = await LECTORES[it.id]({ ...sinRed, paneles: null } as never, async () => ({ token: 'x' }));
     assert.equal(caida.tipo, 'no_pude', `${it.id}: la base caída es «no pude», no «falta leerlo»`);
@@ -285,30 +289,31 @@ test('regla 6: una lectura de panel vale un día; después es «no pude» desde 
 test('anotar un panel: sólo un ítem sin API, un estado conocido o el motivo; la nota se corta sin partir un emoji', () => {
   assert.equal(anotarPanel(null, 'app-store', { estado: 'aprobado' }, T0).ok, false, 'App Store se lee por API');
   assert.equal(anotarPanel(null, 'no-existe', { estado: 'aprobado' }, T0).ok, false);
-  assert.equal(anotarPanel(null, 'creem-tienda', { estado: 'aprobada' }, T0).ok, false, 'un estado que no existe no se guarda');
-  assert.equal(anotarPanel(null, 'creem-tienda', { noPude: '   ' }, T0).ok, false, 'sin motivo no hay «no pude»');
-  const r = anotarPanel({ v: 1, items: { 'google-oauth': { estado: 'aprobado', leidoAt: 'x' } } }, 'creem-tienda', { estado: 'piden_algo', nota: `${'a'.repeat(MAX_NOTA_PANEL - 1)}😀😀` }, T0);
+  assert.equal(anotarPanel(null, 'firma-windows', { estado: 'aprobada' }, T0).ok, false, 'un estado que no existe no se guarda');
+  assert.equal(anotarPanel(null, 'firma-windows', { noPude: '   ' }, T0).ok, false, 'sin motivo no hay «no pude»');
+  const r = anotarPanel({ v: 1, items: { 'google-oauth': { estado: 'aprobado', leidoAt: 'x' } } }, 'firma-windows', { estado: 'piden_algo', nota: `${'a'.repeat(MAX_NOTA_PANEL - 1)}😀😀` }, T0);
   assert.ok(r.ok);
   assert.ok(r.ok && 'google-oauth' in r.nuevo.items, 'no pisa los otros paneles');
   const nota = r.ok && 'estado' in r.lectura ? r.lectura.nota ?? '' : '';
   assert.equal([...nota].length, MAX_NOTA_PANEL);
   assert.ok(nota.endsWith('…') && !/[\uD800-\uDBFF]$/.test(nota.slice(0, -1)), 'cortada sin medio emoji');
   // Ida y vuelta por lo guardado.
-  assert.deepEqual(leerPaneles(JSON.stringify(r.ok ? r.nuevo : null)).items['creem-tienda'], r.ok ? r.lectura : null);
-  assert.deepEqual(leerPaneles('{"items":{"app-store":{"estado":"aprobado","leidoAt":"2026-11-05T00:00:00Z"},"creem-tienda":{"estado":"raro","leidoAt":"x"}}}').items, {}, 'lo que no se entiende no es una lectura');
+  assert.deepEqual(leerPaneles(JSON.stringify(r.ok ? r.nuevo : null)).items['firma-windows'], r.ok ? r.lectura : null);
+  assert.deepEqual(leerPaneles('{"items":{"app-store":{"estado":"aprobado","leidoAt":"2026-11-05T00:00:00Z"},"firma-windows":{"estado":"raro","leidoAt":"x"}}}').items, {}, 'lo que no se entiende no es una lectura');
+  assert.equal(anotarPanel(null, 'creem-tienda', { estado: 'aprobado' }, T0).ok, false, 'Creem es un hecho registrado: no tiene panel que anotar');
 });
 
 test('el texto de un panel se traduce con su tabla, y una negación no es una aprobación', () => {
-  assert.equal(estadoDeTextoDePanel('creem-tienda', 'Your store is Under Review'), 'en_revision');
-  assert.equal(estadoDeTextoDePanel('creem-tienda', 'Store approved'), 'aprobado');
-  assert.equal(estadoDeTextoDePanel('creem-tienda', 'Not approved'), 'rechazado');
-  assert.equal(estadoDeTextoDePanel('creem-tienda', 'Unverified'), 'piden_algo');
+  assert.equal(estadoDeTextoDePanel('firma-windows', 'Order status: Pending'), 'en_revision');
+  assert.equal(estadoDeTextoDePanel('firma-windows', 'Certificate ISSUED'), 'aprobado');
+  assert.equal(estadoDeTextoDePanel('firma-windows', 'Rejected by the validation team'), 'rechazado');
+  assert.equal(estadoDeTextoDePanel('firma-windows', 'Documents required'), 'piden_algo');
   assert.equal(estadoDeTextoDePanel('meta-verificaciones', 'Negocio no verificado'), 'sin_enviar');
   assert.equal(estadoDeTextoDePanel('meta-verificaciones', 'Verificación de acceso: VERIFICADO'), 'aprobado');
   assert.equal(estadoDeTextoDePanel('google-oauth', 'Not verified'), 'sin_enviar');
   assert.equal(estadoDeTextoDePanel('firma-windows', 'Order status: validating, please wait'), 'en_revision');
   assert.equal(estadoDeTextoDePanel('play-cuenta', 'Tu identidad está en revisión'), 'en_revision');
-  assert.equal(estadoDeTextoDePanel('creem-tienda', 'algo que no está en la tabla'), null, 'lo desconocido no se adivina');
+  assert.equal(estadoDeTextoDePanel('firma-windows', 'algo que no está en la tabla'), null, 'lo desconocido no se adivina');
   assert.equal(estadoDeTextoDePanel('app-store', 'approved'), null, 'App Store no tiene panel');
   // Cada tabla: ninguna frase de «aprobado» aparece adentro de una de otro estado que vaya DESPUÉS (la negación quedaría tapada).
   for (const it of ITEMS.filter((i) => i.panel)) {
@@ -356,6 +361,8 @@ test('Creem: rechazada el 5/11/2026 y definitiva — lo dicen el nombre, la nota
   assert.match(it.nota ?? '', /rechazada[\s\S]*Es definitivo/);
   assert.doesNotMatch(it.queHacer, /contesta lo que pida Creem|Payout Account/i, 'no hay nada que contestarle a una tienda cerrada');
   assert.match(it.queHacer, /docs\/creem-retiros\.md/);
+  assert.equal(it.panel, undefined, 'una tienda cerrada no tiene panel que leer');
+  assert.deepEqual(await LECTORES['creem-tienda']({} as never, async () => ({ token: 'x' })), lecturaDefinitiva(it), 'su estado es el hecho registrado, sin red');
   const r1 = vuelta(null, lecturas({}), T0);
   assert.match(mensajeDeAvisos(r1.avisos)!.texto, /Creem: la tienda de MaKo, rechazada el 5\/11\/2026 \(definitivo\)/, 'el único aviso que sale ya dice que está rechazada');
   const fila = listaDeAprobaciones(r1.nuevo).find((f) => f.id === 'creem-tienda');
