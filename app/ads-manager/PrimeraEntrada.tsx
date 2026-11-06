@@ -139,7 +139,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           cabecera={{ clave: 'marketing-copilot-entrada', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: terminando ? 'trabajando' : 'despierto' }}
           caja={
             <div className="co-caja">
-              <CajaChat texto={texto} onTexto={setTexto} placeholder="Responde o cuéntame lo que piensas" enterManda ocupado={terminando} bloqueo={appEscritorio.bloqueo}
+              <CajaChat texto={texto} onTexto={setTexto} placeholder="Responde o cuéntame lo que piensas" enterManda sinAdjuntos ocupado={terminando} bloqueo={appEscritorio.bloqueo}
                 onMandar={() => {
                   const t = texto.trim();
                   if (!t) return;
