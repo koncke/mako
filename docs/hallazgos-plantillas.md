@@ -3,7 +3,7 @@
 **Vive en:** `lib/plantillas-propias-reglas.ts`, `lib/plantillas-propias.ts`, `lib/creaciones.ts`,
 `lib/creaciones-reglas.ts`, `lib/creaciones-enchufes.ts`, `lib/creaciones-guion.ts`, `lib/creaciones-diseno.ts`,
 `app/creaciones/` (galería, ranking, `PublicarCreacion`, `usePlantillasPropias`, `plantillas-tarjeta.ts`),
-`supabase/migrations/0406_plantillas_propias.sql`, `lib/offer-plantillas.ts`, `lib/ai-avatar/plantillas-venta.ts`,
+`supabase/migrations/0407_plantillas_propias.sql`, `lib/offer-plantillas.ts`, `lib/ai-avatar/plantillas-venta.ts`,
 `lib/editor-video/plantillas-ejemplos.ts`, `lib/image-editor/plantillas-reales.ts`.
 
 Los pedidos, textuales:
@@ -19,12 +19,12 @@ de esto: [hallazgos-creaciones.md](hallazgos-creaciones.md).
 
 La tentación era una tabla `plantillas_propias` por tab. Ya existía el mecanismo de las estrellas (`creaciones`, mig 0273)
 con su enchufe por tipo, y «compartir con la comunidad» es exactamente «publicar». Se sumó un estado: `privada` (mig
-0406). Una privada la ve y la usa sólo su negocio (`puedeVer`, `puedeUsar`), no recibe estrellas y lleva la definición TAL
+0407). Una privada la ve y la usa sólo su negocio (`puedeVer`, `puedeUsar`), no recibe estrellas y lleva la definición TAL
 CUAL (sus precios y sus links son lo que la hace útil). La galería, el ranking y la API son los de siempre.
 
 - **Compartir una privada NO la convierte: crea su copia pública** (`compartirCreacion`). Convertirla le borraba al negocio
   su versión con sus datos, que es la que usa.
-- **Sin la 0406, la privada choca con el check de la 0273** (23514): se dice «Falta la migración 0406» y compartir sigue
+- **Sin la 0407, la privada choca con el check de la 0273** (23514): se dice «Falta la migración 0407» y compartir sigue
   andando. El nombre del check lo puso Postgres (`creaciones_estado_check`) porque el de la 0273 es inline.
 
 ## Lo público nunca lleva datos del negocio: dos capas, y la foto va antes que el texto
@@ -105,7 +105,9 @@ cambia al implementar:
 - **El Chromium de la nube no baja nada de jsDelivr** (403 del proxy): para mirar una miniatura con sus fuentes de verdad,
   los `.woff2` salen de los paquetes `@fontsource/*` del registro de npm, que sí se alcanza.
 - **La migración nació 0404 y `main` tomó la 0404 mientras se trabajaba** (`0404_carruseles_laminas_cta`); la 0405 la tenía
-  `punta/thiago-migrar`. Se renumeró a 0406 antes de subir, barriendo `refs/remotes/origin/*` y no sólo main.
+  `punta/thiago-migrar`, y la 0406 la tomó otra rama una hora después (`0406_calendario_email_enlazado`). Quedó 0407,
+  barriendo `refs/remotes/origin/*` y no sólo main, justo antes de subir. Desde la nube no hay Cerebro a quien pedirle el
+  número: el que la aplique lo confirma antes.
 - **El veredicto dio rojo por un TEST, no por el código:** `assert.ok(!('meta' in d.doc))` estrecha el tipo a `never` y la
   línea siguiente no compila (TS2339). El acotado lo caza; no se había corrido sobre los archivos de test. Al cerrar una
   tanda, el acotado va sobre los tests nuevos también.
@@ -125,4 +127,4 @@ cambia al implementar:
 - **AI Avatar:** el Director (AV-3), los retratos, pósters y loops, y la guarda de `crearVideoAction` con las marcas.
 - **Image:** borrar las 10 de Doory del editor y la API, las fotos de muestra del ejemplo y las preguntas al crear
   (docs/relevo/nube-plantillas.md).
-- **La migración 0406, sin aplicar.**
+- **La migración 0407, sin aplicar.**

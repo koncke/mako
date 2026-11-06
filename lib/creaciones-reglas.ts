@@ -54,7 +54,7 @@ export const estaEnchufado = (t: TipoCreacion): t is TipoEnchufado => (ENCHUFADO
 
 export const ORDENES_CREACIONES = ['estrellas', 'usos', 'recientes'] as const;
 
-/** Los estados de una creación (mig 0406 suma 'privada': una plantilla propia que sólo ve su negocio). */
+/** Los estados de una creación (mig 0407 suma 'privada': una plantilla propia que sólo ve su negocio). */
 export const ESTADOS_CREACION = ['privada', 'publicada', 'retirada'] as const;
 export type EstadoCreacion = (typeof ESTADOS_CREACION)[number];
 export const estadoDe = (x: unknown): EstadoCreacion => (x === 'privada' || x === 'retirada' ? x : 'publicada');
@@ -140,7 +140,7 @@ export function numeroCorto(n: number): string {
   return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10} mil`.replace('.', ',');
 }
 
-// ── Quién ve y quién usa (mig 0406) ──────────────────────────────────────────
+// ── Quién ve y quién usa (mig 0407) ──────────────────────────────────────────
 
 /** Una publicada la ve cualquiera; una privada o retirada, sólo su negocio. */
 export function puedeVer(c: { workspaceOrigen: number; estado: string }, ws: number): boolean {

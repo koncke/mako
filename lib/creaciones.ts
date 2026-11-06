@@ -31,8 +31,8 @@ import { negocioQueComparte } from './plantillas-propias';
 import { leerPorPaginas } from './supabase-paginado';
 
 export const FALTA_TABLA_CREACIONES = 'Falta la migración 0273 (creaciones).';
-/** Sin la 0406, `estado = 'privada'` choca con el check de la 0273 (23514): guardar SÓLO para el negocio no se puede. */
-export const FALTA_PLANTILLAS_PROPIAS = 'Falta la migración 0406 (plantillas propias): por ahora sólo se puede compartir con la comunidad.';
+/** Sin la 0407, `estado = 'privada'` choca con el check de la 0273 (23514): guardar SÓLO para el negocio no se puede. */
+export const FALTA_PLANTILLAS_PROPIAS = 'Falta la migración 0407 (plantillas propias): por ahora sólo se puede compartir con la comunidad.';
 export class FaltaTablaCreacionesError extends Error {
   constructor() { super(FALTA_TABLA_CREACIONES); this.name = 'FaltaTablaCreacionesError'; }
 }
@@ -59,7 +59,7 @@ const COLS = 'id, tipo, titulo, descripcion, workspace_origen, origen_id, autor_
 
 export type Creacion = {
   id: number; tipo: string; tipoTitulo: string; titulo: string; descripcion: string; autor: string; deMako: boolean;
-  /** 'privada' (mig 0406): una plantilla propia, que sólo ve su negocio. */
+  /** 'privada' (mig 0407): una plantilla propia, que sólo ve su negocio. */
   estado: EstadoCreacion; estrellas: number; usos: number; publicada: string; actualizada: string;
   /** La publicó ESTE negocio. */
   mia: boolean;
@@ -174,7 +174,7 @@ async function paraTodos(ws: number, tipo: TipoEnchufado, def: unknown, textos: 
   return { definicion: r.definicion, titulo: sinDatosDelNegocio(textos.titulo, negocio), descripcion: sinDatosDelNegocio(textos.descripcion, negocio) };
 }
 
-/** Un insert o update que choca con el check de estado de la 0273: falta la 0406. */
+/** Un insert o update que choca con el check de estado de la 0273: falta la 0407. */
 function tirarEstado(que: string, e: { code?: string; message: string }): never {
   if (e.code === '23514') throw new CreacionError(FALTA_PLANTILLAS_PROPIAS, 409);
   tirar(que, e);

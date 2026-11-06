@@ -1,9 +1,9 @@
 -- =============================================================================
--- 0406 — Las PLANTILLAS PROPIAS de cada negocio: una creación que no se publica (privada), y el ranking de la semana
+-- 0407 — Las PLANTILLAS PROPIAS de cada negocio: una creación que no se publica (privada), y el ranking de la semana
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES o JUNTO con el deploy que trae «Guardar como plantilla» (lib/creaciones.ts con
 -- `estado = 'privada'`). Agrega y no saca nada: la versión desplegada nunca escribe 'privada'. Sin ella, guardar una
--- plantilla sólo para el negocio contesta «Falta la migración 0406 (plantillas propias).» y lo demás anda igual.
+-- plantilla sólo para el negocio contesta «Falta la migración 0407 (plantillas propias).» y lo demás anda igual.
 --
 -- Leila (30/10/2026): plantillas propias, que se guarden para su negocio o se compartan con la comunidad, con estrellas.
 -- Martín (13/10/2026, las estrellas): «para que los usuarios hagan sus creaciones y otros usuarios puedan puntuarles».
