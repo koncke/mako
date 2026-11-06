@@ -1029,10 +1029,21 @@ la respuesta es no, la guarda fija la implementación. Lo que sí sirve, en orde
 - dejando el cableado bien y volviendo el FILTRO permisivo → **28/1, G5 rojo**.
 La vieja daba verde en el primero (era su propia condición) y en el segundo (no mira el filtro).
 
-**Dónde más mirar:** no es el único de esta forma. El mismo día, en esta misma área, `tests/ticketera-movil-y-avisos.test.ts`
-B5 pedía el texto `aviso_motivo, aviso_at, arreglado_at` de `COLS` —o sea que dos columnas fueran **VECINAS** en el
-select—, y se puso rojo al meter `cerebro_*` en el medio sin que faltara ninguna. Misma falla: la guarda mide la forma.
-Un `grep` de `assert.match(.*leer(` por el repo da la lista de candidatas.
+**Donde mas mirar: aparecieron TRES el mismo dia, y las tres frenaron un arreglo correcto.** No es una rareza de G5: es
+una forma que el repo tiene repetida.
+
+| Guarda | Que texto pedia | Que arreglo freno |
+|---|---|---|
+| `tests/ticketera-mazo.test.ts` G5 | el regex `https` sobre `us.foto_url` | el filtro de origen de la foto (y ademas **exigia el agujero**) |
+| `tests/ticketera-movil-y-avisos.test.ts` B5 | `aviso_motivo, aviso_at, arreglado_at` de `COLS` | sumar `cerebro_*` al select: pedia que dos columnas fueran **VECINAS** |
+| `tests/agencia-grupos.test.ts` | la cadena entera del `errorDe(deOtro ? ... : ...)` | agregar UNA fuente de error personal (la casilla de los correos) |
+
+Las tres se arreglaron igual: se mide el CORTE o el EFECTO, no la cadena. La de agencia-grupos, por ejemplo, ahora saca
+las dos ramas del ternario con un regex y afirma que la de `deOtro` es solo `dest.error` y que lo personal queda del otro
+lado: sobrevive a una fuente nueva y sigue cazando que alguien muestre lo personal mirando a un cliente.
+
+Para buscar las que faltan: `grep -rn "assert.match(.*leer(" tests/` y, de esas, las que piden una EXPRESION completa en
+vez de un nombre. La pregunta sigue siendo la misma: *seguiria en verde si alguien arregla el bug de otra manera?*
 
 **Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
 (`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
