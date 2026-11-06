@@ -46,6 +46,31 @@ devolvía error. **Los dos caminos que fallan de verdad no devuelven error: tira
 aviso quedaba filtrado **para siempre** y el cliente caía en «Paga para entrar» el día de su
 vencimiento **por un aviso que nadie le mandó**. Arreglado antes del lunes, probado rompiéndolo.
 
+### El checkout nuevo: lo que Martin pidio, y la premisa que hay que corregirle
+
+Pedido del 6/11 a la noche, con las claves de dLocal ya cargadas en local y en Vercel:
+
+- **El checkout tiene que verse como una pasarela de verdad.** Los medios de pago como opciones con
+  su logo (Mercado Pago, tarjeta, y Google/Apple Pay donde se puedan cobrar), no un boton unico.
+  **Copiando la referencia TAL CUAL** —Stripe Checkout, Mercado Pago Checkout Pro, dLocal Go—
+  empezando por la referencia, no retocando la pantalla propia.
+- **Fuera los textos explicativos de abajo** de `/planes/pro` (el del email y el de «usa el email de
+  tu cuenta de Mercado Pago»). Textual: «que se vea serio, que se vea realmente como una pasarela».
+- **El formulario de nombre + email + WhatsApp pasa a ser el paso para RECLAMAR EL CUPON**, y el
+  cupon **no es un descuento: son 7 dias de prueba gratis**. El patron salio de Madgicx.
+
+⚠️ **LA PREMISA QUE HAY QUE CORREGIRLE, Y ES CARA SI NADIE LA DICE.** Martin escribio: «ya no
+solamente cobramos por Mercado Pago, sino que tambien cobramos con una tarjeta normal **de cualquier
+pais**. Entiendo que para eso es la nueva pasarela».
+
+**No es asi. dLocal Go NO cobra de cualquier pais**: su centro de ayuda dice textual *«You cannot
+receive payments from the United States and Europe»* — Espana queda afuera (`docs/proveedores-de-cobro.md:235`).
+Sirve para LatAm. **La pantalla no puede prometer lo que la pasarela no puede cumplir.**
+
+Ese hueco —EE.UU. y Europa— es el que iba a tapar **Whop, que NUNCA contesto**, o **FastSpring, al
+que nunca se le escribio**. Mientras no haya uno de los dos, un comprador de alla no tiene por donde
+pagar. **Es una decision de Martin, con numeros, no algo que se arregla en el checkout.**
+
 ### Infra cerro 10 de 10, y el hallazgo mas fino de la noche
 
 **UN COMENTARIO EQUIVOCADO CONGELO UN BUG DURANTE DIAS.** La alarma de minutos no mentia por lo que
