@@ -2717,3 +2717,55 @@ público con el nombre de antes (`leads/<ws>/<lead>.jpg`). `scripts/avatars-huer
   con otro formato** (no es una foto de lead).
 **Sin hacer:** correrlo. Lee producción y borra fotos: lo corre el Cerebro desde la PC, en seco primero, y `--borrar` con el sí
 de Martín. **Vive en:** scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts · tests/avatars-huerfanas.test.ts
+
+## La foto de perfil era un web bug: el cliente elegía a qué servidor le pedía la imagen la bandeja de Martín (6/11/2026)
+
+**El síntoma que se buscaba:** nada. Estaba anotado como un «sin hacer» de la Ticketera («la foto de quien lo levantó puede ser
+CUALQUIER https»), y se lee como un detalle de esa bandeja. No lo es: `usuarios.foto_url` lo dibuja **todo** avatar de la app.
+
+**La causa real:** `POST /api/perfil` con `action: 'perfil'` está abierto a todos los roles **a propósito** (el Sidebar de un
+closer lee ahí su nombre y su foto, y así está documentado en la ruta), y `setPerfil` guardaba `avatarUrl` con un `.trim()` y
+nada más. Los dos lectores que la servían la validaban con `/^https:\/\//`. O sea: no hacía falta ningún exploit ni ningún rol
+raro — un POST a mano con `{"action":"perfil","perfil":{"avatarUrl":"https://servidor-suyo/pixel.gif"}}`, y después un ticket.
+El servidor del cliente queda con el log de **cuándo Martín abre la bandeja, desde qué IP y con qué navegador**. Es un web bug
+de los de siempre, y una bandeja de tickets es el peor lugar para tenerlo: la abre siempre la misma persona, varias veces al día.
+
+**⚠️ EL ARREGLO OBVIO ESTABA MAL, Y ES LO QUE MÁS TIEMPO AHORRA ACÁ.** El pendiente decía, textual, «aceptar sólo el storage
+propio y Google». Eso rompe dos avatares que son nuestros: desde el 26/10 la foto de una persona también puede ser un **emoji**
+(un SVG en una URL `data:` — ni siquiera es https, así que una lista de hosts lo tira) o un **ícono de Iconify**
+(`fotoDeCambio`, lib/foto-perfil.ts). Con la lista de dos, el selector de identidad deja de guardar y nada avisa: la foto
+simplemente no queda. Los orígenes son **cuatro**: el storage propio, Google (el `picture` del login), Iconify y el `data:` del
+emoji. Y Gravatar es un quinto que hay que tener en la lista aunque el cliente no lo elija nunca, porque es lo que
+`caraDeUsuario` **devuelve**: filtrar ahí sin incluirlo se come su propio respaldo.
+
+**La regla que queda:** la foto de una persona pasa por `fotoDePersonaSegura` (lib/foto-perfil.ts) en las **dos capas** — al
+guardar (`setPerfil`) y al dibujar (`caraDeUsuario`, que es la cadena única de todos los avatares, más `aFila` de la Ticketera y
+el muro de la Comunidad, que no pasan por ella). La capa de lectura no es redundante: **las filas que ya están en la base no se
+reescriben solas**, y hoy no se sabe si alguna tiene una URL de afuera (no se miró producción). Una foto rechazada se trata como
+«no eligió nada» y cae al Gravatar o a las iniciales, así que la precedencia de 27/09 no cambia. El `data:` del emoji no se
+acepta como vino: se le lee el emoji y se **vuelve a dibujar** con `fotoDeEmoji`, así lo que se guarda y se dibuja es siempre un
+SVG nuestro.
+
+**Trampas al tocar esto:**
+- `lib/gravatar.ts` no lleva `server-only` a propósito (para que un test lo importe) y se mantiene fuera del navegador por su
+  `node:crypto`. El filtro vive en `lib/foto-perfil.ts`, que es puro: gravatar importa a foto-perfil y nunca al revés.
+- Un `host.endsWith(dominio)` sin el punto deja pasar `malgoogleusercontent.com`. Va `host === d || host.endsWith('.' + d)`.
+- `https://api.iconify.design@servidor-suyo/x.gif` le pide la imagen a servidor-suyo. `new URL` lo parsea bien (el hostname es
+  servidor-suyo), pero igual se rechaza cualquier URL con usuario o clave.
+- `tests/gravatar-cara.test.ts` usaba `https://x.test/mia.png` como «la foto elegida». Con el filtro, esos casos medirían el
+  filtro y no la precedencia: ahora usan una de Google.
+
+**Lo que quedó SIN hacer:**
+- **Mirar producción:** cuántas filas de `usuarios` tienen hoy una `foto_url` de un origen que no es nuestro, y de qué negocio.
+  Lo corre el Cerebro desde la PC; esta sesión no ve la base.
+  `select workspace_id, count(*) from usuarios where foto_url is not null and foto_url not like 'data:image/svg+xml,%' and foto_url !~ '^https://([a-z0-9-]+\.)*(googleusercontent\.com|gravatar\.com|api\.iconify\.design)/' group by 1 order by 2 desc;`
+  (ajustando el host del storage propio, que sale de `NEXT_PUBLIC_SUPABASE_URL`). Las filas que haya no hacen falta limpiarlas
+  para que deje de filtrar —la capa de lectura ya las tapa—, pero dicen si alguien lo estuvo usando.
+- **La lista de usuarios del admin dibuja `foto_url` por su cuenta** (lo decía el pendiente original de la Ticketera). No se
+  revisó en este paso: si no pasa por `caraDeUsuario`, le falta la capa de lectura.
+- Las otras fotos que vienen de afuera y NO son de una persona (`leads.avatar_url`, `foto_auto_url`, los contactos de WhatsApp)
+  quedan igual: las elige el negocio para sus propios leads, no un tercero para la pantalla de Martín.
+
+**Vive en:** `lib/foto-perfil.ts` (`fotoDePersonaSegura`, `hostDelStoragePropio`) · `lib/perfil.ts` (`setPerfil`) ·
+`lib/gravatar.ts` (`caraDeUsuario`) · `lib/tickets-db.ts` (`aFila`) · `lib/comunidad-datos.ts` ·
+`tests/foto-persona-origen.test.ts` · `tests/gravatar-cara.test.ts`

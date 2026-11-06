@@ -22,6 +22,7 @@ import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import { WS_REVISION, esCorreoDeRevision } from './cuenta-revision-reglas';
 import { ENTREGA_MAX_INTENTOS } from './tickets-aviso';
+import { fotoDePersonaSegura } from './foto-perfil';
 import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
@@ -111,7 +112,10 @@ const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_emai
 
 function aFila(f: Record<string, unknown>): FilaTicket {
   const { workspaces: ws, usuarios: us, ...resto } = f as { workspaces?: { nombre?: unknown } | null; usuarios?: { foto_url?: unknown } | null };
-  const foto = us && typeof us.foto_url === 'string' && /^https:\/\//i.test(us.foto_url) ? us.foto_url : null;
+  // ⚠️ NO alcanza con que sea https: la foto la elige quien levanta el ticket y la dibuja la
+  // bandeja de Martín, así que una URL de un servidor del cliente le diría cuándo la abre y
+  // desde qué IP. Sólo los orígenes nuestros (lib/foto-perfil.ts); el resto, sin foto.
+  const foto = us && typeof us.foto_url === 'string' ? fotoDePersonaSegura(us.foto_url) : null;
   return {
     ...(resto as unknown as FilaTicket),
     contexto: sanearContexto(f.contexto),

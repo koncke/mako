@@ -21,6 +21,7 @@ import { getWorkspace, getWorkspaceActual, runWithWorkspace } from './workspace'
 import { contextoDeAgencia } from './agencia';
 import { deQuienEsElPerfil, titularDelCliente } from './perfil-sujeto';
 import { DEFAULT_IN_APP, normalizarInApp, normalizarPush, rolPushDeFila, type NotifInApp, type NotifPush, type RolPush } from './notif-catalogo';
+import { fotoDePersonaSegura } from './foto-perfil';
 
 // ── Perfil personal (por usuario) ─────────────────────────────────────────────
 export type Perfil = {
@@ -155,7 +156,11 @@ export async function setPerfil(patch: Partial<Perfil>): Promise<Perfil> {
 
   const cols: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.nombre !== undefined) cols.nombre = String(patch.nombre).trim();
-  if (patch.avatarUrl !== undefined) cols.foto_url = String(patch.avatarUrl).trim();
+  // La foto sólo si viene de un origen nuestro (lib/foto-perfil.ts). Lo que no, entra como ''
+  // —«sin foto»— y no como un error: esta ruta la toca el selector de identidad, que no ofrece
+  // escribir una URL, así que un valor rechazado acá no es una persona guardando mal sino
+  // alguien llamando a `POST /api/perfil` a mano. La otra capa está al dibujar.
+  if (patch.avatarUrl !== undefined) cols.foto_url = fotoDePersonaSegura(patch.avatarUrl) ?? '';
 
   // Se reescribe el jsonb entero, así que hay que arrancar de lo que ya había:
   // adentro no viven solo los campos del formulario (también `notifInApp`), y

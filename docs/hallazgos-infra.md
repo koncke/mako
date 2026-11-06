@@ -657,6 +657,13 @@ casos y ningún error que leer.
 
 **Dos puntas que agregan en el mismo renglón chocan, y se arregla moviendo el renglón.** Tickets y vigilancia agregaban en el mismo lugar del índice, de `hallazgos-comunicacion.md` y al final de la bitácora. Corriendo la entrada de una, las dos llegan solas. ⚠️ `merge=union` no sirve para una bitácora: el choque arranca adentro del objeto del hito, y la unión deja un solo objeto con las claves repetidas.
 
+⚠️ **Y en `docs/hallazgos.md`, `merge=union` no choca: DUPLICA la fila, en silencio** (visto el 6/11/2026: Carruseles tenía
+dos filas casi iguales, y el mismo día el área quedó con tres). El índice es **una línea por área**, así que dos puntas que
+cosechan en la misma área el mismo día cambian la MISMA línea; la unión deja las dos versiones, una debajo de la otra, y la
+mezcla sale **exitosa**. Nadie lo ve hasta que alguien lee el índice. **La regla para una corrida con varias puntas de la
+misma área: la fila del índice la toca UNA sola punta** (y su commit dice que las otras no lo tocan a propósito). Lo que ya
+quedó duplicado lo junta `scripts/unir-indice-hallazgos.py`, pero el arreglo de fondo es no escribirlo dos veces.
+
 **Las dos redes que el flujo da por hechas estaban muertas: que un flujo exista no es que dé un veredicto.** `punta.yml` no corre «los demás» porque los corre `semanal-tests.yml`, y su «Tipos» sale OK PARCIAL (el tsc entero muere a los ~360 s) porque el entero lo corre `tipos-respaldo.yml`. Un test miraba que el archivo existiera. Medido con la API el 3/11: la semanal dio su único verde el 19/10 (657 s); el 2/11 la canceló su propio techo de 20 min a los 1.165 s, sin veredicto y sin mail, porque la suite casi se duplicó. El respaldo nunca dio uno: el 26/10 no había minutos, y el 2/11 murió en `fallocate -l 10G /swapfile` con «Text file busy», porque el runner ya trae ese archivo en uso. Y hacen falta: «los demás» cazó rojos de verdad en `integracion` (corridas 385 y 389).
 - **Regla:** antes de sacar un chequeo «porque lo cubre la red», se mira la última corrida de esa red con la API, no el archivo.
 - **Un job cancelado por su techo no avisa.** Los pasos largos llevan un tope propio, menor que el del job, para que un cuelgue sea un fallo.
@@ -11102,3 +11109,40 @@ comandos de docs/relevo/nube-metodologia.md.
 - **Un chat de la nube quieto o «waiting on a human» no avisa y no siempre lee:** el de Carruseles no leyó nada durante más de una hora y el de Marketing CoPilot esperó toda la noche. En un turno automático no se puede abrir un chat nuevo. Lo que funcionó: un agente local en un worktree propio (`git worktree add --detach`, y `cmd //c mklink /J node_modules` hacia otro clon), que subió por la misma punta. Costó unos 415 mil tokens por tarea.
 - **Mirar el `git diff` antes de un `sed` por varios archivos:** un reemplazo de «En prueba» tocó tres tests que hablaban del período de prueba del plan. `git grep` no distingue dos usos de la misma frase.
 - **Git Bash y Node ven `/tmp` distinto:** `cat > /tmp/x` escribe en la carpeta de Git Bash y Node lee `C:\tmp\x`. Un archivo temporal entre los dos va por ruta de Windows.
+
+## `merge=union` sobre el ÍNDICE de hallazgos no une: DUPLICA la fila (6/11/2026)
+
+`.gitattributes` tiene `docs/hallazgos*.md merge=union`, y eso es lo que permite que ocho chats escriban su cosecha sin
+choques. Funciona perfecto para los documentos POR ÁREA, donde cada uno **agrega una sección al final**: dos secciones
+distintas en lugares distintos se unen y queda todo.
+
+**Pero `docs/hallazgos.md` no es un documento: es una TABLA con UNA fila por área**, y la cosecha de un área se escribe
+**reescribiendo esa fila**. Cuando dos puntas tocan la misma fila, `union` no la mezcla: **deja las dos**. Con tres puntas
+de la misma área el mismo día, la tabla queda con tres filas «Ticketera», cada una con el resumen de su punta y una copia
+del historial anterior — unos 14.800 caracteres cada una.
+
+**Medido el 6/11/2026 sobre `origin/main`**, contando filas por área en `docs/hallazgos.md`:
+
+| Área | Filas |
+|---|---|
+| Competitors Spy | 27 |
+| Infraestructura | 18 |
+| Planes, capas y cobro | 8 |
+| Comunicación | 8 |
+| Plan · Agency Dashboard | 6 cada una |
+
+No se pierde nada —de eso se encarga `union`—, pero el índice es lo único que dice qué documento abrir, y a 27 filas por
+área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
+abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
+
+**Qué hacer mientras el formato sea éste:** al cosechar, después de que la punta llegue a main, mirar si quedó duplicada la
+fila de tu área y consolidarla en una (se concatenan los resúmenes nuevos y se deja UNA cola de historial). Es lo que se
+hizo con las tres filas de Ticketera en este commit.
+
+**El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
+de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
+unir— o que `scripts/unir-bitacora.mjs` (el driver que ya existe para las bitácoras) tome también este archivo y sepa
+fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 de Infraestructura hay que consolidarlas
+igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
+
+**Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
