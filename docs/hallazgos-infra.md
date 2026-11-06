@@ -1235,6 +1235,47 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
 
 *25/10/2026, el Cerebro (claude5).*
 
+## La guardia de RAM negaba un `git commit` por lo que decía el MENSAJE, y su copia versionada estaba vieja (6/11/2026)
+
+**Vive en:** `scripts/claude-hooks/guardia/memoria.mjs` (la copia versionada de `~/.claude/guardia/memoria.mjs`) ·
+`clasificar`, `soloLoQueCorre`, `PESADO`. Lo fija `tests/memoria-guardia.test.ts`, probado rompiéndolo.
+
+**Síntoma:** `git commit` NEGADO por la guardia de RAM, con 2,2 GB libres y «esto necesita 3». Después, un `grep` también.
+Y lo que se estaba commiteando era el arreglo de la alarma de minutos: **el chat se quedaba sin poder guardar su trabajo
+justo cuando la máquina está cargada, que es exactamente cuando más importa guardarlo.**
+
+**La causa:** `clasificar` probaba el regex `PESADO` **contra el texto entero del comando**. El mensaje del commit decía
+«el tsc entero lo corre la punta», y `\btsc\b` matcheó. El `grep` siguiente llevaba `tsc` y `npm test` como *patrones de
+búsqueda*. Un commit no pide un byte de RAM.
+
+⚠️ **Y el archivo ya tenía un caso de esta misma familia anotado arriba**, del 11/10: «el patrón suelto `typecheck` agarraba
+el NOMBRE de un test liviano (`npx tsx --test tests/typecheck-lock.test.ts`)». Se arregló **sacando esa palabra de la lista**,
+no la causa. Así que volvió, con otra palabra. **La regla que queda: cuando una guarda clasifica por el texto de un comando,
+se arregla separando lo que CORRE de lo que viaja adentro como data; sacar la palabra que falló deja la trampa armada.**
+
+⚠️ **Y había un SEGUNDO camino a «pesado» con la misma causa, que me frenó mientras arreglaba el primero.**
+`tandaDeTestsSinFreno` cuenta cuántos archivos `.test.ts` **nombra** el comando (3 o más = una tanda que levanta un proceso
+por núcleo). Un comando que los nombra dentro de un `node -e` y de un `grep` los nombra tres veces **sin correr ninguno**:
+otra vez NEGADO. Las dos preguntas van ahora sobre `soloLoQueCorre(cmd)`. **Arreglar un solo camino de los dos habría dejado
+el síntoma vivo con la sensación de estar resuelto** — y el regex de `PESADO` no tenía nada que ver con este.
+
+Lo que ahora se saca antes de clasificar (`soloLoQueCorre`): el **cuerpo de un heredoc**, el valor de las banderas que toman
+TEXTO (`-m`, `--message`, `-e`, `--eval`, `-p`, `--print`) y, en el tramo de un `grep`/`rg`/`findstr`, **sus comillas**, porque
+su patrón puede venir sin bandera (`grep -rn "npx tsc" .`) y nunca se ejecuta. ⚠️ Sólo en ESE tramo: `sh -c "npx tsc"` sí
+ejecuta y tiene que seguir contándose.
+⚠️ El cuerpo de un heredoc se saca **salvo que se lo coma un intérprete**: `bash <<'EOF' … npx tsc … EOF` sí ejecuta, y
+tiene que seguir contando como pesado. Y `cat` y `tee` **no** son intérpretes (`cat > notas.md <<EOF` escribe, no ejecuta):
+los puse en la lista y el test que acababa de escribir los cazó.
+
+⚠️ **De paso, lo más caro del hallazgo: la copia versionada estaba VIEJA.** El 29/10 los topes de `pesado` y `workflow`
+subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unresponsive» con 9 chats), y el cambio se hizo
+**sólo en `~/.claude`**. El repo seguía en 2,5: **reinstalar la guardia desde el repo bajaba los topes y devolvía la pantalla
+negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
+`~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
+
+**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
+`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
+
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
 **Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
