@@ -34,6 +34,8 @@ export type RedireccionDeLaCarga =
   | { tipo: 'link-de-venta'; id: number }
   /** /admin/analytics/metrics con algo que corregir y una fecha de inicio: el destino pide el primer mes leído. */
   | { tipo: 'metricas' }
+  /** /admin/sales/p-<pago> → su `c-<cobro>` si ese pago ya no está en Orders porque su cobro se devolvió (sales/[id]/page.tsx). */
+  | { tipo: 'pago-devuelto'; pago: number }
 
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
 
@@ -119,5 +121,8 @@ export function redireccionDeLaCarga(ruta: string | null, query: QueryDelPedido)
   // Un checkout que en realidad es un link de «Vender un plan» (sales/checkouts/[id]/page.tsx).
   const checkout = /^\/admin\/sales\/checkouts\/([1-9]\d{0,11})$/.exec(ruta)
   if (checkout) return { tipo: 'link-de-venta', id: Number(checkout[1]) }
+  // Un pago devuelto (sales/[id]/page.tsx): el `p-` ya no está en Orders y su pedido es el `c-` del cobro.
+  const pago = /^\/admin\/sales\/p-([1-9]\d{0,11})$/.exec(ruta)
+  if (pago) return { tipo: 'pago-devuelto', pago: Number(pago[1]) }
   return null
 }

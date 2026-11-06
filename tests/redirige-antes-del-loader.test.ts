@@ -197,6 +197,7 @@ const DECIDEN_POR_RUTA: Record<string, { test: string; paginas: string[] }> = {
       'app/admin/(polar)/analytics/events/page.tsx',
       'app/admin/(polar)/customers/[id]/events/page.tsx',
       'app/admin/(polar)/sales/checkouts/[id]/page.tsx',
+      'app/admin/(polar)/sales/[id]/page.tsx',
     ],
   },
 };

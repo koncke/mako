@@ -3,11 +3,13 @@
 // con su forma antes de buscar; lo que no existe es un 404, como `getOrderById` de Polar.
 // ⚠️ Un `p-<pago>` cuyo cobro se DEVOLVIÓ ya no está en Orders (su pago pasa a `pagado: false`): lleva a su `c-<cobro>`, que es el
 // pedido devuelto (revisión del Cerebro del 6/11/2026, punto 3). `?hecho=` trae el resultado de la devolución (OrderRefundsSection).
+// ⚠️ Esa redirección la repite el layout de Admin en la carga del documento (`destinoDePagoDevuelto`, la misma función): debajo
+//    del loader iría adentro del stream.
 // ⚠️ La suscripción del pedido se busca acá (punto 19): armar `l-<lead>` a ciegas daba 404 o abría la suscripción de otro lead.
 
 import { notFound, redirect } from 'next/navigation'
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
-import { cobroDelPago, vistaOrders, vistaSuscripciones } from '@/app/admin/_polar/datos/ventas-server'
+import { destinoDePagoDevuelto, vistaOrders, vistaSuscripciones } from '@/app/admin/_polar/datos/ventas-server'
 import { ES_ID_PEDIDO, hechoDeLaUrl, suscripcionDelPedido } from '@/app/admin/_polar/datos/ventas'
 import { rutaConWs } from '@/lib/workspace'
 import { Metadata } from 'next'
@@ -29,10 +31,8 @@ export default async function Page(props: { params: Promise<{ id: string }>; sea
   const busqueda = await props.searchParams
   const order = vista.pedidos.find((p) => p.id === id)
   if (!order) {
-    if (id.startsWith('p-')) {
-      const cobroId = await cobroDelPago(Number(id.slice(2)))
-      if (cobroId != null && vista.pedidos.some((p) => p.id === `c-${cobroId}` && p.estado === 'refunded')) redirect(await rutaConWs(`/admin/sales/c-${cobroId}`))
-    }
+    const devuelto = id.startsWith('p-') ? await destinoDePagoDevuelto(Number(id.slice(2))) : null
+    if (devuelto) redirect(await rutaConWs(devuelto))
     notFound()
   }
   const cobro = order.cobroId != null ? vista.cobros.find((c) => c.id === order.cobroId) ?? null : null

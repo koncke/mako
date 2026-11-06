@@ -126,6 +126,18 @@ export async function vistaOrders(): Promise<VistaOrders> {
  * (punto 3: el pago devuelto pasa a `pagado: false` y deja de estar en Orders). null si no existe, no es de la plataforma o no
  * salió por la pasarela. Lo llama sales/[id]/page.tsx, DESPUÉS de `exigirSuperAdmin()`.
  */
+/**
+ * A dónde va un `p-<pago>` que ya no está en Orders: a su `c-<cobro>` si ese cobro se devolvió (punto 3 de la revisión del
+ * Cerebro), o `null` (la página da 404). Lo preguntan la página del pedido y el layout de Admin, que repite su redirect en la
+ * carga del documento para que no quede debajo del loader (./layout-reglas.ts): una sola decisión para los dos.
+ */
+export async function destinoDePagoDevuelto(pagoId: number): Promise<string | null> {
+  const vista = await vistaOrders()
+  if (vista.pedidos.some((p) => p.id === `p-${pagoId}`)) return null
+  const cobroId = await cobroDelPago(pagoId)
+  return cobroId != null && vista.pedidos.some((p) => p.id === `c-${cobroId}` && p.estado === 'refunded') ? `/admin/sales/c-${cobroId}` : null
+}
+
 export async function cobroDelPago(pagoId: number): Promise<number | null> {
   if (!Number.isSafeInteger(pagoId) || pagoId <= 0) return null
   const plataforma = await wsSuperAdmin().catch(() => null)

@@ -362,6 +362,11 @@ test('31 · `redireccionDeLaCarga` decide en cada ruta lo mismo que su página',
   assert.deepEqual(redireccionDeLaCarga('/admin/sales/checkouts/104', {}), { tipo: 'link-de-venta', id: 104 })
   assert.equal(redireccionDeLaCarga('/admin/sales/checkouts/0', {}), null)
   assert.equal(redireccionDeLaCarga('/admin/sales/checkouts', {}), null)
+  // Un pago devuelto (punto 3): su `p-` lleva al `c-` del cobro, y sólo un `p-` con número.
+  assert.deepEqual(redireccionDeLaCarga('/admin/sales/p-961', {}), { tipo: 'pago-devuelto', pago: 961 })
+  assert.equal(redireccionDeLaCarga('/admin/sales/c-961', {}), null, 'un cobro se dibuja')
+  assert.equal(redireccionDeLaCarga('/admin/sales/p-0', {}), null)
+  assert.equal(redireccionDeLaCarga('/admin/sales/p-961/x', {}), null)
   // Lo demás no es de este layout, y sin la ruta del proxy no se adivina.
   for (const r of ['/admin/sales', '/admin/products/checkout-links', '/admin/settings/payments', '/admin/customers']) assert.equal(redireccionDeLaCarga(r, {}), null, r)
   assert.equal(redireccionDeLaCarga(null, { tab: 'billing' }), null)
@@ -380,6 +385,7 @@ test('31 · el layout de Admin redirige SÓLO en la carga, antes de leer el índ
 
 // PROBADO ROMPIÉNDOLO (6/11/2026; el arnés restaura de memoria). Base: 12 pass / 0 fail. Cada rotura, sola:
 //   · un cambio sin efecto (renombrar la función local `uno` de layout-reglas.ts)                     → 12/0
+//   · 31 (sumado al integrar la plata): `redireccionDeLaCarga` sin la regla del pago devuelto (`p-` → `c-`) → 11/1 (31, las rutas)
 //   · 23: `leerIndice` adivina la plataforma (`leer.plataforma().catch(() => null)`)                  → 11/1 (el índice)
 //   · 23: `leerIndice` sin su catch (el error sube)                                                    → 11/1 (el índice)
 //   · 23: ⌘K dice «No hay resultados» con el índice caído                                             → 11/1 (⌘K)

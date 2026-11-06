@@ -29,7 +29,7 @@ import { esNavegacionDelCliente, pedidoActual } from '@/lib/pedido-actual'
 import { rutaConWs } from '@/lib/workspace'
 import { leerNegocio } from '@/app/admin/_polar/datos/cliente-server'
 import { rutaDeEventosDelNegocio } from '@/app/admin/_polar/datos/cliente'
-import { vistaCheckouts } from '@/app/admin/_polar/datos/ventas-server'
+import { destinoDePagoDevuelto, vistaCheckouts } from '@/app/admin/_polar/datos/ventas-server'
 import { rutaDeCheckoutLink } from '@/app/admin/_polar/datos/checkout-link'
 import { propsDeMetricas } from '@/app/admin/_polar/datos/metricas'
 import { vistaDeIngresos } from '@/lib/admin-ingresos'
@@ -49,6 +49,10 @@ async function destinoDeLaCarga(): Promise<{ destino: string; reemplazar: boolea
   if (r.tipo === 'eventos-del-negocio') {
     const ficha = await leerNegocio(r.ws).catch(() => null)
     return ficha ? { destino: rutaDeEventosDelNegocio(r.ws), reemplazar: true } : null
+  }
+  if (r.tipo === 'pago-devuelto') {
+    const destino = await destinoDePagoDevuelto(r.pago).catch(() => null)
+    return destino ? { destino: await rutaConWs(destino), reemplazar: false } : null
   }
   if (r.tipo === 'link-de-venta') {
     const vista = await vistaCheckouts().catch(() => null)
