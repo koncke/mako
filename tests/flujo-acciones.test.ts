@@ -75,7 +75,10 @@ test('faltanEnPaso: lo obligatorio que el paso no trae, con el lead del evento y
 });
 
 test('Las personas de una propuesta de leads: una sola o un lote, y sin nombre no hay persona', () => {
-  assert.deepEqual(filasDeLeads({ nombre: 'Ana', telefono: '5215512345678', email: 'A@X.COM' }), [{ nombre: 'Ana', email: 'a@x.com', telefono: '5215512345678', instagram: null, empresa: null }]);
+  const sinUtm = { utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null };
+  assert.deepEqual(filasDeLeads({ nombre: 'Ana', telefono: '5215512345678', email: 'A@X.COM' }), [{ nombre: 'Ana', email: 'a@x.com', telefono: '5215512345678', instagram: null, empresa: null, ...sinUtm }]);
+  // Las UTM viajan en la fila (6/11/2026): con un token que escribe en el acto, el lead nacía sin campaña.
+  assert.equal(filasDeLeads({ nombre: 'Ana', email: 'a@x.com', utm_campaign: ' otoño ' })[0].utm_campaign, 'otoño');
   // El @ de Instagram viaja en la fila (23/10/2026): un lead con sólo el @ tiene canal.
   assert.equal(filasDeLeads({ nombre: 'Lu', instagram: 'lu.perez' })[0].instagram, 'lu.perez');
   assert.equal(filasDeLeads({ leads: [{ nombre: 'Ana', email: 'a@x.com' }, { nombre: '', email: 'b@x.com' }, { nombre: 'Bea', telefono: '1' }] }).length, 2);
