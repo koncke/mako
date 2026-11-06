@@ -34,7 +34,35 @@ por esto («que los dashboards sean editables, sean utilizables»).
 - ⚠️ **Lo que NO probé, a propósito:** que GUARDAR un cambio persista. Eso escribe en el tablero real
   de Martín en producción, y no se toca su tablero para probar. Lo prueba él, o se hace en el ws 3.
 
-**Faltan cuatro**: copilot-feedback, carruseles-thumbnails, nada-por-detras y github-minutos.
+**⚠️ `punta/github-minutos` — REVISADA el 6/11: el script está bien, pero SU ALARMA DA ROJO TODOS LOS
+DÍAS Y ES FALSA.** El relevo ya lo decía («dice US$51,87 y da rojo todos los días: es falsa») y acá
+están los dos números juntos, medidos el mismo día:
+
+| | |
+|---|---|
+| Lo que estima `scripts/minutos-actions.mjs` (1 al 6/11) | **US$52,07** · 8.678 minutos facturables · «el mes cerraría en US$345» |
+| Lo que dice el panel de facturación de GitHub | **US$15,94** de US$30 |
+
+**Es 3,3 veces de más, y por eso el aviso ya no significa nada: avisa igual todos los días.** Una
+alarma que siempre suena entrena a todo el mundo a ignorarla, y el día que el gasto sea de verdad
+nadie la va a mirar.
+
+**Lo que el propio script ya dice de sí mismo** (está en su cabecera, no es un descubrimiento):
+«ES UNA ESTIMACIÓN… El dato real es el panel de facturación de GitHub, que el `GITHUB_TOKEN` de
+Actions no puede leer». O sea que la alarma **no puede** ver el número bueno.
+
+**Las dos causas candidatas, SIN confirmar** (hace falta medirlas antes de tocar nada):
+1. **Los minutos incluidos del plan están en 0 a propósito** (`--incluidos 0`). Si el plan incluye
+   2.000-3.000 minutos, la estimación los cobra todos y se va para arriba.
+2. **Las corridas que no ejecutaron ningún job igual cuentan.** Medido: el workflow «después del
+   deploy» tiene **834 corridas y 679 minutos facturables** en el mes, a ~0,8 min cada una; la
+   mayoría son corridas cuyos jobs se saltearon por su `if`, y GitHub **no cobra un job salteado**.
+
+**Lo que hay que hacer, y NO es subir el umbral:** que la alarma deje de dar rojo sobre una
+estimación que ella misma sabe que es alta. O resta los minutos incluidos del plan y no cuenta las
+corridas sin job, o avisa en amarillo diciendo «estimado, el panel dice otra cosa».
+
+**Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
 
 ---
 
