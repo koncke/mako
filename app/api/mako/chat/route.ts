@@ -48,6 +48,9 @@ import {
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
 import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
 import { HERRAMIENTAS_DEL_COACH, contextoDeReferente, contextoDelFunnelCoach } from '@/lib/asesores/contexto';
+import { ORIGEN_COPILOTO } from '@/lib/media-buyer/copiloto';
+import { contextoDelCopiloto, HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
+import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { asesorPorId, referentePedido } from '@/lib/asesores/catalogo';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
 import { cursoDe } from '@/lib/cerebro-para-chat';
@@ -134,6 +137,12 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // conversación (`…:referente-<id>`, lib/chat-mako-reglas.ts), no la pantalla: retomada desde la lista, sigue siendo con él.
   const guru = referenteDeTab(quien.chartKey);
   if (guru) return { contexto: `${CONTEXTO_SECOND_BRAIN}\n\n${contextoDeReferente(guru)}`, referente: guru };
+  // EL MARKETING COPILOT (6/11/2026): el chat de su tab habla con su contexto —reglas, lo que respondió el negocio, lo que dicen las
+  // reglas puras y lo que sabe de anuncios, Instagram y YouTube— y con sus operaciones a mano. lib/media-buyer/copiloto-contexto.ts.
+  if (desde?.tab === ORIGEN_COPILOTO) {
+    const perfil = await leerPerfilCopiloto(quien.ws);
+    return { contexto: contextoDelCopiloto(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
+  }
   if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.
   // Y con la oferta con la que abrió el chat (ticket #57): el saludo no se guarda en el hilo, y sin esto a «no, es la otra» el

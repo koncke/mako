@@ -24,6 +24,9 @@ import { montoDelTexto } from './monto';
 
 export const CLAVE_COPILOTO = 'marketing-copilot.perfil';
 
+/** La pestaña desde la que escribe la persona (MakoEnLaTab → `tab`): con ella el chat arma el contexto del CoPilot (copiloto-contexto.ts). */
+export const ORIGEN_COPILOTO = 'Marketing CoPilot';
+
 export type IdFunnel = 'vsl-llamada' | 'mensajes' | 'formulario' | 'carrito' | 'webinar' | 'lead-magnet' | 'youtube' | 'organico';
 export type Llamadas = 'yo' | 'equipo' | 'nadie';
 export type ObjetivoOrganico = 'viralidad' | 'ventas' | 'mixto';

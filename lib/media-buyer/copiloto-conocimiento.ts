@@ -1,0 +1,64 @@
+// =============================================================================
+// Marketing CoPilot — lo que el agente SABE de anuncios para servicios de ticket alto (6/11/2026)
+// =============================================================================
+// Destilado de docs/conocimiento/anuncios-high-ticket.md (armado el 6/11/2026 con videos y sesiones de cursos). Ese documento es SÓLO
+// para el agente y sus fuentes son de uso interno: casi todas venden algo y ningún número está auditado. Por eso acá NO aparece el
+// nombre de nadie de ese documento (tests/marketing-copilot-agente.test.ts lo frena) y cada cifra dice de qué tipo de fuente viene.
+// El agente habla con estos principios en sus palabras; un referente se nombra sólo si es de lib/asesores, con «Inspirado en».
+//
+// ⚠️ Si se actualiza el documento, se actualiza esto: el documento es la fuente, esto es lo que viaja en el system del turno.
+// ⚠️ Pesa en CADA mensaje: tests/marketing-copilot-agente.test.ts fija el tope. Una sección nueva se paga sacando otra.
+// =============================================================================
+
+export const CONOCIMIENTO_ANUNCIOS = `LO QUE SABES DE ANUNCIOS PARA SERVICIOS CAROS (coaching, consultoría, agencias, inmobiliarias, servicios profesionales). Son criterios de varias personas que venden formación o agencias: ninguna cifra está auditada. Los dices con tus palabras, sin nombrar a nadie ni citar videos. Cada cifra lleva su contexto («como referencia conservadora, de un practicante de EE. UU., 2026»).
+
+QUÉ FUNNEL CONVIENE. Antes de recomendar, tres preguntas: cuánta plata entra por venta, quién toma las llamadas y sabe educar, y cuánto se puede perder sin quedar afuera.
+- Ticket desde unos US$3.000, alguien que cierra por llamada y casos probados: anuncio, video de venta, aplicación con la agenda en el mismo paso, confirmación. Contra: no-shows, gente que no califica, administrar vendedores. Quien lo hace a lo grande pide mensaje resuelto, muchos casos y un setter que funcione.
+- Ticket alto, vende el dueño, sin video de venta ni casos todavía: anuncios para que sigan el perfil, retargeting con contenido, mensajes y agenda. Contra: no se mide bien qué trajo cada dólar.
+- Decenas de dólares por día: formulario o WhatsApp, optimizando al primer evento que junte volumen, no a la llamada.
+- Negocio local o inmobiliaria: formulario de mayor intención o mensajes con respuesta inmediata. Si el anuncio no filtra, entran curiosos.
+- Equipo comercial con CRM: formulario o web, con el lead calificado como evento a optimizar. Una vara muy alta deja la cuenta sin eventos.
+- Ciclo largo y alto valor de vida: sumar contenido permanente a un público tibio, al lado de campañas directas, nunca solo. Su efecto se nota entre 6 y 24 meses.
+- Si quiere pasar a pago lo que funciona en orgánico: avísale. El orgánico trae gente ya educada; el pago trae gente que el vendedor tiene que educar. Sin closer capaz de educar, el funnel pago de llamada falla.
+- Webinar: educa antes de la llamada y el closer recibe gente más lista. Hay quien ve fatiga y menos asistencia.
+- Para arrancar el de llamada, el mejor closer, que muchas veces es el dueño. Tomar 20 o 30 llamadas uno mismo es el aprendizaje más rápido sobre el mensaje.
+
+PRESUPUESTO DE ARRANQUE.
+- La apuesta: lo que se puede perder y seguir jugando. Primero se llena a UN closer, no a tres (ejemplo de un practicante: US$15.000 a US$345 por llamada dan 43 llamadas, unas dos por día).
+- Al menos un ticket por mes, con piso de unos US$50 por día, para una sola persona.
+- Según eventos: presupuesto semanal = eventos que pide la cuenta × costo por evento. Con US$20 a 40 por día se puede correr, pero no optimizando a la venta.
+- Lectura nuestra: optimizar a llamada pide US$5.000 a 15.000 semanales por conjunto. Con poca plata se optimiza a un evento anterior.
+- Una prueba no es escala: a US$100 a 500 por día los números no son los reales y al escalar suelen subir.
+- La cuenta inversa: objetivo ÷ cash por venta = ventas; ÷ cierre = llamadas tomadas; ÷ asistencia = agendas; × costo por llamada = inversión. Con números conservadores y cash cobrado, no precio de lista. Es una cuenta, no una promesa. Para el cálculo de anuncios usa la herramienta calcular_presupuesto_anuncios, no de memoria.
+
+NÚMEROS DE REFERENCIA (cada uno con su contexto; di siempre que el del negocio puede ser distinto).
+- Costo por agenda: US$100 a 300 como expectativa conservadora (practicante de EE. UU., 2026, no es un promedio medido); US$500 a 1.000 con ciclo largo, mercado chico o ticket muy alto. Más baratos: US$50 a 70 en 2022 con una oferta de US$10.000 (una persona, dato viejo); US$50 por agenda y US$300 por calificada con ticket de US$5.000 (alumnos, 2023, muestras chicas). US$3 a 5 por agenda es un extremo de un solo participante: no lo uses como vara.
+- Costo por llamada calificada: US$500 a 600 en un negocio de 2023, hasta US$1.000 en mala racha.
+- Etapas (referencias de un practicante de EE. UU., 2026): CPM US$30 a 80 según nicho; clic de enlace único 2% o más; clic a agenda calificada 3 a 5%; del video de venta, más de 50% de reproducción; asistencia 60% ideal, modelar con 40 a 50%, en 30 ya hay problemas (otro practicante ve 70 a 80% como muy bueno, aunque entre no-shows y cancelaciones sus mejores funnels pierden cerca de la mitad); cierre en una llamada 20 a 25%, 10 a 15% es malo, más de 30% muy bueno; aplicación y agenda separadas pierden 50% de los calificados, integradas 16%; de los creativos, menos de 10% ganan y los que aguantan escala son 1 a 3%.
+- Webinar: registro 20 a 50%, asistencia 30%, agenda 30%, asistencia a la llamada 70%, cierre 35% o más (referencia de un practicante, no promedio).
+- Costo por cliente: un practicante dice menos de 30% del ingreso; otro, hasta medio ticket. No coinciden.
+- Leads inmobiliarios en Brasil: R$5 a 8 habitual en una agencia; son leads, no llamadas.
+- EL NÚMERO QUE MANDA es el costo por llamada calificada, no el costo por lead: abaratar el lead suele traer a los peores. En WhatsApp, el costo por conversación calificada, no por conversación.
+
+QUÉ MIRAR EN CADA ETAPA. Empieza por el retorno y el cash por llamada; baja a una etapa sólo si eso está mal; compárala con su rango; ataca la más contraída que sea más fácil de arreglar. Anuncio: CPM y clic (gancho, retención del video, coherencia con la página). Página y video de venta: reproducción y curva de los primeros segundos (si cae de entrada, rehacer el arranque). Aplicación: clic a agenda y abandono (integrar la agenda; si el costo sube, bajar fricción; si entran malos, subirla). Agenda: % calificadas, cancelaciones, días hasta la cita (hasta 72 horas; fin de semana rinde peor). Asistencia: educar entre la agenda y la llamada. Cierre: si todo lo anterior está bien, entra gente equivocada (se arregla en el mensaje) o el closer no sabe educar. Cash: la financiación puede llevarse 15% o más.
+
+CUÁNDO ESCALAR: con el costo por llamada calificada estable Y closers con lugar. Con calendarios cerca de 80%, a 100% se cae el seguimiento. Velocidad (sin acuerdo entre fuentes): 10 a 30% por día si el costo aguanta, 10 a 15% cada pocos días, 20% cada dos días. Sumar un closer tarda 4 a 6 semanas. Bajar presupuesto los días con el calendario lleno. Cada mensaje alcanza a una cantidad finita de gente: cuando cada dólar extra rinde peor, se deja ahí y se busca otro mensaje.
+
+CUÁNDO APAGAR. Un creativo: cuando gastó al menos un costo objetivo sin resultado (a presupuesto alto, cerca de 3 días; otras fuentes dicen 3.000 impresiones, 7 días o 2 semanas). Con poco gasto, un día sin resultado no dice nada. Un conjunto: cuando cuesta varias veces lo que sus pares. Un funnel entero: por etapas, nunca por sensación; se frena cuando se agotó la apuesta, y con ticket alto se aguanta más antes de cortar. Si entra gente equivocada unas dos semanas: dejar de mandarle a Meta ese evento, que los vendedores marquen a mano a los buenos, o relanzar.
+
+MENSAJE, CALIFICACIÓN Y ASISTENCIA.
+- El texto, el guion del video y la página deciden a quién se le muestra el anuncio (un alumno atrajo aspirantes a escritor por nombrar a una autora famosa). Tras un clic, Meta llena a esa persona de ofertas parecidas durante días: ciclo corto, educar enseguida, mostrar método y proceso propios en vez de sólo prometer.
+- Variedad real: tandas con ángulos, niveles de conciencia y formatos distintos. Reciclar como anuncio el mejor orgánico. Mezclar valor, demostración, testimonios REALES y llamado a la acción.
+- Inmobiliaria: en los primeros segundos, qué es, dónde queda y para quién.
+- Calificar: fricción e intención van juntas (más fricción, menos gente y mejor). Hasta tres preguntas: una fácil de opción múltiple que confirme que es el lugar, otra que filtre por plata, otra de tiempo y expectativas. Mucha gente miente sobre sus ingresos en una encuesta (70 a 80% en un grupo): rinde más una pregunta indirecta y validar con datos qué respuestas predicen la compra. Formulario: el de mayor intención, con revisión y teléfono obligatorio. WhatsApp: mensaje precargado con el servicio; el vendedor conversa, no manda PDF y precios de entrada.
+- Entre la agenda y la llamada (lo que más mueve la asistencia): confirmación con un video de razones reales para priorizar la llamada; correos con valor, no sólo recordatorios (dos o tres por día al empezar); recordatorios a 24 h, 1 h y 10 min, y en LATAM también por WhatsApp; retargeting con contenido a quienes agendaron (hacen falta unas 150 personas); un setter que educa además de filtrar. Cancelar lo que no califica es válido. Una página con cada operación real documentada subió asistencia y cierre en un caso único.
+
+ERRORES TÍPICOS. Llenar la página de secciones y que dejen de mirar el video. Querer llenar tres closers sin haber probado que el funnel es rentable. Optimizar por clics, o campaña de tráfico hacia WhatsApp (clics sin mensajes). Promocionar desde el botón del celular (en iPhone sale cerca de 30% más caro, según un corredor). Un video abstracto que no dice qué se vende. Esperar que un solo anuncio directo venda algo de miles de dólares. Depender sólo del píxel: si se pierde, queda el mensaje.
+
+DIFERENCIAS CON E-COMMERCE. El anuncio no vende: empieza una relación que termina en una persona. Hay margen para absorber costos. La venta ocurre días después y fuera del píxel: hay que devolverle a Meta quién sirvió. Pocos eventos por semana: el aprendizaje de Meta es un límite real. El techo también es la capacidad de los closers. Comprar sin llamada casi no funciona, salvo en mercados maduros con crédito.
+
+LATAM Y ESPAÑA: la evidencia es flaca (sesiones de 2023 y dos fuentes de Brasil; de España sólo comentarios sueltos de alumnos). No uses los dólares de EE. UU. como vara: los de alumnos en LATAM son bastante menores, pero de 2023 y de muestras chicas. España y EE. UU. salen bastante más caros que LATAM. Impuestos: una cuenta argentina llegó a 74% en 2023 (verifica hoy); Brasil, 12%. WhatsApp es el canal de cierre en Brasil y responder rápido es la regla; es común que el lead pida el precio y desaparezca. Casi nadie tiene setters en LATAM. Hay agendas que no sirven: gente que niega haberse registrado o agenda dos veces. Vivienda: en EE. UU. y Canadá la categoría especial limita radio, edad y género; revísalo en la cuenta.
+
+DONDE LAS FUENTES NO COINCIDEN (di que hay discusión y gana el contexto más parecido al negocio: ticket, presupuesto y país; nunca inventes una regla única). Retargeting en ticket muy alto: uno lo desaconseja en Facebook, otros cuatro lo usan. Eventos para aprender: 50 por conjunto por semana o 25 a 30. Público: amplio en frío, o ciudad y barrio, o uno abierto y uno dirigido. Ganador: dejarlo donde gana, pasarlo a una campaña de escala o duplicarlo. Presupuesto: por conjunto o de campaña. WhatsApp: objetivo de ventas maximizando conversaciones, interacción, o formulario con evento del CRM (maximizar conversaciones trae a quien sólo pregunta el precio). Una o dos llamadas: mejor una; dos con razón.
+
+LO QUE NO ACONSEJAS, aunque aparezca en cursos: escasez o cupos inventados, urgencia que no sea por razones reales, facturación como promesa o títulos de «de X a Y por mes», testimonios o reseñas falsos, mensajes que aparentan salir de un teléfono personal, anuncios de beneficios fiscales que nadie puede garantizar, y presionar para decidir hoy.`;

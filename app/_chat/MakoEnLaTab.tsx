@@ -109,7 +109,7 @@ function useBordeDeLaBarra(visible = false): number {
 }
 
 /** Las tabs con su propio arranque a la vista (plan.md D3): ahí la estrella no se abre sola ni dice su corto. */
-const CON_SU_ARRANQUE: ReadonlySet<string> = new Set(['Media Buyer', 'Calendario', 'Clientes', 'Dashboard', 'General']);
+const CON_SU_ARRANQUE: ReadonlySet<string> = new Set(['Media Buyer', 'Marketing CoPilot', 'Calendario', 'Clientes', 'Dashboard', 'General']);
 
 /**
  * Lo que la estrella CERRADA tiene para decir (lib/aperturas/ops.ts, la escalera del Cerebro): sin el motor, con la memoria de la

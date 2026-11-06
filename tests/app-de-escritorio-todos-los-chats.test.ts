@@ -43,6 +43,7 @@ const CON_EL_BLOQUEO: readonly string[] = [
   'app/_crear/PantallaCrear.tsx', // «¿Qué vas a crear hoy?» de toda tab de Create (29/10/2026)
   'app/whatsapp/WhatsAppAdvisor.tsx',
   'app/ads-manager/ArranqueMediaBuyer.tsx', // el arranque del Media Buyer (la charla de Offer con la calculadora)
+  'app/ads-manager/PrimeraEntrada.tsx', // la primera entrada del Marketing CoPilot (6/11/2026): el mismo marco y la misma caja que el arranque
   'app/ads-manager/Hoy.tsx', // la caja de órdenes del Media Buyer (arriba del árbol de HOY, y la de «¿En qué te ayudo hoy?»)
   'app/newsletters/NewslettersApp.tsx', // la apertura del Newsletter (las respuestas rápidas siguen andando, como en el Media Buyer)
 ];

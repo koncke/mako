@@ -155,7 +155,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           )}
         </PanelDeChat>
       </div>
-      <MakoEnLaTab tab="Media Buyer" pedido={pedido} pantalla={`Marketing CoPilot · primera entrada · paso ${paso}${f ? ` · ${f.nombre}` : ''}`} encimaDeModales />
+      <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={`Marketing CoPilot · primera entrada · paso ${paso}${f ? ` · ${f.nombre}` : ''}`} encimaDeModales />
     </div>
   );
 }

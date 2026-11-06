@@ -148,7 +148,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     await recargar();
   }, [recargar, show]);
 
-  const pedir = (texto: string) => setPedidoMako({ texto: `Media Buyer: ${texto}`, vez: Date.now() });
+  const pedir = (texto: string) => setPedidoMako({ texto: `Marketing CoPilot: ${texto}`, vez: Date.now() });
   const avatar = <Criatura nombre="MaKo" size={18} estrella />;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
@@ -223,7 +223,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
         <DescartarModal onCerrar={() => setDescartando(null)}
           onDescartar={async (motivo) => { const d = descartando; setDescartando(null); await accion(d, { op: 'descartar', motivo }, 'Descartado'); }} />
       )}
-      <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
+      <MakoEnLaTab tab="Marketing CoPilot" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
       <Toast state={toast} onClose={clear} />
     </>
   );
