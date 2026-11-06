@@ -344,6 +344,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
+  ads: ['estrategia'], // app/ads-manager/page.tsx y app/m/ads/page.tsx (`?estrategia=1`: «Cambiar mi estrategia» reabre la charla del Marketing CoPilot)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -836,7 +837,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
     if (hoja === 'comercial') return '/m/dashboard?hoja=comercial';
     return `/m/dashboard/${encodeURIComponent(hoja)}`;
   }
-  if (dentro(p, '/ads-manager')) return '/m/ads';
+  // Marketing CoPilot: `?estrategia=1` viaja (los dos lados reabren la charla); lo demás de la computadora (`vista`, `decision`) no
+  // lo lee el teléfono, y no viaja.
+  if (dentro(p, '/ads-manager')) return aSeccion('ads', q);
   // Las siete del 15/10/2026, cada una con lo que su pantalla de escritorio lee de la query. Ninguna
   // tiene subpantallas en el teléfono (todavía): una subruta de escritorio cae en la sección.
   if (dentro(p, '/calendario')) return aSeccion('calendario', q);

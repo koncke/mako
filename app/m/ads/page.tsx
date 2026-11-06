@@ -27,8 +27,12 @@ import './mb-m.css';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MediaBuyerMovil() {
+export default async function MediaBuyerMovil({ searchParams }: { searchParams: Promise<{ estrategia?: string | string[] }> }) {
   const ctx = await requireMovil({ navKey: 'ads-manager' });
+  // `?estrategia=1` («Cambiar mi estrategia» del Plan y de Ajustes): vuelve a la charla con lo ya respondido, como la computadora.
+  // Llega porque el desvío al teléfono la deja viajar (lib/movil-rutas.ts → QUERY_DE_SECCION.ads).
+  const sp = await searchParams;
+  const reabrir = (Array.isArray(sp.estrategia) ? sp.estrategia[0] : sp.estrategia) === '1';
   if (ctx.ws == null) return <PantallaM><VacioM frase="Elige un negocio para ver su Media Buyer." /></PantallaM>;
   const [op, guardada, dec, cupo, token, perfil, yo] = await Promise.all([
     wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws),
@@ -39,7 +43,7 @@ export default async function MediaBuyerMovil() {
   // La misma regla que la computadora (app/ads-manager/page.tsx): una cuenta medida vacía tampoco «operaba».
   const nuncaOpero = !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0;
   const cuentaVacia = guardada.ultimaCorridaInfo?.campanas === 0;
-  if (!copilotoListo(perfil) && (nuncaOpero || cuentaVacia)) {
+  if (reabrir || (!copilotoListo(perfil) && (nuncaOpero || cuentaVacia))) {
     return <PantallaM><PrimeraEntrada nombre={(yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo'} inicial={perfil} /></PantallaM>;
   }
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
@@ -54,7 +58,7 @@ export default async function MediaBuyerMovil() {
   return (
     <PantallaM>
       <MediaBuyerM config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} productoDe={vista?.productoDe ?? {}}
-        conectada={token ? true : null} />
+        conectada={token ? true : null} perfil={perfil} />
     </PantallaM>
   );
 }

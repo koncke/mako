@@ -18,6 +18,7 @@
 // =============================================================================
 
 import type { OfferMensaje } from '@/lib/offer-marco';
+import type { Desde } from '@/lib/chat-desde';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { fmtDinero } from '@/lib/format';
 import { montoDelTexto } from './monto';
@@ -26,6 +27,10 @@ export const CLAVE_COPILOTO = 'marketing-copilot.perfil';
 
 /** La pestaña desde la que escribe la persona (MakoEnLaTab → `tab`): con ella el chat arma el contexto del CoPilot (copiloto-contexto.ts). */
 export const ORIGEN_COPILOTO = 'Marketing CoPilot';
+
+/** El `desde` con que escribe el teléfono (app/m/ads/HojaDelCopiloto.tsx): el MISMO que la estrella de la computadora, para que el
+ *  servidor arme el contexto del CoPilot (app/api/mako/chat/route.ts mira `desde.tab === ORIGEN_COPILOTO`). */
+export const desdeDelCopiloto = (pantalla?: string | null): Desde => ({ tab: ORIGEN_COPILOTO, entidad: null, modo: null, ...(pantalla ? { pantalla } : {}) });
 
 export type IdFunnel = 'vsl-llamada' | 'mensajes' | 'formulario' | 'carrito' | 'webinar' | 'lead-magnet' | 'youtube' | 'organico';
 export type Llamadas = 'yo' | 'equipo' | 'nadie';
@@ -513,6 +518,18 @@ export function conCampanas(funnel: IdFunnel | null | undefined, presupuestoMes?
 export function seccionesDe(funnel: IdFunnel | null | undefined, presupuestoMes?: number | null): SeccionCopiloto[] {
   if (!funnelPorId(funnel)) return ['hoy', 'campanas', 'biblioteca'];
   return conCampanas(funnel, presupuestoMes) ? ['hoy', 'plan', 'campanas', 'biblioteca'] : ['semana', 'plan', 'medir'];
+}
+
+/**
+ * Las secciones del TELÉFONO con un funnel de anuncios (app/m/ads/MediaBuyerM.tsx): Hoy y, si el negocio eligió su funnel en la
+ * primera entrada, su Plan. Campañas y Biblioteca quedan en la computadora (no entran en una columna). Sin funnel elegido (un negocio
+ * de antes) o con la charla sin terminar, sólo Hoy: no hay plan que mostrar. Sin anuncios el teléfono dibuja otra pantalla
+ * (app/m/ads/page.tsx → SinAnuncios), así que esto no se pregunta ahí.
+ */
+export function seccionesDelTelefono(p: PerfilCopiloto | null | undefined): Array<'hoy' | 'plan'> {
+  if (!p || !copilotoListo(p)) return ['hoy'];
+  const f = funnelElegido(p);
+  return f && seccionesDe(f.id, p.presupuestoMes).includes('plan') && conCampanas(f.id, p.presupuestoMes) ? ['hoy', 'plan'] : ['hoy'];
 }
 
 export type Tarea = { titulo: string; detalle: string; accion: string; href: string };

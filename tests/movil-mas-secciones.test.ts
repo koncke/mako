@@ -225,6 +225,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     'api-mako': ['tab'],
     curso: ['producto'],
     comunidad: ['producto', 'post'],
+    ads: ['estrategia'], // Marketing CoPilot: «Cambiar mi estrategia» reabre la charla en los dos lados (6/11/2026)
   });
   for (const s of SECCIONES_MAS) {
     const url = rutaEscritorio(s.href);
