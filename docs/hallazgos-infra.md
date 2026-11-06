@@ -187,6 +187,29 @@ chequeado como culpable.
   `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
   «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
 
+## Un dato que se calcula y nadie lee es un dato que miente: la guardia del Runner apagada (6/11/2026)
+
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`estado`, `alAbrir`, `tareaDeLaCuenta`). Lo fija
+`tests/runner-salud.test.ts`, probado rompiéndolo.
+
+**El pendiente decía:** «si se vence el reloj del Runner, el vigía se apaga y nada lo avisa». Al medirlo, el agujero era otro
+y peor.
+
+**Lo que había:** `tareaDeLaCuenta` devuelve `{ existe, prendida }` **desde que nació**, y `alAbrir` miraba sólo `existe`.
+Una guardia con `enabled: false` se leía **igual que una sana**: la tarea está, así que nadie avisa, y la única red que queda
+cuando no hay Runner —entregar lo del Ops Center de a 20 minutos— no corre. Y `estado`, que es **el JSON que lee la guardia**,
+no decía una palabra de su propia tarea.
+
+⚠️ **La regla que queda: un campo que se calcula y ningún call-site lee no es código de más, es una afirmación falsa
+esperando.** `prendida` daba la respuesta correcta todo el tiempo; el agujero era que nadie preguntaba. Al revisar una guarda,
+la pregunta no es sólo «¿mide bien?» sino «¿alguien lee lo que mide?».
+
+Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la tarea que hay que prender** cuando está apagada,
+igual que cuando no existe.
+
+**Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
+es que, cuando se caiga, **se diga**.
+
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
 Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
