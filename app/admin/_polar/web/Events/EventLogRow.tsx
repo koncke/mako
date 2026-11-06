@@ -86,7 +86,7 @@ export const EventLogRow = ({
       >
         <Box alignItems="center" justifyContent="between" gap="m">
           <Box alignItems="center" gap="s" minWidth={0}>
-            <Text truncate color={event.falla && event.nombre === 'mako' ? 'danger' : undefined}>
+            <Text truncate color={event.falla && (event.nombre === 'mako' || event.nombre === 'lectura') ? 'danger' : undefined}>
               {event.label}
             </Text>
             <Veces event={event} />
@@ -136,7 +136,7 @@ export const EventLogRow = ({
           alignItems="center"
           gap="s"
         >
-          <Text truncate color={event.falla && event.nombre === 'mako' ? 'danger' : undefined}>
+          <Text truncate color={event.falla && (event.nombre === 'mako' || event.nombre === 'lectura') ? 'danger' : undefined}>
             {event.label}
           </Text>
           <Veces event={event} />

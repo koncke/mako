@@ -1,8 +1,12 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/dashboards/MetricGroup.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: la grilla es siempre de dos columnas (sin la de tres de Polar desde 2xl) y el último gráfico va ancho si quedaría solo
+// (`celdaAncha`): con los grupos de MaKo, de una a ocho métricas, la de tres dejaba celdas vacías al ancho de Martín.
 
 import MetricChartBox from '@/app/admin/_polar/web/Metrics/MetricChartBox'
+import { celdaAncha } from '@/app/admin/_polar/web/utils/metrics'
 import type { ParsedMetricsResponse, schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import { useRef, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
@@ -31,7 +35,7 @@ export function MetricGroup({
   return (
     <div className="flex flex-col gap-y-6">
       <div className="dark:border-polar-700 flex flex-col overflow-hidden rounded-2xl border border-gray-200">
-        <div className="grid grid-cols-1 flex-col [clip-path:inset(1px_1px_1px_1px)] lg:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid grid-cols-1 flex-col [clip-path:inset(1px_1px_1px_1px)] lg:grid-cols-2">
           {metricKeys.map((metricKey, index) => (
             <MetricChartBox
               key={String(metricKey)}
@@ -54,7 +58,7 @@ export function MetricGroup({
               }}
               className={twMerge(
                 'rounded-none! bg-transparent dark:bg-transparent',
-                index === 0 && 'lg:col-span-2',
+                celdaAncha(index, metricKeys.length) && 'lg:col-span-2',
                 'dark:border-polar-700 border-t-0 border-r border-b border-l-0 border-gray-200 shadow-none',
               )}
             />

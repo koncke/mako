@@ -49,6 +49,7 @@ const ICONOS: Record<NombreEvento, ReactNode> = {
   error: <ErrorOutlined fontSize="inherit" />,
   reporte: <Support fontSize="inherit" />,
   mako: <BoltOutlined fontSize="inherit" />,
+  lectura: <BoltOutlined fontSize="inherit" />,
   agente: <BoltOutlined fontSize="inherit" />,
 }
 

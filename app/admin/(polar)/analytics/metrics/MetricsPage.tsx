@@ -7,6 +7,8 @@
 // `DashboardBody` con el rango y las acciones, y cada sección pide sus métricas; acá el layout y la página son uno solo,
 // porque el rango (en la URL) recorta en el navegador los meses que ya trajo el server: el encabezado y los gráficos
 // necesitan los mismos datos. ⚠️ Éste y el Overview son los ÚNICOS lugares con el gráfico de ingresos (Martín, 6/11/2026).
+// ⚠️ Los períodos (`Date`) se arman ACÁ, en el navegador (`propsDeMetricas`, con `useMemo` como Overview): del server llegan los
+//    meses como texto. Armados en el server (UTC), noviembre se dibujaba «oct» en Argentina (punto 5, revisión del 6/11/2026).
 
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import ClientPage from '@/app/admin/_polar/web/Metrics/dashboards/ClientPage'
@@ -14,26 +16,20 @@ import { DashboardViewActions } from '@/app/admin/_polar/web/Metrics/dashboards/
 import { MetricsHeader } from '@/app/admin/_polar/web/Metrics/dashboards/MetricsHeader'
 import { useMetricsFilters } from '@/app/admin/_polar/web/Metrics/dashboards/useMetricsFilters'
 import { gruposConDatos } from '@/app/admin/_polar/web/utils/metrics'
-import { recortarMetricas } from '@/app/admin/_polar/datos/metricas'
-import type { ParsedMetricsResponse } from '@/app/admin/_polar/datos/polar-tipos'
+import { propsDeMetricas, recortarMetricas, type VistaDeMetricas } from '@/app/admin/_polar/datos/metricas'
 import { Alert } from '@/app/admin/_polar/orbit'
 import { useMemo } from 'react'
 
 export interface MetricsPageProps {
-  data: ParsedMetricsResponse
-  /** El primer mes leído (YYYY-MM-DD): no se puede elegir antes. */
-  earliestDateISOString: string
-  mesesLeidos: number
-  /** Lo que no se pudo leer: los números pueden quedarse cortos. */
-  avisos: string[]
+  /** Los meses y los pagos como texto: las fechas se arman acá. `avisos`: lo que no se pudo leer. */
+  vista: VistaDeMetricas
 }
 
-export default function MetricsPage({
-  data,
-  earliestDateISOString,
-  mesesLeidos,
-  avisos,
-}: MetricsPageProps) {
+export default function MetricsPage({ vista }: MetricsPageProps) {
+  const { data, earliestDateISOString, mesesLeidos, avisos } = useMemo(
+    () => propsDeMetricas(vista),
+    [vista],
+  )
   const { startDate, endDate } = useMetricsFilters(earliestDateISOString)
   const recortada = useMemo(
     () => recortarMetricas(data, startDate, endDate),
@@ -74,7 +70,7 @@ export default function MetricsPage({
           <Alert
             variant="warning"
             soporte
-            title="No pude leer todo: los números pueden quedarse cortos"
+            title="Puede faltar algo"
             description={avisos.join(' · ')}
           />
         </div>

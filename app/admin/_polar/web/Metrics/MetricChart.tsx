@@ -3,7 +3,7 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/MetricChart.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 import { ParsedMetricPeriod } from '@/app/admin/_polar/datos/polar-tipos'
-import { getFormattedMetricValue, getTimestampFormatter } from '@/app/admin/_polar/web/utils/metrics'
+import { fechaDeEje, getFormattedMetricValue, getTimestampFormatter } from '@/app/admin/_polar/web/utils/metrics'
 import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import dynamic from 'next/dynamic'
 import { useTheme } from '@/app/admin/_polar/lib/theme'
@@ -84,10 +84,10 @@ const MetricChart = ({
     [previousData, isDark],
   )
 
+  // MaKo: `fechaDeEje` lee un día sin hora como medianoche local (punto 5, revisión del 6/11/2026).
   const timestampFormatter = useMemo(() => {
     const fmt = getTimestampFormatter(interval)
-    return (value: string | Date) =>
-      fmt(typeof value === 'string' ? new Date(value) : value)
+    return (value: string | Date) => fmt(fechaDeEje(value))
   }, [interval])
 
   const valueFormatter = useMemo(

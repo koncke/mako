@@ -10,10 +10,11 @@ import 'server-only'
 import { cache } from 'react'
 import { vistaDeClientes, type VistaClientes } from '@/lib/clientes-plataforma'
 import { vistaDeIngresos, type VistaIngresos } from '@/lib/admin-ingresos'
-import { resumenDelPeriodo, resumenEntre, type ResumenPeriodo } from '@/lib/costos-ia'
+import { resumenEntre } from '@/lib/costos-ia'
+import { wsSuperAdmin } from '@/lib/workspace'
 import { CAPA_DEFAULT, CAPAS_VENDIBLES } from '@/lib/capas'
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas'
-import type { Lectura } from './clientes'
+import { partirEnElReparto, ventanaDelMes, type GastoParaRepartir, type Lectura } from './clientes'
 import type { OpcionesAlta } from './alta'
 
 const motivo = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -36,19 +37,35 @@ export const leerIngresos = cache(async (): Promise<Lectura<VistaIngresos>> => {
   }
 })
 
+/**
+ * El gasto de IA de una ventana, partido en el día desde el que se reparte por negocio (`REPARTO_DESDE`, ./clientes.ts): lo de
+ * antes se lee aparte (sólo su total cuenta) y lo de después, con su corte por workspace. Son las mismas filas que una lectura
+ * entera, en dos ventanas que no se pisan. Sin los meses con datos (`resumenEntre` no los pide: Customers no los usa).
+ */
+async function gastoParaRepartir(rotulo: string, desde: string | null, hasta: string | null): Promise<GastoParaRepartir> {
+  const partes = partirEnElReparto(desde, hasta)
+  const [antes, despues, plataforma] = await Promise.all([
+    partes.antes ? resumenEntre(rotulo, partes.antes.desde, partes.antes.hasta) : null,
+    partes.despues ? resumenEntre(rotulo, partes.despues.desde, partes.despues.hasta) : null,
+    wsSuperAdmin(),
+  ])
+  return { periodo: rotulo, antes, despues, plataforma }
+}
+
 /** El gasto de IA de un mes ('YYYY-MM'). */
-export const leerCostos = cache(async (periodo: string): Promise<Lectura<ResumenPeriodo>> => {
+export const leerCostos = cache(async (periodo: string): Promise<Lectura<GastoParaRepartir>> => {
   try {
-    return { ok: true, datos: await resumenDelPeriodo(periodo), avisos: [] }
+    const v = ventanaDelMes(periodo)
+    return { ok: true, datos: await gastoParaRepartir(periodo, v.desde, v.hasta), avisos: [] }
   } catch (e) {
     return { ok: false, error: motivo(e) }
   }
 })
 
 /** El gasto de IA de una ventana exacta (Cost Drivers con el selector de rango de Polar: `ventanaDeCostos`, ./clientes.ts). */
-export const leerCostosEntre = cache(async (rotulo: string, desde: string | null, hasta: string): Promise<Lectura<ResumenPeriodo>> => {
+export const leerCostosEntre = cache(async (rotulo: string, desde: string | null, hasta: string): Promise<Lectura<GastoParaRepartir>> => {
   try {
-    return { ok: true, datos: await resumenEntre(rotulo, desde, hasta), avisos: [] }
+    return { ok: true, datos: await gastoParaRepartir(rotulo, desde, hasta), avisos: [] }
   } catch (e) {
     return { ok: false, error: motivo(e) }
   }

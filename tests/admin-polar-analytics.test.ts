@@ -18,6 +18,11 @@
 //   7. el CSV de las métricas va en dólares y por el armador de la app;
 //   8. cada page.tsx de Analytics pregunta `exigirSuperAdmin()` ANTES de leer, y Events traduce `?tipo=` y lee a fondo los
 //      negocios de `?customerIds=`.
+//   Y lo de la revisión del Cerebro del 6/11/2026 (docs/admin/revision-cerebro-6-11.md):
+//   (6) Costs no le pasa ningún `Date` a la vista (punto 5; lo de la zona, en tests/admin-polar-zona.test.ts); (6b) lo cobrado
+//   del mes y el «AI margin» (punto 12); 9. «N eventos hoy» cuenta pagos y acciones, las lecturas de MaKo son un tipo aparte, y
+//   su «Ver todo» (`range=today`, pagos y acciones) da el mismo número (punto 13); 10. la grilla de Metrics sin celdas vacías,
+//   los grupos en inglés, las métricas por defecto de Polar y «Todo» (puntos 39, 40 y 43).
 //
 // Probado rompiéndolo el 6/11/2026 (base: 8 pasan / 0 fallan; el arnés restaura de memoria). Cada rotura, sola:
 //   · `clientesConSuscripcionAl` cuenta a todo cliente con un movimiento (sin `despues > 0`)        → 6/2 (1, 7)
@@ -42,6 +47,18 @@
 //   · `cortesVisibles` sin el `salvo` (el corte de todos sobre un negocio leído a fondo)              → 9/1 (5c)
 //   · events/page.tsx llama a `leerEventos()` sin los negocios de `?customerIds=`                     → 9/1 (8)
 //   · un cambio sin efecto (renombrar las locales de `masViejoDe`)                                   → 10/0 (sigue verde)
+// Con lo de la revisión del Cerebro (6/11/2026). Base 13/0; cada rotura, sola y restaurada de memoria:
+//   · `actividadReciente` cuenta también las lecturas de hoy (sin `a.tipo === 'accion'`)             → 12/1 (9)
+//   · `eventosDeAcciones` deja las lecturas como «mako»                                              → 12/1 (9)
+//   · `TIPOS_DE_HOY` con las lecturas (el «Ver todo» da otro número)                                  → 12/1 (9)
+//   · `celdaAncha` sólo con el primero ancho (queda una celda vacía)                                 → 12/1 (10)
+//   · el grupo Cancellations vuelve a «Bajas»                                                        → 12/1 (10)
+//   · las métricas por defecto de antes (sin Active Subscriptions ni Orders)                         → 12/1 (10)
+//   · `CHART_RANGES.all_time` vuelve a «Desde siempre»                                               → 12/1 (10)
+//   · `margenDelMes` sin el «sin filas no hay margen» (un 100% inventado)                            → 12/1 (6b)
+//   · `cobradoDelMes` suma también los pagos sin su valor en dólares                                 → 12/1 (6b)
+//   · `armarCostos` vuelve a armar el gráfico (con `Date`) en lo que viaja                            → 12/1 (6)
+//   · un cambio sin efecto (renombrar la local `lecturas` del 9)                                     → 13/0
 // =============================================================================
 
 import { test } from 'node:test'
@@ -61,11 +78,17 @@ import {
 import { pedidosDe, type ReciboVenta } from '../app/admin/_polar/datos/ventas'
 import type { AccionMako } from '../lib/actividad'
 import type { Reporte } from '../lib/admin-errores'
-import { armarCostos, cambiosDe, diasDelMes, filasDe, mesAnterior, metricasDeCostos } from '../app/admin/_polar/datos/costos'
-import { filasCsvDeMetricas, gruposConDatos } from '../app/admin/_polar/web/utils/metrics'
+import { armarCostos, cambiosDe, cobradoDelMes, diasDelMes, filasDe, margenDelMes, mesAnterior, metricasDeCostos } from '../app/admin/_polar/datos/costos'
+import { CHART_RANGES, celdaAncha, DEFAULT_OVERVIEW_METRICS, filasCsvDeMetricas, gruposConDatos, METRIC_GROUPS } from '../app/admin/_polar/web/utils/metrics'
+import { EVENTOS_DE_HOY, TIPOS_DE_HOY } from '../app/admin/_polar/datos/eventos'
+import { actividadReciente, ROTULO_RANGO } from '../app/admin/_polar/datos/resumen'
 import type { ResumenPeriodo } from '../lib/costos-ia'
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
+/** Cuántos `Date` lleva un objeto (lo que viaja del server a la vista tiene que ser texto: punto 5). */
+const contarFechas = (v: unknown): number =>
+  v instanceof Date ? 1 : Array.isArray(v) ? v.reduce((a: number, x) => a + contarFechas(x), 0)
+    : v && typeof v === 'object' ? Object.values(v).reduce((a: number, x) => a + contarFechas(x), 0) : 0
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
 
@@ -333,11 +356,11 @@ test('5c. Events: el negocio del filtro se lee a fondo (lo que leía su ficha), 
 
 // ── Costs ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: 0, costUsd })
-const resumen = (porFeature: ReturnType<typeof corte>[], atribuible: boolean, porDia: ReturnType<typeof corte>[] = []): ResumenPeriodo => ({
+const resumen = (porFeature: ReturnType<typeof corte>[], porDia: ReturnType<typeof corte>[] = []): ResumenPeriodo => ({
   periodo: '2026-11', desde: null, hasta: null, filas: 0, llamadas: 0, tokens: 0, costUsd: 0,
   porFeature, porProveedor: [], porModelo: [], porDia,
-  porWorkspace: [{ ...corte('2', 3, 1), atribuible }, { ...corte('1', 5, 3), atribuible }],
-  mesesDisponibles: ['2026-11', '2026-10'], delNegocio: { llamadas: 0, costUsd: 0 }, delCredito: { llamadas: 0, costUsd: 0 },
+  porWorkspace: [corte('2', 3, 1), corte('1', 5, 3)],
+  mesesDisponibles: [], delNegocio: { llamadas: 0, costUsd: 0 }, delCredito: { llamadas: 0, costUsd: 0 },
 })
 
 test('6. Costs: la parte de cada feature, el cambio contra el mes anterior, el corte por negocio sólo si es real', () => {
@@ -353,19 +376,35 @@ test('6. Costs: la parte de cada feature, el cambio contra el mes anterior, el c
   assert.deepEqual(cambiosDe([corte('a', 1, 3), corte('b', 1, 1)], [corte('a', 1, 3)]).map((f) => f.clave), ['b'])
 
 
-  assert.equal(diasDelMes('2026-11', AHORA).length, 6, 'el mes en curso, hasta hoy')
-  assert.equal(diasDelMes('2026-02', AHORA).length, 28)
-  const m = metricasDeCostos([corte('2026-11-02', 1, 0.5), corte('2026-11-05', 1, 0.25)], '2026-11', AHORA)
+  assert.equal(diasDelMes('2026-11', '2026-11-06').length, 6, 'el mes en curso, hasta hoy')
+  assert.equal(diasDelMes('2026-02', '2026-11-06').length, 28)
+  const m = metricasDeCostos([corte('2026-11-02', 1, 0.5), corte('2026-11-05', 1, 0.25)], '2026-11', '2026-11-06')
   assert.deepEqual(m.periods.map((p) => p.costs), [0, 50, 0, 0, 25, 0])
   assert.deepEqual(m.periods.map((p) => p.cumulative_costs), [0, 50, 50, 50, 75, 75])
   assert.equal(m.totals.costs, 75)
   assert.equal(m.totals.cumulative_costs, 75)
 
-  const v = armarCostos({ periodo: '2026-11', actual: resumen([corte('a', 1, 1)], true), previo: null, hoy: AHORA, avisos: ['x'] })
+  const v = armarCostos({ periodo: '2026-11', actual: resumen([corte('a', 1, 1)]), previo: null, hoy: '2026-11-06', mesesConDatos: ['2026-10'], cobrado: null, avisos: ['x'] })
   assert.equal('porNegocio' in v, false, 'el gasto por negocio vive en Customers › Cost Drivers, no en Costs')
   assert.equal(v.previo, null)
   assert.deepEqual(v.cambios, [])
-  assert.deepEqual(v.meses, ['2026-11', '2026-10'])
+  assert.deepEqual(v.meses, ['2026-11', '2026-10'], 'los meses del selector, con el mirado adentro')
+  assert.equal(contarFechas(v), 0, 'a la vista no viaja ningún Date (punto 5): el gráfico lo arma el navegador')
+})
+
+test('6b. Costs: lo cobrado del mes y el «AI margin» (punto 12): sólo resta la IA, y sin gasto medido no hay margen', () => {
+  const entradas = [
+    { fecha: '2026-10-31', usd: 500 }, { fecha: '2026-11-02', usd: 200 }, { fecha: '2026-11-05', usd: 100 }, { fecha: '2026-11-06', usd: null },
+  ]
+  assert.equal(cobradoDelMes(entradas, '2026-11'), 300, 'lo que entró en noviembre con su valor en dólares')
+  assert.equal(cobradoDelMes(entradas, '2026-10'), 500)
+  assert.deepEqual(margenDelMes(300, { costUsd: 30, filas: 12 }), { cobradoCentavos: 30_000, margen: 90 }, '(300 − 30) / 300')
+  assert.deepEqual(margenDelMes(300, { costUsd: 0, filas: 0 }), { cobradoCentavos: 30_000, margen: null }, 'un mes sin ninguna fila de gasto no tiene margen (no un 100% inventado)')
+  assert.deepEqual(margenDelMes(300, { costUsd: 0, filas: 4 }), { cobradoCentavos: 30_000, margen: 100 }, 'con filas en cero (IA gratis) sí: es un gasto medido de 0')
+  assert.deepEqual(margenDelMes(0, { costUsd: 1, filas: 1 }), { cobradoCentavos: 0, margen: null }, 'sin cobros no hay margen')
+  assert.deepEqual(margenDelMes(null, { costUsd: 1, filas: 1 }), { cobradoCentavos: null, margen: null }, 'los ingresos que no se leyeron no son un cero')
+  const v = armarCostos({ periodo: '2026-11', actual: { ...resumen([corte('a', 3, 30)]), costUsd: 30, filas: 3 }, previo: null, hoy: '2026-11-06', mesesConDatos: [], cobrado: 300, avisos: [] })
+  assert.deepEqual(v.margen, { cobradoCentavos: 30_000, margen: 90 }, 'armarCostos lo calcula con el gasto del mes que se mira')
 })
 
 test('7. el CSV de las métricas: una fila por período, la plata en dólares, por el armador de la app', () => {
@@ -398,4 +437,67 @@ test('8. cada page.tsx de Analytics pregunta exigirSuperAdmin() antes de leer, y
   assert.ok(ev.indexOf('tiposDeUrl(') > -1 && ev.indexOf('tiposDeUrl(') < ev.indexOf('leerEventos('), 'y se traduce antes de leer')
   assert.match(ev, /leerEventos\(new Date\(\), \{ negocios: negociosDeUrl\(searchParams\.customerIds\) \}\)/, 'los negocios del filtro (lo que abre la ficha) se leen a fondo')
   assert.match(sinComentarios(leer('app/admin/(polar)/analytics/events/EventsPage.tsx')), /cortesVisibles\(vista\.cortes, listStartDate, numerosDe\(negociosClave\)\)/, 'los cortes miran el filtro de negocios')
+})
+
+test('9. «N eventos hoy» cuenta lo que se puede comprobar: pagos y acciones; su «Ver todo» da el mismo número (punto 13)', () => {
+  const hoy = '2026-11-06'
+  const accion = (creado: string, tipo: 'accion' | 'lectura', ws = 1): AccionMako => ({ creado, usuario: 7, ws, operacion: tipo === 'accion' ? 'crear_lead' : 'ver_leads', titulo: tipo === 'accion' ? 'Crear lead' : 'Ver leads', area: 'crm', canal: 'app', tipo, ok: true })
+  const acciones = [
+    accion('2026-11-06T14:00:00.000Z', 'accion'),
+    accion('2026-11-06T13:00:00.000Z', 'lectura'),
+    accion('2026-11-06T12:00:00.000Z', 'lectura', 2),
+    accion('2026-11-05T12:00:00.000Z', 'accion'),
+  ]
+  const entradas = [
+    { fecha: hoy, usd: 97, medio: 'transferencia', recurrente: true, nombre: 'Estudio Norte', id: 'p:1', cliente: 'ws:1' },
+    { fecha: '2026-11-05', usd: 50, medio: 'transferencia', recurrente: true, nombre: 'Panadería Sol', id: 'p:2', cliente: 'ws:2' },
+  ]
+  const tarjeta = actividadReciente({
+    hoy, ahoraMs: Date.parse('2026-11-06T18:00:00Z'), entradas, pagos: [],
+    acciones: acciones.map((a) => ({ ...a, dia: a.creado.slice(0, 10) })), nombres: { 1: 'Estudio Norte', 2: 'Panadería Sol' }, usdTxt: String,
+  })
+  assert.equal(tarjeta.hoy, 2, 'el pago de hoy y la acción de hoy: las lecturas no cuentan')
+
+  const v = armarEventos({
+    ...entradasEventos(),
+    pedidos: pedidosDe({
+      entradas, recibos: [],
+      clientes: new Map([['ws:1', { clave: 'ws:1', nombre: 'Estudio Norte', ws: 1, leadId: 1 }], ['ws:2', { clave: 'ws:2', nombre: 'Panadería Sol', ws: 2, leadId: 2 }]]),
+      nombreDeWs: new Map([[1, 'Estudio Norte'], [2, 'Panadería Sol']]),
+    }),
+    ingresos: null, altas: null, errores: null, agente: null,
+    actividad: { acciones, nombres: { 1: 'Estudio Norte', 2: 'Panadería Sol' }, personas: [], medido: true },
+  })
+  const lecturas = v.eventos.filter((e) => e.nombre === 'lectura')
+  assert.equal(lecturas.length, 2, 'las lecturas de MaKo son un tipo aparte')
+  assert.ok(v.eventos.filter((e) => e.nombre === 'mako').every((e) => e.label === 'Crear lead'), 'y no están entre las acciones')
+
+  // Lo que abre el «Ver todo» de la tarjeta: Events, hoy, con sus tipos.
+  const url = new URL(EVENTOS_DE_HOY, 'https://hola-mako.com')
+  assert.equal(url.pathname, '/admin/analytics/events')
+  assert.equal(url.searchParams.get('range'), 'today', 'el «range=today» de Polar')
+  const tipos = (url.searchParams.get('eventTypes') ?? '').split(',')
+  assert.deepEqual(tipos, [...TIPOS_DE_HOY])
+  const delDia = filtrarEventos(v.eventos, { desde: new Date(`${hoy}T00:00:00.000Z`), hasta: new Date(`${hoy}T23:59:59.999Z`), nombres: tipos })
+  assert.equal(delDia.length, tarjeta.hoy, 'el filtro da el mismo número que la tarjeta')
+  assert.deepEqual(tiposDeUrl('actividad'), ['mako', 'lectura'], 'el link viejo de Activity abre las dos')
+})
+
+test('10. Metrics: la grilla no deja celdas vacías, los grupos en inglés, los defaults de Polar y «Todo» (puntos 39, 40, 43)', () => {
+  // Una grilla de dos columnas: un gráfico ancho ocupa la fila; los demás, media. Ninguna fila puede quedar a medias.
+  for (let total = 1; total <= 8; total++) {
+    let enLaFila = 0
+    for (let i = 0; i < total; i++) {
+      const ancho = celdaAncha(i, total)
+      if (ancho) assert.equal(enLaFila, 0, `${total} métricas: el gráfico ${i} ancho arranca una fila nueva`)
+      enLaFila = ancho ? 0 : (enLaFila + 1) % 2
+    }
+    assert.equal(enLaFila, 0, `${total} métricas: la última fila no queda con una celda vacía`)
+  }
+  assert.deepEqual([0, 1, 2].map((i) => celdaAncha(i, 3)), [true, false, false], 'con tres: el primero ancho y dos al lado')
+  assert.deepEqual(METRIC_GROUPS.map((g) => g.category), ['Revenue', 'Orders', 'Subscriptions', 'Cancellations', 'Unit Economics'])
+  assert.deepEqual(gruposConDatos(metricasDeIngresos(ING.meses, ING).metrics).map((g) => g.title), ['Revenue', 'Orders', 'Subscriptions', 'Cancellations', 'Unit Economics'])
+  assert.deepEqual(DEFAULT_OVERVIEW_METRICS, ['revenue', 'monthly_recurring_revenue', 'active_subscriptions', 'orders'], 'las de Polar que MaKo mide')
+  assert.equal(CHART_RANGES.all_time, 'Todo')
+  assert.equal(CHART_RANGES.all_time, ROTULO_RANGO.all_time, 'el mismo control, el mismo nombre en Customers y en Overview')
 })

@@ -342,7 +342,7 @@ export function margenDeLecturas(
 
 /** Una fila del widget Activity: el título, de quién, cuándo (corto) y a dónde lleva. */
 export type FilaActividad = { id: string; titulo: string; detalle: string | null; cuando: string; href: string | null }
-/** `hoy`: cuántos eventos hubo hoy (pagos y todo lo que corrió MaKo); `hoyMas`: puede haber más que los leídos. */
+/** `hoy`: cuántos eventos hubo hoy (pagos y acciones de MaKo); `hoyMas`: puede haber más que los leídos. */
 export type Actividad = { filas: FilaActividad[]; hoy: number; hoyMas: boolean }
 
 /** Lo que Polar escribe con `formatRelativeTime` («now», «5m ago», «3h ago», «2d ago», «Nov 5»), en español. */
@@ -384,7 +384,7 @@ const wsDeClave = (clave: string): number | null => {
 /**
  * El widget Activity. Polar muestra los eventos de importancia alta del sistema (pedidos, suscripciones, clientes) y
  * cuenta todos los de hoy. MaKo tiene dos clases: los PAGOS que entraron (de importancia alta, con su día pero sin hora) y
- * lo que corrió MaKo (con su hora): se muestran sus ACCIONES (lo que cambió algo); las lecturas cuentan para «hoy».
+ * lo que corrió MaKo (con su hora): se muestran y se cuentan sus ACCIONES (lo que cambió algo), no sus lecturas.
  * Orden: el día más nuevo primero; dentro del mismo día, los pagos primero (no se sabe su hora) y después las acciones.
  */
 export function actividadReciente(p: {
@@ -430,7 +430,10 @@ export function actividadReciente(p: {
     })
   }
   candidatas.sort((x, y) => (x.dia < y.dia ? 1 : x.dia > y.dia ? -1 : x.orden - y.orden || (x.clave < y.clave ? 1 : x.clave > y.clave ? -1 : 0)))
-  const deHoy = p.acciones.filter((a) => a.dia === p.hoy).length
+  // «Hoy» cuenta lo que se ve: los pagos y las ACCIONES (lo que cambió algo). Las lecturas de MaKo no se listan ni se cuentan:
+  // con ellas el número no se podía comprobar en ninguna pantalla (punto 13, revisión del 6/11/2026). «Ver todo» abre Events con
+  // `eventTypes=pago,mako&range=today`, que da el mismo número.
+  const deHoy = p.acciones.filter((a) => a.dia === p.hoy && a.tipo === 'accion').length
   const leidasTodasDeHoy = p.acciones.length >= ACCIONES_LEIDAS && p.acciones[p.acciones.length - 1]?.dia === p.hoy
   return {
     filas: candidatas.slice(0, n).map((c) => c.fila),

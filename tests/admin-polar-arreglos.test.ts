@@ -149,7 +149,7 @@ test('4 · un cliente de una agencia no es un cliente de MaKo: no va en «Todos�
 
   const vacio = <T,>(datos: T): Lectura<T> => ({ ok: true, datos, avisos: [] })
   const ingresos = vacio<{ entradas: Entrada[]; clientes: ClienteResumen[] }>({ entradas: [], clientes: [] })
-  const costos = vacio({ periodo: '2026-11', costUsd: 0, porWorkspace: [] })
+  const costos = vacio({ periodo: '2026-11', antes: null, despues: { costUsd: 0, porWorkspace: [] }, plataforma: 9 })
   const o = vistaDeOverview(vacio({ filas }), ingresos, costos, '2026-11', Date.parse('2026-11-06T12:00:00Z'))
   assert.equal(o.creados.length, 2, 'el crecimiento cuenta los negocios de la lista')
 
@@ -182,7 +182,8 @@ test('5 · lo que dibujan las piezas de Polar, en español (lo que no es un nomb
     for (const p of PROHIBIDOS) if (s.includes(p)) hallados.push(`${f}: ${p}`)
   }
   assert.deepEqual(hallados, [], 'textos en inglés que quedaron')
-  assert.deepEqual(Object.values(CHART_RANGES), ['Desde siempre', '12m', '3m', '30d', 'Hoy'])
+  // El rango completo se llama «Todo» en todos lados, como en Overview (punto 43, revisión del 6/11/2026).
+  assert.deepEqual(Object.values(CHART_RANGES), ['Todo', '12m', '3m', '30d', 'Hoy'])
   assert.deepEqual(METRIC_GROUPS.map((g) => g.slug), ['revenue', 'orders', 'subscriptions', 'cancellations', 'unit-economics'], 'los slugs, los de Polar')
   const enIngles = Object.values(METRICAS).map((m) => m.display_name).filter((n) => /\b(Revenue|Orders?|Subscriptions?|Average|Churned|Costs?|Cumulative|New|Active)\b/.test(n))
   assert.deepEqual(enIngles, [], 'los nombres de las métricas, en español')

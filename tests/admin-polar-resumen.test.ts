@@ -118,7 +118,7 @@ test('At Risk: el más grave primero (pausado, cobro, sin uso), con su motivo en
   assert.equal(r.filas[2].mrrCentavos, 90000)
 })
 
-test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lecturas cuentan para «hoy» y no se listan', () => {
+test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lecturas no se listan ni se cuentan', () => {
   const ahoraMs = Date.parse('2026-11-06T18:00:00Z')
   const a = actividadReciente({
     hoy: '2026-11-06', ahoraMs,
@@ -136,7 +136,9 @@ test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lectur
     usdTxt: (c) => `US$ ${c / 100}`,
   })
   assert.deepEqual(a.filas.map((f) => f.titulo), ['Pago de una mensualidad', 'Mover un lead', 'Crear tarea', 'Pago'])
-  assert.equal(a.hoy, 3, 'un pago de hoy y dos acciones de hoy (la lectura también cuenta)')
+  // Las lecturas no cuentan para «hoy» desde el 6/11/2026: el número tiene que poder comprobarse en Events (punto 13;
+  // tests/admin-polar-analytics.test.ts, el 9).
+  assert.equal(a.hoy, 2, 'un pago de hoy y una acción de hoy (la lectura no cuenta)')
   assert.equal(a.hoyMas, false)
   assert.equal(a.filas[0].href, '/admin/customers/21')
   assert.equal(a.filas[0].detalle, 'Estudio Norte · US$ 470')

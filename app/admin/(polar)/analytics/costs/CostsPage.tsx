@@ -4,12 +4,16 @@
 //
 // LA VISTA de Admin › Analytics › Costs, PURA (todo por props: se captura con datos de ejemplo). La pantalla de Polar con
 // sus dos pestañas (Overview y LLM) y sus secciones en el mismo orden, con el gasto de IA de MaKo (`datos/costos.ts`):
-//   · Overview: el gráfico del gasto por día; «Breakdown» (Desglose) por feature (lo que en Polar es el tipo de evento);
-//     «Changes» (Cambios) contra el mes anterior;
-//   · LLM: «By Model» (Por modelo) y «By Vendor» (Por proveedor).
+//   · Overview: arriba, lo cobrado del mes y su «AI margin» (en el lugar de la tarjeta Gross Margin de Polar; punto 12 de la
+//     revisión del 6/11/2026); el gráfico del gasto por día; «Breakdown» por feature (lo que en Polar es el tipo de evento);
+//     «Changes» contra el mes anterior;
+//   · LLM: «By Model» y «By Vendor».
 // Los dos «By Customer» de Polar se sacaron (6/11/2026): el gasto de IA de cada negocio vive en UN lugar, Customers › Cost
-// Drivers, donde lo puso Martín. Costs no lleva un link ahí: Cost Drivers mira el mes en curso y Costs cualquier mes, así que
-// desde un mes viejo el link llevaría a otra cosa. Los títulos de las secciones, en español (no son nombres de la barra).
+// Drivers, donde lo puso Martín. Costs no lleva un link ahí: Cost Drivers mira un rango hasta hoy y Costs cualquier mes, así
+// que desde un mes viejo el link llevaría a otra cosa. Los títulos de las secciones van en inglés, como en Polar (decisión de
+// Martín: los nombres de sección, en inglés); las frases y lo que mide cada gráfico, en español.
+// ⚠️ El gráfico y las fechas de las comparaciones se arman ACÁ, en el navegador (`metricasDeCostos`, `rangoDelMes`): del
+//    server llegan el mes y los días como texto. Armados allá (UTC), cada día salía con la fecha anterior (punto 5).
 // Se sacaron: «Anomalies» (los eventos por encima del p99 de su tipo: MaKo guarda el gasto agregado, no cada llamada con su
 // costo comparable), la cantidad de clientes de cada modelo y el detalle de un tipo (`costs/[spanId]`: no hay llamadas que
 // listar). En vez del rango de días de Polar, el mes (`resumenDelPeriodo` lee un mes), y el selector va a la URL (`?mes=`).
@@ -17,7 +21,14 @@
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { MetricGroup } from '@/app/admin/_polar/web/Metrics/dashboards/MetricGroup'
-import { COST_METRICS, type FilaCosto, type VistaCostos } from '@/app/admin/_polar/datos/costos'
+import {
+  COST_METRICS,
+  metricasDeCostos,
+  rangoDelMes,
+  type FilaCosto,
+  type MargenDelMes,
+  type VistaCostos,
+} from '@/app/admin/_polar/datos/costos'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -47,12 +58,17 @@ import { fmtPct } from './utils'
 
 export default function ClientPage({ vista }: { vista: VistaCostos }) {
   const router = useRouter()
-  const dateRange = useMemo(
-    () => ({ from: new Date(vista.desde), to: new Date(vista.hasta) }),
-    [vista.desde, vista.hasta],
+  const dateRange = useMemo(() => rangoDelMes(vista.periodo), [vista.periodo])
+  const previo = useMemo(
+    () => (vista.previo ? rangoDelMes(vista.previo.periodo) : null),
+    [vista.previo],
   )
-  const prevStart = vista.previo ? new Date(vista.previo.desde) : null
-  const prevEnd = vista.previo ? new Date(vista.previo.hasta) : null
+  const prevStart = previo?.from ?? null
+  const prevEnd = previo?.to ?? null
+  const metricas = useMemo(
+    () => metricasDeCostos(vista.porDia, vista.periodo, vista.hoy),
+    [vista.porDia, vista.periodo, vista.hoy],
+  )
 
   const fmt = formatCurrency('accounting')
   const fmtSub = formatCurrency('subcent')
@@ -114,7 +130,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
           <Alert
             variant="warning"
             soporte
-            title="No pude leer todo"
+            title="Puede faltar algo"
             description={vista.avisos.join(' · ')}
           />
         </div>
@@ -126,16 +142,17 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
 
       <TabsContent value="overview">
         <div className="flex flex-col gap-y-10">
+          <MargenDelMesCards margen={vista.margen} mes={vista.periodo} />
           <MetricGroup
             metricKeys={[...COST_METRICS]}
-            data={vista.metricas}
+            data={metricas}
             interval="day"
           />
 
           {/* Where money is going */}
           <section>
             <SectionHeader
-              title="Desglose"
+              title="Breakdown"
               description="Cada función de MaKo, por lo que gastó este mes."
             />
             {vista.porFeature.length === 0 ? (
@@ -187,7 +204,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
           {vista.previo && (
             <section>
               <SectionHeader
-                title="Cambios"
+                title="Changes"
                 description="Lo que más cambió contra el mes anterior."
               />
               {vista.cambios.length === 0 ? (
@@ -255,7 +272,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
         <div className="flex flex-col gap-y-10">
           <section>
             <SectionHeader
-              title="Por modelo"
+              title="By Model"
               description="Los modelos de IA, por lo que gastaron este mes."
             />
             {vista.porModelo.length === 0 ? (
@@ -271,7 +288,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
 
           <section>
             <SectionHeader
-              title="Por proveedor"
+              title="By Vendor"
               description="Los proveedores de IA, por lo que gastaron este mes."
             />
             {vista.porProveedor.length === 0 ? (
@@ -312,6 +329,39 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
     >
       {content}
     </DashboardBody>
+  )
+}
+
+/**
+ * Lo cobrado del mes y su «AI margin», arriba del gráfico, con la forma de una tarjeta de Polar (el título chico, el número
+ * grande y su leyenda). «AI margin» y no «Gross margin»: sólo resta la IA pagada por API con las claves de MaKo (punto 12).
+ */
+function MargenDelMesCards({ margen, mes }: { margen: MargenDelMes; mes: string }) {
+  const fmt = formatCurrency('accounting')
+  const tarjeta = (titulo: string, valor: string, leyenda: string) => (
+    <div className="dark:border-polar-700 flex flex-col gap-2 rounded-2xl border border-gray-200 p-6">
+      <Text variant="title">{titulo}</Text>
+      <Text variant="heading-m" weight="book" tabularNums>
+        {valor}
+      </Text>
+      <Text variant="caption" color="muted">
+        {leyenda}
+      </Text>
+    </div>
+  )
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {tarjeta(
+        'Ingresos',
+        margen.cobradoCentavos != null ? fmt(margen.cobradoCentavos, 'usd') : '–',
+        `Lo cobrado en ${mesTxt(mes)}`,
+      )}
+      {tarjeta(
+        'AI margin',
+        margen.margen != null ? `${margen.margen}%` : '–',
+        `${mesTxt(mes)} · sólo resta la IA por API`,
+      )}
+    </div>
   )
 }
 

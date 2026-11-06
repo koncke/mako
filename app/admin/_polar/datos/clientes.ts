@@ -14,7 +14,8 @@
 //     suma los del rango elegido (como el `useTopCustomers` de Polar);
 //   · At Risk: los atrasados y los que dejaron de pagar (ingresos) + los pausados, los cobros fallidos y los sin uso
 //     (clientes);
-//   · Cost Drivers: `resumenDelPeriodo(<mes>)` (lib/costos-ia.ts), el corte por workspace, y SÓLO si es atribuible.
+//   · Cost Drivers: el gasto de IA del período (lib/costos-ia.ts) por workspace, repartido por negocio desde el 1/11/2026
+//     (`REPARTO_DESDE`); lo anotado en la plataforma (Claude con la clave de MaKo) y lo de antes, en una línea aparte.
 //
 // ⚠️ NADA DE INGRESO MENSUAL EN CUSTOMERS (Martín, 6/11/2026: rechazó una versión por «ingreso mensual en Customers»). El
 //    gráfico de Customers es el de Polar: cuántos negocios hay. El MRR vive en Overview y en Analytics.
@@ -407,15 +408,66 @@ export type ClienteCosto = {
   costoCentavos: number
 }
 
-export type VistaCostos = {
-  /** 'YYYY-MM'. */
+/**
+ * Desde cuándo el gasto de IA se reparte por negocio (UTC). Desde el 17/10/2026 cada fila de gasto queda en el negocio que la
+ * pidió, salvo Claude con la clave de MaKo, que va a la plataforma (lib/costos-ia.ts, la cabecera); se reparte desde el primer
+ * mes entero con esa regla. Antes, todo Claude con la clave de MaKo se anotaba en el workspace 1: ese gasto no se puede
+ * repartir (revisión del Cerebro, 6/11/2026, punto 11).
+ */
+export const REPARTO_DESDE = '2026-11-01T00:00:00.000Z'
+
+/**
+ * El gasto de IA de una ventana, partido en `REPARTO_DESDE` (lo lee clientes-server.ts con `partirEnElReparto`).
+ * `antes`: lo de antes de esa fecha adentro de la ventana, sólo el total (null = la ventana arranca en esa fecha o después).
+ * `despues`: lo de desde esa fecha, por workspace (null = la ventana es toda de antes).
+ * `plataforma`: el workspace de la plataforma; lo anotado ahí es Claude con la clave de MaKo, que no es de ningún negocio.
+ */
+export type GastoParaRepartir = {
   periodo: string
-  /**
-   * false = el gasto de Claude con la clave de MaKo se anota siempre en el workspace 1 (lib/costos-ia.ts): el corte por
-   * negocio de ese período no es una medición y NO se muestra.
-   */
+  antes: Pick<ResumenPeriodo, 'costUsd' | 'llamadas'> | null
+  despues: Pick<ResumenPeriodo, 'costUsd' | 'porWorkspace'> | null
+  plataforma: number | null
+}
+
+/** Una línea de lo que no se reparte por negocio (Claude con la clave de MaKo, o lo de antes del 1/11). */
+export type GastoSinRepartir = { llamadas: number; costoCentavos: number }
+
+export type VistaCostos = {
+  /** El mes ('YYYY-MM') o el rango de Cost Drivers. */
+  periodo: string
+  /** false = el período es entero de antes de `REPARTO_DESDE`: no hay corte por negocio y NO se muestra un número. */
   atribuible: boolean
   clientes: ClienteCosto[]
+  /** Lo anotado en la plataforma (Claude con la clave de MaKo): no se reparte. null = nada en el período. */
+  deMako: GastoSinRepartir | null
+  /** Lo de antes de `REPARTO_DESDE`, si el período lo cruza: no se reparte. null = nada antes. */
+  antes: GastoSinRepartir | null
+}
+
+/** La fecha de `REPARTO_DESDE`, dicha («1 nov 2026»). */
+export const REPARTO_DESDE_TXT = '1 nov 2026'
+
+/**
+ * Dónde se parte una ventana [desde, hasta) en `REPARTO_DESDE`: lo que se lee entero de antes y lo de después (`null` = no hay
+ * esa parte). `desde` null = sin borde (desde siempre); `hasta` null = hasta ahora.
+ */
+export function partirEnElReparto(
+  desde: string | null,
+  hasta: string | null,
+): { antes: { desde: string | null; hasta: string } | null; despues: { desde: string; hasta: string | null } | null } {
+  const corte = Date.parse(REPARTO_DESDE)
+  const d = desde == null ? -Infinity : Date.parse(desde)
+  const h = hasta == null ? Infinity : Date.parse(hasta)
+  return {
+    antes: d < corte ? { desde, hasta: h <= corte && hasta != null ? hasta : REPARTO_DESDE } : null,
+    despues: h > corte ? { desde: d >= corte && desde != null ? desde : REPARTO_DESDE, hasta } : null,
+  }
+}
+
+/** La ventana UTC de un mes «YYYY-MM» (la de `resumenDelPeriodo`): del primer instante al primero del mes siguiente. */
+export function ventanaDelMes(mes: string): { desde: string; hasta: string } {
+  const [y, m] = mes.split('-').map(Number)
+  return { desde: new Date(Date.UTC(y, m - 1, 1)).toISOString(), hasta: new Date(Date.UTC(y, m, 1)).toISOString() }
 }
 
 // ── Cost Drivers con el selector de rango de Polar ────────────────────────────────────────────────────────────────
@@ -465,19 +517,21 @@ export const mesActual = (ahoraMs: number) => new Date(ahoraMs).toISOString().sl
 
 /**
  * El gasto de IA de cada negocio del período (lo que le costó a MaKo, sin lo que pagó el negocio con su propia clave ni el
- * crédito de la plataforma). Sólo los que gastaron algo y son negocios de la lista (no la plataforma).
+ * crédito de la plataforma), desde `REPARTO_DESDE`: sólo los que gastaron algo y son negocios de la lista. La parte de cada uno
+ * es del total repartible (el de desde esa fecha, con lo de la plataforma adentro). Aparte, en una línea cada uno: lo anotado
+ * en la plataforma (Claude con la clave de MaKo) y lo de antes de esa fecha si el período la cruza. Un período entero de antes
+ * no se reparte (`atribuible: false`): no se muestra ningún número por negocio.
  */
-export function costosPorCliente(
-  resumen: Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>,
-  nombres: ReadonlyMap<number, string>,
-  limite = 200,
-): VistaCostos {
-  const atribuible = resumen.porWorkspace.every((c) => c.atribuible)
-  if (!atribuible) return { periodo: resumen.periodo, atribuible: false, clientes: [] }
-  const total = resumen.costUsd
-  const clientes = resumen.porWorkspace
+export function costosPorCliente(gasto: GastoParaRepartir, nombres: ReadonlyMap<number, string>, limite = 200): VistaCostos {
+  const sinRepartir = (r: { llamadas: number; costUsd: number } | null | undefined): GastoSinRepartir | null =>
+    r && r.costUsd > 0 ? { llamadas: r.llamadas, costoCentavos: r.costUsd * 100 } : null
+  const antes = sinRepartir(gasto.antes)
+  if (!gasto.despues) return { periodo: gasto.periodo, atribuible: false, clientes: [], deMako: null, antes: null }
+  const total = gasto.despues.costUsd
+  const plataforma = gasto.plataforma
+  const clientes = gasto.despues.porWorkspace
     .map((c) => ({ ws: Number(c.clave), corte: c }))
-    .filter(({ ws, corte }) => nombres.has(ws) && corte.costUsd > 0)
+    .filter(({ ws, corte }) => ws !== plataforma && nombres.has(ws) && corte.costUsd > 0)
     .map(({ ws, corte }) => ({
       ws,
       nombre: nombres.get(ws) ?? `Workspace ${ws}`,
@@ -487,7 +541,8 @@ export function costosPorCliente(
     }))
     .sort((a, b) => b.costoCentavos - a.costoCentavos || a.nombre.localeCompare(b.nombre, 'es'))
     .slice(0, limite)
-  return { periodo: resumen.periodo, atribuible: true, clientes }
+  const deMako = plataforma == null ? null : sinRepartir(gasto.despues.porWorkspace.find((c) => Number(c.clave) === plataforma))
+  return { periodo: gasto.periodo, atribuible: true, clientes, deMako, antes }
 }
 
 // ── Las props de cada página (lo que arma el page.tsx con las lecturas de clientes-server.ts) ─────────────────────
@@ -496,7 +551,7 @@ type LecturaClientes = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<Fila
 /** Overview cuenta los negocios de la lista (sin los clientes de una agencia): necesita su segmento. */
 type LecturaClientesConSegmento = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado' | 'segmentos'>> }>
 type LecturaIngresos = Lectura<Pick<Ingresos, 'entradas' | 'clientes'>>
-type LecturaCostos = Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>>
+type LecturaCostos = Lectura<GastoParaRepartir>
 
 const errorDe = <T,>(l: Lectura<T>): string | null => (l.ok ? null : l.error)
 const avisosDe = (...ls: ReadonlyArray<Lectura<unknown>>): string[] => ls.flatMap((l) => (l.ok ? l.avisos : []))

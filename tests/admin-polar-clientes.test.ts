@@ -7,13 +7,20 @@
 // ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026). Base: 10 pass / 0 fail. Cada rotura, restaurada después (y la base otra vez 10/0):
 //   · `clientesEnRiesgo`: el `<` de la prioridad dado vuelta (gana el motivo menos grave)           → 9/1 (prioridad)
 //   · `clientesEnRiesgo`: sin la condición de «Dejó de pagar» (`f.estado === 'activo' && !plan…`)  → 9/1 (cortado)
-//   · `costosPorCliente`: sin el `if (!atribuible) return …` (el corte de Claude se mostraba)        → 9/1 (atribuible)
+//   · (el 6/11/2026 se reemplazó: el corte por negocio ya no depende de `atribuible`, ver abajo, punto 11)
 //   · `topClientes`: el rango sin el `p.fecha > hasta`                                              → 9/1 (rango)
 //   · `crecimientoDeClientes`: sin contar los de antes del primer período en el total               → 9/1 (crecimiento)
 //   · `vistaDeAtRisk`: sin el corte por la lectura de ingresos (daba «Nada en riesgo»)               → 9/1 (no pude leer)
 //   · cost-drivers/page.tsx: una lectura (`void leerCostos(…)`) antes de `exigirSuperAdmin()`        → 9/1 (puerta)
 //   · un `import … from '@/app/admin/_polar/datos/metricas'` (metricasDeIngresos) en CustomersOverview → 9/1 (sin ingresos)
 //   · y un cambio sin efecto (renombrar la función local `poner` de clientesEnRiesgo)              → 10/0
+// Cost Drivers con el reparto desde el 1/11/2026 (punto 11 de la revisión del Cerebro). Base 13/0; cada rotura, sola y restaurada:
+//   · `costosPorCliente` lista también a la plataforma (sin `ws !== plataforma`)                     → 11/2 (reparto, ejemplos)
+//   · `costosPorCliente` sin la línea de Claude con la clave de MaKo (`deMako = null`)                → 12/1 (reparto)
+//   · `costosPorCliente` reparte un período entero de antes (`atribuible: true` sin `despues`)        → 12/1 (reparto)
+//   · `partirEnElReparto` con `<=` para lo de antes (noviembre trae una parte vacía de antes)         → 12/1 (partir)
+//   · `ventanaDelMes` hasta el último instante del mes en vez del primero del siguiente              → 12/1 (partir)
+//   · un cambio sin efecto (`sinRepartir` por un alias local)                                       → 13/0
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -34,8 +41,12 @@ import {
   primerAlta,
   topClientes,
   vistaDeAtRisk,
+  partirEnElReparto,
   rangoDeParam,
+  REPARTO_DESDE,
   ventanaDeCostos,
+  ventanaDelMes,
+  type GastoParaRepartir,
   vistaDeCostos,
   vistaDeTop,
   WS_VALIDO,
@@ -207,22 +218,58 @@ test('Cost Drivers: cada rango del selector de Polar es una ventana exacta, y un
   assert.equal(rangoDeParam('mes'), '30d')
   assert.equal(rangoDeParam(undefined), '30d')
   // Un rango no se dice como un mes.
-  const vacio = { ok: true as const, datos: { periodo: '30d', costUsd: 0, porWorkspace: [] }, avisos: [] }
+  const vacio = { ok: true as const, datos: { periodo: '30d', antes: null, despues: { costUsd: 0, porWorkspace: [] }, plataforma: 9 }, avisos: [] }
   assert.equal(vistaDeCostos({ ok: true, datos: { filas: [] }, avisos: [] }, vacio, '30d').mesDeCostos, '')
 })
 
-test('Cost Drivers: el corte por negocio sólo si es atribuible, con su parte del gasto total', () => {
-  const corte = (clave: string, costUsd: number, atribuible = true) => ({ clave, llamadas: 10, tokens: 100, costUsd, atribuible })
+test('Cost Drivers: desde el 1/11/2026 se reparte por negocio; Claude con la clave de MaKo y lo de antes, aparte (punto 11)', () => {
+  const corte = (clave: string, costUsd: number, llamadas = 10) => ({ clave, llamadas, tokens: 100, costUsd })
   const nombres = new Map([[2, 'Estudio Norte'], [4, 'Clínica Sonríe'], [6, 'Sin gasto']])
-  const v = costosPorCliente({ periodo: '2026-11', costUsd: 4, porWorkspace: [corte('2', 1), corte('4', 2), corte('9', 1), corte('6', 0)] }, nombres)
-  assert.equal(v.atribuible, true)
+  const gasto = (g: Partial<GastoParaRepartir>): GastoParaRepartir => ({ periodo: '2026-11', antes: null, despues: null, plataforma: 9, ...g })
+
+  // Un mes de después: los negocios con lo suyo, y la plataforma (9) en su línea, que no es un negocio de la lista.
+  const v = costosPorCliente(gasto({ despues: { costUsd: 4, porWorkspace: [corte('2', 1), corte('4', 2), corte('9', 1, 30), corte('6', 0)] } }), nombres)
+  assert.equal(v.atribuible, true, 'una llamada de Claude con la clave de MaKo ya no deja la pestaña vacía')
   assert.deepEqual(v.clientes.map((c) => [c.ws, c.share, c.costoCentavos]), [[4, 0.5, 200], [2, 0.25, 100]],
-    'la plataforma (9) cuenta en el total y no es un negocio de la lista; el que no gastó no sale')
-  const no = costosPorCliente({ periodo: '2026-11', costUsd: 4, porWorkspace: [corte('1', 4, false)] }, nombres)
-  assert.deepEqual(no, { periodo: '2026-11', atribuible: false, clientes: [] }, 'el gasto de Claude anotado todo en un workspace no se muestra')
+    'la parte de cada uno es del total, con lo de la plataforma adentro; el que no gastó no sale')
+  assert.deepEqual(v.deMako, { llamadas: 30, costoCentavos: 100 }, '«Claude con la clave de MaKo: US$ 1, no se reparte»')
+  assert.equal(v.antes, null)
+
+  // Una ventana que cruza el 1/11: lo de después se reparte y lo de antes va en una línea.
+  const cruza = costosPorCliente(gasto({ antes: { costUsd: 3, llamadas: 70 }, despues: { costUsd: 2, porWorkspace: [corte('2', 2)] } }), nombres)
+  assert.equal(cruza.atribuible, true)
+  assert.deepEqual(cruza.clientes.map((c) => [c.ws, c.share]), [[2, 1]], 'la parte se cuenta sobre lo que se reparte')
+  assert.deepEqual(cruza.antes, { llamadas: 70, costoCentavos: 300 })
+  assert.equal(cruza.deMako, null, 'sin nada en la plataforma, no hay línea')
+
+  // Un período entero de antes: no se reparte (todo Claude quedaba en un solo negocio).
+  const viejo = costosPorCliente(gasto({ periodo: '2026-10', antes: { costUsd: 4, llamadas: 9 } }), nombres)
+  assert.deepEqual(viejo, { periodo: '2026-10', atribuible: false, clientes: [], deMako: null, antes: null })
+
   const caido = vistaDeCostos({ ok: true, datos: { filas: [] }, avisos: [] }, { ok: false, error: 'x' }, '2026-11')
   assert.equal(caido.costos, null)
   assert.equal(caido.mesDeCostos, 'nov 2026')
+})
+
+test('Cost Drivers: cómo se parte una ventana en el 1/11/2026 (lo que lee el server)', () => {
+  assert.equal(REPARTO_DESDE, '2026-11-01T00:00:00.000Z')
+  // Los rangos de Polar el 6/11/2026: todos cruzan el 1/11 salvo «Hoy».
+  const ahora = Date.parse('2026-11-06T18:30:00.000Z')
+  for (const range of ['all_time', '12m', '3m', '30d'] as const) {
+    const w = ventanaDeCostos(range, ahora)
+    const p = partirEnElReparto(w.desde, w.hasta)
+    assert.deepEqual(p.antes, { desde: w.desde, hasta: REPARTO_DESDE }, `${range}: lo de antes, hasta el 1/11`)
+    assert.deepEqual(p.despues, { desde: REPARTO_DESDE, hasta: w.hasta }, `${range}: lo de después, desde el 1/11`)
+  }
+  const hoy = ventanaDeCostos('today', ahora)
+  assert.deepEqual(partirEnElReparto(hoy.desde, hoy.hasta), { antes: null, despues: { desde: hoy.desde!, hasta: hoy.hasta } }, 'hoy es todo de después')
+  // Un mes nunca se parte: el 1/11 es un borde de mes.
+  const oct = ventanaDelMes('2026-10')
+  assert.deepEqual(oct, { desde: '2026-10-01T00:00:00.000Z', hasta: '2026-11-01T00:00:00.000Z' })
+  assert.deepEqual(partirEnElReparto(oct.desde, oct.hasta), { antes: { desde: oct.desde, hasta: oct.hasta }, despues: null }, 'octubre es todo de antes')
+  const nov = ventanaDelMes('2026-11')
+  assert.deepEqual(partirEnElReparto(nov.desde, nov.hasta), { antes: null, despues: { desde: nov.desde, hasta: nov.hasta } }, 'noviembre, todo de después')
+  assert.deepEqual(partirEnElReparto(null, null), { antes: { desde: null, hasta: REPARTO_DESDE }, despues: { desde: REPARTO_DESDE, hasta: null } })
 })
 
 test('los ejemplos se arman con las funciones de verdad y no nombran a nadie real', () => {

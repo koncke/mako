@@ -5,17 +5,20 @@
 // MaKo: «lo último que pasó» son los pagos que entraron (lib/admin-ingresos.ts) y lo que hizo MaKo (lib/actividad.ts); el
 // armado, en app/admin/_polar/datos/resumen.ts (`actividadReciente`). Polar los pedía con `useEvents` y `useEventTypeStats`
 // y cambiaba el día a la medianoche con un timer: acá lo lee el server en cada carga, con el día de la plataforma.
+// «Ver todo» abre Events en lo de HOY con los mismos tipos que cuenta la tarjeta (pagos y acciones de MaKo), como el
+// `range=today` de Polar: el número se comprueba ahí (punto 13, revisión del 6/11/2026).
 
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useRouter } from '@/app/_ui/Link'
 import type { Actividad, Lectura } from '@/app/admin/_polar/datos/resumen'
+import { EVENTOS_DE_HOY } from '@/app/admin/_polar/datos/eventos'
 import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
 
-const WIDGET_TITLE = 'Actividad'
+const WIDGET_TITLE = 'Activity'
 
 interface ActivityWidgetProps {
   className?: string
@@ -38,7 +41,7 @@ export const ActivityWidget = ({ className, actividad }: ActivityWidgetProps) =>
           <Text color="muted">{actividad.ok && actividad.datos.hoy === 1 ? 'evento hoy' : 'eventos hoy'}</Text>
         </Box>
       }
-      action={<WidgetLink href="/admin/analytics/events" />}
+      action={<WidgetLink href={EVENTOS_DE_HOY} />}
       className={className}
     >
       {!actividad.ok ? (
