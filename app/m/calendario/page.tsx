@@ -13,7 +13,9 @@
 // plantillas, agendar por Calendly, editar o mover, elegir qué calendarios se ven y conectar Google: en la computadora.
 //
 // «Llamadas» (25/10/2026): la tercera opción del selector de vistas abre la lista de citas de venta (./LlamadasM.tsx).
-// Quién: la regla del Sidebar para `calendario` (sólo el admin del negocio), y las actions vuelven a mirarlo.
+// Quién: la regla del Sidebar para `calendario` y las actions vuelven a mirarlo. Desde el 6/11/2026 un closer o un setter
+// entra, pero SÓLO a «Llamadas» con las suyas (`quienMiraElCalendario`, lib/calendario-equipo-server.ts), como en la
+// computadora: la Agenda trae la de Google del dueño, los cobros y los objetivos.
 // ⚠️ El workspace es el del request (lo resuelven las libs); `?vista=` y `?fecha=` son las claves de escritorio
 //    (`QUERY_DE_SECCION`), así un link de la computadora abre lo más parecido.
 // ⚠️ La agenda de Google no pasa por ninguna IA (AGENTS.md): esta pantalla sólo la dibuja.
@@ -24,7 +26,8 @@ import './calendario.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
-import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, personaDelFiltro, personasDeLlamadas, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { equipoDelCalendario, quienMiraElCalendario } from '@/lib/calendario-equipo-server';
 import { sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { CalendarioM } from './CalendarioM';
@@ -35,23 +38,26 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export default async function CalendarioPagina({ searchParams }: {
-  searchParams: Promise<{ vista?: string | string[]; fecha?: string | string[] }>;
+  searchParams: Promise<{ vista?: string | string[]; fecha?: string | string[]; persona?: string | string[] }>;
 }) {
   await requireMovil({ navKey: 'calendario' });
   const sp = await searchParams;
-  const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+  const [hoy, tz, mirada] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario(), quienMiraElCalendario()]);
   // «Llamadas» (25/10/2026): la misma lectura que la computadora (app/calendario/page.tsx), CRM y Plan, nada de Google.
-  if (sp.vista === 'llamadas') {
+  if (sp.vista === 'llamadas' || mirada.soloLlamadas) {
     const fallos: { llamadas?: boolean; tareas?: boolean } = {};
-    const [llamadas, tareas] = await Promise.all([
+    const [llamadas, tareas, equipo] = await Promise.all([
       leerLlamadasDeVenta(sumarDias(hoy, -DIAS_ATRAS_LLAMADAS), sumarDias(hoy, DIAS_ADELANTE_LLAMADAS), tz)
         .catch((e): LlamadaDeVenta[] => { console.error('[m/calendario] llamadas:', e instanceof Error ? e.message : e); fallos.llamadas = true; return []; }),
-      leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
+      mirada.soloLlamadas ? Promise.resolve([] as ItemCalendario[]) : leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
         .catch((e): ItemCalendario[] => { console.error('[m/calendario] tareas:', e instanceof Error ? e.message : e); fallos.tareas = true; return []; }),
+      equipoDelCalendario(),
     ]);
+    const pedida = Array.isArray(sp.persona) ? sp.persona[0] : sp.persona;
     return (
       <PantallaM>
-        <LlamadasM llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos} />
+        <LlamadasM llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos}
+          persona={personaDelFiltro(pedida, mirada)} personas={personasDeLlamadas(llamadas, equipo)} soloLlamadas={mirada.soloLlamadas} />
       </PantallaM>
     );
   }

@@ -449,11 +449,12 @@ test('el estado de una llamada: lo marcado gana, la cancelada es cancelada, y si
 
 test('«Llamadas» lee el CRM y el Plan, con las canceladas y la asistencia, y nada de Google', () => {
   const pagina = sinComentarios(leer('../app/calendario/page.tsx'));
-  const rama = pagina.slice(pagina.indexOf("if (sp?.vista === 'llamadas') {"), pagina.indexOf('const pedida = sp?.vista;'));
+  const rama = pagina.slice(pagina.indexOf("if (sp?.vista === 'llamadas' || mirada.soloLlamadas) {"), pagina.indexOf('const pedida = sp?.vista;'));
   assert.match(rama, /leerLlamadasDeVenta\(sumarDias\(hoy, -DIAS_ATRAS_LLAMADAS\), sumarDias\(hoy, DIAS_ADELANTE_LLAMADAS\), tz\)/);
   assert.match(rama, /leerTareasConFecha\(/);
   assert.doesNotMatch(rama, /leerCalendario|Google|google/, 'la lista no lee la agenda de Google');
-  assert.match(rama, /<ListaLlamadas llamadas=\{llamadas\} tareas=\{tareas\} hoy=\{hoy\} tz=\{tz\} ahora=\{new Date\(\)\.toISOString\(\)\} fallos=\{fallos\} \/>/);
+  // Con el filtro por persona desde el 6/11/2026 (tests/calendario-equipo.test.ts).
+  assert.match(rama, /<ListaLlamadas llamadas=\{llamadas\} tareas=\{tareas\} hoy=\{hoy\} tz=\{tz\} ahora=\{new Date\(\)\.toISOString\(\)\} fallos=\{fallos\}\s+persona=\{personaDelFiltro\(sp\?\.persona, mirada\)\}/);
   const lib = sinComentarios(leer('../lib/calendario.ts'));
   const f = lib.slice(lib.indexOf('export async function leerLlamadasDeVenta'), lib.indexOf('export const leerTareasConFecha'));
   assert.match(f, /asistio_j1, asistio_j2/, 'con la asistencia');
@@ -507,7 +508,7 @@ test('la asistencia se marca en la fila por el MISMO camino que la ficha, sólo 
 // ── «Llamadas» en el teléfono (25/10/2026): destila la de la computadora ─────────────────────────────────────────────
 test('el teléfono tiene «Llamadas»: la misma lectura, las mismas reglas, y se entra por el selector de vistas', async () => {
   const pagina = sinComentarios(leer('../app/m/calendario/page.tsx'));
-  const rama = pagina.slice(pagina.indexOf("if (sp.vista === 'llamadas') {"), pagina.indexOf('const vista = vistaDeParam(sp.vista);'));
+  const rama = pagina.slice(pagina.indexOf("if (sp.vista === 'llamadas' || mirada.soloLlamadas) {"), pagina.indexOf('const vista = vistaDeParam(sp.vista);'));
   assert.match(rama, /leerLlamadasDeVenta\(sumarDias\(hoy, -DIAS_ATRAS_LLAMADAS\), sumarDias\(hoy, DIAS_ADELANTE_LLAMADAS\), tz\)/, 'la misma ventana que la computadora');
   assert.doesNotMatch(rama, /leerCalendario|google/i, 'nada de Google');
   assert.match(rama, /<LlamadasM llamadas=\{llamadas\} tareas=\{tareas\}/);

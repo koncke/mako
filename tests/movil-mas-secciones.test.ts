@@ -153,8 +153,12 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   assert.deepEqual(ve('admin', 'superadmin'), SIETE_FILAS);
   // La capa pm: Plan, MaKo, Dashboard y Calendario (lib/capas.ts). De las siete, sólo Calendario.
   assert.deepEqual(ve('admin', 'pm'), ['calendario']);
+  // Desde el 6/11/2026 el closer y el setter ven Calendario (sólo sus «Llamadas», app/calendario/page.tsx) donde su capa lo
+  // tiene; las otras seis siguen siendo del admin. Sin rol, nada.
   for (const capa of Object.keys(CAPAS) as CapaId[]) {
-    for (const rol of ['closer', 'setter', null] as const) assert.deepEqual(ve(rol, capa), [], `${rol} en ${capa}`);
+    const conCalendario = ve('admin', capa).includes('calendario') ? ['calendario'] : [];
+    for (const rol of ['closer', 'setter'] as const) assert.deepEqual(ve(rol, capa), conCalendario, `${rol} en ${capa}`);
+    assert.deepEqual(ve(null, capa), [], `sin rol en ${capa}`);
   }
   // More entero del admin de un cliente completo: una caja por familia. Second Brain (el Ops Center) iba arriba sin título
   // hasta el 20/10/2026, cuando pasó al lugar del medio de la barra: More no lo repite.
@@ -175,14 +179,15 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['plan', 'calendario', 'mako', 'dashboard', 'mas']);
   assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), []);
   // El closer y el setter: More no les ofrece ninguna de las siete (y el Ops Center lo tienen en la barra).
-  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan']]);
-  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan'], ['automations']]);
+  // Desde el 6/11/2026, Calendar (sólo sus «Llamadas»).
+  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan'], ['calendario']]);
+  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan'], ['calendario', 'automations']]);
 });
 
 test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo gating)', () => {
   // Las cinco que en escritorio son `requireRolWs([], { nav })`: sólo admin, y la capa de ESA key.
   const conRol: Partial<Record<IdSeccionMas, string>> = {
-    calendario: 'app/calendario/page.tsx', 'second-brain': 'app/second-brain/page.tsx',
+    'second-brain': 'app/second-brain/page.tsx',
     experimentos: 'app/experimentos/page.tsx', offer: 'app/offer/page.tsx', copywriting: 'app/copywriter/page.tsx',
   };
   for (const [id, archivo] of Object.entries(conRol) as [IdSeccionMas, string][]) {
@@ -193,6 +198,9 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
     assert.ok(leer(archivo).includes(guarda), `${archivo} ya no se gatea con «${s.navKey}»`);
     assert.equal(filaDeSidebar(s.navKey)?.item.rolesWs, undefined, `${s.navKey}: la sidebar se la da a otro rol y la página no`);
   }
+  // Calendario (6/11/2026): el closer y el setter entran a sus «Llamadas». La página, la sidebar y el teléfono, lo mismo.
+  assert.ok(leer('app/calendario/page.tsx').includes("requireRolWs(['closer', 'setter'], { nav: 'calendario' })"), 'app/calendario/page.tsx cambió de puerta');
+  assert.deepEqual(filaDeSidebar('calendario')?.item.rolesWs, ['closer', 'setter'], 'calendario: la sidebar y la página tienen que dejar entrar a los mismos');
   // Curso y Comunidad piden en escritorio la capa de Customer Success (`requireCapa`), y la sidebar, sólo el admin.
   for (const id of ['curso', 'comunidad'] as const) {
     const s = seccion(id);
@@ -208,7 +216,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
   // sin esta tabla una clave borrada de QUERY_DE_SECCION dejaría de probarse sola). Un link real de cada una:
   // rutaSeccion('persona') → /second-brain?area=voz&vista=persona; la ficha → /customer-success/comunidad?post=N.
   assert.deepEqual(QUERY_DE_SECCION, {
-    calendario: ['vista', 'fecha'],
+    calendario: ['vista', 'fecha', 'persona'],
     'second-brain': ['area', 'vista', 'grupo'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel', 'sesion'],

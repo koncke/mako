@@ -446,6 +446,7 @@ listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+llamadas_del_equipo
 mandar_en_bloque_a_papelera
 mandar_landing_a_papelera
 marcar_asistencia_reunion

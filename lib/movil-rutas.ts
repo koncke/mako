@@ -331,7 +331,7 @@ export function tituloSeccion(s: Pick<DefSeccionMas, 'label' | 'titulo'>): strin
  * La página del teléfono puede leerlas (le llegan en el rewrite) o ignorarlas.
  */
 export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> = {
-  calendario: ['vista', 'fecha'], // app/calendario/page.tsx
+  calendario: ['vista', 'fecha', 'persona'], // app/calendario/page.tsx
   'second-brain': ['area', 'vista', 'grupo'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts); `grupo`: el push del grupo de la app (lib/grupo-app.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)

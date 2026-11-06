@@ -355,7 +355,8 @@ export const FAMILIAS: NavFamilia[] = [
     bloques: [
       [
         { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
-        { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
+        // Closers y setters entran SÓLO a «Llamadas», con las suyas (6/11/2026, las reuniones del equipo: app/calendario/page.tsx).
+        { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', rolesWs: ['closer', 'setter'], match: starts('/calendario') },
         {
           key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo',
           match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)),
