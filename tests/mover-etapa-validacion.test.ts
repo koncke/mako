@@ -54,29 +54,34 @@ const L = (p: Partial<Lead>): Lead => ({
 
 const etiquetas = (steps: Array<{ label: string }>) => steps.map((s) => s.label);
 
+// QUÉ DÍA ES HOY, siempre explícito (6/11/2026, #510). `faltantesParaMover` ya no tiene un `hoy` por
+// default: lo pide. Esta fecha es posterior a todas las reuniones de abajo, así que los casos que no
+// discuten el día se comportan igual que cuando el default era `hoyEnTijuana()`.
+const HOY = '2026-07-15';
+
 // ── La decisión ──────────────────────────────────────────────────────────────
 
 test('Perdido sin motivo NO se puede mover; con el motivo de ESTE movimiento sí', async () => {
   const { faltantesParaMover } = await leads();
   const lead = L({ fecha_agenda: '2026-07-01' });
   assert.deepEqual(
-    etiquetas(faltantesParaMover(lead, 'perdido', DEFAULT_STAGES)),
+    etiquetas(faltantesParaMover(lead, 'perdido', DEFAULT_STAGES, { hoyISO: HOY })),
     ['Motivo de la pérdida'],
     'esto es lo que MaKo podía saltearse: un Perdido sin motivo',
   );
   assert.deepEqual(
-    faltantesParaMover(lead, 'perdido', DEFAULT_STAGES, { motivo: 'Se fue con la competencia' }),
+    faltantesParaMover(lead, 'perdido', DEFAULT_STAGES, { hoyISO: HOY, motivo: 'Se fue con la competencia' }),
     [],
   );
   // Un motivo vacío no cuenta como motivo.
-  assert.equal(faltantesParaMover(lead, 'perdido', DEFAULT_STAGES, { motivo: '   ' }).length, 1);
+  assert.equal(faltantesParaMover(lead, 'perdido', DEFAULT_STAGES, { hoyISO: HOY, motivo: '   ' }).length, 1);
 });
 
 test('el motivo de una pérdida ANTERIOR no da por contestada la de ahora', async () => {
   const { faltantesParaMover } = await leads();
   // Ya está en perdido con su motivo viejo; lo mueven a descalificado.
   const lead = L({ estado_lead: 'perdido', pipeline_stage: 'perdido', motivo_perdida: 'No tenía presupuesto' });
-  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'descal', DEFAULT_STAGES)), ['Motivo de la descalificación']);
+  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'descal', DEFAULT_STAGES, { hoyISO: HOY })), ['Motivo de la descalificación']);
 });
 
 test('override huérfano: la etapa de origen es la VIGENTE, no la cruda', async () => {
@@ -86,7 +91,7 @@ test('override huérfano: la etapa de origen es la VIGENTE, no la cruda', async 
   // "está entrando a perdido" y se le exigiría un motivo nuevo que nadie tiene.
   const funnelSinReactivacion = DEFAULT_STAGES.filter((s) => s.key !== 'reactivacion');
   const lead = L({ estado_lead: 'perdido', pipeline_stage: 'reactivacion', motivo_perdida: 'Se enfrió' });
-  assert.deepEqual(faltantesParaMover(lead, 'perdido', funnelSinReactivacion), [], 'ya estaba perdido: su motivo alcanza');
+  assert.deepEqual(faltantesParaMover(lead, 'perdido', funnelSinReactivacion, { hoyISO: HOY }), [], 'ya estaba perdido: su motivo alcanza');
 });
 
 test('Ganado exige monto — y la higiene NUNCA gatea un movimiento', async () => {
@@ -96,11 +101,11 @@ test('Ganado exige monto — y la higiene NUNCA gatea un movimiento', async () =
     fecha_junta_2: '2026-06-08', asistio_j2: true,
     fathom_links: [{ url: 'https://fathom.video/x', label: 'R1' }],
   });
-  assert.deepEqual(etiquetas(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES)), ['Monto de cierre']);
-  assert.deepEqual(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES, { monto: 4500 }), []);
+  assert.deepEqual(etiquetas(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES, { hoyISO: HOY })), ['Monto de cierre']);
+  assert.deepEqual(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES, { hoyISO: HOY, monto: 4500 }), []);
   // setter/closer/empresa/teléfono están vacíos y aun así NO aparecen: son higiene
   // de la ficha, y el wizard tampoco los exige para mover.
-  const conMonto = etiquetas(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES, { monto: 4500 }));
+  const conMonto = etiquetas(faltantesParaMover(cerrado, 'ganado', DEFAULT_STAGES, { hoyISO: HOY, monto: 4500 }));
   for (const higiene of ['Setter asignado', 'Closer asignado', 'Empresa', 'Teléfono de contacto']) {
     assert.ok(!conMonto.includes(higiene), `${higiene} no puede bloquear un movimiento`);
   }
@@ -118,10 +123,10 @@ test('una venta RECURRENTE cierra con su monto mensual (no se pide "Monto de cie
     fathom_links: [{ url: 'https://fathom.video/x', label: 'R1' }],
   };
   const suscripcion = L({ ...base, venta_tipo: 'suscripcion', suscripcion_monto_usd: 40, suscripcion_meses: null });
-  assert.deepEqual(faltantesParaMover(suscripcion, 'ganado', DEFAULT_STAGES), []);
+  assert.deepEqual(faltantesParaMover(suscripcion, 'ganado', DEFAULT_STAGES, { hoyISO: HOY }), []);
   // Y el importe de una suscripción NO vale para un cierre de pago único.
   const unico = L({ ...base, venta_tipo: 'unico', suscripcion_monto_usd: 40 });
-  assert.deepEqual(etiquetas(faltantesParaMover(unico, 'ganado', DEFAULT_STAGES)), ['Monto de cierre']);
+  assert.deepEqual(etiquetas(faltantesParaMover(unico, 'ganado', DEFAULT_STAGES, { hoyISO: HOY })), ['Monto de cierre']);
 });
 
 test('las etapas que mueve el motor automático no exigen nada (no se traba)', async () => {
@@ -129,7 +134,7 @@ test('las etapas que mueve el motor automático no exigen nada (no se traba)', a
   // T2/T6 → nutrición y reactivación · T1 → No Show · T3 → No responde.
   const lead = L({ fecha_agenda: '2026-05-01' });
   for (const etapa of ['nutri', 'reactivacion', 'noresp', 'noshow_r1', 'noshow_r2']) {
-    assert.deepEqual(faltantesParaMover(lead, etapa, DEFAULT_STAGES), [], `el motor no puede quedar trabado en ${etapa}`);
+    assert.deepEqual(faltantesParaMover(lead, etapa, DEFAULT_STAGES, { hoyISO: HOY }), [], `el motor no puede quedar trabado en ${etapa}`);
   }
 });
 
@@ -147,8 +152,48 @@ test('la asistencia aportada EN el movimiento cuenta (el No Show del motor)', as
 test('sin funnel a mano se valida contra el funnel por defecto (no se apaga la validación)', async () => {
   const { faltantesParaMover } = await leads();
   const lead = L({ fecha_agenda: '2026-07-01' });
-  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'perdido', null)), ['Motivo de la pérdida']);
-  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'perdido')), ['Motivo de la pérdida']);
+  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'perdido', null, { hoyISO: HOY })), ['Motivo de la pérdida']);
+  assert.deepEqual(etiquetas(faltantesParaMover(lead, 'perdido', undefined, { hoyISO: HOY })), ['Motivo de la pérdida']);
+});
+
+// ── El día del negocio (#510, 6/11/2026) ─────────────────────────────────────
+
+test('el día que decide es el del NEGOCIO: la misma reunión «ya pasó» o no según el día', async () => {
+  const { faltantesParaMover } = await leads();
+  // Reunión del 10 de marzo SIN hora de Calendly (`junta_1_at` en null): lo único que dice si ya pasó
+  // es qué día es HOY. Etapa 'agenda' (nivel 1): la que deja que el día decida, no la que lo implica.
+  const lead = L({ fecha_junta_1: '2026-03-10' });
+  const elMismoDia = etiquetas(faltantesParaMover(lead, 'agenda', DEFAULT_STAGES, { hoyISO: '2026-03-10' }));
+  const alDiaSiguiente = etiquetas(faltantesParaMover(lead, 'agenda', DEFAULT_STAGES, { hoyISO: '2026-03-11' }));
+  assert.ok(!elMismoDia.includes('Asistencia a la Reunión 1'), 'el día de la reunión todavía no se exige su asistencia');
+  assert.ok(alDiaSiguiente.includes('Asistencia a la Reunión 1'), 'al día siguiente sí: el corte del día DECIDE');
+  assert.ok(alDiaSiguiente.includes('Link de Fathom (R1)'), 'y con la reunión pasada también se pide la grabación');
+});
+
+test('CABLEADO: ninguna validación de movimiento tiene un «hoy» por default (y el corte lo lee ESTRICTO)', () => {
+  // El defecto: `hoyISO: aportado.hoyISO ?? hoyEnTijuana()` adentro de `faltantesParaMover`, con el
+  // llamador real (`setPipelineStage`) sin pasarlo nunca. El default manda, y el corte del día de TODOS
+  // los negocios era el de Tijuana. AGENTS.md → ««Hoy» es el día del NEGOCIO»: una función de plata no
+  // tiene un `hoy` por default, lo pide o lo saca del negocio.
+  const src = leer('../lib/leads.ts');
+  const i = src.indexOf('export function faltantesParaMover(');
+  assert.notEqual(i, -1);
+  const fn = src.slice(i, src.indexOf('\nexport ', i + 1));
+  assert.match(fn, /hoyISO: aportado\.hoyISO,/, 'volvió un default: el día lo pone quien llama');
+  assert.doesNotMatch(fn, /hoyEnTijuana|hoyEnWorkspace|new Date\(\)/, 'la decisión es PURA y sin un «hoy» inventado');
+  // Y el corte que decide (el que puede dejar pasar un Ganado sin asistencia) lo lee ESTRICTO: caer al
+  // default es decidir con el día de otro negocio, y falla ABIERTO.
+  const mover = src.slice(src.indexOf('export async function setPipelineStage'));
+  const cuerpo = mover.slice(0, mover.indexOf('\nexport ', 1));
+  assert.match(cuerpo, /hoyISO: await hoyEnWorkspaceEstricto\(\)/, 'el corte volvió a validar con un día que no es del negocio');
+  // Ningún llamador de la función pura se quedó con Tijuana fija.
+  for (const f of ['../lib/mako-doer-acciones.ts', '../lib/api-mako/areas/crm.run.ts']) {
+    const c = leer(f);
+    for (const linea of c.split('\n').filter((l) => l.includes('faltantesParaMover('))) {
+      assert.match(linea, /hoyISO:/, `${f}: un llamador sin el día del negocio`);
+      assert.doesNotMatch(linea, /hoyEnTijuana/, `${f}: un llamador con Tijuana fija`);
+    }
+  }
 });
 
 // ── El cableado ──────────────────────────────────────────────────────────────

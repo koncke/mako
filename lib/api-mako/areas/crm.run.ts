@@ -753,14 +753,16 @@ export const RUNNERS: Runners = {
     },
   },
   requisitos_para_mover: {
-    leer: (input) => conLead(input, async (lead) => {
+    leer: (input, ctx) => conLead(input, async (lead) => {
       // DEL LEAD: qué le falta a ÉL para moverse.
       const stages = await etapasDelFunnelDeLead(lead);
       const etapa = String(input.etapa);
       if (!stageMetaOpt(stages, etapa)) return fallo(json({ error: `El funnel de este negocio no tiene la etapa «${etapa}».`, disponibles: stages.map((x) => x.key) }));
       // La MISMA llamada que hace proponer_cambio_etapa al proponer y al confirmar:
       // si esta lectura dijera otra cosa, se pediría un dato que la acción no exige.
-      const faltan = faltantesParaMover(lead, etapa, stages, { monto: n(input.monto) ?? null, motivo: s(input.motivo) ?? null });
+      // El día es el del NEGOCIO (6/11/2026, #510): decide si la reunión «ya pasó» y si se exige su
+      // asistencia. Con Tijuana fijo, esta lectura decía «se puede mover» un día antes que el negocio.
+      const faltan = faltantesParaMover(lead, etapa, stages, { monto: n(input.monto) ?? null, motivo: s(input.motivo) ?? null, hoyISO: (await hoyDelWorkspace(ctx.ws)).hoy });
       const pedibles = new Set(['monto', 'motivo']);
       return json({
         lead_id: lead.id, nombre: lead.nombre, etapa_actual: etapaVigenteDe(lead, stages), etapa_destino: etapa,
@@ -2618,7 +2620,8 @@ export const RUNNERS: Runners = {
       if (!lead) return { ok: false, resumen: noExiste(id) };
       // Mismo reparto que proponer_cambio_etapa: lo que falta y este canal no carga
       // no bloquea, pero queda DICHO en el historial ({ omitir }).
-      const faltan = faltantesParaMover(lead, 'manual', await etapasDelFunnelDeLead(lead), {});
+      // El día es el del NEGOCIO (6/11/2026, #510), igual que el `hoy` que mira `preparar`.
+      const faltan = faltantesParaMover(lead, 'manual', await etapasDelFunnelDeLead(lead), { hoyISO: (await hoyDelWorkspace(ctx.ws)).hoy });
       const requisitos = faltan.length
         ? { omitir: `Pasado a Nutrición manual desde ${canalTxt(ctx)} con confirmación. Sigue sin cargar: ${labels(faltan)}.` }
         : 'validar' as const;

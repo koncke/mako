@@ -22,7 +22,11 @@ import { lineaDeEvento } from '@/lib/carruseles/replica';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// La visión de hasta 10 láminas con la IA del negocio tarda de 20 a 90 s; el tope de la IA es 120 s.
+// ⚠️ MEDIDO con la IA real el 6/11/2026 (scripts/carruseles-probar-editar.mts, cinco corridas): 21,6 s · 33,4 s · 143,4 s ·
+// 149,3 s · **276,9 s**. El peor caso casi toca este tope, y no es por el tamaño del pedido: `gemini-flash-latest` se cuelga y
+// se come su plazo entero de 120 s antes de que conteste el respaldo (8 s). Si alguna vez se pasa de 300, el stream se corta
+// SIN mandar el `fin` y la pantalla espera para siempre. El plazo de la cascada es por llamada, no por pedido:
+// docs/hallazgos-ia.md → «Un modelo de Gemini que se cuelga se come el plazo ENTERO».
 export const maxDuration = 300;
 
 const fallo = (error: string, status: number) =>
