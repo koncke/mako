@@ -82,6 +82,11 @@ const LOADING_PERMITIDOS = [
   // El Centro de Operaciones (16/10/2026): /admin es privado entero, y Martín se quejó de que «tarda mucho en
   // aparecer». El esqueleto es la forma de la pantalla (la barra y la caja), para que nada salte al llegar.
   'app/admin/operaciones/loading.tsx',
+  // Admin, la copia de Polar (6/11/2026, punto 31 de docs/admin/revision-cerebro-6-11.md): «se hace clic y no pasa nada».
+  // Cada página lee en el server los datos de todos los negocios. Privado entero (SOLO_ADMIN del proxy y `exigirSuperAdmin`),
+  // y las páginas que redirigen lo hacen antes, en su layout (app/admin/(polar)/layout-reglas.ts).
+  'app/admin/(polar)/loading.tsx',
+  'app/admin/(polar)/customers/[id]/loading.tsx',
   // EL loader de las tabs grandes (23/10/2026, app/_ui/CargandoMako.tsx). Martín: «cuando entro a Second Brain tarda
   // muchísimo, y lo peor es que ni siquiera hay un loader aunque sea, como para indicarme que le di click». Medido en
   // producción: sin loading.tsx el clic dejaba la pantalla anterior quieta 2,2 s (Second Brain), 3,7 s (Dashboard) y

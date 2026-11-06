@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, SECCIONES_ADMIN, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { BuscadorNav, type Destino } from './BuscadorNav';
@@ -123,8 +123,15 @@ export function leerFija(): boolean {
  * la abre ahí sin tocar lo guardado, y al salir vuelve lo que la persona tenía.
  */
 export const RUTAS_QUE_PLIEGAN: readonly string[] = ['/second-brain', '/admin/operaciones', '/automations'];
+/**
+ * Y Admin (6/11/2026, punto 37 de docs/admin/revision-cerebro-6-11.md): la copia de Polar trae su propia barra, y con la de
+ * MaKo fija las dos se comían 468 px (a 1440, Events con el detalle abierto cortaba el monto). Pliega /admin exacto y sus
+ * secciones (`SECCIONES_ADMIN`, nav.ts), sin atrapar las otras tabs del super admin que viven bajo /admin (/admin/dev,
+ * /admin/ui, /admin/approvals…). La flecha la vuelve a abrir, como en el Ops Center.
+ */
 export function pliegaLaBarra(pathname: string): boolean {
-  return RUTAS_QUE_PLIEGAN.some((r) => pathname === r || pathname.startsWith(r + '/'));
+  const enAdmin = pathname === '/admin' || SECCIONES_ADMIN.some((s) => pathname === `/admin/${s}` || pathname.startsWith(`/admin/${s}/`));
+  return enAdmin || RUTAS_QUE_PLIEGAN.some((r) => pathname === r || pathname.startsWith(r + '/'));
 }
 /**
  * LA VENTANA CHICA (21/10/2026). Martín: MaKo se rompía apenas la ventana era un poco más angosta que la pantalla

@@ -59,6 +59,12 @@
 //   · la barra clara puesta en :root (pisaba las islas oscuras)             → 12 / 1
 //   · la cara de la criatura con --ink                                      → 12 / 1
 //   · el modo oscuro redefiniendo la tinta de las criaturas                 → 12 / 1
+//
+// ADMIN PLIEGA LA BARRA (6/11/2026, punto 37 de docs/admin/revision-cerebro-6-11.md; la copia de Polar trae la suya). Probado
+// ROMPIÉNDOLO, de a uno, con la base en 13 pases y 0 fallos:
+//   · `pliegaLaBarra` sin el caso de Admin                                  → 12 / 1 («/admin no pliega»)
+//   · con `startsWith('/admin')` pelado (atrapa todo /admin)                → 12 / 1 («/admin/dev pliega»)
+//   · sin el `/` del final de cada sección                                  → 12 / 1 («/admin/customersx pliega»)
 // =============================================================================
 
 import test from 'node:test';
@@ -187,6 +193,14 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   assert.equal(pliegaLaBarra('/admin/operaciones'), true);
   assert.equal(pliegaLaBarra('/crm'), false);
   assert.equal(pliegaLaBarra('/second-brainx'), false);
+  // Y Admin (6/11/2026, punto 37 de docs/admin/revision-cerebro-6-11.md): la copia de Polar trae su propia barra. /admin exacto y
+  // sus secciones (SECCIONES_ADMIN), con sus subpáginas; nunca las otras tabs del super admin que cuelgan de /admin.
+  for (const r of ['/admin', '/admin/customers', '/admin/customers/12/usage', '/admin/analytics/events', '/admin/sales/subscriptions/c-4', '/admin/products/checkout-links/7', '/admin/finance/income', '/admin/settings/payments']) {
+    assert.equal(pliegaLaBarra(r), true, `${r} no pliega la barra de MaKo`);
+  }
+  for (const r of ['/admin/dev', '/admin/dev/crm', '/admin/ui', '/admin/approvals', '/admin/cobros', '/admin/customersx', '/adminx', '/admin/salesforce']) {
+    assert.equal(pliegaLaBarra(r), false, `${r} pliega la barra y no es la copia de Polar`);
+  }
   // Desde el 21/10/2026 la misma regla pliega también en una ventana chica (tests/ventana-chica.test.ts), y desde el 22/10
   // con el panel de MaKo abierto (tests/sidebar-mako-abierto.test.ts).
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);

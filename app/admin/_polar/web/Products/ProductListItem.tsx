@@ -6,8 +6,13 @@
 // ⚠️ LO QUE SE SACÓ: la casilla de la selección en lote, el «Private» (un plan de MaKo no tiene visibilidad aparte de
 //    activo/archivado), las pastillas de precio por uso, por asiento y por unidad (un plan cobra un precio fijo por mes), y
 //    del menú «Integrate Checkout», «Edit Product», «Duplicate Product» y «Archive Product» (no hay acción de MaKo para eso:
-//    los planes viven en el setting `planes.mako`). Quedan «Share» (arma un link de cobro de ese plan: Checkout Links) y
-//    «Copy Product ID».
+//    los planes viven en el setting `planes.mako`). Quedan «Vender» y «Copy Product ID».
+// ⚠️ «VENDER», NO «SHARE» (punto 21 de docs/admin/revision-cerebro-6-11.md): en MaKo un link es de UNA persona y se paga una
+//    vez, así que «compartir» saltaba al primer link del plan, que podía estar pagado o ser de otro comprador, y el formulario
+//    no se abría. Abre el formulario NUEVO con el plan puesto (`rutaParaVender`, productos.ts). Va también en el menú, porque el
+//    botón se esconde en una pantalla chica (como en Polar) y el menú está siempre.
+// ⚠️ «COPIAR EL ID» DICE SI SE COPIÓ (punto 24): la fila del menú pasa a «Copiado» o «No pude copiar» y el menú queda abierto
+//    para que se lea (`useCopiar`, atoms/CopyToClipboardInput.tsx).
 
 import ProductPriceLabel from '@/app/admin/_polar/web/Products/ProductPriceLabel'
 import { MoreVertOutlined } from '@/app/admin/_polar/orbit/icons'
@@ -17,7 +22,8 @@ import { Status } from '@/app/admin/_polar/orbit'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/admin/_polar/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/admin/_polar/orbit'
 import Link, { useRouter } from '@/app/_ui/Link'
-import type { ProductoMako } from '@/app/admin/_polar/datos/productos'
+import { rutaParaVender, type ProductoMako } from '@/app/admin/_polar/datos/productos'
+import { rotuloDeCopia, useCopiar } from '@/app/admin/_polar/atoms/CopyToClipboardInput'
 
 interface ProductListItemProps {
   product: ProductoMako
@@ -25,6 +31,7 @@ interface ProductListItemProps {
 
 export const ProductListItem = ({ product }: ProductListItemProps) => {
   const router = useRouter()
+  const [copia, copiar] = useCopiar()
 
   const handleContextMenuCallback = (callback: (e: React.MouseEvent) => void) => {
     return (e: React.MouseEvent) => {
@@ -62,10 +69,10 @@ export const ProductListItem = ({ product }: ProductListItemProps) => {
                 className="hidden md:inline-flex"
                 onClick={(e) => {
                   e.preventDefault()
-                  router.push(`/admin/products/checkout-links?productId=${product.id}`)
+                  router.push(rutaParaVender(product.id))
                 }}
               >
-                Compartir
+                Vender
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger className="focus:outline-none" asChild>
@@ -82,12 +89,20 @@ export const ProductListItem = ({ product }: ProductListItemProps) => {
                 <DropdownMenuContent align="end" className="dark:bg-polar-800 bg-gray-50 shadow-lg">
                   <DropdownMenuItem
                     onClick={handleContextMenuCallback(() => {
-                      if (typeof navigator !== 'undefined') {
-                        void navigator.clipboard.writeText(product.id).catch(() => {})
-                      }
+                      router.push(rutaParaVender(product.id))
                     })}
                   >
-                    Copiar el ID del plan
+                    Vender
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    // El menú queda abierto: si se cerrara con el clic, la señal no se vería.
+                    onSelect={(e) => e.preventDefault()}
+                    className={copia === 'fallo' ? 'text-red-500 dark:text-red-400' : undefined}
+                    onClick={handleContextMenuCallback(() => {
+                      void copiar(product.id)
+                    })}
+                  >
+                    {rotuloDeCopia(copia, 'Copiar el ID del plan')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

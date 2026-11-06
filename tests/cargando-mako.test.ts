@@ -10,6 +10,8 @@
 //   · que la criatura del Ops Center también lleva la barra.
 // ROTURAS (23/10/2026, una por vez y restaurada; base 4 / 0): sin la barra en CargandoMako → 3 / 1; sin app/plan/loading.tsx
 // → 3 / 1; la barra quieta con movimiento reducido → 2 / 2; la salida de EntradaOps sin `animation: none` → 2 / 2.
+// ADMIN (6/11/2026, punto 31 de docs/admin/revision-cerebro-6-11.md; base 6 / 0): app/admin/(polar)/loading.tsx sin CargandoMako
+// → 5 / 1.
 // Correr: node --import tsx --test tests/cargando-mako.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -81,6 +83,21 @@ test('cada tab grande tiene su loading.tsx con CargandoMako (escritorio y /m)', 
   // /second-brain es el Ops Center del cliente: carga como /admin/operaciones (la criatura que espera y vuela).
   assert.match(leer('app/second-brain/loading.tsx'), /^export \{ default \} from '@\/app\/admin\/operaciones\/loading';$/m);
 });
+
+test('Admin (la copia de Polar) tiene su loader con CargandoMako y un esqueleto: en la portada de la tab y en la ficha de un negocio', async () => {
+  // Punto 31 de docs/admin/revision-cerebro-6-11.md: «se hace clic y no pasa nada». Se DIBUJAN los dos loading.tsx (sin hooks:
+  // son server) y se mira que traigan EL loader de las tabs y el esqueleto debajo.
+  for (const [archivo, que] of [['app/admin/(polar)/loading.tsx', 'Admin'], ['app/admin/(polar)/customers/[id]/loading.tsx', 'el negocio']] as const) {
+    const { default: Cargando } = (await import(`../${archivo}`)) as { default: () => ReturnType<typeof CargandoMako> }
+    const html = renderToStaticMarkup(createElement(Cargando))
+    assert.match(html, new RegExp(`aria-label="Cargando ${que}"`), `${archivo}: sin CargandoMako`)
+    assert.match(html, /class="cm-carga cm-carga--cubre"/, `${archivo}: el loader no tapa el esqueleto`)
+    assert.match(html, /class="cm-carga__pista"/, `${archivo}: sin la barra que corre`)
+    assert.ok((html.match(/rounded-md bg-gray-100/g) ?? []).length >= 6, `${archivo}: sin el esqueleto de la página`)
+    assert.equal(html.replace(/<[^>]+>/g, '').trim(), '', `${archivo}: ningún texto a la vista`)
+    assert.match(leer(archivo), /^import \{ CargandoMako \} from '@\/app\/_ui\/CargandoMako'/m, `${archivo}: CargandoMako directo, no desde el índice de app/_ui`)
+  }
+})
 
 test('ir al grafo del Second Brain muestra el loader desde el toque hasta que llega el grafo (eran 2,7 s sin nada)', () => {
   // Desde el 23/10 lo lleva `yendo` (ChatSecondBrain.tsx, del chat Ops Center): cubre también la vuelta (el chat se ve ya).

@@ -209,6 +209,61 @@ export const ESTADO_LINK: Readonly<Record<EstadoCobro, { rotulo: string; color: 
 /** «Delete Checkout Link» de Polar = anular el link: sólo mientras no se pagó (lib/cobros.ts, `anularCobro`). */
 export const sePuedeAnular = (l: Pick<LinkDeVenta, 'estado'>): boolean => l.estado === 'pendiente' || l.estado === 'fallido'
 
+// ─── «Vender» un plan y la entrada a Checkout Links ─────────────────────────
+
+/** El título del aviso cuando no se pudo leer la lista: el mismo en la barra y en la página de un link. */
+export const TITULO_SIN_LINKS = 'No pude leer los links'
+
+/**
+ * «Vender» (el «Share» de Polar, en la lista y en el menú de la ficha): abre el formulario NUEVO con el plan puesto. En MaKo
+ * cada link es de UNA persona y se paga una vez, así que «compartir» uno que ya existe le mandaría a alguien el link de otro
+ * comprador, o uno ya pagado (punto 21 de docs/admin/revision-cerebro-6-11.md). `create_checkout_link=true` es lo que abre
+ * el formulario (la barra, CheckoutLinkListSidebar), y `productId` lo trae elegido.
+ */
+export const rutaParaVender = (productId: string): string =>
+  `/admin/products/checkout-links?${new URLSearchParams({ productId, create_checkout_link: 'true' })}`
+
+/**
+ * A dónde salta el índice de Checkout Links en una computadora: al primer link de la lista (con el filtro y el orden de la
+ * barra), como Polar. `null` = no hay ninguno (se dibuja el vacío). La query viaja entera MENOS `create_checkout_link`: ese
+ * pedido ya lo atendió la barra al montarse (abre el formulario), y llevarlo al link lo dejaría en la URL para que un F5
+ * vuelva a abrir el formulario.
+ */
+export function destinoDelIndiceDeLinks(
+  searchParams: Readonly<Record<string, string | string[] | undefined>>,
+  datos: Pick<DatosCheckoutLinks, 'links' | 'productos'>,
+): string | null {
+  const productIds = leerProductIds(searchParams.productId)
+  const sorting = leerOrdenLinks(searchParams.sorting)
+  const primero = ordenarLinks(filtrarLinksPorProducto(datos.links, productIds, datos.productos), sorting)[0]
+  if (!primero) return null
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(searchParams)) {
+    if (k === 'create_checkout_link') continue
+    if (typeof v === 'string') qs.set(k, v)
+    else if (Array.isArray(v)) v.forEach((x) => qs.append(k, x))
+  }
+  const q = qs.toString()
+  return `/admin/products/checkout-links/${primero.id}${q ? `?${q}` : ''}`
+}
+
+/** Lo que contesta la página de un link: el link, «no existe» (404) o «no pude leer» (el aviso, NUNCA un 404). */
+export type BusquedaDeLink =
+  | { estado: 'ok'; datos: DatosCheckoutLinks; link: LinkDeVenta }
+  | { estado: 'no-existe' }
+  | { estado: 'no-pude'; error: string }
+
+/**
+ * El link `id` en lo que se leyó. Si la lectura falló, «no pude» (punto 23: un 404 pelado se lee como que el link no existe,
+ * y lo que pasó es que no se pudo preguntar). Un id que no es un número, o que no está entre los de «Vender un plan», no existe.
+ */
+export function buscarLinkDeVenta(lectura: DatosCheckoutLinks | { error: string }, id: string): BusquedaDeLink {
+  if (!/^[1-9]\d{0,11}$/.test(id)) return { estado: 'no-existe' }
+  if (!('links' in lectura)) return { estado: 'no-pude', error: lectura.error }
+  const link = lectura.links.find((l) => l.id === Number(id))
+  return link ? { estado: 'ok', datos: lectura, link } : { estado: 'no-existe' }
+}
+
 // ─── El formulario de «Vender un plan» ──────────────────────────────────────
 
 /** Lo que Stripe cobra desde acá (Mercado Pago no elige: cobra en la moneda de su cuenta). Como la pantalla de antes. */

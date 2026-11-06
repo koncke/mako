@@ -7,6 +7,9 @@
 // Customers › <negocio> y las PERSONAS a Customers › <negocio> › Members, donde se gestionan. Las secciones («Ir a») salen
 // de la barra de Admin, como en Polar. Sin «quick actions»: la única de Polar es «Create Product» (/products/new), que
 // Admin no tiene.
+// ⚠️ SI EL ÍNDICE NO SE PUDO LEER, SE DICE (punto 23 de docs/admin/revision-cerebro-6-11.md): arriba de la lista va el aviso
+//    «No pude leer los negocios» (con «Reportar a Soporte»), y nunca «No hay resultados», que se lee como que el negocio no
+//    existe. Las secciones («Ir a») se siguen encontrando: salen de la barra, no del índice.
 
 import {
   useGeneralRoutes,
@@ -17,8 +20,10 @@ import {
   buscar,
   hrefDeNegocio,
   hrefDePersona,
+  TITULO_SIN_INDICE,
   type IndiceBusqueda,
 } from '@/app/admin/_polar/datos/busqueda-tipos'
+import { Alert } from '@/app/admin/_polar/orbit'
 import {
   Command,
   CommandGroup,
@@ -33,6 +38,18 @@ import { useMemo, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { Result } from './components/Result'
 import { SearchResult, SearchResultPage } from './types'
+
+/** El aviso de un índice que no se pudo leer. Sin error, nada. */
+export const AvisoDelIndice = ({ indice }: { indice: Pick<IndiceBusqueda, 'error'> }) =>
+  indice.error ? (
+    <div className="px-3 pb-2">
+      <Alert variant="danger" title={TITULO_SIN_INDICE} description={indice.error} />
+    </div>
+  ) : null
+
+/** Lo que dice la lista sin nada que mostrar: con el índice caído no hay «no hay resultados» (eso lo dice el aviso). */
+export const textoSinResultados = (query: string, indice: Pick<IndiceBusqueda, 'error'>): string | null =>
+  indice.error ? null : `No hay resultados para «${query.trim()}»`
 
 interface OmniSearchProps {
   open: boolean
@@ -194,6 +211,12 @@ export const OmniSearch = ({
               />
             </div>
 
+            {indice.error && (
+              <div className="dark:border-polar-700 border-t border-gray-200 pt-3">
+                <AvisoDelIndice indice={indice} />
+              </div>
+            )}
+
             <CommandList
               className={twMerge(
                 'dark:border-polar-700 max-h-[420px] overflow-y-auto border-t border-gray-200 px-0 pt-2 pb-3',
@@ -201,9 +224,11 @@ export const OmniSearch = ({
               )}
             >
               {combinedResults.length === 0 ? (
-                <div className="dark:text-polar-500 py-12 text-center text-sm text-gray-500">
-                  No hay resultados para «{query.trim()}»
-                </div>
+                textoSinResultados(query, indice) && (
+                  <div className="dark:text-polar-500 py-12 text-center text-sm text-gray-500">
+                    {textoSinResultados(query, indice)}
+                  </div>
+                )
               ) : (
                 <>
                   {Object.entries(groupedResults).map(

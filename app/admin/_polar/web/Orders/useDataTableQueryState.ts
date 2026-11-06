@@ -4,32 +4,26 @@
 // y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: sin `nuqs`. La página, el tamaño y el orden viven en la URL (`page`, `limit`, `sorting`, como en Polar) con
-// useSearchParams + `useRouter` de app/_ui/Link (preserva el `?ws=`, que acá no hay), y `useQueryParams` hace lo mismo para los
-// filtros de cada página: un solo `replace` por cambio, así la página vuelve a la 1 en el mismo paso que el filtro.
+// useSearchParams para leer y `cambiarQuery` (web/Customer/useClientSidePagination.ts) para escribir, y `useQueryParams` hace lo
+// mismo para los filtros de cada página: un solo cambio de la URL por vez, así la página vuelve a la 1 en el mismo paso que el
+// filtro.
+// ⚠️ SIN IR AL SERVER (punto 32 de docs/admin/revision-cerebro-6-11.md): todas las filas de Sales ya están en el navegador
+//    (cada page.tsx las lee enteras y no mira la query), así que un filtro, un orden o una página nueva es cambiar la URL con
+//    `history.replaceState` (el `shallow` de nuqs que usa Polar). Con `router.replace`, cada clic volvía a leer TODO del server
+//    y la pantalla parecía no responder hasta que volvía. Un page.tsx de Sales que empiece a leer la query tiene que volver a
+//    pedir el server (`router.refresh()`), o deja de filtrar.
 
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { functionalUpdate, type OnChangeFn, type PaginationState, type SortingState } from '@tanstack/react-table'
 import { useCallback, useMemo } from 'react'
-import { useRouter } from '@/app/_ui/Link'
+import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 
 /** Los parámetros de la URL y un `set` que cambia varios a la vez (null saca uno). */
 export function useQueryParams(): [URLSearchParams, (cambios: Record<string, string | null>) => void] {
   const sp = useSearchParams()
-  const pathname = usePathname()
-  const router = useRouter()
   const params = useMemo(() => new URLSearchParams(sp?.toString() ?? ''), [sp])
-  const set = useCallback(
-    (cambios: Record<string, string | null>) => {
-      const q = new URLSearchParams(sp?.toString() ?? '')
-      for (const [k, v] of Object.entries(cambios)) {
-        if (v == null || v === '') q.delete(k)
-        else q.set(k, v)
-      }
-      const s = q.toString()
-      router.replace(`${pathname ?? ''}${s ? `?${s}` : ''}`, { scroll: false })
-    },
-    [sp, pathname, router],
-  )
+  // `cambiarQuery` parte de la URL de la barra y toca sólo estos parámetros (null o '' los saca).
+  const set = useCallback((cambios: Record<string, string | null>) => cambiarQuery(cambios), [])
   return [params, set]
 }
 

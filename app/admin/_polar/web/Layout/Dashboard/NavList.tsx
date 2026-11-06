@@ -1,6 +1,13 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Layout/Dashboard/NavList.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// ⚠️ SIN `prefetch={true}` (punto 31 de docs/admin/revision-cerebro-6-11.md). En Polar las páginas piden sus datos desde el
+//    navegador, así que precargar una página es barato. Acá cada página lee en el server los datos de todos los negocios: con
+//    `prefetch={true}` la barra precargaba TODAS las secciones al abrir cualquiera, y podía mostrar datos precargados de hasta
+//    5 minutos. Con la precarga de siempre de Next, se precarga hasta el loading.tsx de Admin (app/admin/(polar)/loading.tsx):
+//    el clic muestra el loader en el acto y los datos llegan frescos. Van juntos: sin precarga y sin loader, el clic no
+//    respondía.
 
 import {
   SidebarMenu,
@@ -74,7 +81,6 @@ export const NavList = ({
             isActive={route.isActive}
           >
             <Link
-              prefetch={true}
               className={twMerge(
                 'flex flex-row items-center rounded-lg border border-transparent px-2 transition-colors dark:border-transparent',
                 route.isActive
@@ -126,7 +132,6 @@ export const NavList = ({
                   <SidebarMenuSubItem key={subRoute.link}>
                     <Link
                       href={subRoute.link}
-                      prefetch={true}
                       className={twMerge(
                         style.subBase,
                         subRoute.isActive && style.activeSub,

@@ -14,7 +14,24 @@
 
 export type ResultadoNegocio = { tipo: 'negocio'; ws: number; nombre: string; detalle: string }
 export type ResultadoPersona = { tipo: 'persona'; id: number; ws: number | null; nombre: string; email: string; negocio: string | null }
-export type IndiceBusqueda = { negocios: ResultadoNegocio[]; personas: ResultadoPersona[] }
+/** Lo que se encuentra: negocios y personas (lo que devuelve `buscar`). */
+export type Encontrados = { negocios: ResultadoNegocio[]; personas: ResultadoPersona[] }
+/**
+ * El índice que viaja al navegador. `error` = no se pudo leer (punto 23 de docs/admin/revision-cerebro-6-11.md): con las
+ * listas vacías, ⌘K decía «No hay resultados» y parecía que el negocio no existía. Con `error`, dice «No pude leer los
+ * negocios». `null` = se leyó.
+ */
+export type IndiceBusqueda = Encontrados & { error: string | null }
+
+/** El título del aviso de ⌘K cuando el índice no se pudo leer. */
+export const TITULO_SIN_INDICE = 'No pude leer los negocios'
+
+/** El índice de una lectura que falló: vacío Y diciendo por qué (nunca un vacío callado). */
+export const indiceSinLeer = (e: unknown): IndiceBusqueda => ({
+  negocios: [],
+  personas: [],
+  error: e instanceof Error && e.message ? e.message : typeof e === 'string' && e ? e : 'Sin detalle.',
+})
 
 /** Cuántos de cada clase se muestran (Polar: `limit=5`). */
 export const TOPE_POR_CLASE = 5
@@ -46,6 +63,7 @@ export function armarIndice(p: {
     return partes.filter(Boolean).join(' · ')
   }
   return {
+    error: null,
     negocios: clientes.map((w) => ({
       tipo: 'negocio',
       ws: w.id,
@@ -59,7 +77,7 @@ export function armarIndice(p: {
 }
 
 /** Lo que coincide con lo escrito: hasta `TOPE_POR_CLASE` de cada clase, primero los que EMPIEZAN con lo escrito. */
-export function buscar(indice: IndiceBusqueda, consulta: string): IndiceBusqueda {
+export function buscar(indice: Encontrados, consulta: string): Encontrados {
   const q = normalizar(consulta)
   if (!q) return { negocios: [], personas: [] }
   const puntaje = (campos: string[]) => {
@@ -78,5 +96,34 @@ export function buscar(indice: IndiceBusqueda, consulta: string): IndiceBusqueda
   return {
     negocios: ordenar(indice.negocios, (n) => [n.nombre]),
     personas: ordenar(indice.personas, (u) => [u.nombre, u.email, u.negocio ?? '']),
+  }
+}
+
+/**
+ * Lo que lee el server para armar el índice, como funciones: así la regla de qué hacer cuando una falla se prueba sin base
+ * (tests/admin-polar-armazon.test.ts) y ./busqueda.ts sólo pasa las lecturas de verdad.
+ */
+export type LecturasDelIndice = {
+  workspaces: () => Promise<ReadonlyArray<{ id: number; nombre: string; capa: string; estado: string }>>
+  usuarios: () => Promise<ReadonlyArray<{ id: number; nombre: string; email: string; workspace_id: number | null }>>
+  /** El negocio de la plataforma, que NO entra al índice. */
+  plataforma: () => Promise<number>
+  /** De qué agencia es cada cliente de una agencia. Si no se puede leer, un mapa vacío: es sólo el «De <agencia>». */
+  deAgencia: () => Promise<ReadonlyMap<number, number>>
+}
+
+/**
+ * Arma el índice con las lecturas. Si falla una de las que deciden QUIÉN entra (los negocios, las personas o cuál es la
+ * plataforma), el índice viaja vacío y con su `error`. ⚠️ La plataforma no se adivina: con su lectura caída, antes entraba al
+ * índice como un cliente más y su resultado llevaba a una ficha que da 404 (el revisor del punto 23).
+ */
+export async function leerIndice(leer: LecturasDelIndice, plan: (capa: string) => string): Promise<IndiceBusqueda> {
+  try {
+    const [workspaces, usuarios, plataforma, deAgencia] = await Promise.all([
+      leer.workspaces(), leer.usuarios(), leer.plataforma(), leer.deAgencia().catch(() => new Map<number, number>()),
+    ])
+    return armarIndice({ workspaces, usuarios, plataforma, plan, deAgencia })
+  } catch (e) {
+    return indiceSinLeer(e)
   }
 }

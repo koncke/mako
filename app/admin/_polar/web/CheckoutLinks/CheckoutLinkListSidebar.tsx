@@ -11,18 +11,26 @@
 //    de MaKo se paga una vez y deja de servir; el botón de copiar sólo mientras se puede pagar; y el aviso del tope de 200.
 // ⚠️ LO QUE SE SACÓ: el scroll infinito (la lista llega entera) y los toasts de «copiado» (Admin no tiene Toaster: el ícono
 //    del botón cambia al copiar).
+// ⚠️ «COPIADO» SÓLO SI SE COPIÓ (punto 24 de docs/admin/revision-cerebro-6-11.md): el tilde sale en el `.then` de
+//    `copiarTexto` (atoms/CopyToClipboardInput.tsx); si el portapapeles dice que no, la fila lo dice en rojo («No pude copiar»)
+//    en vez de callarse. Antes el error se tragaba y se podía pegar otra cosa creyendo que era el link.
+// ⚠️ EL ORDEN Y LA LIMPIEZA DE `create_checkout_link` NO VAN AL SERVER (punto 32): la lista ya está en el navegador, así que se
+//    cambia la URL con `cambiarQuery` (history.replaceState), como Customers. Con `router.replace` cada clic en el orden volvía a
+//    leer los 200 cobros y la pantalla parecía no responder. El filtro por plan sí va al server: decide a qué link salta el índice.
 
 import { CheckoutLinkManagementModal } from '@/app/admin/_polar/web/CheckoutLinks/CheckoutLinkManagementModal'
 import { InlineModal } from '@/app/admin/_polar/orbit'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import ProductSelect from '@/app/admin/_polar/web/Products/ProductSelect'
-import { AddOutlined, ArrowDownward, ArrowUpward, CheckOutlined, LinkOutlined } from '@/app/admin/_polar/orbit/icons'
+import { AddOutlined, ArrowDownward, ArrowUpward, CheckOutlined, ErrorOutlined, LinkOutlined } from '@/app/admin/_polar/orbit/icons'
 import { Alert, Button } from '@/app/admin/_polar/orbit'
 import Link, { useRouter } from '@/app/_ui/Link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
-import { ESTADO_LINK, filtrarLinksPorProducto, leerOrdenLinks, leerProductIds, ordenarLinks, type DatosCheckoutLinks } from '@/app/admin/_polar/datos/productos'
+import { ESTADO_LINK, filtrarLinksPorProducto, leerOrdenLinks, leerProductIds, ordenarLinks, TITULO_SIN_LINKS, type DatosCheckoutLinks } from '@/app/admin/_polar/datos/productos'
+import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
+import { copiarTexto, MS_SENAL_COPIA, ROTULO_COPIA } from '@/app/admin/_polar/atoms/CopyToClipboardInput'
 
 const BASE = '/admin/products/checkout-links'
 
@@ -48,7 +56,7 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
     [searchParams],
   )
 
-  const setSorting = (v: 'label' | '-label') => router.replace(conQuery(pathname, { sorting: v === 'label' ? null : v }), { scroll: false })
+  const setSorting = (v: 'label' | '-label') => cambiarQuery({ sorting: v === 'label' ? null : v })
 
   const ok = 'links' in datos ? datos : null
   const checkoutLinks = useMemo(
@@ -61,7 +69,7 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
   useEffect(() => {
     if (createCheckoutLinkQuerystring) {
       showCreateCheckoutLinkModal()
-      router.replace(conQuery(pathname, { create_checkout_link: null }), { scroll: false })
+      cambiarQuery({ create_checkout_link: null })
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [createCheckoutLinkQuerystring])
@@ -92,7 +100,19 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
     [hideCreateCheckoutLinkModal, router, conQuery],
   )
 
-  const [copiado, setCopiado] = useState<number | null>(null)
+  // La señal de copiar de UNA fila: cuál y qué pasó. Vuelve a nada a los MS_SENAL_COPIA.
+  const [copia, setCopia] = useState<{ id: number; estado: 'copiado' | 'fallo' } | null>(null)
+  const timerCopia = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (timerCopia.current) clearTimeout(timerCopia.current)
+  }, [])
+  const copiarLink = (id: number, url: string) => {
+    void copiarTexto(url).then((estado) => {
+      setCopia({ id, estado })
+      if (timerCopia.current) clearTimeout(timerCopia.current)
+      timerCopia.current = setTimeout(() => setCopia(null), MS_SENAL_COPIA)
+    })
+  }
 
   return (
     <>
@@ -122,7 +142,7 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
         <div className="dark:divide-polar-800 flex h-full grow flex-col divide-y divide-gray-50 overflow-y-auto">
           {!ok ? (
             <div className="p-4">
-              <Alert variant="danger" title="No pude leer los links" description={'error' in datos ? datos.error : undefined} />
+              <Alert variant="danger" title={TITULO_SIN_LINKS} description={'error' in datos ? datos.error : undefined} />
             </div>
           ) : (
             <>
@@ -133,6 +153,7 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
               )}
               {checkoutLinks.map((checkoutLink) => {
                 const productLabel = `${checkoutLink.producto} · ${ESTADO_LINK[checkoutLink.estado].rotulo}`
+                const senal = copia?.id === checkoutLink.id ? copia.estado : null
                 const checkoutLinkHref = conQuery(`${BASE}/${checkoutLink.id}`, {})
 
                 return (
@@ -148,27 +169,31 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="w-full truncate text-sm">{checkoutLink.etiqueta}</div>
                         <div>
-                          <div className="dark:text-polar-500 w-full truncate text-sm text-gray-500">{productLabel}</div>
+                          {senal === 'fallo' ? (
+                            <div aria-live="polite" className="w-full truncate text-sm text-red-500 dark:text-red-400">{ROTULO_COPIA.fallo}</div>
+                          ) : (
+                            <div className="dark:text-polar-500 w-full truncate text-sm text-gray-500">{productLabel}</div>
+                          )}
                         </div>
                       </div>
                       {checkoutLink.url && (
                         <Button
                           size="icon"
                           variant="secondary"
-                          aria-label={`Copiar el link de ${checkoutLink.etiqueta}`}
+                          aria-label={senal ? `${ROTULO_COPIA[senal]}: el link de ${checkoutLink.etiqueta}` : `Copiar el link de ${checkoutLink.etiqueta}`}
                           onClick={(event) => {
                             event.preventDefault()
                             event.stopPropagation()
-
-                            if (typeof navigator !== 'undefined' && checkoutLink.url) {
-                              void navigator.clipboard.writeText(checkoutLink.url).then(
-                                () => setCopiado(checkoutLink.id),
-                                () => {},
-                              )
-                            }
+                            if (checkoutLink.url) copiarLink(checkoutLink.id, checkoutLink.url)
                           }}
                         >
-                          {copiado === checkoutLink.id ? <CheckOutlined fontSize="small" /> : <LinkOutlined fontSize="small" />}
+                          {senal === 'copiado' ? (
+                            <CheckOutlined fontSize="small" />
+                          ) : senal === 'fallo' ? (
+                            <ErrorOutlined fontSize="small" />
+                          ) : (
+                            <LinkOutlined fontSize="small" />
+                          )}
                         </Button>
                       )}
                     </div>
