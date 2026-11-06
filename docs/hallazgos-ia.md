@@ -7517,3 +7517,53 @@ que falte el autor en la memoria.
   el guard.
  / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
   es tocar el veto: es de Martín.
+
+---
+
+## El catálogo prometía «nunca con Gemini» y la VISIÓN no lo miraba (6/11/2026, `punta/marca-sin-gemini`)
+
+**Vive en:** `lib/ai-cheap.ts` (`DocOpts.sinGemini`, `leerDocumentoIA`) · `lib/archivo-a-texto.ts` (`OpcionesLectura.sinGemini`) ·
+`lib/marca/leer-manual.ts` · `lib/model-catalogo.ts` (`marca-leer`, `deSuIA: true`)
+
+**El síntoma: una promesa escrita que el código no cumplía.** `model-catalogo.ts` declara la feature `marca-leer` con
+`deSuIA: true`, `fallback: []` y la nota, textual, «Corre con la IA del negocio (su Claude o su GPT), **nunca con Gemini**»
+—la decisión de Martín del 22/10 para Image—. El camino de TEXTO lo cumplía: `chatClaude` lee el catálogo y pasa `sinGemini`,
+que filtra `gemini` de la cascada. El camino de **VISIÓN** no: `leerDocumentoIA` recorre `VISION_CASCADE`
+(`['gemini', 'openai']`) y **no tenía la opción**, así que leer la IMAGEN de un brand board seguía usando el Gemini del
+negocio cuando era lo único que tenía. Era la última excepción de Image, declarada como inconsistencia D6b y nunca cerrada.
+
+**La causa de fondo, que es la parte reutilizable:** `sinGemini` se implementó donde se necesitaba —la cascada de texto— y
+no como una propiedad de «pedirle algo a una IA». Quedó una función (`chatCheapCascade`) que la respeta y otra
+(`leerDocumentoIA`) que no, con el mismo catálogo detrás. **Una decisión sobre QUÉ IA puede correr una feature tiene que
+valer en TODOS los caminos que llaman a una IA, o la promesa del catálogo es decorativa.** Y lo que se lee es el catálogo:
+la nota del `marca-leer` es lo que un chat futuro va a citar como verdad.
+
+⚠️ **Y la puerta tenía un segundo lado, que es el que no se ve.** Un manual de marca **escaneado** no entra por el camino de
+visión directo: entra por `archivoATexto`, que llama a `leerDocumentoIA` dos veces (PDF e imagen) por su cuenta. Arreglar
+sólo el primero dejaba la misma fuga para el PDF escaneado, que es el caso más probable de un manual de marca de verdad.
+`sinGemini` va enhebrado por los dos. Es «enumerá los caminos que no pasan por ahí» de AGENTS.md: un `grep` de
+`leerDocumentoIA` los lista en un segundo, y sin ese grep el arreglo queda a medias y se lee como completo.
+
+Y la red gratis de la plataforma (que es Gemini) se filtra con la misma lista: una feature «de su IA» que cae en la cuenta
+gratis de MaKo es exactamente lo contrario de su IA.
+
+⚠️ **Y DOS GUARDAS LEEN ESTE FUENTE PALABRA POR PALABRA: el orden de las propiedades de la llamada es parte del
+contrato.** Las dos dieron rojo en Actions con el arreglo puesto, y ninguna es un test del comportamiento:
+
+- `tests/onboarding-red-plataforma.test.ts` exige, con un `assert.match` sobre el fuente, que la red de plataforma filtre
+  con el texto literal **`VISION_CASCADE.includes(x.provider)`** («la red sólo prueba los que MIRAN: trae gemini y groq, y
+  groq no tiene visión»). Reemplazarlo por la lista ya filtrada —que es lo natural— lo rompe. La salida es **sumar** la
+  condición al lado (`&& (!opts.sinGemini || x.provider !== 'gemini')`) en vez de reemplazar el término: son dos preguntas
+  distintas y el guard pregunta por la primera.
+- `tests/adjuntos-chats-de-texto.test.ts` cuenta **exactamente dos** apariciones de
+  `redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs })` en `lib/archivo-a-texto.ts` («el plazo no llega a la
+  visión»). Agregar la propiedad nueva DESPUÉS de `timeoutMs` deja la cuenta en cero. Va **antes**.
+
+**La regla:** cuando un guard afirma algo leyendo el fuente, su assert es una API tan real como la firma de la función — y
+no aparece en ningún `import`, así que `tsc` no la ve y el editor no la autocompleta. Antes de reordenar o reescribir una
+llamada en un archivo caliente (`ai-cheap.ts`, `archivo-a-texto.ts`), un `grep` del nombre del archivo en `tests/` dice
+quién lo está mirando. Son dos segundos, y el rojo cuesta un run de Actions de diez minutos.
+
+**Lo que cambia para un negocio que sólo tiene Gemini:** su manual de marca ya no se lee, y se le dice
+(`errorDeCascada` / «conecta tu IA»). No es una regresión encubierta: es lo que `fallback: []` del catálogo ya decidía, y
+antes el código lo desobedecía en silencio.
