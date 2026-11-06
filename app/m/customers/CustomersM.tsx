@@ -3,7 +3,7 @@
 // =============================================================================
 // CustomersM — Customers en el teléfono (26/10/2026)
 // =============================================================================
-// Destila la pestaña de escritorio (app/customers/CustomersApp.tsx) con la captura elegida para el teléfono, la 15 de
+// Destilaba la pestaña de escritorio de antes (hoy app/admin/clientes, la de Studio) con la captura elegida para el teléfono, la 15 de
 // Stripe (docs/customers/referencias/otras-apps): tres números arriba, lo que entra sólo si entró algo, y debajo «Para
 // mirar» y la lista. El toque abre la hoja con sus datos y UNA acción, «Entrar a su cuenta». Billing y Agents siguen en
 // sus pantallas (/m/cobros, /m/agente); administrar (plan, equipo) queda en la computadora.

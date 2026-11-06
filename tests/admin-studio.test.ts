@@ -94,6 +94,8 @@ test('4 · la letra es Geist local, y las pantallas portadas no usan app/_ui (sa
     ...archivos('app/admin/_studio'), ...archivos('app/admin/usuarios'), ...archivos('app/admin/ingresos').filter((f) => !f.endsWith('ingresos-vista.ts')),
     // Billing (6/11/2026): la página, sus piezas y su recibo. Las acciones (actions.ts, recibos-actions.ts) son del servidor.
     ...archivos('app/admin/cobros').filter((f) => !/\/(actions|recibos-actions|page)\.tsx?$/.test(f)),
+    // Customers (6/11/2026): la lista (dashboard/crm) y la ficha (dashboard/profile).
+    ...archivos('app/admin/clientes'),
   ];
   assert.ok(nuevos.length > 50, `el barrido no está leyendo los archivos (${nuevos.length})`);
   for (const f of nuevos) {
@@ -213,4 +215,79 @@ test('9 · Billing: la pestaña viaja en ?vista=, el recibo en ?recibo=nuevo, y 
   const css = sinComentarios(leer('app/admin/_studio/studio-theme.css'));
   assert.match(css, /body:has\(> \[data-print-root\]\) > \*:not\(\[data-print-root\]\) \{/);
   assert.doesNotMatch(css, /^\s*body > \*:not\(\[data-print-root\]\)/m, 'sin el :has(), imprimir cualquier pantalla de MaKo da una hoja en blanco');
+});
+
+// ── 10. Customers (6/11/2026): la pantalla CRM de Studio y su perfil, con lo que dice `vistaDeClientes` ─────────────────
+// Roturas (base 10/10; renombrar `deMaKo` en `tarjetasKpi`: 10/10). Cada una, sola:
+//   · `pasaGrupo` con «todos» = sin filtro (entran los clientes de agencias)                → 1 fallo (10)
+//   · `filasDeTabla` sin el orden (los que piden atención, primero)                         → 1 fallo (10)
+//   · `lineaDeNuevos` cuenta a un cliente de agencia                                       → 1 fallo (10)
+//   · `configuracionTerminada` cuenta un onboarding que no se pudo leer como «sin terminar»  → 1 fallo (10)
+//   · `actividadDe` dice «Nunca» con la actividad sin leer                                   → 1 fallo (10)
+test('10 · Customers: las tarjetas, lo entrado, los nuevos, la tabla y la ficha salen de los clientes, sin inventar', async () => {
+  const v = await import('../app/admin/clientes/customers-vista');
+  const { kpisDeClientes } = await import('../lib/clientes-plataforma-reglas');
+  const DIA = 86_400_000;
+  type Fila = import('../lib/clientes-plataforma').FilaCliente;
+  const fila = (p: Partial<Fila>): Fila => ({
+    ws: 1, nombre: 'Uno', capa: 'completo', estado: 'activo', creado: '2026-06-01T00:00:00Z', segmentos: ['cliente'], agencia: null,
+    mrrUsd: 0, sinDolares: 0, prueba: false, riesgo: false, motivoRiesgo: null, sinEntrar: 2, sinLeads: 3, leads: 40, onboardingHecho: true,
+    sesionesAgente: 0, pagoPendiente: false, planAManoTxt: null, regaloPorTerminar: null, primerMesUsd: null, ...p,
+  });
+  const filas = [
+    fila({ ws: 1, nombre: 'Al día', mrrUsd: 97 }),
+    fila({ ws: 2, nombre: 'Riesgo', riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 40 }),
+    fila({ ws: 3, nombre: 'Nuevo', creado: new Date(AHORA - 5 * DIA).toISOString(), onboardingHecho: false }),
+    fila({ ws: 4, nombre: 'De agencia', segmentos: ['de-agencia'], agencia: 'Agencia X', creado: new Date(AHORA - 2 * DIA).toISOString(), mrrUsd: 50, onboardingHecho: null }),
+    fila({ ws: 5, nombre: 'Partner', segmentos: ['partner', 'cliente'], estado: 'pausado', onboardingHecho: null }),
+  ];
+  const vista = { filas, kpis: kpisDeClientes(filas, AHORA), paraMirar: [{ ws: 2, nombre: 'Riesgo', motivo: 'cobro' as const, texto: 'Un cobro de su plan falló' }], actividadLeida: true };
+
+  // Las tarjetas: el MRR con plata, y los «Clientes» sin los de agencias.
+  const t = v.tarjetasKpi(vista);
+  assert.deepEqual(t.map((x) => x.titulo), ['MRR', 'Clientes', 'Activos', 'En riesgo']);
+  assert.equal(t[0].valor, 'US$ 147');
+  assert.equal(t[1].valor, '4', 'los de agencias no cuentan en «Clientes»');
+  assert.equal(v.tarjetasKpi({ ...vista, actividadLeida: false })[2].texto, 'No pude leer quién entra');
+
+  // Lo entrado: el rango corta los meses; sin pagos, nada.
+  const cobrado = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11'].map((mes, i) => ({ mes, usd: i * 100 }));
+  assert.deepEqual(v.entradoEn(cobrado, '3m'), { meses: cobrado.slice(3), total: 1200 });
+  assert.equal(v.entradoEn(null, '3m'), null);
+  assert.equal(v.mesTxt('2026-09'), 'sept');
+  assert.deepEqual(v.pagoDeActivos(filas), { pagan: 1, activos: 3, pct: 33 }, 'de los activos de MaKo, cuántos pagan');
+
+  // Los nuevos de 30 días: el más nuevo de MaKo (el de agencia no), y su lugar en la línea.
+  const nuevos = v.lineaDeNuevos(filas, AHORA);
+  assert.equal(nuevos.total, 1);
+  assert.equal(nuevos.ultimo?.ws, 3);
+  assert.equal(nuevos.ultimo?.dias, 5);
+  assert.equal(nuevos.ultimo?.pos, 83);
+  assert.equal(nuevos.marcas.at(-1), 'Hoy');
+  assert.equal(v.seSumoTxt(1), 'Se sumó ayer');
+  // La configuración: sólo de los que se pudo leer.
+  assert.deepEqual(v.configuracionTerminada(filas), { hechos: 2, conocidos: 3, pct: 67 });
+  assert.equal(v.configuracionTerminada([fila({ onboardingHecho: null })]), null);
+
+  // La tabla: los que piden atención primero, el motivo en el tooltip, y «Todos» sin los de agencias.
+  const tabla = v.filasDeTabla(vista);
+  assert.equal(tabla[0].ws, 2, 'el que está en riesgo, primero');
+  assert.equal(tabla[0].detalleEstado, 'En riesgo · Un cobro de su plan falló');
+  assert.equal(tabla.find((x) => x.ws === 4)?.grupo, 'De Agencia X');
+  assert.equal(tabla.find((x) => x.ws === 5)?.grupo, 'Partner · Cliente');
+  assert.deepEqual(tabla.filter((x) => v.pasaGrupo(x.segmentos, 'todos')).map((x) => x.ws).sort(), [1, 2, 3, 5]);
+  assert.deepEqual(tabla.filter((x) => v.pasaGrupo(x.segmentos, 'de-agencia')).map((x) => x.ws), [4]);
+  assert.equal(v.filasDeTabla({ ...vista, actividadLeida: false })[0].ultimaVez, '—');
+
+  // La ficha: lo que viene, la actividad, los datos.
+  assert.deepEqual(v.loQueViene(fila({})), []);
+  assert.deepEqual(v.loQueViene(fila({ pagoPendiente: true })).map((d) => d.valor), ['Tiene un pago esperando']);
+  const sinLeer = v.actividadDe(fila({ sinEntrar: null }), false);
+  assert.equal(sinLeer.find((d) => d.rotulo === 'Última vez')?.valor, '—', 'sin la actividad, no «Nunca»');
+  assert.equal(v.actividadDe(fila({ leads: 0, sinLeads: null }), true).find((d) => d.rotulo === 'Último lead')?.valor, 'Todavía no tiene');
+  assert.equal(v.actividadDe(fila({ segmentos: ['de-agencia'], sinEntrar: null }), true)[0].valor, 'Lo opera su agencia');
+  assert.equal(v.comoEstaTxt(fila({}), 'Un cobro de su plan falló'), 'Un cobro de su plan falló.');
+  assert.equal(v.comoEstaTxt(fila({}), null), 'Al día: no pide tu atención.');
+  assert.equal(v.datosDeResumen(fila({ creado: new Date(AHORA - 70 * DIA).toISOString() }), AHORA).find((d) => d.rotulo === 'Antigüedad')?.valor, '2 meses');
+  assert.equal(v.destinoCliente('ficha', 7), '/admin?tab=customers&cliente=7');
 });

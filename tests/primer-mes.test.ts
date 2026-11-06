@@ -20,6 +20,7 @@ import { creadoPorPrimerMes, lineaDelPrimerMes, montoDelPrimerPago, pctDelPrimer
 import { PROMO_ENTRADA } from '../lib/promo-entrada-reglas';
 import { bajadaDePlanes } from '../lib/compra-plan-reglas';
 import { esPruebaDePlan } from '../lib/prueba-plan-reglas';
+import { plataTxt } from '../app/admin/clientes/customers-vista';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -163,7 +164,7 @@ test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
   assert.match(fuente('app/vsl/Landing.tsx'), /PRUEBA_GRATIS_PRENDIDA \? PRUEBA_DIAS : 'apagada'/, 'una landing publicada no sigue prometiendo días gratis');
   assert.match(fuente('app/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
   assert.match(fuente('app/m/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
-  assert.match(fuente('app/customers/CustomersApp.tsx'), /primer mes a \$\{usdTxt\(f\.primerMesUsd\)\}/);
+  assert.equal(plataTxt({ mrrUsd: 47, primerMesUsd: 23.5, prueba: false, planAManoTxt: null }), 'US$ 47 por mes · primer mes a US$ 23,5', 'la ficha de Customers');
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /primer mes a \$\{usdTxt\(c\.primerMesUsd\)\}/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
 });

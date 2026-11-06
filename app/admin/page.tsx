@@ -17,7 +17,7 @@
 //   · revenue: dashboard/default de Studio (app/admin/ingresos/revenue.tsx) con lo que entra (lib/admin-ingresos.ts);
 //   · users: dashboard/users de Studio (app/admin/usuarios/users.tsx) con las personas de todos los negocios;
 //   · billing: dashboard/finance (Resumen, Cobros, Recibos) y su recibo dashboard/invoice (app/admin/cobros/billing.tsx);
-//   · customers: los negocios, con su ficha (app/customers/CustomersApp.tsx) — por portar (dashboard/crm y profile);
+//   · customers: dashboard/crm de Studio con los negocios, y su ficha (`?cliente=<ws>`) con dashboard/profile (app/admin/clientes);
 //   · accounts: la grilla de administración (AdminView), la otra vista de Customers. `?cuenta=<ws>` abre su ficha;
 //   · activity: la medición de la mig 0398 (app/admin/actividad) — por portar (dashboard/analytics). Al pie, Agents;
 //   · errors: los errores agrupados (app/admin/errores) — por portar (dashboard/infrastructure);
@@ -46,11 +46,11 @@ import { AdminView } from '@/app/admin/AdminView';
 import '@/app/integraciones/tus-cuentas-ia.css';
 import { cuantoEspera } from '@/lib/pedidos-ingreso';
 import { textoDelCartel } from '@/lib/pedidos-ingreso-reglas';
-import { CustomersApp } from '@/app/customers/CustomersApp';
 import { AdminShell } from './_studio/shell/AdminShell';
 import { ErrorSeccion } from './_studio/error-seccion';
 import { esPestanaAdmin, type PestanaAdmin } from './pestanas-reglas';
 import { Revenue } from './ingresos/revenue';
+import { Customers } from './clientes/customers';
 import { listarUsuarios } from '@/lib/usuarios';
 import { listarWorkspaces } from '@/lib/workspace';
 import { Users } from './usuarios/users';
@@ -143,11 +143,11 @@ async function PestanaErrores() {
   return <ErroresAdmin vista={vista} ahoraMs={Date.now()} />;
 }
 
-/** Customers: la vista de los negocios, entera del server (la ficha es un panel sin estado de carga). */
+/** Customers: la vista de los negocios, entera del server; con `?cliente=<ws>`, la ficha de uno. */
 async function PestanaClientes(cliente: number | null) {
   const vista = await vistaDeClientes().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   if ('error' in vista) return <ErrorSeccion titulo="No pude leer tus clientes" detalle={vista.error} href="/admin?tab=customers" />;
-  return <CustomersApp vista={vista} abiertoInicial={cliente} />;
+  return <Customers vista={vista} cliente={cliente} ahoraMs={Date.now()} />;
 }
 
 /** Accounts: la grilla de administración, con lo que la ficha de cada cliente necesita (como /clients antes). */

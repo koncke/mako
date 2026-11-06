@@ -2,7 +2,8 @@
 // El clic derecho (y mantener presionado) en las listas de la app (Leandro, ws10, 24/10/2026, f26)
 // =============================================================================
 // Textual: «Tengo que implementar el click derecho en toda la app, o sea, el click derecho casi que en toda la app se
-// tiene que poder usar». El CRM y el Classroom ya lo tenían; el 27/10/2026 se sumó a las listas de Chats, Customers,
+// tiene que poder usar». El CRM y el Classroom ya lo tenían; el 27/10/2026 se sumó a las listas de Chats, Customers (hasta el
+// 6/11/2026: hoy es la pantalla de Studio Admin, que no lo tiene; docs/relevo/nube-admin-copia.md),
 // Offer («Tu oferta»), Integraciones, Partners (la tabla del programa y el Agency Dashboard), Automations y Web Generator
 // (el Panel), todas con la MISMA pieza: app/_ui/useMenuContextual.ts (cuándo y dónde abre, con el dedo también) y
 // app/_ui/MenuContextual.tsx (cómo se dibuja). Lo que ofrece cada una sale de su función pura (app/<tab>/menu-contextual-*.ts,
@@ -25,7 +26,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ListaMenuContextual, type EntradaMenuContextual, type ItemMenuContextual } from '../app/_ui/MenuContextual';
 import { MANTENER_MS, NO_ABRE_EN, TOLERANCIA_PX, dondeAbre, seCorrio } from '../app/_ui/useMenuContextual';
 import { accionDeMenuChat, itemsFilaChat } from '../app/chats/menu-contextual-chats';
-import { destinoCliente, itemsCliente } from '../app/customers/menu-contextual-customers';
 import { itemsTuOferta } from '../app/offer/menu-contextual-offer';
 import { itemsIntegracion } from '../app/integraciones/menu-contextual-integraciones';
 import { itemsPartnerPrograma } from '../app/partners/menu-contextual-partners';
@@ -236,17 +236,6 @@ test('Partners (el programa): «Marcar pagado», con la MISMA condición que el 
   assert.match(src, /<tr key=\{p\.ws\} \{\.\.\.menu\.propsDe\(p\.ws, itemsPartnerPrograma\(p, pagando === p\.ws\)\.length > 0\)\}>/);
 });
 
-// Roturas: `destinoCliente('administrar')` a otra pestaña → 1 fallo.
-test('Customers: lo de la ficha sin abrirla (verla, entrar, administrar), con los MISMOS destinos que sus links', () => {
-  assert.deepEqual(rotulos(itemsCliente()), ['Ver ficha', 'Entrar a su cuenta', 'Administrar']);
-  assert.equal(destinoCliente('entrar', 12), '/inicio?ws=12');
-  assert.equal(destinoCliente('administrar', 12), '/admin?tab=accounts&cuenta=12');
-  const src = sinComentarios(leer('app/customers/CustomersApp.tsx'));
-  const ficha = entre(src, 'function Ficha(', '\n}\n');
-  assert.ok(ficha.includes('href={`/inicio?ws=${f.ws}`}') && ficha.includes('href={`/admin?tab=accounts&cuenta=${f.ws}`}'), 'los links de la ficha');
-  assert.equal((src.match(/\{\.\.\.menu\.propsDe\(\{ ws: [af]\.ws, nombre: [af]\.nombre \}\)\}/g) ?? []).length, 2, 'en «Para mirar» y en la lista');
-});
-
 // Roturas: el menú de una tarjeta conectada que dice «Conectar» → 1 fallo. «Abrir» que no abre su modal → 1 fallo.
 test('Integraciones: la tarjeta abre su modal, como su clic («Conectar» si todavía no está)', () => {
   assert.deepEqual(rotulos(itemsIntegracion(false)), ['Conectar']);
@@ -274,7 +263,6 @@ test('Offer: «Tu oferta» ofrece sus dos botones (el de armar, con su rótulo, 
 
 const PANTALLAS = [
   'app/chats/ListaChats.tsx',
-  'app/customers/CustomersApp.tsx',
   'app/offer/PiezasRail.tsx',
   'app/integraciones/IntegracionesBoard.tsx',
   'app/partners/ProgramaPartners.tsx',
@@ -286,7 +274,7 @@ const PANTALLAS = [
 // Roturas: una pantalla sin `porDedo` en el menú (mantener presionado lo abre y el eco lo cierra) → 1 fallo. Un
 // `onContextMenu` escrito a mano en una fila → 1 fallo. Una pantalla que importa la pieza y no la usa en una fila (la tabla
 // de Partners) → 2 fallos (éste y el de Partners).
-test('las ocho pantallas: la fila con `propsDe` del hook, el menú de la casa con `porDedo`, y ningún clic derecho a mano', () => {
+test('las siete pantallas: la fila con `propsDe` del hook, el menú de la casa con `porDedo`, y ningún clic derecho a mano', () => {
   for (const r of PANTALLAS) {
     const src = sinComentarios(leer(r));
     assert.match(src, /import \{ useMenuContextual(, type PropsMenuFila)? \} from '@\/app\/_ui\/useMenuContextual';/, `${r}: el hook de la casa`);
