@@ -194,9 +194,57 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 **La regla:** ahora se guarda `medio` también en los anuncios (`medioDeAnuncio`), y el explorador no muestra ni cuenta un video
 (`esAnuncioEnVideo`). Sin `medio`, la única pista es la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`).
-⚠️ Una miniatura ya copiada a nuestro bucket pierde esa pista: lo guardado antes se corrige en la próxima lectura de Spy.
 
 **Vive en:** `lib/spy-todo-reglas.ts`, `lib/spy-medio.ts`, `lib/spy.ts` (`guardarMedios`), `lib/carruseles/anuncios.ts`.
+
+### El arreglo cubrió la fuente que NO trajo ni un anuncio (6/11/2026, tarde)
+
+**Lo obvio era que el dato llega por Apify y que «se corrige en la próxima lectura de Spy». Las dos cosas estaban mal**, y
+medirlo contra producción lo dio vuelta. De los **300 anuncios guardados** (`spy_piezas`, canal «anuncios»):
+
+| Lo que se creía | Lo medido el 6/11/2026 |
+|---|---|
+| El `medio` lo trae el `displayFormat` de Apify | **Los 300 entraron con `fuente: 'recorrido'`**: los leyó la EXTENSIÓN de Chrome (`lib/spy-captura.ts`), que nunca llenó `medio`. Por Apify no entró ninguno. |
+| La miniatura del CDN (`/t15.`) delata al video | **La regla acierta en 0 de 300.** 297 ya tienen la miniatura copiada a nuestro bucket (la del CDN vence: mig 0361), 2 quedaron en `/t39.` (imagen) y 1 sin miniatura. |
+| Se corrige solo en la próxima lectura de cada cuenta | **279 de los 300 ya tienen `dejo_de_verse_en`**: un anuncio que bajó no vuelve a aparecer en una lectura de la Biblioteca. Una lectura nueva completa 21, no 300. |
+
+**Y no hay ninguna otra pista**, buscada campo por campo: 0 con `analisis`, 0 con `duracion`, 0 con `plataformas`, 0 con
+`laminas`, 0 con un `m:ss` en el texto (el reloj del video lo saca `RE_TIEMPO_DE_VIDEO` antes de guardar el copy), y la
+lectura cruda tampoco quedó: `spy_lecturas_canal` acepta el canal «anuncios» en su `check` pero **nadie escribe ahí** —
+`lib/spy-captura-db.ts` lo dice en su cabecera («lo leído de Meta es de quien lo leyó»). Son 0 filas. Así que de 300
+anuncios guardados, **de 298 no se sabe y hoy no hay forma de saberlo sin volver a leer**.
+
+**Lo que SÍ decía la fuente y se tiraba, otra vez.** `extension/spy-leer.js` manda un token `['v', poster]` por cada
+`<video>` dibujado, y la Biblioteca escribe el reloj del video sobre el creativo («0:15», «0:00 / 1:28»). El servidor usaba
+el token `'v'` sólo como miniatura de respaldo y el reloj sólo para limpiarlo del copy: las dos señales se leían, ninguna se
+anotaba. Ahora `anuncioDe` devuelve `medio: 'video'` con cualquiera de las dos (`medioDeLaTarjeta`).
+
+**Las reglas que quedan:**
+- **Antes de decir «lo arregla la próxima lectura», mirar POR DÓNDE entraron las filas que ya están.** `fuente` lo dice en una
+  consulta. Arreglar la fuente equivocada se ve igual en el diff y no cambia nada en la pantalla.
+- **«Se corrige en la próxima lectura» sólo vale para lo que la próxima lectura va a volver a traer.** Con `dejo_de_verse_en`
+  escrito, no vuelve: hay que contar cuántas filas están vivas antes de prometerlo.
+- **Un «no sé» no se muestra como «es imagen».** `anunciosDe` ponía `medio: 'imagen'` fijo en cada tarjeta: ésa era la
+  mentira del contador del encargo. Ahora la tarjeta lleva el medio que SE SABE (`medioGuardadoDeAnuncio`, `null` incluido),
+  el contador dice «N sin saber si son video» (`anunciosSinSaber`) y hay un filtro para dejarlos afuera
+  (`soloConfirmados`, `?conf=1`) — pero **apagado por defecto**, porque esconderlos sería el error simétrico (ver «Sin dato
+  no es "no"»): 298 anuncios buenos tirados por un dato que falta.
+- **No se afirma «imagen» por ausencia de señal de video.** Una tarjeta cuyo `<video>` todavía no se dibujó muestra sólo su
+  portada como imagen, y ahí «imagen» sería exactamente el bug que esto arregla. Se afirma «video» con señal positiva y lo
+  demás queda en `null`.
+
+**Qué lo destraba, y no cuesta un centavo:** otro recorrido de la Biblioteca de Anuncios de esos competidores con la
+extensión (que ahora sí guarda el medio). **No necesita crédito de Apify** — que además es US$0,00 libre contra la reserva de
+Spy. Con el filtro «Activos e inactivos» de Meta también vuelven los 279 que bajaron.
+
+**Vive en:** `lib/spy-captura.ts` (`medioDeLaTarjeta`, `anuncioDe`), `lib/carruseles/anuncios.ts`
+(`medioGuardadoDeAnuncio`, `anunciosSinSaber`), `lib/carruseles/explorar.ts` (`soloConfirmados`),
+`lib/carruseles/explorar-servidor.ts`, `app/image-editor/carruseles/{ExplorarCarruseles,FiltrosCarruselModal}.tsx`, con
+`tests/spy-captura.test.ts` y `tests/carruseles-anuncios.test.ts`.
+
+⚠️ **Y la trampa al PROBARLO:** el anuncio del fixture de `tests/spy-captura.test.ts` trae las dos señales a la vez (el reloj
+y el token del `<video>`), así que **sacar la línea del token `'v'` daba CERO rojos**. Cuando dos señales alcanzan por
+separado, el caso que prueba cada una tiene que traer una sola.
 
 ## Thumbnails: la YouTube Data API sí, y el múltiplo espera el trámite (6/11/2026)
 

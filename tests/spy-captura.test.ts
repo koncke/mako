@@ -147,6 +147,31 @@ test('la pieza: el enlace se arma con el id, y entra como guardada desde el nave
   assert.equal(NOMBRE_FUENTE.recorrido, 'Lo guardaste desde tu navegador');
 });
 
+test('un anuncio en video se guarda COMO video: la tarjeta lo decía dos veces y se tiraba (6/11/2026)', () => {
+  // Medido el 6/11/2026: los 300 anuncios guardados entraron por acá (`fuente: 'recorrido'`), ninguno por Apify, y los 300
+  // quedaron sin `medio`. Las dos señales estaban en lo dibujado: el token del `<video>` y el reloj del video.
+  const [a, b] = anunciosDe(enEspanol);
+  assert.equal(b.medio, 'video');
+  assert.equal(piezaDeAnuncio(b).medio, 'video', 'y llega a la pieza que se guarda');
+  assert.equal(a.medio, null, 'sin señal no se afirma «imagen»: una tarjeta que no cargó su video muestra sólo su portada');
+  assert.equal(piezaDeAnuncio(a).medio, null);
+  const cabeza: Token[] = [['t', 'Library ID: 1000000000000007'], ['t', 'Started running on Oct 6, 2025'], ['a', 'https://www.facebook.com/marca/', 'Marca'], ['t', 'Sponsored']];
+  // El reloj solo alcanza (la tarjeta de un video que todavía no se dibujó como `<video>`), y no ensucia el copy.
+  const [soloReloj] = anunciosDe([...cabeza, ['t', 'La promo de hoy'], ['t', '0:15'], ['i', `${CDN}c.jpg?oh=firma`, 480, 600, '']]);
+  assert.equal(soloReloj.medio, 'video');
+  assert.equal(soloReloj.texto, 'La promo de hoy');
+  // Y el token del `<video>` solo también alcanza (una tarjeta sin el reloj a la vista).
+  // ⚠️ Sin este caso, sacar la línea del token `'v'` daba CERO rojos: el anuncio de arriba trae las dos señales.
+  const [soloVideo] = anunciosDe([...cabeza, ['v', `${CDN}portada.jpg?oh=firma`]]);
+  assert.equal(soloVideo.medio, 'video');
+  // Un token de video que no es del CDN de Meta no decide nada: lo manda un navegador.
+  const [falso] = anunciosDe([...cabeza, ['v', 'https://malo.com/p.jpg']]);
+  assert.equal(falso.medio, null);
+  // Y una imagen sola no alcanza para decir «imagen»: queda en «no se sabe».
+  const [conImagen] = anunciosDe([...cabeza, ['i', `${CDN}c.jpg?oh=firma`, 480, 600, '']]);
+  assert.equal(conImagen.medio, null);
+});
+
 test('lo que llega no es de fiar: la miniatura sólo puede ser del CDN de Meta', () => {
   // El servidor la baja. Verificado sacando `esDelCdn`: 1 fallo.
   for (const mala of ['https://169.254.169.254/latest/meta-data.jpg', 'http://scontent.fbcdn.net/a.jpg', 'https://fbcdn.net.malo.com/a.jpg', 'https://malo.com/fbcdn.net/a.jpg']) {

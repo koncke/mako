@@ -15,6 +15,34 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### Un anuncio en video se guardaba sin decir que lo era, y el arreglo había ido a la otra fuente (6/11/2026, tarde)
+
+**Síntoma:** el explorador de Image mostraba videos en «Anuncios», que es una pantalla para copiar imágenes. El arreglo de
+la mañana leyó el `displayFormat` del actor de Apify (`anuncioDeApify`, lib/spy-todo-reglas.ts) y dio por hecho que lo viejo
+se iba a completar en la próxima lectura.
+
+**Lo obvio era que el dato viene de Apify, y los 300 anuncios guardados no vinieron de ahí.** Medido contra producción: los
+300 tienen `fuente: 'recorrido'`, o sea los leyó la EXTENSIÓN (`lib/spy-captura.ts`) desde el Chrome de Martín; por Apify no
+entró ninguno. La extensión también lo decía, dos veces, y las dos se tiraban: `extension/spy-leer.js` manda un token
+`['v', poster]` por cada `<video>` dibujado (acá se usaba sólo como miniatura de respaldo) y la Biblioteca escribe el reloj
+del video sobre el creativo («0:15», «0:00 / 1:28»), que `RE_TIEMPO_DE_VIDEO` sacaba del copy sin anotar qué significaba.
+
+**Lo que gobierna código nuevo:**
+- `anuncioDe` devuelve `medio: 'video'` con cualquiera de las dos señales (`medioDeLaTarjeta`), y el token `'v'` se exige del
+  CDN de Meta igual que la miniatura: lo que llega lo manda un navegador.
+- **Nunca «imagen» por ausencia de señal de video:** una tarjeta cuyo `<video>` todavía no se dibujó muestra sólo su portada
+  como imagen. Sin señal queda `null`, y quien lo muestra decide (lib/carruseles/anuncios.ts).
+- **Antes de prometer «lo arregla la próxima lectura», contar por dónde entraron las filas que ya están (`fuente`) y cuántas
+  siguen vivas.** Acá 279 de 300 ya tenían `dejo_de_verse_en`: un anuncio que bajó no vuelve en una lectura nueva.
+
+⚠️ **Y la lectura cruda de Meta NO queda en ninguna parte.** `spy_lecturas_canal` (mig 0363) acepta el canal «anuncios» en
+su `check`, pero **nadie escribe ahí**: `lib/spy-captura-db.ts` lo dice en su cabecera («lo leído de Meta es de quien lo
+leyó», no se comparte entre negocios). Son 0 filas. Lo que la lectura no copió a `spy_piezas` se perdió, y un `check` que
+permite un valor no es prueba de que alguien lo escriba.
+
+El detalle (qué se midió campo por campo, y qué hace el explorador con un «no sé») está en
+[hallazgos-carruseles.md](hallazgos-carruseles.md) → «El arreglo cubrió la fuente que NO trajo ni un anuncio».
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
