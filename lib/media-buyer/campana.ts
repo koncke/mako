@@ -17,7 +17,8 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { getSupabaseServer } from '@/lib/supabase';
-import { ADS_CREATIVES_BUCKET } from '@/lib/meta-ads-create';
+import { runWithWorkspace } from '@/lib/workspace';
+import { ADS_CREATIVES_BUCKET, listLeadForms, listPixels } from '@/lib/meta-ads-create';
 import { cambiarEstadoPorZernio, campanaMetaPorZernio, conjuntoMetaPorZernio, crearCampanaPorZernio, creativoDeAnuncioPorZernio, leerAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 import { lugaresDesdeMeta } from '@/lib/meta-geo';
 import { fmtDinero } from '@/lib/format';
@@ -26,6 +27,30 @@ import { leerDatosCuenta, hoyDelNegocio, type DatosCuenta } from './datos';
 import { validarCampana, cuerpoCampana, diferenciasDeLaCreada, resumenCampana, type EntradaCampana } from './campana-reglas';
 import { diasHasta, nombreZona, validarZona, veredictoDeLugares, type LugarZona } from './zona';
 import { resolverLugares } from './publico';
+
+/**
+ * Lo que pide «Nueva campaña» para armarse: de la cuenta (formularios, píxeles, anuncios para reusar) y del Media Buyer (la
+ * zona, la fecha y el tope). Cada lista que no se pudo leer viene vacía con su aviso: no frena la pantalla. La usan la pantalla
+ * del Media Buyer (/api/media-buyer → nueva_preparar) y «Usar en un anuncio» de los editores (/api/anuncio-desde-pieza).
+ */
+export async function datosParaNuevaCampana(ws: number) {
+  const config = await leerConfig(ws);
+  const datos = await leerDatosCuenta(ws);
+  const avisos: string[] = [];
+  const [formularios, pixeles] = await Promise.all([
+    runWithWorkspace(ws, () => listLeadForms()).catch((e) => { avisos.push(`No pude leer tus formularios: ${e instanceof Error ? e.message : String(e)}`); return []; }),
+    runWithWorkspace(ws, () => listPixels()).catch((e) => { avisos.push(`No pude leer tus píxeles: ${e instanceof Error ? e.message : String(e)}`); return []; }),
+  ]);
+  const porId = new Map(datos.arbol.map((n) => [n.id, n] as const));
+  const anuncios = datos.arbol.filter((n) => n.nivel === 'ad' && n.configurado !== 'DELETED').slice(0, 200).map((n) => {
+    const conj = n.parentId ? porId.get(n.parentId) : undefined;
+    return { id: n.id, nombre: n.nombre, campana: conj?.parentId ? porId.get(conj.parentId)?.nombre ?? null : null, prendido: n.configurado === 'ACTIVE' };
+  });
+  return {
+    conectado: !!datos.conexion, moneda: datos.moneda, zona: config.zona, hasta: config.hasta,
+    presupuestoMaxDia: config.presupuestoMaxDia, totalActivo: datos.totalActivo, formularios, pixeles, anuncios, avisos,
+  };
+}
 
 export type Preparada =
   | { ok: true; entrada: EntradaCampana; hasta: string | null; resumen: string; moneda: string | null }

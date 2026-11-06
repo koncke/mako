@@ -34,8 +34,8 @@ import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
-import { conjuntosDe as conjuntosDeMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
-import { leerPedidoDeSubida, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
+import { conjuntosDe as conjuntosDeMB, generadosDelNegocio as generadosDelNegocioMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
+import { archivoValido as archivoValidoSubida, leerPedidoDeSubida, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
 import { esPathDeStaging } from '@/lib/ads-staging';
 import { barrerStagingViejo, faltanEnStaging, firmarSubidaDeStaging } from '@/lib/ads-staging-firma';
 import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
@@ -44,6 +44,8 @@ import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos
 import { quienChatea } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
+import { leerRefCreativo } from '@/lib/creativo-mako';
+import { resolverCreativoMako } from '@/lib/creativo-mako-fuentes';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
 import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
 import { ROTULO_FUNNEL, sanearPlan } from '@/lib/funnel-plan';
@@ -1276,7 +1278,7 @@ export const RUNNERS: Runners = {
       // Lo mismo que el botón de la pantalla (route.ts → hooks_a_video): las elegidas pisan la marca guardada.
       const elegidas = Array.isArray(payload.variaciones) ? new Set(payload.variaciones as string[]) : null;
       const r = await llevarHooksAlVideoMB(ctx.ws, elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d);
-      return r.ok ? { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}.` } : { ok: false, resumen: r.error };
+      return r.ok ? { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}. En AI Avatar están en «Hooks ganadores», para filmarlos con tu avatar.` } : { ok: false, resumen: r.error };
     },
   },
   analizar_cuenta_media_buyer: {
@@ -1561,10 +1563,25 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       // Los parámetros planos de la API (lo que se edita en /mako/revisar) → la entrada de la pantalla «Nueva campaña».
       const tipo = str(input, 'creativoTipo');
-      const creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
-        : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
-          : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
-            : { tipo, url: str(input, 'imagenUrl') };
+      // «Usar en un anuncio» de los editores y del AI Avatar (6/11/2026, lo prometido a Thiago): la pieza llega subida al
+      // staging (`archivo`) o como un video que MaKo ya generó (`generado`, su ref). La ref se resuelve ACÁ, en el negocio, con
+      // la misma función que arma la lista (lib/creativo-mako-fuentes.ts): la url nunca la trae el pedido.
+      let creativo: Record<string, unknown>;
+      if (tipo === 'generado') {
+        const ref = leerRefCreativo(str(input, 'creativoRef'));
+        if (!ref) return { error: 'Falta el video de MaKo: su ref (de `generados` en preparar_subida_media_buyer).', faltan: ['creativoRef'] };
+        const c = await runWithWorkspace(ctx.ws, () => resolverCreativoMako(ref));
+        if (c === 'cambio') return { error: 'Ese video se volvió a filmar después de elegirlo: elígelo otra vez para ver el de ahora.' };
+        if (!c) return { error: 'Ese video ya no está entre tus videos de MaKo.' };
+        creativo = c.media_type === 'image' ? { tipo: 'imagen', url: c.url } : { tipo: 'video', url: c.url };
+      } else if (tipo === 'archivo') {
+        creativo = { tipo, path: str(input, 'archivoPath'), media: str(input, 'archivoMedia') === 'video' ? 'video' : 'imagen' };
+      } else {
+        creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
+          : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
+            : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
+              : { tipo, url: str(input, 'imagenUrl') };
+      }
       const entrada: Record<string, unknown> = {
         nombre: str(input, 'nombre'), objetivo: str(input, 'objetivo'), presupuestoDia: num(input, 'presupuestoDia'),
         lugares: Array.isArray(input.lugares) ? input.lugares : [], hasta: str(input, 'hasta') || null,
@@ -1575,7 +1592,8 @@ export const RUNNERS: Runners = {
       };
       const p = await prepararCampanaMB(ctx.ws, entrada);
       if (!p.ok) return { error: p.error, ...(p.faltan ? { faltan: p.faltan } : {}), ...(p.falla ? { falla: true as const } : {}) };
-      return { payload: { entrada }, resumen: p.resumen };
+      // Un archivo del staging se borra a las 6 horas si no se publica: la confirmación lo dice.
+      return { payload: { entrada }, resumen: `${p.resumen}${tipo === 'archivo' ? ' Confírmala antes de 6 horas: después el archivo se borra.' : ''}` };
     },
     ejecutar: async (payload, ctx) => {
       const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
@@ -1608,7 +1626,15 @@ export const RUNNERS: Runners = {
       }
       // Cada firma barre lo que sobra del staging, como la de la pantalla.
       if (subidas.length) after(() => barrerStagingViejo());
+      // Los videos que MaKo ya generó (AI Avatar, Video Generator): se suben con su `ref`, sin PUT. Sin leerlos, la nota lo dice.
+      let generados: Array<{ ref: string; titulo: string; toma: number | null; origen: string; fecha: string | null }> = [];
+      let notaGenerados: string | null = null;
+      try {
+        generados = (await generadosDelNegocioMB(ctx.ws)).map((c) => ({ ref: c.ref, titulo: c.titulo, toma: c.toma, origen: c.origen === 'montaje' ? 'anuncio montado' : 'toma', fecha: c.fecha }));
+      } catch (e) { notaGenerados = `No pude leer tus videos de MaKo: ${e instanceof Error ? e.message : String(e)}`; }
       return J({
+        generados,
+        ...(notaGenerados ? { notaGenerados } : {}),
         conectada: true,
         zernio: !!datos.conexion,
         ...(datos.conexion ? {} : { nota: 'Para publicar creativos nuevos conecta la cuenta por Zernio (con el token propio, Meta los rechaza: error 1885183).' }),
@@ -1624,39 +1650,44 @@ export const RUNNERS: Runners = {
       // El pedido se lee como lo lee la pantalla (lib/media-buyer/creativos.ts → leerPedidoDeSubida), y lo que va a fallar falla
       // ACÁ (revisarSubida y el staging), antes de que una persona lo confirme: confirmar no vuelve a `pendiente`.
       const p = leerPedidoDeSubida({
-        adSetId: str(input, 'adsetId'), archivos: input.archivos, activo: input.activo,
+        adSetId: str(input, 'adsetId'), archivos: input.archivos, activo: input.activo, original: str(input, 'original') || null,
         textos: { textoPrincipal: input.textoPrincipal, titulo: input.titulo, cta: input.cta, link: input.link, formularioId: input.formularioId },
       });
       if (!p.adSetId) return { error: 'Falta el conjunto: su id numérico (de preparar_subida_media_buyer).', faltan: ['adsetId'] };
-      const ajenos = p.archivos.filter((a) => !esPathDeStaging(a.path));
-      if (ajenos.length) return { error: `Esos archivos no se subieron con preparar_subida_media_buyer: ${ajenos.map((a) => a.path || a.nombre).join(', ')}.` };
+      // Un archivo del disco, con su path del staging; un video de MaKo, con su `ref` (de `generados` en preparar_subida_media_buyer).
+      const ajenos = p.archivos.filter((a) => !archivoValidoSubida(a, esPathDeStaging));
+      if (ajenos.length) return { error: `Esos archivos no se subieron con preparar_subida_media_buyer ni son videos de MaKo: ${ajenos.map((a) => a.path || a.nombre).join(', ')}.` };
       if (p.archivos.length > 10) return { error: 'Son hasta 10 archivos por subida.' };
-      const rev = await revisarSubidaMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos });
+      const rev = await revisarSubidaMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos, original: p.original });
       if (!rev.ok) return { error: rev.error };
       let faltan: string[];
-      try { faltan = await faltanEnStaging(rev.archivos.map((a) => a.path)); } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
+      try { faltan = await faltanEnStaging(rev.archivos.filter((a) => !a.ref).map((a) => a.path)); } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
       if (faltan.length) return { error: `No encuentro ${faltan.join(', ')}: súbelo a la URL de preparar_subida_media_buyer (el archivo se borra a las 6 horas).` };
       const t = p.textos;
       const n = rev.archivos.length;
       const destino = t.formularioId ? `el formulario ${t.formularioId}` : t.link;
+      const delDisco = rev.archivos.some((a) => !a.ref);
+      // La url de un video de MaKo NO viaja en la pendiente: al confirmar se vuelve a resolver por su ref.
+      const archivos = rev.archivos.map(({ url: _url, ...a }) => a);
       return {
         payload: {
-          adsetId: p.adSetId, archivos: rev.archivos, activo: p.activo,
+          adsetId: p.adSetId, archivos, activo: p.activo, original: p.original,
           textoPrincipal: t.textoPrincipal, titulo: t.titulo, cta: t.cta, link: t.link, formularioId: t.formularioId,
         },
         // Lo que se publica, ENTERO: la confirmación es lo único que se lee antes de que salga.
         resumen: `Subir ${n} ${n === 1 ? 'creativo' : 'creativos'} a «${rev.conjunto.nombre}»${rev.campana ? ` (${rev.campana})` : ''}, ${p.activo ? 'activos: gastan del presupuesto del conjunto' : 'en pausa'}. `
-          + `Archivos: ${rev.archivos.map((a) => a.nombre).join(', ')}. Texto: «${t.textoPrincipal}». Título: «${t.titulo}». Botón: ${NOMBRE_CTA_SUBIDA[t.cta]}. Destino: ${destino}. `
-          + 'Confírmalo antes de 6 horas: después los archivos se borran.',
+          + `Archivos: ${rev.archivos.map((a) => `${a.nombre}${a.ref ? ' (video de MaKo)' : ''}`).join(', ')}. Texto: «${t.textoPrincipal}». Título: «${t.titulo}». Botón: ${NOMBRE_CTA_SUBIDA[t.cta]}. Destino: ${destino}. `
+          + (rev.original ? `Se prueba contra «${rev.original.nombre}»: si uno le gana, MaKo propone pausar el original. ` : '')
+          + (delDisco ? 'Confírmalo antes de 6 horas: después los archivos se borran.' : ''),
       };
     },
     ejecutar: async (payload, ctx) => {
       const p = leerPedidoDeSubida({
-        adSetId: payload.adsetId, archivos: payload.archivos, activo: payload.activo,
+        adSetId: payload.adsetId, archivos: payload.archivos, activo: payload.activo, original: payload.original,
         textos: { textoPrincipal: payload.textoPrincipal, titulo: payload.titulo, cta: payload.cta, link: payload.link, formularioId: payload.formularioId },
       });
       if (!p.adSetId) return { ok: false, resumen: 'Falta el conjunto.' };
-      const r = await subirCreativosMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos, activo: p.activo }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)', 'la API de MaKo');
+      const r = await subirCreativosMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos, activo: p.activo, original: p.original }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)', 'la API de MaKo');
       if (!r.ok) return { ok: false, resumen: r.error };
       const n = r.creados.length;
       return {

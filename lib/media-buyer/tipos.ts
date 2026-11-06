@@ -114,7 +114,14 @@ export type NumeroDecision = { condicion: string; valor: string; porQue: string 
 export type EstadoEntidad = { estado?: 'ACTIVE' | 'PAUSED'; presupuesto?: number };
 
 /** Una variación de texto o de hook, para elegir con su casilla antes de lanzar (academy-07.png, columna 2). */
-export type Variacion = { id: string; textoPrincipal: string; titulo?: string; gancho?: string; elegida: boolean };
+export type Variacion = {
+  id: string; textoPrincipal: string; titulo?: string; gancho?: string; elegida: boolean;
+  /**
+   * La variación de BOTÓN (lib/media-buyer/variacion-boton.ts): el mismo texto con otro `call_to_action` de Meta. Sin esto, la
+   * copia conserva el botón del original. La elige el código, nunca la IA.
+   */
+  cta?: string;
+};
 
 /** Lo que propone el motor: una decisión sin identidad ni estado todavía. */
 export type Propuesta = {

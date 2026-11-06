@@ -5990,7 +5990,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/hooks-video` — Hooks del Media Buyer al video
 
-PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.
+PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». AI Avatar los ofrece también («Hooks ganadores»), para filmarlos con el avatar del negocio. No publica nada en Meta.
 
 - **Ruta por operación:** `POST /api/v1/ads/hooks_al_video_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6462,11 +6462,14 @@ PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexi�
 | `pixelId` | string | no | objetivo web o compras: el id del píxel (de listar_pixeles_meta). |
 | `evento` | string (LEAD \\| SCHEDULE \\| SUBMIT_APPLICATION \\| CONTACT \\| COMPLETE_REGISTRATION) | no | objetivo web: el evento del píxel que optimiza (por defecto LEAD). |
 | `url` | string | no | la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario). |
-| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId). |
+| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio \\| archivo \\| generado) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId), anuncio (reusar el de anuncioId), archivo (uno subido con preparar_subida_media_buyer, con archivoPath) o generado (un video que MaKo ya hizo, con creativoRef). |
 | `imagenUrl` | string | no | creativoTipo imagen: la dirección https de la imagen. |
 | `videoUrl` | string | no | creativoTipo video: la dirección https del video (MP4). |
 | `videoId` | string | no | creativoTipo video_cuenta: el id de un video ya subido a la cuenta. |
 | `anuncioId` | string | no | creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta). |
+| `archivoPath` | string | no | creativoTipo archivo: el path del staging (nueva/…) de preparar_subida_media_buyer. Se borra a las 6 horas si no se publica. |
+| `archivoMedia` | string (imagen \\| video) | no | creativoTipo archivo: imagen o video. |
+| `creativoRef` | string | no | creativoTipo generado: la ref de un video de MaKo (de `generados` en preparar_subida_media_buyer: AI Avatar, Video Generator). |
 | `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
 | `titulo` | string | no | el título del anuncio. |
 | `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
@@ -6485,7 +6488,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/subidas` — Preparar la subida de creativos nuevos
 
-El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.
+El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó (`generados`: AI Avatar y Video Generator), que se suben por su `ref`, sin PUT. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.
 
 - **Ruta por operación:** `GET /api/v1/ads/preparar_subida_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -6510,7 +6513,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/conjuntos/{adsetId}/creativos` — Subir creativos nuevos a un conjunto
 
-PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
+PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer, o videos que MaKo ya generó (su `ref`, de `generados`), como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Con `original` (un anuncio del conjunto), se prueban contra él: si uno le gana, el Media Buyer propone pausar el original. Se confirma en una pantalla antes de 6 horas si hay archivos del disco (después se borran). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
 
 - **Ruta por operación:** `POST /api/v1/ads/subir_creativos_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6526,10 +6529,12 @@ PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer c
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer). |
-| `archivos` | object[] | sí | los archivos ya subidos, hasta 10. |
-| `archivos.path` | string | sí | el path que devolvió preparar_subida_media_buyer (nueva/…). |
-| `archivos.tipo` | string (image \\| video) | sí | image o video. |
+| `archivos` | object[] | sí | los archivos, hasta 10: cada uno con su path (subido) o su ref (un video de MaKo). |
+| `archivos.path` | string | no | el path que devolvió preparar_subida_media_buyer (nueva/…), para un archivo del disco. |
+| `archivos.ref` | string | no | la ref de un video que MaKo ya generó (de `generados` en preparar_subida_media_buyer), en vez del path. |
+| `archivos.tipo` | string (image \\| video) | sí | image o video (un video de MaKo es video). |
 | `archivos.nombre` | string | no | cómo se llama: sale en el nombre del anuncio. |
+| `original` | string | no | el id de un anuncio del mismo conjunto contra el que se prueban (un hook nuevo contra el video ganador): si uno le gana, el Media Buyer propone pausarlo. |
 | `textoPrincipal` | string | sí | el texto principal del anuncio. |
 | `titulo` | string | sí | el título. |
 | `cta` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SHOP_NOW \\| SUBSCRIBE \\| DOWNLOAD) | no | el botón. Por defecto, LEARN_MORE. |

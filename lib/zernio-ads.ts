@@ -200,7 +200,7 @@ export async function cambiarPresupuestoPorZernio(ws: number, nivel: 'campaign' 
 export async function variacionPorZernio(
   ws: number,
   adId: string,
-  textos: { primary_text?: string; headline?: string },
+  textos: { primary_text?: string; headline?: string; cta_type?: string },
   opts: { nombre: string; idempotencia: string },
 ): Promise<{ adId: string }> {
   const clave = await claveZernioAnuncios(ws);

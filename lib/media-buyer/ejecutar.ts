@@ -273,7 +273,8 @@ async function lanzarVariaciones(ws: number, d: Decision, quien: Quien, datos: D
   const errores: string[] = [];
   for (const [i, v] of vars.entries()) {
     try {
-      const r = await variacionPorZernio(ws, d.entidadId, { primary_text: v.textoPrincipal, ...(v.titulo ? { headline: v.titulo } : {}) },
+      // La de botón (variacion-boton.ts) cambia también el `call_to_action`: es lo único que prueba.
+      const r = await variacionPorZernio(ws, d.entidadId, { primary_text: v.textoPrincipal, ...(v.titulo ? { headline: v.titulo } : {}), ...(v.cta ? { cta_type: v.cta } : {}) },
         { nombre: `MaKo v${i + 1}`, idempotencia: `mb:${d.id}:${v.id}` });
       creados.push(r.adId);
     } catch (e) {
