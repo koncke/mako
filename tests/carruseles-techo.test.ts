@@ -190,7 +190,8 @@ test('un «no queda crédito» que dice APIFY a mitad de la corrida no se cuenta
   assert.equal(conLugar.motivo, 'pedido', 'al empezar el techo era el pedido');
   const apify = porQueParo({ ...conLugar, corte: 'apify', quedanFuera: 120, gastado: 0.33 });
   assert.match(apify, /Apify dijo que no queda crédito/i);
-  assert.match(apify, /Cargá crédito/i, 'y qué lo destraba');
+  // En neutro, como todo el copy del repo (el guard de tests/puente-panel-copy.test.ts barre también esta salida).
+  assert.match(apify, /Carga crédito/i, 'y qué lo destraba');
   assert.doesNotMatch(apify, /tope que me pediste/i, 'nunca le echa la culpa al tope');
   assert.match(apify, /120/, 'con cuántos quedaron sin leer');
   assert.match(apify, /US\$0\.33/, 'y lo que se gastó');

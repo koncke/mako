@@ -491,12 +491,14 @@ export function porQueParo(o: {
   if (o.corte === 'todo') return `Paró porque se terminaron las tandas: se pidieron todos los de esta corrida, no fue el techo.${gasto}`;
   const faltan = `Quedan ${o.quedanFuera} sin leer: `;
   // Lo que dijo Apify gana sobre lo que decía el techo al empezar: el crédito se puede agotar a mitad de la corrida.
-  if (o.corte === 'apify') return `${faltan}Apify dijo que no queda crédito en ninguna clave. Cargá crédito y volvé a correrlo.${gasto}`;
+  if (o.corte === 'apify') return `${faltan}Apify dijo que no queda crédito en ninguna clave. Carga crédito y vuelve a correrlo.${gasto}`;
   if (o.motivo === 'sin-saber') return `${faltan}${o.porque}.${gasto}`;
   if (o.motivo === 'sin-credito' || o.motivo === 'credito') {
     return `${faltan}${o.porque}. Lo destraba cargar crédito en Apify (o esperar el mes que viene), no un \`--techo-usd\` más alto.${gasto}`;
   }
-  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: subí \`--techo-usd\`.${gasto}`;
+  // ⚠️ En español NEUTRO, como todo el repo: el guard de `tests/puente-panel-copy.test.ts` barre TODOS los archivos, también
+  // la salida de un script de consola que sólo lee Martín. Un «cargá» acá deja la punta roja.
+  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: sube \`--techo-usd\`.${gasto}`;
 }
 
 /** El creador de un ítem del actor: su @ y su nombre (en una lectura por tema, cada publicación es de alguien distinto). */
