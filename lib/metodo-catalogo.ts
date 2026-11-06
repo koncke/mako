@@ -34,7 +34,7 @@ import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
 import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
-import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify } from './instagram-perfil';
+import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify, TOPE_LECTURAS_SPY_POR_DIA } from './instagram-perfil';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -851,7 +851,19 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     categoria: 'Datos',
     paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
     campos: [
-      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+      // ⚠️ EL TOPE SALE DE LA CONSTANTE, no escrito a mano (6/11/2026). La nota decía «40 lecturas por día», y 40 es
+      // `APIFY_TOPE_POR_DIA`: el tope de la OTRA lectura de Instagram, la del buscador del alta del CRM. El tope de lo que
+      // hace ESTA clave en Spy es `TOPE_LECTURAS_SPY_POR_DIA`, que subió de 40 a 150 el 4/11/2026 y dejó la nota mintiendo —
+      // el cliente creía que podía casi cuatro veces menos de lo que podía y no usaba Spy todo lo que podría. El día en que
+      // los dos números coincidían fue el último en que la nota estuvo bien. Interpolado, no se vuelve a desfasar.
+      //
+      // ⚠️ Y se le sacó el «sólo para Competitors Spy», que ya era falso: desde el 2/11/2026 el buscador de @ del alta del
+      // CRM lee UN perfil por @ exacto con esta misma clave (la decisión está en tests/leads-scraper-retirado.test.ts). No
+      // se pone su tope acá porque es otro, y dos números en una nota de una línea no se entienden.
+      //
+      // El tope de BÚSQUEDAS tampoco va, a propósito: `TOPE_BUSQUEDAS_SPY_POR_DIA` cuenta CORRIDAS, y una búsqueda por
+      // nombre gasta dos (Google y el buscador de Instagram), así que «60 búsquedas» sería otro número mal.
+      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: `Es TU cuenta: Apify cobra por perfil leído. Competitors Spy lee hasta ${TOPE_LECTURAS_SPY_POR_DIA} perfiles por día con ella.` },
       // VARIAS CLAVES (5/11/2026, Martín: «Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones
       // de cargar más api»). El patrón de Zernio y de las cuentas de IA: la 1 sigue siendo la que conecta la tarjeta; las extra son
       // `opcional`, de OTRA cuenta de Apify del negocio, y MaKo pasa a la siguiente cuando una se queda sin crédito
