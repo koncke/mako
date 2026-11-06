@@ -3604,6 +3604,15 @@ cualquier proceso que recorra el tablero entero en segundo plano:
   historial es lo único que deja volver a mano.
 - **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
   Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+  ⚠️ **Y la LECTURA del tablero también** (6/11/2026, #507): `listTareas({ soloDelPlan: true })` (lib/todo.ts). El
+  filtro es un parámetro con el default de hoy —todo— porque hay lectores que necesitan la tabla ENTERA y romperlos es
+  silencioso: el cierre por señales (`autocompletarPorSenales` y su cron), buscar una por id para editarla o cerrarla, y
+  la deduplicación de lo que se propone. Lo pide quien PRESENTA el tablero, y son SIETE puertas: /plan, su GET,
+  «Hoy»/«Semana», el foco de /general, `leerTablero` de la API, `ver_plan` y /api/agente/plan. La que se olvida devuelve
+  las tareas de la Retro al tablero. ⚠️ **Y filtrar le rompe el aviso de «se cortó» a quien lo mide**: la lectura no
+  pagina (PostgREST corta en 1000 filas sin avisar) y `recortado` se calculaba con el largo de la lista.
+  De 1000 leídas quedan 800 y el aviso desaparece: se mide con `listTareasConTope().leidas`, las filas ANTES
+  de filtrar. Toda lectura que filtra en memoria lo que vino de un tope mide el tope con lo LEÍDO.
 - **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
   foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
   prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
