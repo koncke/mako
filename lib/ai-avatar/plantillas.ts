@@ -26,6 +26,7 @@
 // SIN `server-only`: lo leen la pantalla, el teléfono y el server.
 
 import { VOCES_GALERIA } from './voces-galeria';
+import { PRESETS_NUEVOS_VENTA } from './plantillas-venta';
 
 /** Las categorías del selector, en el orden de Higgsfield («New» va aparte: es un filtro, `nuevo`). */
 export const CATEGORIAS = ['UGC y TikTok', 'Instagram', 'Cámara', 'Negocio', 'Producto', 'Clima y luz'] as const;
@@ -382,6 +383,9 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
     guion: 'Si te quedas con una sola idea de este video, que sea esta. Lo demás es ruido.',
     voz: 'espana-hombre-1',
   },
+  // Los 5 presets de las plantillas de venta (docs/plantillas-reales/avatar.md, AV-1; 6/11/2026): viven con sus plantillas
+  // en ./plantillas-venta.ts y entran acá para que el estudio y la galería los conozcan como a cualquier otro.
+  ...PRESETS_NUEVOS_VENTA,
 ]);
 
 /**

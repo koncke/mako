@@ -1304,6 +1304,24 @@ export const RUNNERS: Runners = {
       return r.ok ? { ok: true, resumen: 'Kit de marca borrado.' } : { ok: false, resumen: r.error };
     }),
   },
+  ver_plantillas_oferta: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const { PLANTILLAS_OFERTA, plantillaOferta, formaParaPrompt } = await import('@/lib/offer-plantillas');
+      const linea = (p: (typeof PLANTILLAS_OFERTA)[number]) => ({
+        id: p.id, nombre: p.nombre, cuando: p.cuando, grupo: p.grupo, forma: p.forma, preguntas: p.preguntas, chips: p.ficha.chips,
+      });
+      if (typeof input.id === 'string' && input.id.trim()) {
+        const p = plantillaOferta(input.id.trim());
+        if (!p) return JSON.stringify({ error: 'No existe esa plantilla.', disponibles: PLANTILLAS_OFERTA.map((x) => x.id) });
+        return JSON.stringify({
+          ...linea(p), forma_en_texto: formaParaPrompt(p),
+          ejemplo: { negocio: `${p.negocio.nombre} (ficticio)`, oferta: p.ejemplo, ...(p.diagnostico ? { diagnostico: p.diagnostico.d } : {}) },
+          nota: 'El ejemplo es de un negocio ficticio: sirve para ver la forma, nunca como dato de este negocio.',
+        });
+      }
+      return JSON.stringify({ plantillas: PLANTILLAS_OFERTA.map(linea), nota: 'Con id, trae el ejemplo completo de una.' });
+    },
+  },
 };
 
 /** Dónde se edita un dato del negocio, para la salida de una lectura: el camino con los nombres de pantalla y el link. */

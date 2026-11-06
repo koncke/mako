@@ -166,5 +166,7 @@ test('«Nuevo diseño» abre con los carruseles por tipo: su sección, «Ver eje
     assert.equal(p.tituloDiseno, `Carrusel · ${t.nombre}`);
     assert.equal(plantillaNueva(p.id), p);
   }
-  assert.ok(PLANTILLAS_NUEVO_DISENO.filter((p) => !p.carrusel).every((p) => !p.verEjemplo && !p.grupo), 'las demás se ven como antes');
+  // Las plantillas reales (6/11/2026, lib/image-editor/plantillas-reales.ts) también traen su grupo y «Ver ejemplo»: las
+  // cuida tests/image-plantillas-reales-crear.test.ts. Los tamaños en blanco se ven como antes.
+  assert.ok(PLANTILLAS_NUEVO_DISENO.filter((p) => !p.carrusel && !p.real).every((p) => !p.verEjemplo && !p.grupo), 'las demás se ven como antes');
 });
