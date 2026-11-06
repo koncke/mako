@@ -4,8 +4,10 @@
 // StoriesM — el día de stories en el teléfono: pedirlo, mirarlo como en Instagram y copiarlo
 // =============================================================================
 // Ver ./page.tsx. La secuencia se dibuja con <VisorStoriesM> (el visor de historias de Instagram); el pedido es una
-// hoja. Las secuencias de esta sesión quedan en una lista debajo, como en escritorio («Secuencias de esta sesión»):
-// se pierden al salir de la pantalla, así que lo que se quiera guardar se copia.
+// hoja. Las secuencias ya escritas quedan en una lista debajo, y desde el 6/11/2026 el `historial` que siembra la
+// page las trae GUARDADAS (lib/ig-historial.ts): recargar ya no se las lleva, y la pantalla abre con la última a la
+// vista. La lista aparece cuando hay algo que NO es lo que estás mirando — una sola secuencia, que es la que está
+// arriba, no es una lista.
 // =============================================================================
 
 import { useState } from 'react';
@@ -13,6 +15,7 @@ import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { rutaSeccion } from '@/lib/secciones-negocio';
 import type { PiezaStory } from '@/lib/ig-writer';
+import type { ItemHistorialIg } from '@/lib/ig-historial';
 import { OBJETIVOS_STORIES, empujaADm, type ObjetivoStories } from '@/app/stories/objetivos';
 import { generarSecuenciaAction } from '@/app/stories/actions';
 import { secuenciaATexto } from '@/app/stories/texto';
@@ -23,19 +26,27 @@ import {
 import { CampoM, ErrorLineaM, OpcionesM, RotuloM } from '../_creacion/escritor';
 import { VisorStoriesM } from './VisorStoriesM';
 
-type Item = { pieza: PiezaStory; objetivo: ObjetivoStories; at: string };
+/** Una secuencia en la lista. `etiqueta` es el rótulo del objetivo YA resuelto (lo guarda así el historial). */
+type Item = { pieza: PiezaStory; etiqueta: string; at: string };
 
 const horaCorta = (iso: string) => {
   try { return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
 };
 
-export function StoriesM({ perfilListo }: { perfilListo: boolean }) {
+/** Lo guardado del workspace (ya viene del formato `story`, de lo más nuevo a lo más viejo). */
+const deHistorial = (h: ItemHistorialIg[]): Item[] => h.flatMap((x) => (
+  x.pieza.formato === 'story' ? [{ pieza: x.pieza, etiqueta: x.etiqueta, at: x.at }] : []
+));
+
+export function StoriesM({ perfilListo, historial = [] }: { perfilListo: boolean; historial?: ItemHistorialIg[] }) {
   const toast = useToastM();
   const { enLinea } = useConexion();
   const [objetivo, setObjetivo] = useState<ObjetivoStories>('conexion');
   const [idea, setIdea] = useState('');
-  const [sesion, setSesion] = useState<Item[]>([]);
-  const [actual, setActual] = useState<Item | null>(null);
+  // El historial guardado siembra la lista, y la pantalla abre con la última secuencia a la
+  // vista: lo que se escribió ayer sigue ahí al volver (item 129 del barrido del 6/11).
+  const [sesion, setSesion] = useState<Item[]>(() => deHistorial(historial));
+  const [actual, setActual] = useState<Item | null>(() => deHistorial(historial)[0] ?? null);
   const [hoja, setHoja] = useState(false);
   const [escribiendo, setEscribiendo] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +57,14 @@ export function StoriesM({ perfilListo }: { perfilListo: boolean }) {
     try {
       const r = await generarSecuenciaAction(objetivo, idea);
       if (!r.ok) { setError(r.error); return; }
-      const item: Item = { pieza: r.pieza, objetivo, at: new Date().toISOString() };
+      // El `at` de acá es el de la pantalla; el guardado lo pone el server. Difieren en
+      // milisegundos y los dos se dibujan con la hora y el minuto, así que recargar no
+      // mueve nada de lugar.
+      const item: Item = {
+        pieza: r.pieza,
+        etiqueta: OBJETIVOS_STORIES.find((o) => o.value === objetivo)?.label ?? '',
+        at: new Date().toISOString(),
+      };
       setActual(item);
       setSesion((s) => [item, ...s]);
       setIdea('');
@@ -101,15 +119,15 @@ export function StoriesM({ perfilListo }: { perfilListo: boolean }) {
         </>
       )}
 
-      {sesion.length > 1 && (
-        <SeccionM titulo="De esta sesión">
+      {sesion.some((h) => h !== actual) && (
+        <SeccionM titulo="Lo que ya escribiste">
           <ListaM>
             {sesion.map((h) => (
               <FilaM
                 key={h.at}
                 leading={<span className="m-stories-mini" aria-hidden><Icon name="stories" size={18} /></span>}
                 titulo={h.pieza.idea}
-                segunda={`${OBJETIVOS_STORIES.find((o) => o.value === h.objetivo)?.label ?? h.objetivo} · ${h.pieza.frames.length} frames · ${horaCorta(h.at)}`}
+                segunda={[h.etiqueta, `${h.pieza.frames.length} frames`, horaCorta(h.at)].filter(Boolean).join(' · ')}
                 riel={h === actual ? <Icon name="check" size={18} /> : undefined}
                 chevron={false}
                 onClick={() => setActual(h)}
