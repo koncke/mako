@@ -110,6 +110,8 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
     ['ai-avatar', 'ai-avatar', 'create', false],
+    // Lead Magnet (5/11/2026): sólo de la plataforma por ahora, oculta como Admin (More le arma la fila desde la sidebar).
+    ['lead-magnet', 'lead-magnet-generator', null, true],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],

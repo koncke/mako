@@ -123,6 +123,7 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'palabras_clave': return op.modo === 'ninguna' ? 'Sin palabras clave' : op.modo === 'auto' ? 'Con las palabras clave de color' : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
     case 'usar_preset_subtitulos': return `Con el preset ${comillas(op.preset)}`;
     case 'broll': return op.planos === false ? 'Con B-roll propuesto' : 'Con B-roll y cambios de plano propuestos';
+    case 'clips_magicos': return `Los ${op.cuantos ?? 5} mejores momentos, para abrir aparte`;
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');

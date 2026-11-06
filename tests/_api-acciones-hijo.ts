@@ -166,6 +166,22 @@ async function main() {
     const basura = await enA(() => guardarLanding.preparar!({ url: URL_L, productos: ['uno'] }, ctx(WS_A)));
     out.landingProductosMalos = { ajeno, archivado, basura, config: configGuardada() };
   }
+  {
+    // LA PÁGINA DE GRACIAS (6/11/2026): marcarla, que guardar otra cosa no la desmarque, y desmarcarla.
+    reset();
+    const marcar = await confirmar(guardarLanding, { url: URL_L, productos: ['2'], gracias: true });
+    const conGracias = configGuardada();
+    const otraCosa = await confirmar(guardarLanding, { url: URL_L, conversion: 'agenda' });
+    const sigue = configGuardada();
+    const desmarcar = await confirmar(guardarLanding, { url: URL_L, gracias: false });
+    const sinProductos = await enA(() => guardarLanding.preparar!({ url: 'https://mi-sitio.com/gracias', gracias: true }, ctx(WS_A)));
+    const basura = await enA(() => guardarLanding.preparar!({ url: URL_L, gracias: 'si' }, ctx(WS_A)));
+    out.landingGracias = {
+      resumen: (marcar.prep as { resumen?: string }).resumen ?? null, conGracias, otraCosa: !!otraCosa.ejec, sigue,
+      desmarcadoResumen: (desmarcar.prep as { resumen?: string }).resumen ?? null, final: configGuardada(),
+      sinProductos: (sinProductos as { resumen?: string }).resumen ?? null, basura,
+    };
+  }
   out.ia = [...ia];
   process.stdout.write(`\n@@JSON@@${JSON.stringify(out)}@@FIN@@\n`);
 }

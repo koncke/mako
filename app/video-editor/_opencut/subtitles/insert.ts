@@ -69,7 +69,7 @@ export async function cargarFuentes(familias: string[]): Promise<void> {
 }
 
 /** Saca los subtítulos de las pistas, y las pistas de texto que quedan vacías por eso. */
-function sinSubtitulos(tracks: SceneTracks): SceneTracks {
+export function sinSubtitulos(tracks: SceneTracks): SceneTracks {
 	const overlay = tracks.overlay.flatMap((track): OverlayTrack[] => {
 		if (track.type !== "text") return [track];
 		const quedan = track.elements.filter((e) => !esSubtitulo(e));

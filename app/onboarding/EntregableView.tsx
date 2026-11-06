@@ -12,11 +12,14 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import Link from '@/app/_ui/Link';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
+// `pieza`: armado en la tab Lead Magnet (una página o una landing de verdad). Se quita desde ahí: el guardado de este paso lo
+// conserva aunque no venga (lib/entregable-fundir.ts), así que un tacho acá no haría nada.
+type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string; pieza?: unknown };
 type Estado = { entregables: Entregable[]; tieneBrief: boolean };
 type PasoHistorial = { pregunta: string; respuesta: string };
 type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
@@ -222,7 +225,9 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
           <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', padding: 18, display: 'flex', flexDirection: 'column', gap: 11, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <Edit valor={g.tipo} ph="Tipo" onSave={(v) => editar(g.id, 'tipo', v)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }} />
-              <BotonBorrar talla="sm" onClick={() => borrar(g.id)} title="Borrar este entregable" />
+              {g.pieza
+                ? <Link href={`/lead-magnet-generator?lm=${encodeURIComponent(g.id)}`} style={{ fontSize: 12, color: 'var(--dim)' }} title="Este se armó en Lead Magnet: se quita desde ahí">En Lead Magnet</Link>
+                : <BotonBorrar talla="sm" onClick={() => borrar(g.id)} title="Borrar este entregable" />}
             </div>
             <Edit valor={g.nombre} ph="Nombre del lead magnet" onSave={(v) => editar(g.id, 'nombre', v)} style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }} />
             <Edit valor={g.queEs} ph="¿Qué es y qué resuelve?" onSave={(v) => editar(g.id, 'queEs', v)} style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }} />

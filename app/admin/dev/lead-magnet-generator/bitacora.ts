@@ -30,9 +30,12 @@ export const PARTES: Parte[] = [
   { titulo: 'El entregable tangible', detalle: 'MaKo propone 1-3 candidatos desde el brief · tipo, qué es y una línea de FOMO · NO es el hook de un guion', estado: 'hecha' },
   { titulo: 'Preguntas adaptativas, de a una', detalle: 'La IA ve el historial y decide la siguiente · tope de 4 · si el dueño ya lo tiene, la pregunta le pide que lo suba', estado: 'hecha' },
   { titulo: 'El enlace del material', detalle: 'Dónde está lo que se le manda al lead · validado http(s) · sin esto la secuencia prometía algo que no tenía dónde estar', estado: 'hecha' },
-  { titulo: 'La tab /lead-magnet-generator', detalle: 'ComingSoon con guard de rol · el nombre promete PRODUCIR el entregable, y hoy solo se DEFINE en el onboarding', estado: 'cola' },
+  { titulo: 'La tab /lead-magnet-generator', detalle: 'Plantillas que crean la pieza en su herramienta (Copywriting o el Web Generator) · la lista viva es mako.entregable · sólo la plataforma por ahora', estado: 'hecha' },
+  { titulo: 'Producir el artefacto', detalle: 'Guía, checklist, prompts y planilla nacen como página de Copywriting con su estructura; la clase grabada, como landing · el link público de solo lectura sale de la tab', estado: 'hecha' },
+  { titulo: 'La página que lo pide', detalle: 'Una landing con formulario que entra al CRM y su página de gracias con el link del lead magnet, como borrador', estado: 'hecha' },
+  { titulo: 'Quiz con diagnóstico', detalle: 'Un bloque del Web Generator: preguntas con puntos y un resultado por rango · el contacto entra al CRM con el resultado y las respuestas · el flujo copiado de SurveyJS', estado: 'hecha' },
+  { titulo: 'MaKo propone el lead magnet', detalle: 'Hasta 3 desde la oferta del negocio y la de sus competidores en Competitors Spy (anónimos), con la IA del negocio · el código descarta lo que nombre a un competidor o use una plantilla que no existe', estado: 'hecha' },
   { titulo: 'El lead magnet baja de la oferta', detalle: 'Decidido en el modelo de 4 entidades: es de la OFERTA, no del producto · hoy sigue siendo un blob singleton por workspace', estado: 'cola' },
-  { titulo: 'Producir el artefacto', detalle: 'El PDF / planilla / checklist que el lead recibe de verdad · no existe: hoy el `enlace` lo pega el cliente a mano', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -143,5 +146,105 @@ export const BITACORA: Hito[] = [
     commits: [
       { sha: 'c3e583e6', msg: 'IA: la cuota se mide POR CUENTA, y el error dice qué contestó cada una', lineas: 611, archivos: 16 },
     ],
+  },
+
+  // ── noviembre: la tab deja de ser un ComingSoon ────────────────────────────
+  {
+    fecha: '29 oct', hora: '12:00', chat: 'Lead Magnet', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Plantillas con lo que ya existe: Notion con prompts, guía, checklist, quiz, clase grabada',
+    pedido: 'me lo imagino como una o varias plantillas... compartir un Notion con prompts, una guía, un checklist; un quiz (preguntas que llevan a un diagnóstico)... con el Web Generator; si la landing no lo permite, que el editor permita agregar formularios, enviar emails, conectarlo con el CRM o las automatizaciones; una clase grabada o un curso, que ya está Classroom... pensá qué más, por ejemplo dashboards',
+    puntos: [
+      'Llegó por el Cerebro, el 6/11, como tarea de la nube (la hora del pedido no está: se dejó el mediodía). El pedido entero, con el «Cómo» del Cerebro, está en docs/relevo/nube-lead-magnets.md.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '02:40', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab: cinco plantillas que crean la pieza en su herramienta, su página y su link',
+    puntos: [
+      '**No hay editor nuevo.** Guía, checklist, prompts para copiar y planilla nacen como una página de Copywriting con sus secciones y la guía de cada una (nunca el ejemplo); la clase grabada, como una landing del Web Generator con un objetivo nuevo («Clase grabada»: se registran y la ven en seguida). La tab es `PantallaCrear`, como el resto de Create.',
+      '**La lista de lead magnets es la que ya existía**, `mako.entregable`: la leen las automatizaciones (`{{negocio_lead_magnet_link}}` sale del PRIMERO), el grafo y los guiones. Cada fila suma dónde vive su pieza, su plantilla y su página de captura; se escribe por compare-and-set con la lectura estricta.',
+      '**Lo que faltaba para captar, medido antes de escribir:** el formulario de una landing ya entra al CRM (Pixel → /api/track/optin → createLead) y la secuencia ya manda el link. Faltaban la página (se arma con el objetivo «lead-magnet» y su formulario apunta a la de gracias) y un link que abra la página sin cuenta: un recurso nuevo de `shares`, `lead-magnet`, de SOLO LECTURA, dibujado por el server sin TipTap.',
+      '⚠️ **El link público no sale con la guía puesta**: si una sección todavía dice lo que la plantilla escribió, la tab dice cuáles cambiar. Una guía compartida es un lead magnet que promete y no entrega.',
+      '⚠️ **Un bug viejo de paso:** «guardar» en el paso Entregable del onboarding reconstruía cada fila sin su `enlace`, así que editar el nombre borraba el link que recibían los leads. Se funde por id.',
+      'Classroom y Dashboards quedan afuera de las plantillas: el acceso a Classroom es sólo para clientes que ya compraron (un lead no entra), y compartir un dashboard muestra los números del negocio. La clase grabada se arma como landing; la «planilla» reemplaza al dashboard. Las dos decisiones quedan para Martín en el relevo.',
+      'Sólo la plataforma la ve por ahora (`adminOnly`, la puerta y `soloPlataforma` en la API): se abre a los clientes sacando las tres.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: [
+      'lib/lead-magnets/plantillas.ts — las cinco plantillas, con su ejemplo de un negocio ficticio',
+      'lib/lead-magnets/server.ts — armar, la página de captura, el link público y el orden de la lista',
+      'app/lead-magnet-generator/ — la tab (escritorio); app/m/lead-magnet-generator/ — el teléfono',
+      'lib/api-mako/areas/leadmagnet.def.ts — las cinco operaciones de la API',
+      'app/compartido/[token]/LeadMagnetCompartido.tsx — la página que abre el lead',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:35', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El quiz con diagnóstico: un bloque del Web Generator y su objetivo de landing',
+    puntos: [
+      '**Un bloque más del Web Generator, «Quiz»**, no una herramienta nueva: preguntas de opción única con puntos, y el puntaje elige UN resultado por rango («desde N puntos»). Antes del resultado, un formulario de contacto que entra al CRM por el Pixel, con el resultado, el puntaje y las respuestas como datos del lead.',
+      '**La regla del resultado vive en dos lugares** (el script de la página y el server) y un test los corre a los dos sobre miles de casos: probado rompiendo cada lado.',
+      '⚠️ **El Pixel toma como CONTACTO todo campo cuyo `aria-label` diga «negocio», «tel» o «mail»**: con la pregunta ahí, «¿Cuánto factura tu negocio?» llegaba como la empresa del lead y «¿Tienes hotel…?» como su teléfono. Las respuestas van en una etiqueta, que el Pixel no mira para decidir eso.',
+      'El flujo y las medidas, de SurveyJS (MIT): una pregunta por paso, la barra de 2 px, «Anterior / Siguiente», el contacto y la página final. Typeform no se abre desde la nube.',
+      'Objetivo de landing «Quiz con diagnóstico», plantilla «Quiz» en la tab, y `configurar_quiz_landing` en la API de MaKo.',
+    ],
+    revisar: '/web-generator',
+    archivos: [
+      'lib/editor-landing/quiz.ts — el motor, la forma HTML y el script de la página',
+      'app/web-generator/editor/nodos/QuizVista.tsx — el panel del editor',
+      'lib/editor-landing/plantillas.ts — el objetivo «Quiz con diagnóstico»',
+      'tests/quiz-landing.test.ts — el flujo en un DOM y el Pixel real',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:35', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Dos revisiones de quien no escribió el código: diecinueve arreglos',
+    puntos: [
+      '**Una sola puerta para escribir la lista**, y la otra se borró: había cuatro escritores con un `setEntregables` suelto, y uno vaciaba la lista con la base caída.',
+      '**Al primero no se le saca el link** (dejar de compartir, vaciarlo): las automatizaciones mandaban el mensaje sin él.',
+      '**Revocar va después de sacar de la lista**, y si falla vuelve a su lugar. Una página de captura en la papelera ya no cuenta como publicada.',
+      'La página de captura ya no promete un correo que nadie manda; cambiar el link lo cambia en su página de gracias; el teléfono tiene lo mismo que la computadora.',
+      'El quiz: el foco va al paso nuevo, exportado sale la portada sola, y el editor dice qué botón no va a salir.',
+      '⚠️ **Cuatro capturas «de la lista» eran la pantalla de «Nuevo»**: en Create la lista vive detrás de la «←». Comparar una captura con la de al lado antes de darla por mirada.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: [
+      'lib/lead-magnets/server.ts, lib/entregable.ts, lib/entregable-fundir.ts',
+      'docs/hallazgos-lead-magnets.md — las dos revisiones',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:45', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo propone el lead magnet desde la oferta y la competencia',
+    puntos: [
+      '**En «Nuevo lead magnet», «MaKo te propone»**: hasta 3 propuestas con su plantilla, su nombre y por qué, y «Armar este». Un botón, porque cuesta la IA del negocio; la última queda guardada.',
+      '**La IA elige y redacta; el código decide**: descarta lo que nombre a un competidor, use una plantilla que no existe, diga salir de la competencia sin habérsele pasado ninguna, esté con «vos» o repita uno que ya tiene.',
+      '⚠️ A la IA los competidores le llegan anónimos («Competidor 1») y el código igual busca sus nombres, con límites de palabra: con un `includes`, «Max» descartaba todo lo que dijera «maximizar».',
+      'Sólo con la IA del negocio, sin la red de la plataforma y adentro de «sólo su IA». Por la API, `proponer_magnet`, una lectura que no guarda nada.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: [
+      'lib/lead-magnets/propuesta.ts — lo que lee la IA y lo que el código le acepta',
+      'lib/lead-magnets/proponer.ts — la lectura de la oferta y Competitors Spy, y la llamada',
+      'app/lead-magnet-generator/PropuestasMaKo.tsx — el bloque de «Nuevo»',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '04:00', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de «MaKo te propone»: once arreglos',
+    puntos: [
+      '**Ni un nombre de competidor ni de referente**: además del nombre entero, su apellido (si es una persona), la forma sin espacios y el catálogo de referentes; y lo que leyó Spy llega a la IA con los nombres tapados.',
+      '**Ni un número inventado**: plata, porcentajes y plazos tienen que estar en la oferta o la competencia.',
+      'Cada chequeo mira el texto entero (cortar antes dejaba pasar un nombre partido); «De tu oferta» exige una oferta; una propuesta ya armada no se vuelve a ofrecer; lo propuesto no se pierde al cambiar de vista.',
+      '«Conectar mi IA» abre «Tus cuentas de IA» ahí mismo; en el teléfono, las filas que llevan a Offer o a la IA.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: ['lib/lead-magnets/propuesta.ts', 'app/lead-magnet-generator/PropuestasMaKo.tsx', 'docs/hallazgos-lead-magnets.md'],
   },
 ];

@@ -81,6 +81,8 @@ const EDICIONES = [
   'cambiar_animacion_landing',
   // Los bloques de venta (5/11/2026, Black November; su test es tests/bloques-venta-landing.test.ts).
   'configurar_bloque_venta_landing',
+  // El quiz con diagnóstico (6/11/2026, Lead Magnet Generator; su test es tests/quiz-landing.test.ts).
+  'configurar_quiz_landing',
 ];
 
 const accion = (id: string): AccionDef => {

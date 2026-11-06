@@ -3,7 +3,7 @@
 // =============================================================================
 // Pedido de Leila (clienta, llamada del 30/10/2026), «al estilo de Submagic» (Martín la nombró):
 //
-//   lo que se dice (los subtítulos; si no hay, se transcribe acá mismo, local y gratis, sin ponerlos)
+//   lo que se dice (los subtítulos; si no hay, se transcribe acá mismo, local y gratis, sin ponerlos: ./frases-del-video.ts)
 //   → DÓNDE: los huecos, con reglas (lib/editor-video/broll.ts), fuera de lo que la persona ya editó
 //   → QUÉ: la IA del negocio elige entre esos huecos y escribe qué buscar (/api/video-editor/broll, `elegir`);
 //     sin IA, las palabras de cada frase
@@ -15,12 +15,7 @@
 
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TracksSnapshotCommand } from "@/app/video-editor/_opencut/commands/timeline/tracks-snapshot";
-import { extractTimelineAudio } from "@/app/video-editor/_opencut/media/mediabunny";
 import { processMediaAssets } from "@/app/video-editor/_opencut/media/processing";
-import { decodificarMono16k } from "@/app/video-editor/_opencut/transcription/audio";
-import { armarSubtitulos, quitarNoVoz } from "@/app/video-editor/_opencut/transcription/caption";
-import { maxCaracteresPara } from "@/app/video-editor/_opencut/transcription/caption-defaults";
-import { transcriptionService } from "@/app/video-editor/_opencut/services/transcription/service";
 import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { buildEffectElement, buildElementFromMedia } from "@/app/video-editor/_opencut/timeline/element-utils";
 import type { EffectElement, ImageElement } from "@/app/video-editor/_opencut/timeline";
@@ -39,7 +34,6 @@ import {
 import { fotosElegidas, orientacionDeLienzo, type FotoBroll, type OrientacionBroll } from "@/lib/editor-video/broll-pexels";
 import {
 	conPropuestas,
-	frasesDeSubtitulos,
 	PARAM_AUTOR,
 	PARAM_BUSQUEDA,
 	PARAM_FOTO,
@@ -48,6 +42,7 @@ import {
 	sinPendientes,
 	tramosOcupados,
 } from "./pistas";
+import { frasesDelVideo } from "./frases-del-video";
 import { useTrabajoBroll, type FaseBroll } from "./estado";
 import { resumenDeBroll, textoDeBroll, type ResultadoBroll } from "./resultado";
 
@@ -76,28 +71,6 @@ async function pedirJson<T>(cuerpo: object, plazoMs: number): Promise<{ ok: true
 	} catch {
 		return { ok: false, falla: { error: "", faltaPexels: false, status: 0 } };
 	}
-}
-
-/** Lo que se dice, sin poner subtítulos: el audio de la línea de tiempo por Whisper en el navegador. */
-async function frasesTranscriptas(editor: EditorCore, fase: (f: FaseBroll, p: number) => void): Promise<Frase[]> {
-	const blob = await extractTimelineAudio({
-		tracks: editor.scenes.getActiveScene().tracks,
-		mediaAssets: editor.media.getAssets(),
-		totalDuration: editor.timeline.getTotalDuration(),
-		onProgress: (p) => fase("escuchando", Math.round(p / 3)),
-	});
-	const muestras = await decodificarMono16k(blob);
-	const resultado = await transcriptionService.transcribe({
-		audioData: muestras,
-		language: "es",
-		onProgress: (p) => fase("escuchando", 33 + Math.round(p.progress * 0.67)),
-	});
-	const lienzo = editor.project.getActive().settings.canvasSize;
-	return armarSubtitulos({ palabras: quitarNoVoz(resultado.palabras), maxCaracteres: maxCaracteresPara(lienzo) }).map((c) => ({
-		texto: c.text,
-		inicio: c.startTime,
-		fin: c.startTime + c.duration,
-	}));
 }
 
 async function bajarFoto(id: number, orientacion: OrientacionBroll): Promise<{ archivo: File; autor: string } | null> {
@@ -146,8 +119,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		const base = sinPendientes(editor.scenes.getActiveScene().tracks);
 
 		fase("escuchando");
-		let frases = frasesDeSubtitulos(base, tps);
-		if (!frases.length) frases = await frasesTranscriptas(editor, fase);
+		const frases = await frasesDelVideo(editor, (p) => fase("escuchando", p));
 		if (!frases.length) return terminar({ ok: false, motivo: "sin-voz" });
 
 		const avisos: string[] = [];

@@ -1,5 +1,25 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## 📬 Para el Cerebro (6/11/2026, tarde, chat en la nube)
+
+- **No queda ninguna hoja pendiente.** Las 15 plantillas del Dashboard y las 7 de General traen su diseño propio y se ofrecen en «Nueva
+  hoja» (medido con `instanciarPlantilla` sobre `PLANTILLAS_HOJA` y `PLANTILLAS_GENERAL`).
+- **VSL y YouTube está en main** (`5fdb9a16c`, por `punta/dashboards-vsl`).
+- **Inmobiliaria (la copia de Torque) y Cold Calling (la copia de Corvane) están en `punta/dashboards-inmobiliaria-cold-calling`**, juntas
+  en un push (desde el 6/11 cada compilación cuesta). Las dos secciones de abajo. Son la vigesimoprimera y la vigesimosegunda hoja copiada.
+- **⚠️ Lo que decidí sin preguntar, y Martín puede revertir:**
+  - Inmobiliaria se copió de **Torque, no de Lintel** (la de la propuesta): Lintel tiene cuatro tarjetas vacías en su captura y el demo da
+    403 desde la nube.
+  - **Salió el mapa «De dónde te buscan» de la plantilla Inmobiliaria**: una plantilla general no pasa de 12 piezas y el tablero de
+    interesados por etapa hacía 13. Si lo quiere de vuelta, sale otra pieza.
+  - Cold Calling se copió de **Corvane** (no estaba en la propuesta).
+- **Lo que necesito de la PC (el Cerebro), si se quiere:**
+  1. **Medir la entrada de la página «Overview» de Corvane andando**: vive en un chunk que el INFORME no muestra, así que las tarjetas de
+     Cold Calling quedan quietas (como en General, la de Orvel).
+  2. **Medir Lintel completa**, si Martín prefiere que Inmobiliaria sea ésa.
+  3. **Mirar las dos hojas en producción con datos de un cliente** (la nube no ve producción): Inmobiliaria con un CRM con proyectos, y
+     Cold Calling después de grabar una llamada con el botón de la hoja.
+
 ## 📬 Para el Cerebro (6/11/2026, chat en la nube)
 
 - **Hooks y retención está en main** (`660de5707`). Desde el 6/11 a producción lo lleva el cron de una vez por día.
@@ -204,6 +224,92 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Cold Calling: la vigesimosegunda hoja copiada (la de Corvane), con «¿cuántas llamadas, cuántas contestan y cuántas agendan?» (punta `dashboards-inmobiliaria-cold-calling`, 6/11/2026)
+
+La referencia es Corvane (`docs/diseno/mockups-dashboard/demos/corvane/`): la página «Overview» de un panel de pagos, clara, con la barra
+de la izquierda, el saludo con «Export» y «Review queue», «Captured today» (el número grande con su cambio, los pagos y la curva de 30 días
+con sus selectores «Volume · Payments» y «7D · 30D»), «Needs you» (cuatro tarjetas que llevan a lo pendiente), cuatro números de color con
+su línea, «Live payments» (el feed con su punto que late), «Top merchants» (barras) y «Merchant money» (una barra repartida y su leyenda).
+
+**Por qué Corvane:** Cold Calling (la plantilla del 4/11) no estaba en la propuesta y no se ofrecía; quedaban sin usar Corvane, Lintel,
+Talvo, Tandem y Tend. Corvane calza tarjeta por tarjeta: el gráfico grande son las llamadas, «Needs you» lo que sigue después de llamar, el
+feed a quién llamaste, las barras quién llamó, el dinero repartido cómo terminan, y el botón oscuro de arriba «Grabar llamada».
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Cold Calling» con el diseño de Corvane**, con su miniatura de verdad.
+- **La cabecera:** cuántas llamadas en el período, cuántas contestaron, agendaron y quedaron sin marcar; «Ver la grilla» y **«Grabar
+  llamada»**, que abre la misma grabadora de la ficha del lead (elige el lead y graba); al cerrarla, la hoja vuelve a leer.
+- **Llamadas** («Captured today»): el número con su cambio contra el período anterior, contestaron · agendaron · sin marcar, y la curva día
+  por día de llamadas, contestaron o agendaron, por día o acumulado.
+- **Lo que sigue** («Needs you»): las llamadas sin marcar, las que no contestaron, las que agendaron y a las que no les interesa, sólo las
+  que tienen alguna; tocar una abre esas llamadas.
+- **Los cuatro números:** contestan (con su línea), agendaron, agendan de los que contestan (desde 5 que contestaron) y los minutos grabados
+  (con el promedio por llamada; sin línea, porque no tienen día).
+- **A quién llamaste** («Live payments»): los leads con sus llamadas, cómo terminó y sus minutos; «Sin marcar» va como la pastilla de «In
+  review». **Quién llamó** («Top merchants»): por llamadas o por agendadas. **Cómo terminan** («Merchant money»): la barra repartida, cada
+  resultado con su parte, y abajo las que faltan marcar.
+
+**Lo que se copió de Corvane, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/cold-calling-corvane/copia.html` con `corvane.css` y `corvane.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390 y el INFORME. Nada del código de la tienda ni sus íconos.
+- **A 1440 las nueve tarjetas caen en las de la captura al píxel** (cajas de `valores.json` y franjas de tinta por tarjeta); **a 390,
+  a 0-3 px**, con la barra de abajo del teléfono. La curva de 30 días se leyó de la captura.
+- **⚠️ Los controles del medidor desde el n.º 2 se tomaron con la barra lateral PLEGADA** (el n.º 1 la plegó al apretarlo): las cajas
+  buenas son las de «paneles».
+- **El movimiento medido:** la entrada del armazón (en MaKo la pone la app), el punto vivo que late («breathe»), la píldora del selector que
+  corre .28 s con rebote y los hover del CSS (las tarjetas de «Needs you» marcan su borde, el botón oscuro tira al acento, el link se
+  subraya). **⚠️ La entrada de la página «Overview» no está en el INFORME** (un chunk que no muestra): no se inventó, las tarjetas quedan
+  quietas. Hay que medirla con el demo andando, desde la PC.
+
+**Lo que Corvane tiene y MaKo no mide, y no está:** el reloj, el ticker de pagos en vivo (el botón «Pause»: aquí nada llega solo), las
+marcas de tarjeta y el lote de pagos. **«No contestaron» no es un número suelto**: llamadas menos contestaron suma las «Sin marcar», que la
+fuente nunca cuenta como «No contestó»; sale de «Cómo terminan».
+
+**Lo que cambió de la copia a la adaptación, a propósito:** a menos de 980 px de hoja los cuatro números van de a dos, los selectores del
+gráfico bajan abajo del número y la fila de abajo va en dos columnas (con la barra de MaKo al lado, «Quién llamó» con su selector no entra
+en tres). El selector de «Captured today» tiene tres opciones (llamadas · contestaron · agendaron) y el segundo es «Por día · Acumulado».
+
+**Dónde vive:**
+- El modelo: `lib/cold-calling-diseno.ts`, puro. Los datos de ejemplo: `lib/cold-calling-diseno-muestra.ts` (cuadran: los días, cómo
+  terminan y quién llamó suman la cabecera; agendó + habló + no le interesa son las que contestaron).
+- El dibujo: `app/dashboard/disenos/HojaColdCalling.tsx`; lo vivo, `ColdCallingVivo.tsx`; la hoja de estilos, `cold-calling-css.ts` (la
+  arma un script del chat desde `corvane.css`, con la cola de la adaptación: todo en `.cv`, clases `cv-*`, `@container`). Las capturas de
+  la adaptación: `cold-calling-corvane/captura/mako-1200.png` y `mako-390.png`. El test: `tests/dashboard-diseno-cold-calling.test.ts`
+  (10, con 16 roturas).
+
+## Inmobiliaria: la vigesimoprimera hoja copiada (la de Torque), con «¿cuántos visitan, cuántos compran y en qué proyecto?» (punta `dashboards-inmobiliaria-cold-calling`, 6/11/2026)
+
+La referencia es Torque (`docs/diseno/mockups-dashboard/demos/torque/`): la página «Floor» de un taller mecánico, con la cabecera, cuatro
+números con su chip, «The floor» (seis bahías con su auto, su estado y su avance), el «Job board» (columnas de trabajos con tarjetas),
+«Arriving today», «Sales» (la curva con su selector «2W · 30D»), «Technicians», «Running low», «Shop load» (un medidor de aguja) y «Team
+activity».
+
+**Por qué Torque y no Lintel:** la propuesta le daba Lintel, pero su captura tiene cuatro tarjetas vacías y el demo da 403 desde la nube.
+Torque estaba sin usar en una hoja propia y calza: las bahías son tus proyectos, el tablero de trabajos son tus interesados por etapa.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Inmobiliaria» con el diseño de Torque**, con su miniatura de verdad.
+- **Los cuatro números:** vienen a la visita, compran tras la visita (los dos con su cambio en puntos), el ticket promedio y los días hasta
+  comprar.
+- **Tus proyectos** («The floor»): hasta seis, cada uno con su fachada, su estado (vende, con visitas, sin visitas), sus interesados y
+  visitas y el anillo de cuántos compran de los que visitan.
+- **Tus interesados, por etapa** («Job board»): las etapas con más interesados, y en cada una sus tarjetas (los que compraron y agendaron
+  primero) con su proyecto y quién lo atiende.
+- **De dónde llegan, Interesados por semana (o acumulado), Quién vende, Por qué no compran, Agendan una visita** (el medidor) **y Los que
+  avanzan** (los que compraron o agendaron, de la muestra del tablero).
+
+**Lo que se copió de Torque, y cómo se midió:** la copia (`docs/diseno/mockups-dashboard/inmobiliaria-torque/`) sale de lo medido del demo;
+a 1440 y a 390 las tarjetas caen en las de la captura. El movimiento sale de las recetas del INFORME (las tarjetas suben 34 px con escala
+.985, el título entra palabra por palabra, los avatares saltan, lo que tiene `data-lift` sube 4 px al pasar). Lo supuesto (las barras que
+crecen, las líneas que se dibujan, la aguja) está escrito en la cabecera del componente.
+
+**Lo que cambió en la plantilla:** suma el tablero de interesados (con su etapa, su proyecto y su asesor) y **pierde el mapa «De dónde te
+buscan»**, para entrar en las 12 piezas de una plantilla general. La tarjeta «Team activity» pasó a «Los que avanzan».
+
+**Dónde vive:** el modelo, `lib/inmobiliaria-diseno.ts`; la muestra, `lib/inmobiliaria-diseno-muestra.ts`; el dibujo,
+`app/dashboard/disenos/HojaInmobiliaria.tsx` con `InmobiliariaVivo.tsx` e `inmobiliaria-css.ts`; las capturas de la adaptación,
+`inmobiliaria-torque/captura/mako-1200.png` y `mako-390.png`; el test, `tests/dashboard-diseno-inmobiliaria.test.ts` (11, con 17 roturas).
 
 ## VSL y YouTube: la vigésima hoja copiada (la de Pelago), con «¿quién llega al final, y ésos compran más?» (6/11/2026)
 
@@ -1565,14 +1671,15 @@ Lo que comparten todas:
 | Anuncio ganador | `ads-analyst` | Vitrea · Prism | ¿cuál creativo gana, y con cuánta confianza? | Listos para escalar | `punta/dash-anuncio-ganador` |
 | Hooks y retención (nueva) | `hooks-retencion` | Vitrea · Murmura | ¿en qué parte se van, y qué hook los retuvo? | Hook rate | `punta/dash-hooks` |
 | Landing | `landing` | Corbel · Kestrel | ¿hasta dónde bajan y dónde hacen clic? | Llegan a la mitad | `punta/dash-landing` |
-| VSL y YouTube | `vsl-analyst` | la forma de Hooks, otra fuente | ¿quién llega al final y ésos compran más? | Llegan al final | `punta/dash-vsl` |
+| VSL y YouTube | `vsl-analyst` | Pelago | ¿quién llega al final y ésos compran más? | Llegan al final | en main (`5fdb9a16c`) |
 | Chat Analyst | `chat-analyst` | Parley · Tend | ¿cuánto tardamos en contestar? | Tiempo de respuesta | `punta/dash-chat` |
 | Closing | `closing` | Halden · Moorly · Tandem | ¿por qué se cerró o no, y quién cierra mejor? | Tasa de cierre | `punta/dash-closing` |
 | CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | en producción (`b42c446d9`) |
 | Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | en producción (`54b2922fc`) |
 | Automatizaciones | `automatizaciones` | Noria | ¿qué salió, qué falló y en cuánto responden? | Fallaron | `punta/dash-automatizaciones` |
 | Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | en producción (`01e26099a`) |
-| Inmobiliaria (nueva, por rubro) | `inmobiliaria` | Lintel (sólo su Overview) | ¿cuántos visitan, cuántos compran y en qué proyecto? | Compran, de los que visitan | `punta/dash-inmobiliaria` |
+| Inmobiliaria (nueva, por rubro) | `inmobiliaria` | Lintel (sólo su Overview) → Torque | ¿cuántos visitan, cuántos compran y en qué proyecto? | Compran, de los que visitan | `punta/dashboards-inmobiliaria-cold-calling` |
+| Cold Calling (4/11, no estaba en la lista) | `cold-calling` | Corvane | ¿cuántas llamadas, cuántas contestan y cuántas agendan? | Llamadas | `punta/dashboards-inmobiliaria-cold-calling` |
 
 **Las que se fueron** (las absorbe otra; un link o un agente que las nombre llega a la nueva): **CRM y pipeline** y
 **Ventas del mes** → Comercial. **Ads Analyst** se partió en Anuncio ganador (que se queda su id: `/ads-analyst` llega

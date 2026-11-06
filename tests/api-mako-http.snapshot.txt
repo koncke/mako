@@ -35,6 +35,7 @@ anular_link_pago
 apagar_kpi
 archivar_etiqueta
 archivar_secuencia
+armar_magnet
 armar_plan_por_tramos
 armar_tab_ficha
 asegurar_plantilla_reporte
@@ -69,6 +70,7 @@ borrar_producto
 borrar_retro
 borrar_silencios_video
 borrar_tema_landing
+buscar_clips_video
 buscar_conocimiento
 buscar_en_comunidad
 buscar_en_segundo_cerebro
@@ -145,6 +147,7 @@ configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
 configurar_newsletter
+configurar_quiz_landing
 configurar_reporte
 configurar_seccion_landing
 configurar_seccion_reporte
@@ -198,6 +201,7 @@ dar_estrella
 dar_formato_texto_landing
 decidir_recomendacion
 declarar_entradas_funnel
+dejar_compartir_magnet
 desarchivar_secuencia
 descartar_borrador_plan
 descartar_decision_media_buyer
@@ -351,6 +355,7 @@ limites_formato_instagram
 link_agenda_calendly
 link_agenda_llamada
 link_configurar_integracion
+link_publico_magnet
 link_resumen_lead
 listar_analisis_landing
 listar_angulos_guion
@@ -489,6 +494,7 @@ opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
+pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter
 pasar_comentarios_a_copia_landing
@@ -507,6 +513,7 @@ poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
 preparar_subida_media_buyer
+primero_magnet
 probar_capi_meta
 probar_conexion_integracion
 probar_secuencia
@@ -539,6 +546,7 @@ proponer_estado_campana
 proponer_estado_conjunto
 proponer_lead
 proponer_leads
+proponer_magnet
 proponer_presupuesto_campana
 proponer_presupuesto_conjunto
 proponer_reanalizar_guion
@@ -717,6 +725,7 @@ ver_perfil_negocio
 ver_personalidad_voz
 ver_plan
 ver_plantillas_avatar
+ver_plantillas_magnet
 ver_plantillas_oferta
 ver_post_comunidad
 ver_preferencias_notificaciones

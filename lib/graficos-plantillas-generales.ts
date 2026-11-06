@@ -265,8 +265,23 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
         ordenMetrica: 'vendido', titulo: 'Quién vende', subtitulo: 'Las visitas que recibió, las que cerró y lo que vendió', ir: 'closing',
       },
       { local: 'motivos', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], limite: 8, titulo: 'Por qué no compraron', subtitulo: 'Lo que se marcó al perder, contado' },
-      { local: 'donde', tipo: 'mapa', fuente: 'ubicacion', dimension: 'region', metricas: ['visitas'], titulo: 'De dónde te buscan', subtitulo: 'Las visitas a tus páginas, por región' },
+      // 6/11/2026, la copia de Torque: el «Job board» son tus interesados, cada uno en su etapa (la tarjeta dice su proyecto, quién lo
+      // atiende y si agendó o compró), y de ahí también «Los que avanzan». Es un NOMBRE de persona: en un link compartido sale como alias
+      // (app/compartido/[token]/informe-reglas.ts). Una plantilla general lleva hasta 12 piezas (TOPE_COMPONENTES_IA): para que el tablero
+      // entrara salió el mapa «De dónde te buscan» (las visitas a las páginas, que no son de la visita a la compra).
+      {
+        local: 'tablero', tipo: 'tabla', fuente: 'leads', fecha: 'alta', dimension: 'lead', metricas: ['leads', 'agendas', 'cierres'], titulo: 'Tus interesados, por etapa',
+        limite: 50, tabla: { columnas: ['etapa', 'producto', 'closer'] }, ir: 'crm',
+      },
     ],
+    // 6/11/2026: la hoja con su DISEÑO PROPIO, la copia de Torque (app/dashboard/disenos/HojaInmobiliaria.tsx, lib/inmobiliaria-diseno.ts).
+    diseno: {
+      id: 'inmobiliaria',
+      piezas: {
+        apertura: 'apertura', cierre: 'cierre', asistencia: 'asistencia', ticket: 'ticket', ciclo: 'ciclo', semanas: 'por-semana',
+        proyectos: 'por-proyecto', origen: 'origen', etapa: 'etapa', asesores: 'asesores', motivos: 'motivos', tablero: 'tablero',
+      },
+    },
   },
   {
     // Martín, 04/11/2026: «un dashboard template que sea "Call Calling"», con el mismo botón de grabar de la ficha del lead. Se
@@ -289,6 +304,12 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
         limite: 50, tabla: { acciones: true, columnas: ['resultado'] },
       },
     ],
+    // 6/11/2026: la hoja con su DISEÑO PROPIO, la copia de Corvane (app/dashboard/disenos/HojaColdCalling.tsx, lib/cold-calling-diseno.ts).
+    // El botón «Grabar llamada» lo dibuja la hoja arriba (la misma grabadora); la acción de la plantilla queda para la grilla.
+    diseno: {
+      id: 'cold-calling',
+      piezas: { llamadas: 'llamadas', contacto: 'contacto', agendaron: 'agendaron', dias: 'por-dia', terminan: 'como-terminan', quien: 'quien', leads: 'leads' },
+    },
   },
 ];
 

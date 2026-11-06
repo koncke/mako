@@ -42,6 +42,10 @@ import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
 import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
+import { buscarClips } from "@/app/video-editor/_opencut/clips/buscar";
+import { textoDeClips } from "@/app/video-editor/_opencut/clips/resultado";
+import { SECCION_CLIPS } from "@/app/video-editor/_opencut/clips/secciones";
+import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/element/revertir";
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
@@ -144,6 +148,13 @@ async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (
 		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
 		return avisos;
 	}
+	if (r.op === "clips_magicos") {
+		// El MISMO de «Clips mágicos»: los busca y abre la sección, donde se abre cada uno en un proyecto nuevo.
+		const hecho = await buscarClips(editor, { cuantos: r.cuantos });
+		if (!hecho.ok) return [textoDeClips(hecho)];
+		useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_CLIPS });
+		return hecho.aviso ? [hecho.aviso] : [];
+	}
 	if (r.op === "usar_plantilla") {
 		const plantilla = plantillaPorId(r.plantilla);
 		if (!plantilla) return [`no existe la plantilla «${r.plantilla}»`];
@@ -180,6 +191,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
 	broll: "proponer el B-roll",
+	clips_magicos: "buscar los clips",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */

@@ -26,7 +26,7 @@ import { hrefPermitido } from '@/lib/editor-landing/especificacion';
 import {
   Documento, Tarjeta, Columnas, Columna, Optimizado, OptimizadoItem, Botones, Boton, Recuadro,
   Desplegable, DesplegableTitulo, DesplegableCuerpo, Imagen, Video, Insertado, Formulario, Grafico,
-  Espaciador, HtmlLibre, HtmlEditable, TablaLanding, CuentaRegresiva, PruebaSocial, Escasez,
+  Espaciador, HtmlLibre, HtmlEditable, TablaLanding, CuentaRegresiva, PruebaSocial, Escasez, Quiz,
 } from './nodos';
 import { TextStyleLanding, ColorLanding, TamTexto, ResaltadoLanding, Etiqueta, VariantesTexto } from './marcas';
 import { AtajosLanding, IdsUnicos, PartirConGuiones, PortapapelesFiel, Subidas, OpcionesDelDocumento, type OpcionesLanding } from './plugins';
@@ -120,6 +120,7 @@ export function extensionesBase(op: OpcionesBase = {}): Extensions {
     CuentaRegresiva.configure(vista(NODO.cuentaRegresiva)),
     PruebaSocial.configure(vista(NODO.pruebaSocial)),
     Escasez.configure(vista(NODO.escasez)),
+    Quiz.configure(vista(NODO.quiz)),
     TablaLanding,
     TableRow,
     TableHeader,
