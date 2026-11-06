@@ -176,8 +176,10 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
   for (const p of [page, sales, guarda]) assert.doesNotMatch(p, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
   // Un cobro que no se pudo leer se DICE (un aviso), no se dibuja como una lista vacía.
   const ventas = sinComentarios(leer('app/admin/_polar/datos/ventas-server.ts'));
-  assert.match(ventas, /cobrosDeMakoAction\(\)\.catch\(/);
-  assert.match(ventas, /if \(!cobros\.ok\) avisos\.push\(/, 'los cobros que no se leyeron, en los avisos');
+  assert.match(ventas, /cobrosDeMakoAction\(\)/, 'Sales lee los cobros con la acción del super admin');
+  const orders = ventas.slice(ventas.indexOf('export async function vistaOrders('));
+  assert.match(orders, /\.catch\(\(e\) => \(\{ ok: false as const, error: mensaje\(e\) \}\)\)/, 'una lectura que tira no tumba la página');
+  assert.match(orders, /if \(!cobros\.ok\) avisos\.push\(/, 'los cobros que no se leyeron, en los avisos');
 });
 
 // Desde el 17/10/2026 la familia Admin salió de la barra: Cobros («Billing») es una SECCIÓN de Clients que sólo ve el

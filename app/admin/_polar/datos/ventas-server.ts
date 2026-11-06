@@ -10,6 +10,7 @@
 // ⚠️ Una lectura que falla no tumba la página: lo que no se pudo leer viaja en `avisos` y la pantalla lo dice.
 
 import 'server-only'
+import { cache } from 'react'
 import { suscripcionesDeLaPlataforma, vistaDeIngresos } from '@/lib/admin-ingresos'
 import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
 import { zonaDelNegocio } from '@/lib/timezone'
@@ -25,6 +26,11 @@ import {
 import { esDeVenderUnPlan } from './checkout-link'
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+// Una lectura por pedido (`cache` de React): en la ficha de un negocio, Orders y Subscriptions leen los mismos cobros, y Disputes
+// lee lo de Orders. Las dos acciones vuelven a preguntar `getSesionAdmin()` adentro.
+const leerCobros = cache(() => cobrosDeMakoAction())
+const leerRecibos = cache(() => recibosAction())
 
 /** Un recibo del libro, sin lo que no hace falta en el navegador (ni las rutas de los archivos). */
 export function reciboDeListado(r: ReciboListado): ReciboVenta {
@@ -83,8 +89,8 @@ export async function vistaOrders(): Promise<VistaOrders> {
   const [plataforma, vista, recibos, cobros] = await Promise.all([
     wsSuperAdmin().catch(() => null),
     vistaDeIngresos().catch((e) => { avisos.push(`lo cobrado: ${mensaje(e)}`); return null }),
-    recibosAction().catch((e) => ({ ok: false as const, error: mensaje(e) })),
-    cobrosDeMakoAction().catch((e) => ({ ok: false as const, error: mensaje(e) })),
+    leerRecibos().catch((e) => ({ ok: false as const, error: mensaje(e) })),
+    leerCobros().catch((e) => ({ ok: false as const, error: mensaje(e) })),
   ])
   if (vista) avisos.push(...vista.avisos.map((a) => `lo cobrado: ${a}`))
   const libro: EstadoLibro = !recibos.ok ? { estado: 'error', error: recibos.error } : recibos.faltaLaMigracion ? { estado: 'falta-migracion' } : { estado: 'listo' }
@@ -116,7 +122,7 @@ export async function vistaSuscripciones(): Promise<VistaSuscripciones> {
   const hoy = await hoyDeLaPlataforma(plataforma)
   const [subs, cobros, wss] = await Promise.all([
     suscripcionesDeLaPlataforma(plataforma, hoy),
-    cobrosDeMakoAction().catch((e) => ({ ok: false as const, error: mensaje(e) })),
+    leerCobros().catch((e) => ({ ok: false as const, error: mensaje(e) })),
     listarWorkspaces().catch((e) => { avisos.push(`los nombres de los negocios: ${mensaje(e)}`); return [] }),
   ])
   avisos.push(...subs.avisos)
@@ -162,7 +168,7 @@ export type VistaCheckouts = {
 }
 
 export async function vistaCheckouts(): Promise<VistaCheckouts> {
-  const cobros = await cobrosDeMakoAction().catch((e) => ({ ok: false as const, error: mensaje(e) }))
+  const cobros = await leerCobros().catch((e) => ({ ok: false as const, error: mensaje(e) }))
   if (!cobros.ok) return { checkouts: [], avisos: [`los cobros de la pasarela: ${cobros.error}`], truncado: false, linksDeVenta: [] }
   const filas = cobros.cobros.map(cobroDeMako)
   return {

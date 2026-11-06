@@ -259,3 +259,49 @@ test('10 · el próximo cobro de una suscripción a mano sale de su historia: el
   const dos = calcularIngresos(conCrm, quienes, hoy, 12, new Map([[sub, p1], ['lead:900:31', p1]]));
   assert.equal(dos.porCobrar.length, 1, 'una sola vez');
 });
+
+// =============================================================================
+// 11 · El estado y el próximo pago de CADA CLIENTE salen de la misma historia que lo que viene (6/11/2026, Admin › Customers)
+// =============================================================================
+// El test 10 arregló `porCobrar`; el renglón de cada cliente (`clientes[].proximo`, `estado`, `diasAtraso`: lo que leen At Risk y la
+// ficha) seguía con el último pago más un mes. El mismo cliente decía «vence el 4/12» (y el 4/12 «Atrasado») en su renglón y «el
+// 5/12» en lo que viene. Ahora `clientesDe` recibe las mismas historias (`proximoDelCliente`).
+// Probado rompiéndolo el 6/11/2026 (base, con el 11 puesto: 10/0). Cada rotura, sola:
+//   · `calcularIngresos` no le pasa `proximos` a `clientesDe` (la regla de antes)                → 9/1 (11)
+//   · `proximoDelCliente` sin el `sinCobro`, y cae al último cobro más un mes (la cortada espera) → 9/1 (11)
+//   · `proximoDelCliente` toma `siguiente` antes que `atrasado` (lo atrasado se esconde)        → 9/1 (11)
+//   · `clientesDe` con un `vence == null` que cae a «atrasado» (en vez de «al día»)               → 9/1 (11)
+test('11 · el próximo pago y el estado de cada cliente salen de la historia: el 5/12, no el 4/12, y sin «atrasado» de mentira', () => {
+  const movimientos: MovimientoSuscripcion[] = [
+    { tipo: 'monto', desde: '2026-08-05', montoUsd: 146 },
+    { tipo: 'monto', desde: '2026-11-01', montoUsd: 238 },
+    { tipo: 'monto', desde: '2026-12-01', montoUsd: 426 },
+  ];
+  let id = 700;
+  const mensualidad = (fecha: string, usd: number): PagoDeSuscripcion =>
+    ({ id: ++id, monto_usd: usd, pagado: true, fecha_esperada: null, fecha_pago: fecha, es_mensualidad: true, nacio_cobrada: true });
+  const pagosLead = [mensualidad('2026-08-05', 146), mensualidad('2026-09-05', 146), mensualidad('2026-10-06', 146), mensualidad('2026-11-04', 94), mensualidad('2026-11-05', 144)];
+  const sub = 'lead:910:casa';
+  const pagos: PagoIngreso[] = pagosLead.map((q) => ({ id: `p:${q.id}`, cliente: 'ws:78', suscripcion: sub, fecha: q.fecha_pago as string, usd: Number(q.monto_usd), medio: 'transferencia', concepto: null }));
+  const quienes = new Map<string, ClienteIngreso>([['ws:78', { clave: 'ws:78', nombre: 'Estudio Norte', ws: 78, leadId: 910 }]]);
+  const conHistoria = (hoy: string, extra: MovimientoSuscripcion[] = []) =>
+    new Map([[sub, proximoDeHistoria(historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos: [...movimientos, ...extra], pagos: pagosLead, hoy }), hoy)]]);
+  const cliente = (hoy: string, proximos?: ReturnType<typeof conHistoria>) => calcularIngresos(pagos, quienes, hoy, 12, proximos).clientes.find((c) => c.clave === 'ws:78')!;
+
+  // El 4/12: el último cobro (4/11) más un mes dice «vence hoy, atrasado»; la ficha dice que vence el 5.
+  const viejo = cliente('2026-12-04');
+  assert.deepEqual([viejo.proximo, viejo.estado, viejo.diasAtraso], ['2026-12-04', 'atrasado', 0], 'sin la historia, la regla de antes');
+  const nuevo = cliente('2026-12-04', conHistoria('2026-12-04'));
+  assert.deepEqual([nuevo.proximo, nuevo.estado, nuevo.diasAtraso], ['2026-12-05', 'por-vencer', null], 'con la historia: el 5/12, por vencer');
+  assert.equal(nuevo.mrr, viejo.mrr, 'el MRR no cambia (viva lo dicen los tramos)');
+  const r = calcularIngresos(pagos, quienes, '2026-12-04', 12, conHistoria('2026-12-04'));
+  assert.equal(r.porCobrar[0].fecha, nuevo.proximo, 'el renglón del cliente y lo que viene dicen la MISMA fecha');
+
+  // El 10/12 sin pagar diciembre: atrasado desde el 5 (5 días), no desde el 4 (6 días).
+  const tarde = cliente('2026-12-10', conHistoria('2026-12-10'));
+  assert.deepEqual([tarde.proximo, tarde.estado, tarde.diasAtraso], ['2026-12-05', 'atrasado', 5]);
+
+  // Cortada desde diciembre (el tramo sigue vivo en su gracia): no se espera nada, y no está atrasada.
+  const cortada = cliente('2026-12-10', conHistoria('2026-12-10', [{ tipo: 'corte', desde: '2026-12-01' }]));
+  assert.deepEqual([cortada.proximo, cortada.estado, cortada.diasAtraso], [null, 'al-dia', null], 'cortada: ningún pago esperado');
+});

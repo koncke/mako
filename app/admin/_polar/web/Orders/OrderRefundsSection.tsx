@@ -32,7 +32,9 @@ export const OrderRefundsSection = ({
 }) => {
   const router = useRouter()
   const modal = useModal()
-  const [cortar, setCortar] = useState(false)
+  // La casilla ARRANCA marcada en una suscripción viva: devolver el pago de una suscripción NO la corta (AGENTS.md), y sin cortarla
+  // la pasarela le sigue cobrando todos los meses. Quien la quiere seguir cobrando la destilda.
+  const [cortar, setCortar] = useState(!!cobro?.suscripcionViva)
   const [error, setError] = useState<string | null>(null)
   const [hecho, setHecho] = useState<string | null>(null)
 

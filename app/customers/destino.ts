@@ -11,5 +11,5 @@ import { destinoDeTabViejo } from '@/app/admin/_polar/datos/resumen';
 type Param = string | string[] | undefined;
 
 export function destinoDeCustomers(sp: { tab?: Param; cuenta?: Param; cliente?: Param }): string {
-  return destinoDeTabViejo({ ...sp, tab: sp.tab ?? 'customers' }) ?? destinoDeTabViejo({ ...sp, tab: 'customers' }) ?? '/admin/customers';
+  return destinoDeTabViejo(sp) ?? destinoDeTabViejo({ ...sp, tab: 'customers' }) ?? '/admin/customers';
 }

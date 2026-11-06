@@ -369,7 +369,8 @@ export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo
       if (vence == null) c.estado = 'al-dia';
       else {
         const dias = diasEntre(hoy, vence);
-        if (dias <= 0) { c.estado = 'atrasado'; c.diasAtraso = -dias; }
+        // `Math.abs` y no `-dias`: el que vence hoy tiene 0 días de atraso, no −0.
+        if (dias <= 0) { c.estado = 'atrasado'; c.diasAtraso = Math.abs(dias); }
         else c.estado = dias <= AVISO_PROXIMO_DIAS ? 'por-vencer' : 'al-dia';
       }
     } else if (suyos.length) c.estado = 'cortado';

@@ -30,6 +30,7 @@
 // =============================================================================
 
 import 'server-only';
+import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -93,7 +94,21 @@ export type VistaIngresos = Ingresos & {
   avisos: string[];
 };
 
+/**
+ * ⚠️ UNA LECTURA POR PEDIDO (6/11/2026): en una misma página de Admin la piden varios (Customers lee la lista de negocios,
+ * que la lee adentro —lib/clientes-plataforma.ts—, y después sus propias cuentas; la ficha de un negocio, Sales y lo que paga).
+ * `cache` de React la lee una vez por pedido del server; fuera de un render (una ruta, un cron, un test) no guarda nada.
+ * La clave es el MINUTO de `ahora`: `ahora` sólo dice qué día es en la zona de la plataforma, y redondear al minuto no cambia el
+ * día. Quien llama con su propio `new Date()` un instante después comparte la misma lectura.
+ */
+const MINUTO_MS = 60_000;
+const vistaDelMinuto = cache((minuto: number): Promise<VistaIngresos> => calcularVistaDeIngresos(new Date(minuto * MINUTO_MS)));
+
 export async function vistaDeIngresos(ahora: Date = new Date()): Promise<VistaIngresos> {
+  return vistaDelMinuto(Math.floor(ahora.getTime() / MINUTO_MS));
+}
+
+async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
   const plataforma = await wsSuperAdmin();
   const avisos: string[] = [];
   const db = getSupabaseServer();
@@ -203,7 +218,10 @@ async function porTandas<T>(ids: readonly number[], leer: (tanda: number[]) => P
   return out;
 }
 
-export async function suscripcionesDeLaPlataforma(plataforma: number, hoy: string): Promise<{ lista: SuscripcionDeLaPlataforma[]; avisos: string[] }> {
+/** Una lectura por pedido (`cache`): la piden `vistaDeIngresos` y Admin › Sales › Subscriptions con la misma plataforma y el mismo día. */
+export const suscripcionesDeLaPlataforma = cache(leerSuscripcionesDeLaPlataforma);
+
+async function leerSuscripcionesDeLaPlataforma(plataforma: number, hoy: string): Promise<{ lista: SuscripcionDeLaPlataforma[]; avisos: string[] }> {
   const avisos: string[] = [];
   const db = getSupabaseServer();
   let leads: FilaLeadSuscripcion[];
