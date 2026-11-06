@@ -1872,12 +1872,9 @@ proyecto por página. El código es ahora uno solo para todas las páginas del n
 
 ### Lo que sigue pendiente sobre videos
 
-- **`curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan un `videoId` desde hace
-  meses y nadie se lo pasa.** La capacidad de filtrar por video está implementada y sin usar; lo
-  que hoy se muestra en la ficha es el máximo por video, no la curva. Y ojo con la condición de
-  `lib/vsl-retencion.ts:115` y `:212`: `if (videoId && ev.video_id && ev.video_id !== videoId)`
-  exige que `ev.video_id` sea truthy, así que **un evento sin `video_id` no se descarta nunca y
-  entra en la curva de CUALQUIER video**. Es el mismo error que `durDe`, en otro archivo.
+- ~~**`curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan un `videoId` y nadie se
+  lo pasa**~~ — cerrado el 6/11/2026 BORRANDO el parámetro, no cableándolo. Ver «La curva por
+  video ya estaba hecha por otro camino», abajo.
 - **`TrackingTimelineCard` deduplica rachas de retención sin mirar `video_id`**
   (`app/crm/lead-view/TrackingTimelineCard.tsx:46-52`), así que mezcla rachas de videos
   distintos en una sola.
@@ -4885,3 +4882,61 @@ la grilla. La tarjeta de Instagram lleva a la agenda (#beta): no hay página de 
 
 - **No visto sobre una landing publicada ni en producción:** el banco es la franja sobre una página de prueba. Si un diseño publicado trae su propio menú `fixed` arriba, hay que mirar quién tapa a quién (`z-index: 60`).
 - **En `/planes` no hay cartel:** sale sólo en `app/vsl/Landing.tsx`.
+
+## La curva por video ya estaba hecha por otro camino, y el parámetro que la pedía filtraba mal (6/11/2026)
+
+`lib/vsl-retencion.ts` · `lib/graficos-datos-extra.ts` (`videosDelPeriodo`) ·
+`lib/graficos-plantillas-analysts.ts` (VSL Analyst) · `tests/vsl-retencion.test.ts`
+
+### ⚠️ El diagnóstico obvio era el equivocado: el pendiente pedía cablear algo que ya sobraba
+
+El pendiente decía, desde el 16/08/2026, «`curvaRetencion` acepta `videoId` y nadie se lo pasa», y
+estaba escrito en TRES lugares (dos bitácoras de `/admin/dev` y acá). La lectura natural es
+«falta pasárselo». Medido el 6/11: **la curva por video se ve en la app desde el Dashboard v5**,
+por un camino que no usa ese parámetro —`videosDelPeriodo` agrupa el resumen SQL de la migración
+0261 por `video_id` y el VSL Analyst dibuja el selector de video, la curva «Dónde se van» y la
+tabla «Por video»—. Cablear el parámetro no habría agregado nada: habría agregado un SEGUNDO
+camino para la misma pregunta.
+
+**Y el parámetro no era sólo inútil: era incorrecto.** Su condición era
+`if (videoId && ev.video_id && ev.video_id !== videoId) continue`, con el `ev.video_id &&` que
+exige que el evento diga de qué video es. Un evento sin `video_id` no se descartaba nunca, así
+que entraba en la curva de **cualquier** video y su avance se contaba una vez por video. Medido
+en el test: con un evento al 100% sin `video_id`, los dos videos pasaban de 1 a 2 personas que
+arrancaron. Pasárselo habría dado curvas creíbles y mezcladas, que es el peor resultado posible.
+
+**Lo que decidió el borrado y no el arreglo:** el camino vivo (`videosDelPeriodo`) y el test de
+paridad del resumen (`tests/vsl-retencion-resumen.test.ts`, `deSiempre()`) ya **agrupan afuera**
+y le dan a los eventos sin `video_id` su propio grupo. Esa es la arquitectura elegida, y arreglar
+la condición habría dejado dos formas de hacer lo mismo con una peor. Un parámetro que nadie usa
+y que además filtra mal no es «una capacidad por si acaso»: es una trampa con tests verdes.
+
+### La regla que queda
+
+- **Antes de cablear una capacidad que «existe y nadie usa», preguntá si la pregunta ya se
+  contesta por otro lado.** Un pendiente que nombra una función nombra una IMPLEMENTACIÓN, no una
+  necesidad; y la necesidad puede estar cubierta por una pieza que el pendiente no menciona
+  porque nació después. Acá el pendiente es de agosto y el camino que lo resolvió es del v5 (31/10).
+- **Un pendiente que vive en tres lugares se cierra en los tres, en el mismo commit.** Este
+  sobrevivió a su propia solución porque cada barrido volvía a leer «sigue vivo» en una bitácora
+  de `/admin/dev` (el `Parte` con `estado: 'sigue'` y dos renglones de `archivos[]`), y una
+  bitácora no se recalcula sola.
+- **Un parámetro opcional que ningún llamador pasa no está probado por los tests que lo usan:**
+  los únicos que lo ejercitaban eran los tests, y ninguno pasó nunca un evento sin `video_id` —
+  el caso que lo rompía. Un test escrito contra la firma, y no contra los datos que llegan, da
+  verde sobre el agujero.
+
+### Lo que quedó SIN hacer
+
+- **`TrackingTimelineCard` sigue deduplicando rachas sin mirar `video_id`**
+  (`app/crm/lead-view/TrackingTimelineCard.tsx:46-52`): mezcla rachas de videos distintos en una
+  sola. Es el mismo error de atribución, en la ficha del lead, y no lo toca este cambio.
+- **El `%` exacto del `exit` sigue sin consumirse.** `videosDelPeriodo` lo devuelve por persona
+  (`personas: Map<…, { avance, salida }>`, `lib/graficos-datos-extra.ts`) y ningún gráfico lo
+  lee: el histograma de abandono no está en ninguna hoja. `histogramaAbandono` e
+  `histogramaDesdeSalidas` existen y sólo los llaman los tests — la misma forma del hallazgo de
+  arriba, así que antes de cablearlo hay que preguntar qué pantalla lo pide.
+- **El `video_id` puede ser `iframe0`/`iframe1` POR POSICIÓN** cuando el player no se identifica
+  (`lib/landing-token.ts`): reordenar la página cambia de qué video es cada curva, y ahora que el
+  grupo se arma por esa clave, el síntoma es una curva que cambia de dueño sin que nadie toque el
+  tracking.

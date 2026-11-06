@@ -52,6 +52,7 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   guardarPlan: { trasGuardar: ResPlan; titulo: string; trasCien: ResPlan };
   moverPlan: { reabierta: ResPlan; inventado: Rechazo; recurrente: Rechazo };
   recurvar: { r: { total: number; sinPriorizar: number }; libre1: number; libre2: number; nocumple: number };
+  filtroDelPlan: { creadas: number; todas: string[]; soloDelPlan: string[]; deLaRetro: string[] };
 };
 
 test('el retroceso, cliente: editar una tarjeta movida a mano NO la devuelve de columna', () => {
@@ -209,6 +210,68 @@ test('una pestaña VIEJA del dueño no reabre lo que se completó en otro lado (
   assert.match(ub, /repo\.saveTask\(t, \{ progresoGuardado: avanceGuardado\.current!\.get\(t\.id\) \}\)/);
   assert.match(leerFuente('app', 'plan', 'board', 'repo-plan.ts'), /action: 'guardar-tarea', tarea: d, progresoGuardado: o\?\.progresoGuardado/);
   assert.match(leerFuente('app', 'api', 'plan-board', 'route.ts'), /guardarPlanTarea\(t, \{ progresoGuardado \}\)/);
+});
+
+// ── El tablero del cliente no es toda la tabla (#507, 6/11/2026) ─────────────
+
+/** Las líneas de CÓDIGO: un comentario que nombra `listTareas()` no es una lectura del tablero. */
+const soloCodigo = (src: string): string[] => src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
+
+test('el tablero del cliente muestra SÓLO sus tareas del Plan, no las de la Retro ni las de un experimento', () => {
+  const F = R.filtroDelPlan;
+  assert.equal(F.creadas, 6);
+  assert.equal(F.todas.length, 6, 'sin la opción, `listTareas` sigue trayendo la tabla entera (hay lectores que la necesitan)');
+  assert.deepEqual(F.soloDelPlan, ['a mano', 'del plan'], 'el tablero del cliente: sólo lo del Plan');
+  // Las cuatro que se van, y las DOS que el `origen` no delata (nacieron de una Retro o de un
+  // experimento por su columna): una sola de las cuatro marcas alcanza para dejarla afuera.
+  for (const fuera of ['la propuso la Retro', 'paso de un experimento', 'de una Retro, con origen mako', 'de un experimento, a mano']) {
+    assert.ok(F.todas.includes(fuera), `${fuera} tendría que estar en la tabla`);
+    assert.ok(!F.soloDelPlan.includes(fuera), `${fuera} no es del Plan del cliente: no va a su tablero`);
+  }
+  // Y el filtro no se las esconde a quien las necesita: la Retro las sigue leyendo por su camino.
+  assert.deepEqual(F.deLaRetro, ['de una Retro, con origen mako']);
+});
+
+test('CABLEADO: cada lugar que PRESENTA el tablero del cliente pide `soloDelPlan` (y los demás no)', () => {
+  // La SPEC del kanban lo pedía y ninguna tanda lo hizo (docs/hallazgos-plan.md). Si una de estas
+  // puertas se olvida, las tareas de la Retro vuelven por ahí — el GET es el caso típico: el primer
+  // refresco del tablero las repintaba.
+  const PRESENTAN: Array<[string[], number]> = [
+    [['app', 'plan', 'page.tsx'], 3],                          // /plan, el tablero del cliente
+    [['app', 'api', 'todo', 'route.ts'], 1],                   // su GET (el refresco del mismo tablero)
+    [['lib', 'plan-hoy.ts'], 1],                               // «Hoy» / «Semana» / Today
+    [['lib', 'vista-general.ts'], 1],                           // el escalón «Plan» del foco de /general
+    [['lib', 'api-mako', 'areas', 'plan.helpers.ts'], 1],       // el tablero que devuelve la API de MaKo
+    [['lib', 'mako-tools.ts'], 1],                              // `ver_plan` del doer
+    [['app', 'api', 'agente', 'plan', 'route.ts'], 1],          // el tablero del agente
+  ];
+  for (const [ruta, cuantas] of PRESENTAN) {
+    const src = leerFuente(...ruta);
+    const llamadas = soloCodigo(src).filter((l) => /\blistTareas(ConTope)?\(/.test(l));
+    assert.equal(llamadas.length, cuantas, `${ruta.join('/')}: cambió la cantidad de lecturas del tablero`);
+    for (const l of llamadas) assert.match(l, /listTareas(ConTope)?\(\{ soloDelPlan: true \}\)/, `${ruta.join('/')}: una lectura del tablero sin filtrar`);
+  }
+  // Y el aviso de «se cortó en 1000 filas» se mide con las LEÍDAS, no con las que quedaron: si no, el
+  // filtro le saca el aviso a una lectura cortada (el límite que corta en silencio, otra vez).
+  for (const ruta of [['lib', 'plan-hoy.ts'], ['lib', 'api-mako', 'areas', 'plan.helpers.ts']]) {
+    assert.match(leerFuente(...ruta), /recortado: leidas >= TOPE_FILAS/, `${ruta.join('/')}: mide el tope con la lista ya filtrada`);
+  }
+  // Y los que necesitan la tabla ENTERA siguen sin filtro: el cierre por señales (si no, una tarea
+  // de la Retro no se cierra nunca), buscar una por id para editarla o cerrarla, y la deduplicación
+  // de lo que se propone (deduplicar contra media tabla propone un duplicado).
+  const ENTERA = [
+    ['app', 'api', 'cron', 'tareas-verificar', 'route.ts'],
+    ['lib', 'plan-cerrar.ts'],
+    ['lib', 'plan-propuesta.ts'],
+    ['lib', 'reunion-cruce.ts'],
+    ['lib', 'retro-pipeline.ts'],
+  ];
+  for (const ruta of ENTERA) {
+    const src = leerFuente(...ruta);
+    for (const l of soloCodigo(src).filter((x) => /\blistTareas(ConTope)?\(/.test(x))) {
+      assert.doesNotMatch(l, /soloDelPlan/, `${ruta.join('/')}: este lector necesita la tabla entera`);
+    }
+  }
 });
 
 // ROTURAS DE LA REVISIÓN ADVERSARIAL (16/10/2026), base en verde (12 de 12), cada una restaurada.

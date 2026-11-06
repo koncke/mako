@@ -43,7 +43,7 @@ import { hayGrabadorConectado } from '@/lib/grabadores';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
-import { getSettingEstricto, cambiarSettingSi } from '@/lib/settings';
+import { getSettingEstricto, cambiarSettingSi, borrarSettingSi } from '@/lib/settings';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
@@ -59,7 +59,7 @@ import { conversacionesSocialesNuevas, salientesSocialesDesde } from '@/lib/cana
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import {
   sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
-  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable,
+  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable, claveHaciendo, haciendoseAhora,
   type AutomatizacionSug, type EntradaSugerencias, type LeadSug, type Sugerencia,
 } from '@/lib/sugerencias-crm';
 
@@ -491,20 +491,39 @@ export async function volverAMostrar(ws: number, crmPedido: number | null, suger
 
 export type Hecha = { ok: true; secuenciaId: number; nombre: string; aviso: string | null; href: string };
 
-/** Lo que está creándose ahora en ESTE proceso: un doble clic no crea dos. */
+/** Lo que está creándose ahora en ESTE proceso: el primer filtro, y es GRATIS. El que decide es la base. */
 const EN_CURSO = new Set<string>();
+
+/** Lo mismo que contesta el candado del proceso y el de la base: un clic repetido no es un error nuevo. */
+const YA_SE_ESTA: FalloSugerencia = { ok: false, error: 'Ya se está creando.', status: 409 };
 
 /**
  * «Hacerlo» de una sugerencia de plantilla: la crea PAUSADA por la puerta de la galería, la calla
  * `hechaDias` (lo que tarda en vencer la caché de todas las instancias) y devuelve dónde abrirla. El rol
  * lo mira quien llama (crear automatizaciones es del admin).
+ *
+ * ⚠️ EL CANDADO LO DECIDE LA BASE, Y SE RECLAMA ANTES DE CALCULAR (6/11/2026, #514). El `Set` de arriba
+ * es por PROCESO: dos pestañas atendidas por dos instancias serverless lo pasaban las dos y la acción se
+ * hacía DOS veces. El candado de verdad es una fila de `app_settings` tomada con compare-and-set
+ * (`claveHaciendo` + `cambiarSettingSi`, lib/sugerencias-crm.ts y lib/settings.ts): de dos requests gana
+ * UNO. Va antes de `calcular` porque calcular tarda (es la carga del tablero otra vez) y es justo ahí
+ * donde las dos pestañas se cruzaban.
+ *
+ * Se lee ESTRICTO (`getSettingEstricto`): «no pude leer» no es «no lo tiene nadie» — tratarlo así es
+ * exactamente cómo se crean las dos. Y se suelta SIEMPRE (`finally`) y SÓLO si sigue siendo el mío
+ * (`borrarSettingSi` compara el valor): si venció y otro lo tomó, borrarlo sería soltarle el de él.
  */
 export async function hacerSugerencia(ws: number, crmPedido: number | null, sugerenciaId: string): Promise<Hecha | FalloSugerencia> {
   return runWithWorkspace(ws, async () => {
     const crm = await crmDeLaPantalla(crmPedido);
     if (!crm) return { ok: false, error: 'No encuentro ese CRM.', status: 404 };
     const llave = `${ws}:${crm.id}:${sugerenciaId}`;
-    if (EN_CURSO.has(llave)) return { ok: false, error: 'Ya se está creando.', status: 409 };
+    if (EN_CURSO.has(llave)) return YA_SE_ESTA;
+    const candado = claveHaciendo(crm.id, sugerenciaId);
+    const previo = await getSettingEstricto(candado);
+    if (haciendoseAhora(previo, Date.now())) return YA_SE_ESTA;
+    const reclamo = new Date().toISOString();
+    if (!(await cambiarSettingSi(candado, previo, reclamo))) return YA_SE_ESTA;
     EN_CURSO.add(llave);
     try {
       // La cuenta FRESCA decide (ver la cabecera): lo que ya existe no se sugiere y no se crea.
@@ -532,6 +551,8 @@ export async function hacerSugerencia(ws: number, crmPedido: number | null, suge
       }
     } finally {
       EN_CURSO.delete(llave);
+      // Si no se puede borrar, el candado vence solo (`CANDADO_HACERLO_MS`): peor sería dejarlo puesto.
+      await borrarSettingSi(candado, reclamo).catch(avisar('soltar el candado de «Hacerlo»'));
     }
   });
 }
