@@ -64,6 +64,9 @@ import { datosAnuncioMuestra } from '@/lib/anuncio-diseno-muestra';
 import { HojaHooks } from './HojaHooks';
 import { vistaHooks } from '@/lib/hooks-diseno';
 import { datosHooksMuestra } from '@/lib/hooks-diseno-muestra';
+import { HojaVsl } from './HojaVsl';
+import { vistaVsl } from '@/lib/vsl-diseno';
+import { datosVslMuestra } from '@/lib/vsl-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -525,6 +528,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de «Hooks y retención», igual: el MISMO vistaHooks que la hoja de verdad, con los datos de la adaptación (hooks-ondra/captura/mako-1200.png).
   hooks: ({ hoja, hoy }) => (
     <HojaHooks hoja={hoja} vista={vistaHooks(hoja, datosHooksMuestra(hoja, hoy))} titulo="Hooks y retención" hoy={hoy} periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+  ),
+  // La de «VSL y YouTube», igual: el MISMO vistaVsl que la hoja de verdad, con los datos de la adaptación (vsl-pelago/captura/mako-1200.png).
+  vsl: ({ hoja, hoy }) => (
+    <HojaVsl hoja={hoja} vista={vistaVsl(hoja, datosVslMuestra(hoja, hoy))} titulo="VSL y YouTube" hoy={hoy} periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 
