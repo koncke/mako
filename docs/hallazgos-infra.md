@@ -243,6 +243,24 @@ lo que carga el tsc, o un runner de 16 GB (plata: lo decide Martín).
   proyecto lento igual termina en ~8 s. Lo que prueba el corte es que el tsc no llegó a imprimir sus diagnósticos.
 - Un test que se cuelga y cae por su `timeout` sale «cancelled», no «fail». Al probar una rotura, se mira el EXIT del archivo.
 
+## Verde en Actions y producción vieja: la punta la firmó `noreply@anthropic.com` y Vercel no la despliega (6/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Lo que cambió la punta», la guarda del autor) · `tests/punta-ci.test.ts`.
+
+**Síntoma:** el peor de todos, porque no se ve. La punta da **verde**, `main` **avanza**, y a producción **no llega nada**. Pasó
+con la mezcla de `punta/spy-busqueda` (`9202c22d2`).
+
+**La causa:** la nube firma los commits con `noreply@anthropic.com` por default, y **Vercel bloquea el despliegue de un autor que
+no es del equipo** (build-deploy, 17/08). `punta.yml` ya frenaba a `github-actions[bot]` por exactamente ese motivo, con el
+comentario escrito al lado, y **no frenaba este correo**: la guarda existía y le faltaba un caso.
+
+**La regla que queda: una guarda contra «un autor que Vercel no despliega» tiene que enumerar los autores que de verdad
+aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bot de Actions y la nube.
+
+⚠️ **Y `@users.noreply.github.com` NO se frena, a propósito.** Es el correo privado de una **persona** que tiene el mail oculto en
+GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
+para que nadie lo "arregle" de más.
+
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
 **Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
