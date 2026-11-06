@@ -24,6 +24,7 @@ import { kitParaUsar } from '@/lib/marca/kits-server';
 import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
 import { documentoDePlantilla } from './mako/plantillas';
 import { plantillaNueva } from './plantillas-crear';
+import { plantillaImagen } from '@/lib/image-editor/plantillas-reales';
 
 type Resultado = { ok: true; id: string } | { ok: false; error: string };
 
@@ -34,9 +35,13 @@ export async function crearDisenoNuevoAction(id: string): Promise<Resultado> {
   const pl = plantillaNueva(id);
   if (!pl) return { ok: false, error: 'Esa plantilla no existe.' };
   const tipo = pl.carrusel ? tipoCarrusel(pl.carrusel) : null;
+  // Una plantilla real nace con su ESTRUCTURA (6/11/2026): el ejemplo lleno se ve aparte, en «Ver ejemplo».
+  const real = pl.real ? plantillaImagen(pl.real) : null;
   // Con la marca del negocio (5/11/2026): el kit de por defecto pone colores, fuentes y logo (lib/carruseles/marca-kit.ts).
   const kit = tipo ? await kitParaUsar().catch(() => null) : null;
-  const doc = tipo
+  const doc = real
+    ? real.estructura(randomUUID)
+    : tipo
     ? documentoDeCarrusel({ laminas: tipo.estructura(tipo.laminas.def), estilo: estiloConKit(tipo.estilo, kit, fuenteDelEditorDeImagen), marca: await marcaDelNegocio(p.ws, kit), nuevoId: randomUUID })
     : pl.plantilla
       ? await documentoDePlantilla(pl.plantilla)
