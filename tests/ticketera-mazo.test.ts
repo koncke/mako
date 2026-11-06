@@ -57,6 +57,7 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { FilaTicket } from '../lib/tickets-db';
+import { fotoDePersonaSegura } from '../lib/foto-perfil';
 import { accionesDe, errorCorto, errorFrecuente, estadoDeLaNota, estadoObvio, gestoMarcado, leerTicket, lectorDeBandeja, linkDeOrigen, nombreDe, ordenDelMazo, ordenarTabla, origenDe, primerNombre, quePaso, refrescarMazo, siguienteOrden, teclaDelMazo, textoDeLaPersona, veredictoGesto, versionesDe, EMAIL_DEL_SISTEMA, ERROR_GENERICO, MARCA_PX, ORDEN_INICIAL, VENTANA_DESHACER_MS, queDecide, dondeDelChat } from '../app/tickets/bandeja/mazo-reglas';
 import { DetalleDeLaTarjeta, TarjetaTicket } from '../app/tickets/bandeja/TarjetaTicket';
 import { TablaTickets } from '../app/tickets/bandeja/TablaTickets';
@@ -456,8 +457,21 @@ test('G5: la foto y la última nota salen de la base, en la lectura de Martín (
   assert.match(db, /export async function bandeja\([\s\S]*?\.select\(COLS_MARTIN\)/);
   assert.match(db, /export async function ticketEntero\([\s\S]*?\.select\(COLS_MARTIN\)/);
   assert.doesNotMatch(db.slice(db.indexOf('export async function misTickets('), db.indexOf('export async function comentarComoCliente(')), /usuarios\(foto_url\)/);
-  // Sólo https: una foto que no lo es no se dibuja.
-  assert.match(db, /\/\^https:\\\/\\\/\/i\.test\(us\.foto_url\)/);
+  // ⚠️ ACÁ SE MIDE LA INTENCIÓN Y NO LA FORMA, y el cambio tiene fecha (6/11/2026).
+  //
+  // Hasta hoy este caso pedía el texto LITERAL `/^https:\/\//i.test(us.foto_url)`, con el rótulo «sólo https». Pero eso
+  // no era «sólo https»: era «CUALQUIER https», que es justo el agujero —un cliente ponía de foto una URL de un servidor
+  // suyo y su log le decía cuándo Martín abría la bandeja, desde qué IP y con qué navegador. Al cerrarlo con
+  // `fotoDePersonaSegura`, esta guarda puso la punta ROJA: fijaba la implementación VIEJA, así que dejaba pasar el bug y
+  // frenaba el arreglo. Una guarda que busca el texto del código de antes en vez de la falla hace las dos cosas.
+  //
+  // Ahora son tres cosas, y la del medio es la que vale: que la foto PASE por el filtro, que el filtro HAGA su trabajo
+  // (se ejecuta, no se lee) y que el `https` suelto no vuelva. Los casos del filtro, en tests/foto-persona-origen.test.ts.
+  assert.match(db, /const foto = us && typeof us\.foto_url === 'string' \? fotoDePersonaSegura\(us\.foto_url\) : null;/);
+  const STORAGE = 'proyecto.supabase.co';
+  assert.equal(fotoDePersonaSegura('https://servidor-suyo.com/pixel.gif', { storage: STORAGE }), null, 'la foto de un servidor del cliente no se dibuja');
+  assert.equal(fotoDePersonaSegura('https://lh3.googleusercontent.com/a/x', { storage: STORAGE }), 'https://lh3.googleusercontent.com/a/x', 'la del login con Google sí');
+  assert.doesNotMatch(db, /https[^\n]*\.test\(us\.foto_url\)/, 'que sea https no alcanza: el origen tiene que ser nuestro');
 });
 
 // ── H: lo que DICE la tarjeta, por reglas (22/10/2026, tarde) ─────────────────────────────────────────────────────
