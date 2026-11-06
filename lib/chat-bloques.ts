@@ -50,7 +50,8 @@ export type BloqueCreado = {
   titulo: string;
   /** «Nuevo», «Copia», «Actualizado»: corto, en una píldora. */
   estado?: string;
-  /** Una ruta de la app (`/cv/plantillas/x.webp`) o la miniatura pública que guardó el editor (Supabase Storage). */
+  /** La miniatura pública que guardó el editor (Supabase Storage), o una ruta de la app. Desde el 6/11/2026 ninguna
+   *  plantilla trae una: las 10 de Doory, que eran las únicas con un WebP, se borraron. Sin esto, va el marco. */
   miniatura?: string;
   ancho?: number;
   alto?: number;

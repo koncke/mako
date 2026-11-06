@@ -126,7 +126,10 @@ test('5: la API crea la estructura de una real y lista las reales con los textos
   assert.match(run, /reales: PLANTILLAS_IMAGEN\.map\(/);
   assert.match(run, /ejemplo: \{ negocio: `\$\{p\.negocio\} \(ficticio\)`, textos: textosDe\(p\.ejemplo\(randomUUID\)\) \}/);
   const def = leer('lib/api-mako/areas/imagen.def.ts');
-  assert.match(def, /el id o el slug/, 'el modelo sabe que `plantilla` acepta el id de una real');
+  // Desde el 6/11/2026 `plantilla` acepta SÓLO el id de una real: las 10 de Doory, que entraban por su slug, se
+  // borraron. Antes decía «el id o el slug».
+  assert.match(def, /El id de una plantilla de MaKo/, 'el modelo sabe que `plantilla` acepta el id de una real');
+  assert.doesNotMatch(def, /diseño libre|el slug/, 'volvió a ofrecer las plantillas de Doory, que ya no existen');
 });
 
 // PROBADO ROMPIÉNDOLO (6/11/2026, base 5/0; de a una y restaurando):

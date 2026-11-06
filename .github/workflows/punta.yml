@@ -155,6 +155,18 @@ jobs:
           git config merge.bitacora.driver "node $driver %O %A %B %P"
           echo 'app/admin/dev/*/bitacora.ts merge=bitacora' >> "$attrs"
 
+          # ── Y EL ÍNDICE DE HALLAZGOS SE UNE POR CELDA (6/11/2026; scripts/unir-indice-hallazgos.mjs) ───────────
+          # `docs/hallazgos*.md merge=union` también agarraba el ÍNDICE, que es una tabla con una fila por área que cada
+          # cosecha REESCRIBE: union dejaba las dos filas. 130 filas de más en main el 6/11. Mismo patrón que arriba.
+          indice="$RUNNER_TEMP/unir-indice-hallazgos.mjs"
+          if git show origin/main:scripts/unir-indice-hallazgos.mjs > "$indice" 2>/dev/null || cp scripts/unir-indice-hallazgos.mjs "$indice" 2>/dev/null; then
+            git config merge.indice-hallazgos.name "el índice de hallazgos: una fila por área, las dos entradas"
+            git config merge.indice-hallazgos.driver "node $indice %O %A %B %P"
+            echo 'docs/hallazgos.md merge=indice-hallazgos' >> "$attrs"
+          else
+            echo "::warning::Sin scripts/unir-indice-hallazgos.mjs: un choque en el índice de hallazgos queda como choque."
+          fi
+
       # ── MEZCLAR EL MAIN DE ESTE MOMENTO ──────────────────────────────────────────────────────
       # Lo que se chequea es lo que va a quedar en main, no la punta como salió de su chat.
       #

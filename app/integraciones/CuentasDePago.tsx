@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CtaPasarAPro } from '../_components/CtaPasarAPro';
 import { TOPE_ALIAS, type ProveedorAgendaConCuentas, type ProveedorConCuentas } from '@/lib/cuentas-integracion';
 
 type Proveedor = ProveedorConCuentas | ProveedorAgendaConCuentas;
@@ -177,7 +178,8 @@ export default function CuentasDePago({ proveedor, onCambio }: {
       {msg && (
         <div style={{ fontSize: 12.5, color: msg.ok ? 'var(--good)' : 'var(--bad)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span>{msg.text}</span>
-          {msg.planes && <a href={msg.planes} style={{ ...boton, color: 'var(--primary)', textDecoration: 'none' }}>Pasar a Pro</a>}
+          {/* El tope de cuentas de cobro: al cliente de una agencia se le dice a quién pedírselo (6/11/2026, #494), no se le vende. */}
+          {msg.planes && <CtaPasarAPro><a href={msg.planes} style={{ ...boton, color: 'var(--primary)', textDecoration: 'none' }}>Pasar a Pro</a></CtaPasarAPro>}
         </div>
       )}
 

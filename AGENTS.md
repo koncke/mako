@@ -607,6 +607,22 @@ build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mj
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
 segundos.
 
+⚠️ **UN TEST EN VERDE NO DICE NADA DE LOS TIPOS, y por ahí se van las puntas rojas (6/11/2026).** `node --import tsx --test`
+**saca** los tipos, no los chequea: un test con 14 casos en verde puede tener errores de tipos que sólo aparecen en el `tsc`
+de la punta, diez minutos después. Costó **tres rojos en una tanda**, todos en archivos de test nuevos y todos invisibles
+para `tsx`:
+
+- un `@ts-expect-error` sobre un `import` de un `.mjs`. El tsconfig resuelve `.mjs` con `allowJs`, así que **no hay error que
+  esperar** y un directivo sin usar ES un error (TS2578). **Ningún test del repo usa ese directivo**: si te hace falta para
+  importar un script, no te hace falta.
+- un argumento en la posición equivocada de un helper con parámetros opcionales (`correr('al-abrir', 'startup')` donde el
+  segundo es el `env`). Corre perfecto: el helper ignora lo que no entiende.
+- un `.find(...)` usado sin comprobar que encontró (`undefined` posible) y una propiedad que el tipo declarado no tenía.
+
+**La regla: un archivo de test NUEVO, o uno que importa un `.mjs`, se pasa por el acotado antes de pushear.** Es un comando y
+segundos: `node scripts/tsc-acotado.mjs tests/lo-nuevo.test.ts`. Y si la guardia de RAM lo niega (pasa, y entonces el único
+que chequea es la punta), al menos sabé que lo que estás pusheando no está chequeado.
+
 **UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
 acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
 lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:
@@ -2393,6 +2409,45 @@ botones mal». No faltaba nada: no se veía nada.
 
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
+
+# Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
+
+De esto depende cada `.maybeSingle()` del repo: sobre una columna que puede repetirse, con dos filas PostgREST
+contesta **PGRST116** y el lector tira (es lo que ya tiró el webhook de Calendly, y lo que fija
+`tests/crm-fathom-links.test.ts`). Así que «¿esta columna es única?» es una pregunta que se contesta **antes** de
+elegir el lector — y hay dos formas de contestarla mal, las dos con un resultado plausible:
+
+1. **Leyendo un `create index` y creyendo que es EL índice de la columna.** Una tabla puede tener los dos. La 0053
+   declara `email text not null unique` en la línea 27 y, catorce líneas más abajo,
+   `create index if not exists idx_usuarios_email on usuarios (email)`: un índice de **MÁS**, no único, al lado de la
+   constraint. Un `grep` de «index» + «email» encuentra el segundo, que es el que se parece a la pregunta. Eso mandó la
+   tanda de la mig 0410 entera: se escribió «`usuarios(email)` tiene un índice NO único (0053)» en una migración, en un
+   `docs/hallazgos-*` y en la cabecera de un módulo, y de ahí salió un bug que **no podía pasar**.
+2. **Midiendo las filas repetidas y leyendo el 0 como «todavía no pasó».** Un `count` de 0 es igual de compatible con
+   «no puede pasar»: no distingue las dos cosas, y confirma la hipótesis falsa en vez de romperla. El 6/11/2026 se midió
+   «direcciones con más de una fila = 0» y se anotó como «el esquema lo permite pero no hubo víctimas».
+
+**Lo que sí contesta, en un comando, y contra la base que está CORRIENDO** (un archivo de migración dice lo que se
+quiso aplicar, no lo que está aplicado):
+
+```sql
+select i.relname, ix.indisunique, pg_get_indexdef(ix.indexrelid)
+  from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid
+ where t.relname = '<tabla>';
+```
+
+Y antes de inventar un criterio de desempate para «cuál de las N filas es la que vale», **buscá quién ya depende de
+que no haya N**: acá la 0178 construye `agencia_altas` entera sobre que «el email es LA identidad: `usuarios.email` es
+único», y el caso que parecía necesitar dos filas —alguien que trabaja en su cuenta y en la de un cliente de su
+agencia— el producto lo modela con la cookie firmada de agencia y su cartera (`agencia_clientes`, 0175). El detalle,
+en [docs/hallazgos-ajustes.md](docs/hallazgos-ajustes.md) → «El índice de MÁS que se leyó como el único».
+
+⚠️ **Y el `error` de esa lectura no se funde con «no hay fila».** Son tres estados (hay fila / no hay / no pude leer) y
+el que escribe necesita los tres: `if (error || !data) return null` salía por /perfil/notificaciones como
+«Esta sesión no tiene cuenta propia» sobre una persona que sí la tiene. El criterio: el que **ESCRIBE** corta con un
+motivo que la pantalla pueda decir; el que **LEE** puede caer al default (fail-open de una preferencia), y eso se
+decide a propósito, no por tener un `catch` de más. Moldes: `filaPropia` (lib/perfil.ts), `filaDeLaSesion`
+(app/api/recorridos/route.ts) y el `sinLeer` de `usuarioDelPerfil`.
 
 # Cuando algo «no aparece», el orden es datos → server → navegador, y no se saltea
 
@@ -7649,6 +7704,17 @@ el hallazgo cruza áreas, va donde vive el código y se enlaza desde la otra.
 Si el área todavía no tiene documento, se crea. `docs/hallazgos.md` es el índice: una
 línea por documento, y se actualiza en el mismo commit.
 
+⚠️ **En el índice se REESCRIBE la celda de tu área metiendo tu entrada adelante — nunca
+se agrega una fila.** Es una tabla con **una fila por área**, y una fila nueva la duplica.
+Tu entrada arranca con `**Título (fecha)**:`, que es el límite que después permite
+juntarlas sin partir una oración al medio. Y un `|` en el texto va escapado (`\|`): sin
+escapar le inventa columnas a la fila y markdown deja de mostrarla. Lo mira una guarda
+(`tests/unir-indice-hallazgos.test.ts`), que también chequea que el link de cada fila
+exista en disco. El 6/11/2026 el índice tenía 217 filas para 77 áreas porque
+`merge=union` agarraba también la tabla: el porqué, en
+[docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El índice de hallazgos se
+duplicaba solo».
+
 Qué va ahí:
 
 | Sí | No |
@@ -7869,6 +7935,25 @@ el producto miente.
 ⚠️ **Y verificá alerta por alerta antes de recortar.** De tres promesas marcadas en ese
 mismo barrido, **una era falsa alarma** y recortarla habría empobrecido una descripción
 correcta.
+
+## Y su CONTENIDO no entra al producto aunque su CÓDIGO sí: sacarle el crédito no desactiva la licencia
+
+Portar un editor trae dos cosas distintas, y se tratan distinto: **su motor** puede quedarse
+con su crédito en el `LICENSE-*` del repo; **su contenido** (plantillas, assets, textos de
+ejemplo) es material ajeno adentro del producto y sale. El editor de imágenes vino con las 10
+plantillas de Doory —bodas, conciertos, currículums— y encima no le servían a ningún negocio:
+se borraron el 6/11/2026, con sus JSON, sus WebP y sus etiquetas (hallazgos-editor-imagen.md).
+
+**Que el crédito visible ya no esté no cambia nada.** La Attribution Assurance License de
+Doory aplica «in whole or part, with or without modification»: borrar `CreditoDoory.tsx`
+(29/10/2026) dejó de mostrarla, no de deberla. Traducir el contenido al español tampoco: eso
+ES la modificación que la licencia nombra.
+
+**Para código nuevo:** una plantilla, una foto de muestra o un texto de ejemplo que entre al
+producto se genera o se escribe acá. En el editor de imágenes van a
+`lib/image-editor/plantillas-reales.ts` (generadas por código, estructura y ejemplo de la
+misma función) o a las plantillas propias del negocio
+(`app/creaciones/usePlantillasPropias.ts`), nunca al panel que servía las de Doory.
 
 ## Y para leerlos: grepeá la ruta, no abras el documento
 

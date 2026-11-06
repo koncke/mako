@@ -5,6 +5,112 @@
 **Cuenta `claude1` al 24 %**, reinicia el 11/11 10:00 UTC. Lo que corta acá no es la cuota: es el
 contexto de este chat, que va por el 80 %.
 
+### 💳 dLocal Go QUEDÓ APROBADO, y lo único que falta para producción son tres variables
+
+**El 6/11 a la noche dLocal aprobó la documentación**: la cuenta de Leandro ya puede **retirar y
+procesar sin límite**. Lo que se cargó y verificó: banco **Santander Río** (código 72 en su lista;
+es el mismo Santander — el CBU empieza en 072), cuenta de ahorro en pesos, y el CBU **validado por
+sus dos dígitos verificadores** antes de cargarlo. El documento que aceptaron fue el **resumen de
+cuenta** en PDF, no la constancia de CBU: la app de Santander comparte el CBU **como texto**, y un
+texto pegado en un documento no sirve porque tiene que estar **emitido por el banco**.
+
+**Las claves ya están en `.env.local` del repo**, con los nombres de la convención de la casa:
+
+    DLOCAL_API_KEY · DLOCAL_SECRET_KEY · DLOCAL_SMARTFIELDS_KEY
+
+⚠️ **Eso es SÓLO el entorno local. Para que cobre en producción, las tres tienen que estar en el
+proyecto de Vercel**, y nadie las puso todavía. Es lo que falta, y se hace por API como se hicieron
+`VERCEL_SUPPORT_LARGE_FUNCTIONS` y `VERCEL_BUILD_SYSTEM_REPORT`.
+
+**Hay un chat construyendo el conector** (`lib/cobros*`), con la orden de no ejecutar ningún cobro
+real y de no tocar el del lunes.
+
+⚠️ **Dos cosas que siguen sin medirse y deciden plata:** qué cotización usa dLocal **en el primer
+retiro real** (todo el cálculo de 90,98 sobre 97 depende de eso), y **qué le retienen de impuestos**
+—impuesto al cheque y SIRCREB— que es la pregunta del contador y puede pesar más que el dólar.
+
+### Cómo cerraron los chats de la nube (al 6/11 ~22:00 UTC)
+
+**69+ ramas distintas llegaron a `main` en la noche.** Lo que devolvió cada uno:
+
+| Chat | Resultado |
+|---|---|
+| **Imágenes + Miniaturas** | **7 de 7 en main.** 11 encargos cerrados y 7 que ya estaban hechos. Dejó el cron que evita que la galería se vacíe sola — ⚠️ **corrigió mi encargo**: yo pedí «una vez por mes» y el vencimiento es a 30 días, así que un mensual el día 1 deja 31 días entre enero y febrero. Quedó semanal. |
+| **Tickets** | **9 de 10 en main.** Cerró el agujero de la foto de perfil (un cliente podía saber cuándo Martín abre la bandeja y desde qué IP) y aplicó la migración 0410. Encontró que «cuatro clientes esperando» era **falso en los cuatro**. |
+| **Varios** | **5 de 6 en main.** Su valor fue limpiar: 6 ya hechos, 6 escritos dos veces, 3 ilegibles, y **los 13 que no estaban en la lista de nadie**. |
+| **Cobros + CRM** | 4 puntas. **Encontró el bug que habría roto el cobro del lunes** (ver abajo). Una punta quedó roja y volvió a su chat. |
+
+⚠️ **EL HALLAZGO MÁS VALIOSO DE LA NOCHE, y hay que entenderlo porque vuelve:** el cron de la
+mensualidad marcaba «ya le avisé» **antes** de armar el PDF, y sólo soltaba la marca si el envío
+devolvía error. **Los dos caminos que fallan de verdad no devuelven error: tiran.** Resultado: el
+aviso quedaba filtrado **para siempre** y el cliente caía en «Paga para entrar» el día de su
+vencimiento **por un aviso que nadie le mandó**. Arreglado antes del lunes, probado rompiéndolo.
+
+### El checkout nuevo: lo que Martin pidio, y la premisa que hay que corregirle
+
+Pedido del 6/11 a la noche, con las claves de dLocal ya cargadas en local y en Vercel:
+
+- **El checkout tiene que verse como una pasarela de verdad.** Los medios de pago como opciones con
+  su logo (Mercado Pago, tarjeta, y Google/Apple Pay donde se puedan cobrar), no un boton unico.
+  **Copiando la referencia TAL CUAL** —Stripe Checkout, Mercado Pago Checkout Pro, dLocal Go—
+  empezando por la referencia, no retocando la pantalla propia.
+- **Fuera los textos explicativos de abajo** de `/planes/pro` (el del email y el de «usa el email de
+  tu cuenta de Mercado Pago»). Textual: «que se vea serio, que se vea realmente como una pasarela».
+- **El formulario de nombre + email + WhatsApp pasa a ser el paso para RECLAMAR EL CUPON**, y el
+  cupon **no es un descuento: son 7 dias de prueba gratis**. El patron salio de Madgicx.
+
+⚠️ **LA PREMISA QUE HAY QUE CORREGIRLE, Y ES CARA SI NADIE LA DICE.** Martin escribio: «ya no
+solamente cobramos por Mercado Pago, sino que tambien cobramos con una tarjeta normal **de cualquier
+pais**. Entiendo que para eso es la nueva pasarela».
+
+**No es asi. dLocal Go NO cobra de cualquier pais**: su centro de ayuda dice textual *«You cannot
+receive payments from the United States and Europe»* — Espana queda afuera (`docs/proveedores-de-cobro.md:235`).
+Sirve para LatAm. **La pantalla no puede prometer lo que la pasarela no puede cumplir.**
+
+Ese hueco —EE.UU. y Europa— es el que iba a tapar **Whop, que NUNCA contesto**, o **FastSpring, al
+que nunca se le escribio**. Mientras no haya uno de los dos, un comprador de alla no tiene por donde
+pagar. **Es una decision de Martin, con numeros, no algo que se arregla en el checkout.**
+
+### Infra cerro 10 de 10, y el hallazgo mas fino de la noche
+
+**UN COMENTARIO EQUIVOCADO CONGELO UN BUG DURANTE DIAS.** La alarma de minutos no mentia por lo que
+yo habia medido: restar las canceladas y los 2.000 del plan seguia dando US$40 contra US$15,94. La
+causa de fondo era **una frase falsa en la cabecera del propio script**, que decia que el facturable
+real no se puede leer con el `GITHUB_TOKEN`. **Se puede** — `/actions/workflows/{id}/timing` — y
+**el repo ya usaba ese endpoint** en `scripts/tests-afectados.mjs`. Todos leian que el numero bueno
+no se podia conseguir, y buscaban por otro lado.
+**La regla: antes de dar por cierta una limitacion escrita en un comentario, se comprueba.**
+
+⚠️ **El indice de hallazgos se duplica solo.** `docs/hallazgos*.md merge=union` —sin guion— agarra
+tambien el indice, que es una tabla que cada cosecha **reescribe**: union deja las dos versiones.
+Paso de 199 a 202 filas en una noche. La causa esta arreglada; quedan ~130 filas de mas, y
+**colapsarlas por clave perderia hallazgos**: de 31 areas repetidas, 22 anidan y 9 no.
+
+⚠️ **Un test en verde no dice NADA de los tipos:** `tsx --test` los saca. Costo tres rojos; la regla
+quedo en AGENTS.md.
+
+**Lo que necesita la mano de Martin:**
+- **Copiar `scripts/claude-hooks/guardia/memoria.mjs` a `~/.claude/guardia/`.** La guardia que corre
+  esta vieja y **niega commits por su mensaje**. ⚠️ La copia del repo tambien estaba atrasada: los
+  topes subieron a 3 GB el 29/10 **solo en `~/.claude`**, asi que reinstalar sin mas devuelve la
+  pantalla negra.
+- **`node scripts/limpiar-temporales.mjs --aplicar`**: **207.092 entradas** en `tsx-marti`.
+
+⚠️ **Y una trampa que costo trabajo repetido:** cuatro relevos siguen diciendo «migracion sin
+aplicar» de migraciones que ya estan puestas. La medicion se escribio en un documento NUEVO sin
+corregir los viejos, y por eso tres pendientes llegaron a una lista como abiertos. **Cuando se mide
+que algo ya esta hecho, se corrige el documento que lo decia mal.**
+
+### ⚠️ Y un patrón que apareció ONCE veces hoy: guardas que fijan el TEXTO del código viejo
+
+De los rojos de la noche, la mayoría no eran bugs: eran **guardas que exigían que el código siguiera
+escrito como estaba**. La peor obligaba a conservar el `/^https:\/\//i.test(...)` que **era** el
+agujero de seguridad, con el rótulo «sólo https». Otras pedían que dos columnas fueran vecinas en un
+`select`, o la cadena completa de un ternario.
+
+**La pregunta que las distingue, y conviene usarla al escribir una:** *¿seguiría en verde si alguien
+arregla el bug de otra manera?* Si la respuesta es no, la guarda mide la forma, no la falla.
+
 ### ⚠️ LO PRIMERO: hay ocho chats de la nube trabajando, y nadie los está mirando
 
 Los abrí a las ~19:10 UTC, uno por área, con los 342 pendientes que puede hacer el equipo. **Siguen

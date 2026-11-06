@@ -20,7 +20,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PLANTILLAS_IMAGEN } from '../lib/image-editor/plantillas-reales';
 import { TOPE_DOC_BYTES, resumirDoc, textosDe } from '../lib/image-editor/reglas';
-import { catalogoPlantillas } from '../app/image-editor/mako/plantillas';
 import { problemasDelEjemplo, sinAcentos } from './_reales';
 
 type Obj = Record<string, unknown>;
@@ -34,9 +33,9 @@ test('1: las 9 que no son carrusel, con ids únicos, su tamaño y su insignia', 
   assert.equal(PLANTILLAS_IMAGEN.length, 9, 'las 12 del plan menos los 3 carruseles (lista, mito y caso)');
   const ids = PLANTILLAS_IMAGEN.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, 'dos plantillas con el mismo id');
-  const slugs = new Set(catalogoPlantillas().map((p) => p.slug));
+  // Ya no hay con qué chocar: las 10 de Doory, que `crear_diseno_imagen` buscaba por el MISMO campo `plantilla`, se
+  // borraron el 6/11/2026 (el guard de que no vuelvan está en tests/api-mako-imagen.test.ts, test 3).
   for (const p of PLANTILLAS_IMAGEN) {
-    assert.ok(!slugs.has(p.id), `${p.id}: choca con una de Doory (crear_diseno_imagen las busca por el mismo campo)`);
     const doc = p.estructura(id);
     assert.deepEqual(resumirDoc(doc), { ancho: p.ancho, alto: p.alto, paginas: p.paginas }, `${p.id}: el tamaño de la tarjeta`);
     assert.ok(p.insignia.startsWith(`${p.ancho} × ${p.alto}`), `${p.id}: la insignia dice el tamaño`);

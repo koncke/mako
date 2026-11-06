@@ -427,8 +427,14 @@ export const techoDeTanda = (cuantos: number): number =>
   Math.max(0.01, Math.ceil(Math.max(0, cuantos) * USD_POR_PUBLICACION * MARGEN_TECHO_TANDA * 100) / 100);
 
 export type TandaDeLinks = { desde: number; cuantos: number; techoUsd: number };
-/** Por qué no se leyó más: se leyó todo, se llegó al techo, o no había techo con que empezar. */
-export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo';
+/**
+ * Por qué no se leyó más: se leyó todo, se llegó al techo, no había techo con que empezar, o fue APIFY el que dijo que no
+ * queda crédito a mitad de la corrida.
+ * ⚠️ `'apify'` no es `'techo'`: el techo podía tener lugar de sobra. Contarlo como techo hace que el renglón final diga
+ * «llegué al tope que me pediste» sobre un tope que no se tocó, que es la clase de mensaje que estas funciones existen para
+ * no escribir.
+ */
+export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo' | 'apify';
 export type PlanDeTandas = { tandas: TandaDeLinks[]; probableUsd: number; quedanFuera: number; corte: CorteDeTandas };
 
 /**
@@ -484,11 +490,15 @@ export function porQueParo(o: {
   const gasto = typeof o.gastado === 'number' ? ` Se gastó ${usdTexto(o.gastado)}.` : '';
   if (o.corte === 'todo') return `Paró porque se terminaron las tandas: se pidieron todos los de esta corrida, no fue el techo.${gasto}`;
   const faltan = `Quedan ${o.quedanFuera} sin leer: `;
+  // Lo que dijo Apify gana sobre lo que decía el techo al empezar: el crédito se puede agotar a mitad de la corrida.
+  if (o.corte === 'apify') return `${faltan}Apify dijo que no queda crédito en ninguna clave. Carga crédito y vuelve a correrlo.${gasto}`;
   if (o.motivo === 'sin-saber') return `${faltan}${o.porque}.${gasto}`;
   if (o.motivo === 'sin-credito' || o.motivo === 'credito') {
     return `${faltan}${o.porque}. Lo destraba cargar crédito en Apify (o esperar el mes que viene), no un \`--techo-usd\` más alto.${gasto}`;
   }
-  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: subí \`--techo-usd\`.${gasto}`;
+  // ⚠️ En español NEUTRO, como todo el repo: el guard de `tests/puente-panel-copy.test.ts` barre TODOS los archivos, también
+  // la salida de un script de consola que sólo lee Martín. Un «cargá» acá deja la punta roja.
+  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: sube \`--techo-usd\`.${gasto}`;
 }
 
 /** El creador de un ítem del actor: su @ y su nombre (en una lectura por tema, cada publicación es de alguien distinto). */
@@ -642,4 +652,67 @@ export function parecidoConNombre(c: { usuario: string; nombre?: string | null }
   if (!palabras.length) return 0;
   if (nombreCoincide(c.nombre, completo)) return 2;
   return palabras.some((w) => plano(c.usuario).includes(w)) ? 1 : 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sumar carruseles por su LINK (6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín manda el link de un carrusel que quiere en la biblioteca y hasta hoy no había con qué cargarlo: el comando vivió en
+// una copia temporal del script, ya borrada (docs/hallazgos-carruseles.md, «Sin hacer»).
+//
+// MEDIDO el 5/11/2026 («Traer un carrusel puntual: por su link, nunca por el perfil»): por link salieron 244 de 245 a unos
+// US$0,0025 cada uno; leyendo a sus creadores POR PERFIL, US$4,71 y 1 solo de los 245. Un carrusel que funcionó suele ser
+// viejo: no está entre los últimos posts de su cuenta, y subir el tope del perfil compra carruseles ajenos, no el buscado.
+//
+// El creador de un link suelto queda con `fuente: 'tema'` —o sea, NO se lee entero— porque de su cuenta no se midió nada: sin
+// su mediana no hay outlier, y lo que no se midió no se dice (`carruselesDeBiblioteca`).
+
+/** De dónde puede venir un link de una publicación de Instagram: `/p/`, `/reel/`, `/reels/` o `/tv/`, con o sin `@usuario` antes. */
+const LINK_DE_PUBLICACION = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?instagram\.com\/(?:[^/\s?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]{3,30})(?:[/?#]|$)/i;
+
+/**
+ * El link de una publicación de Instagram, normalizado: su `ref` (el shortcode, que es la identidad de la pieza, igual que en
+ * `piezasDeApify`) y la dirección con que se le pide al actor. null si no es un link de una publicación.
+ *
+ * ⚠️ La dirección sale siempre como `/p/<ref>/`: el shortcode es único en Instagram y el actor lo resuelve igual venga de un
+ * reel o de un tv. La `url` que se GUARDA no es ésta, es el `permalink` que devuelve el actor (`filasDeLectura`).
+ * ⚠️ Un shortcode suelto NO cuenta: sin el dominio no se puede saber si es un link, un nombre de cuenta o cualquier palabra.
+ */
+export function linkDeInstagram(texto: string | null | undefined): { ref: string; url: string } | null {
+  const m = String(texto ?? '').trim().match(LINK_DE_PUBLICACION);
+  return m ? { ref: m[1], url: `https://www.instagram.com/p/${m[1]}/` } : null;
+}
+
+export type PlanDeLinks = PlanDeTandas & {
+  /** Los links que se van a pedir, en orden y sin repetidos. */
+  links: Array<{ ref: string; url: string }>;
+  /** Lo que no era un link de una publicación de Instagram, tal como se escribió (para que se vea el error de tipeo). */
+  noSonLinks: string[];
+  /** Cuántos venían dos veces en el pedido, y cuántos ya estaban en la biblioteca (ésos no se vuelven a pagar). */
+  repetidos: number;
+  yaEstaban: number;
+};
+
+/**
+ * Qué links se van a pedir y cuánto puede costar. Lo que no es un link se DICE (no se adivina), los repetidos y los que ya
+ * están guardados no se pagan de nuevo, y lo que entra en el techo lo decide la misma regla que el resto del script
+ * (`planDeTandas`). Puro: el script lo imprime en seco antes de gastar un centavo.
+ */
+export function planDeLinks(
+  textos: readonly string[], o: { techoUsd: number; yaGuardados?: ReadonlySet<string>; deA?: number },
+): PlanDeLinks {
+  const noSonLinks: string[] = [];
+  const links: Array<{ ref: string; url: string }> = [];
+  const vistos = new Set<string>();
+  let repetidos = 0;
+  let yaEstaban = 0;
+  for (const t of textos) {
+    const l = linkDeInstagram(t);
+    if (!l) { const crudo = String(t ?? '').trim(); if (crudo) noSonLinks.push(crudo.slice(0, 120)); continue; }
+    if (vistos.has(l.ref)) { repetidos += 1; continue; }
+    vistos.add(l.ref);
+    if (o.yaGuardados?.has(l.ref)) { yaEstaban += 1; continue; }
+    links.push(l);
+  }
+  return { links, noSonLinks, repetidos, yaEstaban, ...planDeTandas(links.length, { techoUsd: o.techoUsd, deA: o.deA }) };
 }
