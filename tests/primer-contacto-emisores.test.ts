@@ -36,6 +36,8 @@ const AUTOMATICOS: Record<string, string> = {
   'lib/setting-secuencias.ts': 'la prueba de una secuencia (al teléfono de quien prueba)',
   'lib/curso-invitar.ts': 'la invitación al curso',
   'lib/curso-mensajes.ts': 'los avisos del curso',
+  // Entró con la tarjeta Pagos, por otra rama, y este test recién la vio al estar las dos en main: nadie lo decidió antes.
+  'lib/recibos-negocio.ts': 'el recibo que emite la tarjeta «Emitir recibo»: sale a un lead que ya pagó, no es un primer contacto',
 };
 
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');

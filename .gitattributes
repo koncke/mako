@@ -42,3 +42,9 @@ docs/hallazgos*.md merge=union
 #   git config merge.bitacora.driver "node scripts/unir-bitacora.mjs %O %A %B %P"
 # Sin esa configuración, git mezcla como siempre.
 app/admin/dev/*/bitacora.ts merge=bitacora
+
+# =============================================================================
+# El índice de relevos: un renglón por chat, y todos agregan en el mismo lugar
+# =============================================================================
+# El 5/11/2026 frenó tres ramas en «Mezclar main en la punta» sin que nadie se pisara nada: se quedan los renglones de los dos lados.
+docs/relevo/README.md merge=union

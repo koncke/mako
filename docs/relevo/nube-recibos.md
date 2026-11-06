@@ -4,6 +4,10 @@
 > [recibos-encargo.md](recibos-encargo.md) (en `punta/recibos`) y [pagos-automations-encargo.md](pagos-automations-encargo.md) (en
 > `punta/automations-pagos`, que sale DESPUÉS: trae los recibos adentro). **Esta sesión no vio la
 > base ni producción**: lo que dice «medido» acá es en la nube (tests, PGlite, Node); lo de producción, lo mide el Cerebro.
+>
+> **Estado al 6/11/2026:** las dos puntas están en main (`punta/recibos` en 37ebd59355, `punta/automations-pagos` en d2dcb26323), y
+> el Cerebro ya aplicó la 0397, la 0399 y la 0400 (docs/relevo/cerebro.md). **Creem rechazó la tienda el 5/11** y quedó afuera: lo
+> que acá decía de Creem queda tachado. El código de «Confirmación de pago» sigue, sin pagos que lo usen.
 
 ## Para decirle a Martín, con estas palabras
 
@@ -11,14 +15,14 @@
   negocio. Queda todo en **Admin › Billing › Recibos**, con «Bajar», «Reenviar» y «Cargar pago» (para lo que entra por Binance).
 - **El recibo por WhatsApp sólo llega a un negocio que ya tiene grupo.** A un comprador nuevo le llega por correo y por la app.
 - **Es un recibo de pago, no una factura fiscal**, y lo dice. Si hay que facturar en ARCA (Mercado Pago, Binance), eso sigue aparte:
-  lo confirma su contador. Con Creem, el documento se llama «Confirmación de pago»: el vendedor legal es Creem y la factura la da Creem.
+  lo confirma su contador.
 - **Lo que sí tiene que hacer él**: nada para que funcione. Si quiere, cargar sus datos en «Datos del recibo» (nombre, documento,
   dirección): mientras no los cargue, sale «MaKo · hola-mako.com», y nunca se inventa un dato fiscal.
 
 ## Lo que hay que hacer, en este orden
 
-1. **Aplicar la 0358** (Creem), si sigue sin aplicar. Sin ella no hay ningún pago de Creem del cual emitir un recibo.
-2. **Aplicar la 0397** (`supabase/migrations/0397_recibos.sql`). Sólo agrega (dos tablas, un contador y dos funciones): no toca nada
+1. ~~Aplicar la 0358 (Creem)~~: aplicada el 5/11, y Creem quedó afuera ese mismo día.
+2. **Aplicar la 0397** (`supabase/migrations/0397_recibos.sql`) — ✓ aplicada (6/11, según el Cerebro). Sólo agrega (dos tablas, un contador y dos funciones): no toca nada
    que exista. ⚠️ **El número se confirma al aplicar**: se eligió el 5/11 barriendo main (llega a 0394), las 189 puntas, `ci-rojo/*`,
    `espera-main/*` y las etiquetas; `punta/agencia-cobro` trae OTRA 0394 y `punta/codigo-primer-contacto` una 0396. Si otro número
    ganó la 0397 antes, renombrar el archivo (el código no la nombra por número).
@@ -36,12 +40,11 @@
    ⚠️ **registro.json no lo vio esta sesión**: el script lo recorre entero buscando los ids de Resend al lado del número del recibo.
    ⚠️ Los renglones del 0002 van como «Natalia Krywyj» y «Sergio Arratia» (como salió el PDF); la base dice «Natalia» y «Arriata», y
    está mal. El script avisa si un concepto no aparece igual en el PDF.
-4. **El deploy**, con la punta `punta/recibos`. El código tolera que falte la 0397 (lo dice en el log y el pago sigue).
-5. **Mirar en un preview, ANTES de confiar en el correo**: `GET /api/admin/recibos/ejemplo` (y `?medio=creem`) con la sesión del
+4. **El deploy**, con la punta `punta/recibos` — ✓ en main; «en producción» es el deploy de Vercel en «Ready».
+5. **Mirar en un preview, ANTES de confiar en el correo**: `GET /api/admin/recibos/ejemplo` con la sesión del
    super admin. Prueba que jsPDF carga dentro del bundle de Next (`serverExternalPackages: ['jspdf']` en next.config.ts); en la nube
    sólo se midió en Node pelado (un PDF de 41 KB con la imagen, en ~0,3 s, mismos bytes en dos renders).
-6. **El primer pago real**: mirarlo a mano en Billing › Recibos (el monto contra el de la pasarela, el correo, el grupo). Con Creem, que
-   `amount_paid` sea lo que pagó la persona y que el impuesto venga en `tax_amount` (no hay ninguna venta de Creem para mirarlo).
+6. **El primer pago real**: mirarlo a mano en Billing › Recibos (el monto contra el de la pasarela, el correo, el grupo).
 
 ## Qué se construyó (punta/recibos)
 
@@ -115,10 +118,10 @@
 
 ## Lo que hay que hacer, en este orden
 
-1. **Aplicar la 0400 y la 0399** (`supabase/migrations/0400_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`), ANTES del
-   deploy o junto. Sólo agregan. Números elegidos en la nube: confirmarlos al aplicar (0397 son los recibos de MaKo).
+1. **Aplicar la 0400 y la 0399** (`supabase/migrations/0400_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`) — ✓ aplicadas
+   (6/11, según el Cerebro). Sólo agregan. Números elegidos en la nube: confirmarlos al aplicar (0397 son los recibos de MaKo).
    Lo que garantizan, probado contra Postgres: `PGLITE=<carpeta con @electric-sql/pglite> node scripts/probar-0399-0400-pglite.mjs`.
-2. **El deploy de `punta/automations-pagos`** (trae `punta/recibos` adentro: sale después de ésa).
+2. **El deploy de `punta/automations-pagos`** — ✓ en main (d2dcb26323); «en producción» es el deploy de Vercel en «Ready».
 3. **Probar en el ws 3, no en el 1:** armar «Le Llegó un Comprobante», prenderla, mandar una foto de un comprobante desde un
    teléfono de prueba a la línea del ws 3, y mirar que llegue el aviso al grupo. Después «Emitir recibo» sobre una cuota cobrada
    de un lead de prueba, con «Ver ejemplo en PDF» de las tres plantillas.
