@@ -32,7 +32,9 @@ export const maxDuration = 120;
 
 export async function GET() {
   try {
-    const [tareas, categorias] = await Promise.all([listTareas(), listCategorias().catch(() => [])]);
+    // El MISMO tablero que pinta /plan, y con el mismo filtro (#507): si el GET trajera las de la
+    // Retro, volverían a aparecer en el primer refresco.
+    const [tareas, categorias] = await Promise.all([listTareas({ soloDelPlan: true }), listCategorias().catch(() => [])]);
     return Response.json({ ok: true, tareas, categorias });
   } catch (err) {
     return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
