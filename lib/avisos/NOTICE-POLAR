@@ -1,0 +1,15 @@
+MaKo — Admin (/admin)
+
+This product includes software developed by Polar Software Inc (https://github.com/polarsource/polar),
+licensed under the Apache License, Version 2.0 (lib/avisos/LICENSE-POLAR). Copyright 2023 Polar Software Inc.
+
+Source: polarsource/polar, commit 72aa1109 (2026-11-05), from clients/apps/web/src (the dashboard pages and
+components), clients/packages/ui and clients/packages/orbit.
+
+The files derived from it live in app/admin/_polar/ and app/admin/(polar)/. Each one names its original file in its
+header. All of them were MODIFIED for MaKo: the imports were rewritten, the calls to Polar's API were replaced by
+MaKo's own data, the visible text was translated to Spanish, the parts that need Polar's backend were removed, and
+the StyleX styles of Orbit (Box, Text) were rewritten as plain CSS with the same values (app/admin/_polar/polar.css).
+
+The Material icons are drawn from @mui/icons-material 7.3.11 (MIT, lib/avisos/LICENSE-MUI-ICONS), which packages
+Google's Material Icons (Apache License 2.0).

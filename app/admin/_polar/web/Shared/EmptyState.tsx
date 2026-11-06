@@ -1,0 +1,53 @@
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Shared/EmptyState.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+
+import { Button, Text } from '@/app/admin/_polar/orbit'
+import { Box } from '@/app/admin/_polar/orbit/components/Box'
+import { ButtonProps } from '@/app/admin/_polar/orbit/components/ui/button'
+import { ReactNode } from 'react'
+
+interface EmptyStateProps {
+  icon: ReactNode
+  title: string
+  description: string
+  actions?: (ButtonProps & { text: string })[]
+  /** Grow to fill the parent's remaining space, e.g. to match sibling list heights. */
+  fill?: boolean
+}
+
+export const EmptyState = ({
+  icon,
+  title,
+  description,
+  actions,
+  fill = false,
+}: EmptyStateProps) => {
+  return (
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      gap="m"
+      borderRadius="m"
+      borderWidth={1}
+      borderStyle="solid"
+      borderColor="border-primary"
+      padding="3xl"
+      flexGrow={fill ? 1 : undefined}
+    >
+      <div className="dark:text-polar-500 text-5xl text-gray-500">{icon}</div>
+      <Box flexDirection="column" alignItems="center" textAlign="center">
+        <Text variant="body" as="h3">
+          {title}
+        </Text>
+        <Text color="muted">{description}</Text>
+      </Box>
+      {(actions?.length ?? 0) > 0 ? (
+        <Box marginTop="l" columnGap="l">
+          {actions?.map((action) => (
+            <Button key={action.text} {...action} />
+          ))}
+        </Box>
+      ) : null}
+    </Box>
+  )
+}

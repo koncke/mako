@@ -1,53 +1,63 @@
-# La tab Admin copia UNA app: Studio Admin (reescrito el 5/11/2026)
+# La tab Admin copia UNA app: el dashboard de Polar (reescrito el 6/11/2026)
 
-**La fuente es una sola: [arhamkhnz/next-shadcn-admin-dashboard](https://github.com/arhamkhnz/next-shadcn-admin-dashboard)
-(Studio Admin, licencia MIT, demo https://studio-admin.arhamkhnz.com).** Se porta su CÓDIGO archivo por archivo: el shell
-(sidebar, cabecera, búsqueda, modo), el tema, los componentes de `src/components/ui`, las tablas, los gráficos y las
-animaciones. Commit de referencia: `036631e` (5/11/2026). El aviso de la licencia: `lib/avisos/LICENSE-STUDIO-ADMIN`.
+**La fuente es una sola: [polarsource/polar](https://github.com/polarsource/polar)**, el dashboard con el que Polar
+administra un SaaS que vende por suscripción (licencia **Apache-2.0**, commit `72aa1109` del 5/11/2026). Se porta su CÓDIGO
+archivo por archivo: cómo reparte las secciones, qué hay en cada página, en qué orden y cómo funciona cada cosa. Sólo se
+reemplazan sus llamadas a la API por las lecturas de MaKo. Avisos: `lib/avisos/LICENSE-POLAR` y `lib/avisos/NOTICE-POLAR`
+(qué se tomó y que se modificó, como pide la Apache-2.0).
 
 ## Por qué una sola, y por qué ésta
 
-- **La versión anterior se rechazó.** Esta página decía qué tomaba «la estructura» de doce apps, la mayoría sin abrir (la nube
-  bloquea docs.stripe.com, posthog.com y compañía), y la pantalla se dibujó con los componentes de MaKo. Martín, el 5/11/2026:
-  «está horrible… como ya te lo he pedido muchas veces, copies tanto el diseño como la funcionalidad de alguna otra
-  aplicación o repositorio de GitHub. Tenés prohibido pensar por tu propia cuenta y hacerlo vos solo, porque lo haces mal».
-  Mezclar fuentes ES pensar por cuenta propia: alguien elige qué pieza de qué app va al lado de cuál.
-- **Studio Admin trae, como pantallas enteras, las seis secciones de Admin** (la tabla de abajo), con el mismo shell para
-  todas. Ninguna otra app abierta las tiene juntas.
-- **Su licencia deja copiar el código** (MIT, leída de su LICENSE) y **su stack es el de MaKo**: Next 16, React 19,
-  Tailwind 4, `radix-ui`, `recharts` 3, `lucide-react`, `class-variance-authority`. Se sumaron `@tanstack/react-table` 9,
-  `cmdk`, `date-fns` y `cn`, como en su `package.json`. `lucide-react` es la 0.562 de MaKo (Studio usa la 1.x): cada ícono que
-  usan las pantallas portadas existe en la 0.562 (se comprobó uno por uno).
-- **Se pudo levantar y comparar.** La demo no abre desde la nube (el proxy contesta 403), así que se clonó el repo y se levantó
-  en local: las capturas de `docs/admin/copia/` son las dos apps lado a lado.
+- **Las dos versiones anteriores se rechazaron, y por la misma razón: mezclaban.** La primera tomaba ideas de doce apps y las
+  dibujaba con los componentes de MaKo. La segunda (Studio Admin, MIT) portó un template de demos sobre la navegación que ya
+  existía y dejó adentro las pantallas viejas: tres lugares para el perfil, los usuarios en tres lugares y el ingreso mensual
+  en Customers. Martín, el 6/11/2026: «borres todo… copia por completo… no es solamente el diseño, es también las
+  funcionalidades… cómo distribuyen cada página… seas criterioso».
+- **Studio Admin es un template: no reparte nada.** Trae pantallas de muestra sueltas (un CRM, unas finanzas, unos usuarios)
+  y la distribución la tenía que inventar alguien. Polar es una aplicación de verdad para administrar un SaaS con
+  suscripciones, en producción con miles de negocios: el reparto (qué va en Customers, qué en Sales, qué en Analytics, dónde
+  viven las personas) ya está resuelto y probado.
+- **Su licencia deja copiar el código** (Apache-2.0, leída de su LICENSE, con su copyright «Polar Software Inc») y **su stack
+  es el de MaKo**: Next 16, React 19, Tailwind 4, Radix, Recharts 3, TanStack Table 9, motion 12, cva y tailwind-merge, en las
+  mismas versiones mayores (MaKo tiene Next 16.2 y React 19.2; Polar, 16.4 y 19.3: nada de lo portado usa lo nuevo).
+- **Lo que no se pudo copiar, y por qué, está dicho:** su letra «PP Neue Montreal» es una fuente comercial (no está bajo la
+  licencia del repo): se usa Inter, la que Polar declara de respaldo. Su sistema de diseño (Orbit) arma `Box` y `Text` con
+  StyleX, un plugin de Babel que MaKo no tiene: se reescribieron como CSS con los mismos valores. Los íconos de Material
+  salen de los trazos de @mui/icons-material (MIT), sin cargar MUI.
 
-## Cada sección es una pantalla de Studio
+## Cada sección es la de Polar
 
-| Sección de Admin | Pantalla de Studio (`src/app/(main)/dashboard/…`) | Estado |
+La barra de Polar, en el orden que pidió Martín, y sin su barra de arriba, su logo, el selector de organización ni la cuenta
+del pie: el perfil y el modo oscuro viven en la barra de MaKo, que es UNA.
+
+| Sección de Admin | En Polar (`…/dashboard/[organization]/(header)/`) | Qué es en MaKo |
 |---|---|---|
-| Revenue | `default`: las cuatro tarjetas, «Customer Activity» y la tabla de clientes | portada (tanda 1) |
-| Users | `users`: filtros, ocultar columnas, exportar, lista o grilla, selección | portada (tanda 1) |
-| Billing | `finance` (Dashboard, Accounts, Transactions) y los recibos con `invoice` | portada (tanda 2) |
-| Customers | `crm`, y la ficha de un cliente con `profile` | por portar |
-| Activity | `analytics`, con sus pestañas | por portar |
-| Errors | `infrastructure`: un grupo por negocio, salud, filtros por faceta | por portar |
+| Overview | `(home)` | La portada: ingresos, actividad, los que más pagan, los en riesgo y lo que espera a Martín |
+| Customers | `customers` (Overview, Top Customers, At Risk, Cost Drivers) y la ficha `customers/[customerId]` (Overview, Usage, Events, Members) | Un customer es un NEGOCIO. Members es el ÚNICO lugar de las personas |
+| Analytics | `analytics` (Metrics, Events, Costs) | MRR e ingresos mes a mes; todo lo que pasa (pagos, lo que hizo MaKo, errores y reportes, las sesiones de los agentes); el gasto de IA |
+| Sales | `sales` (Orders, Subscriptions, Checkouts, Disputes) | Cada pago con su recibo; las suscripciones con su historia; los cobros pendientes; los contracargos |
+| Products | `products` (Catalogue, Checkout Links) | Los planes; «Vender un plan» |
+| Finance | `finance` (Income) | El libro de lo que entró, con su exportación |
+| Settings | `settings` | Los datos del recibo y los interruptores de cobros |
 
-Lo que la pantalla de Studio trae y MaKo no puede llenar se saca; lo que MaKo necesita y Studio no tiene no se inventa: las
-dos listas, con su porqué, están en [relevo/nube-admin-copia.md](relevo/nube-admin-copia.md).
+Lo de Polar que MaKo no puede llenar (Discounts, Benefits, Meters, Payouts, Taxes, Account, las métricas de checkouts y de
+cancelaciones por motivo…) se sacó sin dejar hueco; lo que MaKo necesita y Polar no tiene no se inventó. Las dos listas, con
+su porqué, están en [relevo/nube-admin-polar.md](relevo/nube-admin-polar.md).
 
-## Cómo se porta (lo que gobierna una sección nueva)
+## Cómo se porta (lo que gobierna una página nueva)
 
-- **El código de Studio vive en `app/admin/_studio`** (`components/ui`, el shell, el tema) y cada sección en su carpeta
-  (`app/admin/usuarios`, `app/admin/ingresos`…), con los nombres de archivo de Studio. Cada archivo nombra su original y el
-  aviso de la licencia.
-- **El tema va limitado a `.sa`** (`app/admin/_studio/studio-theme.css`), con los valores de Studio sin tocar uno, y su
-  oscuro es el de MaKo (`data-tema="oscuro"`). Las variantes de shadcn (`data-open:`…) valen sólo adentro de `.sa`.
-- **Los portales de radix van al contenedor de adentro de `.sa`** (`portalSa()`): en `<body>` se dibujan sin colores.
-- **Nada de `app/_ui` ni de `app/admin/estilos.ts`** en estas pantallas, salvo el Link de MaKo (lleva el `?ws=`) y «Reportar a
-  Soporte» (todo aviso de error lo lleva). Lo fija `tests/admin-studio.test.ts`.
-- **Lo que en Studio se dibuja y no hace nada, acá anda**, con piezas del MISMO repo (el «Hide» de Users es el «Toggle columns»
-  de su tabla de tareas; «Customize» es el «Sort» de su tabla de clientes). Nunca con una pieza de otra app.
-- **Los datos van después de la copia**: primero la pantalla igual, después las cuentas de MaKo en sus piezas.
+- **El código de Polar vive en `app/admin/_polar`** (Orbit en `orbit/`, packages/ui en `ui/`, `atoms/`, y lo del web en
+  `web/<carpeta de Polar>/`) y **las páginas en `app/admin/(polar)/<ruta de Polar>/`**, un grupo de rutas: las otras subrutas
+  de /admin (/admin/dev, /admin/ui, /admin/approvals, /admin/operaciones…) son otras tabs y no llevan este layout. Cada
+  archivo nombra su original. Para portar uno se usa el mismo reescritor de imports (lo explica el relevo).
+- **Cada página = un `page.tsx` de server que pregunta `exigirSuperAdmin()` antes de leer** y una vista pura que recibe todo
+  por props (lo que Polar pide con un hook en el navegador, MaKo lo lee en el server). Los tipos de MaKo viven en
+  `app/admin/_polar/datos/<sección>.ts`, con datos de ejemplo ficticios para las capturas en `datos/ejemplo/`.
+- **El tema va limitado a `.pl`** (`app/admin/_polar/polar.css`): las rampas `gray`, `blue`, `red`, `green` y `polar` de Polar
+  resuelven con sus mismas clases de Tailwind adentro de Admin, y el oscuro es el de MaKo (`data-tema="oscuro"`).
+- **Los portales van al contenedor de adentro de `.pl`** (`portalPl()`): en `<body>` se dibujarían sin colores.
+- **Cada dato vive en un lugar.** El gráfico de ingresos, sólo en Overview y en Analytics › Metrics. Las personas, sólo en
+  Customers › <negocio> › Members (la búsqueda ⌘K las encuentra y lleva ahí).
 
 ## Las cuentas (se conservan de la versión anterior)
 

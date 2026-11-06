@@ -218,6 +218,9 @@ export const itemsDe = (f: NavFamilia): NavItem[] =>
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
+/** Las secciones de Admin (la copia del dashboard de Polar, app/admin/(polar)): marcan la tab Admin de la barra. */
+const SECCIONES_ADMIN = ['customers', 'analytics', 'sales', 'products', 'finance', 'settings'] as const;
+
 /**
  * De dónde sale el número (el badge) de una tab. Son obligaciones concretas, no novedades: los
  * mensajes sin leer y los datos del CRM sin marcar.
@@ -367,11 +370,12 @@ export const FAMILIAS: NavFamilia[] = [
         // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre
         // en el curso; el kanban de la entrega es su sub-tab Clients. /clients redirige (next.config.ts) y sigue marcando acá.
         { key: 'customer-success', label: 'Classroom', bajada: 'Curso, comunidad y clientes', adentro: ['cs-curso', 'cs-comunidad'], href: '/classroom', icon: 'users', match: (p) => starts('/classroom')(p) || starts('/clients')(p) || starts('/customer-success')(p) },
-        // Admin (5/11/2026; era Customers, 25/10/2026): la tab del super admin, con Revenue, Billing, los negocios, las cuentas
-        // y Agents adentro (app/admin/page.tsx). Martín: «la tab que hoy en día se llama Customer dentro de Super Admin, que se
-        // llame Admin directamente». La KEY no cambia (es contrato: capas, teléfono, API). El `match` es /admin EXACTO: sus
-        // subrutas (/admin/dev, /admin/ui…) son otras tabs. /customers redirige acá y sigue marcándola.
-        { key: 'admin-customers', label: 'Admin', href: '/admin', icon: 'cs', adminOnly: true, match: (p) => p === '/admin' || starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
+        // Admin (5/11/2026; era Customers, 25/10/2026): la tab del super admin. Desde el 6/11/2026 es la copia del dashboard
+        // de Polar (app/admin/(polar)): Overview, Customers, Analytics, Sales, Products, Finance y Settings, cada una su ruta.
+        // Martín: «la tab que hoy en día se llama Customer dentro de Super Admin, que se llame Admin directamente». La KEY no
+        // cambia (es contrato: capas, teléfono, API). El `match` es /admin EXACTO más las secciones de Polar: las otras
+        // subrutas (/admin/dev, /admin/ui…) son otras tabs. /customers, /admin/cobros y /admin/agente redirigen acá.
+        { key: 'admin-customers', label: 'Admin', href: '/admin', icon: 'cs', adminOnly: true, match: (p) => p === '/admin' || SECCIONES_ADMIN.some((s) => starts(`/admin/${s}`)(p)) || starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
       ],
     ],
   },

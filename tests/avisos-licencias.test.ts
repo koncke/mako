@@ -30,17 +30,29 @@ const COPYRIGHT: Readonly<Record<string, string>> = {
   'LICENSE-SOCIAL-MEDIA-SKILLS': 'Copyright (c) 2026 Charlie Hills',
   'LICENSE-INSTAGRAM-CAROUSEL-SKILL': 'Copyright (c) 2026 Jeevan Bavandla',
   'LICENSE-MOTION-SKILLS': 'Copyright (c) 2025 Motion',
-  // El código de Admin (5/11/2026): arhamkhnz/next-shadcn-admin-dashboard, portado en app/admin/_studio.
-  'LICENSE-STUDIO-ADMIN': 'Copyright (c) 2024 Mohammed Arham Khan',
+  // Los trazos de los íconos de Material que usa Admin (app/admin/_polar/orbit/icons/material.tsx).
+  'LICENSE-MUI-ICONS': 'Copyright (c) 2014 Call-Em-All',
+  // El código de Admin (6/11/2026): polarsource/polar, portado en app/admin/_polar y app/admin/(polar). Es Apache-2.0, no MIT.
+  'LICENSE-POLAR': 'Copyright 2023 Polar Software Inc',
 };
+
+/** Las que no son MIT, y su texto (el de la Apache-2.0 entera). */
+const APACHE = new Set(['LICENSE-POLAR']);
 
 const archivos = () => readdirSync(AVISOS).filter((f) => f.startsWith('LICENSE-')).sort();
 
-test('cada aviso es la licencia MIT entera, con el copyright de su repo', () => {
+test('cada aviso es su licencia entera (MIT o Apache-2.0), con el copyright de su repo', () => {
   assert.deepEqual(archivos(), Object.keys(COPYRIGHT).sort(), 'la carpeta y la lista no coinciden: un aviso nuevo va con su copyright acá');
   for (const f of archivos()) {
     const t = leer(`lib/avisos/${f}`);
     assert.ok(t.split('\n').some((l) => l.trim() === COPYRIGHT[f]), `${f}: no tiene «${COPYRIGHT[f]}»`);
+    assert.doesNotMatch(t, /<html|<!DOCTYPE|404: Not Found/i, `${f}: se guardó una página de error`);
+    if (APACHE.has(f)) {
+      assert.match(t, /Apache License\s+Version 2\.0, January 2004/, `${f}: no es el texto de la Apache-2.0`);
+      assert.match(t, /4\. Redistribution\./, `${f}: le falta la condición de redistribución`);
+      assert.match(t, /END OF TERMS AND CONDITIONS/, `${f}: está cortado`);
+      continue;
+    }
     assert.match(t, /Permission is hereby granted, free of charge, to any person obtaining a copy/, `${f}: no es el texto de la MIT`);
     assert.match(t, /The above copyright notice and this permission notice shall be included in all\s+copies or substantial portions of the Software\./, `${f}: le falta la condición de la MIT`);
     assert.match(t, /WITHOUT WARRANTY OF ANY KIND/, `${f}: está cortado`);

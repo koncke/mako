@@ -2272,9 +2272,9 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
    todos. Lo que vive ADENTRO de la barra (la campana, el saldo, el interruptor de
    modo, la foto) hereda estos valores solo. Los temas candidatos (True North) traen
    su barra y no se tocan. */
-/* ⚠️ `:not(.sa [data-sidebar])`: el sidebar de Admin (el de Studio Admin, app/admin/_studio) también marca sus piezas con
+/* ⚠️ `:not(.pl [data-sidebar])`: el sidebar de Admin (el de Polar, app/admin/_polar/ui/sidebar.tsx) también marca sus piezas con
    `data-sidebar` y trae sus propios colores y filetes; esto es sólo para la barra de MaKo (5/11/2026). */
-:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar]:not(.sa [data-sidebar]) {
+:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar]:not(.pl [data-sidebar]) {
   --sidebar: #FFFFFF;
   --sidebar-2: #EEF1F5;
   --sidebar-line: #E3E7ED;
@@ -2282,7 +2282,7 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
   --on-sidebar: #12151B;
   --sidebar-hover: rgba(18, 21, 27, .055);
 }
-:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar]:not(.sa [data-sidebar]) > div {
+:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar]:not(.pl [data-sidebar]) > div {
   border-right: 1px solid var(--sidebar-line);
 }
 

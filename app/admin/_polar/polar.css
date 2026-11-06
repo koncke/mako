@@ -1,0 +1,248 @@
+/* Aviso de licencia (Apache-2.0): lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR. */
+/* =============================================================================
+   Admin (/admin) — el tema de Polar, limitado a `.pl` (6/11/2026)
+   =============================================================================
+   Copiado de polarsource/polar (Apache-2.0): clients/apps/web/src/styles/globals.css (los colores, el radio, las sombras,
+   los vars de shadcn y los tokens de Orbit) y clients/packages/orbit/src/tokens/*.stylex.ts (los roles del texto). Martín,
+   6/11/2026: «copia por completo… no es solamente el diseño, es también las funcionalidades». Los VALORES son los suyos.
+
+   La receta es la de siempre en MaKo (AGENTS.md → «Una pantalla oscura se hace redefiniendo TOKENS» y «Un tema limitado
+   a una clase no llega a los PORTALES»):
+   · los vars se definen DENTRO de `.pl`, la raíz de Admin: afuera no existen y el resto de MaKo no se entera. Eso incluye
+     las rampas `gray`, `blue`, `red` y `green` de Tailwind, que Polar redefine: adentro de `.pl` un `bg-gray-100` es el de
+     Polar y afuera el de siempre;
+   · al `@theme` global sólo se le suman NOMBRES QUE NO EXISTÍAN (las rampas `polar-*`, los del sidebar) o un
+     `var(--pl-…, <el default de Tailwind>)` (los radios), así afuera todo resuelve a lo de siempre;
+   · el `.dark` de Polar es el oscuro de MaKo (`[data-tema="oscuro"]`, la variante `dark:` de app/video-editor/capcut-theme.css):
+     el modo se elige en la barra de MaKo, no acá;
+   · los portales (menús, selects, diálogos, el ⌘K) se montan en un contenedor ADENTRO de `.pl` (app/admin/_polar/portal.ts).
+   · LA LETRA: la de Polar es «PP Neue Montreal», una fuente comercial de Pangram Pangram que NO está bajo la licencia del
+     repo: no se copia. Polar la declara con Inter de respaldo (`'PP Neue Montreal', 'Inter', sans-serif`) y ésa es la que se
+     ve acá (Inter, OFL, de Google Fonts). La mono es GeistMono, como en Polar.
+
+   Este archivo lo importa app/globals.css: las directivas @theme sólo valen dentro de la entrada de Tailwind. */
+
+@font-face { font-family: 'PlInter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'PlInter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+@theme {
+  --color-polar-50: hsl(0, 0%, 85%);
+  --color-polar-100: hsl(0, 0%, 79%);
+  --color-polar-200: hsl(0, 0%, 68%);
+  --color-polar-300: hsl(0, 0%, 62%);
+  --color-polar-400: hsl(0, 0%, 52%);
+  --color-polar-500: hsl(0, 0%, 46%);
+  --color-polar-600: hsl(0, 0%, 16%);
+  --color-polar-700: hsl(0, 0%, 13%);
+  --color-polar-800: hsl(0, 0%, 9.5%);
+  --color-polar-900: hsl(0, 0%, 6.5%);
+  --color-polar-950: hsl(0, 0%, 3.5%);
+  --text-xxs: 0.65rem;
+}
+
+@theme inline {
+  --radius-sm: var(--pl-radius-sm, 0.25rem);
+  --radius-md: var(--pl-radius-md, 0.375rem);
+  --radius-lg: var(--pl-radius-lg, 0.5rem);
+  --radius-4xl: var(--pl-radius-4xl, 2rem);
+  --color-sidebar: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-bar-grow: bar-grow 0.3s cubic-bezier(0, 0, 0, 1) both;
+  --animate-bar-grow-x: bar-grow-x 0.3s cubic-bezier(0, 0, 0, 1) both;
+}
+
+@keyframes bar-grow { from { transform: scaleY(0); } }
+@keyframes bar-grow-x { from { transform: scaleX(0); } }
+
+.pl {
+  /* Las rampas de Polar (globals.css @theme). */
+  --color-blue-50: oklch(0.97 0.014 254.604); --color-blue-100: oklch(0.932 0.032 255.585); --color-blue-200: oklch(0.882 0.059 254.128);
+  --color-blue-300: oklch(0.809 0.105 251.813); --color-blue-400: oklch(0.707 0.165 254.624); --color-blue-500: oklch(0.623 0.214 259.815);
+  --color-blue-600: oklch(0.546 0.245 262.881); --color-blue-700: oklch(0.488 0.243 264.376); --color-blue-800: oklch(0.424 0.199 265.638);
+  --color-blue-900: oklch(0.379 0.146 265.522); --color-blue-950: oklch(0.282 0.091 267.935); --color-blue: var(--color-blue-600);
+  --color-green-50: oklch(0.979 0.021 166.113); --color-green-100: oklch(0.95 0.052 163.051); --color-green-200: oklch(0.905 0.093 164.15);
+  --color-green-300: oklch(0.845 0.143 164.978); --color-green-400: oklch(0.765 0.177 163.223); --color-green-500: oklch(0.696 0.17 162.48);
+  --color-green-600: oklch(0.596 0.145 163.225); --color-green-700: oklch(0.508 0.118 165.612); --color-green-800: oklch(0.432 0.095 166.913);
+  --color-green-900: oklch(0.378 0.077 168.94); --color-green-950: oklch(0.262 0.051 172.552);
+  --color-red-50: oklch(0.971 0.013 17.38); --color-red-100: oklch(0.936 0.032 17.717); --color-red-200: oklch(0.885 0.062 18.334);
+  --color-red-300: oklch(0.808 0.114 19.571); --color-red-400: oklch(0.704 0.191 22.216); --color-red-500: oklch(0.637 0.237 25.331);
+  --color-red-600: oklch(0.577 0.245 27.325); --color-red-700: oklch(0.505 0.213 27.518); --color-red-800: oklch(0.444 0.177 26.899);
+  --color-red-900: oklch(0.396 0.141 25.723); --color-red-950: oklch(0.258 0.092 26.042);
+  --color-gray-50: oklch(0.985 0.002 247.839); --color-gray-100: oklch(0.967 0.003 264.542); --color-gray-200: oklch(0.928 0.006 264.531);
+  --color-gray-300: oklch(0.872 0.01 258.338); --color-gray-400: oklch(0.707 0.022 261.325); --color-gray-500: oklch(0.551 0.027 264.364);
+  --color-gray-600: oklch(0.446 0.03 256.802); --color-gray-700: oklch(0.373 0.034 259.733); --color-gray-800: oklch(0.278 0.033 256.848);
+  --color-gray-900: oklch(0.21 0.034 264.665); --color-gray-950: oklch(0.13 0.028 261.692);
+
+  /* shadcn/ui (globals.css :root). */
+  --background: var(--color-gray-50);
+  --foreground: var(--color-gray-900);
+  --card: var(--color-white, #fff);
+  --card-foreground: var(--color-gray-900);
+  --popover: var(--color-white, #fff);
+  --popover-foreground: hsl(224 71.4% 4.1%);
+  --sidebar-background: var(--color-gray-100);
+  --sidebar-foreground: var(--color-gray-900);
+  --sidebar-primary: var(--color-blue);
+  --sidebar-primary-foreground: var(--color-gray-50);
+  --sidebar-border: var(--color-gray-300);
+  /* --sidebar-accent y --sidebar-ring: Polar los usa y no los define (quedan sin valor), y así quedan acá. */
+  --primary: var(--color-blue);
+  --primary-foreground: var(--color-gray-50);
+  --secondary: var(--color-gray-100);
+  --secondary-foreground: var(--color-gray-900);
+  --muted: var(--color-gray-100);
+  --muted-foreground: var(--color-gray-500);
+  --accent: var(--color-blue);
+  --accent-foreground: var(--color-white, #fff);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-600);
+  --border: var(--color-gray-200);
+  --input: var(--color-gray-200);
+  --ring: var(--color-gray-200);
+  --radius: 0.6rem;
+  --pl-radius-lg: var(--radius);
+  --pl-radius-md: calc(var(--radius) - 2px);
+  --pl-radius-sm: calc(var(--radius) - 4px);
+  --pl-radius-4xl: 2rem;
+
+  /* Orbit (globals.css «Orbit design tokens» y tokens/semantics.stylex.ts, en claro). */
+  --orbit-bg: #ffffff; --orbit-bg-surface: hsl(0, 0%, 97%); --orbit-bg-elevated: hsl(0, 0%, 90%);
+  --orbit-text: #111111; --orbit-text-subtle: hsl(0, 0%, 60%); --orbit-text-disabled: hsl(0, 0%, 32%); --orbit-destructive: var(--color-red-500);
+  --pl-background-primary: #ffffff;
+  --pl-background-secondary: var(--color-gray-50);
+  --pl-background-card: var(--color-gray-100);
+  --pl-background-inverse: var(--color-gray-900);
+  --pl-background-accent: oklch(0.962 0.018 272.314);
+  --pl-background-warning: oklch(0.987 0.022 95.277);
+  --pl-background-success: oklch(0.979 0.021 166.113);
+  --pl-background-danger: var(--color-red-50);
+  --pl-text-primary: #000000;
+  --pl-text-secondary: var(--color-gray-500);
+  --pl-text-tertiary: var(--color-gray-400);
+  --pl-text-disabled: var(--color-gray-300);
+  --pl-text-success: oklch(0.696 0.17 162.48);
+  --pl-text-danger: var(--color-red-500);
+  --pl-text-warning: oklch(0.769 0.188 70.08);
+  --pl-text-accent: oklch(0.585 0.233 277.117);
+  --pl-text-inverse: #ffffff;
+  --pl-border-primary: var(--color-gray-200);
+  --pl-border-secondary: var(--color-gray-100);
+  --pl-border-warning: oklch(0.879 0.169 91.605);
+  --pl-font-sans: 'PlInter', 'Inter', sans-serif;
+  --pl-font-display: 'PlInter', 'InterDisplay', 'Inter', sans-serif;
+  --pl-font-mono: 'GeistMono', ui-monospace, monospace;
+
+  /* El body de Polar (globals.css @layer base). */
+  color: var(--foreground);
+  font-family: var(--pl-font-sans);
+  font-weight: 450;
+  letter-spacing: 0.015em;
+  text-rendering: optimizeLegibility;
+}
+.pl *, .pl ::after, .pl ::before, .pl ::backdrop { border-color: var(--border); }
+
+/* El oscuro (`:root.dark` de Polar) es el de MaKo. */
+:root[data-tema="oscuro"] .pl {
+  --background: var(--color-polar-800);
+  --foreground: var(--color-polar-500);
+  --card: var(--color-polar-800);
+  --card-foreground: var(--color-polar-50);
+  --popover: var(--color-polar-900);
+  --popover-foreground: var(--color-polar-50);
+  --sidebar-background: var(--color-polar-950);
+  --sidebar-foreground: var(--color-polar-50);
+  --sidebar-primary: var(--color-blue);
+  --sidebar-primary-foreground: var(--color-polar-50);
+  --sidebar-border: var(--color-polar-700);
+  --primary: var(--color-blue);
+  --primary-foreground: var(--color-polar-50);
+  --secondary: var(--color-polar-900);
+  --secondary-foreground: var(--color-polar-50);
+  --muted: var(--color-polar-700);
+  --muted-foreground: var(--color-polar-500);
+  --accent: var(--color-blue);
+  --accent-foreground: var(--color-polar-50);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-500);
+  --border: var(--color-polar-700);
+  --input: var(--color-polar-700);
+  --ring: var(--color-polar-700);
+  --orbit-bg: hsl(233, 2%, 3%); --orbit-bg-surface: hsl(233, 2%, 6.5%); --orbit-bg-elevated: hsl(233, 2%, 9.5%);
+  --orbit-text: #f0f0f0; --orbit-text-subtle: hsl(233, 2%, 52%); --orbit-text-disabled: hsl(233, 2%, 32%); --orbit-destructive: var(--color-red-600);
+  --pl-background-primary: var(--color-polar-950);
+  --pl-background-secondary: var(--color-polar-900);
+  --pl-background-card: var(--color-polar-800);
+  --pl-background-inverse: #ffffff;
+  --pl-background-accent: oklch(0.257 0.09 281.288);
+  --pl-background-warning: oklch(0.279 0.077 45.635);
+  --pl-background-success: oklch(0.262 0.051 172.552);
+  --pl-background-danger: var(--color-red-950);
+  --pl-text-primary: #ffffff;
+  --pl-text-secondary: var(--color-polar-400);
+  --pl-text-tertiary: var(--color-polar-500);
+  --pl-text-disabled: var(--color-polar-600);
+  --pl-text-inverse: #000000;
+  --pl-border-primary: var(--color-polar-700);
+  --pl-border-secondary: var(--color-polar-800);
+  --pl-border-warning: oklch(0.555 0.163 48.998);
+  color-scheme: dark;
+}
+
+/* Las sombras de Polar (globals.css @theme: --shadow-md/lg/xl/3xl). */
+.pl .shadow-md { --tw-shadow: 0 0px 15px var(--tw-shadow-color, rgba(0 0 0 / 0.04)), 0 0px 2px var(--tw-shadow-color, rgba(0 0 0 / 0.06)); }
+.pl .shadow-lg { --tw-shadow: 0 0px 20px var(--tw-shadow-color, rgba(0 0 0 / 0.04)), 0 0px 5px var(--tw-shadow-color, rgba(0 0 0 / 0.06)); }
+.pl .shadow-xl { --tw-shadow: 0 0px 30px var(--tw-shadow-color, rgba(0 0 0 / 0.04)), 0 0px 10px var(--tw-shadow-color, rgba(0 0 0 / 0.06)); }
+.pl .shadow-3xl { --tw-shadow: 0 0 50px var(--tw-shadow-color, rgba(0 0 0 / 0.02)), 0 0 50px var(--tw-shadow-color, rgba(0 0 0 / 0.04)); }
+/* Las letras de Polar sobre las clases de Tailwind (MaKo declara --font-display «inline» con la suya). */
+.pl .font-sans { font-family: var(--pl-font-sans); }
+.pl .font-display { font-family: var(--pl-font-display); }
+.pl .font-mono { font-family: var(--pl-font-mono); }
+
+/* ── Text de Orbit (tokens/semantics.stylex.ts → textRoleStyles, textColorStyles; utils/text-styles.ts) ────────── */
+.pl .pl-t-default { font-family: var(--pl-font-sans); font-size: 0.875rem; line-height: 1.5; }
+.pl .pl-t-title { font-family: var(--pl-font-sans); font-size: 0.875rem; line-height: 1.5; font-weight: 500; }
+.pl .pl-t-body { font-family: var(--pl-font-sans); font-size: 1rem; line-height: 1.5; }
+.pl .pl-t-label { font-family: var(--pl-font-sans); font-size: 0.75rem; line-height: 1.375; font-weight: 500; }
+.pl .pl-t-caption { font-family: var(--pl-font-sans); font-size: 0.75rem; line-height: 1.375; }
+.pl .pl-t-heading-2xl { font-family: var(--pl-font-display); font-size: 3.75rem; line-height: 1; font-weight: 400; letter-spacing: 0em; }
+.pl .pl-t-heading-xl { font-family: var(--pl-font-display); font-size: 3rem; line-height: 1; font-weight: 400; letter-spacing: 0em; }
+.pl .pl-t-heading-l { font-family: var(--pl-font-display); font-size: 2.25rem; line-height: 1.25; font-weight: 400; letter-spacing: 0em; }
+.pl .pl-t-heading-m { font-family: var(--pl-font-sans); font-size: 1.875rem; line-height: 1.25; font-weight: 400; letter-spacing: 0em; }
+.pl .pl-t-heading-s { font-family: var(--pl-font-sans); font-size: 1.5rem; line-height: 1.375; font-weight: 400; letter-spacing: 0em; }
+.pl .pl-t-heading-xs { font-family: var(--pl-font-sans); font-size: 1.25rem; line-height: 1.375; font-weight: 400; }
+.pl .pl-t-heading-xxs { font-family: var(--pl-font-sans); font-size: 1.125rem; line-height: 1.375; font-weight: 400; }
+@media (min-width: 768px) {
+  .pl .pl-t-heading-2xl { font-size: 6rem; }
+  .pl .pl-t-heading-xl { font-size: 4.5rem; }
+  .pl .pl-t-heading-l { font-size: 3rem; }
+  .pl .pl-t-heading-m { font-size: 2.25rem; }
+  .pl .pl-t-heading-s { font-size: 1.875rem; }
+  .pl .pl-t-heading-xs { font-size: 1.5rem; }
+  .pl .pl-t-heading-xxs { font-size: 1.25rem; }
+}
+.pl .pl-c-default { color: var(--pl-text-primary); }
+.pl .pl-c-muted { color: var(--pl-text-secondary); }
+.pl .pl-c-disabled { color: var(--pl-text-disabled); }
+.pl .pl-c-accent { color: var(--pl-text-accent); }
+.pl .pl-c-danger, .pl .pl-c-error { color: var(--pl-text-danger); }
+.pl .pl-c-warning { color: var(--pl-text-warning); }
+.pl .pl-c-success { color: var(--pl-text-success); }
+.pl .pl-c-inverse { color: var(--pl-text-inverse); }
+.pl .pl-c-white { color: #ffffff; }
+.pl .pl-c-black { color: #000000; }
+.pl .pl-align-left { text-align: left; } .pl .pl-align-center { text-align: center; } .pl .pl-align-right { text-align: right; } .pl .pl-align-justify { text-align: justify; }
+.pl .pl-wrap-wrap { text-wrap: wrap; } .pl .pl-wrap-nowrap { text-wrap: nowrap; } .pl .pl-wrap-balance { text-wrap: balance; } .pl .pl-wrap-pretty { text-wrap: pretty; }
+.pl .pl-weight-light { font-weight: 300; } .pl .pl-weight-book { font-weight: 350; } .pl .pl-weight-regular { font-weight: 400; } .pl .pl-weight-medium { font-weight: 500; } .pl .pl-weight-semibold { font-weight: 600; }
+.pl .pl-leading-none { line-height: 1; } .pl .pl-leading-tight { line-height: 1.25; } .pl .pl-leading-snug { line-height: 1.375; } .pl .pl-leading-normal { line-height: 1.5; } .pl .pl-leading-relaxed { line-height: 1.625; }
+.pl .pl-mono { font-family: var(--pl-font-mono); }
+.pl .pl-tnum { font-variant-numeric: tabular-nums; }
+.pl .pl-through { text-decoration: line-through; }
+.pl .pl-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
