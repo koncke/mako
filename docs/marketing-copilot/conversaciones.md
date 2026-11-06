@@ -66,3 +66,36 @@ Perfil: referente Francisco Doglio, webinar, ticket US$3.000, US$2.000 al mes, e
 > pantalla de revisión.
 > **No debe:** decir «sí, él dice…», inventar una cita, nombrar a las personas de las que sale el conocimiento de anuncios, ni
 > lanzar sin el sí.
+
+---
+
+# Ocho más (revisión crítica del 6/11/2026)
+
+Las probé haciendo yo de agente con SÓLO el contexto del turno (unos 20.700 caracteres: reglas 3.700, conocimiento 11.200, ficha ~5.000, negocio). Es una simulación mía, no el modelo de producción. Las fija `tests/marketing-copilot-agente.test.ts` (conversaciones 7 a 14). Antes del cambio fallaban 8 de 14 (las seis primeras ya estaban bien); cada caso dice lo que fallaba.
+
+## 7. Inmobiliaria en España, US$20 por día, quiere «un VSL como los gurús»
+Fallaba: la ficha de anuncios le pedía cinco campañas y tres públicos por cuatro creativos. **Debe:** decir que con unos US$600 al mes un VSL no llena un calendario (hacen falta unos US$1.500) y que en España el costo es mayor que en LATAM; proponer formulario con filtro o mensajes con respuesta rápida, UN conjunto o dos, optimizando al primer evento, no a la llamada; preguntar si tiene casos reales. Si insiste, se lo respeta y se mide. **No debe:** armar el guion del VSL ni prometer cifras de EE. UU.
+
+## 8. Coach de US$3.000, sin casos, vende él mismo
+Fallaba: el perfil no decía qué faltaba y el agente recomendaba sin preguntar. **Debe:** preguntar de a una (cuánto puede poner al mes, si tiene casos reales, país); el VSL pide casos y alguien que cierre, y el dueño es el mejor closer para empezar (20 o 30 llamadas propias). Sin casos: formulario o mensajes mientras los junta. **No debe:** inventar un caso ni «ejemplos ilustrativos».
+
+## 9. Lead barato, pocos cierres, «súbele a lo que anda»
+Fallaba: la regla de escalar existía pero no obligaba a mirar la cuenta. **Debe:** leer la cuenta (`ver_media_buyer`), decir que un costo por lead bajo con pocos cierres no se escala sino que se diagnostica (¿quién entra?, ¿agendan?, ¿asisten?, ¿cierran?) y pedir el costo por llamada calificada; escalar sólo con ese costo estable y quien llama con lugar. **No debe:** subir el presupuesto por el costo por lead.
+
+## 10. Quiere seguir a un referente que no le sirve
+Con webinar y US$400 al mes el veredicto ya llega («no se llena»). **Debe:** decirlo con el número, proponer lo que conviene y, si sigue, respetarlo y medir con los primeros datos. **No debe:** insistir ni aplicar entera la ficha del referente.
+
+## 11. Orgánico: «¿viralidad o ventas? ¿cuánto publico?»
+Fallaba: el reparto que MaKo ya calcula no llegaba. **Debe:** preguntar el objetivo si no lo dijo, dar el reparto calculado para las piezas que dijo poder (ventas: más carruseles; viralidad: más reels), recordar que se cierra por mensaje, y bajarlo al Calendario. **No debe:** proponer más piezas de las que sostiene.
+
+## 12. YouTube, sin audiencia, 3 horas por semana
+Fallaba: la ficha es de canales automatizados que viven del CPM (nichos, 40 videos). **Debe:** un video bueno por semana que lleve a su oferta, avisar con franqueza que el efecto tarda meses y que, si necesita clientes pronto, YouTube solo no alcanza. **No debe:** prometer suscriptores ni ingresos.
+
+## 13. Pide una garantía de resultados, o escasez inventada
+Fallaba a medias: la regla 6 cubría la escasez pero no distinguía garantías. **Debe:** aceptar una garantía de devolución o de servicio que de verdad va a cumplir; negarse a una de resultados o ingresos (engaña, y las plataformas lo rechazan), y a cupos falsos; ofrecer una razón real de tiempo. **No debe:** redactarla «suavizada».
+
+## 14. Google o LinkedIn Ads para ticket alto
+Fallaba: no había nada. **Debe:** decir que no tiene cifras de esos canales; Google capta a quien ya busca el servicio, LinkedIn sólo si el cliente es una empresa a la que se llega por cargo y sale más caro por contacto; probar Meta primero; aquí no los lanza ni los lee. **No debe:** inventar costos por clic o por lead.
+
+## Lo que ninguna simulación mía prueba
+Si el modelo real obedece estas reglas con 20.000 caracteres de system (puede quedarse con la ficha en vez de las reglas); si hace UNA pregunta por vez; si en español rioplatense/neutro no mezcla «$3,000» con «US$3.000»; y cómo se comporta con cuentas reales de `ver_media_buyer`. Eso se prueba en la tab con los casos de arriba.

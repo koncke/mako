@@ -150,6 +150,67 @@ test('sin primera entrada: no inventa un perfil y manda a hacerla', () => {
   assert.match(n, /estrategia=1/);
 });
 
+// ── Ocho conversaciones más (revisión crítica del 6/11/2026; docs/marketing-copilot/conversaciones.md, 7 a 14) ──
+test('conversación 7 (inmobiliaria con US$20 por día): la cuenta chica achica la ficha y no se vende un VSL', () => {
+  const p: PerfilCopiloto = { entrada: 'funnel', funnel: 'vsl-llamada', ticket: 4000, presupuestoMes: 600, llamadas: 'yo' };
+  const n = negocioDelCopiloto(p);
+  assert.match(n, /EL FUNNEL ELEGIDO NO LE SIRVE/);
+  assert.match(n, /«formulario»/);
+  assert.match(n, /TAMAÑO DE LA CUENTA: con \$20 por día caben como mucho 2 conjuntos/);
+  assert.match(n, /casos reales de clientes/);
+  assert.match(REGLAS_DEL_COPILOTO, /mandan los números/);
+});
+
+test('conversación 8 (coach sin casos): pregunta lo que falta de a una y no inventa casos', () => {
+  const n = negocioDelCopiloto({ entrada: 'funnel', funnel: 'vsl-llamada', ticket: 3000 });
+  assert.match(n, /TODAVÍA NO SABES: cuánto puede poner por mes, quién toma las llamadas\. Pregunta una sola por vez/);
+  assert.match(n, /nunca se inventan/);
+  assert.match(n, /no trae el país/);
+});
+
+test('conversación 9 (lead barato, pocos cierres, «súbele el presupuesto»): diagnosticar antes de escalar, con la cuenta leída', () => {
+  assert.match(REGLAS_DEL_COPILOTO, /lees la cuenta \(ver_media_buyer\)/);
+  assert.match(REGLAS_DEL_COPILOTO, /costo por lead bajo con pocos cierres no es algo que escalar/);
+  assert.match(REGLAS_DEL_COPILOTO, /Sin el dato, no hay recomendación de mover plata/);
+});
+
+test('conversación 10 (seguir al referente que no le sirve): el funnel lo avisa, la ficha se achica y, si insiste, se mide', () => {
+  const p: PerfilCopiloto = { entrada: 'referente', referente: 'francisco-doglio', funnel: 'webinar', ticket: 1500, presupuestoMes: 400, llamadas: 'equipo' };
+  assert.match(negocioDelCopiloto(p), /EL FUNNEL ELEGIDO NO LE SIRVE: .*no se llena/);
+  assert.match(negocioDelCopiloto({ ...p, ajuste: 'sigo' }), /no insistas/);
+});
+
+test('conversación 11 (orgánico: viralidad o ventas, cuánto): el reparto llega calculado, y si falta el objetivo se pregunta', () => {
+  const sin = negocioDelCopiloto({ entrada: 'funnel', funnel: 'organico', ticket: 3000, presupuestoMes: 0, llamadas: 'yo', ritmo: 4 });
+  assert.match(sin, /REPARTO que calcula MaKo para 4 por semana .*supone mixto: pregúntaselo/);
+  assert.match(sin, /2 reels y 2 carruseles/);
+  const ven = negocioDelCopiloto({ entrada: 'funnel', funnel: 'organico', ticket: 3000, presupuestoMes: 0, llamadas: 'yo', ritmo: 4, objetivo: 'ventas' });
+  assert.match(ven, /con objetivo ventas: 4 piezas por semana: 1 reel y 3 carruseles/);
+  assert.match(REGLAS_DEL_COPILOTO, /nunca más piezas de las que la persona dijo/);
+});
+
+test('conversación 12 (YouTube sin audiencia, 3 horas): la ficha de canales automatizados no manda', () => {
+  const n = negocioDelCopiloto({ entrada: 'funnel', funnel: 'youtube', ticket: 1000, presupuestoMes: 0, llamadas: 'yo', ritmo: 1 });
+  assert.match(n, /YOUTUBE PARA ESTE NEGOCIO/);
+  assert.match(n, /ignora lo de nichos por CPM/);
+  assert.match(n, /un video bueno por semana/);
+  assert.match(n, /tarda meses/);
+  assert.doesNotMatch(n, /TAMAÑO DE LA CUENTA/);
+});
+
+test('conversación 13 (garantía de resultados): la de devolución sí, la de resultados no', () => {
+  assert.match(REGLAS_DEL_COPILOTO, /garantía de DEVOLUCIÓN o de servicio .* sí se puede/);
+  assert.match(REGLAS_DEL_COPILOTO, /garantía de RESULTADOS o de ingresos/);
+});
+
+test('conversación 14 (Google o LinkedIn): criterio sin cifras inventadas, y Meta primero', () => {
+  const R = REGLAS_DEL_COPILOTO;
+  assert.match(R, /NO tienes cifras ni fuentes de Google Ads ni de LinkedIn Ads/);
+  assert.match(R, /Google en búsqueda capta a quien YA busca/);
+  assert.match(R, /probar Meta primero/);
+  assert.match(R, /no los lanzas ni los lees/);
+});
+
 test('el peso: lo destilado y el contexto entero caben (cada mensaje lo paga)', () => {
   assert.ok(CONOCIMIENTO_ANUNCIOS.length < 15000, `lo destilado pesa ${CONOCIMIENTO_ANUNCIOS.length}`);
   const peor = Math.max(...['derek-chamizo', 'julian-otalora', 'francisco-doglio', 'sofia-contreras', 'guille-collado', 'juan-ads'].map((id) =>

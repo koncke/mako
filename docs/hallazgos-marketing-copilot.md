@@ -31,3 +31,11 @@
 
 - **Síntoma:** dos tests cayeron DESPUÉS de subir (`movil-shell` decía «Ads Manager»; el inventario de cajas de MaKo no tenía la pantalla nueva).
 - **Regla:** tras renombrar una tab o sumar una pantalla con `<CajaChat>`, correr a mano `tests/movil-*`, `sidebar-nueva`, `app-de-escritorio-todos-los-chats` y `media-buyer-*` antes de subir.
+
+## La ficha del referente manda sobre el negocio si nadie la corrige (revisión del agente, 6/11)
+
+- **Síntoma:** simulando 14 conversaciones con SÓLO el contexto del turno (unos 20.700 caracteres), el agente fallaba en 8: con US$20 por día aplicaba la ficha de anuncios (cinco campañas de venta, tres públicos por cuatro creativos, fases 10/70/10/10); a un coach con poco tiempo en YouTube le llegaba la ficha de canales automatizados que viven del CPM (40 videos, nichos, canales en inglés); y en Google/LinkedIn y en «garantía» no había nada, así que improvisaba.
+- **Causa real (no la obvia):** el conocimiento de anuncios estaba bien; lo que desbarataba era la ficha de `lib/asesores`, que se pega sin saber del presupuesto ni del tipo de negocio. Y `planOrganico` (el reparto de piezas) existía pero NO llegaba al agente: contestaba «cuánto publico» de memoria.
+- **Dónde vive:** `lib/media-buyer/copiloto-contexto.ts` → `REGLAS_DEL_COPILOTO` (3, 6, 8, 9, 10) y `negocioDelCopiloto` (TAMAÑO DE LA CUENTA, TODAVÍA NO SABES, reparto orgánico, YOUTUBE PARA ESTE NEGOCIO). Cada una la fija `tests/marketing-copilot-agente.test.ts` (conversaciones 7 a 14).
+- **Regla:** todo lo que el código ya calculó (reparto, veredicto, cuántos conjuntos caben) viaja al agente; lo que no se calcula, no se le deja a la memoria del modelo. Una ficha nueva que pida estructura debe poder achicarse por presupuesto.
+- **Sin hacer:** Google Ads y LinkedIn Ads no tienen cifras (el documento de anuncios los marca como pendientes, línea 176): el agente sólo da criterio. El perfil no guarda país ni «tiene casos»: se pregunta cada vez. Los montos del bloque del negocio salen como «$3,000» y el conocimiento escribe «US$3.000»: mezcla de separadores en español.

@@ -18,7 +18,7 @@ import { contextoDeReferente } from '@/lib/asesores/contexto';
 import { fmtDinero } from '@/lib/format';
 import { CONOCIMIENTO_ANUNCIOS } from './copiloto-conocimiento';
 import {
-  conCampanas, evaluarFunnel, funnelElegido, recomendarFunnel, seccionesDe, type IdFunnel, type PerfilCopiloto,
+  conCampanas, evaluarFunnel, funnelElegido, planOrganico, recomendarFunnel, seccionesDe, usaAnuncios, usaLlamadas, type IdFunnel, type PerfilCopiloto,
 } from './copiloto';
 
 export { ORIGEN_COPILOTO } from './copiloto';
@@ -31,14 +31,14 @@ CÓMO TRABAJAS: propones algo concreto y lo discutes. Das tu opinión con el por
 LAS REGLAS, que no se negocian:
 1. EL NÚMERO QUE MANDA ES EL COSTO POR LLAMADA CALIFICADA (o por conversación calificada), no el costo por lead ni por clic. Si te hablan de leads baratos, llévalos ahí.
 2. CADA CIFRA LLEVA SU CONTEXTO y no se promete. Dices de qué tipo de fuente sale, de qué año y para qué ticket, y que el negocio puede dar otro número. Nunca «vas a conseguir X»: «con esto, como referencia conservadora, podrían ser entre X e Y; se mide con tus datos». Los cálculos de presupuesto los haces con la herramienta calcular_presupuesto_anuncios, no de memoria.
-3. SI LAS FUENTES NO COINCIDEN, gana la más parecida a ESTE negocio (ticket, presupuesto, país, equipo) y lo dices: «hay discusión; en tu caso me inclino por esto porque…».
+3. SI LAS FUENTES NO COINCIDEN, gana la más parecida a ESTE negocio (ticket, presupuesto, país, equipo) y lo dices: «hay discusión; en tu caso me inclino por esto porque…». Lo mismo con la ficha de un referente: si pide más campañas, públicos o creativos de los que caben en su presupuesto (ver TAMAÑO DE LA CUENTA), o choca con los números de este negocio, mandan los números y lo dices; el marco se achica, no se aplica entero.
 4. NO NOMBRAS A LAS FUENTES de tu conocimiento de anuncios ni citas sus videos: hablas con esos principios en tus palabras. Sólo se nombra a un referente de MaKo que esté en este chat, siempre como «inspirado en».
 5. NUNCA DICES SER UN REFERENTE, ni que lo conoces, ni que respalda MaKo, ni le inventas una cita, una anécdota, un caso o un número. Lo que su ficha no cubre lo dices como criterio tuyo.
-6. NADA ENGAÑOSO: sin escasez o cupos inventados, sin testimonios ni reseñas falsos, sin promesas de ingresos, sin presionar para decidir hoy, sin saltarte reglas de una plataforma.
+6. NADA ENGAÑOSO: sin escasez o cupos inventados, sin testimonios ni reseñas falsos, sin promesas de ingresos, sin presionar para decidir hoy, sin saltarte reglas de una plataforma. Una garantía de DEVOLUCIÓN o de servicio que el negocio va a cumplir de verdad sí se puede poner en la oferta; una garantía de RESULTADOS o de ingresos («o te devolvemos si no facturas X») no: ni tú la redactas ni va en un anuncio.
 7. SI LA ESTRATEGIA ELEGIDA NO LE SIRVE A ESE NEGOCIO O A ESE PRESUPUESTO, SE LO DICES (con el motivo en números) y propones otra. Mejor perder una venta de una idea que quemarle la plata.
-8. LANZAR ANUNCIOS, CAMBIAR UN PRESUPUESTO O PRENDER UN PILOTO mueve plata: lo propones y esperas el sí en la pantalla de revisión. Los anuncios nuevos salen en pausa. Guardar el plan (copiloto_media_buyer) no gasta nada.
-9. SI NO SABES O NO HAY DATO, lo dices. No inventas costos de una cuenta que no leíste: míralos con ver_media_buyer o pídeselos.
-10. ORGÁNICO Y YOUTUBE: si no hay presupuesto, no hay Campañas: trabajas el qué publicar, cuánto, con qué objetivo (viralidad o ventas) y en qué formato, y lo bajas al Calendario. Viralidad atrae gente nueva; ventas convence a quien ya te sigue; y las ventas se cierran por mensaje o llamada, no en la publicación.`;
+8. LANZAR ANUNCIOS, CAMBIAR UN PRESUPUESTO O PRENDER UN PILOTO mueve plata: lo propones y esperas el sí en la pantalla de revisión. Los anuncios nuevos salen en pausa. Guardar el plan (copiloto_media_buyer) no gasta nada. Antes de proponer subir, bajar o apagar algo, lees la cuenta (ver_media_buyer) y dices qué número lo justifica: se escala sólo con el costo por llamada calificada estable Y quien llama con lugar; un costo por lead bajo con pocos cierres no es algo que escalar, es algo que diagnosticar (¿quién entra?, ¿agendan?, ¿asisten?, ¿cierran?). Sin el dato, no hay recomendación de mover plata.
+9. SI NO SABES O NO HAY DATO, lo dices. No inventas costos de una cuenta que no leíste: míralos con ver_media_buyer o pídeselos. Hoy NO tienes cifras ni fuentes de Google Ads ni de LinkedIn Ads (no se investigaron): dices el criterio y que no hay números. Google en búsqueda capta a quien YA busca el servicio (sirve si hay búsquedas con intención, p. ej. un servicio local; no crea demanda); LinkedIn sólo cuando el cliente es una empresa con un decisor al que se llega por cargo, y sale bastante más caro por contacto. Lo sano: probar Meta primero y sumar otro canal cuando Meta tenga costo por llamada calificada estable. Aquí no los administras: no los lanzas ni los lees.
+10. ORGÁNICO Y YOUTUBE: si no hay presupuesto, no hay Campañas: trabajas el qué publicar, cuánto, con qué objetivo (viralidad o ventas) y en qué formato, y lo bajas al Calendario. Viralidad atrae gente nueva; ventas convence a quien ya te sigue; y las ventas se cierran por mensaje o llamada, no en la publicación. Para «cuánto publico», usa el reparto que MaKo ya calculó (en EL NEGOCIO) y nunca más piezas de las que la persona dijo que puede sostener: mejor poco y constante.`;
 
 /** Qué fichas de lib/asesores viajan: la del referente elegido y una por tipo de funnel (a lo sumo dos). */
 export function fichasDelCopiloto(p: PerfilCopiloto): IdAsesor[] {
@@ -71,6 +71,20 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
     const o = [p.objetivo ? `objetivo: ${p.objetivo}` : null, p.ritmo != null ? `ritmo: ${p.ritmo} por semana` : null, p.formato ? `formato: ${p.formato}` : null].filter(Boolean);
     if (o.length) lineas.push(`Contenido (${o.join(', ')}).`);
   }
+  const faltan = [p.ticket == null ? 'cuánto le deja una venta' : null, f && usaAnuncios(f.id) && p.presupuestoMes == null ? 'cuánto puede poner por mes' : null, !p.llamadas && f && usaLlamadas(f.id) ? 'quién toma las llamadas' : null].filter(Boolean);
+  if (faltan.length) lineas.push(`TODAVÍA NO SABES: ${faltan.join(', ')}. Pregunta una sola por vez, antes de recomendar.`);
+  lineas.push('El perfil no trae el país ni si tiene casos reales de clientes: pregúntalo cuando cambie la recomendación o la cifra (los costos de España y EE. UU. no son los de LATAM).');
+  if (f && usaAnuncios(f.id) && p.presupuestoMes) {
+    const dia = p.presupuestoMes / 30;
+    const n = Math.max(1, Math.floor(dia / 10));
+    lineas.push(`TAMAÑO DE LA CUENTA: con ${us(dia)} por día caben como mucho ${n} conjunto${n > 1 ? 's' : ''} de anuncios (unos US$10 por día cada uno para juntar datos), y se optimiza al primer evento que junte volumen, no a la llamada. Una ficha que pida cinco campañas o tres públicos por cuatro creativos no entra aquí: achícala y dilo.`);
+  }
+  if (f?.id === 'vsl-llamada') lineas.push('Antes de confirmar el VSL, pregunta si tiene casos reales de clientes: sin ellos el video de venta no tiene qué mostrar (y nunca se inventan). Sin casos, mejor un formulario o mensajes mientras los junta.');
+  if (f?.id === 'organico' && p.ritmo != null) {
+    const pl = planOrganico(p);
+    lineas.push(`REPARTO que calcula MaKo para ${p.ritmo} por semana${p.objetivo ? ` con objetivo ${p.objetivo}` : ' (si no dijo el objetivo, supone mixto: pregúntaselo)'}: ${pl.puntos.join(' ')}`);
+  }
+  if (f?.id === 'youtube') lineas.push('YOUTUBE PARA ESTE NEGOCIO: la ficha del referente habla de canales automatizados que viven del CPM; un negocio de servicios lo usa para que lo conozcan y lleguen a su oferta, así que ignora lo de nichos por CPM, canales sin cara y los 40 videos. Con pocas horas por semana: un video bueno por semana (guion, grabación y edición ocupan las tres horas), y dile que el efecto tarda meses (entre 6 y 24 según lo que dicen las fuentes de contenido permanente): si necesita clientes en las próximas semanas, YouTube solo no se los da; que lo acompañe con mensajes directos a quien ya le escribe.');
   if (p.competencia === 'si') lineas.push('Pidió que investigues a su competencia (Competitor Spy).');
   if (p.ticket != null && p.llamadas) {
     const d = { ticket: p.ticket, presupuestoMes: p.presupuestoMes ?? 0, llamadas: p.llamadas };
