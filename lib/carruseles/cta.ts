@@ -54,18 +54,21 @@ const PALABRA = String.raw`[\p{L}\p{N}][\p{L}\p{N}_-]{1,23}|\p{Extended_Pictogra
 /** Los verbos de comentar, en el texto sin tildes (tú, usted, ustedes, la forma de Argentina sin tilde, e inglés). */
 const COMENTA = String.raw`\b(?:comenta(?:me(?:lo)?|lo|la|r)?|comenten|comente|comment(?:s|ing)?)\b`;
 /** Otros verbos que piden una palabra EN los comentarios («Escribe SÍ en los comentarios», «Drop "AI" below»). */
-const OTROS = String.raw`\b(?:escrib(?:e|an|a|i)|dej(?:a|en|e)|pon(?:e|gan|ga)?|respond(?:e|an|a|i)|type|drop|leave|reply)\b`;
+const OTROS = String.raw`\b(?:escrib(?:e|an|a|i)|escreva|digite|dej(?:a|en|e)|deixe|pon(?:e|gan|ga)?|respond(?:e|an|a|i)|type|drop|leave|reply)\b`;
 const EN_COMENTARIOS = /^\s*(?:en\s+(?:los\s+|el\s+)?|in\s+(?:the\s+)?|aqui\s+)?(?:comentarios?|comments?|comment\s+section)\b|^\s*(?:abajo|below)\b/i;
 /** Pedirla por mensaje («Escríbeme CITA por DM», «DM me "GROW"», «Envíame la palabra AGENDA por mensaje»). */
 const MENSAJE = String.raw`\b(?:escrib[ie]me|escribenos|mandame|enviame|envianos|dm(?:\s+me)?|send\s+me|message\s+me|text\s+me)\b`;
+/** «Envía RELEVANCIA por DM», «Manda GUÍA al privado»: el verbo suelto, y exige que la misma frase diga «DM». */
+const ENVIA = String.raw`\b(?:env[ií]a|envie|enviar|envi[ae]nos|manda|mande|mandar|escribe|escriba|escreva|chama|send|text|message|dm)\b`;
 const POR_MENSAJE = /^[^.!?\n]{0,40}?\b(?:dm|md|mensaje|mensajito|inbox|privado|directo|direct|message)\b/i;
 
 /** ¿La mayoría de las letras del texto están en mayúsculas? Entonces una palabra en mayúsculas no dice nada. */
 function todoEnMayusculas(t: string): boolean {
-  const letras = t.match(/\p{L}/gu) ?? [];
-  if (letras.length < 12) return false;
-  const mayus = letras.filter((l) => l !== l.toLowerCase() && l === l.toUpperCase()).length;
-  return mayus / letras.length > 0.6;
+  // Por palabras, no por letras: «Envía RELEVANCIA por DM» tiene 2 de 4 en mayúsculas y no grita; un pie de 8 palabras todas en mayúsculas sí.
+  const palabras = (t.match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => /\p{L}/u.test(w));
+  if (palabras.length < 5) return false;
+  const mayus = palabras.filter((w) => w === w.toUpperCase() && w !== w.toLowerCase()).length;
+  return mayus / palabras.length > 0.6;
 }
 
 const esMayuscula = (w: string): boolean => /\p{L}/u.test(w) && w === w.toUpperCase() && w !== w.toLowerCase() && [...w.replace(/[^\p{L}]/gu, '')].length >= 2;
@@ -98,6 +101,7 @@ export function ctaDeTexto(texto: string | null | undefined): CtaCarrusel | null
     // «TU», «SI» o «ABAJO» no son una palabra clave… salvo que la destaque (comillas, o mayúsculas en un pie que no grita).
     const destacada = !!abre || (esMayuscula(palabra) && !gritado);
     if (!palabra || (NO_SON.has(base) && !destacada)) return;
+    if (base === 'dm' || base === 'dms' || base === 'md') return; // «Envía un DM» no trae palabra
     if (exigeComentarios && !EN_COMENTARIOS.test(resto)) return;
     if (via === 'mensaje' && !viaDicha && !m.groups?.dm && !POR_MENSAJE.test(resto)) return;
     const conComillas = !!cierre;
@@ -117,6 +121,13 @@ export function ctaDeTexto(texto: string | null | undefined): CtaCarrusel | null
   for (const m of t.matchAll(reComenta)) evaluar(m as RegExpExecArray, 'comentario', false);
   for (const m of t.matchAll(reOtros)) evaluar(m as RegExpExecArray, 'comentario', true);
   for (const m of t.matchAll(reMensaje)) evaluar(m as RegExpExecArray, 'mensaje', false);
+  // «Comenta o envía AGENCIA por DM», «Envía RELEVANCIA por DM»: el verbo es genérico, así que la frase tiene que decir
+  // por dónde (DM, mensaje, privado). Sin palabra («Envía un DM») no cuenta.
+  const reEnvia = new RegExp(`${ENVIA}\\s+${objeto}`, 'giu');
+  for (const m of t.matchAll(reEnvia)) evaluar(m as RegExpExecArray, 'mensaje', false);
+  // Portugués con dos puntos: «comente: Viver de POT» (la clave es la palabra en mayúsculas de las próximas palabras).
+  const reDosPuntos = /\b(?:[Cc]omente|[Cc]omenta|COMENTE|COMENTA)\s*:\s*(?:\p{L}+\s+){0,3}?(?<p>\p{Lu}[\p{Lu}\p{N}]+)(?![\p{L}\p{N}])/gu;
+  for (const m of t.matchAll(reDosPuntos)) evaluar(m as RegExpExecArray, 'comentario', false);
   // «Mándame un mensaje con la palabra AGENDA», «…en comentarios la palabra GUÍA»: «la palabra X» suelta, y por dónde la
   // pide lo dice la misma oración (sin ninguno de los dos, no se sabe qué se pide y no cuenta).
   const reLaPalabra = new RegExp(String.raw`\b(?<lapalabra>(?:la|the)\s+(?:palabra|word)\s*:?\s+)(?<abre>[${ABRE}]?)\s?(?<p>${PALABRA})`, 'giu');
