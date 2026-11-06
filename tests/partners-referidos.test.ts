@@ -10,6 +10,7 @@
 //   · `correspondeAcreditar` deja que alguien se refiera a sí mismo              -> 8 / 1
 //   · el cron acredita a quien YA tenía cuenta (sin `alta_estado = hecha`)       -> 8 / 1
 //   · /r pisa la cookie del primero que lo trajo                                 -> 8 / 1
+//   · (6/11) /r deja que una cookie de un código MUERTO tape el link vigente      -> ver el test de abajo
 //   · `interesDeFuncionalidad` no reconoce «crm»                                 -> 8 / 1
 //   · el onboarding no siembra el origen                                         -> 8 / 1
 //   · (25/10) el que canceló la prueba con 0 meses vuelve a dar 'registrado'     -> 8 / 1
@@ -20,11 +21,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, porGanar, resumenDelLibro,
-  seFueSegunSusCobros,
+  seFueSegunSusCobros, refQueVale,
 } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -94,8 +96,37 @@ test('el cron acredita SÓLO a clientes nuevos (la compra que creó la cuenta) y
 
 test('/r/<código> deja la cookie sólo si no había otra (el primero vale)', () => {
   const r = fuente('app/r/[codigo]/route.ts');
-  assert.match(r, /if \(!previo\) \{\s*res\.cookies\.set\(COOKIE_REF, codigo/);
+  assert.match(r, /const \{ ref, ponerCookie \} = refQueVale\(\{ previo, previoEsDePartner, codigo \}\);/);
+  assert.match(r, /destino\.searchParams\.set\('ref', ref\);/);
+  assert.match(r, /if \(ponerCookie\) \{\s*res\.cookies\.set\(COOKIE_REF, codigo/);
   assert.match(r, /export function HEAD\(\)/);
+});
+
+// Y SI EL PRIMERO YA NO ES DE NADIE (6/11/2026): la cookie de un código muerto tapaba el link vigente, y como /r pone el mismo
+// código en `?ref=`, la compra salía sin partner. Probado rompiéndolo: `refQueVale` sin mirar `previoEsDePartner` → 1 fallo;
+// el route sin preguntar por la cookie (`previoEsDePartner` fijo en null) → 1 fallo.
+test('/r/<código>: una cookie de un código muerto no tapa el link de hoy; con la base caída, vale el primero', () => {
+  assert.deepEqual(refQueVale({ previo: 'ana', previoEsDePartner: true, codigo: 'luis' }), { ref: 'ana', ponerCookie: false });
+  assert.deepEqual(refQueVale({ previo: 'muerto', previoEsDePartner: false, codigo: 'luis' }), { ref: 'luis', ponerCookie: true });
+  assert.deepEqual(refQueVale({ previo: 'ana', previoEsDePartner: null, codigo: 'luis' }), { ref: 'ana', ponerCookie: false });
+  assert.deepEqual(refQueVale({ previo: null, previoEsDePartner: null, codigo: 'luis' }), { ref: 'luis', ponerCookie: true });
+  const r = fuente('app/r/[codigo]/route.ts');
+  assert.match(r, /const previoEsDePartner = previo \? await esCodigoDePartner\(previo\)\.catch\(\(\) => null\) : null;/);
+});
+
+// Y «no pude leer» no es «no es de nadie» (la revisión del 6/11/2026): la lectura de los códigos ANTERIORES se tragaba el error y
+// daba null, así que un código viejo de un partner contaba como muerto y /r dejaba que otro link le pisara la cookie. Ejecutado en
+// un node aparte (tests/_partners-codigo-viejo-hijo.ts, la base de mentira). Probado rompiéndolo (volver a `!error && data ? … : null`):
+// 1 fallo.
+test('el código viejo de un partner con la base caída TIRA (y /r deja la cookie); sin la tabla, no es de nadie', () => {
+  const correr = (caso: string) => JSON.parse(execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_partners-codigo-viejo-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', timeout: 90_000, env: { ...process.env, CASO: caso },
+  })) as { es?: boolean; tiro?: boolean; fallo?: string };
+  const caida = correr('caida');
+  assert.equal(caida.fallo, undefined, `el hijo falló: ${caida.fallo}`);
+  assert.equal(caida.tiro, true, 'con la base caída, un código viejo no puede leerse como muerto');
+  assert.deepEqual(correr('sin-tabla'), { es: false }, 'sin la mig 0341 los anteriores son ninguno, como antes');
+  assert.deepEqual(correr('vivo'), { es: true });
 });
 
 test('la funcionalidad de la landing es lo que el onboarding pregunta primero', async () => {

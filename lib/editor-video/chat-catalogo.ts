@@ -168,7 +168,9 @@ export type OperacionChat =
   /** Un preset de subtítulos de la marca (DISPONIBLES.presets_subtitulos), a TODOS los subtítulos. */
   | { op: 'usar_preset_subtitulos'; preset: string }
   /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
-  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean };
+  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean }
+  /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
+  | { op: 'clips_magicos'; cuantos?: number };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -405,6 +407,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     op: 'broll',
     forma: '{"op":"broll","ritmo":"normal","planos":true}',
     para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
+  },
+  {
+    op: 'clips_magicos',
+    forma: '{"op":"clips_magicos","cuantos":5}',
+    para: 'Clips mágicos, como OpusClip: busca en un video LARGO los mejores momentos (de 15 a 60 s, que se entiendan solos) para hacer Reels o Shorts. "cuantos" (opcional, de 1 a 10; sin él, 5). No elige ni inventa los momentos: los busca al aceptar, y la persona abre cada uno en un proyecto nuevo, vertical y con subtítulos. No cambia este proyecto. Se aplica al final.',
   },
 ];
 
@@ -917,6 +924,15 @@ export function validarOperacion(crudo: unknown): Validada {
       if (ritmo !== undefined && ritmo !== 'poco' && ritmo !== 'normal' && ritmo !== 'mucho') return { ok: false, motivo: 'un B-roll con un ritmo que no es «poco», «normal» ni «mucho»' };
       if (raw.planos !== undefined && typeof raw.planos !== 'boolean') return { ok: false, motivo: 'un B-roll con «planos» que no es sí o no' };
       return { ok: true, op: { op: 'broll', ...(ritmo ? { ritmo } : {}), ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}) } };
+    }
+    case 'clips_magicos': {
+      const extra = sobrantes(raw, ['cuantos']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de los clips mágicos` };
+      if (raw.cuantos === undefined) return { ok: true, op: { op: 'clips_magicos' } };
+      if (typeof raw.cuantos !== 'number' || !Number.isInteger(raw.cuantos) || raw.cuantos < 1 || raw.cuantos > 10) {
+        return { ok: false, motivo: 'unos clips mágicos con «cuantos» fuera de 1 a 10' };
+      }
+      return { ok: true, op: { op: 'clips_magicos', cuantos: raw.cuantos } };
     }
   }
 }

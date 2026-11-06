@@ -89,3 +89,19 @@ test('Offer y Soporte: Responder, sin meter la cita donde no va', () => {
   assert.match(piezas, /onCitar=\{s\.citar\}/);
   assert.match(piezas, /hayClave\(s\.texto\) \? <AvisoClave \/> : s\.cita \?/);
 });
+
+// Automations (6/11/2026, el barrido de pendientes): el hilo vive en ChatMakoVista, y la cita en ChatMako. Roturas: sin `onCitar` en
+// la vista → 1 fallo; los pedidos interpretados con la cita adentro (sin `separarCita`) → 1 fallo; soltar la cita aunque no salió → 1 fallo.
+test('Automations: Responder en su chat, y el renglón citado no se interpreta como un pedido', () => {
+  const vista = leer('app/automations/ChatMakoVista.tsx');
+  assert.match(vista, /<HiloMako[\s\S]{0,400}onCitar=\{p\.onCitar\}/, 'el hilo no ofrece Responder');
+  const chat = leer('app/automations/ChatMako.tsx');
+  assert.match(chat, /const cita = useCitaDelChat\(p\.secuenciaId \?\? null\);/, 'la cita es de ESTA automatización');
+  assert.match(chat, /adjuntos: adjuntosCaja, arriba: cita\.arriba,/, 'la cita no se ve en la caja');
+  assert.match(chat, /onCitar=\{cita\.citar\}/);
+  assert.match(chat, /await enviarTexto\(cita\.con\(escrito, adj\.length > 0\), 'barra', adj\);/, 'la cita no sale con lo escrito');
+  assert.match(chat, /if \(r === true\) cita\.soltar\(\);/, 'si no salió, la cita sigue');
+  assert.match(chat, /const \{ pedido: lemos, conCita \} = separarCita\(t\);\n\s*const crudo = await pedirPedidos\(cuerpoPedidos\(lemos,/);
+  assert.match(chat, /const leida = interpretacionDe\(crudo, lemos\);/);
+  assert.match(chat, /const actual = conCita\(textoActual\(i\)\);/);
+});

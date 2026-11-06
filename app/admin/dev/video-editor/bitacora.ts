@@ -441,6 +441,29 @@ export const BITACORA: Hito[] = [
       "app/video-editor/_opencut/broll/ — el panel, las pistas y Dejar / Sacar",
       "tests/video-editor-broll.test.ts — 20 casos, 19 roturas",
     ],
+    commits: [
+      { sha: "277a7c0c5", msg: "Video Editor: MaKo propone el B-roll y los cambios de plano, y la persona deja o saca cada uno", lineas: 2836, archivos: 42 },
+    ],
+    revisar: "/video-editor",
+  },
+  {
+    fecha: "6 nov", hora: "08:30", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Clips mágicos: de un video largo salen varios cortos, y cada uno se abre vertical y con subtítulos",
+    puntos: [
+      "En Multimedia › «Clips mágicos», «Buscar los mejores momentos» lista los clips del video con su título, su puntaje de 0 a 99 y lo primero que se dice.",
+      "«Abrir» arma ese clip en un proyecto nuevo: corta lo de afuera, lo pasa a vertical (9:16) y le pone subtítulos con la plantilla y las palabras clave. El video original no se toca.",
+      "La IA del negocio elige los momentos (de 15 a 60 s, sin pisarse); sin IA salen igual, con las reglas. Cómo lo hacen OpusClip y un repo abierto, en docs/investigacion-video-clips.md.",
+      "Por el chat del editor y por la API de MaKo (buscar_clips_video). No se miró en un navegador ni se corrió con la IA real (la nube no tiene claves).",
+    ],
+    archivos: [
+      "lib/editor-video/clips.ts — qué momentos sirven y su puntaje (reglas, sin IA)",
+      "lib/editor-video/clips-ia.ts · clips-prompts.ts — los momentos que elige la IA del negocio",
+      "app/api/video-editor/clips/route.ts — la ruta del editor",
+      "app/video-editor/_opencut/clips/ — el panel, buscar y abrir cada clip en su proyecto",
+      "tests/video-editor-clips.test.ts — 13 casos, 18 roturas",
+      "scripts/probar-clips-ia.mts — la prueba con la IA de verdad, para la PC",
+    ],
     revisar: "/video-editor",
   },
 ];

@@ -78,7 +78,8 @@ test('las VISITAS al link: sin robots de vista previa, sólo la primera vez de c
   assert.equal(Object.keys(v.meses).length, 12);
   assert.deepEqual(leerVisitas('{"total":"x","meses":{"nope":4}}'), { total: 0, meses: {} });
   const r = fuente('app/r/[codigo]/route.ts');
-  assert.match(r, /if \(!previo\) \{\s*res\.cookies\.set\(COOKIE_REF, codigo[^\n]*\n\s*await sumarVisitaAlLink\(codigo, req\.headers\.get\('user-agent'\)\)\.catch\(/, 'sólo sin cookie, y si falla el link igual lleva');
+  // (6/11/2026: «sin cookie» es `ponerCookie` — también cuenta la de un código muerto, que ya no tapa este link)
+  assert.match(r, /if \(ponerCookie\) \{\s*res\.cookies\.set\(COOKIE_REF, codigo[^\n]*\n\s*await sumarVisitaAlLink\(codigo, req\.headers\.get\('user-agent'\)\)\.catch\(/, 'sólo sin cookie que valga, y si falla el link igual lleva');
   assert.equal(r.match(/sumarVisitaAlLink\(/g)?.length, 1, 'una sola vez, adentro del «no había cookie»');
 });
 

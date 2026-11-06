@@ -199,6 +199,9 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     elegir('ritmo', 'Ritmo', ['poco', 'normal', 'mucho'], 'Opcional: cuántas imágenes («normal», una cada 9 s).', false),
     si('planos', 'Cambios de plano', 'Opcional: proponer también los acercamientos (sin esto, sí).', false),
   ] },
+  { op: 'clips_magicos', id: 'buscar_clips_video', titulo: 'Buscar los mejores momentos (clips mágicos)', parametros: [
+    { nombre: 'cuantos', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 10, descripcion: 'Opcional: cuántos clips (sin esto, 5).' },
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

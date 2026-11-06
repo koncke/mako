@@ -740,7 +740,9 @@ export type OperacionResuelta =
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
 	| { op: "usar_preset_subtitulos"; preset: string }
 	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
-	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean };
+	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean }
+	/** «Clips mágicos» (clips/buscar.ts): busca los momentos, después del lote; no cambia este proyecto. */
+	| { op: "clips_magicos"; cuantos: number };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -1056,7 +1058,7 @@ export function revisarOperaciones({
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1745,6 +1747,19 @@ export function revisarOperaciones({
 				titulo: "B-roll de MaKo",
 				antes: "",
 				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
+			continue;
+		}
+		if (op.op === "clips_magicos") {
+			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
+			if (!conSonido) { descartes.push("no hay video con voz para buscarle clips"); continue; }
+			const cuantos = op.cuantos ?? 5;
+			resueltas.push({ op: "clips_magicos", cuantos });
+			cambios.push({
+				tipo: "agrega",
+				titulo: "Clips mágicos",
+				antes: "",
+				despues: `los ${cuantos} mejores momentos, para abrir cada uno en un proyecto nuevo (este no cambia)`,
 			});
 			continue;
 		}
