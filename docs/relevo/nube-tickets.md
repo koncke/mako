@@ -46,7 +46,19 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 ## Tickets
 
-Los #50, #51, #52 y #53 los ve otro agente: no se tocan hasta que el Cerebro los pase.
+~~Los #50, #51, #52 y #53 los ve otro agente: no se tocan hasta que el Cerebro los pase.~~ **LOS CUATRO ESTÁN RESUELTOS**
+(medido en producción el 6/11/2026): los cuatro quedaron en `resuelto` el 4/11 entre las 08:45 y las 08:46 UTC, con el hito del
+deploy, el aviso al cliente y su correo de avance. Lo que entregó cada uno, del historial:
+
+| # | Qué quedó |
+|---|---|
+| 50 | En Chats, quien comentó tu publicación ya no dice «Mensaje no compatible», y los audios se pueden acelerar |
+| 51 | Con una imagen adjunta se puede grabar un audio, y el campo de Chats en el teléfono queda pegado al teclado |
+| 52 | La pantalla Plan ya no se vuelve a dibujar sola de noche |
+| 53 | Una mensualidad sin fecha de cierre ya no dice «Al día» en la ficha |
+
+⚠️ No hay que confirmar con nadie quién los tiene: ya no los tiene nadie. Este renglón quedó dos días diciendo que no se
+tocaran y es lo que hace que un chat los vuelva a tomar.
 
 ### #56 — Natalia (ws 19), «los leads de la campaña X con nombre y teléfono» · punta `punta/ticket-56`
 
