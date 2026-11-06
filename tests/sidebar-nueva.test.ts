@@ -192,9 +192,10 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
   assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
   // La barra sigue el modo: blanca en claro, ACOTADA a la barra (en :root las --sidebar* siguen oscuras: son la «isla
-  // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra.
+  // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra. Desde el 6/11/2026 la regla no
+  // alcanza al sidebar de Admin (Studio Admin, `.sa`), que marca sus piezas con el mismo `data-sidebar`.
   const ui = leer('app/_ui/ui.css');
-  assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
+  assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\]:not\(\.sa \[data-sidebar\]\) \{\s*--sidebar: #FFFFFF;/);
   assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
   assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #121212;/);
   assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
