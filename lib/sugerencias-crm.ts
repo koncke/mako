@@ -661,3 +661,38 @@ export function sinCalladas<S extends Pick<Sugerencia, 'id'>>(sugs: readonly S[]
   }
   return { visibles, calladas: lista.length, lista };
 }
+
+// ── «Hacerlo»: el candado vive en la BASE, no en la memoria del proceso ──────
+
+/**
+ * UN CLIC, UNA VEZ (6/11/2026, #514). «Hacerlo» se guardaba de los dobles clics con un `Set` a nivel
+ * de módulo, y eso es POR PROCESO: dos pestañas (o dos instancias serverless) pasaban las dos y la
+ * acción se hacía DOS veces — al cliente le quedaban dos automatizaciones, o dos mensajes, por un solo
+ * clic. Ahora se reclama en `app_settings` con compare-and-set (`cambiarSettingSi`, lib/settings.ts):
+ * es atómico en la base, así que de dos requests gana UNO lo atienda el proceso que lo atienda. Es el
+ * mismo molde que la marca de un pedido de difusión (lib/difusion.ts).
+ *
+ * LA CLAVE lleva el CRM y la sugerencia (`claveCallada`): dos sugerencias distintas no se tapan entre
+ * sí, y lo que se está haciendo en un CRM no frena el mismo botón en otro. NO lleva el workspace a
+ * propósito — `app_settings` tiene PK (workspace_id, key) y `cambiarSettingSi` escribe con el ws del
+ * request (`wsObligatorio`), así que el candado de un negocio no puede chocar con el de otro.
+ */
+export const claveHaciendo = (funnelId: number, sugerenciaId: string): string => `crm.sugerencias.haciendo:${claveCallada(funnelId, sugerenciaId)}`;
+
+/**
+ * CUÁNTO VIVE EL CANDADO. Un candado que no vence es un candado sin llave: si el proceso se muere con
+ * él puesto (Vercel corta la función, se cae la instancia) nadie lo suelta y la sugerencia queda muerta
+ * PARA SIEMPRE — peor que el defecto que arregla. Diez minutos porque el techo de la ruta que lo usa
+ * son siete (`maxDuration = 420`, app/api/crm/mako/route.ts): más que eso, así que ningún pedido vivo
+ * puede perder su candado mientras trabaja, y poco como para que la sugerencia vuelva sola.
+ */
+export const CANDADO_HACERLO_MS = 10 * 60_000;
+
+/**
+ * ¿El candado guardado sigue vivo? El valor ES el instante en que se puso (ISO), y por eso un candado
+ * se puede soltar comparándolo (`borrarSettingSi`): lo vencido y lo ilegible no frenan a nadie.
+ */
+export function haciendoseAhora(raw: string | null | undefined, ahora: number): boolean {
+  const t = Date.parse(String(raw ?? ''));
+  return Number.isFinite(t) && ahora - t < CANDADO_HACERLO_MS;
+}

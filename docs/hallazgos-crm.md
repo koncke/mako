@@ -20,6 +20,77 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un candado en MEMORIA no es un candado: «Hacerlo» hacía la tarea dos veces (#514, 6/11/2026)
+
+**Síntoma:** apretar «Hacerlo» en una sugerencia del chat del CRM desde dos pestañas creaba DOS automatizaciones (o le
+mandaba dos mensajes al lead) por un solo clic.
+
+**El diagnóstico obvio era el equivocado.** El código tenía una guarda explícita y con su comentario («un doble clic no crea
+dos»): un `Set<string>` a nivel de módulo, chequeado al entrar y liberado en un `finally`. Se lee como resuelto. Pero ese Set
+vive en el PROCESO: en Vercel hay varias instancias, y dos pestañas atendidas por dos instancias pasan las dos. La guarda no
+estaba mal escrita — estaba en el lugar equivocado. **Toda guarda contra el doble clic que viva en memoria es una guarda que
+funciona en desarrollo (un proceso) y no en producción (N procesos).**
+
+**La regla que queda:** el que decide es la BASE. Se reclama la acción con compare-and-set (`cambiarSettingSi`,
+lib/settings.ts) ANTES de calcular nada, y el `Set` queda sólo como primer filtro barato. Es el mismo molde que la marca de un
+pedido de difusión (lib/difusion.ts). Tres cosas que un candado así necesita y que es fácil olvidar:
+
+- **VENCE.** Un candado que no vence es un candado sin llave: si el proceso muere con él puesto (Vercel corta la función),
+  nadie lo suelta y la sugerencia queda muerta PARA SIEMPRE — peor que el defecto que arregla. El plazo se elige contra el
+  techo de la ruta, no «un rato»: `maxDuration` de app/api/crm/mako/route.ts son 420 s, así que el candado vive 10 minutos
+  (`CANDADO_HACERLO_MS`). Con 5 minutos, un pedido vivo pierde su propio candado y la segunda pestaña crea la segunda copia.
+- **Se suelta SÓLO si sigue siendo el mío** (`borrarSettingSi`, que compara el valor; el valor ES el instante en que se puso).
+  Si venció y otro lo tomó, borrarlo a ciegas es soltarle el candado a él.
+- **Se lee ESTRICTO** (`getSettingEstricto`): «no pude leer» no es «no lo tiene nadie». Tratarlo así es exactamente cómo se
+  crean las dos.
+
+La clave lleva el CRM y la sugerencia (`claveHaciendo` → `claveCallada`) y **no** lleva el workspace: `app_settings` tiene PK
+(workspace_id, key) y `cambiarSettingSi` escribe con el ws del request (`wsObligatorio`), así que el candado de un negocio no
+puede chocar con el de otro.
+
+**Vive en:** lib/sugerencias-crm.ts (`claveHaciendo`, `CANDADO_HACERLO_MS`, `haciendoseAhora`) ·
+lib/sugerencias-crm-server.ts (`hacerSugerencia`) · tests/sugerencias-crm.test.ts (base 21/0; cinco roturas, cinco cazadas:
+sin candado en la base, un candado que no vence, reclamar después de calcular, soltarlo sin comparar y una clave sin la
+sugerencia → 20/1 cada una).
+
+## El corte del día de un movimiento estaba clavado en Tijuana (#510, 6/11/2026)
+
+**Síntoma:** a un negocio de otro país el CRM le pedía la asistencia a la reunión (y el link de Fathom) un día antes de lo que
+corresponde — o lo dejaba avanzar sin pedirla.
+
+**Causa:** `faltantesParaMover` (lib/leads.ts) resolvía el día con `hoyISO: aportado.hoyISO ?? hoyEnTijuana()`, y el llamador
+real —`setPipelineStage`— no pasaba `hoyISO` NUNCA. O sea: el default no era un fallback, era el único camino. **El default
+tapó la ausencia del call site**, que es la forma en que este defecto entra siempre (es el mismo patrón que «falta un call
+site» de AGENTS.md). Y no es display: `hoyISO` alimenta `yaPaso` (lib/stage-requirements.ts) y decide si la reunión ya pasó,
+o sea si se exige la asistencia para mover — Ganado incluido.
+
+**Dos diagnósticos obvios equivocados:**
+
+1. «Es un problema de visualización» → no: gatea un movimiento de venta.
+2. «Se arregla leyendo la zona adentro de la función» → no: `faltantesParaMover` es PURA (la corren tests sin base, la API y
+   el doer). Meterle un `await` de base la convierte en async y arrastra a sus cinco llamadores igual, pero encima le mete
+   una consulta a una función de decisión. **El día lo resuelve quien llama; la función lo PIDE.**
+
+**La regla que queda:** `hoyISO` es obligatorio en `AportadoAlMover` (sin default, para que el próximo call site no se pueda
+olvidar: lo frena el compilador) y cada llamador lo saca del NEGOCIO —`setPipelineStage` con `hoyEnWorkspaceEstricto()`, la
+API de MaKo con `hoyDelWorkspace(ctx.ws)`, el doer con `hoyEnTz(await tzDeWorkspace(ws))`, cada uno con el ws que tiene a
+mano. El doer resuelve con `ws` EXPLÍCITO y no con `hoyEnWorkspace()` porque su `proponer_cambio_etapa` corre FUERA de
+`runWithWorkspace`: ahí `getWorkspaceActual()` no es el ws del grupo.
+
+⚠️ **Y el corte que decide lo lee ESTRICTO** (`hoyEnWorkspaceEstricto`, nuevo en lib/timezone.ts). `hoyEnWorkspace()` nunca
+tira: un 5xx de Supabase le da `ZONA_POR_DEFECTO` (Tijuana). En ESTE corte, caer al default falla ABIERTO — el día de Tijuana
+va atrás, la reunión parece futura y no se pide nada. Es la misma regla que la línea de arriba en `setPipelineStage` («sin
+poder leer el lead no hay nada contra qué validar: cortamos»): validar con un dato que no se pudo leer es mover a ciegas.
+
+**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
+`faltantesDeLead` (lib/leads.ts, el «Datos sin marcar» / «A revisar») y `valoresDeRequisitos` (app/crm/actions.ts, el wizard)
+siguen con `hoyISO: hoyEnTijuana()`. Hasta que se arreglen, para un negocio fuera de Tijuana el wizard y el corte del server
+pueden discrepar unas horas por día.
+
+**Vive en:** lib/leads.ts (`AportadoAlMover`, `faltantesParaMover`, `setPipelineStage`) · lib/timezone.ts
+(`hoyEnWorkspaceEstricto`) · lib/api-mako/areas/crm.run.ts · lib/mako-doer-acciones.ts ·
+tests/mover-etapa-validacion.test.ts (base 18/0; seis roturas, seis cazadas → 17/1 cada una).
+
 ## Un lead guardado desde un perfil de Instagram o LinkedIn (6/11/2026, nube)
 
 **Vive en:** `lib/perfil-captura-db.ts`, `app/crm/origen-lead.ts` (`perfil_instagram`, `perfil_linkedin`), `lib/leads.ts`

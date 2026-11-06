@@ -137,7 +137,9 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // Sin poder leer el lead no hay nada contra qué decidir: 'validar' hace que
         // setPipelineStage falle cerrado en vez de mover a ciegas.
         const v: VeredictoRequisitos = lead
-          ? veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo ?? null }))
+          // El día es el del NEGOCIO (6/11/2026, #510): con Tijuana fijo, el doer exigía la asistencia
+          // un día antes (o la dejaba pasar) en todo negocio de otra zona.
+          ? veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo ?? null, hoyISO: hoyEnTz(await tzDeWorkspace(ws)) }))
           : { ok: true, requisitos: 'validar', sinCargar: [] };
         if (!v.ok) {
           return { ok: false, resumen: `No moví el lead #${leadId} a '${etapa}': falta cargar ${etiquetasDe(v.pedir)}.` };
@@ -803,7 +805,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // Pero SOLO se pide lo que este canal sabe cargar (ver REQUISITOS_PEDIBLES):
         // pedir una fecha de reunión o un link de Fathom por acá es pedir algo que
         // MaKo no tiene dónde escribir, y la conversación entra en bucle.
-        const v = veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo || null }));
+        // El MISMO día que usa la ejecución (6/11/2026, #510): el del negocio. Si al proponer y al
+        // confirmar el día fuera distinto, se pediría un dato que el movimiento no exige (o al revés).
+        const v = veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo || null, hoyISO: hoyEnTz(await tzDeWorkspace(ws)) }));
         if (!v.ok) {
           return JSON.stringify({
             ok: false, guarda: true,

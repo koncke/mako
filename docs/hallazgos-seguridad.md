@@ -36,6 +36,52 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## Un `grep` del NOMBRE de un guard no mide si hay guard: mide si hay ESE guard (6/11/2026)
+
+Triando los pendientes de «Varios» medí el item 590 («fuera del CRM quedan pantallas que no revisan si
+la persona inició sesión») con un `grep -rl exigirSesion` sobre los `'use server'` de `app/`. Resultado:
+**71 archivos sin corte**, con nombres que asustan (`app/admin/cobros/actions.ts`,
+`app/customer-success/actions.ts`, `app/configuraciones/*`). Lo tenía escrito como la prioridad 2 de 22.
+
+**No hay ningún archivo sin puerta.** Los 60 `'use server'` de fuera del CRM llaman a una, y cada tab
+tiene la suya con otro nombre: `getRolWsEfectivo` (18 archivos), `getSesionAdmin` (8),
+`adminDeWorkspaceActual` (7), `ctxAdmin` (6, local por tab), `requireRolWs` (6), `requireSesion` (5),
+`wsSuperAdmin` (3), **`exigirSesion` (3, la que yo buscaba)**, más `guard()`, `ctxDeBandeja`,
+`soloMiembro`/`soloAdmin`, `conActor`, `veEditorVideo`, `requireCapa`, `sesionDe` y `personaDelRequest`.
+Veintiuna formas. Seis verificadas leyendo el archivo, no el `grep`.
+
+Y **ya estaba medido**: `docs/relevo/pendientes-barrido.md:113`, C14, dice *«medido, sin agujero: los 60
+archivos tienen su puerta… el de comunidad sirve al alumno a propósito»*. La lista del 6/11 lo volvió a
+escribir como pendiente sin arrastrar ese veredicto, y mi medición reprodujo el mismo falso positivo que
+el barrido había descartado.
+
+**Why, y por qué este error es peor que la mayoría:** una alarma falsa de seguridad **falla hacia el
+lado que parece responsable**. 71 archivos «sin sesión» se sienten como diligencia, pasan cualquier
+revisión de criterio, y lo que producen es una tanda entera «arreglando» código sano: 71 diffs de
+seguridad, sin revisar, que nadie pidió, en los archivos más delicados del repo. Un pendiente olvidado
+espera; éste trabaja en contra.
+
+El propio item 590 traía la pista, en positivo, y se puede leer al revés: *«leer `getUsuarioActual()` NO
+corta: el guard tiene que aceptar sólo las formas que cortan, en positivo»*. Esa frase es sobre
+ESCRIBIR el guard —hay que enumerar las formas— y es la prueba de que son muchas. Si hubiera una sola,
+no habría nada que enumerar.
+
+**How to apply:**
+
+- Para medir si una capa transversal está puesta, **el patrón es la FORMA, no el nombre**: «algo que
+  corta antes de tocar datos». Un nombre sólo sirve cuando una guarda ya obliga a usarlo — y acá no hay
+  ninguna, que es justamente lo que falta.
+- Antes de reportar un agujero de seguridad barrido con `grep`, **leé tres archivos de la lista**. Si los
+  tres tienen puerta con otro nombre, lo que medió fue el nombre.
+- **Y antes de medir, buscá el veredicto anterior.** `docs/relevo/pendientes-barrido.md` tiene una
+  columna de estado con «medido, sin agujero» para varios de estos; los `docs/hallazgos-*.md` y las
+  bitácoras de `/admin/dev` también. Una lista de pendientes puede perder el veredicto; el barrido no.
+- Lo que falta de verdad es el guard: `tests/crm-acciones-sesion.test.ts` barre `app/crm` y nada barre
+  el resto, así que un `'use server'` nuevo entra sin puerta y nadie se entera. Escribirlo es extender
+  su lista `CORTES` con las 21 formas, cada una **verificada de que corta**. Ojo con las dos salidas
+  malas: una lista incompleta da un rojo falso que frena los pushes de todos, y una indulgente da un
+  verde falso, que es peor que no tener guard.
+
 ## Auditoría del 01/11/2026: lo hecho y lo que queda
 
 **Vive en:** `lib/auth-session.ts` · `lib/auth.ts` · `lib/sesiones-revocadas.ts` · `lib/cripto-credenciales.ts` ·

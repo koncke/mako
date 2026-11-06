@@ -66,6 +66,73 @@ la cascada (cuota, clave, demora, saturación) y de quién es; «no contestó» 
 
 **Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`), `lib/carruseles/replica.ts` (`avisoSinIA`, `vuelveASinVer`).
 
+## «Editar» probado con la IA REAL: el arreglo estaba bien y el que mentía era el ARNÉS (6/11/2026)
+
+**Síntoma:** cuatro encargos distintos del 6/11 (ids 8, 109, 190, 384) decían lo mismo: el arreglo de «Editar» está escrito y
+nunca se probó con una IA de verdad. Se corrió el comando (`scripts/carruseles-probar-editar.mts`) contra la base y las claves
+de producción, cinco veces, con la IA real.
+
+**Funciona.** Un carrusel con sus 10 láminas, uno sin láminas con la portada en el CDN de Instagram (el caso exacto que falló)
+y una miniatura de YouTube: los tres abren el diseño con los textos del negocio, las letras del editor, sin recuadros grises y
+sin el aviso de «no contestó». La portada que sólo vive en `scontent-…cdninstagram.com` llega a la IA (`fetchSeguro`): «1 de 9
+láminas». Lo que no funcionaba era otra cosa, y son tres cosas distintas:
+
+**1. Lo obvio era que faltaba correr el comando, y no: el comando no probaba el arreglo.** El modo EN SECO (el que no gasta ni
+guarda, el que la documentación manda usar) devolvía en el camino de guías **antes** de armar el documento. O sea, justo el
+arreglo del 6/11 —que sin IA las láminas guía se manden a la pantalla, para que el modal no quede en blanco— era invisible
+para el único arnés que existía: la corrida imprimía cero láminas y nadie podía ver si estaban bien. **La regla: un modo de
+prueba sólo puede dejar de ESCRIBIR; si saltea un paso del armado, no prueba ese paso.** Ahora el seco arma el documento igual
+(`crearCarruselDesdeReferencia(..., { seco })`) y la corrida del ws3 imprime sus 7 láminas con sus guías.
+
+**2. El ws 3 NO TIENE NINGUNA IA CONECTADA, así que `--ws 3` no prueba la IA: prueba el camino SIN IA.** Medido: `susClaves(3)`
+devuelve `[]` y `provsDe` da 0 proveedores para los cuatro. Y está bien que no use la de la plataforma (cada negocio paga su
+IA), así que la corrida termina en guías con «Conecta tu Claude, tu GPT o tu Gemini» — correcto, pero no es la prueba. Para
+probar la IA de verdad hay que correr en un workspace que tenga clave propia: el **ws 9** (Martín) tiene las tres. Las claves
+por workspace, medidas el 6/11: ws 1, 9, 10, 11 con Claude; sólo Gemini en 13, 15, 17, 18, 19, 20; **el 3, ninguna**.
+
+**3. El prompt le pedía al modelo no poner el @ del creador, y el modelo lo cumplía inventando el del CLIENTE.** Las 10 láminas
+del ws9 salieron firmadas «Martin Koncke» **y «@martinkoncke»**, un usuario que nadie cargó nunca (`marcaDelNegocio` devuelve
+`usuario: null` siempre). El cliente publica un @ que no existe y nadie lo encuentra. Es el corolario de AGENTS.md → «Una
+regla en un prompt no es una regla»: un handle no tiene redundancia, así que o lo pone el código o no va. La segunda capa es
+`conElArrobaDelNegocio` (`lib/carruseles/replica.ts`), que saca todo `@usuario` que no sea el del negocio y no toca un mail
+(ahí el `@` viene pegado a una letra).
+
+**Y lo que el prompt NO resuelve, medido dos veces con la IA real:** un ejemplo que cuenta una HISTORIA de su autor se replica
+inventándole una historia al cliente. Antes de la regla nueva, el carrusel `-895` salió con el Oscar y el padre muerto del
+creador original firmados «Martin Koncke»; con la regla («sus hechos tampoco pasan»), los detalles ajenos se fueron, pero la
+lámina 1 quedó en «A LOS 22 AÑOS, MARTIN KONCKE ANOTÓ SUS 10 METAS»: ni la edad ni la lista son datos de nadie. Una biografía
+inventada no se puede detectar en el saneo, así que esta regla se queda en una sola capa a propósito y **queda decidir si un
+ejemplo de tipo historia/storytime es replicable** (ver «Sin hacer»).
+
+**El diseño que falló, leído de la base de producción** (`b31f62ec-5727-4ac7-bde7-2bb141bf0727`, el que Martín reportó):
+creado el 6/11 a las 13:46 UTC —una hora y media ANTES del commit del arreglo (`02ce9b6e3`, 15:11)— en el **ws 9, el de
+Martín, que tiene las tres claves cargadas**. Son 8 páginas de GUÍAS («Tu gancho con un número», «Tu punto número 1»…), con
+las letras del editor (Inter y Montserrat) y sin ningún recuadro de «Tu foto». O sea: el aviso «Tu IA no contestó» no salió por
+falta de IA —la tenía— sino porque el camino de respaldo cortaba la respuesta en 512 tokens, que es exactamente lo que se
+arregló. El síntoma reportado y el diagnóstico coinciden, y el mismo caso corrido hoy en el ws 9 devuelve el diseño con los
+textos del negocio.
+
+**Y el arreglo YA ESTÁ EN PRODUCCIÓN, contra lo que decía el encargo** (que se había escrito mirando el deploy de las 11:05
+UTC, anterior al commit). Medido contra la API de Vercel el 6/11: el deploy de producción vigente es `cce171fab` (6/11, 17:57
+UTC) y tiene `02ce9b6e3` —el commit del arreglo, 15:11 UTC— como ancestro; los de las 11:05 y 13:13 UTC no lo tenían. **La
+regla: «está desplegado» no se deduce de la hora de un deploy, se pregunta si el commit es ANCESTRO del que está servido**
+(`git merge-base --is-ancestor <arreglo> <sha del deploy>`, con el sha que da `api.vercel.com/v6/deployments?target=production`
+y el `VERCEL_API_TOKEN` del `.env.local`). La fecha engaña de los dos lados: la del commit es la del autor y la del deploy es
+la de la compilación.
+
+**El tiempo, que es el riesgo que queda:** cinco corridas dieron 21,6 s · 33,4 s · 143,4 s · 149,3 s · **276,9 s**, contra el
+`maxDuration = 300` de la ruta (cuyo comentario decía «de 20 a 90 s»). La causa, con la red instrumentada: `gemini-flash-latest`
+no contesta y **se come el timeout entero de 120 s**, y después el respaldo (`gemini-flash-lite-latest`) contesta en 8 s. Dos
+cuelgues así y el stream de Vercel se corta sin mandar el `fin`: la pantalla queda esperando para siempre, que es exactamente
+el síntoma que Martín reportó. No se tocó el plazo (los pedidos que SÍ contestan tardan 2 a 9 s, pero no hay medición de uno
+con 10 láminas por llamada).
+
+**Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`, el modo seco), `lib/carruseles/crear-servidor.ts`
+(`crearCarruselDesdeReferencia`, `seco`), `lib/carruseles/replica.ts` (`conElArrobaDelNegocio`, el prompt),
+`app/api/image-editor/carruseles/replicar/route.ts` (`maxDuration`). Lo prueba `tests/carruseles-editar.test.ts` con su hijo:
+el PRIMER test que ejecuta el orquestador (los 21 de `tests/carruseles-replica.test.ts` son de las funciones puras, y estaban
+todos en verde mientras «Editar» fallaba en producción).
+
 ## «Puros de DenBorg»: el orden por outlier concentra en una cuenta (6/11/2026)
 
 **Síntoma:** con el filtro CTA y «Mayor outlier», la primera pantalla era toda de una sola creadora.
@@ -255,7 +322,22 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
 - **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
-- **«Editar» de punta a punta con un carrusel real** se probó en producción el 6/11: abre el diseño de 8 páginas, pero «Tu IA no contestó ahora» y sale la guía con miniaturas vacías. Causa sin encontrar (`lib/carruseles/replica.ts:387`), encargada al chat de Carruseles.
+- **«Editar» con la IA real: probado y funcionando** (6/11, cinco corridas; ver la entrada de arriba). Lo que quedó abierto es
+  el **plazo**: una corrida llegó a 276,9 s contra el `maxDuration = 300` de `app/api/image-editor/carruseles/replicar/route.ts`,
+  porque el modelo principal de Gemini se cuelga 120 s enteros. Si se pasa, el stream se corta sin `fin` y la pantalla espera
+  para siempre. Las palancas: un presupuesto de tiempo para toda la cascada (hoy el plazo es por llamada, `lib/ai-cheap.ts`) o
+  un plazo más corto para el primer modelo. Falta medir cuánto tarda un pedido de 10 láminas que SÍ contesta.
+- **Un ejemplo que cuenta la historia de su autor no se puede replicar sin inventarle una historia al cliente** (medido con la
+  IA real, carrusel `-895`): el prompt ya prohíbe copiar sus hechos y el modelo igual le arma una biografía al negocio. Es
+  decisión de producto: o esos ejemplos no ofrecen «Editar» (el tipo ya se clasifica, `lib/carruseles/clasificar.ts`), o se le
+  pide al dueño el dato que falta antes de escribir. No se puede tapar en el saneo.
+- **El ws 3 («Cliente de Prueba») no tiene ninguna clave de IA**, así que el comando de prueba con `--ws 3` sólo ejercita el
+  camino sin IA. Conectarle una es escribir en producción: pendiente del sí de Martín. Mientras tanto, la prueba con IA real va
+  con `--ws 9`.
+- **Del orquestador falta cubrir el camino de la MINIATURA** (`replicarEjemplo` con `que: 'thumbnail'`):
+  `tests/carruseles-editar.test.ts` corre los seis casos del carrusel, y la miniatura sólo se probó a mano con la IA real
+  (21,6 s, una lámina de 1280 × 720 con el gancho del negocio). Su camino en seco ya armaba el documento, así que ahí no vivía
+  el bug, pero es la mitad del orquestador sin arnés.
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 

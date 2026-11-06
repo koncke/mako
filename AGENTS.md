@@ -156,6 +156,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+- **Un test que lanza un hijo y PARSEA su salida lleva `maxBuffer: 64 * 1024 * 1024` desde la primera línea.** Sin él, node corta el stdout en 1 MB y el JSON llega partido: el error es «Unterminated string in JSON», que no se parece a la causa, y aparece cuando la salida crece — o sólo en el runner. Lo exige una guarda (`tests/tanda-no-la-mata-un-test-lento.test.ts`) y el filtro del pre-push puede no alcanzar a correrla por su tope de 90 s, así que el rojo llega de Actions 14 minutos después: la regla estaba cosechada en cinco `docs/hallazgos-*.md` y en ninguno de los archivos que se leen ANTES de escribir, y volvió a costar una corrida el 6/11/2026.
 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
@@ -2332,6 +2333,14 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
   componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
   `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+  ⚠️ **Y un default tapa el call site que falta** (6/11/2026, #510): `faltantesParaMover` tenía `?? hoyEnTijuana()` y su
+  llamador real no pasaba el día NUNCA, así que el corte del día de todo negocio era el de Tijuana — y ese corte decide si
+  se exige la asistencia a la reunión para mover un lead (Ganado incluido). En una función PURA el día es **obligatorio**
+  (que lo frene el compilador) y lo resuelve quien llama, con el ws que tenga a mano (`hoyDelWorkspace(ctx.ws)`,
+  `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
+  va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
+  eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
+  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
@@ -7376,6 +7385,15 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
+- ⚠️ **UN CANDADO EN MEMORIA NO ES UN CANDADO** (6/11/2026, #514). Un `Set` a nivel de módulo contra el
+  doble clic funciona en desarrollo (un proceso) y no en producción (N instancias): dos pestañas
+  atendidas por dos instancias pasan las dos. El que decide es la BASE — se reclama con
+  compare-and-set (`cambiarSettingSi`) **antes** de calcular nada, y el `Set` queda como primer filtro
+  barato. Y todo candado así: **VENCE** (si no, el proceso que muere con él puesto deja la acción
+  muerta para siempre; el plazo se elige contra el `maxDuration` de SU ruta, no «un rato»), **se suelta
+  siempre** (`finally`) **y sólo si sigue siendo el propio** (`borrarSettingSi`, que compara el valor:
+  si venció y otro lo tomó, borrarlo es soltarle el de él), y **se lee estricto** («no pude leer» no es
+  «no lo tiene nadie»). Moldes: `hacerSugerencia` (lib/sugerencias-crm-server.ts) y `crearDifusion`.
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
@@ -7939,6 +7957,14 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
   versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
   GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
+
+- **Y el primo del default: el valor que se pone PARA QUE NO QUEDE CRUDO.** `{{link_pago}}`, sin cobro pendiente, no
+  sale como `{{link_pago}}`: sale «sin link de pago pendiente», a propósito, porque un token crudo en el WhatsApp de un
+  cliente parece un mensaje roto (`valoresDelCobro`, lib/variables-del-lead.ts). Está bien **donde la ausencia es un
+  hecho** y es una trampa donde no lo es: un pago rechazado deja el cobro en `fallido`, así que una plantilla que le
+  dijera «pagá acá: {{link_pago}}» le manda esa frase justo a quien tiene que pagar, sin un solo error (6/11/2026,
+  el pendiente 288; docs/hallazgos-chatbot.md). **Antes de usar un dato así en un texto que SALE, preguntá en qué
+  estado está la entidad de la que se lee**, no sólo si el token existe.
 
 # Dos escritores con dos ritmos son dos claves
 
