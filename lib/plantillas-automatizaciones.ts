@@ -607,6 +607,38 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     pasos: [emitirRecibo('rc_recibo', null, 'clasico', 'whatsapp')],
   },
   {
+    // (6/11/2026, pendiente 288) EL PAGO QUE RECHAZA LA PASARELA. El evento `rechazado` del CRON «Pagos» ya existía y
+    // `aplicarPagoFallido` (lib/cobros.ts) ya lo disparaba por sus TRES caminos —el cobro pendiente, el reintento de una
+    // prueba autorizada y la renovación de una suscripción—, y la galería no tenía de dónde agarrarlo: el sistema sabía
+    // del rechazo y nadie salía a cobrar.
+    //
+    // EL AVISO AL EQUIPO VA PRIMERO, y el WhatsApp detrás de «Tiene WhatsApp»: un mensaje a quien no tiene teléfono
+    // cancela la inscripción ENTERA (lib/nutricion.ts), así que arriba se llevaría el aviso con él.
+    // NO pregunta «Pagó»: una renovación rechazada es de alguien que YA pagó, y ése es uno de los tres caminos.
+    //
+    // ⚠️ NO CITA EL MONTO NI EL CONCEPTO DEL PAGO. `{{pago_monto}}` y `{{pago_concepto}}` son del Evento de MaKo
+    // `pago_recibido` (`alcance: 'pago'`, lib/variables-aviso.ts): los pasa `avisarPagoRecibido` en `datos`, y
+    // `enrolarPorPago` (lib/pago-entrante.ts) manda sólo `{ subtipo }`. En este CRON no se resuelven, y Publicar lo
+    // frena (`problemasDeTokens`). El concepto y el motivo quedan en el historial del lead: es lo que escribe
+    // `logLeadEvent('Pago rechazado', …)` al lado del disparo.
+    // ⚠️ Y NO LLEVA `{{link_pago}}`: ese link es el del cobro PENDIENTE (`cobroPendienteDelLead`, lib/cobros.ts) y el
+    // rechazo deja el cobro en `fallido`, así que le diría «sin link de pago pendiente» justo a quien tiene que pagar.
+    // Nace con «Cada vez»: a una suscripción le pueden rechazar la renovación todos los meses.
+    id: 'pago-rechazado',
+    nombre: 'Le Rechazaron el Pago',
+    emoji: '🚫',
+    linea: 'Cuando la pasarela rechaza un pago, le escribe al cliente para que lo reintente y te avisa en el grupo.',
+    origen: 'el evento «Se rechaza un pago» del CRON Pagos (11/10/2026), que no tenía plantilla',
+    objetivo: 'cobrar',
+    cron: { fijo: TRIGGER_PAGO, eventos: ['rechazado'] },
+    reentrada: 'siempre',
+    pasos: [
+      mako('rp_mk', '💳 Le rechazaron el pago a {{nombre_completo}}. El concepto y el motivo están en su historial.\n💰 Le falta pagar {{lead_saldo}}\n📱 {{lead_telefono}}\n👉 {{link_lead}}', 'rp_c1'),
+      condicion('rp_c1', [[[TIENE_WHATSAPP], 'rp_w1']], null),
+      whatsapp('rp_w1', 'Hola {{nombre}}, tu pago no se procesó. Puedes volver a intentarlo con la misma tarjeta o con otro medio; si te vuelve a fallar, escríbeme y lo resolvemos.', null, { revisar: true }),
+    ],
+  },
+  {
     // (8b) «El AI Analyst terminó» (13/10/2026, la tarea del Dashboard en Automations): el análisis de una hoja del
     // Dashboard, con sus datos citables (la hoja, el resumen, los hallazgos y el link), que pasa el Dashboard armados con
     // `valoresDelAnalisis`. No es de un lead: el análisis es del negocio. Cada dato en su renglón (sin valor, se va).
