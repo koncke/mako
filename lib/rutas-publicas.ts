@@ -52,6 +52,9 @@ export const PUBLICOS = [
   // del proxy la cortaría con 403 (el pedido viene de `chrome-extension://`). Se autentica con el token del
   // puente y no mira la cookie para nada. Ruta EXACTA: abajo de /api/competitor-spy hay rutas con sesión.
   '/api/competitor-spy/extension',
+  // «Guardar en MaKo» (6/11/2026): la EXTENSIÓN guarda el perfil abierto de Instagram o LinkedIn como lead. Mismo caso que el de
+  // arriba: token del puente, sin cookie. Ruta EXACTA: abajo de /api/crm todo lo demás es con sesión.
+  '/api/crm/extension',
   // El worker de montaje: corre en un contenedor propio, no en un navegador, asi
   // que no tiene cookie de sesion. Se autentica con `MONTAJE_WORKER_TOKEN` en un
   // bearer, comparado en tiempo constante, y sin ese secreto configurado la ruta

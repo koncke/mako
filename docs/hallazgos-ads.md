@@ -28,6 +28,45 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Lo prometido a Thiago: variar el botón, pausar el original y los videos de MaKo como anuncio (6/11/2026, nube)
+
+**Vive en:** `lib/media-buyer/motor.ts` (`relevos`, `previaDeDecision`), `lib/media-buyer/variacion-boton.ts`,
+`lib/media-buyer/variaciones.ts`, `lib/media-buyer/subir.ts`, `lib/media-buyer/creativos.ts`, `lib/media-buyer/campana.ts`
+(`datosParaNuevaCampana`), `lib/anuncio-desde-pieza.ts`, `app/anuncio/nuevo/`, `app/api/anuncio-desde-pieza/route.ts`,
+`app/_crear/usar-en-anuncio.ts`, `lib/api-mako/areas/ads.*`. Lo prometido, en docs/promesas/2910-llamada-thiago.md; el relevo,
+en docs/relevo/nube-thiago-anuncios.md.
+
+- **El relevo del original no es una táctica nueva, a propósito.** `app/ads-manager/mb-modelo.ts` tiene un
+  `Record<Tactica, …>`: sumar una táctica rompe el tsc en una pantalla que esta tanda no podía tocar (la rehace el chat
+  Marketing CoPilot). Vive en `ganador` con `tipo: 'pausar'` y `tactica: 'ganador'`. ⚠️ **La pantalla rotula esa decisión con
+  los textos del ganador** («Anuncio ganador», «probar textos nuevos…»): hasta que Marketing CoPilot le dé su rótulo, la
+  tarjeta dice una cosa y hace otra. El título y el porqué de la decisión sí dicen «Pausar el original…».
+- **El relevo cuenta desde que se LANZÓ la variación, no desde que existe el anuncio.** Lo que lo sabe es la decisión aplicada
+  con `creados` y `anuncioBase`, y la corrida y el vigía armaban su «previa» a mano SIN esos dos campos: el motor no podía ver
+  ninguna variación lanzada. Ahora la previa sale de UNA función (`previaDeDecision`). Espera 7 días y 3 resultados de la
+  variación, y gana con 20 % menos de costo por resultado que el original; si el original no tiene ninguno, gana si el original
+  ya gastó su objetivo. No vuelve a proponer si después del lanzamiento ya se decidió (aplicada, deshecha o descartada) una
+  pausa o un ganador sobre ese original, y Revive saltea lo que pausó el relevo: si no, lo vuelve a prender al otro día.
+- **Variar el botón es una tabla, no la IA.** `variacionDeBoton` toma el botón del ganador y propone UNO: con formulario,
+  «Registrarte» ↔ «Postularte»; a una página, «Más información» ↔ «Registrarte». Nunca WhatsApp ni «sin botón» (cambian a dónde
+  va la gente, no cómo se le pide). ⚠️ `Autopilot.tsx` no pinta `v.cta`: la descripción va en `gancho`, que sí se ve. Los hooks
+  de video saltean esa variación (es el mismo texto). Por Zernio, `cta_type` → `callToAction` del duplicado; sigue detrás de
+  `ZERNIO_ANUNCIOS_PROBADO` (false hasta la prueba de Martín).
+- **Un video de MaKo en «Subir creativos» viaja por su `ref`, nunca por su URL.** La URL pública del bucket `video-clips` la
+  resuelve el servidor en el negocio (`resolverCreativoMako`), y se saca del payload de la pendiente antes de guardarla (un
+  `url:` en el payload rompía `tests/media-buyer-subir-api.test.ts`, que lee sus claves, y además es lo que no se confirma). La
+  clave de idempotencia es la ref (`mb-subir:<ws>:<decisión>:<ref>`): el path de un archivo de MaKo es vacío. `original` (el
+  anuncio que el creativo viene a relevar) tiene que estar en el MISMO conjunto, y la API lo deja fijo al revisar.
+- **«Usar en un anuncio» es una página (/anuncio/nuevo) y no un modal**, por dos fronteras: el diálogo de exportar del Image
+  Editor NO es `'use client'` (no puede importar un valor de uno: tests/frontera-use-client.test.ts) y «Nueva campaña» vive en
+  `app/ads-manager`. La ruta nueva `/api/anuncio-desde-pieza` NO va en `TAB_DE_API`: la llaman los editores, que no son la tab
+  del Media Buyer, y `/api/media-buyer` sí está ahí (lib/api-tab.ts) y frena a quien la llame desde otra tab. Lo que la página
+  manda es una PROPUESTA (`proponer_crear_campana`): lanzarla se confirma en /mako/revisar.
+- **Un archivo del staging vence a las 6 horas** (el barrido de `firmarSubidaDeStaging`). Una propuesta con un archivo lo dice en
+  su resumen («Confírmala antes de 6 horas»): confirmada después, Meta no encuentra el video.
+- **No medido**: nada de esto se publicó en Meta desde la nube (no ve producción ni claves). Los tests corren el motor, la
+  validación de la API y la ruta con dobles.
+
 ## Lecturas y métricas de Meta
 
 ### ⚠️ Los leads de Instant Form no llegan: la página no está suscrita, y el lead NUNCA SALE de Meta

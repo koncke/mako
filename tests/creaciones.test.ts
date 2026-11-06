@@ -103,7 +103,8 @@ test('lo que sale a otro negocio no trae el negocio de origen ni el email de qui
 
 test('la API: todo el área es del admin, sin dinero, y cada operación tiene su ruta REST', () => {
   const defs = porArea('creaciones');
-  assert.deepEqual(defs.map((d) => d.id).sort(), ['dar_estrella', 'listar_creaciones', 'mis_creaciones', 'publicar_creacion', 'quitar_estrella', 'retirar_creacion', 'usar_creacion', 'ver_creacion']);
+  // Plantillas propias y el ranking (6/11/2026): guardar_como_plantilla, compartir_plantilla y ranking_creaciones.
+  assert.deepEqual(defs.map((d) => d.id).sort(), ['compartir_plantilla', 'dar_estrella', 'guardar_como_plantilla', 'listar_creaciones', 'mis_creaciones', 'publicar_creacion', 'quitar_estrella', 'ranking_creaciones', 'retirar_creacion', 'usar_creacion', 'ver_creacion']);
   for (const d of defs) {
     assert.equal(d.gating?.rolMinimo, 'admin', `${d.id} sin rolMinimo admin (la pantalla es requireRolWs([]))`);
     assert.notEqual(d.costo, 'dinero', d.id);
@@ -115,9 +116,11 @@ test('la API: todo el área es del admin, sin dinero, y cada operación tiene su
 });
 
 test('publicar no recibe la definición del pedido: el enchufe la arma desde la base', () => {
-  const def = porArea('creaciones').find((d) => d.id === 'publicar_creacion')!;
-  const nombres = (def.parametros ?? []).map((p) => p.nombre);
-  assert.ok(!nombres.some((n) => /definicion|pasos|contenido/i.test(n)), `publicar acepta ${nombres.join(', ')}`);
+  for (const id of ['publicar_creacion', 'guardar_como_plantilla', 'compartir_plantilla']) {
+    const def = porArea('creaciones').find((d) => d.id === id)!;
+    const nombres = (def.parametros ?? []).map((p) => p.nombre);
+    assert.ok(!nombres.some((n) => /definicion|pasos|contenido|doc/i.test(n)), `${id} acepta ${nombres.join(', ')}`);
+  }
   const run = sinComentarios(leer('../lib/creaciones.ts'));
   assert.match(run, /ENCHUFES\[input\.tipo\]\.exportar\(input\.origenId\)/);
 });

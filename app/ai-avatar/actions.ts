@@ -37,6 +37,8 @@ import { estadoContextoVideo, leerHistorial, guardarEnHistorial } from '@/app/vi
 import { generarPlanAction } from '@/app/video-generator/actions';
 import { avataresDelHistorial, conAvatar, type AvatarIA } from '@/app/video-editor/avatar/avatares';
 import { frenoDePrueba, sumarUsoDePrueba } from '@/lib/prueba-uso';
+import { getRazones } from '@/lib/razones';
+import { hooksParaAvatar, type HookParaAvatar } from '@/lib/media-buyer/hooks-guion';
 
 const NO_PUEDE = 'Todavía no tienes acceso a AI Avatar.';
 const SIN_WS = 'Elige un workspace arriba para usar AI Avatar.';
@@ -103,6 +105,12 @@ export type InicioOut =
     fotos: { id: string; url: string }[];
     puente: EstadoPuenteAvatar;
     acento: string;
+    /**
+     * Los hooks nuevos que el Media Buyer escribió para los videos ganadores y todavía no se filmaron (la celda «Hooks del
+     * Media Buyer», lib/media-buyer/hooks-video.ts): se ofrecen como «lo que dice tu avatar». Lo prometido a Thiago: hooks de
+     * video con el avatar. [] si no hay, o si no se pudieron leer (no frena el estudio).
+     */
+    hooks: HookParaAvatar[];
   }
   | { ok: false; error: string };
 
@@ -127,11 +135,12 @@ function tarjetaDeLook(l: Look, videos: VideoDeLook[] = []): LookCard {
 export async function inicioAvatarAction(): Promise<InicioOut> {
   const g = await puerta();
   if (!g.ok) return g;
-  const [looks, historial, contexto, puente] = await Promise.all([
+  const [looks, historial, contexto, puente, celdas] = await Promise.all([
     leerLooks(),
     leerHistorial(),
     estadoContextoVideo().catch(() => null),
     puenteParaAvatar(),
+    getRazones().catch(() => []),
   ]);
   return {
     ok: true,
@@ -139,6 +148,7 @@ export async function inicioAvatarAction(): Promise<InicioOut> {
     fotos: contexto?.fotos ?? [],
     puente,
     acento: contexto?.acento.etiqueta ?? '',
+    hooks: hooksParaAvatar(celdas),
   };
 }
 

@@ -31,6 +31,12 @@
 //     (Madgicx: el Revive va 10-20% más holgado que el Stop Loss).
 //   · Calidad: 8 leads o más del CRM en 14 días y ninguna agenda, cuando la cuenta agenda 15% o más.
 //   · Ganador: 3 resultados o más en 7 días a ≤ el objetivo; una tanda de variaciones por anuncio por semana.
+//   · Relevo (dentro de Ganador, 6/11/2026, lo prometido a la agencia de Thiago: «pausar el original cuando una variación le
+//     gana»): con 7 días o más desde que salió la variación (la ventana de 7 días entera es posterior), la variación trajo 3
+//     resultados o más a ≤ el objetivo y le gana al original por 20% o más en costo por resultado (o el original gastó un
+//     objetivo entero sin resultados) → se propone pausar el ORIGINAL. Es la regla A/B de Madgicx «Creative testing»: el
+//     ganador del test se queda con el presupuesto del conjunto. Revive NO prende lo que pausó el Relevo: el original sigue
+//     dentro del objetivo por definición, y Revive lo volvería a prender al otro día.
 //   · Hasta (la fecha de fin de la persona, zona.ts): pasada, se pausa la campaña; con menos de 3 días por delante, Surf
 //     no sube y Revive no prende lo que ya terminó. La ZONA no se mira acá (pide leer el público de cada conjunto): la
 //     filtra la corrida y la vuelve a mirar `lanzar` en vivo.
@@ -39,7 +45,7 @@
 import type { TacticaAuto, TacticasResueltas } from './tacticas';
 import { finDeCampana, frenoPorFecha, pausasPorFecha, propuestaHasta } from './zona';
 import type {
-  ConfigMediaBuyer, EstadoDecision, KpiMediaBuyer, NivelMeta, NumeroDecision, Propuesta, Tactica, TipoDecision,
+  ConfigMediaBuyer, Decision, EstadoDecision, KpiMediaBuyer, NivelMeta, NumeroDecision, Propuesta, Tactica, TipoDecision,
 } from './tipos';
 
 export type NodoMB = {
@@ -84,7 +90,23 @@ export type DecisionPrevia = {
   creada: string;
   aplicadaAt: string | null;
   origen: 'piloto' | 'persona' | null;
+  /** Los anuncios que creó (variaciones o creativos subidos): el Relevo los compara con su original. */
+  creados?: readonly string[];
+  /** El anuncio del que salen (`anuncioBase.id`): el original de una variación, o el que se probó contra un creativo subido. */
+  anuncioBaseId?: string | null;
 };
+
+/**
+ * Lo que el motor necesita de una decisión guardada. UNA función para la corrida diaria y para el vigía (eran dos copias, y
+ * la que no se actualiza deja al Relevo sin los anuncios que creó cada variación).
+ */
+export function previaDeDecision(d: Decision): DecisionPrevia {
+  return {
+    tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidadId: d.entidadId, estado: d.estado,
+    creada: d.creada, aplicadaAt: d.aplicadaAt, origen: d.origen,
+    creados: d.creados ?? [], anuncioBaseId: d.anuncioBase?.id ?? null,
+  };
+}
 
 export type EntradaMotor = {
   ahora: number;
@@ -135,6 +157,10 @@ export const CALIDAD_TASA_CUENTA_MIN = 0.15;
 export const GANADOR_RESULTADOS_MIN = 3;
 export const GANADOR_POR_CORRIDA = 2;
 export const VARIACIONES_CADA_MS = 7 * UN_DIA_MS;
+/** Relevo: días desde que salió la variación (7 = la ventana larga entera es posterior), sus resultados y cuánto le gana. */
+export const RELEVO_DIAS_MIN = 7;
+export const RELEVO_RESULTADOS_MIN = 3;
+export const RELEVO_MARGEN_PCT = 20;
 
 // ── Agregados ───────────────────────────────────────────────────────────────
 
@@ -269,6 +295,86 @@ function enfriando(ctx: Contexto, n: NodoMB): { motivo: string } | null {
 }
 
 const redondear = (x: number): number => Math.round(x * 100) / 100;
+
+/** Las decisiones que crean anuncios para probar contra un original: variaciones, o creativos subidos contra un anuncio. */
+const PRUEBAN_CONTRA_UN_ORIGINAL: ReadonlySet<TipoDecision> = new Set<TipoDecision>(['variaciones_texto', 'variaciones_hook', 'crear_anuncios']);
+
+/**
+ * El RELEVO: las variaciones (o los creativos subidos contra un anuncio) que ya le ganaron a su original, con la propuesta de
+ * pausar el original. Una por original como mucho (la mejor variación), y nunca:
+ *   · antes de `dias` desde que salieron (la ventana de 7 días tiene que ser toda posterior: si no, se compara el original de
+ *     una semana entera contra una variación de dos días);
+ *   · si la variación no está prendida (pausar el original dejaría el conjunto sin nada que entregue) o no está en el árbol;
+ *   · si la variación no tiene `resultadosMin` resultados o su costo pasa el objetivo (tiene que ser buena, no menos mala);
+ *   · si una persona (o MaKo) ya decidió el relevo de ESE lanzamiento: aplicado, deshecho o descartado. Volver a proponerlo
+ *     cada mañana sobre un «no» sería insistirle a la persona.
+ * Puro: `ctx` es el del motor.
+ */
+function relevos(ctx: Contexto, o: {
+  obj: number; kpi: KpiMediaBuyer; hoy: string; dias: number; resultadosMin: number; margenPct: number; cubre: (n: NodoMB) => boolean;
+}): Propuesta[] {
+  const nom = NOMBRE_RESULTADO[o.kpi];
+  const porOriginal = new Map<string, { p: Propuesta; k: number; r: number }>();
+  for (const d of ctx.historial) {
+    if (!PRUEBAN_CONTRA_UN_ORIGINAL.has(d.tipo) || d.estado !== 'aplicada' || !d.aplicadaAt) continue;
+    const originalId = d.anuncioBaseId ?? (d.tipo === 'crear_anuncios' ? null : d.entidadId);
+    const creados = (d.creados ?? []).filter((id) => id && id !== originalId);
+    if (!originalId || !creados.length) continue;
+    const edad = ctx.ahora - Date.parse(d.aplicadaAt);
+    if (!(edad >= o.dias * UN_DIA_MS)) continue;
+    const original = ctx.porId.get(originalId);
+    if (!original || original.nivel !== 'ad' || !prendido(ctx, original) || !o.cubre(original)) continue;
+    const yaDecidido = ctx.historial.some((x) => x.tipo === 'pausar' && x.tactica === 'ganador' && x.entidadId === originalId
+      && (x.estado === 'aplicada' || x.estado === 'deshecha' || x.estado === 'descartada') && x.creada >= d.aplicadaAt!);
+    if (yaDecidido) continue;
+    const so = ctx.larga.find((x) => x.adId === originalId);
+    if (!so) continue;
+    const ro = resultados(so, o.kpi);
+    const ko = ro > 0 ? so.gasto / ro : null;
+    let mejor: { ad: NodoMB; s: SenalMB; r: number; k: number } | null = null;
+    for (const id of creados) {
+      const v = ctx.porId.get(id);
+      if (!v || v.nivel !== 'ad' || !prendido(ctx, v)) continue;
+      const sv = ctx.larga.find((x) => x.adId === id);
+      if (!sv) continue;
+      const rv = resultados(sv, o.kpi);
+      if (rv < o.resultadosMin) continue;
+      const kv = sv.gasto / rv;
+      if (!(kv <= o.obj)) continue;
+      const gana = ko == null ? so.gasto >= o.obj : kv <= ko * (1 - o.margenPct / 100);
+      if (!gana) continue;
+      if (!mejor || kv < mejor.k || (kv === mejor.k && rv > mejor.r)) mejor = { ad: v, s: sv, r: rv, k: kv };
+    }
+    if (!mejor) continue;
+    const previo = porOriginal.get(originalId);
+    if (previo && (previo.k < mejor.k || (previo.k === mejor.k && previo.r >= mejor.r))) continue;
+    const camp = campanaDe(ctx, original);
+    const dias = Math.floor(edad / UN_DIA_MS);
+    const leGana = ko == null ? `el original gastó ${ctx.fmt(so.gasto)} sin ningún ${nom.uno}` : `le gana por ${pct(1 - mejor.k / ko)}`;
+    porOriginal.set(originalId, {
+      k: mejor.k, r: mejor.r,
+      p: {
+        clave: `ganador-relevo:ad:${originalId}:${o.hoy}`, tipo: 'pausar', tactica: 'ganador', nivel: 'ad',
+        entidadId: originalId, entidadNombre: original.nombre, campanaNombre: camp?.nombre ?? null,
+        titulo: `Pausar el original «${original.nombre}»: su variación «${mejor.ad.nombre}» le gana`,
+        titular: `«${mejor.ad.nombre}» trae ${nom.varios} a ${ctx.fmt(mejor.k)}${ko == null ? ', y el original ninguno' : `; el original, a ${ctx.fmt(ko)}`}`,
+        porque: [
+          `En los últimos 7 días la variación trajo ${mejor.r} ${mejor.r === 1 ? nom.uno : nom.varios} a ${ctx.fmt(mejor.k)} cada uno: ${leGana}.`,
+          'Pausar el original deja el presupuesto del conjunto para la variación, que ya demostró que convierte mejor.',
+          'Se deshace con un botón, y MaKo no lo vuelve a prender solo.',
+        ],
+        numeros: [
+          { condicion: `${nom.costo} del original, últimos 7 días`, valor: ko == null ? `sin ${nom.varios}` : ctx.fmt(ko), porQue: `Gastó ${ctx.fmt(so.gasto)} con ${ro} ${ro === 1 ? nom.uno : nom.varios}` },
+          { condicion: `${nom.costo} de «${mejor.ad.nombre}»`, valor: ctx.fmt(mejor.k), porQue: ko == null ? `Dentro de tu objetivo (${ctx.fmt(o.obj)})` : `${pct(1 - mejor.k / ko)} más barato (le gana desde ${o.margenPct}%)` },
+          { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)} de la variación, últimos 7 días`, valor: String(mejor.r), porQue: `Con ${o.resultadosMin} o más ya no es suerte` },
+          { condicion: 'Desde que salió la variación', valor: dias === 1 ? '1 día' : `${dias} días`, porQue: `Con ${o.dias} o más, los dos se miden en la misma semana` },
+        ],
+        antes: { estado: 'ACTIVE' }, despues: { estado: 'PAUSED' },
+      },
+    });
+  }
+  return [...porOriginal.values()].map((x) => x.p);
+}
 
 /**
  * Las propuestas del día. Una por entidad como mucho (la de mayor prioridad: apagar > bajar > subir), más las
@@ -507,8 +613,10 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
       if (d.tipo !== 'pausar' || d.estado !== 'aplicada' || !d.aplicadaAt) continue;
       const n = porId.get(d.entidadId);
       if (!n || n.configurado !== 'PAUSED' || !cubre('revive', n)) continue;
-      // Lo que pausó la fecha de fin no lo revive nadie, y lo que ya pasó su fecha tampoco se prende.
-      if (d.tactica === 'hasta' || frenoPorFecha('activar', finDe(n), hoyN)) continue;
+      // Lo que pausó la fecha de fin no lo revive nadie, y lo que ya pasó su fecha tampoco se prende. Lo que pausó el Relevo
+      // (táctica `ganador`) tampoco: lo reemplazó una variación que le gana, y el original sigue dentro del objetivo por
+      // definición, así que Revive lo volvería a prender al otro día.
+      if (d.tactica === 'hasta' || d.tactica === 'ganador' || frenoPorFecha('activar', finDe(n), hoyN)) continue;
       // Que nadie la haya vuelto a tocar después (una persona la pausó también, o la prendió y la volvió a pausar).
       const ultima = ultimaAplicada(ctx, n.id);
       if (ultima && ultima.aplicadaAt !== d.aplicadaAt) continue;
@@ -539,12 +647,24 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
     }
   }
 
-  // ── 5. Ganador: variaciones de lo que mejor convierte ─────────────────────
+  // ── 5. Relevo (dentro de Ganador): la variación le ganó a su original → pausar el original ───────────
+  if (obj != null && on('ganador')) {
+    for (const p of relevos(ctx, {
+      obj, kpi, hoy,
+      dias: par('ganador', 'relevoDias', RELEVO_DIAS_MIN),
+      resultadosMin: par('ganador', 'relevoResultados', RELEVO_RESULTADOS_MIN),
+      margenPct: par('ganador', 'relevoMargenPct', RELEVO_MARGEN_PCT),
+      cubre: (n) => cubre('ganador', n),
+    })) poner(p);
+  }
+
+  // ── 6. Ganador: variaciones de lo que mejor convierte ─────────────────────
   if (obj != null && on('ganador')) {
     const ganadorMin = par('ganador', 'resultados', GANADOR_RESULTADOS_MIN);
     const candidatos: Array<{ ad: NodoMB; s: SenalMB; r: number; k: number }> = [];
     for (const ad of entrada.arbol.filter((n) => n.nivel === 'ad')) {
-      if (!prendido(ctx, ad) || !cubre('ganador', ad)) continue;
+      // Lo que hoy se propone pausar (el Relevo, un Stop Loss) no pide variaciones nuevas el mismo día.
+      if (!prendido(ctx, ad) || !cubre('ganador', ad) || tomadas.has(ad.id)) continue;
       const s = entrada.larga.find((x) => x.adId === ad.id);
       if (!s) continue;
       const r = resultados(s, kpi);

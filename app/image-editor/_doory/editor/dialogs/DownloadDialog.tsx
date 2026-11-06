@@ -25,6 +25,7 @@ import styles from './dialogs.module.css'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab'
 import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear'
+import { irAUsarEnAnuncio, prepararUsarEnAnuncio } from '@/app/_crear/usar-en-anuncio'
 import { tipoDeArchivo } from '@/lib/calendario-publicar-reglas'
 
 /**
@@ -195,6 +196,28 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
       fail(err)
     } finally {
       setPublicando(false)
+    }
+  }
+
+  // «Usar en un anuncio» (6/11/2026, lo prometido a la agencia de Thiago): la MISMA exportación de una página, subida al staging de
+  // anuncios y abierta en /anuncio/nuevo, donde se arma la campaña y se PROPONE (la confirma una persona en /mako/revisar).
+  const [anunciando, setAnunciando] = useState(false)
+  const usarEnAnuncio = async (): Promise<void> => {
+    if (!format || rangeInvalid || !sePuedePublicar) return
+    setFailure(null)
+    setAnunciando(true)
+    try {
+      const files = await runExport(editor, { formatId: format.id, pages: selected, options: { ...options, bleedMm: 0, cropMarks: false } })
+      const file = files[0]
+      if (!file) throw new Error('No salió ninguna imagen.')
+      const r = await prepararUsarEnAnuncio({ origen: 'image', titulo: file.filename.replace(/\.[a-z0-9]+$/i, ''), archivo: file.blob.type ? file.blob : new Blob([file.blob], { type: format.mime }), nombre: file.filename })
+      if (!r.ok) { editor.toast(r.error); return }
+      editor.closeDialog()
+      irAUsarEnAnuncio(r.url)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setAnunciando(false)
     }
   }
 
@@ -380,6 +403,10 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
             <Button className={styles.wide} onClick={() => void publicar()} disabled={busy || publicando || rangeInvalid || !sePuedePublicar} data-publicar-imagen=""
               title={sePuedePublicar ? undefined : 'Para publicar: una sola página, en JPG, PNG o WEBP.'}>
               {publicando ? 'Llevándola al Calendario…' : 'Publicar en redes'}
+            </Button>
+            <Button className={styles.wide} onClick={() => void usarEnAnuncio()} disabled={busy || publicando || anunciando || rangeInvalid || !sePuedePublicar} data-usar-en-anuncio=""
+              title={sePuedePublicar ? undefined : 'Para un anuncio: una sola página, en JPG, PNG o WEBP.'}>
+              {anunciando ? 'Subiéndola…' : 'Usar en un anuncio'}
             </Button>
             {busy ? (
               <Button className={styles.wide} onClick={() => abort.current?.abort()}>

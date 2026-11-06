@@ -15,6 +15,7 @@ import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, l
 import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { catalogoPlantillas, documentoDePlantilla } from '@/app/image-editor/mako/plantillas';
+import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantillas-reales';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
@@ -50,6 +51,14 @@ function bloqueDiseno(id: string, d: { titulo: string; ancho?: number; alto?: nu
  *  plantilla (la de Doory, en `public/cv/plantillas/`): el diseño recién creado todavía no tiene la suya. */
 async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown; que: string; ancho: number; alto: number; nota: string; miniatura?: string } | { error: string; faltan?: string[] }> {
   const plantilla = str(input, 'plantilla');
+  // Una plantilla real (6/11/2026) nace con su ESTRUCTURA, como en «Nuevo diseño»: los textos dicen qué va en cada capa.
+  const real = plantilla ? plantillaImagen(plantilla) : null;
+  if (real) {
+    return {
+      doc: real.estructura(randomUUID), que: `con la estructura de la plantilla «${real.nombre}»`, ancho: real.ancho, alto: real.alto,
+      nota: `Estructura de «${real.nombre}»: cambia sus textos con cambiar_textos_diseno_imagen`,
+    };
+  }
   if (plantilla) {
     const doc = await documentoDePlantilla(plantilla);
     if (!doc) return { error: `No existe la plantilla «${plantilla}». Usa listar_plantillas_imagen.`, faltan: ['plantilla'] };
@@ -146,7 +155,15 @@ export const RUNNERS: Runners = {
 
   // Con las sugeridas para ESTE negocio primero, como en el panel del editor (lib/plantillas-sugeridas.ts).
   listar_plantillas_imagen: {
-    leer: async () => JSON.stringify({ plantillas: catalogoPlantillas(await senalesDelNegocio().catch(() => null)) }),
+    leer: async () => JSON.stringify({
+      // Las de MaKo (6/11/2026, lib/image-editor/plantillas-reales.ts): se crean con su estructura; `ejemplo` son los textos
+      // de la misma composición llena, de un negocio ficticio, para escribir los del negocio con esa forma.
+      reales: PLANTILLAS_IMAGEN.map((p) => ({
+        id: p.id, nombre: p.nombre, cuando: p.cuando, grupo: p.grupo, ancho: p.ancho, alto: p.alto, paginas: p.paginas,
+        pide: p.pide, ejemplo: { negocio: `${p.negocio} (ficticio)`, textos: textosDe(p.ejemplo(randomUUID)) },
+      })),
+      plantillas: catalogoPlantillas(await senalesDelNegocio().catch(() => null)),
+    }),
   },
 
   crear_diseno_imagen: {

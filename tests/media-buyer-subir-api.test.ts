@@ -71,7 +71,9 @@ test('las dos operaciones: una lectura que sale sólo por HTTP, y una acción de
   assert.equal(sub.costo, 'dinero');
   assert.equal('confirmacion' in sub ? sub.confirmacion : null, 'pantalla');
   const fijos = sub.parametros.filter((p) => p.fijoAlRevisar).map((p) => p.nombre).sort();
-  assert.deepEqual(fijos, ['adsetId', 'archivos'], 'sobre QUÉ se hace no se cambia al revisar');
+  // `original` (6/11/2026): contra qué anuncio se prueban los creativos (el Relevo pausa el original si uno le gana). También
+  // es sobre QUÉ se hace: cambiarlo al revisar cambiaría qué anuncio puede terminar pausado.
+  assert.deepEqual(fijos, ['adsetId', 'archivos', 'original'], 'sobre QUÉ se hace no se cambia al revisar');
 });
 
 test('subir_creativos_media_buyer: lo que va a fallar falla al proponer, y el payload lleva los nombres de los parámetros', () => {

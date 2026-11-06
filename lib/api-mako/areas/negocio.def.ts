@@ -780,4 +780,14 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
     escribe: 'quita el kit de los kits de marca (app_settings, marca.kits)',
   },
+  // Las 9 plantillas de Offer (6/11/2026, docs/plantillas-reales/offer.md): datos de MaKo, sin nada de ningún negocio.
+  {
+    id: 'ver_plantillas_oferta', area: 'negocio', tipo: 'lectura',
+    titulo: 'Plantillas de Offer',
+    descripcion: 'Las 9 formas de oferta de «Nueva oferta» (programa con garantía, cohorte, servicio hecho por ti, entrada que se acredita, tramos, preventa, primera camada, revisar y continuidad): id, nombre, cuándo usarla, su forma (quién hace el trabajo, garantía, urgencia, pago) y las preguntas que hace, en orden. Con id, también su ejemplo completo, de un negocio FICTICIO: es la forma, nunca un dato del negocio. Usar una es abrir «Nueva oferta» en Offer y elegirla.',
+    parametros: [
+      { nombre: 'id', rotulo: 'Plantilla', tipo: 'string', max: 40, descripcion: 'el id de una plantilla, para traer su ejemplo completo.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+  },
 ];
