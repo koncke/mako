@@ -175,8 +175,11 @@ contra 6.144 MB sin swap y cada OK era PARCIAL). Por qué no en la PC: el `tsc` 
 comparten 8-20 chats. Hasta el 4/11/2026 esto era la rama `integracion` y su workflow: se retiraron (el hook rechaza el push ahí).
 
 - **Costo:** un minuto de Actions cuesta **US$0,006** (runner Linux de 2 núcleos). Una punta verde son ~14 min (mediana del 4/11/2026).
-- **Un push a `punta/**`, `ci-rojo/**` o `espera-main/**` NO genera deploy en Vercel** (`git.deploymentEnabled` en
-  `vercel.json`): cada build cuesta, y sólo `main` va a producción.
+- **Un push a `punta/**`, `claude/**`, `ci-rojo/**`, `espera-main/**` NI A `main` genera deploy en Vercel** (`git.deploymentEnabled`
+  en `vercel.json`). Cada compilación cuesta de US$0,33 a US$0,42, y compilar con cada llegada a main llevó la factura de US$40 a
+  US$292 (docs/hallazgos-infra.md, «El gasto de Vercel»). **Desde el 6/11/2026, a producción lo lleva un cron cada 2 horas, sólo si hay
+  algo nuevo que salga en la app** (`/api/cron/desplegar-main`). «En main» NO es «en producción»: puede tardar hasta 2 horas. Lo que
+  no puede esperar, como un cliente roto, lo saca el Cerebro: `node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs`.
 - **El pre-push local** (`scripts/claude-hooks/pre-push`): a cualquier rama corre las guardas baratas (`scripts/guardas-push.sh`,
   la MISMA lista que corre la punta); a **`punta/*`** además el filtro chico (`scripts/filtro-punta.mjs`: tests y tipos de lo
   tocado, 90 s como mucho); a **`integracion`** lo rechaza; a **`main`** (la emergencia) corre el `tsc` local completo por el lock.

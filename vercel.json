@@ -10,7 +10,8 @@
       "punta/**": false,
       "ci-rojo/**": false,
       "espera-main/**": false,
-      "claude/**": false
+      "claude/**": false,
+      "main": false
     }
   },
   "ignoreCommand": "bash scripts/vercel-saltar-build.sh",
@@ -238,6 +239,10 @@
     {
       "path": "/api/cron/cs-sin-contacto",
       "schedule": "3 14 * * *"
+    },
+    {
+      "path": "/api/cron/desplegar-main",
+      "schedule": "5 11 * * *"
     },
     {
       "path": "/api/cron/agencia-mensualidad",

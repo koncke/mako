@@ -110,7 +110,9 @@ Lo que se gastaba de más ese día:
 
 **Quedó fijada en Turbo** (`buildMachineSelection: fixed`), y no en Elastic: al sacarla de Elastic se borró lo que había aprendido (`elasticBuildMachine`), y podría arrancar de una máquina chica y morir por memoria en un push real.
 
-**Sin hacer:** medir el ahorro en el panel. Si no alcanza, las dos palancas que quedan son agrupar las llegadas a main y bajarle la memoria al build.
+**La solución: main ya no compila con cada push (6/11).** Martín: «me interesa que no cobre tanto... no podemos gastar eso». Sin esto no había tope: con los chats subiendo todo el día, seguía gastando más de US$100 por día. `deploymentEnabled.main: false`, y a producción lo lleva `/api/cron/desplegar-main`, cada 2 horas y sólo si hay algo nuevo de la app: como mucho 12 compilaciones, **unos US$5 por día**. Lo urgente: `scripts/desplegar-ya.mjs`.
+
+**Sin hacer:** medir el ahorro en el panel. Si hace falta más, se baja la frecuencia en `vercel.json` o se le baja la memoria al build, para poder usar una máquina más chica.
 
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
