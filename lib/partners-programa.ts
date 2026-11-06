@@ -90,10 +90,18 @@ export async function codigoSiExiste(ws: number): Promise<string | null> {
 // lectura que va de un código a un negocio mira primero el actual (`partner_codigos`) y después los que dejó
 // (`partner_codigos_anteriores`). Sin la migración, la tabla no existe: los anteriores son ninguno y cambiar no se ofrece.
 
-/** El negocio que usaba ese código antes de cambiarlo, o null (también sin la mig 0341). */
+/**
+ * El negocio que usaba ese código antes de cambiarlo, o null (también sin la mig 0341: la tabla que falta es «ninguno»).
+ * ⚠️ OTRO ERROR TIRA (6/11/2026, la revisión del barrido): con el null de antes, una lectura caída hacía de un código viejo de un
+ * partner un código MUERTO, y /r dejaba que el link de otro le pisara la cookie (`refQueVale`). «No pude leer» no es «no es de nadie».
+ */
 async function wsDeCodigoAnterior(codigo: string): Promise<number | null> {
   const { data, error } = await getSupabaseServer().from('partner_codigos_anteriores').select('workspace_id').eq('codigo', codigo).maybeSingle();
-  return !error && data ? Number((data as { workspace_id: number }).workspace_id) : null;
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') return null;
+    throw new Error(`No pude leer los códigos anteriores (${codigo}): ${error.message}`);
+  }
+  return data ? Number((data as { workspace_id: number }).workspace_id) : null;
 }
 
 /** Los códigos que el negocio dejó de usar (ninguno sin la mig 0341). */
@@ -121,7 +129,9 @@ async function esCodigoPropio(ws: number, codigo: string): Promise<boolean> {
 
 /** El negocio dueño de un código: el actual, o el que lo usaba antes de cambiarlo. */
 async function wsDelCodigo(codigo: string): Promise<number | null> {
-  const { data } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
+  const { data, error } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
+  // «No pude leer» no es «no es de nadie» (6/11/2026): sin esto caía a los anteriores y daba null, y el referido se salteaba callado.
+  if (error) throw new Error(`No pude leer el código ${codigo}: ${error.message}`);
   return data ? Number((data as { workspace_id: number }).workspace_id) : wsDeCodigoAnterior(codigo);
 }
 
