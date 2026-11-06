@@ -40,7 +40,7 @@
 // ⚠️ Y LOS MOVIMIENTOS DE ENTREGA FIRMAN CON QUIEN LOS HIZO (`autorActual`), igual que
 // renombrar: el choke point firmaba «CRM» si nadie le decía otra cosa.
 
-import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, adminDeWorkspaceActual, getWorkspaceActual } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
 import { getLead, logLeadChanges, type Lead } from '@/lib/leads';
@@ -54,6 +54,7 @@ import { abrirCuentaDePartner } from '@/lib/partners';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { quitarClienteDeProducto, volverClienteAProducto } from '@/lib/cs-quitar-producto';
 import { crearClienteGanado } from '@/lib/cs-crear-cliente';
+import { frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { renombrarProducto, getPipelineStagesDeLead } from '@/lib/funnels';
@@ -160,6 +161,12 @@ export async function crearClienteAction(datos: {
   duplicados?: Array<{ leadId: number; nombre: string; motivo: MotivoDuplicado; texto: string }>;
 }> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  // El tope de leads del plan, como el alta a mano del CRM y la API (6/11/2026: la pantalla de Customer Success no lo
+  // miraba y la API sí). Un cliente nuevo es un lead más.
+  const wsAlta = await getWorkspaceActual();
+  if (wsAlta != null) {
+    try { await frenarAltaPorTope(wsAlta, 'crm.leads'); } catch (e) { if (e instanceof TopeDelPlanError) return { ok: false, error: e.message }; throw e; }
+  }
   // El alta vive en lib/cs-crear-cliente.ts desde el 23/10/2026 (la usan también el alta de un alumno
   // desde el curso y la API de MaKo): createLead, ganado y «Sin cobro», con su chequeo de duplicados.
   const r = await crearClienteGanado(datos, await autorActual());
