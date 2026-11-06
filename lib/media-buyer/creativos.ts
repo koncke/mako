@@ -14,6 +14,7 @@
 // =============================================================================
 
 import type { ConexionAnunciosZernio } from '@/lib/zernio-ads-cuerpo';
+import { leerRefCreativo } from '@/lib/creativo-mako';
 
 export const CTAS = ['LEARN_MORE', 'SIGN_UP', 'APPLY_NOW', 'BOOK_NOW', 'CONTACT_US', 'GET_QUOTE', 'SHOP_NOW', 'SUBSCRIBE', 'DOWNLOAD'] as const;
 export type Cta = (typeof CTAS)[number];
@@ -33,7 +34,13 @@ export type TextosCreativo = {
   formularioId: string | null;
 };
 
-export type ArchivoSubido = { path: string; tipo: 'image' | 'video'; nombre: string };
+/**
+ * Un archivo de la subida: uno del disco, que el navegador subió al staging (`path`), o un video que MaKo YA GENERÓ (`ref`, la
+ * referencia de lib/creativo-mako.ts: `montaje:<id>` o `toma:<plan>:<n>:<op>`; lo prometido a Thiago, «que "Subir creativos"
+ * deje elegir un video ya generado»). Con `ref`, el `path` va vacío y el servidor vuelve a buscar el archivo en el negocio
+ * (resolverCreativoMako): la url nunca viaja desde el navegador.
+ */
+export type ArchivoSubido = { path: string; tipo: 'image' | 'video'; nombre: string; ref?: string };
 
 /** Un conjunto al que se puede subir: lo lista la pantalla, los prendidos primero. */
 export type ConjuntoParaSubir = { id: string; nombre: string; campana: string | null; prendido: boolean; anuncios: number };
@@ -90,7 +97,14 @@ export function nombreDeAnuncio(nombreArchivo: string, i: number): string {
 }
 
 /** Una subida tal como llega: de la pantalla (/api/media-buyer → subir_creativos) o de la API de MaKo (subir_creativos_media_buyer). */
-export type PedidoDeSubida = { adSetId: string | null; archivos: ArchivoSubido[]; textos: TextosCreativo; activo: boolean };
+export type PedidoDeSubida = {
+  adSetId: string | null; archivos: ArchivoSubido[]; textos: TextosCreativo; activo: boolean;
+  /**
+   * El anuncio del conjunto contra el que se prueban (un hook nuevo contra el video ganador). Queda en la decisión como su
+   * `anuncioBase`, y con eso el Relevo (motor.ts) pausa el original cuando uno de éstos le gana. null = una subida suelta.
+   */
+  original: string | null;
+};
 
 const ID_META = /^\d{1,30}$/;
 
@@ -104,7 +118,11 @@ export function leerPedidoDeSubida(o: Record<string, unknown>): PedidoDeSubida {
   const adSetId = typeof o.adSetId === 'string' && ID_META.test(o.adSetId) ? o.adSetId : null;
   const archivos = (Array.isArray(o.archivos) ? o.archivos : []).map((a): ArchivoSubido => {
     const x = (a && typeof a === 'object' ? a : {}) as Record<string, unknown>;
-    return { path: String(x.path ?? ''), tipo: x.tipo === 'video' ? 'video' : 'image', nombre: String(x.nombre ?? 'creativo').slice(0, 120) };
+    const nombre = String(x.nombre ?? 'creativo').slice(0, 120);
+    // Un video de MaKo: sólo su referencia, con la forma de lib/creativo-mako.ts (hoy todos son videos). Una ref que no tiene
+    // esa forma no se cuela como path: queda con el path vacío, y revisarSubida la rechaza.
+    if (typeof x.ref === 'string' && x.ref) return leerRefCreativo(x.ref) ? { path: '', tipo: 'video', nombre, ref: x.ref } : { path: '', tipo: 'video', nombre };
+    return { path: String(x.path ?? ''), tipo: x.tipo === 'video' ? 'video' : 'image', nombre };
   });
   const t = (o.textos && typeof o.textos === 'object' ? o.textos : {}) as Record<string, unknown>;
   const textos: TextosCreativo = {
@@ -113,5 +131,10 @@ export function leerPedidoDeSubida(o: Record<string, unknown>): PedidoDeSubida {
     link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
     formularioId: typeof t.formularioId === 'string' && ID_META.test(t.formularioId) ? t.formularioId : null,
   };
-  return { adSetId, archivos, textos, activo: o.activo !== false };
+  const original = typeof o.original === 'string' && ID_META.test(o.original) ? o.original : null;
+  return { adSetId, archivos, textos, activo: o.activo !== false, original };
 }
+
+/** ¿El archivo se puede usar? Uno del disco, con su path del staging; uno de MaKo, con su referencia bien formada. */
+export const archivoValido = (a: ArchivoSubido, esPathDeStaging: (p: string) => boolean): boolean =>
+  a.ref ? !!leerRefCreativo(a.ref) : esPathDeStaging(a.path);

@@ -98,7 +98,7 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
     .map((d) => d.id)
     .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id) && !ACCIONES_SIN_RECETA.has(id));
   assert.deepEqual(sinGrupo, [], `operaciones sin receta decidida: ${sinGrupo.join(', ')}. Súmalas a un grupo de lib/doer-recetas.ts`);
-  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 38, 'el editor tiene 38 operaciones de escritura (lib/editor-video/chat-api.ts; la 36 y la 37, resaltar_claves_subtitulos y usar_preset_subtitulos, y la 38, proponer_broll_video, 06/11)');
+  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 39, 'el editor tiene 39 operaciones de escritura (lib/editor-video/chat-api.ts; de la 36 a la 39, resaltar_claves_subtitulos, usar_preset_subtitulos, proponer_broll_video y buscar_clips_video, 06/11)');
   // Leila se lo pidió a MaKo el 27/10 y la receta le hacía decir que no podía: lo que tiene operación no va en «no puede».
   const noPuede = /no puede por chat \(([^)]*)\)/.exec(recetasDelTurno(new Set(['borrar_silencios_video']), false))?.[1] ?? '';
   assert.ok(noPuede, 'la receta del editor ya no dice qué no se puede');

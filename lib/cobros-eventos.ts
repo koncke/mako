@@ -20,6 +20,7 @@
 // escritos con la forma genérica de su doc: falta medirlos con un cuerpo real.
 
 import { esTokenCobro } from './cobros-tipos';
+import { montoUsdDeLaCuota } from './cobros-reglas';
 import { aUnidadMinima } from './pasarela-moneda';
 
 type Json = Record<string, unknown>;
@@ -304,6 +305,65 @@ export function primerCobroDeLaPrueba(
     if (conf.ok) return { proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId, pagadoAt: f.pagadoAt };
   }
   return null;
+}
+
+/**
+ * Cuánto se espera desde que Stripe cobró una renovación antes de que el cron la asiente: CUATRO DÍAS. Stripe reintenta un aviso
+ * hasta 3 días; si el cron la asentara antes y el reintento llegara después, el aviso volvería a llamar al CRON «Pagos» del lead
+ * (una automatización con reentrada «siempre» le diría «gracias» dos veces: la revisión del 6/11/2026). Pasados los 3 días, el
+ * aviso ya no llega: lo que falta, falta de verdad.
+ */
+export const MARGEN_AVISO_RENOVACION_MS = 4 * 86_400_000;
+/**
+ * Hasta qué edad una renovación perdida se asienta SOLA: asentarla dispara el aviso al equipo y el CRON «Pagos» del lead, y un
+ * WhatsApp de «gracias por tu pago» por un pago de hace meses es peor que no mandarlo. Las más viejas se DICEN (`viejas`).
+ */
+export const MAX_EDAD_RENOVACION_MS = 14 * 86_400_000;
+
+/**
+ * LAS RENOVACIONES DE STRIPE CON SU AVISO PERDIDO (6/11/2026, docs/relevo/pendientes-barrido.md). El mes 2 en adelante de una
+ * suscripción entra SÓLO por `invoice.paid`: el cron miraba la sesión del checkout, que ya está pagada, y si ese aviso se perdía
+ * (Stripe deja de reintentar a los 3 días) la plata entraba y MaKo no asentaba la cuota, no se la acreditaba al partner (el 2º
+ * mes) y el corte por falta de pago la leería como impaga. De las facturas PAGADAS de la suscripción (la más nueva primero,
+ * como las da Stripe), las que el cron tiene que asentar, de la más VIEJA a la más nueva:
+ *   · sólo las de un CICLO (`subscription_cycle`): la primera (`subscription_create`) nunca es una renovación, y un cobro viejo
+ *     que guardó otro id para su primer pago la duplicaría como renovación;
+ *   · de la suscripción vigente del cobro y de ESTE cobro (el mismo `esDelCobro` que el aviso), con plata (`confirmarFactura`);
+ *   · que no sea el primer pago del cobro (`primera`: en una prueba, el día 8 es un ciclo) ni una que ya tiene su cuota;
+ *   · con valor en dólares (si no, el CRM no la asienta nunca: no es una renovación perdida);
+ *   · cobrada hace más de `MARGEN_AVISO_RENOVACION_MS` (Stripe dejó de reintentar su aviso);
+ *   · y de hace menos de `MAX_EDAD_RENOVACION_MS`: las más viejas vuelven en `viejas` (las mira una persona).
+ * Con el id de la factura, como el aviso: si después llega, es la misma cuota.
+ */
+export function renovacionesQueFaltan(
+  facturas: ReadonlyArray<{ id: string; estado: string | null; montoPagado: number | null; moneda: string | null; motivo: string | null; suscripcion: string | null; metadata: Record<string, string>; pagadoAt: string | null }>,
+  c: {
+    token: string; suscripcion: string; primera: string | null; conocidas: ReadonlySet<string>; ahoraMs: number;
+    /** Lo del cobro con que se calcula el valor en dólares de la cuota (`montoUsdDeLaCuota`, el mismo que `aplicarPagoAprobado`). */
+    cobro: { monto_usd: number | null; monto: number | null; moneda: string | null };
+  },
+): { asentar: Array<{ proveedorPagoId: string; monto: number | null; moneda: string | null; suscripcionId: string | null; pagadoAt: string | null }>; viejas: string[] } {
+  const asentar: Array<{ proveedorPagoId: string; monto: number | null; moneda: string | null; suscripcionId: string | null; pagadoAt: string | null }> = [];
+  const viejas: string[] = [];
+  for (const f of [...facturas].reverse()) {
+    if (f.motivo !== 'subscription_cycle') continue;
+    if (f.suscripcion !== c.suscripcion) continue;
+    if (!esDelCobro(c.token, tokenReleido({ metadata: f.metadata }))) continue;
+    if (f.id === c.primera || c.conocidas.has(f.id)) continue;
+    const conf = confirmarFactura('aprobado', f);
+    if (!conf.ok) continue;
+    // ⚠️ SIN VALOR EN DÓLARES NO HAY CUOTA (la revisión del 6/11/2026): `aplicarPagoAprobado` no la escribe (pagos.monto_usd es NOT
+    // NULL y nunca se inventa una tasa), así que nunca quedaría «conocida»: se volvería a aplicar cada día, reescribiendo el
+    // `motivo` del cobro, y al final abriría un ticket falso. Una venta externa en pesos nace así. No es una renovación perdida.
+    if (montoUsdDeLaCuota({ montoCuota: conf.monto, monedaCuota: conf.moneda ?? c.cobro.moneda, cobroMontoUsd: c.cobro.monto_usd, cobroMonto: c.cobro.monto, cobroMoneda: c.cobro.moneda }) == null) continue;
+    const pagada = f.pagadoAt ? Date.parse(f.pagadoAt) : NaN;
+    if (!Number.isFinite(pagada)) continue;
+    const edad = c.ahoraMs - pagada;
+    if (edad < MARGEN_AVISO_RENOVACION_MS) continue;
+    if (edad > MAX_EDAD_RENOVACION_MS) { viejas.push(f.id); continue; }
+    asentar.push({ proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId, pagadoAt: f.pagadoAt });
+  }
+  return { asentar, viejas };
 }
 
 /** La devolución RELEÍDA confirma que falló: `failed` (o `canceled`, que tampoco devolvió nada). Un aviso viejo de una que después salió, no. */

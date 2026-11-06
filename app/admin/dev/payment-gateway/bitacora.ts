@@ -677,4 +677,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/agency',
   },
+  {
+    fecha: '6 nov', hora: '13:30', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una renovación de Stripe cuyo aviso se perdió ahora entra sola',
+    puntos: [
+      'Si Stripe cobra el mes 2 (o el que sea) de una suscripción y su aviso no llega, una vez por día MaKo la busca en Stripe y la asienta como cuota: así cuenta para el partner y para «al día».',
+      'Sólo las de 4 a 14 días (antes Stripe todavía reintenta el aviso); una más vieja abre un ticket para asentarla a mano.',
+      'Y el link de MaKo Partners: una cookie de un código que ya no es de nadie ya no le quita la venta al partner del link de hoy.',
+    ],
+    archivos: [
+      'lib/cobros.ts y lib/cobros-eventos.ts — renovacionesPerdidasStripe y renovacionesQueFaltan',
+      'lib/cobro-sesion-ajena.ts — el ticket de una renovación vieja',
+      'app/api/cron/cobros-reconciliar/route.ts — una vez por día',
+      'app/r/[codigo]/route.ts, lib/partners-reglas.ts y lib/partners-programa.ts — refQueVale y la lectura de los códigos anteriores',
+      'tests/stripe-renovacion-perdida.test.ts y tests/partners-referidos.test.ts — probados rompiéndolos, con revisión adversarial',
+    ],
+    revisar: '/admin/cobros',
+  },
 ];

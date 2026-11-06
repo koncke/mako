@@ -2226,3 +2226,41 @@ corrió con la IA real.
 `tests/video-editor-broll.test.ts` · arnés `scripts/probar-broll-ia.mts`.
 
 *6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*
+
+## Clips mágicos: de un video largo a varios cortos, cada uno en su proyecto (6/11/2026, nube)
+
+**Lo que se hizo:** Biblioteca › Multimedia › «Clips mágicos»: «Buscar los mejores momentos» lista los clips (título, puntaje
+de 0 a 99, lo primero que se dice y su tramo) y «Abrir» arma cada uno en un proyecto NUEVO, vertical y con subtítulos; el
+original no se toca. Por el chat del editor (`clips_magicos`) y por la API de MaKo (`buscar_clips_video`). Cómo lo hacen
+OpusClip y SamurAIGPT/AI-Youtube-Shorts-Generator (MIT), y qué se tomó: [investigacion-video-clips.md](investigacion-video-clips.md).
+
+- **Un clip es un tramo de FRASES ENTERAS, y la IA nombra frases, no tiempos** (`lib/editor-video/clips.ts`). Arranca después
+  de un punto o de una pausa de 0,8 s y termina igual; dura de 15 a 60 s. La IA del negocio devuelve `desde`/`hasta` por
+  número; un número fuera de su pedazo, al revés, un tramo de menos de 15 s o más de 60, o sin título se descartan, y los
+  tiempos los pone el código. El repo abierto le pide tiempos al modelo: acá no (un dato exacto no lo transporta un modelo).
+- **El puntaje es de 0 a 99 en cuatro partes, como el de OpusClip**: GANCHO (una pregunta o un «el error…» arrancando),
+  VALOR (palabras que pesan por minuto), RITMO (de 2,3 a 3,6 palabras por segundo, sin pausas largas) y CIERRE (termina en una
+  idea y dura de 20 a 45 s). Sin IA decide él (`clipsDeRespaldo`); con IA, la IA pone el suyo y el código valida lo demás. El
+  «Trend» de OpusClip no: sin datos de afuera no se mide.
+- **Dos clips no se pisan más de la mitad** (del más corto: la regla de SamurAIGPT) y un video largo va a la IA en pedazos de
+  20 minutos con un minuto de solape (la misma), hasta seis (dos horas). Si un pedazo falla y otro no, quedan los que llegaron.
+- **Abrir COPIA el proyecto** («Duplicar proyecto», que copia también sus archivos) y trabaja sobre la copia: corta todo lo de
+  afuera con el mismo corte de «Edición basada en la transcripción» (corre y recorta los subtítulos), con 0,15 s de aire;
+  pasa el lienzo a 9:16 y agranda el principal recortándolo al centro (`principalCubriendo`, la geometría de las plantillas);
+  saca los subtítulos (estaban ubicados para el horizontal) y los genera de nuevo con la plantilla y las palabras clave de
+  Subtítulos automáticos; deja el historial de deshacer vacío y le pone el título del clip. Si algo falla en el medio, la copia
+  se borra y vuelve el original. ⚠️ Copiar un video de una hora pesa lo mismo que el original en el navegador de la persona:
+  por eso se abre de a uno, cuando se pide, y no se arman todos de una.
+- **Lo que se dice sale de un solo lugar para el B-roll y los clips** (`broll/frases-del-video.ts`): los subtítulos si hay; si
+  no, Whisper en el navegador, sin ponerlos.
+
+**Sin hacer:** seguir la cara al pasar a vertical (va al centro); las pistas de arriba del horizontal (fotos, textos) quedan
+como estaban; nada se miró en un navegador ni se corrió con la IA real (la nube no tiene claves): para eso está
+`scripts/probar-clips-ia.mts --ws 3`, que corre lo mismo que la ruta sobre dos videos largos de ejemplo y marca un clip
+fuera de 15-60 s, dos que se pisan o más de los pedidos.
+
+**Vive en:** `lib/editor-video/{clips,clips-ia,clips-prompts}.ts` · `app/api/video-editor/clips/route.ts` ·
+`app/video-editor/_opencut/clips/` · `broll/frases-del-video.ts` · `chat/{linea,aplicar,comandos}.ts` · test
+`tests/video-editor-clips.test.ts` · `scripts/probar-clips-ia.mts` · [investigacion-video-clips.md](investigacion-video-clips.md).
+
+*6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*

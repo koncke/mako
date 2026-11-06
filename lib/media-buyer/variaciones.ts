@@ -17,18 +17,24 @@ import { transcriptDeAnuncio } from '@/lib/api-mako/areas/ads.helpers';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { leerAnuncioPorZernio } from '@/lib/zernio-ads';
 import { promptVariaciones, parsearVariaciones } from './variaciones-prompt';
+import { variacionDeBoton } from './variacion-boton';
 import type { Decision, Propuesta, Variacion } from './tipos';
 
 export const FEATURE_VARIACIONES = 'media-buyer-variaciones';
 
-/** Los textos actuales del ganador: con el token de Meta del negocio, o por Zernio si no lo tiene. */
-async function textosDelGanador(ws: number, adId: string): Promise<{ textoPrincipal: string | null; titulo: string | null }> {
+/**
+ * Los textos actuales del ganador, y su botón: con el token de Meta del negocio, o por Zernio si no lo tiene. Zernio no
+ * devuelve el botón (`cta: null`): sin saber cuál tiene, no se arma la variación de botón (variacion-boton.ts).
+ */
+async function textosDelGanador(ws: number, adId: string): Promise<{ textoPrincipal: string | null; titulo: string | null; cta: string | null; conFormulario: boolean }> {
   try {
     const a = await runWithWorkspace(ws, () => getAdForEdit(adId));
-    if (a.creative) return { textoPrincipal: a.creative.primary_text ?? null, titulo: a.creative.headline ?? null };
+    if (a.creative) {
+      return { textoPrincipal: a.creative.primary_text ?? null, titulo: a.creative.headline ?? null, cta: a.creative.cta_type ?? null, conFormulario: !!a.creative.lead_form_id };
+    }
   } catch { /* sin token propio o sin permiso: se prueba Zernio */ }
   const z = await leerAnuncioPorZernio(ws, adId).catch(() => null);
-  return { textoPrincipal: z?.body ?? null, titulo: null };
+  return { textoPrincipal: z?.body ?? null, titulo: null, cta: null, conFormulario: false };
 }
 
 /**
@@ -57,7 +63,9 @@ export async function prepararVariaciones(ws: number, p: Propuesta | Decision): 
     if (!crudo) return { variaciones: [], motivo: `Tu IA no contestó: ${errores[0] ?? 'sin respuesta'}. Conéctala en Integraciones.` };
     const variaciones = parsearVariaciones(crudo, textos, adId);
     if (!variaciones.length) return { variaciones: [], motivo: 'Tu IA contestó, pero ninguna variación servía (repetidas o con voseo). MaKo lo vuelve a intentar mañana.' };
-    return { variaciones, motivo: null };
+    // Y una más, que no escribe la IA: el mismo texto con otro botón (lo prometido a Thiago: variar el CTA).
+    const boton = variacionDeBoton(textos, adId);
+    return { variaciones: boton ? [...variaciones, boton] : variaciones, motivo: null };
   } catch (e) {
     return { variaciones: [], motivo: e instanceof Error ? e.message : String(e) };
   }

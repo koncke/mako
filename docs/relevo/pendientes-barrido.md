@@ -31,6 +31,18 @@ permiso». Este archivo es el registro de ese barrido. **Se mantiene al día en 
 | 3 | «No reprodujo el VSL» y la cohorte «vio poco el VSL» no se cumplen para todos con la base caída (la lectura del motor es estricta) | lib/leads.ts · lib/nutricion.ts | `punta/barrido-envios` |
 | 3 | Cambiar el precio de un producto por MaKo: el título de /mako/revisar dice también el precio de antes, y el producto queda fijo al revisar | lib/producto-precio-texto.ts · lib/api-mako/areas/crm.run.ts · crm.def.ts | `punta/barrido-envios` |
 | 4 | Lo que encontró el revisor (ver «Autocrítica») | varios | `punta/barrido-envios` |
+| 5 | El aviso de WhatsApp caído dice cuál número se cayó (el webhook lo guarda antes de borrarlo; sin migración) | app/api/webhooks/evolution/route.ts · lib/linea-vigilancia.ts · lib/lineas-vigilante.ts | `punta/barrido-envios` |
+
+**Subido el 6/11/2026** a `punta/barrido-envios` (cabeza `8447634b6`, veredicto en verde: 8143 tests de 815 archivos y el tsc
+entero). ⚠️ El hook de pre-push NO estaba instalado en este clon de la nube: las guardas corrieron a mano
+(`sh scripts/guardas-push.sh`) antes del veredicto, y el hook quedó instalado después.
+
+| 6 | **Pagos:** la renovación de Stripe (mes 2+) cuyo aviso se perdió entra sola, una vez por día: las de 4 a 14 días con el mismo id que el aviso; las más viejas, un ticket | lib/cobros.ts · lib/cobros-eventos.ts · lib/cobro-sesion-ajena.ts · el cron de cobros | `punta/barrido-envios` (2ª subida) |
+| 6 | **MaKo Partners:** una cookie de un código muerto ya no le quita la venta al partner del link de hoy | app/r/[codigo]/route.ts · lib/partners-reglas.ts · lib/partners-programa.ts | ídem |
+| 6 | **Automations:** «Responder» con el clic derecho en el chat con MaKo, sin interpretar lo citado como un pedido | app/automations/ChatMako.tsx · ChatMakoVista.tsx | ídem |
+| 6 | **Seguridad:** el script en seco de las fotos huérfanas del bucket público `avatars` (lo corre el Cerebro: P16) | scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts | ídem |
+
+Lo de plata de la tanda 6 pasó una **revisión adversarial de dos vueltas** (un agente que no escribió el código): ver «Autocrítica».
 
 La cosecha: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar» y docs/hallazgos-chatbot.md →
 «"No reprodujo el VSL" se cumplía para TODOS con la base caída».
@@ -48,6 +60,19 @@ Un lector que no escribió el código revisó las tandas 1 a 3 antes de subirlas
 - El título «2000 → 200» quedaba viejo si se corregía el monto en el formulario, y el producto se podía cambiar. → «200 USD; antes
   2000 USD» (lo de antes no cambia) y el `id` fijo al revisar.
 
+Y la tanda 6 (plata), dos vueltas del mismo revisor. La primera encontró tres cosas, cambiadas antes de subir:
+- Una venta externa en pesos nace sin valor en dólares: el CRM no le escribe la cuota y la red la volvía a aplicar cada día
+  (reescribiendo el `motivo` del cobro) y abría un ticket falso. → se descarta con `montoUsdDeLaCuota`, el mismo cálculo.
+- Con un `.limit` antes del filtro y el mismo orden cada día, las suscripciones más nuevas (las del 2º mes) no se miraban nunca. →
+  se leen todas, se filtran antes y se arranca por otra cada día.
+- En `/r`, la lectura de los códigos ANTERIORES se tragaba el error: con la base caída, el código viejo de un partner contaba como
+  muerto y otro link le pisaba la cookie. → sólo la tabla que falta es «ninguno»; ejecutado con una base de mentira.
+- Y de lo «plausible»: el margen de 2 h dejaba que el reintento de Stripe (3 días) volviera a disparar el CRON «Pagos» del lead. →
+  4 días (el costo, dicho por el revisor: un cliente con el aviso perdido figura en mora 4-5 días en vez de menos de 1; no le cobran
+  dos veces ni lo pausan). Los cobros con el primer pago devuelto, adentro.
+La segunda vuelta: «nada importante». Lo que quedó afuera, a propósito, en docs/hallazgos-pagos.md y hallazgos-partners.md (el orden
+de los NEGOCIOS en la vuelta del día; una cookie de quien nunca terminó el alta de partner).
+
 Descartado a propósito: frenar el tope DESPUÉS del chequeo de duplicados en Customer Success (hoy un alta en el tope que es un
 duplicado recibe el tope y no «usar ese»): el CRM y la API frenan en el mismo orden; cambiar los tres es otra tanda. Y el «Pasar a
 Pro» del commit de la tanda 2 no se ve: Customer Success devuelve el texto sin `pasarAPro` y su pantalla no dibuja ese botón.
@@ -57,13 +82,13 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 
 | # | Qué | Archivo | Prio | Estado |
 |---|---|---|---|---|
-| C1 | El aviso de línea CAÍDA no puede nombrar el número: el webhook y `desconectar()` borran `numero` | app/api/webhooks/evolution/route.ts:176 · lib/evolution.ts | 3 | necesita guardar el último número (columna nueva o no borrarlo): **migración**, se escribe tolerante |
+| C1 | El aviso de línea CAÍDA no puede nombrar el número: el webhook y `desconectar()` borran `numero` | app/api/webhooks/evolution/route.ts:176 · lib/evolution.ts | 3 | **HECHO** (tanda 5), sin migración: un setting `wa.linea.ultimo_numero.<línea>` que el webhook escribe antes de borrar |
 | C2 | `crearClienteAction` (Customer Success) no frena por el tope del plan; la API sí | app/customer-success/actions.ts | 2 | **HECHO** (tanda 2) |
 | C3 | `embeddings` gasta IA sin `recordUsage` (no se ve en el Uso) | lib/embeddings.ts | 4 | medido: `transcribe` ya va por `transcribirAudio`. Embeddings: una fila por vector llenaría la tabla del Uso (miles por ingesta) y entraría en la cuenta de cuota de las keys de Gemini → **decisión** de cómo registrarlo (agregado por día) |
 | C4 | `tieneBorradorNutriPendiente` cuenta borradores de automatizaciones pausadas | lib/evolution-envio.ts | 3 | **decisión** (hallazgos-chatbot: «pausar no es archivar»): ¿un borrador de una pausada sigue frenando? → Automations / Martín |
 | C5 | La etiqueta en lote corta en 200 sin avisar | app/api/crm/etiquetas/route.ts | 3 | **HECHO** antes (27/10: la barra manda de a tandas, `TANDA_ETIQUETAS_LOTE`) |
 | C6 | Pixel de una landing dada de baja: la pastilla «desactualizado» queda para siempre; `snippetDesactualizado` sigue en 3 lectores | lib/landing-token.ts · lib/pixel-estado.ts | 3 | **HECHO** antes: `snippetDesactualizado` delega en `estadoPixel`, que mira las páginas con visitas (`paginasVivas`) |
-| C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | por medir |
+| C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | **HECHO** (tanda 6, con revisión): era peor de lo anotado, `/r` ponía el código muerto también en `?ref=` y la compra quedaba sin partner |
 | C8 | Plan: aviso cuando una reunión no se pudo leer | lib/reunion-auto.ts · lib/reunion-descartadas.ts | 3 | por medir |
 | C9 | Una landing confirmada deja el lead sin `pagina_registro` | app/crm/revisar/[id]/propuesta-lead.ts | 3 | **HECHO** antes (propuesta-lead.ts:121 la copia normalizada) |
 | C10 | El lead que pierde el compare-and-set de Zernio queda con `meta_ad_id` | lib/zernio-entrante.ts | 3 | **HECHO** antes (`quitarHuerfano` lo borra y le pasa el anuncio al ganador con `.is(null)`). Queda la otra mitad: el primer mensaje del anuncio llega SIN referral → **decisión** de atribución |
@@ -71,7 +96,7 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 | C12 | Página propia de «no encontrado» (no hay `app/not-found.tsx`) | app/not-found.tsx | 5 | por medir |
 | C13 | Restos: `TAB_DE_DATO` sin uso, `Lead` sin `suscripcion_cancelada_at`, código muerto de creativos | lib/datos-aviso.ts · lib/leads.ts · lib/creativo-mako-fuentes.ts | 5 | por medir |
 | C14 | `'use server'` fuera del CRM sin `exigirSesion()` | app/**/actions.ts | 2 | **medido, sin agujero**: los 60 archivos tienen su puerta (`adminDeWorkspaceActual`, `puerta()`, `veEditorVideo`, `ctxDeBandeja`…); el de comunidad sirve al alumno a propósito |
-| C15 | Responder con clic derecho en Automations (`useCitaDelChat`) | app/automations | 3 | por medir |
+| C15 | Responder con clic derecho en Automations (`useCitaDelChat`) | app/automations | 3 | **HECHO** (tanda 6) |
 | C16 | «Por tiempo» agenda al instante al elegirlo (`CRON_DEFAULT`) | app/agencia/FlujoAviso.tsx | 3 | DUDA: la bitácora lo da como decisión 5.1 de Martín |
 
 ## Para OTROS chats (no los toca este barrido)
@@ -97,7 +122,7 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 | P1 | **La URL vieja del webhook de WhatsApp no oficial vence el 7/11** (`CORTE_LEGADO`, lib/evolution-firma.ts:29) | En /whatsapp, «Reparar espejo» en cada línea que siga muda | **mañana** |
 | P2 | El limbo del Runner: 6 mensajes, los primeros vencen el 8/11 | Cerrarlos desde el Ops Center | 8/11 |
 | P3 | El cron del Runner vence el 11/11 y con él el vigía | Rearmarlo (`CronCreate`) en el chat del Runner antes del 11/11 | 11/11 |
-| P4 | Migraciones escritas y sin confirmar aplicadas: 0298, 0299, 0302, 0314, 0316, 0330, 0338, 0341, 0342, 0346, 0348, 0351, 0357, 0390, 0394, 0396 | `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) y aplicar las ausentes con `node scripts/apply-migration.mjs`, cada una en su orden de despliegue (cabecera del `.sql`) | alta |
+| P4 | Migraciones escritas y sin confirmar aplicadas. **Medido por el Cerebro el 6/11** (docs/relevo/pendientes-pc/pasos-cerebro-6-11.md): de la 0331 en adelante, 48 aplicadas, 0 ausentes y 4 «sin verificar» (0336, 0347, 0348, 0352: recrean algo que ya existía) — o sea 0338, 0341, 0342, 0346, 0351, 0357, 0390, 0394 y 0396 YA están. **Quedan sin medir las de antes:** 0298, 0299, 0302, 0314, 0316, 0330 | `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) desde la 0298, y aplicar las ausentes con `node scripts/apply-migration.mjs` en su orden de despliegue (cabecera del `.sql`) | media |
 | P5 | Las dos filas de la plataforma (ws 9) para la alerta de Meta de un cliente de agencia | `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --env=C:/dev/mako-api/.env.local --eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia --aplicar` | alta |
 | P6 | El aviso del tope de Instagram (`social_tope`) | `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=social_tope` | media |
 | P7 | El aviso de tareas al Plan tras una reunión | `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` | media |
@@ -109,7 +134,7 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 | P13 | Las 10 llamadas de entrega en `error` sin reintento (Customer Success) | Leer `curso_sesiones` en producción y reintentar (cuesta crédito: con el sí de Martín) | baja |
 | P14 | El goteo y el reloj de las esperas del 24/10 | `node --env-file=<clon>/.env.local --conditions=react-server --import tsx scripts/medir-goteo-tras-deploy.mts` | baja |
 | P15 | Código Inmobiliario: 21 fallos y 10 borradores de WhatsApp | Leer `errores_app` y `wa_borradores` del ws 13 | **cliente** |
-| P16 | Fotos huérfanas del bucket `avatars` | Escribir el script en seco (código) y correrlo desde la PC | baja |
+| P16 | Fotos huérfanas del bucket `avatars` (las viejas tienen nombre adivinable) | **El script ya está** (tanda 6): `node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/avatars-huerfanas.mts` (sólo lista); mirando lo que lista, otra vez con `--borrar` y el sí de Martín | baja |
 | P17 | Mirar en pantalla lo desplegado sin mirar (Settings, «Quieren entrar», el aviso al activar, la barra del editor web a 1280, el selector de funnel del teléfono…) | Con la sesión de Martín, en producción | baja |
 
 ## De MARTÍN (decisión o acción suya)
@@ -164,7 +189,7 @@ en Chrome (tanda 5, en pausa por él).
 | El chat del lienzo reescribe una tarjeta no nombrada y le borra el link | VIGENTE: `limpiarTexto` borra todo link que no esté en el pedido, también el que el mensaje YA tenía (lib/flujo-ia.ts) | **OTRO CHAT (Automations)**: es la máquina de IA del lienzo y pide correr su arnés con IA real (`scripts/probar-chats/automations.mts`), que la nube no puede |
 | El Deshacer de abierta a Ganado borra el monto | HECHO: repone la foto sin pasar por la regla (lib/deshacer-movimiento.ts) | — |
 | La compra a Meta que puede salir dos veces | ACEPTABLE: va con un `eventId` fijo por venta y Meta deduplica | — |
-| `reconciliarCobros` y la renovación de Stripe (mes 2+) con el aviso perdido | El cursor NO es bug (los pendientes van del más nuevo). La renovación con el aviso perdido SÍ: ningún cron lista las facturas de una suscripción ya pagada | **CÓDIGO de plata con revisión adversarial** (Pagos): un barrido de `facturasPagadasStripe` por suscripción activa → `aplicarPagoAprobado` con el id de la factura; probablemente una columna para rotar |
+| `reconciliarCobros` y la renovación de Stripe (mes 2+) con el aviso perdido | El cursor NO es bug (los pendientes van del más nuevo). La renovación con el aviso perdido SÍ: ningún cron lista las facturas de una suscripción ya pagada | **HECHO** (tanda 6, sin columna: rota por día) — `renovacionesPerdidasStripe` |
 | El 2FA se quita o se regeneran los códigos sin un código fresco | VIGENTE (app/api/perfil/seguridad/route.ts, `quitarFactor`, `generarCodigosRecuperacion`) | **MARTÍN**: qué piden los que no tienen TOTP (WhatsApp, email, llave) |
 | Un «sí» suelto con dos pendientes vivas | No confirma las dos («aclara cuál»), pero el modelo elige el id | **MARTÍN**: ¿«la preguntada» es la más reciente? |
 | Confirmar un cambio de precio no muestra el de antes | VIGENTE → **HECHO en la tanda 3** | — |

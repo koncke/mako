@@ -23,9 +23,9 @@ import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { getUsuarioActual } from '@/lib/auth';
 import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla, MediaBuyerSinZona, PlanSinPiloto, cupoDe } from '@/lib/media-buyer/store';
-import { crearCampana, prepararCampana } from '@/lib/media-buyer/campana';
+import { crearCampana, datosParaNuevaCampana, prepararCampana } from '@/lib/media-buyer/campana';
 import { runWithWorkspace } from '@/lib/workspace';
-import { searchLugares, listLeadForms, listPixels } from '@/lib/meta-ads-create';
+import { searchLugares } from '@/lib/meta-ads-create';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
@@ -35,7 +35,7 @@ import { sanearRespuestas } from '@/lib/media-buyer/arranque';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
-import { conjuntosDe, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
+import { conjuntosDe, generadosDelNegocio, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
 import { leerPedidoDeSubida } from '@/lib/media-buyer/creativos';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { credWs } from '@/lib/credenciales';
@@ -142,7 +142,12 @@ export async function POST(req: NextRequest) {
         const conjuntos = conjuntosDe(datos);
         const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
         const plantilla = adSetId ? await plantillaDelConjunto(ws, datos, adSetId) : null;
-        return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion });
+        // Los videos que MaKo ya generó (AI Avatar, Video Generator): se suben por su `ref`, sin bajarlos del disco. Si no se
+        // pudieron leer, la lista viene vacía con su aviso: subir del disco sigue andando.
+        let generados: Awaited<ReturnType<typeof generadosDelNegocio>> = [];
+        let avisoGenerados: string | null = null;
+        try { generados = await generadosDelNegocio(ws); } catch (e) { avisoGenerados = `No pude leer tus videos de MaKo: ${e instanceof Error ? e.message : String(e)}`; }
+        return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion, generados, avisoGenerados });
       }
       case 'arranque': {
         await guardarRespuestasArranque(ws, sanearRespuestas(body.respuestas));
@@ -190,24 +195,9 @@ export async function POST(req: NextRequest) {
         return J({ ok: true, hastaCampanas: config.hastaCampanas, hasta: config.hasta });
       }
       case 'nueva_preparar': {
-        // Lo que pide «Nueva campaña» para armarse: de la cuenta (formularios, píxeles, anuncios para reusar) y del Media Buyer
-        // (la zona, la fecha y el tope). Cada lista que no se pudo leer viene vacía con su aviso: no frena la pantalla.
-        const config = await leerConfig(ws);
-        const datos = await leerDatosCuenta(ws);
-        const avisos: string[] = [];
-        const [formularios, pixeles] = await Promise.all([
-          runWithWorkspace(ws, () => listLeadForms()).catch((e) => { avisos.push(`No pude leer tus formularios: ${e instanceof Error ? e.message : String(e)}`); return []; }),
-          runWithWorkspace(ws, () => listPixels()).catch((e) => { avisos.push(`No pude leer tus píxeles: ${e instanceof Error ? e.message : String(e)}`); return []; }),
-        ]);
-        const porId = new Map(datos.arbol.map((n) => [n.id, n] as const));
-        const anuncios = datos.arbol.filter((n) => n.nivel === 'ad' && n.configurado !== 'DELETED').slice(0, 200).map((n) => {
-          const conj = n.parentId ? porId.get(n.parentId) : undefined;
-          return { id: n.id, nombre: n.nombre, campana: conj?.parentId ? porId.get(conj.parentId)?.nombre ?? null : null, prendido: n.configurado === 'ACTIVE' };
-        });
-        return J({
-          ok: true, conectado: !!datos.conexion, moneda: datos.moneda, zona: config.zona, hasta: config.hasta,
-          presupuestoMaxDia: config.presupuestoMaxDia, totalActivo: datos.totalActivo, formularios, pixeles, anuncios, avisos,
-        });
+        // Lo que pide «Nueva campaña» para armarse (lib/media-buyer/campana.ts → datosParaNuevaCampana: la MISMA lectura que
+        // usa «Usar en un anuncio» de los editores).
+        return J({ ok: true, ...(await datosParaNuevaCampana(ws)) });
       }
       case 'crear_campana': {
         const entrada = (body.entrada ?? {}) as Record<string, unknown>;
@@ -221,9 +211,9 @@ export async function POST(req: NextRequest) {
       }
       case 'subir_creativos': {
         // El pedido se lee como lo lee la API de MaKo (lib/media-buyer/creativos.ts → leerPedidoDeSubida).
-        const { adSetId, archivos, textos, activo } = leerPedidoDeSubida(body);
+        const { adSetId, archivos, textos, activo, original } = leerPedidoDeSubida(body);
         if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
-        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo }, quien);
+        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo, original }, quien);
         return J(r, r.ok ? 200 : 409);
       }
       default:

@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `usar_preset_subtitulos` · `proponer_broll_video` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
@@ -6035,7 +6035,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/hooks-video` — Hooks del Media Buyer al video
 
-PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.
+PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». AI Avatar los ofrece también («Hooks ganadores»), para filmarlos con el avatar del negocio. No publica nada en Meta.
 
 - **Ruta por operación:** `POST /api/v1/ads/hooks_al_video_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6507,11 +6507,14 @@ PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexi�
 | `pixelId` | string | no | objetivo web o compras: el id del píxel (de listar_pixeles_meta). |
 | `evento` | string (LEAD \\| SCHEDULE \\| SUBMIT_APPLICATION \\| CONTACT \\| COMPLETE_REGISTRATION) | no | objetivo web: el evento del píxel que optimiza (por defecto LEAD). |
 | `url` | string | no | la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario). |
-| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId). |
+| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio \\| archivo \\| generado) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId), anuncio (reusar el de anuncioId), archivo (uno subido con preparar_subida_media_buyer, con archivoPath) o generado (un video que MaKo ya hizo, con creativoRef). |
 | `imagenUrl` | string | no | creativoTipo imagen: la dirección https de la imagen. |
 | `videoUrl` | string | no | creativoTipo video: la dirección https del video (MP4). |
 | `videoId` | string | no | creativoTipo video_cuenta: el id de un video ya subido a la cuenta. |
 | `anuncioId` | string | no | creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta). |
+| `archivoPath` | string | no | creativoTipo archivo: el path del staging (nueva/…) de preparar_subida_media_buyer. Se borra a las 6 horas si no se publica. |
+| `archivoMedia` | string (imagen \\| video) | no | creativoTipo archivo: imagen o video. |
+| `creativoRef` | string | no | creativoTipo generado: la ref de un video de MaKo (de `generados` en preparar_subida_media_buyer: AI Avatar, Video Generator). |
 | `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
 | `titulo` | string | no | el título del anuncio. |
 | `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
@@ -6530,7 +6533,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/subidas` — Preparar la subida de creativos nuevos
 
-El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.
+El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó (`generados`: AI Avatar y Video Generator), que se suben por su `ref`, sin PUT. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.
 
 - **Ruta por operación:** `GET /api/v1/ads/preparar_subida_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -6555,7 +6558,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/conjuntos/{adsetId}/creativos` — Subir creativos nuevos a un conjunto
 
-PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
+PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer, o videos que MaKo ya generó (su `ref`, de `generados`), como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Con `original` (un anuncio del conjunto), se prueban contra él: si uno le gana, el Media Buyer propone pausar el original. Se confirma en una pantalla antes de 6 horas si hay archivos del disco (después se borran). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
 
 - **Ruta por operación:** `POST /api/v1/ads/subir_creativos_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6571,10 +6574,12 @@ PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer c
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer). |
-| `archivos` | object[] | sí | los archivos ya subidos, hasta 10. |
-| `archivos.path` | string | sí | el path que devolvió preparar_subida_media_buyer (nueva/…). |
-| `archivos.tipo` | string (image \\| video) | sí | image o video. |
+| `archivos` | object[] | sí | los archivos, hasta 10: cada uno con su path (subido) o su ref (un video de MaKo). |
+| `archivos.path` | string | no | el path que devolvió preparar_subida_media_buyer (nueva/…), para un archivo del disco. |
+| `archivos.ref` | string | no | la ref de un video que MaKo ya generó (de `generados` en preparar_subida_media_buyer), en vez del path. |
+| `archivos.tipo` | string (image \\| video) | sí | image o video (un video de MaKo es video). |
 | `archivos.nombre` | string | no | cómo se llama: sale en el nombre del anuncio. |
+| `original` | string | no | el id de un anuncio del mismo conjunto contra el que se prueban (un hook nuevo contra el video ganador): si uno le gana, el Media Buyer propone pausarlo. |
 | `textoPrincipal` | string | sí | el texto principal del anuncio. |
 | `titulo` | string | sí | el título. |
 | `cta` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SHOP_NOW \\| SUBSCRIBE \\| DOWNLOAD) | no | el botón. Por defecto, LEARN_MORE. |
@@ -15747,7 +15752,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 18 lecturas · 40 acciones.
+Tab **Video Generator** (`/video-generator`). 18 lecturas · 41 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -17333,6 +17338,34 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/broll"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/clips-magicos` — Buscar los mejores momentos (clips mágicos)
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Clips mágicos, como OpusClip: busca en un video LARGO los mejores momentos (de 15 a 60 s, que se entiendan solos) para hacer Reels o Shorts. "cuantos" (opcional, de 1 a 10; sin él, 5). No elige ni inventa los momentos: los busca al aceptar, y la persona abre cada uno en un proyecto nuevo, vertical y con subtítulos. No cambia este proyecto. Se aplica al final.
+
+- **Ruta por operación:** `POST /api/v1/video/buscar_clips_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `cuantos` | number | no | Opcional: cuántos clips (sin esto, 5). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/clips-magicos"
 ```
 
 ### `GET /api/v1/video/presets-subtitulos` — Presets de subtítulos de la marca

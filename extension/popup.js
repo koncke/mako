@@ -817,8 +817,8 @@ async function recargarMakoYConectar() {
 //     · Flow → lo de siempre (`pintar`, arriba): conectar este navegador recién ahí, cuando la persona eligió Flow.
 // Al abrir: la extracción que está corriendo (el worker abre este desplegable al empezarla), y si no, donde se dejó.
 let vista = { pantalla: 'inicio' };
-const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio' };
-const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp', spy: 'Competitors Spy' };
+const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio', perfil: 'inicio' };
+const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp', spy: 'Competitors Spy', perfil: 'CRM' };
 /** Una extracción sin noticias hace tanto se cortó (el navegador cerró la extensión a la mitad). */
 const CORTADA_MS = 3 * 60000;
 
@@ -844,6 +844,7 @@ async function dibujar() {
   armada = null;
   if (vista.pantalla === 'flow') { esperando('Un momento…'); await pintar(); return; }
   if (vista.pantalla === 'spy') { if (spy.hay) dibujarSpy(); return; }
+  if (vista.pantalla === 'perfil') { if (perfil.hay) void leerPerfil(); return; }
   const lista = await registro();
   if (vista.pantalla === 'scraper') dibujarRegistro(lista);
   else if (vista.pantalla === 'extraccion') dibujarExtraccion(lista.find((e) => e.id === vista.id) || null);
@@ -903,6 +904,12 @@ function dibujarInicio(lista) {
     opcion(spy.rotulo, MakoSpy.detalle(spy.hay),
       ['M12 5C6.5 5 3 12 3 12s3.5 7 9 7 9-7 9-7-3.5-7-9-7z', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'], '#7c3aed', 'rgba(124,58,237,.12)',
       () => void abrirSpy());
+  }
+  // «Guardar en MaKo»: el perfil abierto de Instagram o de LinkedIn, como lead. Igual que Spy, sólo con la pestaña que dio Chrome.
+  if (perfil.hay) {
+    opcion(MakoPerfil.rotulo(), MakoPerfil.detalle(perfil.hay),
+      ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M19 8v6M22 11h-6'], '#c2410c', 'rgba(194,65,12,.12)',
+      () => void abrirPerfil());
   }
 }
 
@@ -1014,6 +1021,143 @@ async function guardarEnSpy(competidorId) {
 }
 
 // ── «Capturar» desde «Sus páginas» (0.76.0, 4/11/2026) ─────────────────────────────────────────
+// ── «Guardar en MaKo» ─────────────────────────────────────────────────────────────────────────
+// Lo prometido a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md): sobre el perfil abierto de Instagram o de LinkedIn,
+// guardar a esa persona como lead del CRM. De a uno, a la vista y con el toque de la persona:
+//   · ABRIR ESTO NO LEE NADA: el botón aparece por la dirección (perfil-reglas.js), y la página se lee recién al tocarlo
+//     (perfil-leer.js, inyectado una vez, en esta pestaña y en el mundo aislado);
+//   · LO LEÍDO SE INTERPRETA EN EL SERVIDOR (lib/perfil-captura.ts), que contesta qué entendió y si ya está en el CRM, SIN guardar;
+//   · se guarda con el SEGUNDO toque, «Guardar en mi CRM», con el nombre que la persona ve y puede corregir.
+// Todo lo que dice esta pantalla va con `textContent`: el nombre de un perfil lo escribe un tercero.
+const RUTA_PERFIL = `${ORIGEN_MAKO}/api/crm/extension`;
+let perfil = { hay: null, tabId: null, token: null, captura: null };
+
+async function pedirPerfil(cuerpo) {
+  const r = await fetch(RUTA_PERFIL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-flow-token': perfil.token },
+    body: JSON.stringify(cuerpo),
+    signal: AbortSignal.timeout(20000),
+  });
+  const datos = await r.json().catch(() => null);
+  return { status: r.status, datos };
+}
+
+/** ¿Esta pestaña es un perfil? Sólo con la dirección: no le pregunta nada a MaKo. */
+async function prepararPerfil() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  const hay = tab?.url ? MakoPerfil.queHay(tab.url) : null;
+  if (!hay) return false;
+  const { token } = await chrome.storage.local.get('token').catch(() => ({}));
+  perfil = { hay, tabId: tab.id, token: token || null, captura: null };
+  return true;
+}
+
+function abrirPerfil() {
+  vista = { pantalla: 'perfil' };
+  $('atras').hidden = false;
+  $('donde').textContent = DONDE.perfil;
+  void leerPerfil();
+}
+
+const alInicio = ['Volver', () => void ir({ pantalla: 'inicio' }), true];
+
+/** La ficha del lead en MaKo, en una pestaña nueva. Sólo una dirección de MaKo. */
+function abrirLead(lead) {
+  const url = typeof lead?.link === 'string' && lead.link.startsWith(`${ORIGEN_MAKO}/`) ? lead.link : `${ORIGEN_MAKO}/crm/${encodeURIComponent(lead?.id ?? '')}`;
+  void chrome.tabs.create({ url, active: true });
+  window.close();
+}
+
+/** El primer toque: leer el perfil y preguntarle a MaKo qué entendió. No guarda nada. */
+async function leerPerfil() {
+  if (!perfil.token) {
+    pantallaSpy('Conecta este navegador', 'Para guardar en tu MaKo, primero hay que conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  pantallaSpy('Leyendo este perfil…');
+  let captura = null;
+  try {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: perfil.tabId }, files: ['perfil-leer.js'], world: 'ISOLATED' });
+    captura = r?.result ?? null;
+  } catch { captura = null; }
+  if (!captura || captura.modo !== 'perfil') {
+    pantallaSpy('No pude leer este perfil', 'Recárgalo y vuelve a tocar el ícono de MaKo.', [alInicio]);
+    return;
+  }
+  perfil.captura = captura;
+  pantallaSpy('Mirando tu CRM…');
+  const { status, datos } = await pedirPerfil({ accion: 'ver', captura }).catch(() => ({ status: 0, datos: null }));
+  if (status === 404) {
+    pantallaSpy('Conecta este navegador', 'MaKo no lo reconoció. Vuelve a conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  if (!datos?.ok) {
+    pantallaSpy('No se pudo', datos?.error || 'No pude hablar con MaKo.', [alInicio]);
+    return;
+  }
+  if (datos.ya) {
+    pantallaSpy(`${datos.ya.nombre} ya está en tu CRM`, datos.perfil.rotulo, [['Abrir en MaKo', () => abrirLead(datos.ya)]]);
+    return;
+  }
+  formularioPerfil(datos.perfil.rotulo, datos.perfil.nombre || '', datos.parecidos || []);
+}
+
+/** La pantalla de confirmar: el perfil, el nombre (que se corrige acá) y, si hay, el aviso de alguien que se llama igual. */
+function formularioPerfil(rotuloPerfil, nombre, parecidos) {
+  const cuerpo = $('cuerpo');
+  cuerpo.textContent = '';
+  cuerpo.appendChild(nodo('h1', '', 'Guardar en tu CRM'));
+  cuerpo.appendChild(nodo('div', 'tenue', rotuloPerfil));
+  const etiqueta = nodo('label', 'campo', 'Nombre');
+  const campo = document.createElement('input');
+  campo.type = 'text';
+  campo.maxLength = 120;
+  campo.value = nombre;
+  campo.placeholder = 'Su nombre';
+  etiqueta.appendChild(campo);
+  cuerpo.appendChild(etiqueta);
+  const igual = parecidos[0];
+  if (igual) cuerpo.appendChild(nodo('div', 'tenue', `Ya tienes un lead que se llama ${igual.nombre}.`));
+  const guardar = nodo('button', '', igual ? 'Guardar igual' : 'Guardar en mi CRM');
+  guardar.type = 'button';
+  guardar.addEventListener('click', () => void guardarPerfil(rotuloPerfil, campo.value, !!igual));
+  cuerpo.appendChild(guardar);
+  if (igual) {
+    const ver = nodo('button', 'suave', `Abrir a ${igual.nombre}`);
+    ver.type = 'button';
+    ver.addEventListener('click', () => abrirLead(igual));
+    cuerpo.appendChild(ver);
+  }
+  campo.focus();
+}
+
+/** El segundo toque: recién acá se crea el lead. */
+async function guardarPerfil(rotuloPerfil, nombre, aunqueSeLlameIgual) {
+  pantallaSpy('Guardando…');
+  const { status, datos } = await pedirPerfil({ accion: 'guardar', captura: perfil.captura, nombre, aunqueSeLlameIgual })
+    .catch(() => ({ status: 0, datos: null }));
+  if (status === 404) {
+    pantallaSpy('Conecta este navegador', 'MaKo no lo reconoció. Vuelve a conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  if (datos?.ok) {
+    pantallaSpy(`${datos.lead.nombre} quedó en tu CRM`, rotuloPerfil, [['Abrir en MaKo', () => abrirLead(datos.lead)]]);
+    return;
+  }
+  if (datos?.motivo === 'ya') {
+    pantallaSpy(`${datos.lead.nombre} ya está en tu CRM`, rotuloPerfil, [['Abrir en MaKo', () => abrirLead(datos.lead)]]);
+    return;
+  }
+  if (datos?.motivo === 'parecido') { formularioPerfil(rotuloPerfil, nombre, datos.parecidos || []); return; }
+  if (datos?.motivo === 'sin-nombre') { formularioPerfil(rotuloPerfil, '', []); return; }
+  if (datos?.motivo === 'tope' && typeof datos.planes === 'string' && datos.planes.startsWith(`${ORIGEN_MAKO}/`)) {
+    pantallaSpy('No se guardó', datos.error, [['Pasar a Pro', () => { void chrome.tabs.create({ url: datos.planes, active: true }); window.close(); }], alInicio]);
+    return;
+  }
+  pantallaSpy('No se guardó', datos?.error || 'No pude hablar con MaKo.', [alInicio]);
+}
+
 // Spy pidió capturar una página que el servidor no puede mostrar (una barrera, como el «comprobar que es una persona» de
 // Beacons). El worker la abrió en esta pestaña y la anotó (`spyCapturas`). Cuando la persona la ve y toca el ícono, Chrome le da
 // esta pestaña a la extensión (`activeTab`) y recién ahí se lee: la foto de lo que se ve y la página (spy-pagina.js). Sin ese toque
@@ -1308,11 +1452,14 @@ async function arrancar() {
   if (pendiente) { await capturarPagina(pendiente); return; }
   const viva = lista.find(enCurso);
   const conSpy = await prepararSpy().catch(() => false);
+  const conPerfil = await prepararPerfil().catch(() => false);
   if (viva) vista = { pantalla: 'extraccion', id: viva.id };
+  // Abierto sobre el perfil de una persona, «Guardar en MaKo» está en el inicio: la pantalla donde se dejó lo escondería.
+  else if (conPerfil) vista = { pantalla: 'inicio' };
   // Abierto sobre lo que ya es de un competidor o sobre sus anuncios, esto es lo que se vino a hacer: la
   // pantalla donde se dejó la última vez lo escondería.
   else if (conSpy && (spy.ficha || spy.hay?.tipo === 'anuncios')) vista = { pantalla: 'inicio' };
-  else if (guardada && guardada.pantalla !== 'spy' && ATRAS[guardada.pantalla] !== undefined) {
+  else if (guardada && guardada.pantalla !== 'spy' && guardada.pantalla !== 'perfil' && ATRAS[guardada.pantalla] !== undefined) {
     // Una extracción terminada hace rato no es «donde se dejó»: su lugar es el registro.
     const e = guardada.pantalla === 'extraccion' ? lista.find((x) => x.id === guardada.id) : null;
     vista = guardada.pantalla === 'extraccion' && (!e || Date.now() - (Number(e.actualizado) || 0) > 10 * 60000) ? { pantalla: 'scraper' } : guardada;

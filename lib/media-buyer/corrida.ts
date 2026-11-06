@@ -12,7 +12,7 @@
 
 import 'server-only';
 import { hoyEnTijuana } from '@/lib/date-utils';
-import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
+import { proponer, objetivoRecomendado, previaDeDecision } from './motor';
 import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
 import { lugaresParaPropios, modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { resolverTacticas } from './tacticas';
@@ -60,10 +60,8 @@ export type ResumenCorrida = {
   fuente?: string;
 };
 
-const previa = (d: Decision): DecisionPrevia => ({
-  tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidadId: d.entidadId, estado: d.estado,
-  creada: d.creada, aplicadaAt: d.aplicadaAt, origen: d.origen,
-});
+// Lo que el motor ve de cada decisión: UNA función (motor.ts), con los anuncios creados y su original (el Relevo los usa).
+const previa = previaDeDecision;
 
 /** Analiza la cuenta del negocio y guarda (y en piloto, lanza) lo que haya que hacer hoy. Nunca tira. */
 /**

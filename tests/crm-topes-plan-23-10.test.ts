@@ -70,6 +70,8 @@ test('lo que entra solo nunca se pierde: el freno vive en las altas A MANO, no e
     'lib/api-mako/areas/curso.run.ts',
     // (6/11/2026) migrar_contactos: una migración la pide el dueño por la API, contacto por contacto; no entra sola.
     'lib/migracion-leads-server.ts',
+    // (6/11/2026) «Guardar en MaKo» de la extensión: una persona elige el perfil y toca «Guardar en mi CRM»; es un alta a mano.
+    'lib/perfil-captura-db.ts',
     'lib/topes-crm.ts',
   ], 'un freno nuevo (o en un webhook) se decide a propósito');
 });

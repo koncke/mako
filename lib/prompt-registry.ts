@@ -72,6 +72,7 @@ import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { BROLL_SYSTEM_TEMPLATE, BROLL_USER_TEMPLATE } from './editor-video/broll-prompts';
+import { CLIPS_SYSTEM_TEMPLATE, CLIPS_USER_TEMPLATE } from './editor-video/clips-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
@@ -803,6 +804,22 @@ export const REGISTRY: Group[] = [
         variables: [v('negocio', 'de qué trata el negocio (del Second Brain)'), v('huecos', 'los huecos posibles: número, frase y palabras')], scope: 'full', sensitive: false,
         default: BROLL_USER_TEMPLATE,
         context: 'Le pasa a MaKo el negocio y los huecos. {{huecos}} llega delimitado como dato no confiable (lo dijo una persona en el video).',
+      },
+      {
+        // Los clips mágicos (lib/editor-video/clips-ia.ts; defaults en lib/editor-video/clips-prompts.ts). Las keys y los
+        // slots los fija tests/video-editor-clips.test.ts.
+        key: 'video_editor.clips.system', source: 'override',
+        label: 'Clips mágicos: los mejores momentos (system)', kind: 'system', dynamic: true,
+        variables: [v('cuantos', 'cuántos clips como mucho'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
+        default: CLIPS_SYSTEM_TEMPLATE,
+        context: 'MaKo elige tramos de frases enteras por su número, con título, puntaje 0–99 y motivo. Los tiempos, la duración (15 a 60 s) y el solape los valida el código: un número que no está se descarta. Conserva {{cuantos}} y {{formato}}.',
+      },
+      {
+        key: 'video_editor.clips.user', source: 'override',
+        label: 'Clips mágicos: el negocio y la transcripción (user)', kind: 'user', dynamic: true,
+        variables: [v('negocio', 'de qué trata el negocio (del Second Brain)'), v('rango', 'de qué minuto a qué minuto es este pedazo'), v('transcripcion', 'una frase por renglón con su número y su minuto')], scope: 'full', sensitive: false,
+        default: CLIPS_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el negocio y un pedazo de la transcripción (hasta 20 minutos). {{transcripcion}} llega delimitada como dato no confiable.',
       },
     ],
   },

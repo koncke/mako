@@ -15,14 +15,16 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { getRazones, setRazones, type RazonCelda } from '@/lib/razones';
 import { huellaGuion } from '@/lib/guiones-normalizar';
 import { transcriptDeAnuncio } from '@/lib/api-mako/areas/ads.helpers';
-import { guionDeHook } from './hooks-guion';
+import { guionDeHook, CELDA_HOOKS } from './hooks-guion';
+import { esVariacionDeBoton } from './variacion-boton';
 import type { Decision } from './tipos';
 
-export const CELDA_HOOKS = 'media-buyer-hooks';
+export { CELDA_HOOKS };
 
 export async function llevarHooksAlVideo(ws: number, d: Decision): Promise<{ ok: true; cargados: number; salteados: number } | { ok: false; error: string }> {
   if (d.tipo !== 'variaciones_hook') return { ok: false, error: 'Sólo las variaciones de hook de un video van al Video Generator.' };
-  const hooks = (d.variaciones ?? []).filter((v) => v.elegida && (v.gancho || v.textoPrincipal));
+  // La variación de BOTÓN no se filma: no hay nada nuevo que decir a cámara (variacion-boton.ts).
+  const hooks = (d.variaciones ?? []).filter((v) => v.elegida && !esVariacionDeBoton(v) && (v.gancho || v.textoPrincipal));
   if (!hooks.length) return { ok: false, error: 'Elige al menos un hook.' };
   return runWithWorkspace(ws, async () => {
     const t = await transcriptDeAnuncio(d.anuncioBase?.id ?? d.entidadId).catch(() => null);
