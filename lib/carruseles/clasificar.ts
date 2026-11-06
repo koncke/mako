@@ -65,6 +65,14 @@ const SUSTANTIVOS_DE_LISTA = [
   'plantillas', 'prompts', 'ganchos', 'hooks', 'mitos', 'verdades', 'aprendizajes', 'principios', 'tipos', 'metodos', 'recursos',
   'ways', 'things', 'lessons', 'rules', 'books', 'steps', 'mistakes', 'habits', 'reasons', 'signs', 'tools', 'questions', 'strategies',
   'secrets', 'tricks', 'examples', 'templates', 'frameworks', 'principles', 'myths', 'truths', 'types', 'methods', 'resources', 'lies',
+  'skills', 'takeaways', 'facts', 'quotes', 'prompts', 'ideas', 'hacks', 'tips', 'benefits', 'reasons',
+  // Portugués (6/11/2026: 1.253 de 1.470 sin tipo, la mayoría en portugués, alemán e inglés).
+  'erros', 'dicas', 'passos', 'motivos', 'razoes', 'coisas', 'habitos', 'ferramentas', 'sinais', 'segredos', 'ideias', 'livros',
+  'frases', 'exemplos', 'licoes', 'regras', 'maneiras', 'estrategias', 'truques', 'verdades', 'modelos', 'formas', 'tipos',
+  'aprendizados', 'perguntas', 'beneficios', 'lembretes', 'conselhos',
+  // Alemán (textoComparable saca las tildes y diéresis: «Gründe» es «grunde»).
+  'tipps', 'fehler', 'schritte', 'grunde', 'dinge', 'wege', 'regeln', 'lektionen', 'ideen', 'tools', 'gewohnheiten', 'strategien',
+  'geheimnisse', 'beispiele', 'bucher', 'fragen', 'mythen', 'vorlagen', 'moglichkeiten', 'zeichen', 'prinzipien', 'methoden',
 ];
 const LISTA_AMPLIA = new RegExp(`(?<![\\p{L}\\p{N}])(?:[2-9]|[12]\\d|30)\\s+(?:\\p{L}+\\s+)?(?:${SUSTANTIVOS_DE_LISTA.join('|')})(?![\\p{L}\\p{N}])`, 'u');
 
@@ -77,6 +85,22 @@ const FRASES_EN: ReadonlyArray<readonly [Formato, RegExp]> = [
   ['preguntas', /(?<![\p{L}\p{N}])(?:you asked|faq)(?![\p{L}\p{N}])/u],
   ['antes-despues', /(?<![\p{L}\p{N}])(?:antes\s*[/|→-]+\s*despues|before\s*[/|→-]+\s*after|before vs\.? after)(?![\p{L}\p{N}])/u],
 ];
+
+// Lo mismo para portugués y alemán, y más formas en inglés (sobre el texto sin tildes ni mayúsculas). Cada una es una frase o una
+// forma que DICE el tipo; nada se adivina por el largo, el creador o el tema.
+const FRASES_MULTI: ReadonlyArray<readonly [Formato, RegExp]> = [
+  ['tutorial', /(?<![\p{L}\p{N}])(?:passo a passo|paso a paso|step[ -]by[ -]step|schritt fur schritt|anleitung|tutorial|como fazer|so geht)(?![\p{L}\p{N}])/u],
+  ['antes-despues', /(?<![\p{L}\p{N}])(?:antes e depois|antes y despues|before and after|vor und nach(?:her)?|vorher nachher)(?![\p{L}\p{N}])/u],
+  ['opinion', /(?<![\p{L}\p{N}])(?:unpopular opinion|hot take|opiniao impopular|opiniao polemica|opinion impopular|unpopulare meinung|meine meinung)(?![\p{L}\p{N}])/u],
+  ['mito', /(?<![\p{L}\p{N}])(?:myth vs\.? (?:reality|truth|fact)|myth or (?:fact|truth)|mitos? (?:e|y|vs\.?|versus) (?:verdades?|realidad|realidade)|mito ou verdade|mito o realidad|mythos oder wahrheit|mythen)(?![\p{L}\p{N}])/u],
+  ['preguntas', /(?<![\p{L}\p{N}])(?:perguntas frequentes|perguntas e respostas|q ?& ?a|haufige fragen|fragen und antworten|preguntas y respuestas|you asked me)(?![\p{L}\p{N}])/u],
+  ['caso-de-exito', /(?<![\p{L}\p{N}])(?:case de sucesso|caso de sucesso|caso de exito|case study|erfolgsgeschichte|fallstudie)(?![\p{L}\p{N}])/u],
+  ['storytime', /(?<![\p{L}\p{N}])(?:minha historia|vou te contar|true story|my story|storytime|i remember when|meine geschichte|wahre geschichte|ich erzahle)(?![\p{L}\p{N}])/u],
+  ['promo', /(?<![\p{L}\p{N}])(?:\d{1,3} ?% (?:off|de desconto|de descuento|rabatt)|oferta especial|frete gratis|shop now|compre agora|comprar ahora|jetzt kaufen|jetzt bestellen|cotiza|cotize)(?![\p{L}\p{N}])/u],
+];
+
+const MARCA = String.raw`(?:️?⃣|[.)])`;
+const ENUMERADO = new RegExp(String.raw`(?<![\d.,$%])1${MARCA}\s*\S[\s\S]{2,400}?(?<![\d.,$%])2${MARCA}\s*\S[\s\S]{2,400}?(?<![\d.,$%])3${MARCA}`, 'u');
 
 /** El gancho: la primera línea con letras (en un carrusel, lo que dice arriba del pie). */
 function primeraLinea(texto: string): string {
@@ -91,11 +115,19 @@ function tipoEn(texto: string | null): Formato | '' {
   const n = textoComparable(texto);
   if (LISTA_AMPLIA.test(n)) return 'lista';
   for (const [f, re] of FRASES_EN) if (re.test(n)) return f;
+  for (const [f, re] of FRASES_MULTI) if (re.test(n)) return f;
+  // Tres puntos numerados seguidos (1. 2. 3. / 1) 2) 3) / 1️⃣ 2️⃣ 3️⃣): una lista aunque el título no traiga el número.
+  if (ENUMERADO.test(texto)) return 'lista';
   // «Cómo vender…», «How I…» no; «Cómo» con tilde, al ARRANCAR el gancho, es un tutorial («como emprendedora…» no lo es:
   // por eso se mira el texto original, con su tilde, y sólo la primera línea).
   const gancho = primeraLinea(texto);
   if (/^(?:¿\s*)?c[óÓ]mo\s+\p{L}/iu.test(gancho) && !/\?\s*$/.test(gancho)) return 'tutorial';
   if (/^(?:gu[íi]a\s+(?:para|de|r[áa]pida)|aprende\s+a\s)/iu.test(gancho)) return 'tutorial';
+  // Portugués («Como vender mais» / «Aprenda a…» / «Guia para…»), alemán («So gewinnst du…», «Wie du…») e inglés («How to…»):
+  // al ARRANCAR el gancho y sin cerrar en pregunta. «Como» + un infinitivo (-ar/-er/-ir) no es «como emprendedora».
+  if (!/\?\s*$/.test(gancho)) {
+    if (/^(?:\p{Extended_Pictographic}\s*)*(?:como\s+\p{L}+[aeiíoô]r\b|aprenda\s+a\s|guia\s+(?:para|de|rapido)|so\s+\p{L}+\s+(?:du|sie|man)\b|wie\s+(?:du|sie|man)\s|how\s+to\s)/iu.test(gancho)) return 'tutorial';
+  }
   return '';
 }
 

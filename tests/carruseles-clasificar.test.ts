@@ -122,3 +122,31 @@ test('confirmar una cuenta: el nombre, verificada o grande, y que publique; busc
   assert.equal(parecidoConNombre({ usuario: 'hormoziw' }, 'Alex Hormozi'), 1);
   assert.equal(parecidoConNombre({ usuario: 'damaristradesww' }, 'Alex Hormozi'), 0);
 });
+
+test('el tipo en portugués, alemán e inglés (6/11/2026: 1.253 de 1.470 quedaban sin tipo)', () => {
+  assert.equal(tipoDeCarrusel({ texto: '5 erros que travam suas vendas' }), 'lista', 'portugués');
+  assert.equal(tipoDeCarrusel({ texto: '7 dicas simples para vender mais' }), 'lista');
+  assert.equal(tipoDeCarrusel({ texto: '5 Fehler, die dich Kunden kosten' }), 'lista', 'alemán');
+  assert.equal(tipoDeCarrusel({ texto: '3 Gründe, warum dein Post nicht ankommt' }), 'lista', 'sin la diéresis');
+  assert.equal(tipoDeCarrusel({ texto: '8 skills worth learning this year' }), 'lista', 'inglés');
+  assert.equal(tipoDeCarrusel({ texto: 'Como vender mais no Instagram sem anúncios' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'Aprenda a precificar seu serviço' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'So gewinnst du Kunden ohne Werbung' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'How to price your service without guessing' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'Here’s the step-by-step ⬇️ every day I post' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'Passo a passo para montar sua oferta' }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'Antes e depois do nosso redesenho' }), 'antes-despues');
+  assert.equal(tipoDeCarrusel({ texto: 'Mito ou verdade? Vender barato atrai clientes' }), 'mito');
+  assert.equal(tipoDeCarrusel({ texto: 'Unpopular opinion: your logo does not matter' }), 'opinion');
+  assert.equal(tipoDeCarrusel({ texto: 'Likes don’t pay the bills. These numbers do. 1️⃣ Where from 2️⃣ How many 3️⃣ How much' }), 'lista', 'tres puntos numerados');
+  assert.equal(tipoDeCarrusel({ texto: 'To get leads: 1) Make something good 2) Advertise it 3) Trade it' }), 'lista');
+});
+
+test('lo que NO dice su tipo queda sin tipo, en cualquier idioma', () => {
+  assert.equal(tipoDeCarrusel({ texto: 'Como está sua semana? Conta pra mim' }), '', '«Como está» no es «Como + infinitivo»');
+  assert.equal(tipoDeCarrusel({ texto: 'Como vender mais?' }), '', 'una pregunta no es un tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'Como emprendedora, aprendí que nadie te regala nada' }), '');
+  assert.equal(tipoDeCarrusel({ texto: 'Em 2027 a nossa equipe cresceu 10 vezes' }), '');
+  assert.equal(tipoDeCarrusel({ texto: 'Das Ergebnis kostete 1.5 Millionen und 2.5 Jahre' }), '', 'decimales no son 1. 2. 3.');
+  assert.equal(tipoDeCarrusel({ texto: 'Aim high, but give yourself time to get there.' }), '');
+});
