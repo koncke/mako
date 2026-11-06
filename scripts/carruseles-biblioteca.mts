@@ -35,8 +35,12 @@
 //                                y muestra los candidatos. No escribe nada: el bueno se suma con `sumar`.
 //   verificar @a [@b …] [--referente id | --nombre "Nombre"]   Lee esos perfiles (unos US$0,003 cada uno) y dice si son de
 //                                quien se cree: nombre, verificada, seguidores y publicaciones. No escribe nada.
-//   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre y si parece contenido).
-//                                GRATIS: no le pide nada a Apify. Sólo llena lo que falta. En seco por defecto.
+//   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre, si parece contenido y,
+//                                con la 0404, el CTA «Comenta X palabra»). GRATIS: no le pide nada a Apify. Sólo llena lo
+//                                que falta. En seco por defecto: dice cuántos piden una palabra y muestra unos de cada lado.
+//   laminas [--de-verdad] [--techo-usd 1] [--max 400]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
+//                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0025 cada una: la receta de
+//                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas y cuánto.
 //   sumar @usuario --nombre "Nombre" [--referente id]   Suma una cuenta a la lista (confírmala antes con `verificar`).
 //   sacar @usuario --motivo "Lo pidió"                  Saca a un creador: sus carruseles dejan de verse en todos lados.
 //   tema '#hashtag' --nombre "Nombre"                   Suma un tema (el # entre comillas, o sin el #).
@@ -153,6 +157,18 @@ async function hayColumnaContenido(): Promise<boolean> {
   return columnaContenido;
 }
 
+/** ¿Están las columnas de la 0404 (`laminas_imagenes`, `cta`)? Sin ellas no se mandan: PostgREST rechazaría la fila ENTERA. */
+let columnas0404: boolean | null = null;
+async function hayColumnas0404(): Promise<boolean> {
+  if (columnas0404 != null) return columnas0404;
+  const r = await getSupabaseServer().from(S.T_PIEZAS).select('laminas_imagenes, cta, cta_via').limit(1);
+  columnas0404 = !r.error;
+  if (r.error && !/laminas_imagenes|cta|42703|PGRST204/i.test(`${r.error.code} ${r.error.message}`)) {
+    console.log(`  (No pude saber si está la 0404: ${r.error.message}. Se lee sin láminas ni CTA.)`);
+  }
+  return columnas0404;
+}
+
 async function estado() {
   const tablas = await hayTablas();
   console.log(tablas ? '✔ La biblioteca está creada (0392 aplicada).' : '✖ Falta aplicar la migración 0392: no hay dónde guardar la biblioteca.');
@@ -236,6 +252,9 @@ async function leer() {
   const db = getSupabaseServer();
   const conContenido = await hayColumnaContenido();
   if (!conContenido) console.log('  (Falta la 0393: se guarda sin la señal «parece contenido»; la pantalla la calcula del texto.)');
+  const con0404 = await hayColumnas0404();
+  if (!con0404) console.log('  (Falta la 0404: se guarda sin las láminas ni el CTA; la tarjeta muestra la portada sola.)');
+  let conLaminas = 0;
   let conPortada = 0;
   let llegaronTodas = 0;
   const fuera = new Set<string>(cuentas.filter((c: { estado: string }) => c.estado === 'excluida').map((c: { instagram: string }) => c.instagram));
@@ -294,8 +313,15 @@ async function leer() {
     const conId = filas.filter((f: { creador: string }) => idDe.has(f.creador));
     // La miniatura se BAJA a nuestro bucket (la del CDN de Instagram vence y da 403 desde otro dominio).
     const conFoto = await (await imp('lib/spy-miniaturas.ts')).guardarMiniaturas(conId.map((f: Record<string, unknown>) => ({ ...f, canal: 'instagram' })));
-    const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, ...f }: Record<string, unknown>) => ({
-      ...f, ...(conContenido ? { parece_contenido } : {}), cuenta_id: idDe.get(String(creador)),
+    // Las láminas (0404): se bajan a nuestro bucket; si no bajaron todas, no se guardan (la próxima `laminas` las completa).
+    for (const f of conFoto as Array<Record<string, unknown>>) {
+      const urls = Array.isArray(f.laminas_imagenes) ? (f.laminas_imagenes as string[]) : [];
+      f.laminas_imagenes = con0404 && urls.length ? await S.bajarLaminas(String(f.ref), urls) : null;
+      if (f.laminas_imagenes) conLaminas += 1;
+    }
+    const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, laminas_imagenes, cta, cta_via, ...f }: Record<string, unknown>) => ({
+      ...f, ...(conContenido ? { parece_contenido } : {}), ...(con0404 ? { cta, cta_via, ...(laminas_imagenes ? { laminas_imagenes } : {}) } : {}),
+      cuenta_id: idDe.get(String(creador)),
     }));
     const up = await db.from(S.T_PIEZAS).upsert(aGuardar, { onConflict: 'ref' });
     if (up.error) { console.log(`  ✖ ${rotulo}: no pude guardar (${up.error.message}). Sigue con la próxima.`); continue; }
@@ -307,7 +333,7 @@ async function leer() {
   }
   const { por: por1, total: c1 } = await creditos(ks);
   console.log(`  ${conPortada} de ${llegaronTodas} publicaciones traían el texto de la portada${llegaronTodas && !conPortada ? ' (el actor no lo mandó: el tipo sale sólo del pie)' : ''}.`);
-  console.log(`▶ Listo: ${guardados} carruseles guardados. Por tipo: ${[...porFormato].map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}.`);
+  console.log(`▶ Listo: ${guardados} carruseles guardados (${conLaminas} con sus láminas en nuestro bucket). Por tipo: ${[...porFormato].map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}.`);
   if (c1) {
     console.log(`  Crédito de Apify: usado en total ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
     imprimirCredito(ks, por1);
@@ -389,7 +415,9 @@ async function reclasificar() {
   const conContenido = await hayColumnaContenido();
   const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
   const db = getSupabaseServer();
-  const cols = `id, medio, texto, formato, cierre${conContenido ? ', parece_contenido' : ''}`;
+  const con0404 = await hayColumnas0404();
+  if (!con0404) console.log('  (Falta la 0404: el CTA no se guarda; la pantalla lo calcula del texto mientras el texto exista.)');
+  const cols = `id, medio, texto, formato, cierre${conContenido ? ', parece_contenido' : ''}${con0404 ? ', cta' : ''}`;
   const filas: Array<Record<string, unknown>> = [];
   await leerPorPaginas(db, S.T_PIEZAS, cols, (p: Array<Record<string, unknown>>) => { filas.push(...p); });
   const carruseles = filas.filter((f) => f.medio === 'carrusel');
@@ -405,16 +433,100 @@ async function reclasificar() {
   const siguen = carruseles.filter((f) => !f.formato && f.texto && !cambios.find((x) => x.id === f.id)?.c?.formato).slice(0, 15);
   if (siguen.length) console.log('  Siguen sin tipo (su primera línea):');
   for (const f of siguen) console.log(`    · ${String(f.texto).split(/\n+/).find((x) => x.trim())?.trim().slice(0, 90)}`);
+  // El CTA (6/11/2026): cuántos piden «Comenta X palabra», y unos de cada lado para mirar a ojo que la regla acierta.
+  const { ctaDeTexto } = await imp('lib/carruseles/cta.ts');
+  const conTexto = carruseles.filter((f) => String(f.texto ?? '').trim());
+  const piden = conTexto.filter((f) => ctaDeTexto(f.texto));
+  console.log(`  CTA «Comenta X palabra»: ${piden.length} de ${conTexto.length} carruseles con texto${con0404 ? ` (nuevos para guardar: ${cambios.filter((x) => x.c.cta).length})` : ''}.`);
+  console.log('  Piden una palabra (la palabra y el final del pie):');
+  for (const f of piden.slice(0, 20)) {
+    const c = ctaDeTexto(f.texto);
+    console.log(`    ✔ «${c.palabra}» (${c.via}) — …${String(f.texto).replace(/\s+/g, ' ').slice(-90)}`);
+  }
+  const conComenta = conTexto.filter((f) => !ctaDeTexto(f.texto) && /coment|comment|dm\b|mensaje/i.test(String(f.texto)));
+  console.log(`  NO cuentan aunque mencionan comentar o un mensaje (${conComenta.length}; mirar que ninguno pida una palabra):`);
+  for (const f of conComenta.slice(0, 20)) {
+    const t = String(f.texto).replace(/\s+/g, ' ');
+    const i = t.search(/coment|comment|dm\b|mensaje/i);
+    console.log(`    ✖ …${t.slice(Math.max(0, i - 40), i + 70)}`);
+  }
   if (!deVerdad) return;
   let hechas = 0;
   for (const x of cambios) {
-    const cambio = conContenido ? x.c : Object.fromEntries(Object.entries(x.c).filter(([k]) => k !== 'parece_contenido'));
+    const cambio = Object.fromEntries(Object.entries(x.c).filter(([k]) => (conContenido || k !== 'parece_contenido') && (con0404 || (k !== 'cta' && k !== 'cta_via'))));
     if (!Object.keys(cambio).length) continue;
     const r = await db.from(S.T_PIEZAS).update(cambio).eq('id', x.id);
     if (r.error) { console.log(`  ✖ ${x.id}: ${r.error.message}`); continue; }
     hechas += 1;
   }
   console.log(`▶ Listo: ${hechas} publicaciones actualizadas.`);
+}
+
+/**
+ * Las láminas de los carruseles guardados que no las tienen (6/11/2026, 0404). Cada publicación se pide POR SU LINK (la receta de
+ * docs/hallazgos-carruseles.md, «Traer un carrusel puntual: por su link»), de a 40 por corrida de Apify, y sus imágenes se bajan
+ * a nuestro bucket. Con la clave de Spy de la plataforma y los dos techos de siempre (el pedido y el crédito libre del mes).
+ */
+async function laminas() {
+  const deVerdad = args.op.get('de-verdad') === true;
+  const techoPedido = num('techo-usd', 1);
+  const max = Math.round(num('max', 400));
+  console.log(deVerdad ? '▶ Láminas DE VERDAD (gasta y guarda).' : '▶ En seco: no gasta ni escribe. Para leer, agrega --de-verdad.');
+  if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392.'); process.exit(2); }
+  if (!(await hayColumnas0404())) { console.log('✖ Falta aplicar la migración 0404 (supabase/migrations/0404_carruseles_laminas_cta.sql). No se gastó nada.'); process.exit(2); }
+  const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
+  const { USD_POR_PUBLICACION, entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
+  const db = getSupabaseServer();
+  const filas: Array<{ id: number; ref: string; url: string | null; laminas: number | null; texto: string | null; cta: string | null }> = [];
+  await leerPorPaginas(db, S.T_PIEZAS, 'id, ref, url, laminas, texto, cta, medio, laminas_imagenes, dejo_de_verse_en', (p: Array<Record<string, unknown>>) => {
+    for (const f of p) if (f.medio === 'carrusel' && !f.dejo_de_verse_en && !(Array.isArray(f.laminas_imagenes) && f.laminas_imagenes.length)) filas.push(f as never);
+  });
+  const conLink = filas.filter((f) => typeof f.url === 'string' && /^https:\/\/(?:www\.)?instagram\.com\//.test(f.url)).slice(0, max);
+  const porLeer = conLink.length;
+  const probable = Math.round(porLeer * USD_POR_PUBLICACION * 100) / 100;
+  console.log(`  Carruseles sin sus láminas: ${filas.length} (con link: ${conLink.length}). Esta corrida: ${porLeer} (--max ${max}). Lo probable: ${usd(probable)}.`);
+  if (!porLeer) return;
+  const { ks, por: por0, total: c0 } = await clavesParaGastar();
+  const techo = B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD) as number;
+  imprimirCredito(ks, por0);
+  console.log(`  Puede gastar hasta ${usd(techo)} (pediste ${usd(techoPedido)}; se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy).`);
+  if (!deVerdad) return;
+  const pagan = conCredito(ks, por0);
+  const DE_A = 40;
+  let gastoMax = 0;
+  let guardadas = 0;
+  let sinImagenes = 0;
+  const { piezasDeApify: piezas } = await imp('lib/instagram-perfil.ts');
+  for (let i = 0; i < conLink.length; i += DE_A) {
+    const tanda = conLink.slice(i, i + DE_A);
+    const techoTanda = Math.max(0.01, Math.ceil(tanda.length * USD_POR_PUBLICACION * 1.5 * 100) / 100);
+    if (gastoMax + techoTanda > techo) { console.log(`  Llega al techo: corta acá (quedan ${conLink.length - i}).`); break; }
+    gastoMax += techoTanda;
+    const entrada = { ...entradaDeUnaPublicacion(tanda[0].url as string), directUrls: tanda.map((f) => f.url), resultsLimit: 1 };
+    const q = new URLSearchParams({ maxItems: String(tanda.length), maxTotalChargeUsd: String(techoTanda), timeout: '280' });
+    const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) })));
+    if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
+      if (r && esFaltaDeCredito(r.status, r.cuerpo)) { console.log('  ✖ Apify dice que no queda crédito. Corta acá; lo guardado queda.'); break; }
+      console.log(`  ✖ Tanda ${i / DE_A + 1}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
+      continue;
+    }
+    const porRef = new Map((piezas(r.cuerpo) as Array<{ ref: string; imagenes?: string[]; laminas?: number | null }>).map((p) => [p.ref, p]));
+    for (const f of tanda) {
+      const p = porRef.get(f.ref);
+      if (!p?.imagenes?.length) { sinImagenes += 1; continue; }
+      const nuestras = await S.bajarLaminas(f.ref, p.imagenes);
+      if (!nuestras) { sinImagenes += 1; continue; }
+      const cambio: Record<string, unknown> = { laminas_imagenes: nuestras };
+      if (f.laminas == null && nuestras.length >= 2) cambio.laminas = Math.min(20, nuestras.length);
+      const u = await db.from(S.T_PIEZAS).update(cambio).eq('id', f.id);
+      if (u.error) { console.log(`  ✖ ${f.ref}: ${u.error.message}`); continue; }
+      guardadas += 1;
+    }
+    console.log(`  ✔ Tanda ${i / DE_A + 1}: ${tanda.length} links → ${guardadas} con sus láminas hasta acá.`);
+  }
+  const { total: c1 } = await creditos(ks);
+  console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
+  if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
 }
 
 async function cambio(pedido: Record<string, unknown>) {
@@ -429,6 +541,7 @@ switch (args.comando) {
   case 'buscar': await buscar(); break;
   case 'verificar': await verificar(); break;
   case 'reclasificar': await reclasificar(); break;
+  case 'laminas': await laminas(); break;
   case 'sumar':
     if (!args.posicional) { console.log('Falta el @usuario.'); process.exit(1); }
     await cambio({ que: 'cuenta', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^@/, ''), referente: txt('referente') });
@@ -442,6 +555,6 @@ switch (args.comando) {
     await cambio({ que: 'tema', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^#/, '') });
     break;
   default:
-    console.log(`No conozco «${args.comando}». Comandos: estado, leer, buscar, verificar, reclasificar, sumar, sacar, tema (ver la cabecera del script).`);
+    console.log(`No conozco «${args.comando}». Comandos: estado, leer, buscar, verificar, reclasificar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
     process.exit(1);
 }

@@ -20,6 +20,10 @@
 // «Reemplazar todo». ⚠️ El campo de CapCut dice «Reemplazar como» (`pc_replace_with`),
 // un error de traducción de «Replace with»: acá va «Reemplazar con».
 //
+// «Palabras clave» (../claves.ts, pedido de Leila del 30/10/2026): prender elige la que
+// pesa de cada subtítulo en todos; y «Guardar como preset» guarda el estilo de éste,
+// con nombre y marca, en el negocio (../presets.ts).
+//
 // «Animaciones de subtítulos» (el karaoke de CapCut, text/resaltado.ts): «Subtítulos
 // pronunciados» (Ninguno · Palabra · Frase, y su color) y «Subtítulos no pronunciados»
 // (su opacidad). Como una plantilla, va a TODOS los subtítulos de una vez y en un solo
@@ -45,6 +49,7 @@ import {
 	aplicarEstiloASubtitulos,
 	estiloDe,
 	lienzoDe,
+	ponerClavesEnSubtitulos,
 	subtitulosDe,
 	type SubtituloEnPista,
 } from "../insert";
@@ -60,14 +65,20 @@ import {
 import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import {
+	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
 	MODOS_RESALTAR,
+	PARAM_CLAVES_COLOR,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
 	type ModoResaltar,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
+import { leerClaves, PARAM_CLAVES } from "../claves";
+import { plantillaDeParams } from "../estilos";
+import { PREFIJO_PRESET, presetDeId, usePresetsSubtitulos } from "../presets";
+import { usePreferenciasSubtitulos } from "../estado";
 
 // ⚠️ El panel derecho DESMONTA la pestaña cada vez que cambia el elemento elegido
 // (la cáscara le pone el id del elemento en la `key`). Y elegir una línea de esta
@@ -382,6 +393,129 @@ function AnimacionSubtitulos({
 	);
 }
 
+/**
+ * «Palabras clave» (../claves.ts): la palabra que pesa de cada subtítulo, de su color.
+ * Prender las elige solas en TODOS (un paso de deshacer); apagar las saca.
+ */
+function PalabrasClave({ element, trackId, lista }: { element: TextElement; trackId: string; lista: SubtituloEnPista[] }) {
+	const editor = useEditor();
+	const { renderElement: vivo } = useElementPreview({ trackId, elementId: element.id, fallback: element });
+	const color = typeof vivo.params[PARAM_CLAVES_COLOR] === "string" ? String(vivo.params[PARAM_CLAVES_COLOR]) : DEFAULTS_CLAVES.color;
+	const activas = useMemo(() => lista.some(({ element: el }) => leerClaves(el.params[PARAM_CLAVES]).length > 0), [lista]);
+	const presets = usePresetsSubtitulos((s) => s.presets);
+	const plantilla = usePreferenciasSubtitulos((s) => s.plantilla);
+	const siempre = presetDeId(plantilla, presets)?.claves.siempre;
+	const previsualizar = (c: string) =>
+		editor.timeline.previewElements({
+			updates: lista.map(({ track, element: el }) => ({
+				trackId: track.id,
+				elementId: el.id,
+				updates: { params: { ...el.params, [PARAM_CLAVES_COLOR]: c } },
+			})),
+		});
+	const prender = (v: boolean) => {
+		const n = ponerClavesEnSubtitulos({ editor, modo: v ? { tipo: "auto", siempre } : { tipo: "ninguna" } });
+		if (v) toast(n > 0 ? `Palabras clave en ${n} ${n === 1 ? "subtítulo" : "subtítulos"}` : "Ningún subtítulo tiene una palabra que pese");
+	};
+	return (
+		<SeccionCe
+			titulo="Palabras clave"
+			clave="ce:subtitulos:claves"
+			casilla={{ marcada: activas, onCambio: prender }}
+		>
+			{activas ? (
+				<FilaCe
+					rotulo="Color"
+					acciones={
+						<BotonRestablecer
+							desactivado={color.toLowerCase() === DEFAULTS_CLAVES.color}
+							onClick={() => ponerClavesEnSubtitulos({ editor, modo: { tipo: "auto", siempre }, color: DEFAULTS_CLAVES.color })}
+						/>
+					}
+				>
+					<ColorPicker
+						className="w-full"
+						value={color.replace(/^#/, "").toUpperCase()}
+						onChange={(c) => previsualizar(`#${c}`)}
+						onChangeEnd={(c) => {
+							previsualizar(`#${c}`);
+							editor.timeline.commitPreview();
+						}}
+					/>
+				</FilaCe>
+			) : (
+				<p className="py-1 text-[12px] text-(--cc-text-3)">La palabra que pesa de cada subtítulo, de otro color</p>
+			)}
+		</SeccionCe>
+	);
+}
+
+/**
+ * «Guardar como preset»: el estilo de ESTE subtítulo, con nombre y marca, en el negocio
+ * (../presets.ts). Las palabras de la marca se resaltan siempre que se dicen.
+ */
+function GuardarPreset({ element, lista }: { element: TextElement; lista: SubtituloEnPista[] }) {
+	const editor = useEditor();
+	const guardar = usePresetsSubtitulos((s) => s.guardar);
+	const fijar = usePreferenciasSubtitulos((s) => s.fijar);
+	const [abierto, setAbierto] = useState(false);
+	const [nombre, setNombre] = useState("");
+	const [marca, setMarca] = useState("");
+	const [siempre, setSiempre] = useState("");
+	const [guardando, setGuardando] = useState(false);
+	const enviar = async () => {
+		if (!nombre.trim() || guardando) return;
+		setGuardando(true);
+		try {
+			const lienzo = lienzoDe(editor);
+			const claveColor = element.params[PARAM_CLAVES_COLOR];
+			const preset = await guardar({
+				nombre: nombre.trim(),
+				marca: marca.trim() || null,
+				estilo: plantillaDeParams(element.params, lienzo),
+				claves: {
+					auto: lista.some(({ element: el }) => leerClaves(el.params[PARAM_CLAVES]).length > 0),
+					color: typeof claveColor === "string" && claveColor ? claveColor.toLowerCase() : DEFAULTS_CLAVES.color,
+					siempre: siempre.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
+				},
+			});
+			if (!preset) return;
+			fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
+			toast.success("Preset guardado");
+			setAbierto(false);
+			setNombre("");
+			setMarca("");
+			setSiempre("");
+		} finally {
+			setGuardando(false);
+		}
+	};
+	if (!abierto) {
+		return (
+			<Button type="button" variant="secondary" className="w-full" onClick={() => setAbierto(true)}>
+				Guardar como preset
+			</Button>
+		);
+	}
+	const campo =
+		"h-7 w-full rounded-[4px] bg-(--cc-input) px-2 text-[12px] text-(--cc-text) outline-none placeholder:text-(--cc-text-3) focus:ring-1 focus:ring-primary";
+	return (
+		<div className="flex flex-col gap-1.5">
+			<input value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="Nombre" aria-label="Nombre del preset" maxLength={60} className={campo} autoFocus />
+			<input value={marca} onChange={(e) => setMarca(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="Marca o cliente (opcional)" aria-label="Marca o cliente" maxLength={60} className={campo} />
+			<input value={siempre} onChange={(e) => setSiempre(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="Siempre resaltar: MaKo, gratis" aria-label="Palabras que siempre se resaltan" className={campo} />
+			<div className="flex gap-1.5">
+				<Button type="button" variant="secondary" size="sm" className="flex-1" onClick={() => setAbierto(false)}>
+					Cancelar
+				</Button>
+				<Button type="button" size="sm" className="flex-1" disabled={!nombre.trim() || guardando} onClick={() => void enviar()}>
+					Guardar
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function PestanaSubtitulos({ element, track }: ContextoInspector) {
 	const editor = useEditor();
 	const tracks = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
@@ -518,7 +652,10 @@ export function PestanaSubtitulos({ element, track }: ContextoInspector) {
 			<div className="shrink-0 border-t border-(--cc-line-2)">
 				<AnimacionSubtitulos element={element as TextElement} trackId={track.id} lista={lista} />
 			</div>
-			<div className="shrink-0 border-t border-(--cc-line-2) p-3">
+			<div className="shrink-0 border-t border-(--cc-line-2)">
+				<PalabrasClave element={element as TextElement} trackId={track.id} lista={lista} />
+			</div>
+			<div className="flex shrink-0 flex-col gap-2 border-t border-(--cc-line-2) p-3">
 				<Button
 					type="button"
 					variant="secondary"
@@ -528,6 +665,7 @@ export function PestanaSubtitulos({ element, track }: ContextoInspector) {
 				>
 					Aplicar en todos los subtítulos
 				</Button>
+				<GuardarPreset element={element as TextElement} lista={lista} />
 			</div>
 		</div>
 	);

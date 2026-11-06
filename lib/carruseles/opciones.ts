@@ -12,6 +12,8 @@ export const ORDENES_CARRUSEL = [
   { value: 'viejos', label: 'Más viejos' },
   { value: 'interaccion', label: 'Más interacción' },
   { value: 'traidos', label: 'Traídos hace poco' },
+  // Los anuncios (6/11/2026) no tienen outlier: lo que dice que funcionan es cuántos días llevan al aire.
+  { value: 'aire', label: 'Más días al aire' },
 ] as const;
 export type OrdenCarrusel = (typeof ORDENES_CARRUSEL)[number]['value'];
 
@@ -34,7 +36,11 @@ export const LARGOS_CARRUSEL = [
 ] as const;
 export type LargoCarrusel = (typeof LARGOS_CARRUSEL)[number]['value'];
 
-/** Qué conjunto se mira: todos, lo de esta semana (las tendencias) o lo guardado. */
+/**
+ * Qué conjunto se mira: todos o lo guardado. «semana» queda por la API y los links viejos: desde el 6/11/2026 la pantalla no
+ * tiene esa pestaña (Martín: «Sacá las pestañas "Esta semana" y "Cuentas"… Lo que hacían pasa a filtros») y la URL la lee
+ * como «Publicado: últimos 7 días» (./explorar.ts, `filtrosDeQuery`).
+ */
 export const VISTAS_CARRUSEL = [
   { value: 'todos', label: 'Todos' },
   { value: 'semana', label: 'Esta semana' },
@@ -52,6 +58,16 @@ export const ORIGENES_CARRUSEL = [
   { value: 'biblioteca', label: 'Biblioteca de ejemplos' },
 ] as const;
 export type OrigenFiltro = (typeof ORIGENES_CARRUSEL)[number]['value'];
+
+/**
+ * Qué se mira (6/11/2026): los carruseles (de las cuentas que sigue el negocio y de la biblioteca) o los anuncios que Competitors
+ * Spy trajo de ESAS cuentas con la clave del negocio (lib/carruseles/anuncios.ts). Es un filtro, no una pestaña.
+ */
+export const QUE_VER_CARRUSEL = [
+  { value: 'carruseles', label: 'Carruseles' },
+  { value: 'anuncios', label: 'Anuncios' },
+] as const;
+export type QueVer = (typeof QUE_VER_CARRUSEL)[number]['value'];
 
 /** Los tipos de carrusel de MaKo (lib/carruseles/tipos.ts, que tiene la estructura de cada uno): los ofrece la API. */
 export const IDS_TIPO_CARRUSEL = ['lista', 'tutorial', 'historia', 'antes-despues', 'mito', 'opinion', 'caso', 'preguntas'] as const;

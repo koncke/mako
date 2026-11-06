@@ -64,6 +64,7 @@ borrar_landing
 borrar_landing_creada
 borrar_plantilla_meta
 borrar_post_comunidad
+borrar_preset_subtitulos
 borrar_producto
 borrar_retro
 borrar_silencios_video
@@ -313,6 +314,7 @@ guardar_link_video
 guardar_muletillas_marca
 guardar_objetivo
 guardar_plan_pagos
+guardar_preset_subtitulos
 guardar_producto
 guardar_publico_audios
 guardar_tema_landing
@@ -416,6 +418,7 @@ listar_plantillas_imagen
 listar_plantillas_video
 listar_posts_comunidad
 listar_preguntas_diagnostico_fase
+listar_presets_subtitulos
 listar_productos
 listar_propuestas_revisar
 listar_proyectos_plan
@@ -577,6 +580,7 @@ renombrar_landing
 renombrar_modulo_curso
 renombrar_negocio
 requisitos_para_mover
+resaltar_claves_subtitulos
 resaltar_palabras_video
 resolver_confirmacion_crm
 responder_pregunta_personalidad
@@ -615,6 +619,7 @@ transformar_elemento_video
 transiciones_desde_etapa
 usar_creacion
 usar_plantilla_video
+usar_preset_subtitulos
 variables_plantilla
 ver_acceso_curso
 ver_activacion_tab

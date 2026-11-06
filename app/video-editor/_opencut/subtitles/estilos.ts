@@ -275,6 +275,59 @@ export function paramsDePlantilla(
 }
 
 /**
+ * Lo contrario de `paramsDePlantilla`: el estilo de un subtítulo como una plantilla
+ * (sin id ni nombre), RELATIVO al lienzo. Es lo que guarda «Guardar como preset» (los
+ * estilos de la marca, lib/editor-video/presets-subtitulos.ts): con el tamaño en
+ * proporción, el mismo preset sirve en un video vertical y en uno horizontal.
+ * Ida y vuelta (`paramsDePlantilla(plantillaDeParams(p))`) da lo mismo: lo fija
+ * tests/video-editor-presets-subtitulos.test.ts.
+ */
+export function plantillaDeParams(
+	params: Readonly<Record<string, ParamValue | undefined>>,
+	lienzo: Lienzo,
+): Omit<PlantillaSubtitulo, "id" | "nombre"> {
+	const num = (v: unknown, def: number) => (typeof v === "number" && Number.isFinite(v) ? v : def);
+	const str = (v: unknown, def: string) => (typeof v === "string" && v ? v : def);
+	const peso = params.fontWeight;
+	const fontSize = num(params.fontSize, tamanoBase(lienzo));
+	// El relleno del fondo, de vuelta a «em»: param = em × alto / REFERENCIA × 15 (ver `aParam`).
+	const aEm = (v: unknown) => Math.round(((num(v, 0) * FONT_SIZE_SCALE_REFERENCE) / (15 * lienzo.height)) * 100) / 100;
+	const salida: Omit<PlantillaSubtitulo, "id" | "nombre"> = {
+		fuente: str(params.fontFamily, PLANTILLA_POR_DEFECTO.fuente),
+		negrita: peso === "bold" || (typeof peso === "number" && peso >= 600) || peso === "700" || peso === "800" || peso === "900",
+		color: str(params.color, "#ffffff").toLowerCase(),
+		escala: Math.round((fontSize / tamanoBase(lienzo)) * 100) / 100,
+	};
+	const espaciado = num(params.letterSpacing, 0);
+	if (espaciado) salida.espaciado = espaciado;
+	if (params["background.enabled"] === true) {
+		salida.fondo = {
+			color: str(params["background.color"], "#000000"),
+			radio: num(params["background.cornerRadius"], 0),
+			x: aEm(params["background.paddingX"]),
+			y: aEm(params["background.paddingY"]),
+		};
+	}
+	if (params[TEXTO.trazoActivo] === true) {
+		salida.trazo = {
+			color: str(params[TEXTO.trazoColor], DEFAULTS_TEXTO.trazoColor).toLowerCase(),
+			grosor: num(params[TEXTO.trazoGrosor], DEFAULTS_TEXTO.trazoGrosor),
+		};
+	}
+	if (params[TEXTO.mayusculas] === "mayusculas") salida.mayusculas = true;
+	if (params[TEXTO.sombraActiva] === true) salida.sombra = true;
+	const modo = params[PARAM_RESALTAR];
+	if (modo === "palabra" || modo === "frase") {
+		salida.resaltado = {
+			modo,
+			color: str(params[PARAM_RESALTAR_COLOR], DEFAULTS_RESALTADO.color).toLowerCase(),
+			noDichasOpacidad: num(params[PARAM_NO_DICHAS_OPACIDAD], DEFAULTS_RESALTADO.noDichasOpacidad),
+		};
+	}
+	return salida;
+}
+
+/**
  * Dónde va el borde de abajo del subtítulo, en px desde el borde de abajo del
  * lienzo. En vertical va más arriba: el último 20 % de un Reel o un TikTok lo
  * tapan el texto y los botones de la app.

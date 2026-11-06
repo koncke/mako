@@ -1,5 +1,17 @@
 # Relevo del Cerebro
 
+## 6/11/2026, ~05:30 UTC (02:30 ART): noche con chats en la nube
+
+**Pedido de Martín:** avanzar con todo, toda la noche, sin pedir permiso, y asegurar que los chats sigan trabajando.
+
+**Chats y ramas:** Marketing CoPilot (`punta/marketing-copilot`), Barrido de pendientes (`punta/barrido-<tema>`, lista en `docs/relevo/pendientes-barrido.md`), Lead Magnets (`punta/lead-magnets`), Thiago anuncios (`punta/thiago-anuncios`), Thiago migrar (`punta/thiago-migrar`), Video (`punta/video-subtitulos-clips`), Plantillas (`punta/plantillas-app`), Recorrido visual (`punta/recorrido-visual`), Carruseles (`punta/carruseles-rediseno`), Dashboards (`punta/dashboards-<hoja>`), Admin (`punta/admin-polar`). Lo que había en la PC, que la nube no veía, está en `docs/relevo/pendientes-pc/`.
+
+**Vercel:** hecho el asiento afuera y un build por día: el cron `/api/cron/desplegar-main` corre a las 11:05 UTC. **Falta comprobar que corrió** y medir en el panel. «En main» ya no es «en producción»: lo urgente, con `scripts/desplegar-ya.mjs`.
+
+**Admin:** el chat quedó quieto con todo en `claude/funny-keller-rstabx`, sin entregar. Decisiones de «no está en la fuente» mandadas por mensaje. Si no se mueve, la rama está para retomarla.
+
+**High ticket:** Martín cree que los cursos no cubren anuncios para servicios caros. Se investiga desde la PC, porque transcribir YouTube pide la clave de Gemini, y va a `docs/conocimiento/anuncios-high-ticket.md`.
+
 ## 6/11/2026, ~03:00 UTC (00:00 ART): Vercel, cobro de Código prendido, Admin con Polar
 
 **Vercel:** factura en curso US$291,94 contra US$40 de antes; US$248 son builds. Causa y números en `docs/hallazgos-infra.md`, «El gasto de Vercel». Activo: `claude/**` no construye, lo que sólo cambia documentos no construye (un commit así ya salió CANCELED) y «un build por rama». La máquina quedó **fija en Turbo**: Enhanced murió por memoria y no hay otra entre 16 y 60 GB. **Falta medir el ahorro en el panel** (`/~/usage`, con la sesión de Martín en el navegador de la app), no en `/v1/billing/charges`. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build.

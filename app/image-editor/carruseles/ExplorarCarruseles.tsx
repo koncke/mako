@@ -1,41 +1,45 @@
 'use client';
 
 // =============================================================================
-// ExplorarCarruseles — «Carruseles que funcionan», adentro de Image (`/image-editor?ver=carruseles`)
+// ExplorarCarruseles — los carruseles de ejemplo, para elegir uno y editarlo (`/image-editor?ver=carruseles`, 6/11/2026)
 // =============================================================================
-// Martín, 4/11/2026: «mires y copies las funcionalidades… para ponerlos en MaKo en la sección de imagen generator». Se
-// copian las FUNCIONES de un explorador de carruseles (lo que Martín vio en la app: Outliers, Trending this week, Bookmarks,
-// Trackers, la búsqueda «Search carousels, topics and @creators», Save search y Saved searches, Filters, «Outlier score
-// 1×+», el orden por Newest / Oldest / Highest outlier / Most engagement / Recently imported y la grilla de dos tamaños),
-// con datos PROPIOS: las publicaciones públicas de las cuentas que este negocio sigue en Competitors Spy. Nunca su
-// biblioteca (sus términos lo prohíben; docs/hallazgos-editor-imagen.md, «El explorador de carruseles»).
+// Martín, 6/11/2026: «no se entiende bien la funcionalidad». Lo que pidió, y cómo quedó:
+//   · «Lo principal al entrar son los ejemplos de carruseles. Ahí mismo se elige uno para editar, y recién entonces aparece la
+//     vista de edición. La barra lateral de MaKo no se muestra salvo mientras se edita» → la pantalla es SÓLO la grilla (sin
+//     la tarjeta del chat: ../ImageEditorCliente.tsx la monta fuera de PantallaCrear) y cada tarjeta trae «Editar»
+//     (./EditarCarrusel.tsx), que arma tu versión y abre el editor, donde está el chat de MaKo.
+//   · «Copiá la interfaz de Top Carousels: el encabezado "Encuentra tu siguiente OUTLIER" y sus botones, el filtro, las
+//     opciones, el diseño de las tarjetas y poder pasar a la siguiente slide dentro de la tarjeta» → la interfaz, nunca sus
+//     datos ni sus puntajes (sus términos lo prohíben: docs/hallazgos-carruseles.md). ⚠️ Armada con la descripción del pedido
+//     y la del 4/11 (docs/relevo/nube-carruseles.md): las capturas que pone el Cerebro (docs/carruseles/referencia-top-carousels/)
+//     no estaban al escribirla; los valores se ajustan contra ellas (docs/relevo/nube-carruseles-rediseno.md).
+//   · «Sacá el texto "De las cuentas que sigues…", el botón "compacta" y las pestañas "Esta semana" y "Cuentas". Lo que hacían
+//     pasa a filtros. Sin textos innecesarios» → «Esta semana» es «Publicado: últimos 7 días» (un link viejo con `vista=semana`
+//     abre eso: lib/carruseles/explorar.ts) y «Cuentas» es el filtro de cuentas; seguir otra es el botón de arriba.
+//   · «Filtro "CTA"» → los que piden comentar una palabra (lib/carruseles/cta.ts), y la tarjeta lo dice.
+//   · «Espía de anuncios en imagen… sumalo a esta misma tab con filtros» → «Carruseles | Anuncios»: los anuncios que Competitors
+//     Spy trajo de las cuentas que sigue el negocio (lib/carruseles/anuncios.ts), con sus días al aire.
 //
-// Desde el 4/11/2026 se suma la BIBLIOTECA DE EJEMPLOS de la plataforma (lib/carruseles/biblioteca.ts): cuentas públicas y
-// temas que lee la plataforma para todos, así un negocio que todavía no sigue a nadie ya tiene qué mirar. Se muestran como
-// en Spy: con su creador, el link al original y sus números; su id va en negativo.
-//
-// Cada tarjeta muestra a su CREADOR y el link a la publicación original: es una referencia del negocio, no una plantilla
-// de MaKo. El outlier es el de toda la app (lib/multiplo-rendimiento.ts: cuántas veces lo que suele hacer su cuenta). Lo puro (filtros, orden, la URL, guardados):
-// lib/carruseles/explorar.ts, con tests/carruseles-explorar.test.ts. Lo mismo en la computadora y en el teléfono
-// (app/m/image-editor, `?ver=carruseles`).
-//
-// Vive en el CENTRO de la pantalla de Create (app/_crear/PantallaCrear.tsx): Image no tiene pestañas arriba (29/10/2026).
+// Lo puro (filtros, orden, la URL, guardados): lib/carruseles/explorar.ts, con tests/carruseles-explorar.test.ts. La misma
+// pieza en la computadora y en el teléfono (app/m/image-editor, `?ver=carruseles`).
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from '@/app/_ui/Link';
-import { SelectorVista } from '@/app/_ui/SelectorVista';
+import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Dropdown, type DropdownGroup } from '@/app/components/Dropdown';
 import {
-  FILTROS_INICIALES, LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL,
-  contadorCorto, creadoresDe, filtrarCarruseles, filtrosDeQuery, formatosDe, nombreDeBusqueda, queryDeFiltros, rotuloFormato,
-  rotuloOutlier, sinFiltros,
+  FILTROS_INICIALES, LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL,
+  contadorCorto, creadoresDe, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nombreDeBusqueda, queryDeFiltros,
+  rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
   type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel,
 } from '@/lib/carruseles/explorar';
+import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { explicarMultiplo, MULTIPLO_FUERTE } from '@/lib/multiplo-rendimiento';
-import { EditarBiblioteca } from './EditarBiblioteca';
 import type { Formato } from '@/lib/spy-detalle';
+import { EditarBiblioteca } from './EditarBiblioteca';
+import { EditarCarrusel } from './EditarCarrusel';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction } from './actions';
 import s from './explorar.module.css';
 
@@ -51,17 +55,19 @@ export type DatosExplorador = {
   ejemplos: number;
   /** La biblioteca no se pudo leer (se ve lo del negocio). */
   avisoBiblioteca: string | null;
-  /** El admin del negocio de la plataforma: edita la biblioteca desde «Cuentas». */
+  /** El admin del negocio de la plataforma: edita la biblioteca (el botón de arriba). */
   puedeEditarBiblioteca?: boolean;
+  /** Cuántos anuncios de la competencia trajo Spy (el filtro «Anuncios»). Ausente = 0. */
+  anuncios?: number;
 };
 
 /** El perfil público de un creador en Instagram (los de la biblioteca no tienen ficha en Spy del negocio). */
 const perfilDeInstagram = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
 
 /** Cuántas tarjetas se dibujan de una vez: más no se miran y la página se pone pesada. «Ver más» suma otras tantas. */
-const DE_A = 48;
+const DE_A = 40;
 
-const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista'] as const;
+const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista', 'cta', 'que'] as const;
 
 /** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`, `ver`): un link copiado abre lo mismo. */
 function escribirEnLaUrl(f: FiltrosCarrusel) {
@@ -86,35 +92,35 @@ const haceCuanto = (iso: string | null, ahora: number): string => {
 
 const inicial = (n: string) => Array.from(n.trim())[0]?.toUpperCase() ?? '·';
 
-/** El ícono de guardar (el marcador), lleno cuando está guardado. */
 const Marcador = ({ lleno }: { lleno: boolean }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill={lleno ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
     <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z" />
   </svg>
 );
-const IconoLaminas = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" aria-hidden>
-    <rect x="7" y="3" width="13" height="16" rx="2" /><path d="M4 7v12a2 2 0 0 0 2 2h9" />
+const Flecha = ({ izq }: { izq?: boolean }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    {izq ? <path d="m15 18-6-6 6-6" /> : <path d="m9 18 6-6-6-6" />}
   </svg>
 );
+const Lupa = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+);
 
-export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono = false }: {
+export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }: {
   datos: DatosExplorador;
   filtrosIniciales?: FiltrosCarrusel;
-  /** «Hacer el mío»: arma un carrusel nuevo con la ESTRUCTURA de este (la etapa 2). Sin esto, no hay botón. */
-  onUsar?: (c: Carrusel) => void;
-  /** En el teléfono: sin la vista compacta y sin abrir otra pestaña para la publicación. */
+  /** En el teléfono: una columna y sin abrir otra pestaña para la publicación. */
   telefono?: boolean;
 }) {
   const [f, setF] = useState<FiltrosCarrusel>(filtrosIniciales ?? FILTROS_INICIALES);
   const [guardados, setGuardados] = useState<Set<number>>(() => new Set(datos.guardados));
   const [busquedas, setBusquedas] = useState<BusquedaGuardada[]>(datos.busquedas);
-  const [grilla, setGrilla] = useState<'grande' | 'compacta'>('grande');
   const [cuantas, setCuantas] = useState(DE_A);
-  const [panel, setPanel] = useState<'carruseles' | 'cuentas'>('carruseles');
   const [aviso, setAviso] = useState<string | null>(null);
+  const [editando, setEditando] = useState<Carrusel | null>(null);
+  const [biblioteca, setBiblioteca] = useState(false);
   const [, start] = useTransition();
-  // El «hace cuánto» se calcula una vez: no hace falta que corra solo (y el server no dibuja fechas relativas).
+  // El «hace cuánto» se calcula una vez montada la pantalla (el server no dibuja fechas relativas).
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => { setAhora(Date.now()); }, []);
 
@@ -122,13 +128,17 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono =
     setF((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(nuevo); return nuevo; });
     setCuantas(DE_A);
   }, []);
+  const reiniciar = () => { const nuevo = { ...FILTROS_INICIALES, que: f.que }; setF(nuevo); escribirEnLaUrl(nuevo); setCuantas(DE_A); };
 
-  const creadores = useMemo(() => creadoresDe(datos.carruseles), [datos.carruseles]);
-  const propios = useMemo(() => datos.carruseles.filter((c) => c.origen === 'cuentas').length, [datos.carruseles]);
-  const dosOrigenes = propios > 0 && datos.ejemplos > 0;
-  const formatos = useMemo(() => formatosDe(datos.carruseles), [datos.carruseles]);
+  // Lo de cada lado (carruseles o anuncios): las cuentas y los tipos del filtro salen de lo que se está mirando.
+  const delLado = useMemo(() => datos.carruseles.filter((c) => (c.clase === 'anuncio') === (f.que === 'anuncios')), [datos.carruseles, f.que]);
+  const creadores = useMemo(() => creadoresDe(delLado), [delLado]);
+  const propios = useMemo(() => datos.carruseles.filter((c) => c.origen === 'cuentas' && c.clase !== 'anuncio').length, [datos.carruseles]);
+  const dosOrigenes = f.que === 'carruseles' && propios > 0 && datos.ejemplos > 0;
+  const formatos = useMemo(() => formatosDe(delLado), [delLado]);
   const vistos = useMemo(() => filtrarCarruseles(datos.carruseles, f, guardados, ahora ?? Date.now()), [datos.carruseles, f, guardados, ahora]);
-  const total = datos.carruseles.filter((c) => f.conImagenes || c.medio !== 'imagen').length;
+  const conCta = useMemo(() => delLado.filter((c) => c.cta).length, [delLado]);
+  const anuncios = datos.anuncios ?? datos.carruseles.filter((c) => c.clase === 'anuncio').length;
 
   const alternarGuardado = (c: Carrusel) => {
     const guardar = !guardados.has(c.id);
@@ -152,6 +162,12 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono =
       if (r.ok) setBusquedas(r.busquedas); else setAviso(r.error);
     });
   };
+  const usarBusqueda = (id: string) => {
+    const b = busquedas.find((x) => x.id === id);
+    if (!b) return;
+    const nuevo = filtrosDeQuery(new URLSearchParams(b.query));
+    setF(nuevo); escribirEnLaUrl(nuevo); setCuantas(DE_A);
+  };
   const borrarBusqueda = (b: BusquedaGuardada) => {
     setAviso(null);
     start(async () => {
@@ -159,18 +175,19 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono =
       if (r.ok) setBusquedas(r.busquedas); else setAviso(r.error);
     });
   };
-  const usarBusqueda = (b: BusquedaGuardada) => { const nuevo = filtrosDeQuery(new URLSearchParams(b.query)); setF(nuevo); escribirEnLaUrl(nuevo); setCuantas(DE_A); setPanel('carruseles'); };
 
-  // ── Los filtros: un desplegable con secciones (el del Plan y Chats) ──
+  // ── Los filtros: un desplegable con secciones (el de siempre de la casa) ──
   const grupos: DropdownGroup[] = [
     { title: 'Publicado', options: PERIODOS_CARRUSEL.map((p) => ({ value: `p:${p.value}`, label: p.label })) },
-    { title: 'Láminas', options: LARGOS_CARRUSEL.map((l) => ({ value: `l:${l.value}`, label: l.label })) },
-    ...(formatos.length ? [{ title: 'Formato', options: [{ value: 'f:', label: 'Cualquier formato' }, ...formatos.map((x) => ({ value: `f:${x.value}`, label: x.label, sub: `${x.n}` }))] }] : []),
-    { title: 'Mostrar', options: [{ value: 'i:1', label: 'Con imágenes sueltas' }] },
-    // De dónde: sólo si hay de los dos (lo del negocio y la biblioteca de ejemplos).
+    ...(f.que === 'carruseles' ? [{ title: 'Láminas', options: LARGOS_CARRUSEL.map((l) => ({ value: `l:${l.value}`, label: l.label })) }] : []),
+    ...(formatos.length ? [{ title: 'Tipo', options: [{ value: 'f:', label: 'Cualquier tipo' }, ...formatos.map((x) => ({ value: `f:${x.value}`, label: x.label, sub: `${x.n}` }))] }] : []),
     ...(dosOrigenes ? [{ title: 'De dónde', options: ORIGENES_CARRUSEL.map((o) => ({ value: `o:${o.value}`, label: o.label })) }] : []),
+    ...(f.que === 'carruseles' ? [{ title: 'Mostrar', options: [{ value: 'i:1', label: 'También imágenes sueltas' }] }] : []),
   ];
-  const marcados = [`p:${f.periodo}`, `l:${f.largo}`, ...(formatos.length ? [`f:${f.formato}`] : []), ...(f.conImagenes ? ['i:1'] : []), ...(dosOrigenes ? [`o:${f.origen}`] : [])];
+  const marcados = [
+    `p:${f.periodo}`, ...(f.que === 'carruseles' ? [`l:${f.largo}`] : []), ...(formatos.length ? [`f:${f.formato}`] : []),
+    ...(dosOrigenes ? [`o:${f.origen}`] : []), ...(f.conImagenes ? ['i:1'] : []),
+  ];
   const filtrosActivos = [f.periodo !== 'todo', f.largo !== 'todos', !!f.formato, f.conImagenes, f.origen !== 'todos'].filter(Boolean).length;
   const elegirFiltro = (v: string) => {
     if (v.startsWith('o:')) cambiar({ origen: v.slice(2) as OrigenFiltro });
@@ -179,35 +196,40 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono =
     else if (v.startsWith('f:')) cambiar({ formato: v.slice(2) as Formato | '' });
     else if (v === 'i:1') cambiar({ conImagenes: !f.conImagenes });
   };
+  const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
+  const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
 
-  // Hay qué mirar si hay carruseles, sean del negocio o de la biblioteca de ejemplos.
   const hayAlgo = datos.carruseles.length > 0;
   const listos = vistos.slice(0, cuantas);
+  const guardadosVista = f.vista === 'guardados';
 
   return (
     <div className={s.raiz} data-telefono={telefono ? 'si' : undefined}>
       <div className={s.col}>
         <header className={s.cabeza}>
-          <div className={s.titulo}>
-            <h1>Carruseles que funcionan</h1>
-            {hayAlgo ? <span className={s.cuenta}>{total}</span> : null}
+          <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
+          <div className={s.botones}>
+            <button type="button" className={s.pastilla} aria-pressed={guardadosVista} onClick={() => cambiar({ vista: guardadosVista ? 'todos' : 'guardados' })}>
+              <Marcador lleno={guardadosVista} /> Guardados{guardados.size ? <span className={s.n}>{guardados.size}</span> : null}
+            </button>
+            {busquedas.length > 0 && (
+              <Dropdown value="" search={busquedas.length > 7} alContenido ariaLabel="Búsquedas guardadas"
+                options={busquedas.map((b) => ({ value: b.id, label: b.nombre }))}
+                botonLabel={<span>{telefono ? 'Búsquedas' : 'Búsquedas guardadas'} <span className={s.n}>{busquedas.length}</span></span>}
+                onChange={usarBusqueda} buttonStyle={pastilla(false, telefono)} />
+            )}
+            <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
+            {datos.puedeEditarBiblioteca ? <button type="button" className={s.pastilla} onClick={() => setBiblioteca(true)}>Biblioteca</button> : null}
           </div>
-          <p className={s.bajada}>
-            {propios > 0 && datos.ejemplos > 0
-              ? <>De las cuentas que sigues en <Link href="/competitor-spy">Competitors Spy</Link> y de la biblioteca de ejemplos.</>
-              : datos.ejemplos > 0
-                ? 'De la biblioteca de ejemplos: carruseles públicos, cada uno de su creador.'
-                : <>De las cuentas que sigues en <Link href="/competitor-spy">Competitors Spy</Link>.</>}
-          </p>
+          {hayAlgo && (
+            <label className={s.busca}>
+              <Lupa />
+              <input type="search" value={f.q} onChange={(e) => cambiar({ q: e.target.value })} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
+                aria-label="Buscar carruseles por tema o por @creador" enterKeyHint="search" />
+            </label>
+          )}
         </header>
 
-        {/* Con ejemplos a la vista y nada propio todavía: lo que falta para ver también los de su rubro, en una línea. */}
-        {hayAlgo && datos.paso !== 'listo' ? (
-          <p className={s.nota}>
-            <span>{datos.frase}</span>
-            {datos.accion ? <Link href={datos.accion.ruta}>{datos.accion.texto}</Link> : null}
-          </p>
-        ) : null}
         {datos.avisoBiblioteca ? <p role="alert" className={s.aviso}>{datos.avisoBiblioteca}<ReportarASoporte /></p> : null}
 
         {!hayAlgo ? (
@@ -217,117 +239,154 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, onUsar, telefono =
           </div>
         ) : (
           <>
-            <div className={s.barra}>
-              <div className={s.vistas} role="tablist" aria-label="Qué carruseles ver">
-                {VISTAS_CARRUSEL.map((v) => (
-                  <button key={v.value} type="button" role="tab" aria-selected={panel === 'carruseles' && f.vista === v.value}
-                    onClick={() => { setPanel('carruseles'); cambiar({ vista: v.value }); }}>
-                    {v.value === 'todos' ? 'Los que funcionan' : v.label}
-                    {v.value === 'guardados' && guardados.size ? <span className={s.n}>{guardados.size}</span> : null}
+            <div className={s.filtros}>
+              <div className={s.segmento} role="radiogroup" aria-label="Qué ver">
+                {QUE_VER_CARRUSEL.map((q) => (
+                  <button key={q.value} type="button" role="radio" aria-checked={f.que === q.value}
+                    onClick={() => cambiar({ que: q.value, creadores: [], formato: '', orden: q.value === 'anuncios' ? 'aire' : 'outlier' })}>
+                    {q.label}{q.value === 'anuncios' && anuncios ? <span className={s.n}>{anuncios}</span> : null}
                   </button>
                 ))}
-                <button type="button" role="tab" aria-selected={panel === 'cuentas'} onClick={() => setPanel('cuentas')}>
-                  Cuentas <span className={s.n}>{creadores.length}</span>
-                </button>
               </div>
-              {panel === 'carruseles' && (
-                <label className={s.busca}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input value={f.q} onChange={(e) => cambiar({ q: e.target.value })} placeholder="Busca un tema o un @creador" aria-label="Buscar carruseles por tema o por @creador" />
-                </label>
+              <Dropdown value="" varios={marcados} minimo={marcados.length} columns={[grupos]} subEnColumnas alContenido search={false}
+                ariaLabel="Filtros" botonLabel={<span>Filtros{filtrosActivos ? ` · ${filtrosActivos}` : ''}</span>} onChange={elegirFiltro}
+                buttonStyle={chip(filtrosActivos > 0)} />
+              {f.que === 'carruseles' && (
+                <Dropdown value={String(f.outlierMin)} search={false} alContenido ariaLabel="Outlier mínimo"
+                  options={OUTLIER_MINIMOS.map((m) => ({ value: String(m), label: m ? `Outlier ${m}×+` : 'Cualquier outlier', sub: m ? `${m} veces lo que hace su cuenta, o más` : undefined }))}
+                  botonLabel={<span>{f.outlierMin ? `Outlier ${f.outlierMin}×+` : 'Outlier'}</span>} onChange={(v) => cambiar({ outlierMin: Number(v) })}
+                  buttonStyle={chip(f.outlierMin > 0)} />
               )}
+              <button type="button" className={s.chip} aria-pressed={f.cta} onClick={() => cambiar({ cta: !f.cta })}
+                title="Los que piden comentar una palabra: los que publican los dueños de negocio">
+                CTA{conCta ? <span className={s.n}>{conCta}</span> : null}
+              </button>
+              {creadores.length > 1 && (
+                <Dropdown value="" varios={f.creadores.map(String)} search={creadores.length > 7} alContenido ariaLabel="Cuentas"
+                  options={creadores.map((c) => ({ value: String(c.id), label: c.nombre, sub: c.usuario ? `@${c.usuario} · ${c.n}` : `${c.n}`, avatar: c.foto }))}
+                  botonLabel={<span>{f.creadores.length ? (f.creadores.length === 1 ? creadores.find((c) => c.id === f.creadores[0])?.nombre ?? 'Cuenta' : `${f.creadores.length} cuentas`) : 'Cuentas'}</span>}
+                  onChange={(v) => { const id = Number(v); cambiar({ creadores: f.creadores.includes(id) ? f.creadores.filter((x) => x !== id) : [...f.creadores, id] }); }}
+                  buttonStyle={chip(f.creadores.length > 0)} />
+              )}
+              <span className={s.espacio} />
+              {!sinFiltros({ ...f, que: 'carruseles' }) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
+              {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              <span className={s.total}>{contadorCorto(vistos.length)}</span>
+              <Dropdown value={orden} search={false} alContenido ariaLabel="Orden" align="right"
+                options={ordenes.map((o) => ({ value: o.value, label: o.label }))}
+                botonLabel={<span>{ORDENES_CARRUSEL.find((o) => o.value === orden)?.label}</span>} onChange={(v) => cambiar({ orden: v as OrdenCarrusel })}
+                buttonStyle={chip(false)} />
             </div>
 
-            {panel === 'cuentas' ? (
-              <Cuentas creadores={creadores} editar={!!datos.puedeEditarBiblioteca}
-                onVer={(id) => { setPanel('carruseles'); cambiar({ creadores: [id], vista: 'todos' }); }} />
+            {busquedas.length > 0 && guardadosVista === false && busquedas.some((b) => b.query === queryDeFiltros(f)) ? (
+              <div className={s.busquedas}>
+                {busquedas.filter((b) => b.query === queryDeFiltros(f)).map((b) => (
+                  <span key={b.id} className={s.busqueda}>
+                    {b.nombre}
+                    <button type="button" onClick={() => borrarBusqueda(b)} aria-label={`Borrar la búsqueda ${b.nombre}`} title="Borrar la búsqueda">✕</button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
+
+            {vistos.length === 0 ? (
+              <div className={s.vacio}>
+                <p>{guardadosVista && !guardados.size
+                  ? 'Guarda un carrusel con el marcador y aparece aquí.'
+                  : f.que === 'anuncios' && !anuncios
+                    ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
+                    : 'Ningún ejemplo pasa estos filtros.'}</p>
+                {f.que === 'anuncios' && !anuncios
+                  ? <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
+                  : !sinFiltros({ ...f, que: 'carruseles' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
+              </div>
             ) : (
               <>
-                <div className={s.filtros}>
-                  <Dropdown value="" varios={marcados} minimo={(formatos.length ? 3 : 2) + (dosOrigenes ? 1 : 0)} columns={[grupos]} subEnColumnas alContenido search={false}
-                    ariaLabel="Filtros" botonLabel={<span>Filtros{filtrosActivos ? ` · ${filtrosActivos}` : ''}</span>} onChange={elegirFiltro}
-                    buttonStyle={chip(filtrosActivos > 0)} />
-                  <Dropdown value={String(f.outlierMin)} search={false} alContenido ariaLabel="Outlier mínimo"
-                    options={OUTLIER_MINIMOS.map((m) => ({ value: String(m), label: m ? `Outlier ${m}×+` : 'Cualquier outlier', sub: m ? `${m} veces lo que hace su cuenta, o más` : undefined }))}
-                    botonLabel={<span>{f.outlierMin ? `Outlier ${f.outlierMin}×+` : 'Outlier'}</span>} onChange={(v) => cambiar({ outlierMin: Number(v) })}
-                    buttonStyle={chip(f.outlierMin > 0)} />
-                  {creadores.length > 1 && (
-                    <Dropdown value="" varios={f.creadores.map(String)} search={creadores.length > 7} alContenido ariaLabel="Cuentas"
-                      options={creadores.map((c) => ({ value: String(c.id), label: c.nombre, sub: c.usuario ? `@${c.usuario} · ${c.n}` : `${c.n}`, avatar: c.foto }))}
-                      botonLabel={<span>{f.creadores.length ? (f.creadores.length === 1 ? creadores.find((c) => c.id === f.creadores[0])?.nombre ?? 'Cuenta' : `${f.creadores.length} cuentas`) : 'Cuentas'}</span>}
-                      onChange={(v) => { const id = Number(v); cambiar({ creadores: f.creadores.includes(id) ? f.creadores.filter((x) => x !== id) : [...f.creadores, id] }); }}
-                      buttonStyle={chip(f.creadores.length > 0)} />
-                  )}
-                  <Dropdown value={f.orden} search={false} alContenido ariaLabel="Orden" align="right"
-                    options={ORDENES_CARRUSEL.map((o) => ({ value: o.value, label: o.label }))}
-                    botonLabel={<span>{ORDENES_CARRUSEL.find((o) => o.value === f.orden)?.label}</span>} onChange={(v) => cambiar({ orden: v as OrdenCarrusel })}
-                    buttonStyle={chip(false)} />
-                  <span className={s.espacio} />
-                  {!sinFiltros(f) && <button type="button" className={s.texto} onClick={() => { setF(FILTROS_INICIALES); escribirEnLaUrl(FILTROS_INICIALES); }}>Quitar filtros</button>}
-                  {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
-                  {!telefono && <SelectorVista vistas={['grande', 'compacta'] as const} vista={grilla} onVista={setGrilla} ariaLabel="Tamaño de la grilla" />}
-                </div>
-
-                {busquedas.length > 0 && (
-                  <div className={s.busquedas} aria-label="Búsquedas guardadas">
-                    {busquedas.map((b) => (
-                      <span key={b.id} className={s.busqueda} data-activa={queryDeFiltros(f) === b.query ? 'si' : undefined}>
-                        <button type="button" onClick={() => usarBusqueda(b)} title="Usar esta búsqueda">{b.nombre}</button>
-                        <button type="button" className={s.quitar} onClick={() => borrarBusqueda(b)} aria-label={`Borrar la búsqueda ${b.nombre}`} title="Borrar">✕</button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
-
-                {vistos.length === 0 ? (
-                  <div className={s.vacio}>
-                    <p>{f.vista === 'guardados' && !guardados.size
-                      ? 'Guarda un carrusel con el marcador y aparece aquí.'
-                      : f.vista === 'semana' ? 'Esta semana no publicaron carruseles que pasen estos filtros.' : 'Ningún carrusel pasa estos filtros.'}</p>
-                    {!sinFiltros(f) && <button type="button" className={s.boton} onClick={() => { setF(FILTROS_INICIALES); escribirEnLaUrl(FILTROS_INICIALES); }}>Quitar filtros</button>}
-                  </div>
-                ) : (
-                  <>
-                    <ul className={s.grilla} data-grilla={grilla} aria-label="Carruseles">
-                      {listos.map((c) => (
-                        <TarjetaCarrusel key={c.id} c={c} ahora={ahora} guardado={guardados.has(c.id)} onGuardar={() => alternarGuardado(c)} onUsar={onUsar} compacta={grilla === 'compacta'} telefono={telefono} />
-                      ))}
-                    </ul>
-                    {vistos.length > cuantas && (
-                      <button type="button" className={s.mas} onClick={() => setCuantas((n) => n + DE_A)}>Ver más ({vistos.length - cuantas})</button>
-                    )}
-                  </>
+                <ul className={s.grilla} aria-label={f.que === 'anuncios' ? 'Anuncios' : 'Carruseles'}>
+                  {listos.map((c) => (
+                    <TarjetaCarrusel key={c.id} c={c} ahora={ahora} guardado={guardados.has(c.id)} telefono={telefono}
+                      onGuardar={() => alternarGuardado(c)} onEditar={() => setEditando(c)} />
+                  ))}
+                </ul>
+                {vistos.length > cuantas && (
+                  <button type="button" className={s.mas} onClick={() => setCuantas((n) => n + DE_A)}>Ver más</button>
                 )}
               </>
             )}
           </>
         )}
       </div>
+      {editando ? <EditarCarrusel key={editando.id} carrusel={editando} onCerrar={() => setEditando(null)} /> : null}
+      {biblioteca ? (
+        <Modal titulo="Biblioteca de ejemplos" onCerrar={() => setBiblioteca(false)} ancho={720}>
+          <EditarBiblioteca />
+        </Modal>
+      ) : null}
     </div>
   );
 }
 
 const chip = (activo: boolean) => ({
-  height: 32, padding: '0 12px', borderRadius: 999, gap: 4, fontFamily: 'inherit', fontSize: 13, fontWeight: 500,
+  height: 34, padding: '0 14px', borderRadius: 999, gap: 4, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 550,
   border: `1px solid ${activo ? 'transparent' : 'var(--border)'}`,
   background: activo ? 'var(--primary-bg)' : 'var(--surface)',
   color: activo ? 'var(--primary-strong, var(--primary))' : 'var(--ink)',
 });
+// En el teléfono, más chica: con las de la computadora, cada una ocupaba su propio renglón.
+const pastilla = (activo: boolean, telefono = false) => ({ ...chip(activo), height: telefono ? 32 : 36, padding: telefono ? '0 12px' : '0 16px', fontSize: telefono ? 13 : 13.5, fontWeight: 600 });
 
-function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onUsar, compacta, telefono }: {
-  c: Carrusel; ahora: number | null; guardado: boolean; onGuardar: () => void; onUsar?: (c: Carrusel) => void; compacta: boolean; telefono: boolean;
+/** Las láminas dentro de la tarjeta: se pasan con las flechas o deslizando (el dedo en el teléfono). */
+function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
+  const imagenes = imagenesDe(c);
+  const pista = useRef<HTMLDivElement | null>(null);
+  const [i, setI] = useState(0);
+  const total = imagenes.length;
+  const ir = (k: number) => {
+    const el = pista.current;
+    if (!el) return;
+    const n = Math.max(0, Math.min(total - 1, k));
+    el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' });
+  };
+  const alMover = () => {
+    const el = pista.current;
+    if (el && el.clientWidth) setI(Math.round(el.scrollLeft / el.clientWidth));
+  };
+  if (!total) return <span className={s.sinFoto}>{titulo.slice(0, 140) || 'Sin portada'}</span>;
+  return (
+    <>
+      <div ref={pista} className={s.pista} onScroll={alMover} tabIndex={total > 1 ? 0 : -1} aria-label={total > 1 ? `${total} láminas: desliza para pasarlas` : undefined}
+        onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); ir(i + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); ir(i - 1); } }}>
+        {imagenes.map((src, k) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={src} src={src} alt={k === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${k + 1}`} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
+        ))}
+      </div>
+      {total > 1 && (
+        <>
+          {i > 0 && <button type="button" className={s.ant} onClick={() => ir(i - 1)} aria-label="Lámina anterior"><Flecha izq /></button>}
+          {i < total - 1 && <button type="button" className={s.sig} onClick={() => ir(i + 1)} aria-label="Lámina siguiente"><Flecha /></button>}
+          <span className={s.puntos} aria-hidden>{imagenes.map((src, k) => <i key={src} data-actual={k === i ? 'si' : undefined} />)}</span>
+          <span className={s.indice}>{i + 1}/{total}</span>
+        </>
+      )}
+    </>
+  );
+}
+
+function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onEditar, telefono }: {
+  c: Carrusel; ahora: number | null; guardado: boolean; onGuardar: () => void; onEditar: () => void; telefono: boolean;
 }) {
   const titulo = c.gancho || c.texto || '';
+  const anuncio = c.clase === 'anuncio';
   const fuerte = c.outlier != null && c.outlier >= MULTIPLO_FUERTE;
+  const aire = anuncio ? rotuloAire(c) : null;
+  const sinLaminasGuardadas = !anuncio && (c.laminas ?? 0) > 1 && imagenesDe(c).length <= 1;
   return (
-    <li className={s.tarjeta} data-compacta={compacta ? 'si' : undefined}>
-      <div className={s.mini}>
-        {c.miniatura
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={c.miniatura} alt={titulo ? `Portada: ${titulo.slice(0, 80)}` : `Carrusel de ${c.creador.nombre}`} loading="lazy" referrerPolicy="no-referrer" />
-          : <span className={s.sinFoto}>{titulo.slice(0, 140) || 'Sin portada'}</span>}
+    <li className={s.tarjeta}>
+      <div className={s.mini} data-anuncio={anuncio ? 'si' : undefined}>
+        <Laminas c={c} titulo={titulo} />
         <span className={s.marcas}>
           {c.outlier != null && (
             <span className={s.outlier} data-fuerte={fuerte ? 'si' : undefined}
@@ -335,108 +394,47 @@ function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onUsar, compacta, tele
               {rotuloOutlier(c.outlier)}
             </span>
           )}
-          {c.medio === 'carrusel' && (
-            <span className={s.laminas} title={c.laminas ? `${c.laminas} láminas` : 'Carrusel'}><IconoLaminas />{c.laminas ?? ''}</span>
-          )}
+          {aire ? <span className={s.aire} data-activo={c.activo === false ? undefined : 'si'}>{aire}</span> : null}
+          {sinLaminasGuardadas ? <span className={s.laminas} title={`${c.laminas} láminas`}>{c.laminas} láminas</span> : null}
         </span>
         <button type="button" className={s.guardar} data-guardado={guardado ? 'si' : undefined} onClick={onGuardar}
           aria-pressed={guardado} aria-label={guardado ? 'Quitar de guardados' : 'Guardar'} title={guardado ? 'Quitar de guardados' : 'Guardar'}>
           <Marcador lleno={guardado} />
         </button>
-        {onUsar && !compacta && (
-          <button type="button" className={s.usar} onClick={() => onUsar(c)}>Hacer el mío</button>
-        )}
       </div>
-      {!compacta && (
-        <div className={s.pie}>
-          <div className={s.creador}>
-            {c.creador.foto
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={c.creador.foto} alt="" className={s.cara} referrerPolicy="no-referrer" />
-              : <span className={s.cara} aria-hidden>{inicial(c.creador.nombre)}</span>}
-            {c.origen === 'biblioteca' && c.creador.usuario ? (
-              // De la biblioteca: su perfil público (no tiene ficha en el Spy del negocio).
-              <a href={perfilDeInstagram(c.creador.usuario)} target={telefono ? undefined : '_blank'} rel="noopener noreferrer" className={s.quien}
-                title={`Ver el perfil de ${c.creador.nombre} en Instagram`}>@{c.creador.usuario}</a>
-            ) : (
-              <Link href={`/competitor-spy?competidor=${c.competidorId}`} className={s.quien} title={`Ver el análisis de ${c.creador.nombre} en Competitors Spy`}>
-                {c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre}
-              </Link>
-            )}
-            {ahora != null && c.publicada ? <span className={s.cuando}>{haceCuanto(c.publicada, ahora)}</span> : null}
-          </div>
-          {titulo ? <p className={s.texto2}>{titulo}</p> : null}
-          <div className={s.numeros}>
-            <span title="Me gusta">♥ {contadorCorto(c.megusta)}</span>
-            <span title="Comentarios">💬 {contadorCorto(c.comentarios)}</span>
-            {c.formato && c.formato !== 'otro' ? <span className={s.formato}>{rotuloFormato(c.formato)}</span> : null}
-            {/* Un ícono y no un rótulo: al lado del tipo, «Biblioteca» se cortaba en «Bi…». El nombre va en el title y el aria-label. */}
-            {c.origen === 'biblioteca' ? (
-              <span className={s.deBiblio} title="De la biblioteca de ejemplos: público, de su creador" aria-label="De la biblioteca de ejemplos" role="img">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" /><path d="M4 19.5A2 2 0 0 0 6 21h12" /><path d="M9 7h6" /></svg>
-              </span>
-            ) : null}
-            {c.url ? (
-              <a href={c.url} target={telefono ? undefined : '_blank'} rel="noopener noreferrer" className={s.original} title="Ver la publicación original en Instagram" aria-label={`Ver la publicación original de ${c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre} en Instagram`}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 4h6v6" /><path d="M20 4 11 13" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" /></svg>
-              </a>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </li>
-  );
-}
-
-/**
- * «Cuentas»: las que el negocio sigue con carruseles (con su análisis en Spy y la salida para seguir otra) y, aparte, los
- * creadores de la biblioteca de ejemplos (con su perfil en Instagram). La plataforma edita la biblioteca acá mismo.
- */
-/** Cuántos creadores de la biblioteca se ven en «Cuentas» antes de «Ver todos». */
-const CREADORES_A_LA_VISTA = 12;
-
-function Cuentas({ creadores, onVer, editar }: { creadores: ReturnType<typeof creadoresDe>; onVer: (id: number) => void; editar: boolean }) {
-  const propias = creadores.filter((c) => c.id > 0);
-  const deBiblioteca = creadores.filter((c) => c.id < 0);
-  const [todosBiblio, setTodosBiblio] = useState(false);
-  const fila = (c: (typeof creadores)[number], acciones: ReactNode) => (
-    <li key={c.id} className={s.cuentaFila}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {c.foto ? <img src={c.foto} alt="" className={s.cara} referrerPolicy="no-referrer" /> : <span className={s.cara} aria-hidden>{inicial(c.nombre)}</span>}
-      <span className={s.cuentaNombre}>
-        <strong>{c.nombre}</strong>
-        <span>{c.usuario ? `@${c.usuario} · ` : ''}{c.n} {c.n === 1 ? 'carrusel' : 'carruseles'}</span>
-      </span>
-      <button type="button" className={s.texto} onClick={() => onVer(c.id)}>Ver sus carruseles</button>
-      {acciones}
-    </li>
-  );
-  return (
-    <div className={s.cuentas}>
-      {propias.length > 0 && (
-        <>
-          <h2 className={s.subtitulo}>Cuentas que sigues</h2>
-          <ul aria-label="Cuentas que sigues">
-            {propias.map((c) => fila(c, <Link href={`/competitor-spy?competidor=${c.id}`} className={s.texto}>Analizar la cuenta</Link>))}
-          </ul>
-        </>
-      )}
-      <Link href="/competitor-spy" className={s.boton}>Seguir otra cuenta</Link>
-      {deBiblioteca.length > 0 && (
-        <>
-          <h2 className={s.subtitulo}>Biblioteca de ejemplos</h2>
-          {/* Los que llegaron por un tema pueden ser cientos: se ven los que más tienen, y el resto con «Ver todos». */}
-          <ul aria-label="Creadores de la biblioteca de ejemplos">
-            {(todosBiblio ? deBiblioteca : deBiblioteca.slice(0, CREADORES_A_LA_VISTA)).map((c) => fila(c, c.usuario
-              ? <a href={perfilDeInstagram(c.usuario)} target="_blank" rel="noopener noreferrer" className={s.texto}>Ver en Instagram</a>
-              : null))}
-          </ul>
-          {!todosBiblio && deBiblioteca.length > CREADORES_A_LA_VISTA && (
-            <button type="button" className={s.mas} onClick={() => setTodosBiblio(true)}>Ver todos ({deBiblioteca.length})</button>
+      <div className={s.pie}>
+        <div className={s.creador}>
+          {c.creador.foto
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={c.creador.foto} alt="" className={s.cara} referrerPolicy="no-referrer" />
+            : <span className={s.cara} aria-hidden>{inicial(c.creador.nombre)}</span>}
+          {c.origen === 'biblioteca' && c.creador.usuario ? (
+            <a href={perfilDeInstagram(c.creador.usuario)} target={telefono ? undefined : '_blank'} rel="noopener noreferrer" className={s.quien}
+              title={`Ver el perfil de ${c.creador.nombre} en Instagram`}>@{c.creador.usuario}</a>
+          ) : (
+            <Link href={`/competitor-spy?competidor=${c.competidorId}`} className={s.quien} title={`Ver el análisis de ${c.creador.nombre} en Competitors Spy`}>
+              {c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre}
+            </Link>
           )}
-        </>
-      )}
-      {editar ? <EditarBiblioteca /> : null}
-    </div>
+          {ahora != null && c.publicada && !anuncio ? <span className={s.cuando}>{haceCuanto(c.publicada, ahora)}</span> : null}
+        </div>
+        {titulo ? <p className={s.gancho}>{titulo}</p> : null}
+        <div className={s.datos}>
+          {!anuncio && <span title="Me gusta">♥ {contadorCorto(c.megusta)}</span>}
+          {!anuncio && <span title="Comentarios">💬 {contadorCorto(c.comentarios)}</span>}
+          {c.cta ? <span className={s.cta} title="Pide comentar una palabra">{rotuloCta(c.cta)}</span> : c.formato && c.formato !== 'otro' ? <span className={s.formato}>{rotuloFormato(c.formato)}</span> : null}
+        </div>
+        <div className={s.acciones}>
+          <button type="button" className={s.editar} onClick={onEditar}>Editar</button>
+          {c.url ? (
+            <a href={c.url} target={telefono ? undefined : '_blank'} rel="noopener noreferrer" className={s.original}
+              title={anuncio ? 'Ver el anuncio en la Biblioteca de Anuncios' : 'Ver la publicación original en Instagram'}
+              aria-label={anuncio ? 'Ver el anuncio original' : 'Ver la publicación original'}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 4h6v6" /><path d="M20 4 11 13" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" /></svg>
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </li>
   );
 }
