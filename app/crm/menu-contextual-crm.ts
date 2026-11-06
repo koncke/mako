@@ -208,7 +208,7 @@ export const ICONO_ORDEN: Readonly<Record<OrdenKanban, NombreIconoMenu>> = {
   manual: 'mover', llegada: 'arriba', antiguos: 'abajo', nombre: 'texto', respondio: 'check', monto: 'dinero', reunion: 'evento', vence: 'cronometro',
 };
 
-/** Las que van JUNTAS en una línea de botones sin rótulo (las flechas de la columna). */
+/** Las que van JUNTAS en una línea (las flechas de la columna), con el rótulo «Mover la etapa» a la izquierda (`conRotulo`). */
 export const EN_LINEA: ReadonlyArray<readonly [IdOpcionCrm, IdOpcionCrm]> = [['col_izquierda', 'col_derecha']];
 
 /**
@@ -369,7 +369,7 @@ export function itemsCrm(ids: ReadonlyArray<IdOpcionCrm | null>, d: DatosMenuCrm
     if (id === null) { out.push(null); continue; }
     const par = EN_LINEA.find(([a]) => a === id);
     if (par && ids[i + 1] === par[1]) {
-      out.push(conSeccion(id, { id: `${par[0]}+${par[1]}`, label: 'Mover la etapa', enLinea: [conDatos(par[0], d), conDatos(par[1], d)] }));
+      out.push(conSeccion(id, { id: `${par[0]}+${par[1]}`, label: 'Mover la etapa', conRotulo: true, enLinea: [conDatos(par[0], d), conDatos(par[1], d)] }));
       i++;
       continue;
     }

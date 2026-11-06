@@ -324,7 +324,7 @@ test('5. MaKo no prende ni apaga los tres eventos (`configurar_aviso_whatsapp`),
   const op = bloque(src, 'configurar_aviso_whatsapp: {', 'quitar_destinatario_notificaciones: {');
   const preparar = bloque(op, 'preparar:', 'ejecutar:');
   const ejecutar = op.slice(op.indexOf('ejecutar:'));
-  for (const [nombre, cuerpo, escritura] of [['proponer', preparar, 'getNotifPrefs()'], ['confirmar', ejecutar, 'setNotifPrefs(']] as const) {
+  for (const [nombre, cuerpo, escritura] of [['proponer', preparar, 'avisoWaActivo('], ['confirmar', ejecutar, 'setCanalesPlantilla(']] as const) {
     const g = cuerpo.indexOf('if (AVISOS_POR_EVENTO.has(aviso))');
     assert.ok(g > 0 && g < cuerpo.indexOf('avisoSilenciable(aviso)') && g < cuerpo.indexOf(escritura), `al ${nombre} no frena los eventos de MaKo antes de escribir`);
   }

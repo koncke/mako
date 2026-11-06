@@ -10829,3 +10829,14 @@ El mismo día lo arregló en paralelo otra cuenta (docs/hallazgos-pruebas.md); l
 - **Regla:** la de arriba (25/10): todo `git ls-files`, `git ls-tree -r` o `git show` que pueda crecer lleva `maxBuffer` explícito.
 - **Le pasó igual a `punta/admin`** (run 42119084126), que lo arregló por su lado el mismo día: la mezcla se quedó con este arreglo.
   **Sin hacer:** no hay guarda que frene un `execFileSync('git', …)` nuevo sin `maxBuffer`.
+
+## Bancos de pantalla en la nube, y el tsc acotado sin heap (6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **El tsc acotado muere en la nube** con su tope de 2.560 MB («NO SE PUDO CHEQUEAR»): se arma el mismo tsconfig con
+  `armarTsconfig` (scripts/tsc-acotado.mjs) y se corre `node --max-old-space-size=6000 node_modules/typescript/bin/tsc -p
+  <json>`. Dio 0 errores en todas las tandas de esta rama.
+- **Un banco** monta el componente de verdad sin sesión: esbuild con un plugin que cambia los módulos `'use server'` por stubs y
+  `server-only`/`node:*` por vacíos, más los tokens de la app en `:root`. El «antes» sale de un worktree en `origin/main`.
+  Playwright corre con el node 22 del sistema (`require('playwright')`), no con el 24 de `scripts/node24.sh`.
+- **Un banco mide lo que monta:** el Image Editor se «arregló» una vez en una réplica del encabezado (`122071b5c`) que no tenía
+  el panel de herramientas, que era lo que se comía el lugar.

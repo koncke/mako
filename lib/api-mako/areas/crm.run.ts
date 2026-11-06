@@ -75,8 +75,11 @@ import { resumenMesAMes } from '@/lib/suscripcion-api';
 import { registrarPagoDeSuscripcion } from '@/lib/suscripcion-cambios';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
-import { enElTope, estadoTopeCrm, frenarAltaPorTope } from '@/lib/topes-crm';
+import { enElTope, estadoTopeCrm, frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
+import { etapaAbierta, leerLoteMigracion, migradoDeLimpio, porEtapa, ubicarEnEtapas } from '@/lib/migracion-leads';
+import { crearMigrados, idsExternosQueYaEstan, textoSinMigracion } from '@/lib/migracion-leads-server';
 import { textoSoloPro, textoTope } from '@/lib/topes-plan';
+import { precioDelResumen } from '@/lib/producto-precio-texto';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
@@ -1698,6 +1701,57 @@ export const RUNNERS: Runners = {
         ...(z.noSeSabe ? { nota: 'A los de «No se sabe» les salió primero un WhatsApp de antes de que MaKo separara lo automático: no se sabe si lo escribió una persona.' } : {}),
       });
     },
+  },
+  // ── MIGRAR DESDE OTRO CRM (6/11/2026, la agencia de Thiago). La regla, en lib/migracion-leads.ts. ───────────────────
+  migrar_contactos: {
+    preparar: async (input, ctx) => {
+      const migradoDe = migradoDeLimpio(input.crmAnterior);
+      if (!migradoDe) return { error: 'Dime de qué CRM vienen (crmAnterior): con dos CRM viejos, el mismo id puede ser de dos personas.', faltan: ['crmAnterior'] };
+      const crms = await productosCrm().catch(() => null);
+      if (!crms) return { error: NO_LEI_PRODUCTOS, falla: true };
+      const destino = input.embudoId == null ? crms.find((p) => p.esDefault) ?? crms[0] : crms.find((p) => p.embudoId === n(input.embudoId));
+      if (!destino) return { error: `El CRM #${String(input.embudoId)} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+      const lote = leerLoteMigracion(input.contactos);
+      const { ubicados, afuera } = ubicarEnEtapas(lote.contactos, destino.etapas, etapaDeEntrada(destino.etapas));
+      const descartados = [...lote.descartados, ...afuera];
+      if (!ubicados.length) {
+        return { error: `No queda ningún contacto para migrar: ${descartados.slice(0, 6).join(' · ')}.`, disponibles: destino.etapas.filter(etapaAbierta).map((e) => ({ key: e.key, nombre: e.label })) };
+      }
+      let yaEstan: Set<string>;
+      try { yaEstan = await idsExternosQueYaEstan(migradoDe, ubicados.map((c) => c.idExterno)); }
+      catch (e) { return { error: textoSinMigracion(e), falla: true }; }
+      const nuevos = ubicados.filter((c) => !yaEstan.has(c.idExterno));
+      if (!nuevos.length) return { error: `Los ${ubicados.length} de este lote ya entraron antes (por su id de ${migradoDe}). No hay nada que migrar.`, yaEstaba: true };
+      try { await frenarAltaPorTope(ctx.ws, 'crm.leads', nuevos.length); }
+      catch (e) { if (e instanceof TopeDelPlanError) return { error: e.message }; throw e; }
+      const ya = ubicados.length - nuevos.length;
+      return {
+        payload: { crm: destino.embudoId, crmNombre: destino.nombre, migradoDe, contactos: nuevos, yaEstaban: ya, descartados },
+        resumen: `Migrar ${nuevos.length} ${nuevos.length === 1 ? 'contacto' : 'contactos'} de ${migradoDe} a «${destino.nombre}»: ${nuevos.slice(0, 8).map((c) => c.nombre).join(', ')}${nuevos.length > 8 ? ` y ${nuevos.length - 8} más` : ''}. `
+          + `Por etapa: ${porEtapa(nuevos)}. Entran quietos: nadie recibe un mensaje ni entra a una automatización por llegar.`
+          + `${ya ? ` ${ya} ya habían entrado y se saltean.` : ''}${descartados.length ? ` Quedan afuera ${descartados.length}: ${descartados.slice(0, 5).join(' · ')}${descartados.length > 5 ? '…' : ''}.` : ''}`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('migrar los contactos', async () => {
+      const r = await crearMigrados(ctx.ws, payload, plazoEnBloque(ctx));
+      invalidar('leads');
+      const partes = [`Listo: ${r.creados} ${r.creados === 1 ? 'contacto migrado' : 'contactos migrados'} a «${String(payload.crmNombre)}», quietos`];
+      if (r.yaEstaban) partes.push(`${r.yaEstaban} ya habían entrado`);
+      if (r.adoptados) partes.push(`${r.adoptados} ya estaban en MaKo con ese email, teléfono o Instagram: se les anotó su id de ${String(payload.migradoDe)} y no se movieron`);
+      // Lo que se vio al proponer viaja en el payload: con un token que escribe en el acto, ésta es la ÚNICA respuesta que lee
+      // quien migra, y tiene que decir quiénes quedaron afuera y por qué (sin esto, «2 migrados» de un lote de 6 no se explica).
+      const descartados = Array.isArray(payload.descartados) ? (payload.descartados as unknown[]).map(String) : [];
+      const yaAntes = Number(payload.yaEstaban) || 0;
+      if (yaAntes) partes.push(`${yaAntes} ya habían entrado antes`);
+      const afuera = descartados.length ? ` Quedaron afuera ${descartados.length}: ${descartados.slice(0, 5).join(' · ')}${descartados.length > 5 ? '…' : ''}.` : '';
+      const mal = r.errores.length ? ` ${r.errores.length} no se pudieron: ${r.errores.slice(0, 3).join(' · ')}.` : '';
+      const quedanTxt = r.pendientes.length ? ` Quedan ${r.pendientes.length} que no llegué a crear: manda el mismo lote de nuevo y sigo con ésos (los que ya entraron se saltean).` : '';
+      return {
+        ok: r.creados > 0 || r.yaEstaban > 0 || r.adoptados > 0,
+        resumen: `${partes.join(' · ')}.${afuera}${mal}${quedanTxt}`,
+        datos: { creados: r.creados, yaEstaban: r.yaEstaban + yaAntes, adoptados: r.adoptados, descartados, errores: r.errores, pendientes: r.pendientes, leadIds: r.leadIds },
+      };
+    }),
   },
   armar_tab_ficha: {
     preparar: async (input, ctx) => {
@@ -3357,7 +3411,11 @@ export const RUNNERS: Runners = {
         descripcion: existente?.descripcion ?? null,
         activo: b(input.activo) ?? existente?.activo ?? true,
       };
-      const precio = payload.monto_usd != null ? `${String(payload.monto_usd)} USD${tipo === 'suscripcion' ? ' al mes' : ''}` : 'sin precio';
+      // Al editar, la tarjeta dice el precio de antes y el de ahora (lib/producto-precio-texto.ts): se aprueba lo que se ve.
+      const precio = precioDelResumen({
+        antes: existente ? { monto_usd: existente.monto_usd ?? null, suscripcion: existente.tipo === 'suscripcion' } : undefined,
+        ahora: { monto_usd: (payload.monto_usd as number | null) ?? null, suscripcion: tipo === 'suscripcion' },
+      });
       return { payload, resumen: `${existente ? `Editar el producto «${existente.nombre}»` : 'Crear el producto'} «${String(payload.nombre)}» (${tipo === 'suscripcion' ? 'suscripción' : 'pago único'}, ${precio}).${cambiaTipo}` };
     },
     ejecutar: (payload) => seguro('guardar el producto', async () => {

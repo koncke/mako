@@ -78,7 +78,9 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 });
 
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
-  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos']);
+  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos',
+    // Las plantillas de venta de AI Avatar (6/11/2026): una lista de formas de negocios ficticios, como listar_plantillas_video.
+    'ver_plantillas_avatar']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta

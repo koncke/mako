@@ -13,6 +13,52 @@ tabla se leyó en el código; lo marcado «1.ª vuelta» se vio en pantalla y no
 - **los anchos 1280 y 1024** de todo lo de la segunda vuelta. La barra única del editor web sigue sin verse a 1280 (lista en
   docs/diseno-editor-web-como-automations.md, «Cómo se verifica en pantalla»).
 
+## Estado al 6/11/2026 (nube, rama `punta/recorrido-visual`)
+
+Medido contra `origin/main` del 6/11, con un banco (el componente de verdad en Chromium, sin sesión) a 1440 y 390 px, o a 1280
+y 1366 donde el defecto vive en ese ancho. Antes y después en `docs/recorrido-visual/`. **«En main» no es «en producción»:** desde
+el 6/11 la lleva un cron una vez por día. El relevo, con las preguntas para Martín: docs/relevo/nube-recorrido-visual.md.
+
+| # | Estado | Dónde quedó |
+|---|---|---|
+| AD1 | ✅ ya estaba en main | `2fb65f144` (lib/media-buyer/cartel-hoy.ts): sin campañas no dice «todo anda» |
+| AD2 | ➡️ Ads | No se tocó (`app/ads-manager` lo rehace otro chat) |
+| CR1 | ➡️ plantillas reales | Lo cubre docs/plantillas-reales/ (tanda 0 hecha; las miniaturas de cada tab, en su tanda) |
+| OF1 | ✅ hecho | `80d1af1fc`: el nombre que se repite lleva su funnel («Crear una oferta nueva · Coaching») |
+| AV1 | ➡️ plantillas reales | docs/plantillas-reales/avatar.md: los retratos se hacen en Flow; la nube no los puede generar |
+| AV2 | ➡️ iniciativa T15 | «Antes de generar» se pliega en T15 (docs/mako-iniciativa/plan.md) |
+| U3 | ❓ Martín / jefe Sidebar | La sidebar no scrollea (regla): que entre a 730 px es reorganizarla, y eso lo decide el jefe «Sidebar» |
+| C1 | ✅ hecho | `968eea8ee`: la foto que no carga (también antes de hidratar) cae a las iniciales |
+| C2 | ✅ hecho | `968eea8ee`: el nombre usa dos renglones y lleva `title`; el teléfono se lee entero |
+| C4 | ✅ hecho | `968eea8ee`: «Mover la etapa» al lado de las flechas (y «Mover la hoja» en la ficha) |
+| D1–D7 | ➡️ Dashboards | No se tocó (lo rehace otro chat) |
+| A1 | ❓ Martín | El piso de zoom legible (`ZOOM_LEGIBLE`) es lo que corta el flujo: bajarlo o abrir el panel encima es suya |
+| A2 | ❓ Martín | «CRON» es el rótulo que él pidió textual para el disparador: cambiarlo es suyo |
+| A3 | ✅ hecho | `7132bc7f2`: con el interruptor prendido dice «Activa» |
+| A4 | ❓ Martín | Los nombres en Mayúscula Inicial vienen de las plantillas y de la base: cambiar la regla es suya |
+| A5 | ➡️ iniciativa T8 | El chat vacío del flujo lo llena la apertura de T8 |
+| P2 | ✅ hecho | `7132bc7f2`: el porqué del objetivo va recortado a 5 renglones, sin el hueco |
+| O1 | ✔️ a propósito | `app/page.tsx`: la raíz es la landing para todos; entrar es `/inicio` |
+| SB1 | ➡️ Admin | `app/admin/operaciones/Conversacion.tsx:250` (`Escribe a ${chat.titulo}`): anotado para Admin |
+| CH2 | ✅ hecho | `7132bc7f2`: un solo panel vacío y los filtros en una fila que se corre |
+| EQ1 | ✅ ya estaba en main | `488e13b52`: sin «0 personas» ni el segundo «Invitar» |
+| CU1, CU2 | ➡️ Admin | `lib/clientes-plataforma.ts:164` y `customers-vista.ts:74,78`: anotado para Admin |
+| AP1 | ✅ hecho | `7132bc7f2`: «Automations» y docs/api-mako.md regenerado |
+| W1 | ❓ Martín | El cartel «Continuar viendo» es del reproductor de Panda (su configuración), no de MaKo |
+| W2 | ✅ ya estaba | Arreglado en `recorrido-web-3010` (abajo) |
+| CH1 | ➡️ iniciativa T4b | La apertura de la portada de Video e Image, sin proyecto abierto (abajo) |
+
+**Lo de la llamada con Leila del 5/11:**
+
+| Pedido | Estado | Dónde quedó |
+|---|---|---|
+| Copywriter: arrastrar un bloque deja su contenido atrás (1.8) | ✅ hecho | `8b384b9e5`: un título se lleva su sección. Visto arrastrando en Chromium |
+| CRM: el desplegable de «Mensajes de difusión» | ✅ ya estaba en main | `6bf0a40a8` (entró el 2/11, `648fe07a8`); el CRM lo monta. Si Leila vio la cara vieja, producción no lo tenía |
+| Web Generator: el carrusel 4:5 | ✅ hecho | `cd0f4811e`: una presentación puede ser 4:5 (pantalla, miniaturas, presentar, PDF y PowerPoint) |
+| Image Editor: rota con la barra fijada y el chat (1.4) | ✅ hecho | `e7c51f1b2`: con el editor angosto el panel va encima del lienzo (a 1280: de 257 a 619 px) |
+| MaKo Desktop: para qué sirve | ✅ hecho | `49a7cad73`: Settings › Instalar la app › «Para qué sirve» |
+| Agency: más a la vista en el menú del perfil | ✅ hecho | `49a7cad73`: Partners y Agency, justo debajo de Settings |
+
 ## Abiertos, por dueño (para repartir)
 
 Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** detalle.
@@ -64,9 +110,9 @@ Medido en la base del ws11 y en el código. **Sin mirar la pantalla:** el Chrome
 | 1.2, poner fotos | El chat no sabía hacerlo | **Hecho** el 30/10: de Subidos y adjuntas. Probado contra el cargador del motor; no visto en el editor completo |
 | 1.3, la marca entera | El chat no conoce colores ni logo | **Sin hacer.** Depende de 2.9 |
 | 1.4 Página 1, 2, 3 | El encabezado no entraba en una página angosta | Arreglado; medido en una réplica |
-| 1.4 Barra y chat abiertos | La barra ya arranca plegada; queda abierta para quien la fijó, por decisión del 24/10 | **Sin ver.** Pide sesión; sumar estas tabs a `RUTAS_QUE_PLIEGAN` lo decide Martín |
+| 1.4 Barra y chat abiertos | La barra ya arranca plegada; queda abierta para quien la fijó, por decisión del 24/10 | **Arreglado el 6/11** (`e7c51f1b2`): con el editor angosto el panel de herramientas va encima del lienzo. Visto con el editor de verdad en un banco |
 | 1.5 Llevarlo a presentación | La landing #89 (ws11) nació del texto del carrusel, en modo IA y sin imágenes. «Usar de guía» no aparece en el código | **Sin diagnosticar.** Falta qué pantalla era |
-| 1.8 Arrastrar | Un Título y lo de abajo son bloques hermanos: BlockNote mueve sólo el que se arrastra. Seleccionar todo funciona porque arrastra la selección | **Sin hacer.** Hay que probarlo en un navegador |
+| 1.8 Arrastrar | Un Título y lo de abajo son bloques hermanos: BlockNote mueve sólo el que se arrastra. Seleccionar todo funciona porque arrastra la selección | **Arreglado el 6/11** (`8b384b9e5`): un título se lleva su sección. Visto arrastrando en Chromium |
 | 1.9 «¿Qué vendo?» | Esas frases no están en el código. La pregunta con botones «¿Lo adapto a tu oferta? ¿A cuál?» entró a main el 29/10 23:11 y Martín nombró en la llamada un botón «Adaptar a tu negocio» que ya no existe. Puede ser una versión anterior | **A confirmar** con la versión desplegada |
 | 1.10 Ver ejemplo | Estaba gris, como una miga | Arreglado (azul). Sin verlo en pantalla |
 | 1.11 «Concentrarte en una oferta» | No sale de un chat del 30/10: la última sesión de Offer del ws11 es del 12/10 y su informe dice «congelas la venta… para concentrarte al 100%» (criterio D9 Foco, `alertaFoco`). No es un error: es el método | **Decisión de producto:** qué hace D9 con quien vende varias a propósito |

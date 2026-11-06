@@ -4,7 +4,10 @@
 // Dos emisores, cada 10 minutos (vercel.json):
 //
 //   1. AL DUEÑO: «en media hora entrás a la R1 con X», con el link al resumen del lead.
-//      Itera los workspaces con Calendly conectado. Ver lib/reunion-recordatorio.ts.
+//      Itera los workspaces con una AGENDA conectada: Calendly o Cal.com (`AGENDAS_DEL_DUENO`).
+//      Hasta el 06/11/2026 eran sólo los de Calendly, y a Código Inmobiliario, que agenda por
+//      Cal.com, no le llegaba nunca (docs/pendientes.md, 17/10). Las dos dejan `junta_X_at` en el
+//      lead y el aviso lee sólo eso. Ver lib/reunion-recordatorio.ts.
 //   2. AL LEAD (06/10/2026): 24 h, 1 h y 15 min antes, con el link de la reunión, a los
 //      negocios que lo PRENDIERON en /automations. Recorre TODOS los workspaces activos, no sólo
 //      los de Calendly: Código Inmobiliario agenda por Cal.com, que también deja `junta_X_at`
@@ -23,12 +26,15 @@
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { correrPorWorkspace } from '@/lib/cron-workspaces';
+import { correrRonda } from '@/lib/cron-workspaces';
 import { listarWorkspaces } from '@/lib/workspace';
 import { mandarRecordatoriosDeReunion, mandarRecordatoriosAlLead, type ResultadoAlLead } from '@/lib/reunion-recordatorio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
+
+/** Las agendas que dejan la reunión en el lead. Un negocio con cualquiera de las dos recibe el aviso. */
+const AGENDAS_DEL_DUENO = ['calendly', 'calcom'] as const;
 
 /** Hasta cuándo se le escribe a un lead en esta corrida: cada envío retiene el HTTP hasta ~9 s. */
 const TECHO_ENVIOS_MS = 95_000;
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest) {
   const dry = request.nextUrl.searchParams.get('dry') === '1';
   const t0 = Date.now();
   try {
-    const workspaces = dry ? [] : await correrPorWorkspace('calendly', async (ws) => {
+    const workspaces = dry ? [] : (await correrRonda(AGENDAS_DEL_DUENO, async (ws) => {
       const res = await mandarRecordatoriosDeReunion(ws);
       // Solo se logea cuando hubo ALGO en la ventana: este cron corre cada 10
       // minutos y una línea por corrida vacía son ~100 líneas de ruido por día,
@@ -49,7 +55,7 @@ export async function GET(request: NextRequest) {
         console.log(`[cron:reunion-recordatorio] ws=${ws} miradas=${res.miradas} avisados=${res.avisados} yaAvisadas=${res.yaAvisadas} err=${res.errores}`);
       }
       return res;
-    });
+    })).resultados;
 
     // El recordatorio al lead, negocio por negocio. Un workspace que falla no corta al resto.
     const activos = (await listarWorkspaces()).filter((w) => w.estado === 'activo').map((w) => w.id);

@@ -60,7 +60,7 @@ import type { Node as NodoPM } from '@tiptap/pm/model';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { nuevoId, tarjetaVacia, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import type { Tema } from '@/lib/editor-landing/temas';
-import { esPresentacion, proporcionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
+import { ANCHO_DIAPO_EM, esPresentacion, formaFija, proporcionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from './contexto';
 import { borrarTarjeta, duplicarTarjeta, moverTarjeta, seccionPorId, seccionesDe } from './insertar';
@@ -267,8 +267,8 @@ const Miniatura = memo(function Miniatura({ html, formato, proporcion }: {
         className="gma-mini-escala"
         data-formato={formato}
         data-proporcion={formato ? proporcion : undefined}
-        // --gm-base: la sección mide 64.5em = ANCHO_BASE. El ancho lo pone la clase.
-        style={{ transform: `scale(${medida.k})`, ['--gm-base' as string]: `calc(${ANCHO_BASE}px / 64.5)` }}
+        // --gm-base: la sección mide su ancho en em (64.5; una diapositiva de 4:5, 43) = ANCHO_BASE. El ancho lo pone la clase.
+        style={{ transform: `scale(${medida.k})`, ['--gm-base' as string]: `calc(${ANCHO_BASE}px / ${formato ? ANCHO_DIAPO_EM[formaFija(proporcion)] : 64.5})` }}
         inert
         dangerouslySetInnerHTML={{ __html: html }}
       />

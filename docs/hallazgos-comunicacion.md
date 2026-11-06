@@ -59,6 +59,56 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Tres avisos que mentían o se podían duplicar, cerrados en el barrido de pendientes (6/11/2026, nube)
+
+Salieron de leer los «Sin hacer» contra main (docs/relevo/pendientes-barrido.md). Los tres compilaban y tenían tests verdes.
+
+- **«Apaga el aviso X» por MaKo no apagaba nada.** `configurar_aviso_whatsapp` (lib/api-mako/areas/equipo.run.ts) leía y
+  escribía `notification_prefs.avisos`, y el envío dejó de leer ese campo cuando los apagados se mudaron a la plantilla
+  (`avisoWaActivo` → `estadoAviso`, lib/perfil.ts). MaKo contestaba «Aviso: apagado» y el aviso seguía saliendo. Ahora
+  lee `avisoWaActivo` y escribe la plantilla (`setCanalesPlantilla` con `wa`; prender también la deja `enabled`), y un aviso
+  FIJO no se apaga, igual que en `setEnabledPlantilla`. `ver_preferencias_notificaciones` saca los apagados de la plantilla.
+  **Regla:** cuando un campo deja de leerse, se buscan sus ESCRITORES, no sólo sus lectores: el que escribe en un campo
+  muerto informa un éxito. Lo fija tests/avisos-solo-superadmin.test.ts (los dos lados del contrato).
+- **Si la IA no redactaba el aviso, salía el EJEMPLO de fábrica.** `generarMensajeAviso` (lib/plantillas.ts) devolvía la
+  referencia tal cual en el `catch` y con la respuesta vacía, y la referencia de quien nunca editó el texto es el ejemplo del
+  catálogo: «En 30 min tienes la R2 con Laura Gil… crm/482». Ahora sale el texto propio del negocio, o los datos reales del
+  evento (`textoSinIA`, lib/aviso-sin-ia.ts; tests/aviso-sin-ia.test.ts). El link `crm/482` sigue en el ejemplo de la
+  PANTALLA, pero ya no hay camino que lo mande.
+- **Un borrador de WhatsApp cortado por tiempo volvía a «pendiente».** `enviarBorrador` (lib/evolution-envio.ts) lo
+  devolvía siempre, y Evolution corta a los 30 s con el mensaje a veces entregado: el próximo «Enviar», o el envío solo de
+  MaKo, lo mandaba dos veces. Ahora queda «incierto» (`estadoTrasFallarEnvio`, lib/chats-envio-reglas.ts) y la persona lee
+  que mire el chat; el motor lo trata como un descartado (sigue el flujo, no lo rehace). Era el «Sin hacer» de la tercera
+  revisión del 21/10, abajo.
+
+Y uno de Automations, en el mismo commit: **el aviso «en 30 min tienes la reunión» al dueño recorría sólo los negocios con
+Calendly** (`correrPorWorkspace('calendly')` en app/api/cron/reunion-recordatorio/route.ts), así que a quien agenda por
+Cal.com (Código Inmobiliario) no le llegaba nunca. Ahora va a los de cualquiera de las dos agendas (`AGENDAS_DEL_DUENO`);
+lo fija tests/recordatorio-lead.test.ts.
+
+**Lo que encontró la revisión de un lector que no escribió el código, y se cambió el mismo día:**
+- `ver_preferencias_notificaciones` armaba los apagados con `listarPlantillas()`, la vista del CLIENTE, que viene vacía de
+  avisos del catálogo (`AVISOS_DEL_CLIENTE = []`): el aviso apagado no aparecía nunca. Va con la de la agencia, la que lee el envío.
+- Prender por WhatsApp un aviso apagado ENTERO revivía también su email: ahora lo prende sólo por WhatsApp.
+- `textoSinIA` sin datos del evento devolvía igual el ejemplo inventado (`contexto || resuelta`): ahora devuelve `''` y quien
+  llama cae a su texto o no manda. «Probar» (que pasa una INSTRUCCIÓN como contexto) muestra el ejemplo (`muestra`), y un ejemplo
+  de fábrica con variables cuenta como propio (resuelto es exacto).
+- El borrador «incierto» no contaba para el tope de respuestas solas por 24 h ni para el goteo (los leen por `enviado_at` /
+  `enviado_por`): ahora lleva los dos.
+**Regla:** un arreglo de una salida que «no puede afirmar» se prueba también con la entrada VACÍA: ahí el respaldo de siempre
+vuelve a colarse.
+
+Y en la tanda siguiente, **el aviso de la línea caída no decía cuál línea**: el webhook de Evolution le pone `numero = null` a
+la fila cuando llega el «close», antes de que el vigilante confirme la caída, así que `lineaLegible` no tenía qué nombrar y el
+renglón «📱» se iba entero (un negocio con dos líneas sin etiqueta no sabía cuál se cayó). Ahora el webhook guarda el número
+ANTES de borrarlo, en un setting del negocio (`keyUltimoNumero`, lib/linea-vigilancia.ts; los «close» repetidos leen la fila ya
+vacía y no lo pisan), y el vigilante lo usa sólo si la fila no tiene número, en la caída y en el «volvió». Sin migración: el
+`desconectar()` deliberado no lo necesita (esa línea no avisa). Lo fija tests/linea-vigilancia.test.ts (el orden guardar →
+borrar, y los dos avisos con el respaldo).
+
+**Vive en:** lib/api-mako/areas/equipo.run.ts · lib/plantillas.ts · lib/aviso-sin-ia.ts · lib/evolution-envio.ts ·
+lib/chats-envio-reglas.ts · app/api/cron/reunion-recordatorio/route.ts · *6/11/2026, barrido de pendientes (nube).*
+
 ## Con dos líneas de MaKo en un grupo, `fromMe` no alcanza: MaKo se contestaba a sí misma (4/11/2026, nube)
 
 **Síntoma:** en el grupo de un cliente, MaKo armó la ficha de otra persona en vez de agendar lo que pedía el audio de Joan. Después se contestó a sí misma: «No entiendo: ¿vos me estás pidiendo…?».
@@ -970,8 +1020,8 @@ su código. Si un día se quiere que salgan, se les pone `porDefecto` y vuelven 
 **La regla.** En Notificaciones va sólo lo que sale: un evento de MaKo (`AVISOS_POR_EVENTO`) o un aviso con `porDefecto`
 'on' o 'siempre' (lib/notif-catalogo.ts, y lo fija tests/notificaciones-solo-lo-que-sale.test.ts).
 
-**Sin hacer:** `configurar_aviso_whatsapp` escribe en `notification_prefs.avisos`, que el envío no lee: tendría que
-escribir en el store o retirarse.
+**Sin hacer:** ~~`configurar_aviso_whatsapp` escribe en `notification_prefs.avisos`, que el envío no lee~~ (HECHO el
+6/11/2026: escribe la plantilla, ver «Tres avisos que mentían…» arriba).
 
 **Vive en:** lib/plantillas.ts (`estaPrendida`) · lib/avisos.ts (`emitirDelCatalogo`, `emitirAviso`) · lib/perfil.ts
 (`estadoAviso`, `avisoWaActivo`) · lib/notif-catalogo.ts (`AVISOS_WA_EN_VIVO`, `PUSH_TIPOS`) ·
@@ -10354,9 +10404,10 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   la instancia viva en Evolution (una llevó 22 días así); una desvinculada no tiene instancia
   (`esInstanciaInexistente`, en un solo lugar). Ni el estado de la fila ni `ultima_conexion_at`
   sirven: el webhook escribe lo mismo en los dos casos.
-- **El aviso de línea caída nunca va a nombrar el número**: el webhook y `desconectar()` ponen
+- ~~**El aviso de línea caída nunca va a nombrar el número**: el webhook y `desconectar()` ponen
   `numero` en null y las 3 filas de prod tienen `etiqueta` null. El ejemplo del catálogo, que lo
-  muestra, promete algo que no pasa. Hace falta guardar el último número conocido.
+  muestra, promete algo que no pasa. Hace falta guardar el último número conocido.~~ HECHO el
+  6/11/2026, sin migración: ver «Tres avisos que mentían…» arriba.
 - **Un aviso apagado se loguea como «ya avisado hace poco»**: `emitirDelCatalogo` devuelve
   `deduped: true` y no `apagado` (`lib/avisos.ts`). Sólo afecta al log, y lo hace mentir.
 - **La cobranza prometía dos veces**: el texto decía «¿Le escribo?» y `requiereRespuesta: true` hacía
@@ -11940,8 +11991,8 @@ tests/chats-mako-envio.test.ts · *21/10/2026, chat «CRM» (claude4), segunda r
   vez». Evolution corta a los 30 s y el mensaje pudo haber salido.
 - **La bandeja /mako/pendientes es otra puerta de confirmación de estos envíos** y cortaba en 240 (hallazgos-api-mako).
 
-**Sin hacer:** tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
-el próximo «Enviar» puede duplicarlo. Habría que marcarlo «incierto», como `contestar_dm`. Los otros usos de
+**Sin hacer:** ~~tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
+el próximo «Enviar» puede duplicarlo~~ (HECHO el 6/11/2026: queda «incierto», ver «Tres avisos que mentían…»). Los otros usos de
 `estaBloqueado` exacto (fuera de la puerta) no se revisaron.
 **Vive en:** lib/api-mako/areas/chats.run.ts · lib/chats-envio-reglas.ts · lib/evolution-block.ts · lib/borrador-camino.ts ·
 tests/chats-mako-envio.test.ts y tests/_chats-envio-hijo.ts · *21/10/2026, chat «CRM» (claude4), tercera revisión del
@@ -12752,3 +12803,12 @@ El PDF de cobro a Código fue el primer documento con pie que salió por la voz 
 - **`scripts/mensaje-equipo-al-grupo.mts` no existe en main,** aunque lo nombre `docs/relevo/pedidos-perdidos-2810.md`.
 
 **Sin hacer:** MaKo no sabe qué es un comprobante de pago. Una foto sin citar cae en un turno libre, sin precedente en 45 días. Lo arma el chat de `punta/agencia-cobro`.
+
+## /chats sin un chat elegido: dos paneles vacíos y un filtro que bajaba de renglón (CH2, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- `PanelContacto` dibujaba «Elige un chat.» al lado del vacío del centro, que dice lo mismo: sin chat, el panel no se dibuja.
+- La fila de filtros envolvía y «Etapa» caía sola a un segundo renglón. Achicar los rótulos los cortaba («Eta…»): la fila va en
+  un renglón que se corre de costado (`overflow-x: auto`, cada filtro `flex: none`). Es contenido, no navegación: ahí la regla
+  de la casa permite el scroll lateral.
+
+**Vive en:** app/chats/PanelContacto.tsx, app/chats/chats.css, tests/recorrido-chats.test.ts

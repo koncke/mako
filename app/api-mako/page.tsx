@@ -19,6 +19,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { listarTokens } from '@/lib/api-mako/tokens';
+import { esAgencia } from '@/lib/agencia';
 import { TOPE_CUERPO_BYTES, TOPE_POR_MINUTO_IP, TOPE_POR_MINUTO_WS, VERSION_API } from '@/lib/api-mako/version';
 import { EmptyState, Pagina } from '@/app/_ui';
 import { indiceDocs, paginaDocs, usoDe, vistaDeLaTab, type AreaDocs } from './datos';
@@ -72,7 +73,7 @@ export default async function ApiMakoPage({ searchParams }: { searchParams: Prom
     const vistaTokens: VistaTokens = sp.t
       ? { v: 'token', id: sp.t, accion: sp.accion === 'editar' || sp.accion === 'regenerar' ? sp.accion : 'ver' }
       : { v: sp.v === 'nuevo' || sp.v === 'clasicos' ? sp.v : 'detallados' };
-    contenido = <Tokens tokens={tokens} vista={vistaTokens} indice={indice} workspace={workspace?.nombre ?? `Workspace ${ws}`} />;
+    contenido = <Tokens tokens={tokens} vista={vistaTokens} indice={indice} workspace={workspace?.nombre ?? `Workspace ${ws}`} agencia={await esAgencia(ws)} />;
   } else if (tab === 'registro') {
     const uso = await usoDe(ws, sp.token?.slice(0, 40) || null);
     const nombres = Object.fromEntries((tokens?.tokens ?? []).map((t) => [t.id, t.nombre]));

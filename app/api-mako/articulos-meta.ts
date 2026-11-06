@@ -21,6 +21,8 @@ export const ARTICULOS = {
   'instagram-palabras-botones': { titulo: 'Palabras clave y botones en las automatizaciones de Instagram', corto: 'Palabras clave y botones de Instagram', lead: 'Qué comentario arranca una automatización, y cómo andan los botones de un DM.' },
   // La campaña de email de Mauricio (4/11/2026): todo por la API, desde su Claude.
   'campana-email': { titulo: 'Una campaña de email con Claude', corto: 'Campaña de email con Claude', lead: 'Del dominio a la campaña activa, pidiéndoselo a Claude: el CRM que sigue a cada email, la secuencia, la prueba y el ritmo.' },
+  // La llamada con Thiago (29/10/2026, docs/promesas/2910-llamada-thiago.md): una agencia con 27 clientes que migra desde su CRM.
+  'migrar-crm': { titulo: 'Migrar tu CRM con Claude', corto: 'Migrar tu CRM con Claude', lead: 'Pasa los contactos de tu CRM anterior a MaKo pidiéndoselo a Claude: en su etapa, con su fecha y sus UTM, sin repetir a nadie y sin escribirle a ninguno.' },
 } as const;
 
 export type SlugArticulo = keyof typeof ARTICULOS;
@@ -31,6 +33,16 @@ export const GRUPOS_ARTICULOS: { titulo: string; articulos: SlugArticulo[] }[] =
   { titulo: 'Acerca de la API', articulos: ['versiones', 'openapi'] },
   { titulo: 'Uso de la API', articulos: ['primeros-pasos', 'limites', 'buenas-practicas', 'problemas'] },
   { titulo: 'Autenticación', articulos: ['autenticacion', 'permisos'] },
-  { titulo: 'Guías', articulos: ['migrar-curso', 'campana-email', 'instagram-palabras-botones'] },
+  { titulo: 'Guías', articulos: ['migrar-crm', 'migrar-curso', 'campana-email', 'instagram-palabras-botones'] },
 ];
 
+/**
+ * EL EJEMPLO DE UN LOTE, tal como lo manda Claude. tests/api-mako-migrar-crm-guia.test.ts lo pasa por el validador REAL de
+ * `migrar_contactos` (lib/api-mako/validar.ts): si un campo cambia de nombre, la guía deja de pasar.
+ */
+export const EJEMPLO_LOTE_MIGRACION = {
+  crmAnterior: 'GoHighLevel',
+  contactos: [
+    { idExterno: 'c_8fK2', nombre: 'Lucía Fernández', email: 'lucia@ejemplo.com', telefono: '+34 600 000 000', etapa: 'lead', fechaOriginal: '2025-03-14', utm_source: 'facebook', utm_campaign: 'primavera' },
+  ],
+};

@@ -199,7 +199,11 @@ test('(6) «Se le puso una etiqueta» sin horario es SÓLO el evento: el barrido
   for (const f of ['export async function comprometerInscripciones(', 'export async function planificarInscripciones(']) {
     const b = fn(NUTRI, f);
     const i = b.indexOf('if (!barridoInscribe(sec)) continue;');
-    assert.ok(i > 0 && i < b.indexOf('leadsDeCohorte('), `${f} barre por etiqueta sin horario`);
+    // La cohorte se lee con `leadsDeCohorte(` o, en el commit, con `cohorteOSaltear(` (6/11/2026: una cohorte que no se pudo
+    // leer saltea esa automatización): la marca es la primera de las dos.
+    const cohorte = Math.min(...['leadsDeCohorte(', 'cohorteOSaltear('].map((m) => b.indexOf(m)).filter((x) => x > 0));
+    assert.ok(Number.isFinite(cohorte), `${f}: no encontré dónde lee la cohorte`);
+    assert.ok(i > 0 && i < cohorte, `${f} barre por etiqueta sin horario`);
   }
 });
 

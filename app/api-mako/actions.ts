@@ -28,8 +28,9 @@ import { referenciaMarkdown } from '@/lib/api-mako/docs';
 import { especificacionOpenApi } from '@/lib/api-mako/openapi';
 import type { TokenPublico } from '@/lib/api-mako/tokens-lista';
 import { sePuedeProbar, type Prueba } from './datos';
+import { esAgencia } from '@/lib/agencia';
 
-type Puerta = { ws: number; email: string } | { error: string };
+type Puerta = { ws: number; email: string; propio: number | null; global: boolean } | { error: string };
 
 async function puerta(): Promise<Puerta> {
   const [sesion, rol] = await Promise.all([getUsuarioActual(), getRolWsEfectivo()]);
@@ -38,18 +39,38 @@ async function puerta(): Promise<Puerta> {
   if (!tabEnCapa('api-mako', await getCapaActual())) return { error: 'Tu plan no incluye la API.' };
   const ws = await getWorkspaceActual();
   if (ws == null) return { error: 'Entra a un cliente primero.' };
-  return { ws, email: sesion.email ?? '' };
+  return { ws, email: sesion.email ?? '', propio: typeof sesion.ws === 'number' ? sesion.ws : null, global: sesion.rol === 'admin' };
 }
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-export type DatosForm = { nombre: string; descripcion: string; permisos: Record<string, string>; expiracion: string; fecha?: string };
+export type DatosForm = {
+  nombre: string; descripcion: string; permisos: Record<string, string>; expiracion: string; fecha?: string;
+  /** Un token de AGENCIA, para toda la cartera (lib/api-mako/tokens-cartera.ts). */
+  cartera?: boolean;
+};
+
+/**
+ * ¿Esta sesión puede acuñar un token de AGENCIA sobre `ws`? Que `ws` sea una agencia, y que sea SU cuenta (o un admin
+ * global mirándola). Una agencia que entró a la cuenta de un cliente no acuña uno desde ahí: ese cliente no es agencia, y
+ * si lo fuera, su cartera no es la de quien mira.
+ */
+async function puedeAcunarDeAgencia(p: Extract<Puerta, { ws: number }>): Promise<string | null> {
+  if (!p.global && p.propio !== p.ws) return 'Un token de agencia se crea desde la cuenta de tu agencia, no desde la de un cliente.';
+  if (!(await esAgencia(p.ws))) return 'Esta cuenta no es una agencia: el token de agencia es para trabajar en la cartera de clientes.';
+  return null;
+}
 
 export async function crearTokenApi(x: DatosForm): Promise<{ token: string; publico: TokenPublico } | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   if (!rateLimit(`api-mako:token:${p.ws}`, 10, 60_000)) return { error: 'Demasiados intentos. Espera un minuto.' };
-  try { return await crearToken(p.ws, { nombre: x?.nombre, descripcion: x?.descripcion, permisos: x?.permisos, expiracion: x?.expiracion, fecha: x?.fecha, actor: p.email }); }
+  const cartera = x?.cartera === true;
+  if (cartera) {
+    const no = await puedeAcunarDeAgencia(p);
+    if (no) return { error: no };
+  }
+  try { return await crearToken(p.ws, { nombre: x?.nombre, descripcion: x?.descripcion, permisos: x?.permisos, expiracion: x?.expiracion, fecha: x?.fecha, actor: p.email, cartera }); }
   catch (e) { console.error(`[api-mako] crear token (ws ${p.ws}): ${msg(e)}`); return { error: 'No se pudo crear. Prueba de nuevo.' }; }
 }
 

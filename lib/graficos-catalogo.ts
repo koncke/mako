@@ -1348,7 +1348,9 @@ export type Hoja = {
 //   patrones de MaKo quedan en la grilla.
 // · 'hooks' (5/11/2026, la copia de Ondra): del Dashboard, con diez piezas de Hooks y retención (`hooks-retencion`). Lo que llega al
 //   llamado por formato y el gancho por semana quedan en la grilla.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks'] as const;
+// · 'vsl' (6/11/2026, la copia de Pelago): del Dashboard, con diez piezas de VSL y YouTube (`vsl-analyst`). Las vistas por semana
+//   quedan en la grilla.
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
