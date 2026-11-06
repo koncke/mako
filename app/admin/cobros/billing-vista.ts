@@ -49,7 +49,7 @@ export function cifrasDe(r: Pick<Ingresos, 'cobradoEsteMes' | 'cobradoMesPasado'
     { id: 'mes', titulo: 'Cobrado este mes', valor: usd(r.cobradoEsteMes), detalle: `El mes pasado: ${usd(r.cobradoMesPasado)}`, insignia: null },
     {
       id: 'mrr', titulo: 'MRR', valor: usd(r.mrr),
-      detalle: r.mrrMesPasado > 0 ? `Al cerrar el mes pasado: ${usd(r.mrrMesPasado)}` : 'Lo que pagan por mes hoy',
+      detalle: r.mrrMesPasado > 0 ? `Hace un mes: ${usd(r.mrrMesPasado)}` : 'Lo que pagan por mes hoy',
       insignia: pct != null && pct !== 0 ? { texto: `${pct > 0 ? '+' : '−'}${Math.abs(pct)}%`, mala: pct < 0 } : null,
     },
     { id: 'vence', titulo: 'Vence en 31 días', valor: usd(venceUsd), detalle: vence.length ? `${clientes(vence.length)} por cobrar` : 'Nada por vencer', insignia: null },
@@ -64,8 +64,8 @@ export function cifrasDe(r: Pick<Ingresos, 'cobradoEsteMes' | 'cobradoMesPasado'
 
 export const PERIODOS = [
   { id: 'mes', rotulo: 'Este mes' },
-  { id: '3m', rotulo: 'Últimos 3 meses' },
-  { id: '12m', rotulo: 'Últimos 12 meses' },
+  { id: '3m', rotulo: '3 meses' },
+  { id: '12m', rotulo: '12 meses' },
   { id: 'todo', rotulo: 'Desde siempre' },
 ] as const;
 export type PeriodoId = (typeof PERIODOS)[number]['id'];

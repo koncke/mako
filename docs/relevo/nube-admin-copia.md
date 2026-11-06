@@ -16,7 +16,7 @@ nube (403 del proxy): se clonó el repo y se levantó en local con `npm ci && np
 | Tanda | Qué | Dónde está |
 |---|---|---|
 | 1 | El shell de Studio (sidebar, cabecera, búsqueda ⌘K, modo oscuro, su tema y sus componentes), **Users** (`dashboard/users`) y **Revenue** (`dashboard/default`). La barra de pestañas de antes se borró. | `punta/admin-copia` (subida el 6/11, veredicto verde) |
-| 2 | **Billing** (`dashboard/finance`): Resumen, Cobros y Recibos, Ajustes y Exportar; **Cargar pago** (`dashboard/invoice`): formulario, vista previa, Imprimir y Bajar el PDF. Se borraron las siete pantallas de antes de `app/admin/cobros/`. | `claude/dazzling-hypatia-74n7kv` (falta: capturas, veredicto y subir a `punta/admin-copia`) |
+| 2 | **Billing** (`dashboard/finance`): Resumen, Cobros y Recibos, Ajustes y Exportar; **Cargar pago** (`dashboard/invoice`): formulario, vista previa, Imprimir y Bajar el PDF. Se borraron las siete pantallas de antes de `app/admin/cobros/`. | `punta/admin-copia` |
 
 Customers, Activity y Errors siguen con su pantalla de antes **adentro del shell nuevo** hasta su tanda. Los links viejos
 (`/admin?tab=users`, `?tab=accounts`, `?tab=agents`, `/admin/cobros`…) siguen llevando a su sección.
@@ -39,8 +39,8 @@ Customers, Activity y Errors siguen con su pantalla de antes **adentro del shell
 
 ## Las capturas (Studio a la izquierda, MaKo a la derecha)
 
-`docs/admin/copia/users-1440.png`, `users-390.png`, `revenue-1440.png`, `revenue-390.png`. **Las de Billing y Cargar pago
-todavía no están** (6/11, 02:40): Billing está commiteado en `claude/dazzling-hypatia-74n7kv` y sube a la punta con sus capturas. **Las de MaKo son con datos
+`docs/admin/copia/users-1440.png`, `users-390.png`, `revenue-1440.png`, `revenue-390.png`, `billing-1440.png`, `billing-390.png`,
+`recibo-1440.png` y `recibo-390.png` (Billing › Resumen y Cargar pago). **Las de MaKo son con datos
 INVENTADOS**: la nube no tiene la base. Se sacaron con una página de vista previa local (no se commitea) que monta el mismo
 `AdminShell`, `Users` y `Revenue` con filas de mentira. **Le toca al Cerebro:** sacarlas de nuevo en producción con los datos de
 verdad, una vez desplegado, y compararlas con éstas.

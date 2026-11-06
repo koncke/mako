@@ -114,7 +114,7 @@ export function Invoice({ cuentas, planes, emisor, hoy }: {
       </div>
 
       <FormProvider {...form}>
-        <form className="grid gap-5 xl:grid-cols-2" noValidate onSubmit={(event) => event.preventDefault()}>
+        <form className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2" noValidate onSubmit={(event) => event.preventDefault()}>
           <InvoiceForm cuentas={cuentas} planes={planes} subiendo={subiendo} onSubir={(id, a) => void subir(id, a)} />
           <InvoicePreview recibo={recibo} emisor={emisor} cuenta={cuenta} numero={emitido?.numero ?? null} hoy={hoy} emitido={emitido} />
         </form>

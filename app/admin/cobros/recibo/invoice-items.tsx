@@ -50,8 +50,8 @@ export function InvoiceItems({ planes }: { planes: Array<{ nombre: string; preci
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-medium tracking-tight">Qué se pagó</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-medium tracking-tight whitespace-nowrap">Qué se pagó</h2>
         <div className="flex items-center gap-2">
           <Controller
             control={control}
@@ -96,7 +96,7 @@ export function InvoiceItems({ planes }: { planes: Array<{ nombre: string; preci
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="text-muted-foreground hidden items-center gap-2 px-1 text-xs font-medium md:grid md:grid-cols-[24px_minmax(0,1fr)_96px_112px_112px_32px]">
+        <div className="text-muted-foreground hidden items-center gap-2 px-1 text-xs font-medium md:grid md:grid-cols-[24px_minmax(0,1fr)_72px_96px_96px_32px]">
           <span />
           <span>Concepto</span>
           <span className="px-2">Mes</span>
@@ -156,7 +156,7 @@ function SortableInvoiceItemRow({
     <div
       ref={ref}
       className={cn(
-        "grid min-w-0 grid-cols-[24px_minmax(0,0.8fr)_minmax(0,1fr)_32px] items-center gap-2 rounded-lg md:grid-cols-[24px_minmax(0,1fr)_96px_112px_112px_32px]",
+        "grid min-w-0 grid-cols-[24px_minmax(0,0.8fr)_minmax(0,1fr)_32px] items-center gap-2 rounded-lg md:grid-cols-[24px_minmax(0,1fr)_72px_96px_96px_32px]",
         isDragging && "relative z-10 opacity-50",
       )}
     >
@@ -178,7 +178,7 @@ function SortableInvoiceItemRow({
       />
       <Input
         className="text-sm max-md:col-start-2 max-md:row-start-2"
-        placeholder="noviembre"
+        placeholder="nov"
         aria-label={`Mes del renglón ${index + 1}`}
         maxLength={40}
         {...register(`lineas.${index}.mes` as const)}

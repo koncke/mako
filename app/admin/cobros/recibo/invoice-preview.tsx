@@ -52,7 +52,7 @@ export function InvoicePreview({ emitido, ...p }: Papel & { emitido: { id: numbe
     <>
       <PrintInvoice {...p} />
       <div className="bg-card flex flex-col rounded-xl border">
-        <div className="flex items-center justify-between px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
           <h2 className="text-lg font-medium">Vista previa</h2>
           <ButtonGroup>
             <Button type="button" variant="outline" onClick={handlePrint}>
