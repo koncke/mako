@@ -43,6 +43,27 @@ export function altoDeTexto(texto: string, tam: number, ancho: number, interline
   return Math.round(lineas * tam * interlineado * 100) / 100;
 }
 
+/**
+ * El alto de un texto con letra de `tam` px, contando 0,58 del tamaño por carácter (una letra gruesa es ancha). Sobra un poco
+ * a propósito: mejor que quede aire que un texto que se sale de la lámina (el motor lo vuelve a medir al abrir).
+ */
+export function altoEstimado(t: string, tam: number, ancho: number, interlineado: number): number {
+  const porLinea = Math.max(1, Math.floor(ancho / (tam * 0.58)));
+  const lineas = t.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(Array.from(l).length / porLinea)), 0);
+  return Math.round(lineas * tam * interlineado);
+}
+
+/** La letra más grande (entre `min` y `max`) con la que el texto entra en `alto` px: así el texto LLENA la lámina en vez de quedar chiquito. */
+export function tamanoQueLlena(t: string, o: { ancho: number; alto: number; min: number; max: number; interlineado: number }): number {
+  let lo = o.min;
+  let hi = Math.max(o.min, o.max);
+  while (lo < hi) {
+    const m = Math.ceil((lo + hi) / 2);
+    if (altoEstimado(t, m, o.ancho, o.interlineado) <= o.alto) lo = m; else hi = m - 1;
+  }
+  return lo;
+}
+
 export function texto(id: string, nombre: string, t: string, o: {
   left: number; top: number; width: number; tam: number; peso: number; fam: string; color: string; alin?: 'left' | 'center' | 'right'; interlineado?: number; espaciado?: number; mayus?: boolean;
 }): Obj {
@@ -123,15 +144,25 @@ function pagina(l: Lamina, i: number, total: number, e: EstiloCarrusel, marca: M
   objetos.push(texto(nuevoId(), 'Cabecera: nombre', marca.nombre, { left: MARGEN + 92, top: MARGEN + 4, width: ancho - 92, tam: 30, peso: 600, fam: famX, color: tinta, interlineado: 1.15 }));
   if (marca.usuario) objetos.push(texto(nuevoId(), 'Cabecera: usuario', `@${marca.usuario}`, { left: MARGEN + 92, top: MARGEN + 42, width: ancho - 92, tam: 26, peso: 400, fam: famX, color: suave, interlineado: 1.15 }));
 
-  if (portada) {
-    objetos.push(texto(nuevoId(), 'Titular', l.titulo, { left: MARGEN, top: 400, width: ancho, tam: 96, peso: e.titular.peso, fam: famT, color: tinta, interlineado: 1.05 }));
-    if (l.cuerpo) objetos.push(texto(nuevoId(), 'Bajada', l.cuerpo, { left: MARGEN, top: 820, width: ancho, tam: 40, peso: e.texto.peso, fam: famX, color: suave, interlineado: 1.3 }));
-    objetos.push(texto(nuevoId(), 'Desliza', 'Desliza →', { left: MARGEN, top: 1176, width: 420, tam: 32, peso: 600, fam: famX, color: e.acento, interlineado: 1.1 }));
-  } else {
-    if (!cierre) objetos.push(texto(nuevoId(), 'Rótulo', l.rotulo, { left: MARGEN, top: 300, width: ancho, tam: 26, peso: 700, fam: famX, color: e.acento, espaciado: 120, mayus: true, interlineado: 1.1 }));
-    objetos.push(texto(nuevoId(), 'Titular', l.titulo, { left: MARGEN, top: cierre ? 470 : 360, width: ancho, tam: cierre ? 84 : 72, peso: e.titular.peso, fam: famT, color: tinta, interlineado: 1.08 }));
-    if (l.cuerpo) objetos.push(texto(nuevoId(), 'Texto', l.cuerpo, { left: MARGEN, top: cierre ? 800 : 690, width: ancho, tam: 42, peso: e.texto.peso, fam: famX, color: suave, interlineado: 1.35 }));
-  }
+  // Los textos LLENAN la lámina (6/11/2026: «texto chiquito, mucho vacío»): el titular toma la letra más grande que entra, la
+  // bajada va justo debajo y todo el bloque queda centrado entre la cabecera y la flecha.
+  const ZONA_ARRIBA = 300;
+  const ZONA_ABAJO = 1120;
+  const titularInter = portada ? 1.05 : 1.08;
+  const tamTitular = tamanoQueLlena(l.titulo, portada
+    ? { ancho, alto: 640, min: 84, max: 150, interlineado: titularInter }
+    : { ancho, alto: cierre ? 420 : 400, min: 64, max: cierre ? 120 : 108, interlineado: titularInter });
+  const altoTitular = altoEstimado(l.titulo, tamTitular, ancho, titularInter);
+  const HUECO = 44;
+  const topCuerpoMax = ZONA_ABAJO;
+  const tamCuerpo = l.cuerpo ? tamanoQueLlena(l.cuerpo, { ancho, alto: Math.max(120, topCuerpoMax - ZONA_ARRIBA - altoTitular - HUECO), min: 40, max: portada ? 54 : 62, interlineado: 1.3 }) : 0;
+  const altoCuerpo = l.cuerpo ? altoEstimado(l.cuerpo, tamCuerpo, ancho, 1.3) : 0;
+  const bloque = altoTitular + (l.cuerpo ? HUECO + altoCuerpo : 0);
+  const arriba = Math.max(ZONA_ARRIBA, Math.round(ZONA_ARRIBA + (ZONA_ABAJO - ZONA_ARRIBA - bloque) / 2));
+  if (!portada && !cierre) objetos.push(texto(nuevoId(), 'Rótulo', l.rotulo, { left: MARGEN, top: arriba - 70, width: ancho, tam: 28, peso: 700, fam: famX, color: e.acento, espaciado: 120, mayus: true, interlineado: 1.1 }));
+  objetos.push(texto(nuevoId(), 'Titular', l.titulo, { left: MARGEN, top: arriba, width: ancho, tam: tamTitular, peso: e.titular.peso, fam: famT, color: tinta, interlineado: titularInter }));
+  if (l.cuerpo) objetos.push(texto(nuevoId(), portada ? 'Bajada' : 'Texto', l.cuerpo, { left: MARGEN, top: arriba + altoTitular + HUECO, width: ancho, tam: tamCuerpo, peso: e.texto.peso, fam: famX, color: suave, interlineado: 1.3 }));
+  if (portada) objetos.push(texto(nuevoId(), 'Desliza', 'Desliza →', { left: MARGEN, top: 1176, width: 420, tam: 32, peso: 600, fam: famX, color: e.acento, interlineado: 1.1 }));
 
   // La barra de progreso (abajo, del ancho de lo que lleva leído) y la flecha (menos en la última).
   objetos.push(rect(nuevoId(), 'Barra de progreso', { left: 0, top: ALTO_CARRUSEL - 10, width: Math.round((ANCHO_CARRUSEL * (i + 1)) / total), height: 10, fill: e.acento }));

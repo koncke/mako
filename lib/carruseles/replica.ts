@@ -20,13 +20,17 @@
 // =============================================================================
 
 import { parseJsonObject } from '../json-del-modelo';
-import { ANCHO_CARRUSEL, ALTO_CARRUSEL, esOscuro, familia, rect, texto, type Marca } from './documento';
+import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
 
 /** El papel de un texto en la lámina: lo usa el nombre de la capa («Titular», «Texto»…), que es como el chat la encuentra. */
 export const ROLES_TEXTO = ['titulo', 'cuerpo', 'rotulo', 'dato', 'cta', 'firma'] as const;
 export type RolTexto = (typeof ROLES_TEXTO)[number];
 const NOMBRE_DE_ROL: Record<RolTexto, string> = { titulo: 'Titular', cuerpo: 'Texto', rotulo: 'Rótulo', dato: 'Dato', cta: 'Llamada a la acción', firma: 'Firma' };
+
+/** El estilo de la letra del original, para elegir una tipografía REAL del editor (app/image-editor/mako/fuentes.ts). */
+export const LETRAS = ['sans', 'gruesa', 'condensada', 'serif', 'manuscrita', 'mono'] as const;
+export type Letra = (typeof LETRAS)[number];
 
 export type TextoReplica = {
   rol: RolTexto;
@@ -39,6 +43,7 @@ export type TextoReplica = {
   negrita: boolean;
   alinear: 'left' | 'center' | 'right';
   mayus: boolean;
+  letra: Letra;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
 export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null };
@@ -71,23 +76,29 @@ export type PedidoReplica = {
   pedido?: string | null;
   /** Un anuncio (una sola imagen) en vez de un carrusel. */
   anuncio?: boolean;
+  /** El pie del original: sólo para entender el tema y la estructura (no se copia). Útil cuando se ve nada más que la portada. */
+  pie?: string | null;
 };
 
 /** El prompt (un solo mensaje: lo lee la IA junto con las imágenes). Los datos del negocio van marcados como datos. */
 export function promptDeReplica(p: PedidoReplica): string {
   const n = Math.max(1, Math.min(LAMINAS_MAX, Math.round(p.laminas) || 1));
-  const vistas = Math.max(1, Math.min(n, p.vistas));
+  const vistas = Math.max(0, Math.min(n, p.vistas));
   const que = p.anuncio ? 'un anuncio de imagen' : `un carrusel de Instagram de ${n} ${n === 1 ? 'lámina' : 'láminas'}`;
   return [
-    `Te muestro ${vistas === n ? (n === 1 ? 'la imagen' : `sus ${n} láminas, en orden`) : `sólo ${vistas === 1 ? 'su portada' : `sus primeras ${vistas} láminas`}`} de ${que} que funcionó. Vas a REPLICAR su DISEÑO para el negocio de abajo: misma cantidad de láminas, mismo lugar, tamaño, color y peso de cada texto, mismo color de fondo y mismo lugar de cada foto, con los TEXTOS escritos para este negocio.`,
-    vistas < n ? `De las láminas que no ves, continúa el mismo estilo de las que ves y la misma estructura (la última pide la acción).` : '',
+    vistas === 0
+      ? `No tienes sus láminas: sólo el tema y el pie de ${que} que funcionó (abajo). Vas a ARMAR la versión para el negocio de abajo: ${n === 1 ? 'una lámina' : `${n} láminas`}, con la estructura que sugiere el pie (gancho, desarrollo y una acción al final), el diseño pensado por ti (tipografía y color, sin fotos) y los TEXTOS escritos para este negocio.`
+      : `Te muestro ${vistas === n ? (n === 1 ? 'la imagen' : `sus ${n} láminas, en orden`) : `sólo ${vistas === 1 ? 'su portada' : `sus primeras ${vistas} láminas`}`} de ${que} que funcionó. Vas a REPLICAR su DISEÑO para el negocio de abajo: misma cantidad de láminas, mismo lugar, tamaño, color y peso de cada texto, mismo color de fondo y mismo lugar de cada foto, con los TEXTOS escritos para este negocio.`,
+    vistas > 0 && vistas < n ? `De las láminas que no ves, continúa el mismo estilo de las que ves y la misma estructura (la última pide la acción).` : '',
     '',
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma, va el nombre del negocio.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
-    p.conAvatar ? '- Donde el original tiene la foto de una persona, marca `persona: true`: ahí va la foto del dueño del negocio.' : '- Donde el original tiene una foto, marca dónde (va a quedar un espacio para su foto).',
+    p.conAvatar ? '- Donde el original tiene la foto de una persona, marca `persona: true`: ahí va la foto del dueño del negocio.' : '- No pongas fotos ni personas: la lámina es sólo tipografía y color. Deja `foto: null` en todas.',
+    '- El texto LLENA la lámina: titulares grandes (tamano entre 0.08 y 0.14), cuerpo de 0.045 a 0.06, nada chiquito ni mucho vacío. Pocas palabras por lámina, las justas para que se lean de un vistazo. Respeta la jerarquía del original: lo que en el original es grande, aquí también lo es.',
+    '- `letra` es el estilo de la letra del original: sans (palo seco), gruesa (palo seco muy pesada), condensada (alta y angosta), serif, manuscrita o mono. Si dudas, sans.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes: escribe la frase sin ese dato.',
     p.pedido?.trim() ? `- Lo que pidió el dueño: ${p.pedido.trim().slice(0, 300)}` : '',
     '',
@@ -95,10 +106,11 @@ export function promptDeReplica(p: PedidoReplica): string {
     '<<<NEGOCIO',
     (p.negocio || 'No hay datos del negocio: escribe para un negocio de servicios, sin inventar cifras.').slice(0, 6_000),
     'NEGOCIO>>>',
+    p.pie?.trim() ? `El pie de la publicación original (sólo para entender el tema y la estructura; NO copies sus frases):\n<<<PIE\n${p.pie.trim().slice(0, 1_200)}\nPIE>>>` : '',
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     'Devuelve SÓLO un JSON con esta forma:',
-    `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -149,6 +161,7 @@ export function leerReplica(crudo: string, o: { laminas: number }): Replica | { 
         negrita: t.negrita === true || t.negrita === 'true',
         alinear: t.alinear === 'center' || t.alinear === 'right' ? t.alinear : 'left',
         mayus: t.mayus === true || t.mayus === 'true',
+        letra: (LETRAS as readonly string[]).includes(String(t.letra)) ? (t.letra as Letra) : 'sans',
       });
     }
     const f = l.foto && typeof l.foto === 'object' ? (l.foto as Record<string, unknown>) : null;
@@ -166,6 +179,86 @@ export function leerReplica(crudo: string, o: { laminas: number }): Replica | { 
 // ─────────────────────────────────────────────────────────────────────────────
 // El documento del Image Editor
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El diseño: letras reales del editor, texto que llena la lámina, y sin recuadros de «Tu foto»
+// ─────────────────────────────────────────────────────────────────────────────
+// 6/11/2026, mirando el resultado: «letra serif, texto chiquito, mucho vacío y un recuadro gris “Tu foto”: eso no se publicaría».
+// Por eso (1) cada texto lleva una tipografía REAL del editor según el estilo de letra del original (nunca la de un tipo de
+// MaKo que la IA no vio), (2) los textos se reacomodan para LLENAR la lámina conservando la jerarquía (el titular sigue siendo
+// el más grande, y todos crecen juntos hasta ocupar el espacio), y (3) sin la foto del cliente no hay recuadro: un diseño sin
+// persona, sólo tipografía y color.
+
+/** Las letras del editor: titulares (titulo, dato, cta) y texto corriente, por estilo. Todas están en app/image-editor/mako/fuentes.ts. */
+const LETRA_DEL_EDITOR: Record<Letra, { titular: { familia: string; respaldo: 'serif' | 'sans-serif'; peso: number }; texto: { familia: string; respaldo: 'serif' | 'sans-serif'; peso: number; negrita: number } }> = {
+  sans: { titular: { familia: 'Montserrat', respaldo: 'sans-serif', peso: 800 }, texto: { familia: 'Inter', respaldo: 'sans-serif', peso: 400, negrita: 700 } },
+  gruesa: { titular: { familia: 'Archivo Black', respaldo: 'sans-serif', peso: 400 }, texto: { familia: 'Inter', respaldo: 'sans-serif', peso: 500, negrita: 700 } },
+  condensada: { titular: { familia: 'Anton', respaldo: 'sans-serif', peso: 400 }, texto: { familia: 'Inter', respaldo: 'sans-serif', peso: 400, negrita: 700 } },
+  serif: { titular: { familia: 'Playfair Display', respaldo: 'serif', peso: 800 }, texto: { familia: 'Playfair Display', respaldo: 'serif', peso: 500, negrita: 700 } },
+  manuscrita: { titular: { familia: 'Caveat', respaldo: 'sans-serif', peso: 700 }, texto: { familia: 'Caveat', respaldo: 'sans-serif', peso: 500, negrita: 700 } },
+  mono: { titular: { familia: 'Roboto Mono', respaldo: 'sans-serif', peso: 700 }, texto: { familia: 'Roboto Mono', respaldo: 'sans-serif', peso: 500, negrita: 700 } },
+};
+/** Las familias que usa esta pantalla (el test mira que el editor las tenga todas). */
+export const FAMILIAS_DE_LA_REPLICA: readonly string[] = [...new Set(Object.values(LETRA_DEL_EDITOR).flatMap((l) => [l.titular.familia, l.texto.familia]))];
+
+const ES_TITULAR: ReadonlySet<RolTexto> = new Set(['titulo', 'dato', 'cta']);
+
+/** Tamaño mínimo y máximo de la letra por papel, como fracción del ANCHO de la lámina (0,075 ≈ 81 px en 1080). */
+const MIN_TAM: Record<RolTexto, number> = { titulo: 0.075, dato: 0.12, cuerpo: 0.042, rotulo: 0.03, cta: 0.055, firma: 0.028 };
+const MAX_TAM: Record<RolTexto, number> = { titulo: 0.15, dato: 0.26, cuerpo: 0.07, rotulo: 0.04, cta: 0.1, firma: 0.034 };
+const interlineadoDe = (rol: RolTexto): number => (ES_TITULAR.has(rol) ? 1.06 : 1.3);
+
+/**
+ * Reacomoda los textos de una lámina para que la LLENEN, sin cambiar quién es más grande que quién:
+ *   · cada tamaño se acota por papel (el titular nunca queda chiquito ni el cuerpo gigante);
+ *   · sin foto en la lámina (`libre`), los textos toman el ancho de la lámina (si no, quedaban en una columna angosta al lado de
+ *     un hueco que ya no tiene nada);
+ *   · el bloque principal crece junto (un mismo factor) hasta ocupar ~80 % del alto disponible, en el orden original; si la IA
+ *     lo hizo demasiado grande, se achica para que entre;
+ *   · el rótulo de arriba y la firma de abajo se quedan en su borde.
+ * Con foto del cliente en la lámina sólo se acotan los tamaños: el lugar de cada texto es el que vio la IA.
+ */
+export function ajustarTextos(textos: readonly TextoReplica[], o: { ancho: number; alto: number; libre: boolean }): TextoReplica[] {
+  const W = o.ancho;
+  const H = o.alto;
+  const acotados = textos.map((t) => ({ ...t, tamano: Math.min(MAX_TAM[t.rol], Math.max(MIN_TAM[t.rol], t.tamano)) }));
+  if (!o.libre) return acotados;
+  const alArriba = acotados.filter((t) => t.rol === 'rotulo' && t.y < 0.2);
+  const alFondo = acotados.filter((t) => t.rol === 'firma' && t.y > 0.8);
+  const principal = acotados.filter((t) => !alArriba.includes(t) && !alFondo.includes(t)).sort((a, b) => a.y - b.y);
+  const ancho = (t: TextoReplica) => (t.ancho < 0.84 ? 0.84 : t.ancho);
+  const px = (t: TextoReplica, k: number) => Math.min(MAX_TAM[t.rol] * W, Math.max(MIN_TAM[t.rol] * W * 0.8, t.tamano * W * k));
+  const alto = (t: TextoReplica, tam: number) => altoEstimado(t.texto, tam * (t.mayus ? 1.12 : 1), ancho(t) * W, interlineadoDe(t.rol));
+  const hueco = (a: number, b: number) => Math.round(0.42 * Math.min(a, b));
+  const total = (k: number) => principal.reduce((suma, t, i) => {
+    const tam = px(t, k);
+    const sig = principal[i + 1];
+    return suma + alto(t, tam) + (sig ? hueco(tam, px(sig, k)) : 0);
+  }, 0);
+  const arriba0 = Math.round((alArriba.length ? 0.15 : 0.08) * H);
+  const abajo0 = Math.round((alFondo.length ? 0.86 : 0.92) * H);
+  const disponible = abajo0 - arriba0;
+  let k = 1;
+  if (principal.length) {
+    let lo = 0.5;
+    let hi = 2.6;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (total(m) <= disponible * 0.8) lo = m; else hi = m; }
+    k = lo;
+  }
+  const alto0 = total(k);
+  const centroY = principal.length ? principal.reduce((n, t) => n + t.y, 0) / principal.length : 0.5;
+  let y = centroY < 0.36 ? arriba0 : centroY > 0.64 ? abajo0 - alto0 : arriba0 + Math.round((disponible - alto0) / 2);
+  const salida = new Map<TextoReplica, TextoReplica>();
+  principal.forEach((t, i) => {
+    const tam = px(t, k);
+    const sig = principal[i + 1];
+    salida.set(t, { ...t, tamano: tam / W, x: (1 - ancho(t)) / 2, ancho: ancho(t), y: y / H });
+    y += alto(t, tam) + (sig ? hueco(tam, px(sig, k)) : 0);
+  });
+  for (const t of alArriba) salida.set(t, { ...t, x: (1 - ancho(t)) / 2, ancho: ancho(t), y: 0.07 });
+  for (const t of alFondo) { const a = alto(t, t.tamano * W); salida.set(t, { ...t, x: (1 - ancho(t)) / 2, ancho: ancho(t), y: (0.93 * H - a) / H }); }
+  return acotados.map((t) => salida.get(t) ?? t);
+}
 
 /** La foto del cliente (su avatar), ya en «Subidos» del Image Editor: así el diseño la guarda y se puede cambiar. */
 export type FotoDelCliente = { id: string; url: string; ancho: number; alto: number };
@@ -185,42 +278,32 @@ function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: 
   };
 }
 
-/** Un tono apenas distinto del fondo, para el lugar de una foto que falta (que se vea dónde va sin gritar). */
-function tonoDeLugar(fondo: string): string {
-  return esOscuro(fondo) ? '#3A3A3A' : '#E7E5E0';
-}
-
 /**
- * El diseño editable de la réplica: una página por lámina, con su fondo, la foto del cliente (o el lugar donde va) y cada
- * texto como una capa de texto en su lugar. Las letras son las de la marca (el estilo con el kit: ./marca-kit.ts). En las
- * notas de la primera página, de dónde salió el diseño (no salen en la imagen).
+ * El diseño editable de la réplica: una página por lámina, con su fondo, la foto del cliente SÓLO donde el original tiene una
+ * persona y el cliente tiene foto, y cada texto como una capa de texto. Sin foto del cliente no hay recuadro ni «Tu foto»: la
+ * lámina es tipografía y color. Las letras son del editor (ver arriba); con el kit de marca del negocio, las de su marca
+ * (`conFuentesDeMarca`, con las del `estilo`). En las notas de la primera página, de dónde salió (no salen en la imagen).
  */
 export function documentoDeReplica(o: {
-  replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string;
+  replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string; conFuentesDeMarca?: boolean;
 }): Record<string, unknown> {
   const W = ANCHO_CARRUSEL;
   const H = o.replica.proporcion === '1:1' ? ANCHO_CARRUSEL : ALTO_CARRUSEL;
-  const famT = familia(o.estilo.titular);
-  const famX = familia(o.estilo.texto);
   const pages = o.replica.laminas.map((l, i) => {
     const objetos: Obj[] = [];
-    if (l.foto) {
+    const conFoto = !!(l.foto && l.foto.persona && o.foto);
+    if (l.foto && l.foto.persona && o.foto) {
       const caja = { left: Math.round(l.foto.x * W), top: Math.round(l.foto.y * H), width: Math.round(l.foto.ancho * W), height: Math.round(l.foto.alto * H) };
-      if (o.foto && l.foto.persona) objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
-      else {
-        objetos.push(rect(o.nuevoId(), 'Foto: lugar', { ...caja, fill: tonoDeLugar(l.fondo), radio: 0 }));
-        objetos.push(texto(o.nuevoId(), 'Foto: qué va', l.foto.descripcion ? `Tu foto: ${l.foto.descripcion}` : 'Tu foto', {
-          left: caja.left + 24, top: caja.top + Math.max(12, caja.height / 2 - 20), width: Math.max(80, caja.width - 48), tam: 28, peso: 500, fam: famX,
-          color: esOscuro(tonoDeLugar(l.fondo)) ? '#BDBDBD' : '#6B6B6B', alin: 'center', interlineado: 1.2,
-        }));
-      }
+      objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
     }
-    for (const t of l.textos) {
-      const titular = t.rol === 'titulo' || t.rol === 'dato';
+    for (const t of ajustarTextos(l.textos, { ancho: W, alto: H, libre: !conFoto })) {
+      const titular = ES_TITULAR.has(t.rol);
+      const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
+      const base = o.conFuentesDeMarca ? (titular ? o.estilo.titular : o.estilo.texto) : titular ? letra.titular : letra.texto;
+      const peso = o.conFuentesDeMarca ? (t.negrita && !titular ? 700 : base.peso) : titular ? letra.titular.peso : t.negrita ? letra.texto.negrita : letra.texto.peso;
       objetos.push(texto(o.nuevoId(), NOMBRE_DE_ROL[t.rol], t.texto, {
         left: Math.round(t.x * W), top: Math.round(t.y * H), width: Math.round(t.ancho * W),
-        tam: Math.round(Math.min(160, Math.max(18, t.tamano * W))), peso: t.negrita ? 800 : 400,
-        fam: titular ? famT : famX, color: t.color, alin: t.alinear, interlineado: titular ? 1.08 : 1.3, mayus: t.mayus,
+        tam: Math.round(t.tamano * W), peso, fam: familia(base), color: t.color, alin: t.alinear, interlineado: interlineadoDe(t.rol), mayus: t.mayus,
       }));
     }
     return {

@@ -63,3 +63,14 @@ export function logoDeKit(kit: KitMarca | null): Marca['logo'] {
   const l = kit?.logo;
   return l ? { id: l.subidoId, url: l.url, nombre: l.nombre, ancho: l.ancho, alto: l.alto } : null;
 }
+
+/**
+ * El estilo de un tipo de MaKo para un diseño que se va a PUBLICAR (6/11/2026: «letra serif… eso no se publicaría»): si la marca
+ * del negocio no trae sus letras, la serif del tipo (DM Serif Display, Fraunces) pasa a palo seco del editor. Con las letras de
+ * la marca (`kit.fuentes`), se respetan.
+ */
+export function estiloSinSerif(e: EstiloCarrusel, kit: KitMarca | null): EstiloCarrusel {
+  if (kit?.fuentes.titulos) return e;
+  const palo = (f: EstiloCarrusel['titular']): EstiloCarrusel['titular'] => (f.respaldo === 'serif' ? { familia: 'Montserrat', respaldo: 'sans-serif', peso: 800 } : f);
+  return { ...e, titular: palo(e.titular), texto: e.texto.respaldo === 'serif' ? { familia: 'Inter', respaldo: 'sans-serif', peso: 400 } : e.texto };
+}
