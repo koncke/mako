@@ -4,6 +4,56 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Ninguna guarda del pre-push mira el registro de prompts: un prompt mal cableado entra en silencio (medido el 6/11/2026)
+
+**Síntoma:** ninguno. Un prompt que no está en `lib/prompt-registry.ts` funciona igual en runtime
+(`getPromptText` hace `override ?? fallback`); lo único que pasa es que no aparece en /configuraciones y
+editarlo no hace nada. Y un slot `{{x}}` que el `variables:` de la Entry no declara viaja LITERAL al modelo,
+porque `renderTemplate` reemplaza sólo los slots declarados — a propósito, por anti-inyección.
+
+**Lo medido, para que nadie lo vuelva a estimar:**
+
+- `lib/prompt-registry.ts` tiene **165 `key:` literales** (más 6 que genera `mako.fase.*` y 2 de
+  `PROMPTS_NEWSLETTER`: ~173 entradas en runtime).
+- **2.307 archivos `*.test.ts`, y ninguno importaba el `REGISTRY`.** Medición exacta: antes de este commit,
+  `grep -rln '\bREGISTRY\b' tests/` devolvía **0 archivos**.
+- **`scripts/guardas-push.sh` tiene 0 ocurrencias de la palabra «prompt».** Las ~17 guardas que corre miran
+  tipos de bitácoras, claves en el diff, rutas de Windows en tests, módulos `.ts`, hooks de React y seis
+  sincronías de texto generado. Ninguna mira un prompt. `scripts/tests-afectados.mjs` elige tests por
+  archivo tocado, no por key de prompt.
+- **Y hay 29 keys huérfanas HOY**: llamadas con `renderPrompt(...)`/`getPromptText(...)` y ausentes del
+  REGISTRY, o sea no editables, violando la regla «todo prompt de MaKo es editable»:
+  `archivero.preguntas.system`, `avatares.{system,user}`, `avatares.siguiente.{system,user}`,
+  `chatagent.handoff`, `checklist.batch.{system,user}`, `entregable.{system,user}`,
+  `entregable.siguiente.{system,user}`, `guardian.audiencia.{system,user}`,
+  `guardian.fecha-debate.{system,user}`, `guardian.nuevas.{system,user}`,
+  `guardian.proy-nuevos.{system,user}`, `guardian.proyectos.{system,user}`, `plan.seed.{system,user}`,
+  `razones.{system,user,sugerir,guion}`, `setting.guion_audio`.
+  Es un PISO: sólo cuenta keys literales en el primer argumento, así que una key armada en una tabla no la ve.
+
+**La causa:** el chequeo existe, pero copiado a mano y por feature. `tests/offer-ia-cableado.test.ts:167-203`
+hace las tres comparaciones bien (call-sites ↔ registro ↔ slots) **para las 9 keys de `offer.*` listadas a
+mano en `:151-161`**. `tests/closing-entrega.test.ts`, `tests/copywriter-ia.test.ts` y
+`tests/editor-landing-ia.test.ts` hacen versiones parciales, cada una con su lista. Una lista a mano no cubre
+lo que se agrega después: por eso las 29 huérfanas entraron sin que nada se pusiera rojo, y el propio repo ya
+lo tenía anotado para cuatro de ellas (`app/admin/dev/ads-writer/bitacora.ts:218`: «no aparecen, no se pueden
+editar, y el compilador no lo ve»).
+
+**Lo obvio que no alcanza:** la skill `verify-prompt-registry-sync` ya describe los cuatro modos de falla
+exactos. Es MANUAL: corre cuando alguien se acuerda de invocarla, y nada la dispara al pushear. Una skill no
+es una guarda.
+
+**La regla que queda:** después de tocar un prompt, los slots de la plantilla, el `variables:` de la Entry y
+las keys del objeto que recibe `renderPrompt` se comparan a mano (la skill), **y el test de ese prompt los
+compara solo** — como hacen `tests/offer-ia-cableado.test.ts` y, desde el 6/11,
+`tests/closing-taxonomia.test.ts`. Un prompt nuevo sin ese test entra mudo y nadie se entera.
+
+**Sin hacer:** el chequeo que falta es uno que recorra el `REGISTRY` entero en vez de una lista por feature.
+Tiene una trampa que hay que resolver antes: el cruce ingenuo da ~45 falsos positivos porque muchas keys
+llegan por indirección en tabla (`lib/editor-video/chat-prompts.ts:13` → `{ key: 'video_editor.chat.system' }`,
+`lib/editor-landing/ia-reglas.ts:1446`), y hay entradas muertas a propósito y documentadas
+(`mako.modo.*`, `lib/prompt-registry.ts:199`). Vive en `lib/prompt-registry.ts` + `scripts/guardas-push.sh`.
+
 ## «No tengo acceso a Google Calendar» con la agenda conectada: nombrar el LUGAR no traía la herramienta (ticket #42, 3/11/2026)
 
 **Síntoma (Código Inmobiliario, en su grupo):** MaKo dijo «no tengo acceso a crear eventos en tu Google Calendar» y dos renglones
