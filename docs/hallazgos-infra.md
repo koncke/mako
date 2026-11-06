@@ -84,6 +84,93 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
+
+Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
+
+```
+  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+  Corre esto y volve a pushear:
+      node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+El documento no estaba viejo. Corriendo el mismo script a mano: `✓ docs/branding-mako.md al día`, cero
+diff. **Lo que pasaba es que el worktree no tenía `node_modules`**, así que `--import tsx` moría con
+`ERR_MODULE_NOT_FOUND` y salía con 1 — y `scripts/guardas-push.sh:73` lee ese 1 como «el documento
+difiere»:
+
+```sh
+if ! node --import tsx scripts/sync-gramatica-doc.mjs --check; then
+  echo "  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo..."
+```
+
+**Why:** el `if !` no distingue «medí y hay diferencia» de «no pude medir». Las dos cosas salen con 1. Y
+el mensaje no es neutro: afirma una causa falsa y manda a un comando que **tampoco puede correr**, así
+que seguir la instrucción al pie de la letra no desbloquea nada. Es la misma forma que «Una verificación
+que no verifica es la otra mitad de un test que no prueba» (AGENTS.md), pero del lado de la guarda: una
+guarda que no corre no es neutral, miente.
+
+Y no es una sola: `scripts/guardas-push.sh` tiene varias guardas con esta forma exacta (la de
+`sync-gramatica-doc`, la de `generar-plugin --check`), todas con un mensaje que nombra el archivo
+chequeado como culpable.
+
+**How to apply:**
+
+- **Un worktree nuevo necesita `node_modules` antes del primer push**, aunque el commit sea de pura
+  documentación: las guardas del pre-push corren `tsx`. En esta máquina se hace con un enlace, no con un
+  `npm install`: `cmd /c mklink /J C:\dev\wt-<chat>\node_modules <clon>\node_modules` (`ln -s` en Git
+  Bash COPIA, y acá copiar son gigas). Al borrar el worktree, el enlace va primero (`cmd //c rmdir`) y
+  después `git worktree remove`.
+- Si una guarda del pre-push acusa a un archivo que no tocaste, **corré su script a mano antes de
+  creerle**. Si dice «al día», la guarda no midió: falta una dependencia, no sobra un desfase.
+- Lo que queda por arreglar, en `scripts/guardas-push.sh`: separar el fallo de medición del hallazgo. Un
+  `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
+  «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
+
+## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
+
+Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
+Cinco estaban cerrados **antes** de que se escribiera la foto, y el `LEEME.md` del reparto lo avisaba
+(«es una FOTO del 6/11 y envejece»). El detalle con su prueba está en
+[encargos-6-11/triaje-varios.md](encargos-6-11/triaje-varios.md).
+
+| id | Decía | Cerrado por | Cuándo |
+|---|---|---|---|
+| 319 | faltan cuenta regresiva, prueba social y escasez en las landings | `9bfa14326` | **5/11**, el día anterior |
+| 473 | AGENTS.md dice que Creem modera lo que genera imagen o video | `1be60d0a4` | **5/11**, el día anterior |
+| 594 | dos STT clavados en `whisper-1` fuera del choke point | `cf00a3b92` | 22/10 |
+| 591 | cinco tablas con `workspace_id` fuera del proxy de inquilino | `eb6092ef1` | **17/10**, veinte días antes |
+| 601 | `lib/copywriter/contexto.ts` sigue con el `GRAFO` viejo | — | mudado el 29/10 |
+
+Y otros seis describían un árbol que ya no existe: el **306** afirma que `lib/aperturas/` tiene tres
+archivos y tiene nueve; el **583** daba a `juzgarConCriterio` por código muerto y lo llama
+`lib/reunion-auto.ts:431`; el **580** pedía un compare-and-set que ya está en
+`lib/cs-mover-etapa.ts:278`; el **596** decía que a `leadsEnElWebhook` no lo usa nadie y lo usa
+`app/api/cron/meta-leads-poll/route.ts:54`.
+
+**Why:** una lista de pendientes es una medición con fecha, y el repo se mueve más rápido que ella.
+El costo no es simétrico: un pendiente olvidado espera, uno fantasma se lleva una tanda entera de
+trabajo y además hace dudar de la lista completa.
+
+**How to apply:**
+
+- **Antes de trabajar un item, se comprueba, y la prueba es un commit o un archivo con su línea** —
+  nunca «el documento lo dice». Es la misma regla de
+  «[Un "no cambió nada" sobre PRODUCCIÓN se contesta con `git log`](../AGENTS.md)», aplicada al revés:
+  un «falta» también se contesta con `git log`.
+- **Los números de línea de un item envejecen antes que el item.** El **309** manda a
+  `docs/hallazgos.md:145,163,164,180,181,188,302,303` y el archivo tiene 300 líneas; de los dos
+  duplicados que denunciaba, el de `AI Avatar` ya estaba resuelto. Se busca por el CONTENIDO (`grep` del
+  símbolo), nunca por el número.
+- ⚠️ **«Es de otra área» NO significa «tiene dueño».** Verifiqué los once `equipo-*.json` del reparto:
+  **ningún id se repite entre dos archivos**. De los 17 items de «Varios» cuyo código vive en el área de
+  otro chat, sólo **4** tienen un equivalente real en la lista de ese chat (el 467 ≡ Infra 100, el 468 ≡
+  Infra 104, el 309 ≡ Infra 611, el 476 ≡ Admin 230). Los otros 13 no están en ninguna lista: marcarlos
+  «de otra área» y seguir es tirarlos. Hay que pasárselos a mano, y decir en el reporte que se pasaron.
+- Y al revés: **el reparto de un item a un área sale mejor del que lo mide que del que lo escribió.**
+  El 467 lo tenía Infra con el archivo correcto (`lib/credenciales.ts:285`) mientras «Varios» lo mandaba
+  a `lib/integraciones.ts`, donde la función no existe.
+
 ## El recorte de Vercel SÍ funcionó, y los builds son el 97% de la factura: medido en el panel (6/11/2026)
 
 El relevo lo dejó pedido con el motivo escrito: «Falta medir el ahorro en el panel (`/~/usage`, con la sesión de Martín en el navegador de la app), **no en `/v1/billing/charges`**». Medido el 6/11 a las ~18:20 UTC, con Martín entrando en el navegador de la app:
