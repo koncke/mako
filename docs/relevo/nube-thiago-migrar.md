@@ -10,7 +10,7 @@ Rama: **`punta/thiago-migrar`** (y la de la sesión, `claude/jolly-heisenberg-a4
 
 | Promesa | Qué hay | Dónde | Test |
 |---|---|---|---|
-| 2. `createLead` con UTM, fecha original e id externo, sin repetir | `id_externo`, `migrado_de` y `fecha_original` (mig 0404). El mismo id dentro del mismo CRM viejo tira `LeadYaMigradoError`, aunque venga `permitirDuplicado`; un índice único es la red de dos altas a la vez | `lib/leads.ts`, `lib/migracion-leads.ts` | `tests/migrar-contactos.test.ts` |
+| 2. `createLead` con UTM, fecha original e id externo, sin repetir | `id_externo`, `migrado_de` y `fecha_original` (mig 0405). El mismo id dentro del mismo CRM viejo tira `LeadYaMigradoError`, aunque venga `permitirDuplicado`; un índice único es la red de dos altas a la vez | `lib/leads.ts`, `lib/migracion-leads.ts` | `tests/migrar-contactos.test.ts` |
 | 3. Migrados quietos | `origen_lead: 'migracion'`. El barrido de las automatizaciones nunca toma un migrado (`sinMigrados` en `leadsDeCohorte`, una puerta para todas las cohortes) y el CRM automático no lo mueve (`quedaDondeLoPusieron`). Entra a una automatización sólo por un hecho nuevo, por el evento de siempre | `lib/nutricion.ts`, `app/crm/origen-lead.ts` | ídem, roto tres veces |
 | La operación | `migrar_contactos` = `POST /api/v1/crm/migraciones`: hasta 200 por pedido, cada uno nace en su etapa abierta, el que ya estaba por email o teléfono se adopta (se le anota el id), repetir es seguro, y la respuesta dice cuántos se crearon, cuántos ya estaban, cuáles quedaron afuera y por qué. Sólo `http`, sólo admin, aplica el tope de leads del plan | `lib/api-mako/areas/crm.*`, `lib/migracion-leads-server.ts` | ídem, contra el código real |
 | 4. Token de agencia | `mako_agt_…`, acuñado en la cuenta de la agencia eligiendo como propietario «Todos los clientes de la agencia». Cada pedido nombra al cliente con `X-MaKo-Cliente` (o `?cliente=`); se repregunta en cada pedido que siga siendo agencia y que el cliente esté aprobado. 404 a un cliente ajeno, revocado o pendiente; 400 sin cliente (con la lista); 503 si la base no contesta; nunca cae a la agencia | `lib/api-mako/tokens-cartera*.ts`, `lib/api-mako/http.ts`, `app/api-mako/Tokens.tsx` | `tests/api-mako-token-agencia.test.ts` (dos agencias) |
@@ -19,9 +19,9 @@ Rama: **`punta/thiago-migrar`** (y la de la sesión, `claude/jolly-heisenberg-a4
 
 ## Lo que pide producción (lo hace el Cerebro desde la PC, con el sí de Martín)
 
-1. **Aplicar la 0404 ANTES del deploy, o junto** (`node scripts/apply-migration.mjs supabase/migrations/0404_leads_migracion.sql`).
-   Sin ella, `migrar_contactos` contesta «falta la migración 0404» y no crea nada; ningún otro alta nombra esas columnas.
-   Medido: 0404 libre en main y en las 286 ramas el 6/11.
+1. **Aplicar la 0405 ANTES del deploy, o junto** (`node scripts/apply-migration.mjs supabase/migrations/0405_leads_migracion.sql`).
+   Sin ella, `migrar_contactos` contesta «falta la migración 0405» y no crea nada; ningún otro alta nombra esas columnas.
+   Medido: 0405 libre en main, en las ramas y en las etiquetas el 6/11 (la 0404 la tomó main ese día: los carruseles).
 2. Probarlo en el ws 3 con un token detallado: un lote de 3 contactos dos veces (el segundo tiene que decir «ya entraron»).
 3. Para la llamada con Thiago: su cuenta tiene que ser Agency (capa `agencia` y su fila en `agencias`) y sus clientes aprobados
    en la cartera, o el token de agencia contesta 403/404.

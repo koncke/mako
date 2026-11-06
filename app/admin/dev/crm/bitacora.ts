@@ -4067,7 +4067,7 @@ export const BITACORA: Hito[] = [
       'lib/migracion-leads.ts — la regla, pura · lib/migracion-leads-server.ts — el alta de cada contacto',
       'lib/leads.ts — createLead con id externo · lib/nutricion.ts — sinMigrados en leadsDeCohorte',
       'lib/api-mako/areas/crm.def.ts / crm.run.ts — migrar_contactos (POST /api/v1/crm/migraciones)',
-      'supabase/migrations/0404_leads_migracion.sql — SIN APLICAR',
+      'supabase/migrations/0405_leads_migracion.sql — SIN APLICAR',
       'tests/migrar-contactos.test.ts — el código real contra una base de mentira; cada rotura da rojo',
     ],
     revisar: '/api-mako?tab=docs&art=migrar-crm',

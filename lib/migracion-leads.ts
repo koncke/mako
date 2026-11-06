@@ -5,7 +5,7 @@
 // traer los contactos de su CRM anterior por la API, con su Claude. Martín le prometió tres cosas, y las tres viven acá:
 //
 //   1. **Se guarda de dónde vino:** el id del CRM viejo (`id_externo`), el CRM (`migrado_de`), la fecha en que se creó
-//      allá (`fecha_original`) y las UTM. Mig 0404.
+//      allá (`fecha_original`) y las UTM. Mig 0405.
 //   2. **Migrar dos veces no repite a nadie:** el id del CRM viejo es la llave. Volver a mandar un lote (porque se cortó,
 //      o porque Claude lo reintentó) saltea a los que ya entraron. Lo decide `createLead` (lib/leads.ts) con la base.
 //   3. **Entran QUIETOS:** un migrado no recibe ningún mensaje ni entra a ninguna automatización por haber llegado. Lo
@@ -49,7 +49,7 @@ export class LeadYaMigradoError extends Error {
 }
 export const esLeadYaMigrado = (e: unknown): e is LeadYaMigradoError => e instanceof LeadYaMigradoError;
 
-/** El nombre del índice único de la 0404: un 23505 con este nombre es «otra alta con el mismo id llegó antes». */
+/** El nombre del índice único de la 0405: un 23505 con este nombre es «otra alta con el mismo id llegó antes». */
 export const INDICE_ID_EXTERNO = 'leads_ws_id_externo_uq';
 
 /** Lo que entra de un contacto, ya validado. */

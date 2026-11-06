@@ -22,7 +22,7 @@ const pg = crearPostgrest({
     if (tabla === 'mako_acciones_pendientes') return { id: `pend-${siguienteId++}`, estado: 'pendiente', created_at: ahoraIso(), ...f };
     return { id: siguienteId++, created_at: ahoraIso(), ...f };
   },
-  // El índice único de la 0404: la red de dos altas a la vez con el mismo id del CRM viejo.
+  // El índice único de la 0405: la red de dos altas a la vez con el mismo id del CRM viejo.
   unicos: [{
     tabla: 'leads', nombre: 'leads_ws_id_externo_uq', columnas: ['workspace_id', 'migrado_de', 'id_externo'],
     donde: (f: Fila) => f.id_externo != null,

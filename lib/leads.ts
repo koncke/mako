@@ -305,7 +305,7 @@ export type Lead = {
   deal_obligaciones?: { cliente?: string[]; prestador?: string[] } | null;
   facturado_por_id?: number | null;
 
-  // De dónde se migró (mig 0404, lib/migracion-leads.ts). Opcionales: una base sin la migración no las trae.
+  // De dónde se migró (mig 0405, lib/migracion-leads.ts). Opcionales: una base sin la migración no las trae.
   id_externo?: string | null;
   migrado_de?: string | null;
   fecha_original?: string | null;
@@ -368,7 +368,7 @@ export type LeadCreateInput = {
   /** Cómo entró por Instagram o Messenger (`entradaSocialDe`, mig 0290_lead_entrada). */
   entrada_social?: EntradaSocial | null;
   /**
-   * El id que el contacto tenía en el CRM del que se migra (mig 0404, lib/migracion-leads.ts). Con él, volver a migrar
+   * El id que el contacto tenía en el CRM del que se migra (mig 0405, lib/migracion-leads.ts). Con él, volver a migrar
    * NO lo repite: `createLead` tira `LeadYaMigradoError` si ya hay un lead con ese id (dentro de su `migrado_de`).
    */
   id_externo?: string | null;
@@ -1118,7 +1118,7 @@ export async function createLead(input: LeadCreateInput & {
       // Instagram o Messenger. Sólo si vino, y con el reintento de abajo si la migración no llegó.
       ...(input.pagina_registro?.trim() ? { pagina_registro: input.pagina_registro.trim() } : {}),
       ...(input.entrada_social ? { entrada_social: input.entrada_social } : {}),
-      // Lo de la migración (mig 0404): SÓLO SI VINO, así un alta de siempre no nombra columnas que pueden faltar. Y NO va
+      // Lo de la migración (mig 0405): SÓLO SI VINO, así un alta de siempre no nombra columnas que pueden faltar. Y NO va
       // a `sinColumnasNuevas`: un migrado sin su id no se puede volver a migrar sin repetirse, así que sin la columna tira.
       ...(idExterno ? { id_externo: idExterno } : {}),
       ...(migradoDe ? { migrado_de: migradoDe } : {}),
@@ -1127,7 +1127,7 @@ export async function createLead(input: LeadCreateInput & {
   };
   const insertar = (f: Record<string, unknown>) => supabase.from('leads').insert(f).select('*').single();
   let { data, error } = await insertar(fila);
-  // Dos altas con el mismo id del CRM viejo a la vez: la segunda choca con el índice de la 0404 y es «ya estaba».
+  // Dos altas con el mismo id del CRM viejo a la vez: la segunda choca con el índice de la 0405 y es «ya estaba».
   if (error && idExterno && error.code === '23505' && String(error.message ?? '').includes(INDICE_ID_EXTERNO)) {
     const ya = await leadPorIdExterno(migradoDe, idExterno);
     if (ya != null) throw new LeadYaMigradoError(ya, idExterno);

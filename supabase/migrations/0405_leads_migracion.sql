@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0404 — Un lead MIGRADO de otro CRM recuerda de dónde vino (la llamada con Thiago, 29/10/2026)
+-- 0405 — Un lead MIGRADO de otro CRM recuerda de dónde vino (la llamada con Thiago, 29/10/2026)
 -- =============================================================================
 -- Thiago (una agencia con 27 clientes en España) quiere pasar a MaKo los contactos de su CRM anterior por la API, con
 -- su Claude. Martín le prometió que se guardan el id del CRM viejo, la fecha original y las UTM, y que migrar dos veces
@@ -16,10 +16,11 @@
 -- El índice único es la red de dos altas a la vez con el mismo id (el chequeo de `createLead` lee y después inserta).
 --
 -- ORDEN DE DESPLIEGUE: ANTES del código, o junto. La única que escribe estas columnas es la operación nueva
--- `migrar_leads` (lib/api-mako/areas/crm.run.ts): sin la migración contesta «falta la migración 0404» y no crea nada.
+-- `migrar_contactos` (lib/api-mako/areas/crm.run.ts): sin la migración contesta «falta la migración 0405» y no crea nada.
 -- Ningún alta de antes las nombra, así que nada más se rompe.
 --
--- Número elegido el 6/11/2026 barriendo main (llega a 0403), las 286 ramas y las etiquetas de origin: el más alto era 0403.
+-- Número: se escribió como 0404 y main tomó la 0404 ese mismo día (los carruseles); renumerada a 0405 el 6/11/2026
+-- después de barrer main, las ramas y las etiquetas de origin (libre en todas).
 -- Sin funciones: no hace falta revoke de EXECUTE. `leads` ya tiene RLS.
 -- =============================================================================
 

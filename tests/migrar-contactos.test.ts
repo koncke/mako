@@ -12,7 +12,7 @@
 // Probado rompiéndolo (6/11/2026), con la base en 12/0 (13/0 con el alta en lote, que se sumó después):
 //   · sin `sinMigrados` en `leadsDeCohorte` (lib/nutricion.ts) → 10/2: «la cohorte de "Un Lead Entró"…» y «…ni al activar».
 //   · sin el `'migracion'` en `quedaDondeLoPusieron` (app/crm/origen-lead.ts) → 11/1: «el CRM automático no lo mueve».
-//   · sin el chequeo por id en `createLead` Y sin el índice de la 0404 en el doble → 10/2: «el mismo id dos veces» y el
+//   · sin el chequeo por id en `createLead` Y sin el índice de la 0405 en el doble → 10/2: «el mismo id dos veces» y el
 //     segundo envío del lote.
 //   · sin `etapaAbierta` en `ubicarEnEtapas` → 9/3: el «ganado» entraba (las que miran las etapas finales).
 //   · sin las UTM en `crearLeadsDePropuesta` (lib/api-mako/flujo.ts) → 12/1: «el alta en lote… ya no tira las UTM».

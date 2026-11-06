@@ -17,7 +17,7 @@ import {
   ORIGEN_MIGRACION, esLeadYaMigrado, ubicarEnEtapas, type ContactoMigrado,
 } from './migracion-leads';
 
-/** ¿La base todavía no tiene la 0404? (PostgREST 42703 o PGRST204 nombrando una de sus columnas). */
+/** ¿La base todavía no tiene la 0405? (PostgREST 42703 o PGRST204 nombrando una de sus columnas). */
 export function faltaLaMigracion(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String((e as { message?: unknown })?.message ?? e);
   return /id_externo|migrado_de|fecha_original/.test(m) && /(does not exist|could not find|42703|PGRST204)/i.test(m);
@@ -26,7 +26,7 @@ export function faltaLaMigracion(e: unknown): boolean {
 /** Lo que se le dice a quien migra cuando la base no contestó (o le falta la migración). */
 export function textoSinMigracion(e: unknown): string {
   return faltaLaMigracion(e)
-    ? 'Todavía no se puede migrar en este negocio: falta un cambio en la base de MaKo (la migración 0404). Avísale a soporte; no se creó nada.'
+    ? 'Todavía no se puede migrar en este negocio: falta un cambio en la base de MaKo (la migración 0405). Avísale a soporte; no se creó nada.'
     : 'No pude ver qué contactos ya entraron antes. No se creó nada: intenta de nuevo en un momento.';
 }
 

@@ -24,7 +24,7 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 La promesa a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md): pasar los contactos de su CRM anterior por la API, con
 su Claude, guardando de dónde vino cada uno y sin escribirle a nadie de golpe. Es la operación `migrar_contactos`
-(`POST /api/v1/crm/migraciones`), la regla en `lib/migracion-leads.ts` y la mig 0404. Relevo: [relevo/nube-thiago-migrar.md](relevo/nube-thiago-migrar.md).
+(`POST /api/v1/crm/migraciones`), la regla en `lib/migracion-leads.ts` y la mig 0405. Relevo: [relevo/nube-thiago-migrar.md](relevo/nube-thiago-migrar.md).
 
 - **«`createLead` acepta UTM» ya era cierto y no alcanzaba: el camino que usa Claude las tiraba.** `proponer_leads` guardaba
   las UTM en la propuesta y `crearLeadsDePropuesta` (lib/api-mako/flujo.ts), que la aplica en el acto con un token detallado,
