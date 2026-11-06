@@ -33,6 +33,7 @@ import { itemsFilaAutomatizacion } from '../app/automations/menu-contextual-auto
 import { opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
 import { itemsRenglonLanding } from '../app/web-generator/menu-contextual-landings';
 import type { FilaPanel } from '../app/web-generator/panel-reglas';
+import { PARAM_EDITAR, destinoNegocio, itemsNegocio } from '../app/admin/_polar/web/Customer/menu-contextual-negocios';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -235,14 +236,26 @@ test('Partners (el programa): «Marcar pagado», con la MISMA condición que el 
   assert.match(src, /<tr key=\{p\.ws\} \{\.\.\.menu\.propsDe\(p\.ws, itemsPartnerPrograma\(p, pagando === p\.ws\)\.length > 0\)\}>/);
 });
 
-// ⚠️ FUNCIÓN PERDIDA (6/11/2026): la lista de los negocios de Admin era app/customers/CustomersApp.tsx, con su clic derecho
-// (Ver ficha · Entrar a su cuenta · Administrar, app/customers/menu-contextual-customers.ts). Se borró con la copia de Polar, y
-// la lista nueva (Admin › Customers, app/admin/_polar/web/Customer/CustomerListSidebar.tsx) no tiene menú contextual. Queda
-// como TODO con lo que tiene que cumplir: cuando la lista nueva lo monte, sacar el `todo` y sumarla a PANTALLAS.
-test('Customers: lo de la ficha sin abrirla (verla, entrar), con el clic derecho de la casa en la lista de los negocios', { todo: 'función perdida con la copia de Polar: CustomerListSidebar sin clic derecho' }, () => {
+// La lista de los negocios de Admin (Admin › Customers, app/admin/_polar/web/Customer/CustomerListSidebar.tsx) es la de Polar,
+// que no tiene menú contextual; MaKo lo tenía en la lista vieja (app/customers/menu-contextual-customers.ts) y volvió el
+// 6/11/2026 por decisión del Cerebro: lo del «⋮» de la ficha sin abrirla. Roturas: «Entrar a su cuenta» a otro lado que la
+// ficha → 1 fallo. «Administrar» sin abrir «Editar negocio» → 1 fallo. La fila sin `propsDe` → 1 fallo (y el de PANTALLAS).
+test('Customers: lo de la ficha sin abrirla (verla, entrar, administrar), con el clic derecho de la casa en la lista de los negocios', () => {
+  assert.deepEqual(rotulos(itemsNegocio()), ['Ver ficha', 'Entrar a su cuenta', 'Administrar']);
+  const ruta = (ws: number) => `/admin/customers/${ws}`;
+  assert.equal(destinoNegocio('ficha', 21, ruta), '/admin/customers/21');
+  assert.equal(destinoNegocio('administrar', 21, ruta), `/admin/customers/21?${PARAM_EDITAR}=1`);
+  // «Entrar» es el MISMO link del «⋮» de la ficha.
+  assert.equal(destinoNegocio('entrar', 21, ruta), '/inicio?ws=21');
+  assert.match(sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx')), /<a href=\{`\/inicio\?ws=\$\{negocio\.ws\}`\}>Entrar a su cuenta<\/a>/);
+  // «Administrar» abre el «Editar negocio» de la ficha: la cabecera lee el parámetro.
+  const cabecera = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx'));
+  assert.match(cabecera, /searchParams\.get\(PARAM_EDITAR\) !== '1'\) return/);
+  assert.match(cabecera, /showEditCustomerModal\(\)/);
   const src = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerListSidebar.tsx'));
-  assert.match(src, /import \{ useMenuContextual(, type PropsMenuFila)? \} from '@\/app\/_ui\/useMenuContextual';/, 'la lista sin el hook de la casa');
-  assert.match(src, /\.propsDe\(/, 'la fila de un negocio sin el clic derecho');
+  assert.match(src, /\{\.\.\.menu\.propsDe\(customer\)\}/, 'la fila de un negocio sin el clic derecho');
+  assert.match(src, /items=\{itemsNegocio\(\)\}/);
+  assert.match(src, /if \(id === 'entrar'\) window\.location\.href = destino/, '«Entrar» cambia de cuenta: navegación dura');
 });
 
 // Roturas: el menú de una tarjeta conectada que dice «Conectar» → 1 fallo. «Abrir» que no abre su modal → 1 fallo.
@@ -278,16 +291,18 @@ const PANTALLAS = [
   'app/agency/AgencyApp.tsx',
   'app/automations/SimuladorWhatsApp.tsx',
   'app/web-generator/Inicio.tsx',
+  'app/admin/_polar/web/Customer/CustomerListSidebar.tsx',
 ];
 
 // Roturas: una pantalla sin `porDedo` en el menú (mantener presionado lo abre y el eco lo cierra) → 1 fallo. Un
 // `onContextMenu` escrito a mano en una fila → 1 fallo. Una pantalla que importa la pieza y no la usa en una fila (la tabla
 // de Partners) → 2 fallos (éste y el de Partners).
-test('las siete pantallas: la fila con `propsDe` del hook, el menú de la casa con `porDedo`, y ningún clic derecho a mano', () => {
+test('las ocho pantallas: la fila con `propsDe` del hook, el menú de la casa con `porDedo`, y ningún clic derecho a mano', () => {
   for (const r of PANTALLAS) {
     const src = sinComentarios(leer(r));
-    assert.match(src, /import \{ useMenuContextual(, type PropsMenuFila)? \} from '@\/app\/_ui\/useMenuContextual';/, `${r}: el hook de la casa`);
-    assert.match(src, /import \{ MenuContextual \} from '@\/app\/_ui\/MenuContextual';/, `${r}: la pieza de la casa`);
+    // El `;` es opcional: lo copiado de Polar (Admin) va sin punto y coma.
+    assert.match(src, /import \{ useMenuContextual(, type PropsMenuFila)? \} from '@\/app\/_ui\/useMenuContextual';?/, `${r}: el hook de la casa`);
+    assert.match(src, /import \{ MenuContextual \} from '@\/app\/_ui\/MenuContextual';?/, `${r}: la pieza de la casa`);
     assert.match(src, /\.propsDe\(/, `${r}: la fila no lleva el clic derecho`);
     const menus = [...src.matchAll(/<MenuContextual [^>]*?porDedo=\{[a-zA-Z]+\.abierto\.porDedo\}/g)];
     assert.ok(menus.length >= 1, `${r}: el menú sin \`porDedo\` (el eco de Android lo cerraría)`);

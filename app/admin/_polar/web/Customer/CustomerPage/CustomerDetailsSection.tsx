@@ -7,15 +7,22 @@
 // que un negocio de MaKo tiene:
 //   · Details: su id, su nombre, su plan, su estado y su alta (Polar: id, external id, email, name, type, created);
 //   · Alta (en el lugar de Billing): el onboarding, la prueba, el plan a mano y si es de una agencia. Polar pone ahí el saldo,
-//     el nombre fiscal, el Tax ID, la dirección y el país: MaKo no los guarda de un negocio-cliente (se sacaron);
-//   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras.
+//     el nombre fiscal, el Tax ID, la dirección y el país: MaKo no los guarda de un negocio-cliente (se sacaron). Y lo que
+//     mostraba la grilla vieja de Admin (decisión del Cerebro, 6/11/2026): el primer mes con el 50%, cómo llegó, qué quería
+//     resolver y lo que dijo que había que corregir en su oferta;
+//   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras, cada una con
+//     «Desconectar» (decisión del Cerebro, 6/11/2026; la acción del Centro, `desconectarComputadoraAction`, que vuelve a pedir
+//     `puedeOperar`: el segundo factor). Sin la guarda, las computadoras no llegan a la pantalla (`'oculto'`).
 // ⚠️ `ClickToCopy` copia sin el toast de Polar (Admin no tiene un Toaster): el renglón dice «Copiado» un momento.
 
 import type { AltaNegocio, ComputadorasDeLaFicha, ConexionNegocio, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
-import { conexionesConectadas } from '@/app/admin/_polar/datos/cliente'
-import { Grid, Status, Text } from '@/app/admin/_polar/orbit'
+import { computadorasDeLaFicha, conexionesConectadas } from '@/app/admin/_polar/datos/cliente'
+import { Alert, Button, Grid, Status, Text } from '@/app/admin/_polar/orbit'
+import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
+import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
+import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { PropsWithChildren, ReactNode, useState } from 'react'
 
 interface CustomerDetailsSectionProps {
@@ -111,6 +118,19 @@ export const CustomerDetailsSection = ({
   computadoras,
 }: CustomerDetailsSectionProps) => {
   const conectadas = conexiones ? conexionesConectadas(conexiones) : null
+  // La lista de computadoras se actualiza con lo que devuelve «Desconectar» (la lectura nueva de ESE negocio).
+  const [pcs, setPcs] = useState<ComputadorasDeLaFicha>(computadoras)
+  const [aDesconectar, setADesconectar] = useState<{ id: number; nombre: string } | null>(null)
+  const [errorPc, setErrorPc] = useState<string | null>(null)
+  const desconectar = async (id: number) => {
+    setErrorPc(null)
+    const r = await desconectarComputadoraAction(negocio.ws, id)
+    if (!r.ok) {
+      setErrorPc(r.error)
+      return
+    }
+    setPcs(computadorasDeLaFicha(true, r.pcs))
+  }
 
   return (
     <Grid
@@ -150,6 +170,27 @@ export const CustomerDetailsSection = ({
         <Row label="Plan a mano" value={alta.planAMano} />
         <Row label="Tipo" value={alta.segmentos.join(' · ') || null} />
         <Row label="Agencia" value={alta.agencia} />
+        <Row
+          label="Primer mes"
+          value={
+            alta.primerMesUsd == null ? (
+              <Text as="span" color="muted">No se pudo leer</Text>
+            ) : alta.primerMesUsd === 'no' ? null : (
+              `${formatCurrency('compact')(Math.round(alta.primerMesUsd * 100), 'usd')} con el 50%`
+            )
+          }
+        />
+        {alta.llegada === 'no-leida' ? (
+          <Row label="Llegó por" value={<Text as="span" color="muted">No se pudo leer</Text>} />
+        ) : (
+          <>
+            <Row label="Llegó por" value={alta.llegada?.origen ?? null} />
+            <Row label="Quería resolver" value={alta.llegada?.interes ?? null} />
+            {alta.llegada?.pdfNota && (
+              <Row label="A corregir en su oferta" value={<span title={alta.llegada.pdfNota}>{alta.llegada.pdfNota}</span>} />
+            )}
+          </>
+        )}
       </Section>
       <Section title="Conexiones">
         {conectadas == null ? (
@@ -165,12 +206,12 @@ export const CustomerDetailsSection = ({
             />
           ))
         )}
-        {computadoras === 'oculto' ? null : computadoras == null ? (
+        {pcs === 'oculto' ? null : pcs == null ? (
           <Row label="Computadoras" value={<Text as="span" color="muted">No se pudieron leer</Text>} />
-        ) : computadoras.length === 0 ? (
+        ) : pcs.length === 0 ? (
           <Row label="Computadoras" value={null} />
         ) : (
-          computadoras.map((pc) => (
+          pcs.map((pc) => (
             <Row
               key={pc.id}
               label={pc.sistema ? `${pc.nombre} · ${pc.sistema}` : pc.nombre}
@@ -184,11 +225,31 @@ export const CustomerDetailsSection = ({
                     size="small"
                     status={pc.enLinea ? 'En línea' : 'Sin conexión'}
                   />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setADesconectar({ id: pc.id, nombre: pc.nombre })}
+                  >
+                    Desconectar
+                  </Button>
                 </Box>
               }
             />
           ))
         )}
+        {errorPc && (
+          <Alert variant="danger" title="No se pudo desconectar" description={errorPc} onDismiss={() => setErrorPc(null)} />
+        )}
+        <ConfirmModal
+          isShown={aDesconectar != null}
+          hide={() => setADesconectar(null)}
+          title={`¿Desconectar «${aDesconectar?.nombre ?? ''}»?`}
+          description="Deja de trabajar con la IA de esa computadora al instante. Para volver, la persona la conecta de nuevo."
+          destructive
+          destructiveText="Desconectar"
+          cancelText="No desconectar"
+          onConfirm={() => (aDesconectar ? desconectar(aDesconectar.id) : undefined)}
+        />
       </Section>
     </Grid>
   )

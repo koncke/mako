@@ -6,12 +6,20 @@
 // infinito de Polar. Lo que Polar guarda en la URL con `nuqs` (query, sorting, filter) se guarda igual, sin ir al server.
 // El renglón no lleva email: las personas de un negocio viven sólo en su ficha › Members (Martín, 6/11/2026).
 // «Export Customers» arma el CSV en el navegador con lib/csv-celda.ts (Polar lo baja de su API).
+// Dos cosas de MaKo que Polar no tiene (decisiones del Cerebro, 6/11/2026), sin cambiar lo que se ve:
+//   · el filtro «De agencias» en el mismo menú de filtros (`FILTROS`, ./datos/clientes.ts): los clientes de una agencia no
+//     salen en «Todos» (no son clientes de MaKo) y con ese filtro se ven, con su agencia abajo del nombre, donde Polar pone
+//     el email;
+//   · el clic derecho de la casa en cada negocio (Ver ficha · Entrar a su cuenta · Administrar, ./menu-contextual-negocios.ts),
+//     lo mismo que el «⋮» de su ficha sin abrirla.
 
 import { CreateCustomerModal } from '@/app/admin/_polar/web/Customer/CreateCustomerModal'
 import { InlineModal } from '@/app/admin/_polar/orbit'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 import {
+  FILTROS,
+  ROTULO_FILTRO,
   RUTA_CUSTOMERS,
   filasDeExportacion,
   filtrarClientes,
@@ -24,6 +32,9 @@ import {
 } from '@/app/admin/_polar/datos/clientes'
 import type { OpcionesAlta } from '@/app/admin/_polar/datos/alta'
 import { armarCsv } from '@/lib/csv-celda'
+import { useMenuContextual } from '@/app/_ui/useMenuContextual'
+import { MenuContextual } from '@/app/_ui/MenuContextual'
+import { destinoNegocio, itemsNegocio, type IdOpcionNegocio } from './menu-contextual-negocios'
 
 import {
   AddOutlined,
@@ -144,6 +155,16 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
     [searchParams],
   )
 
+  const menu = useMenuContextual<ClienteDeLista>()
+  const onElegirDelMenu = (id: string) => {
+    const negocio = menu.abierto?.de
+    if (!negocio) return
+    const destino = destinoNegocio(id as IdOpcionNegocio, negocio.ws, rutaDeNegocio)
+    // «Entrar a su cuenta» cambia de cuenta: una navegación dura, como el <a> del «⋮» de la ficha.
+    if (id === 'entrar') window.location.href = destino
+    else router.push(id === 'ficha' ? withQuerystring(destino) : destino)
+  }
+
   return (
     <>
       <div className="dark:divide-polar-800 flex h-full flex-col divide-y divide-gray-200">
@@ -162,33 +183,17 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveFilter('all')}>
-                  <CheckOutlined
-                    className={twMerge(
-                      'h-4 w-4',
-                      activeFilter !== 'all' && 'invisible',
-                    )}
-                  />
-                  <span>Todos</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveFilter('active')}>
-                  <CheckOutlined
-                    className={twMerge(
-                      'h-4 w-4',
-                      activeFilter !== 'active' && 'invisible',
-                    )}
-                  />
-                  <span>Activos</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveFilter('inactive')}>
-                  <CheckOutlined
-                    className={twMerge(
-                      'h-4 w-4',
-                      activeFilter !== 'inactive' && 'invisible',
-                    )}
-                  />
-                  <span>Inactivos</span>
-                </DropdownMenuItem>
+                {FILTROS.map((f) => (
+                  <DropdownMenuItem key={f} onClick={() => setActiveFilter(f)}>
+                    <CheckOutlined
+                      className={twMerge(
+                        'h-4 w-4',
+                        activeFilter !== f && 'invisible',
+                      )}
+                    />
+                    <span>{ROTULO_FILTRO[f]}</span>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -279,6 +284,7 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
               <Link
                 key={customer.ws}
                 href={withQuerystring(rutaDeNegocio(customer.ws))}
+                {...menu.propsDe(customer)}
                 className={twMerge(
                   'dark:hover:bg-polar-800 cursor-pointer hover:bg-gray-100',
                   selectedCustomerId === String(customer.ws) &&
@@ -295,6 +301,11 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
                     <div className="w-full truncate text-sm">
                       {customer.nombre}
                     </div>
+                    {customer.deAgencia && (
+                      <div className="dark:text-polar-500 w-full truncate text-xs text-gray-500">
+                        {customer.agencia ? `De ${customer.agencia}` : 'De una agencia'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -302,6 +313,15 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
           )}
         </div>
       </div>
+      {menu.abierto && (
+        <MenuContextual key={menu.abierto.n} porDedo={menu.abierto.porDedo}
+          punto={{ x: menu.abierto.x, y: menu.abierto.y }}
+          items={itemsNegocio()}
+          etiqueta={`Acciones de ${menu.abierto.de.nombre}`}
+          onCerrar={menu.cerrar}
+          onElegir={onElegirDelMenu}
+        />
+      )}
       <InlineModal
         isShown={isCreateCustomerModalOpen}
         hide={hideCreateCustomerModal}

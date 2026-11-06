@@ -127,7 +127,21 @@ export type AltaNegocio = {
   segmentos: string[]
   /** El nombre de la agencia que lo lleva, si es cliente de una. */
   agencia: string | null
+  /**
+   * Cómo llegó y qué quería resolver (la encuesta del onboarding, lib/onboarding-arranque.ts `llegadaDe`), y lo que dijo que
+   * faltaba o estaba mal en el PDF de su oferta. Lo mostraba la grilla vieja de Admin; Polar no lo tiene y va en este bloque
+   * por decisión del Cerebro (6/11/2026). `null` = no contestó la encuesta; `'no-leida'` = no se pudo leer (no es «no contestó»).
+   */
+  llegada: LlegadaNegocio | null | 'no-leida'
+  /**
+   * Lo que paga su primer mes con el 50% mientras corre ese mes (lib/clientes-plataforma.ts `primerMesUsd`), en dólares.
+   * `'no'` = no aplica; `null` = no se pudo leer.
+   */
+  primerMesUsd: number | 'no' | null
 }
+
+/** Lo de la encuesta que se dibuja (sin la fecha). */
+export type LlegadaNegocio = { origen: string | null; interes: string | null; pdfNota: string | null }
 
 export type ConexionNegocio = { key: string; nombre: string; conectada: boolean }
 

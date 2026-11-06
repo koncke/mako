@@ -61,6 +61,7 @@ export const CABECERA_EJEMPLO: NegocioCabecera = {
 export const ALTA_EJEMPLO: AltaNegocio = {
   creado: '2026-07-01T12:00:00Z', plan: 'MaKo Pro', estado: 'activo', onboardingHecho: true, prueba: false, planAMano: null,
   segmentos: ['Cliente'], agencia: null,
+  llegada: { origen: 'Instagram', interes: 'Conseguir más clientes', pdfNota: null }, primerMesUsd: 'no',
 }
 
 const pedido = (id: string, fecha: string, usd: number | null, concepto: string, recurrente: boolean, estado: Pedido['estado'] = 'paid'): Pedido => ({

@@ -9,7 +9,7 @@
 //
 // DE DÓNDE SALE CADA DATO:
 //   · la lista y el crecimiento: `vistaDeClientes()` (lib/clientes-plataforma.ts), un renglón por negocio (sin el de la
-//     plataforma ni los clientes de una agencia: `esClienteDeMaKo`);
+//     plataforma; los clientes de una agencia, `esClienteDeMaKo`, sólo con el filtro «De agencias» y fuera del crecimiento);
 //   · Top Customers: `vistaDeIngresos().entradas` (lib/admin-ingresos.ts), cada pago con la clave de su cliente: el navegador
 //     suma los del rango elegido (como el `useTopCustomers` de Polar);
 //   · At Risk: los atrasados y los que dejaron de pagar (ingresos) + los pausados, los cobros fallidos y los sin uso
@@ -66,12 +66,28 @@ export type ClienteDeLista = {
   /** El plan como lo vende MaKo (para el CSV). */
   plan: string
   estado: string
+  /** Es cliente de una agencia (`esClienteDeMaKo` da false): sólo sale con el filtro «De agencias». */
+  deAgencia: boolean
+  /** El nombre de su agencia, si se sabe. */
+  agencia: string | null
 }
 
 export const ORDENES = ['-created_at', 'created_at', 'name', '-name'] as const
 export type OrdenLista = (typeof ORDENES)[number]
-export const FILTROS = ['all', 'active', 'inactive'] as const
+/**
+ * El filtro de la lista (el `CustomerFilter` de Polar: All, Active, Inactive) y uno más de MaKo, «De agencias» (decisión del
+ * Cerebro, 6/11/2026): los clientes de una agencia no son clientes de MaKo y no salen en «Todos», pero tienen que poder
+ * encontrarse en la lista además de en la búsqueda ⌘K. Es un filtro más del mismo menú, como los de Polar.
+ */
+export const FILTROS = ['all', 'active', 'inactive', 'agency'] as const
 export type FiltroLista = (typeof FILTROS)[number]
+/** El rótulo de cada filtro en el menú de la lista (el orden es el del menú). */
+export const ROTULO_FILTRO: Record<FiltroLista, string> = {
+  all: 'Todos',
+  active: 'Activos',
+  inactive: 'Inactivos',
+  agency: 'De agencias',
+}
 
 /** Lo que lee la lista de la URL (los `useQueryState` de Polar): un valor que no es de la lista cae al default. */
 export const ordenDeParam = (v: string | null | undefined): OrdenLista =>
@@ -88,14 +104,22 @@ export const filtroDeParam = (v: string | null | undefined): FiltroLista =>
  */
 export const esClienteDeMaKo = (f: Pick<FilaCliente, 'segmentos'>): boolean => !f.segmentos.includes('de-agencia')
 
-export function listaDeClientes(filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'>>): ClienteDeLista[] {
-  return filas.filter(esClienteDeMaKo).map((f) => ({
+/**
+ * Los renglones de la lista: TODOS los negocios, cada uno con su agencia si es cliente de una. Los de agencia no salen con los
+ * filtros de siempre (`filtrarClientes`), sólo con «De agencias».
+ */
+export function listaDeClientes(
+  filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'> & { agencia?: string | null }>,
+): ClienteDeLista[] {
+  return filas.map((f) => ({
     ws: f.ws,
     nombre: f.nombre,
     creado: f.creado,
     activo: f.estado === 'activo',
     plan: nombreDePlan(f.capa),
     estado: f.estado,
+    deAgencia: !esClienteDeMaKo(f),
+    agencia: esClienteDeMaKo(f) ? null : (f.agencia ?? null),
   }))
 }
 
@@ -109,6 +133,8 @@ export function filtrarClientes(
 ): ClienteDeLista[] {
   const q = plano(query ?? '')
   const out = lista.filter((c) => {
+    // «De agencias» muestra SÓLO los clientes de una agencia; los demás filtros, sólo los de MaKo (`esClienteDeMaKo`).
+    if ((filter === 'agency') !== c.deAgencia) return false
     if (filter === 'active' && !c.activo) return false
     if (filter === 'inactive' && c.activo) return false
     return !q || plano(c.nombre).includes(q) || String(c.ws) === q

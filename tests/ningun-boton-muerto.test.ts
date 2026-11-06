@@ -45,6 +45,13 @@ const PERDONADOS: ReadonlyArray<{ archivo: string; texto: string; porque: string
       + 'traga antes de que llegue al botón (mismo archivo, el efecto de `eligiendo`). Un `onClick` '
       + 'acá sería código muerto: nunca correría. El botón es la etiqueta de ese gesto.',
   },
+  {
+    archivo: 'app/admin/_polar/web/DashboardOverview/MetricSelectorModal.tsx',
+    texto: 'DragHandleOutlined',
+    porque: 'El asa de arrastre de «Customize» (copiada de Polar): `ref={handleRef}` de `useSortable` (@dnd-kit/react) le '
+      + 'engancha los sensores del puntero y del teclado al botón. Se arrastra o se mueve con las flechas; un `onClick` no '
+      + 'tendría nada que hacer.',
+  },
 ];
 
 const blanquear = (t: string): string => t.replace(/[^\n]/g, ' ');

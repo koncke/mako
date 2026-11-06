@@ -21,7 +21,7 @@
 //   · EsperaBanners vuelve a mandar a /api/admin/workspaces por su cuenta                          → 6/1 (1)
 //   · `checkoutsDe` sin el corte de `esDeVenderUnPlan` (el link sale en las dos listas)            → 6/1 (2)
 //   · CostsPage vuelve a dibujar `porNegocio`                                                       → 6/1 (3)
-//   · `listaDeClientes` sin el filtro `esClienteDeMaKo`                                             → 6/1 (4)
+//   · `filtrarClientes` sin el corte de los de agencia (`deAgencia`)                               → 6/1 (4)
 //   · `vistaDeOverview` cuenta el crecimiento con los clientes de agencia                           → 6/1 (4)
 //   · `armarIndice` sin el «De <agencia>»                                                           → 6/1 (4)
 //   · la tabla de Orbit vuelve a decir «No Results»                                                 → 6/1 (5)
@@ -43,7 +43,7 @@ import { cuerpoDeAlta, inicialDeAlta, type OpcionesAlta } from '../app/admin/_po
 import { esDeVenderUnPlan } from '../app/admin/_polar/datos/checkout-link'
 import { checkoutsDe, type CobroVenta } from '../app/admin/_polar/datos/ventas'
 import { linksDeVenta, type CobroDeVenta } from '../app/admin/_polar/datos/productos'
-import { esClienteDeMaKo, listaDeClientes, vistaDeOverview, type Lectura } from '../app/admin/_polar/datos/clientes'
+import { esClienteDeMaKo, filtrarClientes, listaDeClientes, vistaDeOverview, type Lectura } from '../app/admin/_polar/datos/clientes'
 import { armarIndice, buscar } from '../app/admin/_polar/datos/busqueda-tipos'
 import { CHART_RANGES, METRIC_GROUPS } from '../app/admin/_polar/web/utils/metrics'
 import { METRICAS } from '../app/admin/_polar/datos/metricas'
@@ -139,7 +139,13 @@ test('4 · un cliente de una agencia no es un cliente de MaKo: no va en la lista
   const filas = [fila(21, 'Estudio Norte', ['cliente']), fila(27, 'Agencia Faro', ['agency']), fila(30, 'Consultorio Arce', ['de-agencia'], '2026-10-20T12:00:00Z')]
   assert.equal(esClienteDeMaKo({ segmentos: ['de-agencia'] }), false)
   assert.equal(esClienteDeMaKo({ segmentos: ['agency', 'partner'] }), true, 'una agencia sí es un cliente de MaKo')
-  assert.deepEqual(listaDeClientes(filas).map((c) => c.ws), [21, 27], 'la lista sin el cliente de la agencia')
+  const lista = listaDeClientes(filas)
+  const de = (filter: 'all' | 'active' | 'inactive' | 'agency') => filtrarClientes(lista, { query: null, sorting: '-created_at', filter }).map((c) => c.ws)
+  assert.deepEqual(de('all'), [21, 27], 'la lista sin el cliente de la agencia')
+  assert.deepEqual(de('active'), [21, 27], 'ni con los filtros de siempre')
+  // «De agencias» (decisión del Cerebro, 6/11/2026): el lugar de la lista para los clientes de una agencia.
+  assert.deepEqual(de('agency'), [30], 'con «De agencias», sólo el de la agencia')
+  assert.equal(lista.find((c) => c.ws === 30)?.deAgencia, true)
 
   const vacio = <T,>(datos: T): Lectura<T> => ({ ok: true, datos, avisos: [] })
   const ingresos = vacio<{ entradas: Entrada[]; clientes: ClienteResumen[] }>({ entradas: [], clientes: [] })

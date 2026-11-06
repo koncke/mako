@@ -7,6 +7,7 @@
 // Los planes salen de los de fábrica (lib/planes-mako.ts), con un precio en pesos inventado para el de Mercado Pago.
 
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako'
+import { PASARELAS } from '@/lib/cobros-tipos'
 import type { Entrada } from '@/lib/admin-ingresos-reglas'
 import { linksDeVenta, productoDePlan, type CobroDeVenta, type DatosCheckoutLinks, type ProductoMako } from '../productos'
 import { filasDeIngresos, type DatosIngresos } from '../finanzas'
@@ -52,7 +53,8 @@ export const COBROS_EJEMPLO: CobroDeVenta[] = [
 export const CHECKOUT_LINKS_EJEMPLO: DatosCheckoutLinks = {
   productos: PRODUCTOS_EJEMPLO,
   links: linksDeVenta(COBROS_EJEMPLO, PRODUCTOS_EJEMPLO),
-  pasarelas: ['stripe', 'mercadopago'],
+  // Las que el ejemplo tiene conectadas: todas menos Creem. Sacada de PASARELAS y no escrita de a dos (tests/creem-cobra.test.ts).
+  pasarelas: PASARELAS.filter((p) => p !== 'creem'),
   monedaMp: 'ARS',
   truncado: false,
   avisos: [],

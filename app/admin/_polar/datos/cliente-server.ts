@@ -25,6 +25,7 @@ import { listarPcDelNegocio } from '@/lib/ia-pc'
 import { tabsDeNegocios } from '@/lib/actividad-reglas'
 import { getSupabaseServer } from '@/lib/supabase'
 import { leerTodo } from '@/lib/supabase-paginado'
+import { CLAVE_ENCUESTA, llegadaDe } from '@/lib/onboarding-arranque'
 import { leerClientes, leerIngresos } from './clientes-server'
 import { vistaSuscripciones } from './ventas-server'
 import { leerActividad, leerOrdenes, leerTimelineDelNegocio, leerUsuarios } from './eventos-server'
@@ -42,6 +43,7 @@ import {
   type ComputadorasDeLaFicha,
   type ConexionNegocio,
   type IaDelDia,
+  type LlegadaNegocio,
   type MiembroNegocio,
   type NegocioCabecera,
 } from './cliente'
@@ -73,6 +75,18 @@ export const leerMiembros = cache(async (ws: number): Promise<LecturaMiembros> =
 
 // ── El negocio (la cabecera y el «Alta») ───────────────────────────────────────────────────────────────────────────
 
+/**
+ * Cómo llegó el negocio: la encuesta del onboarding de SU workspace (`CLAVE_ENCUESTA`), leída por `workspace_id` explícito (la
+ * lectura cruza negocios: el super admin mira la de otro). `null` = no contestó; tira si no se pudo leer.
+ */
+async function llegadaDelNegocio(ws: number): Promise<LlegadaNegocio | null> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_ENCUESTA).maybeSingle()
+  if (error) throw new Error(error.message)
+  const l = llegadaDe((data as { value?: string | null } | null)?.value ?? null)
+  return l ? { origen: l.origen, interes: l.interes, pdfNota: l.pdfNota } : null
+}
+
 export type FichaNegocio = { cabecera: NegocioCabecera; alta: AltaNegocio; avisos: string[] }
 
 /** El negocio, o `null` si no existe o es la plataforma (la página contesta 404). Tira sólo si no se pudo leer el negocio. */
@@ -80,7 +94,11 @@ export const leerNegocio = cache(async (ws: number): Promise<FichaNegocio | null
   const [w, plataforma] = await Promise.all([getWorkspace(ws), wsSuperAdmin()])
   if (!w || ws === plataforma) return null
   const avisos: string[] = []
-  const [clientes, miembros] = await Promise.all([leerClientes(), leerMiembros(ws)])
+  const [clientes, miembros, llegada] = await Promise.all([
+    leerClientes(),
+    leerMiembros(ws),
+    llegadaDelNegocio(ws).catch((e) => { avisos.push(`cómo llegó: ${motivo(e)}`); return 'no-leida' as const }),
+  ])
   if (!clientes.ok) avisos.push(`el estado de su cuenta: ${clientes.error}`)
   else avisos.push(...clientes.avisos)
   if (!miembros.ok) avisos.push(`sus personas: ${miembros.error}`)
@@ -97,6 +115,8 @@ export const leerNegocio = cache(async (ws: number): Promise<FichaNegocio | null
     planAMano: fila?.planAManoTxt ?? null,
     segmentos: (fila?.segmentos ?? []).map((s) => ROTULO_SEGMENTO[s]),
     agencia: fila?.agencia ?? null,
+    llegada,
+    primerMesUsd: fila ? (fila.primerMesUsd ?? 'no') : null,
   }
   return { cabecera, alta, avisos: [...new Set(avisos)] }
 })

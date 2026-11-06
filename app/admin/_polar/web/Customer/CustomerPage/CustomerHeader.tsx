@@ -12,6 +12,8 @@
 //   · «Delete Customer» → «Eliminar negocio» (`eliminar`), con el ConfirmModal de Polar que pide escribir el nombre (la ruta lo
 //     pide igual).
 // Se sacó «Add Credits»: MaKo no tiene créditos por cliente. ⚠️ Lo que falla se dice debajo del menú (Admin no tiene el toast).
+// «Administrar», en el clic derecho de la lista (../menu-contextual-negocios.ts), llega con `?editar=1`: abre «Editar negocio» y
+// saca el parámetro de la URL (un F5 no lo vuelve a abrir).
 
 import { EditCustomerModal } from '@/app/admin/_polar/web/Customer/EditCustomerModal'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
@@ -28,7 +30,10 @@ import {
   DropdownMenuTrigger,
 } from '@/app/admin/_polar/ui/dropdown-menu'
 import { useRouter } from '@/app/_ui/Link'
-import { useCallback, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
+import { PARAM_EDITAR } from '../menu-contextual-negocios'
 import { accionDelNegocio } from './acciones'
 
 interface CustomerHeaderProps {
@@ -54,6 +59,16 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
     hide: hidePauseModal,
     isShown: isPauseModalShown,
   } = useModal()
+
+  const searchParams = useSearchParams()
+  // Una sola vez por ficha: cerrar el modal no lo vuelve a abrir aunque la URL tarde en enterarse.
+  const editarAbierto = useRef(false)
+  useEffect(() => {
+    if (editarAbierto.current || searchParams.get(PARAM_EDITAR) !== '1') return
+    editarAbierto.current = true
+    showEditCustomerModal()
+    cambiarQuery({ [PARAM_EDITAR]: null })
+  }, [searchParams, showEditCustomerModal])
 
   const pausado = negocio.estado === 'pausado'
 
