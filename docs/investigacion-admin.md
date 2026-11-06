@@ -1,7 +1,7 @@
 # La tab Admin copia UNA app: el dashboard de Polar (reescrito el 6/11/2026)
 
 **La fuente es una sola: [polarsource/polar](https://github.com/polarsource/polar)**, el dashboard con el que Polar
-administra un SaaS que vende por suscripción (licencia **Apache-2.0**, commit `72aa1109` del 5/11/2026). Se porta su CÓDIGO
+administra un SaaS que vende por suscripción (licencia **Apache-2.0**, commit `72d9d961` del 5/11/2026). Se porta su CÓDIGO
 archivo por archivo: cómo reparte las secciones, qué hay en cada página, en qué orden y cómo funciona cada cosa. Sólo se
 reemplazan sus llamadas a la API por las lecturas de MaKo. Avisos: `lib/avisos/LICENSE-POLAR` y `lib/avisos/NOTICE-POLAR`
 (qué se tomó y que se modificó, como pide la Apache-2.0).

@@ -14,7 +14,7 @@ diseño, es también las funcionalidades… cómo distribuyen cada página… se
 
 ## La fuente, una sola
 
-**polarsource/polar**, Apache-2.0, commit `72aa1109` (5/11/2026). Se portó SU código archivo por archivo
+**polarsource/polar**, Apache-2.0, commit `72d9d961` (5/11/2026). Se portó SU código archivo por archivo
 (`clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/`, `clients/apps/web/src/components/`, `clients/packages/ui`
 y `clients/packages/orbit`) y sólo se reemplazaron sus llamadas a la API por las lecturas de MaKo. Cada archivo nombra su
 original en la primera línea de comentario. Avisos: `lib/avisos/LICENSE-POLAR` y `lib/avisos/NOTICE-POLAR`; los íconos de

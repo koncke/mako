@@ -22,7 +22,7 @@ Lo que MaKo toma de un repo de código abierto (el método de un experto, una re
 | `LICENSE-SOCIAL-MEDIA-SKILLS` | https://github.com/charlie947/social-media-skills | 2026 Charlie Hills | Image |
 | `LICENSE-INSTAGRAM-CAROUSEL-SKILL` | https://github.com/jeevanbavandla/instagram-carousel-skill | 2026 Jeevan Bavandla | Image |
 | `LICENSE-MOTION-SKILLS` | https://github.com/motion-creative/skills | 2025 Motion | AI Avatar |
-| `LICENSE-POLAR` | https://github.com/polarsource/polar | 2023 Polar Software Inc | Admin (`/admin`): el CÓDIGO del dashboard de Polar portado archivo por archivo (app/admin/_polar, app/admin/(polar)), commit 72aa1109 del 5/11/2026. **Es Apache-2.0**: va con `NOTICE-POLAR` (qué se tomó y que se modificó) |
+| `LICENSE-POLAR` | https://github.com/polarsource/polar | 2023 Polar Software Inc | Admin (`/admin`): el CÓDIGO del dashboard de Polar portado archivo por archivo (app/admin/_polar, app/admin/(polar)), commit 72d9d961 del 5/11/2026. **Es Apache-2.0**: va con `NOTICE-POLAR` (qué se tomó y que se modificó) |
 | `LICENSE-MUI-ICONS` | https://github.com/mui/material-ui (paquete @mui/icons-material 7.3.11) | 2014 Call-Em-All | Admin: los trazos de los íconos de Material que usa Polar (app/admin/_polar/orbit/icons/material.tsx) |
 
 Las once primeras son MIT y se bajaron el 29/10/2026 de la rama `main`; la de Polar (Apache-2.0) y la de los íconos de MUI (MIT), el 6/11/2026. La de Studio Admin se fue con su código el 6/11/2026: Admin dejó de usarlo. La de Diffusion Studio abre con el copyright y no con «MIT License»: así está en su repo.
