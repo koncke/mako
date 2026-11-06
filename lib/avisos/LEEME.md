@@ -22,5 +22,6 @@ Lo que MaKo toma de un repo de código abierto (el método de un experto, una re
 | `LICENSE-SOCIAL-MEDIA-SKILLS` | https://github.com/charlie947/social-media-skills | 2026 Charlie Hills | Image |
 | `LICENSE-INSTAGRAM-CAROUSEL-SKILL` | https://github.com/jeevanbavandla/instagram-carousel-skill | 2026 Jeevan Bavandla | Image |
 | `LICENSE-MOTION-SKILLS` | https://github.com/motion-creative/skills | 2025 Motion | AI Avatar |
+| `LICENSE-STUDIO-ADMIN` | https://github.com/arhamkhnz/next-shadcn-admin-dashboard | 2024 Mohammed Arham Khan | Admin (`/admin`): el CÓDIGO de Studio Admin portado archivo por archivo (app/admin/_studio, app/admin/usuarios, app/admin/ingresos), commit 036631e del 5/11/2026 |
 
-Las once son MIT y se bajaron el 29/10/2026 de la rama `main`. La de Diffusion Studio abre con el copyright y no con «MIT License»: así está en su repo.
+Las once primeras son MIT y se bajaron el 29/10/2026 de la rama `main`; la de Studio Admin, el 5/11/2026 (su LICENSE del commit 036631e). La de Diffusion Studio abre con el copyright y no con «MIT License»: así está en su repo.

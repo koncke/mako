@@ -2412,4 +2412,62 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-ignorar.test.ts (9) y tests/_ops-ignorar-hijo.ts — 15 roturas en rojo',
     ],
   },
+  {
+    fecha: '5 nov', hora: '19:20', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una pestaña de aprobaciones, que nada se mire a mano y que la extensión se publique sola',
+    pedido: 'todo deberías poder revisarlo tú, no hay nada que debería hacerlo yo a mano / si hay cosas que publicar... automáticamente',
+    puntos: [
+      'Llegó por el Cerebro, con el brief: una pestaña «Approvals» del super admin desde el menú de la foto (también en el teléfono), ninguna fila que diga «a mano» (por API lo que se pueda y un script de la PC para leer los paneles) y la extensión publicada sola en la Chrome Web Store cuando cambia su versión.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '19:45', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Approvals: la lista de cada aprobación, con lo que pide algo arriba',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Una pestaña nueva, Approvals,** en el menú de tu foto: cada aprobación con su estado, desde cuándo, cuándo se leyó y el link al panel.',
+      '**Lo que pide algo va primero:** un rechazo o un pedido, con qué hacer. Lo aprobado, al final.',
+      '**Vieja si pasó un día** sin leerse: lo dice al lado, sin cambiar el estado.',
+      '**Lo que falta para leerla sola** se dice en palabras, con «Cargarla» para abrir esa tarjeta de Integraciones ahí mismo.',
+      '**En el teléfono, igual,** con el detalle en una hoja.',
+    ],
+    archivos: [
+      'app/admin/approvals/page.tsx · app/admin/approvals/ListaApprovals.tsx · app/m/approvals/page.tsx · app/m/approvals/ApprovalsM.tsx',
+      'lib/vigia-aprobaciones.ts — listaDeAprobaciones (prioridad, tono, viejo, falta en palabras) · app/_components/nav.ts — SUPERADMIN_MENU · lib/movil-rutas.ts',
+      'tests/vigia-aprobaciones.test.ts — 3 nuevos, 4 roturas en rojo',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '22:40', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Approvals: ninguna aprobación se mira «a mano»',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Lo que no tiene API se lee de su panel:** la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem y el certificado de Windows. Lo lee una tarea del Cerebro con tu sesión y lo guarda; el vigía lo muestra y avisa si cambia.',
+      '**Una lectura vale un día:** si nadie vuelve a leer un panel, la fila dice «no pude leerlo» desde cuándo y te avisa una vez.',
+      '**Lo que falta se dice exacto:** una clave (con «Cargarla») o que la tarea lea ese panel, nunca «míralo».',
+      '**También desde el chat:** «Creem ya aprobó» lo anota MaKo, con `anotar_lectura_de_panel`.',
+    ],
+    archivos: [
+      'lib/vigia-aprobaciones.ts — el panel de cada ítem (qué abrir, qué mirar, cómo traducirlo), lecturaDePanel, anotarPanel, regla 6',
+      'lib/vigia-aprobaciones-fuentes.ts — los lectores de panel · lib/vigia-aprobaciones-server.ts — anotarLecturaDePanel',
+      'scripts/vigia-paneles.mts — --lista, --guardar, --no-pude, --ver · lib/api-mako/areas/operaciones.def.ts — anotar_lectura_de_panel',
+      'tests/vigia-aprobaciones.test.ts · tests/vigia-aprobaciones-fuentes.test.ts — 7 roturas, cada una en rojo',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '23:30', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La extensión se publica sola en la Chrome Web Store',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Cuando main tiene una versión nueva de la extensión,** el vigía la sube y la manda a revisión solo, a lo sumo una hora después del deploy. Sin preguntarte.',
+      '**No corta una revisión en curso:** si Google está revisando otra, la nueva sale cuando termine.',
+      '**Sin las claves no falla nada:** la fila de la extensión en Approvals dice que sale sola apenas estén.',
+      '**Si falla tres veces,** la fila pasa a «piden algo» con el motivo y te avisa una vez.',
+    ],
+    archivos: [
+      'lib/extension-publicar.ts — las seis reglas, subir y publicar con la API V2 · lib/vigia-aprobaciones-server.ts — publicarExtensionSiHaceFalta',
+      'next.config.ts — el zip de la extensión entra en la función del cron · app/api/cron/vigia-aprobaciones/route.ts — 180 s',
+      'tests/extension-publicar.test.ts — 7 roturas, cada una en rojo',
+    ],
+  },
 ];

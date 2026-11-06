@@ -1,5 +1,8 @@
 # Relevo: el vigía de las aprobaciones (4/11/2026, nube)
 
+> **5/11/2026:** la pestaña Approvals, los paneles sin API (nada se mira «a mano») y la extensión que se publica sola, en
+> [nube-approvals.md](nube-approvals.md). Lo de abajo sigue valiendo para las claves y los comandos.
+
 Lo escribió el chat «Vigía de aprobaciones» en la nube (`Claude-Cuenta: nube`). Desde la nube no se le puede escribir al Cerebro:
 lo que le iba a decir está acá. La nube no ve la base ni `.env.local`: nada de esto se corrió contra producción.
 

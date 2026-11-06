@@ -20,7 +20,7 @@ import { createVerify, generateKeyPairSync } from 'node:crypto';
 import {
   leerTodo, LECTORES, versionDeLaFicha, estadoDePlay, PERMISOS_META, FALTA_RESEND_ADMIN, type Entorno,
 } from '../lib/vigia-aprobaciones-fuentes';
-import { vuelta, mensajeDeAvisos } from '../lib/vigia-aprobaciones';
+import { vuelta, mensajeDeAvisos, ITEMS, FALTA_LECTURA_PANEL } from '../lib/vigia-aprobaciones';
 
 const T0 = Date.parse('2026-11-04T12:00:00Z');
 
@@ -54,7 +54,7 @@ function falso(rutas: Ruta[]) {
 function entorno(fetchFalso: typeof fetch, o: Partial<Entorno> = {}): Entorno {
   return {
     fetch: fetchFalso, ahoraMs: () => T0, creds: {}, versionExtension: '0.75.0', extensionId: 'gapbemdaaghomjbnggechglkpmbgplle',
-    dominiosResend: async () => ({ ok: true, domains: [] }), ...o,
+    dominiosResend: async () => ({ ok: true, domains: [] }), paneles: { v: 1, items: {} }, ...o,
   };
 }
 
@@ -129,10 +129,10 @@ test('el token de Google se pide UNA vez por vuelta aunque lo usen tres lectores
   const assertion = new URLSearchParams(String(pedido.init.body)).get('assertion')!;
   const claims = JSON.parse(Buffer.from(assertion.split('.')[1], 'base64url').toString());
   assert.match(claims.scope, /androidpublisher/);
-  assert.match(claims.scope, /chromewebstore\.readonly/, 'sólo lectura en la tienda de Chrome');
+  assert.match(claims.scope, /\/auth\/chromewebstore(\s|$)/, 'la tienda de Chrome con el alcance entero: el vigía también publica la extensión');
 });
 
-test('Google Play sin la cuenta de servicio: producción por la ficha pública; la prueba cerrada, a mano', async () => {
+test('Google Play sin la cuenta de servicio: producción por la ficha pública; la prueba cerrada dice que falta la cuenta', async () => {
   const pub = falso([(u) => (u.startsWith('https://play.google.com/store/apps/details') ? { status: 404, body: 'no' } : null)]);
   const todo = await leerTodo(entorno(pub.f));
   assert.equal(todo['play-produccion'].tipo === 'leido' && todo['play-produccion'].estado, 'sin_publicar');
@@ -192,20 +192,21 @@ test('Resend: sólo los dominios de MaKo, y uno que falla pide algo', async () =
   assert.deepEqual(sinClave, { tipo: 'sin_credencial', faltan: [FALTA_RESEND_ADMIN] });
 });
 
-test('nada tira: sin red, cada lector dice «no pude» o «a mano», y ningún motivo lleva una clave', async () => {
+test('nada tira: sin red, cada lector dice «no pude» (o, un panel sin leer, qué falta), y ningún motivo lleva una clave', async () => {
   const sinRed = (async () => { throw new TypeError('fetch failed'); }) as typeof fetch;
   const todo = await leerTodo(entorno(sinRed, {
     creds: { ...CREDS_ASC, TIENDAS_GOOGLE_CUENTA_SERVICIO: SA, CWS_PUBLISHER_ID: 'pub', MAKO_META_APP_SECRET: SECRETO_META },
     dominiosResend: async () => { throw new Error('caída'); },
   }));
   for (const [id, l] of Object.entries(todo)) {
-    assert.ok(l.tipo === 'no_pude' || l.tipo === 'a_mano', `${id}: ${JSON.stringify(l)}`);
+    const panelSinLeer = l.tipo === 'sin_credencial' && l.faltan.join() === FALTA_LECTURA_PANEL && !!ITEMS.find((i) => i.id === id)?.panel;
+    assert.ok(l.tipo === 'no_pude' || panelSinLeer, `${id}: ${JSON.stringify(l)}`);
     const texto = JSON.stringify(l);
     for (const secreto of [SECRETO_META, P8.slice(40, 80), 'tok-de-mentira']) assert.ok(!texto.includes(secreto), `${id} lleva una clave`);
   }
 });
 
-test('de punta a punta: la primera vuelta sólo dice lo que hay que mirar a mano; la aprobación que llega después avisa', async () => {
+test('de punta a punta: la primera vuelta sólo dice lo que falta para leer solo; la aprobación que llega después avisa', async () => {
   const fichas = (version: string, appStore: number) => falso([
     (u) => (u.includes('itunes.apple.com') ? { status: 200, body: { resultCount: appStore, results: appStore ? [{ version: '1.0' }] : [] } } : null),
     (u) => (u.startsWith('https://play.google.com/store') ? { status: 404, body: 'no' } : null),
@@ -214,7 +215,7 @@ test('de punta a punta: la primera vuelta sólo dice lo que hay que mirar a mano
   ]);
   const e1 = entorno(fichas('0.74.3', 0).f, { creds: { MAKO_META_APP_SECRET: SECRETO_META }, dominiosResend: async () => ({ ok: true, domains: [{ name: 'hola-mako.com', status: 'verified' }] }) });
   const r1 = vuelta(null, await leerTodo(e1), T0);
-  assert.deepEqual([...new Set(r1.avisos.map((a) => a.tipo))], ['a_mano'], 'nada viejo se anuncia como novedad');
+  assert.deepEqual([...new Set(r1.avisos.map((a) => a.tipo))], ['falta'], 'nada viejo se anuncia como novedad');
   const e2 = entorno(fichas('0.75.0', 1).f, { creds: { MAKO_META_APP_SECRET: SECRETO_META }, dominiosResend: async () => ({ ok: true, domains: [{ name: 'hola-mako.com', status: 'verified' }] }) });
   const r2 = vuelta(r1.nuevo, await leerTodo(e2), T0 + 3600_000);
   assert.deepEqual(r2.avisos.map((a) => a.item).sort(), ['app-store', 'chrome-web-store']);

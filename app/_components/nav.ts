@@ -307,6 +307,10 @@ const HERRAMIENTAS = {
   // sólo para el super admin; los prompts, en Settings › Prompts. Las rutas viejas redirigen (next.config.ts).
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   conocimientos: { key: 'conocimientos', label: 'Knowledge', href: '/conocimientos', icon: 'contexto', adminOnly: true, match: starts('/conocimientos') },
+  // Approvals (5/11/2026, Martín: «todo deberías poder revisarlo tú»): en qué está cada aprobación que MaKo espera de otra
+  // empresa (App Store, Google Play, la Chrome Web Store, Meta, Google, Resend, Creem, SSL.com). Lee lo que guardó el vigía
+  // (lib/vigia-aprobaciones.ts); no le pregunta nada a las tiendas al abrirse. Su casa: el menú de la foto.
+  aprobaciones: { key: 'admin-approvals', label: 'Approvals', href: '/admin/approvals', icon: 'check', adminOnly: true, match: starts('/admin/approvals') },
 } satisfies Record<string, NavItem>;
 
 export const FAMILIAS: NavFamilia[] = [
@@ -546,6 +550,7 @@ export const SUPERADMIN_MENU: NavItem[] = [
   // HERRAMIENTAS quedan (el teléfono las abre por key, lib/movil-rutas.ts) y sus rutas redirigen. MaKo Context, AI Models
   // y Dev se fueron el mismo día (Classroom › Methodology, Settings › Prompts; las rutas redirigen, next.config.ts).
   HERRAMIENTAS.conocimientos,
+  HERRAMIENTAS.aprobaciones,
 ];
 
 /**

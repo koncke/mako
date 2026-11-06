@@ -473,6 +473,34 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin?tab=activity',
   },
+  {
+    fecha: '5 nov', hora: '22:30', chat: 'Admin', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Admin nuevo está horrible: copiar el diseño y la funcionalidad de UNA app',
+    pedido: 'está horrible… como ya te lo he pedido muchas veces, copies tanto el diseño como la funcionalidad de alguna otra aplicación o repositorio de GitHub. Tenés prohibido pensar por tu propia cuenta y hacerlo vos solo, porque lo haces mal',
+    puntos: [
+      'Llegó por el Cerebro, que eligió la fuente: Studio Admin (arhamkhnz/next-shadcn-admin-dashboard, MIT), con la demo abierta y la licencia y el stack comprobados.',
+      'Las cuentas de la versión anterior se conservan; lo rechazado es la pantalla. Cada sección pasa a ser una pantalla de Studio, entera y en su orden.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '00:30', chat: 'Admin', sesion: 'cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Admin con el código de Studio Admin: el shell, Users y Revenue (tanda 1 de la copia)',
+    puntos: [
+      'El shell de Studio portado archivo por archivo: el sidebar plegable a íconos con las seis secciones, la cabecera pegada arriba con la búsqueda (⌘K) y el modo oscuro, y su tema, limitado a Admin. La barra de pestañas de antes se borró; los links viejos (`/admin?tab=…`) llevan a su sección.',
+      'Users es la pantalla de usuarios de Studio, tal cual: buscar, Rol, Tipo, Estado y Workspace, ocultar columnas, ordenar, exportar a CSV, lista o grilla y la selección. El «…» de cada fila trae ver su negocio, entrar, reenviar el acceso y suspender o reactivar.',
+      'Revenue es el tablero por defecto de Studio: las cuatro tarjetas (lo cobrado en total, los clientes nuevos, los que pagan y el MRR), el gráfico de actividad por mes y la tabla de clientes con su suscripción, si está al día, lo que paga por mes y lo que pagó en total.',
+      'Lo que espera a Martín (quién quiere entrar) va en la tarjeta del pie del sidebar y en el sobre de arriba. La estrella de MaKo se corre al costado del sidebar de Studio.',
+      'Billing, Customers, Activity y Errors siguen con su pantalla de antes adentro del shell nuevo, hasta su tanda.',
+    ],
+    archivos: [
+      'app/admin/_studio — el código de Studio Admin (componentes, shell, tema, letra Geist local)',
+      'app/admin/usuarios/users.tsx, users-columns.tsx, users-table.tsx, users-grid.tsx y data.ts — Users',
+      'app/admin/ingresos/revenue.tsx, revenue-vista.ts, metric-cards.tsx, performance-overview.tsx, subscriber-overview.tsx y recent-customers-table — Revenue',
+      'docs/admin/copia — las capturas lado a lado',
+      'tests/admin-studio.test.ts',
+    ],
+    revisar: '/admin',
+  },
 ];
 
 export const PARTES: Parte[] = [
