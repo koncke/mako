@@ -412,7 +412,19 @@ test('4. el desplegable: Inicio (Scraper o Flow) → el registro → la extracci
   const popup = sinComentarios(leer('extension/popup.js'));
   const html = leer('extension/popup.html');
   assert.match(html, /<button id="atras" class="atras" type="button" aria-label="Atrás"/);
-  assert.match(popup, /const ATRAS = \{ flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio' \};/, 'la flecha no vuelve un paso');
+  // La flecha vuelve UN paso. Se lee el objeto y se mira lo que cuida, no la línea: con «Guardar en MaKo» (0.77.0) se sumó
+  // `perfil`, y una línea citada daba rojo con el desplegable bien. Probado rompiéndolo (base 20/0): `extraccion: 'inicio'` → 1
+  // fallo, y `perfil: 'nada'` (una flecha a ninguna pantalla) → 1 fallo.
+  const mATRAS = popup.match(/const ATRAS = (\{[^}]*\});/);
+  assert.ok(mATRAS, 'no encontré el mapa ATRAS del desplegable');
+  const ATRAS = new Function(`return (${mATRAS[1]});`)() as Record<string, string>;
+  assert.equal(ATRAS.extraccion, 'scraper', 'de una extracción, la flecha vuelve al registro');
+  assert.equal(ATRAS.scraper, 'inicio');
+  assert.equal(ATRAS.flow, 'inicio');
+  for (const [desde, hacia] of Object.entries(ATRAS)) {
+    assert.ok(hacia === 'inicio' || hacia in ATRAS, `la flecha de «${desde}» va a «${hacia}», que no es una pantalla`);
+    assert.notEqual(hacia, desde, `la flecha de «${desde}» no se mueve`);
+  }
   assert.match(popup, /opcion\('Scraper de WhatsApp',/);
   assert.match(popup, /opcion\('Google Flow',[\s\S]{0,300}\(\) => void ir\(\{ pantalla: 'flow' \}\)\);/);
   assert.match(popup, /void arrancar\(\);\s*$/, 'el desplegable arranca en Flow (`pintar`) en vez de en Inicio');

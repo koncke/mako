@@ -21,6 +21,11 @@ export type VideoDeLook = {
   listas: number;
   /** La primera toma con archivo, para mirarla en la tarjeta. '' si todavía no hay. */
   url: string;
+  /**
+   * El número de esa toma (null sin archivo). Con un video de UNA toma (un hook, una frase), es el video entero: «Usar en un
+   * anuncio» lo lleva por su plan y su toma, y /anuncio/nuevo lo resuelve al clip de hoy.
+   */
+  primeraToma: number | null;
 };
 
 /** Los videos de un look, del más nuevo al más viejo. Sin `mediaId` (el look todavía se genera) no hay ninguno. */
@@ -30,14 +35,15 @@ export function videosDelLook(historial: readonly PlanGuardado[], mediaId: strin
   for (const item of historial) {
     if (item.imagenes?.['1']?.elegidaId !== mediaId) continue;
     const clips = item.plan?.clips ?? [];
-    const conArchivo = clips.map((c) => item.video?.[String(c.n)]?.url ?? '').filter(Boolean);
+    const conArchivo = clips.map((c) => ({ n: c.n, url: item.video?.[String(c.n)]?.url ?? '' })).filter((c) => c.url);
     out.push({
       planId: item.id,
       guion: item.pedido ?? '',
       at: item.at ?? '',
       tomas: clips.length,
       listas: conArchivo.length,
-      url: conArchivo[0] ?? '',
+      url: conArchivo[0]?.url ?? '',
+      primeraToma: conArchivo[0]?.n ?? null,
     });
   }
   return out.sort((a, b) => (b.at > a.at ? 1 : b.at < a.at ? -1 : 0));
