@@ -646,4 +646,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/anuncio/nuevo?origen=copywriter',
   },
+  {
+    fecha: '6 nov', hora: '10:30', chat: 'Marketing CoPilot (nube, segunda sesión)', cuenta: 'nube',
+    sesion: 'cli_cd083d06-ac9d-5578-89fe-50972b9a692a',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El teléfono le habla al Marketing CoPilot, con su Plan, y la pantalla dice qué hace el relevo',
+    puntos: [
+      '**El mismo pedido se repartió dos veces**: esta sesión armó el CoPilot entero en paralelo con la que lo subió (6dba2d56..7db26c61). Lo suyo se descartó y sólo se sumó lo que faltaba en main.',
+      '**En el teléfono, «Pídele algo a MaKo» y «Pregúntale» abren la hoja del CoPilot**: el Cerebro con `desde.tab = «Marketing CoPilot»`, como la estrella de la computadora. Antes iban a /m/mako, sin `desde`, y MaKo no hablaba como CoPilot.',
+      '**«Hoy | Plan» en el teléfono** con un funnel de anuncios (`seccionesDelTelefono`), y **«Cambiar mi estrategia» llega al teléfono**: el desvío perdía el `?estrategia=1`.',
+      '**El relevo del original** (Ganador + pausar) se pinta «Le gana su variación», en verde y con su impacto; **la variación de botón dice qué botón lleva**. Lo había dejado anotado el chat de anuncios para Thiago.',
+    ],
+    archivos: [
+      'app/m/ads/HojaDelCopiloto.tsx · MediaBuyerM.tsx · page.tsx · mb-m.css — el teléfono',
+      'lib/media-buyer/copiloto.ts — `seccionesDelTelefono` y `desdeDelCopiloto` (puros)',
+      'lib/movil-rutas.ts — `?estrategia=1` viaja al teléfono',
+      'app/ads-manager/mb-modelo.ts · Autopilot.tsx — el relevo y el botón',
+      'tests/marketing-copilot-reglas · marketing-copilot-pantallas · movil-rutas · marketing-copilot-relevo-pantalla — con sus roturas',
+      'scripts/banco-copilot/telefono.tsx — el banco del teléfono (capturas 16 a 18)',
+      'docs/hallazgos-marketing-copilot.md · docs/relevo/nube-marketing-copilot.md',
+    ],
+    revisar: '/ads-manager',
+  },
 ];

@@ -109,7 +109,7 @@ Precio en dólares, tarjeta no estadounidense, suscripción. «Con retiro» supo
 
 | Proveedor | Comisión por venta | Queda de 47 | Queda de 97 | Retiro | Conversión | Mínimo | Con retiro (47 / 97) |
 |---|---|---|---|---|---|---|---|
-| dLocal Go, México | 2,49% + 20¢ + 16% de impuesto sobre la comisión. [Tabla de abril de 2023](https://dlocalgo.com/wp-content/uploads/2024/09/pricinglist.pdf) | **45,41** | **93,97** | Gratis arriba de US$10 | Si cobrás en USD [la paga el comprador](https://helpcenter.dlocalgo.com/en/articles/7169372-what-is-the-exchange-rate-and-how-dlocal-go-apply-it). Tasa sin publicar | Sin publicar | **45,41 / 93,97** |
+| dLocal Go, México | 2,49% + 20¢ + 16% de impuesto sobre la comisión. [Tabla de abril de 2023](https://dlocalgo.com/wp-content/uploads/2024/09/pricinglist.pdf) | **45,41** | **93,97** | Gratis arriba de US$10 | Si cobrás en USD [la paga el comprador](https://helpcenter.dlocalgo.com/en/articles/7169372-what-is-the-exchange-rate-and-how-dlocal-go-apply-it). Con balance en USD, [al cambio oficial](https://helpcenter.dlocalgo.com/en/articles/7846663-at-what-exchange-rate-do-i-receive-the-money-from-my-sales), sin decir cuál | Sin publicar | **45,41 / 93,97** |
 | Whop, MX, CL, CO, AR, UY | [2,9% + 30¢](https://docs.whop.com/payments-and-billing/fees/regional-fees) + impuestos 2% + reintentos 0,5% | **44,16** | **91,46** | Transferencia US$23. Banco local sin publicar. Cripto 5% + US$1 | 0 con precio adaptativo. Si no, 1%, y 2% en Argentina | Sin publicar | **41,86 / 89,16** |
 | Whop, España | [2,7% + 30¢](https://docs.whop.com/fees) + 2% + 0,5% | 44,26 | 91,66 | Igual | Igual | Igual | 41,96 / 89,36 |
 | Whop, Perú y Rep. Dominicana | 4,9% + 30¢ + 2% + 0,5% | 43,22 | 89,52 | Igual | Igual | Igual | 40,92 / 87,22 |
@@ -243,3 +243,20 @@ Veredicto: la recomendación se sostiene en lo central, con tres correcciones. N
 **Preguntar por escrito antes de crear la cuenta**
 - Whop: ¿acepta persona física argentina con monotributo? ¿Un SaaS que automatiza WhatsApp por línea no oficial, importa contactos de grupos y lee Instagram de competidores cae en «data-scraping tools» o «platform manipulation»? ¿Qué reserva inicial aplica a una cuenta nueva? ¿Qué moneda y red cripto, y acepta dirección de depósito de Binance? ¿Costo del retiro a banco argentino?
 - dLocal Go: ¿qué constancia fiscal acepta para monotributista argentino y puede ser persona física sola? ¿Vigencia de la tabla de comisiones y costo de conversión? ¿Existe apelación si rechazan? ¿Cobra suscripciones recurrentes con tarjeta de compradores de México, Colombia y Chile desde una cuenta argentina?
+
+## dLocal Go, visto desde adentro (6/11/2026)
+
+Alta a nombre de Leandro. El paso 1 ya deja procesar hasta US$3.000; retirar pide el paso 2.
+
+- **Sin cripto y sin dólares.** El formulario dice «Solo puedes retirar tu dinero en tu moneda local. Agrega una cuenta bancaria en ARS». La moneda de balance deja elegir USD, pero el retiro sale en pesos, y con balance en USD al cambio oficial.
+- **Lo obvio era un CVU de una app de cripto, y no se puede elegir.** El campo dice «CBU / CVU», pero la lista trae sólo bancos (Brubank y Wilobank incluidos), sin billeteras ni apps de cripto.
+- **Qué queda de cada venta, con la cotización del 6/11** (oficial 1.520/1.570, MEP 1.577, cripto 1.653, y la comisión de México de la tabla de 2023):
+
+| Cómo termina la plata | De 47 | De 97 |
+|---|---|---|
+| dLocal, pesos, dólar oficial | 43,96 | 90,98 |
+| dLocal, pesos, MEP | 43,77 | 90,57 |
+| dLocal, pesos, cripto | 41,76 | 86,41 |
+| Whop, retiro en cripto, 10 ventas por retiro | 41,85 | 86,79 |
+
+Deducido: el retiro en cripto de Whop no gana. Falta medir qué oficial usa dLocal en el primer retiro real.

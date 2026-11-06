@@ -12812,3 +12812,19 @@ El PDF de cobro a Código fue el primer documento con pie que salió por la voz 
   de la casa permite el scroll lateral.
 
 **Vive en:** app/chats/PanelContacto.tsx, app/chats/chats.css, tests/recorrido-chats.test.ts
+
+## «A este negocio no», como CONDITION: el interruptor de /mensajes que una mudanza perdía (6/11/2026)
+
+- **Mudar un aviso a un evento de la plataforma le borraba a cada negocio su interruptor de /mensajes**: la fila de SuperAdmin es UNA
+  para todos, y el evento no lee el store (`emitirDelCatalogo` lo desvía antes). Por eso «antes de prender `reunion_tareas_al_plan`,
+  excluir al ws 13» no tenía cómo escribirse: no había una CONDITION que dijera de qué negocio era el evento.
+- **El dato lo pone el runner, no el emisor** (`datosDeLaPlataforma` en `emitirPorEvento`, lib/aviso-evento.ts): así lo trae TODO evento
+  de la plataforma, también los que ya estaban mudados, sin tocar un solo emisor. Con el emisor, el próximo evento nace sin él.
+- **Por número y no por nombre**: un negocio se renombra y una CONDITION sobre el nombre deja de cumplirse sola, sin un error.
+- **Va AL FINAL de `VARIABLES_AVISO`**: el editor ofrece los datos en ese orden, y lo propio del evento va primero.
+- ⚠️ **CONDITION → CONDITION no se arma**: la exclusión del 13 va como una fila más en CADA rama de la CONDITION que ya había (y el «Si
+  no» pasa a ser el fin). El «Si no» con tarjeta no se puede excluir: por eso la tarjeta de siempre pasó a ser una rama.
+
+**Vive en:** `lib/aviso-evento.ts` (`datosDeLaPlataforma`) · `lib/variables-aviso.ts` (`negocio_numero`) · `lib/plantillas-automatizaciones.ts`
+(`mako-reunion-tareas-al-plan`) · tests: `tests/dato-evento.test.ts` (5), `tests/reunion-tareas-al-plan-evento.test.ts`
+

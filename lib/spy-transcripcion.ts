@@ -172,13 +172,13 @@ export type DepsGuion = {
 
 /** Lo que contesta Gemini por UN tramo de un video de YouTube (`guionDeYoutubeConGemini`, lib/ai-cheap.ts). */
 export type ResultadoTramoYt =
-  | { ok: true; texto: string; tokens: number }
+  | { ok: true; texto: string; tokens: number; corto?: true }
   | { ok: false; motivo: 'sin-gemini' | 'saturado' | 'fallo'; error: string };
 
 /** El trabajo de un video de YouTube: no hay video que bajar, lo transcribe Gemini desde su enlace. */
 export type DepsGuionYoutube = Pick<DepsGuion, 'leer' | 'cambiarSi' | 'nuevoIntento'> & {
-  /** UN tramo (null = el video entero), con el Gemini del negocio. */
-  youtube: (url: string, tramo: { desdeS: number; hastaS: number } | null) => Promise<ResultadoTramoYt>;
+  /** UN tramo (null = el video entero, que dura `duracionS` si se sabe), con el Gemini del negocio. */
+  youtube: (url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null) => Promise<ResultadoTramoYt>;
   /** Una del tope del día del negocio (`GUIONES_YT_POR_DIA`, contado en la base). false = se acabó por hoy. */
   reservarDia: () => Promise<boolean>;
 };
@@ -264,20 +264,29 @@ export async function transcribirGuionYoutube(
 
   if (!(await deps.reservarDia())) return pendiente(ESPERA_TOPE_MS);
   const { tramos, cortado } = tramosDeYoutube(duracion);
+  const duracionS = segundosDeDuracion(duracion);
   const textos: string[] = [];
+  // Un tramo que Gemini devolvió debajo del piso con todos sus modelos (`corto`): se guarda igual, y se dice.
+  let algunoCorto = false;
   for (const tramo of tramos) {
-    const t = await deps.youtube(url, tramo).catch((): ResultadoTramoYt => ({ ok: false, motivo: 'fallo', error: 'No pude transcribirlo.' }));
+    const t = await deps.youtube(url, tramo, tramo ? null : duracionS).catch((): ResultadoTramoYt => ({ ok: false, motivo: 'fallo', error: 'No pude transcribirlo.' }));
     if (!t.ok) return t.motivo === 'saturado' ? pendiente(ESPERA_SATURADO_MS) : fallo(t.error);
+    if (t.corto) algunoCorto = true;
     textos.push(t.texto);
   }
   const texto = guionLegible(textos.filter(Boolean).join('\n'), TOPE_GUION_YT);
   const hecho = new Date(ahora()).toISOString();
-  if (!texto) return escribir({ ...r.actual, estado: 'listo', hecho, texto: '', motivo: 'No tiene voz: es sólo música o imagen.', fallos: 0 });
+  // Vacío con un tramo debajo del piso: «no tiene voz» no está medido (Gemini también devuelve vacío cuando corta).
+  if (!texto) return escribir({ ...r.actual, estado: 'listo', hecho, texto: '', motivo: algunoCorto ? 'Gemini no devolvió texto: puede ser sólo música o imagen, o que no lo transcribió.' : 'No tiene voz: es sólo música o imagen.', fallos: 0 });
   // Un video largo se transcribe hasta `MAX_YT_S` (o, sin su duración, el primer tramo): se dice hasta dónde.
   const ultimo = tramos[tramos.length - 1];
-  const nota = cortado !== false && ultimo ? `Hasta el minuto ${Math.round(ultimo.hastaS / 60)}.` : null;
+  const hasta = cortado !== false && ultimo ? `Hasta el minuto ${Math.round(ultimo.hastaS / 60)}.` : null;
+  const nota = [hasta, algunoCorto ? NOTA_GUION_CORTO : null].filter(Boolean).join(' ') || null;
   return escribir({ ...r.actual, estado: 'listo', hecho, texto, motivo: nota, fallos: 0 });
 }
+
+/** Lo que dice un guion de YouTube con un tramo debajo del piso de caracteres por minuto en todos los modelos. */
+export const NOTA_GUION_CORTO = 'Puede faltar parte: Gemini devolvió menos texto del que suele decirse en ese tiempo.';
 
 /** Lo que dice un guion PENDIENTE (YouTube: un «high demand» o el tope del día). Sin cartel: no es un error de nadie. */
 export const NOTA_PENDIENTE = 'Lo transcribo más tarde.';

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   FUNNELS, REFERENTES_COPILOTO, aplicarCambio, evaluarFunnel, leerRespuestaCopiloto, mensajesDeCopiloto, opcionesDeCopiloto,
   pasoDeCopiloto, planOrganico, propuestaDe, recomendarFunnel, sanearPerfil, seccionesDe, copilotoListo, avisoPendiente, conCampanas, medirDe, tareasDeLaSemana, RUTAS_COPILOTO,
+  seccionesDelTelefono, desdeDelCopiloto, ORIGEN_COPILOTO,
   type PerfilCopiloto,
 } from '../lib/media-buyer/copiloto';
 import { ASESORES } from '../lib/asesores/catalogo';
@@ -241,6 +242,26 @@ test('lo que se escribe a mano también se entiende', () => {
   assert.deepEqual(leerRespuestaCopiloto('llamadas', 'mi equipo de closers', {}), { llamadas: 'equipo' });
   assert.deepEqual(leerRespuestaCopiloto('referente', 'quiero a Sofía Contreras', {}), { referente: 'sofia-contreras' });
   assert.equal(leerRespuestaCopiloto('ritmo', '40', {}), null);
+});
+
+test('el teléfono con anuncios: Hoy y, con la charla terminada, su Plan (Campañas y Biblioteca quedan en la computadora)', () => {
+  const vsl = charla(['Elegir un tipo de funnel', 'Anuncios a un VSL con llamada', '$5,000', '$3,000 al mes', 'Yo', 'Sí, investígala', 'Me sirve, empecemos']);
+  assert.ok(copilotoListo(vsl));
+  assert.deepEqual(seccionesDelTelefono(vsl), ['hoy', 'plan']);
+  assert.deepEqual(seccionesDelTelefono(null), ['hoy'], 'un negocio de antes, sin charla: sólo Hoy');
+  assert.deepEqual(seccionesDelTelefono({}), ['hoy']);
+  const aMedias = charla(['Elegir un tipo de funnel', 'Anuncios a un VSL con llamada', '$5,000']);
+  assert.equal(copilotoListo(aMedias), false);
+  assert.deepEqual(seccionesDelTelefono(aMedias), ['hoy'], 'sin terminar no hay plan que mostrar');
+  // Sin anuncios el teléfono dibuja SinAnuncios (app/m/ads/page.tsx): si igual se preguntara, no ofrece «Hoy | Plan» de anuncios.
+  const organico = charla(['Elegir un tipo de funnel', 'Orgánico en Instagram', '$3,000', 'Viralidad', '5 piezas por semana', 'Reels', 'Más adelante', 'Me sirve, empecemos']);
+  assert.ok(copilotoListo(organico));
+  assert.deepEqual(seccionesDelTelefono(organico), ['hoy']);
+});
+
+test('el chat del teléfono escribe con el MISMO desde que la estrella de la computadora', () => {
+  assert.deepEqual(desdeDelCopiloto(), { tab: ORIGEN_COPILOTO, entidad: null, modo: null });
+  assert.deepEqual(desdeDelCopiloto('Hoy (3 cambios)'), { tab: 'Marketing CoPilot', entidad: null, modo: null, pantalla: 'Hoy (3 cambios)' });
 });
 
 // ── Probado rompiéndolo (6/11/2026) ───────────────────────────────────────────

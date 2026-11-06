@@ -27,17 +27,25 @@ import { datosDelEvento } from '../lib/aviso-evento';
 import { variablesPara } from '../lib/variables-aviso';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
-type Paso = PasoGrafo & { ramas?: Array<{ filas: Array<{ campo: string; valor: string }>; siguiente: string | null }>; si_no?: string | null };
+type Paso = PasoGrafo & { ramas?: Array<{ filas: Array<{ campo: string; valor: string; no?: boolean }>; siguiente: string | null }>; si_no?: string | null };
 const pasos = (): Paso[] => pasosDePlantilla(plantillaPorId('mako-reunion-tareas-al-plan')!) as unknown as Paso[];
 const cuerpo = (id: string): string => {
   const p = pasos().find((x) => x.id === id)!;
   const parte = partesDeMako((p.accion as { params?: Record<string, unknown> }).params)[0];
   return parte && 'cuerpo' in parte ? String(parte.cuerpo) : '';
 };
-/** La tarjeta que elige la CONDITION con esos datos (gana la primera rama que se cumple; si no, «Si no»). */
-const tarjetaPara = (d: Record<string, string | undefined>): string => {
+/**
+ * La tarjeta que elige la CONDITION con esos datos (gana la primera rama que se cumple; si no, «Si no»). El número del negocio
+ * lo pone `emitirPorEvento` en todo evento de la plataforma: acá va el de un negocio cualquiera (14) si el test no dice otro.
+ */
+const tarjetaPara = (d0: Record<string, string | undefined>): string => {
+  const d: Record<string, string | undefined> = { negocio_numero: '14', ...d0 };
   const c = pasos().find((x) => x.id === 'rp_cuantas')!;
-  const rama = c.ramas?.find((r) => r.filas.every((f) => d[f.campo.replace(/^dato:/, '')] === f.valor));
+  const cumple = (f: { campo: unknown; valor?: unknown; no?: boolean }) => {
+    const v = d[String(f.campo).replace(/^dato:/, '')];
+    return v != null && (f.no ? v !== String(f.valor) : v === String(f.valor));
+  };
+  const rama = c.ramas?.find((r) => r.filas.every((f) => cumple(f)));
   return rama?.siguiente ?? c.si_no ?? '';
 };
 const sinVacios = (d: object): Record<string, string> => Object.fromEntries(Object.entries(d).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
@@ -97,4 +105,13 @@ test('«Terminé de leer» sólo si terminó: una vuelta que completa y sigue a 
   assert.equal(tarjetaPara(d), 'rp_una_mk');
   const fin = datosReunionesAlPlan([{ ...una, resto: true, propId: 'p5' }], { cuando: () => null, link: LINK });
   assert.equal(fin.plan_resto, 'sí');
+});
+
+// (6/11/2026) El ws 13 lo tenía apagado en /mensajes: su fila nace con «No es el negocio número 13» en cada rama.
+// PROBADO ROMPIÉNDOLO: sin la fila del negocio en la tercera rama → cae éste.
+test('al negocio 13 no le sale ninguna de las tres; a otro, la de siempre', () => {
+  const d = datosReunionesAlPlan([una], { cuando: () => 'vie 17 oct · 12:00', link: LINK });
+  assert.equal(tarjetaPara({ ...d, negocio_numero: '13' }), '', 'al 13 no le sale nada');
+  assert.equal(tarjetaPara({ ...d, negocio_numero: '14' }), 'rp_una_mk');
+  assert.equal(tarjetaPara({ ...d, negocio_numero: '13', plan_varias: 'sí' }), '');
 });

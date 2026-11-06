@@ -22,6 +22,7 @@ Método: relevos leídos con `git show origin/main` (main = 8ce367ed6, 6/11 02:0
   (Sólo los salientes: los entrantes también quedaron `false` por el default, pero no importan para el primer contacto.) Hay que pasar por `node scripts/...` o el SQL editor con el OK de Martín; no hay script del repo para esto.
 
 ### A2. [Plata / lo que traba] Black November de Leila: el horario de las automatizaciones prendidas (nube-black-november)
+**Hecho el 6/11/2026 15:13 UTC, sólo Leila:** `mako.horario_envio` del ws 11 en 10 a 20, todos los días; respaldo en `~/.claude/operaciones/respaldo-horario-leila.json`. Su automatización #721 sigue con su horario propio, a propósito. El barrido a los demás negocios NO se corrió.
 - Medido en seco: `poner 0 · marcar 1 · esperar 6 · nada 28`. Las 6 «esperar» son de negocios donde es de noche (ws 13 #264, 15 #266, 17 #703, 18 #265, 19 #698, 20 #702: «córrelo entre las 9 y las 21 de ahí»; Madrid ws 19 también). La «marcar» es ws 23 #726 (el 9 a 21 que le puso MaKo al prender: sólo se marca para que siga el horario del negocio).
 - Leila (ws 11): NO tiene `mako.horario_envio` guardado en `app_settings` (sólo `mako.timezone` = America/Cancun). Su única automatización (#721) tiene horario propio. Los 10 a 20 que pidió NO están puestos.
 - Comandos (se corren de DÍA; ahora es de noche en Argentina y en Cancún, el script deja «esperar»). Escriben en `app_settings` (compare-and-set, con respaldo); sólo agregan/cambian claves de horario, no borran:

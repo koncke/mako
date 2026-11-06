@@ -79,14 +79,37 @@ test('sin marcas no hace nada, y un fallo de gh no pone rojo el verde', { skip: 
   } finally { ghRoto.rm(); }
 });
 
-test('sobre-main.yml: corre al lanzarlo, y su paso rojo deja ci-rojo/main en el commit chequeado (corrido contra un remoto)', { skip: !haySh && 'sin sh' }, () => {
-  const yml = leerWorkflow(RAIZ, 'sobre-main.yml');
+// 6/11/2026 (los minutos de Actions, docs/hallazgos-infra.md): corre UNA vez por día, antes del despliegue de las 11:05 UTC, y a
+// mano. Probado rompiéndolo (base 7 / 0): con `push:` de vuelta en el `on:`, o el cron a las 11:30, cae «corre una vez por día»
+// (6 / 1); sin la línea del despliegue frenado en «Main está rojo», cae el test de abajo (6 / 1); con `[ "$SIN_PROBAR" != "1" ]`,
+// cae el de la mezcla sin probar (6 / 1).
+test('sobre-main.yml: corre una vez por día ANTES del despliegue diario, y a mano; nunca con cada push ni cada punta', () => {
+  const yml = leerWorkflow(RAIZ, 'sobre-main.yml').replace(/\r\n/g, '\n');
+  const l = yml.split('\n').filter((x) => !/^\s*#/.test(x));
+  const i = l.indexOf('on:');
+  const on = l.slice(i + 1, l.findIndex((x, k) => k > i && /^\S/.test(x))).map((x) => /^ {2}([a-z_]+):/.exec(x)?.[1]).filter(Boolean);
+  assert.deepEqual(on, ['schedule', 'workflow_dispatch']);
+  const crons = [...yml.matchAll(/cron: '(\d+) (\d+) \* \* \*'/g)].map((m) => Number(m[2]) * 60 + Number(m[1]));
+  assert.equal(crons.length, 1, 'una vez por día');
+  const despliegue = JSON.parse(readFileSync(join(RAIZ, 'vercel.json'), 'utf8')).crons.find((c: { path: string }) => c.path === '/api/cron/desplegar-main').schedule.split(' ');
+  const minDespliegue = Number(despliegue[1]) * 60 + Number(despliegue[0]);
+  // La corrida tarda ~12 min, el relanzamiento por máquina otros tantos, y GitHub atrasa un schedule hasta ~30 min.
+  assert.ok(minDespliegue - crons[0] >= 60, `el chequeo (${crons[0]} min UTC) tiene que terminar antes del despliegue (${minDespliegue})`);
+  assert.equal(corre(yml, 'mezcla-de-main', { event_name: 'schedule', event: {} }), true);
   assert.equal(corre(yml, 'mezcla-de-main', { event_name: 'workflow_dispatch', event: {} }), true);
+  // Ninguna punta lo lanza.
+  assert.doesNotMatch(leerWorkflow(RAIZ, 'punta.yml').split('\n').filter((x) => !/^\s*#/.test(x)).join('\n'), /gh workflow run sobre-main\.yml/);
+});
+
+test('sobre-main.yml: su paso rojo deja ci-rojo/main en el commit chequeado y dice que el despliegue queda frenado (corrido contra un remoto)', { skip: !haySh && 'sin sh' }, () => {
+  const yml = leerWorkflow(RAIZ, 'sobre-main.yml');
   const r = armar({});
   try {
     const x = correrPaso(yml, 'Main está rojo', { cwd: r.clon });
     assert.equal(x.codigo, 0, x.salida);
     assert.match(x.salida, /::error::La mezcla de main/);
+    assert.match(x.salida, /El despliegue diario queda frenado/);
+    assert.match(x.resumen, /no compila mientras main esté rojo/);
     assert.deepEqual(r.remotas(), ['refs/heads/ci-rojo/main', 'refs/heads/main']);
   } finally { r.rm(); }
   const vercel = JSON.parse(readFileSync(join(RAIZ, 'vercel.json'), 'utf8'));
@@ -94,8 +117,9 @@ test('sobre-main.yml: corre al lanzarlo, y su paso rojo deja ci-rojo/main en el 
 });
 
 // ── Los dos pasos de punta.yml que hablan con main ─────────────────────────────────────────────────────────────────────────
-// Probado rompiéndolo: con `[ "$SIN_PROBAR" = "1" ]` invertido no se lanza sobre-main después de una mezcla sin probar; sin el
-// `if git ls-remote … ci-rojo/main` del paso rojo no queda la marca espera-main/<punta>. Los dos casos caen.
+// Probado rompiéndolo: con `[ "$SIN_PROBAR" = "1" ]` invertido, una mezcla sin probar devuelve main a verde (cae el primer test); sin
+// el `if git ls-remote … ci-rojo/main` del paso rojo no queda la marca espera-main/<punta>. Los dos casos caen.
+// 6/11/2026: una mezcla sin probar ya NO lanza sobre-main (la mira el chequeo diario); tampoco puede borrar la marca roja.
 const PUNTA = leerWorkflow(RAIZ, 'punta.yml');
 
 function conScriptDeMainVerde(clon: string) {
@@ -103,12 +127,15 @@ function conScriptDeMainVerde(clon: string) {
   writeFileSync(join(clon, 'scripts', 'ci-main-verde.sh'), readFileSync(SCRIPT, 'utf8'));
 }
 
-test('punta.yml: una mezcla SIN PROBAR lanza sobre-main; una probada con main rojo lo devuelve a verde y relanza; si no, nada', { skip: !haySh && 'sin sh' }, () => {
-  const sinProbar = armar({});
+test('punta.yml: una mezcla SIN PROBAR no lanza nada ni borra la marca; una probada con main rojo lo devuelve a verde y relanza; si no, nada', { skip: !haySh && 'sin sh' }, () => {
+  const sinProbar = armar({ 'ci-rojo/main': 'c1' });
   try {
+    conScriptDeMainVerde(sinProbar.clon);
     const x = correrPaso(PUNTA, 'Main después de esta punta', { cwd: sinProbar.clon, env: { SIN_PROBAR: '1', PATH: `${dirname(sinProbar.ghLog)}/bin:${process.env.PATH}` } });
     assert.equal(x.codigo, 0, x.salida);
-    assert.deepEqual(sinProbar.llamadas(), ['workflow run sobre-main.yml --ref main']);
+    assert.deepEqual(sinProbar.llamadas(), [], 'el chequeo es diario: una mezcla no lanza una corrida');
+    assert.match(x.resumen, /la mira el chequeo diario sobre main/);
+    assert.deepEqual(sinProbar.remotas(), ['refs/heads/ci-rojo/main', 'refs/heads/main'], 'lo que no se probó no devuelve main a verde');
   } finally { sinProbar.rm(); }
 
   const probadaConMainRojo = armar({ 'ci-rojo/main': 'c1', 'punta/esperaba': 'c1', 'espera-main/esperaba': 'c1' });

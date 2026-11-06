@@ -7,6 +7,7 @@ const pagina = '<!doctype html><html><head><meta charset="utf-8"><meta name="vie
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x').pathname;
   if (u === '/') { res.setHeader('content-type', 'text/html'); return res.end(pagina); }
+  if (u === '/telefono') { res.setHeader('content-type', 'text/html'); return res.end(pagina.replace(/entrada\./g, 'telefono.')); }
   const f = u.startsWith('/asesores/') ? path.join(__dirname, '..', '..', 'public', 'asesores', path.basename(u)) : path.join(sal, path.basename(u));
   if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('no'); }
   res.setHeader('content-type', tipos[path.extname(f)] || 'application/octet-stream');
