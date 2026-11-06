@@ -19,6 +19,8 @@
    @theme sólo le suma nombres que no existían. Ver el archivo. Y las animaciones
    de entrada/salida de sus menús (animate-in, fade-in-0, zoom-in-95…). */
 @import "./video-editor/capcut-theme.css";
+/* Admin (/admin): el tema de Studio Admin (MIT), limitado a `.sa`, y las variantes de shadcn sólo ahí. Ver el archivo. */
+@import "./admin/_studio/studio-theme.css";
 @import "tw-animate-css";
 
 /*

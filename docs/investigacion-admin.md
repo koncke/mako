@@ -1,63 +1,63 @@
-# Cómo resuelven otras apps un panel de administración: qué copia la tab Admin (5/11/2026)
+# La tab Admin copia UNA app: Studio Admin (reescrito el 5/11/2026)
 
-Lo pidió Martín: «que lo copies completamente de otras aplicaciones… qué acciones hacen los usuarios dentro de MaKo, cuándo
-se conectan, qué no están utilizando… cuándo la app se crashea… suscripciones, cobros, gestión de usuarios, estado de alta».
-El encargo está en [relevo/admin-encargo.md](relevo/admin-encargo.md). Las 16 capturas del rediseño de Customers (26/10) siguen
-en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md) y valen igual.
+**La fuente es una sola: [arhamkhnz/next-shadcn-admin-dashboard](https://github.com/arhamkhnz/next-shadcn-admin-dashboard)
+(Studio Admin, licencia MIT, demo https://studio-admin.arhamkhnz.com).** Se porta su CÓDIGO archivo por archivo: el shell
+(sidebar, cabecera, búsqueda, modo), el tema, los componentes de `src/components/ui`, las tablas, los gráficos y las
+animaciones. Commit de referencia: `036631e` (5/11/2026). El aviso de la licencia: `lib/avisos/LICENSE-STUDIO-ADMIN`.
 
-**De dónde salió cada dato.** Desde la nube no se pueden abrir docs.stripe.com, help.baremetrics.com, help.chartmogul.com,
-posthog.com, docs.sentry.io, amplitude.com ni intercom.com (el proxy los bloquea). Se leyeron palabra por palabra los docs
-que están en GitHub (PostHog, Sentry, Lago, Clerk, Tidemill) y el código de GlitchTip, Umami y shadcn-admin. Lo de Stripe,
-Baremetrics, ChartMogul, Amplitude e Intercom sale de resúmenes de búsqueda y de las capturas del 26/10: va marcado
-«(búsqueda)». Lo no verificado lleva ⚠️.
+## Por qué una sola, y por qué ésta
 
-## Qué se copia, sección por sección
+- **La versión anterior se rechazó.** Esta página decía qué tomaba «la estructura» de doce apps, la mayoría sin abrir (la nube
+  bloquea docs.stripe.com, posthog.com y compañía), y la pantalla se dibujó con los componentes de MaKo. Martín, el 5/11/2026:
+  «está horrible… como ya te lo he pedido muchas veces, copies tanto el diseño como la funcionalidad de alguna otra
+  aplicación o repositorio de GitHub. Tenés prohibido pensar por tu propia cuenta y hacerlo vos solo, porque lo haces mal».
+  Mezclar fuentes ES pensar por cuenta propia: alguien elige qué pieza de qué app va al lado de cuál.
+- **Studio Admin trae, como pantallas enteras, las seis secciones de Admin** (la tabla de abajo), con el mismo shell para
+  todas. Ninguna otra app abierta las tiene juntas.
+- **Su licencia deja copiar el código** (MIT, leída de su LICENSE) y **su stack es el de MaKo**: Next 16, React 19,
+  Tailwind 4, `radix-ui`, `recharts` 3, `lucide-react`, `class-variance-authority`. Se sumaron `@tanstack/react-table` 9,
+  `cmdk`, `date-fns` y `cn`, como en su `package.json`. `lucide-react` es la 0.562 de MaKo (Studio usa la 1.x): cada ícono que
+  usan las pantallas portadas existe en la 0.562 (se comprobó uno por uno).
+- **Se pudo levantar y comparar.** La demo no abre desde la nube (el proxy contesta 403), así que se clonó el repo y se levantó
+  en local: las capturas de `docs/admin/copia/` son las dos apps lado a lado.
 
-| Sección | Se copia de | Licencia del código | Qué se toma |
-|---|---|---|---|
-| **Revenue** | ChartMogul (gráfico de movimientos), Lago (tabla de saldos) y Tidemill (las cuentas) | Lago AGPL: sólo mirar. Tidemill MIT. ChartMogul es cerrado | Las cuentas se escribieron de cero con las definiciones de Tidemill. Del resto, sólo el diseño |
-| **Billing** | La página del cliente de Stripe y el informe de facturas de Lago (la deuda por antigüedad) | Cerrado / AGPL: sólo mirar | La estructura |
-| **Customers** | Baremetrics y Polar (la ficha), ProfitWell (lo que pide atención). Ya copiado el 26/10 | Cerrado | Se queda |
-| **Users** | La tabla de usuarios de shadcn-admin y el perfil de Clerk | shadcn-admin MIT: se puede copiar | Columnas, estados y botones |
-| **Activity** | El ciclo de vida y la lista de personas de PostHog; el perfil de Umami | PostHog MIT (fuera de `ee/`). Umami MIT | Los tipos de actividad y el perfil |
-| **Errors** | La lista de problemas de Sentry, con el código de GlitchTip | Sentry FSL: sólo mirar. GlitchTip MIT | La fila y los estados |
+## Cada sección es una pantalla de Studio
 
-Las AGPL (Lago, Plausible, OpenPanel, Metabase, Cal.com, Plane, Documenso) y la FSL de Sentry se miran y nunca se copian. Al
-copiar código MIT o Apache se conserva su aviso (`lib/avisos/LEEME.md`) y se nombra en el commit.
+| Sección de Admin | Pantalla de Studio (`src/app/(main)/dashboard/…`) | Estado |
+|---|---|---|
+| Revenue | `default`: las cuatro tarjetas, «Customer Activity» y la tabla de clientes | portada (tanda 1) |
+| Users | `users`: filtros, ocultar columnas, exportar, lista o grilla, selección | portada (tanda 1) |
+| Billing | `finance` (Dashboard, Accounts, Transactions) y los recibos con `invoice` | por portar |
+| Customers | `crm`, y la ficha de un cliente con `profile` | por portar |
+| Activity | `analytics`, con sus pestañas | por portar |
+| Errors | `infrastructure`: un grupo por negocio, salud, filtros por faceta | por portar |
 
-## Revenue: lo que entra (la primera en salir)
+Lo que la pantalla de Studio trae y MaKo no puede llenar se saca; lo que MaKo necesita y Studio no tiene no se inventa: las
+dos listas, con su porqué, están en [relevo/nube-admin-copia.md](relevo/nube-admin-copia.md).
 
-**Por qué la de hoy no lo mostraba.** Medido el 5/11:
-- El MRR salía de `cobros` (la pasarela), y ahí hay 2 filas, las dos pendientes.
-- Todo lo que Martín cobró entró a mano y vive en `pagos` del CRM de la plataforma.
-- Ese CRM tiene vacío el `suscripcion_monto_usd` en los tres clientes, así que `getMrrActivo` tampoco suma nada.
+## Cómo se porta (lo que gobierna una sección nueva)
 
-Las apps de referencia lo resuelven separando dos cosas:
-- **el MRR**, que sale de la suscripción facturada;
-- **el cash**, que es lo que entró.
+- **El código de Studio vive en `app/admin/_studio`** (`components/ui`, el shell, el tema) y cada sección en su carpeta
+  (`app/admin/usuarios`, `app/admin/ingresos`…), con los nombres de archivo de Studio. Cada archivo nombra su original y el
+  aviso de la licencia.
+- **El tema va limitado a `.sa`** (`app/admin/_studio/studio-theme.css`), con los valores de Studio sin tocar uno, y su
+  oscuro es el de MaKo (`data-tema="oscuro"`). Las variantes de shadcn (`data-open:`…) valen sólo adentro de `.sa`.
+- **Los portales de radix van al contenedor de adentro de `.sa`** (`portalSa()`): en `<body>` se dibujan sin colores.
+- **Nada de `app/_ui` ni de `app/admin/estilos.ts`** en estas pantallas, salvo el Link de MaKo (lleva el `?ws=`) y «Reportar a
+  Soporte» (todo aviso de error lo lleva). Lo fija `tests/admin-studio.test.ts`.
+- **Lo que en Studio se dibuja y no hace nada, acá anda**, con piezas del MISMO repo (el «Hide» de Users es el «Toggle columns»
+  de su tabla de tareas; «Customize» es el «Sort» de su tabla de clientes). Nunca con una pieza de otra app.
+- **Los datos van después de la copia**: primero la pantalla igual, después las cuentas de MaKo en sus piezas.
 
-ChartMogul y Baremetrics aceptan pagos fuera de la pasarela («Custom Source», CSV o API) como facturas. Stripe los marca
-«paid out of band». En MaKo esas facturas son los pagos a mano del CRM.
+## Las cuentas (se conservan de la versión anterior)
 
-**Lo que se copia:**
-1. **Arriba, la foto de hoy** (Lago la llama «photo of today»; Baremetrics, Control Center):
-   - el MRR grande con su «desde» y el % contra el cierre del mes pasado;
-   - lo cobrado este mes;
-   - lo cobrado desde siempre («Lifetime revenue», el nombre de Clerk; Baremetrics lo llama «total charges»);
-   - cuántos pagan y el promedio por cliente (ARPU).
+Las cuentas estaban bien y no cambian: `vistaDeIngresos` (lib/admin-ingresos.ts y lib/admin-ingresos-reglas.ts),
+`vistaDeActividad` (lib/actividad.ts), las personas (lib/admin-usuarios-reglas.ts), los errores (lib/admin-errores.ts), los
+recibos y las operaciones de la API de MaKo. Lo que sigue es su definición, medida el 5/11/2026.
 
-   Sin pagos, no hay tarjetas en cero: una línea dice qué hacer.
-2. **El MRR mes a mes y sus movimientos** (ChartMogul):
-   - una barra por mes, y el mes en curso rayado en diagonal porque todavía no cerró (AGENTS.md: el rayado es «no medido»);
-   - debajo, la tabla de Lago: MRR al empezar, nuevo, volvió, subió, bajó, se cortó, y MRR al cerrar. Cada mes cierra exacto.
-3. **Cobrado por mes:** el cash, con la misma barra. Lago avisa que un gráfico de plata que entró no se lee como un saldo:
-   por eso va aparte y con su nombre.
-4. **Lo que viene:** cada suscripción viva con su vencimiento, atrasada o en los próximos 31 días. El atraso también se ve en
-   la deuda de Lago (1-30, 31-60…).
-5. **Actividad:** el feed de ProfitWell (captura 02). Un renglón por movimiento, con su etiqueta de color y el monto con signo.
-6. **Los clientes:** la lista de Stripe y Baremetrics con lo que paga por mes, el total pagado, desde cuándo, su estado y el
-   próximo cobro. La ficha es la de ChartMogul: MRR, «cliente que paga desde» y estado.
-7. **Los últimos pagos:** como «Payments» de Stripe, con el medio real (transferencia, Binance, Stripe).
+**Por qué el Revenue de antes no mostraba nada** (medido el 5/11): el MRR salía de `cobros` (la pasarela), que tenía 2 filas
+pendientes; todo lo que Martín cobró entró a mano y vive en `pagos` del CRM de la plataforma, con `suscripcion_monto_usd`
+vacío en los tres clientes. Desde el 5/11 se separan **el MRR** (la suscripción) y **el cash** (lo que entró).
 
 **Las cuentas** (las mismas en ChartMogul, Baremetrics, Lago y Tidemill). Se compara el MRR de cada cliente al cerrar el mes
 con el del mes anterior:
@@ -88,102 +88,3 @@ MRR al cerrar = MRR al empezar + nuevo + volvió + subió − bajó − se cort�
 - **El LTV proyectado no se muestra.** Clerk lo calcula como MRR promedio dividido por la tasa de corte, y con 3 a 20
   clientes ese número es ruido. Se muestra lo cobrado de verdad.
 
-## Billing: suscripciones, deudas, próximos cobros y recibos
-
-Copia la página del cliente de Stripe (búsqueda) y el informe de facturas de Lago:
-- **Stripe, dos columnas:** a la izquierda las suscripciones (también las canceladas), los pagos y las facturas; a la
-  derecha los datos y el resumen de lo comprado. Un botón «Actions».
-- **Lago:** el estado del pago (pendiente, pagado, falló), la deuda por antigüedad (1-30, 31-60, 61-90, 91-120, más de 120
-  días, y «todavía no vence» al final) y el total adeudado por moneda, sin sumar monedas.
-
-⚠️ No apareció ninguna referencia de una lista de «próximos cobros» ni de una pantalla de recibos. «Lo que viene» de Revenue es
-la versión de ChartMogul del vencimiento. Los recibos los arma otro chat (`punta/recibos`, `app/admin/cobros/RecibosMako.tsx`) y
-esta tab los monta.
-
-## Users: gestión y estado de alta
-
-Copia la tabla de usuarios de shadcn-admin (MIT: `src/features/users/`) y el perfil de usuario de Clerk.
-
-**La tabla:**
-- casilla, nombre, email, estado, rol, negocio y menú de la fila (sin el teléfono: lo tiene el CRM);
-- los cuatro estados de shadcn-admin con su color: **active**, **inactive**, **invited** y **suspended**. En MaKo:
-  - activo: entró en 30 días;
-  - inactivo: no entra hace más;
-  - invitado: nunca entró;
-  - suspendido;
-- filtros por estado y por rol, y arriba «Invite user».
-
-**El perfil:**
-- datos, identificadores y negocios;
-- acciones: entrar como esa persona, bloquear, suspender y borrar;
-- lo que pagó (MRR y lo cobrado en total).
-
-**Cómo lo hace Clerk:**
-- «Ban» corta todas las sesiones y no deja entrar de nuevo.
-- «Lock» es temporal.
-- «Impersonate» abre la app como esa persona en otra pestaña, con un vencimiento, y la app sabe que es una sesión prestada.
-
-En MaKo eso es «Inspeccionar» (`/inicio?ws=N`) y la suspensión por persona (`usuarios.estado = 'suspendido'`).
-
-## Activity y Usage: qué hacen, cuándo entran, qué no usan
-
-Copia PostHog: el ciclo de vida, las personas y el «uso por empresa»:
-
-1. **Arriba**, los activos del día, la semana y el mes (DAU, WAU, MAU) y los más activos de los últimos 30 días.
-2. **El ciclo de vida, en barras por semana.**
-   - Arriba del cero: los **nuevos**, los que **siguen** y los que **volvieron**.
-   - Abajo del cero: los que **dejaron de entrar**.
-   - Un clic en una banda abre la lista de esas personas.
-   - Amplitude suma el «Pulse»: (nuevos + volvieron) / dejaron. Más de 1 es que entra gente más rápido de lo que se va.
-3. **Quién dejó de venir:** la lista de la banda de abajo, con las columnas de PostHog: persona, alta, última vez.
-4. **El uso por tab y por negocio:** una columna de uso por cada tab (cuántas veces en 7, 30 o 90 días), como las «usage
-   metrics» de PostHog. ⚠️ No apareció una grilla tab × negocio en ninguna app: la más cercana es la lista de clientes con una
-   columna por función.
-5. **El perfil de una persona**, de Umami:
-   - una tira de números: visitas, pantallas y acciones;
-   - primera y última vez;
-   - una pestaña «Activity», agrupada por día: «Abrió CRM», «Movió un lead».
-
-**Lo que falta medir:** MaKo no guarda qué pantallas se abren ni qué acciones se hacen (sólo `usuarios.ultimo_login`).
-PostHog lo resuelve con eventos («pageview» y uno por acción). En MaKo va un registro propio, por lotes y con retención, sin
-contenido de leads ni mensajes. Su diseño está en el relevo de la tanda.
-
-## Errors: cuándo se cae la app y los reportes
-
-Copia la lista de problemas de Sentry (docs en GitHub) con el código de GlitchTip (MIT, compatible con Sentry):
-
-- **La fila** (verificada en `issues-page.html` de GlitchTip): el título del error y, en una segunda línea, «hace N días · visto
-  hace X», las veces y una mini tendencia.
-- **Las pestañas:** sin resolver, nuevos (de los últimos 7 días), volvieron (estaban resueltos) y archivados.
-- **El orden:** última vez, primera vez, más frecuentes.
-- **El detalle,** en el orden de Sentry:
-  1. el mensaje, las veces y a cuántas personas les pasó;
-  2. el gráfico de veces;
-  3. el primero y el último;
-  4. en qué pantalla y en qué negocio;
-  5. el stack.
-- **Los tickets** van al lado de los errores de esa persona o ese negocio, como en el perfil de cliente de PostHog.
-
-MaKo ya agrupa los errores por huella (`errores_app`, lib/errores-app.ts): la pantalla los muestra y nada más.
-
-## Repos mirados y su licencia
-
-Leídos de su archivo LICENSE el 5/11/2026:
-
-| Repo | Licencia | Para qué | Veredicto |
-|---|---|---|---|
-| umami-software/umami | MIT | Tabla y perfil de una sesión | Se puede copiar |
-| PostHog/posthog | MIT, salvo `ee/` | Ciclo de vida, retención, personas | Sólo fuera de `ee/` |
-| satnaing/shadcn-admin | MIT | Tabla de usuarios con estados | Se puede copiar |
-| Kiranism/next-shadcn-dashboard-starter | MIT | 4 números arriba, gráficos y ventas recientes | Se puede copiar |
-| tremorlabs/tremor | Apache-2.0 | Gráficos | Se puede copiar |
-| GlitchTip (gitlab.com/glitchtip) | MIT | Lista y detalle de errores | Se puede copiar |
-| ondraz/tidemill | MIT | Definiciones de MRR, corte y LTV | Se puede copiar |
-| killbill/killbill | Apache-2.0 | Motor de cobro | Se puede copiar |
-| chatwoot/chatwoot | MIT, salvo `enterprise/` | Perfil de un contacto | Sólo fuera de `enterprise/` |
-| getsentry/sentry | FSL-1.1 | Problemas | Sólo mirar |
-| getlago/lago | AGPL-3.0 | MRR y facturas | Sólo mirar |
-| plausible/analytics, Openpanel-dev/openpanel, metabase/metabase | AGPL-3.0 | Analítica | Sólo mirar |
-
-En la tanda 1 no se copió código de ningún repo: las cuentas de Revenue se escribieron de cero (lib/admin-ingresos-reglas.ts)
-con las definiciones de la tabla de arriba, y la pantalla sigue el lenguaje visual de Customers.

@@ -8,17 +8,21 @@
 // totalmente? ¿Cuánto me van pagando mes a mes?». El encargo, en docs/relevo/admin-encargo.md; qué se copia de dónde, en
 // docs/investigacion-admin.md.
 //
-// LAS PESTAÑAS (`?tab=`, leída acá; se suman por tandas, Revenue primero porque es lo que Martín pide hoy):
-//   · revenue: lo que entra (lib/admin-ingresos.ts): MRR, cobrado mes a mes, movimientos y lo que pagó cada cliente;
-//   · billing: lo que era /admin/cobros (app/admin/cobros/Contenido.tsx);
-//   · customers: los negocios, con «Para mirar» y su ficha (app/customers/CustomersApp.tsx);
-//   · accounts: la grilla de administración (AdminView: alta, plan, equipo, borrar). `?cuenta=<ws>` abre su ficha. No es
-//     otra pestaña de la barra: es la otra VISTA de Customers (el selector de vista, app/admin/Pestanas.tsx);
-//   · users: las personas de todos los negocios con su estado de alta (app/admin/usuarios, lib/admin-usuarios-reglas.ts);
-//   · activity: quién entra, qué tabs usa y cuáles no, quién dejó de venir y lo que hizo MaKo (app/admin/actividad, la
-//     medición de la mig 0398: app/_components/MedidorDeUso.tsx, lib/actividad*.ts). Al pie, lo que era /admin/agente;
-//   · errors: los errores de la app agrupados y los reportes (app/admin/errores, lib/admin-errores.ts);
+// EL DISEÑO Y LA FUNCIONALIDAD SON LOS DE STUDIO ADMIN (5/11/2026, arhamkhnz/next-shadcn-admin-dashboard, MIT). Martín rechazó
+// la versión anterior («está horrible… copies tanto el diseño como la funcionalidad de alguna otra aplicación o repositorio
+// de GitHub»): el shell (sidebar, cabecera, búsqueda ⌘K, modo) es el suyo (app/admin/_studio/shell) y cada sección es una
+// pantalla suya, portada de a una (docs/investigacion-admin.md, docs/relevo/nube-admin-copia.md).
+//
+// LAS SECCIONES (`?tab=`, leída acá; son las seis del sidebar):
+//   · revenue: dashboard/default de Studio (app/admin/ingresos/revenue.tsx) con lo que entra (lib/admin-ingresos.ts);
+//   · users: dashboard/users de Studio (app/admin/usuarios/users.tsx) con las personas de todos los negocios;
+//   · billing: lo que era /admin/cobros (app/admin/cobros/Contenido.tsx) — por portar (dashboard/finance e invoice);
+//   · customers: los negocios, con su ficha (app/customers/CustomersApp.tsx) — por portar (dashboard/crm y profile);
+//   · accounts: la grilla de administración (AdminView), la otra vista de Customers. `?cuenta=<ws>` abre su ficha;
+//   · activity: la medición de la mig 0398 (app/admin/actividad) — por portar (dashboard/analytics). Al pie, Agents;
+//   · errors: los errores agrupados (app/admin/errores) — por portar (dashboard/infrastructure);
 //   · agents: abre Activity (su contenido vive al pie).
+// Lo que espera a Martín (quién quiere entrar, qué pidieron las agencias) va en la tarjeta del pie del sidebar.
 //
 // ⚠️ LA RUTA. /admin redirigía a /customers desde el 25/10; desde hoy ES la tab, y sus subrutas (/admin/dev, /admin/ui,
 //    /admin/docs, /admin/operaciones…) siguen igual: son otras tabs del super admin. /customers?tab=… redirige acá con su
@@ -39,19 +43,19 @@ import { clientesGanados, filasDeTodos } from '@/app/customer-success/trabajo';
 import { ContenidoCobros } from '@/app/admin/cobros/Contenido';
 import { ContenidoAgentes } from '@/app/admin/agente/Contenido';
 import { AdminView } from '@/app/admin/AdminView';
-import { ErrorState, Pagina, PageHeader } from '@/app/_ui';
 import '@/app/integraciones/tus-cuentas-ia.css';
-import Link from 'next/link';
 import { cuantoEspera } from '@/lib/pedidos-ingreso';
-import { RUTA_QUIEREN_ENTRAR, textoDelCartel } from '@/lib/pedidos-ingreso-reglas';
+import { textoDelCartel } from '@/lib/pedidos-ingreso-reglas';
 import { CustomersApp } from '@/app/customers/CustomersApp';
-import { PestanasAdmin } from './Pestanas';
+import { AdminShell } from './_studio/shell/AdminShell';
+import { ErrorSeccion } from './_studio/error-seccion';
 import { esPestanaAdmin, type PestanaAdmin } from './pestanas-reglas';
-import { IngresosAdmin } from './ingresos/IngresosAdmin';
+import { Revenue } from './ingresos/revenue';
 import { listarUsuarios } from '@/lib/usuarios';
 import { listarWorkspaces } from '@/lib/workspace';
-import type { FilaUsuario } from '@/lib/admin-usuarios-reglas';
-import { UsuariosAdmin } from './usuarios/UsuariosAdmin';
+import { Users } from './usuarios/users';
+import type { TipoCuenta, UserRow } from './usuarios/data';
+import { zonaDelNegocio } from '@/lib/timezone';
 import { vistaDeErrores } from '@/lib/admin-errores';
 import { ErroresAdmin } from './errores/ErroresAdmin';
 import { vistaDeActividad } from '@/lib/actividad';
@@ -73,11 +77,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const cliente = ID.test(sp.cliente ?? '') ? Number(sp.cliente) : null;
 
   return (
-    <Pagina ancho="completo">
-      <PageHeader titulo="Admin" />
-      {/* Accounts no es la pestaña que se abre: sin esto, lo que espera a Martín no se ve (30/10/2026). */}
-      {tab !== 'accounts' && <CartelQueEspera />}
-      <PestanasAdmin activa={tab} />
+    <AdminShell cuenta={await cuentaDe(sesionAdmin)} esperan={await queEspera()}>
       {tab === 'revenue' ? await PestanaIngresos()
         : tab === 'users' ? await PestanaUsuarios()
         : tab === 'errors' ? await PestanaErrores()
@@ -85,63 +85,68 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         : tab === 'activity' || tab === 'agents' ? await PestanaActividad()
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
         : await PestanaClientes(cliente)}
-    </Pagina>
+    </AdminShell>
   );
 }
 
-/** Quién quiere entrar y qué pidieron las agencias, a un clic. Sin nada, no se dibuja. */
-async function CartelQueEspera() {
-  const e = await cuantoEspera();
-  const texto = textoDelCartel(e.quierenEntrar, e.deAgencias);
-  if (!texto) return null;
-  return (
-    <Link href={RUTA_QUIEREN_ENTRAR} style={{ display: 'block', margin: '0 0 12px', padding: '10px 14px', borderRadius: 11, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-      {texto} →
-    </Link>
-  );
+/** Quién mira (el super admin): su nombre, su email y su foto, para el pie del sidebar y el avatar de la cabecera. */
+async function cuentaDe(sesion: NonNullable<Awaited<ReturnType<typeof getSesionAdmin>>>) {
+  const p = await getPerfil().catch(() => null);
+  return { name: p?.nombre || sesion.nombre || sesion.email, email: p?.email || sesion.email, avatar: p?.avatarUrl ?? '' };
+}
+
+/** Quién quiere entrar y qué pidieron las agencias (antes, el cartel de arriba de las pestañas). Sin nada, null. */
+async function queEspera(): Promise<string | null> {
+  const e = await cuantoEspera().catch(() => null);
+  return e ? textoDelCartel(e.quierenEntrar, e.deAgencias) : null;
 }
 
 /** Revenue: lo que entra, de los pagos reales del CRM de la plataforma y de la pasarela. */
 async function PestanaIngresos() {
   const vista = await vistaDeIngresos().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-  if ('error' in vista) return <ErrorState titulo="No pude leer tus ingresos" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin' }} />;
-  return <IngresosAdmin vista={vista} />;
+  if ('error' in vista) return <ErrorSeccion titulo="No pude leer tus ingresos" detalle={vista.error} href="/admin" />;
+  return <Revenue vista={vista} />;
 }
 
 /** Users: las personas de todos los negocios. Las acciones van por /api/admin/usuarios, que vuelve a preguntar. */
 async function PestanaUsuarios() {
-  const datos = await Promise.all([listarUsuarios(), listarWorkspaces()]).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-  if ('error' in datos) return <ErrorState titulo="No pude leer las personas" detalle={datos.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=users' }} />;
-  const [usuarios, wss] = datos;
+  const datos = await Promise.all([listarUsuarios(), listarWorkspaces(), wsSuperAdmin()]).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+  if ('error' in datos) return <ErrorSeccion titulo="No pude leer las personas" detalle={datos.error} href="/admin?tab=users" />;
+  const [usuarios, wss, plataforma] = datos;
+  const tz = await zonaDelNegocio(plataforma).catch(() => 'UTC');
   const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
-  // Sólo lo que la tabla dibuja: el perfil (teléfono, bio, preferencias) no viaja al navegador.
-  const filas: FilaUsuario[] = usuarios.map((u) => ({
+  const capa = new Map(wss.map((w) => [w.id, w.capa]));
+  // El tipo de cuenta (la columna «Team» de Studio): de qué lado está la persona.
+  const tipo = (rol: string, ws: number | null): TipoCuenta =>
+    rol === 'admin' || ws === plataforma || (ws != null && capa.get(ws) === 'superadmin') ? 'Plataforma' : ws != null && capa.get(ws) === 'agencia' ? 'Agencia' : 'Cliente';
+  // Sólo lo que la tabla dibuja: el resto de la fila (teléfono, bio, preferencias) no viaja al navegador.
+  const filas: UserRow[] = usuarios.map((u) => ({
     id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, rolWs: u.rol_ws, estado: u.estado, ultimoLogin: u.ultimo_login,
     creado: u.created_at, invitacionEnviada: u.invitacion_enviada_at, workspaceId: u.workspace_id,
     negocio: u.workspace_id != null ? (nombre.get(u.workspace_id) ?? `Workspace ${u.workspace_id}`) : null,
-    mfa: u.mfa_activo === true, foto: u.foto_url,
+    mfa: u.mfa_activo === true, foto: u.foto_url, tipo: tipo(u.rol, u.workspace_id),
   }));
-  return <UsuariosAdmin filas={filas} ahoraMs={Date.now()} />;
+  return <Users users={filas} ahoraMs={Date.now()} tz={tz} />;
 }
 
 /** Errors: los errores de la app agrupados por huella y los reportes de las personas. */
 /** Activity: quién entra, qué usa y qué no (la medición de la mig 0398), y al pie lo que los agentes le contaron a MaKo. */
 async function PestanaActividad() {
   const vista = await vistaDeActividad().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-  if ('error' in vista) return <ErrorState titulo="No pude leer la actividad" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=activity' }} />;
+  if ('error' in vista) return <ErrorSeccion titulo="No pude leer la actividad" detalle={vista.error} href="/admin?tab=activity" />;
   return <ActividadAdmin vista={vista} ahoraMs={Date.now()} agentes={<section aria-label="Agentes de los clientes"><ContenidoAgentes /></section>} />;
 }
 
 async function PestanaErrores() {
   const vista = await vistaDeErrores().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-  if ('error' in vista) return <ErrorState titulo="No pude leer los errores" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=errors' }} />;
+  if ('error' in vista) return <ErrorSeccion titulo="No pude leer los errores" detalle={vista.error} href="/admin?tab=errors" />;
   return <ErroresAdmin vista={vista} ahoraMs={Date.now()} />;
 }
 
 /** Customers: la vista de los negocios, entera del server (la ficha es un panel sin estado de carga). */
 async function PestanaClientes(cliente: number | null) {
   const vista = await vistaDeClientes().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-  if ('error' in vista) return <ErrorState titulo="No pude leer tus clientes" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=customers' }} />;
+  if ('error' in vista) return <ErrorSeccion titulo="No pude leer tus clientes" detalle={vista.error} href="/admin?tab=customers" />;
   return <CustomersApp vista={vista} abiertoInicial={cliente} />;
 }
 

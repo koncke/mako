@@ -109,9 +109,13 @@ test('lo que espera a Martín se ve sin abrir Accounts: el cartel de Customers, 
   assert.equal(textoDelCartel(2, 1), '2 quieren entrar · 1 pedido de agencia');
   assert.equal(textoDelCartel(0, 3), '3 pedidos de agencia');
   assert.equal(RUTA_QUIEREN_ENTRAR, '/admin?tab=accounts');
+  // Desde el 5/11/2026 (Admin con el shell de Studio Admin), lo que espera va en la tarjeta del pie del sidebar, en TODAS las
+  // secciones, y lleva a la bandeja; el sobre de arriba del sidebar lleva al mismo lugar.
   const pag = fuente('app/admin/page.tsx');
-  assert.match(pag, /\{tab !== 'accounts' && <CartelQueEspera \/>\}\s*<PestanasAdmin/);
-  assert.match(pag, /<Link href=\{RUTA_QUIEREN_ENTRAR\}/);
+  assert.match(pag, /<AdminShell cuenta=\{await cuentaDe\(sesionAdmin\)\} esperan=\{await queEspera\(\)\}>/);
+  assert.match(pag, /return e \? textoDelCartel\(e\.quierenEntrar, e\.deAgencias\) : null;/);
+  assert.match(fuente('app/admin/_studio/shell/support-card.tsx'), /<Link prefetch=\{false\} href=\{RUTA_QUIEREN_ENTRAR\}/);
+  assert.match(fuente('app/admin/_studio/shell/nav-main.tsx'), /<Link prefetch=\{false\} href=\{RUTA_QUIEREN_ENTRAR\} title="Quieren entrar">/);
   assert.match(fuente('app/m/customers/page.tsx'), /<CustomersM vista=\{vista\} arriba=\{bandeja\} ingresos=\{ingresos\} errores=\{errores\} actividad=\{actividad\} \/>/);
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /padre=\{\{ href: RUTA_MAS, label: 'More' \}\} \/>\s*\{arriba\}/);
   assert.equal(R.linkDelAviso, true, 'el aviso lleva a Accounts, no a /admin (que redirige a otra pestaña)');
