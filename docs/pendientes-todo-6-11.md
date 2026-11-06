@@ -1,0 +1,2379 @@
+# Todo lo pendiente — barrido completo del 6/11/2026
+
+**Qué es esto.** Martín, 6/11: «Dame la lista completa, no solamente de lo que se hizo en la última
+sesión, sino de todo lo pendiente». Siete agentes leyeron en paralelo **todos** los documentos de
+pendientes del repo —el tablero, los 39 relevos de la nube, los 46 hallazgos, los pedidos que
+quedaron para la PC y el barrido de pedidos viejos— y un octavo buscó lo que ninguno había leído
+y lo que ya estaba hecho.
+
+**634 pendientes**, de 641 crudos (se juntaron los repetidos por título).
+
+| Estado | Cuántos | Qué significa |
+|---|---:|---|
+| 🟢 Abiertos | 343 | se pueden hacer ya |
+| 🔴 Trabados | 27 | algo los frena, y está dicho cuál |
+| 🟡 Esperan a Martín | 154 | un trámite, una clave, una decisión o plata |
+| ⚪ Dudosos | 110 | vienen de documentos anteriores al 1/11: **verificar antes de tocar** |
+
+⚠️ **Los dudosos no son pendientes confirmados.** Salen de relevos de octubre y muchos ya se
+hicieron; el que los retome los comprueba contra el código primero. Un pendiente fantasma hace
+perder más tiempo que uno olvidado.
+
+| Área | Total | 🟢 | 🔴 | 🟡 | ⚪ |
+|---|---:|---:|---:|---:|---:|
+| [Otro](#otro) | 165 | 75 | 2 | 47 | 41 |
+| [Infra](#infra) | 74 | 41 | 4 | 20 | 9 |
+| [Spy](#spy) | 58 | 32 | 5 | 13 | 8 |
+| [Carruseles](#carruseles) | 55 | 37 | 5 | 8 | 5 |
+| [Imagenes](#imagenes) | 53 | 36 | 0 | 7 | 10 |
+| [Chat](#chat) | 51 | 25 | 2 | 17 | 7 |
+| [Cobros](#cobros) | 48 | 20 | 5 | 18 | 5 |
+| [CRM](#crm) | 40 | 23 | 1 | 7 | 9 |
+| [Thumbnails](#thumbnails) | 26 | 19 | 0 | 6 | 1 |
+| [Video](#video) | 25 | 12 | 1 | 6 | 6 |
+| [Admin](#admin) | 24 | 16 | 1 | 4 | 3 |
+| [Tickets](#tickets) | 15 | 7 | 1 | 1 | 6 |
+
+---
+
+## Otro
+
+### 🟢 Abiertos — se pueden hacer ya (75)
+
+- **Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers** · _grande_
+  - Qué falta: El esqueleto está construido y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build): 7 módulos por tema, capa del Second Brain, índice en el prompt de todos los chats, dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. Falta destilar los cursos en fichas —Martín decidió hacerlo AFUERA de la app por los créditos de IA— y las «plantillas de influencers» del pedido del 30/10, de las que no hay análisis en ninguna parte y cuyos links scrapeados no están en el repo. OJO: una ficha cargada desde la pantalla sale con `fuente: 'manual'` y NO le llega a ningún negocio; la curación escribe `fuente: 'mako'`. Se ve en Classroom › Methodology, no es una tab nueva.
+  - Dónde: `lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app» · docs/pendientes.md:69-79`
+- **Falta la página propia de «no encontrado»** · _chico_
+  - Qué falta: No existe app/not-found.tsx, así que un 404 se ve como app rota. Está sin hacer a propósito: una pantalla nueva se copia de una app que la resolvió (AGENTS.md) y desde la nube no se abre ninguna. Queda para un chat con navegador.
+  - Dónde: `app/not-found.tsx (no existe) · docs/relevo/pendientes-barrido.md C12 · docs/hallazgos-seguridad.md`
+- **Las fotos huérfanas del bucket público `avatars` siguen ahí** · _chico_
+  - Qué falta: El script en seco ya está: `node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/avatars-huerfanas.mts` (sin `--borrar` sólo lista; cuenta como nombrado lo de los leads vivos, la papelera y los contactos). Falta correrlo desde la PC y, mirando lo que lista, otra vez con `--borrar`. Las viejas tienen nombre adivinable.
+  - Dónde: `scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts · docs/relevo/pendientes-barrido.md P16 · docs/pendientes.md:266`
+  - ⛔ Lo frena: El `--borrar` pide el sí de Martín
+- **Las 10 llamadas de entrega en `error` nunca se reintentaron** · _chico_
+  - Qué falta: Leer `curso_sesiones` en producción y reintentarlas. Son del 05 al 12/10, cuando la IA de Google daba error, y nadie las volvió a pedir: Customer Success deja esperando esas sesiones.
+  - Dónde: `docs/relevo/pendientes-barrido.md P13 · docs/pendientes.md:518 · curso_sesiones del ws 1`
+  - ⛔ Lo frena: Cuesta crédito de IA: pide el sí de Martín
+- **Medir qué funciones de `public` puede ejecutar la clave pública** · _chico_
+  - Qué falta: Correr `node scripts/medir-funciones-publicas.mjs`. Es una medición de seguridad que nunca se hizo.
+  - Dónde: `scripts/medir-funciones-publicas.mjs · docs/relevo/pendientes-barrido.md P12`
+- **Las fuentes de pedidos que NADIE leyo (lo mas grande que falta)** · _grande_
+  - Qué falta: El reparto del 27/10 (workflow wf_1f30be35-c5e, con los MAU-xx, MK-xx y las llamadas de Leandro, Leila y Aaron), `docs/feedback-22-10.md` (76 lineas, nadie), la llamada con Mauricio del 22/10 (C3, C4, C5), el WhatsApp personal de Martin con los clientes, los chats de clientes dentro de la app que no terminaron en ticket, los mensajes del Ops Center que el Runner no levanto el 27/10, las capturas y el correo equipo@hola-mako.com. Hecho = cada fuente leida y sus pedidos repartidos.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:59-69,199-225,291-292 · docs/feedback-22-10.md · C:/dev/cerebro-herramientas/llamada-mau-22-10.txt`
+  - ⛔ Lo frena: Varias viven solo en la PC o en side-session-notes; el WhatsApp personal pide su telefono
+- **Los items f11, f18, f19, f22, f30 y f34 de la llamada con Leandro, sin repartir** · _mediano_
+  - Qué falta: f11 que la opcion de completar datos se descubra sola; f18 que en «Editar» MaKo responda una pregunta de «Discutir»; f19 el icono equivocado; f22 MaKo inventa un bloque de Instagram que no existe; f30 el contexto dice «Customer Success > Curso»; f34 la criatura se esconde detras de la sidebar. Mas el punto 16 y el link de la tarjeta de feedback-25-10-tarde.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:204-213 · docs/feedback-24-10.md · docs/feedback-25-10-tarde.md · lib/api-mako/areas/curso.def.ts · cs.def.ts`
+- **MaKo toma la iniciativa: faltan el primer ingreso y las aperturas por tab** · _grande_
+  - Qué falta: `lib/aperturas/` solo tiene `ops.ts`, `comunes.ts` y `reglas.ts`. Faltan bienvenida, cargar la oferta, elegir funnel, y las aperturas de CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image, Classroom, AI Avatar y Mobile: un archivo por tab.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:127 · lib/aperturas/ · app/api/aperturas/route.ts · docs/mako-iniciativa/plan.md`
+- **El Second Brain no toma «absolutamente todos» los datos del cliente** · _grande_
+  - Qué falta: `construirCerebro()` hace 21 lecturas sobre ~70 tablas y el brief sale de 4 listas fijas. Y el Second Brain de SuperAdmin tiene que conocer todas las funciones (capa en `lib/cerebro-para-chat.ts:146`, cobertura sin verificar). Ademas, el Second Brain bien en el telefono.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:191-192 · app/admin/dev/second-brain/bitacora.ts:33 · lib/cerebro-para-chat.ts:146 · docs/relevo/pedidos-perdidos-2810.md:103`
+- **Los cursos completos en Conocimientos: 401 recursos faltan en 10 cursos** · _grande_
+  - Qué falta: Y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazo diez clases sanas. Pedido textual: «No quiero que quede nada. Todas las clases, todos los recursos».
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41`
+- **El indice de hallazgos tiene filas duplicadas** · _chico_
+  - Qué falta: `\| Ads \|` aparece 5 veces (145, 163, 164, 180, 303) y `\| AI Avatar \|` 3 veces (181, 188, 302). Se hace en una pasada.
+  - Dónde: `docs/hallazgos.md:145,163,164,180,181,188,302,303 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:230-231`
+- **Hook generator (backlog explicito de Martin)** · _mediano_
+  - Qué falta: «Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173`
+- **Generar anuncios «en cantidad»: 100 en menos de una hora** · _grande_
+  - Qué falta: Sin codigo en `lib/image-editor`, `lib/video-generator`, `app/image-generator`, `app/video-generator` ni `app/image-editor`. Solo figura en `docs/como-venden-otros.md:146`.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:151-153 · docs/como-venden-otros.md:146`
+- **VSL Generator completo (y VSL Analyst)** · _grande_
+  - Qué falta: 5 entradas en 'cola' en la bitacora y `app/_components/nav.ts:474` con `comingSoon`. Prioridad BAJA segun la medicion.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:165-167 · app/admin/dev/vsl-generator/bitacora.ts:28-32 · app/_components/nav.ts:474`
+- **Conectar Google Drive para que MaKo lea los links que pasan los clientes** · _mediano_
+  - Qué falta: Solo existe bajar un link publico (`lib/api-mako/areas/ads.run.ts:896`) y los scopes de Google son solo Calendar y el vigia. Pedido repetido (26/10 y antes).
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:169-170 · lib/google-calendar.ts:37,43 · docs/relevo/pedidos-perdidos-2810.md:151`
+- **Historial de decisiones de Martin en «progreso», con aviso si cambia de opinion** · _mediano_
+  - Qué falta: «Se manda como un prompt que el usuario cambio de opinion». Grep sin resultados en `app/admin/operaciones`, `lib/operaciones*` ni `lib/centro*`.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:159-160`
+- **Focus Tracker (Toggl por BYOK) y Productivity Analyst** · _grande_
+  - Qué falta: `git grep` de «Focus Tracker» y «toggl» sin resultados en app, lib ni docs. Puede estar como tarea en la base del /plan.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:162-163`
+- **Cuenta regresiva, pops de prueba social y escasez en las landings** · _mediano_
+  - Qué falta: No hay nada en `app/web-generator/` ni `lib/editor-landing/`. Martin lo marco «super importante» y lo necesitaba la landing de Black November. Van bloques nuevos en `BloqueWeb.tsx`.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:65 (2.10/5.14) · app/web-generator/BloqueWeb.tsx · lib/editor-landing/`
+- **El logo real de Meet (y los logos dibujados a mano)** · _chico_
+  - Qué falta: «Muchos logos no son los logos reales»: `LogoMeet` esta dibujado a mano. Hecho = el logo real en su lugar.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55`
+- **C12: no hay pagina propia de «no encontrado»** · _chico_
+  - Qué falta: No existe `app/not-found.tsx`. Se dejo sin hacer a proposito: una pantalla nueva se copia de una app que la resolvio y desde la nube no se abre ninguna. Queda para un chat con navegador.
+  - Dónde: `docs/relevo/pendientes-barrido.md:111 · app/not-found.tsx`
+  - ⛔ Lo frena: Pide un navegador para copiar la referencia
+- **Ops Center: ocho restos sin dueno** · _mediano_
+  - Qué falta: Muniecos y «Renombrar» por fila, chat del grupo en la barra, riel «Lo que hizo», retirar `/api/mako-doer`, las funciones del limbo sin pantalla, `CARTERO_VIVO_MS` derivado del intervalo real (pide columna y cartero nuevo), adjuntos solo foto y PDF, y la purga de adjuntos que nunca se mandaron.
+  - Dónde: `docs/relevo/pendientes-barrido.md:121-124 · app/admin/operaciones · lib/operaciones-reglas.ts:37`
+- **Los patrones de email nunca se comprobaron en uso** · _mediano_
+  - Qué falta: El documento esta en produccion (70 remitentes, ~5.050 emails) pero no se verifico que Copywriter, Newsletter, Automations y WhatsApp los usen. Y quedaron sin ficha ~59 posteos de Razzetti en Skool y ~120 emails de un autor en ingles.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:130 · docs/conocimiento/patrones-email.md · docs/relevo/pendientes-pc/por-repartir.md:377`
+- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_
+  - Qué falta: Martin cree que no. Se investiga desde la PC porque transcribir YouTube pide la clave de Gemini, y va a `docs/conocimiento/anuncios-high-ticket.md`.
+  - Dónde: `docs/relevo/cerebro.md:51 · docs/conocimiento/anuncios-high-ticket.md`
+- **Classroom y cursos armados desde el Segundo Cerebro** · _grande_
+  - Qué falta: Que MaKo diga, segun la promesa de valor, que capsulas o modulos necesita el curso y los ordene segun la oferta. Marcado FALTA en la auditoria.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.17) · docs/relevo/pendientes-pc/pendientes-30-10.md:125`
+- **Arrastrar un bloque en el Copywriter deja su contenido atras** · _mediano_
+  - Qué falta: BlockNote mueve solo el bloque arrastrado: hay que arrastrar con sus hijos (`DragHandleMenu`/`SideMenu`). Marcado FALTA y «sin hacer» en el recorrido visual.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:54 (1.8) · app/copywriter/editor/CuerpoNotion.tsx`
+- **QA con Claude simulando usuarios dentro de MaKo** · _mediano_
+  - Qué falta: Martin iba a pedirle a su Claude que simule muchas experiencias de usuario para detectar errores. La auditoria dice «sin script».
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.8) · docs/relevo/pendientes-pc/pendientes-30-10.md:107,159`
+- **Lo que falta repartir de las promesas a la agencia de Thiago** · _grande_
+  - Qué falta: Calendario con anuncio y email enlazados (no recordatorio) y reuniones del equipo por persona; «Subir creativos» del Media Buyer aceptando un video ya generado; en Ads, variar el CTA, hooks de video con el avatar y pausar el original cuando una variacion gana; en el CRM, reservas de Google Calendar como etapa. Lo demas (guia de migrar, token, «Usar en un anuncio», «Guardar en MaKo») entro a produccion el 6/11.
+  - Dónde: `docs/relevo/pendientes-pc/por-repartir.md:176-186 · docs/promesas/2910-llamada-thiago.md · docs/relevo/cerebro.md:27`
+- **Plan: filtros agrupados en 4 desplegables y el popup de tareas creadas** · _mediano_
+  - Qué falta: Falta mirar la pantalla; la bitacora del Plan dice «falta verlos en escritorio y telefono». Aparte, C8: el aviso cuando una reunion no se pudo leer es un evento nuevo que depende de que primero se aplique P7.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:224-225 · app/admin/dev/plan/bitacora.ts:27 · docs/relevo/pendientes-barrido.md:107 · lib/reunion-plan-aviso.ts`
+  - ⛔ Lo frena: C8 espera que P7 (`mudanza-avisos-plataforma --eventos=reunion_tareas_al_plan`) este aplicado
+- **Compromisos de Mauricio: falta responderle la fecha y medir el criterio** · _mediano_
+  - Qué falta: La cadena de extraccion esta construida. Falta responderle la fecha y medirla contra dos reuniones con notas manuales (hay una).
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:197-198 · memory/criterio-extraccion-mauricio.md`
+- **La iniciativa de MaKo falta en 12 tabs, con la escalera del Ops Center como la primera** · _grande_
+  - Qué falta: La tabla completa con qué falta en cada tab está en el relevo. Lo más grande: la escalera del Ops Center (T3) necesita su lector de servidor y «un paso por día» (hoy `lib/aperturas/ops.ts` sólo tiene el paso 3); Dashboard necesita la hoja de General y sacar `BotonMako` (lo miran ocho tests); Offer, Copywriter (mudarlo de `lib/copywriter/iniciativa.ts` a `lib/aperturas/copywriter.ts`), Automations, Web Generator (el Pixel), Video, Classroom, Plan, AI Avatar y Mobile (necesita T3). Y «Ver ejemplo» falta en Video, AI Avatar y Offer, que montan `PantallaCrear`.
+  - Dónde: `C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; la tabla en docs/relevo/nube-iniciativa.md:30-51`
+- **Plantillas: Offer, AI Avatar, Web Generator y Dashboard sin empezar** · _grande_
+  - Qué falta: Cada una es un enchufe en `lib/creaciones-enchufes.ts` con su `paraPublico`, el `<ModalGuardarPlantilla>` en el «⋯» y `usePlantillasPropias(tipo)` en «Nuevo …», como ya están Copywriter e Image. Aparte, en Offer falta el experto `offer.experto`, «Ver ejemplo» dentro de la conversación, el teléfono, y el bug de `precioDe` con «al mes». En AI Avatar faltan el Director (AV-3), los retratos, pósters y loops (esperan al motor) y la guarda de `crearVideoAction`: usar una plantilla hoy pone el preset y la escena, pero el guion con su estructura no llega al proyecto.
+  - Dónde: `C:/dev/wt-puntas/lib/creaciones-enchufes.ts ; app/m/offer/HojasOfferM.tsx ; docs/plantillas-reales/offer.md §3.3 ; docs/relevo/nube-plantillas.md:33-48`
+- **Moderar lo publicado y sembrar las plantillas «de MaKo» desde el super admin** · _mediano_
+  - Qué falta: Falta una lista de `creaciones` con estado `publicada` de todos los negocios con «Retirar». El server ya lo deja (`retirarCreacion`): se lee con `listarCreaciones` o con una lectura nueva que traiga el negocio de origen SÓLO para el super admin. Y sembrar las plantillas de MaKo es publicarlas desde el workspace de la plataforma con «Guardar como plantilla» → «Toda la comunidad». No se hizo porque el brief prohibía tocar app/admin.
+  - Dónde: `C:/dev/wt-puntas/app/admin/ ; lib/creaciones (retirarCreacion, listarCreaciones) ; docs/relevo/nube-plantillas.md:50-60`
+- **La tarjeta de Apify dice «Sin conectar» si se quita la clave 1 y queda la 2** · _chico_
+  - Qué falta: El estado de la tarjeta sale de la clave 1 (`integracionConectada` mira los campos obligatorios): con la 1 quitada y la 2 puesta, Spy anda y la tarjeta miente. Es un bug chico y concreto. Aparte: los topes por día de Spy (150 lecturas, 60 búsquedas, 6 traídas) siguen siendo POR NEGOCIO — más claves no los suben — y una clave recién agregada puede tardar hasta un minuto en usarse por la caché.
+  - Dónde: `C:/dev/wt-puntas/lib/integraciones.ts (integracionConectada) ; lib/instagram-perfil.ts y lib/spy-todo-reglas.ts (los topes) ; docs/relevo/nube-apify.md:42-49`
+- **Verificar en pantalla las varias claves de Apify y el cuerpo real del «sin crédito»** · _chico_
+  - Qué falta: (1) Abrir `/integraciones?abrir=apify-instagram` en el ws 3, agregar una segunda clave con nombre y mirar «Crédito de este mes» (computadora y teléfono): nadie lo vio en pantalla. (2) `carruseles-biblioteca.mts estado` tiene que listar las claves de Spy de la plataforma con su crédito y el total, sin imprimir ninguna clave. (3) El cuerpo REAL que manda Apify cuando una cuenta se queda sin crédito del mes: se usó `not-enough-usage-to-run-paid-actor`; si viene con otro tipo, va en `esFaltaDeCredito`.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-claves.ts (esFaltaDeCredito) ; app/integraciones/CreditoApify.tsx ; docs/relevo/nube-apify.md:33-40`
+- **Los textos de los cuatro paneles de aprobaciones son los esperados, no medidos** · _chico_
+  - Qué falta: La tabla de traducción de `lib/vigia-aprobaciones.ts` (`panel.traduccion`) se escribió a ciegas: la nube no ve los paneles. La primera vez que la tarea lea cada uno conviene `--guardar <id> auto "<texto del panel>"`: lo que no esté en la tabla vuelve como «no pude» con el texto literal, y se corrige la tabla. El orden importa: lo negado va antes de lo aprobado, y un test lo cuida.
+  - Dónde: `C:/dev/wt-puntas/lib/vigia-aprobaciones.ts (ITEMS[].panel) ; scripts/vigia-paneles.mts ; docs/relevo/nube-approvals.md:58-67`
+- **Lo que no se pudo probar de la cuenta de revisión de las tiendas** · _mediano_
+  - Qué falta: El script contra la base real (se corrió contra un PostgREST de mentira): faltan el id 900001 en producción, `createLead` con las columnas reales y el funnel por defecto. La entrada de verdad en un teléfono: la app de Play, TestFlight, el aviso a equipo@ y la pantalla de error de una acción cortada. El proxy en Vercel (se probó llamando a `proxy()` con una cookie firmada en un test).
+  - Dónde: `C:/dev/wt-puntas/lib/cuenta-revision-reglas.ts ; lib/revision-guarda.ts ; docs/relevo/nube-tiendas.md:97-102`
+- **AGENTS.md quedó viejo: dice que Creem modera lo que genera imagen o video** · _chico_
+  - Qué falta: Creem cerró la tienda y `PROVEEDOR_DE_MODERACION` vale `null`: hoy no modera nadie. La regla operativa sigue valiendo (lo que genera pasa por `encolar` con el prompt final en `pedido.prompt`), pero la premisa no. La propuesta de texto exacta ya está escrita en el relevo, lista para pegar. No se tocó porque es la configuración que leen todos los chats.
+  - Dónde: `C:/dev/wt-puntas/AGENTS.md (la sección de `encolar`) ; lib/creem-moderacion-reglas.ts ; el texto propuesto en docs/relevo/nube-creem-fuera.md:49-59`
+- **El múltiplo de rendimiento nunca se miró en pantalla** · _chico_
+  - Qué falta: No se levantó la app (la nube no tiene base). El chip de la tarjeta de Spy va arriba a la derecha y baja una fila si está «Analizando…» (`.spy-pcard__veces`). Verlo en /competitor-spy y /image-editor. Y medir cuántas piezas reales quedan sin número: con 13 publicaciones por cuenta alcanza para 7 y no para 20, así que hay que contar los chips en producción.
+  - Dónde: `C:/dev/wt-puntas/lib/multiplo-rendimiento.ts ; app/competitor-spy/SpyApp.tsx (.spy-pcard__veces) ; docs/relevo/nube-multiplo.md:33-42`
+- **El agente del Marketing CoPilot nunca corrió con una IA real** · _mediano_
+  - Qué falta: Los tests prueban que al system llega lo correcto (reglas, perfil, veredicto, conocimiento), no lo que contesta. Falta correr las 14 conversaciones de `docs/marketing-copilot/conversaciones.md` en el ws 3 (nunca el ws 1) y los 12 recorridos que dejó el relevo. Aparte: «Esta semana» no tiene checks (son atajos sin estado), el banco no cubre `MediaBuyer.tsx` entero, y los negocios de antes no ven la primera entrada — si Martín quiere que a todos se les ofrezca, hay un botón por poner.
+  - Dónde: `C:/dev/wt-puntas/docs/marketing-copilot/conversaciones.md ; lib/media-buyer/copiloto-contexto.ts ; app/api/mako/chat/route.ts ; docs/relevo/nube-marketing-copilot.md:46-57`
+- **El encuadre del grafo del NEGOCIO puede cortar un título pegado al borde** · _chico_
+  - Qué falta: En el grafo de un curso se arregló (`ajustar` en Grafo.tsx deja la mitad del título más largo a los costados); en el del negocio no se tocó. Es el mismo arreglo, aplicado al otro modo.
+  - Dónde: `C:/dev/wt-puntas/app/second-brain/Grafo.tsx (ajustar) ; docs/relevo/nube-gurus.md:68-71`
+- **Grabar llamadas: nada se probó de punta a punta ni en un teléfono real** · _mediano_
+  - Qué falta: La transcripción y el análisis con una IA de verdad están probados con su lógica pura, no de punta a punta. Sin probar: la subida contra Vercel y Supabase de verdad; un teléfono real, Safari, Firefox ni la app de iPhone (su explicación del micrófono ya nombra las llamadas en Info.plist, y eso entra con el próximo build de Codemagic); y que el `AudioContext` de la mezcla se cree en el clic. Para probarlo en el ws 3 con la migración aplicada: abrir un lead, «Grabar», hablar 4 minutos (para que haya 2 partes), cortar y elegir cómo terminó.
+  - Dónde: `C:/dev/wt-puntas/app/_components/grabar/grabadora.ts ; tests/grabar-llamada.test.ts ; docs/relevo/nube-grabar.md:66-77`
+- **Marketing CoPilot: Google Ads y LinkedIn Ads no tienen cifras y el agente sólo da criterio** · _mediano_
+  - Qué falta: El documento de anuncios los marca como pendientes (línea 176). Además el perfil no guarda país ni «tiene casos» (se pregunta cada vez) y los montos del bloque del negocio salen «$3,000» mientras el conocimiento escribe «US$3.000». Hecho = los dos canales con cifras citables, el perfil guardando país y casos, y un solo separador.
+  - Dónde: `C:/dev/wt-puntas/docs/conocimiento/anuncios-high-ticket.md:176 · lib/media-buyer/copiloto-contexto.ts (negocioDelCopiloto) · lib/media-buyer/copiloto-conocimiento.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:41`
+- **Lo que la sesión duplicada del CoPilot dejó sin portar** · _mediano_
+  - Qué falta: Dos cosas de la sesión que se descartó: la operación recomendar_estrategia_marketing (propone la estrategia por canal sin pasar por la charla) y reglas de criterio parafraseadas de dos repos MIT (fatiga con frecuencia de 7 días mayor a 3, grave a 4, y CTR 20 % abajo; escalar de a 20 % cada 3 a 5 días; landing con 5 % o más de conversión, si no formulario; un webinar se paga en frío recién cuando anduvo en orgánico). Si alguna se suma, va a REGLAS_DEL_COPILOTO con su licencia en el commit. Hecho = portadas o descartadas con su motivo.
+  - Dónde: `C:/dev/wt-puntas/lib/media-buyer/copiloto-contexto.ts (REGLAS_DEL_COPILOTO) · lib/api-mako/areas/ads.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-marketing-copilot.md:48`
+- **Autopilot rotula «pausar el original» con los textos del ganador: la tarjeta dice una cosa y hace otra** · _mediano_
+  - Qué falta: Darle su rótulo propio a la decisión tipo 'pausar'/tactica 'ganador' (hoy dice «Anuncio ganador» y «probar textos nuevos…»), y pintar v.cta (la variación del botón viaja en gancho). Lo rehace el chat Marketing CoPilot porque sumar una táctica rompe el Record<Tactica,…> de mb-modelo.ts. Hecho = la tarjeta dice que pausa el original.
+  - Dónde: `C:/dev/wt-puntas/app/ads-manager/Autopilot.tsx · app/ads-manager/mb-modelo.ts · lib/media-buyer/variacion-boton.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:31`
+- **Programar un ANUNCIO desde el Calendario no existe** · _grande_
+  - Qué falta: Hoy una campaña nace en pausa (proponer_crear_campana) y no hay «fecha de inicio». Programar un anuncio es empezar a gastar a una hora: tiene que pasar por lanzar (con la zona, la fecha de fin y los topes) y por una revisión adversarial. El camino propuesto está en docs/relevo/nube-thiago-migrar.md. Hecho = un Anuncio del Calendario lanza la campaña a su hora.
+  - Dónde: `C:/dev/wt-puntas/lib/media-buyer/ejecutar.ts (lanzar) · lib/calendario.ts · C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40`
+- **El brief entra al grafo por cuatro listas hardcodeadas mientras getSchema() lee el esquema vivo** · _mediano_
+  - Qué falta: CAMPOS_NORTE, CAMPOS_OFERTA, CAMPOS_CLIENTE y CAMPOS_MARCA son fijas: se le agrega un campo al brief de un cliente, el cliente lo contesta, el dato alimenta los prompts y no existe en el mapa que dice «todo lo que MaKo sabe de tu negocio». Sin error y sin aviso. Hoy es latente porque ningún workspace tiene esquema propio, pero /onboarding ya tiene addField. Hecho = un campo nuevo del brief aparece en el grafo.
+  - Dónde: `C:/dev/wt-puntas/lib/cerebro-grafo.ts (las cuatro constantes) · app/onboarding/ (addField) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1423`
+- **No hay ningún test que mire la topología del grafo, y no se puede escribir hoy** · _mediano_
+  - Qué falta: lib/cerebro-grafo.ts lleva server-only, así que ningún test lo puede importar: todo lo medido se puede romper en un commit posterior sin una señal roja. La salida ya está probada: mover la parte pura a un módulo sin la marca. Hecho = un test recorre la topología del grafo.
+  - Dónde: `C:/dev/wt-puntas/lib/cerebro-grafo.ts (server-only) · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1264`
+- **Ninguna hoja de las 20 plantillas del Dashboard se vio dibujada con datos reales** · _mediano_
+  - Qué falta: Se verificó la composición (qué pieza va dónde, con un script sobre componentesDe), los tests y los tipos; falta mirarlas. Y Closing sigue sin probar contra la base de un cliente: hay que crearlo en el ws3 y el ws1. Hecho = las hojas abiertas con datos de un workspace y lo visto anotado.
+  - Dónde: `C:/dev/wt-puntas/app/dashboard/disenos/ · lib/graficos-plantillas.ts (PLANTILLAS_HOJA) · punta dash-closing-producto · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748`
+- **Seis mediciones que MaKo no tiene, y por eso las hojas no las prometen** · _grande_
+  - Qué falta: Retención por SEGUNDO del video (Hooks y VSL van por cuartiles), confianza estadística de un A/B (Anuncio ganador usa la confianza por muestra), cohortes M0–M5 (Curso y CS), motivos de baja contados (CS), el tiempo de foco por tarea (Focus no tiene el temporizador) y las horas que ahorra una automatización. Y «¿Cada cliente va en fecha?» pide una fecha comprometida por etapa de la entrega, que no se guarda. Hecho = cada medición existe o queda escrito que no se promete.
+  - Dónde: `C:/dev/wt-puntas/lib/graficos-datos.ts · lib/vsl-retencion.ts · app/customer-success/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-templates-dashboard.md:748`
+- **Los bloques de General no obedecen los filtros de la hoja, y la plata se escribe en dos formatos** · _grande_
+  - Qué falta: Un filtro de período o de campo recorta los gráficos y no los bloques (el objetivo, los KPIs, el semáforo, el mes y los pendientes miden el negocio entero, salen de leerVistaGeneral sin alcance). Y los gráficos del catálogo escriben «US$2.882» con punto mientras los bloques usan fmtUSD, «$18,600» con coma: una hoja muestra los dos. Hecho = los bloques siguen el filtro y hay un solo formateador.
+  - Dónde: `C:/dev/wt-puntas/app/general/datos.ts · lib/vista-general.ts (leerVistaGeneral) · lib/format.ts (fmtUSD) · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928`
+- **El Web Generator: la cadena de pago sale del dominio del cliente y pierde la atribución** · _grande_
+  - Qué falta: Cuatro puntas atadas: 1) servir el paso de pago EN el dominio propio (reescribir el GET /pagar/<id> a app/l/[slug]/pagar/[bloque]); 2) darle a crearCobro una base de retorno del host que sirvió la landing (hoy el 303 y el regreso de Stripe salen de APP_BASE_URL, así que el comprador sale del dominio del cliente y no vuelve); 3) que el Pixel decore los enlaces /pagar/ con utm_*, fbclid y visitor_id y el paso los pase saneados a createLead (hoy el lead de la conversión más cara nace sin atribución); 4) los rechazos del POST no dejan rastro consultable (trampa, Origin, topes, tamaño: a lo sumo un console.warn). Hecho = un pago desde un dominio propio se cobra en ese dominio, con atribución, y sus rechazos se cuentan.
+  - Dónde: `C:/dev/wt-puntas/lib/editor-landing/dominios-reglas.ts (decidirHost, conEnlacesDelDominio) · proxy.ts · lib/cobros.ts:62-64 · lib/landing-token.ts · lib/editor-landing/pago-pagina.ts (responderPagoPost) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:555 y :628`
+- **Nadie poda landing_pago_pedidos y un cobro de prueba puede reusarse con claves reales** · _mediano_
+  - Qué falta: Un cron que borre lo terminado de más de unos días (con el techo, como mucho 120 filas por landing y hora). Y medir el form-action con un checkout de Stripe en dominio propio: la política nombra sólo checkout.stripe.com, y si Chrome corta un 302 a pay.sunegocio.com queda una página en blanco con el cobro creado. Hecho = la tabla se poda y el checkout en dominio propio está medido en Chrome y Safari.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/0276_landing_pago_pedidos.sql · lib/editor-landing/pago-pagina.ts (ORIGENES_CHECKOUT) · lib/editor-landing/pago-pedido.ts (cobroReusable) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:628`
+- **Avisarle al negocio un pago rechazado o una pasarela caída** · _mediano_
+  - Qué falta: Decidido el 14/10 (plantilla del catálogo, un evento de MaKo como pago_recibido) y no se hizo: toca el motor de avisos que el chat Automations reescribía ese día. El plan está en docs/relevo/landing-generator.md → «Lo que sigue (17/10)». Hecho = un pago rechazado en una landing le llega al dueño en el momento.
+  - Dónde: `C:/dev/wt-puntas/lib/disparadores.ts · lib/avisos-catalogo.ts · lib/variables-aviso.ts · lib/plantillas-automatizaciones.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:2177`
+- **Los diseños con animaciones del Web Generator quedaron para la próxima tanda** · _grande_
+  - Qué falta: La segunda mitad del punto 8, con las decisiones ya tomadas (ver «Etapas propuestas… y lo que falta decidir»). Y «sacá el video de la web» ya es editar, pero acomodar_bloque_landing no entra en el presupuesto del turno. Hecho = los diseños con animaciones publicados y el pedido por chat llegando con la herramienta correcta.
+  - Dónde: `C:/dev/wt-puntas/app/web-generator/editor/ · lib/mako-intencion.ts · lib/api-mako/areas/landing-editor.def.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:1414 y :2177`
+- **Customer Success: cinco pendientes, incluido un compare-and-set que manda dos mensajes** · _grande_
+  - Qué falta: moverClienteDeEtapa sin compare-and-set (si el cliente manda las dos últimas tareas en el mismo segundo desde dos pestañas, sale dos veces el mensaje de la etapa nueva y dos líneas de historial); las actions de app/customer-success/actions.ts preguntan el workspace pero no la CAPA (el requireCapa vive en la página y una server action es un POST que no pasa por ella); la llamada del curso leída de Calendly; importar cursos de Skool o Hotmart; y reordenar el curso con el dedo. Hecho = los cinco cerrados o descartados con su motivo.
+  - Dónde: `C:/dev/wt-puntas/lib/cs-mover-etapa.ts (moverClienteDeEtapa) · app/customer-success/actions.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-customer-success.md:3960 y :5665`
+- **El Plan: `recurrente` no entra por WhatsApp ni por la API, y juzgarConCriterio es código muerto** · _mediano_
+  - Qué falta: La cadena quedó cerrada para la reunión de Fathom, el cron y el archivo subido; los otros dos productores de borradores no preguntan ni mandan el campo, y se cae en el map sin error. También tareasDesdeRespuestas: una tarea que nace del wizard no puede nacer recurrente. Y nadie llama a juzgarConCriterio: el juez del criterio de compromisos está completo y sin consumidor. Hecho = una tarea recurrente se crea por WhatsApp y por la API, y el juez se llama o se borra.
+  - Dónde: `C:/dev/wt-puntas/lib/mako-doer-acciones.ts:844 · app/api/agente/plan/route.ts:105 · lib/plan-propuesta.ts (TareaExtra, tareasDesdeRespuestas) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1269`
+- **La API de MaKo: nueve pendientes del núcleo, con su archivo** · _grande_
+  - Qué falta: Idempotencia de las propuestas genéricas (una ref que bloquee sólo contra una pendiente); distinguir «vacío» de «ausente» en la pantalla genérica; reclamada_at y barrido de pendientes confirmada colgadas (pide columna nueva); actor fuera de resultado; historial_whatsapp y reuniones_lead por /api/agente/consultar (rompe skills instaladas); las tools viejas que devuelven el error en un 200; que la bandeja no deje confirmar a un no-admin lo que no lleva rolMinimo; mover listar_productos/guardar_producto a negocio; y /whatsapp?chat= escrito por código (falta resolver el jid contra el espejo en cada área). Hecho = los nueve cerrados o descartados con su motivo.
+  - Dónde: `C:/dev/wt-puntas/lib/api-mako/ejecutar.ts · lib/propuestas.ts · lib/mako-pendientes.ts · lib/api-mako/acciones.ts · lib/agente-consultas.ts · lib/mako-tools.ts · app/mako/ctx-bandeja.ts · lib/mako-doer-in.ts · tabla en C:/dev/wt-puntas/docs/hallazgos-api-mako.md:1069`
+- **Seguridad: el barrido de server actions sin corte de sesión sólo se hizo en el CRM** · _grande_
+  - Qué falta: 85 de las 145 server actions de app/crm no miraban la sesión y ahora arrancan con exigirSesion(). Falta el mismo barrido en los 'use server' de las otras tabs. Ojo: leer getUsuarioActual() NO es cortar, así que el guard tiene que aceptar sólo las formas que cortan, en positivo. Y falta el barrido de entrada por URL al resto de las tabs (a /conocimiento se entraba escribiendo la dirección). Hecho = ninguna server action de ninguna tab queda sin corte, con su guard.
+  - Dónde: `C:/dev/wt-puntas/lib/sesion-accion.ts (exigirSesion) · tests/crm-acciones-sesion.test.ts (el molde) · los 'use server' del resto de app/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402 y :1329`
+- **Seguridad: cinco tablas con workspace_id quedan fuera del proxy de inquilino** · _mediano_
+  - Qué falta: El inverso del contrato de TENANT_TABLES encontró contra producción avisos_programados, flujo_corridas, insistencias, replay_sesiones y replay_lotes con workspace_id y fuera de TABLAS_DE_INQUILINO: vaciar el Cliente de Prueba las dejaba. Hecho = las cinco dentro del proxy o declaradas en FUERA_DEL_PROXY con su porqué.
+  - Dónde: `C:/dev/wt-puntas/lib/tablas-de-inquilino.ts (TABLAS_DE_INQUILINO, FUERA_DEL_PROXY) · lib/workspace.ts (TENANT_TABLES) · tests/tenant-tables-contract.test.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:2402`
+- **IA: dos STT hardcodeados a whisper-1 no pasan por el choke point** · _chico_
+  - Qué falta: transcribeMediaBuffer (clases del portal) y transcribeAd (video de cada anuncio de Meta) arman su propio form con model: 'whisper-1' y no llaman a transcribirAudio: quedan clavados en OpenAI. El de ads es el de más volumen (cron y backfill sobre cientos de anuncios). Al migrarlos hay que conservar el tope de 25 MB y response_format: verbose_json (se usa duration para el costo). Hecho = los dos pasan por transcribirAudio y bajan a Groq cuando hay GROQ_API_KEY.
+  - Dónde: `C:/dev/wt-puntas/lib/transcribe.ts:171 y :257 · lib/ai-cheap.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:876`
+- **Integraciones: nada le dice al negocio que sus leads de Meta no llegan por Zernio** · _grande_
+  - Qué falta: leadsEnElWebhook(ws) mide si el webhook registrado escucha el evento y ninguna pantalla lo usa (Ads Manager o el modal de Zernio). Y no hay red de seguridad si un evento se pierde: Zernio reintenta 7 veces y descarta, y el poll de Meta usa el token de página propio, que un negocio sólo-Zernio no tiene (existe GET /v1/ads/leads?accountId&since= para un barrido). Además un fallo DESPUÉS del insert deja el lead sin anunciar: el reintento encuentra created: false y nadie dispara el aviso ni las automatizaciones. Hecho = la pantalla avisa, hay barrido y un reintento dispara los avisos.
+  - Dónde: `C:/dev/wt-puntas/lib/zernio.ts (leadsEnElWebhook, EVENTO_LEADS) · lib/zernio-lead.ts (cargarLeadDeZernio) · app/api/webhooks/zernio/route.ts · lib/leads.ts (upsertLeadFromMeta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-integraciones.md:1685`
+- **Offer: falta la versión EXTERNA del PDF y el umbral de la alerta de foco sin medir** · _mediano_
+  - Qué falta: El PDF de hoy es para el dueño (trae diagnóstico, números y datos «[completar]»): falta una versión para mandarle a un prospecto. Y alertaFoco no está medido contra los productos y ofertas reales de los clientes. Además leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente (archivoATexto usa las cascadas compartidas): cerrarlo es un sinPago en leerDocumentoIA y transcribirAudio. Hecho = el PDF externo existe, el umbral está medido y leer no cobra.
+  - Dónde: `C:/dev/wt-puntas/lib/offer-reglas.ts (alertaFoco) · lib/ai-cheap.ts (leerDocumentoIA, transcribirAudio) · app/offer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-offer.md:379`
+- **Copywriter: cinco bajas de la verificación de la mudanza, sin arreglar** · _mediano_
+  - Qué falta: crear() borra el documento si el índice «falla» aunque haya llegado, y abre «No existe» (B7); el link compartido de una página cuya madre está en la Papelera sigue editando (falta escondida(paginas, id)) (B6); después de mudar, /copywriter abre una página mudada y no la última del usuario, porque nacen con actualizado = ahora (B3); con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4); y un reels.historial con JSON roto se toma como «no hay» (B5). Hecho = las cinco cerradas.
+  - Dónde: `C:/dev/wt-puntas/lib/copywriter/server.ts (crear) · app/api/compartido/guion/route.ts · informe en C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373`
+- **Copywriter: grafoParaChat ya está en main y contexto.ts sigue con el GRAFO viejo** · _chico_
+  - Qué falta: Cambiar `const GRAFO` en lib/copywriter/contexto.ts para que use grafoParaChat (lib/cerebro-para-chat.ts, c272b97dd). Hecho = el Copywriter arma su contexto con el grafo nuevo.
+  - Dónde: `C:/dev/wt-puntas/lib/copywriter/contexto.ts (const GRAFO) · lib/cerebro-para-chat.ts (grafoParaChat) · C:/dev/wt-puntas/docs/plantillas-reales/README.md (tanda 0) · pendiente en C:/dev/wt-puntas/docs/hallazgos-copywriter.md:373`
+- **UI: el MenuContextual quedó fuera del barrel y del catálogo /admin/ui** · _chico_
+  - Qué falta: Mudar los :hover/:focus de ESTILOS a app/_ui/ui.css (regla de crecimiento 3 del LEEME, una línea); sumar la pieza al barrel app/_ui/index.ts y al catálogo /admin/ui (regla 5); sumar flechas izquierda/derecha a app/_ui/iconos-menu.tsx (hoy usa las de app/crm/iconos); y decidir si un clic izquierdo afuera cierra sin que el clic siga de largo (el menú nativo de Chrome se lo traga; el nuestro abre la ficha si cae en una tarjeta). Hecho = la pieza en el barrel y el catálogo, con sus estilos en ui.css.
+  - Dónde: `C:/dev/wt-puntas/app/_ui/MenuContextual.tsx (ESTILOS) · app/_ui/index.ts · app/_ui/ui.css · app/_ui/iconos-menu.tsx · app/admin/ui/CatalogoUI.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:4376`
+- **UI: el menú contextual no está en Chats, Web Generator, Offer ni en dos listas** · _mediano_
+  - Qué falta: Que el «⋯» de Chats y del Web Generator abran ESE menú; que el clic derecho en Integraciones haga lo mismo que el clic (abrirTarjeta: una red social abre Zernio) y no abra la tarjeta suelta; el selector de arriba de Offer es el Dropdown de la casa, así que un clic derecho en sus renglones cambia el desplegable de toda la app (sin hacer); y PanelLandings y PanelPartner no tienen «⋯». Hecho = los cinco lugares con su menú o con la decisión escrita.
+  - Dónde: `C:/dev/wt-puntas/app/chats/ChatsApp.tsx · app/web-generator/ · app/integraciones/ · app/web-generator/editor/paneles/PanelLandings.tsx · app/offer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ui.md:70`
+- **Pruebas A/B: falta la dimensión «rama» en los gráficos y la primera prueba real** · _mediano_
+  - Qué falta: La dimensión «rama» en los gráficos del Dashboard (Métricas la muestra en una franja fija), verla en pantalla, y la primera prueba real en el Cliente de Prueba (la migración ya está aplicada). Además el plan de una prueba de «Agendó» usa la tasa de «Respondió», así que el n del plan queda corto. Y Landings tiene las firmas y el store pero sus medidores no están en MEDIDORES.landing del cron. Hecho = los tres cerrados y una prueba corriendo en el ws3.
+  - Dónde: `C:/dev/wt-puntas/lib/pruebas/automatizacion.ts (historiaDe) · lib/pruebas/ (MEDIDORES) · app/dashboard/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-pruebas.md:98`
+- **Objectives: getObjetivoProgreso y tres settings viejos siguen alimentando los reportes** · _chico_
+  - Qué falta: Mientras existan hay dos fuentes para «cuál es la meta»: la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es mover esos dos call-sites a objetivosContextoTexto(). Hecho = una sola fuente de la meta.
+  - Dónde: `C:/dev/wt-puntas/lib/reportes.ts:66 y :174 · lib/objectives-fuentes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928`
+- **El plugin del agente: nada reporta desde una instalación real** · _mediano_
+  - Qué falta: Todo lo verificado es contra un servidor de mentira y con los tests; falta un cliente con el hook puesto de verdad. Los nombres de los eventos (UserPromptSubmit, SessionEnd) y los campos del stdin son la parte a confirmar. Y el reporte de sesiones sigue siendo sólo de Claude Code (el hook es un Stop de .claude/settings.json): desde la app de Claude la skill funciona pero no reporta. Hecho = un acta escrita desde una instalación real.
+  - Dónde: `C:/dev/wt-puntas/lib/agente-plugin.ts (AGENTE_HOOK_SETTINGS) · lib/agente-consentimiento-texto.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agente.md:129 y C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1654`
+- **Plantillas propias: faltan los enchufes de Video, Offer, AI Avatar, Web Generator y Dashboard** · _grande_
+  - Qué falta: Más «Tus plantillas» en el teléfono (hoy sólo en la computadora), el ítem en la barra de /creaciones, y en el super admin una vista para moderar lo publicado (retirar ya existe en el server con puedeRetirar) y sembrar las «de MaKo». El detalle está en docs/relevo/nube-plantillas.md. Hecho = las cinco tabs guardan y usan plantillas propias.
+  - Dónde: `C:/dev/wt-puntas/app/_crear/ · app/admin/ · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:119`
+- **`dashboard` tambien sigue sin enchufe en creaciones, no solo `formato_video`** · _mediano_
+  - Qué falta: La lista dice que «de los dos tipos sin enchufe queda solo `formato_video`». No: `POR_ENCHUFAR` tiene DOS entradas vivas, `dashboard: 'Graphics'` y `formato_video: 'Video Editor'`. O sea que publicar una hoja del Dashboard como creacion sigue sin enchufe, y su dueno es el chat de Graphics. Hecho = `dashboard` sale de POR_ENCHUFAR y entra a ENCHUFADOS con sus cuatro funciones (`opciones`, `exportar`, `resumir`, `usar`) y el boton «Publicar» en la pantalla del Dashboard.
+  - Dónde: `C:/dev/wt-puntas/lib/creaciones-reglas.ts:45 (ENCHUFADOS) y :47-52 (POR_ENCHUFAR) · C:/dev/wt-puntas/lib/creaciones-enchufes.ts:6-14 (los pasos del enchufe)`
+- **Las seis mediciones que MaKo no tiene y dejan vacias las hojas nuevas del Dashboard** · _grande_
+  - Qué falta: Las hojas ya estan copiadas y ofreciendose, pero seis numeros no existen en MaKo, asi que nacen vacias: (1) retencion por segundo del video, con hook rate y curva de abandono, para Hooks y para VSL/YouTube; (2) confianza estadistica de un A/B entre dos creativos, para Anuncio ganador; (3) cohortes de permanencia M0-M5, para Curso y CS; (4) motivos de baja contados, para CS; (5) alcance y CTR antes del clic (Marketing hoy arranca en el gasto); (6) tiempo de foco por tarea, para el temporizador de Focus. Ninguna familia lo trajo. Hecho = cada hoja nueva dibuja datos de verdad, o dice que ese dato todavia no se mide en vez de mostrar una hoja en blanco.
+  - Dónde: `C:/dev/wt-puntas/docs/templates-dashboard-propuesta.md:238-244 (§7.4) · C:/dev/wt-puntas/docs/relevo/templates-dashboard.md:52-62 punto 3 · C:/dev/wt-puntas/app/dashboard/disenos/`
+- **Automations: Publicar y «Probar» exigen una linea conectada aun para el simulador** · _chico_
+  - Qué falta: Del §Sin hacer de `docs/relevo/automations.md`, sin leer por ninguna familia: el boton «Probar» es un simulador y no manda nada, pero igual pide una linea de WhatsApp conectada, asi que un negocio que todavia no conecto no puede ni simular su automatizacion. Hecho = «Probar» corre sin linea conectada y solo Publicar la pide.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/automations.md:451-470 · C:/dev/wt-puntas/app/automations/ (`ConectarMedio`, `PanelProbar.tsx`)`
+- **Automations: al CREAR, el modelo inventa el texto de una tarjeta de audio que la persona graba ella** · _chico_
+  - Qué falta: Otro punto del §Sin hacer de automations.md que nadie trajo: en la rama `crear` de `/api/chat-agent/secuencias/ia`, el modelo escribe el texto de una tarjeta de audio que la persona tiene que grabar con su voz, y crear no ofrece «Discutir / Editar» (editar si lo tiene). Hecho = al crear, una tarjeta de audio sale vacia pidiendo la grabacion, y crear ofrece Discutir/Editar como editar.
+  - Dónde: `C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts (rama `crear`) · C:/dev/wt-puntas/docs/relevo/automations.md:451-475`
+- **Automations: no hay «solo estos dias» del goteo aparte del horario de la automatizacion** · _chico_
+  - Qué falta: Del §Sin hacer de automations.md: los dias del goteo son los del horario propio de la automatizacion, y no existe una eleccion de dias aparte. Quien quiere gotear solo de lunes a jueves tiene que achicar el horario entero. Hecho = la configuracion de una automatizacion acepta dias del goteo distintos de su horario.
+  - Dónde: `C:/dev/wt-puntas/lib/config-automatizacion.ts · C:/dev/wt-puntas/docs/relevo/automations.md:451-475`
+
+### 🔴 Trabados — con su motivo (2)
+
+- **Las caricaturas de los 10 gurus del Ops Center** · _chico_
+  - Qué falta: Las 10 fichas estan escritas y faltan las caricaturas. La cola las anota solo si hay Canva conectado en la cuenta de Claude del Runner.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:141 · docs/relevo/nube-gurus.md · docs/relevo/nube-spy.md:179 · scripts/spy-caricaturas-pendientes.mjs`
+  - ⛔ Lo frena: Sin Canva conectado en la cuenta del Runner la pendiente espera sin error
+- **Diez gurús tienen la ficha escrita y esperan sólo su caricatura**
+  - Qué falta: Las diez fichas están escritas en `lib/asesores/en-espera.ts` (EN_ESPERA): Juan Carrizo, Vilma Núñez, Samuel Albaa, Álvaro Luque, Sergio Begueria, Romuald Fons, Mateo Maffia, Francisco Doglio, Andy Landa y Gonzalo Seré. Ninguno tiene caricatura en el repo (se buscó en todas las ramas y etiquetas). Cuando llegue la cara: subir `public/asesores/<id>.png` y `public/asesores/grandes/<id>.png`, pasar su fila a ASESORES y su ficha a FICHAS. Andrew Tate no entra (pedido explícito).
+  - Dónde: `C:/dev/wt-puntas/lib/asesores/en-espera.ts ; lib/asesores/catalogo.ts ; lib/asesores/fichas.ts ; docs/relevo/nube-gurus.md:28-59`
+  - ⛔ Lo frena: Las caricaturas se hacen con Canva desde la PC y la nube no tiene Canva. Si Martín ya las hizo, están en Canva o en su PC, no en el repo.
+
+### 🟡 Esperan a Martín — nadie más los destraba (47)
+
+- **La revisión de la app de Meta antes del 7/12, y la verificación de Google** · _mediano_
+  - Qué falta: Meta: 8 permisos, con videos y llamadas reales; falta el video. Si no está antes del 7/12, Meta restringe la app. Google: la verificación sigue en revisión y detrás esperan Tareas de Google y el correo por Gmail (`tasks.readonly`, `meetings.space.readonly`, `GOOGLE_LOGIN_CON_AGENDA`); hoy los clientes ven «app no verificada» y hay tope de 100 usuarios.
+  - Dónde: `C:/dev/cerebro-herramientas/revisiones-meta-google.md · memory/meta-oauth-app-review.md · docs/hallazgos-ads.md · docs/pendientes.md:279,385`
+  - ⛔ Lo frena: El video y las cuentas son suyos; Google depende del proveedor
+- **Tiendas: Play en borrador, Apple en el build 2 y el certificado de Windows sin comprar** · _mediano_
+  - Qué falta: Play: faltan las capturas de la ficha (hace falta entrar con la cuenta de revisión, usuario 29, negocio 900001), declarar la condición de comerciante y los 12 testers (14 días de prueba cerrada). Apple: el build 2 y el DSA de Leandro. Windows: el certificado SSL.com IV con eSigner —el vigía de paneles dice «pide iniciar sesión»—; sin eso Chrome sigue marcando el instalador como malware. Nada se envió a revisión.
+  - Dónde: `docs/tiendas-play-appstore.md · docs/relevo/cerebro.md:21,63,156 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §C2-C4`
+  - ⛔ Lo frena: Son compras y sesiones suyas: cuentas de tienda, DSA, 12 testers, certificado
+- **Decisiones de Martín sueltas que frenan código escrito** · _mediano_
+  - Qué falta: De la lista del 6/11, sin contestar: ¿el alta del CRM también rota las claves de Apify?; qué cuenta en el MRR del negocio (4 de 5 ganadas del ws 11 no pagaron nunca); el negocio 11 con la suscripción de US$4.235 (¿pago único?) y 4 pagadas fuera de Ganado (1852, 1871, 1923, 1940); el tiempo al aire de Closing (estimar o buscar dato medido); ¿columna por cliente en /agency?; si Partners paga el primer mes a precio de lista aunque entre a mitad; el precio del Acelerador (habló de 2.000 en 4 cuotas con un año de Pro; lo vigente es 1.500 en 3); un segundo nivel de Partners; la cuota en pesos cobrada entera y declarada a otra tasa, que deja US$100 reclamados a quien ya pagó; planes en México y la garantía grupal; si las altas a mano (Esencial) llevan topes. Y de seguridad: Mauricio a sólo lectura en GitHub, apagar el registro abierto de Supabase Auth, rechazar contraseñas filtradas, captcha en el opt-in y el alta, Cloudflare.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §C8 · docs/relevo/pendientes-barrido.md §«De MARTÍN» · docs/relevo/pendientes-0311.md §«Decisiones que sólo Martín puede tomar»`
+  - ⛔ Lo frena: Cada una tiene código escrito o medido esperando atrás
+- **Cosas de clientes que esperan que Martín les escriba o cargue una clave** · _mediano_
+  - Qué falta: Avisarle o no a Código Inmobiliario y a P2P por los datos de sus leads (y aplicar la migración 0357) · la key de Resend «Full access» (hoy ningún negocio puede conectar su dominio de email) · cargar crédito de OpenAI o pasar a otro proveedor (desde el 07/10 la memoria de cada negocio y la transcripción de anuncios fallan para todos) · la key de Gemini de Mauricio, que Google bloqueó, y extraer a mano sus reuniones del 8 al 15/10 · las claves de Zernio en producción y su secreto de webhook · avisarle a Leila que su Zernio está pausado por falta de pago y que desvincule Whop · la cuenta publicitaria de Mauricio frenada por Meta · Brigitte sin email para el reporte semanal · la línea nueva del Pixel para Código, Leila, P2P y el ws 4.
+  - Dónde: `docs/pendientes.md:215-235 · docs/relevo/pendientes-barrido.md §«De MARTÍN» → Clientes y datos · supabase/migrations/0357_urls_sin_datos_personales.sql`
+  - ⛔ Lo frena: Son claves, avisos y pagos de terceros: un asistente no puede
+- **2FA por correo y varias formas activas; y que piden los que no tienen TOTP** · _mediano_
+  - Qué falta: `CANALES_CODIGO = []` y WhatsApp nunca sale de MaKo (decision del 4/11 por el ban). No existen las preguntas de verificacion. Aparte: hoy se quita el 2FA o se regeneran los codigos sin un codigo fresco.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:194-195 · lib/mfa-reglas.ts:163-174 · docs/relevo/pendientes-barrido.md:216 · app/api/perfil/seguridad/route.ts`
+  - ⛔ Lo frena: Falta que Martin diga que se pide a quien no tiene TOTP
+- **Replicar landings tal cual y borrar las replicas que salieron mal** · _mediano_
+  - Qué falta: La version «adaptada» seguia nombrando a la competencia 11 y 22 veces. Borrar replicas es borrado en produccion.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:203-204 · docs/hallazgos-editor-landing.md:3442-3541`
+  - ⛔ Lo frena: Borrar en produccion pide el si de Martin
+- **C3: `embeddings` gasta IA sin `recordUsage` y no se ve en el Uso** · _chico_
+  - Qué falta: Una fila por vector llenaria la tabla del Uso (miles por ingesta) y entraria en la cuota de las keys de Gemini: hay que decidir como registrarlo (por ejemplo agregado por dia).
+  - Dónde: `docs/relevo/pendientes-barrido.md:102 · lib/embeddings.ts`
+  - ⛔ Lo frena: Decision de como se registra el gasto
+- **C10 (la otra mitad): el primer mensaje del anuncio llega sin referral** · _chico_
+  - Qué falta: `quitarHuerfano` ya limpia el `meta_ad_id` del perdedor. Queda la decision de atribucion cuando el primer mensaje del anuncio no trae referral.
+  - Dónde: `docs/relevo/pendientes-barrido.md:109 · lib/zernio-entrante.ts`
+  - ⛔ Lo frena: Decision de atribucion
+- **Ads Manager y Media Buyer: probarlo contra Meta real** · _mediano_
+  - Qué falta: Publicar, presupuesto, formulario y video contra Meta de verdad; `lib/meta-ads-create.ts` con token; `ZERNIO_ANUNCIOS_PROBADO`; `mb.css` en Ajustes y Automatizaciones; y Ads Manager sin entrada en el catalogo de onboarding (#801).
+  - Dónde: `docs/relevo/pendientes-barrido.md:127-129 · lib/meta-ads-create.ts · lib/zernio-ads-cuerpo.ts:28`
+  - ⛔ Lo frena: El clic de la prueba de anuncios por Zernio y la cuenta publicitaria son de Martin
+- **Otros grabadores de reuniones y deprecar Fathom** · _grande_
+  - Qué falta: Loom, Read AI, Google Meet, Grain, MeetGeek, Avoma, Granola y Krisp, y que el Plan y todo lo que lee de Fathom lea de todos. Aparte: que evento de Calendly es la llamada de entrega.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:141,186 · docs/pendientes.md:28 (P13) · docs/relevo/pendientes-barrido.md:186 · docs/hallazgos-integraciones.md:125`
+  - ⛔ Lo frena: Deprecar Fathom y elegir los grabadores es decision suya
+- **Probar en el negocio de prueba (ws 3) las siete puntas nuevas** · _mediano_
+  - Qué falta: Grupos de la app (7 pruebas), Funnel Coach (5), carruseles de Image (9), Grabar (4 minutos, 2 partes), «Le llego un comprobante», «Emitir recibo» y el Mes a mes de la suscripcion. Nada de esto se ejercio con una sesion real.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:77 · docs/relevo/nube-carruseles-rediseno.md:82-91`
+  - ⛔ Lo frena: Pide su sesion en el ws3
+- **P17: mirar en pantalla lo desplegado que nadie miro** · _mediano_
+  - Qué falta: Settings, «Quieren entrar», el aviso al activar, la barra del editor web a 1280, el selector de funnel del telefono, el Ops Center «Ignorar» en Android, MaKo Mobile en un telefono real, /planes y /partners, y las capturas de Create.
+  - Dónde: `docs/relevo/pendientes-barrido.md:161,190-191 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:78`
+  - ⛔ Lo frena: Todo pide su sesion y su telefono
+- **Decisiones de producto abiertas que frenan trabajo** · _mediano_
+  - Qué falta: Abrir Copywriter a todos; la pregunta de canal del onboarding con su default; el analisis del lead por las keys de la agencia; `zernio.cuenta_de_la_plataforma` (cuesta plata); la rotacion de claves de Apify en el alta del CRM; el `window.opener` del Pixel; el video de fondo de las landings; ChatGPT en la PC (`codex login` y medir); Avance de Curso con modulos sueltos; `npm test` dentro del pre-push; el nombre del chat «Cerebro».
+  - Dónde: `docs/relevo/pendientes-barrido.md:184-188 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:80`
+  - ⛔ Lo frena: Son todas decisiones suyas
+- **Meta y Google: la revision de la app vence y faltan pasos suyos** · _mediano_
+  - Qué falta: La revision de la app de Meta antes del 7/12 (falta el video de los permisos de anuncios), `MAKO_META_APP_SECRET`, la verificacion de Google (`tasks.readonly`, `meetings.space.readonly`, `GOOGLE_LOGIN_CON_AGENDA`) y la cuenta publicitaria de MaKo (control, tarjeta, doble factor). Ademas `www.hola-mako.com` no esta en las redirect URIs.
+  - Dónde: `docs/relevo/pendientes-barrido.md:181-182 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:127-129 · docs/hallazgos-integraciones.md ~495-540 · C:/dev/cerebro-herramientas/revisiones-meta-google.md`
+  - ⛔ Lo frena: El video, el secreto y los paneles son suyos
+- **Avisarle a Codigo Inmobiliario y a P2P por los datos de sus leads** · _chico_
+  - Qué falta: Codigo manda nombre y email en la URL: hay ~670 visitas con datos guardados (CI y P2P) que hay que borrar, y avisarle a la agencia. Va con la migracion 0357.
+  - Dónde: `docs/relevo/pendientes-barrido.md:174 · docs/relevo/pedidos-perdidos-2810.md:180 · docs/relevo/landing-generator.md:101-104`
+  - ⛔ Lo frena: Borrar datos de produccion y avisarle al cliente lo decide Martin
+- **Datos de clientes que esperan una decision o un aviso** · _mediano_
+  - Qué falta: Los dos leads de Leila (mensualidad y monto), avisarle a Leila que su Zernio esta pausado y que desvincule Whop, el reporte semanal de Mauricio con «ZZZ» y numeros de julio, la cuenta publicitaria de Mauricio frenada, la key de Gemini de Mauricio bloqueada, cargar credito de OpenAI o cambiar de proveedor, y el numero de MaKo nuevo con las lineas viejas.
+  - Dónde: `docs/relevo/pendientes-barrido.md:174-179`
+  - ⛔ Lo frena: Cada uno pide su si o su clave
+- **La app de escritorio como MaKo entero (pedido duplicado tres veces)** · _grande_
+  - Qué falta: Todas las tabs, login en el navegador, Mac y Linux, y que la suscripcion cubra tambien landings, reels, copies, anuncios y automatizaciones (D6b). Aparece en Infra, en Ops Center y como D6b, y antes hay que pasarle a Martin la decision Tauri o Electron. Ademas falta una pantalla que explique para que sirve el Desktop.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:98,100,108,257 · docs/relevo/mako-desktop.md:92-104 · docs/pendientes.md:21 (P3) · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:61`
+  - ⛔ Lo frena: Falta la decision Tauri o Electron y si D6b se extiende o se corrige la venta
+- **Scraper con los DMs de Instagram y perfiles nuevos (Google Maps, LinkedIn)** · _grande_
+  - Qué falta: Promesa a Teo: DMs de IG en lote; para Maps y LinkedIn Martin decide la fuente. Aparte, la vista previa con foto de perfil en el buscador de IG espera su decision sobre Meta y la fuente paga.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:90,165 · C:/dev/revisiones/2810-promesas-teo.md:41-43`
+  - ⛔ Lo frena: La fuente de datos (paga) la elige Martin
+- **Replica a otro servidor si se cae uno, y correr los chats en la nube** · _grande_
+  - Qué falta: Replica de Supabase, segunda region y segunda Evolution (promesa a Teo); y correr en la nube los chats de implementacion para ahorrar RAM. Los dos sin dueno asignado.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:171-172 · memory/chats-en-la-nube.md:23,28`
+  - ⛔ Lo frena: Es infraestructura paga: lo decide Martin
+- **ChatGPT por suscripcion en la PC del cliente: probarlo de punta a punta** · _mediano_
+  - Qué falta: O habilitarlo, o dejarlo en «Pronto» con el porque. Espera el `codex login` de Martin y `scripts/ia-pc/medir-codex-mcp.mjs`. Ademas, una conexion de IA sale como no conectada en Ajustes y nadie midio por que.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:107 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:51 · scripts/ia-pc/medir-codex-mcp.mjs`
+  - ⛔ Lo frena: Pide su `codex login` y la cuenta de ChatGPT de prueba
+- **Codigo de verificacion por email y la garantia de devolucion** · _mediano_
+  - Qué falta: Dos promesas a Teo: el codigo por email (va con el 2FA) y «devolver el dinero si no funciona», que es decision de Martin.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:155,174 · C:/dev/revisiones/2810-promesas-teo.md:40,60`
+  - ⛔ Lo frena: La garantia la define Martin
+- **MaKo reta a quien tiene varias ofertas a proposito** · _chico_
+  - Qué falta: `alertaFoco` avisa desde 3 ofertas si factura menos de 10.000: es el metodo, a proposito. Leila tiene cuatro y en Black November vende tres. Decidir si se silencia para quien vende varias a proposito.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:56 (1.11) · lib/offer-reglas.ts:2084`
+  - ⛔ Lo frena: Cambiarlo toca el metodo: lo decide Martin
+- **Acciones de produccion o disco pendientes, que no son codigo** · _chico_
+  - Qué falta: Habilitar 200 tokens de API del Ops Center de Mauricio, borrar una carpeta de C:, sacar la key de Martin del ws de Mauricio, reiniciar al cliente de Juanfran. Se dan por cerrados solo si Martin confirma.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:134-136`
+  - ⛔ Lo frena: Todas piden su confirmacion
+- **Ganar en un segundo producto no dispara la invitacion al curso** · _chico_
+  - Qué falta: Hoy no afecta a nadie: ningun negocio tiene `crm.curso_al_ganar`. Depende de una decision del CRM.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:209-210 · docs/hallazgos-customer-success.md:5693`
+  - ⛔ Lo frena: Decision del CRM
+- **Avisarle a Mauricio que la clave de correo ya esta en la plataforma** · _chico_
+  - Qué falta: La mudanza esta hecha (ws 9 tiene `RESEND_API_KEY` desde el 4/11 21:02 UTC) y el envio real del ws1 sigue apagado hasta que el confirme. Lo unico que falta es el aviso, y lo hace el Cerebro con Martin.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:2,38-41 · docs/relevo/nube-email.md:12,48-51`
+  - ⛔ Lo frena: El aviso a Mauricio lo da Martin
+- **Siete decisiones del recorrido visual esperan a Martín** · _mediano_
+  - Qué falta: A1: Automations, el segundo nodo cortado entre 1024 y 1280 (lo corta `ZOOM_LEGIBLE`, a propósito): ¿panel encima del lienzo o bajamos el piso? A2: ¿dejamos «CRON» en eventos que no son programados? A4: ¿cambiamos la regla de Mayúscula Inicial en los nombres de automatizaciones? W1: el cartel «Continuar viendo» del reproductor de la portada es de Panda: ¿se apaga en Panda? U3: la sidebar a 730-811 px de alto (el último ítem queda detrás del avatar): entrarlo es REORGANIZARLA. Agency en el menú del perfil: confirmar que Settings · Partners · Agency es lo que quería Leila. La difusión del CRM: el rediseño está en main desde el 2/11; si Leila lo vio con la cara vieja, producción no lo tenía.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-recorrido-visual.md:38-51 ; el estado de cada ítem en docs/recorrido-visual-30-10.md («Estado al 6/11/2026»)`
+  - ⛔ Lo frena: Las siete son decisiones de producto o de diseño; dos (U3 y la difusión) además necesitan hablar con el jefe Sidebar y con Leila.
+- **Dashboards: tres mediciones y dos decisiones abiertas** · _mediano_
+  - Qué falta: Medir la entrada de la página «Overview» de Corvane andando (vive en un chunk que el informe no muestra, así que las tarjetas de Cold Calling quedan quietas); medir Lintel completa si Martín prefiere que Inmobiliaria sea ésa (hoy se copió de Torque); y mirar las dos hojas en producción con datos de un cliente. Decisiones: los tonos de serie y semánticos de los diseños copiados que quedan bajo 3:1 o 4,5:1 (Marketing good/warn, Closing amber, Hooks el dorado, VSL el ocre, Inmobiliaria good/warn) y si se borran los bloques de General viejos (`PIEZAS_GENERAL`), con 8 candidatos ya emparejados.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-dashboards.md:76-101 ; lib/graficos-plantillas.ts ; lib/graficos-piezas (PIEZAS_GENERAL)`
+  - ⛔ Lo frena: Los tonos y el borrado de PIEZAS_GENERAL los decide Martín: borrar le saca opciones a quien los usa.
+- **Las tiendas: Play en borrador, el video de Meta y el certificado de Windows** · _mediano_
+  - Qué falta: Play: falta la cuenta de revisión → App access → Público objetivo → enviar Data safety (sumar «Device or other IDs») → las capturas de la ficha → prueba cerrada con 12 testers por 14 días. Meta: sin pendientes salvo los permisos de anuncios, que esperan el video. SSL.com (firma de Windows) pide sesión. Apple: falta el build 2. El Cerebro los tiene todos en su lista de «Sin hacer».
+  - Dónde: `C:/dev/wt-puntas/docs/tiendas-play-appstore.md ; docs/relevo/cerebro.md:21, :63 y :177`
+  - ⛔ Lo frena: Play Console y SSL.com piden la sesión de Martín; el video de Meta y las capturas sólo los puede grabar él.
+- **El revisor de las tiendas no puede probar la IA sin una decisión de plata de Martín** · _chico_
+  - Qué falta: Sin IA, MaKo le contesta «No hay ninguna IA conectada». Tampoco puede ser una credencial, porque la entrada exige 0. El camino es una fila en `CREDITO_DE_UN_NEGOCIO`: `{ ws: 900001, clave: 'ANTHROPIC_CREDITO_CUENTA<N>', quien: 'Revisión de las tiendas' }`, mientras dure la revisión. Es código: pasa por una punta y por la revisión.
+  - Dónde: `C:/dev/wt-puntas/lib/veto-claude.ts (CREDITO_DE_UN_NEGOCIO) ; docs/tiendas-play-appstore.md (R14 y «Dónde estamos» punto 6) ; docs/relevo/nube-tiendas.md:81-87`
+  - ⛔ Lo frena: Es gasto de IA de la plataforma para una cuenta que no es un cliente: lo decide Martín.
+- **Cuatro decisiones abiertas del Lead Magnet Generator** · _chico_
+  - Qué falta: (1) ¿Se abre a los clientes? Hoy es sólo de la plataforma: abrirla es sacar `adminOnly` (nav.ts), la puerta (app/lead-magnet-generator/puerta.ts) y `soloPlataforma` (lib/api-mako/areas/leadmagnet.def.ts), las tres juntas. (2) ¿El mensaje con el link sale al instante? Inscribir al alta cambiaría el ritmo de todas las landings de todos los negocios; la recomendación escrita es no tocarlo hasta que un negocio lo pida. (3) ¿Un lead puede entrar a Classroom? (4) ¿El quiz se parece a Typeform? Se copió de SurveyJS porque Typeform no abre desde la nube.
+  - Dónde: `C:/dev/wt-puntas/app/lead-magnet-generator/puerta.ts ; lib/api-mako/areas/leadmagnet.def.ts ; lib/nav.ts ; docs/relevo/nube-lead-magnets.md:108-121`
+  - ⛔ Lo frena: Las cuatro son decisiones de producto; la 2 cambiaría el ritmo de todas las landings de todos los negocios.
+- **El tiempo al aire de la hoja Closing: decidir de dónde sale el dato** · _mediano_
+  - Qué falta: Es la promesa 2 de las cuatro que Martín le hizo a Juanfran y Joan el 30/10. Hay que decidir si se calcula de los turnos (una estimación) o se busca el dato medido del grabador. Las otras tres promesas están hechas. Aparte: ver una columna por cliente en `/agency` es trabajo nuevo (leer a través de la cartera aprobada).
+  - Dónde: `C:/dev/wt-puntas/lib/primer-contacto.ts ; docs/relevo/nube-codigo.md:102-107`
+  - ⛔ Lo frena: Hay que elegir entre una estimación de los turnos y el dato medido del grabador: cambia qué se le promete al cliente.
+- **Dos chats figuran «waiting on a human» y sólo Martín los destraba** · _mediano_
+  - Qué falta: (1) «Admin Costs con todo lo que pagamos, y pesos al blue diario»: las puntas `punta/admin-costos`, `punta/pesos-al-blue` y `punta/cuota-en-su-moneda` todavía no existen. (2) «Nada por detrás» (lo suyo ya está en main). Aparte, cosas suyas o de Leandro: la tarjeta de Panda, la baja de ElevenLabs y rotar las claves pegadas en 7 chats viejos. Railway: falta saber si hay servidor propio.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/cerebro.md:7-9 ; docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md §7`
+  - ⛔ Lo frena: Los dos chats están en «waiting on a human»: no avanzan sin que Martín los destrabe.
+- **La extensión: la tienda sigue en la 0.74.3 y lo de la 0.74.4 y 0.74.5 no llega a nadie** · _chico_
+  - Qué falta: Publicar la 0.74.5; volver a crear la credencial de la API de la tienda (--ayuda, pasos 1 a 4) para que cada versión se suba con un comando; sacar la pantalla «Actualiza la extensión» de extension/popup.js en la próxima versión; y reemplazar el mosaico grande viejo (1400x560). Hecho = la tienda sirve la 0.74.5 y la próxima sube con un comando.
+  - Dónde: `C:/dev/wt-puntas/extension/ · extension/popup.js · lib/extension-publicar.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-extension.md:440`
+  - ⛔ Lo frena: La autorización de la credencial de la tienda es de Martín.
+- **Publicar anuncios por Zernio sigue detrás de ZERNIO_ANUNCIOS_PROBADO en false** · _mediano_
+  - Qué falta: Probar la publicación por Zernio con una cuenta real y pasar el interruptor. Y Meta no deja publicar desde MaKo sin pasar por su UI (hay que entrar al anuncio, aceptar un mensaje de seguridad y publicarlo a mano): quedó pedido investigar si se puede por API. Hecho = un anuncio se publica desde MaKo.
+  - Dónde: `C:/dev/wt-puntas/lib/zernio-ads.ts (ZERNIO_ANUNCIOS_PROBADO) · lib/media-buyer/subir.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:31 y :733`
+  - ⛔ Lo frena: La prueba de publicación es de Martín (publica en una cuenta real y gasta).
+- **Las TAREAS de Google en el Calendario esperan la aprobación de la verificación** · _mediano_
+  - Qué falta: Sumar tasas.readonly en la consola de Google (pantalla de consentimiento del proyecto mako-500317) y a GCAL_SCOPE; la lectura es GET tasks/v1/users/@me/lists y lists/{id}/tasks. Cuidado: «después de la aprobación» no es «al día siguiente»: lo que está en revisión desde el 10/10 son calendar.events y calendar.readonly, y tasks.readonly es un permiso NUEVO que puede abrir otra ronda. Pedirlo antes le vuelve a mostrar «Google no verificó esta app» a todo el que conecte su agenda. Hecho = las tareas de Google se dibujan como eventos de todo el día.
+  - Dónde: `C:/dev/wt-puntas/lib/google-calendar.ts (GCAL_SCOPE) · consola de Google del proyecto mako-500317 · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:357`
+  - ⛔ Lo frena: Decisión de Martín del 14/10: después de la aprobación de la verificación, que se mira en la consola o en martinkoncke@gmail.com.
+- **El Second Brain: el grafo deja el 56-67 % del lienzo vacío y las etiquetas se pisan** · _grande_
+  - Qué falta: La salida barata es el local graph (re-encuadrar sobre el vecindario a 2 saltos al fijar, que es el default de Obsidian: 14 nodos, 23-25 % del mapa) en vez del layout elíptico, que cambia el mapa de todos los clientes. Y no dibujar una etiqueta cuando su caja choca con otra ya dibujada (atenuarlas todas se probó y se revirtió: no resuelve el solape). Hecho = el grafo llena el lienzo y ninguna etiqueta se pisa.
+  - Dónde: `C:/dev/wt-puntas/lib/cerebro-layout.ts (RECETA) · app/second-brain/Grafo.tsx · scripts/medir-grafo.mjs · pendiente en C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1099 y :1423`
+  - ⛔ Lo frena: El layout elíptico es decisión del dueño porque le cambia el mapa a todos los clientes; el local graph no, pero el documento los presenta como alternativas.
+- **Diez llamadas de entrega quedaron en `error` sin reintento por falta de crédito de Anthropic** · _chico_
+  - Qué falta: Diez llamadas de los ws1, ws9 y ws11 (del 05 al 12/10) quedaron sin_clasificar por «Your credit balance is too low». Reintentarlas gasta crédito y el default es no reintentar. Hecho = decidido si se reintentan y, si sí, reintentadas con crédito cargado.
+  - Dónde: `C:/dev/wt-puntas/lib/closing.ts · tabla closing_analyses · pendiente en C:/dev/wt-puntas/docs/hallazgos-customer-success.md:5665`
+  - ⛔ Lo frena: Reintentar gasta crédito: lo decide Martín (la regla de la casa es no reintentar por default).
+- **La poda fina del tablero ítem por ítem no se hizo: se reordenó** · _mediano_
+  - Qué falta: De 85 para abajo el tablero quedó igual, a propósito. Y quedan tres contradicciones de la llamada contra sí misma (el Onboarding se fue al 14/10 estando roto por la cuota de Gemini; el video tutorial se descartó y volvió doce minutos después; Offer Analyst/Generator está en la etapa 2 según Fathom y «en la siguiente» según el transcript), más Seguridad que se cayó por segunda llamada seguida sin criterio, y el número de WhatsApp recién comprado que no tiene historial y hay que curar antes de usarlo. Hecho = la poda decidida por Martín y escrita, y la escalera reescrita DESPUÉS de crear las tarjetas (aplicarPropuesta re-curva todos los proyectos y borraría lo creado antes).
+  - Dónde: `C:/dev/wt-puntas/app/plan/board/ · lib/plan-propuesta.ts (aplicarPropuesta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:6274`
+  - ⛔ Lo frena: Las tres contradicciones y el número de Seguridad los decide Martín: hacer la poda por cuenta propia sería inventarla.
+- **MaKo Mobile: ninguna pantalla v2 se miró en un navegador ni en un teléfono** · _grande_
+  - Qué falta: Con MOVIL_ACTIVO = true, el primer deploy hace que todo celular que abra MaKo caiga en /m: si una pantalla tira, es lo que ven los clientes. Falta ver el título grande, los sheets, el composer con el teclado y el oscuro, y medir en un iPhone y un Android reales (la voz con SpeechRecognition en PWA standalone, el push dentro del toque en iOS 16.4+, instalar, los gestos del sheet y del mic, la háptica, el primer cuadro de un video con #t=0.1 y la franja de iOS). Hecho = el recorrido hecho antes de prender el desvío.
+  - Dónde: `C:/dev/wt-puntas/lib/movil-desvio.ts (MOVIL_ACTIVO) · app/m/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-mobile.md:1507`
+  - ⛔ Lo frena: Prender el desvío afecta a todos los clientes con celular y medir en los dos teléfonos necesita los dispositivos de Martín.
+- **El plugin público de la API se regeneró y nunca se publicó** · _chico_
+  - Qué falta: El repo público (mbustos-digital/mako-plugin) se publica a mano: hasta entonces, quien instaló el plugin sigue pidiendo el catálogo entero. Y la skill (lib/agente-skill.ts) y plugin/ no enseñan las rutas REST ni los detallados. Además documentation_url apunta a una pantalla con login (/api-mako?tab=docs), que el integrador de un cliente sin cuenta no abre. Hecho = el plugin publicado con lo nuevo y la doc accesible sin sesión.
+  - Dónde: `C:/dev/wt-puntas/plugin/ · lib/agente-skill.ts · lib/api-mako/http.ts (docsUrl) · pendiente en C:/dev/wt-puntas/docs/hallazgos-api-mako.md:1202 y :1291`
+  - ⛔ Lo frena: Publicar el repo público se hace a mano, desde la cuenta de Martín.
+- **/api/agente/plan y /lead (POST) no miran el alcance del token** · _chico_
+  - Qué falta: Un principal acuñado como lectura (sólo por POST /api/agente/token; la pantalla no lo ofrece) igual deja propuestas. Son dos líneas. No se tocó por la decisión D de Martín de mantener /api/agente tal cual. Hecho = un token de lectura no puede dejar una propuesta.
+  - Dónde: `C:/dev/wt-puntas/app/api/agente/plan/route.ts · app/api/agente/lead/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-api-mako.md:1202`
+  - ⛔ Lo frena: La decisión D de Martín fue mantener /api/agente tal cual.
+- **IA: el modelo gratis de OpenRouter por default está muerto para TODAS las features** · _mediano_
+  - Qué falta: Y CASCADA_DOCS sigue con OpenAI y Mistral; la red de plataforma en «Crear con IA» no cubre a un cliente con una sola key; Cancelar no frena la cascada; y la key de Gemini de la plataforma está bloqueada por Google (403). Hecho = la cascada arranca con un proveedor vivo y Cancelar la corta.
+  - Dónde: `C:/dev/wt-puntas/lib/ai-cheap.ts (CASCADA_DOCS) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4062`
+  - ⛔ Lo frena: La key de Gemini bloqueada por Google la decide Martín, según el propio documento.
+- **La agenda de MaKo (calendly.com/koncke/asesoria) NO entra al CRM del ws9** · _mediano_
+  - Qué falta: Medido el 23/10: webhook_routing de Calendly tiene filas sólo del ws1, credenciales sólo en ws1 y ws4, el ws9 no tiene token ni signing key ni tipo de evento de R1, y 0 leads del ws9 con origen_lead = 'calendly'. Toda venta de MaKo pasa por esa agenda. La prueba está en el registro de entregas de las suscripciones de webhook de la cuenta koncke. Hecho = una reserva en esa agenda crea un lead en el CRM del ws9.
+  - Dónde: `C:/dev/wt-puntas/app/api/webhooks/calendly/route.ts:343-398 · tabla webhook_routing · credenciales de Calendly del ws9 · pendiente en C:/dev/wt-puntas/docs/hallazgos-integraciones.md:1685 (sección siguiente)`
+  - ⛔ Lo frena: Hay que crear la suscripción de webhook en la cuenta de Calendly koncke: es de Martín.
+- **Newsletter: la fila sigue en PRONTO y seis cosas más sin hacer** · _grande_
+  - Qué falta: Abrirla a todos los negocios (hoy sólo el super admin; va con el go-live del email y la mueve el chat Sidebar); la plantilla «Newsletter» del Copywriter; «Agregar a otro funnel» desde el tablero del CRM no pide el permiso cuando el destino es el Newsletter; el formulario de la landing no tiene casilla de consentimiento (no hay tipo checkbox en la especificación); la bienvenida no sale en el acto para quien entra por la landing (el opt-in no llama a enrolarPorEvento); y la conciliación lee todos los suscriptos cada 30 min. Hecho = los seis cerrados.
+  - Dónde: `C:/dev/wt-puntas/app/_components/nav.ts · lib/copywriter/plantillas.ts · app/crm/lead-funnel-actions.ts · lib/editor-landing/especificacion.ts · lib/nutricion.ts (enrolarPorEvento) · pendiente en C:/dev/wt-puntas/docs/hallazgos-newsletters.md:96`
+  - ⛔ Lo frena: Abrirla a todos va con el go-live del email, que es decisión de Martín.
+- **Recomendaciones: los UMBRALES son razonados, no medidos, y no hay capturas** · _mediano_
+  - Qué falta: Correr scripts/medir-second-brain.mjs y scripts/probar-recomendaciones.mts en producción (el clasificador de permisos negó «Production Reads»; lo habilita Martín), sacar las capturas de las cuatro pantallas con datos reales, juntar las sugerencias del CRM y las decisiones del Media Buyer en el Ops Center con una sola memoria, llevar «Lo que mejoró» a la pantalla (hoy sólo por la API) y poner un tope diario para todo MaKo. Hecho = los umbrales medidos y las cuatro capturas.
+  - Dónde: `C:/dev/wt-puntas/scripts/medir-second-brain.mjs · scripts/probar-recomendaciones.mts · lib/sugerencias-crm.ts · lib/media-buyer/ · app/_chat/RecomendacionesDeMako.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-recomendaciones.md:151`
+  - ⛔ Lo frena: Los permisos de lectura de producción los habilita Martín.
+- **normalizarUrl sigue con lista negra y es lo más grande que queda abierto en el Pixel** · _grande_
+  - Qué falta: Es la llave de landing.paginas, landing.config, landing.snapshot y del cruce con landing_visits: pasarla a lista blanca borraría la query a toda página identificada por un parámetro propio (?plan=pro), o sea cambiaría llaves ya guardadas, y un test lo frena a propósito. Lo que sí se hizo es sumarle los nombres de Cal.com. Hecho = decidido con criterio y escrito si se migra o se deja, con el plan de migración de llaves si se migra.
+  - Dónde: `C:/dev/wt-puntas/lib/landing-paginas.ts (normalizarUrl) · tests/landing-url-unica.test.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-landing.md:4710`
+  - ⛔ Lo frena: Además queda abierto avisarle a la agencia de los datos personales que estuvieron en las URLs (Código Inmobiliario ws13 y P2P Consulting ws14): lo decide Martín.
+- **La direccion de las 4 primeras hojas del Dashboard sigue sin confirmar, y 4 hojas no tienen referencia** · _mediano_
+  - Qué falta: Dos cosas que esperan a Martin desde el 1/11: (a) le mostraron las 4 primeras hojas y no alcanzo a contestar si la direccion esta bien — corregir el criterio en 4 hojas es barato, en 19 no; (b) las 4 hojas nuevas (Anuncio ganador, Hooks y retencion, VSL y YouTube, y la que era Ads Analyst) no tenian referencia y Martin autorizo buscar afuera, con la regla de que la licencia se verifica abriendo el LICENSE y no la etiqueta de GitHub. Quedan tambien las segundas referencias sin copiar: Ondra (Marketing), Kestrel (Landing), Tend (Chat Analyst) y Lintel (Inmobiliaria). Hecho = Martin dice si la direccion va, y cada hoja tiene su referencia con la licencia leida.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/templates-dashboard.md:52-62 · C:/dev/wt-puntas/docs/templates-dashboard-propuesta.md:214-236 (la tabla de estados)`
+  - ⛔ Lo frena: Es su criterio sobre el diseno de las 4 primeras: sin eso no conviene seguir copiando.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (41)
+
+- **Elementos de marketing en las landings: cuenta regresiva, prueba social, escasez** · _grande_
+  - Qué falta: Martín lo marcó «súper importante» (punto 2.10) y no existe. VIENE DE UN DOC DEL 31/10 o anterior: medir contra el código antes de arrancar. Junto con esto quedan las animaciones del Web Generator (efectos al scroll, cinta, carrusel, contador, plantillas animadas, transiciones) y los carruseles también en Web Generator (2.14 · 3.9 · 4.10).
+  - Dónde: `docs/relevo/landing-generator.md → Tanda 8, etapas 4, 6 y 9 · docs/pendientes.md:92-93 · app/web-generator/`
+- **Mobile: las pantallas que siguen diciendo «En la computadora»** · _grande_
+  - Qué falta: Faltan Strategy, Offer Playbook y MaKo WhatsApp (sin dueño), MaKo Partners para el super admin, conectar una integración desde el teléfono, el Video Editor del teléfono con texto, audio, efectos y «Editar con IA», los adjuntos y notas de voz en Chats, el Web Generator con crear/Crear con IA/Analizar/Replicar, cobrar con link, las hojas propias de la ficha del lead y el «+» para cargar un lead. VIENE DE UN DOC DEL 17/10: medir contra `lib/movil-rutas.ts` antes de arrancar.
+  - Dónde: `lib/movil-rutas.ts (EN_CAMINO) · docs/relevo/mako-mobile.md → Mobile 1, 2 y 3 · docs/pendientes.md:359-364`
+- **Creaciones y estrellas: `formato_video` sin enchufe, el boton «Publicar» y la tab** · _mediano_
+  - Qué falta: Tres pendientes del documento de creaciones que siguen abiertos, con una correccion: `formato_imagen` YA se enchufo el 6/11 con las plantillas propias, asi que de los dos tipos sin enchufe queda solo `formato_video` (las 8 puestas de lib/puestas-data.ts son un catalogo fijo; lo mas parecido a «un formato del negocio» es un anuncio del historial, `PlanGuardado`, y eso lo decide Martin). Faltan tambien: el boton «Publicar» en Automations y en el Dashboard (lo ponen sus chats), y que /creaciones no tiene tab en la barra (se entra por URL y por los botones «Publicar»; se le pregunto a Martin y no contesto). HECHO cuando `tests/creaciones.test.ts` no liste `formato_video` en POR_ENCHUFAR y los dos botones existan.
+  - Dónde: `C:/dev/wt-puntas/lib/creaciones-enchufes.ts (POR_ENCHUFAR) · lib/creaciones-reglas.ts · lib/puestas-data.ts · C:/dev/wt-puntas/docs/hallazgos-creaciones.md:69-74 · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:20 y 36-41`
+  - ⛔ Lo frena: `formato_video` espera que Martin diga si «un formato» es un anuncio del historial. La tab en la barra tambien espera su respuesta.
+- **Web Generator: dibujar a 1440 escalado y lo FIJO del menu, que quedaron sin hacer** · _mediano_
+  - Qué falta: Dos cosas aprobadas y no hechas: hoy a ~980 elige el disenio de tableta, y el menu fijo de holo y respond corre todo 40-280 px. El camino dejado: montar `HtmlEditableVista` en una pagina de prueba con un Chrome sin ventana y medir de a una pagina. Despues, volver a replicar #68-#72 en el ws9 sin pisar las viejas.
+  - Dónde: `docs/relevo/pendientes-pc/por-repartir.md:86-96 · HtmlEditableVista`
+- **Posible cruce de datos entre workspaces en el video generator** · _mediano_
+  - Qué falta: «Revisa que el resto de workspace no tengan problema de que se crucen datos» (31/8). `docs/relevo/seguridad-aislamiento.md` trata el aislamiento en general; no hay nada especifico de `flow_puentes` ni de las colas de video.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:53-56 · docs/relevo/seguridad-aislamiento.md`
+- **La vista previa del PDF en el chat de MaKo saca de la tab** · _chico_
+  - Qué falta: `app/chats/Hilo.tsx:281` abre el documento en pestania nueva, sin visor embebido. No se sabe si el pedido era sobre este chat.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:58-61 · app/chats/Hilo.tsx:281`
+- **Nombres y fotos de los contactos de Evolution en el onboarding del Chat Agent** · _chico_
+  - Qué falta: «Los estas trayendo por ID no por el numero». Las fotos ya se guardan en el bucket; falta mirarlo en pantalla.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:63-66 · docs/hallazgos-comunicacion.md:1720-1730`
+- **El recorrido visual: faltan 14 de 22 pantallas y 22 hallazgos sin repartir** · _grande_
+  - Qué falta: Se miraron 8 de 22 pantallas y salieron 27 problemas; el mas grave (el boton flotante de MaKo) ya se arreglo. Quedan 22 sin repartir (Plan, CRM, Dashboard, Automations, Ops Center, la landing y textos en ingles) y 14 pantallas sin recorrer. `punta/recorrido-visual` entro a produccion el 6/11: hay que medir que cubrio.
+  - Dónde: `docs/relevo/pendientes-pc/pendientes-30-10.md:256-260 · docs/relevo/cerebro.md:27 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:131`
+  - ⛔ Lo frena: Necesita Chrome y una sesion
+- **C16: «Por tiempo» agenda al instante al elegirlo** · _chico_
+  - Qué falta: `CRON_DEFAULT` en `app/agencia/FlujoAviso.tsx`. La bitacora lo da como decision 5.1 de Martin: hay que confirmar si es a proposito.
+  - Dónde: `docs/relevo/pendientes-barrido.md:115 · app/agencia/FlujoAviso.tsx`
+- **Zernio, tanda C de la deprecacion del token** · _grande_
+  - Qué falta: Editar el publico de un conjunto, crear campania y conjunto, barrido de leads por Zernio, reproductor del anuncio, crear publicos y alcance. Tambien: varias claves de Zernio en un negocio eligiendo cual usa cada red (pedido de Leila).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:132,135 · docs/relevo/zernio-capi.md:136-162 · docs/hallazgos-integraciones.md:2107`
+- **Los 14 pedidos de Ads Manager y Marketing CoPilot anotados sin repartir** · _grande_
+  - Qué falta: Los 8 de `b1c92d31` (filtros, tabla, seleccion multiple, productos multiples), los 6 de `2da0bd61` (subir creativos a campania existente, aviso de seguridad de Meta, nomenclatura, guardar transcripcion del anuncio), `d443439d` (error al publicar, cerrar tareas, vista previa, estado de la app de Meta), publicacion y codigos postales, y copiar la interfaz de Madgicx.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:236`
+- **Dashboards: cinco restos anotados para otro chat** · _mediano_
+  - Qué falta: La hoja por fecha de cierre con funnel agregado, `/api/graficos` que acepta cualquier tablero en vista, bloques de General que no siguen los filtros, «Publicar en Creaciones» y plantillas de Instagram sobre fuente organica. El 6/11 dice «no queda hoja pendiente», lo que choca con esta lista.
+  - Dónde: `docs/relevo/pendientes-barrido.md:125-126 · lib/graficos-datos.ts:256 · docs/relevo/cerebro.md:27`
+- **Tutoriales y recorridos por tab (promesa a Teo)** · _grande_
+  - Qué falta: Recorridos en Plan, Chats, Offer, Video, Image, Copywriting y Ads Manager, mas videos cortos. Y la guia de IA por pestania («que hago aca?») que tiene solo `app/_ui/guia/`.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:156 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 · app/_ui/guia/`
+- **Sacar a un alumno del producto y de todos los cursos** · _mediano_
+  - Qué falta: Los sacados de antes siguen con el curso abierto y volver a invitar lo reabre (f32, f33 de Leandro).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:142 · docs/hallazgos-customer-success.md:5882-5891 · app/admin/dev/customer-success/bitacora.ts:1124`
+- **Que todo lo que MaKo arma por prompt se vea construyendose, en toda la app** · _grande_
+  - Qué falta: Hoy solo pasa en algunos lugares (el «Replicar» del Web Generator y el nuevo «Editar» de carruseles). Falta en Automations (lienzo nodo por nodo), editores y dashboards.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:143 · memory/construir-a-la-vista.md`
+- **Las iniciales con emoji rompen pantallas (React #418) en otras tabs** · _chico_
+  - Qué falta: Ticket #10. Quien leyo los documentos dice que comparo «las iniciales» contra origin/main: hay que confirmar antes de darlo por abierto.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:144,249 · docs/hallazgos-ui.md:139-146,221-228`
+- **Quitar «Cliente de Diseno», que comparte pixel y tokens con Mauricio** · _mediano_
+  - Qué falta: Separar la cuenta ws1/ws4. Pedido del 24/10 sin dueno confirmado.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:145 · docs/feedback-24-10.md:34`
+- **Onboarding para todos los nichos que no deje avanzar sin el setup** · _grande_
+  - Qué falta: App de escritorio, extension y Meta con login, detectando lo ya hecho, y no por cliente sino por nicho.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:147`
+- **Landing principal #32 con la frase nueva, como borrador sin publicar** · _mediano_
+  - Qué falta: «El mejor SaaS para ventas High Ticket, de punta a punta», sin «VSL Funnel» y con el scraper. Es escribir el documento #32 por la API o el editor, sin publicar. Choca con la decision posterior de cambiar «SaaS» por «software» en la landing (30/10).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:118 · landing_docs id 32 · docs/relevo/pendientes-pc/pendientes-30-10.md:123`
+- **Pixel: un VSL POR PAGINA (marcar el nuevo desmarca el viejo)** · _mediano_
+  - Qué falta: Terminar y commitear lo que quedo en `C:/dev/wt-landings-av`. Hecho = marcar el VSL de la landing nueva sin desmarcar el de la vieja.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:119 · lib/landing-videos.ts · C:/dev/wt-landings-av`
+  - ⛔ Lo frena: El worktree vive solo en la PC
+- **Landing que hace pruebas A/B sola** · _grande_
+  - Qué falta: Detectar la seccion que nadie ve y generar variaciones del hook y los copies. Hay disenio en `docs/diseno-pruebas-ab.md:57-58`.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:121 · docs/diseno-pruebas-ab.md:57-58 · docs/relevo/landing-generator.md:11-23`
+- **Asistente por WhatsApp con la agenda del dia y «Agendar llamada» en el primer hueco** · _grande_
+  - Qué falta: Dos promesas a Teo sin dueno: un asistente que avisa «cobrale a tal, tenes la visita», y una accion de automatizacion que agende en el primer hueco libre sobre la reserva del CRM (`proponer_agendar_reunion`).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:82-83 · C:/dev/revisiones/2810-promesas-teo.md:58,94`
+  - ⛔ Lo frena: El canal de WhatsApp saliente de MaKo se esta cortando
+- **Revision completa de la API de MaKo: faltan acciones** · _grande_
+  - Qué falta: Empezando por dar y quitar el acceso a un curso. El inventario reparte por area: Automations (P0-7), Web Generator (P0-9), Copywriter (P0-10 y P0-11).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:140 · app/admin/dev/api-mako/bitacora.ts:320-461`
+- **El Ops Center elige modelo y esfuerzo por fase, con el consumo medido** · _mediano_
+  - Qué falta: Sonnet para explorar, Opus para ejecutar, midiendo el consumo antes y despues (pedido de Aaron via Martin, ticket 876825880-11). Hallado al comprobar, no estaba en ninguna lista.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:106`
+- **Que MaKo corrija o recuerde un dato del perfil desde el chat** · _mediano_
+  - Qué falta: Pedido de Leila: «LiderMente es de 7:30 a 9:30» dicho en el chat tendria que quedar guardado. Sin dueno.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:154 · C:/dev/revisiones/2710-leila-leila.md:105-111`
+- **Usar los ganadores de Ads Analyst y etiquetar anuncios externos al generar guiones** · _mediano_
+  - Qué falta: Existen `lib/avatares-ganados.ts` y `lib/etiquetas-motor.ts`; no se vio que el Copywriter los consuma.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:212-213 · lib/avatares-ganados.ts · lib/etiquetas-motor.ts`
+- **Restos del Copywriter que quedaron al archivar el chat** · _mediano_
+  - Qué falta: Los evals del experto, los ejemplos de las 3 VSL ocultas, y cargar extracto y chips en la tarjeta cuando la tanda 0 de Create llegue a main. Ademas `app/_crear/ejemplo.ts` todavia dice que el Copywriter abre con «Adaptar a mi negocio».
+  - Dónde: `docs/relevo/pendientes-pc/por-repartir.md:191-192,262 · app/_crear/ejemplo.ts`
+- **Migrar la landing de Mauricio de Lovable a Vercel** · _mediano_
+  - Qué falta: Pedido del 16/8, sin resultados en docs, lib ni app. Relacionado: el Pixel y el UUID en `sprint.mauriciobustos.com` y la apertura del Sprint a 65 por dia de 9 a 21.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:134-135,215-216 · docs/hallazgos-landing.md:4519-4527`
+- **Branding MaKo: animaciones crudas aparte y preview de PNG** · _chico_
+  - Qué falta: `BrandingMaKo.datos.ts` no lista las variantes sin texto. Pedido del 27/7, sin verificar.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:221-222 · BrandingMaKo.datos.ts`
+- **Investigar «Grockbot» y leer el archivo «Feedback Chatbot.txt»** · _chico_
+  - Qué falta: Dos pedidos sueltos de la lista «por mirar»: el archivo no es legible y Grockbot nunca se investigo.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:228 (4.27, `841877e6` y `36f4eb6c`)`
+  - ⛔ Lo frena: El archivo «Feedback Chatbot.txt» esta anotado como no legible
+- **El superadmin no puede ver su propia credencial (el ojito)** · _chico_
+  - Qué falta: `puedeRevelar` exige ser admin del workspace dueno y el comentario muestra que cerrar la lectura ajena fue decision de seguridad. NO reabrir: el relevo del 6/11 lo deja cerrado explicitamente.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:5,123-125 · app/api/integraciones/credencial/route.ts:115-119`
+  - ⛔ Lo frena: Decidido como seguridad: no se reabre
+- **La migración 0390 (llamadas grabadas) no figura como aplicada** · _chico_
+  - Qué falta: El archivo existe en disco y crea las tablas `llamadas_grabadas`, `llamadas_grabadas_partes` y el bucket privado `llamadas-grabadas`. Sólo agrega, y va antes o junto con el deploy (sin las tablas el botón dice que la grabación todavía no está lista y no graba). Hay que medir si está aplicada: la plantilla «Velocidad de llamada» del Dashboard lee llamadas grabadas, así que si no estuviera, esa hoja saldría vacía.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/0390_llamadas_grabadas.sql ; docs/relevo/nube-grabar.md:47-55`
+  - ⛔ Lo frena: No está en la tabla de migraciones aplicadas del Cerebro (que lista 0394, 0397, 0398, 0401, 0402, 0403 y 0404 a 0409), pero el relevo que la pide es del 4/11 y nadie anotó haberla corrido.
+- **Cuatro pedidos del wizard de campaña y la vista de públicos sin cerrar** · _grande_
+  - Qué falta: Listar los instant forms disponibles, dejar crear uno nuevo y hacerlo opcional; UTMs automáticos al crear un ad; crear públicos nuevos sin entrar a Meta; y públicos personalizados completos (faltan los que vieron los anuncios con % de retención y los que rellenaron el instant form, y más de 180 días). Ojo con el tope: createCustomAudience topea dias en 365 para todos pero Meta limita a 180 la retención de un público de sitio web (tipo pixel), caso que pasa todas las validaciones y falla recién al crear. Y el Ads Manager no trae anuncios de imagen, solo videos.
+  - Dónde: `C:/dev/wt-puntas/app/ads-manager/NuevaCampanaModal.tsx · lib/meta-ads-create.ts:735 (y el JSDoc de :732, que dice «1..180») · pendiente en C:/dev/wt-puntas/docs/hallazgos-ads.md:385 y :738`
+  - ⛔ Lo frena: Pedidos de junio y julio de 2026; sólo el tope por tipo de público está medido (16/09).
+- **Conocimiento: 785 clases pierden su sección y un curso regenerado tiraría 242 clases** · _grande_
+  - Qué falta: Del barrido del 29/08, verificado y sin hacer: subgrupo no se dibuja (MasteryHaus «MKT Perpetuo» son 78 clases en una tira sin sus 11 secciones); vender-por-fb-e-ig-ads tiene el scope de Drive en una carpeta con CERO videos y una regeneración tiraría sus 242 clases sin un solo error; «Mateo Maffia - BYF» tiene en su drive.json el PDF de onboarding de BlueHacker; 46 recursos .zip/.cube abren un iframe que dice «sin vista previa» mientras la tarjeta promete «Descarga»; el armador de la cola da por publicado todo curso con archivo .ts sin contar clases; y el log corta la causa del fallo de transcripción a 150 caracteres. Hecho = los seis cerrados.
+  - Dónde: `C:/dev/wt-puntas/app/conocimientos/CursoReplica.tsx · C:/cursos/<slug>/drive.json · scripts/curso-a-portal.mjs:439 · scripts/cursos-cola-armar.mjs:41-43 · scripts/curso-pipeline.mjs:152 · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:5746`
+  - ⛔ Lo frena: Barrido del 29/08/2026; no pude confirmar cuáles se cerraron después.
+- **Conocimiento: no existe el paso de extraer audio antes de transcribir, ni ingesta por lote** · _mediano_
+  - Qué falta: Es el único paso que falta para que una clase entera entre por la puerta que ya existe. Y ConocimientoView sube de a una clase a mano. Cuidado con el molde a no repetir: un fallo de transcripción no debe quedar como estado terminal (en el cron de anuncios una credencial a medio hidratar guardó status error y eso contaba como ya transcrito, dejando 9 anuncios sin texto para siempre). Hecho = una clase entera se transcribe y un lote se sube de una vez.
+  - Dónde: `C:/dev/wt-puntas/scripts/ · lib/transcribe.ts (asegurarCreds) · app/conocimientos/ConocimientoView.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-conocimiento.md:1924`
+  - ⛔ Lo frena: Entrada de 2026-08-11; no pude confirmar si el paso se escribió.
+- **El Plan: exportar no funciona e importar un .md deja el modal pensando para siempre** · _grande_
+  - Qué falta: El botón de exportar no funciona y falta el modal para elegir qué proyectos/tareas y qué campos (hoy faltan el ID del proyecto, las descripciones y la justificación de prioridad); el flujo tiene que arrancar por «¿Qué quieres descargar?»; el nombre del archivo es siempre el mismo («plan-completo-2026-08-06»); y subir un .md deja el modal pensando con textos sin sentido («Leyendo la reunión») y al reabrirlo se pierde la importación pendiente. Hecho = se exporta eligiendo campos y se importa un .md.
+  - Dónde: `C:/dev/wt-puntas/app/plan/board/ (exportar/importar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:1589`
+  - ⛔ Lo frena: Pedidos del 05-06/08/2026; no pude confirmar si se arreglaron.
+- **El Plan: el Perro se re-ejecuta y re-prioriza en cada refresh, y no participa de la Retro** · _mediano_
+  - Qué falta: «No debería para nada correr cada que le doy refresh»: cada corrida es plata. Y falta el Perro en la Retro, que se ejecute sola, con fecha de creación/ejecución y conectada con Plan y WhatsApp. Además medir() no está exportada, así que medir UN experimento cuesta medir todos (hasta 23 getMarketingWindow por experimento), y la API de MaKo copió la función con el mismo criterio. Hecho = el Perro no corre por un refresh, está en la Retro, y medir() exportada con la copia borrada.
+  - Dónde: `C:/dev/wt-puntas/app/plan/ (el Perro) · lib/experimentos.ts:278 (medir) · lib/api-mako/areas/experimentos.helpers.ts (la copia) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:638 y :1574`
+  - ⛔ Lo frena: Reportes de julio de 2026 (el Perro) y 2026-09-16 (medir); no pude confirmarlos.
+- **Seguridad: decir en cada pedido de API que el método es BYOK** · _chico_
+  - Qué falta: En todo lugar donde la app pide una key falta la aclaración de que la credencial es del cliente y qué la protege. Está atado a la regla de arriba: si el texto tuviera que admitir que la agencia puede leerla, el que se cambia es el mecanismo, no el texto. Hecho = cada campo de key lleva su aclaración.
+  - Dónde: `C:/dev/wt-puntas/app/integraciones/ServicioConfigForm.tsx · lib/metodo-catalogo.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-seguridad.md:1204`
+  - ⛔ Lo frena: Pedido del 2026-07-15; no pude confirmar si los textos ya lo dicen.
+- **IA: los números del saldo no cierran en Claude, Gemini y Groq** · _mediano_
+  - Qué falta: El saldo de Claude aparece en $-0.14 después de cargar 20 USD; el costo de Gemini se calcula mal (el dashboard dice $9.85 y MaKo otra cosa) y el historial marca como pagos tokens gratuitos de antes de la carga de créditos; el de Groq no se mide en dólares sino en tokens que faltan para el límite. Hecho = los tres saldos coinciden con el panel del proveedor.
+  - Dónde: `C:/dev/wt-puntas/lib/anthropic-usage.ts · lib/ia-cuotas.ts · app/integraciones (Saldo de IA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:2767`
+  - ⛔ Lo frena: Reportes de julio de 2026 sin cerrar en el documento; no pude confirmarlos contra producción desde este árbol.
+- **Objectives: cinco configuraciones de la app siguen eligiendo UN solo funnel** · _grande_
+  - Qué falta: Repartido por tab: campañas → funnel; la condición «Está en el funnel de» de las automatizaciones; «Guardar en este funnel» de Offer; la retro y la API de métricas (siempre el principal); y ver_funnel sin parámetro. El arreglo de fondo es del CRM: que el PAGO guarde de qué funnel es. Y el filtro «Producto» de los LEADS del Dashboard mira sólo la casa, así que filtrar por «Renovación» no muestra a los 5 agregados (sin decidir: un lead en dos funnels contado en los dos duplica los totales). Hecho = las cinco eligen varios funnels y el filtro de leads decidido.
+  - Dónde: `C:/dev/wt-puntas/lib/campana-config.ts:62 · lib/condiciones-catalogo.ts:553 · app/offer/Conclusion.tsx:259 · lib/queries.ts:1292 · lib/api-mako/areas/crm.def.ts:118 · lib/graficos-datos.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928`
+  - ⛔ Lo frena: docs/hallazgos-graficos.md:1614 dice que el filtro «Producto» de los LEADS se arregló el 17/10/2026; el documento de objectives sigue dándolo por abierto.
+- **Web Generator: lo fijo/pegajoso y replicar de nuevo las paginas #68-#72** · _mediano_
+  - Qué falta: `docs/relevo/web-generator-replicar.md` no lo leyo ninguna familia. El P0 del 29/10 («las paginas clonadas se desfasaron todas») YA ESTA en main (verifique que c3c6849bc es ancestro de HEAD), pero el documento deja «lo proximo» en `HtmlEditableVista.tsx`, con el editor REAL para verificarlo: (1) lo fijo/pegajoso (el menu de respond y de holo) encima de lo que sigue — hoy corre la pagina 40-280 px; (2) dibujar la copia al ancho de la original y escalarla al lienzo (a ~980 px hoy elige el diseno de tableta); (3) replicar de nuevo las paginas #68-#72 con el arreglo puesto. Hecho = las 5 clonadas del ws9 mas 100ads medidas antes y despues a 1440/390/980, con la tabla de distancias por ancla, sin pisar las copias viejas.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/web-generator-replicar.md:57-80 · C:/dev/wt-puntas/app/web-generator/editor/nodos/HtmlEditableVista.tsx · C:/dev/wt-puntas/lib/editor-landing/html-editable.ts (`escalaDeCopia`, `ANCHO_COPIA_ESCRITORIO`)`
+  - ⛔ Lo frena: El pedido es del 29/10 y parte de lo que lista ya entro con c3c6849bc: hay que medir cuanto queda antes de arrancar.
+
+## Infra
+
+### 🟢 Abiertos — se pueden hacer ya (41)
+
+- **La URL vieja del webhook del WhatsApp no oficial vence MAÑANA (7/11)** · _chico_
+  - Qué falta: Entrar a /whatsapp y tocar «Reparar espejo» en cada línea que siga muda. Hecho = ninguna línea queda sobre la URL legada. Pasada la fecha, el espejo de esa línea muere en silencio (ya pasó el 10/07).
+  - Dónde: `lib/evolution-firma.ts:29 (CORTE_LEGADO) · docs/relevo/pendientes-barrido.md P1 · docs/pendientes.md:267`
+- **El limbo del Runner: 6 mensajes, los primeros vencen el 8/11** · _chico_
+  - Qué falta: Cerrarlos desde el Ops Center antes del 8/11. Hecho = el limbo en 0.
+  - Dónde: `docs/relevo/pendientes-barrido.md P2 · app/admin/operaciones`
+- **Revisar a mano las cinco puntas que entraron a main sin que nadie las mire** · _mediano_
+  - Qué falta: Abrirlas con capturas y contra los pedidos de Martín; lo que falle se le manda a su chat sin pasar por Martín. Son punta/copilot-feedback (eaec41da6), punta/carruseles-thumbnails (25fbdc8a1), punta/dashboards-edicion (f6b9301d6, ese chat seguía corriendo a las 16:05 UTC), punta/nada-por-detras (2cb406043) y punta/github-minutos (f7c2f57da).
+  - Dónde: `docs/relevo/cerebro.md:13`
+- **La alarma de minutos de GitHub Actions es falsa y da rojo todos los días** · _chico_
+  - Qué falta: El panel dice US$15,94 de US$30 (16:05 UTC del 6/11) y `scripts/minutos-actions.mjs` dice US$51,87. Se lo pidió corregir al chat «Bajar lo que gasta GitHub Actions» sin confirmación. Y falta medir si el recorte del 6/11 bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.
+  - Dónde: `scripts/minutos-actions.mjs · github.com/settings/billing · docs/relevo/cerebro.md:18`
+- **Medir el ahorro de Vercel en el panel, no en la API de facturación** · _chico_
+  - Qué falta: La factura en curso iba US$291,94 contra US$40 de antes, US$248 de builds. Ya está activo: `claude/**` no construye, lo que sólo cambia docs no construye, un build por rama, máquina fija en Turbo y un build por día (cron /api/cron/desplegar-main a las 11:05 UTC). Falta mirar /~/usage con la sesión de Martín: `/v1/billing/charges` no sirve. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build.
+  - Dónde: `docs/hallazgos-infra.md → «El gasto de Vercel» · docs/relevo/cerebro.md:55 · vercel.json`
+  - ⛔ Lo frena: Pide la sesión de Martín en el navegador de la app
+- **Seis migraciones anteriores a la 0331 nunca se midieron** · _chico_
+  - Qué falta: De la 0331 en adelante están medidas: 48 aplicadas, 0 ausentes, 4 «sin verificar» (0336, 0347, 0348, 0352, que sólo recrean algo que ya existía). Quedan sin medir 0298, 0299, 0302, 0314, 0316 y 0330. Correr `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) desde la 0298 y aplicar las ausentes en su orden de despliegue (cabecera del .sql). Sin la 0316 El Archivero no guarda de dónde vino cada documento.
+  - Dónde: `scripts/verificar-migraciones-aplicadas.mjs · docs/relevo/pendientes-barrido.md P4 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §Conteos`
+- **El respaldo que transcribe YouTube puede estar cortando guiones y nadie lo midio** · _chico_
+  - Qué falta: El 6/11 se puso un piso de 600 caracteres por minuto porque Gemini cortaba tramos con `finishReason=STOP` y sin error (22 de 49 tramos en un modelo). Lo que falta medir en produccion: con que frecuencia el respaldo `gemini-flash-lite-latest` pasa el piso. Si resulta que el respaldo es justo el que corta, la nota «guion corto» va a salir seguido y el arreglo de fondo es otro modelo de respaldo para el STT de video, no el piso. Hecho = el numero medido con pedidos reales.
+  - Dónde: `C:/dev/wt-puntas/lib/ai-cheap.ts:1863 (`guionDeYoutubeConGemini`, `PISO_GUION_YT_CPM`, `pisoDeGuionYt`), C:/dev/wt-puntas/lib/spy-transcripcion.ts (`NOTA_GUION_CORTO`)`
+  - ⛔ Lo frena: Hace falta que salgan pedidos reales (las 7 pruebas desde la PC dieron 503).
+- **Con la clave 1 de Apify quitada y la 2 puesta, Spy anda y la tarjeta dice «Sin conectar»** · _chico_
+  - Qué falta: `integracionConectada` mira solo los campos NO opcionales del servicio, y de Apify el unico obligatorio es `APIFY_INSTAGRAM_TOKEN` (la clave 1); las extra son `opcional`. Asi que un negocio que borro la 1 y dejo la 2 ve la tarjeta desconectada aunque Spy este leyendo perfectamente con la 2. Hecho = el estado de la tarjeta mira si hay AL MENOS UNA clave de `CLAVES_APIFY_DE_SPY` con valor real (el patron ya existe en esa misma funcion para las pasarelas con sufijo, lineas 303-307).
+  - Dónde: `C:/dev/wt-puntas/lib/credenciales.ts:285-307 (integracionConectada) — OJO: el relevo dice `lib/integraciones.ts`, pero la funcion vive en credenciales.ts; el catalogo de las claves extra en C:/dev/wt-puntas/lib/metodo-catalogo.ts:848-872`
+- **La tarjeta de Apify le dice al cliente «un tope de 40 lecturas por dia» y el tope real de Spy es 150** · _chico_
+  - Qué falta: La nota del campo `APIFY_INSTAGRAM_TOKEN` quedo con el numero viejo: el tope de Spy con la clave del negocio subio de 40 a 150 el 4/11 (`TOPE_LECTURAS_SPY_POR_DIA`), y 40 es otro cupo (`APIFY_TOPE_POR_DIA`, el del buscador del alta del CRM). Es texto que el cliente lee y que subestima lo que puede gastar. Hecho = la nota con el numero de la constante, y las busquedas (60 corridas) nombradas si corresponde.
+  - Dónde: `C:/dev/wt-puntas/lib/metodo-catalogo.ts:854 vs C:/dev/wt-puntas/lib/instagram-perfil.ts:236 (APIFY_TOPE_POR_DIA = 40) y :246 (TOPE_LECTURAS_SPY_POR_DIA = 150), :253 (TOPE_BUSQUEDAS_SPY_POR_DIA = 60)`
+- **Verificar la pantalla de varias claves de Apify y el script de la biblioteca** · _chico_
+  - Qué falta: Dos pasadas que la nube no pudo hacer: (1) abrir `/integraciones?abrir=apify-instagram` en el ws 3, agregar una segunda clave con nombre y mirar el bloque «Credito de este mes» (en computadora y telefono) — nadie lo vio en pantalla; (2) desde la PC, `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts estado`: tiene que listar las claves de Spy de la plataforma con su credito y el total, sin imprimir ninguna clave.
+  - Dónde: `C:/dev/wt-puntas/app/integraciones/ServicioConfigForm.tsx, C:/dev/wt-puntas/app/integraciones/CreditoApify.tsx, C:/dev/wt-puntas/lib/metodo-verificar.ts, C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts`
+  - ⛔ Lo frena: Hace falta levantar la app y una clave con credito.
+- **La URL vieja del webhook de WhatsApp no oficial vence el 7/11** · _chico_
+  - Qué falta: En /whatsapp, «Reparar espejo» en cada linea que siga muda. Es el pendiente mas urgente del barrido: vence maniana.
+  - Dónde: `docs/relevo/pendientes-barrido.md:145 · lib/evolution-firma.ts:29 (CORTE_LEGADO)`
+- **El limbo del Runner: 6 mensajes y los primeros vencen el 8/11** · _chico_
+  - Qué falta: Cerrarlos desde el Ops Center antes del 8/11.
+  - Dónde: `docs/relevo/pendientes-barrido.md:146`
+- **El cron del Runner vence el 11/11 y con el se va el vigia** · _chico_
+  - Qué falta: Rearmarlo con `CronCreate` desde el chat del Runner antes del 11/11. Ojo: los crons mueren con la sesion y `/clear` los borra.
+  - Dónde: `docs/relevo/pendientes-barrido.md:147`
+- **Migraciones viejas sin medir: 0298, 0299, 0302, 0314, 0316, 0330** · _chico_
+  - Qué falta: De la 0331 en adelante estan todas medidas (48 aplicadas, 0 ausentes). Falta correr `verificar-migraciones-aplicadas` desde la 0298 y aplicar las ausentes en su orden de despliegue.
+  - Dónde: `docs/relevo/pendientes-barrido.md:148 · scripts/verificar-migraciones-aplicadas.mjs · scripts/apply-migration.mjs`
+- **Tres mudanzas de avisos a la plataforma sin correr (P5, P6, P7)** · _chico_
+  - Qué falta: `mudanza-avisos-plataforma.mts --aplicar` con `--eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia` (alta), `social_tope` y `reunion_tareas_al_plan`. Sin la primera, un cliente de agencia no recibe la alerta de Meta.
+  - Dónde: `docs/relevo/pendientes-barrido.md:149-151 · scripts/mudanza-avisos-plataforma.mts · docs/relevo/nube-nada-por-detras.md`
+  - ⛔ Lo frena: Antes de prender `reunion_tareas_al_plan` hay que excluir al ws13 (pedidos-otras-cuentas-6-11.md:103)
+- **Dos textos de avisos de la plataforma sin corregir (P8, P9)** · _chico_
+  - Qué falta: Mirar si existe la plantilla «Tu contraseña cambio» en `mako.plantillas.store` del ws 9 y crearla si falta; y corregir la fila viva #261, donde `gracia` y `liquidacion` dicen «Tu cuenta» sin «publicitaria».
+  - Dónde: `docs/relevo/pendientes-barrido.md:152-153`
+- **Mediciones de produccion sin correr (P12, P13, P14, P16)** · _chico_
+  - Qué falta: `medir-funciones-publicas.mjs` (que puede ejecutar la clave publica), las 10 llamadas de entrega en `error` sin reintento, `medir-goteo-tras-deploy.mts` y `avatars-huerfanas.mts` (lista primero, `--borrar` despues).
+  - Dónde: `docs/relevo/pendientes-barrido.md:156-160 · scripts/medir-funciones-publicas.mjs · scripts/medir-goteo-tras-deploy.mts · scripts/avatars-huerfanas.mts`
+  - ⛔ Lo frena: Reintentar las llamadas cuesta credito y borrar fotos escribe: las dos piden el si de Martin
+- **La migración 0396 sigue sin aplicar y va DESPUÉS del deploy** · _chico_
+  - Qué falta: Aplicar `0396_wa_mensajes_automatico.sql` (suma `automatico` a wa_mensajes) y después comprobar que el primer WhatsApp automático queda con `automatico = true`. Va después del deploy a propósito: antes, la versión vieja dejaría automáticos como si los hubiera escrito una persona, y eso rompe la métrica de primer contacto de Código Inmobiliario.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/0396_wa_mensajes_automatico.sql ; lib/primer-contacto.ts ; docs/relevo/cerebro.md:21 y :80`
+- **Cinco puntas entraron a main sin que nadie las revisara** · _grande_
+  - Qué falta: Revisar a mano, con capturas y contra los pedidos de Martín: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails` (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6, ese chat seguía corriendo a las 16:05 UTC), `punta/nada-por-detras` (2cb406043) y `punta/github-minutos` (f7c2f57da). Lo que falle va al chat que lo escribió sin pasar por Martín.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/cerebro.md:13`
+- **La alarma de minutos de GitHub Actions da rojo todos los días y es falsa** · _chico_
+  - Qué falta: El panel dice US$15,94 de US$30; `scripts/minutos-actions.mjs` dice US$51,87. Se le pidió corregir al chat «Bajar lo que gasta GitHub Actions» y no hay confirmación. Falta además medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.
+  - Dónde: `C:/dev/wt-puntas/scripts/minutos-actions.mjs ; panel github.com/settings/billing ; docs/relevo/cerebro.md:18`
+- **Falta medir el ahorro de Vercel en el panel** · _chico_
+  - Qué falta: La factura en curso iba US$291,94 contra US$40 de antes (US$248 son builds). Ya está activo: `claude/**` no construye, lo que sólo cambia documentos no construye, y «un build por rama»; la máquina quedó fija en Turbo. Medirlo en `/~/usage` con la sesión de Martín en el navegador, NO en `/v1/billing/charges`. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build. Aparte, el gasto desde el 16/11 está en la lista de «Sin hacer».
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-infra.md («El gasto de Vercel») ; docs/relevo/cerebro.md:55 y :21`
+- **`punta.yml` no frena el correo noreply@anthropic.com y Vercel bloquea esos deploys** · _chico_
+  - Qué falta: La nube viene firmando con `noreply@anthropic.com` y Vercel bloquea esos deploys. Las puntas de rescate se firmaron a mano con el correo del equipo, pero la mezcla de `punta/spy-busqueda` entró a main con `noreply` (9202c22d2). Falta que `punta.yml` frene ese correo como frena `[bot]`. Lo decide Integración.
+  - Dónde: `C:/dev/wt-puntas/.github/workflows/punta.yml ; docs/relevo/nube-ramas.md:33-35`
+- **Tres cosas de la metodología de subida quedaron sin medir** · _chico_
+  - Qué falta: (1) Si `repository_dispatch` (vercel.deployment.*) llega a `despues-del-deploy.yml` y si `github.silent` lo corta — el vigía da rojo si en 48 h hubo commits en main y no llegó ninguno. (2) El firewall de Vercel con el runner de GitHub: la prueba de humo puede dar rojo por un 403 y no por una caída. (3) El filtro en la PC con 8 chats: el tope de 90 s se midió en la nube (4 CPU, 15 GB libres); en la notebook va a entrar menos.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-metodologia.md:89-99 ; .github/workflows/despues-del-deploy.yml`
+- **La réplica editable quedó sin ver con la base** · _mediano_
+  - Qué falta: Abrir las copias #68 y #69 en el editor y ver si los dos ❌ se fueron; mirar las capturas 1440/390; correr el chat de punta a punta en #70–#72; y mandar las copias #68–#72 a la papelera al cerrar. Los 24 commits ya están en main (33d6a73f1).
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-editor-landing.md («La réplica editable») ; docs/relevo/nube-ramas.md:31-32`
+- **Los modelos de Gemini escritos a mano siguen repartidos en varios archivos** · _chico_
+  - Qué falta: Juntarlos en una constante. Son todos alias `-latest` (no envejecen como un id con versión, pero viven en varios lugares): lib/ai-cheap.ts (MODELOS_RESPALDO y cuatro usos más), lib/model-catalogo.ts:100, lib/offer-ia.ts:75, lib/transcribe-plataforma.ts:113, y tres scripts. Es trabajo de la capa de IA (Infra), no de Spy: Spy no los tocó.
+  - Dónde: `C:/dev/wt-puntas/lib/ai-cheap.ts ; lib/model-catalogo.ts:100 ; lib/offer-ia.ts:75 ; lib/transcribe-plataforma.ts:113 ; lista en docs/relevo/nube-spy.md:246-259`
+- **Aplicar la migración 0401 (movimientos de suscripción) en producción** · _chico_
+  - Qué falta: Correr supabase/migrations/0401_suscripcion_movimientos.sql con scripts/apply-migration.mjs. Hecho = la ficha de suscripción muestra los movimientos mes a mes sin el aviso de columna faltante.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/0401_suscripcion_movimientos.sql · pendiente anotado en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799`
+- **Aplicar la migración 0406 (email del Calendario enlazado a un broadcast)** · _chico_
+  - Qué falta: Aplicar la 0406 antes o junto con el deploy. Hecho = enlazar un Email del Calendario a un broadcast de Email Marketing guarda el enlace y moverlo reprograma el envío.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0406) · lib/calendario-email.ts · app/calendario/EnlazarEmail.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-calendario.md:40`
+- **Aplicar la migración 0407 (plantillas propias)** · _chico_
+  - Qué falta: Aplicar la 0407 y confirmar su número antes (hay números repetidos en el directorio). Hecho = «Guardar como plantilla» persiste una plantilla propia.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0407) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:127`
+- **Aplicar la 0394: «Ignorar» una decisión de la Ticketera no hace nada** · _chico_
+  - Qué falta: Aplicar la 0394 (columna ignorada_at). Hoy el botón contesta «Todavía no se puede». Hecho = ignorar una decisión de la Ticketera la saca del bloque del Ops Center.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0394) · lib/admin-decisiones.ts (ignorarDecision) · app/admin/operaciones/PreguntasDelChat.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:3847`
+- **Aplicar la 0372: sin ella el grupo del Ops Center da «No pude abrir el grupo»** · _chico_
+  - Qué falta: Aplicar la 0372. Hecho = el grupo del negocio abre en el Ops Center sin ese cartel.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0372) · app/_chat/grupo/HiloDelGrupo.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120`
+- **Techos de 1000 filas sin paginar: diez lecturas que truncan con un 200** · _grande_
+  - Qué falta: Pasar a leerTodo/leerPorPaginas (con orden único) las que siguen abiertas: closing_analyses entera (428 en ws9), plan_tareas del board del super admin (643/1000), experimento_tareas (212), vsl_events/landing_visits por visitante (612 en ws13), leads y pagos del embudo y la cobranza, cashUsd/soldUsd, bloqueados y ocultos del inbox, leads de las conversaciones, y el patrón por nombre de leads con .limit(100). Hecho = ninguna de las diez corta en silencio.
+  - Dónde: `C:/dev/wt-puntas/app/crm/insights-actions.ts:56 · lib/plan-board.ts:101,180,302,405,583,656,735,906 · lib/plan-proyecto-vacio.ts:53,107 · app/admin/dev/roadmap.ts:142 · lib/todo.ts:184,192,373,453 · lib/leads.ts:367,1482,2264,2286 · lib/leads-duplicados.ts · lib/queries.ts:2989 · lib/pagos.ts:411,503 · lib/objectives-fuentes.ts:109,127 · lib/evolution-block.ts:36,59 · lib/evolution-mensajes.ts:~320 · lista en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351`
+- **Las primitivas de fecha siguen ancladas a Tijuana en ~60 call-sites** · _grande_
+  - Qué falta: hoyEnTijuana, ayerEnTijuana, lunesActualEnTijuana y primerDiaDelMesEnTijuana deciden bordes de día que definen cohortes y disparos (no es display): pasarlas a la zona del workspace, escritura y lectura juntas. Hecho = un workspace en otra zona cuenta sus días.
+  - Dónde: `C:/dev/wt-puntas/lib/date-utils.ts · anotado en lib/timezone.ts:47 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:4396`
+- **No hay auditoría de borrados, y dos buckets no se limpian por prefijo** · _mediano_
+  - Qué falta: 1) Registro de quién borró un cliente y cuándo (las filas de agencia_clientes y agencia_altas cascadean, así que se lleva el registro de que la agencia lo pidió y el super admin lo firmó, contra lo que dicen las migs 0175 y 0178). 2) video-clips y ads-creatives guardan bajo video-generator/<planId>/ y nueva/, no bajo <ws>/: lo que quede ahí sobrevive al borrado. Hecho = borrar un negocio deja rastro y no deja archivos.
+  - Dónde: `C:/dev/wt-puntas/lib/reset-workspace.ts · supabase/migrations/0175, 0178 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:7096`
+- **Tres scripts dejan perfiles de Chrome en Temp y nada poda tsx-marti (1 GB por día)** · _chico_
+  - Qué falta: Un borrado en finally para los mkdtempSync de mako-cdp-, y decidir una tarea semanal que vacíe tsx-marti. Hecho = correr los scripts no deja carpetas y el disco no crece solo.
+  - Dónde: `C:/dev/wt-puntas/scripts/mirar-consola.mjs:25 · scripts/mirar-pantalla.mjs:55 · scripts/onboarding-vg-recorrer.mjs:25 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:9288`
+- **El indice docs/hallazgos.md quedo a MEDIO consolidar: 194 filas para 109 areas, no «dos de Carruseles»** · _mediano_
+  - Qué falta: La lista trajo esto como «dos filas de Carruseles». Es mucho mas grande: el propio documento declara la regla en su linea 15 («**Una fila por area** (6/11/2026)») y cuenta que ese dia eran 362 filas para 76 areas. Hoy quedan 194 filas de tabla para 109 rotulos de area y solo 53 documentos distintos: Competitors Spy tiene 27 filas, Infraestructura 16, Comunicacion 8, «Planes, capas y cobro» 7, Plan 6, Agency Dashboard 6, y 22 areas mas con 2 a 5. La consolidacion se arranco y se dejo a mitad. Hecho = una fila por documento (53), con el resumen integrado, y el conteo escrito en la cabecera.
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos.md:15 (la regla) y toda la tabla desde :18; las dos de Carruseles son :45 y :48`
+- **La guarda de cobertura de server actions de la API de MaKo no esta en main: 174 acciones sin declarar y nada que las cace** · _mediano_
+  - Qué falta: `scripts/api-cobertura.mjs` y `lib/api-mako/cobertura.ts` NO existen en el arbol (lo verifique con ls); viven solo en la rama cantera `wip/api-acciones-1410`, que el Cerebro decidio el 23/10 no mergear nunca. Sin la guarda, cada server action nueva puede nacer sin su operacion en la API y nadie se entera: la auditoria del 23/10 conto 174 acciones sin declarar. Hay que rehacerla como pieza propia (copiar el archivo y sus tests desde la cantera, como se hizo con `comunidad` el 17/10). Hecho = `node scripts/api-cobertura.mjs` corre en el pre-push y el numero de acciones sin declarar baja de 174, medido.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/api-mako.md:7-12 (la decision y el inventario) · C:/dev/cerebro-herramientas/auditoria-api-mako-23-10.md (las 174) · faltan C:/dev/wt-puntas/scripts/api-cobertura.mjs y C:/dev/wt-puntas/lib/api-mako/cobertura.ts`
+- **Las 343 operaciones aprobadas de la API de MaKo viven en un worktree sin pushear y se pierden si alguien lo limpia** · _chico_
+  - Qué falta: `docs/api-acciones-relevo.json` NO esta en main (ls falla). Esta solo en `C:/dev/mako-api`, rama `wip/api-acciones-0910`, commit bf5d86f73 del 9/10, que `git merge-base --is-ancestor` dice que NO es ancestro de HEAD. Ahi estan las 343 operaciones aprobadas de la corrida de 20 areas (83 llegaron a tener codigo, 260 quedaron solo relevadas y verificadas: crm 42, curso 42, video 30, plan 27, cs 26, chatbot 24, ads 20, negocio 18, equipo 17) y 13 archivos de test que main no tiene. Hay 70 worktrees en la maquina y el disco lleno ya es un problema conocido: si ese se limpia, el relevamiento se va con el. Hecho = el JSON commiteado en main (es solo un documento, no toca codigo) y la cantera anotada en el indice.
+  - Dónde: `C:/dev/mako-api (rama wip/api-acciones-0910, bf5d86f73) · C:/dev/mako-api2 (wip/api-acciones-1410, b85971b9b) · C:/dev/wt-puntas/docs/relevo/api-mako.md:160-200`
+- **Si el cron del Runner vence el 11/11, el vigia se apaga y la guardia no lo mira** · _chico_
+  - Qué falta: El relevo del Runner lo deja escrito: si el cron vence sin rearmarse, la medicion sigue por `medirYa` de la guardia, pero el vigia se apaga y nada avisa. La lista trae el «rearmar el cron antes del 11/11» (que solo puede pedir Martin), pero no esto, que es codigo y no depende de el: que la guardia chequee si el cron existe y lo diga. Hecho = la guardia reporta «el cron del Runner no esta» en vez de quedarse callada.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/runner.md:37-40 (§Sin hacer, primer punto)`
+- **`lib/centro-limbo.ts` quedo con cuatro funciones sin ninguna pantalla que las llame** · _chico_
+  - Qué falta: Verificado con grep: `chatsParaMandarle` no tiene mas uso que su propia definicion, y `originalParaReenviar` solo aparece en su definicion y en un documento de bitacora; `queHacer` y `textoDelCartel` existen en otros modulos pero no para el limbo. `descartarDelLimboAction` esta declarada en `app/admin/operaciones/acciones.ts` sin boton que la dispare. O sea: hay reglas escritas para reenviar un mensaje del limbo y para decirle a la persona que hacer, y no hay pantalla. Hecho = o la pantalla las usa (el limbo se cierra desde el Ops Center sin SQL), o se borran con su test.
+  - Dónde: `C:/dev/wt-puntas/lib/centro-limbo.ts (`originalParaReenviar`, `queHacer`, `chatsParaMandarle`, `textoDelCartel`) · C:/dev/wt-puntas/app/admin/operaciones/acciones.ts (`descartarDelLimboAction`) · C:/dev/wt-puntas/docs/relevo/runner.md:37-48`
+- **El hook `pre-push` del clon del Runner es viejo: dice «rama integracion» y no corre el filtro chico** · _chico_
+  - Qué falta: Anotado en el relevo del Runner y en ninguno de los items de la lista. Un pre-push viejo no corre el filtro chico, asi que ese clon puede empujar algo que el pre-push nuevo habria frenado. Se reinstala con lo escrito en `docs/relevo/nube-metodologia.md`. Hecho = el hook de ese clon corre el filtro chico y no nombra una rama que ya no existe.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/runner.md:37-48 (§Sin hacer) · C:/dev/wt-puntas/docs/relevo/nube-metodologia.md (como se instala)`
+- **Nadie paso por los 39 pendientes vivos de docs/estado-del-arte.md, y el documento esta en parte vencido** · _mediano_
+  - Qué falta: `docs/estado-del-arte.md` tiene una seccion «Pendientes vivos» con 39 items priorizados por riesgo, marcados [FRAGIL] (se pierde o empeora si nadie lo toca) y [ESPERA]. Ninguna de las siete familias lo leyo. Verifique tres contra el codigo y YA ESTAN CERRADOS (las vistas de cohortes con `security_invoker`, mig 0231; `docs/guia-produccion-mauricio.md` ya commiteada; la purga de turnos del agente, que ahora tiene cron). Otros siguen abiertos y medidos (los subtitulos, el `case 'funnel'` sin caller, el TOAST de `wa_mensajes.raw`). Hecho = una pasada que tache lo cerrado y reparta lo que sigue vivo; un documento con 39 items de los que un tercio ya no corresponde no lo abre nadie.
+  - Dónde: `C:/dev/wt-puntas/docs/estado-del-arte.md:165-230 (§Pendientes vivos)`
+
+### 🔴 Trabados — con su motivo (4)
+
+- **`punta/marketing-copilot` (361c64223) no llegó a main y su chat está trabado** · _chico_
+  - Qué falta: Llevarlo a main, desplegar con `scripts/desplegar-ya.mjs` desde C:/dev/wt-puntas y borrar C:/dev/wt-copilot (primero `cmd //c rmdir` del enlace node_modules, después `git worktree remove`). Trae que una cuenta vacía también vea la primera entrada. Y el agente del CoPilot nunca se probó con la IA real (14 conversaciones en docs/marketing-copilot/conversaciones.md).
+  - Dónde: `docs/relevo/cerebro.md:29,31,34 · scripts/desplegar-ya.mjs`
+  - ⛔ Lo frena: El chat «Marketing CoPilot» figura «waiting on a human» desde antes de las 05:45 UTC del 6/11 y no subió nada
+- **El Barrido de pendientes quedó quieto con su lista priorizada sin tomar** · _grande_
+  - Qué falta: Recibió dos veces «seguí con nada por detrás y las funciones» y no se movió: hace falta un chat NUEVO. La cola está escrita y priorizada: C3 (embeddings sin recordUsage, decisión de cómo registrarlo), C4 (borrador de automatización pausada, decisión), C8 (aviso de reunión no leída → chat Plan), C11 (etapa de CRM agregado → Automations + Martín), C12 (página de «no encontrado»), y la familia Plan de «nada por detrás» (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence).
+  - Dónde: `docs/relevo/pendientes-barrido.md §«Cola de CÓDIGO que hace este barrido» · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md · docs/relevo/nube-nada-por-detras.md §«Lo que sigue»`
+  - ⛔ Lo frena: Hace falta abrir un chat nuevo; el anterior no reacciona
+- **`punta/marketing-copilot` (361c64223) no llegó a main**
+  - Qué falta: Llevarla a main (hace que una cuenta vacía también vea la primera entrada), después correr `scripts/desplegar-ya.mjs` desde C:/dev/wt-puntas y borrar el worktree C:/dev/wt-copilot (primero `cmd //c rmdir` del enlace node_modules, después `git worktree remove`).
+  - Dónde: `C:/dev/wt-puntas/scripts/desplegar-ya.mjs ; commit 361c64223 ; docs/relevo/cerebro.md:29`
+  - ⛔ Lo frena: El chat «Marketing CoPilot» de la nube figura «waiting on a human» desde antes de las 05:45 UTC y no subió nada. Si Martín lo destraba, tiene dicho que traiga main y sume encima.
+- **El chat «Barrido de pendientes» quedó quieto después de dos pedidos**
+  - Qué falta: Recibió dos veces «seguí con nada por detrás y las funciones» y no se movió: hace falta un chat nuevo. La lista priorizada ya está escrita: «Nada por detrás» familia Plan y objetivos (meta-alcanzada, objetivo-en-riesgo, quarter-planificar, tareas-autocompletadas, plan-proyecto-vence) y después las funciones 4.11, 4.12, 4.5, 4.8, 4.9, 4.4, 4.3, 4.13, 4.1.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/pendientes-barrido.md y docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md ; docs/relevo/nube-nada-por-detras.md:31-37 ; docs/relevo/cerebro.md:36`
+  - ⛔ Lo frena: El chat recibió el pedido dos veces y no avanzó. Hay que abrir uno nuevo con la lista.
+
+### 🟡 Esperan a Martín — nadie más los destraba (20)
+
+- **El cron del Runner vence el 11/11 y con él el vigía** · _chico_
+  - Qué falta: Rearmarlo con CronCreate desde el chat del Runner antes del 11/11. Hecho = el cron vuelve a figurar y el vigía reporta. Ojo: el Runner sólo arma su cron si se lo pide Martín directamente (a otro chat le contesta «sólo si vos me lo pedís»).
+  - Dónde: `docs/relevo/pendientes-barrido.md P3 · docs/relevo/cerebro.md:226-227`
+  - ⛔ Lo frena: El Runner se niega a armar el cron a pedido de otro chat; lo tiene que pedir Martín en el chat Runner
+- **Publicar la extensión: la tienda sirve la 0.74.3 y el repo tiene la 0.77.0** · _chico_
+  - Qué falta: Lo nuevo no le llega a nadie hasta publicar. La API de la Chrome Web Store está muerta (`deleted_client`: el cliente OAuth de Google fue borrado), así que va por el panel con el Chrome aparte (`scripts/cdp-tienda.mjs`) o creando un cliente OAuth nuevo tipo «App de escritorio» y pegando CWS_CLIENT_ID / CWS_CLIENT_SECRET / CWS_REFRESH_TOKEN. Para que se publique sola además hace falta la cuenta de servicio sumada en el panel y `CWS_PUBLISHER_ID`.
+  - Dónde: `lib/extension-tienda.ts:51 (VERSION_EN_TIENDA = '0.74.3') · public/mako-puente-0.77.0.zip · scripts/cdp-tienda.mjs · scripts/publicar-extension.mjs · docs/hallazgos-extension.md`
+  - ⛔ Lo frena: El consentimiento OAuth y el panel son de la cuenta de Google de Martín: un asistente no puede hacerlo
+- **Las claves del vigía de aprobaciones no están cargadas** · _chico_
+  - Qué falta: Faltan ASC_ISSUER_ID, ASC_KEY_ID, ASC_P8, TIENDAS_GOOGLE_CUENTA_SERVICIO y CWS_PUBLISHER_ID (el vigía mismo los lista en `faltan`). RESEND_ADMIN_API_KEY y MAKO_META_APP_SECRET son variables de Vercel y no se ven desde la PC. Hecho = el vigía de paneles lee los cuatro paneles sin pedir nada.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §C1 · docs/relevo/nube-aprobaciones.md · /integraciones`
+  - ⛔ Lo frena: Son claves que sólo Martín puede pegar
+- **Rotar las claves pegadas en 7 chats viejos y las ocho del Estudio publicadas en GitHub** · _chico_
+  - Qué falta: El .env de producción del repo `estudio-video` quedó publicado en GitHub (`.en-7`) con ocho claves a rotar, y nadie verificó si se rotaron. Main no lo menciona. Más las claves de Apify que Martín pegó en un chat. Hecho = confirmado por Martín o Leandro que están rotadas, o rotadas hoy.
+  - Dónde: `docs/hallazgos-seguridad.md · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md §7 · docs/relevo/pendientes-0311.md §«Decisiones que sólo Martín puede tomar» punto 1`
+  - ⛔ Lo frena: Hace falta que Martín o Leandro confirmen o roten
+- **Dos chats de la nube «waiting on a human» que sólo Martín destraba** · _mediano_
+  - Qué falta: «Admin Costs con todo lo que pagamos, y pesos al blue diario» (sus puntas `punta/admin-costos`, `punta/pesos-al-blue` y `punta/cuota-en-su-moneda` todavía no existen) y «Nada por detrás» (lo suyo ya está en main). Hecho = destrabados y con punta, o anulados y repartidos a otro chat.
+  - Dónde: `docs/relevo/cerebro.md:7`
+  - ⛔ Lo frena: El chat está parado esperando una respuesta humana
+- **Mas claves de Apify no suben los topes por dia de Spy, y una clave nueva tarda hasta un minuto** · _chico_
+  - Qué falta: Dos limites que quedaron a proposito y conviene decidir: (1) los topes de Spy (150 lecturas, 60 busquedas, 6 traidas largas) son POR NEGOCIO, no por clave: agregar la segunda clave da credito, no cupo — si Martin queria que agregar una clave deje leer mas, hay que mover esas constantes; (2) una clave recien agregada puede tardar hasta un minuto en usarse en una instancia que ya habia leido las claves (la cache de las extra, como en Zernio): el cliente la pega, prueba y parece no andar. Hecho = decidido si los topes escalan, y la cache invalidada al guardar una clave.
+  - Dónde: `C:/dev/wt-puntas/lib/instagram-perfil.ts:236,246,253; C:/dev/wt-puntas/lib/spy-todo-reglas.ts (las 6 traidas); C:/dev/wt-puntas/lib/spy-claves.ts (la rotacion y su cache)`
+  - ⛔ Lo frena: Si los topes escalan con la cantidad de claves es plata del negocio: lo decide Martin.
+- **Medir el ahorro de Vercel en el panel (y el gasto desde el 16/11)** · _chico_
+  - Qué falta: La factura en curso fue de US$291,94 contra US$40 (US$248 de builds). Ya estan el asiento afuera, un build por dia (cron 11:05 UTC) y los filtros de `claude/**` y docs. Falta medirlo en `/~/usage`, no en `/v1/billing/charges`.
+  - Dónde: `docs/relevo/cerebro.md:21,47,55 · docs/hallazgos-infra.md («El gasto de Vercel») · vercel.json:244`
+  - ⛔ Lo frena: El panel pide su sesion en el navegador de la app
+- **Tiendas: Play, App Store y la extension que se publica sola** · _mediano_
+  - Qué falta: Declarar la condicion de comerciante y los 12 testers de Play, las capturas de la ficha (pide entrar con la cuenta de revision), el build 2 de Apple, el video de Meta, y sumar la cuenta de servicio en el panel de la Chrome Web Store mas `CWS_PUBLISHER_ID`. Nada se envio a revision.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:75-76 · docs/tiendas-play-appstore.md · docs/relevo/cerebro.md:21,63`
+  - ⛔ Lo frena: Esperan tambien el DSA de Leandro y el credito de IA del revisor
+- **Faltan cinco claves del vigia en Integraciones y dos variables de Vercel** · _chico_
+  - Qué falta: `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_P8`, `TIENDAS_GOOGLE_CUENTA_SERVICIO` y `CWS_PUBLISHER_ID` (el vigia mismo lo confirma en `faltan`). `RESEND_ADMIN_API_KEY` y `MAKO_META_APP_SECRET` son variables de Vercel que no se ven desde la PC.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:73`
+  - ⛔ Lo frena: Son sus claves
+- **La firma del instalador de Windows: SSL.com pide iniciar sesion** · _chico_
+  - Qué falta: El vigia de paneles dice «pide iniciar sesion». Hay que entrar en el navegador de la app y decidir que certificado se compra.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:74 · docs/relevo/cerebro.md:21 · docs/relevo/pedidos-perdidos-2810.md:168`
+  - ⛔ Lo frena: Su sesion y su compra; guardado «para mas adelante» en el relevo del 6/11
+- **Rotar las claves que quedaron pegadas en texto plano en 7 chats viejos** · _chico_
+  - Qué falta: API de Clarity y dos tokens de GitHub, Client Secret de Google OAuth, tokens de Replicate y Fal, claves de Supabase, Porkbun/Resend/webhook de Fathom, clave y secreto de Fathom, token de Apify. Tambien conviene no versionar esos digests.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:253-254 (§7) · docs/relevo/cerebro.md:9`
+  - ⛔ Lo frena: Rotar claves es suyo
+- **Railway a US$40/mes: decidir si se queda** · _mediano_
+  - Qué falta: Evolution corre ahi; mudarlo obliga a re-escanear el QR. No hay decision registrada y el relevo del 6/11 agrega que falta saber si hay servidor propio.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:88-90 · docs/hallazgos-comunicacion.md:1687-1717 · docs/relevo/cerebro.md:8`
+  - ⛔ Lo frena: Decision de Martin (plata) y falta el dato del servidor propio
+- **Proteccion contra DDoS: captcha y Cloudflare** · _mediano_
+  - Qué falta: El tope por IP en rutas publicas se hizo el 17/10. Captcha y Cloudflare son decision de Martin; el balanceador se mide antes de comprar.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:95-97 · docs/relevo/ciberseguridad.md · docs/pendientes.md:290-291`
+  - ⛔ Lo frena: Es compra y decision suya
+- **Decisiones de seguridad abiertas (GitHub, Supabase Auth, claves del Estudio)** · _mediano_
+  - Qué falta: Mauricio a solo lectura en GitHub, apagar el registro abierto de Supabase Auth, rotar las claves del Estudio (`.env` publicado), que hacer con las otras sesiones al cambiar la contrasenia, y rechazar contrasenias filtradas.
+  - Dónde: `docs/relevo/pendientes-barrido.md:171-172`
+  - ⛔ Lo frena: Todas son decisiones o accesos suyos
+- **Instalar el servicio del Runner (cartero)** · _chico_
+  - Qué falta: `node "$HOME/.claude/operaciones/cartero.mjs" instalar-servicio`. Aparece en «espera a Martin» desde el 4/11 y sigue sin hacerse.
+  - Dónde: `docs/relevo/cerebro.md:138,158`
+  - ⛔ Lo frena: Es su PC y su permiso
+- **La migración 0346 (MaKo sin conexión) espera el sí de Martín desde el 28/10** · _chico_
+  - Qué falta: Sin la tabla, el código no sube nada y contesta «reintentar»: no rompe. El relevo la arrastra desde hace más de una semana. Hecho = aplicada, o descartada por escrito.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-ramas.md:27-28 ; docs/relevo/cerebro.md:1566 y :1806`
+  - ⛔ Lo frena: Necesita el sí explícito de Martín en el chat: toca la base de producción.
+- **Publicar la portada con los valores de Fitlo y el documento #32 de la landing** · _chico_
+  - Qué falta: Dos scripts en main que nunca se aplicaron porque aplicarlos ES publicar: `scripts/landing-valores-tilvo.mjs` (la portada con los valores de Fitlo) y `scripts/landing-principal-high-ticket.mts --aplicar --version 14` (las 9 tarjetas en el orden de la demo a Thiago, la última impar a todo el ancho).
+  - Dónde: `C:/dev/wt-puntas/scripts/landing-valores-tilvo.mjs ; scripts/landing-principal-high-ticket.mts ; docs/relevo/nube-ramas.md:29-30`
+  - ⛔ Lo frena: Aplicarlos publica la portada de MaKo en producción: lo decide Martín.
+- **Aplicar la 0357 (limpiar URLs con datos personales de landing) DESPUÉS del deploy** · _chico_
+  - Qué falta: Está ensayada en seco y sin aplicar. Va después del deploy del commit que la acompaña (si va antes, la próxima visita vuelve a escribir lo que limpia). Hecho = su guard final no encuentra filas con datos personales.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0357) · lib/landing-paginas.ts (normalizarUrl) · pendiente en C:/dev/wt-puntas/docs/hallazgos-landing.md:4710`
+  - ⛔ Lo frena: El documento dice que la aplica el Cerebro y va después del deploy; nadie confirmó que ese deploy salió.
+- **Aplicar la 0351 (baja por edición del newsletter y guion del Copywriter)** · _chico_
+  - Qué falta: El documento dice que el Cerebro se la pide a Martín. Hecho = darse de baja desde una edición del newsletter escribe la baja.
+  - Dónde: `C:/dev/wt-puntas/supabase/migrations/ (la 0351) · pendiente en C:/dev/wt-puntas/docs/hallazgos-newsletters.md:114`
+  - ⛔ Lo frena: Esperaba el OK de Martín según el propio documento.
+- **El token de GitHub de la plataforma da 404 desde la transferencia del repo** · _chico_
+  - Qué falta: Darle al token acceso a hola-mako/dashboard-marketing. Sin él no hay commits por push ni cierre de tareas del Plan por commits (el repo cableado al owner viejo ya se arregló, dcad6ddd2). Hecho = el Centro muestra los commits de cada push.
+  - Dónde: `Token de GitHub de la plataforma · C:/dev/wt-puntas/scripts/operaciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:2340`
+  - ⛔ Lo frena: Hay que darle permiso al token: lo hace Martín.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (9)
+
+- **`tipos-respaldo-push.mjs` espera RAM con el lock de tipos ya tomado** · _mediano_
+  - Qué falta: El arreglo quedo solo en `C:/dev/con-turno.mjs` (la fila espera afuera). Falta el mismo arreglo en el pre-push y cosechar el hallazgo en `docs/hallazgos-infra.md`. Test: lock tomado + pausa prendida + un pre-push pidiendo el lock, que no se trabe.
+  - Dónde: `docs/relevo/pendientes-pc/por-repartir.md:125-135,144 · scripts/tipos-respaldo-push.mjs:113,122 · docs/hallazgos-infra.md`
+- **Revision de eficiencia de toda la app y prueba de carga** · _grande_
+  - Qué falta: Automations, Configuraciones, Second Brain, CRM y Dashboard lentos; y velocidad con mucha informacion (promesa a Teo). Nunca se midio el Dashboard en produccion.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:97,99 · app/admin/dev/mako-ux-ui/bitacora.ts:268,281`
+- **23 archivos de tests están rojos en main por un import ESM** · _mediano_
+  - Qué falta: Importan `lib/mako-doer-acciones.ts` (o `lib/landing-token.ts`) como ESM y node contesta que no exporta `MAKO_ACCION_TOOLS`, que sí exporta. Medido en un worktree limpio de origin/main, en Linux, el 4/11: iguales en main y en las ramas. Afecta mako-no-puedo-falsos, ops-center-estrella-desde, mako-turno-app, agenda-whatsapp, automatizacion-whatsapp, api-mako-cobros y otros.
+  - Dónde: `C:/dev/wt-puntas/lib/mako-doer-acciones.ts ; lib/landing-token.ts ; docs/relevo/nube-gurus.md:61-66`
+  - ⛔ Lo frena: La medición es del 4/11 y desde entonces entraron muchas puntas en verde. Hay que volver a correrlos para saber si siguen rojos.
+- **Tres lecturas devuelven VACÍO cuando fallan: mienten «no hay»** · _mediano_
+  - Qué falta: Variantes estrictas para el catch → [] de videosDetectados, getVslEngagementMap y el warn de getUsageSummary. Con la base caída, «No reprodujo el VSL» se cumple para TODOS. Hecho = el motor usa una lectura que tira en vez de devolver [].
+  - Dónde: `C:/dev/wt-puntas/lib/landing-token.ts (videosDetectados) · lib/leads.ts (getVslEngagementMap) · lib/anthropic-usage.ts (getUsageSummary) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2351`
+  - ⛔ Lo frena: docs/hallazgos-chatbot.md:30 dice que «No reprodujo el VSL» con la base caída se cerró el 6/11/2026 en el barrido de pendientes; las otras dos lecturas no se confirman.
+- **TABLAS_RESET y TENANT_TABLES se separan solas y nada avisa** · _chico_
+  - Qué falta: Derivar TABLAS_RESET de TENANT_TABLES (excluyendo las vistas v_cohortes_*) o un test que falle cuando no coincidan. Faltan cuatro: chat_agent_handoffs, mako_doer_buffer, mako_doer_lock y productos. Hecho = vaciar el Cliente de Prueba no deja datos de la corrida anterior.
+  - Dónde: `C:/dev/wt-puntas/lib/reset-workspace.ts:29-60 · lib/workspace.ts:43-60 · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2584`
+  - ⛔ Lo frena: Entrada de 2026-08-05; docs/hallazgos-infra.md:7096 dice que completar TABLAS_RESET ya se hizo y cambió el alcance del reset. Los dos se contradicen.
+- **Cuatro pendientes abiertos de /integraciones reportados por el dueño** · _mediano_
+  - Qué falta: Cerebras no deja conectarse y las integraciones nuevas no aparecen en /integraciones; GitHub no aparece en las integraciones de super admin; falta el tutorial para poner el link de MaKo dentro de Fathom; el historial de problemas dice «Sin incidentes registrados» habiendo habido muchos (tiene que marcar de qué día y hora a qué día y hora pasó cada incidente). Hecho = los cuatro verificados en la pantalla.
+  - Dónde: `C:/dev/wt-puntas/app/integraciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:2831`
+  - ⛔ Lo frena: Reportes de julio y agosto de 2026; no pude confirmar cuáles siguen.
+- **Ruta propia (deep link) para cada entidad que hoy vive en sub-tabs** · _grande_
+  - Qué falta: Cada llamada de ventas analizada, cada anuncio ganador, cada retro, cada task/proyecto necesita su deep link, y el pedido incluye mapear todo lo que se está quedando sin ruta. Hecho = el mapa escrito y cada entidad con URL propia.
+  - Dónde: `C:/dev/wt-puntas/app/ (sub-tabs) · pendiente en C:/dev/wt-puntas/docs/hallazgos-infra.md:3506, C:/dev/wt-puntas/docs/hallazgos-ia.md:3094 y C:/dev/wt-puntas/docs/hallazgos-ads.md:1254`
+  - ⛔ Lo frena: Pedido del 2026-07-15 repetido en tres documentos; no pude confirmar cuánto se hizo.
+- **El TOAST de `wa_mensajes.raw` crece ~200 MB por mes y el disco de Supabase no baja** · _mediano_
+  - Qué falta: De los pendientes vivos de estado-del-arte.md, sin leer por nadie: 292 de 374 MB del TOAST son de `wa_mensajes.raw`, con filas de hasta 4,3 MB y +200 MB por mes, y el disco de Supabase se aprovisiona y no se devuelve. La correccion escrita es recortar el `raw` viejo, NO borrar la fila (el mensaje tiene que seguir). Hecho = la medicion repetida con fecha y el recorte corriendo, con el tamano del TOAST antes y despues.
+  - Dónde: `C:/dev/wt-puntas/docs/estado-del-arte.md (§Riesgo alto — se degrada solo, punto 14) · C:/dev/wt-puntas/lib/evolution-mensajes.ts`
+  - ⛔ Lo frena: La medicion es anterior al 1/11 y no pude confirmarla sin la base: hay que volver a medir antes de tocar nada.
+- **Las marcas de dedup de avisos se acumulan ~3.600 filas por ano y por negocio, y hay avisos sin `dedupKey`** · _chico_
+  - Qué falta: De estado-del-arte.md (punto 15), sin leer por ninguna familia: las marcas de deduplicacion de avisos crecen ~3.600 filas al ano por negocio y conviene un barrido; y hay avisos por entidad sin `dedupKey` (`reunion-cancelada`, `lead-formulario-meta`, `wa-m…`), que es lo que hace que el mismo aviso pueda salir dos veces. Hecho = el barrido corriendo y cada aviso por entidad con su dedupKey.
+  - Dónde: `C:/dev/wt-puntas/lib/avisos-catalogo.ts · C:/dev/wt-puntas/docs/estado-del-arte.md punto 15`
+  - ⛔ Lo frena: Medicion anterior al 1/11: hay que volver a contar las filas antes de decidir el barrido.
+
+## Spy
+
+### 🟢 Abiertos — se pueden hacer ya (32)
+
+- **El guion de un video de YouTube nunca salió de verdad: las 7 pruebas dieron 503** · _chico_
+  - Qué falta: Conseguir un pedido real que termine y medir su costo (`usageMetadata` queda en anthropic_usage con feature='spy'). Hecho = un guion completo en pantalla y el costo por minuto escrito en el relevo.
+  - Dónde: `lib/spy-transcripcion-servidor.ts (`tramoDeYoutube`) · docs/relevo/nube-spy.md:83 · docs/hallazgos-competitors-spy.md:1500 («Gemini corta transcripciones sin avisar»)`
+- **La primera corrida real de anuncios por Apify, para saber si el actor trae pageID** · _chico_
+  - Qué falta: `ANUNCIOS_POR_APIFY` ya está prendido, pero la forma de la respuesta del actor nunca se leyó. Hecho = una corrida real que diga si viene `pageID`; si no viene, la Página se sigue verificando por nombre, como hoy.
+  - Dónde: `docs/relevo/nube-spy.md:96 · lib/spy-todo-reglas.ts · scripts/probar-anuncios-apify.mjs`
+- **Medir el competidor 13 del ws 11, que quedó en 12 piezas** · _chico_
+  - Qué falta: Lo pidió la sesión de la nube expresamente al Cerebro, porque desde la nube no se ve la base. Hecho = saber por qué quedó corto y si la traída larga lo completa.
+  - Dónde: `docs/relevo/nube-spy.md:191 → «Qué medir en la base de producción»`
+- **Spy no tiene pantalla en el teléfono** · _mediano_
+  - Qué falta: Escribir app/m/competitor-spy/page.tsx y sacar `market-an` de EN_CAMINO (hoy el teléfono ve «se usa en la computadora»). El diseño ya está decidido: un bloque por pantalla, plegados; galería a una columna; filtros en una hoja que sube. Lo que NO va al teléfono se dice en vez de desaparecer (replicar el sitio y el recorrido con la extensión). `GraficoSpy` se monta tal cual: ya se probó a 390 px. La página va en el MISMO deploy que su fila.
+  - Dónde: `lib/movil-rutas.ts (EN_CAMINO, SECCIONES_MAS, rutaMovil) · docs/diseno-competitors-spy.md §8 · docs/relevo/nube-spy.md:213`
+- **«Copiar su sitio»: el HTML ya dibujado no se guarda y hace falta un bucket privado** · _mediano_
+  - Qué falta: `spy-miniaturas` es público y sólo de imágenes, así que el diseño capturado se tira. Hace falta un bucket privado, o sea una migración (la sesión de la nube pidió el número y nadie lo dio). Y lo capturado todavía no alimenta la réplica.
+  - Dónde: `docs/relevo/nube-spy.md:146-147 · lib/spy-miniaturas.ts · siguiente migración libre: 0410`
+  - ⛔ Lo frena: Falta asignar el número de migración
+- **Nadie miró si la caché compartida ahorra algo** · _chico_
+  - Qué falta: Leer `spy_lecturas_canal.ahorros`. Si queda en cero, nadie mira a los mismos competidores y la tabla no se ganó el lugar: es la única medida de si el ítem 13 sirvió. Hecho = el número escrito en el relevo, con fecha.
+  - Dónde: `lib/spy-compartido-db.ts (`anotarAhorro`) · docs/pendientes-martin.md:1005-1007`
+- **El tope de 50 publicaciones por vuelta sigue en pie (#12)** · _mediano_
+  - Qué falta: `TOPES.piezasPorVuelta: 50` sigue literal en el codigo. La lectura normal de un competidor (y lo que guarda la captura de la extension) se corta en 50 piezas; solo la traida larga pasa de ahi (Instagram 300 la primera vez, YouTube `VIDEOS_POR_LECTURA_COMPLETA`). Hecho = subir el tope de la vuelta normal y que el conteo de la ficha lo refleje. ATENCION: por Meta (Business Discovery) un limite que no acepte tira la consulta ENTERA, asi que no se sube a ciegas; sin credencial de Business Discovery (item aparte) no hay forma de probarlo contra Meta, y por Apify el techo real lo pone `APIFY_TOPE_USD`.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-reglas.ts:538 (TOPES.piezasPorVuelta); consumidores: C:/dev/wt-puntas/lib/spy.ts:769, C:/dev/wt-puntas/lib/spy-youtube.ts:386,390, C:/dev/wt-puntas/lib/spy-captura-db.ts:79`
+  - ⛔ Lo frena: Para la mitad de Meta, espera la credencial de Business Discovery. Por Apify se puede subir ya.
+- **La caricatura de un competidor que NO es referente nunca se genero ni una vez** · _chico_
+  - Qué falta: El camino por Google Flow YA NO EXISTE: `lib/spy-caricatura-flow.ts` NO esta en el arbol (lo verifique con ls) y el 4/11 se borro a proposito, reemplazado por la cola del Runner con Canva. Lo que falta es correr por primera vez los dos scripts contra la base de produccion: `spy-caricaturas-pendientes.mjs` (lista) y `spy-caricatura-guardar.mjs <ws> <id> <archivo>` (sube y marca). Primera prueba pactada: Den Borg, ws 9, competidor 17; hecho = el script dice «Marcada en N competidor(es)» y la tarjeta la muestra al recargar Spy. Sin Canva conectado en la cuenta de Claude del Runner no se anota nada y no hay error en ningun lado.
+  - Dónde: `C:/dev/wt-puntas/scripts/spy-caricaturas-pendientes.mjs, C:/dev/wt-puntas/scripts/spy-caricatura-guardar.mjs, C:/dev/wt-puntas/lib/spy-caricatura-cola.ts, C:/dev/wt-puntas/lib/spy-caricatura-reglas.ts`
+  - ⛔ Lo frena: Lo corre el Runner en la PC, con la base de produccion y Canva conectado.
+- **Nadie vigila la cola de caricaturas: si se atasca, no se ve en ninguna pantalla** · _chico_
+  - Qué falta: `masVieja` (desde cuando espera la pendiente mas vieja) solo sale por el JSON del script; grep -rn masVieja no encuentra ninguna pantalla ni ruta que lo lea. Y no hay cron: la cola es 100% a mano. Consecuencia: una cola parada (Canva desconectado, nadie corre el script) es invisible. Hecho = el super admin ve la cola y su `masVieja` sin correr un script, o un aviso cuando pasa de X dias.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-caricatura-cola.ts:84 (type Cola), C:/dev/wt-puntas/lib/spy-caricatura-reglas.ts:209-254`
+- **Lo capturado con la extension no alimenta la lectura de su oferta** · _mediano_
+  - Qué falta: La oferta de un competidor sigue bajando la web desde el servidor; grep de «capturada» en lib/spy-oferta*.ts no devuelve NADA, asi que una pagina que solo se pudo leer con la extension (Beacons con barrera) no entra al analisis de Offer. Hecho = `paginasCapturadas` como fuente de texto para la oferta cuando el servidor no pudo, y que la pantalla diga de donde salio.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-oferta-servidor.ts, C:/dev/wt-puntas/lib/spy-oferta.ts; la fuente ya existe en C:/dev/wt-puntas/lib/spy-pagina-capturada-servidor.ts (`paginasCapturadas`, `paginasSuyas`)`
+- **Spy no tiene pantalla de telefono** · _grande_
+  - Qué falta: No existe `app/m/competitor-spy/page.tsx` (lo verifique: la carpeta no esta) y `market-an` sigue anotada en `EN_CAMINO`, asi que en More se ve como «En la computadora». El diseno esta decidido (diseno-competitors-spy.md §8: un bloque por pantalla plegados, galeria a una columna, filtros en una hoja que sube). Lo que NO va al telefono se dice en vez de desaparecer: replicar el sitio y el recorrido con la extension. ATENCION: la tab sale de `EN_CAMINO` en el MISMO commit que su pantalla o el guardian falla. `GraficoSpy` se monta tal cual (probado a 390 px con datos inventados, hasta 90 miniaturas).
+  - Dónde: `C:/dev/wt-puntas/lib/movil-rutas.ts:507-519 (EN_CAMINO, 'market-an'); falta crear C:/dev/wt-puntas/app/m/competitor-spy/page.tsx; el componente a montar: C:/dev/wt-puntas/app/competitor-spy/GraficoSpy.tsx`
+- **El chip de pais de la barra: la columna existe y nadie la escribe** · _chico_
+  - Qué falta: `spy_competidores.pais` se LEE (`adLibraryCubreComercial(pais)` para saber si la Ad Library de ese pais cubre lo comercial, y `busquedaDeSusAnuncios` lo recibe) pero grep de escrituras (`pais:`) no encuentra NINGUNA en todo Spy: siempre llega null. Hecho = el chip en la barra que lo setea, o deducirlo del perfil, y que la busqueda de anuncios lo use.
+  - Dónde: `C:/dev/wt-puntas/lib/spy.ts:93,164 (la columna en el select); C:/dev/wt-puntas/lib/spy-reglas.ts:353 (adLibraryCubreComercial); C:/dev/wt-puntas/lib/spy-funnel.ts:399,404; la barra en C:/dev/wt-puntas/app/competitor-spy/SpyApp.tsx`
+- **Lo de Apify contra el servicio de verdad, que nunca corrio: anuncios, traida larga y credito agotado** · _chico_
+  - Qué falta: Tres cosas que se escribieron contra dobles y nadie midio: (1) la PRIMERA corrida real de anuncios por Apify, que confirme si el actor trae `pageID` (si no, la Pagina se sigue verificando por nombre); (2) las corridas largas de Apify punta a punta (empezar, mirar, leer el dataset) y que el cron `spy-todo` corra de verdad en Vercel; (3) el cuerpo REAL que manda Apify cuando una cuenta se queda sin el credito del mes: se asumio `not-enough-usage-to-run-paid-actor`, y si viene con otro tipo hay que sumarlo a `esFaltaDeCredito` o las claves no rotan. Hecho = las tres medidas, con el cuerpo real anotado.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-todo.ts:164,189,352; C:/dev/wt-puntas/lib/spy-todo-reglas.ts:82 (ANUNCIOS_POR_APIFY, `esFaltaDeCredito`, `ajustarAlCredito`); C:/dev/wt-puntas/app/api/cron/spy-todo/route.ts; C:/dev/wt-puntas/vercel.json:232; C:/dev/wt-puntas/scripts/probar-anuncios-apify.mjs`
+  - ⛔ Lo frena: Hay que correrlo desde la PC con una clave de Apify con credito; la nube no llega a Apify.
+- **Dos mediciones en la base que quedaron pedidas y nadie corrio** · _chico_
+  - Qué falta: Son solo lecturas y deciden si un arreglo ya escrito funciono: (1) el YouTube de Leila en el ws 9 — si `youtube_id` esta y no hay piezas de canal `youtube`, es el corte que ya se arreglo y al abrir la ficha se lee sola; (2) el competidor 13 del ws 11, que quedo en 12 publicaciones — `app_settings` key `spy.todo`, si tiene la clave de Spy, y con el `run`/`dataset` preguntarle a Apify `status`/`stats.itemCount` y el primer item del dataset. Las consultas exactas estan escritas en el relevo. Hecho = saber cual de las tres causas le toco (la corrida no se recogio, termino vacia, o no hay clave).
+  - Dónde: `Las consultas en C:/dev/wt-puntas/docs/relevo/nube-spy.md:99-107 y :191-208; el codigo que decide en C:/dev/wt-puntas/lib/spy-todo.ts y C:/dev/wt-puntas/lib/spy-cadena.ts`
+  - ⛔ Lo frena: Hace falta la base de produccion desde la PC.
+- **Casi nada de las vueltas 2 a 5 se vio en pantalla en produccion** · _mediano_
+  - Qué falta: Lo que se escribio contra dobles y nadie mirO con un competidor real: el grafico y su animacion de entrada, la pestana Funnel con su oferta y el tipo de funnel, el detalle de una pieza con su guion («Transcribiendo…» y despues el texto), el recorrido de seis pasos, los esqueletos por seccion, «Sugeridos» (un negocio cualquiera tiene que ver a los del ws 9 y sumarlos sin que suba su uso de Apify), y la velocidad medida en PRODUCCION con Den Borg (la vista de prueba dio 3,9 s → 3,2 s, pero no tiene el CDN de Meta). Hecho = una pasada por la tab en hola-mako.com con un competidor real, en computadora y telefono, anotando lo que no coincide.
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/ (SpyApp.tsx, GraficoSpy.tsx, SuOferta.tsx, SuFunnelTipo.tsx, DetallePieza.tsx, Esqueletos.tsx, recorrido-spy.ts)`
+  - ⛔ Lo frena: Hace falta levantar la app o mirar produccion; varias sesiones de la nube no pudieron.
+- **Los competidores duplicados que ya estan en la base no se arreglan solos** · _chico_
+  - Qué falta: El arreglo del alta impide los NUEVOS duplicados, no limpia los viejos: «sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs «acquisition.com». Hay que borrarlos a mano desde el tacho de la tarjeta, y solo puede el administrador del negocio. ATENCION: `acquisition.com` no se va a juntar con Hormozi nunca (un dominio no se empareja con una persona; hacerlo pediria una tabla de dominios). Borrar se lleva TODAS sus piezas (`on delete cascade`) y no se deshace.
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/SpyApp.tsx:760 (el tacho de la tarjeta), :1989 (la confirmacion); C:/dev/wt-puntas/app/competitor-spy/actions.ts:43-54 (soloAdmin), :216 (quitarCompetidorAction)`
+- **Guardar el diseno capturado de «Copiar su sitio» en un bucket privado** · _mediano_
+  - Qué falta: Hoy el HTML ya dibujado no se guarda: `spy-miniaturas` es publico y solo de imagenes. Hace falta un bucket privado, o sea una migracion (el numero libre es 0410). Ademas, lo capturado todavia no alimenta la replica.
+  - Dónde: `docs/relevo/nube-spy.md:146-147 · docs/relevo/cerebro.md:15 (siguiente libre 0410)`
+- **Los formatos nuevos del catalogo todavia no entran en el analisis de piezas** · _chico_
+  - Qué falta: El tipo de funnel con citas y la oferta arriba ya estan; el relevo deja explicito que los formatos nuevos del catalogo en el analisis de piezas quedan pendientes.
+  - Dónde: `docs/relevo/nube-spy.md:79`
+- **Medir en la base el YouTube de Leila (ws 9), que la nube dejo pedido** · _chico_
+  - Qué falta: La nube dejo la consulta escrita para que la corra el Cerebro contra produccion. Hecho = la medicion corrida y anotada en el relevo.
+  - Dónde: `docs/relevo/nube-spy.md:99 · (consultas en el mismo archivo, ~:191-205)`
+- **El guion de videos de YouTube nunca se pidió de verdad: las 7 pruebas dieron 503** · _chico_
+  - Qué falta: Transcribir un video real con el Gemini del negocio y medir el costo por minuto (`usageMetadata`), que queda en `anthropic_usage` con feature='spy'. Hecho = un guion completo en pantalla y un renglón de costo medido. Hoy no hay ni un pedido real.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-transcripcion-servidor.ts (tramoDeYoutube) ; lib/ai-cheap.ts (modelosSttGemini) ; docs/relevo/nube-spy.md:83`
+- **La cola de caricaturas: los dos scripts nunca corrieron contra la base real** · _chico_
+  - Qué falta: Correr `spy-caricaturas-pendientes.mjs` (sólo lee) y después `spy-caricatura-guardar.mjs 9 17 <archivo>` con la imagen de Den Borg ya generada. Hecho = dice «Marcada en N competidor(es)» y la tarjeta la muestra al recargar Spy. Sin Canva conectado en la cuenta de Claude del Runner no se anota nada y la pendiente espera en silencio: lo único que lo delata es `masVieja` creciendo.
+  - Dónde: `C:/dev/wt-puntas/scripts/spy-caricaturas-pendientes.mjs y scripts/spy-caricatura-guardar.mjs ; contrato en docs/relevo/nube-spy.md:152-189`
+- **La extensión 0.76.0 («Capturar» en Sus páginas) sigue sin publicarse** · _chico_
+  - Qué falta: Publicar `public/mako-puente-0.76.0.zip` en la Chrome Web Store. No pide ningún permiso nuevo (alcanza `activeTab`). La política ya está en /privacidad/extension con fecha 4/11. El Cerebro la tiene en su lista de «Sin hacer». Primer recorrido después: ws 3, un competidor con Beacons, «Capturar», pasar la barrera, tocar el ícono.
+  - Dónde: `C:/dev/wt-puntas/public/mako-puente-0.76.0.zip ; docs/relevo/nube-spy.md:141-150 ; docs/relevo/cerebro.md:21`
+- **Competitors Spy no tiene pantalla propia en el teléfono** · _grande_
+  - Qué falta: Está `EN_CAMINO` en lib/movil-rutas.ts desde antes del pedido: un teléfono ve la cubierta «se usa en la computadora». Lo nuevo (gráfico, detalle, «Copiar estructura») ya se probó a 390 px en Chromium y entra sin scroll de costado con hasta 90 miniaturas. Cuando se escriba la pantalla, montar `GraficoSpy` tal cual.
+  - Dónde: `C:/dev/wt-puntas/lib/movil-rutas.ts (EN_CAMINO) ; app/m/ ; docs/relevo/nube-spy.md:213-218`
+- **Medir en la base por qué el competidor 13 del ws 11 quedó en 12 piezas** · _chico_
+  - Qué falta: Correr las 4 consultas de lectura que dejó la nube (app_settings 'spy.todo', credenciales APIFY_INSTAGRAM_TOKEN, spy_competidores, spy_piezas por canal y fuente) y después, con el run y el dataset, `GET /v2/actor-runs/<run>` y `GET /v2/datasets/<dataset>/items?limit=1` contra Apify. Dice cuál de las tres causas le tocó: la corrida nunca se recogió, terminó vacía, o no hay clave.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:191-208 (las consultas, textuales)`
+- **Medir en la base que el YouTube de Leila (ws 9) trajo sus videos** · _chico_
+  - Qué falta: Correr las dos consultas de nube-spy.md:101-104. Si `youtube_id` está y no hay piezas de 'youtube', es el corte ya arreglado por `punta/spy-canal-sumado`: al abrir su ficha se lee sola. Hecho = abrir la ficha de Leila y ver sus videos.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:99-107`
+- **La primera corrida real de anuncios por Apify: que el actor traiga `pageID`** · _chico_
+  - Qué falta: `ANUNCIOS_POR_APIFY` ya está en `true` (confirmado en lib/spy-todo-reglas.ts:82). Falta la primera corrida real: si el actor no devuelve `pageID`, la Página se verifica por nombre como hoy. Hecho = anuncios verificados en una ficha y la Página aprendida por `view_all_page_id`.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-todo-reglas.ts:82 ; docs/relevo/nube-spy.md:96`
+- **Medir en producción la velocidad de la ficha con Den Borg** · _chico_
+  - Qué falta: En la vista de prueba bajó de 3,9 s a 3,2 s hasta el gráfico (2.369 → 1.664 elementos), pero la vista de prueba NO tiene el CDN de Meta. Repetir la medición en producción con Den Borg. Método y números en docs/hallazgos-competitors-spy.md.
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-competitors-spy.md ; docs/relevo/nube-spy.md:77`
+- **Volver a analizar con IA las piezas ya analizadas para que tomen los 19 formatos del catálogo** · _mediano_
+  - Qué falta: Los 19 formatos del catálogo ya están y la IA recibe qué es cada uno, pero lo ya analizado no se vuelve a mandar solo: queda con el formato viejo. Falta decidir y correr una repasada. Lo mismo bloquea «los formatos nuevos del catálogo en el análisis de piezas», que el relevo marca pendiente.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:79-80 ; spy_piezas.analisis (el formato va dentro del mismo jsonb)`
+- **Sin probar: el acortador `linktw.in/pywydg` de verdad en «Sus páginas»** · _chico_
+  - Qué falta: Correr los dos curl que dejó la nube para saber si redirige por HTTP, por JavaScript/refresh, o si es una página de «continuar» con botón (en ese caso queda «Abrir», sin marco). Desde la nube no se llega.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:121-131 (los comandos, textuales)`
+- **Ver «Sugeridos» en pantalla con los competidores de verdad** · _chico_
+  - Qué falta: Un negocio cualquiera tiene que ver a los del ws 9 (Den Borg, Víctor Heras…) y poder sumarlos sin que suba el uso de SU Apify (copia lo ya leído). Nunca se vio con datos reales.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:58 ; la API: ver_sugeridos y sumar_sugerido`
+- **Sin probar: que la lectura de la oferta hable en tercera persona con un negocio real** · _chico_
+  - Qué falta: El diagnóstico de Offer sobre la web del competidor usa `bloqueOfertaDeOtro` para hablar de él en tercera persona, con la IA del negocio y sin crédito de la plataforma (`soloDelNegocio`). Nunca corrió contra un modelo real ni contra una web de verdad.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:62 ; /api/competitor-spy/oferta`
+- **Sin probar: el guion de un reel (que el actor devuelva `videoUrl` con `directUrls`)** · _chico_
+  - Qué falta: El guion de un reel se pide solo al abrir el detalle: Apify trae su video fresco (UNA publicación con la clave de Spy, tope de 40 por día) y lo escucha la IA del negocio. Falta comprobar que el actor devuelve `videoUrl` con `directUrls` de UN reel y que la IA de un negocio escucha ese mp4.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:63 ; lib/spy-transcripcion-servidor.ts`
+
+### 🔴 Trabados — con su motivo (5)
+
+- **Las caricaturas por cola nunca se probaron contra la base real** · _chico_
+  - Qué falta: Correr los dos scripts del contrato con el .env.local de producción: la primera prueba es Den Borg (ws 9, competidor 17). Hecho = la caricatura queda guardada y la tarjeta la muestra; a los 3 fallos la pendiente queda en `rendidas`.
+  - Dónde: `scripts/spy-caricaturas-pendientes.mjs · docs/relevo/nube-spy.md:152-190 («La cola de caricaturas: el contrato de los dos scripts»)`
+  - ⛔ Lo frena: Sin Canva conectado en la cuenta de Claude del Runner no se anota nada: la pendiente espera sin error y sin aviso
+- **Unir CAMPOS_PERFIL_PIEZAS con CAMPOS_PERFIL** · _chico_
+  - Qué falta: Hoy son dos constantes y un reintento, porque UN campo desconocido tira la consulta ENTERA (400). Se unen el dia que alguien confirme el juego ancho con una credencial de verdad. Hecho = una sola constante y sin el reintento, con la credencial que lo probo anotada.
+  - Dónde: `C:/dev/wt-puntas/lib/instagram-perfil.ts:150, C:/dev/wt-puntas/lib/instagram-perfil-server.ts:210 (`opts.conPiezas ? CAMPOS_PERFIL_PIEZAS : CAMPOS_PERFIL`)`
+  - ⛔ Lo frena: Depende de la credencial de Business Discovery del item anterior.
+- **«Tag Manager puede cargar mas» no dice como verlo** · _chico_
+  - Qué falta: La pantalla avisa que Tag Manager puede cargar mas pixeles de los que el servidor ve, pero no dice que hacer: tendria que decir que se abre su sitio y se toca el icono de MaKo. Depende de que la extension este publicada (item de la 0.77.0).
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/SuFunnel.tsx; la lectura por navegador en C:/dev/wt-puntas/extension/spy-leer.js y C:/dev/wt-puntas/lib/spy-funnel.ts`
+  - ⛔ Lo frena: Hasta que la tienda sirva una version con «Guardar en Spy», decirle al cliente que toque el icono es mandarlo a algo que no tiene.
+- **La captura con la extension nunca se probo en un navegador de verdad ni se escribio en produccion** · _chico_
+  - Qué falta: Dos recorridos que faltan, los dos en el ws 3: (a) «Capturar» en «Sus paginas» con un competidor con Beacons — pasar la barrera a mano, tocar el icono de MaKo, y ver que Spy muestre la pagina sola (la vista de prueba uso una extension de mentira); (b) «Guardar en Spy» escribiendo contra PRODUCCION, que en el ws 3 lo freno el clasificador de permisos y quedo probado solo con base de mentira. Hecho = las dos pasadas, con lo que quedo guardado mirado en la base.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-captura-db.ts, C:/dev/wt-puntas/lib/spy-captura.ts, C:/dev/wt-puntas/lib/spy-captura-cliente.ts, C:/dev/wt-puntas/app/api/competitor-spy/extension/route.ts, C:/dev/wt-puntas/app/competitor-spy/SusPaginas.tsx, C:/dev/wt-puntas/extension/spy-pagina.js`
+  - ⛔ Lo frena: Necesita Chrome con la extension cargada y una persona que pase la barrera; y para que lo haga un cliente, la extension publicada.
+- **Medir una vez el actor de anuncios de Apify y prender ANUNCIOS_POR_APIFY** · _chico_
+  - Qué falta: Correr `scripts/probar-anuncios-apify.mjs` para ver la forma real de la respuesta del actor sobre la Biblioteca publica de Meta y, si responde, pasar el flag a true. Hecho = el flag en true y un competidor mostrando sus anuncios.
+  - Dónde: `docs/relevo/nube-spy.md:45 · scripts/probar-anuncios-apify.mjs · flag ANUNCIOS_POR_APIFY`
+  - ⛔ Lo frena: Credito de Apify: la reserva de Spy es de US$2 y la clave de la plataforma quedo con US$1,99-2,21 libres (cerebro.md:19,35)
+
+### 🟡 Esperan a Martín — nadie más los destraba (13)
+
+- **La enmienda III.L de YouTube sin firmar: el múltiplo y el VPH devuelven null en Spy y en Thumbnails** · _chico_
+  - Qué falta: Es un trámite en el panel de YouTube («Section 5: Use Cases → Analytics & Reporting», en el pedido de ampliación de cuota). Hecho = `ENMIENDA_III_L = true`, la fecha anotada en docs/hallazgos-competitors-spy.md, y la retención de métricas pasa de 30 días a 36 meses. Mientras tanto Spy no dibuja ningún «3,7×» y Thumbnails muestra vistas en vez del múltiplo.
+  - Dónde: `lib/spy-reglas.ts:208 (ENMIENDA_III_L = false) y :229 · lib/thumbnails/explorar.ts (`ordenesDisponibles`) · docs/carruseles/thumbnails.md → «Las dos condiciones de YouTube»`
+  - ⛔ Lo frena: Es un trámite de la cuenta de Google de Martín, no código
+- **Instagram sigue capado a 25 publicaciones por Meta: Business Discovery no tiene credencial desde el 22/10** · _mediano_
+  - Qué falta: Vincular un Instagram profesional a la página de la plataforma y pedir `instagram_basic` para el token del ws 9. No se sube el límite a ciegas: en la Graph API un límite que Meta no acepte hace fallar la consulta ENTERA, y la única conexión que hoy funciona es la de un cliente (ws 11). Hecho = una credencial propia con la que medir, y recién entonces subir el tope.
+  - Dónde: `docs/hallazgos-competitors-spy.md:354+ → «Los dos trámites de la Etapa 0» · lib/spy-reglas.ts:538 (TOPES.piezasPorVuelta: 50) · docs/pendientes-martin.md:256-270 (ítem 12)`
+  - ⛔ Lo frena: Hace falta una credencial de Instagram de la plataforma; sin eso no hay nada que medir
+- **Decisión: un negocio sin su Gemini, ¿transcribe YouTube con la clave de la plataforma?** · _chico_
+  - Qué falta: Hoy, sin su Gemini, el bloque del guion no se dibuja. El Cerebro lo pidió («es un video público sin datos de clientes, con tope diario por negocio») y la nube NO lo hizo porque AGENTS lo prohíbe con las palabras de Martín del 22/10. Si dice que sí: una rama en `tramoDeYoutube` con su tope y la excepción escrita en AGENTS.
+  - Dónde: `docs/relevo/nube-spy.md §«Decisiones que esperan a Martín» · lib/spy-transcripcion-servidor.ts · AGENTS.md (`provsGratisDePlataforma`)`
+  - ⛔ Lo frena: Contradice una regla escrita a propósito: sólo Martín la levanta
+- **La extension 0.77.0 no esta publicada: la tienda sirve 0.74.3, asi que «Capturar» no existe para ningun cliente** · _chico_
+  - Qué falta: `EXTENSION_VERSION = '0.77.0'` en el repo contra `VERSION_EN_TIENDA = '0.74.3'` en la tienda. «Capturar» una pagina con barrera pide la extension que sabe hacerlo, que es la 0.76.0, y «Guardar en Spy» tambien es posterior a la 0.74.3: hoy nadie que la instalo desde Chrome Web Store puede usar ninguna de las dos. Hecho = publicar el paquete y volver a MEDIR la version con `node scripts/version-en-tienda.mjs` (la constante es una medicion, no un recuerdo) y actualizarla en el mismo commit.
+  - Dónde: `C:/dev/wt-puntas/lib/extension-tienda.ts:51 (VERSION_EN_TIENDA) vs C:/dev/wt-puntas/lib/extension-version.ts:8; el requisito en C:/dev/wt-puntas/app/competitor-spy/SusPaginas.tsx:215; el zip en C:/dev/wt-puntas/public/mako-puente-0.77.0.zip`
+  - ⛔ Lo frena: La publicacion en la Chrome Web Store es de Martin/el Cerebro, y despues Google tarda en aprobar.
+- **Sin la enmienda III.L de YouTube, el multiplo y el VPH devuelven null por codigo** · _chico_
+  - Qué falta: `ENMIENDA_III_L = false` sigue literal. Mientras este en false: `vistasPorHora` y `multiploDelCanal` devuelven null, «Lo que mejor le fue» contesta `falta-enmienda` para YouTube, el orden `outlier` de Thumbnails no se ofrece y el inicial cae a `vistas`, y la retencion de metricas queda en 30 dias en vez de 36 meses. Hecho = aceptar la enmienda III.L («Section 5: Use Cases → Analytics & Reporting», en el pedido de ampliacion de cuota), pasar la constante a true, anotar la fecha en docs/hallazgos-competitors-spy.md.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-reglas.ts:208 (ENMIENDA_III_L), :229 (vistasPorHora), :250 (multiploDelCanal), :316 (retencion); C:/dev/wt-puntas/lib/multiplo-rendimiento.ts:173; C:/dev/wt-puntas/lib/thumbnails/explorar.ts:37,39,181`
+  - ⛔ Lo frena: Es un tramite con YouTube, de Martin o del Cerebro; tarda dias y la constante es una sola linea.
+- **Business Discovery sigue sin credencial: ni se puede probar el juego ancho de campos ni subir el tope por Meta** · _mediano_
+  - Qué falta: Hace falta vincular un Instagram profesional a la pagina de la plataforma y pedir `instagram_basic` para el token del ws 9 (medido el 22/10: de 11 conexiones de clientes solo el ws 11 tiene permisos de Instagram). Sin esto: el bloque de Instagram dice que la conexion no entrega los numeros, los 7 campos de `CAMPOS_PERFIL_PIEZAS` siguen sin probarse ni uno, y el tope de publicaciones por Meta no se toca. Lo demas funciona igual porque cae a Apify.
+  - Dónde: `C:/dev/wt-puntas/lib/instagram-perfil.ts:150 (CAMPOS_PERFIL_PIEZAS), C:/dev/wt-puntas/lib/instagram-perfil-server.ts:210`
+  - ⛔ Lo frena: Es un tramite con Meta (Instagram profesional + permiso), de Martin.
+- **El diseno (HTML) de una pagina capturada no se guarda: falta un bucket privado, o sea una migracion** · _mediano_
+  - Qué falta: `spy-miniaturas` es publico y solo de imagenes (mig 0361), asi que el HTML de una pagina ajena no va ahi. La captura guarda foto, titulo, texto y enlaces (`TOPE_CAPTURA.html: 30_000` se lee pero no se persiste), y sin bucket privado «Copiar su sitio» no tiene de donde salir para una pagina capturada. La nube dejo pedido el NUMERO de migracion y nunca se le dio: el siguiente libre es 0410 (la ultima en el arbol es 0409_thumbnails_biblioteca.sql).
+  - Dónde: `C:/dev/wt-puntas/lib/spy-pagina-capturada.ts:36,50,75; C:/dev/wt-puntas/lib/spy-pagina-capturada-servidor.ts; C:/dev/wt-puntas/lib/spy-miniaturas.ts; C:/dev/wt-puntas/supabase/migrations/`
+  - ⛔ Lo frena: Falta el numero de migracion / el si para crear el bucket privado.
+- **Un negocio SIN su Gemini no ve el guion de un video de YouTube** · _chico_
+  - Qué falta: Hoy si el negocio no tiene su Gemini el bloque del guion no se dibuja, y no se le pide conectarlo (Martin saco ese pedido de la app el 25/10). El Cerebro pidio usar la clave de Gemini de la plataforma («es un video publico sin datos de clientes, con tope diario por negocio») y NO se hizo, porque AGENTS dice con las palabras de Martin del 22/10 que las claves de la plataforma son para lo interno de MaKo, nunca para un negocio. Si Martin dice que si: es una rama en `tramoDeYoutube` con su tope, y la excepcion escrita en AGENTS.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-transcripcion-servidor.ts (`tramoDeYoutube`), C:/dev/wt-puntas/lib/spy-transcripcion.ts, C:/dev/wt-puntas/app/api/competitor-spy/transcribir/route.ts`
+  - ⛔ Lo frena: Es una excepcion a una regla que escribio Martin: la decide el.
+- **Decidir si un negocio sin su Gemini transcribe YouTube con la clave de la plataforma** · _chico_
+  - Qué falta: Hoy, sin Gemini propio, el bloque del guion de un video de YouTube no se dibuja. AGENTS dice que las claves de la plataforma son solo para lo interno de MaKo. Si Martin dice si, es una rama en `tramoDeYoutube` con su tope y la excepcion escrita en AGENTS.
+  - Dónde: `docs/relevo/nube-spy.md:231-237 · lib/spy-transcripcion-servidor.ts (tramoDeYoutube)`
+  - ⛔ Lo frena: Contradice la regla del 22/10 («las claves de la plataforma nunca para un negocio»): solo Martin puede exceptuarla
+- **Publicar la extension 0.76.0 (la que deja lista Spy para capturar paginas)** · _chico_
+  - Qué falta: La extension que queda lista es `public/mako-puente-0.76.0.zip` y no pide ningun permiso nuevo. Falta subirla a la Chrome Web Store. Hecho = version 0.76.0 publicada en la tienda.
+  - Dónde: `docs/relevo/nube-spy.md:141 · public/mako-puente-0.76.0.zip · docs/relevo/cerebro.md:21`
+  - ⛔ Lo frena: El panel de la tienda pide re-verificar la sesion de Google en el Chrome aparte (scripts/cdp-tienda.mjs); solo Martin
+- **Ver Spy en pantalla con competidores reales (Sugeridos, «Sus paginas», chips)** · _chico_
+  - Qué falta: Falta comprobar que un negocio cualquiera vea los sugeridos del ws 9 (Den Borg, Victor Heras) y los sume sin subir su uso de Apify; que «Sus paginas» cargue la pagina real (Beacons, 403 de Cloudflare); y los chips de Spy/Image.
+  - Dónde: `docs/relevo/nube-spy.md:58,82 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:78`
+  - ⛔ Lo frena: Pide su sesion en el navegador; desde la nube no se llega a Beacons
+- **YouTube en Spy: la enmienda III.L** · _chico_
+  - Qué falta: Figura como decision de producto abierta en el barrido («YouTube en Spy (enmienda III.L)») y tambien entre las decisiones del 6/11. Falta que Martin diga si se hace y con que termino legal.
+  - Dónde: `docs/relevo/pendientes-barrido.md:186 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:80`
+  - ⛔ Lo frena: Decision legal de Martin
+- **«Copiar su sitio» no guarda el diseño capturado: hace falta un bucket privado, o sea una migración** · _mediano_
+  - Qué falta: El HTML ya se dibuja pero no se puede guardar: `spy-miniaturas` es público y sólo de imágenes. La nube pidió textual «pido el número» de migración y no avanzó. Hecho = bucket privado creado por migración y el diseño guardándose. Aparte: lo capturado todavía no alimenta la lectura de su oferta (que sigue bajando la web por el servidor).
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-spy.md:146-148 ; el siguiente número libre es 0410 (docs/relevo/cerebro.md:15)`
+  - ⛔ Lo frena: La nube no puede reservar un número de migración ni crear un bucket: pidió el número y nadie se lo dio.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (8)
+
+- **No hay cron de snapshots: la línea de tiempo de un competidor sólo avanza si alguien aprieta «Revisar ahora»** · _mediano_
+  - Qué falta: Existen `spy-poda` y `spy-todo`, no `spy-snapshots`. Falta app/api/cron/spy-snapshots/route.ts con `correrRonda`, escalonado (calientes diario, fríos semanal: la cuota de YouTube no aguanta todo diario, ≈8.080 de 10.000 unidades con 4.000 canales). Entra ENTERO en el commit que lo registre en vercel.json, porque un worktree no puede tocar ese archivo. DUDOSO: puede que `spy-todo` (la traída larga, cada hora) ya cubra parte.
+  - Dónde: `vercel.json:228,232 (sólo spy-poda y spy-todo) · docs/hallazgos-competitors-spy.md → «El cron de snapshots (la Etapa 2…)» · lib/cron-workspaces.ts`
+- **El cron de snapshots (la historia diaria, Etapa 2) no existe** · _mediano_
+  - Qué falta: En vercel.json solo hay `/api/cron/spy-poda` y `/api/cron/spy-todo`; no hay `spy-snapshots`. Sin una pasada diaria escalonada (calientes diario, frios semanal, porque la cuota de YouTube no aguanta todo diario) la linea de tiempo tiene agujeros: la historia solo avanza cuando alguien abre o revisa. ATENCION: el cron tiene que declararse en vercel.json (lo exige tests/cron-registrado.test.ts) y la regla del repo prohibe tocar vercel.json desde un worktree: entra entero en el commit que lo registre, lo pone quien integra.
+  - Dónde: `Falta C:/dev/wt-puntas/app/api/cron/spy-snapshots/route.ts (patron: `correrRonda` de C:/dev/wt-puntas/lib/cron-workspaces.ts); registro en C:/dev/wt-puntas/vercel.json (los dos de Spy estan en las lineas 228 y 232)`
+  - ⛔ Lo frena: El documento que lo pide es del 31/10 (anterior al 1/11). Despues entro el cron `spy-todo` (4/11), que avanza la traida larga cada hora: hay que decidir si eso ya cubre la historia o si el snapshot diario sigue haciendo falta. No lo pude confirmar sin mirar la base.
+- **«Seguir a este» desde una pieza** · _chico_
+  - Qué falta: grep de «Seguir a este» / `seguirAEste` en app y lib no devuelve nada: no esta escrito. Es dar de alta como competidor a quien publico una pieza que se esta mirando. Hecho = el boton en el detalle de la pieza que llama al alta con los datos que esa pieza ya trae.
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/DetallePieza.tsx (donde iria) y el alta existente en C:/dev/wt-puntas/app/competitor-spy/actions.ts (`sumarCompetidorAction`)`
+  - ⛔ Lo frena: Viene del relevamiento del 31/10 (anterior al 1/11) y la ficha se rediseno entera despues: puede haber quedado descartado y no haberse tachado. Hay que preguntarlo.
+- **La galeria publica de plantillas y las tendencias del nicho (Etapa 5)** · _grande_
+  - Qué falta: No existe nada. Cuando se haga entra la regla de Martin del 29/10: ni cara, ni nombre, ni @ de un guru real, arquetipos de estilo (hoy solo existe la ficha PRIVADA, donde el @ del competidor que ESE negocio eligio si se ve, y la distincion esta escrita en spy-reglas.ts). Las tendencias son un subproducto de la historia acumulada, asi que van DESPUES del cron de snapshots.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-reglas.ts (la distincion publico/privado y PALABRAS_DE_DUELO:458); C:/dev/wt-puntas/docs/diseno-competitors-spy.md`
+  - ⛔ Lo frena: Depende del cron de snapshots. Documento anterior al 1/11: no pude confirmar que siga en el plan de Martin.
+- **La galeria de anuncios con riel de filtros (lo que se copia de athm793/meta-ads-scraper)** · _mediano_
+  - Qué falta: Lo copiable esta identificado (`AdGrid`, `AdModal`, `FiltersPanel` y el clasificador de `hooks.ts`, Apache-2.0; su scraper de Playwright NO se copia nunca). Hoy los anuncios son un formato mas del desplegable de Contenido. Se escribe cuando haya volumen de anuncios que justifique una pantalla propia.
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/GrillaPiezas.tsx y OrdenSpy.tsx (donde viven la grilla y los filtros hoy); el plan en C:/dev/wt-puntas/docs/diseno-competitors-spy.md §4.1`
+  - ⛔ Lo frena: Documento del 31/10. Despues (3-4/11) los anuncios entraron a Contenido con su filtro y su múltiplo: puede que ya alcance.
+- **El rediseno del modal de «nuevo competidor» (#8): parece hecho, nadie lo confirmo con Martin** · _chico_
+  - Qué falta: El 2/11 quedo marcado como mal cerrado («arregle como FUNCIONA, el pedido era como se VE») y el metodo exigido era empezar por docs/diseno/referencia-spy.md y no por SpyApp.tsx. En el codigo de hoy `BuscadorAlta.tsx` dice en su cabecera que se copio del `.finder` de la referencia medida, con un grupo por red y la lista como modal, y el 4/11 se sumo que el alta va derecho al loader. O sea: parece hecho por el metodo correcto. Hecho = que Martin lo mire y lo cierre, o diga que falta.
+  - Dónde: `C:/dev/wt-puntas/app/competitor-spy/BuscadorAlta.tsx:1-24, C:/dev/wt-puntas/app/competitor-spy/EntradaFicha.tsx, C:/dev/wt-puntas/docs/diseno/referencia-spy.md`
+  - ⛔ Lo frena: Lo cierra Martin mirandolo. El pendiente que lo reclama es del 2/11, anterior al rediseno del 4/11.
+- **Las piezas de Spy sin el multiplo de rendimiento («3,7x»)** · _chico_
+  - Qué falta: El multiplo es lo que dibuja la pantalla, no una columna: no se puede medir desde la base. Hay un chat en la nube (`punta/multiplo-rendimiento`) al que se le paso el tema; falta confirmar si entrego.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:89 · docs/relevo/pendientes-pc/por-repartir.md:441`
+- **La tanda del 4/11 de Martin en Spy, sin confirmar en pantalla** · _mediano_
+  - Qué falta: Modal de canales, anuncios por Instagram y dentro de Contenido, Funnel con la oferta arriba, catalogo de formatos y funnels, animacion, velocidad, @herasmedia que no lee y el tope de 45 s en Google. La tabla de 14 puntos da casi todo «Hecho», pero cada fila deja una columna «lo que falta medir».
+  - Dónde: `docs/relevo/cerebro.md:149 · docs/relevo/nube-spy.md:38-83 (tabla de los 14 puntos)`
+
+## Carruseles
+
+### 🟢 Abiertos — se pueden hacer ya (37)
+
+- **1.213 de 1.470 carruseles siguen sin tipo: el problema es el clasificador, no el comando** · _mediano_
+  - Qué falta: Es trabajo de CÓDIGO, no un script: `reclasificar` en seco ya dio «1.253 → 1.253», 0 cambios, así que correrlo con --de-verdad no sirve. El 85 % sigue sin tipo y muchos son textos en portugués, alemán e inglés; quedan 512 piezas con `parece_contenido` nulo. Hecho = el clasificador reconoce otros idiomas y el porcentaje sin tipo baja, medido en seco antes de aplicar.
+  - Dónde: `lib/carruseles/biblioteca.ts (función `reclasificacion`) · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A3`
+- **«Editar» de carruseles nunca se probó con la IA real** · _chico_
+  - Qué falta: Correr `scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas` y también con un carrusel CON láminas, y comprobar en producción el diseño que falló (/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727). Hecho = el texto es del negocio, las letras son las del editor, no hay recuadros grises y no vuelve «Tu IA no contestó ahora».
+  - Dónde: `scripts/carruseles-probar-editar.mts · lib/carruseles/replica-servidor.ts (`replicarEjemplo`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 1 · docs/relevo/cerebro.md:19`
+- **Curar la biblioteca y sumar más cuentas, también de referentes** · _mediano_
+  - Qué falta: Quedan 990 carruseles a la vista (388 se escondieron el 6/11; se deshace con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json). Falta seguir escondiendo lo que no le sirve a un dueño de negocio y sumar cuentas nuevas, incluidas las de los referentes. Hecho = la portada de Image sólo muestra carruseles que le sirven a un dueño.
+  - Dónde: `scripts/carruseles-biblioteca.mts (`excluir`, `ocultar`, `sumar`) · lib/asesores/catalogo.ts · docs/relevo/cerebro.md:19`
+- **Falta el filtro por «tema» (finanzas, salud, marketing…) de la referencia** · _mediano_
+  - Qué falta: Decidir si se clasifica cada carrusel con IA para sumar ese filtro, y hacerlo. Hoy el rubro no existe en carruseles (en Thumbnails lo pone la búsqueda, no un clasificador).
+  - Dónde: `docs/relevo/nube-carruseles-rediseno.md:118 punto 3 · lib/carruseles/biblioteca.ts`
+- **Una persona en una lámina que no es el cliente queda como un recuadro con su guía** · _grande_
+  - Qué falta: Generarla con la IA de imagen y el avatar del cliente (camino de Flow). Hoy «Editar» deja el hueco con una guía escrita. Hecho = la lámina sale con la cara de marca del negocio donde el ejemplo tenía una persona.
+  - Dónde: `docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer» · lib/carruseles/replica-servidor.ts · lib/flow-imagen.ts`
+- **Los prompts de carruseles y stories siguen hardcodeados** · _chico_
+  - Qué falta: Pasarlos a prompt EDITABLE con el skill `add-editable-prompt`: hoy Martín no los puede ajustar. Y el historial vive en memoria.
+  - Dónde: `lib/ig-writer.ts · .claude/skills/add-editable-prompt · docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Carruseles / Stories`
+- **Los anuncios en VIDEO ya guardados no se pueden distinguir de las imágenes** · _chico_
+  - Qué falta: Lo guardado de antes no tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video. Se corrige solo en la próxima lectura de Spy de cada cuenta; si hace falta antes, volver a leer los anuncios de las cuentas seguidas. Hecho = en «Anuncios» no queda ningún video.
+  - Dónde: `lib/carruseles/anuncios.ts (`esAnuncioEnVideo`) · lib/spy-todo-reglas.ts (`guardarMedios`) · docs/relevo/nube-carruseles-rediseno.md:193 paso 3`
+- **Nadie miró por qué `laminas` cortó «al techo» con US$0,54 de un tope de US$1,50** · _chico_
+  - Qué falta: Diagnosticar el corte: la corrida del 6/11 se detuvo diciendo «al techo» habiendo gastado US$0,54 de un tope pedido de US$1,50. Sospecha a verificar: el techo efectivo se recalcula contra el crédito libre (`techoConCredito` menos la reserva de US$2), no contra lo pedido, y cada tanda de 40 lleva su propio techo de 1,5× (US$0,14). Hecho = el mensaje de corte dice el techo REAL y por qué (crédito, reserva o techo de tanda), no «al techo» a secas.
+  - Dónde: `scripts/carruseles-biblioteca.mts:490 (`B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD)`) y 495 (`const DE_A = 40`); docs/relevo/cerebro.md:19`
+- **Correr `reclasificar --de-verdad` con el clasificador nuevo (1.253 → 1.213 sin tipo)** · _chico_
+  - Qué falta: El pulido del 6/11 amplió el clasificador a portugués, alemán e inglés y mueve 40 piezas, pero el `--de-verdad` no se corrió después de que eso entrara a main. Correr primero en seco y confirmar que dice «Carruseles sin tipo: 1253 → 1213», y después: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar --de-verdad` Es GRATIS (no le pide nada a Apify). Hecho = `estado` dice 1.213 sin tipo (y el CTA de lo guardado queda escrito con la 0404, ya aplicada).
+  - Dónde: `scripts/carruseles-biblioteca.mts:543 (`case 'reclasificar'`); lib/carruseles/clasificar.ts; docs/relevo/nube-carruseles-rediseno.md:122-129`
+- **El tipo de 1.213 carruseles sigue vacío y sólo las láminas lo dirían** · _grande_
+  - Qué falta: Después de traer las láminas, leerlas con visión (la IA del negocio) para llenar el tipo. Ya se midió que ampliar reglas de texto no alcanza: el pie casi nunca DICE el tipo (son textos de una idea, receta u opinión), y la regla «frase» se probó y se descartó (de 66 candidatos, la mitad eran «Comment "WIN" to get…»). Hecho = el filtro de tipo en el modal deja de estar vacío para el 85 % de la biblioteca. Depende de que corran las láminas.
+  - Dónde: `lib/carruseles/clasificar.ts; docs/hallazgos-carruseles.md:207 y :193`
+  - ⛔ Lo frena: Depende de las láminas, que están trabadas por el crédito de Apify.
+- **«Editar» con una IA real nunca se probó, y el arreglo está en main pero no en producción** · _mediano_
+  - Qué falta: El arreglo de «Tu IA no contestó ahora» YA está en main (`chatCheapCascade` con 8.000 tokens de salida en lugar de `chatCheap` con 512, la portada bajada con `fetchSeguro`, y el camino de guías mostrando sus láminas). Falta: (1) que entre a producción — el deploy del 11:08 UTC fue ANTES de este commit, y producción compila sola a las 08:05 ART; (2) probarlo con la IA real desde la PC: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas` (y el mismo con un carrusel CON láminas, y `--que thumbnail --id <id>` para una miniatura). Hecho = el texto es del negocio y no del ejemplo, las letras son las del editor, no hay recuadros grises, y el aviso de falla nombra la causa. Comprobarlo también en pantalla con `/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727`.
+  - Dónde: `lib/carruseles/replica-servidor.ts:221-242 (el arreglo), lib/carruseles/replica.ts:457 (`avisoSinIA`) y :481 (`vuelveASinVer`); scripts/carruseles-probar-editar.mts`
+- **Lo que entre de ahora en más a la biblioteca no pasa por ninguna curaduría** · _mediano_
+  - Qué falta: Una lectura nueva (`leer`) queda visible sin que nadie la mire, y ya se midió que el filtro automático no alcanza: el modelo barato se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true` tiraba 457 piezas por falta de dato, de las cuales 363 servían. Hecho = una pieza nueva entra en un estado «sin mirar» que no se muestra hasta que alguien la aprueba, o el script deja la hoja de descartes para revisar antes de aplicar.
+  - Dónde: `lib/carruseles/biblioteca-servidor.ts:87 (`dejo_de_verse_en`), scripts/carruseles-biblioteca.mts (comando `leer`); docs/hallazgos-carruseles.md:210`
+- **Los anuncios en video ya guardados siguen apareciendo hasta la próxima lectura de Spy** · _chico_
+  - Qué falta: El código nuevo ya guarda `medio` para los anuncios (`displayFormat` de Apify) y el explorador no muestra ni cuenta un video, pero lo que YA está guardado no tiene `medio`, y si su miniatura ya se copió a nuestro bucket se perdió la única pista (la carpeta de cuadros de video del CDN de Meta, `/t15.`). Se corrige solo en la próxima lectura de Spy de cada cuenta; si hace falta antes, volver a leer los anuncios de las cuentas seguidas desde Competitors Spy. Hecho = «Anuncios N» no cuenta videos en el ws de prueba.
+  - Dónde: `lib/carruseles/anuncios.ts (`esAnuncioEnVideo`), lib/spy-todo-reglas.ts y lib/spy-medio.ts (`medioDeAnuncio`), lib/spy.ts (`guardarMedios`); docs/relevo/nube-carruseles-rediseno.md:205-206`
+- **Traer una pieza nueva por su link no existe como comando del script oficial** · _mediano_
+  - Qué falta: La receta medida (por link, 244 de 245 a ~US$0,0025; por perfil, US$4,71 y 1 de 245) sólo está implementada dentro del comando `laminas`, que lee las láminas de piezas YA guardadas. Para SUMAR un carrusel que Martín pase por link no hay comando: vivía en una copia temporal, ya borrada. Hecho = un comando que acepte una lista de links y los sume a la biblioteca, con esta entrada al actor de Instagram de Apify, de a 40 links por lectura: `{ "directUrls": ["https://www.instagram.com/p/XXX/"], "resultsType": "posts", "resultsLimit": 1, "addParentData": false }`
+  - Dónde: `scripts/carruseles-biblioteca.mts:505 (el único uso de `directUrls`, dentro de `laminas`); docs/hallazgos-carruseles.md:74-80 y :211`
+- **Sumar más cuentas a la biblioteca, también las de los referentes del Ops Center** · _mediano_
+  - Qué falta: Hoy hay 456 cuentas, de las cuales sólo 4 tienen referente (hormozi, victor-heras, sofia-contreras, vilma-nunez). Falta barrer los referentes del catálogo y confirmar los @ antes de sumarlos (hasta 20 por corrida, ~US$0,003 cada uno): `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts buscar --techo-usd 0.5` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts verificar @hormozi --referente hormozi` `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts sumar @usuario --nombre "Nombre" --referente hormozi` «✔ confirmada» se suma; «? dudosa» y «✖ no parece» los decide una persona mirando el perfil. Hecho = los referentes del catálogo tienen su @ en la lista.
+  - Dónde: `lib/asesores/catalogo.ts y lib/asesores/clases-de-referentes.json; scripts/carruseles-biblioteca.mts:541-542; docs/relevo/cerebro.md:19`
+- **Los 32 temas de hashtag siguen prendidos sin decidir si conviene apagarlos** · _chico_
+  - Qué falta: Traen de todo (los temas de arranque son #marketingdigital, #emprendimiento, #marcapersonal, #ventasonline, #coachdenegocios, #negociosdigitales, #agenciademarketing, #copywriting, #infoproductos, #consultoria, y se sumaron hasta 32). Decidir si se apagan los que traen ruido: se apagan desde el panel de la plataforma («Cuentas» → «Editar la biblioteca de ejemplos») o con el comando `tema`. Hecho = la decisión queda escrita y los temas que sobran, apagados.
+  - Dónde: `docs/hallazgos-carruseles.md:213; scripts/carruseles-biblioteca.mts:553 (`case 'tema'`)`
+- **Series y duplicados sin marcar: varias partes del mismo carrusel ocupan la grilla** · _mediano_
+  - Qué falta: Por ejemplo las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta. El reparto por variedad (máximo 2 de la misma cuenta por tramo de 12) no resuelve el duplicado de CONTENIDO. Hecho = una serie se muestra una vez, con sus partes adentro, o se marca y se esconde la repetida.
+  - Dónde: `lib/carruseles/variedad.ts (`conVariedad`), lib/carruseles/explorar.ts (`filtrarCarruseles`); docs/hallazgos-carruseles.md:214`
+- **Las fotos de personas que no son el cliente quedan como un recuadro con su guía** · _grande_
+  - Qué falta: Cuando el ejemplo tiene una persona que no es el cliente, «Editar» deja un recuadro con una guía en vez de una imagen. El paso siguiente es generarla con la IA de imagen del avatar del cliente (Flow). Hecho = la lámina sale con una persona generada y no con un recuadro.
+  - Dónde: `lib/carruseles/replica.ts y lib/carruseles/documento.ts (`documentoDeReplica`); docs/hallazgos-carruseles.md:218-219`
+- **Las medidas finas de la referencia de Top Carousels sin ajustar contra un monitor real** · _chico_
+  - Qué falta: Los valores gruesos ya se ajustaron con las capturas (4 columnas en 1440, modal en dos partes, filtros con deslizadores de dos puntas, colores del múltiplo). Faltan los finos: medidas exactas de tarjeta, tipografías y espaciados, comparando la pantalla contra las capturas en un monitor real. Hecho = una pasada lado a lado con docs/carruseles/referencia-top-carousels/ y docs/carruseles/pulido-2026-11-06/.
+  - Dónde: `docs/carruseles/referencia-top-carousels/LEEME.md; app/image-editor/carruseles/ExplorarCarruseles.tsx; docs/hallazgos-carruseles.md:209`
+- **El parámetro `largo` sobra: la pantalla usa el deslizador de láminas y él sigue en la API** · _chico_
+  - Qué falta: `largo` (cortos 2-4, medios 5-7, 8+) sigue viviendo en el filtro, en la URL y en la API de MaKo aunque la pantalla usa el deslizador de láminas de dos puntas. Hecho = o se saca de la API y del parseo de URL dejando sólo el deslizador, o se documenta que queda por los links viejos. Es limpieza, no urgencia.
+  - Dónde: `lib/carruseles/explorar.ts:190, :244-247, :341, :446, :472, :562; lib/carruseles/opciones.ts (`LARGOS_CARRUSEL`); docs/relevo/nube-carruseles-rediseno.md:116`
+- **Revisar a mano `punta/carruseles-thumbnails`, que entró a main sin que nadie lo mire** · _mediano_
+  - Qué falta: El commit 25fbdc8a1 (ya en main, HEAD a11e7540f) trae el feedback de producción del 6/11 tarde: portada de Image, el CTA fuera, variedad por cuenta, anuncios sin video, flechas en el teléfono, el arreglo de «Editar» y la tab Thumbnails. Nadie lo revisó contra los pedidos de Martín con las capturas. Hecho = una pasada punto por punto contra el pedido citado en docs/relevo/nube-carruseles-rediseno.md:135-139 y las capturas de docs/carruseles/capturas-2026-11-06/; lo que falle vuelve a su chat sin pasar por Martín.
+  - Dónde: `docs/relevo/cerebro.md:13; docs/carruseles/capturas-2026-11-06/ (13 capturas, 1440 y 390, claro y oscuro)`
+- **Carruseles: de la marca del negocio sólo se aplican texto, tipografía y fondo** · _mediano_
+  - Qué falta: El chat de Imagen sólo recibe persona y núcleo MaKo, sin colores ni logo, así que la marca no se aplica entera (pedido de Leila del 30/10, medido A MEDIAS el 5/11). Falta pasar colores, logo y fuentes al prompt. Hecho = un carrusel generado sale con los colores y el logo del brand board del negocio, no sólo con su fondo. Va atado a que el Segundo Cerebro conozca el brand board (ítem 2.9 de la auditoría).
+  - Dónde: `lib/landing-writer.ts:153 (lo que hoy recibe el chat), lib/image-editor/chat/ia.ts y lib/image-editor/chat/prompts.ts (donde hay que pasarlo); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43`
+- **El carrusel 4:5 sólo se puede hacer en Imagen, no en el Web Generator** · _mediano_
+  - Qué falta: Pedido de Leila repetido tres veces (2.14, 3.9, 4.10): que el carrusel 4:5 se pueda armar también en el Web Generator, porque en Gamma le sale «mucho más rápido» que emulando Canva. Existe en Imagen. Hecho = el Web Generator ofrece el formato 4:5 con las plantillas de carrusel.
+  - Dónde: `app/web-generator (donde hay que ofrecerlo), lib/carruseles/ y app/image-editor/carruseles/ (lo que ya existe); docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66`
+- **Los prompts de carruseles y stories están incrustados en el código y el historial vive en memoria** · _mediano_
+  - Qué falta: `lib/ig-writer.ts` tiene los prompts hardcodeados (deberían pasar por el patrón de prompt editable, skill `add-editable-prompt`) y el historial del chat vive en memoria, así que se pierde. Hecho = los prompts se editan sin desplegar y el historial sobrevive a recargar la página.
+  - Dónde: `lib/ig-writer.ts; docs/relevo/pendientes-barrido.md:131`
+- **El índice docs/hallazgos.md tiene DOS filas de Carruseles apuntando al mismo documento** · _chico_
+  - Qué falta: Las líneas 45 y 48 son las dos «Carruseles → hallazgos-carruseles.md» con resúmenes distintos y solapados. Hecho = una sola fila, con el resumen integrado, en el mismo commit que el próximo cambio del documento.
+  - Dónde: `docs/hallazgos.md:45 y docs/hallazgos.md:48`
+- **El clasificador deja el 85 % de los carruseles sin tipo** · _mediano_
+  - Qué falta: `reclasificar` ya no cambia nada (1.253 sin tipo de 1.470, 0 cierres nuevos): el problema es el clasificador, con muchos textos en portugues, aleman e ingles, y 512 piezas con `parece_contenido` nulo. Es trabajo de codigo, no un comando.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:38-41 · lib/carruseles/biblioteca.ts (reclasificacion)`
+- **«Editar» de carruseles daba «Tu IA no contesto ahora» en produccion** · _mediano_
+  - Qué falta: Comprobarlo con IA real en `/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727`. El chat tenia encargada la causa; nunca se confirmo. Hecho = el ejemplo se replica y abre el diseno en el editor.
+  - Dónde: `docs/relevo/cerebro.md:19,31 · docs/relevo/nube-carruseles-rediseno.md:82-91`
+- **La persona de una lamina que no es el cliente queda como un recuadro con guia** · _grande_
+  - Qué falta: Generar esa lamina con la IA de imagen y el avatar del cliente (Flow). Hecho = la lamina sale con la cara del cliente, no con un recuadro.
+  - Dónde: `docs/relevo/nube-carruseles-rediseno.md:97-98`
+- **Sumar mas cuentas a la biblioteca, tambien de referentes** · _mediano_
+  - Qué falta: Hoy la biblioteca tiene 456 cuentas con solo 4 con referente (hormozi, victor-heras, sofia-contreras, vilma-nunez). Falta cargar mas, cruzandolas con los referentes de `lib/asesores`.
+  - Dónde: `docs/relevo/cerebro.md:19 · lib/asesores · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:39`
+  - ⛔ Lo frena: Gasta credito de Apify (ver el item de laminas)
+- **El carrusel 4:5 solo se puede hacer en Imagen, no en Web Generator** · _mediano_
+  - Qué falta: Ofrecer el formato 4:5 tambien en `app/web-generator` (Leila dice que en Gamma sale mucho mas rapido). Pedido repetido tres veces (2.14 = 3.9 = 4.10).
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66 · lib/carruseles/ · app/web-generator`
+- **Prompts de `lib/ig-writer.ts` escritos a mano y el historial solo en memoria** · _chico_
+  - Qué falta: Pasar los prompts al patron editable (skill `add-editable-prompt`) y persistir el historial. Esta anotado como «para otros chats», no lo toco el barrido.
+  - Dónde: `docs/relevo/pendientes-barrido.md:131 · lib/ig-writer.ts`
+- **«Editar» daba «Tu IA no contestó ahora» en producción: verificar que el arreglo lo cerró** · _chico_
+  - Qué falta: El arreglo está escrito (pasó de `chatCheap` a `chatCheapCascade` con 8.000 tokens, y la portada de Instagram/Meta/YouTube se baja con `fetchSeguro`), pero nunca se comprobó contra una IA real. Comprobarlo en el diseño que Martín ya tenía abierto: /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727, y con `carruseles-probar-editar.mts --ws 3 --sin-laminas`. Hecho = texto del negocio, letras del editor, sin recuadros grises.
+  - Dónde: `C:/dev/wt-puntas/lib/carruseles/replica-servidor.ts ; scripts/carruseles-probar-editar.mts ; docs/relevo/nube-carruseles-rediseno.md:166-169 y cerebro.md:19`
+- **1.213 carruseles de 1.470 siguen sin tipo** · _mediano_
+  - Qué falta: `reclasificar` ya bajó de 1.253 a 1.213 leyendo el texto (portugués, alemán e inglés). Bajar de ahí necesita las láminas bajadas y leerlas con visión — o sea depende del item de las 111 láminas. Hecho = un número de «sin tipo» que no se mueva al correr `reclasificar` y el filtro de tipo con cobertura real.
+  - Dónde: `C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts (reclasificar) ; docs/relevo/nube-carruseles-rediseno.md:122-129`
+- **Curar la biblioteca: quedan 990 carruseles a la vista y hay que sumar más cuentas** · _mediano_
+  - Qué falta: Seguir escondiendo lo que no le sirve a un dueño de negocio (hoy 388 escondidos, se deshace con el JSON del ticket) y sumar más cuentas, también de referentes de `lib/asesores`. Martín fue explícito: «solo quiero carruseles que le sirvan a dueños de negocio». Es trabajo de la PC.
+  - Dónde: `C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts (excluir/ocultar) ; lib/asesores ; estado en docs/relevo/cerebro.md:19 ; deshacer con C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`
+- **Una persona en una lámina que no es el cliente queda como recuadro con guía** · _grande_
+  - Qué falta: Generar esa persona con la IA de imagen y el avatar del cliente (camino Flow). Hoy «Editar» pone la foto del cliente donde el ejemplo tiene una persona, pero si la lámina pide otra persona queda un recuadro con su guía. Es el paso siguiente declarado del rediseño.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:97-98 ; lib/carruseles/replica-servidor.ts`
+- **Los anuncios en video ya guardados no tienen `medio` y no se pueden esconder** · _chico_
+  - Qué falta: La lectura nueva de Spy guarda `medio` (displayFormat de Apify), así que los videos se esconden solos en la próxima lectura de cada cuenta. Lo ya guardado cuya miniatura se copió a nuestro bucket no tiene forma de saberse que era video. Si hace falta antes, volver a leer los anuncios de las cuentas seguidas desde Spy.
+  - Dónde: `C:/dev/wt-puntas/lib/carruseles/anuncios.ts (esAnuncioEnVideo) ; lib/spy-todo-reglas.ts (guardarMedios) ; docs/relevo/nube-carruseles-rediseno.md:156-160`
+- **Sobra el parámetro `largo` en la API y en los links viejos** · _chico_
+  - Qué falta: La pantalla usa el deslizador de láminas, pero `largo` (2 a 4, 5 a 7, 8+) sigue en la API y en los links viejos. Limpiarlo o dejarlo documentado como compatibilidad. Lo declara la propia autocrítica del rediseño.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:116 ; lib/api-mako/areas/imagen (buscar_carruseles)`
+
+### 🔴 Trabados — con su motivo (5)
+
+- **Faltan las láminas de 1.275 carruseles y la corrida corta por crédito de Apify** · _mediano_
+  - Qué falta: Correr `carruseles-biblioteca.mts laminas --de-verdad --techo-usd 3 --max 1400`. Van 744 de 912 (faltan 111 de esa tanda; 1.275 sin láminas en total, ~US$2,93). Y hay algo sin medir: `laminas` cortó «al techo» con US$0,54 de 1,50 y nadie miró por qué. Hecho = cada carrusel visible con sus láminas en spy-miniaturas y las flechas andando.
+  - Dónde: `scripts/carruseles-biblioteca.mts (comando `laminas`) · docs/relevo/nube-carruseles-rediseno.md:40 paso 3 · docs/relevo/cerebro.md:19,35`
+  - ⛔ Lo frena: En Apify quedan US$1,99-2,21 y la reserva de Spy es de US$2: hace falta otra clave de Apify cargada en Spy del negocio de la plataforma (ws 9). La clave sdae… tiene US$2,21 libres
+- **Faltan las láminas de 111 carruseles visibles: `laminas` no corre por falta de crédito de Apify** · _mediano_
+  - Qué falta: Correr, desde la raíz del clon con el .env.local de producción: `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts laminas --max 1400` y después `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts laminas --de-verdad --techo-usd 3 --max 1400`. Hecho = los 111 carruseles visibles sin láminas quedan con `laminas_imagenes` (hoy 744 de 912 las tienen; 57 el actor no las dio). Sólo lee lo que todavía no tiene láminas, así que se puede partir en varias corridas. ~US$0,0023 por carrusel; storage ~7 láminas por carrusel.
+  - Dónde: `scripts/carruseles-biblioteca.mts:470 (función `laminas`; el techo contra la reserva, línea 490-492); el cálculo del crédito, lib/carruseles/biblioteca.ts:292 (`RESERVA_CREDITO_USD`)`
+  - ⛔ Lo frena: La clave de Apify de Spy del negocio de la plataforma (ws 9) tiene US$2,21 libres y la reserva de Spy es de US$2: queda US$0,21 y la corrida corta enseguida. Hace falta que Martín cargue OTRA clave de Apify en Spy del negocio de la plataforma (el script usa todas: `estado` dice cuánto queda).
+- **1 de los 245 links de Top Carousels sin leer y 26 creadores de la lista sin leer** · _chico_
+  - Qué falta: Terminar la cola: 1 link suelto y 26 cuentas de la lista de creadores que nunca se leyeron. Con el comando `leer --solo @cuenta` para cada una (una fuente leída hace menos de una semana no se vuelve a leer salvo con `--solo`): `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts leer --de-verdad --techo-usd 2 --max-carruseles 300` Hecho = `estado` no lista cuentas sin `texto_leido_en`.
+  - Dónde: `scripts/carruseles-biblioteca.mts:540 (`case 'leer'`); docs/hallazgos-carruseles.md:212`
+  - ⛔ Lo frena: Mismo crédito de Apify que las láminas: con US$0,21 libres por encima de la reserva no hay con qué leer.
+- **Faltan las laminas de 111 carruseles (y `laminas` corto «al techo» sin saber por que)** · _chico_
+  - Qué falta: Correr `carruseles-biblioteca.mts laminas` hasta cubrir los que quedan (744 de 912 al 6/11 16:30) y mirar por que corto con US$0,54 de US$1,50. Hecho = 912 de 912 con laminas.
+  - Dónde: `docs/relevo/cerebro.md:19,35 · scripts/carruseles-biblioteca.mts (laminas) · docs/relevo/nube-carruseles-rediseno.md:40-78`
+  - ⛔ Lo frena: Apify: quedan ~US$2 y la reserva de Spy es de US$2. Hace falta una segunda clave cargada en Spy del negocio de la plataforma
+- **Faltan 111 carruseles sin láminas y el script cortó «al techo» con US$0,54 de 1,50 sin explicar por qué** · _mediano_
+  - Qué falta: Dos cosas: (1) diagnosticar por qué `laminas` cortó con crédito disponible — el Cerebro lo anotó «sin mirar por qué», así que es un bug sin causa medida; (2) terminar las 111 que faltan de 912. La clave `sdae…` tiene US$2,21 libres. Hecho = 912 de 912 con láminas y el corte explicado.
+  - Dónde: `C:/dev/wt-puntas/scripts/carruseles-biblioteca.mts (comando `laminas`) ; estado en docs/relevo/cerebro.md:19`
+  - ⛔ Lo frena: La reserva de Spy es de US$2 y en la clave principal de Apify quedaban US$1,99: el comando no arranca. Hace falta otra clave de Apify en Spy del negocio de la plataforma, o esperar el crédito del mes.
+
+### 🟡 Esperan a Martín — nadie más los destraba (8)
+
+- **Los 598 carruseles escondidos no los confirmó nadie, y el deshacer vive fuera del repo** · _chico_
+  - Qué falta: Se escondieron 210 el 5/11 y 388 el 6/11 (quedan 990 a la vista, de 331 cuentas). La lista con el motivo de cada uno NO está en el repo: vive en C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-05.json y -2026-11-06.json (ambos existen, 37 KB y 91 KB). Falta: mostrarle a Martín qué se escondió y con qué criterio, y poner esas listas (o los ids) en algún lugar versionado para que el deshacer no dependa de la PC. Deshacer: `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where dejo_de_verse_en::date = '2026-11-05'` para la primera tanda, y `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any(<ids>)` con los `piezas[].id` del JSON del 6/11.
+  - Dónde: `docs/hallazgos-carruseles.md:92-106; lib/carruseles/biblioteca-servidor.ts:87; C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`
+  - ⛔ Lo frena: Martín tiene que mirar la curaduría: él pidió «solo carruseles que le sirvan a dueños de negocio» y se escondió el 43 % de la biblioteca con un modelo barato.
+- **Salud, nutrición, café y déficit de atención quedaron a la vista por la duda** · _chico_
+  - Qué falta: Son los rubros que la curaduría dejó pasar aplicando «ante la duda, queda». Si Martín lo quiere más estricto, es lo próximo en esconder (con `ocultar`/el JSON de descartes, revisando la lista antes de aplicar). Hecho = Martín dice sí o no y se aplica en una pasada.
+  - Dónde: `docs/hallazgos-carruseles.md:215`
+  - ⛔ Lo frena: Es una decisión suya de criterio, no de código.
+- **El «tema» (finanzas, salud, marketing…) no se clasifica, así que falta ese filtro de la referencia** · _mediano_
+  - Qué falta: Top Carousels filtra por tema y nosotros sólo por tipo. Clasificarlo pide una pasada de IA por carrusel (990 visibles). No se inventó a propósito. Hecho = Martín decide si vale el gasto; si sí, una columna `tema` y el chip en la tarjeta como en la referencia.
+  - Dónde: `lib/carruseles/clasificar.ts; app/image-editor/carruseles/FiltrosCarruselModal.tsx; docs/hallazgos-carruseles.md:208 y :201`
+  - ⛔ Lo frena: Es gasto de IA por pieza: lo decide Martín.
+- **Una biblioteca de anuncios para TODOS los negocios necesita cuenta paga y permiso de reventa** · _mediano_
+  - Qué falta: Hoy los anuncios son sólo los que Spy trae de las cuentas que sigue cada negocio, con su propia clave de Apify: los términos de Meta no dejan pasarle a un tercero lo recolectado. Para ejemplos de anuncios comunes a todos hace falta Foreplay (US$49-459/mes) o Atria (US$129-159/mes) a nombre de MaKo, con permiso escrito de reventa. ⚠️ La nube no pudo abrir facebook.com, apify.com, foreplay.co ni tryatria.com: los precios y los términos salen de fuentes secundarias y hay que verificarlos ANTES de pagar nada. Hecho = Martín decide, y si dice sí, se verifica el precio en el sitio y se pide el permiso por escrito.
+  - Dónde: `docs/hallazgos-carruseles.md:155-171 (la tabla comparada); lib/carruseles/anuncios.ts`
+  - ⛔ Lo frena: Es una compra y un permiso de reventa: sólo Martín.
+- **Probar en pantalla los 9 pasos de carruseles de Image en el ws 3, con la sesión de Martín** · _chico_
+  - Qué falta: La lista de 9 pruebas está escrita (grilla, pasar láminas dentro de la tarjeta, buscar por palabra y por @cuenta, Outlier 2×+, guardar y «Guardados», «Guardar búsqueda», «Editar», el ↗ al original, el teléfono). Nadie las corrió con una sesión real. Hecho = los 9 pasos pasan en el ws 3 (Cliente de Prueba).
+  - Dónde: `docs/relevo/nube-carruseles.md:46-64 (los 9 pasos), docs/relevo/nube-carruseles-rediseno.md:82-91 (los del rediseño); docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:77`
+  - ⛔ Lo frena: Pide su sesión en el navegador: está en la lista «SÓLO MARTÍN» del relevo de la PC.
+- **Las capturas de referencia de Top Carousels nunca llegaron** · _chico_
+  - Qué falta: `docs/carruseles/referencia-top-carousels/` no esta en main ni en ninguna rama: la pantalla se copio de la descripcion del pedido. Cuando esten, se ajustan los valores.
+  - Dónde: `docs/relevo/nube-carruseles-rediseno.md:95-96 · docs/carruseles/referencia-top-carousels/ (no existe)`
+  - ⛔ Lo frena: La nube no abre el sitio y Top Carousels no se raspa (sus terminos pueden cerrar la cuenta): las capturas las saca Martin
+- **Una biblioteca de anuncios para todos (Foreplay o Atria)** · _mediano_
+  - Qué falta: Pide cuenta paga a nombre de MaKo y permiso escrito de reventa. La comparacion esta hecha; falta la decision.
+  - Dónde: `docs/relevo/nube-carruseles-rediseno.md:99-100 · docs/hallazgos-carruseles.md`
+  - ⛔ Lo frena: Es plata y permiso de reventa: lo decide Martin
+- **Decidir el «tema» (finanzas, salud, marketing…) para sumar el filtro de la referencia** · _mediano_
+  - Qué falta: Top Carousels filtra por tema; MaKo sólo tiene el tipo. Sumarlo es clasificar cada carrusel con IA. Está nombrado como decisión pendiente, no empezado.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:131 ; lib/carruseles/`
+  - ⛔ Lo frena: Hay que decidir si vale gastar IA en clasificar 1.470 carruseles por tema.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (5)
+
+- **Las capturas de Top Carousels nunca llegaron: la pantalla se copió de la descripción del pedido** · _chico_
+  - Qué falta: docs/carruseles/referencia-top-carousels/ no está en main ni en ninguna rama, y la nube no abre su sitio. Cuando estén, se ajustan los valores de la pantalla. Ojo: la memoria dice que Top Carousels prohíbe bajar su catálogo, así que sirve de referencia de diseño y nada más.
+  - Dónde: `docs/carruseles/referencia-top-carousels/ · docs/relevo/nube-carruseles-rediseno.md §«Lo que quedó sin hacer»`
+- **Llevar un carrusel al Web Generator «como presentación» no funciona y sigue sin diagnosticar** · _chico_
+  - Qué falta: Leila intentó llevar el carrusel «como presentación» y no pudo («no puedo, no puedo»); apareció una opción «usar de guía» que no se podía personalizar. «usar de guía» no aparece en el código, así que no se sabe qué pantalla era. Hecho = preguntarle a Leila qué pantalla vio, reproducirlo y arreglarlo.
+  - Dónde: `app/image-editor/carruseles/, lib/editor-landing/plantillas-presentaciones.ts; docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48, docs/relevo/pendientes-pc/pendientes-30-10.md:21`
+- **Las cuentas que el negocio sigue SÓLO para carruseles siguen entrando por Competitors Spy** · _mediano_
+  - Qué falta: Hoy, para que un carrusel de una cuenta aparezca, hay que sumarla en Competitors Spy con todo lo demás de Spy. El pedido era poder seguir una cuenta sólo para carruseles. No vuelve a aparecer en los documentos del rediseño del 6/11, así que puede haber quedado descartado. Hecho = confirmar con Martín si lo sigue queriendo; si sí, una lista de cuentas de carruseles aparte de los competidores de Spy.
+  - Dónde: `docs/relevo/nube-carruseles.md:184; lib/carruseles/explorar-servidor.ts (donde se mezclan las cuentas de Spy y la biblioteca)`
+- **Llevar un carrusel a Web Generator «como presentacion» no se pudo** · _mediano_
+  - Qué falta: Leila lo intento y no pudo; aparecia una opcion «usar de guia» que no se podia personalizar. Sin diagnosticar: hay que preguntarle a Leila que pantalla era.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:48 (1.5) · app/image-editor/carruseles/ · lib/editor-landing/plantillas-presentaciones.ts`
+  - ⛔ Lo frena: No se entiende de que pantalla hablaba (llamada del 30/10)
+- **Los pedidos de carruseles del 5 y 6/11 de Martin, sin confirmar uno por uno** · _mediano_
+  - Qué falta: Raspar topcarousels.com, multiplicador de rendimiento tipo 3.7x, filtro CTA, carruseles editables, boton «hacer el mio» y rediseniar la pestania. El rediseno entro a produccion el 6/11 11:08, pero nadie midio pedido por pedido cual quedo.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:238 · docs/relevo/cerebro.md:27 · docs/relevo/nube-carruseles-rediseno.md:17-38`
+
+## Imagenes
+
+### 🟢 Abiertos — se pueden hacer ya (36)
+
+- **Reemplazar `_doory/` de a poco para que la licencia deje de aplicar** · _grande_
+  - Qué falta: Martin saco el credito visible de Doory el 29/10 a su riesgo, pero la Attribution Assurance License sigue aplicando mientras quede codigo suyo, y «in whole or part, with or without modification»: un archivo adaptado alcanza. Hoy `_doory/` son 444 archivos y ~39 mil lineas. El orden medido esta en la tabla: 1) editor/chrome (8 archivos, 630 lineas), 2) editor/strings.ts (1.509), 3) editor/workspace (34 / 4.053), 4) editor/panels (41 / 4.866), 5) editor/dialogs + ui (57 / 5.521), 6) toolbar + drawers + fonts + presenter (58 / 6.617), ultimo editor/engine (107 / 14.924). Cada parte se escribe desde lo que HACE, no copiando y renombrando: renombrar no deja de ser derivado. HECHO cuando no quede ningun archivo de `_doory/`.
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:45-63 (la tabla con el orden) · C:/dev/wt-puntas/app/image-editor/_doory/ · C:/dev/wt-puntas/app/image-editor/_doory/LICENSE-DOORY`
+- **Borrar `_doory/editor/collab`: la co-edicion esta apagada** · _chico_
+  - Qué falta: 18 archivos y 4.396 lineas de co-edicion que no corren (decision 6 de docs/diseno-editor-imagen.md). Borrarlo no es reemplazarlo: es el trozo mas barato de sacar de encima de la licencia. HECHO cuando la carpeta no exista, el typecheck acotado de app/image-editor este limpio y el editor abra y guarde igual.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/editor/collab/ · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:60`
+- **Quitar fondo esta APAGADO: falta alojar el modelo y prenderlo** · _grande_
+  - Qué falta: Doory solo prende quitar fondo si su backend le manda la descripcion del modelo, y nadie llama a `configureBackgroundRemoval`: esta exportada en install.ts:57 y no tiene ni un llamador en todo app/image-editor (medido con grep). Falta alojar el modelo (U2-Net u2netp, Apache-2.0, o BiRefNet_lite MIT para objetos) y llamar a esa funcion desde la cascara. Arrastra tres cosas mas: las plantillas no pueden disenar la miniatura con la persona recortada (ponen la foto en un marco con mascara), el chat lo declara imposible, y el editor no iguala a Canva. HECHO cuando en el editor se le quite el fondo a una foto subida y el PNG salga con transparencia.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/editor/engine/bgRemoval/install.ts:57 · bgRemoval/bundled.ts y session.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:108-110`
+  - ⛔ Lo frena: Martin tiene que decidir si se aloja un modelo (es la pregunta «un modelo para quitar fondo de objetos» que quedo abierta el 14/10 y nunca se contesto).
+- **Tanda 4: alojar las fuentes nosotros en vez de jsDelivr** · _mediano_
+  - Qué falta: Hoy las 499 variantes salen de jsDelivr. Un archivo frio tardo 12,6 s y el motor corta la carga a los 8 s (`LOAD_TIMEOUT_MS`): la primera vez el texto puede caer a la fuente del sistema SIN error, y el chat ya pierde texto por fuentes que el editor no tiene. Alojarlas saca el problema de raiz. Regla que queda: nada de `next/font/google` (rompio el build de produccion de todos los chats el 15/10, porque baja la fuente AL COMPILAR); si hace falta, `next/font/local` con el woff2 en el repo. HECHO cuando las fuentes se sirvan de nuestro origen y una carga en frio no caiga a la del sistema.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/fuentes.ts · C:/dev/wt-puntas/app/image-editor/_doory/editor/engine/fonts.ts (LOAD_TIMEOUT_MS) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:216-225 y 375-390`
+- **El adaptador del editor tiene marca, stock, versiones, compartir y comentarios en `null`** · _grande_
+  - Qué falta: Cinco servicios del editor devuelven null y piden tablas propias. Ojo: la marca del negocio (kits en app_settings, 5/11) entro por el PROMPT del chat de Image, no por este hueco: el panel «Marca» del editor sigue vacio. HECHO cuando cada uno tenga su tabla y su pantalla, o cuando el documento diga cual se descarta y por que.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/adaptadorNube.ts:147-151 (brand, stock, versions, sharing, comments) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:461`
+- **Tanda 5: lo de Canva que Doory no trae** · _grande_
+  - Qué falta: Notas adhesivas, dibujo y tablas (drawers/ToolsPanel.tsx), copiar estilo, lineas en codo y curva, texto alternativo, descargar la seleccion, bloquear y ocultar pagina, «Ir a la pagina». Los 8 paquetes estan en orden en el relevamiento. HECHO cuando cada paquete tenga su fila marcada en ese documento.
+  - Dónde: `C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md (los 8 paquetes) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:454-455 · C:/dev/wt-puntas/docs/relevo/image-editor.md:61`
+- **Del armazon de Canva faltan siete detalles** · _mediano_
+  - Qué falta: La vista rapida al pasar el mouse por el riel y la pestania «Estilos» de Diseno (chrome/RielCanva.tsx); la mini-barra pegada a la seleccion (falta la posicion en pantalla del objeto); las marcas de la regla con la posicion del elemento (workspace/Rulers.tsx); el «...» por mosaico de la cuadricula (workspace/PageGrid.tsx); «Editando ▾» y el avatar (no hay modos ni co-edicion, puede ir a la basura con collab); y «Carpetas» en Proyectos. HECHO uno por uno, mirandolo al lado de Canva.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/editor/chrome/RielCanva.tsx · workspace/Rulers.tsx · workspace/PageGrid.tsx · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:456-459`
+- **Un SVG subido se guarda como PNG y se pierde el vector** · _mediano_
+  - Qué falta: El bucket de Supabase no acepta SVG ni AVIF (un SVG es un documento activo bajo su dominio), asi que el adaptador los dibuja a PNG antes de subir. Canva conserva el SVG vectorial. Para conservarlo hay que sanearlo en el server y servirlo desde un origen SIN cookies. HECHO cuando un SVG subido se agrande sin pixelarse y el export siga saliendo.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/nube.ts (aRaster) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:344-345 y 462-463`
+- **«Cambiar nombre» de un diseno usa window.prompt** · _chico_
+  - Qué falta: Sigue siendo el cuadro del navegador. Tiene que editarse EN EL LUGAR, como el Web Generator. Lo mismo «Nombre de la busqueda» del explorador de carruseles (ExplorarCarruseles.tsx:213). HECHO cuando renombrar sea un campo en la tarjeta y no un prompt del navegador.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/ImageEditorCliente.tsx:115 · C:/dev/wt-puntas/app/image-editor/carruseles/ExplorarCarruseles.tsx:213 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:540`
+- **El comentario de cabecera de las plantillas miente dos veces** · _chico_
+  - Qué falta: En plantillas.ts, el comentario de cabecera dice «el credito ya se muestra» (falso: Martin lo saco el 29/10) y «el TEXTO del lienzo sigue en ingles porque la miniatura lo muestra asi» (falso desde el 14/10: b9a7dae2f lo paso a espanol y redibujo las miniaturas; bold-sale-announcement.json dice «FIN DE TEMPORADA»). Ese comentario ya hizo que un plan repitiera el error hasta la revision. HECHO cuando las lineas 4-13 digan lo que el codigo hace hoy.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/plantillas.ts:4-13 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:553-557 · docs/plantillas-reales/image.md 5.1`
+- **Las 10 plantillas de Doory salieron de «Nuevo diseno» pero NO se borraron** · _mediano_
+  - Qué falta: Siguen en el panel «Diseno» del editor y en la API (`plantillas`). El plan pide borrarlas con sus JSON y sus WebP. Toca el panel del editor, la API y TRES tests, y dos se rompen a proposito (el 1 de plantillas-crear, «primero lo en blanco», y el 5, la lista literal PLANTILLAS_NUEVO_DISENO): se reescriben con el cambio, no se fuerzan. El relevo de plantillas lo deja explicitamente «para el chat de Image». HECHO cuando no quede ningun slug de Doory en el panel ni en la API y los tres tests esten reescritos y verdes.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/plantillas/ · public/cv/plantillas/ · tests/api-mako-imagen, tests/plantillas-sugeridas-editores, tests/_bloques-tarjeta-hijo · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:70-73 · docs/plantillas-reales/image.md §5 punto 3`
+- **Las plantillas reales de Image abren con marcos vacios «Tu foto»** · _mediano_
+  - Qué falta: Tres cosas del plan quedaron: (a) las fotos de muestra del ejemplo (hoy el marco es un `rect` con `isPlaceholder` y dice «Tu foto»); (b) «toca la foto y pon la tuya», que pide que sea un marcador de verdad (`isPlaceholder` + `slot`), porque una `image` comun no ofrece reemplazarla; (c) que MaKo pregunte los hechos de `pide` al crear la plantilla (hoy el diseno abre con la estructura y el chat la llena a pedido). Ojo con la regla de las caras: ninguna cara de stock va junto a un pago, una cifra del negocio o una credencial, ni en la tarjeta publica de la galeria; ahi va `persona-silueta.webp`. HECHO cuando crear una plantilla real abra con foto y tocarla ofrezca cambiarla.
+  - Dónde: `C:/dev/wt-puntas/lib/image-editor/plantillas-reales.ts · C:/dev/wt-puntas/app/image-editor/EjemploPlantillaImagen.tsx · public/cv/plantillas/fotos/ · app/image-editor/_doory/editor/engine/objects/dory.ts:39-41 (isPlaceholder, slot) · _doory/types/document.ts:138 (SlotSpec) · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:74-76`
+  - ⛔ Lo frena: Las 5 fotos de muestra no estan elegidas y nadie las eligio a mano todavia (docs/plantillas-reales/README.md:396).
+- **«Tus plantillas» de Image no esta en el telefono** · _mediano_
+  - Qué falta: La pantalla del telefono usa la lista de MaKo y no monta `usePlantillasPropias`, asi que las plantillas propias y «De la comunidad» solo se ven en la computadora. Lo mismo «Hacer el mio» y «Ver ejemplo» de carruseles: en el telefono se crea con la plantilla, sin el dialogo. HECHO cuando en /m/image-editor se vean «Tus plantillas» y «De la comunidad» y se pueda crear desde una.
+  - Dónde: `C:/dev/wt-puntas/app/m/image-editor/InicioImagenM.tsx · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:41 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:798-800`
+- **La iniciativa de Image (T12): falta la sugerida de la familia, el slug y la guia de la pestania** · _mediano_
+  - Qué falta: La apertura con el diseno en blanco («Donde lo vas a publicar?» -> historia 1080x1920, carrusel 1080x1350, anuncio 1080x1080) esta hecha y probada. Faltan tres: (a) «la sugerida de esa familia» como cuarta respuesta, que llega con las plantillas reales; (b) guardar el slug de la plantilla elegida; (c) la GUIA de la pestania (anclas por `donde` sobre sus `data-testid`), que en Image no existe. Y la miniatura de YouTube quedo afuera de la apertura por el tope de cuatro botones (MAX_BOTONES): sigue solo en el panel de tamano. HECHO cuando las tres filas de Image en la tabla de guia.md §6 esten marcadas.
+  - Dónde: `C:/dev/wt-puntas/lib/aperturas/image.ts · C:/dev/wt-puntas/app/image-editor/mako/chat/PanelMakoIA.tsx · tests/iniciativa-image.test.ts · C:/dev/wt-puntas/docs/relevo/nube-iniciativa.md:46 · docs/mako-iniciativa/guia.md §6`
+- **Lo que el chat del editor todavia no sabe hacer** · _grande_
+  - Qué falta: La lista literal que la IA declara imposible: agregar iconos o graficos de la biblioteca; poner una foto que no este en «fotos»; generar imagenes con IA; quitar el fondo; recortar o cambiar el encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar y desagrupar; cambiar el tamano del diseno (Redimensionar); usar una plantilla; tablas, graficos de datos y codigos QR; y lo que va adentro de un grupo. Las fotos SI se cerraron el 30/10 (agregar_foto y fondo_foto). Dos atan a otros pendientes: quitar fondo esta apagado en el motor, y Claude no genera imagenes (las skills copiables estan atadas a Gemini o Nano Banana). HECHO cada vez que una operacion salga de esa constante con su validacion, su aplicacion y su test.
+  - Dónde: `C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts:96-97 (NO_SE_PUEDE_CHAT_IMAGEN) · app/image-editor/mako/chat/acciones.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:445-446`
+- **El chat de Image en la API de MaKo: las tandas 2 y 3 nunca se hicieron** · _grande_
+  - Qué falta: Tanda 2: las operaciones del chat que PROPONEN, con su tabla de propuestas. Tanda 3: «entender el pedido», o sea /api/mako/pedidos con `tab: 'imagen'` ANTES de la IA, como ya lo hace el Video Editor (app/video-editor/_opencut/chat/pedidos.ts). Los objetos del area `imagen` ya estan en el server. Se dejaron para despues del 90 % semanal de claude3 el 16/10 y nunca se retomaron. HECHO cuando por la API (o por WhatsApp) se pueda pedir un cambio al diseno abierto y quede como propuesta.
+  - Dónde: `C:/dev/wt-puntas/lib/api-mako/areas/imagen.run.ts · C:/dev/wt-puntas/app/video-editor/_opencut/chat/pedidos.ts (el molde) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:442-444`
+- **Dos propuestas pendientes del chat duplican las paginas** · _chico_
+  - Qué falta: Pedir de nuevo no cierra la propuesta anterior: aceptar las dos duplica las paginas. Hoy pide dos clics y sale el aviso «Cambiaste el diseno», pero el agujero esta. HECHO cuando un pedido nuevo cierre o invalide la propuesta anterior, probado aceptando las dos.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/chat/acciones.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:695`
+- **Los motivos de «No se aplica» estan escritos para el programador** · _chico_
+  - Qué falta: Los descartes que ve la persona dicen cosas como «estilo no es algo de...». Tienen que decir, en el idioma de un dueno de negocio, que no se pudo y por que. HECHO cuando ningun motivo visible nombre un campo del JSON.
+  - Dónde: `C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (validarOperacion, los motivos) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:700`
+- **La subida de una foto del chat no tiene plazo** · _chico_
+  - Qué falta: El XHR va sin `timeout` (copiado de app/customer-success/curso/): con la red trabada, «corriendo» espera a que el navegador se rinda y la persona no sabe que paso. HECHO cuando la subida tenga plazo y, al vencerse, lo diga en «No se aplica» sin tirar el pedido.
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:736 · el `useAdjuntosDelChat` del chat de Image · C:/dev/wt-puntas/app/customer-success/curso/ (de donde se copio)`
+- **Las fotos desde el chat nunca se vieron en el editor completo con la IA de verdad** · _mediano_
+  - Qué falta: El banco probo el objeto y el cargador (entera, cubriendo y de fondo), no el flujo de la pantalla: queda correr `vivo-carrusel` con «fotos» en la vista. Y tres huecos conocidos: la lista es solo de Subidos (las 40 mas nuevas, adjuntas primero), el panel de fotos de stock no entra; una foto borrada de Subidos despues de proponer cae a `fallbackObject` y la propuesta no lo dice; y el Video Editor no tiene nada de esto. HECHO cuando una corrida con la IA de verdad elija una foto, la ponga y se vea dibujada en el editor.
+  - Dónde: `C:/dev/wt-puntas/lib/image-editor/chat/catalogo.ts (agregar_foto, fondo_foto) · aplicar.ts (objetoFoto) · vista.ts · hilo.ts (fotosGuardadas) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:734-740`
+  - ⛔ Lo frena: Gasta IA del negocio de prueba; el ws3 no tiene IA conectada, hay que usar el ws9.
+- **La marca del negocio en Image: nadie la vio en un navegador ni con un manual real** · _mediano_
+  - Qué falta: Lo escribio la nube, que no llega ni a la base ni a un navegador. Falta: (a) mirar /second-brain?area=voz&vista=marca y el chat del editor en computadora y telefono (la pantalla de la marca no tiene version propia de telefono); (b) medir cuanto acierta la vision con la caja del logo de un brand board real (si la caja se sale de la imagen no se recorta y hay que subirlo a mano); (c) un PDF de mas de 4 MB se rechaza en la pantalla, hay que subir una imagen; (d) «MaKo lo pide cuando falta» quedo como un link en el saludo, no como apertura de lib/aperturas/ (el chat de Image no monta AperturaMako); (e) la VISION de `leerDocumentoIA` no pasa por `sinGemini`, asi que un negocio con solo Gemini lee el manual con Gemini. Los 7 pasos de prueba estan escritos uno por uno. HECHO cuando los 7 pasos del relevo esten corridos en el ws3 con la sesion de Martin.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-image-marca.md:38-65 (los 7 pasos y lo abierto) · lib/marca/kits.ts · lib/marca/leer-manual.ts · app/second-brain/MarcaView.tsx · lib/image-editor/chat/ia.ts`
+  - ⛔ Lo frena: Pide una sesion de Martin en produccion y un manual de marca de verdad. Martin lo revisa el.
+- **El plano del editor (diseno-editor-imagen.md) describe cosas que ya no existen** · _chico_
+  - Qué falta: Todavia habla de `inicio/`, de Proyectos, de Noto Sans y del violeta de Canva (reglas 2 y 9), y nada de eso es asi desde el 29/10 (los --cv-* son los tokens de MaKo, la tab monta app/_crear/PantallaCrear.tsx y Noto Sans entra como hoja de Google desde el navegador). Un plano que miente ya hizo repetir el error del texto en ingles. HECHO cuando las reglas 2 y 9 digan lo que el codigo hace hoy.
+  - Dónde: `C:/dev/wt-puntas/docs/diseno-editor-imagen.md (reglas 2 y 9) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:539-542`
+- **Verificar en produccion el editor angosto (barra fijada + chat) y el telefono** · _chico_
+  - Qué falta: El arreglo del 6/11 (el panel de herramientas pasa a `position: absolute` encima del lienzo por debajo de 820 px de editor, con @container y sin container-name) se midio en un banco con una barra falsa de 240 y una tarjeta falsa de 348. Falta mirarlo en PRODUCCION a 1280 y a 1366 con la barra fijada y el chat abierto, contra docs/recorrido-visual/imagen-barra-chat-despues-1280.png. Y el editor no tiene captura a 390 px: el telefono no abre el editor, y el «<» de salir del editor del telefono nunca se vio. HECHO con las dos capturas de produccion al lado de las del banco.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/editor/EditorApp.module.css · _doory/editor/chrome/ToolHost.module.css · tests/recorrido-imagen-panel.test.ts · C:/dev/wt-puntas/docs/relevo/nube-recorrido-visual.md:64-69 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:896-913`
+  - ⛔ Lo frena: Hay que esperar el deploy de Vercel en Ready y entrar con una sesion que no sea de un cliente.
+- **Tres trampas chicas del motor y del CSS que quedaron anotadas sin arreglar** · _chico_
+  - Qué falta: (a) `ui/Menu` no tiene el prop `overModal` y no se da vuelta hacia arriba: abierto desde la barra inferior tapa su propio boton (la lista del zoom lo esquiva con Popover placement="top"). (b) En un enlace de solo lectura, una pagina angosta pierde el tamano. (c) Los 30 tamanos de Canva menos usados y «Tamano personalizado» viven SOLO en Redimensionar, no en el Inicio ni en el popover de la pagina. HECHO una por una, con su test.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/editor/ui/Menu.tsx · _doory/editor/dialogs/resizeSizes.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:180-182, 541-542, 697`
+- **`contenidoNoConfiable` no neutraliza una etiqueta de cierre con espacio** · _chico_
+  - Qué falta: `</etiqueta >` (con espacio antes del >) pasa sin neutralizar. Lo usan TODOS los prompts de MaKo, no solo el chat de Image; en este chat el texto es de la misma persona, asi que aca el riesgo es bajo, pero vive en una funcion compartida. HECHO cuando el test cubra la variante con espacio y pase.
+  - Dónde: `C:/dev/wt-puntas/lib/prompt-render-pure.ts (contenidoNoConfiable) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:696`
+- **El chat de Imagen usa Gemini por defecto y Martin decidio «sin Gemini» (22/10)** · _mediano_
+  - Qué falta: Cambiar el default de `image-editor-ia` y el comentario de `lib/image-editor/chat/ia.ts:6`. El catalogo tiene 57 defaults con Gemini (Video, Copywriter, landing, Newsletter): si «sin Gemini» es global, hay que repasar los 57.
+  - Dónde: `lib/model-catalogo.ts:245 · lib/image-editor/chat/ia.ts:6 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:126`
+  - ⛔ Lo frena: Si el «sin Gemini» alcanza a los otros 56 defaults, lo define Martin
+- **Brand board (PDF) en el Segundo Cerebro y varios kits de marca** · _grande_
+  - Qué falta: Que MaKo pida el brand board en el onboarding, lo guarde en el Second Brain y lo ofrezca al entrar a cualquier editor («lo hacemos con tu turquesa?»), soportando varios kits (el de ella y el de sus clientes). Sin esto fallan los carruseles.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:44 (2.9) · app/second-brain/ · app/onboarding/ · lib/image-editor/chat/ia.ts · lib/editor-video/chat-catalogo.ts`
+- **Los botones Discutir / Editar no estan en el chat de Imagen ni en el de Video** · _mediano_
+  - Qué falta: `SelectorIntencion` esta en Automations, Copywriter y Web Generator. Sumarlo a los dos chats de edicion y que `lib/image-editor/chat/ia.ts` respete «Discutir» (hoy edita siempre).
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:50 · app/image-editor/mako/chat/PanelMakoIA.tsx · app/video-editor/_opencut/chat/PanelChat.tsx`
+- **Las plantillas de imagen muestran marcos vacíos «Tu foto» en vez de fotos de muestra** · _mediano_
+  - Qué falta: Tres cosas declaradas: las fotos de muestra del ejemplo (hoy el marco es un `rect` con `isPlaceholder`), «toca la foto y pon la tuya» con `slot`, y que MaKo pregunte los hechos de `pide` al crear la plantilla (hoy abre con la estructura y el chat la llena a pedido).
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:74-76 ; docs/plantillas-reales/image.md (trampa 6) ; app/image-editor/EjemploPlantillaImagen.tsx`
+- **«Tus plantillas» no existe en el teléfono** · _mediano_
+  - Qué falta: La pestaña de plantillas propias quedó sólo en la computadora; el teléfono usa la lista de MaKo. Hecho = «Tus plantillas» y «De la comunidad» visibles en /m/image-editor.
+  - Dónde: `C:/dev/wt-puntas/app/m/image-editor/InicioImagenM.tsx ; docs/relevo/nube-plantillas.md:41`
+- **La marca del negocio (brand kit) nunca se miró en un navegador** · _mediano_
+  - Qué falta: Mirar /second-brain?area=voz&vista=marca en computadora y teléfono, subir un manual real (imagen y PDF) y ver cuánto acierta la visión con la caja del logo. Si la caja se sale de la imagen no se recorta y hay que subirlo a mano. Un PDF de más de 4 MB se rechaza en la pantalla. La pantalla no tiene versión de teléfono propia.
+  - Dónde: `C:/dev/wt-puntas/app/second-brain/MarcaView.tsx ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:54-57`
+- **«MaKo pide la marca cuando falta» quedó como un link, no como apertura** · _chico_
+  - Qué falta: Es un link en el saludo del chat de Image, no una apertura de `lib/aperturas/` (el chat de Image no monta `AperturaMako`). Si se quiere el formato de apertura, es trabajo del chat que lleva las aperturas.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-image-marca.md:58-59 ; lib/aperturas/ ; app/image-editor/mako/chat/`
+- **La visión de `leerDocumentoIA` no pasa por `sinGemini`** · _chico_
+  - Qué falta: Image ya corre sin Gemini (`deSuIA`, `fallback: []`), pero leer una IMAGEN del manual de marca sigue usando el Gemini del negocio si es lo único que tiene. Queda como inconsistencia declarada (D6b).
+  - Dónde: `C:/dev/wt-puntas/lib/ai-cheap.ts (sinGemini) ; lib/marca/leer-manual.ts ; docs/relevo/nube-image-marca.md:61-62`
+- **La iniciativa de MaKo en Image está a medias** · _mediano_
+  - Qué falta: Hecha la apertura del diseño en blanco (sin la miniatura: no entraba el cuarto botón). Falta la apertura sugerida de cada familia, guardar el slug, y la guía (anclas por `donde` sobre `data-testid`).
+  - Dónde: `C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 y guia.md §6 ; docs/relevo/nube-iniciativa.md:46`
+- **Verificar en producción el Image Editor a 1280 y 1366 con la barra fijada y el chat** · _chico_
+  - Qué falta: El arreglo está (el panel de herramientas va encima del lienzo con el editor angosto) y tiene test, pero no se vio en producción. Comparar con docs/recorrido-visual/imagen-barra-chat-despues-1280.png. No hay captura a 390: el teléfono no abre el editor.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-recorrido-visual.md:66-69 ; tests/recorrido-imagen-panel.test.ts ; commit e7c51f1b2`
+- **Las plantillas del editor de imagen: borrar las 10 de Doory y las preguntas al crear** · _chico_
+  - Qué falta: Borrar las 10 plantillas de Doory del editor y de la API, las fotos de muestra del ejemplo, y las preguntas al crear (detalle en docs/relevo/nube-plantillas.md). Hecho = la galería de Image no muestra las de Doory y crear no pregunta.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/ · lib/api-mako/areas/ (imagen) · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:125`
+
+### 🟡 Esperan a Martín — nadie más los destraba (7)
+
+- **Decisiones de Martín del Image Editor: Doory, Unsplash y quitar fondos** · _chico_
+  - Qué falta: Pedirle licencia MIT al autor de Doory (hoy todos ven su crédito), decidir las fotos de Unsplash y el modelo para quitar fondos (está apagado). VIENE DE UN DOC DEL 17/10.
+  - Dónde: `docs/relevo/image-editor.md §«Lo que decide Martín»`
+  - ⛔ Lo frena: Es licencia y gasto: lo decide Martín
+- **El typecheck completo del pre-push ya paga el port de Doory** · _mediano_
+  - Qué falta: Sumar ~65 mil lineas subio `CAP_HEAP_MB` de 4096 a 5120, y con mas heap sube el piso de RAM libre que pide el lock: CADA push de CUALQUIER chat paga el port. La salida NO es subir el tope otra vez: es sacar del typecheck completo lo que no cambia (el port de Doory con su propio tsconfig y un chequeo acotado). Es decision de infra, con Martin. HECHO cuando el pre-push no tenga que compilar `_doory/` para pushear otra area.
+  - Dónde: `C:/dev/wt-puntas/scripts/typecheck-lock.mjs (CAP_HEAP_MB) · AGENTS.md · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:247-254`
+  - ⛔ Lo frena: Es una decision de infra que Martin tiene que tomar: hoy el sintoma de que falta heap es un exit SIN errores impresos, que se confunde con un fallo de tipos.
+- **Escribirle a Siam (autor de Doory) pidiendo licencia MIT** · _chico_
+  - Qué falta: Es la unica salida limpia ademas de reescribir todo el editor. Argumento a favor: su propio NOTICE dice «the rest is MIT, like the code» y contradice su LICENSE. Ademas el «GPG-signed text» que su licencia exige no existe (ni el archivo ni commits firmados). Martin decidio el 29/10 sacar el credito a su riesgo, asi que esto dejo de frenar nada, pero sigue siendo lo que cierra el tema. HECHO con el mail mandado y la respuesta anotada.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/_doory/LICENSE-DOORY y NOTICE · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:23-43 · C:/dev/wt-puntas/docs/relevo/image-editor.md:51`
+  - ⛔ Lo frena: Lo decide y lo manda Martin (o se lo autoriza a un chat).
+- **Fotos de stock en el editor: Unsplash quedo prohibido y no hay reemplazo decidido** · _mediano_
+  - Qué falta: La pregunta de Martin del 14/10 («Fotos de Unsplash con una key de MaKo?») quedo sin contestar y despues se cerro a medias: Unsplash NO se usa, porque su licencia prohibe compilar fotos para un servicio que compite y su API exige hotlink. Pexels se puede, con la regla de las caras. Falta decidir de donde salen las fotos de stock del panel del editor: hoy `stock` del adaptador es `null`, y una foto de afuera no se puede dibujar en el lienzo sin copiarla al bucket (Openverse y Picsum no mandan CORS y el export a PNG falla con el canvas sucio). HECHO cuando el panel de fotos tenga una fuente elegida y una foto de ahi se exporte en el PNG.
+  - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/adaptadorNube.ts:148 (stock: null) · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:144, 561-575 · C:/dev/wt-puntas/docs/relevo/image-editor.md:52`
+  - ⛔ Lo frena: Martin tiene que elegir la fuente de fotos (y si se paga una key).
+- **Mirar en pantalla «Image» en todos los workspaces y el cartel «MaKo no pudo leerla»** · _chico_
+  - Qué falta: Dos de los puntos de la lista «por mirar en pantalla» que nadie recorrio.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:228 (4.27)`
+  - ⛔ Lo frena: Pide su sesion en produccion
+- **Quedan 56 defaults con Gemini en el catálogo de modelos** · _mediano_
+  - Qué falta: Image ya es el molde («sin Gemini»: `def: SU_IA`, `fallback: []`, `deSuIA: true`). Si Martín quiere lo mismo en otros, los candidatos obvios son `video-editor-ia` y `landing-editor-ia`. Los 56 están listados uno por uno en el relevo (6 internos a propósito, 4 auxiliares, 46 que paga el cliente).
+  - Dónde: `C:/dev/wt-puntas/lib/model-catalogo.ts ; la lista completa en docs/relevo/nube-image-marca.md:67-89`
+  - ⛔ Lo frena: Es decisión de producto por feature: cambiar un default cambia quién paga y con qué IA corre.
+- **«Generar imagen con IA» por Google Flow en el editor de landing** · _grande_
+  - Qué falta: Martín eligió parchear la extensión (sacar la referencia para imágenes de landing y no exigir el video aprendido), midiendo antes en el Cliente de Prueba proporción, costo, semilla y refresco de una URL vencida. Riesgos ya vistos: dos caminos de la cola compartida pueden reencolar algo que ya salió; el cron flow-abandono le mandaría «Tus videos no se están generando» a un cliente por una imagen de landing; tests/cola-prompt-al-tope.test.ts sólo lee video-action.ts. Hecho = una imagen de landing se genera por Flow sin tocar el camino de los videos.
+  - Dónde: `C:/dev/wt-puntas/extension/background.js:450-532, :1316 y :1834 · supabase/migrations/0154_flow_abandono.sql · app/api/cron/flow-abandono/route.ts · plan en C:/dev/wt-puntas/docs/diseno-editor-landing.md (D5) · pendiente en C:/dev/wt-puntas/docs/hallazgos-editor-landing.md:1059`
+  - ⛔ Lo frena: Martín eligió el camino (parchear la extensión) pero la medición previa en el Cliente de Prueba no se hizo.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (10)
+
+- **Image Editor: las funciones de Canva que faltan y las fuentes en un CDN ajeno** · _grande_
+  - Qué falta: Los 8 paquetes están relevados y sin empezar: atajos, texto en formas, dibujo, ajustes de foto, efectos de texto, conectores, gráficos y tablas. Y alojar las fuentes en MaKo (hoy salen de un CDN ajeno) más marca, versiones, compartir y comentarios. VIENE DE UN DOC DEL 17/10: medir contra el código antes de arrancar.
+  - Dónde: `docs/relevo/image-editor.md §«Lo que sigue» 2 y 3 · app/image-editor/`
+- **El relevamiento de funciones de Canva se escribio sin navegar Canva, y quedo una pestania abierta** · _chico_
+  - Qué falta: Dos cosas del 14/10 a la noche: (a) el relevamiento se escribio contra el CODIGO, sin navegar canva.com (no habia Chrome para claude1), asi que cualquier fila puede estar mal y se corrige al mirarla; la galeria de Canva da 403 a WebFetch. (b) Quedo una pestania abierta en el grupo de los agentes («Diseno sin titulo - Presentacion», canva.com/design/DAHX-ICTUd4): si se creo en la cuenta de Martin, va a la papelera a mano. HECHO cuando el relevamiento tenga una pasada mirando Canva y la pestania este cerrada.
+  - Dónde: `C:/dev/wt-puntas/docs/editor-imagen/relevamiento-canva-funciones.md · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:464-472`
+  - ⛔ Lo frena: Lo de la pestania es en la cuenta de Canva de Martin.
+- **`fflate` local quedo en 0.4.9 y el package.json pide ^0.8.3** · _chico_
+  - Qué falta: En el node_modules del clon quedo la 0.4.9 (la de rrweb) anidada, y en Vercel se instala la 0.8 arriba. El ZIP de varias paginas de Doory usa `zipSync`, que la 0.4.9 ya tiene, pero NO se probo. HECHO cuando se descargue un diseno de varias paginas como ZIP en produccion y abra bien.
+  - Dónde: `C:/dev/wt-puntas/package.json · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:76-77`
+- **CR1 del recorrido visual: dos documentos del 6/11 no coinciden sobre las miniaturas en blanco de Image** · _chico_
+  - Qué falta: El recorrido visual deja CR1 abierto («miniaturas en blanco en Video, Image y Offer», regla de Martin del 29/10: «No pueden haber miniaturas en blanco»), y el relevo de plantillas del MISMO dia dice que la tarjeta de Image ya dibuja la estructura en SVG (MiniaturaDiseno.tsx, sin el motor, con las fuentes del catalogo). Lo que sigue en blanco en Image son los TAMANOS en blanco, que son tamanos y no plantillas. HECHO cuando se mire /image-editor en produccion y uno de los dos documentos se corrija.
+  - Dónde: `C:/dev/wt-puntas/docs/recorrido-visual-30-10.md:26 y :72 contra C:/dev/wt-puntas/docs/relevo/nube-plantillas.md:64-69 · C:/dev/wt-puntas/app/image-editor/MiniaturaDiseno.tsx · app/_crear/reglas.ts:49`
+- **La marca completa en el chat de Imagen (colores, logo y fuentes)** · _mediano_
+  - Qué falta: El chat solo recibe persona y nucleo MaKo; texto, tipografia y fondo se aplican pero no el resto. Pasar colores, logo y fuentes al prompt. Ojo: `punta/image-marca` figura «ya en main» el 5/11, asi que puede estar hecho.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:43 (1.3) · lib/image-editor/chat/ia.ts · prompts.ts · lib/landing-writer.ts:153 · docs/relevo/cerebro.md:134`
+- **La pantalla de Imagen se rompe con la sidebar y el chat abiertos a la vez** · _chico_
+  - Qué falta: Tambien se rompe el texto al lado de los titulos «Pagina 1, 2, 3» de las plantillas. `122071b5c` arreglo el encabezado en una replica, no en el editor real. Hay que mirarlo con la barra fijada y el chat abierto.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:47 (1.4) · PageSlot.module.css`
+  - ⛔ Lo frena: Leila dijo que puede depender de la pantalla de cada computadora; pide mirarlo
+- **Plantillas propias en Video e Imagen, y compartirlas con la comunidad** · _mediano_
+  - Qué falta: Hay «Guardar como plantilla» en Web Generator y tarjetas del CRM, con estrellas y galeria en `app/creaciones/*`. Faltan las plantillas propias en Video e Imagen y el compartir publico con ranking. «Plantillas» entro a produccion el 6/11: hay que ver que quedo.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:69-70 (2.5/2.6/3.7) · app/creaciones/ · docs/relevo/cerebro.md:27`
+- **El Image Editor guarda solo una miniatura del diseno, no la imagen** · _mediano_
+  - Qué falta: Por eso no se puede subir un anuncio de IMAGEN desde MaKo. Hace falta guardar el archivo real del diseno. Solo lei la linea del relevo, no el codigo.
+  - Dónde: `docs/relevo/ads-manager.md:117`
+- **El chat de MaKo dentro de las tabs de Video e Imagen (pedido del 27/10)** · _mediano_
+  - Qué falta: Figura entre los pedidos con dueno, sin repartir. El chat al costado del editor existia solo en la rama `motion-imagen-2610`, sin subir y sin mirar en un navegador.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:240 · docs/relevo/pedidos-perdidos-2810.md:305`
+- **Que el Image Editor reemplace a Canva (stock, plantillas de carrusel, Image Generator)** · _grande_
+  - Qué falta: Promesa a Teo del 28/10, con una decision de Martin pendiente (D7f) sobre las caras del elenco. Sin medir contra main.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:116 · C:/dev/revisiones/2810-promesas-teo.md:99`
+  - ⛔ Lo frena: Decision D7f de Martin (las caras del elenco en Image)
+
+## Chat
+
+### 🟢 Abiertos — se pueden hacer ya (25)
+
+- **«MaKo toma la iniciativa»: faltan las aperturas y los recorridos de casi todas las tabs** · _grande_
+  - Qué falta: Hechas algunas (CRM parcial, Calendario, Plan, Dashboard en blanco, Web Generator «¿Ya está lista?», Video subtítulos, Image diseño en blanco, Classroom). Faltan: CRM con funnel sin declarar (necesita el canal, el diagnóstico en la estrella y `declararEntradasAction`), Offer T6 (crear el funnel ahí con `recomendarFunnel`), Copywriter (mudar lib/copywriter/iniciativa.ts a lib/aperturas/copywriter.ts), Dashboard General (la hoja Focus: sus plantillas no calzan) y sacar `BotonMako`, Automations T8 (la estrella nueva y las tres aperturas), Web Generator Pixel, Video «¿Ya grabaste tu video?», Image sugerida por familia, Plan y AI Avatar. Más casi todos los recorridos.
+  - Dónde: `docs/relevo/nube-iniciativa.md §«Lo que falta, en el orden del plan» · lib/aperturas/ · lib/guia/catalogo.ts`
+  - ⛔ Lo frena: El orden de las tabs que faltan lo decide Martín (figura en la lista de decisiones del 6/11)
+- **El aviso por la linea secundaria cuando se cae la principal** · _chico_
+  - Qué falta: Hoy el aviso sale por mail y nunca se probo con una caida real. El webhook ya guarda cual numero se cayo (tanda 5 del barrido).
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:111-113 · docs/hallazgos-comunicacion.md:368 · lib/lineas-vigilante.ts`
+- **Mauricio (ws1) no tiene un solo mensaje en su grupo desde el 4/10** · _chico_
+  - Qué falta: Es el cliente mas activo y puede ser que no escriba o que la entrada este rota (los ws 9, 18 y 22 tampoco tienen filas desde el 22/10). Si esta rota, se perdieron todos sus pedidos. Hecho = saber cual de las dos es.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:40,218,282 (mako_doer_buffer / mako_doer_conv)`
+- **El chat del lienzo reescribe una tarjeta no nombrada y le borra el link** · _mediano_
+  - Qué falta: `limpiarTexto` borra todo link que no este en el pedido, incluso el que el mensaje ya tenia. Pide correr su arnes con IA real.
+  - Dónde: `docs/relevo/pendientes-barrido.md:212 · lib/flujo-ia.ts · scripts/probar-chats/automations.mts`
+  - ⛔ Lo frena: El arnes con IA real no se puede correr desde la nube: va desde la PC
+- **Falta la plantilla «Rechazaron un Pago» en la galeria de Automations** · _chico_
+  - Qué falta: El motor ya tiene el CRON («Pagos: Se rechaza un pago», `alCron(c,'rechazado')`) y el evento del lead; falta la plantilla con objetivo `cobrar` y una tarjeta MaKo al equipo, y sumarla a la lista escrita a mano `LAS_13`.
+  - Dónde: `docs/relevo/pendientes-barrido.md:134-136 · lib/cobros.ts · tests/plantillas-automatizaciones.test.ts`
+- **El aviso por WhatsApp cuando un proveedor cambia algo, con cron diario** · _mediano_
+  - Qué falta: Pedido del 14/8 y sin una linea de codigo: grep sin resultados en `lib`, `app/api/cron` y los hallazgos. Los crons de `vercel.json` no lo cubren.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:143-145 (4.1) · vercel.json (crons)`
+  - ⛔ Lo frena: El canal hay que redefinirlo: el WhatsApp saliente de MaKo se esta cortando
+- **TikTok en Automations: solo esta la fase 0** · _mediano_
+  - Qué falta: Falta el disparador (el boton de TikTok al lado del de IG en el CRON). El disenio limita a contestar, con tope de 10 mensajes en 48 h.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:185-186 · lib/nutricion.ts:155 · docs/diseno-tiktok-linkedin.md`
+- **El ramp-up gradual no se aplica al tope diario de WhatsApp de las secuencias** · _mediano_
+  - Qué falta: `topeConRampa` solo rampa el email; el `wa.dia` de las secuencias es fijo. Aplicar `arranqueDia` y `arranqueSube` tambien a `limites.wa`. Es la leccion del bloqueo de 24 h del numero de Mauricio.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:40 (5.8) · lib/goteo-db.ts:42 · lib/limites-envio.ts`
+- **El horario de fabrica para las automatizaciones ya prendidas (barrido pendiente)** · _chico_
+  - Qué falta: Leila (ws 11) quedo de 10 a 20 el 6/11. Falta el barrido a los demas: 6 quedaron en «esperar» porque era de noche alla (ws 13, 15, 17, 18, 19, 20) y 1 en «marcar» (ws 23 #726). Se corre de dia en cada pais con `--aplicar` y respaldo.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:24-36 (A2) · scripts/horario-de-fabrica-prendidas.mts · docs/relevo/pendientes-barrido.md:154`
+  - ⛔ Lo frena: Hay que esperar el horario diurno de cada negocio
+- **P11: medir si el numero de Leila llega a 40 envios por dia** · _chico_
+  - Qué falta: Sus salientes fueron 96-260 por dia, pero mezclan personas y automaticas y con `automatico=null` no se pueden separar. Si no llega, poner `waArranqueDia: 40`.
+  - Dónde: `docs/relevo/pendientes-barrido.md:155 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:88`
+  - ⛔ Lo frena: No se puede separar hasta que haya filas con `automatico` cargado
+- **Cinco cosas del anti-ban de WhatsApp sin probar con la línea de verdad** · _mediano_
+  - Qué falta: (1) Que el mensaje del `wa.me` llegue al webhook por la voz `mako_ws9` con el número de quien lo manda — si llega como `@lid` sin `remoteJidAlt` ni `senderPn`, no se confirma. (2) Que Martín vea esos mensajes en su WhatsApp personal y le parezca bien. (3) Qué devuelve Evolution 2.3.7 para un 463 y un «rate-overlimit» al MANDAR. (4) Que el mail del freno llegue. (5) El link `wa.me` en iPhone y Android con el texto con tilde.
+  - Dónde: `C:/dev/wt-puntas/lib/linea-freno.ts ; lib/mako-salida-reglas.ts ; docs/relevo/nube-whatsapp.md:32-41`
+- **El diseño de los grupos de la app nunca se vio con sesión** · _grande_
+  - Qué falta: `punta/grupos-diseno` (quiénes están debajo del nombre, Invitar y Participantes a la derecha, el modal sin saltos, la cita de MaKo y el 👍 sobre el borde) se miró con capturas en Chromium, no en la app con sesión. Y queda la lista de hallazgos-ops-center: la sesión real de un invitado (y si Joan y Juanfran comparten fila en `usuarios`), el push en un Android, el `?ws=` de WsFetch contra las rutas del grupo, el autollamado que se aborta a los 5 s en arranque en frío, el id de WhatsApp atado por posición, y reacciones/fijar/eliminar.
+  - Dónde: `C:/dev/wt-puntas/docs/hallazgos-ops-center.md (las dos listas «Lo que quedó sin hacer», 3 y 4/11) ; docs/relevo/nube-grupos.md:85-99`
+- **Nada del email salió nunca a un buzón real** · _mediano_
+  - Qué falta: Resend fue siempre de mentira. Sin medir: que Resend prenda de verdad el seguimiento con el PATCH y que los emails lleguen con el píxel y los links envueltos; el valor real de `bounce.type` en un rebote (el código acepta Permanent, hard y hardbounce; si Resend manda otra cosa, el rebote no cuenta para el freno); la rampa con días reales en la zona del negocio; la verificación DNS de un dominio de verdad; y la forma exacta del error del tope de dominios (se reconoce por el texto, `esTopeDeDominios`).
+  - Dónde: `C:/dev/wt-puntas/lib/resend-dominios.ts ; tests/resend-clave-admin.test.ts ; docs/relevo/nube-email.md:172-199`
+- **Black November de Leila: dos cosas sin verificar antes del lanzamiento** · _chico_
+  - Qué falta: (1) Si el número de Leila ya llega a sus 40 envíos por día: si no venía llegando a su tope, el día del lanzamiento arranca en 20 y llega a 40 al día siguiente. Para lanzar con 40 desde el primer día, `cambiar_limites_envio` con `waArranqueDia: 40`. (2) Una landing publicada en producción con los tres bloques (cuenta regresiva, pop de prueba social, barra de escasez) en un teléfono de verdad; acá sólo se miró en Chromium a 1280 y 390.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-black-november.md:96-104 ; lib/limites-envio ; lib/editor-landing/`
+- **«Ignorar» del Ops Center nunca se vio en el teléfono de Martín** · _chico_
+  - Qué falta: La 0394 ya está aplicada, así que las decisiones de la Ticketera también se ignoran. Falta mirarlo en el Ops Center de verdad, en su teléfono. Y si Martín quiere, «Ignorar todas las viejas» de un toque: no se hizo porque no lo pidió.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-ops-ignorar.md:51-56 ; app/admin/operaciones/`
+- **Crear la fila de «Tareas de Reuniones al Plan» después del deploy** · _chico_
+  - Qué falta: Correr `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` DESPUÉS del deploy que trae la tanda. Nace pausada, con la exclusión del negocio 13. Prenderla es decisión de SuperAdmin, mirando el texto. El Cerebro anotó «No corrí ninguno».
+  - Dónde: `C:/dev/wt-puntas/scripts/mudanza-avisos-plataforma.mts ; lib/plantillas-automatizaciones.ts ; docs/relevo/nube-nada-por-detras.md:25-29 ; docs/relevo/cerebro.md:14`
+- **Una respuesta por Instagram no pausa la salida, y el motor contesta siempre por WhatsApp** · _mediano_
+  - Qué falta: Que pausarPorRespuesta conteste por el canal donde le escribieron. Hecho = responder por Instagram pausa y la respuesta sale por Instagram.
+  - Dónde: `C:/dev/wt-puntas/lib/nutricion.ts (pausarPorRespuesta) · lib/zernio-entrante.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2578`
+- **Un email del lead no pausa la automatización que le está escribiendo** · _chico_
+  - Qué falta: Una línea con origen: 'email' en recibirEmailEntrante que llame a pausarPorRespuesta. Hecho = contestar por email pausa la secuencia igual que contestar por WhatsApp.
+  - Dónde: `C:/dev/wt-puntas/lib/email-entrante.ts (recibirEmailEntrante) · lib/nutricion.ts (pausarPorRespuesta) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:3272`
+- **El paso «esperar» de los avisos sigue sin drenador** · _mediano_
+  - Qué falta: El paso existe, la UI lo ofrece y corta la ejecución: nadie lo reanuda. Hecho = un aviso con «esperar» sale al vencer la espera.
+  - Dónde: `C:/dev/wt-puntas/lib/flujo-aviso.ts · app/agencia/FlujoAviso.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:7097`
+- **El clon de configuración se lleva la línea POR MENSAJE y no copia los disparadores** · _mediano_
+  - Qué falta: Sumar `linea` a la lista que se vacía al clonar (con su aviso) y copiar `disparadores` de nutricion_secuencias. Hoy en el destino elegirLinea la rechaza y ese mensaje no sale, sin caer a la de default; y una automatización con varios CRON llega con uno. Hecho = clonar una configuración deja la automatización mandando por la línea del destino y con todos sus CRON.
+  - Dónde: `C:/dev/wt-puntas/lib/clonar-config.ts (secuenciaParaElDestino, TABLAS) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2783 y :3272`
+- **El reporte semanal no sale por WhatsApp desde que se borró Chatwoot** · _chico_
+  - Qué falta: Volver a enchufar despacharReporte al canal vigente. Hecho = el reporte semanal llega al grupo del negocio.
+  - Dónde: `C:/dev/wt-puntas/lib/notify.ts (despacharReporte) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037`
+- **El store de mensajes del ws9 es el default de todos los clientes** · _chico_
+  - Qué falta: Que leerPar no caiga al par del ws9 para un negocio sin el suyo. Hecho = un negocio sin plantillas propias no lee las de MaKo.
+  - Dónde: `C:/dev/wt-puntas/lib/plantillas.ts (leerPar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037`
+- **Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces** · _mediano_
+  - Qué falta: El peor: app/api/email/generar/route.ts mete el Calendly de Mauricio como CTA de cualquier cliente. Ninguno está en el registry. Hecho = cada prompt toma la identidad del negocio.
+  - Dónde: `C:/dev/wt-puntas/app/api/email/generar/route.ts:18-24 (y los otros cuatro) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316`
+- **AU4: ChatMako de Automations tiene que pasar a CajaChat + HiloMako y la estrella CONVIVE, no reemplaza** · _grande_
+  - Qué falta: De `docs/relevo/automations.md` §Sin hacer, que ninguna familia leyo. Tres piezas: (1) ChatMako pasa a `CajaChat` + `HiloMako` (app/_chat) con su propio motor (`/api/chat-agent/secuencias/ia`: crear en el lienzo vacio, las fases, el borrador en vivo) y «Discutir/Editar» va al slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); (2) la «Pideselo a MaKo» de la galeria (CajaPedido) pasa a CajaChat; (3) la estrella (`MakoEnLaTab`) CONVIVE con tab=«Automations» y entidad de tipo 'automatizacion', NO la reemplaza. Cuidar lo del 22/10: el mensaje al instante, «Reintentar», la capa en toda la pantalla y las fases en una linea. Que la estrella edite el lienzo en vivo es otra pieza y se decide con Martin antes. Va DESPUES de que entre AU2. Hecho = `tests/chat-mako-envio-a-la-vista.test.ts` verde con la caja nueva.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/automations.md:451-485 (§Sin hacer, bloque AU4) · C:/dev/wt-puntas/app/_chat/ · C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts`
+  - ⛔ Lo frena: Espera que AU2 este en main.
+- **Cuando IA16 entre a main hay que sacar cuatro ramas de `sinIAPropia` que ya no pueden pasar** · _chico_
+  - Qué falta: Del §Sin hacer de automations.md: con IA16 («la IA del cliente») en main la red no corre fuera del ws9, asi que las ramas «La IA gratis de MaKo llego a su tope / esta al tope / esta saturada / no contesto» de `sinIAPropia` dejan de ser posibles y hay que dejar solo «No tienes una IA conectada: conecta {SU_IA}» mas los dos marcadores de red salteada. Si se dejan, el cliente lee un motivo que no puede ocurrir. `lib/flujo-ia.ts` todavia tiene 27 menciones de tope/saturada. Hecho = las cuatro ramas fuera y `tests/ia-aviso-sin-ia-propia.test.ts` reescrito.
+  - Dónde: `C:/dev/wt-puntas/lib/flujo-ia.ts:4068,4074,4137 (`sinIAPropia`) · C:/dev/wt-puntas/tests/ia-aviso-sin-ia-propia.test.ts · C:/dev/wt-puntas/docs/relevo/automations.md:482-485`
+  - ⛔ Lo frena: Espera que IA16 este en main (estaba retenido hasta que el ws1 conectara su IA).
+
+### 🔴 Trabados — con su motivo (2)
+
+- **«Nada por detras»: quedan envios fuera de las automatizaciones** · _grande_
+  - Qué falta: Lotes 1 a 3 hechos; faltan `lead-no-confirmo`, `voz-mako-caida-email`, los `store-flujo-*`, `insistencias-drenar` y las familias cursos/CS, CRM, pagos, reportes y mensajes al lead (59 envios fuera en el inventario).
+  - Dónde: `docs/inventario-nada-por-detras.md:15-16,51-81,92-94 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:101-104`
+  - ⛔ Lo frena: El chat «Nada por detras» figura «waiting on a human»; y antes de prender `reunion_tareas_al_plan` hay que excluir al ws13
+- **El horario de 10 a 20 no se barrió a los demás negocios**
+  - Qué falta: El negocio de Leila ya quedó de 10 a 20 (su automatización #721 sigue de 0 a 24 por decisión de Martín: no se cambia ni se vuelve a preguntar). El barrido a los demás negocios no se corrió.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/pendientes-pc/pasos-cerebro-6-11.md (A2) ; docs/relevo/cerebro.md:20 y :37 ; lib/horario-de-fabrica`
+  - ⛔ Lo frena: Se corre de día en México (hay que esperar la ventana horaria para no frenar a nadie de golpe ni mandar lo acumulado junto).
+
+### 🟡 Esperan a Martín — nadie más los destraba (17)
+
+- **MaKo está muda en 8 de 14 grupos de WhatsApp** · _chico_
+  - Qué falta: Falta el número personal adentro de los grupos de ws 15, 17, 18, 19, 20, 21, 22 y 23. Rehacerlos es de Martín. Contexto: WhatsApp baneó el …2605 y la voz de MaKo quedó en el número personal (`mako.voz.instancia = mako_ws9`, pedido textual suyo); si WhatsApp devuelve el …2605, al reconectar la voz vuelve sola. El botón para apagarla está en /agencia.
+  - Dónde: `docs/hallazgos-comunicacion.md (entrada del 03/11) · docs/relevo/cerebro.md:216-218`
+  - ⛔ Lo frena: Hay que rehacer los grupos con su teléfono
+- **Corte de grupos de WhatsApp y que MaKo nunca escriba primero** · _mediano_
+  - Qué falta: La rama `avisos-bot-corte-0311` no esta en main y `git grep "grupos.corte\|corte-grupos"` no da nada. El bot 1 a 1 sigue apagado. El relevo del 6/11 dice que el corte de grupos quedo «guardado para mas adelante».
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:106-109 · lib/mako-bot-reglas.ts:26 · docs/relevo/cerebro.md:21`
+  - ⛔ Lo frena: Prender el bot o cortar los grupos no se hace sin su si
+- **Brigitte (ws15): devolverle la espera de 1 h y el recordatorio en «Un Lead Entro 2»** · _chico_
+  - Qué falta: Es una escritura en produccion sobre la automatizacion #266. Y aparte, Brigitte sigue sin poder entrar a su espacio porque falta su email en la base.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:53,80 · docs/relevo/automations-nube-2710.md:69,86 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:33-36`
+  - ⛔ Lo frena: Pide su si para escribir en produccion, y el email de Brigitte lo tiene Martin o Joan
+- **La agencia de Joan no entra sola a los grupos de WhatsApp de sus clientes nuevos** · _chico_
+  - Qué falta: El bug de Notificaciones (#49) esta arreglado, pero el alta automatica quedo APAGADA por el freno anti-ban (`mako.grupos.automatico`).
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:43-46 · lib/ajustes-secciones.ts · docs/hallazgos-comunicacion.md:372`
+  - ⛔ Lo frena: Prenderla es decision de Martin (riesgo de ban)
+- **C4: un borrador de una automatizacion PAUSADA sigue frenando el envio** · _chico_
+  - Qué falta: `tieneBorradorNutriPendiente` cuenta borradores de automatizaciones pausadas («pausar no es archivar»). Decidir si un borrador de una pausada sigue frenando.
+  - Dónde: `docs/relevo/pendientes-barrido.md:103 · lib/evolution-envio.ts`
+  - ⛔ Lo frena: Decision del chat de Automations o de Martin
+- **Una automatizacion sin disparador se prende y queda callada** · _chico_
+  - Qué falta: La fila dice «Elige que la dispara» y `setSecuenciaActiva` la prende igual (caso Brigitte). Bloquearla puede romper las «manuales»: hay que decidir entre frenar al activar o que la lista diga «Manual: solo si la mandas a mano».
+  - Dónde: `docs/relevo/pendientes-barrido.md:137-139`
+  - ⛔ Lo frena: Es una decision de comportamiento
+- **LinkedIn en Chats y en Automations: decidir el camino** · _mediano_
+  - Qué falta: `lib/zernio-redes.ts:94` dice «Sus mensajes no llegan a MaKo». Tres opciones: no oficial, partner solo para Paginas, o no hacerlo y aclararlo en la venta.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:112 (B5/B8) · lib/zernio-redes.ts:94`
+  - ⛔ Lo frena: Decision de Martin, pendiente desde el 29/10
+- **Acciones de Calendly para crear o editar eventos** · _chico_
+  - Qué falta: Solo existe «Cancelar su reunion». Puede ser un limite externo: la salida es cerrarlo como imposible o encontrar la via.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:188-189 · app/admin/dev/chatbot/bitacora.ts:1903`
+  - ⛔ Lo frena: Decide Martin si se cierra como imposible
+- **La logica del embudo de Black November con Leila** · _mediano_
+  - Qué falta: Leila no sabe que etiqueta poner ni a que funnel mandar cada rama (sin Academia / con Academia / duenios de negocio). Martin ofrecio revisarlo con ella. No es codigo.
+  - Dónde: `docs/relevo/pendientes-pc/pendientes-30-10.md:195,203 (5.2/5.6) · docs/relevo/pendientes-barrido.md:175`
+  - ⛔ Lo frena: Es trabajo entre Martin y Leila
+- **Dos decisiones abiertas del anti-ban de WhatsApp** · _chico_
+  - Qué falta: (1) ¿Exigir que una persona le haya escrito a la línea antes de sumarla a un grupo desde Notificaciones? Hoy sigue andando con tope. (2) ¿Aplicar «sin links en el primer mensaje» y «el mismo texto a muchos» a las líneas de los CLIENTES? Hoy no, porque les cambiaría la prospección y las difusiones. Los números (10 altas/día, 5 chats con el mismo texto, 30 min/6 h/24 h de freno) son nuestros: Meta no publica topes.
+  - Dónde: `C:/dev/wt-puntas/lib/mako-salida-reglas.ts ; docs/relevo/nube-whatsapp.md:43-48`
+  - ⛔ Lo frena: Cambiar las reglas de las líneas de los clientes les cambia la prospección: no se toca sin su sí.
+- **El email de Mauricio: falta su clave de Resend y el envío real sigue apagado** · _mediano_
+  - Qué falta: Mauricio sigue sin pegar su propia key (la fila del ws 1 es el entorno de la plataforma, no suya). Falta además `RESEND_ADMIN_API_KEY` en Vercel con «Full access» de la MISMA cuenta, y subir el plan de Resend (hoy hay un dominio, hola-mako.com, así que el alta de elevate.com.mx contesta «llegó al tope de dominios de su plan»). El envío real del ws 1 no se prendió (`EMAIL_SEND_ENABLED`) y espera que Mauricio confirme la propuesta.
+  - Dónde: `C:/dev/wt-puntas/lib/resend-dominios.ts ; docs/relevo/nube-email.md:139-157`
+  - ⛔ Lo frena: La clave y el plan de Resend los carga Martín o Mauricio; el envío real espera que Mauricio confirme la propuesta en pantalla.
+- **Las secuencias de los clientes están creadas EN PAUSA y nadie las activó** · _chico_
+  - Qué falta: Activar la #220, #221 y #222 (ws1) y la #223 y #224 (ws13), y definir el disparador de la #224 (la etapa «noresp»). La #224 además cuenta como «Agendó» la reunión a la que el lead faltó, así que el email de reagendar no le sale a nadie. Hecho = las cinco activas con su disparador correcto.
+  - Dónde: `C:/dev/wt-puntas/app/automations/SecuenciaPerfil.tsx · lib/nutricion.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4062 y :4037`
+  - ⛔ Lo frena: Activar manda mensajes a clientes reales: lo firma Martín.
+- **Un negocio que sólo usa Instagram no inscribe a nadie por cohorte** · _mediano_
+  - Qué falta: La rama 'off' de la corrida de cada hora corre el motor para lo social pero no llama a comprometerInscripciones() (sólo { soloGrupo: true }). Hecho = una automatización por cohorte en un negocio sólo-Instagram inscribe leads.
+  - Dónde: `C:/dev/wt-puntas/app/api/cron/nutricion/route.ts · lib/nutricion.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2578`
+  - ⛔ Lo frena: El documento dice que decidir si esa rama inscribe es de Martín.
+- **Un paso de un canal apagado se marca 'omitido', AVANZA y la inscripción es una-vez-en-la-vida** · _mediano_
+  - Qué falta: Decidir la semántica (re-mandar, no-avanzar o aceptar el quemado) y escribirla: comprometerInscripciones dedupea por (lead, secuencia) con un unique de la 0034, así que prender el canal después no re-manda el paso. Hecho = un paso de un canal apagado no queda quemado.
+  - Dónde: `C:/dev/wt-puntas/lib/nutricion.ts:396, :530, :607-631 · supabase/migrations/0034_nutricion.sql · lib/envio-flags.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2950`
+  - ⛔ Lo frena: Es una decisión de semántica de producto; el documento la deja abierta.
+- **No llega ningún email de verdad: falta prender «Receiving» en Resend y el MX** · _mediano_
+  - Qué falta: Prender Receiving en el dominio de Resend, poner el MX del cliente y sumar email.received (webhook con RESEND_INBOUND_WEBHOOK_SECRET, o delegarlo desde /api/webhooks/resend a recibirEmailEntrante). Y email_entrantes tiene que entrar a TABLAS_DE_INQUILINO y 'email' a ServicioRuteo. Hecho = un email entrante aparece en la bandeja de «Probar».
+  - Dónde: `C:/dev/wt-puntas/app/api/webhooks/resend/ · lib/email-entrante.ts · lib/tablas-de-inquilino.ts · lib/webhook-ruteo-huella.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:2982`
+  - ⛔ Lo frena: El documento dice «Lo decide Martín» (toca la configuración del dominio).
+- **equipo@hola-mako.com probablemente NO recibe, y tres textos mandan ahí** · _chico_
+  - Qué falta: Crear el alias en el panel de Porkbun (la API no lo expone) y comprobarlo mandando un mail. Hoy la última línea del mail de acceso y los textos de /configuraciones y /email mandan a una dirección que puede no existir. Hecho = un mail a esa casilla llega.
+  - Dónde: `Panel de Porkbun · C:/dev/wt-puntas/lib/app-url.ts (MAKO_EMAIL, el default en código) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:3426`
+  - ⛔ Lo frena: Es un trámite en el panel del registrador: lo hace Martín.
+- **El aviso de 30 minutos al dueño sólo corre con Calendly: el ws13 (Cal.com) no lo recibe** · _chico_
+  - Qué falta: Extender correrPorWorkspace a Cal.com. Hecho = el dueño del ws13 recibe el aviso 30 min antes de la reunión.
+  - Dónde: `C:/dev/wt-puntas/app/api/cron/reunion-recordatorio/route.ts (correrPorWorkspace('calendly', …)) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037`
+  - ⛔ Lo frena: Extenderlo manda avisos nuevos a clientes reales.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (7)
+
+- **El eco de MaKo con dos líneas en un grupo, y el diseño de grupos tipo WhatsApp** · _mediano_
+  - Qué falta: Se marcó URGENTE el 4/11 y se repartió a la nube (`punta/doer-eco-dos-lineas`), más el diseño con Participantes e Invitar a la derecha (`punta/grupos-diseno`). Y falta probar los grupos de la app en producción, en el ws 3 (7 pruebas). DUDOSO: viene del 4/11 y no pude confirmar si entró; el eco trabó el ticket #58.
+  - Dónde: `docs/relevo/nube-grupos.md · docs/relevo/cerebro.md:147,152,173 · lib/mako-doer-in.ts`
+- **Joan pidio dos cosas en su grupo y nadie le contesto** · _chico_
+  - Qué falta: Nombre y apellido de las llamadas que quedaron sin marcar (y las cifras se contradicen: 25 vs 28 no-shows, 14 vs 10 sin marcar) y los links de las llamadas de la semana pasada. El calculo es del CRM; la respuesta la manda el Cerebro.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:42-44,128-129 · scripts/mensaje-equipo-al-grupo.mts`
+- **MaKo mando al grupo de Codigo un link con un dominio inventado** · _chico_
+  - Qué falta: «hola-malo.com/crm/2761»: falta el saneo de la salida al grupo. Hecho = ningun link de la salida con dominio que no sea el real.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:48,126 · C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md:183`
+- **Ocho audios de Martin y de Leandro sin transcribir** · _chico_
+  - Qué falta: Cinco .ogg de Martin (15/10, dos del 22/10, 23/10 «Tambien revisa esto», Florencia 25/10) y tres de Leandro (buffer 316, 318 y 327). Su contenido es justo lo que nunca se contesto.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:56,228-231,262,278`
+  - ⛔ Lo frena: Los archivos viven en la PC (~/.claude/operaciones/adjuntos y el buffer): la nube no los ve
+- **El vigia de MaKo en todos los grupos: vencio el 27/10 y no consta recreado** · _chico_
+  - Qué falta: Existe desde el 17/10 (`scripts/vigia-mako-grupos.mts`), pero su cron se borra al cerrarse la sesion. Prenderlo en seco, mirar el conteo y despues dejarlo en on.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:124,244 · scripts/vigia-mako-grupos.mts · VIGIA_GRUPOS en Vercel`
+- **La nota de voz nativa de WhatsApp necesita un encoder OGG/OPUS del lado del cliente** · _mediano_
+  - Qué falta: El backend ya acepta audio/ogg (AUDIO_OK). Falta opus-recorder (~175 KB gzip servido desde /public, import dinámico con ssr:false) en vez de grabar con MediaRecorder y re-encodear a MP3 con lamejs. Antes de prometerlo, verificar que el canal exponga voice:true hacia la Cloud API. Hecho = la burbuja sale como nota de voz, no como archivo.
+  - Dónde: `C:/dev/wt-puntas/app/whatsapp/audio.ts (blobToMp3) · app/whatsapp/EmpresaInbox.tsx:374 · app/api/whatsapp/contacts/[id]/attachments/route.ts:34 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2394`
+  - ⛔ Lo frena: Entrada de 2026-06-23; no pude confirmar si sigue abierto después del cambio de canal a Evolution.
+- **Los PDF no se previsualizan y «Ocultar contacto» no oculta nada** · _mediano_
+  - Qué falta: Dos pedidos repetidos del inbox: la vista previa del PDF («ha rechazado la conexión») y el botón de ocultar/desocultar con su confirmación, para las conversaciones personales que el dueño no quiere ver en MaKo. Hecho = un PDF abre en la vista previa y un contacto oculto desaparece del inbox.
+  - Dónde: `C:/dev/wt-puntas/app/whatsapp/ · lib/evolution-block.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:2184`
+  - ⛔ Lo frena: Reportes de julio de 2026; no pude confirmar contra el código si siguen.
+
+## Cobros
+
+### 🟢 Abiertos — se pueden hacer ya (20)
+
+- **El primer envío real del cobro a Código Inmobiliario: Pablo vence el 9/11 14:07 UTC** · _chico_
+  - Qué falta: Mirar que el cron salga de verdad (nunca se envió): Giselle US$37,60 el 9/11 14:07 UTC, Pablo máximo el 9/11, Marcela el 13/11. Al llegar el comprobante, devolver el acceso a los usuarios 15 y 19; sin pago el 11/11 suspender a Giselle (13, 25, 26) y el 13/11 a Marcela (27, 28). Hecho = el envío salió y el acceso quedó como corresponde.
+  - Dónde: `docs/relevo/nube-agencia-cobro.md · docs/relevo/cerebro.md:57,115-120 · tareas programadas codigo-diferencial-pablo-9-11, -giselle-12-11, -marcela-14-11`
+- **Mirar que el primer envio real del cobro de Codigo salga el lunes 9/11 a las 14:07 UTC** · _chico_
+  - Qué falta: Nunca se envio de verdad. Ese dia entra Giselle por US$37,60 y vence Pablo. Si no sale, Martin cobra a mano. Controles programados: `codigo-diferencial-pablo-9-11`, `-giselle-12-11`, `-marcela-14-11` (miran y avisan, no escriben).
+  - Dónde: `docs/relevo/cerebro.md:21,57,115-121 · docs/relevo/nube-agencia-cobro.md`
+- **A5: el aviso con el total de la agencia del 1 al 5 no existe** · _mediano_
+  - Qué falta: No hay consolidacion mensual de agencia. Hace falta un cron del dia 1 que sume los clientes de la agencia y avise. Prometido a Juanfran y Joan.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:84 · lib/agencia-cobro.ts · app/api/cron/`
+- **A6: no hay reloj fijo de 14 dias por cliente de agencia** · _mediano_
+  - Qué falta: Hoy el mes corre desde que el cliente termina el onboarding. Hace falta `inicio_at = alta + 14 dias` y que el cron de renovaciones lo respete.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:85 · lib/agencia-cobro-reglas.ts:10 · lib/agencia-cobro.ts`
+- **`porCobrar` le pone a Codigo 4/12 por US$238 y lo real es 5/12 por US$426** · _chico_
+  - Qué falta: Arreglo chico en la vista de ingresos. Se le paso al chat de la copia de Admin, sin confirmar. Ojo: NO registrar de nuevo los pagos ya cargados.
+  - Dónde: `docs/relevo/cerebro.md:85 (vistaDeIngresos)`
+- **La carrera de `emitir_recibo` nunca se probo** · _chico_
+  - Qué falta: Probarla con dos conexiones (`begin; select emitir_recibo(...); rollback;`). No se corrio porque escribe aunque se deshaga y el encargo era solo lectura.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:87`
+- **El lunes 9/11 a las 14:07 UTC sale el primer cobro real de una agencia y nunca se envió nada de verdad** · _chico_
+  - Qué falta: Mirar que salga el PDF de la entrada de Giselle (US$37,60) al grupo de MaKo con Código Inmobiliario. Nunca se mandó un PDF real ni se leyó un comprobante real de Binance ni se pausó a nadie de verdad. Antes, el 7 u 8/11, correr el cron en seco (`?dry=1`): tiene que decir nada del mes, ninguna entrada todavía y ninguna pausa nueva.
+  - Dónde: `C:/dev/wt-puntas/app/api/cron/agencia-mensualidad/route.ts ; pasos 6 a 8 en docs/relevo/nube-agencia-cobro.md:56-70 ; estado en docs/relevo/cerebro.md:57`
+- **Nada del cobro de agencias está verificado contra la base ni producción** · _mediano_
+  - Qué falta: Seis cosas sin medir: un comprobante real de Binance leído; la lectura de un PDF de comprobante (WhatsApp lo guarda como documento, sólo se probó foto); jsPDF dentro del bundle de Next con este PDF; que el grupo de MaKo de Código exista (`mako.grupo_jid` del 13); un comprobante que llega por el grupo de la APP no se lee (sólo el de WhatsApp); el recibo cuando una sola orden completa entrada y mensualidad a la vez.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md:100-108 ; lib/agencia-mes-comprobante.ts ; lib/agencia-mes-pdf.ts`
+- **Mirar /agency?ws=13 y decidir las tres tareas programadas `codigo-diferencial-*`** · _chico_
+  - Qué falta: Comprobar la tarjeta de diciembre en US$332 proyectado, «Entradas por pagar» con Pablo y Patricia, y «En pausa: Pablo · Patricia». Y decidir si las tres tareas programadas (9/11, 12/11 y 14/11, que avisan y no escriben) quedan o se apagan.
+  - Dónde: `C:/dev/wt-puntas/app/agency/Mensualidad.tsx ; pasos 7 y 8 de docs/relevo/nube-agencia-cobro.md:67-70`
+- **La suscripción mes a mes no existe en el teléfono** · _mediano_
+  - Qué falta: En /m la ficha dibuja el estado de cuenta viejo, no el bloque «Mes a mes». Además quedaron sin hacer: el prorrateo del diferencial (hoy lo calcula Martín y se registra como ajuste), una suscripción cobrada por la pasarela (su monto sale del lead, no del cobro) y cambiar el medio de un pago cobrado (sin botón ni operación).
+  - Dónde: `C:/dev/wt-puntas/app/m/ (ficha del lead) ; lib/cobros.ts ; docs/relevo/nube-suscripciones.md:98-104`
+- **Terminar el cobro de agencias: 0402/0403, fecha de Giselle, mensualidad del 13 y tres «Paga para entrar»** · _mediano_
+  - Qué falta: Seguir el orden de docs/relevo/nube-agencia-cobro.md: aplicar la 0402 (si falta) y la 0403, corregir la fecha de Giselle (17) al 2026-10-28, prender la mensualidad del 13 desde 2026-12 y pasar a 19, 22 y 15 a «Paga para entrar». Hecho = la pantalla de cartera muestra las mensualidades correctas con la cartera real.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md · supabase/migrations/ (0402, 0403) · lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74`
+- **Los carteles de tope le dicen «Pasa a MaKo Pro» al cliente de una agencia** · _mediano_
+  - Qué falta: Usar `clienteDeAgencia` de /api/auth/me para esconder el link y cambiar el texto a «pídele a tu agencia que te pase a Pro», en las siete pantallas que lo dibujan. Hecho = un cliente de agencia no ve ningún «Pasar a Pro».
+  - Dónde: `C:/dev/wt-puntas/app/crm/PasarAPro.tsx · app/crm/TraerDeGrupoWA.tsx · app/whatsapp/EvolutionConnect.tsx · app/equipo/EquipoView.tsx · app/m/configuraciones/equipo/EquipoM.tsx · app/web-generator/editor/dialogos/DialogoPublicar.tsx · app/integraciones/CuentasDePago.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:487`
+- **anularCobro cierra el link viejo con mejor esfuerzo: un link anulado puede seguir cobrable** · _mediano_
+  - Qué falta: Que anularCobro devuelva si la pasarela cerró el link, y que quien lo rehace no deje dos links vivos (hoy la plata puede entrar y el pago no quedar anotado por el índice). Hecho = anular un link falla ruidosamente si la pasarela no lo cerró.
+  - Dónde: `C:/dev/wt-puntas/lib/cobros.ts:1318 (anularCobro → cerrarLinkEnLaPasarela) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:299 y :487`
+- **Un comprobante que llega por el grupo de la APP no se lee (sólo el de WhatsApp)** · _mediano_
+  - Qué falta: Que el lector de comprobantes del cobro de agencias también mire los adjuntos del grupo de la app. Hecho = subir un comprobante en el grupo de la app marca el «Pagado».
+  - Dónde: `C:/dev/wt-puntas/lib/agencia-cobro.ts · app/_chat/grupo/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74`
+- **Nada avisa al super admin cuando pasa el día 5 sin el «Pagado» de una agencia** · _chico_
+  - Qué falta: Un aviso (push o grupo) al super admin pasado el día 5; hoy sólo se ve entrando a la pantalla o con ver_mensualidades_agencias. Hecho = el 6 llega el aviso con las agencias que no pagaron.
+  - Dónde: `C:/dev/wt-puntas/lib/agencia-cobro.ts · lib/api-mako/areas/ (ver_mensualidades_agencias) · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74`
+- **Cuatro bloques del catálogo de Pagos no tienen componente y se saltean** · _grande_
+  - Qué falta: Escribir confirmacion-de-pago, recordatorios-de-cobro, excepciones y cliente-en-cs. Para los recordatorios hace falta primero la columna lead_id (mig 0186). Hecho = los cuatro se dibujan cuando la plantilla los pide.
+  - Dónde: `C:/dev/wt-puntas/app/crm/lead-view/ficha/reglas-pagos.ts · app/crm/lead-view/ficha/pagos/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379`
+- **La ficha cuenta «hoy» en UTC: de 18 a 24 h de México una cuota que vence hoy sale vencida** · _chico_
+  - Qué falta: Sumar la zona del negocio a LeadFullData en getLeadFullAction y usar hoyEnTz en las dos pantallas. Hecho = la ficha, General y lo que dice MaKo coinciden sobre qué cuota está vencida.
+  - Dónde: `C:/dev/wt-puntas/app/crm/lead-view/ficha/FichaPorBloques.tsx:135 · app/customer-success/PagosCliente.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379`
+- **El prorrateo del diferencial de agencias lo calcula Martín a mano** · _mediano_
+  - Qué falta: Automatizar el prorrateo de los días hasta el próximo 5 por cada cliente nuevo (hoy se registra como ajuste). Hecho = el diferencial sale calculado sin que nadie lo cargue.
+  - Dónde: `C:/dev/wt-puntas/lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:1799 y C:/dev/wt-puntas/docs/hallazgos-agencias.md:517`
+- **Medir con claves de PRUEBA lo que nunca se probó de Stripe y Mercado Pago** · _mediano_
+  - Qué falta: Probar: si una rk_ restringida lee GET /v1/account; si la notification_url de MP llega firmada; si MP respeta el vencimiento de una preferencia anulada con el checkout abierto; en qué estado queda una suscripción de MP al llegar su end_date; el PUT del monto de un preapproval; hosted_invoice_url con la suscripción past_due; y la factura de $0. Hecho = cada punto con su medición escrita.
+  - Dónde: `C:/dev/wt-puntas/lib/cobros-conexion.ts · lib/pasarela-plan-api.ts · lib/mercadopago-api.ts · app/api/webhooks/mercadopago/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367 y :1567`
+- **Los 66 pagos de la base tienen `moneda` en null: los USDT de Codigo se cuentan como dolares sin rastro** · _mediano_
+  - Qué falta: Medido el 5/11: la tabla `pagos` entera son 66 filas (49 pagadas) y las 66 tienen `moneda` y `monto_original` en null. Los pagos manuales de Codigo entraron por Binance en USDT y quedan tratados como dolares sin que nada lo diga. Ademas `metodo` esta en null en 57 de 66, y el pago de Juanfran figura `transferencia` cuando fue Binance. Cualquier total que se muestre arriba de eso (MRR, Revenue, el runway) hereda el error. Hecho = los pagos nuevos guardan moneda y monto original, y las filas viejas quedan con su moneda real o marcadas como «sin dato».
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md §1 · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1 · C:/dev/wt-puntas/lib/pagos.ts · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/`
+
+### 🔴 Trabados — con su motivo (5)
+
+- **Falta el chat del cobro de agencia completo: el PDF por WhatsApp, el diferencial y las suspensiones** · _mediano_
+  - Qué falta: `punta/agencia-cobro` trae sólo lo del acuerdo del 30/10, apagado por defecto. No tiene el PDF por WhatsApp, el diferencial por cliente nuevo ni la suspensión del día 6 y de las 2 semanas. Hasta entonces no se prende la mensualidad del negocio 13 y se suspende a mano. Lo que falta está arriba de todo en su relevo.
+  - Dónde: `docs/relevo/nube-agencia-cobro.md (arriba de todo) · docs/relevo/cerebro.md:87`
+  - ⛔ Lo frena: Hay que arrancar un chat nuevo en un turno de Martín: un turno automático no puede crear chats en la app
+- **La plantilla y el registro de recibos en SuperAdmin** · _mediano_
+  - Qué falta: Salieron a mano los recibos N.º 0001 (octubre) y 0002 (noviembre) a Código, por WhatsApp y por correo; el próximo es el 0003. Los comprobantes, el PDF y `registro.json` están en C:/dev/cerebro-herramientas/cobros/codigo-inmobiliario/ esperando que exista el registro en la app. El encargo está escrito y sin chat arrancado.
+  - Dónde: `docs/relevo/recibos-encargo.md · docs/relevo/cerebro.md:103-105`
+  - ⛔ Lo frena: Lo tiene que arrancar un turno de Martín: desde un turno automático la app no deja crear el chat
+- **El cobro automatico de Codigo Inmobiliario: PDF, avisos del 1 al 5 y suspension** · _grande_
+  - Qué falta: `punta/agencia-cobro` trae solo lo del acuerdo del 30/10 y apagado: no tiene el PDF por WhatsApp, el diferencial ni la suspension del dia 6 ni la de las 2 semanas. Lo que falta esta arriba de todo en el relevo. Arranca 1/12.
+  - Dónde: `docs/relevo/nube-agencia-cobro.md (encabezado) · docs/relevo/cerebro.md:87,130`
+  - ⛔ Lo frena: Hace falta arrancar un chat nuevo y eso solo se puede en un turno de Martin (un turno automatico no deja)
+- **El cron `agencia-mensualidad?dry=1` nunca se corrio en seco** · _chico_
+  - Qué falta: Es una llamada HTTP a produccion con `CRON_SECRET`. Debe decir: nada del mes, ninguna entrada hasta el 9/11 y ninguna pausa nueva. Hecho = esa salida vista y anotada.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:85`
+  - ⛔ Lo frena: Lo tiene que correr quien tenga el CRON_SECRET
+- **Tres bajas y una media del cobro de agencias viven en una rama y no se pueden tocar desde main** · _mediano_
+  - Qué falta: Portar desde `agency-thiago-2910`: la guarda de «es la plataforma» y «tiene plan propio» en darDeBajaClienteDeAgencia y cambiarPlanDeCliente; negocioPausado sin guarda del ws1; H5 aceptando sólo «pagado + suscripcion_estado null»; la pausa programada que sigue pidiendo al-dia; el diálogo de «Elegir Esencial»; y aplicarSubidasPendientes con .limit(2000).
+  - Dónde: `C:/dev/wt-puntas/lib/agencia-baja.ts:81 · lib/agencia-plan.ts:70 y :197 · lib/workspace.ts:340 · lib/plan-acceso-reglas.ts:353 · lib/plan-acceso.ts:166 · app/agency/AgencyApp.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:299`
+  - ⛔ Lo frena: El código vive en la rama agency-thiago-2910 y no está en main.
+
+### 🟡 Esperan a Martín — nadie más los destraba (18)
+
+- **Elegir el proveedor de cobro que reemplaza a Creem** · _mediano_
+  - Qué falta: Creem rechazó la tienda el 5/11 y es definitivo (sus términos §20.6 no reabren a personas conectadas). Queda sólo Mercado Pago, así que no hay cobro en línea en USD: /planes/esencial dice «Todavía no cobramos en línea». Stripe no es opción (Argentina no está habilitada). Candidatos: Whop (consulta mandada el 5/11 23:06 UTC a support@whop.com, sin respuesta), dLocal Go (respaldo, con el sí del contador), Paddle, FastSpring. Lo elige Martín.
+  - Dónde: `docs/proveedores-de-cobro.md · docs/creem-retiros.md · docs/pendientes.md:131 (M3) · docs/relevo/cerebro.md:8,71`
+  - ⛔ Lo frena: Es la decisión de Martín, y sin pasarela no hay cobro en línea
+- **dLocal Go, paso 2: banco y CBU, DNI, domicilio y monotributo** · _chico_
+  - Qué falta: La cuenta a nombre de Leandro tiene el paso 1 verificado (procesa hasta US$3.000). Falta cargar banco y CBU, DNI, comprobante de domicilio y la constancia de monotributo (revisada: coincide, vale hasta el 6/12), más el sí del contador. Y la pregunta sin contestar: ¿seguimos cobrando a banco? No paga en cripto, sólo pesos a banco al cambio oficial. Si dice que sí: un chat en la nube para el conector (lib/cobros*).
+  - Dónde: `docs/proveedores-de-cobro.md (al final) · docs/relevo/cerebro.md:6`
+  - ⛔ Lo frena: Lo cargan Martín o Leandro, y falta el sí del contador
+- **Nada prueba que equipo@hola-mako.com reciba, y ahí llega la respuesta de Whop** · _chico_
+  - Qué falta: La prueba del 5/11 23:13 UTC («Prueba de la casilla equipo 5-11-kq7») no apareció en el Gmail de Martín. El reenvío vive en Porkbun (equipo@, info@ y leandro@ → hola.mako.app@gmail.com), con su inicio de sesión, y el conector de Gmail no ve esa casilla. Si no recibe, la respuesta de Whop se pierde.
+  - Dónde: `docs/hallazgos-comunicacion.md · docs/relevo/cerebro.md:61,93 · panel de Porkbun`
+  - ⛔ Lo frena: El panel de Porkbun y el Gmail son de Martín
+- **Los tres cortes de plata siguen apagados desde la revisión del 17/10** · _grande_
+  - Qué falta: `CORTE_DE_ACCESO_PRENDIDO` (quien deja de pagar sigue entrando; faltan 4 arreglos: el cron sólo ve cobros con alta_ws, un primer pago DEVUELTO pausa a quien paga, las cuotas se leen sin paginar, el tope de 5 y el orden de los pasos), `CORTE_POR_PLAN_PRENDIDO` (lo que no compró se puede usar por la API; falta que un negocio con capa pm que entra por /inicio a /general no vea «No está en tu plan») y `MIRAR_LINK_ANTES_DE_MARCAR` (marcar a mano una cuota ya pagada cuenta la plata dos veces; faltan 2 arreglos). Cada uno pide sus arreglos y una revisión adversarial antes de prenderse.
+  - Dónde: `lib/plan-acceso-reglas.ts · lib/api-tab.ts · lib/pagos.ts y lib/cobros.ts · docs/relevo/pagos.md §«APAGADOS por la revisión adversarial» · docs/pendientes.md:254-261`
+  - ⛔ Lo frena: Toca plata y pide el sí de Martín más una revisión adversarial con otra cuenta
+- **El secreto del webhook de Mercado Pago y un pago real de prueba** · _mediano_
+  - Qué falta: Sin el secreto, un pago aprobado no se asienta. Y nadie cobró nunca contra el proveedor de verdad: falta probar un pago real antes de publicar anuncios, con suscripción con fecha, firmas y contracargos. Además hay que decidir cada cuánto se actualiza el precio en pesos (hoy $73.555 y $151.805, al blue del 31/10) y la política de reembolso (al apagar la prueba gratis, la ley argentina da 10 días de arrepentimiento).
+  - Dónde: `docs/pendientes.md:110-118 · docs/relevo/pagos.md §«Lo que está QUIETO» · lib/cobros.ts`
+  - ⛔ Lo frena: Son claves y una compra real: sólo Martín
+- **Decidir el proveedor que reemplaza a Creem (dLocal Go, Whop o FastSpring)** · _mediano_
+  - Qué falta: Creem rechazo definitivo el 5/11 y queda solo Mercado Pago. dLocal Go tiene el paso 1 verificado y falta el paso 2 (banco y CBU, DNI, domicilio, monotributo) mas el si del contador; no paga en cripto. La consulta a Whop esta mandada y sin respuesta.
+  - Dónde: `docs/relevo/cerebro.md:6,8,71 · docs/proveedores-de-cobro.md (final)`
+  - ⛔ Lo frena: Los datos del paso 2 los cargan Martin o Leandro, y falta el si del contador
+- **Stripe en modo real y precios en EUR (cobrarle a la agencia de Thiago en Espania)** · _chico_
+  - Qué falta: Sin la clave LIVE en /integraciones del ws9 y sin `preciosLocales.EUR` en el setting `planes.mako`, no sale el link y Espania paga en USD. Tambien hay que revisar los Smart Retries.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:98 (B9) · lib/agencia-cobro-reglas.ts:128-146 · setting planes.mako`
+  - ⛔ Lo frena: Es su clave y el precio en euros es plata: lo decide y lo carga Martin
+- **La cuota en pesos cobrada entera con dolares declarados a otra tasa** · _chico_
+  - Qué falta: Hoy la cobranza le reclama US$100 a quien ya pago. Decidir A) los pesos enteros saldan la cuota (recomendada) o B) dejar como esta. B8 a B13 ya estan en main.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:75-78 · docs/relevo/pagos.md:60-67`
+  - ⛔ Lo frena: Es una decision de plata de Martin
+- **El precio en pesos sigue fijo al dolar blue del 31/10** · _chico_
+  - Qué falta: $73.555 y $151.805, puestos a mano. `git grep blue\|dolarapi\|bluelytics` no da nada en `lib/`. Falta decidir cada cuanto se actualiza y automatizarlo. Los chats `punta/pesos-al-blue` y `punta/cuota-en-su-moneda` todavia no existen.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:80-83 · docs/pendientes.md:111 · docs/relevo/cerebro.md:7`
+  - ⛔ Lo frena: Dos chats figuran «waiting on a human»: solo Martin los destraba
+- **Martin tiene que cargar su usuario de Binance en /admin/cobros** · _chico_
+  - Qué falta: Sin eso el cobro de Codigo no puede pedir el pago por cripto desde la app.
+  - Dónde: `docs/relevo/cerebro.md:130 · docs/relevo/pendientes-pc/por-repartir.md:439 · /admin/cobros`
+  - ⛔ Lo frena: Es su dato
+- **Mercado Pago de MaKo en el ws 9 y el precio en pesos del cliente de agencia** · _chico_
+  - Qué falta: Queda como lo unico que cobra el plan y sigue sin el secreto del webhook ni un pago real probado.
+  - Dónde: `docs/relevo/pendientes-barrido.md:130,165 · /admin/cobros`
+  - ⛔ Lo frena: El secreto del webhook y el pago real son suyos
+- **Los cortes siguen apagados desde la revision del 17/10** · _mediano_
+  - Qué falta: `CORTE_DE_ACCESO_PRENDIDO`, `CORTE_POR_PLAN_PRENDIDO` y `MIRAR_LINK_ANTES_DE_MARCAR` piden sus arreglos y una revision adversarial antes de prenderse.
+  - Dónde: `docs/relevo/pendientes-barrido.md:168`
+  - ⛔ Lo frena: Prenderlos corta el acceso a clientes: lo decide Martin
+- **Decisiones de plata abiertas (Partners, reembolso, Acelerador, Mexico)** · _chico_
+  - Qué falta: Si Partners paga el primer mes a precio de lista, el segundo nivel de Partners, el 40 % recurrente que prefiere Juanfran, la politica de reembolso (Ley 24.240, 10 dias), el precio del Acelerador, los planes en Mexico y la garantia grupal, y si las altas a mano llevan topes.
+  - Dónde: `docs/relevo/pendientes-barrido.md:165-169 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:86 (A7) · lib/partners-reglas.ts:28`
+  - ⛔ Lo frena: Son todas decisiones de precio
+- **Decisiones sobre el MRR y los datos de suscripcion del ws 11** · _chico_
+  - Qué falta: Que cuenta en el MRR del negocio (4 de 5 ganadas del ws 11 nunca pagaron), la suscripcion de US$4.235 (pago unico?), las 4 pagadas fuera de Ganado (1852, 1871, 1923, 1940) y si va una columna por cliente en /agency.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:80`
+  - ⛔ Lo frena: Son decisiones suyas sobre que se cuenta
+- **dLocal Go: falta el paso 2 de la cuenta y el sí del contador** · _mediano_
+  - Qué falta: La cuenta a nombre de Leandro tiene el paso 1 verificado (procesa hasta US$3.000). Falta cargar banco y CBU, DNI, comprobante de domicilio y constancia de monotributo (revisada: coincide, vale hasta el 6/12) — lo cargan Martín o Leandro. Y falta el sí del contador. Si dice que sí: un chat en la nube para el conector.
+  - Dónde: `C:/dev/wt-puntas/docs/proveedores-de-cobro.md (al final) ; lib/cobros* ; docs/relevo/cerebro.md:6`
+  - ⛔ Lo frena: Preguntado y sin contestar: «¿seguimos cobrando a banco?». No paga en cripto, sólo pesos a banco al cambio oficial. Los documentos los cargan Martín o Leandro.
+- **Whop: la consulta salió el 5/11 y sigue sin respuesta** · _chico_
+  - Qué falta: La consulta se entregó a support@whop.com desde equipo@hola-mako.com (Resend la da entregada). Martín tiene dicho no abrir cuenta todavía. Si dicen que sí, Martín crea la cuenta. Ojo: la respuesta llega a hola.mako.app@gmail.com y el conector de Gmail NO la ve.
+  - Dónde: `C:/dev/wt-puntas/docs/proveedores-de-cobro.md ; docs/relevo/cerebro.md:8 y :61`
+  - ⛔ Lo frena: Depende de que Whop conteste y de que Martín decida abrir o no la cuenta.
+- **Los planes en ARS y MXN no tienen precio local, así que Mercado Pago no se ofrece en /planes** · _chico_
+  - Qué falta: Cargar preciosLocales en el setting planes.mako del workspace de la plataforma (nunca se inventa una tasa). Hecho = /planes ofrece Mercado Pago a un visitante de Argentina o México.
+  - Dónde: `setting `planes.mako` del ws de plataforma · C:/dev/wt-puntas/lib/productos.ts · lib/api-mako/areas/cobros.run.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1567`
+  - ⛔ Lo frena: Es un dato de precio: lo define Martín.
+- **Cliente de agencia: MaKo (ws9) no tiene Mercado Pago conectado ni precio en pesos** · _chico_
+  - Qué falta: Conectar la pasarela en /integraciones?ws=9 y cargar el precio en pesos en /admin/cobros. Sin las dos cosas no sale ningún link de cobro de «Cliente de agencia». Hecho = se genera un link de pago para un cliente de agencia.
+  - Dónde: `/integraciones?ws=9 · /admin/cobros · C:/dev/wt-puntas/app/admin/cobros/VenderPlan.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367`
+  - ⛔ Lo frena: Hay que conectar una cuenta real de pasarela: es de Martín.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (5)
+
+- **Newsletter: M1 y las tres fallas de envio** · _mediano_
+  - Qué falta: La auditoria del 5/11 dice que cualquier admin de negocio entra a la tab y a su API, con doble envio en «Enviar ahora», lo programado vencido con el email apagado y archivar el CRM que no frena sus ediciones. El barrido del 6/11 dice que `app/newsletters/puerta.ts` ya exige super admin: hay que medir que queda.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:118 · docs/relevo/pendientes-barrido.md:196 · app/newsletters/puerta.ts · docs/hallazgos-newsletters.md`
+  - ⛔ Lo frena: Hoy sin riesgo: ningun negocio tiene el email prendido
+- **Cargar los recibos 0001 y 0002 y probar la carrera de `emitir_recibo`** · _chico_
+  - Qué falta: Correr `recibos-cargar-codigo.mts` primero en seco y después con `--aplicar` (es idempotente por clave; NO manda nada). Ojo: los renglones del 0002 van como «Natalia Krywyj» y «Sergio Arratia» (como salió el PDF) y la base dice «Natalia» y «Arriata», que está mal. Falta también probar la carrera con dos conexiones a la vez y mirar `GET /api/admin/recibos/ejemplo` en un preview antes de confiar en el correo.
+  - Dónde: `C:/dev/wt-puntas/scripts/recibos-cargar-codigo.mts ; pasos 2 a 6 en docs/relevo/nube-recibos.md:29-48`
+  - ⛔ Lo frena: El relevo es del 5/11 y la 0397 ya está aplicada; no hay registro de que la carga de 0001/0002 se haya corrido ni de que no. Hay que mirar Billing › Recibos antes de volver a correrla.
+- **Prender el corte de acceso por falta de pago (CORTE_DE_ACCESO_PRENDIDO) con la 0330 aplicada** · _mediano_
+  - Qué falta: Aplicar la 0330, correr la revisión adversarial y pasar el interruptor a true. Hecho = un negocio sin pago pierde el acceso por el camino nuevo, no a mano desde /admin.
+  - Dónde: `C:/dev/wt-puntas/lib/plan-acceso-reglas.ts (CORTE_DE_ACCESO_PRENDIDO) · lib/plan-acceso.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1567`
+  - ⛔ Lo frena: Entrada del 23/10/2026; no pude confirmar si se prendió después del 1/11.
+- **La baja del plan corta la PLATA pero no el ACCESO** · _mediano_
+  - Qué falta: Un workspace que se da de baja conserva su capa; hoy el acceso se saca a mano desde /admin. Hecho = al cancelar, el workspace queda sin la capa que pagaba, sin intervención manual.
+  - Dónde: `C:/dev/wt-puntas/lib/cobros.ts (aplicarSuscripcionCancelada) · lib/workspace.ts (la capa) · pendiente en C:/dev/wt-puntas/docs/hallazgos-planes-y-cobro.md:1367`
+  - ⛔ Lo frena: Entrada del 04/10/2026; una fila posterior de la misma tabla dice que el estado de suscripción por workspace sí se hizo el 17/10, así que puede estar resuelto en parte.
+- **La tab Pagos de Customer Success sigue montando DealDetailsCard** · _grande_
+  - Qué falta: Pasar la tab Pagos de CS a bloques (tanda T3 del CRM). Con eso se borran juntos EditarDeal, ?edit=1, «✦ Completar con IA», saveDealSectionsAction y saveCuotasAction. Hecho = CS muestra Pagos por bloques y esos cinco no existen.
+  - Dónde: `C:/dev/wt-puntas/app/customer-success/FichaPestanas.tsx:84 · app/crm/[id]/LeadDetailBody.tsx:207 · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379`
+  - ⛔ Lo frena: Otra entrada del 17/10 (docs/hallazgos-customer-success.md:5665) dice que la tab Pagos de CS ya pasó a bloques y que DealDetailsCard se borró: los dos documentos se contradicen.
+
+## CRM
+
+### 🟢 Abiertos — se pueden hacer ya (23)
+
+- **El barrido de horario de fábrica a los demás negocios no se corrió** · _chico_
+  - Qué falta: Leila (ws 11) ya quedó en 10 a 20 el 6/11 15:13 UTC. Faltan los demás: medido en seco da «poner 0 · marcar 1 · esperar 6 · nada 28». Las 6 «esperar» son negocios donde es de noche (ws 13 #264, 15 #266, 17 #703, 18 #265, 19 #698, 20 #702) y la «marcar» es ws 23 #726. Se corre de DÍA en la zona de cada uno. La #721 de Leila sigue de 0 a 24 por decisión de Martín: no se toca ni se vuelve a preguntar.
+  - Dónde: `scripts/horario-de-fabrica-prendidas.mts · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A2 · docs/relevo/cerebro.md:20,37`
+- **Código Inmobiliario: 21 fallos y 10 borradores de WhatsApp sin investigar** · _chico_
+  - Qué falta: El relevo de `crm-bajas-3010` lo deja escrito y dice «puede ser error nuestro». Hay que leer `errores_app` y `wa_borradores` del ws 13 y decir qué pasó. Es de un cliente que paga.
+  - Dónde: `docs/relevo/pendientes-barrido.md P15 · docs/relevo/pendientes-0311.md §3 («Código Inmobiliario, sin ticket») · errores_app y wa_borradores del ws 13`
+- **Ver el primer `automatico = true` cuando salga un envio automatico de WhatsApp** · _chico_
+  - Qué falta: La 0396 esta aplicada y el codigo que marca los automaticos (`1d12673f8`) ya estaba en produccion antes de la migracion: el UPDATE del relevo NO se corre. Lo que falta es ver la primera fila en `true`. Hecho = una fila `automatico=true` en `wa_mensajes` de un envio automatico.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:1,13-22 (A1) · lib/evolution-envio.ts · docs/relevo/cerebro.md:21,31`
+- **La busqueda avanzada del CRM, como la del plan** · _mediano_
+  - Qué falta: ID, acentos y orden libre ya estan. Faltan elegir campos, la busqueda con IA y la flechita: el `Buscador` sigue siendo un input simple. Martin lo marco como «te lo pedi».
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:178-180 · app/crm/CrmToolbar.tsx:351-362 · lib/buscar-texto.ts`
+- **Onboarding para inmobiliarias (sin closer, sin R1/R2)** · _mediano_
+  - Qué falta: Sin resultados para «inmobil» ni «closer» en `lib/onboarding*` ni `app/onboarding`. Ademas, que nada pida R1/R2 si el negocio no las usa (sacar el «Tipo de evento de R1» obligatorio al conectar Calendly).
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:182-183 · lib/onboarding-crm.ts:1-12 · docs/relevo/pedidos-perdidos-2810.md:86 · lib/calendly-aviso-reglas.ts`
+- **P15: Codigo Inmobiliario tiene 21 fallos y 10 borradores de WhatsApp sin mirar** · _chico_
+  - Qué falta: Leer `errores_app` y `wa_borradores` del ws 13 y repartir lo que aparezca. Marcado «cliente» en el barrido.
+  - Dónde: `docs/relevo/pendientes-barrido.md:159`
+- **«Guardar en MaKo» de la extensión nunca se vio en una página real** · _chico_
+  - Qué falta: Probar en el Chrome de Martín con un perfil de Instagram y uno de LinkedIn: que el botón aparezca, que el nombre salga bien (sale del título y de las etiquetas «og:»; si no, el campo queda vacío y se escribe a mano) y que el lead nazca con su foto. Después, publicar la 0.77.0.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-thiago-anuncios.md:54-58 ; el manifest de la extensión`
+- **Los paneles cuentan a un lead migrado el día que se migró** · _mediano_
+  - Qué falta: Migrar 5.000 contactos pinta 5.000 «leads nuevos» ese día. Ya se guarda `fecha_original`: contarlo en su fecha es usar `coalesce(fecha_original, created_at)` en los lectores de leads por período.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md:46-47 ; los lectores de leads por período`
+- **El anuncio programado (la mitad que falta de la promesa 5a)** · _grande_
+  - Qué falta: Hoy una campaña nace EN PAUSA (`proponer_crear_campana`) y no hay «fecha de inicio». El camino recomendado: enlazar el evento Anuncio a una campaña en pausa del Media Buyer y, a la hora del evento, un cron la prende por `lanzar` (zona, fecha de fin, topes), con la misma revisión adversarial de todo lo que gasta. La alternativa (pasarle a Meta un `start_time`) depende de que Zernio lo acepte y eso no está medido.
+  - Dónde: `C:/dev/wt-puntas/lib/media-buyer/ejecutar.ts (lanzar) ; docs/relevo/nube-thiago-migrar.md:51-55`
+- **La iniciativa de MaKo en el CRM está sin hacer** · _mediano_
+  - Qué falta: Falta la apertura del funnel sin declarar (necesita el canal y el diagnóstico en la estrella, y `declararEntradasAction`), la guía de la ficha del lead (`recorrido-ficha.ts`, `Senalar`), y `/crm?nuevo=1` («Ver los 12») que tampoco existe.
+  - Dónde: `C:/dev/wt-puntas/lib/aperturas/ ; docs/mako-iniciativa/plan.md §5 ; docs/relevo/nube-iniciativa.md:38`
+- **El botón «Editar» de la ficha no se pudo sacar y de él cuelgan siete cosas sin otro lugar** · _grande_
+  - Qué falta: Darle al DealDetailsCard su propio modo de edición dentro de la pestaña Pagos, y recién entonces mudar motivo de pérdida, deadline de nutrición manual, fecha de agendamiento, links de Fathom R1/R2, «Borrar lead» y la confirmación con el diff a lugares donde se lean. Hecho = el botón se puede borrar sin perder la edición del deal.
+  - Dónde: `C:/dev/wt-puntas/app/crm/[id]/DealDetailsCard.tsx (799 líneas, prop `editing`) · app/crm/[id]/EditLeadForm.tsx · app/crm/LeadSheet.tsx:211 y :327 · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7709`
+- **El evento «Calificado» a Meta no es idempotente para lo mandado antes del 17/10** · _mediano_
+  - Qué falta: Hacer idempotente el envío a Meta (hoy un lead marcado antes del 17/10 no tiene la línea del historial y volver a marcarlo pasadas las 48 h del dedup de Meta cuenta dos veces). Hecho = volver a marcar un calificado viejo no manda un segundo evento.
+  - Dónde: `C:/dev/wt-puntas/lib/leads.ts:922-946 · lib/meta-capi.ts:33 · lib/calificado-reunion.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:7821`
+- **El onboarding del CRM: la mitad existe y falta la PUERTA, con tres huecos medidos** · _grande_
+  - Qué falta: 1) Declarar un onboarding con prefijo crm_ en TAB_ONBOARDINGS (sin pantalla que lo complete deja a todos afuera del CRM, que es la primera tab de todos los roles). 2) Que cambiar «cómo vendo» después mueva el funnel (hoy la siembra corre una sola vez y funnels.canal está NULL en los 11 funnels de producción). 3) Montar EntradasCard también en el onboarding y el Segundo Cerebro (entradas está vacío en 6 workspaces con declarado=true). Hecho = un cliente elige su canal en el onboarding del CRM y sus etapas se siembran, y cambiarlo después las mueve.
+  - Dónde: `C:/dev/wt-puntas/lib/tab-onboarding-catalogo.ts · lib/fase-diagnostico.ts (CANALES) · lib/pipeline.ts (FUNNEL_TEMPLATES, templateDeCanal) · app/funnel/EntradasCard.tsx · app/api/onboarding/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1479`
+- **El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos** · _chico_
+  - Qué falta: Filtrar en listTareas como ya lo hace «Re-priorizar todo» con esDelPlanCliente. La SPEC lo pedía y ninguna tanda lo hizo. Hecho = el tablero del cliente no muestra tareas de Retro ni de experimentos.
+  - Dónde: `C:/dev/wt-puntas/lib/todo.ts (listTareas) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701`
+- **El filtro «Responsable» no existe en el tablero del dueño** · _mediano_
+  - Qué falta: Migración aditiva para plan_tareas.responsable_tipo y alguien que lo escriba, más el filtro en el tablero. Hecho = se puede filtrar el tablero del dueño por responsable.
+  - Dónde: `C:/dev/wt-puntas/app/plan/board/ · supabase/migrations/ (plan_tareas.responsable_tipo) · pendiente en C:/dev/wt-puntas/docs/hallazgos-plan.md:2701`
+- **El inbox de WhatsApp tiene su funnel hardcodeado en cuatro copias y es ciego a funnel_config** · _grande_
+  - Qué falta: Que las cuatro lecturas usen el funnel configurado. Hoy todos los leads de un cliente que vende por chat quedan en «Abierto» para siempre, y ese label es lo único que recibe whatsapp-advisor. Hecho = el inbox muestra las etapas reales del funnel del negocio.
+  - Dónde: `C:/dev/wt-puntas/lib/wa-etapas.ts:48 · app/api/whatsapp/conversations/route.ts:29 · lib/meta-rules.ts:78 · app/whatsapp/WhatsAppApp.tsx:227 · lib/whatsapp-advisor.ts:175 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316`
+- **faltantesParaMover decide con hoyEnTijuana() fijo: bloquea o destraba a MaKo un día antes o después** · _mediano_
+  - Qué falta: Pasar el gating a la zona del workspace (no es display: decide si una reunión «ya pasó» y si se exige asistencia o Fathom). Hecho = para un workspace en Madrid el borde del día es el suyo.
+  - Dónde: `C:/dev/wt-puntas/lib/leads.ts:1570 · lib/date-utils.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-ia.md:1971`
+- **saveFunnelAction no valida rol** · _chico_
+  - Qué falta: Sumarle el corte de rol como las demás server actions del CRM. Hecho = un closer no puede guardar el funnel.
+  - Dónde: `C:/dev/wt-puntas/app/crm/actions.ts:1771 · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316`
+- **Una nota dictada desde el teléfono se recorta a 4000 caracteres en silencio** · _chico_
+  - Qué falta: Rechazar con TOPE_NOTA y decirlo en el toast, en vez de cortar antes de llamar al alta (el rechazo del escritorio nunca la ve). Hecho = una nota más larga que el tope da error visible y no se guarda cortada.
+  - Dónde: `C:/dev/wt-puntas/app/m/crm/acciones.ts:80 (notaLeadAction, slice(0,4000)) · app/crm/notas-reglas.ts (TOPE_NOTA) · pendiente en C:/dev/wt-puntas/docs/hallazgos-mobile.md:1507`
+- **/crm/prospectos no tiene pantalla en MaKo Mobile, y buscar/pasar al CRM no está en la API** · _mediano_
+  - Qué falta: Página de prospectos en /m, y las escrituras de la API (buscar cuesta plata, pasar escribe en lote: piden pantalla propia). Hecho = en un teléfono se abre prospectos sin la cubierta de «se usa en la computadora».
+  - Dónde: `C:/dev/wt-puntas/app/m/crm/ · lib/api-mako/areas/crm.def.ts (listar_prospectos, busquedas_prospeccion) · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:10031`
+- **«Hacerlo» del chat de MaKo en el CRM puede duplicar entre instancias** · _chico_
+  - Qué falta: Reclamar con cambiarSettingSi en la base antes de calcular; hoy el candado EN_CURSO vive en memoria. Hecho = dos pestañas apretando «Hacerlo» crean una sola vez.
+  - Dónde: `C:/dev/wt-puntas/lib/sugerencias-crm-server.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306`
+- **Las clases 2 y 4 de las sugerencias de MaKo en el CRM no se hicieron** · _grande_
+  - Qué falta: Gestos repetidos (clase 2), «llega algo nuevo» (clase 4), «Perdidos hace 60 a 90 días» y «la etapa donde se cae la mitad». docs/sugerencias-mako-crm.md:4 todavía dice «Nada de esto existe todavía». Hecho = las cuatro sugerencias aparecen y se pueden callar.
+  - Dónde: `C:/dev/wt-puntas/lib/sugerencias-crm.ts · C:/dev/wt-puntas/docs/sugerencias-mako-crm.md:4 · pendiente en C:/dev/wt-puntas/docs/hallazgos-crm.md:1306`
+- **El encargo de la suscripcion en la ficha del lead y la vista de edicion (5/11) tampoco lo tomo nadie** · _grande_
+  - Qué falta: `docs/relevo/suscripciones-ficha-encargo.md` y su medicion (`suscripciones-medicion.md`, 110 lineas) no aparecen en ningun item de la lista. Lo pedido: que la ficha aguante una mensualidad que CAMBIA mes a mes (el caso real de Codigo Inmobiliario: 146 en octubre, 238 en noviembre en dos pagos) y una «vista de edicion» de las pestanas del detalle sin perder la personalizacion. Medido: produccion tiene 15 leads `suscripcion` (3 del ws9, 12 del ws11); los 3 del ws9 tienen `suscripcion_monto_usd` y `suscripcion_meses` en NULL aunque estan en Ganado y pagaron; el lead de Florencia tiene `cliente_ws` en null, asi que su pago no se puede atribuir por dato. Hecho = los 3 leads del ws9 con su monto, y el caso de Codigo entrando sin explicar nada.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/suscripciones-ficha-encargo.md · C:/dev/wt-puntas/docs/relevo/suscripciones-medicion.md · C:/dev/wt-puntas/app/crm/lead-view/ficha/pagos/bloques-cobro.tsx:54,497,756`
+
+### 🔴 Trabados — con su motivo (1)
+
+- **Black November de Leila: el segundo nombre y las cinco piezas que lo bloquean** · _grande_
+  - Qué falta: Sus contactos son «[país] Nombre Apellido» («MX Nadia Calderón»), así que el saludo sale «Hola MX»: hace falta elegir primer, segundo, tercer nombre o completo, y si no se puede determinar NO se inventa (mejor sin nombre que «Hola Kun»). Además: segmentar en tres ramas (no hicieron la Academia / sí la hicieron / dueños de negocio), importar su CRM exportado de la academia, variantes de mensaje con arranque gradual (la lección del número de Mauricio bloqueado 24 h por ~60 mensajes idénticos), métricas clicables (que «respondieron 8» muestre quiénes) y ver el nombre como lo agendó ella o como se llama él.
+  - Dónde: `docs/pendientes.md:32-45 · docs/relevo/pendientes-pc/pendientes-30-10.md §5 · app/crm/`
+  - ⛔ Lo frena: La lógica del embudo (5.6) NO es código: Leila necesita que Martín la ayude a definir condiciones y etiquetas
+
+### 🟡 Esperan a Martín — nadie más los destraba (7)
+
+- **Decidir si ganar en un funnel agregado cuenta como venta** · _grande_
+  - Qué falta: De esto cuelgan los números de plata del negocio (Revenue, Meta, CS), cuál es la casa de un opt-in con varios funnels y la invitación al curso al ganar en un segundo producto. Y la mitad de código: la etapa de un CRM agregado no se deriva (agendar no lo mueve), los agregados entran por el barrido de la hora y no por evento, y «Mover a Ganado» en un agregado no registra la venta. Hoy una renovación o una segunda venta no existe en los números.
+  - Dónde: `lib/lead-funnel.ts · lib/leads.ts · docs/relevo/pendientes-barrido.md C11 · docs/relevo/crm.md §5 punto 1 · docs/pendientes.md:275`
+  - ⛔ Lo frena: Es la decisión de producto de Martín; sin eso el motor no se puede escribir
+- **El alta del CRM usa solo la clave 1 de Apify: si se agota, deja de leer el @ mientras Spy sigue** · _chico_
+  - Qué falta: La rotacion de claves la tiene Spy; el alta del CRM quedo fijada a la primera (`soloLaPrimera`), como pedia el brief. Consecuencia: con la clave 1 sin credito, el CRM deja de traer el perfil escribiendo el @ aunque el negocio tenga otra clave con saldo. Cambiarlo es sacar `soloLaPrimera` y el assert de `variasClaves` en el guard.
+  - Dónde: `C:/dev/wt-puntas/lib/instagram-perfil-server.ts (`clavesApifyDeSpy`, `soloLaPrimera`); el guard en C:/dev/wt-puntas/tests/leads-scraper-retirado.test.ts; la ruta en C:/dev/wt-puntas/app/api/crm/instagram-buscar/route.ts`
+  - ⛔ Lo frena: Es plata del negocio y contradice el brief original: lo decide Martin.
+- **C11: la etapa de un CRM agregado no se deriva y «Mover a Ganado» no registra la venta** · _mediano_
+  - Qué falta: Agendar no mueve la etapa; los agregados entran por el barrido de la hora y no por evento. Es el motor mas una decision: ganar en un funnel agregado, es venta?
+  - Dónde: `docs/relevo/pendientes-barrido.md:110 · lib/lead-funnel.ts · lib/leads.ts`
+  - ⛔ Lo frena: La decision «ganar en un funnel agregado es venta» es de Martin
+- **Plan de pagos quincenal de Nadia (lead 2605, ticket #13)** · _mediano_
+  - Qué falta: Figura $4.235,29 x 12 cuotas el dia 8 y en realidad es quincenal (dias 1 y 15): la herramienta no permitia quincenas. El plan por tramos quedo en verde en `pagos-tramos-2910` sin recorrer. Hay que repreguntarle a Leila y cargarlo.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:164 · app/admin/dev/crm/bitacora.ts:3796 · docs/relevo/pendientes-pc/por-repartir.md:24`
+  - ⛔ Lo frena: El ticket #13 esta en `esperando_decision`: aprobarlo o cerrarlo escribe en produccion
+- **El tutorial de LinkedIn para importar el Connections.csv no se escribió** · _mediano_
+  - Qué falta: Se prometió junto con el botón «Guardar en MaKo» en la llamada del 29/10 con la agencia de Thiago. No existe. Aparte, LinkedIn todavía no es un canal de contacto del CRM: el lead nace sin email ni teléfono.
+  - Dónde: `C:/dev/wt-puntas/docs/promesas/2910-llamada-thiago.md ; docs/relevo/nube-thiago-anuncios.md:64-67`
+  - ⛔ Lo frena: Hay que decidir si LinkedIn entra como canal del CRM antes de escribir el tutorial.
+- **Los ganados y perdidos del CRM anterior vuelven como descartados** · _mediano_
+  - Qué falta: Hoy la migración los trae en `descartados`. Nacer en «Ganado» los vuelve venta con la fecha de HOY y cliente de Customer Success. Para traerlos hay que decidir con qué fecha de cierre entran y si entran a Customer Success.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-thiago-migrar.md:44-45 ; lib/api-mako (migrar_contactos)`
+  - ⛔ Lo frena: Dos decisiones de producto: la fecha de cierre y si entran a Customer Success.
+- **Decidir si el alta del CRM rota entre varias claves de Apify** · _chico_
+  - Qué falta: Hoy usa la clave 1 sola, como pedía el brief («no despiertan el buscador del alta del CRM»). Si la 1 se queda sin crédito, el CRM deja de leer el @ por Apify mientras Spy sigue. Cambiarlo es sacar `soloLaPrimera` en lib/instagram-perfil-server.ts y el assert de `variasClaves` en el test.
+  - Dónde: `C:/dev/wt-puntas/lib/instagram-perfil-server.ts (soloLaPrimera) ; tests/leads-scraper-retirado.test.ts ; docs/relevo/nube-apify.md:51-55`
+  - ⛔ Lo frena: El brief de Martín decía explícitamente que el alta del CRM no despierte el buscador: cambiarlo contradice el pedido.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (9)
+
+- **Un lead borrado se lleva en cascada sus envíos y no queda quién lo borró** · _mediano_
+  - Qué falta: 4.457 filas de historial de leads que ya no existen y la papelera en 0 en todos los negocios (a los 30 días se purga, y dos caminos no pasan por ella). Es un agujero de trazabilidad. VIENE DE UN DOC DEL 30/10: medir contra el código antes de tomarlo.
+  - Dónde: `lib/leads-papelera.ts · lib/leads-unificar.ts:190 · lib/zernio-entrante.ts:235 · docs/hallazgos-crm.md (arriba) · docs/pendientes.md:139 (A0)`
+- **A1 de Codigo: la metrica de tiempo de respuesta de leads (primer contacto)** · _mediano_
+  - Qué falta: No hay campo de primer contacto en el lead; solo existe el «Tiempo de respuesta» de Chat Analyst, que mide conversaciones. Falta el campo, la metrica y la pieza en la plantilla Closing. Hay chat `punta/codigo-primer-contacto`.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:80 · lib/leads.ts · lib/closing-diseno.ts · lib/graficos-fuentes-extra.ts`
+- **El opt-in con lead duplicado pierde el `visitor_id`** · _mediano_
+  - Qué falta: La cookie ya lleva `domain=`. Falta que el `visitor_id` pase de la propuesta duplicada a la ficha (`git grep visitor_id` sin resultados en `lib/leads-duplicados.ts` ni `app/crm/leads-importar.ts`). El barrido del mismo dia lo da por hecho: hay que medirlo.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:48-51 · docs/relevo/pendientes-barrido.md:200 · lib/leads-duplicados.ts · docs/hallazgos-landing.md:3441`
+- **El scrapeo de grupos cae en un funnel por defecto** · _chico_
+  - Qué falta: Los contactos scrapeados de Leila aparecieron en el funnel de Lidermente y los saco a mano. `ExtraccionModal` recibe `funnelActivo` pero no se ve que pasa sin funnel activo: probarlo sin funnel elegido y obligar a elegir destino.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:60 (1.17) · app/crm/CrmBoard.tsx:3778`
+- **Lead Fabi Pedraza: los datos fiscales no se pueden cargar y falta adjuntar la constancia** · _mediano_
+  - Qué falta: Al cargarlos solo salen SETTER y CLOSER; y hay que poder adjuntar la constancia fiscal a la ficha desde el chat. Hubo una punta `crm-fiscal-2910` en verde el 29/10: medir si entro.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:85 · docs/relevo/pendientes-pc/por-repartir.md:33 · C:/dev/revisiones/2710-leila-leila.md:95-101`
+- **Los 61 de 341 pedidos de disenio del CRM sin implementar** · _grande_
+  - Qué falta: Volver a medir los 61 contra main y sumarlos a su orden. El critico del relevamiento avisa que esto tiene dueno y no estaba perdido.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:89,246`
+- **Chats en el telefono: el super admin no puede cambiar entre su numero y el de MaKo** · _mediano_
+  - Qué falta: Resto sin hacer del pedido del 24/10 («que simplemente pueda cambiar entre mi numero y el de MaKo»).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:92 · app/admin/dev/chats/bitacora.ts:118 · /m/chats`
+- **Migrar lo que Leila paga aparte (GoHighLevel por API, Skool)** · _grande_
+  - Qué falta: Que deje de pagar lo que MaKo reemplaza: importar contactos, etapas y automatizaciones por la API, y bajar su comunidad de Skool. CapCut, Canva y Gamma tambien estan en su lista.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:110 · app/crm/leads-importar.ts · memory/leila-apps-y-pro-97.md:16-18`
+- **El `case 'funnel'` del onboarding existe y nadie lo llama: el funnel no se siembra con el canal elegido** · _chico_
+  - Qué falta: De estado-del-arte.md (punto 30). Verificado: `app/api/onboarding/route.ts:324` tiene un `case 'funnel'` escrito. El documento dice que no tiene caller, asi que el funnel nunca se siembra con el canal que la persona eligio, y eso bloquea meter las etapas del funnel en el Second Brain. Hecho = el caso se llama desde el paso del onboarding y un negocio nuevo arranca con su funnel sembrado.
+  - Dónde: `C:/dev/wt-puntas/app/api/onboarding/route.ts:324 · C:/dev/wt-puntas/docs/estado-del-arte.md punto 30`
+  - ⛔ Lo frena: Documento anterior al 1/11: confirme que el `case` existe, no que siga sin caller (hay que buscar quien lo invoca antes de escribir).
+
+## Thumbnails
+
+### 🟢 Abiertos — se pueden hacer ya (19)
+
+- **La biblioteca de Thumbnails no está cargada: falta la 0409 y los tres pasos desde la PC** · _chico_
+  - Qué falta: 1) `node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql`; 2) `thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad`; 3) `… leer --max 120 --de-verdad`; 4) curar con `estado`/`excluir`/`ocultar`/`sumar`. Hasta entonces la pestaña dice que la biblioteca todavía no está cargada. Hecho = la pestaña Thumbnails de Image muestra tarjetas 16:9 con sus filtros.
+  - Dónde: `supabase/migrations/0409_thumbnails_biblioteca.sql · scripts/thumbnails-biblioteca.mts · docs/carruseles/thumbnails.md → «Cargarla, desde la PC» · docs/relevo/cerebro.md:14-15,83`
+- **Volver a leer y podar cada mes, porque sin la enmienda de YouTube lo guardado vence a los 30 días** · _chico_
+  - Qué falta: Dejar agendado `leer` + `podar --de-verdad` una vez por mes. Hoy no hay cron: la pantalla deja de mostrar lo leído hace más de 30 días y el catálogo se vacía solo. Hecho = la biblioteca nunca aparece vacía por vencimiento.
+  - Dónde: `scripts/thumbnails-biblioteca.mts (`leer`, `podar`) · docs/carruseles/thumbnails.md punto 5 de «Cargarla, desde la PC» · lib/thumbnails/carga.ts`
+- **Las miniaturas de las cuentas que el negocio ya sigue en Spy no entran a la pestaña** · _mediano_
+  - Qué falta: Spy ya guarda las suyas en `spy_piezas.miniatura`, pero mezclar las dos bibliotecas cambia de quién es cada tarjeta. Se puede sumar como «De tus cuentas», igual que en carruseles. Está sin hacer a propósito, y es una decisión de producto además de código.
+  - Dónde: `docs/carruseles/thumbnails.md §«Lo que no se hizo» · lib/thumbnails/servidor.ts · spy_piezas.miniatura`
+- **La biblioteca de Thumbnails está vacía: falta descubrir canales y leer sus videos** · _mediano_
+  - Qué falta: La migración 0409 ya está aplicada (6/11), pero no hay ni un canal ni un video, así que la pestaña dice que la biblioteca no está cargada. Correr, desde la raíz del clon con el .env.local de producción: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts leer --max 120 --de-verdad` Ojo con la cuota: `search.list` tiene un balde propio de 100 llamadas por día para TODA la app, y `descubrir` usa una por rubro e idioma (tope `--max-busquedas`, 12 por defecto). Hecho = `/image-editor?que=thumbnails` muestra tarjetas 16:9 con vistas y «Ver en YouTube».
+  - Dónde: `scripts/thumbnails-biblioteca.mts (cabecera con el uso, líneas 20-32); docs/carruseles/thumbnails.md:53-86; supabase/migrations/0409_thumbnails_biblioteca.sql`
+- **Curar la biblioteca de Thumbnails después de cargarla** · _chico_
+  - Qué falta: Igual que la de carruseles: se esconde lo que no le sirve a un dueño de negocio, mirando los descartes antes de aplicar (ya se midió que el modelo barato se pasa de estricto). Comandos: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts estado` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts excluir @canal --motivo "No sirve a dueños de negocio" --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts ocultar <idDelVideo> --de-verdad` `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts sumar @canal --nicho ventas --idioma es --de-verdad` Hecho = `estado` muestra los canales por rubro e idioma y nada obviamente fuera de lugar en la grilla.
+  - Dónde: `scripts/thumbnails-biblioteca.mts:28-31; docs/carruseles/thumbnails.md:77-84`
+  - ⛔ Lo frena: Depende de que primero se cargue la biblioteca.
+- **Lo leído de YouTube vence a los 30 días y nadie programó la relectura mensual** · _chico_
+  - Qué falta: Sin la enmienda III.L, lo que se guarda de la API (títulos, vistas) vence a los 30 días: la pantalla no lo muestra (`vigente`) y hay que borrarlo. Falta dejarlo corriendo solo o anotado en el calendario: `leer` de nuevo y después `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts podar --de-verdad` Hecho = o hay una tarea programada que lo hace cada mes, o la fecha está anotada donde alguien la vea.
+  - Dónde: `scripts/thumbnails-biblioteca.mts:31 (`podar`); lib/thumbnails/ (`vigente`, `podar`); docs/carruseles/thumbnails.md:86`
+- **El rubro de un canal lo pone la búsqueda, no un clasificador** · _chico_
+  - Qué falta: Un canal de ventas que hace un video de marketing queda en ventas. Es una limitación conocida, no un bug. Hecho = o se clasifica el video (pasada de IA, como el «tema» de carruseles) o queda documentado que el rubro es del canal y no del video.
+  - Dónde: `lib/thumbnails/carga.ts; docs/carruseles/thumbnails.md:94`
+- **Cargar la biblioteca de Thumbnails desde la PC: descubrir y leer (la migracion 0409 ya esta aplicada)** · _mediano_
+  - Qué falta: Correr los pasos 2 y 3 de «Cargarla, desde la PC» con el .env.local de PRODUCCION, desde la raiz del clon. En seco por defecto: sin --de-verdad no escribe nada. Comandos TEXTUALES: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180` / `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` / `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts leer --max 120 --de-verdad`. El paso 1 (`node scripts/apply-migration.mjs supabase/migrations/0409_thumbnails_biblioteca.sql`) NO hace falta: el relevo mas nuevo dice 0409 aplicada el 6/11. HECHO cuando `estado` liste canales y videos y /image-editor?que=thumbnails deje de decir que la biblioteca todavia no esta cargada.
+  - Dónde: `C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-75 (los comandos) · C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts · C:/dev/wt-puntas/lib/thumbnails/carga.ts`
+  - ⛔ Lo frena: Solo se puede desde la PC: la nube no llega a la YouTube Data API ni a la base. `descubrir` gasta del balde de search.list, que son 100 llamadas por dia para TODA la app (tope del script: --max-busquedas, 12 por defecto), asi que una corrida mal apuntada deja a Spy sin busquedas ese dia.
+- **Curar la biblioteca de Thumbnails: sacar lo que no le sirve a un dueno de negocio** · _mediano_
+  - Qué falta: Despues de la carga, mirar y curar como la biblioteca de carruseles. Comandos TEXTUALES: `node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts estado` / `... excluir @canal --motivo "No sirve a duenos de negocio" --de-verdad` / `... ocultar <idDelVideo> --de-verdad` / `... sumar @canal --nicho ventas --idioma es --de-verdad`. HECHO cuando `estado` no liste canales fuera del publico de MaKo y la pestania se vea con tarjetas utiles a un dueno de negocio.
+  - Dónde: `C:/dev/wt-puntas/docs/carruseles/thumbnails.md:77-84 · C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts`
+  - ⛔ Lo frena: Depende de que primero corra la carga (descubrir + leer). Trampa de consola ya medida en el script hermano de carruseles: una palabra que empieza con # le llega al script vacia, hay que escribirla entre comillas.
+- **La poda de los 30 dias de Thumbnails es a mano y nadie la automatizo** · _chico_
+  - Qué falta: Sin la enmienda III.L, lo que se guarda de la YouTube Data API (titulos, vistas) vence a los 30 dias: la pantalla no muestra lo leido hace mas (`vigente`) y hay que borrarlo (`podar`). El documento lo deja como «cada mes: `leer` de nuevo y `podar --de-verdad`», y no hay cron ni tarea programada que lo llame. HECHO cuando exista una tarea programada que corra `leer` + `podar --de-verdad`, o cuando quede anotado como paso fijo del Cerebro con su fecha.
+  - Dónde: `C:/dev/wt-puntas/docs/carruseles/thumbnails.md:86 · C:/dev/wt-puntas/lib/spy-reglas.ts:313 (metricasVencidas) · C:/dev/wt-puntas/lib/thumbnails/explorar.ts`
+- **Probar «Editar» de una miniatura con la IA de verdad** · _chico_
+  - Qué falta: Nunca se probo: la nube no tiene claves. Despues de cargar la biblioteca, correr `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>` (con --guardar queda en Image). HECHO cuando el diseno de 1280x720 salga con el texto del negocio, con las fuentes que el editor tiene y sin recuadros grises donde deberia haber foto.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:195-202 · C:/dev/wt-puntas/lib/carruseles/replica-servidor.ts (replicarEjemplo con que: 'thumbnail')`
+  - ⛔ Lo frena: Depende de la carga de la biblioteca. Gasta unos centavos de la IA del ws3.
+- **«Editar» contestaba «Tu IA no contesto ahora» en produccion: falta comprobar el arreglo** · _chico_
+  - Qué falta: Martin lo vio en produccion el 6/11. El chat de carruseles encontro dos causas y las arreglo (la portada se pedia al CDN de la biblioteca y no a nuestro bucket, asi que la IA no recibia ninguna imagen, y el camino de solo texto usaba `chatCheap`, que corta en 512 tokens; ahora es `chatCheapCascade` con 8.000 y la portada se baja con `fetchSeguro`). Falta COMPROBARLO en produccion con /image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727. HECHO cuando «Editar» devuelva un diseno y no el aviso.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/cerebro.md:19 · C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:163-169`
+  - ⛔ Lo frena: Hay que mirarlo en produccion con una sesion que no sea de un cliente.
+- **Cargar la biblioteca de Thumbnails desde la PC (nadie corrio ningun paso)** · _mediano_
+  - Qué falta: Correr los cuatro pasos de `thumbnails-biblioteca.mts`: `descubrir --por-par 8 --dias 180`, `leer --max 120`, `estado` y la curaduria (`excluir`, `ocultar`, `sumar`), primero en seco y despues con `--de-verdad`. Hecho = la pestania Thumbnails de Image deja de decir que la biblioteca no esta cargada.
+  - Dónde: `docs/carruseles/thumbnails.md:53-83 · scripts/thumbnails-biblioteca.mts · docs/relevo/cerebro.md:14`
+  - ⛔ Lo frena: `descubrir` gasta del balde de 100 busquedas por dia de YouTube
+- **Probar en pantalla la pestania Thumbnails y el «Editar» que dejo la nube** · _chico_
+  - Qué falta: El relevo de la nube deja para el Cerebro «la carga de Thumbnails y la prueba de Editar». La carga ya tiene su comando; la prueba en pantalla no se hizo.
+  - Dónde: `docs/relevo/cerebro.md:14 · docs/relevo/nube-carruseles-rediseno.md:82-91`
+  - ⛔ Lo frena: Depende de que primero este cargada la biblioteca
+- **Cargar la biblioteca de Thumbnails: la migración 0409 ya está aplicada pero nunca se corrió la carga** · _chico_
+  - Qué falta: Correr `thumbnails-biblioteca.mts descubrir --por-par 8 --dias 180 --de-verdad` y después `leer --max 120 --de-verdad` desde la PC con el .env.local de producción. Hecho = la pestaña /image-editor?que=thumbnails muestra tarjetas 16:9 en vez de «la biblioteca todavía no está cargada». El Cerebro lo dice textual: «No corrí ninguno» (cerebro.md:14). Usa del balde de 100 búsquedas de search.list por día.
+  - Dónde: `C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts ; pasos en C:/dev/wt-puntas/docs/carruseles/thumbnails.md:53-86`
+- **Probar «Editar» de una miniatura con una IA real** · _chico_
+  - Qué falta: Después de cargar la biblioteca, correr `carruseles-probar-editar.mts --ws 3 --que thumbnail --id <id>`. Hecho = se abre un diseño de 1280×720 en el Image Editor con texto del negocio, no del ejemplo. Nunca se probó: la nube no tiene claves.
+  - Dónde: `C:/dev/wt-puntas/scripts/carruseles-probar-editar.mts ; lib/carruseles/replica-servidor.ts (replicarEjemplo con que:'thumbnail')`
+- **Volver a leer y podar la biblioteca cada mes (vence a los 30 días)** · _chico_
+  - Qué falta: Sin la enmienda III.L lo guardado de la API de YouTube vence a los 30 días: la pantalla no muestra lo leído hace más (`vigente`) y hay que correr `leer` otra vez y `podar --de-verdad`. Queda como tarea mensual recurrente desde la primera carga; hoy no existe cron ni tarea programada que lo haga.
+  - Dónde: `C:/dev/wt-puntas/scripts/thumbnails-biblioteca.mts (podar) ; docs/carruseles/thumbnails.md:86`
+- **Las diez caras nuevas de gurús tienen los `grandes/` agrandados, no el original** · _mediano_
+  - Qué falta: Los grandes/ de los diez últimos son los 200×200 de Canva escalados a 600 con bicúbica (los catorce primeros son los 1264 reducidos): en la tarjeta de Spy se ven blandos. Para rehacerlos hay que exportar el original desde Canva (un diseño con la imagen y export-design); los ids de media de los diez están anotados. Hecho = los diez grandes/ a 600 reales y la tarjeta nítida.
+  - Dónde: `C:/dev/wt-puntas/public/asesores/grandes/ · lib/asesores/catalogo.ts · ids y procedimiento en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:467`
+- **La miniatura dibujada de las plantillas de Video sigue sin hacerse** · _mediano_
+  - Qué falta: De los enchufes de «plantillas propias», Video espera al editor: los 6 templates nuevos, retirar dos, los clips de Pexels y la miniatura dibujada. Hecho = una plantilla de Video muestra su miniatura en la galería.
+  - Dónde: `C:/dev/wt-puntas/app/video-generator/ · lib/plantillas-propias/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:122`
+
+### 🟡 Esperan a Martín — nadie más los destraba (6)
+
+- **El múltiplo de las miniaturas espera la enmienda III.L de YouTube** · _chico_
+  - Qué falta: Las Developer Policies (III.E.4.h) prohíben mostrar un puntaje calculado por nosotros sobre vistas o me gusta salvo con la enmienda III.L. Hoy el interruptor está en `false`: la tarjeta muestra las VISTAS, el orden de entrada es «Más vistas» y el deslizador del múltiplo no aparece. El cálculo ya existe (`multiplosDe`): el día que se firme, sale solo cambiando la constante. Hecho = el trámite presentado y firmado, y `ENMIENDA_III_L` en `true`.
+  - Dónde: `lib/spy-reglas.ts:208 (`export const ENMIENDA_III_L: boolean = false;`), lib/multiplo-rendimiento.ts:170, lib/api-mako/areas/imagen.run.ts:435; docs/carruseles/thumbnails.md:19-27`
+  - ⛔ Lo frena: Es un trámite con YouTube: lo firma Martín. Es el mismo interruptor que Spy, y ya figura en la lista de decisiones suyas del relevo de la PC.
+- **Las miniaturas de los canales que sigue el negocio en Spy no entran a la pestaña** · _chico_
+  - Qué falta: Spy ya guarda las suyas (`spy_piezas.miniatura`), pero mezclarlas con la biblioteca de la plataforma cambia de quién es cada tarjeta, así que se descartó a propósito. Se puede sumar como una fuente «De tus cuentas», igual que en carruseles. Hecho = Martín decide si lo quiere; si sí, un filtro «de dónde» como el de carruseles.
+  - Dónde: `lib/thumbnails/explorar.ts y lib/thumbnails/servidor.ts; docs/carruseles/thumbnails.md:91-93`
+  - ⛔ Lo frena: Decisión de producto, no de código.
+- **El multiplo de YouTube espera el tramite: la enmienda III.L** · _chico_
+  - Qué falta: El codigo esta TODO escrito y probado: el dia que se firme la enmienda III.L con YouTube se cambia `ENMIENDA_III_L` de false a true y salen solos el multiplo de la tarjeta, el VPH, el orden por multiplo (`ordenesDisponibles` ya lo ofrece, `thumbnailsDe` ya lo calcula) y la retencion de metricas a 36 meses. Mientras siga en false la tarjeta muestra VISTAS, el orden de entrada es «Mas vistas» y el deslizador del multiplo no aparece. El commit que lo prenda tiene que actualizar tambien docs/hallazgos-competitors-spy.md con la fecha.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-reglas.ts:208 (la constante) · C:/dev/wt-puntas/lib/multiplo-rendimiento.ts:173 · C:/dev/wt-puntas/lib/api-mako/areas/imagen.run.ts:435 · C:/dev/wt-puntas/docs/carruseles/thumbnails.md:21-25`
+  - ⛔ Lo frena: Es un acuerdo firmado con YouTube, no un if. Las Developer Policies III.E.4.h prohiben un puntaje hecho con vistas o me gusta, y la sancion declarada es «quota reduction or termination» sobre la MISMA clave que usa produccion. El tramite lo hace Martin.
+- **El múltiplo («4,2×») de las miniaturas espera el trámite con YouTube (enmienda III.L)** · _chico_
+  - Qué falta: Firmar la enmienda III.L de las Developer Policies de YouTube y poner `ENMIENDA_III_L = true`. Confirmado en código hoy: sigue en `false` (lib/spy-reglas.ts:208). Hasta entonces la tarjeta muestra vistas y el orden de entrada es «Más vistas»; el día que se firme sale solo (`thumbnailsDe` ya lo calcula). Es el MISMO trámite que frena el múltiplo de YouTube en Spy.
+  - Dónde: `C:/dev/wt-puntas/lib/spy-reglas.ts:208 (ENMIENDA_III_L) ; docs/carruseles/thumbnails.md:19-27`
+  - ⛔ Lo frena: Es un trámite legal con YouTube, no código. Nadie puede avanzarlo sin que Martín lo inicie.
+- **Decidir si las miniaturas de las cuentas que el negocio sigue en Spy entran a la pestaña** · _mediano_
+  - Qué falta: Hoy no entran, a propósito: mezclar las dos bibliotecas cambia de quién es cada tarjeta. Se puede sumar como una sección «De tus cuentas», igual que en carruseles. Spy ya guarda las suyas en `spy_piezas.miniatura`.
+  - Dónde: `C:/dev/wt-puntas/docs/carruseles/thumbnails.md:91-93 ; lib/thumbnails/explorar.ts`
+  - ⛔ Lo frena: Es decisión de producto: cambia de quién es cada tarjeta de la pestaña.
+- **La foto de Ximena Fukuda es una toma de escenario y su parecido es el más flojo** · _chico_
+  - Qué falta: Si aparece una foto de frente, vale regenerar la caricatura. Y queda por confirmar si es «Samuel Albaa» o «Samuel Alba» (el repo dice Albaa en 16 archivos, hasta el slug del curso; su canal se llama «Samuel Alba \| Ventas»): si es Alba, «Inspirado en Samuel Albaa» publica un apellido mal escrito. Hecho = la cara regenerada y el nombre confirmado.
+  - Dónde: `C:/dev/wt-puntas/public/asesores/ · lib/asesores/catalogo.ts (IdAsesor, ASESORES, FICHAS) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:270 y :467`
+  - ⛔ Lo frena: El nombre no se puede confirmar desde el repo: se confirma con él o con su sitio.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (1)
+
+- **«De tus cuentas» en Thumbnails: dos documentos del mismo dia se contradicen** · _chico_
+  - Qué falta: docs/carruseles/thumbnails.md lo deja abierto («se puede sumar como De tus cuentas, igual que en carruseles») y la autocritica del MISMO dia y la MISMA punta lo declara descartado («cambia de quien es cada tarjeta»). Spy ya guarda las miniaturas de las cuentas que sigue el negocio en `spy_piezas.miniatura`. HECHO cuando uno de los dos documentos se corrija: o se implementa la franja, o thumbnails.md dice que esta descartado y por que.
+  - Dónde: `C:/dev/wt-puntas/docs/carruseles/thumbnails.md:91-93 contra C:/dev/wt-puntas/docs/relevo/nube-carruseles-rediseno.md:189`
+
+## Video
+
+### 🟢 Abiertos — se pueden hacer ya (12)
+
+- **Tres operaciones del chat llegan al Video Editor por primera vez y pueden romper** · _mediano_
+  - Qué falta: Salio del arreglo del 30/10 en Image (la doble validacion que tiraba todo el texto): `agregar_texto`, `estilo_texto`, `transformar` y `ajustar_color` no pasaban NUNCA, en los dos editores. Ahora pasan, y en Video quedan tres huecos: `cambiar_texto` sobre un texto de plantilla lo devuelve a su ancla y deshace un `transformar` anterior sin avisar; `opacidad_fondo` o `grosor_trazo` sueltos pueden no hacer nada o prender un trazo que la revision no muestra; y una propuesta vieja que solo tenia esas operaciones puede reaparecer una vez al abrir el proyecto (no se midio si hay alguna). Ademas el Video Editor no tiene las fotos desde el chat. HECHO cuando las tres se prueben en el Video Editor con una propuesta real.
+  - Dónde: `C:/dev/wt-puntas/app/video-editor/_opencut/chat/comandos.ts · _opencut/chat/linea.ts · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:692-694 y 740`
+  - ⛔ Lo frena: El codigo vive en app/video-editor: es del chat de Video, aunque el hallazgo salio del de Image.
+- **Muapi como segundo motor de video** · _grande_
+  - Qué falta: Hay disenio escrito (`459bd7c0f`) y `git grep -i muapi` no da nada en `lib/` ni `app/`. Hecho = un video generado por Muapi como alternativa a Flow.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:147-149 · docs/diseno-ai-avatar-estudios.md:53`
+- **El «Creador de formatos» que pidio Martin** · _mediano_
+  - Qué falta: `app/video-generator/formatos-datos.ts` existe y nadie lo importa. Falta la pantalla y el flujo.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:155-157 · app/video-generator/formatos-datos.ts · docs/hallazgos-generativa.md:4622`
+- **La curva de retencion por video no se puede ver** · _chico_
+  - Qué falta: `curvaRetencion` acepta `videoId` y nadie se lo pasa. Pedido: «que todos los videos se puedan medir».
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:206-207 · app/admin/dev/vsl-tracking/bitacora.ts:34`
+- **Nada del Video Editor (subtítulos, B-roll y clips) se miró en un navegador** · _mediano_
+  - Qué falta: La nube no corre el editor (necesita WebGPU y el WASM). Falta: palabras clave (subtítulos automáticos con el interruptor, el panel, guardar un preset y verlo en Plantillas «De tu marca»); B-roll (`probar-broll-ia.mts --ws 3`, conectar Pexels, «Proponer», borde punteado, Dejar/Sacar y Ctrl+Z); clips (`probar-clips-ia.mts --ws 3`, «Buscar los mejores momentos», «Ver», «Abrir», y probar con un video de 30 min o más).
+  - Dónde: `C:/dev/wt-puntas/scripts/probar-broll-ia.mts y scripts/probar-clips-ia.mts ; docs/relevo/nube-video-clips.md:37-48`
+- **Los 6 templates nuevos de Video no entraron** · _mediano_
+  - Qué falta: Sumar los 6 templates nuevos, retirar `gancho-escrito` y `oferta-glitch`, sumar los clips de Pexels y la miniatura dibujada (`MiniaturaPlantilla`). Lo que no entró está listado en la cabecera del archivo de ejemplos. Es trabajo del chat de Video.
+  - Dónde: `C:/dev/wt-puntas/lib/editor-video/plantillas-ejemplos.ts (la cabecera) ; docs/relevo/nube-plantillas.md:43-46`
+- **Las plantillas propias no funcionan en Video porque el proyecto vive en el navegador** · _grande_
+  - Qué falta: El enchufe de `lib/creaciones-enchufes.ts` necesita que el editor arme la plantilla (el proyecto no está en el servidor). Dueño declarado: el chat de Video. Aparte, Offer, AI Avatar, Web Generator y Dashboard están sin empezar (Dashboard ya tiene `hojaParaCopiar`).
+  - Dónde: `C:/dev/wt-puntas/lib/creaciones-enchufes.ts (POR_ENCHUFAR) ; lib/creaciones-reglas.ts ; docs/relevo/nube-plantillas.md:37-41`
+- **Montar un anuncio desde el chat y renderizar en servidor no existen** · _grande_
+  - Qué falta: Lo que pidió Martín el 25/10 y no se construyó: (1) la operación montar_anuncio_video (la API sólo lee, con ver_montaje_anuncio); (2) editar un video pedido por chat y que salga renderizado (el Video Editor exporta sólo en el navegador, no hay render en servidor ni en MaKo Desktop). Martín quiere las dos vías, «también con servidor de MaKo». Hecho = se pide un montaje por chat y vuelve el archivo.
+  - Dónde: `C:/dev/wt-puntas/lib/api-mako/areas/video.def.ts · app/video-editor/_opencut/services/renderer/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1304`
+- **El worker usa la duración de la PRIMERA toma para todas y la pantalla afirma «no una palabra»** · _mediano_
+  - Qué falta: Pasarle segundosPorToma entero al script y que plan-cortes-anuncio tope cada toma con la suya; medir segundosAntes del audio real o rotularlo estimado; e invocar el verificador de palabras (verificar-corte-anuncio.mjs está en el Dockerfile y no lo llama nadie, así que palabrasPerdidas no llega nunca). Hecho = una toma más larga que la primera no pierde lo que se dice después del tope, y la frase de la pantalla está medida.
+  - Dónde: `C:/dev/wt-puntas/worker/montar-cola.mjs:126-132 · scripts/plan-cortes-anuncio.mjs:78 · app/video-generator/PasoMontaje.tsx:144-152 · app/api/montaje/worker/route.ts:43 · scripts/verificar-corte-anuncio.mjs · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1100 y :1139`
+- **Recalibrar los subtítulos para Anton (MAX_CHARS, CUERPO, Y venían de Segoe UI Black)** · _chico_
+  - Qué falta: Anton es más angosta: si esos números salieron de mirar cuadros, los renglones quedan cortos. Sin verificar, y la sesión que los eligió ya cerró. Hecho = un render con Anton mirado cuadro a cuadro y los tres números ajustados.
+  - Dónde: `C:/dev/wt-puntas/scripts/montar-anuncio-vertical.sh (MAX_CHARS=18, CUERPO=52, Y=950) · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:956`
+- **El Video Editor no tiene Deshacer, no reordena tomas y no tiene música** · _grande_
+  - Qué falta: Ctrl+Z (una pila de planes en un useRef, con las operaciones puras ya en editor-cortes.ts); el arrastre para mover un tramo de lugar (el plan ya lo soporta: es un array ordenado); y la música, esperando Epidemic Sound Connect (una fila en PISTAS y anda). Hecho = los tres andan en el editor.
+  - Dónde: `C:/dev/wt-puntas/app/video-editor/_opencut/ · lib/editor-cortes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1139`
+- **Cada video de avatar empuja anuncios viejos afuera del historial (tope de 10)** · _mediano_
+  - Qué falta: Los videos de avatar son un plan del historial del Video Generator, con MAX_HISTORIAL = 10: hacer muchos saca anuncios viejos con el único puntero a sus clips (los LOOKS no tienen ese problema, viven en ai-avatar.looks). Hecho = los videos de avatar no comparten el tope con los anuncios.
+  - Dónde: `C:/dev/wt-puntas/app/ai-avatar/actions.ts (crearVideoAction) · app/video-editor/avatar/actions.ts · app/video-generator/video-datos.ts (MAX_HISTORIAL) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ai-avatar.md:280`
+
+### 🔴 Trabados — con su motivo (1)
+
+- **Nada del Video Editor se miró en un navegador, y la rama no se pudo pushear** · _mediano_
+  - Qué falta: Lo primero a probar: importar → dividir → texto → exportar MP4/MOV/WebM y medirlo con ffprobe, más la vista previa y el export con RNNoise, la tarjeta que muestra los silencios de a uno, y el umbral/ventana/mínimo de «Borrar silencios» (hoy fijos y sin controles). Hecho = el recorrido hecho en un navegador con sus mediciones.
+  - Dónde: `C:/dev/wt-puntas/app/video-editor/ · app/video-editor/audio/dsp/ruido.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-editor.md:1523`
+  - ⛔ Lo frena: La PC de 16 GB no levanta el dev server del editor con otros chats compilando, y el typecheck bloqueó el push de la rama video-editor.
+
+### 🟡 Esperan a Martín — nadie más los destraba (6)
+
+- **Motion sigue suspendido a proposito y su rama sin subir** · _grande_
+  - Qué falta: `motion-imagen-2610` quedo anotada y sin subir; su VERDE nunca entro (los tests no entraron en la RAM). Falta la decision de retomarlo.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:131 · docs/relevo/nube-ramas.md · docs/relevo/pendientes-pc/por-repartir.md:319`
+  - ⛔ Lo frena: Suspendido por decision; se retoma cuando Martin lo diga
+- **Terminar de copiar CapCut: faltan 40 de 158 funciones y la musica de biblioteca** · _grande_
+  - Qué falta: Inventario completo en el repo. La musica depende de la decision D7g (quien paga la licencia de cada cliente).
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:114 · docs/editor-video/inventario-copia-capcut.md · docs/feedback-diseno-pendiente.md:28`
+  - ⛔ Lo frena: La licencia de musica de cada cliente la decide Martin (D7g)
+- **La generacion de video de punta a punta nunca se probo en vivo** · _mediano_
+  - Qué falta: `ai-avatar.looks` esta vacio en todos los workspaces y el ws3 nunca vinculo la extension. «Medir en vivo» sigue como paso 1 del relevo desde el 6/9.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:115-118 · docs/hallazgos-ai-avatar.md:299-309 · docs/relevo/video-generator.md:59-61`
+  - ⛔ Lo frena: Hace falta que Martin genere un look real en el ws3 (destraba tambien /planes y la tarjeta de la landing)
+- **El worker del montaje quedó muerto: sin contenedor y sin probar de punta a punta** · _grande_
+  - Qué falta: Decidir si se borra o se deja como camino alternativo; si se despliega, conviven (for update skip locked) pero el worker seguiría sin sts-N.mp3. Y necesita provisionar el contenedor (cuenta de Martín) más la cola y el bucle (el Dockerfile no trae CMD a propósito). Hecho = el worker corre un montaje real, o los tres archivos se borran.
+  - Dónde: `C:/dev/wt-puntas/worker/montar-cola.mjs · worker/Dockerfile · app/api/montaje/worker/route.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-video-pipeline.md:1304 y :956`
+  - ⛔ Lo frena: Provisionar el contenedor necesita la cuenta de Martín, y borrar o conservar es una decisión suya.
+- **AI Avatar: la voz clonada existe sólo en scripts/ y convertirVoz no tiene llamador** · _grande_
+  - Qué falta: El Video Generator anima con la voz que genera Flow; el reemplazo por la voz clonada (STS + remux) no está enchufado en app/ (el remux puede hacerse en el navegador con mediabunny, ya es dependencia). Y falta el guion largo hablado de 30 s a 3 min con labios guiados por audio, que es donde gana HeyGen. Hecho = un avatar habla con la voz clonada del cliente.
+  - Dónde: `C:/dev/wt-puntas/lib/elevenlabs.ts (convertirVoz, 0 call sites en app/) · app/ai-avatar/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ai-avatar.md:280`
+  - ⛔ Lo frena: El motor de retrato + audio es gasto de medios de la plataforma: es una decisión de precio de Martín.
+- **AI Avatar se abrió a los tres planes sin probarlo de punta a punta con un look real** · _mediano_
+  - Qué falta: Medido el 29/10: el motor nunca generó un look en producción (ai-avatar.looks vacío en todos los workspaces), el ws3 nunca vinculó la extensión y ninguna estaba lista. Lo que pide, y lo hace Martín: entrar al ws3, «Conectar» desde el popup, abrir Flow con una cuenta de Google, subir una foto y generar un look. Y 26 de los 28 presets no tienen imagen de ejemplo. Hecho = un look generado en el ws3 con una cuenta real.
+  - Dónde: `C:/dev/wt-puntas/app/ai-avatar/actions.ts (crearLookAction) · lib/ai-avatar/plantillas.ts (ejemplo) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ai-avatar.md:280`
+  - ⛔ Lo frena: Pide Chrome con la extensión, sesión de Google Flow con una cuenta que paga créditos y una foto: lo hace Martín.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (6)
+
+- **Paso 3 del Video Editor (la cabecera) quedo trabado** · _mediano_
+  - Qué falta: `EditorHeader` arrastra codigo de servidor al banco (@opentelemetry/api, http...). Relevo en `motion-imagen-2610` @ 75c5c8f82 y banco en C:/dev/revisiones/editor-pantalla-3010/banco/.
+  - Dónde: `docs/relevo/pendientes-pc/por-repartir.md:381,383 · rama motion-imagen-2610 @75c5c8f82`
+- **Subtitulos, B-roll, clips y presets: entraron a produccion el 6/11 y nadie los vio** · _mediano_
+  - Qué falta: El relevo del 6/11 11:45 los da en produccion (7db26c611), pero la auditoria del 5/11 los daba como FALTA (resaltado automatico en «Proximamente», clips magicos sin codigo, B-roll sin pipeline). Hay que mirarlos en Chrome y cerrar los que esten.
+  - Dónde: `docs/relevo/cerebro.md:27 · docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:53,67,71 · docs/relevo/pendientes-barrido.md:190-191`
+  - ⛔ Lo frena: La tanda 5 del Video Editor en Chrome esta «en pausa por el»
+- **Los proyectos del Video Editor viven en el navegador y no hay tope por plan** · _mediano_
+  - Qué falta: Promesa a Teo sin resolver: almacenamiento del editor y tope por plan.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:115 · C:/dev/revisiones/2810-promesas-teo.md:152`
+- **Editar un video pedido por chat, renderizando en un servidor de MaKo** · _grande_
+  - Qué falta: Pedido de Martin del 28/10 (respuesta a D7a), con la parte de MaKo Desktop aparte. Sin medir contra main.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:112`
+- **Ticket #15: el Video Editor no importa un mp4 de Leila** · _chico_
+  - Qué falta: «ESP_Fabi sentada_limpio.mp4». Esperaba un reporte nuevo del chat de Video; el ticket sigue sin cerrar en la fuente que lei.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:176 · app/admin/dev/video-editor/bitacora.ts:27`
+- **Los subtitulos siguen sin habilitar: `timestamp_granularities` no esta en lib/transcribe.ts** · _mediano_
+  - Qué falta: De estado-del-arte.md (punto 35). Verificado hoy: grep de `timestamp_granularities` en `lib/transcribe.ts` no devuelve NADA, asi que la transcripcion no pide marcas por palabra y sin eso no hay subtitulos. `lib/elevenlabs.ts` ya existe (eso si se escribio). Falta el parametro en las dos llamadas y el campo de palabras en los dos tipos. Hecho = una transcripcion devuelve palabras con tiempo y el Video Editor dibuja el subtitulo.
+  - Dónde: `C:/dev/wt-puntas/lib/transcribe.ts (las dos llamadas, ~:172 y :258 segun el documento) · C:/dev/wt-puntas/lib/elevenlabs.ts · C:/dev/wt-puntas/docs/estado-del-arte.md punto 35`
+  - ⛔ Lo frena: El pedido viene de un documento anterior al 1/11; la ausencia del parametro si la confirme, pero no que siga siendo lo que Martin quiere.
+
+## Admin
+
+### 🟢 Abiertos — se pueden hacer ya (16)
+
+- **`wa_mensajes.automatico`: 76 filas quedaron como «persona» y pueden contaminar el primer contacto de Código** · _chico_
+  - Qué falta: (1) Confirmar que el deploy con lib/evolution-envio.ts (1d12673f8) está Ready en Vercel; (2) si para entonces hay filas `false` de ANTES del deploy, devolverlas a null con el update exacto del documento. Medido: desde las 00:40 UTC del 6/11 hay 76 salientes, TODOS false, 0 en true — si el código estuviera en producción, Leila (ws 11, con secuencias activas) tendría alguno en true. El ws 13 todavía no se contaminó (1.065 salientes, todos null). ESCRIBE en producción: pide el sí.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §A1 · lib/evolution-envio.ts · supabase/migrations/0396_wa_mensajes_automatico.sql (ya aplicada)`
+  - ⛔ Lo frena: Depende de saber la hora exacta del deploy, que no se ve desde la PC
+- **Cinco filas de avisos de la plataforma escritas y sin crear en producción** · _chico_
+  - Qué falta: Correr `scripts/mudanza-avisos-plataforma.mts --aplicar` para `meta_cuenta_frenada_agencia` y `meta_cuenta_recuperada_agencia` (alta: sin ellas la alerta de Meta de un cliente de agencia no le sale a nadie), `social_tope` y `reunion_tareas_al_plan` (ésta nace pausada, con la exclusión del ws 13). Más: crear la plantilla «Tu contraseña cambió» en el ws 9, y corregir el texto de la fila viva #261 (dos estados dicen «Tu cuenta» sin «publicitaria»: `gracia` y `liquidacion`).
+  - Dónde: `scripts/mudanza-avisos-plataforma.mts · docs/relevo/pendientes-barrido.md P5-P9 · docs/relevo/nube-nada-por-detras.md §«Para el Cerebro» · docs/pendientes.md:21-22`
+- **Admin: Runway con la foto del 3/10, el mazo viejo sin borrar y el historial congelado** · _mediano_
+  - Qué falta: Actualizar capital y fechas del runway (o que mande Strategy); borrar Mazo.tsx, Tablero.tsx y sus rutas-puerta (/tickets/decisiones, /admin/runway) con sus tests, que ya nadie dibuja; el registro de todo lo que hace cada usuario, que Martín pidió y nadie tomó; el historial de /admin/dev congelado al 11/10. Y el arreglo pendiente de la copia de Polar: `porCobrar` le pone a Código 4/12 por US$238 y lo real es 5/12 por US$426.
+  - Dónde: `app/admin/runway/datos.ts · app/tickets/decisiones/Mazo.tsx · app/admin/runway/Tablero.tsx · docs/relevo/pendientes-barrido.md §«Para OTROS chats» → Admin · docs/relevo/cerebro.md:85`
+- **«Cargar pago», devolver y eliminar en Admin, sin probar con datos reales** · _chico_
+  - Qué falta: La copia de Polar con los 43 arreglos entro a produccion el 6/11, pero esas tres acciones nunca se ejercieron con datos de verdad.
+  - Dónde: `docs/relevo/cerebro.md:27,31 · app/admin`
+- **El agente del Marketing CoPilot nunca se probo con IA real** · _chico_
+  - Qué falta: Hay 14 conversaciones escritas para probarlo. Hecho = las 14 corridas con IA real y su resultado anotado.
+  - Dónde: `docs/marketing-copilot/conversaciones.md · docs/relevo/cerebro.md:31`
+- **Restos de Admin: Runway con foto vieja, el mazo viejo y el registro de acciones** · _mediano_
+  - Qué falta: Runway tiene una foto del 3/10; hay que borrar el mazo viejo, hacer el registro de acciones por usuario y el historial de /admin/dev. Anotado como «para otros chats».
+  - Dónde: `docs/relevo/pendientes-barrido.md:119-120 · app/admin/runway/datos.ts · app/tickets/decisiones/Mazo.tsx · app/admin/runway/Tablero.tsx`
+- **Sin probar en Admin: «Cargar pago», devolver y eliminar con datos reales** · _chico_
+  - Qué falta: El Cerebro lo dejó anotado como «sin probar». La 0408 ya está aplicada, así que «Cargar pago» debería registrar el pago en el CRM; hasta que se pruebe, no se sabe.
+  - Dónde: `C:/dev/wt-puntas/app/admin/ ; docs/relevo/cerebro.md:31`
+- **Avisarle al jefe «Sidebar» que /admin pliega la barra de MaKo** · _chico_
+  - Qué falta: /admin pliega la barra como el Ops Center (`pliegaLaBarra` con `SECCIONES_ADMIN`, exportada de app/_components/nav.ts). No cambia las familias ni el menú, pero el jefe Sidebar tiene que saberlo.
+  - Dónde: `C:/dev/wt-puntas/app/_components/nav.ts (SECCIONES_ADMIN, pliegaLaBarra) ; docs/relevo/nube-admin-polar.md:131-132`
+- **Lo que hace cada persona no se dibuja en la ficha de su negocio (Customers)** · _mediano_
+  - Qué falta: `vistaDeActividad` ya trae la actividad por negocio; falta pintarla en la ficha. Y queda la opción de Usage como pestaña aparte (hoy vive dentro de Activity, copiado de PostHog): si Martín la quiere aparte, son las mismas cuentas en otra pestaña.
+  - Dónde: `C:/dev/wt-puntas/lib/admin-actividad (vistaDeActividad) ; app/admin/ ; docs/relevo/nube-admin.md:80-86`
+- **Tres arreglos del recorrido visual en Admin que ningún chat tocó** · _chico_
+  - Qué falta: SB1: la caja dice «Escribe a Chat nuevo» (app/admin/operaciones/Conversacion.tsx:250 y PiezasCliente.tsx:179). CU1 y CU2: las cuentas de prueba cuentan como clientes, y «Nuevos en 30 días» y «Para mirar» tienen alcances distintos sin decirlo. Quedaron fuera porque el brief decía «No toques Admin».
+  - Dónde: `C:/dev/wt-puntas/app/admin/operaciones/Conversacion.tsx:250 ; app/admin/operaciones/PiezasCliente.tsx:179 ; lib/clientes-plataforma.ts:164 ; lib/customers-vista.ts:74,78`
+- **Faltan los hitos en las bitácoras de /admin/dev de varias áreas** · _chico_
+  - Qué falta: Dashboards, Carruseles y Recorrido visual no escribieron su hito porque el brief prohibía tocar app/admin. Los commits y el pedido textual de Martín están en cada relevo, listos para pegar. El Copywriter además no es un área de /admin/dev (ningún `vive[]` declara app/copywriter) y Offer no tiene bitácora.
+  - Dónde: `C:/dev/wt-puntas/app/admin/dev/dashboard/bitacora.ts ; app/admin/dev/admin/bitacora.ts ; docs/relevo/nube-dashboards.md:49-50 ; docs/relevo/nube-recorrido-visual.md:81-83`
+- **El Ops Center: etapa 2 (la cuota) y etapa 3 (el señalador) sin empezar** · _grande_
+  - Qué falta: Las dos etapas del Centro de Operaciones quedaron escritas y sin hacer. Hecho = la cuota se ve y el señalador funciona.
+  - Dónde: `C:/dev/wt-puntas/app/admin/operaciones/ · C:/dev/wt-puntas/docs/relevo/centro-operaciones.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:2340`
+- **Ops Center: nada se miró en la app de verdad, con la sesión de Martín** · _mediano_
+  - Qué falta: Falta la sesión de un invitado real (requireMovil; Joan y Juanfran: si comparten fila en usuarios no se puede invitar a los dos), el push tocado en un Android, y el ?ws= de WsFetch contra las rutas del grupo. Hecho = recorrido con la sesión real y lo visto anotado.
+  - Dónde: `C:/dev/wt-puntas/app/_chat/grupo/HiloDelGrupo.tsx · app/admin/operaciones/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-ops-center.md:120`
+- **Customers: seis pendientes de la ficha de un negocio** · _grande_
+  - Qué falta: El MRR mes a mes de verdad (hoy se dibuja lo cobrado; el histórico pide una foto por día que nadie guarda); las fichas de agencia con sus clientes adentro; administrar desde el teléfono; pasar onboardingsHechos y leadsDe a leerPorPaginas (con más de 1000 negocios la primera corta en silencio); Activity por negocio dentro de su ficha; y marcar la entrada de una agencia (/api/agencia/entrar) en la fila del cliente para que un cliente de agencia pueda entrar en «Sin uso». Hecho = los seis verificados en /admin.
+  - Dónde: `C:/dev/wt-puntas/lib/clientes-plataforma.ts · app/admin/ · app/api/agencia/entrar · pendiente en C:/dev/wt-puntas/docs/hallazgos-customers.md:255`
+- **El encargo de rehacer la tab Customers como «Admin» (5/11) no lo tomo nadie y ninguna familia lo leyo** · _grande_
+  - Qué falta: `docs/relevo/admin-encargo.md` es un encargo completo del Cerebro, escrito el 5/11 para una sesion de la nube, y no figura en ninguno de los items que trajeron las siete familias. Pide seis bloques: Actividad (quien se conecta y quien dejo de entrar), Uso por tab y por negocio, Errores y tickets, Ingresos (total por cliente, mes a mes, MRR, movimientos, sumando pasarela MAS lo cobrado a mano), Cobros (suscripciones, deudas, proximos, recibos) y Usuarios (alta, suspender, inspeccionar). Sigue sin empezar: `app/customers/` esta entera y `SECCIONES_ADMIN` todavia arranca con 'customers'. La medicion que lo acompana (`admin-medicion.md`, 153 lineas) tampoco se leyo. Hecho = la tab se llama Admin y los seis bloques muestran los numeros de la medicion.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/admin-encargo.md · C:/dev/wt-puntas/docs/relevo/admin-medicion.md · C:/dev/wt-puntas/app/customers/ · C:/dev/wt-puntas/app/_components/nav.ts:225 (SECCIONES_ADMIN)`
+- **La tab de Admin le muestra a Martin «Lo que entro este mes · US$0» y un texto que es falso** · _mediano_
+  - Qué falta: Medido el 5/11 contra produccion: `lib/clientes-plataforma.ts` calcula el MRR solo con filas de `cobros` que tengan `alta_ws` o `cliente_ws` y esten `activa`; las 2 filas que hay no cumplen ninguna de las dos, asi que MRR = 0 y «pagan» = 0. El numero grande que se ve es el del mes en curso, no el cobrado ni el MRR. Y el texto de «sin plata» dice «tus clientes tienen el plan dado a mano» cuando no hay ni una fila `plan.a_mano` en `app_settings`: es una frase falsa en pantalla. Lo cobrado de verdad son US$578 (Leila 97, Codigo 146 + 238 sin cargar, Florencia 97). Hecho = el numero grande dice que es, el MRR cuenta lo manual, y el texto de vacio no afirma algo que la base no dice.
+  - Dónde: `C:/dev/wt-puntas/lib/clientes-plataforma.ts (`cobrosDeLugares`, `factura`, `cuotasDeLaPlataforma`) · C:/dev/wt-puntas/app/customers/ (CustomersApp, bloque «Plata») · C:/dev/wt-puntas/docs/relevo/admin-medicion.md §1`
+
+### 🔴 Trabados — con su motivo (1)
+
+- **Marketing CoPilot: `punta/marketing-copilot` nunca llego a main** · _chico_
+  - Qué falta: Cabeza en `361c64223` (arregla que una cuenta vacia tambien vea la primera entrada). Cuando entre: correr `scripts/desplegar-ya.mjs` desde C:/dev/wt-puntas y borrar C:/dev/wt-copilot (primero `cmd //c rmdir` del enlace node_modules, despues `git worktree remove`).
+  - Dónde: `docs/relevo/cerebro.md:29,34 · scripts/desplegar-ya.mjs`
+  - ⛔ Lo frena: El chat de la nube figura «waiting on a human» desde antes de las 05:45 UTC y no subio nada: lo destraba Martin
+
+### 🟡 Esperan a Martín — nadie más los destraba (4)
+
+- **Mirar en pantalla todo lo que se desplegó sin que nadie lo vea** · _mediano_
+  - Qué falta: Con la sesión de Martín, en producción: Admin (Revenue MRR esperado US$432 / «Subió +US$92», Users, Errors, Activity), la tarjeta «Primer contacto» de la hoja Closing en ws 13, los chips de Spy/Image, «Ignorar» del Ops Center en el teléfono, `GET /api/admin/recibos/ejemplo` con sesión de super admin, Settings, «Quieren entrar», el aviso al activar una automatización, la barra única del editor web a 1280, el selector de funnel del teléfono y las dos columnas del desplegable de etapas. Más las pruebas en el ws 3: grupos de la app (7), Funnel Coach (5), carruseles de Image (9), Grabar (4 min), «Le llegó un comprobante» y «Emitir recibo».
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md §C5-C7 · docs/pendientes.md:159-177 · docs/relevo/pendientes-barrido.md P17`
+  - ⛔ Lo frena: Pide su sesión: la entrada es con Google y el navegador de la app pide el segundo paso
+- **Mirar en pantalla Admin (Revenue, Users, Errors, Activity) y el recibo de ejemplo** · _chico_
+  - Qué falta: Comprobar el MRR esperado de US$432 y el «Subio +US$92», y pegarle a `GET /api/admin/recibos/ejemplo` con sesion de super admin (prueba que jsPDF carga en el bundle), mas mirar el primer pago real.
+  - Dónde: `docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:78-79`
+  - ⛔ Lo frena: Pide su sesion de super admin; el navegador de la app pide su segundo paso
+- **Decidir con Martín la pestaña «Tablero» de la ficha de cliente en Admin** · _chico_
+  - Qué falta: Es la única decisión abierta que dejó la copia de Polar, ya con los 43 arreglos del Cerebro hechos. Admin está en producción desde el 6/11 11:08 UTC.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-admin-polar.md:127-134 ; app/admin/`
+  - ⛔ Lo frena: Es una decisión de producto sobre qué muestra esa pestaña.
+- **Abrir el Runner en cada cuenta y pegar el Token de cada dispositivo** · _chico_
+  - Qué falta: Sin el Runner corriendo, lo que se escribe en la caja del Centro queda «escrito». Las tres cuentas están logueadas; falta su marcador por directorio, sus hooks, y abrir el Runner en cada una (claude2 -n Runner en PowerShell, pasos en docs/relevo/centro-operaciones.md). Hecho = cada cuenta tiene su Runner y la caja entrega.
+  - Dónde: `C:/dev/wt-puntas/lib/runner.ts · C:/dev/wt-puntas/docs/relevo/centro-operaciones.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-operaciones.md:2340`
+  - ⛔ Lo frena: Lo hace Martín en su terminal; además la opción C (un hook con asyncRewake) necesita su OK porque es configuración.
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (3)
+
+- **La ruta /offer sigue existiendo, y Martín pidió que no exista** · _mediano_
+  - Qué falta: Offer YA salió de la barra (`fueraDeLaBarra: true`) sin borrar la key, que es contrato con la base. Pero `app/offer/` sigue entera (page.tsx, OfferApp.tsx, ChatOffer.tsx…) y Martín dijo el 2/11 «ya no debería existir la ruta de offer». CONTRADICCIÓN ANOTADA: el tablero explica que la ruta se dejó a propósito (el enforcement es server-side y al Offer Coach se llega desde el Ops Center). Antes de borrarla hay que medir qué hace /offer que el Ops Center no haga y todos los links internos que apunten ahí (href, router.push, redirects, la API de MaKo, los avisos, el onboarding): un link a una ruta muerta es un 404 para un cliente.
+  - Dónde: `app/offer/ · app/_components/nav.ts:419 · docs/relevo/pendientes-0311.md §4 («/offer no existe» como criterio de Listo) · docs/pendientes-martin.md:938-961`
+- **El clic en un coach no abre nada sin conversación previa** · _chico_
+  - Qué falta: `f353bcbce` sacó el redirect, pero `ElegidoChat` sólo admite `{ coach: 'funnel' }` (lib/chat-mako-reglas.ts:257): sin conversación previa el clic no hace nada. Martín: «no me tiene que redirigir a ningún lado». DUDOSO: el commit a7c0c050a («un solo coach, el Funnel Coach, con la oferta adentro y Hormozi al frente») puede haberlo resuelto; hay que probarlo en pantalla.
+  - Dónde: `lib/chat-mako-reglas.ts:257 · docs/relevo/pendientes-0311.md §4`
+- **Los pedidos viejos de la pestania Clientes y el semaforo de Admin** · _mediano_
+  - Qué falta: Card «Nuevo cliente», buscador, tabla y filtros (27/9); links de Conocimientos; sidebar de Dev con «Regresar a Admin»; tarjetas «Esta pasando algo» / «Tenes que decidir». Admin se rehizo copiando Polar el 6/11: hay que medir cual sobrevivio.
+  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:237 · docs/relevo/cerebro.md:27,59`
+
+## Tickets
+
+### 🟢 Abiertos — se pueden hacer ya (7)
+
+- **Tickets abiertos sin cerrar ni contestar: #38, #39, #43, #58** · _chico_
+  - Qué falta: #38 (Fastlane): sólo se hizo la investigación (docs/funnel-coach.md §9, 2a31f80c5); antes de cerrar, ver si el «link de Fastlane» del reparto es el mismo pedido. #39 (Brigitte, ws 15): 8f19b1229 arregló la alarma, no la causa; leer `errores_app` de ese ticket antes de mandar la respuesta, y no se sabe si ese negocio tiene grupo. #43 (agencia): espera la decisión de Martín. #58 (Joan, por audio): agendar el pago de la segunda cuota de Giselle Belanti para el 19/12; lo trabó el eco y hay que pedírselo de nuevo. Los dos primeros se cierran A MANO: el cron no los toma.
+  - Dónde: `docs/relevo/pendientes-0311.md §«Tickets a cerrar y avisar» (con los textos ya redactados) · docs/relevo/cerebro.md:152 · scripts/tickets.ts`
+- **Ticket #58: agendar el pago de la segunda cuota de Giselle Belanti para el 19/12** · _chico_
+  - Qué falta: Lo pidio Joan por audio y lo trabo el eco de MaKo en el grupo: hay que pedirselo de nuevo cuando llegue el arreglo del eco.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:144 · docs/relevo/cerebro.md:152`
+  - ⛔ Lo frena: Espera el arreglo del eco (`punta/doer-eco-dos-lineas`)
+- **Tickets abiertos sin cerrar: #38 (Fastlane), #39 y #43** · _mediano_
+  - Qué falta: Figuran abiertos en el relevo del 4/11 y ninguno aparece cerrado despues. El #38 esta ademas en la lista de decisiones de producto de Martin.
+  - Dónde: `docs/relevo/cerebro.md:152 · docs/relevo/pendientes-barrido.md:188`
+- **A8: no hay prioridad por agencia para los tickets de Joan y Juanfran** · _chico_
+  - Qué falta: La prioridad sale solo del texto del ticket. Falta subir prioridad por agencia en el triage. Prometido en la llamada.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:88 · lib/tickets-reglas.ts:401`
+- **Los tickets sin cuenta no tienen dónde guardar «no me escribas»** · _mediano_
+  - Qué falta: Un ticket que entra por WhatsApp sin perfil, o de un alumno de un curso, no tiene dónde anotar la baja de los correos. Si hace falta, se necesita una tabla de bajas por email, o sea una migración. Quedó afuera a propósito. Aparte: falta una casilla en Notificaciones para prender y apagar los correos de avance (hoy sólo desde el link del correo, que también los vuelve a prender).
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-tickets.md:33-38 ; lib/tickets`
+- **Siete pendientes de la Ticketera, con su archivo** · _grande_
+  - Qué falta: Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín (sumar cerebro_* a COLS; la 0343 ya está en producción); actualizar el Runner de la PC a 1.23.0 (el servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0); /api/errores manda la ruta con los tokens del camino (/pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras); un canal propio para «Reportar a Soporte» (hoy sale por formulario); una captura de pantalla en el ticket del botón; MaKo de Soporte con IA; y avisar al cliente por otro canal cuando ninguno sale (hoy queda «El aviso al cliente no salió» para siempre). Hecho = los siete verificados en la bandeja.
+  - Dónde: `C:/dev/wt-puntas/lib/tickets-aviso.ts (entregaAlCerebro) · lib/tickets-db.ts (COLS) · scripts/operaciones/cartero.mjs · lib/errores-app-reglas.ts (rutaSinDatos) · lib/tickets-reglas.ts (CANAL_PARA_EL_CLIENTE) · app/_ui/ReportarASoporte.tsx · lib/soporte-chat.ts · lib/tickets-cierre.ts · tabla en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642`
+- **La foto de quien levanta un ticket puede ser CUALQUIER https** · _mediano_
+  - Qué falta: avatarUrl se guarda sin filtro, así que un cliente que pone una URL suya se entera de cuándo Martín abre la Ticketera (y su IP). Arreglarlo es aceptar sólo el storage propio y Google, para toda la app. Hecho = una foto de perfil externa se rechaza.
+  - Dónde: `C:/dev/wt-puntas/lib/perfil.ts (setPerfil, avatarUrl) · lib/tickets-db.ts (aFila) · pendiente en C:/dev/wt-puntas/docs/hallazgos-ticketera.md:642`
+
+### 🔴 Trabados — con su motivo (1)
+
+- **Los tickets #50, #51, #52 y #53 están en manos de otro agente**
+  - Qué falta: No se tocan hasta que el Cerebro los pase. Queda confirmar quién los tiene y pasarlos, o retomarlos.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-tickets.md:42`
+  - ⛔ Lo frena: Están asignados a otro agente y el chat de tickets tiene orden de no tocarlos hasta que el Cerebro los pase.
+
+### 🟡 Esperan a Martín — nadie más los destraba (1)
+
+- **#43: la decisión de Martín y el camino cross-tenant para cargar un documento al cerebro de un cliente** · _mediano_
+  - Qué falta: La decisión: ¿el documento de un cliente puede pasar por la IA de la agencia? (a) sí, con la IA de la agencia; (b) no, sólo con la del negocio del cliente. Y el código: parámetro `negocio` en `sumar_documento_second_brain` con la guarda de `carteraDeAgencia` en el runner, la ingesta corriendo como el cliente, la lectura de adjuntos de WhatsApp y tests de aislamiento probados rompiéndolos. Mientras tanto se le contesta «inspeccioná y pegalo» (texto ya redactado).
+  - Dónde: `docs/relevo/brain-docs.md · lib/api-mako/areas/negocio.def.ts · docs/relevo/pendientes-0311.md §3 y §«Decisiones que sólo Martín puede tomar» punto 3`
+  - ⛔ Lo frena: Toca el aislamiento entre negocios: no se escribe sin la decisión
+
+### ⚪ Dudosos — de documentos viejos, hay que verificar antes de tocar (6)
+
+- **#46 de Leila: MaKo niega cambiar el precio de su oferta y sí puede proponerlo** · _chico_
+  - Qué falta: Es el mismo error que el #45: MaKo niega algo que SÍ puede hacer. `negocio.def.ts:652` PROPONE crear o editar una oferta —el precio incluido— y devuelve un link para confirmarla; `crm.def.ts:1063` hace lo mismo con un producto del catálogo. El arreglo es que la respuesta ofrezca ese camino en vez de negar. Y hay una inconsistencia de datos que marcó MaKo sola y hay que resolver CON Leila: su perfil dice 800 MXN/mes y el producto «LíderMente» del catálogo dice USD 49/mes. DUDOSO: viene del 3/11 y no pude confirmar si ya se arregló.
+  - Dónde: `lib/api-mako/areas/negocio.def.ts:652 · lib/api-mako/areas/crm.def.ts:1063 · docs/pendientes-martin.md:54-60`
+- **Los tickets #47 y #48 nunca se leyeron** · _chico_
+  - Qué falta: Entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55 y quedaron sin leer porque la guardia de RAM bloqueó Bash. Se leen con `node --import tsx scripts/tickets.ts ver 47` y `… ver 48`. DUDOSO: pasaron tres días, pueden estar atendidos.
+  - Dónde: `scripts/tickets.ts · docs/pendientes-martin.md:61-63`
+- **Medir el tiempo de cada ticket, con alerta a las 24 h** · _mediano_
+  - Qué falta: Promesa a Teo del 28/10, sin dueno confirmado. Hecho = un ticket que pasa 24 h abierto dispara el aviso.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:105 · C:/dev/revisiones/2810-promesas-teo.md:83`
+- **Tickets sin cierre registrado: #11, #12, #21 y #22** · _chico_
+  - Qué falta: Ninguna bitacora cierra el #11 ni el #12, aunque el #7 al #10 y el #13 al #18 si tienen hito; su contenido no esta en ninguna bitacora. Los #21/#22 (394 leads de Leila) estan duplicados entre CRM y la ticketera.
+  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:258,303`
+- **Ticket #57 / Funnel Coach: `punta/ticket-57` choco al llevarlo a main** · _chico_
+  - Qué falta: La medicion del 6/11 dice que el ws 9 tiene 2 ofertas manuales y que «Tu oferta ya esta cargada» decia la verdad. Falta confirmar si la punta entro o si el ticket se cierra como no-bug.
+  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:145 · docs/relevo/pendientes-pc/pasos-cerebro-6-11.md:63 · docs/relevo/cerebro.md:151`
+- **Verificar los correos de avance en producción y que nadie reciba de más** · _chico_
+  - Qué falta: Tres consultas listas: que la 0364 esté aplicada (`avance_email`, `avance_email_at`); la primera vuelta del cron después del deploy (el registro dice «correos de avance N (fallidos M)»; si M > 0 cada ticket lo tiene anotado en `ticket_eventos`); y que nadie reciba de más, contando por persona en el día.
+  - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-tickets.md:19-31 (las consultas, textuales)`
+  - ⛔ Lo frena: El commit dbc64bdd7 dice que la 0364 está aplicada, pero no está en la tabla de migraciones del Cerebro y nadie lo midió.
+
+---
+
+## Lo que el crítico de completitud encontró aparte
+
+PRIMERO, DOS CORRECCIONES AL ENCUADRE. (a) El arbol NO esta en a11e7540f: `git log -1` en C:/dev/wt-puntas da **cce171fab** («Spy: un emoji en el nombre tiraba la pantalla, y la guarda no lo veia»), el arbol limpio (`git status --porcelain` vacio). Se movio durante la corrida, asi que todo lo que las familias midieron contra a11e7540f puede estar un commit corto. (b) Trabaje solo con Read/Grep/Glob y `ls`/`grep` por Bash; no edite nada.
+
+FUENTES SIN LEER. **TODO/FIXME en codigo: casi no hay, y los dos que hay ya estan en la lista.** El grep sobre app/, lib/, scripts/, extension/ y tests/ devuelve casi solo falsos positivos, porque en este repo «TODO» es la palabra espanola «todo» en los comentarios (`TODO lo que espera a Martin`, `TODOS los jids`). Marcadores de verdad: exactamente dos, `lib/ig-writer.ts:13` y `:164` («TODO: mover los templates a prompt-registry»), que es el item de los prompts de carruseles y stories que la lista ya trae (tres veces). No hay ni un FIXME, HACK ni XXX. **docs/relevo/*.md que no son nube-*: 68 archivos, y la lista solo cito 8** (cerebro.md, pendientes-barrido.md, pendientes-0311.md, pagos.md, recibos-encargo.md, brain-docs.md, image-editor.md, mako-mobile.md, landing-generator.md y los pendientes-pc/). Quedaron SIN LEER, entre otros: **admin-encargo.md, admin-medicion.md, suscripciones-ficha-encargo.md, suscripciones-medicion.md** (los cuatro del 5-6/11, encargos completos del Cerebro con su medicion de produccion: de ahi salen cinco items nuevos de arriba), **api-mako.md** (§3.1: las 343 operaciones aprobadas y la guarda de cobertura que no esta en main), **automations.md** (§Sin hacer, ~15 puntos), **runner.md** (§Sin hacer), **templates-dashboard.md** (§Lo que falta decidir con Martin), **web-generator-replicar.md**, **spy.md** (del 3/11, ya casi todo cerrado), y tambien chatbot.md, chats.md, ciberseguridad.md, copywriter.md, crm.md, crm-y-chats.md, customer-success.md, dashboard.md/-v4/-v5, integraciones.md, mako-en-whatsapp.md, media-buyer.md, offer.md, onboarding.md, pagos-automations-encargo.md, planes-pagos-partners.md, seguridad-aislamiento.md, settings.md, sidebar.md, super-admin.md, ticketera.md, tickets-0311.md, tickets-leila.md, video-editor.md, video-generator.md, zernio-capi.md. **docs/*.md que no son hallazgos ni pendientes: ~200 archivos, ninguno citado.** Los que tienen seccion de pendientes propia y nadie abrio: **docs/estado-del-arte.md** (39 items «Pendientes vivos», marcados [FRAGIL]/[ESPERA] — es la fuente mas densa que quedo afuera), **docs/templates-dashboard-propuesta.md** §7.3.1 y §7.4 (del 4/11), docs/diseno-undecima-tanda.md §10, docs/pedidos-crm.md, docs/costos-ia-y-planes.md §«22 acciones nuevas que gastan», docs/diseno-avisos-plataforma.md §2, docs/diseno-second-brain-centro.md, docs/diseno-mako-pedidos.md, docs/diseno-sidebar.md §9, docs/replay-diseno.md §7, docs/edicion-video-automatica.md, docs/funnel-coach.md §10, docs/metodo-analisis-negocio.md, docs/prueba-humo-cobro-mako.md, docs/suscripciones.md, docs/embudo-y-high-ticket.md, docs/proyeccion-04oct.md §4. Casi todos son de octubre y por eso van con «dudoso» o no los levante.
+
+YA HECHOS (los fantasmas, lo mas caro de la lista). **1) Las capturas de Top Carousels SI estan en el repo, y dos items dicen que no.** `docs/carruseles/referencia-top-carousels/` existe con 7 archivos (LEEME.md, explorar.jpg, tarjetas.jpg, tarjeta-al-pasar.png, carrusel-abierto.jpg, filtros.jpg, angosto.jpg) y `git ls-files` los lista TODOS: estan commiteados en main. Los items «Las capturas de Top Carousels nunca llegaron: la pantalla se copio de la descripcion del pedido» y «Las capturas de referencia de Top Carousels nunca llegaron» (uno «dudoso», el otro «espera-a-martin») NO corresponden: lo prueba `git ls-files docs/carruseles/referencia-top-carousels/`. Lo que si queda es el ajuste fino contra las capturas, que la lista ya trae aparte como «Las medidas finas de la referencia... sin ajustar contra un monitor real». **2) El item «Publicar la extension 0.76.0» apunta a un archivo que no existe:** en `public/` hay UN solo zip, `mako-puente-0.77.0.zip`. No hay 0.76.0. Ese item esta superado por los dos de la 0.77.0 y hay que borrarlo, no trabajarlo. **3) `ANUNCIOS_POR_APIFY` ya esta en `true`:** `lib/spy-todo-reglas.ts:82`. El item «Medir una vez el actor de anuncios de Apify y prender ANUNCIOS_POR_APIFY» tiene la mitad hecha; lo unico que queda es la corrida real para ver si el actor trae `pageID`, que es otro item. **4) La migracion 0409 ya existe en el arbol** (`supabase/migrations/0409_thumbnails_biblioteca.sql`, y es la ULTIMA, asi que el proximo numero libre es 0410, como dicen bien tres items): el paso 1 del item «La biblioteca de Thumbnails no esta cargada: falta la 0409 y los tres pasos» sobra, y el item mas nuevo ya lo dice. **5) La lista de pantallas del telefono que «siguen diciendo En la computadora» esta ~90% vencida.** El item (de un doc del 17/10) nombra Strategy, Offer Playbook, MaKo WhatsApp, MaKo Partners, integraciones, Video Editor, adjuntos y notas de voz en Chats, Web Generator, cobrar con link, las hojas de la ficha del lead y el «+» de un lead. En el codigo de hoy `EN_CAMINO` tiene TRES claves y nada mas: `'admin-estrategia'`, `'admin-offer-playbook'` y `'market-an'` (lib/movil-rutas.ts:506-519), y `SOLO_ESCRITORIO` tiene UNA, `email` (:495-499). MaKo WhatsApp salio el 24/10 (ya no es seccion) y el resto tiene pantalla. Lo unico que queda sin pantalla de telefono es Strategy, Offer Playbook (los dos «sin dueno») y Spy — que la lista ya trae dos veces como item propio. **6) Tres de los pendientes de estado-del-arte.md ya estan cerrados:** las vistas de cohortes con `revoke`/`security_invoker` (lo hizo `supabase/migrations/0231_cohortes_cerradas.sql:31`), `docs/guia-produccion-mauricio.md` ya esta commiteada (`git ls-files` la lista) y la purga de turnos del agente a los 90 dias ya corre (`app/api/cron/agente-purga/route.ts` registrado en `vercel.json:220`, con modo seco). **7) Dos de docs/relevo/spy.md (3/11) estan cerrados:** `podarLecturasCompartidas` SI tiene cron (`app/api/cron/spy-poda/route.ts:21`, con su test en tests/spy-buscador-alta.test.ts:229), y la caricatura por Flow ya no existe (`lib/spy-caricatura-flow.ts` borrado) — esto ultimo la lista lo dice bien. **8) El encargo de la tarjeta Pagos de Automations esta hecho, al menos en sus dos piezas:** «Leer comprobante» tiene su condicion (`lib/condiciones-catalogo.ts:678-682`, que cita el encargo) y «Emitir recibo» su accion (`lib/flujo-conversacion.ts:135` `OP_EMITIR_RECIBO`, `lib/recibos-negocio.ts`, plantilla en `lib/plantillas-automatizaciones.ts:598`). Por eso NO lo puse como item nuevo, aunque el encargo tampoco lo leyo nadie. **9) `lib/api-mako/areas/comunidad.{def,helpers,run}.ts` ya esta en main**, asi que la frase de api-mako.md §3.1 «el area comunidad solo existe en esa rama» esta vencida (se copio como pieza el 17/10). **10) Lo que NO pude confirmar y queda en duda: `app/api/crm/etiquetas/route.ts` no tiene ningun 200 ni slice**, asi que el punto de automations.md «la etiqueta en lote corta en 200 sin decirlo» o se arreglo o el tope se mudo; no lo levante como item.
+
+DUPLICADOS. La lista tiene ~210 items y al menos 45 son el mismo pendiente contado dos, tres, cuatro o cinco veces. Por titulo: **la enmienda III.L de YouTube, CINCO veces** («La enmienda III.L de YouTube sin firmar…», «Sin la enmienda III.L de YouTube, el multiplo y el VPH devuelven null por codigo», «El multiplo de las miniaturas espera la enmienda III.L de YouTube», «El multiplo de YouTube espera el tramite: la enmienda III.L», «YouTube en Spy: la enmienda III.L») — es UN tramite y UNA linea, `lib/spy-reglas.ts:208`, que verifique sigue en `false`. **«Editar» con la IA real, CINCO veces** (dos de Carruseles por el titulo casi igual, dos de Thumbnails con el mismo `/image-editor/b31f62ec-…`, y la de probar una miniatura). **Las laminas de carruseles trabadas por el credito de Apify, CUATRO veces** — y con numeros que se contradicen: una dice «1.275 sin laminas», dos dicen «111 visibles», y el documento mas nuevo (6/11 16:30) dice 744 de 912. **El clasificador que deja los carruseles sin tipo, CUATRO veces**, y aca la contradiccion importa: un item dice «`reclasificar` en seco ya dio 1.253 → 1.253, 0 cambios, asi que correrlo con --de-verdad no sirve» y otro dice «el pulido del 6/11 amplio el clasificador a portugues, aleman e ingles y mueve 40: dice 1253 → 1213». **Gana el mas nuevo: el pulido del 6/11**, asi que `reclasificar --de-verdad` SI hay que correrlo (es gratis, no toca Apify) y despues sigue faltando la pasada de vision sobre las laminas. **Business Discovery / el tope de 50 piezas, CUATRO veces** (el «capado a 25», el «#12 tope de 50», el «sin credencial» y el «unir CAMPOS_PERFIL_PIEZAS con CAMPOS_PERFIL», que es su dependiente). **El bucket privado de «Copiar su sitio», TRES veces**, las tres pidiendo el numero de migracion que es 0410. **El Gemini de la plataforma para transcribir YouTube, TRES veces.** **La extension sin publicar, TRES veces** (y una apunta al zip 0.76.0 que no existe). **Las caricaturas por cola contra la base real, TRES veces.** **La primera corrida real de anuncios por Apify, TRES veces.** **Cargar la biblioteca de Thumbnails, TRES veces** (con la contradiccion de la 0409 ya resuelta a favor del mas nuevo). **La poda mensual de los 30 dias de Thumbnails, TRES veces.** **«De tus cuentas» en Thumbnails, TRES veces** — y ahi hay una contradiccion real entre dos documentos del MISMO dia y la MISMA punta: `docs/carruseles/thumbnails.md:91-93` lo deja abierto y `docs/relevo/nube-carruseles-rediseno.md:189` lo declara descartado; uno de los dos hay que corregir. **La persona que no es el cliente en una lamina, TRES veces.** **Sumar mas cuentas y referentes a la biblioteca, TRES veces.** **El filtro por «tema», TRES veces.** **Los prompts de `lib/ig-writer.ts`, TRES veces.** **Spy sin pantalla de telefono, DOS veces.** **El cron de snapshots, DOS veces** (las dos con la misma duda bien planteada: si `spy-todo` ya lo cubre). **Los anuncios en video ya guardados, DOS veces.** **El carrusel 4:5 en Web Generator, DOS veces.** **El carrusel «como presentacion» de Leila, DOS veces.** **La biblioteca de anuncios Foreplay/Atria, DOS veces.** Y en Imagenes, el item omnibus «Image Editor: las funciones de Canva que faltan y las fuentes en un CDN ajeno» (de un doc del 17/10, marcado dudoso) y «Decisiones de Martin del Image Editor: Doory, Unsplash y quitar fondos» se solapan con cinco items granulares y verificados del mismo barrido («Tanda 4: alojar las fuentes», «Tanda 5: lo de Canva que Doory no trae», «Quitar fondo esta APAGADO», «Fotos de stock: Unsplash quedo prohibido», «Escribirle a Siam»): **se quedan los granulares y se tiran los dos omnibus**, porque los granulares traen el archivo y la linea y los omnibus traen un resumen de octubre.

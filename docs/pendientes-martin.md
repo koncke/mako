@@ -7,14 +7,34 @@ commit** que resuelve cada cosa: una línea que dice `HECHO` sin su commit al la
 hacer, y la cuenta se acerca a su tope semanal (corta sola al 97 %). Cuando corte, **el que siga lee
 este archivo y sigue desde acá**, sin leer el chat.
 
-**Cómo se trabaja.** De arriba hacia abajo. Cada ítem terminado se commitea y se pushea a
-`integracion` antes de empezar el siguiente — así nada queda a medias en el disco de nadie.
-⚠️ **Un push a `integracion` CANCELA el run anterior de Actions**, así que no se pushea de a
-tres seguidos: se junta y se manda una vez por ítem.
+**Cómo se trabaja.** De arriba hacia abajo. Cada ítem terminado se commitea y se pushea en **su
+propia punta** antes de empezar el siguiente — así nada queda a medias en el disco de nadie.
+
+⚠️ **`integracion` SE RETIRÓ el 4/11/2026.** Lo que diga «pusheá a `integracion`» en este archivo o
+en un recordatorio es de antes: ahora se empuja a `punta/<nombre>`, Actions la chequea sola y la
+lleva a `main` sola si da verde (`.github/workflows/punta.yml`; un push a `integracion` da una
+corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no frena a las demás.**
+
+---
+
+## 📋 LA LISTA COMPLETA, BARRIDA EL 6/11/2026 → [pendientes-todo-6-11.md](pendientes-todo-6-11.md)
+
+Martín la pidió entera («no solamente de lo que se hizo en la última sesión»). Siete agentes leyeron
+en paralelo TODOS los documentos de pendientes del repo y un octavo buscó lo que nadie había leído:
+**634 pendientes** — 343 abiertos, 27 trabados, 154 que lo esperan a él y 110 dudosos (de octubre,
+que hay que verificar antes de tocar).
+
+**Este archivo sigue siendo el tablero de lo que Martín pidió a mano.** El otro es el inventario.
 
 ---
 
 ## 🚨 LO PRIMERO AL ENTRAR — 3/11/2026 ~03:45, cuenta claude1 al 100 %
+
+> ✅ **RESUELTO. Lo de abajo es del 3/11 y queda por lo que enseña, no porque siga pasando.** El
+> deploy se arregló esa misma noche (`punta`/`main` verdes desde entonces) y el 6/11 producción sirve
+> `cce171fab`. **Lo que sí vale para siempre:** «en main» no es «en producción» — el deploy lo hace un
+> cron una vez por día (11:05 UTC), y lo urgente va con
+> `node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs`, que cuesta US$0,33-0,42.
 
 **El deploy de Vercel NO está verde, y producción sirve código viejo sin estar caída.** Eso es lo que
 tapó el problema cinco veces: nada avisa, porque la app anda.

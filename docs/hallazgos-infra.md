@@ -84,6 +84,30 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El recorte de Vercel SÍ funcionó, y los builds son el 97% de la factura: medido en el panel (6/11/2026)
+
+El relevo lo dejó pedido con el motivo escrito: «Falta medir el ahorro en el panel (`/~/usage`, con la sesión de Martín en el navegador de la app), **no en `/v1/billing/charges`**». Medido el 6/11 a las ~18:20 UTC, con Martín entrando en el navegador de la app:
+
+| | |
+|---|---|
+| Ciclo | 16/10 → 16/11 |
+| **Build CPU Minutes** | **1,22 K horas → US$254,24** |
+| Funciones (memoria, CPU, origen, invocaciones) | US$24,37 |
+| CDN y lecturas ISR | US$0,28 |
+| Subtotal de infraestructura | US$278,89 |
+| Licencias (Pro + un asiento extra) | US$40,00 |
+| Crédito incluido | −US$20,00 |
+| **Total del ciclo** | **US$298,89** |
+
+**Dos cosas que este número cierra.**
+
+1. **Los builds son el 97% del gasto variable** (254,24 de 278,89). Cualquier discusión de costo de Vercel que no empiece por cuántas veces se compila está mirando el 3%.
+2. **El recorte del 6/11 funcionó, y se ve en el gráfico diario**: picos de ~US$32 por día entre el 1 y el 5/11, y después **cae a casi cero**. Lo que lo bajó: un build por día (el cron de las 11:05 UTC), `claude/**` sin construir, y lo que sólo toca documentos tampoco.
+
+⚠️ **El total del ciclo NO baja por eso**: los US$254 ya se gastaron antes del recorte, y el ciclo cierra el 16/11. Lo que hay que mirar para saber si quedó arreglado es **el ciclo siguiente**, no éste.
+
+⚠️ **Y por eso un deploy a mano no es gratis ni es caro: son US$0,33-0,42** (`scripts/desplegar-ya.mjs` lo dice en su cabecera). Contra US$254 de builds automáticos, desplegar a mano lo urgente es ruido; contra US$0, no lo es. La regla que queda: se despliega a mano lo que no puede esperar al cron, y se dice que se hizo.
+
 ## Los minutos de GitHub Actions: un chequeo de main por mezcla y una corrida por evento de Vercel (6/11/2026)
 
 **Síntoma:** Martín: «Cuanto vamos a gastar en github? No quiero que pase lo de Vercel y terminemos gastando un montón». El tope
