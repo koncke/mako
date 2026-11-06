@@ -23,6 +23,7 @@ import { preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque } from '@/l
 import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
+import { SIN_TITULO } from '@/lib/chat-mako-reglas';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
 import { alternarTranscripcion } from './voces-enviadas';
 import type { GrabacionLista } from '@/app/_chat/nota-que-se-manda';
@@ -247,7 +248,12 @@ export function Conversacion({
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
                 responde (con su ✕, WhatsApp); en el «+», con qué corre y las tareas del chat. */}
             <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onGrabada={onGrabada} enviando={enviando}
-              placeholder={`Escribe a ${chat.titulo}`} tituloMandar="Firmar y mandar (Enter)" enterManda
+              // ⚠️ «Escribe a Chat nuevo» (6/11/2026). `chat.titulo` es `SIN_TITULO` hasta que el modelo le pone nombre
+              // después del primer turno, así que la caja de un chat recién abierto decía «Escribe a Chat nuevo», como si
+              // «Chat nuevo» fuera alguien. Sin título no se nombra a nadie: el mismo texto que la caja de al lado
+              // (CajaChatNuevo.tsx). La regla: un texto armado con un nombre tiene que preguntar si el nombre existe.
+              placeholder={chat.titulo && chat.titulo !== SIN_TITULO ? `Escribe a ${chat.titulo}` : 'Escribe lo que necesitas'}
+              tituloMandar="Firmar y mandar (Enter)" enterManda
               adjuntos={adjuntos} campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic}
               // La misma caja atiende todos los chats: lo que lee (un audio, un .pptx) es de SU chat (28/10/2026).
               conversacion={chat.clave}
