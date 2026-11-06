@@ -100,7 +100,7 @@ export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_
   'marcar_mensualidad_pagada', 'corregir_reloj_mensualidad', 'prender_mensualidad_agencia', 'marcar_entrada_pagada',
   // El Lead Magnet Generator (5/11/2026, areas/leadmagnet.def.ts): un paso corre una vez por lead y armaría una pieza, una landing
   // o un link por cada uno; el orden de la lista lo decide una persona.
-  'armar_magnet', 'pagina_captura_magnet', 'link_publico_magnet', 'primero_magnet', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
+  'armar_magnet', 'pagina_captura_magnet', 'link_publico_magnet', 'primero_magnet', 'dejar_compartir_magnet', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

@@ -15,14 +15,8 @@ import { PLANTILLAS_LEAD_MAGNET } from '@/lib/lead-magnets/plantillas';
 import { rutaDePagina, rutaDePieza } from '@/lib/lead-magnets/pieza';
 import { RUTA_TAB, estadoDe, rutaDeLeadMagnet, type LeadMagnetVista } from '@/app/lead-magnet-generator/reglas';
 import { pedirLeadMagnet } from '@/app/lead-magnet-generator/cliente';
-import type { LandingVista } from '@/app/lead-magnet-generator/DetalleLeadMagnet';
 
-export function LeadMagnetsM({ lista, abierto, landingPieza, landingCaptura }: {
-  lista: LeadMagnetVista[];
-  abierto: LeadMagnetVista | null;
-  landingPieza: LandingVista | null;
-  landingCaptura: LandingVista | null;
-}) {
+export function LeadMagnetsM({ lista, abierto }: { lista: LeadMagnetVista[]; abierto: LeadMagnetVista | null }) {
   const router = useRouter();
   const toast = useToastM();
   const [hoja, setHoja] = useState(false);
@@ -38,17 +32,22 @@ export function LeadMagnetsM({ lista, abierto, landingPieza, landingCaptura }: {
     router.push(r.ruta);
   };
 
-  const hacer = async (accion: string) => {
+  const hacer = async (accion: string, confirmar?: string) => {
     if (!abierto || haciendo) return;
+    if (confirmar && !window.confirm(confirmar)) return;
     setHaciendo(accion);
-    const r = await pedirLeadMagnet({ accion, id: abierto.id });
+    const r = await pedirLeadMagnet<{ aviso?: string | null }>({ accion, id: abierto.id });
     setHaciendo(null);
     if (!r.ok) { toast(r.error); return; }
+    if (r.aviso) toast(r.aviso);
+    if (accion === 'quitar') { router.push(RUTA_TAB); return; }
     router.refresh();
   };
 
   if (abierto) {
     const e = estadoDe(abierto);
+    const esWeb = abierto.pieza?.herramienta === 'web';
+    const esPrimero = lista[0]?.id === abierto.id;
     return (
       <>
         <SeccionM titulo={abierto.nombre}>
@@ -56,21 +55,39 @@ export function LeadMagnetsM({ lista, abierto, landingPieza, landingCaptura }: {
             {abierto.pieza
               ? <FilaDatoM k="La pieza" v={`Abrir en ${e.herramienta}`} href={rutaDePieza(abierto.pieza)} azul />
               : <FilaDatoM k="La pieza" v="Sólo su descripción" />}
-            {abierto.pieza?.herramienta === 'web'
-              ? <FilaDatoM k="Su link" v={landingPieza?.url ? 'Ver la página' : 'Sin publicar'} href={landingPieza?.url ?? undefined} azul={!!landingPieza?.url} />
-              : abierto.enlace
-                ? <FilaDatoM k="Su link" v="Ver lo que recibe" href={abierto.enlace} azul />
+            {abierto.enlace
+              ? <FilaDatoM k="Su link" v="Ver lo que recibe" href={abierto.enlace} azul />
+              : esWeb
+                ? abierto.piezaUrl
+                  ? <FilaDatoM k="Su link" v={haciendo === 'compartir' ? 'Guardando…' : 'Usar su link'} onClick={() => void hacer('compartir')} azul />
+                  : <FilaDatoM k="Su link" v="Publícala primero" />
                 : e.puedeCompartir
                   ? <FilaDatoM k="Su link" v={haciendo === 'compartir' ? 'Creando…' : 'Crear link'} onClick={() => void hacer('compartir')} azul />
                   : <FilaDatoM k="Su link" v="Pégalo en la computadora" />}
             {e.puedeCaptar && (abierto.pagina
-              ? <FilaDatoM k="La página" v={landingCaptura?.url ? 'Ver la página' : 'Abrir'} href={landingCaptura?.url ?? rutaDePagina(abierto.pagina)} azul />
-              : <FilaDatoM k="La página" v={haciendo === 'captar' ? 'Creando…' : 'Crear su página'} onClick={() => void hacer('captar')} azul />)}
+              ? <FilaDatoM k="Su página" v={abierto.paginaPublicada === false ? 'Sin publicar' : 'Abrir'} href={rutaDePagina(abierto.pagina)} azul />
+              : abierto.enlace
+                ? <FilaDatoM k="Su página" v={haciendo === 'captar' ? 'Creando…' : 'Crear su página'} onClick={() => void hacer('captar')} azul />
+                : <FilaDatoM k="Su página" v="Primero su link" />)}
+            {esPrimero && abierto.enlace
+              ? <FilaDatoM k="Cómo le llega" v="Es el primero" />
+              : e.puedePrimero
+                ? <FilaDatoM k="Cómo le llega" v={haciendo === 'primero' ? 'Guardando…' : 'Ponerlo primero'} onClick={() => void hacer('primero')} azul />
+                : <FilaDatoM k="Cómo le llega" v="Primero su link" />}
           </ListaM>
         </SeccionM>
         {e.falta ? <VacioM frase={e.falta} /> : null}
+        <SeccionM titulo="Más">
+          <ListaM>
+            {(abierto.compartidos ?? 0) > 0 && (
+              <FilaM icono="trash" titulo={haciendo === 'dejar' ? 'Dejando de compartir…' : 'Dejar de compartir'} onClick={() => void hacer('dejar', 'Su link deja de abrirse, también para quien ya lo recibió. ¿Seguro?')} deshabilitada={!!haciendo} />
+            )}
+            <FilaM icono="x" titulo={haciendo === 'quitar' ? 'Quitando…' : 'Quitar de la lista'}
+              onClick={() => void hacer('quitar', `¿Quitar «${abierto.nombre}» de tus lead magnets? Su página sigue donde está, y su link público deja de abrirse.`)} deshabilitada={!!haciendo} />
+          </ListaM>
+        </SeccionM>
         <PieFijoM>
-          <Button variant="secondary" size="lg" full onClick={() => router.push(RUTA_TAB)}>Todos</Button>
+          <Button variant="secondary" size="lg" full onClick={() => router.push(RUTA_TAB)}>Ver todos</Button>
         </PieFijoM>
       </>
     );

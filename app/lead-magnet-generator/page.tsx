@@ -8,10 +8,10 @@
 
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
-import { listarLeadMagnets, urlDeLanding } from '@/lib/lead-magnets/server';
+import { compartidosPorPieza, landingsDelNegocio, listarLeadMagnets } from '@/lib/lead-magnets/server';
 import { puertaLeadMagnets } from './puerta';
 import { LeadMagnets } from './LeadMagnets';
-import type { LeadMagnetVista } from './reglas';
+import { vistaDeLeadMagnet, type LeadMagnetVista } from './reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,21 +21,13 @@ export default async function LeadMagnetGeneratorPage({ searchParams }: { search
   await puertaLeadMagnets();
   const sp = await searchParams;
   const actual = typeof sp.lm === 'string' ? sp.lm : null;
-  const r = await listarLeadMagnets();
+  // Una lectura de la lista y una de las landings (para saber cuáles están publicadas y cuáles se borraron).
+  const [r, landings, compartidos] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza()]);
   // Sólo lo que la pantalla dibuja: ni el qué es ni la línea de anuncio (los escribe el onboarding y los lee la IA).
-  const lista: LeadMagnetVista[] = r.ok
-    ? r.lista.map((e) => ({ id: e.id, nombre: e.nombre, tipo: e.tipo, enlace: e.enlace, pieza: e.pieza, plantilla: e.plantilla, pagina: e.pagina }))
-    : [];
-  const abierto = actual ? lista.find((x) => x.id === actual) ?? null : null;
-  // Las landings del abierto (la suya, si es una clase grabada, y la que lo capta), con su link si están publicadas.
-  const [landingPieza, landingCaptura] = await Promise.all([
-    abierto?.pieza?.herramienta === 'web' ? urlDeLanding(Number(abierto.pieza.id)) : null,
-    abierto?.pagina ? urlDeLanding(abierto.pagina) : null,
-  ]);
+  const lista: LeadMagnetVista[] = r.ok ? r.lista.map((e) => vistaDeLeadMagnet(e, landings, compartidos)) : [];
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <LeadMagnets lista={lista} error={r.ok ? null : r.error} actual={abierto?.id ?? null}
-        landingPieza={landingPieza} landingCaptura={landingCaptura} />
+      <LeadMagnets lista={lista} error={r.ok ? null : r.error} actual={actual} />
     </Pagina>
   );
 }

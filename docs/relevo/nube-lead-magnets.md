@@ -38,13 +38,68 @@ Rama `punta/lead-magnets` (y la de la sesión, `claude/amazing-johnson-fp86gs`).
 - **Teléfono:** `/lead-magnet-generator` en el teléfono (`app/m/lead-magnet-generator/`), en More para el super admin.
 - **De paso:** el paso Entregable del onboarding borraba el link al guardar; arreglado.
 
-Tests: `tests/lead-magnets.test.ts` (8, cada uno probado rompiéndolo), y los del registro de la API, el nav, el teléfono y el
-Web Generator actualizados.
+Tests: `tests/lead-magnets.test.ts`, y los del registro de la API, el nav, el teléfono y el Web Generator actualizados.
+
+## Tanda 2: el quiz con diagnóstico (hecha)
+
+- **Un bloque nuevo del Web Generator, «Quiz»** (`lib/editor-landing/quiz.ts`): preguntas de opción única con puntos, y el
+  puntaje elige un resultado por rango («desde N puntos»). Antes del resultado piden nombre y correo (y el WhatsApp, si se
+  marca): entran al CRM por el Pixel, con el resultado, el puntaje y hasta 6 respuestas como datos del lead.
+- **Un objetivo de landing nuevo, «Quiz con diagnóstico»** (galería del Web Generator, categoría «Captar contactos»), y la
+  plantilla «Quiz» en la tab Lead Magnet.
+- **El editor** (`app/web-generator/editor/nodos/QuizVista.tsx`): título, qué van a saber, el botón para empezar, preguntas con
+  sus puntos, el contacto y los resultados. Dice qué falta para que se muestre y qué botón no va a salir.
+- **API de MaKo:** `configurar_quiz_landing` (área `landing`, al final del área).
+- **La regla del resultado vive en el server y en el navegador**, y un test los iguala sobre miles de casos.
+- **El flujo y las medidas se copiaron de SurveyJS** (MIT): por qué, en `docs/investigacion-lead-magnets.md`.
+
+Tests: `tests/quiz-landing.test.ts` (11, probados rompiéndolos) y `tests/lead-magnets.test.ts` (11).
+
+## Dos revisiones de quien no escribió el código
+
+La primera (sobre la tab) encontró nueve cosas y la segunda (sobre el quiz y los arreglos) diez. Todas se arreglaron; el
+detalle, en `docs/hallazgos-lead-magnets.md`. Lo más importante:
+
+- Las respuestas del quiz se guardaban como la **empresa** o el **teléfono** del lead si la pregunta decía «negocio» u «hotel».
+- Una página de captura en la **papelera** se seguía mostrando como publicada.
+- Había **cuatro lugares más** que escribían la lista de lead magnets sin protección; uno la vaciaba con la base caída. Ahora
+  hay una sola puerta y la otra se borró.
+- «Dejar de compartir» o vaciar el link del **primero** dejaba a las automatizaciones mandando el mensaje sin link.
+
+## Autocrítica
+
+Capturas a escala 2 en `docs/diseno/lead-magnets/captura/` (arnés en `out/arnes-lm/`, fuera de git: dibuja los componentes
+reales con datos de ejemplo y abre el quiz publicado en Chromium).
+
+**Lo que cambié por mirarla como cliente:**
+- **El detalle de un lead magnet pasó a filas con UN solo botón principal** (la pieza, su link, su página, cómo le llega). La
+  primera versión tenía cuatro botones del mismo peso y no se sabía por dónde empezar. Ver `tab-abierto-sin-link-1440.png`.
+- **La página de captura ya no promete un correo** que nadie manda («Revisa tu correo»): ahora dice lo que pasa (el botón abre
+  el lead magnet).
+- **El teléfono tiene lo mismo que la computadora** (`m-abierto-390.png`): la primera versión no dejaba crear el link ni la
+  página desde el teléfono.
+- **Con `?lm=` y la lista sin leer, la tab mostraba «Nuevo»** como si no existiera: ahora lo dice
+  (`tab-error-abierto-1024.png`). El mensaje salía repetido y el botón ocupaba todo el ancho: corregido al mirar la captura.
+- **El quiz:** el rótulo de cada respuesta lleva su número; el foco va al paso nuevo; exportado, la portada sola.
+
+**Lo que descarté, y por qué:**
+- **Mostrar en la lista de la izquierda cuál es el primero (el que mandan las automatizaciones).** La lista es la pieza
+  compartida de Create (`app/_crear/PantallaCrear.tsx`) y no tiene un lugar para un rótulo por renglón; agregarlo es tocar las
+  cinco tabs de Create. El detalle de cada uno ya lo dice («Cómo le llega»). Queda para quien rediseñe Create.
+- **Un editor de quiz propio en la tab.** El quiz es un bloque del Web Generator: un segundo editor sería la segunda
+  implementación de lo mismo.
+- **Inscribir al lead en su automatización al instante.** Cambia el ritmo de todas las landings de todos los negocios: es
+  decisión de Martín (abajo).
+
+**Lo que no pude mirar desde la nube:** la tab corriendo con una base de verdad (no hay claves), el quiz publicado en
+hola-mako.site y el Pixel mandando a `/api/track/optin` de producción. Lo probé con el Pixel real en un navegador simulado
+(jsdom) y con Chromium sobre el HTML que genera el editor.
 
 ## Lo que pide producción
 
-- **Ninguna migración** en la tanda 1. Nada que aplicar.
-- **Nada que configurar.** La tab se ve sólo desde la plataforma (el super admin sin mirar a un cliente).
+- **Ninguna migración.** Nada que aplicar.
+- **Nada que configurar.** La tab se ve sólo desde la plataforma (el super admin sin mirar a un cliente). El bloque Quiz y el
+  objetivo «Quiz con diagnóstico» del Web Generator los ve todo negocio que use el Web Generator.
 
 ## Lo que decide Martín
 
@@ -60,5 +115,4 @@ Web Generator actualizados.
 
 ## Lo que sigue
 
-- **Tanda 2:** quiz con diagnóstico (un bloque nuevo del Web Generator, motor puro con tests, flujo de SurveyJS).
 - **Tanda 3:** MaKo propone el lead magnet desde la oferta y Competitors Spy, con la IA del negocio.

@@ -14,6 +14,7 @@
 .lmg-falta { background: var(--warn-bg); color: var(--ink); }
 .lmg-listo { background: var(--good-bg); color: var(--ink); }
 .lmg-error { margin: 0 0 8px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lmg-aviso { margin: 0 0 8px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; }
 .lmg-fila { border-top: 1px solid var(--border); padding: 16px 0; display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 8px 16px; align-items: start; }
 .lmg-fila__titulo { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); padding-top: 6px; }
 .lmg-fila__cuerpo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-width: 0; }

@@ -2,7 +2,7 @@
 // POST /api/lead-magnet-generator — lo que hace la tab (la de escritorio y la del teléfono)
 // =============================================================================
 // { accion: 'armar', plantilla, nombre? } · { accion: 'captar', id } · { accion: 'compartir', id } · { accion: 'enlace', id, enlace }
-// · { accion: 'primero', id } · { accion: 'quitar', id }. Todo pasa por lib/lead-magnets/server.ts, la MISMA puerta que el área `leadmagnet` de la API de
+// · { accion: 'dejar', id } (deja de compartir) · { accion: 'primero', id } · { accion: 'quitar', id }. Todo pasa por lib/lead-magnets/server.ts, la MISMA puerta que el área `leadmagnet` de la API de
 // MaKo. La puerta (app/lead-magnet-generator/puerta.ts) es la primera sentencia: antes de leer el cuerpo.
 // =============================================================================
 
@@ -10,7 +10,7 @@ import type { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { puertaLeadMagnetsApi } from '@/app/lead-magnet-generator/puerta';
-import { armarLeadMagnet, crearPaginaDeCaptura, guardarEnlace, linkPublico, ponerPrimero, quitarDeLaLista } from '@/lib/lead-magnets/server';
+import { armarLeadMagnet, crearPaginaDeCaptura, dejarDeCompartir, guardarEnlace, linkPublico, ponerPrimero, quitarDeLaLista } from '@/lib/lead-magnets/server';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -48,6 +48,12 @@ export async function POST(req: NextRequest) {
     case 'enlace': {
       if (!id) break;
       const r = await guardarEnlace(id, body.enlace);
+      if (r.ok) listo();
+      return responder(r);
+    }
+    case 'dejar': {
+      if (!id) break;
+      const r = await dejarDeCompartir(id);
       if (r.ok) listo();
       return responder(r);
     }

@@ -12,7 +12,8 @@
 //     las demás tabs de Create (docs/plantillas-reales/README.md; Martín, 29/10: «el usuario piensa que es el guion que MaKo le
 //     creó para su negocio»).
 //   · Lo que se VE (la clase grabada) es una landing del Web Generator: registro arriba y el video en su página de gracias.
-//   · El quiz con diagnóstico es un bloque de la landing (lib/editor-landing/quiz.ts) y su plantilla entra con él.
+//   · Lo que se DESCUBRE (el quiz con diagnóstico) es una landing con el bloque `quiz` (lib/editor-landing/quiz.ts): preguntas
+//     con puntos, el contacto (al CRM) y un resultado según el puntaje.
 //
 // ⚠️ Lo que NO es una plantilla, y por qué (docs/investigacion-lead-magnets.md):
 //   · Un curso de Classroom: el portal abre un curso sólo a un cliente GANADO de ese producto (dar_acceso_curso). Regalarlo a
@@ -25,6 +26,8 @@
 // =============================================================================
 
 /** Dónde se crea la pieza. */
+import { cortarSinPartir } from '../unicode-seguro';
+
 export type HerramientaLM = 'copywriter' | 'web';
 
 /** Qué lleva cada sección del esqueleto, debajo de su título y su guía. */
@@ -168,10 +171,10 @@ const PROMPTS: PlantillaLeadMagnet = {
   pide: ['avatar', 'proceso', 'oferta', 'accion'],
 };
 
-// ── 4 · Planilla o tablero para copiar · Torre Alameda ───────────────────────
+// ── 4 · Planilla para copiar · Torre Alameda ───────────────────────
 const PLANILLA: PlantillaLeadMagnet = {
   id: 'planilla',
-  nombre: 'Planilla o tablero',
+  nombre: 'Planilla',
   grupo: 'Para leer y usar',
   insignia: '📊 Planilla · para copiar',
   ayuda: 'Una tabla que tu cliente copia y llena con sus números.',
@@ -231,8 +234,42 @@ const CLASE: PlantillaLeadMagnet = {
   pide: ['tema', 'promesa', 'quien_soy', 'video', 'accion'],
 };
 
-/** Las plantillas, en el orden de la galería. El quiz entra con su bloque (lib/editor-landing/quiz.ts). */
-export const PLANTILLAS_LEAD_MAGNET: readonly PlantillaLeadMagnet[] = [GUIA, CHECKLIST, PROMPTS, PLANILLA, CLASE];
+// ── 6 · Quiz con diagnóstico (landing del Web Generator, bloque `quiz`) · Pulso Dental ───────────
+// El flujo copiado de SurveyJS (docs/investigacion-lead-magnets.md): la portada, una pregunta por paso, el contacto y el
+// resultado según el puntaje (lib/editor-landing/quiz.ts). Nace con la ESTRUCTURA del quiz (tres preguntas, tres resultados) y
+// sin textos: hasta que se escriben, la página no lo muestra.
+const QUIZ: PlantillaLeadMagnet = {
+  id: 'quiz',
+  nombre: 'Quiz con diagnóstico',
+  grupo: 'Para descubrir',
+  insignia: '🧭 Quiz · 5 preguntas',
+  ayuda: 'Preguntas que llevan a un resultado distinto según lo que contestan.',
+  herramienta: 'web',
+  objetivoLanding: 'quiz',
+  tipo: 'Metodología',
+  emoji: '🧭',
+  secciones: [
+    p('LA PORTADA', 'El título y qué va a saber quien lo conteste.'),
+    p('LAS PREGUNTAS', 'De opción única; cada opción suma puntos.'),
+    p('EL CONTACTO', 'Nombre y correo antes del resultado: entran a tu CRM.'),
+    p('LOS RESULTADOS', 'Uno por rango de puntaje, con qué hacer ahora.'),
+  ],
+  ejemplo: {
+    negocio: 'Pulso Dental',
+    rubro: 'agencia para clínicas dentales',
+    titulo: 'Quiz: ¿por qué tus anuncios no te traen pacientes?',
+    partes: [
+      { titulo: 'La portada', texto: '5 preguntas, 2 minutos. Al final sabes qué está frenando tu agenda de implantes.' },
+      { titulo: 'Las preguntas', texto: '¿Qué anuncias? Limpieza (0) · Un tratamiento con precio (1) · Implantes con un caso real (2).\n¿Cuánto tardas en contestar un mensaje? Más de 3 horas (0) · 1 hora (1) · Menos de 10 minutos (2).\n¿Quién contesta? Nadie fijo (0) · La recepción (1) · Una persona con guion (2).' },
+      { titulo: 'El contacto', texto: 'Nombre, correo y WhatsApp. Entran al CRM de la clínica con su resultado.' },
+      { titulo: 'Los resultados', texto: 'De 0 a 4: «Tus anuncios atraen curiosos». De 5 a 7: «Llegan pacientes, se pierden en el chat». Desde 8: «Listo para escalar implantes», con el botón a la auditoría gratis de 30 minutos.' },
+    ],
+  },
+  pide: ['tema', 'preguntas', 'resultados', 'accion'],
+};
+
+/** Las plantillas, en el orden de la galería. */
+export const PLANTILLAS_LEAD_MAGNET: readonly PlantillaLeadMagnet[] = [GUIA, CHECKLIST, PROMPTS, PLANILLA, CLASE, QUIZ];
 
 /** La plantilla con ese id, o null: la ruta no confía en lo que llega del navegador. */
 export function plantillaLeadMagnet(id: unknown): PlantillaLeadMagnet | null {
@@ -241,7 +278,8 @@ export function plantillaLeadMagnet(id: unknown): PlantillaLeadMagnet | null {
 
 /** El nombre con que nace el lead magnet si no se pidió otro: el de la plantilla. */
 export function nombreInicial(pl: PlantillaLeadMagnet, pedido?: string | null): string {
-  const n = (pedido ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  // Cortado sin partir un emoji (`cortarSinPartir`): medio emoji hace que la base rechace la lista entera.
+  const n = cortarSinPartir((pedido ?? '').replace(/\s+/g, ' ').trim(), 120).trim();
   return n || pl.nombre;
 }
 

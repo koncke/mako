@@ -51,10 +51,11 @@ const REALES = [
   'Francisco Ramos', 'Dental Ramos', 'Sergio Esquer', 'BG Trucking', 'Aspro', 'Ejemplo', 'Koncke',
 ];
 
-// 11 desde el 5/11/2026: la «Clase grabada» del Lead Magnet Generator (lib/lead-magnets/plantillas.ts).
-test('son 11 landings con id único, categoría de la lista y un tema que existe', () => {
-  assert.equal(PLANTILLAS.length, 11);
-  assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, 11);
+// 11 desde el 5/11/2026: la «Clase grabada» del Lead Magnet Generator (lib/lead-magnets/plantillas.ts); 12 desde el 6/11,
+// el «Quiz con diagnóstico» (su bloque, lib/editor-landing/quiz.ts).
+test('son 12 landings con id único, categoría de la lista y un tema que existe', () => {
+  assert.equal(PLANTILLAS.length, 12);
+  assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, 12);
   const temas = new Set(TEMAS.map((t) => t.id));
   for (const p of PLANTILLAS) {
     assert.ok((CATEGORIAS_PLANTILLA as readonly string[]).includes(p.categoria), p.id);
@@ -106,7 +107,8 @@ test('los botones apuntan a una sección que existe (o quedan en «#» para el e
     // Las de captación tienen formulario y su botón principal lleva ahí.
     if (['Agendar', 'Captar contactos', 'Eventos', 'Servicios'].includes(p.categoria)) {
       const [inicio] = c.paginas;
-      const conForm = inicio.doc.content.find((t) => [...nodos(t)].some((x) => x.type === NODO.formulario));
+      // El quiz (6/11/2026) capta con SU formulario de contacto, adentro del bloque (lib/editor-landing/quiz.ts).
+      const conForm = inicio.doc.content.find((t) => [...nodos(t)].some((x) => x.type === NODO.formulario || x.type === NODO.quiz));
       assert.ok(conForm, `${p.id}: sin formulario`);
       const primero = [...nodos(inicio.doc.content[0])].find((x) => x.type === NODO.boton);
       if (primero) assert.equal(primero.attrs?.href, `#t-${conForm!.attrs?.id}`, `${p.id}: el botón del inicio no va al formulario`);

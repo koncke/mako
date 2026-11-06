@@ -44,7 +44,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'pagina_captura_magnet', area: 'leadmagnet', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear la página que pide el lead magnet',
-    descripcion: 'Crea la landing que capta un lead magnet: el formulario pide nombre y correo, lo que dejan entra al CRM y la página de gracias lleva al link del lead magnet si ya tiene uno. Nace como borrador sin publicar. Si ya tiene su página, devuelve ésa. Una clase grabada ya es una página con su formulario.',
+    descripcion: 'Crea la landing que capta un lead magnet: el formulario pide nombre y correo, lo que dejan entra al CRM y la página de gracias lleva a su link. Exige que tenga su link (link_publico_magnet). Nace como borrador sin publicar. Si ya tiene su página, devuelve ésa. Una clase grabada ya es una página con su formulario.',
     parametros: [ID_LM],
     canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
     reversible: false, escribe: 'una landing del Web Generator (borrador) y su id en el lead magnet',
@@ -52,7 +52,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'link_publico_magnet', area: 'leadmagnet', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear el link público de un lead magnet',
-    descripcion: 'Le da a la página de Copywriting de un lead magnet un link público de SOLO LECTURA, para que la abra cualquiera sin cuenta, y lo guarda como el link que reciben los leads. No sale si la página está vacía o si todavía tiene la guía de alguna sección: dice cuáles cambiar. Si ya tenía un link vigente, devuelve ése.',
+    descripcion: 'Le da a un lead magnet el link que reciben los leads. Para una página de Copywriting, un link público de SOLO LECTURA que abre cualquiera sin cuenta (no sale si está vacía o todavía tiene la guía de alguna sección: dice cuáles cambiar; si ya tenía uno vigente, ése). Para la clase grabada, el de su landing publicada. Si ya tiene su página de captura, su botón de gracias pasa al link nuevo.',
     parametros: [ID_LM],
     canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
     reversible: false, escribe: 'un link de solo lectura (shares, recurso lead-magnet) y el enlace del lead magnet',
@@ -60,9 +60,17 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'primero_magnet', area: 'leadmagnet', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Poner primero un lead magnet',
-    descripcion: 'Lo pone primero de la lista del negocio. Las automatizaciones mandan el link del primero (el dato «Link del lead magnet»), así que esto decide cuál reciben los leads.',
+    descripcion: 'Lo pone primero de la lista del negocio. Las automatizaciones mandan el link del primero (el dato «Link del lead magnet»), así que esto decide cuál reciben los leads. Exige que tenga su link.',
     parametros: [ID_LM],
     canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
     reversible: true, escribe: 'el orden de la lista de lead magnets (mako.entregable)',
+  },
+  {
+    id: 'dejar_compartir_magnet', area: 'leadmagnet', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Dejar de compartir un lead magnet',
+    descripcion: 'Apaga el link público de solo lectura de la página de Copywriting de un lead magnet: deja de abrirse, también para quien ya lo recibió, y se le saca como su link. La página sigue en Copywriting.',
+    parametros: [ID_LM],
+    canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
+    reversible: false, escribe: 'revoca el link (shares, recurso lead-magnet) y saca el enlace del lead magnet',
   },
 ];

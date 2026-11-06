@@ -71,7 +71,7 @@ export type ObjetivoLanding = { id: string; nombre: string; descripcion: string;
 const ICONO_OBJETIVO: Readonly<Record<string, string>> = {
   'agenda-llamada': 'calendario-check', webinar: 'videollamada', 'lead-magnet': 'regalo', 'venta-directa': 'carrito',
   'servicio-local': 'ubicacion', 'lista-espera': 'reloj-arena', 'curso-programa': 'graduacion', gracias: 'corazon',
-  consultoria: 'llamada', 'app-software': 'laptop', 'clase-grabada': 'video',
+  consultoria: 'llamada', 'app-software': 'laptop', 'clase-grabada': 'video', quiz: 'pregunta',
 };
 
 /** Los objetivos (el COPY) son las plantillas de landing que ya existen, por su id. */

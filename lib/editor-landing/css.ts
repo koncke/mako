@@ -954,6 +954,10 @@ function movil(p: string): string[] {
   return [
     // Los bloques de venta (16b): el reloj, más chico; el pop, a lo ancho y arriba del sello «Hecho con MaKo» (abajo a la derecha).
     r(p + ' .gm-cuenta-unidad', 'min-width: 3.4em; padding: 0.45em 0.3em;'),
+    // El quiz (16c): la tarjeta respira menos y los botones ocupan el ancho (SurveyJS en el teléfono: 2 y 4 unidades).
+    r(p + ' .gm-quiz', 'padding: 1.5em 1em;'),
+    r(p + ' .gm-quiz-nav', 'flex-direction: column-reverse; align-items: stretch;'),
+    r(p + ' .gm-quiz-nav > *', 'width: 100%;'),
     r(p + ' .gm-cuenta-num', 'font-size: 1.6em;'),
     r(p + ' .gm-prueba[data-pop]', 'left: 0.75em; right: 0.75em; bottom: calc(3.4em + env(safe-area-inset-bottom, 0px)); max-width: none;'),
     r(p + ' .gm-pagina', 'font-size: var(--gm-base-movil, 16px); padding-bottom: 2em;'),
@@ -1095,12 +1099,60 @@ const VENTA: string[] = [
   // El celular, en `movil()` (el bloque 17): así lo ve igual la vista de teléfono del editor.
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 16c. El quiz con diagnóstico (6/11/2026, Lead Magnet Generator: quiz.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+// Copiado de SurveyJS Form Library (tema defaultV2, docs/investigacion-lead-magnets.md), en em y con los tokens del tema: la
+// tarjeta con radio y sombra de 1 px, la barra de avance de 2 px con «Pregunta N de M» a la derecha (12 px, 600, tenue), cada
+// opción con su círculo de 1.5em (24 px) y el punto de 0.5em (8 px) al elegirla, los botones con 1em × 4em de aire (16 × 64 px)
+// y el resultado centrado. Lo escondido (`hidden`) se respeta: una regla de `display` le ganaría.
+
+const QUIZ: string[] = [
+  '/* ── 16c. Quiz con diagnóstico ── */',
+  r(D + ' .gm-quiz', 'display: grid; gap: 1.25em; width: 100%; max-width: 45em; margin: 0.5em auto; padding: 2.5em 2em; border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-tarjeta-color, var(--gm-superficie, #ffffff)); color: var(--gm-texto, inherit); box-shadow: 0 0.0625em 0.125em rgba(0,0,0,0.15); text-align: left;'),
+  r(D + ' .gm-quiz [hidden]', 'display: none !important;'),
+  r(D + ' .gm-quiz-inicio', 'display: grid; gap: 0.75em; justify-items: start;'),
+  r(D + ' .gm-quiz-titulo', 'margin: 0; font-size: 1.6em; line-height: 1.25; font-weight: 700; color: var(--gm-texto, inherit);'),
+  r(D + ' .gm-quiz-intro', 'margin: 0; color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-quiz-progreso', 'display: grid; gap: 0.5em;'),
+  r(D + ' .gm-quiz-barra', 'height: 2px; background: var(--gm-borde-neutro, #eaeaea); overflow: hidden;'),
+  r(D + ' .gm-quiz-lleno', 'display: block; height: 100%; background: var(--gm-acento, #19b394); transition: width 0.15s ease;'),
+  r(D + ' .gm-quiz-cuenta', 'margin: 0; justify-self: end; font-size: 0.75em; font-weight: 600; line-height: 1; color: var(--gm-texto-tenue, rgba(0,0,0,0.45));'),
+  r(D + ' .gm-quiz-pregunta', 'display: grid; gap: 1em; margin: 0; padding: 0; border: 0; min-width: 0;'),
+  r(D + ' .gm-quiz-enunciado', 'padding: 0; font-size: 1.15em; font-weight: 600; line-height: 1.35; color: var(--gm-texto, inherit);'),
+  r(D + ' .gm-quiz-opciones', 'display: grid; gap: 0.5em;'),
+  r(D + ' .gm-quiz-opcion', 'display: flex; align-items: center; gap: 0.75em; padding: 0.75em 1em; border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, rgba(127,127,127,0.06)); border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.12)); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;'),
+  r(D + ' .gm-quiz-opcion:hover', 'border-color: var(--gm-acento-texto, currentColor);'),
+  r(D + ' .gm-quiz-opcion:has(input:checked)', 'border-color: var(--gm-acento, currentColor); background: var(--gm-acento-suave, rgba(127,127,127,0.12));'),
+  r(D + ' .gm-quiz-opcion input', 'appearance: none; -webkit-appearance: none; flex: none; display: grid; place-items: center; width: 1.5em; height: 1.5em; margin: 0; border-radius: 50%; background: var(--gm-fondo-color, #f9f9f9); box-shadow: inset 0 0.0625em 0.125em rgba(0,0,0,0.15); cursor: pointer;'),
+  r(D + ' .gm-quiz-opcion input:checked', 'background: var(--gm-acento, #19b394); box-shadow: none;'),
+  r(D + ' .gm-quiz-opcion input:checked::after', 'content: ""; width: 0.5em; height: 0.5em; border-radius: 50%; background: var(--gm-acento-contraste, #ffffff);'),
+  r(D + ' .gm-quiz-opcion input:focus-visible', 'outline: 0.15em solid var(--gm-acento-texto, currentColor); outline-offset: 0.15em;'),
+  r(D + ' .gm-quiz-falta', 'margin: 0; font-size: 0.9em; font-weight: 600; color: var(--gm-acento-texto, currentColor);'),
+  r(D + ' .gm-quiz-nav', 'display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75em; margin-top: 0.5em;'),
+  r(D + ' .gm-quiz-nav > .gm-boton', 'margin-left: auto; padding: 1em 4em;'),
+  r(D + ' .gm-quiz-atras', 'padding: 1em 1.25em; border: 0; border-radius: var(--gm-radio-boton, 0.375em); background: transparent; color: var(--gm-acento-texto, currentColor); font: inherit; font-weight: 600; cursor: pointer;'),
+  r(D + ' .gm-quiz-atras:hover', 'background: var(--gm-acento-suave, rgba(127,127,127,0.12));'),
+  r(D + ' .gm-quiz-form', 'display: grid; gap: 0.9em;'),
+  r(D + ' .gm-quiz-pide', 'margin: 0; font-weight: 600;'),
+  r(D + ' .gm-quiz-form input:not([type="checkbox"]):not([type="radio"])', 'width: 100%; min-width: 0; padding: 0.7em 0.9em; border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, #ffffff); color: var(--gm-texto, inherit); font: inherit; font-size: 1em; line-height: 1.4; outline: none;'),
+  r(D + ' .gm-quiz-form input:focus', 'border-color: var(--gm-acento-texto, currentColor); box-shadow: 0 0 0 0.2em var(--gm-acento-suave, rgba(127,127,127,0.2));'),
+  r(D + ' .gm-quiz-datos', 'display: none;'),
+  r(D + ' .gm-quiz-resultado', 'display: grid; gap: 0.75em; justify-items: center; text-align: center; padding: 1em 0; outline: none;'),
+  r(D + ' .gm-quiz-texto', 'margin: 0; max-width: 34em; color: var(--gm-texto, inherit);'),
+  // En el editor y la miniatura: el resumen quieto (las preguntas numeradas y los resultados).
+  r(D + ' .gm-quiz[data-vista="resumen"] .gm-quiz-resumen', 'margin: 0; padding-left: 1.25em; display: grid; gap: 0.35em; font-size: 0.95em;'),
+  r(D + ' .gm-quiz-resumen-op', 'color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-quiz-resumen-res', 'margin: 0; font-size: 0.85em; color: var(--gm-texto-tenue, inherit);'),
+  '@media (prefers-reduced-motion: reduce) { ' + r(D + ' .gm-quiz-lleno', 'transition: none;') + ' }',
+];
+
 /**
  * La hoja del contenido: la misma en el editor y en la página publicada. Un string
  * sin backticks ni `${` (va adentro de un <style>), armado una vez al cargar.
  */
 export const CSS_CONTENIDO: string = [
-  ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...VENTA, ...OPTIMIZADO,
+  ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...VENTA, ...QUIZ, ...OPTIMIZADO,
   ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...VIDEO_FONDO_CSS, ...RESPONSIVE, ...IMPRESION,
 ].join('\n');
 

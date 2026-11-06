@@ -145,6 +145,7 @@ configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
 configurar_newsletter
+configurar_quiz_landing
 configurar_reporte
 configurar_seccion_landing
 configurar_seccion_reporte
@@ -198,6 +199,7 @@ dar_estrella
 dar_formato_texto_landing
 decidir_recomendacion
 declarar_entradas_funnel
+dejar_compartir_magnet
 desarchivar_secuencia
 descartar_borrador_plan
 descartar_decision_media_buyer

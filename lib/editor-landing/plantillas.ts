@@ -28,7 +28,8 @@
 //     cobro es del negocio y no se inventa.
 // =============================================================================
 
-import { nuevoId, docPagina, type JsonNodo, type LandingContenido, type Pagina } from './doc';
+import { NODO, nuevoId, docPagina, type JsonNodo, type LandingContenido, type Pagina } from './doc';
+import { QUIZ_NUEVO } from './quiz';
 import { CONFIG_DEFAULT } from './api-tipos';
 import { TEMAS } from './temas';
 import {
@@ -162,7 +163,7 @@ function pagina(titulo: string, ruta: string, tarjetas: TarjetaIA[], seo?: { tit
 const doc = (...paginas: Pagina[]): LandingContenido => ({ v: 1, paginas });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Las 11 landings
+// Las 12 landings
 // ─────────────────────────────────────────────────────────────────────────────
 
 const agendaLlamada = (): LandingContenido => doc(pagina('Inicio', '', [
@@ -417,6 +418,71 @@ const leadMagnet = (): LandingContenido => doc(
  * registro y, en la página de gracias, la clase. El video de la clase va en la página de gracias (los diseños con video ya
  * le ponen su lugar: `videoEnLaGracias`), y el Lead Magnet Generator lleva el formulario a esa página al crearla.
  */
+/**
+ * El quiz con diagnóstico (6/11/2026, Lead Magnet Generator: lib/editor-landing/quiz.ts). La portada con la promesa, el bloque
+ * `quiz` con su ESTRUCTURA (tres preguntas de tres opciones, tres resultados por rango) y quién lo armó. El quiz no tiene forma
+ * en la gramática de las plantillas: se suma a su sección después de armarla. Hasta que sus preguntas y resultados tienen
+ * texto, la página publicada no lo muestra (render.ts), y el editor dice qué le falta.
+ */
+const quizDiagnostico = (): LandingContenido => {
+  const c = doc(pagina('Inicio', '', [
+    {
+      bloques: [
+        ante('Quiz gratuito · 2 minutos'),
+        { t: 'titulo', texto: '[Nombre del quiz]' },
+        pg('[En una frase: qué va a saber quien lo conteste.]'),
+        botones(boton('Empezar el quiz', '#seccion-3')),
+      ],
+      notas: 'La promesa es un diagnóstico, no una venta: qué va a saber al terminar.',
+    },
+    {
+      bloques: [
+        h2('Qué vas a saber'),
+        opt('cajas-numeros', [
+          it('[Lo primero que descubre]', '[Por qué le sirve]'),
+          it('[Lo segundo]', '[Por qué le sirve]'),
+          it('[Qué hacer ahora]', '[El siguiente paso según su resultado]'),
+        ], 3),
+      ],
+    },
+    {
+      bloques: [h2('Empieza aquí')],
+      notas: 'Abajo va el quiz: escribe las preguntas, los puntos de cada opción y un resultado por rango de puntaje.',
+    },
+    {
+      bloques: [
+        h2('Es para ti si'),
+        opt('iconos-texto', [
+          it('[Situación 1]', '[Qué descubre con el quiz]', 'objetivo'),
+          it('[Situación 2]', '[Qué descubre con el quiz]', 'idea'),
+          it('[Situación 3]', '[Qué descubre con el quiz]', 'rayo'),
+        ]),
+      ],
+    },
+    {
+      diseno: 'izquierda',
+      bloques: [
+        ante('Quién lo armó'),
+        h2('[Tu nombre o el de tu marca]'),
+        p('[Por qué sabes de esto, en dos líneas.]'),
+      ],
+    },
+    {
+      bloques: [
+        h2('Preguntas frecuentes'),
+        preguntas([
+          ['¿Cuánto tarda?', 'Unos 2 minutos: [N] preguntas de opción única.'],
+          ['¿Qué hago con mi resultado?', '[Qué le propones según su resultado: una llamada, una clase, una guía.]'],
+          ['¿Para qué piden mi correo?', 'Para mostrarte tu resultado y [lo que le vas a mandar después].'],
+        ]),
+      ],
+    },
+  ], { titulo: '[Nombre del quiz]', descripcion: '[Qué va a saber quien lo conteste], en 2 minutos.' }));
+  const seccion = (c.paginas[0].doc.content ?? [])[2];
+  if (seccion) seccion.content = [...(seccion.content ?? []), { type: NODO.quiz, attrs: { ...QUIZ_NUEVO, titulo: '[Nombre del quiz]' } }];
+  return c;
+};
+
 const claseGrabada = (): LandingContenido => doc(
   pagina('Inicio', '', [
     {
@@ -1022,6 +1088,7 @@ export const PLANTILLAS: readonly Plantilla[] = [
   { id: 'webinar', nombre: 'Webinar o evento', descripcion: 'Registro a una clase en vivo, con página de gracias.', categoria: 'Eventos', tema: temaDe('ultraviolet', 'eclipse', 'nightsky'), contenido: webinar },
   { id: 'lead-magnet', nombre: 'Lead magnet / descarga', descripcion: 'Una guía gratis a cambio del correo.', categoria: 'Captar contactos', tema: temaDe('sapphire', 'cirrus', 'pewter'), contenido: leadMagnet },
   { id: 'clase-grabada', nombre: 'Clase grabada', descripcion: 'Se registran y ven tu clase en seguida.', categoria: 'Captar contactos', tema: temaDe('ultraviolet', 'eclipse', 'pewter'), contenido: claseGrabada },
+  { id: 'quiz', nombre: 'Quiz con diagnóstico', descripcion: 'Contestan unas preguntas y reciben su resultado.', categoria: 'Captar contactos', tema: temaDe('pewter', 'ultraviolet'), contenido: quizDiagnostico },
   { id: 'venta-directa', nombre: 'Venta directa', descripcion: 'Producto con precio, garantía y objeciones.', categoria: 'Vender', tema: temaDe('torch', 'canyon', 'pewter'), contenido: ventaDirecta },
   { id: 'servicio-local', nombre: 'Servicio local', descripcion: 'Un oficio o servicio en tu ciudad.', categoria: 'Servicios', tema: temaDe('lawn', 'mint', 'pewter'), contenido: servicioLocal },
   { id: 'lista-espera', nombre: 'Lanzamiento con lista de espera', descripcion: 'Junta interesados antes de abrir.', categoria: 'Captar contactos', tema: temaDe('eclipse', 'ultraviolet', 'malachite'), contenido: listaEspera },

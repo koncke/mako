@@ -19,7 +19,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PLANTILLAS_LEAD_MAGNET, plantillaLeadMagnet, nombreInicial, chipsDeLeadMagnet } from '../lib/lead-magnets/plantillas';
 import { esqueletoLeadMagnet, guiasQueQuedan, tieneContenidoPropio } from '../lib/lead-magnets/esqueleto';
-import { personalizarLanding, enlaceParaBoton } from '../lib/lead-magnets/landing';
+import { personalizarLanding, enlaceParaBoton, conLinkNuevo, SIN_PROMESA_DE_CORREO } from '../lib/lead-magnets/landing';
+import { fundirDelOnboarding } from '../lib/entregable-fundir';
 import { piezaDe, paginaDe, plantillaGuardada, rutaDePieza } from '../lib/lead-magnets/pieza';
 import { paginaDelShareLM } from '../lib/lead-magnets/compartir';
 import { RECURSO_LEAD_MAGNET } from '../lib/share-nombre';
@@ -27,12 +28,16 @@ import { esEtiqueta, nombreDeSeccion, sanearContenido, textoDelDoc, NODOS } from
 import type { JsonNodo } from '../lib/copywriter/tipos';
 import { DISENOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
 import { PLANTILLAS as OBJETIVOS } from '../lib/editor-landing/plantillas';
-import { estadoDe, plantillasParaCrear } from '../app/lead-magnet-generator/reglas';
+import { estadoDe, plantillasParaCrear, vistaDeLeadMagnet } from '../app/lead-magnet-generator/reglas';
 import LeadMagnetCompartido from '../app/compartido/[token]/LeadMagnetCompartido';
 import { REALES, sinAcentos } from './_reales';
 
 /** El elenco ficticio de docs/plantillas-reales/README.md (2.2): ningún otro negocio en un ejemplo. */
 const ELENCO = ['Cierre Consultivo', 'Consulta Rentable', 'Pulso Dental', 'Torre Alameda', 'Voz de Líder'];
+const nodosDe = (n: unknown): Record<string, unknown>[] => {
+  const o = n as { content?: unknown[] };
+  return [n as Record<string, unknown>, ...(o.content ?? []).flatMap(nodosDe)];
+};
 
 test('las plantillas: ids únicos, etiquetas del Copywriter, y un ejemplo del elenco con una parte por sección', () => {
   const ids = PLANTILLAS_LEAD_MAGNET.map((p) => p.id);
@@ -117,6 +122,10 @@ test('la landing que nace: el nombre puesto, el formulario lleva a la página de
   assert.ok(botones.some((b) => (b.attrs as Record<string, unknown>).href === 'https://hola-mako.com/compartido/abc'));
   // La de antes no se tocó (devuelve una copia).
   assert.ok(JSON.stringify(base).includes('[Nombre de la guía]'));
+  // Nada promete un correo que nadie manda (la revisión del 6/11/2026): la página de gracias da el link en el acto.
+  assert.ok(JSON.stringify(base).includes('Revisa tu correo'), 'la plantilla cambió: revisar SIN_PROMESA_DE_CORREO');
+  assert.doesNotMatch(todo, /correo en|tu correo\.|va en camino/i, 'la página promete un correo');
+  for (const [antes, ahora] of Object.entries(SIN_PROMESA_DE_CORREO)) assert.ok(!todo.includes(JSON.stringify(antes).slice(1, -1)) || antes === ahora, `quedó «${antes}»`);
   // Un link que no es http(s) no llega al botón.
   const mal = personalizarLanding(base, { nombre: 'x', enlace: 'javascript:alert(1)' });
   assert.ok(!JSON.stringify(mal).includes('javascript:'), 'un javascript: no llega al botón');
@@ -128,6 +137,70 @@ test('la landing que nace: el nombre puesto, el formulario lleva a la página de
   const deClase = clase.paginas[0].doc;
   assert.ok(nodos(deClase).some((n) => n.type === 'formulario' && String((n.attrs as Record<string, unknown>).redirigir).startsWith('pagina:')));
   assert.ok(!JSON.stringify(clase).includes('[Nombre de la clase]'));
+});
+
+test('el link nuevo pasa al botón de gracias que llevaba al viejo (o que quedó sin destino), y a ningún otro', () => {
+  const minimal = DISENOS_LANDING.find((d) => d.id === 'minimal')!;
+  const c = personalizarLanding(landingDesde(minimal, 'lead-magnet')!, { nombre: 'X', enlace: 'https://a.com/viejo' });
+  const botones = (x: typeof c) => x.paginas.flatMap((pg) => nodosDe(pg.doc).filter((n) => n.type === 'boton').map((n) => ({ ruta: pg.ruta, href: (n.attrs as Record<string, unknown>).href })));
+  const nuevo = conLinkNuevo(c, 'https://a.com/viejo', 'https://b.com/nuevo')!;
+  assert.ok(nuevo, 'no cambió nada');
+  assert.deepEqual(botones(nuevo).filter((b) => b.ruta === 'gracias').map((b) => b.href), ['https://b.com/nuevo']);
+  // Los botones de las otras páginas (los del inicio, que van al formulario) no se tocan.
+  assert.deepEqual(botones(nuevo).filter((b) => b.ruta !== 'gracias'), botones(c).filter((b) => b.ruta !== 'gracias'));
+  assert.equal(conLinkNuevo(nuevo, 'https://a.com/viejo', 'https://b.com/nuevo'), null, 'ya estaba: nada que guardar');
+  // Uno que quedó en «#» (una página de antes) también lo toma; sacar el link lo deja en «#».
+  const sinLink = personalizarLanding(landingDesde(minimal, 'lead-magnet')!, { nombre: 'X' });
+  assert.deepEqual(botones(conLinkNuevo(sinLink, null, 'https://b.com/n')!).filter((b) => b.ruta === 'gracias').map((b) => b.href), ['https://b.com/n']);
+  assert.deepEqual(botones(conLinkNuevo(nuevo, 'https://b.com/nuevo', null)!).filter((b) => b.ruta === 'gracias').map((b) => b.href), ['#']);
+});
+
+test('guardar el Entregable del onboarding no borra lo armado en la tab, ni su link, ni el orden', () => {
+  const guardada = [
+    { id: 'b', nombre: 'Checklist', tipo: 'Checklist', queEs: '', fomo: '', enlace: 'https://x.com/b', pieza: { herramienta: 'copywriter' as const, id: 'gbbbbbbbbbb' }, pagina: 4 },
+    { id: 'a', nombre: 'Guía vieja', tipo: 'Documento', queEs: 'q', fomo: 'f', enlace: 'https://x.com/a' },
+    { id: 'c', nombre: 'Borrador', tipo: 'Documento', queEs: '', fomo: '' },
+  ];
+  // La pantalla del onboarding abrió antes de que existiera «b»: manda «a» (con otro nombre) y una nueva; «c» la borró.
+  const f = fundirDelOnboarding(guardada, [
+    { id: 'a', nombre: 'Guía nueva', tipo: 'Documento', queEs: 'q2', fomo: 'f2' },
+    { id: 'n', nombre: 'Nueva', tipo: 'Plantilla', queEs: '', fomo: '' },
+  ]);
+  assert.deepEqual(f.map((e) => e.id), ['b', 'a', 'n'], 'el orden es el guardado; la nueva va al final; la borrada sale');
+  assert.equal(f[0].pieza?.id, 'gbbbbbbbbbb', 'lo armado en la tab se queda');
+  assert.equal(f[1].nombre, 'Guía nueva');
+  assert.equal(f[1].enlace, 'https://x.com/a', 'su link sigue');
+  // Una tarjeta vacía no se guarda.
+  assert.deepEqual(fundirDelOnboarding([], [{ id: 'v', nombre: '', tipo: '', queEs: '', fomo: '' }]), []);
+  // Ni una nueva sin nombre: quedaba guardada e invisible (ninguna pantalla lista una sin nombre).
+  assert.deepEqual(fundirDelOnboarding([], [{ id: 'v', nombre: ' ', tipo: 'Guía', queEs: 'algo', fomo: '' }]), []);
+  // Vaciar el nombre de una guardada conserva el que tenía (sin nombre se escondía, y si era la primera cambiaba el link).
+  const vaciada = fundirDelOnboarding(guardada, [{ id: 'a', nombre: '', tipo: 'Documento', queEs: 'q3', fomo: 'f3' }]);
+  assert.equal(vaciada.find((e) => e.id === 'a')?.nombre, guardada.find((e) => e.id === 'a')?.nombre);
+  assert.equal(vaciada.find((e) => e.id === 'a')?.queEs, 'q3', 'lo demás sí cambia');
+});
+
+test('lo que viaja a la pantalla: si su página existe y si está publicada, en una lectura', () => {
+  const lm = { id: 'a', nombre: 'Guía', tipo: 'Documento', enlace: 'https://x.com', pieza: { herramienta: 'copywriter' as const, id: 'gabc123defg' }, pagina: 7 };
+  const landings = new Map([[7, { url: null }], [9, { url: 'https://hola-mako.site/clase' }]]);
+  assert.deepEqual(vistaDeLeadMagnet(lm, landings), { ...lm, paginaPublicada: false });
+  assert.equal(estadoDe(vistaDeLeadMagnet(lm, landings)).falta, 'Falta publicar su página.', 'una página sin publicar no es «listo»');
+  assert.equal(estadoDe(vistaDeLeadMagnet(lm, new Map([[7, { url: 'https://hola-mako.site/g' }]]))).falta, null);
+  // Se borró: vuelve «Crear su página».
+  assert.equal(vistaDeLeadMagnet(lm, new Map()).pagina, undefined);
+  // No se pudo leer: no se afirma nada (ni que se borró, ni que no está publicada).
+  const sinLeer = vistaDeLeadMagnet(lm, null);
+  assert.equal(sinLeer.pagina, 7);
+  assert.equal(sinLeer.paginaPublicada, null);
+  assert.equal(estadoDe(sinLeer).falta, null);
+  const clase = { id: 'c', nombre: 'Clase', tipo: 'Metodología', pieza: { herramienta: 'web' as const, id: '9' } };
+  assert.equal(vistaDeLeadMagnet(clase, landings).piezaUrl, 'https://hola-mako.site/clase');
+  // «Dejar de compartir» sale de los links ABIERTOS de su página, no de su link: uno cambiado por la API deja el viejo abierto.
+  const conDrive = { ...lm, enlace: 'https://drive.google.com/x' };
+  assert.equal(vistaDeLeadMagnet(conDrive, landings, new Map([['gabc123defg', 1]])).compartidos, 1);
+  assert.equal(vistaDeLeadMagnet(conDrive, landings, new Map()).compartidos, 0);
+  assert.equal(vistaDeLeadMagnet(conDrive, landings, null).compartidos, undefined, 'sin leerlos no se ofrece');
+  assert.equal(vistaDeLeadMagnet(clase, landings, new Map([['9', 2]])).compartidos, undefined, 'una landing no tiene links de solo lectura');
 });
 
 test('dónde vive la pieza: sólo un id de su herramienta se guarda', () => {
@@ -188,9 +261,13 @@ test('qué le falta a un lead magnet para llegarle a un lead', () => {
   assert.equal(estadoDe({ ...copy, enlace: 'https://x.com' }).falta, 'Falta la página donde la piden.');
   assert.equal(estadoDe({ ...copy, enlace: 'https://x.com', pagina: 4 }).falta, null);
   const viejo = { id: 'b', nombre: 'Plantilla', tipo: 'Plantilla' };
-  assert.equal(estadoDe(viejo).falta, 'Falta su link: pégalo abajo.');
+  assert.equal(estadoDe(viejo).falta, 'Falta su link.');
   assert.equal(estadoDe(viejo).puedeCompartir, false);
+  assert.equal(estadoDe(copy).puedePrimero, false, 'sin link no se pone primero: las automatizaciones mandarían un link vacío');
+  assert.equal(estadoDe({ ...copy, enlace: 'https://x.com' }).puedePrimero, true);
   const clase = { id: 'c', nombre: 'Clase', tipo: 'Metodología', pieza: { herramienta: 'web' as const, id: '9' } };
   assert.equal(estadoDe(clase).puedeCaptar, false, 'la clase grabada ya es una página con su formulario');
-  assert.equal(estadoDe(clase).falta, null);
+  assert.equal(estadoDe(clase).falta, 'Falta publicarla y usar su link.', 'una clase sin link no es «listo»');
+  assert.equal(estadoDe({ ...clase, piezaUrl: 'https://hola-mako.site/c' }).falta, 'Falta usar su link.');
+  assert.equal(estadoDe({ ...clase, enlace: 'https://hola-mako.site/c' }).falta, null);
 });

@@ -15,23 +15,23 @@ import { useRouter } from '@/app/_ui/Link';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
+import { Toast, useToast } from '@/app/_ui/Toast';
 import { rotuloDeEjemplo } from '@/app/_crear/ejemplo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { plantillaLeadMagnet } from '@/lib/lead-magnets/plantillas';
 import {
   EJEMPLOS_LEAD_MAGNET, RUTA_TAB, plantillasParaCrear, proyectosDe, type LeadMagnetVista,
 } from './reglas';
-import { DetalleLeadMagnet, type LandingVista } from './DetalleLeadMagnet';
+import { DetalleLeadMagnet } from './DetalleLeadMagnet';
 import { pedirLeadMagnet } from './cliente';
 
-export function LeadMagnets({ lista, error, actual, landingPieza, landingCaptura }: {
+export function LeadMagnets({ lista, error, actual }: {
   lista: LeadMagnetVista[];
   error: string | null;
   actual: string | null;
-  landingPieza: LandingVista | null;
-  landingCaptura: LandingVista | null;
 }) {
   const router = useRouter();
+  const { toast, show, clear } = useToast();
   const [ejemplo, setEjemplo] = useState<string | null>(null);
   const [errorEjemplo, setErrorEjemplo] = useState<string | null>(null);
   const [usandoEjemplo, setUsandoEjemplo] = useState(false);
@@ -42,14 +42,16 @@ export function LeadMagnets({ lista, error, actual, landingPieza, landingCaptura
     ...p,
     menu: [{
       rotulo: 'Quitar de la lista', peligro: true,
-      confirmar: `¿Quitar «${p.nombre}» de tus lead magnets? Su página sigue donde está.`,
+      confirmar: `¿Quitar «${p.nombre}» de tus lead magnets? Su página sigue donde está, y su link público deja de abrirse.`,
       hacer: async () => {
         const r = await pedirLeadMagnet({ accion: 'quitar', id: p.id });
-        if (r.ok) router.replace(RUTA_TAB);
+        // El error se dice (la revisión del 6/11/2026: fallaba callado), y sólo se cierra el detalle de ESE lead magnet.
+        if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+        if (actual === p.id) router.replace(RUTA_TAB);
         router.refresh();
       },
     }],
-  })), [lista, router]);
+  })), [lista, router, actual, show]);
 
   const usar = useCallback(async (pl: PlantillaCrear): Promise<string | null> => {
     const r = await pedirLeadMagnet<{ ruta: string; aviso: string | null }>({ accion: 'armar', plantilla: pl.id });
@@ -74,8 +76,17 @@ export function LeadMagnets({ lista, error, actual, landingPieza, landingCaptura
         onVerEjemplo={(p) => setEjemplo(p.id)}
         ejemplos={EJEMPLOS_LEAD_MAGNET}
       >
-        {abierto ? <DetalleLeadMagnet key={abierto.id} lm={abierto} landingPieza={landingPieza} landingCaptura={landingCaptura} esPrimero={lista[0]?.id === abierto.id} /> : null}
+        {abierto ? <DetalleLeadMagnet key={abierto.id} lm={abierto} esPrimero={lista[0]?.id === abierto.id} />
+          // Se pidió UNO (`?lm=`) y la lista no se pudo leer: se dice acá, no detrás de la «←». Sin esto se veía «Nuevo lead
+          // magnet» como si no existiera (revisión del 6/11/2026).
+          : actual && error ? (
+            <div className="lmg-detalle">
+              <p className="lmg-error" role="alert">{error}<ReportarASoporte /></p>
+              <Button variant="secondary" size="sm" style={{ alignSelf: 'flex-start' }} onClick={() => router.refresh()}>Volver a intentar</Button>
+            </div>
+          ) : null}
       </PantallaCrear>
+      <Toast state={toast} onClose={clear} />
       {pl && (
         <Modal titulo={pl.ejemplo.titulo} onCerrar={() => { setEjemplo(null); setErrorEjemplo(null); }} ancho={640}
           pie={(

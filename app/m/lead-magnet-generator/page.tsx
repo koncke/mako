@@ -11,9 +11,10 @@ import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
-import { listarLeadMagnets, urlDeLanding } from '@/lib/lead-magnets/server';
+import { compartidosPorPieza, landingsDelNegocio, listarLeadMagnets } from '@/lib/lead-magnets/server';
+import { getSesionAdmin } from '@/lib/auth';
 import { esLaPlataforma } from '@/app/lead-magnet-generator/puerta';
-import type { LeadMagnetVista } from '@/app/lead-magnet-generator/reglas';
+import { vistaDeLeadMagnet, type LeadMagnetVista } from '@/app/lead-magnet-generator/reglas';
 import { LeadMagnetsM } from './LeadMagnetsM';
 
 export const dynamic = 'force-dynamic';
@@ -21,22 +22,17 @@ export const maxDuration = 60;
 
 export default async function LeadMagnetsMovil({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireMovil({ navKey: 'lead-magnet-generator' });
-  if (!(await esLaPlataforma())) redirect(await rutaConWs(HOME_MOVIL));
+  // La sección es del super admin (como su escritorio): `getSesionAdmin()` y su negocio, no mirando a un cliente.
+  if (!(await getSesionAdmin()) || !(await esLaPlataforma())) redirect(await rutaConWs(HOME_MOVIL));
   const sp = await searchParams;
-  const r = await listarLeadMagnets();
-  const lista: LeadMagnetVista[] = r.ok
-    ? r.lista.map((e) => ({ id: e.id, nombre: e.nombre, tipo: e.tipo, enlace: e.enlace, pieza: e.pieza, plantilla: e.plantilla, pagina: e.pagina }))
-    : [];
+  const [r, landings, compartidos] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza()]);
+  const lista: LeadMagnetVista[] = r.ok ? r.lista.map((e) => vistaDeLeadMagnet(e, landings, compartidos)) : [];
   const abierto = typeof sp.lm === 'string' ? lista.find((x) => x.id === sp.lm) ?? null : null;
-  const [landingPieza, landingCaptura] = await Promise.all([
-    abierto?.pieza?.herramienta === 'web' ? urlDeLanding(Number(abierto.pieza.id)) : null,
-    abierto?.pagina ? urlDeLanding(abierto.pagina) : null,
-  ]);
   return (
     <PantallaM>
       <CabeceraM titulo="Lead Magnet" />
       {r.ok
-        ? <LeadMagnetsM lista={lista} abierto={abierto} landingPieza={landingPieza} landingCaptura={landingCaptura} />
+        ? <LeadMagnetsM lista={lista} abierto={abierto} />
         : <ErrorM frase={r.error} />}
     </PantallaM>
   );

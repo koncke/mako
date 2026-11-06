@@ -18,7 +18,7 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
-import { getSetting, getSettingEstricto, setSetting } from './settings';
+import { cambiarSettingSi, getSetting, getSettingEstricto } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, errorDeCascada } from './ai-cheap';
 import { paginaDe, piezaDe, plantillaGuardada, type PiezaLM } from './lead-magnets/pieza';
 
@@ -79,20 +79,49 @@ export async function getEntregables(): Promise<Entregable[]> {
  * valor crudo para el compare-and-set (`cambiarSettingSi`). Lo que se ESCRIBE sobre la lista pasa por acá: escribir sobre un
  * `[]` de una lectura caída borraba los lead magnets que usan las secuencias.
  */
-export async function getEntregablesEstricto(): Promise<{ lista: Entregable[]; crudo: string | null }> {
+export async function getEntregablesEstricto(): Promise<{ lista: Entregable[]; crudo: string | null; sinNombre: Entregable[] }> {
   const crudo = await getSettingEstricto(SETTING_KEY);
-  if (!crudo) return { lista: [], crudo };
+  if (!crudo) return { lista: [], crudo, sinNombre: [] };
   const arr = JSON.parse(crudo);
   if (!Array.isArray(arr)) throw new Error('La lista de lead magnets no es una lista: no se escribe encima.');
-  return { lista: arr.map(normalizarEntregable).filter((g) => g.nombre), crudo };
+  const todos = arr.map(normalizarEntregable);
+  // Las tarjetas sin nombre no se listan (como en `getEntregables`), pero se reescriben tal cual: el onboarding las guarda
+  // a propósito («no borrar la tarjeta por vaciar solo el nombre»), y una escritura de la tab no las borra.
+  return { lista: todos.filter((g) => g.nombre), crudo, sinNombre: todos.filter((g) => !g.nombre) };
 }
 
-/** La clave de la lista, para el compare-and-set de lib/lead-magnets/server.ts (una sola copia del nombre). */
+/** La clave de la lista (una sola copia del nombre). */
 export const CLAVE_ENTREGABLES = SETTING_KEY;
 
-export async function setEntregables(list: Entregable[]): Promise<void> {
-  await setSetting(SETTING_KEY, JSON.stringify(list));
+export type FallaLista = { ok: false; error: string; status: number };
+const mensajeDe = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * LA puerta de escritura de la lista (6/11/2026): lee ESTRICTO, aplica `cambio` y escribe sólo si nadie la tocó en el medio
+ * (`cambiarSettingSi`). Tres vueltas como mucho; `cambio` devuelve null si no hay nada que escribir. La usan la tab Lead
+ * Magnet (lib/lead-magnets/server.ts) y el paso Entregable del onboarding: con dos escritores que pisaban la lista entera,
+ * guardar el onboarding borraba lo armado en la tab mientras estaba abierto.
+ */
+export async function cambiarEntregables<T>(cambio: (lista: Entregable[]) => { lista: Entregable[]; valor: T } | null): Promise<{ ok: true; valor: T | null } | FallaLista> {
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    let leido: Awaited<ReturnType<typeof getEntregablesEstricto>>;
+    try { leido = await getEntregablesEstricto(); } catch (e) { return { ok: false, status: 503, error: `No pude leer tus lead magnets (${mensajeDe(e)}).` }; }
+    const r = cambio(leido.lista.map((e) => ({ ...e })));
+    if (!r) return { ok: true, valor: null };
+    const ids = new Set(r.lista.map((e) => e.id));
+    try {
+      const nueva = [...r.lista, ...leido.sinNombre.filter((e) => !ids.has(e.id))];
+      if (await cambiarSettingSi(SETTING_KEY, leido.crudo, JSON.stringify(nueva))) return { ok: true, valor: r.valor };
+    } catch (e) {
+      return { ok: false, status: 503, error: `No pude guardar la lista (${mensajeDe(e)}).` };
+    }
+  }
+  return { ok: false, status: 409, error: 'Alguien cambió tus lead magnets al mismo tiempo. Vuelve a intentarlo.' };
 }
+
+// ⛔ Sin `setEntregables`: escribir la lista entera sin compare-and-set pisaba lo que otro escribió en el medio, y con la
+// lectura tolerante (`getEntregables`, que da [] si falla) borraba la lista entera. Todo escritor pasa por `cambiarEntregables`
+// (revisión del 6/11/2026: había cuatro escritores sueltos).
 
 /** Texto de los entregables para inyectar en otros prompts (razones → FOMO). */
 export function entregablesTexto(gs: Entregable[]): string {

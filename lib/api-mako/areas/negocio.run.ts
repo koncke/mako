@@ -862,15 +862,15 @@ export const RUNNERS: Runners = {
       const falta = await faltaBrief();
       if (falta) return { error: falta, faltan: ['perfil'] };
       const actuales = await getEntregables();
-      const conEnlace = actuales.filter((e) => e.enlace).length;
+      const conEnlace = actuales.filter((e) => e.enlace || e.pieza).length;
       return {
         payload: { respuestas },
-        resumen: `Generar lead magnets con MaKo${respuestas.length ? ` usando ${respuestas.length} respuesta${respuestas.length === 1 ? '' : 's'}` : ''}: reemplaza ${actuales.length - conEnlace} y conserva ${conEnlace} con enlace.`,
+        resumen: `Generar lead magnets con MaKo${respuestas.length ? ` usando ${respuestas.length} respuesta${respuestas.length === 1 ? '' : 's'}` : ''}: reemplaza ${actuales.length - conEnlace} y conserva ${conEnlace} con link o con su pieza armada.`,
       };
     }),
     ejecutar: sinLanzar(async (payload) => {
       const r = await regenerarLeadMagnets(respuestasDe(payload.respuestas));
-      return r.ok ? { ok: true, resumen: `Lead magnets generados: ${r.nuevos} nuevos, ${r.conservados} con enlace conservados.` } : { ok: false, resumen: r.error };
+      return r.ok ? { ok: true, resumen: `Lead magnets generados: ${r.nuevos} nuevos, ${r.conservados} conservados (con link o con su pieza).` } : { ok: false, resumen: r.error };
     }),
   },
 
@@ -891,7 +891,7 @@ export const RUNNERS: Runners = {
       for (const k of ['nombre', 'tipo', 'queEs', 'fomo', 'enlace'] as const) if (typeof payload[k] === 'string' && payload[k]) patch[k] = payload[k] as string;
       if (patch.enlace && !/^https?:\/\//i.test(patch.enlace)) return { ok: false, resumen: 'El enlace tiene que empezar con http:// o https://.' };
       const r = await editarLeadMagnet(String(payload.id ?? ''), patch);
-      return r.ok ? { ok: true, resumen: 'Lead magnet actualizado.' } : { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+      return r.ok ? { ok: true, resumen: r.aviso ? `Lead magnet actualizado. ${r.aviso}` : 'Lead magnet actualizado.' } : { ok: false, resumen: `No se guardó: ${r.motivo}` };
     }),
   },
 

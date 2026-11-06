@@ -38,7 +38,8 @@ import { capaDef, navEnCapa, type CapaDef, type CapaId } from '@/lib/capas';
 import { getSchema, getAnswers, saveAnswers, perfilNegocioTexto } from '@/lib/onboarding';
 import { listFiles, getManual, setManual, computeEffective, esCampoArchivero, pubFile, getFile, borrarBinario, deleteFileRow, setPanorama, getPanorama } from '@/lib/archivero';
 import { getAvatares, setAvatares, setContextoAvatares, generarAvatares, type Avatar } from '@/lib/avatares';
-import { getEntregables, setEntregables, generarEntregables, type Entregable } from '@/lib/entregable';
+import { cambiarEntregables, getEntregables, generarEntregables, type Entregable } from '@/lib/entregable';
+import { guardarEnlace } from '@/lib/lead-magnets/server';
 import { listProductos, upsertProducto, type Producto, type ProductoInput } from '@/lib/productos';
 import type { PersonaData } from '@/lib/persona';
 import { normalizarPersonalidad, type Personalidad } from '@/lib/personalidad';
@@ -271,22 +272,45 @@ const norm = (v: string) => v.normalize('NFD').replace(new RegExp('[\\u0300-\\u0
 export async function regenerarLeadMagnets(respuestas?: PasoRespuesta[]): Promise<{ ok: true; conservados: number; nuevos: number } | { ok: false; error: string }> {
   const r = await generarEntregables(respuestas?.length ? respuestas : undefined);
   if (!r.ok) return { ok: false, error: r.error };
-  const conEnlace = (await leadMagnetsParaEscribir()).filter((e) => e.enlace || e.pieza);
-  const nombres = new Set(conEnlace.map((e) => norm(e.nombre)));
-  const nuevos = r.entregables.filter((e) => !nombres.has(norm(e.nombre)));
-  await setEntregables([...conEnlace, ...nuevos]);
-  return { ok: true, conservados: conEnlace.length, nuevos: nuevos.length };
+  // Por la puerta única de la lista (`cambiarEntregables`): compare-and-set sobre la lectura estricta. Con un `setEntregables`
+  // suelto, lo que la tab armó mientras la IA pensaba se perdía (revisión del 6/11/2026).
+  const g = await cambiarEntregables((lista) => {
+    const conEnlace = lista.filter((e) => e.enlace || e.pieza);
+    const nombres = new Set(conEnlace.map((e) => norm(e.nombre)));
+    const nuevos = r.entregables.filter((e) => !nombres.has(norm(e.nombre)));
+    return { lista: [...conEnlace, ...nuevos], valor: { conservados: conEnlace.length, nuevos: nuevos.length } };
+  });
+  if (!g.ok) return { ok: false, error: g.error };
+  return { ok: true, ...(g.valor ?? { conservados: 0, nuevos: 0 }) };
 }
 
 export type PatchLeadMagnet = Partial<Pick<Entregable, 'nombre' | 'tipo' | 'queEs' | 'fomo' | 'enlace'>>;
 
-/** Cambia UN lead magnet por id; lo que no viene (incluido el enlace) se conserva. */
-export async function editarLeadMagnet(id: string, patch: PatchLeadMagnet): Promise<{ ok: boolean; motivo?: string }> {
-  const lista = await leadMagnetsParaEscribir();
-  const i = lista.findIndex((e) => e.id === id);
-  if (i < 0) return { ok: false, motivo: 'el lead magnet ya no existe' };
-  lista[i] = { ...lista[i], ...patch };
-  await setEntregables(lista);
+/**
+ * Cambia UN lead magnet por id; lo que no viene se conserva. El link va por `guardarEnlace` (lib/lead-magnets/server.ts): valida,
+ * no deja al primero sin link y mueve el link en su página de captura. Lo demás, por la puerta única de la lista.
+ */
+export async function editarLeadMagnet(id: string, patch: PatchLeadMagnet): Promise<{ ok: boolean; motivo?: string; aviso?: string | null }> {
+  const { enlace, ...resto } = patch;
+  if (resto.nombre !== undefined && !resto.nombre.trim()) return { ok: false, motivo: 'el nombre no puede quedar vacío' };
+  if (Object.keys(resto).length) {
+    let estaba = false;
+    const g = await cambiarEntregables<true>((lista) => {
+      const i = lista.findIndex((e) => e.id === id);
+      estaba = i >= 0;
+      if (i < 0) return null;
+      const nueva = [...lista];
+      nueva[i] = { ...lista[i], ...resto };
+      return { lista: nueva, valor: true };
+    });
+    if (!g.ok) return { ok: false, motivo: g.error };
+    if (!estaba) return { ok: false, motivo: 'el lead magnet ya no existe' };
+  }
+  if (enlace !== undefined) {
+    const r = await guardarEnlace(id, enlace);
+    if (!r.ok) return { ok: false, motivo: r.error };
+    return { ok: true, aviso: r.aviso ?? null };
+  }
   return { ok: true };
 }
 

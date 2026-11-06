@@ -33,7 +33,7 @@ export const PARTES: Parte[] = [
   { titulo: 'La tab /lead-magnet-generator', detalle: 'Plantillas que crean la pieza en su herramienta (Copywriting o el Web Generator) · la lista viva es mako.entregable · sólo la plataforma por ahora', estado: 'hecha' },
   { titulo: 'Producir el artefacto', detalle: 'Guía, checklist, prompts y planilla nacen como página de Copywriting con su estructura; la clase grabada, como landing · el link público de solo lectura sale de la tab', estado: 'hecha' },
   { titulo: 'La página que lo pide', detalle: 'Una landing con formulario que entra al CRM y su página de gracias con el link del lead magnet, como borrador', estado: 'hecha' },
-  { titulo: 'Quiz con diagnóstico', detalle: 'Preguntas que llevan a un resultado distinto según lo que se contesta · el flujo copiado de SurveyJS', estado: 'sigue' },
+  { titulo: 'Quiz con diagnóstico', detalle: 'Un bloque del Web Generator: preguntas con puntos y un resultado por rango · el contacto entra al CRM con el resultado y las respuestas · el flujo copiado de SurveyJS', estado: 'hecha' },
   { titulo: 'MaKo propone el lead magnet', detalle: 'Desde la oferta del negocio y lo que hacen sus competidores en Competitors Spy, con la IA del negocio', estado: 'cola' },
   { titulo: 'El lead magnet baja de la oferta', detalle: 'Decidido en el modelo de 4 entidades: es de la OFERTA, no del producto · hoy sigue siendo un blob singleton por workspace', estado: 'cola' },
 ];
@@ -178,6 +178,43 @@ export const BITACORA: Hito[] = [
       'app/lead-magnet-generator/ — la tab (escritorio); app/m/lead-magnet-generator/ — el teléfono',
       'lib/api-mako/areas/leadmagnet.def.ts — las cinco operaciones de la API',
       'app/compartido/[token]/LeadMagnetCompartido.tsx — la página que abre el lead',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:35', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El quiz con diagnóstico: un bloque del Web Generator y su objetivo de landing',
+    puntos: [
+      '**Un bloque más del Web Generator, «Quiz»**, no una herramienta nueva: preguntas de opción única con puntos, y el puntaje elige UN resultado por rango («desde N puntos»). Antes del resultado, un formulario de contacto que entra al CRM por el Pixel, con el resultado, el puntaje y las respuestas como datos del lead.',
+      '**La regla del resultado vive en dos lugares** (el script de la página y el server) y un test los corre a los dos sobre miles de casos: probado rompiendo cada lado.',
+      '⚠️ **El Pixel toma como CONTACTO todo campo cuyo `aria-label` diga «negocio», «tel» o «mail»**: con la pregunta ahí, «¿Cuánto factura tu negocio?» llegaba como la empresa del lead y «¿Tienes hotel…?» como su teléfono. Las respuestas van en una etiqueta, que el Pixel no mira para decidir eso.',
+      'El flujo y las medidas, de SurveyJS (MIT): una pregunta por paso, la barra de 2 px, «Anterior / Siguiente», el contacto y la página final. Typeform no se abre desde la nube.',
+      'Objetivo de landing «Quiz con diagnóstico», plantilla «Quiz» en la tab, y `configurar_quiz_landing` en la API de MaKo.',
+    ],
+    revisar: '/web-generator',
+    archivos: [
+      'lib/editor-landing/quiz.ts — el motor, la forma HTML y el script de la página',
+      'app/web-generator/editor/nodos/QuizVista.tsx — el panel del editor',
+      'lib/editor-landing/plantillas.ts — el objetivo «Quiz con diagnóstico»',
+      'tests/quiz-landing.test.ts — el flujo en un DOM y el Pixel real',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:35', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Dos revisiones de quien no escribió el código: diecinueve arreglos',
+    puntos: [
+      '**Una sola puerta para escribir la lista**, y la otra se borró: había cuatro escritores con un `setEntregables` suelto, y uno vaciaba la lista con la base caída.',
+      '**Al primero no se le saca el link** (dejar de compartir, vaciarlo): las automatizaciones mandaban el mensaje sin él.',
+      '**Revocar va después de sacar de la lista**, y si falla vuelve a su lugar. Una página de captura en la papelera ya no cuenta como publicada.',
+      'La página de captura ya no promete un correo que nadie manda; cambiar el link lo cambia en su página de gracias; el teléfono tiene lo mismo que la computadora.',
+      'El quiz: el foco va al paso nuevo, exportado sale la portada sola, y el editor dice qué botón no va a salir.',
+      '⚠️ **Cuatro capturas «de la lista» eran la pantalla de «Nuevo»**: en Create la lista vive detrás de la «←». Comparar una captura con la de al lado antes de darla por mirada.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: [
+      'lib/lead-magnets/server.ts, lib/entregable.ts, lib/entregable-fundir.ts',
+      'docs/hallazgos-lead-magnets.md — las dos revisiones',
     ],
   },
 ];

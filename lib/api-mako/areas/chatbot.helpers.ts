@@ -20,7 +20,7 @@ import { motivoCaida } from '@/lib/evolution';
 import { esClaveAudio, KEY_AUDIOS_CLAVE, KEY_LINK_VIDEO } from '@/lib/audios-paso';
 import { KEY_OBJETIVOS_CUSTOM } from '@/lib/etapas-contexto';
 import { OBJETIVOS } from '@/lib/setting-estrategia';
-import { getEntregables, setEntregables } from '@/lib/entregable';
+import { cambiarEntregables } from '@/lib/entregable';
 import { getEvidencia, setManual, componerVozGuia, BLOQUES } from '@/lib/chat-agent-voz';
 import { setVozGuia } from '@/lib/nutricion-generator';
 
@@ -230,20 +230,11 @@ export async function leerEnsayo(): Promise<Record<string, { respuestas: string[
 export async function crearLeadMagnet(nombre: string, enlace: string): Promise<string> {
   // Solo http(s): otro esquema (javascript:, data:) termina pegado en un mensaje a un desconocido.
   if (!/^https?:\/\//i.test(enlace)) throw new Error('El enlace tiene que empezar con http:// o https://');
-  // getEntregables (lib/entregable.ts) convierte un error de lectura o un JSON ilegible en [] y
-  // setEntregables escribiría la lista con UN solo ítem, borrando los entregables que también usa
-  // la fábrica de creativos. DEUDA: una lectura estricta en la lib (la clave es privada y se repite
-  // acá). Mientras tanto: lectura estricta, y getEntregables tiene que devolver al menos esos.
-  const crudo = await jsonEstricto('mako.entregable');
-  if (crudo != null && !Array.isArray(crudo)) throw new Error('El setting mako.entregable no es una lista: no se escribe encima.');
-  const guardados = ((crudo ?? []) as unknown[]).filter((x) => {
-    const n = x && typeof x === 'object' ? (x as { nombre?: unknown }).nombre : null;
-    return typeof n === 'string' && n.trim().length > 0;
-  }).length;
-  const lista = await getEntregables();
-  if (lista.length < guardados) throw new Error('No se pudieron leer todos los entregables guardados: no se escribe encima para no borrarlos.');
+  // Por la puerta única de la lista (`cambiarEntregables`, lib/entregable.ts): lectura estricta y compare-and-set. Un
+  // `setEntregables` sobre una lectura tolerante borraba la lista entera si la lectura fallaba.
   const id = `lm-${Date.now().toString(36)}`;
-  await setEntregables([...lista, { id, nombre, tipo: 'Lead magnet', queEs: '', fomo: '', enlace }]);
+  const g = await cambiarEntregables<true>((lista) => ({ lista: [...lista, { id, nombre, tipo: 'Lead magnet', queEs: '', fomo: '', enlace }], valor: true }));
+  if (!g.ok) throw new Error(g.error);
   return id;
 }
 
