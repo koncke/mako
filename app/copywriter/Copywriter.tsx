@@ -41,6 +41,9 @@ import { PanelMaKo, type GuionVivo } from './PanelMaKo';
 // guion. La puerta y el permiso de editar los pone el server (/api/compartir).
 import Compartir from '@/app/conocimientos/Compartir';
 import { RECURSO_GUION } from '@/lib/share-nombre';
+// Plantillas propias (6/11/2026, Leila): «Guardar como plantilla» en el «⋯» de cada página y «Tus plantillas» en «Nueva».
+import { ModalGuardarPlantilla } from '@/app/creaciones/PublicarCreacion';
+import { usePlantillasPropias } from '@/app/creaciones/usePlantillasPropias';
 
 export type PropsCopywriter = {
   /** El negocio de la pestaña (del server): va en las claves del navegador. */
@@ -79,6 +82,8 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const citar = useRef<((seleccion?: string) => void) | null>(null);
   const [pausa, setPausa] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
+  const [comoPlantilla, setComoPlantilla] = useState<{ id: string; nombre: string } | null>(null);
+  const propias = usePlantillasPropias('guion', { formato: '3 / 4' });
   const cajaMako = useRef<HTMLTextAreaElement | null>(null);
   // El título y las propiedades de ahora (los pone EditorGuion; el chat los lee al mandar).
   const vivoGuion = useRef<GuionVivo | null>(null);
@@ -184,6 +189,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     cuando: Date.parse(p.actualizado) || null,
     menu: [
       { rotulo: 'Agregar una página adentro', hacer: async () => { const e = await crear(enBlanco, p.id); if (e) avisar(e, undefined, 'bad'); } },
+      { rotulo: 'Guardar como plantilla', hacer: () => setComoPlantilla({ id: p.id, nombre: p.titulo || SIN_TITULO }) },
       { rotulo: 'Mover a la Papelera', peligro: true, hacer: () => papelera(p.id) },
     ],
   })), [paginas, rutaDe, crear, enBlanco, avisar, papelera]);
@@ -202,7 +208,13 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   return (
     <>
       <PantallaCrear tab="Copywriting" nuevo="Nueva página" proyectos={proyectos} actual={abierta} pieLista={pieLista}
-        plantillas={plantillas} tituloPlantillas="Templates" onPlantilla={(pl) => { const x = todas.find((t) => t.id === pl.id); return x ? crear(x, null) : 'Ese template ya no está.'; }}
+        plantillas={[...propias.plantillas, ...plantillas]} tituloPlantillas="Templates"
+        onPlantilla={async (pl) => {
+          const propia = await propias.usar(pl);
+          if (propia !== false) return propia;
+          const x = todas.find((t) => t.id === pl.id);
+          return x ? crear(x, null) : 'Ese template ya no está.';
+        }}
         ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}>
         {guion ? (
           <div className="nt" data-en-crear="">
@@ -221,6 +233,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
           nota="Quien abra el link puede escribir y cambiar esta página, sin cuenta. Lo que guarde queda marcado con su nombre en «Última edición»."
           abierto={compartiendo} onCerrar={() => setCompartiendo(false)} variante="app" />
       )}
+      <ModalGuardarPlantilla tipo="guion" de={comoPlantilla} alSalir={() => setComoPlantilla(null)} alGuardar={propias.recargar} />
       <Toast state={toast} onClose={clear} />
     </>
   );

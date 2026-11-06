@@ -20,6 +20,8 @@ import { marcoDe } from '@/app/_crear/reglas';
 import { crearDisenoNuevoAction } from '@/app/image-editor/actions';
 import { PLANTILLAS_NUEVO_DISENO, type PlantillaNuevoDiseno } from '@/app/image-editor/plantillas-crear';
 import { MiniaturaCarrusel } from '@/app/image-editor/carruseles/MiniaturaCarrusel';
+import { MiniaturaTarjetaDiseno } from '@/app/image-editor/MiniaturaDiseno';
+import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
 import { documentoDeCarrusel } from '@/lib/carruseles/documento';
 import { tipoCarrusel } from '@/lib/carruseles/tipos';
 import { ErrorLineaM } from '../_creacion/escritor';
@@ -56,6 +58,16 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
     }
     return out;
   }, [negocio]);
+
+  // Las plantillas reales (6/11/2026) se ven con su ESTRUCTURA dibujada: lo mismo que crea la acción.
+  const docsReales = useMemo(() => {
+    const out = new Map<string, DocumentoDoory>();
+    for (const p of PLANTILLAS_NUEVO_DISENO) {
+      const real = p.real ? plantillaImagen(p.real) : null;
+      if (real) out.set(p.id, real.estructura(idLocal));
+    }
+    return out;
+  }, []);
 
   const visibles = useMemo(() => {
     const aguja = buscar.trim().toLocaleLowerCase('es');
@@ -159,11 +171,13 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
                 <span className="m-image-editor-plantilla__mini">
                   {docsCarrusel.has(p.id)
                     ? <MiniaturaCarrusel doc={docsCarrusel.get(p.id)!} nombre={p.nombre} />
+                    : docsReales.has(p.id)
+                    ? <MiniaturaTarjetaDiseno doc={docsReales.get(p.id)!} nombre={p.nombre} />
                     : p.imagen
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={p.imagen} alt="" loading="lazy" />
                     : <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />}
-                  {!p.imagen && !docsCarrusel.has(p.id) && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
+                  {!p.imagen && !docsCarrusel.has(p.id) && !docsReales.has(p.id) && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
                   {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
                 </span>
                 <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>

@@ -17,6 +17,7 @@
 
 import type { PlantillaCrear } from '@/app/_crear/reglas';
 import { plantillasEnOrden } from '@/lib/editor-video/plantillas';
+import { ejemploDeVideo, insigniaDeVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 
 /** Lo que un lienzo vacío le pone al proyecto nuevo (`settings` del motor, como lo guarda «Relación» o «Detalles»). */
@@ -58,12 +59,19 @@ export function plantillasNuevoVideo(senales?: SenalesNegocio | null): Plantilla
     return { id: PREFIJO.lienzo + f.id, nombre: f.nombre, formato: `${f.ancho / d} / ${f.alto / d}`, rotulo: `${f.ancho} × ${f.alto}` };
   });
   const ia: PlantillaCrear = { id: ID_IA, nombre: 'Generar con IA', formato: '9 / 16', rotulo: 'Desde una idea' };
-  const anuncios = plantillasEnOrden(senales).map(({ plantilla: p, porque }): PlantillaCrear => ({
-    id: PREFIJO.plantilla + p.id,
-    nombre: p.nombre,
-    formato: '9 / 16',
-    rotulo: porque ? `Sugerida · ${p.duracion} s` : `${p.duracion} s`,
-  }));
+  // Las plantillas con su ejemplo (6/11/2026, docs/plantillas-reales/video.md) llevan su insignia, cuándo usarla y «Ver
+  // ejemplo» (lib/editor-video/plantillas-ejemplos.ts): la tarjeta es la estructura y el ejemplo lleno se ve aparte. El
+  // `rotulo` sigue igual (lo fija tests/video-editor-nuevo-video.test.ts).
+  const anuncios = plantillasEnOrden(senales).map(({ plantilla: p, porque }): PlantillaCrear => {
+    const e = ejemploDeVideo(p.id);
+    return {
+      id: PREFIJO.plantilla + p.id,
+      nombre: p.nombre,
+      formato: '9 / 16',
+      rotulo: porque ? `Sugerida · ${p.duracion} s` : `${p.duracion} s`,
+      ...(e ? { insignia: insigniaDeVideo(p, porque), ayuda: e.cuando, verEjemplo: true } : {}),
+    };
+  });
   return [...lienzos, ia, ...anuncios];
 }
 

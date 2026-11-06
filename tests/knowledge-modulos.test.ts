@@ -233,8 +233,8 @@ test('9. el cableado: el grafo de los chats cuelga Knowledge, el turno la saca s
   const def = fuente('lib/api-mako/areas/negocio.def.ts');
   const ids = [...def.matchAll(/^\s{4}id: '([a-z_]+)'/gm)].map((m) => m[1]);
   const iKnowledge = ids.indexOf('modulos_de_knowledge');
-  // Y los kits de marca (5/11/2026, lib/marca/kits.ts), que nacieron después.
-  assert.deepEqual(ids.slice(iKnowledge + 2), ['sumar_documento_second_brain', 'ver_kits_marca', 'guardar_kit_marca', 'elegir_kit_marca', 'borrar_kit_marca'], 'entró una operación después de las de Knowledge: si es vieja, le pasa un empate; si es nueva, súmala acá');
+  // Y los kits de marca (5/11/2026, lib/marca/kits.ts), que nacieron después, y las plantillas de Offer (6/11/2026).
+  assert.deepEqual(ids.slice(iKnowledge + 2), ['sumar_documento_second_brain', 'ver_kits_marca', 'guardar_kit_marca', 'elegir_kit_marca', 'borrar_kit_marca', 'ver_plantillas_oferta'], 'entró una operación después de las de Knowledge: si es vieja, le pasa un empate; si es nueva, súmala acá');
   assert.deepEqual(ids.slice(iKnowledge, iKnowledge + 2), ['modulos_de_knowledge', 'leer_modulo_knowledge'], 'las operaciones de Knowledge no son las ÚLTIMAS del área: en un empate de relevancia le ganan a una que ya se pedía');
   assert.match(def, /enum: MODULOS_KNOWLEDGE\.map\(\(m\) => m\.key\)/, 'el enum del módulo quedó escrito a mano: un módulo nuevo no se podría pedir');
   const run = fuente('lib/api-mako/areas/negocio.run.ts');

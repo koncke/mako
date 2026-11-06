@@ -919,10 +919,16 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'antes'), { nombre: 'antes', tipo: 'clip', acepta: 'ambos', segundos: 5, opcional: false });
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'final'), { nombre: 'final', tipo: 'clip', acepta: 'ambos', segundos: 3, opcional: true });
   assert.deepEqual(api.plantillas[0].huecos.find((h) => h.nombre === 'gancho'), { nombre: 'gancho', tipo: 'texto', max_caracteres: 28, ejemplo: 'ESTO LO CAMBIA TODO' });
-  // El runner (server-only) devuelve eso y nada más, con las sugeridas para el negocio primero
-  // (tests/plantillas-sugeridas-editores.test.ts).
+  // El runner (server-only) devuelve eso, con las sugeridas para el negocio primero (tests/plantillas-sugeridas-editores.test.ts),
+  // y desde el 6/11/2026 el ejemplo de un negocio ficticio de cada una (lib/editor-video/plantillas-ejemplos.ts). Sólo LEE:
+  // usar una plantilla es del editor.
   const run = sinComentarios(leer('lib/api-mako/areas/video.run.ts'));
-  assert.ok(run.includes('\n  listar_plantillas_video: {\n    leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),\n  },'), 'el runner de listar_plantillas_video');
+  const ini = run.indexOf('\n  listar_plantillas_video: {');
+  assert.ok(ini >= 0, 'falta el runner de listar_plantillas_video');
+  const bloque = run.slice(ini, run.indexOf('\n  },\n', ini) + 5);
+  assert.match(bloque, /plantillasParaApi\(await senalesDelNegocio\(\)\.catch\(\(\) => null\)\)/, 'el runner de listar_plantillas_video arma la lista con plantillasParaApi y las sugeridas');
+  assert.match(bloque, /ejemploDeVideo\(p\.id\)/, 'el ejemplo sale del mismo módulo que «Ver ejemplo»');
+  assert.doesNotMatch(bloque, /\b(preparar|ejecutar|proponer)\b/, 'listar_plantillas_video sólo lee');
 });
 
 test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo que el botón, al final y a la vista', () => {
