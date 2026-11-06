@@ -370,7 +370,7 @@ test('un producto que no se ofrece (sin tablero) sólo junta las filas escritas 
 const sinComentariosEtapa = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('el cron arma la cohorte de entrega con la regla del kanban, no leyendo las filas', () => {
-  const bloque = sinComentariosEtapa(bloqueDe('lib/nutricion.ts', '  if (triggerTipo === TRIGGER_ENTREGA) {', '\n  return cohorteDeTrigger('));
+  const bloque = sinComentariosEtapa(bloqueDe('lib/nutricion.ts', '  if (triggerTipo === TRIGGER_ENTREGA) {', '\n  return sinMigrados(await cohorteDeTrigger('));
   assert.ok(bloque.length < 1500, `el recorte mide ${bloque.length}: está mirando otra cosa`);
   assert.match(bloque, /clientesEnEtapaDeEntrega\(/, 'la cohorte tiene que salir del universo de la entrega');
   assert.doesNotMatch(bloque, /'cliente_entrega'/, 'leer las filas directo deja afuera a los que nunca se movieron');

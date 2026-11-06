@@ -53,6 +53,7 @@ import {
 import { accesosDeClientes, type AccesoFilaInvitacion } from '@/lib/curso-admin';
 import { puedeUsarCs } from '../puerta';
 import { darDeAltaAlumno } from '@/lib/curso-alta-alumno';
+import { frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { avisoInvitacionCurso, type AvisoInvitacionCurso } from '../curso-ficha-lectura';
 import { canalesDeInvitacion, fraseWhatsapp, tieneTelefono } from '@/lib/curso-invitar-canales';
 import { correoQueFallo, estadoEnBuscador, type CorreoQueFallo } from '@/lib/curso-invitar-reglas';
@@ -191,6 +192,12 @@ export async function invitarNuevoAlumnoAction(datos: {
   try {
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
+    // El tope de leads del plan cuando el alumno se CREA (no al usar uno que ya existe), como crear_alumno_curso de la API.
+    // ⚠️ Con la MISMA condición con que lib/curso-alta-alumno.ts decide reusar: un `usarLeadId: 0` crea, y frena.
+    const reusa = Number.isInteger(datos.usarLeadId) && Number(datos.usarLeadId) > 0;
+    if (!reusa) {
+      try { await frenarAltaPorTope(ws, 'crm.leads'); } catch (e) { if (e instanceof TopeDelPlanError) return { ok: false, error: e.message }; throw e; }
+    }
     // El alta, el kanban, «sólo de este producto» y la invitación viven en lib/curso-alta-alumno.ts desde el
     // 23/10/2026: los usa también la API de MaKo (crear_alumno_curso). Acá queda lo de la pantalla.
     const a = await darDeAltaAlumno({

@@ -274,6 +274,7 @@ POST /api/track/replay → pública (no usa la sesión)
 POST /api/track/vsl → pública (no usa la sesión)
 POST /api/v1/1/1 → pública (no usa la sesión)
 POST /api/v1/1/1/a/b → pública (no usa la sesión)
+POST /api/video-editor/broll → cortada
 POST /api/video-editor/ia → cortada
 POST /api/video-editor/presets → cortada
 POST /api/video-editor/tts → cortada

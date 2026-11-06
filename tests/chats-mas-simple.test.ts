@@ -52,7 +52,8 @@ test('1. dos columnas: la Bandeja son chips arriba de la lista, y el contacto ar
   assert.match(app, /setDrawerAbierto\(leerLocal\(st, ws, 'contacto'\) === '1'\)/, 'el contacto no arranca cerrado');
   assert.doesNotMatch(app, /ANCHO_DRAWER|'drawer'/, 'volvió a abrirse solo en pantallas anchas');
   const panel = fuente('app/chats/PanelContacto.tsx');
-  assert.match(panel, /if \(!abierto\) return null;/, 'cerrado, el panel tiene que no ocupar nada');
+  // Cerrado (o sin chat elegido: recorrido visual del 30/10/2026, CH2, tests/recorrido-chats.test.ts) no ocupa nada.
+  assert.match(panel, /if \(!abierto(?: \|\| !chat)?\) return null;/, 'cerrado, el panel tiene que no ocupar nada');
   assert.doesNotMatch(panel, /rio-rail/, 'volvió el rail de 44 px');
   // Y se abre tocando el nombre (no con un botón más en la cabecera).
   const ventana = fuente('app/chats/VentanaChat.tsx');

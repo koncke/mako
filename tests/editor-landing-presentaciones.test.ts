@@ -370,7 +370,10 @@ test('pantalla: en una presentación Presentar está a un clic en la barra, y el
   assert.match(conf, /\{fija \? null : \(\s*<Campo etiqueta="Ancho de las secciones">/, 'con forma fija el ancho no cambia nada y no se ofrece');
   assert.match(conf, /<Campo etiqueta="Relación de aspecto">/);
   // El PPTX toma la proporción de la configuración que DialogoExportar ya le pasa.
-  assert.match(sinComentarios(leer('lib/editor-landing/exportar-pptx.ts')), /const tam = tamanoDiapo\(op\.config\);\s*pptx\.layout = tam\.layout;/);
+  // Dos asserts y no la línea entera (6/11/2026): entre las dos va el layout de 4:5, que pptxgenjs no trae (defineLayout).
+  const pptx = sinComentarios(leer('lib/editor-landing/exportar-pptx.ts'));
+  assert.match(pptx, /const tam = tamanoDiapo\(op\.config\);/, 'el PPTX no toma la proporción de la configuración');
+  assert.match(pptx, /pptx\.layout = tam\.layout;/, 'el PPTX no usa el layout de esa proporción');
 });
 
 // ── PROBADO ROMPIÉNDOLO (11/10/2026) ──────────────────────────────────────────

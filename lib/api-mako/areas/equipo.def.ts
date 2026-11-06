@@ -201,8 +201,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'configurar_aviso_whatsapp', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Prender o apagar un aviso',
-    descripcion: 'PROPONE silenciar o volver a prender un aviso concreto que MaKo manda al grupo de WhatsApp del negocio (lead nuevo de Meta, recordatorio de reunión, grabación lista, tracking apagado, objetivo en riesgo…), queda pendiente hasta el «sí». Apagarlo solo corta el WhatsApp. Pide antes listar_avisos_disponibles para el id: vale cualquiera de esa lista, figure o no en Configuraciones. Los reportes (horario, diario, semanal) no se apagan aquí: usa configurar_reporte. Si la agencia apagó esa plantilla, prenderlo aquí no la hace salir.',
-    escribe: 'app_settings notification_prefs.avisos[id]',
+    descripcion: 'PROPONE silenciar o volver a prender un aviso concreto que MaKo manda al grupo de WhatsApp del negocio (lead nuevo de Meta, recordatorio de reunión, grabación lista, tracking apagado, objetivo en riesgo…), queda pendiente hasta el «sí». Apagarlo solo corta el WhatsApp. Pide antes listar_avisos_disponibles para el id: vale cualquiera de esa lista, figure o no en Configuraciones. Los reportes (horario, diario, semanal) no se apagan aquí: usa configurar_reporte.',
+    escribe: 'app_settings mako.plantillas.store[id] (enabled y canales.wa)',
     parametros: [
       { nombre: 'aviso', tipo: 'string', max: 80, obligatorio: true, descripcion: 'id del aviso (de listar_avisos_disponibles), por ejemplo reunion-recordatorio.' },
       { nombre: 'valor', tipo: 'boolean', obligatorio: true, descripcion: 'true sale por WhatsApp, false no sale.' },

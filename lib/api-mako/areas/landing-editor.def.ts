@@ -453,7 +453,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     parametros: [
       P_ID,
       { nombre: 'formato', rotulo: 'Formato', tipo: 'string', enum: FORMATOS_IA, descripcion: 'landing o presentacion.' },
-      { nombre: 'proporcion', rotulo: 'Relación de aspecto', tipo: 'string', enum: PROPORCIONES, descripcion: 'Sólo una presentación: 16:9, 4:3 o fluido.' },
+      { nombre: 'proporcion', rotulo: 'Relación de aspecto', tipo: 'string', enum: PROPORCIONES, descripcion: 'Sólo una presentación: 16:9, 4:3, 4:5 (un carrusel de Instagram) o fluido.' },
       { nombre: 'animaciones', rotulo: 'Animaciones', tipo: 'boolean', descripcion: 'true las prende, false las apaga.' },
       { nombre: 'fondoImagen', rotulo: 'Imagen de fondo', tipo: 'string', max: 2000, descripcion: 'El enlace de una imagen de fondo (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla.' },
       { nombre: 'ancho', rotulo: 'Ancho', tipo: 'string', enum: ANCHOS_TARJETA, descripcion: 'El ancho de todas las secciones.' },
