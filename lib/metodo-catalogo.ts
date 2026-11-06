@@ -147,6 +147,17 @@ export type ServicioMetodo = {
      */
     capturas?: ReadonlyArray<string | null>;
   };
+  /**
+   * true → ALCANZA UNA de sus claves secretas para estar conectada (6/11/2026).
+   *
+   * Para qué: una integración que acepta VARIAS claves tiene una requerida (la 1) y las demás `opcional`, porque pedirlas
+   * rompería el alta. `integracionConectada` mide los campos REQUERIDOS, así que medía la 1 y nada más: el cliente que
+   * borraba la 1 y dejaba la 2 veía «Sin conectar» con la integración andando, y volvía a configurar al vicio.
+   *
+   * ⚠️ «Una» se cuenta sobre los campos SECRETOS. El campo con el nombre que la persona le pone a cada clave no es secreto,
+   * es una etiqueta: guardado solo, sin su clave, no sirve para leer nada y no es una conexión.
+   */
+  conUnaAlcanza?: boolean;
   /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
    *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
    *  infra de la plataforma, no una integración del cliente). Se mantiene el flag
@@ -849,6 +860,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'apify-instagram',
     nombre: 'Apify',
     categoria: 'Datos',
+    // Acepta hasta cinco claves y anda con cualquiera (la 1 es la requerida; las demás, opcionales): ver `conUnaAlcanza`.
+    conUnaAlcanza: true,
     paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
     campos: [
       { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
