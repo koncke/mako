@@ -35,6 +35,7 @@ import { carruselesDe, plano, type Carrusel, type CompetidorParaCarrusel, type P
 import { sinCuenta } from '../multiplo-rendimiento';
 import { cierreDeTexto, esCierre, type Cierre } from './texto';
 import { pareceContenido, portadaDice, textoDePortada, tipoDeCarrusel } from './clasificar';
+import { ctaDeTexto, ctaGuardado } from './cta';
 
 export type EstadoCuentaBiblioteca = 'activa' | 'excluida';
 /** 'lista': la eligió la plataforma y se lee entera. 'tema': apareció por un hashtag y no se lee sola. */
@@ -76,6 +77,11 @@ export type PiezaBiblioteca = {
   metricas_leidas_en?: string | null;
   /** ¿Parece contenido? (./clasificar.ts) Lo guarda la lectura (mig 0393); sin la columna, se calcula del texto al mostrar. */
   parece_contenido?: boolean | null;
+  /** Las láminas en nuestro bucket, en orden (mig 0404). Sin la columna, o sin leerlas todavía: sólo la portada. */
+  laminas_imagenes?: string[] | null;
+  /** La palabra que pide comentar (./cta.ts) y por dónde, guardadas al leer (mig 0404): el texto vence a los 30 días. */
+  cta?: string | null;
+  cta_via?: string | null;
   publicada_en: string | null;
   visto_primera_vez: string;
   dejo_de_verse_en: string | null;
@@ -113,7 +119,7 @@ export function carruselesDeBiblioteca(piezas: readonly PiezaBiblioteca[], cuent
       id: idDeBiblioteca(p.id), competidor_id: idDeBiblioteca(p.cuenta_id), canal: 'instagram', tipo: 'publicacion', url: p.url,
       texto: p.texto, analisis: p.formato ? { formato: p.formato } : null, vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios,
       publicada_en: p.publicada_en, visto_primera_vez: p.visto_primera_vez, dejo_de_verse_en: p.dejo_de_verse_en, miniatura: p.miniatura,
-      medio: p.medio, laminas: p.laminas,
+      medio: p.medio, laminas: p.laminas, laminas_imagenes: p.laminas_imagenes ?? null,
     });
   }
   return carruselesDe(comoSpy, competidores, ahora, 'biblioteca').map((c) => {
@@ -122,8 +128,10 @@ export function carruselesDeBiblioteca(piezas: readonly PiezaBiblioteca[], cuent
     const cierre = p && esCierre(p.cierre) ? p.cierre : c.cierre;
     // Lo guardado al leer (con la portada) gana; sin eso, lo que dice el texto que queda.
     const contenido = typeof p?.parece_contenido === 'boolean' ? p.parece_contenido : pareceContenido({ texto: c.texto, formato: c.formato || null, cierre });
+    // El CTA guardado al leer gana (el texto vence a los 30 días); sin la columna (0404), el que dice el texto que queda.
+    const cta = (p ? ctaGuardado(p.cta, p.cta_via) : null) ?? c.cta ?? null;
     // De un tema no se leyó su cuenta: sin número, y el título del chip lo dice (`sinCuenta`).
-    return { ...c, outlier: deLaLista ? c.outlier : null, multiplo: deLaLista ? c.multiplo : sinCuenta(), cierre, pareceContenido: contenido };
+    return { ...c, outlier: deLaLista ? c.outlier : null, multiplo: deLaLista ? c.multiplo : sinCuenta(), cierre, pareceContenido: contenido, cta };
   });
 }
 
@@ -398,6 +406,8 @@ export function filasDeLectura(
     // El tipo, de la portada (el texto que escribió Instagram, si vino) y del pie (./clasificar.ts).
     const formato = formatoDe(tipoDeCarrusel({ texto, portada: textoDePortada(p.alt) })) || null;
     const cierre: Cierre | null = cierreDeTexto(texto);
+    // El CTA, del pie y de la portada (a veces la palabra va en la lámina: «Comenta GUÍA»).
+    const cta = ctaDeTexto([texto, textoDePortada(p.alt)].filter(Boolean).join('\n'));
     return {
       creador: p.creador, tema_id: o.tema, ref: p.ref.slice(0, 80), url: p.permalink, miniatura: p.miniatura, texto, texto_leido_en: cuando,
       formato: formato === 'otro' ? null : formato, cierre,
@@ -405,6 +415,9 @@ export function filasDeLectura(
       megusta: p.megusta, comentarios: p.comentarios, vistas: p.vistas, metricas_leidas_en: cuando,
       publicada_en: Number.isFinite(fecha) ? new Date(fecha).toISOString() : null,
       parece_contenido: pareceContenido({ texto, formato: formato === 'otro' ? null : formato, cierre, portada: portadaDice(p.alt) }),
+      cta: cta?.palabra ?? null, cta_via: cta?.via ?? null,
+      // Las láminas como vinieron (el CDN de Instagram): quien guarda las BAJA a nuestro bucket antes de escribirlas.
+      laminas_imagenes: medio === 'carrusel' && p.imagenes?.length ? p.imagenes.slice(0, 20) : null,
     };
   });
 }
@@ -434,10 +447,15 @@ export function referentesSinCuenta(referentes: ReadonlyArray<{ id: string; comp
  * LLENA lo que falta: un tipo, un cierre o la señal de contenido que ya están no se pisan (pueden venir de la portada).
  * Sin texto (venció a los 30 días), no cambia nada. null = nada que cambiar.
  */
-export function reclasificacion(f: Pick<PiezaBiblioteca, 'texto' | 'formato' | 'cierre' | 'parece_contenido'>): { formato?: string; cierre?: Cierre; parece_contenido?: boolean } | null {
+export function reclasificacion(f: Pick<PiezaBiblioteca, 'texto' | 'formato' | 'cierre' | 'parece_contenido'> & Partial<Pick<PiezaBiblioteca, 'cta'>>): { formato?: string; cierre?: Cierre; parece_contenido?: boolean; cta?: string; cta_via?: string } | null {
   const texto = f.texto?.trim() || null;
   if (!texto) return null;
-  const cambios: { formato?: string; cierre?: Cierre; parece_contenido?: boolean } = {};
+  const cambios: { formato?: string; cierre?: Cierre; parece_contenido?: boolean; cta?: string; cta_via?: string } = {};
+  // El CTA (6/11/2026): sólo se pregunta si la fila trae la columna (0404 aplicada: `cta` vino, aunque sea null) y está vacía.
+  if ('cta' in f && !f.cta) {
+    const cta = ctaDeTexto(texto);
+    if (cta) { cambios.cta = cta.palabra; cambios.cta_via = cta.via; }
+  }
   const formato = f.formato || formatoDe(tipoDeCarrusel({ texto })) || null;
   if (!f.formato && formato && formato !== 'otro') cambios.formato = formato;
   const cierre = (esCierre(f.cierre) ? f.cierre : null) ?? cierreDeTexto(texto);

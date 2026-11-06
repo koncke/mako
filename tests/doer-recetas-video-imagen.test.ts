@@ -78,20 +78,25 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 });
 
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
-  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles']);
+  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta
   // (el tipo, si la referencia no encaja con ninguno) lo pide su propio `preparar`.
   // La biblioteca de ejemplos (cambiar_biblioteca_carruseles) la edita la plataforma: suma o saca una cuenta o un tema y
   // no toca ningún diseño; lo que falta (el @, el motivo) lo pide su propio `preparar`.
-  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles']);
+  // «Editar» un ejemplo (editar_ejemplo_carrusel, 6/11/2026) escribe los textos con la IA del negocio leyendo él mismo el
+  // negocio (lib/carruseles/replica-servidor.ts): el modelo del chat sólo pasa el id y, si lo dijo el dueño, el pedido.
+  // Los presets de subtítulos de la marca (06/11/2026) no editan ningún proyecto del navegador: se guardan en el negocio,
+  // con un «sí». La receta del editor (qué proyecto, qué refs) no tiene nada que decirles, y lo que falta (el nombre, la
+  // marca si hay dos iguales) lo pide su propio `preparar`.
+  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel', 'guardar_preset_subtitulos', 'borrar_preset_subtitulos']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)
     .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id) && !ACCIONES_SIN_RECETA.has(id));
   assert.deepEqual(sinGrupo, [], `operaciones sin receta decidida: ${sinGrupo.join(', ')}. Súmalas a un grupo de lib/doer-recetas.ts`);
-  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 35, 'el editor tiene 35 operaciones de escritura (lib/editor-video/chat-api.ts; la 35, borrar_silencios_video, 28/10)');
+  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 37, 'el editor tiene 37 operaciones de escritura (lib/editor-video/chat-api.ts; la 36 y la 37, resaltar_claves_subtitulos y usar_preset_subtitulos, 06/11)');
   // Leila se lo pidió a MaKo el 27/10 y la receta le hacía decir que no podía: lo que tiene operación no va en «no puede».
   const noPuede = /no puede por chat \(([^)]*)\)/.exec(recetasDelTurno(new Set(['borrar_silencios_video']), false))?.[1] ?? '';
   assert.ok(noPuede, 'la receta del editor ya no dice qué no se puede');

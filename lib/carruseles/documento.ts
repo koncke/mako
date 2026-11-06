@@ -27,7 +27,7 @@ export type Marca = { nombre: string; usuario: string | null; logo?: { id: strin
 
 type Obj = Record<string, unknown>;
 
-const familia = (f: { familia: string; respaldo: string }) => `"${f.familia}", ${f.respaldo}`;
+export const familia = (f: { familia: string; respaldo: string }) => `"${f.familia}", ${f.respaldo}`;
 
 /** Lo común de todo objeto, como lo guarda el motor. */
 const BASE: Obj = {
@@ -43,7 +43,7 @@ export function altoDeTexto(texto: string, tam: number, ancho: number, interline
   return Math.round(lineas * tam * interlineado * 100) / 100;
 }
 
-function texto(id: string, nombre: string, t: string, o: {
+export function texto(id: string, nombre: string, t: string, o: {
   left: number; top: number; width: number; tam: number; peso: number; fam: string; color: string; alin?: 'left' | 'center' | 'right'; interlineado?: number; espaciado?: number; mayus?: boolean;
 }): Obj {
   const inter = o.interlineado ?? 1.2;
@@ -58,7 +58,7 @@ function texto(id: string, nombre: string, t: string, o: {
   };
 }
 
-function rect(id: string, nombre: string, o: { left: number; top: number; width: number; height: number; fill: string; radio?: number }): Obj {
+export function rect(id: string, nombre: string, o: { left: number; top: number; width: number; height: number; fill: string; radio?: number }): Obj {
   return {
     rx: o.radio ?? 0, ry: o.radio ?? 0, id, name: nombre, type: 'rect', originX: 'left', originY: 'top',
     left: o.left, top: o.top, width: o.width, height: o.height, fill: o.fill, ...BASE,
