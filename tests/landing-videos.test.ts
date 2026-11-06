@@ -224,10 +224,11 @@ test('lo que se guarda vuelve a leerse igual (ida y vuelta por JSON)', () => {
 // =============================================================================
 // CABLEADO — que exista no es que se use
 // =============================================================================
-// Este repo ya pagó dos veces la misma factura: `curvaRetencion` acepta un
-// `videoId` desde hace meses y NADIE se lo pasa; `urlsDescubiertas` existe y se
-// usa, pero su gemela para videos no existía. Un módulo con tests verdes y cero
-// call-sites se ve exactamente igual que uno que funciona.
+// Este repo ya pagó dos veces la misma factura: `curvaRetencion` aceptó un `videoId`
+// durante meses y NADIE se lo pasó (borrado el 6/11/2026: el corte por video se hace
+// agrupando afuera, en `videosDelPeriodo`); `urlsDescubiertas` existe y se usa, pero su
+// gemela para videos no existía. Un módulo con tests verdes y cero call-sites se ve
+// exactamente igual que uno que funciona.
 
 import { readFileSync } from 'node:fs';
 const leer = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8');
