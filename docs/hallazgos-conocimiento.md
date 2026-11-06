@@ -90,6 +90,33 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 
 ---
 
+## Los 5.050 emails estudiados no los lee NINGÚN archivo de código: medido, no supuesto (6/11/2026)
+
+El pendiente pedía «comprobar que Copywriter, Newsletter, Automations y WhatsApp usen los patrones de
+email». Está comprobado y el número es **cero**:
+
+- `docs/conocimiento/patrones-email.md` existe y pesa **92 kB** (70 remitentes, ~5.050 emails).
+- `grep -rln 'patrones-email'` sobre `lib/` y `app/` → **ningún resultado**. Lo nombran sólo otros
+  documentos (`docs/hallazgos-conocimiento.md`, `docs/pendientes.md`, los relevos).
+- Y no hay un cargador genérico que lo levante por carpeta: `grep -rn 'conocimiento/'` sobre `lib/*.ts` y
+  `app/api/mako/*.ts` tampoco da nada.
+
+**Why:** el trabajo de curación terminó en un `.md` del repo y ahí se quedó. Es la misma forma del
+pendiente de la curación de los cursos (el esqueleto de `lib/knowledge-modulos.ts` cargado y vacío):
+destilar el material y **enchufarlo** son dos trabajos, y el segundo no tiene a quién reclamarle, porque
+el primero deja un archivo que se ve terminado.
+
+**How to apply:**
+
+- Un documento de `docs/conocimiento/` **no está en producción porque esté commiteado**. Está en
+  producción cuando un archivo de `lib/` o de `app/` lo nombra. La comprobación es un `grep`, y vale la
+  pena correrla antes de dar por hecha cualquier «curación».
+- Enchufarlo **no es pegar 92 kB en un prompt**: no entra en el presupuesto de ningún turno. Pide un
+  destilado indexado, como el que ya existe para los cursos en `lib/knowledge-modulos.ts` (7 módulos por
+  tema, índice en el prompt, dos operaciones de la API). O sea: es una decisión de diseño, no una tarea
+  de enchufe.
+- Quedaron además sin ficha ~59 posteos de Razzetti en Skool y ~120 emails de un autor en inglés.
+
 ## El portal
 
 ### El portal no guarda video: iframe de Drive + transcripción estática
