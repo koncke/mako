@@ -411,20 +411,32 @@ export type PagoDelAviso = {
   moneda: string;
   concepto: string | null;
   proveedor: Pasarela;
-  renovacion: boolean;
+  /**
+   * ¿Es una renovación o el primer pago? AUSENTE = no se sabe, y `pago_tipo` NO sale (su renglón se va). El Evento de
+   * MaKo siempre lo sabe; del CRON «Pagos», `suscripcion_cancelada` no habla de un pago, así que no lo afirma.
+   */
+  renovacion?: boolean;
   /** `cobros.modo`: 'prueba' o 'real'. */
   modo: string | null;
-  /** Cómo quedó el alta en una venta de MaKo (la lectura de `lineaDelAlta`); null fuera de una venta de MaKo. */
-  alta: EstadoAlta | null;
+  /**
+   * Cómo quedó el alta en una venta de MaKo (la lectura de `lineaDelAlta`); null fuera de una venta de MaKo.
+   * AUSENTE en el CRON «Pagos»: el alta la lee el emisor del Evento de MaKo (`altaDelPago`, lib/cobros.ts) y el CRON
+   * no la relee — `pago_alta` no sale ahí, y su renglón se va.
+   */
+  alta?: EstadoAlta | null;
   /** El alta quedó hecha pero el mail de acceso NO salió (lib/cobros-reglas.ts, `mailDeAccesoNoSalio`). */
   altaSinMail?: boolean;
 };
 
 /**
- * LOS DATOS DEL PAGO (el evento «Entra un pago»). POR CÓDIGO y nunca por un modelo: es plata, y un monto que pasa
- * por un LLM deja de ser exacto. El monto con `formatoMonto` y su moneda (la renovación trae el suyo), igual que
- * el texto del aviso de siempre. Sin valor no entra (y su renglón se va): `pago_modo` en un pago REAL, `pago_alta`
- * fuera de una venta de MaKo o con el alta todavía pendiente.
+ * LOS DATOS DEL PAGO. POR CÓDIGO y nunca por un modelo: es plata, y un monto que pasa por un LLM deja de ser exacto.
+ * El monto con `formatoMonto` y su moneda (la renovación trae el suyo), igual que el texto del aviso de siempre. Sin
+ * valor no entra (y su renglón se va): `pago_modo` en un pago REAL, `pago_alta` fuera de una venta de MaKo o con el
+ * alta todavía pendiente, `pago_tipo` cuando quien emite no afirma si es renovación.
+ *
+ * LAS DOS PUERTAS que lo usan (6/11/2026, el pendiente 288): el Evento de MaKo «Entra un pago» (`avisarPagoRecibido`,
+ * que lo pasa en `datos`) y el CRON «Pagos» (`alCron` → `enrolarPorPago`, que lo guarda en la inscripción). La misma
+ * función para las dos: un monto no se escribe dos veces.
  */
 export function valoresDelPago(p: PagoDelAviso): Record<string, string> {
   const out: Record<string, string> = {};
@@ -433,10 +445,35 @@ export function valoresDelPago(p: PagoDelAviso): Record<string, string> {
   if (concepto) out.pago_concepto = concepto;
   const pasarela = NOMBRE_PASARELA[p.proveedor];
   if (pasarela) out.pago_pasarela = pasarela;
-  out.pago_tipo = p.renovacion ? 'Renovación' : 'Primer pago';
+  if (typeof p.renovacion === 'boolean') out.pago_tipo = p.renovacion ? 'Renovación' : 'Primer pago';
   if (p.modo === 'prueba') out.pago_modo = 'Prueba';
   const alta = p.alta === 'hecha' ? (p.altaSinMail ? 'Cuenta creada, sin mail de acceso' : 'Cuenta creada') : p.alta === 'ya_tenia_cuenta' ? 'Ya tenía cuenta' : p.alta === 'error' ? 'El alta falló' : null;
   if (alta) out.pago_alta = alta;
+  return out;
+}
+
+/** Techo de los datos guardados de un evento, por dato. Un concepto de un cobro no es más largo que esto, y
+ *  un jsonb que se lee en CADA corrida del motor no crece por lo que escriba un proveedor. */
+const TOPE_DATO_GUARDADO = 500;
+
+/**
+ * LOS DATOS GUARDADOS DE UN EVENTO, LEÍDOS DE VUELTA (6/11/2026, el pendiente 288): el jsonb
+ * `nutricion_inscripciones.datos_evento` (mig 0411) que escribió `enrolarPorEvento` con `CtxEvento.datos`, listo
+ * para `textoConDatos`. Es el lado de lectura de `valoresDelPago`.
+ *
+ * ⚠️ LO QUE NO ES UN TEXTO CON VALOR NO ENTRA. Lo escribió otra corrida —y lo pudo escribir una versión anterior del
+ * código, o una fila tocada a mano— así que acá se vuelve a mirar: sólo claves del catálogo (`[a-z0-9_]`) con un
+ * string no vacío, recortado. Un número o un objeto en el lugar de un monto llegaría al WhatsApp del negocio como
+ * «[object Object]»; afuera, el token queda crudo, que se nota.
+ */
+export function datosGuardados(crudo: unknown): Record<string, string> {
+  if (!crudo || typeof crudo !== 'object' || Array.isArray(crudo)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(crudo as Record<string, unknown>)) {
+    if (!/^[a-z][a-z0-9_]*$/.test(k) || typeof v !== 'string') continue;
+    const t = v.trim();
+    if (t) out[k] = t.slice(0, TOPE_DATO_GUARDADO);
+  }
   return out;
 }
 

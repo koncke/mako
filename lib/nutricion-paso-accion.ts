@@ -103,7 +103,7 @@ export type DepsPasoAccion = {
   ejecutar: (
     operacion: string,
     params: Record<string, unknown> | undefined,
-    opts: { ws: number; origen: string; nombre: string; leadId: number },
+    opts: { ws: number; origen: string; nombre: string; leadId: number; datos?: Record<string, string> },
   ) => Promise<ResultadoEjecucion>;
   /** La fila de `nutricion_envios`: 'accion' si salió bien, 'fallo' con el motivo si no. */
   registrar: (r: { estado: 'accion' | 'fallo'; operacion: string; resumen: string }) => Promise<void>;
@@ -126,6 +126,13 @@ export type EntradaPasoAccion = {
   /** El paso, contado desde 1 (el mismo número que `nutricion_envios.paso`). */
   orden: number;
   leadId: number;
+  /**
+   * LOS DATOS QUE TRAJO EL EVENTO que inscribió al lead, ya escritos (6/11/2026, el pendiente 288): el monto y el
+   * concepto del pago del CRON «Pagos» (`datos_evento`, mig 0411). Viajan hasta el texto de la acción —hoy el de
+   * «MaKo en WhatsApp»— para que lo pueda CITAR, igual que el emisor de un Evento de MaKo los pasa en `datos`.
+   * Vacío (lo normal) = la acción corre como siempre.
+   */
+  datos?: Record<string, string>;
 };
 
 export type ResultadoPasoAccion =
@@ -165,6 +172,7 @@ export async function correrPasoAccion(e: EntradaPasoAccion, deps: DepsPasoAccio
     try {
       r = await deps.ejecutar(e.accion.operacion, e.accion.params, {
         ws: e.ws, origen: origenDelPaso(e.secuenciaId, e.orden), nombre: e.nombre, leadId: e.leadId,
+        ...(e.datos && Object.keys(e.datos).length ? { datos: e.datos } : {}),
       });
     } catch (err) {
       // `ejecutarDesdeFlujo` no tira, pero un import dinámico sí puede: el paso ya se

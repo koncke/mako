@@ -6,6 +6,25 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**«Probar rompiéndolo» con `git checkout <carpeta>` para restaurar borra el trabajo sin commitear (6/11/2026).**
+
+**Síntoma.** Ocho roturas planeadas, cada una con su `git checkout lib/` para restaurar. La primera rotura cayó bien; de
+la segunda en adelante, las siete dijeron «NO SE PUDO APLICAR» — el script de rotura no encontraba el texto a cambiar. No
+era el script: el primer `git checkout lib/` había borrado los cambios de CATORCE archivos de `lib/`, que eran el trabajo
+de la tanda entera.
+
+**La causa.** `git checkout <ruta>` descarta lo no commiteado de TODO lo que esa ruta abarca, no sólo de lo que se acaba
+de romper. Una rotura se aplica sobre un archivo ya modificado y sin commitear, así que el «restaurar» y el «perder el
+trabajo» son la misma operación. Y falla CALLADO: deja el árbol limpio, que es exactamente lo que se le pidió.
+
+**Qué salvó la tanda:** cada parche vivía en su propio script de Python en el scratchpad y cada uno verifica que el texto
+que busca aparezca las veces esperadas, así que reaplicarlos en orden reconstruyó los catorce archivos y el test volvió a
+dar 12/0. Sin esos scripts, la tanda se rehacía de memoria.
+
+**Regla:** la restauración de una rotura NO se hace con git. Se copia el archivo antes (`cp <archivo> <bak>`), se rompe,
+se corre el test y se vuelve con `cp <bak> <archivo>` — un archivo por rotura, nunca una carpeta. Y si hay que usar git,
+primero se commitea: `git checkout` sólo es seguro contra algo que ya está guardado.
+
 **`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
 
 **Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un

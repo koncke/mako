@@ -332,7 +332,9 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio, y desde el
   // 11/10/2026 la del evento de MaKo: `frenoDelEvento`, lo que el emisor de ese evento sabe correr.)
   // (Undécima tanda: y los DATOS, con la MISMA `problemasDeTokens` que `setSecuenciaPasos`, con el CRON y el evento.)
-  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, eventoMako \?\? undefined\)\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
+  // (6/11/2026: el evento de la fila sale de `subtipoDeLaFila` — el de MaKo, o la lista de los subtipos del CRON «Pagos».)
+  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, subtipoDeLaFila\)\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
+  assert.match(perfil, /\? crons\.lista\.filter\(\(d\) => d\.trigger_tipo === TRIGGER_PAGO\)\.map\(\(d\) => d\.subtipo\)/);
   const valida = pub.indexOf('frenoDeEsta(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
   assert.match(pub, /const freno = frenoDeEsta\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);

@@ -24,7 +24,7 @@ import { proveedorDelPaso } from './nutricion-canal';
 import { esVariableConocida } from './template-vars';
 import { tokensDe, tokensFueraDe, CLAVE_MENSAJE_MAKO, type ContextoDatos } from './variables-aviso';
 import { datosDelEvento, datosDeLaPersona } from './aviso-evento';
-import { TRIGGER_AVISO_MAKO, TRIGGER_SOLO_GRUPO } from './disparadores';
+import { TRIGGER_AVISO_MAKO, TRIGGER_PAGO, TRIGGER_SOLO_GRUPO, traeLosDatosDelPago } from './disparadores';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 
 /**
@@ -34,7 +34,10 @@ import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
  */
 export const RETIRADOS: ReadonlySet<string> = new Set([CLAVE_MENSAJE_MAKO]);
 
-/** De qué fila es la tarjeta: su CRON (y, en un evento de MaKo, cuál). */
+/**
+ * De qué fila es la tarjeta: su CRON y CUÁL evento de ese CRON. En un evento de MaKo, el suyo (uno por fila); en el
+ * CRON «Pagos», el subtipo de su disparador o la LISTA de los de la fila (`traeLosDatosDelPago` acepta las dos).
+ */
 export type FilaTokens = { trigger_tipo: string; subtipo?: unknown };
 
 /**
@@ -59,6 +62,10 @@ function esTarjetaMako(p: PasoGrafo): boolean {
  *   · mensaje al lead no oficial, email, Instagram o Messenger → `{ destino: 'lead', conLead: true }`;
  *   · WhatsApp oficial (`proveedorDelPaso`, lib/nutricion-canal.ts) → `oficial`;
  *   · «MaKo en WhatsApp» en una fila de EVENTO de MaKo → lo que trae ese evento (`datosDelEvento`);
+ *   · «MaKo en WhatsApp» en una fila del CRON «Pagos» → además el PAGO (`conPago`), si TODOS los CRON de la fila
+ *     son de los que lo traen (`traeLosDatosDelPago`, lib/disparadores.ts: los cuatro que emite lib/cobros.ts, no
+ *     `comprobante`). Los datos viajan en la inscripción (`enrolarPorPago` → `CtxEvento.datos` → `datos_evento`,
+ *     mig 0411) y el motor los pasa a la tarjeta: lo que se ofrece acá se resuelve de verdad allá;
  *   · «MaKo en WhatsApp» en un flujo de lead → `{ destino: 'equipo', conLead: true }`; en un Recurrente que es
  *     SÓLO el grupo (`TRIGGER_SOLO_GRUPO`, no hay lead) → `{ destino: 'equipo', conLead: false }`.
  */
@@ -66,6 +73,11 @@ export function contextoDeTarjeta(p: PasoGrafo, fila: FilaTokens): ContextoTarje
   const conLead = fila.trigger_tipo !== TRIGGER_SOLO_GRUPO;
   if (esTarjetaMako(p)) {
     if (fila.trigger_tipo === TRIGGER_AVISO_MAKO) return { tipo: 'catalogo', datos: datosDelEvento(fila.subtipo) };
+    // El CRON «Pagos» (6/11/2026, pendiente 288): el pago sólo si lo traen TODOS sus eventos. `fila.subtipo` es el
+    // subtipo de UN disparador o la LISTA de los de la fila (`traeLosDatosDelPago` acepta las dos).
+    if (fila.trigger_tipo === TRIGGER_PAGO && traeLosDatosDelPago(fila.subtipo)) {
+      return { tipo: 'catalogo', datos: { destino: 'equipo', conLead, conPago: true } };
+    }
     return { tipo: 'catalogo', datos: { destino: 'equipo', conLead } };
   }
   if (claseDe(p) !== 'mensaje') return null;
@@ -148,7 +160,8 @@ export type ProblemaDeTokens = { tarjeta: string; motivo: string };
  *     (`VARIABLES`, lib/recordatorio-lead.ts) y su propio freno (`problemaDelTexto`) hasta la limpieza.
  *   · `{{mensaje_mako}}` se rechaza SIEMPRE (`RETIRADOS`), aunque el evento lo traiga.
  *
- * `subtipoEvento`: en una fila de evento de MaKo, cuál (`eventoDeFila`, lib/aviso-evento.ts). En las demás, nada.
+ * `subtipoEvento`: CUÁL evento de ese CRON. En una fila de evento de MaKo, el suyo (`eventoDeFila`, lib/aviso-evento.ts);
+ * en una del CRON «Pagos», la lista de los subtipos de la fila (`subtiposDeFilaPago`, lib/nutricion.ts). En las demás, nada.
  */
 export function problemasDeTokens(pasos: readonly PasoGrafo[], triggerTipo: string, subtipoEvento?: unknown): ProblemaDeTokens[] {
   if (triggerTipo === TRIGGER_RECORDATORIO) return [];

@@ -380,6 +380,17 @@ export type Ctx = {
   mensajeUsuario?: string;
   /** quién confirma (email de la sesión), para el historial */
   actor?: string;
+  /**
+   * SÓLO DESDE UN PASO DE UN FLUJO (`ctxDeFlujo`): los datos que trajo el EVENTO que inscribió al lead, ya escritos
+   * («US$ 2.300», «Mentoría 1:1»), para que el texto de la acción los pueda CITAR. Hoy los usa «Avisar al equipo»
+   * (`textoDelAviso`, areas/chatbot.run.ts), con los del CRON «Pagos» (6/11/2026, el pendiente 288): sin esto el
+   * aviso de un pago rechazado no podía decir de cuánto era. GANAN sobre lo que se lee de la base: son lo que el
+   * emisor tenía en la mano.
+   *
+   * ⚠️ NO es un parámetro de la acción, a propósito: el `enum` y las descripciones del registro se pagan en el
+   * presupuesto del turno de WhatsApp (tests/ops-center-bateria.test.ts, el 4), y un Ctx no cuesta un carácter.
+   */
+  datosDelEvento?: Record<string, string>;
   /** Sólo en un grupo de WhatsApp: quién escribe (el `participant`, lib/confirmacion-pura.ts `quienEnElGrupo`; null en un lote
    *  de varios) y si el mensaje le habla a MaKo («sí, MaKo», «@MaKo», la respuesta citada a MaKo). Lo que se propone guarda quién
    *  lo pidió, y una pendiente de plata sólo la confirma ésa persona o un «sí» a MaKo (`elSiEsDeQuienPidio`). */

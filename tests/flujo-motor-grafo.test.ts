@@ -370,7 +370,7 @@ test('(8) la posición se escribe y se compara: el motor lee y guarda `nodo_actu
   // y `proximo_envio_at`, que es el próximo del cursor cuando se convierte en el hilo principal.)
   // (Undécima tanda, M4: y `estado` y `desenlace`, el compare-and-set de una 'respondio' con el carril del
   // recordatorio vivo y cómo termina.)
-  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace(, inscripto_at)?'\)/);
+  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace(, inscripto_at)?(, datos_evento)?'\)/);
   const mig0228 = leer('../supabase/migrations/0228_hilos_paralelos.sql');
   for (const col of ['hilos jsonb', 'hilos_rev integer not null default 0']) assert.ok(mig0228.includes(`add column if not exists ${col}`), `falta ${col} en la 0228`);
   assert.match(mig0228, /ANTES DEL DEPLOY/, 'la 0228 no dice en qué orden se aplica');

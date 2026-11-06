@@ -616,11 +616,15 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     // cancela la inscripción ENTERA (lib/nutricion.ts), así que arriba se llevaría el aviso con él.
     // NO pregunta «Pagó»: una renovación rechazada es de alguien que YA pagó, y ése es uno de los tres caminos.
     //
-    // ⚠️ NO CITA EL MONTO NI EL CONCEPTO DEL PAGO. `{{pago_monto}}` y `{{pago_concepto}}` son del Evento de MaKo
-    // `pago_recibido` (`alcance: 'pago'`, lib/variables-aviso.ts): los pasa `avisarPagoRecibido` en `datos`, y
-    // `enrolarPorPago` (lib/pago-entrante.ts) manda sólo `{ subtipo }`. En este CRON no se resuelven, y Publicar lo
-    // frena (`problemasDeTokens`). El concepto y el motivo quedan en el historial del lead: es lo que escribe
-    // `logLeadEvent('Pago rechazado', …)` al lado del disparo.
+    // ⚠️ CITA EL MONTO Y EL CONCEPTO desde el 6/11/2026, y eso es lo que hace útil al aviso. Hasta ese día no podía:
+    // `{{pago_monto}}` tiene `alcance: 'pago'` (lib/variables-aviso.ts) y `alcanzaPara` lo daba sólo con `conPago`,
+    // que ponía únicamente el Evento de MaKo `pago_recibido`. Ahora `alCron` (lib/cobros.ts) arma los datos con el
+    // cobro en la mano y viajan en la inscripción (`datos_evento`, mig 0411) hasta esta tarjeta.
+    // EL MOTIVO del rechazo NO es uno de ellos: lo escribe `logLeadEvent('Pago rechazado', …)` al lado del disparo,
+    // así que el aviso manda a la ficha para eso y para nada más.
+    // ⚠️ EL MONTO Y LA PASARELA VAN EN UN RENGLÓN Y EL CONCEPTO EN OTRO, a propósito: un renglón cuyo dato no tiene
+    // valor se va ENTERO (`sinRenglonesVacios`), así que juntos un cobro sin concepto se llevaría también el monto —
+    // y el monto es lo que el equipo necesita para salir a cobrar.
     // ⚠️ Y NO LLEVA `{{link_pago}}`: ese link es el del cobro PENDIENTE (`cobroPendienteDelLead`, lib/cobros.ts) y el
     // rechazo deja el cobro en `fallido`, así que le diría «sin link de pago pendiente» justo a quien tiene que pagar.
     // Nace con «Cada vez»: a una suscripción le pueden rechazar la renovación todos los meses.
@@ -633,7 +637,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_PAGO, eventos: ['rechazado'] },
     reentrada: 'siempre',
     pasos: [
-      mako('rp_mk', '💳 Le rechazaron el pago a {{nombre_completo}}. El concepto y el motivo están en su historial.\n💰 Le falta pagar {{lead_saldo}}\n📱 {{lead_telefono}}\n👉 {{link_lead}}', 'rp_c1'),
+      mako('rp_mk', '💳 Le rechazaron el pago a {{nombre_completo}}\n💰 {{pago_monto}} por {{pago_pasarela}}\n🧾 {{pago_concepto}} · {{pago_tipo}}\n💸 Le falta pagar {{lead_saldo}}\n📱 {{lead_telefono}}\n👉 El motivo, en su ficha: {{link_lead}}', 'rp_c1'),
       condicion('rp_c1', [[[TIENE_WHATSAPP], 'rp_w1']], null),
       whatsapp('rp_w1', 'Hola {{nombre}}, tu pago no se procesó. Puedes volver a intentarlo con la misma tarjeta o con otro medio; si te vuelve a fallar, escríbeme y lo resolvemos.', null, { revisar: true }),
     ],

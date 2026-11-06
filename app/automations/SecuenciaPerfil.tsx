@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, canalesConComentario, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, canalesConComentario, EVENTOS_MAKO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
@@ -758,12 +758,23 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const esEvento = disparo.trigger_tipo === TRIGGER_AVISO_MAKO;
   /** CUÁL evento (el `subtipo` de su CRON), sólo si es uno que existe. null = una automatización de las de siempre. */
   const eventoMako = esEvento ? (EVENTOS_MAKO.find((e) => e.subtipo === crons.primero?.subtipo)?.subtipo ?? null) : null;
+  /**
+   * CUÁL evento de su CRON, para los datos de cada tarjeta: el de MaKo (uno por fila) o —en el CRON «Pagos»— la LISTA
+   * de los subtipos de la fila (6/11/2026, el pendiente 288). El pago se ofrece sólo si TODOS lo traen
+   * (`traeLosDatosDelPago`): con `comprobante` en la misma fila, `{{pago_monto}}` saldría crudo al grupo a veces.
+   */
+  const subtipoDeLaFila = useMemo<unknown>(
+    () => (disparo.trigger_tipo === TRIGGER_PAGO
+      ? crons.lista.filter((d) => d.trigger_tipo === TRIGGER_PAGO).map((d) => d.subtipo).filter((s): s is string => typeof s === 'string')
+      : eventoMako ?? undefined),
+    [disparo.trigger_tipo, crons.lista, eventoMako],
+  );
   // Los DATOS (undécima tanda, punto 4): un `{{dato}}` que esa tarjeta no puede mandar (o {{mensaje_mako}}) frena acá
   // con la MISMA `problemasDeTokens` que el server (`setSecuenciaPasos`), con el CRON y el evento de la fila.
   const frenoDeEsta = useCallback(
-    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion, problemasDeTokens(ps, disparo.trigger_tipo, eventoMako ?? undefined))
+    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion, problemasDeTokens(ps, disparo.trigger_tipo, subtipoDeLaFila))
       ?? (esRecordatorio ? frenoDelRecordatorio(ps) : esEvento ? frenoDelEvento(ps, eventoMako) : null),
-    [faltanEnAccion, esRecordatorio, esEvento, eventoMako, disparo.trigger_tipo],
+    [faltanEnAccion, esRecordatorio, esEvento, eventoMako, subtipoDeLaFila, disparo.trigger_tipo],
   );
   // Identidad FIJA (sólo usa setters): viaja en `EdicionLocal` y un `frenar` nuevo por render
   // re-dispararía el efecto que la manda en cada tecla.

@@ -48,7 +48,7 @@ import { camposDelFlujo, RELLENO_CONTROL, esNodoDeControl } from './nutricion-gr
 import { frenoDelFlujo, emojiDeSecuencia } from './flujo-conversacion';
 import {
   sanearDisparadores, problemaDeDisparadores, disparadoresDe, columnasDeDisparador, firmaLista, esEventoDeAntes,
-  TRIGGER_AVISO_MAKO, type Disparador, type FilaDisparadores,
+  TRIGGER_AVISO_MAKO, TRIGGER_PAGO, type Disparador, type FilaDisparadores,
 } from './disparadores';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 import { problemasDeTokens } from './tokens-del-flujo';
@@ -662,6 +662,15 @@ const subtipoDe = (lista: readonly Disparador[]): string | null =>
   lista[0]?.trigger_tipo === TRIGGER_AVISO_MAKO ? (lista[0].subtipo ?? null) : null;
 
 /**
+ * Lo que `problemasDeTokens` necesita de los CRON de la propuesta: el evento de MaKo (uno por fila), o —en el CRON
+ * «Pagos»— la LISTA de los subtipos de la fila, porque el pago se ofrece sólo si TODOS lo traen.
+ */
+const subtipoParaTokens = (lista: readonly Disparador[]): unknown =>
+  lista[0]?.trigger_tipo === TRIGGER_PAGO
+    ? lista.filter((d) => d.trigger_tipo === TRIGGER_PAGO).map((d) => d.subtipo).filter((s): s is string => typeof s === 'string')
+    : (subtipoDe(lista) ?? undefined);
+
+/**
  * TODO LO QUE TIENE QUE VALER para escribir una propuesta, con las funciones del motor y de Publicar. Vacío = se puede.
  *   · `validarGrafo` (lo que frena Publicar) y `frenoDelFlujo` con los datos de cada tarjeta (`problemasDeTokens` con el
  *     CRON NUEVO de la fila);
@@ -680,7 +689,7 @@ export function chequearPropuesta(p: Propuesta): string[] {
   if (v.length) out.push(`validarGrafo: ${v[0]}`);
   const trigger = p.disparadores[0]?.trigger_tipo ?? '';
   const sub = subtipoDe(p.disparadores);
-  const datos = problemasDeTokens(p.pasos, trigger, sub);
+  const datos = problemasDeTokens(p.pasos, trigger, subtipoParaTokens(p.disparadores));
   for (const d of datos) out.push(`datos de ${d.tarjeta}: ${d.motivo}`);
   const fr = frenoDelFlujo(p.pasos, null, datos);
   if (fr && !datos.length) out.push(`Publicar frena: ${fr.error} (${fr.tarjeta ?? 'CRON'})`);

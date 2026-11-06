@@ -68,10 +68,13 @@ export type ResultadoFlujo = {
 };
 
 /** El contexto con el que corre un flujo: el admin del negocio, con alcance de ejecutar. */
-export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
+export function ctxDeFlujo(ws: number, origen: string, nombre: string, datos?: Record<string, string>): Ctx {
   return {
     ws, canal: 'app', canalKey: `${PREFIJO_FLUJO}${origen}`, alcance: 'ejecutar', rol: 'admin',
     actor: `MaKo · automatización «${nombre}»`,
+    // Los datos del evento que inscribió al lead (`Ctx.datosDelEvento`): el monto y el concepto del pago del CRON
+    // «Pagos», para que «Avisar al equipo» los pueda citar. Sin datos, el Ctx queda como siempre.
+    ...(datos && Object.keys(datos).length ? { datosDelEvento: datos } : {}),
   };
 }
 
@@ -152,7 +155,7 @@ async function moverEnElCrmDelPaso(
 export async function ejecutarDesdeFlujo(
   operacion: string,
   params: Record<string, unknown> | null | undefined,
-  opts: { ws: number; origen: string; nombre: string; leadId?: number | null },
+  opts: { ws: number; origen: string; nombre: string; leadId?: number | null; datos?: Record<string, string> },
 ): Promise<ResultadoFlujo> {
   const def = porId(operacion);
   if (!def || !esAccion(def)) return { ok: false, resumen: `«${operacion}» no es una acción de MaKo.`, via: 'ninguna' };
@@ -168,7 +171,7 @@ export async function ejecutarDesdeFlujo(
     for (const p of tandas) rs.push(await ejecutarDesdeFlujo(operacion, p, opts));
     return juntarPorEtiqueta(rs);
   }
-  const ctx = ctxDeFlujo(opts.ws, opts.origen, opts.nombre);
+  const ctx = ctxDeFlujo(opts.ws, opts.origen, opts.nombre, opts.datos);
   // La tanda única (con una etiqueta en la lista, ésa queda en `etiquetaId`); para todo lo demás, `params`.
   const input = paramsDelPaso(def.parametros, tandas[0], { leadId: opts.leadId ?? null });
   // «Mover de etapa» corre en el CRM que eligió el paso (`moverEnElCrmDelPaso`, abajo).

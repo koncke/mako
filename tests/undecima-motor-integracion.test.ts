@@ -128,9 +128,13 @@ test('2. el server: `setSecuenciaPasos` frena con `problemasDeTokens` (y Activar
   assert.match(pub, /const triggerDeLaFila = String\(\(previo as \{ trigger_tipo\?: unknown \} \| null\)\?\.trigger_tipo \?\? ''\);/);
   // El evento de la fila, leído SÓLO para una fila de evento, y una lectura que falla tira.
   const sub = bloque(NUT, 'async function subtipoDeFilaEvento(', '\n}\n', 1_200);
-  assert.match(sub, /!== TRIGGER_AVISO_MAKO\) return undefined;/);
+  assert.match(sub, /if \(trigger !== TRIGGER_AVISO_MAKO && trigger !== TRIGGER_PAGO\) return undefined;/);
   assert.match(sub, /if \(error\) throw new Error\(/);
   assert.match(sub, /return eventoDeFila\(\{ trigger_tipo: TRIGGER_AVISO_MAKO,/);
+  // 6/11/2026 (pendiente 288): y el CRON «Pagos» da la LISTA de los subtipos de la fila, porque el pago se ofrece
+  // sólo si TODOS lo traen (`traeLosDatosDelPago`). Con el subtipo del PRIMERO, una fila que además escucha
+  // `comprobante` publicaría un `{{pago_monto}}` que a veces sale crudo al grupo del negocio.
+  assert.match(sub, /if \(trigger === TRIGGER_PAGO\) return subtiposDelCronPago\(\{ trigger_tipo: trigger, disparadores \}\);/);
   // El error lleva la tarjeta (la API lo contesta 400 por `PasosInvalidosError`).
   assert.match(NUT, /constructor\(m: string, tarjeta: string \| null = null\) \{ super\(m\); this\.name = 'PasosInvalidosError'; this\.tarjeta = tarjeta; \}/);
   // ENCHUFADA (cierre de la ola 3): Activar la conserva, la ruta de Publicar la contesta y el lienzo la abre.
@@ -142,7 +146,7 @@ test('2. el server: `setSecuenciaPasos` frena con `problemasDeTokens` (y Activar
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /const tarjeta = typeof rp\.tarjeta === 'string' && rp\.tarjeta \? rp\.tarjeta : e \? tarjetaDelError\(e, pasos\) : null;/);
   // Y el lienzo frena con la MISMA `problemasDeTokens` antes de mandar (el CRON y el evento de la fila).
-  assert.match(perfil, /frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, eventoMako \?\? undefined\)\)/);
+  assert.match(perfil, /frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, subtipoDeLaFila\)\)/);
 });
 
 test('2. el lienzo: `frenoDelFlujo` frena con lo que `problemasDeTokens` encontró, DESPUÉS de lo estructural', () => {

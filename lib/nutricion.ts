@@ -27,7 +27,7 @@ import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { noSonDelNegocio } from '@/lib/nombres-negocio';
 import { datosParaElLead } from '@/lib/variables-resolver';
 // EL TEXTO CON SUS DATOS (undécima tanda): el renglón opcional y después los datos. Lo usan TODOS los envíos del motor.
-import { textoConDatos, valoresDeLoEscrito } from '@/lib/variables-del-lead';
+import { textoConDatos, valoresDeLoEscrito, datosGuardados } from '@/lib/variables-del-lead';
 // Publicar valida los datos de TODA tarjeta (undécima tanda, punto 4): «No existe: {{x}}».
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
@@ -70,7 +70,7 @@ import { decidirAgenda } from '@/lib/nutricion-agenda';
 import {
   disparadoresDe, conEtapasDelCron, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
   TRIGGERS_SOLO_EVENTO, TRIGGER_AVISO_MAKO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
-  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_PAGO,
+  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_PAGO, subtiposDelCronPago,
   type Disparador,
 } from '@/lib/disparadores';
 import { frenoDelEvento, eventoDeFila } from '@/lib/aviso-evento';
@@ -975,17 +975,24 @@ async function frenoDeFilaEvento(
 }
 
 /**
- * CUÁL EVENTO DE MaKo es una fila (su lista de CRON), o undefined si no es una fila de evento: el contexto con el que
- * Publicar valida sus datos (`problemasDeTokens`: «MaKo en WhatsApp» ve lo que trae SU evento). Se lee SÓLO para una
- * fila de evento, como `frenoDeFilaEvento` (que tiene su propia lectura, fijada por su test). Un error de lectura TIRA.
+ * CUÁL EVENTO DE SU CRON es una fila, o undefined si su CRON no tiene eventos: el contexto con el que Publicar valida
+ * sus datos (`problemasDeTokens`: «MaKo en WhatsApp» ve lo que trae SU evento).
+ *   · un Evento de MaKo → el suyo, uno por fila (`eventoDeFila`);
+ *   · el CRON «Pagos» → la LISTA de los subtipos de la fila (`subtiposDelCronPago`: tiene un disparador por evento).
+ *     `contextoDeTarjeta` da el pago sólo si TODOS lo traen — con uno que no, el token saldría crudo a veces.
+ * Se lee SÓLO para esas dos, como `frenoDeFilaEvento` (que tiene su propia lectura, fijada por su test). Un error de
+ * lectura TIRA.
  */
 async function subtipoDeFilaEvento(
   supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number, previo: unknown,
-): Promise<string | undefined> {
-  if ((previo as { trigger_tipo?: string } | null)?.trigger_tipo !== TRIGGER_AVISO_MAKO) return undefined;
+): Promise<unknown> {
+  const trigger = (previo as { trigger_tipo?: string } | null)?.trigger_tipo;
+  if (trigger !== TRIGGER_AVISO_MAKO && trigger !== TRIGGER_PAGO) return undefined;
   const { data, error } = await supabase.from('nutricion_secuencias').select('disparadores').eq('id', id).maybeSingle();
   if (error) throw new Error(`setSecuenciaPasos (los datos del evento): ${error.message}`);
-  return eventoDeFila({ trigger_tipo: TRIGGER_AVISO_MAKO, disparadores: (data as { disparadores?: unknown } | null)?.disparadores }) ?? undefined;
+  const disparadores = (data as { disparadores?: unknown } | null)?.disparadores;
+  if (trigger === TRIGGER_PAGO) return subtiposDelCronPago({ trigger_tipo: trigger, disparadores });
+  return eventoDeFila({ trigger_tipo: TRIGGER_AVISO_MAKO, disparadores }) ?? undefined;
 }
 
 /**
@@ -2603,6 +2610,17 @@ export type CtxEvento = {
   etiquetaId?: number | string | null;
   /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
   subtipo?: string;
+  /**
+   * LOS DATOS QUE TRAE EL EVENTO, ya escritos y listos para citar (6/11/2026, el pendiente 288): `{ pago_monto:
+   * 'US$ 2.300', pago_concepto: 'Mentoría 1:1' }` del CRON «Pagos» (`enrolarPorPago`, lib/pago-entrante.ts, con lo
+   * que armó `valoresDelPago` desde el cobro). Se GUARDAN en la inscripción (`datos_evento`, mig 0411) y el motor
+   * los pone en el texto de la tarjeta cuando la manda: lo que el emisor tenía en la mano no se vuelve a leer, y
+   * releerlo diría el monto de otro pago.
+   *
+   * ⚠️ Lo que se ofrece en el editor sale del MISMO lugar (`contextoDeTarjeta` → `conPago`, lib/tokens-del-flujo.ts):
+   * un evento que no trae los datos no los ofrece, porque un token sin valor sale CRUDO al grupo del negocio.
+   */
+  datos?: Record<string, string>;
   /** Lo que COMENTÓ la persona: las palabras clave de un CRON de comentario (ticket #17, `disparaPorEvento`). */
   texto?: string | null;
   /** En qué publicación comentó (`comment.platformPostId`): la publicación del CRON (ticket #25, `disparaPorEvento`). */
@@ -2926,6 +2944,12 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // con el `unique (lead_id, secuencia_id)` apenas UNA fila ya existía —otra corrida, o el
     // cron en el mismo segundo— y el `return 0` dejaba al lead sin NINGUNA de las secuencias
     // del evento. Una fila que ya existe no se inserta: se reusa si se puede, y si no, se deja.
+    // LOS DATOS QUE TRAE EL EVENTO, saneados UNA vez y acá, al lado de quien los escribe (`datosGuardados`: sólo
+    // claves del catálogo con un texto con valor). `null` si no trae ninguno, que es lo que BORRA los de la corrida
+    // vieja en una fila reusada (`camposDeReactivacion`): una inscripción que vuelve a correr es una corrida nueva
+    // con el id viejo, y el aviso de la renovación rechazada de marzo no puede decir el monto de la de febrero.
+    const sane = datosGuardados(ctx?.datos);
+    const datosDelEvento: Record<string, string> | null = Object.keys(sane).length ? sane : null;
     let arrancadas = 0;
     /** Las que arrancó (para decirlo en el historial del lead, abajo). */
     const entro: number[] = [];
@@ -2944,6 +2968,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         }
         const reclamada = await reactivarInscripcion(supabase, {
           id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: r.reunionMs == null ? null : new Date(r.reunionMs).toISOString(), ahora: decididoAt,
+          // Los de ESTE arranque, y si no trae ninguno los de antes se BORRAN (`camposDeReactivacion`): el aviso de
+          // la renovación rechazada de marzo no puede decir el monto de la de febrero.
+          datos: datosDelEvento,
         });
         if (!reclamada) continue;
         console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
@@ -2959,6 +2986,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         estado: 'activa',
         proximo_envio_at: proximo,
         ...(anotaReunion(s) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
+        // LOS DATOS DEL EVENTO (mig 0411): lo que el emisor tenía en la mano, para que la tarjeta los pueda citar.
+        ...(datosDelEvento ? { datos_evento: datosDelEvento } : {}),
       });
       if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} en ${s.clave}: ${error.message}`); continue; }
       arrancadas += 1;
@@ -3877,6 +3906,9 @@ type FilaCola = {
   estado?: string | null;
   /** El desenlace ya escrito (una fila re-armada sólo con el carril): decide cómo termina una 'respondio'. */
   desenlace?: string | null;
+  /** Los datos que trajo el evento que la inscribió (`datos_evento`, mig 0411), crudos del jsonb: los lee
+   *  `datosGuardados` al mandar. Ausente = no se leyeron (una fila re-armada); null = el evento no trajo nada. */
+  datos_evento?: unknown;
 };
 
 /** El estado contra el que se escribe la posición de una fila de la cola (ver `FilaCola.estado`). */
@@ -4888,7 +4920,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
       .from('nutricion_inscripciones')
       // `hilos, hilos_rev` (mig 0228, ANTES del deploy): sin la columna PostgREST rechaza la consulta entera.
       // `inscripto_at`: la respuesta pública va sólo al comentario del disparo (`decidirRespuestaPublica`).
-      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at')
+      // `datos_evento` (mig 0411, ANTES del deploy, por lo mismo): lo que trajo el evento, para que la tarjeta lo cite.
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at, datos_evento')
       // Y las 'respondio' con el carril del recordatorio vivo (undécima tanda, M4): `pausarPorRespuesta` les deja el
       // próximo envío SÓLO a ésas, y acá se mueven sólo sus tarjetas del carril (`seMueveEnLaCorrida`).
       .in('estado', ['activa', 'respondio'])
@@ -5465,6 +5498,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           {
             accion: { operacion: String(paso.accion?.operacion ?? ''), params: paso.accion?.params },
             ws: wsCorrida, secuenciaId: sec.id, nombre: sec.nombre, orden: n, leadId: insc.lead_id,
+            // LOS DATOS DEL EVENTO QUE LA INSCRIBIÓ (6/11/2026, el pendiente 288): el monto y el concepto del pago
+            // que disparó el CRON «Pagos», para que «MaKo en WhatsApp» los pueda CITAR. Van al `{ }` del aviso como
+            // los pasa el emisor de un Evento de MaKo, y GANAN: nadie los puede resolver mejor.
+            datos: datosGuardados(insc.datos_evento),
           },
           {
             // El reclamo es la puerta de la posición en modo compare-and-set: avanza SÓLO si la

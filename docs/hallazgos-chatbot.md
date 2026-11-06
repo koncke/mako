@@ -27,22 +27,63 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
-## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
+## Un dato que viaja con el evento: seis tramos, y cualquiera lo corta en silencio (6/11/2026, el pendiente 288)
 
-**El diagnóstico obvio era el equivocado.** Para avisarle al equipo de un pago rechazado, lo natural es copiar la tarjeta de
-«Entró un Pago», que dice `{{pago_monto}}` y `{{pago_concepto}}`. No se resuelven: esos datos tienen `alcance: 'pago'`
-(lib/variables-aviso.ts) y `alcanzaPara` los da sólo con `conPago`, que lo pone `datosDelEvento('pago_recibido')` — el
-**Evento de MaKo**, cuyo emisor (`avisarPagoRecibido`, lib/cobros.ts) los pasa en `datos`. El **CRON «Pagos»** es otra
-puerta: `enrolarPorPago` (lib/pago-entrante.ts) manda `{ subtipo }` y nada más, así que una tarjeta de ese CRON se
-resuelve con `{ destino: 'equipo', conLead: true }` y nunca ve el pago. Medido: `problemasDeTokens(…, TRIGGER_PAGO)`
-devuelve «No existe: {{pago_monto}}, {{pago_concepto}}», y con el evento `pago_recibido`, vacío. **Regla:** dos CRON
-distintos hablan del mismo hecho con datos distintos; antes de copiar un texto de una plantilla vecina, mirá si su CRON es
-el mismo. Lo frena Publicar (`problemasDeTokens`), no el compilador.
+**El diagnóstico obvio era el equivocado, y vale igual aunque ya esté arreglado.** Para avisarle al equipo de un pago
+rechazado, lo natural es copiar la tarjeta de «Entró un Pago», que dice `{{pago_monto}}` y `{{pago_concepto}}`. No se
+resolvían: esos datos tienen `alcance: 'pago'` (lib/variables-aviso.ts) y `alcanzaPara` los da sólo con `conPago`, que
+ponía `datosDelEvento('pago_recibido')` — el **Evento de MaKo**, cuyo emisor (`avisarPagoRecibido`, lib/cobros.ts) los pasa
+en `datos`. El **CRON «Pagos»** es otra puerta: `enrolarPorPago` (lib/pago-entrante.ts) mandaba `{ subtipo }` y nada más.
+**Regla:** dos CRON distintos hablan del mismo hecho con datos distintos; antes de copiar un texto de una plantilla vecina,
+mirá si su CRON es el mismo. Lo frena Publicar (`problemasDeTokens`), no el compilador.
 
-**SIN HACER:** para que una plantilla del CRON «Pagos» pueda citar monto y concepto hay que pasar los datos del pago por
-`enrolarPorPago` → `enrolarPorEvento` (lib/nutricion.ts: `CtxEvento` hoy no tiene dónde ponerlos) y que `alcanzaPara('pago')`
-dé true en ese contexto. Mientras no esté, el aviso manda a la ficha: el concepto y el motivo ya quedan escritos ahí por el
-`logLeadEvent('Pago rechazado', …)` que corre al lado del disparo.
+**Hecho el 6/11/2026 (mig 0411):** los datos viajan. `alCron` (lib/cobros.ts) los arma con el cobro en la mano
+(`valoresDelPago`, la MISMA del Evento de MaKo) → `enrolarPorPago` → `CtxEvento.datos` →
+`nutricion_inscripciones.datos_evento` → el paso de acción → `ejecutarDesdeFlujo` → `Ctx.datosDelEvento` →
+`textoDelAviso`. **SON SEIS TRAMOS Y NINGUNO FALLA FUERTE:** cortado cualquiera, el token sale CRUDO al grupo del negocio
+y nada lo dice. Por eso el test los mide uno por uno por código fuente (tests/disparadores-pagos.test.ts, «el viaje
+completo»), y no sólo las dos puntas.
+
+**⚠️ Se GUARDAN en la inscripción; releerlos al mandar habría mentido.** El camino obvio era resolver `fuente: 'pago'` en
+`valoresDeVariables` (lib/variables-resolver.ts), como ya se resuelven las cuotas (`valoresDePagos`) y el link de pago
+(`cobroPendienteDelLead`): una lectura por entidad, sólo si el texto la nombra. No sirve, por dos razones medidas: **un
+pago rechazado no deja fila en `pagos`** (`aplicarPagoFallido` sólo escribe `cobros.motivo`), así que no hay nada que
+releer; y «el último pago del lead» leído al mandar diría el monto de OTRO pago —el que entró después, el que salió
+bien— justo en el aviso que sale a cobrar. **Regla: un dato del EVENTO se congela cuando el evento pasa. Releerlo después
+es contestar otra pregunta.**
+
+**⚠️ Una inscripción REUSADA es una corrida nueva con el id viejo.** `camposDeReactivacion`
+(lib/nutricion-reinscripcion.ts) devuelve a cero todo lo que es de una corrida, y `datos_evento` tenía que entrar a esa
+lista: sin eso, la renovación rechazada de marzo le dice al grupo el monto de la de febrero. **Y un monto viejo es peor que
+ninguno: nadie duda de un número.**
+
+**⚠️ No todos los eventos de un CRON traen lo mismo, así que `conPago` no cuelga del CRON.** El CRON «Pagos» tiene cinco
+eventos y `comprobante` no es de la pasarela: lo emite lib/evolution-mensajes.ts cuando el lead manda una foto o un PDF, y
+ahí no hay ningún pago leído. Cuelga del SUBTIPO (`EVENTOS_PAGO_CON_DATOS`, lib/disparadores.ts), y como una fila de canal
+tiene **un disparador por evento** (`d1…dN`), la pregunta es por la LISTA y es TODO o nada (`traeLosDatosDelPago`): con
+`comprobante` en la misma fila, nadie cita el monto. Eso obligó a que `problemasDeTokens` reciba la lista y no el subtipo
+del primero, en sus tres llamadores (`setSecuenciaPasos`, el lienzo y `chequearPropuesta`) y en el test de las plantillas.
+**Regla: habilitar un token sin que el dato viaje de verdad es peor que no tenerlo.**
+
+**⚠️ Un dato que el motor le pasa a una acción va en el `Ctx`, NO en un parámetro de la acción.** El parámetro era el
+camino natural (ya existe `LLENA_EL_FLUJO` para el `respuesta` de `avisar_al_equipo`), y cuesta plata: el id, el título y
+la descripción de cada operación se pagan en el presupuesto del turno de WhatsApp, donde el margen de
+`cambiar_crons_secuencia` está en **319** sobre un piso de 300 (tests/ops-center-bateria.test.ts, el 4). Un campo del
+`Ctx` cuesta cero: medido después del cambio, el margen quedó en 319, igual que antes.
+
+**⚠️ La columna va ANTES del deploy, como la 0228.** El motor lee `datos_evento` en el `select` de la cola
+(`procesarEnvios`): sin la columna, PostgREST rechaza **la consulta entera** y no sale ningún mensaje de ninguna
+automatización de ningún negocio.
+
+**⚠️ Y los CUATRO textos de la tarjeta, no sólo el mensaje.** «MaKo en WhatsApp» resuelve por separado el mensaje, el
+título, el asunto del email y el pie de cada parte (`textoDelAviso`, cuatro llamadas en areas/chatbot.run.ts). Con los
+datos puestos en una sola, «MaKo por email» y las partes mandaban `{{pago_monto}}` crudo mientras el mensaje lo resolvía.
+
+**SIN HACER (con su archivo):** el **MOTIVO** del rechazo sigue sin ser un dato citable: lo escribe
+`logLeadEvent('Pago rechazado', …)` (lib/cobros.ts) y vive sólo en el historial del lead, así que el aviso manda a la
+ficha para eso. Un `{{pago_motivo}}` necesita su propio `alcance` (no `'pago'`): un pago APROBADO no tiene motivo, y
+ofrecerlo en el Evento de MaKo `pago_recibido` sería prometer un dato que no existe. Y `{{pago_alta}}` no tiene valor en
+este CRON —el alta la lee el emisor del evento (`altaDelPago`), y el CRON no la relee por un renglón—: su renglón se va.
 
 **⚠️ `{{link_pago}}` tampoco sirve para un rechazo.** Resuelve el cobro **PENDIENTE** más nuevo del lead
 (`cobroPendienteDelLead`, lib/cobros.ts) y `aplicarPagoFallido` deja el cobro en `fallido` (o lo deja `pagado`, si lo que
@@ -80,14 +121,26 @@ WhatsApp mueve las cuatro. Y `LAS_13` ya son 19 (el nombre quedó viejo, igual q
 el CR— así que parece LF y un reemplazo escrito con `\n` da «0 ocurrencias». Y el heredoc del Bash de esta máquina se come
 un backslash: un `\\n` escrito en un heredoc llega como `\n` y te parte el string literal del TS. Los parches a este
 archivo se escriben con un script Python que lee con `newline=''` y pone los `\n` literales por sustitución, no escritos.
+**Y la MISMA trampa muerde adentro de ese script** (6/11): en Python `'\n'` también es un salto real, así que el texto del
+parche va en strings CRUDOS (el prefijo `r`) — ahí un `\n` llega al TS como su escape y un `\(` de un regex llega tal cual.
+Sin eso, un regex de test con un `\n` adentro sale como «Unterminated regular expression», y Python sólo avisa con un
+`SyntaxWarning` por el `\(`.
 
-**Probado rompiéndolo:** 8 roturas sobre tests/plantillas-automatizaciones.test.ts (base 40 pass / 0 fail), las 8 CAYERON.
-Dos salieron VERDES en la primera pasada y por eso están los dos tests nuevos: el WhatsApp al lead puesto ARRIBA del aviso
-al equipo, y el mensaje de plata con `revisar: false`.
+**Probado rompiéndolo:** la plantilla, 8 roturas sobre tests/plantillas-automatizaciones.test.ts (base 40 pass / 0 fail),
+las 8 CAYERON; dos salieron VERDES en la primera pasada y por eso están los dos tests nuevos (el WhatsApp al lead puesto
+ARRIBA del aviso al equipo, y el mensaje de plata con `revisar: false`). El viaje de los datos, 8 roturas más sobre
+tests/disparadores-pagos.test.ts (base 12 / 0), las 8 CAYERON: una por tramo del viaje (`alCron` sin los datos, el `select`
+de la cola sin la columna, la fila reusada sin limpiarla) y tres sobre quién los ofrece (`comprobante` adentro de la lista,
+`some` en vez de `every`, `conPago` para todo el CRON).
 
-**Vive en:** lib/plantillas-automatizaciones.ts · lib/variables-aviso.ts (`alcanzaPara`) · lib/pago-entrante.ts ·
-lib/cobros.ts (`aplicarPagoFallido`, `cobroPendienteDelLead`) · tests/plantillas-automatizaciones.test.ts ·
-*6/11/2026, pendiente 288.*
+**Vive en:** lib/plantillas-automatizaciones.ts · lib/variables-aviso.ts (`alcanzaPara`) · lib/variables-del-lead.ts
+(`valoresDelPago`, `datosGuardados`) · lib/pago-entrante.ts · lib/cobros.ts (`alCron`, `aplicarPagoFallido`,
+`cobroPendienteDelLead`) · lib/nutricion.ts (`CtxEvento`, `enrolarPorEvento`, el `select` de la cola, el paso de acción) ·
+lib/nutricion-reinscripcion.ts (`camposDeReactivacion`) · lib/nutricion-paso-accion.ts · lib/api-mako/flujo.ts
+(`ctxDeFlujo`) · lib/api-mako/tipos.ts (`Ctx.datosDelEvento`) · lib/api-mako/areas/chatbot.run.ts (`textoDelAviso`) ·
+lib/tokens-del-flujo.ts (`contextoDeTarjeta`) · lib/disparadores.ts (`EVENTOS_PAGO_CON_DATOS`) ·
+supabase/migrations/0411_inscripcion_datos_evento.sql · tests/disparadores-pagos.test.ts ·
+tests/plantillas-automatizaciones.test.ts · *6/11/2026, pendiente 288.*
 
 ## «No reprodujo el VSL» se cumplía para TODOS con la base caída (6/11/2026, barrido de pendientes, nube)
 

@@ -219,13 +219,20 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   // con una llave. Roturas en tests/motor-segunda-pasada.test.ts.
   const run = sinComentarios(leer('../lib/api-mako/areas/chatbot.run.ts'));
   assert.match(run, /\.select\('id, nombre, telefono, empresa'\)/);
-  assert.match(run, /const base = lead \? valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}, \{ paraEquipo: true \}\) : \{\};/);
+  assert.match(run, /const delLead = lead \? valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}, \{ paraEquipo: true \}\) : \{\};/);
+  // 6/11/2026 (pendiente 288): y con los datos del EVENTO debajo (`Ctx.datosDelEvento`: el monto y el concepto del
+  // pago del CRON «Pagos»). Los dos son lo que el emisor tenía en la mano; el del lead, la lectura más nueva, encima.
+  assert.match(run, /const base: Record<string, string> = \{ \.\.\.delEvento, \.\.\.delLead \};/);
   // Undécima tanda (§5): los valores del catálogo y `textoConDatos`, la MISMA función de todo envío.
   assert.match(run, /await valoresDeVariables\(\{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, t, base\)/);
   // 23/10/2026: `textoConDatosParaEquipo` (la misma regla, y si deja el aviso vacío, sale con «—»; tests/aviso-equipo-no-vacio.test.ts).
   assert.match(run, /textoConDatosParaEquipo\(t, /);
-  assert.match(run, /const mensaje = await textoDelAviso\(mensajeCrudo, lead, ctx\.ws\);/);
-  assert.match(run, /const titulo = \(await textoDelAviso\(String\(payload\.titulo \?\? ''\), lead, ctx\.ws\)\) \|\|/);
+  assert.match(run, /const mensaje = await textoDelAviso\(mensajeCrudo, lead, ctx\.ws, ctx\.datosDelEvento\);/);
+  assert.match(run, /const titulo = \(await textoDelAviso\(String\(payload\.titulo \?\? ''\), lead, ctx\.ws, ctx\.datosDelEvento\)\) \|\|/);
+  // Y los OTROS DOS textos de la tarjeta con los mismos datos: el asunto del email y el pie de cada parte. Sin esto,
+  // «MaKo por email» y las partes mandaban `{{pago_monto}}` crudo mientras el mensaje lo resolvía.
+  assert.match(run, /const asunto = porEmail \? await textoDelAviso\(asuntoDeMako\(payload\), lead, ctx\.ws, ctx\.datosDelEvento\) : '';/);
+  assert.match(run, /prepararPartesGrupo\(lista, \(t\) => textoDelAviso\(t, lead, ctx\.ws, ctx\.datosDelEvento\)\)/);
 });
 
 test('«Probar» ofrece sólo los canales que el flujo usa', () => {

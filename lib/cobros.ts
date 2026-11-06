@@ -969,7 +969,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //    Stripe; un evento ya PROCESADO no vuelve a entrar por `pasarela_eventos`) y la inscripción es única.
     if (actual.lead_id && (nuevo || cuotaAsentada) && !enCero) {
       await avisarPagoRecibido(actual, { proveedorPagoId: p.proveedorPagoId, renovacion, monto: montoDeEstePago, moneda: (renovacion && p.moneda) || actual.moneda });
-      await alCron(actual, 'aprobado');
+      // Con los MISMOS datos que el aviso (el monto de ESTE pago, no el del cobro): una renovación trae el suyo.
+      await alCron(actual, 'aprobado', { renovacion, monto: montoDeEstePago, moneda: (renovacion && p.moneda) || actual.moneda });
     }
 
     // 7. EL RECIBO SALE (correo y WhatsApp) AL FINAL, después del aviso y del CRON: si Resend se cuelga, eso ya pasó (agujero 7).
@@ -1127,11 +1128,31 @@ function lineaDelAlta(c: Cobro, estado: EstadoAlta | null, sinMail = false): str
   return '';
 }
 
-/** El CRON «Pagos» del lead (lib/pago-entrante.ts). Nunca tumba lo que ya se asentó. */
-async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
+/**
+ * El CRON «Pagos» del lead (lib/pago-entrante.ts). Nunca tumba lo que ya se asentó.
+ *
+ * ⚠️ VA CON LOS DATOS DEL PAGO (6/11/2026, el pendiente 288): el monto, el concepto y la pasarela que ESTE cobro
+ * tiene en la mano, armados con la MISMA `valoresDelPago` del Evento de MaKo. Sin esto una tarjeta «MaKo en
+ * WhatsApp» de este CRON no podía decir de cuánto era el pago rechazado (`enrolarPorPago` mandaba `{ subtipo }`
+ * y nada más), y el equipo se enteraba del rechazo sin saber qué cobrarle.
+ *
+ * `renovacion` lo dice el LLAMADOR porque sólo él lo sabe: el rechazo del cobro pendiente no es una renovación y
+ * el de la suscripción ya pagada sí, y son el mismo `subtipo`. Sin decirlo, `pago_tipo` no sale (y su renglón se
+ * va): es lo que hace `suscripcion_cancelada`, que no habla de ningún pago. El ALTA no viaja: la lee el emisor
+ * del evento (`altaDelPago`) y acá no se relee por un renglón.
+ *
+ * El monto y la moneda de ESTE movimiento (`monto`, `moneda`) para la renovación, que trae los suyos; sin ellos,
+ * los del cobro. Nunca tira: la plata ya está asentada.
+ */
+async function alCron(c: Cobro, subtipo: SubtipoPago, p?: { renovacion?: boolean; monto?: number; moneda?: string }): Promise<void> {
   if (!c.lead_id) return;
   try {
-    await enrolarPorPago(c.lead_id, subtipo);
+    const datos = valoresDelPago({
+      monto: p?.monto ?? c.monto, moneda: p?.moneda || c.moneda, concepto: c.concepto, proveedor: c.proveedor,
+      ...(typeof p?.renovacion === 'boolean' ? { renovacion: p.renovacion } : {}),
+      modo: c.modo,
+    });
+    await enrolarPorPago(c.lead_id, subtipo, datos);
   } catch (e) {
     console.error(`[cobros] no pude disparar el CRON «Pagos» (${subtipo}) del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
   }
@@ -1412,7 +1433,8 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
       await actualizar(c.workspace_id, c.id, { motivo: motivo.slice(0, 300) }, { estado: ['pendiente'] });
       if (c.lead_id) {
         await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
-        await alCron(c, 'rechazado');
+        // El cobro del día 8 de una prueba: es el PRIMER cobro de ese plan, no una renovación.
+        await alCron(c, 'rechazado', { renovacion: false });
       }
       return;
     }
@@ -1420,7 +1442,7 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
       const r = await actualizar(c.workspace_id, c.id, { estado: 'fallido', motivo: motivo.slice(0, 300) }, { estado: ['pendiente'], ref: c.proveedor_ref });
       if (r && c.lead_id) {
         await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
-        await alCron(c, 'rechazado');
+        await alCron(c, 'rechazado', { renovacion: false });
       }
       // La suscripción autorizada de un cliente de agencia todavía no cobró, y la primera renovación que rechazan pasa por acá (ticket
       // #37). Sin autorizar (`null`), la está pagando ella en pantalla y no hay ningún reintento que anunciarle.
@@ -1432,7 +1454,7 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
       // de un cobro que sigue «Pagado». Y lo borra la próxima renovación que entre (`aplicarPagoAprobado`).
       await actualizar(c.workspace_id, c.id, { motivo: `${PREFIJO_RENOVACION_FALLIDA}: ${motivo}`.slice(0, 300) });
       await logLeadEvent(c.lead_id, 'Pago rechazado', `Renovación de ${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
-      await alCron(c, 'rechazado');
+      await alCron(c, 'rechazado', { renovacion: true });
       // Una vez por período: la pasarela reintenta varias veces, y la próxima renovación que entre borra este motivo.
       if (!esRenovacionFallida(c.motivo)) await rechazoALaAgencia(c.id);
     }
@@ -1496,7 +1518,7 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
       } catch (e) {
         console.error(`[cobros] no pude revisar los planes devueltos del lead ${c.lead_id}:`, e instanceof Error ? e.message : String(e));
       }
-      await alCron(c, 'reembolsado');
+      await alCron(c, 'reembolsado', { renovacion: !esElPrimero });
     }
   });
 }

@@ -203,6 +203,37 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
   { subtipo: 'comprobante', label: 'Llega un comprobante' },
 ];
 
+/**
+ * LOS EVENTOS DEL CRON «PAGOS» QUE TRAEN LOS DATOS DEL PAGO (6/11/2026, el pendiente 288). Los emite lib/cobros.ts
+ * por `alCron` con el cobro YA leído en la mano, y viajan como `datos` hasta la tarjeta (`valoresDelPago`,
+ * lib/variables-del-lead.ts): una tarjeta «MaKo en WhatsApp» de ese CRON puede CITAR el monto y el concepto.
+ *
+ * ⚠️ `comprobante` NO está, y es la razón de que esto sea una lista y no `EVENTOS_PAGO` entero: lo emite
+ * lib/evolution-mensajes.ts cuando el lead manda una foto o un PDF por WhatsApp, y ahí no hay ningún pago leído.
+ * Ofrecer `{{pago_monto}}` en una fila que lo incluye sería mandarlo CRUDO al grupo del negocio, que es peor que
+ * no tenerlo (`traeLosDatosDelPago` → `contextoDeTarjeta`, lib/tokens-del-flujo.ts).
+ */
+export const EVENTOS_PAGO_CON_DATOS: ReadonlySet<string> = new Set(['aprobado', 'rechazado', 'reembolsado', 'suscripcion_cancelada']);
+
+/**
+ * ¿El CRON «Pagos» de esta fila trae SIEMPRE los datos del pago? Con el subtipo de UN disparador, el suyo; con la
+ * LISTA de los subtipos de la fila (una fila de canal tiene un disparador por evento, `d1…dN`: ver
+ * `disparadoresDePlantilla`, lib/plantillas-automatizaciones.ts), sólo si TODOS los traen. Con uno que no los trae,
+ * la tarjeta se publicaría con un token que a veces sale crudo.
+ */
+export function traeLosDatosDelPago(sub: unknown): boolean {
+  if (Array.isArray(sub)) return sub.length > 0 && sub.every((s) => typeof s === 'string' && EVENTOS_PAGO_CON_DATOS.has(s));
+  return typeof sub === 'string' && EVENTOS_PAGO_CON_DATOS.has(sub);
+}
+
+/** Los subtipos de los CRON «Pagos» de una fila, uno por disparador. Vacío = la fila no tiene ninguno. */
+export function subtiposDelCronPago(fila: FilaDisparadores): string[] {
+  return disparadoresDe(fila)
+    .filter((d) => d.trigger_tipo === TRIGGER_PAGO)
+    .map((d) => (typeof d.subtipo === 'string' ? d.subtipo.trim() : ''))
+    .filter((s) => s !== '');
+}
+
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer' | 'contrasena_cambiada'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'

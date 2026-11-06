@@ -45,7 +45,7 @@ import { camposDelFlujo } from '../lib/nutricion-grafo-motor';
 import { frenoDelFlujo, emojiDeSecuencia, OP_EMITIR_RECIBO, OP_LEER_COMPROBANTE, type ProductoParaDisparo } from '../lib/flujo-conversacion';
 import {
   problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, disparaPorEvento, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
-  TRIGGER_AVISO_MAKO, TRIGGER_PAGO, EVENTOS_MAKO_OFRECIDOS,
+  TRIGGER_AVISO_MAKO, TRIGGER_PAGO, EVENTOS_MAKO_OFRECIDOS, subtiposDelCronPago,
 } from '../lib/disparadores';
 import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
 import { datoDe, tokensDe } from '../lib/variables-aviso';
@@ -67,12 +67,17 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 /**
  * Con qué CRON corre una plantilla, para validar sus datos como lo hace Publicar con la fila (`problemasDeTokens`): el
  * fijo, o el `trigger_tipo` de lo que pide. Vivía en la lib sin nadie que la llamara (cierre de la ola 3): es del test.
+ *
+ * `subtipo` es el Evento de MaKo (para `frenoDelEvento`); `tokens` es CUÁL evento le pasa Publicar a
+ * `problemasDeTokens` — en el CRON «Pagos», la LISTA de los subtipos de la fila (6/11/2026, el pendiente 288:
+ * `subtiposDelCronPago`, lo mismo que lee `subtipoDeFilaEvento` en lib/nutricion.ts). Con el subtipo del PRIMERO, una
+ * plantilla que además escuchara `comprobante` publicaría un `{{pago_monto}}` que a veces sale crudo al grupo.
  */
-const cronDePlantilla = (p: Pick<PlantillaAutomatizacion, 'cron'>): { trigger_tipo: string; subtipo: string | null } => {
+const cronDePlantilla = (p: Pick<PlantillaAutomatizacion, 'cron'>): { trigger_tipo: string; subtipo: string | null; tokens: unknown } => {
   const c = p.cron;
-  if (c.fijo === TRIGGER_AVISO_MAKO) return { trigger_tipo: c.fijo, subtipo: c.evento };
-  if (c.fijo) return { trigger_tipo: c.fijo, subtipo: null };
-  return { trigger_tipo: TRIGGER_DE_PIDE[c.pide], subtipo: null };
+  if (c.fijo === TRIGGER_AVISO_MAKO) return { trigger_tipo: c.fijo, subtipo: c.evento, tokens: c.evento };
+  if (c.fijo) return { trigger_tipo: c.fijo, subtipo: null, tokens: subtiposDelCronPago({ trigger_tipo: c.fijo, disparadores: disparadoresDePlantilla(p) }) };
+  return { trigger_tipo: TRIGGER_DE_PIDE[c.pide], subtipo: null, tokens: undefined };
 };
 
 /** Lo obligatorio que le falta a una acción, según el registro de la API (lo mismo que mira `setSecuenciaPasos`). */
@@ -234,7 +239,7 @@ test('cada plantilla se PUEDE PUBLICAR y está armada con las piezas de HOY (for
     // CRON de antes, ni dos AI Step, ni un dato del equipo al lead (la MISMA función que usa el script de prod).
     assert.deepEqual(problemasDeForma(pasos, disparadoresDePlantilla(p)), [], `${p.id}: fuera de lo de hoy`);
     // Cada dato se resuelve en SU tarjeta (la MISMA función que Publicar).
-    assert.deepEqual(problemasDeTokens(pasos, c.trigger_tipo, c.subtipo), [], `${p.id}: un dato que no se resuelve`);
+    assert.deepEqual(problemasDeTokens(pasos, c.trigger_tipo, c.tokens), [], `${p.id}: un dato que no se resuelve`);
     // Un Evento de MaKo: además, lo que su emisor sabe correr.
     if (c.subtipo) assert.equal(frenoDelEvento(pasos, c.subtipo), null, `${p.id}: el emisor de «${c.subtipo}» no la sabe correr`);
   }

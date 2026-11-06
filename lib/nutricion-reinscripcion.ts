@@ -360,6 +360,11 @@ export type Reactivacion = {
   /** La reunión que va a preparar ahora. */
   reunionAt: string | null;
   /**
+   * Los datos del EVENTO que la hace volver a correr (`CtxEvento.datos` → `datos_evento`, mig 0411). Ausente o
+   * null = este arranque no trajo ninguno, y los de la corrida vieja se BORRAN: ver `camposDeReactivacion`.
+   */
+  datos?: Record<string, string> | null;
+  /**
    * El instante de la decisión, en ISO: tomado ANTES de leer la fila que `leido` describe.
    *
    * ⚠️ NO el de la llamada. Es el corte de lo que se desliga (`created_at <= ahora`), y entre
@@ -380,7 +385,7 @@ export type Reactivacion = {
  * (`ultimo_paso_at`) y la charla del setter (#788), que era de la reunión anterior.
  * `inscripto_at` es ahora: esta corrida empezó hoy.
  */
-export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'reunionAt' | 'ahora'>) {
+export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'reunionAt' | 'ahora' | 'datos'>) {
   return {
     estado: 'activa',
     paso_actual: 0,
@@ -400,6 +405,10 @@ export function camposDeReactivacion(r: Pick<Reactivacion, 'proximoEnvioAt' | 'r
     conversacion_cierre: null,
     conversacion_cerrada_at: null,
     inscripto_at: r.ahora,
+    // ⚠️ Y LOS DATOS DEL EVENTO (mig 0411, 6/11/2026): los de ESTE arranque, o NULL. Con los de la corrida vieja
+    // puestos, el aviso de la renovación rechazada de marzo diría el monto de la de febrero — y un monto viejo en
+    // el grupo del negocio es peor que no decir ninguno, porque nadie duda de un número.
+    datos_evento: r.datos && Object.keys(r.datos).length ? r.datos : null,
     updated_at: r.ahora,
   };
 }

@@ -306,11 +306,23 @@ async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: strin
  * Lo del motor que ya estaba en la mano (el nombre partido y la empresa de la fila que se acaba de leer)
  * va como `datos` y GANA; y después `textoConDatos` (adentro, `aplicarVariables`) cubre lo de antes con UNA llave (`{nombre}`), que
  * el catálogo nuevo no lee. Lo que no se puede resolver queda crudo: se nota.
+ *
+ * `delEvento` son los datos que trajo el EVENTO que inscribió al lead (6/11/2026, el pendiente 288): el monto y el
+ * concepto del pago del CRON «Pagos» (`Ctx.datosDelEvento`, que el motor saca de `datos_evento`). Van con los del
+ * lead, y por eso una tarjeta de ese CRON puede decir «le rechazaron US$ 2.300 de Mentoría 1:1» en vez de mandar a
+ * la ficha. Lo que se OFRECE en el editor sale del mismo lugar (`contextoDeTarjeta` → `conPago`).
  */
-async function textoDelAviso(texto: string, lead: { id: number; nombreCrudo: string | null; empresa: string | null } | null, ws: number): Promise<string> {
+async function textoDelAviso(
+  texto: string, lead: { id: number; nombreCrudo: string | null; empresa: string | null } | null, ws: number,
+  delEvento?: Record<string, string>,
+): Promise<string> {
   const t = texto.trim();
   if (!t) return t;
-  const base = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }, { paraEquipo: true }) : {};
+  const delLead = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }, { paraEquipo: true }) : {};
+  // LOS DATOS DEL EVENTO van con los del lead (6/11/2026, el pendiente 288): el monto y el concepto del pago que
+  // disparó el CRON «Pagos» (`Ctx.datosDelEvento`, lo guarda la inscripción). Los dos son lo que el emisor tenía
+  // en la mano y GANAN sobre lo que se lee de la base; el del lead es la lectura más nueva, así que va encima.
+  const base: Record<string, string> = { ...delEvento, ...delLead };
   // UNDÉCIMA TANDA (docs/diseno-undecima-tanda.md §5): con `textoConDatos`, la MISMA función de todo envío. Un renglón
   // cuyo dato del catálogo no tiene valor se va entero («📱 {{lead_telefono}}» de un lead sin teléfono no sale); lo que
   // no se conoce queda crudo. Sin token, ni una lectura.
@@ -1396,16 +1408,16 @@ export const RUNNERS: Runners = {
       const lead = leadId != null ? await leadDelAviso(leadId) : null;
       if (leadId != null && !lead) return { ok: false, resumen: `El lead #${leadId} ya no existe en este negocio.` };
       // Los datos «{ }» (la tarjeta MAKO EN WHATSAPP los ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
-      const mensaje = await textoDelAviso(mensajeCrudo, lead, ctx.ws);
-      const titulo = (await textoDelAviso(String(payload.titulo ?? ''), lead, ctx.ws)) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      const mensaje = await textoDelAviso(mensajeCrudo, lead, ctx.ws, ctx.datosDelEvento);
+      const titulo = (await textoDelAviso(String(payload.titulo ?? ''), lead, ctx.ws, ctx.datosDelEvento)) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
       // Por email, el asunto con los mismos datos que el texto (16/10/2026).
       const porEmail = esPorEmail(payload);
-      const asunto = porEmail ? await textoDelAviso(asuntoDeMako(payload), lead, ctx.ws) : '';
+      const asunto = porEmail ? await textoDelAviso(asuntoDeMako(payload), lead, ctx.ws, ctx.datosDelEvento) : '';
       // ⚠️ TODOS LOS BINARIOS SE BAJAN ANTES DE MANDAR NADA (y antes del feed): si falta la nota de voz o el
       // archivo, no sale una tarjeta a medias. Cada texto, con los mismos datos que el de antes.
       let partes: PartePreparada[] | null = null;
       if (lista.length) {
-        const p = await prepararPartesGrupo(lista, (t) => textoDelAviso(t, lead, ctx.ws));
+        const p = await prepararPartesGrupo(lista, (t) => textoDelAviso(t, lead, ctx.ws, ctx.datosDelEvento));
         if (!p.ok) return { ok: false, resumen: `No salió el aviso: ${p.error}` };
         partes = p.partes;
       }

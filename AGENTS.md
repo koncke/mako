@@ -10624,6 +10624,22 @@ nunca un texto armado. Todo envío resuelve con `textoConDatos`: un dato sin val
 opcional va en su propio renglón**. Y un token prohibido se busca con el regex del motor (con `\s*` entre las llaves),
 no con `tokensDe`.
 
+- **Lo que se OFRECE cuelga de lo que LLEGA, no del CRON** (6/11/2026, el pendiente 288; docs/hallazgos-chatbot.md). El
+  CRON «Pagos» tiene cinco eventos y sólo cuatro traen el pago: `comprobante` es una foto que manda el lead, sin ningún
+  cobro leído. Y una fila de canal tiene **un disparador por evento**, así que la pregunta es por la LISTA y es TODO o
+  nada (`traeLosDatosDelPago`, lib/disparadores.ts): con un evento que no lo trae, nadie cita el monto. **Habilitar un
+  token sin que el dato viaje de verdad es PEOR que no tenerlo** — un token crudo en el grupo del negocio se lee como un
+  mensaje roto, y un dato viejo que sí resuelve es peor todavía, porque nadie duda de un número.
+- **Un dato del EVENTO se congela cuando el evento pasa.** Releerlo al mandar es contestar otra pregunta: un pago
+  rechazado no deja fila en `pagos`, y «el último pago del lead» leído seis horas después es el que entró DESPUÉS. Viaja
+  en la inscripción (`CtxEvento.datos` → `nutricion_inscripciones.datos_evento`, mig 0411), y una inscripción REUSADA lo
+  borra (`camposDeReactivacion`): es una corrida nueva con el id viejo.
+- **Y un dato que el MOTOR le pasa a una acción va en el `Ctx`, nunca en un parámetro de la acción.** El id, el título y
+  la descripción de cada operación del registro se pagan en el presupuesto del turno de WhatsApp —el margen de
+  `cambiar_crons_secuencia` está en 319 sobre un piso de 300 (tests/ops-center-bateria.test.ts, el 4)— y un campo del
+  `Ctx` cuesta cero (`Ctx.datosDelEvento`, lib/api-mako/tipos.ts). `LLENA_EL_FLUJO` sigue siendo para lo que el editor
+  tiene que esconder, no para lo que el motor quiere pasar.
+
 # Apoyar algo sobre el borde de un lienzo son CUATRO lugares, y el encuadre es el que no se ve
 
 Cuando una pantalla pone una pieza ENCIMA del lienzo —una lista, un panel, una barra— y
