@@ -5,6 +5,36 @@ lo que la página de MaKo le pide a la extensión (`lib/wa-fichas-cliente.ts`). 
 es de la extensión en sí (la API, los créditos, el motor) está en [hallazgos-generativa.md](hallazgos-generativa.md). El índice
 es [hallazgos.md](hallazgos.md).
 
+## «Guardar en MaKo» sobre un perfil de Instagram o LinkedIn: dos toques, y lo de la página no se cree (6/11/2026, 0.77.0, nube)
+
+**Vive en:** `extension/perfil-reglas.js`, `extension/perfil-leer.js`, `extension/popup.js` («Guardar en MaKo»),
+`lib/perfil-captura.ts`, `lib/perfil-captura-db.ts`, `app/api/crm/extension/route.ts`, `app/privacidad/extension/page.tsx`.
+Lo prometido a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md, [17:52]).
+
+- **Dos toques, y el primero no escribe.** «Guardar en MaKo» lee el perfil una vez y MaKo contesta qué entendió y si ya está
+  (`accion: 'ver'`); recién «Guardar en mi CRM» crea el lead, con el nombre que la persona VE y puede corregir. Es la pantalla
+  de confirmar editable de «un canal propone y una persona confirma», adentro del desplegable. El botón aparece por la
+  dirección (perfil-reglas.js): abrir el desplegable no le cuenta a MaKo qué perfil se mira.
+- **El usuario sale de la DIRECCIÓN, nunca del texto de la página.** El título lo escribe quien tiene la cuenta: «Ana (@otra) •
+  Instagram photos and videos» es un perfil válido. `nombreDeInstagram` sólo toma el nombre si lo que está entre paréntesis es el
+  usuario de la dirección.
+- ⚠️ **El nombre en la descripción en castellano trae «de» dos veces**: «Ver fotos y videos de Instagram de María de la Cruz
+  (@mdlc)». El primer regex (`(?:^|from|de)\s+…`) arrancaba en el principio de la cadena y se comía la descripción entera como
+  nombre. Se corta en el ÚLTIMO «from» o «Instagram de», nunca en cualquier «de»: un nombre puede llevarlo.
+- **Las dos reglas de «¿es un perfil?» se prueban como tabla**, la del desplegable (script clásico) contra la del servidor
+  (`perfilDeDireccion`). Sacarle `p` a la lista de rutas que no son perfil no lo nota nadie: `/p/<código>/` ya cae porque el
+  código no es una pestaña del perfil. La rotura que prueba la paridad es una ruta de un tramo (`/explore/`).
+- **Lo que NO se pudo medir desde la nube: la página real de Instagram y de LinkedIn.** El nombre sale del título y de las
+  etiquetas «og:», que son lo más estable; si un día no vienen, el campo sale vacío y la persona lo escribe (nunca se guarda sin
+  nombre). Hay que probarlo en el Chrome de Martín con un perfil de cada red antes de anunciárselo a Thiago.
+- **Para abrir el lead, `chrome.tabs.create` con el link del servidor, no `abrirMakoEn`**: ésa sólo ACTIVA una pestaña de MaKo
+  si ya hay una, sin navegar (así anda «Verla en MaKo» de Spy). El link sale de `linkApp` y sólo se abre si es de hola-mako.com.
+- **Un test pedía la versión EXACTA**: `tests/spy-captura-pagina.test.ts` tenía `equal(m.version, VERSION_CAPTURA)` y dio rojo
+  en la 0.77.0, que no le cambió nada a la captura. Lo que cuida es que la publicada no sea MÁS VIEJA que la que sabe capturar
+  (`esMasVieja`): cada subida de versión lo rompía.
+- Sin permisos nuevos ni content scripts (`activeTab` + `scripting`, como Spy): un permiso de sitios desactiva la extensión a
+  cada cliente hasta que lo acepte.
+
 ## «Descargar» volvía con cada versión: qué se ofrece no puede colgar de la versión (3/11/2026)
 
 **Síntoma.** Martín: «Aún la extensión de mako me pide "Descargar"...», ya con la 0.74.3 aprobada en la tienda.
