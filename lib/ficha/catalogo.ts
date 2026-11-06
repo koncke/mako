@@ -322,8 +322,11 @@ export const BLOQUES: readonly BloqueDef[] = [
   { id: 'movimientos', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Movimientos', anchos: [6, 12], ancho: 12,
     disenos: [d('lista', 'Lista'), d('ultimos', 'Los últimos 5')], avisa: [], quitable: true, sinDatos: 'se-calla', icono: 'reloj' },
   // «Sólo en una suscripción». El monto de una suscripción es `suscripcion_monto_usd` (lib/stage-requirements.ts).
-  { id: 'suscripcion', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Suscripción', anchos: [4, 6], ancho: 6,
-    disenos: [d('numero', 'Número grande'), d('tarjeta', 'Tarjeta con el estado'), d('meses', 'Línea de meses')], avisa: ['monto'], quitable: true, sinDatos: 'se-calla', icono: 'repetir' },
+  // (5/11/2026) Es la tab Pagos ENTERA de una venta de suscripción: el estado, cuánto paga hoy, cuándo le toca, lo pagado y
+  // su historia mes a mes, con cambiar el monto desde un mes, cortar, retomar y registrar pagos (copiado de Chargebee:
+  // docs/investigacion-suscripciones.md). Por eso va de ancho completo y primero en las plantillas.
+  { id: 'suscripcion', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Suscripción', anchos: [6, 12], ancho: 12,
+    disenos: [d('completa', 'Mes a mes con acciones'), d('numero', 'Número grande'), d('tarjeta', 'Tarjeta con el estado'), d('meses', 'Línea de meses')], avisa: ['monto'], quitable: true, sinDatos: 'se-calla', icono: 'repetir' },
   { id: 'recordatorios-de-cobro', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Recordatorios de cobro', anchos: [4, 6], ancho: 6,
     disenos: [d('renglon', 'Renglón'), d('lista', 'Lista por cuota')], avisa: [], quitable: true, sinDatos: 'se-calla', icono: 'avisar' },
   { id: 'contrato', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Contrato', anchos: [4, 6], ancho: 6,
