@@ -8,16 +8,16 @@ pasada, no un plan: para cada item hay un veredicto y la prueba que lo sostiene.
 
 | Veredicto | Cuántos |
 |---|---|
-| **Ya estaban hechos** cuando se escribió la foto | **5** |
+| **Ya estaban hechos** cuando se escribió la foto | **6** |
 | **Parcialmente hechos**: la foto describe un estado que ya no existe | **6** |
 | **Son de un área** que tiene un chat trabajando al lado | **17** |
 | **No se entienden**, ni leyendo el `original` | **3** |
 | **Los destraba Martín**, o piden un teléfono, la base de producción o una clave | **20** |
-| **Quedan míos** | **22** |
+| **Quedan míos** | **21** |
 
 Los dos primeros renglones se cruzan con los otros: de los 6 «parciales», el **309** lo termina Infra y
-el **583** lo terminé yo (está contado en los 22), y el **580** y el **596** siguen con su área. Los 73
-ids se reparten sin solaparse así: 5 + 6 + 17 + 3 + 20 + 22 = 73, contando cada id una sola vez en la
+el **583** lo terminé yo (está contado en los 21), y el **580** y el **596** siguen con su área. Los 73
+ids se reparten sin solaparse así: 6 + 6 + 17 + 3 + 20 + 21 = 73, contando cada id una sola vez en la
 fila que manda.
 
 Y hay un número que no estaba en la lista: **73 ids son 68 trabajos**. Cinco items están escritos dos
@@ -26,8 +26,8 @@ veces, con otro título: `67 ≡ 325` (la página de «no encontrado»), `306 �
 
 ## Lo que más tiempo ahorra: los fantasmas
 
-Cinco pendientes **ya estaban cerrados el 6/11**, y tres de ellos se habían cerrado en los dos días
-anteriores. Un sexto grupo (los «parciales») describe un árbol que cambió el 5/11, el día antes de la foto.
+Seis pendientes **ya estaban cerrados el 6/11**, y cuatro de ellos ese mismo día o el anterior. Otro
+grupo (los «parciales») describe un árbol que cambió el 5/11, el día antes de la foto.
 
 | id | Qué decía | Prueba de que ya estaba |
 |---|---|---|
@@ -36,6 +36,7 @@ anteriores. Un sexto grupo (los «parciales») describe un árbol que cambió el
 | **591** | «Cinco tablas con `workspace_id` quedan fuera del proxy de inquilino» | Las cinco están DENTRO de `TABLAS_DE_INQUILINO`: `lib/tablas-de-inquilino.ts:66` (`avisos_programados`), `:83` (`flujo_corridas`), `:96` (`insistencias`), `:140` (`replay_lotes`, `replay_sesiones`). El comentario de `:63-65` nombra el hallazgo y el test. Commit **eb6092ef1, 17/10**: veinte días antes de la foto. |
 | **594** | «Dos STT clavados en `whisper-1` no pasan por el choke point» | `transcribeMediaBuffer` (`lib/transcribe.ts:178`) y `transcribeAd` (`:266`) llaman a `escuchar()`, que llama a `ai.transcribirAudio` (`:64`). No queda ningún `whisper-1` en el archivo. Commit **cf00a3b92, 22/10** («IA7: una sola puerta para el audio»). Lo que sí sigue con las keys del entorno es `lib/transcribe-plataforma.ts:91`, y eso es a propósito: son las clases de los cursos, no el negocio. |
 | **601** | «`contexto.ts` sigue con el `GRAFO` viejo» | No existe ningún `const GRAFO` en `lib/copywriter/`: `contexto.ts:1-12` es un re-export de `lib/negocio-para-crear.ts`, que ya lee `grafoParaChat`. El encabezado fecha la mudanza el 29/10. |
+| **364** | «Al mover un bloque en el Copywriter, lo que estaba dentro se queda atrás» | Existe `lib/copywriter/seccion-arrastre.ts` y el editor lo usa: `app/copywriter/editor/CuerpoNotion.tsx:37` lo importa y `MenuLateral` (`:244-251`) selecciona la sección con `setSelection(tramo.desde, tramo.hasta)` **antes** del arrastre de BlockNote. Con su test (`tests/copywriter-arrastrar-seccion.test.ts`, probado rompiéndolo) y su recorrido visual. Commit **8b384b9e5, 6/11**: el mismo día de la foto. ⚠️ **Este casi se me pasa**, y por mi culpa: busqué `DragHandleMenu`/`children` —los nombres de la API de BlockNote que el item nombra— en vez del nombre que le puso el repo. Lo delató la fila del índice de `docs/hallazgos.md`. Antes de dar un item por abierto, se lee la fila de su área en el índice. |
 
 ### Los parciales: la foto cuenta un estado que ya no existe
 
@@ -138,19 +139,18 @@ diecinueve juntos.
 | 5 | **606** | El reporte de WhatsApp dice una meta y la pantalla dice otra. **Y la receta del item está mal** — ver abajo. | abierto, pide una firma |
 | 6 | **573** | Se filtra un mes, los gráficos cambian y los números de arriba siguen mostrando el negocio entero. Hay alcance empezado (`app/general/datos.ts:25` importa de `lib/general-alcance.ts`) pero `leerVistaGeneral()` (`lib/vista-general.ts:112`) sigue sin recibirlo, y es la que alimenta el objetivo, los KPIs, el semáforo y los pendientes. Más los dos formateadores de plata (`fmtUSD`, `lib/format.ts:12`). | abierto |
 | 7 | **599** | Leer una imagen, un PDF escaneado o un audio **puede cobrar en la OpenAI del cliente**: verificado, no hay ningún `sinPago` en `lib/ai-cheap.ts`. Más el PDF externo de Offer y el umbral de `alertaFoco` sin medir. | abierto |
-| 8 | **364** | Mueve un título y el texto que iba debajo queda suelto. Confirmado abierto: `CuerpoNotion.tsx` importa `DragHandleMenu`/`SideMenu` (`:30-31`) y el «Duplicar» sí copia los hijos (`:267-275`), pero el arrastre sigue siendo el de BlockNote. | abierto |
-| 9 | **67 ≡ 325** | Entra a un link viejo y ve una pantalla ajena a MaKo. Confirmado: **no existe `app/not-found.tsx`**. El bloqueo que los dos declaran («pide un navegador para copiar la referencia») **ya no aplica a este chat**. | abierto, destrabado |
-| 10 | **335** | Copywriter, Newsletter, Automations y WhatsApp escriben sin apoyarse en los 5.050 emails ya estudiados. **La verificación que pedía el item está hecha, y la respuesta es cero** — ver abajo. | medido |
-| 11 | **465 ≡ 609 ≡ 466** | En Offer, AI Avatar, Web Generator, Dashboard y Video nadie puede guardar lo que hizo para reusarlo, y nadie puede retirar lo que publica un cliente. Confirmado: `lib/creaciones-enchufes.ts:169` tiene `ENCHUFES` con tres tipos. Tres items, un trabajo; toca `app/admin/`, que el brief anterior prohibía. | abierto |
-| 12 | **307** | El Second Brain contesta sin saber la mitad de lo que pasa. `construirCerebro()` vive en `lib/cerebro-grafo.ts:326`; medir las 21 lecturas pide la base. Lo que sí se puede sin ella es el item 569. «El Second Brain bien en el teléfono» es otra cosa y debería ser su propio item. | abierto, grande |
-| 13 | **569** | Un campo nuevo del brief no aparece en el mapa que promete «todo lo que MaKo sabe de tu negocio». Confirmado: `lib/cerebro-grafo.ts:155-158` tiene las cuatro listas fijas, usadas en `:506-507`. Latente mientras ningún workspace tenga esquema propio. | abierto |
-| 14 | **566** | Una campaña nace en pausa y alguien tiene que prenderla a mano a la hora justa. Verificado: `lib/calendario.ts` no tiene tipo `'anuncio'`. **Empieza a gastar plata a una hora**: pasa por `lanzar` con zona, fecha de fin y topes, y por revisión adversarial. | abierto, no sale en una tanda |
-| 15 | **603** | En cinco pantallas el clic derecho no hace lo mismo que en el resto. Y una pide decidir: el selector de Offer es el `Dropdown` de la casa, así que tocarlo cambia el desplegable de **toda** la app. | abierto |
-| 16 | **333** | Ocho restos del Ops Center en un item. Dos ya tienen base: `CARTERO_VIVO_MS` existe (`lib/centro-chats.ts:25`, `:221`) y «Renombrar» por fila también (`app/admin/operaciones/Conversacion.tsx:112-114`). `/api/mako-doer` sigue en pie. | abierto |
-| 17 | **477** | Un título pegado al borde se corta en el mapa del negocio. | **hecho** (`punta/varios-grafo-encuadre`) |
-| 18 | **570** | Todo lo medido del grafo se puede romper sin una señal roja. Confirmado: `lib/cerebro-grafo.ts:36` lleva `import 'server-only'`, así que ningún test lo importa. La salida está escrita en el propio archivo (`:71`): la parte pura vive en `lib/cerebro-modelo.ts`, sin la marca. | abierto |
-| 19 | **602** | Costo para el cliente hoy: ninguno. El costo es que la próxima pantalla vuelva a hacer el menú distinto. Confirmado: `app/_ui/MenuContextual.tsx` lo usan nueve pantallas por ruta directa, pero `grep -c MenuContextual app/_ui/index.ts` = **0** y no está en el catálogo. | abierto, chico |
-| 20 | **312** | El menú promete VSL Generator y no existe. Confirmado: `app/_components/nav.ts:494` lo marca `comingSoon: true` — **y hay otros siete iguales** (Sales Email, Newsletters, Closing Script, Sales Roleplay, YouTube Writer, Ideas). No es una excepción: es cómo está armado el menú. Si molesta, la decisión es sobre los ocho. | abierto, prioridad baja |
+| 8 | **67 ≡ 325** | Entra a un link viejo y ve una pantalla ajena a MaKo. Confirmado: **no existe `app/not-found.tsx`**. El bloqueo que los dos declaran («pide un navegador para copiar la referencia») **ya no aplica a este chat**. | abierto, destrabado |
+| 9 | **335** | Copywriter, Newsletter, Automations y WhatsApp escriben sin apoyarse en los 5.050 emails ya estudiados. **La verificación que pedía el item está hecha, y la respuesta es cero** — ver abajo. | medido |
+| 10 | **465 ≡ 609 ≡ 466** | En Offer, AI Avatar, Web Generator, Dashboard y Video nadie puede guardar lo que hizo para reusarlo, y nadie puede retirar lo que publica un cliente. Confirmado: `lib/creaciones-enchufes.ts:169` tiene `ENCHUFES` con tres tipos. Tres items, un trabajo; toca `app/admin/`, que el brief anterior prohibía. | abierto |
+| 11 | **307** | El Second Brain contesta sin saber la mitad de lo que pasa. `construirCerebro()` vive en `lib/cerebro-grafo.ts:326`; medir las 21 lecturas pide la base. Lo que sí se puede sin ella es el item 569. «El Second Brain bien en el teléfono» es otra cosa y debería ser su propio item. | abierto, grande |
+| 12 | **569** | Un campo nuevo del brief no aparece en el mapa que promete «todo lo que MaKo sabe de tu negocio». Confirmado: `lib/cerebro-grafo.ts:155-158` tiene las cuatro listas fijas, usadas en `:506-507`. Latente mientras ningún workspace tenga esquema propio. | abierto |
+| 13 | **566** | Una campaña nace en pausa y alguien tiene que prenderla a mano a la hora justa. Verificado: `lib/calendario.ts` no tiene tipo `'anuncio'`. **Empieza a gastar plata a una hora**: pasa por `lanzar` con zona, fecha de fin y topes, y por revisión adversarial. | abierto, no sale en una tanda |
+| 14 | **603** | En cinco pantallas el clic derecho no hace lo mismo que en el resto. Y una pide decidir: el selector de Offer es el `Dropdown` de la casa, así que tocarlo cambia el desplegable de **toda** la app. | abierto |
+| 15 | **333** | Ocho restos del Ops Center en un item. Dos ya tienen base: `CARTERO_VIVO_MS` existe (`lib/centro-chats.ts:25`, `:221`) y «Renombrar» por fila también (`app/admin/operaciones/Conversacion.tsx:112-114`). `/api/mako-doer` sigue en pie. | abierto |
+| 16 | **477** | Un título pegado al borde se corta en el mapa del negocio. | **hecho** (`punta/varios-grafo-encuadre`) |
+| 17 | **570** | Todo lo medido del grafo se puede romper sin una señal roja. Confirmado: `lib/cerebro-grafo.ts:36` lleva `import 'server-only'`, así que ningún test lo importa. La salida está escrita en el propio archivo (`:71`): la parte pura vive en `lib/cerebro-modelo.ts`, sin la marca. | abierto |
+| 18 | **602** | Costo para el cliente hoy: ninguno. El costo es que la próxima pantalla vuelva a hacer el menú distinto. Confirmado: `app/_ui/MenuContextual.tsx` lo usan nueve pantallas por ruta directa, pero `grep -c MenuContextual app/_ui/index.ts` = **0** y no está en el catálogo. | abierto, chico |
+| 19 | **312** | El menú promete VSL Generator y no existe. Confirmado: `app/_components/nav.ts:494` lo marca `comingSoon: true` — **y hay otros siete iguales** (Sales Email, Newsletters, Closing Script, Sales Roleplay, YouTube Writer, Ideas). No es una excepción: es cómo está armado el menú. Si molesta, la decisión es sobre los ocho. | abierto, prioridad baja |
 
 ## Tres cosas que no sabíamos
 

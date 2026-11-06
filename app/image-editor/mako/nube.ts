@@ -102,7 +102,10 @@ export async function subirArchivo(f: Blob, d: { nombre: string; tipo: string; a
   // Con FormData el tipo viaja en la parte del multipart: un archivo sin `type` saldría como
   // application/octet-stream y el bucket lo rebota. Se arma con el tipo declarado.
   const archivo = new File([f], d.nombre, { type: d.tipo });
-  await subirConProgreso(firma.signedUrl, archivo, firma.apikey, () => {}, 'PNG, JPG, WEBP, GIF o un audio').promesa;
+  // ⚠️ CON PLAZO DE ATASCO: lo que se sube acá son fotos y audios chicos (los topes de lib/image-editor/reglas.ts), no un video
+  //    de una clase. Sin el plazo, una red trabada deja el «corriendo» del chat para siempre y nunca se le dice que falló
+  //    (6/11/2026). 45 s sin que avance un solo byte no es una línea lenta: está trabada.
+  await subirConProgreso(firma.signedUrl, archivo, firma.apikey, () => {}, 'PNG, JPG, WEBP, GIF o un audio', { trabadaMs: 45_000 }).promesa;
   const reg = await pedir<RespRegistrar>(`${BASE}/subidos`, { method: 'POST', json: { accion: 'registrar', path: firma.path, nombre: d.nombre, ancho: d.ancho, alto: d.alto } });
   if (!reg.ok) throw new Error(reg.error);
   return reg.subido;

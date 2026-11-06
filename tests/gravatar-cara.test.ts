@@ -10,6 +10,13 @@
 // Vive en `lib/gravatar.ts`, que NO lleva `server-only` justamente para que este
 // archivo lo pueda importar — mismo criterio que `lib/agencia-cartera.ts`.
 //
+// ⚠️ LA FOTO ELEGIDA DE ACÁ ES UNA DE GOOGLE Y NO UN HOST CUALQUIERA, a propósito: desde el
+// 6/11 `caraDeUsuario` filtra el ORIGEN de `foto_url` (`fotoDePersonaSegura`), porque ese
+// valor lo escribe el cliente y una URL de un servidor suyo le avisa cuándo lo miran. Con un
+// `https://x.test/mia.png` —lo que decía antes— estos casos miden el filtro y no la
+// precedencia, que es lo que vienen a medir. El filtro tiene su archivo:
+// tests/foto-persona-origen.test.ts.
+//
 // ⚠️ Probado ROMPIÉNDOLO, dos veces, de 8/8:
 //   (a) dando vuelta la precedencia a `urlGravatar(email) || foto_url` —el orden
 //       que se escribe solo cuando uno piensa «primero el automático»— quedan
@@ -25,8 +32,8 @@ import assert from 'node:assert/strict';
 import { hashGravatar, urlGravatar, caraDeUsuario } from '../lib/gravatar';
 
 test('la foto elegida GANA sobre la del email', () => {
-  const u = { foto_url: 'https://x.test/mia.png', email: 'ana@empresa.com' };
-  assert.equal(caraDeUsuario(u), 'https://x.test/mia.png');
+  const u = { foto_url: 'https://lh3.googleusercontent.com/a/mia.png', email: 'ana@empresa.com' };
+  assert.equal(caraDeUsuario(u), 'https://lh3.googleusercontent.com/a/mia.png');
 });
 
 test('sin foto elegida, la del email', () => {
@@ -44,8 +51,8 @@ test('sin email no hay cara, y eso es null (las iniciales)', () => {
 
 test('una foto elegida gana aunque el email también tenga', () => {
   // El caso que la precedencia al revés rompe sin avisar: los dos existen.
-  const u = { foto_url: 'https://x.test/mia.png', email: 'con-gravatar@empresa.com' };
-  assert.equal(caraDeUsuario(u), 'https://x.test/mia.png');
+  const u = { foto_url: 'https://lh3.googleusercontent.com/a/mia.png', email: 'con-gravatar@empresa.com' };
+  assert.equal(caraDeUsuario(u), 'https://lh3.googleusercontent.com/a/mia.png');
   assert.notEqual(caraDeUsuario(u), urlGravatar(u.email));
 });
 

@@ -643,11 +643,11 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín | lib/tickets-aviso.ts (`entregaAlCerebro`, sólo `runner`) · lib/tickets-db.ts (`COLS`) | Hoy queda sólo el renglón «llegó al Cerebro» del historial. La 0343 ya está en producción (29/10, el Cerebro con el sí de Martín: los 22 tickets quedaron en 'pendiente'), así que sumar `cerebro_*` a `COLS` ya no tumba la bandeja; en una base SIN la 0343 (un entorno viejo) sí: el select pediría una columna que no existe |
+| ~~Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín~~ **HECHO el 6/11/2026** | lib/tickets-aviso.ts (`entregaAlCerebro`, `vistaDeEntrega`) · lib/tickets-db.ts (`COLS`) · tests/ticketera-entrega-cerebro.test.ts | Eran DOS piezas y arreglar una sola no se ve: la función sólo miraba `aviso_*` (los bugs del triage) **y** `COLS` no pedía las columnas `cerebro_*`, así que la fila llegaba sin ellas. Ahora las dos marcas usan la misma máquina y los mismos textos. ⚠️ Al meter `cerebro_*` en el select se puso rojo `tests/ticketera-movil-y-avisos.test.ts` B5, que pedía que `aviso_at` y `arreglado_at` fueran VECINAS en `COLS`: una guarda sobre el ORDEN de un select, no sobre lo que pide. Se cambió a mirar columna por columna |
 | Actualizar el Runner de la PC a 1.23.0 | scripts/operaciones/cartero.mjs | El servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0; con el de antes no se pierde nada (no los reclama) pero tampoco llegan (29/10) |
 | Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
 | El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
-| /api/errores manda la ruta con los tokens del camino | lib/errores-app-reglas.ts (`rutaSinDatos`) | /pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras (un teléfono). El botón usa `rutaSoporte` (lib/soporte-reporte.ts), que los tapa; /api/errores no |
+| ~~/api/errores manda la ruta con los tokens del camino~~ **ARREGLADO el 6/11/2026** | lib/errores-app-reglas.ts (`rutaSinDatos`) · lib/soporte-reporte.ts (`rutaSoporte`, ahora delega) · tests/errores-app.test.ts | La regla que tapa los tokens del camino y los números de más de 9 cifras existía, pero vivía SÓLO en el camino del botón (`rutaSoporte`). Se mudó a `rutaSinDatos`, que es de donde salen los dos: una regla de privacidad en el camino de UNA pantalla es una regla que los otros caminos no tienen. ⚠️ Tenía que bajar y no cruzarse: `soporte-reporte` importa de `errores-app-reglas`, así que al revés era un import circular. Efecto lindo: `rutaSoporte` quedó delegando, y las guardas que ya tenía el botón (tests/reportar-a-soporte.test.ts, tests/curso-soporte-alumno.test.ts) ahora cubren también /api/errores |
 | Un canal propio para «Reportar a Soporte» | supabase/migrations (el `check` de `tickets.canal`) · lib/tickets-reglas.ts (`CANAL_PARA_EL_CLIENTE`) | Hoy sale por `formulario` y el cliente lo ve «Desde «Reportar problema»». Un canal nuevo es una migración |
 | Una captura de pantalla en el ticket del botón | app/_ui/ReportarASoporte.tsx | El reporte lleva el texto del aviso, no la pantalla: una captura traería los datos de los leads que se ven. Decisión de producto |
 | MaKo de Soporte con IA | lib/soporte-chat.ts | Son reglas. Con IA podría contestar una pregunta sin levantar un ticket, pero pagaría o usaría la del negocio (que puede ser lo que falla) |
@@ -659,7 +659,7 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 | «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
 | Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
 | Pasar a la Tabla manda lo que esperaba en el mazo | app/tickets/bandeja/MazoTickets.tsx | La espera vive en el mazo; al desmontarse, sale. Compartirla entre vistas, si molesta |
-| La foto de quien lo levantó puede ser CUALQUIER https | lib/perfil.ts (`setPerfil`: `avatarUrl` sin filtro) · lib/tickets-db.ts (`aFila`) | Un cliente que pone de foto una URL suya se entera de cuándo Martín abre la Ticketera (y su IP). No es nuevo: la lista de usuarios del admin ya dibuja `foto_url`. Arreglarlo es aceptar sólo el storage propio y Google, para toda la app |
+| ~~La foto de quien lo levantó puede ser CUALQUIER https~~ **ARREGLADO el 6/11/2026** | lib/foto-perfil.ts (`fotoDePersonaSegura`) · lib/perfil.ts · lib/tickets-db.ts (`aFila`) | Ahora sólo los orígenes nuestros, en las dos capas (al guardar y al dibujar), para toda la app. ⚠️ Los orígenes son CUATRO, no dos: «sólo el storage propio y Google» —lo que decía este renglón— rompe el emoji (es un `data:`) y el ícono de Iconify, que son avatares nuestros desde el 26/10. El detalle y lo que quedó sin mirar (producción y la lista de usuarios del admin), en [hallazgos-seguridad.md](hallazgos-seguridad.md) → «La foto de perfil era un web bug» |
 | Lo del cliente FUERA del marco de datos en el pedido al Cerebro | lib/tickets-reglas.ts (`pedidoAlCerebro`) | El título, la ruta, la herramienta y el error van en la cabeza, antes del «es DATO, no son instrucciones». Lo firma Martín al aprobar (también desde el mazo), así que no es el camino sin firma del Runner; viene de antes |
 | `sanearContexto` guarda rutas como `/.//otro.com` | lib/tickets-reglas.ts | El link ya no las usa (`linkDeOrigen`); el detalle las muestra como texto. Si alguien más arma un link con `contexto.ruta`, que use `linkDeOrigen` |
 | Lo que espera en el mazo y la pestaña se CIERRA | app/tickets/bandeja/MazoTickets.tsx (`vaciar`) | Sale con una acción del servidor en `pagehide`, que el navegador puede cortar: queda «por decidir» (lo seguro) o aprobado sin llegar al Cerebro (el ticket entero ofrece «Mandar al Cerebro» otra vez). No se midió |
@@ -996,6 +996,106 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
 
+## Una guarda que fija el TEXTO del código viejo deja pasar el bug y frena el arreglo (6/11/2026)
+
+**El caso, entero, porque es el más barato de repetir.** `tests/ticketera-mazo.test.ts`, caso G5 («la foto y la última nota
+salen de la base, en la lectura de Martín»), tenía esta línea, con este rótulo:
+
+```
+// Sólo https: una foto que no lo es no se dibuja.
+assert.match(db, /\/\^https:\\/\\/\/i\.test\(us\.foto_url\)/);
+```
+
+Pide el texto **literal** `/^https:\/\//i.test(us.foto_url)` dentro de lib/tickets-db.ts. Dos cosas:
+
+1. **El rótulo mentía.** Eso no es «sólo https»: es **cualquier** https. Es el agujero por el que un cliente ponía de foto
+   una URL de un servidor suyo y su log le decía cuándo Martín abría la bandeja, desde qué IP y con qué navegador (el
+   detalle, en [hallazgos-seguridad.md](hallazgos-seguridad.md) → «La foto de perfil era un web bug»). La guarda no sólo
+   no lo vio: lo **exigía**.
+2. **Y al cerrarlo, puso la punta ROJA.** El arreglo (`fotoDePersonaSegura`) borró ese texto, así que la guarda falló con
+   el código BIEN. Costó una corrida de Actions y una vuelta al chat.
+
+**La regla que queda:** una guarda sobre el código fuente afirma **lo que no puede pasar**, no **cómo está escrito hoy**.
+Las dos formas se distinguen con una pregunta: *¿esta línea seguiría en verde si alguien arregla el bug de otra manera?* Si
+la respuesta es no, la guarda fija la implementación. Lo que sí sirve, en orden:
+
+1. **Ejecutar el código** y mirar el resultado (es la regla de AGENTS.md → «Un test nuevo ejecuta el código»). G5 ahora
+   corre `fotoDePersonaSegura` y mira que una foto de un servidor del cliente no se dibuje y una de Google sí.
+2. **Un `doesNotMatch` de la FALLA**, no un `match` de la cura: `/https[^\n]*\.test\(us\.foto_url\)/` no puede volver.
+3. **Y sólo entonces**, un `match` del cableado, que es lo único que G5 no puede ejecutar (`aFila` no se exporta).
+
+**Probado rompiéndolo, de las dos maneras que la guarda vieja no distinguía** (base 29/0):
+- volviendo a poner el `https` suelto en `aFila` —el texto que la guarda vieja **pedía**— → **28/1, G5 rojo**;
+- dejando el cableado bien y volviendo el FILTRO permisivo → **28/1, G5 rojo**.
+La vieja daba verde en el primero (era su propia condición) y en el segundo (no mira el filtro).
+
+**Dónde más mirar:** no es el único de esta forma. El mismo día, en esta misma área, `tests/ticketera-movil-y-avisos.test.ts`
+B5 pedía el texto `aviso_motivo, aviso_at, arreglado_at` de `COLS` —o sea que dos columnas fueran **VECINAS** en el
+select—, y se puso rojo al meter `cerebro_*` en el medio sin que faltara ninguna. Misma falla: la guarda mide la forma.
+Un `grep` de `assert.match(.*leer(` por el repo da la lista de candidatas.
+
+**Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
+(`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
+## La baja de los correos estaba atada a una CUENTA, y una cuenta no es una persona (6/11/2026, mig 0410)
+
+**Cómo estaba anotado:** «quien pide no recibir más correos de tickets y no tiene cuenta, no queda anotado; una persona que
+pidió la baja los sigue recibiendo» (docs/relevo/nube-tickets.md).
+
+**⚠️ LA MITAD DE ESO NO ERA CIERTO, Y LA OTRA MITAD ERA PEOR DE LO QUE DECÍA.**
+
+- **Quien no tiene cuenta no recibía NADA.** `decidirAvance` pide `usuario_id` y un email de verdad, y `candidatos` filtra
+  `usuario_id is not null`: un ticket por WhatsApp sin perfil o el de un alumno de un curso nunca generó un correo de
+  avance. No había correos de más que frenar. Lo que faltaba era el LUGAR donde guardar su «no me escribas» para el día
+  que un camino nuevo le escriba — y eso es lo que la 0410 deja hecho, no un correo que hoy salga mal.
+- **Y el otro camino por el que alguien podría pedir la baja y seguir recibiendo: HOY NO LE PASA A NADIE, y hay que decirlo
+  así.** La baja vivía en `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. Una fila de `usuarios` no es
+  una persona: es una persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053). Quien trabaja en
+  su cuenta y en la de un cliente de su agencia tendría dos filas con la misma dirección: apretaría «Dejar de recibirlos»
+  en el correo de un negocio y los seguiría recibiendo por el otro, a la misma casilla.
+  **⚠️ Medido en producción el 6/11/2026: direcciones con más de una fila en `usuarios` = 0.** O sea que el mecanismo es
+  real y el esquema lo permite, pero **no hubo ninguna persona afectada**. Esto es preventivo, no una reparación, y
+  confundir las dos cosas manda a alguien a buscar una víctima que no existe. La consulta, para repetirla:
+  `select count(*) from (select email from usuarios where email is not null and email <> '' group by email having count(*) > 1) x;`
+
+**Entonces, ¿qué se arregló de verdad?** Dos cosas chicas y ciertas, y conviene no inflarlas: (1) ahora existe el lugar
+donde guardar un «no me escribas» de quien no tiene cuenta, que antes no existía; y (2) se puede pedir la baja **desde
+Notificaciones**, sin necesitar un correo a mano — antes el único camino era el link del pie, que además es el que los
+vuelve a prender. Lo del mecanismo de las dos cuentas queda **cerrado antes de que pase**, que para una baja de correo es
+el momento correcto: el día que alguien tenga dos cuentas, no hay que acordarse de esto.
+
+**La regla que queda:** la baja se guarda por **DIRECCIÓN** (`correo_bajas`, mig 0410), y la escribe un solo módulo
+(`lib/tickets-baja-correo.ts`) en los dos lugares: la tabla por dirección y la marca del perfil de **todas** las filas con
+esa dirección. La tabla no lleva `workspace_id` a propósito — es la única columna que alguien va a querer agregarle, y
+agregarla sería volver al bug.
+
+- **El caso que sólo la tabla puede frenar** (y el que fija el test): una cuenta **nueva** con esa dirección, creada
+  DESPUÉS de la baja. Su perfil nace limpio, así que una decisión que mirara sólo el perfil le escribiría.
+- **Sin la 0410 no sale ningún correo**, y la vuelta lo dice en su renglón. No se sabe quién pidió la baja, y escribirle a
+  quien la pidió es peor que un correo de menos (es la regla que ya tenía el archivo). Un fallo de lectura, igual.
+- **Saltear no se come un correo:** el hito NO se reclama cuando la baja lo frena, así que al levantarla sale el que
+  esperaba.
+
+**Trampas que costaron tiempo acá:**
+- **El PostgREST de mentira contesta `200` y una lista VACÍA para una tabla que nadie mockeó** (y la anota en `sinMock`).
+  Para probar «sin esta tabla, ¿qué hace?» eso responde «está vacía», no «no existe» — que es justo lo que un código que
+  falla ABIERTO necesita para pasar el test. Se agregó `faltan` (tests/_postgrest-de-mentira.ts): un conjunto mutable de
+  tablas que contestan el error de verdad (`PGRST205`). Sin eso, el test del camino sin migración pasaba con el bug.
+- **`filaPropia` (lib/perfil.ts) usa `.maybeSingle()` sobre `eq('email', …)`**, y eso tira `PGRST116` en cuanto hay DOS
+  filas con la misma dirección. Devuelve `null` en silencio, así que a esa persona las preferencias de pop-up y sonido se
+  le verían en los valores por defecto y su guardado contestaría `guardado: false`. **Latente igual que lo de arriba** (0
+  direcciones duplicadas el 6/11/2026) y **no se arregló acá**, porque es de `lib/perfil.ts` y no de la Ticketera. Pero por
+  eso la casilla nueva se resuelve por la DIRECCIÓN de la sesión y no por `filaPropia`: habría nacido con el mismo techo.
+
+**Lo que quedó SIN hacer:** la **casilla en Notificaciones** para prender y apagar estos correos sin pasar por el link del
+mail. El motor está listo y es lo único que falta: `cambiarBajaPorEmail` y `apagadosPorEmail` ya hacen las dos capas, falta
+la ruta (`app/api/perfil/`, modelo: `notif-inapp/route.ts`) y la fila con el `Switch` en
+`app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta tiene que resolver a la persona por el **email de la sesión**, no con
+`filaPropia`, por lo de arriba.
+
+**Vive en:** `supabase/migrations/0410_correo_bajas.sql` · `lib/tickets-baja-correo.ts` · `lib/tickets-avance.ts`
+(`TIPO_BAJA_TICKETS`, `pidioLaBaja`, `decidirAvance`, `DepsAvance.bajas`) · `lib/tickets-avance-email.ts` (`bajasDe`) ·
+`app/api/email/unsubscribe/tickets/route.ts` · `tests/tickets-avance-email.test.ts` (5b y 5c) ·
+`tests/_tickets-avance-email-hijo.ts` · `tests/_postgrest-de-mentira.ts` (`faltan`)
 ## Un pendiente FANTASMA: «falta la prioridad por agencia» ya estaba hecho el mismo día que se anotó (6/11/2026)
 
 `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` (A8) decía **FALTA**: «la prioridad sale sólo del texto
@@ -1017,3 +1117,62 @@ La cadena, por si hay que volver a verificarla de punta a punta:
 renglón y la del trabajo son el mismo día, lo primero es `git log` del archivo que nombra, no leerlo y creerle. Y cuando se
 confirma que estaba hecho, **se corrige el renglón en el mismo commit**: el fantasma no cuesta una línea de código, cuesta
 la pasada de lectura entera, y la paga cada chat que lo vuelve a tomar.
+
+## Los cuatro tickets «de clientes sin contestar»: medidos uno por uno (6/11/2026)
+
+Venían en un reparto como «cuatro clientes esperando: 38, 39, 43 y 58». Leídos en producción
+(`node --import tsx scripts/tickets.ts ver <n>`, que sólo lee), **ninguno de los cuatro es lo que decía el rótulo**, y los
+cuatro están frenados por algo distinto. Vale escribirlo porque el rótulo hace trabajar a un chat en lo que no es.
+
+| # | Lo que decía el reparto | Lo que es |
+|---|---|---|
+| 38 | Un cliente esperando | **No es de un cliente: lo levantó Martín** desde su línea `…3479`, en el negocio «Martin Koncke» (ws 9, SuperAdmin). Y la investigación **está hecha**: `docs/funnel-coach.md` §9 arranca con «De dónde sale: ticket #38». Sí, es el mismo pedido: el ticket **no se llevó el link**, se pescó en `mako_doer_conv` un minuto antes. Falta sólo la respuesta, que es de Martín |
+| 39 | Un cliente esperando | Es **automático** (`canal = 'sistema'`): lo abrió MaKo, no Brigitte. El texto que ella ve es «MaKo lo detectó solo». Ver abajo |
+| 43 | Un cliente esperando | Es automático también, y **ya tiene el veredicto del Cerebro del 2/11**: no es un bug, es una función que no existe. Lo que falta son DOS decisiones de producto, no código. Ver abajo |
+| 58 | «Agendar la segunda cuota de Giselle Belanti para el 19 de diciembre» | ⚠️ **El ticket no dice eso.** Dice, tal cual: «agendame eso que te pedi en el audio», de Código Inmobiliario (ws 13), y MaKo contestó que no entendía. No hay ningún nombre ni ninguna fecha en el ticket: el audio no viaja con él. Ver abajo |
+
+### #39: cinco días después, sigue en UNA vez
+
+Lo que había que mirar ya estaba escrito acá («cuántas veces pasó y si la persona siguió trabajando»). Medido el 6/11 sobre
+`errores_app` (huella `0345a6ecd695d0dc`): **`veces` = 1**, un solo afectado, `primera_vez` = `ultima_vez` =
+2026-11-01T11:35:54Z. No volvió a pasar en cinco días.
+
+⚠️ **Y la fila NO trae `pistas`**, así que el plan de «si el próximo caso trae `font=0` y ninguna ajena, entonces sí es
+nuestro» **todavía no se puede ejecutar**: esta fila es de ANTES de que el reporte las juntara (el mismo 1/11). La huella
+agrupa, así que una repetición hubiera caído en esta misma fila, sin pistas. Para que haya pistas tiene que pasar de nuevo
+**después** del deploy de ese día. No hay nada más que diagnosticar de este caso.
+
+**Dato al costado que sí sirve:** el #52 fue el MISMO React #418 (`args[]=text`) en la pantalla «Plan», y ése sí se arregló
+y se cerró el 4/11 («La pantalla Plan ya no se vuelve a dibujar sola de noche»). Antes de volver a investigar el #39, mirar
+si ese arreglo cubre también /crm: es el único hilo abierto que queda.
+
+### #43: el veredicto del Cerebro no se pudo guardar donde se mira
+
+El Cerebro lo diagnosticó el 2/11 y lo dejó escrito: **no es un bug**, `agregar_web_archivero` quedó afuera de todas las
+áreas de la API porque su lógica vive inline en la ruta (`procesarLink`, app/api/onboarding/archivero) y primero hay que
+extraerla a `lib/`. Las dos decisiones que lo frenan, y por eso no lo hizo solo: cargar un archivo **por WhatsApp** es
+recibir y guardar un adjunto (bastante más que exponer una función), y quien lo pide es plan **Agencia** y quiere cargarlo
+al Second Brain de SU cliente, o sea **otro workspace**: es una escritura cross-tenant.
+
+⚠️ **Y acá está la falla de la herramienta, que es lo que hay que arreglar:** el Cerebro cierra su nota con «sugerencia:
+reclasificarlo a 'pedido'; **no lo hice yo porque desde `esperando_decision` el script no deja**». Es cierto:
+`reclasificar` (lib/tickets-db.ts) filtra `.in('estado', ['en_curso', 'nuevo'])`. Y como `reclasificar` **deja** el ticket
+en `esperando_decision`, ese estado es una **puerta de una sola dirección**: un ticket que espera a Martín desde el triage
+—el caso más común— no puede que nadie le corrija el tipo nunca. El resultado concreto: el #43 figura como **bug** en la
+bandeja y en la prioridad, mientras el veredicto «es un pedido» vive sólo en el texto de una nota que no mueve nada.
+
+**Sin hacer:** que `reclasificar` acepte `esperando_decision` (es el estado donde más hace falta). Es una línea en
+`lib/tickets-db.ts`, pero cambia qué puede tocar un chat sin Martín, así que **lo decide él**: hoy la única forma de
+corregir el tipo de un ticket que lo espera es que lo toque él en la bandeja.
+
+### #58: no se puede ejecutar desde el ticket, y el bloqueo que le pusieron ya no es el que lo frena
+
+- **El eco de MaKo en el grupo YA está arreglado**: `punta/doer-eco-dos-lineas` (6564711292) es ancestro de `origin/main`.
+  O sea que la condición que traía el reparto («esto espera el arreglo del eco») está cumplida. No es eso lo que lo frena.
+- **Lo que lo frena es el ticket mismo:** pide «eso que te pedí en el audio», y el audio no viaja con el ticket. Agendar
+  una cuota a nombre de alguien que el ticket no nombra, con una fecha que el ticket no dice, sería inventar el dato.
+- Y es una **ACCIÓN DELEGADA que el triage mandó a Martín** («lo pidió alguien del grupo que no es admin de ese negocio»),
+  así que su propio texto dice «si espera a Martín, no se toca sin su sí». Además es una escritura en producción.
+
+**Lo que hace falta para desbloquearlo** (y no es trabajo de código): el contenido del audio, de boca de Martín o de quien
+lo mandó, y su sí. Con eso, es una carga de cobranza normal.

@@ -344,6 +344,26 @@ test('el último commit de un bot frena la corrida: Vercel puede no desplegarlo'
   assert.match(r.salida, /::error::.*Vercel/);
 });
 
+// 6/11/2026: con esto sin frenar, `punta/spy-busqueda` entró a main firmada por la nube (9202c22d2) y a producción no llegó
+// nada. Verde en Actions y producción vieja es el síntoma más caro que hay: se frena antes de la mezcla.
+test('el correo con que firma la nube frena la corrida igual que un bot', { skip: !haySh && 'sin sh' }, () => {
+  const R = armarRepo();
+  R.commit(R.clon, { nombre: 'Claude', correo: 'noreply@anthropic.com' }, { 'lib/punta.ts': 'export const p = 1;\n' });
+  R.subir();
+  const r = correrPaso('Lo que cambió la punta', R.clon);
+  assert.notEqual(r.codigo, 0, 'noreply@anthropic.com tendría que frenar la corrida');
+  assert.match(r.salida, /::error::.*Vercel no despliega a ese autor/);
+
+  // ⚠️ Y `@users.noreply.github.com` NO se frena, a propósito: es el correo privado de una PERSONA con el mail oculto en
+  // GitHub, no de un bot (al bot lo agarra el `[bot]` del nombre). Frenarlo dejaría afuera a gente del equipo.
+  for (const correo of ['equipo@hola-mako.com', 'martin@users.noreply.github.com']) {
+    const ok = armarRepo();
+    ok.commit(ok.clon, { nombre: 'Martín', correo }, { 'lib/punta.ts': 'export const p = 1;\n' });
+    ok.subir();
+    assert.equal(correrPaso('Lo que cambió la punta', ok.clon).codigo, 0, `«${correo}» es de una persona: no se frena`);
+  }
+});
+
 const SIN_ESPERAS = 'sleep() { :; }';
 
 test('llevar a main: sin moverse, es un push simple y conserva los commits', { skip: !haySh && 'sin sh' }, () => {
