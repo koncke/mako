@@ -31,6 +31,16 @@ permiso». Este archivo es el registro de ese barrido. **Se mantiene al día en 
 | 3 | «No reprodujo el VSL» y la cohorte «vio poco el VSL» no se cumplen para todos con la base caída (la lectura del motor es estricta) | lib/leads.ts · lib/nutricion.ts | `punta/barrido-envios` |
 | 3 | Cambiar el precio de un producto por MaKo: el título de /mako/revisar dice también el precio de antes, y el producto queda fijo al revisar | lib/producto-precio-texto.ts · lib/api-mako/areas/crm.run.ts · crm.def.ts | `punta/barrido-envios` |
 | 4 | Lo que encontró el revisor (ver «Autocrítica») | varios | `punta/barrido-envios` |
+| 5 | El aviso de WhatsApp caído dice cuál número se cayó (el webhook lo guarda antes de borrarlo; sin migración) | app/api/webhooks/evolution/route.ts · lib/linea-vigilancia.ts · lib/lineas-vigilante.ts | `punta/barrido-envios` |
+
+**Subido el 6/11/2026** a `punta/barrido-envios` (cabeza `8447634b6`, veredicto en verde: 8143 tests de 815 archivos y el tsc
+entero). ⚠️ El hook de pre-push NO estaba instalado en este clon de la nube: las guardas corrieron a mano
+(`sh scripts/guardas-push.sh`) antes del veredicto, y el hook quedó instalado después.
+
+**En curso (worktree aparte, con revisión adversarial antes de subir, porque es plata):**
+- La red de las **renovaciones de Stripe** cuyo `invoice.paid` se perdió (`renovacionesPerdidasStripe`, lib/cobros.ts; una vez
+  por día en el cron de cobros): asienta las de los últimos 10 días con el mismo id que el aviso, y las más viejas van a un ticket.
+- **El link de MaKo Partners:** una cookie de un código que ya no es de ningún partner tapaba el link vigente (`refQueVale`).
 
 La cosecha: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar» y docs/hallazgos-chatbot.md →
 «"No reprodujo el VSL" se cumplía para TODOS con la base caída».
@@ -57,13 +67,13 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 
 | # | Qué | Archivo | Prio | Estado |
 |---|---|---|---|---|
-| C1 | El aviso de línea CAÍDA no puede nombrar el número: el webhook y `desconectar()` borran `numero` | app/api/webhooks/evolution/route.ts:176 · lib/evolution.ts | 3 | necesita guardar el último número (columna nueva o no borrarlo): **migración**, se escribe tolerante |
+| C1 | El aviso de línea CAÍDA no puede nombrar el número: el webhook y `desconectar()` borran `numero` | app/api/webhooks/evolution/route.ts:176 · lib/evolution.ts | 3 | **HECHO** (tanda 5), sin migración: un setting `wa.linea.ultimo_numero.<línea>` que el webhook escribe antes de borrar |
 | C2 | `crearClienteAction` (Customer Success) no frena por el tope del plan; la API sí | app/customer-success/actions.ts | 2 | **HECHO** (tanda 2) |
 | C3 | `embeddings` gasta IA sin `recordUsage` (no se ve en el Uso) | lib/embeddings.ts | 4 | medido: `transcribe` ya va por `transcribirAudio`. Embeddings: una fila por vector llenaría la tabla del Uso (miles por ingesta) y entraría en la cuenta de cuota de las keys de Gemini → **decisión** de cómo registrarlo (agregado por día) |
 | C4 | `tieneBorradorNutriPendiente` cuenta borradores de automatizaciones pausadas | lib/evolution-envio.ts | 3 | **decisión** (hallazgos-chatbot: «pausar no es archivar»): ¿un borrador de una pausada sigue frenando? → Automations / Martín |
 | C5 | La etiqueta en lote corta en 200 sin avisar | app/api/crm/etiquetas/route.ts | 3 | **HECHO** antes (27/10: la barra manda de a tandas, `TANDA_ETIQUETAS_LOTE`) |
 | C6 | Pixel de una landing dada de baja: la pastilla «desactualizado» queda para siempre; `snippetDesactualizado` sigue en 3 lectores | lib/landing-token.ts · lib/pixel-estado.ts | 3 | **HECHO** antes: `snippetDesactualizado` delega en `estadoPixel`, que mira las páginas con visitas (`paginasVivas`) |
-| C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | por medir |
+| C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | **escrito, en revisión** (`refQueVale`, lib/partners-reglas.ts): era peor de lo anotado, `/r` ponía el código muerto también en `?ref=` y la compra quedaba sin partner |
 | C8 | Plan: aviso cuando una reunión no se pudo leer | lib/reunion-auto.ts · lib/reunion-descartadas.ts | 3 | por medir |
 | C9 | Una landing confirmada deja el lead sin `pagina_registro` | app/crm/revisar/[id]/propuesta-lead.ts | 3 | **HECHO** antes (propuesta-lead.ts:121 la copia normalizada) |
 | C10 | El lead que pierde el compare-and-set de Zernio queda con `meta_ad_id` | lib/zernio-entrante.ts | 3 | **HECHO** antes (`quitarHuerfano` lo borra y le pasa el anuncio al ganador con `.is(null)`). Queda la otra mitad: el primer mensaje del anuncio llega SIN referral → **decisión** de atribución |
@@ -97,7 +107,7 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 | P1 | **La URL vieja del webhook de WhatsApp no oficial vence el 7/11** (`CORTE_LEGADO`, lib/evolution-firma.ts:29) | En /whatsapp, «Reparar espejo» en cada línea que siga muda | **mañana** |
 | P2 | El limbo del Runner: 6 mensajes, los primeros vencen el 8/11 | Cerrarlos desde el Ops Center | 8/11 |
 | P3 | El cron del Runner vence el 11/11 y con él el vigía | Rearmarlo (`CronCreate`) en el chat del Runner antes del 11/11 | 11/11 |
-| P4 | Migraciones escritas y sin confirmar aplicadas: 0298, 0299, 0302, 0314, 0316, 0330, 0338, 0341, 0342, 0346, 0348, 0351, 0357, 0390, 0394, 0396 | `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) y aplicar las ausentes con `node scripts/apply-migration.mjs`, cada una en su orden de despliegue (cabecera del `.sql`) | alta |
+| P4 | Migraciones escritas y sin confirmar aplicadas. **Medido por el Cerebro el 6/11** (docs/relevo/pendientes-pc/pasos-cerebro-6-11.md): de la 0331 en adelante, 48 aplicadas, 0 ausentes y 4 «sin verificar» (0336, 0347, 0348, 0352: recrean algo que ya existía) — o sea 0338, 0341, 0342, 0346, 0351, 0357, 0390, 0394 y 0396 YA están. **Quedan sin medir las de antes:** 0298, 0299, 0302, 0314, 0316, 0330 | `node scripts/verificar-migraciones-aplicadas.mjs` (sólo lee) desde la 0298, y aplicar las ausentes con `node scripts/apply-migration.mjs` en su orden de despliegue (cabecera del `.sql`) | media |
 | P5 | Las dos filas de la plataforma (ws 9) para la alerta de Meta de un cliente de agencia | `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --env=C:/dev/mako-api/.env.local --eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia --aplicar` | alta |
 | P6 | El aviso del tope de Instagram (`social_tope`) | `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=social_tope` | media |
 | P7 | El aviso de tareas al Plan tras una reunión | `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` | media |
