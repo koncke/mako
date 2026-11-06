@@ -86,11 +86,11 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ## El gasto de Vercel: cada llegada a main compila en una máquina de 30 núcleos (6/11/2026)
 
-**Síntoma:** Martín: «el gasto de Vercel se disparó por las nubes». Medido en `/v1/billing/charges`: los builds costaban US$0 hasta el 20/10, de US$2 a US$12 por día hasta el 1/11, US$22 y US$26 el 2 y el 3/11, y **US$75,81 el 4/11**. El 98 % es el proyecto mako. Todo lo demás (funciones, tráfico) son unos US$2 por día.
+**Síntoma:** Martín: «el gasto de Vercel se disparó por las nubes». **La factura en curso (16/10 al 16/11) iba en US$291,94 el 6/11, con diez días por delante; las dos anteriores fueron de US$40.** Son US$248 de builds, US$24 de funciones y tráfico y US$40 fijos de asientos, menos US$20 de crédito incluido. El 98 % de los builds es el proyecto mako.
 
-**Lo obvio era tráfico o funciones, y no.** Es sólo «Build CPU Minutes», y son dos cosas que se multiplican:
+**Lo obvio era tráfico o funciones, y no.** Es «Build CPU Minutes». Y la primera medición de esta entrada también se equivocó: **`/v1/billing/charges` da el costo DESPUÉS del crédito, con uno o dos días de atraso y sin los asientos del ciclo entero.** Decía «US$0 hasta el 20/10» y eran los US$20 incluidos, que se comieron esos días. Martín lo vio en el panel y tenía razón. Para decir cuánto se gasta, el número es el del panel: `/~/usage` y «Upcoming Invoice» en `/~/settings/billing`. Sus barras diarias van en la hora de la cuenta, no en UTC. Son dos cosas que se multiplican:
 
-1. **El precio de cada build.** Desde el 20/10, `resourceConfig.buildMachineSelection: elastic` subió el proyecto solo a Turbo (`buildMachineElasticReason: sustained-high-cpu`). Se cobra por núcleo: 30 núcleos × 3 minutos × US$0,0035 ≈ **US$0,32 por build**. Vercel no avisa.
+1. **El precio de cada build.** Desde el 20/10, `resourceConfig.buildMachineSelection: elastic` subió el proyecto solo a Turbo (`buildMachineElasticReason: sustained-high-cpu`). Se cobra por núcleo, con el tiempo después del build y redondeando al minuto: un build de 232 s son 4 × 30 × US$0,0035 = **US$0,42**, y el 4/11 el promedio era US$0,33. De esos 232 s, 117 son compilar con 29 procesos. Vercel no avisa.
 2. **La cantidad de builds.** `punta.yml` nació el 4/11 a las 00:03: cada rama llega sola a main y cada llegada compila. Main pasó de unos 15 builds por día a **176**.
 
 Lo que se gastaba de más ese día:
@@ -100,11 +100,13 @@ Lo que se gastaba de más ese día:
 
 **La regla:** una rama que nadie mira va en `deploymentEnabled`. Lo que no sale en la app no construye (`scripts/vercel-saltar-build.sh`, con su test). Sumar un chat o una automatización que empuja a main tiene un costo: unos US$0,32 por cada empujón.
 
-**Medir:** `/v1/billing/charges` llega con uno o dos días de atraso, así que hoy se estima con `/v6/deployments`. Un build de 30 núcleos son unos 90 minutos de CPU.
+**Medir hoy:** `/v6/deployments` da los builds al instante: un build de 30 núcleos son de 90 a 120 minutos de CPU. Comparado contra el panel, dio US$33 para el 5 y el 6/11, igual que la factura.
 
 **Hecho el 6/11, con el sí de Martín:** en el proyecto, `resourceConfig.buildQueue.configuration: WAIT_FOR_NAMESPACE_QUEUE`, un build por rama: los intermedios se saltean. Vive en Vercel, no en el repo, y es lo único que cambió ahí: la máquina sigue en Elastic.
 
-**Sin hacer:** medir el ahorro en la factura. Si no alcanza, fijar la máquina en Enhanced (8 núcleos, sale más barato si tarda menos de 11 minutos; sin medir) y agrupar las llegadas a main.
+**El presupuesto no frena nada:** hay uno de US$80 en Spend Management, con «Pause» apagado, y está pasado. Sólo avisa. Prender «Pause» apagaría producción al llegar al tope.
+
+**Sin hacer:** medir el ahorro en el panel. Si no alcanza, fijar la máquina en Enhanced (8 núcleos, sale más barato si tarda menos de 11 minutos; sin medir) y agrupar las llegadas a main.
 
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
