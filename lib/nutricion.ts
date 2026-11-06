@@ -3743,6 +3743,12 @@ async function hechosDelCatalogo(
     }
     return m;
   };
+  // «Su comprobante» (5/11/2026): la última lectura de la tarjeta «Leer comprobante». Si la base no contesta, TIRA.
+  const leerComprobante = async (): Promise<Map<number, string> | null> => {
+    if (!pide('comprobante')) return null;
+    const { resultadosDeComprobante } = await import('./comprobantes');
+    return resultadosDeComprobante(ids);
+  };
   const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
   // Duodécima tanda: la conversación que cuenta por lead y canal, y «¿te sigue?» sobre ésa (sólo a quien
   // escribió). El workspace va EXPLÍCITO a Zernio: es el de la corrida, el mismo que scopea `getTenantDb`.
@@ -3754,9 +3760,9 @@ async function hechosDelCatalogo(
     return siguenEnInstagram(ws, s, { fresco: o.fresco === true });
   };
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue]] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue], comprobante] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
-    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const),
+    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const), leerComprobante(),
   ]);
 
   return (f, ahoraMs) => {
@@ -3800,6 +3806,7 @@ async function hechosDelCatalogo(
     }
     if (entrega) c.entrega = new Set([...entrega].filter(([, leads]) => leads.has(f.id)).map(([k]) => k));
     if (cs) c.estadoCliente = cs.get(f.id) ?? 'activo';
+    if (comprobante) c.comprobante = comprobante.get(f.id) ?? 'no_llego';
     if (social) {
       const s = social.get(f.id);
       c.social = { instagram: s?.instagram ? conversacionDeFila(s.instagram) : null, messenger: s?.messenger ? conversacionDeFila(s.messenger) : null };

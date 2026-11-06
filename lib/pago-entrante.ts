@@ -18,7 +18,7 @@ import 'server-only';
 import { enrolarPorEvento, type CtxEvento } from './nutricion';
 import { EVENTOS_PAGO } from './disparadores';
 
-export type SubtipoPago = 'aprobado' | 'rechazado' | 'reembolsado' | 'suscripcion_cancelada';
+export type SubtipoPago = 'aprobado' | 'rechazado' | 'reembolsado' | 'suscripcion_cancelada' | 'comprobante';
 
 const SUBTIPOS: ReadonlySet<string> = new Set(EVENTOS_PAGO.map((e) => e.subtipo));
 

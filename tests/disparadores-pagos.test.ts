@@ -18,8 +18,9 @@ import {
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8').replace(/\r\n/g, '\n');
 const pago = (subtipo: string | null): Disparador => ({ id: 'd1', trigger_tipo: TRIGGER_PAGO, subtipo });
 
-test('los cuatro eventos de pago, en las palabras del CRON (no las del proveedor)', () => {
-  assert.deepEqual(EVENTOS_PAGO.map((e) => e.subtipo), ['aprobado', 'rechazado', 'reembolsado', 'suscripcion_cancelada']);
+test('los eventos de pago, en las palabras del CRON (no las del proveedor)', () => {
+  // ⚠️ Y desde el 5/11/2026 el quinto, «Te mandan un comprobante»: la foto o el PDF de un lead (tests/comprobantes.test.ts).
+  assert.deepEqual(EVENTOS_PAGO.map((e) => e.subtipo), ['aprobado', 'rechazado', 'reembolsado', 'suscripcion_cancelada', 'comprobante']);
   for (const e of EVENTOS_PAGO) assert.match(e.subtipo, /^[a-z_]{1,30}$/, 'el subtipo lo sanea /^[a-z_]{1,30}$/');
   assert.equal(eventosDe('pagos'), EVENTOS_PAGO);
 });

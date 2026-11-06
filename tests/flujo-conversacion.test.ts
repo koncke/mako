@@ -292,7 +292,9 @@ test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», 
   // Tercera tanda: «Ir a» ya no se crea (decisión 3) y suma «MaKo» con su logo (decisión 11).
   // Sexta tanda (parte «canales»): Instagram y Messenger, con los mensajes.
   // Tanda A3 de las pruebas A/B (25/10/2026): «Prueba A/B», con la lógica.
-  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'instagram', 'messenger', 'esperar', 'condicion', 'ab', 'etiqueta', 'accion', 'mako']);
+  // Y el 5/11/2026 «Leer comprobante» y «Emitir recibo» (Pagos), con el CRM; no debajo de «Si responde».
+  assert.deepEqual(valores(opcionesDelMas(r.pasos, ID_ENTRADA, false)), ['mensaje', 'email', 'instagram', 'messenger', 'esperar', 'condicion', 'ab', 'etiqueta', 'accion', 'comprobante', 'recibo', 'mako']);
+  assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('comprobante'), 'se ofreció leer un comprobante en «Si responde»');
   assert.ok(!valores(opcionesDelMas(r.pasos, r.id, false)).includes('esperar'), 'se ofreció esperar en «Si responde»');
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   assert.ok(!valores(opcionesDelMas(r.pasos, aviso, false)).includes('esperar'), 'se ofreció esperar debajo de «Si responde»');
@@ -303,8 +305,9 @@ test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», 
   // Cuarta tanda, punto 10: sin emojis (cada renglón con su ícono), «MaKo en WhatsApp», y por grupos
   // separados con una línea: mensajes · tiempo y lógica · CRM · MaKo.
   const menu = opcionesDelMas(r.pasos, 'a', false);
-  assert.deepEqual(menu.map((x) => x.label), ['WhatsApp', 'Email', 'Instagram', 'Messenger', 'Esperar', 'Condición', 'Prueba A/B', 'Etiqueta', 'Acción', 'MaKo en WhatsApp']);
-  assert.deepEqual(menu.map((x) => x.grupo), [0, 0, 0, 0, 1, 1, 1, 2, 2, 3]);
+  // 5/11/2026: «Leer comprobante» y «Emitir recibo» (la tarjeta Pagos), con el CRM.
+  assert.deepEqual(menu.map((x) => x.label), ['WhatsApp', 'Email', 'Instagram', 'Messenger', 'Esperar', 'Condición', 'Prueba A/B', 'Etiqueta', 'Acción', 'Leer comprobante', 'Emitir recibo', 'MaKo en WhatsApp']);
+  assert.deepEqual(menu.map((x) => x.grupo), [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3]);
   for (const o of menu) {
     assert.ok(o.icono?.startsWith('data:image/svg+xml'), `${o.label} sin ícono`);
     assert.ok(!/\p{Extended_Pictographic}/u.test(o.label), `${o.label} con emoji`);

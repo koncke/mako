@@ -42,7 +42,7 @@ import {
   TOPE_NODOS, TOPE_HILOS, TOPE_PARALELOS, TOPE_ESCENARIOS_AI_STEP, type FilaCondicion,
 } from '../lib/flujo-grafo';
 import { camposDelFlujo } from '../lib/nutricion-grafo-motor';
-import { frenoDelFlujo, emojiDeSecuencia, type ProductoParaDisparo } from '../lib/flujo-conversacion';
+import { frenoDelFlujo, emojiDeSecuencia, OP_EMITIR_RECIBO, OP_LEER_COMPROBANTE, type ProductoParaDisparo } from '../lib/flujo-conversacion';
 import {
   problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
   TRIGGER_AVISO_MAKO, EVENTOS_MAKO_OFRECIDOS,
@@ -120,6 +120,9 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
   ['cliente-empezo', 'Un Cliente Empezó', 'clientes'],
   ['mako-cobranza', 'Una Cuota Venció', 'cobrar'],
   ['mako-pago', 'Entró un Pago', 'cobrar'],
+  // 5/11/2026, la tarjeta Pagos (docs/relevo/pagos-automations-encargo.md): leer un comprobante y emitir el recibo.
+  ['comprobante-llego', 'Le Llegó un Comprobante', 'cobrar'],
+  ['recibo-al-cobrar', 'Emitir Recibo al Cobrar', 'cobrar'],
   // El AI Analyst del Dashboard (13/10/2026: Automations consume el Dashboard).
   ['mako-analisis', 'El AI Analyst Terminó', 'medir'],
   ['mako-charla', 'Un Lead Te Escribió', 'vender'],
@@ -270,8 +273,13 @@ test('es del modelo de hoy: sin «Ir a», sin campos de antes, «Sale sola» exp
         if (x.tipo === 'ia') assert.equal(x.canal, 'whatsapp', `${donde}: «MaKo lo adapta» sólo sale por WhatsApp`);
         assert.equal(typeof x.revisar, 'boolean', `${donde}: «Sale sola» queda al default de la automatización`);
       }
-      if (c === 'accion') {
-        assert.equal(x.accion!.operacion, OP_AVISAR, `${donde}: una acción que no es el aviso al equipo`);
+      // Una acción es el aviso al equipo, o una de las que el lienzo dibuja como SU tarjeta (la de Pagos, 5/11/2026): las
+      // dos sobre el lead del evento. Cualquier otra ⚡ Acción en la galería es un paso que nadie revisó.
+      if (c === 'accion' && x.accion!.operacion !== OP_AVISAR) {
+        assert.ok([OP_LEER_COMPROBANTE, OP_EMITIR_RECIBO].includes(x.accion!.operacion), `${donde}: una acción que no es el aviso al equipo ni una tarjeta de Pagos («${x.accion!.operacion}»)`);
+        assert.equal(x.accion!.params.leadId, LEAD_DEL_EVENTO, `${donde}: la tarjeta de Pagos no es sobre el lead del evento`);
+      }
+      if (c === 'accion' && x.accion!.operacion === OP_AVISAR) {
         assert.equal(x.accion!.params.leadId, LEAD_DEL_EVENTO, `${donde}: el aviso no es sobre el lead del evento`);
         // «MaKo en WhatsApp» con su LISTA: sale TAL CUAL (lo que se ve es lo que llega), y el espejo es su texto.
         assert.ok(esTarjetaTalCual(x.accion!.params), `${donde}: una tarjeta MaKo de ANTES (sin partes)`);
@@ -463,7 +471,8 @@ test('los datos del EQUIPO van sólo en «MaKo en WhatsApp», y cada aviso nuevo
       // Una tarjeta con su lista sale TAL CUAL: no agrega sola ni el nombre ni el link (la cobranza es la de antes, LITERAL).
       // El AI Analyst (13/10/2026) no habla de un lead: el análisis es del negocio. Lleva SU link (al análisis).
       if (claseDe(x) === 'accion' && p.id === 'mako-analisis') assert.ok(claves.includes('analisis_link'), `${p.id}/${x.id}: el aviso sin el link al análisis`);
-      if (claseDe(x) === 'accion' && p.id !== 'mako-cobranza' && p.id !== 'mako-analisis') {
+      // Sólo los AVISOS (una tarjeta de Pagos no le habla al equipo: lee o emite).
+      if (claseDe(x) === 'accion' && x.accion?.operacion === OP_AVISAR && p.id !== 'mako-cobranza' && p.id !== 'mako-analisis') {
         assert.ok(claves.includes('link_lead'), `${p.id}/${x.id}: el aviso sin el link a la ficha`);
         assert.ok(claves.includes('nombre_completo'), `${p.id}/${x.id}: el aviso sin el nombre del lead`);
       }
@@ -763,6 +772,8 @@ const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'lead-entro': ['whatsapp', 'email', 'mako'], 'lead-agendo': ['whatsapp', 'email', 'mako'], 'lead-no-asistio': ['whatsapp', 'email', 'mako'],
   'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'lead-no-avanzo': ['mako'], 'cliente-empezo': ['whatsapp', 'email'],
   'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-analisis': ['mako'], 'mako-charla': ['mako'],
+  // «Leer comprobante» no manda nada (sólo los avisos al equipo); «Emitir recibo» se lo manda al lead por WhatsApp.
+  'comprobante-llego': ['mako'], 'recibo-al-cobrar': ['whatsapp'],
   'instagram-te-escribieron': ['instagram', 'mako'], 'messenger-te-escribieron': ['messenger', 'mako'], 'email-recibido': ['email', 'mako'],
   'email-newsletter': ['email'],
 };
@@ -782,8 +793,8 @@ test('filtrarPlantillas: cada palabra, sin acentos ni mayúsculas; canal y objet
   assert.deepEqual(ids({ texto: '  agendó   LLAMADA ' }), ['lead-agendo'], 'los espacios de más');
   assert.ok(ids({ texto: 'historia' }).includes('instagram-te-escribieron'), 'busca también en la línea');
   assert.deepEqual(ids({ canal: 'instagram', objetivo: 'cobrar' }), [], 'las dos a la vez');
-  assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['lead-confirmo-compra']);
-  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['lead-confirmo-compra', 'mako-cobranza', 'mako-pago']);
+  assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['lead-confirmo-compra', 'recibo-al-cobrar']);
+  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['lead-confirmo-compra', 'mako-cobranza', 'mako-pago', 'comprobante-llego', 'recibo-al-cobrar']);
   assert.deepEqual(ids({ texto: 'no existe nada asi' }), []);
 });
 
