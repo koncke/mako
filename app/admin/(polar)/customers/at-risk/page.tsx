@@ -4,6 +4,7 @@
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
 import { leerClientes, leerIngresos } from '@/app/admin/_polar/datos/clientes-server'
 import { vistaDeAtRisk } from '@/app/admin/_polar/datos/clientes'
+import { wsSuperAdmin } from '@/lib/workspace'
 import { Metadata } from 'next'
 import { AtRiskPage } from './AtRiskPage'
 
@@ -17,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
   await exigirSuperAdmin()
-  const [clientes, ingresos] = await Promise.all([leerClientes(), leerIngresos()])
-  return <AtRiskPage {...vistaDeAtRisk(clientes, ingresos)} />
+  // La plataforma arma el link a la ficha del CRM de un atrasado sin cuenta de MaKo (`rutaDeQuienPaga`).
+  const [clientes, ingresos, plataforma] = await Promise.all([leerClientes(), leerIngresos(), wsSuperAdmin().catch(() => null)])
+  return <AtRiskPage {...vistaDeAtRisk(clientes, ingresos)} plataforma={plataforma} />
 }

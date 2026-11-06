@@ -8,12 +8,12 @@
 //   · el título: Polar pone el avatar y el nombre de la organización arriba de «Overview»; Admin es la plataforma (no hay
 //     organización), así que queda «Overview» con las quick actions al lado;
 //   · `PlanUpsell` (vender el plan de Polar) y `OrganizationStatusBanner` (el alta de la organización en Polar, su checklist
-//     de onboarding) no son de MaKo: en su lugar van los banners de lo que espera a Martín (EsperaBanners.tsx);
-//     `DisputesBanner` es el molde de esos banners;
+//     de onboarding) no son de MaKo: en su lugar va lo que espera a Martín (EsperaBanners.tsx), UNA lista chica con una fila
+//     por espera; el contracargo (el `DisputesBanner` de Polar) va primero (revisión del Cerebro del 6/11/2026, 28 y 38);
 //   · `AccountWidget` («Available balance», el saldo de la cuenta de Polar y sus payouts) es «Por cobrar»: los próximos
 //     cobros de MaKo (decidido el 6/11/2026: MaKo no tiene saldo para retirar, y sin esa tarjeta la grilla queda con un
-//     hueco). `GrossMarginWidget` es el margen de lo cobrado contra el gasto de IA de MaKo (el de toda la plataforma: no se
-//     reparte por negocio). Las dos filas son de tres, como en Polar, en su orden.
+//     hueco). `GrossMarginWidget` es «AI margin»: lo cobrado contra el gasto de IA por API de MaKo (el de toda la
+//     plataforma: no se reparte por negocio), sin los costos fijos. Las dos filas son de tres, como en Polar, en su orden.
 
 import { OverviewQuickActions } from '@/app/admin/_polar/web/DashboardOverview/OverviewQuickActions'
 import { OverviewSection } from '@/app/admin/_polar/web/DashboardOverview/OverviewSection'

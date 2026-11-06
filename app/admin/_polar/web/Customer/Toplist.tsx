@@ -7,6 +7,9 @@ import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import Link from '@/app/_ui/Link'
 import { PropsWithChildren, ReactNode } from 'react'
 
+// MaKo: el subtítulo va DEBAJO del título (revisión del Cerebro del 6/11/2026, punto 36): al lado, los subtítulos de largos
+// distintos partían la cabecera en dos renglones en unas columnas y no en otras, y las tres listas no arrancaban a la misma
+// altura.
 export const ToplistHeader = ({
   title,
   caption,
@@ -15,8 +18,8 @@ export const ToplistHeader = ({
   caption?: ReactNode
 }) => (
   <Box
-    alignItems="baseline"
-    columnGap="m"
+    flexDirection="column"
+    rowGap="xs"
     paddingBottom="l"
     borderBottomWidth={1}
     borderStyle="solid"

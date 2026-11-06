@@ -25,6 +25,15 @@ export const hrefDePersona = (ws: number) => `/admin/customers/${ws}/members`
 /** Sin mayúsculas ni acentos, para que «Gómez» se encuentre escribiendo «gomez». */
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
+/**
+ * Lo que se dice de un negocio debajo de su nombre: de qué agencia es (si es cliente de una), su plan y si está pausado
+ * («De Agencia Faro · MaKo Esencial · Pausado»). UNA frase para la búsqueda ⌘K y para la segunda línea de la lista de Customers
+ * (revisión del Cerebro del 6/11/2026, punto 35): con dos, un negocio pausado diría «Pausado» en un lado y nada en el otro.
+ */
+export function detalleDeNegocio(n: { plan: string; pausado: boolean; deAgencia?: boolean; agencia?: string | null }): string {
+  return [n.deAgencia ? `De ${n.agencia ?? 'una agencia'}` : null, n.plan, n.pausado ? 'Pausado' : null].filter(Boolean).join(' · ')
+}
+
 /** Arma el índice con lo que leyó el server. `plan` dice el nombre del plan de una capa. */
 export function armarIndice(p: {
   workspaces: ReadonlyArray<{ id: number; nombre: string; capa: string; estado: string }>
@@ -38,12 +47,12 @@ export function armarIndice(p: {
   const nombre = new Map(clientes.map((w) => [w.id, w.nombre]))
   const detalle = (w: (typeof clientes)[number]) => {
     const ag = p.deAgencia?.get(w.id)
-    const partes = [
-      ag != null ? `De ${nombre.get(ag) ?? 'una agencia'}` : null,
-      p.plan(w.capa),
-      w.estado === 'pausado' ? 'Pausado' : null,
-    ]
-    return partes.filter(Boolean).join(' · ')
+    return detalleDeNegocio({
+      plan: p.plan(w.capa),
+      pausado: w.estado === 'pausado',
+      deAgencia: ag != null,
+      agencia: ag != null ? (nombre.get(ag) ?? null) : null,
+    })
   }
   return {
     negocios: clientes.map((w) => ({

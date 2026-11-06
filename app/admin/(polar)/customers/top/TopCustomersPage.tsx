@@ -4,6 +4,10 @@
 // MaKo: lo que Polar pide con `useTopCustomers` se suma acá, con los pagos que leyó el server (`topClientes`,
 // app/admin/_polar/datos/clientes.ts). «Orders» son los pagos que entraron; «Net Revenue» es lo pagado (MaKo no descuenta
 // comisiones ni devoluciones: no se llama «neto»).
+// Arranca «Desde siempre» (`RANGO_INICIAL_TOP`), no en los 30 días de Polar: la tarjeta de la portada cuenta desde siempre
+// («del total cobrado») y su «Ver todo» abría otros montos y otro orden, y hasta «Sin pagos todavía» debajo de una tarjeta con
+// pagos (revisión del Cerebro del 6/11/2026, punto 29). Una fila de quien pagó sin cuenta de MaKo abre su ficha del CRM, y
+// una sin nada que abrir no es clicable (`rutaDeQuienPaga`, punto 24).
 
 import { CustomerCell } from '@/app/admin/_polar/web/Customer/CustomerCell'
 import { CustomersPageShell } from '@/app/admin/_polar/web/Customer/CustomersPageShell'
@@ -12,7 +16,7 @@ import { useClientSidePagination } from '@/app/admin/_polar/web/Customer/useClie
 import { useEnElNavegador } from '@/app/admin/_polar/web/Customer/useEnElNavegador'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
-  rutaDeNegocio,
+  rutaDeQuienPaga,
   topClientes,
   type ClienteTop,
   type PropsTop,
@@ -26,6 +30,9 @@ import { useMemo, useState } from 'react'
 
 // El máximo que acepta `/v1/customers/top` de Polar.
 const LIMIT = 50
+
+/** El rango con que abre la página: el mismo de la tarjeta de la portada que lleva acá. */
+export const RANGO_INICIAL_TOP: ChartRange = 'all_time'
 
 const columns: DataTableColumnDef<ClienteTop>[] = [
   {
@@ -54,10 +61,10 @@ const columns: DataTableColumnDef<ClienteTop>[] = [
   },
 ]
 
-export const TopCustomersPage = ({ datos, error, avisos, desde }: PropsTop) => {
+export const TopCustomersPage = ({ datos, error, avisos, desde, plataforma }: PropsTop & { plataforma: number | null }) => {
   const router = useRouter()
   const enElNavegador = useEnElNavegador()
-  const [range, setRange] = useState<ChartRange>('30d')
+  const [range, setRange] = useState<ChartRange>(RANGO_INICIAL_TOP)
   const [startDate, endDate] = useMemo(
     () => getChartRangeParams(range, desde),
     [range, desde],
@@ -117,10 +124,10 @@ export const TopCustomersPage = ({ datos, error, avisos, desde }: PropsTop) => {
             pagination={pagination}
             onPaginationChange={setPagination}
             getRowId={(customer) => customer.clave}
+            isRowClickable={(row) => rutaDeQuienPaga(row.original, plataforma) != null}
             onRowClick={(row) => {
-              if (row.original.ws != null) {
-                router.push(rutaDeNegocio(row.original.ws))
-              }
+              const ruta = rutaDeQuienPaga(row.original, plataforma)
+              if (ruta) router.push(ruta)
             }}
           />
         </>

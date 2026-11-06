@@ -56,15 +56,19 @@ export type Lectura<T> = { ok: true; datos: T; avisos: string[] } | { ok: false;
 
 // ── La lista de la izquierda (CustomerListSidebar) ─────────────────────────────────────────────────────────────────
 
-/** Un renglón de la lista. Polar muestra nombre, nombre de facturación y email: un negocio de MaKo tiene su nombre. */
+/**
+ * Un renglón de la lista. Polar muestra nombre, nombre de facturación y email: un negocio de MaKo tiene su nombre y, en la
+ * segunda línea (la que quedó vacía al sacar el email), lo que dice ⌘K de él: su agencia, su plan y si está pausado
+ * (`detalleDeNegocio`, ./busqueda-tipos.ts; revisión del Cerebro del 6/11/2026, punto 35).
+ */
 export type ClienteDeLista = {
   ws: number
   nombre: string
   /** ISO: cuándo se dio de alta. */
   creado: string
-  /** El workspace está activo (el filtro Active / Inactive de Polar). */
+  /** El workspace está activo (el filtro Active / Inactive de Polar). `false` = pausado (no hay otro estado). */
   activo: boolean
-  /** El plan como lo vende MaKo (para el CSV). */
+  /** El plan como lo vende MaKo (la segunda línea del renglón y el CSV). */
   plan: string
   estado: string
   /** Es cliente de una agencia (`esClienteDeMaKo` da false): sólo sale con el filtro «De agencias». */
@@ -79,6 +83,8 @@ export type OrdenLista = (typeof ORDENES)[number]
  * El filtro de la lista (el `CustomerFilter` de Polar: All, Active, Inactive) y uno más de MaKo, «De agencias» (decisión del
  * Cerebro, 6/11/2026): los clientes de una agencia no son clientes de MaKo y no salen en «Todos», pero tienen que poder
  * encontrarse en la lista además de en la búsqueda ⌘K. Es un filtro más del mismo menú, como los de Polar.
+ * ⚠️ El de Polar «Inactive» se dice «Pausados» (punto 35): un negocio inactivo es uno pausado (`workspaces.estado` no tiene
+ *    otro), y «Inactivos» se confundía con «Sin uso» de At Risk. La clave de la URL sigue siendo `inactive`.
  */
 export const FILTROS = ['all', 'active', 'inactive', 'agency'] as const
 export type FiltroLista = (typeof FILTROS)[number]
@@ -86,7 +92,7 @@ export type FiltroLista = (typeof FILTROS)[number]
 export const ROTULO_FILTRO: Record<FiltroLista, string> = {
   all: 'Todos',
   active: 'Activos',
-  inactive: 'Inactivos',
+  inactive: 'Pausados',
   agency: 'De agencias',
 }
 
@@ -206,12 +212,33 @@ export function primerAlta(creados: readonly string[], ahoraMs: number): string 
   return new Date(ts.length ? Math.min(...ts) : ahoraMs).toISOString()
 }
 
+// ── A dónde lleva un cliente que pagó ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La ficha de quien le pagó a MaKo: su negocio en Customers, o, si pagó sin cuenta de MaKo, su ficha del CRM de la plataforma
+ * (`/crm/<lead>?ws=<plataforma>`, la misma regla que «Ver su ficha del CRM» de un pedido, `rutaDelCliente` de
+ * web/Orders/OrderCustomerContext.tsx). `null` = no hay nada que abrir: la fila no se dibuja clicable (revisión del Cerebro del
+ * 6/11/2026, punto 24: una fila de un lead sin cuenta parecía clicable y no abría nada).
+ */
+export function rutaDeQuienPaga(c: { ws: number | null; leadId?: number | null }, plataforma: number | null): string | null {
+  if (c.ws != null) return rutaDeNegocio(c.ws)
+  return c.leadId != null && plataforma != null ? `/crm/${c.leadId}?ws=${plataforma}` : null
+}
+
+/** `lead:<n>` → n. La clave la arma lib/admin-ingresos.ts. */
+export const leadDeClave = (clave: string): number | null => {
+  const m = /^lead:([1-9]\d{0,11})$/.exec(clave)
+  return m ? Number(m[1]) : null
+}
+
 // ── Top Customers (TopCustomersList, TopCustomersPage) ─────────────────────────────────────────────────────────────
 
 export type ClienteTop = {
   clave: string
-  /** Su negocio en MaKo. `null` = pagó sin cuenta de MaKo (un lead del CRM de la plataforma): sin ficha que abrir. */
+  /** Su negocio en MaKo. `null` = pagó sin cuenta de MaKo (un lead del CRM de la plataforma): su ficha es la del CRM. */
   ws: number | null
+  /** Su ficha en el CRM de la plataforma, si tiene (`rutaDeQuienPaga`). */
+  leadId: number | null
   nombre: string
   /** Cuántos pagos entraron en el período (las «orders» de Polar). */
   pagos: number
@@ -221,7 +248,7 @@ export type ClienteTop = {
 
 /** Un pago que entró, de quién (la clave de lib/admin-ingresos: `ws:<n>` o `lead:<id>`), cuándo (YYYY-MM-DD) y cuánto. */
 export type PagoDeCliente = { cliente: string; fecha: string; usd: number }
-export type QuienPaga = { clave: string; ws: number | null; nombre: string }
+export type QuienPaga = { clave: string; ws: number | null; leadId: number | null; nombre: string }
 /** Lo que el navegador necesita para contar los que más pagaron en cualquier rango (el de Polar lo pide a su API). */
 export type DatosTop = { pagos: PagoDeCliente[]; quien: QuienPaga[] }
 
@@ -230,11 +257,11 @@ export type DatosTop = { pagos: PagoDeCliente[]; quien: QuienPaga[] }
  * la clave de su cliente no se puede atribuir: los dos quedan afuera.
  */
 export function datosDeTop(ingresos: Pick<Ingresos, 'entradas' | 'clientes'>): DatosTop {
-  const quien = new Map<string, QuienPaga>(ingresos.clientes.map((c) => [c.clave, { clave: c.clave, ws: c.ws, nombre: c.nombre }]))
+  const quien = new Map<string, QuienPaga>(ingresos.clientes.map((c) => [c.clave, { clave: c.clave, ws: c.ws, leadId: c.leadId, nombre: c.nombre }]))
   const pagos: PagoDeCliente[] = []
   for (const e of ingresos.entradas) {
     if (!e.cliente || e.usd == null || !Number.isFinite(e.usd)) continue
-    if (!quien.has(e.cliente)) quien.set(e.cliente, { clave: e.cliente, ws: wsDeClave(e.cliente), nombre: e.nombre })
+    if (!quien.has(e.cliente)) quien.set(e.cliente, { clave: e.cliente, ws: wsDeClave(e.cliente), leadId: leadDeClave(e.cliente), nombre: e.nombre })
     pagos.push({ cliente: e.cliente, fecha: e.fecha, usd: e.usd })
   }
   return { pagos, quien: [...quien.values()] }
@@ -264,7 +291,7 @@ export function topClientes(datos: DatosTop, desde: string | null, hasta: string
     .filter(([, a]) => a.usd > 0)
     .map(([clave, a]) => {
       const q = quien.get(clave)
-      return { clave, ws: q?.ws ?? wsDeClave(clave), nombre: q?.nombre ?? clave, pagos: a.pagos, totalCentavos: aCentavos(a.usd) }
+      return { clave, ws: q?.ws ?? wsDeClave(clave), leadId: q?.leadId ?? leadDeClave(clave), nombre: q?.nombre ?? clave, pagos: a.pagos, totalCentavos: aCentavos(a.usd) }
     })
     .sort((a, b) => b.totalCentavos - a.totalCentavos || a.nombre.localeCompare(b.nombre, 'es'))
     .slice(0, limite)
@@ -283,6 +310,8 @@ const GRAVES: ReadonlySet<MotivoEnRiesgo> = new Set(['atrasado', 'cobro'])
 export type ClienteEnRiesgo = {
   clave: string
   ws: number | null
+  /** Su ficha en el CRM de la plataforma, si tiene (la de un atrasado sin cuenta de MaKo: `rutaDeQuienPaga`). */
+  leadId: number | null
   nombre: string
   /** El plan (el «Product» de Polar). `null` = no tiene negocio en MaKo. */
   plan: string | null
@@ -295,8 +324,8 @@ export type ClienteEnRiesgo = {
   grave: boolean
 }
 
-type FilaParaRiesgo = Pick<FilaCliente, 'ws' | 'nombre' | 'capa' | 'estado' | 'motivoRiesgo' | 'sinEntrar' | 'mrrUsd' | 'planAManoTxt'>
-type IngresoParaRiesgo = Pick<ClienteResumen, 'clave' | 'ws' | 'nombre' | 'estado' | 'mrr' | 'diasAtraso'>
+type FilaParaRiesgo = Pick<FilaCliente, 'ws' | 'nombre' | 'capa' | 'estado' | 'motivoRiesgo' | 'sinEntrar' | 'mrrUsd' | 'planAManoTxt' | 'segmentos'>
+type IngresoParaRiesgo = Pick<ClienteResumen, 'clave' | 'ws' | 'nombre' | 'estado' | 'mrr' | 'diasAtraso'> & { leadId?: number | null }
 
 const dias = (n: number) => (n === 1 ? '1 día' : `${n} días`)
 
@@ -321,6 +350,11 @@ function textoDeRiesgo(motivo: MotivoEnRiesgo, d: { diasAtraso?: number | null; 
  *
  * ⚠️ «Dejó de pagar» cuenta SÓLO si el negocio sigue activo y no tiene un plan a mano: uno que se fue hace meses no está
  *    en riesgo, ya se fue; y uno con meses gratis no tiene por qué pagar.
+ * ⚠️ UN CLIENTE DE UNA AGENCIA NO VA (revisión del Cerebro del 6/11/2026, punto 7): no está en la lista de Customers
+ *    (`esClienteDeMaKo`), y contarlo acá daba un riesgo que no se puede encontrar en ningún lado. Se saca en LOS DOS bucles:
+ *    sacarlo de `filas` antes de llamar no alcanza, porque un atrasado entra por `ingresos`.
+ * ⚠️ Es LA cuenta de riesgo de Admin: la usan la página At Risk, su columna en Customers › Overview y la tarjeta de la portada
+ *    (`riesgoDeOverview`, ./resumen.ts). Antes la tarjeta tenía la suya y escondía a los atrasados.
  */
 export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: readonly IngresoParaRiesgo[], limite = 100): ClienteEnRiesgo[] {
   const fila = new Map(filas.map((f) => [f.ws, f]))
@@ -329,9 +363,15 @@ export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: rea
     const ya = out.get(c.clave)
     if (!ya || MOTIVOS_RIESGO.indexOf(c.motivo) < MOTIVOS_RIESGO.indexOf(ya.motivo)) out.set(c.clave, c)
   }
+  const leadDe = new Map<number, number>()
+  for (const i of ingresos) if (i.ws != null && i.leadId != null && !leadDe.has(i.ws)) leadDe.set(i.ws, i.leadId)
   for (const i of ingresos) {
     const f = i.ws != null ? fila.get(i.ws) : undefined
-    const base = { clave: i.ws != null ? `ws:${i.ws}` : i.clave, ws: i.ws, nombre: f?.nombre ?? i.nombre, plan: f ? nombreDePlan(f.capa) : null }
+    if (f && !esClienteDeMaKo(f)) continue
+    const base = {
+      clave: i.ws != null ? `ws:${i.ws}` : i.clave, ws: i.ws, leadId: i.leadId ?? null, nombre: f?.nombre ?? i.nombre,
+      plan: f ? nombreDePlan(f.capa) : null,
+    }
     if (i.estado === 'atrasado') {
       poner({ ...base, montoCentavos: aCentavos(i.mrr), motivo: 'atrasado', texto: textoDeRiesgo('atrasado', i), grave: true })
     } else if (i.estado === 'cortado' && f && f.estado === 'activo' && !f.planAManoTxt) {
@@ -339,9 +379,9 @@ export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: rea
     }
   }
   for (const f of filas) {
-    if (!f.motivoRiesgo) continue
+    if (!f.motivoRiesgo || !esClienteDeMaKo(f)) continue
     poner({
-      clave: `ws:${f.ws}`, ws: f.ws, nombre: f.nombre, plan: nombreDePlan(f.capa),
+      clave: `ws:${f.ws}`, ws: f.ws, leadId: leadDe.get(f.ws) ?? null, nombre: f.nombre, plan: nombreDePlan(f.capa),
       montoCentavos: aCentavos(f.mrrUsd), motivo: f.motivoRiesgo, texto: textoDeRiesgo(f.motivoRiesgo, f),
       grave: GRAVES.has(f.motivoRiesgo),
     })

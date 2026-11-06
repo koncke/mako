@@ -4,6 +4,7 @@
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
 import { leerIngresos } from '@/app/admin/_polar/datos/clientes-server'
 import { vistaDeTop } from '@/app/admin/_polar/datos/clientes'
+import { wsSuperAdmin } from '@/lib/workspace'
 import { Metadata } from 'next'
 import { TopCustomersPage } from './TopCustomersPage'
 
@@ -17,5 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
   await exigirSuperAdmin()
-  return <TopCustomersPage {...vistaDeTop(await leerIngresos(), Date.now())} />
+  // La plataforma arma el link a la ficha del CRM de quien pagó sin cuenta de MaKo (`rutaDeQuienPaga`).
+  const [ingresos, plataforma] = await Promise.all([leerIngresos(), wsSuperAdmin().catch(() => null)])
+  return <TopCustomersPage {...vistaDeTop(ingresos, Date.now())} plataforma={plataforma} />
 }

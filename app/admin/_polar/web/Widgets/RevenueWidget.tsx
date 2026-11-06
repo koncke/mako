@@ -21,7 +21,8 @@ interface RevenueWidgetProps {
   ingresos: Lectura<IngresosResumen>
 }
 
-const WIDGET_TITLE = 'Ingresos'
+// En inglés, como las demás secciones de Polar (revisión del Cerebro del 6/11/2026, punto 39).
+const WIDGET_TITLE = 'Revenue'
 const MONTHS = 5
 
 // Whole dollars, then compact from $10K so the month labels stay narrow.

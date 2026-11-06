@@ -6,14 +6,17 @@
 
 import type { Entrada, MesIngresos, PorCobrar } from '@/lib/admin-ingresos-reglas'
 import { armarIndice, type IndiceBusqueda } from '../busqueda-tipos'
+import { clientesEnRiesgo } from '../clientes'
 import {
-  actividadReciente, filasDeRiesgo, margenBruto, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, porCobrarResumen,
+  actividadReciente, margenBruto, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, riesgoDeOverview,
   topClientes, type IngresosResumen, type ResumenAdmin,
 } from '../resumen'
 
 /** «Ahora» de los ejemplos: el 6 de noviembre de 2026 a las 15:00 (hora de Buenos Aires). */
 export const AHORA_EJEMPLO = Date.parse('2026-11-06T18:00:00Z')
 const HOY = '2026-11-06'
+/** El workspace de la plataforma de los ejemplos (arma el link al CRM de quien pagó sin cuenta de MaKo). */
+const PLATAFORMA = 9
 
 const mes = (m: string, cobrado: number, mrr: number, mov: Partial<Pick<MesIngresos, 'nuevo' | 'vuelve' | 'sube' | 'baja' | 'corte'>> = {}): MesIngresos => ({
   mes: m, cobrado, mrr, nuevo: 0, vuelve: 0, sube: 0, baja: 0, corte: 0, enCurso: m === HOY.slice(0, 7), ...mov,
@@ -61,7 +64,7 @@ const clientes = [
   { clave: 'ws:22', nombre: 'Panadería La Espiga', ws: 22, pagos: 5, total: 2_350 },
   { clave: 'ws:23', nombre: 'Clínica Dental Sonríe', ws: 23, pagos: 4, total: 1_880 },
   { clave: 'ws:24', nombre: 'Taller Ruedas', ws: 24, pagos: 4, total: 1_880 },
-  { clave: 'lead:310', nombre: 'Ana Gómez', ws: null, pagos: 2, total: 1_000 },
+  { clave: 'lead:310', nombre: 'Ana Gómez', ws: null, leadId: 310, pagos: 2, total: 1_000 },
   { clave: 'ws:25', nombre: 'Viajes Horizonte', ws: 25, pagos: 2, total: 940 },
   { clave: 'ws:26', nombre: 'Gimnasio Fuerza', ws: 26, pagos: 1, total: 940 },
 ]
@@ -95,16 +98,23 @@ function gastoPorDiaDe(desde: string, hasta: string): Array<{ clave: string; cos
 
 export const resumenEjemplo: ResumenAdmin = {
   ingresos: { ok: true, datos: ingresosEjemplo },
-  top: { ok: true, datos: topClientes(clientes, ingresosEjemplo.cobradoTotal) },
-  riesgo: {
-    ok: true,
-    datos: filasDeRiesgo([
-      { ws: 25, nombre: 'Viajes Horizonte', plan: 'Pro', riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 3, mrrUsd: 470 },
-      { ws: 26, nombre: 'Gimnasio Fuerza', plan: 'Esencial', riesgo: true, motivoRiesgo: 'sin-uso', sinEntrar: 21, mrrUsd: 0 },
-      { ws: 28, nombre: 'Floristería Pétalo', plan: 'Pro', riesgo: true, motivoRiesgo: 'pausado', sinEntrar: 40, mrrUsd: 0 },
-      { ws: 21, nombre: 'Estudio Norte', plan: 'Pro', riesgo: false, motivoRiesgo: null, sinEntrar: 0, mrrUsd: 470 },
-    ]),
-  },
+  top: { ok: true, datos: topClientes(clientes, ingresosEjemplo.cobradoTotal, 5, PLATAFORMA) },
+  // La misma cuenta que Customers › At Risk: Viajes Horizonte, atrasada en Por cobrar, también sale acá (y primero).
+  riesgo: riesgoDeOverview(
+    {
+      atRisk: clientesEnRiesgo(
+        [
+          { ws: 25, nombre: 'Viajes Horizonte', capa: 'completo', estado: 'activo', motivoRiesgo: 'cobro', sinEntrar: 3, mrrUsd: 470, planAManoTxt: null, segmentos: ['cliente'] },
+          { ws: 26, nombre: 'Gimnasio Fuerza', capa: 'esencial', estado: 'activo', motivoRiesgo: 'sin-uso', sinEntrar: 21, mrrUsd: 0, planAManoTxt: null, segmentos: ['cliente'] },
+          { ws: 28, nombre: 'Floristería Pétalo', capa: 'completo', estado: 'pausado', motivoRiesgo: 'pausado', sinEntrar: 40, mrrUsd: 0, planAManoTxt: null, segmentos: ['cliente'] },
+          { ws: 21, nombre: 'Estudio Norte', capa: 'completo', estado: 'activo', motivoRiesgo: null, sinEntrar: 0, mrrUsd: 470, planAManoTxt: null, segmentos: ['cliente'] },
+        ],
+        [{ clave: 'ws:25', ws: 25, leadId: null, nombre: 'Viajes Horizonte', estado: 'atrasado', mrr: 470, diasAtraso: 4 }],
+      ),
+      error: null,
+    },
+    PLATAFORMA,
+  ),
   actividad: {
     ok: true,
     datos: actividadReciente({
@@ -125,12 +135,13 @@ export const resumenEjemplo: ResumenAdmin = {
       usdTxt,
     }),
   },
-  porCobrar: { ok: true, datos: porCobrarResumen(porCobrar, clientes, HOY) },
+  porCobrar: { ok: true, datos: porCobrarResumen(porCobrar, clientes, HOY, PLATAFORMA) },
   margen: {
     ok: true,
     datos: margenBruto({ hoy: HOY, meses, entradas: ingresosEjemplo.entradas, gastoPorDia: gastoPorDiaDe('2026-06-01', HOY) }),
   },
   esperan: {
+    disputas: { ok: true, datos: { porResponder: 1 } },
     ingreso: {
       ok: true,
       datos: {
@@ -166,7 +177,7 @@ export const resumenEjemplo: ResumenAdmin = {
 /** El índice de la búsqueda ⌘K de los ejemplos. */
 export const indiceEjemplo: IndiceBusqueda = armarIndice({
   workspaces: [
-    { id: 9, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' },
+    { id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' },
     ...Object.entries(nombres).map(([id, nombre]) => ({ id: Number(id), nombre, capa: 'completo', estado: id === '28' ? 'pausado' : 'activo' })),
   ],
   usuarios: [
@@ -174,6 +185,6 @@ export const indiceEjemplo: IndiceBusqueda = armarIndice({
     { id: 2, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', workspace_id: 21 },
     { id: 3, nombre: 'Pedro Díaz', email: 'pedro@ejemplo.com', workspace_id: 24 },
   ],
-  plataforma: 9,
+  plataforma: PLATAFORMA,
   plan: (capa) => (capa === 'completo' ? 'Completo' : capa),
 })

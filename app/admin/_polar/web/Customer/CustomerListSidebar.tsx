@@ -4,12 +4,14 @@
 // MaKo: un Customer es un NEGOCIO (un workspace). La lista entera llega del server (app/admin/(polar)/customers/layout.tsx):
 // son decenas, así que la búsqueda, el filtro y el orden se hacen en memoria (`filtrarClientes`) y no hace falta el scroll
 // infinito de Polar. Lo que Polar guarda en la URL con `nuqs` (query, sorting, filter) se guarda igual, sin ir al server.
-// El renglón no lleva email: las personas de un negocio viven sólo en su ficha › Members (Martín, 6/11/2026).
+// El renglón no lleva email: las personas de un negocio viven sólo en su ficha › Members (Martín, 6/11/2026). En la segunda
+// línea, donde Polar pone el email, va lo que dice ⌘K del negocio: su plan y si está pausado, y si es cliente de una agencia,
+// de cuál («De Agencia Faro · MaKo Pro · Pausado»; `detalleDeNegocio`, revisión del Cerebro del 6/11/2026, punto 35): un
+// negocio pausado se veía igual a uno activo y para saber el plan había que abrirlo. El filtro «Inactivos» es «Pausados».
 // «Export Customers» arma el CSV en el navegador con lib/csv-celda.ts (Polar lo baja de su API).
 // Dos cosas de MaKo que Polar no tiene (decisiones del Cerebro, 6/11/2026), sin cambiar lo que se ve:
 //   · el filtro «De agencias» en el mismo menú de filtros (`FILTROS`, ./datos/clientes.ts): los clientes de una agencia no
-//     salen en «Todos» (no son clientes de MaKo) y con ese filtro se ven, con su agencia abajo del nombre, donde Polar pone
-//     el email;
+//     salen en «Todos» (no son clientes de MaKo) y con ese filtro se ven, con su agencia al principio de la segunda línea;
 //   · el clic derecho de la casa en cada negocio (Ver ficha · Entrar a su cuenta · Administrar, ./menu-contextual-negocios.ts),
 //     lo mismo que el «⋮» de su ficha sin abrirla.
 
@@ -31,6 +33,7 @@ import {
   type OrdenLista,
 } from '@/app/admin/_polar/datos/clientes'
 import type { OpcionesAlta } from '@/app/admin/_polar/datos/alta'
+import { detalleDeNegocio } from '@/app/admin/_polar/datos/busqueda-tipos'
 import { armarCsv } from '@/lib/csv-celda'
 import { useMenuContextual } from '@/app/_ui/useMenuContextual'
 import { MenuContextual } from '@/app/_ui/MenuContextual'
@@ -301,11 +304,14 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
                     <div className="w-full truncate text-sm">
                       {customer.nombre}
                     </div>
-                    {customer.deAgencia && (
-                      <div className="dark:text-polar-500 w-full truncate text-xs text-gray-500">
-                        {customer.agencia ? `De ${customer.agencia}` : 'De una agencia'}
-                      </div>
-                    )}
+                    <div className="dark:text-polar-500 w-full truncate text-xs text-gray-500">
+                      {detalleDeNegocio({
+                        plan: customer.plan,
+                        pausado: !customer.activo,
+                        deAgencia: customer.deAgencia,
+                        agencia: customer.agencia,
+                      })}
+                    </div>
                   </div>
                 </div>
               </Link>

@@ -65,6 +65,11 @@ interface DataTableProps<TData extends RowData> {
   ) => string
   selection?: DataTableSelection<TData>
   onRowClick?: (row: DataTableRow<TData>) => void
+  /**
+   * MaKo: si esa fila abre algo al tocarla (por default, todas las que tienen `onRowClick`). Una que no abre nada no lleva la
+   * mano ni el clic: parecía clicable y no hacía nada (revisión del Cerebro del 6/11/2026, punto 24).
+   */
+  isRowClickable?: (row: DataTableRow<TData>) => boolean
   isRowActive?: (row: DataTableRow<TData>) => boolean
 }
 
@@ -96,6 +101,7 @@ export function DataTable<TData extends RowData>({
   getRowId,
   selection,
   onRowClick,
+  isRowClickable,
   isRowActive,
 }: DataTableProps<TData>) {
   const allColumns = React.useMemo(
@@ -185,12 +191,14 @@ export function DataTable<TData extends RowData>({
             ) : (
               <>
                 {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
+                  table.getRowModel().rows.map((row) => {
+                    const clickable = !!onRowClick && (isRowClickable?.(row) ?? true)
+                    return (
                     <TableRow
                       key={row.id}
                       className={twMerge(
                         'group/row',
-                        onRowClick && 'cursor-pointer',
+                        clickable && 'cursor-pointer',
                       )}
                       data-state={
                         isRowActive?.(row) ||
@@ -198,7 +206,7 @@ export function DataTable<TData extends RowData>({
                           ? 'selected'
                           : undefined
                       }
-                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      onClick={clickable ? () => onRowClick?.(row) : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const colSpan = getCellColSpan
@@ -229,7 +237,8 @@ export function DataTable<TData extends RowData>({
                         )
                       })}
                     </TableRow>
-                  ))
+                    )
+                  })
                 ) : (
                   <TableRow>
                     <TableCell
