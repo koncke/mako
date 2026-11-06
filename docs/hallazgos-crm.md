@@ -20,6 +20,38 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Migrar desde otro CRM: quietos, sin repetir y en su etapa (6/11/2026, nube)
+
+La promesa a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md): pasar los contactos de su CRM anterior por la API, con
+su Claude, guardando de dónde vino cada uno y sin escribirle a nadie de golpe. Es la operación `migrar_contactos`
+(`POST /api/v1/crm/migraciones`), la regla en `lib/migracion-leads.ts` y la mig 0404. Relevo: [relevo/nube-thiago-migrar.md](relevo/nube-thiago-migrar.md).
+
+- **«`createLead` acepta UTM» ya era cierto y no alcanzaba: el camino que usa Claude las tiraba.** `proponer_leads` guardaba
+  las UTM en la propuesta y `crearLeadsDePropuesta` (lib/api-mako/flujo.ts), que la aplica en el acto con un token detallado,
+  creaba el lead con cinco campos. Medido leyendo el camino entero, no la función. Arreglado; lo cubre tests/migrar-contactos.test.ts.
+  **Vive en:** `lib/api-mako/flujo.ts`, `lib/api-mako/flujo-params.ts`.
+- **«Quietos» no se consigue con `quedaDondeLoPusieron`.** Ésa saca al lead del CRM automático y de los barridos que no cuelgan
+  de nada, y deja pasar a propósito lo que cuelga de su etapa o de su etiqueta: un traído de un grupo nace en una etapa que no
+  manda, y esa guarda vive en el alta. Un migrado nace en la etapa que tenía allá, que puede tener una automatización colgada:
+  el barrido de la hora («Un Lead Entró» incluido) lo inscribía en la próxima vuelta. La puerta es `sinMigrados`, en
+  `leadsDeCohorte` (lib/nutricion.ts): UNA para todas las cohortes, así el próximo disparador la hereda. Entra a una
+  automatización sólo por el evento de un hecho nuevo (moverlo a mano, una reserva, una etiqueta, que conteste).
+  **Vive en:** `lib/nutricion.ts`, `app/crm/origen-lead.ts`.
+- **Nace en su etapa; no se mueve después.** Mover en bloque (`pasar_en_bloque_otra_columna`) dispara el evento de etapa de
+  cada lead, y ése SÍ inscribe. Por eso la etapa viaja en el alta (`pipeline_stage`) y la guía le pide a Claude que no mueva ni
+  etiquete a los migrados.
+- **Sólo a una etapa abierta.** «Ganado» lo vuelve venta con la fecha de HOY (los paneles contarían una venta que no pasó hoy)
+  y cliente de Customer Success. Los ganados y perdidos vuelven en `descartados`: **lo decide Martín** (ver el relevo).
+- **El id del CRM viejo es un hecho, no una sospecha.** Va ANTES del chequeo de duplicados y no lo apaga `permitirDuplicado`.
+  El mismo id de OTRO CRM viejo es otra persona (`migrado_de` en el índice único). El que ya estaba por email o teléfono se
+  ADOPTA: se le anota su id y no se mueve ni se aquieta (ya es un lead vivo).
+- **Un alta con varios campos nuevos rompe tests que fijan la forma EXACTA de una fila** (tests/flujo-acciones.test.ts): se
+  actualiza el test con un caso que traiga el campo, no sólo con la forma nueva.
+- ⚠️ **Sin hacer, y es de Martín:** `created_at` sigue siendo cuándo entró a MaKo, así que los paneles cuentan un migrado el día
+  que se migró (5.000 «leads nuevos» hoy). Se guarda `fecha_original`; contarlo en su fecha es `coalesce(fecha_original,
+  created_at)` en los lectores de leads por período. Y un lead migrado que se manda a la papelera y se vuelve a migrar choca
+  con el índice único al restaurarlo.
+
 ## «Grabar» la llamada desde la ficha: lo que el navegador deja grabar y lo que no (4/11/2026, nube)
 
 Pedido de Martín: «quiero que implementes el botón de "grabar" en el detail de un lead». El botón está al lado del funnel en
