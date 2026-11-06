@@ -2394,6 +2394,45 @@ botones mal». No faltaba nada: no se veía nada.
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
 
+# Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
+
+De esto depende cada `.maybeSingle()` del repo: sobre una columna que puede repetirse, con dos filas PostgREST
+contesta **PGRST116** y el lector tira (es lo que ya tiró el webhook de Calendly, y lo que fija
+`tests/crm-fathom-links.test.ts`). Así que «¿esta columna es única?» es una pregunta que se contesta **antes** de
+elegir el lector — y hay dos formas de contestarla mal, las dos con un resultado plausible:
+
+1. **Leyendo un `create index` y creyendo que es EL índice de la columna.** Una tabla puede tener los dos. La 0053
+   declara `email text not null unique` en la línea 27 y, catorce líneas más abajo,
+   `create index if not exists idx_usuarios_email on usuarios (email)`: un índice de **MÁS**, no único, al lado de la
+   constraint. Un `grep` de «index» + «email» encuentra el segundo, que es el que se parece a la pregunta. Eso mandó la
+   tanda de la mig 0410 entera: se escribió «`usuarios(email)` tiene un índice NO único (0053)» en una migración, en un
+   `docs/hallazgos-*` y en la cabecera de un módulo, y de ahí salió un bug que **no podía pasar**.
+2. **Midiendo las filas repetidas y leyendo el 0 como «todavía no pasó».** Un `count` de 0 es igual de compatible con
+   «no puede pasar»: no distingue las dos cosas, y confirma la hipótesis falsa en vez de romperla. El 6/11/2026 se midió
+   «direcciones con más de una fila = 0» y se anotó como «el esquema lo permite pero no hubo víctimas».
+
+**Lo que sí contesta, en un comando, y contra la base que está CORRIENDO** (un archivo de migración dice lo que se
+quiso aplicar, no lo que está aplicado):
+
+```sql
+select i.relname, ix.indisunique, pg_get_indexdef(ix.indexrelid)
+  from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid
+ where t.relname = '<tabla>';
+```
+
+Y antes de inventar un criterio de desempate para «cuál de las N filas es la que vale», **buscá quién ya depende de
+que no haya N**: acá la 0178 construye `agencia_altas` entera sobre que «el email es LA identidad: `usuarios.email` es
+único», y el caso que parecía necesitar dos filas —alguien que trabaja en su cuenta y en la de un cliente de su
+agencia— el producto lo modela con la cookie firmada de agencia y su cartera (`agencia_clientes`, 0175). El detalle,
+en [docs/hallazgos-ajustes.md](docs/hallazgos-ajustes.md) → «El índice de MÁS que se leyó como el único».
+
+⚠️ **Y el `error` de esa lectura no se funde con «no hay fila».** Son tres estados (hay fila / no hay / no pude leer) y
+el que escribe necesita los tres: `if (error || !data) return null` salía por /perfil/notificaciones como
+«Esta sesión no tiene cuenta propia» sobre una persona que sí la tiene. El criterio: el que **ESCRIBE** corta con un
+motivo que la pantalla pueda decir; el que **LEE** puede caer al default (fail-open de una preferencia), y eso se
+decide a propósito, no por tener un `catch` de más. Moldes: `filaPropia` (lib/perfil.ts), `filaDeLaSesion`
+(app/api/recorridos/route.ts) y el `sinLeer` de `usuarioDelPerfil`.
+
 # Cuando algo «no aparece», el orden es datos → server → navegador, y no se saltea
 
 Tres preguntas, en este orden, y cada una descarta un tercio del sistema:
