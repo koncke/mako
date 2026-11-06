@@ -34,6 +34,20 @@ reconoce de lejos:
 contexto **y además la trabajé yo**. Los dos hicimos lo mismo. Retiré mi rama porque la suya es
 mejor. **Si a un chat le das un hallazgo como contexto, no lo trabajes vos también.**
 
+### ⚠️ TRECE PENDIENTES QUE NO ESTÁN EN LA LISTA DE NADIE — error de mi reparto
+
+El chat de «Varios» verificó los once `equipo-*.json` y encontró el agujero: de los 17 items suyos
+que en realidad son de otra área, **sólo 4 tienen equivalente en la lista de ese chat**. Los otros
+**13 no están en ninguna lista**: si nadie se los pasa a mano, se caen entre las sillas.
+
+**Están enumerados uno por uno en `docs/encargos-6-11/triaje-varios.md`** (ya en main). Lo que hay
+que hacer es leer esa lista y mandárselos al chat del área que corresponda.
+
+Y un número que tampoco estaba: **los 73 ids de «Varios» son 68 trabajos.** Cinco están escritos dos
+veces con distinto texto (`67≡325`, `306≡464`, `572≡619`, `465≡609` y su mitad `466`). Es probable
+que pase lo mismo en las otras áreas: **el barrido dedupó por título, y dos títulos distintos del
+mismo trabajo pasan.**
+
 ### Lo que se hizo hoy, y lo que dejó dicho
 
 - **Los 634 pendientes, barridos de todo el repo** → `docs/pendientes-todo-6-11.md`, el reparto en
