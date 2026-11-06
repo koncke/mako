@@ -4,14 +4,15 @@
 // Como en Polar, la página valida el rango de la URL y, si arranca antes del primer dato, redirige con el rango corregido.
 // Sin `interval` (MaKo mide por mes) ni `product_id` (no reparte por producto): se sacan de la URL al redirigir.
 // ⚠️ SÓLO EL SUPER ADMIN, antes de leer nada (cruza todos los negocios).
+// ⚠️ A LA VISTA VIAJAN MESES Y DÍAS COMO TEXTO (`vistaDeMetricas`), nunca un `Date`: este server corre en UTC y el navegador
+//    en la hora de quien mira, y un mes armado acá se dibujaba corrido (punto 5 de la revisión del 6/11/2026). Las fechas las
+//    arma MetricsPage.
 
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
-import { propsDeMetricas } from '@/app/admin/_polar/datos/metricas'
+import { primerDiaLeido, vistaDeMetricas } from '@/app/admin/_polar/datos/metricas'
 import { fromISODate, toISODate } from '@/app/admin/_polar/web/utils/metrics'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
-import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
-import { TriangleAlert } from '@/app/admin/_polar/orbit/icons'
+import { Alert } from '@/app/admin/_polar/orbit'
 import { vistaDeIngresos } from '@/lib/admin-ingresos'
 import { redirect, RedirectType } from 'next/navigation'
 import MetricsPage from './MetricsPage'
@@ -38,19 +39,11 @@ export default async function Page(props: {
     const mensaje = e instanceof Error ? e.message : String(e)
     return (
       <DashboardBody wide title="Metrics">
-        <div role="alert" className="flex flex-col gap-4">
-          <EmptyState
-            icon={<TriangleAlert />}
-            title="No pude leer tus ingresos"
-            description={mensaje}
-          />
-          <ReportarASoporte error={`Admin › Analytics › Metrics: ${mensaje}`} />
-        </div>
+        <Alert variant="danger" title="No pude leer tus ingresos" description={mensaje} />
       </DashboardBody>
     )
   }
 
-  const props_ = propsDeMetricas(vista)
   const redirectPath = '/admin/analytics/metrics'
   const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
   const start = uno(searchParams.start_date)
@@ -59,7 +52,7 @@ export default async function Page(props: {
 
   // La URL de Polar trae `interval` y `product_id`; acá no deciden nada. Y un rango que arranca antes del primer mes leído
   // (o que no es una fecha) se corrige, como hace Polar con su `minDate`.
-  const minDate = fromISODate(props_.earliestDateISOString)
+  const minDate = fromISODate(primerDiaLeido(vista))
   const sobra = searchParams.interval !== undefined || searchParams.product_id !== undefined
   const malInicio = start !== undefined && (!esFecha(start) || fromISODate(start) < minDate)
   const malFin = end !== undefined && !esFecha(end)
@@ -71,5 +64,5 @@ export default async function Page(props: {
     redirect(`${redirectPath}${q ? `?${q}` : ''}`, RedirectType.replace)
   }
 
-  return <MetricsPage {...props_} />
+  return <MetricsPage vista={vistaDeMetricas(vista)} />
 }

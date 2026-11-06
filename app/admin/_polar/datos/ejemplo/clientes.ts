@@ -8,7 +8,6 @@
 import type { ClienteResumen, Entrada } from '@/lib/admin-ingresos-reglas'
 import type { FilaCliente } from '@/lib/clientes-plataforma'
 import type { ItemParaMirar } from '@/lib/clientes-plataforma-reglas'
-import type { ResumenPeriodo } from '@/lib/costos-ia'
 import {
   listaDeClientes,
   vistaDeAtRisk,
@@ -16,6 +15,7 @@ import {
   vistaDeOverview,
   vistaDeTop,
   type ClienteDeLista,
+  type GastoParaRepartir,
   type Lectura,
   type PropsAtRisk,
   type PropsCostos,
@@ -78,13 +78,16 @@ const lecturaIngresos: Lectura<{ entradas: Entrada[]; clientes: ClienteResumen[]
   ok: true, datos: { entradas, clientes: clientesIngreso }, avisos: [],
 }
 
-const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: llamadas * 1800, costUsd, atribuible: true })
-const lecturaCostos: Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>> = {
+const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: llamadas * 1800, costUsd })
+// El mes es de después del 1/11/2026 (`REPARTO_DESDE`): se reparte por negocio, y lo de la plataforma (9) es Claude con la
+// clave de MaKo, que va en su línea.
+const lecturaCostos: Lectura<GastoParaRepartir> = {
   ok: true,
   datos: {
     periodo: MES_EJEMPLO,
-    costUsd: 4.2,
-    porWorkspace: [corte('23', 412, 2.1), corte('21', 268, 1.26), corte('24', 90, 0.42), corte('9', 120, 0.42)],
+    antes: null,
+    despues: { costUsd: 4.2, porWorkspace: [corte('23', 412, 2.1), corte('21', 268, 1.26), corte('24', 90, 0.42), corte('9', 120, 0.42)] },
+    plataforma: 9,
   },
   avisos: [],
 }

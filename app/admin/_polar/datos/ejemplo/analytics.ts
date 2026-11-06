@@ -2,7 +2,7 @@
 // Datos de EJEMPLO de Admin › Analytics (Metrics, Events y Costs), para capturar las vistas sin la base
 // =============================================================================
 // Todo ficticio (AGENTS.md: nada de clientes reales): «Estudio Norte», «Panadería Sol», «Ana Gómez»… Se arman con las
-// MISMAS funciones puras que usan las páginas (`calcularIngresos`, `propsDeMetricas`, `armarEventos`, `armarCostos`), así
+// MISMAS funciones puras que usan las páginas (`calcularIngresos`, `vistaDeMetricas`, `armarEventos`, `armarCostos`), así
 // una captura muestra lo que mostraría la pantalla con esos datos, no un dibujo aparte.
 
 import { calcularIngresos, type ClienteIngreso, type PagoIngreso } from '@/lib/admin-ingresos-reglas'
@@ -11,7 +11,7 @@ import type { Reporte } from '@/lib/admin-errores'
 import type { SesionAgente } from '@/lib/agente-sesiones'
 import type { FilaError } from '@/lib/admin-errores-reglas'
 import type { ResumenPeriodo } from '@/lib/costos-ia'
-import { propsDeMetricas, type PropsDeMetricas } from '../metricas'
+import { vistaDeMetricas, type VistaDeMetricas } from '../metricas'
 import { armarEventos, type VistaEventos } from '../eventos'
 import { pedidosDe, type Pedido, type ReciboVenta } from '../ventas'
 import { armarCostos, type VistaCostos } from '../costos'
@@ -42,7 +42,8 @@ const PAGOS: PagoIngreso[] = [
 
 export const INGRESOS_EJEMPLO = calcularIngresos(PAGOS, quien, hoy)
 
-export const METRICAS_EJEMPLO: PropsDeMetricas = propsDeMetricas({ ...INGRESOS_EJEMPLO, avisos: [] })
+// Lo que la página de Metrics le pasa a su vista (meses y días como texto: las fechas las arma la vista en el navegador).
+export const METRICAS_EJEMPLO: VistaDeMetricas = vistaDeMetricas({ ...INGRESOS_EJEMPLO, avisos: [] })
 
 const ACCIONES: AccionMako[] = [
   { creado: '2026-11-06T14:20:00.000Z', usuario: 501, ws: 101, operacion: 'crear_lead', titulo: 'Crear lead', area: 'crm', canal: 'whatsapp', tipo: 'accion', ok: true },
@@ -115,22 +116,24 @@ export const EVENTOS_EJEMPLO: VistaEventos = armarEventos({
 })
 
 const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: llamadas * 1200, costUsd })
-const resumen = (periodo: string, escala: number, atribuible: boolean): ResumenPeriodo => ({
+const resumen = (periodo: string, escala: number): ResumenPeriodo => ({
   periodo, desde: null, hasta: null, filas: 300, llamadas: 300, tokens: 360_000, costUsd: 9.4 * escala,
   porFeature: [corte('mako-doer-in', 140, 4.1 * escala), corte('plan-fathom', 60, 3.2 * escala), corte('closing', 20, 1.7 * escala), corte('lead_insights', 80, 0.4 * escala)],
   porProveedor: [corte('anthropic', 200, 9.0 * escala), corte('openai', 40, 0.4 * escala), corte('gemini', 60, 0)],
   porModelo: [corte('claude-haiku-4-5', 160, 5.2 * escala), corte('claude-sonnet-4-5', 40, 3.8 * escala), corte('gpt-4o-mini', 40, 0.4 * escala)],
   porDia: [corte(`${periodo}-02`, 40, 1.1 * escala), corte(`${periodo}-03`, 90, 2.9 * escala), corte(`${periodo}-05`, 170, 5.4 * escala)],
-  porWorkspace: [{ ...corte('101', 120, 5 * escala), atribuible }, { ...corte('103', 80, 4.4 * escala), atribuible }],
-  mesesDisponibles: ['2026-11', '2026-10', '2026-09'],
+  porWorkspace: [corte('101', 120, 5 * escala), corte('103', 80, 4.4 * escala)],
+  mesesDisponibles: [],
   delNegocio: { llamadas: 0, costUsd: 0 },
   delCredito: { llamadas: 0, costUsd: 0 },
 })
 
 export const COSTOS_EJEMPLO: VistaCostos = armarCostos({
   periodo: '2026-11',
-  actual: resumen('2026-11', 1, false),
-  previo: resumen('2026-10', 0.8, false),
-  hoy: HOY_EJEMPLO,
+  actual: resumen('2026-11', 1),
+  previo: resumen('2026-10', 0.8),
+  hoy,
+  mesesConDatos: ['2026-11', '2026-10', '2026-09'],
+  cobrado: INGRESOS_EJEMPLO.meses.find((m) => m.mes === '2026-11')?.cobrado ?? 0,
   avisos: [],
 })

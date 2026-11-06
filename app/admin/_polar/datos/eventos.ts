@@ -8,7 +8,10 @@
 //   · devolucion  → lo que de esos pedidos se devolvió o se anuló (el recibo del pedido: `devueltoAt`, `anuladoAt`);
 //   · suscripcion → cada cambio de lo que paga por mes un cliente (lib/admin-ingresos.ts → `movimientos`);
 //   · alta        → el alta de cada negocio (`workspaces.created_at`, sin el de la plataforma);
-//   · mako        → lo que hizo MaKo por un negocio (lib/actividad.ts → `acciones`, la tabla actividad_acciones);
+//   · mako        → lo que HIZO MaKo por un negocio, las acciones (lib/actividad.ts → `acciones`, la tabla actividad_acciones);
+//   · lectura     → lo que MaKo LEYÓ para un negocio, de la misma tabla. Aparte desde el 6/11/2026 (punto 13 de la revisión):
+//     «N eventos hoy» de Overview cuenta pagos y acciones, y su «Ver todo» abre `eventTypes=pago,mako&range=today`, que tiene
+//     que dar el mismo número;
 //   · error       → los errores de la app agrupados por huella (lib/admin-errores.ts → `errores`);
 //   · reporte     → lo que reportaron las personas (lib/admin-errores.ts → `reportes`, los tickets);
 //   · agente      → cada sesión del Claude Code de un cliente (lib/agente-sesiones.ts, lo que era /admin/agente).
@@ -40,7 +43,7 @@ import { aCentavos } from './metricas'
 import { medioEnTexto, ROTULO_ESTADO_PEDIDO, type Pedido, type ReciboVenta } from './ventas'
 import { rutaDePedido } from './cliente'
 
-export const NOMBRES_EVENTO = ['pago', 'devolucion', 'suscripcion', 'alta', 'mako', 'error', 'reporte', 'agente'] as const
+export const NOMBRES_EVENTO = ['pago', 'devolucion', 'suscripcion', 'alta', 'mako', 'lectura', 'error', 'reporte', 'agente'] as const
 export type NombreEvento = (typeof NOMBRES_EVENTO)[number]
 
 /** Los «system events» de Polar (lo que pasa con la cuenta) y sus «user events» (lo que hizo alguien: MaKo, una persona). */
@@ -59,9 +62,10 @@ export const TIPOS_EVENTO: Record<NombreEvento, { label: string; orden: number; 
   suscripcion: { label: 'Cambios de suscripción', orden: 2, source: 'system', importancia: 'high' },
   alta: { label: 'Altas de negocios', orden: 3, source: 'system', importancia: 'medium' },
   mako: { label: 'Acciones de MaKo', orden: 4, source: 'user', importancia: 'medium' },
-  agente: { label: 'Agentes de los clientes', orden: 5, source: 'user', importancia: 'medium' },
-  error: { label: 'Errores de la app', orden: 6, source: 'system', importancia: 'high' },
-  reporte: { label: 'Reportes de las personas', orden: 7, source: 'user', importancia: 'medium' },
+  lectura: { label: 'Lecturas de MaKo', orden: 5, source: 'user', importancia: 'low' },
+  agente: { label: 'Agentes de los clientes', orden: 6, source: 'user', importancia: 'medium' },
+  error: { label: 'Errores de la app', orden: 7, source: 'system', importancia: 'high' },
+  reporte: { label: 'Reportes de las personas', orden: 8, source: 'user', importancia: 'medium' },
 }
 
 /**
@@ -84,11 +88,19 @@ export const ALIAS_TIPO: Record<string, NombreEvento[]> = {
   alta: ['alta'],
   altas: ['alta'],
   mako: ['mako'],
-  actividad: ['mako'],
+  lectura: ['lectura'],
+  lecturas: ['lectura'],
+  // La pantalla vieja de Activity mostraba las dos.
+  actividad: ['mako', 'lectura'],
   reporte: ['reporte'],
 }
 
 export const esNombreEvento = (s: string): s is NombreEvento => (NOMBRES_EVENTO as readonly string[]).includes(s)
+
+/** Los tipos que cuenta «N eventos hoy» de Overview (`actividadReciente`, ./resumen.ts): los pagos y las acciones de MaKo. */
+export const TIPOS_DE_HOY: readonly NombreEvento[] = ['pago', 'mako']
+/** El «Ver todo» de esa tarjeta: Events en lo de hoy, con esos tipos (el `range=today` de Polar; punto 13). */
+export const EVENTOS_DE_HOY = `/admin/analytics/events?range=today&eventTypes=${TIPOS_DE_HOY.join(',')}`
 
 /** Los tipos que abre `?tipo=<x>` (null = el valor no nombra ninguno). */
 export function tiposDeUrl(tipo: string | string[] | undefined): NombreEvento[] | null {
@@ -315,7 +327,10 @@ export function eventosDeAltas(altas: readonly AltaEvento[]): EventoAdmin[] {
   }))
 }
 
-/** Lo que hizo MaKo: una acción o una lectura por renglón de actividad_acciones. */
+/**
+ * Lo que hizo MaKo: una acción o una lectura por renglón de actividad_acciones. Una ACCIÓN (`tipo === 'accion'`, lo que cambió
+ * algo) es un evento «mako»; lo demás que corrió, una «lectura» (punto 13: el mismo corte que el «hoy» de Overview).
+ */
 export function eventosDeAcciones(
   acciones: readonly AccionMako[],
   nombres: Readonly<Record<number, string>>,
@@ -325,9 +340,10 @@ export function eventosDeAcciones(
   const id = idsUnicos()
   return acciones.map((a) => {
     const persona = a.usuario != null ? quien.get(a.usuario) ?? null : null
+    const nombre: NombreEvento = a.tipo === 'accion' ? 'mako' : 'lectura'
     return conTexto({
-      id: id(`mako:${a.creado}:${a.operacion}:${a.ws ?? '-'}:${a.usuario ?? '-'}`),
-      nombre: 'mako',
+      id: id(`${nombre}:${a.creado}:${a.operacion}:${a.ws ?? '-'}:${a.usuario ?? '-'}`),
+      nombre,
       label: a.ok ? a.titulo : `${a.titulo} (falló)`,
       timestamp: a.creado,
       negocios: negocio(nombres, a.ws),
@@ -643,7 +659,7 @@ export function cortesVisibles(cortes: readonly CorteFuente[], desde: Date, nego
 export function textoDeCorte(c: CorteFuente, fecha: (iso: string) => string): string {
   const que: Record<NombreEvento, string> = {
     pago: 'pagos', devolucion: 'devoluciones', suscripcion: 'cambios de suscripción', alta: 'altas', mako: 'acciones de MaKo',
-    error: 'errores', reporte: 'reportes', agente: 'sesiones del agente',
+    lectura: 'lecturas de MaKo', error: 'errores', reporte: 'reportes', agente: 'sesiones del agente',
   }
   return c.negocio
     ? `Antes del ${fecha(c.desde)} faltan ${que[c.nombre]} de ${c.negocio.nombre}: se leen los ${c.tope} más recientes de ese negocio.`

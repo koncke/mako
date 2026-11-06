@@ -16,13 +16,22 @@ import 'server-only';
 //    es lo que pidió el dueño: «Sería bueno que incluyas un filtro de fecha y
 //    poder ver el gasto de otros meses también» (08/08/2026).
 //
-// ⚠️ LO QUE ESTE MÓDULO NO PUEDE ARREGLAR, y hay que saber al leer sus números:
-// `lib/anthropic-usage.ts:22-25` (`wsDeProveedor`) escribe TODA fila de Anthropic
-// con `workspace_id = 1`, venga del workspace que venga. Para las filas de Claude
-// —que son el ~99% del gasto— el workspace es una CONSTANTE, no una medición. Por
-// eso `porWorkspace` marca `atribuible: false` en Anthropic: mostrar ese corte como
-// si fuera real es peor que no mostrarlo. El análisis está en
-// docs/costos-ia-y-planes.md.
+// ⚠️ EL CORTE POR WORKSPACE (`porWorkspace`) Y DE QUIÉN ES CADA FILA. Lo decide quien la
+// escribe (`wsDeLaFila`, lib/anthropic-usage.ts):
+//   · lo pagado con la clave de un negocio, o con una IA suya, va a ESE negocio;
+//   · Claude con la clave de MaKo pedido por un negocio va a la PLATAFORMA (`wsSuperAdmin`)
+//     desde el 17/10/2026: ahí no se sabe de qué negocio fue, y no se reparte. Lo del ws1
+//     queda en el ws1.
+// Antes del 17/10 toda fila de Claude con la clave de MaKo iba al workspace 1, venga de
+// donde venga: en esos meses el workspace de las filas de Claude era una CONSTANTE, no una
+// medición. Admin › Customers › Cost Drivers reparte por negocio sólo desde el 1/11/2026
+// (`REPARTO_DESDE`, app/admin/_polar/datos/clientes.ts) y dice aparte lo de la plataforma
+// y lo de antes. El análisis viejo está en docs/costos-ia-y-planes.md.
+//
+// ⚠️ LOS MESES CON DATOS SE PIDEN APARTE (6/11/2026, punto 33 de la revisión de Admin):
+// `resumenDelPeriodo` no los lee salvo `{ conMeses: true }`. Leían la tabla ENTERA en cada
+// entrada a Customers (que no los usa) y dos veces en Costs. `mesesConDatos` pregunta mes
+// por mes si hay alguna fila (una consulta chica por mes, sobre el índice de `created_at`).
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
@@ -61,9 +70,9 @@ export type ResumenPeriodo = {
   porProveedor: Corte[];
   porModelo: Corte[];
   porDia: Corte[];
-  /** Ojo: para Anthropic el workspace es constante (ver el encabezado). */
-  porWorkspace: Array<Corte & { atribuible: boolean }>;
-  /** Los meses con datos, para poblar el selector sin adivinar. */
+  /** El gasto anotado en cada workspace. Lo de la plataforma es Claude con la clave de MaKo (ver el encabezado). */
+  porWorkspace: Corte[];
+  /** Los meses con datos, para poblar el selector sin adivinar. Vacío salvo `{ conMeses: true }`. */
   mesesDisponibles: string[];
   /** Lo que se pagó con la clave de Anthropic DE UN NEGOCIO: no entra en `costUsd`, que es lo de MaKo. */
   delNegocio: { llamadas: number; costUsd: number };
@@ -115,6 +124,9 @@ function ventana(periodo: string): { desde: string | null; hasta: string | null 
   };
 }
 
+/** `conMeses`: además, los meses con datos (`mesesConDatos`). Por defecto no: son otra lectura (ver el encabezado). */
+export type OpcionesResumen = { conMeses?: boolean };
+
 /**
  * El gasto de un período, paginado (sin techo de 1000) y cortado por todas las
  * dimensiones que la pantalla necesita. `periodo` = 'YYYY-MM' o 'todo'.
@@ -123,9 +135,9 @@ function ventana(periodo: string): { desde: string | null; hasta: string | null 
  * caller la gatea (solo super-admin). No usa `getTenantDb` porque el corte por
  * workspace es justamente uno de los datos que queremos ver.
  */
-export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriodo> {
+export async function resumenDelPeriodo(periodo = 'todo', o: OpcionesResumen = {}): Promise<ResumenPeriodo> {
   const { desde, hasta } = ventana(periodo);
-  return resumenDeVentana(periodo, desde, hasta);
+  return resumenDeVentana(periodo, desde, hasta, o);
 }
 
 /**
@@ -133,13 +145,13 @@ export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriod
  * de rango de Polar en Admin › Customers › Cost Drivers (6/11/2026): «30d» u «Hoy» son una ventana exacta sobre `created_at`,
  * no un mes redondeado. `periodo` es el rótulo que se devuelve (no decide nada). Global como aquélla: la gatea quien llama.
  */
-export async function resumenEntre(periodo: string, desde: string | null, hasta: string | null): Promise<ResumenPeriodo> {
+export async function resumenEntre(periodo: string, desde: string | null, hasta: string | null, o: OpcionesResumen = {}): Promise<ResumenPeriodo> {
   const iso = (v: string | null) => v == null || Number.isFinite(Date.parse(v));
   if (!iso(desde) || !iso(hasta)) throw new Error(`resumenEntre: «${desde} → ${hasta}» no es una ventana de fechas`);
-  return resumenDeVentana(periodo, desde, hasta);
+  return resumenDeVentana(periodo, desde, hasta, o);
 }
 
-async function resumenDeVentana(periodo: string, desde: string | null, hasta: string | null): Promise<ResumenPeriodo> {
+async function resumenDeVentana(periodo: string, desde: string | null, hasta: string | null, o: OpcionesResumen): Promise<ResumenPeriodo> {
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens, workspace_id';
 
   // El orden desempatado por la PK es la mitad del truco de paginar: con un orden
@@ -155,11 +167,6 @@ async function resumenDeVentana(periodo: string, desde: string | null, hasta: st
   });
 
   const porProveedor = agrupar(filas, (r) => r.provider ?? 'anthropic');
-  // Las de la clave de un negocio se registran en SU workspace (`wsDeProveedor`), así que no
-  // vuelven constante el corte por workspace: sólo cuentan las de la clave de la agencia.
-  // Lo mismo las del crédito de la plataforma: `conCreditoDeLaPlataforma` las anota en el ws del cliente.
-  const anthropicTieneFilas = filas.some((r) => (r.provider ?? 'anthropic') === 'anthropic'
-    && !esDeLaClaveDelNegocio(r.motivo) && !esDelCreditoDeLaPlataforma(r.motivo));
   const delNegocio = filas.filter((r) => esDeLaClaveDelNegocio(r.motivo));
   const delCredito = filas.filter((r) => esDelCreditoDeLaPlataforma(r.motivo));
 
@@ -175,12 +182,8 @@ async function resumenDeVentana(periodo: string, desde: string | null, hasta: st
     porProveedor,
     porModelo: agrupar(filas, (r) => r.model ?? '—'),
     porDia: agrupar(filas, (r) => r.created_at.slice(0, 10)).sort((a, b) => a.clave.localeCompare(b.clave)),
-    porWorkspace: agrupar(filas, (r) => String(r.workspace_id ?? 1)).map((c) => ({
-      ...c,
-      // Con filas de Anthropic en el período, el corte por workspace no es real.
-      atribuible: !anthropicTieneFilas,
-    })),
-    mesesDisponibles: await mesesConDatos(),
+    porWorkspace: agrupar(filas, (r) => String(r.workspace_id ?? 1)),
+    mesesDisponibles: o.conMeses ? await mesesConDatos() : [],
     delNegocio: { llamadas: delNegocio.length, costUsd: delNegocio.reduce((s, r) => s + num(r.cost_usd), 0) },
     delCredito: { llamadas: delCredito.length, costUsd: delCredito.reduce((s, r) => s + num(r.cost_usd), 0) },
   };
@@ -190,8 +193,7 @@ async function resumenDeVentana(periodo: string, desde: string | null, hasta: st
  * El gasto de MaKo POR DÍA (UTC, la misma clave que `porDia`) desde `desde` (YYYY-MM-DD, incluido) hasta ahora, en UNA
  * lectura paginada de esa ventana. Con el mismo `costoDe` que `resumenDelPeriodo`: cada día suma lo mismo que en Admin ›
  * Analytics › Costs. Existe para quien necesita VARIOS meses juntos (el margen bruto de Admin › Overview, 6/11/2026):
- * `resumenDelPeriodo` por mes serían N lecturas, cada una con `mesesConDatos`, que lee la tabla ENTERA. Global como aquél:
- * lo gatea quien llama (sólo el super admin).
+ * `resumenDelPeriodo` por mes serían N lecturas. Global como aquél: lo gatea quien llama (sólo el super admin).
  */
 export async function gastoPorDia(desde: string): Promise<Corte[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) throw new Error(`gastoPorDia: «${desde}» no es un día (YYYY-MM-DD)`);
@@ -205,15 +207,52 @@ export async function gastoPorDia(desde: string): Promise<Corte[]> {
   return agrupar(filas, (r) => r.created_at.slice(0, 10)).sort((a, b) => a.clave.localeCompare(b.clave));
 }
 
-/** Los meses que tienen al menos una fila, más nuevo primero. Alimenta el
- *  selector: ofrecer meses vacíos es ofrecer pantallas en blanco. */
-export async function mesesConDatos(): Promise<string[]> {
+/** Los meses «YYYY-MM» de `desde` a `hasta`, incluidos, el más viejo primero. */
+export function mesesEntre(desde: string, hasta: string): string[] {
+  const out: string[] = [];
+  let [y, m] = desde.split('-').map(Number);
+  const [yh, mh] = hasta.split('-').map(Number);
+  while (y < yh || (y === yh && m <= mh)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
+/** Cuántos meses se preguntan a la vez (una consulta de una fila cada uno). */
+const MESES_A_LA_VEZ = 6;
+
+/**
+ * Los meses que tienen al menos una fila, más nuevo primero. Alimenta el selector de Admin › Analytics › Costs y el de
+ * /integraciones: ofrecer meses vacíos es ofrecer pantallas en blanco.
+ *
+ * NO lee la tabla entera (6/11/2026, punto 33 de la revisión de Admin): busca la primera fila y pregunta, mes por mes desde
+ * ese mes hasta el actual (UTC), si hay alguna (`limit(1)` sobre el índice de `created_at`). Son pocas consultas de una fila,
+ * y no crecen con cada llamada a la IA. Sin `estricto`, «no pude leer» devuelve `[]` (y lo anota); con `estricto`, tira.
+ */
+export async function mesesConDatos(o: { estricto?: boolean; ahora?: Date } = {}): Promise<string[]> {
   try {
-    const filas = await leerTodo<{ created_at: string }>(getSupabaseServer(), 'anthropic_usage', 'created_at', {
-      orden: [{ col: 'created_at', asc: true }, { col: 'id', asc: true }],
-    });
-    return [...new Set(filas.map((r) => r.created_at.slice(0, 7)))].sort().reverse();
+    const db = getSupabaseServer();
+    const { data, error } = await db.from('anthropic_usage').select('created_at')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1);
+    if (error) throw new Error(error.message);
+    const primera = (data?.[0] as { created_at?: string } | undefined)?.created_at;
+    if (!primera) return [];
+    const meses = mesesEntre(primera.slice(0, 7), (o.ahora ?? new Date()).toISOString().slice(0, 7));
+    const con: string[] = [];
+    for (let i = 0; i < meses.length; i += MESES_A_LA_VEZ) {
+      const ola = await Promise.all(meses.slice(i, i + MESES_A_LA_VEZ).map(async (mes) => {
+        const v = ventana(mes);
+        const r = await db.from('anthropic_usage').select('id').gte('created_at', v.desde!).lt('created_at', v.hasta!).limit(1);
+        if (r.error) throw new Error(r.error.message);
+        return (r.data?.length ?? 0) > 0 ? mes : null;
+      }));
+      for (const mes of ola) if (mes) con.push(mes);
+    }
+    return con.sort().reverse();
   } catch (e) {
+    if (o.estricto) throw e;
     console.warn(`[costos-ia] no se pudieron leer los meses: ${e instanceof Error ? e.message : String(e)}`);
     return [];
   }

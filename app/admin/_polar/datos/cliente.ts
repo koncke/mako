@@ -214,13 +214,17 @@ export type UsoDelNegocio = {
   series: Array<{ key: string; label: string; color: string }>
 }
 
-/** El primer día del intervalo de `dia` (YYYY-MM-DD → ISO del inicio, a medianoche UTC). */
+/**
+ * El primer día del intervalo de `dia` (YYYY-MM-DD → YYYY-MM-DD). Un DÍA, como texto: el gráfico lo lee como medianoche local
+ * (`fechaDeEje`). Hasta el 6/11/2026 devolvía la medianoche UTC en ISO, y en Argentina cada día se dibujaba con la fecha
+ * anterior, también en local (punto 5 de la revisión del Cerebro). La cuenta se hace en UTC sólo para mover días enteros.
+ */
 export function cubetaDe(dia: string, intervalo: TimeInterval): string {
   const d = new Date(`${dia}T00:00:00Z`)
   if (intervalo === 'week') d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
   else if (intervalo === 'month') d.setUTCDate(1)
   else if (intervalo === 'year') d.setUTCMonth(0, 1)
-  return d.toISOString()
+  return d.toISOString().slice(0, 10)
 }
 
 /**

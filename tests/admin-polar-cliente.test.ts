@@ -186,7 +186,8 @@ test('Usage: las tabs que usa con sus pantallas, acciones y personas; la IA apar
   assert.equal(ia?.costoUsd, 0.2)
   assert.ok(!u.series.some((s) => s.key === 'ia'), 'la IA no va en el gráfico (otra unidad)')
   assert.deepEqual(u.sinUso.map((t) => t.key), ['automations'], 'lo que nadie abrió')
-  const dia5 = u.serie.find((p) => p.timestamp === '2026-11-05T00:00:00.000Z')
+  // El día viaja como texto (YYYY-MM-DD): el gráfico lo lee como medianoche local (punto 5; tests/admin-polar-zona.test.ts).
+  const dia5 = u.serie.find((p) => p.timestamp === '2026-11-05')
   assert.equal(dia5?.crm, 12, 'el punto del gráfico suma las pantallas del día de todas las personas')
   const fuera = usoDelNegocio(USO_EJEMPLO.filas, USO_EJEMPLO.tabs, USO_EJEMPLO.ia, '2026-10-01', '2026-10-31', 'day')
   assert.equal(fuera.medidores.length, 0, 'fuera del rango no hay uso')
@@ -202,8 +203,8 @@ test('Usage: dos keys que se dibujan igual son UNA tab, y el gráfico se agrupa 
   assert.equal(u.medidores.length, 1)
   assert.equal(u.medidores[0].consumido, 3)
   assert.equal(u.serie.length, 1, 'los dos días caen en la misma semana')
-  assert.equal(cubetaDe('2026-11-04', 'week'), '2026-11-02T00:00:00.000Z', 'la semana empieza el lunes')
-  assert.equal(cubetaDe('2026-11-04', 'month'), '2026-11-01T00:00:00.000Z')
+  assert.equal(cubetaDe('2026-11-04', 'week'), '2026-11-02', 'la semana empieza el lunes')
+  assert.equal(cubetaDe('2026-11-04', 'month'), '2026-11-01')
 })
 
 test('Members: sólo las personas del negocio (no las de otro, ni el equipo de MaKo), en el orden de alta', () => {

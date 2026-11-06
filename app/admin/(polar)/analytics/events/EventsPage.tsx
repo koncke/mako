@@ -378,7 +378,7 @@ const ClientPage = ({ vista }: { vista: VistaEventos }) => {
           <Alert
             variant="warning"
             soporte
-            title="No pude leer todo: pueden faltar eventos"
+            title="Puede faltar algo"
             description={vista.avisos.join(' · ')}
           />
         )}

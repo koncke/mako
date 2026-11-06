@@ -8,9 +8,7 @@ import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
 import { leerCostos } from '@/app/admin/_polar/datos/costos-server'
 import { esMes } from '@/app/admin/_polar/datos/costos'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
-import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
-import { TriangleAlert } from '@/app/admin/_polar/orbit/icons'
+import { Alert } from '@/app/admin/_polar/orbit'
 import { redirect, RedirectType } from 'next/navigation'
 import CostsPage from './CostsPage'
 
@@ -35,14 +33,7 @@ export default async function Page(props: {
     const mensaje = e instanceof Error ? e.message : String(e)
     return (
       <DashboardBody title="Costs">
-        <div role="alert" className="flex flex-col gap-4">
-          <EmptyState
-            icon={<TriangleAlert />}
-            title="No pude leer el gasto de IA"
-            description={mensaje}
-          />
-          <ReportarASoporte error={`Admin › Analytics › Costs: ${mensaje}`} />
-        </div>
+        <Alert variant="danger" title="No pude leer el gasto de IA" description={mensaje} />
       </DashboardBody>
     )
   }

@@ -11,6 +11,11 @@
 //   Si quien llama no pasa `entradas` o `movimientos`, esas métricas NO salen (no van en cero: no se midieron).
 //   · costs y cumulative_costs → el gasto de IA por día de Analytics › Costs (`metricasDeCostos`, datos/costos.ts).
 //
+// ⚠️ LAS FECHAS SE ARMAN EN EL NAVEGADOR (revisión del Cerebro, 6/11/2026, punto 5). El server corre en UTC y el navegador en
+//    la hora de quien mira: un «1/11 00:00» armado allá es el «31/10 21:00» de Argentina, y noviembre salía como «oct», el
+//    primero de los 12 meses desaparecía, «Este mes» quedaba vacío y el CSV decía 2026-10-31. Del server viajan los meses y los
+//    días como TEXTO (`vistaDeMetricas`) y `propsDeMetricas` arma los `Date` en la vista, con `useMemo` (como Overview).
+//
 // Las de Polar que MaKo no puede llenar (net revenue, checkouts, committed/trial MRR, renewed, cancelaciones por motivo,
 // churn rate, LTV, cost per user, gross margin, cashflow, seats, usage…) no están: se anotan en docs/relevo/nube-admin-polar.md.
 // =============================================================================
@@ -77,7 +82,7 @@ export const RESUMEN: Record<MetricaSlug, 'flujo' | 'stock' | 'aov' | 'arpu'> = 
 
 export const aCentavos = (usd: number) => Math.round(usd * 100)
 
-/** El primer día del mes «YYYY-MM» a medianoche local (como `fromISODate` de Polar). */
+/** El primer día del mes «YYYY-MM» a medianoche local (como `fromISODate` de Polar). Sólo en el navegador (la cabecera). */
 export const inicioDeMes = (mes: string) => {
   const [y, m] = mes.split('-').map(Number)
   return new Date(y, m - 1, 1)
@@ -98,8 +103,8 @@ const ultimoDiaIso = (mes: string) => {
  * día quedaron con MRR. Es lo mismo que `mrrPorClienteEn(tramos, fecha).size` de las reglas, porque el MRR de un cliente
  * cambia SÓLO en las fechas de sus movimientos (`movimientosDe`).
  */
-export function clientesConSuscripcionAl(movimientos: readonly Movimiento[], fecha: string): number {
-  const ultimo = new Map<string, Movimiento>()
+export function clientesConSuscripcionAl(movimientos: readonly MovimientoDeMetricas[], fecha: string): number {
+  const ultimo = new Map<string, MovimientoDeMetricas>()
   for (const mv of movimientos) {
     if (mv.fecha > fecha) continue
     const antes = ultimo.get(mv.cliente)
@@ -128,7 +133,15 @@ export function totalesDe(periods: readonly ParsedMetricPeriod[], metrics: Parse
   return out
 }
 
-type VistaParaMetricas = Pick<Ingresos, 'cobradoTotal'> & Partial<Pick<Ingresos, 'entradas' | 'movimientos'>>
+/** Lo de un pago que cuentan las métricas (sin el nombre ni el concepto: no hacen falta en el navegador). */
+export type EntradaDeMetricas = Pick<Entrada, 'fecha' | 'usd' | 'recurrente'>
+/** Lo de un movimiento de lo que paga por mes un cliente que cuentan las métricas. */
+export type MovimientoDeMetricas = Pick<Movimiento, 'fecha' | 'cliente' | 'tipo' | 'despues'>
+
+type VistaParaMetricas = Pick<Ingresos, 'cobradoTotal'> & {
+  entradas?: readonly EntradaDeMetricas[]
+  movimientos?: readonly MovimientoDeMetricas[]
+}
 
 /**
  * Los meses de la vista de ingresos → la respuesta de métricas de Polar (un período por mes, plata en centavos).
@@ -136,8 +149,8 @@ type VistaParaMetricas = Pick<Ingresos, 'cobradoTotal'> & Partial<Pick<Ingresos,
  */
 export function metricasDeIngresos(meses: readonly MesIngresos[], vista: VistaParaMetricas): ParsedMetricsResponse {
   let acumulado = Math.max(0, vista.cobradoTotal - meses.reduce((s, m) => s + m.cobrado, 0))
-  const entradas: readonly Entrada[] | null = vista.entradas ?? null
-  const movimientos: readonly Movimiento[] | null = vista.movimientos ?? null
+  const entradas: readonly EntradaDeMetricas[] | null = vista.entradas ?? null
+  const movimientos: readonly MovimientoDeMetricas[] | null = vista.movimientos ?? null
   const periods: ParsedMetricPeriod[] = meses.map((m) => {
     acumulado += m.cobrado
     const p: ParsedMetricPeriod = {
@@ -223,7 +236,35 @@ export function rangosMensuales(minDate: Date, hoy: Date, mesesLeidos: number): 
   return todos.filter((r, i) => i === 0 || r.value[0].getTime() >= minDate.getTime())
 }
 
-/** Lo que Analytics › Metrics le pasa a su vista, armado desde la vista de ingresos (`vistaDeIngresos`). */
+/**
+ * Lo que la página de Analytics › Metrics le pasa a su vista: SÓLO texto y números (los meses «YYYY-MM», los días
+ * «YYYY-MM-DD»). Ningún `Date` cruza del server al navegador (la cabecera explica por qué). Las entradas y los movimientos van
+ * recortados a lo que cuentan las métricas: ni el nombre del cliente ni el concepto del pago.
+ */
+export type VistaDeMetricas = Pick<Ingresos, 'cobradoTotal' | 'meses' | 'hoy'> & {
+  entradas: EntradaDeMetricas[]
+  movimientos: MovimientoDeMetricas[]
+  avisos: string[]
+}
+
+/** El server: de la vista de ingresos (`vistaDeIngresos`) a lo que viaja a la vista. */
+export function vistaDeMetricas(
+  v: Pick<Ingresos, 'cobradoTotal' | 'meses' | 'hoy'> & Partial<Pick<Ingresos, 'entradas' | 'movimientos'>> & { avisos?: string[] },
+): VistaDeMetricas {
+  return {
+    cobradoTotal: v.cobradoTotal,
+    meses: v.meses,
+    hoy: v.hoy,
+    entradas: (v.entradas ?? []).map((e) => ({ fecha: e.fecha, usd: e.usd, recurrente: e.recurrente })),
+    movimientos: (v.movimientos ?? []).map((m) => ({ fecha: m.fecha, cliente: m.cliente, tipo: m.tipo, despues: m.despues })),
+    avisos: v.avisos ?? [],
+  }
+}
+
+/** El primer día del primer mes leído (YYYY-MM-DD): lo que la página usa para corregir un rango que arranca antes. */
+export const primerDiaLeido = (vista: Pick<Ingresos, 'meses' | 'hoy'>): string => `${vista.meses[0]?.mes ?? vista.hoy.slice(0, 7)}-01`
+
+/** Lo que dibuja la vista de Analytics › Metrics, armado EN EL NAVEGADOR desde `VistaDeMetricas`. */
 export type PropsDeMetricas = {
   data: ParsedMetricsResponse
   /** El primer día del primer mes leído (YYYY-MM-DD). */
@@ -233,12 +274,11 @@ export type PropsDeMetricas = {
 }
 
 export function propsDeMetricas(
-  vista: Pick<Ingresos, 'cobradoTotal' | 'meses' | 'hoy'> & Partial<Pick<Ingresos, 'entradas' | 'movimientos'>> & { avisos?: string[] },
+  vista: Pick<Ingresos, 'cobradoTotal' | 'meses' | 'hoy'> & VistaParaMetricas & { avisos?: string[] },
 ): PropsDeMetricas {
-  const primero = vista.meses[0]?.mes ?? vista.hoy.slice(0, 7)
   return {
     data: metricasDeIngresos(vista.meses, vista),
-    earliestDateISOString: `${primero}-01`,
+    earliestDateISOString: primerDiaLeido(vista),
     mesesLeidos: vista.meses.length,
     avisos: vista.avisos ?? [],
   }

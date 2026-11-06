@@ -3,8 +3,10 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Meter/StackedMeterChart.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: vive al lado de Usage (MaKo no tiene la sección de medidores de Polar: Products › Meters). Las fechas, en español.
+// Cada punto llega con su día como texto (`cubetaDe`, datos/cliente.ts) y se lee como medianoche LOCAL (`fechaDeEje`): leído
+// como medianoche UTC, en Argentina cada día salía con la fecha anterior (punto 5, revisión del 6/11/2026).
 
-import { getTimestampFormatter } from '@/app/admin/_polar/web/utils/metrics'
+import { fechaDeEje, getTimestampFormatter } from '@/app/admin/_polar/web/utils/metrics'
 import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import {
   Bar,
@@ -49,7 +51,7 @@ const StackedMeterChart = ({
 
   const timestampFormatter = useMemo(() => {
     const fmt = getTimestampFormatter(interval, 'es-AR')
-    return (value: string) => fmt(new Date(value))
+    return (value: string) => fmt(fechaDeEje(value))
   }, [interval])
 
   return (

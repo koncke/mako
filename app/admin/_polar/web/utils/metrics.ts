@@ -31,6 +31,14 @@ export const toISODate = (date: Date) => {
 export const fromISODate = (date: string) =>
   parse(date, 'yyyy-MM-dd', new Date(1970, 0, 1, 0, 0, 0))
 
+/**
+ * MaKo: la fecha de un punto de un gráfico. Un día «YYYY-MM-DD» (lo que manda el server: el `cubetaDe` de Usage) es la
+ * medianoche LOCAL de ese día; un instante ISO, ese instante. Leer «2026-11-05» con `new Date()` lo toma como medianoche UTC,
+ * que en Argentina es el 4 a las 21:00, y el gráfico ponía cada día con la fecha anterior (punto 5, revisión del 6/11/2026).
+ */
+export const fechaDeEje = (value: string | Date): Date =>
+  value instanceof Date ? value : /^\d{4}-\d{2}-\d{2}$/.test(value) ? fromISODate(value) : new Date(value)
+
 export const getFormattedMetricValue = (
   metric: schemas['Metric'],
   value: number,
@@ -108,9 +116,10 @@ export const dateRangeToInterval = (startDate: Date, endDate: Date) => {
 
 export type ChartRange = 'all_time' | '12m' | '3m' | '30d' | 'today'
 
-// MaKo: los rótulos en español (los rangos cortos se leen igual: 12m, 3m, 30d).
+// MaKo: los rótulos en español (los rangos cortos se leen igual: 12m, 3m, 30d). El rango completo se llama «Todo», igual que
+// en Overview (`ROTULO_RANGO`, datos/resumen.ts): el mismo control no cambia de nombre (punto 43, revisión del 6/11/2026).
 export const CHART_RANGES: Record<ChartRange, string> = {
-  all_time: 'Desde siempre',
+  all_time: 'Todo',
   '12m': '12m',
   '3m': '3m',
   '30d': '30d',
@@ -156,7 +165,9 @@ export const getPreviousDateRange = (
 // MaKo: las métricas de Polar que MaKo mide (app/admin/_polar/datos/metricas.ts). Las otras (net revenue, checkouts,
 // committed/trial MRR, renewed, cancelaciones por motivo, churn rate, LTV, seats, usage…) no tienen un dato detrás: se sacaron
 // (relevo, «se sacó»). Los grupos van en el orden de Polar; los de costos viven en Analytics › Costs, no acá.
-export const DEFAULT_OVERVIEW_METRICS: MetricaSlug[] = ['revenue', 'monthly_recurring_revenue', 'cumulative_revenue']
+// Las métricas por defecto de Overview son las de Polar que MaKo mide (Revenue, MRR, Active Subscriptions, Orders; punto 40):
+// quien ya eligió las suyas las conserva (se recuerdan en el navegador).
+export const DEFAULT_OVERVIEW_METRICS: MetricaSlug[] = ['revenue', 'monthly_recurring_revenue', 'active_subscriptions', 'orders']
 
 type MetricEntry = {
   slug: keyof schemas['Metrics']
@@ -165,7 +176,7 @@ type MetricEntry = {
 }
 
 export type MetricGroup = {
-  /** MaKo: el slug del grupo va aparte del rótulo (el rótulo está en español; el slug es el de Polar y no cambia). */
+  /** MaKo: el slug del grupo va aparte del rótulo (el slug es el de Polar y no cambia; el rótulo, el nombre de la sección). */
   slug: string
   category: string
   metrics: MetricEntry[]
@@ -173,20 +184,30 @@ export type MetricGroup = {
 
 const entrada = (slug: MetricaSlug): MetricEntry => ({ slug, display_name: METRICAS[slug].display_name, description: DESCRIPCION[slug] })
 
+// Los nombres de los grupos son nombres de sección: en inglés, como en Polar (punto 39, revisión del 6/11/2026). Lo que mide
+// cada gráfico sigue en español (`METRICAS`).
 export const METRIC_GROUPS: MetricGroup[] = [
-  { slug: 'revenue', category: 'Ingresos', metrics: [entrada('revenue'), entrada('cumulative_revenue'), entrada('average_order_value')] },
-  { slug: 'orders', category: 'Pedidos', metrics: [entrada('orders'), entrada('one_time_products'), entrada('one_time_products_revenue')] },
+  { slug: 'revenue', category: 'Revenue', metrics: [entrada('revenue'), entrada('cumulative_revenue'), entrada('average_order_value')] },
+  { slug: 'orders', category: 'Orders', metrics: [entrada('orders'), entrada('one_time_products'), entrada('one_time_products_revenue')] },
   {
     slug: 'subscriptions',
-    category: 'Suscripciones',
+    category: 'Subscriptions',
     metrics: [
       entrada('new_subscriptions'), entrada('active_subscriptions'), entrada('monthly_recurring_revenue'), entrada('new_mrr'),
       entrada('expansion_mrr'), entrada('contraction_mrr'), entrada('churned_mrr'), entrada('reactivated_mrr'),
     ],
   },
-  { slug: 'cancellations', category: 'Bajas', metrics: [entrada('churned_subscriptions')] },
-  { slug: 'unit-economics', category: 'Por cliente', metrics: [entrada('average_revenue_per_user')] },
+  { slug: 'cancellations', category: 'Cancellations', metrics: [entrada('churned_subscriptions')] },
+  { slug: 'unit-economics', category: 'Unit Economics', metrics: [entrada('average_revenue_per_user')] },
 ]
+
+/**
+ * MaKo: cuántas columnas ocupa el gráfico `index` de un grupo de `total` en la grilla de dos columnas (MetricGroup). El primero
+ * va ancho, como en Polar; el último también si sin él quedaría solo en su fila (con un total par). Así ningún grupo deja una
+ * celda vacía (punto 40, revisión del 6/11/2026: la grilla pasaba a tres columnas desde 1536 px y dejaba dos huecos).
+ */
+export const celdaAncha = (index: number, total: number): boolean =>
+  index === 0 || (index === total - 1 && total % 2 === 0)
 
 /**
  * MaKo: el «Export» de Polar baja `/v1/metrics/export`; acá el CSV se arma en el navegador con lo que la pantalla ya tiene,

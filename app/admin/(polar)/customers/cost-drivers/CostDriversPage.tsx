@@ -4,11 +4,12 @@
 // MaKo: el costo de cada negocio es lo que le costó a MaKo su IA en el rango elegido (`costosPorCliente`,
 // app/admin/_polar/datos/clientes.ts, de lib/costos-ia.ts). El selector de rango es el de Polar, arriba a la derecha (decisión
 // del Cerebro, 6/11/2026): cada rango es una ventana exacta que lee el server, así que elegirlo cambia `?range=` y la página se
-// vuelve a leer. Si el período no se puede repartir por negocio, se dice (no hay número).
+// vuelve a leer. Desde el 1/11/2026 se reparte por negocio; Claude con la clave de MaKo y lo de antes de esa fecha van en una
+// línea aparte debajo de la tabla (`LineasSinReparto`). Un período entero de antes no se reparte: se dice (no hay número).
 
 import { CustomerCell } from '@/app/admin/_polar/web/Customer/CustomerCell'
 import { CustomersPageShell } from '@/app/admin/_polar/web/Customer/CustomersPageShell'
-import { SinReparto } from '@/app/admin/_polar/web/Customer/TopCostCustomersList'
+import { LineasSinReparto, SinReparto } from '@/app/admin/_polar/web/Customer/TopCostCustomersList'
 import { useClientSidePagination } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
@@ -73,24 +74,29 @@ export const CostDriversPage = ({ costos, error, range, rotulo }: PropsCostDrive
         />
       ) : !costos.atribuible ? (
         <SinReparto />
-      ) : stats.length === 0 ? (
-        <EmptyState
-          icon={<Coins />}
-          title="Sin gasto de IA"
-          description="Ningún negocio le costó IA a MaKo en este período."
-        />
       ) : (
-        <DataTable
-          columns={columns}
-          data={pageItems}
-          isLoading={false}
-          rowCount={rowCount}
-          pageCount={pageCount}
-          pagination={pagination}
-          onPaginationChange={setPagination}
-          getRowId={(stat) => String(stat.ws)}
-          onRowClick={(row) => router.push(rutaDeNegocio(row.original.ws))}
-        />
+        <>
+          {stats.length === 0 ? (
+            <EmptyState
+              icon={<Coins />}
+              title="Sin gasto de IA"
+              description="Ningún negocio le costó IA a MaKo en este período."
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={pageItems}
+              isLoading={false}
+              rowCount={rowCount}
+              pageCount={pageCount}
+              pagination={pagination}
+              onPaginationChange={setPagination}
+              getRowId={(stat) => String(stat.ws)}
+              onRowClick={(row) => router.push(rutaDeNegocio(row.original.ws))}
+            />
+          )}
+          <LineasSinReparto costos={costos} />
+        </>
       )}
     </CustomersPageShell>
   )
