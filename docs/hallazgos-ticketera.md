@@ -995,3 +995,44 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - La puerta del DEBUG desde un cliente está cerrada.
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
+
+## Una guarda que fija el TEXTO del código viejo deja pasar el bug y frena el arreglo (6/11/2026)
+
+**El caso, entero, porque es el más barato de repetir.** `tests/ticketera-mazo.test.ts`, caso G5 («la foto y la última nota
+salen de la base, en la lectura de Martín»), tenía esta línea, con este rótulo:
+
+```
+// Sólo https: una foto que no lo es no se dibuja.
+assert.match(db, /\/\^https:\\/\\/\/i\.test\(us\.foto_url\)/);
+```
+
+Pide el texto **literal** `/^https:\/\//i.test(us.foto_url)` dentro de lib/tickets-db.ts. Dos cosas:
+
+1. **El rótulo mentía.** Eso no es «sólo https»: es **cualquier** https. Es el agujero por el que un cliente ponía de foto
+   una URL de un servidor suyo y su log le decía cuándo Martín abría la bandeja, desde qué IP y con qué navegador (el
+   detalle, en [hallazgos-seguridad.md](hallazgos-seguridad.md) → «La foto de perfil era un web bug»). La guarda no sólo
+   no lo vio: lo **exigía**.
+2. **Y al cerrarlo, puso la punta ROJA.** El arreglo (`fotoDePersonaSegura`) borró ese texto, así que la guarda falló con
+   el código BIEN. Costó una corrida de Actions y una vuelta al chat.
+
+**La regla que queda:** una guarda sobre el código fuente afirma **lo que no puede pasar**, no **cómo está escrito hoy**.
+Las dos formas se distinguen con una pregunta: *¿esta línea seguiría en verde si alguien arregla el bug de otra manera?* Si
+la respuesta es no, la guarda fija la implementación. Lo que sí sirve, en orden:
+
+1. **Ejecutar el código** y mirar el resultado (es la regla de AGENTS.md → «Un test nuevo ejecuta el código»). G5 ahora
+   corre `fotoDePersonaSegura` y mira que una foto de un servidor del cliente no se dibuje y una de Google sí.
+2. **Un `doesNotMatch` de la FALLA**, no un `match` de la cura: `/https[^\n]*\.test\(us\.foto_url\)/` no puede volver.
+3. **Y sólo entonces**, un `match` del cableado, que es lo único que G5 no puede ejecutar (`aFila` no se exporta).
+
+**Probado rompiéndolo, de las dos maneras que la guarda vieja no distinguía** (base 29/0):
+- volviendo a poner el `https` suelto en `aFila` —el texto que la guarda vieja **pedía**— → **28/1, G5 rojo**;
+- dejando el cableado bien y volviendo el FILTRO permisivo → **28/1, G5 rojo**.
+La vieja daba verde en el primero (era su propia condición) y en el segundo (no mira el filtro).
+
+**Dónde más mirar:** no es el único de esta forma. El mismo día, en esta misma área, `tests/ticketera-movil-y-avisos.test.ts`
+B5 pedía el texto `aviso_motivo, aviso_at, arreglado_at` de `COLS` —o sea que dos columnas fueran **VECINAS** en el
+select—, y se puso rojo al meter `cerebro_*` en el medio sin que faltara ninguna. Misma falla: la guarda mide la forma.
+Un `grep` de `assert.match(.*leer(` por el repo da la lista de candidatas.
+
+**Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
+(`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
