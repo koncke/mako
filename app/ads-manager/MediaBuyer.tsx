@@ -276,6 +276,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
         </div>
         <div className="aa-top-der">
           {/* «Lánzame una campaña» (29/10/2026): la pantalla de una campaña nueva, por la Zernio del negocio (NuevaCampana.tsx). */}
+          {/* Quien ya tenía campañas no pasa por la primera entrada: acá la encuentra (Martín, 6/11/2026: «me sigue saliendo Hoy y Campañas»). */}
+          {!perfil && <Link href="/ads-manager?estrategia=1" className="aa-link">Armar mi estrategia</Link>}
           <Link href="/ads-manager/nueva" className="aa-link">Nueva campaña</Link>
           <button type="button" className="aa-link" onClick={() => setVerActividad(true)}>Actividad</button>
           <button type="button" className="aa-ic" aria-expanded={verAgentes} title="Agentes y ajustes" aria-label="Agentes y ajustes" onClick={() => setVerAgentes((x) => !x)}>{Ic.tuerca()}</button>

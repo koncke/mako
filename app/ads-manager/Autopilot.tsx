@@ -23,6 +23,7 @@ import {
   type Agente, type ResultadoAplicar,
 } from './mb-modelo';
 import { fmtDinero } from '@/lib/format';
+import { NOMBRE_BOTON } from '@/lib/media-buyer/variacion-boton';
 
 // ── Los íconos de línea (el trazo de AdAmigo, que es el de Lucide) ──
 const sv = (d: ReactNode, w = 1.7) => (
@@ -127,7 +128,9 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
                   <input type="checkbox" checked={on} disabled={!abierta}
                     onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n; })} />
                   {/* Lo que sale ENTERO: el gancho, el texto y el título del anuncio (el headline también lo escribe la IA). */}
-                  <span>{v.gancho && <b>{v.gancho}</b>}<p>{v.textoPrincipal}</p>{v.titulo && <em className="aa-var-titulo">Título: {v.titulo}</em>}</span>
+                  {/* La variación de BOTÓN (lib/media-buyer/variacion-boton.ts) es el mismo texto con otro botón: sin decirlo, se ve igual que el original. */}
+                  <span>{v.gancho && <b>{v.gancho}</b>}<p>{v.textoPrincipal}</p>{v.titulo && <em className="aa-var-titulo">Título: {v.titulo}</em>}
+                    {v.cta && <em className="aa-var-titulo">Botón: {NOMBRE_BOTON[v.cta] ?? v.cta}</em>}</span>
                 </label>
               );
             })}

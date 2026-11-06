@@ -1,6 +1,9 @@
 /* /m/ads — el Media Buyer en el teléfono: la captura 04 de AdAmigo en una columna (25/10/2026 noche). Las piezas son las de
    la computadora (app/ads-manager/aa.css), adentro del marco de MaKo Mobile, que ya pone su aire y su fondo. */
 .aa.aa-m { padding: 4px 0 24px; min-height: 0; background: transparent; display: flex; flex-direction: column; gap: 4px; }
-/* La caja para pedirle algo a MaKo: abre su chat del teléfono. */
+/* La caja para pedirle algo a MaKo: abre la hoja del Marketing CoPilot (HojaDelCopiloto.tsx). */
 .aa-orden-m { width: 100%; height: 48px; padding: 0 18px 0 9px; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); font-size: 15px; color: var(--faint); }
 .aa-m-nota { margin: 12px 0 0; font-size: 13px; color: var(--dim); text-align: center; }
+/* Marketing CoPilot: «Hoy | Plan» con un funnel de anuncios elegido. El Plan es la tarjeta de la computadora (PlanDelCopiloto.tsx). */
+.aa-m-secciones { margin: 10px 0 6px; }
+.aa.aa-m > .aa-card { margin-top: 6px; }

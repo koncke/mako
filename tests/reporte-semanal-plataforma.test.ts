@@ -146,7 +146,7 @@ test('lo emite el cron de cada negocio y lo corre la fila de la plataforma; sin 
   assert.deepEqual(con.anotado.leidos, [PLATAFORMA]);
   assert.equal(con.anotado.corridas[0].ws, PLATAFORMA);
   assert.equal(con.anotado.corridas[0].ctx.negocioWs, NEGOCIO, 'le escribe al equipo de ESE negocio');
-  assert.deepEqual(con.anotado.corridas[0].ctx.datos, datos);
+  assert.deepEqual(con.anotado.corridas[0].ctx.datos, { ...datos, negocio_numero: String(NEGOCIO) });
   assert.equal(r.filas, 1);
   const sin = deps([]);
   const rSin = await emitirPorEvento(CAT, NEGOCIO, { datos }, sin.d);

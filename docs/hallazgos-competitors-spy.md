@@ -1507,4 +1507,10 @@ Probado rompiéndolo: 8 roturas, cada una 1 rojo en su test; un renombre sin efe
 
 **Trampas del entorno:** `gemini-2.5-flash-lite` figura en la lista de modelos y da 404 a usuarios nuevos. Los 503 son frecuentes en `gemini-3.8-flash`, `gemini-3.6-flash` y `gemini-3.5-flash-lite`: con pedidos de a uno, reintentos y cambio de modelo, todos los tramos terminaron saliendo.
 
-**Sin hacer:** aplicar ese mínimo en `guionDeYoutubeConGemini`.
+**Hecho (6/11/2026, nube):** el piso vive en `guionDeYoutubeConGemini` (`PISO_GUION_YT_CPM = 600`, `pisoDeGuionYt`). Un tramo debajo del
+piso va al otro modelo (y a otra cuenta); si ninguno lo pasa vuelve el más largo con `corto` y el guion lo dice
+(`NOTA_GUION_CORTO`, lib/spy-transcripcion.ts): un video de poca voz existe, y tirarlo lo dejaba sin guion para siempre. El video
+entero (uno de menos de 10 minutos) se pide con su duración para tener piso. Cada respuesta de Google se registra en el Uso, también
+la corta: costó igual. Lo fija tests/spy-guion-youtube.test.ts (6 y 6b), probado rompiéndolo (3 roturas, las 3 caen).
+**Sin medir:** en producción, con qué frecuencia el respaldo (`gemini-flash-lite-latest`) pasa el piso; si es el que corta, la nota
+va a salir seguido y el arreglo de fondo es otro modelo de respaldo para el STT de video.
