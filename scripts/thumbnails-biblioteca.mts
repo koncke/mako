@@ -53,21 +53,16 @@ const txt = (k: string): string | null => { const v = op.get(k); return typeof v
 const E = await imp('lib/thumbnails/explorar.ts');
 const K = await imp('lib/thumbnails/carga.ts');
 const S = await imp('lib/thumbnails/servidor.ts');
+const R = await imp('lib/thumbnails/renovar.ts');
 const Y = await imp('lib/spy-youtube.ts');
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const { wsSuperAdmin, runWithWorkspace } = await imp('lib/workspace.ts');
-const { credWs } = await imp('lib/credenciales.ts');
 
 const db = getSupabaseServer();
 const ahora = () => new Date().toISOString();
 
-/** La clave de YouTube de la plataforma (nunca se imprime). */
-async function clave(): Promise<string | null> {
-  const ws = await wsSuperAdmin().catch(() => null);
-  const deLaPlataforma = ws != null ? await runWithWorkspace(ws, () => credWs('YOUTUBE_API_KEY', ws)).catch(() => null) : null;
-  const k = (deLaPlataforma && !String(deLaPlataforma).startsWith('PENDING') ? deLaPlataforma : null) ?? process.env.YOUTUBE_API_KEY ?? null;
-  return k ? String(k) : null;
-}
+/** La clave de YouTube de la plataforma (nunca se imprime). Una sola copia, en lib/thumbnails/renovar.ts: la usa el cron. */
+const clave = (): Promise<string | null> => R.claveDeLaPlataforma();
 
 async function hayTablas(): Promise<boolean> {
   const r = await db.from(S.T_CANALES).select('id').limit(1);
@@ -128,30 +123,19 @@ async function leer() {
   const k = await clave();
   if (!k) { console.log('✖ No hay clave de YouTube de la plataforma (YOUTUBE_API_KEY). No se pidió nada.'); return; }
   const max = num('max', 120);
-  const cs = await db.from(S.T_CANALES).select('id, canal_id, nombre, nicho, idioma, leido_en').eq('estado', 'activo').order('leido_en', { ascending: true, nullsFirst: true }).limit(max);
-  if (cs.error) { console.log('✖', cs.error.message); return; }
-  const lista = cs.data ?? [];
+  // ⚠️ El trabajo vive en lib/thumbnails/renovar.ts, que es lo MISMO que corre el cron semanal
+  // (/api/cron/thumbnails-renovar). Si se copia acá, las dos copias se separan y la que se arregla no es la que corre.
+  const lista = await R.canalesPorLeer(max);
   console.log(`${lista.length} canales para leer (~${lista.length * 3} unidades de las 10.000 diarias).`);
   if (!deVerdad) { for (const c of lista.slice(0, 20)) console.log(`  · ${c.nombre} (${c.nicho} · ${c.idioma})`); console.log('En seco: no se pidió nada. Agrega --de-verdad.'); return; }
-  const ocultos = await db.from(S.T_VIDEOS).select('video_id').eq('oculto', true);
-  const escondidos = new Set((ocultos.data ?? []).map((x: { video_id: string }) => x.video_id));
-  let videos = 0;
-  for (const c of lista) {
-    const l = await Y.traerVideosDelCanal({ id: c.canal_id }, k, fetch, 50);
-    if (!l.ok) { console.log(`  ✖ ${c.nombre}: ${l.detalle}`); if (l.motivo === 'cuota') break; continue; }
-    const cuando = ahora();
-    // Su nombre, @ y foto al día; `fuente` y `estado` no se pisan (un canal sumado a mano sigue siendo de la lista).
-    const { fuente: _f, estado: _e, ...alDia } = K.filaDeCanal(l.canal, c.nicho, c.idioma, 'busqueda', cuando);
-    await db.from(S.T_CANALES).update(alDia).eq('id', c.id).then(() => undefined, () => undefined);
-    const filas = K.filasDeVideos(l.videos, c.id, cuando).filter((f: { video_id: string }) => !escondidos.has(f.video_id));
-    if (filas.length) {
-      const up = await db.from(S.T_VIDEOS).upsert(filas, { onConflict: 'video_id' });
-      if (up.error) { console.log(`  ✖ ${c.nombre}: ${up.error.message}`); continue; }
-    }
-    videos += filas.length;
-    console.log(`  ✓ ${c.nombre}: ${filas.length} videos largos`);
-  }
-  console.log(`Listo: ${videos} videos guardados.`);
+  const r = await R.releerCanales({
+    clave: k, max,
+    presupuestoMs: Number.POSITIVE_INFINITY,   // a mano no hay reloj de Vercel: se espera a que termine
+    alLeer: (c: { nombre: string | null }, videos: number) => console.log(`  ✓ ${c.nombre}: ${videos} videos largos`),
+  });
+  for (const f of r.fallas) console.log(`  ✖ ${f}`);
+  if (r.corto) console.log('  Corté antes del final (cuota de YouTube): el resto, en la próxima corrida.');
+  console.log(`Listo: ${r.canales} canales releídos, ${r.videos} videos guardados.`);
 }
 
 async function sumar() {
@@ -194,14 +178,18 @@ async function ocultar() {
 
 async function podar() {
   if (!(await hayTablas())) return;
-  const limite = new Date(Date.now() - E.DIAS_VIGENTE * 86_400_000).toISOString();
+  // Mismo corte y mismo trabajo que el cron semanal: lib/thumbnails/explorar.ts y renovar.ts.
+  const limite = E.limiteDeVigencia();
   // Los escondidos se quedan (sin título): así una lectura nueva no los vuelve a mostrar.
   const n = await db.from(S.T_VIDEOS).select('id', { count: 'exact', head: true }).lt('leido_en', limite).eq('oculto', false);
   console.log(`Vencidos (leídos antes del ${limite.slice(0, 10)}): ${n.count ?? '?'}`);
   if (!deVerdad) { console.log('En seco: no se borró nada. Agrega --de-verdad.'); return; }
-  const r = await db.from(S.T_VIDEOS).delete().lt('leido_en', limite).eq('oculto', false);
-  const t = await db.from(S.T_VIDEOS).update({ titulo: null, vistas: null, megusta: null, comentarios: null }).lt('leido_en', limite).eq('oculto', true);
-  console.log(r.error || t.error ? `✖ ${(r.error ?? t.error).message}` : '✓ Podado.');
+  try {
+    const p = await R.podarVencidos();
+    console.log(`✓ Podado: ${p.borrados} borrados, ${p.vaciados} escondidos vaciados.`);
+  } catch (e) {
+    console.log(`✖ ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 const comandos: Record<string, () => Promise<void>> = { estado, descubrir, leer, sumar, excluir, ocultar, podar };
