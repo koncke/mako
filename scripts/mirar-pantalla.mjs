@@ -16,7 +16,8 @@
  * uso: node _mirar.mjs <ruta> <salida.png> [ancho] [alto]
  */
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdtempSync, existsSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
+import { perfilTemporal } from './perfil-cdp.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,8 +53,9 @@ const CHROME = [
 ].find((p) => existsSync(p));
 if (!CHROME) { console.error('no encontre chrome.exe'); process.exit(1); }
 
-const perfil = mkdtempSync(join(tmpdir(), 'mako-cdp-'));
-const chrome = spawn(CHROME, [
+// El perfil se borra al salir, pase lo que pase (scripts/perfil-cdp.mjs): antes quedaba uno por corrida.
+const { dir: perfil, aCargoDe } = perfilTemporal();
+const chrome = aCargoDe(spawn(CHROME, [
   `--remote-debugging-port=${PUERTO}`,
   `--user-data-dir=${perfil}`,
   '--headless=new',
@@ -62,7 +64,7 @@ const chrome = spawn(CHROME, [
   '--disable-gpu',
   `--window-size=${ANCHO},${ALTO}`,
   'about:blank',
-], { stdio: 'ignore', detached: false });
+], { stdio: 'ignore', detached: false }));
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 

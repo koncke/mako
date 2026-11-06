@@ -6,7 +6,7 @@
 // pide en todas (docs/plantillas-reales/README.md, `instagram-carousel-skill`, MIT, su licencia en lib/avisos/LICENSE-INSTAGRAM-CAROUSEL-SKILL): la cabecera con las iniciales y el @ del
 // negocio, la barra de progreso, la flecha (menos en la última) y la última lámina con otro fondo, la de la acción.
 //
-// Los objetos tienen la forma que guarda el motor (las de app/image-editor/mako/plantillas/*.json: `textbox`, `rect`,
+// Los objetos tienen la forma que guarda el motor (la de `DoryDocument`: `textbox`, `rect`,
 // `ellipse`), con NOMBRES por función («Titular», «Texto», «Cabecera»…): así el chat del editor los encuentra por su nombre.
 // La miniatura y «Ver ejemplo» (app/image-editor/carruseles/MiniaturaCarrusel.tsx) dibujan ESTE documento, no una copia.
 //

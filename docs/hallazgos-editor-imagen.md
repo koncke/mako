@@ -450,7 +450,9 @@ El `setState` en el efecto es el patrón de Doory para resetear el selector cuan
 
 ## Las plantillas en español: un texto más largo desborda su caja, y eso se MIDE
 
-**Vive en:** `scripts/image-editor/traducir-plantillas.mjs` (`T` y `AJUSTES`) · `public/cv/plantillas/*.webp`
+**Vive en:** nada ya — las 10 plantillas de Doory, sus WebP y los dos scripts que las traducían se borraron el
+6/11/2026 (ver «Sacar las de Doory tocó SIETE archivos de test»). Queda por lo que enseña de medir un texto con su
+fuente: lo usa `lib/image-editor/plantillas-reales.ts`, que genera sus medidas con el mismo criterio.
 
 El 14/10 el texto del lienzo de las 10 plantillas pasó a español neutro (89 textos, por igualdad exacta con el
 original; un texto en mayúsculas guarda el original en `caseSource` y se traduce ése). En la hoja de contactos de las
@@ -728,13 +730,80 @@ tests/image-editor-plantillas-crear.test.ts
 
 **Vive en:** lib/model-catalogo.ts
 
-## Dos tests se rompen a propósito al sacar las de Doory (29/10/2026)
+## Sacar las de Doory tocó SIETE archivos de test, y los dos que el plan nombraba no eran ninguno (6/11/2026, claude1)
 
-- Se rompen el test 1 de tests/image-editor-plantillas-crear.test.ts («primero lo en blanco») y el 5 (la lista literal
-  `PLANTILLAS_NUEVO_DISENO` en las dos pantallas).
-- **Regla:** se reescriben con el cambio, no se fuerzan.
+**Vive en:** `app/image-editor/mako/plantillas.ts` · `lib/api-mako/areas/imagen.run.ts` · los siete tests de abajo.
 
-**Vive en:** tests/image-editor-plantillas-crear.test.ts
+Las 10 plantillas de Doory se borraron el 6/11/2026 (encargos 155 y 548): sus 10 JSON, sus 10 WebP, su tabla de
+etiquetas y los dos scripts que sólo las traducían. Eran material ajeno adentro del producto: la Attribution Assurance
+License del código portado aplica «in whole or part, with or without modification», así que sacar el crédito visible el
+29/10 (`editor/CreditoDoory.tsx`) no la desactivaba. El motor (`_doory/`) se queda, con su crédito en `LICENSE-DOORY`:
+lo que se fue es su CONTENIDO.
+
+**El diagnóstico obvio era el equivocado.** Esta sección decía, desde el 29/10, que se rompían «el test 1 de
+`image-editor-plantillas-crear` y el 5», y el encargo lo repetía. Al medirlo: **esos dos ya estaban adaptados** por
+`bebd4cde0` (6/11), que sacó las de Doory de «Nuevo diseño» una semana después de escribirse el hallazgo — el test 1 ya
+verificaba que NO estuvieran. Los que se rompían eran otros, y eran siete archivos, no dos:
+
+| Archivo | Qué le pasó |
+|---|---|
+| `api-mako-imagen.test.ts` | el test 3 recorría las 10 (`lista.length === 10`). Ahora es el GUARD de que no vuelvan |
+| `plantillas-sugeridas-editores.test.ts` | cuatro tests de qué se le sugiere a quién en Imagen: sin sujeto |
+| `chat-bloques.test.ts` | exigía `<img src="/cv/plantillas/<slug>.webp">` y el WebP **en disco** |
+| `_bloques-tarjeta-hijo.ts` | `catalogoPlantillas()[0]?.slug ?? ''` daba `''` y la tarjeta se creaba sin plantilla |
+| `image-plantillas-reales.test.ts` | el assert de «no choca con una de Doory» se quedó sin con qué chocar |
+| `image-editor-plantillas-crear.test.ts` | el test **4** (no el 1 ni el 5): fijaba la rama `documentoDePlantilla` |
+| `image-editor-colores-mako.test.ts` | un `if (f.includes('/mako/plantillas/')) continue` que ya no saltea nada |
+
+**Reglas:**
+
+- **Un hallazgo sobre qué tests rompe un cambio caduca.** Dice qué se rompía con el código de ESE día; una semana
+  después, otra punta puede haber adaptado justo esos dos. Antes de confiarle el alcance a un hallazgo de tests, se
+  mide: `grep` de los símbolos que se van (acá `catalogoPlantillas`, `documentoDePlantilla`, `ETIQUETAS_IMAGEN`) más el
+  slug de cada cosa borrada. Eso dio los siete; el hallazgo daba dos, y ninguno.
+- **Lo que un test exige en DISCO no lo encuentra ningún grep de símbolos.** `chat-bloques` pedía que
+  `public/cv/plantillas/<slug>.webp` existiera (`existsSync`), y lo sacaba del slug que le devolvía un proceso hijo: no
+  nombra ningún archivo borrado. Apareció al barrer por slug, no por símbolo.
+- **Los diez slugs viven en UN solo test.** El guard contra la reincidencia (`api-mako-imagen.test.ts`, test 3) los
+  lista una vez y chequea el panel, la API y el disco; los otros seis tests apuntan a él en vez de repetir la lista.
+- **Un test que pierde su sujeto se reescribe sobre lo que SÍ hay que proteger, o se va.** Los cuatro de «qué se le
+  sugiere a quién en Imagen» se fueron (no hay plantillas que ordenar) y quedó uno que fija que el panel no sugiera
+  nada; el test 3 pasó de recorrer las diez a vigilar que no vuelvan. Lo que no se hizo: duplicar sobre las plantillas
+  reales lo que ya cuidan `image-plantillas-reales.test.ts` y `-crear.test.ts` (que se puedan guardar como diseño, sin
+  fotos locales y bajo el tope).
+- **El cableado se queda aunque se vaya el contenido.** Las señales del negocio siguen bajando desde la page hasta
+  `servicioPlantillas` (su test lo fija): es lo primero que hará falta cuando el panel sirva las plantillas propias.
+- ⚠️ **Vaciar una carpeta de `public/` deja su exención del proxy abierta, y eso es un hueco de seguridad.** Los 10 WebP
+  eran los ÚNICOS archivos de `public/cv/`, así que al borrarlos `cv` quedó en la lista de carpetas que `proxy.ts`
+  saltea por extensión sin tener nada que servir. No lo vio ningún grep de este cambio: lo cazó
+  `tests/proxy-matcher-completo.test.ts` («sólo abre un hueco») en Actions. **Regla:** una carpeta de `public/` que se
+  vacía SALE de esa lista, igual que una nueva entra. El comentario de `proxy.ts` ahora lo dice.
+
+**Los tres rojos del primer push, y que ninguno era un test «ya adaptado»** (corrida 455): el typecheck cazó un
+`c.plantilla` que quedó en el test del carrusel (el campo se había ido del tipo), `image-plantillas-reales-crear` fijaba
+la frase vieja de la descripción de la API («el id o el slug») y `proxy-matcher-completo`, lo de `cv`. **Los tres son el
+cambio, no el entorno:** se arreglaron en un ciclo. El cuarto rojo de esa corrida
+(`tests/coaches-ops-center.test.ts`) lo marcó el propio runner como FLAKY — rojo en proceso compartido, verde aislado.
+
+**Lo que el panel «Diseño» muestra ahora:** nada, a propósito. `PLANTILLAS` y `CATEGORIAS` se fueron enteras (ocho
+categorías con 0 no llevan a ningún lado) y el texto del panel manda a donde SÍ hay plantillas:
+`templates.empty` = «Las plantillas están en «Nuevo diseño».» (`_doory/editor/strings.ts`).
+
+**Lo que quedó SIN hacer:**
+
+- **El bloque «creado» del chat perdió su miniatura.** Era la única con WebP: las plantillas reales se generan por
+  código y no tienen uno, así que al crear un diseño desde el chat va el marco con «ancho × alto»
+  (`app/_chat/BloqueHilo.tsx`, `Creado`, que ya lo manejaba). Lo arreglaría el WebP de cada real, en el banco de esbuild
+  + Chrome sin ventana, o dibujar `MiniaturaDiseno` en el bloque.
+- **El panel «Diseño» sirviendo las plantillas propias del negocio:** es lo que lo vuelve a llenar
+  (`app/creaciones/usePlantillasPropias.ts` hoy sólo alimenta «Nuevo diseño»). Necesita una miniatura por plantilla:
+  el panel espera una URL (`thumbnail_url`), no un SVG.
+- **No se miró en el editor.** Que el panel vacío se vea bien (y no como una pestaña rota) está leído en el código
+  (`TemplatesPanel.tsx` ya dibuja `templates.empty` sin plantillas), no medido en la pantalla.
+- **Las fotos de muestra del ejemplo y las preguntas al crear** siguen pendientes, y **no son parte de este borrado**:
+  en `docs/relevo/nube-plantillas.md` figuran como lo que FALTA AGREGAR a las plantillas reales (hoy los marcos dicen
+  «Tu foto»), no como algo de Doory que sacar. El encargo las listaba bajo «qué hay que borrar» leyendo mal la coma de
+  `hallazgos-plantillas.md`; no hay fotos de muestra en el repo (`public/cv/plantillas/` quedó vacío).
 
 ## «Páginas 1 / 1» se pisaba con la cuadrícula a 1366: la barra de abajo miraba la VENTANA (29/10/2026, claude3)
 

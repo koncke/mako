@@ -130,7 +130,6 @@ test('4: el lienzo lee los tokens de la raíz `.cv` y se repinta con el tema de 
 test('5: la letra es la de MaKo: sin Noto Sans ni su cargador', () => {
   assert.ok(!existsSync(join(RAIZ, 'app/image-editor/fuenteUi.tsx')), 'fuenteUi.tsx cargaba Noto Sans de Google');
   for (const f of archivos('app/image-editor', /\.(tsx?|css)$/)) {
-    if (f.includes('/mako/plantillas/')) continue;
     assert.doesNotMatch(sinComentarios(leer(f)), /Noto\+Sans|'Noto Sans'/, `${f} vuelve a pedir Noto Sans`);
   }
 });

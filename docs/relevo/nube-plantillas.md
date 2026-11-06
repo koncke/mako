@@ -32,7 +32,8 @@ Lo que se aprendió está en [docs/hallazgos-plantillas.md](../hallazgos-plantil
 
 ## Lo que falta, con dónde vive
 
-- **Image:** ver la sección de abajo (las 10 de Doory sin borrar, las fotos de muestra y las preguntas al crear).
+- **Image:** ver la sección de abajo. Las 10 de Doory **se borraron el 6/11/2026** (encargos 155 y 548, rama
+  `punta/doory-fuera`); quedan las fotos de muestra y las preguntas al crear.
 - **Plantillas propias en las demás tabs:** cada una es un enchufe en `lib/creaciones-enchufes.ts` (sacarla de
   `POR_ENCHUFAR` o sumar el tipo en `lib/creaciones-reglas.ts`), con su `paraPublico` (lo que no es texto y es del negocio),
   el `<ModalGuardarPlantilla>` en el «⋯» y `usePlantillasPropias(tipo)` en «Nuevo …», como Copywriter e Image.
@@ -67,10 +68,12 @@ Lo que se aprendió está en [docs/hallazgos-plantillas.md](../hallazgos-plantil
   motor, con las fuentes del catálogo del editor) y «Ver ejemplo» abre la composición llena
   (`app/image-editor/EjemploPlantillaImagen.tsx`). Crear una abre la ESTRUCTURA. El teléfono la dibuja igual. En la API,
   `listar_plantillas_imagen` trae `reales` con los textos de su ejemplo y `crear_diseno_imagen` acepta su id.
-- **Las 10 de Doory salieron de «Nuevo diseño» pero NO se borraron:** siguen en el panel «Diseño» del editor y en la API
-  (`plantillas`). El plan (docs/plantillas-reales/image.md §5, punto 3) dice borrarlas con sus JSON y WebP: queda para el
-  chat de Image, porque tocan el panel del editor, la API y tres tests (`api-mako-imagen`, `plantillas-sugeridas-editores`,
-  `_bloques-tarjeta-hijo`).
+- **Las 10 de Doory salieron de «Nuevo diseño» pero NO se borraron:** seguían en el panel «Diseño» del editor y en la API
+  (`plantillas`). El plan (docs/plantillas-reales/image.md §5, punto 3) decía borrarlas con sus JSON y WebP.
+  **BORRADAS el 6/11/2026** (encargos 155 y 548): el panel «Diseño» quedó vacío a propósito y su texto manda a «Nuevo
+  diseño». No eran tres tests sino SIETE — los dos que el plan nombraba ya estaban adaptados por `bebd4cde0`, y
+  `chat-bloques` pedía el WebP en disco, que ningún grep de símbolos encuentra. Las reglas quedaron en
+  [hallazgos-editor-imagen.md](../hallazgos-editor-imagen.md), «Sacar las de Doory tocó SIETE archivos de test».
 - **Falta:** las fotos de muestra del ejemplo (hoy son marcos vacíos «Tu foto»: image.md, trampa 6), «toca la foto y pon
   la tuya» con `slot` (el marco hoy es un `rect` con `isPlaceholder`), y que MaKo pregunte los hechos de `pide` al crearla
   (hoy el diseño abre con la estructura y el chat del editor la llena a pedido).

@@ -34,7 +34,20 @@ scripts/guardas-push.sh text eol=lf
 
 # La mezcla con fin de línea normalizado (25/10/2026, docs/hallazgos-infra.md): con CRLF, `sh` falla en la primera línea.
 scripts/mezcla-eol.sh text eol=lf
-docs/hallazgos*.md merge=union
+
+# Los documentos POR ÁREA se unen por líneas: cada cosecha agrega una sección nueva, así que juntar los dos lados deja las
+# dos secciones. El glob lleva el guion a propósito: `docs/hallazgos.md` (el ÍNDICE) NO es esto.
+docs/hallazgos-*.md merge=union
+
+# ⚠️ EL ÍNDICE NO (6/11/2026). Hasta hoy el glob era `docs/hallazgos*.md`, sin el guion, y también agarraba
+# `docs/hallazgos.md`. El índice es una TABLA con UNA FILA POR ÁREA, y una cosecha no agrega una fila: REESCRIBE la celda de
+# su área metiendo su entrada adelante. Para `union` la fila vieja y la nueva son dos líneas distintas, así que deja LAS DOS:
+# cada punta que cosecha duplica la fila de su área, y la siguiente duplica la duplicada. Medido el 6/11 en main: 199 filas
+# para 69 áreas distintas — 130 filas de más — y 53 documentos en disco. La regla «Una fila por área» que el índice declara
+# arriba no podía ganar: no es algo que alguien haga mal, lo duplica la MEZCLA después de que los dos lados escribieron bien.
+# El driver une CELDA por celda y deja las dos entradas. Se configura como el de las bitácoras (punta.yml), y en la PC:
+#   git config merge.indice-hallazgos.driver "node scripts/unir-indice-hallazgos.mjs %O %A %B %P"
+docs/hallazgos.md merge=indice-hallazgos
 
 # Las bitácoras de /admin/dev (4/11/2026): dos puntas que agregan su hito al FINAL del mismo array chocan siempre, y
 # merge=union arma un objeto con la mitad de cada hito. El driver (scripts/unir-bitacora.mjs) deja los dos si cada lado
