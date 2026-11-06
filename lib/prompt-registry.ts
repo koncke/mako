@@ -69,6 +69,8 @@ import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRI
 import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
 import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
 import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
+import { PROMPTS_IG } from './ig-writer';
+import { PROMPTS_METODOLOGIA_IG } from './ig-metodologia';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { BROLL_SYSTEM_TEMPLATE, BROLL_USER_TEMPLATE } from './editor-video/broll-prompts';
@@ -932,6 +934,69 @@ export const REGISTRY: Group[] = [
         ], scope: 'full', sensitive: false,
         default: COPYWRITER_ADAPTAR_USER,
         context: '«Adaptar a mi negocio»: va con el system de Editar y devuelve el mismo JSON. Conserva que el ejemplo es de un negocio ficticio y que lo que falta va como [DATO: …].',
+      },
+    ],
+  },
+  {
+    // El escritor de contenido de Instagram (6/11/2026, skill add-editable-prompt). Los dos
+    // templates viven en lib/ig-writer.ts (`PROMPTS_IG`) y los cuatro bloques de metodología
+    // en lib/ig-formatos.ts, resueltos por lib/ig-metodologia.ts (`PROMPTS_METODOLOGIA_IG`).
+    // Las keys, los slots y que ningún call site se quede con el default los fija
+    // tests/ig-writer-prompts.test.ts.
+    group: 'Escritor de contenido de Instagram (reels · carruseles · stories)',
+    icon: '📸',
+    blurb: 'Cómo escribe MaKo un reel, un carrusel o un día de stories: los dos prompts del motor y la metodología destilada de los cursos. La metodología la usa TAMBIÉN el Copywriter cuando el guion es de tipo Reel o Story — que es hoy la pantalla por la que pasa el cliente.',
+    entries: [
+      {
+        key: PROMPTS_IG.system.key, source: 'override',
+        label: 'Escribir la pieza (system)', kind: 'system', dynamic: true,
+        variables: [
+          v('formato', 'qué se está escribiendo («un REEL», «un CARRUSEL», «un DÍA DE STORIES»)'),
+          v('metodologia', 'la metodología del formato + la transversal (los bloques editables de abajo)'),
+          v('jsonShape', 'la forma EXACTA del JSON de salida, distinta por formato'),
+        ],
+        scope: 'static-only', sensitive: true,
+        default: PROMPTS_IG.system.tpl,
+        context: 'Pone a MaKo a escribir la pieza de Instagram con los datos reales del negocio. No borres los slots {{formato}}, {{metodologia}} ni {{jsonShape}}: sin {{jsonShape}} la respuesta no trae el esquema que el saneo determinista lee y toda pieza se rechaza con «la pieza vino sin…». Tampoco saques el bloque de IDIOMA DEL COPY (el texto es para la audiencia del cliente y va en español neutro, sin voseo) ni el aviso de que el pedido y los datos del negocio vienen entre <contenido_no_confiable> — eso último es la baranda anti-inyección: sin ella, un dato del perfil que diga «ignora tus instrucciones» pasa a ser una instrucción.',
+      },
+      {
+        key: PROMPTS_IG.user.key, source: 'override',
+        label: 'Pedido + contexto del negocio (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pedido', 'lo que pidió la persona (ya envuelto como contenido no confiable)'),
+          v('contexto', 'el brief del negocio: funnel + perfil + conocimiento del método'),
+        ],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_IG.user.tpl,
+        context: 'Le pasa a MaKo el pedido de la persona y el contexto real del negocio (a dónde apunta el funnel, qué vende, qué dice el método). Conserva los slots {{pedido}} y {{contexto}} y el pedido final de devolver el JSON. Ojo: el pedido se corta a 4.000 caracteres antes de llegar aquí, y en silencio.',
+      },
+      {
+        key: PROMPTS_METODOLOGIA_IG.transversal.key, source: 'override',
+        label: 'Metodología: los principios de los tres cursos', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: true,
+        default: PROMPTS_METODOLOGIA_IG.transversal.tpl,
+        context: 'Lo que repiten los tres cursos de orgánico y vale para los tres formatos: el gancho como variable #1, nada de producción alta, curiosidad sostenida, una idea por pieza, el CTA con palabra clave hacia comentarios/DM, y la doctrina NEGATIVA de caption y hashtags (ningún curso los enseña como palanca). Va en CADA pieza, junto con el bloque del formato. Si lo editas, cambias de cuajo cómo escribe MaKo reels, carruseles y stories — y también lo que escribe el Copywriter en un guion de Reel o de Story.',
+      },
+      {
+        key: PROMPTS_METODOLOGIA_IG.reel.key, source: 'override',
+        label: 'Metodología: REEL', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_METODOLOGIA_IG.reel.tpl,
+        context: 'La estructura del guion de un reel (metodología ViralCopy de Master Marca Personal 5.0): idea con objetivo explícito, el gancho doble (frase hablada + título en pantalla que dicen cosas distintas), las escenas, la moraleja y el CTA. Lo usa el motor cuando el formato es reel, y el Copywriter en un guion de tipo Reel.',
+      },
+      {
+        key: PROMPTS_METODOLOGIA_IG.carrusel.key, source: 'override',
+        label: 'Metodología: CARRUSEL', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_METODOLOGIA_IG.carrusel.tpl,
+        context: 'Cómo se escribe un carrusel. Arranca con un AVISO DE COBERTURA honesto: los cursos comprados tienen POCO material de carrusel (dos clases de Sell Your Knowledge, un solo formato), así que no hay doctrina de curso sobre cantidad de slides ni sobre la taxonomía educativo/storytelling/venta — lo que se aplica es criterio general más las reglas del reel trasladadas. Si lo editas con doctrina inventada, el aviso deja de ser cierto: se nota primero en el texto, no en un error.',
+      },
+      {
+        key: PROMPTS_METODOLOGIA_IG.story.key, source: 'override',
+        label: 'Metodología: DÍA DE STORIES', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_METODOLOGIA_IG.story.tpl,
+        context: 'El rol de las stories en el embudo (los reels atraen, las stories calientan y venden: en stories la proporción se invierte, ~80% venta), la plantilla de venta en 7 días y el flow de mover a DM respondiendo con una palabra clave. Incluye el límite técnico de Meta: por API no salen stickers, encuestas ni links, así que un frame que los necesite se marca como paso manual. Lo usa el motor cuando el formato es story, y el Copywriter en un guion de tipo Story.',
       },
     ],
   },

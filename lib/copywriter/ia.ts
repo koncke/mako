@@ -39,6 +39,7 @@ import { ANGULOS_GUION_DEFAULT, instruccionesTexto } from '../guion-angulos';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../guion-estructuras';
 import { catalogosLite, conVsl, estructurasDelTipo } from './catalogos';
 import { metodologiaDe } from '../ig-formatos';
+import { metodologiaIgVigente } from '../ig-metodologia';
 import { parseJsonObject } from '../json-del-modelo';
 import { marcasDeVoseo } from '../puestas-data';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../editor-landing/ia-reglas';
@@ -223,7 +224,13 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // Sin estructura elegida, la primera de su tipo (si la biblioteca tiene alguna de ese tipo).
     const idSugerida = estructura ? null : estructurasDelTipo(lite, g.props.tipo).propias ? estructurasDelTipo(lite, g.props.tipo).estructuras[0]?.id ?? null : null;
     const sugerida = idSugerida ? estructuras.find((e) => e.id === idSugerida) ?? null : null;
-    const metodologia = g.props.tipo === 'reel' || g.props.tipo === 'story' ? metodologiaDe(g.props.tipo) : '';
+    // La metodología de Instagram es EDITABLE desde /configuraciones (6/11/2026,
+    // lib/ig-metodologia.ts): se lee la vigente, no la constante. Con la base caída cae al
+    // default — acá la metodología ACOMPAÑA al guion, y una lectura que no salió no tiene
+    // por qué voltear la escritura entera (mismo criterio que los catálogos de arriba).
+    const metodologia = g.props.tipo === 'reel' || g.props.tipo === 'story'
+      ? await metodologiaIgVigente(g.props.tipo).catch(() => metodologiaDe(g.props.tipo as 'reel' | 'story'))
+      : '';
     const n = { angulo: angulo?.nombre ?? null, estructura: estructura?.nombre ?? null };
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
