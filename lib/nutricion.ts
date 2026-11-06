@@ -1544,7 +1544,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .gte('created_at', desde));
-    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
+    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id), { estricto: true });
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) >= UMBRAL_VSL_PCT)
       .map((r) => r.id);
@@ -1558,7 +1558,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .gte('created_at', desde));
-    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
+    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id), { estricto: true });
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) < UMBRAL_VSL_PCT)
       .map((r) => r.id);
@@ -3610,7 +3610,8 @@ async function hechosDelCatalogo(
   const pide = (x: Fuente) => fuentes.has(x);
   const visitantes = [...new Set(filasLead.map((f) => f.visitor_id).filter((v): v is string => !!v))];
 
-  const leerVsl = async () => (pide('vsl') ? getVslEngagementMap(visitantes) : null);
+  // Estricto: con la base caída, el mapa vacío daba «no reprodujo el VSL» para todos (6/11/2026).
+  const leerVsl = async () => (pide('vsl') ? getVslEngagementMap(visitantes, { estricto: true }) : null);
   const leerClics = async (): Promise<Map<string, number> | null> => {
     if (!pide('clics')) return null;
     const m = new Map<string, number>();

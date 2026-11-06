@@ -2679,9 +2679,14 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
  * Engagement del VSL para VARIOS visitors en UNA sola query (evita el N+1 de
  * llamar getVslEngagement por lead en un loop). Devuelve un Map por visitor_id;
  * los visitors sin filas no aparecen (el caller los trata como 'sin_datos').
+ *
+ * `estricto`: si la lectura falla, TIRA en vez de devolver el mapa vacío. Lo usa quien DECIDE con esto (el motor de
+ * Automations: la cohorte «vio poco el VSL» y la condición «No reprodujo el VSL»). Con el mapa vacío, una base caída
+ * hacía que TODOS «no lo vieron» y les salía el mensaje (6/11/2026, docs/hallazgos-chatbot.md). La pantalla sigue tolerante.
  */
 export async function getVslEngagementMap(
   visitorIds: Array<string | null>,
+  opts: { estricto?: boolean } = {},
 ): Promise<Map<string, VslEngagement>> {
   const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
   const map = new Map<string, VslEngagement>();
@@ -2707,6 +2712,7 @@ export async function getVslEngagementMap(
     durs = d;
   } catch (e) {
     console.error(`[getVslEngagementMap] falló: ${e instanceof Error ? e.message : String(e)}`);
+    if (opts.estricto) throw e;
     return map;
   }
   type Fila = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null };

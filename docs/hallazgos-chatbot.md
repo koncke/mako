@@ -27,6 +27,19 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «No reprodujo el VSL» se cumplía para TODOS con la base caída (6/11/2026, barrido de pendientes, nube)
+
+`getVslEngagementMap` (lib/leads.ts) atrapaba cualquier error y devolvía el mapa VACÍO. Lo lee el motor en tres lugares
+(lib/nutricion.ts): la condición «No reprodujo el VSL» (`leerVsl` en `hechosDelCatalogo`) y las cohortes
+`vio_vsl_sin_agendar` y `vio_poco_vsl`. Con el mapa vacío, «vio poco» es verdad para todo visitante: una base que no
+contestaba inscribía a TODOS en la automatización de «no vio el video» y la condición dejaba pasar el mensaje.
+**Regla:** una lectura que DECIDE no puede ser la tolerante (la de «cuando algo no aparece, el orden…» y «una lectura que cae
+al default sirve para dibujar, nunca para decidir»). La función ahora acepta `{ estricto: true }` y el motor la pide así;
+la pantalla (lib/queries.ts) sigue tolerante. Lo prueba tests/vsl-estricto.test.ts ejecutando la lectura contra una base de
+mentira caída (tests/_vsl-estricto-hijo.ts).
+
+**Vive en:** lib/leads.ts (`getVslEngagementMap`) · lib/nutricion.ts · *6/11/2026, barrido de pendientes (nube).*
+
 ## Tres formas de decirlo y arrancar de a poco, para Black November de Leila (31/10/2026, llamada, punto 5.8)
 
 **El pedido:** el número de Mauricio quedó bloqueado 24 h al pasar de unos 20 a 60 por día con mensajes idénticos, y Leila usaba tres variantes antes de MaKo. **Lo que se creía:** «en MaKo se puede configurar que a algunos les mande uno y a otros otro». **Lo medido:** el motor sí las sortea (`textoDelPaso`), pero nadie podía escribirlas: «↻» sólo aparecía si MaKo ya las había generado al armar el flujo, y en toda la base las tienen 4 tarjetas, todas de Mauricio. La hoja de difusión ni las mandaba. El tope por día era fijo.
