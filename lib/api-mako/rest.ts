@@ -813,6 +813,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
   ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
   ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  // La suscripción mes a mes (5/11/2026): leerla y cambiarla desde un mes (monto, corte, vuelta).
+  ['GET', '/cobros/ventas/{leadId}/suscripcion/meses', 'ver_suscripcion_lead'],
+  ['POST', '/cobros/ventas/{leadId}/suscripcion/cambios', 'cambiar_suscripcion'],
   // La baja del cliente (#871) es un estado de la VENTA, como la suscripción: PUT la pone y `deshacer` la saca.
   ['PUT', '/cobros/ventas/{leadId}/baja', 'baja_del_cliente'],
   // El plan por tramos (29/10/2026) es el plan ENTERO de la venta: PUT lo fija.

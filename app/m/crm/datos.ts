@@ -53,6 +53,7 @@ import { fechaCorta, vistaDeEnAutomatizacion, type TonoTarjeta } from '@/app/crm
 import { tiempoEnEtapaAction } from '@/app/crm/lead-view/ficha/resumen/bloques-actions';
 import { listarCobros } from '@/lib/cobros';
 import { cobradoDelLead } from '@/lib/cobrado-lead';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
 import { estadoDeCuenta } from '@/lib/pagos-vistazo';
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { tratosDelLead } from '@/lib/pagos';
@@ -175,15 +176,18 @@ async function saldosDeCrms(lead: Lead): Promise<Array<{ crm: string; saldo: Sal
 async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerInsumosDatosLead>>['pagos']): Promise<SaldoTelefono | null> {
   try {
     const ws = await getWorkspaceActual();
-    const [cobros, hoy] = await Promise.all([
+    const [cobros, hoy, cambios] = await Promise.all([
       ws != null ? listarCobros(ws, { leadId: lead.id, limite: 50 }).catch(() => []) : Promise.resolve([]),
       hoyEnWorkspace(),
+      // Los cambios de la suscripción (mig 0401): la misma cuenta mes a mes que la tab Pagos del escritorio.
+      lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(lead.id) : Promise.resolve(null),
     ]);
     const fila = lead as unknown as Record<string, unknown>;
     const cobrado = cobradoDelLead({
       ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
       suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null,
       suscripcionCanceladaAt: (fila.suscripcion_cancelada_at as string | null | undefined) ?? null, pagos, cobros, hoy,
+      movimientos: cambios?.movimientos ?? [],
     });
     return saldoDelTelefono(estadoDeCuenta({ cobrado, pagos, ganado: lead.estado_lead === 'ganado', hoy }));
   } catch (e) {

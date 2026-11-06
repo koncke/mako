@@ -183,9 +183,11 @@ export default function Page() {
           haga hoy. La política de devoluciones vive en /reembolsos (app/reembolsos/page.tsx). */}
       <H id="precio">8. Precio, pagos y cancelación</H>
       <p>
-        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los pagos se procesan con <strong>Stripe</strong> o <strong>Mercado Pago</strong>,
-        según el país desde el que pagas: los datos de tu tarjeta los recibe la pasarela, no MaKo.
+        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los pagos en línea se procesan con <strong>Mercado Pago</strong>:
+        los datos de tu tarjeta los recibe la pasarela, no MaKo.
       </p>
+      {/* Hasta el 5/11/2026 también nombraba a Stripe, que la plataforma no tiene conectada (medido ese día con
+          `pasarelasConectadas`: sólo Mercado Pago). La próxima pasarela entra acá el día que empieza a cobrar. */}
       {/* ⚠️ HASTA EL 5/11/2026 ACÁ IBA CREEM como «merchant of record» (el vendedor registrado de la compra). Creem rechazó
           la tienda de MaKo ese día, de forma definitiva (docs/creem-retiros.md): con Creem no se cobra nada, y un término
           que lo nombre como vendedor le dice a quien compra que le factura otra empresa. Si la próxima pasarela es también

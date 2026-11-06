@@ -824,10 +824,12 @@ export function planComoEstaba(p: Partial<Record<keyof PlanUniforme, unknown>> |
 // 6 · Un pago cargado a mano: moneda, concepto y método (decisión 7)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const METODOS_PAGO = ['transferencia', 'efectivo', 'tarjeta', 'deposito', 'cheque', 'otro'] as const;
+// ⚠️ 'cripto' (5/11/2026): Código Inmobiliario paga por Binance y quedaba cargado como transferencia, el único que se
+// podía elegir cerca. Binance, USDT y una billetera son cripto. Se agrega AL FINAL antes de 'otro': lo guardado no cambia.
+export const METODOS_PAGO = ['transferencia', 'efectivo', 'tarjeta', 'deposito', 'cheque', 'cripto', 'otro'] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 export const ROTULO_METODO: Readonly<Record<MetodoPago, string>> = {
-  transferencia: 'Transferencia', efectivo: 'Efectivo', tarjeta: 'Tarjeta', deposito: 'Depósito', cheque: 'Cheque', otro: 'Otro',
+  transferencia: 'Transferencia', efectivo: 'Efectivo', tarjeta: 'Tarjeta', deposito: 'Depósito', cheque: 'Cheque', cripto: 'Cripto (Binance, USDT)', otro: 'Otro',
 };
 export const esMetodoPago = (m: unknown): m is MetodoPago => typeof m === 'string' && (METODOS_PAGO as readonly string[]).includes(m);
 

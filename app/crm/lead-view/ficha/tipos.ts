@@ -105,7 +105,7 @@ export type ReglasBloque = {
    * Un bloque que se llena ahí (`sinDatos: 'raya'` en el catálogo) se dibuja con «—» y sólo devuelve
    * true cuando no APLICA (el motivo de un lead que no salió). Sin esto, se dibuja siempre.
    */
-  estaVacio?: (ctx: CtxFicha, puesto: BloquePuesto) => boolean;
+  estaVacio?: (ctx: CtxFicha, puesto: BloquePuesto, hermanos?: readonly BloqueId[]) => boolean;
   /**
    * Los bloques del catálogo que este componente YA dibuja adentro (la tarjeta de hoy envuelta entera:
    * `reunion-1` es ReunionesCard, con la R2, la agenda y el setter). Cuentan como cubiertos para los

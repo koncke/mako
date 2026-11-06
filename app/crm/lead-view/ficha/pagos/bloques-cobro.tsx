@@ -9,7 +9,7 @@
 //   · `cuotas`: el plan cuota por cuota, cada una con su botón (marcar pagada, mandar el link, deshacer).
 //   · `links-de-pago`: cobrar con link y los links con su estado (anular; devolver y cancelar, sólo el admin).
 //   · `movimientos`: lo que ya pasó con la plata, y los avisos (contracargo, devolución que falló).
-//   · `suscripcion`: la mensualidad, su estado y su plazo.
+//   · `suscripcion`: desde el 5/11/2026 vive en ./suscripcion.tsx (la suscripción mes a mes).
 //   · `venta`: cuánto, cuándo y de qué tipo, campo por campo (la escritura de b2; reemplaza a «Editar deal»).
 // Lo que se relevó de la tarjeta de antes y por qué cambió: docs/hallazgos-pagos.md §1.
 // =============================================================================
@@ -29,10 +29,9 @@ import { fechaEnPalabras } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
-import { cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
 import { bajaDelClienteAction, proteccionesDeCuotasAction, quitarCuotaAction } from './cuotas-actions';
 import type { Proteccion } from '@/lib/pagos-campo';
-import { cancelarSuscripcionAction } from '@/app/crm/[id]/cobros-actions';
 import { quitarSinCobroAction } from '@/app/crm/[id]/deal-actions';
 import { CobrarConLink } from '@/app/crm/[id]/CobrarConLink';
 import { CobrosDelLead } from '@/app/crm/[id]/CobrosDelLead';
@@ -48,13 +47,13 @@ const canceladaAt = (ctx: CtxFicha): string | null => ((ctx.lead as unknown as R
 const error = (r: { ok: boolean; error?: string }): string | null => (r.ok ? null : r.error ?? 'No pude guardar.');
 
 /** Lo cobrado del lead, con la MISMA cuenta que la API de MaKo (`cobradoDelLead`). */
-function useCobrado(ctx: CtxFicha) {
+export function useCobrado(ctx: CtxFicha) {
   const { cobros, error: sinLeer } = useCobrosDelLead(ctx.lead.id);
   const { lead, data } = ctx;
   const cobrado = cobradoDelLead({
     ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
     suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null, suscripcionCanceladaAt: canceladaAt(ctx),
-    pagos: data.pagos as CuotaParaCobrado[], cobros: cobros ?? [], hoy: ctx.hoy,
+    pagos: data.pagos as CuotaParaCobrado[], cobros: cobros ?? [], hoy: ctx.hoy, movimientos: data.suscripcion?.movimientos ?? [],
   });
   // ⚠️ SIN LOS COBROS LEÍDOS NO SE SABE QUIÉN COBRA LA SUSCRIPCIÓN (revisión del 16/10/2026): con `cobros ?? []` la
   // fuente salía «manual», y una suscripción que cobra la pasarela ofrecía «Registrar el mes cobrado» (duplicaba lo
@@ -700,93 +699,6 @@ export function Movimientos({ ctx, titulo, diseno }: PropsBloque) {
           </ol>
         )}
       {movimientos.length > corte && <Button variant="tertiary" size="sm" onClick={() => setTodos(true)}>Ver los {movimientos.length}</Button>}
-    </Tarjeta>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Suscripción
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function Suscripcion(props: PropsBloque) {
-  const { ctx, titulo, editando } = props;
-  const { lead } = ctx;
-  const { cobrado, cobros, leidos, sinLeer } = useCobrado(ctx);
-  const cobrar = useCobrar(ctx);
-  const { toast, show, clear } = useToast();
-  const [preguntar, setPreguntar] = useState(false);
-  const [corriendo, setCorriendo] = useState(false);
-  const s = cobrado.suscripcion;
-  if (!s) return null;
-  const activaPasarela = (cobros ?? []).find((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada') ?? null;
-
-  const venta = (c: Parameters<typeof guardarVentaAction>[1], patch: Record<string, unknown>) =>
-    guardarVentaAction(lead.id, c, { tipoVisto: 'suscripcion' }).then((r) => {
-      if (!r.ok) return r.error;
-      ctx.parchear(patch);
-      const atras = r.deshacer;
-      if (r.cambio) show('Guardado', () => { void deshacerVenta(lead.id, atras, r.ventaTipo).then(() => ctx.releer()); });
-      return null;
-    });
-  const cancelar = async () => {
-    setCorriendo(true);
-    const r = activaPasarela
-      ? await cancelarSuscripcionAction(activaPasarela.id).then((x) => (x.ok ? null : x.resumen)).catch((e: unknown) => String(e))
-      : await cambiarEstadoSuscripcionAction(lead.id, 'cancelada').then(error);
-    setCorriendo(false);
-    setPreguntar(false);
-    if (r) { show(r, undefined, 'bad'); return; }
-    refrescarCobros(lead.id);
-    ctx.releer();
-    show('Suscripción cancelada');
-  };
-  const reactivar = async () => {
-    const r = await cambiarEstadoSuscripcionAction(lead.id, 'activa');
-    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
-    ctx.releer();
-    show('Suscripción reactivada');
-  };
-  const estado = s.sinCierre ? { tono: 'gris' as const, txt: ganado(ctx) ? 'Sin fecha de cierre' : 'Sin venta activa' } : s.estado === 'activa' ? { tono: 'verde' as const, txt: 'Activa' } : s.estado === 'cancelada' ? { tono: 'gris' as const, txt: 'Cancelada' } : { tono: 'gris' as const, txt: 'Terminó' };
-
-  return (
-    <Tarjeta titulo={titulo} marca={marcaDato('monto')} derecha={<Semaforo tono={s.renovacionFallida ? 'rojo' : estado.tono}>{s.renovacionFallida ? 'Falló la renovación' : estado.txt}</Semaforo>}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: props.epico ? 56 : 30, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 80 }}>
-          <EnLinea valor={lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : ''} tipo="numero" prefijo="$" vacio="$—" titulo="Edita la mensualidad" bloqueado={editando}
-            estilo={{ fontSize: 'inherit', fontWeight: 'inherit' }} onGuardar={(v) => venta({ campo: 'monto', valor: v ? Number(v) : null }, { suscripcion_monto_usd: v ? Number(v) : null })} />
-        </span>
-        <span style={{ fontSize: 15, color: 'var(--dim)' }}>/mes</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: 'var(--dim)' }}>
-        <span style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-          Plazo:
-          <span style={{ minWidth: 60 }}>
-            <EnLinea valor={lead.suscripcion_meses != null ? String(lead.suscripcion_meses) : ''} tipo="numero" vacio="mes a mes" titulo="Edita el plazo en meses (vacío: mes a mes)"
-              bloqueado={editando || s.estado === 'cancelada'} estilo={{ fontSize: 13.5, color: 'var(--ink)' }}
-              onGuardar={(v) => venta({ campo: 'plazo', valor: v ? Math.round(Number(v)) : null }, { suscripcion_meses: v ? Math.round(Number(v)) : null })} />
-          </span>
-          {s.meses ? <span>meses{s.finPlazo ? ` · termina el ${fechaEnPalabras(s.finPlazo, ctx.hoy)}` : ''}</span> : null}
-        </span>
-        {s.proximaRenovacion && s.estado === 'activa' && <span>Próxima el {fechaEnPalabras(s.proximaRenovacion, ctx.hoy)} · {cobrado.cuotas.cobradas} cobrada(s){s.fuente === 'pasarela' ? ' · la cobra la pasarela' : ''}</span>}
-      </div>
-      {s.renovacionFallida && <Aviso tono="rojo">{s.renovacionFallida}</Aviso>}
-      {sinLeer && <Aviso tono="ambar">No pude leer los cobros de la pasarela: no se sabe si la cobra ella.</Aviso>}
-      {leidos && s.sinRegistrar > 0 && <Aviso tono="ambar">{s.sinRegistrar === 1 ? 'Falta registrar 1 mes cobrado.' : `Faltan registrar ${s.sinRegistrar} meses cobrados.`}</Aviso>}
-      {!editando && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {leidos && s.fuente === 'manual' && s.estado === 'activa' && <Button variant="secondary" size="sm" onClick={cobrar.registrarMes}>Registrar el mes cobrado</Button>}
-          {ctx.esAdmin && s.estado === 'activa' && <Button variant="tertiary" size="sm" onClick={() => setPreguntar(true)}>Cancelar la suscripción</Button>}
-          {ctx.esAdmin && s.estado === 'cancelada' && s.fuente === 'manual' && <Button variant="tertiary" size="sm" onClick={() => void reactivar()}>Reactivarla</Button>}
-        </div>
-      )}
-      {preguntar && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Confirm title="¿Cancelar la suscripción?" loading={corriendo} confirmLabel="Cancelarla" cancelLabel="No" onCancel={() => setPreguntar(false)} onConfirm={() => void cancelar()}
-            message={activaPasarela ? 'La pasarela deja de cobrarla. No se deshace: para volver hay que suscribirse de nuevo.' : 'Deja de contar como activa. Lo ya cobrado no cambia.'} />
-        </div>
-      )}
-      {cobrar.modales}
-      <Toast state={toast} onClose={clear} />
     </Tarjeta>
   );
 }
