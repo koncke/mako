@@ -932,3 +932,71 @@ no es parte de este pedido («sin inventar», sin gasto de IA).
   tarjeta falsa de 348 (docs/relevo/nube-recorrido-visual.md). Antes y después en docs/recorrido-visual/imagen-barra-chat-*.png.
 
 **Vive en:** app/image-editor/_doory/editor/EditorApp.module.css, app/image-editor/_doory/editor/chrome/ToolHost.module.css, tests/recorrido-imagen-panel.test.ts
+
+---
+
+## Lo que el cliente ve cuando el chat del editor NO puede aplicar algo (6/11/2026, `punta/imagen-chat-fallas`)
+
+Tres encargos del barrido del 6/11 que son el mismo tema: el camino de la falla del chat de MaKo en el editor. Los tres se
+veían bien leyendo el código y los tres se leen mal desde la pantalla.
+
+### 1. Una subida trabada no es un error: es un «corriendo» para siempre
+
+**Síntoma.** El cliente adjunta una foto al chat con la red trabada, ve el spinner, y nunca se le dice que falló: tiene que
+cerrar y empezar de nuevo.
+
+**La causa.** `subirConProgreso` (`app/customer-success/curso/subir-video.ts`) —que el adaptador del editor usa para subir a
+«Subidos», vía `subirArchivo` de `mako/nube.ts`— **no fijaba `xhr.timeout`**. Un XHR sin plazo con el socket abierto y sin
+bytes moviéndose no falla: espera a que el navegador se rinda, y eso puede no pasar.
+
+**Lo que NO se hizo, y es la parte interesante.** La salida obvia es `xhr.timeout`, y está mal: `xhr.timeout` es el TOTAL de
+la petición, así que el mismo número mataría un video de 300 MB del portal de cursos que va perfecto por una línea lenta —
+esa función la comparten los dos. Lo que se mide es el **ATASCO**: un reloj de 1 s que compara contra el último evento de
+progreso, reiniciado por cada `upload.onprogress` **y por `upload.onload`** (después de que salen los bytes no llegan más
+eventos de progreso, y ahí el mismo reloj pasa a medir cuánto tarda el bucket en contestar, que también puede no llegar
+nunca). `trabadaMs` ausente o 0 = como antes, sin plazo: **lo elige quien llama**, porque un video de una clase y una foto de
+2 MB no se esperan lo mismo. El editor pasa 45 s.
+
+**La regla:** *un plazo para una transferencia se pone sobre el PROGRESO, no sobre la duración.* Un tope de duración castiga
+al lento y al trabado por igual, así que se termina eligiendo entre cortar subidas buenas o no cortar ninguna.
+
+Y la otra mitad: un `abort` nuestro por atasco y un `abort` de la persona son **el mismo evento del XHR**. El mensaje los
+separa («se quedó trabada / revisa tu conexión» vs «Subida cancelada»), porque para quien lo lee son dos cosas distintas.
+
+### 2. El motivo de un descarte lo LEE la persona, y nombraba campos del JSON
+
+**Síntoma.** El panel dibuja `No se aplica: <motivo> · <motivo>` tal cual. Decía cosas como `«estilo» no es algo de
+cambiar_texto`, `un texto nuevo con una ref inválida`, `un color que no es #RRGGBB`, `un «cubrir» que no es true o false`.
+
+**La causa no es descuido: es que el campo tenía DOS lectores y uno sólo.** El comentario de `validarOperacion`
+(`lib/image-editor/chat/catalogo.ts`) ya decía «el motivo es corto: lo ve la persona», y aun así 27 de los 51 motivos
+nombraban una clave del JSON, el id de una operación o un formato interno — porque son también lo único que había para
+entender por qué la IA propuso algo inválido. Un campo que sirve para la pantalla **y** para depurar termina escrito para
+el que depura: es el que lo lee todos los días.
+
+**El arreglo son dos cosas, no una.** Los 27 motivos reescritos en castellano de pantalla, y lo técnico mandado a
+`console.warn` **con la operación entera** — que además es más útil que la frase que se perdió. Los nombres de los campos
+del estilo salen de un mapa (`NOMBRE_ESTILO`), para que agregar uno nuevo obligue a elegirle un nombre en vez de filtrar
+el interno.
+
+**Y la red es un test, no la regla escrita.** `tests/image-editor-chat.test.ts` manda ~60 operaciones malformadas, una por
+familia de rechazo, y falla si algún motivo contiene un id de operación, una clave del JSON (`ref`, `pagina`, `cubrir`,
+`nueva`…) o un formato interno (`#RRGGBB`, `true`, `null`, `n1`, `la vista`, `inválid`) — y también si pasa de 90
+caracteres o arranca en mayúscula, que son las otras dos formas de romper la línea donde se concatena.
+
+### 3. Dos pedidos seguidos dejaban dos «Aceptar» vivos, y aceptar los dos duplicaba las páginas
+
+**Síntoma.** El cliente pide un cambio, no lo acepta, pide otro, y acepta los dos: el diseño queda con las páginas
+repetidas y las tiene que borrar a mano sin entender qué pasó.
+
+**La causa.** `pedirEdicion` sumaba el mensaje nuevo y **no tocaba la propuesta anterior**, que seguía `pendiente` con su
+botón. Las dos propuestas son tandas de operaciones completas sobre el mismo diseño: aplicar las dos aplica las dos.
+
+**La regla:** *pedir de nuevo ES descartar lo anterior.* El pedido nuevo se escribió MIRANDO lo que la propuesta vieja no
+resolvió, y su `refs` apunta a una vista del documento que ya no es la de ahora. Se cierran sólo las `pendiente`: una
+`aplicando` está a mitad de camino y la cierra su propio `aceptarPropuesta`.
+
+⚠️ **Y el detalle del texto:** se marca igual que el botón «Descartar» (estado + `aviso` limpio), **no** con un `aviso`
+propio. El `aviso` se dibuja con `role="alert"` y un «reportar a soporte» al lado (`PanelMakoIA.tsx`): usarlo para un
+reemplazo normal convierte en falla algo que no lo es. La tarjeta se apaga a «Descartado» justo arriba del pedido nuevo, y
+en ese contexto se lee solo.
