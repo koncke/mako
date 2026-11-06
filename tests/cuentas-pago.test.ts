@@ -228,6 +228,12 @@ test('un id que no descifra igual suelta su ruteo; un link de una cuenta descone
   assert.deepEqual(R.tarjeta, { ninguna: false, soloC2: true });
 });
 
+// 6/11/2026: la tarjeta de Apify decía «Sin conectar» con Spy leyendo perfecto, y el cliente volvía a configurar al vicio.
+// Conectada = AL MENOS UNA de las cinco claves con valor real, igual que una pasarela con sólo una cuenta con sufijo.
+test('la tarjeta de Apify se conecta con cualquiera de sus claves, no sólo con la primera', () => {
+  assert.deepEqual(R.apify, { sinNinguna: false, soloLa2: true, soloLa1: true, soloElNombre: false });
+});
+
 test('la 0328 completa la cuenta de los cobros de ANTES, sólo donde no hay duda', () => {
   const sql = leer('supabase/migrations/0328_cobro_por_cuenta.sql').replace(/--.*$/gm, '');
   assert.match(sql, /add column if not exists cuenta text/);

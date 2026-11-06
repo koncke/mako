@@ -314,6 +314,24 @@ async function main() {
   await desconectarPasarela(WS, 'stripe', 'test', 'principal');
   out.tarjeta = { ninguna, soloC2: await integracionConectada('stripe', WS) };
 
+  // 17b. LA TARJETA DE APIFY con sólo una clave EXTRA (6/11/2026). El cliente que borró la 1 y dejó la 2 veía «Sin conectar»
+  //      con Spy leyendo perfecto. Sólo la 1 es requerida; las `_2`…`_5` son opcionales, y Spy anda con cualquiera.
+  {
+    const { guardarCredencial } = await import('../lib/credenciales');
+    reset();
+    const sinNinguna = await integracionConectada('apify-instagram', WS);
+    await guardarCredencial(WS, 'APIFY_INSTAGRAM_TOKEN_2', 'apify_api_SEGUNDAcuentaDELnegocio', 'apify-instagram', 'test');
+    const soloLa2 = await integracionConectada('apify-instagram', WS);
+    reset();
+    await guardarCredencial(WS, 'APIFY_INSTAGRAM_TOKEN', 'apify_api_PRIMERAcuentaDELnegocio', 'apify-instagram', 'test');
+    const soloLa1 = await integracionConectada('apify-instagram', WS);
+    // Un NOMBRE de clave guardado solo (sin su token) no es una conexión: es un campo opcional que no sirve para leer nada.
+    reset();
+    await guardarCredencial(WS, 'APIFY_INSTAGRAM_TOKEN_2_ACCOUNT', 'Otra cuenta', 'apify-instagram', 'test');
+    const soloElNombre = await integracionConectada('apify-instagram', WS);
+    out.apify = { sinNinguna, soloLa2, soloLa1, soloElNombre };
+  }
+
   // 18. La cuenta con que cobraría un producto vinculado sólo a la segunda (la landing compara con ésta).
   reset();
   await dosCuentas();

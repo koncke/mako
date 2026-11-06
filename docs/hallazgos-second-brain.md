@@ -28,6 +28,44 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Un arreglo que entra con un `if` del modo en que se descubrió deja el otro modo roto, y en silencio (6/11/2026)
+
+El 4/11 el mapa de un CURSO cortaba el título de una sección pegado al borde («…HOP RECORDINGS»): el
+encuadre mide los PUNTOS, y la etiqueta de una carpeta madre va centrada en su punto y en versalitas
+(`.cbg-et-n1`: mono 13,5 px, `letter-spacing: .16em`), así que es mucho más ancha que el punto. El
+arreglo fue dejar a los costados la mitad del título más largo. Y entró así:
+
+```ts
+const mitadTitulo = curso ? Math.min(120, …) : 0;   // «Sólo en un curso: el mapa del negocio no cambia»
+```
+
+El comentario decía la verdad y la conclusión era falsa. El mapa del NEGOCIO **también** tiene carpetas
+madre con etiqueta (`NIVEL1`: NEGOCIO, OFERTA, MERCADO, MENSAJE, FUNNEL), dibujadas con la **misma
+clase CSS** por el **mismo componente**, así que se cortaban igual. Un mes largo así.
+
+**Why, y es lo que vale guardar:** el `curso ?` no es una regla, es la huella del caso en que se
+descubrió el bug. Se pone por prudencia —«no quiero cambiarle el encuadre al otro modo»— y el efecto
+real es dejar el otro modo roto sin que nada lo diga: no hay error, no hay test rojo, y el comentario
+le promete al que lo lea que ahí no pasa nada. Y encima se refuerza solo: en el negocio los títulos son
+cortos (7 letras → ~26 px de aire contra el tope de 120), así que sacar el `if` casi no mueve el
+encuadre. Eso es lo que hacía que el `if` pareciera inofensivo **y** lo que hacía que el título se
+cortara: 26 px es poco para un encuadre y es exactamente lo que sobresale de la etiqueta.
+
+**How to apply:**
+
+- Cuando un arreglo de dibujo se descubre en un modo, la pregunta es **qué propiedad del dibujo** lo
+  causa, no en qué modo apareció. Acá era «una etiqueta más ancha que su punto», que es de la clase CSS
+  y del componente, no del curso. Si la causa es compartida, el arreglo no lleva `if`.
+- La regla pasó a ser pura y sin modo: `airePorTitulosN1` en `lib/cerebro-modelo.ts` (que no lleva
+  `server-only` justamente para que se pueda correr). `Grafo.tsx` la llama con las etiquetas, y ya no
+  sabe si vienen de un curso o de un negocio.
+- ⚠️ **Y un test de la regla pura NO alcanza: el bug estaba en el call-site.** Medido rompiéndolo:
+  volviendo a poner el `curso ? … : 0` en `Grafo.tsx`, `tests/cerebro-layout.test.ts` quedó en **VERDE
+  9/9** — la regla seguía siendo correcta y el componente la llamaba mal. Por eso el test tiene las dos
+  mitades: la regla se EJECUTA, y la llamada se lee como texto (`Grafo.tsx` mide el DOM con
+  `getBoundingClientRect` y no se puede montar desde un test), con el patrón puesto sobre que la llamada
+  no lleve un condicional adelante. Con las dos: rotura de la regla 8/1, rotura del call-site 8/1.
+
 ## «Second Brain» tardaba en entrar, y la columna del grafo pasó a ser un chat con MaKo (23/10/2026)
 
 - **«Primero se va al chat de "Cerebro" y luego de unos segundos recién entra»** (Martín). El diagnóstico obvio era la velocidad

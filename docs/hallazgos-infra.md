@@ -6,6 +6,23 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
+
+**Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
+`Cannot find module 'C:\Users\…\Temp\unir-bitacora-Wzhlax\devwt-plantilla-rechazadoscriptsunir-bitacora.mjs'`: una ruta con
+los separadores comidos y pegada a la carpeta del repo de prueba.
+
+**La causa.** El test configura el merge driver con la ruta ABSOLUTA del script
+(`git config merge.bitacora.driver "node <RAIZ>\scripts\unir-bitacora.mjs %O %A %B %P"`), y git no ejecuta ese comando
+directo: lo pasa por `sh -c`, que se come cada `\`. `git config --get` lo devuelve entero, así que leyendo la config no se
+ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona, usa la ruta RELATIVA con barras normales
+(`node scripts/unir-bitacora.mjs …`) y por eso funciona: la trampa es del test, no del driver.
+
+**Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
+mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
+`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+(o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 
 **Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
@@ -83,6 +100,66 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
+
+Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el
+mismo worktree y empujados desde el mismo `HEAD`. O sea que `punta/varios-grafo-encuadre` no llevaba el
+arreglo del grafo: llevaba **los cuatro** commits. Un «mandás» en el segundo puso en rojo al segundo, al
+tercero y al cuarto, y cada rojo gastó su corrida de Actions (~14 min) persiguiendo un fallo que no
+tenía nada que ver con el cambio que la punta traía.
+
+Me lo pregunté al empujar la segunda y lo contesté mal: «son todos commits MÍOS, así que apilar es
+inofensivo». La propiedad no tiene nada que ver — lo que importa es que **la punta es la unidad del
+chequeo**. Con las puntas apiladas, el rojo de la de abajo es el rojo de todas las de arriba, que es
+exactamente lo que la regla de Martín del 3/11 vino a eliminar («que se vaya deployando lo que ya pasó
+en lugar de todo junto»). El memo ya lo decía, con otras palabras: «una punta cortada de otra se mira
+con `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos». «Ajenos» se
+lee como «de otro chat», y el problema es igual con los propios.
+
+**How to apply:**
+
+- **Un ítem = un commit = una punta, y la punta sale de `origin/main`, no del commit anterior.** Antes
+  de empujar: `git log --oneline origin/main..HEAD` tiene que mostrar **un** commit. Si muestra más, la
+  punta está apilada.
+- Para desapilar sin perder nada, en el worktree propio: `git checkout --detach origin/main` +
+  `git cherry-pick <sha>` por punta, y `git push --force-with-lease=refs/heads/punta/<n>:<sha viejo>`.
+  El índice de hallazgos se auto-mezcló solo (`Auto-merging docs/hallazgos.md`) en los tres casos; aun
+  así, entre el cherry-pick y el push va el chequeo de marcas (`grep -c '^<<<<<<<'` = 0).
+- Ojo con el `--force-with-lease`: la rama remota puede no estar en el sha que empujaste. La mía estaba
+  en el commit de *merge* que hice después, y el push rebotó con «stale info». El sha de verdad lo da
+  `git ls-remote --heads origin`, no la memoria.
+- La marca `ci-rojo/<punta>` queda apuntando al sha viejo. No hace falta borrarla: `ci-main-verde.sh`
+  sólo relanza una punta «si su rama sigue en el MISMO commit que dio rojo», y el push nuevo trae su
+  propia corrida.
+
+## Un archivo de `lib/` que guarda el TEXTO que lee una persona es COPY, aunque sea `.ts` y aunque el lector sea un agente (6/11/2026)
+
+Una punta dio rojo en `tests/puente-panel-copy.test.ts` → «ninguna pantalla del repo le habla al
+cliente de vos», con **una** forma en 6.007 archivos revisados: un «mandás» en una línea agregada a
+`lib/agente-skill.ts` (el texto de la skill que lee el Claude Code del cliente). El resto del archivo ya
+estaba en español neutro; la línea nueva era la única con voseo.
+
+**Why:** el memo del tren dice que un chat que toca **copy** corre también las barredoras antes de pasar
+la punta, y es fácil leer «copy» como «una pantalla» — un `.tsx`, un botón, un título. El detector no
+mira pantallas: barre el repo entero con `git ls-files`. Un `.ts` de `lib/` que contiene prosa en
+español (una skill, una plantilla de prompt, el cuerpo de un email, un mensaje de WhatsApp) es copy con
+todas las letras, y que lo lea un agente en vez de una persona no lo cambia: ese texto se le muestra al
+cliente en su terminal.
+
+**How to apply:**
+
+- No hace falta adivinar qué barredora mira lo que tocaste: **`node scripts/tests-afectados.mjs --base
+  origin/main --listar --explicar`** lo contesta en un comando y sin correr nada. Las barredoras corren
+  SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
+  no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
+  selector.
+- El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
+  reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
+  un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
+- Al agregar un renglón a un texto largo ya escrito, el registro lo marca el archivo, no el autor: esa
+  skill dice «No mandes», «si los mandas», «dilo», «díselo». Un renglón en voseo adentro de eso queda
+  mal aun sin guard.
 
 ## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
 
@@ -413,6 +490,24 @@ lo que carga el tsc, o un runner de 16 GB (plata: lo decide Martín).
   proyecto lento igual termina en ~8 s. Lo que prueba el corte es que el tsc no llegó a imprimir sus diagnósticos.
 - Un test que se cuelga y cae por su `timeout` sale «cancelled», no «fail». Al probar una rotura, se mira el EXIT del archivo.
 
+## Verde en Actions y producción vieja: la punta la firmó `noreply@anthropic.com` y Vercel no la despliega (6/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Lo que cambió la punta», la guarda del autor) · `tests/punta-ci.test.ts`.
+
+**Síntoma:** el peor de todos, porque no se ve. La punta da **verde**, `main` **avanza**, y a producción **no llega nada**. Pasó
+con la mezcla de `punta/spy-busqueda` (`9202c22d2`).
+
+**La causa:** la nube firma los commits con `noreply@anthropic.com` por default, y **Vercel bloquea el despliegue de un autor que
+no es del equipo** (build-deploy, 17/08). `punta.yml` ya frenaba a `github-actions[bot]` por exactamente ese motivo, con el
+comentario escrito al lado, y **no frenaba este correo**: la guarda existía y le faltaba un caso.
+
+**La regla que queda: una guarda contra «un autor que Vercel no despliega» tiene que enumerar los autores que de verdad
+aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bot de Actions y la nube.
+
+⚠️ **Y `@users.noreply.github.com` NO se frena, a propósito.** Es el correo privado de una **persona** que tiene el mail oculto en
+GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
+para que nadie lo "arregle" de más.
+
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
 **Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
@@ -668,6 +763,13 @@ casos y ningún error que leer.
 **El autor de la mezcla.** Una mezcla hecha en Actions sale de github-actions[bot], y Vercel puede bloquear a un autor que no es del equipo: main avanzaría sin llegar a producción. Autor y committer se toman del último commit de la punta, y sólo en los dos pasos que mezclan: en un `GITHUB_ENV` alcanzarían también a los tests que arman repos de prueba.
 
 **Dos puntas que agregan en el mismo renglón chocan, y se arregla moviendo el renglón.** Tickets y vigilancia agregaban en el mismo lugar del índice, de `hallazgos-comunicacion.md` y al final de la bitácora. Corriendo la entrada de una, las dos llegan solas. ⚠️ `merge=union` no sirve para una bitácora: el choque arranca adentro del objeto del hito, y la unión deja un solo objeto con las claves repetidas.
+
+⚠️ **Y en `docs/hallazgos.md`, `merge=union` no choca: DUPLICA la fila, en silencio** (visto el 6/11/2026: Carruseles tenía
+dos filas casi iguales, y el mismo día el área quedó con tres). El índice es **una línea por área**, así que dos puntas que
+cosechan en la misma área el mismo día cambian la MISMA línea; la unión deja las dos versiones, una debajo de la otra, y la
+mezcla sale **exitosa**. Nadie lo ve hasta que alguien lee el índice. **La regla para una corrida con varias puntas de la
+misma área: la fila del índice la toca UNA sola punta** (y su commit dice que las otras no lo tocan a propósito). Lo que ya
+quedó duplicado lo junta `scripts/unir-indice-hallazgos.py`, pero el arreglo de fondo es no escribirlo dos veces.
 
 **Las dos redes que el flujo da por hechas estaban muertas: que un flujo exista no es que dé un veredicto.** `punta.yml` no corre «los demás» porque los corre `semanal-tests.yml`, y su «Tipos» sale OK PARCIAL (el tsc entero muere a los ~360 s) porque el entero lo corre `tipos-respaldo.yml`. Un test miraba que el archivo existiera. Medido con la API el 3/11: la semanal dio su único verde el 19/10 (657 s); el 2/11 la canceló su propio techo de 20 min a los 1.165 s, sin veredicto y sin mail, porque la suite casi se duplicó. El respaldo nunca dio uno: el 26/10 no había minutos, y el 2/11 murió en `fallocate -l 10G /swapfile` con «Text file busy», porque el runner ya trae ese archivo en uso. Y hacen falta: «los demás» cazó rojos de verdad en `integracion` (corridas 385 y 389).
 - **Regla:** antes de sacar un chequeo «porque lo cubre la red», se mira la última corrida de esa red con la API, no el archivo.
@@ -1264,6 +1366,47 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
   (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
 
 *25/10/2026, el Cerebro (claude5).*
+
+## La guardia de RAM negaba un `git commit` por lo que decía el MENSAJE, y su copia versionada estaba vieja (6/11/2026)
+
+**Vive en:** `scripts/claude-hooks/guardia/memoria.mjs` (la copia versionada de `~/.claude/guardia/memoria.mjs`) ·
+`clasificar`, `soloLoQueCorre`, `PESADO`. Lo fija `tests/memoria-guardia.test.ts`, probado rompiéndolo.
+
+**Síntoma:** `git commit` NEGADO por la guardia de RAM, con 2,2 GB libres y «esto necesita 3». Después, un `grep` también.
+Y lo que se estaba commiteando era el arreglo de la alarma de minutos: **el chat se quedaba sin poder guardar su trabajo
+justo cuando la máquina está cargada, que es exactamente cuando más importa guardarlo.**
+
+**La causa:** `clasificar` probaba el regex `PESADO` **contra el texto entero del comando**. El mensaje del commit decía
+«el tsc entero lo corre la punta», y `\btsc\b` matcheó. El `grep` siguiente llevaba `tsc` y `npm test` como *patrones de
+búsqueda*. Un commit no pide un byte de RAM.
+
+⚠️ **Y el archivo ya tenía un caso de esta misma familia anotado arriba**, del 11/10: «el patrón suelto `typecheck` agarraba
+el NOMBRE de un test liviano (`npx tsx --test tests/typecheck-lock.test.ts`)». Se arregló **sacando esa palabra de la lista**,
+no la causa. Así que volvió, con otra palabra. **La regla que queda: cuando una guarda clasifica por el texto de un comando,
+se arregla separando lo que CORRE de lo que viaja adentro como data; sacar la palabra que falló deja la trampa armada.**
+
+⚠️ **Y había un SEGUNDO camino a «pesado» con la misma causa, que me frenó mientras arreglaba el primero.**
+`tandaDeTestsSinFreno` cuenta cuántos archivos `.test.ts` **nombra** el comando (3 o más = una tanda que levanta un proceso
+por núcleo). Un comando que los nombra dentro de un `node -e` y de un `grep` los nombra tres veces **sin correr ninguno**:
+otra vez NEGADO. Las dos preguntas van ahora sobre `soloLoQueCorre(cmd)`. **Arreglar un solo camino de los dos habría dejado
+el síntoma vivo con la sensación de estar resuelto** — y el regex de `PESADO` no tenía nada que ver con este.
+
+Lo que ahora se saca antes de clasificar (`soloLoQueCorre`): el **cuerpo de un heredoc**, el valor de las banderas que toman
+TEXTO (`-m`, `--message`, `-e`, `--eval`, `-p`, `--print`) y, en el tramo de un `grep`/`rg`/`findstr`, **sus comillas**, porque
+su patrón puede venir sin bandera (`grep -rn "npx tsc" .`) y nunca se ejecuta. ⚠️ Sólo en ESE tramo: `sh -c "npx tsc"` sí
+ejecuta y tiene que seguir contándose.
+⚠️ El cuerpo de un heredoc se saca **salvo que se lo coma un intérprete**: `bash <<'EOF' … npx tsc … EOF` sí ejecuta, y
+tiene que seguir contando como pesado. Y `cat` y `tee` **no** son intérpretes (`cat > notas.md <<EOF` escribe, no ejecuta):
+los puse en la lista y el test que acababa de escribir los cazó.
+
+⚠️ **De paso, lo más caro del hallazgo: la copia versionada estaba VIEJA.** El 29/10 los topes de `pesado` y `workflow`
+subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unresponsive» con 9 chats), y el cambio se hizo
+**sólo en `~/.claude`**. El repo seguía en 2,5: **reinstalar la guardia desde el repo bajaba los topes y devolvía la pantalla
+negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
+`~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
+
+**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
+`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
@@ -11114,3 +11257,78 @@ comandos de docs/relevo/nube-metodologia.md.
 - **Un chat de la nube quieto o «waiting on a human» no avisa y no siempre lee:** el de Carruseles no leyó nada durante más de una hora y el de Marketing CoPilot esperó toda la noche. En un turno automático no se puede abrir un chat nuevo. Lo que funcionó: un agente local en un worktree propio (`git worktree add --detach`, y `cmd //c mklink /J node_modules` hacia otro clon), que subió por la misma punta. Costó unos 415 mil tokens por tarea.
 - **Mirar el `git diff` antes de un `sed` por varios archivos:** un reemplazo de «En prueba» tocó tres tests que hablaban del período de prueba del plan. `git grep` no distingue dos usos de la misma frase.
 - **Git Bash y Node ven `/tmp` distinto:** `cat > /tmp/x` escribe en la carpeta de Git Bash y Node lee `C:\tmp\x`. Un archivo temporal entre los dos va por ruta de Windows.
+
+## `merge=union` sobre el ÍNDICE de hallazgos no une: DUPLICA la fila (6/11/2026)
+
+`.gitattributes` tiene `docs/hallazgos*.md merge=union`, y eso es lo que permite que ocho chats escriban su cosecha sin
+choques. Funciona perfecto para los documentos POR ÁREA, donde cada uno **agrega una sección al final**: dos secciones
+distintas en lugares distintos se unen y queda todo.
+
+**Pero `docs/hallazgos.md` no es un documento: es una TABLA con UNA fila por área**, y la cosecha de un área se escribe
+**reescribiendo esa fila**. Cuando dos puntas tocan la misma fila, `union` no la mezcla: **deja las dos**. Con tres puntas
+de la misma área el mismo día, la tabla queda con tres filas «Ticketera», cada una con el resumen de su punta y una copia
+del historial anterior — unos 14.800 caracteres cada una.
+
+**Medido el 6/11/2026 sobre `origin/main`**, contando filas por área en `docs/hallazgos.md`:
+
+| Área | Filas |
+|---|---|
+| Competitors Spy | 27 |
+| Infraestructura | 18 |
+| Planes, capas y cobro | 8 |
+| Comunicación | 8 |
+| Plan · Agency Dashboard | 6 cada una |
+
+No se pierde nada —de eso se encarga `union`—, pero el índice es lo único que dice qué documento abrir, y a 27 filas por
+área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
+abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
+
+**Qué hacer mientras el formato sea éste:** al cosechar, mirar si quedó duplicada la fila de tu área y consolidarla en una
+(se concatenan los resúmenes nuevos y se deja UNA cola de historial).
+
+⚠️ **Y consolidarla AL FINAL de la corrida, no en el medio: medido el 6/11 cometiendo el error.** Se consolidaron las 3
+filas de Ticketera en una, y al llegar a main las puntas que venían detrás volvió a 6 — cada punta en vuelo que tocó esa
+línea reintroduce su versión, y la consolidación de una punta es sólo «una versión más» para `union`. Consolidar sirve una
+vez que no queda ninguna punta propia corriendo; hacerlo antes es trabajo que se deshace solo y, peor, da la impresión de
+que ya está ordenado.
+
+**El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
+de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
+unir— o que `scripts/unir-bitacora.mjs` (el driver que ya existe para las bitácoras) tome también este archivo y sepa
+fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 de Infraestructura hay que consolidarlas
+igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
+
+**Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
+
+---
+
+## Armar una punta leyendo `origin/main` DOS veces le revierte a main lo que ganó en el medio (6/11/2026)
+
+**Vive en:** el procedimiento, no en un archivo. Lo que lo produce es `git read-tree origin/main` / `git show origin/main:<x>`
+en un comando y `git commit-tree … -p origin/main` en otro.
+
+**Por qué alguien hace esto.** Con el árbol de trabajo lleno de cambios de VARIOS encargos a la vez, la forma limpia de sacar
+una punta por ítem —sin `checkout`, sin `stash` y sin tocar lo de las otras sesiones— es armar el commit con plumbing: un
+índice temporal (`GIT_INDEX_FILE`), `read-tree` de main, `git add` sólo de las rutas del ítem, `write-tree` y `commit-tree`
+con main como padre. Es correcto y no toca el disco de nadie.
+
+⚠️ **La trampa: `origin/main` es un ref, y se LEE cada vez.** Entre el comando que armó el árbol y el que puso el padre pasó
+un `git push` mío de otra punta — y **el pre-push hace `fetch`** (AGENTS.md ya lo dice: «el remoto se mueve mientras corre el
+hook»). Así que el árbol salió del main de hace dos minutos y el padre fue el main de ahora: el commit resultante **borra en
+silencio** lo que main ganó en el medio. Medido: mi punta del editor llegó a `docs/hallazgos.md` con **303 líneas contra 304**,
+y la que faltaba era la fila de Infraestructura que otra punta acababa de ampliar. No hay conflicto, no hay aviso, y
+`git diff --stat` dice «2 archivos» como si todo estuviera bien — la deleción aparece en OTRO hunk, lejos del que se fue a
+mirar.
+
+Es la misma familia que el `reset` sin `--hard` y el `--amend` de AGENTS.md: **un revert exacto disfrazado de trabajo normal.**
+Lo que la hace peor acá es que el commit nunca pasó por el árbol de trabajo, así que ninguno de los chequeos que uno hace por
+costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
+
+**Las dos reglas:**
+
+1. **El sha del padre se PINCHA una vez y se usa para todo:** `BASE=$(git rev-parse origin/main)`, y de ahí salen el
+   `read-tree`, los `git show` y el `-p`. Un ref leído dos veces son dos valores distintos.
+2. **Y se verifica contra ESE padre, no contra el ref:** `git diff --stat "$BASE" "$SHA"` y, para los archivos que son
+   listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
+   (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
+   que desapareció sin que nadie la borrara.

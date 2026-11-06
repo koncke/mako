@@ -133,7 +133,7 @@ diecinueve juntos.
 | # | id | Qué le cuesta al cliente | Estado |
 |---|---|---|---|
 | 1 | **600** | **Escribe un documento, se guarda bien, y la pantalla dice «No existe».** Ver abajo: es el peor de los 73. | **hecho** (`punta/varios-copywriter-crear`) |
-| 2 | **590** | Alguien sin sesión puede ejecutar acciones de pantallas que no son el CRM. Medido hoy: **95** archivos con `'use server'` en `app/`, **24** con `exigirSesion`; fuera de `app/crm` quedan **71 sin corte**, entre ellos `app/admin/cobros/actions.ts`, `app/customer-success/actions.ts` y `app/configuraciones/*`. | abierto, grande |
+| 2 | **590** | **La premisa es FALSA y casi la reporto como el agujero más grande de la lista.** Ver abajo: los 60 archivos `'use server'` de fuera del CRM tienen su puerta, con 21 nombres distintos. Lo que falta de verdad es el GUARD, y es chico. | corregido; el guard sigue abierto |
 | 3 | **587** | Nueve pendientes del núcleo de la API, y uno **rompe skills ya instaladas en clientes** (`historial_whatsapp` y `reuniones_lead` por `/api/agente/consultar`). Otro devuelve el error dentro de un 200. | abierto, se cierran de a uno |
 | 4 | **583** | Una tarea que se pide recurrente por la API se crea como tarea única, sin aviso. | **hecho** (`punta/varios-plan-recurrente-api`) |
 | 5 | **606** | El reporte de WhatsApp dice una meta y la pantalla dice otra. **Y la receta del item está mal** — ver abajo. | abierto, pide una firma |
@@ -152,9 +152,66 @@ diecinueve juntos.
 | 18 | **602** | Costo para el cliente hoy: ninguno. El costo es que la próxima pantalla vuelva a hacer el menú distinto. Confirmado: `app/_ui/MenuContextual.tsx` lo usan nueve pantallas por ruta directa, pero `grep -c MenuContextual app/_ui/index.ts` = **0** y no está en el catálogo. | abierto, chico |
 | 19 | **312** | El menú promete VSL Generator y no existe. Confirmado: `app/_components/nav.ts:494` lo marca `comingSoon: true` — **y hay otros siete iguales** (Sales Email, Newsletters, Closing Script, Sales Roleplay, YouTube Writer, Ideas). No es una excepción: es cómo está armado el menú. Si molesta, la decisión es sobre los ocho. | abierto, prioridad baja |
 
-## Tres cosas que no sabíamos
+## Cuatro cosas que no sabíamos
 
-### 1. El peor bug de los 73 estaba descrito en una línea, y es real (item 600, B7)
+### 1. El «agujero de seguridad» del item 590 no existe, y lo reprodujo mi propia medición
+
+Esto va primero porque es lo que más cerca estuvo de costar una tanda entera. El item 590 dice que
+«fuera del CRM quedan pantallas que no revisan si la persona inició sesión» y da el número: «85 de 145
+server actions de app/crm ya arrancan con `exigirSesion()`; falta el mismo barrido en las otras tabs».
+Lo medí con un `grep` de `exigirSesion` y me dio **71 archivos sin corte**, con nombres que asustan:
+`app/admin/cobros/actions.ts`, `app/customer-success/actions.ts`, `app/configuraciones/*`. Lo tenía
+escrito como la prioridad número 2 de los 22.
+
+**No hay ningún archivo sin puerta.** De los 60 `'use server'` de fuera del CRM, los 60 llaman a una, y
+cada tab tiene la suya con otro nombre:
+
+| La puerta | Archivos que la llaman |
+|---|---|
+| `getRolWsEfectivo` | 18 |
+| `getSesionAdmin` | 8 |
+| `adminDeWorkspaceActual` | 7 |
+| `ctxAdmin` (local, por tab) | 6 |
+| `requireRolWs` | 6 |
+| `requireSesion` | 5 |
+| `exigirSesion` (la que yo buscaba) | **3** |
+| `wsSuperAdmin`, `guard`, `ctxDeBandeja`, `soloMiembro`, `soloAdmin`, `conActor`, `veEditorVideo`, `requireCapa`, `personaDelRequest`, `sesionDe` | 1 a 3 cada una |
+
+Leí seis a mano para no quedarme en el `grep`: `app/general/actions.ts` → `guard()`;
+`app/admin/cobros/actions.ts` → `getSesionAdmin()`; `app/competitor-spy/actions.ts` → `soloMiembro()` /
+`soloAdmin()`; `app/stories/actions.ts` y `app/video-generator/actions.ts` → `ctxAdmin()`;
+`app/customer-success/comunidad/actions.ts` → `conActor()`. El único que no aparecía con ninguno de los
+veinte nombres que probé primero, `app/m/mako/acciones.ts`, usa el vigesimoprimero
+(`personaDelRequest()`, y corta: `if ('error' in persona) return`).
+
+**Y ya estaba medido.** `docs/relevo/pendientes-barrido.md:113`, C14, dice textual: *«`'use server'`
+fuera del CRM sin `exigirSesion()` — **medido, sin agujero**: los 60 archivos tienen su puerta
+(`adminDeWorkspaceActual`, `puerta()`, `veEditorVideo`, `ctxDeBandeja`…); el de comunidad sirve al
+alumno a propósito»*. La lista del 6/11 lo volvió a escribir como pendiente sin ese veredicto.
+
+**Why, y es la regla que queda:** un `grep` del NOMBRE de un guard no mide si hay guard, mide si hay
+*ese* guard. En un repo donde cada tab se construyó con su propia puerta, los dos resultados no se
+parecen: 3 archivos contra 60. Y el error es de los peores que puede producir una medición de
+seguridad, porque **falla hacia el lado que parece responsable**: una alarma falsa de 71 archivos se
+siente como diligencia, manda una tanda a «arreglar» código sano, y lo que entra son 71 diffs de
+seguridad sin revisar que nadie pidió.
+
+El propio item traía la pista y la leí al revés: *«leer `getUsuarioActual()` NO corta: el guard tiene
+que aceptar sólo las formas que cortan, en positivo»*. Esa frase es sobre ESCRIBIR el guard —hay que
+enumerar las formas— y es justamente la prueba de que hay muchas. Si hubiera una sola, no habría nada
+que enumerar.
+
+**Lo que sí queda de 590, y es chico:** no existe el guard. `tests/crm-acciones-sesion.test.ts` barre
+`app/crm` y nada barre el resto, así que un `'use server'` nuevo puede entrar sin puerta y nadie se
+entera: hoy la única forma de saberlo es leer 60 archivos a mano, que es lo que hizo C14 una vez. Para
+escribirlo hay que extender su lista `CORTES` con las 21 formas, **y cada una verificada de que CORTA**
+(tira o devuelve antes de tocar datos) — un `getUsuarioActual()` suelto no cuenta. No lo escribí: una
+lista incompleta da un rojo falso que frena los pushes de todos, y una lista indulgente da un verde
+falso, que es peor que no tener guard. Hay un worktree `wt-seguridad-0311` abierto.
+
+La segunda mitad del item —«el barrido de entrada por URL al resto de las tabs»— sigue sin medir.
+
+### 2. El peor bug de los 73 estaba descrito en una línea, y es real (item 600, B7)
 
 `lib/copywriter/server.ts` → `crear()`: si `cambiarIndice()` devuelve `!ok`, borra el documento que
 acababa de escribir. Y `cambiarIndice()` (mismo archivo) devuelve `falla(500, …)` **cuando
@@ -166,7 +223,7 @@ y lee «No existe». El `catch` que promete limpiar un huérfano es el que produ
 **La regla:** un rollback no se dispara con «la operación falló», sino con «la operación **no** dejó
 rastro». Antes de borrar hay que volver a leer. Está arreglado así.
 
-### 2. La receta del item 606 estaba equivocada, y al aplicarla se empeora
+### 3. La receta del item 606 estaba equivocada, y al aplicarla se empeora
 
 El item dice: «unificarlo es mover esos dos call-sites a `objetivosContextoTexto()`». No se puede, por
 dos razones que sólo se ven leyendo las dos funciones:
@@ -183,7 +240,7 @@ El mapeo es mecánico (`metrica: 'cash_usd'` y `metrica: 'cierres'`, ver `migrar
 `lib/objectives.ts:568-595`), pero **cambia qué número lee el cliente en su reporte**, así que lo firma
 Martín. Lo dejé sin tocar.
 
-### 3. Los 5.050 emails estudiados no los lee nadie (item 335)
+### 4. Los 5.050 emails estudiados no los lee nadie (item 335)
 
 El item pedía comprobar si los patrones de email se usan. Está comprobado y la respuesta es **cero**:
 `docs/conocimiento/patrones-email.md` existe y pesa 92 kB, y **ningún archivo de `lib/` ni de `app/` lo
