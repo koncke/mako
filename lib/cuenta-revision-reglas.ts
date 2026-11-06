@@ -90,6 +90,11 @@ export const PERMITIDO_EN_REVISION: Readonly<Record<string, string>> = {
   '/api/push/prueba': 'el aviso de prueba a su propio teléfono',
   '/api/perfil/notif-push': 'prender o apagar sus avisos',
   '/api/perfil/notif-inapp': 'prender o apagar sus avisos adentro de la app',
+  // Misma pantalla y misma familia que los dos de arriba: en revisión se toca cada interruptor, y uno que contesta 503 se
+  // reporta como un bug. Escribe sólo sobre SU dirección (`correo_bajas` por email, mig 0410) y la marca de su propia fila,
+  // así que no toca a nadie más. Para la cuenta de revisión es casi un no-op: sus tickets se guardan sin despacho, así que
+  // correos de avance no le llegan igual.
+  '/api/perfil/correos-tickets': 'prender o apagar los correos de avance de sus tickets',
   '/api/aperturas': 'lo que MaKo ya le preguntó (su memoria de «Ahora no»)',
   '/api/recorridos': 'qué guías ya vio',
   '/api/hilo-de-tab': 'su chat con MaKo en una tab',

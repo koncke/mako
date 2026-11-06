@@ -56,6 +56,7 @@ async function main() {
   process.env.RESEND_API_KEY = 're_prueba';
   process.env.CRON_SECRET = 'cron-de-prueba';
 
+
   db.workspaces.push(
     { id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' },
     { id: NEGOCIO, nombre: 'Estudio Luna', capa: 'completo', estado: 'activo' },
@@ -226,6 +227,34 @@ async function main() {
   const antes5f = correos.length;
   await avisarAvancesPorEmail(ahora);
   R.correos5f = correos.slice(antes5f).map((c) => c.asunto);
+
+  // ── 5d. Lo que hay DETRÁS de la casilla de Notificaciones ────────────────────────────────────────────────────────────
+  // ⚠️ La RUTA (app/api/perfil/correos-tickets) no se puede correr acá: resuelve la sesión con `getUsuarioActual`, que lee
+  // la cookie con `cookies()` de next/headers y eso necesita un pedido de Next de verdad (y el namespace de un módulo ESM
+  // está congelado, así que tampoco se puede sustituir). Lo que SÍ se ejecuta es todo lo que la ruta hace después, que es
+  // donde está la lógica: el mismo módulo que usa el link del correo. Lo único que queda sin ejecutar es el renglón que
+  // saca el email de la sesión, y a eso lo cuida una afirmación sobre el código en el test padre — escrita como la FALLA
+  // (que NO use `filaPropia`), no como la forma.
+  const bajaMod = await imp('lib/tickets-baja-correo.ts');
+  R.casillaAntes = await bajaMod.apagadosPorEmail('dos@test.com');
+  R.casillaApaga = await bajaMod.cambiarBajaPorEmail('dos@test.com', false, 'notificaciones');
+  R.bajasTrasCasilla = db.correo_bajas.filter((b) => b.email === 'dos@test.com').map((b) => ({ tipo: b.tipo, por: b.por }));
+  R.casillaDespues = await bajaMod.apagadosPorEmail('dos@test.com');
+  // Y frena el correo de verdad, no sólo la casilla.
+  db.tickets.push(ticket(145, { workspace_id: OTRO, usuario_id: 10, usuario_email: 'dos@test.com' }));
+  const antes5g = correos.length;
+  await avisarAvancesPorEmail(ahora);
+  R.correos5g = correos.slice(antes5g).map((c) => c.asunto);
+  // La vuelve a prender, y se lee prendida.
+  R.casillaPrende = await bajaMod.cambiarBajaPorEmail('dos@test.com', true, 'notificaciones');
+  R.bajasTrasPrenderCasilla = db.correo_bajas.filter((b) => b.email === 'dos@test.com').length;
+  R.casillaFinal = await bajaMod.apagadosPorEmail('dos@test.com');
+  // Y el que esperaba sale acá, no en el paso 6: la baja lo salteó sin reclamar su hito.
+  const antes5h = correos.length;
+  await avisarAvancesPorEmail(ahora);
+  R.correos5h = correos.slice(antes5h).map((c) => c.asunto);
+  // Una dirección vacía (sesión sin cuenta propia) no escribe nada.
+  R.casillaSinEmail = await bajaMod.cambiarBajaPorEmail('', false, 'notificaciones');
 
   // ── 6. El cron de tickets la corre ───────────────────────────────────────────────────────────────────────────────────
   // ⚠️ VOLVER A PRENDERLOS SON DOS LUGARES desde la 0410: borrar la clave del perfil ya no alcanza, porque la baja por

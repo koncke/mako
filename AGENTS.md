@@ -7704,6 +7704,17 @@ el hallazgo cruza áreas, va donde vive el código y se enlaza desde la otra.
 Si el área todavía no tiene documento, se crea. `docs/hallazgos.md` es el índice: una
 línea por documento, y se actualiza en el mismo commit.
 
+⚠️ **En el índice se REESCRIBE la celda de tu área metiendo tu entrada adelante — nunca
+se agrega una fila.** Es una tabla con **una fila por área**, y una fila nueva la duplica.
+Tu entrada arranca con `**Título (fecha)**:`, que es el límite que después permite
+juntarlas sin partir una oración al medio. Y un `|` en el texto va escapado (`\|`): sin
+escapar le inventa columnas a la fila y markdown deja de mostrarla. Lo mira una guarda
+(`tests/unir-indice-hallazgos.test.ts`), que también chequea que el link de cada fila
+exista en disco. El 6/11/2026 el índice tenía 217 filas para 77 áreas porque
+`merge=union` agarraba también la tabla: el porqué, en
+[docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El índice de hallazgos se
+duplicaba solo».
+
 Qué va ahí:
 
 | Sí | No |

@@ -1029,10 +1029,45 @@ la respuesta es no, la guarda fija la implementación. Lo que sí sirve, en orde
 - dejando el cableado bien y volviendo el FILTRO permisivo → **28/1, G5 rojo**.
 La vieja daba verde en el primero (era su propia condición) y en el segundo (no mira el filtro).
 
-**Dónde más mirar:** no es el único de esta forma. El mismo día, en esta misma área, `tests/ticketera-movil-y-avisos.test.ts`
-B5 pedía el texto `aviso_motivo, aviso_at, arreglado_at` de `COLS` —o sea que dos columnas fueran **VECINAS** en el
-select—, y se puso rojo al meter `cerebro_*` en el medio sin que faltara ninguna. Misma falla: la guarda mide la forma.
-Un `grep` de `assert.match(.*leer(` por el repo da la lista de candidatas.
+**Donde mas mirar: aparecieron TRES el mismo dia, y las tres frenaron un arreglo correcto.** No es una rareza de G5: es
+una forma que el repo tiene repetida.
+
+| Guarda | Que texto pedia | Que arreglo freno |
+|---|---|---|
+| `tests/ticketera-mazo.test.ts` G5 | el regex `https` sobre `us.foto_url` | el filtro de origen de la foto (y ademas **exigia el agujero**) |
+| `tests/ticketera-movil-y-avisos.test.ts` B5 | `aviso_motivo, aviso_at, arreglado_at` de `COLS` | sumar `cerebro_*` al select: pedia que dos columnas fueran **VECINAS** |
+| `tests/agencia-grupos.test.ts` | la cadena entera del `errorDe(deOtro ? ... : ...)` | agregar UNA fuente de error personal (la casilla de los correos) |
+
+Las tres se arreglaron igual: se mide el CORTE o el EFECTO, no la cadena. La de agencia-grupos, por ejemplo, ahora saca
+las dos ramas del ternario con un regex y afirma que la de `deOtro` es solo `dest.error` y que lo personal queda del otro
+lado: sobrevive a una fuente nueva y sigue cazando que alguien muestre lo personal mirando a un cliente.
+
+Para buscar las que faltan: `grep -rn "assert.match(.*leer(" tests/` y, de esas, las que piden una EXPRESION completa en
+vez de un nombre. La pregunta sigue siendo la misma: *seguiria en verde si alguien arregla el bug de otra manera?*
+
+**Y el contraejemplo, que importa tanto como la regla: no toda guarda que lee el repo es fragil.** El mismo dia, la
+casilla de Notificaciones puso roja `tests/cuenta-revision-escrituras.test.ts`, y esa guarda estaba **bien**: lleva un
+snapshot de TODA ruta que escribe y exige que cada una este clasificada para la cuenta de revision de las tiendas (una
+contrasena que tienen terceros). La ruta nueva aparecio como `POST /api/perfil/correos-tickets -> cortada` y el mensaje
+del rojo decia exactamente que decidir y como regenerar. La diferencia con las tres de arriba es la forma de la pregunta:
+**esta no pide un texto, pide una DECISION sobre algo nuevo**, y se contesta sin tocar el test. Se resolvio sumandola a
+`PERMITIDO_EN_REVISION` (lib/cuenta-revision-reglas.ts) con su porque, igual que sus dos hermanas de la misma pantalla
+(`notif-push` y `notif-inapp`): en revision se toca cada interruptor, y uno que contesta 503 se reporta como un bug.
+Probado al reves: sacandola de la lista, 5/1.
+
+⚠️ **Dos cosas del PROCESO que costaron una corrida de Actions cada una, y las dos son faciles de repetir:**
+1. **Reproducir un rojo localmente prueba que encontraste UNA causa, no LA causa.** Esta punta dio rojo, encontre la
+   guarda fragil de `agencia-grupos` corriendo los tests que nombran el archivo que toque, la arregle, subi, y volvio a
+   dar rojo: faltaba esta otra, que ningun test "que nombra mi archivo" iba a encontrar porque es una de las 254 que
+   **barren el repo entero**. El log de la corrida es la autoridad; la lista de "tests afectados" local no lo es.
+2. **Leer el log de Actions no necesita `gh`** (no esta instalado) ni los PAT de `.env.local` (son de Mauricio y dan 404
+   contra koncke/mako). El token del push sirve:
+   `TOK=$(printf 'protocol=https
+host=github.com
+
+' | git credential fill | sed -n 's/^password=//p')` y con eso
+   `/actions/runs?branch=...`, `/actions/runs/<id>/jobs` (dice QUE paso fallo) y `/actions/runs/<id>/logs` (el zip).
+
 
 **Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
 (`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
@@ -1094,11 +1129,19 @@ agregarla sería volver al bug.
   direcciones duplicadas el 6/11/2026) y **no se arregló acá**, porque es de `lib/perfil.ts` y no de la Ticketera. Pero por
   eso la casilla nueva se resuelve por la DIRECCIÓN de la sesión y no por `filaPropia`: habría nacido con el mismo techo.
 
-**Lo que quedó SIN hacer:** la **casilla en Notificaciones** para prender y apagar estos correos sin pasar por el link del
-mail. El motor está listo y es lo único que falta: `cambiarBajaPorEmail` y `apagadosPorEmail` ya hacen las dos capas, falta
-la ruta (`app/api/perfil/`, modelo: `notif-inapp/route.ts`) y la fila con el `Switch` en
-`app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta tiene que resolver a la persona por el **email de la sesión**, no con
-`filaPropia`, por lo de arriba.
+**La casilla en Notificaciones, HECHA el mismo día:** «Correos de MaKo → Avances de mis tickets», en
+/perfil/notificaciones. Apaga lo MISMO que el link del pie del correo, porque los dos caminos pasan por
+`lib/tickets-baja-correo.ts`.
+
+⚠️ **Y resuelve a la persona por el EMAIL DE LA SESIÓN, no con `filaPropia`** — por lo de arriba: `filaPropia` tira con dos
+cuentas de la misma dirección, o sea justo con la gente para la que la casilla existe. Es el error fácil de cometer acá, así
+que lo fija un caso propio (el 5e), y está escrito como la FALLA (`doesNotMatch` de `filaPropia`) y no como la forma, que es
+la otra lección del día.
+
+⚠️ **Lo que ese test NO ejecuta, y por qué se dice:** la ruta resuelve la sesión con `getUsuarioActual`, que lee la cookie
+con `cookies()` de next/headers y necesita un pedido de Next de verdad; y el namespace de un módulo ESM está congelado, así
+que tampoco se puede sustituir desde el arnés (`Cannot redefine property`). Lo que el arnés sí corre es todo lo que la ruta
+hace después, que es donde está la lógica. El único renglón sin ejecutar es el que saca el email, y de ése se encarga el 5e.
 
 **Vive en:** `supabase/migrations/0410_correo_bajas.sql` · `lib/tickets-baja-correo.ts` · `lib/tickets-avance.ts`
 (`TIPO_BAJA_TICKETS`, `pidioLaBaja`, `decidirAvance`, `DepsAvance.bajas`) · `lib/tickets-avance-email.ts` (`bajasDe`) ·
