@@ -26,6 +26,77 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+---
+
+## Lo que quedó SIN hacer de los 33 encargos del editor y los 18 de Thumbnails (6/11/2026)
+
+El barrido del 6/11 dejó 33 encargos del Image Editor y 18 de Thumbnails. Esto es lo que NO se hizo, con el archivo donde
+vive y, cuando lo hay, el motivo por el que no alcanzaba con sentarse a escribirlo. **Lo primero son las tres correcciones
+a la lista**, porque una lista vieja hace trabajar de más:
+
+### La lista del 6/11 estaba vieja en tres lugares
+
+- **Siete de los 18 encargos de Thumbnails ya estaban hechos** cuando se escribieron: cinco pedían «cargar la biblioteca»
+  (ids 9, 132, 138, 199, 378) y dos «curarla» (133, 139). Medido con `estado` contra producción: **79 canales activos, 14
+  excluidos, 1.520 miniaturas visibles, 0 vencidas**. La lista es una foto; antes de trabajar un encargo, el comando que lo
+  mide.
+- **Los números del documento de Thumbnails también estaban viejos** (85 canales / 1.643 miniaturas / 8 excluidos, del
+  momento de la carga). Corregidos.
+- **El encargo del plano del editor (id 166) pedía sacar cosas que no están y no nombraba tres de las cuatro que sí
+  estaban mal.** «Noto Sans» no aparece ni una vez en `diseno-editor-imagen.md`. El detalle, arriba.
+
+### No alcanza con programarlo: lo tiene que decidir o firmar Martín
+
+- **El múltiplo de Thumbnails (y el orden de la vidriera)** espera la **enmienda III.L** de las Developer Policies de
+  YouTube — un trámite, no código. Hasta que se firme, el orden es «Más vistas» y las vistas crudas **no son comparables
+  entre mercados**: por eso hubo que excluir 14 canales a mano, y por eso **excluir a mano no escala** (cada relectura
+  mensual trae videos nuevos de los mismos canales). `lib/thumbnails/explorar.ts` (`ENMIENDA_III_L`), y los números en
+  [hallazgos-carruseles.md](hallazgos-carruseles.md).
+- **Las diez caras de referentes borrosas** (encargo 544) piden **exportar el original desde Canva**, que es la cuenta de
+  Martín. Medido: los 32 archivos de `public/asesores/grandes/` están los 32 a 600×600, así que **el problema no es la
+  medida sino el origen** — diez son los 200×200 de Canva escalados. Vive en `public/asesores/grandes/` y
+  `lib/asesores/catalogo.ts`; hay una punta abierta de otro chat (`punta/gurus-diez-caras`).
+- **Reescribir el editor prestado para que la licencia deje de aplicar** (encargo 145): 444 archivos y ~39 mil líneas en
+  `app/image-editor/_doory/`. Es un programa de trabajo, no una tarea; el orden medido está en el propio encargo.
+
+### Se puede programar, y por qué no se hizo en esta tanda
+
+- ⚠️ **Borrar la co-edición (encargo 146) NO es borrar una carpeta, y el encargo lo describe como «la forma más barata y
+  rápida».** Medido: además de los 18 archivos de `_doory/editor/collab/`, **20 archivos de afuera la referencian** —
+  `EditorApp.tsx`, `EditorProvider.tsx`, `engine/editor.ts`, `engine/persistence.ts`, `TopBar.tsx`, `SaveStatus.tsx`,
+  `chrome/FollowBadge.tsx`, `chrome/PresenceStack.tsx`, `workspace/PresenceLayer.tsx`, `panels/AnimatePanel.tsx`,
+  `panels/NotesBar.tsx`, `dialogs/Presenter.tsx`, `strings.ts` y más. Sacarla es desenchufar 20 call sites del editor que
+  el cliente abre, y el veredicto de que quedó bien es un typecheck. **Sigue valiendo la pena** (son 4.396 líneas con
+  licencia ajena que no corren) y entra en una tanda con el typecheck acotado a mano, no en una pasada a ciegas.
+- **Borrar las diez plantillas de Doory** (encargos 155 y 548, el mismo): toca el panel, la API y **tres tests, dos de los
+  cuales se rompen a propósito** (el 1 de `plantillas-crear`, «primero lo en blanco», y el 5, la lista literal
+  `PLANTILLAS_NUEVO_DISENO`). Se reescriben, no se fuerzan — y eso pide correr los tests, que es justo lo que no se pudo.
+  `app/image-editor/mako/plantillas/`.
+- **El `window.prompt` para renombrar un diseño** (encargo 153): `ImageEditorCliente.tsx:115` y
+  `carruseles/ExplorarCarruseles.tsx:213`. La referencia está en el repo (el Web Generator ya edita en el lugar), así que
+  acá no hace falta ir a buscar una app de afuera.
+- **Las fuentes del editor se bajan de jsDelivr** (encargo 148): 499 variantes de afuera, un archivo frío tardó 12,6 s y el
+  motor corta a los 8 (`LOAD_TIMEOUT_MS`), así que el texto cae a la fuente del sistema **sin un solo error**. La regla que
+  ya está pagada: **nada de `next/font/google`** (rompió el build de producción de todos los chats el 15/10, porque baja la
+  fuente AL COMPILAR); si hace falta, `next/font/local` con el `woff2` en el repo.
+- **Un logo SVG que el cliente sube se guarda rasterizado** (encargo 152): el bucket no acepta SVG (es un documento activo
+  bajo nuestro dominio) y el adaptador lo dibuja a PNG (`mako/nube.ts`, `aRaster`). Conservarlo vectorial pide sanearlo en
+  el server y servirlo **desde un origen sin cookies**, que es una decisión de infraestructura.
+
+### Lo que sólo se cierra MIRÁNDOLO (y por qué no se pudo acá)
+
+Cinco encargos del editor (167, 412, 407, 164, 157/406) y tres de Thumbnails (143, 200, y la prueba de «Editar» de 142/380)
+no son código: son **mirar la pantalla en producción** o **correr la prueba con la IA de verdad del ws 3**. Los tres de
+Thumbnails dependen de la biblioteca cargada, que ya lo está.
+
+⚠️ **Y el obstáculo de esta ventana, que conviene anotar porque se va a repetir:** la PC estuvo entre **1,3 y 2,3 GB de RAM
+libre** durante toda la tanda (10-20 chats sobre el mismo clon), y la guardia de RAM bloquea `tsc` y `node --test` por
+debajo de 3 GB — con razón: lo que protege es que no se caigan todos los chats a la vez. El `typecheck-lock` esperó su turno
+10 minutos y después 15 más por RAM. **Lo que sí se pudo** fue pushear a `punta/…`: desde el 15/10 el pre-push sólo corre el
+`tsc` local cuando el push va a `main`, así que a una punta corren sólo las guardas baratas y el chequeo de verdad lo hace
+GitHub Actions, que tiene su propia RAM. Para una tanda así, **la secuencia es punta + Actions, no esperar la RAM**; lo que
+no se puede delegar es la prueba que necesita la base o una clave (los scripts de la PC), y eso sí espera.
+
 ## MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco (5/11/2026)
 
 - **Qué hace:** con una página sin nada y la charla vacía, el chat del editor pregunta un hecho; «En una historia» (1080×1920),
