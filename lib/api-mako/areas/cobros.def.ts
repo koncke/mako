@@ -561,7 +561,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'marcar_entrada_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
-    titulo: 'Marcar pagada la entrada de un cliente de agencia',
+    titulo: 'Marcar pagada la entrada de un cliente',
     descripcion: 'Sólo el super admin: anota que una agencia pagó la entrada de un cliente (sus días hasta el próximo 5), con el día en que entró (por ejemplo, un comprobante que MaKo mandó a revisar). Si estaba en pausa, sus días se cuentan desde ese día y vuelve a entrar. Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia.',
     escribe: 'la entrada del cliente (app_settings de la plataforma, agencia.mensualidad.<agencia>.entrada.<cliente>), su recibo y su pausa',
     parametros: [
