@@ -264,11 +264,14 @@ export async function leadMagnetsParaEscribir(): Promise<Entregable[]> {
 
 const norm = (v: string) => v.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').trim().replace(/\s+/g, ' ').toLowerCase();
 
-/** Regenera los lead magnets CONSERVANDO los que tienen enlace (los usan las secuencias). */
+/**
+ * Regenera los lead magnets CONSERVANDO los que tienen enlace (los usan las secuencias) y los que tienen su pieza armada en el
+ * Lead Magnet Generator (5/11/2026): esos son una página o una landing de verdad, y borrarlos dejaba la pieza sin lead magnet.
+ */
 export async function regenerarLeadMagnets(respuestas?: PasoRespuesta[]): Promise<{ ok: true; conservados: number; nuevos: number } | { ok: false; error: string }> {
   const r = await generarEntregables(respuestas?.length ? respuestas : undefined);
   if (!r.ok) return { ok: false, error: r.error };
-  const conEnlace = (await leadMagnetsParaEscribir()).filter((e) => e.enlace);
+  const conEnlace = (await leadMagnetsParaEscribir()).filter((e) => e.enlace || e.pieza);
   const nombres = new Set(conEnlace.map((e) => norm(e.nombre)));
   const nuevos = r.entregables.filter((e) => !nombres.has(norm(e.nombre)));
   await setEntregables([...conEnlace, ...nuevos]);

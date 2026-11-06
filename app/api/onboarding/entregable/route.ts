@@ -11,7 +11,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarEntregables, siguientePreguntaEntregable, describirArchivoEntregable, getEntregables, setEntregables, type Entregable, type PasoHistorial } from '@/lib/entregable';
+import { generarEntregables, siguientePreguntaEntregable, describirArchivoEntregable, getEntregables, getEntregablesEstricto, setEntregables, type Entregable, type PasoHistorial } from '@/lib/entregable';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -45,8 +45,12 @@ export async function POST(req: NextRequest) {
     try {
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.entregables) ? body.entregables : [];
+        // Lo que esta pantalla NO edita (el enlace, la pieza del Lead Magnet Generator) se conserva de lo guardado, por id.
+        // Hasta el 5/11/2026 se rearmaba campo por campo y guardar acá borraba el enlace que usan las secuencias.
+        // Lectura ESTRICTA: con la base caída, fundir sobre una lista vacía volvería a borrar los enlaces.
+        const antes = new Map((await getEntregablesEstricto()).lista.map((e) => [e.id, e]));
         const limpio: Entregable[] = arr
-          .map((g) => { const o = (g ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), nombre: s(o.nombre), tipo: s(o.tipo), queEs: s(o.queEs), fomo: s(o.fomo) }; })
+          .map((g) => { const o = (g ?? {}) as Record<string, unknown>; const id = s(o.id) || randomUUID(); return { ...(antes.get(id) ?? {}), id, nombre: s(o.nombre), tipo: s(o.tipo), queEs: s(o.queEs), fomo: s(o.fomo) }; })
           // No borrar la tarjeta por vaciar solo el nombre: se conserva si tiene algún contenido.
           .filter((g) => g.nombre || g.queEs || g.fomo);
         await setEntregables(limpio);
@@ -71,7 +75,10 @@ export async function POST(req: NextRequest) {
         : undefined;
       const r = await generarEntregables(respuestas);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-      await setEntregables(r.entregables);
+      // Los que ya tienen enlace o su pieza armada se quedan (como `regenerarLeadMagnets`): son una página de verdad.
+      const armados = (await getEntregablesEstricto()).lista.filter((e) => e.enlace || e.pieza);
+      const nombres = new Set(armados.map((e) => e.nombre.trim().toLowerCase()));
+      await setEntregables([...armados, ...r.entregables.filter((e) => !nombres.has(e.nombre.trim().toLowerCase()))]);
       return Response.json({ ok: true, ...(await estado()), uso: r.uso });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });

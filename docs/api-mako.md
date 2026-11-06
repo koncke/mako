@@ -48,6 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
+- **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
@@ -11684,7 +11685,7 @@ Crea una landing nueva en el editor del Web Generator: el texto de ejemplo del o
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `diseno` | string (mako \\| claro-clasico \\| oscuro-moderno \\| minimal \\| audaz \\| calido \\| tecnologico \\| fresco \\| editorial) | sí | Cómo se ve (de listar_disenos_landing). |
-| `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
+| `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| clase-grabada \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
 | `titulo` | string | no | El nombre de la landing en el Panel. Sin él, el nombre del objetivo. |
 
 ```bash
@@ -20319,6 +20320,152 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/usos"
+```
+
+## Lead magnets — `leadmagnet`
+
+Tab **Lead Magnet** (`/lead-magnet-generator`). 1 lecturas · 4 acciones.
+
+### `GET /api/v1/leadmagnet/plantillas` — Ver las plantillas de lead magnet
+
+Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla y clase grabada. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.
+
+- **Ruta por operación:** `GET /api/v1/leadmagnet/ver_plantillas_magnet`
+- **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/plantillas"
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets` — Armar un lead magnet con una plantilla
+
+Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/armar_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una página de Copywriting o una landing del Web Generator, y su fila en la lista de lead magnets (mako.entregable)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `plantilla` | string (guia \\| checklist \\| prompts \\| planilla \\| clase-grabada) | sí | El id de la plantilla (de ver_plantillas_magnet). |
+| `nombre` | string | no | Cómo se llama el lead magnet. Si se omite, el nombre de la plantilla. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets" \
+  -d '{"plantilla":"guia","nombre":"Guía: tu agenda llena en 30 días"}'
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets/{id}/paginas` — Crear la página que pide el lead magnet
+
+Crea la landing que capta un lead magnet: el formulario pide nombre y correo, lo que dejan entra al CRM y la página de gracias lleva al link del lead magnet si ya tiene uno. Nace como borrador sin publicar. Si ya tiene su página, devuelve ésa. Una clase grabada ya es una página con su formulario.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/pagina_captura_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una landing del Web Generator (borrador) y su id en el lead magnet
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/paginas"
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets/{id}/links` — Crear el link público de un lead magnet
+
+Le da a la página de Copywriting de un lead magnet un link público de SOLO LECTURA, para que la abra cualquiera sin cuenta, y lo guarda como el link que reciben los leads. No sale si la página está vacía o si todavía tiene la guía de alguna sección: dice cuáles cambiar. Si ya tenía un link vigente, devuelve ése.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/link_publico_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** un link de solo lectura (shares, recurso lead-magnet) y el enlace del lead magnet
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/links"
+```
+
+### `PUT /api/v1/leadmagnet/lead-magnets/{id}/primero` — Poner primero un lead magnet
+
+Lo pone primero de la lista del negocio. Las automatizaciones mandan el link del primero (el dato «Link del lead magnet»), así que esto decide cuál reciben los leads.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/primero_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el orden de la lista de lead magnets (mako.entregable)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/primero"
 ```
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`

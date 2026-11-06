@@ -72,7 +72,7 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'dashboard' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'plan' | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'ai-avatar' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
+  | 'video' | 'copywriting' | 'ai-avatar' | 'lead-magnet' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
@@ -252,6 +252,10 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
   // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
   { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
+  // Lead Magnet (5/11/2026): la lista de lead magnets y las plantillas (app/m/lead-magnet-generator). Por ahora sólo la plataforma
+  // (app/lead-magnet-generator/puerta.ts, `adminOnly` en nav.ts): fila OCULTA y de super admin, como Admin (Customers): More le
+  // arma su fila desde la sidebar a quien la ve (`filaDeItem`); ésta le da a la pantalla su cabecera y su título.
+  { id: 'lead-magnet', label: 'Lead Magnet', titulo: 'Lead Magnet', href: '/m/lead-magnet-generator', icon: 'leadmagnet', navKey: 'lead-magnet-generator', familia: null, oculta: true, superAdmin: true },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del

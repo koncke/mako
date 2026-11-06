@@ -51,9 +51,10 @@ const REALES = [
   'Francisco Ramos', 'Dental Ramos', 'Sergio Esquer', 'BG Trucking', 'Aspro', 'Ejemplo', 'Koncke',
 ];
 
-test('son 10 landings con id único, categoría de la lista y un tema que existe', () => {
-  assert.equal(PLANTILLAS.length, 10);
-  assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, 10);
+// 11 desde el 5/11/2026: la «Clase grabada» del Lead Magnet Generator (lib/lead-magnets/plantillas.ts).
+test('son 11 landings con id único, categoría de la lista y un tema que existe', () => {
+  assert.equal(PLANTILLAS.length, 11);
+  assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, 11);
   const temas = new Set(TEMAS.map((t) => t.id));
   for (const p of PLANTILLAS) {
     assert.ok((CATEGORIAS_PLANTILLA as readonly string[]).includes(p.categoria), p.id);

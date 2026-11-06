@@ -333,6 +333,16 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
     estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },
+  {
+    keys: ['lead-magnet-generator'],
+    que: 'Tus lead magnets: lo que regalas a cambio del contacto. Eliges una plantilla (guía, checklist, prompts para copiar, planilla o clase grabada) y MaKo crea la pieza en Copywriting o en el Web Generator, con su estructura; después le da un link público de solo lectura y la página con formulario donde la piden.',
+    hace: ['Crear la pieza de un lead magnet desde una plantilla, en Copywriting o en el Web Generator', 'Darle a una página de Copywriting un link público de solo lectura', 'Crear la landing que lo pide: el formulario entra al CRM', 'Elegir qué link mandan las automatizaciones'],
+    noHace: ['Todavía no: un quiz con diagnóstico, que MaKo proponga el lead magnet según tus competidores, ni regalar un curso de Classroom a un lead (el portal abre sólo a clientes que compraron)'],
+    reemplaza: 'ScoreApp, Interact y los Notion de prompts',
+    alias: ['lead magnet', 'iman de leads', 'regalo', 'guia gratis', 'checklist', 'descargable', 'freebie', 'clase gratis'],
+    conecta: [{ a: 'copywriter', motivo: 'Las guías, los checklists y los prompts son páginas de Copywriting' }, { a: 'landing-writer', motivo: 'La clase grabada y la página que lo pide son landings del Web Generator' }],
+    estado: 'parcial', slugDev: 'lead-magnet-generator', fuentes: [AREAS, 'lib/lead-magnets/plantillas.ts'],
+  },
   // ── El menú de la foto (Settings) ──
   {
     keys: ['perfil', 'configuraciones', 'integraciones'],

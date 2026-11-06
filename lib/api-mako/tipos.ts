@@ -34,7 +34,7 @@ import type { Bloque } from '../chat-bloques';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'spy', 'cobros', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'spy', 'leadmagnet', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -94,6 +94,8 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // Competitors Spy (31/10/2026, docs/diseno-competitors-spy.md): mira a los competidores que el negocio eligió.
   // El ÁREA se llama `spy` y la TAB «Competitor Spy», con la nav key 'market-an', que está escrita en la base.
   spy: { titulo: 'Competidores', tab: 'Competitor Spy', ruta: '/competitor-spy' },
+  // El Lead Magnet Generator (5/11/2026): las plantillas y lo que cada una arma en su herramienta (lib/lead-magnets/).
+  leadmagnet: { titulo: 'Lead magnets', tab: 'Lead Magnet', ruta: '/lead-magnet-generator' },
   // Desde el 16/10/2026 el chat con MaKo es el Second Brain (etapa 2 de docs/diseno-mako-ai-native.md).
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Second Brain', ruta: '/second-brain' },
 };
@@ -123,6 +125,8 @@ export const DATOS_DE_CLIENTES_POR_AREA: Record<Area, boolean> = {
   // Un competidor NO es un cliente del negocio: lo que se guarda de él es público y no sale de ninguna
   // conversación, ningún lead ni ningún cobro.
   spy: false,
+  // Lead Magnet (5/11/2026): plantillas y lo que el negocio regala (una página, una landing): nada de un lead ni de un cliente.
+  leadmagnet: false,
   mako: true,
 };
 

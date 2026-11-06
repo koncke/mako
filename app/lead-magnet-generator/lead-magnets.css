@@ -1,0 +1,37 @@
+/* =============================================================================
+   Lead Magnet Generator — el detalle de un lead magnet y el ejemplo de una plantilla
+   =============================================================================
+   Con los tokens de la casa (el oscuro sale solo). La lista y las plantillas son las de app/_crear/crear.css. El detalle copia la
+   página de un formulario publicado (Typeform/SurveyJS): renglones con su nombre a la izquierda y su acción a la derecha, como
+   los ajustes de la casa (app/_ui/Ajustes.tsx). Limitado a `.lmg-`.
+   ============================================================================= */
+
+.lmg-detalle { box-sizing: border-box; width: 100%; max-width: 720px; margin: 0 auto; padding: 40px 24px 64px; display: flex; flex-direction: column; gap: 4px; }
+.lmg-cab { padding-bottom: 16px; }
+.lmg-nombre { margin: 0; font-size: 26px; line-height: 1.25; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.lmg-sub { margin: 6px 0 0; font-size: 13px; color: var(--dim); }
+.lmg-falta, .lmg-listo { margin: 12px 0 0; display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.lmg-falta { background: var(--warn-bg); color: var(--ink); }
+.lmg-listo { background: var(--good-bg); color: var(--ink); }
+.lmg-error { margin: 0 0 8px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lmg-fila { border-top: 1px solid var(--border); padding: 16px 0; display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 8px 16px; align-items: start; }
+.lmg-fila__titulo { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); padding-top: 6px; }
+.lmg-fila__cuerpo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-width: 0; }
+.lmg-dato { min-width: 0; flex: 1 1 220px; font-size: 14px; color: var(--dim); overflow-wrap: anywhere; }
+.lmg-dato a, .lmg-dato--link { color: var(--primary); text-decoration: none; }
+.lmg-dato a:hover, .lmg-dato--link:hover { text-decoration: underline; }
+.lmg-pegar { grid-column: 2; display: flex; gap: 8px; margin-top: 4px; }
+.lmg-input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.lmg-input:focus { outline: none; box-shadow: var(--focus-ring); }
+@media (max-width: 640px) {
+  .lmg-detalle { padding: 24px 16px 48px; }
+  .lmg-fila { grid-template-columns: minmax(0, 1fr); }
+  .lmg-pegar { grid-column: 1; }
+  .lmg-input { font-size: 16px; }
+}
+
+/* El ejemplo de una plantilla («Ver ejemplo»): la cinta del negocio ficticio y sus partes. */
+.lmg-cinta { margin: 0 0 12px; display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--dim); }
+.lmg-ejemplo { display: flex; flex-direction: column; gap: 14px; }
+.lmg-ejemplo h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.lmg-ejemplo p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }

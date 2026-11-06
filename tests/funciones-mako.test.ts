@@ -131,7 +131,8 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
   //    sentido que uno analice a Alex Hormozi y luego otro vuelva a analizar al mismo». Mirar y
   //    agregar: cualquiera del negocio; borrar sigue siendo del administrador
   //    (`soloAdmin` en app/competitor-spy/actions.ts).
-  assert.deepEqual(SOLO_SA.sort(), ['Admin', 'Stories']);
+  // Lead Magnet entró el 5/11/2026: es de la plataforma hasta que Martín lo abra (app/lead-magnet-generator/puerta.ts).
+  assert.deepEqual(SOLO_SA.sort(), ['Admin', 'Lead Magnet', 'Stories']);
   // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
   for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);

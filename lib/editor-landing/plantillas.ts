@@ -162,7 +162,7 @@ function pagina(titulo: string, ruta: string, tarjetas: TarjetaIA[], seo?: { tit
 const doc = (...paginas: Pagina[]): LandingContenido => ({ v: 1, paginas });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Las 10 landings
+// Las 11 landings
 // ─────────────────────────────────────────────────────────────────────────────
 
 const agendaLlamada = (): LandingContenido => doc(pagina('Inicio', '', [
@@ -408,6 +408,88 @@ const leadMagnet = (): LandingContenido => doc(
         botones(boton('Descargar ahora', '#')),
       ],
       notas: 'Cambia el destino del botón por el enlace de la guía.',
+    },
+  ]),
+);
+
+/**
+ * Clase grabada (5/11/2026, el Lead Magnet Generator: lib/lead-magnets/plantillas.ts). Un lead magnet que se VE: arriba el
+ * registro y, en la página de gracias, la clase. El video de la clase va en la página de gracias (los diseños con video ya
+ * le ponen su lugar: `videoEnLaGracias`), y el Lead Magnet Generator lleva el formulario a esa página al crearla.
+ */
+const claseGrabada = (): LandingContenido => doc(
+  pagina('Inicio', '', [
+    {
+      bloques: [
+        {
+          t: 'columnas',
+          columnas: [
+            [
+              ante('Clase gratuita · [duración]'),
+              { t: 'titulo', texto: '[Nombre de la clase]: [lo que va a lograr quien la vea]' },
+              pg('[En una frase: qué problema resuelve y para quién es.]'),
+            ],
+            [formulario([NOMBRE, EMAIL], 'Ver la clase', '¡Listo! Ya puedes verla.')],
+          ],
+          anchos: [7, 5],
+        },
+      ],
+    },
+    {
+      bloques: [
+        h2('Qué vas a aprender'),
+        opt('cajas-numeros', [
+          it('[Idea 1]', '[Qué entiende quien la ve]'),
+          it('[Idea 2]', '[Qué entiende quien la ve]'),
+          it('[Idea 3]', '[Qué entiende quien la ve]'),
+        ], 3),
+      ],
+    },
+    {
+      bloques: [
+        h2('Es para ti si'),
+        opt('iconos-texto', [
+          it('[Situación 1]', '[Cómo te ayuda la clase]', 'objetivo'),
+          it('[Situación 2]', '[Cómo te ayuda la clase]', 'idea'),
+          it('[Situación 3]', '[Cómo te ayuda la clase]', 'rayo'),
+        ]),
+      ],
+    },
+    {
+      diseno: 'izquierda',
+      bloques: [
+        ante('Quién enseña'),
+        h2('[Tu nombre o el de tu marca]'),
+        p('[Por qué sabes de esto, en dos líneas.]'),
+      ],
+    },
+    {
+      bloques: [
+        h2('Preguntas frecuentes'),
+        preguntas([
+          ['¿Cuánto dura?', '[La duración de la clase.]'],
+          ['¿Es en vivo?', 'No: está grabada y la ves cuando quieras.'],
+          ['¿Tiene costo?', 'No, es gratis.'],
+        ]),
+      ],
+    },
+    {
+      fondo: 'acento',
+      bloques: [
+        h2('Mírala gratis'),
+        p('Deja tus datos y la ves en seguida.'),
+        botones(boton('Quiero ver la clase')),
+      ],
+    },
+  ], { titulo: '[Nombre de la clase] (clase gratuita)', descripcion: 'Mira gratis la clase [nombre de la clase] y [lo que va a lograr quien la vea].' }),
+  pagina('La clase', 'gracias', [
+    {
+      bloques: [
+        { t: 'titulo', texto: 'Tu clase está lista' },
+        pg('Mírala completa: al final está el siguiente paso.'),
+        botones(boton('[Tu siguiente paso]', '#')),
+      ],
+      notas: 'Pega el video de la clase arriba del botón. Cambia el destino del botón por tu siguiente paso: agendar, comprar o escribirte.',
     },
   ]),
 );
@@ -939,6 +1021,7 @@ export const PLANTILLAS: readonly Plantilla[] = [
   { id: 'agenda-llamada', nombre: 'Agenda una llamada', descripcion: 'Para servicios que se venden en una llamada.', categoria: 'Agendar', tema: temaDe('pewter', 'sapphire'), contenido: agendaLlamada },
   { id: 'webinar', nombre: 'Webinar o evento', descripcion: 'Registro a una clase en vivo, con página de gracias.', categoria: 'Eventos', tema: temaDe('ultraviolet', 'eclipse', 'nightsky'), contenido: webinar },
   { id: 'lead-magnet', nombre: 'Lead magnet / descarga', descripcion: 'Una guía gratis a cambio del correo.', categoria: 'Captar contactos', tema: temaDe('sapphire', 'cirrus', 'pewter'), contenido: leadMagnet },
+  { id: 'clase-grabada', nombre: 'Clase grabada', descripcion: 'Se registran y ven tu clase en seguida.', categoria: 'Captar contactos', tema: temaDe('ultraviolet', 'eclipse', 'pewter'), contenido: claseGrabada },
   { id: 'venta-directa', nombre: 'Venta directa', descripcion: 'Producto con precio, garantía y objeciones.', categoria: 'Vender', tema: temaDe('torch', 'canyon', 'pewter'), contenido: ventaDirecta },
   { id: 'servicio-local', nombre: 'Servicio local', descripcion: 'Un oficio o servicio en tu ciudad.', categoria: 'Servicios', tema: temaDe('lawn', 'mint', 'pewter'), contenido: servicioLocal },
   { id: 'lista-espera', nombre: 'Lanzamiento con lista de espera', descripcion: 'Junta interesados antes de abrir.', categoria: 'Captar contactos', tema: temaDe('eclipse', 'ultraviolet', 'malachite'), contenido: listaEspera },

@@ -18,8 +18,9 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, errorDeCascada } from './ai-cheap';
+import { paginaDe, piezaDe, plantillaGuardada, type PiezaLM } from './lead-magnets/pieza';
 
 // Un entregable tangible:
 //  · tipo  = qué clase de elemento es (Dashboard, Excel, Documento, Metodología…).
@@ -32,6 +33,13 @@ export type Entregable = {
    * puro texto: la secuencia prometía entregar algo que no tenía dónde estar.
    */
   enlace?: string;
+  /**
+   * Lo que arma el Lead Magnet Generator (5/11/2026, lib/lead-magnets/): dónde vive la pieza (la página del Copywriter o la
+   * landing del Web Generator), con qué plantilla nació y la landing que lo capta. Sin esto el lead magnet es sólo su texto.
+   */
+  pieza?: PiezaLM;
+  plantilla?: string;
+  pagina?: number;
 };
 export type Uso = { tokens: number; costUsd: number } | null;
 
@@ -43,10 +51,17 @@ function normalizarEntregable(v: unknown): Entregable {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   // OJO: lo que no se nombre acá se BORRA en silencio en la próxima escritura.
   const enlace = str(o.enlace);
+  // Lo del Lead Magnet Generator (lib/lead-magnets/pieza.ts): sin nombrarlo acá, la próxima escritura lo borraba.
+  const pieza = piezaDe(o.pieza);
+  const plantilla = plantillaGuardada(o.plantilla);
+  const pagina = paginaDe(o.pagina);
   return {
     id: str(o.id) || randomUUID(), nombre: str(o.nombre), tipo: str(o.tipo),
     queEs: str(o.queEs) || str(o['que_es']), fomo: str(o.fomo),
     ...(enlace ? { enlace } : {}),
+    ...(pieza ? { pieza } : {}),
+    ...(plantilla ? { plantilla } : {}),
+    ...(pagina ? { pagina } : {}),
   };
 }
 
@@ -59,6 +74,22 @@ export async function getEntregables(): Promise<Entregable[]> {
     return Array.isArray(arr) ? arr.map(normalizarEntregable).filter((g) => g.nombre) : [];
   } catch { return []; }
 }
+/**
+ * Lo mismo, pero ESTRICTO (5/11/2026, el Lead Magnet Generator): «no pude leer» tira en vez de volver `[]`, y devuelve el
+ * valor crudo para el compare-and-set (`cambiarSettingSi`). Lo que se ESCRIBE sobre la lista pasa por acá: escribir sobre un
+ * `[]` de una lectura caída borraba los lead magnets que usan las secuencias.
+ */
+export async function getEntregablesEstricto(): Promise<{ lista: Entregable[]; crudo: string | null }> {
+  const crudo = await getSettingEstricto(SETTING_KEY);
+  if (!crudo) return { lista: [], crudo };
+  const arr = JSON.parse(crudo);
+  if (!Array.isArray(arr)) throw new Error('La lista de lead magnets no es una lista: no se escribe encima.');
+  return { lista: arr.map(normalizarEntregable).filter((g) => g.nombre), crudo };
+}
+
+/** La clave de la lista, para el compare-and-set de lib/lead-magnets/server.ts (una sola copia del nombre). */
+export const CLAVE_ENTREGABLES = SETTING_KEY;
+
 export async function setEntregables(list: Entregable[]): Promise<void> {
   await setSetting(SETTING_KEY, JSON.stringify(list));
 }

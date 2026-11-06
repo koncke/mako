@@ -81,6 +81,8 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   // Copywriting, para todos. Sin fila oculta: More la arma desde la barra. `?nuevo=<tipo>` abre los templates de ese tipo
   // (lo traen /reels, /stories y «Abrir en Copywriter»), en los dos lados.
   { base: '/copywriter', query: ['nuevo'], sub: '*' },
+  // El Lead Magnet Generator (5/11/2026): la lista y, con `?lm=<id>`, ese lead magnet, en los dos lados.
+  { base: '/lead-magnet-generator', query: ['lm'] },
 ];
 
 const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | undefined): string => {

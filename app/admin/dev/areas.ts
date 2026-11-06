@@ -640,12 +640,12 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'lead-magnet-generator', titulo: 'Lead Magnet Generator', familia: 'Sales Machine',
-    estado: 'por-construir', verEnApp: '/lead-magnet-generator',
-    alcance: 'Producir el lead magnet entregable. ComingSoon sin backend; el CONTENIDO del entregable ya se define en el onboarding (EntregableView), así que esta tab es la que lo materializa.',
+    estado: 'parcial', verEnApp: '/lead-magnet-generator',
+    alcance: 'Producir el lead magnet entregable: plantillas que crean la pieza en Copywriting o el Web Generator, su página de captura y su link público. Falta el quiz con diagnóstico y que MaKo lo proponga.',
     // El trabajo real del lead magnet NO cae en la tab: cae en el paso «Entregable»
     // del onboarding. Con solo page.tsx + nav.ts el historial del área eran commits
     // del sidebar y ni uno del entregable — un área movida que se leía tranquila.
-    vive: ['app/lead-magnet-generator/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'lib/entregable.ts', 'app/onboarding/EntregableView.tsx', 'app/api/onboarding/entregable/', 'lib/plan-proyectos-catalogo.ts', 'docs/modelo-oferta-producto-funnel.md'],
+    vive: ['app/lead-magnet-generator/', 'app/m/lead-magnet-generator/', 'app/api/lead-magnet-generator/', 'lib/lead-magnets/', 'lib/api-mako/areas/leadmagnet.def.ts', 'lib/api-mako/areas/leadmagnet.run.ts', 'app/compartido/[token]/LeadMagnetCompartido.tsx', 'lib/entregable.ts', 'app/onboarding/EntregableView.tsx', 'app/api/onboarding/entregable/', 'lib/plan-proyectos-catalogo.ts', 'docs/modelo-oferta-producto-funnel.md'],
     proyectos: ['Feature: Lead Magnet Generator'],
   },
   {

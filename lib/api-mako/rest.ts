@@ -28,6 +28,12 @@ export type RutaRest = readonly [MetodoRest, string, string];
 
 /** [método, ruta (sin /api/v1), id de la operación] */
 export const RUTAS_REST: readonly RutaRest[] = [
+  // ── leadmagnet (5/11/2026): el Lead Magnet Generator ───────────────────────────
+  ['GET', '/leadmagnet/plantillas', 'ver_plantillas_magnet'],
+  ['POST', '/leadmagnet/lead-magnets', 'armar_magnet'],
+  ['POST', '/leadmagnet/lead-magnets/{id}/paginas', 'pagina_captura_magnet'],
+  ['POST', '/leadmagnet/lead-magnets/{id}/links', 'link_publico_magnet'],
+  ['PUT', '/leadmagnet/lead-magnets/{id}/primero', 'primero_magnet'],
   // ── imagen (15/10/2026): el Image Editor ────────────────────────────────────
   ['GET', '/imagen/disenos', 'listar_disenos_imagen'],
   ['POST', '/imagen/disenos', 'crear_diseno_imagen'],
