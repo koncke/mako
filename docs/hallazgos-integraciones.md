@@ -34,6 +34,40 @@ gasta dos, así que «60 búsquedas» sería otro número mal).
 2. **Dos ítems en una sola punta se contagian el rojo.** Esta punta se commiteó encima de la de al lado sin volver a
    `origin/main`, así que arrastraba su diff y fallaba por el guard del OTRO cambio. Una punta se abre SIEMPRE desde
    `origin/main`; si no, el veredicto deja de ser sobre lo tuyo.
+## «Sin conectar» con la integración andando: `integracionConectada` sólo mira los campos REQUERIDOS (6/11/2026)
+
+**Vive en:** `lib/credenciales.ts` (`integracionConectada`) · `lib/metodo-catalogo.ts` (los campos de `apify-instagram`) ·
+`lib/instagram-perfil.ts` (`CLAVES_APIFY_DE_SPY`) · lo fija `tests/cuentas-pago.test.ts` (caso 17b del hijo).
+
+**Síntoma:** el cliente que borró su primera clave de Apify y dejó la segunda veía la tarjeta en **«Sin conectar»** con
+Competitors Spy leyendo perfecto. Volvía a configurar al vicio.
+
+**La causa, y es una trampa del diseño del catálogo, no de Apify:** `integracionConectada` arma su respuesta con
+`s.campos.filter((c) => !c.opcional)` — **sólo los campos requeridos**. Cuando una integración acepta varias claves, la 1 es la
+requerida y las `_2`…`_5` nacen `opcional: true` (así tiene que ser: pedirlas rompería el alta). Resultado: la función mide la
+clave 1 y nada más, mientras el que de verdad lee (`clavesApifyDeSpy`, y el salto por crédito de `lib/spy-claves.ts`) anda con
+cualquiera de las cinco.
+
+⚠️ **La regla que queda: en cuanto una integración acepta VARIAS claves o cuentas, «conectada» deja de ser una pregunta sobre
+sus campos requeridos y pasa a ser «¿hay al menos una con la que se pueda trabajar?».** Eso ahora lo dice el **catálogo**
+(`conUnaAlcanza` en `ServicioMetodo`), no una lista de nombres dentro de `integracionConectada`: ese archivo no tiene que
+saber de qué servicio se trata ni cómo se llaman sus claves, y la próxima integración de varias claves se arregla con un
+`true`.
+
+⚠️ **Y esa forma salió de un rojo, no de la primera idea.** La primera versión importaba `CLAVES_APIFY_DE_SPY` dentro de
+`lib/credenciales.ts`, y eso puso **rojo a `tests/leads-scraper-retirado.test.ts`**: ese test tiene una **lista blanca de
+archivos** que pueden nombrar las claves de Apify, para que nadie, tocando Apify, reabra el Leads Scraper retirado. La guarda
+tenía razón: un archivo central como `credenciales.ts` no tiene por qué nombrar las claves de un servicio. **La regla:
+cuando una guarda de «esto no vuelve» salta por un cambio legítimo, casi siempre está señalando que el cambio está en el
+archivo equivocado** — se mueve la decisión, no se amplía la lista.
+
+**Y el precedente estaba al lado, sin usarse:** las pasarelas con cuenta con sufijo (`__C2`, la principal desconectada) ya
+tenían exactamente este caso resuelto diez líneas más abajo, desde el 22/10/2026, con el mismo síntoma («se reportaba
+DESCONECTADA aunque estuviera cobrando»). Apify llegó después con varias claves (5/11/2026) y nadie miró la función.
+**Cuando se agrega la clave N a una integración, se busca quién responde «¿está conectada?».**
+
+⚠️ **Lo que NO cuenta como conexión:** el campo con el NOMBRE de la clave (`<ENV>_ACCOUNT`), que es opcional y no secreto. Un
+nombre guardado sin su token no sirve para leer nada. Está fijado con un test.
 
 ## Un 404 de simple-icons se leyó como «esta marca no tiene logo» (1/11/2026)
 
