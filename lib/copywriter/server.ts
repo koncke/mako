@@ -135,7 +135,20 @@ export async function crear(p: PedidoCrear): Promise<({ ok: true; paginas: Pagin
   if (!r.ok) {
     // Sin su fila en el índice el documento no lo ve nadie: se borra (verificación del Cerebro: quedaba uno huérfano por
     // cada «crear» fallido). ⚠️ `borrarSettingSi` pone el valor en la URL: un documento de más de ~6 KB queda igual.
-    await borrarSettingSi(claveDoc(id), valorDoc).catch(() => false);
+    //
+    // ⚠️ PERO ANTES DE BORRAR SE VUELVE A LEER EL ÍNDICE (6/11/2026, B7). `cambiarIndice` devuelve `!ok` por dos
+    // motivos que no se parecen: el árbol rechazó el cambio (422) o nadie ganó el compare-and-set (409) —ahí la fila
+    // NO está—, pero también `falla(500, …)` cuando `cambiarSettingSi` **TIRA**. Un timeout cuya escritura sí llegó
+    // deja la fila puesta, y borrar el documento ahí produce justo lo que el encabezado de este archivo manda evitar:
+    // una página que abre «no existe», sobre un texto que el cliente acaba de escribir y que se guardó bien.
+    // Un rollback se dispara con «la operación no dejó rastro», nunca con «la operación falló».
+    //   · la fila está → la creación SALIÓ: se devuelve ok con el índice real;
+    //   · la fila no está → se borra el huérfano, como antes;
+    //   · no se pudo releer → NO se borra. Un documento huérfano no lo ve nadie; uno borrado no vuelve.
+    const despues = await leerIndiceCrudo().then((x) => x.paginas).catch(() => null);
+    const puesta = despues?.find((x) => x.id === id);
+    if (puesta && despues) return { ok: true, pagina: puesta, doc, paginas: despues };
+    if (despues) await borrarSettingSi(claveDoc(id), valorDoc).catch(() => false);
     return r;
   }
   const pagina = r.paginas.find((x) => x.id === id)!;
