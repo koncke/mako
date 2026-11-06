@@ -190,9 +190,11 @@ test('la ruta de las cuentas: sólo el admin, cerrada sin negocio, y nunca devue
   assert.match(src, /credDelCliente\(claveDeCuenta\(CLAVE_PASARELA\[p\], cuenta\), ctx\.ws\)/, 'la clave guardada se lee con credDelCliente, nunca del entorno');
   assert.match(src, /descubrirPasarela\(p, ctx\.ws, clave, ctx\.autor, \{ guardarClave: true, cuenta \}\)/);
   assert.match(src, /desconectarPasarela\(ctx\.ws, p, ctx\.autor, cuenta\)/);
-  // La pantalla no arrastra nada del server.
+  // La pantalla no arrastra nada del server. `CtaPasarAPro` (6/11/2026, #494) es 'use client' y lee /api/auth/me por fetch:
+  // es el que esconde «Pasar a Pro» al cliente de una agencia, que le pide el cambio de plan a ella.
   const ui = leer('app/integraciones/CuentasDePago.tsx');
-  assert.deepEqual([...ui.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).sort(), ['../components/ConfirmDialog', '@/lib/cuentas-integracion', 'react']);
+  assert.deepEqual([...ui.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).sort(),
+    ['../_components/CtaPasarAPro', '../components/ConfirmDialog', '@/lib/cuentas-integracion', 'react']);
   assert.match(leer('app/integraciones/ServicioConfigForm.tsx'), /\(esPasarela\(servicio\.key\) \|\| esProveedorAgendaConCuentas\(servicio\.key\)\) && \(\s*\n\s*<CuentasDePago/);
 });
 
