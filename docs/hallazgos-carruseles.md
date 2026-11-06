@@ -35,6 +35,16 @@ El perfil queda para explorar a un creador, no para encontrar una pieza.
 
 El 5/11 se escondieron 210 (152 mirados a ojo y 58 de dos láminas, que no alcanzan para copiar una estructura). Quedan 1.378, con los 244 de Top Carousels. Para deshacer: `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where dejo_de_verse_en::date = '2026-11-05'` (la fecha sale del `now()` de esa única corrida). La lista con el motivo de cada una está en la PC: `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-05.json`.
 
+## Sólo lo que le sirve a un dueño de negocio: el modelo se pasa de estricto (6/11/2026)
+
+Martín: «solo quiero carruseles que le sirvan a dueños de negocio». Se escondieron 388 de 1.378 leyendo el pie con un modelo barato. Quedan 990, de 331 cuentas, y la que más tiene llega a 16.
+
+- **Lo obvio era aplicar lo que dijo el modelo, y sobraba.** En una segunda pasada volvieron 35 de negocios reales: noticias de un rubro, café educativo, premios, casos de empresa, marca personal, nutrición de profesionales. Y 13 que había dejado pasar se escondieron a mano. La regla es la de arriba: con duda, queda, y los descartes se miran antes de aplicar.
+- **Una cuenta entera, sólo si Martín la nombra** (`victorianpoetry`).
+- **Primero limpiar, después leer láminas.** El comando `laminas` saltea lo escondido. Se hizo al revés y 169 de las 770 láminas pagadas eran de carruseles que después se escondieron. Costo medido: US$2,27 por 840 links, unos US$0,0027 cada uno.
+- **El modelo:** `gemini-3.5-flash-lite` contesta 400 si se le manda `thinkingConfig`. Los otros cortes de Gemini están en `docs/hallazgos-ia.md`.
+- **Para deshacer:** `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any(<ids>)`, con los `piezas[].id` de `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`, que trae el motivo de cada una.
+
 ## Top Carousels: su biblioteca no se recorre, ni con la sesión de Martín (5/11/2026)
 
 Sus términos del 7/10/2026 prohíben entrar con herramientas automáticas, bajar carruseles en cantidad y republicar la biblioteca, y avisan que pueden cerrar la cuenta sin devolver el dinero. `robots.txt` veda `/explore` y `/api/`, y deja a los agentes `/llms.txt` y `/llms-full.txt`. Tener la sesión abierta no cambia nada.
@@ -142,12 +152,9 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
 - Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
-- **Las capturas de Top Carousels no llegaron** (`docs/carruseles/referencia-top-carousels/` no está en ninguna rama, y la
-  nube no abre su sitio): la pantalla se copió de la descripción del pedido. Cuando estén, se ajustan los valores (tamaños,
-  colores, espacios) contra ellas, con sus números.
-- **La 0404 sin aplicar y las láminas sin traer:** hasta entonces la tarjeta muestra la portada y «N láminas», y «Editar» arma
-  con guías. Los comandos, en `docs/relevo/nube-carruseles-rediseno.md`.
-- **«Editar» de punta a punta con un carrusel real** no se probó: la nube no ve la base ni las claves. Se hace en el ws3.
+- **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
+- **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
+- **«Editar» de punta a punta con un carrusel real** se probó en producción el 6/11: abre el diseño de 8 páginas, pero «Tu IA no contestó ahora» y sale la guía con miniaturas vacías. Causa sin encontrar (`lib/carruseles/replica.ts:387`), encargada al chat de Carruseles.
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 
