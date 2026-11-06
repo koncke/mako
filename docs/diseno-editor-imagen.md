@@ -53,12 +53,13 @@ app/image-editor/
   espacio.ts               la base IndexedDB de la etapa 1, por workspace: sólo la LEE la mudanza
   ruta.ts                  rutas internas con el `?ws=`
   ImageEditorCliente.tsx   raíz `.cv` (tokens + estilos base de Doory), monta todo sin SSR
-  inicio/                  Inicio de Canva: franja, chips, buscador, círculos, «Crear un diseño», recientes en cuadrícula o lista
+  vista.ts                 qué muestra /image-editor según el `?ver=`/`?que=` (crear, carruseles, anuncios, thumbnails)
+  carruseles/              el explorador de ejemplos: ExplorarCarruseles.tsx, Thumbnails.tsx
   editor/PantallaEditor.tsx carga el diseño de la base, arma el adaptador (con «Copiar y redimensionar») y monta EditorApp
   presentador/             /image-editor/presentador — la ventana de «Vista de presentador» (sin la cáscara)
   (editor/CreditoDoory.tsx  borrado: 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.)
   mako/servicios.ts        fuentes, elementos y plantillas del lado de MaKo (fuentes.ts, elementos.ts, plantillas.ts)
-  mako/registro.ts         los paneles que suma MaKo (hoy «Proyectos», ProyectosPanel.tsx)
+  mako/chat/               el chat de MaKo dentro del editor (PanelMakoIA.tsx, acciones.ts)
   mako/nube.ts             los pedidos a /api/image-editor/* y la subida firmar → bucket → registrar
   mako/adaptadorNube.ts    el EditorAdapter de MaKo: guarda con compare-and-set, sube a «Subidos»
   mako/mudanza.ts          sube a la base lo que la etapa 1 dejó en el navegador
@@ -97,8 +98,10 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
 
 1. **Texto de pantalla**: el rótulo de Canva en español, en tú, corto. Los textos de Doory viven en
    `_doory/editor/**/strings.ts`: se cambian ahí, no en el JSX.
-2. **Colores**: los `--cv-*` de `styles/tokens.css`. El re-vestido cambia los VALORES por la paleta
-   medida de Canva (`relevamiento-canva-armazon.md`), no los nombres.
+2. **Colores**: los `--cv-*` de `_doory/styles/tokens.css` (colgados de `.cv`), y hoy sus VALORES son los de MaKo:
+   el re-vestido del 29/10 cambió los valores, no los nombres. Un color nuevo se agrega como token ahí, nunca a mano
+   en el JSX, y **no se vuelve al violeta de Canva**: lo medido en `relevamiento-canva-armazon.md` es la referencia de
+   PROPORCIONES, no la paleta a copiar.
 3. **Navegación**: `Link`/`useRouter` de `@/app/_ui/Link`, o `rutaEditor()`.
 4. **Nada del server importa de `_doory/`**: el motor entra sólo por `ImageEditorCliente`.
 5. **Imágenes de afuera se copian antes al almacenamiento propio**: Openverse/Picsum no mandan CORS y
@@ -108,7 +111,9 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
    con el lock de la máquina; `tsconfig.cv.json` no se versiona). El completo lo corre el pre-push.
 8. **Borrar** = el tacho de la casa (`BotonBorrar`).
 9. **Tamaños: UNA lista**, `_doory/editor/dialogs/resizeSizes.ts` (nombres en `strings.ts → dialog.resizeSizes`).
-   De ahí salen Redimensionar, el popover de tamaño de la página (`engine/presets.ts`) y el Inicio (`inicio/tamanos.ts`).
+   De ahí salen Redimensionar y el popover de tamaño de la página (`engine/presets.ts`). ⚠️ **`inicio/tamanos.ts` ya
+   no existe**: la pantalla de arranque es `app/_crear/PantallaCrear.tsx` (la tab Create), y los 30 tamaños menos
+   usados y «Tamaño personalizado» viven SÓLO en Redimensionar — es un pendiente, no el diseño.
 10. **Un módulo de `app/image-editor/` que importe un VALOR de `_doory/` lleva `'use client'`** (o entra en `PUERTA`
     del test 4 de `tests/image-editor-integracion.test.ts`).
 11. **La barra del objeto flota sobre el lienzo**: si cambia su alto, cambia `TOOLBAR_BAND` de `workspace/Workspace.tsx`.

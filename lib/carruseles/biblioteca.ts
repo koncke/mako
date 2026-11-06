@@ -364,6 +364,133 @@ export function techoConCredito(pedido: number, credito: { usado: number; tope: 
   return Math.max(0, Math.min(pedido, libre));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Por qué una corrida se detuvo (6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Síntoma medido el 6/11/2026: `laminas` paró diciendo «Llega al techo» con US$0,54 gastados de un tope pedido de US$1,50, y
+// de la salida no se podía saber si faltaba crédito o si era un límite nuestro. Eran las DOS cosas y ninguna se decía: el
+// techo efectivo venía del crédito (no del tope pedido) y la suma que se comparaba contra él era de RESERVAS, no de gasto.
+// De acá sale el porqué, con el número, para que la corrida nunca corte en silencio.
+
+const usdTexto = (n: number) => `US$${n.toFixed(2)}`;
+const centavos = (n: number) => Math.round(n * 100) / 100;
+
+/** De dónde sale el techo de una corrida: lo pedido, lo que deja el crédito, o nada. */
+export type MotivoDelTecho = 'sin-saber' | 'sin-credito' | 'credito' | 'pedido';
+
+/**
+ * El techo de una corrida Y DE DÓNDE SALE. `techoConCredito` devuelve el número solo: con eso, un techo de 0 (no hay crédito)
+ * y un techo chico (el crédito no llega a lo pedido) se ven iguales que «llegué a tu tope».
+ *   · 'sin-saber'   Apify no dijo su crédito: no se gasta a ciegas (techo null).
+ *   · 'sin-credito' lo libre no pasa la reserva de Spy: la corrida no puede gastar nada (techo 0).
+ *   · 'credito'     alcanza para algo, pero menos que lo pedido.
+ *   · 'pedido'      el techo es el que se pidió.
+ * `porque` es el renglón para una persona, con los números. Nunca una clave ni un token.
+ */
+export function motivoDelTecho(
+  pedido: number, credito: { usado: number; tope: number } | null, reserva: number,
+): { techo: number | null; motivo: MotivoDelTecho; libre: number | null; porque: string } {
+  const techo = techoConCredito(pedido, credito, reserva);
+  if (techo == null || !credito) {
+    return { techo: null, motivo: 'sin-saber', libre: null, porque: 'Apify no dijo cuánto crédito queda y no se gasta a ciegas' };
+  }
+  const quedan = centavos(Math.max(0, credito.tope - credito.usado));
+  const libre = Math.floor((credito.tope - credito.usado - reserva) * 100) / 100;
+  if (libre <= 0) {
+    return { techo: 0, motivo: 'sin-credito', libre, porque: `no hay crédito libre: quedan ${usdTexto(quedan)} en Apify y la reserva de Spy es ${usdTexto(reserva)}` };
+  }
+  if (libre < pedido) {
+    return { techo, motivo: 'credito', libre, porque: `el crédito libre alcanza para ${usdTexto(libre)}, menos que los ${usdTexto(pedido)} que pediste (quedan ${usdTexto(quedan)} y se dejan ${usdTexto(reserva)} para Spy)` };
+  }
+  return { techo, motivo: 'pedido', libre, porque: `el tope que pediste: ${usdTexto(pedido)}` };
+}
+
+/**
+ * El margen del techo de CADA corrida de Apify (`maxTotalChargeUsd`) sobre el precio de lista. Sin margen, Apify corta la
+ * tanda a mitad: cobra lo que LLEGA y el precio real por publicación es más alto que el de la tienda (ver `USD_POR_LINK_MEDIDO`).
+ * ⚠️ Este margen es para el techo DE LA TANDA y nada más. Acumularlo para medir el techo de la CORRIDA es lo que hacía cortar
+ * de más: con 40 links por tanda reservaba US$0,14 cuando lo que Apify cobraba eran US$0,11 (28 % de reserva de más, una tanda
+ * entera antes de tiempo).
+ */
+export const MARGEN_TECHO_TANDA = 1.5;
+/**
+ * Lo que costó DE VERDAD cada publicación pedida por su link. Medido el 5/11/2026 (244 de 245 links, ~US$0,0025 cada uno) y el
+ * 6/11/2026 (840 links, US$2,27: US$0,0027 cada uno). Se usa el más caro de los dos: el precio de lista (`USD_POR_PUBLICACION`,
+ * US$0,0023) subestima la factura, y un techo que subestima lo que cobran no es un techo.
+ */
+export const USD_POR_LINK_MEDIDO = 0.0027;
+/** Cuántos links lleva cada corrida de Apify (la receta medida de docs/hallazgos-carruseles.md). */
+export const LINKS_POR_TANDA = 40;
+
+/** El techo en dólares de UNA tanda de links (`maxTotalChargeUsd`): el precio de lista con su margen. */
+export const techoDeTanda = (cuantos: number): number =>
+  Math.max(0.01, Math.ceil(Math.max(0, cuantos) * USD_POR_PUBLICACION * MARGEN_TECHO_TANDA * 100) / 100);
+
+export type TandaDeLinks = { desde: number; cuantos: number; techoUsd: number };
+/** Por qué no se leyó más: se leyó todo, se llegó al techo, o no había techo con que empezar. */
+export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo';
+export type PlanDeTandas = { tandas: TandaDeLinks[]; probableUsd: number; quedanFuera: number; corte: CorteDeTandas };
+
+/**
+ * La tanda que sigue: cuántos links entran en lo que QUEDA del techo y con qué `maxTotalChargeUsd` va. null = no entra ni uno.
+ *
+ * ⚠️ Es LA regla, y la usan los dos lados: el plan en seco (con el gasto probable) y la corrida de verdad (con lo que Apify ya
+ * cobró). Por eso el techo de la tanda se recorta a `quedaUsd`: el margen del 1,5× sirve para que Apify no corte una tanda a
+ * mitad, pero nunca puede hacer que la corrida gaste más de lo que se le dejó.
+ */
+export function siguienteTanda(cuantosQuedan: number, quedaUsd: number, deA = LINKS_POR_TANDA): { cuantos: number; techoUsd: number } | null {
+  const porTanda = Math.max(1, Math.round(deA));
+  const quedan = Math.max(0, Math.floor(cuantosQuedan));
+  const queda = centavos(Math.max(0, quedaUsd));
+  if (!quedan || queda <= 0) return null;
+  // Cuántos links paga lo que queda, al precio MEDIDO (el de lista subestima la factura y un techo que subestima no es techo).
+  const caben = Math.floor(queda / USD_POR_LINK_MEDIDO + 1e-9);
+  const cuantos = Math.min(porTanda, quedan, caben);
+  if (cuantos <= 0) return null;
+  return { cuantos, techoUsd: Math.min(techoDeTanda(cuantos), queda) };
+}
+
+/**
+ * En cuántas tandas se leen `cuantos` links sin pasarse del techo de la corrida, y cuántos quedan afuera.
+ *
+ * ⚠️ Lo que se compara contra el techo es el GASTO probable al precio medido, no la suma de los techos de cada tanda: Apify
+ * cobra lo que LLEGA, y el techo de una tanda lleva margen a propósito. La última tanda se RECORTA a los links que caben (antes
+ * se descartaba entera: con un techo de US$0,70 leía 200 de 400 en vez de 254).
+ */
+export function planDeTandas(cuantos: number, o: { techoUsd: number; deA?: number }): PlanDeTandas {
+  const total = Math.max(0, Math.floor(cuantos));
+  const techo = Math.max(0, o.techoUsd);
+  const tandas: TandaDeLinks[] = [];
+  let probable = 0;
+  for (let desde = 0; desde < total; ) {
+    const t = siguienteTanda(total - desde, centavos(techo - probable), o.deA);
+    if (!t) break;
+    tandas.push({ desde, ...t });
+    probable = centavos(probable + t.cuantos * USD_POR_LINK_MEDIDO);
+    desde += t.cuantos;
+  }
+  const leidos = tandas.reduce((n, t) => n + t.cuantos, 0);
+  return { tandas, probableUsd: probable, quedanFuera: total - leidos, corte: leidos >= total ? 'todo' : techo <= 0 ? 'sin-techo' : 'techo' };
+}
+
+/**
+ * El renglón que dice POR QUÉ la corrida no siguió, con el número y qué lo destraba. Nunca un «al techo» mudo: «no hay
+ * crédito», «el crédito no llega a lo que pediste», «llegué a tu tope» y «se terminaron las tandas» son cuatro cosas distintas
+ * y se arreglan de maneras distintas (cargar crédito, esperar el mes, subir `--techo-usd`, nada).
+ */
+export function porQueParo(o: {
+  corte: CorteDeTandas; motivo: MotivoDelTecho; porque: string; techo: number | null; quedanFuera: number; gastado?: number | null;
+}): string {
+  const gasto = typeof o.gastado === 'number' ? ` Se gastó ${usdTexto(o.gastado)}.` : '';
+  if (o.corte === 'todo') return `Paró porque se terminaron las tandas: se pidieron todos los de esta corrida, no fue el techo.${gasto}`;
+  const faltan = `Quedan ${o.quedanFuera} sin leer: `;
+  if (o.motivo === 'sin-saber') return `${faltan}${o.porque}.${gasto}`;
+  if (o.motivo === 'sin-credito' || o.motivo === 'credito') {
+    return `${faltan}${o.porque}. Lo destraba cargar crédito en Apify (o esperar el mes que viene), no un \`--techo-usd\` más alto.${gasto}`;
+  }
+  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: subí \`--techo-usd\`.${gasto}`;
+}
+
 /** El creador de un ítem del actor: su @ y su nombre (en una lectura por tema, cada publicación es de alguien distinto). */
 export function creadorDelItem(item: unknown): { instagram: string; nombre: string } | null {
   const o = item && typeof item === 'object' ? (item as Record<string, unknown>) : null;
