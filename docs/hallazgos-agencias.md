@@ -6,6 +6,51 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## La mensualidad de una agencia: 14 días sin costo y un pago por mes, por fuera de MaKo (5/11/2026)
+
+**Vive en:** `lib/agencia-mes-reglas.ts` (lo puro, con `tests/agencia-mes.test.ts`), `lib/agencia-mes.ts` (leer, escribir, avisar),
+`app/agency/Mensualidad.tsx`, `app/api/cron/agencia-mensualidad/route.ts`, `supabase/migrations/0402_agencia_cobra_desde.sql`.
+El acuerdo con Código Inmobiliario (30/10/2026): su plan + el de cada cliente, 14 días sin costo desde la invitación, baja antes de
+los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y avisa; no cobra.
+
+- **No es el cobro por pasarela de `lib/agencia-cobro-reglas.ts`** (el link de Mercado Pago del primer mes, la renovación desde el
+  onboarding, Stripe en Europa). Ese sigue para las agencias que pagan con tarjeta. Mezclarlos le avisaría «paga por Binance» a quien
+  ya paga por Stripe: por eso la mensualidad está **apagada por defecto y se prende por agencia** (`agencia.mensualidad.<ws>.config`
+  en la plataforma). ⚠️ Hasta que alguien la prenda en el negocio 13, no pasa nada.
+- **El acuerdo no dice qué mes paga cada pago, y había que decidirlo.** Quedó: lo del 1 al 5 es ESE mes por adelantado, por los que
+  cuentan el día 1; un cliente que empieza a contar a mitad de mes suma sus días de ese mes a la mensualidad siguiente, por día
+  (`COBRA_LOS_DIAS_DEL_PRIMER_MES`). Sin eso, un cliente dado de baja después de sus 14 días pero antes del día 1 siguiente no pagaba
+  nunca, y «después ese cliente cuenta» era falso. Si Martín prefiere no cobrar esos días, es esa constante en `false`. Con la cartera
+  del 5/11: noviembre da US$ 285; diciembre, US$ 527,83 si nadie se da de baja (siete meses enteros más los días de noviembre de
+  Patricia, Giselle y Marcela).
+- **El caso del pedido decía «Pablo y Patricia ya vencieron» separado de «Natalia cuenta», con la misma fecha para Natalia y Pablo
+  (14/10).** No sale de ninguna regla: los dos cuentan desde el 28/10. Se leyó como «su plazo ya venció» y el test lo dice así. Si en
+  la base Pablo tiene otra fecha o está dado de baja, la pantalla lo va a mostrar distinto, y eso es lo que vale.
+- **El plan de cada cliente sale del catálogo (`planesMako()`), no de un número:** el que la agencia le eligió (por su capa) y, si
+  nunca se lo eligió, Esencial. ⚠️ Las cuentas de antes del 29/10 tienen capa `agencia` (todo lo de Pro) sin elegir: cobrarles por
+  capa era cobrarles Pro (US$97), y el acuerdo es US$47 por cliente (`planQueSeCobra`).
+- **`cobra_desde` corrige desde qué día CORREN los 14 días, no el primer día que se cobra.** El nombre engaña y por eso está dicho en
+  la migración y en el comentario de la columna. Giselle (negocio 17) va con 2026-10-28 y cuenta desde el 11/11.
+- **«Pagado» guarda el total de ese momento:** una corrección o una baja posterior no reescribe un mes pagado. El de un mes sin pagar
+  se calcula en vivo.
+- **Los avisos se reclaman con compare-and-set antes de mandar** (`avisarUnaVez`): de dos corridas gana una. Si no salió por ningún
+  lado (ni la app ni un correo), se suelta el reclamo para que mañana lo reintente; por eso el aviso del mes prueba del 1 al 5. El de
+  un plazo lleva la fecha en la clave: si se corrige la fecha de un cliente, se avisa la nueva.
+- **Sin push al teléfono, a propósito:** el Agency Dashboard no va en ningún teléfono (`TABS_QUE_VENDEN`), y un push que abre `/agency`
+  terminaba en More.
+- **La lectura tolera la 0402 sin aplicar** (PostgREST contesta 42703 por la columna): sin ella no hay corrección, y «Corregir fecha»
+  dice que falta la migración. Cualquier otro error de lectura tira: «no pude leer» no es «no hay clientes».
+- **El conteo literal de `tests/agency.test.ts` («seis acciones preguntan el admin») se volvió una guarda por acción:** contar dejaba
+  pasar una acción nueva sin puerta si otra sumaba una llamada de más. Cada `export async function` de `app/agency/actions.ts` pasa
+  por `adminDeWorkspaceActual` o por `superAdminEnLaAgencia`.
+
+### Sin hacer
+
+- Aplicar la 0402 y corregir la fecha de Giselle (17) al 2026-10-28; prender la mensualidad del 13 desde 2026-11. Detalle en
+  `docs/relevo/nube-agencia-cobro.md`.
+- La pantalla se miró con datos de ejemplo (sin base en la nube), no con la cartera real.
+- Un aviso al super admin cuando pasa el día 5 sin el «Pagado»: hoy sólo se ve en la pantalla y en `ver_mensualidades_agencias`.
+
 ## Joan no podía agregarse al grupo de un cliente: la puerta estaba abierta, faltaba el renglón (ticket #49, 3/11/2026)
 
 - **Síntoma:** «no puedo ver las notificaciones dentro de la cuenta de un cliente para agregar un número de WhatsApp al

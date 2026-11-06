@@ -95,7 +95,9 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
 export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
   'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer',
   'cuenta_media_buyer', 'modo_agente_media_buyer', 'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana',
-  'subir_creativos_media_buyer', 'cambiar_biblioteca_carruseles', 'cargar_pago_a_mano', 'reenviar_recibo', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
+  'subir_creativos_media_buyer', 'cambiar_biblioteca_carruseles', 'cargar_pago_a_mano', 'reenviar_recibo',
+  // La mensualidad de una agencia (lib/agencia-mes.ts): las escribe el super admin global, que un flujo no tiene.
+  'marcar_mensualidad_pagada', 'corregir_reloj_mensualidad', 'prender_mensualidad_agencia', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

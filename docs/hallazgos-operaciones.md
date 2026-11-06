@@ -3869,8 +3869,8 @@ cosas que publicar... automáticamente».
 - **Approvals** en el menú de la foto del super admin (`SUPERADMIN_MENU`), en la computadora y en el teléfono. Lee lo GUARDADO por
   el vigía, nunca las tiendas. El orden lo decide el módulo puro (`prioridad`): lo que pide algo, lo que no se pudo leer o le falta
   algo, lo que está en revisión, lo no enviado, lo aprobado. Una fila sin lectura buena de más de un día dice «(viejo)».
-- **Ninguna fila dice «a mano».** Lo que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem
-  y SSL.com) declara su `panel`: la página, qué mirar y cómo se traduce lo que dice. Lo lee una tarea programada del Cerebro con la
+- **Ninguna fila dice «a mano».** Lo que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google y
+  SSL.com) declara su `panel`: la página, qué mirar y cómo se traduce lo que dice. Lo lee una tarea programada del Cerebro con la
   sesión de Martín y lo guarda con `scripts/vigia-paneles.mts`. Lo que todavía no se puede leer dice qué falta: una clave (con
   «Cargarla», que abre esa tarjeta de Integraciones ahí mismo) o que la tarea lea ese panel.
 - **La extensión se publica sola:** el cron compara `EXTENSION_VERSION` (la de este deploy) con la tienda. Si main es más nueva,
@@ -3891,8 +3891,8 @@ cosas que publicar... automáticamente».
   separado y el arreglo chocó al mezclar main. Quedó la guarda `tests/ls-files-con-tope.test.ts`.
 
 **Una trampa de la guarda de nombres de tabs:** `tests/mako-nombres-de-tabs.test.ts` lee cualquier «X › Y» del código como una
-ruta de MaKo. El texto de Creem decía «Balance › Payout Account»: la punta que lo sumó (`punta/vigia-creem`) da rojo sola. Las
-pantallas de otras empresas van entre comillas: «Payout Account», en «Balance».
+ruta de MaKo. Un texto de Creem decía «Balance › Payout Account» y la daba en rojo (hoy Creem es un hecho registrado: rechazó la
+tienda y es definitivo). Las pantallas de otras empresas van entre comillas: «Payout Account», en «Balance».
 
 **Lo que NO se midió:**
 - **Las formas de la API V2 de la Chrome Web Store** (el cuerpo de `:upload` y de `:publish`, `uploadState`, `state`): salen de
@@ -3900,7 +3900,7 @@ pantallas de otras empresas van entre comillas: «Payout Account», en «Balance
   tiene las claves. Un campo distinto da un fallo con su motivo en Approvals (y a los tres, «piden algo»), nunca un éxito.
 - **Que la cuenta de servicio pueda publicar:** hay que sumarla en el panel de la tienda. Sin eso, la tienda contesta 403 y la
   fila lo dice.
-- **Los textos y las URL de los paneles:** son los esperados (Play Console en español, Creem y SSL.com en inglés). Si un panel dice
+- **Los textos y las URL de los paneles:** son los esperados (Play Console en español, SSL.com en inglés). Si un panel dice
   otra cosa, la tarea guarda «no pude» con el texto literal (`--guardar <id> auto <texto>`) y la tabla se corrige con eso.
 
 **SIN hacer:**

@@ -24,6 +24,7 @@ import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
 import { precioClienteDeAgencia } from '@/lib/agencia-cobro';
+import { mensualidadDeAgencia, mensualidadPrendida } from '@/lib/agencia-mes';
 import { AgencyApp, AgencyPlataforma } from './AgencyApp';
 import { LandingAgency } from './LandingAgency';
 
@@ -34,7 +35,7 @@ export const metadata = { title: 'Agency Dashboard' };
 
 const ID = /^[1-9]\d{0,11}$/;
 
-export default async function AgencyPage({ searchParams }: { searchParams: Promise<{ landing?: string; cuenta?: string; nuevo?: string }> }) {
+export default async function AgencyPage({ searchParams }: { searchParams: Promise<{ landing?: string; cuenta?: string; nuevo?: string; vista?: string }> }) {
   await requireSesion();
   const sp = await searchParams;
   const esSuper = (await getSesionAdmin()) != null;
@@ -69,7 +70,13 @@ export default async function AgencyPage({ searchParams }: { searchParams: Promi
     return <LandingAgency estado={estado} usd={precio.usd} volver="/agency" />;
   }
 
+  // LA MENSUALIDAD (acuerdo del 30/10/2026, lib/agencia-mes.ts): la agencia la ve si está prendida; el super admin parado
+  // en ella, siempre (desde ahí la prende). Apagada, la agencia sigue con el cobro por pasarela de siempre.
+  // `null` de `mensualidadPrendida` es «no pude leer»: se muestra la mensualidad, que dice el error, en vez de esconderla.
+  // Arranca antes que la cartera y corre a la par (ninguna de las dos tira).
+  const mensualidadP = (esSuper ? Promise.resolve(true) : mensualidadPrendida(ws)).then((ver) => (ver !== false ? mensualidadDeAgencia(ws) : null));
   const cartera = await cuentasDePartner(ws);
+  const mensualidad = await mensualidadP;
   const cuenta = ID.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
   // `?nuevo=<leadId>`: el link que deja MaKo cuando propone llevar a un lead (la API, `llevar_a_partners`).
   const nuevo = ID.test(sp.nuevo ?? '') ? Number(sp.nuevo) : null;
@@ -81,6 +88,8 @@ export default async function AgencyPage({ searchParams }: { searchParams: Promi
       puedeAbrir={admin}
       superAdmin={esSuper}
       perfil={estado.perfil}
+      mensualidad={mensualidad}
+      verMensualidad={sp.vista === 'mensualidad'}
     />
   );
 }

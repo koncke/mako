@@ -606,6 +606,7 @@ sugerir_kpis
 sugerir_productos
 sumar_documento_second_brain
 tendencia_score
+tiempo_primer_contacto
 tipos_de_crm
 topes_media_buyer
 tracking_lead

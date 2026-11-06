@@ -11,7 +11,9 @@
 import 'server-only';
 import { leerLlamadasDeVenta, zonaDelCalendario } from './calendario';
 import { sumarDias } from './calendario-modelo';
-import { agendaDe, lunesDe, type AgendaClosing } from './closing-diseno';
+import { agendaDe, lunesDe, type AgendaClosing, type ContactoClosing } from './closing-diseno';
+import { DIAS_PRIMER_CONTACTO, primerContactoDelNegocio } from './primer-contacto-server';
+import { losQueMasEsperaron } from './primer-contacto';
 
 /** Hasta dos semanas adelante: el resto de esta semana para las barras y una próxima llamada aunque caiga la otra. */
 const DIAS_ADELANTE = 14;
@@ -25,5 +27,18 @@ export async function agendaParaElClosing(hoy: string): Promise<AgendaClosing | 
   } catch (e) {
     console.error('[closing-diseno] no pude leer la agenda', e);
     return null;
+  }
+}
+
+// ── El primer contacto (5/11/2026): lo que Martín le prometió a Código Inmobiliario ─────────────────────────────
+
+/** La tarjeta «Primer contacto» de la hoja Closing (`ContactoClosing`, lib/closing-diseno.ts). Nunca tira. */
+export async function primerContactoParaElClosing(): Promise<ContactoClosing> {
+  try {
+    const r = await primerContactoDelNegocio(DIAS_PRIMER_CONTACTO);
+    return { dias: r.dias, resumen: r.resumen, esperaron: losQueMasEsperaron(r.leads, 3) };
+  } catch (e) {
+    console.error('[closing-diseno] no pude leer el primer contacto', e);
+    return { fallo: true };
   }
 }

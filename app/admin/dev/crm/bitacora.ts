@@ -3960,6 +3960,28 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
   },
   {
+    fecha: '5 nov', hora: '15:34', chat: 'Código Inmobiliario (nube)', sesion: 'cli_aa3bfb4c-b5ce-5e9f-81a3-d1391ea8aa8a', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cuánto tardan en contactar a un lead nuevo, sin contar lo automático (lo prometido a Código Inmobiliario)',
+    puntos: [
+      '**Mide** desde que el lead entra al CRM hasta que una persona le escribe o lo llama: WhatsApp, email, Instagram, Messenger o una llamada.',
+      '**Lo automático va aparte:** cada WhatsApp de una automatización queda marcado al salir; los de antes de la marca dicen «No se sabe».',
+      '**Se ve** en la hoja Closing (la mediana, la primera hora, los sin contactar y los que más esperaron), como gráfico «Primer contacto» y por la API (tiempo_primer_contacto).',
+      'Cuentan los leads que llegan solos: no los cargados a mano, importados, de prueba ni traídos de un grupo.',
+      '**Falta:** aplicar la migración 0396 después del deploy, y mirarlo en pantalla (relevo/nube-codigo.md).',
+    ],
+    archivos: [
+      'lib/primer-contacto.ts · lib/primer-contacto-server.ts — la regla (pura, con test) y la lectura de cada canal',
+      'supabase/migrations/0396_wa_mensajes_automatico.sql — la marca de lo automático (SIN APLICAR, va después del deploy)',
+      'lib/evolution-envio.ts — el emisor marca lo automático; Chats y el borrador aprobado dicen «persona»',
+      'app/dashboard/disenos/HojaClosing.tsx · lib/closing-diseno-server.ts — la tarjeta de la hoja Closing',
+      'lib/graficos-fuentes-extra.ts · lib/graficos-datos-extra.ts — el conjunto «Primer contacto»',
+      'lib/api-mako/areas/crm.def.ts · crm.run.ts — tiempo_primer_contacto',
+      'tests/primer-contacto.test.ts · tests/primer-contacto-emisores.test.ts · tests/evolution-envio-automatico.test.ts',
+    ],
+    revisar: '/dashboard?hoja=closing',
+  },
+  {
     fecha: "5 nov", hora: "10:05", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
     actor: "claude", tipo: "implementacion",
     titulo: "MaKo toma la iniciativa en el CRM: «¿Dónde tienes hoy a tus clientes?» y la guía del tablero",

@@ -55,6 +55,7 @@ import { estadoAgency, sumarseComoAgency } from '@/lib/agency';
 import { quienPagaDe, ROTULO_QUIEN_PAGA, TEXTO_NO_AGENCY } from '@/lib/agency-reglas';
 import { ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
+import { mensualidadDeAgencia, mensualidadParaMako } from '@/lib/agencia-mes';
 import { productosDelAlumno } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
 import { invitadoAlProducto, entroAlProducto, correoQueFallo } from '@/lib/curso-invitar-reglas';
@@ -762,6 +763,17 @@ export const RUNNERS: Runners = {
       }
       return { ok: true, resumen: 'Listo: volvió a ese servicio.', datos: { leadId, productoId } };
     }),
+  },
+
+  // La mensualidad por fuera de MaKo (lib/agencia-mes.ts): lo que la agencia paga este mes y desde cuándo cuenta cada cliente.
+  ver_mensualidad_agencia: {
+    leer: async (_input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return fallo('Este negocio no es Agency: no tiene mensualidad de clientes.');
+      const m = await mensualidadDeAgencia(ctx.ws);
+      if (!m.ok) return fallo(`No pude armar la mensualidad: ${m.error}`);
+      if (!m.config) return json({ prendida: false, nota: 'Tu agencia no tiene la mensualidad por fuera de MaKo: tus cuentas se pagan con su link (ver_pagos_clientes_agencia).' });
+      return json(mensualidadParaMako(m));
+    },
   },
 };
 

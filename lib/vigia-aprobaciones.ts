@@ -73,6 +73,11 @@ export type ItemVigia = {
   queHacer: string;
   /** No tiene API: lo lee la tarea del Cerebro de este panel (scripts/vigia-paneles.mts). */
   panel?: PanelVigia;
+  /**
+   * Un hecho que ya no cambia (una tienda cerrada para siempre): su estado se lee de acá, con de dónde sale. No es una lectura
+   * inventada: es lo que dijo la plataforma, una vez y por escrito. Sin API ni panel que mirar.
+   */
+  definitivo?: { estado: Estado; fuente: string };
   /** Lo último que se sabe y de dónde, con fecha. Es un recuerdo, no una medición: se dice como tal. */
   nota?: string;
 };
@@ -209,30 +214,17 @@ export const ITEMS: readonly ItemVigia[] = [
     link: 'https://resend.com/domains',
     queHacer: 'Revisa los registros DNS del dominio en Resend.',
   },
-  // ⚠️ RECHAZADA EL 5/11/2026, Y ES DEFINITIVO (docs/creem-retiros.md). Su API no dice el estado: se lee de su panel, como las
-// demás sin API. El NOMBRE ya lo dice, y el «qué hacer» no manda a contestarle a Creem. Cuando haya otro proveedor, entra como
-// un ítem nuevo, y éste se puede sacar.
+  // ⚠️ RECHAZADA EL 5/11/2026, Y ES DEFINITIVO (docs/creem-retiros.md). El nombre lo dice, el «qué hacer» no manda a
+  // contestarle a Creem, y su estado es un hecho registrado (`definitivo`), no una lectura. Cuando haya otro proveedor, entra
+  // como un ítem nuevo, y éste se puede sacar.
   {
     id: 'creem-tienda',
     nombre: 'Creem: la tienda de MaKo, rechazada el 5/11/2026 (definitivo)',
     link: 'https://www.creem.io/dashboard',
+    // Ni API ni panel: es un HECHO que no cambia (5/11/2026). Mirar el panel de una tienda cerrada para siempre no dice nada
+    // nuevo, y «míralo a mano» era pedirle a Martín un trabajo inútil. Se lee de acá (`lecturaDefinitiva`).
+    definitivo: { estado: 'rechazado', fuente: 'el mail de Creem del 5/11/2026 (docs/creem-retiros.md)' },
     queHacer: 'Lee docs/creem-retiros.md: Creem no reabre la cuenta, y los cobros de fuera de Argentina pasan a otro proveedor.',
-    panel: {
-      url: 'https://www.creem.io/dashboard/balances/accounts',
-      mirar: 'El cartel de la tienda y el de la cuenta de retiro («Payout Account»).',
-      traduccion: [
-        { dice: 'rejected', estado: 'rechazado' },
-        { dice: 'action required', estado: 'piden_algo' },
-        { dice: 'add payout account', estado: 'piden_algo' },
-        { dice: 'under review', estado: 'en_revision' },
-        { dice: 'pending', estado: 'en_revision' },
-        { dice: 'not verified', estado: 'piden_algo' },
-        { dice: 'unverified', estado: 'piden_algo' },
-        { dice: 'not approved', estado: 'rechazado' },
-        { dice: 'approved', estado: 'aprobado' },
-        { dice: 'verified', estado: 'aprobado' },
-      ],
-    },
     nota: 'Enviada el 5/11/2026 a nombre de Leandro y rechazada ese mismo día, a las pocas horas, por mail y sin el motivo. Es definitivo: sus términos (§20.6) no reabren la cuenta de una persona conectada a una que Creem cerró.',
   },
   {
@@ -750,6 +742,12 @@ export function lecturaDePanel(paneles: PanelesGuardados | null, id: string, aho
   if (edad > VIEJO_MS) return { tipo: 'no_pude', motivo: `nadie leyó el panel desde ${cuandoCorto(l.leidoAt)}`, desde: l.leidoAt };
   if ('noPude' in l) return { tipo: 'no_pude', motivo: `el panel: ${l.noPude}`, desde: l.leidoAt };
   return { tipo: 'leido', fuente: 'panel', estado: l.estado, detalle: l.nota ?? null, leidoAt: l.leidoAt };
+}
+
+/** La lectura de un ítem `definitivo`: el hecho registrado, con su fuente. Sin red y sin fecha propia (vale en cada vuelta). */
+export function lecturaDefinitiva(it: ItemVigia): Lectura | null {
+  if (!it.definitivo) return null;
+  return { tipo: 'leido', fuente: 'registro', estado: it.definitivo.estado, detalle: `Según ${it.definitivo.fuente}` };
 }
 
 /** Lo que tiene que hacer la tarea del Cerebro, en texto: un panel por párrafo, con su página, qué mirar y la traducción. */

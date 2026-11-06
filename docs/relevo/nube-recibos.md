@@ -1,9 +1,13 @@
-# Relevo: los recibos de MaKo — lo que le toca al Cerebro (5/11/2026)
+# Relevo: los recibos de MaKo y la tarjeta Pagos de Automations — lo que le toca al Cerebro (5/11/2026)
 
 > Lo escribió la sesión de la nube que lo construyó (cuenta `nube`, sesión `cli_c5ed70d4-0cef-5e9e-8637-8606741b3ad5`), a partir de
-> [recibos-encargo.md](recibos-encargo.md). La tarjeta Pagos de Automations ([pagos-automations-encargo.md](pagos-automations-encargo.md))
-> la hace la misma sesión después, en `punta/automations-pagos`, y suma su parte acá. **Esta sesión no vio la
+> [recibos-encargo.md](recibos-encargo.md) (en `punta/recibos`) y [pagos-automations-encargo.md](pagos-automations-encargo.md) (en
+> `punta/automations-pagos`, que sale DESPUÉS: trae los recibos adentro). **Esta sesión no vio la
 > base ni producción**: lo que dice «medido» acá es en la nube (tests, PGlite, Node); lo de producción, lo mide el Cerebro.
+>
+> **Estado al 6/11/2026:** las dos puntas están en main (`punta/recibos` en 37ebd59355, `punta/automations-pagos` en d2dcb26323), y
+> el Cerebro ya aplicó la 0397, la 0399 y la 0400 (docs/relevo/cerebro.md). **Creem rechazó la tienda el 5/11** y quedó afuera: lo
+> que acá decía de Creem queda tachado. El código de «Confirmación de pago» sigue, sin pagos que lo usen.
 
 ## Para decirle a Martín, con estas palabras
 
@@ -11,14 +15,14 @@
   negocio. Queda todo en **Admin › Billing › Recibos**, con «Bajar», «Reenviar» y «Cargar pago» (para lo que entra por Binance).
 - **El recibo por WhatsApp sólo llega a un negocio que ya tiene grupo.** A un comprador nuevo le llega por correo y por la app.
 - **Es un recibo de pago, no una factura fiscal**, y lo dice. Si hay que facturar en ARCA (Mercado Pago, Binance), eso sigue aparte:
-  lo confirma su contador. Con Creem, el documento se llama «Confirmación de pago»: el vendedor legal es Creem y la factura la da Creem.
+  lo confirma su contador.
 - **Lo que sí tiene que hacer él**: nada para que funcione. Si quiere, cargar sus datos en «Datos del recibo» (nombre, documento,
   dirección): mientras no los cargue, sale «MaKo · hola-mako.com», y nunca se inventa un dato fiscal.
 
 ## Lo que hay que hacer, en este orden
 
-1. **Aplicar la 0358** (Creem), si sigue sin aplicar. Sin ella no hay ningún pago de Creem del cual emitir un recibo.
-2. **Aplicar la 0397** (`supabase/migrations/0397_recibos.sql`). Sólo agrega (dos tablas, un contador y dos funciones): no toca nada
+1. ~~Aplicar la 0358 (Creem)~~: aplicada el 5/11, y Creem quedó afuera ese mismo día.
+2. **Aplicar la 0397** (`supabase/migrations/0397_recibos.sql`) — ✓ aplicada (6/11, según el Cerebro). Sólo agrega (dos tablas, un contador y dos funciones): no toca nada
    que exista. ⚠️ **El número se confirma al aplicar**: se eligió el 5/11 barriendo main (llega a 0394), las 189 puntas, `ci-rojo/*`,
    `espera-main/*` y las etiquetas; `punta/agencia-cobro` trae OTRA 0394 y `punta/codigo-primer-contacto` una 0396. Si otro número
    ganó la 0397 antes, renombrar el archivo (el código no la nombra por número).
@@ -36,12 +40,11 @@
    ⚠️ **registro.json no lo vio esta sesión**: el script lo recorre entero buscando los ids de Resend al lado del número del recibo.
    ⚠️ Los renglones del 0002 van como «Natalia Krywyj» y «Sergio Arratia» (como salió el PDF); la base dice «Natalia» y «Arriata», y
    está mal. El script avisa si un concepto no aparece igual en el PDF.
-4. **El deploy**, con la punta `punta/recibos`. El código tolera que falte la 0397 (lo dice en el log y el pago sigue).
-5. **Mirar en un preview, ANTES de confiar en el correo**: `GET /api/admin/recibos/ejemplo` (y `?medio=creem`) con la sesión del
+4. **El deploy**, con la punta `punta/recibos` — ✓ en main; «en producción» es el deploy de Vercel en «Ready».
+5. **Mirar en un preview, ANTES de confiar en el correo**: `GET /api/admin/recibos/ejemplo` con la sesión del
    super admin. Prueba que jsPDF carga dentro del bundle de Next (`serverExternalPackages: ['jspdf']` en next.config.ts); en la nube
    sólo se midió en Node pelado (un PDF de 41 KB con la imagen, en ~0,3 s, mismos bytes en dos renders).
-6. **El primer pago real**: mirarlo a mano en Billing › Recibos (el monto contra el de la pasarela, el correo, el grupo). Con Creem, que
-   `amount_paid` sea lo que pagó la persona y que el impuesto venga en `tax_amount` (no hay ninguna venta de Creem para mirarlo).
+6. **El primer pago real**: mirarlo a mano en Billing › Recibos (el monto contra el de la pasarela, el correo, el grupo).
 
 ## Qué se construyó (punta/recibos)
 
@@ -81,7 +84,7 @@
 - El diferencial cobrado usa `clave: 'diferencial:<ag>:<cliente>:<mes>'`.
 - Al mezclar, se suman los dos lados en: `app/admin/dev/areas.ts`, `app/admin/dev/payment-gateway/bitacora.ts`, `docs/hallazgos.md`,
   `lib/api-mako/areas/cobros.def.ts`, `lib/api-mako/areas/cobros.run.ts` y `lib/api-mako/flujo.ts` (`NO_EN_FLUJOS` es una denylist: se UNE).
-- ⚠️ Su `0394_agencia_cobra_desde.sql` choca en número con la de main: hay que renumerarla al subirla.
+- ⚠️ Su `0402_agencia_cobra_desde.sql` choca en número con la de main: hay que renumerarla al subirla.
 - ⚠️ El revisor marcó que «Cargar pago» con agencia y mes debería marcar el mes pagado en la misma acción, para que no queden dos
   libros. No lo hice: esa función vive en la rama, que no está en main. Cuando la rama llegue, se suma la llamada en
   `emitirReciboManual` (o al revés: que la rama sea la única puerta y llame a los recibos).
@@ -94,3 +97,57 @@
 - Que un PDF mandado por la línea de MaKo llegue a un grupo que no sea el de Código, y que el eco lo ate a su copia.
 - La zona de la plataforma: las fechas del PDF salen de `zonaDelNegocioEstricta(plataforma)`; si no tiene, la de por defecto (Tijuana).
   Las de 0001 y 0002 se cargan en ART.
+
+---
+
+# La tarjeta Pagos de Automations (punta/automations-pagos)
+
+## Para decirle a Martín
+
+- **En Automations hay dos tarjetas nuevas de Pagos, en el ＋:** «Leer comprobante» lee la foto o el PDF que te manda un lead y
+  te dice si cubre su cuota; «Emitir recibo» le manda a tu cliente su recibo en PDF, con la plantilla que elijas (Clásico,
+  Compacto o Con tu marca).
+- **Dos plantillas nuevas en la galería:** «Le Llegó un Comprobante» y «Emitir Recibo al Cobrar».
+- **Nunca marca nada cobrado sola:** si el comprobante cubre la cuota te avisa, y la marcas tú. Lo que no cuadra (pagó menos,
+  ese N.º de operación ya se usó, no se lee bien) te llega aparte para revisarlo.
+- **Es un recibo de pago, no una factura fiscal**, y lo dice. Una factura depende del país y de cada negocio: no se ofrece.
+- **El WhatsApp no le escribe primero a nadie:** el recibo sale al lead que acaba de pagar, por la línea del negocio.
+- **Funciona para MaKo con sus clientes:** en el negocio de la plataforma, con Código mandando su comprobante de Binance, pero
+  sólo por un chat 1 a 1. **El comprobante que llega al GRUPO de un negocio no dispara nada** (el disparador mira los chats de
+  leads): para eso falta un camino que hoy no existe.
+
+## Lo que hay que hacer, en este orden
+
+1. **Aplicar la 0400 y la 0399** (`supabase/migrations/0400_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`) — ✓ aplicadas
+   (6/11, según el Cerebro). Sólo agregan. Números elegidos en la nube: confirmarlos al aplicar (0397 son los recibos de MaKo).
+   Lo que garantizan, probado contra Postgres: `PGLITE=<carpeta con @electric-sql/pglite> node scripts/probar-0399-0400-pglite.mjs`.
+2. **El deploy de `punta/automations-pagos`** — ✓ en main (d2dcb26323); «en producción» es el deploy de Vercel en «Ready».
+3. **Probar en el ws 3, no en el 1:** armar «Le Llegó un Comprobante», prenderla, mandar una foto de un comprobante desde un
+   teléfono de prueba a la línea del ws 3, y mirar que llegue el aviso al grupo. Después «Emitir recibo» sobre una cuota cobrada
+   de un lead de prueba, con «Ver ejemplo en PDF» de las tres plantillas.
+4. **La IA del negocio:** la lectura usa la IA que el negocio conectó (Gemini, su Claude o su GPT), nunca la red de MaKo. Un
+   negocio sin IA ve «No pude leer el comprobante con tu IA» en el historial del lead y el aviso de revisar.
+
+## Qué quedó declarado en la API de MaKo
+
+Área `cobros` (lib/api-mako/areas/cobros.def.ts y .run.ts), las dos con `canales: ['whatsapp', 'app']` (sin HTTP: un comprobante
+y un recibo son datos de un cliente del negocio) y entran a los flujos como «⚡ Acción», que es como las dibuja la tarjeta:
+
+- **`leer_comprobante`** (acción, `costo: 'ia'`, `leadId`): lee el último archivo que mandó el lead en 48 h con la IA del negocio
+  y deja la lectura en `comprobantes_leidos`. Es lo que corre la tarjeta «Leer comprobante»; la condición «El comprobante…» lee
+  su resultado (`cubre`, `parcial`, `repetido`, `dudoso`, `no_es`, `no_llego`).
+- **`emitir_recibo`** (acción, `aTerceros: true`, `confirmacion: 'chat'`, `leadId`, `plantilla`, `canal`, `cuotaId`): emite el
+  recibo con su número del negocio (`emitir_recibo_negocio`, mig 0399) y lo manda. `cuotaId` es el `pagoId` de `cobranza_lead`;
+  sin valor, la última cuota cobrada. Por WhatsApp, con «sí» pelado (`aTerceros`).
+
+## Con `punta/agencia-cobro`
+
+Esa rama todavía no lee comprobantes. Cuando lo haga, usa `leerComprobanteDelLead` (lib/comprobantes.ts) o las reglas puras
+(lib/comprobante-reglas.ts: `lecturaDe`, `estadoDeLectura`, `coberturaDe`), nunca otra lectura: el N.º de operación cuenta una
+vez en `comprobantes_leidos`, y el de un recibo de MaKo en `recibo_pagos` (`reciboDePago('binance', orden)`).
+
+## Lo que NO está verificado
+
+- Ninguna foto real pasó por la lectura (no hay base desde la nube): que Evolution guarde un PDF como documento y se lea bien.
+- Un recibo enviado de verdad por WhatsApp, por correo con dominio propio y al grupo.
+- Las miniaturas de las plantillas en la pantalla (están armadas en HTML con el mismo orden que el PDF; no se miró en el navegador).

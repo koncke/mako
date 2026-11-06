@@ -88,7 +88,7 @@ test('las condiciones que valen son las del desplegable con el ámbito del CRON;
   // Y el modelo ve esos ids: los de los dos una vez, y los de cada ámbito en su línea (sin las FILAS escritas a mano).
   const bloque = bloqueCondiciones(CAT);
   for (const id of [...adq, ...ent]) assert.match(bloque, new RegExp(`\\b${id}\\b`), id);
-  assert.match(bloque, /- sólo con «Entrega»: [^\n]*etapa_entrega/);
+  assert.match(bloque, /- sólo «Entrega»: [^\n]*etapa_entrega/);
   assert.doesNotMatch(bloque.split('\n').find((l) => l.includes('«Entrega»'))!, /\bpago\b/);
   assert.ok(userDeCrear(ctxWs10('x'), { perfil: '', voz: null, pedido: 'x' }).includes(bloque));
 });

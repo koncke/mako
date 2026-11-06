@@ -26,13 +26,16 @@ import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conNombres } from '@/lib/graficos-analisis';
 import type { VistaCaja } from '@/lib/graficos-ia-elemento';
-import { cuandoEs, relojDe, rotuloDelDia, vistaClosing, type AgendaClosing, type DatosPieza, type FilaLlamada } from '@/lib/closing-diseno';
+import { cuandoEs, relojDe, rotuloDelDia, vistaClosing, type AgendaClosing, type ContactoClosing, type DatosPieza, type FilaLlamada } from '@/lib/closing-diseno';
+import { duracionLegible } from '@/lib/primer-contacto';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { leerCaja } from '../ElementoIA';
 import { CSS_CLOSING } from './closing-css';
 
 /** Quién mira, para el saludo de Halden («Good morning, Amara»). La arma la página (app/dashboard/page.tsx). */
 export type QuienMira = { saludo: string; nombre: string; fecha: string };
-export type ExtrasClosing = { agenda: AgendaClosing | null; quien: QuienMira | null };
+/** `contacto` (5/11/2026): la tarjeta «Primer contacto». Sin él (el closer, el setter, un link compartido, la miniatura), no se dibuja. */
+export type ExtrasClosing = { agenda: AgendaClosing | null; quien: QuienMira | null; contacto?: ContactoClosing | null };
 
 // Las curvas de GSAP de Halden, traducidas (las mismas de docs/diseno/mockups-dashboard/movimiento.css).
 const P4O = 'cubic-bezier(.165,.84,.44,1)';
@@ -120,6 +123,54 @@ const I = {
   sube: 'M6 15l6-6 6 6',
 };
 
+/**
+ * EL PRIMER CONTACTO (5/11/2026, lo que Martín le prometió a Código Inmobiliario; Halden no lo tiene): cuánto tarda una persona en
+ * escribirle o llamar a un lead nuevo, SIN lo automático (lib/primer-contacto.ts). La mediana y no un promedio (uno de diez días lo
+ * arrastra todo); «Sin contactar» no cuenta a los que entraron hace menos de una hora: todavía están a tiempo.
+ */
+function CuerpoContacto({ c, compartido }: { c: Extract<ContactoClosing, { resumen: unknown }>; compartido?: boolean }) {
+  const r = c.resumen;
+  const pct = r.baseLaPrimeraHora ? Math.round((r.enLaPrimeraHora / r.baseLaPrimeraHora) * 100) : null;
+  const sinContactar = Math.max(0, r.sinContactar - r.aTiempo);
+  return (
+    <div className="hc-contacto">
+      <div>
+        <div className="hc-big">
+          <span className="hc-big__n">{duracionLegible(r.medianaMinutos) ?? '—'}</span>
+          <span className="hc-big__s">{r.contactados ? <>mediana de <b>{entero(r.contactados)}</b> {r.contactados === 1 ? 'lead contactado' : 'leads contactados'}</> : 'Todavía nadie los contactó'}</span>
+        </div>
+        <dl className="hc-contacto__stats">
+          <div><dt>En la primera hora</dt><dd>{pct == null ? '—' : `${pct}%`}</dd></div>
+          <div><dt>Sin contactar</dt><dd>{entero(sinContactar)}</dd></div>
+          <div><dt>Los más lentos</dt><dd>{duracionLegible(r.p90Minutos) ?? '—'}</dd></div>
+        </dl>
+      </div>
+      {c.esperaron.length > 0 && (
+        <ul className="hc-deals">
+          {c.esperaron.map((e, i) => {
+            const fila = (
+              <>
+                <span className={`hc-tile ${e.estado === 'sin_contactar' ? 'hc-t-rose' : TONOS_TILE[i % TONOS_TILE.length]}`}>{[...e.nombre.trim()][0]?.toUpperCase() ?? '·'}</span>
+                <div className="hc-ditem__b">
+                  <p className="hc-ditem__n">{e.nombre}</p>
+                  <p className="hc-ditem__m">{e.estado === 'sin_contactar' ? 'Nadie lo contactó todavía' : 'Lo contactaron'}</p>
+                </div>
+                <p className="hc-ditem__v">{duracionLegible(e.minutos)}<small>{e.estado === 'sin_contactar' ? 'esperando' : 'después'}</small></p>
+              </>
+            );
+            return (
+              <li key={e.id} className={`hc-ditem${compartido ? '' : ' hc-ditem--clic'}`}>
+                {compartido ? fila : <Link href={`/crm?lead=${e.id}`} className="hc-contacto__fila">{fila}</Link>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {r.noSeSabe > 0 && <p className="hc-contacto__nota">{entero(r.noSeSabe)} sin saber quién les escribió primero: son de antes de que MaKo separara lo automático.</p>}
+    </div>
+  );
+}
+
 /** Lo que ve MaKo: la caja de IA de la hoja, leída con su GET de siempre (nunca genera al abrir). */
 function useCaja(hojaId: string, elementoId: string | undefined): { vista: VistaCaja | null; cargando: boolean } {
   const [vista, setVista] = useState<VistaCaja | null>(null);
@@ -159,6 +210,7 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
   const caja = useCaja(hoja.id, compartido || quieta ? undefined : hoja.diseno?.piezas.ia);
   const tablaUltimas = hoja.componentes.find((c): c is Grafico => c.id === hoja.diseno?.piezas.ultimas && c.clase === 'grafico');
   const quien = extras?.quien ?? null;
+  const contacto = extras?.contacto ?? null;
   const tz = extras?.agenda?.tz ?? 'UTC';
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => { setAhora(Date.now()); const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t); }, []);
@@ -401,6 +453,25 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
               <span className="hc-dur hc-dur--gana"><Icono d={I.reloj} />En total <b>{v.duracion.minutos != null && v.duracion.llamadas != null ? `${entero((v.duracion.minutos * v.duracion.llamadas) / 60)} h` : '—'}</b></span>
             </div>
           </article>
+
+          {/* EL PRIMER CONTACTO (5/11/2026): lo de antes de la llamada. Sólo con el dato (`extras.contacto`): el closer, el setter,
+              un link compartido y la miniatura no lo reciben, y la tarjeta no se dibuja. */}
+          {contacto && (
+            <article className="hc-card hc-c12 hc-o-9" data-card data-primer-contacto>
+              <div className="hc-card__h">
+                <div>
+                  <h2 className="hc-card__t">Primer contacto</h2>
+                  <p className="hc-card__s">{'fallo' in contacto ? 'Cuánto tarda alguien en escribirle a un lead nuevo' : `Leads de los últimos ${contacto.dias} días, sin contar los mensajes automáticos`}</p>
+                </div>
+                {!compartido && <Link className="hc-link" href="/crm">Ver en el CRM</Link>}
+              </div>
+              {'fallo' in contacto
+                ? <p className="hc-vacio" role="alert">No pude leer los mensajes de tus leads.<ReportarASoporte /></p>
+                : contacto.resumen.leads === 0
+                  ? <p className="hc-vacio">No entraron leads nuevos en los últimos {contacto.dias} días.</p>
+                  : <CuerpoContacto c={contacto} compartido={compartido} />}
+            </article>
+          )}
         </section>
       </div>
     </div>

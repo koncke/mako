@@ -226,4 +226,21 @@ export const BITACORA: Hito[] = [
       'app/api/cron/tickets/route.ts: el paso 4',
     ],
   },
+  {
+    fecha: '5 nov', hora: '15:34', chat: 'Código Inmobiliario (nube)', sesion: 'cli_aa3bfb4c-b5ce-5e9f-81a3-d1391ea8aa8a', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los tickets de quien administra una agencia suben de prioridad, detrás de un cliente con algo roto',
+    puntos: [
+      '**Sube un escalón:** baja a media, media a alta. Nunca a urgente, que sigue saliendo de «no puedo trabajar».',
+      '**No le quita el lugar a un cliente con algo roto:** en el mazo va detrás de los de su prioridad que llegaron ahí solos.',
+      'Lo de un tercero o lo que abrió MaKo solo no sube. Vale para los tickets nuevos; la prioridad se sigue cambiando a mano.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — subirPorAgencia y el triage',
+      'lib/tickets-db.ts — quién administra una agencia',
+      'app/tickets/bandeja/mazo-reglas.ts — el orden del mazo',
+      'tests/tickets-agencia.test.ts',
+    ],
+    revisar: '/tickets',
+  },
 ];

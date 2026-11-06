@@ -237,6 +237,21 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   });
   if (insErr) throw new Error(`insert wa_mensajes: ${insErr.message}`);
 
+  // «TE MANDAN UN COMPROBANTE» (5/11/2026, la tarjeta «Leer comprobante» de Automations): una foto o un PDF de un lead
+  // dispara las automatizaciones con ese CRON (`enrolarPorPago`, lib/pago-entrante.ts). Qué es lo decide la tarjeta que lo lee.
+  // Después de contestar (`after`), como el resto de lo lento de este webhook, y fuera del `runWithWorkspace` del pedido.
+  if (!esGrupo && !fromMe && leadId && (tipo === 'image' || tipo === 'document') && mediaPath) {
+    const lid = leadId;
+    const disparar = async () => {
+      try {
+        const { enrolarPorPago } = await import('./pago-entrante');
+        await enrolarPorPago(lid, 'comprobante');
+      } catch (e) { console.error(`[evolution] «Te mandan un comprobante» del lead ${lid}:`, e); }
+    };
+    const wsDelPedido = await getWorkspaceActual();
+    try { after(() => runWithWorkspace(wsDelPedido, disparar)); } catch { await disparar(); }
+  }
+
   // El lead RESPONDIÓ (mensaje entrante REAL, no reacción/protocolo) → pausar su
   // nutrición, como el webhook de Chatwoot. Solo en el insert (no re-entregas).
   // (Con `telefono` en null, un grupo nunca resuelve `leadId`, así que esta rama no

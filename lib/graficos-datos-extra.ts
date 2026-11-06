@@ -40,6 +40,9 @@ import { integracionConectada } from './credenciales';
 // «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
 import { hayGrabadorConectado } from './grabadores';
 import { filaDeLlamadaGrabada } from './grabar-llamada-reglas';
+import { ROTULO_CANAL_CONTACTO, cuentaParaLaPrimeraHora, tramoDePrimerContacto } from './primer-contacto';
+import { primerContactoDeLeads } from './primer-contacto-server';
+import { origenLista } from '@/app/crm/origen-lead';
 import { getQuadrantData } from './ads-analyst';
 import { getAngles } from './script-angles';
 import { getAvatares } from './script-avatares';
@@ -892,6 +895,43 @@ async function filasLlamadasGrabadas(rg: Rango): Promise<Fila[]> {
     .filter((x) => enRango(x.f, rg));
 }
 
+// ── El primer contacto (5/11/2026) ──────────────────────────────────────────────────────
+
+type FLeadContacto = { id: number; nombre: string | null; created_at: string; origen_lead: string | null; setter: string | null; funnel_id: number | null };
+/**
+ * Una fila por lead que entró en el período y LLEGÓ solo, con cuánto tardó una persona en contactarlo
+ * (`primerContactoDeLeads`, lib/primer-contacto-server.ts: la MISMA lectura que la tarjeta de Closing y la API de MaKo).
+ */
+async function filasPrimerContacto(rg: Rango): Promise<Fila[]> {
+  const leads = await leer<FLeadContacto>('leads', 'id, nombre, created_at, origen_lead, setter, funnel_id', rg, { col: 'created_at', ts: true });
+  const [conPc, rot] = await Promise.all([
+    primerContactoDeLeads(leads.map((l) => ({ id: Number(l.id), nombre: l.nombre, entro: l.created_at, origen: l.origen_lead, setter: l.setter, funnelId: l.funnel_id != null ? Number(l.funnel_id) : null }))),
+    rotulosDelCrm(),
+  ]);
+  const out: Fila[] = [];
+  for (const l of conPc) {
+    const f = fechaTj(l.entro);
+    if (!enRango(f, rg)) continue;
+    const pc = l.pc;
+    out.push({
+      f,
+      d: {
+        tramo: tramoDePrimerContacto(pc), canal: pc.canal ? ROTULO_CANAL_CONTACTO[pc.canal] : null, setter: txt(l.setter),
+        producto: rot.producto(l.funnelId), origen: origenLista(l.origen), lead: txt(l.nombre) ?? `Lead #${l.id}`,
+      },
+      r: { lead: String(l.id) },
+      v: {
+        leads: 1, contactados: pc.estado === 'contactado' ? 1 : 0, sin_contactar: pc.estado === 'sin_contactar' ? 1 : 0,
+        no_se_sabe: pc.estado === 'no_se_sabe' ? 1 : 0, ya_hablaban: pc.estado === 'antes' ? 1 : 0,
+        en_1h: pc.estado === 'contactado' && (pc.minutos ?? Infinity) <= 60 ? 1 : 0, base_1h: cuentaParaLaPrimeraHora(pc) ? 1 : 0,
+        con_automatico: pc.automaticoMinutos != null && pc.estado !== 'antes' ? 1 : 0,
+        ...(pc.estado === 'contactado' && pc.minutos != null ? { minutos_contacto: pc.minutos } : {}),
+      },
+    });
+  }
+  return out;
+}
+
 // ── El reparto ───────────────────────────────────────────────────────────────────────────
 
 /** Un lector por conjunto de lib/graficos-fuentes-extra.ts. El test exige que estén todos. */
@@ -913,5 +953,6 @@ export const LECTORES_EXTRA: Record<string, Lector> = {
   ubicacion: (_, rg) => filasUbicacion(rg),
   cartera: () => filasCartera(),
   conversaciones: (f, rg) => filasConversaciones(f, rg),
+  primer_contacto: (_, rg) => filasPrimerContacto(rg),
   llamadas_grabadas: (_, rg) => filasLlamadasGrabadas(rg),
 };

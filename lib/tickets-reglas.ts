@@ -293,9 +293,24 @@ export type Triage = {
   regla?: string;
   confianza: Confianza;
   prioridad: Prioridad;
+  /**
+   * La prioridad SUBIÓ porque lo levantó quien administra una agencia (5/11/2026, `subirPorAgencia`). En el mazo va detrás de
+   * los de su misma prioridad que llegaron ahí solos (`ordenDelMazo`): así no le quita el lugar a un cliente con algo roto.
+   */
+  agencia?: true;
   /** El porqué, en frases que Martín lee en la bandeja. Siempre al menos una. */
   porque: string[];
 };
+
+/**
+ * LO QUE LEVANTA QUIEN ADMINISTRA UNA AGENCIA SUBE UN ESCALÓN (5/11/2026; Martín a Código Inmobiliario, 30/10: sus tickets tienen
+ * prioridad). Baja → media, media → alta; nunca a «urgente», que es sólo «no puedo trabajar» y sale del texto. Y como el mazo pone
+ * a los que subieron DETRÁS de los de su prioridad que llegaron solos, una agencia nunca le gana el lugar a un cliente con algo
+ * roto: lo roto, para el triage, es «alta» (vio fallar algo o algo dejó de andar) o «urgente».
+ */
+export function subirPorAgencia(p: Prioridad): Prioridad {
+  return p === 'baja' ? 'media' : p === 'media' ? 'alta' : p;
+}
 
 export type EntradaTriage = {
   /** Lo que eligió la persona en el formulario, o lo que propuso MaKo en el chat (null = nadie lo dijo). */
@@ -353,7 +368,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
  * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
  * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean; decideMartin?: string | null } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean; decideMartin?: string | null; deAgencia?: boolean } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   if (e.adjuntos) porque.push(`Trae ${e.adjuntos === 1 ? 'un adjunto' : `${e.adjuntos} adjuntos`}: mirarlos con scripts/tickets.ts ver.`);
@@ -398,10 +413,15 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   else confianza = e.tipoDeclarado === tipo ? 'media' : 'baja';
 
   // ── la prioridad ──
-  const prioridad: Prioridad = hay(URGENTE, texto) ? 'urgente'
+  const propia: Prioridad = hay(URGENTE, texto) ? 'urgente'
     : tipo === 'bug' ? (vioFallar || regresion ? 'alta' : 'media')
       : tipo === 'pedido' ? 'media' : 'baja';
-  if (prioridad === 'urgente') porque.push('Dice que no puede trabajar: urgente.');
+  if (propia === 'urgente') porque.push('Dice que no puede trabajar: urgente.');
+  // La agencia (5/11/2026): lo que levanta quien la administra sube un escalón. Lo de un tercero o lo que abrió MaKo solo, no:
+  // no lo pidió esa persona.
+  const prioridad: Prioridad = opts.deAgencia && !opts.deTercero && !opts.automatico ? subirPorAgencia(propia) : propia;
+  const marca = prioridad !== propia ? { agencia: true as const } : {};
+  if (prioridad !== propia) porque.push(`Lo levantó quien administra una agencia: sube a «${prioridad}», detrás de un cliente con algo roto.`);
 
   // ── ¿se arregla solo? ──
   let autoArreglo = tipo === 'bug' && confianza === 'alta';
@@ -416,14 +436,14 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   // ── de afuera del negocio (27/10/2026): el texto lo escribió un tercero sin cuenta, así que lo decide Martín, siempre ──
   if (opts.deTercero) {
     porque.push('Lo reportó alguien de afuera del negocio (un alumno de su curso): no se arregla solo, lo decide Martín.');
-    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, ...marca, porque };
   }
   // ── un pedido delegado desde el grupo con plata, envíos o borrados, o de alguien sin permiso (`delegadoQueDecideMartin`) ──
   // GUARDA DURA, como la del tercero: ni la regla del negocio lo saca de la decisión de Martín, y sin `en_curso` el Runner no lo
   // lleva con el «hazlo» (`ticketsParaElCartero`): le llega al Cerebro como un ticket nuevo que espera a Martín.
   if (opts.decideMartin?.trim()) {
     porque.push(`Pedido delegado desde el grupo que decide Martín: ${opts.decideMartin.trim()}.`);
-    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, ...marca, porque };
   }
   // ── automático (27/10/2026, lib/no-pude.ts): lo levantó MaKo solo, no una persona ──
   // GUARDA DURA: nunca entra por la regla de aprobación de un negocio (esa vía libre es para lo que levanta la PERSONA: Leila,
@@ -435,12 +455,12 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
       porque.push(causa === 'proveedor'
         ? 'Es del proveedor de IA (caído o sin cupo), no del código: no va al arreglo automático. Se cierra solo cuando vuelve a contestar.'
         : 'Es de la configuración del negocio, no del código: no va al arreglo automático. Se cierra solo cuando el negocio lo tiene.');
-      return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+      return { v: 1, tipo, autoArreglo: false, confianza, prioridad, ...marca, porque };
     }
     if (opts.aprobadoPorRegla?.trim()) porque.push(`Lo levantó MaKo solo: no entra por la regla de ${opts.aprobadoPorRegla.trim()}.`);
     if (autoArreglo) porque.push('Bug evidente: va directo al arreglo, sin esperar a Martín.');
     if (tipo === 'pedido') porque.push('Es algo nuevo: lo decide Martín.');
-    return { v: 1, tipo, autoArreglo, confianza, prioridad, porque };
+    return { v: 1, tipo, autoArreglo, confianza, prioridad, ...marca, porque };
   }
   // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
   const regla = opts.aprobadoPorRegla?.trim() || null;
@@ -452,12 +472,12 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
     else {
       autoArreglo = true;
       porque.push(`Aprobado por regla: ${regla}. Martín pidió que sus tickets se ejecuten sin esperarlo (26/10/2026).`);
-      return { v: 1, tipo, autoArreglo, confianza, prioridad, porque, regla };
+      return { v: 1, tipo, autoArreglo, confianza, prioridad, ...marca, porque, regla };
     }
   }
   if (autoArreglo) porque.push('Bug evidente: va directo al arreglo, sin esperar a Martín.');
   if (tipo === 'pedido') porque.push('Es algo nuevo: lo decide Martín.');
-  return { v: 1, tipo, autoArreglo, confianza, prioridad, porque, ...(regla && autoArreglo ? { regla } : {}) };
+  return { v: 1, tipo, autoArreglo, confianza, prioridad, ...marca, porque, ...(regla && autoArreglo ? { regla } : {}) };
 }
 
 /** El estado con que nace un ticket después del triage. */
@@ -474,7 +494,7 @@ export function leerTriage(x: unknown): Triage | null {
   if (!(PRIORIDADES as readonly unknown[]).includes(o.prioridad)) return null;
   const porque = Array.isArray(o.porque) ? o.porque.filter((p): p is string => typeof p === 'string') : [];
   const regla = typeof o.regla === 'string' && o.regla.trim() ? o.regla.trim().slice(0, 40) : null;
-  return { v: 1, tipo: o.tipo, autoArreglo: o.autoArreglo, confianza: o.confianza as Confianza, prioridad: o.prioridad as Prioridad, porque, ...(regla ? { regla } : {}) };
+  return { v: 1, tipo: o.tipo, autoArreglo: o.autoArreglo, confianza: o.confianza as Confianza, prioridad: o.prioridad as Prioridad, ...(o.agencia === true ? { agencia: true as const } : {}), porque, ...(regla ? { regla } : {}) };
 }
 
 // ── Las transiciones ──────────────────────────────────────────────────────────────────────────────────────────────

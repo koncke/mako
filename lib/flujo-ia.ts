@@ -3680,7 +3680,10 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido, o: { cron?: false | ((x: 
     `GUÍA DE VOZ:\n${d.voz && d.voz.trim() ? contenidoNoConfiable(d.voz.slice(0, TOPE_VOZ), 'material') : '(sin guía: español neutro, cercano y directo, con tú)'}`,
     // Editar sin hablar del CRON (`hablaDelCron`) no lo lleva, y si sólo nombra un canal, lleva las de ese canal: son
     // cientos de caracteres que le restan salida a Groq.
-    ...(sinCron ? [] : [`DISPARADORES (clave y qué lo dispara):\n${bloqueDisparadores(ctx.disparadores, undefined, o.cron || undefined) || '(ninguno)'}`]),
+    // «DISPARADORES:» a secas (5/11/2026): «(clave y qué lo dispara)» repetía lo que dice la regla 10 del system, y esos 25
+    // caracteres pagaron el evento «Llega un comprobante» y la condición «Su comprobante» bajo el techo de Groq
+    // (tests/crear-ia-tercera.test.ts y tests/editar-ia-cambiar-quitar.test.ts, que estaban a 4 y a 1 token del borde).
+    ...(sinCron ? [] : [`DISPARADORES:\n${bloqueDisparadores(ctx.disparadores, undefined, o.cron || undefined) || '(ninguno)'}`]),
     `CONDICIONES ("campo"):\n${bloqueCondiciones(ctx.catalogoCondicion ?? {})}`,
     // Duodécima tanda: si TODAS están ya en DISPARADORES («Se le puso «X»»), no se repiten (tokens de Groq).
     `ETIQUETAS: ${o.cron === undefined && etiquetasVivas.length && etiquetasVivas.every((e) => ctx.disparadores.some((x) => x.value === `etiqueta:${e.id}`))
@@ -3771,8 +3774,8 @@ export function bloqueCondiciones(cat: CatalogosCondicion): string {
   const lista = (xs: string[]) => xs.join(', ') || '(ninguna)';
   return [
     `- siempre: ${lista([...adq].filter((x) => ent.has(x)))}`,
-    `- sólo con «Entrega»: ${lista([...ent].filter((x) => !adq.has(x)))}`,
-    `- sólo con los demás: ${lista([...adq].filter((x) => !ent.has(x)))}`,
+    `- sólo «Entrega»: ${lista([...ent].filter((x) => !adq.has(x)))}`,
+    `- sólo los demás: ${lista([...adq].filter((x) => !ent.has(x)))}`,
   ].join('\n');
 }
 

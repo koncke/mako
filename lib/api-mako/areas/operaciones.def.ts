@@ -116,11 +116,11 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
   // ── Lo que dice el panel de una aprobación sin API (5/11/2026, Martín: «todo deberías poder revisarlo tú») ── Lo mismo que
-  // guarda la tarea del Cerebro con scripts/vigia-paneles.mts, también desde el chat («Creem ya aprobó»). Al final del área.
+  // guarda la tarea del Cerebro con scripts/vigia-paneles.mts, también desde el chat («Google ya aprobó la app»). Al final del área.
   {
     id: 'anotar_lectura_de_panel', area: 'operaciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Anotar el panel de una aprobación',
-    descripcion: 'Sólo para la plataforma: guarda lo que se leyó en el panel de una aprobación que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem o el certificado de Windows), como la tarea del Cerebro que los lee. El vigía la toma en su próxima revisión y sale en Approvals; vale un día. Con `no_pude`, que no se pudo leer y por qué. Otra lectura la reemplaza.',
+    descripcion: 'Sólo para la plataforma: guarda lo que se leyó en el panel de una aprobación que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google o el certificado de Windows), como la tarea del Cerebro que los lee. El vigía la toma en su próxima revisión y sale en Approvals; vale un día. Con `no_pude`, que no se pudo leer y por qué. Otra lectura la reemplaza.',
     parametros: [
       { nombre: 'aprobacion', rotulo: 'Aprobación', tipo: 'string', obligatorio: true, enum: ITEMS.filter((i) => i.panel).map((i) => i.id), descripcion: 'cuál: su id, como lo da `ver_aprobaciones_pendientes`.' },
       { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ESTADOS_APROBACION, descripcion: 'lo que dice el panel. Sin esto va `no_pude`.' },

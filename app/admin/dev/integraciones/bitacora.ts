@@ -1206,6 +1206,23 @@ export const BITACORA: Hito[] = [
     tickets: [34],
   },
   {
+    fecha: '5 nov', hora: '15:34', chat: 'Código Inmobiliario (nube)', sesion: 'cli_aa3bfb4c-b5ce-5e9f-81a3-d1391ea8aa8a', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El aviso de los leads de Meta ya no dice «no recibe» cuando sí llegan',
+    puntos: [
+      '**Salía en falso:** sin webhook los leads llegan igual por el barrido de cada 30 minutos.',
+      '**Ahora** lo decide lo que contesta la API de Zernio: si los entrega, «Tus leads llegan cada media hora» y «Volver a conectar» los trae al instante; con un 403, falta el complemento; si no se sabe, no dice nada.',
+      'Un webhook viejo o pausado ya no se confunde con «falta el complemento».',
+    ],
+    archivos: [
+      'lib/zernio-leads-estado.ts — la regla (pura, con test)',
+      'lib/zernio.ts — avisoDeLeadsZernio y leadsPorLaApi',
+      'app/integraciones/ConectarMetaZernio.tsx — el texto',
+      'tests/zernio-leads-estado.test.ts · tests/zernio-webhook-suscripcion.test.ts',
+    ],
+    revisar: '/integraciones?abrir=zernio',
+  },
+  {
     fecha: '5 nov', hora: '12:00', chat: 'Apify: varias claves', sesion: 'cli_1683f70e-5b48-5c27-a14a-2356d87cc0fe', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Varias claves de Apify, y cargarlas en Integraciones',
     pedido: '«Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones de cargar más api»',
