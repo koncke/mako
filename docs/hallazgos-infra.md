@@ -102,7 +102,9 @@ Lo que se gastaba de más ese día:
 
 **Medir:** `/v1/billing/charges` llega con uno o dos días de atraso, así que hoy se estima con `/v6/deployments`. Un build de 30 núcleos son unos 90 minutos de CPU.
 
-**Sin hacer, y cuesta decisión de Martín:** en el proyecto, `buildQueue.configuration: WAIT_FOR_NAMESPACE_QUEUE` (un build por rama: los intermedios se saltean), y fijar la máquina en Enhanced (8 núcleos): sale más barato si tarda menos de 11 minutos, sin medir. Y si con eso no alcanza, agrupar las llegadas a main.
+**Hecho el 6/11, con el sí de Martín:** en el proyecto, `resourceConfig.buildQueue.configuration: WAIT_FOR_NAMESPACE_QUEUE`, un build por rama: los intermedios se saltean. Vive en Vercel, no en el repo, y es lo único que cambió ahí: la máquina sigue en Elastic.
+
+**Sin hacer:** medir el ahorro en la factura. Si no alcanza, fijar la máquina en Enhanced (8 núcleos, sale más barato si tarda menos de 11 minutos; sin medir) y agrupar las llegadas a main.
 
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
