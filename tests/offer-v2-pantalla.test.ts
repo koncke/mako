@@ -212,7 +212,7 @@ test('árbol: la regla de la pantalla y la de construirArbol ubican igual cada c
 // El desplegable en árbol se fue el 29/10/2026 (Martín: «en offer pon el mismo sistema de la sidebar, en lugar del desplegable
 // actual»): las conversaciones son la LISTA de la tarjeta del chat y crear o analizar, las plantillas de «Nueva oferta».
 // Roturas (29/10/2026): `renglonesDeOffer` sin ordenar por fecha → 1 fallo; `plantillasDeOffer` sin la principal primero → 1
-// fallo; `funnelParaPedido` sin mirar la abierta → 1 fallo.
+// fallo; `funnelParaPedido` sin mirar la abierta → 1 fallo. OF1 (6/11/2026): el nombre repetido sin su funnel → 1 fallo.
 test('árbol: la lista de conversaciones y las plantillas de «Nueva oferta», con sus valores', () => {
   const lista = renglonesDeOffer(ARBOL);
   assert.deepEqual(lista.map((x) => x.id), ['100', '102', '101', '200'], 'todas, la más nueva arriba (a igual fecha, en el orden del árbol)');
@@ -221,8 +221,12 @@ test('árbol: la lista de conversaciones y las plantillas de «Nueva oferta», c
   assert.equal(lista[3].nombre, 'v1 · Sin funnel');
   const pl = plantillasDeOffer(ARBOL);
   assert.deepEqual(pl.map((p) => p.id), ['nueva:1', 'analizar:1:11', 'analizar:1:10', 'nueva:2'], 'crear en cada funnel; analizar cada oferta, la principal primero');
-  assert.deepEqual(pl.map((p) => p.nombre), ['Crear una oferta nueva', 'Analizar «Programa»', 'Analizar «Mentoría»', 'Crear una oferta nueva']);
-  assert.ok(pl.every((p) => p.rotulo === 'Coaching'));
+  // OF1 del recorrido (6/11/2026): el nombre que se repite lleva su funnel al lado; dos funnels del mismo nombre, con «(2)».
+  assert.deepEqual(pl.map((p) => p.nombre), ['Crear una oferta nueva · Coaching', 'Analizar «Programa»', 'Analizar «Mentoría»', 'Crear una oferta nueva · Coaching (2)']);
+  assert.equal(new Set(pl.map((p) => p.nombre)).size, pl.length, 'dos plantillas se llaman igual');
+  assert.deepEqual(pl.map((p) => p.rotulo), ['Coaching', 'Coaching', 'Coaching', 'Coaching (2)']);
+  const unFunnel = plantillasDeOffer(arbolSeguro({ funnels: [{ id: 1, nombre: 'Coaching', ofertas: [], sesionesNuevas: [] }], sueltas: [] }));
+  assert.deepEqual(unFunnel.map((p) => p.nombre), ['Crear una oferta nueva'], 'con un funnel, el nombre queda corto');
   assert.equal(funnelParaPedido(ARBOL, { funnelId: 2 }), 2, 'el de la conversación abierta');
   assert.equal(funnelParaPedido(ARBOL, { funnelId: 99 }), 1, 'uno que ya no está: el primero');
   assert.equal(funnelParaPedido(ARBOL, null), 1);
