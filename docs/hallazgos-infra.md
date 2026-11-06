@@ -84,6 +84,34 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un archivo de `lib/` que guarda el TEXTO que lee una persona es COPY, aunque sea `.ts` y aunque el lector sea un agente (6/11/2026)
+
+Una punta dio rojo en `tests/puente-panel-copy.test.ts` → «ninguna pantalla del repo le habla al
+cliente de vos», con **una** forma en 6.007 archivos revisados: un «mandás» en una línea agregada a
+`lib/agente-skill.ts` (el texto de la skill que lee el Claude Code del cliente). El resto del archivo ya
+estaba en español neutro; la línea nueva era la única con voseo.
+
+**Why:** el memo del tren dice que un chat que toca **copy** corre también las barredoras antes de pasar
+la punta, y es fácil leer «copy» como «una pantalla» — un `.tsx`, un botón, un título. El detector no
+mira pantallas: barre el repo entero con `git ls-files`. Un `.ts` de `lib/` que contiene prosa en
+español (una skill, una plantilla de prompt, el cuerpo de un email, un mensaje de WhatsApp) es copy con
+todas las letras, y que lo lea un agente en vez de una persona no lo cambia: ese texto se le muestra al
+cliente en su terminal.
+
+**How to apply:**
+
+- No hace falta adivinar qué barredora mira lo que tocaste: **`node scripts/tests-afectados.mjs --base
+  origin/main --listar --explicar`** lo contesta en un comando y sin correr nada. Las barredoras corren
+  SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
+  no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
+  selector.
+- El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
+  reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
+  un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
+- Al agregar un renglón a un texto largo ya escrito, el registro lo marca el archivo, no el autor: esa
+  skill dice «No mandes», «si los mandas», «dilo», «díselo». Un renglón en voseo adentro de eso queda
+  mal aun sin guard.
+
 ## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
 
 Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
