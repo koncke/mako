@@ -22,6 +22,7 @@ import { fuenteDelEditorDeImagen } from '../image-editor/fuente-del-editor';
 import { esDeBiblioteca } from './biblioteca';
 import { carruselDeLaBiblioteca } from './biblioteca-servidor';
 import { estructuraDe, laminasDesde, notasDe, planDeReferencia } from './referencia';
+import { anunciosDe, type PiezaAnuncio } from './anuncios';
 
 /**
  * La publicación `id` como carrusel del explorador: una de las cuentas que sigue el negocio, o (con el id en negativo) una
@@ -31,14 +32,19 @@ export async function referenciaDelNegocio(id: number): Promise<Carrusel | null>
   if (esDeBiblioteca(id)) return carruselDeLaBiblioteca(id);
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const db = await getTenantDb();
-  const p = await db.from('spy_piezas').select('*').eq('id', id).eq('canal', 'instagram').eq('tipo', 'publicacion').maybeSingle();
+  // Una publicación de Instagram o (6/11/2026) un anuncio que Spy trajo de la Biblioteca de Anuncios (./anuncios.ts).
+  const p = await db.from('spy_piezas').select('*').eq('id', id).maybeSingle();
   if (p.error) throw new Error(p.error.message);
-  if (!p.data) return null;
-  const pieza = podarVencido(p.data as Record<string, unknown>) as unknown as PiezaParaCarrusel;
+  const fila = p.data as Record<string, unknown> | null;
+  const esPublicacion = fila?.canal === 'instagram' && fila?.tipo === 'publicacion';
+  const esAnuncio = fila?.canal === 'anuncios' && fila?.tipo === 'anuncio';
+  if (!fila || (!esPublicacion && !esAnuncio)) return null;
+  const pieza = podarVencido(fila) as unknown as PiezaParaCarrusel & PiezaAnuncio;
   const c = await db.from('spy_competidores').select('id, nombre, instagram, avatar').eq('id', pieza.competidor_id).maybeSingle();
   if (c.error) throw new Error(c.error.message);
   if (!c.data) return null;
-  return carruselesDe([pieza], [c.data as CompetidorParaCarrusel])[0] ?? null;
+  const competidor = c.data as CompetidorParaCarrusel;
+  return (esAnuncio ? anunciosDe([pieza], [competidor]) : carruselesDe([pieza], [competidor]))[0] ?? null;
 }
 
 export type CreadoDesdeReferencia =

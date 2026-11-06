@@ -89,6 +89,23 @@ async function piezasDeLaBiblioteca(): Promise<PiezaBiblioteca[]> {
   return piezas;
 }
 
+/**
+ * Baja las láminas de un carrusel (las URLs del CDN de Instagram, que vencen) a nuestro bucket, en orden: `spy-miniaturas`,
+ * `spy/carruseles/<ref>-<n>.<ext>` (lib/spy-miniaturas.ts, que valida que cada archivo sea una imagen). Devuelve las nuestras
+ * sólo si bajaron TODAS: una lámina que falta en el medio cambiaría el carrusel, así que con una que no baja se reintenta una
+ * vez y, si sigue, null (la tarjeta sigue con la portada y la próxima corrida lo vuelve a intentar).
+ */
+export async function bajarLaminas(ref: string, urls: readonly string[]): Promise<string[] | null> {
+  if (!ref || !urls.length) return null;
+  const { guardarMiniaturas, esNuestra } = await import('../spy-miniaturas');
+  let piezas = urls.slice(0, 20).map((u, i) => ({ canal: 'carruseles', ref: `${ref}-${i + 1}`, miniatura: u }));
+  for (let vuelta = 0; vuelta < 2; vuelta += 1) {
+    piezas = await guardarMiniaturas(piezas);
+    if (piezas.every((x) => esNuestra(x.miniatura))) return piezas.map((x) => x.miniatura as string);
+  }
+  return null;
+}
+
 /** Después de cambiar la biblioteca, lo de este proceso se relee (los demás, a los 2 minutos como mucho). */
 function olvidarPiezas(): void {
   enCache[CACHE] = undefined;
