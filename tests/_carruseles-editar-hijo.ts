@@ -159,12 +159,13 @@ async function main() {
       alEvento: (e) => { if (e.fase === 'lamina') mostradas.push(e.pagina); },
     }));
     const textos = mostradas.flatMap((p) => ((p.objects as Array<Record<string, unknown>>) ?? []).filter((x) => x.type === 'textbox').map((x) => String(x.text)));
-    const doc = (r as { doc?: { pages?: unknown[] } }).doc;
+    const doc = (r as { doc?: Record<string, unknown> }).doc;
+    const paginas = Array.isArray(doc?.pages) ? doc.pages.length : 0;
     return {
       ok: r.ok, sinIA: (r as { sinIA?: boolean }).sinIA, aviso: (r as { aviso?: string | null }).aviso ?? null,
       conectar: (r as { conectar?: string | null }).conectar ?? null, vistas: (r as { vistas?: number }).vistas,
       errores: (r as { errores?: string[] }).errores, laminasMostradas: mostradas.length, textos,
-      pedidos: [...pedidos], red: [...new Set(red)], paginas: doc?.pages?.length ?? 0, permitida: esImagenPermitida(o.portada ?? ''),
+      pedidos: [...pedidos], red: [...new Set(red)], paginas, permitida: esImagenPermitida(o.portada ?? ''),
     };
   };
 

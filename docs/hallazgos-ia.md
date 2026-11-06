@@ -1632,6 +1632,11 @@ carrusel entero (docs/hallazgos-carruseles.md, «el camino de respaldo era más 
 no el argumento que entra (`tests/carruseles-editar.test.ts` lo hace con la red de mentira: la cascada corre de verdad y el
 test mira el JSON que le llega al proveedor). Sin `maxTokens` se sigue mandando sin nada, como antes.
 
+**Por qué esto se puede tocar sin miedo, medido:** de los 16 llamadores de `leerDocumentoIA` (El Archivero, contratos, recibos,
+fiscales, el manual de marca, avatares, anuncios…) **el único que pasa `maxTokens` es «Editar» un carrusel**. Para todos los
+demás el pedido sale igual que antes, porque no piden tope. O sea que el campo estuvo muerto todo este tiempo: el primer
+llamador que lo usó fue el primero en descubrir que no servía.
+
 **Vive en:** lib/ai-cheap.ts (`leerConGemini`, `chatCheap` → `paramsDeSalida`) · 6/11/2026
 
 ### ⚠️ Un modelo de Gemini que se cuelga se come el plazo ENTERO, y el plazo es por llamada, no por pedido (6/11/2026)

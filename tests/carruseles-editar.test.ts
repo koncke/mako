@@ -32,7 +32,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-type PedidoIA = { via: 'vision-nativa' | 'chat'; modelo: string; imagenes: number; tope: number | null };
+/** Por dónde salió el pedido: el endpoint de visión de Gemini, su `/chat/completions`, o su Claude (el primero de la cascada). */
+type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: string; imagenes: number; tope: number | null };
 type Salida = {
   ok: boolean; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
   laminasMostradas: number; textos: string[]; pedidos: PedidoIA[]; red: string[]; paginas: number; permitida: boolean;
