@@ -134,8 +134,11 @@ async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], s
       const r = await editor.assets.upload(o, o.name);
       editor.store.setState((s) => ({ uploads: [r, ...s.uploads.filter((u) => u.id !== r.id)] }));
       fotos.push({ id: r.id, url: r.url, nombre: r.name, ancho: r.width, alto: r.height, adjunta: true });
-    } catch {
-      fallas.push(`la foto «${f.name}» no se pudo subir`);
+    } catch (e) {
+      // El motivo importa: «se trabó» pide reintentar y «pasa del tope» no. La subida tiene plazo de atasco
+      // (app/customer-success/curso/subir-video.ts, `trabadaMs`), así que esto ya no espera para siempre.
+      const motivo = e instanceof Error && e.message ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 120)})` : '';
+      fallas.push(`la foto «${f.name}» no se pudo subir${motivo}`);
     }
   }
   // El logo del kit de marca (5/11/2026), justo después de las adjuntas: es lo que el kit le pide a la IA que ponga.
@@ -174,7 +177,21 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const memoria = memoriaDelHilo(leerHilo(disenoId).mensajes);
   cambiarHilo(disenoId, (h) => ({
     corriendo: true,
-    mensajes: [...h.mensajes, conId({ de: 'yo', texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null })],
+    // ⚠️ UN PEDIDO NUEVO CIERRA LA PROPUESTA ANTERIOR. Sin esto quedaban DOS «Aceptar» vivos sobre el mismo diseño, y
+    //    aceptar los dos aplicaba las dos tandas de operaciones: «agregá una página» pedido dos veces dejaba las páginas
+    //    repetidas, y la persona las tenía que borrar a mano sin entender qué pasó (encargo del 6/11/2026). Pedir de
+    //    nuevo ES descartar lo anterior: el pedido nuevo se escribió MIRANDO lo que la propuesta vieja no resolvió, y su
+    //    `refs` apunta a una vista del documento que ya no es la de ahora.
+    //    Sólo las `pendiente`: una `aplicando` está a mitad de camino y la cierra su propio `aceptarPropuesta`.
+    //    Queda igual que el botón «Descartar» (estado + `aviso` limpio, PanelMakoIA.tsx): la tarjeta se apaga a
+    //    «Descartado» justo arriba del pedido nuevo, y no se usa `aviso` — ése dibuja un «reportar a soporte», y esto no
+    //    es una falla.
+    mensajes: [
+      ...h.mensajes.map((m) => (m.de === 'mako' && m.estado === 'pendiente'
+        ? { ...m, estado: 'descartada' as const, aviso: undefined, t: Date.now() }
+        : m)),
+      conId({ de: 'yo', texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null }),
+    ],
   }));
   const corte = new AbortController();
   cortes.set(disenoId, corte);

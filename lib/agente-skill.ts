@@ -422,6 +422,11 @@ curl -s -X POST "$BASE/api/agente/plan" \\
 \`\`\`
 
 - **No mandes prioridad ni deadline**: los decide el Perro (si los mandas, se ignoran).
+- \`recurrente: true\` si la tarea **se repite para siempre y no tiene un final**: la reunión
+  de los miércoles, el seguimiento diario. No lo pongas en algo que se termina haciendo una
+  vez, y **no lo combines con una fecha** (si mandas las dos, gana la fecha). Una recurrente
+  marcada como tarea normal se lleva un puesto del ranking y titila pidiendo una fecha que
+  nunca va a tener.
 - \`proyecto\` = el nombre EXACTO de uno del GET. **Los proyectos son POCOS y GRANDES**
   (del tamaño de "Anuncios", "Landing y web", "Mensajes de seguimiento") y si la tarea es
   de un cliente suyo, va al proyecto de ESE cliente. Inventar uno nuevo por cada tema es
