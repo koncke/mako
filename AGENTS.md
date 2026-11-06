@@ -607,6 +607,22 @@ build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mj
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
 segundos.
 
+⚠️ **UN TEST EN VERDE NO DICE NADA DE LOS TIPOS, y por ahí se van las puntas rojas (6/11/2026).** `node --import tsx --test`
+**saca** los tipos, no los chequea: un test con 14 casos en verde puede tener errores de tipos que sólo aparecen en el `tsc`
+de la punta, diez minutos después. Costó **tres rojos en una tanda**, todos en archivos de test nuevos y todos invisibles
+para `tsx`:
+
+- un `@ts-expect-error` sobre un `import` de un `.mjs`. El tsconfig resuelve `.mjs` con `allowJs`, así que **no hay error que
+  esperar** y un directivo sin usar ES un error (TS2578). **Ningún test del repo usa ese directivo**: si te hace falta para
+  importar un script, no te hace falta.
+- un argumento en la posición equivocada de un helper con parámetros opcionales (`correr('al-abrir', 'startup')` donde el
+  segundo es el `env`). Corre perfecto: el helper ignora lo que no entiende.
+- un `.find(...)` usado sin comprobar que encontró (`undefined` posible) y una propiedad que el tipo declarado no tenía.
+
+**La regla: un archivo de test NUEVO, o uno que importa un `.mjs`, se pasa por el acotado antes de pushear.** Es un comando y
+segundos: `node scripts/tsc-acotado.mjs tests/lo-nuevo.test.ts`. Y si la guardia de RAM lo niega (pasa, y entonces el único
+que chequea es la punta), al menos sabé que lo que estás pusheando no está chequeado.
+
 **UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
 acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
 lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:

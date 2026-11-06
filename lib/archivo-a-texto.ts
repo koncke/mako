@@ -58,6 +58,12 @@ export type OpcionesLectura = {
   timeoutMs?: number;
   /** Un PDF de más páginas se lee sólo hasta acá (los chats: la revisión de chats-unificados, 28/10/2026). Sin esto, entero, como siempre (importar al plan). */
   topePaginas?: number;
+  /**
+   * SIN GEMINI para la lectura por VISIÓN, igual que `leerDocumentoIA` (6/11/2026). Lo pasa la feature que el catálogo
+   * declara `deSuIA` (hoy `marca-leer`): un manual de marca ESCANEADO entra por acá y no por el camino de visión
+   * directo, así que sin esto quedaba la misma puerta abierta por el otro lado. Sin la opción, nada cambia.
+   */
+  sinGemini?: boolean;
 };
 
 /**
@@ -120,14 +126,14 @@ async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaAr
       if (text && text.trim().length > 80) return { texto: text, via: 'pdf' };
     } catch { /* sin capa de texto → es un escaneo, va por visión */ }
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, ...(opts.sinGemini ? { sinGemini: true } : {}), redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
       return { texto: text, via: 'pdf-vision' };
     } catch (e) { return { texto: '', via: 'pdf-vision', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
   if (familia === 'imagen') {
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, ...(opts.sinGemini ? { sinGemini: true } : {}), redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
       return { texto: text, via: 'imagen' };
     } catch (e) { return { texto: '', via: 'imagen', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }

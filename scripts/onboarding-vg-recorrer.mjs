@@ -5,7 +5,8 @@
  * uso (PowerShell, no Git Bash): node _recorrer.mjs <carpeta>
  */
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdtempSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { perfilTemporal } from './perfil-cdp.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,10 +23,11 @@ const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find((p) => existsSync(p));
 if (!CHROME) { console.error('no encontre chrome.exe'); process.exit(1); }
 
-const perfil = mkdtempSync(join(tmpdir(), 'mako-cdp-'));
-const chrome = spawn(CHROME, [`--remote-debugging-port=${PUERTO}`, `--user-data-dir=${perfil}`,
+// El perfil se borra al salir, pase lo que pase (scripts/perfil-cdp.mjs): antes quedaba uno por corrida.
+const { dir: perfil, aCargoDe } = perfilTemporal();
+const chrome = aCargoDe(spawn(CHROME, [`--remote-debugging-port=${PUERTO}`, `--user-data-dir=${perfil}`,
   '--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-gpu',
-  `--window-size=${ANCHO},${ALTO}`, 'about:blank'], { stdio: 'ignore' });
+  `--window-size=${ANCHO},${ALTO}`, 'about:blank'], { stdio: 'ignore' }));
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 async function objetivo() {
