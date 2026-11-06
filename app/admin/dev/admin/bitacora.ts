@@ -536,6 +536,36 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin?tab=customers',
   },
+  {
+    fecha: '6 nov', hora: '02:04', chat: 'Admin', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Borrar Admin entero y copiar el dashboard de Polar',
+    pedido: 'borres todo… copia por completo… no es solamente el diseño, es también las funcionalidades… cómo distribuyen cada página… seas criterioso',
+    puntos: [
+      'Rechazó la segunda versión (Studio Admin) por «tres lugares para configurar mi perfil», «usuarios en tres lugares» e «ingreso mensual en Customers». Llegó por el Cerebro, que eligió la fuente: polarsource/polar (Apache-2.0), una app real para administrar un SaaS con suscripciones, con licencia y stack comprobados.',
+      'El reparto lo decidió el Cerebro: un customer es un negocio; las personas viven sólo en el Members de cada negocio; el gráfico de ingresos sólo en Overview y Analytics › Metrics; lo que Polar tiene y MaKo no puede llenar se saca sin hueco, y lo que MaKo necesita y Polar no tiene va a una lista para que decida Martín.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '04:30', chat: 'Admin', sesion: 'cli_52beedef-99d8-5d17-8f21-3a599afd3cce', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Admin es la copia del dashboard de Polar: siete secciones con su código',
+    puntos: [
+      'Se portó el código de Polar archivo por archivo (su sistema de diseño Orbit, sus componentes de packages/ui y los de su web) y sólo se reemplazaron sus llamadas a la API por las lecturas de MaKo. La barra: Overview · Customers · Analytics · Sales · Products · Finance · Settings, sin barra de arriba ni cuenta: el perfil y el modo oscuro son los de la barra de MaKo.',
+      'Overview con las seis tarjetas de Polar («Por cobrar» en lugar del saldo, y el margen bruto). Customers como maestro y detalle, con Top Customers, At Risk y Cost Drivers; la ficha de un negocio con Overview, Usage, Members (el único lugar de las personas) y Events, que lleva a Analytics › Events filtrado, como Polar.',
+      'Analytics (Metrics, Events con los errores como eventos, Costs), Sales (cada pago con su recibo y «Cargar pago», las suscripciones con su historia, los cobros pendientes, los contracargos), Products (los planes y «Vender un plan»), Finance (lo que entró) y Settings (los datos del recibo y los precios de cobro).',
+      'Se borraron Studio y las pantallas viejas; los links viejos (`?tab=`, /customers, /admin/cobros) llevan a su sección. De paso, el próximo cobro de cada suscripción sale de su historia (Código: 5/12 por US$426).',
+      '⚠️ Las capturas con datos de ejemplo encontraron que Admin se veía EN BLANCO: los `m.div` de Polar necesitan el LazyMotion que Polar monta en su raíz. Va en AdminShell, con su test.',
+    ],
+    archivos: [
+      'app/admin/(polar) — las páginas, una por ruta de Polar',
+      'app/admin/_polar — el código de Polar (orbit, ui, atoms, web) y los datos de MaKo (datos/, datos/ejemplo/)',
+      'lib/avisos/LICENSE-POLAR, NOTICE-POLAR y LICENSE-MUI-ICONS',
+      'lib/admin-ingresos-reglas.ts y lib/admin-ingresos.ts — el próximo cobro desde la historia',
+      'docs/relevo/nube-admin-polar.md — qué entró, qué se sacó y lo que no está en la fuente',
+      'docs/admin/polar — las capturas',
+      'tests/admin-polar-*.test.ts',
+    ],
+    revisar: '/admin',
+  },
 ];
 
 export const PARTES: Parte[] = [
