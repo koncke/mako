@@ -11,7 +11,7 @@
 //      ganado, una cuota y UNA compra a Meta con `purchase:<cs_>`, al píxel y como evento de la página.
 //   2. UNA VEZ: la misma venta otra vez, o dos avisos a la vez, no dejan otro cobro, otro lead, otra cuota ni otra compra.
 //   3. LO QUE NO ES, NO ENTRA: con la metadata de un checkout de MaKo, en la plataforma, sin pagar o con el interruptor
-//      apagado, nada se escribe. En prueba entra en prueba y no va a Meta. Sin píxel entra y el historial lo dice.
+//      apagado, nada se escribe. Por decidir entra en prueba y no va a Meta. Sin píxel entra y el historial lo dice.
 //   4. NUNCA ESCRIBE EN EL STRIPE DEL NEGOCIO, y un cobro externo no se reembolsa ni se cancela desde MaKo.
 //   5. UN CORTE A MITAD SE COMPLETA: si el aviso se corta después de reclamar la venta y antes del lead, el reintento la
 //      termina (lead, cuota, compra). Antes caía por el camino de los cobros de MaKo, decía «ya estaba pagado» y la venta quedaba

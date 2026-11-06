@@ -28,7 +28,7 @@ export const TOPE_POR_COLUMNA = 6;
 
 export const COLUMNAS: ReadonlyArray<{ id: Grupo; titulo: string; ayuda: string; vacia: string }> = [
   { id: 'funcionan', titulo: 'Funcionan', ayuda: 'Cuestan menos que tu objetivo', vacia: 'Todavía ninguna' },
-  { id: 'prueba', titulo: 'En prueba', ayuda: 'Aún sin datos para decidir', vacia: 'Ninguna en prueba' },
+  { id: 'prueba', titulo: 'Por decidir', ayuda: 'Cerca del objetivo o con pocos datos', vacia: 'Ninguna por decidir' },
   { id: 'revisar', titulo: 'Para revisar', ayuda: 'Caras, sin resultados o retenidas', vacia: 'Nada para revisar' },
 ];
 
