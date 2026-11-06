@@ -77,6 +77,22 @@ lámina 1 quedó en «A LOS 22 AÑOS, MARTIN KONCKE ANOTÓ SUS 10 METAS»: ni la
 inventada no se puede detectar en el saneo, así que esta regla se queda en una sola capa a propósito y **queda decidir si un
 ejemplo de tipo historia/storytime es replicable** (ver «Sin hacer»).
 
+**El diseño que falló, leído de la base de producción** (`b31f62ec-5727-4ac7-bde7-2bb141bf0727`, el que Martín reportó):
+creado el 6/11 a las 13:46 UTC —una hora y media ANTES del commit del arreglo (`02ce9b6e3`, 15:11)— en el **ws 9, el de
+Martín, que tiene las tres claves cargadas**. Son 8 páginas de GUÍAS («Tu gancho con un número», «Tu punto número 1»…), con
+las letras del editor (Inter y Montserrat) y sin ningún recuadro de «Tu foto». O sea: el aviso «Tu IA no contestó» no salió por
+falta de IA —la tenía— sino porque el camino de respaldo cortaba la respuesta en 512 tokens, que es exactamente lo que se
+arregló. El síntoma reportado y el diagnóstico coinciden, y el mismo caso corrido hoy en el ws 9 devuelve el diseño con los
+textos del negocio.
+
+**Y el arreglo YA ESTÁ EN PRODUCCIÓN, contra lo que decía el encargo** (que se había escrito mirando el deploy de las 11:05
+UTC, anterior al commit). Medido contra la API de Vercel el 6/11: el deploy de producción vigente es `cce171fab` (6/11, 17:57
+UTC) y tiene `02ce9b6e3` —el commit del arreglo, 15:11 UTC— como ancestro; los de las 11:05 y 13:13 UTC no lo tenían. **La
+regla: «está desplegado» no se deduce de la hora de un deploy, se pregunta si el commit es ANCESTRO del que está servido**
+(`git merge-base --is-ancestor <arreglo> <sha del deploy>`, con el sha que da `api.vercel.com/v6/deployments?target=production`
+y el `VERCEL_API_TOKEN` del `.env.local`). La fecha engaña de los dos lados: la del commit es la del autor y la del deploy es
+la de la compilación.
+
 **El tiempo, que es el riesgo que queda:** cinco corridas dieron 21,6 s · 33,4 s · 143,4 s · 149,3 s · **276,9 s**, contra el
 `maxDuration = 300` de la ruta (cuyo comentario decía «de 20 a 90 s»). La causa, con la red instrumentada: `gemini-flash-latest`
 no contesta y **se come el timeout entero de 120 s**, y después el respaldo (`gemini-flash-lite-latest`) contesta en 8 s. Dos
@@ -291,6 +307,10 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **El ws 3 («Cliente de Prueba») no tiene ninguna clave de IA**, así que el comando de prueba con `--ws 3` sólo ejercita el
   camino sin IA. Conectarle una es escribir en producción: pendiente del sí de Martín. Mientras tanto, la prueba con IA real va
   con `--ws 9`.
+- **Del orquestador falta cubrir el camino de la MINIATURA** (`replicarEjemplo` con `que: 'thumbnail'`):
+  `tests/carruseles-editar.test.ts` corre los seis casos del carrusel, y la miniatura sólo se probó a mano con la IA real
+  (21,6 s, una lámina de 1280 × 720 con el gancho del negocio). Su camino en seco ya armaba el documento, así que ahí no vivía
+  el bug, pero es la mitad del orquestador sin arnés.
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 
