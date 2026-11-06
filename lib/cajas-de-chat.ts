@@ -56,7 +56,7 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   { archivo: 'app/video-editor/_opencut/chat/PanelChat.tsx', chat: 'Video Editor (la lectura de los archivos va aparte de la instrucción)' },
   {
     archivo: 'app/ads-manager/PrimeraEntrada.tsx', chat: 'la primera entrada de Marketing CoPilot',
-    falta: { adjuntos: 'no corresponde: cada respuesta es el dato de un paso; los archivos se le pasan al chat de la tab', voz: 'no corresponde: la nota se transcribe y responde el paso como texto' },
+    falta: { adjuntos: 'no corresponde: no tiene adjuntos propios; la caja lee el archivo y lo manda con la respuesta', voz: 'no corresponde: la nota se transcribe y responde el paso como texto' },
   },
   {
     archivo: 'app/ads-manager/ArranqueMediaBuyer.tsx', chat: 'el arranque del Media Buyer',
