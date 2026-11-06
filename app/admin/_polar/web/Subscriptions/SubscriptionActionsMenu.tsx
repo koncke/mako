@@ -13,9 +13,8 @@ import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { cancelarSuscripcionMakoAction } from '@/app/admin/cobros/actions'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
-import { AvisoDeError, AvisoHecho } from '@/app/admin/_polar/web/Orders/Aviso'
 import { MoreVertOutlined } from '@/app/admin/_polar/orbit/icons'
-import { Button } from '@/app/admin/_polar/orbit'
+import { Alert, Button } from '@/app/admin/_polar/orbit'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,8 +50,8 @@ const SubscriptionActionsMenu = ({ subscription }: { subscription: SuscripcionVe
       </DropdownMenu>
       {(error || hecho) && (
         <div className="fixed right-6 bottom-6 z-50 max-w-sm">
-          <AvisoDeError texto={error} />
-          <AvisoHecho texto={hecho} />
+          {error && <Alert variant="danger" title={error} />}
+          {hecho && <Alert variant="success" title={hecho} />}
         </div>
       )}
       {cobroId != null && (

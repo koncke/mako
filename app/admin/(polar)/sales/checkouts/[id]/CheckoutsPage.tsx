@@ -12,13 +12,12 @@ import { useRouter } from '@/app/_ui/Link'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import CheckoutStatus from '@/app/admin/_polar/web/Checkouts/CheckoutStatus'
 import { OrderCustomerContext } from '@/app/admin/_polar/web/Orders/OrderCustomerContext'
-import { AvisoDeError, AvisoHecho } from '@/app/admin/_polar/web/Orders/Aviso'
 import { montoEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
 import { medioEnTexto, type CheckoutVenta } from '@/app/admin/_polar/datos/ventas'
 import { anularCobroMakoAction } from '@/app/admin/cobros/actions'
-import { Button, DataTable, List, ListItem, Text } from '@/app/admin/_polar/orbit'
+import { Alert, Button, DataTable, List, ListItem, Text } from '@/app/admin/_polar/orbit'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
 import React from 'react'
 
@@ -73,8 +72,8 @@ const ClientPage: React.FC<{ checkout: CheckoutVenta }> = ({ checkout }) => {
         ) : undefined
       }
     >
-      <AvisoDeError texto={error} />
-      <AvisoHecho texto={hecho} />
+      {error && <Alert variant="danger" title={error} />}
+      {hecho && <Alert variant="success" title={hecho} />}
       <List size="small">
         <ListItem size="small" className="flex flex-row items-center justify-between gap-x-4">
           <div className="flex flex-col">

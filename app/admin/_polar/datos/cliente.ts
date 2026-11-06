@@ -124,6 +124,16 @@ export function suscripcionesDelNegocio(subs: readonly SuscripcionVenta[], ws: n
   return subs.filter((s) => s.cliente.ws === ws).sort((a, b) => peso[a.estado] - peso[b.estado] || String(b.empezo ?? '').localeCompare(String(a.empezo ?? '')))
 }
 
+/**
+ * «Lo que paga por mes» de la ficha: la suma de la mensualidad de sus suscripciones vivas (activas y atrasadas), la MISMA que dice
+ * «Monto / mes» de su tabla (revisión del Cerebro del 6/11/2026, punto 10: la caja salía del último pago, y quien pagó 100 de 238
+ * veía 100 arriba y 238 abajo). null si no tiene ninguna viva con su monto: ahí manda el MRR de lo cobrado.
+ */
+export function mensualidadDelNegocio(subs: readonly Pick<SuscripcionVenta, 'estado' | 'mensualidadUsd'>[]): number | null {
+  const vivas = subs.filter((s) => (s.estado === 'active' || s.estado === 'past_due') && s.mensualidadUsd != null)
+  return vivas.length ? Math.round(vivas.reduce((t, s) => t + (s.mensualidadUsd as number), 0) * 100) / 100 : null
+}
+
 export type CifrasNegocio = {
   /** Lo que pagó en el rango, en CENTAVOS (como lo dibuja Polar). Lo devuelto no suma (`totalesDePedidos` de Sales). */
   revenue: number

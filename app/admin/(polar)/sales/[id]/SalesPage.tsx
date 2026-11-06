@@ -22,7 +22,7 @@ import { OrderStatus } from '@/app/admin/_polar/web/Orders/OrderStatus'
 import { DownloadReceiptDashboard } from '@/app/admin/_polar/web/Orders/DownloadReceipt'
 import { InvoicePreview } from '@/app/admin/_polar/web/Orders/InvoicePreview'
 import { ResendReceiptModal } from '@/app/admin/_polar/web/Orders/ResendReceiptModal'
-import { AvisoDeError, AvisoHecho, AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
 import type { CobroVenta, Pedido } from '@/app/admin/_polar/datos/ventas'
@@ -30,7 +30,7 @@ import { anularReciboAction } from '@/app/admin/cobros/recibos-actions'
 import { atarCobroMakoAction } from '@/app/admin/cobros/actions'
 import { totalesEnTexto } from '@/lib/recibos-reglas'
 import { MoreVertOutlined } from '@/app/admin/_polar/orbit/icons'
-import { Button, Checkbox, InlineModal, Text } from '@/app/admin/_polar/orbit'
+import { Alert, Button, Checkbox, InlineModal, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import {
   DropdownMenu,
@@ -45,16 +45,20 @@ interface ClientPageProps {
   cobro: CobroVenta | null
   plataforma: number | null
   avisos: string[]
+  /** La ruta de la suscripción del pedido (`suscripcionDelPedido`), o null: sin ella, «Suscripción» va sin enlace. */
+  suscripcion?: string | null
+  /** El resultado de una devolución recién hecha (`?hecho=`, OrderRefundsSection), o null. */
+  hecho?: string | null
 }
 
-const ClientPage: React.FC<ClientPageProps> = ({ order, cobro, plataforma, avisos }) => {
+const ClientPage: React.FC<ClientPageProps> = ({ order, cobro, plataforma, avisos, suscripcion = null, hecho: hechoInicial = null }) => {
   const router = useRouter()
   const reenviar = useModal()
   const anular = useModal()
   const atar = useModal()
   const [avisar, setAvisar] = useState(order.recibo?.correoEstado === 'enviado')
   const [error, setError] = useState<string | null>(null)
-  const [hecho, setHecho] = useState<string | null>(null)
+  const [hecho, setHecho] = useState<string | null>(hechoInicial)
 
   const recibo = order.recibo
   const puedeReenviar = recibo?.estado === 'emitido'
@@ -111,10 +115,10 @@ const ClientPage: React.FC<ClientPageProps> = ({ order, cobro, plataforma, aviso
       contextViewClassName="bg-transparent dark:bg-transparent border-none rounded-none md:shadow-none"
     >
       <AvisosDeLectura avisos={avisos} />
-      <AvisoDeError texto={error} />
-      <AvisoHecho texto={hecho} />
+      {error && <Alert variant="danger" title="No se pudo" description={error} />}
+      {hecho && <Alert variant="success" title={hecho} />}
 
-      <OrderDetails order={order} />
+      <OrderDetails order={order} suscripcion={suscripcion} />
 
       <Box flexDirection="column" borderTopWidth={1} borderStyle="solid" borderColor="border-primary" paddingTop="4xl">
         <OrderSection title="Cobro">
@@ -128,9 +132,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ order, cobro, plataforma, aviso
             received={recibido}
           />
           {!recibo && (
-            <Text color="muted">
-              Este pago no tiene recibo: entró antes del libro de recibos (5/11/2026) o se registró en el CRM.
-            </Text>
+            <Text color="muted">Este pago no tiene recibo.</Text>
           )}
         </OrderSection>
       </Box>

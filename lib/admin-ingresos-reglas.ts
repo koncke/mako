@@ -11,10 +11,13 @@
 // parte en cinco movimientos — nuevo, sube (expansion), baja (contraction), corte (churn) y vuelve (reactivation) — que
 // suman exacto: MRR del mes = MRR del anterior + nuevo + vuelve + sube − baja − corte.
 //
-// POR QUÉ DE LOS PAGOS Y NO DEL LEAD (medido en producción el 5/11/2026, docs/relevo/admin-encargo.md): todo lo que Martín
-// cobró hasta hoy entró A MANO (transferencia, Binance) y vive en `pagos` del CRM de la plataforma; `cobros` (la pasarela)
-// tiene 2 filas pendientes y el `suscripcion_monto_usd` del lead está vacío en los tres clientes. Así que el monto de cada
-// mes es lo que de verdad PAGÓ, y un dato faltante en el lead no deja el MRR en cero.
+// DE LOS PAGOS, Y DE LA MENSUALIDAD CUANDO LA SUSCRIPCIÓN TIENE SU HISTORIA (revisión del Cerebro, 6/11/2026, punto 10). El 5/11 el
+// MRR salió de lo PAGADO porque el `suscripcion_monto_usd` del lead estaba vacío en los tres clientes y un monto vacío no podía
+// dejar el MRR en cero. Eso ya lo cubre la historia mes a mes (lib/suscripcion-meses.ts): sin monto, `montoHoyUsd` es lo pagado el
+// último mes (`montoInferido`). Y con lo pagado, quien paga 100 de una mensualidad de 238 decía 100 de MRR en la ficha y 238 en su
+// tabla. Así que una suscripción a mano con su historia (las de `proximos`) vale, cada mes, SU MENSUALIDAD (`esperadoUsd` del
+// mes, `montoDelMes`), y su corte guardado la saca el día del corte (`conMensualidad`). Las demás (la pasarela, o sin historia)
+// siguen con lo que pagaron. Un dato faltante en el lead sigue sin dejar el MRR en cero.
 //
 // LAS TRES REGLAS QUE NO SE VEN:
 //   · PAGOS QUE SE JUNTAN: dos pagos de la misma suscripción a menos de `VENTANA_JUNTAR_DIAS` días son UN cobro (Código pagó
@@ -31,6 +34,7 @@
 // =============================================================================
 
 import { sumarMeses } from './cobrado-lead';
+import { hoyEnTz } from './date-utils';
 import type { HistoriaSuscripcion } from './suscripcion-meses';
 
 /** Dos pagos de la misma suscripción a menos de estos días son UN cobro (completar el mes en dos pagos). */
@@ -39,6 +43,27 @@ export const VENTANA_JUNTAR_DIAS = 7;
 export const GRACIA_DIAS = 15;
 /** Días antes del vencimiento en que una suscripción pasa a «Por vencer». */
 export const AVISO_PROXIMO_DIAS = 5;
+/**
+ * Días de atraso hasta los que una suscripción sigue en «Por cobrar» (punto 9). Pasada la gracia, la historia mes a mes sigue
+ * diciendo que debe, y el total no puede bajar sin que nadie haya cobrado; pero la deuda de quien se fue sin un corte guardado
+ * crece sin fin, así que pasado esto sale de «Por cobrar» (sigue en Subscriptions como «Atrasada» y en At Risk). El MRR sigue
+ * con la gracia (`GRACIA_DIAS`).
+ */
+export const ATRASO_MAXIMO_DIAS = 60;
+
+/**
+ * El DÍA de un instante en la zona de la plataforma (YYYY-MM-DD). Punto 6: el día de un pago no es el de su fecha en UTC (un
+ * pago del 31/10 a las 22:00 de Argentina es el 1/11 en UTC, y caía en noviembre). Una zona que no existe usa el día en UTC.
+ */
+export function diaEnLaZona(iso: string, tz: string | null | undefined): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return String(iso ?? '').slice(0, 10);
+  try {
+    return hoyEnTz(tz || 'UTC', new Date(t));
+  } catch {
+    return new Date(t).toISOString().slice(0, 10);
+  }
+}
 
 /** Un pago que ENTRÓ, ya normalizado por el lector. */
 export type PagoIngreso = {
@@ -57,9 +82,13 @@ export type PagoIngreso = {
   concepto: string | null;
   /**
    * El cobro de la pasarela que lo asentó (`pagos.cobro_id`, o el cobro mismo), si salió por la pasarela. Lo usa Admin › Sales ›
-   * Orders para atar el pago a su RECIBO (`recibos.cobro_id`): sin él, el pago y su recibo serían dos renglones del mismo pago.
+   * Orders para atar un pago viejo, sin `proveedorPagoId`, al recibo de su cobro (si ese cobro tiene uno solo).
    */
   cobroId?: number | null;
+  /** La pasarela del pago (`pagos.proveedor`, o la del cobro). Con `proveedorPagoId`, la clave de su recibo (Admin › Sales). */
+  proveedor?: string | null;
+  /** El id del pago en la pasarela (`pagos.proveedor_pago_id`, o el del cobro): cuál pago de un cobro es (Admin › Sales). */
+  proveedorPagoId?: string | null;
 };
 
 /** Quién es cada cliente, para dibujarlo. */
@@ -379,6 +408,14 @@ export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo
   return [...out.values()].sort((a, b) => b.mrr - a.mrr || peso(a.estado) - peso(b.estado) || b.total - a.total || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
+/**
+ * ¿Este lead de la plataforma es una suscripción (entra en `suscripcionesDeLaPlataforma`, lib/admin-ingresos.ts)? Su `venta_tipo`,
+ * o un pago registrado COMO la mensualidad (`es_mensualidad`, punto 10): ese pago ya cuenta en el MRR (`esRecurrente`), y sin esto
+ * Subscriptions no lo listaba, así que el MRR y «Suscripciones activas» contaban a alguien que la lista no tenía.
+ */
+export const esLeadDeSuscripcion = (l: { id: number; venta_tipo: string | null }, conMensualidad: ReadonlySet<number>): boolean =>
+  l.venta_tipo === 'suscripcion' || conMensualidad.has(Number(l.id));
+
 // ── Lo que viene ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type PorCobrar = { cliente: string; fecha: string; usd: number; atrasado: boolean };
@@ -393,6 +430,12 @@ export type ProximoDeSuscripcion = {
   atrasado: { fecha: string; usd: number } | null;
   /** El próximo vencimiento de mañana en adelante, por lo que falta de ESE mes (su mensualidad, si no tiene nada pagado). */
   siguiente: { fecha: string; usd: number } | null;
+  /**
+   * Lo que vale la suscripción cada mes, para el MRR (punto 10, `conMensualidad`): la mensualidad de cada mes de su historia
+   * (`esperadoUsd`, null = no se sabe), la de hoy (`montoHoyUsd`, con la inferencia de lo pagado si no hay monto) y el día en que
+   * su corte guardado la saca (`YYYY-MM-01` del mes de `cortadaDesde`). Ausente = el MRR sale de lo pagado (la regla de antes).
+   */
+  mensualidad?: { meses: Array<{ mes: string; usd: number | null }>; hoyUsd: number | null; corte: string | null };
 };
 
 /**
@@ -403,7 +446,12 @@ export type ProximoDeSuscripcion = {
  * `montoDelMes` (con los cambios guardados); sin monto conocido, la mensualidad de hoy (`montoHoyUsd`).
  */
 export function proximoDeHistoria(h: Pick<HistoriaSuscripcion, 'cortadaDesde' | 'terminada' | 'montoHoyUsd' | 'proximo' | 'proximaFecha' | 'deudaUsd' | 'meses'>, hoy: string): ProximoDeSuscripcion {
-  if (h.cortadaDesde || h.terminada) return { sinCobro: true, atrasado: null, siguiente: null };
+  const mensualidad: NonNullable<ProximoDeSuscripcion['mensualidad']> = {
+    meses: h.meses.map((m) => ({ mes: m.mes, usd: m.esperadoUsd })),
+    hoyUsd: h.montoHoyUsd,
+    corte: h.cortadaDesde ? `${h.cortadaDesde.slice(0, 7)}-01` : null,
+  };
+  if (h.cortadaDesde || h.terminada) return { sinCobro: true, atrasado: null, siguiente: null, mensualidad };
   const mensual = h.montoHoyUsd ?? 0;
   const atrasado = h.proximo && h.proximo.vence <= hoy
     ? { fecha: h.proximo.vence, usd: r2(h.deudaUsd > 0 ? h.deudaUsd : h.proximo.faltaUsd ?? mensual) }
@@ -414,7 +462,68 @@ export function proximoDeHistoria(h: Pick<HistoriaSuscripcion, 'cortadaDesde' | 
     const mes = h.meses.find((m) => m.vence === h.proximaFecha && m.estado !== 'pagado' && m.estado !== 'cortado');
     siguiente = { fecha: h.proximaFecha, usd: r2(mes ? mes.faltaUsd ?? mes.esperadoUsd ?? mensual : mensual) };
   }
-  return { sinCobro: false, atrasado, siguiente };
+  return { sinCobro: false, atrasado, siguiente, mensualidad };
+}
+
+/** El mes que sigue a `mes` (YYYY-MM). */
+const mesSiguiente = (mes: string): string => {
+  const [y, m] = mes.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+};
+
+/**
+ * ⚠️ EL MRR DE UNA SUSCRIPCIÓN CON SU HISTORIA SALE DE SU MENSUALIDAD (punto 10). Los tramos salen de lo PAGADO: quien pagó 100 de
+ * una mensualidad de 238 valía 100 en el MRR (y en «Lo que paga por mes» de la ficha) y 238 en su tabla, y una suscripción
+ * cortada en el CRM seguía contando hasta que pasaba la gracia mientras Subscriptions ya decía «Cortada». Acá, a cada tramo de
+ * una suscripción que trae `mensualidad`:
+ *   · sus montos pasan a ser los de cada mes de su historia (`esperadoUsd`; el de hoy, `hoyUsd`, que trae la inferencia de lo
+ *     pagado cuando no hay monto cargado); un mes sin monto sabido conserva lo que pagó (lo de antes, para no inventar);
+ *   · su corte guardado lo corta ESE día (`corte`), aunque la gracia todavía no haya pasado;
+ *   · los tramos de las dos claves de la misma suscripción (pagos con y sin su CRM apuntan a la MISMA historia) se juntan en uno:
+ *     con la mensualidad puesta en los dos, se sumaría dos veces.
+ * Viva o cortada por falta de pago lo siguen diciendo los tramos (la gracia): la historia pone CUÁNTO y el corte guardado.
+ */
+export function conMensualidad(tramos: readonly Tramo[], proximos: ReadonlyMap<string, ProximoDeSuscripcion> | undefined, hoy: string): Tramo[] {
+  if (!proximos?.size) return [...tramos];
+  const out: Tramo[] = [];
+  const grupos = new Map<ProximoDeSuscripcion, Tramo[]>();
+  for (const t of tramos) {
+    const p = proximos.get(t.suscripcion);
+    if (!p?.mensualidad) { out.push(t); continue; }
+    grupos.set(p, [...(grupos.get(p) ?? []), t]);
+  }
+  for (const [p, lista] of grupos) {
+    const m = p.mensualidad!;
+    const ordenados = [...lista].sort((a, b) => (a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0));
+    // Los de la misma historia que se pisan son UN tramo (sus cambios de lo pagado, juntos y en orden).
+    const juntos: Tramo[] = [];
+    for (const t of ordenados) {
+      const ult = juntos[juntos.length - 1];
+      if (ult && (ult.fin == null || t.inicio <= ult.fin)) {
+        ult.fin = ult.fin == null || t.fin == null ? null : (t.fin > ult.fin ? t.fin : ult.fin);
+        if (t.vence > ult.vence) ult.vence = t.vence;
+        ult.cambios = [...ult.cambios, ...t.cambios].sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+        continue;
+      }
+      juntos.push({ ...t, cambios: [...t.cambios] });
+    }
+    const delMes = new Map(m.meses.map((x) => [x.mes, x.usd]));
+    for (const t of juntos) {
+      if (m.corte && (t.fin == null || m.corte < t.fin)) t.fin = m.corte < t.inicio ? t.inicio : m.corte;
+      const pagado: Tramo = { ...t, fin: null };
+      const hasta = (t.fin ?? hoy).slice(0, 7);
+      const cambios: Tramo['cambios'] = [];
+      for (let mes = t.inicio.slice(0, 7), i = 0; mes <= hasta && i < 600; mes = mesSiguiente(mes), i++) {
+        const fecha = mes === t.inicio.slice(0, 7) ? t.inicio : `${mes}-01`;
+        const sabido = delMes.get(mes) ?? (mes === hoy.slice(0, 7) ? m.hoyUsd : null);
+        const usd = sabido != null && sabido > 0 ? sabido : montoEn(pagado, fecha);
+        if (!cambios.length || cambios[cambios.length - 1].usd !== r2(usd)) cambios.push({ fecha, usd: r2(usd) });
+      }
+      if (cambios.length) t.cambios = cambios;
+      out.push(t);
+    }
+  }
+  return out;
 }
 
 /**
@@ -429,16 +538,20 @@ export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31, pr
   // Dos claves de la misma suscripción (pagos con y sin su CRM) apuntan a la MISMA historia: se cuenta una vez.
   const usadas = new Set<ProximoDeSuscripcion>();
   for (const t of tramos) {
-    if (t.fin != null) continue;
     const p = proximos?.get(t.suscripcion);
+    // ⚠️ LA HISTORIA MANDA, AUNQUE EL TRAMO ESTÉ CORTADO (punto 9): pasada la gracia el tramo se da por cortado, pero su historia
+    // sigue diciendo que debe, y el moroso salía de «Por cobrar» a los 15 días sin que nadie cobrara. `t.fin` descarta sólo a las
+    // que no tienen historia. El tope: `ATRASO_MAXIMO_DIAS` (quien se fue sin un corte guardado debe para siempre).
     if (p) {
       if (usadas.has(p)) continue;
       usadas.add(p);
       if (p.sinCobro) continue;
+      if (p.atrasado && diasEntre(p.atrasado.fecha, hoy) > ATRASO_MAXIMO_DIAS) continue;
       if (p.atrasado) out.push({ cliente: t.cliente, fecha: p.atrasado.fecha, usd: p.atrasado.usd, atrasado: true });
       if (p.siguiente && p.siguiente.fecha <= hasta) out.push({ cliente: t.cliente, fecha: p.siguiente.fecha, usd: p.siguiente.usd, atrasado: false });
       continue;
     }
+    if (t.fin != null) continue;
     if (t.vence > hasta) continue;
     const usd = t.cambios[t.cambios.length - 1]?.usd ?? 0;
     out.push({ cliente: t.cliente, fecha: t.vence, usd, atrasado: t.vence <= hoy });
@@ -481,14 +594,21 @@ export type Ingresos = {
  * una `Entrada` a mano (los ejemplos de las pantallas); `entradasDe` los pone siempre. `concepto` y `cobroId` los suma Admin ›
  * Sales › Orders (el renglón del pago y su recibo).
  */
-export type Entrada = { fecha: string; usd: number | null; medio: string | null; recurrente: boolean; nombre: string; id?: string; cliente?: string; concepto?: string | null; cobroId?: number | null };
+export type Entrada = {
+  fecha: string; usd: number | null; medio: string | null; recurrente: boolean; nombre: string; id?: string; cliente?: string; concepto?: string | null; cobroId?: number | null;
+  /** La pasarela y el id del pago en ella (Admin › Sales: la clave de su recibo, y si es el pago que devuelve «Devolver el pago»). */
+  proveedor?: string | null; proveedorPagoId?: string | null;
+};
 
 /** Los pagos válidos (con fecha y hasta hoy), el más viejo primero. `usd` null = sin su valor en dólares: no suma. */
 export function entradasDe(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string): Entrada[] {
   return pagosValidos(pagos, hoy)
     .slice()
     .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.id.localeCompare(b.id)))
-    .map((p) => ({ fecha: p.fecha, usd: usdDe(p.usd), medio: p.medio, recurrente: p.suscripcion != null, nombre: quien.get(p.cliente)?.nombre ?? p.cliente, id: p.id, cliente: p.cliente, concepto: p.concepto, cobroId: p.cobroId ?? null }));
+    .map((p) => ({
+      fecha: p.fecha, usd: usdDe(p.usd), medio: p.medio, recurrente: p.suscripcion != null, nombre: quien.get(p.cliente)?.nombre ?? p.cliente, id: p.id, cliente: p.cliente,
+      concepto: p.concepto, cobroId: p.cobroId ?? null, proveedor: p.proveedor ?? null, proveedorPagoId: p.proveedorPagoId ?? null,
+    }));
 }
 
 export type PagoReciente = PagoIngreso & { nombre: string; recurrente: boolean };
@@ -508,7 +628,8 @@ export function pagosRecientes(pagos: readonly PagoIngreso[], quien: ReadonlyMap
  */
 export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string, n = 12, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): Ingresos {
   const periodos = periodosDe(pagos, hoy);
-  const tramos = tramosDe(periodos, hoy);
+  // Las suscripciones con su historia valen su MENSUALIDAD, y su corte guardado las corta ese día (punto 10, `conMensualidad`).
+  const tramos = conMensualidad(tramosDe(periodos, hoy), proximos, hoy);
   const movimientos = movimientosDe(tramos);
   const meses = mesesDe(pagos, tramos, movimientos, hoy, n);
   const clientes = clientesDe(pagos, tramos, quien, hoy, proximos);

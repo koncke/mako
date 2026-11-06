@@ -10,7 +10,7 @@ import { useMemo } from 'react'
 import { useRouter } from '@/app/_ui/Link'
 import { DisputeStatusSelect } from '@/app/admin/_polar/web/Disputes/DisputeStatusSelect'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
-import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import { useDataTableQueryState } from '@/app/admin/_polar/web/Orders/useDataTableQueryState'
 import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
@@ -81,7 +81,7 @@ const DisputesPage = ({ disputas, avisos }: Props) => {
           <EmptyState
             icon={<GavelOutlined fontSize="inherit" />}
             title="Todavía no hubo contracargos"
-            description="Si un cliente disputa un cargo con su banco, la pasarela le avisa a MaKo y aparece aquí."
+            description="Un contracargo del banco aparece aquí."
           />
         ) : (
           <>
@@ -99,6 +99,8 @@ const DisputesPage = ({ disputas, avisos }: Props) => {
               onPaginationChange={setPagination}
               isLoading={false}
               getRowId={(row) => row.id}
+              // Una disputa sin pedido no se abre: parecer clicable y no abrir nada se lee como que está rota (punto 24).
+              isRowClickable={(row) => row.original.pedido != null}
               onRowClick={(row) => {
                 if (row.original.pedido) router.push(`/admin/sales/${row.original.pedido}`)
               }}

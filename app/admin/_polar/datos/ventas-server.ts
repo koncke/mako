@@ -13,6 +13,7 @@ import 'server-only'
 import { cache } from 'react'
 import { suscripcionesDeLaPlataforma, vistaDeIngresos } from '@/lib/admin-ingresos'
 import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
+import { getSupabaseServer } from '@/lib/supabase'
 import { zonaDelNegocio } from '@/lib/timezone'
 import { hoyEnTz } from '@/lib/date-utils'
 import type { ReciboListado } from '@/lib/recibos'
@@ -20,8 +21,8 @@ import type { EstadoRecibo } from '@/lib/recibos-reglas'
 import { cobrosDeMakoAction, type CobroMako } from '@/app/admin/cobros/actions'
 import { recibosAction } from '@/app/admin/cobros/recibos-actions'
 import {
-  checkoutsDe, disputasDe, pedidosDe, suscripcionesDe,
-  type CheckoutVenta, type ClienteVenta, type CobroVenta, type DisputaVenta, type Pedido, type ReciboVenta, type SuscripcionDeLead, type SuscripcionVenta,
+  checkoutsDe, diaDelRecibo, disputasDe, pagosSinReciboDe, pedidosDe, suscripcionesDe,
+  type CheckoutVenta, type ClienteVenta, type CobroVenta, type DisputaVenta, type PagoSinRecibo, type Pedido, type ReciboVenta, type SuscripcionDeLead, type SuscripcionVenta,
 } from './ventas'
 import { esDeVenderUnPlan } from './checkout-link'
 
@@ -36,13 +37,14 @@ const leerRecibos = cache(() => recibosAction())
 export function reciboDeListado(r: ReciboListado): ReciboVenta {
   return {
     id: r.id, numero: r.numero, estado: r.estado as EstadoRecibo, origen: r.origen, aNombre: r.a_nombre, destinoWs: r.destino_ws, cobroId: r.cobro_id,
-    emitidoAt: r.emitido_at, fechaPago: r.fecha_pago, lineas: r.lineas.map((l) => ({ concepto: l.concepto, mes: l.mes ?? null, monto: l.monto, moneda: l.moneda })),
+    // El día del pago en la zona del recibo (punto 6): el de su PDF, no el de su instante en UTC.
+    emitidoAt: r.emitido_at, fechaPago: r.fecha_pago, diaPago: diaDelRecibo(r.fecha_pago, r.zona), lineas: r.lineas.map((l) => ({ concepto: l.concepto, mes: l.mes ?? null, monto: l.monto, moneda: l.moneda })),
     totalDetalle: r.total_detalle, monedaDetalle: r.moneda_detalle, totales: r.totales_recibido, impuesto: r.impuesto,
     correoEstado: r.correo_estado, correoA: r.correo_a ?? [], correoError: r.correo_error, waEstado: r.wa_estado, waError: r.wa_error, soloCorreo: r.solo_correo,
     devueltoAt: r.devuelto_at, devueltoMonto: r.devuelto_monto, disputa: r.disputa_texto, anuladoAt: r.anulado_at,
     pagos: r.pagos.map((p) => ({
       id: p.id, medio: p.medio, referencia: p.referencia, fecha: p.fecha, monto: p.monto, moneda: p.moneda, montoUsd: p.monto_usd, de: p.de,
-      comprobante: !!p.comprobante_path, anulado: p.anulado,
+      comprobante: !!p.comprobante_path, anulado: p.anulado, pagoId: p.pago_id ?? null,
     })),
     historial: r.historial,
   }
@@ -53,7 +55,7 @@ export function cobroDeMako(c: CobroMako): CobroVenta {
     id: c.id, nombre: c.nombre, email: c.email, plan: c.plan, concepto: c.concepto, monto: c.monto, moneda: c.moneda, montoUsd: c.monto_usd,
     tipo: c.tipo, modo: c.modo, proveedor: c.proveedor, estado: c.estado, motivo: c.motivo, altaEstado: c.alta_estado, altaWs: c.alta_ws,
     altaWsNombre: c.alta_ws_nombre, altaCapa: c.alta_capa, creadoPor: c.creado_por, createdAt: c.created_at, pagadoAt: c.pagado_at,
-    link: c.link, suscripcionViva: c.suscripcionViva,
+    link: c.link, suscripcionViva: c.suscripcionViva, proveedorPagoId: c.proveedor_pago_id ?? null,
   }
 }
 
@@ -63,6 +65,8 @@ export type EstadoLibro = { estado: 'listo' } | { estado: 'falta-migracion' } | 
 export type DatosCargarPago = {
   cuentas: Array<{ id: number; nombre: string }>
   planes: Array<{ nombre: string; precioUsd: number }>
+  /** Los pagos del CRM con su cuenta y sin recibo: el formulario los ofrece primero para atarlos en vez de crear otro (punto 4). */
+  pagosSinRecibo: PagoSinRecibo[]
 }
 
 async function hoyDeLaPlataforma(plataforma: number): Promise<string> {
@@ -82,6 +86,8 @@ export type VistaOrders = {
   /** Las cobros de la plataforma (para el detalle: devolver, atar a su cuenta). */
   cobros: CobroVenta[]
   plataforma: number | null
+  /** Si se leyó lo cobrado (`vistaDeIngresos`): sin eso, los pedidos son sólo los recibos sueltos (Finance › Income no se dibuja). */
+  ingresosLeidos: boolean
 }
 
 export async function vistaOrders(): Promise<VistaOrders> {
@@ -100,15 +106,34 @@ export async function vistaOrders(): Promise<VistaOrders> {
   const lista = recibos.ok ? recibos.recibos.map(reciboDeListado) : []
   const clientes = new Map<string, ClienteVenta>((vista?.clientes ?? []).map((c) => [c.clave, { clave: c.clave, nombre: c.nombre, ws: c.ws, leadId: c.leadId, email: null }]))
   const nombreDeWs = new Map<number, string>((recibos.ok ? recibos.cuentas : []).map((c) => [c.id, c.nombre]))
+  const zona = plataforma != null ? await zonaDelNegocio(plataforma).catch(() => 'UTC') : 'UTC'
+  const filasCobros = cobros.ok ? cobros.cobros.map(cobroDeMako) : []
+  const pedidos = pedidosDe({ entradas: vista?.entradas ?? [], recibos: lista, clientes, nombreDeWs, cobros: filasCobros, zona })
   return {
     hoy: vista?.hoy ?? (plataforma != null ? await hoyDeLaPlataforma(plataforma) : hoyEnTz('UTC')),
-    pedidos: pedidosDe({ entradas: vista?.entradas ?? [], recibos: lista, clientes, nombreDeWs }),
+    pedidos,
     avisos,
     libro,
-    cargarPago: recibos.ok && !recibos.faltaLaMigracion ? { cuentas: recibos.cuentas, planes: recibos.planes } : null,
-    cobros: cobros.ok ? cobros.cobros.map(cobroDeMako) : [],
+    cargarPago: recibos.ok && !recibos.faltaLaMigracion ? { cuentas: recibos.cuentas, planes: recibos.planes, pagosSinRecibo: pagosSinReciboDe(pedidos) } : null,
+    cobros: filasCobros,
     plataforma,
+    ingresosLeidos: vista != null,
   }
+}
+
+/**
+ * El cobro de un pago del CRM de la plataforma (`pagos.cobro_id`), para que un `p-<id>` cuyo cobro se devolvió lleve a su `c-<id>`
+ * (punto 3: el pago devuelto pasa a `pagado: false` y deja de estar en Orders). null si no existe, no es de la plataforma o no
+ * salió por la pasarela. Lo llama sales/[id]/page.tsx, DESPUÉS de `exigirSuperAdmin()`.
+ */
+export async function cobroDelPago(pagoId: number): Promise<number | null> {
+  if (!Number.isSafeInteger(pagoId) || pagoId <= 0) return null
+  const plataforma = await wsSuperAdmin().catch(() => null)
+  if (plataforma == null) return null
+  const { data, error } = await getSupabaseServer().from('pagos').select('cobro_id').eq('workspace_id', plataforma).eq('id', pagoId).maybeSingle()
+  if (error || !data) return null
+  const c = (data as { cobro_id: number | null }).cobro_id
+  return c != null ? Number(c) : null
 }
 
 // ── Subscriptions ────────────────────────────────────────────────────────────────────────────────────────────────────

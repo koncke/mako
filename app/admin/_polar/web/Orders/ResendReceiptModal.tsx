@@ -9,8 +9,7 @@ import { useRouter } from '@/app/_ui/Link'
 import type { ReciboVenta } from '@/app/admin/_polar/datos/ventas'
 import { reenviarReciboAction } from '@/app/admin/cobros/recibos-actions'
 import { ROTULO_CORREO, ROTULO_WA } from '@/lib/recibos-reglas'
-import { Button, Checkbox, InlineModalHeader, Input, Text } from '@/app/admin/_polar/orbit'
-import { AvisoDeError, AvisoHecho } from './Aviso'
+import { Alert, Button, Checkbox, InlineModalHeader, Input, Text } from '@/app/admin/_polar/orbit'
 
 export const ResendReceiptModal = ({ recibo, hide }: { recibo: ReciboVenta; hide: () => void }) => {
   const router = useRouter()
@@ -48,8 +47,8 @@ export const ResendReceiptModal = ({ recibo, hide }: { recibo: ReciboVenta; hide
         {!recibo.soloCorreo && (
           <Checkbox checked={whatsapp} onCheckedChange={(v) => setWhatsapp(v === true)} label="También al grupo de WhatsApp de su cuenta" />
         )}
-        <AvisoDeError texto={error} />
-        <AvisoHecho texto={hecho} />
+        {error && <Alert variant="danger" title={error} />}
+        {hecho && <Alert variant="success" title={hecho} />}
         <div className="flex flex-row gap-x-4">
           <Button onClick={reenviar} loading={enviando} disabled={enviando || !!hecho}>
             Reenviar

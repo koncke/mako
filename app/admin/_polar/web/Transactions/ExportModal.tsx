@@ -140,7 +140,7 @@ export function ExportModal<T extends string>({
 
             <Box flexDirection="column" rowGap="s">
               <Button fullWidth disabled={exportDisabled || columns.length === 0} onClick={handleExport}>
-                Bajar el CSV
+                Exportar
               </Button>
               <Text variant="caption" color="muted" align="center">
                 {columns.length} columnas | {rangeLabel}

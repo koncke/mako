@@ -4,20 +4,22 @@
 // (Binance, transferencia…) y le emite su recibo. Lo pidió Martín (6/11/2026) y la acción ya existía (`cargarPagoAction`,
 // app/admin/cobros/recibos-actions.ts → `emitirReciboManual`, lib/recibos.ts, que vuelve a validar todo). Va como los modales de
 // Polar (InlineModal, a la derecha). El `formId` se genera al abrir y viaja en cada intento: un doble clic no da dos recibos.
-// ⚠️ No escribe una cuota ni marca un mes pagado en el CRM: el recibo es del libro (lib/recibos.ts lo dice en su cabecera).
+// ⚠️ DESDE LA REVISIÓN DEL CEREBRO DEL 6/11/2026 (punto 4) TAMBIÉN REGISTRA EL PAGO EN EL CRM de la plataforma: sólo con el recibo,
+// Orders lo sumaba y Overview, Metrics y Finance no lo veían. Si la cuenta tiene un pago del CRM sin recibo, se ofrece PRIMERO,
+// en cada cobro, para atarlo en vez de crear otro (y contarlo dos veces). Lo que no queda en el CRM, la acción lo dice al emitir.
 
 import { useState } from 'react'
 import { useRouter } from '@/app/_ui/Link'
 import {
-  MONEDAS_RECIBO, avisoDeDiferencia, formCargarPagoInicial, pedidoCargarPago, problemaCargarPago,
-  type FormCargarPago, type LineaCargarPago, type PagoCargarPago,
+  MONEDAS_RECIBO, avisoDeDiferencia, conElPrecioDelPlan, formCargarPagoInicial, medioEnTexto, pedidoCargarPago, problemaCargarPago,
+  type FormCargarPago, type LineaCargarPago, type PagoCargarPago, type PagoSinRecibo,
 } from '@/app/admin/_polar/datos/ventas'
+import { usdEnTexto } from './montos'
 import { cargarPagoAction } from '@/app/admin/cobros/recibos-actions'
 import { MEDIOS, ROTULO_MEDIO, ROTULO_REFERENCIA, esMedio } from '@/lib/recibos-reglas'
 import {
   Alert, Button, InlineModalHeader, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Text, TextArea,
 } from '@/app/admin/_polar/orbit'
-import { AvisoDeError, AvisoHecho } from './Aviso'
 import { DownloadReceiptDashboard } from './DownloadReceipt'
 
 const nuevoId = (): string =>
@@ -35,11 +37,14 @@ const Campo = ({ label, htmlFor, children }: { label: string; htmlFor?: string; 
 export const CargarPagoModal = ({
   cuentas,
   planes,
+  pagosSinRecibo = [],
   hoy,
   hide,
 }: {
   cuentas: ReadonlyArray<{ id: number; nombre: string }>
   planes: ReadonlyArray<{ nombre: string; precioUsd: number }>
+  /** Los pagos del CRM sin recibo (con su cuenta): se ofrecen primero para atarlos (punto 4). */
+  pagosSinRecibo?: ReadonlyArray<PagoSinRecibo>
   hoy: string
   hide: () => void
 }) => {
@@ -49,11 +54,14 @@ export const CargarPagoModal = ({
   const [subiendo, setSubiendo] = useState<ReadonlySet<number>>(new Set())
   const [enviando, setEnviando] = useState<'enviar' | 'sin' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [emitido, setEmitido] = useState<{ id: number; numero: number; texto: string } | null>(null)
+  const [emitido, setEmitido] = useState<{ id: number; numero: number; texto: string; aviso: string | null } | null>(null)
 
   const linea = (i: number, cambio: Partial<LineaCargarPago>) => setF((x) => ({ ...x, lineas: x.lineas.map((l, j) => (j === i ? { ...l, ...cambio } : l)) }))
   const aviso = avisoDeDiferencia(f)
   const pago = (i: number, cambio: Partial<PagoCargarPago>) => setF((x) => ({ ...x, pagos: x.pagos.map((p, j) => (j === i ? { ...p, ...cambio } : p)) }))
+  // Los pagos del CRM de ESA cuenta que todavía no tienen recibo, y los que ya eligió otro cobro de este formulario no se repiten.
+  const delCrm = pagosSinRecibo.filter((q) => String(q.ws) === f.cuenta)
+  const rotuloDelPago = (q: PagoSinRecibo) => [q.fecha, usdEnTexto(q.usd, 'standard'), q.medio ? medioEnTexto(q.medio) : null, q.concepto].filter(Boolean).join(' · ')
 
   async function subir(i: number, archivo: File) {
     setSubiendo((s) => new Set(s).add(i))
@@ -80,7 +88,7 @@ export const CargarPagoModal = ({
     setEnviando(null)
     if (!r.ok) return setError(r.error)
     const n = String(r.numero).padStart(4, '0')
-    setEmitido({ id: r.id, numero: r.numero, texto: `${r.yaEstaba ? 'Ya estaba' : enviar ? 'Emitido y enviado' : 'Emitido sin enviar'}: recibo N.º ${n}.${r.aviso ? ` ${r.aviso}` : ''}` })
+    setEmitido({ id: r.id, numero: r.numero, texto: `${r.yaEstaba ? 'Ya estaba' : enviar ? 'Emitido y enviado' : 'Emitido sin enviar'}: recibo N.º ${n}.`, aviso: r.aviso ?? null })
     router.refresh()
   }
 
@@ -93,7 +101,7 @@ export const CargarPagoModal = ({
         <Text color="muted">El recibo de un pago que entró por fuera de la pasarela.</Text>
 
         <Campo label="Cuenta">
-          <Select value={f.cuenta} onValueChange={(v) => setF((x) => ({ ...x, cuenta: v, aNombre: x.aNombre || cuentas.find((c) => String(c.id) === v)?.nombre || '' }))}>
+          <Select value={f.cuenta} onValueChange={(v) => setF((x) => ({ ...x, cuenta: v, aNombre: x.aNombre || cuentas.find((c) => String(c.id) === v)?.nombre || '', pagos: x.pagos.map((p) => ({ ...p, pagoCrm: '' })) }))}>
             <SelectTrigger>
               <SelectValue placeholder="Elige la cuenta" />
             </SelectTrigger>
@@ -104,6 +112,13 @@ export const CargarPagoModal = ({
             </SelectContent>
           </Select>
         </Campo>
+        {delCrm.length > 0 && (
+          <Alert
+            variant="info"
+            title={delCrm.length === 1 ? 'Esta cuenta tiene 1 pago en el CRM sin recibo' : `Esta cuenta tiene ${delCrm.length} pagos en el CRM sin recibo`}
+            description="Si es el mismo pago, elígelo en «Ya está en el CRM» para no contarlo dos veces."
+          />
+        )}
         <Campo label="A nombre de" htmlFor="cp-a-nombre">
           <Input id="cp-a-nombre" value={f.aNombre} onChange={(e) => setF((x) => ({ ...x, aNombre: e.target.value }))} placeholder="Estudio Norte" />
         </Campo>
@@ -125,7 +140,8 @@ export const CargarPagoModal = ({
               value=""
               onValueChange={(v) => {
                 const p = planes.find((x) => x.nombre === v)
-                if (p) linea(0, { concepto: p.nombre, monto: String(p.precioUsd) })
+                // El precio de un plan es en dólares: el recibo pasa a USD (con otra moneda elegida quedaba «ARS 97»).
+                if (p) setF((x) => conElPrecioDelPlan(x, p))
               }}
             >
               <SelectTrigger><SelectValue placeholder="Usar el precio de un plan" /></SelectTrigger>
@@ -179,6 +195,25 @@ export const CargarPagoModal = ({
                   </Select>
                 </Campo>
               </div>
+              {delCrm.length > 0 && (
+                <Campo label="Ya está en el CRM">
+                  <Select
+                    value={p.pagoCrm || 'nuevo'}
+                    onValueChange={(v) => {
+                      const q = delCrm.find((x) => String(x.pagoId) === v)
+                      pago(i, q ? { pagoCrm: v, ...(p.monto ? {} : { monto: q.usd != null ? String(q.usd) : '', moneda: 'USD', fecha: q.fecha }) } : { pagoCrm: '' })
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nuevo">No: registrarlo en el CRM</SelectItem>
+                      {delCrm.filter((q) => !f.pagos.some((o, j) => j !== i && o.pagoCrm === String(q.pagoId))).map((q) => (
+                        <SelectItem key={q.pagoId} value={String(q.pagoId)}>{rotuloDelPago(q)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Campo>
+              )}
               <Campo label="Quién pagó (opcional)"><Input value={p.de} onChange={(e) => pago(i, { de: e.target.value })} placeholder="Ana Gómez" /></Campo>
               <Campo label="Comprobante (JPEG o PNG, opcional)">
                 <input
@@ -209,8 +244,9 @@ export const CargarPagoModal = ({
           <TextArea id="cp-nota-interna" value={f.notaInterna} onChange={(e) => setF((x) => ({ ...x, notaInterna: e.target.value }))} />
         </Campo>
 
-        <AvisoDeError texto={error} />
-        <AvisoHecho texto={emitido?.texto ?? null} />
+        {error && <Alert variant="danger" title={error} />}
+        {emitido && <Alert variant="success" title={emitido.texto} />}
+        {emitido?.aviso && <Alert variant="warning" title={emitido.aviso} />}
         {emitido ? (
           <div className="flex flex-row gap-x-4">
             <DownloadReceiptDashboard reciboId={emitido.id} variant="default" />

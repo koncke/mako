@@ -39,6 +39,7 @@ import {
   contactoDe,
   estadoDeLaCabecera,
   inicioDeActividad,
+  mensualidadDelNegocio,
   wsDeId,
   miembrosDe,
   miembrosDePlataforma,
@@ -247,11 +248,13 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
   const subs = await suscripciones().catch((e) => ({ suscripciones: [] as SuscripcionVenta[], avisos: [`sus suscripciones: ${motivo(e)}`] }))
   // Lo que el Timeline no pudo leer, salvo lo que ya dijeron los pagos de arriba (Sales lee lo mismo y lo avisa una vez).
   avisos.push(...subs.avisos, ...eventos.avisos.filter((a) => !avisos.some((b) => a.endsWith(b))))
+  const suyas = suscripcionesDelNegocio(subs.suscripciones, ws)
   return {
     hoy: ingresos.hoy,
     pedidos: ingresos.pedidos,
-    mrrUsd: ingresos.mrrUsd,
-    suscripciones: suscripcionesDelNegocio(subs.suscripciones, ws),
+    // La caja lee la mensualidad de sus suscripciones, la misma de su tabla (punto 10); sin ninguna viva, el MRR de lo cobrado.
+    mrrUsd: mensualidadDelNegocio(suyas) ?? ingresos.mrrUsd,
+    suscripciones: suyas,
     conexiones,
     computadoras: computadorasDeLaFicha(opera, computadoras),
     eventos: eventos.eventos,

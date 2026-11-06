@@ -34,13 +34,18 @@ import {
   type CobroDeVenta,
   type ProductoMako,
 } from '../app/admin/_polar/datos/productos'
-import { celdasDeExportacion, filasDeIngresos, medioDeIngreso, ordenarIngresos, paginar, tipoDeIngreso } from '../app/admin/_polar/datos/finanzas'
+import { COLUMNAS_POR_DEFECTO, celdasDeExportacion, datosDelLibro, filasDeIngresos, marcaDeFila, medioDeIngreso, ordenarIngresos, paginar } from '../app/admin/_polar/datos/finanzas'
+import { filtrarPedidos, pedidosDe, totalesDePedidos, type CobroVenta, type ReciboVenta } from '../app/admin/_polar/datos/ventas'
+import TransactionsList from '../app/admin/_polar/web/Transactions/TransactionsList'
+import { organizationRoutesList } from '../app/admin/_polar/web/Dashboard/navigation'
+import { TooltipProvider } from '../app/admin/_polar/orbit'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { RUTA_EJEMPLO_RECIBO, emisorConCambios, mismoEmisor, numeroLocal, numeroSimple, problemaDelPerfil, type Emisor } from '../app/admin/_polar/datos/ajustes'
 import { getSettingsSection } from '../app/admin/_polar/web/Settings/settingsSections'
 import { CHECKOUT_LINKS_EJEMPLO, COBROS_EJEMPLO, ENTRADAS_EJEMPLO, INGRESOS_EJEMPLO, PRODUCTOS_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/productos'
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '../lib/planes-mako'
 import { armarCsv } from '../lib/csv-celda'
-import type { Entrada } from '../lib/admin-ingresos-reglas'
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url))
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n')
@@ -185,35 +190,74 @@ test('el monto que se propone: el precio del plan en la moneda del link, nunca c
 })
 
 // ─── Finance › Income ───────────────────────────────────────────────────────
+// Desde la revisión del Cerebro del 6/11/2026 (punto 26), Income es el LIBRO: los MISMOS pedidos de Sales › Orders (`pedidosDe`),
+// con lo que entró, lo devuelto y lo que quedó, y cada fila abre su pedido. Antes era la lista de `entradasDe` otra vez: sin lo
+// devuelto, sin los cargados a mano, con «Compra» donde Orders dice «Pago único», y sin abrir nada.
 
-const entradas: Entrada[] = [
-  { fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-15', usd: 300.5, medio: 'transferencia', recurrente: false, nombre: '=HYPERLINK("x")' },
-  { fecha: '2026-10-15', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado' },
-  { fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte' },
-]
+const reciboAMano: ReciboVenta = {
+  id: 6, numero: 6, estado: 'emitido', origen: 'manual', aNombre: 'Agencia Faro', destinoWs: 52, cobroId: null, emitidoAt: '2026-11-04T12:00:00Z',
+  fechaPago: '2026-11-04T12:00:00Z', lineas: [{ concepto: 'Mensualidad', mes: null, monto: 200, moneda: 'USDT' }], totalDetalle: 200, monedaDetalle: 'USDT',
+  totales: [{ moneda: 'USDT', monto: 200 }], impuesto: null, correoEstado: 'enviado', correoA: [], correoError: null, waEstado: 'no_va', waError: null,
+  soloCorreo: true, devueltoAt: null, devueltoMonto: null, disputa: null, anuladoAt: null,
+  pagos: [{ id: 1, medio: 'binance', referencia: '123456789012345678', fecha: '2026-11-04T12:00:00Z', monto: 200, moneda: 'USDT', montoUsd: 200, de: null, comprobante: false, anulado: false }],
+  historial: [],
+}
+const cobroDevuelto: CobroVenta = {
+  id: 5, nombre: 'Taller Sur', email: 'taller@ejemplo.com', plan: 'MaKo Pro', concepto: 'MaKo Pro', monto: 97, moneda: 'USD', montoUsd: 97, tipo: 'unico',
+  modo: 'real', proveedor: 'stripe', estado: 'reembolsado', motivo: null, altaEstado: null, altaWs: null, altaWsNombre: null, altaCapa: null, creadoPor: null,
+  createdAt: '2026-11-03T10:00:00Z', pagadoAt: '2026-11-03T15:00:00Z', link: null, suscripcionViva: false, proveedorPagoId: 'pi_5',
+}
+const pedidosDelLibro = pedidosDe({
+  entradas: [
+    { id: 'p:1', fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
+    { id: 'p:2', fecha: '2026-10-15', usd: 300.5, medio: 'transferencia', recurrente: false, nombre: '=HYPERLINK("x")' },
+    { id: 'p:3', fecha: '2026-10-15', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado' },
+    { id: 'p:4', fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte' },
+  ],
+  recibos: [reciboAMano], clientes: new Map(), nombreDeWs: new Map(), cobros: [cobroDevuelto],
+})
 
-test('Income: el más nuevo primero (y a igual día, el que entró después), de a páginas', () => {
-  const filas = filasDeIngresos(entradas)
-  assert.deepEqual(ordenarIngresos(filas).map((f) => f.id), ['i3', 'i2', 'i1', 'i0'])
-  assert.deepEqual(ordenarIngresos(filas, false).map((f) => f.id), ['i0', 'i1', 'i2', 'i3'])
-  const p = paginar(ordenarIngresos(filas), 1, 3)
-  assert.deepEqual(p.items.map((f) => f.id), ['i0'])
-  assert.equal(p.rowCount, 4)
-  assert.equal(p.pageCount, 2)
-  assert.deepEqual(paginar(filas, 9, 3).items.map((f) => f.id), ['i3'], 'una página de más cae en la última')
+test('Income: los pedidos de Orders, el más nuevo primero, con lo que entró, lo devuelto y lo que quedó', () => {
+  const filas = filasDeIngresos(pedidosDelLibro)
+  assert.deepEqual(filas.map((f) => f.id), ['r-6', 'c-5', 'p-4', 'p-3', 'p-2', 'p-1'], 'los ids de Orders: cada fila abre su pedido')
+  const fila = (id: string) => filas.find((f) => f.id === id)!
+  assert.deepEqual([fila('p-4').tipo, fila('p-2').tipo, fila('r-6').tipo], ['Suscripción', 'Pago único', 'Cargado a mano'], 'lo mismo que dice Orders (no «Compra»)')
+  assert.deepEqual([fila('c-5').brutoUsd, fila('c-5').devueltoUsd, fila('c-5').netoUsd, marcaDeFila(fila('c-5'))], [97, 97, 0, 'Devuelto'], 'lo devuelto se ve')
+  assert.deepEqual([fila('r-6').brutoUsd, fila('r-6').netoUsd, marcaDeFila(fila('r-6'))], [200, null, 'No suma'], 'el cargado a mano sin atar está, y no suma')
+  assert.deepEqual([fila('p-3').brutoUsd, fila('p-3').netoUsd], [null, null], 'sin dólares no se inventa')
+  assert.deepEqual([fila('p-4').brutoUsd, fila('p-4').devueltoUsd, fila('p-4').netoUsd, marcaDeFila(fila('p-4'))], [97, 0, 97, null])
+  // Una devolución parcial en dólares se resta; en otra moneda no se sabe (nunca una tasa).
+  const p4 = pedidosDelLibro.find((p) => p.id === 'p-4')!
+  const parcial = (moneda: string) => filasDeIngresos([{ ...p4, estado: 'partially_refunded', recibo: { ...reciboAMano, devueltoMonto: 40, monedaDetalle: moneda } }])[0]
+  assert.deepEqual([parcial('USD').devueltoUsd, parcial('USD').netoUsd], [40, 57])
+  assert.deepEqual([parcial('ARS').devueltoUsd, parcial('ARS').netoUsd], [null, null])
+  // Arriba, lo que entró este mes: la MISMA cuenta que la caja «Ingresos» de Orders con «Este mes».
+  const libro = datosDelLibro(pedidosDelLibro, '2026-11-06', [])
+  assert.equal(libro.ok && libro.esteMes, 9700, 'noviembre: el 97 que quedó; ni lo devuelto ni el cargado a mano sin atar')
+  assert.equal(libro.ok && libro.esteMes, totalesDePedidos(filtrarPedidos(pedidosDelLibro, { estado: null, intervalo: 'thisMonth' }, '2026-11-06')).revenue)
+  // El orden de la columna y la página.
+  assert.deepEqual(ordenarIngresos(filas, false).map((f) => f.id), ['p-1', 'p-2', 'p-3', 'p-4', 'c-5', 'r-6'])
+  const p = paginar(ordenarIngresos(filas), 1, 4)
+  assert.deepEqual(p.items.map((f) => f.id), ['p-2', 'p-1'])
+  assert.deepEqual([p.rowCount, p.pageCount], [6, 2])
+  assert.deepEqual(paginar(ordenarIngresos(filas), 9, 4).items.map((f) => f.id), ['p-2', 'p-1'], 'una página de más cae en la última')
   assert.equal(paginar([], 0, 50).pageCount, 1)
-  assert.equal(tipoDeIngreso({ recurrente: true }), 'Suscripción')
-  assert.equal(tipoDeIngreso({ recurrente: false }), 'Compra')
   assert.equal(medioDeIngreso('mercadopago'), 'Mercado Pago')
   assert.equal(medioDeIngreso('binance'), 'Binance')
   assert.equal(medioDeIngreso(null), 'Sin medio')
+  // Cada fila abre su pedido (la mano en todas), y las columnas son las del libro.
+  const html = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(TransactionsList, {
+    transactions: filas, rowCount: filas.length, pageCount: 1, pagination: { pageIndex: 0, pageSize: 50 }, sorting: [], isLoading: false, onRowClick: () => {},
+  })))
+  assert.equal((html.match(/<tr[^>]*cursor-pointer/g) ?? []).length, filas.length, 'cada fila se abre')
+  for (const col of ['Bruto', 'Devuelto', 'Neto', 'Medio']) assert.match(html, new RegExp(`>${col}<`), `la columna ${col}`)
+  assert.doesNotMatch(html, /Compra/)
 })
 
 test('el CSV de Income: el rango con los dos extremos, las columnas en su orden, y un nombre con «=» neutralizado', () => {
-  const filas = filasDeIngresos(entradas)
+  const filas = filasDeIngresos(pedidosDelLibro)
   const celdas = celdasDeExportacion(filas, ['gross_amount', 'created_at', 'customer'], { desde: '2026-10-15', hasta: '2026-11-02' })
-  assert.deepEqual(celdas[0], ['Fecha', 'De quién', 'Monto'], 'el orden es el de los grupos, no el de la selección')
+  assert.deepEqual(celdas[0], ['Fecha', 'De quién', 'Bruto'], 'el orden es el de los grupos, no el de la selección')
   assert.deepEqual(celdas.slice(1), [
     ['2026-10-15', '=HYPERLINK("x")', 300.5],
     ['2026-10-15', 'Luis Prado', null],
@@ -221,10 +265,20 @@ test('el CSV de Income: el rango con los dos extremos, las columnas en su orden,
   ])
   const texto = armarCsv(celdas)
   assert.match(texto, /'=HYPERLINK/, 'armarCsv le antepone el apóstrofo a lo que arranca como fórmula')
-  const todas = celdasDeExportacion(filas, ['created_at', 'type', 'customer', 'method', 'gross_amount', 'currency'], { desde: '2026-01-01', hasta: '2026-12-31' })
-  assert.deepEqual(todas[1], ['2026-09-02', 'Suscripción', 'Ana Gómez', 'Stripe', 47, 'USD'])
-  assert.deepEqual(todas[3], ['2026-10-15', 'Compra', 'Luis Prado', 'Binance', null, null], 'sin su valor en dólares: monto y moneda vacíos')
+  const todas = celdasDeExportacion(filas, COLUMNAS_POR_DEFECTO, { desde: '2026-01-01', hasta: '2026-12-31' })
+  assert.deepEqual(todas[0], ['Fecha', 'Tipo', 'De quién', 'Medio', 'Estado', 'Bruto', 'Devuelto', 'Neto', 'Moneda'])
+  assert.deepEqual(todas[1], ['2026-09-02', 'Suscripción', 'Ana Gómez', 'Stripe', 'Pagado', 47, 0, 47, 'USD'])
+  assert.deepEqual(todas[3], ['2026-10-15', 'Pago único', 'Luis Prado', 'Binance', 'Pagado', null, 0, null, null], 'sin su valor en dólares: los montos vacíos')
+  assert.deepEqual(todas[5], ['2026-11-03', 'Pago único', 'Taller Sur', 'Stripe', 'Devuelto', 97, 97, 0, 'USD'])
+  assert.deepEqual(todas[6], ['2026-11-04', 'Cargado a mano', 'Agencia Faro', 'Binance', 'No suma', 200, 0, null, 'USD'])
   assert.equal(INGRESOS_EJEMPLO.ok && INGRESOS_EJEMPLO.filas.length, ENTRADAS_EJEMPLO.length)
+})
+
+test('Finance abre Income directo: sin un subítem que despliega la barra para mostrar uno solo', () => {
+  const finance = organizationRoutesList().find((r) => r.id === 'finance')!
+  assert.equal(finance.link, '/admin/finance/income')
+  assert.equal(finance.subs, undefined, 'sin subítems')
+  assert.equal(finance.checkIsActive?.('/admin/finance/income'), true, 'y queda marcado en su página')
 })
 
 // ─── Settings ───────────────────────────────────────────────────────────────
@@ -333,3 +387,12 @@ test('ninguna vista del navegador importa VALORES de un módulo de servidor, y I
 //   · `rutaParaVender` sin `create_checkout_link=true`                                   → 17/1 («Vender»)
 //   · `destinoDelIndiceDeLinks` se lleva `create_checkout_link` al link                  → 17/1 (el índice)
 //   · `buscarLinkDeVenta` contesta «no existe» cuando la lectura falló                   → 17/1 (la página del link)
+// Income como libro de los pedidos de Orders (revisión del Cerebro del 6/11/2026, punto 26), sumado ese día. Base: 16/0. Cada
+// rotura, sola (y renombrar la variable local `viejoPrimero` de `filasDeIngresos` sigue en 16/0):
+//   · `filasDeIngresos` vuelve a decir «Compra» (no `motivoDePedido`)                   → 14/2 (Income y su CSV)
+//   · `filasDeIngresos` da el neto de un recibo que no suma                              → 14/2 (Income y su CSV)
+//   · `devueltoDe` deja lo devuelto en 0                                                  → 14/2 (Income y su CSV)
+//   · `datosDelLibro` con «Este mes» de todo el libro                                     → 15/1 (Income)
+//   · TransactionsList no abre la fila (`onRowClick` sin pasar)                           → 15/1 (Income)
+//   · Finance vuelve a desplegar un subítem «Income»                                     → 15/1 (la barra)
+//   · `enElRango` sin el día de arriba del rango (`<` en vez de `<=`)                     → 15/1 (el CSV de Income)

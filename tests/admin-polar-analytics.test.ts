@@ -174,17 +174,25 @@ test('4. los rangos mensuales: el primero son todos los meses leídos, y no se o
 
 // ── Events ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 const AHORA = new Date('2026-11-06T15:00:00.000Z')
-// Dos recibos cargados a mano, para lo que Sales marca devuelto y anulado (sus pedidos son `r-<id>`).
+// Dos recibos cargados a mano, para lo que Sales marca devuelto y anulado. Desde la revisión del Cerebro del 6/11/2026 (punto 4)
+// «Cargar pago» registra el pago en el CRM y lo ata a su recibo (`recibo_pagos.pago_id`): un recibo a mano SIN atar no es un
+// «Pago recibido» (sería el mismo pago del CRM contado dos veces). Así que acá cada recibo va atado a su pago del CRM (`p-961`,
+// `p-962`), que es lo que produce el flujo real.
 const recibo = (r: Pick<ReciboVenta, 'id' | 'estado' | 'destinoWs' | 'aNombre' | 'fechaPago' | 'devueltoAt' | 'anuladoAt' | 'devueltoMonto'>): ReciboVenta => ({
   numero: r.id, origen: 'manual', cobroId: null, emitidoAt: r.fechaPago,
   lineas: [{ concepto: 'Puesta en marcha', mes: null, monto: 400, moneda: 'USD' }],
   totalDetalle: 400, monedaDetalle: 'USD', totales: [{ moneda: 'USD', monto: 400 }], impuesto: null,
   correoEstado: 'enviado', correoA: [], correoError: null, waEstado: 'en_app', waError: null, soloCorreo: false, disputa: null,
-  pagos: [{ id: r.id, medio: 'transferencia', referencia: `TRF-${r.id}`, fecha: r.fechaPago, monto: 400, moneda: 'USD', montoUsd: 400, de: null, comprobante: false, anulado: false }],
+  pagos: [{ id: r.id, medio: 'transferencia', referencia: `TRF-${r.id}`, fecha: r.fechaPago, monto: 400, moneda: 'USD', montoUsd: 400, de: null, comprobante: false, anulado: false, pagoId: 900 + r.id }],
   historial: [], ...r,
 })
 const PEDIDOS = pedidosDe({
-  entradas: ING.entradas,
+  entradas: [
+    ...ING.entradas,
+    // Los pagos del CRM de los dos recibos de abajo (lo que registró «Cargar pago»).
+    { id: 'p:961', fecha: '2026-10-25', usd: 400, medio: 'transferencia', recurrente: false, nombre: 'Estudio Norte', cliente: 'ws:3' },
+    { id: 'p:962', fecha: '2026-10-26', usd: 400, medio: 'transferencia', recurrente: false, nombre: 'Panadería Sol', cliente: 'ws:2' },
+  ],
   recibos: [
     recibo({ id: 61, estado: 'devuelto', destinoWs: 3, aNombre: 'Estudio Norte', fechaPago: '2026-10-25T14:00:00.000Z', devueltoAt: '2026-11-02T09:30:00.000Z', anuladoAt: null, devueltoMonto: 400 }),
     recibo({ id: 62, estado: 'anulado', destinoWs: 2, aNombre: 'Panadería Sol', fechaPago: '2026-10-26T14:00:00.000Z', devueltoAt: null, anuladoAt: '2026-10-27T10:00:00.000Z', devueltoMonto: null }),
@@ -296,7 +304,7 @@ test('5b. Events: lo que mostraba la ficha vieja (el alta, los cambios de suscri
   assert.ok(v.eventos.filter((e) => e.nombre === 'suscripcion').every((e) => e.negocios.length === 1 && e.soloDia), 'un movimiento es de un día')
 
   // Lo devuelto: el pago entró (y se ve) y la devolución es otro evento, cuando se devolvió; lo anulado no entró.
-  const pedido61 = delWs(3).filter((e) => e.id.endsWith(':r-61'))
+  const pedido61 = delWs(3).filter((e) => e.id.endsWith(':p-961'))
   assert.deepEqual(pedido61.map((e) => [e.nombre, e.label, e.timestamp]), [
     ['devolucion', 'Pago devuelto', '2026-11-02T09:30:00.000Z'],
     ['pago', 'Pago recibido', '2026-10-25T12:00:00.000Z'],
@@ -304,9 +312,9 @@ test('5b. Events: lo que mostraba la ficha vieja (el alta, los cambios de suscri
   const devuelto = pedido61[0]
   assert.equal(devuelto.monto, -40_000, 'lo devuelto entero, en negativo')
   assert.equal(devuelto.negativo, true)
-  assert.equal(devuelto.href, '/admin/sales/r-61', 'lleva a su pedido en Sales')
-  assert.equal(devuelto.campos.find((c) => c.label === 'Pedido')?.href, '/admin/sales/r-61')
-  const pedido62 = delWs(2).filter((e) => e.id.endsWith(':r-62'))
+  assert.equal(devuelto.href, '/admin/sales/p-961', 'lleva a su pedido en Sales')
+  assert.equal(devuelto.campos.find((c) => c.label === 'Pedido')?.href, '/admin/sales/p-961')
+  const pedido62 = delWs(2).filter((e) => e.id.endsWith(':p-962'))
   assert.deepEqual(pedido62.map((e) => [e.nombre, e.label]), [['devolucion', 'Pago anulado']], 'un pago anulado no es un pago recibido')
   assert.ok(v.eventos.filter((e) => e.nombre === 'pago' && e.id.startsWith('pago:p-')).every((e) => e.href === `/admin/sales/${e.id.slice(5)}`), 'cada pago lleva a su pedido')
   assert.deepEqual(tiposDeUrl('devoluciones'), ['devolucion'])

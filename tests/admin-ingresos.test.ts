@@ -35,7 +35,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  calcularIngresos, periodosDe, porCobrarDe, proximoDeHistoria, tramosDe, TIPOS_MOVIMIENTO, type ClienteIngreso, type PagoIngreso,
+  ATRASO_MAXIMO_DIAS, calcularIngresos, diaEnLaZona, diasEntre, esLeadDeSuscripcion, periodosDe, porCobrarDe, proximoDeHistoria, tramosDe,
+  TIPOS_MOVIMIENTO, type ClienteIngreso, type PagoIngreso,
 } from '../lib/admin-ingresos-reglas';
 import { historiaDeSuscripcion, type MovimientoSuscripcion, type PagoDeSuscripcion } from '../lib/suscripcion-meses';
 import { filasDeSaldos, mesesVisibles } from '../app/admin/ingresos/ingresos-vista';
@@ -293,7 +294,9 @@ test('11 · el próximo pago y el estado de cada cliente salen de la historia: e
   assert.deepEqual([viejo.proximo, viejo.estado, viejo.diasAtraso], ['2026-12-04', 'atrasado', 0], 'sin la historia, la regla de antes');
   const nuevo = cliente('2026-12-04', conHistoria('2026-12-04'));
   assert.deepEqual([nuevo.proximo, nuevo.estado, nuevo.diasAtraso], ['2026-12-05', 'por-vencer', null], 'con la historia: el 5/12, por vencer');
-  assert.equal(nuevo.mrr, viejo.mrr, 'el MRR no cambia (viva lo dicen los tramos)');
+  // Desde el punto 10 de la revisión del 6/11/2026, con la historia el MRR de diciembre es su MENSUALIDAD (426), no lo pagado en
+  // noviembre (238): es lo mismo que dice su tabla. Sin la historia sigue lo pagado.
+  assert.deepEqual([viejo.mrr, nuevo.mrr], [238, 426], 'el MRR: lo pagado sin la historia, la mensualidad del mes con ella');
   const r = calcularIngresos(pagos, quienes, '2026-12-04', 12, conHistoria('2026-12-04'));
   assert.equal(r.porCobrar[0].fecha, nuevo.proximo, 'el renglón del cliente y lo que viene dicen la MISMA fecha');
 
@@ -301,7 +304,101 @@ test('11 · el próximo pago y el estado de cada cliente salen de la historia: e
   const tarde = cliente('2026-12-10', conHistoria('2026-12-10'));
   assert.deepEqual([tarde.proximo, tarde.estado, tarde.diasAtraso], ['2026-12-05', 'atrasado', 5]);
 
-  // Cortada desde diciembre (el tramo sigue vivo en su gracia): no se espera nada, y no está atrasada.
+  // Cortada desde diciembre: no se espera nada y no está atrasada. Desde el punto 10 (revisión del 6/11/2026) el corte guardado
+  // corta su tramo ESE día, así que el renglón dice «cortado», como Subscriptions (antes, «al día» hasta que pasaba la gracia).
   const cortada = cliente('2026-12-10', conHistoria('2026-12-10', [{ tipo: 'corte', desde: '2026-12-01' }]));
-  assert.deepEqual([cortada.proximo, cortada.estado, cortada.diasAtraso], [null, 'al-dia', null], 'cortada: ningún pago esperado');
+  assert.deepEqual([cortada.proximo, cortada.estado, cortada.diasAtraso], [null, 'cortado', null], 'cortada: ningún pago esperado');
+});
+
+// =============================================================================
+// 12-14 · La revisión del Cerebro del 6/11/2026 (docs/admin/revision-cerebro-6-11.md), puntos 6, 9 y 10
+// =============================================================================
+// 12 (punto 9): pasada la gracia, el tramo de una suscripción a mano se da por cortado, pero su historia sigue diciendo que
+//    debe, y el moroso salía de «Por cobrar» a los 15 días sin que nadie cobrara. Ahora la historia manda, con un tope de
+//    `ATRASO_MAXIMO_DIAS` (60): a los 20 días sigue, a los 70 sale. El MRR sigue con la gracia.
+// 13 (punto 10): una suscripción con su historia vale su MENSUALIDAD en el MRR (quien pagó 100 de 238 vale 238, lo mismo que su
+//    tabla), su corte guardado la saca ESE día (no después de la gracia), y sus dos claves (con y sin su CRM) no la duplican. Un
+//    lead con una mensualidad registrada sin `venta_tipo` de suscripción también es una suscripción (`esLeadDeSuscripcion`).
+// 14 (punto 6): el día de un pago es el de la zona de la plataforma, no el de UTC.
+// Probado rompiéndolo el 6/11/2026 (base, con 12-14 puestos: 13/0). Cada rotura, sola:
+//   · `porCobrarDe` vuelve a descartar el tramo cortado ANTES de mirar la historia (`t.fin` primero) → 12/1 (12)
+//   · `ATRASO_MAXIMO_DIAS = 1000` (sin tope)                                                         → 12/1 (12)
+//   · `calcularIngresos` sin `conMensualidad` (el MRR de lo pagado)                                  → 11/2 (11 y 13)
+//   · `conMensualidad` sin juntar los tramos de las dos claves                                       → 12/1 (13)
+//   · `conMensualidad` sin el corte guardado                                                         → 11/2 (11 y 13)
+//   · `esLeadDeSuscripcion` mira sólo `venta_tipo`                                                   → 12/1 (13)
+//   · `diaEnLaZona` con el día en UTC (`iso.slice(0, 10)`)                                           → 12/1 (14)
+test('12 · Por cobrar: a los 20 días de atraso el moroso sigue (aunque su tramo esté cortado); a los 70, sale', () => {
+  let id = 900;
+  const mensualidad = (fecha: string, usd: number): PagoDeSuscripcion =>
+    ({ id: ++id, monto_usd: usd, pagado: true, fecha_esperada: null, fecha_pago: fecha, es_mensualidad: true, nacio_cobrada: true });
+  const pagosLead = [mensualidad('2026-08-05', 100), mensualidad('2026-09-05', 100), mensualidad('2026-10-05', 100)];
+  const sub = 'lead:920:casa';
+  const pagos: PagoIngreso[] = pagosLead.map((q) => ({ id: `p:${q.id}`, cliente: 'ws:79', suscripcion: sub, fecha: q.fecha_pago as string, usd: Number(q.monto_usd), medio: 'transferencia', concepto: null }));
+  const quienes = new Map<string, ClienteIngreso>([['ws:79', { clave: 'ws:79', nombre: 'Taller Sur', ws: 79, leadId: 920 }]]);
+  const conHistoria = (hoy: string) =>
+    new Map([[sub, proximoDeHistoria(historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 100, plazoMeses: null, movimientos: [], pagos: pagosLead, hoy }), hoy)]]);
+
+  // A los 20 días del vencimiento (el 5/11): la gracia (15) ya pasó y el tramo está cortado.
+  const hoy20 = '2026-11-25';
+  assert.equal(diasEntre('2026-11-05', hoy20), 20);
+  assert.notEqual(tramosDe(periodosDe(pagos, hoy20), hoy20)[0].fin, null, 'pasada la gracia, el tramo está cortado');
+  const r20 = calcularIngresos(pagos, quienes, hoy20, 12, conHistoria(hoy20));
+  assert.deepEqual(r20.porCobrar.map((p) => [p.fecha, p.usd, p.atrasado]), [['2026-11-05', 100, true], ['2026-12-05', 100, false]], 'sigue en Por cobrar, con lo que debe');
+  assert.equal(r20.mrr, 0, 'el MRR sigue con la gracia');
+  assert.deepEqual(calcularIngresos(pagos, quienes, hoy20).porCobrar, [], 'sin la historia, la regla de los tramos: cortado, fuera');
+
+  // A los 70 días: pasó el tope y sale (sigue «Atrasada» en Subscriptions y en At Risk).
+  const hoy70 = '2027-01-14';
+  assert.equal(diasEntre('2026-11-05', hoy70), 70);
+  assert.ok(70 > ATRASO_MAXIMO_DIAS && 20 <= ATRASO_MAXIMO_DIAS, 'el tope está entre los dos casos');
+  assert.deepEqual(calcularIngresos(pagos, quienes, hoy70, 12, conHistoria(hoy70)).porCobrar, [], 'a los 70 días sale de Por cobrar');
+});
+
+test('13 · el MRR de una suscripción con su historia es su mensualidad, su corte guardado la saca ese día y sus dos claves cuentan una vez', () => {
+  let id = 950;
+  const mensualidad = (fecha: string, usd: number): PagoDeSuscripcion =>
+    ({ id: ++id, monto_usd: usd, pagado: true, fecha_esperada: null, fecha_pago: fecha, es_mensualidad: true, nacio_cobrada: true });
+  // Paga 238 por mes; en noviembre pagó sólo 100.
+  const pagosLead = [mensualidad('2026-10-01', 238), mensualidad('2026-11-01', 100)];
+  const sub = 'lead:930:casa';
+  const pagos: PagoIngreso[] = pagosLead.map((q) => ({ id: `p:${q.id}`, cliente: 'ws:80', suscripcion: sub, fecha: q.fecha_pago as string, usd: Number(q.monto_usd), medio: 'transferencia', concepto: null }));
+  const quienes = new Map<string, ClienteIngreso>([['ws:80', { clave: 'ws:80', nombre: 'Estudio Este', ws: 80, leadId: 930 }]]);
+  const historia = (hoy: string, movimientos: MovimientoSuscripcion[] = []) =>
+    historiaDeSuscripcion({ inicio: '2026-10-01', montoUsd: 238, plazoMeses: null, movimientos, pagos: pagosLead, hoy });
+
+  const hoy = '2026-11-06';
+  assert.equal(calcularIngresos(pagos, quienes, hoy).mrr, 100, 'sin la historia, lo pagado (la regla de antes)');
+  const con = calcularIngresos(pagos, quienes, hoy, 12, new Map([[sub, proximoDeHistoria(historia(hoy), hoy)]]));
+  assert.equal(con.mrr, 238, 'pagó 100 de 238: vale 238, lo mismo que su tabla');
+  assert.equal(con.clientes[0].mrr, 238, 'el renglón del cliente (la caja de la ficha) dice lo mismo');
+  assert.equal(con.meses.find((m) => m.mes === '2026-11')!.mrr, 238, 'y el cierre del mes');
+  for (let i = 1; i < con.meses.length; i++) {
+    const [a, b] = [con.meses[i - 1], con.meses[i]];
+    assert.equal(b.mrr, Math.round((a.mrr + b.nuevo + b.vuelve + b.sube - b.baja - b.corte) * 100) / 100, `${b.mes}: la identidad sigue cerrando`);
+  }
+
+  // El corte guardado desde diciembre la saca el 1/12, aunque adentro de la gracia el tramo siga vivo.
+  const hoy2 = '2026-12-02';
+  assert.equal(calcularIngresos(pagos, quienes, hoy2, 12, new Map([[sub, proximoDeHistoria(historia(hoy2), hoy2)]])).mrr, 238, 'sin corte, adentro de la gracia sigue');
+  const cortada = calcularIngresos(pagos, quienes, hoy2, 12, new Map([[sub, proximoDeHistoria(historia(hoy2, [{ tipo: 'corte', desde: '2026-12-01' }]), hoy2)]]));
+  assert.equal(cortada.mrr, 0, 'con el corte guardado, el día del corte ya no cuenta');
+  assert.deepEqual(cortada.movimientos.filter((m) => m.tipo === 'corte').map((m) => [m.fecha, m.despues]), [['2026-12-01', 0]], 'el corte, el 1/12');
+
+  // Dos claves de la misma suscripción (un pago con su CRM y otro sin) son UNA historia: 238, no 476.
+  const conCrm = pagos.map((p, i) => (i === 1 ? { ...p, suscripcion: 'lead:930:31' } : p));
+  const p1 = proximoDeHistoria(historia(hoy), hoy);
+  assert.equal(calcularIngresos(conCrm, quienes, hoy, 12, new Map([[sub, p1], ['lead:930:31', p1]])).mrr, 238, 'una vez');
+
+  // Un lead con una mensualidad registrada es una suscripción aunque su `venta_tipo` no lo diga (entra en Subscriptions).
+  const conMensualidad = new Set([930]);
+  assert.equal(esLeadDeSuscripcion({ id: 930, venta_tipo: null }, conMensualidad), true, 'con una mensualidad registrada');
+  assert.equal(esLeadDeSuscripcion({ id: 931, venta_tipo: 'unico' }, conMensualidad), false, 'un pago único sin mensualidad, no');
+  assert.equal(esLeadDeSuscripcion({ id: 932, venta_tipo: 'suscripcion' }, conMensualidad), true, 'el de siempre');
+});
+
+test('14 · el día de un pago es el de la zona de la plataforma: el 31/10 a las 22:00 de Argentina es el 31/10', () => {
+  assert.equal(diaEnLaZona('2026-11-01T01:00:00Z', 'America/Argentina/Buenos_Aires'), '2026-10-31', 'en Argentina, todavía octubre');
+  assert.equal(diaEnLaZona('2026-11-01T01:00:00Z', null), '2026-11-01', 'sin zona, el día en UTC');
+  assert.equal(diaEnLaZona('2026-11-01T01:00:00Z', 'Marte/Olimpo'), '2026-11-01', 'una zona que no existe no rompe: UTC');
 });

@@ -36,7 +36,7 @@ import { leerTodo } from './supabase-paginado';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { zonaDelNegocio } from './timezone';
 import { hoyEnTz } from './date-utils';
-import { calcularIngresos, proximoDeHistoria, type ClienteIngreso, type Ingresos, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
+import { calcularIngresos, diaEnLaZona, esLeadDeSuscripcion, proximoDeHistoria, type ClienteIngreso, type Ingresos, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
 import { cobradoDelLead, type Cobrado, type CobroParaCobrado } from './cobrado-lead';
 import { esDelTrato } from './pagos-crm';
 import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
@@ -45,12 +45,13 @@ import type { PagoDeSuscripcion } from './suscripcion-meses';
 type FilaPago = {
   id: number; lead_id: number; funnel_id: number | null; monto_usd: number | null; fecha_pago: string | null;
   es_mensualidad: boolean | null; nacio_cobrada: boolean | null; resto_de: number | null;
-  metodo: string | null; proveedor: string | null; cobro_id: number | null; concepto: string | null;
+  metodo: string | null; proveedor: string | null; cobro_id: number | null; concepto: string | null; proveedor_pago_id: string | null;
 };
 type FilaLead = { id: number; nombre: string | null; empresa: string | null; cliente_ws: number | null; venta_tipo: string | null };
 type FilaCobro = {
   id: number; tipo: string; estado: string; pagado_at: string | null; monto_usd: number | null; lead_id: number | null;
   alta_ws: number | null; cliente_ws?: number | null; agencia_ws?: number | null; proveedor: string | null; concepto: string | null;
+  proveedor_pago_id: string | null;
 };
 
 /** ¿Este pago es de una suscripción (MRR)? Ver la cabecera. */
@@ -77,7 +78,7 @@ async function leadsDe(plataforma: number, ids: readonly number[]): Promise<Map<
 /** Los cobros pagados de la plataforma. Tolera una base sin las columnas de agencia (mig 0306). */
 async function cobrosPagados(plataforma: number): Promise<FilaCobro[]> {
   const db = getSupabaseServer();
-  const base = 'id, tipo, estado, pagado_at, monto_usd, lead_id, alta_ws, proveedor, concepto';
+  const base = 'id, tipo, estado, pagado_at, monto_usd, lead_id, alta_ws, proveedor, concepto, proveedor_pago_id';
   for (const cols of [`${base}, cliente_ws, agencia_ws`, base]) {
     try {
       return await leerTodo<FilaCobro>(db, 'cobros', cols, { eq: { workspace_id: plataforma, estado: 'pagado' }, orden: 'id' });
@@ -114,7 +115,7 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
   const db = getSupabaseServer();
   const [pagos, cobros, wss, tz] = await Promise.all([
     // Si esto falla, la sección no tiene qué mostrar: el error sube (la pantalla dice «No pude leer tus ingresos»).
-    leerTodo<FilaPago>(db, 'pagos', 'id, lead_id, funnel_id, monto_usd, fecha_pago, es_mensualidad, nacio_cobrada, resto_de, metodo, proveedor, cobro_id, concepto',
+    leerTodo<FilaPago>(db, 'pagos', 'id, lead_id, funnel_id, monto_usd, fecha_pago, es_mensualidad, nacio_cobrada, resto_de, metodo, proveedor, cobro_id, concepto, proveedor_pago_id',
       { eq: { workspace_id: plataforma, pagado: true }, orden: 'id' }),
     cobrosPagados(plataforma).catch((e) => { avisos.push(`los cobros de la pasarela: ${e instanceof Error ? e.message : String(e)}`); return [] as FilaCobro[]; }),
     listarWorkspaces().catch((e) => { avisos.push(`los nombres de los negocios: ${e instanceof Error ? e.message : String(e)}`); return []; }),
@@ -153,6 +154,8 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       medio: p.metodo ?? p.proveedor ?? null,
       concepto: p.concepto ?? null,
       cobroId: p.cobro_id != null ? Number(p.cobro_id) : null,
+      proveedor: p.proveedor ?? null,
+      proveedorPagoId: p.proveedor_pago_id ?? null,
     });
   }
   for (const c of cobros) {
@@ -170,9 +173,12 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       id: `c:${c.id}`, cliente,
       // Un lugar de agencia: cada cuenta de su cartera es su propia suscripción (sumar dos lugares no es reemplazar uno).
       suscripcion: c.tipo === 'suscripcion' ? `cobro:${c.cliente_ws ?? c.alta_ws ?? c.id}` : null,
-      fecha: String(c.pagado_at).slice(0, 10),
+      // El día del pago en la zona de la plataforma, no el de su instante en UTC (punto 6: uno de la noche caía en el día
+      // siguiente, y a fin de mes en el mes siguiente de Metrics).
+      fecha: diaEnLaZona(String(c.pagado_at), tz),
       usd: typeof c.monto_usd === 'number' ? c.monto_usd : c.monto_usd == null ? null : Number(c.monto_usd),
       medio: c.proveedor, concepto: c.concepto, cobroId: Number(c.id),
+      proveedor: c.proveedor, proveedorPagoId: c.proveedor_pago_id ?? null,
     });
   }
   // El próximo cobro de cada suscripción manual sale de su historia mes a mes (la de la ficha), no del último pago más un mes.
@@ -182,7 +188,8 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
 }
 
 // ── Las suscripciones mes a mes de la plataforma ─────────────────────────────────────────────────────────────────────
-// ⚠️ LA MISMA CUENTA QUE LA FICHA (6/11/2026): cada lead de la plataforma con `venta_tipo = 'suscripcion'` pasa por
+// ⚠️ LA MISMA CUENTA QUE LA FICHA (6/11/2026): cada lead de la plataforma con `venta_tipo = 'suscripcion'` (o con un pago registrado
+// COMO la mensualidad, `esLeadDeSuscripcion`: ese pago ya cuenta en el MRR, punto 10) pasa por
 // `cobradoDelLead` (lib/cobrado-lead.ts) con los pagos de su CASA (la regla de `esDelTrato`), sus cobros de suscripción de la
 // pasarela y sus cambios guardados (mig 0401). De ahí salen la fuente (a mano o la pasarela), el estado y la historia mes a mes.
 // Lo usan `vistaDeIngresos` (el próximo cobro, `porCobrar`) y Admin › Sales › Subscriptions (app/admin/_polar/datos/ventas-server.ts).
@@ -225,10 +232,18 @@ async function leerSuscripcionesDeLaPlataforma(plataforma: number, hoy: string):
   const avisos: string[] = [];
   const db = getSupabaseServer();
   let leads: FilaLeadSuscripcion[];
+  const COLS_LEAD = 'id, nombre, empresa, email, cliente_ws, venta_tipo, estado_lead, fecha_cierre, monto_cierre_usd, suscripcion_monto_usd, suscripcion_meses, suscripcion_cancelada_at, funnel_id';
+  let conMensualidad = new Set<number>();
   try {
-    leads = await leerTodo<FilaLeadSuscripcion>(db, 'leads',
-      'id, nombre, empresa, email, cliente_ws, venta_tipo, estado_lead, fecha_cierre, monto_cierre_usd, suscripcion_monto_usd, suscripcion_meses, suscripcion_cancelada_at, funnel_id',
-      { eq: { workspace_id: plataforma, venta_tipo: 'suscripcion' }, orden: 'id' });
+    const [deSuscripcion, mensualidades] = await Promise.all([
+      leerTodo<FilaLeadSuscripcion>(db, 'leads', COLS_LEAD, { eq: { workspace_id: plataforma, venta_tipo: 'suscripcion' }, orden: 'id' }),
+      leerTodo<{ id: number; lead_id: number }>(db, 'pagos', 'id, lead_id', { eq: { workspace_id: plataforma, es_mensualidad: true }, orden: 'id' }),
+    ]);
+    conMensualidad = new Set(mensualidades.map((p) => Number(p.lead_id)));
+    const yaEstan = new Set(deSuscripcion.map((l) => Number(l.id)));
+    const faltan = [...conMensualidad].filter((id) => !yaEstan.has(id));
+    const otros = await porTandas(faltan, (t) => leerTodo<FilaLeadSuscripcion>(db, 'leads', COLS_LEAD, { eq: { workspace_id: plataforma }, filtros: (q) => q.in('id', t), orden: 'id' }));
+    leads = [...deSuscripcion, ...otros].filter((l) => esLeadDeSuscripcion(l, conMensualidad));
   } catch (e) {
     avisos.push(`las suscripciones mes a mes: ${e instanceof Error ? e.message : String(e)}`);
     return { lista: [], avisos };
@@ -260,7 +275,8 @@ async function leerSuscripcionesDeLaPlataforma(plataforma: number, hoy: string):
       const otros = (agregadosDe.get(id) ?? []).filter((f) => f !== casa);
       const suyos = (pagosDe.get(id) ?? []).filter((p) => esDelTrato(p.funnel_id, null, otros));
       const cobrado = cobradoDelLead({
-        ventaTipo: l.venta_tipo, montoCierreUsd: l.monto_cierre_usd, suscripcionMontoUsd: l.suscripcion_monto_usd, suscripcionMeses: l.suscripcion_meses,
+        // Un lead con una mensualidad registrada es una suscripción aunque su `venta_tipo` diga otra cosa (`esLeadDeSuscripcion`).
+        ventaTipo: esLeadDeSuscripcion(l, conMensualidad) ? 'suscripcion' : l.venta_tipo, montoCierreUsd: l.monto_cierre_usd, suscripcionMontoUsd: l.suscripcion_monto_usd, suscripcionMeses: l.suscripcion_meses,
         fechaCierre: l.fecha_cierre, suscripcionCanceladaAt: l.suscripcion_cancelada_at, pagos: suyos, cobros: cobrosDe.get(id) ?? [],
         movimientos: cambios.porLead.get(id) ?? [], hoy,
       });

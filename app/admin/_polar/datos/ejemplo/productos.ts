@@ -8,9 +8,9 @@
 
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako'
 import { PASARELAS } from '@/lib/cobros-tipos'
-import type { Entrada } from '@/lib/admin-ingresos-reglas'
 import { linksDeVenta, productoDePlan, type CobroDeVenta, type DatosCheckoutLinks, type ProductoMako } from '../productos'
-import { filasDeIngresos, type DatosIngresos } from '../finanzas'
+import { datosDelLibro, type DatosIngresos } from '../finanzas'
+import { pedidosDe, type EntradaVenta } from '../ventas'
 import type { DatosGeneral, DatosNotificaciones, DatosPagos, Emisor } from '../ajustes'
 
 /** Los planes de fábrica, con Esencial y Pro a precio en pesos argentinos (inventado). */
@@ -60,16 +60,20 @@ export const CHECKOUT_LINKS_EJEMPLO: DatosCheckoutLinks = {
   avisos: [],
 }
 
-/** Lo que entró, del más viejo al más nuevo (la forma de `entradasDe`). */
-export const ENTRADAS_EJEMPLO: Entrada[] = [
-  { fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-15', usd: 300, medio: 'transferencia', recurrente: false, nombre: 'Estudio Norte' },
-  { fecha: '2026-10-21', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado' },
-  { fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte' },
+/** Lo que entró, del más viejo al más nuevo (la forma de `entradasDe`, con sus ids: Income lista los pedidos de Orders). */
+export const ENTRADAS_EJEMPLO: EntradaVenta[] = [
+  { id: 'p:9001', fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez', cliente: 'lead:9101' },
+  { id: 'p:9002', fecha: '2026-10-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez', cliente: 'lead:9101' },
+  { id: 'p:9003', fecha: '2026-10-15', usd: 300, medio: 'transferencia', recurrente: false, nombre: 'Estudio Norte', cliente: 'ws:9201' },
+  { id: 'p:9004', fecha: '2026-10-21', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado', cliente: 'lead:9102' },
+  { id: 'p:9005', fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte', cliente: 'ws:9201' },
 ]
 
-export const INGRESOS_EJEMPLO: DatosIngresos = { ok: true, filas: filasDeIngresos(ENTRADAS_EJEMPLO), hoy: '2026-11-06', avisos: [] }
+export const INGRESOS_EJEMPLO: DatosIngresos = datosDelLibro(
+  pedidosDe({ entradas: ENTRADAS_EJEMPLO, recibos: [], clientes: new Map(), nombreDeWs: new Map() }),
+  '2026-11-06',
+  [],
+)
 
 const EMISOR_EJEMPLO: Emisor = {
   nombre: 'MaKo · hola-mako.com',

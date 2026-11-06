@@ -29,8 +29,8 @@ const ExportTransactionsModal: React.FC<ExportTransactionsModalProps> = ({ filas
   return (
     <ExportModal<ColumnaIngreso>
       start={`${desde}T00:00:00`}
-      title="Bajar lo que entró"
-      description="Baja lo que entró a MaKo en un archivo CSV."
+      title="Exportar lo que entró"
+      description="Descarga lo que entró a MaKo como un archivo CSV."
       dateRangeLabel="Fechas"
       columns={GRUPOS_EXPORTACION}
       defaultColumns={COLUMNAS_POR_DEFECTO}
