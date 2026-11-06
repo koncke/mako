@@ -21,6 +21,11 @@ PREFIJO="$1"; DEST="$2"; SALIDA="$3"; T="$4"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Cuantas tomas y cuanto dura cada clip de Flow. NO se autodetectan todavia.
+#
+# ⚠️ DURVID PUEDE SER UNA LISTA, una por toma: «10,8,10». Las tomas de un anuncio
+# NO duran todas lo mismo (medido: 10, 8 y 10) y plan-cortes-anuncio.mjs topea cada
+# toma en el numero que recibe; con un numero solo, lo dicho al final de una toma
+# mas larga no entraba en ningun tramo. Un numero solo sigue valiendo para todas.
 NTOMAS="${NTOMAS:-7}"
 DURVID="${DURVID:-10.005}"
 
@@ -68,7 +73,9 @@ if [ -s "$T/plan.json" ]; then
   echo "== 1/6 plan de cortes: EDITADO A MANO, no se recalcula =="
 else
   echo "== 1/6 plan de cortes =="
-  CLAMP=${CLAMP:-0.45} node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" $NTOMAS $DURVID > "$T/plan.json"
+  # Con comillas: sin ellas, una lista con un espacio («10, 8, 10») se partiria en
+  # tres argumentos y el script leeria «10,» → NaN, topeando TODAS las tomas en nada.
+  CLAMP=${CLAMP:-0.45} node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" "$NTOMAS" "$DURVID" > "$T/plan.json"
 fi
 TOTAL=$(node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).total))" "$T/plan.json")
 node "$(dirname "$0")/gen-filtros-anuncio.mjs" "$T/plan.json" "$T" $NTOMAS

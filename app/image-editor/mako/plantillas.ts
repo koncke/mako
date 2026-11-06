@@ -2,15 +2,21 @@
 // Las plantillas del editor (el panel «Diseño» de Canva)
 // =============================================================================
 // Por ahora, las 10 de Doory (`backend/data/templates` del commit de `_doory/COMMIT-DOORY`; misma
-// licencia que el código portado, la Attribution Assurance License: el crédito ya se muestra).
+// licencia que el código portado, la Attribution Assurance License).
+//
+// ⚠️ EL CRÉDITO YA NO SE MUESTRA: Martín borró `editor/CreditoDoory.tsx` el 29/10/2026, a su riesgo. La licencia
+//    NO deja de aplicar por eso («in whole or part, with or without modification»), así que estas 10 plantillas
+//    siguen siendo material ajeno adentro del producto y están ENCARGADAS PARA BORRAR, con sus JSON y sus WebP
+//    (docs/hallazgos-plantillas.md). No se agregan plantillas nuevas acá: van como plantillas propias.
 //
 // · Los DOCUMENTOS viven en `./plantillas/<slug>.json` y se cargan con `import()` sólo al usar una:
 //   juntos pesan ~370 KB y no tienen por qué ir en el bundle del editor.
 // · Las MINIATURAS son las de Doory, en `public/cv/plantillas/<slug>.webp` (el proxy exime `.webp`
 //   por extensión: no quedan detrás del login).
-// · Lo que se ve en el panel (título, categoría, etiquetas) está en español acá. Adentro de cada
-//   documento se tradujeron los nombres de página, de capa y las notas; el TEXTO del lienzo sigue en
-//   inglés porque la miniatura lo muestra así (traducirlo pide re-renderizar las miniaturas).
+// · Lo que se ve en el panel (título, categoría, etiquetas) está en español acá, y **el TEXTO del lienzo
+//   también desde el 14/10/2026** (`b9a7dae2f`: los diez documentos en español y las miniaturas redibujadas;
+//   p. ej. bold-sale-announcement dice «FIN DE TEMPORADA»). Si se vuelve a tocar un texto del lienzo, hay que
+//   redibujar su `.webp`: la miniatura es una imagen, no se regenera sola.
 // · Ningún documento apunta al backend de Doory (`/media/…`): los dos `image` son códigos QR que el
 //   editor redibuja desde su `qr`, y las fotos son «stand-ins» dibujados con formas.
 // · Fuentes que usan: Anton, Archivo, Lora, Oswald, Pinyon Script y Playfair Display; todas están

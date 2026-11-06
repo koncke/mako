@@ -13,6 +13,9 @@
 //    dónde guardar) y cuánto crédito del mes le queda a la clave de Apify. Esa clave es la de Spy (un plan gratis de US$5 al
 //    mes): se deja libre la reserva de Spy (`RESERVA_CREDITO_USD`) y el techo de la corrida es el menor entre lo pedido y lo
 //    que queda. Cada corrida de Apify lleva además su propio techo (`maxTotalChargeUsd`).
+// ⚠️ CUANDO PARA, DICE POR QUÉ, CON EL NÚMERO (6/11/2026). «Al techo» a secas no distingue «no hay crédito» (lo destraba
+//    cargar crédito) de «llegué al tope que me pediste» (lo destraba `--techo-usd`) de «se terminaron las tandas» (nada que
+//    hacer). El porqué sale de `motivoDelTecho` + `porQueParo` (lib/carruseles/biblioteca.ts) y se dice también EN SECO.
 // ⚠️ NUNCA IMPRIME UNA CLAVE: dice cuántas claves de Spy hay, su número, el nombre que les puso la persona y su crédito.
 // ⚠️ VARIAS CLAVES (5/11/2026, Martín: «Dame la opción de tener varias claves de apify»): se cuenta el crédito libre de TODAS
 //    (la reserva de Spy sale del total), cada corrida va con la primera que tenga crédito y, si una se agota a mitad, sigue con
@@ -39,8 +42,9 @@
 //                                con la 0404, el CTA «Comenta X palabra»). GRATIS: no le pide nada a Apify. Sólo llena lo
 //                                que falta. En seco por defecto: dice cuántos piden una palabra y muestra unos de cada lado.
 //   laminas [--de-verdad] [--techo-usd 1] [--max 400]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
-//                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0025 cada una: la receta de
-//                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas y cuánto.
+//                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0027 cada una: la receta de
+//                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas, cuánto, en
+//                                cuántas tandas y, si no entran todas, POR QUÉ (crédito, tu tope, o nada que leer).
 //   sumar @usuario --nombre "Nombre" [--referente id]   Suma una cuenta a la lista (confírmala antes con `verificar`).
 //   sacar @usuario --motivo "Lo pidió"                  Saca a un creador: sus carruseles dejan de verse en todos lados.
 //   tema '#hashtag' --nombre "Nombre"                   Suma un tema (el # entre comillas, o sin el #).
@@ -475,7 +479,7 @@ async function laminas() {
   if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392.'); process.exit(2); }
   if (!(await hayColumnas0404())) { console.log('✖ Falta aplicar la migración 0404 (supabase/migrations/0404_carruseles_laminas_cta.sql). No se gastó nada.'); process.exit(2); }
   const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
-  const { USD_POR_PUBLICACION, entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
+  const { entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
   const db = getSupabaseServer();
   const filas: Array<{ id: number; ref: string; url: string | null; laminas: number | null; texto: string | null; cta: string | null }> = [];
   await leerPorPaginas(db, S.T_PIEZAS, 'id, ref, url, laminas, texto, cta, medio, laminas_imagenes, dejo_de_verse_en', (p: Array<Record<string, unknown>>) => {
@@ -483,35 +487,57 @@ async function laminas() {
   });
   const conLink = filas.filter((f) => typeof f.url === 'string' && /^https:\/\/(?:www\.)?instagram\.com\//.test(f.url)).slice(0, max);
   const porLeer = conLink.length;
-  const probable = Math.round(porLeer * USD_POR_PUBLICACION * 100) / 100;
+  // Lo probable, al precio MEDIDO por link (US$0,0027: el de lista subestima la factura). El techo de cada tanda es otra cosa.
+  const probable = Math.round(porLeer * B.USD_POR_LINK_MEDIDO * 100) / 100;
   console.log(`  Carruseles sin sus láminas: ${filas.length} (con link: ${conLink.length}). Esta corrida: ${porLeer} (--max ${max}). Lo probable: ${usd(probable)}.`);
   if (!porLeer) return;
   const { ks, por: por0, total: c0 } = await clavesParaGastar();
-  const techo = B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD) as number;
+  // El techo Y DE DÓNDE SALE (6/11/2026): un techo de cero porque no hay crédito y un techo chico porque el crédito no llega a
+  // lo pedido no se ven iguales. El número solo es `B.techoConCredito`, que es lo que usa `leer`.
+  const tope = B.motivoDelTecho(techoPedido, c0, B.RESERVA_CREDITO_USD) as { techo: number | null; motivo: string; porque: string };
+  const techo = tope.techo ?? 0;
   imprimirCredito(ks, por0);
-  console.log(`  Puede gastar hasta ${usd(techo)} (pediste ${usd(techoPedido)}; se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy).`);
+  console.log(`  Puede gastar hasta ${usd(techo)} — ${tope.porque}.`);
+  // El plan de tandas, también en seco: cuántos links entran en el techo y cuántos NO (antes esto sólo se sabía al cortar).
+  const plan = B.planDeTandas(porLeer, { techoUsd: techo }) as {
+    tandas: Array<{ desde: number; cuantos: number; techoUsd: number }>; probableUsd: number; quedanFuera: number; corte: string;
+  };
+  // `usd` redondea a centavos, y el precio por link vive en diezmilésimos: ahí va con sus cuatro decimales o dice «US$0.00».
+  console.log(`  Plan: ${plan.tandas.length} tanda(s) de hasta ${B.LINKS_POR_TANDA} links → ${porLeer - plan.quedanFuera} de ${porLeer}. Lo probable, ${usd(plan.probableUsd)} (US$${B.USD_POR_LINK_MEDIDO.toFixed(4)} por link, medido).`);
+  if (plan.quedanFuera) console.log(`  ⚠ ${B.porQueParo({ ...plan, motivo: tope.motivo, porque: tope.porque, techo: tope.techo })}`);
   if (!deVerdad) return;
+  if (!plan.tandas.length) { console.log('  No se gastó nada.'); return; }
   const pagan = conCredito(ks, por0);
-  const DE_A = 40;
-  let gastoMax = 0;
   let guardadas = 0;
   let sinImagenes = 0;
+  let cortoApify = false;
+  let pedidos = 0;   // cuántos links ya se pidieron
+  let cobrado = 0;   // lo que Apify cobró, contado por lo que LLEGÓ (no por el techo de la tanda, que lleva margen)
+  let nTanda = 0;
+  let corte = 'todo';
   const { piezasDeApify: piezas } = await imp('lib/instagram-perfil.ts');
-  for (let i = 0; i < conLink.length; i += DE_A) {
-    const tanda = conLink.slice(i, i + DE_A);
-    const techoTanda = Math.max(0.01, Math.ceil(tanda.length * USD_POR_PUBLICACION * 1.5 * 100) / 100);
-    if (gastoMax + techoTanda > techo) { console.log(`  Llega al techo: corta acá (quedan ${conLink.length - i}).`); break; }
-    gastoMax += techoTanda;
-    const entrada = { ...entradaDeUnaPublicacion(tanda[0].url as string), directUrls: tanda.map((f) => f.url), resultsLimit: 1 };
-    const q = new URLSearchParams({ maxItems: String(tanda.length), maxTotalChargeUsd: String(techoTanda), timeout: '280' });
+  while (pedidos < conLink.length) {
+    // La MISMA regla del plan, pero con lo que Apify ya cobró de verdad: así el margen de cada tanda no gasta de más.
+    const tanda = B.siguienteTanda(conLink.length - pedidos, Math.round((techo - cobrado) * 100) / 100) as { cuantos: number; techoUsd: number } | null;
+    if (!tanda) { corte = techo <= 0 ? 'sin-techo' : 'techo'; break; }
+    const links = conLink.slice(pedidos, pedidos + tanda.cuantos);
+    pedidos += links.length;
+    nTanda += 1;
+    const entrada = { ...entradaDeUnaPublicacion(links[0].url as string), directUrls: links.map((f) => f.url), resultsLimit: 1 };
+    const q = new URLSearchParams({ maxItems: String(links.length), maxTotalChargeUsd: String(tanda.techoUsd), timeout: '280' });
     const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) })));
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
-      if (r && esFaltaDeCredito(r.status, r.cuerpo)) { console.log('  ✖ Apify dice que no queda crédito. Corta acá; lo guardado queda.'); break; }
-      console.log(`  ✖ Tanda ${i / DE_A + 1}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
+      if (r && esFaltaDeCredito(r.status, r.cuerpo)) {
+        console.log(`  ✖ Apify dice que no queda crédito en ninguna clave (iba por la tanda ${nTanda}, ${conLink.length - pedidos + links.length} links sin leer). Corta acá; lo guardado queda.`);
+        cortoApify = true;
+        break;
+      }
+      console.log(`  ✖ Tanda ${nTanda}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
       continue;
     }
+    cobrado = Math.round((cobrado + r.cuerpo.length * B.USD_POR_LINK_MEDIDO) * 100) / 100;
     const porRef = new Map((piezas(r.cuerpo) as Array<{ ref: string; imagenes?: string[]; laminas?: number | null }>).map((p) => [p.ref, p]));
-    for (const f of tanda) {
+    for (const f of links) {
       const p = porRef.get(f.ref);
       if (!p?.imagenes?.length) { sinImagenes += 1; continue; }
       const nuestras = await S.bajarLaminas(f.ref, p.imagenes);
@@ -522,11 +548,15 @@ async function laminas() {
       if (u.error) { console.log(`  ✖ ${f.ref}: ${u.error.message}`); continue; }
       guardadas += 1;
     }
-    console.log(`  ✔ Tanda ${i / DE_A + 1}: ${tanda.length} links → ${guardadas} con sus láminas hasta acá.`);
+    console.log(`  ✔ Tanda ${nTanda}: ${links.length} links → ${guardadas} con sus láminas hasta acá (Apify cobró ${usd(cobrado)} de ${usd(techo)}).`);
   }
   const { total: c1 } = await creditos(ks);
+  const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
   console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
-  if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
+  // Por qué no siguió, con el número: nunca un «al techo» mudo. Si Apify cortó antes que el techo, lo dice eso y no el techo.
+  if (cortoApify) console.log('  Paró porque Apify dijo que no queda crédito en ninguna clave: cargá crédito y volvé a correrlo.');
+  else console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
+  if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);
 }
 
 async function cambio(pedido: Record<string, unknown>) {

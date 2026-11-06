@@ -260,9 +260,11 @@ export async function leerMontaje(planId: string): Promise<MontajeLeido> {
     const url = str(r.url);
     // Un `listo` sin url no es un listo: el worker reportó éxito y no dejó nada.
     if (!url) return { fase: 'error', error: 'El montaje terminó sin dejar el archivo.', motivo: 'interno' };
-    // segundosAntes lo arma worker/montar-cola.mjs como clips × duración supuesta
-    // (seg[0] ?? 10.005): es una estimación, no una medición. palabrasPerdidas lo
-    // acepta la ruta del worker pero el worker no lo manda nunca: no se devuelve.
+    // segundosAntes es la SUMA de las duraciones de las tomas (worker/duraciones.mjs y
+    // lib/montaje/pipeline.ts): el largo nominal de lo filmado, no una medición del
+    // audio — por eso sigue diciendo `_estimados`. palabrasPerdidas lo acepta la ruta
+    // del worker y el worker no lo manda nunca, porque a verificar-corte-anuncio.mjs no
+    // lo invoca nadie (ver docs/hallazgos-video-pipeline.md): no se devuelve.
     return {
       fase: 'listo', url,
       segundos_antes_estimados: numOpt(r.segundosAntes),

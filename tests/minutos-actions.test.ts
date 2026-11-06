@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
-import { minutosDeCorrida, resumir } from '../scripts/minutos-actions.mjs';
+import { minutosDeCorrida, resumir, veredicto } from '../scripts/minutos-actions.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(RAIZ, 'scripts', 'minutos-actions.mjs');
@@ -55,14 +55,40 @@ test('resumir: por workflow, por día, el costo contra el tope y la proyección 
   assert.equal(resumir(runs, { precio: 0.006, incluidos: 100, tope: 30, hoy: '2026-11-06' }).costo, 0, 'con minutos incluidos de sobra, no cuesta');
 });
 
+test('el veredicto: rojo SÓLO sobre el facturable real de GitHub; sobre la estimación, nunca', () => {
+  const base = { estimado: 8678, incluidos: 2000, precio: 0.006, tope: 30, alarma: 80, proyeccion: 0 };
+  // El real del 6/11 (US$15,94 del panel ⇒ ~2.657 min pagos + 2.000 incluidos): el 53 % del tope, verde.
+  const verde = veredicto({ ...base, real: { ok: true, porWorkflow: [], totalMin: 4657 } });
+  assert.equal(verde.codigo, 0);
+  assert.ok(verde.lineas.some((l: string) => l.includes('US$15,94')), verde.lineas.join('\n'));
+  // Con el real arriba del 80 % del tope sí es rojo: la alarma sirve cuando el gasto es de verdad.
+  const rojo = veredicto({ ...base, real: { ok: true, porWorkflow: [], totalMin: 6500 } });
+  assert.equal(rojo.codigo, 1);
+  assert.ok(rojo.lineas.some((l: string) => l.startsWith('::error::')));
+  // Sin el número de GitHub, la estimación de 8.678 min daría US$40 (133 % del tope) y NO da rojo: avisa.
+  const sinReal = veredicto({ ...base, real: { ok: false, motivo: 'GitHub 403' } });
+  assert.equal(sinReal.codigo, 0, 'una estimación que sobre-cuenta no puede dar rojo');
+  assert.ok(sinReal.lineas.some((l: string) => l.startsWith('::warning::') && l.includes('GitHub 403')));
+  assert.ok(!sinReal.lineas.some((l: string) => l.startsWith('::error::')));
+  // Los minutos incluidos se descuentan: con 2.000 de sobra no cuesta nada.
+  assert.equal(veredicto({ ...base, real: { ok: true, porWorkflow: [], totalMin: 1500 } }).codigo, 0);
+});
+
 /** Una API de GitHub de mentira: `porDia` corridas por día; un día de más de 1.000 sólo se lee workflow por workflow. */
-async function conApi(o: { porDia: Record<string, ReturnType<typeof corrida>[]>; enorme?: string; falla?: boolean }, fn: (base: string) => Promise<void>) {
+async function conApi(o: { porDia: Record<string, ReturnType<typeof corrida>[]>; enorme?: string; falla?: boolean; billableMin?: Record<string, number>; timingFalla?: boolean }, fn: (base: string) => Promise<void>) {
   const srv = createServer((req, res) => {
     const u = new URL(req.url ?? '/', 'http://x');
     const dia = u.searchParams.get('created') ?? '';
     const page = Number(u.searchParams.get('page') ?? 1);
     const json = (x: unknown) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(x)); };
     if (o.falla) { res.statusCode = 502; return res.end('mal'); }
+    // El facturable REAL que publica GitHub, por workflow (el ciclo en curso).
+    const t = /\/actions\/workflows\/(\d+)\/timing$/.exec(u.pathname);
+    if (t) {
+      if (o.timingFalla) { res.statusCode = 403; return res.end('nada'); }
+      const nombre = t[1] === '1' ? 'punta → main' : 'otro';
+      return json({ billable: { UBUNTU: { total_ms: (o.billableMin?.[nombre] ?? 0) * 60_000 } } });
+    }
     if (u.pathname.endsWith('/actions/workflows')) return json({ workflows: [{ id: 1, name: 'punta → main' }, { id: 2, name: 'otro' }] });
     const todas = o.porDia[dia] ?? [];
     const m = /\/actions\/workflows\/(\d+)\/runs$/.exec(u.pathname);
@@ -91,29 +117,40 @@ function correr(base: string, extra: string[]) {
   });
 }
 
-test('el script contra la API: tabla, alarma roja al 80 % del tope, y un día de más de 1.000 leído workflow por workflow', async () => {
+test('el script contra la API: tabla, un día de más de 1.000 leído workflow por workflow, y el rojo sobre el número de GitHub', async () => {
   const dia1 = Array.from({ length: 1200 }, (_, i) => corrida(i % 2 ? 'otro' : 'punta → main', '2026-11-01', 600));
   const dia2 = [corrida('punta → main', '2026-11-02', 600)];
   const dir = mkdtempSync(join(tmpdir(), 'minutos-'));
   try {
-    await conApi({ porDia: { '2026-11-01': dia1, '2026-11-02': dia2 }, enorme: '2026-11-01' }, async (base) => {
+    // La estimación son 12.010 min (US$72,06 sin incluidos): el caso que daba rojo todos los días. El real de GitHub son 2.400.
+    await conApi({ porDia: { '2026-11-01': dia1, '2026-11-02': dia2 }, enorme: '2026-11-01', billableMin: { 'punta → main': 2000, otro: 400 } }, async (base) => {
       const resumen = join(dir, 'resumen.md');
       writeFileSync(resumen, '');
-      // 1.201 corridas × 10 min = 12.010 min × US$0,006 = US$72,06: arriba del 80 % de US$30.
-      const rojo = await correr(base, ['--alarma', '80', '--resumen', resumen]);
-      assert.equal(rojo.codigo, 1, rojo.salida);
-      assert.match(rojo.salida, /::error::Actions va en US\$72,06 de US\$30,00/);
-      assert.match(rojo.salida, /\| punta → main \| 601 \|/, 'el día enorme se leyó entero, workflow por workflow');
-      assert.match(readFileSync(resumen, 'utf8'), /\| \*\*Total\*\* \| \*\*1201\*\*/);
-      // Con un tope de US$85, US$72 es el 85 %: entre el 80 y el 100 también es rojo (la alarma es ANTES del tope).
-      assert.equal((await correr(base, ['--alarma', '80', '--tope', '85'])).codigo, 1);
-      // Con un tope de US$100, US$72 es el 72 %: sin alarma, pero con el aviso de que el mes cierra arriba del tope.
-      const verde = await correr(base, ['--alarma', '80', '--tope', '100']);
+      // 2.400 reales − 2.000 incluidos = 400 min × US$0,006 = US$2,40: el 8 % de US$30. VERDE, aunque la estimación diga US$72.
+      const verde = await correr(base, ['--alarma', '80', '--resumen', resumen]);
       assert.equal(verde.codigo, 0, verde.salida);
       assert.doesNotMatch(verde.salida, /::error::/);
-      assert.match(verde.salida, /::warning::Al ritmo de los últimos días/);
+      assert.match(verde.salida, /Facturable REAL de GitHub \(ciclo en curso\): \*\*2\.400 min\*\* → US\$2,40 de un tope de US\$30,00/);
+      assert.match(verde.salida, /\| punta → main \| 601 \|/, 'el día enorme se leyó entero, workflow por workflow');
+      assert.match(readFileSync(resumen, 'utf8'), /\| \*\*Total\*\* \| \*\*1201\*\*/);
+      assert.match(readFileSync(resumen, 'utf8'), /Min\. facturables REALES/, 'el resumen del vigía trae el número bueno');
+      // Con un tope de US$2, los US$2,40 reales son el 120 %: ahí sí es rojo, y lo dice como el número de GitHub.
+      const rojo = await correr(base, ['--alarma', '80', '--tope', '2']);
+      assert.equal(rojo.codigo, 1, rojo.salida);
+      assert.match(rojo.salida, /::error::Actions va en US\$2,40 de US\$2,00 en este ciclo \(120 %, el número de GitHub\)/);
     });
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('sin el facturable real de GitHub, la estimación NO da rojo: avisa', async () => {
+  // La estimación son US$72,06 (240 % de US$30) y el /timing da 403: antes del 6/11/2026 esto era el rojo de todos los días.
+  await conApi({ porDia: { '2026-11-01': [corrida('punta → main', '2026-11-01', 600)] }, timingFalla: true }, async (base) => {
+    const r = await correr(base, ['--alarma', '80', '--incluidos', '0', '--tope', '0.01']);
+    assert.equal(r.codigo, 0, r.salida);
+    assert.doesNotMatch(r.salida, /::error::/);
+    assert.match(r.salida, /::warning::Sólo tengo la ESTIMACIÓN/);
+    assert.match(r.salida, /no pude leer el facturable de «punta → main» \(GitHub 403/);
+  });
 });
 
 test('si la API falla, avisa «no sé» y no da rojo', async () => {
