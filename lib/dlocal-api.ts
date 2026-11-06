@@ -91,7 +91,10 @@ export async function leerCuentaDlocal(c: { apiKey: string; secret: string }): P
   if (!apiKey || !secret) return { ok: false, status: 400, error: 'Faltan la API key o la secret key de dLocal Go.' };
   // Un `:` adentro de una clave rompería el header en silencio (dLocal parte por el primero).
   if (apiKey.includes(':') || secret.includes(':')) {
-    return { ok: false, status: 400, error: 'Esas claves de dLocal Go traen dos puntos: copialas de nuevo, son dos valores por separado.' };
+    // ⚠️ El copy va en castellano neutro con «tú», nunca en voseo: lo lee un cliente, y lo barre
+    // tests/puente-panel-copy.test.ts. Este mensaje salió con «copialas» y frenó la punta — pasa
+    // fácil porque los comentarios y los documentos del repo SÍ están en voseo.
+    return { ok: false, status: 400, error: 'Esas claves de dLocal Go traen dos puntos: cópialas de nuevo, son dos valores por separado.' };
   }
   const claves = { apiKey, secret };
 

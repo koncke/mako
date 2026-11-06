@@ -2610,6 +2610,24 @@ al abrirse, que ya existe porque la de Stripe vence a las 24 h — **la de dLoca
 pantalla, 3DS y tokenización propias, y MaKo en alcance de PCI, sin ganar nada para vender un plan. Si
 algún día se usa Transparent Checkout, entra como campo nuevo y **opcional**.
 
+### El copy de un mensaje de error se escribe con «tú», y el repo entero empuja al voseo
+
+La punta salió **roja** por una palabra: `'…copialas de nuevo…'` en un mensaje de error del conector
+(`lib/dlocal-api.ts`). Lo caza `tests/puente-panel-copy.test.ts` («ninguna pantalla del repo le habla
+al cliente de vos»), que barre los 6.014 archivos del repo y **dice la corrección**: «copialas» →
+«cópialas».
+
+**El mecanismo, que es lo que vale:** todo lo interno de este repo —los comentarios, `AGENTS.md`, los
+`docs/hallazgos-*`, los relevos, los mensajes entre chats— está escrito **en voseo**, y el copy que
+lee un cliente va en castellano neutro con «tú». Así que redactar un mensaje de usuario mientras se
+escribe el comentario que lo explica arrastra la forma sin que se note: la frase se lee perfecta.
+Esa misma noche la guarda frenó **cuatro ramas** por lo mismo.
+
+**La regla:** un string que termina en pantalla se revisa aparte del comentario que lo rodea, y no se
+copia una frase de un documento interno a un mensaje de usuario. Y si la guarda se equivoca —confunde
+«podé» de *podar* con el «vos» de *poder*—, va a `FUERA_DE_ALCANCE` **con el porqué escrito**, nunca
+reescribiendo bien un texto que ya estaba bien.
+
 ### Para el rediseño del checkout: dos cosas que NO son un cambio de copy
 
 El pedido del 6/11 incluye sacar los dos textos de abajo de `/planes/<plan>` y convertir el
