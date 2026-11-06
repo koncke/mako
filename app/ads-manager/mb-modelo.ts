@@ -39,6 +39,9 @@ export function tonoDe(d: Pick<Decision, 'tipo' | 'tactica'>): 'bien' | 'mal' | 
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') return 'mako';
   if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios' || d.tipo === 'crear_campana') return 'bien';
   if (d.tactica === 'sunsetting' && d.tipo === 'bajar_presupuesto') return 'cuidado';
+  // El relevo (táctica Ganador + pausar, lib/media-buyer/motor.ts): se pausa el original PORQUE su variación ya le gana. Es una buena
+  // noticia, no una pérdida.
+  if (d.tactica === 'ganador' && d.tipo === 'pausar') return 'bien';
   return 'mal';
 }
 
@@ -178,7 +181,10 @@ export function impactoEsperado(d: Pick<Decision, 'tipo' | 'tactica'>, kpi: KpiM
     case 'bajar_presupuesto': return [`Menos gasto donde cada uno de tus ${r} sale caro`, 'El presupuesto queda para lo que rinde'];
     case 'pausar': return d.tactica === 'calidad'
       ? ['Menos leads que no agendan', 'Más presupuesto para los que sí']
-      : [`Frenar el gasto que no trae ${r}`, 'Ese presupuesto pasa a lo que convierte'];
+      // El relevo: el original no «gasta sin traer», sólo le ganó su variación.
+      : d.tactica === 'ganador'
+        ? ['El presupuesto pasa a la variación que ya rinde más', `Más ${r} con lo mismo`]
+        : [`Frenar el gasto que no trae ${r}`, 'Ese presupuesto pasa a lo que convierte'];
     case 'activar': return [`Volver a sumar ${r} de un anuncio que resultó bueno`];
     case 'variaciones_texto':
     case 'variaciones_hook': return ['Encontrar el próximo ganador antes de que este se canse', `Más ${r} con el mismo presupuesto`];
@@ -205,7 +211,8 @@ export function rotuloDe(d: Pick<Decision, 'tactica' | 'nivel' | 'tipo'>): strin
     case 'stop_loss': return 'Gasta sin resultados';
     case 'revive': return 'Volvió a andar';
     case 'calidad': return 'Leads que no agendan';
-    case 'ganador': return d.tipo === 'variaciones_hook' ? 'Video ganador' : 'Anuncio ganador';
+    // El relevo (Ganador + pausar): la tarjeta es del ORIGINAL que su variación superó (docs/relevo/nube-thiago-anuncios.md).
+    case 'ganador': return d.tipo === 'pausar' ? 'Le gana su variación' : d.tipo === 'variaciones_hook' ? 'Video ganador' : 'Anuncio ganador';
     default: return 'Tu regla';
   }
 }
@@ -262,7 +269,8 @@ const POR_TACTICA: Record<Tactica, (res: string, tipo: TipoDecision) => string> 
   stop_loss: (res) => `pausar lo que gasta sin traer ${res}`,
   revive: () => 'prender lo que volvió a andar',
   calidad: () => 'pausar lo que trae leads que no agendan',
-  ganador: (_res, tipo) => (tipo === 'variaciones_hook' ? 'probar ganchos nuevos de tu video ganador' : 'probar textos nuevos de tu anuncio ganador'),
+  ganador: (_res, tipo) => (tipo === 'pausar' ? 'pausar el original que ya superó su variación'
+    : tipo === 'variaciones_hook' ? 'probar ganchos nuevos de tu video ganador' : 'probar textos nuevos de tu anuncio ganador'),
   manual: () => 'lo que piden tus reglas',
   hasta: () => 'pausar lo que llegó a su fecha de fin',
 };

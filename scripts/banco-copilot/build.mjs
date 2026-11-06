@@ -1,6 +1,7 @@
 // El banco del Marketing CoPilot: la PrimeraEntrada REAL compilado con esbuild, con datos inventados
 // y sin base. Uso: node scripts/banco-copilot/build.mjs && node scripts/banco-copilot/servir.cjs → http://127.0.0.1:4591
 //   /?tema=oscuro · /?tel=1 (el teléfono) · /?abrir=1 (el carrusel abierto) · /?filtros=1 (el modal de filtros) · /?editar=1
+//   /telefono (la pantalla de /m/ads: telefono.tsx, con ?plan=1 · ?hoja=1 · ?antes=1)
 // Capturas: node scripts/banco-copilot/capturar.mjs
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -36,7 +37,7 @@ const plugin = {
 };
 
 await esbuild.build({
-  entryPoints: [path.join(AQUI, 'entrada.tsx')], bundle: true, outdir: path.join(AQUI, 'salida'), format: 'esm', platform: 'browser', jsx: 'automatic',
+  entryPoints: [path.join(AQUI, 'entrada.tsx'), path.join(AQUI, 'telefono.tsx')], bundle: true, outdir: path.join(AQUI, 'salida'), format: 'esm', platform: 'browser', jsx: 'automatic',
   target: 'es2022', tsconfig: WT + '/tsconfig.json', nodePaths: [WT + '/node_modules'],
   define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', global: 'globalThis' },
   loader: { '.module.css': 'local-css', '.css': 'css', '.woff2': 'dataurl', '.png': 'dataurl', '.svg': 'dataurl' },

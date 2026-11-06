@@ -8,13 +8,16 @@
 // tocar una tarjeta, su detalle en la hoja de MaKo Mobile (la tarjeta entera, con el porqué y sus botones). Lo que en el
 // teléfono no entra (Campañas, la Biblioteca, los agentes) queda en la computadora.
 // Lo que escribe es lo de la computadora: POST /api/media-buyer (lib/media-buyer/ejecutar.ts).
+// Marketing CoPilot (6/11/2026): «Pídele algo a MaKo» y «Pregúntale» abren la hoja del CoPilot (HojaDelCopiloto.tsx: el Cerebro con
+// `desde.tab = 'Marketing CoPilot'`, como la estrella de la computadora); antes iban a /m/mako, que no lleva `desde` y no hablaba como
+// CoPilot. Con un funnel de anuncios elegido, «Hoy | Plan» arriba: el Plan es la sección de la computadora (PlanDelCopiloto.tsx).
 // Un día sin cambios dice lo MISMO que la computadora (lib/media-buyer/cartel-hoy.ts): nunca «todo anda bien» sin haberlo
 // medido. Lo único distinto es el próximo paso, que acá se dice en una línea en vez de ser un botón.
 // =============================================================================
 
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { SheetM, useToastM } from '@/app/m/_ui';
+import { SegmentadoM, SheetM, useToastM } from '@/app/m/_ui';
 import { Criatura } from '@/app/_components/Criatura';
 import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
@@ -23,6 +26,9 @@ import { PASO_EN_EL_TELEFONO, cartelDeHoy } from '@/lib/media-buyer/cartel-hoy';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
 import { TarjetaAccion } from '@/app/ads-manager/Autopilot';
 import { aplicablesEnLote, deHoy, resultadoAplicar, type ResultadoAplicar } from '@/app/ads-manager/mb-modelo';
+import { SeccionPlan } from '@/app/ads-manager/PlanDelCopiloto';
+import { seccionesDelTelefono, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
+import { HojaDelCopiloto } from './HojaDelCopiloto';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
@@ -38,19 +44,25 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?
   }
 }
 
-export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conectada = null }: {
+export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conectada = null, perfil = null }: {
   config: Config;
   decisiones: Decision[];
   puedeOperar: boolean;
   productoDe: Record<string, string>;
   /** La cuenta publicitaria conectada. `null` = el teléfono no lo sabe (no pregunta a Meta ni a Zernio al abrir). */
   conectada?: boolean | null;
+  /** Lo que respondió en la primera entrada del Marketing CoPilot (null: un negocio de antes, que no la hizo). */
+  perfil?: PerfilCopiloto | null;
 }) {
   const router = useRouter();
   const toast = useToastM();
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [aplicandoTodas, setAplicandoTodas] = useState(false);
   const [abierta, setAbierta] = useState<string | null>(null);
+  const secciones = useMemo(() => seccionesDelTelefono(perfil), [perfil]);
+  const [seccion, setSeccion] = useState<'hoy' | 'plan'>('hoy');
+  // La hoja del CoPilot: abierta (con o sin un pedido que sale solo).
+  const [copiloto, setCopiloto] = useState<{ pedido: { texto: string; vez: number } | null } | null>(null);
   const hoy = useMemo(() => deHoy(decisiones), [decisiones]);
   const detalle = abierta ? decisiones.find((d) => d.id === abierta) ?? null : null;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
@@ -87,8 +99,15 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conec
 
   return (
     <div className="aa aa-m">
-      <button type="button" className="aa-orden-m" onClick={() => router.push('/m/mako')}><MiFoto size={30} /><span>Pídele algo a MaKo</span></button>
-      {hoy.length
+      <button type="button" className="aa-orden-m" onClick={() => setCopiloto({ pedido: null })}><MiFoto size={30} /><span>Pídele algo a MaKo</span></button>
+      {secciones.length > 1 && (
+        <div className="aa-m-secciones">
+          <SegmentadoM etiqueta="Marketing CoPilot" valor={seccion} onCambio={setSeccion}
+            opciones={secciones.map((id) => ({ id, label: id === 'plan' ? 'Plan' : 'Hoy' }))} />
+        </div>
+      )}
+      {seccion === 'plan' && perfil && secciones.includes('plan') ? <SeccionPlan perfil={perfil} />
+      : hoy.length
         ? <ArbolDeHoy decisiones={hoy} productoDe={producto} kpi={config.kpi} ocupada={ocupada} encendido={puede}
             avatar={<Criatura nombre="MaKo" size={18} estrella />} aplicandoTodas={aplicandoTodas}
             onAbrir={(d) => setAbierta(d.id)} onAplicar={(d) => void aplicar(d)} onAplicarTodas={() => void aplicarTodas()} />
@@ -108,7 +127,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conec
               ajustesHref="/ads-manager/ajustes"
               onAplicar={async (extra) => { const r = await aplicar(detalle, extra); if (r === true) setAbierta(null); return r; }}
               onBorrar={() => { void accion(detalle, { op: 'descartar' }, 'Descartado'); setAbierta(null); }}
-              onPreguntar={() => router.push('/m/mako')}
+              onPreguntar={() => { setAbierta(null); setCopiloto({ pedido: { texto: `Marketing CoPilot: explícame el cambio «${detalle.titulo}» de «${detalle.entidadNombre}»`, vez: Date.now() } }); }}
               onDeshacer={() => void accion(detalle, { op: 'deshacer' }, 'Deshecho')}
               onReabrir={() => void accion(detalle, { op: 'reabrir' }, 'Abierto otra vez')}
               onCalificar={(n) => void accion(detalle, { op: 'calificar', estrellas: n }, 'Gracias')}
@@ -116,6 +135,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conec
           </div>
         )}
       </SheetM>
+      {copiloto && <HojaDelCopiloto pedido={copiloto.pedido} pantalla={`Marketing CoPilot · teléfono · ${seccion === 'plan' ? 'Plan' : `Hoy (${hoy.length} cambios)`}`} onCerrar={() => setCopiloto(null)} />}
     </div>
   );
 }
