@@ -45,7 +45,17 @@ test('la pantalla, mirando a otro: sólo WhatsApp y Email; lo de la app, el celu
   assert.match(panel, /\{!deOtro && <GrupoAjustes titulo="No molestar">/);
   assert.match(panel, /\{admin && <FilaAjustes icono="whatsapp"/);
   // Un 500 de lo personal no es un error de esta pantalla: no se muestra.
-  assert.match(panel, /errorDe\(deOtro \? dest\.error : inApp\.error \?\? push\.error \?\? dest\.error\)/);
+  //
+  // ⚠️ SE MIDE LA REGLA, NO LA CADENA (6/11/2026). Esto pedía el texto literal
+  // `errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? dest.error)`, así que agregar UNA fuente de error personal
+  // —la casilla de los correos de tickets— lo puso rojo sin romper nada de lo que el caso cuida. Era la tercera guarda del
+  // día con esa forma (ver docs/hallazgos-ticketera.md → «Una guarda que fija el TEXTO del código viejo»). Lo que importa
+  // es el CORTE: mirando a otro se muestra sólo el error del negocio, y lo personal queda del otro lado del `:`.
+  const err = /errorDe\(deOtro \? ([^:]+) : ([^)]+)\)/.exec(panel);
+  assert.ok(err, 'la pantalla elige qué error mostrar según `deOtro`');
+  assert.equal(err[1].trim(), 'dest.error', 'mirando a otro, sólo el error del negocio');
+  assert.doesNotMatch(err[1], /inApp|push|correos/, 'un 500 de lo personal no es un error de esta pantalla');
+  assert.match(err[2], /inApp\.error/, 'y en la propia, el de lo personal sí se ve');
   assert.match(sinComentarios(leer('app/perfil/notificaciones/page.tsx')), /<NotificacionesPanel [^>]*deOtro=\{deOtro\} \/>/);
 });
 

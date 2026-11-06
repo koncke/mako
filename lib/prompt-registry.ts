@@ -593,9 +593,10 @@ export const REGISTRY: Group[] = [
     entries: [
       {
         key: 'closing.analyze.system', source: 'override',
-        label: 'Instrucciones de análisis de cierres (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        label: 'Instrucciones de análisis de cierres (system)', kind: 'system', dynamic: true,
+        variables: [v('servicio', 'qué vende y entrega TU negocio, de tu brief (sin brief, una descripción genérica)'), v('reunion1', 'cómo llama tu embudo a la primera reunión de venta'), v('reunion2', 'cómo llama tu embudo a la segunda')], scope: 'full', sensitive: true,
         default: SYSTEM_ANALISIS,
-        context: 'El cerebro del Closing Analyst: cómo clasificar la llamada (Venta R1/R2 vs Entrega de servicio vs Interna), cómo puntuar SPIN y ejecución del 0 al 10, y la forma EXACTA del JSON de salida (con citas que llevan el segundo del transcript). Conserva las categorías de clasificación, los nombres de dimensión SPIN/ejecución y el esquema JSON o el análisis se rompe.',
+        context: 'El cerebro del Closing Analyst: cómo clasificar la llamada (Venta R1/R2 vs Entrega de servicio vs Interna), cómo puntuar SPIN y ejecución del 0 al 10, y la forma EXACTA del JSON de salida (con citas que llevan el segundo del transcript). Conserva las categorías de clasificación, los nombres de dimensión SPIN/ejecución y el esquema JSON o el análisis se rompe. Y conserva los slots: {{servicio}} es lo que hace que tus llamadas se lean con el vocabulario de TU negocio y no con el de otro rubro — si lo borras, el modelo clasifica sin saber de qué vives. «R1» y «R2» del JSON no se renombran (de ahí cuelga el contrato): {{reunion1}}/{{reunion2}} sólo dicen cómo las llamas tú.',
       },
       {
         key: 'closing.analyze.user', source: 'override',

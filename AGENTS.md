@@ -4238,8 +4238,24 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   «no agendaste» al que pagó.
 - **La clave de una pasarela se lee con `credDelCliente(clave, ws)`**, nunca `credWs`/`envCred`/`process.env`: esos
   caen al ws1 (Mauricio, un cliente). La de MaKo es la del workspace `wsSuperAdmin()`, conectada desde
-  /integraciones como la de cualquiera. Y **ninguna clave `STRIPE_*`/`MERCADOPAGO_*` va al entorno de Vercel**
-  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
+  /integraciones como la de cualquiera. Y **ninguna clave de pasarela va al entorno de Vercel**
+  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts). ⚠️ Y una que se cargue ahí igual no es un error que
+  avise: `credDelCliente` lee SÓLO la base y `aplicarAEnv` se niega a copiarla, así que queda **inerte** y el conector
+  dice «falta la credencial» (06/11/2026, con las de dLocal Go cargadas en `.env.local` y en Vercel). Ojo también con la
+  skill `add-provider-integration`: dice «per-cliente → `credWs('CLAVE')`», que es correcto para una integración normal
+  y es **exactamente lo prohibido** para una pasarela.
+- ⚠️ **UNA PASARELA NUEVA SE AGREGA A SU LISTA DE PREFIJOS EN EL MISMO COMMIT QUE SU LIB.** El barrido de
+  `tests/pasarela-sin-env.test.ts` es por PREFIJO, así que es tan ancho como su lista — y **quedó ciego dos veces**: con
+  Creem (31/10/2026) y con dLocal Go (06/11/2026), las dos con un `credWs('<X>_API_KEY')` pasando **en verde** y
+  cobrándole a la cuenta del ws1. Un guardia que no mira no da rojo: da un cero correcto sobre la pregunta equivocada.
+  Desde el 06/11 los dos tests del archivo derivan las claves de `CLAVES_DE_PASARELA` leyendo el fuente, así que la
+  quinta pasarela ya no depende de que alguien se acuerde.
+- ⚠️ **Y UNA CAPACIDAD DE PASARELA QUE ES UNA REGIÓN NO ENTRA EN UN BOOLEANO.** `soloEnSuPais` tiene dos valores («sólo
+  el país de su cuenta» y «todo el mundo») y dLocal Go no es ninguno: cobra en LatAm y **no recibe pagos de EE.UU. ni de
+  Europa**. Agregarlo con los dos valores correctos campo por campo (`soloEnSuPais: false`, `merchantOfRecord: false`) lo
+  deja **ofrecido a quien está fuera de LatAm y escondido para quien está dentro** — al revés, sin un ternario de dos
+  ramas y sin que nada falle. Antes de sumar una pasarela regional va `paisesQueCobra` en `CapacidadesPasarela`, y
+  `pasarelasDelPais` filtra por él ANTES de mirar `merchantOfRecord` (docs/hallazgos-planes-y-cobro.md → «dLocal Go»).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
   ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
@@ -7703,6 +7719,17 @@ el hallazgo cruza áreas, va donde vive el código y se enlaza desde la otra.
 
 Si el área todavía no tiene documento, se crea. `docs/hallazgos.md` es el índice: una
 línea por documento, y se actualiza en el mismo commit.
+
+⚠️ **En el índice se REESCRIBE la celda de tu área metiendo tu entrada adelante — nunca
+se agrega una fila.** Es una tabla con **una fila por área**, y una fila nueva la duplica.
+Tu entrada arranca con `**Título (fecha)**:`, que es el límite que después permite
+juntarlas sin partir una oración al medio. Y un `|` en el texto va escapado (`\|`): sin
+escapar le inventa columnas a la fila y markdown deja de mostrarla. Lo mira una guarda
+(`tests/unir-indice-hallazgos.test.ts`), que también chequea que el link de cada fila
+exista en disco. El 6/11/2026 el índice tenía 217 filas para 77 áreas porque
+`merge=union` agarraba también la tabla: el porqué, en
+[docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El índice de hallazgos se
+duplicaba solo».
 
 Qué va ahí:
 
