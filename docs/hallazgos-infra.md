@@ -11151,3 +11151,36 @@ fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 
 igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
 
 **Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
+
+---
+
+## Armar una punta leyendo `origin/main` DOS veces le revierte a main lo que ganó en el medio (6/11/2026)
+
+**Vive en:** el procedimiento, no en un archivo. Lo que lo produce es `git read-tree origin/main` / `git show origin/main:<x>`
+en un comando y `git commit-tree … -p origin/main` en otro.
+
+**Por qué alguien hace esto.** Con el árbol de trabajo lleno de cambios de VARIOS encargos a la vez, la forma limpia de sacar
+una punta por ítem —sin `checkout`, sin `stash` y sin tocar lo de las otras sesiones— es armar el commit con plumbing: un
+índice temporal (`GIT_INDEX_FILE`), `read-tree` de main, `git add` sólo de las rutas del ítem, `write-tree` y `commit-tree`
+con main como padre. Es correcto y no toca el disco de nadie.
+
+⚠️ **La trampa: `origin/main` es un ref, y se LEE cada vez.** Entre el comando que armó el árbol y el que puso el padre pasó
+un `git push` mío de otra punta — y **el pre-push hace `fetch`** (AGENTS.md ya lo dice: «el remoto se mueve mientras corre el
+hook»). Así que el árbol salió del main de hace dos minutos y el padre fue el main de ahora: el commit resultante **borra en
+silencio** lo que main ganó en el medio. Medido: mi punta del editor llegó a `docs/hallazgos.md` con **303 líneas contra 304**,
+y la que faltaba era la fila de Infraestructura que otra punta acababa de ampliar. No hay conflicto, no hay aviso, y
+`git diff --stat` dice «2 archivos» como si todo estuviera bien — la deleción aparece en OTRO hunk, lejos del que se fue a
+mirar.
+
+Es la misma familia que el `reset` sin `--hard` y el `--amend` de AGENTS.md: **un revert exacto disfrazado de trabajo normal.**
+Lo que la hace peor acá es que el commit nunca pasó por el árbol de trabajo, así que ninguno de los chequeos que uno hace por
+costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
+
+**Las dos reglas:**
+
+1. **El sha del padre se PINCHA una vez y se usa para todo:** `BASE=$(git rev-parse origin/main)`, y de ahí salen el
+   `read-tree`, los `git show` y el `-p`. Un ref leído dos veces son dos valores distintos.
+2. **Y se verifica contra ESE padre, no contra el ref:** `git diff --stat "$BASE" "$SHA"` y, para los archivos que son
+   listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
+   (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
+   que desapareció sin que nadie la borrara.
