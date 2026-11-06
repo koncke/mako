@@ -22,7 +22,14 @@
 // ⚠️ EL DETALLE DE UNA PIEZA VA EN UNA `SheetM`, NO EN EL `Modal` DE ESCRITORIO. `DetallePieza` era
 // un `Modal` —que /m no usa (AGENTS.md)—, así que se le abrió una puerta: `marco`, la caja donde se
 // dibuja (app/competitor-spy/DetallePieza.tsx → `MarcoDetalle`). El escritorio sigue con su `Modal`,
-// que es el default; acá se le pasa la hoja. Es lo único que se tocó del escritorio.
+// que es el default; acá se le pasa la hoja.
+//
+// ⚠️ Y LA SEGUNDA PUERTA ES `columnas`, EN `GrillaPiezas`: el teléfono PIDE una columna en vez de
+// taparle su `grid-template-columns` del estilo en línea con un `!important` desde la hoja. El
+// componente cuenta la paginación con las columnas que cree dibujar, así que con el `!important` se
+// veía una columna y se contaban dos: el doble de tarjetas por página, el doble de miniaturas que
+// bajar con datos (docs/hallazgos-mobile.md, 6/11/2026). Las dos puertas tienen su default de
+// escritorio, y son lo único que se tocó de allá.
 //
 // ⚠️ LO QUE NO VA AL TELÉFONO SE DICE, NO DESAPARECE (§8): replicar su sitio (es el editor) y el
 // recorrido con la extensión (es Chrome de escritorio) van en la fila `ComputadoraM` del final.
@@ -411,7 +418,11 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
       )}
 
       {contenido.length > 0 && (
+        /* UNA columna (§8), PEDIDA: es la que se dibuja y la que se cuenta, así que una página son tres tarjetas y no
+           seis. Taparle el estilo en línea con un `!important` desde la hoja dejaba la cuenta en dos columnas: el doble
+           de miniaturas que bajar con datos (docs/hallazgos-mobile.md). */
         <GrillaPiezas
+          columnas={1}
           piezas={visibles}
           reinicio={`${c.id}|${buscar}|${tipo}|${minimo}|${orden}`}
           tarjeta={(p) => <TarjetaPieza p={p} multiplo={multiplos.get(p.id)} onAbrir={() => abrirPieza(p)} />}

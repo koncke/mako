@@ -173,13 +173,15 @@
    LAS PIEZAS DE ESCRITORIO QUE NO TRAEN SU CSS, destiladas para UNA columna
    ============================================================================= */
 
-/* ── Todas sus piezas (GrillaPiezas.tsx). ⚠️ UNA COLUMNA, Y CON `!important`: el componente escribe
-      `grid-template-columns` en el ESTILO EN LÍNEA (calcula las columnas que entran, dos a 390 px) y
-      un estilo en línea le gana a cualquier clase. La galería del teléfono es de una columna
-      (docs/diseno-competitors-spy.md §8): una tarjeta por fila, con la miniatura en su proporción. ── */
+/* ── Todas sus piezas (GrillaPiezas.tsx). ⚠️ LA COLUMNA ÚNICA NO SE DECLARA ACÁ: la pide la pantalla con
+      `columnas={1}` (SpyM.tsx), y el componente la escribe en su `grid-template-columns` del estilo en
+      línea. Esta hoja le ponía `minmax(0, 1fr) !important` porque un estilo en línea le gana a cualquier
+      clase — y así se VEÍA una columna mientras la paginación seguía CONTANDO las dos que el componente
+      creía dibujar a 390 px: el doble de tarjetas por página (docs/hallazgos-mobile.md, 6/11/2026). La
+      galería del teléfono es de una columna (docs/diseno-competitors-spy.md §8): una tarjeta por fila,
+      con la miniatura en su proporción. ── */
 .m-competitor-spy .spy-pgrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) !important;
   gap: 14px;
   align-items: start;
 }

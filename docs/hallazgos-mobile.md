@@ -2011,12 +2011,20 @@ pantalla que lo monta.
   se puede acotar a una clase, así que /m usa un nombre propio y se lo pone al elemento, en vez de declararlo otra vez.
 - **Una pieza que es dueña de su CAJA necesita que la caja sea una prop.** `DetallePieza` ERA un `Modal` de
   `@/app/_ui/Modal`, que /m no usa (AGENTS.md). Se le abrió UNA puerta, `marco` (`MarcoDetalle`): el `Modal` sigue
-  siendo el default y el teléfono le pasa su `SheetM`. Es el único cambio que necesitó el escritorio; copiar la pieza
-  habría duplicado el guion, «Hacer uno así» y sus números.
-- **`GrillaPiezas` escribe `grid-template-columns` en el estilo EN LÍNEA** (calcula las columnas que entran: dos a
-  390 px), y un estilo en línea le gana a cualquier clase: la columna única del teléfono necesita `!important`. Lo que
-  queda abierto: la PAGINACIÓN sigue contando esas dos columnas (`porPagina = columnas * FILAS_POR_PAGINA`), así que una
-  página del teléfono trae el doble de tarjetas de las que debería.
+  siendo el default y el teléfono le pasa su `SheetM`. Es uno de los DOS cambios que necesitó el escritorio (el otro,
+  `columnas`, en la entrada de acá abajo); copiar la pieza habría duplicado el guion, «Hacer uno así» y sus números.
+- **Un `!important` arregla lo que se VE y deja intacto lo que se CUENTA.** `GrillaPiezas` escribe
+  `grid-template-columns` en el estilo EN LÍNEA con las columnas que mide (dos a 390 px) **y pagina con ese mismo
+  número** (`porPagina = columnas * FILAS_POR_PAGINA`). Un estilo en línea le gana a cualquier clase, así que **el
+  diagnóstico obvio era el equivocado**: la hoja de /m forzaba la columna única con `!important`, la galería se veía
+  de una tarjeta por fila… y cada página seguía trayendo seis tarjetas, el doble de miniaturas que bajar con datos en
+  un teléfono. Un `!important` no es una opinión sobre el layout: es el aviso de que alguien calculó un número, lo
+  escribió en el estilo en línea y lo está usando para algo más. **Regla:** cuando un número del componente gobierna a
+  la vez el CSS y una cuenta, la pantalla que lo monta lo PIDE por prop —`columnas?: number`, con el cálculo de siempre
+  como default, igual que `marco`— en vez de taparle el estilo en línea. Cerrado el 6/11/2026: /m pasa `columnas={1}`,
+  la hoja ya no declara columnas y el escritorio quedó igual (tests/spy-telefono-una-columna.test.ts). Y la cuenta hacia
+  el otro lado: una página del teléfono son ahora **tres** tarjetas (1 × `FILAS_POR_PAGINA`); si eso es demasiado poco
+  para un pulgar, lo que se sube es `FILAS_POR_PAGINA` o una prop `filas`, no las columnas.
 - **`MejoresPiezas` se dibuja en `position: absolute` para no sumarle alto al riel**, y mide el hueco que quedó. En una
   columna sola eso es 0 y la tarjeta no se ve: su salida es `--mejores-fluye: 1`, que el componente pregunta por CSS
   (`getComputedStyle`), y la declara quien lo monta.
@@ -2049,6 +2057,6 @@ pantalla que lo monta.
   «Copiar estructura»: docs/relevo/nube-spy.md); la columna de esta pantalla, su hoja de filtros y el `BuscadorAlta`
   adentro de `PantallaM` (que le pone `transform` mientras se tira el pull, y `transform` mueve lo `fixed`) no.
 
-**Vive en:** `app/m/competitor-spy/` (page.tsx, SpyM.tsx, competitor-spy.css) · `marco` en
-`app/competitor-spy/DetallePieza.tsx` · la fila `competitor-spy` de `SECCIONES_MAS` y su `QUERY_DE_SECCION`
-(lib/movil-rutas.ts).
+**Vive en:** `app/m/competitor-spy/` (page.tsx, SpyM.tsx, competitor-spy.css) · las dos puertas del escritorio: `marco`
+en `app/competitor-spy/DetallePieza.tsx` y `columnas` en `app/competitor-spy/GrillaPiezas.tsx` · la fila
+`competitor-spy` de `SECCIONES_MAS` y su `QUERY_DE_SECCION` (lib/movil-rutas.ts).
