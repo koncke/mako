@@ -170,6 +170,26 @@ trabajo y además hace dudar de la lista completa.
 - Y al revés: **el reparto de un item a un área sale mejor del que lo mide que del que lo escribió.**
   El 467 lo tenía Infra con el archivo correcto (`lib/credenciales.ts:285`) mientras «Varios» lo mandaba
   a `lib/integraciones.ts`, donde la función no existe.
+## La alarma de minutos ponía en rojo el chequeo de producción, todos los días (6/11/2026)
+
+**Síntoma.** El workflow «después del deploy» —el que dice si producción quedó sana— salía **rojo en cada corrida**. El rojo no era de producción: era el paso «¿Cuántos minutos de Actions van este mes?», que terminaba en `exit 1` porque la estimación daba **US$51,87 contra un tope de US$30**. El aviso que importaba quedaba tapado por uno que no, todos los días.
+
+**El diagnóstico obvio era el equivocado.** «La estimación está alta, subamos el umbral» apaga el síntoma y deja la alarma mintiendo. Y el segundo obvio también falló: **`/actions/runs/{id}/timing` existe, contesta 200 y devuelve `billable` en CERO** para todas las corridas de este repo (medido sobre 14). El endpoint que daría el número exacto no sirve acá.
+
+**Las dos causas, medidas contra el panel de facturación (US$15,94 ese mismo día):**
+
+| | minutos | |
+|---|---:|---|
+| Lo que contaba el script | 8.645 | |
+| **Canceladas** (466 corridas) | −731 | el `cancel-in-progress` mata la anterior en cada push; el reloj mide la espera y la cancelación, que no se cobran |
+| **Salteadas** (152 corridas) | −37 | ningún job llegó a correr |
+| **Minutos que incluye el plan** | **−?** | entran como **CERO** (`ACTIONS_INCLUIDOS`), y el token de Actions **no puede leer** la página de facturación |
+
+Restando lo primero, la cuenta baja de US$52 a US$44,73. **Lo que queda es el plan**, y ese número el script no lo puede averiguar solo.
+
+**Lo que quedó.** Dos números en vez de uno: `facturable` es el techo (cuenta la cancelada entera) y `piso` saca lo que GitHub no cobra. Y la regla que importa: **mientras `incluidos` sea 0, esto avisa en amarillo y dice qué falta, no da rojo.** Un rojo que nadie puede accionar no es una alarma, es ruido. Cuando alguien ponga los minutos del plan en `ACTIONS_INCLUIDOS`, el rojo vuelve a significar algo y sale solo: verificado, con 3.000 puestos da `exit 1` al 89 %.
+
+⚠️ **Lo que sigue sin saberse:** cuántos minutos incluye el plan. Está en Settings → Billing y lo lee Martín; hasta entonces el vigía avisa pero no frena nada.
 
 ## El recorte de Vercel SÍ funcionó, y los builds son el 97% de la factura: medido en el panel (6/11/2026)
 

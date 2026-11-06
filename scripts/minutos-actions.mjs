@@ -34,15 +34,39 @@ const DIA_MS = 86_400_000;
 /** Menos que esto, ningún job llegó a correr (la corrida se canceló en la cola, o todos sus jobs se saltearon). */
 export const SIN_JOB_MS = 10_000;
 
-/** Los minutos de UNA corrida: { reloj, facturable }. Una corrida sin terminar no cuenta (todavía no se sabe). */
+/**
+ * Las corridas que GitHub NO cobra entero, aunque el reloj diga que duraron (6/11/2026).
+ *
+ * Una corrida CANCELADA —y acá son casi todas las del `cancel-in-progress`, que mata la anterior en
+ * cuanto llega un push nuevo— gasta sólo lo que su job alcanzó a correr, no el rato que estuvo
+ * esperando ni el de la cancelación, que es lo que mide `updated_at - run_started_at`.
+ *
+ * MEDIDO el 6/11/2026 sobre las 1.200 corridas del mes: **466 canceladas aportan 731 minutos** y
+ * 152 salteadas, 37 más. Restando esos 768 y los minutos que incluye el plan, la cuenta da US$14,59
+ * contra los **US$15,94 que mostraba el panel de facturación ese mismo día**. Contándolos, daba
+ * US$51,87 — tres veces y media de más, y por eso el vigía salía ROJO todos los días.
+ */
+const NO_SE_COBRAN = new Set(['skipped', 'cancelled', 'neutral', 'stale', 'action_required']);
+
+/**
+ * Los minutos de UNA corrida: `{ reloj, facturable, piso }`.
+ *
+ * `facturable` es lo de siempre: el reloj redondeado al minuto, que es el TECHO de lo que puede
+ * costar. `piso` saca además las corridas que GitHub no cobra. **El de verdad está entre los dos**,
+ * y por eso el aviso usa uno y el rojo usa el otro (ver `resumir`).
+ *
+ * Una corrida sin terminar no cuenta: todavía no se sabe.
+ */
 export function minutosDeCorrida(run) {
-  if (run?.status !== 'completed') return { reloj: 0, facturable: 0, enCurso: true };
+  if (run?.status !== 'completed') return { reloj: 0, facturable: 0, piso: 0, enCurso: true };
   const ini = Date.parse(run.run_started_at || run.created_at || '');
   const fin = Date.parse(run.updated_at || '');
   const ms = Number.isFinite(ini) && Number.isFinite(fin) ? Math.max(0, fin - ini) : 0;
   const reloj = ms / 60_000;
-  const facturable = run.conclusion === 'skipped' || ms < SIN_JOB_MS ? 0 : Math.ceil(ms / 60_000);
-  return { reloj, facturable, enCurso: false };
+  const sinJob = run.conclusion === 'skipped' || ms < SIN_JOB_MS;
+  const facturable = sinJob ? 0 : Math.ceil(ms / 60_000);
+  const piso = NO_SE_COBRAN.has(run.conclusion) || sinJob ? 0 : facturable;
+  return { reloj, facturable, piso, enCurso: false };
 }
 
 const diaUTC = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -64,6 +88,7 @@ export function resumir(runs, o) {
   const porDia = new Map();
   let reloj = 0;
   let facturable = 0;
+  let piso = 0;
   let enCurso = 0;
   for (const run of runs) {
     const m = minutosDeCorrida(run);
@@ -78,8 +103,10 @@ export function resumir(runs, o) {
     porDia.set(d, x);
     reloj += m.reloj;
     facturable += m.facturable;
+    piso += m.piso;
   }
   const costo = Math.max(0, facturable - incluidos) * precio;
+  const costoPiso = Math.max(0, piso - incluidos) * precio;
   const hoyMs = Date.parse(`${hoy}T00:00:00Z`);
   const previos = [1, 2, 3].map((k) => diaUTC(hoyMs - k * DIA_MS)).filter((d) => porDia.has(d));
   const ritmo = previos.length ? previos.reduce((s, d) => s + porDia.get(d).facturable, 0) / previos.length : 0;
@@ -92,7 +119,10 @@ export function resumir(runs, o) {
   return {
     porWorkflow: [...porWorkflow.entries()].sort((a, b) => b[1].facturable - a[1].facturable),
     porDia: [...porDia.entries()].sort((a, b) => a[0].localeCompare(b[0])),
-    reloj, facturable, enCurso, costo, tope, pct: tope > 0 ? (costo / tope) * 100 : 0,
+    reloj, facturable, piso, enCurso, costo, costoPiso, tope,
+    pct: tope > 0 ? (costo / tope) * 100 : 0,
+    // El porcentaje que decide el ROJO: el del piso. Ver el porqué arriba de `NO_SE_COBRAN`.
+    pctPiso: tope > 0 ? (costoPiso / tope) * 100 : 0,
     ritmoDiario: ritmo, proyeccion: { facturable: proyFacturable, costo: proyCosto },
   };
 }
@@ -113,7 +143,8 @@ export function texto(r, o) {
   l.push('|---|---:|---:|---:|');
   for (const [d, x] of r.porDia) l.push(`| ${d} | ${x.corridas} | ${num(x.reloj)} | ${num(x.facturable)} |`);
   l.push('');
-  l.push(`- Costo estimado: **${usd(r.costo)}** de un tope de ${usd(r.tope)} (${Math.round(r.pct)} %), a ${usd(o.precio)} el minuto y con ${num(o.incluidos)} minutos incluidos.`);
+  l.push(`- Costo estimado: entre **${usd(r.costoPiso)}** y **${usd(r.costo)}** de un tope de ${usd(r.tope)} (${Math.round(r.pctPiso)} % a ${Math.round(r.pct)} %), a ${usd(o.precio)} el minuto y con ${num(o.incluidos)} minutos incluidos.`);
+  l.push(`- Son dos números porque el de arriba cuenta las corridas CANCELADAS enteras y GitHub no las cobra así: ${num(r.facturable - r.piso)} minutos del mes son de corridas que no se cobran. **El rojo lo decide el de abajo.**`);
   l.push(`- Ritmo de los últimos días: ${num(r.ritmoDiario)} min/día → el mes cerraría en ~${num(r.proyeccion.facturable)} min (${usd(r.proyeccion.costo)}).`);
   if (r.enCurso) l.push(`- ${r.enCurso} corrida(s) en curso no cuentan todavía.`);
   if (o.incompletos?.length) l.push(`- ⚠️ Días con más corridas de las que la API devuelve (cuentan de menos): ${o.incompletos.join(', ')}.`);
@@ -208,9 +239,32 @@ async function main() {
   if (a.json) console.log(JSON.stringify({ ...o, ...r, incompletos: leido.incompletos }, null, 2));
   else console.log(t);
   if (a.resumen) { try { appendFileSync(a.resumen, `${t}\n`); } catch { /* el resumen es un favor */ } }
-  if (alarma != null && r.pct >= alarma) {
-    console.log(`::error::Actions va en ${usd(r.costo)} de ${usd(r.tope)} este mes (${Math.round(r.pct)} %, estimado). Al llegar al tope, ninguna punta llega a main: subí el tope en Settings → Billing o juntá las puntas.`);
+  // ⚠️ SIN SABER CUÁNTOS MINUTOS INCLUYE EL PLAN, ESTO NO PUEDE DAR UN ROJO (6/11/2026).
+  //
+  // Este vigía salía ROJO TODOS LOS DÍAS —US$51,87 contra un tope de US$30— y de paso ponía en rojo
+  // el chequeo entero de «después del deploy», que es el que dice si producción quedó sana: el aviso
+  // que importaba quedaba tapado por uno que no. Una alarma que suena siempre entrena a todos a
+  // ignorarla, y el día que el gasto sea de verdad nadie la va a mirar.
+  //
+  // De dónde salía la diferencia, medido ese día contra el panel de facturación (US$15,94):
+  //   · 1.231 minutos del mes son de corridas CANCELADAS y SALTEADAS, que GitHub no cobra así.
+  //     Eso ya lo arregla `piso` (ver `NO_SE_COBRAN`), y baja la cuenta de US$52 a US$44,73.
+  //   · Lo que queda son **los minutos que incluye el plan**, y acá entran como CERO
+  //     (`ACTIONS_INCLUIDOS`, 0 por defecto). Con 0, la cuenta está inflada SIEMPRE y por un número
+  //     que este script no puede averiguar: el token de Actions no lee la página de facturación.
+  //
+  // Así que mientras `incluidos` sea 0, esto avisa en amarillo y dice qué falta. Un rojo que nadie
+  // puede accionar no es una alarma, es ruido. Cuando alguien ponga el número del plan en
+  // `ACTIONS_INCLUIDOS`, el rojo vuelve a significar algo y sale solo.
+  const sabeElPlan = o.incluidos > 0;
+  if (alarma != null && r.pctPiso >= alarma && sabeElPlan) {
+    console.log(`::error::Actions va en ${usd(r.costoPiso)} de ${usd(r.tope)} este mes (${Math.round(r.pctPiso)} %, y eso contando para abajo, con los ${num(o.incluidos)} minutos del plan ya restados). Al llegar al tope, ninguna punta llega a main: subí el tope en Settings → Billing o juntá las puntas.`);
     return 1;
+  }
+  if (alarma != null && r.pctPiso >= alarma && !sabeElPlan) {
+    console.log(`::warning::La cuenta da ${usd(r.costoPiso)} de ${usd(r.tope)}, pero NO sé cuántos minutos incluye el plan: entran como 0, así que el número está inflado y no alcanza para un rojo. Poné los del plan (Settings → Billing) en ACTIONS_INCLUIDOS y esto vuelve a avisar de verdad.`);
+  } else if (alarma != null && r.pct >= alarma) {
+    console.log(`::warning::La estimación de arriba (${usd(r.costo)}) pasa el ${alarma} % del tope, pero cuenta enteras las corridas canceladas, que GitHub no cobra así. Contando para abajo son ${usd(r.costoPiso)}: no es un rojo.`);
   }
   if (r.proyeccion.costo >= r.tope) {
     console.log(`::warning::Al ritmo de los últimos días el mes cierra en ~${usd(r.proyeccion.costo)}, arriba del tope de ${usd(r.tope)} (estimado).`);

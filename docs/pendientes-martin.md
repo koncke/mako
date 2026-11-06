@@ -58,9 +58,24 @@ Actions no puede leer». O sea que la alarma **no puede** ver el número bueno.
    deploy» tiene **834 corridas y 679 minutos facturables** en el mes, a ~0,8 min cada una; la
    mayoría son corridas cuyos jobs se saltearon por su `if`, y GitHub **no cobra un job salteado**.
 
-**Lo que hay que hacer, y NO es subir el umbral:** que la alarma deje de dar rojo sobre una
-estimación que ella misma sabe que es alta. O resta los minutos incluidos del plan y no cuenta las
-corridas sin job, o avisa en amarillo diciendo «estimado, el panel dice otra cosa».
+**✅ ARREGLADO el 6/11** (`punta/minutos-sin-rojo-falso`). Y era peor de lo que decía arriba: ese rojo
+**ponía en rojo el chequeo entero de «después del deploy»**, que es el que dice si producción quedó
+sana. El aviso que importaba quedaba tapado por uno que no, todas las veces.
+
+Las dos causas, medidas: **466 corridas canceladas y 152 salteadas** suman 1.231 minutos que GitHub
+no cobra (el `cancel-in-progress` mata la anterior en cada push, y el reloj mide la espera y la
+cancelación); y **los minutos que incluye el plan entran como CERO**, un número que el script no
+puede averiguar porque el token de Actions no lee la página de facturación.
+
+Ahora hay dos números —el techo y el piso— y, **mientras no se sepa cuántos minutos incluye el plan,
+avisa en amarillo y dice qué falta en vez de dar rojo**. Un rojo que nadie puede accionar es ruido.
+
+⚠️ **Lo único que falta, y es tuyo:** el número de minutos que incluye el plan está en
+GitHub → Settings → Billing. Poniéndolo en `ACTIONS_INCLUIDOS`, el rojo vuelve a servir (verificado:
+con 3.000 puestos, da rojo al 89 %).
+
+⚠️ Y de paso quedó medido que **`/actions/runs/{id}/timing` no sirve**: contesta 200 y devuelve
+`billable` en cero para todas las corridas de este repo. Era el camino obvio para el número exacto.
 
 **Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
 

@@ -32,10 +32,46 @@ const corrida = (name: string, dia: string, seg: number, conclusion = 'success')
 };
 
 test('una corrida: reloj y facturable redondeado; salteada, en la cola o sin terminar, 0', () => {
-  assert.deepEqual(minutosDeCorrida(corrida('a', '2026-11-01', 125)), { reloj: 125 / 60, facturable: 3, enCurso: false });
+  assert.deepEqual(minutosDeCorrida(corrida('a', '2026-11-01', 125)), { reloj: 125 / 60, facturable: 3, piso: 3, enCurso: false });
   assert.equal(minutosDeCorrida(corrida('a', '2026-11-01', 4)).facturable, 0, 'un job no arranca y termina en 4 s: todos salteados');
   assert.equal(minutosDeCorrida(corrida('a', '2026-11-01', 90, 'skipped')).facturable, 0);
   assert.equal(minutosDeCorrida({ ...corrida('a', '2026-11-01', 90), status: 'in_progress' }).enCurso, true);
+});
+
+/**
+ * UNA CANCELADA NO SE COBRA COMO SI HUBIERA CORRIDO ENTERA (6/11/2026).
+ *
+ * El `cancel-in-progress` mata la corrida anterior en cuanto llega un push nuevo, y el reloj
+ * (`updated_at - run_started_at`) mide también el rato que estuvo esperando y el de la cancelación.
+ * Medido ese día sobre las 1.200 corridas del mes: **466 canceladas aportaban 731 minutos** que
+ * GitHub no cobra así, más 152 salteadas con 37. Contándolos, la estimación daba US$51,87 contra un
+ * tope de US$30 y el vigía salía ROJO TODOS LOS DÍAS; sin contarlos y con los minutos del plan, daba
+ * US$14,59 contra los US$15,94 que mostraba el panel de facturación.
+ *
+ * Por eso hay dos números: `facturable` es el techo y `piso` saca lo que no se cobra. El rojo lo
+ * decide el piso; la estimación sólo avisa.
+ *
+ * ⚠️ Y NO se arregla con `/actions/runs/{id}/timing`, que sería lo obvio: ese endpoint contesta 200
+ * y devuelve `billable` en CERO para todas las corridas de este repo (medido el 6/11 sobre 14).
+ */
+test('una corrida cancelada cuenta en el techo y NO en el piso', () => {
+  const cancelada = minutosDeCorrida(corrida('a', '2026-11-01', 95, 'cancelled'));
+  assert.equal(cancelada.facturable, 2, 'en el techo cuenta, porque algo corrió');
+  assert.equal(cancelada.piso, 0, 'en el piso no: GitHub no cobra la espera ni la cancelación');
+  for (const c of ['skipped', 'neutral', 'stale', 'action_required']) {
+    assert.equal(minutosDeCorrida(corrida('a', '2026-11-01', 95, c)).piso, 0, `«${c}» tampoco`);
+  }
+  assert.equal(minutosDeCorrida(corrida('a', '2026-11-01', 95, 'failure')).piso, 2, 'una ROJA sí se cobra');
+});
+
+test('el rojo del vigía lo decide el piso, no la estimación', () => {
+  // Diez canceladas de 10 min: el techo dice 100 minutos, el piso dice 0.
+  const runs = Array.from({ length: 10 }, () => corrida('punta → main', '2026-11-04', 600, 'cancelled'));
+  const r = resumir(runs, { precio: 0.008, incluidos: 0, tope: 0.5, hoy: '2026-11-06' });
+  assert.equal(r.facturable, 100, 'el techo las cuenta enteras');
+  assert.equal(r.piso, 0, 'el piso no cuenta ninguna');
+  assert.ok(r.pct >= 80, 'con la estimación vieja, esto era un rojo');
+  assert.equal(r.pctPiso, 0, 'y con el piso no lo es, que es lo que se arregló');
 });
 
 test('resumir: por workflow, por día, el costo contra el tope y la proyección con el ritmo de los últimos días', () => {
@@ -100,18 +136,30 @@ test('el script contra la API: tabla, alarma roja al 80 % del tope, y un día de
       const resumen = join(dir, 'resumen.md');
       writeFileSync(resumen, '');
       // 1.201 corridas × 10 min = 12.010 min × US$0,006 = US$72,06: arriba del 80 % de US$30.
-      const rojo = await correr(base, ['--alarma', '80', '--resumen', resumen]);
+      //
+      // ⚠️ VA CON `--incluidos`. Sin saber cuántos minutos incluye el plan, el script NO da rojo a
+      // propósito (6/11/2026): entraban como 0, la cuenta quedaba inflada siempre, y el vigía salía
+      // rojo TODOS LOS DÍAS poniendo en rojo también el chequeo de «después del deploy». Un rojo que
+      // nadie puede accionar es ruido. El caso de abajo prueba justamente eso.
+      const rojo = await correr(base, ['--alarma', '80', '--incluidos', '10', '--resumen', resumen]);
       assert.equal(rojo.codigo, 1, rojo.salida);
-      assert.match(rojo.salida, /::error::Actions va en US\$72,06 de US\$30,00/);
+      assert.match(rojo.salida, /::error::Actions va en US\$72,00 de US\$30,00/);
       assert.match(rojo.salida, /\| punta → main \| 601 \|/, 'el día enorme se leyó entero, workflow por workflow');
       assert.match(readFileSync(resumen, 'utf8'), /\| \*\*Total\*\* \| \*\*1201\*\*/);
       // Con un tope de US$85, US$72 es el 85 %: entre el 80 y el 100 también es rojo (la alarma es ANTES del tope).
-      assert.equal((await correr(base, ['--alarma', '80', '--tope', '85'])).codigo, 1);
+      assert.equal((await correr(base, ['--alarma', '80', '--incluidos', '10', '--tope', '85'])).codigo, 1);
       // Con un tope de US$100, US$72 es el 72 %: sin alarma, pero con el aviso de que el mes cierra arriba del tope.
-      const verde = await correr(base, ['--alarma', '80', '--tope', '100']);
+      const verde = await correr(base, ['--alarma', '80', '--incluidos', '10', '--tope', '100']);
       assert.equal(verde.codigo, 0, verde.salida);
       assert.doesNotMatch(verde.salida, /::error::/);
       assert.match(verde.salida, /::warning::Al ritmo de los últimos días/);
+
+      // Y LO QUE ARREGLÓ EL 6/11: el MISMO gasto, sin decir los minutos del plan, no es un rojo.
+      const sinPlan = await correr(base, ['--alarma', '80']);
+      assert.equal(sinPlan.codigo, 0, `sin saber los minutos del plan no se da rojo:\n${sinPlan.salida}`);
+      assert.doesNotMatch(sinPlan.salida, /::error::/);
+      assert.match(sinPlan.salida, /NO sé cuántos minutos incluye el plan/, 'y dice qué falta para poder avisar');
+      assert.match(sinPlan.salida, /ACTIONS_INCLUIDOS/, 'nombra la variable que hay que poner');
     });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
