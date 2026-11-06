@@ -127,6 +127,36 @@ chequeado como culpable.
   `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
   «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
 
+## Los scripts llenaban %TEMP%, y la culpa no estaba repartida como decía el pendiente (6/11/2026)
+
+**Vive en:** `scripts/perfil-cdp.mjs` (nuevo) · `scripts/limpiar-temporales.mjs` (nuevo) · `scripts/mirar-consola.mjs`,
+`scripts/mirar-pantalla.mjs`, `scripts/onboarding-vg-recorrer.mjs`. Lo fija `tests/limpiar-temporales.test.ts`.
+
+**El pendiente nombraba dos culpables. Medidos el 6/11, no pesan ni parecido:**
+
+| | Medido |
+|---|---|
+| `tsx-marti` (la caché de transpilado de tsx) | **216.852 entradas** de primer nivel; **207.092** con más de 2 días. Un `du` sobre esa carpeta **no terminó en 120 s** |
+| `mako-cdp-*` (los perfiles de Chrome) | **0 carpetas** |
+
+⚠️ **La regla que queda: antes de barrer, contar.** El agujero de los perfiles era real —ninguno de los tres scripts de CDP
+borraba el suyo, ni al terminar, ni con Ctrl-C, ni al morir— pero **no es lo que ocupa el disco**. Haber arreglado lo que el
+pendiente nombraba primero habría dejado el problema entero intacto, con la sensación de estar resuelto.
+
+**El borrado del perfil va en `process.on('exit')`, no en un `finally`:** los tres son scripts de top-level await que pueden
+morir en cualquier `await` del medio, y un `finally` tampoco corre si el proceso se va por una señal.
+⚠️ **Y Chrome primero, la carpeta después:** en Windows un Chrome vivo tiene los archivos del perfil abiertos y el borrado
+falla con EBUSY. El helper se queda con el hijo, lo mata y reintenta (`maxRetries`), porque Chrome tarda un instante en
+soltarlos. Si el borrado falla no avisa ni cambia el código de salida: un script que ya hizo su trabajo no puede fallar por
+no haber podido limpiar.
+
+**La caché de tsx se vacía POR DENTRO, nunca la carpeta raíz, y nunca lo de los últimos 2 días:** la está usando cualquier
+chat que corra un test en este momento, y sacarle una entrada a un proceso vivo lo hace fallar con un error que no tiene nada
+que ver con su código.
+
+**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`. No lo corrí: borra 207.092
+entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
+
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
 Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
