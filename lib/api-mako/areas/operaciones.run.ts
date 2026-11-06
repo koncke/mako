@@ -228,7 +228,7 @@ export const RUNNERS: Runners = {
         esperando: filas.filter((f) => f.esperando),
         aprobadas: filas.filter((f) => !f.esperando).map((f) => ({ nombre: f.nombre, version: f.version, desde: f.desde, detalle: f.detalle })),
         nota: ultimaVuelta
-          ? 'Es lo que leyó el vigía en su última revisión (la hora está en ultima_revision). «Hay que mirarlo a mano» es que no hay API o falta la credencial: no sé su estado, no lo inventes. Da los links tal cual.'
+          ? 'Es lo que leyó el vigía en su última revisión (la hora está en ultima_revision). Lo que trae `falta` todavía no se puede leer solo: di qué falta, no inventes su estado. `viejo` es una lectura de hace más de un día. Da los links tal cual.'
           : 'El vigía todavía no corrió: no hay nada leído. Dilo así, sin inventar estados.',
       });
     },
@@ -266,6 +266,38 @@ export const RUNNERS: Runners = {
       if (!volver) await cancelarRespuestasDe(local, id).catch(() => 0);
       const chat = typeof payload.chat === 'string' ? payload.chat : 'ese chat';
       return { ok: true, resumen: volver ? `Listo: la pregunta de ${chat} vuelve a esperar tu respuesta.` : `Listo: la pregunta de ${chat} está en «Ignoradas». Al chat no le llegó nada.` };
+    },
+  },
+
+  // Lo que dice el panel de una aprobación sin API (5/11/2026): ver operaciones.def.ts. Lo mismo que scripts/vigia-paneles.mts.
+  anotar_lectura_de_panel: {
+    preparar: async (input, ctx) => {
+      const { wsSuperAdmin } = await import('@/lib/workspace');
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las aprobaciones de las tiendas son sólo de la plataforma.' };
+      const { anotarPanel, itemPorId } = await import('@/lib/vigia-aprobaciones');
+      const id = typeof input.aprobacion === 'string' ? input.aprobacion.trim() : '';
+      const noPude = typeof input.no_pude === 'string' ? input.no_pude.trim() : '';
+      const estado = typeof input.estado === 'string' ? input.estado.trim() : '';
+      const nota = typeof input.nota === 'string' ? input.nota.trim() : '';
+      if (!estado && !noPude) return { error: 'Falta lo que dice el panel (`estado`) o por qué no se pudo leer (`no_pude`).', faltan: ['estado'] };
+      const lectura = estado ? { estado, nota } : { noPude };
+      // Se valida con la MISMA regla que va a escribir, sobre nada: lo que no se puede guardar falla acá y no después del «sí».
+      const r = anotarPanel(null, id, lectura, Date.now());
+      if (!r.ok) return { error: r.error };
+      const nombre = itemPorId(id)?.nombre ?? id;
+      return {
+        payload: { aprobacion: id, ...(estado ? { estado, nota } : { no_pude: noPude }) },
+        resumen: estado ? `Anotar en «${nombre}»: ${estado}${nota ? ` (${nota})` : ''}. Sale en Approvals en la próxima revisión.` : `Anotar que no se pudo leer «${nombre}»: ${noPude}.`,
+      };
+    },
+    ejecutar: async (payload) => {
+      const { anotarLecturaDePanel } = await import('@/lib/vigia-aprobaciones-server');
+      const id = typeof payload.aprobacion === 'string' ? payload.aprobacion : '';
+      const r = await anotarLecturaDePanel(id, typeof payload.estado === 'string'
+        ? { estado: payload.estado, nota: typeof payload.nota === 'string' ? payload.nota : '' }
+        : { noPude: typeof payload.no_pude === 'string' ? payload.no_pude : '' });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: 'Listo: quedó anotado. El vigía lo toma en su próxima revisión y lo muestra en Approvals.' };
     },
   },
 };

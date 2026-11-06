@@ -106,6 +106,9 @@ const nextConfig: NextConfig = {
     // scripts del montaje como procesos aparte: nadie los importa, así que el
     // trazado no los ve y la función llegaría sin ellos. Sin la Anton, libass no
     // falla: pone los subtítulos con otra fuente, sin avisar.
+    // El vigía de las aprobaciones sube a la Chrome Web Store el zip de la extensión de ESTE deploy (lib/extension-publicar.ts):
+    // lo lee de public/, que el trazado no ve porque nadie lo importa. Sin esto la publicación dice «no encontré el zip».
+    '/api/cron/vigia-aprobaciones': ['./public/mako-puente-*.zip'],
     '/api/cron/montaje': [
       './node_modules/ffmpeg-static/ffmpeg',
       './scripts/plan-cortes-anuncio.mjs',

@@ -9,6 +9,7 @@
 //    nada a la PC, sólo dicen qué ya vio o descartó Martín.
 // Un pedido del Centro es un prompt que corre en la PC de
 // Martín, así que:
+//   · y lo que dice el panel de una aprobación sin API (5/11/2026, `anotar_lectura_de_panel`): no se manda nada a nadie.
 //   · todo va con `soloPlataforma` + `rolMinimo: 'admin'` (un admin de cliente no lo ve: para él
 //     estas operaciones no existen);
 //   · nada sale por HTTP (`canales` sin 'http'): los textos son prompts y el estado es de la PC;
@@ -18,6 +19,7 @@
 //     /admin/operaciones — nunca una operación que encole sola.
 // =============================================================================
 
+import { ESTADOS_APROBACION, ITEMS, MAX_NOTA_PANEL } from '../../vigia-aprobaciones';
 import type { Gating, OperacionDef } from '../tipos';
 import { ESTADOS } from '../../operaciones-reglas';
 
@@ -95,7 +97,7 @@ export const DEFS: readonly OperacionDef[] = [
     // El estado de las tiendas y de Meta para las apps de MaKo: no lee leads, conversaciones, llamadas ni cobros.
     datosDeClientes: false,
     titulo: 'Aprobaciones de App Store, Google Play y Meta',
-    descripcion: 'Sólo para la plataforma: en qué está cada aprobación que MaKo espera de otra empresa. La app de iPhone (App Store), la de Android (Google Play: prueba cerrada, producción y la cuenta), la extensión de Chrome (Chrome Web Store), los permisos y verificaciones de Meta, la app de Google, los dominios de correo (Resend) y el certificado de Windows. Por cada una: aprobada, en revisión, rechazada, «piden algo», sin enviar, o «hay que mirarlo a mano», con su link, desde cuándo y qué credencial falta para leerla sola. Sale de la última revisión del vigía, que se repite sola y avisa sólo cuando algo cambia.',
+    descripcion: 'Sólo para la plataforma: en qué está cada aprobación que MaKo espera de otra empresa, lo mismo que la pestaña Approvals. La app de iPhone (App Store), la de Android (Google Play: prueba cerrada, producción y la cuenta), la extensión de Chrome (Chrome Web Store), los permisos y verificaciones de Meta, la app de Google, los dominios de correo (Resend), Creem y el certificado de Windows. Por cada una: aprobada, en revisión, rechazada, «piden algo» o sin enviar, con su link, desde cuándo, cuándo se leyó (vieja si pasó un día) y qué falta para leerla sola. Lo que pide algo va primero. Sale de la última revisión del vigía, que se repite sola y avisa sólo cuando algo cambia.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
@@ -111,6 +113,21 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'volver', rotulo: 'Volver a mostrar', tipo: 'boolean', descripcion: 'true = volver a mostrar una ignorada. Sin esto, se ignora.' },
     ],
     escribe: 'la marca `ignorada` de esa pregunta (operaciones.preguntas.<sesión>, en la plataforma) y cancela su respuesta que no salió; no le manda nada a la PC',
+    canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  // ── Lo que dice el panel de una aprobación sin API (5/11/2026, Martín: «todo deberías poder revisarlo tú») ── Lo mismo que
+  // guarda la tarea del Cerebro con scripts/vigia-paneles.mts, también desde el chat («Creem ya aprobó»). Al final del área.
+  {
+    id: 'anotar_lectura_de_panel', area: 'operaciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Anotar el panel de una aprobación',
+    descripcion: 'Sólo para la plataforma: guarda lo que se leyó en el panel de una aprobación que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem o el certificado de Windows), como la tarea del Cerebro que los lee. El vigía la toma en su próxima revisión y sale en Approvals; vale un día. Con `no_pude`, que no se pudo leer y por qué. Otra lectura la reemplaza.',
+    parametros: [
+      { nombre: 'aprobacion', rotulo: 'Aprobación', tipo: 'string', obligatorio: true, enum: ITEMS.filter((i) => i.panel).map((i) => i.id), descripcion: 'cuál: su id, como lo da `ver_aprobaciones_pendientes`.' },
+      { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ESTADOS_APROBACION, descripcion: 'lo que dice el panel. Sin esto va `no_pude`.' },
+      { nombre: 'nota', rotulo: 'Nota', tipo: 'string', max: MAX_NOTA_PANEL, descripcion: 'lo que dice, en una frase.' },
+      { nombre: 'no_pude', rotulo: 'No se pudo leer', tipo: 'string', max: MAX_NOTA_PANEL, descripcion: 'por qué no se pudo leer (sin sesión, una página distinta). En lugar de `estado`.' },
+    ],
+    escribe: 'la lectura de ese panel (vigia.paneles, en la plataforma); no manda nada a nadie',
     canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
 ];
