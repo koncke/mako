@@ -10,7 +10,7 @@
 //      última conectada, y si una se apaga, a la que queda;
 //   3. cada una dice su sistema (desde la 0.4.0) y cuándo se conectó; la tarjeta ofrece «Conectar otra computadora»;
 //   4. el super admin ve las de UN negocio por vez, en la ficha de ese cliente (desde el 6/11/2026, la de la copia de Polar:
-//      Admin › Customers › <negocio>; «Desconectar» se perdió ahí, ver el 4b) (desde el 23/10/2026: Martín, al ver las de
+//      Admin › Customers › <negocio>, sólo con la guarda del Centro; «Desconectar» no está ahí, ver el 4b) (desde el 23/10/2026: Martín, al ver las de
 //      todos en «Tus cuentas de IA»: «estas cruzando workspace»), sin secretos, con «Desconectar»; desconectar revoca al
 //      instante (su token ya no sirve, y sale del turno y de las listas), y con el negocio equivocado no toca nada. Y ninguna
 //      pantalla del super admin vuelve a listar las de todos.
@@ -26,6 +26,11 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { detalleDeLaPc, elegirPc, sistemaDeLaVersion } from '../lib/ia-pc-reglas';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { computadorasDeLaFicha } from '../app/admin/_polar/datos/cliente';
+import { CustomerDetailsSection } from '../app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection';
+import { ALTA_EJEMPLO, CABECERA_EJEMPLO, COMPUTADORAS_EJEMPLO, CONEXIONES_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/cliente';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -127,7 +132,11 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   // Antes era app/admin/ComputadorasDelNegocio.tsx, adentro de la ficha de la grilla vieja (AdminView).
   const ficha = sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts'));
   assert.match(ficha, /listarPcDelNegocio\(ws\)\.catch\(/, 'la ficha lee las computadoras de SU negocio');
-  assert.match(ficha, /computadoras: computadoras\?\.map\(\(pc\) => \(\{ id: pc\.id, nombre: pc\.nombre, persona: pc\.persona, sistema: pc\.sistema, enLinea: pc\.enLinea, conectadaAt: pc\.conectadaAt \}\)\) \?\? null,/, 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas)');
+  assert.match(ficha, /computadoras: computadorasDeLaFicha\(opera, computadoras\),/, 'a la pantalla viaja lo que recorta computadorasDeLaFicha');
+  // Lo que viaja, EJECUTADO: con una PC con todo (token, cuentas, ubicación), sólo lo que se dibuja.
+  const conTodo = { id: 7, ws: 1, negocio: 'X', persona: 'Ana Gómez', nombre: 'PC de Ana', sistema: 'Windows' as const, enLinea: true, conClaude: true,
+    conectadaAt: '2026-11-01T10:00:00Z', ultimoLatido: null, cuentas: [], ubicacion: 'Rosario, Santa Fe, Argentina', version: '0.4.0', token: 'mkopc_secreto' };
+  assert.deepEqual(computadorasDeLaFicha(true, [conTodo]), [{ id: 7, nombre: 'PC de Ana', persona: 'Ana Gómez', sistema: 'Windows', enLinea: true, conectadaAt: '2026-11-01T10:00:00Z' }], 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas)');
   const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
   assert.match(seccion, /computadoras == null \? \(\s*<Row label="Computadoras" value=\{<Text as="span" color="muted">No se pudieron leer<\/Text>\} \/>/, '«no pude leer» no es «no tiene»');
   const pagina = sinComentarios(leer('app/admin/(polar)/customers/[id]/page.tsx'));
@@ -150,13 +159,27 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   assert.ok(iMirandoM > 0 && iMirandoM < puertaM.indexOf('listarPedidos()'), 'en el teléfono, mirando a un cliente, el Centro se dibuja igual');
 });
 
-// ⚠️ FUNCIÓN PERDIDA (6/11/2026): la ficha de un negocio de la grilla vieja (app/admin/ComputadorasDelNegocio.tsx) tenía
-// «Desconectar» en cada computadora (`desconectarComputadoraAction`, que sigue en app/admin/operaciones/acciones.ts) y se
-// dibujaba sólo para quien pasaba la guarda del Centro (`puedeOperar`: el super admin con su segundo factor). La ficha nueva
-// (CustomerDetailsSection) las lista sin «Desconectar» y para todo super admin (`exigirSuperAdmin`). Queda como TODO con lo que
-// tiene que volver a cumplir.
-test('4b. la ficha nueva de un negocio: «Desconectar» en cada computadora, y sólo para quien pasa la guarda del Centro', { todo: 'función perdida con la copia de Polar: las computadoras de la ficha sin «Desconectar» ni puedeOperar' }, () => {
-  const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
-  assert.match(seccion, /desconectarComputadoraAction|>Desconectar</, 'la ficha no ofrece «Desconectar»');
-  assert.match(sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts')), /puedeOperar\(/, 'las computadoras se leen sin la guarda del Centro');
+// La ficha de un negocio de la grilla vieja (app/admin/ComputadorasDelNegocio.tsx) mostraba las computadoras sólo a quien pasaba la
+// guarda del Centro (`puedeOperar`: el super admin con su segundo factor). La copia de Polar (6/11/2026) las había dejado para todo
+// super admin; desde el arreglo del mismo día, sin la guarda ni se leen ni se dibujan (`computadorasDeLaFicha` → 'oculto').
+// «Desconectar» NO volvió: Polar no tiene esa acción en su ficha y se anotó para que decida Martín (`desconectarComputadoraAction`
+// sigue en app/admin/operaciones/acciones.ts).
+// Probado rompiéndolo el 6/11/2026 (base 5/0; cada rotura, sola, 4/1): `computadorasDeLaFicha` sin el `if (!opera)`; la ficha que
+// lee `listarPcDelNegocio` sin el `opera ?`; CustomerDetailsSection que dibuja el renglón «Computadoras» con 'oculto'.
+test('4b. la ficha nueva de un negocio: las computadoras sólo para quien pasa la guarda del Centro', () => {
+  assert.equal(computadorasDeLaFicha(false, COMPUTADORAS_EJEMPLO), 'oculto', 'sin la guarda, nada viaja');
+  assert.equal(computadorasDeLaFicha(true, null), null, 'con la guarda y sin poder leerlas: «no pude leer», no «no tiene»');
+  const html = (computadoras: ReturnType<typeof computadorasDeLaFicha>) =>
+    renderToStaticMarkup(createElement(CustomerDetailsSection, { negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO, computadoras }));
+  const conGuarda = html(computadorasDeLaFicha(true, COMPUTADORAS_EJEMPLO));
+  assert.ok(conGuarda.includes(COMPUTADORAS_EJEMPLO[0].nombre), 'con la guarda, se dibujan');
+  const sinGuarda = html(computadorasDeLaFicha(false, COMPUTADORAS_EJEMPLO));
+  assert.ok(!sinGuarda.includes(COMPUTADORAS_EJEMPLO[0].nombre) && !sinGuarda.includes('Computadoras'), 'sin la guarda, la sección no las dibuja (ni su renglón)');
+  assert.ok(html(computadorasDeLaFicha(true, null)).includes('No se pudieron leer'));
+  // El server: la guarda es la del Centro, y la lectura cuelga de ella.
+  const ficha = sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts'));
+  const iGuarda = ficha.indexOf('const opera = puedeOperar(await getSesionAdmin(), await wsSuperAdmin())');
+  assert.ok(iGuarda > 0, 'la ficha pregunta la guarda del Centro');
+  assert.match(ficha.slice(iGuarda), /opera \? listarPcDelNegocio\(ws\)\.catch\(/, 'las computadoras se leen sin la guarda del Centro');
+  assert.equal((ficha.match(/listarPcDelNegocio\(/g) ?? []).length, 1, 'una sola lectura, la de la guarda');
 });

@@ -18,7 +18,7 @@ import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_SUSCRIPCION, ESTADOS_SUSCRIPCION, ESTADO_SUSCRIPCION_POR_DEFECTO, PAGINA_POR_DEFECTO,
-  esIntervalo, filasCsvSuscripciones, filtrarSuscripciones, ordenar, paginar,
+  esIntervalo, csvDeSuscripciones, filtrarSuscripciones, ordenar, paginar,
   type FiltroEstadoSuscripcion, type Intervalo, type SuscripcionVenta,
 } from '@/app/admin/_polar/datos/ventas'
 import { Avatar, DataTable, DataTableColumnDef, DataTableColumnHeader, InlineModal, Status, Text } from '@/app/admin/_polar/orbit'
@@ -148,7 +148,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
           <ExportCsvModal
             title="Exportar suscripciones"
             description="Descarga tus suscripciones como un archivo CSV."
-            filas={filasCsvSuscripciones(ordenadas)}
+            csv={csvDeSuscripciones(ordenadas)}
             archivo={`suscripciones-${hoy}.csv`}
             hide={hideExportModal}
           />

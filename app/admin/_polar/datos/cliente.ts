@@ -132,6 +132,26 @@ export type ComputadoraNegocio = {
   conectadaAt: string | null
 }
 
+/**
+ * Las computadoras de la ficha: `'oculto'` si quien mira no pasa la guarda del Centro (`puedeOperar`, lib/operaciones-reglas.ts:
+ * el super admin en el workspace de la plataforma, con su sesión y su segundo factor); `null` si no se pudieron leer (no es «no
+ * tiene»); si no, la lista. La ficha vieja (app/admin/ComputadorasDelNegocio.tsx) las mostraba sólo con esa guarda, y la copia de
+ * Polar la había perdido (las veía cualquier super admin).
+ */
+export type ComputadorasDeLaFicha = 'oculto' | ComputadoraNegocio[] | null
+
+/**
+ * Lo que viaja a la pantalla: sin la guarda, NADA (ni la lista ni que existe); con ella, sólo lo que se dibuja (ni un token, ni sus
+ * cuentas, ni la ubicación). `pcs` es lo que leyó el server (`listarPcDelNegocio`), `null` si falló; sin la guarda no se lee.
+ */
+export function computadorasDeLaFicha(
+  opera: boolean,
+  pcs: ReadonlyArray<Pick<ComputadoraNegocio, 'id' | 'nombre' | 'persona' | 'sistema' | 'enLinea' | 'conectadaAt'>> | null,
+): ComputadorasDeLaFicha {
+  if (!opera) return 'oculto'
+  return pcs?.map((pc) => ({ id: pc.id, nombre: pc.nombre, persona: pc.persona, sistema: pc.sistema, enLinea: pc.enLinea, conectadaAt: pc.conectadaAt })) ?? null
+}
+
 /** Las conexiones que muestra la sección: las conectadas primero, y sin las que no están (Polar no lista lo vacío). */
 export function conexionesConectadas(conexiones: readonly ConexionNegocio[]): ConexionNegocio[] {
   return conexiones.filter((c) => c.conectada).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))

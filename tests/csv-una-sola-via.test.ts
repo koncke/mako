@@ -45,6 +45,7 @@ const CONSUME_CSV_DE_OTRO = new Map<string, { constructor: string; porque: strin
   ['app/plan/board/ExportarModal.tsx', { constructor: 'app/plan/board/exportar.ts', porque: 'baja tareasACSV / proyectosACSV del tablero' }],
   ['app/api/agente/metricas/route.ts', { constructor: 'lib/metricas-modelo.ts', porque: 'sirve metricasACsv a los agentes' }],
   ['app/api/graficos/exportar/route.ts', { constructor: 'app/dashboard/exportar.ts', porque: 'sirve el csvDeHoja que arma la operación leer_hoja_dashboard de la API de MaKo' }],
+  ['app/admin/_polar/web/Orders/ExportCsvModal.tsx', { constructor: 'app/admin/_polar/datos/ventas.ts', porque: 'baja el csvDePedidos / csvDeSuscripciones de Admin › Sales, que arma ventas.ts' }],
 ]);
 
 /**

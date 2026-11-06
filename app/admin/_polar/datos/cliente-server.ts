@@ -14,6 +14,8 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getWorkspace, wsSuperAdmin } from '@/lib/workspace'
+import { getSesionAdmin } from '@/lib/auth'
+import { puedeOperar } from '@/lib/operaciones-reglas'
 import { listarUsuarios } from '@/lib/usuarios'
 import { caraDeUsuario } from '@/lib/gravatar'
 import { nombreDePlan, ROTULO_SEGMENTO } from '@/lib/clientes-plataforma-reglas'
@@ -32,6 +34,7 @@ import { leerClientes, leerIngresos } from './clientes-server'
 import { vistaOrders, vistaSuscripciones } from './ventas-server'
 import type { Pedido, SuscripcionVenta } from './ventas'
 import {
+  computadorasDeLaFicha,
   contactoDe,
   eventosDelNegocio,
   inicioDeActividad,
@@ -41,7 +44,7 @@ import {
   suscripcionesDelNegocio,
   type AccionDeMaKo,
   type AltaNegocio,
-  type ComputadoraNegocio,
+  type ComputadorasDeLaFicha,
   type ConexionNegocio,
   type ErrorDelNegocio,
   type EventoNegocio,
@@ -138,7 +141,7 @@ export type ResumenNegocio = {
   mrrUsd: number | null
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
-  computadoras: ComputadoraNegocio[] | null
+  computadoras: ComputadorasDeLaFicha
   eventos: EventoNegocio[]
   avisos: string[]
 }
@@ -170,10 +173,13 @@ const ingresosDe = cache(async (ws: number) => {
 
 export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => {
   const avisos: string[] = []
+  // ⚠️ LAS COMPUTADORAS, SÓLO CON LA GUARDA DEL CENTRO (`puedeOperar`: el segundo factor), como en la ficha vieja: sin ella ni se
+  // leen ni se dibujan. Es la misma puerta de `computadorasDelNegocioAction` (app/admin/operaciones/acciones.ts).
+  const opera = puedeOperar(await getSesionAdmin(), await wsSuperAdmin())
   const [ingresos, conexiones, computadoras, eventos] = await Promise.all([
     ingresosDe(ws),
     conexionesDe(ws).catch((e) => { avisos.push(`sus conexiones: ${motivo(e)}`); return null }),
-    listarPcDelNegocio(ws).catch((e) => { avisos.push(`sus computadoras: ${motivo(e)}`); return null }),
+    opera ? listarPcDelNegocio(ws).catch((e) => { avisos.push(`sus computadoras: ${motivo(e)}`); return null }) : Promise.resolve(null),
     leerEventos(ws),
   ])
   avisos.push(...ingresos.avisos)
@@ -185,7 +191,7 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
     mrrUsd: ingresos.mrrUsd,
     suscripciones: suscripcionesDelNegocio(subs.suscripciones, ws),
     conexiones,
-    computadoras: computadoras?.map((pc) => ({ id: pc.id, nombre: pc.nombre, persona: pc.persona, sistema: pc.sistema, enLinea: pc.enLinea, conectadaAt: pc.conectadaAt })) ?? null,
+    computadoras: computadorasDeLaFicha(opera, computadoras),
     eventos: eventos.eventos,
     avisos: [...new Set(avisos)],
   }

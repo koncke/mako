@@ -21,7 +21,7 @@ import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_PEDIDO, METRICA_AOV, METRICA_ORDERS, METRICA_REVENUE, PAGINA_POR_DEFECTO,
-  esEstadoPedido, esIntervalo, filasCsvPedidos, filtrarPedidos, medioEnTexto, ordenar, paginar, totalesDePedidos,
+  esEstadoPedido, esIntervalo, csvDePedidos, filtrarPedidos, medioEnTexto, ordenar, paginar, totalesDePedidos,
   type EstadoPedido, type Intervalo, type Pedido,
 } from '@/app/admin/_polar/datos/ventas'
 import type { DatosCargarPago, EstadoLibro } from '@/app/admin/_polar/datos/ventas-server'
@@ -224,7 +224,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
           <ExportCsvModal
             title="Exportar pedidos"
             description="Descarga tus pedidos como un archivo CSV."
-            filas={filasCsvPedidos(ordenados)}
+            csv={csvDePedidos(ordenados)}
             archivo={`pedidos-${hoy}.csv`}
             hide={hideExportModal}
           />

@@ -11,7 +11,7 @@
 //   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras.
 // ⚠️ `ClickToCopy` copia sin el toast de Polar (Admin no tiene un Toaster): el renglón dice «Copiado» un momento.
 
-import type { AltaNegocio, ComputadoraNegocio, ConexionNegocio, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
+import type { AltaNegocio, ComputadorasDeLaFicha, ConexionNegocio, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
 import { conexionesConectadas } from '@/app/admin/_polar/datos/cliente'
 import { Grid, Status, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
@@ -23,7 +23,8 @@ interface CustomerDetailsSectionProps {
   alta: AltaNegocio
   /** `null` = no se pudieron leer. */
   conexiones: ConexionNegocio[] | null
-  computadoras: ComputadoraNegocio[] | null
+  /** `'oculto'` = quien mira no pasa la guarda del Centro (`puedeOperar`): no se dibujan; `null` = no se pudieron leer. */
+  computadoras: ComputadorasDeLaFicha
 }
 
 const ClickToCopy = ({ children, value }: { children: ReactNode; value?: string }) => {
@@ -164,7 +165,7 @@ export const CustomerDetailsSection = ({
             />
           ))
         )}
-        {computadoras == null ? (
+        {computadoras === 'oculto' ? null : computadoras == null ? (
           <Row label="Computadoras" value={<Text as="span" color="muted">No se pudieron leer</Text>} />
         ) : computadoras.length === 0 ? (
           <Row label="Computadoras" value={null} />

@@ -9,7 +9,7 @@
 
 import type {
   AltaNegocio,
-  ComputadoraNegocio,
+  ComputadorasDeLaFicha,
   ConexionNegocio,
   EventoNegocio,
   NegocioCabecera,
@@ -31,7 +31,7 @@ export interface CustomerOverviewProps {
   mrrUsd: number | null
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
-  computadoras: ComputadoraNegocio[] | null
+  computadoras: ComputadorasDeLaFicha
   eventos: EventoNegocio[]
 }
 

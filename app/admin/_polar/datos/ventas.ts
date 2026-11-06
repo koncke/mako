@@ -22,9 +22,11 @@
 
 import { esTextoDeContracargo } from '@/lib/cobros-reglas'
 import { NOMBRE_PASARELA, esPasarela, type EstadoAlta, type EstadoCobro, type ModoCobro, type TipoCobro } from '@/lib/cobros-tipos'
-import { MEDIOS, ROTULO_MEDIO, esMedio, referenciaNormal, type EstadoRecibo, type MedioRecibo } from '@/lib/recibos-reglas'
+import { MEDIOS, ROTULO_MEDIO, diferencia, esMedio, referenciaNormal, type EstadoRecibo, type MedioRecibo } from '@/lib/recibos-reglas'
+import { formatoMonto } from '@/lib/pasarela-moneda'
 import type { Metric } from './polar-tipos'
 import { esDeVenderUnPlan } from './checkout-link'
+import { armarCsv } from '@/lib/csv-celda'
 
 // ── Lo común ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -314,7 +316,17 @@ export const METRICA_AOV: Metric = { slug: 'revenue', display_name: 'Pago promed
 export const motivoDePedido = (p: Pick<Pedido, 'recurrente' | 'origen'>): string =>
   p.origen === 'recibo' ? 'Cargado a mano' : p.recurrente ? 'Suscripción' : 'Pago único'
 
-/** El CSV de «Export» (Polar: ExportOrdersModal), con las filas del filtro. Las celdas las escapa quien arma el archivo. */
+/**
+ * El archivo de «Export» (Polar: ExportOrdersModal / ExportSubscriptionsModal), ya armado por el único armador de CSV de la app
+ * (lib/csv-celda.ts: comillas, y lo que arranca como fórmula se neutraliza: un nombre o un concepto lo escribió otra persona).
+ * `filas` es cuántos renglones de datos lleva (sin el encabezado). Lo baja ExportCsvModal.
+ */
+export type ArchivoCsv = { texto: string; filas: number }
+
+export const csvDePedidos = (pedidos: readonly Pedido[]): ArchivoCsv => ({ texto: armarCsv(filasCsvPedidos(pedidos)), filas: pedidos.length })
+export const csvDeSuscripciones = (subs: readonly SuscripcionVenta[]): ArchivoCsv => ({ texto: armarCsv(filasCsvSuscripciones(subs)), filas: subs.length })
+
+/** Las filas del CSV de pedidos, con las del filtro (las celdas las escapa `armarCsv`, en `csvDePedidos`). */
 export function filasCsvPedidos(pedidos: readonly Pedido[]): Array<Array<string | number | null>> {
   return [
     ['Fecha', 'Cliente', 'Concepto', 'Estado', 'Motivo', 'Medio', 'Monto (USD)', 'Recibo'],
@@ -365,6 +377,30 @@ export function problemaCargarPago(f: FormCargarPago, subiendo: boolean): string
   }
   if (subiendo) return 'Espera a que termine de subir el comprobante.'
   return null
+}
+
+/** Por moneda, lo que suman los montos válidos (> 0), redondeado a centavos: el detalle en la moneda del recibo, lo recibido en las de cada pago. */
+function totalesPorMoneda(xs: ReadonlyArray<{ monto: string; moneda: string }>): Array<{ moneda: string; monto: number }> {
+  const t: Record<string, number> = {}
+  for (const x of xs) {
+    const n = numero(x.monto)
+    if (n > 0) t[x.moneda] = Math.round(((t[x.moneda] ?? 0) + n) * 100) / 100
+  }
+  return Object.entries(t).map(([moneda, monto]) => ({ moneda, monto }))
+}
+
+/**
+ * El aviso de la pantalla de antes (app/admin/cobros/CargarPago.tsx, 146b280e) cuando lo recibido no es lo que dice el recibo: de más
+ * o de menos, y que la diferencia no queda como saldo. La regla es la de siempre (`diferencia`, lib/recibos-reglas.ts): sólo si TODO
+ * se pagó en la moneda del recibo (nunca se calcula una tasa) y hay algo en el detalle; con monedas distintas no hay aviso. null =
+ * no hay nada que avisar.
+ */
+export function avisoDeDiferencia(f: Pick<FormCargarPago, 'moneda' | 'lineas' | 'pagos'>): string | null {
+  const detalle = totalesPorMoneda(f.lineas.map((l) => ({ monto: l.monto, moneda: f.moneda })))
+  if (detalle.length !== 1) return null
+  const dif = diferencia(detalle[0].monto, detalle[0].moneda, totalesPorMoneda(f.pagos))
+  if (dif == null || dif === 0) return null
+  return `${dif > 0 ? 'De más' : 'De menos'}: ${formatoMonto(Math.abs(dif), detalle[0].moneda)}. No queda como saldo: anótalo en la nota.`
 }
 
 /** Lo que recibe `cargarPagoAction` (app/admin/cobros/recibos-actions.ts). */

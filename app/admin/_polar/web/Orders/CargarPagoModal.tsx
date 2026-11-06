@@ -9,13 +9,13 @@
 import { useState } from 'react'
 import { useRouter } from '@/app/_ui/Link'
 import {
-  MONEDAS_RECIBO, formCargarPagoInicial, pedidoCargarPago, problemaCargarPago,
+  MONEDAS_RECIBO, avisoDeDiferencia, formCargarPagoInicial, pedidoCargarPago, problemaCargarPago,
   type FormCargarPago, type LineaCargarPago, type PagoCargarPago,
 } from '@/app/admin/_polar/datos/ventas'
 import { cargarPagoAction } from '@/app/admin/cobros/recibos-actions'
 import { MEDIOS, ROTULO_MEDIO, ROTULO_REFERENCIA, esMedio } from '@/lib/recibos-reglas'
 import {
-  Button, InlineModalHeader, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Text, TextArea,
+  Alert, Button, InlineModalHeader, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Text, TextArea,
 } from '@/app/admin/_polar/orbit'
 import { AvisoDeError, AvisoHecho } from './Aviso'
 import { DownloadReceiptDashboard } from './DownloadReceipt'
@@ -52,6 +52,7 @@ export const CargarPagoModal = ({
   const [emitido, setEmitido] = useState<{ id: number; numero: number; texto: string } | null>(null)
 
   const linea = (i: number, cambio: Partial<LineaCargarPago>) => setF((x) => ({ ...x, lineas: x.lineas.map((l, j) => (j === i ? { ...l, ...cambio } : l)) }))
+  const aviso = avisoDeDiferencia(f)
   const pago = (i: number, cambio: Partial<PagoCargarPago>) => setF((x) => ({ ...x, pagos: x.pagos.map((p, j) => (j === i ? { ...p, ...cambio } : p)) }))
 
   async function subir(i: number, archivo: File) {
@@ -199,6 +200,8 @@ export const CargarPagoModal = ({
           </div>
         </div>
 
+        {/* El aviso de la pantalla de antes: lo recibido no es lo del recibo (de más o de menos), y eso no queda como saldo. */}
+        {aviso && <Alert variant="warning" title="Diferencia" description={aviso} />}
         <Campo label="Nota en el recibo (opcional)" htmlFor="cp-nota-pdf">
           <TextArea id="cp-nota-pdf" value={f.notaPdf} onChange={(e) => setF((x) => ({ ...x, notaPdf: e.target.value }))} />
         </Campo>

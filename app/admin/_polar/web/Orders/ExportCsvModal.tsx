@@ -4,34 +4,35 @@
 // Subscriptions). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: Polar arma el CSV en su server (`/v1/orders/export`) con las columnas que elige la persona; acá las filas ya están en la
-// página (las del filtro), así que el CSV se arma en el navegador con lib/csv-celda.ts (lo que arranca como fórmula se neutraliza:
-// un nombre o un concepto lo escribió otra persona). Sin elegir columnas: van todas las de la tabla.
+// página (las del filtro), así que el CSV llega armado de app/admin/_polar/datos/ventas.ts (`csvDePedidos`, `csvDeSuscripciones`,
+// por lib/csv-celda.ts: lo que arranca como fórmula se neutraliza) y este modal sólo lo baja. Sin elegir columnas: van todas.
 
-import { armarCsv } from '@/lib/csv-celda'
 import { Button, InlineModalHeader, Text } from '@/app/admin/_polar/orbit'
+import type { ArchivoCsv } from '@/app/admin/_polar/datos/ventas'
 
 export const ExportCsvModal = ({
   title,
   description,
-  filas,
+  csv,
   archivo,
   hide,
 }: {
   title: string
   description: string
-  filas: ReadonlyArray<ReadonlyArray<string | number | null>>
+  /** El archivo armado (ventas.ts) y cuántas filas lleva. */
+  csv: ArchivoCsv
   archivo: string
   hide: () => void
 }) => {
   const bajar = () => {
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([armarCsv(filas)], { type: 'text/csv;charset=utf-8' }))
+    a.href = URL.createObjectURL(new Blob([csv.texto], { type: 'text/csv;charset=utf-8' }))
     a.download = archivo
     a.click()
     setTimeout(() => URL.revokeObjectURL(a.href), 1000)
     hide()
   }
-  const n = Math.max(0, filas.length - 1)
+  const n = csv.filas
   return (
     <div className="flex flex-col">
       <InlineModalHeader hide={hide}>

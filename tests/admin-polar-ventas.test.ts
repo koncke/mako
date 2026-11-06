@@ -16,6 +16,12 @@
 //   · checkouts/page.tsx lee (`vistaCheckouts`) antes de `exigirSuperAdmin()`                    → 10/1 (9)
 //   · una vista ('use client') importa un VALOR de ventas-server                                 → 10/1 (10)
 //   · un cambio sin efecto (renombrar la variable local `usados` de `pedidosDe`)                 → 11/0 (sigue verde)
+// El 12 (el aviso de Cargar pago cuando lo recibido no es lo del recibo), sumado el 6/11/2026. Base: 12/0. Cada rotura, sola, 11/1
+// (y renombrar la variable local `dif` de `avisoDeDiferencia` sigue en 12/0):
+//   · `avisoDeDiferencia` compara contra el primer pago y no contra la suma de los de la misma moneda
+//   · `avisoDeDiferencia` avisa con monedas distintas (calcula sin `diferencia`, que nunca pone una tasa)
+//   · el aviso dice «De más» cuando falta plata (el signo dado vuelta)
+//   · el modal no lo dibuja (`aviso &&` sacado de CargarPagoModal.tsx)
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,11 +30,12 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   checkoutsDe, disputasDe, estadoDeDisputa, filtrarCheckouts, filtrarPedidos, filtrarSuscripciones, ordenar, paginar, pedidoCargarPago,
-  pedidosDe, problemaCargarPago, rangoDe, razonDeDisputa, suscripcionesDe, totalesDePedidos, formCargarPagoInicial, COMPARADORES_PEDIDO,
+  pedidosDe, problemaCargarPago, rangoDe, razonDeDisputa, suscripcionesDe, totalesDePedidos, formCargarPagoInicial, COMPARADORES_PEDIDO, avisoDeDiferencia,
   type CobroVenta, type EntradaVenta, type ReciboVenta, type SuscripcionDeLead,
 } from '../app/admin/_polar/datos/ventas'
 import { COBROS_EJEMPLO, CHECKOUTS_EJEMPLO, DISPUTAS_EJEMPLO, PEDIDOS_EJEMPLO, SUSCRIPCIONES_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/ventas'
 import { textoContracargo } from '../lib/cobros-reglas'
+import { formatoMonto } from '../lib/pasarela-moneda'
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url))
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -245,4 +252,26 @@ test('11 · ningún dato de un cliente real en los ejemplos, y el gráfico de in
   const ejemplo = leer('app/admin/_polar/datos/ejemplo/ventas.ts')
   for (const real of ['Mauricio', 'Leila', 'Florencia', 'Leandro', 'Código Inmobiliario', 'Brigitte']) assert.doesNotMatch(ejemplo, new RegExp(real), `sin «${real}»`)
   for (const f of archivos(SALES)) assert.doesNotMatch(sinComentarios(leer(f)), /(?<!Mini)MetricChartBox\b|GenericChart|metricasDeIngresos/, `${f}: el gráfico de ingresos es de Overview y Analytics`)
+})
+
+test('12 · Cargar pago avisa si lo recibido no es lo del recibo, como la pantalla de antes (sólo en la misma moneda)', () => {
+  const f = { ...formCargarPagoInicial('2026-11-06'), moneda: 'USDT' }
+  const con = (lineas: string[], pagos: Array<[string, string]>) => ({
+    ...f,
+    lineas: lineas.map((monto) => ({ concepto: 'Mensualidad', mes: '', monto })),
+    pagos: pagos.map(([monto, moneda]) => ({ ...f.pagos[0], monto, moneda })),
+  })
+  const fin = '. No queda como saldo: anótalo en la nota.'
+  assert.equal(avisoDeDiferencia(con(['144'], [['146', 'USDT']])), `De más: ${formatoMonto(2, 'USDT')}${fin}`)
+  assert.equal(avisoDeDiferencia(con(['144'], [['140', 'USDT']])), `De menos: ${formatoMonto(4, 'USDT')}${fin}`)
+  assert.equal(avisoDeDiferencia(con(['100', '44'], [['100', 'USDT'], ['46', 'USDT']])), `De más: ${formatoMonto(2, 'USDT')}${fin}`, 'suma los renglones y los pagos de la misma moneda')
+  assert.equal(avisoDeDiferencia(con(['143,5'], [['146', 'USDT']])), `De más: ${formatoMonto(2.5, 'USDT')}${fin}`, 'la coma decimal')
+  assert.equal(avisoDeDiferencia(con(['144'], [['144', 'USDT']])), null, 'si coincide, nada')
+  assert.equal(avisoDeDiferencia(con(['144'], [['146', 'USD']])), null, 'en otra moneda no se compara (nunca se pone una tasa)')
+  assert.equal(avisoDeDiferencia(con(['144'], [['100', 'USDT'], ['46', 'USD']])), null, 'con dos monedas, no se compara')
+  assert.equal(avisoDeDiferencia(con([''], [['146', 'USDT']])), null, 'sin detalle no hay contra qué comparar')
+  assert.equal(avisoDeDiferencia(con(['144'], [['', 'USDT']])), null, 'sin nada recibido todavía, no se compara')
+  const modal = sinComentarios(leer('app/admin/_polar/web/Orders/CargarPagoModal.tsx'))
+  assert.match(modal, /const aviso = avisoDeDiferencia\(f\)/, 'el modal no calcula el aviso')
+  assert.match(modal, /\{aviso && <Alert variant="warning" title="Diferencia" description=\{aviso\} \/>\}/, 'el modal no dibuja el aviso')
 })
