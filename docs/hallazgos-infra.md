@@ -249,7 +249,60 @@ mismo chequeo (por eso antes corría los tests que la leen).
 **Sin comprobar** (un workflow no se prueba del todo sin correrlo): que el `schedule` de sobre-main arranque a tiempo (GitHub atrasa
 los horarios hasta ~30 min; si un día no terminó a las 11:05, el despliegue no ve la marca y compila); que los deployments de
 GitHub traigan el ambiente «Production» para los deploys que crea el cron por la API (los eventos llegaban, así que existen, pero
-no se miró su forma); que `deployments: read` alcance para leerlos; y la estimación del script contra el panel de facturación.
+no se miró su forma); y que `deployments: read` alcance para leerlos.
+
+### La alarma de minutos daba rojo todos los días porque nadie buscó el número bueno (6/11/2026)
+
+**Síntoma:** la alarma del vigía daba rojo todos los días. Estimaba **US$52,07** (8.678 min facturables del 1 al 6/11) contra
+**US$15,94 de US$30** del panel: 3,3 veces de más. Una alarma que suena siempre entrena a todos a ignorarla.
+
+⚠️ **La causa de la causa era una frase falsa en la cabecera del propio script**, y por eso nadie lo arregló en días:
+decía que el número real «el `GITHUB_TOKEN` de Actions no puede leer». **Es falso.** Lo que no puede leer es el panel de
+Settings → Billing. Los minutos facturables de verdad están en dos endpoints de Actions, que se leen con `actions: read`:
+
+- `GET /repos/{repo}/actions/workflows/{id}/timing` → `billable.<runner>.total_ms` del **ciclo de facturación en curso**.
+  Un pedido por workflow (siete en este repo), no uno por corrida.
+- `GET /repos/{repo}/actions/runs/{id}/timing` → lo mismo por corrida.
+
+**Y el repo YA usaba el de por-corrida en otra parte** (`scripts/tests-afectados.mjs`). Estaba a la vista. La regla que queda:
+**cuando un script dice de sí mismo «esto es una estimación porque el dato bueno no se puede leer», eso es una hipótesis del que
+lo escribió, no un hecho del entorno — se verifica antes de construirle una alarma encima.**
+
+**Las dos causas candidatas que estaban anotadas eran las dos ciertas, y ninguna alcanzaba sola:**
+
+1. **`--incluidos 0`**, puesto «para avisar antes de tiempo, nunca tarde». El plan Free del repo privado trae **2.000 minutos
+   incluidos** (AGENTS.md), y se cobraban todos. Pero 8.678 − 2.000 = 6.678 min → US$40: **todavía 2,5 veces el panel.** Los
+   minutos incluidos explican menos de la mitad del hueco.
+2. **La estimación por duración sobre-cuenta ~1,9x.** `Math.ceil(ms/60_000)` sobre `run_started_at → updated_at` mide la
+   duración de la **corrida**, que incluye la cola y los huecos entre jobs; GitHub factura por **JOB**. El caso extremo medido:
+   «después del deploy», 834 corridas y 679 min facturables a ~0,8 min cada una, casi todas con sus jobs salteados por su `if`
+   (GitHub no cobra un job salteado, y el `conclusion === 'skipped'` del script sólo atrapa la corrida entera salteada, no la
+   corrida exitosa cuyos jobs se saltearon).
+
+⚠️ **Lo que NO se hizo: subir el umbral del 80 %.** Apaga el síntoma y deja la alarma mintiendo. Lo que se hizo es que la alarma
+**juzgue el número de GitHub**: rojo sólo sobre el facturable real, y cuando el `/timing` no se puede leer, **amarillo y nunca
+rojo** — «no doy rojo sobre un número que sé que sobre-cuenta». Es la misma regla que ya tenía el script para la API caída
+(«la palabra rojo es para algo confirmado»), que no se le había aplicado a su propio número.
+
+⚠️ **No se pudo medir desde la notebook:** los dos PAT que hay en `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) dan
+**404 en `koncke/mako`** — son de Mauricio y el repo es de la cuenta `hola-mako`. Una medición de los minutos de Actions sólo
+corre **dentro** de Actions (con `github.token`) o con un PAT que cree Martín. El arreglo no lo necesita: el script lee el número
+cuando corre allá, y acá los tests lo prueban contra una API de mentira.
+
+### `process.exit()` después de un `fetch` revienta en Windows, y el test parecía roto (6/11/2026)
+
+**Síntoma:** el test del script fallaba con `3221226505` (0xC0000409) y
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` — **con la salida del script perfecta,
+el aviso correcto y todo lo esperado impreso**. El diagnóstico obvio (un cuerpo de respuesta HTTP sin leer en el camino del 403)
+era el equivocado: cancelarlo no cambió nada.
+
+**La causa:** `AbortSignal.timeout(...)` deja un timer, y `process.exit()` lo pisa mientras se está cerrando. Node 24.17.0 en
+Windows. Reproducido en 12 líneas sin nada de este repo: cuatro `fetch` con `AbortSignal.timeout` y un `process.exit(0)` →
+revienta; con `process.exitCode = 0` → sale limpio, mismo código, mismo tiempo (0,8 s).
+
+**La regla que queda: en un script que hace `fetch`, el código de salida se pone con `process.exitCode`, nunca con
+`process.exit()`.** En Linux (el vigía) no pasa, así que un rojo de esto aparece sólo en la notebook y parece un test roto.
+Vale para cualquier script del repo que combine `fetch` con `process.exit`.
 
 **Vive en:** `.github/workflows/sobre-main.yml`, `.github/workflows/despues-del-deploy.yml`, `.github/workflows/punta.yml`,
 `lib/desplegar-main-reglas.ts`, `lib/desplegar-main.ts`, `lib/github-commits.ts` (`mainEstaRojo`), `scripts/minutos-actions.mjs`.
