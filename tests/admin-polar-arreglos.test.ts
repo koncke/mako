@@ -28,6 +28,7 @@
 //   · el `Alert` no lleva el botón por default en `danger` (`soporte ?? false`)                     → 6/1 (6)
 //   · un aviso vuelve a poner su `<ReportarASoporte>` adentro de la descripción de un `Alert`       → 6/1 (6)
 //   · `vistaDeIngresos` sin `cache` (llamada directa al cálculo)                                     → 6/1 (8)
+//   · AdminShell sin el `<LazyMotion>` (el 9 se sumó después: base 8/0 → 7/1)                         → 7/1 (9)
 // =============================================================================
 
 import { test } from 'node:test'
@@ -213,4 +214,19 @@ test('8 · las lecturas que se repiten en un pedido van con `cache` de React (un
   const clientes = sinComentarios(leer('app/admin/_polar/datos/clientes-server.ts'))
   assert.match(clientes, /export const leerClientes = cache\(/)
   assert.match(clientes, /export const leerIngresos = cache\(/)
+})
+
+// ── 9. El LazyMotion de la raíz ──────────────────────────────────────────────────────────────────────────────────
+
+test('9 · la raíz de Admin monta el LazyMotion de Polar: sin él, los `m.div` se quedan en opacity 0 y Admin sale en blanco', () => {
+  // Medido el 6/11/2026 con las capturas: sin el proveedor, la barra de Polar y el contenido de TODAS las páginas quedaban
+  // invisibles, sin un error. El SSR dibuja igual el estado inicial con o sin proveedor, así que no se puede medir renderizando:
+  // se fija la estructura. Polar lo monta en clients/apps/web/src/app/providers.tsx (`PolarMotionProvider`).
+  const usanM = archivosAdmin().filter((f) => /import \{[^}]*\bm\b[^}]*\} from 'motion\/react'/.test(leer(f)))
+  assert.ok(usanM.length > 0, 'ningún archivo usa `m` de motion: este test ya no cuida nada')
+  const shell = sinComentarios(leer('app/admin/_polar/AdminShell.tsx'))
+  assert.match(shell, /import \{ domAnimation, LazyMotion \} from 'motion\/react'/)
+  assert.match(shell, /return \(\s*<LazyMotion features=\{domAnimation\}>\s*<DashboardLayout[\s\S]*<\/DashboardLayout>\s*<\/LazyMotion>\s*\)/, 'el LazyMotion envuelve todo el layout')
+  // Y el layout de Admin monta ESE shell (no otro sin el proveedor).
+  assert.match(sinComentarios(leer('app/admin/(polar)/layout.tsx')), /<AdminShell indice=\{indice\}>\{children\}<\/AdminShell>/)
 })
