@@ -91,7 +91,8 @@ test('un diseño compartido no lleva fotos, fondos con foto ni la marca', () => 
   const d = disenoParaPublico(DISENO) as typeof DISENO;
   const j = todo(d);
   assert.ok(!j.includes('supabase.co'), 'quedó una foto');
-  assert.ok(!('meta' in d.doc), 'quedó la marca del documento');
+  // `Object.hasOwn` y no `'meta' in`: el `in` estrecha el tipo a `never` después del assert y el tsc entero lo rechaza.
+  assert.equal(Object.hasOwn(d.doc, 'meta'), false, 'quedó la marca del documento');
   assert.deepEqual(d.doc.pages[0].background, { type: 'solid', color: '#FFFFFF' });
 });
 

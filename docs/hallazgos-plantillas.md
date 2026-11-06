@@ -106,6 +106,11 @@ cambia al implementar:
   los `.woff2` salen de los paquetes `@fontsource/*` del registro de npm, que sí se alcanza.
 - **La migración nació 0404 y `main` tomó la 0404 mientras se trabajaba** (`0404_carruseles_laminas_cta`); la 0405 la tenía
   `punta/thiago-migrar`. Se renumeró a 0406 antes de subir, barriendo `refs/remotes/origin/*` y no sólo main.
+- **El veredicto dio rojo por un TEST, no por el código:** `assert.ok(!('meta' in d.doc))` estrecha el tipo a `never` y la
+  línea siguiente no compila (TS2339). El acotado lo caza; no se había corrido sobre los archivos de test. Al cerrar una
+  tanda, el acotado va sobre los tests nuevos también.
+- **Una operación nueva al final de un área choca con los tests que fijan la cola de esa área** (knowledge-modulos y
+  sumar-documento-second-brain para `negocio`, doer-recetas-video-imagen para `video`): se suma a su lista, como piden.
 - **El motor guarda la fuente como pila CSS** (`"Anton", sans-serif`): buscarla por nombre en el catálogo da «no está»
   siempre. `familiaPrincipal` toma la primera; tests/image-plantillas-reales-crear.test.ts (3b) lo fija.
 
