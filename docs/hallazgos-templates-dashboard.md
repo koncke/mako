@@ -670,6 +670,12 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   compraron en el período, de la apertura. Ordenar el tablero por agendas metía a todos los agendados y dejaba vacías las primeras
   columnas: se dejó el orden de siempre.
 - **Un rótulo al lado del título de una tarjeta lo corta** («Los que ava…»): va corto y con `white-space: nowrap; flex: none`.
+- **⚠️ Un archivo de test SIN tests da verde, y así llegó a commitearse.** Un script que reescribía el pie cortó el archivo desde la
+  PRIMERA aparición de «// Probado rompiéndolo (6/11/2026), cada rotura sola», que también estaba en la cabecera: el test quedó con 26
+  renglones de comentarios. Las corridas de los afectados y el veredicto dieron verde (cero tests, cero fallos) y lo frenó la guarda de
+  módulos del pre-push (`scripts/modulos-ts.mjs`: un .ts sin `import`). Se rearmó y las 17 roturas dieron lo mismo. Al reescribir un pedazo
+  de un archivo, el ancla es única (`rindex`, o un texto que sólo esté en ese pedazo), y antes de commitear un test se cuenta cuántos
+  `test(` tiene.
 
 ## 35. Cold Calling (Corvane): la entrada de la página no está en el INFORME, y «No contestó» no se calcula restando (6/11/2026, chat en la nube)
 
