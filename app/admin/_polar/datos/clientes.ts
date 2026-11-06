@@ -37,7 +37,7 @@ import {
 import type { FilaCliente } from '@/lib/clientes-plataforma'
 import { mesTxt, type ClienteResumen, type Ingresos } from '@/lib/admin-ingresos-reglas'
 import type { ResumenPeriodo } from '@/lib/costos-ia'
-import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
+import { ETIQUETA_PARA_MIRAR, nombreDePlan, type ItemParaMirar, type MotivoParaMirar } from '@/lib/clientes-plataforma-reglas'
 import { aCentavos } from './metricas'
 import type { TimeInterval } from './polar-tipos'
 
@@ -353,6 +353,47 @@ export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: rea
     .slice(0, limite)
 }
 
+// ── «Para mirar», adentro de At Risk ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que la pantalla vieja de Customers llamaba «Para mirar» y Polar no tiene (decisión del Cerebro, 6/11/2026: «entra en At
+ * Risk»): lo que pide atención sin ser un riesgo de cobro. Los motivos que At Risk ya cuenta (pausado, cobro fallido, sin uso)
+ * no se repiten acá: la regla es `paraMirar` (lib/clientes-plataforma-reglas.ts), la misma que lee la API de MaKo.
+ * ⚠️ Va en su PROPIA tabla, debajo de la de riesgo, y no suma al «At risk» del Overview: un negocio nuevo o en prueba no está
+ *    en riesgo, y contarlo inflaría ese número.
+ */
+export const MOTIVOS_SOLO_PARA_MIRAR: ReadonlySet<MotivoParaMirar> = new Set(['pago', 'regalo', 'sin-empezar', 'prueba', 'nuevo'])
+
+export type ClienteParaMirar = {
+  ws: number
+  nombre: string
+  plan: string | null
+  motivo: MotivoParaMirar
+  /** La etiqueta («Pago pendiente») y lo que pasa («Tiene un pago esperando»). */
+  rotulo: string
+  texto: string
+  tono: 'bad' | 'warn' | 'info' | 'good'
+}
+
+/** Los de «Para mirar» que no están ya en la tabla de riesgo, en el orden de `paraMirar` (el más urgente primero). */
+export function clientesParaMirar(
+  items: readonly ItemParaMirar[],
+  enRiesgo: readonly Pick<ClienteEnRiesgo, 'ws'>[],
+  filas: readonly Pick<FilaCliente, 'ws' | 'capa'>[],
+): ClienteParaMirar[] {
+  const yaEnRiesgo = new Set(enRiesgo.map((c) => c.ws).filter((ws): ws is number => ws != null))
+  const capa = new Map(filas.map((f) => [f.ws, f.capa] as const))
+  return items
+    .filter((i) => MOTIVOS_SOLO_PARA_MIRAR.has(i.motivo) && !yaEnRiesgo.has(i.ws))
+    .map((i) => {
+      const c = capa.get(i.ws)
+      return {
+        ws: i.ws, nombre: i.nombre, plan: c ? nombreDePlan(c) : null, motivo: i.motivo,
+        rotulo: ETIQUETA_PARA_MIRAR[i.motivo].rotulo, texto: i.texto, tono: ETIQUETA_PARA_MIRAR[i.motivo].tono,
+      }
+    })
+}
+
 // ── Cost Drivers (TopCostCustomersList, CostDriversPage) ───────────────────────────────────────────────────────────
 
 export type ClienteCosto = {
@@ -376,6 +417,48 @@ export type VistaCostos = {
   atribuible: boolean
   clientes: ClienteCosto[]
 }
+
+// ── Cost Drivers con el selector de rango de Polar ────────────────────────────────────────────────────────────────
+
+/**
+ * Los rangos del selector de Polar (los de `CHART_RANGES`, app/admin/_polar/web/utils/metrics.ts), en el orden del control.
+ * Cost Drivers los lee de la URL (`?range=`) porque el gasto lo lee el server; el default es el de Polar, «30d».
+ */
+export const RANGOS_COSTOS = ['all_time', '12m', '3m', '30d', 'today'] as const
+export type RangoCostos = (typeof RANGOS_COSTOS)[number]
+export const rangoDeParam = (v: string | string[] | null | undefined): RangoCostos => {
+  const x = Array.isArray(v) ? v[0] : v
+  return (RANGOS_COSTOS as readonly string[]).includes(x ?? '') ? (x as RangoCostos) : '30d'
+}
+
+const ROTULO_RANGO_COSTOS: Record<RangoCostos, string> = {
+  all_time: 'Gasto de IA desde siempre',
+  '12m': 'Gasto de IA de los últimos 12 meses',
+  '3m': 'Gasto de IA de los últimos 3 meses',
+  '30d': 'Gasto de IA de los últimos 30 días',
+  today: 'Gasto de IA de hoy',
+}
+
+/**
+ * La ventana EXACTA de cada rango, como `getMetricsRangeDates` de Polar (hoy menos 12 o 3 meses, menos 30 días, el principio de
+ * hoy), sobre `created_at` y en UTC (el día del gasto de IA, `porDia` de lib/costos-ia.ts). «Desde siempre» no tiene borde.
+ */
+export function ventanaDeCostos(range: RangoCostos, ahoraMs: number): { desde: string | null; hasta: string; rotulo: string } {
+  const fin = new Date(ahoraMs)
+  const inicio = new Date(ahoraMs)
+  if (range === '12m') inicio.setUTCMonth(inicio.getUTCMonth() - 12)
+  else if (range === '3m') inicio.setUTCMonth(inicio.getUTCMonth() - 3)
+  else if (range === '30d') inicio.setUTCDate(inicio.getUTCDate() - 30)
+  else if (range === 'today') inicio.setUTCHours(0, 0, 0, 0)
+  return {
+    desde: range === 'all_time' ? null : inicio.toISOString(),
+    hasta: fin.toISOString(),
+    rotulo: ROTULO_RANGO_COSTOS[range],
+  }
+}
+
+/** Las props de la página Cost Drivers: las de la lista corta, con el rango elegido y lo que dice el subtítulo. */
+export type PropsCostDrivers = PropsCostos & { range: RangoCostos; rotulo: string }
 
 /** El mes en curso, en UTC (es la ventana de `resumenDelPeriodo`). */
 export const mesActual = (ahoraMs: number) => new Date(ahoraMs).toISOString().slice(0, 7)
@@ -409,7 +492,7 @@ export function costosPorCliente(
 
 // ── Las props de cada página (lo que arma el page.tsx con las lecturas de clientes-server.ts) ─────────────────────
 
-type LecturaClientes = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado'>> }>
+type LecturaClientes = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado'>>; paraMirar?: readonly ItemParaMirar[] }>
 /** Overview cuenta los negocios de la lista (sin los clientes de una agencia): necesita su segmento. */
 type LecturaClientesConSegmento = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado' | 'segmentos'>> }>
 type LecturaIngresos = Lectura<Pick<Ingresos, 'entradas' | 'clientes'>>
@@ -419,7 +502,13 @@ const errorDe = <T,>(l: Lectura<T>): string | null => (l.ok ? null : l.error)
 const avisosDe = (...ls: ReadonlyArray<Lectura<unknown>>): string[] => ls.flatMap((l) => (l.ok ? l.avisos : []))
 
 export type PropsTop = { datos: DatosTop | null; error: string | null; avisos: string[]; desde: string }
-export type PropsAtRisk = { atRisk: ClienteEnRiesgo[] | null; error: string | null; avisos: string[] }
+export type PropsAtRisk = {
+  atRisk: ClienteEnRiesgo[] | null
+  error: string | null
+  avisos: string[]
+  /** «Para mirar» (la tabla de abajo de la página). `null` = la lectura no lo trae (el Overview no lo usa). */
+  paraMirar: ClienteParaMirar[] | null
+}
 export type PropsCostos = { costos: VistaCostos | null; error: string | null; mesDeCostos: string }
 export type PropsOverview = {
   /** La fecha de alta (ISO) de cada negocio. */
@@ -458,13 +547,16 @@ export function vistaDeTop(ingresos: LecturaIngresos, ahoraMs: number, creados?:
  * «Nada en riesgo» sobre un negocio que debe: es un «no pude leer», no un vacío.
  */
 export function vistaDeAtRisk(clientes: LecturaClientes, ingresos: LecturaIngresos, limite = 100): PropsAtRisk {
-  if (!clientes.ok || !ingresos.ok) return { atRisk: null, error: errorDe(clientes) ?? errorDe(ingresos), avisos: [] }
-  return { atRisk: clientesEnRiesgo(clientes.datos.filas, ingresos.datos.clientes, limite), error: null, avisos: avisosDe(clientes, ingresos) }
+  if (!clientes.ok || !ingresos.ok) return { atRisk: null, error: errorDe(clientes) ?? errorDe(ingresos), avisos: [], paraMirar: null }
+  const atRisk = clientesEnRiesgo(clientes.datos.filas, ingresos.datos.clientes, limite)
+  const paraMirar = clientes.datos.paraMirar ? clientesParaMirar(clientes.datos.paraMirar, atRisk, clientes.datos.filas) : null
+  return { atRisk, error: null, avisos: avisosDe(clientes, ingresos), paraMirar }
 }
 
-/** Cost Drivers: el gasto de IA del mes, con los nombres de la lista. */
+/** Cost Drivers: el gasto de IA del período (un mes 'YYYY-MM' o un rango de `RANGOS_COSTOS`), con los nombres de la lista. */
 export function vistaDeCostos(clientes: LecturaClientes, costos: LecturaCostos, periodo: string, limite = 200): PropsCostos {
-  const mesDeCostos = mesTxt(periodo)
+  // `mesDeCostos` sólo se dice de un mes (el Overview); la página dice su rango con `ventanaDeCostos().rotulo`.
+  const mesDeCostos = /^\d{4}-\d{2}$/.test(periodo) ? mesTxt(periodo) : ''
   if (!costos.ok) return { costos: null, error: costos.error, mesDeCostos }
   const nombres = new Map(clientes.ok ? clientes.datos.filas.map((f) => [f.ws, f.nombre] as const) : [])
   return { costos: costosPorCliente(costos.datos, nombres, limite), error: null, mesDeCostos }

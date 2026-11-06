@@ -22,6 +22,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   clientesEnRiesgo,
+  clientesParaMirar,
   costosPorCliente,
   crecimientoDeClientes,
   datosDeTop,
@@ -33,6 +34,8 @@ import {
   primerAlta,
   topClientes,
   vistaDeAtRisk,
+  rangoDeParam,
+  ventanaDeCostos,
   vistaDeCostos,
   vistaDeTop,
   WS_VALIDO,
@@ -167,6 +170,45 @@ test('At Risk sin la lectura de los ingresos es «no pude leer», nunca «Nada e
   const ok = vistaDeAtRisk({ ok: true, datos: { filas: [] }, avisos: ['los onboardings: caído'] }, { ok: true, datos: { entradas: [], clientes: [] }, avisos: ['los cobros de la pasarela: x'] })
   assert.deepEqual(ok.atRisk, [])
   assert.deepEqual(ok.avisos, ['los onboardings: caído', 'los cobros de la pasarela: x'], 'lo que no se leyó viaja a la pantalla')
+})
+
+// «Para mirar» (decisión del Cerebro, 6/11/2026). Roturas: sin el corte de los que ya están en riesgo → 1 fallo; con un motivo
+// de riesgo (pausado) colado en la tabla → 1 fallo.
+test('At Risk › Para mirar: lo que pide atención sin ser un riesgo, sin repetir a los de la tabla de riesgo', () => {
+  const items = [
+    { ws: 1, nombre: 'Uno', motivo: 'pausado' as const, texto: 'Su cuenta está pausada' },
+    { ws: 2, nombre: 'Dos', motivo: 'pago' as const, texto: 'Tiene un pago esperando' },
+    { ws: 3, nombre: 'Tres', motivo: 'nuevo' as const, texto: 'Se sumó ayer' },
+    { ws: 4, nombre: 'Cuatro', motivo: 'sin-empezar' as const, texto: 'No terminó su configuración' },
+  ]
+  const filas = [1, 2, 3, 4].map((ws) => ({ ws, capa: 'completo' }))
+  const r = clientesParaMirar(items, [{ ws: 4 }], filas)
+  assert.deepEqual(r.map((c) => c.ws), [2, 3], 'sin el pausado (es de la tabla de riesgo) ni el que ya está en riesgo')
+  assert.deepEqual(r.map((c) => c.rotulo), ['Pago pendiente', 'Nuevo'])
+  assert.equal(r[1].tono, 'good')
+  // La vista: con la lectura que trae `paraMirar` (la de la página), y sin ella (el Overview) no hay tabla.
+  const lectura = { ok: true as const, datos: { filas: [], paraMirar: items }, avisos: [] }
+  const ingresos = { ok: true as const, datos: { entradas: [], clientes: [] }, avisos: [] }
+  assert.deepEqual(vistaDeAtRisk(lectura, ingresos).paraMirar?.map((c) => c.ws), [2, 3, 4])
+  assert.equal(vistaDeAtRisk({ ok: true, datos: { filas: [] }, avisos: [] }, ingresos).paraMirar, null)
+})
+
+// El selector de rango de Polar en Cost Drivers (decisión del Cerebro, 6/11/2026). Roturas: «30d» contado como un mes → 1 fallo;
+// un `?range=` desconocido que no cae al default → 1 fallo.
+test('Cost Drivers: cada rango del selector de Polar es una ventana exacta, y un rango que no existe cae a «30d»', () => {
+  const ahora = Date.parse('2026-11-06T18:30:00Z')
+  assert.deepEqual(ventanaDeCostos('30d', ahora), { desde: '2026-10-07T18:30:00.000Z', hasta: '2026-11-06T18:30:00.000Z', rotulo: 'Gasto de IA de los últimos 30 días' })
+  assert.equal(ventanaDeCostos('3m', ahora).desde, '2026-08-06T18:30:00.000Z')
+  assert.equal(ventanaDeCostos('12m', ahora).desde, '2025-11-06T18:30:00.000Z')
+  assert.equal(ventanaDeCostos('today', ahora).desde, '2026-11-06T00:00:00.000Z', 'hoy, desde el principio del día (UTC, como el gasto)')
+  assert.equal(ventanaDeCostos('all_time', ahora).desde, null, 'desde siempre: sin borde')
+  assert.equal(rangoDeParam('3m'), '3m')
+  assert.equal(rangoDeParam(['12m', 'x']), '12m')
+  assert.equal(rangoDeParam('mes'), '30d')
+  assert.equal(rangoDeParam(undefined), '30d')
+  // Un rango no se dice como un mes.
+  const vacio = { ok: true as const, datos: { periodo: '30d', costUsd: 0, porWorkspace: [] }, avisos: [] }
+  assert.equal(vistaDeCostos({ ok: true, datos: { filas: [] }, avisos: [] }, vacio, '30d').mesDeCostos, '')
 })
 
 test('Cost Drivers: el corte por negocio sólo si es atribuible, con su parte del gasto total', () => {

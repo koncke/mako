@@ -83,7 +83,7 @@ export const SinReparto = ({ fill = false }: { fill?: boolean }) => (
   <EmptyState
     icon={<Coins />}
     title="No se puede repartir por negocio"
-    description="El gasto de Claude con la clave de MaKo se anota todo en un mismo negocio: este mes no se sabe cuánto le tocó a cada uno."
+    description="El gasto de Claude con la clave de MaKo se anota todo en un mismo negocio: en este período no se sabe cuánto le tocó a cada uno."
     fill={fill}
   />
 )

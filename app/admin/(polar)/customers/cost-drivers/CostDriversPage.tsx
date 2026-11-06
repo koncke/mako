@@ -1,9 +1,10 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/cost-drivers/CostDriversPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
-// MaKo: el costo de cada negocio es lo que le costó a MaKo su IA en el mes en curso (`costosPorCliente`,
-// app/admin/_polar/datos/clientes.ts, de lib/costos-ia.ts). Sin el selector de rango de Polar: el gasto de IA se corta por
-// mes, y «30d» o «3m» no se pueden leer sin inventar. Si el mes no se puede repartir por negocio, se dice (no hay número).
+// MaKo: el costo de cada negocio es lo que le costó a MaKo su IA en el rango elegido (`costosPorCliente`,
+// app/admin/_polar/datos/clientes.ts, de lib/costos-ia.ts). El selector de rango es el de Polar, arriba a la derecha (decisión
+// del Cerebro, 6/11/2026): cada rango es una ventana exacta que lee el server, así que elegirlo cambia `?range=` y la página se
+// vuelve a leer. Si el período no se puede repartir por negocio, se dice (no hay número).
 
 import { CustomerCell } from '@/app/admin/_polar/web/Customer/CustomerCell'
 import { CustomersPageShell } from '@/app/admin/_polar/web/Customer/CustomersPageShell'
@@ -11,10 +12,12 @@ import { SinReparto } from '@/app/admin/_polar/web/Customer/TopCostCustomersList
 import { useClientSidePagination } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
+  RUTA_CUSTOMERS,
   rutaDeNegocio,
   type ClienteCosto,
-  type PropsCostos,
+  type PropsCostDrivers,
 } from '@/app/admin/_polar/datos/clientes'
+import type { ChartRange } from '@/app/admin/_polar/web/utils/metrics'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Alert, DataTable, DataTableColumnDef, Text } from '@/app/admin/_polar/orbit'
 import { Coins } from '@/app/admin/_polar/orbit/icons'
@@ -48,7 +51,7 @@ const columns: DataTableColumnDef<ClienteCosto>[] = [
   },
 ]
 
-export const CostDriversPage = ({ costos, error, mesDeCostos }: PropsCostos) => {
+export const CostDriversPage = ({ costos, error, range, rotulo }: PropsCostDrivers) => {
   const router = useRouter()
   const stats = costos?.clientes ?? []
 
@@ -56,8 +59,11 @@ export const CostDriversPage = ({ costos, error, mesDeCostos }: PropsCostos) => 
     useClientSidePagination(stats)
 
   return (
-    <CustomersPageShell>
-      <Text color="muted">Gasto de IA de {mesDeCostos}</Text>
+    <CustomersPageShell
+      range={range}
+      onRangeChange={(r: ChartRange) => router.replace(`${RUTA_CUSTOMERS}/cost-drivers${r === '30d' ? '' : `?range=${r}`}`)}
+    >
+      <Text color="muted">{rotulo}</Text>
       {error || !costos ? (
         <Alert
           variant="danger"
@@ -71,7 +77,7 @@ export const CostDriversPage = ({ costos, error, mesDeCostos }: PropsCostos) => 
         <EmptyState
           icon={<Coins />}
           title="Sin gasto de IA"
-          description="Ningún negocio le costó IA a MaKo este mes."
+          description="Ningún negocio le costó IA a MaKo en este período."
         />
       ) : (
         <DataTable

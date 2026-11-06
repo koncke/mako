@@ -12,18 +12,19 @@
 //    dice debajo del formulario). «Organization Name» es el nombre que sale en el recibo; «Website» y «Support Email», el
 //    documento, la dirección y el correo de contacto.
 // ⚠️ LO QUE NO ESTÁ EN LA FUENTE: el «Ver ejemplo» del PDF del recibo (/api/admin/recibos/ejemplo) que tenía la pantalla de
-//    antes. Polar no muestra una vista previa: queda anotado y lo decide Martín.
+//    antes. Polar no muestra una vista previa; va en el mismo grupo, como un renglón más de Polar (`SettingsGroupItem`, con su
+//    botón a la derecha), por decisión del Cerebro (6/11/2026). Abre el PDF con los datos de hoy, sin número.
 
 import { guardarEmisorAction } from '@/app/admin/cobros/recibos-actions'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
-import { Input, Text } from '@/app/admin/_polar/orbit'
+import { Button, Input, Text } from '@/app/admin/_polar/orbit'
 import { Form, FormField, FormMessage } from '@/app/admin/_polar/ui/form'
 import { useRouter } from '@/app/_ui/Link'
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { useForm, useFormContext, useWatch } from 'react-hook-form'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
-import { SettingsGroup } from './SettingsGroup'
-import { emisorConCambios, mismoEmisor, problemaDelPerfil, type Emisor } from '@/app/admin/_polar/datos/ajustes'
+import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
+import { RUTA_EJEMPLO_RECIBO, emisorConCambios, mismoEmisor, problemaDelPerfil, type Emisor } from '@/app/admin/_polar/datos/ajustes'
 
 type PerfilForm = { nombre: string; documento: string; direccion: string; correo: string }
 
@@ -156,6 +157,16 @@ const OrganizationProfileSettings: React.FC<OrganizationProfileSettingsProps> = 
             <Box flexDirection="column" padding="xl">
               <OrganizationDetailsForm />
             </Box>
+            <SettingsGroupItem title="Ver ejemplo" description="Cómo sale un recibo con estos datos." layout="inline">
+              {/* El Button de Orbit envuelve su texto (no acepta `asChild`): abre el PDF en otra pestaña. */}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(RUTA_EJEMPLO_RECIBO, '_blank', 'noopener,noreferrer')}
+              >
+                Ver ejemplo
+              </Button>
+            </SettingsGroupItem>
           </SettingsGroup>
           {error && (
             <div role="alert" className="flex flex-col items-start gap-2">

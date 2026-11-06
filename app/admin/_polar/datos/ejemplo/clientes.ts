@@ -7,6 +7,7 @@
 
 import type { ClienteResumen, Entrada } from '@/lib/admin-ingresos-reglas'
 import type { FilaCliente } from '@/lib/clientes-plataforma'
+import type { ItemParaMirar } from '@/lib/clientes-plataforma-reglas'
 import type { ResumenPeriodo } from '@/lib/costos-ia'
 import {
   listaDeClientes,
@@ -65,7 +66,14 @@ const entradas: Entrada[] = [
   entrada('lead:501', 'Ana Gómez', '2026-10-22', 300),
 ]
 
-const lecturaClientes: Lectura<{ filas: FilaEjemplo[] }> = { ok: true, datos: { filas }, avisos: [] }
+// «Para mirar» (At Risk, la tabla de abajo): lo que `paraMirar` (lib/clientes-plataforma-reglas.ts) diría de estos negocios.
+const paraMirar: ItemParaMirar[] = [
+  { ws: 25, nombre: 'Gimnasio Fuerza Sur', motivo: 'pausado', texto: 'Su cuenta está pausada' },
+  { ws: 23, nombre: 'Clínica Dental Sonríe', motivo: 'pago', texto: 'Tiene un pago esperando' },
+  { ws: 27, nombre: 'Floristería Pétalo', motivo: 'nuevo', texto: 'Se sumó hace 4 días' },
+]
+
+const lecturaClientes: Lectura<{ filas: FilaEjemplo[]; paraMirar: ItemParaMirar[] }> = { ok: true, datos: { filas, paraMirar }, avisos: [] }
 const lecturaIngresos: Lectura<{ entradas: Entrada[]; clientes: ClienteResumen[] }> = {
   ok: true, datos: { entradas, clientes: clientesIngreso }, avisos: [],
 }

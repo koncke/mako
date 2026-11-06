@@ -125,6 +125,21 @@ function ventana(periodo: string): { desde: string | null; hasta: string | null 
  */
 export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriodo> {
   const { desde, hasta } = ventana(periodo);
+  return resumenDeVentana(periodo, desde, hasta);
+}
+
+/**
+ * Lo mismo que `resumenDelPeriodo`, entre dos instantes cualesquiera (ISO; `null` = sin ese borde). Existe para el selector
+ * de rango de Polar en Admin › Customers › Cost Drivers (6/11/2026): «30d» u «Hoy» son una ventana exacta sobre `created_at`,
+ * no un mes redondeado. `periodo` es el rótulo que se devuelve (no decide nada). Global como aquélla: la gatea quien llama.
+ */
+export async function resumenEntre(periodo: string, desde: string | null, hasta: string | null): Promise<ResumenPeriodo> {
+  const iso = (v: string | null) => v == null || Number.isFinite(Date.parse(v));
+  if (!iso(desde) || !iso(hasta)) throw new Error(`resumenEntre: «${desde} → ${hasta}» no es una ventana de fechas`);
+  return resumenDeVentana(periodo, desde, hasta);
+}
+
+async function resumenDeVentana(periodo: string, desde: string | null, hasta: string | null): Promise<ResumenPeriodo> {
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens, workspace_id';
 
   // El orden desempatado por la PK es la mitad del truco de paginar: con un orden

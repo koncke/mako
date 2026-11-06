@@ -28,6 +28,12 @@ export type PrecioPlanLocal = { id: string; nombre: string; precioUsd: number; l
 
 export type DatosGeneral = { ok: true; emisor: Emisor } | { ok: false; error: string }
 
+/**
+ * «Ver ejemplo» de Settings › General (decisión del Cerebro, 6/11/2026): el PDF de un recibo con los datos del emisor de hoy,
+ * sin número y con datos ficticios. La ruta pide el super admin en su primera línea (tests/admin-cobros.test.ts).
+ */
+export const RUTA_EJEMPLO_RECIBO = '/api/admin/recibos/ejemplo'
+
 export type DatosPagos = {
   /** La moneda de la Mercado Pago de MaKo (null = no está conectada) y cada plan con su precio ahí. null = no se pudo leer. */
   locales: { moneda: string | null; planes: PrecioPlanLocal[] } | null

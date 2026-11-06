@@ -32,7 +32,7 @@ import {
   type ProductoMako,
 } from '../app/admin/_polar/datos/productos'
 import { celdasDeExportacion, filasDeIngresos, medioDeIngreso, ordenarIngresos, paginar, tipoDeIngreso } from '../app/admin/_polar/datos/finanzas'
-import { emisorConCambios, mismoEmisor, numeroLocal, numeroSimple, problemaDelPerfil, type Emisor } from '../app/admin/_polar/datos/ajustes'
+import { RUTA_EJEMPLO_RECIBO, emisorConCambios, mismoEmisor, numeroLocal, numeroSimple, problemaDelPerfil, type Emisor } from '../app/admin/_polar/datos/ajustes'
 import { getSettingsSection } from '../app/admin/_polar/web/Settings/settingsSections'
 import { CHECKOUT_LINKS_EJEMPLO, COBROS_EJEMPLO, ENTRADAS_EJEMPLO, INGRESOS_EJEMPLO, PRODUCTOS_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/productos'
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '../lib/planes-mako'
@@ -222,6 +222,17 @@ test('Settings: sólo las secciones que MaKo llena (lo demás de Polar es un 404
   assert.equal(getSettingsSection('members'), undefined)
   assert.equal(getSettingsSection('__proto__'), undefined)
   assert.equal(getSettingsSection('toString'), undefined)
+})
+
+// «Ver ejemplo» del recibo (decisión del Cerebro, 6/11/2026). Roturas: el botón a otra ruta → 1 fallo; sin el renglón → 1 fallo.
+test('Settings › General: «Ver ejemplo» abre el PDF de ejemplo del recibo, junto a los datos del emisor', () => {
+  // La ruta existe y sirve el PDF (su guarda de super admin la fija tests/admin-cobros.test.ts).
+  const ruta = `app${RUTA_EJEMPLO_RECIBO}/route.ts`
+  assert.ok(statSync(join(RAIZ, ruta)).isFile(), `${ruta} no existe`)
+  const src = sinComentarios(leer('app/admin/_polar/web/Settings/OrganizationProfileSettings.tsx'))
+  const grupo = src.slice(src.indexOf('<SettingsGroup title="Perfil"'), src.indexOf('</SettingsGroup>'))
+  assert.ok(grupo.includes('<OrganizationDetailsForm />'), 'el renglón va en el mismo grupo que los datos del emisor')
+  assert.match(grupo, /<SettingsGroupItem title="Ver ejemplo"[\s\S]*onClick=\{\(\) => window\.open\(RUTA_EJEMPLO_RECIBO, '_blank', 'noopener,noreferrer'\)\}/)
 })
 
 // ─── Las puertas ────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import 'server-only'
 import { cache } from 'react'
 import { vistaDeClientes, type VistaClientes } from '@/lib/clientes-plataforma'
 import { vistaDeIngresos, type VistaIngresos } from '@/lib/admin-ingresos'
-import { resumenDelPeriodo, type ResumenPeriodo } from '@/lib/costos-ia'
+import { resumenDelPeriodo, resumenEntre, type ResumenPeriodo } from '@/lib/costos-ia'
 import { CAPA_DEFAULT, CAPAS_VENDIBLES } from '@/lib/capas'
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas'
 import type { Lectura } from './clientes'
@@ -40,6 +40,15 @@ export const leerIngresos = cache(async (): Promise<Lectura<VistaIngresos>> => {
 export const leerCostos = cache(async (periodo: string): Promise<Lectura<ResumenPeriodo>> => {
   try {
     return { ok: true, datos: await resumenDelPeriodo(periodo), avisos: [] }
+  } catch (e) {
+    return { ok: false, error: motivo(e) }
+  }
+})
+
+/** El gasto de IA de una ventana exacta (Cost Drivers con el selector de rango de Polar: `ventanaDeCostos`, ./clientes.ts). */
+export const leerCostosEntre = cache(async (rotulo: string, desde: string | null, hasta: string): Promise<Lectura<ResumenPeriodo>> => {
+  try {
+    return { ok: true, datos: await resumenEntre(rotulo, desde, hasta), avisos: [] }
   } catch (e) {
     return { ok: false, error: motivo(e) }
   }
