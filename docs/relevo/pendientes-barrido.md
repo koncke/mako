@@ -42,6 +42,12 @@ entero). ⚠️ El hook de pre-push NO estaba instalado en este clon de la nube:
 | 6 | **Automations:** «Responder» con el clic derecho en el chat con MaKo, sin interpretar lo citado como un pedido | app/automations/ChatMako.tsx · ChatMakoVista.tsx | ídem |
 | 6 | **Seguridad:** el script en seco de las fotos huérfanas del bucket público `avatars` (lo corre el Cerebro: P16) | scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts | ídem |
 
+| 7 | **API de MaKo:** `guardar_landing` marca o desmarca la página de gracias (la pantalla podía, la API no) | lib/api-mako/areas/landing.def.ts · landing.run.ts | `punta/barrido-gracias` |
+
+**La tanda 6 subió el 6/11/2026** a `punta/barrido-plata` (cabeza `868239ebb`, veredicto en verde: 6791 tests de 695 archivos y el
+tsc entero). La tanda 5 (`punta/barrido-envios`) ya está en main. ⚠️ El primer intento del push dio 18 rojos de mentira: el hook usa
+el Node del shell (22); con el Node 24 en el mismo comando, 92 de 92 en verde (docs/hallazgos-infra.md).
+
 Lo de plata de la tanda 6 pasó una **revisión adversarial de dos vueltas** (un agente que no escribió el código): ver «Autocrítica».
 
 La cosecha: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar» y docs/hallazgos-chatbot.md →
@@ -114,6 +120,14 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
   onboarding (#801); la tanda C de Zernio (editar público, crear campaña).
 - **Cobro de agencias**: el precio en pesos del cliente de agencia y Mercado Pago de MaKo en el ws 9 (`/admin/cobros`).
 - **Carruseles / Stories**: prompts de `lib/ig-writer.ts` hardcodeados (skill `add-editable-prompt`); historial en memoria.
+- **Automations** (medido en la tanda 7, no tocado: es su galería y su motor):
+  - **El aviso al negocio cuando le rechazan un pago** (decidido el 15/10, docs/relevo/landing-generator.md «Lo que sigue» 5): el
+    motor ya tiene el CRON «Pagos: Se rechaza un pago» (`alCron(c, 'rechazado')` en `aplicarPagoFallido`, lib/cobros.ts) y el
+    evento del lead; falta la PLANTILLA de la galería («Rechazaron un Pago», objetivo `cobrar`, con una tarjeta MaKo en WhatsApp
+    al equipo, como `mako-pago`) — y la galería tiene su lista escrita a mano (`LAS_13`, tests/plantillas-automatizaciones.test.ts).
+  - **Una automatización sin disparador se prende y queda callada** (Brigitte, docs/hallazgos-chatbot.md 17/10): la fila dice «Elige
+    qué la dispara» y `setSecuenciaActiva` la prende igual. Bloquearla puede romper las «manuales» que se inscriben a mano: es
+    decisión del chat (frenar al activar, o que la lista diga «Manual: sólo si la mandas a mano»).
 
 ## Producción (para el Cerebro, desde la PC) — con el paso exacto
 
