@@ -25,7 +25,8 @@ import { multiplosDe, rotuloMultiplo, type Multiplo } from '../multiplo-rendimie
 import type { Medio } from '../spy-medio';
 import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
-import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type VistaCarrusel } from './opciones';
+import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
+import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
 export type Carrusel = {
@@ -68,6 +69,21 @@ export type Carrusel = {
    * outlier» y «Más interacción», con su número a la vista. Ausente o null: no se puede decir, y no se mueve.
    */
   pareceContenido?: boolean | null;
+  /**
+   * Carrusel (una publicación de Instagram) o anuncio (de la Biblioteca de Anuncios, traído por Competitors Spy con la clave del
+   * negocio: ./anuncios.ts). Ausente = carrusel: así lo de antes sigue igual.
+   */
+  clase?: 'carrusel' | 'anuncio';
+  /**
+   * Las láminas, en orden (la primera es la portada), ya en NUESTRO bucket: la tarjeta las pasa de a una. Vacío o ausente = sólo
+   * se tiene la portada (`miniatura`). Las llena el script de la biblioteca (0404, `laminas_imagenes`).
+   */
+  laminasImagenes?: string[];
+  /** ¿Pide comentar (o mandar por mensaje) una palabra? (./cta.ts). null = no lo pide, o no se puede decir (sin texto). */
+  cta?: CtaCarrusel | null;
+  /** Un anuncio: cuántos días lleva (o llevó) al aire, y si sigue. null = no se sabe cuándo empezó. */
+  diasAlAire?: number | null;
+  activo?: boolean | null;
 };
 
 /** Lo que entra de Spy, con la forma de `spy_piezas` (las columnas que se leen) y su competidor. */
@@ -76,6 +92,8 @@ export type PiezaParaCarrusel = {
   analisis?: { gancho?: string; tipoGancho?: string; formato?: string } | null; vistas: number | null; megusta: number | null; comentarios: number | null;
   duracion?: string | null; publicada_en: string | null; visto_primera_vez: string; dejo_de_verse_en: string | null;
   miniatura: string | null; medio?: string | null; laminas?: number | null;
+  /** Las láminas en nuestro bucket (0404; sólo la biblioteca las tiene por ahora). */
+  laminas_imagenes?: string[] | null;
 };
 export type CompetidorParaCarrusel = { id: number; nombre: string; instagram: string | null; avatar?: string | null };
 
@@ -126,11 +144,26 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
         outlier: multiplos.get(p.id)?.veces ?? null,
         multiplo: multiplos.get(p.id),
         pareceContenido: pareceContenido({ texto: p.texto, formato: formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto: p.texto }) || null, cierre: cierreDeTexto(p.texto) }),
+        clase: 'carrusel',
+        laminasImagenes: imagenesValidas(p.laminas_imagenes),
+        cta: ctaDeTexto(p.texto),
       });
     }
   }
   return out;
 }
+
+/** Las láminas que se pueden dibujar: https, sin repetidos, hasta 20 (lo que Instagram deja en un carrusel). */
+export function imagenesValidas(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const x of v) if (typeof x === 'string' && /^https:\/\//.test(x) && !out.includes(x)) out.push(x);
+  return out.slice(0, 20);
+}
+
+/** Lo que la tarjeta pasa de a una: las láminas guardadas o, si no hay, la portada sola. */
+export const imagenesDe = (c: Pick<Carrusel, 'laminasImagenes' | 'miniatura'>): string[] =>
+  (c.laminasImagenes?.length ? c.laminasImagenes : c.miniatura ? [c.miniatura] : []);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filtros, orden y búsqueda
@@ -139,9 +172,10 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
 // Las opciones (orden, outlier, período, largo, vista) viven en ./opciones.ts: sin dependencias, para que la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts) las importe sin arrastrar Spy. Acá se re-exportan.
 export {
-  LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL,
-  type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type VistaCarrusel,
+  LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL,
+  type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel,
 } from './opciones';
+export { rotuloCta, type CtaCarrusel };
 
 export type FiltrosCarrusel = {
   /** Lo que se busca: palabras del tema, o un @creador. */
@@ -158,10 +192,15 @@ export type FiltrosCarrusel = {
   conImagenes: boolean;
   orden: OrdenCarrusel;
   vista: VistaCarrusel;
+  /** Sólo los que piden comentar una palabra (./cta.ts): los que publican los dueños de negocio, no los virales. */
+  cta: boolean;
+  /** Carruseles o anuncios (6/11/2026). */
+  que: QueVer;
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
+  cta: false, que: 'carruseles',
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -182,7 +221,7 @@ export function coincide(c: Carrusel, q: string): boolean {
     if (!u) return true;
     return plano(c.creador.usuario ?? '').replace(/\s+/g, '').includes(u) || plano(c.creador.nombre).replace(/\s+/g, '').includes(u);
   }
-  const donde = plano([c.texto, c.gancho, c.creador.nombre, c.creador.usuario, rotuloFormato(c.formato)].filter(Boolean).join(' '));
+  const donde = plano([c.texto, c.gancho, c.creador.nombre, c.creador.usuario, rotuloFormato(c.formato), c.cta?.palabra].filter(Boolean).join(' '));
   return t.split(' ').every((palabra) => donde.includes(palabra));
 }
 
@@ -197,10 +236,13 @@ const enLargo = (c: Carrusel, largo: LargoCarrusel): boolean => {
 /** Lo que se ve con estos filtros, en su orden. `guardados` son los ids guardados del negocio. */
 export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel, guardados: ReadonlySet<number>, ahora = Date.now()): Carrusel[] {
   const creadores = new Set(f.creadores);
+  const anuncios = f.que === 'anuncios';
   const xs = todos.filter((c) => {
+    if ((c.clase === 'anuncio') !== anuncios) return false;
+    if (f.cta && !c.cta) return false;
     if (f.vista === 'guardados' && !guardados.has(c.id)) return false;
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
-    if (!f.conImagenes && c.medio === 'imagen') return false;
+    if (!anuncios && !f.conImagenes && c.medio === 'imagen') return false;
     if (creadores.size && !creadores.has(c.competidorId)) return false;
     if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
@@ -209,7 +251,8 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (!enLargo(c, f.largo)) return false;
     return coincide(c, f.q);
   });
-  return ordenarCarruseles(xs, f.vista === 'semana' && f.orden === 'nuevos' ? 'nuevos' : f.orden);
+  // Un anuncio no tiene outlier: «Mayor outlier» es, para ellos, el que más días lleva al aire.
+  return ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
 }
 
 /**
@@ -222,11 +265,12 @@ export function ordenarCarruseles(xs: readonly Carrusel[], orden: OrdenCarrusel)
     orden === 'outlier' ? c.outlier
       : orden === 'interaccion' ? interaccion(c)
       : orden === 'traidos' ? fecha(c.traida)
+      : orden === 'aire' ? (c.diasAlAire ?? null)
       : fecha(c.publicada);
   const asc = orden === 'viejos';
   // En lo que mide el rendimiento, lo que parece personal va después (se ve, con su número): una foto del embarazo de una
   // creadora con 9,7× no es un ejemplo de carrusel (./clasificar.ts dice qué cubre y qué no).
-  const porRendimiento = orden === 'outlier' || orden === 'interaccion';
+  const porRendimiento = orden === 'outlier' || orden === 'interaccion' || orden === 'aire';
   const personal = (c: Carrusel) => (porRendimiento && c.pareceContenido === false ? 1 : 0);
   return [...xs].sort((a, b) => {
     const pa = personal(a) - personal(b);
@@ -294,17 +338,21 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
   // En negativo, una cuenta de la biblioteca (su id); el cero no es nadie.
   const creadores = (get('de') ?? '').split(',').filter((x) => x.trim() !== '').map(Number).filter((n) => Number.isSafeInteger(n) && n !== 0).slice(0, 25);
   const formato = formatoDe(get('formato') ?? '');
+  // «Esta semana» era una pestaña; desde el 6/11/2026 es «Publicado: últimos 7 días». Un link viejo abre lo mismo.
+  const semana = get('vista') === 'semana';
   return {
     q: (get('q') ?? '').slice(0, 120),
     creadores,
     origen: unoDe(get('origen'), ORIGENES_CARRUSEL, 'todos'),
     outlierMin: (OUTLIER_MINIMOS as readonly number[]).includes(min) ? min : 0,
-    periodo: unoDe(get('periodo'), PERIODOS_CARRUSEL, 'todo'),
+    periodo: semana ? '7' : unoDe(get('periodo'), PERIODOS_CARRUSEL, 'todo'),
     largo: unoDe(get('largo'), LARGOS_CARRUSEL, 'todos'),
     formato,
     conImagenes: get('imagenes') === '1',
     orden: unoDe(get('orden'), ORDENES_CARRUSEL, 'outlier'),
-    vista: unoDe(get('vista'), VISTAS_CARRUSEL, 'todos'),
+    vista: semana ? 'todos' : unoDe(get('vista'), VISTAS_CARRUSEL, 'todos'),
+    cta: get('cta') === '1',
+    que: unoDe(get('que'), QUE_VER_CARRUSEL, 'carruseles'),
   };
 }
 
@@ -321,6 +369,8 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.conImagenes) q.set('imagenes', '1');
   if (f.orden !== 'outlier') q.set('orden', f.orden);
   if (f.vista !== 'todos') q.set('vista', f.vista);
+  if (f.cta) q.set('cta', '1');
+  if (f.que !== 'carruseles') q.set('que', f.que);
   return q.toString();
 }
 
@@ -395,7 +445,9 @@ export function nombreDeBusqueda(f: FiltrosCarrusel, creadores: ReadonlyArray<{ 
   if (f.q.trim()) partes.push(f.q.trim());
   if (f.creadores.length) partes.push(f.creadores.map((id) => creadores.find((c) => c.id === id)?.nombre ?? '').filter(Boolean).join(', '));
   if (f.origen !== 'todos') partes.push(ORIGENES_CARRUSEL.find((o) => o.value === f.origen)?.label ?? '');
-  if (f.vista === 'semana') partes.push('Esta semana');
+  if (f.que === 'anuncios') partes.push('Anuncios');
+  if (f.cta) partes.push('CTA');
+  if (f.vista === 'guardados') partes.push('Guardados');
   if (f.outlierMin) partes.push(`${f.outlierMin}×+`);
   if (f.formato) partes.push(rotuloFormato(f.formato));
   if (f.largo !== 'todos') partes.push(LARGOS_CARRUSEL.find((l) => l.value === f.largo)?.label ?? '');

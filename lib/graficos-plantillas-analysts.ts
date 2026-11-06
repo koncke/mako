@@ -535,8 +535,25 @@ const VSL: PlantillaHoja = {
         id: id('vs-vistas-semana'), clase: 'grafico', tipo: 'columnas', fuente: 'negocio', dimension: 'semana', metricas: ['vistas_vsl'],
         titulo: 'Vistas por semana', x: 0, y: 27, w: 12, h: 8,
       },
-      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 35, 12, 6),
+      // 6/11/2026 — Los play de cada día, con hasta dónde llegaron: la tarjeta grande del diseño de Pelago (las barras de los días y qué
+      // parte llega al final), la tabla de los últimos días y «de cada 100 que le dan play» salen de esta pieza. Es la MISMA lectura de
+      // los eventos que el resto de la retención (el resumen del video se comparte en el pedido: lib/graficos-datos-extra.ts).
+      {
+        id: id('vs-dia'), clase: 'grafico', tipo: 'tabla', fuente: 'retencion_vsl', dimension: 'dia',
+        metricas: ['arrancaron', 'medidos', 'pasaron_25', 'pasaron_50', 'pasaron_75', 'llegaron_final'], titulo: 'Día por día', x: 0, y: 35, w: 12, h: 10,
+      },
+      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 45, 12, 6),
     ],
+    // El DISEÑO DE PELAGO (6/11/2026; docs/diseno/mockups-dashboard/vsl-pelago/): mirando, la hoja la dibuja
+    // app/dashboard/disenos/HojaVsl.tsx con estas piezas (lib/vsl-diseno.ts arma cada parte, con test). Las vistas por semana quedan en
+    // la grilla («Ver la grilla»).
+    diseno: {
+      id: 'vsl',
+      piezas: {
+        apertura: id('vs-apertura'), final: id('vs-final'), vistas: id('vs-vistas'), costo: id('vs-costo-vista'), agendaron: id('vs-agendaron'),
+        curva: id('vs-curva'), tramos: id('vs-tramos'), videos: id('vs-videos'), dia: id('vs-dia'), ia: id('vs-ia'),
+      },
+    },
   }),
 };
 

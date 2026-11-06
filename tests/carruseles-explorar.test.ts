@@ -114,9 +114,13 @@ test('las tendencias de la semana: lo de los últimos 7 días por outlier, con t
 });
 
 test('los filtros viajan en la URL y vuelven iguales; lo que no se entiende vuelve al inicial', () => {
-  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'semana' as const };
+  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'guardados' as const, cta: true };
   const q = queryDeFiltros(f);
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(q)), f);
+  // Los anuncios (6/11/2026) también viajan; y un link viejo con la pestaña «Esta semana» abre «Publicado: últimos 7 días».
+  const anuncios = { ...FILTROS_INICIALES, que: 'anuncios' as const, orden: 'aire' as const };
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams(queryDeFiltros(anuncios))), anuncios);
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('vista=semana&orden=nuevos')), { ...FILTROS_INICIALES, periodo: '7', orden: 'nuevos' });
   assert.equal(queryDeFiltros(FILTROS_INICIALES), 'ver=carruseles');
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('min=7&orden=raro&vista=x&periodo=2&de=a,-1,5&formato=inventado')),
     { ...FILTROS_INICIALES, creadores: [-1, 5] }, 'un creador en negativo es de la biblioteca; el cero y lo que no es número, no');
@@ -143,7 +147,8 @@ test('las búsquedas guardadas se re-sanean al leer y tienen un nombre que se en
     { id: 'MAL!', nombre: 'x', query: '', en: '2026-11-01T00:00:00Z' },
   ]));
   assert.deepEqual(b, [{ id: 'b-abc1', nombre: 'Tips de café', query: 'ver=carruseles&q=cafe', en: '2026-11-01T00:00:00Z' }]);
-  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, q: 'menú', outlierMin: 2, formato: 'lista', vista: 'semana' }, []), 'menú · Esta semana · 2×+ · Lista o tips');
+  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, q: 'menú', outlierMin: 2, formato: 'lista', cta: true }, []), 'menú · CTA · 2×+ · Lista o tips');
+  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, que: 'anuncios', vista: 'guardados' }, []), 'Anuncios · Guardados');
   assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, creadores: [2] }, [{ id: 2, nombre: 'Café Brasa' }]), 'Café Brasa');
 });
 

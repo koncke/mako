@@ -1,30 +1,26 @@
 'use client';
 
 // =============================================================================
-// useCarruselesDeImage — lo de los carruseles en la portada de Image: miniaturas, «Ver ejemplo» y «Hacer el mío»
+// useCarruselesDeImage — lo de los carruseles en la portada de Image: las miniaturas y «Ver ejemplo»
 // =============================================================================
 // Aparte de ../ImageEditorCliente.tsx (la pantalla del editor) para que el cableado de los carruseles viva junto: la miniatura
 // de cada carrusel por tipo (el MISMO documento que crea la acción, con el nombre del negocio: lo que se ve es lo que se va
-// a crear), el diálogo «Ver ejemplo» (un negocio ficticio, aparte) y «Hacer el mío» desde una referencia del explorador.
-// Los diálogos se cargan a pedido: no viajan con la portada.
+// a crear) y el diálogo «Ver ejemplo» (un negocio ficticio, aparte). Se carga a pedido: no viaja con la portada.
+// «Hacer el mío» (con su «Elige el tipo») se fue el 6/11/2026: un ejemplo del explorador se EDITA directo
+// (./EditarCarrusel.tsx, Martín: «del ejemplo a la edición, sin pasos que no aporten»).
 // =============================================================================
 
 import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from '@/app/_ui/Link';
 import { documentoDeCarrusel, type Marca } from '@/lib/carruseles/documento';
 import { tipoCarrusel, type TipoCarrusel } from '@/lib/carruseles/tipos';
 import { estiloConKit, logoDeKit } from '@/lib/carruseles/marca-kit';
 import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
 import type { KitMarca } from '@/lib/marca/kits';
-import type { Carrusel } from '@/lib/carruseles/explorar';
 import { PLANTILLAS_NUEVO_DISENO } from '../plantillas-crear';
-import { rutaDiseno } from '../ruta';
 import { MiniaturaCarrusel } from './MiniaturaCarrusel';
-import { crearCarruselDesdeReferenciaAction } from './actions';
 
 const VerEjemplo = dynamic(() => import('./DialogosCarrusel').then((m) => m.VerEjemplo), { ssr: false });
-const HacerElMio = dynamic(() => import('./DialogosCarrusel').then((m) => m.HacerElMio), { ssr: false });
 
 let contador = 0;
 const idLocal = () => `m${++contador}`;
@@ -50,10 +46,8 @@ export function useCarruselesDeImage({ negocio, kit = null, crearPlantilla }: {
 }): {
   miniatura: (p: { id: string; nombre: string }) => ReactNode;
   onVerEjemplo: (p: { id: string }) => void;
-  onUsar: (c: Carrusel) => void;
   dialogos: ReactNode;
 } {
-  const router = useRouter();
   const marca = useMemo<Marca>(() => ({ nombre: negocio?.trim() || 'Tu negocio', usuario: null, logo: logoDeKit(kit) }), [negocio, kit]);
   const docs = useMemo(() => docsDeCarruseles(marca, kit), [marca, kit]);
   const miniatura = useCallback((p: { id: string; nombre: string }) => {
@@ -68,25 +62,12 @@ export function useCarruselesDeImage({ negocio, kit = null, crearPlantilla }: {
     if (pl && t) setEjemplo({ plantilla: pl.id, tipo: t });
   }, []);
 
-  const [referencia, setReferencia] = useState<Carrusel | null>(null);
-  const crearDesdeReferencia = useCallback(async (tipo: string, laminas: number): Promise<string | null> => {
-    if (!referencia) return null;
-    const r = await crearCarruselDesdeReferenciaAction(referencia.id, tipo, laminas);
-    if (!r.ok) return r.error;
-    router.push(rutaDiseno(r.id));
-    // El diálogo queda en «Creando…» hasta que la pantalla se va.
-    return new Promise<null>(() => {});
-  }, [referencia, router]);
-
   const dialogos = (
     <>
       {ejemplo && (
         <VerEjemplo tipo={ejemplo.tipo} onCerrar={() => setEjemplo(null)} onUsar={() => crearPlantilla(ejemplo.plantilla)} />
       )}
-      {referencia && (
-        <HacerElMio carrusel={referencia} marca={marca} onCerrar={() => setReferencia(null)} onCrear={crearDesdeReferencia} />
-      )}
     </>
   );
-  return { miniatura, onVerEjemplo, onUsar: setReferencia, dialogos };
+  return { miniatura, onVerEjemplo, dialogos };
 }

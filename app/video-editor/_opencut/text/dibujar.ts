@@ -59,10 +59,10 @@ import {
 import { letrasVisibles } from "./curva";
 import { lineasReveladas } from "./revelado";
 import {
+	colorDePalabra,
 	palabraDeCadaLetra,
 	palabrasDeRenglon,
 	primerasPalabras,
-	vaResaltada,
 	type ResaltadoTexto,
 } from "./resaltado";
 
@@ -323,7 +323,7 @@ function dibujarResaltado(
 	res: ResaltadoTexto,
 ) {
 	const piezas = armarPiezas(d, medido, lineas);
-	const colorDe = (palabra: number) => (vaResaltada(res, palabra) ? res.color : textColor);
+	const colorDe = (palabra: number) => colorDePalabra(res, palabra, textColor);
 	if (res.noDichas >= 1) {
 		dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas, colorDe, subrayar: true });
 		return;

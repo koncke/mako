@@ -22,6 +22,10 @@
 import 'server-only';
 import type { Ctx, Propuesto, Runners } from '../tipos';
 import { OPERACIONES_API, operacionDesdeInput, type OperacionApi } from '@/lib/editor-video/chat-api';
+import {
+  buscarPreset, conPreset, presetDesdeApi, resumenPreset, sanearPreset, type PresetSubtitulos,
+} from '@/lib/editor-video/presets-subtitulos';
+import { borrarPreset, guardarPreset, listarPresets } from '@/lib/editor-video/presets-subtitulos-server';
 import { proponerOperacion } from '@/lib/editor-video/propuestas-server';
 import { bloqueDePropuesta } from '@/lib/editor-video/propuesta-bloque';
 import type { PlanGuardado } from '@/app/video-generator/video-datos';
@@ -112,6 +116,15 @@ async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown
     return { error: 'No se pudo leer el proyecto.', falla: true };
   }
   const proyecto = cual.proyecto;
+  // El preset de la marca por nombre o id: se busca en el negocio ANTES de proponer (un nombre mal escrito vuelve con la
+  // lista), y la propuesta lleva el id, que no cambia aunque lo renombren antes de aceptarla.
+  if (o.op === 'usar_preset_subtitulos') {
+    let lista: PresetSubtitulos[];
+    try { lista = await listarPresets(); } catch { return { error: 'No pude leer los presets de la marca.', falla: true }; }
+    const b = buscarPreset(lista, str(input, 'preset') ?? '');
+    if (!b.ok) return { error: `No se puede proponer: ${b.motivo}.` };
+    input = { ...input, preset: b.preset.id };
+  }
   const v = operacionDesdeInput(o, input);
   if (!v.ok) return { error: `No se puede proponer: ${v.motivo}.` };
   const r = await proponerOperacion({ ws: ctx.ws, canal: ctx.canal, canalKey: ctx.canalKey, actor: ctx.actor ?? null, proyecto, titulo: o.titulo, op: v.op });
@@ -137,10 +150,16 @@ async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown
   };
 }
 
-/** El runner de una operación del editor: propone; `ejecutar` existe porque el tipo lo pide, y se niega. */
-function enElEditor(id: string) {
+/** La operación del editor por su id (lib/editor-video/chat-api.ts); tira al cargar si no existe. */
+function operacionEditor(id: string): OperacionApi {
   const o = OPERACIONES_API.find((x) => x.id === id);
   if (!o) throw new Error(`api-mako: «${id}» no es una operación del editor (lib/editor-video/chat-api.ts)`);
+  return o;
+}
+
+/** El runner de una operación del editor: propone; `ejecutar` existe porque el tipo lo pide, y se niega. */
+function enElEditor(id: string) {
+  const o = operacionEditor(id);
   return {
     proponer: (input: Record<string, unknown>, ctx: Ctx) => proponerEnElEditor(o, input, ctx),
     ejecutar: async () => ({ ok: false, resumen: 'Este cambio se acepta en el editor, con el link de la propuesta: no por aquí.' }),
@@ -626,6 +645,8 @@ export const RUNNERS: Runners = {
   eliminar_muletillas_video: { ...enElEditor('eliminar_muletillas_video') },
   usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
   borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },
+  resaltar_claves_subtitulos: { ...enElEditor('resaltar_claves_subtitulos') },
+  usar_preset_subtitulos: { ...enElEditor('usar_preset_subtitulos') },
 
   ver_contexto_video: {
     leer: async () => {
@@ -817,6 +838,71 @@ export const RUNNERS: Runners = {
           'Solo cuenta clips: las imágenes de escenario que haya que generar también gastan créditos y no están sumadas.',
         ],
       });
+    },
+  },
+
+  // ── Los presets de subtítulos de la marca (lib/editor-video/presets-subtitulos.ts) ──
+  listar_presets_subtitulos: {
+    leer: async () => {
+      let lista: PresetSubtitulos[];
+      try { lista = await listarPresets(); } catch { return json({ error: 'No se pudieron leer los presets.' }); }
+      return json({
+        total: lista.length,
+        presets: lista.map((p) => ({
+          id: p.id, nombre: p.nombre, marca: p.marca, resumen: resumenPreset(p),
+          claves_automaticas: p.claves.auto, siempre: p.claves.siempre, actualizado: p.actualizado,
+        })),
+        ...(lista.length ? {} : { aviso: 'Todavía no hay presets: se guardan desde el panel de un subtítulo en el Video Editor, o con guardar_preset_subtitulos.' }),
+      });
+    },
+  },
+  guardar_preset_subtitulos: {
+    preparar: async (input) => {
+      let lista: PresetSubtitulos[];
+      try { lista = await listarPresets(); } catch { return { error: 'No pude leer los presets de la marca.', falla: true }; }
+      const cual = str(input, 'preset');
+      let existente: PresetSubtitulos | null = null;
+      if (cual) {
+        const b = buscarPreset(lista, cual);
+        if (!b.ok) return { error: `No se puede: ${b.motivo}.` };
+        existente = b.preset;
+      }
+      const crudo = presetDesdeApi(input, existente);
+      const s = sanearPreset(crudo, { id: existente?.id ?? 'pnuevo', ahora: '' });
+      if (!s.ok) return { error: `No se puede: ${s.motivo}.` };
+      const puesta = conPreset(lista, s.valor);
+      if (!puesta.ok) return { error: `No se puede: ${puesta.motivo}.` };
+      return {
+        payload: { id: existente?.id ?? null, preset: crudo },
+        resumen: `${existente ? 'Cambiar' : 'Crear'} el preset de subtítulos «${s.valor.nombre}»${s.valor.marca ? ` de ${s.valor.marca}` : ''}: ${resumenPreset(s.valor)}`,
+      };
+    },
+    ejecutar: async (payload) => {
+      try {
+        const r = await guardarPreset(payload.preset, typeof payload.id === 'string' ? payload.id : null);
+        return r.ok
+          ? { ok: true, resumen: `Preset «${r.preset.nombre}» guardado: ya sale en las plantillas de Subtítulos del Video Editor.`, datos: { presetId: r.preset.id } }
+          : { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+      } catch {
+        return { ok: false, resumen: 'No se pudo guardar el preset.' };
+      }
+    },
+  },
+  borrar_preset_subtitulos: {
+    preparar: async (input) => {
+      let lista: PresetSubtitulos[];
+      try { lista = await listarPresets(); } catch { return { error: 'No pude leer los presets de la marca.', falla: true }; }
+      const b = buscarPreset(lista, str(input, 'preset') ?? '', str(input, 'marca'));
+      if (!b.ok) return { error: `No se puede: ${b.motivo}.` };
+      return { payload: { id: b.preset.id }, resumen: `Borrar el preset de subtítulos «${b.preset.nombre}»${b.preset.marca ? ` de ${b.preset.marca}` : ''}` };
+    },
+    ejecutar: async (payload) => {
+      try {
+        const r = await borrarPreset(String(payload.id ?? ''));
+        return r.ok ? { ok: true, resumen: `Preset «${r.preset.nombre}» borrado.` } : { ok: false, resumen: `No se borró: ${r.motivo}.` };
+      } catch {
+        return { ok: false, resumen: 'No se pudo borrar el preset.' };
+      }
     },
   },
   ver_plantillas_avatar: {

@@ -78,6 +78,11 @@ export type PiezaInstagram = {
   comentarios: number | null;
   /** Cuántas láminas trae un carrusel (Apify: `childPosts`/`images`; Meta no las da). null = no se sabe (lib/spy-medio.ts). */
   laminas?: number | null;
+  /**
+   * Las imágenes de cada lámina de un carrusel, en orden (Apify: `childPosts[].displayUrl` o `images`). Son del CDN de Meta y
+   * VENCEN: quien las guarda las baja a nuestro bucket (la biblioteca de carruseles, 6/11/2026). Ausente = no vinieron.
+   */
+  imagenes?: string[];
 };
 
 /** Lo que se lee de un perfil. */
@@ -324,7 +329,20 @@ function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
     comentarios: contadorDeApify(m.commentsCount),
     // Las láminas de un carrusel (`Sidecar`): el actor las da en `childPosts` o en `images` (lib/spy-medio.ts).
     laminas: medioDeInstagram(str(m.type)) === 'carrusel' ? laminasDe(m.childPosts, m.images) : null,
+    imagenes: medioDeInstagram(str(m.type)) === 'carrusel' ? imagenesDeLaminas(m.childPosts, m.images) : undefined,
   };
+}
+
+/**
+ * Las imágenes de las láminas de un carrusel del actor: las de `childPosts` (cada una con su `displayUrl`, en orden) o, si no
+ * vinieron, `images` (una lista de URLs). Sólo https, sin repetidos, hasta 20. Vacío = no vinieron.
+ */
+export function imagenesDeLaminas(childPosts: unknown, images: unknown): string[] {
+  const out: string[] = [];
+  const sumar = (u: unknown) => { if (typeof u === 'string' && /^https:\/\//.test(u) && !out.includes(u)) out.push(u); };
+  if (Array.isArray(childPosts)) for (const c of childPosts) if (c && typeof c === 'object') sumar((c as { displayUrl?: unknown }).displayUrl);
+  if (!out.length && Array.isArray(images)) for (const u of images) sumar(u);
+  return out.slice(0, 20);
 }
 
 /** El perfil como el texto de un documento de la conversación: lo que lee la IA, con su fuente arriba. */

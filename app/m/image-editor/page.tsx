@@ -27,7 +27,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ImageEditorPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'image-editor' });
-  // «Carruseles que funcionan» (4/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles), con sus filtros.
+  // Los ejemplos de carruseles (4/11/2026; rehechos el 6/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles),
+  // con sus filtros y «Editar», que arma la versión del negocio y abre el MISMO editor (./[diseno]).
   const q = await searchParams;
   if ((Array.isArray(q.ver) ? q.ver[0] : q.ver) === 'carruseles') {
     const e = ctx.ws == null ? null : await leerExplorador();
@@ -35,7 +36,7 @@ export default async function ImageEditorPagina({ searchParams }: { searchParams
       <PantallaM>
         {e && e.ok
           ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)}
-            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca }} />
+            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca, anuncios: e.anuncios }} />
           : <ErrorM frase="No pude leer los carruseles de las cuentas que sigues. Es un problema nuestro: vuelve a intentar." />}
       </PantallaM>
     );

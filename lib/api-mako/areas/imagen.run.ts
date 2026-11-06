@@ -19,12 +19,14 @@ import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantilla
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
+import { replicarCarrusel } from '@/lib/carruseles/replica-servidor';
+import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { estructuraDe, frasesDe, planDeReferencia } from '@/lib/carruseles/referencia';
 import { esTipoCarrusel } from '@/lib/carruseles/tipos';
 import { bibliotecaParaEditar, cambiarBiblioteca, puedeEditarBiblioteca } from '@/lib/carruseles/biblioteca-servidor';
 import type { CambioBiblioteca } from '@/lib/carruseles/biblioteca';
 import {
-  FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, queryDeFiltros, rotuloFormato, rotuloOutlier, type Carrusel,
+  FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, imagenesDe, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, type Carrusel,
 } from '@/lib/carruseles/explorar';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 
@@ -112,6 +114,10 @@ const carruselParaApi = (c: Carrusel) => ({
   estructura: frasesDe(estructuraDe(c)),
   texto: c.texto ? c.texto.slice(0, 280) : null,
   megusta: c.megusta, comentarios: c.comentarios, publicado: c.publicada,
+  // 6/11/2026: si pide comentar una palabra (el filtro CTA), un anuncio con sus días al aire, y cuántas láminas se pueden ver.
+  cta: c.cta ? rotuloCta(c.cta) : null,
+  ...(c.clase === 'anuncio' ? { clase: 'anuncio', alAire: rotuloAire(c), activo: c.activo ?? null } : {}),
+  imagenes: imagenesDe(c).length,
 });
 
 /** El piso del outlier que pidió el modelo, llevado al más cercano por debajo de los que ofrece la pantalla. */
@@ -274,7 +280,7 @@ export const RUNNERS: Runners = {
       if (!r.carruseles.length) return JSON.stringify({ paso: r.paso, carruseles: [], siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) });
       const base = filtrosDeQuery(new URLSearchParams({
         q: str(input, 'buscar') ?? '', periodo: str(input, 'periodo') ?? '', orden: str(input, 'orden') ?? '', vista: str(input, 'vista') ?? '',
-        origen: str(input, 'origen') ?? '',
+        origen: str(input, 'origen') ?? '', que: str(input, 'que') ?? '', cta: input.cta === true ? '1' : '',
       }));
       const f = { ...FILTROS_INICIALES, ...base, outlierMin: pisoDeOutlier(input.outlierMinimo) };
       const vistos = filtrarCarruseles(r.carruseles, f, new Set(r.guardados.map((g) => g.id)));
@@ -283,7 +289,7 @@ export const RUNNERS: Runners = {
         total: vistos.length,
         carruseles: vistos.slice(0, tope).map(carruselParaApi),
         link: linkExplorador(queryDeFiltros(f), ctx.ws),
-        nota: 'Son publicaciones públicas de otras cuentas (las que sigue el negocio, o la biblioteca de ejemplos): sirven de referencia de estructura, siempre con su creador. El outlier es cuántas veces lo que suele hacer su cuenta (frente a hasta 20 publicaciones suyas cercanas en el tiempo, con 7 como mínimo); sin datos suficientes es null y outlierDice dice por qué. Los que llegaron por un tema no lo llevan.',
+        nota: 'Son publicaciones públicas de otras cuentas (las que sigue el negocio, o la biblioteca de ejemplos): sirven de referencia, siempre con su creador. Para que el negocio tenga SU versión editable de uno, editar_ejemplo_carrusel. El outlier es cuántas veces lo que suele hacer su cuenta (frente a hasta 20 publicaciones suyas cercanas en el tiempo, con 7 como mínimo); sin datos suficientes es null y outlierDice dice por qué. Los que llegaron por un tema no lo llevan. Los anuncios no tienen outlier: alAire dice cuántos días llevan.',
       });
     },
   },
@@ -374,6 +380,36 @@ export const RUNNERS: Runners = {
       const r = await cambiarBiblioteca(pedido, QUIEN);
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: r.ya ?? 'Listo. Se lee la próxima vez que corre el script de la PC.' };
+    },
+  },
+
+  // «Editar» un ejemplo (6/11/2026): la MISMA función que el botón de la pantalla (lib/carruseles/replica-servidor.ts), sin el
+  // armado en vivo. Con la IA del negocio (su Claude, su GPT o su Gemini); sin ella, sale con guías y lo dice.
+  editar_ejemplo_carrusel: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
+      if (!Number.isSafeInteger(id) || id === 0) return { error: 'Falta el id del ejemplo (de buscar_carruseles).', faltan: ['carruselId'] };
+      let c;
+      try { c = await referenciaDelNegocio(id); } catch { return { error: 'No pude leer ese ejemplo. Vuelve a intentar.', falla: true }; }
+      if (!c) return { error: 'Ese ejemplo no está entre los de las cuentas que sigue el negocio ni en la biblioteca. Búscalo con buscar_carruseles.' };
+      const de = c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre;
+      const pedido = str(input, 'pedido');
+      const n = c.clase === 'anuncio' ? null : c.laminas;
+      return {
+        payload: { carruselId: id, ...(pedido ? { pedido: pedido.slice(0, 400) } : {}) },
+        resumen: `Armar tu versión editable del ${c.clase === 'anuncio' ? 'anuncio' : 'carrusel'} de ${de}${n ? ` (${n} láminas)` : ''}: su diseño, con textos escritos para tu negocio por tu IA${pedido ? ` («${pedido.slice(0, 120)}»)` : ''}. Sus palabras no se copian.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await replicarCarrusel(ctx.ws, QUIEN, Number(payload.carruselId), { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const url = link(r.id, ctx.ws);
+      const bloque = bloqueDiseno(r.id, { titulo: r.titulo, estado: 'Nuevo', nota: r.aviso ?? 'Tu versión, lista para editar.' });
+      return {
+        ok: true,
+        resumen: `${r.sinIA ? 'Creado con guías en cada lámina' : 'Creado con tus textos'}. Ábrelo aquí: ${url}${r.aviso ? ` · ${r.aviso}` : ''}`,
+        datos: { disenoId: r.id, link: url, bloque, sinIA: !!r.sinIA, ...(r.conectar ? { conectar: linkApp(r.conectar, ctx.ws) } : {}) },
+      };
     },
   },
 };

@@ -176,6 +176,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'cierreDeTexto() (4/11/2026): reconoce qué pide al final el pie de un carrusel de OTRA cuenta, sin tildes como se escribe en Instagram («enviaselo», «mandaselo»); nada de ahí se muestra',
   },
   {
+    ruta: 'lib/carruseles/cta.ts',
+    porque: 'el detector del CTA de un carrusel (6/11/2026): reconoce cómo pide el CREADOR que le escriban («mandame», «envíanos», «DM me»); es lo que escribe otro, no copy nuestro',
+  },
+  {
     ruta: 'lib/no-pude-frases.ts',
     porque: 'el detector de las negativas legítimas del ticket automático (27/10/2026): reconoce en lo que dicen el modelo (sin tildes, «confírmalo» queda «confirmalo») o la persona («no tenés permiso») una regla de MaKo que no abre ticket; no es copy, nada de ahí se muestra',
   },
