@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torque — la copia (Inmobiliaria)</title>
+<!-- La copia de la página «Floor» de Torque, desde lo medido (demos/torque/). Código nuestro: ni el código de la tienda ni sus dibujos. -->
+<link rel="stylesheet" href="torque.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-wrench" viewBox="0 0 16 16"><path d="M10.5 2.5a3 3 0 0 0-2.8 4L3 11.2 4.8 13l4.7-4.7a3 3 0 0 0 4-2.8l-1.7 1.7-1.6-.4-.4-1.6z"/></symbol>
+  <symbol id="i-floor" viewBox="0 0 16 16"><path d="M3 3v10M13 3v10M3 6h10M3 10.5h10"/></symbol>
+  <symbol id="i-jobs" viewBox="0 0 16 16"><path d="M4 3.5h8v10H4zM6 3.5V2.5h4v1M6 7h4M6 9.5h4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 16 16"><path d="M2.5 3.5h11v10h-11zM2.5 6.5h11M5.5 2v3M10.5 2v3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 16 16"><path d="M6 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM1.8 13.5c.5-2.2 2.2-3.5 4.2-3.5s3.7 1.3 4.2 3.5M10.8 7.3a2.2 2.2 0 1 0-.4-4.3M11.8 10.2c1.3.4 2.2 1.6 2.5 3.3"/></symbol>
+  <symbol id="i-box" viewBox="0 0 16 16"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11zM2.5 5L8 7.5l5.5-2.5M8 7.5v6"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 16 16"><path d="M4 2.5h6l2.5 2.5v8.5H4zM6.5 7.5h4M6.5 10h4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 16 16"><path d="M3 13.5V8M6.3 13.5V4.5M9.6 13.5V7M12.9 13.5V2.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 16 16"><path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zM8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><path d="M7 2.8a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4zM10.2 10.2l3.3 3.3"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3 5.5 5.5 0 1 0 13 9.5z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16"><path d="M4 11.5V7.5a4 4 0 0 1 8 0v4l1 1H3zM6.5 13.5a1.6 1.6 0 0 0 3 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-key" viewBox="0 0 16 16"><path d="M5.5 8.2a2.7 2.7 0 1 0 0 .1zM7.8 7.3l5.7-3.8M11.3 5l1.3 1.6M9.6 6.1l1 1.3"/></symbol>
+  <symbol id="i-car" viewBox="0 0 16 16"><path d="M2.5 10.5V8.3l1.4-3.5h8.2l1.4 3.5v2.2zM2.5 8.5h11M4.5 10.5v1.5M11.5 10.5v1.5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 16 16"><path d="M4 13.5V2.5M4 3h8l-1.5 3L12 9H4"/></symbol>
+  <symbol id="i-dollar" viewBox="0 0 16 16"><path d="M8 2.4a5.6 5.6 0 1 0 0 11.2A5.6 5.6 0 0 0 8 2.4zM9.8 6.2c-.3-.7-1-1-1.8-1-1 0-1.7.5-1.7 1.3 0 1.8 3.6.9 3.6 2.8 0 .8-.8 1.4-1.9 1.4-.9 0-1.6-.4-1.9-1.1M8 4.4v.8M8 10.7v.8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 16 16"><path d="M13.5 2.5L2.5 7l4.5 2 2 4.5zM7 9l3-3"/></symbol>
+  <symbol id="i-hour" viewBox="0 0 16 16"><path d="M4.5 2.5h7M4.5 13.5h7M5.5 2.5c0 3 5 3.5 5 5.5s-5 2.5-5 5.5M10.5 2.5c0 3-5 3.5-5 5.5s5 2.5 5 5.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><path d="M8 2.4a5.6 5.6 0 1 0 0 11.2A5.6 5.6 0 0 0 8 2.4zM8 5v3.2l2 1.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.3l3 3 6-6.6"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9 2L4 9h4l-1 5 5-7H8z"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 16 16"><path d="M8.5 3.2a1 1 0 1 0 0-.1zM7 13.5l1.2-4 1.8 1.5v2.5M8.2 9.5L8.8 6l2 1.8M8.8 6L6.5 7.2 6 9"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 16 16"><path d="M4 2.5h8v11l-2-1.2-2 1.2-2-1.2-2 1.2zM6 6h4M6 8.5h4"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M5 11l6-6M6 5h5v5"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 16 16"><path d="M2.5 11.5l4-4 2.5 2.5 4.5-5M10 5h3.5v3.5"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 16 16"><path d="M1.8 4.5h7.5v6.5H1.8zM9.3 7h2.6l2 2.2v1.8H9.3M4.5 12.8a1.2 1.2 0 1 0 0-.1zM11.5 12.8a1.2 1.2 0 1 0 0-.1"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 16 16"><path d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l2.3-3.3"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 16 16"><path d="M2.5 9.5l1.6-5.5h7.8l1.6 5.5v3.5h-11zM2.5 9.5h3.2l.8 1.5h3l.8-1.5h3.2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 16 16"><path d="M3.5 2.5h9v8l-3 3h-6zM9.5 13.5v-3h3M5.5 6h5M5.5 8.5h3"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 16 16"><path d="M3.5 8h.1M8 8h.1M12.5 8h.1"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- el armazón: la barra de la izquierda (no pasa a MaKo) -->
+  <aside class="side">
+    <a class="brand" href="#"><span class="brand__mark"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#i-wrench"/></svg></span><span><b>Torque</b><small>Ironbridge Auto Works</small></span></a>
+    <div class="nav__label">Workshop</div>
+    <a class="nav__item" aria-current="page" href="#"><svg class="i"><use href="#i-floor"/></svg>Floor</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-jobs"/></svg>Jobs<span class="nav__n">12</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-cal"/></svg>Schedule</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-users"/></svg>Customers</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-box"/></svg>Parts<span class="nav__n">14</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-doc"/></svg>Invoices<span class="nav__n">9</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-chart"/></svg>Reports</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+    <a class="shop-status" href="#"><span>5 of 6 bays busy <small>1 awaiting OK</small></span><span class="shop-status__bar"><i></i><i></i><i></i><i></i><i></i><i class="off"></i></span></a>
+    <button class="me" type="button"><span class="av">MO</span><span><b>Maya Ortiz</b><small>Service advisor</small></span><svg class="i"><use href="#i-dots"/></svg></button>
+  </aside>
+
+  <main class="main">
+    <div class="mtop">
+      <a class="brand" href="#"><span class="brand__mark"><svg class="i" style="width:17px;height:17px;stroke-width:2"><use href="#i-wrench"/></svg></span><span><b>Torque</b></span></a>
+      <span class="mtop__sp"></span>
+      <button class="ibtn" aria-label="Theme"><svg class="i"><use href="#i-moon"/></svg></button>
+      <button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="ibtn__dot"></span></button>
+      <button class="btn btn--primary" aria-label="New"><svg class="i"><use href="#i-plus"/></svg></button>
+      <button class="ibtn" aria-label="Search"><svg class="i"><use href="#i-search"/></svg></button>
+    </div>
+    <header class="top">
+      <button class="finder-btn" type="button"><svg class="i"><use href="#i-search"/></svg>Search plates, customers, repair orders…<kbd>⌘K</kbd></button>
+      <span class="top__sp"></span>
+      <span class="clock"><i></i>10:40 AM <small>Demo day</small></span>
+      <button class="ibtn" aria-label="Theme"><svg class="i"><use href="#i-moon"/></svg></button>
+      <button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="ibtn__dot"></span></button>
+      <button class="btn btn--primary top__new" type="button"><svg class="i"><use href="#i-plus"/></svg>New</button>
+    </header>
+
+    <section class="head">
+      <div>
+        <div class="head__eyebrow">Wednesday, November 4 · Ironbridge Auto Works</div>
+        <h1 class="head__title">Good morning, Maya</h1>
+      </div>
+      <div class="head__actions">
+        <button class="btn btn--ghost" type="button"><svg class="i"><use href="#i-key"/></svg>Walk-in</button>
+        <button class="btn btn--primary" type="button"><svg class="i"><use href="#i-cal"/></svg>New booking</button>
+      </div>
+    </section>
+
+    <div class="stats">
+      <div class="stat" data-lift><div class="stat__h"><span class="ic"><svg class="i"><use href="#i-car"/></svg></span>Cars on the floor</div><div class="stat__v" data-cuenta>12</div><span class="chip chip--warn">4 waiting for a bay</span></div>
+      <div class="stat" data-lift><div class="stat__h"><span class="ic"><svg class="i"><use href="#i-floor"/></svg></span>Bays busy</div><div class="stat__v"><span data-cuenta>5</span><small>/ 6</small></div><span class="chip chip--good">Bay 6 free</span></div>
+      <div class="stat" data-lift><div class="stat__h"><span class="ic"><svg class="i"><use href="#i-flag"/></svg></span>Ready for pickup</div><div class="stat__v" data-cuenta>2</div><span class="chip">$668 to collect</span></div>
+      <div class="stat" data-lift><div class="stat__h"><span class="ic"><svg class="i"><use href="#i-dollar"/></svg></span>Sales today</div><div class="stat__v" data-cuenta>$2,126</div><span class="chip chip--good">5 invoiced so far</span></div>
+    </div>
+
+    <section class="card fl-bays">
+      <div class="card__h"><span class="ic"><svg class="i"><use href="#i-floor"/></svg></span><h2 class="card__t">The floor</h2><span class="card__aside">5 of 6 bays busy</span></div>
+      <div class="bays" id="bays"></div>
+    </section>
+
+    <section class="card fl-board">
+      <div class="card__h"><span class="ic"><svg class="i"><use href="#i-jobs"/></svg></span><h2 class="card__t">Job board</h2><span class="card__aside">12 cars on site · drag a card to move it</span><button class="ibtn" aria-label="Expand"><svg class="i"><use href="#i-arrow"/></svg></button></div>
+      <div class="lanes" id="lanes"></div>
+    </section>
+
+    <div class="fl-r3">
+      <section class="card fl-arr">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-cal"/></svg></span><h2 class="card__t">Arriving today</h2><a class="btn btn--sm btn--ghost" style="margin-left:auto" href="#">Schedule</a></div>
+        <ul class="arr" id="arr"></ul>
+      </section>
+      <section class="card fl-sales">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-trend"/></svg></span><h2 class="card__t">Sales</h2>
+          <div class="seg" id="seg"><span class="seg__pill"></span><button class="seg__btn" aria-pressed="true">2W</button><button class="seg__btn" aria-pressed="false">30D</button></div>
+          <button class="ibtn" aria-label="Open"><svg class="i"><use href="#i-arrow"/></svg></button></div>
+        <div class="sales__v" data-cuenta>$42,816</div>
+        <p class="sales__sub">in the last 14 days · 94 cars · $455 average repair order</p>
+        <div class="leg"><span><i class="tone-orange"></i>Sales</span><span><i class="tone-sky"></i>Labor</span></div>
+        <div class="chart" id="chart"></div>
+      </section>
+      <section class="card fl-techs">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-wrench"/></svg></span><h2 class="card__t">Technicians</h2></div>
+        <div class="techs" id="techs"></div>
+      </section>
+    </div>
+
+    <div class="fl-r4">
+      <section class="card fl-stock">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-box"/></svg></span><h2 class="card__t">Running low</h2><button class="btn btn--sm btn--soft" style="margin-left:auto"><svg class="i"><use href="#i-truck"/></svg>Reorder</button></div>
+        <ul class="stock" id="stock"></ul>
+      </section>
+      <section class="card fl-load">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-gauge"/></svg></span><h2 class="card__t">Shop load</h2></div>
+        <div class="gauge" id="gauge"></div>
+        <div class="load__tiles"><div><span>Bay hours booked</span><b>26.8 <small>/ 60 h</small></b></div><div><span>Open bay time left</span><b>30.4 <small>h</small></b></div><div><span>Cars booked today</span><b>15</b></div></div>
+      </section>
+      <section class="card fl-feed">
+        <div class="card__h"><span class="ic"><svg class="i"><use href="#i-inbox"/></svg></span><h2 class="card__t">Team activity</h2></div>
+        <ul class="feed" id="feed"></ul>
+      </section>
+    </div>
+  </main>
+  <nav class="mtab"><a href="#" aria-current="page"><svg class="i"><use href="#i-floor"/></svg>Floor</a><a href="#"><svg class="i"><use href="#i-jobs"/></svg>Jobs</a><a href="#"><svg class="i"><use href="#i-cal"/></svg>Schedule</a><a href="#"><svg class="i"><use href="#i-users"/></svg>Customers</a><a href="#"><svg class="i"><use href="#i-dots"/></svg>More</a></nav>
+</div>
+<script src="torque.js"></script>
+</body>
+</html>
