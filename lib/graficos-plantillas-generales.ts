@@ -304,6 +304,12 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
         limite: 50, tabla: { acciones: true, columnas: ['resultado'] },
       },
     ],
+    // 6/11/2026: la hoja con su DISEÑO PROPIO, la copia de Corvane (app/dashboard/disenos/HojaColdCalling.tsx, lib/cold-calling-diseno.ts).
+    // El botón «Grabar llamada» lo dibuja la hoja arriba (la misma grabadora); la acción de la plantilla queda para la grilla.
+    diseno: {
+      id: 'cold-calling',
+      piezas: { llamadas: 'llamadas', contacto: 'contacto', agendaron: 'agendaron', dias: 'por-dia', terminan: 'como-terminan', quien: 'quien', leads: 'leads' },
+    },
   },
 ];
 

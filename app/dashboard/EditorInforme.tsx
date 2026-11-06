@@ -201,6 +201,7 @@ const AnuncioVivo = dynamic(() => import('./disenos/AnuncioVivo'));
 const HooksVivo = dynamic(() => import('./disenos/HooksVivo'));
 const VslVivo = dynamic(() => import('./disenos/VslVivo'));
 const InmobiliariaVivo = dynamic(() => import('./disenos/InmobiliariaVivo'));
+const ColdCallingVivo = dynamic(() => import('./disenos/ColdCallingVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1758,6 +1759,15 @@ export function EditorInforme({
                 hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'cold-calling' && !enGrilla && !editando && !dueno ? (
+              // «Cold Calling» con su DISEÑO PROPIO (la copia de Corvane, ./disenos/HojaColdCalling.tsx): los datos de sus componentes y el
+              // botón «Grabar llamada» arriba (la misma grabadora); después de grabar, la hoja vuelve a leer (`refrescar`).
+              <ColdCallingVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+                onCambio={refrescar}
               />
             ) : hoja.diseno?.id === 'vsl' && !enGrilla && !editando && !dueno ? (
               // «VSL y YouTube» con su DISEÑO PROPIO (la copia de Pelago, ./disenos/HojaVsl.tsx): los datos de sus componentes y lo que

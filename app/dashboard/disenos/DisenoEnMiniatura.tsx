@@ -70,6 +70,9 @@ import { datosVslMuestra } from '@/lib/vsl-diseno-muestra';
 import { HojaInmobiliaria } from './HojaInmobiliaria';
 import { vistaInmobiliaria } from '@/lib/inmobiliaria-diseno';
 import { datosInmobiliariaMuestra } from '@/lib/inmobiliaria-diseno-muestra';
+import { HojaColdCalling } from './HojaColdCalling';
+import { vistaColdCalling } from '@/lib/cold-calling-diseno';
+import { datosColdCallingMuestra } from '@/lib/cold-calling-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -539,6 +542,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de «Inmobiliaria», igual: el MISMO vistaInmobiliaria que la hoja de verdad, con los datos de la adaptación (inmobiliaria-torque/captura/mako-1200.png).
   inmobiliaria: ({ hoja, hoy }) => (
     <HojaInmobiliaria hoja={hoja} vista={vistaInmobiliaria(hoja, datosInmobiliariaMuestra(hoja, hoy))} titulo="Inmobiliaria" hoy={hoy} periodo="Últimos 90 días" onGrilla={() => {}} quieta />
+  ),
+  // La de «Cold Calling», igual: el MISMO vistaColdCalling que la hoja de verdad, con los datos de la adaptación (cold-calling-corvane/captura/mako-1200.png).
+  'cold-calling': ({ hoja, hoy }) => (
+    <HojaColdCalling hoja={hoja} vista={vistaColdCalling(hoja, datosColdCallingMuestra(hoja, hoy))} titulo="Cold Calling" hoy={hoy} periodo="Últimos 7 días" onGrilla={() => {}} quieta />
   ),
 };
 
