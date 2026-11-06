@@ -29,6 +29,7 @@
 // `/api/compartir` y sólo arma la URL.
 
 import { createHash } from 'node:crypto';
+import { fotoDePersonaSegura } from './foto-perfil';
 
 /** El hash con el que Gravatar identifica un email: minúsculas, sin espacios, SHA-256. */
 export const hashGravatar = (email: string): string =>
@@ -43,9 +44,17 @@ export const urlGravatar = (email: string, tam = 120): string =>
  *
  * Devuelve `null` cuando no hay email: sin email no hay Gravatar que pedir, y `null`
  * es lo que hace que `Marca` dibuje las iniciales.
+ *
+ * ⚠️ `foto_url` PASA POR EL FILTRO DE ORÍGENES (`fotoDePersonaSegura`, 6/11/2026): es un
+ * valor que escribe el cliente y lo dibuja todo el mundo, y una URL de un servidor suyo
+ * le avisa cuándo alguien lo mira. Una foto de un origen que no es nuestro se trata como
+ * «no eligió nada» y cae al Gravatar o a las iniciales — la precedencia no cambia.
+ *
+ * El filtro va acá, y no sólo al guardar, porque las filas que ya están en la base no se
+ * reescriben solas: cualquier avatar de la app pasa por esta función.
  */
 export const caraDeUsuario = (
   u: { foto_url?: string | null; email?: string | null },
   tam = 120,
 ): string | null =>
-  u.foto_url?.trim() || (u.email?.trim() ? urlGravatar(u.email, tam) : null);
+  fotoDePersonaSegura(u.foto_url) || (u.email?.trim() ? urlGravatar(u.email, tam) : null);

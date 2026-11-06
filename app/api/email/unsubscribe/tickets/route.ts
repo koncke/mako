@@ -14,9 +14,8 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
 import { verificarBajaTickets } from '@/lib/resend';
-import { CLAVE_PERFIL_CORREOS, apagoLosCorreos } from '@/lib/tickets-avance';
+import { cambiarBajaDeTickets, tieneLosCorreosApagados } from '@/lib/tickets-baja-correo';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,31 +49,21 @@ function pagina(titulo: string, detalle: string, boton?: { p: Pedido; accion: 'a
 
 const LINK_MALO = () => pagina('Este enlace no sirve', 'Ábrelo desde el último correo de tu ticket.', undefined, 400);
 
-/** Lee el perfil de la persona. null = no existe o no se pudo leer. */
-async function perfilDe(id: number): Promise<Record<string, unknown> | null> {
-  const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('id', id).maybeSingle();
-  if (error || !data) return null;
-  const p = (data as { perfil?: unknown }).perfil;
-  return p && typeof p === 'object' ? (p as Record<string, unknown>) : {};
-}
-
-/** Apaga o prende. El jsonb `perfil` se escribe ENTERO, así que se parte de lo que hay (lib/perfil.ts). */
-async function cambiar(id: number, prender: boolean): Promise<boolean> {
-  const perfil = await perfilDe(id);
-  if (!perfil) return false;
-  const nuevo = { ...perfil };
-  if (prender) delete nuevo[CLAVE_PERFIL_CORREOS];
-  else nuevo[CLAVE_PERFIL_CORREOS] = false;
-  const { error } = await getSupabaseServer().from('usuarios').update({ perfil: nuevo, updated_at: new Date().toISOString() }).eq('id', id);
-  return !error;
-}
+/**
+ * Apaga o prende, EN LOS DOS LUGARES (el perfil de esta cuenta y `correo_bajas` por su dirección). La regla y el porqué
+ * viven en lib/tickets-baja-correo.ts, que es el ÚNICO que los escribe: con una copia por ruta, el próximo camino vuelve
+ * a guardar una sola mitad, que es el bug que la 0410 arregla.
+ */
+const cambiar = (id: number, prender: boolean) => cambiarBajaDeTickets(id, prender, 'link-del-correo');
 
 export async function GET(req: NextRequest) {
   const p = leer(req);
   if (!p) return LINK_MALO();
-  const perfil = await perfilDe(p.id);
-  if (!perfil) return pagina('No pude abrir tus correos', 'Vuelve a intentarlo en un rato.', undefined, 503);
-  if (apagoLosCorreos(perfil)) {
+  // Los DOS lugares: con la baja puesta desde otra cuenta con su misma dirección, esta página tiene que decir «ya no te
+  // llegan» igual. Si mirara sólo el perfil de ESTA cuenta, le ofrecería darse de baja de algo que ya no recibe.
+  const apagados = await tieneLosCorreosApagados(p.id);
+  if (apagados === null) return pagina('No pude abrir tus correos', 'Vuelve a intentarlo en un rato.', undefined, 503);
+  if (apagados) {
     return pagina('Ya no te llegan', 'Los avances de tus tickets los ves en MaKo, en Tickets.', { p, accion: 'prender', texto: 'Volver a recibirlos' });
   }
   return pagina('¿Dejar de recibir estos correos?', 'Son los avances de tus tickets. Los vas a seguir viendo en MaKo, en Tickets.', { p, accion: 'apagar', texto: 'Dejar de recibirlos' });
