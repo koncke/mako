@@ -995,3 +995,25 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - La puerta del DEBUG desde un cliente está cerrada.
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
+
+## Un pendiente FANTASMA: «falta la prioridad por agencia» ya estaba hecho el mismo día que se anotó (6/11/2026)
+
+`docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` (A8) decía **FALTA**: «la prioridad sale sólo del texto
+(`lib/tickets-reglas.ts:401`); no hay regla por agencia». El 6/11 se fue a implementarla y **ya estaba entera**, con fecha
+5/11 — el mismo día de la auditoría. Se perdió una pasada de lectura completa (el triage, el cableado, la identidad y el
+orden del mazo) para no escribir una línea.
+
+La cadena, por si hay que volver a verificarla de punta a punta:
+- `subirPorAgencia` (lib/tickets-reglas.ts): baja→media, media→alta, **nunca** urgente (urgente sale sólo del texto, «no
+  puedo trabajar»).
+- `clasificar` la aplica con `opts.deAgencia && !deTercero && !automatico`, y deja la marca `agencia: true` en el triage.
+- El cableado real está en `lib/tickets-db.ts` (`crearTicket`): `deAgencia: n.identidad.agencia === true`.
+- Y eso sale de `administraUnaAgencia(u)` en `identidadDe` (lib/tickets-db.ts), leído de la BASE con el email de la sesión.
+- `ordenDelMazo` (app/tickets/bandeja/mazo-reglas.ts) pone a los que SUBIERON detrás de los de su misma prioridad que
+  llegaron ahí solos: una agencia no le gana el lugar a un cliente con algo roto.
+- Lo fija `tests/tickets-agencia.test.ts` (5 casos, probados rompiéndolo).
+
+**La regla que queda:** un renglón «FALTA» de una auditoría es una medición CON FECHA, no un estado. Cuando la fecha del
+renglón y la del trabajo son el mismo día, lo primero es `git log` del archivo que nombra, no leerlo y creerle. Y cuando se
+confirma que estaba hecho, **se corrige el renglón en el mismo commit**: el fantasma no cuesta una línea de código, cuesta
+la pasada de lectura entera, y la paga cada chat que lo vuelve a tomar.
