@@ -110,7 +110,7 @@ Lo que se gastaba de más ese día:
 
 **Quedó fijada en Turbo** (`buildMachineSelection: fixed`), y no en Elastic: al sacarla de Elastic se borró lo que había aprendido (`elasticBuildMachine`), y podría arrancar de una máquina chica y morir por memoria en un push real.
 
-**La solución: main ya no compila con cada push (6/11).** Martín: «me interesa que no cobre tanto... no podemos gastar eso». Sin esto no había tope: con los chats subiendo todo el día, seguía gastando más de US$100 por día. `deploymentEnabled.main: false`, y a producción lo lleva `/api/cron/desplegar-main`, cada 2 horas y sólo si hay algo nuevo de la app: como mucho 12 compilaciones, **unos US$5 por día**. Lo urgente: `scripts/desplegar-ya.mjs`.
+**La solución: main ya no compila con cada push (6/11).** Martín: «me interesa que no cobre tanto... no podemos gastar eso». Sin esto no había tope: con los chats subiendo todo el día, seguía gastando más de US$100 por día. `deploymentEnabled.main: false`, y a producción lo lleva `/api/cron/desplegar-main`, una vez por día (Martín lo eligió: «Vamos por 1 por día») y sólo si hay algo nuevo de la app: **unos US$12,60 por mes**. Con el plan (US$20), funciones y tráfico (unos US$34) y menos el crédito (US$20), la factura queda cerca de **US$47 por mes**. Lo urgente: `scripts/desplegar-ya.mjs`, unos US$0,42 cada vez. Y se sacó el asiento extra (US$20), que era la cuenta `koncke`.
 
 **Sin hacer:** medir el ahorro en el panel. Si hace falta más, se baja la frecuencia en `vercel.json` o se le baja la memoria al build, para poder usar una máquina más chica.
 

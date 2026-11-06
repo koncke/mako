@@ -1,7 +1,7 @@
 // =============================================================================
 // desplegar-ya — compila producción AHORA, con el último commit de main (6/11/2026)
 // =============================================================================
-// Un push a main no compila: lo hace un cron cada 2 horas (lib/desplegar-main-reglas.ts). Esto es para lo que no puede esperar,
+// Un push a main no compila: lo hace un cron una vez por día (lib/desplegar-main-reglas.ts). Esto es para lo que no puede esperar,
 // como un cliente roto. Cada compilación cuesta entre US$0,33 y US$0,42. Desde la PC:
 //
 //   node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs

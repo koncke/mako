@@ -1,5 +1,5 @@
 // =============================================================================
-// Cron: compila producción cada 2 horas, sólo si main tiene algo nuevo que salga en la app (6/11/2026)
+// Cron: compila producción una vez por día, sólo si main tiene algo nuevo que salga en la app (6/11/2026)
 // =============================================================================
 //   GET /api/cron/desplegar-main          → decide y, si hace falta, compila
 //   GET /api/cron/desplegar-main?dry=1    → qué decidiría, sin compilar

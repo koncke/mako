@@ -1,7 +1,7 @@
 // =============================================================================
 // desplegar-main — compila producción si main tiene algo nuevo que salga en la app (6/11/2026)
 // =============================================================================
-// Lo corre el cron /api/cron/desplegar-main cada 2 horas. El porqué, en lib/desplegar-main-reglas.ts.
+// Lo corre el cron /api/cron/desplegar-main una vez por día. El porqué, en lib/desplegar-main-reglas.ts.
 // =============================================================================
 
 import 'server-only';

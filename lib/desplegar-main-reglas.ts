@@ -3,8 +3,8 @@
 // =============================================================================
 // Martín, por la factura de Vercel: «me interesa que no cobre tanto». Cada compilación de mako cuesta entre US$0,33 y US$0,42, y
 // compilar con cada llegada a main llevó la factura de US$40 a US$292: docs/hallazgos-infra.md, «El gasto de Vercel». Desde el
-// 6/11, un push a main NO compila (vercel.json, `deploymentEnabled.main: false`): compila el cron /api/cron/desplegar-main, cada
-// 2 horas y sólo si hay algo nuevo que salga en la app. Ante la duda compila: un build de más son centavos, y un cambio que no
+// 6/11, un push a main NO compila (vercel.json, `deploymentEnabled.main: false`): compila el cron /api/cron/desplegar-main, una
+// vez por día (11:05 UTC, 08:05 de Argentina) y sólo si hay algo nuevo que salga en la app. Ante la duda compila: un build de más son centavos, y un cambio que no
 // llega a producción se lee como «no lo hiciste». Lo urgente sale con scripts/desplegar-ya.mjs.
 // =============================================================================
 

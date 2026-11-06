@@ -1,5 +1,5 @@
 // =============================================================================
-// Compilar producción cada 2 horas y sólo si hace falta (6/11/2026)
+// Compilar producción una vez por día y sólo si hace falta (6/11/2026)
 // =============================================================================
 // Un push a main no compila: lo hace /api/cron/desplegar-main. Compilar de más cuesta plata, y no compilar deja producción
 // vieja sin que nadie lo vea, así que ante la duda compila. El gasto: docs/hallazgos-infra.md, «El gasto de Vercel».
@@ -53,12 +53,12 @@ test('la lista de lo que no sale en la app es la misma que la del script de Verc
   for (const d of traidos) assert.equal(cambioLlegaALaApp(`docs/${d}`), true, `${d} entra al deploy de una pantalla`);
 });
 
-test('vercel.json: main no compila solo, y el cron que lo reemplaza está cada 2 horas', () => {
+test('vercel.json: main no compila solo, y el cron que lo reemplaza corre una vez por día', () => {
   const v = JSON.parse(leer('vercel.json')) as { git?: { deploymentEnabled?: Record<string, boolean> }; crons: Array<{ path: string; schedule: string }> };
   assert.equal(v.git?.deploymentEnabled?.main, false);
   const c = v.crons.find((x) => x.path === '/api/cron/desplegar-main');
   assert.ok(c, 'sin este cron, ningún cambio llega a producción');
-  assert.match(c.schedule, /^\d+ \*\/2 \* \* \*$/);
+  assert.match(c.schedule, /^\d+ \d+ \* \* \*$/, 'Martín eligió 1 por día: cada compilación cuesta hasta US$0,42');
 });
 
 test('la ruta pide el secreto del cron, y el modo en seco no compila', () => {
