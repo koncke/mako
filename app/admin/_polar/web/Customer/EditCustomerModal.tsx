@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/EditCustomerModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/EditCustomerModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo que se edita de un negocio, con las acciones de siempre de /api/admin/workspaces: el nombre (`nombre`), el plan
 // (`capa`, sólo los que se venden) y el plan a mano (`plan_a_mano`: los días que se pueden dar, o quitarlo). Se sacaron el

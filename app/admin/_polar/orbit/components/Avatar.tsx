@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/orbit/src/components/Avatar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/orbit/src/components/Avatar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 import { ComponentProps, useCallback, useState } from 'react'
 import { twMerge } from 'tailwind-merge'

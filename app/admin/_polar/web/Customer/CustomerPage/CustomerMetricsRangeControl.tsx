@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerMetricsRangeControl.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerMetricsRangeControl.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el principio de «All Time» es el de la actividad del negocio (`inicio`, lo manda el server) en vez de
 // `getCustomerActivityStart(customer)`.

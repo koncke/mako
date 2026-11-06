@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Metrics/dashboards/MetricsHeader.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/dashboards/MetricsHeader.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: queda el rango. Se sacaron el `IntervalPicker` (MaKo mide por mes: un selector con una sola opción posible no
 // decide nada) y el `ProductSelect` (los ingresos no se reparten por producto). Los rangos que se ofrecen son los que un

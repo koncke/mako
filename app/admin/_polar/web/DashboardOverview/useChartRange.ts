@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/hooks/useChartRange.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/hooks/useChartRange.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el rango del gráfico de Overview y las métricas elegidas se recuerdan en el navegador, como el rango en Polar (su
 // `useLocalStorage`). Polar guarda las métricas en la organización; Admin es la plataforma y sólo la mira el super admin,

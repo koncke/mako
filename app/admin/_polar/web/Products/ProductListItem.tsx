@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Products/ProductListItem.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Products/ProductListItem.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Una fila del Catalogue: un plan de MaKo (app/admin/_polar/datos/productos.ts → `ProductoMako`).
 // ⚠️ LO QUE SE SACÓ: la casilla de la selección en lote, el «Private» (un plan de MaKo no tiene visibilidad aparte de

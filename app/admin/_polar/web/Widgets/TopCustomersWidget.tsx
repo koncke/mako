@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Widgets/TopCustomersWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/TopCustomersWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los que más le pagaron a MaKo (los clientes de lib/admin-ingresos.ts, `topClientes` en
 // app/admin/_polar/datos/resumen.ts). ⚠️ Polar cuenta los últimos 12 meses; MaKo tiene lo pagado por cliente desde SIEMPRE,

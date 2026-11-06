@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Products/ProductPriceLabel.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Products/ProductPriceLabel.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El precio de un plan de MaKo: un precio fijo por mes, en dólares (`precioUsd`), y el anual si lo tiene (`verbose`, en la
 // ficha). ⚠️ Lo que se sacó de Polar: los precios por uso (metered), por asiento y por unidad, «Pay what you want» y

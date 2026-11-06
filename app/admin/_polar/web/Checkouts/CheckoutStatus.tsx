@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutStatus/CheckoutStatus.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/CheckoutStatus/CheckoutStatus.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: un checkout es un cobro de la pasarela SIN pagar: abierto (el link se puede pagar), rechazado (la pasarela dijo que no) o
 // anulado. Los de Polar «confirmed» y «succeeded» no van: lo pagado ya es un pedido (Orders).

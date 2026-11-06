@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: Customers › Overview. Lo que Polar pide con hooks desde el navegador (el crecimiento, los que más pagan, los en riesgo
 // y el gasto por cliente) se lee acá y viaja armado (app/admin/_polar/datos/clientes.ts).
 

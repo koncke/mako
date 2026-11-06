@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El índice de Checkout Links: como en Polar, salta al primer link de la lista (con el mismo orden y el mismo filtro de la
 // barra) y, si no hay ninguno, dice que no hay y ofrece armar uno. ⚠️ SÓLO EL SUPER ADMIN, antes de leer.

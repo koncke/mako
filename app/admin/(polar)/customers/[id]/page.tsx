@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/[customerId]/page.tsx
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/[customerId]/page.tsx
 // (y getCustomer.ts, que vive en app/admin/_polar/datos/cliente-server.ts). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: Customers › <negocio> › Overview. Un Customer de Polar es un NEGOCIO; su id va en el path y es el número del
 // workspace (nunca `?ws=`). Lo que Polar pide con hooks desde el navegador se lee acá y viaja armado.

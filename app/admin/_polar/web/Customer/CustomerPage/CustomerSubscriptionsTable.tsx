@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerSubscriptionsTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerSubscriptionsTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: las suscripciones del negocio son las de Admin › Sales (app/admin/_polar/datos/ventas.ts, `SuscripcionVenta`): la del
 // lead de la plataforma con su historia mes a mes (la misma cuenta que la ficha del lead) o la de la pasarela. Polar muestra el

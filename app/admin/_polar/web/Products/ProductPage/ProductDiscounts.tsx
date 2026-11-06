@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Products/ProductPage/ProductDiscounts.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Products/ProductPage/ProductDiscounts.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Los descuentos que valen para un plan de MaKo. MaKo tiene UNO atado al plan: el que se le ofrece a quien se va a dar de
 // baja (`retencion.descuento`, lib/planes-mako.ts y lib/retencion-plan.ts). No tiene código: se ofrece en la pantalla de la

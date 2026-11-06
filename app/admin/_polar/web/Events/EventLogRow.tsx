@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Events/EventLogRow.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Events/EventLogRow.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: las columnas de Polar son Time · Event · Customer · Tokens · Cost. Acá: Hora · Evento · Negocio · Monto. «Tokens»
 // se sacó (ningún evento de MaKo los trae); «Cost» es «Monto», la plata del evento (un pago). El «+N» de los hijos de un

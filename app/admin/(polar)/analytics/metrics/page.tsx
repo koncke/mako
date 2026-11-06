@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/metrics/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/metrics/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Admin › Analytics › Metrics: MRR, ingresos y suscripciones mes a mes, de lib/admin-ingresos.ts (`vistaDeIngresos`).
 // Como en Polar, la página valida el rango de la URL y, si arranca antes del primer dato, redirige con el rango corregido.

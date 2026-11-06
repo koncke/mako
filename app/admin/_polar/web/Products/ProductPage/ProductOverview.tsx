@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Products/ProductPage/ProductOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Products/ProductPage/ProductOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ LO QUE SE SACÓ: la grilla de gráficos (MiniMetricChartBox: suscripciones activas, MRR, ventas, ingresos de hoy y
 //    acumulados) y las listas de suscripciones y órdenes del producto. El gráfico de ingresos vive SÓLO en Overview y en

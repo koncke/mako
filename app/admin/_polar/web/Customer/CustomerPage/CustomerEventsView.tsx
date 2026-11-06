@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerEventsView.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerEventsView.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo que pasó en el negocio (`eventosDelNegocio`: sus pagos, los cambios de lo que paga por mes, lo que hizo MaKo, sus
 // errores y sus reportes) llega entero por props, y el filtro (los nombres elegidos y el rango de la ficha) y «Cargar más» van

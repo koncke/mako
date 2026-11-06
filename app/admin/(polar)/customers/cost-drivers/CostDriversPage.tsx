@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/cost-drivers/CostDriversPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/cost-drivers/CostDriversPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: el costo de cada negocio es lo que le costó a MaKo su IA en el mes en curso (`costosPorCliente`,
 // app/admin/_polar/datos/clientes.ts, de lib/costos-ia.ts). Sin el selector de rango de Polar: el gasto de IA se corta por
 // mes, y «30d» o «3m» no se pueden leer sin inventar. Si el mes no se puede repartir por negocio, se dice (no hay número).

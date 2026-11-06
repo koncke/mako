@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/ui/src/components/atoms/PolarTimeAgo.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/ui/src/components/atoms/PolarTimeAgo.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // ⚠️ Polar lo arma con `react-timeago`, que MaKo no tiene: el mismo formato («just now», «3 days ago») sale de
 //    Intl.RelativeTimeFormat en español, y se refresca cada minuto como el de ellos.
 

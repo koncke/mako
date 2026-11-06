@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutLinks/CheckoutLinkForm.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/CheckoutLinks/CheckoutLinkForm.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El formulario de un Checkout Link = «Vender un plan»: arma el link de cobro de un plan para una persona con la acción que
 // ya existe, `venderPlanAction` (app/admin/cobros/actions.ts → lib/vender-plan.ts). Al pagarse, lib/cobros.ts crea la cuenta

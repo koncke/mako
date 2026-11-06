@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Metrics/DateRangePicker.tsx (`dateRangeIntervals`,
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/DateRangePicker.tsx (`dateRangeIntervals`,
 // el selector de intervalos de su FilterPopover). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los intervalos de Polar, en días del negocio (`rangoDe`, app/admin/_polar/datos/ventas.ts). Sin el calendario para elegir

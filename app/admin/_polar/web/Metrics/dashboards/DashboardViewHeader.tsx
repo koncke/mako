@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Metrics/dashboards/DashboardViewHeader.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/dashboards/DashboardViewHeader.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: queda el menú «Export» (todas las métricas del rango, en un CSV que arma el navegador con lo que ya tiene:
 // `filasCsvDeMetricas`). Se sacaron el «+» que crea un tablero propio y el menú de cada tablero (editar, borrar): Polar los

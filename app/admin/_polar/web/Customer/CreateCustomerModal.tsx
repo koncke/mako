@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CreateCustomerModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CreateCustomerModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: crear un Customer es dar de alta un NEGOCIO, por el alta de siempre (POST /api/admin/workspaces, action 'crear',
 // lib/alta-cliente.ts): el nombre del negocio y el email de su admin, que es por donde le llega el acceso. El tipo va en el
 // default de MaKo (CAPA_DEFAULT, el alta lo pone sola). Sin External ID ni Metadata (MaKo no los guarda), sin el chequeo de

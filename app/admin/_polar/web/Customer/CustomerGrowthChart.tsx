@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerGrowthChart.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerGrowthChart.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: lo que Polar pide con `useCustomerGrowth` se cuenta acá, en el navegador, con la fecha de alta de cada negocio
 // (`crecimientoDeClientes`, app/admin/_polar/datos/clientes.ts). Es cuántos negocios hay, NO cuánto facturan: el
 // gráfico de ingresos vive en Overview y en Analytics (Martín, 6/11/2026).

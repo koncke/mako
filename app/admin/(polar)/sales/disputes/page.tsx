@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/disputes/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/disputes/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: Sales › Disputes. Los contracargos que la pasarela le avisó a MaKo: quedan escritos en el motivo del cobro y en el recibo
 // (lib/cobros.ts, `aplicarContracargo`); no hay una tabla de disputas. Sólo el super admin, antes de leer.
 

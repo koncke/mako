@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/layout.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/layout.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: la lista de la izquierda son los NEGOCIOS (los workspaces, sin el de la plataforma), leídos acá en el server y
 // pasados a la lista armados (Polar los pide de a páginas desde el navegador). La ficha de cada uno
 // (customers/[id]/…) se dibuja adentro de este layout. Sin el guard de permisos de Polar: entra sólo el super admin.

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/EditMemberModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/EditMemberModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el email no se cambia desde acá (es con el que entra con Google, y /api/admin/usuarios no lo edita: queda como el
 // candado de Polar para el dueño); el nombre (`nombre`) y el rol en el negocio (`rolws`: Admin, Closer, Setter) sí. Se sacó

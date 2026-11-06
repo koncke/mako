@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutLinks/CheckoutLinkListSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/CheckoutLinks/CheckoutLinkListSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // La barra de Checkout Links: los links de «Vender un plan» (app/admin/_polar/datos/productos.ts → `LinkDeVenta`), con el
 // orden por etiqueta, el filtro por plan y el «+» que abre el formulario. Lo que Polar pide a su API (`useCheckoutLinks`,

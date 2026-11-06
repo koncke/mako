@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Widgets/ActivityWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/ActivityWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «lo último que pasó» son los pagos que entraron (lib/admin-ingresos.ts) y lo que hizo MaKo (lib/actividad.ts); el
 // armado, en app/admin/_polar/datos/resumen.ts (`actividadReciente`). Polar los pedía con `useEvents` y `useEventTypeStats`

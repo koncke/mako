@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Widgets/CustomerRiskWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/CustomerRiskWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los negocios en riesgo de lib/clientes-plataforma.ts (`vistaDeClientes`): pausados, con el último cobro fallido o
 // sin uso. Polar dice «Past due» o «Cancels <fecha>» y el monto de la suscripción; acá va el motivo de MaKo y lo que paga por

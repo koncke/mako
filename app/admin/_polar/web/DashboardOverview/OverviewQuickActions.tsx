@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/DashboardOverview/OverviewQuickActions.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/DashboardOverview/OverviewQuickActions.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: quedan «Metrics» (Analytics › Metrics) y la búsqueda (el mismo ⌘K de la barra, con el índice que lee el server).
 // «Payouts» de Polar lleva a Finance › Payouts, que MaKo no tiene (se sacó de la barra): se sacó acá también.

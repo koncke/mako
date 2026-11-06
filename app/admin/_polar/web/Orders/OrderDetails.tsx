@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Orders/OrderDetails.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Orders/OrderDetails.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «Product» es el concepto del pago (MaKo no ata un pago a un producto del catálogo); «Invoice number» es el número del
 // recibo; «Billing reason» dice si es de una suscripción (con el link a ella) o un pago suelto. Sin «Discount»: MaKo no guarda

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerDetailsSection.tsx
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerDetailsSection.tsx
 // (y `ClickToCopy`/`copyable` de components/Shared/ClickToCopy.tsx). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: las mismas secciones de renglones con su filete, dos por fila desde md. Lo que Polar pone en cada una lo reemplaza lo

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Orders/InvoicePreview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Orders/InvoicePreview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el monto va en la moneda del recibo (un pago en USDT o en pesos se dice en esa moneda: `montoEnTexto`), no en centavos.
 // Sin «Discount», «Net», «Applied balance» ni «To be paid»: MaKo no guarda descuentos ni saldo a favor de un pago (se sacaron).

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Export/ExportModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Export/ExportModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ Vive en Transactions/ (no en Export/): hoy lo usa sólo el «Export» de Income. El selector de fechas es el de
 //    Analytics (web/Metrics/DateRangePicker.tsx), que ya es el de Polar.

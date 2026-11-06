@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Transactions/TransactionsList.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Transactions/TransactionsList.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // La lista de lo que entró a MaKo (app/admin/_polar/datos/finanzas.ts → `FilaIngreso`), con el DataTable de Polar.
 // ⚠️ LO QUE SE SACÓ: las columnas «Fees», «Tax», «Net» y «Status» (la comisión de Polar, el impuesto, el neto y si el

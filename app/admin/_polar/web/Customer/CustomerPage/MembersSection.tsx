@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/MembersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/MembersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ ES EL ÚNICO LUGAR DE ADMIN DONDE SE VEN Y SE GESTIONAN LAS PERSONAS (Martín, 6/11/2026: rechazó una versión con «usuarios
 //    en tres lugares»). Las de un negocio son sus usuarios-cliente (`usuarios` con su `workspace_id`); las del equipo de MaKo

@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/orbit/src/utils/grid.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/orbit/src/utils/grid.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 // Strongly-typed grid line & placement values, shared by Grid and GridItem.
 //

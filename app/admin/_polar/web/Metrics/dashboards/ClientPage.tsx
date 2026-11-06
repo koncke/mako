@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Metrics/dashboards/ClientPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/dashboards/ClientPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los grupos de Polar (`METRIC_GROUPS`), cada uno con su título y su grilla de gráficos, en el mismo orden y con el
 // mismo link a la sección (`#revenue`, `#subscriptions`…). Cambia de dónde salen los números: Polar pide cada grupo a su API

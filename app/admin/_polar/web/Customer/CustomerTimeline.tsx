@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerTimeline.tsx, con lo que dibuja
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerTimeline.tsx, con lo que dibuja
 // de components/Timeline/Timeline.tsx, Timeline/TimelineItem.tsx y Shared/ContextCard.tsx. Aviso: lib/avisos/LICENSE-POLAR y
 // lib/avisos/NOTICE-POLAR.
 //

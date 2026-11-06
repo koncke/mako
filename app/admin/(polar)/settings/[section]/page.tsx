@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/settings/[section]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/settings/[section]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Admin › Settings › Payments y Customer Notifications (/admin/settings/<sección>). Una sección que MaKo no tiene es un 404,
 // como en Polar. ⚠️ SÓLO EL SUPER ADMIN, en la primera línea y antes de leer. Cada sección lee sólo lo suyo.

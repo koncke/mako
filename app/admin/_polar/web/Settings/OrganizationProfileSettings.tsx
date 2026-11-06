@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Settings/OrganizationProfileSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Settings/OrganizationProfileSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Settings › General: QUIÉN EMITE cada recibo de MaKo (lib/recibos-reglas.ts → `Emisor`), con el formulario de perfil de
 // Polar: los campos en su grilla y el guardado solo, un segundo después de dejar de escribir (`useAutoSave` de Polar, acá

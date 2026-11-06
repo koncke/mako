@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionActionsMenu.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Subscriptions/SubscriptionActionsMenu.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo único que se le hace a una suscripción desde acá es CORTARLA, y sólo la de la pasarela (`cancelarSuscripcionMakoAction`:
 // deja de cobrar en el acto; en Mercado Pago no se puede deshacer). Una a mano se cambia o se corta en su ficha del CRM (los

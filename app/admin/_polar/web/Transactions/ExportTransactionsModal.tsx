@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Transactions/ExportTransactionsModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Transactions/ExportTransactionsModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El «Export income» de Polar con lo que entró a MaKo: las mismas filas de la lista, filtradas por el rango, con las columnas
 // que se eligen. El texto lo arma `armarCsv` (lib/csv-celda.ts, la única vía de un CSV en MaKo: neutraliza lo que arranca

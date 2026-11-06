@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/hooks/useClientSidePagination.ts (y la parte de paginación
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/hooks/useClientSidePagination.ts (y la parte de paginación
 // de hooks/useDataTableQueryState.ts). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: la página y el tamaño van en la URL (`?page=&limit=`) como en Polar, sin `nuqs`: useSearchParams para leer y
 // `cambiarQuery` para escribir. Vive en Customer/ porque en esta área lo usan Top Customers, At Risk y Cost Drivers.

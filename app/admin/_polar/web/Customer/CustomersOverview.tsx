@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomersOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomersOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: todo llega por props del server (app/admin/(polar)/customers/page.tsx). El rango de arriba mueve el gráfico de
 // crecimiento y Top Customers, como en Polar. At Risk no tiene rango (tampoco en Polar), y Cost Drivers es del mes en curso:
 // el gasto de IA de MaKo se corta por mes (lib/costos-ia.ts), y su leyenda lo dice. Sin `canReadAnalytics`: entra sólo

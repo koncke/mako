@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/hooks/useDataTableQueryState.ts. Aviso: lib/avisos/LICENSE-POLAR
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/hooks/useDataTableQueryState.ts. Aviso: lib/avisos/LICENSE-POLAR
 // y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: sin `nuqs`. La página, el tamaño y el orden viven en la URL (`page`, `limit`, `sorting`, como en Polar) con

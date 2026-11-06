@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: Sales › Orders. Lo que Polar pide desde el navegador (`useOrders`, `useMetrics`) se lee acá y viaja armado: cada pago que
 // entró con su recibo (app/admin/_polar/datos/ventas-server.ts). El permiso de Polar (`sales:read`, su layout) es acá
 // `exigirSuperAdmin()`, antes de leer: cruza negocios.

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/(home)/DisputesBanner.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/(home)/DisputesBanner.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // LO QUE ESPERA A MARTÍN, arriba de los widgets: donde Polar avisa el estado de la organización y las disputas por
 // responder, MaKo avisa quién pidió entrar, qué pidieron las agencias y quién pidió eliminar su cuenta. Cada banner es el

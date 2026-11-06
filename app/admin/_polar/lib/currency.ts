@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/currency/src/index.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/currency/src/index.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 const ZERO_DECIMAL_CURRENCIES = new Set<string>([
   'bif',

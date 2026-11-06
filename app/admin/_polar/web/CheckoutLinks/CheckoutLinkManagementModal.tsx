@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutLinks/CheckoutLinkManagementModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/CheckoutLinks/CheckoutLinkManagementModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El modal del «+» de Checkout Links: «Vender un plan». ⚠️ Sin el `AccessRestricted` de Polar (permiso `products:manage`):
 // Admin entero es del super admin, y la acción vuelve a preguntar (`venderPlanAction` → `getSesionAdmin()`). Sin el modo

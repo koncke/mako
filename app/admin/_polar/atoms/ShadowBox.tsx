@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/ui/src/components/atoms/ShadowBox.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/ui/src/components/atoms/ShadowBox.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 import { PropsWithChildren } from 'react'
 import { twMerge } from 'tailwind-merge'

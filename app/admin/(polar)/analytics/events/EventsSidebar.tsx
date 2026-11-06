@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/events/EventsSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/events/EventsSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la barra de filtros de Polar, en su orden: el rango, los tipos de evento (con su cantidad), los negocios y el
 // orden. Se sacaron «Source» (user/system), «Cost» («sólo con costo»), «LLM» («sólo de IA») y los metadatos: ningún evento

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionOrdersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Subscriptions/SubscriptionOrdersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los pedidos de una suscripción son sus MESES (la historia mes a mes, lib/suscripcion-meses.ts, la misma cuenta que la ficha):
 // cuánto tocaba, cuánto entró y qué cambió (empezó, subió, bajó, se cortó, volvió), con el link al pedido de cada pago. Lo pidió

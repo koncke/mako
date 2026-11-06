@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Orders/DownloadReceipt.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Orders/DownloadReceipt.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el PDF del recibo lo sirve /api/admin/recibos/<id>/pdf (sólo el super admin), así que no hay que esperar a que se genere
 // (Polar lo genera en segundo plano y espera el evento): se abre en otra pestaña, como `openInNewTab` de Polar.

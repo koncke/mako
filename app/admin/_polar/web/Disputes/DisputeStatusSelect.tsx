@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Disputes/DisputeStatusSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Disputes/DisputeStatusSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: en qué quedó un contracargo, como lo escribió lib/cobros-reglas.ts (`textoContracargo`): abierta, la plata se descontó o
 // volvió, ganada, perdida, cerrada, o en revisión (Mercado Pago). Los de Polar (needs response, under review…) no se pueden saber

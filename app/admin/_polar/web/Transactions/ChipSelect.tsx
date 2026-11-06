@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Form/ChipSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Form/ChipSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // ⚠️ Vive en Transactions/ (no en Form/): hoy lo usa sólo el «Export» de Income (ExportColumns).
 
 import { Box } from '@/app/admin/_polar/orbit/components/Box'

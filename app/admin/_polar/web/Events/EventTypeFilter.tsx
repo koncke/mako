@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Events/EventTypeFilter.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Events/EventTypeFilter.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los tipos son los cinco de MaKo (`TIPOS_EVENTO`) y llegan ya ordenados por cantidad (`conteoPorTipo`): sin el orden
 // por `source` de Polar (user/system), que acá no existe.

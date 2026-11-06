@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/events/EventsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/events/EventsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // LA VISTA de Admin › Analytics › Events, PURA (todo por props: se captura con datos de ejemplo). La misma pantalla de
 // Polar: la barra de filtros a la izquierda, el histograma, la búsqueda, la lista que se carga de a 100 al bajar y el detalle

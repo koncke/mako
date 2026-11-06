@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/DashboardOverview/OverviewSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/DashboardOverview/OverviewSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: las métricas salen de lo que ENTRÓ por mes (lib/admin-ingresos.ts → `metricasDeIngresos`, app/admin/_polar/datos/
 // metricas.ts), que el server lee y pasa por props (Polar las pedía con `useMetrics`). Overview y Analytics › Metrics son los

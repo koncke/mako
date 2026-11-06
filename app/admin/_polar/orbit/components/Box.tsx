@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/packages/orbit/src/components/Box.tsx y utils/resolvers.ts.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/orbit/src/components/Box.tsx y utils/resolvers.ts.
 // Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ LO ÚNICO REESCRITO: Orbit arma Box con StyleX (un plugin de Babel que MaKo no tiene: agregarlo cambiaría el compilador

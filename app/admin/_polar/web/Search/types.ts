@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Search/types.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Search/types.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo que Polar trae de `GET /v1/search` (productos, clientes, pedidos, suscripciones) son acá los negocios y las
 // personas del índice que lee el server (app/admin/_polar/datos/busqueda-tipos.ts).

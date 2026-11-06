@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/DashboardOverview/MetricSelectorModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/DashboardOverview/MetricSelectorModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo:
 //   · el arrastre es el de @dnd-kit/react (el que tiene MaKo, 0.5): `DragDropProvider` + `useSortable` en vez de `DndContext`

@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/layout.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/layout.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Admin › Products › Checkout Links: la barra con los links de «Vender un plan» a la izquierda y el link elegido a la
 // derecha (MasterDetailLayout de Polar). ⚠️ SÓLO EL SUPER ADMIN, antes de leer: este layout lee los cobros de la plataforma.

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Dashboard/navigationSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Dashboard/navigationSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 // ⚠️ En MaKo, Settings es de la plataforma (Admin es UNA organización): de los grupos de Polar quedan los que MaKo llena.
 //    Organization › General (los datos que salen en cada recibo) y Payments › Payments y Customer Notifications (los

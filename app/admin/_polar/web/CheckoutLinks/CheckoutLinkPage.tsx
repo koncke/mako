@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutLinks/CheckoutLinkPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/CheckoutLinks/CheckoutLinkPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // El cuerpo de un Checkout Link: el link para copiar y lo que tiene. ⚠️ LO QUE SE SACÓ: la pestaña «Embed» (el script de
 // checkout embebido de Polar: MaKo no tiene uno) y, con ella, las pestañas «Link | Embed» y el «Dark Mode». ⚠️ Un link de

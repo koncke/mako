@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/disputes/DisputesPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/disputes/DisputesPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la vista es PURA. Lo que Polar tiene y MaKo no guarda se sacó: «Respond by» y «Opened» (MaKo no guarda cuándo se abrió ni
 // hasta cuándo se responde), y el detalle con la respuesta (en MaKo un contracargo se responde en la pasarela). Tocar una disputa

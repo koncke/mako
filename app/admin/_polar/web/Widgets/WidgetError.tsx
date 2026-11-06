@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Widgets/WidgetError.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/WidgetError.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «Retry» vuelve a pedir la página (el server lee de nuevo: en MaKo no hay un `refetch` de React Query), y lleva el
 // «Reportar a Soporte» de todo aviso de error (AGENTS.md), con el motivo que dio la lectura.

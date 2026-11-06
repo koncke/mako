@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerUsageView.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerUsageView.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: Polar muestra los MEDIDORES del cliente (lo que consumió de cada uno, el gráfico apilado y la tabla). Un negocio de
 // MaKo no tiene medidores: tiene TABS. Cada tab es un medidor (lo consumido son las pantallas que se abrieron, con sus

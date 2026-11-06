@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerContextView.tsx (con su ContextCard y
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerContextView.tsx (con su ContextCard y
 // su DetailRow, de components/Shared/). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «el cliente» de un pedido es el NEGOCIO (su cuenta de MaKo) o, si no tiene cuenta, su ficha del CRM de la plataforma.

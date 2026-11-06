@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Export/utils.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Export/utils.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ Vive en Transactions/ (no en Export/): hoy lo usa sólo el «Export» de Income. Lo que Polar hace en el server
 //    (`downloadCsvExport` pide el CSV a su API) MaKo lo hace en el navegador: las filas ya están en la página. Queda

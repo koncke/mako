@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Orders/OrderDisputesTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Orders/OrderDisputesTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: un contracargo queda escrito en el recibo (`disputa_texto`) y en el motivo del cobro; es lo único guardado (ni la fecha
 // en que se abrió ni el monto disputado aparte). Se responde en la pasarela, no desde MaKo.

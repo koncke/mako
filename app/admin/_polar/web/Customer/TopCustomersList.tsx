@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/TopCustomersList.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/TopCustomersList.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: lo que Polar pide con `useTopCustomers` (lo que pagó cada cliente en el rango) se suma acá, en el navegador, con
 // los pagos que el server leyó de lib/admin-ingresos.ts (`topClientes`, app/admin/_polar/datos/clientes.ts). Mientras no
 // se puede contar (en el server, con otro reloj), el «cargando» de Polar.

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerMetricsOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerMetricsOverview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ SIN GRÁFICOS (Martín, 6/11/2026: el gráfico de ingresos nunca va en Customers; vive en Overview y en Analytics › Metrics).
 //    Polar dibuja acá un `MetricGroup` (un MetricChartBox con su gráfico por métrica: revenue, costs, gross_margin,

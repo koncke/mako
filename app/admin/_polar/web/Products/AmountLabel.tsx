@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Shared/AmountLabel.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Shared/AmountLabel.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ Vive en Products/ y no en Shared/: lo usa sólo el precio de un plan. `amount` va en CENTAVOS, como en Polar (MaKo
 //    guarda dólares: quien llama multiplica por 100). Los intervalos, en español (Polar escribe «/ mo», «/ yr»).

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionDetailsGrid.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Subscriptions/SubscriptionDetailsGrid.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «Billing schedule» es mensual (MaKo cobra por mes), con el día de cobro y, si tiene, su plazo fijo; «Amount» es la
 // mensualidad de HOY (con los cambios guardados, mig 0401), marcada si es una estimación (sale de lo pagado el último mes). Sin

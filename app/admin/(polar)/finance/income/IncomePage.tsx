@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/finance/(wide)/income/IncomePage.tsx
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/finance/(wide)/income/IncomePage.tsx
 // y de su layout.tsx (el DashboardBody con el «Export» en la cabecera). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // La lista de lo que entró (TransactionsList de Polar), ordenada por fecha y de a 50, como Polar (`useDataTableQueryState`

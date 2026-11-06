@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/metrics/layout.tsx
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/analytics/metrics/layout.tsx
 // (y su page.tsx, que monta ClientPage). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // LA VISTA de Analytics › Metrics, PURA (todo por props, se captura con datos de ejemplo). En Polar el layout dibuja el

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Layout/Dashboard/DashboardSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Layout/Dashboard/DashboardSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ LO QUE SE SACÓ, por pedido de Martín (6/11/2026: «sin barra superior, sin logo, sin selector de organización y sin
 //    cuenta en el pie: /admin usa la barra de MaKo que ya existe a la izquierda, y ésa es el ÚNICO lugar del perfil y del

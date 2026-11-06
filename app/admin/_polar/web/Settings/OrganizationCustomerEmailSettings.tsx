@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Settings/OrganizationCustomerEmailSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Settings/OrganizationCustomerEmailSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Settings › Customer Notifications: lo que le llega a quien paga a MaKo, con los grupos de avisos de Polar. MaKo manda UN
 // aviso: el recibo de cada pago (lib/recibos.ts), por correo siempre y por WhatsApp a quien paga solo. Va en el grupo

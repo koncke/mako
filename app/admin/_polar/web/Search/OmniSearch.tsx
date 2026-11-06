@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Search/OmniSearch.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Search/OmniSearch.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la búsqueda ⌘K de Admin. Lo que Polar pide a `GET /v1/search` (con su espera de 400 ms y su «cargando») acá se busca
 // en memoria sobre el índice que lee el server (app/admin/_polar/datos/busqueda.ts): los NEGOCIOS llevan a

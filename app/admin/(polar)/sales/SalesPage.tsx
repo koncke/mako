@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/SalesPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/SalesPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la vista es PURA (todo llega por props, así se captura con datos de ejemplo). Lo que Polar filtra, ordena y pagina en su
 // server se hace en memoria sobre lo que leyó el page.tsx, con el estado en la URL (useDataTableQueryState). Lo de Polar que MaKo

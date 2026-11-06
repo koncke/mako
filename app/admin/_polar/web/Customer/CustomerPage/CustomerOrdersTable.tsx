@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerPage/CustomerOrdersTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerOrdersTable.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: los pedidos del negocio son los de Admin › Sales (app/admin/_polar/datos/ventas.ts, `Pedido`): cada pago que entró, a
 // mano o por la pasarela, con su recibo y su estado (pagado, devuelto, anulado). Polar muestra el producto y su versión: MaKo no

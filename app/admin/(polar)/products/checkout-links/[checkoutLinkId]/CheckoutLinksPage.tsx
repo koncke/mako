@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/[checkoutLinkId]/CheckoutLinksPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/[checkoutLinkId]/CheckoutLinksPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // La cabecera de un link (su etiqueta y el menú) y su cuerpo. «Delete Checkout Link» de Polar es acá «Anular el link»
 // (`anularCobroMakoAction`, app/admin/cobros/actions.ts): sólo mientras no se pagó; un link pagado no tiene menú.

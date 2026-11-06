@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/[checkoutLinkId]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/products/checkout-links/[checkoutLinkId]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Un link de «Vender un plan» (/admin/products/checkout-links/<id del cobro>). ⚠️ SÓLO EL SUPER ADMIN, antes de leer. El id
 // se valida antes de buscar, y un cobro que no es un link de «Vender un plan» (uno de /planes, uno de una ficha) es un 404:

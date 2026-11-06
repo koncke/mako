@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Metrics/DateRangePicker.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/DateRangePicker.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: Polar saca «All Time» de la fecha de creación de la organización (su contexto); acá la pasa quien lo usa
 // (`earliest`), porque cada pantalla sabe desde cuándo tiene datos. Y quien mide por mes (Analytics › Metrics) pasa sólo

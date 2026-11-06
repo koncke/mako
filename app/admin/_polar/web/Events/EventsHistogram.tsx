@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Events/EventsHistogram.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Events/EventsHistogram.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: las barras no se piden a `/v1/events/histogram`: las cuenta `cubetas` sobre los eventos ya filtrados (los mismos
 // filtros de la lista, menos la selección del histograma, como en Polar). El resto —la selección arrastrando, el acercar y

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/checkouts/[id]/CheckoutsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/checkouts/[id]/CheckoutsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo que se vende (el plan o el concepto, con su monto en la moneda del cobro) y «Payment Attempts» con lo que MaKo guarda
 // del intento: si la pasarela lo rechazó, su motivo (es lo único guardado: no hay un renglón por intento). Lo que sí se hace acá,

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/checkouts/CheckoutsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/checkouts/CheckoutsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la vista es PURA. El filtro por email (Polar: `query`) y por estado, en memoria con el estado en la URL. Sin el filtro por
 // producto ni la etiqueta de versión: un cobro de MaKo dice su plan o su concepto, no un producto del catálogo. «Product» es el

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Products/ProductPage/ProductBenefits.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Products/ProductPage/ProductBenefits.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Los «Benefits» de Polar = lo que incluye un plan de MaKo (`incluye`, lib/planes-mako.ts): un renglón por beneficio.
 // ⚠️ LO QUE SE SACÓ: el link «View all» y el de cada beneficio (MaKo no tiene una página de beneficios), el tipo de cada

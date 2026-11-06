@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Transactions/TransactionMeta.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Transactions/TransactionMeta.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // La descripción de una transacción: el tipo («Suscripción» / «Compra», el `Subscription` / `Purchase` de Polar) y, al lado,
 // de quién es (donde Polar pone el producto: un pago de MaKo no guarda de qué plan es). El tooltip, que en Polar repite el

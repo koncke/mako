@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerListSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerListSidebar.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // MaKo: un Customer es un NEGOCIO (un workspace). La lista entera llega del server (app/admin/(polar)/customers/layout.tsx):
 // son decenas, así que la búsqueda, el filtro y el orden se hacen en memoria (`filtrarClientes`) y no hace falta el scroll
 // infinito de Polar. Lo que Polar guarda en la URL con `nuqs` (query, sorting, filter) se guarda igual, sin ir al server.

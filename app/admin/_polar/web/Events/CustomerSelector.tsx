@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Customer/CustomerSelector.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerSelector.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: el «customer» de un evento es el NEGOCIO (un cliente de MaKo), y los que se ofrecen son los que aparecen en algún
 // evento leído (no se piden por páginas a una API: `negocios` llega con la lista). Vive en web/Events y no en web/Customer:

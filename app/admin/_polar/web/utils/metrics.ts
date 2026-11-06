@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/utils/metrics.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/utils/metrics.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 import type { schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import { DESCRIPCION, METRICAS, type MetricaSlug } from '@/app/admin/_polar/datos/metricas'

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionInvoicePreview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Subscriptions/SubscriptionInvoicePreview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «Next invoice» es el primer mes que falta completar de la historia mes a mes (`proximo`): si ya venció, «Lo que debe»;
 // si no, «Próximo cobro», por lo que falta de ese mes. Una de la pasarela no tiene esto (la pasarela no le cuenta a MaKo cuánto

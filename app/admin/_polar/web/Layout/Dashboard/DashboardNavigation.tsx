@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Layout/Dashboard/DashboardNavigation.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Layout/Dashboard/DashboardNavigation.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 // En MaKo no hay organización (Admin es la plataforma), ni la navegación de catálogo ni la de la cuenta (el perfil vive en
 // la barra de MaKo): quedan la estándar y la de Settings, con su «← Settings».
 

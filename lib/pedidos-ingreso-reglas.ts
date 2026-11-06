@@ -67,8 +67,12 @@ export function detalleDelPedido(f: Pick<FilaPedido, 'origen' | 'correo_verifica
   ].join(' · ');
 }
 
-/** Donde se aceptan: la pestaña Accounts de Customers. `/admin` redirige a la pestaña Customers, donde NO están. */
-export const RUTA_QUIEREN_ENTRAR = '/admin?tab=accounts';
+/**
+ * Donde se aceptan: la portada de Admin (Overview, la copia de Polar del 6/11/2026), en el aviso «Quieren entrar» de
+ * arriba (app/admin/_polar/web/DashboardOverview/EsperaBanners.tsx). Antes era la pestaña Accounts (`?tab=accounts`), que
+ * hoy redirige a Customers, donde NO están: por eso no es un `?tab=`.
+ */
+export const RUTA_QUIEREN_ENTRAR = '/admin';
 
 /**
  * El cartel arriba de las pestañas de Customers: lo que espera a Martín se ve sin abrir Accounts (30/10/2026). También lo de las

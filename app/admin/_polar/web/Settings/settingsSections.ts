@@ -1,4 +1,4 @@
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Settings/settingsSections.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Settings/settingsSections.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // Las secciones de Settings que MaKo llena (la barra: web/Dashboard/navigationSettings.tsx). Las demás de Polar
 // (Subscriptions, Disputes, Customer Portal, Embedding, Domains, Access Tokens, Preview Features, Notifications, Profile,

@@ -1,6 +1,6 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Widgets/RevenueWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/RevenueWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: lo que ENTRÓ cada mes (lib/admin-ingresos.ts, `vistaDeIngresos`), los últimos cinco meses, como en Polar. Sus datos
 // los lee la portada en el server y llegan por props (Polar los pedía con `useMetrics`). Sin el `WidgetGuard` de Polar: en
