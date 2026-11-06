@@ -10,29 +10,44 @@
 //     (`guardarPrecioClienteAgenciaAction`).
 // ⚠️ GUARDA AL SALIR DEL CAMPO, NO CON LA DEMORA DE POLAR (`useAutoSave` a 200 ms): un precio a medio escribir («1» de
 //    «130000») se guardaría y saldría en /planes. Un valor que no se entiende NO borra el precio: se dice.
+// ⚠️ Y DICE QUE GUARDÓ (punto 16 de la revisión del 6/11/2026): «Guardado», en gris, dos segundos en la misma fila
+//    (`marcaDeGuardado`). Estos precios salen en /planes, y sin la marca la pantalla no cambiaba: no se distinguía «se guardó»
+//    de «no pasó nada». Los errores, con el `Alert` de Orbit (punto 42).
 // ⚠️ LO QUE SE SACÓ: la moneda por defecto y el comportamiento de impuestos de Polar (MaKo cobra en dólares por Stripe y en
 //    la moneda de su cuenta por Mercado Pago, sin elegirla; no calcula impuestos).
 
 import { guardarPrecioClienteAgenciaAction, guardarPrecioLocalAction } from '@/app/admin/cobros/actions'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { Alert, Input, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useRouter } from '@/app/_ui/Link'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
-import { numeroLocal, numeroSimple, type DatosPagos, type PrecioClienteAgencia, type PrecioPlanLocal } from '@/app/admin/_polar/datos/ajustes'
+import {
+  marcaDeGuardado,
+  numeroLocal,
+  numeroSimple,
+  type DatosPagos,
+  type PrecioClienteAgencia,
+  type PrecioPlanLocal,
+} from '@/app/admin/_polar/datos/ajustes'
 
 const usd = (n: number) => formatCurrency('statistics')(Math.round(n * 100), 'usd')
 
-function Fallo({ texto }: { texto: string }) {
-  return (
-    <div role="alert" className="flex flex-col items-start gap-2">
-      <Text color="error">{texto}</Text>
-      <ReportarASoporte error={texto} />
-    </div>
-  )
+/** «Guardado» un rato después de guardar (la marca se limpia si la fila se va antes). */
+function useMarcaDeGuardado() {
+  const [visible, setVisible] = useState(false)
+  const [marca] = useState(() => marcaDeGuardado(setVisible))
+  useEffect(() => () => marca.limpiar(), [marca])
+  return { visible, marcar: marca.marcar }
 }
+
+const Guardado = ({ visible }: { visible: boolean }) =>
+  visible ? (
+    <Text as="span" variant="caption" color="muted">
+      Guardado
+    </Text>
+  ) : null
 
 function PrecioDePlan({ plan, moneda }: { plan: PrecioPlanLocal; moneda: string }) {
   const router = useRouter()
@@ -40,6 +55,7 @@ function PrecioDePlan({ plan, moneda }: { plan: PrecioPlanLocal; moneda: string 
   const [guardado, setGuardado] = useState(plan.local != null ? String(plan.local) : '')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const marca = useMarcaDeGuardado()
 
   async function guardar() {
     if (valor.trim() === guardado.trim()) return
@@ -57,12 +73,13 @@ function PrecioDePlan({ plan, moneda }: { plan: PrecioPlanLocal; moneda: string 
     }
     setError(null)
     setGuardado(valor)
+    marca.marcar()
     router.refresh()
   }
 
   return (
     <SettingsGroupItem title={plan.nombre} description={`${usd(plan.precioUsd)} por mes en dólares.`}>
-      <Box flexDirection="column" rowGap="s" width="100%">
+      <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">
         <Input
           aria-label={`Precio de ${plan.nombre} en ${moneda}`}
           inputMode="decimal"
@@ -76,7 +93,8 @@ function PrecioDePlan({ plan, moneda }: { plan: PrecioPlanLocal; moneda: string 
           }}
           postSlot={<span className="dark:text-polar-500 text-xs text-gray-500">{moneda}</span>}
         />
-        {error && <Fallo texto={error} />}
+        <Guardado visible={marca.visible} />
+        {error && <Alert variant="danger" title="No se guardó el precio" description={error} onDismiss={() => setError(null)} />}
       </Box>
     </SettingsGroupItem>
   )
@@ -89,6 +107,7 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
   const [moneda, setMoneda] = useState(inicial.mp?.moneda ?? 'ARS')
   const [guardado, setGuardado] = useState(JSON.stringify([String(inicial.usd), inicial.mp ? String(inicial.mp.monto) : '', inicial.mp?.moneda ?? 'ARS']))
   const [error, setError] = useState<string | null>(null)
+  const marca = useMarcaDeGuardado()
 
   async function guardar() {
     const ahora = JSON.stringify([usdTxt.trim(), monto.trim(), moneda])
@@ -114,6 +133,7 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
     }
     setError(null)
     setGuardado(ahora)
+    marca.marcar()
     router.refresh()
   }
 
@@ -128,9 +148,12 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
       description={`Lo que paga una agencia por cada cliente, cada mes. ${conMercadoPago ? 'Se cobra con la Mercado Pago de MaKo.' : 'Conecta Mercado Pago para cobrarlo.'}`}
     >
       <SettingsGroupItem title="Por mes, en dólares">
-        <Input aria-label="Por mes, en dólares" inputMode="decimal" value={usdTxt} onChange={(e) => setUsdTxt(e.target.value)} onBlur={alSalir} onKeyDown={conEnter} postSlot={<span className="dark:text-polar-500 text-xs text-gray-500">USD</span>} />
+        <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">
+          <Input aria-label="Por mes, en dólares" inputMode="decimal" value={usdTxt} onChange={(e) => setUsdTxt(e.target.value)} onBlur={alSalir} onKeyDown={conEnter} postSlot={<span className="dark:text-polar-500 text-xs text-gray-500">USD</span>} />
+          <Guardado visible={marca.visible} />
+        </Box>
       </SettingsGroupItem>
-      <SettingsGroupItem title="En Mercado Pago" description="Sin este monto no sale el link del primer mes: no se inventa una tasa.">
+      <SettingsGroupItem title="En Mercado Pago" description="Sin este monto no sale el link del primer mes.">
         <Box columnGap="s" width="100%">
           <Input aria-label="Monto en Mercado Pago" inputMode="decimal" placeholder="Sin cargar" value={monto} onChange={(e) => setMonto(e.target.value)} onBlur={alSalir} onKeyDown={conEnter} />
           <Input
@@ -146,7 +169,7 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
       </SettingsGroupItem>
       {error ? (
         <Box paddingHorizontal="xl" paddingVertical="l">
-          <Fallo texto={error} />
+          <Alert variant="danger" title="No se guardó el precio" description={error} onDismiss={() => setError(null)} />
         </Box>
       ) : null}
     </SettingsGroup>

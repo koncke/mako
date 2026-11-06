@@ -21,6 +21,7 @@ import {
 import { totalesDelRegistro, type Emisor, type EstadoRecibo } from '@/lib/recibos-reglas';
 import type { LineaRecibo } from '@/lib/recibo-pdf';
 import { planesMako } from '@/lib/compra-plan';
+import { cambiosDelPedido, emisorConCambios, problemaDelPerfil, type CambiosEmisor } from '@/app/admin/_polar/datos/ajustes';
 
 const NO_ADMIN = 'Sólo el super admin ve los recibos de MaKo.';
 const mensaje = (e: unknown, def: string) => (e instanceof Error && e.message ? e.message : def);
@@ -123,12 +124,24 @@ export async function marcarDevueltoReciboAction(id: number): Promise<{ ok: true
   }
 }
 
-/** «Datos del recibo»: el emisor (nunca se inventa un dato fiscal) y el asunto y la primera frase del correo. */
-export async function guardarEmisorAction(e: Partial<Emisor>): Promise<{ ok: true; emisor: Emisor } | { ok: false; error: string }> {
+/**
+ * «Datos del recibo»: el emisor (nunca se inventa un dato fiscal) y el asunto y la primera frase del correo.
+ * ⚠️ RECIBE SÓLO LO QUE CAMBIÓ y lo mezcla ACÁ sobre lo guardado (punto 15 de la revisión del 6/11/2026): Settings › General y
+ *    Customer Notifications editan partes distintas del mismo emisor, y si cada una mandaba el suyo entero, la que guardaba
+ *    segunda pisaba lo de la otra con su copia vieja. Lo que llega se recorta a las claves del emisor (`cambiosDelPedido`), y el
+ *    correo se revisa también acá: es lo que sale en cada recibo. `revalidatePath` de Settings entero: ninguna de las dos
+ *    pantallas se vuelve a abrir con el emisor de antes (el `prefetch` o el botón atrás).
+ */
+export async function guardarEmisorAction(cambios: CambiosEmisor): Promise<{ ok: true; emisor: Emisor } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!admin) return { ok: false, error: NO_ADMIN };
   try {
-    return { ok: true, emisor: await guardarEmisor(e) };
+    const limpio = cambiosDelPedido(cambios);
+    const correo = (limpio.correo ?? '').trim();
+    if (correo && problemaDelPerfil({ nombre: 'x', correo })) return { ok: false, error: 'Revisa el correo de contacto.' };
+    const emisor = await guardarEmisor(emisorConCambios(await leerEmisor(), limpio));
+    revalidatePath('/admin/settings', 'layout');
+    return { ok: true, emisor };
   } catch (err) {
     return { ok: false, error: mensaje(err, 'No pude guardar los datos del recibo.') };
   }

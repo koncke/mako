@@ -22,6 +22,19 @@
 //   · `timelineDelNegocio` sólo con los 20 de «Todos» (se pierden los de «Sistema» más viejos)          → 16/1 (Timeline)
 //   · events/page.tsx valida el negocio (lee) antes de `exigirSuperAdmin()`                             → 16/1 (redirige)
 //   · un cambio sin efecto (renombrar la local `delNegocio` de `timelineDelNegocio`)                     → 17/0 (sigue verde)
+// Los arreglos de la revisión del Cerebro (6/11/2026: 18, 20, 22, 25, 27, 30, 39, 41). Base: 28 / 0; cada rotura, sola y restaurada
+// de memoria (la base otra vez 28/0), da 27/1:
+//   · `estadoDeLaCabecera` dice «Activo» aunque no se sepa si debe; la cabecera vuelve a «Negocio #n»          (27, cabecera)
+//   · «Leads» sin el último; el último ingreso que no se leyó, dicho «Nunca»                                     (27, Activity)
+//   · la sección vuelve a «Datos»                                                                                (39)
+//   · Subscriptions sin «Debe»                                                                                   (27)
+//   · Usage sin el selector del rango; Usage vuelve a «Medidor»                                                 (30, 27)
+//   · `avisoDelCambioDePlan` mira `enviado === false` a secas; `enOrden` sin los pasos (sólo la última)         (18)
+//   · «Ir a Customers» sin `refresh`; la cabecera de un negocio eliminado con el menú                           (20)
+//   · «Suspender» sin confirmación                                                                              (22)
+//   · un negocio que no existe cuenta como negocio; el alta en la plataforma con negocio; la mudanza después
+//     del rol; «Agregar persona» escondido cuando no hay nadie                                                  (25)
+//   · y un cambio sin efecto (renombrar la local `cuantos` de `textoDeLeads`)                                   → 28/0
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -29,9 +42,23 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
+import * as modulo from 'node:module'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
+import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime'
 import {
+  avisoDelCambioDePlan,
+  confirmacionDeEstado,
+  consecuenciaDeAlta,
+  cuerpoDeAlta,
+  estadoDeLaCabecera,
+  miembrosDePlataforma,
+  TEXTO_ELIMINAR_PERSONA,
+  textoDeLeads,
+  textoDeSesiones,
+  ultimoIngresoDe,
+  type UsuarioParaMiembro,
   cambioDeEstado,
   cambioDeEstadoNegocio,
   cambiosDelMiembro,
@@ -60,11 +87,19 @@ import {
   type EventoAdmin,
 } from '../app/admin/_polar/datos/eventos'
 import { CustomerTimeline } from '../app/admin/_polar/web/Customer/CustomerTimeline'
+import { clientesEnRiesgo } from '../app/admin/_polar/datos/clientes'
+import { tipoDePersona } from '../app/admin/_polar/datos/personas'
+import { enOrden, irALaLista, type ResultadoAccion } from '../app/admin/_polar/web/Customer/CustomerPage/acciones'
 import { TooltipProvider } from '../app/admin/_polar/orbit/components/Tooltip'
 import type { ClienteVenta, Pedido, SuscripcionVenta } from '../app/admin/_polar/datos/ventas'
 import {
+  ALTA_EJEMPLO,
   CABECERA_EJEMPLO,
+  COMPUTADORAS_EJEMPLO,
+  CONEXIONES_EJEMPLO,
   EVENTOS_EJEMPLO,
+  HOY_EJEMPLO,
+  SUSCRIPCIONES_EJEMPLO,
   MIEMBROS_EJEMPLO,
   OVERVIEW_EJEMPLO,
   PEDIDOS_EJEMPLO,
@@ -318,4 +353,192 @@ test('la ficha no monta pantallas viejas, y en Customers no hay gráfico de ingr
     assert.doesNotMatch(src, VIEJAS, `${p}: no importa una pantalla vieja`)
     assert.doesNotMatch(src, GRAFICO_DE_INGRESOS, `${p}: no dibuja un gráfico de ingresos`)
   }
+})
+
+// ── Los arreglos de la revisión del Cerebro (docs/admin/revision-cerebro-6-11.md): 18, 20, 22, 25, 27, 30, 39 y 41 ───────────
+
+// Las piezas que importan una server action ('use server' → lib/auth, con `server-only`) se dibujan con la condición de
+// react-server: ahí `server-only` es un módulo vacío (el molde de tests/general-meta-muestra.test.ts). Las que usan el router
+// de Next, adentro de sus contextos.
+type CtxHook = { conditions?: string[] }
+type Resolver = (spec: string, ctx: CtxHook, next: (spec: string, ctx: CtxHook) => unknown) => unknown
+const { registerHooks } = modulo as unknown as { registerHooks: (h: { resolve: Resolver }) => void }
+registerHooks({
+  resolve(spec, ctx, next) {
+    if (spec === 'server-only') return next(spec, { ...ctx, conditions: [...(ctx.conditions ?? []), 'react-server'] })
+    return next(spec, ctx)
+  },
+})
+const nada = () => {}
+const ROUTER = { back: nada, forward: nada, refresh: nada, push: nada, replace: nada, prefetch: nada }
+const conRouter = (el: ReturnType<typeof createElement>, pathname = '/admin/customers/42') =>
+  createElement(AppRouterContext.Provider, { value: ROUTER as never },
+    createElement(PathnameContext.Provider, { value: pathname },
+      createElement(SearchParamsContext.Provider, { value: new URLSearchParams() as never },
+        createElement(TooltipProvider, null, el))))
+const dibujar = (el: ReturnType<typeof createElement>) => renderToStaticMarkup(conRouter(el))
+
+test('27 · la cabecera dice el plan y cómo está en palabras (el texto de At Risk), no «Negocio #n»', async () => {
+  assert.deepEqual(estadoDeLaCabecera('MaKo Pro', 'activo', { texto: 'Atrasado 4 días', grave: true }), { estadoTxt: 'MaKo Pro · Atrasado 4 días', grave: true })
+  assert.deepEqual(estadoDeLaCabecera('MaKo Pro', 'activo', undefined), { estadoTxt: 'MaKo Pro · Activo', grave: false })
+  assert.deepEqual(estadoDeLaCabecera('MaKo Pro', 'pausado', null), { estadoTxt: 'MaKo Pro · Pausado', grave: false })
+  assert.deepEqual(estadoDeLaCabecera('MaKo Pro', 'activo', null), { estadoTxt: 'MaKo Pro', grave: false }, 'sin saber si debe, no dice «Activo»')
+  // El texto es el mismo de At Risk (clientesEnRiesgo), con su motivo más grave.
+  const riesgo = clientesEnRiesgo(
+    [{ ws: 42, nombre: 'Estudio Norte', capa: 'agencia', estado: 'activo', motivoRiesgo: null, sinEntrar: 3, mrrUsd: 238, planAManoTxt: null }],
+    [{ clave: 'ws:42', ws: 42, nombre: 'Estudio Norte', estado: 'atrasado', mrr: 238, diasAtraso: 4 }],
+  )[0]
+  assert.equal(estadoDeLaCabecera('MaKo Pro', 'activo', riesgo).estadoTxt, 'MaKo Pro · Atrasado 4 días')
+  const { CustomerPageShell } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerPageShell')
+  const html = dibujar(createElement(CustomerPageShell, { negocio: { ...CABECERA_EJEMPLO, ...estadoDeLaCabecera('MaKo Pro', 'activo', riesgo) } }, null))
+  assert.ok(html.includes('MaKo Pro · Atrasado 4 días'))
+  assert.ok(!html.includes(`Negocio #${WS_EJEMPLO}`), 'el número va sólo en la fila ID')
+})
+
+test('27 · Details › Activity: último ingreso, leads (cuántos y el último) y sesiones del agente; «no se pudo leer» no es un cero', async () => {
+  assert.equal(textoDeLeads({ total: 48, diasDelUltimo: 2 }), '48 leads · el último hace 2 días')
+  assert.equal(textoDeLeads({ total: 1, diasDelUltimo: 0 }), '1 lead · el último hoy')
+  assert.equal(textoDeLeads({ total: 0, diasDelUltimo: null }), 'Sin leads')
+  assert.equal(textoDeLeads(null), null)
+  assert.equal(textoDeSesiones(0), 'Ninguna en 30 días')
+  assert.equal(textoDeSesiones(6), '6 en 30 días')
+  assert.equal(textoDeSesiones(null), null)
+  assert.equal(ultimoIngresoDe(MIEMBROS_EJEMPLO), '2026-11-05T14:20:00Z', 'el más reciente de su equipo')
+  assert.equal(ultimoIngresoDe([]), null)
+  const { CustomerDetailsSection } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection')
+  const props = { negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO, computadoras: COMPUTADORAS_EJEMPLO }
+  const html = dibujar(createElement(CustomerDetailsSection, props))
+  for (const t of ['Activity', 'Último ingreso', '48 leads · el último hace 2 días', '6 en 30 días']) assert.ok(html.includes(t), `falta «${t}»`)
+  const sinLeer = dibujar(createElement(CustomerDetailsSection, { ...props, alta: { ...ALTA_EJEMPLO, actividad: { ultimoIngreso: 'no-leida', leads: null, sesionesAgente: null } } }))
+  assert.ok(sinLeer.includes('No se pudo leer') && sinLeer.includes('No se pudieron leer'))
+  assert.ok(!sinLeer.includes('Sin leads') && !sinLeer.includes('Ninguna en 30 días'), 'lo que no se leyó no se dice como un cero')
+})
+
+test('39 · la ficha nombra sus secciones en inglés, como Polar (Details, Onboarding, Integrations, Timeline)', async () => {
+  const { CustomerDetailsSection } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection')
+  const html = dibujar(createElement(CustomerDetailsSection, { negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO, computadoras: COMPUTADORAS_EJEMPLO }))
+  const titulos = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((m) => m[1])
+  assert.deepEqual(titulos, ['Details', 'Activity', 'Onboarding', 'Integrations'])
+  assert.ok(html.includes('Estado del alta'), 'el renglón del onboarding')
+  const timeline = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(CustomerTimeline, { eventos: EVENTOS_EJEMPLO, viewAllHref: '/x' })))
+  assert.ok(timeline.includes('>Timeline<') && !timeline.includes('Línea de tiempo'))
+})
+
+test('27 · Subscriptions: cuándo le toca pagar («Próxima») y lo que debe («Debe»)', async () => {
+  const { CustomerSubscriptionsTable } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerSubscriptionsTable')
+  const debe = { ...SUSCRIPCIONES_EJEMPLO[0], id: 'l-8', estado: 'past_due' as const, deudaUsd: 476 }
+  const html = dibujar(createElement(CustomerSubscriptionsTable, { suscripciones: [SUSCRIPCIONES_EJEMPLO[0], debe], hoy: HOY_EJEMPLO }))
+  assert.ok(html.includes('Próxima') && html.includes('Debe'))
+  assert.ok(html.includes('4 dic'), 'la próxima, sin el año de hoy')
+  assert.ok(html.includes('476'), 'lo que debe')
+})
+
+test('27, 30 y 41 · Usage: «Dónde» y «Uso», el rango a la vista (también sin uso) y los textos sin criterios internos', async () => {
+  const { CustomerUsageView } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView')
+  const html = dibujar(createElement(CustomerUsageView, USO_EJEMPLO))
+  assert.ok(html.includes('Dónde') && html.includes('>Uso<'), 'los encabezados')
+  assert.ok(!html.includes('Medidor') && !html.includes('Consumido'))
+  assert.ok(html.includes('>30d<') && html.includes('>12m<'), 'el selector del rango')
+  const vacio = dibujar(createElement(CustomerUsageView, { ...USO_EJEMPLO, filas: [], ia: [] }))
+  assert.ok(vacio.includes('Sin uso en estos días') && vacio.includes('>30d<'), 'el rango también en el vacío')
+  assert.ok(html.includes('No incluye Claude con la clave de MaKo.') && !html.includes('las pague quien las pague'), 'la nota de la IA')
+  const sinMedir = dibujar(createElement(CustomerUsageView, { ...USO_EJEMPLO, medido: false, filas: [], ia: [] }))
+  assert.ok(sinMedir.includes('Sin esa medición no se sabe qué tabs abre.') && !sinMedir.includes('en esta base'))
+})
+
+test('18 · «Editar negocio»: el aviso del mail del cambio de plan se mira en la respuesta de `capa`, aunque después corra `plan_a_mano`', async () => {
+  const capa = { action: 'capa' as const, id: 42, capa: 'completo' as const }
+  const mano = { action: 'plan_a_mano' as const, id: 42, dias: 30 }
+  const respuestas = new Map<string, ResultadoAccion>([
+    ['capa', { ok: true, datos: { aviso: { enviado: false, a: 'ana@ejemplo.com', error: 'el correo de MaKo todavía no está configurado' } } }],
+    ['plan_a_mano', { ok: true, datos: {} }],
+  ])
+  const r = await enOrden([capa, mano], async (a) => respuestas.get(a.action)!)
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.pasos.map((p) => p.accion.action), ['capa', 'plan_a_mano'], 'cada paso con su respuesta')
+  const aviso = avisoDelCambioDePlan(r.pasos)
+  assert.ok(aviso, 'el plan_a_mano de después ya no tapa el aviso')
+  assert.equal(aviso!.titulo, 'El plan cambió, pero el mail no salió: el correo de MaKo todavía no está configurado')
+  assert.equal(aviso!.texto, 'Avísale tú a ana@ejemplo.com.')
+  // Salió, o no hay nadie adentro: no hay nada que avisar (el modal se cierra).
+  const con = (aviso: unknown) => avisoDelCambioDePlan([{ accion: capa, resultado: { ok: true, datos: { aviso } } }])
+  assert.equal(con({ enviado: true, a: 'ana@ejemplo.com' }), null)
+  assert.equal(con({ enviado: false, a: '' }), null, '«no hay nadie adentro» no es una falla')
+  assert.equal(con(null), null, 'el plan no cambió')
+  // Reventó antes de saber a quién: SÍ es una falla (la ruta lo devuelve sin `a`).
+  assert.equal(con({ enviado: false, error: 'Resend no contestó' })?.titulo, 'El plan cambió, pero el mail no salió: Resend no contestó')
+  // Y si algo de después falla, el corte sigue y lo que corrió conserva su respuesta.
+  const corta = await enOrden([capa, mano], async (a) => (a.action === 'capa' ? respuestas.get('capa')! : { ok: false, error: 'no' }))
+  assert.equal(corta.ok, false)
+  assert.ok(avisoDelCambioDePlan(corta.pasos), 'el plan ya cambió: el aviso del mail sale igual')
+})
+
+test('20 · eliminado el negocio: sin el menú, y «Ir a Customers» vuelve a dibujar la lista y ⌘K (push + refresh)', async () => {
+  const llamadas: string[] = []
+  irALaLista({ push: (h) => llamadas.push(`push ${h}`), refresh: () => llamadas.push('refresh') })
+  assert.deepEqual(llamadas, ['push /admin/customers', 'refresh'])
+  const { CustomerHeader, NegocioEliminado } = await import('../app/admin/_polar/web/Customer/CustomerPage/CustomerHeader')
+  const borrado = dibujar(createElement(NegocioEliminado, { resumen: 'Se eliminó Estudio Norte: 3 filas en 1 tabla, 1 persona.', onIr: nada }))
+  assert.ok(borrado.includes('Ir a Customers') && borrado.includes('Negocio eliminado'))
+  assert.ok(!borrado.includes('Acciones del negocio'), 'sin el menú de acciones')
+  // La cabecera de un negocio vivo sí lo tiene.
+  assert.ok(dibujar(createElement(CustomerHeader, { negocio: CABECERA_EJEMPLO })).includes('Acciones del negocio'))
+})
+
+test('22 · «Suspender» y «Eliminar» piden confirmación y dicen que se apagan sus tokens; «Reactivar» va directo', () => {
+  const c = confirmacionDeEstado({ estado: 'activo' })
+  assert.equal(c?.texto, 'Deja de entrar y se apagan los tokens de API que creó. Reactivarla no los devuelve.')
+  assert.ok(confirmacionDeEstado({ estado: 'invitado' }), 'un invitado también se suspende con confirmación')
+  assert.equal(confirmacionDeEstado({ estado: 'suspendido' }), null)
+  assert.match(TEXTO_ELIMINAR_PERSONA, /tokens de API/)
+  assert.match(TEXTO_ELIMINAR_PERSONA, /No se puede deshacer/)
+})
+
+test('25 · Settings › Members: las personas de la plataforma, nunca las de un negocio (y entre las dos listas, todas)', () => {
+  const usuarios: UsuarioParaMiembro[] = [
+    ...USUARIOS_EJEMPLO,
+    { id: 106, email: 'eva@ejemplo.com', nombre: 'Eva', rol: 'usuario', estado: 'activo', ultimo_login: null, created_at: '2026-02-01T12:00:00Z', workspace_id: 9, rol_ws: 'closer', invitacion_enviada_at: null },
+    { id: 107, email: 'suelto@ejemplo.com', nombre: 'Suelto', rol: 'usuario', estado: 'invitado', ultimo_login: null, created_at: '2026-03-01T12:00:00Z', workspace_id: null, rol_ws: null, invitacion_enviada_at: null },
+    { id: 108, email: 'huerfano@ejemplo.com', nombre: 'Huérfano', rol: 'usuario', estado: 'activo', ultimo_login: null, created_at: '2026-04-01T12:00:00Z', workspace_id: 77, rol_ws: 'admin', invitacion_enviada_at: null },
+  ]
+  const clientes = new Set([WS_EJEMPLO, 43])
+  const plataforma = miembrosDePlataforma(usuarios, 9, clientes)
+  assert.deepEqual(plataforma.map((m) => [m.id, m.tipo]), [[105, 'admin'], [106, 'equipo'], [107, 'sin-negocio'], [108, 'sin-negocio']])
+  // Nadie dos veces y nadie sin lugar: las de los negocios (sus fichas) más las de la plataforma son todas.
+  const deNegocios = [...clientes].flatMap((ws) => miembrosDe(usuarios, ws).map((m) => m.id))
+  assert.deepEqual([...deNegocios, ...plataforma.map((m) => m.id)].sort(), usuarios.map((u) => u.id).sort())
+  assert.equal(tipoDePersona({ rol: 'admin', workspace_id: WS_EJEMPLO }, 9, clientes), 'admin', 'un admin de MaKo con un negocio puesto no es de ese negocio')
+  assert.equal(tipoDePersona({ rol: 'usuario', workspace_id: WS_EJEMPLO }, 9, clientes), null)
+})
+
+test('25 · «Agregar persona» y mudarla de negocio mandan los mismos cuerpos que la grilla vieja', () => {
+  assert.deepEqual(cuerpoDeAlta({ ws: 42 }, { nombre: ' Ana ', email: ' ana@ejemplo.com ', rol: null }), {
+    action: 'crear', email: 'ana@ejemplo.com', nombre: 'Ana', rol: 'usuario', workspace_id: 42, rol_ws: 'admin',
+  }, 'en un negocio: una persona de ese negocio, admin por defecto')
+  assert.deepEqual(cuerpoDeAlta({ ws: 42 }, { nombre: '', email: 'bo@ejemplo.com', rol: 'setter' }), {
+    action: 'crear', email: 'bo@ejemplo.com', nombre: '', rol: 'usuario', workspace_id: 42, rol_ws: 'setter',
+  })
+  assert.deepEqual(cuerpoDeAlta('plataforma', { nombre: 'Eva', email: 'eva@ejemplo.com' }), { action: 'crear', email: 'eva@ejemplo.com', nombre: 'Eva', rol: 'admin' },
+    'en la plataforma: un admin de MaKo, sin negocio')
+  assert.equal(cuerpoDeAlta({ ws: 42 }, { nombre: 'X', email: 'no-es-un-email' }), null)
+  assert.match(consecuenciaDeAlta('plataforma'), /ve todos los negocios/)
+  // Editar persona: el nombre, la mudanza (el «Asignar a cliente…» de la grilla) y el rol en el negocio nuevo, en ese orden.
+  const m = { ...MIEMBROS_EJEMPLO[1] }
+  assert.deepEqual(cambiosDelMiembro(m, { nombre: 'Bruno D.', rol: 'admin', ws: 43 }), [
+    { action: 'nombre', id: 102, nombre: 'Bruno D.' }, { action: 'workspace', id: 102, workspace_id: 43 }, { action: 'rolws', id: 102, rol_ws: 'admin' },
+  ])
+  assert.deepEqual(cambiosDelMiembro(m, { nombre: m.nombre, rol: m.rol, ws: WS_EJEMPLO }), [], 'el mismo negocio no es una mudanza')
+})
+
+test('25 · Members dibuja «Agregar persona» (también sin nadie) y, en Settings, la columna «Tipo» en vez de «Rol» y «Alta»', async () => {
+  const { MembersSection } = await import('../app/admin/_polar/web/Customer/CustomerPage/MembersSection')
+  const vacio = { titulo: 'Sin personas', texto: 'Nadie puede entrar.' }
+  const ficha = dibujar(createElement(MembersSection, { miembros: MIEMBROS_EJEMPLO, destino: { ws: WS_EJEMPLO }, vacio }))
+  assert.ok(ficha.includes('Agregar persona') && ficha.includes('>Rol<') && ficha.includes('>Alta<'))
+  const sinNadie = dibujar(createElement(MembersSection, { miembros: [], destino: { ws: WS_EJEMPLO }, vacio }))
+  assert.ok(sinNadie.includes('Sin personas') && sinNadie.includes('Agregar persona'), 'a un negocio sin nadie se le puede sumar alguien')
+  const deMaKo = miembrosDePlataforma(USUARIOS_EJEMPLO, 9, new Set([WS_EJEMPLO, 43]))
+  const settings = dibujar(createElement(MembersSection, { miembros: deMaKo, destino: 'plataforma', vacio, sinTitulo: true }))
+  assert.ok(settings.includes('>Tipo<') && settings.includes('Admin de MaKo'))
+  assert.ok(!settings.includes('>Rol<') && !settings.includes('>Alta<') && !settings.includes('>Members<'), 'sin las columnas de un negocio ni el título repetido')
 })

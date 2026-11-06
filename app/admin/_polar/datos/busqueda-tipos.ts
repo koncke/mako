@@ -6,11 +6,15 @@
 // Customers › <negocio> › Members, donde se gestionan). El índice lo arma el server (./busqueda.ts) y viaja recortado a lo
 // que se muestra: nombre, email y negocio. Nada más (ni rol, ni estado, ni el último ingreso).
 //
-// ⚠️ NO ENTRAN el negocio de la plataforma ni sus personas (ni quien no tiene negocio): no son clientes, y Customers no los
-//    lista (lib/clientes-plataforma.ts los saca), así que no tienen a dónde llevar.
+// ⚠️ NO ENTRA el negocio de la plataforma: no es un cliente, y Customers no lo lista (lib/clientes-plataforma.ts lo saca).
+// ⚠️ SUS PERSONAS SÍ (punto 25 de la revisión del 6/11/2026): los admins de MaKo, su equipo y quien no tiene negocio llevan a
+//    Settings › Members, donde se gestionan (`ws: null`). Qué persona va a qué lado lo decide UNA regla, la de las dos pantallas
+//    (`tipoDePersona`, ./personas.ts): un admin de MaKo con un negocio puesto NO lleva a la ficha de ese negocio, que no lo lista.
 // ⚠️ UN CLIENTE DE UNA AGENCIA SÍ ENTRA, diciendo de qué agencia es («De Agencia Faro · MaKo Pro»). La lista de Customers no lo
 //    cuenta (no es un cliente de MaKo: ./clientes.ts `esClienteDeMaKo`), pero su ficha existe y la búsqueda es por donde se
 //    llega: encontrar no es contar. Sin el detalle se leería como un cliente más de MaKo.
+
+import { ROTULO_TIPO_PERSONA, RUTA_MIEMBROS_PLATAFORMA, tipoDePersona } from './personas'
 
 export type ResultadoNegocio = { tipo: 'negocio'; ws: number; nombre: string; detalle: string }
 export type ResultadoPersona = { tipo: 'persona'; id: number; ws: number | null; nombre: string; email: string; negocio: string | null }
@@ -20,7 +24,8 @@ export type IndiceBusqueda = { negocios: ResultadoNegocio[]; personas: Resultado
 export const TOPE_POR_CLASE = 5
 
 export const hrefDeNegocio = (ws: number) => `/admin/customers/${ws}`
-export const hrefDePersona = (ws: number) => `/admin/customers/${ws}/members`
+/** Una persona de un negocio, a su ficha; una de la plataforma (`ws: null`), a Settings › Members. */
+export const hrefDePersona = (ws: number | null) => (ws != null ? `/admin/customers/${ws}/members` : RUTA_MIEMBROS_PLATAFORMA)
 
 /** Sin mayúsculas ni acentos, para que «Gómez» se encuentre escribiendo «gomez». */
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
@@ -28,7 +33,7 @@ export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, 
 /** Arma el índice con lo que leyó el server. `plan` dice el nombre del plan de una capa. */
 export function armarIndice(p: {
   workspaces: ReadonlyArray<{ id: number; nombre: string; capa: string; estado: string }>
-  usuarios: ReadonlyArray<{ id: number; nombre: string; email: string; workspace_id: number | null }>
+  usuarios: ReadonlyArray<{ id: number; nombre: string; email: string; workspace_id: number | null; rol?: string | null }>
   plataforma: number | null
   plan: (capa: string) => string
   /** De qué agencia es cada cliente de una agencia (el ws del cliente → el de su agencia). */
@@ -36,6 +41,7 @@ export function armarIndice(p: {
 }): IndiceBusqueda {
   const clientes = p.workspaces.filter((w) => w.id !== p.plataforma)
   const nombre = new Map(clientes.map((w) => [w.id, w.nombre]))
+  const clientesSet = new Set(nombre.keys())
   const detalle = (w: (typeof clientes)[number]) => {
     const ag = p.deAgencia?.get(w.id)
     const partes = [
@@ -52,9 +58,12 @@ export function armarIndice(p: {
       nombre: w.nombre,
       detalle: detalle(w),
     })),
-    personas: p.usuarios
-      .filter((u) => u.workspace_id != null && nombre.has(u.workspace_id))
-      .map((u) => ({ tipo: 'persona', id: u.id, ws: u.workspace_id, nombre: u.nombre, email: u.email, negocio: nombre.get(u.workspace_id as number) ?? null })),
+    personas: p.usuarios.map((u): ResultadoPersona => {
+      const lado = tipoDePersona(u, p.plataforma, clientesSet)
+      return lado
+        ? { tipo: 'persona', id: u.id, ws: null, nombre: u.nombre, email: u.email, negocio: ROTULO_TIPO_PERSONA[lado] }
+        : { tipo: 'persona', id: u.id, ws: u.workspace_id, nombre: u.nombre, email: u.email, negocio: nombre.get(u.workspace_id as number) ?? null }
+    }),
   }
 }
 

@@ -13,9 +13,14 @@
 //   · Customer Notifications = lo que le llega a quien paga: el asunto y la primera frase del correo del recibo (los otros
 //     dos campos del `Emisor`) y el recibo por WhatsApp a quien paga solo (`guardarWaSoloAction`).
 //
-// ⚠️ `guardarEmisor` GUARDA EL EMISOR ENTERO (`emisorDe(e)` sobre lo que llega): un pedido con sólo el asunto deja el nombre
-//    en el de fábrica y el documento vacío. Por eso General y Customer Notifications mandan SIEMPRE el emisor completo, con
-//    sus cambios encima (`emisorConCambios`).
+// ⚠️ CADA PANTALLA MANDA SÓLO LO QUE TOCÓ (punto 15 de la revisión del 6/11/2026): `guardarEmisor` (lib/recibos.ts) guarda el
+//    emisor ENTERO, así que `guardarEmisorAction` recibe los campos cambiados (`cambiosDelEmisor`), los mezcla en el server sobre
+//    lo que está guardado (`leerEmisor()` + `emisorConCambios`) y revalida Settings. Antes cada pantalla mandaba el emisor
+//    entero con SU copia: escribir el asunto en Customer Notifications y después cambiar la dirección en General (con el emisor
+//    precargado por `prefetch` o por el botón atrás) grababa el asunto viejo encima, sin aviso.
+// ⚠️ LO ESCRITO NO SE PIERDE AL SALIR (punto 16): `guardadoDiferido` guarda un segundo después del último cambio (el
+//    `useAutoSave` de Polar) y, al desmontar, guarda YA lo pendiente en vez de descartarlo. Los guardados van en fila y cada uno
+//    calcula lo pendiente cuando le toca: nunca dos veces lo mismo, ni un valor viejo encima de uno nuevo.
 // =============================================================================
 
 import type { Emisor } from '@/lib/recibos-reglas'
@@ -67,7 +72,107 @@ export function numeroSimple(s: string): number | null | undefined {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** El emisor completo con los cambios encima (lo que se le manda a `guardarEmisorAction`: ver la cabecera). */
+/** Los cambios de una pantalla: sólo los campos que tocó. */
+export type CambiosEmisor = Partial<Record<keyof Emisor, string | null>>
+
+const CLAVES_EMISOR: readonly (keyof Emisor)[] = ['nombre', 'documento', 'direccion', 'correo', 'asunto', 'intro']
+
+/** Como lo guarda `emisorDe` (lib/recibos-reglas.ts): los espacios de más no son un cambio. */
+const comoSeGuarda = (v: string | null | undefined): string => String(v ?? '').replace(/\s+/g, ' ').trim()
+
+/**
+ * Lo que una pantalla tiene distinto de lo guardado: sólo esos campos viajan (punto 15). Un nombre vacío no es un cambio (el
+ * nombre sale en cada recibo: lo frena `problemaDelPerfil`, y `emisorConCambios` no lo pisa).
+ */
+export function cambiosDelEmisor(guardado: Emisor, valores: CambiosEmisor): CambiosEmisor {
+  const out: CambiosEmisor = {}
+  for (const k of CLAVES_EMISOR) {
+    if (!(k in valores)) continue
+    const v = comoSeGuarda(valores[k])
+    if (k === 'nombre' && !v) continue
+    if (v !== comoSeGuarda(guardado[k])) out[k] = v || null
+  }
+  return out
+}
+
+/** Lo que el server acepta de un pedido: sólo las claves del emisor, cada una texto o null (lo demás se tira). */
+export function cambiosDelPedido(raw: unknown): CambiosEmisor {
+  const out: CambiosEmisor = {}
+  if (!raw || typeof raw !== 'object') return out
+  const o = raw as Record<string, unknown>
+  for (const k of CLAVES_EMISOR) {
+    if (!Object.prototype.hasOwnProperty.call(o, k)) continue
+    const v = o[k]
+    if (v === null) out[k] = null
+    else if (typeof v === 'string') out[k] = v
+  }
+  return out
+}
+
+/**
+ * El guardado de General y de Customer Notifications (puntos 15 y 16): un segundo después del último cambio (`cambio()`), y YA
+ * al salir (`salir()`, desde el cleanup de un efecto sin dependencias). `pendiente()` dice lo que falta guardar en el momento en
+ * que le toca (contra lo último guardado; `null` = nada), y los envíos van en fila:
+ *   · nunca dos veces lo mismo: sin un cambio desde el último envío, `salir()` no manda nada, y lo pendiente se recalcula
+ *     después de que el anterior volvió;
+ *   · nunca un valor viejo encima de uno nuevo: un envío sale cuando el anterior terminó, con lo que hay escrito en ESE momento.
+ * Lo que falla no corta la fila (cada pantalla dice el error en `enviar`).
+ */
+export function guardadoDiferido<C>(o: { pendiente: () => C | null; enviar: (c: C) => Promise<unknown>; demoraMs: number }) {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let sucio = false
+  let fila: Promise<unknown> = Promise.resolve()
+  const mandar = (): Promise<unknown> => {
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
+    if (!sucio) return fila
+    sucio = false
+    fila = fila
+      .then(() => {
+        const c = o.pendiente()
+        return c == null ? undefined : o.enviar(c)
+      })
+      .catch(() => undefined)
+    return fila
+  }
+  return {
+    /** Algo cambió: se guarda `demoraMs` después del último cambio. */
+    cambio() {
+      sucio = true
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => void mandar(), o.demoraMs)
+    },
+    /** Guardar YA lo pendiente (al desmontar): no se descarta. Devuelve la fila, para esperarla. */
+    salir: mandar,
+  }
+}
+
+/**
+ * «Guardado», en gris, un rato en la misma fila (punto 16, los precios de Payments y Cliente de agencia: salen en /planes, y
+ * sin esto no se distinguía «se guardó» de «no pasó nada»). `alCambiar(true)` al marcar y `alCambiar(false)` a los `ms`; marcar
+ * de nuevo reinicia la cuenta. General y Notifications no lo llevan: Polar guarda en silencio ahí, y se copia.
+ */
+export function marcaDeGuardado(alCambiar: (visible: boolean) => void, ms = 2000) {
+  let t: ReturnType<typeof setTimeout> | null = null
+  return {
+    marcar() {
+      if (t) clearTimeout(t)
+      alCambiar(true)
+      t = setTimeout(() => {
+        t = null
+        alCambiar(false)
+      }, ms)
+    },
+    limpiar() {
+      if (t) clearTimeout(t)
+      t = null
+    },
+  }
+}
+
+/** El emisor completo con los cambios encima: lo que arma `guardarEmisorAction` en el server, sobre lo guardado (ver la cabecera). */
 export function emisorConCambios(base: Emisor, cambios: Partial<Record<keyof Emisor, string | null>>): Emisor {
   const limpio = (v: string | null | undefined): string | null => {
     const t = (v ?? '').trim()

@@ -9,6 +9,11 @@
 // abrió en el rango. Se sacaron Credited, Balance, Overages y «Add credits»: MaKo no da créditos por cliente. La IA no va en el
 // gráfico: se cuenta en llamadas, no en pantallas, y apilarla con las tabs sumaría dos cosas distintas.
 // ⚠️ «No usa» sólo se afirma desde que se mide: antes del primer día medido no hay nada que mirar, y se dice.
+// ⚠️ EL RANGO SE VE (punto 30 de la revisión del 6/11/2026): arriba a la derecha va el mismo selector que la fila Metrics de la
+//    ficha (`CustomerMetricsRangeControl`), también con «Sin uso en estos días». Sin él, «en el rango» no decía cuál: desde la
+//    ficha con 30 días eran 30 días, y entrando directo, toda la vida del negocio.
+// Los encabezados de la tabla son «Dónde» y «Uso» (punto 27): la tabla mezcla tabs con la fila de la IA, y «Medidor» y
+// «Consumido» de Polar no dicen nada en MaKo.
 
 import { usoDelNegocio, type IaDelDia } from '@/app/admin/_polar/datos/cliente'
 import type { FilaUso } from '@/lib/actividad-reglas'
@@ -28,6 +33,7 @@ import { Suspense, useMemo, useState } from 'react'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { CircleGauge as GaugeCircleIcon } from '@/app/admin/_polar/orbit/icons'
 import { useCustomerMetricsParams } from './useCustomerMetricsParams'
+import { CustomerMetricsRangeControl } from './CustomerMetricsRangeControl'
 
 const StackedMeterChart = dynamic(() => import('./StackedMeterChart'))
 
@@ -82,7 +88,7 @@ export const CustomerUsageView = ({
       <EmptyState
         icon={<GaugeCircleIcon className="h-6 w-6" />}
         title="El uso todavía no se mide"
-        description="Falta la medición del uso por pantalla en esta base: sin ella no se sabe qué tabs abre."
+        description="Sin esa medición no se sabe qué tabs abre."
       />
     )
   }
@@ -91,6 +97,9 @@ export const CustomerUsageView = ({
 
   return (
     <Box flexDirection="column" rowGap="2xl">
+      <Box justifyContent="end">
+        <CustomerMetricsRangeControl inicio={inicio} />
+      </Box>
       {uso.medidores.length === 0 ? (
         <EmptyState
           icon={<GaugeCircleIcon className="h-6 w-6" />}
@@ -121,7 +130,7 @@ export const CustomerUsageView = ({
             columns={[
               {
                 header: ({ column }) => (
-                  <DataTableColumnHeader column={column} title="Medidor" />
+                  <DataTableColumnHeader column={column} title="Dónde" />
                 ),
                 accessorKey: 'nombre',
                 size: 200,
@@ -142,7 +151,7 @@ export const CustomerUsageView = ({
               },
               {
                 header: ({ column }) => (
-                  <DataTableColumnHeader column={column} title="Consumido" />
+                  <DataTableColumnHeader column={column} title="Uso" />
                 ),
                 accessorKey: 'consumido',
                 size: 130,
@@ -227,7 +236,7 @@ export const CustomerUsageView = ({
       )}
       {uso.medidores.some((m) => m.key === 'ia') && (
         <Text variant="caption" color="muted">
-          La IA cuenta las llamadas anotadas en este negocio, las pague quien las pague; Claude con la clave de MaKo se anota en la plataforma y no entra.
+          No incluye Claude con la clave de MaKo.
         </Text>
       )}
     </Box>

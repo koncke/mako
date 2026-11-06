@@ -2,9 +2,10 @@
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerPageShell.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: arriba el nombre del negocio y, en gris, su número (Polar pone el email del cliente: un negocio no tiene uno propio; el
-// de sus personas vive en Members). Debajo de la subnav, lo que no se pudo leer (`avisos`): lo que se muestra puede quedarse
-// corto, y se dice.
+// MaKo: arriba el nombre del negocio y, en gris, su plan y cómo está en palabras («MaKo Pro · Atrasado 4 días», en rojo si es
+// grave; `estadoTxt`, el texto de At Risk). Polar pone ahí el email del cliente: un negocio no tiene uno propio (el de sus
+// personas vive en Members). Hasta el 6/11/2026 iba «Negocio #n», el mismo dato de la fila ID y un código donde Martín pidió
+// nombres (punto 27). Debajo de la subnav, lo que no se pudo leer (`avisos`): lo que se muestra puede quedarse corto, y se dice.
 
 import { MasterDetailLayoutContent } from '@/app/admin/_polar/web/Layout/MasterDetailLayout'
 import type { NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
@@ -33,8 +34,8 @@ export const CustomerPageShell = ({
             <Text variant="heading-xs" as="h1">
               {negocio.nombre || '—'}
             </Text>
-            <Text variant="heading-xs" color="muted">
-              {`Negocio #${negocio.ws}`}
+            <Text variant="heading-xs" color={negocio.grave ? 'danger' : 'muted'}>
+              {negocio.estadoTxt}
             </Text>
           </Box>
 

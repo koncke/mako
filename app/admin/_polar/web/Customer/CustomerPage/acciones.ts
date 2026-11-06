@@ -28,12 +28,32 @@ async function post(ruta: string, cuerpo: unknown): Promise<ResultadoAccion> {
 export const accionDelNegocio = (a: AccionNegocio) => post('/api/admin/workspaces', a)
 export const accionDelMiembro = (a: AccionMiembro) => post('/api/admin/usuarios', a)
 
-/** Varias en orden; se corta en la primera que falla (lo de antes ya quedó guardado, y se dice cuál falló). */
-export async function enOrden<T>(acciones: readonly T[], correr: (a: T) => Promise<ResultadoAccion>): Promise<ResultadoAccion> {
+/** Lo que devuelve `enOrden`: la última respuesta (la que falló, si falló) y la de CADA paso que corrió, en orden. */
+export type ResultadoEnOrden<T> = ResultadoAccion & { pasos: Array<{ accion: T; resultado: ResultadoAccion }> }
+
+/**
+ * Varias en orden; se corta en la primera que falla (lo de antes ya quedó guardado, y se dice cuál falló).
+ * ⚠️ `pasos` lleva la respuesta de cada uno (punto 18 de la revisión del 6/11/2026): «Editar negocio» manda `capa` y después
+ *    `plan_a_mano`, y el `aviso` del mail del cambio de plan viene en la respuesta de `capa`. Con sólo la última, el
+ *    `plan_a_mano` lo tapaba y un mail que no salió se cerraba como si todo hubiera salido bien.
+ */
+export async function enOrden<T>(acciones: readonly T[], correr: (a: T) => Promise<ResultadoAccion>): Promise<ResultadoEnOrden<T>> {
   let ultimo: ResultadoAccion = { ok: true, datos: {} }
+  const pasos: ResultadoEnOrden<T>['pasos'] = []
   for (const a of acciones) {
     ultimo = await correr(a)
-    if (!ultimo.ok) return ultimo
+    pasos.push({ accion: a, resultado: ultimo })
+    if (!ultimo.ok) break
   }
-  return ultimo
+  return { ...ultimo, pasos }
+}
+
+/**
+ * «Ir a Customers» después de eliminar un negocio (punto 20): `push` y después `refresh`. Los layouts compartidos (la lista de
+ * la izquierda y el índice de ⌘K) no se vuelven a dibujar con un `push` solo, y el negocio borrado seguía ahí, con un 404 al
+ * tocarlo. El molde es el de CheckoutLinkListSidebar.
+ */
+export function irALaLista(router: { push: (href: string) => void; refresh: () => void }) {
+  router.push('/admin/customers')
+  router.refresh()
 }

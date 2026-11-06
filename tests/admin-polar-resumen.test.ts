@@ -14,7 +14,8 @@
 //   · `rangosDisponibles` ofreciendo «Todo» siempre                       → 13/1 (rangos)
 //   · las lecturas de MaKo listadas en Activity (sin el filtro `tipo !== 'accion'`) → 13/1 (actividad)
 //   · `buscar` sin `normalizar` (mayúsculas y acentos)                    → 13/1 (búsqueda)
-//   · `armarIndice` sin sacar la plataforma (y sus personas)              → 13/1 (índice)
+//   · `armarIndice` sin sacar la plataforma                               → 13/1 (índice)
+//   (6/11/2026, punto 25: las personas de MaKo llevan a Settings › Members; un `ws` de su negocio en vez de `null` → 13/1)
 //   · `await exigirSuperAdmin()` movido debajo de `destinoDeTabViejo`     → 13/1 (la guarda)
 //   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk)
 // Y un cambio sin efecto (renombrar la variable local `destino` de la página) la deja en 14/0.
@@ -40,7 +41,7 @@ import {
   pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, rangosDisponibles, tiempoRelativo, tituloDeAgencias, tituloDeBajas,
   tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
 } from '../app/admin/_polar/datos/resumen'
-import { armarIndice, buscar, TOPE_POR_CLASE } from '../app/admin/_polar/datos/busqueda-tipos'
+import { armarIndice, buscar, hrefDePersona, TOPE_POR_CLASE } from '../app/admin/_polar/datos/busqueda-tipos'
 import { indiceEjemplo, resumenEjemplo } from '../app/admin/_polar/datos/ejemplo/resumen'
 import { realesEn } from './_reales'
 
@@ -56,7 +57,7 @@ test('links viejos: cada /admin?tab=… va a su sección nueva, y lo demás se q
   assert.equal(destinoDeTabViejo({}), null, 'sin ?tab= es Overview')
   assert.equal(destinoDeTabViejo({ tab: 'nada' }), null, 'un ?tab= desconocido no redirige')
   assert.equal(destinoDeTabViejo({ tab: 'revenue' }), '/admin/analytics/metrics')
-  assert.equal(destinoDeTabViejo({ tab: 'users' }), '/admin/customers')
+  assert.equal(destinoDeTabViejo({ tab: 'users' }), '/admin/settings/members', 'las personas de MaKo, en Settings › Members (punto 25)')
   assert.equal(destinoDeTabViejo({ tab: 'customers' }), '/admin/customers')
   assert.equal(destinoDeTabViejo({ tab: 'customers', cliente: '21' }), '/admin/customers/21')
   assert.equal(destinoDeTabViejo({ tab: 'customers', cliente: '0' }), '/admin/customers', 'un id que no es válido se cae')
@@ -300,7 +301,7 @@ test('Metrics de Overview: lo recordado vale si existe, sin repetir y hasta el l
   assert.equal(metricasRecordadas(muchas)?.length, LIMITE_METRICAS_OVERVIEW)
 })
 
-test('índice: los negocios y sus personas, sin la plataforma ni quien no tiene negocio', () => {
+test('índice: los negocios (sin la plataforma) y sus personas; las de MaKo llevan a Settings › Members (punto 25)', () => {
   const ind = armarIndice({
     workspaces: [
       { id: 9, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' },
@@ -311,15 +312,21 @@ test('índice: los negocios y sus personas, sin la plataforma ni quien no tiene 
       { id: 1, nombre: 'Equipo', email: 'e@ejemplo.com', workspace_id: 9 },
       { id: 2, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', workspace_id: 21 },
       { id: 3, nombre: 'Global', email: 'g@ejemplo.com', workspace_id: null },
+      { id: 4, nombre: 'Admin con negocio', email: 'a@ejemplo.com', workspace_id: 21, rol: 'admin' },
     ],
     plataforma: 9,
     plan: (c) => c.toUpperCase(),
   })
   assert.deepEqual(ind.negocios.map((n) => n.ws), [21, 22])
   assert.equal(ind.negocios[1].detalle, 'ESENCIAL · Pausado')
-  assert.deepEqual(ind.personas.map((p) => p.id), [2])
-  assert.equal(ind.personas[0].negocio, 'Estudio Norte')
-  assert.deepEqual(Object.keys(ind.personas[0]).sort(), ['email', 'id', 'negocio', 'nombre', 'tipo', 'ws'], 'viaja sólo lo que se muestra')
+  const ana = ind.personas.find((p) => p.id === 2)!
+  assert.deepEqual([ana.ws, ana.negocio, hrefDePersona(ana.ws)], [21, 'Estudio Norte', '/admin/customers/21/members'])
+  // Las de la plataforma: el equipo, quien no tiene negocio y un admin de MaKo con un negocio puesto (la ficha no lo lista).
+  for (const [id, lado] of [[1, 'Equipo de MaKo'], [3, 'Sin negocio'], [4, 'Admin de MaKo']] as const) {
+    const p = ind.personas.find((x) => x.id === id)!
+    assert.deepEqual([p.ws, p.negocio, hrefDePersona(p.ws)], [null, lado, '/admin/settings/members'], `persona ${id}`)
+  }
+  assert.deepEqual(Object.keys(ana).sort(), ['email', 'id', 'negocio', 'nombre', 'tipo', 'ws'], 'viaja sólo lo que se muestra')
 })
 
 test('búsqueda: sin acentos ni mayúsculas, primero lo que EMPIEZA con lo escrito, y hasta cinco de cada clase', () => {

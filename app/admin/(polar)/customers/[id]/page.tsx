@@ -7,6 +7,9 @@ import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
 import { leerInicio, leerResumen, metadataDeNegocio, negocioONotFound } from '@/app/admin/_polar/datos/cliente-server'
 import { CustomerOverview } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerOverview'
 import { CustomerPageShell } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerPageShell'
+// «Desconectar» una computadora: la server action del Centro (pide `puedeOperar` otra vez) viaja como prop a la ficha, que no la
+// importa (así se puede dibujar en node: tests/ia-pc-varias.test.ts).
+import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
 import { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -34,12 +37,14 @@ export default async function Page(props: {
         negocio={cabecera}
         alta={alta}
         inicio={inicio}
+        hoy={resumen.hoy}
         pedidos={resumen.pedidos}
         mrrUsd={resumen.mrrUsd}
         suscripciones={resumen.suscripciones}
         conexiones={resumen.conexiones}
         computadoras={resumen.computadoras}
         eventos={resumen.eventos}
+        desconectar={desconectarComputadoraAction}
       />
     </CustomerPageShell>
   )

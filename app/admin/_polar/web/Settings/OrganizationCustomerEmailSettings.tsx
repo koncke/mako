@@ -4,32 +4,23 @@
 //
 // Settings › Customer Notifications: lo que le llega a quien paga a MaKo, con los grupos de avisos de Polar. MaKo manda UN
 // aviso: el recibo de cada pago (lib/recibos.ts), por correo siempre y por WhatsApp a quien paga solo. Va en el grupo
-// «Compras» (el «Purchases» de Polar, cuyo primer aviso es la confirmación de una compra).
+// «Purchases» de Polar (cuyo primer aviso es la confirmación de una compra): el nombre en inglés, como las secciones.
 //   · «Correo del recibo»: el asunto y la primera frase (los campos `asunto` e `intro` del `Emisor`, con `{{numero}}`,
 //     `{{monto}}`, `{{concepto}}`, `{{fecha}}`, `{{medio}}` y `{{nombre}}`). Se guarda sola, un segundo después de escribir,
-//     con el emisor ENTERO (`guardarEmisorAction` pisa todo: app/admin/_polar/datos/ajustes.ts).
+//     SÓLO lo que se tocó (el server lo mezcla sobre lo guardado y revalida Settings: punto 15 de la revisión del 6/11/2026), y
+//     al salir antes del segundo se guarda igual (`guardadoDiferido`, punto 16).
 //   · «Recibo por WhatsApp»: el interruptor (`guardarWaSoloAction`), optimista como el `useOptimisticSave` de Polar: si
-//     falla, vuelve a como estaba y lo dice.
+//     falla, vuelve a como estaba y lo dice. Los errores, con el `Alert` de Orbit (punto 42).
 // ⚠️ LO QUE SE SACÓ: los demás avisos de Polar (pruebas, renovaciones, tarjeta por vencer, cambios de la suscripción): MaKo
 //    no manda ninguno de ésos a quien le paga. ⚠️ LO QUE NO ESTÁ EN LA FUENTE: los dos campos de texto del correo (Polar
 //    sólo prende y apaga avisos; MaKo deja escribirlos).
 
 import { guardarEmisorAction, guardarWaSoloAction } from '@/app/admin/cobros/recibos-actions'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
-import { Input, Switch, Text } from '@/app/admin/_polar/orbit'
+import { Alert, Input, Switch, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import React, { useEffect, useRef, useState } from 'react'
 import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
-import { emisorConCambios, mismoEmisor, type Emisor } from '@/app/admin/_polar/datos/ajustes'
-
-function Fallo({ texto }: { texto: string }) {
-  return (
-    <div role="alert" className="flex flex-col items-start gap-2">
-      <Text color="error">{texto}</Text>
-      <ReportarASoporte error={texto} />
-    </div>
-  )
-}
+import { cambiosDelEmisor, guardadoDiferido, type CambiosEmisor, type Emisor } from '@/app/admin/_polar/datos/ajustes'
 
 interface OrganizationCustomerEmailSettingsProps {
   emisor: Emisor
@@ -39,23 +30,37 @@ interface OrganizationCustomerEmailSettingsProps {
 const OrganizationCustomerEmailSettings: React.FC<OrganizationCustomerEmailSettingsProps> = ({ emisor, waSolo }) => {
   const [asunto, setAsunto] = useState(emisor.asunto ?? '')
   const [intro, setIntro] = useState(emisor.intro ?? '')
+  // Lo último guardado y lo escrito, en refs: el guardado que corre al salir los lee después de que el componente se fue.
   const guardado = useRef<Emisor>(emisor)
+  const escrito = useRef({ asunto: emisor.asunto ?? '', intro: emisor.intro ?? '' })
   const [errorCorreo, setErrorCorreo] = useState<string | null>(null)
 
+  const [guardador] = useState(() =>
+    guardadoDiferido<CambiosEmisor>({
+      demoraMs: 1000,
+      pendiente: () => {
+        const cambios = cambiosDelEmisor(guardado.current, escrito.current)
+        return Object.keys(cambios).length ? cambios : null
+      },
+      enviar: async (cambios) => {
+        const r = await guardarEmisorAction(cambios).catch(() => ({ ok: false as const, error: 'No pude guardar el correo del recibo.' }))
+        if (!r.ok) {
+          setErrorCorreo(r.error)
+          return
+        }
+        setErrorCorreo(null)
+        guardado.current = r.emisor
+      },
+    }),
+  )
+
   useEffect(() => {
-    const siguiente = emisorConCambios(guardado.current, { asunto, intro })
-    if (mismoEmisor(siguiente, guardado.current)) return
-    const t = setTimeout(async () => {
-      const r = await guardarEmisorAction(siguiente).catch(() => ({ ok: false as const, error: 'No pude guardar el correo del recibo.' }))
-      if (!r.ok) {
-        setErrorCorreo(r.error)
-        return
-      }
-      setErrorCorreo(null)
-      guardado.current = r.emisor
-    }, 1000)
-    return () => clearTimeout(t)
-  }, [asunto, intro])
+    escrito.current = { asunto, intro }
+    guardador.cambio()
+  }, [asunto, intro, guardador])
+
+  // Al salir con algo pendiente, se guarda (punto 16): el cleanup aparte, que corre una vez (el guardador no cambia).
+  useEffect(() => () => void guardador.salir(), [guardador])
 
   const [wa, setWa] = useState(waSolo)
   const [errorWa, setErrorWa] = useState<string | null>(null)
@@ -72,7 +77,7 @@ const OrganizationCustomerEmailSettings: React.FC<OrganizationCustomerEmailSetti
 
   return (
     <Box flexDirection="column" rowGap="2xl">
-      <SettingsGroup title="Compras">
+      <SettingsGroup title="Purchases">
         <SettingsGroupItem layout="stacked" title="Correo del recibo" description="Sale con cada pago. Vacío, va el texto de siempre.">
           <Box flexDirection="column" rowGap="m" width="100%">
             <Box flexDirection="column" rowGap="xs">
@@ -93,7 +98,9 @@ const OrganizationCustomerEmailSettings: React.FC<OrganizationCustomerEmailSetti
                 onChange={(e) => setIntro(e.target.value)}
               />
             </Box>
-            {errorCorreo && <Fallo texto={errorCorreo} />}
+            {errorCorreo && (
+              <Alert variant="danger" title="No se guardó el correo del recibo" description={errorCorreo} onDismiss={() => setErrorCorreo(null)} />
+            )}
           </Box>
         </SettingsGroupItem>
         <SettingsGroupItem layout="inline" title="Recibo por WhatsApp" description="También por WhatsApp a quien paga solo, sin una agencia en el medio.">
@@ -101,7 +108,7 @@ const OrganizationCustomerEmailSettings: React.FC<OrganizationCustomerEmailSetti
         </SettingsGroupItem>
         {errorWa ? (
           <Box paddingHorizontal="xl" paddingVertical="l">
-            <Fallo texto={errorWa} />
+            <Alert variant="danger" title="No se guardó el recibo por WhatsApp" description={errorWa} onDismiss={() => setErrorWa(null)} />
           </Box>
         ) : null}
       </SettingsGroup>
