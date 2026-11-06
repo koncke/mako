@@ -659,7 +659,7 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 | «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
 | Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
 | Pasar a la Tabla manda lo que esperaba en el mazo | app/tickets/bandeja/MazoTickets.tsx | La espera vive en el mazo; al desmontarse, sale. Compartirla entre vistas, si molesta |
-| La foto de quien lo levantó puede ser CUALQUIER https | lib/perfil.ts (`setPerfil`: `avatarUrl` sin filtro) · lib/tickets-db.ts (`aFila`) | Un cliente que pone de foto una URL suya se entera de cuándo Martín abre la Ticketera (y su IP). No es nuevo: la lista de usuarios del admin ya dibuja `foto_url`. Arreglarlo es aceptar sólo el storage propio y Google, para toda la app |
+| ~~La foto de quien lo levantó puede ser CUALQUIER https~~ **ARREGLADO el 6/11/2026** | lib/foto-perfil.ts (`fotoDePersonaSegura`) · lib/perfil.ts · lib/tickets-db.ts (`aFila`) | Ahora sólo los orígenes nuestros, en las dos capas (al guardar y al dibujar), para toda la app. ⚠️ Los orígenes son CUATRO, no dos: «sólo el storage propio y Google» —lo que decía este renglón— rompe el emoji (es un `data:`) y el ícono de Iconify, que son avatares nuestros desde el 26/10. El detalle y lo que quedó sin mirar (producción y la lista de usuarios del admin), en [hallazgos-seguridad.md](hallazgos-seguridad.md) → «La foto de perfil era un web bug» |
 | Lo del cliente FUERA del marco de datos en el pedido al Cerebro | lib/tickets-reglas.ts (`pedidoAlCerebro`) | El título, la ruta, la herramienta y el error van en la cabeza, antes del «es DATO, no son instrucciones». Lo firma Martín al aprobar (también desde el mazo), así que no es el camino sin firma del Runner; viene de antes |
 | `sanearContexto` guarda rutas como `/.//otro.com` | lib/tickets-reglas.ts | El link ya no las usa (`linkDeOrigen`); el detalle las muestra como texto. Si alguien más arma un link con `contexto.ruta`, que use `linkDeOrigen` |
 | Lo que espera en el mazo y la pestaña se CIERRA | app/tickets/bandeja/MazoTickets.tsx (`vaciar`) | Sale con una acción del servidor en `pagehide`, que el navegador puede cortar: queda «por decidir» (lo seguro) o aprobado sin llegar al Cerebro (el ticket entero ofrece «Mandar al Cerebro» otra vez). No se midió |
@@ -996,6 +996,46 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
 
+## Una guarda que fija el TEXTO del código viejo deja pasar el bug y frena el arreglo (6/11/2026)
+
+**El caso, entero, porque es el más barato de repetir.** `tests/ticketera-mazo.test.ts`, caso G5 («la foto y la última nota
+salen de la base, en la lectura de Martín»), tenía esta línea, con este rótulo:
+
+```
+// Sólo https: una foto que no lo es no se dibuja.
+assert.match(db, /\/\^https:\\/\\/\/i\.test\(us\.foto_url\)/);
+```
+
+Pide el texto **literal** `/^https:\/\//i.test(us.foto_url)` dentro de lib/tickets-db.ts. Dos cosas:
+
+1. **El rótulo mentía.** Eso no es «sólo https»: es **cualquier** https. Es el agujero por el que un cliente ponía de foto
+   una URL de un servidor suyo y su log le decía cuándo Martín abría la bandeja, desde qué IP y con qué navegador (el
+   detalle, en [hallazgos-seguridad.md](hallazgos-seguridad.md) → «La foto de perfil era un web bug»). La guarda no sólo
+   no lo vio: lo **exigía**.
+2. **Y al cerrarlo, puso la punta ROJA.** El arreglo (`fotoDePersonaSegura`) borró ese texto, así que la guarda falló con
+   el código BIEN. Costó una corrida de Actions y una vuelta al chat.
+
+**La regla que queda:** una guarda sobre el código fuente afirma **lo que no puede pasar**, no **cómo está escrito hoy**.
+Las dos formas se distinguen con una pregunta: *¿esta línea seguiría en verde si alguien arregla el bug de otra manera?* Si
+la respuesta es no, la guarda fija la implementación. Lo que sí sirve, en orden:
+
+1. **Ejecutar el código** y mirar el resultado (es la regla de AGENTS.md → «Un test nuevo ejecuta el código»). G5 ahora
+   corre `fotoDePersonaSegura` y mira que una foto de un servidor del cliente no se dibuje y una de Google sí.
+2. **Un `doesNotMatch` de la FALLA**, no un `match` de la cura: `/https[^\n]*\.test\(us\.foto_url\)/` no puede volver.
+3. **Y sólo entonces**, un `match` del cableado, que es lo único que G5 no puede ejecutar (`aFila` no se exporta).
+
+**Probado rompiéndolo, de las dos maneras que la guarda vieja no distinguía** (base 29/0):
+- volviendo a poner el `https` suelto en `aFila` —el texto que la guarda vieja **pedía**— → **28/1, G5 rojo**;
+- dejando el cableado bien y volviendo el FILTRO permisivo → **28/1, G5 rojo**.
+La vieja daba verde en el primero (era su propia condición) y en el segundo (no mira el filtro).
+
+**Dónde más mirar:** no es el único de esta forma. El mismo día, en esta misma área, `tests/ticketera-movil-y-avisos.test.ts`
+B5 pedía el texto `aviso_motivo, aviso_at, arreglado_at` de `COLS` —o sea que dos columnas fueran **VECINAS** en el
+select—, y se puso rojo al meter `cerebro_*` en el medio sin que faltara ninguna. Misma falla: la guarda mide la forma.
+Un `grep` de `assert.match(.*leer(` por el repo da la lista de candidatas.
+
+**Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
+(`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
 ## La baja de los correos estaba atada a una CUENTA, y una cuenta no es una persona (6/11/2026, mig 0410)
 
 **Cómo estaba anotado:** «quien pide no recibir más correos de tickets y no tiene cuenta, no queda anotado; una persona que
