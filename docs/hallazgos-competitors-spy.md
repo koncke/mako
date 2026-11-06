@@ -1496,3 +1496,15 @@ y la API (`que_esta_haciendo`, `buscar_carruseles`).
   migración.
 
 Probado rompiéndolo: 8 roturas, cada una 1 rojo en su test; un renombre sin efecto lo deja en 12/0.
+
+## Gemini corta transcripciones de YouTube sin avisar (6/11/2026)
+
+**Síntoma:** al transcribir videos largos de a tramos de 10 minutos, `gemini-3.5-flash-lite` cortó 22 de 49 tramos, 5 de ellos vacíos, con `finishReason=STOP` y sin error. `gemini-3.6-flash` también devolvió un tramo casi vacío. `gemini-3.1-flash-lite` casi siempre dio el ritmo de habla esperado.
+
+**Por qué importa:** `guionDeYoutubeConGemini` (`lib/ai-cheap.ts:1863`) toma esa respuesta como buena y tiene de respaldo `gemini-flash-lite-latest`. Puede estar guardando guiones cortados de Spy sin decirlo. No se comprobó en producción ni con ese alias.
+
+**Regla:** una transcripción se valida con un mínimo absoluto de caracteres por minuto (se usó 600), no con la mediana del video, que también sale cortada. `finishReason=STOP` no prueba que terminó.
+
+**Trampas del entorno:** `gemini-2.5-flash-lite` figura en la lista de modelos y da 404 a usuarios nuevos. Los 503 son frecuentes en `gemini-3.8-flash`, `gemini-3.6-flash` y `gemini-3.5-flash-lite`: con pedidos de a uno, reintentos y cambio de modelo, todos los tramos terminaron saliendo.
+
+**Sin hacer:** aplicar ese mínimo en `guionDeYoutubeConGemini`.
