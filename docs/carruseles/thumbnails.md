@@ -85,6 +85,23 @@ Con el `.env.local` de producción, desde la raíz del clon. **En seco por defec
 
 5. **Cada mes:** `leer` de nuevo y `podar --de-verdad` (borra lo leído hace más de 30 días).
 
+## ✅ Cargada el 6/11/2026: 85 canales, 1.643 miniaturas
+
+Corrido desde la PC con los pasos de abajo: `descubrir --por-par 8 --dias 180 --de-verdad` (12 búsquedas,
+93 canales) y `leer --max 120 --de-verdad` (1.784 videos). La 0409 ya estaba aplicada.
+
+**Curado: 8 canales excluidos, con su motivo.** Cinco de **mercado indio** (`@dhavalkataria1211`,
+`@wintwealthyt`, `@growthstorystudio`, `@navan.jaiswal`, `@adityaarorathefaadguy`): son el 6% de la
+biblioteca y se quedaban con **4 de los 12 primeros** del orden de entrada, porque las vistas crudas no
+son comparables entre mercados. Y tres sin servir a un dueño de negocio o sin señal: música para
+manifestar (`@musicaexpansiva`), un canal con un solo video de 6 vistas y otro con tope de 306.
+
+⚠️ **Excluir a mano no escala**: cada `leer` mensual trae videos nuevos del mismo tipo. El arreglo de
+fondo es ordenar por el **múltiplo**, que es lo que normaliza mercados distintos — y es lo que espera la
+enmienda III.L. El porqué, con los números, en
+[hallazgos-carruseles.md](../hallazgos-carruseles.md) → «el 6% de los canales se quedaba con un tercio
+de la vidriera».
+
 ## Lo que no se hizo
 
 - **El múltiplo**: espera la enmienda III.L (el mismo trámite que Spy). Hasta entonces, vistas.

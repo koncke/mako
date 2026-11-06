@@ -7,6 +7,20 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+## Cargar la biblioteca de Thumbnails: el 6% de los canales se quedaba con un tercio de la vidriera (6/11/2026)
+
+**Qué se hizo.** La biblioteca de Thumbnails estaba **vacía en producción** (0 canales, 0 miniaturas: la pestaña decía que no estaba cargada) y se cargó desde la PC con los pasos de [thumbnails.md](../carruseles/thumbnails.md): `descubrir` (12 búsquedas, las 12 permitidas del balde de 100 por día de toda la app) → **93 canales** → `leer` → **1.784 videos**, ~93 unidades de cuota.
+
+**Lo que apareció al mirar lo cargado, y no se ve en los totales.** El orden de entrada es «Más vistas» (el múltiplo espera el trámite III.L), y los doce primeros que vería un dueño de negocio eran: un video en hindi sobre 8 small businesses, otro de 23 minutos sobre lo que hizo Lula, **el avión eléctrico más grande del mundo** (de Y Combinator), los autos eléctricos chinos en India y «He Earns ₹25 Crores Daily». De doce, cuatro útiles.
+
+**La causa, medida:** `search.list` encuentra un canal por UNA consulta y después se leen sus **últimos 20 videos, sea de lo que sean**. Un canal de negocios publica cualquier cosa, y las vistas crudas **no son comparables entre mercados**: los canales del mercado indio tienen una escala de vistas que aplasta a todo lo demás. Son **5 de 90 canales y el 6% de las miniaturas (100 de 1.743), pero 4 de los 12 primeros**.
+
+**Lo que se hizo con eso:** se excluyeron esos 5 (`@dhavalkataria1211`, `@wintwealthyt`, `@growthstorystudio`, `@navan.jaiswal`, `@adityaarorathefaadguy`) con el motivo escrito, más 3 que no le sirven a un dueño de negocio o no tienen señal: música para manifestar (`@musicaexpansiva`), un canal con un video de 6 vistas y otro con tope de 306. Quedan **85 canales y 1.643 miniaturas**.
+
+⚠️ **Esto es un parche, no el arreglo.** Excluir a mano no escala: cada `leer` mensual trae videos nuevos del mismo tipo. **El arreglo de fondo es ordenar por el múltiplo** (vistas ÷ la mediana del canal), que es justo lo que normaliza mercados distintos — y es lo que espera la enmienda III.L de YouTube. Mientras no se firme, la vidriera la decide una métrica que no se puede comparar.
+
+⚠️ **Y dos trampas al medirlo, las dos mías, las dos silenciosas.** (1) `thumbnails_videos.canal_id` es el id **numérico** de `thumbnails_canales`, no el id de YouTube (que en la tabla de canales **también** se llama `canal_id`): unir por el campo equivocado da 0 videos por canal y **no da error**. (2) El tipo `Thumbnail` **no tiene** campo de imagen —la URL se arma del id del video con `imagenDeVideo()`—, así que un chequeo de «¿cuántas saldrían en blanco?» contra un campo inexistente contesta «todas». Casi reporté 1.743 miniaturas en blanco que estaban perfectas.
+
 ## «Tu IA no contestó ahora»: el camino de respaldo era más débil que el principal (6/11/2026)
 
 **Síntoma:** Martín apretó «Editar» en un carrusel de la biblioteca y leyó «Tu IA no contestó ahora», con el modal en blanco.
