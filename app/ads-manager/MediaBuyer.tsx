@@ -61,6 +61,10 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
   return j as T & { ok: boolean; error?: string };
 }
 
+/** El objetivo que MaKo calculó con la cuenta, cuando el negocio no puso el suyo (lo deja la última corrida): con él se separa lo que funciona de lo caro. */
+const objetivoRecomendado = (info: Record<string, unknown> | null): number | null =>
+  info && typeof info.objetivo === 'number' && info.objetivoEsRecomendado ? info.objetivo : null;
+
 const VISTAS_DE_SIEMPRE: Array<[Vista, string]> = [['hoy', 'Hoy'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
 // Con un funnel elegido en la primera entrada se suma «Plan» (la propuesta y sus pasos): Hoy · Plan · Campañas · Biblioteca.
 const VISTAS_CON_PLAN: Array<[Vista, string]> = [['hoy', 'Hoy'], ['plan', 'Plan'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
@@ -315,7 +319,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
       {vista === 'campanas' && (
         <div className="aa-pagina">
           <CajaDeOrden placeholder="Pregúntale a MaKo por tus campañas" onPedir={pedir} />
-          <LienzoCampanas kpi={config.kpi} mes={metas ? lineaDelMes(metas, config.kpi, config.objetivo) : null} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial} avatar={avatar}
+          <LienzoCampanas kpi={config.kpi} objetivo={config.objetivo ?? objetivoRecomendado(config.ultimaCorridaInfo)} mes={metas ? lineaDelMes(metas, config.kpi, config.objetivo) : null} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial} avatar={avatar}
             fechas={{ hasta: config.hasta ?? null, hastaCampanas: config.hastaCampanas ?? {} }}
             show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')} onVerAcciones={(d) => setAbierta(d.id)} />
         </div>

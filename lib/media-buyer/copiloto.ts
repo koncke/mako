@@ -87,7 +87,7 @@ export const REFERENTES_COPILOTO: ReadonlyArray<{ id: IdAsesor; funnel: IdFunnel
 ];
 
 export const usaAnuncios = (f: IdFunnel | undefined) => !!f && funnelPorId(f)?.anuncios !== 'no';
-const usaLlamadas = (f: IdFunnel | undefined) => f === 'vsl-llamada' || f === 'mensajes' || f === 'formulario' || f === 'webinar';
+export const usaLlamadas = (f: IdFunnel | undefined) => f === 'vsl-llamada' || f === 'mensajes' || f === 'formulario' || f === 'webinar';
 
 // ── Las reglas: qué conviene ─────────────────────────────────────────────────
 

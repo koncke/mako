@@ -17,3 +17,17 @@
 - **Trampa del peso:** cada ficha de `lib/asesores` son ~5.000 caracteres en CADA mensaje. El CoPilot lleva a lo sumo dos (el referente elegido y una por tipo de funnel). Un test fija el tope.
 - **Trampa de la tab:** el chat de una tab sólo toma su contexto propio si `MakoEnLaTab` declara `tab="Marketing CoPilot"` y la ruta lo mira (`desde.tab`). Cambiar el nombre en un lado y no en el otro lo deja hablando como el Ops Center, sin error. Un test lee los dos.
 - **Una pantalla nueva con `<CajaChat>` entra en la lista de `tests/app-de-escritorio-todos-los-chats.test.ts`:** se pasó por alto en la primera entrega y lo cazó el test, no la revisión.
+
+## Campañas: «un producto por columna» no escala; la columna es lo que hay que hacer
+
+- **Síntoma:** con un solo producto en el CRM (el caso de Mauricio) todas las campañas caían en una columna; con seis, las de más bajaban de fila y perdían su rama.
+- **Causa:** la columna era una dimensión del CRM y no de la decisión. El producto sirve para filtrar; lo que le importa a quien mira es qué hacer con cada campaña.
+- **Dónde vive:** `lib/media-buyer/campanas-grupos.ts` (puro). Funcionan / En prueba / Para revisar, con la vara del negocio (su objetivo; si no lo puso, el que MaKo calculó; si tampoco, el promedio de la cuenta). **Poco dato no decide:** menos de 3 resultados espera; sin resultados se revisa sólo si ya gastó lo que cuesta uno.
+- **Trampa:** la vara se mide con TODAS las visibles; sacar las pausadas antes la movería y con ella la columna de cada campaña.
+- **Trampa de CSS:** una columna vacía en el teléfono ocupa una pantalla entera; `data-vacia` la esconde ahí y se deja en la computadora (ver que no hay nada para revisar es información).
+- **Regla:** el color del costo en la tarjeta (`tono`, del backend) y la columna (acá) usan la misma tolerancia (20%); si una cambia, cambia la otra (`TOLERANCIA_CARO`).
+
+## El filtro del push no corre lo que no se tocó
+
+- **Síntoma:** dos tests cayeron DESPUÉS de subir (`movil-shell` decía «Ads Manager»; el inventario de cajas de MaKo no tenía la pantalla nueva).
+- **Regla:** tras renombrar una tab o sumar una pantalla con `<CajaChat>`, correr a mano `tests/movil-*`, `sidebar-nueva`, `app-de-escritorio-todos-los-chats` y `media-buyer-*` antes de subir.

@@ -213,6 +213,19 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .aa-arranque-hilo { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--primary); border-radius: 16px; overflow: hidden; }
 .aa-rapidas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /* Marketing CoPilot — la primera entrada (6/11/2026): los referentes con su cara, la propuesta y la nota. */
+/* Campañas por estado (6/11/2026): el desplegable de producto, el «Ver N más» y las pausadas. */
+.aa-filtro { max-width: 1040px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 13px; color: var(--dim); }
+.aa-filtro select { width: auto; min-width: 200px; max-width: 100%; }
+.aa-col-ayuda { display: block; margin-top: 1px; font-size: 11.5px; color: var(--faint); }
+.aa-mas { align-self: center; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--aa-borde); background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--primary); }
+.aa-mas:hover { border-color: var(--primary); }
+.aa-pausadas { max-width: 1040px; margin: 18px auto 0; font-size: 13.5px; }
+.aa-pausadas summary { cursor: pointer; color: var(--dim); font-weight: 500; padding: 6px 0; }
+.aa-pausadas ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.aa-pausadas li button { width: 100%; display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--aa-borde); text-align: left; }
+.aa-pausadas li button:hover { border-color: var(--primary); }
+.aa-pausadas li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-pausadas li em { flex: none; font-style: normal; color: var(--dim); }
 /* Marketing CoPilot — las secciones sin anuncios y el Plan (6/11/2026). Sobre la tarjeta de siempre (.aa-card). */
 .aa-sinanuncios .aa-pagina { gap: 14px; }
 .aa-etiqueta { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--aa-borde); background: var(--surface); font-size: 12px; font-weight: 600; color: var(--dim); white-space: nowrap; }
@@ -375,6 +388,10 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
   .aa-tarea { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .aa-boton { width: 100%; }
   .aa-etiqueta { display: none; }
+  .aa-col[data-vacia] { display: none; }
+  .aa-filtro { justify-content: stretch; }
+  .aa-filtro label { display: none; }
+  .aa-filtro select { width: 100%; min-width: 0; }
   .aa-calc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .aa-ajustes { padding-top: 6px; }
   .aa-cuenta { grid-template-columns: repeat(2, minmax(0, 1fr)); }

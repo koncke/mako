@@ -6,15 +6,39 @@ Pedido de Martín (6/11/2026): la tab Ads Manager pasa a ser «Marketing CoPilot
 
 | Tanda | Estado |
 |---|---|
+| 5. Campañas y Ajustes | Hecha. Campañas: tres columnas por ESTADO (Funcionan · En prueba · Para revisar; `lib/media-buyer/campanas-grupos.ts`, puro, con tests) y el producto del CRM pasó a ser un desplegable que filtra; tope de 6 tarjetas por columna con «Ver N más» y las pausadas aparte. Ajustes: arriba «Tu estrategia» (funnel, venta, anuncios por mes, quién llama, ritmo; avisa si el funnel ya no le sirve), las metas viven con el objetivo, y un funnel sin anuncios no ve nada de la cuenta de Meta. Capturas 10 a 15. |
 | 4. La pantalla según el funnel | Hecha. `conCampanas` / `seccionesDe` (puro, con tests): Campañas sólo con anuncios; sin ellos, Esta semana · Plan · Qué medir (`PlanDelCopiloto.tsx`), con atajos a Calendario, Copywriting, Carruseles, Lead Magnet y Web Generator. Qué ve cada camino: `docs/investigacion-marketing-copilot.md`. Capturas 07 a 09. Sin la sección Plan en el teléfono con anuncios. |
 | 3. El agente | Hecha. El chat de la tab (`desde.tab = 'Marketing CoPilot'`) arma su contexto en `app/api/mako/chat/route.ts` con `lib/media-buyer/copiloto-contexto.ts`: las 10 reglas, lo que respondió el negocio con el veredicto de las reglas puras, `docs/conocimiento/anuncios-high-ticket.md` destilado SIN nombrar a nadie (`copiloto-conocimiento.ts`) y a lo sumo dos fichas de `lib/asesores` según el funnel (Instagram: Otálora y Collado; YouTube: Chamizo; webinar: Doglio; lead magnets: Contreras; anuncios: Juan ADS). Cuatro herramientas fijas. Seis conversaciones en `docs/marketing-copilot/conversaciones.md`, fijadas por `tests/marketing-copilot-agente.test.ts`. **El modelo no se corrió**: los tests prueban lo que llega al system, no lo que contesta; falta probarlo en vivo (ver «Para el Cerebro»). |
 | 2. Primera entrada | Hecha. `lib/media-buyer/copiloto.ts` (reglas y charla, puro, 14 tests en `tests/marketing-copilot-reglas.test.ts`), `app/ads-manager/PrimeraEntrada.tsx` (el marco del arranque del Media Buyer con otra charla), guardado por negocio en `app_settings` (`marketing-copilot.perfil`, sin migración), op `copiloto` de `/api/media-buyer` y dos operaciones de la API de MaKo. Se ve sólo si el negocio nunca operó el Media Buyer (sin corrida ni decisiones) y no terminó la charla; `?estrategia=1` la reabre. Capturas en `docs/marketing-copilot/` (01 a 06, a 1440 y 390; banco: `scripts/banco-copilot/`). |
 | 1. Nombre y lugar | Hecha. Rótulo «Marketing CoPilot», ícono `copiloto`; key `ads-manager` y ruta `/ads-manager` sin tocar. Web Generator en Create (escritorio y móvil). |
 
 ## Autocrítica
-(se completa por tanda)
+
+Lo que se encontró usando cada pantalla a 1440 y a 390 (banco de `scripts/banco-copilot/`, capturas en `docs/marketing-copilot/`) y lo que se cambió:
+
+| Pregunta | Qué se vio | Qué se hizo |
+|---|---|---|
+| ¿Se entiende sin explicación? (primera entrada) | El banco sin el CSS de la tab dibujaba una lista numerada; con él, la charla del Funnel Coach. La frase de los referentes («no soy esa persona ni él o ella participa») sonaba torpe | Se reescribió («Uso su método como guía: no soy esa persona ni participa en MaKo») y los referentes son tarjetas con su cara y «Inspirado en» en la cabecera al elegir |
+| ¿Cada botón hace algo? | Una pastilla del aviso decía «Sí, Anuncios a compra directa» con mayúscula en medio | En minúscula, y un test prueba que cada pastilla de cada paso la entiende el mismo paso |
+| ¿Qué sobra? | «Esta semana» repetía el Calendario en dos tarjetas (stories y «programar») | Stories va a Copywriting; el Calendario queda una vez |
+| ¿Tiene sentido con la idea nueva? | Un funnel orgánico mostraba Campañas y pedía conectar Facebook | Es la tanda 4: sin anuncios no hay Campañas ni cuenta de Meta, ni en la pantalla ni en Ajustes |
+| ¿Se rompe con muchas campañas? | Con 40 campañas en un solo producto (el caso de Mauricio) la columna era interminable; con 6 productos bajaban de fila | Tres columnas por estado, tope de 6 y «Ver N más»; en el teléfono las columnas vacías no se dibujan |
+| ¿Un dato en dos lugares? | `Ajustes` tenía «Metas del mes» aparte del objetivo | Se juntaron en «Objetivo y metas»; la meta de ventas ahora dice US$ |
+| ¿Un bug al usarlo? | Al aceptar la propuesta desde «Cambiar mi estrategia» la página volvía a mostrar la charla (el `?estrategia=1` seguía puesto) | `router.replace` antes de `router.refresh`; lo fija un test que se probó rompiéndolo |
+| ¿Un bug que la suite cazó, no la revisión? | `PrimeraEntrada` dibuja una `CajaChat` y no estaba en el inventario de cajas de MaKo; y renombrar la tab dejó un test del teléfono diciendo «Ads Manager» | Se anotó en `tests/app-de-escritorio-todos-los-chats.test.ts` y se corrigió `tests/movil-shell.test.ts`. **Se vieron DESPUÉS del primer push**: el filtro del push no corrió esos archivos. Antes de subir se corre `media-buyer-*`, `movil-*`, `sidebar-nueva` y `app-de-escritorio-*` |
+
+**Descartado:** una columna «Escalar» separada de «Funcionan» (es la misma decisión: lo que funciona se escala, y eso lo dice la tarjeta del Media Buyer en Hoy); un cuarto estado «Pausadas» como columna (no se les pide nada: van en una lista plegable); una sección «Medir» también en los funnels con anuncios (el Media Buyer ya mide, en Hoy y Biblioteca).
+
+**Lo que NO se pudo hacer desde acá:** correr el modelo. Los tests prueban que al system llega lo correcto (reglas, perfil, veredicto, conocimiento), no lo que contesta. Y no se usó el producto con una base: las capturas son del componente real con datos inventados.
+
 
 ## Para el Cerebro
-- Probar en el ws 3 (nunca el 1) las seis conversaciones de `docs/marketing-copilot/conversaciones.md` contra el chat de la tab, y mirar si cada «Debe» y cada «No debe» se cumple. Es lo único que los tests no cubren.
-- Si la tab no llega a `desde.tab` con el nombre «Marketing CoPilot» (un chat viejo abierto antes del deploy), el chat cae al contexto del Ops Center: recargar la página.
-- Nada que correr en producción en la tanda 1.
+- **Migración: ninguna.** Lo que respondió cada negocio vive en `app_settings` (`marketing-copilot.perfil`), como el arranque del Media Buyer. No hay nada que correr en producción.
+- **En producción, en el ws 3 (nunca el 1), mirar:** (1) un negocio sin corrida ni decisiones: `/ads-manager` abre la charla sola, sin otras tabs; (2) terminar la charla con «Orgánico en Instagram»: la pantalla trae Esta semana · Plan · Qué medir y los ajustes no traen la cuenta de Meta; (3) con «VSL con llamada» y US$200 de ticket: la charla avisa y propone compra directa; (4) un negocio con muchas campañas (Mauricio, ws 1, sólo leer): Campañas en tres columnas con el desplegable de producto; (5) el chat de la tab con las seis conversaciones de `docs/marketing-copilot/conversaciones.md`.
+- **El chat de la tab** sólo habla como CoPilot si `MakoEnLaTab` declara `tab="Marketing CoPilot"` y `app/api/mako/chat/route.ts` lo mira. Un chat abierto antes del deploy cae al contexto del Ops Center: recargar la página.
+- **Negocios de antes** (con corrida o decisiones): no ven la primera entrada y su pantalla sigue igual; la abren con `/ads-manager?estrategia=1`. Si Martín quiere que a todos se les ofrezca, hay un botón por poner (hoy sólo está en Ajustes cuando ya hay un funnel elegido).
+- **Sin hacer:** la sección Plan en el teléfono con anuncios (`app/m/ads/MediaBuyerM.tsx`); «Esta semana» sin checks (atajos, sin estado); el bench no cubre `MediaBuyer.tsx` entero (sólo sus piezas).
+- **Probado rompiéndolo:** `tests/marketing-copilot-reglas.test.ts` (umbral de ticket, la regla de «nadie llama», `seccionesDe`), `tests/marketing-copilot-agente.test.ts` (una fuente nombrada, una regla cambiada, la ruta sin conectar, el veredicto sacado), `tests/marketing-copilot-pantallas.test.ts` (el `router.replace`, el desplegable) y `tests/media-buyer-campanas-grupos.test.ts` (cada cambio, al pie de cada archivo).
+
+## Capturas (`docs/marketing-copilot/`)
+01 entrada · 02 referentes · 03 aviso de que no le sirve · 04 a 06 propuestas (VSL, orgánico, referente) · 07 y 08 Esta semana (orgánico, YouTube) · 09 Plan · 10 a 13 Campañas (el caso de Mauricio, varios productos, una sola, sin objetivo) · 14 y 15 Ajustes. Todas a 1440 y a 390.

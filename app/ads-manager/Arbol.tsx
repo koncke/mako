@@ -23,7 +23,7 @@ import { aplicablesEnLote, cambioCorto, columnasDeHoy, esVariacion, mensajeDeHoy
 /** El hueco entre columnas, en % del ancho: así el centro de cada columna se calcula exacto para las ramas (sin medir). */
 const HUECO = 2.4;
 
-export type Columna = { clave: string; cabecera?: ReactNode; items: ReactNode[] };
+export type Columna = { clave: string; cabecera?: ReactNode; items: ReactNode[]; /** Sin tarjetas: en el teléfono no se dibuja (una columna vacía ocupa una pantalla entera). */ vacia?: boolean };
 
 /** La pastilla, el abanico de ramas, las columnas de tarjetas y el mensaje al pie. */
 export function Ramas({ etiqueta, avatar, pildora, columnas, pie }: {
@@ -47,7 +47,7 @@ export function Ramas({ etiqueta, avatar, pildora, columnas, pie }: {
       </svg>
       <div className="aa-cols">
         {columnas.map((c, i) => (
-          <div key={c.clave} className="aa-col" data-fila={i >= n ? '2' : undefined}>
+          <div key={c.clave} className="aa-col" data-fila={i >= n ? '2' : undefined} data-vacia={c.vacia ? '1' : undefined}>
             {c.cabecera && <p className="aa-col-cab">{c.cabecera}</p>}
             {c.items}
           </div>

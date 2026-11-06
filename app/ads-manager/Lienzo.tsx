@@ -28,6 +28,7 @@ import { Nada } from './Autopilot';
 import { Ramas, TarjetaRama, TarjetaVacia } from './Arbol';
 import { mensajeDeCampanas, pildoraDeCampanas } from './mb-modelo';
 import { etiquetaCuentaMeta, linkCampanasEnMeta, type CuentaLeida } from '@/lib/meta-cuenta-leida';
+import { COLUMNAS, TOPE_POR_COLUMNA, opcionesDeProducto, repartirCampanas, verMas, visiblesPorProducto, type Grupo } from '@/lib/media-buyer/campanas-grupos';
 
 export type Lienzo = {
   productos: ProductoDeLienzo[]; sinProducto: CampanaDeLienzo[]; moneda: string | null;
@@ -36,8 +37,10 @@ export type Lienzo = {
 };
 const RES: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'lead'], agenda: ['agendas', 'agenda'], venta: ['ventas', 'venta'] };
 
-export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, mes = null, fechas }: {
+export function LienzoCampanas({ kpi, objetivo = null, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, mes = null, fechas }: {
   kpi: KpiMediaBuyer;
+  /** Lo que busca el negocio por resultado, en US$ (Ajustes): con él se separa lo que funciona de lo caro. Sin él, se compara con el promedio de la cuenta. */
+  objetivo?: number | null;
   /** Los números del mes en una línea (mb-modelo.ts → lineaDelMes): la primera del pie. */
   mes?: { texto: string; tono: 'bien' | 'mal' | null } | null;
   /** La fecha de fin de toda la cuenta y la de cada campaña (de la config). */
@@ -70,6 +73,9 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
     else show(r.error ?? 'No pude guardar la fecha.', undefined, 'bad');
   };
   const [plural, uno] = RES[kpi];
+  // El producto es un FILTRO (6/11/2026, Martín): las columnas son el estado de cada campaña (lib/media-buyer/campanas-grupos.ts).
+  const [producto, setProducto] = useState<string>(productoInicial && productoInicial !== 'sin' ? productoInicial : productoInicial === 'sin' ? 'sin' : 'todos');
+  const [abiertasCol, setAbiertasCol] = useState<Partial<Record<Grupo, boolean>>>({});
 
   const leer = useCallback(async () => {
     const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'lienzo' }) })
@@ -118,14 +124,25 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
     );
   };
 
-  const columnas = [
-    ...l.productos.map((p) => ({
-      clave: p.id,
-      cabecera: <><b>{p.nombre}</b>{p.costo != null ? ` · ${fmt(p.costo)} por ${uno}` : ''}</>,
-      items: p.campanas.length ? p.campanas.map((c) => tarjeta(c, p.nombre)) : [<TarjetaVacia key="vacia">Todavía sin campañas</TarjetaVacia>],
-    })),
-    ...(l.sinProducto.length ? [{ clave: 'sin', cabecera: <b>Sin producto</b>, items: l.sinProducto.map((c) => tarjeta(c, null)) }] : []),
-  ];
+  const opciones = opcionesDeProducto(l.productos, l.sinProducto);
+  const elegido = opciones.some((o) => o.id === producto) ? producto : 'todos';
+  const reparto = repartirCampanas(visiblesPorProducto(l.productos, l.sinProducto, elegido), objetivo);
+  const nombreDe = (c: CampanaDeLienzo) => (l.sinProducto.some((x) => x.id === c.id) ? null : l.productos.find((p) => p.campanas.some((x) => x.id === c.id))?.nombre ?? null);
+  const columnas = COLUMNAS.map((col) => {
+    const todasDe = reparto.grupos[col.id];
+    const ver = abiertasCol[col.id] ? todasDe : todasDe.slice(0, TOPE_POR_COLUMNA);
+    const mas = verMas(todasDe.length, ver.length);
+    return {
+      clave: col.id,
+      vacia: todasDe.length === 0,
+      cabecera: <><b>{col.titulo}</b>{` · ${todasDe.length}`}<small className="aa-col-ayuda">{col.id === 'funcionan' && reparto.referencia?.de === 'promedio' ? 'Mejor que el promedio de tu cuenta' : col.ayuda}</small></>,
+      items: [
+        ...(todasDe.length ? ver.map((c) => tarjeta(c, nombreDe(c))) : [<TarjetaVacia key="vacia">{col.vacia}</TarjetaVacia>]),
+        ...(mas || (abiertasCol[col.id] && todasDe.length > TOPE_POR_COLUMNA)
+          ? [<button key="mas" type="button" className="aa-mas" onClick={() => setAbiertasCol((x) => ({ ...x, [col.id]: !x[col.id] }))}>{mas ?? 'Ver menos'}</button>] : []),
+      ],
+    };
+  });
   // MK-03 (27/10/2026): «no veo las campañas» era otra cuenta o un borrador. El pie dice QUÉ cuenta se leyó, como Meta la
   // muestra arriba a la izquierda, y lleva a su «Revisar y publicar»: un borrador no existe para la API (lib/meta-cuenta-leida.ts).
   const cuenta = etiquetaCuentaMeta(l.cuenta);
@@ -133,8 +150,16 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
 
   return (
     <>
-      <Ramas etiqueta="Tus campañas por producto" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
-        columnas={columnas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
+      {opciones.length > 0 && (
+        <div className="aa-filtro">
+          <label htmlFor="aa-producto">Producto</label>
+          <select id="aa-producto" className="mk-input" value={elegido} onChange={(e) => setProducto(e.target.value)}>
+            {opciones.map((o) => <option key={o.id} value={o.id}>{`${o.nombre} (${o.n})`}</option>)}
+          </select>
+        </div>
+      )}
+      <Ramas etiqueta="Tus campañas por estado" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
+        columnas={todas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
         pie={<div className="aa-pie-texto">
           {mes && <p className="aa-pie-mes" data-tono={mes.tono ?? undefined}>{mes.texto}</p>}
           <p>{todas.length ? mensajeDeCampanas(l.productos.filter((p) => p.campanas.length), l.sinProducto.length, kpi, (n) => fmt(n)) : l.aviso ?? 'Meta no devolvió campañas de esta cuenta.'}</p>
@@ -143,6 +168,17 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
             <p className="aa-pie-cuenta">{cuenta}{enMeta && <> · <a href={enMeta} target="_blank" rel="noreferrer" title="Un borrador de Meta no llega a MaKo hasta que lo publicas">Revisar y publicar en Meta ↗</a></>}</p>
           )}
         </div>} />
+
+      {reparto.pausadas.length > 0 && (
+        <details className="aa-pausadas">
+          <summary>{reparto.pausadas.length === 1 ? '1 pausada' : `${reparto.pausadas.length} pausadas`}</summary>
+          <ul>
+            {reparto.pausadas.map((c) => (
+              <li key={c.id}><button type="button" onClick={() => setAbierta(c.id)}><span>{c.nombre}</span><em>{fmt(c.gasto)}{c.resultados ? ` · ${fmtNum(c.resultados)} ${c.resultados === 1 ? uno : plural}` : ''}</em></button></li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {detalle && (
         <Modal titulo={detalle.c.nombre} encabezado={detalle.producto ?? 'Sin producto'} ancho={520} onCerrar={() => setAbierta(null)}>

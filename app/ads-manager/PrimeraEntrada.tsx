@@ -60,6 +60,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     setTerminando(true);
     const ok = await guardar(sig);
     if (!ok) { setTerminando(false); setError('No pude guardarlo. Prueba otra vez.'); setP(aplicarCambio(sig, { aceptado: undefined })); return; }
+    // Sin el `?estrategia=1` de «Cambiar mi estrategia»: con él puesto, la página volvería a mostrar la charla en vez de la vista normal.
+    router.replace(window.location.pathname);
     router.refresh();
   };
 

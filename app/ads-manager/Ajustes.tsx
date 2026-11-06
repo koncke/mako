@@ -30,6 +30,8 @@ import { leerMonto } from '@/lib/media-buyer/monto';
 import { fmtDinero } from '@/lib/format';
 import { HASTA_SIN_SUBIR_DIAS, type LugarZona } from '@/lib/media-buyer/zona';
 import { ElegirLugares } from './ElegirLugares';
+import { aplicarCambio, conCampanas, evaluarFunnel, funnelElegido, usaAnuncios, usaLlamadas, sanearPerfil, type Llamadas, type ObjetivoOrganico, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
+import { inspiradoEn, asesorPorId } from '@/lib/asesores/catalogo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
@@ -75,8 +77,13 @@ function CampoFila({ valor, onGuardar, etiqueta, placeholder, prefijo, sufijo, a
   );
 }
 
-export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoMediaBuyer }) {
+export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }: { config: Config; cupo: CupoMediaBuyer; perfil?: PerfilCopiloto | null }) {
   const [config, setConfig] = useState(inicial);
+  // TU ESTRATEGIA (6/11/2026): lo que se respondió en la primera entrada, editable acá. Un funnel sin anuncios no tiene cuenta de Meta
+  // que ajustar: sólo ve esto (y cómo sumar anuncios).
+  const [perfil, setPerfil] = useState<PerfilCopiloto | null>(perfilInicial);
+  const funnel = perfil ? funnelElegido(perfil) : null;
+  const sinCampanas = !!funnel && !conCampanas(funnel.id, perfil?.presupuestoMes);
   // DÓNDE y HASTA: el control responde al toque y guarda SU campo; `config` vuelve del servidor (y con él, lo de otra pestaña).
   // ⚠️ `zona` puede NO VENIR: la migración 0350 (zona y fechas) no está aplicada en todos los entornos, y una config sin ella
   // llega sin el campo. `ElegirLugares` hace `elegidos.length`, así que sin el `?? []` la pantalla entera tira un TypeError.
@@ -109,6 +116,28 @@ export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoM
     if (!/^\s*\d{1,3}\s*$/.test(s) || Number(s) > 100) { show('La subida va de 0% a 100%.', undefined, 'bad'); return false; }
     return guardar({ subidaMaxPctDia: Number(s) });
   };
+  const guardarPerfil = async (cambio: Partial<PerfilCopiloto>): Promise<boolean> => {
+    if (!perfil) return false;
+    const sig = sanearPerfil(aplicarCambio(perfil, cambio));
+    const r = await api({ op: 'copiloto', perfil: sig });
+    if (r.ok) { setPerfil(sig); show('Guardado', undefined, 'good'); return true; }
+    show(r.error ?? 'No se pudo guardar.', undefined, 'bad');
+    return false;
+  };
+  // Un monto de la estrategia: el cero vale (no hay presupuesto), vacío no.
+  const monto = async (campo: 'ticket' | 'presupuestoMes', s: string): Promise<boolean> => {
+    if (campo === 'presupuestoMes' && /^\s*0\s*$/.test(s)) return guardarPerfil({ presupuestoMes: 0 });
+    const n = leerMonto(s);
+    if (n == null) { show('No entiendo ese monto: escríbelo como 1500 o 1,500.', undefined, 'bad'); return false; }
+    return guardarPerfil({ [campo]: n });
+  };
+  const ritmo = async (s: string): Promise<boolean> => {
+    if (!/^\s*\d{1,2}\s*$/.test(s) || Number(s) < 1 || Number(s) > 21) { show('Entre 1 y 21 por semana.', undefined, 'bad'); return false; }
+    return guardarPerfil({ ritmo: Number(s) });
+  };
+  const veredicto = perfil && funnel && perfil.ticket != null
+    ? evaluarFunnel(funnel.id, { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas ?? 'yo' }) : null;
+  const refInspirado = perfil?.referente ? asesorPorId(perfil.referente) : null;
   const txt = (n: number | null) => (n == null ? '' : String(n));
   const recomendado = config.ultimaCorridaInfo && typeof config.ultimaCorridaInfo.objetivo === 'number' && config.ultimaCorridaInfo.objetivoEsRecomendado
     ? config.ultimaCorridaInfo.objetivo as number : null;
@@ -117,8 +146,39 @@ export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoM
   return (
     <div className="aa">
       <div className="aa-ajustes">
-        <TituloAjustes titulo="Ajustes" volver={{ href: '/ads-manager', label: 'Media Buyer' }} />
+        <TituloAjustes titulo="Ajustes" volver={{ href: '/ads-manager', label: 'Marketing CoPilot' }} />
 
+        {perfil && funnel && (
+          <GrupoAjustes titulo="Tu estrategia">
+            <FilaAjustes titulo={funnel.nombre} href="/ads-manager?estrategia=1" valor="Cambiar"
+              tono={veredicto && !veredicto.sirve ? 'warn' : undefined} estado={veredicto && !veredicto.sirve ? 'Revisar' : undefined}
+              detalle={veredicto && !veredicto.sirve ? <>{veredicto.motivo}{veredicto.mejor ? ' Habla con MaKo para ver qué conviene.' : ''}</> : refInspirado ? inspiradoEn(refInspirado) : funnel.que} />
+            <FilaAjustes titulo="Una venta te deja" fin={<CampoFila etiqueta="Lo que te deja una venta" prefijo="US$" valor={txt(perfil.ticket ?? null)} placeholder="Sin dato" onGuardar={(s) => monto('ticket', s)} />} />
+            {usaAnuncios(funnel.id) && (
+              <FilaAjustes titulo="Anuncios por mes" detalle={(perfil.presupuestoMes ?? 0) === 0 ? 'Con US$0 no hay Campañas: se difunde sin pagar' : null}
+                fin={<CampoFila etiqueta="Presupuesto en anuncios por mes" prefijo="US$" valor={txt(perfil.presupuestoMes ?? null)} placeholder="0" onGuardar={(s) => monto('presupuestoMes', s)} />} />
+            )}
+            {usaLlamadas(funnel.id) && (
+              <FilaAjustes titulo="Quién llama" fin={<Pastillas<Llamadas> etiqueta="Quién llama" valor={perfil.llamadas ?? 'yo'} opciones={[['yo', 'Yo'], ['equipo', 'Un equipo'], ['nadie', 'Nadie']]} onCambio={(v) => void guardarPerfil({ llamadas: v })} />} />
+            )}
+            {(funnel.id === 'organico' || funnel.id === 'youtube') && (
+              <FilaAjustes titulo={funnel.id === 'youtube' ? 'Videos por semana' : 'Piezas por semana'}
+                fin={<CampoFila etiqueta="Por semana" modo="numeric" ancho={70} valor={txt(perfil.ritmo ?? null)} placeholder="3" onGuardar={ritmo} />} />
+            )}
+            {funnel.id === 'organico' && (
+              <FilaAjustes titulo="Qué buscas" fin={<Pastillas<ObjetivoOrganico> etiqueta="Qué buscas" valor={perfil.objetivo ?? 'mixto'} opciones={[['viralidad', 'Viralidad'], ['ventas', 'Ventas'], ['mixto', 'Ambas']]} onCambio={(v) => void guardarPerfil({ objetivo: v })} />} />
+            )}
+          </GrupoAjustes>
+        )}
+
+        {sinCampanas && (
+          <GrupoAjustes titulo="Anuncios">
+            <FilaAjustes titulo="Todavía sin anuncios" detalle={usaAnuncios(funnel!.id) ? 'Sin presupuesto no hay Campañas. Si más adelante quieres anunciar, ponlo arriba en «Anuncios por mes».' : 'Tu funnel no los necesita. Si más adelante quieres sumarlos, cambia de funnel.'}
+              href="/ads-manager?estrategia=1" valor="Cambiar funnel" />
+          </GrupoAjustes>
+        )}
+
+        {!sinCampanas && <>
         <GrupoAjustes titulo="Media Buyer">
           {/* Apagado igual pausa lo que llegó a su fecha: la fecha de fin vale con el Media Buyer apagado (main, 29/10). */}
           <FilaAjustes titulo="Encendido" detalle={config.encendido ? null : 'Apagado no mira tu cuenta ni lanza nada: sólo pausa lo que llegó a su fecha'}
@@ -130,11 +190,15 @@ export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoM
               deshabilitada={(v) => v === 'piloto' && !cupo.piloto} onCambio={(v) => void guardar({ modo: v })} />} />
         </GrupoAjustes>
 
-        <GrupoAjustes titulo="Objetivo">
+        <GrupoAjustes titulo="Objetivo y metas">
           <FilaAjustes titulo="Resultado" fin={<Pastillas etiqueta="Resultado" valor={config.kpi} opciones={RESULTADOS} onCambio={(v) => void guardar({ kpi: v })} />} />
           <FilaAjustes titulo={`Costo ${POR[config.kpi]}`} detalle={config.objetivo == null ? 'Vacío: lo calcula MaKo con tu cuenta' : null}
             fin={<CampoFila etiqueta={`Costo ${POR[config.kpi]} objetivo`} valor={txt(config.objetivo)} prefijo="US$"
               placeholder={recomendado != null ? fmtDinero(recomendado) : 'Automático'} onGuardar={(s) => conMonto('objetivo', s)} />} />
+          <FilaAjustes titulo="Meta de ventas del mes" fin={<CampoFila etiqueta="Meta de ventas del mes" prefijo="US$" valor={txt(config.metaVentasMes)} placeholder="Sin meta"
+            onGuardar={(s) => conMonto('metaVentasMes', s)} />} />
+          <FilaAjustes titulo="Gasto previsto del mes" fin={<CampoFila etiqueta="Gasto previsto del mes" prefijo="US$" valor={txt(config.metaGastoMes)} placeholder="Sin meta"
+            onGuardar={(s) => conMonto('metaGastoMes', s)} />} />
         </GrupoAjustes>
 
         <GrupoAjustes titulo="Topes">
@@ -158,13 +222,6 @@ export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoM
               onBlur={() => { if ((hasta || null) !== (config.hasta ?? null)) void guardar({ hasta: hasta || null }).then((ok) => { if (!ok) setHasta(config.hasta ?? ''); }); }} />} />
         </GrupoAjustes>
 
-        <GrupoAjustes titulo="Metas del mes">
-          <FilaAjustes titulo="Ventas" fin={<CampoFila etiqueta="Meta de ventas del mes" valor={txt(config.metaVentasMes)} placeholder="Sin meta"
-            onGuardar={(s) => conMonto('metaVentasMes', s)} />} />
-          <FilaAjustes titulo="Gasto" fin={<CampoFila etiqueta="Gasto previsto del mes" prefijo="US$" valor={txt(config.metaGastoMes)} placeholder="Sin meta"
-            onGuardar={(s) => conMonto('metaGastoMes', s)} />} />
-        </GrupoAjustes>
-
         <GrupoAjustes titulo="Cuenta de Meta">
           <FilaAjustes titulo="Cuenta publicitaria" detalle="La de Integraciones manda" fin={<CampoFila etiqueta="Cuenta publicitaria (act_…)" modo="text" ancho={200}
             valor={config.cuentaPublicitaria ?? ''} placeholder={zernio?.cuenta ?? 'act_123456789'} onGuardar={(s) => guardar({ cuentaPublicitaria: s.trim() || null })} />} />
@@ -173,6 +230,7 @@ export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoM
               {zernio?.conectado ? 'Reconectar' : 'Conectar con Facebook'}
             </ConectarViaZernio>} />
         </GrupoAjustes>
+        </>}
       </div>
       <Toast state={toast} onClose={clear} />
     </div>

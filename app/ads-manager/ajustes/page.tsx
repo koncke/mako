@@ -12,6 +12,8 @@ import { Pagina } from '@/app/_ui/Pagina';
 import { EmptyState, PermissionState } from '@/app/_ui/Estados';
 import { leerConfig, cupoDe } from '@/lib/media-buyer/store';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
+import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { copilotoListo } from '@/lib/media-buyer/copiloto';
 import { Ajustes } from '../Ajustes';
 
 export const dynamic = 'force-dynamic';
@@ -29,11 +31,11 @@ export default async function AjustesPage() {
   }
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
-  const [guardada, cupo] = await Promise.all([leerConfig(ws), cupoDe(ws)]);
+  const [guardada, cupo, perfil] = await Promise.all([leerConfig(ws), cupoDe(ws), leerPerfilCopiloto(ws)]);
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   return (
     <Pagina ancho="completo" style={{ padding: 0 }}>
-      <Ajustes config={config} cupo={cupo} />
+      <Ajustes config={config} cupo={cupo} perfil={copilotoListo(perfil) ? perfil : null} />
     </Pagina>
   );
 }

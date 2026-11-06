@@ -48,5 +48,6 @@ await esbuild.build({
 let g = fs.readFileSync(WT + '/app/globals.css', 'utf8');
 g = g.replace(/^@import .*$/gm, '').replace(/@theme inline \{[\s\S]*?\n\}\n/g, '').replace(/@custom-variant .*$/gm, '').replace(/@plugin .*$/gm, '');
 const ui = fs.readFileSync(WT + '/app/_ui/ui.css', 'utf8').replace(/^@import .*$/gm, '');
-fs.writeFileSync(path.join(AQUI, 'salida', 'casa.css'), g + '\n' + ui);
+const aj = fs.readFileSync(WT + '/app/_ui/ajustes.css', 'utf8').replace(/^@import .*$/gm, '');
+fs.writeFileSync(path.join(AQUI, 'salida', 'casa.css'), g + '\n' + ui + '\n' + aj);
 console.log('banco listo: scripts/banco-copilot/salida');
