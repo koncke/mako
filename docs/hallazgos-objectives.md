@@ -24,6 +24,42 @@ El diseño acordado, con las cinco decisiones del dueño, está en
 
 ---
 
+## Las dos metas de los reportes NO se unifican moviendo el call-site: la receta obvia empeora la mentira (6/11/2026)
+
+El síntoma es real y está medido: `lib/reportes.ts:67` y `:175` (el reporte diario y el semanal, los que
+salen por WhatsApp) leen `getObjetivoProgreso`, y esa lectura saca la META de los tres settings viejos
+—`objetivo_cierres`, `objetivo_cash_usd`, `objetivo_desde` (`lib/queries.ts:2995-2997`)—, migrados a
+`objectives` por la mig 0155. La pantalla lee los nuevos. Con los mismos datos, el WhatsApp dice una
+meta y `/general` dice otra.
+
+**La receta que circulaba estaba equivocada.** El pendiente decía «unificarlo es mover esos dos
+call-sites a `objetivosContextoTexto()`». Dos razones por las que no, y las dos sólo se ven abriendo las
+funciones:
+
+1. `objetivosContextoTexto()` (`lib/objectives.ts:622`) devuelve **prosa para un prompt** («- Cierres del
+   trimestre: 3 de 20 — atrasado…»), no números. El reporte imprime `cierres_actual/cierres_meta` y
+   `cash_actual/cash_meta` dentro de una línea formateada. Mover el call-site le mete al cliente un
+   bloque de varias líneas en el medio del reporte.
+2. **Las dos fuentes no miden la misma ventana.** La meta nueva es por TRIMESTRE; el «actual» del reporte
+   se acumula desde `objetivo_desde`, que por defecto es un ancla histórica. Cambiar sólo la meta compara
+   una meta trimestral contra un acumulado de meses: un número más equivocado que el de hoy, y con la
+   apariencia de estar arreglado.
+
+**Lo que sí hay que hacer:** que el reporte lea la fuente nueva ENTERA —`quarterActual()` +
+`listObjectives(qt)` + `avanceDeObjetivo(o, hoy)`— y renderice esos números. El mapeo es mecánico y ya
+está escrito: `migrarSettingsAObjectives` (`lib/objectives.ts:568-595`) creó los dos objetivos con
+`metrica: 'cash_usd'` y `metrica: 'cierres'`, así que el reporte los encuentra por ahí. La legacy queda
+de respaldo para un negocio sin objetivos cargados.
+
+**Why:** los actuales (`cierres_actual`, `cash_actual`) se calculan en vivo desde `leads` y `pagos`, así
+que parecían sanos y el bug se leía como «sólo la meta está vieja». La meta y la ventana viajan juntas:
+una meta sin su período no es una meta.
+
+**How to apply:** cambia qué número lee el cliente en su reporte de WhatsApp, así que **no sale sin el sí
+de Martín** (va con la regla de [[cambios-impactan-clientes]]). Y la regla general: cuando un pendiente
+trae la solución escrita («mover X a Y»), se abre Y antes de creerle — un pendiente describe un síntoma
+con autoridad y una cura sin ninguna.
+
 ## Dos de las cinco fuentes dicen «stale» cuando nunca hubo un dato
 
 **Vive en:** `app/general/page.tsx` (el cálculo de `sinFuentes`) · `lib/sources.ts:101` y `:129`
