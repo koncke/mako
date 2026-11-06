@@ -24,7 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,4 +168,45 @@ test('punta.yml configura el driver del índice, copiándolo de main, antes de l
   assert.ok(yml.indexOf('git show origin/main:.gitattributes') < yml.indexOf("echo 'docs/hallazgos.md merge=indice-hallazgos'"));
   // Y el paso entero va antes de la primera mezcla.
   assert.ok(yml.indexOf('Las bitácoras se unen solas al mezclar') < yml.indexOf('MEZCLAR EL MAIN DE ESTE MOMENTO'));
+});
+
+// =============================================================================
+// Y el ÍNDICE QUE HAY EN DISCO: una fila por área, los links vivos, la tabla entera
+// =============================================================================
+// `merge=union` ya no lo duplica, pero lo de arriba fija el DRIVER, no el documento. El daño que dejó se juntó a mano el
+// 6/11/2026 (217 filas → 77) y nada impedía que volviera: una cosecha que agrega una fila en vez de reescribir la celda
+// de su área, un `|` sin escapar en el texto —que le inventa columnas y parte la fila— o un documento que se borra y
+// deja su link colgado (pasó con `auditoria-aislamiento-workspace.md`, borrado el 17/10/2026). Esto lo mira en disco.
+//
+// PROBADO ROMPIÉNDOLO sobre el índice de verdad (6/11/2026; base 10 / 0). Pasan / fallan:
+//   · una fila repetida                                  → 9 / 1
+//   · un `|` sin escapar en el texto de una celda         → 9 / 1
+//   · el link de una fila a un documento que no existe    → 9 / 1
+//   · una línea en blanco en medio de la tabla            → 9 / 1
+test('el índice en disco: una fila por área, tres columnas y ningún link muerto', () => {
+  const lineas = leer(RUTA).split('\n');
+  const ini = lineas.findIndex((l) => /^\|\s*Área\s*\|/.test(l));
+  assert.ok(ini > 0, 'la tabla principal arranca en `| Área | Documento | Qué cubre |`');
+  let fin = ini;
+  for (let i = ini + 1; i < lineas.length; i++) {
+    if (lineas[i].startsWith('|')) fin = i;
+    else break; // ⚠️ una línea en blanco CORTA la tabla en markdown: lo de abajo deja de ser tabla
+  }
+  const filas = lineas.slice(ini + 2, fin + 1);
+  assert.ok(filas.length > 50, `la tabla tiene ${filas.length} filas: o se cortó con una línea en blanco, o algo se borró`);
+
+  const claves = new Map<string, number>();
+  for (const l of filas) {
+    // los `|` del texto van escapados, o markdown le da columnas de más a la fila
+    const trozos = l.split('\\|').join('\u0001').split('|');
+    assert.equal(trozos.length, 5, `esta fila no tiene tres columnas (un \`|\` sin escapar en el texto): ${l.slice(0, 90)}`);
+    const [, rotulo, doc] = trozos;
+    const clave = `${rotulo.trim()}|${doc.trim()}`;
+    claves.set(clave, (claves.get(clave) ?? 0) + 1);
+    const ruta = /\]\(([^)#]+)/.exec(doc)?.[1];
+    assert.ok(ruta, `la 2.ª celda lleva el link al documento del área: ${l.slice(0, 90)}`);
+    assert.ok(existsSync(join(RAIZ, 'docs', ruta!)), `el índice manda a \`docs/${ruta}\`, que no existe: la cosecha va al documento del área, y si se borró, se repunta`);
+  }
+  const repetidas = [...claves.entries()].filter(([, v]) => v > 1);
+  assert.deepEqual(repetidas, [], `una entrada nueva va ADELANTE en la celda de su área, no en una fila nueva: ${repetidas.map(([k, v]) => `${k} x${v}`).join(', ')}`);
 });

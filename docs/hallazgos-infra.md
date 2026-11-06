@@ -313,12 +313,58 @@ El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazg
 entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
 persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
 
-⚠️ **SIN HACER, y no es mecánico: juntar las 130 filas de más que ya están.** Medido: de las 31 áreas con filas repetidas,
-**22 anidan** (la celda más larga contiene a las otras, que es lo que deja el metido-adelante) y **9 NO** — en ésas, cada
-fila tiene texto que las demás no tienen, y colapsarlas por clave **perdería hallazgos**. Por eso este cambio **frena la
-hemorragia y no toca el contenido**. Para la pasada que falta hay un modo que cuenta antes de escribir:
-`node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md` (con `--aplicar` escribe, y hoy saca sólo la fila
-idéntica); las 9 que no anidan las tiene que juntar alguien leyéndolas.
+### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
+
+**Vive en:** `docs/hallazgos.md` (217 filas → **77, una por área**) · la guarda nueva, al final de
+`tests/unir-indice-hallazgos.test.ts`.
+
+⚠️ **Lo que había NO eran «130 filas de más».** Eran **140 filas**, y además, cosas que contar filas no ve:
+
+- **492 entradas repetidas palabra por palabra DENTRO de una misma celda**, en 25 celdas. No es un efecto de `union`
+  sobre líneas: es una cosecha que rehízo la celda sobre una celda ya duplicada. En Customer Success la mitad de la
+  celda era texto repetido (69.603 → 35.373 caracteres).
+- **Una fila entera metida DENTRO de la celda de otra**: se perdió el salto de línea y la fila de «Aislamiento» quedó
+  adentro de la de «Tab Pagos de la ficha» — dos veces, y con la segunda mitad del texto de Tab Pagos adentro de la
+  celda de Aislamiento. Para markdown eso no es una fila: el índice simplemente **no mostraba** esa área.
+- **Dos filas sin su `|` de cierre**, que la herramienta del repo tampoco contaba.
+
+⚠️ **Y el «22 anidan / 9 no» estaba medido con `includes`, no con sufijo.** Sólo **4** de las 33 claves repetidas tenían a
+las otras como SUFIJO; en 19 más la celda larga las contenía *en el medio*. Da igual para tirarlas —contenida es
+contenida— pero cambia el arreglo: el chequeo que lo hace seguro es **contención**, no «es el final de».
+
+⚠️ **El camino obvio —unir por el SUFIJO COMÚN más largo— garabatea el texto, y el obvio siguiente también.** El sufijo
+común empieza a mitad de palabra: con `…sin IA. **B**: x` contra `…con IA. **B**: x` arranca dentro de « IA.», así que
+`prefijo + prefijo + sufijo` le pega ese pedazo a la entrada equivocada. El arreglo cantado —cortar en cada `**negrita**`—
+rompe distinto: `**99**` es un énfasis a mitad de oración, no un título, y al reordenar las piezas las dos mitades de una
+misma oración quedan separadas por otra entrada. Eso se vio como «17 entradas perdidas» y **no faltaba ninguna**: estaban,
+partidas. **El límite de una entrada es `**Título (fecha)**:` — la negrita seguida de dos puntos**, que es el formato que
+deja la cosecha. Con ese corte: 0 perdidas, verificado entrada por entrada.
+
+**Lo que hace falta para creerle a una pasada así:** contar filas no alcanza. Se compara el **conjunto de títulos** de
+entrada y **el texto de cada entrada, palabra por palabra**, antes y después (1.621 títulos, los mismos). Lo que el
+conteo no puede cubrir va a mano: cinco títulos tenían **dos versiones y ninguna contenía a la otra** (el tren rojo de
+main, el empate de operaciones, el cartel de Gemini, las variantes del texto viejo, buscar una llamada por su número);
+ésas se leen y se juntan, y quedan marcadas en el commit.
+
+⚠️ **`--consolidar` de la herramienta sólo ve las filas que apuntan a `hallazgos-*.md`.** `filaDelIndice` pide ese patrón
+en la 2.ª celda, y 7 de las 77 filas mandan a otra cosa (`recorrido-visual-30-10.md`, `promesas/…`,
+`proveedores-de-cobro.md`, `mako-iniciativa/`). Por eso dice «70 filas» sobre una tabla de 77 — y las repetidas de esas 7
+le eran **invisibles**: dos filas de «UI compartida» estaban duplicadas y la herramienta nunca las vio.
+
+⚠️ **Un `|` en el texto de una celda le inventa columnas a la fila** (16 filas lo tenían: `number | null`, `USD|EUR`,
+`{mode:'immediate'|'scheduled'}`). Va escapado, `\|`. Y escaparlo con `(^|[^\\])\|` lo hace **a medias** sobre un `r||s`:
+el primer match se come el carácter de antes del segundo `|`, así que el segundo no matchea. Va con lookbehind,
+`(?<!\\)\|`.
+
+⚠️ **Un documento borrado sigue vivo en el índice, y nada lo chequeaba.** La fila «Aislamiento» mandaba a
+`auditoria-aislamiento-workspace.md`, borrado el 17/10/2026 por viejo —su material vive en `hallazgos-seguridad.md`, que
+se declara «la ÚNICA fuente del área»—. Repuntada. La guarda nueva mira en disco que cada link exista, que haya una sola
+fila por clave, que ninguna fila tenga columnas de más y que una línea en blanco no haya partido la tabla.
+
+⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
+documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,
+«Customer Success» y «Customer Success (Clients)». Son claves distintas, así que la guarda las deja pasar; juntarlas o no
+es una decisión sobre cómo se busca en el índice, y no se tomó acá.
 
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
