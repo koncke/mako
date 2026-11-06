@@ -224,6 +224,34 @@ export function radioNodo(grado: number): number {
   return Math.max(8, Math.min(3 * Math.sqrt(grado + 1), 30));
 }
 
+/**
+ * Cuánto aire HORIZONTAL de más necesita el encuadre, en píxeles, por el título más ancho
+ * de una carpeta madre (`n1:`).
+ *
+ * El encuadre mide los PUNTOS, pero la etiqueta de una carpeta se dibuja centrada en su
+ * punto y en versalitas (`.cbg-et-n1`: mono 13,5 px, `letter-spacing: .16em`), así que es
+ * mucho más ancha que el punto: pegada al borde sale cortada («…HOP RECORDINGS»). A los
+ * costados hay que dejar la MITAD del título más largo, y de ahí los 3,75 px por letra.
+ *
+ * ⚠️ VALE PARA LOS DOS MODOS. Nació el 4/11/2026 arreglando el mapa de un CURSO y quedó
+ * detrás de un `curso ? … : 0`, así que el mapa del NEGOCIO se seguía cortando: también
+ * tiene carpetas madre con etiqueta (`NIVEL1` — NEGOCIO, OFERTA, MERCADO, MENSAJE, FUNNEL),
+ * dibujadas con la MISMA clase. Son más cortas que un título de sección, así que el aire
+ * que piden es chico (~26 px contra el tope de 120): el encuadre casi no cambia, que es
+ * justo por lo que el `curso ?` parecía inofensivo.
+ *
+ * Puro y acá —y no adentro del `useCallback` de Grafo.tsx— para que se pueda correr: el
+ * componente mide el DOM y un test no lo puede montar.
+ */
+export const AIRE_POR_LETRA_N1 = 3.75;
+export const AIRE_MAX_N1 = 120;
+export const LETRAS_QUE_CUENTAN_N1 = 34;
+export function airePorTitulosN1(etiquetas: readonly string[]): number {
+  let max = 0;
+  for (const e of etiquetas) max = Math.max(max, Math.min(e.length, LETRAS_QUE_CUENTAN_N1) * AIRE_POR_LETRA_N1);
+  return Math.min(AIRE_MAX_N1, max);
+}
+
 export type Punto = { x: number; y: number };
 /** El cuadrado del mundo que hay que mirar. Sale del bbox de las posiciones ya
  *  asentadas, no es fijo: un negocio con 12 nodos y otro con 300 se ven igual de bien. */
