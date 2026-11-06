@@ -13,27 +13,40 @@ Lo pendiente del Video Editor que pidió Leila (clienta) en la llamada del 30/10
    investigación de OpusClip y un repo abierto en `docs/investigacion-video-clips.md`.
 Cada negocio paga su IA; todo a la API de MaKo; sin tocar Flow, AI Avatar ni Motion.
 
-## Lo hecho
+## Lo hecho (las tres tandas, en `punta/video-subtitulos-clips`)
 
-- **Tanda 1 (palabras clave y presets):** subida a `punta/video-subtitulos-clips` (`9e2c1fc31`, `c53e77207`). Ver
-  docs/hallazgos-video-editor.md → «Palabras clave automáticas y los presets de la marca». Test
-  `tests/video-editor-subtitulos-claves.test.ts` (18, 15 roturas). Sin migración (los presets van en app_settings).
-- **Tanda 2 (B-roll y cambios de plano):** Multimedia › «B-roll de MaKo», fotos de Pexels con la clave del negocio (integración
-  nueva «Pexels»), el efecto «Acercar», chat `broll` y API `proponer_broll_video`. Ver docs/hallazgos-video-editor.md → «B-roll y
-  cambios de plano automáticos». Test `tests/video-editor-broll.test.ts` (20, 19 roturas). Sin migración.
+- **Tanda 1 (palabras clave y presets):** `9e2c1fc31`, `c53e77207`. Ver docs/hallazgos-video-editor.md → «Palabras clave
+  automáticas y los presets de la marca». Test `tests/video-editor-subtitulos-claves.test.ts` (18 casos, 15 roturas). Sin
+  migración (los presets van en app_settings).
+- **Tanda 2 (B-roll y cambios de plano):** `277a7c0c5`. Multimedia › «B-roll de MaKo», fotos de Pexels con la clave del negocio
+  (integración nueva «Pexels»), el efecto «Acercar», chat `broll` y API `proponer_broll_video`. Ver docs/hallazgos-video-editor.md
+  → «B-roll y cambios de plano automáticos». Test `tests/video-editor-broll.test.ts` (20 casos, 19 roturas). Sin migración.
+- **Tanda 3 (clips mágicos):** Multimedia › «Clips mágicos» («Buscar los mejores momentos» y «Abrir» cada uno en un proyecto
+  nuevo, 9:16 y con subtítulos), chat `clips_magicos` y API `buscar_clips_video`. Ver docs/hallazgos-video-editor.md → «Clips
+  mágicos» y docs/investigacion-video-clips.md (OpusClip y SamurAIGPT/AI-Youtube-Shorts-Generator, MIT). Test
+  `tests/video-editor-clips.test.ts` (13 casos, 18 roturas). Sin migración.
+
+Ninguna tanda escribe en la base de producción ni manda nada a terceros. Las rutas nuevas
+(`/api/video-editor/{presets,broll,clips}`) quedan cortadas para la cuenta de revisión de las tiendas.
 
 ## Lo que quedó a medias
 
-- Tanda 3 (clips mágicos): en curso.
+- Nada a medias. Queda sin hacer, a propósito: seguir la cara al pasar un clip a vertical (va al centro) y el «Trend» del
+  puntaje de OpusClip (sin datos de afuera no se mide).
 
-## Lo que falta verificar
+## Lo que falta verificar (en la PC)
 
-- Nada se miró en un navegador: la nube no corre el editor (necesita WebGPU y el WASM). Lo primero en producción:
-  Subtítulos automáticos con el interruptor prendido, el panel «Palabras clave», guardar un preset y verlo en Plantillas.
-- El B-roll con la IA real: `node --env-file=<.env.local> --import tsx --conditions=react-server scripts/probar-broll-ia.mts --ws 3`
-  (en la PC; gasta la IA del Cliente de Prueba). Y en el editor: conectar Pexels desde el panel, «Proponer» sobre un video con voz,
-  ver el borde punteado, Dejar / Sacar y Ctrl+Z.
+- Nada se miró en un navegador: la nube no corre el editor (necesita WebGPU y el WASM).
+- **Palabras clave:** Subtítulos automáticos con el interruptor prendido, el panel «Palabras clave», guardar un preset y verlo en
+  Plantillas («De tu marca»).
+- **B-roll:** `node --env-file=<.env.local> --import tsx --conditions=react-server scripts/probar-broll-ia.mts --ws 3` (gasta la
+  IA del Cliente de Prueba). En el editor: conectar Pexels desde el panel, «Proponer» sobre un video con voz, ver el borde
+  punteado, Dejar / Sacar y Ctrl+Z.
+- **Clips:** `node --env-file=<.env.local> --import tsx --conditions=react-server scripts/probar-clips-ia.mts --ws 3`. En el
+  editor, con un video de más de un minuto: «Buscar los mejores momentos», «Ver» (salta al tramo) y «Abrir» (tiene que quedar
+  un proyecto nuevo con el título del clip, vertical, con subtítulos, y el original igual que antes). Probar también con un
+  video largo (30 min o más): la copia pesa lo mismo que el original en el navegador.
 
 ## Lo que espera a Martín
 
-- Nada por ahora.
+- Nada. Pexels se conecta con la clave de cada negocio (gratis, en pexels.com/api): la pega cada cliente en el panel.

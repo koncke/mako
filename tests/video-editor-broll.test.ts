@@ -355,7 +355,9 @@ test('6c. el chat y la API: la operación «broll» valida su forma y sale como 
   assert.equal(validarOperacion({ op: 'broll', fotos: ['x'] }).ok, false, 'el chat no elige las fotos');
   const api = OPERACIONES_API.find((o) => o.op === 'broll');
   assert.equal(api?.id, 'proponer_broll_video');
-  assert.equal(OPERACIONES_API[OPERACIONES_API.length - 1].op, 'broll', 'una operación nueva va al final');
+  // Al final cuando se sumó (6/11): detrás de todas las que ya estaban. Los clips mágicos, sumados después, van detrás de ella.
+  const orden = OPERACIONES_API.map((o) => o.op);
+  assert.ok(orden.indexOf('broll') > orden.indexOf('usar_preset_subtitulos') && orden.indexOf('usar_preset_subtitulos') >= 0, 'una operación nueva va al final de las que ya estaban');
   const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
   assert.match(aplicar, /if \(r\.op === "broll"\) \{[\s\S]*?proponerBroll\(editor, \{ ritmo: r\.ritmo, planos: r\.planos \}\)[\s\S]*?textoDeBroll\(hecho\)/, 'el chat corre el MISMO que la sección y dice por qué no salió');
   assert.match(sinComentarios(leer('lib/api-mako/areas/video.run.ts')), /proponer_broll_video: \{ \.\.\.enElEditor\('proponer_broll_video'\) \},/);

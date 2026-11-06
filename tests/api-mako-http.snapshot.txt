@@ -69,6 +69,7 @@ borrar_producto
 borrar_retro
 borrar_silencios_video
 borrar_tema_landing
+buscar_clips_video
 buscar_conocimiento
 buscar_en_comunidad
 buscar_en_segundo_cerebro
