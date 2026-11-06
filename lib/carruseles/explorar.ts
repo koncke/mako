@@ -196,11 +196,24 @@ export type FiltrosCarrusel = {
   cta: boolean;
   /** Carruseles o anuncios (6/11/2026). */
   que: QueVer;
+  // El modal «Filtros» (6/11/2026, copiado de «Filters & views» de Top Carousels). Todos opcionales: 0 = sin tope.
+  /** El múltiplo máximo (el mínimo es `outlierMin`). */
+  outlierMax?: number;
+  /** Me gusta + comentarios, entre un mínimo y un máximo. */
+  interMin?: number;
+  interMax?: number;
+  /** Cuántas láminas, entre un mínimo y un máximo (los que no dicen cuántas tienen no se descartan: sin dato no es «no»). */
+  lamMin?: number;
+  lamMax?: number;
+  /** Los tipos que no se quieren ver (los chips de «Ocultar tipos»). */
+  ocultar?: Formato[];
+  /** El tamaño de la tarjeta: grande (4 columnas en una pantalla de 1440) o chica. */
+  tamano?: 'grande' | 'chico';
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
-  cta: false, que: 'carruseles',
+  cta: false, que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [], tamano: 'grande',
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -225,13 +238,80 @@ export function coincide(c: Carrusel, q: string): boolean {
   return t.split(' ').every((palabra) => donde.includes(palabra));
 }
 
-const interaccion = (c: Carrusel): number | null => (c.megusta == null && c.comentarios == null ? null : (c.megusta ?? 0) + (c.comentarios ?? 0));
+export const interaccion = (c: Carrusel): number | null => (c.megusta == null && c.comentarios == null ? null : (c.megusta ?? 0) + (c.comentarios ?? 0));
 
 const enLargo = (c: Carrusel, largo: LargoCarrusel): boolean => {
   if (largo === 'todos') return true;
   if (c.laminas == null) return false;
   return largo === 'cortos' ? c.laminas <= 4 : largo === 'medios' ? c.laminas >= 5 && c.laminas <= 7 : c.laminas >= 8;
 };
+
+
+/**
+ * Los niveles del múltiplo, con su color (la leyenda del modal «Filtros» y la etiqueta de la tarjeta). Cinco, como los de la
+ * referencia: lo típico, destacado, fuerte, excepcional y récord. `desde` es el piso (en veces lo que hace su cuenta).
+ */
+/** Los topes que ofrece el deslizador del múltiplo (en veces lo que hace su cuenta); el último es «sin tope». */
+export const PASOS_MULTIPLO = [0, 1, 2, 3, 4, 6, 10, 25, 50] as const;
+export const NIVELES_MULTIPLO = [
+  { id: 'tipico', rotulo: 'Típico', rango: '1–2×', desde: 0 },
+  { id: 'destacado', rotulo: 'Destacado', rango: '2–4×', desde: 2 },
+  { id: 'fuerte', rotulo: 'Fuerte', rango: '4–6×', desde: 4 },
+  { id: 'excepcional', rotulo: 'Excepcional', rango: '6–10×', desde: 6 },
+  { id: 'record', rotulo: 'Récord', rango: '10×+', desde: 10 },
+] as const;
+export type NivelMultiplo = (typeof NIVELES_MULTIPLO)[number]['id'];
+export function nivelDeMultiplo(veces: number | null | undefined): NivelMultiplo | null {
+  if (veces == null || !Number.isFinite(veces)) return null;
+  let nivel: NivelMultiplo = 'tipico';
+  for (const n of NIVELES_MULTIPLO) if (veces >= n.desde) nivel = n.id;
+  return nivel;
+}
+
+/** Las palabras de un texto que dicen de qué trata (sin tildes, sin las de relleno): lo que se compara para los «parecidos». */
+const RELLENO = new Set(['para', 'como', 'tus', 'sus', 'que', 'una', 'uno', 'unos', 'unas', 'los', 'las', 'del', 'por', 'con', 'sin', 'mas', 'muy', 'este', 'esta', 'esto', 'the', 'and', 'you', 'your', 'for', 'with', 'that', 'this', 'from', 'are', 'not', 'uma', 'para', 'seu', 'sua', 'voce', 'nao', 'und', 'der', 'die', 'das', 'ist', 'nicht']);
+function palabrasDe(c: Pick<Carrusel, 'gancho' | 'texto'>): Set<string> {
+  const t = plano(`${c.gancho ?? ''} ${(c.texto ?? '').slice(0, 400)}`);
+  return new Set((t.match(/[a-z0-9ñ]{4,}/g) ?? []).filter((w) => !RELLENO.has(w) && !/^\d+$/.test(w)));
+}
+
+/**
+ * Los carruseles PARECIDOS a uno, de lo que ya hay en la pantalla (sin pedirle nada a nadie): del mismo tipo, con palabras en
+ * común (el tema) y, a igual parecido, el que más rindió. Sin ninguna palabra ni tipo en común, no hay parecidos (no se inventan).
+ */
+export function parecidosA(c: Carrusel, todos: readonly Carrusel[], tope = 24): Carrusel[] {
+  const mias = palabrasDe(c);
+  const puntos = (x: Carrusel): number => {
+    let p = 0;
+    if (c.formato && x.formato === c.formato) p += 3;
+    if (c.cta && x.cta) p += 1;
+    const suyas = palabrasDe(x);
+    let comunes = 0;
+    for (const w of mias) if (suyas.has(w)) comunes += 1;
+    return p + comunes * 2;
+  };
+  return todos
+    .filter((x) => x.id !== c.id && (x.clase === 'anuncio') === (c.clase === 'anuncio'))
+    .map((x) => ({ x, p: puntos(x) }))
+    .filter((y) => y.p >= 3)
+    .sort((a, b) => b.p - a.p || (b.x.outlier ?? 0) - (a.x.outlier ?? 0))
+    .slice(0, tope)
+    .map((y) => y.x);
+}
+
+/** Creadores con tipos parecidos a los de `c` (los tipos de lo que publican), sin el mismo creador. Hasta `tope`. */
+export function creadoresParecidos(c: Carrusel, todos: readonly Carrusel[], tope = 4): Array<{ id: number; nombre: string; usuario: string | null; foto: string | null; n: number }> {
+  const tiposDe = (id: number) => new Set(todos.filter((x) => x.competidorId === id && x.formato && x.formato !== 'otro').map((x) => x.formato));
+  const mios = tiposDe(c.competidorId);
+  if (!mios.size) return [];
+  return creadoresDe(todos.filter((x) => (x.clase === 'anuncio') === (c.clase === 'anuncio')))
+    .filter((x) => x.id !== c.competidorId)
+    .map((x) => ({ x, comunes: [...tiposDe(x.id)].filter((t) => mios.has(t)).length }))
+    .filter((y) => y.comunes >= 2 || (mios.size === 1 && y.comunes === 1))
+    .sort((a, b) => b.comunes - a.comunes || b.x.n - a.x.n)
+    .slice(0, tope)
+    .map((y) => y.x);
+}
 
 /** Lo que se ve con estos filtros, en su orden. `guardados` son los ids guardados del negocio. */
 export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel, guardados: ReadonlySet<number>, ahora = Date.now()): Carrusel[] {
@@ -246,6 +326,16 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (creadores.size && !creadores.has(c.competidorId)) return false;
     if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
+    if (f.outlierMax && (c.outlier == null || c.outlier > f.outlierMax)) return false;
+    if (f.interMin || f.interMax) {
+      const i = interaccion(c);
+      if (i == null || i < (f.interMin ?? 0) || (f.interMax && i > f.interMax)) return false;
+    }
+    if (f.lamMin || f.lamMax) {
+      // Sin la cantidad de láminas, no se afirma nada: queda.
+      if (c.laminas != null && (c.laminas < (f.lamMin ?? 0) || (f.lamMax && c.laminas > f.lamMax))) return false;
+    }
+    if (f.ocultar?.length && c.formato && f.ocultar.includes(c.formato)) return false;
     if (f.periodo !== 'todo' && !enRango(c.publicada, Number(f.periodo), ahora)) return false;
     if (f.formato && c.formato !== f.formato) return false;
     if (!enLargo(c, f.largo)) return false;
@@ -335,6 +425,8 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     return Array.isArray(v) ? v[0] ?? null : v ?? null;
   };
   const min = Number(get('min'));
+  const numero = (k: string, tope: number): number => { const n = Number(get(k)); return Number.isFinite(n) && n > 0 ? Math.min(tope, Math.round(n * 10) / 10) : 0; };
+  const ocultar = (get('ocultar') ?? '').split(',').map((x) => formatoDe(x.trim())).filter((x): x is Formato => !!x).slice(0, 20);
   // En negativo, una cuenta de la biblioteca (su id); el cero no es nadie.
   const creadores = (get('de') ?? '').split(',').filter((x) => x.trim() !== '').map(Number).filter((n) => Number.isSafeInteger(n) && n !== 0).slice(0, 25);
   const formato = formatoDe(get('formato') ?? '');
@@ -344,7 +436,7 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     q: (get('q') ?? '').slice(0, 120),
     creadores,
     origen: unoDe(get('origen'), ORIGENES_CARRUSEL, 'todos'),
-    outlierMin: (OUTLIER_MINIMOS as readonly number[]).includes(min) ? min : 0,
+    outlierMin: (PASOS_MULTIPLO as readonly number[]).includes(min) ? min : 0,
     periodo: semana ? '7' : unoDe(get('periodo'), PERIODOS_CARRUSEL, 'todo'),
     largo: unoDe(get('largo'), LARGOS_CARRUSEL, 'todos'),
     formato,
@@ -353,6 +445,13 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     vista: semana ? 'todos' : unoDe(get('vista'), VISTAS_CARRUSEL, 'todos'),
     cta: get('cta') === '1',
     que: unoDe(get('que'), QUE_VER_CARRUSEL, 'carruseles'),
+    outlierMax: (PASOS_MULTIPLO as readonly number[]).includes(Number(get('omax'))) ? Number(get('omax')) : 0,
+    interMin: numero('imin', 1e9),
+    interMax: numero('imax', 1e9),
+    lamMin: Math.round(numero('lmin', 20)),
+    lamMax: Math.round(numero('lmax', 20)),
+    ocultar,
+    tamano: get('tam') === 'chico' ? 'chico' : 'grande',
   };
 }
 
@@ -371,6 +470,13 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.vista !== 'todos') q.set('vista', f.vista);
   if (f.cta) q.set('cta', '1');
   if (f.que !== 'carruseles') q.set('que', f.que);
+  if (f.outlierMax) q.set('omax', String(f.outlierMax));
+  if (f.interMin) q.set('imin', String(f.interMin));
+  if (f.interMax) q.set('imax', String(f.interMax));
+  if (f.lamMin) q.set('lmin', String(f.lamMin));
+  if (f.lamMax) q.set('lmax', String(f.lamMax));
+  if (f.ocultar?.length) q.set('ocultar', f.ocultar.join(','));
+  if (f.tamano === 'chico') q.set('tam', 'chico');
   return q.toString();
 }
 

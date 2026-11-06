@@ -247,7 +247,9 @@ export function ajustarTextos(textos: readonly TextoReplica[], o: { ancho: numbe
   }
   const alto0 = total(k);
   const centroY = principal.length ? principal.reduce((n, t) => n + t.y, 0) / principal.length : 0.5;
-  let y = centroY < 0.36 ? arriba0 : centroY > 0.64 ? abajo0 - alto0 : arriba0 + Math.round((disponible - alto0) / 2);
+  // Si el texto, ya lo más grande que se puede, deja más de un tercio vacío, se centra (antes quedaba pegado arriba con el resto en blanco).
+  const centrar = alto0 < disponible * 0.62;
+  let y = centrar ? arriba0 + Math.round((disponible - alto0) / 2) : centroY < 0.36 ? arriba0 : centroY > 0.64 ? abajo0 - alto0 : arriba0 + Math.round((disponible - alto0) / 2);
   const salida = new Map<TextoReplica, TextoReplica>();
   principal.forEach((t, i) => {
     const tam = px(t, k);

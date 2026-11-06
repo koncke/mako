@@ -166,3 +166,46 @@ test('los creadores, del que más tiene al que menos', () => {
   const xs = [c({ competidorId: 2, creador: { nombre: 'Café Brasa', usuario: 'cafebrasa', foto: null } }), c({}), c({})];
   assert.deepEqual(creadoresDe(xs).map((x) => [x.id, x.n]), [[1, 2], [2, 1]]);
 });
+
+// ── El modal «Filtros», los niveles de color y los parecidos (6/11/2026) ──
+import { NIVELES_MULTIPLO, creadoresParecidos, interaccion, nivelDeMultiplo, parecidosA } from '../lib/carruseles/explorar';
+
+const k = (o: Partial<Carrusel>): Carrusel => ({
+  id: ++n, competidorId: 1, origen: 'biblioteca', creador: { nombre: 'Ana', usuario: 'ana', foto: null }, url: null, miniatura: null, texto: null, gancho: null,
+  tipoGancho: null, cierre: null, formato: '', medio: 'carrusel', laminas: 6, megusta: 100, comentarios: 10, publicada: dia(10), traida: dia(1), outlier: 2,
+  clase: 'carrusel', laminasImagenes: [], cta: null, ...o,
+});
+
+test('los deslizadores: múltiplo, interacciones y láminas con mínimo y máximo; sin dato de láminas no se descarta; los tipos ocultos no salen', () => {
+  const xs = [k({ outlier: 1.5, megusta: 50, comentarios: 0, laminas: 3 }), k({ outlier: 4, megusta: 900, comentarios: 100, laminas: 8 }), k({ outlier: 12, megusta: 90_000, comentarios: 2000, laminas: 12 }), k({ outlier: 3, laminas: null, formato: 'lista' })];
+  const con = (f: Partial<typeof FILTROS_INICIALES>) => filtrarCarruseles(xs, { ...FILTROS_INICIALES, orden: 'nuevos', ...f }, new Set(), AHORA).map((x) => xs.indexOf(x));
+  assert.deepEqual(con({ outlierMin: 2, outlierMax: 6 }).sort(), [1, 3]);
+  assert.deepEqual(con({ interMin: 500, interMax: 10_000 }), [1]);
+  assert.equal(interaccion(xs[1]), 1000);
+  assert.deepEqual(con({ lamMin: 5, lamMax: 10 }).sort(), [1, 3], 'sin la cantidad de láminas, queda: sin dato no es «no»');
+  assert.deepEqual(con({ ocultar: ['lista'] }).sort(), [0, 1, 2]);
+  const f = { ...FILTROS_INICIALES, outlierMin: 2, outlierMax: 10, interMin: 100, interMax: 5000, lamMin: 4, lamMax: 9, ocultar: ['lista' as const, 'mito' as const], tamano: 'chico' as const };
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams(queryDeFiltros(f))), f, 'viajan en la URL');
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('omax=7&lmin=999&ocultar=nada,lista&tam=gigante')), { ...FILTROS_INICIALES, lamMin: 20, ocultar: ['lista'] }, 'lo que no se entiende vuelve al inicial');
+});
+
+test('los niveles del múltiplo: cinco colores y sus pisos; sin número, sin nivel', () => {
+  assert.equal(NIVELES_MULTIPLO.length, 5);
+  assert.deepEqual([1.2, 2, 3.9, 4, 7, 10, 40].map(nivelDeMultiplo), ['tipico', 'destacado', 'destacado', 'fuerte', 'excepcional', 'record', 'record']);
+  assert.equal(nivelDeMultiplo(null), null);
+});
+
+test('parecidos: mismo tipo y palabras del tema, el que más rindió primero; sin nada en común no hay', () => {
+  const base = k({ id: 500, formato: 'lista', gancho: '5 errores al cobrar tu consulta dental', outlier: 3 });
+  const a = k({ formato: 'lista', gancho: 'Errores comunes al cobrar consulta', outlier: 2 });
+  const b = k({ formato: 'lista', gancho: 'Errores al cobrar consulta dental', outlier: 5 });
+  const c = k({ formato: 'mito', gancho: 'Receta de pan de masa madre', outlier: 9 });
+  const anuncio = k({ clase: 'anuncio', formato: 'lista', gancho: 'Errores al cobrar consulta dental' });
+  const p = parecidosA(base, [base, a, b, c, anuncio]);
+  assert.deepEqual(p.map((x) => x.id), [b.id, a.id], 'b rinde más; la receta y el anuncio no son parecidos; él mismo no está');
+  assert.deepEqual(parecidosA(c, [c, a, b]), []);
+  const x1 = k({ id: 901, competidorId: 1, formato: 'lista' }), x2 = k({ id: 902, competidorId: 1, formato: 'mito' });
+  const y1 = k({ id: 903, competidorId: 2, creador: { nombre: 'Bruno', usuario: 'bruno', foto: null }, formato: 'lista' }), y2 = k({ id: 904, competidorId: 2, creador: { nombre: 'Bruno', usuario: 'bruno', foto: null }, formato: 'mito' });
+  const z1 = k({ id: 905, competidorId: 3, creador: { nombre: 'Zoe', usuario: 'zoe', foto: null }, formato: 'tutorial' });
+  assert.deepEqual(creadoresParecidos(x1, [x1, x2, y1, y2, z1]).map((x) => x.nombre), ['Bruno'], 'comparten sus tipos; Zoe no');
+});
