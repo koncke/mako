@@ -2568,11 +2568,15 @@ Las cinco dan un error que apunta a otro lado.
   403 en `api-sbx.dlocalgo.com` con las mismas claves), y las claves **no tienen prefijo** que diga de
   qué entorno son, al revés de `sk_live_`/`rk_test_`. El modo sólo se sabe preguntando, y por eso
   `leerCuentaDlocal` prueba producción y después sandbox antes de decir «esa clave no sirve».
-- **NO hay endpoint que liste los medios de pago.** Se probaron cuatro rutas plausibles
-  (`/v1/payments-methods`, `/v1/payment-methods`, `/v1/payments/methods`, `/v1/countries`): 404, 404,
-  400 y 404. Así que un checkout **no puede** armar la lista de medios por país desde la API: tiene
-  que ser una tabla escrita a mano, que es de las que quedan viejas **en silencio**. Si se dibuja,
-  lleva fecha y la fuente de donde salió.
+- **No encontré ningún endpoint que liste los medios de pago.** Su índice de documentación
+  (`docs.dlocalgo.com/integration-api/llms.txt`) **no tiene una página de payment methods** —sí de
+  pagos, devoluciones, suscripciones, links recurrentes y currency exchange—, y las cuatro rutas
+  plausibles que probé contra la cuenta dieron 404, 404, 400 y 404 (`/v1/payments-methods`,
+  `/v1/payment-methods`, `/v1/payments/methods`, `/v1/countries`). ⚠️ **Es una ausencia medida, no una
+  confirmación de dLocal:** cuatro rutas adivinadas que no están no prueban que no exista ninguna, y
+  conviene preguntárselo por escrito antes de apoyarse en esto. Mientras tanto, un checkout que
+  muestre medios por país tiene que hacerlo con una tabla escrita a mano — de las que quedan viejas
+  **en silencio**—, así que lleva fecha y la fuente de donde salió.
 
 ### Una tasa de cambio no es un permiso de país (y Google Pay / Apple Pay: NO)
 
@@ -2605,6 +2609,26 @@ al abrirse, que ya existe porque la de Stripe vence a las 24 h — **la de dLoca
 24 h y además es de un solo uso**). SmartFields pondría el formulario de tarjeta adentro de MaKo: otra
 pantalla, 3DS y tokenización propias, y MaKo en alcance de PCI, sin ganar nada para vender un plan. Si
 algún día se usa Transparent Checkout, entra como campo nuevo y **opcional**.
+
+### Para el rediseño del checkout: dos cosas que NO son un cambio de copy
+
+El pedido del 6/11 incluye sacar los dos textos de abajo de `/planes/<plan>` y convertir el
+formulario de nombre + email + WhatsApp en «reclamá tus 7 días gratis». Dos avisos para quien lo haga,
+medidos sobre `app/planes/[plan]/CompraPlan.tsx` (153 líneas) en `origin/main`:
+
+- **La prueba de 7 días YA EXISTE, y es CON tarjeta.** El botón dice «Empezar mis N días gratis» y el
+  texto explica que no se cobra nada hoy y que el primer cobro es el día N+1
+  (`pruebaConTarjeta: true` en las tres pasarelas). «Reclamar» los 7 días **sin pagar** no es
+  reescribir ese texto: es una prueba **sin medio de pago**, que cambia el alta (entra alguien sin
+  tarjeta), la conversión al día 8 y la exposición al abuso. Es una decisión de producto de Martín,
+  no una copia de la referencia.
+- **La nota de Mercado Pago (línea 150) es LOAD-BEARING: borrarla crea un fallo.** Dice «Con Mercado
+  Pago, usa el email de tu cuenta de Mercado Pago», y el comentario de al lado explica por qué: la
+  suscripción de MP va a nombre de ESE email (`payer_email`) y **con otro, MP no deja autorizarla**
+  (revisión del 23/10/2026). O sea que es un aviso que evita una compra que no se puede completar. Lo
+  correcto no es borrarla con las demás, es resolverla en el flujo (pedir ese email en el paso de MP,
+  o rotular el campo cuando MP está elegido). La otra nota —la del email y el acceso— sí es
+  explicativa y se va.
 
 ### Lo que quedó SIN hacer, y por qué
 
