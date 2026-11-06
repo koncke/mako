@@ -126,7 +126,8 @@ export async function leerVistaGeneral(): Promise<VistaGeneral> {
   const tablero = await tableroActual().catch(() => null);
   const leerTareas = async (): Promise<TareaParaFoco[]> => {
     if (tablero === 'dueno') return tareasDelDuenoParaFoco((await listPlanBoard()).tareas);
-    if (tablero === 'cliente') return tareasDelClienteParaFoco(await listTareas());
+    // Sólo las del PLAN (#507): el foco no manda a nadie a una tarea de la Retro.
+    if (tablero === 'cliente') return tareasDelClienteParaFoco(await listTareas({ soloDelPlan: true }));
     return []; // no se sabe cuál es el tablero: sin escalón «Plan» antes que el de otro
   };
 

@@ -1291,7 +1291,11 @@ async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: o.prompt }, ...partesImagen] }],
-      generationConfig: { temperature: 0, ...(o.json ? { response_mime_type: 'application/json' } : {}) },
+      // ⚠️ El tope de salida que pidió quien llama VIAJA. Hasta el 6/11/2026 este endpoint no lo mandaba nunca: «Editar» un
+      // carrusel pedía 8.000 tokens (`TOKENS_DE_SALIDA`, lib/carruseles/replica-servidor.ts) para que el JSON de 12 láminas
+      // entrara, el camino de visión es el PRINCIPAL y el pedido salía sin `maxOutputTokens` — valía el default del modelo, y
+      // una respuesta cortada no se distingue de «la IA no contestó». Sin `maxTokens` sigue yendo sin nada, como antes.
+      generationConfig: { temperature: 0, ...(o.maxTokens ? { maxOutputTokens: o.maxTokens } : {}), ...(o.json ? { response_mime_type: 'application/json' } : {}) },
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(o.timeoutMs ?? 100000),

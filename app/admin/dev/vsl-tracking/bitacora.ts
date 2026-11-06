@@ -31,7 +31,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El embudo completo: clic, opt-in y AGENDÓ', detalle: 'Entre «vio» y «dejó sus datos» no había ningún punto · Calendly avisa por postMessage y eso sí se puede escuchar', estado: 'hecha' },
   { titulo: 'El ciclo de vida de la página', detalle: 'salió · volvió (con los segundos afuera) · cierre — distinguen la interrupción del abandono en un VSL de 23 minutos', estado: 'hecha' },
   { titulo: 'Clarity: grabaciones y mapas de calor', detalle: 'BYOK por workspace, dentro del MISMO snippet · identify por visitor_id · cron que cuida la cuota de 10 requests/día', estado: 'hecha' },
-  { titulo: 'La curva de retención POR video', detalle: '`curvaRetencion` acepta `videoId` hace meses y nadie se lo pasa; el `exit` con el % exacto no lo consume ningún query', estado: 'sigue' },
+  { titulo: 'La curva de retención POR video', detalle: 'Se ve en el VSL Analyst: selector de video, «Dónde se van» y la tabla «Por video» · la agrupa `videosDelPeriodo` (lib/graficos-datos-extra.ts) sobre el resumen SQL, y los eventos sin `video_id` van a su propio grupo · lo que sigue sin consumir es el `%` exacto del `exit` (`salida` en `VideoDelPeriodo`): ningún gráfico lo lee', estado: 'hecha' },
   { titulo: 'El beacon acepta cualquier `landing_url`', detalle: 'Texto arbitrario de un desconocido que después decide qué baja el Landing Analyst y qué se paga en IA · falta exigir dominio del workspace', estado: 'cola' },
 ];
 
@@ -300,7 +300,7 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/landing-token.ts — `landingDiagnostico`, el bloque `eventosVisibles`',
-      '⚠️ Sigue vivo: `curvaRetencion`, `avancePorPersona` e `histogramaAbandono` aceptan `videoId` y nadie se lo pasa; y su condición exige que `ev.video_id` sea truthy, así que un evento sin video entra en la curva de CUALQUIER video (lib/vsl-retencion.ts:115 y :212)',
+      '✅ Cerrado el 6/11/2026: la curva por video ya se veía por otro camino —`videosDelPeriodo` agrupa el resumen SQL y los eventos sin `video_id` quedan en su propio grupo— así que el `videoId` de `curvaRetencion`, `avancePorPersona` e `histogramaAbandono` era un parámetro muerto Y equivocado (su condición dejaba entrar al sin-video en la curva de cualquiera). Se borró; el corte se hace AGRUPANDO AFUERA (lib/vsl-retencion.ts, lib/graficos-datos-extra.ts, tests/vsl-retencion.test.ts)',
       '⚠️ Sigue vivo: el beacon guarda `landing_url` como texto arbitrario de un desconocido, y eso decide después qué baja el Landing Analyst (docs/hallazgos-landing.md → «Un tercero elige qué páginas baja»)',
     ],
   },

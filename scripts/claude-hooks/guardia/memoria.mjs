@@ -25,6 +25,7 @@
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const GB = 1024 ** 3;
 const DIR = path.join(os.homedir(), '.claude', 'guardia');
@@ -42,9 +43,14 @@ const PROYECTOS = path.join(os.homedir(), '.claude', 'projects');
 // dejaba arrancar con 1,5 GB y cada uno pide 2-2,5 (tsc acotado, tandas de tests). Pesado 1,5→2,5 y su enfriamiento 20→40 s;
 // tope de workflows 3→2; y las tandas grandes de `node --test` sin `--test-concurrency` cuentan como pesado (arrancan un
 // proceso por núcleo: 11 en esta PC). El de antes quedó en memoria.mjs.antes-25-10. Informe: docs/hallazgos-infra.md.
+// 29/10/2026 15:30 (el Cerebro, cuenta 3): la ventana de Claude quedó en negro («Main webview is unresponsive» en
+// %LOCALAPPDATA%\Claude\Logs\main.log, con memory pressure critical y 9 chats trabajando). Los pesados entraban con 2,5 GB,
+// justo lo que piden, y no quedaba piso. Pesado y workflow 2,5→3. El de antes quedó en memoria.mjs.antes-29-10-tarde.
+// ⚠️ ESTE CAMBIO VIVÍA SÓLO EN ~/.claude Y NO ACÁ (lo sincronizó el 6/11/2026): reinstalar desde el repo bajaba los topes a
+// 2,5 y devolvía la pantalla negra. Cualquier cambio a la guardia se hace en ESTA copia y después se reinstala.
 const REGLAS = {
-  workflow: { minGb: 2.5, esperaS: 120, enfriamientoS: 45 },
-  pesado:   { minGb: 2.5, esperaS: 240, enfriamientoS: 40 },
+  workflow: { minGb: 3.0, esperaS: 120, enfriamientoS: 45 },
+  pesado:   { minGb: 3.0, esperaS: 240, enfriamientoS: 40 },
   agente:   { minGb: 1.0, esperaS: 60,  enfriamientoS: 0 },
   liviano:  { minGb: 0.6, esperaS: 20,  enfriamientoS: 0, dejarPasar: true },
 };
@@ -77,6 +83,51 @@ function tandaDeTestsSinFreno(cmd) {
   return (cmd.match(/\.test\.[cm]?[jt]sx?\b/g) || []).length >= 3 || /--test\b[^|;&]*\*/.test(cmd);
 }
 
+// ⚠️ LO QUE SE CLASIFICA ES LO QUE CORRE, NO EL TEXTO QUE VIAJA ADENTRO (6/11/2026).
+// `PESADO` se probaba contra el comando entero, así que un `git commit` cuyo MENSAJE nombra `tsc`, `npm test` o `eslint`
+// quedaba clasificado pesado y la guardia lo NEGABA con 2 GB libres. Un commit no pide RAM: el chat se quedaba sin poder
+// guardar su trabajo justo cuando la máquina estaba cargada, que es cuando más importa guardarlo. Lo encontré commiteando
+// el arreglo de la alarma de minutos: el mensaje decía «el tsc entero lo corre la punta» y la guardia lo leyó como un tsc.
+// El archivo ya tenía un caso de esta misma familia anotado arriba (el patrón `typecheck` agarraba el NOMBRE de un test):
+// se arregló sacando ESA palabra, no la causa, así que volvió con otra.
+//
+// Lo que se saca antes de clasificar, porque es DATA y nunca ejecuta:
+//   · el CUERPO de un heredoc — salvo que se lo coma un intérprete (`bash <<EOF … npm test … EOF` sí corre).
+//   · el valor de `-m` / `--message` entre comillas (mensajes de commit, de tag, de stash).
+//   · el cuerpo de un `node -e '…'` / `--eval`, y los PATRONES de un `grep`/`rg` entre comillas.
+//
+// ⚠️ ESTO VALE IGUAL PARA `tandaDeTestsSinFreno`, y me volvió a frenar mientras arreglaba lo de arriba: cuenta cuántos
+// `.test.ts` NOMBRA el comando, y un `node -e "…tests/x.test.ts…" && grep tests/x.test.ts` los nombra tres veces sin correr
+// ninguno. Tres menciones = «tanda» = pesado. Es la misma causa, en el otro camino a «pesado», así que las dos preguntas se
+// hacen sobre `soloLoQueCorre(cmd)`.
+// ⚠️ `cat` y `tee` NO van acá: `cat > notas.md <<EOF` ESCRIBE el cuerpo, no lo ejecuta. (Los puse y mi propio test los
+// cazó.) Un `cat <<EOF | bash` igual se clasifica: la línea que abre el heredoc lleva el `| bash`.
+const INTERPRETE = /(^|[\s|;&(])(ba|z|k|da|c)?sh\b|(^|[\s|;&(])(node|tsx|python3?|deno|bun|perl|ruby)\b/i;
+
+export function soloLoQueCorre(cmd) {
+  const txt = String(cmd ?? '');
+  // 1. Heredocs. El tag puede venir entre comillas (<<'EOF') y con `-` (<<-EOF, cierre indentado).
+  let out = txt.replace(/<<-?\s*(['"]?)([A-Za-z_]\w*)\1\r?\n([\s\S]*?)\r?\n[ \t]*\2(?=\s|$)/g, (todo, _q, tag, _cuerpo, pos) => {
+    const antes = txt.slice(0, pos);
+    const linea = antes.slice(antes.lastIndexOf('\n') + 1);
+    return INTERPRETE.test(linea) ? todo : `<<${tag}\n${tag}`;
+  });
+  // 2. Lo que va entre comillas detrás de una bandera que lo toma como TEXTO, no como comando: el mensaje de un commit,
+  //    el script de un `node -e`. `node -e` ejecuta su cuerpo, sí — pero lo que ejecuta es JS en ESTE proceso, no un `tsc`
+  //    ni una tanda de tests, y lo que de verdad los arranca desde ahí (`execSync('npx tsc')`) es un caso que no vale la
+  //    pena cazar acá: lo pesado se mide cuando ESE proceso arranca.
+  for (const bandera of ['-m', '--message', '-e', '--eval', '-p', '--print']) {
+    const b = bandera.replace(/-/g, '\\-');
+    out = out.replace(new RegExp(`(^|\\s)(${b})(=|\\s+)(['"])[\\s\\S]*?\\4`, 'g'), '$1$2$3""');
+  }
+  // 3. Los que BUSCAN texto: su patrón nunca se ejecuta, y puede venir sin bandera (`grep -rn "npx tsc" .`). Se vacían las
+  //    comillas de ESE tramo solamente, no de todo el comando: `sh -c "npx tsc"` sí ejecuta y tiene que seguir contándose.
+  out = out.split(/(\||;|&&|&)/).map((tramo) => (
+    /^\s*(sudo\s+)?(grep|rg|egrep|fgrep|findstr|ack|ag)\b/.test(tramo) ? tramo.replace(/(['"])[\s\S]*?\1/g, '""') : tramo
+  )).join('');
+  return out;
+}
+
 const libreGb = () => os.freemem() / GB;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -91,12 +142,14 @@ function leerEntrada() {
   try { return JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch { return {}; }
 }
 
-function clasificar(ent) {
+export function clasificar(ent) {
   const tool = ent.tool_name || '';
   if (tool === 'Workflow') return 'workflow';
   if (tool === 'Agent' || tool === 'Task') return 'agente';
   if (tool === 'Bash' || tool === 'PowerShell') {
-    const cmd = String(ent.tool_input?.command || '');
+    // Las DOS preguntas van sobre lo que CORRE: `tandaDeTestsSinFreno` cuenta menciones de `.test.ts`, y un `node -e` o un
+    // `grep` que las nombra sin correrlas también daba «tanda».
+    const cmd = soloLoQueCorre(ent.tool_input?.command || '');
     return PESADO.test(cmd) || tandaDeTestsSinFreno(cmd) ? 'pesado' : 'liviano';
   }
   return null;
@@ -217,4 +270,7 @@ async function main() {
   negar(`Guardia de RAM: ${motivo}. Con la RAM agotada se cuelga la app de Claude y se caen TODOS los chats abiertos (pasó el 11/10). ${consejo}`);
 }
 
-main().catch((e) => { log(`error interno (dejo pasar): ${e?.message || e}`); process.exit(0); });
+// Corre sólo cuando lo invoca el hook (`node …/memoria.mjs`); importarlo desde un test no arranca nada.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => { log(`error interno (dejo pasar): ${e?.message || e}`); process.exit(0); });
+}

@@ -12,6 +12,51 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El tablero del cliente no es toda la tabla: `listTareas` no filtraba (#507, 6/11/2026)
+
+**Síntoma:** el kanban del cliente le mostraba tareas de la Retro y pasos de experimentos mezclados con las suyas. La SPEC del
+kanban lo pedía, «Re-priorizar todo» ya lo cumplía (`esDelPlanCliente`) y **ninguna tanda lo hizo en la lectura**: estaba
+anotado como pendiente en este mismo documento desde el 16/10.
+
+**Lo que no se ve en el código:** `listTareas()` tiene 25 llamadores y el defecto NO se arregla filtrando adentro. Hay
+lectores que necesitan la tabla ENTERA, y un filtro a ciegas los rompe en silencio:
+
+- **el cierre por señales** (`autocompletarPorSenales`, y el cron `tareas-verificar`): filtrado, una tarea de la Retro no se
+  cierra NUNCA;
+- **buscar una por id** para editarla o cerrarla (lib/plan-cerrar.ts, plan.run.ts): filtrado, una tarea de la Retro «ya no
+  existe» y MaKo contesta eso;
+- **la deduplicación de lo que se propone** (lib/plan-propuesta.ts, lib/reunion-cruce.ts): deduplicar contra media tabla
+  propone un duplicado de algo que ya está;
+- el contexto del Perro y de la Retro, y los gráficos (un conteo distinto es otra medición).
+
+**La regla que queda:** el filtro es un parámetro con el default de HOY (`listTareas({ soloDelPlan: true })`, lib/todo.ts), y
+lo pide quien **PRESENTA** el tablero. Son siete puertas, y si una se olvida las tareas vuelven por ahí — la típica es el GET:
+/plan filtrado y `GET /api/todo` sin filtrar y el primer refresco las repintaba. Las siete: app/plan/page.tsx (tres lecturas),
+app/api/todo/route.ts, lib/plan-hoy.ts («Hoy»/«Semana»/Today), lib/vista-general.ts (el escalón «Plan» del foco),
+lib/api-mako/areas/plan.helpers.ts, lib/mako-tools.ts (`ver_plan`) y app/api/agente/plan/route.ts.
+
+**No es una pregunta de ROL.** El reflejo es «¿corta para el cliente y el super admin ve todo?»: no aplica. `listTareas` lee
+sólo `experimento_tareas`, que ES la tabla del cliente; el tablero del super admin es `plan_tareas` (`listPlanBoard`), que no
+pasa por acá. Y un admin que impersona tiene que ver lo MISMO que el cliente, o no puede reproducir lo que le reportan.
+
+⚠️ **Y filtrar le rompe el aviso de «se cortó» a quien lo mide.** Esta lectura NO pagina y PostgREST corta en 1000 filas
+sin decir nada; quien presenta el tablero avisa `recortado` comparando el largo contra ese tope. Con el filtro, de 1000 filas
+leídas quedan 800 y el aviso dice «no se cortó» cuando sí — el mismo límite que corta en silencio, una vuelta más abajo. Por eso
+existe `listTareasConTope`, que devuelve también `leidas` (las filas ANTES de filtrar), y `lib/plan-hoy.ts` y
+`lib/api-mako/areas/plan.helpers.ts` miden `recortado` con ESE número.
+
+**Dos trampas al filtrar la lectura de /plan:**
+
+- El seed de un tablero vacío mira `categorias.length === 0 && tareas.length === 0`. Con el filtro, un negocio con SÓLO tareas
+  de Retro parece vacío — pero no re-siembra: `seedTodoBoardSiVacio` tiene su propio candado y lee la tabla CRUDA
+  (`experimento_tareas select id limit 1`). Si ese candado se saca, el filtro pasa a sembrar encima.
+- La página le pasa la lista a `autocompletarPorSenales`: filtrada, deja de cerrar las de la Retro por señales. No se pierde
+  nada porque el cron corre la misma función SIN filtro todos los días; si ese cron se apaga, el cierre de esas se va con él.
+
+**Vive en:** lib/todo.ts (`listTareas`), lib/plan-repriorizar-nucleo.ts (`esDelPlanCliente`, una regla y un lugar) y las siete
+puertas de arriba · tests/plan-kanban-server.test.ts + tests/_plan-kanban-hijo.ts (base 14/0; cinco roturas, cinco cazadas:
+ignorar la opción, mirar sólo `origen` sin `retro_id`/`experimento_id`, el GET sin filtrar, /plan filtrando una lectura de tres
+y filtrar el cron de cierre → 13/1 cada una).
 ## Un choke point que dice «por acá pasan TODOS» hace que nadie mire los mapeos de arriba (6/11/2026)
 
 `recurrente` («se repite para siempre», mig 0163) se caía en `app/api/agente/plan/route.ts`: ese `map`
@@ -2792,8 +2837,9 @@ cliente, por `prioridadOk(undefined)`) y no la columna. Era el mismo error que l
 - **Las dos sentencias de reconciliación de la 0294, después del deploy** (cabecera de
   supabase/migrations/0294_plan_kanban_estado.sql): tareas del dueño completadas o reabiertas entre la migración y el
   deploy.
-- **El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos**: `listTareas` (lib/todo.ts) no
-  filtra. La SPEC lo pedía y ninguna tanda lo hizo; «Re-priorizar todo» sí las excluye (`esDelPlanCliente`).
+- ~~**El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos**~~ **Arreglado el 6/11/2026**
+  (#507): `listTareas({ soloDelPlan: true })` en las siete puertas que presentan el tablero — ver «El tablero del cliente no
+  es toda la tabla», arriba.
 - **El filtro «Responsable» no existe en el tablero del dueño**: `plan_tareas` necesita `responsable_tipo` (migración
   aditiva) y alguien que lo escriba.
 - **Cuentas que siguen preguntando `progress < 100`** y contarían una tarea del dueño movida a «No cumplen tu

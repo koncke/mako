@@ -417,7 +417,8 @@ export const runMakoTool = async (name: string, input: Record<string, unknown>, 
           tareas_abiertas: abiertas.slice(0, 300).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: nombreProy.get(t.labels[0]) ?? '', link: linkTarea(t.id) })),
         });
       }
-      const [cats, tareas] = await Promise.all([listCategorias().catch(() => []), listTareas().catch(() => [])]);
+      // Sólo las del PLAN (#507): el mismo tablero que ve el cliente en /plan.
+      const [cats, tareas] = await Promise.all([listCategorias().catch(() => []), listTareas({ soloDelPlan: true }).catch(() => [])]);
       const catById = new Map(cats.map((c) => [c.id, c.nombre]));
       return JSON.stringify({
         proyectos: cats.map((c) => ({ id: String(c.id), nombre: c.nombre, link: linkProy(String(c.id)) })),

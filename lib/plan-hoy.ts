@@ -28,7 +28,7 @@ import 'server-only';
 import { tableroActual } from '@/lib/tablero-actual';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { listPlanBoard } from '@/lib/plan-board';
-import { listTareas, listCategorias } from '@/lib/todo';
+import { listTareasConTope, listCategorias } from '@/lib/todo';
 import { estaPendiente } from '@/lib/todo-estados';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { toBoard, toLabel } from '@/app/plan/board/desde-todo';
@@ -106,7 +106,9 @@ async function leerTablero(que: 'dueno' | 'cliente'): Promise<{ tareas: BoardTas
     const b = await listPlanBoard();
     return { ...b, recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS };
   }
-  const [ts, cs] = await Promise.all([listTareas(), listCategorias()]);
+  // El mismo tablero, con el mismo filtro que /plan (#507): sólo las del PLAN. Y `recortado` se mide
+  // con las filas LEÍDAS, no con las que quedaron: el filtro le sacaría el aviso a una lectura cortada.
+  const [{ tareas: ts, leidas }, cs] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
   return {
     // ⚠️ `no_cumple` SE SACA ANTES DE `toBoard`, que pierde el estado: una tarea que el
     // criterio no dejó pasar NO es un pendiente (lib/todo-estados.ts), y después del mapper
@@ -120,7 +122,7 @@ async function leerTablero(que: 'dueno' | 'cliente'): Promise<{ tareas: BoardTas
       .map((t) => ({ ...toBoard(t), creadaEn: Date.parse(String(t.created_at ?? '')) || undefined })),
     proyectos: cs.map(toLabel),
     deps: [],
-    recortado: ts.length >= TOPE_FILAS || cs.length >= TOPE_FILAS,
+    recortado: leidas >= TOPE_FILAS || cs.length >= TOPE_FILAS,
   };
 }
 

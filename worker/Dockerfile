@@ -40,7 +40,9 @@ WORKDIR /app
 # busca— y es condensada y pesada como la que se venia usando, asi que los topes
 # de caracteres del generador de subtitulos siguen valiendo.
 COPY worker/fuentes/ /app/worker/fuentes/
-COPY worker/montar-cola.mjs /app/worker/
+# `duraciones.mjs` lo IMPORTA el bucle: sin el archivo, el contenedor muere al
+# arrancar con un ERR_MODULE_NOT_FOUND. Lo fija tests/montaje-worker-tomas.test.ts.
+COPY worker/duraciones.mjs worker/montar-cola.mjs /app/worker/
 COPY scripts/montar-anuncio-sin-silencios.sh \
      scripts/plan-cortes-anuncio.mjs \
      scripts/gen-filtros-anuncio.mjs \
