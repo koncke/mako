@@ -1497,6 +1497,41 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },
+  // ── MIGRAR DESDE OTRO CRM (6/11/2026, la llamada con Thiago: una agencia con 27 clientes en España) ─────────────────
+  // Lo que Martín le prometió: se guardan el id del CRM viejo, la fecha original y las UTM; migrar dos veces no repite a
+  // nadie; y los migrados entran QUIETOS (ningún mensaje, ninguna automatización: lib/migracion-leads.ts). Cada contacto
+  // NACE en su etapa: moverlos después en bloque dispararía el evento de etapa de cada uno.
+  // ⚠️ Sólo por la API (`http`): un lote de 200 no se pega en un chat. Y el id y el título no llevan «lead» ni «etapa»,
+  //    que el clasificador suma a todo pedido del CRM (`RELEVANCIA_CRM`): las palabras van en los parámetros.
+  //    Antes de `armar_tab_ficha`, que va última a propósito.
+  {
+    id: 'migrar_contactos', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Migrar contactos de otro CRM',
+    descripcion: 'PROPONE pasar a MaKo hasta 200 contactos de OTRO CRM por pedido (GoHighLevel, HubSpot, un CSV), con UNA confirmación para todos. Cada uno lleva su id del CRM anterior (idExterno): volver a mandar el lote saltea a los que ya entraron, así que repetirlo es seguro. Se guardan la fecha en que se creó allá y las UTM. Cada contacto nace en su etapa abierta (por su key o su nombre; sin etapa, en la de entrada). Entran QUIETOS: no reciben ningún mensaje ni entran a ninguna automatización por haber llegado; sólo un hecho nuevo (moverlo a mano, que reserve, que conteste) los hace entrar. Ganado, Perdido y las demás finales no se migran por esta vía: vuelven en descartados. Las conversaciones del CRM anterior no se traen. Solo el administrador.',
+    parametros: [
+      {
+        nombre: 'contactos', tipo: 'object[]', obligatorio: true, max: 200, descripcion: 'los contactos del lote (hasta 200).',
+        campos: [
+          { nombre: 'idExterno', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el id que tiene en el CRM anterior.' },
+          { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido.' },
+          { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
+          { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país.' },
+          { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'usuario de Instagram (@usuario o el link del perfil).' },
+          { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa.' },
+          { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'la etapa donde nace en el CRM de destino, por su key o su nombre (de ver_funnel). Sin ella, la de entrada.' },
+          { nombre: 'fechaOriginal', tipo: 'string', max: 40, descripcion: 'cuándo se creó en el CRM anterior: una fecha ISO (2025-03-14) o un timestamp.' },
+          { nombre: 'utm_source', tipo: 'string', max: 200, descripcion: 'utm_source de origen.' },
+          { nombre: 'utm_medium', tipo: 'string', max: 200, descripcion: 'utm_medium de origen.' },
+          { nombre: 'utm_campaign', tipo: 'string', max: 200, descripcion: 'utm_campaign de origen.' },
+          { nombre: 'utm_content', tipo: 'string', max: 200, descripcion: 'utm_content de origen.' },
+        ],
+      },
+      { nombre: 'crmAnterior', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el nombre del CRM de donde vienen («GoHighLevel», «HubSpot», «Excel»): el mismo id en dos CRM viejos son dos personas.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM de MaKo donde entran (de ver_funnel o tipos_de_crm). Sin él, el principal.' },
+    ],
+    canales: ['http'], costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'crea cada contacto como un lead quieto (origen «Migrado de otro CRM») en su etapa, con su id del CRM anterior; no le escribe a nadie',
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba

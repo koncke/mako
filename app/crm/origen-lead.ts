@@ -53,7 +53,10 @@ export type OrigenLeadId =
   | 'grupo_whatsapp' // se trajo de un grupo de WhatsApp (app/crm/grupo-wa-server.ts)
   // La venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): el comprador que no estaba en el CRM
   // (`registrarVentaExterna`, lib/cobros.ts).
-  | 'stripe';
+  | 'stripe'
+  // ⚠️ Y EL DE LA MIGRACIÓN (6/11/2026, la agencia de Thiago), que también MANDA: ver `quedaDondeLoPusieron`. Lo escribe
+  // `migrar_leads` (lib/api-mako/areas/crm.run.ts, lib/migracion-leads.ts).
+  | 'migracion';
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -85,6 +88,7 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
   grupo_whatsapp: { id: 'grupo_whatsapp', lista: 'Grupo de WhatsApp' },
   stripe: { id: 'stripe', lista: 'Stripe' },
+  migracion: { id: 'migracion', lista: 'Migrado de otro CRM' },
 };
 
 /**
@@ -93,9 +97,13 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
  * toman los barridos que mandan sin que nadie los cuelgue de nada (`reactivacion_viejo`, `ultimo_intento_antes_noresp`,
  * lib/nutricion.ts). Nadie los invitó a esa conversación: a un grupo se entra por otra cosa.
  * Lo que alguien hace A PROPÓSITO sí corre: moverlo a mano, o colgarle una automatización a su etapa o a su etiqueta.
+ *
+ * ⚠️ Y LOS MIGRADOS DE OTRO CRM, también (6/11/2026, la agencia de Thiago: miles de contactos de golpe). Para ellos hay una
+ * puerta MÁS fuerte: el barrido de la hora de las automatizaciones nunca los toma, ni colgados de su etapa ni de su etiqueta
+ * (`sinMigrados`, lib/nutricion.ts). Entran sólo por un hecho nuevo, por el evento de siempre.
  */
 export function quedaDondeLoPusieron(origen: string | null | undefined): boolean {
-  return origen === ORIGEN_LEAD.grupo_whatsapp.id;
+  return origen === ORIGEN_LEAD.grupo_whatsapp.id || origen === ORIGEN_LEAD.migracion.id;
 }
 
 /**

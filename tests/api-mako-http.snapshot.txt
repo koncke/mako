@@ -460,6 +460,7 @@ metricas_automatizacion
 metricas_chatbot
 metricas_closers
 metricas_negocio
+migrar_contactos
 mis_creaciones
 modo_agente_media_buyer
 modo_media_buyer

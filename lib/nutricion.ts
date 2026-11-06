@@ -167,6 +167,7 @@ import { datoDeCampo } from '@/lib/dato-evento';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 // Los traídos de un grupo de WhatsApp no entran a los barridos que mandan solos (ver la cohorte de reactivación).
 import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
+import { ORIGEN_MIGRACION, quitarMigrados } from '@/lib/migracion-leads';
 // Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
 import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
 
@@ -1363,12 +1364,35 @@ export async function leadsDeCohorte(
       // escribe a quien no corresponde).
       const out = new Set<number>();
       for (const key of keys) for (const id of await clientesEnEtapaDeEntrega(prod, key)) out.add(id);
-      return [...out];
+      return await sinMigrados([...out]);
     } catch (e) {
       throw new Error(`cohorte entrega_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o);
+  return sinMigrados(await cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o));
+}
+
+/**
+ * LA COHORTE NUNCA TRAE A UN MIGRADO DE OTRO CRM (6/11/2026, la agencia de Thiago: miles de contactos de golpe). Lo que entra
+ * por migración (`origen_lead: 'migracion'`, lib/migracion-leads.ts) no le da la bienvenida a nadie ni entra a lo que cuelga
+ * de su etapa o de su etiqueta en el barrido de la hora, ni se ofrece al activar (`existentesEnEtapa` pasa por acá). Entra a
+ * una automatización SÓLO por un hecho nuevo, por el evento de siempre (`enrolarPorEvento`): lo mueven a mano, reserva, le
+ * ponen una etiqueta, contesta. Ésa es la diferencia con los traídos de un grupo, que sí entran colgados de su etapa.
+ *
+ * ⚠️ Una puerta para TODAS las cohortes, no un filtro por disparador: el próximo disparador nuevo la hereda sin que nadie se
+ * acuerde. Y TIRA si no puede leer (como toda cohorte): un universo a medias le escribe a quien no corresponde.
+ * La lista se pide de a 300 ids: la cohorte puede pasar las 1000 filas y un `.in()` largo no entra en la URL.
+ */
+async function sinMigrados(ids: number[]): Promise<number[]> {
+  if (!ids.length) return ids;
+  const db = await getTenantDb();
+  const migrados = new Set<number>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data, error } = await db.from('leads').select('id').eq('origen_lead', ORIGEN_MIGRACION).in('id', ids.slice(i, i + 300));
+    if (error) throw new Error(`cohorte: no pude ver cuáles son migrados de otro CRM: ${error.message}`);
+    for (const r of (data ?? []) as Array<{ id: number | string }>) migrados.add(Number(r.id));
+  }
+  return quitarMigrados(ids, migrados);
 }
 
 /**
