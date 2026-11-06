@@ -48,6 +48,9 @@ export function crearPostgrest(o: {
 }) {
   const db: Record<string, Fila[]> = Object.fromEntries(o.tablas.map((t) => [t, [] as Fila[]]));
   const sinMock = new Set<string>();
+  /** Las tablas que el test declara como NO APLICADAS: contestan el error de PostgREST, no una lista vacía. Mutable:
+   *  `faltan.add('x')` antes de la parte que lo prueba y `faltan.delete('x')` después. */
+  const faltan = new Set<string>();
   const defaults = o.defaults ?? ((_t: string, f: Fila) => ({ ...f }));
 
   type Filtro = (f: Fila) => boolean;
@@ -219,6 +222,15 @@ export function crearPostgrest(o: {
     if (tabla === 'rpc/cobrar_cuota_con_resto' && 'pagos' in db) {
       return cobrarCuotaConResto(typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {});
     }
+    // Una tabla que el test declaró como NO APLICADA (una migración que falta): contesta lo que contesta PostgREST de
+    // verdad, no una lista vacía. Es la diferencia entre probar «no hay bajas» y probar «no sé si hay bajas», y un código
+    // que falla abierto pasa el primero y falla el segundo.
+    if (faltan.has(tabla)) {
+      return json(404, { code: 'PGRST205', message: `Could not find the table 'public.${tabla}' in the schema cache`, details: null, hint: null });
+    }
+    // ⚠️ UNA TABLA QUE NADIE MOCKEÓ CONTESTA 200 Y UNA LISTA VACÍA, y queda anotada en `sinMock`. Es cómodo para no
+    // declarar diez tablas que no importan, pero si lo que se está probando es «sin esta tabla, ¿qué hace?», esto
+    // responde «está vacía» y no «no existe»: usá `faltan`.
     if (!(tabla in db)) { sinMock.add(tabla); return json(200, []); }
     const metodo = (init.method ?? 'GET').toUpperCase();
     const h = new Headers(init.headers);
@@ -270,5 +282,5 @@ export function crearPostgrest(o: {
     return json(405, { message: `método sin mock: ${metodo}` });
   }
 
-  return { db, sinMock, responder, vaciar: () => { for (const t of Object.keys(db)) db[t] = []; sinMock.clear(); } };
+  return { db, sinMock, faltan, responder, vaciar: () => { for (const t of Object.keys(db)) db[t] = []; sinMock.clear(); faltan.clear(); } };
 }

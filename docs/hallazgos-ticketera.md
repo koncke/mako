@@ -995,3 +995,55 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - La puerta del DEBUG desde un cliente está cerrada.
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
+
+## La baja de los correos estaba atada a una CUENTA, y una cuenta no es una persona (6/11/2026, mig 0410)
+
+**Cómo estaba anotado:** «quien pide no recibir más correos de tickets y no tiene cuenta, no queda anotado; una persona que
+pidió la baja los sigue recibiendo» (docs/relevo/nube-tickets.md).
+
+**⚠️ LA MITAD DE ESO NO ERA CIERTO, Y LA OTRA MITAD ERA PEOR DE LO QUE DECÍA.**
+
+- **Quien no tiene cuenta no recibía NADA.** `decidirAvance` pide `usuario_id` y un email de verdad, y `candidatos` filtra
+  `usuario_id is not null`: un ticket por WhatsApp sin perfil o el de un alumno de un curso nunca generó un correo de
+  avance. No había correos de más que frenar. Lo que faltaba era el LUGAR donde guardar su «no me escribas» para el día
+  que un camino nuevo le escriba — y eso es lo que la 0410 deja hecho, no un correo que hoy salga mal.
+- **Pero sí había alguien que pedía la baja y seguía recibiendo, y no es quien decía el pendiente.** La baja vivía en
+  `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. Una fila de `usuarios` no es una persona: es una
+  persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053). Quien trabaja en su cuenta y en la
+  de un cliente de su agencia tiene dos filas con la misma dirección: apretaba «Dejar de recibirlos» en el correo de un
+  negocio y los seguía recibiendo por el otro, a la misma casilla. Para la persona, que ve una sola casilla de correo, eso
+  es exactamente «pedí la baja y me siguen llegando».
+
+**La regla que queda:** la baja se guarda por **DIRECCIÓN** (`correo_bajas`, mig 0410), y la escribe un solo módulo
+(`lib/tickets-baja-correo.ts`) en los dos lugares: la tabla por dirección y la marca del perfil de **todas** las filas con
+esa dirección. La tabla no lleva `workspace_id` a propósito — es la única columna que alguien va a querer agregarle, y
+agregarla sería volver al bug.
+
+- **El caso que sólo la tabla puede frenar** (y el que fija el test): una cuenta **nueva** con esa dirección, creada
+  DESPUÉS de la baja. Su perfil nace limpio, así que una decisión que mirara sólo el perfil le escribiría.
+- **Sin la 0410 no sale ningún correo**, y la vuelta lo dice en su renglón. No se sabe quién pidió la baja, y escribirle a
+  quien la pidió es peor que un correo de menos (es la regla que ya tenía el archivo). Un fallo de lectura, igual.
+- **Saltear no se come un correo:** el hito NO se reclama cuando la baja lo frena, así que al levantarla sale el que
+  esperaba.
+
+**Trampas que costaron tiempo acá:**
+- **El PostgREST de mentira contesta `200` y una lista VACÍA para una tabla que nadie mockeó** (y la anota en `sinMock`).
+  Para probar «sin esta tabla, ¿qué hace?» eso responde «está vacía», no «no existe» — que es justo lo que un código que
+  falla ABIERTO necesita para pasar el test. Se agregó `faltan` (tests/_postgrest-de-mentira.ts): un conjunto mutable de
+  tablas que contestan el error de verdad (`PGRST205`). Sin eso, el test del camino sin migración pasaba con el bug.
+- **`filaPropia` (lib/perfil.ts) usa `.maybeSingle()` sobre `eq('email', …)`**, y eso tira `PGRST116` en cuanto hay DOS
+  filas con la misma dirección — la misma gente que este arreglo cubre. Devuelve `null` en silencio, así que a esa persona
+  las preferencias de pop-up y sonido se le ven en los valores por defecto y su guardado contesta `guardado: false`. **No
+  se arregló acá** (es de `lib/perfil.ts`, no de la Ticketera): por eso la casilla nueva se resuelve por la DIRECCIÓN de
+  la sesión y no por `filaPropia`.
+
+**Lo que quedó SIN hacer:** la **casilla en Notificaciones** para prender y apagar estos correos sin pasar por el link del
+mail. El motor está listo y es lo único que falta: `cambiarBajaPorEmail` y `apagadosPorEmail` ya hacen las dos capas, falta
+la ruta (`app/api/perfil/`, modelo: `notif-inapp/route.ts`) y la fila con el `Switch` en
+`app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta tiene que resolver a la persona por el **email de la sesión**, no con
+`filaPropia`, por lo de arriba.
+
+**Vive en:** `supabase/migrations/0410_correo_bajas.sql` · `lib/tickets-baja-correo.ts` · `lib/tickets-avance.ts`
+(`TIPO_BAJA_TICKETS`, `pidioLaBaja`, `decidirAvance`, `DepsAvance.bajas`) · `lib/tickets-avance-email.ts` (`bajasDe`) ·
+`app/api/email/unsubscribe/tickets/route.ts` · `tests/tickets-avance-email.test.ts` (5b y 5c) ·
+`tests/_tickets-avance-email-hijo.ts` · `tests/_postgrest-de-mentira.ts` (`faltan`)
