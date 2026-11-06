@@ -2405,17 +2405,9 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; sol
       if (sec.disparador.grupo) await mandarRecurrenteAlGrupo(base, sec.disparador, sec.cron_proxima_at);
       if (!barreElDisparador(sec)) continue;
       if (opts?.soloGrupo) continue;
-      // Una o varias etapas (punto 14).
-      // ⚠️ UNA COHORTE QUE NO SE PUDO LEER SALTEA ESA AUTOMATIZACIÓN, no el negocio entero (6/11/2026). Desde que la del VSL
-      // es estricta (una base caída ya no da «nadie lo vio»), tirar acá cortaba las demás automatizaciones y todos los envíos
-      // del negocio en esa corrida. Saltearla no inscribe a nadie: la próxima vuelta lo vuelve a intentar.
-      let cohorte: number[];
-      try {
-        cohorte = await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id);
-      } catch (e) {
-        console.error(`[nutricion] la cohorte de la automatización #${sec.id} no se pudo leer (se saltea esta vuelta): ${e instanceof Error ? e.message : String(e)}`);
-        continue;
-      }
+      // Una o varias etapas (punto 14). Sin poder leerla, se saltea ESA automatización (`cohorteOSaltear`).
+      const cohorte = await cohorteOSaltear(sec);
+      if (!cohorte) continue;
       const candidatos = (await aTiempo(supabase, sec, cohorte))
         .filter((id) => !yaInscriptos.has(id));
       if (candidatos.length === 0) continue;
@@ -2438,6 +2430,21 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; sol
     }
   }
   return creadas;
+}
+
+/**
+ * LA COHORTE DE UNA AUTOMATIZACIÓN PARA EL COMMIT, o null si no se pudo leer (6/11/2026). Una cohorte que no se pudo leer
+ * saltea ESA automatización, no el negocio entero: desde que la del VSL es estricta (una base caída ya no da «nadie lo vio»,
+ * lib/leads.ts), tirar en `comprometerInscripciones` cortaba las demás automatizaciones y todos los envíos del negocio en esa
+ * corrida. Saltearla no inscribe a nadie: la próxima vuelta lo vuelve a intentar.
+ */
+async function cohorteOSaltear(sec: ReturnType<typeof vistasPorDisparador>[number]): Promise<number[] | null> {
+  try {
+    return await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id);
+  } catch (e) {
+    console.error(`[nutricion] la cohorte de la automatización #${sec.id} no se pudo leer (se saltea esta vuelta): ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
 }
 
 /**

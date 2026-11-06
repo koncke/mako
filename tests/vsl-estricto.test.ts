@@ -38,8 +38,10 @@ test('CABLEADO: el motor lo pide estricto en la condición y en las dos cohortes
 // ni los envíos del negocio. Probado rompiéndolo (sin el try/catch alrededor de la cohorte): 2 / 1.
 test('una cohorte que no se pudo leer saltea esa automatización, no el negocio', () => {
   const src = leer('lib/nutricion.ts');
-  const c = src.slice(src.indexOf('export async function comprometerInscripciones('), src.indexOf('async function reclamarOcurrenciaExtra('));
+  const c = src.slice(src.indexOf('export async function comprometerInscripciones('), src.indexOf('async function cohorteOSaltear('));
   assert.ok(c.length > 1000, 'encontré comprometerInscripciones');
-  assert.match(c, /try \{\n\s*cohorte = await leadsDeCohorte\(/);
-  assert.match(c, /\} catch \(e\) \{\n\s*console\.error\(`\[nutricion\] la cohorte de la automatización #\$\{sec\.id\} no se pudo leer[^`]*`\);\n\s*continue;/);
+  assert.match(c, /const cohorte = await cohorteOSaltear\(sec\);\n\s*if \(!cohorte\) continue;/);
+  const h = src.slice(src.indexOf('async function cohorteOSaltear('), src.indexOf('async function reclamarOcurrenciaExtra('));
+  assert.match(h, /try \{\n\s*return await leadsDeCohorte\(/);
+  assert.match(h, /\} catch \(e\) \{\n\s*console\.error\(`\[nutricion\] la cohorte de la automatización #\$\{sec\.id\} no se pudo leer[^`]*`\);\n\s*return null;/);
 });
