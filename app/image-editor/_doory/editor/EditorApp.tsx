@@ -8,9 +8,6 @@ import './animation/commands'
 import './presenter/commands'
 import './panels/commentsCommands'
 import './engine/export/formats'
-import { CollabBanner } from './collab/CollabBanner'
-import type { CollabSession } from './collab/session'
-import { exposeForTests } from './collab/testHook'
 import { ConflictBanner } from './ConflictBanner'
 import { MissingFontsNotice } from './fonts/MissingFontsNotice'
 import { ContextMenuHost } from './ContextMenuHost'
@@ -35,9 +32,6 @@ import { LazyTimelineHost } from './workspace/TimelineLoader'
 import { Workspace } from './workspace/Workspace'
 import styles from './EditorApp.module.css'
 
-/** How many times the code of the live session is fetched again (after 1, 2, 4, 8 s …) before the person is told to reload. */
-const COLLAB_LOAD_ATTEMPTS = 4
-
 function LiveRegion() {
   const message = useEditorState((s) => s.announcement)
   return (
@@ -58,9 +52,6 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [stripOpen, setStripOpen] = useState(false)
   const latest = useLatest({ onTitleChange, onSaveStateChange })
-  const [session, setSession] = useState<CollabSession | null>(null)
-  const [liveEpoch, setLiveEpoch] = useState(0)
-  const realtime = adapter.realtime ?? null
 
   useImperativeHandle(
     ref,
@@ -76,7 +67,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   // teardown only runs if nobody restarted the engine on the next tick.
   useEffect(() => {
     engine.start()
-    engine.persistence.start({ onSaveStateChange: (s) => latest.current.onSaveStateChange?.(s), onUseRealtime: () => setLiveEpoch((n) => n + 1) })
+    engine.persistence.start({ onSaveStateChange: (s) => latest.current.onSaveStateChange?.(s) })
     return () => {
       engine.stop()
       setTimeout(() => {
@@ -109,40 +100,6 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
     void engine.loadDocument(doc)
   }, [engine, meta.id, doc])
 
-  // Live editing: while the adapter offers a room, the design is edited together (src/editor/collab). The code of the session
-  // (Yjs and the binding, about a quarter of the editor) is downloaded only now, so a design edited alone never pays for it.
-  // The connection opens on the next tick so React's development double-mount does not open one just to close it.
-  useEffect(() => {
-    if (!realtime) return
-    let live: CollabSession | null = null
-    let stopped = false
-    let timer: number | undefined
-    const open = (attempt: number): void => {
-      import('./collab/session').then(
-        ({ CollabSession: Session }) => {
-          if (stopped) return
-          live = new Session(engine, realtime)
-          live.start()
-          setSession(live)
-        },
-        () => {
-          if (stopped) return
-          if (attempt >= COLLAB_LOAD_ATTEMPTS) engine.toast(t.collab.notice.unavailable, 'error')
-          else timer = window.setTimeout(() => open(attempt + 1), 1000 * 2 ** attempt)
-        },
-      )
-    }
-    timer = window.setTimeout(() => open(0), 0)
-    return () => {
-      stopped = true
-      window.clearTimeout(timer)
-      live?.destroy()
-      setSession((current) => (current === live ? null : current))
-    }
-  }, [engine, realtime, meta.id, liveEpoch])
-
-  useEffect(() => exposeForTests({ engine, session }), [engine, session])
-
   // Responsive breakpoint: drawers and sidebars become bottom sheets below 1024px. Como en Canva, en escritorio el
   // editor abre con el panel «Diseño» a la vista; en pantallas chicas (hoja inferior) y en sólo lectura, cerrado.
   // Un panel recordado de otra sesión no se reabre.
@@ -166,7 +123,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
 
   return (
     <div ref={setRootEl} className={styles.root} data-editor-root aria-label={t.appLabel} role="application">
-      <EditorProvider engine={engine} portalRoot={root} collab={session}>
+      <EditorProvider engine={engine} portalRoot={root}>
         <ChromeProvider>
           {/*
             El armazón de Canva 2025–26 (docs/editor-imagen/relevamiento-canva-armazon.md §1), con los colores de MaKo:
@@ -177,7 +134,6 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
           */}
           <TopBar start={topBarStart} end={topBarEnd} onTitle={onTitle} onPresent={() => engine.openDialog('presenter')} />
           <ConflictBanner onResolve={onConflictResolve} />
-          <CollabBanner />
           <MissingFontsNotice />
           <div className={styles.body}>
             <RielCanva />
