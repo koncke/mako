@@ -106,7 +106,11 @@ Lo que se gastaba de más ese día:
 
 **El presupuesto no frena nada:** hay uno de US$80 en Spend Management, con «Pause» apagado, y está pasado. Sólo avisa. Prender «Pause» apagaría producción al llegar al tope.
 
-**Sin hacer:** medir el ahorro en el panel. Si no alcanza, fijar la máquina en Enhanced (8 núcleos, sale más barato si tarda menos de 11 minutos; sin medir) y agrupar las llegadas a main.
+**La máquina más chica NO anda (medido el 6/11).** Enhanced, 8 núcleos y 16 GB: `npm run build` murió con SIGKILL a los 162 s, `errorCode: out_of_memory`, compilando el mismo commit que en Turbo tarda 207 s. Standard tiene la mitad de memoria. **Entre 16 y 60 GB no hay máquina**: mientras el build pida más de 16 GB, es Turbo. Cambiarla además rompe lo que llega en el medio: el build de main que arrancó durante la prueba hizo saltar «El deploy de producción falló».
+
+**Quedó fijada en Turbo** (`buildMachineSelection: fixed`), y no en Elastic: al sacarla de Elastic se borró lo que había aprendido (`elasticBuildMachine`), y podría arrancar de una máquina chica y morir por memoria en un push real.
+
+**Sin hacer:** medir el ahorro en el panel. Si no alcanza, las dos palancas que quedan son agrupar las llegadas a main y bajarle la memoria al build.
 
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
