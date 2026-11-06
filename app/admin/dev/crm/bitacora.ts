@@ -4045,4 +4045,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: '6 nov', hora: '09:30', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cambiar el precio de un producto por MaKo muestra el precio de antes',
+    puntos: [
+      'Al confirmar en /mako/revisar, el título dice «200 USD; antes 2000 USD»: antes se aprobaba el precio nuevo sin ver el anterior.',
+      'El producto queda fijo al revisar: el título nombra ese producto y su precio de antes.',
+    ],
+    archivos: [
+      'lib/producto-precio-texto.ts — precioDelResumen',
+      'lib/api-mako/areas/crm.run.ts y crm.def.ts — guardar_producto',
+      'tests/producto-precio-texto.test.ts — probado rompiéndolo',
+    ],
+    commits: [{ sha: '66dc65fbe', msg: 'Automations y CRM: el VSL con la base caída ya no inscribe a todos, y el cambio de precio se ve', lineas: 161, archivos: 8 }],
+    revisar: '/mako/revisar',
+  },
 ];
