@@ -30,13 +30,13 @@ import { getSupabaseServer } from './supabase';
 import { sondearSocketDetalle, motivoCaida } from './evolution';
 import { esInstanciaInexistente, type Sondeo } from './evolution-sonda';
 import { instanciaVoz } from './mako-grupo';
-import { getSettingEstricto, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { emitirDelCatalogo } from './avisos';
 import { linkApp } from './app-url';
 import { zonaDelNegocio } from './timezone';
 import {
-  decidirLinea, avisoDeCaida, datosCaida, datosVolvio, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
+  decidirLinea, avisoDeCaida, datosCaida, datosVolvio, lineaLegible, keyDesde, keyAvisado, keyUltimoNumero, DEDUP_LINEA_MIN,
   type DecisionLinea, type MarcasLinea,
 } from './linea-vigilancia';
 
@@ -115,6 +115,11 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
   });
   const base = { ws, linea, sondeo: d.sondeo, que: decision.que };
   const ahora = new Date().toISOString();
+  // Cómo se nombra en el aviso. Si la caída le borró el número a la fila, el último que tuvo (lo guarda el webhook):
+  // tolerante, porque sólo dice CUÁL línea, no decide nada.
+  const nombre = async () => lineaLegible({
+    ...f, ultimoNumero: f.numero ? null : await runWithWorkspace(ws, () => getSetting(keyUltimoNumero(linea))),
+  });
   try {
     if (decision.que === 'fijar_desde') {
       await runWithWorkspace(ws, () => setSetting(keyDesde(linea), ahora));
@@ -134,7 +139,7 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       // Los DATOS van con el texto (15/10/2026): la automatización de la plataforma los cita por nombre; sin ella, el texto.
       // SÓLO LOS DATOS (16/10/2026): el texto es el de la automatización de SuperAdmin, sin camino viejo.
       const r = await emitirDelCatalogo('wa-reconectado', {
-        ws, datos: datosVolvio({ linea: lineaLegible(f) }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
+        ws, datos: datosVolvio({ linea: await nombre() }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
       });
       const llego = r.wa || r.enApp === true || r.email === true;
       return {
@@ -147,7 +152,7 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
     const motivo = await motivoCaida(linea, TOPE_MOTIVO_MS).catch(() => null);
     const tz = await zonaDelNegocio(ws);
     const hechos = {
-      motivo, desde: marcas.desde, linea: lineaLegible(f), tz,
+      motivo, desde: marcas.desde, linea: await nombre(), tz,
       link: linkApp(`/whatsapp?canal=no-oficial&linea=${encodeURIComponent(linea)}`, ws),
     };
     // Cerró la sesión o se cortó: cada uno es su aviso, con su texto literal en su fila (`avisoDeCaida`, 16/10/2026).

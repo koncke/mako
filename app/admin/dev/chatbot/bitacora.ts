@@ -3327,4 +3327,48 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "6 nov", hora: "03:00", chat: "Barrido de pendientes (nube)", cuenta: "nube", actor: "martin", tipo: "prompt",
+    titulo: "Barrido de todo lo pendiente que está escrito en el repo",
+    pedido: "avanza con absolutamente todo el resto de cosas que teníamos pendientes... Revisa todo... no me pidas permiso",
+    puntos: ["Llegó por el Cerebro: medir cada pendiente contra main, hacer lo de código y dejar lo de producción y lo de Martín con su paso exacto (docs/relevo/pendientes-barrido.md)."],
+  },
+  {
+    fecha: "6 nov", hora: "09:30", chat: "Barrido de pendientes (nube)", sesion: "cli_908aa36b-adb2-556c-b042-b48962ca685a", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "El recordatorio de la reunión también con Cal.com, y el VSL con la base caída ya no le escribe a todos",
+    puntos: [
+      "El aviso «en 30 min tienes la reunión» al dueño ahora también sale a quien agenda por Cal.com (antes sólo Calendly).",
+      "«No reprodujo el VSL» y la cohorte «vio poco el VSL» ya no se cumplen para todos cuando la base no contesta: esa automatización se saltea y sigue en la próxima vuelta.",
+      "Un borrador de WhatsApp que se cortó por tiempo queda «incierto»: no se manda dos veces y cuenta para los topes.",
+      "Si la IA no redacta un aviso, ya no sale el ejemplo de fábrica (una reunión inventada): sale el texto del negocio o los datos reales del evento.",
+    ],
+    archivos: [
+      "app/api/cron/reunion-recordatorio/route.ts — AGENDAS_DEL_DUENO",
+      "lib/leads.ts y lib/nutricion.ts — getVslEngagementMap estricto y la cohorte que se saltea",
+      "lib/evolution-envio.ts y lib/chats-envio-reglas.ts — estadoTrasFallarEnvio",
+      "lib/plantillas.ts y lib/aviso-sin-ia.ts — textoSinIA",
+      "tests/recordatorio-lead, chats-mako-envio, vsl-estricto y aviso-sin-ia — probados rompiéndolos",
+    ],
+    commits: [
+      { sha: 'fb4bc0774', msg: 'Barrido: cuatro avisos y envíos que mentían o se duplicaban, y el registro del barrido', lineas: 393, archivos: 17 },
+      { sha: '66dc65fbe', msg: 'Automations y CRM: el VSL con la base caída ya no inscribe a todos, y el cambio de precio se ve', lineas: 161, archivos: 8 },
+      { sha: '63b02bfcc', msg: 'Barrido: lo que encontró la revisión de las tres tandas, corregido antes de subir', lineas: 189, archivos: 20 },
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "6 nov", hora: "11:40", chat: "Barrido de pendientes (nube)", sesion: "cli_908aa36b-adb2-556c-b042-b48962ca685a", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "El aviso de WhatsApp caído dice cuál número se cayó",
+    puntos: [
+      "Cuando se cae una línea de WhatsApp de un negocio, el aviso ahora nombra el número aunque la línea ya no lo tenga (antes salía sin decir cuál).",
+    ],
+    archivos: [
+      "app/api/webhooks/evolution/route.ts — guarda el número antes de borrarlo",
+      "lib/linea-vigilancia.ts y lib/lineas-vigilante.ts — keyUltimoNumero y el respaldo en los dos avisos",
+      "tests/linea-vigilancia.test.ts — probado rompiéndolo (3 roturas, 1 fallo cada una)",
+    ],
+    revisar: "/whatsapp",
+  },
 ];

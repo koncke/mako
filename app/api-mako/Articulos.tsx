@@ -16,7 +16,7 @@ import Link from '@/app/_ui/Link';
 import type { AreaDocs } from './datos';
 import { referenciaApi, openApiApi } from './actions';
 import { BotonCopiar, Icono, Verbo, useCopiar } from './piezas';
-import { ARTICULOS, type SlugArticulo } from './articulos-meta';
+import { ARTICULOS, EJEMPLO_LOTE_MIGRACION, type SlugArticulo } from './articulos-meta';
 
 export type DatosArticulos = {
   base: string;
@@ -76,6 +76,7 @@ export function Articulo({ slug, d }: { slug: SlugArticulo; d: DatosArticulos })
       {slug === 'migrar-curso' && <MigrarCurso d={d} />}
       {slug === 'instagram-palabras-botones' && <InstagramPalabrasBotones />}
       {slug === 'campana-email' && <CampanaEmail d={d} />}
+      {slug === 'migrar-crm' && <MigrarCrm d={d} />}
     </article>
   );
 }
@@ -535,6 +536,76 @@ function CampanaEmail({ d }: { d: DatosArticulos }) {
 
       <h2 id="endpoints">Los endpoints</h2>
       <p>Están en <Link href="/api-mako?tab=docs&area=email">Email</Link>, <Link href="/api-mako?tab=docs&area=crm">CRM</Link> y <Link href="/api-mako?tab=docs&area=chatbot">Automations</Link>, con sus parámetros y ejemplos.</p>
+    </>
+  );
+}
+
+
+/**
+ * MIGRAR EL CRM CON CLAUDE (6/11/2026, la promesa a la agencia de Thiago: 27 clientes que vienen de otro CRM). El mensaje
+ * nombra las rutas REST de cada paso: si cambian, tests/api-mako-migrar-crm-guia.test.ts lo nota. Lo que la guía promete
+ * (quietos, sin repetir, en su etapa) lo hace la operación `migrar_contactos` (lib/migracion-leads.ts).
+ */
+function MigrarCrm({ d }: { d: DatosArticulos }) {
+  const mensaje = [
+    'Quiero pasar los contactos de mi CRM anterior a MaKo usando su API.',
+    '',
+    `- La API de MaKo: ${d.base}/api/v1 (la referencia completa, con mi token: GET ${d.base}/api/v1/docs).`,
+    '- Mi token: <PEGA-AQUÍ-TU-TOKEN>. Va en el encabezado «Authorization: Bearer <token>».',
+    '- (Si es un token de agencia) Cada pedido lleva además el encabezado «X-MaKo-Cliente: <número de cuenta>». GET /api/v1 sin ese encabezado te devuelve mis clientes en «disponibles».',
+    '- Mi CRM anterior: <GoHighLevel, HubSpot, Pipedrive o un archivo CSV>, y cómo leerlo: <su API key, o el archivo exportado>.',
+    '',
+    'Hazlo en este orden, y espera mi OK donde lo digo:',
+    '1. GET /api/v1/crm/etapas: las columnas del CRM de MaKo donde van a entrar, con su key.',
+    '2. Lee mi CRM anterior y muéstrame cuántos contactos hay y a qué columna de MaKo va cada etapa de allá (por su key). Si una etapa no tiene par, propónme la columna y créala con POST /api/v1/crm/etapas cuando te diga que sí. Espera mi OK.',
+    '3. Manda los contactos de a 200 con POST /api/v1/crm/migraciones: {"crmAnterior": "<nombre del CRM>", "contactos": [{"idExterno", "nombre", "email", "telefono", "empresa", "etapa", "fechaOriginal", "utm_source", "utm_medium", "utm_campaign", "utm_content"}]}. «idExterno» es el id del contacto allá: con él, repetir un lote no duplica a nadie.',
+    '4. Después de cada lote, léeme «datos»: creados, yaEstaban, adoptados (ya estaban en MaKo con ese email o teléfono), descartados (con su motivo) y pendientes. Si hay pendientes, o el pedido se cortó, manda el MISMO lote otra vez: los que ya entraron se saltean.',
+    '5. Al final, GET /api/v1/crm/estadisticas/leads y dime cuántos quedaron por columna contra cuántos tenía el origen. Guárdame la lista de descartados.',
+    '6. (Agencia) Repite del 1 al 5 con cada cliente, cambiando «X-MaKo-Cliente». Un cliente que no es de mi cartera contesta 404: no lo intentes de otra forma.',
+    '',
+    'Lo que NO tienes que hacer: no les pongas etiquetas, no los muevas de columna después ni los sumes a una automatización. Eso es un hecho nuevo y les escribe.',
+  ].join('\n');
+  return (
+    <>
+      <h2 id="necesitas">Lo que necesitas</h2>
+      <ul>
+        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «CRM». Si eres una <strong>agencia</strong>, un <strong>token de agencia</strong>: uno solo para todos tus clientes (mira «Si eres una agencia»).</li>
+        <li><strong>Claude</strong> con la posibilidad de hacer pedidos a una API: Claude Code, o Claude con una herramienta que llame a URLs.</li>
+        <li>El acceso a tu CRM anterior: su API key, o los contactos exportados en un archivo (CSV o Excel).</li>
+      </ul>
+
+      <h2 id="token">1. Crea el token</h2>
+      <p>En <Link href="/api-mako?tab=tokens&v=nuevo">Tokens → Generar nuevo token</Link>: ponle un nombre («Migración del CRM»), un vencimiento corto (7 días alcanzan) y, en Permisos, <strong>Lectura y escritura</strong> en «CRM». Copia el token: se ve una sola vez.</p>
+
+      <h2 id="mensaje">2. Pégale esto a Claude</h2>
+      <p>Cambia lo que está entre <C>&lt;…&gt;</C> y mándaselo:</p>
+      <Bloque clave="migrar-crm" texto={mensaje} ajustar />
+      <p>Claude te va a mostrar cuántos contactos hay y a qué columna va cada etapa antes de crear nada. Revísalo: la columna es donde cada contacto va a quedar.</p>
+      <p>Así se ve un lote:</p>
+      <Bloque clave="migrar-crm-lote" texto={JSON.stringify(EJEMPLO_LOTE_MIGRACION, null, 2)} />
+
+      <h2 id="saber">Lo que tienes que saber</h2>
+      <ul>
+        <li><strong>Entran quietos.</strong> Un contacto migrado no recibe ningún mensaje ni entra a ninguna automatización por haber llegado, aunque su columna tenga una. Entra a una sólo por algo nuevo: que lo muevas a mano, que reserve una llamada o que te escriba.</li>
+        <li><strong>Repetir es seguro.</strong> El id del CRM anterior es la llave: un lote que se cortó, o que Claude reintentó, saltea a los que ya entraron.</li>
+        <li><strong>Si ya estaba en MaKo</strong> (entró por tu landing con el mismo email o teléfono), no se duplica: se le anota su id de allá y se queda donde estaba.</li>
+        <li><strong>Se guardan la fecha original y las UTM.</strong> El contacto dice en su ficha que vino de otro CRM.</li>
+        <li><strong>Los ganados y los perdidos no se migran por esta vía.</strong> Vuelven en <C>descartados</C> con su motivo: guarda esa lista.</li>
+        <li><strong>Las conversaciones del CRM anterior no se traen</strong>, ni los mensajes de WhatsApp de allá.</li>
+        <li><strong>El ritmo:</strong> de a 200 contactos por pedido y hasta {d.limites.ws} pedidos por minuto en cada cuenta. 5.000 contactos son 25 pedidos.</li>
+        <li><strong>El tope de tu plan cuenta:</strong> si tu plan tiene un máximo de leads, el lote que lo pasa no entra, y la respuesta lo dice.</li>
+      </ul>
+
+      <h2 id="agencia">Si eres una agencia</h2>
+      <ul>
+        <li>En <Link href="/api-mako?tab=tokens&v=nuevo">Generar nuevo token</Link>, desde la cuenta de tu agencia, elige como propietario <strong>«Todos los clientes de tu agencia»</strong>. Sale un token que empieza con <C>mako_agt_</C>.</li>
+        <li>Vale para cada cliente <strong>aprobado</strong> de tu cartera, nunca para tu cuenta: cada pedido dice a qué cliente va con <C>X-MaKo-Cliente: &lt;número de cuenta&gt;</C>.</li>
+        <li>Un cliente que no es tuyo, o que se dio de baja, contesta <C>404</C>. Sin el encabezado, <C>400</C> con tus clientes en <C>disponibles</C>.</li>
+        <li>Si tu cuenta deja de ser una agencia, el token deja de servir en todos tus clientes.</li>
+      </ul>
+
+      <h2 id="endpoints">Los endpoints</h2>
+      <p>Están en <Link href="/api-mako?tab=docs&area=crm">CRM</Link>, con sus parámetros y ejemplos.</p>
     </>
   );
 }

@@ -470,8 +470,13 @@ test('CABLEADO: el cron recorre TODOS los workspaces activos para el lead, con s
   assert.match(cron, /const dry = request\.nextUrl\.searchParams\.get\('dry'\) === '1';/);
   assert.match(cron, /\(await listarWorkspaces\(\)\)\.filter\(\(w\) => w\.estado === 'activo'\)/);
   assert.match(cron, /mandarRecordatoriosAlLead\(ws, \{ dry,/);
-  assert.match(cron, /const workspaces = dry \? \[\] : await correrPorWorkspace\('calendly'/, 'en seco tampoco sale el aviso al dueño');
-  assert.equal((cron.match(/correrPorWorkspace\(/g) ?? []).length, 1, 'el del lead no puede ir sólo a los de Calendly: Código Inmobiliario usa Cal.com');
+  assert.match(cron, /const workspaces = dry \? \[\] : \(await correrRonda\(AGENDAS_DEL_DUENO,/, 'en seco tampoco sale el aviso al dueño');
+  // El aviso al DUEÑO también va a quien agenda por Cal.com (06/11/2026): con sólo 'calendly', a Código
+  // Inmobiliario no le llegaba nunca. Probado rompiéndolo (sacando 'calcom' de la lista): 33 / 1.
+  const agendas = /const AGENDAS_DEL_DUENO = \[([^\]]*)\]/.exec(cron)?.[1] ?? '';
+  assert.match(agendas, /'calendly'/, 'el aviso al dueño sigue yendo a los de Calendly');
+  assert.match(agendas, /'calcom'/, 'el aviso al dueño tiene que ir también a los de Cal.com');
+  assert.equal((cron.match(/correrRonda\(|correrPorWorkspace\(/g) ?? []).length, 1, 'el del lead no puede ir sólo a los de una agenda: recorre todos los activos');
   const vercel = JSON.parse(leer('vercel.json')) as { crons: Array<{ path: string; schedule: string }> };
   assert.equal(vercel.crons.find((c) => c.path === '/api/cron/reunion-recordatorio')?.schedule, '*/10 * * * *',
     'la tolerancia de 12 min está calculada para un cron cada 10');
