@@ -28,7 +28,8 @@ export default async function Page(props: {
   if (destino) redirect(destino)
   const [resumen, indice] = await Promise.all([
     leerResumenDeAdmin(),
-    indiceDeBusqueda().catch(() => ({ negocios: [], personas: [] })),
+    // No tira: si no pudo leer, viaja con su `error` y ⌘K lo dice (punto 23; app/admin/_polar/datos/busqueda.ts).
+    indiceDeBusqueda(),
   ])
   return <OverviewPage resumen={resumen} indice={indice} />
 }

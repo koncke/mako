@@ -218,8 +218,11 @@ export const itemsDe = (f: NavFamilia): NavItem[] =>
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
-/** Las secciones de Admin (la copia del dashboard de Polar, app/admin/(polar)): marcan la tab Admin de la barra. */
-const SECCIONES_ADMIN = ['customers', 'analytics', 'sales', 'products', 'finance', 'settings'] as const;
+/**
+ * Las secciones de Admin (la copia del dashboard de Polar, app/admin/(polar)): marcan la tab Admin de la barra, y con ellas
+ * (y /admin) la barra de MaKo se pliega al entrar, porque Admin trae la suya (`pliegaLaBarra`, Sidebar.tsx).
+ */
+export const SECCIONES_ADMIN = ['customers', 'analytics', 'sales', 'products', 'finance', 'settings'] as const;
 
 /**
  * De dónde sale el número (el badge) de una tab. Son obligaciones concretas, no novedades: los

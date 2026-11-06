@@ -17,6 +17,8 @@
 // /web-generator con la puerta adentro de `if (cual)` → 10 / 2; /plan/agencia fuera de DECIDEN_POR_RUTA → 11 / 1;
 // requireMovil fuera de PUERTAS → 11 / 1; sin el layout de /m/crm → 11 / 1; el de /plan sin el onboarding de revisar →
 // 11 / 1; la página de /automations con otra puerta → 10 / 2; una conocida que ya cumple en la lista → 11 / 1.
+// ADMIN (6/11/2026, punto 31 de docs/admin/revision-cerebro-6-11.md; base 14 / 0): el layout de (polar) sin su redirect → 13 / 1;
+// sin una página de Admin en DECIDEN_POR_RUTA → 13 / 1.
 // Correr: node --import tsx --test tests/redirige-antes-del-loader.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -181,6 +183,21 @@ const DECIDEN_POR_RUTA: Record<string, { test: string; paginas: string[] }> = {
   'app/m/second-brain': {
     test: 'tests/redirige-antes-del-loader.test.ts',
     paginas: ['app/m/second-brain/page.tsx', 'app/m/second-brain/mapa/page.tsx'],
+  },
+  // Admin (6/11/2026, punto 31 de docs/admin/revision-cerebro-6-11.md): el layout de (polar) repite en la carga lo que redirige
+  // cada página (app/admin/(polar)/layout-reglas.ts), y tests/admin-polar-armazon.test.ts lo prueba ruta por ruta.
+  'app/admin/(polar)': {
+    test: 'tests/admin-polar-armazon.test.ts',
+    paginas: [
+      'app/admin/(polar)/page.tsx',
+      'app/admin/(polar)/finance/page.tsx',
+      'app/admin/(polar)/analytics/page.tsx',
+      'app/admin/(polar)/analytics/metrics/page.tsx',
+      'app/admin/(polar)/analytics/costs/page.tsx',
+      'app/admin/(polar)/analytics/events/page.tsx',
+      'app/admin/(polar)/customers/[id]/events/page.tsx',
+      'app/admin/(polar)/sales/checkouts/[id]/page.tsx',
+    ],
   },
 };
 

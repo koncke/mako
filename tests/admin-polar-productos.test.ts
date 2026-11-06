@@ -14,6 +14,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  buscarLinkDeVenta,
+  destinoDelIndiceDeLinks,
   esDeVenderUnPlan,
   filtrarLinksPorProducto,
   filtrarProductos,
@@ -27,6 +29,7 @@ import {
   ordenarLinks,
   productoDeCapa,
   productoDePlan,
+  rutaParaVender,
   sePuedeAnular,
   type CobroDeVenta,
   type ProductoMako,
@@ -133,6 +136,43 @@ test('la barra: el orden por etiqueta y el filtro por plan (por su capa)', () =>
   assert.deepEqual(leerProductIds(['pro']), ['pro'])
   assert.equal(leerOrdenLinks('-label'), '-label')
   assert.equal(leerOrdenLinks('otra'), 'label')
+})
+
+// ─── «Vender» (punto 21 de docs/admin/revision-cerebro-6-11.md) ──────────────
+
+test('«Vender» abre el formulario NUEVO con el plan puesto, nunca el primer link que ya existe', () => {
+  const ruta = rutaParaVender('pro')
+  const u = new URL(ruta, 'https://hola-mako.com')
+  assert.equal(u.pathname, '/admin/products/checkout-links')
+  assert.equal(u.searchParams.get('productId'), 'pro', 'el formulario trae el plan elegido (la barra lo lee de productId)')
+  assert.equal(u.searchParams.get('create_checkout_link'), 'true', 'sin esto la barra no abre el formulario: salta al primer link')
+  // La barra abre el formulario cuando lee ESTE parámetro (CheckoutLinkListSidebar): que el nombre no se separe.
+  assert.match(leer('app/admin/_polar/web/CheckoutLinks/CheckoutLinkListSidebar.tsx'), /searchParams\.get\('create_checkout_link'\) === 'true'/)
+})
+
+test('el índice de Checkout Links salta al primer link del filtro, sin llevarse el pedido de abrir el formulario', () => {
+  const datos = CHECKOUT_LINKS_EJEMPLO
+  const primero = ordenarLinks(filtrarLinksPorProducto(datos.links, ['esencial'], datos.productos))[0]
+  assert.ok(primero, 'el ejemplo tiene un link de Esencial')
+  // Con el formulario pedido: el link de atrás es el primero del plan, y `create_checkout_link` ya lo atendió la barra.
+  const conFormulario = destinoDelIndiceDeLinks({ productId: 'esencial', create_checkout_link: 'true' }, datos)
+  assert.equal(conFormulario, `/admin/products/checkout-links/${primero.id}?productId=esencial`, 'un F5 en el link no vuelve a abrir el formulario')
+  // Lo demás de la query viaja (el orden, un valor repetido).
+  assert.equal(destinoDelIndiceDeLinks({ sorting: '-label', x: ['1', '2'] }, datos), `/admin/products/checkout-links/${ordenarLinks(datos.links, '-label')[0].id}?sorting=-label&x=1&x=2`)
+  // Sin links de ese plan: nada (el índice dibuja el vacío y la barra abre el formulario).
+  assert.equal(destinoDelIndiceDeLinks({ productId: 'esencial', create_checkout_link: 'true' }, { ...datos, links: [] }), null)
+})
+
+test('la página de un link: «no pude leer» es el aviso, NUNCA un 404 (punto 23)', () => {
+  const datos = CHECKOUT_LINKS_EJEMPLO
+  const id = String(datos.links[0].id)
+  const ok = buscarLinkDeVenta(datos, id)
+  assert.equal(ok.estado, 'ok')
+  assert.equal(ok.estado === 'ok' && ok.link.id, Number(id))
+  assert.deepEqual(buscarLinkDeVenta({ error: 'cobros: timeout' }, id), { estado: 'no-pude', error: 'cobros: timeout' }, 'una lectura caída no es un link que no existe')
+  assert.deepEqual(buscarLinkDeVenta(datos, '104'), { estado: 'no-existe' }, 'un cobro de /planes no es un link de «Vender un plan»')
+  assert.deepEqual(buscarLinkDeVenta(datos, '0'), { estado: 'no-existe' })
+  assert.deepEqual(buscarLinkDeVenta({ error: 'x' }, 'abc'), { estado: 'no-existe' }, 'un id que no es un número es un 404 aunque la lectura falle')
 })
 
 test('el monto que se propone: el precio del plan en la moneda del link, nunca con una tasa inventada', () => {
@@ -287,3 +327,8 @@ test('ninguna vista del navegador importa VALORES de un módulo de servidor, y I
 //   · ProductsPage importa un VALOR de productos-server                                  → 13/1 (vistas sin servidor)
 //   · IncomePage importa MetricChartBox                                                  → 13/1 (sin gráfico en Income)
 //   · y un cambio sin efecto (renombrar la función local `plano` de productos.ts)        → 14/0
+// Y los puntos 21 y 23 de docs/admin/revision-cerebro-6-11.md (6/11/2026, base 18/0; los componentes que los usan se montan
+// en tests/admin-polar-armazon.test.ts):
+//   · `rutaParaVender` sin `create_checkout_link=true`                                   → 17/1 («Vender»)
+//   · `destinoDelIndiceDeLinks` se lleva `create_checkout_link` al link                  → 17/1 (el índice)
+//   · `buscarLinkDeVenta` contesta «no existe» cuando la lectura falló                   → 17/1 (la página del link)
