@@ -100,3 +100,17 @@ test('6. la caja montada escondida no queda en 0 px: el texto centrado al aparec
 });
 // PROBADO ROMPIÉNDOLO (23/10/2026, test 6): `altoDelCampo` devolviendo `${Math.min(medido, tope)}px` siempre → 5/1;
 // sin el ResizeObserver de CajaChat → 5/1.
+
+// 6/11/2026 (SB1 de los arreglos de Admin): «Escribe a Chat nuevo». El título de una conversación es `SIN_TITULO` hasta que
+// el modelo le pone uno después del primer turno, así que la caja de un chat recién abierto nombraba a «Chat nuevo» como si
+// fuera alguien. La regla: un texto armado con un nombre tiene que preguntar si el nombre existe.
+test('7. la caja de un chat sin título todavía no nombra a nadie', () => {
+  const pieza = leer('app/admin/operaciones/Conversacion.tsx');
+  assert.match(pieza, /placeholder=\{chat\.titulo && chat\.titulo !== SIN_TITULO \? `Escribe a \$\{chat\.titulo\}` : 'Escribe lo que necesitas'\}/);
+  assert.match(pieza, /import \{ SIN_TITULO \} from '@\/lib\/chat-mako-reglas';/, 'la constante sale de donde vive, no copiada');
+  assert.doesNotMatch(pieza, /placeholder=\{`Escribe a \$\{chat\.titulo\}`\}/, 'volvió el placeholder que nombra «Chat nuevo»');
+  // El texto de reemplazo es el MISMO que usa la caja de al lado para un chat nuevo: una sola voz.
+  assert.match(leer('app/admin/operaciones/CajaChatNuevo.tsx'), /placeholder="Escribe lo que necesitas"/);
+  // Y la constante sigue siendo lo que se le pone a una conversación sin título.
+  assert.match(leer('lib/chat-mako-reglas.ts'), /export const SIN_TITULO = 'Chat nuevo';/);
+});
