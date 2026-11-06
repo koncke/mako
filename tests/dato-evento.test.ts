@@ -145,8 +145,9 @@ test('2. «Si no» y varias salidas corren en el runner; la de UNA salida, como 
 
 test('3. qué puede preguntar cada evento: sin lead sólo sus datos, nadie uno que no trae, y las salidas no se juntan', () => {
   // La plataforma no trae lead: sus datos sí, una condición del lead no.
-  assert.deepEqual(condicionesDelEvento('meta_cuenta_frenada'), { claves: ['anuncios_estado', 'anuncios_entrega', 'anuncios_vez'], solo: true });
-  assert.deepEqual(condicionesDelEvento('whatsapp_caido'), { claves: [], solo: true });
+  // (6/11/2026: y TODO evento de la plataforma, de qué negocio es: «No es el negocio número 13», sin regla escondida.)
+  assert.deepEqual(condicionesDelEvento('meta_cuenta_frenada'), { claves: ['anuncios_estado', 'anuncios_entrega', 'anuncios_vez', 'negocio_numero'], solo: true });
+  assert.deepEqual(condicionesDelEvento('whatsapp_caido'), { claves: ['negocio_numero'], solo: true });
   assert.deepEqual(condicionesDelEvento('cuota_vencida'), { claves: [], solo: false });
   const conLead = [condicion('c1', [rama('c1_si', [{ campo: 'agendo' }], 'm1')], null), mako('m1', 'A', null)];
   assert.deepEqual(frenoDelEvento(conLead, 'meta_cuenta_frenada'), { error: MOTIVO_EVENTO.condicionPersona, tarjeta: 'c1' });
@@ -165,7 +166,7 @@ test('4. el editor ofrece «Datos del evento» primero, y en un evento sin lead,
   const ids = (s: ReturnType<typeof seccionesDeCondiciones>) => s.flatMap((x) => x.options.map((o) => deValorOpcion(o.value)?.id));
   const solo = seccionesDeCondiciones('adquisicion', {}, condicionesDelEvento('meta_cuenta_frenada'));
   assert.deepEqual(solo.map((s) => s.title), [SECCION_DATOS]);
-  assert.deepEqual(ids(solo), ['dato:anuncios_estado', 'dato:anuncios_estado', 'dato:anuncios_entrega', 'dato:anuncios_entrega', 'dato:anuncios_vez']);
+  assert.deepEqual(ids(solo), ['dato:anuncios_estado', 'dato:anuncios_estado', 'dato:anuncios_entrega', 'dato:anuncios_entrega', 'dato:anuncios_vez', 'dato:negocio_numero', 'dato:negocio_numero']);
   // Con lead: los datos primero y después lo de siempre.
   const mixto = seccionesDeCondiciones('adquisicion', {}, { claves: ['anuncios_vez'], solo: false });
   assert.equal(mixto[0].title, SECCION_DATOS);
@@ -246,4 +247,40 @@ test('7. lo que LLEGÓ se cuenta, y una CONDITION de datos no se guarda fuera de
   assert.match(leer('lib/avisos.ts'), /const entregas = \{ llegaron: 0 \};\n\s*await runWithWorkspace\(ws, \(\) => ejecutarPasos\(flujoId, pasos, ws, ctx, undefined, entregas\)\);\n\s*return entregas;/);
   // Fuera de una fila de evento no hay evento que conteste un dato: Publicar lo frena (la API, «Crear con IA»).
   assert.match(leer('lib/nutricion.ts'), /if \(\(previo as \{ trigger_tipo\?: string \} \| null\)\?\.trigger_tipo !== TRIGGER_AVISO_MAKO && filasDelFlujo\(grafo\)\.some\(\(f\) => datoDeCampo\(f\.campo\) != null\)\) \{\n\s*throw new PasosInvalidosError\(/);
+});
+
+// «A ESTE NEGOCIO NO», COMO CONDITION (6/11/2026, «nada por detrás»): antes de prender las tareas de las reuniones al Plan hay
+// que dejar afuera al ws 13, que lo tenía apagado en /mensajes. Un evento de la plataforma no lee ese interruptor: lo dice su
+// fila. `emitirPorEvento` pone `negocio_numero` en todos, y la CONDITION «No es el negocio número 13» lo corta ahí.
+// PROBADO ROMPIÉNDOLO (6/11/2026, base en verde): sin `datosDeLaPlataforma` en `emitirPorEvento` → cae éste.
+test('5. «No es el negocio número 13»: la fila de la plataforma corta a un negocio, y el emisor no tiene que pasar nada', async () => {
+  const pasosFila = normalizar([
+    condicion('c1', [rama('c1_si', [{ campo: campoDeDato('negocio_numero'), no: true, valor: '13' }], 'm1')], null),
+    mako('m1', 'Te dejé las tareas en el Plan', null),
+  ]);
+  assert.equal(frenoDelEvento(pasosFila, 'reunion_tareas_al_plan'), null, 'la plantilla con esa CONDITION se puede publicar');
+  assert.equal(textoCondicion({ campo: campoDeDato('negocio_numero'), no: true, valor: '13' }), 'No es el negocio número «13»');
+  const corridas: Array<{ ctx: { datos?: Record<string, string> } }> = [];
+  const fila = { id: 280, nombre: 'Tareas de Reuniones al Plan', activa: true, pasos: pasosFila, trigger_tipo: TRIGGER_AVISO_MAKO, disparadores: [{ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: 'reunion_tareas_al_plan' }] };
+  const deps = {
+    wsPlataforma: async () => 9,
+    leerFilas: async () => [fila],
+    reclamar: async () => true,
+    correr: async (_id: string, _p: Paso[], _ws: number, ctx: { datos?: Record<string, string> }) => { corridas.push({ ctx }); return { llegaron: 1 }; },
+    emitirAviso: async () => ({ ok: true, feedId: null, wa: false, deduped: false }),
+    log: () => {},
+  } as unknown as DepsEvento;
+  const cat = { id: 'reunion-tareas-al-plan', titulo: 'Tareas al Plan', categoria: 'aviso', semaforo: 'na' } as const;
+  // El emisor pasa SÓLO lo suyo: el número del negocio lo pone el runner.
+  await emitirPorEvento(cat, 13, { datos: { plan_titulo: 'Sync' } }, deps);
+  await emitirPorEvento(cat, 14, { datos: { plan_titulo: 'Sync' } }, deps);
+  assert.deepEqual(corridas.map((c) => c.ctx.datos?.negocio_numero), ['13', '14']);
+  const t = pasosDelEvento(pasosFila, 'reunion_tareas_al_plan');
+  const sale = (datos: Record<string, string>) => {
+    const ahora = new Date();
+    const d = decidir(t.pasos, { paso: 0, desde: ahora, respondioAt: null, ahora, hechos: hechosDelEvento(datos, ahora.getTime()) });
+    return d.que !== 'terminar';
+  };
+  assert.equal(sale(corridas[0].ctx.datos!), false, 'al ws 13 no le sale');
+  assert.equal(sale(corridas[1].ctx.datos!), true, 'al ws 14 sí');
 });

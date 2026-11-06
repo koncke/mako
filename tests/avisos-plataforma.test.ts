@@ -68,7 +68,8 @@ test('lo emite el negocio, lo corren las filas de la PLATAFORMA, y la tarjeta le
   assert.equal(anotado.corridas.length, 1);
   assert.equal(anotado.corridas[0].ws, PLATAFORMA, 'la corrida es de la plataforma');
   assert.equal(anotado.corridas[0].ctx.negocioWs, NEGOCIO, 'la tarjeta va al negocio que lo emitió');
-  assert.deepEqual(anotado.corridas[0].ctx.datos, OPTS.datos);
+  // Lo del emisor, y de qué negocio es (6/11/2026: lo pone `emitirPorEvento`, para «No es el negocio número N»).
+  assert.deepEqual(anotado.corridas[0].ctx.datos, { ...OPTS.datos, negocio_numero: String(NEGOCIO) });
   // rotura 2 (`wa` siempre false): 6 pass / 1 fail, cae éste. Sin esto el vigilante no marca «avisado» y el «volvió» no sale.
   assert.equal(r.wa, true, 'lo que corrió se dice: el vigilante marca «avisado» con esto');
 });

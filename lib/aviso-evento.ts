@@ -69,6 +69,9 @@ const conMensaje = (ev: EventoMako): boolean => ev.trae.includes('mensaje') && t
  * «Entra un pago» y lo que ESCRIBIÓ el lead en la charla (`trae`, lib/disparadores.ts). Es el mismo contexto
  * con el que Publicar valida (`problemasDeTokens`, lib/tokens-del-flujo.ts).
  */
+/** Lo que trae TODO evento de la plataforma, además de lo suyo: de qué negocio es. */
+export const datosDeLaPlataforma = (ws: number): { negocio_numero: string } => ({ negocio_numero: String(ws) });
+
 export function datosDelEvento(sub: unknown): ContextoDatos {
   const ev = porSubtipo(sub);
   if (!ev) return { conLead: false, destino: 'equipo' };
@@ -95,6 +98,8 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('iacaida') ? { conIaCaida: true } : {}),
     ...(ev.trae.includes('tope') ? { conTope: true } : {}),
     ...(ev.trae.includes('clienteagencia') ? { conClienteAgencia: true } : {}),
+    // De qué negocio es: lo trae TODO evento de la plataforma (`negocio_numero`, lo pone `emitirPorEvento`).
+    ...(ev.plataforma ? { conPlataforma: true } : {}),
   };
 }
 
@@ -612,7 +617,9 @@ export async function emitirPorEvento(
       ...(dePlataforma ? { negocioWs: ws } : {}),
       ...(opts.lead ? { leadId: opts.lead.id, ...(opts.lead.nombre ? { leadNombre: opts.lead.nombre } : {}) } : {}),
       ...(opts.cuotaId != null ? { cuotaId: opts.cuotaId } : {}),
-      ...(opts.datos ? { datos: opts.datos } : {}),
+      // ⚠️ DE QUÉ NEGOCIO ES (6/11/2026): lo pone acá y no el emisor, así lo trae TODO evento de la plataforma sin que nadie se
+      // acuerde. Es lo que pregunta «Es el negocio número N» (lib/variables-aviso.ts): «a este negocio no», como CONDITION.
+      ...(dePlataforma ? { datos: { ...(opts.datos ?? {}), ...datosDeLaPlataforma(ws) } } : opts.datos ? { datos: opts.datos } : {}),
       ...(opts.texto != null ? { texto: opts.texto } : {}),
       aviso: { id: cat.id, titulo: fila.nombre?.trim() || cat.titulo },
       // Qué tarjeta es cada paso: viaja dormida con la corrida y `retomarCorrida` la compara (`pasosParaRetomar`).

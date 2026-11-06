@@ -1857,8 +1857,23 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const ENLACE_YOUTUBE_GEMINI = /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/;
 
 export type GuionDeYoutube =
-  | { ok: true; texto: string; tokens: number }
+  | { ok: true; texto: string; tokens: number; corto?: true }
   | { ok: false; motivo: 'sin-gemini' | 'saturado' | 'fallo'; error: string };
+
+/**
+ * El piso de un guion: caracteres por minuto de lo que dura el tramo (6/11/2026, docs/hallazgos-competitors-spy.md, «Gemini corta
+ * transcripciones de YouTube sin avisar»). Medido: `gemini-3.5-flash-lite` cortó 22 de 49 tramos de 10 minutos, 5 vacíos, con
+ * `finishReason=STOP` y sin error, y el ritmo de habla normal da muy por encima. ⚠️ ES UN MÍNIMO ABSOLUTO, no la mediana del
+ * video: la mediana también sale cortada. Debajo del piso se prueba el otro modelo; si ninguno lo pasa, vuelve el más largo con
+ * `corto` (un video de poca voz existe, y tirarlo lo dejaría sin guion para siempre).
+ */
+export const PISO_GUION_YT_CPM = 600;
+
+/** Cuántos caracteres tiene que tener, como mínimo, el guion de un tramo de `segundos`. Sin duración, no hay piso. */
+export function pisoDeGuionYt(segundos: number | null | undefined): number {
+  if (segundos == null || !Number.isFinite(segundos) || segundos <= 0) return 0;
+  return Math.floor((segundos / 60) * PISO_GUION_YT_CPM);
+}
 
 /**
  * El guion de un tramo de un video público de YouTube (`tramo` en segundos; null = el video entero), palabra por palabra.
@@ -1867,7 +1882,7 @@ export type GuionDeYoutube =
 export async function guionDeYoutubeConGemini(
   url: string,
   tramo: { desdeS: number; hastaS: number } | null,
-  opts: { feature: string; motivo: string; idioma?: string },
+  opts: { feature: string; motivo: string; idioma?: string; duracionS?: number | null },
 ): Promise<GuionDeYoutube> {
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
@@ -1885,6 +1900,10 @@ export async function guionDeYoutubeConGemini(
   let ultimo = '';
   let saturados = 0;
   let intentos = 0;
+  // Lo que dura lo que se pidió: el tramo, o el video entero si quien llama sabe cuánto dura.
+  const piso = pisoDeGuionYt(tramo ? tramo.hastaS - tramo.desdeS : opts.duracionS);
+  // El mejor guion que no llegó al piso: si ninguno lo pasa, es lo que se devuelve (con `corto`).
+  let mejorCorto: { texto: string; tokens: number } | null = null;
   for (const p of provs) {
     const base = p.base.replace(/\/openai\/?$/, '');
     for (const model of modelosSttGemini()) {
@@ -1922,9 +1941,14 @@ export async function guionDeYoutubeConGemini(
       void recordUsage(opts.feature, model,
         { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
         opts.motivo, 'gemini', nroCuenta(p));
-      return { ok: true, texto: texto === '(vacío)' ? '' : texto, tokens: u?.totalTokenCount ?? 0 };
+      const limpio = texto === '(vacío)' ? '' : texto;
+      // ⚠️ `finishReason=STOP` NO PRUEBA QUE TERMINÓ: debajo del piso, el otro modelo (y si no, otra cuenta). «(vacío)» también.
+      if (limpio.length >= piso) return { ok: true, texto: limpio, tokens: u?.totalTokenCount ?? 0 };
+      ultimo = `el guion vino corto (${limpio.length} caracteres de ${piso} como mínimo, ${model})`;
+      if (!mejorCorto || limpio.length > mejorCorto.texto.length) mejorCorto = { texto: limpio, tokens: u?.totalTokenCount ?? 0 };
     }
   }
+  if (mejorCorto) return { ok: true, texto: mejorCorto.texto, tokens: mejorCorto.tokens, corto: true };
   if (saturados > 0 && saturados === intentos) return { ok: false, motivo: 'saturado', error: ultimo };
   return { ok: false, motivo: 'fallo', error: ultimo || 'Gemini no contestó.' };
 }

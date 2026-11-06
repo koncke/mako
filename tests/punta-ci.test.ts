@@ -30,6 +30,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { correPaso } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -354,6 +355,31 @@ test('llevar a main: sin moverse, es un push simple y conserva los commits', { s
   assert.equal(r.codigo, 0, r.salida);
   assert.equal(R.git(R.origen, 'rev-parse', 'main'), punta, 'fast-forward: sin una mezcla de más');
   assert.equal(R.veces(), 0, 'sin mezcla nueva no hace falta repetir las guardas');
+});
+
+// 6/11/2026 (los minutos de Actions): con sólo texto (y con sólo docs) no corrió el tsc entero, así que lo que llega a main no es
+// «probado» y no puede borrar la marca de main rojo. Probado rompiéndolo: sin `if [ "$TEXTO" = "true" ]; then sp=1; fi` cae.
+test('llevar a main: lo que llega con sólo texto sale «sin probar»; lo demás, probado', { skip: !haySh && 'sin sh' }, () => {
+  for (const [texto, esperado] of [['true', '1'], ['false', '0']] as const) {
+    const R = armarRepo();
+    R.commit(R.clon, AUTORA, { 'docs/x.md': 'hola\n' });
+    R.subir();
+    const r = correrPaso(LLEVAR, R.clon, { env: { ...firma(AUTORA), TEXTO: texto }, antes: SIN_ESPERAS });
+    assert.equal(r.codigo, 0, r.salida);
+    assert.equal(r.outputs.sin_probar, esperado, `texto=${texto}`);
+  }
+});
+
+// 6/11/2026: una punta de sólo documentación no corre los tests afectados (las barredoras las corre el chequeo diario sobre main):
+// sólo las guardas y la de los mails reales. Probado rompiéndolo: sin el `solo_docs != 'true'` de los afectados, cae.
+test('sólo documentación: no corren los tests afectados, sí la guarda de los mails reales; con código, al revés', () => {
+  const datos = (soloDocs: string) => ({ steps: { instalar: { outcome: 'success' }, mezcla: { outputs: { solo_docs: soloDocs, texto: soloDocs } }, veredicto: { outputs: {} } } });
+  const ok = { success: true, failure: false, cancelled: false, always: true };
+  assert.equal(correPaso(YML, AFECTADOS, ok, datos('true')), false);
+  assert.equal(correPaso(YML, 'Sólo documentación, sin mails reales', ok, datos('true')), true);
+  assert.equal(correPaso(YML, AFECTADOS, ok, datos('false')), true);
+  assert.equal(correPaso(YML, 'Sólo documentación, sin mails reales', ok, datos('false')), false);
+  assert.match(paso('Sólo documentación, sin mails reales').run, /node --import tsx --test tests\/sin-mails-reales\.test\.ts/);
 });
 
 test('llevar a main: si otra punta llegó mientras tanto, mezcla, repite las guardas, avisa y no pisa nada', { skip: !haySh && 'sin sh' }, () => {

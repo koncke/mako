@@ -3385,4 +3385,29 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "6 nov", hora: "13:40", chat: "Nada por detrás (nube)", sesion: "cli_10ee3e07-566e-59d8-8288-33d6d1f3853c", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seguir con «nada por detrás» y lo que quedó de la lista",
+    pedido: "jamás que \"mako\" haga cosas que no están en el flujo... Si no es configurable el usuario, como yo, lo tomamos como un bug... Depreca absolutamente todas las cosas que MaKo haga por detrás... Tampoco quiero agregar tarjetas por agregar",
+    puntos: [
+      "Es la regla del 14/10, que el Cerebro volvió a pasar el 6/11 con la lista de pendientes de las otras cuentas (docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md, ítem 3.1).",
+    ],
+  },
+  {
+    fecha: "6 nov", hora: "13:40", chat: "Nada por detrás (nube)", sesion: "cli_10ee3e07-566e-59d8-8288-33d6d1f3853c", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«No es el negocio número 13»: sacar a un negocio de un aviso de la plataforma es una CONDITION",
+    puntos: [
+      "Todo aviso que MaKo les manda a sus clientes desde SuperAdmin trae de qué negocio es, y la CONDITION «Es / No es el negocio número N» lo pregunta: lo que un negocio tenía apagado a mano en /mensajes se rehace a la vista, sin una regla escondida.",
+      "«Tareas de Reuniones al Plan» nace con «No es el negocio número 13» en cada rama: Código Inmobiliario lo tenía apagado.",
+    ],
+    archivos: [
+      "lib/aviso-evento.ts — datosDeLaPlataforma, puesto por emitirPorEvento",
+      "lib/variables-aviso.ts — el dato negocio_numero con su CONDITION",
+      "lib/plantillas-automatizaciones.ts — mako-reunion-tareas-al-plan",
+      "tests/dato-evento.test.ts y tests/reunion-tareas-al-plan-evento.test.ts — probados rompiéndolos",
+    ],
+    revisar: "/automations",
+  },
 ];

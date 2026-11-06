@@ -36,7 +36,7 @@ import {
   valoresDeLaProximaReunion, valoresDeRespuestasAgenda, valoresDelPago, valoresDeLoEscrito, valoresDelAnalisis, TOPE_ESCRITO,
   valoresDeRestablecer,
 } from '../lib/variables-del-lead';
-import { datosDeLaPersona } from '../lib/aviso-evento';
+import { datosDeLaPersona, datosDeLaPlataforma } from '../lib/aviso-evento';
 import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { datosCancelada } from '../lib/reunion-cancelada';
@@ -102,6 +102,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     negocio: new Set(['negocio']),
     // El cliente de la agencia que recibe el aviso (ticket #37): lo pone `agenciasDelClienteParaAvisar` (lib/avisos.ts).
     clienteagencia: new Set(['cliente_nombre', 'cliente_link']),
+    // De qué negocio es un evento de la plataforma (6/11/2026): lo pone `emitirPorEvento` con `datosDeLaPlataforma`.
+    plataforma: set(datosDeLaPlataforma(13)),
     links: new Set(Object.keys(RUTA_DE_LINK)),
     // «Lo que arma MaKo» (11/10/2026) lo pone el emisor de un evento de MaKo (`ejecutarPaso`, lib/flujos.ts),
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.

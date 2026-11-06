@@ -14,6 +14,9 @@ if (!token) { console.error('Falta VERCEL_API_TOKEN.'); process.exit(1); }
 const equipo = process.env.VERCEL_TEAM_SLUG || 'mbustos-4239s-projects';
 const sha = execFileSync('git', ['ls-remote', 'origin', 'refs/heads/main'], { encoding: 'utf8' }).split(/\s/)[0];
 if (!/^[0-9a-f]{40}$/.test(sha)) { console.error('No pude leer el último commit de main.'); process.exit(1); }
+// El despliegue diario no compila con main rojo (lib/desplegar-main-reglas.ts). Esto sí, porque es la emergencia: pero lo dice.
+const rojo = execFileSync('git', ['ls-remote', 'origin', 'refs/heads/ci-rojo/main'], { encoding: 'utf8' }).trim();
+if (rojo) console.warn('⚠ main está ROJO (ci-rojo/main): estás compilando algo que el chequeo sobre main no aprobó.');
 const r = await fetch(`https://api.vercel.com/v13/deployments?forceNew=1&slug=${encodeURIComponent(equipo)}`, {
   method: 'POST',
   headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

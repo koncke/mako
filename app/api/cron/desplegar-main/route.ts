@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
   try {
     const r = await desplegarMainSiHaceFalta({ dry });
     if (!r.ok) console.error(`[desplegar-main] ${r.error}`);
+    // Main rojo: producción no se actualiza hoy. Lo dice el log (y la corrida roja de sobre-main.yml en Actions).
+    if (r.decision?.hacer === 'frenar' && !r.dry) console.error(`[desplegar-main] FRENADO: ${r.decision.motivo}`);
     return Response.json(r, { status: r.ok ? 200 : 500 });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
