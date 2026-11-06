@@ -1047,12 +1047,21 @@ pidió la baja los sigue recibiendo» (docs/relevo/nube-tickets.md).
   `usuario_id is not null`: un ticket por WhatsApp sin perfil o el de un alumno de un curso nunca generó un correo de
   avance. No había correos de más que frenar. Lo que faltaba era el LUGAR donde guardar su «no me escribas» para el día
   que un camino nuevo le escriba — y eso es lo que la 0410 deja hecho, no un correo que hoy salga mal.
-- **Pero sí había alguien que pedía la baja y seguía recibiendo, y no es quien decía el pendiente.** La baja vivía en
-  `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. Una fila de `usuarios` no es una persona: es una
-  persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053). Quien trabaja en su cuenta y en la
-  de un cliente de su agencia tiene dos filas con la misma dirección: apretaba «Dejar de recibirlos» en el correo de un
-  negocio y los seguía recibiendo por el otro, a la misma casilla. Para la persona, que ve una sola casilla de correo, eso
-  es exactamente «pedí la baja y me siguen llegando».
+- **Y el otro camino por el que alguien podría pedir la baja y seguir recibiendo: HOY NO LE PASA A NADIE, y hay que decirlo
+  así.** La baja vivía en `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. Una fila de `usuarios` no es
+  una persona: es una persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053). Quien trabaja en
+  su cuenta y en la de un cliente de su agencia tendría dos filas con la misma dirección: apretaría «Dejar de recibirlos»
+  en el correo de un negocio y los seguiría recibiendo por el otro, a la misma casilla.
+  **⚠️ Medido en producción el 6/11/2026: direcciones con más de una fila en `usuarios` = 0.** O sea que el mecanismo es
+  real y el esquema lo permite, pero **no hubo ninguna persona afectada**. Esto es preventivo, no una reparación, y
+  confundir las dos cosas manda a alguien a buscar una víctima que no existe. La consulta, para repetirla:
+  `select count(*) from (select email from usuarios where email is not null and email <> '' group by email having count(*) > 1) x;`
+
+**Entonces, ¿qué se arregló de verdad?** Dos cosas chicas y ciertas, y conviene no inflarlas: (1) ahora existe el lugar
+donde guardar un «no me escribas» de quien no tiene cuenta, que antes no existía; y (2) se puede pedir la baja **desde
+Notificaciones**, sin necesitar un correo a mano — antes el único camino era el link del pie, que además es el que los
+vuelve a prender. Lo del mecanismo de las dos cuentas queda **cerrado antes de que pase**, que para una baja de correo es
+el momento correcto: el día que alguien tenga dos cuentas, no hay que acordarse de esto.
 
 **La regla que queda:** la baja se guarda por **DIRECCIÓN** (`correo_bajas`, mig 0410), y la escribe un solo módulo
 (`lib/tickets-baja-correo.ts`) en los dos lugares: la tabla por dirección y la marca del perfil de **todas** las filas con
@@ -1072,10 +1081,10 @@ agregarla sería volver al bug.
   falla ABIERTO necesita para pasar el test. Se agregó `faltan` (tests/_postgrest-de-mentira.ts): un conjunto mutable de
   tablas que contestan el error de verdad (`PGRST205`). Sin eso, el test del camino sin migración pasaba con el bug.
 - **`filaPropia` (lib/perfil.ts) usa `.maybeSingle()` sobre `eq('email', …)`**, y eso tira `PGRST116` en cuanto hay DOS
-  filas con la misma dirección — la misma gente que este arreglo cubre. Devuelve `null` en silencio, así que a esa persona
-  las preferencias de pop-up y sonido se le ven en los valores por defecto y su guardado contesta `guardado: false`. **No
-  se arregló acá** (es de `lib/perfil.ts`, no de la Ticketera): por eso la casilla nueva se resuelve por la DIRECCIÓN de
-  la sesión y no por `filaPropia`.
+  filas con la misma dirección. Devuelve `null` en silencio, así que a esa persona las preferencias de pop-up y sonido se
+  le verían en los valores por defecto y su guardado contestaría `guardado: false`. **Latente igual que lo de arriba** (0
+  direcciones duplicadas el 6/11/2026) y **no se arregló acá**, porque es de `lib/perfil.ts` y no de la Ticketera. Pero por
+  eso la casilla nueva se resuelve por la DIRECCIÓN de la sesión y no por `filaPropia`: habría nacido con el mismo techo.
 
 **Lo que quedó SIN hacer:** la **casilla en Notificaciones** para prender y apagar estos correos sin pasar por el link del
 mail. El motor está listo y es lo único que falta: `cambiarBajaPorEmail` y `apagadosPorEmail` ya hacen las dos capas, falta
