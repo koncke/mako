@@ -11135,9 +11135,14 @@ No se pierde nada —de eso se encarga `union`—, pero el índice es lo único 
 área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
 abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
 
-**Qué hacer mientras el formato sea éste:** al cosechar, después de que la punta llegue a main, mirar si quedó duplicada la
-fila de tu área y consolidarla en una (se concatenan los resúmenes nuevos y se deja UNA cola de historial). Es lo que se
-hizo con las tres filas de Ticketera en este commit.
+**Qué hacer mientras el formato sea éste:** al cosechar, mirar si quedó duplicada la fila de tu área y consolidarla en una
+(se concatenan los resúmenes nuevos y se deja UNA cola de historial).
+
+⚠️ **Y consolidarla AL FINAL de la corrida, no en el medio: medido el 6/11 cometiendo el error.** Se consolidaron las 3
+filas de Ticketera en una, y al llegar a main las puntas que venían detrás volvió a 6 — cada punta en vuelo que tocó esa
+línea reintroduce su versión, y la consolidación de una punta es sólo «una versión más» para `union`. Consolidar sirve una
+vez que no queda ninguna punta propia corriendo; hacerlo antes es trabajo que se deshace solo y, peor, da la impresión de
+que ya está ordenado.
 
 **El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
 de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
@@ -11146,3 +11151,36 @@ fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 
 igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
 
 **Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
+
+---
+
+## Armar una punta leyendo `origin/main` DOS veces le revierte a main lo que ganó en el medio (6/11/2026)
+
+**Vive en:** el procedimiento, no en un archivo. Lo que lo produce es `git read-tree origin/main` / `git show origin/main:<x>`
+en un comando y `git commit-tree … -p origin/main` en otro.
+
+**Por qué alguien hace esto.** Con el árbol de trabajo lleno de cambios de VARIOS encargos a la vez, la forma limpia de sacar
+una punta por ítem —sin `checkout`, sin `stash` y sin tocar lo de las otras sesiones— es armar el commit con plumbing: un
+índice temporal (`GIT_INDEX_FILE`), `read-tree` de main, `git add` sólo de las rutas del ítem, `write-tree` y `commit-tree`
+con main como padre. Es correcto y no toca el disco de nadie.
+
+⚠️ **La trampa: `origin/main` es un ref, y se LEE cada vez.** Entre el comando que armó el árbol y el que puso el padre pasó
+un `git push` mío de otra punta — y **el pre-push hace `fetch`** (AGENTS.md ya lo dice: «el remoto se mueve mientras corre el
+hook»). Así que el árbol salió del main de hace dos minutos y el padre fue el main de ahora: el commit resultante **borra en
+silencio** lo que main ganó en el medio. Medido: mi punta del editor llegó a `docs/hallazgos.md` con **303 líneas contra 304**,
+y la que faltaba era la fila de Infraestructura que otra punta acababa de ampliar. No hay conflicto, no hay aviso, y
+`git diff --stat` dice «2 archivos» como si todo estuviera bien — la deleción aparece en OTRO hunk, lejos del que se fue a
+mirar.
+
+Es la misma familia que el `reset` sin `--hard` y el `--amend` de AGENTS.md: **un revert exacto disfrazado de trabajo normal.**
+Lo que la hace peor acá es que el commit nunca pasó por el árbol de trabajo, así que ninguno de los chequeos que uno hace por
+costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
+
+**Las dos reglas:**
+
+1. **El sha del padre se PINCHA una vez y se usa para todo:** `BASE=$(git rev-parse origin/main)`, y de ahí salen el
+   `read-tree`, los `git show` y el `-p`. Un ref leído dos veces son dos valores distintos.
+2. **Y se verifica contra ESE padre, no contra el ref:** `git diff --stat "$BASE" "$SHA"` y, para los archivos que son
+   listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
+   (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
+   que desapareció sin que nadie la borrara.

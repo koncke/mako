@@ -3,6 +3,27 @@
 El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relevamientos en
 [editor-imagen/](editor-imagen/). Acá va lo que costó: síntoma → causa → dónde vive → la regla.
 
+⚠️ **El plano y el comentario de las plantillas estuvieron VIEJOS, y ya costaron una vez** (corregidos el 6/11/2026,
+`punta/imagen-docs-al-dia`). `diseno-editor-imagen.md` describía `inicio/` y `mako/registro.ts` (con un `ProyectosPanel`)
+como si existieran —ninguno de los dos existe: la pantalla de arranque es `app/_crear/PantallaCrear.tsx`, y el `grep` de
+`ProyectosPanel` sobre `app/` y `lib/` da **cero**—, apuntaba a `styles/tokens.css` cuando el archivo es
+`_doory/styles/tokens.css`, y su regla de colores seguía diciendo que el re-vestido cambia los valores «por la paleta medida
+de Canva» cuando desde el 29/10 los `--cv-*` **son los de MaKo**. El comentario de `mako/plantillas.ts` decía dos cosas
+falsas: «el crédito ya se muestra» (Martín borró `editor/CreditoDoory.tsx` el 29/10) y «el TEXTO del lienzo sigue en inglés»
+(`b9a7dae2f`, 14/10: los diez documentos en español y las miniaturas redibujadas — `bold-sale-announcement.json` dice «FIN
+DE TEMPORADA»).
+
+Tres cosas que esto deja, y la tercera es la que no se ve:
+
+1. **Un plano que miente no es inerte: PRESCRIBE.** Esa misma nota del inglés ya hizo que un plan repitiera el error una vez.
+   Un documento con el porqué viejo se lee como una decisión vigente y se programa sobre él.
+2. **Lo que delata a un plano viejo es un `ls`, no una lectura.** Las cuatro afirmaciones falsas se cayeron con `ls` y un
+   `grep` de un minuto. Cuando un documento nombra una carpeta o un archivo, verificar que exista cuesta menos que leerlo.
+3. ⚠️ **Y la lista de encargos del 6/11 también estaba vieja, en las dos direcciones.** Decía que el documento «todavía habla
+   de Noto Sans y del violeta de Canva»: **«Noto Sans» no aparece ni una vez** en el archivo. Y no mencionaba tres de las
+   cuatro cosas que sí estaban mal. Un encargo es una medición con fecha igual que cualquier otra: se verifica contra el
+   árbol antes de trabajarlo, y lo que sobre o falte se corrige en el mismo commit.
+
 ---
 
 ## MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco (5/11/2026)
