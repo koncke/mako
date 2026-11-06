@@ -38,7 +38,7 @@ export async function leerManualDeMarca(a: AdjuntoListo): Promise<LecturaManual>
   try {
     if (a.tipo === 'document') {
       const l = await archivoATexto(new File([a.bytes as BlobPart], 'manual.pdf', { type: 'application/pdf' }), {
-        feature: FEATURE_LEER_MARCA, motivo: `Leer el manual de marca «${a.nombre}»`, timeoutMs: PLAZO_MS, topePaginas: 20,
+        feature: FEATURE_LEER_MARCA, motivo: `Leer el manual de marca «${a.nombre}»`, timeoutMs: PLAZO_MS, topePaginas: 20, sinGemini: true,
       });
       leido = l.texto.slice(0, TOPES_MARCA.lectura);
       // Con texto (la capa del PDF, o lo que transcribió la visión de un escaneo), la IA saca la marca de ese texto.
@@ -50,9 +50,14 @@ export async function leerManualDeMarca(a: AdjuntoListo): Promise<LecturaManual>
       }
     } else {
       // Una imagen: la visión, con el pedido de la marca (la caja del logo sólo la puede dar quien ve la imagen).
+      // ⚠️ `sinGemini` (6/11/2026): `model-catalogo.ts` declara esta feature con `deSuIA: true` y la nota «nunca con
+      //    Gemini», y el camino de TEXTO de acá arriba ya lo cumplía (`chatClaude` pasa `sinGemini` desde el catálogo).
+      //    El de VISIÓN no lo miraba: leer la IMAGEN de un manual seguía usando el Gemini del negocio si era lo único
+      //    que tenía, y era la última excepción de Image. Si no le queda ninguna IA que mire, se le dice (`SIN_NADA` o
+      //    `errorDeCascada`), que es lo que `fallback: []` del catálogo ya decidió.
       const r = await leerDocumentoIA({
         dataUrl: `data:${a.mime};base64,${base64}`, isPdf: false, nombreArchivo: a.nombre, prompt: PROMPT_LEER_MARCA, json: true,
-        feature: FEATURE_LEER_MARCA, motivo: `Leer el brand board «${a.nombre}»`, timeoutMs: PLAZO_MS,
+        feature: FEATURE_LEER_MARCA, motivo: `Leer el brand board «${a.nombre}»`, timeoutMs: PLAZO_MS, sinGemini: true,
       });
       leido = r.text;
       raw = parsear(r.text);

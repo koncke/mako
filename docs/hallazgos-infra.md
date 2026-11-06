@@ -226,6 +226,43 @@ igual que cuando no existe.
 
 **Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
 es que, cuando se caiga, **se diga**.
+## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
+
+**Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
+`.github/workflows/punta.yml` (el paso que configura los drivers). Lo fija `tests/unir-indice-hallazgos.test.ts`.
+
+**Síntoma:** `docs/hallazgos.md`, el índice que manda a cada documento por área, con **199 filas para 69 áreas distintas**
+y sólo **53 documentos** `hallazgos-*.md` en disco. Competitors Spy con 27 filas, Infraestructura con 24. Buscar un tema
+obliga a leer la misma área veinte veces, así que nadie lo abre y lo aprendido se vuelve a descubrir.
+
+⚠️ **La causa NO era que alguien escribiera mal, y por eso la regla escrita no podía ganar.** El atributo era
+`docs/hallazgos*.md merge=union` — **sin guion**, así que el mismo glob agarraba los documentos por área *y el índice*.
+Para los documentos está bien: cada cosecha AGREGA una sección, y unir las líneas de los dos lados deja las dos. Pero el
+índice es una **tabla con una fila por área**, y una cosecha no agrega una fila: **REESCRIBE** la celda de su área metiendo
+su entrada adelante. Para `union`, la fila vieja y la nueva son dos líneas distintas, así que deja **las dos**. Cada punta
+que cosechaba duplicaba la fila de su área, y la siguiente duplicaba la duplicada.
+
+**La regla que queda: `merge=union` sirve para un archivo donde se AGREGA, y corrompe uno donde se REESCRIBE.** Antes de
+poner `union` sobre un glob, hay que preguntarse si todos los archivos que agarra crecen de la misma forma. Acá la
+diferencia entre «crece» y «se reescribe» era un guion en el patrón.
+
+⚠️ **Y la pista estaba escrita adentro del propio índice, en una fila que el problema había duplicado.** Otro chat ya lo
+había diagnosticado ese día («`merge=union` sobre el ÍNDICE no une: DUPLICA la fila») y lo cosechó… en el índice, donde se
+duplicó cuatro veces. **Un documento que se corrige a mano contra algo que lo rompe solo, pierde**: la regla «Una fila por
+área» se agregó el 6/11 y el archivo siguió duplicándose igual, porque el daño no lo hacía el que escribía sino la mezcla,
+después de que los dos lados escribieron bien.
+
+El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazgos-*.md` (con guion) sigue con `union`, y
+`docs/hallazgos.md` tiene su **driver**, que une **celda por celda** y deja las dos entradas (primero la de main). Lo que no
+entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
+persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
+
+⚠️ **SIN HACER, y no es mecánico: juntar las 130 filas de más que ya están.** Medido: de las 31 áreas con filas repetidas,
+**22 anidan** (la celda más larga contiene a las otras, que es lo que deja el metido-adelante) y **9 NO** — en ésas, cada
+fila tiene texto que las demás no tienen, y colapsarlas por clave **perdería hallazgos**. Por eso este cambio **frena la
+hemorragia y no toca el contenido**. Para la pasada que falta hay un modo que cuenta antes de escribir:
+`node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md` (con `--aplicar` escribe, y hoy saca sólo la fila
+idéntica); las 9 que no anidan las tiene que juntar alguien leyéndolas.
 
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
