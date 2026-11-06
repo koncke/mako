@@ -1377,7 +1377,7 @@ verdad, no leyéndolo). Lo que sí lo partía era un **espacio** —`10, 8, 10` 
 argumentos y el script leía `10,` → `NaN`, topeando TODAS las tomas en nada—, y `set -u` no
 avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
 
-### Dos trampas del entorno, de las que dan verde
+### Tres trampas del entorno, de las que dan verde
 
 - **`ffmpeg-static` es una dependencia OPCIONAL y en esta máquina no está**, así que el único
   test que corre el montaje de verdad (`tests/montaje-cola.test.ts`, «el montaje corre de
@@ -1389,6 +1389,12 @@ avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
   `T=/trabajo` por entorno y leerlo con `"$T"` devuelve `C:/Program Files/Git/trabajo`: el
   proceso nunca ve la cadena que se le mandó. Un test que corre bash usa valores sin barra
   adelante, o mide otra cosa.
+- **La guarda del `maxBuffer` no la alcanza el pre-push, y el rojo lo da Actions.** Un test que
+  lanza un hijo y parsea su salida necesita `maxBuffer: 64 * 1024 * 1024` (node corta el stdout en
+  1 MB y el JSON llega partido). Lo exige `tests/tanda-no-la-mata-un-test-lento.test.ts`, que tarda
+  ~54 s y puede no entrar en el tope de 90 s del filtro local: el push sale, y el rojo llega 14
+  minutos después. La regla ya estaba cosechada en cinco `docs/hallazgos-*.md` **y en ninguno de
+  los archivos que se leen antes de escribir** — por eso ahora está en AGENTS.md.
 
 ### Lo que quedó SIN hacer
 

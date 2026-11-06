@@ -94,6 +94,11 @@ test('el bash le pasa el DURVID entero como argv[4]: una lista con comas no se p
       // `/trabajo` en `C:/Program Files/Git/trabajo` antes de que el proceso lo vea.
       const r = spawnSync('bash', ['-c', 'set -euo pipefail; "$NODE_BIN" "$ARGV_JS" "$T" "$NTOMAS" "$DURVID"'], {
         encoding: 'utf8',
+        // ⚠️ `maxBuffer`: sin él, node corta la salida del hijo en 1 MB y el JSON llega PARTIDO
+        // («Unterminated string in JSON», que no se parece a la causa). Lo exige una guarda del
+        // repo, tests/tanda-no-la-mata-un-test-lento.test.ts, y acá el plan de un anuncio largo
+        // puede pasarse de 1 MB — en el runner antes que en la PC, que es el peor caso.
+        maxBuffer: 64 * 1024 * 1024,
         env: { ...process.env, NODE_BIN: process.execPath, ARGV_JS: argv, T: 'carpeta', NTOMAS: '3', DURVID: durvid },
       });
       assert.equal(r.status, 0, `bash salió ${r.status}: ${r.stderr}`);
@@ -149,6 +154,7 @@ test('plan-cortes topea cada toma con SU duración: con un número solo, la toma
     const plan = (durvid: string): Plan => {
       const r = spawnSync(process.execPath, [join(RAIZ, 'scripts', 'plan-cortes-anuncio.mjs'), dir, '3', durvid], {
         encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,  // ver arriba: un JSON cortado en 1 MB no se parece a su causa
         env: { ...process.env, FFMPEG: ffmpeg, FFPROBE: join(dir, 'no-hay-ffprobe'), CLAMP: '0.45' },
       });
       assert.equal(r.status, 0, `el plan salió ${r.status}: ${r.stderr.slice(0, 600)}`);
