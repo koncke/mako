@@ -17,6 +17,15 @@ Rama: **`punta/thiago-migrar`** (y la de la sesión, `claude/jolly-heisenberg-a4
 | 1. La guía | «Migrar tu CRM con Claude», la primera de «Guías» en /api-mako → Documentación | `app/api-mako/Articulos.tsx`, `articulos-meta.ts` | `tests/api-mako-migrar-crm-guia.test.ts` |
 | De rebote | `proponer_leads` aplicada por un token ya no tira las UTM | `lib/api-mako/flujo.ts` | `tests/migrar-contactos.test.ts` |
 
+Subido: `punta/thiago-migrar` en `cd28bbaf26` (veredicto verde: 9.021 tests y el tsc entero).
+
+## Lo que quedó hecho (tanda 2: el Calendario)
+
+| Promesa | Qué hay | Dónde | Test |
+|---|---|---|---|
+| 5b. Reuniones del equipo | Closers y setters entran al Calendario SÓLO a «Llamadas», arrancando en las suyas (las que llevan como closer o como setter); el admin filtra por persona (`?persona=`). No ven la grilla (la agenda de Google del dueño), ni los cobros, ni los objetivos, ni el Plan. Computadora y teléfono. API: `llamadas_del_equipo` (GET /api/v1/calendario/llamadas) | `lib/calendario-llamadas.ts`, `lib/calendario-equipo-server.ts`, `app/calendario/*`, `app/m/calendario/*` | `tests/calendario-equipo.test.ts` (4 roturas) |
+| 5a. Email programado | Un evento Email se enlaza a un email de Email Marketing y queda programado a esa hora, con el `preparar`/`ejecutar` de `programar_broadcast` (resumen antes, y vuelve a revisar). Mover el evento mueve el email; soltarlo lo vuelve a borrador. Un plan sin Email Marketing no lo hace. API: `enlazar_email_calendario` (pantalla, sólo admin) | `lib/calendario-email*.ts`, `app/calendario/EnlazarEmail.tsx`, mig 0406 | `tests/calendario-email.test.ts` (4 roturas) |
+
 ## Lo que pide producción (lo hace el Cerebro desde la PC, con el sí de Martín)
 
 1. **Aplicar la 0405 ANTES del deploy, o junto** (`node scripts/apply-migration.mjs supabase/migrations/0405_leads_migracion.sql`).
@@ -25,6 +34,10 @@ Rama: **`punta/thiago-migrar`** (y la de la sesión, `claude/jolly-heisenberg-a4
 2. Probarlo en el ws 3 con un token detallado: un lote de 3 contactos dos veces (el segundo tiene que decir «ya entraron»).
 3. Para la llamada con Thiago: su cuenta tiene que ser Agency (capa `agencia` y su fila en `agencias`) y sus clientes aprobados
    en la cartera, o el token de agencia contesta 403/404.
+4. **Aplicar la 0406 ANTES del deploy, o junto** (`supabase/migrations/0406_calendario_email_enlazado.sql`): la columna del
+   email enlazado. Sin ella, el modal dice que falta un cambio en la base y no toca nada. Libre en main, ramas y etiquetas el 6/11.
+5. Probar en el ws 3: entrar como closer a /calendario (abre en sus llamadas, sin la grilla), y en un Email del futuro elegir un
+   borrador y «Programar a esta hora» con el envío apagado (queda programado y no sale).
 
 ## Lo que espera una decisión de Martín
 
@@ -35,9 +48,23 @@ Rama: **`punta/thiago-migrar`** (y la de la sesión, `claude/jolly-heisenberg-a4
 - **El tope de 120 pedidos por minuto es por cliente**, así que un token de agencia puede sumar más en total. Es lo mismo
   que con 27 tokens sueltos; si se quiere un tope por agencia, se suma en `autenticar`.
 
+- **El anuncio programado (5a, la mitad que falta).** Hoy una campaña nace EN PAUSA (`proponer_crear_campana`) y no hay
+  «fecha de inicio». Programar un anuncio es empezar a GASTAR a una hora: no se escribió desde la nube. El camino que
+  recomiendo: el evento Anuncio se enlaza a una campaña en pausa del Media Buyer y, a la hora del evento, un cron la prende
+  por `lanzar` (lib/media-buyer/ejecutar.ts: zona, fecha de fin, topes), con la misma revisión adversarial de todo lo que
+  gasta. La alternativa (pasarle a Meta un `start_time` al crearla) depende de que Zernio lo acepte, y eso no está medido.
+- **La reserva de Google Calendar como etapa (6).** Choca con tu decisión del 7/10 («la agenda no pasa por la IA»): el CRM
+  automático NO escribe datos de Google en la ficha porque después los leen los análisis con IA (`conGoogle: false` en
+  lib/crm-auto.ts), y Google no deja identificar sus páginas de reserva (`AVISO_GOOGLE_AGENDA`, app/crm/vincular-etapa.ts):
+  cualquier evento con el lead invitado contaría como reserva. Lo que propongo: que la reserva NO se escriba sola, sino que
+  quede como confirmación para una persona («Juan reservó el 10/11 a las 15: ¿lo paso a Agendó R1?»), como el botón
+  «Automático» de la ficha, que ya lee Google porque decide una persona. ¿Así, o preferís que se escriba sola?
+
 ## Lo que se sabe y no se ve en el código
 
 - Un lead migrado que se manda a la papelera y se vuelve a migrar choca con el índice único al restaurarlo.
 - Todo /api/v1 toma el negocio de `auth.ctx.ws`. Un camino nuevo que lea `auth.token.ws` vuelve a abrir la AGENCIA.
-- El hallazgo largo de cada parte: `docs/hallazgos-crm.md` («Migrar desde otro CRM») y `docs/hallazgos-api-mako.md`
-  («El token de agencia»).
+- El hallazgo largo de cada parte: `docs/hallazgos-crm.md` («Migrar desde otro CRM»), `docs/hallazgos-api-mako.md`
+  («El token de agencia») y `docs/hallazgos-calendario.md` («Las reuniones del equipo y el email enlazado»).
+- Abrir el Calendario a closers y setters cambió seis tests de la barra (sidebar, More, el hueco del teléfono, la puerta del
+  loader, la query): una tab más para un rol vuelve a moverlos.
