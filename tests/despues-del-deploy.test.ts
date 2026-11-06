@@ -1,10 +1,15 @@
 // =============================================================================
-// .github/workflows/despues-del-deploy.yml: qué job corre con cada evento de Vercel, y que los pasos hagan lo que dicen.
+// .github/workflows/despues-del-deploy.yml: cuándo corre, y que los pasos hagan lo que dicen.
 // =============================================================================
-// Se EVALÚA la condición de cada job contra eventos de ejemplo (tests/_workflow.ts) y se CORRE el script de cada paso en bash.
-// Probado rompiéndolo (4/11/2026): sacando el `contains(..., 'production')` del camino de deployment_status, «un deploy de
-// preview que falla no da rojo» cae; cambiando el `exit 1` de «El deploy de producción falló» por `exit 0`, cae «queda una
-// corrida ROJA»; con `[ "$eventos" = "0" ]` invertido en el vigía, caen los dos casos del vigía.
+// Se EVALÚA la condición del job contra eventos de ejemplo (tests/_workflow.ts) y se CORRE el script de cada paso en bash, con un
+// `gh` de mentira que contesta como la API.
+// 6/11/2026 (los minutos de Actions, docs/hallazgos-infra.md): ya no escucha los eventos de Vercel (`deployment_status`,
+// `repository_dispatch`): eran 623 corridas en seis días, casi todas sin nada que hacer. El deploy fallido lo lee por la API.
+// PROBADO ROMPIÉNDOLO (6/11/2026; base 6 / 0). Pasan / fallan:
+//   · volver a poner `deployment_status:` en el `on:`                                   → 5 / 1
+//   · `failure|error)` cambiado por `failure)` (un deploy en «error» no da rojo)         → 5 / 1
+//   · el `exit 1` de «¿Producción se actualiza?» cambiado por `exit 0`                     → 5 / 1
+//   · el paso de los minutos sin `--alarma 80`                                            → 5 / 1
 // =============================================================================
 
 import test from 'node:test';
@@ -12,14 +17,20 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { corre, correrPaso, evaluar, leerWorkflow } from './_workflow';
+import { corre, correrPaso, evaluar, leerWorkflow, scriptDelPaso } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const YML = leerWorkflow(RAIZ, 'despues-del-deploy.yml');
 const hayBash = !spawnSync('bash', ['-c', 'exit 0']).error;
+const env = { GH_TOKEN: 'x', REPO: 'koncke/mako' };
 
-const despacho = (action: string, environment: string) => ({ event_name: 'repository_dispatch', event: { action, client_payload: { environment, url: 'https://mako-x.vercel.app', git: { sha: 'abc123' } } } });
-const estado = (state: string, environment: string) => ({ event_name: 'deployment_status', event: { deployment_status: { state, target_url: 'https://vercel.com/x' }, deployment: { environment, sha: 'abc123' } } });
+/** Los disparadores del `on:` (las claves a 2 espacios, sin los comentarios). */
+const disparadores = (yml: string) => {
+  const l = yml.replace(/\r\n/g, '\n').split('\n').filter((x) => !/^\s*#/.test(x));
+  const i = l.indexOf('on:');
+  const fin = l.findIndex((x, k) => k > i && /^\S/.test(x));
+  return l.slice(i + 1, fin).map((x) => /^ {2}([a-z_]+):/.exec(x)?.[1]).filter(Boolean);
+};
 
 test('el evaluador de condiciones entiende lo que usa el workflow (y tira con lo que no)', () => {
   assert.equal(evaluar("contains(github.x, 'production')", { github: { x: 'Production – mako' } }), true, 'contains no distingue mayúsculas, como GitHub');
@@ -28,52 +39,44 @@ test('el evaluador de condiciones entiende lo que usa el workflow (y tira con lo
   assert.throws(() => evaluar('fromJSON(github.x)', { github: {} }), /no conoce/);
 });
 
-test('un deploy de PRODUCCIÓN que falla, por cualquiera de los dos caminos, corre deploy-fallido y no el humo', () => {
-  for (const ev of [despacho('vercel.deployment.error', 'production'), despacho('vercel.deployment.failed', 'production'), estado('failure', 'Production'), estado('error', 'Production – mako')]) {
-    assert.equal(corre(YML, 'deploy-fallido', ev), true, JSON.stringify(ev));
-    assert.equal(corre(YML, 'humo', ev), false);
-    assert.equal(corre(YML, 'vigia', ev), false);
+test('corre sólo por horario o a mano: ningún evento de Vercel gasta una corrida', () => {
+  assert.deepEqual(disparadores(YML), ['schedule', 'workflow_dispatch']);
+  assert.match(YML, /cron: '37 11 \* \* \*'/, 'media hora después del despliegue diario de las 11:05 UTC');
+  assert.equal(corre(YML, 'vigia', { event_name: 'schedule', event: {} }), true);
+  assert.equal(corre(YML, 'vigia', { event_name: 'workflow_dispatch', event: {} }), true);
+  assert.equal(corre(YML, 'vigia', { event_name: 'deployment_status', event: {} }), false);
+  assert.match(scriptDelPaso(YML, '¿Cuántos minutos de Actions van este mes?'), /node scripts\/minutos-actions\.mjs .*--alarma 80/);
+});
+
+/** `gh` de mentira para el último deploy: la lista de deployments ya filtrada por el --jq, y su último estado. */
+const ghDeploy = (dep: string, estado: string) => `gh() { case "$*" in *statuses*) echo "${estado}";; *deployments*) echo "${dep}";; esac; }`;
+const ultimo = (dep: string, estado: string) => correrPaso(YML, 'El último deploy de producción', { antes: ghDeploy(dep, estado), env });
+
+test('el último deploy de producción: failure o error dan una corrida ROJA con el commit; success o en curso, verde', { skip: !hayBash && 'sin bash' }, () => {
+  for (const st of ['failure', 'error']) {
+    const r = ultimo('7 abc123 2026-11-06T11:05:00Z', `${st} https://vercel.com/x`);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.salida, /::error::El deploy de producción del commit abc123 falló/);
+    assert.match(r.resumen, /abc123/);
   }
+  for (const st of ['success https://vercel.com/x', 'in_progress', 'pending']) assert.equal(ultimo('7 abc123 2026-11-06T11:05:00Z', st).codigo, 0, st);
+  assert.equal(ultimo('', '').codigo, 0, 'sin deploys en GitHub no hay nada que leer: lo mira el paso siguiente');
 });
 
-test('un deploy de preview que falla no da rojo (no es producción)', () => {
-  for (const ev of [despacho('vercel.deployment.error', 'preview'), estado('failure', 'Preview')]) assert.equal(corre(YML, 'deploy-fallido', ev), false, JSON.stringify(ev));
-});
+/** `gh` de mentira para «¿Producción se actualiza?»: commits viejos de main, deploys de producción, y si existe ci-rojo/main. */
+const ghActualiza = (commits: number, deploys: number, rojo: boolean) =>
+  `gh() { case "$*" in *ci-rojo*) ${rojo ? 'echo abc' : 'return 1'};; *commits*) echo ${commits};; *deployments*) echo ${deploys};; esac; }`;
+const actualiza = (commits: number, deploys: number, rojo = false) => correrPaso(YML, '¿Producción se actualiza?', { antes: ghActualiza(commits, deploys, rojo), env });
 
-test('un deploy de producción que sale bien corre el humo; uno pendiente o de preview, nada', () => {
-  for (const ev of [despacho('vercel.deployment.success', 'production'), despacho('vercel.deployment.promoted', 'production'), estado('success', 'Production')]) {
-    assert.equal(corre(YML, 'humo', ev), true, JSON.stringify(ev));
-    assert.equal(corre(YML, 'deploy-fallido', ev), false);
-  }
-  for (const ev of [estado('pending', 'Production'), estado('in_progress', 'Production'), estado('success', 'Preview'), despacho('vercel.deployment.success', 'preview'), despacho('vercel.deployment.canceled', 'production')]) {
-    assert.equal(corre(YML, 'humo', ev) || corre(YML, 'deploy-fallido', ev), false, JSON.stringify(ev));
-  }
-});
-
-test('el horario corre el humo y el vigía; nunca el aviso de deploy fallido', () => {
-  const ev = { event_name: 'schedule', event: {} };
-  assert.equal(corre(YML, 'humo', ev), true);
-  assert.equal(corre(YML, 'vigia', ev), true);
-  assert.equal(corre(YML, 'deploy-fallido', ev), false);
-});
-
-test('el paso del deploy fallido deja una corrida ROJA, con el commit en el resumen', { skip: !hayBash && 'sin bash' }, () => {
-  const r = correrPaso(YML, 'El deploy de producción falló', { env: { EVENTO: 'repository_dispatch', ACCION: 'vercel.deployment.error', SHA: 'abc123', URL_DEPLOY: 'https://mako-x.vercel.app', PAYLOAD: '{}' } });
-  assert.equal(r.codigo, 1, r.salida);
-  assert.match(r.salida, /::error::El deploy de producción del commit abc123 falló/);
-  assert.match(r.resumen, /abc123/);
-});
-
-/** `gh` de mentira: commits en main y corridas por evento, como los contesta la API. */
-const ghQue = (commits: number, porEvento: number) => `gh() { case "$*" in *commits*) echo ${commits};; *) echo ${porEvento};; esac; }`;
-
-test('el vigía da rojo si main recibió commits y no llegó ni un evento de Vercel; si llegan, o no hubo commits, verde', { skip: !hayBash && 'sin bash' }, () => {
-  const env = { GH_TOKEN: 'x', REPO: 'koncke/mako' };
-  const ciego = correrPaso(YML, '¿Llegan los eventos de Vercel?', { antes: ghQue(3, 0), env });
+test('¿producción se actualiza?: commits de hace más de un día y ningún deploy en 72 h es rojo, y dice si es por main rojo', { skip: !hayBash && 'sin bash' }, () => {
+  const ciego = actualiza(3, 0);
   assert.equal(ciego.codigo, 1, ciego.salida);
-  assert.match(ciego.salida, /el aviso de deploy fallido está ciego/);
-  assert.equal(correrPaso(YML, '¿Llegan los eventos de Vercel?', { antes: ghQue(3, 2), env }).codigo, 0);
-  assert.equal(correrPaso(YML, '¿Llegan los eventos de Vercel?', { antes: ghQue(0, 0), env }).codigo, 0);
+  assert.match(ciego.salida, /Vercel dejó de escribirle los deploys a GitHub/);
+  const frenado = actualiza(3, 0, true);
+  assert.equal(frenado.codigo, 1, frenado.salida);
+  assert.match(frenado.salida, /main está ROJO \(ci-rojo\/main\) y el despliegue diario está frenado/);
+  assert.equal(actualiza(3, 1).codigo, 0);
+  assert.equal(actualiza(0, 0).codigo, 0, 'sin commits no había nada que desplegar');
 });
 
 // ── La alarma de las redes de cada noche (4/11/2026) ─────────────────────────────────────────────────────────────────────

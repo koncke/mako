@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia' | 'plataforma';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -172,8 +172,10 @@ export type VariableAviso = {
    *               pasa `avisoALasAgencias` (lib/aviso-evento.ts).
    * · `iacaida` — necesita LA CUENTA DE CLAUDE del negocio que no pudo analizar sus llamadas (el evento de la plataforma
    *               `closing_ia_caida`): lo pasa el Closing (`datosIaCaida`, lib/closing-ia-caida-reglas.ts).
+   * · `plataforma` — necesita que el evento sea de la PLATAFORMA (lo emite un negocio y lo corre una fila de SuperAdmin): de
+   *               QUÉ negocio es. Lo pone `emitirPorEvento` (lib/aviso-evento.ts) en todos, sin que el emisor lo pase.
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia' | 'plataforma';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -606,6 +608,15 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'link_chat', label: 'Las conversaciones', ejemplo: '/whatsapp', alcance: 'siempre', grupo: 'links', fuente: 'links', soloPara: 'equipo' },
   { key: 'link_integraciones', label: 'Integraciones', ejemplo: '/integraciones', alcance: 'siempre', grupo: 'links', fuente: 'links', soloPara: 'equipo' },
   { key: 'link_configuraciones', label: 'Configuraciones', ejemplo: '/configuraciones', alcance: 'siempre', grupo: 'links', fuente: 'links', soloPara: 'equipo' },
+  // ── DE QUÉ NEGOCIO ES un evento de la plataforma (6/11/2026, «nada por detrás»), AL FINAL: en el editor va después de los
+  //    datos propios del evento. Lo pone `emitirPorEvento` en TODO evento de
+  //    la plataforma. Es la pieza para que «a este negocio no» sea una CONDITION de la fila y no una regla escondida: lo que un
+  //    negocio tenía apagado en /mensajes antes de una mudanza (el ws 13 con las tareas de las reuniones al Plan) se rehace
+  //    con «No es el negocio número 13». El número y no el nombre: el nombre se cambia y la condición dejaría de cumplirse sola.
+  {
+    key: 'negocio_numero', label: 'El número del negocio', ejemplo: '13', alcance: 'plataforma', grupo: 'cerebro', rama: 'El negocio', fuente: 'plataforma', soloPara: 'equipo',
+    condicion: { rotulo: ['Es el negocio número', 'No es el negocio número'], tipo: 'texto' },
+  },
 ];
 
 const POR_CLAVE: ReadonlyMap<string, VariableAviso> = new Map(VARIABLES_AVISO.map((v) => [v.key, v]));
@@ -716,6 +727,8 @@ export type ContextoDatos = {
   conTope?: boolean;
   /** El cliente de la agencia a la que le llega el aviso (`aLaAgencia`, lib/avisos-catalogo.ts). */
   conClienteAgencia?: boolean;
+  /** El evento es de la PLATAFORMA: trae de qué negocio es (`negocio_numero`, lo pone `emitirPorEvento`). */
+  conPlataforma?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -762,6 +775,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'anuncios') return opts.conAnuncios === true;
   if (a === 'reunionplan') return opts.conReunionPlan === true;
   if (a === 'iacaida') return opts.conIaCaida === true;
+  if (a === 'plataforma') return opts.conPlataforma === true;
   if (a === 'tope') return opts.conTope === true;
   if (a === 'clienteagencia') return opts.conClienteAgencia === true;
   return false;

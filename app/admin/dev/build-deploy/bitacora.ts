@@ -231,4 +231,28 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md → «Rearmar etiquetas rescate/* desde la nube»',
     ],
   },
+  // ── noviembre: los minutos de GitHub Actions ────────────
+  {
+    fecha: '6 nov', hora: '10:15', chat: 'GitHub minutos (nube)', sesion: 'cli_c3421e19-2605-5d21-b72c-3ddfddfaa5f8', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que GitHub no gaste de más, como pasó con Vercel',
+    pedido: 'Cuanto vamos a gastar en github? No quiero que pase lo de Vercel y terminemos gastando un montón',
+    puntos: [
+      'Llegó por el Cerebro: el tope de Actions es US$30 y se agotó una vez; con el tope agotado ninguna punta llega a main. Del 1 al 6/11, 4.495 min.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '11:00', chat: 'GitHub minutos (nube)', sesion: 'cli_c3421e19-2605-5d21-b72c-3ddfddfaa5f8', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chequeo de main una vez por día, sin eventos de Vercel, y una alarma al 80 % del tope',
+    puntos: [
+      'sobre-main.yml corre a las 09:47 UTC (antes del despliegue de las 11:05) y a mano, no con cada mezcla: con rojo, el despliegue diario no compila.',
+      'despues-del-deploy.yml sin deployment_status ni repository_dispatch: lee el último deploy de producción por la API a las 11:37 UTC y cada 8 h, en un job.',
+      'Una punta de sólo documentación corre las guardas y la de mails reales, sin los tests. scripts/minutos-actions.mjs da el desglose por workflow y por día.',
+      'Lo que queda dominando es la punta (~10 min cada una): con US$30 alcanzan ~13 por día. Subir el tope o juntar puntas lo decide Martín.',
+    ],
+    archivos: [
+      'docs/hallazgos-infra.md → «Los minutos de GitHub Actions»',
+    ],
+  },
 ];

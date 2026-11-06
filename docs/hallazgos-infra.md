@@ -84,6 +84,67 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Los minutos de GitHub Actions: un chequeo de main por mezcla y una corrida por evento de Vercel (6/11/2026)
+
+**Síntoma:** Martín: «Cuanto vamos a gastar en github? No quiero que pase lo de Vercel y terminemos gastando un montón». El tope
+de gasto de Actions es US$30 por mes, se agotó una vez, y con el tope agotado **ninguna punta llega a main**.
+
+**Lo medido** (por la duración de cada corrida; el dato real es el panel de facturación): del 1 al 6/11, 1.000 corridas y 4.495
+min, todos entre el 4 y el 6 (`punta.yml` nació el 4/11). 4/11: 2.564 · 5/11: 875 · 6/11: 1.056 min. A US$0,006 el minuto son
+~US$27 en tres días, o sea ~US$270 por mes a ese ritmo.
+
+| Workflow | Corridas | Min. | Por qué |
+|---|---:|---:|---|
+| `punta → main` | 249 | 2.538 | ~10 min por punta: es el trabajo de verdad |
+| `chequeo sobre main` | 126 | 1.437 | lo lanzaba cada punta que llegaba a main con una mezcla sin probar (la mitad) |
+| `después del deploy` | 623 | 470 | `deployment_status` y `repository_dispatch`: una corrida por evento, casi todas de previews o estados intermedios |
+| los demás | 2 | 50 | las redes de la noche |
+
+**Lo obvio era achicar la punta, y no es lo primero.** El 41 % se iba en dos cosas que ya no tienen sentido desde que producción
+compila una vez por día (lib/desplegar-main-reglas.ts): chequear cada mezcla de main cuando lo único que llega a producción es
+el main de las 11:05, y una corrida por cada evento de Vercel cuando hay UN deploy de producción por día.
+
+**Qué cambió:**
+1. **`sobre-main.yml` corre una vez por día, a las 09:47 UTC, y a mano.** Ya no lo lanza la punta ni un push a main. Con rojo deja
+   `ci-rojo/main`, y **el despliegue diario no compila** mientras la marca exista (decisión `frenar`; con la marca ilegible compila:
+   ante la duda). `desplegar-ya.mjs` avisa y compila igual. Una punta que llega con sólo texto (sin el tsc entero) ya no puede
+   borrar la marca: sale «sin probar».
+2. **`despues-del-deploy.yml` sin eventos.** GitHub no deja filtrar `deployment_status` por ambiente antes de arrancar (no tiene
+   `types` ni filtros), y `repository_dispatch` filtra por tipo pero no por ambiente. Ahora corre a las 11:37 UTC y cada 8 h, en
+   UN job (cada job factura su minuto redondeado): lee el último deployment de producción que Vercel le escribe a GitHub, corre el
+   humo, mira que producción se actualice (commits de 26-72 h y ningún deploy = rojo, diciendo si es por main rojo) y las redes.
+3. **Una punta de sólo documentación** corre las guardas y `tests/sin-mails-reales.test.ts` (un mail real en la historia de git no
+   se saca), no los afectados. Ya cancelaba la corrida anterior de la misma punta (`concurrency`): no cambió.
+4. **`node scripts/minutos-actions.mjs`** da el desglose por workflow y por día, y el vigía lo corre con `--alarma 80`: rojo al
+   80 % del tope. Se pide DÍA por DÍA: la API de corridas devuelve como mucho 1.000 por búsqueda.
+
+**Lo que cuesta ahora** (US$0,006 el minuto, sin minutos incluidos; por día: `puntas × 10 min` + ~36 min fijos: 12 del chequeo
+de main, ~7 del vigía, ~17 de las redes; antes, `puntas × 17,7 + 17`):
+
+| | Antes | Ahora |
+|---|---:|---:|
+| Un día normal (15 puntas) | ~282 min · ~US$51/mes | ~186 min · **~US$34/mes** |
+| Un día de muchos chats (80 puntas, como el 4-6/11) | ~1.433 min · ~US$258/mes | ~836 min · **~US$150/mes** |
+
+**⚠️ Con el tope de US$30 alcanzan ~13 puntas por día en promedio.** Lo que queda dominando es la punta misma: subir el tope o
+juntar los cambios (una punta por tema) lo decide Martín. Y si el plan trae minutos incluidos, el tope efectivo es más alto: el
+script los toma con `--incluidos` (o la variable `ACTIONS_INCLUIDOS` del repo).
+
+**El costo que se aceptó:** una mezcla sin probar que rompe main ahora se marca hasta el chequeo del día siguiente, no a los 15 min.
+Mientras tanto, una punta de otro chat puede dar rojo por main y no por lo suyo: si da rojo en algo que no tocó, se lanza
+`gh workflow run sobre-main.yml --ref main` a mano. Y una punta de sólo docs que rompe una barredora deja roja la siguiente hasta ese
+mismo chequeo (por eso antes corría los tests que la leen).
+
+**Sin comprobar** (un workflow no se prueba del todo sin correrlo): que el `schedule` de sobre-main arranque a tiempo (GitHub atrasa
+los horarios hasta ~30 min; si un día no terminó a las 11:05, el despliegue no ve la marca y compila); que los deployments de
+GitHub traigan el ambiente «Production» para los deploys que crea el cron por la API (los eventos llegaban, así que existen, pero
+no se miró su forma); que `deployments: read` alcance para leerlos; y la estimación del script contra el panel de facturación.
+
+**Vive en:** `.github/workflows/sobre-main.yml`, `.github/workflows/despues-del-deploy.yml`, `.github/workflows/punta.yml`,
+`lib/desplegar-main-reglas.ts`, `lib/desplegar-main.ts`, `lib/github-commits.ts` (`mainEstaRojo`), `scripts/minutos-actions.mjs`.
+Lo fijan tests/sobre-main.test.ts, tests/despues-del-deploy.test.ts, tests/desplegar-main.test.ts, tests/punta-ci.test.ts y
+tests/minutos-actions.test.ts, probados rompiéndolos.
+
 ## El gasto de Vercel: cada llegada a main compila en una máquina de 30 núcleos (6/11/2026)
 
 **Síntoma:** Martín: «el gasto de Vercel se disparó por las nubes». **La factura en curso (16/10 al 16/11) iba en US$291,94 el 6/11, con diez días por delante; las dos anteriores fueron de US$40.** Son US$248 de builds, US$24 de funciones y tráfico y US$40 fijos de asientos, menos US$20 de crédito incluido. El 98 % de los builds es el proyecto mako.

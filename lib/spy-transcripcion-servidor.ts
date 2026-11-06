@@ -56,10 +56,10 @@ async function escuchar(bytes: Uint8Array, mime: string): Promise<{ ok: true; te
 }
 
 /** UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona. */
-async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null): Promise<ResultadoTramoYt> {
+async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null): Promise<ResultadoTramoYt> {
   let r: ResultadoTramoYt;
   try {
-    r = await guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube' });
+    r = await guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube', duracionS });
   } catch (e) {
     return { ok: false, motivo: 'fallo', error: esSinPermisoIa(e) ? TEXTO_SIN_PERMISO_IA : 'No pude transcribirlo.' };
   }
