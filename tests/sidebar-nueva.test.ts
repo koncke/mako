@@ -392,10 +392,10 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
     ['Marketing', ['Web Generator', 'Ads Manager', 'Competitor Spy']],
     ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
-  // El setter: lo que su rol tiene anotado, en las mismas familias.
+  // El setter: lo que su rol tiene anotado, en las mismas familias. Calendar desde el 6/11/2026 (sólo sus «Llamadas»).
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
-    ['Sales', ['CRM', 'Automations']],
+    ['Sales', ['CRM', 'Calendar', 'Automations']],
     ['Marketing', []],
     ['Create', []],
   ]);

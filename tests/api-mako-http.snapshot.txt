@@ -263,6 +263,7 @@ embudo_closing
 empezar_mi_plan_ya
 empezar_prueba_ab
 enlaces_documento_copywriter
+enlazar_email_calendario
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -453,6 +454,7 @@ listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+llamadas_del_equipo
 mandar_en_bloque_a_papelera
 mandar_landing_a_papelera
 marcar_asistencia_reunion

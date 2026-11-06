@@ -12,6 +12,12 @@
 // El estado y las pestañas salen de lib/calendario-llamadas.ts (puro, con test); los datos, de `leerLlamadasDeVenta` y
 // `leerTareasConFecha` (lib/calendario.ts), lo mismo que dibujan las capas «Llamadas» y «Plan» de la grilla.
 //
+// LAS REUNIONES DEL EQUIPO (6/11/2026, la promesa a la agencia de Thiago): un closer o un setter entra SÓLO acá, arrancando en
+// SUS llamadas (las que lleva como closer o como setter), y el admin filtra por persona. El desplegable «Persona» escribe
+// `?persona=` en la URL (un F5 o un link vuelven a lo mismo). La regla es pura y tiene test (`llamadasDeLaPersona`,
+// lib/calendario-llamadas.ts); a quién se le abre esto y con qué, `quienMiraElCalendario` (lib/calendario-equipo-server.ts).
+// Un closer no ve las tareas del Plan: el Plan es del admin.
+//
 // MARCAR LA ASISTENCIA EN LA FILA (25/10/2026, como el «Status» de HighLevel): en una reunión que ya empezó el estado es un
 // desplegable (Sin marcar · Asistió · No vino). Escribe por el MISMO camino que la ficha del lead (`guardarCampoLeadAction`
 // con `asistio_j1`/`asistio_j2`): la etapa derivada, el historial y lo que se le manda a Meta salen de ahí. Si borra el
@@ -19,6 +25,7 @@
 // =============================================================================
 
 import { useMemo, useState } from 'react';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Modal } from '@/app/_ui/Modal';
@@ -28,7 +35,8 @@ import { deshacerCampoLeadAction, guardarCampoLeadAction } from '@/app/crm/actio
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { diaDe, horaDe, horaGoogle, type ItemCalendario } from '@/lib/calendario-modelo';
 import {
-  PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, rotuloDelDia as rotuloDia, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana, sePuedeMarcar,
+  PESTANAS_LLAMADAS, PERSONA_SIN_ASIGNAR, PERSONA_TODAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, rotuloDelDia as rotuloDia, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada,
+  llamadasDeLaPersona, llamadasDeLaPestana, sePuedeMarcar,
   type EstadoLlamada, type LlamadaDeVenta, type PestanaLlamadas,
 } from '@/lib/calendario-llamadas';
 // La inicial de la fila, de la pieza de la casa: `charAt(0)` de «🚀 Ana» es media pieza del emoji y tiraba /calendario con #418.
@@ -76,6 +84,7 @@ const CSS_LISTA = `
 .gl-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .gl-vacio{padding:48px 24px;text-align:center;color:var(--gc-gris)}
 .gl-vacio b{display:block;color:var(--gc-tinta);font-size:16px;margin-bottom:6px}
+.gl-filtros{display:flex;align-items:center;gap:8px;margin:0 0 12px}
 .gl-error{margin:12px 24px 0;padding:10px 14px;border-radius:10px;background:#fef7e0;color:#5c4a12;font-size:14px}
 .gl-tareas{width:300px;flex:none;background:var(--gc-hoja);border-radius:24px 24px 0 0;display:flex;flex-direction:column;overflow:hidden}
 .gl-tareas h3{margin:0;padding:22px 20px 4px;font-size:16px;font-weight:600;color:var(--gc-tinta)}
@@ -94,10 +103,11 @@ const CSS_LISTA = `
   .gl-tareas{width:auto;flex:none;border-radius:24px}
   .gl-tareas ul{overflow:visible;padding-bottom:8px}
 }
+@media (max-width:900px){.gl-col-setter{display:none}}
 @media (max-width:700px){.gl-col-closer,.gl-col-abrir{display:none}.gl-tabla td,.gl-tabla th{padding:10px 8px}}
 `;
 
-export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
+export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos, persona = PERSONA_TODAS, personas = [], soloLlamadas = false }: {
   llamadas: readonly LlamadaDeVenta[];
   tareas: readonly ItemCalendario[];
   hoy: string;
@@ -105,15 +115,41 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
   /** El instante del server: qué ya pasó lo decide el mismo reloj en el server y en el navegador. */
   ahora: string;
   fallos: { llamadas?: boolean; tareas?: boolean };
+  /** A quién filtra al abrir (`personaDelFiltro`): la persona misma si es closer o setter, «todas» si es el admin. */
+  persona?: string;
+  /** Las personas del filtro, con cuántas llamadas tiene cada una (`personasDeLlamadas`). */
+  personas?: ReadonlyArray<{ nombre: string; llamadas: number }>;
+  /** Un closer o un setter: sin el selector de vistas (no tiene otra) y sin las tareas del Plan. */
+  soloLlamadas?: boolean;
 }) {
   const router = useRouter();
   const { toast, show, clear } = useToast();
   const [pestana, setPestana] = useState<PestanaLlamadas>('proximas');
+  const [quien, setQuien] = useState(persona);
+  const elegirPersona = (v: string) => {
+    setQuien(v);
+    try {
+      const u = new URL(window.location.href);
+      if (v === PERSONA_TODAS) u.searchParams.delete('persona'); else u.searchParams.set('persona', v);
+      window.history.replaceState(window.history.state, '', u.toString());
+    } catch { /* la URL es comodidad: el filtro ya cambió */ }
+  };
+  const opcionesPersona = useMemo((): DropdownOption[] => {
+    const lista: DropdownOption[] = [
+      { value: PERSONA_TODAS, label: 'Todo el equipo', icono: 'persona' },
+      ...personas.map((p) => ({ value: p.nombre, label: p.nombre, sub: p.llamadas === 1 ? '1 llamada' : `${p.llamadas} llamadas`, avatar: null })),
+      { value: PERSONA_SIN_ASIGNAR, label: 'Sin closer ni setter', icono: 'persona' },
+    ];
+    // Lo que pide la URL entra aunque no esté en la lista (un nombre escrito a mano): un desplegable que no muestra su valor
+    // engaña, y el primer clic lo borraría.
+    if (!lista.some((o) => o.value === quien)) lista.splice(1, 0, { value: quien, label: quien, avatar: null });
+    return lista;
+  }, [personas, quien]);
   // Lo recién marcado se ve en el acto, hasta que llega la lectura nueva (`router.refresh`).
   const [marcadas, setMarcadas] = useState<Record<string, boolean | null>>({});
   const [guardando, setGuardando] = useState<string | null>(null);
   const [porConfirmar, setPorConfirmar] = useState<{ l: LlamadaDeVenta; asistio: boolean | null; aviso: string } | null>(null);
-  const vistas = useMemo(() => llamadas.map((l) => (l.id in marcadas ? { ...l, asistio: marcadas[l.id] } : l)), [llamadas, marcadas]);
+  const vistas = useMemo(() => llamadasDeLaPersona(llamadas, quien).map((l) => (l.id in marcadas ? { ...l, asistio: marcadas[l.id] } : l)), [llamadas, marcadas, quien]);
   const cuentas = useMemo(() => cuentaPorPestana(vistas, ahora), [vistas, ahora]);
   const filas = useMemo(() => llamadasDeLaPestana(vistas, pestana, ahora), [vistas, pestana, ahora]);
   const proximasTareas = useMemo(() => [...tareas].sort((a, b) => a.inicio.localeCompare(b.inicio)), [tareas]);
@@ -154,12 +190,15 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
       {/* Sin el logo de Google (29/10/2026): la barra es la del Calendario, con el mismo selector de cómo se mira. */}
       <header className="gc-barra">
         <h1 className="gc-titulo" id="gl-titulo">Llamadas de venta</h1>
-        <div className="gc-derecha"><PestanasCalendario activa="llamadas" /></div>
+        {!soloLlamadas && <div className="gc-derecha"><PestanasCalendario activa="llamadas" /></div>}
       </header>
       <div className="gl-cuerpo">
         <main className="gl-hoja" aria-labelledby="gl-titulo">
           <div className="gl-cabeza">
-            <p>Las reuniones de tus leads del CRM. Cuando una ya empezó, marca ahí mismo si asistió.</p>
+            <p>Las reuniones de los leads del CRM. Cuando una ya empezó, marca ahí mismo si asistió.</p>
+            <div className="gl-filtros">
+              <Dropdown value={quien} options={opcionesPersona} onChange={elegirPersona} ariaLabel="Persona" width={260} />
+            </div>
             <div className="gl-tabs" role="tablist" aria-label="Qué llamadas">
               {PESTANAS_LLAMADAS.map((p) => (
                 <button key={p.id} type="button" role="tab" className="gl-tab" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}>
@@ -171,11 +210,11 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
           {fallos.llamadas && <p className="gl-error" role="alert">No pudimos leer las llamadas del CRM. Prueba otra vez en un minuto. <ReportarASoporte /></p>}
           <div className="gl-scroll">
             {filas.length === 0
-              ? <Vacio pestana={pestana} />
+              ? <Vacio pestana={pestana} filtrado={quien !== PERSONA_TODAS} />
               : (
                 <table className="gl-tabla">
                   <thead>
-                    <tr><th>Lead</th><th>Reunión</th><th>Cuándo</th><th className="gl-col-closer">Closer</th><th>Estado</th><th className="gl-col-abrir"><span className="gl-oculto">Abrir</span></th></tr>
+                    <tr><th>Lead</th><th>Reunión</th><th>Cuándo</th><th className="gl-col-closer">Closer</th><th className="gl-col-setter">Setter</th><th>Estado</th><th className="gl-col-abrir"><span className="gl-oculto">Abrir</span></th></tr>
                   </thead>
                   <tbody>
                     {filas.map((l) => {
@@ -187,6 +226,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
                           <td><span className="gl-reunion">{l.cual}</span></td>
                           <td className="gl-cuando"><b>{rotuloDia(dia, hoy)}</b><span>{l.diaCompleto ? 'Sin hora' : horaGoogle(horaDe(l.inicio, tz))}</span></td>
                           <td className="gl-col-closer">{l.closer ?? '—'}</td>
+                          <td className="gl-col-setter">{l.setter ?? '—'}</td>
                           <td>
                             {sePuedeMarcar(l, ahora)
                               ? (
@@ -210,7 +250,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
               )}
           </div>
         </main>
-        <aside className="gl-tareas" aria-labelledby="gl-tareas-titulo">
+        {!soloLlamadas && <aside className="gl-tareas" aria-labelledby="gl-tareas-titulo">
           <h3 id="gl-tareas-titulo">Tareas con fecha</h3>
           <p className="gl-sub">Del Plan: las vencidas en las últimas dos semanas y las del próximo mes.</p>
           {fallos.tareas && <p className="gl-error" role="alert">No pudimos leer el Plan. <ReportarASoporte /></p>}
@@ -231,7 +271,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
                 })}
               </ul>
             )}
-        </aside>
+        </aside>}
       </div>
       {porConfirmar && (
         <Modal titulo="¿Marcar la asistencia?" ancho={440} onCerrar={() => setPorConfirmar(null)}
@@ -246,8 +286,10 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
   );
 }
 
-function Vacio({ pestana }: { pestana: PestanaLlamadas }) {
-  const texto = pestana === 'proximas'
+function Vacio({ pestana, filtrado }: { pestana: PestanaLlamadas; filtrado: boolean }) {
+  const texto = filtrado
+    ? { t: pestana === 'proximas' ? 'Sin llamadas agendadas para esta persona' : pestana === 'pasadas' ? 'Sin llamadas pasadas para esta persona' : 'Ninguna cancelada para esta persona', d: 'Elige «Todo el equipo» en «Persona» para ver las de todos.' }
+    : pestana === 'proximas'
     ? { t: 'No tienes llamadas agendadas', d: 'Cuando un lead agende su R1 o su R2, aparece aquí. También puedes pedirle a MaKo que la agende.' }
     : pestana === 'pasadas'
       ? { t: 'Todavía no hay llamadas pasadas', d: 'Las de los últimos dos meses aparecen aquí, con si asistieron.' }

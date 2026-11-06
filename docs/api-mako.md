@@ -46,7 +46,7 @@
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
-- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
+- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion` · `llamadas_del_equipo` · `enlazar_email_calendario`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion` · `guardar_como_plantilla` · `compartir_plantilla` · `ranking_creaciones`
 - **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet` · `dejar_compartir_magnet` · `proponer_magnet`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
@@ -20300,7 +20300,7 @@ curl -L \
 
 ## Calendario — `calendario`
 
-Tab **Calendario** (`/calendario`). 4 lecturas · 2 acciones.
+Tab **Calendario** (`/calendario`). 5 lecturas · 3 acciones.
 
 ### `GET /api/v1/calendario/eventos` — Ver los eventos del Calendario
 
@@ -20464,6 +20464,62 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/calendario/publicaciones/programaciones" \
   -d '{"desde":"2026-11-03","hasta":"2026-11-09"}'
+```
+
+### `GET /api/v1/calendario/llamadas` — Reuniones por persona del equipo
+
+Las R1 y R2 de los leads (de dos meses atrás a cuatro adelante) de una persona del equipo: las que lleva como closer o como setter. Dice cuándo, si asistió, no vino, está sin marcar o se canceló, y cuántas tiene cada persona. Sin «persona», las de todo el equipo. Úsala para «¿qué llamadas tiene Ana esta semana?» o «¿cuántas sin marcar tiene cada closer?».
+
+- **Ruta por operación:** `GET /api/v1/calendario/llamadas_del_equipo`
+- **Token detallado:** permiso `calendario=read` (Solo lectura en «Calendario»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El nombre como figura en el equipo (closer o setter). «sin_asignar» = las que no tienen ninguno. Si se omite, todas. |
+| `cuales` | string (proximas \\| pasadas \\| canceladas) | no | Qué llamadas: las próximas (default), las pasadas o las canceladas. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/calendario/llamadas?persona=Ana%20P%C3%A9rez"
+```
+
+### `POST /api/v1/calendario/eventos/{eventoId}/email` — Enlazar un Email del Calendario con Email Marketing
+
+Propone enlazar una publicación de formato Email del Calendario con un broadcast de Email Marketing (borrador o programado): queda programado para la hora del evento, a todo su segmento, con las mismas reglas que programar_broadcast. Si después se mueve el evento, el email se mueve con él. El evento necesita una hora y estar en el futuro. Deja un link para revisar y confirmar.
+
+- **Ruta por operación:** `POST /api/v1/calendario/enlazar_email_calendario`
+- **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** programa el broadcast en email_broadcasts y anota el enlace en calendario_eventos
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `eventoId` | string | sí | El id del evento (de listar_eventos_calendario). |
+| `broadcastId` | number | sí | El id del broadcast de Email Marketing (de listar_broadcasts). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/calendario/eventos/EVENTO_ID/email" \
+  -d '{"broadcastId":1}'
 ```
 
 ## Creaciones de la comunidad (estrellas) — `creaciones`

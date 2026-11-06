@@ -242,4 +242,23 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-calendario.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  {
+    fecha: "6 nov", hora: "18:30", chat: "Thiago migrar (nube)", sesion: "cli_91316e17-68c8-5ad6-b41d-9daaf694e7b4", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Calendario: las reuniones del equipo con filtro por persona, y el Email enlazado a Email Marketing",
+    puntos: [
+      "Closers y setters entran al Calendario, sólo a «Llamadas», arrancando en las suyas; el admin filtra por persona. No ven la grilla (la agenda de Google), ni los cobros, ni el Plan.",
+      "Un evento de formato Email se enlaza a un email de Email Marketing y queda programado a la hora del evento, con la misma regla que «Programar» en Email Marketing. Mover el evento mueve el email.",
+      "La API: `llamadas_del_equipo` y `enlazar_email_calendario`.",
+      "**Cómo se prueba:** entra como closer a /calendario (abre en sus llamadas); en un evento Email del futuro, elige un email y «Programar a esta hora».",
+    ],
+    revisar: "/calendario?vista=llamadas",
+    archivos: [
+      "lib/calendario-llamadas.ts — `miradaDeRol`, `llamadasDeLaPersona`, `personasDeLlamadas`",
+      "lib/calendario-email.ts — enlazar con el preparar/ejecutar de programar_broadcast",
+      "app/calendario/EnlazarEmail.tsx, app/calendario/ListaLlamadas.tsx, app/m/calendario/LlamadasM.tsx",
+      "supabase/migrations/0406_calendario_email_enlazado.sql — SIN APLICAR",
+      "tests/calendario-equipo.test.ts, tests/calendario-email.test.ts — probados rompiéndolos (4 roturas cada uno)",
+    ],
+  },
 ];

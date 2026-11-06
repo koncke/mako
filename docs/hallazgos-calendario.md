@@ -10,6 +10,42 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 "templates" y que no sea restrictivo».
 
+## Las reuniones del equipo y el email enlazado (6/11/2026, nube, la promesa a la agencia de Thiago)
+
+**El pedido** (docs/promesas/2910-llamada-thiago.md, medido contra main el 6/11): «Gestionar las reuniones de tu equipo» y
+«Programar en el Calendar un anuncio, un email». Al Calendario entraba sólo el admin, y el anuncio y el email eran un
+recordatorio que se tildaba a mano.
+
+**Las reuniones del equipo.** Un closer o un setter entra a «Llamadas» y arranca en las suyas; el admin filtra por persona.
+- **Lo que NO ve un closer decide la puerta, no la lista.** La grilla trae la agenda de Google del dueño, los cobros y los
+  objetivos; el Plan es del admin. Por eso la página (computadora y teléfono) va derecho a «Llamadas» cuando
+  `miradaDeRol` dice `soloLlamadas`, aunque la URL pida `?vista=semana`, y no lee las tareas del Plan. Las acciones de la
+  pantalla siguen en `requireRolWs([])`: marcar la asistencia pasa por la del CRM, que el closer ya tenía.
+- **Una llamada es de su closer Y de su setter** (`leads.closer` / `leads.setter` guardan el NOMBRE): se compara sin
+  mayúsculas ni espacios de más. Un rol que no se pudo leer ve lo mínimo, nunca la vista del admin.
+- **Abrir una tab a otro rol mueve SEIS tests de la barra**, no uno: la sidebar, More (computadora y teléfono), el hueco de la
+  barra del teléfono, la puerta del layout del loader y la query de la sección (`persona`). Todos fijaban «Calendar es del
+  admin» como lista; se cambiaron con la fecha y el porqué. **Vive en:** lib/calendario-llamadas.ts,
+  lib/calendario-equipo-server.ts, app/calendario/page.tsx, app/m/calendario/page.tsx.
+
+**El email enlazado.** Un Email del Calendario se enlaza a un broadcast de Email Marketing y queda programado a la hora del
+evento.
+- **No hay una segunda regla de programar:** se llama al `preparar` y al `ejecutar` de `programar_broadcast`
+  (lib/api-mako/areas/email.run.ts), con su segmento, su tope, el turno del envío automático y los avisos. El resumen se
+  muestra ANTES y el `ejecutar` vuelve a revisar todo.
+- **La operación se gatea por `calendario` y programar un email es de `email`:** sin mirar el plan, un negocio sin Email
+  Marketing programaba emails por el Calendario. Lo mira `sinEmailEnElPlan` (`tabEnCapa('email', capa)`).
+- **Mover el evento mueve el email** (`reprogramarSiEnlazado`, desde `cambiarEventoAction`); si falla, el evento queda movido
+  y el aviso dice que el email sigue a la hora de antes. **Vive en:** lib/calendario-email.ts, lib/calendario-email-reglas.ts,
+  app/calendario/EnlazarEmail.tsx, mig 0406 (sin aplicar).
+
+**Lo que quedó sin hacer, y por qué:**
+- **El anuncio programado.** Hoy una campaña nace EN PAUSA (`proponer_crear_campana`) y no existe una «fecha de inicio».
+  Programar un anuncio es empezar a gastar a una hora: tiene que pasar por `lanzar` (lib/media-buyer/ejecutar.ts, con la
+  zona, la fecha de fin y los topes) y por una revisión adversarial. El camino propuesto, en docs/relevo/nube-thiago-migrar.md.
+- **Lo que no se probó:** el enlace contra una base real (la nube no la ve). Corren las reglas puras y el cableado
+  (tests/calendario-email.test.ts, tests/calendario-equipo.test.ts).
+
 ## Sólo lo propio se guarda; lo demás se LEE de donde vive
 
 **La decisión.** `calendario_eventos` (mig 0271) guarda únicamente lo que se agenda en la tab: publicaciones
