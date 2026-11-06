@@ -51,7 +51,7 @@ export default async function CustomersMovil() {
           {pedidos.map((p) => <FilaDatoM key={p.id} k={p.nombre ? `${p.nombre} · ${p.email}` : p.email} v={detalleDelPedido(p)} />)}
         </ListaM>
       )}
-      <p style={{ margin: '8px 16px 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Se aceptan en la computadora: Admin › Accounts.</p>
+      <p style={{ margin: '8px 16px 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Se aceptan en la computadora: Admin › Overview.</p>
     </SeccionM>
   ) : null;
   return <PantallaM><CustomersM vista={vista} arriba={bandeja} ingresos={ingresos} errores={errores} actividad={actividad} /></PantallaM>;

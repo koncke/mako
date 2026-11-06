@@ -399,7 +399,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cargar_pago_a_mano', area: 'cobros', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Cargar un pago a mano',
-    descripcion: 'Sólo para la plataforma: PROPONE el recibo de plata que entró por fuera de la pasarela (Binance, transferencia, efectivo), como «Cargar pago» de Billing. Se confirma en una pantalla. Lleva la cuenta, a nombre de quién, qué se pagó (renglones en una sola moneda) y cómo (cada pago con su orden, fecha, monto y moneda). Una orden que ya está en otro recibo no entra. Si la cuenta la paga su agencia, se rechaza: va a la de la agencia. No marca meses pagados. La foto del comprobante se sube en la pantalla.',
+    descripcion: 'Sólo para la plataforma: PROPONE el recibo de plata que entró por fuera de la pasarela (Binance, transferencia, efectivo), como «Cargar pago» de Admin › Sales › Orders. Se confirma en una pantalla. Lleva la cuenta, a nombre de quién, qué se pagó (renglones en una sola moneda) y cómo (cada pago con su orden, fecha, monto y moneda). Una orden que ya está en otro recibo no entra. Si la cuenta la paga su agencia, se rechaza: va a la de la agencia. No marca meses pagados. La foto del comprobante se sube en la pantalla.',
     escribe: 'emite el recibo con su número en el libro de recibos de la plataforma y, si se pide, lo manda por correo y al grupo de MaKo de la cuenta',
     parametros: [
       { nombre: 'cuenta', rotulo: 'Cuenta', tipo: 'number', entero: true, minimo: 1, obligatorio: true, fijoAlRevisar: true, descripcion: 'el número de la cuenta (ws) que pagó.' },
@@ -425,7 +425,7 @@ export const DEFS: readonly OperacionDef[] = [
         ],
       },
       { nombre: 'notaPdf', rotulo: 'Nota del PDF', tipo: 'string', max: 500, descripcion: 'sale en el recibo (ej.: «Cubre hasta el 4/12»).' },
-      { nombre: 'notaInterna', rotulo: 'Nota interna', tipo: 'string', max: 500, descripcion: 'sólo se ve en Billing.' },
+      { nombre: 'notaInterna', rotulo: 'Nota interna', tipo: 'string', max: 500, descripcion: 'sólo se ve en Admin › Sales, en el pedido.' },
       { nombre: 'enviar', rotulo: 'Enviar', tipo: 'boolean', descripcion: 'false: lo emite sin mandarlo. Sin valor, lo manda.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },

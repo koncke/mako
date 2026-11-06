@@ -138,7 +138,7 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   // 6. El recibo de lo que quedó completo, y las cuentas en pausa que ya pagaron vuelven a entrar.
   if (r.completas.length) {
     const rec = await emitirReciboDeLoCompleto(ag, r.completas, AUTOR);
-    if (!rec.ok) await avisarAMartin(`${m.agencia} pagó ${usd(l.monto!)} (orden ${orden}) y quedó anotado, pero el recibo no salió: ${rec.error}. Revísalo en Admin › Billing › Recibos.`);
+    if (!rec.ok) await avisarAMartin(`${m.agencia} pagó ${usd(l.monto!)} (orden ${orden}) y quedó anotado, pero el recibo no salió: ${rec.error}. Revísalo en Admin › Sales › Orders.`);
   }
   const pausas = await revisarPausasDeAgencia(ag).catch(() => null);
   const reabiertas = pausas?.ok ? pausas.cambios.filter((c) => c.paso === 'reabrir' && c.ok).length : 0;
