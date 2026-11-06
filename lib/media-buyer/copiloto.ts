@@ -56,21 +56,22 @@ export type Funnel = {
   nombre: string;
   /** Una línea para la pastilla y la tarjeta. */
   que: string;
-  /** ¿Se alimenta de anuncios? Define si la pantalla muestra Campañas (lib/media-buyer/copiloto.ts → seccionesDe). */
-  conAnuncios: boolean;
+  /** ¿Lleva anuncios? 'si': es un funnel de anuncios. 'opcional': puede correr sin ellos (un webinar o un regalo se difunden también en orgánico). 'no': nunca.
+   *  Define si se pregunta el presupuesto y si la pantalla muestra Campañas (`conCampanas`). */
+  anuncios: 'si' | 'opcional' | 'no';
   /** ¿Termina en una llamada o una conversación con una persona? */
   conLlamada: boolean;
 };
 
 export const FUNNELS: readonly Funnel[] = [
-  { id: 'vsl-llamada', nombre: 'Anuncios a un VSL con llamada', que: 'Anuncio, video de venta, agenda y llamada', conAnuncios: true, conLlamada: true },
-  { id: 'mensajes', nombre: 'Anuncios a mensajes', que: 'Anuncio que abre una conversación por WhatsApp o Instagram', conAnuncios: true, conLlamada: true },
-  { id: 'formulario', nombre: 'Anuncios a un formulario', que: 'Anuncio, formulario con filtro y seguimiento', conAnuncios: true, conLlamada: true },
-  { id: 'carrito', nombre: 'Anuncios a compra directa', que: 'Anuncio, página y carrito: se compra sin llamada', conAnuncios: true, conLlamada: false },
-  { id: 'webinar', nombre: 'Webinar', que: 'Una clase en vivo o grabada que prepara la venta', conAnuncios: true, conLlamada: true },
-  { id: 'lead-magnet', nombre: 'Lead magnets', que: 'Un regalo útil a cambio del contacto, y secuencia de seguimiento', conAnuncios: true, conLlamada: false },
-  { id: 'youtube', nombre: 'YouTube', que: 'Videos que educan y llevan a tu oferta', conAnuncios: false, conLlamada: false },
-  { id: 'organico', nombre: 'Orgánico en Instagram', que: 'Reels, stories y carruseles que atraen y venden', conAnuncios: false, conLlamada: false },
+  { id: 'vsl-llamada', nombre: 'Anuncios a un VSL con llamada', que: 'Anuncio, video de venta, agenda y llamada', anuncios: 'si', conLlamada: true },
+  { id: 'mensajes', nombre: 'Anuncios a mensajes', que: 'Anuncio que abre una conversación por WhatsApp o Instagram', anuncios: 'si', conLlamada: true },
+  { id: 'formulario', nombre: 'Anuncios a un formulario', que: 'Anuncio, formulario con filtro y seguimiento', anuncios: 'si', conLlamada: true },
+  { id: 'carrito', nombre: 'Anuncios a compra directa', que: 'Anuncio, página y carrito: se compra sin llamada', anuncios: 'si', conLlamada: false },
+  { id: 'webinar', nombre: 'Webinar', que: 'Una clase en vivo o grabada que prepara la venta', anuncios: 'opcional', conLlamada: true },
+  { id: 'lead-magnet', nombre: 'Lead magnets', que: 'Un regalo útil a cambio del contacto, y secuencia de seguimiento', anuncios: 'opcional', conLlamada: false },
+  { id: 'youtube', nombre: 'YouTube', que: 'Videos que educan y llevan a tu oferta', anuncios: 'no', conLlamada: false },
+  { id: 'organico', nombre: 'Orgánico en Instagram', que: 'Reels, stories y carruseles que atraen y venden', anuncios: 'no', conLlamada: false },
 ];
 export const funnelPorId = (id: unknown): Funnel | null => FUNNELS.find((f) => f.id === id) ?? null;
 
@@ -85,7 +86,7 @@ export const REFERENTES_COPILOTO: ReadonlyArray<{ id: IdAsesor; funnel: IdFunnel
   { id: 'derek-chamizo', funnel: 'youtube', frase: 'canales de YouTube' },
 ];
 
-export const usaAnuncios = (f: IdFunnel | undefined) => !!f && f !== 'youtube' && f !== 'organico';
+export const usaAnuncios = (f: IdFunnel | undefined) => !!f && funnelPorId(f)?.anuncios !== 'no';
 const usaLlamadas = (f: IdFunnel | undefined) => f === 'vsl-llamada' || f === 'mensajes' || f === 'formulario' || f === 'webinar';
 
 // ── Las reglas: qué conviene ─────────────────────────────────────────────────
@@ -403,7 +404,7 @@ function numerosDeAnuncios(f: IdFunnel, presupuestoMes: number): string[] {
   const dia = Math.round(presupuestoMes / 30);
   const out = [`${us(presupuestoMes)} al mes son unos ${us(dia)} por día.`];
   if (f === 'vsl-llamada' || f === 'formulario' || f === 'mensajes') {
-    out.push(`Como referencia conservadora, una agenda cuesta entre ${us(100)} y ${us(300)}; con tu presupuesto serían entre ${Math.floor(presupuestoMes / 300)} y ${Math.floor(presupuestoMes / 100)} al mes. El tuyo puede ser otro, y se mide por llamada calificada, no por contacto.`);
+    out.push(`Como referencia conservadora, una agenda cuesta entre ${us(100)} y ${us(300)}; con tu presupuesto serían entre ${Math.floor(presupuestoMes / 300)} y ${Math.floor(presupuestoMes / 100)} agendas al mes. El tuyo puede ser otro, y se mide por llamada calificada, no por contacto.`);
   }
   if (dia < 50 && f === 'vsl-llamada') out.push('Con menos de US$50 por día un VSL con llamada tarda en aprender.');
   return out;
@@ -492,13 +493,111 @@ export function planOrganico(p: Pick<PerfilCopiloto, 'objetivo' | 'ritmo' | 'for
 
 // ── Qué ve cada funnel en la pantalla (tanda 4) ──────────────────────────────
 
-export type SeccionCopiloto = 'hoy' | 'campanas' | 'biblioteca' | 'plan' | 'medir';
+export type SeccionCopiloto = 'hoy' | 'plan' | 'campanas' | 'biblioteca' | 'semana' | 'medir';
 
-/** Las secciones de la pantalla normal. «Campañas» sólo con anuncios: un funnel sin ellos no tiene qué mostrar ahí. */
-export function seccionesDe(funnel: IdFunnel | null | undefined): SeccionCopiloto[] {
+/**
+ * ¿La pantalla muestra Campañas? Sólo si el funnel lleva anuncios: los cuatro de anuncios, siempre; el webinar y los lead magnets
+ * sólo si el negocio puso plata (puedes difundirlos sin pagar); YouTube y orgánico, nunca. Quien no eligió funnel (un negocio de
+ * antes de la primera entrada) conserva lo de siempre.
+ */
+export function conCampanas(funnel: IdFunnel | null | undefined, presupuestoMes?: number | null): boolean {
   const f = funnelPorId(funnel);
-  if (!f) return ['hoy', 'campanas', 'biblioteca'];
-  return f.conAnuncios ? ['hoy', 'plan', 'campanas', 'biblioteca', 'medir'] : ['hoy', 'plan', 'medir'];
+  if (!f) return true;
+  return f.anuncios === 'si' || (f.anuncios === 'opcional' && (presupuestoMes ?? 0) > 0);
+}
+
+/**
+ * Las secciones de la pantalla. Con anuncios: Hoy (lo que hizo el Media Buyer), Plan, Campañas y Biblioteca. Sin anuncios no hay
+ * cuenta que mirar: Esta semana (qué hacer y dónde), Plan y Qué medir. «Campañas» en un funnel orgánico no tiene sentido (Martín, 6/11).
+ */
+export function seccionesDe(funnel: IdFunnel | null | undefined, presupuestoMes?: number | null): SeccionCopiloto[] {
+  if (!funnelPorId(funnel)) return ['hoy', 'campanas', 'biblioteca'];
+  return conCampanas(funnel, presupuestoMes) ? ['hoy', 'plan', 'campanas', 'biblioteca'] : ['semana', 'plan', 'medir'];
+}
+
+export type Tarea = { titulo: string; detalle: string; accion: string; href: string };
+
+/** Qué hacer ESTA semana y dónde se hace (las pantallas de MaKo que ya existen: se enlazan, no se rehacen). */
+export function tareasDeLaSemana(p: PerfilCopiloto): Tarea[] {
+  const f = funnelElegido(p);
+  const R = RUTAS_COPILOTO;
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+  switch (f?.id) {
+    case 'organico': {
+      const { reparto } = planOrganico(p);
+      const t: Tarea[] = [];
+      if (reparto.reels > 0) t.push({ titulo: plural(reparto.reels, 'reel', 'reels'), detalle: p.objetivo === 'ventas' ? 'Cada uno termina invitando a escribirte.' : 'Un gancho en los primeros segundos y un solo tema.', accion: 'Escribir los guiones', href: R.copywriter });
+      if (reparto.carruseles > 0) t.push({ titulo: plural(reparto.carruseles, 'carrusel', 'carruseles'), detalle: 'Un tema que enseñe algo y un cierre que invite a escribirte.', accion: 'Hacer los carruseles', href: R.carruseles });
+      if (reparto.stories > 0) t.push({ titulo: 'Stories casi todos los días', detalle: 'Para quien ya te sigue: preguntas, respuestas, un detrás de escena.', accion: 'Escribir las ideas', href: R.copywriter });
+      t.push({ titulo: 'Programar la semana', detalle: 'Lo que está programado se publica aunque tengas un mal día.', accion: 'Abrir el Calendario', href: R.calendario });
+      return t;
+    }
+    case 'youtube': {
+      const n = p.ritmo ?? 1;
+      return [
+        { titulo: plural(n, 'video', 'videos'), detalle: p.formato === 'shorts' ? 'Cortos, con un gancho en el primer segundo.' : 'Un tema que educa y un solo próximo paso al final.', accion: 'Escribir el guion', href: R.copywriter },
+        { titulo: 'Un próximo paso en cada video', detalle: 'Tu regalo o tu agenda: sin eso, los videos no llegan a venta.', accion: 'Crear el regalo', href: R.leadMagnets },
+        { titulo: 'Programar la semana', detalle: 'La constancia pesa más que cada video.', accion: 'Abrir el Calendario', href: R.calendario },
+      ];
+    }
+    case 'webinar':
+      return [
+        { titulo: 'La página de registro', detalle: 'Una promesa clara, la fecha y un solo botón.', accion: 'Armar la página', href: R.web },
+        { titulo: 'Los correos', detalle: 'Recordatorios con valor, no sólo la hora.', accion: 'Escribirlos', href: R.copywriter },
+        { titulo: 'La fecha en vivo', detalle: 'Ponla en tu agenda y en la de quien llama.', accion: 'Abrir el Calendario', href: R.calendario },
+      ];
+    case 'lead-magnet':
+      return [
+        { titulo: 'El regalo', detalle: 'Algo que resuelva un problema chico y lleve al servicio grande.', accion: 'Crearlo', href: R.leadMagnets },
+        { titulo: 'La página donde se pide', detalle: 'Una promesa, una imagen y el formulario.', accion: 'Armar la página', href: R.web },
+        { titulo: 'La secuencia de correos', detalle: 'Tres o cuatro mensajes que terminan en una conversación.', accion: 'Escribirla', href: R.copywriter },
+      ];
+    default: return [];
+  }
+}
+
+export type Medida = { nombre: string; que: string; contexto?: string };
+
+/** Qué medir según el funnel, y qué número manda. Las cifras son de referencia (de otros negocios, sin auditar), nunca una meta. */
+export function medirDe(funnel: IdFunnel | null | undefined, p: Pick<PerfilCopiloto, 'objetivo'> = {}): { manda: string; medidas: Medida[] } {
+  switch (funnel) {
+    case 'organico':
+      return p.objetivo === 'viralidad'
+        ? { manda: 'Gente nueva que te ve y te sigue.', medidas: [
+          { nombre: 'Alcance a no seguidores', que: 'cuánta gente nueva vio cada reel' },
+          { nombre: 'Retención', que: 'cuántos llegan al final: si caen al principio, el gancho no funciona' },
+          { nombre: 'Compartidos y guardados', que: 'lo que la gente reenvía vale más que un me gusta' },
+          { nombre: 'Seguidores nuevos por semana', que: 'el resultado de la viralidad' }] }
+        : { manda: 'Conversaciones calificadas por semana: gente que te escribe interesada en lo que vendes.', medidas: [
+          { nombre: 'Mensajes directos', que: 'cuántos te escriben tras una pieza, y de cuál' },
+          { nombre: 'Llamadas agendadas desde Instagram', que: 'las ventas se cierran afuera de la publicación' },
+          { nombre: 'Guardados y compartidos', que: 'señal de que la pieza sirvió' },
+          { nombre: 'Alcance', que: 'sirve de contexto, no de meta: mucho alcance sin mensajes no vende' }] };
+    case 'youtube':
+      return { manda: 'Gente que ve tus videos y da el siguiente paso (tu regalo o tu agenda).', medidas: [
+        { nombre: 'Retención de audiencia', que: 'dónde se va la gente en cada video' },
+        { nombre: 'Clics a tu regalo o tu agenda', que: 'el próximo paso de cada video' },
+        { nombre: 'Suscriptores nuevos', que: 'se miden por mes: YouTube tarda en dar frutos' },
+        { nombre: 'Clic en la miniatura', que: 'si el título y la imagen prometen lo que el video cumple' }] };
+    case 'lead-magnet':
+      return { manda: 'Contactos que terminan en una conversación o una llamada, no contactos a secas.', medidas: [
+        { nombre: 'Registro en la página del regalo', que: 'cuántos de los que llegan lo piden' },
+        { nombre: 'Apertura y clic de la secuencia', que: 'si lo siguen leyendo' },
+        { nombre: 'Agendas desde la secuencia', que: 'el paso que importa' },
+        { nombre: 'Fuente de cada contacto', que: 'de dónde vienen, en el CRM' }] };
+    case 'webinar':
+      return { manda: 'Agendas con llamada tras el webinar.', medidas: [
+        { nombre: 'Registro', que: 'visitas que se anotan', contexto: 'referencia de un practicante: 20 a 50%' },
+        { nombre: 'Asistencia en vivo', que: 'de los registrados, cuántos llegan', contexto: 'referencia: alrededor de 30%' },
+        { nombre: 'Agenda', que: 'de los que ven, cuántos piden llamada', contexto: 'referencia: alrededor de 30%' },
+        { nombre: 'Cierre', que: 'de las llamadas, cuántas compran', contexto: 'referencia: 35% o más; son cifras de otros negocios, no una meta' }] };
+    default:
+      return { manda: 'El costo por llamada calificada, no por lead ni por clic.', medidas: [
+        { nombre: 'Costo por llamada calificada', que: 'el número que manda' },
+        { nombre: 'Asistencia a la llamada', que: 'si no llegan, falta educar entre la agenda y la llamada' },
+        { nombre: 'Cierre por persona que llama', que: 'si está bajo, entra gente equivocada o falta educar' },
+        { nombre: 'Costo por lead', que: 'sólo de contexto: abaratarlo suele traer a los peores' }] };
+  }
 }
 
 /** Lo que llega del navegador, con su forma: lo demás se descarta. */

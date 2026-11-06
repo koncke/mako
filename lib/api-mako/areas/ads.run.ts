@@ -1455,7 +1455,7 @@ export const RUNNERS: Runners = {
       const decide = perfil.ticket != null && perfil.llamadas ? { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas } : null;
       return J({
         perfil, paso: pasoDeCopiloto(perfil), funnel: f ? { id: f.id, nombre: f.nombre } : null,
-        secciones: seccionesDe(f?.id), propuesta: propuestaDe(perfil),
+        secciones: seccionesDe(f?.id, perfil.presupuestoMes), propuesta: propuestaDe(perfil),
         recomendado: decide ? recomendarFunnel(decide) : null, veredicto: f && decide ? evaluarFunnel(f.id, decide) : null,
       });
     },

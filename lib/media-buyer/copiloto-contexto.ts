@@ -18,7 +18,7 @@ import { contextoDeReferente } from '@/lib/asesores/contexto';
 import { fmtDinero } from '@/lib/format';
 import { CONOCIMIENTO_ANUNCIOS } from './copiloto-conocimiento';
 import {
-  evaluarFunnel, funnelElegido, recomendarFunnel, seccionesDe, usaAnuncios, type IdFunnel, type PerfilCopiloto,
+  conCampanas, evaluarFunnel, funnelElegido, recomendarFunnel, seccionesDe, type IdFunnel, type PerfilCopiloto,
 } from './copiloto';
 
 export { ORIGEN_COPILOTO } from './copiloto';
@@ -81,7 +81,7 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
       lineas.push(v.sirve ? `El funnel elegido SÍ le sirve con esos números.` : `EL FUNNEL ELEGIDO NO LE SIRVE: ${v.motivo}${v.mejor ? ` Debes decírselo y proponer «${v.mejor.funnel}».` : ''}${p.ajuste === 'sigo' ? ' Ya se lo dijiste y decidió seguir con el suyo: no insistas, mídelo con sus primeros números.' : ''}`);
     }
   }
-  if (f) lineas.push(`SU PANTALLA muestra: ${seccionesDe(f.id).join(', ')}.${usaAnuncios(f.id) ? '' : ' No tiene Campañas porque este funnel no se alimenta de anuncios: no le propongas lanzar ni optimizar campañas.'}`);
+  if (f) lineas.push(`SU PANTALLA muestra: ${seccionesDe(f.id, p.presupuestoMes).join(', ')}.${conCampanas(f.id, p.presupuestoMes) ? '' : ' No tiene Campañas porque este funnel no lleva anuncios (o no tiene presupuesto): no le propongas lanzar ni optimizar campañas.'}`);
   return `EL NEGOCIO (lo que respondió en la primera entrada; si cambia de idea, guárdalo con copiloto_media_buyer):\n${lineas.join('\n')}`;
 }
 

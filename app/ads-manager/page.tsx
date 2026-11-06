@@ -22,9 +22,10 @@ import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { metasDelMes } from '@/lib/media-buyer/datos';
 import { vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
-import { copilotoListo, aplicarCambio } from '@/lib/media-buyer/copiloto';
+import { copilotoListo, aplicarCambio, conCampanas, funnelElegido } from '@/lib/media-buyer/copiloto';
 import { MediaBuyer } from './MediaBuyer';
 import { PrimeraEntrada } from './PrimeraEntrada';
+import { SinAnuncios } from './PlanDelCopiloto';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -66,6 +67,12 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   if (primera || sp.estrategia === '1') {
     return <Pagina ancho="completo" style={A_SANGRE}><PrimeraEntrada nombre={nombre} inicial={aplicarCambio(perfil, { aceptado: undefined })} /></Pagina>;
   }
+  // UN FUNNEL SIN ANUNCIOS (orgánico, YouTube, y un webinar o un lead magnet sin presupuesto) no tiene cuenta que mirar: su pantalla es
+  // Esta semana · Plan · Qué medir, sin «Campañas» (Martín, 6/11/2026). `?vista=campanas` sigue llevando a la pantalla de siempre.
+  const elegido = funnelElegido(perfil);
+  if (elegido && copilotoListo(perfil) && !conCampanas(elegido.id, perfil.presupuestoMes) && sp.vista !== 'campanas') {
+    return <Pagina ancho="completo" style={A_SANGRE}><SinAnuncios perfil={perfil} /></Pagina>;
+  }
   const vista = await vistaMediaBuyer(ws, config.kpi, config.objetivo);
 
   return (
@@ -73,8 +80,9 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
       <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla, cupo }} metas={metas} tieneMeta={!!token}
         arranque={vista.arranque} productoDe={vista.productoDe} mejores={vista.mejores} agentes={vista.agentes}
         decisionInicial={typeof sp.decision === 'string' && /^[0-9a-f-]{36}$/i.test(sp.decision) ? sp.decision : null}
-        vistaInicial={sp.vista === 'campanas' || sp.vista === 'biblioteca' ? sp.vista : sp.vista === 'hoy' || sp.vista === 'autopilot' || sp.vista === 'resumen' ? 'hoy' : null}
-        productoInicial={typeof sp.producto === 'string' && /^(\d{1,12}|sin)$/.test(sp.producto) ? sp.producto : null} />
+        vistaInicial={sp.vista === 'campanas' || sp.vista === 'biblioteca' || (sp.vista === 'plan' && copilotoListo(perfil)) ? sp.vista : sp.vista === 'hoy' || sp.vista === 'autopilot' || sp.vista === 'resumen' ? 'hoy' : null}
+        productoInicial={typeof sp.producto === 'string' && /^(\d{1,12}|sin)$/.test(sp.producto) ? sp.producto : null}
+        perfil={copilotoListo(perfil) ? perfil : null} />
     </Pagina>
   );
 }

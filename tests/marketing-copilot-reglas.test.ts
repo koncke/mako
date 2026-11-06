@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FUNNELS, REFERENTES_COPILOTO, aplicarCambio, evaluarFunnel, leerRespuestaCopiloto, mensajesDeCopiloto, opcionesDeCopiloto,
-  pasoDeCopiloto, planOrganico, propuestaDe, recomendarFunnel, sanearPerfil, seccionesDe, copilotoListo, avisoPendiente,
+  pasoDeCopiloto, planOrganico, propuestaDe, recomendarFunnel, sanearPerfil, seccionesDe, copilotoListo, avisoPendiente, conCampanas, medirDe, tareasDeLaSemana, RUTAS_COPILOTO,
   type PerfilCopiloto,
 } from '../lib/media-buyer/copiloto';
 import { ASESORES } from '../lib/asesores/catalogo';
@@ -184,13 +184,47 @@ test('cambiar de idea: «Cambiar el funnel» vuelve al principio y «Cambiar los
 });
 
 test('la pantalla según el funnel: «Campañas» sólo con anuncios', () => {
-  for (const f of FUNNELS) {
-    const s = seccionesDe(f.id);
-    assert.equal(s.includes('campanas'), f.conAnuncios, f.id);
-    assert.ok(s.includes('hoy') && s.includes('plan') && s.includes('medir'), f.id);
+  for (const id of ['vsl-llamada', 'mensajes', 'formulario', 'carrito'] as const) {
+    assert.deepEqual(seccionesDe(id, 0), ['hoy', 'plan', 'campanas', 'biblioteca'], id);
+    assert.ok(conCampanas(id, 0), `${id}: es un funnel de anuncios aunque aún no haya puesto plata`);
   }
-  assert.ok(!seccionesDe('organico').includes('campanas') && !seccionesDe('youtube').includes('biblioteca'));
+  for (const id of ['organico', 'youtube'] as const) {
+    for (const plata of [0, 5000]) {
+      assert.deepEqual(seccionesDe(id, plata), ['semana', 'plan', 'medir'], `${id} con ${plata}: nunca Campañas`);
+      assert.equal(conCampanas(id, plata), false);
+    }
+  }
+  // Webinar y lead magnets: Campañas sólo si pusieron plata (se pueden difundir sin pagar).
+  for (const id of ['webinar', 'lead-magnet'] as const) {
+    assert.deepEqual(seccionesDe(id, 0), ['semana', 'plan', 'medir'], id);
+    assert.deepEqual(seccionesDe(id, 600), ['hoy', 'plan', 'campanas', 'biblioteca'], id);
+  }
   assert.deepEqual(seccionesDe(null), ['hoy', 'campanas', 'biblioteca'], 'quien no eligió funnel (negocio de antes) ve lo de siempre');
+  for (const f of FUNNELS) assert.ok(seccionesDe(f.id, 100).includes('plan'), `${f.id}: todos tienen su Plan`);
+});
+
+test('qué medir: cada funnel tiene su número que manda y sus medidas, sin metas inventadas', () => {
+  for (const f of FUNNELS) {
+    const m = medirDe(f.id);
+    assert.ok(m.manda.length > 10 && m.medidas.length >= 4, f.id);
+  }
+  assert.match(medirDe('vsl-llamada').manda, /costo por llamada calificada/);
+  assert.match(medirDe('organico', { objetivo: 'ventas' }).manda, /Conversaciones calificadas/);
+  assert.match(medirDe('organico', { objetivo: 'viralidad' }).manda, /Gente nueva/);
+  // Las cifras del webinar dicen que son de referencia y de otros.
+  for (const x of medirDe('webinar').medidas) assert.match(x.contexto ?? '', /referencia/, x.nombre);
+});
+
+test('esta semana: cada tarea manda a una pantalla que existe, y el orgánico suma el ritmo que eligió', () => {
+  const rutas = new Set<string>(Object.values(RUTAS_COPILOTO));
+  for (const f of FUNNELS) {
+    const t = tareasDeLaSemana({ funnel: f.id, ritmo: 3, objetivo: 'mixto', formato: 'mezcla' });
+    if (f.anuncios === 'si') { assert.deepEqual(t, [], `${f.id}: los de anuncios trabajan en Hoy y Campañas`); continue; }
+    assert.ok(t.length >= 3, f.id);
+    for (const x of t) assert.ok(rutas.has(x.href), `${f.id}: ${x.href} no es una pantalla de MaKo`);
+  }
+  const n = (r: number) => tareasDeLaSemana({ funnel: 'organico', ritmo: r, objetivo: 'ventas', formato: 'mezcla' }).filter((x) => /reel|carrusel/.test(x.titulo)).map((x) => Number(x.titulo.split(' ')[0])).reduce((a, b) => a + b, 0);
+  for (const r of [1, 3, 5, 7]) assert.equal(n(r), r, `ritmo ${r}`);
 });
 
 test('sanear: sólo lo conocido y con su forma; el cero del presupuesto vale', () => {

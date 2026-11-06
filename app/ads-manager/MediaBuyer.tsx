@@ -36,6 +36,8 @@ import { NOMBRE_TACTICA, aplicablesEnLote, deHoy, lineaDelMes, resultadoAplicar,
 import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
+import { SeccionPlan } from './PlanDelCopiloto';
+import { funnelElegido, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { LienzoCampanas, type Lienzo } from './Lienzo';
 import { ROTULO_PASO, cartelDeHoy, type PasoHoy } from '@/lib/media-buyer/cartel-hoy';
 import { Biblioteca } from './Biblioteca';
@@ -46,7 +48,7 @@ import type { AgentePropio } from '@/lib/media-buyer/agentes-propios';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
-export type Vista = 'hoy' | 'campanas' | 'biblioteca';
+export type Vista = 'hoy' | 'campanas' | 'biblioteca' | 'plan';
 
 /** Lo del arranque que sale del servidor: los productos del CRM, lo medido de los anuncios y lo que ya respondió. */
 export type DatosArranque = {
@@ -59,9 +61,11 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
   return j as T & { ok: boolean; error?: string };
 }
 
-const VISTAS: Array<[Vista, string]> = [['hoy', 'Hoy'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
+const VISTAS_DE_SIEMPRE: Array<[Vista, string]> = [['hoy', 'Hoy'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
+// Con un funnel elegido en la primera entrada se suma «Plan» (la propuesta y sus pasos): Hoy · Plan · Campañas · Biblioteca.
+const VISTAS_CON_PLAN: Array<[Vista, string]> = [['hoy', 'Hoy'], ['plan', 'Plan'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
 
-export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, productoDe, mejores, agentes: agentesIniciales = [], decisionInicial = null, productoInicial = null, vistaInicial = null, lienzoInicial = null }: {
+export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, productoDe, mejores, agentes: agentesIniciales = [], decisionInicial = null, productoInicial = null, vistaInicial = null, lienzoInicial = null, perfil = null }: {
   nombre: string;
   inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean; cupo: CupoMediaBuyer };
   metas: MetasDelMes | null;
@@ -80,7 +84,10 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   /** La pestaña con que abre (`?vista=`), y el lienzo ya leído si lo hay. */
   vistaInicial?: Vista | null;
   lienzoInicial?: Lienzo | null;
+  /** Lo que respondió en la primera entrada del Marketing CoPilot (null: un negocio de antes, que no la hizo). */
+  perfil?: PerfilCopiloto | null;
 }) {
+  const VISTAS = perfil && funnelElegido(perfil) ? VISTAS_CON_PLAN : VISTAS_DE_SIEMPRE;
   const [config, setConfig] = useState<Config>(inicial.config);
   const [decisiones, setDecisiones] = useState<Decision[]>(inicial.decisiones);
   const [cupo, setCupo] = useState<CupoMediaBuyer>(inicial.cupo);
@@ -312,6 +319,10 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
             fechas={{ hasta: config.hasta ?? null, hastaCampanas: config.hastaCampanas ?? {} }}
             show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')} onVerAcciones={(d) => setAbierta(d.id)} />
         </div>
+      )}
+
+      {vista === 'plan' && perfil && (
+        <div className="aa-pagina"><SeccionPlan perfil={perfil} /></div>
       )}
 
       {vista === 'biblioteca' && (
