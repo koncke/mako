@@ -21,7 +21,7 @@ async function main() {
   const { crearPostgrest } = await imp('tests/_postgrest-de-mentira.ts');
   let evId = 1;
   const pg = crearPostgrest({
-    tablas: ['app_settings', 'workspaces', 'usuarios', 'credenciales', 'tickets', 'ticket_eventos'],
+    tablas: ['app_settings', 'workspaces', 'usuarios', 'credenciales', 'tickets', 'ticket_eventos', 'correo_bajas'],
     defaults: (tabla: string, f: Fila) => (tabla === 'ticket_eventos' ? { id: evId++, at: new Date().toISOString(), ...f } : { ...f }),
     orCompleto: true,
   });
@@ -69,6 +69,10 @@ async function main() {
     persona(5, NEGOCIO, { estado: 'suspendido' }),
     persona(6, OTRO), // de otro negocio (una agencia o el super admin mirando el cliente)
     persona(7, NEGOCIO, { email: 'whatsapp:5215511112222' }),
+    // La MISMA dirección que la 2, en otro negocio: el caso de quien trabaja en su cuenta y en la de un cliente de su
+    // agencia. `usuarios(email)` no es único (0053). Es el que probaba el agujero de la baja por cuenta.
+    persona(9, NEGOCIO, { email: 'dos@test.com' }),
+    persona(10, OTRO, { email: 'dos@test.com' }),
   );
 
   const ahora = Date.now();
@@ -157,6 +161,8 @@ async function main() {
   const uno = await POST(pedido(url2, 'POST', 'List-Unsubscribe=One-Click'));
   R.unToque = { status: uno.status, body: await uno.json() };
   R.perfilTrasUnToque = { ...(db.usuarios.find((u) => u.id === 2)!.perfil as Fila) };
+  // El mismo botón escribe la baja por DIRECCIÓN (mig 0410): las dos capas, en el mismo camino.
+  R.bajasDeP2 = db.correo_bajas.filter((b) => b.email === 'p2@test.com').map((b) => ({ tipo: b.tipo, por: b.por }));
   // Firmas que no sirven: la de otra persona, la de la baja de un lead, una inventada.
   const conFirma = (u: number, t: string) => `https://mako.test/api/email/unsubscribe/tickets?u=${u}&t=${t}`;
   R.firmaAjena = (await POST(pedido(conFirma(3, tokenBajaTickets(2)), 'POST', 'accion=prender'))).status;
@@ -164,9 +170,70 @@ async function main() {
   R.firmaInventada = (await GET(pedido(conFirma(2, '0'.repeat(32))))).status;
   R.perfil3 = { ...(db.usuarios.find((u) => u.id === 3)!.perfil as Fila) };
 
+  // ── 5b. La baja es de la DIRECCIÓN, no de la cuenta (mig 0410) ───────────────────────────────────────────────────────
+  // El agujero que arregla: la 9 y la 10 son la MISMA dirección en dos negocios (`usuarios(email)` no es único, 0053). Es
+  // el caso de quien trabaja en su cuenta y en la de un cliente de su agencia. Con la baja guardada sólo en el perfil de
+  // una fila, la otra le seguía escribiendo a la misma persona.
+  // ⚠️ Va con un par de cuentas PROPIO y no toca a la 2: lo de arriba deja su perfil apagado a propósito, y el paso 7
+  // cuenta con eso.
+  const bajaDe9 = String(linkBajaTickets(9));
+  db.tickets.push(ticket(140, { workspace_id: OTRO, usuario_id: 10, usuario_email: 'dos@test.com' }));
+  const antes5b = correos.length;
+  await avisarAvancesPorEmail(ahora);
+  R.correos5bAntes = correos.slice(antes5b).map((c) => c.asunto);
+
+  // Pide la baja desde el correo de la 9, y se prueba sobre un ticket de la OTRA cuenta (la 10).
+  await POST(pedido(bajaDe9, 'POST', 'accion=apagar'));
+  const bajasDeDos = () => db.correo_bajas.filter((b) => b.email === 'dos@test.com');
+  R.bajasTrasApagar = bajasDeDos().map((b) => ({ email: b.email, tipo: b.tipo, por: b.por }));
+  db.tickets.push(ticket(141, { workspace_id: OTRO, usuario_id: 10, usuario_email: 'dos@test.com' }));
+  const antes5c = correos.length;
+  R.vuelta5b = await avisarAvancesPorEmail(ahora);
+  R.correos5b = correos.slice(antes5c).map((c) => c.asunto);
+
+  // Y el caso que SÓLO la tabla puede frenar: una cuenta NUEVA con esa misma dirección, creada DESPUÉS de la baja. Su
+  // perfil nace limpio (nadie le copió la marca), así que si la decisión mirara sólo el perfil, le escribiría.
+  db.usuarios.push(persona(11, OTRO, { email: 'dos@test.com' }));
+  db.tickets.push(ticket(144, { workspace_id: OTRO, usuario_id: 11, usuario_email: 'dos@test.com' }));
+  const antes5bn = correos.length;
+  R.vuelta5bNueva = await avisarAvancesPorEmail(ahora);
+  R.correos5bNueva = correos.slice(antes5bn).map((c) => c.asunto);
+  R.perfil11 = { ...(db.usuarios.find((u) => u.id === 11)!.perfil as Fila) };
+
+  // Apretarlo dos veces no apila filas (`unique (email, tipo)` + upsert).
+  await POST(pedido(bajaDe9, 'POST', 'accion=apagar'));
+  R.bajasDosVeces = bajasDeDos().length;
+
+  // «Volver a recibirlos» borra la fila: la baja se levanta para TODAS sus cuentas.
+  await POST(pedido(bajaDe9, 'POST', 'accion=prender'));
+  R.bajasTrasPrender = bajasDeDos().length;
+  db.tickets.push(ticket(142, { workspace_id: OTRO, usuario_id: 10, usuario_email: 'dos@test.com' }));
+  const antes5d = correos.length;
+  await avisarAvancesPorEmail(ahora);
+  R.correos5d = correos.slice(antes5d).map((c) => c.asunto);
+
+  // Sin la 0410 no se manda NADA y lo dice: no se sabe quién pidió la baja, y escribirle a quien la pidió es peor que un
+  // correo de menos. ⚠️ `faltan` y NO borrar la tabla del mock: una tabla que el mock no conoce contesta 200 y una lista
+  // vacía, que es justo lo que un código que falla ABIERTO necesita para pasar el test.
+  db.tickets.push(ticket(143, { usuario_id: 9, usuario_email: 'dos@test.com' }));
+  pg.faltan.add('correo_bajas');
+  const antes5e = correos.length;
+  R.vuelta5sinTabla = await avisarAvancesPorEmail(ahora);
+  R.correos5sinTabla = correos.length - antes5e;
+  R.marca143sinTabla = tk(143).avance_email ?? null;
+  pg.faltan.delete('correo_bajas');
+  // Y con la tabla de vuelta, ese correo sale: el hito no se había reclamado.
+  const antes5f = correos.length;
+  await avisarAvancesPorEmail(ahora);
+  R.correos5f = correos.slice(antes5f).map((c) => c.asunto);
+
   // ── 6. El cron de tickets la corre ───────────────────────────────────────────────────────────────────────────────────
+  // ⚠️ VOLVER A PRENDERLOS SON DOS LUGARES desde la 0410: borrar la clave del perfil ya no alcanza, porque la baja por
+  // DIRECCIÓN que dejó el One-Click de arriba vale para todas sus cuentas. Es el arreglo funcionando: con sólo esta
+  // línea, el cron (abajo) no manda nada.
   (db.usuarios.find((u) => u.id === 2)!.perfil as Fila).ticketsPorEmail = undefined;
   delete (db.usuarios.find((u) => u.id === 2)!.perfil as Fila).ticketsPorEmail;
+  db.correo_bajas = db.correo_bajas.filter((b) => b.email !== 'p2@test.com');
   db.tickets.push(ticket(130, {}));
   const { GET: cron } = await imp(CORRE.cron);
   const antes6 = correos.length;
