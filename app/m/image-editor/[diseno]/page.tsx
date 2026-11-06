@@ -32,7 +32,7 @@ export default async function DisenoPagina({ params }: { params: Promise<{ disen
     <PantallaM>
       <CabeceraM titulo="Image Editor" trabajo />
       <PantallaCompletaM etiqueta="Image Editor">
-        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} negocio={negocio} senales={senales} salir="/image-editor" />
+        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} negocio={negocio} senales={senales} salir="/image-editor?ver=crear" />
       </PantallaCompletaM>
     </PantallaM>
   );

@@ -36,13 +36,13 @@ import { borrarDiseno, crearDiseno, guardarDiseno, leerDiseno, listarDisenos } f
 import { leerHilo, suscribir, type Hilo } from './mako/chat/hilo';
 import { crearDisenoNuevoAction } from './actions';
 import { EJEMPLOS_NUEVO_DISENO, PLANTILLAS_NUEVO_DISENO } from './plantillas-crear';
-import { RUTA_INICIO, rutaDiseno } from './ruta';
+import { RUTA_CREAR, RUTA_INICIO, rutaDiseno } from './ruta';
 import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarCarruseles';
-import { FranjaCarruseles } from './carruseles/FranjaCarruseles';
 import { useCarruselesDeImage } from './carruseles/useCarruselesDeImage';
 import { MiniaturaTarjetaDiseno } from './MiniaturaDiseno';
 import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
 import type { FiltrosCarrusel } from '@/lib/carruseles/explorar';
+import type { FiltrosThumbnail } from '@/lib/thumbnails/explorar';
 import chat from './mako/chat/chat.module.css';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
@@ -75,10 +75,11 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
   kit?: KitMarca | null;
   /** El nombre del negocio: va en la cabecera de los carruseles que se crean, y en sus miniaturas. */
   negocio?: string | null;
-  /** `carruseles`: en el centro, «Carruseles que funcionan» (./carruseles/ExplorarCarruseles.tsx, `?ver=carruseles`). */
+  /** `carruseles`: los ejemplos, la portada de Image desde el 6/11/2026 (./carruseles/ExplorarCarruseles.tsx). `inicio`: las
+   *  plantillas de «Crear desde cero» (`?ver=crear`). */
   vista: 'inicio' | 'editor' | 'carruseles';
   /** Lo del explorador, leído en el server; `{ error }` = no se pudo leer (no es «no hay ninguno»). */
-  explorador?: { datos: DatosExplorador; filtros: FiltrosCarrusel } | { error: true } | null;
+  explorador?: { datos: DatosExplorador; filtros: FiltrosCarrusel; filtrosThumbnails?: FiltrosThumbnail } | { error: true } | null;
   disenoId?: string;
   ws: number | null;
   /** Lo que se sabe del negocio: el panel de plantillas pone primero las sugeridas (mako/plantillas.ts). */
@@ -139,7 +140,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
     if (!r.ok) { setAviso(`No se pudo eliminar: ${r.error}`); return; }
     setDisenos((xs) => xs?.filter((x) => x.id !== d.id) ?? xs);
     // El que se borró era el abierto: la tab vuelve a «¿Qué vas a crear hoy?».
-    if (d.id === abierto) router.push(RUTA_INICIO);
+    if (d.id === abierto) router.push(RUTA_CREAR);
   }, [abierto, router]);
 
   const proyectos = useMemo((): ProyectoCrear[] | null => disenos?.map((d) => {
@@ -211,7 +212,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
         No pude leer los carruseles de ejemplo. Vuelve a intentar.<ReportarASoporte />
       </div>
-    ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} />;
+    ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} thumbnailsIniciales={explorador.filtrosThumbnails} rutaCrear={RUTA_CREAR} />;
   }
 
   return (
@@ -231,8 +232,8 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       miniatura={miniatura}
       onVerEjemplo={onVerEjemplo}
       ejemplos={EJEMPLOS_NUEVO_DISENO}
-      // Arriba de las plantillas, los carruseles que mejor les funcionan a las cuentas que sigue el negocio (4/11/2026).
-      arribaDePlantillas={vista === 'carruseles' ? null : <FranjaCarruseles />}
+      // Sin la franja de «Carruseles que funcionan» arriba de las plantillas (6/11/2026): los ejemplos son la portada de Image, y
+      // esto es «Crear desde cero».
       chat={abierto && carga !== 'falla'
         ? (volver) => <ChatDelEditor disenoId={abierto} volver={volver} carga={carga} onRanura={setRanura} />
         : undefined}

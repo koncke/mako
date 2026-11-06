@@ -4,6 +4,66 @@ Dónde vive: `lib/carruseles/biblioteca*.ts`, `scripts/carruseles-biblioteca.mts
 El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx` (la pantalla), `lib/carruseles/cta.ts` (el filtro CTA),
 `lib/carruseles/anuncios.ts` (los anuncios de Spy), `lib/carruseles/replica*.ts` + `app/api/image-editor/carruseles/replicar/route.ts`
 («Editar» un ejemplo). Capturas: `docs/carruseles/rediseno-2026-11-06/`.
+El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
+Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
+
+## «Tu IA no contestó ahora»: el camino de respaldo era más débil que el principal (6/11/2026)
+
+**Síntoma:** Martín apretó «Editar» en un carrusel de la biblioteca y leyó «Tu IA no contestó ahora», con el modal en blanco.
+
+**Lo obvio era que su IA estaba caída, y no.** El carrusel no tenía láminas guardadas y su portada no estaba en nuestro bucket,
+así que a la IA no le llegaba ninguna imagen y se iba por el camino de «sólo texto». Ese camino llamaba a `chatCheap`, que
+**no prueba el Claude del negocio** y corta la respuesta en 512 tokens (un carrusel de 7 láminas en JSON pide varios miles). El
+camino con imágenes sí usaba la cascada entera. O sea: el respaldo era la política real para todo carrusel sin láminas, y era
+el más débil de los dos. Y el modal quedaba en blanco porque el camino de las guías no mandaba sus láminas a la pantalla: sólo
+el de la IA lo hacía.
+
+**La regla:** el camino de respaldo llama a la MISMA puerta que el principal (acá `chatCheapCascade`, con el mismo tope de
+salida), y todo camino que termina en un diseño lo muestra igual (`mostrar(doc)`). Un aviso de falla nombra la causa que dejó
+la cascada (cuota, clave, demora, saturación) y de quién es; «no contestó» no es una causa. Lo que no se pudo probar en la nube
+(la IA real) queda con su comando: `scripts/carruseles-probar-editar.mts`.
+
+**Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`), `lib/carruseles/replica.ts` (`avisoSinIA`, `vuelveASinVer`).
+
+## «Puros de DenBorg»: el orden por outlier concentra en una cuenta (6/11/2026)
+
+**Síntoma:** con el filtro CTA y «Mayor outlier», la primera pantalla era toda de una sola creadora.
+
+**Lo obvio era que ella hace más carruseles, y no.** Una cuenta con muchos carruseles fuertes gana todos los primeros lugares de
+un orden por número. El filtro (que además se sacó) sólo achicaba el universo y lo hacía más visible.
+
+**La regla:** la variedad es de la PRESENTACIÓN, no de los datos: en cada tramo de 12 tarjetas, como mucho 2 de la misma cuenta,
+moviendo lo mínimo (`conVariedad`). No se reparte cuando se pidió ver una cuenta (por la lista o por @). ⚠️ El test de «con
+cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repartir no cambia nada y el test da verde con el bug.
+
+**Vive en:** `lib/carruseles/variedad.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`), `lib/thumbnails/explorar.ts`.
+
+## Anuncios en video en una pantalla de imágenes: la fuente lo decía y se tiraba (6/11/2026)
+
+**Síntoma:** en «Anuncios» había muchos videos, y la pantalla es para copiar imágenes.
+
+**La causa:** el actor de Apify manda `snapshot.displayFormat` (VIDEO, IMAGE, CAROUSEL…) y al guardar se tiraba; `medio` (mig
+0391) sólo se escribía para Instagram. Es la misma historia que la 0391 con los carruseles: el dato estaba y no se guardaba.
+
+**La regla:** ahora se guarda `medio` también en los anuncios (`medioDeAnuncio`), y el explorador no muestra ni cuenta un video
+(`esAnuncioEnVideo`). Sin `medio`, la única pista es la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`).
+⚠️ Una miniatura ya copiada a nuestro bucket pierde esa pista: lo guardado antes se corrige en la próxima lectura de Spy.
+
+**Vive en:** `lib/spy-todo-reglas.ts`, `lib/spy-medio.ts`, `lib/spy.ts` (`guardarMedios`), `lib/carruseles/anuncios.ts`.
+
+## Thumbnails: la YouTube Data API sí, y el múltiplo espera el trámite (6/11/2026)
+
+**El pedido:** miniaturas top del mercado, «estoy seguro que debe haber una API o un repo». La comparación entera está en
+`docs/carruseles/thumbnails.md`. Lo que gobierna código nuevo:
+
+- **La fuente es la API oficial con la clave de la plataforma**; raspar youtube.com o comprar el catálogo de 1of10/ViewStats no
+  (Términos de YouTube; reventa).
+- **Un número derivado de las vistas no se muestra sin la enmienda III.L** (`ENMIENDA_III_L`), aunque `multiplosDe` ya lo
+  calcule: la tarjeta muestra las vistas, el orden de entrada es «Más vistas» y el filtro del múltiplo no aparece.
+- **Lo leído vence a los 30 días** (`vigente`, `podar`) y la imagen no se guarda: se dibuja la de `i.ytimg.com`.
+- **`search.list` tiene su balde de 100 llamadas por día**: se usa una por rubro e idioma, con tope en el script.
+
+**Vive en:** `lib/thumbnails/`, `app/image-editor/carruseles/Thumbnails.tsx`, `scripts/thumbnails-biblioteca.mts`, mig 0409.
 
 ## Traer un carrusel puntual: por su link, nunca por el perfil (5/11/2026)
 

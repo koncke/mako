@@ -113,9 +113,9 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
         </label>
       )}
 
-      {/* Los carruseles que funcionan de las cuentas que sigue (4/11/2026): la misma vista de la computadora. */}
-      <Link href="/m/image-editor?ver=carruseles" className="m-image-editor-carruseles">
-        <span>Carruseles que funcionan</span><span aria-hidden>›</span>
+      {/* Los ejemplos (carruseles, anuncios y miniaturas) son la portada de Image desde el 6/11/2026: esto es «Crear desde cero». */}
+      <Link href="/m/image-editor" className="m-image-editor-carruseles">
+        <span>Ejemplos que funcionan</span><span aria-hidden>›</span>
       </Link>
 
       {disenos.length === 0 ? (

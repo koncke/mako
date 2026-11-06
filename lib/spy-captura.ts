@@ -20,6 +20,7 @@ import type { PiezaVista } from './spy';
 import { leerFunnel, piezasDeVideoEn, type LecturaFunnel } from './spy-funnel';
 import { dominioComparable, nombreComparable, nombreParaBuscar, TOPES } from './spy-reglas';
 import { esAgregador } from './spy-otras-redes-reglas';
+import type { Medio } from './spy-medio';
 
 const TOPE_DIRECCIONES = 500;
 const TOPE_LARGO_DIRECCION = 2_000;
@@ -139,6 +140,8 @@ export type AnuncioLeido = {
   titulo: string | null;
   destino: string | null;
   miniatura: string | null;
+  /** Imagen, video o carrusel (lib/spy-medio.ts, `medioDeAnuncio`), si la fuente lo dijo: el explorador de Image muestra sólo los de imagen. */
+  medio?: Medio | null;
 };
 
 const MESES: Record<string, number> = {
@@ -336,5 +339,5 @@ export const piezaDeAnuncio = (a: AnuncioLeido): PiezaVista => ({
   canal: 'anuncios', tipo: 'anuncio', ref: a.id, fuente: 'recorrido',
   url: `https://www.facebook.com/ads/library/?id=${a.id}`,
   titulo: a.titulo, texto: a.texto, dominioDestino: a.destino, publicadaEn: a.desde, dejoDeVerseEn: a.hasta,
-  miniatura: a.miniatura,
+  miniatura: a.miniatura, medio: a.medio ?? null,
 });

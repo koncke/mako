@@ -98,7 +98,7 @@ Todo desde la raíz del clon, con el `.env.local` (producción). Los comandos si
   avatar del cliente es el paso siguiente (Flow).
 - **Una biblioteca de anuncios para todos** necesita Foreplay o Atria con cuenta paga a nombre de MaKo y permiso escrito de
   reventa: lo decide Martín (la comparación, en `docs/hallazgos-carruseles.md`).
-- **No se tocó la sidebar:** «Carruseles» sigue siendo una vista de Image (`?ver=carruseles`).
+- **No se tocó la sidebar:** desde el 6/11 (tarde) los ejemplos SON la portada de Image (`/image-editor`); `?ver=carruseles` redirige ahí.
 
 ## Pulido del 6/11/2026 (la sesión que terminó el rediseño, en `punta/carruseles-pulido`)
 
@@ -129,3 +129,73 @@ Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404
    Quedan **1.213 sin tipo** de 1.470 (8 sin texto, que vence a los 30 días). Bajarlos de ahí necesita las láminas (`laminas`, ya descrito arriba) y leerlas con visión.
 2. **Mirar «Editar» con una IA real en el ws3** con un carrusel CON láminas y otro SIN: que el texto sea del negocio, que las letras sean las del editor y que no haya recuadros grises.
 3. **Decidir el «tema»** (finanzas, salud, marketing…): clasificar cada carrusel con IA para sumar el filtro de la referencia.
+
+## Lo que Martín encontró en producción (6/11/2026, tarde) — `punta/carruseles-thumbnails`
+
+> «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal, no "¿Qué vas a crear hoy?"… solo quiero carruseles
+> que le sirvan a dueños de negocio… elimina el filtro de "CTA" porque todos le van a servir a dueños… en el filtro de CTA
+> pusiste puros de DenBorg… Muchos no tengo el botón para desplazar a la derecha… en anuncios trajiste un montón de videos,
+> cuando estamos viendo solo imágenes. No quiero que esté activado el filtro semanal por defecto. En filtros sigue diciendo
+> "Tamaño de la tarjeta"… elimina lo de "biblioteca"… También quisiera una tab que sea "Thumbnails"…»
+
+**Hecho** (capturas a 1440 y 390, claro y oscuro: `docs/carruseles/capturas-2026-11-06/`):
+
+1. **Los ejemplos son la portada de Image** (`/image-editor`, también en el teléfono). «¿Qué vas a crear hoy?» quedó detrás de
+   «＋ Crear desde cero» (`?ver=crear`). `?ver=carruseles` (el link de antes: avisos, API) redirige a la portada con sus filtros
+   (`vistaDeImage`, `querySinVer` en app/image-editor/ruta.ts). Borrar un diseño o «Crear otro diseño» vuelven a `?ver=crear`.
+2. **Se fueron** el filtro CTA y su contador (el CTA sigue en la tarjeta, «Comenta «GUÍA»»), la pastilla «Biblioteca» y su modal
+   (`EditarBiblioteca.tsx`, `FranjaCarruseles.tsx`), y «Tamaño de la tarjeta» con sus colores: siempre grande. La carga de la
+   biblioteca desde la PC no se tocó (y sus operaciones de la API, tampoco).
+3. **Sin filtro semanal:** lo prendía el link «Ver todos» de la franja de tendencias de «Crear» (`&periodo=7`). La franja se fue
+   con la portada nueva; un link viejo con `vista=semana` sigue abriendo «Últimos 7 días» porque lo pide la URL.
+4. **Que un creador no llene la pantalla** (`lib/carruseles/variedad.ts`, `conVariedad`): en cada tramo de 12 tarjetas, como
+   mucho 2 de la misma cuenta, corriendo lo mínimo el orden elegido. No reparte si se filtra por cuenta o por @. Lo usan
+   carruseles, anuncios y thumbnails. «Puros de DenBorg» no era que ella haga más: era el filtro CTA más «Mayor outlier».
+5. **Anuncios, sólo imágenes:** un video no entra ni cuenta en «Anuncios N» (`esAnuncioEnVideo`, lib/carruseles/anuncios.ts).
+   La señal: el `medio` que ahora se guarda también para los anuncios (`displayFormat` de Apify, lib/spy-todo-reglas.ts →
+   `guardarMedios`), o la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`). ⚠️ Lo que ya está guardado no
+   tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video: **se corrige en la
+   próxima lectura de Spy de cada cuenta** (ver abajo).
+6. **Las flechas de las láminas:** se ven siempre en el teléfono (con `hover: none` y con `data-telefono`), en la tarjeta y en el
+   carrusel abierto. Sin láminas guardadas no hay flechas (no hay nada que pasar): la etiqueta dice cuántas tiene.
+7. **«Editar» con un carrusel sin láminas** (lo que Martín vio: «Tu IA no contestó ahora»). Dos causas: (a) la portada era de la
+   biblioteca y no de nuestro bucket, así que la IA no recibía ninguna imagen y el camino de sólo texto usaba `chatCheap`, que no
+   prueba el Claude del negocio y corta en 512 tokens; ahora es `chatCheapCascade` (su Claude primero) con 8.000 tokens, y la
+   portada de Instagram, Meta o YouTube se baja con `fetchSeguro` (`esCdnPermitido`); (b) el camino de las guías no mandaba las
+   láminas a la pantalla: el modal quedaba en blanco. Ahora el aviso dice la causa (su cuota, su clave, la demora del proveedor,
+   «no es de tu configuración») y nombra la IA (`avisoSinIA`, `proveedorDelError`). Si la IA que mira imágenes falla por algo que
+   no es la cuenta ni la demora, se prueba UNA vez sin mirar antes de dejar guías (`vuelveASinVer`).
+8. **Thumbnails** (`/image-editor?que=thumbnails`): miniaturas de YouTube de canales de ventas, marketing, emprendimiento y
+   servicios, en tarjeta 16:9, con filtros de rubro, idioma, publicado y orden, guardar, «Ver en YouTube» y «Editar» (un diseño
+   de 1280 × 720 en el Image Editor, con la IA del negocio). La fuente, por qué y cómo se carga: `docs/carruseles/thumbnails.md`.
+   **El múltiplo espera el trámite de YouTube (enmienda III.L, el mismo de Spy):** hasta entonces se muestran las vistas y el
+   orden de entrada es «Más vistas». En la API de MaKo: `buscar_thumbnails`, `guardar_thumbnail`, `editar_ejemplo_thumbnail`.
+
+### Autocrítica
+
+- **Cambiado por la revisión de las capturas:** en el teléfono, «Carruseles · Anuncios · Thumbnails» quedaba al final de la
+  fila que se desliza, fuera de la vista: ahora va primero (es lo que cambia la pantalla) y las pastillas después.
+- **Cambiado al probar los tests rompiendo el código:** el test de «no repartir con una cuenta elegida» daba verde con el
+  reparto puesto (con una sola cuenta, repartir no cambia nada): ahora prueba con dos cuentas elegidas.
+- **Cambiado al releer el script de carga:** `excluir` escribía sin `--de-verdad` (todo lo demás es en seco por defecto), y
+  `sumar` no validaba el rubro ni el idioma.
+- **Descartado:** dejar «Búsquedas guardadas» fuera. Martín no la nombró y sirve a quien guardó una; se ve sólo si hay alguna.
+  También descartado mezclar en Thumbnails las miniaturas de las cuentas de Spy del negocio (cambia de quién es cada tarjeta).
+- **No hubo un revisor aparte** (la cuenta estaba arriba del 90 %): la revisión fue a mano, con las capturas y rompiendo cada
+  regla nueva. Lo que no está probado: «Editar» con una IA real (la nube no tiene claves) y la carga de Thumbnails contra YouTube.
+
+### Lo que le queda al Cerebro desde la PC (con el `.env.local` de producción, desde la raíz del clon)
+
+1. **Probar «Editar» sin láminas en el ws3** (gasta unos centavos de la IA del ws3; en seco no guarda el diseño):
+
+   ```bash
+   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas
+   ```
+
+   Muestra cuántas imágenes llegaron a la IA, qué contestó cada una y los textos de cada lámina. Con `--guardar` queda en Image.
+   Para una miniatura: `--que thumbnail --id <id>` (después de cargar la biblioteca).
+2. **La migración 0409** (dos tablas nuevas, sin tocar nada; el orden de despliegue da igual) y la carga de Thumbnails: los
+   pasos, en `docs/carruseles/thumbnails.md` → «Cargarla, desde la PC».
+3. **Los anuncios en video que ya están guardados:** se esconden solos en la próxima lectura de Spy de cada cuenta (la lectura
+   ahora guarda su `medio`). Si hace falta antes, volver a leer los anuncios de las cuentas seguidas desde Spy.
+4. **Curar la biblioteca de carruseles** (lo que no le sirve a un dueño de negocio) sigue siendo de la PC, como estaba.

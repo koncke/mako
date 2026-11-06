@@ -114,17 +114,20 @@ test('las tendencias de la semana: lo de los últimos 7 días por outlier, con t
 });
 
 test('los filtros viajan en la URL y vuelven iguales; lo que no se entiende vuelve al inicial', () => {
-  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'guardados' as const, cta: true };
+  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'guardados' as const };
   const q = queryDeFiltros(f);
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(q)), f);
   // Los anuncios (6/11/2026) también viajan; y un link viejo con la pestaña «Esta semana» abre «Publicado: últimos 7 días».
   const anuncios = { ...FILTROS_INICIALES, que: 'anuncios' as const, orden: 'aire' as const };
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(queryDeFiltros(anuncios))), anuncios);
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('vista=semana&orden=nuevos')), { ...FILTROS_INICIALES, periodo: '7', orden: 'nuevos' });
-  assert.equal(queryDeFiltros(FILTROS_INICIALES), 'ver=carruseles');
+  // Desde el 6/11/2026 los ejemplos son la portada de /image-editor: sin filtros, la query va vacía (ya no lleva `ver=carruseles`).
+  assert.equal(queryDeFiltros(FILTROS_INICIALES), '');
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('min=7&orden=raro&vista=x&periodo=2&de=a,-1,5&formato=inventado')),
     { ...FILTROS_INICIALES, creadores: [-1, 5] }, 'un creador en negativo es de la biblioteca; el cero y lo que no es número, no');
   assert.deepEqual(filtrosDeQuery({ q: ['tips'], min: '3' }), { ...FILTROS_INICIALES, q: 'tips', outlierMin: 3 });
+  // Un link viejo con `cta=1`, `tam=chico` o `ver=carruseles` (6/11/2026: Martín sacó el filtro y el tamaño) abre los ejemplos sin nada.
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('ver=carruseles&cta=1&tam=chico')), FILTROS_INICIALES);
 });
 
 test('guardar es idempotente, sacar también; lo roto de la base se descarta', () => {
@@ -146,8 +149,8 @@ test('las búsquedas guardadas se re-sanean al leer y tienen un nombre que se en
     { id: 'b-abc1', nombre: '  Tips  de café ', query: 'ver=carruseles&q=cafe&min=99', en: '2026-11-01T00:00:00Z' },
     { id: 'MAL!', nombre: 'x', query: '', en: '2026-11-01T00:00:00Z' },
   ]));
-  assert.deepEqual(b, [{ id: 'b-abc1', nombre: 'Tips de café', query: 'ver=carruseles&q=cafe', en: '2026-11-01T00:00:00Z' }]);
-  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, q: 'menú', outlierMin: 2, formato: 'lista', cta: true }, []), 'menú · CTA · 2×+ · Lista o tips');
+  assert.deepEqual(b, [{ id: 'b-abc1', nombre: 'Tips de café', query: 'q=cafe', en: '2026-11-01T00:00:00Z' }]);
+  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, q: 'menú', outlierMin: 2, formato: 'lista' }, []), 'menú · 2×+ · Lista o tips');
   assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, que: 'anuncios', vista: 'guardados' }, []), 'Anuncios · Guardados');
   assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, creadores: [2] }, [{ id: 2, nombre: 'Café Brasa' }]), 'Café Brasa');
 });
@@ -184,7 +187,7 @@ test('los deslizadores: múltiplo, interacciones y láminas con mínimo y máxim
   assert.equal(interaccion(xs[1]), 1000);
   assert.deepEqual(con({ lamMin: 5, lamMax: 10 }).sort(), [1, 3], 'sin la cantidad de láminas, queda: sin dato no es «no»');
   assert.deepEqual(con({ ocultar: ['lista'] }).sort(), [0, 1, 2]);
-  const f = { ...FILTROS_INICIALES, outlierMin: 2, outlierMax: 10, interMin: 100, interMax: 5000, lamMin: 4, lamMax: 9, ocultar: ['lista' as const, 'mito' as const], tamano: 'chico' as const };
+  const f = { ...FILTROS_INICIALES, outlierMin: 2, outlierMax: 10, interMin: 100, interMax: 5000, lamMin: 4, lamMax: 9, ocultar: ['lista' as const, 'mito' as const] };
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(queryDeFiltros(f))), f, 'viajan en la URL');
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('omax=7&lmin=999&ocultar=nada,lista&tam=gigante')), { ...FILTROS_INICIALES, lamMin: 20, ocultar: ['lista'] }, 'lo que no se entiende vuelve al inicial');
 });

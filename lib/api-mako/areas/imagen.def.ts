@@ -15,7 +15,7 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
+import { IDIOMAS_THUMBNAIL, IDS_TIPO_CARRUSEL, NICHOS_THUMBNAIL, ORDENES_CARRUSEL, ORDENES_THUMBNAIL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, PERIODOS_THUMBNAIL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
 /** La biblioteca de ejemplos la edita el admin del negocio de la plataforma (lib/carruseles/biblioteca-servidor.ts). */
@@ -114,15 +114,15 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_carruseles', area: 'imagen', tipo: 'lectura',
     titulo: 'Buscar carruseles que funcionan',
-    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces lo que suele hacer su cuenta). Busca por tema o por @cuenta. Con que=anuncios, los anuncios que Spy trajo de esas cuentas (con sus días al aire). Con cta, sólo los que piden comentar una palabra.',
+    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces lo que suele hacer su cuenta). Busca por tema o por @cuenta. Con que=anuncios, los anuncios de imagen que Spy trajo de esas cuentas (con sus días al aire).',
     parametros: [
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del tema, o un @cuenta.' },
       { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo que suele hacer su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
       { nombre: 'periodo', tipo: 'string', enum: PERIODOS_CARRUSEL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
       { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion, traidos o aire (los anuncios que más días llevan).' },
       { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos o guardados (semana = publicados en los últimos 7 días).' },
-      { nombre: 'que', tipo: 'string', enum: QUE_VER_CARRUSEL.map((x) => x.value), descripcion: 'carruseles (por defecto) o anuncios.' },
-      { nombre: 'cta', tipo: 'boolean', descripcion: 'true = sólo los que piden comentar (o mandar por mensaje) una palabra, los que publican los dueños de negocio.' },
+      // Las miniaturas de YouTube tienen su operación (buscar_thumbnails): acá, carruseles o anuncios.
+      { nombre: 'que', tipo: 'string', enum: QUE_VER_CARRUSEL.map((x) => x.value).filter((v) => v !== 'thumbnails'), descripcion: 'carruseles (por defecto) o anuncios.' },
       { nombre: 'origen', tipo: 'string', enum: ORIGENES_CARRUSEL.map((x) => x.value), descripcion: 'cuentas (las que sigue), biblioteca (los ejemplos) o todos.' },
       { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántos devolver (10 por defecto).' },
     ],
@@ -185,6 +185,47 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id que dio buscar_carruseles (negativo = de la biblioteca; también un anuncio).' },
       { nombre: 'pedido', tipo: 'string', max: 400, descripcion: 'Lo que el dueño quiere en especial («sobre mi curso de X»), si lo dijo.' },
+    ],
+    canales: SIN_HTTP, costo: 'ia', gating: GATING,
+    reversible: true,
+    escribe: 'insert en image_disenos (y su foto en image_subidos)',
+  },
+  // ── Thumbnails (6/11/2026): las miniaturas de YouTube que mejor rinden en los rubros de dueños de negocio (lib/thumbnails/).
+  //    Al FINAL del área (AGENTS.md: una operación nueva no le saca el lugar a otra), sin las palabras de las de arriba. ──
+  {
+    id: 'buscar_thumbnails', area: 'imagen', tipo: 'lectura',
+    titulo: 'Buscar miniaturas de YouTube que funcionan',
+    descripcion: 'Las miniaturas de videos de YouTube de la biblioteca de MaKo (canales de ventas, marketing, emprendimiento y servicios), con su canal, sus vistas y el link al video. Filtra por rubro, idioma y período, o busca por tema o @canal.',
+    parametros: [
+      { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del título, o un @canal.' },
+      { nombre: 'nicho', tipo: 'string', enum: NICHOS_THUMBNAIL.map((x) => x.value), descripcion: 'El rubro.' },
+      { nombre: 'idioma', tipo: 'string', enum: IDIOMAS_THUMBNAIL.map((x) => x.value), descripcion: 'es, en o pt.' },
+      { nombre: 'periodo', tipo: 'string', enum: PERIODOS_THUMBNAIL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
+      { nombre: 'orden', tipo: 'string', enum: ORDENES_THUMBNAIL.map((x) => x.value), descripcion: 'vistas (por defecto), nuevos, viejos; outlier sólo cuando YouTube habilite el múltiplo.' },
+      { nombre: 'vista', tipo: 'string', enum: ['todos', 'guardados'], descripcion: 'todos o guardados.' },
+      { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántas devolver (10 por defecto).' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+  },
+  {
+    id: 'guardar_thumbnail', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Guardar una miniatura como referencia',
+    descripcion: 'Guarda (o saca) una miniatura de buscar_thumbnails en las referencias guardadas del negocio.',
+    parametros: [
+      { nombre: 'thumbnailId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_thumbnails.' },
+      { nombre: 'guardar', tipo: 'boolean', descripcion: 'false = sacarla de los guardados. Por defecto, guardarla.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'app_settings thumbnails.guardados (compare-and-set)',
+  },
+  {
+    id: 'editar_ejemplo_thumbnail', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Tu versión editable de una miniatura',
+    descripcion: 'Arma un diseño EDITABLE de 1280 × 720 copiando el diseño de una miniatura de buscar_thumbnails (dónde va el texto grande, colores, dónde la cara) con el texto escrito para el negocio por su propia IA, y su foto donde había una persona. Sus palabras no se copian. Tarda hasta 2 minutos.',
+    parametros: [
+      { nombre: 'thumbnailId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_thumbnails.' },
+      { nombre: 'pedido', tipo: 'string', max: 400, descripcion: 'Lo que el dueño quiere en especial («sobre mi video de X»), si lo dijo.' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: GATING,
     reversible: true,

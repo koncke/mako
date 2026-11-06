@@ -11,7 +11,10 @@
 // abre el diseño en el editor, donde está el chat de MaKo.
 //
 // Si salió sin la IA (no la conectó, o no contestó), NO navega solo: dice por qué, ofrece conectarla (el modal de
-// Integraciones AHÍ, sin salir de la tab) y «Abrir el diseño» con las guías.
+// Integraciones AHÍ, sin salir de la tab) y «Abrir el diseño» con las guías. Las láminas guía también se ven armándose, y si no
+// se pudo armar nada, la tira de cuadros vacíos se va (6/11/2026: Martín vio el modal con las miniaturas en blanco).
+//
+// Sirve también para una miniatura de YouTube (Thumbnails, 6/11/2026): una lámina de 1280 × 720.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,6 +26,7 @@ import { fasesDesde } from '@/app/_ui/armado-en-vivo';
 import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { eventosDe, type EventoReplica } from '@/lib/carruseles/replica';
 import type { Carrusel } from '@/lib/carruseles/explorar';
+import type { Thumbnail } from '@/lib/thumbnails/explorar';
 import { rutaDiseno } from '../ruta';
 import { PaginaCarrusel } from './MiniaturaCarrusel';
 import s from './editar.module.css';
@@ -33,13 +37,32 @@ const FASES = [
   { id: 'armar', texto: 'Armo el diseño editable' },
 ] as const;
 
-type Pagina = { pagina: Record<string, unknown>; alto: number };
+type Pagina = { pagina: Record<string, unknown>; ancho: number; alto: number };
 type Fin = Extract<EventoReplica, { fase: 'fin'; ok: true }>;
 
-export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onCerrar: () => void }) {
+/** Lo que hace falta del ejemplo para pedirlo y dibujar la espera. */
+function ejemploDe(carrusel?: Carrusel | null, thumbnail?: Thumbnail | null) {
+  if (thumbnail) {
+    return { que: 'thumbnail' as const, id: thumbnail.id, quien: thumbnail.canal.handle || thumbnail.canal.nombre, total: 1, proporcion: '16 / 9', fases: FASES_MINIATURA };
+  }
+  const c = carrusel as Carrusel;
+  return {
+    que: 'carrusel' as const, id: c.id, quien: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
+    total: c.clase === 'anuncio' ? 1 : c.laminas ?? 1, proporcion: c.clase === 'anuncio' ? '1 / 1' : '4 / 5', fases: FASES,
+  };
+}
+
+const FASES_MINIATURA = [
+  { id: 'leer', texto: 'Miro la miniatura' },
+  { id: 'escribir', texto: 'Escribo tu versión con tu IA' },
+  { id: 'armar', texto: 'Armo el diseño editable' },
+] as const;
+
+export function EditarCarrusel({ carrusel = null, thumbnail = null, onCerrar }: { carrusel?: Carrusel | null; thumbnail?: Thumbnail | null; onCerrar: () => void }) {
   const router = useRouter();
+  const ej = ejemploDe(carrusel, thumbnail);
   const [fase, setFase] = useState<'leer' | 'escribir' | 'armar'>('leer');
-  const [total, setTotal] = useState<number>(carrusel.clase === 'anuncio' ? 1 : carrusel.laminas ?? 1);
+  const [total, setTotal] = useState<number>(ej.total);
   const [paginas, setPaginas] = useState<Pagina[]>([]);
   const [fin, setFin] = useState<Fin | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +75,7 @@ export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onC
     corto.current = ctrl;
     try {
       const r = await fetch('/api/image-editor/carruseles/replicar', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: carrusel.id }),
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: ej.id, que: ej.que }),
         signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(305_000)]),
       });
       if (!r.ok || !r.body) {
@@ -72,7 +95,7 @@ export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onC
         for (const e of eventosDe(resto.slice(0, corte))) {
           if (e.fase === 'leer') { setTotal(e.laminas); setFase('leer'); }
           else if (e.fase === 'escribir') setFase('escribir');
-          else if (e.fase === 'lamina') { setFase('armar'); setPaginas((ps) => [...ps, { pagina: e.pagina, alto: e.alto }]); }
+          else if (e.fase === 'lamina') { setFase('armar'); setPaginas((ps) => [...ps, { pagina: e.pagina, ancho: e.ancho, alto: e.alto }]); }
           else if (e.fase === 'fin') { if (e.ok) setFin(e); else setError(e.error); }
         }
         resto = resto.slice(corte + 1);
@@ -83,7 +106,7 @@ export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onC
         ? 'Tardó demasiado. Si se armó, está en tus diseños; si no, vuelve a intentar.'
         : 'Se cortó la conexión. Si se armó, está en tus diseños; si no, vuelve a intentar.');
     }
-  }, [carrusel.id]);
+  }, [ej.id, ej.que]);
 
   // Arranca UNA vez por apertura: en desarrollo React monta dos veces, y dos pedidos serían dos diseños. Cerrar el panel corta
   // el pedido; si el diseño ya se estaba guardando, queda en tus diseños.
@@ -108,9 +131,11 @@ export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onC
     }
   }, [fin, visibles, paginas.length, abrir]);
 
-  const fases = fasesDesde(FASES, fin ? null : fase, { terminado: !!fin, fallo: !!error });
-  const quien = carrusel.creador.usuario ? `@${carrusel.creador.usuario}` : carrusel.creador.nombre;
+  const fases = fasesDesde(ej.fases, fin ? null : fase, { terminado: !!fin, fallo: !!error });
+  const quien = ej.quien;
   const vistas = paginas.slice(0, visibles);
+  // Sin nada armado y con un error, la tira de cuadros vacíos no promete nada: se va.
+  const conTira = !(error && !paginas.length);
 
   return (
     <Modal titulo={fin ? 'Tu versión está lista' : error ? 'No se pudo armar' : 'Armando tu versión'} encabezado={`Del ejemplo de ${quien}`}
@@ -137,18 +162,20 @@ export function EditarCarrusel({ carrusel, onCerrar }: { carrusel: Carrusel; onC
             </li>
           ))}
         </ol>
-        <ol className={s.tira} aria-label="Láminas de tu versión">
-          {Array.from({ length: Math.max(total, paginas.length) }, (_, i) => {
-            const p = vistas[i];
-            return (
-              <li key={i} data-lista={p ? 'si' : undefined}>
-                {p
-                  ? <PaginaCarrusel pagina={p.pagina} alto={p.alto} etiqueta={`Lámina ${i + 1}`} style={{ width: '100%' }} />
-                  : <span className={s.esperando} style={{ aspectRatio: '4 / 5' }} aria-hidden />}
-              </li>
-            );
-          })}
-        </ol>
+        {conTira ? (
+          <ol className={s.tira} data-miniatura={ej.que === 'thumbnail' ? 'si' : undefined} aria-label={ej.que === 'thumbnail' ? 'Tu miniatura' : 'Láminas de tu versión'}>
+            {Array.from({ length: Math.max(total, paginas.length) }, (_, i) => {
+              const p = vistas[i];
+              return (
+                <li key={i} data-lista={p ? 'si' : undefined}>
+                  {p
+                    ? <PaginaCarrusel pagina={p.pagina} ancho={p.ancho} alto={p.alto} etiqueta={ej.que === 'thumbnail' ? 'Tu miniatura' : `Lámina ${i + 1}`} style={{ width: '100%' }} />
+                    : <span className={s.esperando} style={{ aspectRatio: ej.proporcion }} aria-hidden />}
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
         {fin?.aviso ? <p className={s.aviso}>{fin.aviso}</p> : null}
         {error ? <p role="alert" className={s.error}>{error}<ReportarASoporte /></p> : null}
       </div>

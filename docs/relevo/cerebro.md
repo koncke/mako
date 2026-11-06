@@ -58,6 +58,7 @@
 | 0396_wa_mensajes_automatico | `punta/codigo-primer-contacto` | **sin aplicar:** va DESPUÉS del deploy; confirmar el nombre en main |
 | 0405_leads_migracion | `punta/thiago-migrar` (nube, 6/11) | **sin aplicar:** va ANTES del deploy, o junto; sin ella `migrar_contactos` contesta «falta la migración 0405» y no crea nada. Ver `docs/relevo/nube-thiago-migrar.md` |
 | 0406_calendario_email_enlazado | `punta/thiago-migrar` (nube, 6/11) | **sin aplicar:** va ANTES del deploy, o junto; sin ella el Email del Calendario no se enlaza (el modal lo dice). Ver `docs/relevo/nube-thiago-migrar.md` |
+| 0409_thumbnails_biblioteca | `punta/carruseles-thumbnails` (nube, 6/11) | **sin aplicar:** el orden da igual (sólo crea dos tablas globales); sin ella la pestaña Thumbnails de Image dice que la biblioteca no está cargada. Después, cargarla: `docs/carruseles/thumbnails.md` → «Cargarla, desde la PC» |
 
 **La suscripción de los tres clientes de la plataforma ya está cargada** (`docs/relevo/nube-suscripciones.md`, paso 2). Código: mensualidad 146 en octubre, 238 en noviembre, 426 desde diciembre, día 5; pagos de 94 y 144 de noviembre y el medio del 21/10 pasado a cripto. Leila y Florencia: 97. Medido con `vistaDeIngresos`: MRR US$432, cobrado US$578, «Subió +US$92». Falta un arreglo: `porCobrar` le pone a Código 4/12 por US$238, y lo real es 5/12 por US$426; se lo pasé al chat de la copia de Admin. **No registrar esos pagos de nuevo.** Mirar las pantallas con sesión queda pendiente: en el navegador de la app pide el segundo paso de Martín.
 

@@ -10,9 +10,11 @@ const carpeta = process.argv[3];
 fs.mkdirSync(carpeta, { recursive: true });
 const PERFIL = fs.mkdtempSync(path.join(os.tmpdir(), 'captura-'));
 const PUERTO = 9473;
-const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
+// El Chrome de la PC; en la nube (6/11/2026), el Chromium de Playwright (`CHROME=/opt/pw-browsers/chromium-…/chrome`).
+const RUTA_CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const chrome = spawn(RUTA_CHROME, [
   '--headless=new', `--remote-debugging-port=${PUERTO}`, `--user-data-dir=${PERFIL}`, '--no-first-run', '--no-default-browser-check',
-  '--disable-extensions', '--mute-audio', '--hide-scrollbars', 'about:blank',
+  '--disable-extensions', '--mute-audio', '--hide-scrollbars', ...(process.platform === 'linux' ? ['--no-sandbox'] : []), 'about:blank',
 ], { stdio: 'ignore' });
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 let ws;

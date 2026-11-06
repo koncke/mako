@@ -772,7 +772,10 @@ export const AREAS: AreaDev[] = [
     estado: 'parcial', verEnApp: '/image-editor',
     alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin.',
     // ⚠️ Sin nav.ts: es de los archivos más calientes del repo y desplazaría el Change History propio.
-    vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts'],
+    // Los ejemplos que abren Image (carruseles, anuncios y miniaturas de YouTube, 6/11/2026) viven en lib/carruseles y lib/thumbnails:
+    // sin ellas acá, el historial del área no veía el trabajo de la portada.
+    vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts',
+      'lib/carruseles', 'lib/thumbnails', 'docs/carruseles', 'docs/hallazgos-carruseles.md', 'scripts/carruseles-biblioteca.mts', 'scripts/thumbnails-biblioteca.mts'],
     hallazgos: 'hallazgos-editor-imagen',
     nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución. 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.',
   },
