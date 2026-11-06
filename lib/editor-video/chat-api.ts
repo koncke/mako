@@ -187,6 +187,14 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     { nombre: 'ref', rotulo: 'Elemento', tipo: 'string', max: 6, descripcion: 'Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal.' },
     seg('pausa_min', 'Pausa mínima', 'Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4).', false, 0.2, 2),
   ] },
+  { op: 'palabras_clave', id: 'resaltar_claves_subtitulos', titulo: 'Resaltar las palabras clave', parametros: [
+    elegir('modo', 'Modo', ['auto', 'estas', 'ninguna'], '«auto» las elige solas; «estas», las de «palabras»; «ninguna» las saca.'),
+    { nombre: 'palabras', rotulo: 'Palabras', tipo: 'string[]', max: 30, descripcion: 'Sólo con «estas»: una palabra por elemento, como se dice en los subtítulos.' },
+    COLOR('color', 'Color', false),
+  ] },
+  { op: 'usar_preset_subtitulos', id: 'usar_preset_subtitulos', titulo: 'Aplicar un preset de la marca', parametros: [
+    texto('preset', 'Preset', 'El preset: su nombre o su id (de listar_presets_subtitulos).', true, 80),
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

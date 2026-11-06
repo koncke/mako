@@ -53,6 +53,8 @@ const GATING_CATALOGO = { tab: 'video-generator' } as const;
  * 12/10/2026 (lib/capas.ts).
  */
 const GATING_EDITOR = { tab: 'video-editor' } as const;
+/** Los presets de la marca: los escribe el admin, como la ruta del editor que los guarda. */
+const GATING_PRESETS = { tab: 'video-editor', rolMinimo: 'admin' } as const;
 
 const PLAN_ID: Parametro = {
   nombre: 'planId', tipo: 'string', obligatorio: true, max: 80,
@@ -216,4 +218,53 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [PARAM_PROYECTO, ...o.parametros],
     canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   })),
+
+  // ═══════════════════════════ Los presets de subtítulos de la marca (6/11/2026) ═══════
+  // Pedido de Leila (30/10): «presets guardados por marca o por cliente». Viven en el NEGOCIO (no en un proyecto):
+  // se leen y se escriben acá, y se aplican a un proyecto con usar_preset_subtitulos (que propone, como las de arriba).
+  // Las reglas: lib/editor-video/presets-subtitulos.ts. Admin, como la ruta del editor (/api/video-editor/presets).
+  {
+    id: 'listar_presets_subtitulos', area: 'video', tipo: 'lectura',
+    titulo: 'Presets de subtítulos de la marca',
+    descripcion: 'Los estilos de subtítulos que este negocio guardó, cada uno con su marca o cliente (si la tiene) y lo que hace en palabras: fuente, colores, contorno, karaoke, palabras clave automáticas y las palabras que resalta siempre. Se aplican a un proyecto con usar_preset_subtitulos; se crean o cambian con guardar_preset_subtitulos.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_PRESETS,
+  },
+  {
+    id: 'guardar_preset_subtitulos', area: 'video', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar un preset de subtítulos',
+    descripcion: 'PROPONE crear un preset de subtítulos de la marca, o cambiar uno (con «preset»: su nombre o id; lo que no se pasa queda como estaba). Queda pendiente del «sí». El tamaño es relativo al lienzo (1 = el de siempre), así sirve en vertical y en horizontal.',
+    escribe: 'la lista de presets de subtítulos del negocio (app_settings)',
+    parametros: [
+      { nombre: 'preset', rotulo: 'Preset a cambiar', tipo: 'string', max: 80, descripcion: 'Opcional: el nombre o id del que se cambia (de listar_presets_subtitulos). Sin esto, se crea uno.' },
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: 60, descripcion: 'El nombre (obligatorio al crear).' },
+      { nombre: 'marca', rotulo: 'Marca o cliente', tipo: 'string', max: 60, descripcion: 'Opcional: la marca o el cliente; «ninguna» la saca.' },
+      { nombre: 'fuente', rotulo: 'Fuente', tipo: 'string', max: 60, descripcion: 'Una fuente de Google Fonts (Montserrat, Anton, Poppins…).' },
+      { nombre: 'negrita', rotulo: 'Negrita', tipo: 'boolean', descripcion: 'Opcional.' },
+      { nombre: 'color', rotulo: 'Color de la letra', tipo: 'string', max: 7, descripcion: '#RRGGBB.' },
+      { nombre: 'escala', rotulo: 'Tamaño', tipo: 'number', minimo: 0.3, maximo: 4, descripcion: 'Veces el tamaño de siempre (1).' },
+      { nombre: 'mayusculas', rotulo: 'Mayúsculas', tipo: 'boolean', descripcion: 'Opcional.' },
+      { nombre: 'contorno', rotulo: 'Contorno', tipo: 'string', max: 7, descripcion: 'Un color #RRGGBB, o «no» para sacarlo.' },
+      { nombre: 'grosor_contorno', rotulo: 'Grosor del contorno', tipo: 'number', minimo: 0, maximo: 100, descripcion: 'De 0 a 100 (sin esto, 20).' },
+      { nombre: 'fondo', rotulo: 'Fondo', tipo: 'string', max: 7, descripcion: 'Un color #RRGGBB detrás del texto, o «no» para sacarlo.' },
+      { nombre: 'sombra', rotulo: 'Sombra', tipo: 'boolean', descripcion: 'Opcional.' },
+      { nombre: 'karaoke', rotulo: 'Karaoke', tipo: 'string', enum: ['palabra', 'frase', 'ninguno'], descripcion: 'Pinta la palabra que se dice («palabra») o todo lo dicho («frase»); «ninguno» lo saca.' },
+      { nombre: 'color_karaoke', rotulo: 'Color del karaoke', tipo: 'string', max: 7, descripcion: '#RRGGBB.' },
+      { nombre: 'claves_automaticas', rotulo: 'Palabras clave solas', tipo: 'boolean', descripcion: 'true: elige la palabra que pesa de cada subtítulo y la pinta.' },
+      { nombre: 'color_claves', rotulo: 'Color de las claves', tipo: 'string', max: 7, descripcion: '#RRGGBB.' },
+      { nombre: 'siempre', rotulo: 'Siempre resaltar', tipo: 'string[]', max: 30, descripcion: 'Las palabras de la marca que se pintan cada vez que se dicen (una por elemento). Reemplaza la lista.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: GATING_PRESETS,
+  },
+  {
+    id: 'borrar_preset_subtitulos', area: 'video', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Borrar un preset de subtítulos',
+    descripcion: 'PROPONE borrar un preset de subtítulos de la marca; queda pendiente del «sí». Los videos que ya lo usan no cambian.',
+    escribe: 'la lista de presets de subtítulos del negocio (app_settings)',
+    parametros: [
+      { nombre: 'preset', rotulo: 'Preset', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Su nombre o id (de listar_presets_subtitulos).' },
+      { nombre: 'marca', rotulo: 'Marca', tipo: 'string', max: 60, descripcion: 'Opcional: la marca, si hay dos con el mismo nombre.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: GATING_PRESETS,
+  },
 ];

@@ -77,12 +77,13 @@ test('sin copia (proyecto muy grande), la fila dice la ref en vez de inventar un
   assert.deepEqual([f.antes, f.despues], ['v9', 'A 0,5×']);
 });
 
-test('las 34 operaciones del editor se dicen en palabras, sin «undefined» ni «NaN»', () => {
+test('las operaciones del editor se dicen en palabras, sin «undefined» ni «NaN»', () => {
   // Una operación de muestra con todos los campos posibles: cada una toma los suyos.
   const campos = {
     ref: 'v1', refs: ['v1'], texto: 'x', inicio: 1, fin: 2, duracion: 1, en: 1, db: -3, silenciado: true, entrada: 1, salida: 1,
     activo: true, separado: true, oculto: true, x: 2, id: 'fundido', tipo: 'filtro', valores: { brillo: 10 }, estilo: {}, cambios: {},
     horizontal: true, revertido: true, buscar: 'a', reemplazo: 'b', modo: 'palabra', frase: 'eh', medio: 'm1', textos: {}, clips: {},
+    palabras: ['hoy'], preset: 'Hormozi',
   };
   const ops = new Set(OPERACIONES_API.map((o) => o.op));
   assert.ok(ops.size >= 30, `encontré ${ops.size} operaciones`);
