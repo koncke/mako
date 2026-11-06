@@ -308,7 +308,17 @@ export const plantillaHojaDe = (id: string) => {
  *    docs/templates-dashboard-propuesta.md, «Lo que falta copiar»; la pantalla no lo muestra (no hay «próximamente»).
  */
 export function esPlantillaOfrecida(p: PlantillaHoja): boolean {
-  try { return !!(p.armar((local) => local) as { diseno?: unknown }).diseno; } catch { return false; }
+  try { return traeDisenoCopiado(p.armar((local) => local) as { diseno?: unknown; componentes?: unknown }); } catch { return false; }
+}
+/**
+ * «Trae su diseño copiado»: el de la hoja entera (`diseno`) o, desde el 6/11/2026, una hoja hecha de TARJETAS copiadas de varios
+ * diseños (bloques `tipo: 'diseno'`, lib/disenos-partes.ts), como «Velocidad de llamada». ⚠️ Con sólo `diseno`, esa hoja quedaba
+ * afuera de «Nueva hoja» y de la API sin un error: el test la buscaba en `PLANTILLAS_HOJA`, que no es lo que se ofrece.
+ */
+export function traeDisenoCopiado(h: { diseno?: unknown; componentes?: unknown }): boolean {
+  if (h.diseno) return true;
+  const cs = Array.isArray(h.componentes) ? (h.componentes as Array<{ clase?: unknown; tipo?: unknown }>) : [];
+  return cs.some((c) => c.clase === 'elemento' && c.tipo === 'diseno');
 }
 export const PLANTILLAS_OFRECIDAS: readonly PlantillaHoja[] = PLANTILLAS_HOJA.filter(esPlantillaOfrecida);
 export const PLANTILLAS_GENERAL_OFRECIDAS: readonly PlantillaHoja[] = PLANTILLAS_GENERAL.filter(esPlantillaOfrecida);

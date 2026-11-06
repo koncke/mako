@@ -17,7 +17,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { sanearHoja, esElemento, MAX_COMPONENTES, type Componente, type Hoja } from '../lib/graficos-catalogo';
-import { HOJA_DE_ROL, PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '../lib/graficos-plantillas';
+import { HOJA_DE_ROL, PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla, type PlantillaHoja } from '../lib/graficos-plantillas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { DISENOS, SECCION_PIEZAS, conBloquesDeDiseno, disenosDelInforme, idsQueLeenLosBloques, insertarBloque, parteDe, partesDe, seDibujaMirando, sinBloquesDeDiseno } from '../lib/disenos-partes';
 import { hojaConIdsNuevos } from '../lib/graficos-copia';
@@ -212,8 +212,10 @@ function sinSuperposicion(cs: readonly Componente[]): string | null {
 }
 
 test('11 · «Velocidad de llamada» (Código Inmobiliario): tarjetas copiadas que leen piezas que existen, y nunca para un closer ni un setter', () => {
-  const p = PLANTILLAS_HOJA.find((x) => x.id === 'velocidad-llamada')!;
-  assert.ok(p, 'está en la galería del Dashboard');
+  // Lo que ofrece la galería es PLANTILLAS_OFRECIDAS, no PLANTILLAS_HOJA: con esta línea mirando la otra lista, la hoja estuvo un día
+  // escrita, en verde y sin poder crearse (lib/graficos-plantillas.ts, `traeDisenoCopiado`).
+  const p = PLANTILLAS_OFRECIDAS.find((x) => x.id === 'velocidad-llamada')!;
+  assert.ok(p, 'se ofrece en «Nueva hoja» y en la API');
   const h = instanciarPlantilla(p);
   const tarjetas = bloques(h).map((b) => { const d = (b as { diseno: { id: string; parte: string; piezas: Record<string, string> } }).diseno; return `${d.id}/${d.parte}`; });
   assert.deepEqual(tarjetas, [

@@ -16,9 +16,14 @@ const leer = (r: string) => readFileSync(fileURLToPath(new URL(`../${r}`, import
 
 test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna otra', () => {
   for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
-    const conDiseno = !!instanciarPlantilla(p).diseno;
+    // El diseño de la hoja entera, o una hoja hecha de tarjetas copiadas (6/11/2026: «Velocidad de llamada» no tiene un diseño propio).
+    const h = instanciarPlantilla(p);
+    const conDiseno = !!h.diseno || h.componentes.some((c) => c.clase === 'elemento' && c.tipo === 'diseno');
     assert.equal(esPlantillaOfrecida(p), conDiseno, `${p.id}: ${conDiseno ? 'trae diseño y no se ofrece' : 'se ofrece sin diseño'}`);
   }
+  // La hoja de los clientes de Código Inmobiliario (6/11/2026): hecha de tarjetas de Cold Calling, Closing y Marketing.
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'velocidad-llamada'), 'Velocidad de llamada se ofrece en «Nueva hoja»');
+  assert.equal(plantillaOfrecidaDe('velocidad-llamada')?.id, 'velocidad-llamada', 'y se crea desde la API');
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'closing'), 'Closing (la copia de Halden) se ofrece');
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'cobranza'), 'Cobranza (la copia de Coffer) se ofrece');
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.some((p) => p.id === 'foco'), 'Focus (la copia de Pane) se ofrece en General');

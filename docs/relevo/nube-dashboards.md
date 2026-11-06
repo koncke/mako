@@ -49,7 +49,16 @@ del CRM, Tu funnel hoy (elige el funnel), A quién cobrarle («Marcar cobrada»)
 **Falta el hito en `/admin/dev` (app/admin/dev/dashboard/bitacora.ts):** no lo escribí porque esa carpeta es de Admin, que otro chat está
 rehaciendo (orden del Cerebro). Lo pega quien tenga Admin, con el pedido de Martín textual de arriba y el commit de esta punta.
 
-**Capturas:** `docs/dashboards/edicion/` (Marketing y Mi día editando, 1.440, claro; sacadas antes de los modos claro/oscuro).
+**Segunda vuelta (misma noche): lo que vio el navegador.** «Velocidad de llamada» **no se ofrecía** en «Nueva hoja» ni en la API: la
+regla exigía un diseño propio de la hoja y ésta está hecha de tarjetas de tres diseños. Arreglado (`traeDisenoCopiado`,
+lib/graficos-plantillas.ts) y los tests miran ahora la lista que se ofrece. El modo oscuro de 9 hojas, mirando y editando, se ve
+coherente (fondos, tarjetas, textos y gráficos se dan vuelta). A 390 px el editor de escritorio funciona en una ventana angosta, sin
+scroll de costado; el teléfono usa su propio Dashboard (`app/m/dashboard`, sin edición), que lee todos los gráficos de la hoja aunque
+estén plegados en «Todas las piezas», así que no cambia.
+
+**Capturas:** `docs/dashboards/edicion/`: Marketing y Mi día editando (1.440, claro); «Velocidad de llamada» mirando en oscuro y editando
+en claro; Marketing editando en oscuro; Closing, Cobranza, Chat Analyst y Automatizaciones en oscuro; Mi día (oscuro) y Marketing (claro)
+a 390 px.
 
 **Autocrítica (lo que cambié al revisarlo, y lo que no pude):**
 - La biblioteca mostraba las tarjetas a 1.324 px achicadas a 244: una tarjeta a lo ancho quedaba como una raya. Ahora se dibujan a 960 px.
@@ -58,10 +67,12 @@ rehaciendo (orden del Cerebro). Lo pega quien tenga Admin, con el pedido de Mart
 - La lista de animaciones empujaba la plantilla, el color y la letra fuera de la vista: va después de la letra, en tres columnas.
 - La tarjeta «Primer contacto» de Closing, editando y sin datos, ocupa su lugar con un recuadro punteado («se ve cuando…»); mirando, no
   ocupa nada.
-- **NO pude sacar las capturas a 390 px ni las de oscuro**: el servidor de desarrollo (Turbopack) llega a 13 GB y el contenedor lo mata
-  (lo mismo con webpack, que además no compila este repo por `node:crypto`). Las de 1.440 en claro de las 22 hojas, editando, sí salieron
-  (al principio de la tanda, sin errores de consola). **Falta mirar en el navegador:** el modo oscuro de cada diseño (se midió el contraste
-  con un script, no se miró), el celular y la hoja «Velocidad de llamada». Lo hace una sesión local o la próxima ventana.
+- Las capturas a 390 y en oscuro salieron en la segunda vuelta (el servidor de desarrollo entra con `MAKO_DEV_SIN_LOGIN=1` y 6 GB de
+  heap: docs/hallazgos-templates-dashboard.md §36). Mirarlas encontró que «Velocidad de llamada» no se podía crear: arreglado.
+- A 390 px, en el editor de escritorio, las seis cifras de Marketing van de a dos y «Costo por agenda» se corta con «…»: es una ventana
+  angosta de computadora, no el teléfono (que tiene su pantalla). Lo dejé así.
+- Sin datos de Closing, «Primer contacto» editando es un recuadro grande arriba de la hoja; mirando no ocupa nada. Con un cliente que
+  llama, se llena.
 - Los diseños copiados traen tonos de serie y semánticos claros bajo 3:1 o 4,5:1 (los listan los agentes: Marketing `good`/`warn`, Closing
   `amber`, Hooks el dorado, VSL el ocre, Inmobiliaria `good`/`warn`): no los toqué para no alejarme de la copia. Es decisión de Martín.
 

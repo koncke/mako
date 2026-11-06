@@ -727,8 +727,23 @@ Las trampas, medidas:
   cuatro agentes corriendo tests, antes). Webpack no compila este repo (`node:crypto` en el grafo del cliente). Las capturas largas van de
   a una hoja por arranque, o desde una sesión local.
 
-Lo que quedó SIN hacer: las capturas a 390 px y en oscuro; borrar los bloques de General viejos (sólo con el sí de Martín: tienen
-opciones que las tarjetas no tienen; la tabla de candidatos está en docs/relevo/nube-dashboards.md).
+- **Sí entra, con dos condiciones** (segunda vuelta, misma noche): `MAKO_DEV_SIN_LOGIN=1` (sin eso, cada página es el cartel «Falta
+  AUTH_SECRET», y una captura de ese cartel se lee como una hoja vacía) y `NODE_OPTIONS=--max-old-space-size=6144`, sin otros procesos
+  pesados. Así salieron 15 capturas seguidas, de a una por contexto, con el servidor en ~10 GB. Y el modo oscuro de la persona lo aplica el
+  layout SÓLO con sesión: el banco simula la elección con `localStorage['mako.modo'] = 'oscuro'` antes de cargar.
+- **Un test de «está en la galería» que mira la lista equivocada.** «Velocidad de llamada» se escribió, pasó su test («está en la galería
+  del Dashboard», sobre `PLANTILLAS_HOJA`) y NO se ofrecía: lo que ven «Nueva hoja» y la API es `PLANTILLAS_OFRECIDAS`, que exigía
+  `Hoja.diseno`, y una hoja hecha de tarjetas de TRES diseños no tiene uno propio. Lo vio el banco, no un test. Ahora la regla es
+  `traeDisenoCopiado` (el diseño entero o bloques copiados) y los dos tests miran la lista que se ofrece; probado rompiéndolo (2 rojos).
+  **Al probar que algo «se ofrece», se busca en la lista que lee la pantalla, nunca en el catálogo entero.**
+- **Un banco sin commitear en `app/` lo barre un test del disco**: `tests/zona-negocio.test.ts` contó las zonas de
+  `app/zz-banco-dash/BancoDash.tsx` y el veredicto dio rojo, y después el `tsc` entero falló por `.next/dev/types`, que el servidor de
+  desarrollo deja nombrando la ruta del banco. Antes de sacar el veredicto: el banco afuera del repo y `.next/dev` borrado.
+- **El «1 Issue» del servidor de desarrollo con el modo oscuro** es de antes y no es del Dashboard: el script de arranque pone
+  `data-tema` en `<html>` antes de hidratar, y React avisa que el atributo no estaba en el HTML del server. En producción no hace nada.
+
+Lo que quedó SIN hacer: borrar los bloques de General viejos (sólo con el sí de Martín: tienen opciones que las tarjetas no tienen; la
+tabla de candidatos está en docs/relevo/nube-dashboards.md).
 
 ## 11. Lo que quedó SIN hacer
 
