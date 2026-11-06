@@ -34,6 +34,11 @@
 //        --solo @cuenta | --solo '#tema'   Sólo esa fuente (aunque se haya leído hace poco). El # va entre comillas: en la
 //                                         consola, una palabra que empieza con # es un comentario.
 //        --solo-temas | --solo-cuentas
+//   links <url> [<url> …]        (6/11/2026) Suma a la biblioteca los carruseles de esos links de Instagram, de a 40 por
+//        [--archivo lista.txt]   corrida (~US$0,0027 cada uno: la receta medida de docs/hallazgos-carruseles.md, «Traer un
+//        [--de-verdad]           carrusel puntual: por su link, nunca por el perfil»). En seco dice cuántos son, cuáles no
+//        [--techo-usd 1]         entendió, cuáles ya estaban y cuánto puede costar. `--archivo` toma un link por renglón.
+//        [--de-nuevo]            Los que ya están guardados no se vuelven a pagar, salvo con --de-nuevo.
 //   buscar [--techo-usd 0.5]     Busca en Instagram, por su nombre, a los referentes del Ops Center que no están en la lista
 //                                y muestra los candidatos. No escribe nada: el bueno se suma con `sumar`.
 //   verificar @a [@b …] [--referente id | --nombre "Nombre"]   Lee esos perfiles (unos US$0,003 cada uno) y dice si son de
@@ -253,7 +258,6 @@ async function leer() {
   if (plan.alDia.length) console.log(`  Al día (leídas hace menos de una semana): ${plan.alDia.join(' ')}`);
   if (!deVerdad) return;
 
-  const db = getSupabaseServer();
   const conContenido = await hayColumnaContenido();
   if (!conContenido) console.log('  (Falta la 0393: se guarda sin la señal «parece contenido»; la pantalla la calcula del texto.)');
   const con0404 = await hayColumnas0404();
@@ -281,58 +285,25 @@ async function leer() {
       continue;
     }
     const items = r.cuerpo as Array<Record<string, unknown>>;
-    // De quién es cada publicación: en una cuenta, de ella; en un tema, de su dueño (cada una de alguien distinto).
-    const creadorDe = new Map<string, { instagram: string; nombre: string }>();
-    for (const it of items) {
-      const ref = typeof it.shortCode === 'string' ? it.shortCode : '';
-      const cr = l.fuente.tipo === 'cuenta' ? { instagram: l.fuente.instagram, nombre: l.fuente.nombre } : B.creadorDelItem(it);
-      if (ref && cr) creadorDe.set(ref, cr);
-    }
-    // El texto alternativo de la portada (lo que Instagram escribe para las personas ciegas): dice el tipo y si es de
-    // personas. Se lee si vino; NO se guarda (sólo lo que se deduce de él).
-    const altDe = new Map<string, string>();
-    for (const it of items) { const ref = typeof it.shortCode === 'string' ? it.shortCode : ''; const alt = C.altDelItem(it); if (ref && alt) altDe.set(ref, alt); }
-    conPortada += altDe.size;
     llegaronTodas += items.length;
     if (l.fuente.tipo === 'cuenta' && B.cuentaDudosa(items.length)) {
       console.log(`  ⚠ @${l.fuente.instagram} trajo ${items.length} de ${l.cuantas} publicaciones: puede no ser su cuenta, o es privada. Confírmala: \`verificar @${l.fuente.instagram} --nombre "${l.fuente.nombre}"\`.`);
     }
-    const piezas = piezasDeApify(items)
-      .map((p: { ref: string }) => ({ ...p, creador: creadorDe.get(p.ref)?.instagram ?? '', alt: altDe.get(p.ref) ?? null }));
-    const filas: Array<Record<string, unknown> & { creador: string; ref: string }> = B.filasDeLectura(piezas, {
-      tema: l.fuente.tipo === 'tema' ? l.fuente.id : null, fuera, tope: l.fuente.tipo === 'tema' ? maxCarruseles - guardados : undefined,
+    const g = await guardarLeidas(items, {
+      rotulo,
+      // De quién es cada publicación: en una cuenta, de ella; en un tema, de su dueño (cada una de alguien distinto).
+      creador: l.fuente.tipo === 'cuenta' ? () => ({ instagram: l.fuente.instagram, nombre: l.fuente.nombre }) : (it: unknown) => B.creadorDelItem(it),
+      tema: l.fuente.tipo === 'tema' ? l.fuente.id : null,
+      tope: l.fuente.tipo === 'tema' ? maxCarruseles - guardados : undefined,
+      fuera, anotarCreadores: l.fuente.tipo === 'tema', conContenido, con0404,
     });
-    if (!filas.length) { console.log(`  · ${rotulo}: ${items.length} publicaciones, ningún carrusel nuevo para guardar.`); await marcarLeida(l); continue; }
-    // Los creadores que llegaron por un tema se anotan (fuente 'tema'); los que ya estaban no se tocan.
-    const nuevos = [...new Set(filas.map((f) => f.creador))]
-      .map((ig) => ({ instagram: ig, nombre: (creadorDe.get(filas.find((f) => f.creador === ig)?.ref ?? '')?.nombre ?? ig).slice(0, 120), fuente: 'tema', cambiada_por: 'script' }));
-    if (l.fuente.tipo === 'tema' && nuevos.length) {
-      const ins = await db.from(S.T_CUENTAS).upsert(nuevos, { onConflict: 'instagram', ignoreDuplicates: true });
-      if (ins.error) { console.log(`  ✖ ${rotulo}: no pude anotar a sus creadores (${ins.error.message}). Sigue con la próxima.`); continue; }
-    }
-    const ids = await db.from(S.T_CUENTAS).select('id, instagram, estado').in('instagram', nuevos.map((n) => n.instagram));
-    if (ids.error) { console.log(`  ✖ ${rotulo}: no pude leer a sus creadores (${ids.error.message}).`); continue; }
-    const idDe = new Map<string, number>();
-    for (const c of (ids.data ?? []) as Array<{ id: number; instagram: string; estado: string }>) if (c.estado === 'activa') idDe.set(c.instagram, c.id);
-    const conId = filas.filter((f: { creador: string }) => idDe.has(f.creador));
-    // La miniatura se BAJA a nuestro bucket (la del CDN de Instagram vence y da 403 desde otro dominio).
-    const conFoto = await (await imp('lib/spy-miniaturas.ts')).guardarMiniaturas(conId.map((f: Record<string, unknown>) => ({ ...f, canal: 'instagram' })));
-    // Las láminas (0404): se bajan a nuestro bucket; si no bajaron todas, no se guardan (la próxima `laminas` las completa).
-    for (const f of conFoto as Array<Record<string, unknown>>) {
-      const urls = Array.isArray(f.laminas_imagenes) ? (f.laminas_imagenes as string[]) : [];
-      f.laminas_imagenes = con0404 && urls.length ? await S.bajarLaminas(String(f.ref), urls) : null;
-      if (f.laminas_imagenes) conLaminas += 1;
-    }
-    const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, laminas_imagenes, cta, cta_via, ...f }: Record<string, unknown>) => ({
-      ...f, ...(conContenido ? { parece_contenido } : {}), ...(con0404 ? { cta, cta_via, ...(laminas_imagenes ? { laminas_imagenes } : {}) } : {}),
-      cuenta_id: idDe.get(String(creador)),
-    }));
-    const up = await db.from(S.T_PIEZAS).upsert(aGuardar, { onConflict: 'ref' });
-    if (up.error) { console.log(`  ✖ ${rotulo}: no pude guardar (${up.error.message}). Sigue con la próxima.`); continue; }
-    const carruseles = aGuardar.filter((f: { medio?: unknown }) => f.medio === 'carrusel');
-    guardados += carruseles.length;
-    for (const f of carruseles) porFormato.set(String(f.formato ?? 'sin tipo'), (porFormato.get(String(f.formato ?? 'sin tipo')) ?? 0) + 1);
-    console.log(`  ✔ ${rotulo}: ${items.length} publicaciones → ${carruseles.length} carruseles guardados${aGuardar.length > carruseles.length ? ` (y ${aGuardar.length - carruseles.length} imágenes, para el outlier de la cuenta)` : ''}.`);
+    conPortada += g.conPortada;
+    if (g.error) { console.log(`  ✖ ${rotulo}: ${g.error}`); continue; }
+    if (!g.total) { console.log(`  · ${rotulo}: ${items.length} publicaciones, ningún carrusel nuevo para guardar.`); await marcarLeida(l); continue; }
+    conLaminas += g.conLaminas;
+    guardados += g.carruseles.length;
+    for (const f of g.carruseles) porFormato.set(String(f.formato ?? 'sin tipo'), (porFormato.get(String(f.formato ?? 'sin tipo')) ?? 0) + 1);
+    console.log(`  ✔ ${rotulo}: ${items.length} publicaciones → ${g.carruseles.length} carruseles guardados${g.total > g.carruseles.length ? ` (y ${g.total - g.carruseles.length} imágenes, para el outlier de la cuenta)` : ''}.`);
     await marcarLeida(l);
   }
   const { por: por1, total: c1 } = await creditos(ks);
@@ -342,6 +313,69 @@ async function leer() {
     console.log(`  Crédito de Apify: usado en total ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
     imprimirCredito(ks, por1);
   }
+}
+
+/**
+ * Guarda lo que devolvió el actor: clasifica cada publicación (`filasDeLectura`), anota a los creadores que no estaban, baja
+ * la miniatura y las láminas a nuestro bucket y hace el upsert por `ref`. Lo usan `leer` (por cuenta y por tema) y `links`
+ * (una publicación suelta): una sola copia de las seis cosas que hay que hacer bien para que PostgREST no rechace la fila.
+ *
+ * `creador` dice de quién es cada ítem (en una cuenta, de ella; en un tema o un link, de su dueño). `anotarCreadores` suma a
+ * la lista los que no estaban, con `fuente: 'tema'` (no se leen enteros: de su cuenta no se midió nada).
+ */
+async function guardarLeidas(
+  items: Array<Record<string, unknown>>,
+  o: {
+    rotulo: string; creador: (it: Record<string, unknown>) => { instagram: string; nombre: string } | null;
+    tema: number | null; tope?: number; fuera: ReadonlySet<string>; anotarCreadores: boolean; conContenido: boolean; con0404: boolean;
+  },
+): Promise<{ carruseles: Array<Record<string, unknown>>; total: number; conLaminas: number; conPortada: number; error?: string }> {
+  const db = getSupabaseServer();
+  const vacio = { carruseles: [] as Array<Record<string, unknown>>, total: 0, conLaminas: 0 };
+  const creadorDe = new Map<string, { instagram: string; nombre: string }>();
+  for (const it of items) {
+    const ref = typeof it.shortCode === 'string' ? it.shortCode : '';
+    const cr = o.creador(it);
+    if (ref && cr) creadorDe.set(ref, cr);
+  }
+  // El texto alternativo de la portada (lo que Instagram escribe para las personas ciegas): dice el tipo y si es de
+  // personas. Se lee si vino; NO se guarda (sólo lo que se deduce de él).
+  const altDe = new Map<string, string>();
+  for (const it of items) { const ref = typeof it.shortCode === 'string' ? it.shortCode : ''; const alt = C.altDelItem(it); if (ref && alt) altDe.set(ref, alt); }
+  const conPortada = altDe.size;
+  const piezas = piezasDeApify(items)
+    .map((p: { ref: string }) => ({ ...p, creador: creadorDe.get(p.ref)?.instagram ?? '', alt: altDe.get(p.ref) ?? null }));
+  const filas: Array<Record<string, unknown> & { creador: string; ref: string }> = B.filasDeLectura(piezas, { tema: o.tema, fuera: o.fuera, tope: o.tope });
+  if (!filas.length) return { ...vacio, conPortada };
+  // Los creadores que no estaban se anotan (fuente 'tema'); los que ya estaban no se tocan.
+  const nuevos = [...new Set(filas.map((f) => f.creador))]
+    .map((ig) => ({ instagram: ig, nombre: (creadorDe.get(filas.find((f) => f.creador === ig)?.ref ?? '')?.nombre ?? ig).slice(0, 120), fuente: 'tema', cambiada_por: 'script' }));
+  if (o.anotarCreadores && nuevos.length) {
+    const ins = await db.from(S.T_CUENTAS).upsert(nuevos, { onConflict: 'instagram', ignoreDuplicates: true });
+    if (ins.error) return { ...vacio, conPortada, error: `no pude anotar a sus creadores (${ins.error.message}). Sigue con la próxima.` };
+  }
+  const ids = await db.from(S.T_CUENTAS).select('id, instagram, estado').in('instagram', nuevos.map((n) => n.instagram));
+  if (ids.error) return { ...vacio, conPortada, error: `no pude leer a sus creadores (${ids.error.message}).` };
+  const idDe = new Map<string, number>();
+  for (const c of (ids.data ?? []) as Array<{ id: number; instagram: string; estado: string }>) if (c.estado === 'activa') idDe.set(c.instagram, c.id);
+  const conId = filas.filter((f: { creador: string }) => idDe.has(f.creador));
+  if (!conId.length) return { ...vacio, conPortada };
+  // La miniatura se BAJA a nuestro bucket (la del CDN de Instagram vence y da 403 desde otro dominio).
+  const conFoto = await (await imp('lib/spy-miniaturas.ts')).guardarMiniaturas(conId.map((f: Record<string, unknown>) => ({ ...f, canal: 'instagram' })));
+  // Las láminas (0404): se bajan a nuestro bucket; si no bajaron todas, no se guardan (la próxima `laminas` las completa).
+  let conLaminas = 0;
+  for (const f of conFoto as Array<Record<string, unknown>>) {
+    const urls = Array.isArray(f.laminas_imagenes) ? (f.laminas_imagenes as string[]) : [];
+    f.laminas_imagenes = o.con0404 && urls.length ? await S.bajarLaminas(String(f.ref), urls) : null;
+    if (f.laminas_imagenes) conLaminas += 1;
+  }
+  const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, laminas_imagenes, cta, cta_via, ...f }: Record<string, unknown>) => ({
+    ...f, ...(o.conContenido ? { parece_contenido } : {}), ...(o.con0404 ? { cta, cta_via, ...(laminas_imagenes ? { laminas_imagenes } : {}) } : {}),
+    cuenta_id: idDe.get(String(creador)),
+  }));
+  const up = await db.from(S.T_PIEZAS).upsert(aGuardar, { onConflict: 'ref' });
+  if (up.error) return { ...vacio, conPortada, error: `no pude guardar (${up.error.message}). Sigue con la próxima.` };
+  return { carruseles: aGuardar.filter((f: { medio?: unknown }) => f.medio === 'carrusel'), total: aGuardar.length, conLaminas, conPortada };
 }
 
 async function marcarLeida(l: { fuente: { tipo: string; id: number } }) {
@@ -510,7 +544,6 @@ async function laminas() {
   const pagan = conCredito(ks, por0);
   let guardadas = 0;
   let sinImagenes = 0;
-  let cortoApify = false;
   let pedidos = 0;   // cuántos links ya se pidieron
   let cobrado = 0;   // lo que Apify cobró, contado por lo que LLEGÓ (no por el techo de la tanda, que lleva margen)
   let nTanda = 0;
@@ -529,7 +562,7 @@ async function laminas() {
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
       if (r && esFaltaDeCredito(r.status, r.cuerpo)) {
         console.log(`  ✖ Apify dice que no queda crédito en ninguna clave (iba por la tanda ${nTanda}, ${conLink.length - pedidos + links.length} links sin leer). Corta acá; lo guardado queda.`);
-        cortoApify = true;
+        corte = 'apify';
         break;
       }
       console.log(`  ✖ Tanda ${nTanda}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
@@ -553,9 +586,123 @@ async function laminas() {
   const { total: c1 } = await creditos(ks);
   const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
   console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
-  // Por qué no siguió, con el número: nunca un «al techo» mudo. Si Apify cortó antes que el techo, lo dice eso y no el techo.
-  if (cortoApify) console.log('  Paró porque Apify dijo que no queda crédito en ninguna clave: cargá crédito y volvé a correrlo.');
-  else console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
+  // Por qué no siguió, con el número: nunca un «al techo» mudo. Un corte de Apify a mitad se dice como tal, no como el techo.
+  console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
+  if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);
+}
+
+/**
+ * Suma a la biblioteca los carruseles de los links que pase Martín (6/11/2026). Cada publicación se pide POR SU LINK, de a 40
+ * por corrida de Apify: la receta medida de docs/hallazgos-carruseles.md («Traer un carrusel puntual: por su link, nunca por
+ * el perfil» — 244 de 245 a ~US$0,0025, contra US$4,71 y 1 de 245 leyendo a sus creadores por perfil).
+ *
+ * En seco por defecto: dice cuántos links son, cuáles no entendió, cuáles ya estaban y cuánto puede costar. Con `--de-verdad`
+ * los lee y los guarda, con los dos techos de siempre (el pedido y el crédito libre del mes).
+ */
+async function links() {
+  const deVerdad = args.op.get('de-verdad') === true;
+  const techoPedido = num('techo-usd', 1);
+  const deNuevo = args.op.get('de-nuevo') === true;
+  const archivo = txt('archivo');
+  // Los links: los que vinieron en la línea de comandos, más los de un archivo (uno por renglón) si se pidió.
+  const pedidos = [...args.posicionales];
+  if (archivo) {
+    const { readFileSync } = await import('node:fs');
+    try { pedidos.push(...readFileSync(archivo, 'utf8').split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch (e) {
+      console.log(`✖ No pude leer ${archivo}: ${e instanceof Error ? e.message : String(e)}`);
+      process.exit(1);
+    }
+  }
+  if (!pedidos.length) {
+    console.log('Uso: links https://www.instagram.com/p/XXX/ [https://… …] [--archivo lista.txt] [--de-verdad] [--techo-usd 1] [--de-nuevo]');
+    process.exit(1);
+  }
+  console.log(deVerdad ? '▶ Links DE VERDAD (gasta y guarda).' : '▶ En seco: no gasta ni escribe. Para leerlos, agrega --de-verdad.');
+  if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392. No se gastó nada.'); process.exit(2); }
+  const db = getSupabaseServer();
+  const conContenido = await hayColumnaContenido();
+  const con0404 = await hayColumnas0404();
+  if (!con0404) console.log('  (Falta la 0404: se guarda sin las láminas ni el CTA; la tarjeta muestra la portada sola.)');
+  // Lo que ya está guardado, para no pagarlo dos veces. Y lo ESCONDIDO se avisa: volver a leerlo no lo revive (el upsert por
+  // `ref` no toca `dejo_de_verse_en`), así que un link escondido guardado de nuevo seguiría sin verse.
+  const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
+  const guardados = new Set<string>();
+  const escondidos = new Set<string>();
+  await leerPorPaginas(db, S.T_PIEZAS, 'ref, dejo_de_verse_en', (p: Array<Record<string, unknown>>) => {
+    for (const f of p) { const ref = String(f.ref ?? ''); if (!ref) continue; guardados.add(ref); if (f.dejo_de_verse_en) escondidos.add(ref); }
+  });
+  const cuentas = (await S.cuentasDeBiblioteca()) ?? [];
+  const fuera = new Set<string>(cuentas.filter((c: { estado: string }) => c.estado === 'excluida').map((c: { instagram: string }) => c.instagram));
+
+  const { ks, por: por0, total: c0 } = await clavesParaGastar();
+  const tope = B.motivoDelTecho(techoPedido, c0, B.RESERVA_CREDITO_USD) as { techo: number | null; motivo: string; porque: string };
+  const techo = tope.techo ?? 0;
+  const plan = B.planDeLinks(pedidos, { techoUsd: techo, yaGuardados: deNuevo ? undefined : guardados }) as {
+    links: Array<{ ref: string; url: string }>; noSonLinks: string[]; repetidos: number; yaEstaban: number;
+    tandas: Array<{ cuantos: number; techoUsd: number }>; probableUsd: number; quedanFuera: number; corte: string;
+  };
+  console.log(`  ${pedidos.length} pedido(s) → ${plan.links.length} link(s) para leer${plan.repetidos ? `, ${plan.repetidos} repetido(s)` : ''}${plan.yaEstaban ? `, ${plan.yaEstaban} ya en la biblioteca (con --de-nuevo se vuelven a leer)` : ''}.`);
+  for (const x of plan.noSonLinks) console.log(`  ⚠ No es un link de una publicación de Instagram, no se pide: «${x}»`);
+  const yaEscondidos = plan.links.filter((l) => escondidos.has(l.ref));
+  for (const l of yaEscondidos) console.log(`  ⚠ ${l.url} está guardado pero ESCONDIDO: leerlo de nuevo no lo revive. Para que se vea: update carruseles_biblioteca_piezas set dejo_de_verse_en = null where ref = '${l.ref}';`);
+  if (!plan.links.length) { console.log('  Nada que leer. No se gastó nada.'); return; }
+  imprimirCredito(ks, por0);
+  console.log(`  Puede gastar hasta ${usd(techo)} — ${tope.porque}.`);
+  console.log(`  Plan: ${plan.tandas.length} tanda(s) de hasta ${B.LINKS_POR_TANDA} links → ${plan.links.length - plan.quedanFuera} de ${plan.links.length}. Lo probable, ${usd(plan.probableUsd)} (US$${B.USD_POR_LINK_MEDIDO.toFixed(4)} por link, medido).`);
+  if (plan.quedanFuera) console.log(`  ⚠ ${B.porQueParo({ ...plan, motivo: tope.motivo, porque: tope.porque, techo: tope.techo })}`);
+  if (!deVerdad) return;
+  if (!plan.tandas.length) { console.log('  No se gastó nada.'); return; }
+
+  const pagan = conCredito(ks, por0);
+  // ⚠️ Cada comando de este script trae sus piezas por dentro (`const { … } = await imp(…)`): eso NO es un import del
+  // módulo, así que lo que usan dos comandos se trae en los dos. `laminas` lo trae aparte.
+  const { entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
+  let pedidosHechos = 0;
+  let cobrado = 0;
+  let nTanda = 0;
+  let corte = 'todo';
+  let guardadosOk = 0;
+  let conLaminas = 0;
+  let sinTraer = 0;
+  const porFormato = new Map<string, number>();
+  while (pedidosHechos < plan.links.length) {
+    // La misma regla del plan, con lo que Apify ya cobró de verdad (lo que LLEGÓ, no el techo de la tanda).
+    const tanda = B.siguienteTanda(plan.links.length - pedidosHechos, Math.round((techo - cobrado) * 100) / 100) as { cuantos: number; techoUsd: number } | null;
+    if (!tanda) { corte = techo <= 0 ? 'sin-techo' : 'techo'; break; }
+    const lote = plan.links.slice(pedidosHechos, pedidosHechos + tanda.cuantos);
+    pedidosHechos += lote.length;
+    nTanda += 1;
+    const entrada = { ...entradaDeUnaPublicacion(lote[0].url), directUrls: lote.map((l) => l.url), resultsLimit: 1 };
+    const q = new URLSearchParams({ maxItems: String(lote.length), maxTotalChargeUsd: String(tanda.techoUsd), timeout: '280' });
+    const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) })));
+    if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
+      // ⚠️ Un «no queda crédito» de Apify NO es el techo: si se lo contara como techo, el renglón final diría «llegué al tope
+      // que me pediste» con un tope que todavía tenía lugar. Lo dice esto y nada más.
+      if (r && esFaltaDeCredito(r.status, r.cuerpo)) { console.log(`  ✖ Apify dice que no queda crédito en ninguna clave (iba por la tanda ${nTanda}, ${plan.links.length - pedidosHechos + lote.length} links sin leer). Corta acá; lo guardado queda.`); corte = 'apify'; break; }
+      console.log(`  ✖ Tanda ${nTanda}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
+      continue;
+    }
+    const items = r.cuerpo as Array<Record<string, unknown>>;
+    cobrado = Math.round((cobrado + items.length * B.USD_POR_LINK_MEDIDO) * 100) / 100;
+    // Lo que el actor no devolvió: borrados, privados, o un link mal copiado. Se dice uno por uno, no en un total mudo.
+    const vinieron = new Set(items.map((it) => String(it.shortCode ?? '')));
+    for (const l of lote) if (!vinieron.has(l.ref)) { sinTraer += 1; console.log(`  ✖ ${l.url}: el actor no lo devolvió (borrado, privado, o el link no existe).`); }
+    // Un link suelto va con `tema: null` (se guardan carruseles e imágenes, no reels ni videos) y su creador se anota.
+    const g = await guardarLeidas(items, {
+      rotulo: `tanda ${nTanda}`, creador: (it: unknown) => B.creadorDelItem(it),
+      tema: null, fuera, anotarCreadores: true, conContenido, con0404,
+    });
+    if (g.error) { console.log(`  ✖ Tanda ${nTanda}: ${g.error}`); continue; }
+    conLaminas += g.conLaminas;
+    guardadosOk += g.total;
+    for (const f of g.carruseles) porFormato.set(String(f.formato ?? 'sin tipo'), (porFormato.get(String(f.formato ?? 'sin tipo')) ?? 0) + 1);
+    const noEntraron = items.length - g.total;
+    console.log(`  ✔ Tanda ${nTanda}: ${lote.length} links → ${g.carruseles.length} carruseles${g.total > g.carruseles.length ? ` y ${g.total - g.carruseles.length} imágenes` : ''} guardados${noEntraron > 0 ? ` (${noEntraron} no entran: un reel, un video, su creador salió de la biblioteca, o el actor no dijo de quién es)` : ''}. Apify cobró ${usd(cobrado)} de ${usd(techo)}.`);
+  }
+  const { total: c1 } = await creditos(ks);
+  const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
+  console.log(`▶ Listo: ${guardadosOk} publicaciones guardadas (${conLaminas} con sus láminas), ${sinTraer} que el actor no dio. Por tipo: ${[...porFormato].map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}.`);
+  console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: plan.links.length - pedidosHechos, gastado })}`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);
 }
 
@@ -572,6 +719,7 @@ switch (args.comando) {
   case 'verificar': await verificar(); break;
   case 'reclasificar': await reclasificar(); break;
   case 'laminas': await laminas(); break;
+  case 'links': await links(); break;
   case 'sumar':
     if (!args.posicional) { console.log('Falta el @usuario.'); process.exit(1); }
     await cambio({ que: 'cuenta', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^@/, ''), referente: txt('referente') });
@@ -585,6 +733,6 @@ switch (args.comando) {
     await cambio({ que: 'tema', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^#/, '') });
     break;
   default:
-    console.log(`No conozco «${args.comando}». Comandos: estado, leer, buscar, verificar, reclasificar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
+    console.log(`No conozco «${args.comando}». Comandos: estado, leer, links, buscar, verificar, reclasificar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
     process.exit(1);
 }

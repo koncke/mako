@@ -41,7 +41,8 @@ const CHART_KEY = 'mako:persona-de-prueba';
 async function main() {
   const { confirmarDesdeTarjeta } = await import('../lib/mako-turno-app');
   const { canalKeyDeSesion } = await import('../lib/mako-turno-app-reglas');
-  const { catalogoPlantillas } = await import('../app/image-editor/mako/plantillas');
+  // Una plantilla de MaKo (6/11/2026: las 10 de Doory se borraron, y son las reales las que acepta `crear_diseno_imagen`).
+  const { PLANTILLAS_IMAGEN } = await import('../lib/image-editor/plantillas-reales');
   const db = pg.db;
   db.workspaces.push({ id: WS, nombre: 'Prueba', slug: 'prueba', estado: 'activo', capa: 'completo', created_at: ahoraIso() });
   db.chart_sessions.push({ id: SESION, workspace_id: WS, chart_key: CHART_KEY, titulo: 'Diseños', contexto: null, pinned: false, archived: false, created_at: ahoraIso(), updated_at: ahoraIso() });
@@ -52,13 +53,14 @@ async function main() {
     resumen: 'Crear el diseño', estado: 'pendiente', vence_at: vence, created_at: new Date(Date.now() - 60_000).toISOString(),
   });
 
-  const slug = catalogoPlantillas()[0]?.slug ?? '';
+  const real = PLANTILLAS_IMAGEN[0];
+  const slug = real?.id ?? '';
   pendiente(11, { titulo: 'Promo de octubre', tamano: 'publicacion_vertical' });
   pendiente(12, { titulo: 'Desde plantilla', plantilla: slug });
   const enBlanco = await confirmarDesdeTarjeta(persona, SESION, 11);
   const dePlantilla = await confirmarDesdeTarjeta(persona, SESION, 12);
   process.stdout.write(JSON.stringify({
-    enBlanco, dePlantilla, slug,
+    enBlanco, dePlantilla, slug, medida: [real?.ancho ?? 0, real?.alto ?? 0],
     guardados: db.chart_chats.map((m) => ({ session_id: m.session_id, role: m.role, content: m.content, bloques: m.bloques })),
     disenos: db.image_disenos.map((d) => d.id),
     red,

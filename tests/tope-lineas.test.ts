@@ -52,8 +52,12 @@ test('3. la ruta y la pantalla: un 403 con el tope, y el cartel corto con «Pasa
   const pantalla = leer('app/whatsapp/EvolutionConnect.tsx');
   assert.match(pantalla, /if \(!body\.ok && body\.tope != null && body\.pasarAPro\) \{ setTope\(\{ texto: body\.error \?\? '', pasarAPro: body\.pasarAPro \}\); return; \}/);
   assert.equal([...pantalla.matchAll(/\{tope && <CartelTope \{\.\.\.tope\} \/>\}/g)].length, 2, 'en el panel y en el modal');
-  const cartel = pantalla.slice(pantalla.indexOf('function CartelTope'), pantalla.indexOf('function CartelTope') + 700);
+  // La ventana termina donde termina la función (era un +700, y el envoltorio del 6/11 corrió el `<a>` más abajo).
+  const desde = pantalla.indexOf('function CartelTope');
+  const cartel = pantalla.slice(desde, pantalla.indexOf('\n}', desde));
   assert.match(cartel, /<a href=\{pasarAPro\}[^>]*>Pasar a Pro<\/a>/);
+  // El cliente de una agencia no compra la línea: el link va envuelto (6/11/2026, #494; tests/cliente-de-agencia-y-partners-2910.test.ts).
+  assert.match(cartel, /<CtaPasarAPro>/);
   assert.doesNotMatch(cartel, /var\(--bad/, 'el tope no es un error');
 });
 

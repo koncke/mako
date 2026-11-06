@@ -14,9 +14,7 @@ import { linkApp } from '@/lib/app-url';
 import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, listarDisenos } from '@/lib/image-editor/server';
 import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { catalogoPlantillas, documentoDePlantilla } from '@/app/image-editor/mako/plantillas';
 import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantillas-reales';
-import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
 import { replicarCarrusel, replicarEjemplo } from '@/lib/carruseles/replica-servidor';
@@ -50,9 +48,10 @@ function bloqueDiseno(id: string, d: { titulo: string; ancho?: number; alto?: nu
   };
 }
 
-/** El diseño nuevo que pide la entrada: de una plantilla, de un tamaño con nombre o a medida. `miniatura` es la de la
- *  plantilla (la de Doory, en `public/cv/plantillas/`): el diseño recién creado todavía no tiene la suya. */
-async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown; que: string; ancho: number; alto: number; nota: string; miniatura?: string } | { error: string; faltan?: string[] }> {
+/** El diseño nuevo que pide la entrada: de una plantilla real, de un tamaño con nombre o a medida. Sin miniatura: la
+ *  traían las 10 de Doory (`public/cv/plantillas/<slug>.webp`, borradas el 6/11/2026) y un diseño recién creado todavía
+ *  no tiene la suya, así que el chat dibuja el marco con «ancho × alto». */
+async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown; que: string; ancho: number; alto: number; nota: string } | { error: string; faltan?: string[] }> {
   const plantilla = str(input, 'plantilla');
   // Una plantilla real (6/11/2026) nace con su ESTRUCTURA, como en «Nuevo diseño»: los textos dicen qué va en cada capa.
   const real = plantilla ? plantillaImagen(plantilla) : null;
@@ -62,15 +61,8 @@ async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown;
       nota: `Estructura de «${real.nombre}»: cambia sus textos con cambiar_textos_diseno_imagen`,
     };
   }
-  if (plantilla) {
-    const doc = await documentoDePlantilla(plantilla);
-    if (!doc) return { error: `No existe la plantilla «${plantilla}». Usa listar_plantillas_imagen.`, faltan: ['plantilla'] };
-    const t = catalogoPlantillas().find((p) => p.slug === plantilla);
-    return {
-      doc, que: `a partir de la plantilla «${t?.titulo ?? plantilla}»`, ancho: t?.ancho ?? 0, alto: t?.alto ?? 0,
-      nota: `De la plantilla «${t?.titulo ?? plantilla}»`, miniatura: `/cv/plantillas/${plantilla}.webp`,
-    };
-  }
+  // Las 10 de Doory se borraron (6/11/2026): no quedan plantillas de «diseño libre», sólo las reales de MaKo.
+  if (plantilla) return { error: `No existe la plantilla «${plantilla}». Usa listar_plantillas_imagen.`, faltan: ['plantilla'] };
   const ancho = input.ancho;
   const alto = input.alto;
   if (typeof ancho === 'number' || typeof alto === 'number') {
@@ -161,11 +153,11 @@ export const RUNNERS: Runners = {
     leer: async () => JSON.stringify({
       // Las de MaKo (6/11/2026, lib/image-editor/plantillas-reales.ts): se crean con su estructura; `ejemplo` son los textos
       // de la misma composición llena, de un negocio ficticio, para escribir los del negocio con esa forma.
+      // Son las ÚNICAS: las 10 de Doory que salían en `plantillas` se borraron el 6/11/2026 (eran material ajeno).
       reales: PLANTILLAS_IMAGEN.map((p) => ({
         id: p.id, nombre: p.nombre, cuando: p.cuando, grupo: p.grupo, ancho: p.ancho, alto: p.alto, paginas: p.paginas,
         pide: p.pide, ejemplo: { negocio: `${p.negocio} (ficticio)`, textos: textosDe(p.ejemplo(randomUUID)) },
       })),
-      plantillas: catalogoPlantillas(await senalesDelNegocio().catch(() => null)),
     }),
   },
 
@@ -183,7 +175,7 @@ export const RUNNERS: Runners = {
       const r = await crearDiseno(ctx.ws, QUIEN, { titulo, doc: n.doc });
       if (!r.ok) return { ok: false, resumen: `No se pudo crear (${r.error}).` };
       const url = link(r.id, ctx.ws);
-      const bloque = bloqueDiseno(r.id, { titulo, ancho: n.ancho, alto: n.alto, miniatura: n.miniatura, estado: 'Nuevo', nota: n.nota });
+      const bloque = bloqueDiseno(r.id, { titulo, ancho: n.ancho, alto: n.alto, estado: 'Nuevo', nota: n.nota });
       return { ok: true, resumen: `Creado. Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url, bloque } };
     },
   },

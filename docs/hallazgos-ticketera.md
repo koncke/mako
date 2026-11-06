@@ -1082,15 +1082,23 @@ pidió la baja los sigue recibiendo» (docs/relevo/nube-tickets.md).
   `usuario_id is not null`: un ticket por WhatsApp sin perfil o el de un alumno de un curso nunca generó un correo de
   avance. No había correos de más que frenar. Lo que faltaba era el LUGAR donde guardar su «no me escribas» para el día
   que un camino nuevo le escriba — y eso es lo que la 0410 deja hecho, no un correo que hoy salga mal.
-- **Y el otro camino por el que alguien podría pedir la baja y seguir recibiendo: HOY NO LE PASA A NADIE, y hay que decirlo
-  así.** La baja vivía en `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. Una fila de `usuarios` no es
-  una persona: es una persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053). Quien trabaja en
-  su cuenta y en la de un cliente de su agencia tendría dos filas con la misma dirección: apretaría «Dejar de recibirlos»
-  en el correo de un negocio y los seguiría recibiendo por el otro, a la misma casilla.
-  **⚠️ Medido en producción el 6/11/2026: direcciones con más de una fila en `usuarios` = 0.** O sea que el mecanismo es
-  real y el esquema lo permite, pero **no hubo ninguna persona afectada**. Esto es preventivo, no una reparación, y
-  confundir las dos cosas manda a alguien a buscar una víctima que no existe. La consulta, para repetirla:
-  `select count(*) from (select email from usuarios where email is not null and email <> '' group by email having count(*) > 1) x;`
+- **Y el otro camino por el que alguien podría pedir la baja y seguir recibiendo: ~~HOY NO LE PASA A NADIE~~ NO EXISTE.**
+  La baja vivía en `usuarios.perfil.ticketsPorEmail`, o sea en una FILA de `usuarios`. De ahí salió: «una fila de
+  `usuarios` no es una persona: es una persona **en un negocio**, y `usuarios(email)` tiene un índice **NO único** (0053);
+  quien trabaja en su cuenta y en la de un cliente de su agencia tendría dos filas con la misma dirección».
+  **⚠️⚠️ ESO ES FALSO, y fue el diagnóstico que gobernó la tanda entera (corregido el 6/11/2026).** La 0053 declara
+  `email text not null unique` y ninguna migración lo saca; medido contra la base que está corriendo,
+  `usuarios_email_key` = `UNIQUE (email)`, y el `idx_usuarios_email` que se citó es un índice de **MÁS**, no único, al
+  lado del único. La misma dirección **no puede** tener dos filas. Así que el «0 direcciones con más de una fila» que se
+  midió ese día no era «el esquema lo permite pero todavía no le pasó a nadie»: era la base haciendo su trabajo. Y es a
+  propósito — la 0178 construye `agencia_altas` entera sobre que «el email es LA identidad: `usuarios.email` es único», y
+  una persona que trabaja en la cuenta de un cliente de su agencia entra con la **cookie firmada de agencia** y su cartera
+  aprobada (`agencia_clientes`, 0175), no con una segunda fila. Para repetir la medición:
+  `select i.relname, ix.indisunique from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid where t.relname = 'usuarios';`
+  **Lo que NO cambia:** la 0410 se queda y su razón de ser también, porque la de arriba (quien no tiene cuenta no tenía
+  dónde guardar su «no me escribas») es independiente y sí es real. Lo que se cae es el segundo argumento.
+  El hallazgo completo —cómo se leyó un índice de más como el único, y qué quedó escrito en tres lugares— está en
+  [docs/hallazgos-ajustes.md](hallazgos-ajustes.md) → «El índice de más que se leyó como el único».
 
 **Entonces, ¿qué se arregló de verdad?** Dos cosas chicas y ciertas, y conviene no inflarlas: (1) ahora existe el lugar
 donde guardar un «no me escribas» de quien no tiene cuenta, que antes no existía; y (2) se puede pedir la baja **desde

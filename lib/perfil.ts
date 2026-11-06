@@ -377,12 +377,43 @@ const IN_APP_KEY = 'notifInApp';
 
 type FilaPropia = { id: number; perfil: Record<string, unknown>; rol: RolPush; workspaceId: number | null };
 
+/** Lo que ve la persona cuando la lectura de su fila falla. Arranca con lo que puede hacer, y el motivo técnico va al log. */
+const NO_PUDE_LEER = 'Vuelve a intentarlo: no pude leer tu cuenta.';
+
+/**
+ * La fila de `usuarios` de quien está frente al teclado, por el email de la SESIÓN.
+ *
+ * `null` = esa persona NO TIENE fila (acceso de desarrollo, contraseña maestra, sesión legacy).
+ *
+ * ⚠️ TIRA SI LA LECTURA FALLA, y ésa es la razón de ser de estas líneas: «no pude leer» es un
+ * TERCER estado, y hasta el 6/11/2026 `if (error || !data) return null` lo fundía con «no tiene
+ * fila». Río arriba eso sale por /perfil/notificaciones como `guardado: false`, que la pantalla
+ * dibuja como **«Esta sesión no tiene cuenta propia»** (app/perfil/NotificacionesPanel.tsx): una
+ * frase que no describe lo que pasó, sobre una preferencia que sí tenía dónde guardarse. Con el
+ * `throw`, los que ESCRIBEN cortan y la ruta contesta el motivo; los que LEEN ya traen su
+ * `try/catch` y siguen cayendo al default, que es el fail-open a propósito de siempre (la misma
+ * regla que `estadoAviso`: un error nuestro leyendo una preferencia no puede silenciar un aviso).
+ * Es el criterio que ya aplicaba `filaDeLaSesion` en app/api/recorridos/route.ts, con estas
+ * mismas palabras, y el `sinLeer` de `usuarioDelPerfil` acá arriba.
+ *
+ * ⚠️ Y EL `.maybeSingle()` ESTÁ BIEN, aunque la mig 0410 y docs/hallazgos-ticketera.md digan que
+ * `usuarios(email)` tiene un índice «NO único (0053)»: eso es FALSO. La 0053 declara `email text
+ * not null unique` y ninguna migración lo saca. Medido contra producción el 6/11/2026:
+ * `usuarios_email_key` = `UNIQUE (email)`, y el `idx_usuarios_email` que la 0410 cita es un
+ * índice de más, no único, al lado de ése. O sea que la misma dirección NO puede tener dos filas
+ * —el PGRST116 de `.maybeSingle()` es inalcanzable acá— y las «0 direcciones con más de una fila»
+ * que se midieron ese día no son suerte: las sostiene la base. No se le agrega un criterio de
+ * desempate por workspace: no hay nada que desempatar, y el día que alguien saque el `unique`,
+ * esto tira (no miente). El detalle, en docs/hallazgos-ajustes.md.
+ */
 async function filaPropia(): Promise<FilaPropia | null> {
   const sesion = await getUsuarioActual();
   if (!sesion?.email) return null;
   const { data, error } = await getSupabaseServer()
     .from('usuarios').select('id, perfil, rol, rol_ws, workspace_id').eq('email', sesion.email.trim().toLowerCase()).maybeSingle();
-  if (error || !data) return null;
+  // El email NO va al log: es el dato de una persona, y para ir a mirar alcanza con el motivo.
+  if (error) { console.warn(`[perfil] filaPropia: no pude leer usuarios por email — ${error.message}`); throw new Error(NO_PUDE_LEER); }
+  if (!data) return null;
   const fila = data as { id: number; perfil: unknown; rol: string | null; rol_ws: string | null; workspace_id: number | null };
   return {
     id: fila.id,
@@ -438,6 +469,10 @@ export async function getNotifInApp(): Promise<NotifInApp> {
  * contraseña maestra, sesiones legacy). Se devuelve en vez de tragárselo: la
  * pantalla necesita poder decir "no se guardó" en lugar de mostrar un tilde verde
  * sobre algo que se pierde al recargar.
+ *
+ * ⚠️ Y YA NO INCLUYE «NO PUDE LEER SU FILA»: eso TIRA (`filaPropia`), la ruta contesta 500 con el
+ * motivo y la pantalla lo dice. Hasta el 6/11/2026 los dos volvían `guardado:false`, o sea que una
+ * lectura caída se le anunciaba a la persona como «Esta sesión no tiene cuenta propia».
  */
 export async function setNotifInApp(v: NotifInApp): Promise<{ inApp: NotifInApp; guardado: boolean }> {
   const u = await filaPropia();

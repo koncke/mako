@@ -52,8 +52,12 @@ export type CreadoDesdeReferencia =
   | { ok: true; id: string; titulo: string; tipo: string; laminas: number; de: string; doc: Record<string, unknown> }
   | { ok: false; error: string; falla?: boolean };
 
-/** Crea el diseño en el negocio `ws`. `tipo` y `laminas` son lo que eligió la persona; sin ellos, lo que se entendió. */
-export async function crearCarruselDesdeReferencia(ws: number, quien: string, id: number, tipo?: unknown, laminas?: unknown): Promise<CreadoDesdeReferencia> {
+/**
+ * Crea el diseño en el negocio `ws`. `tipo` y `laminas` son lo que eligió la persona; sin ellos, lo que se entendió.
+ * `seco`: arma el documento y NO lo guarda (el comando de prueba, scripts/carruseles-probar-editar.mts). Lo que devuelve es
+ * lo mismo salvo el `id`, así que quien llama muestra las láminas igual: en seco no se saltea ningún paso del armado.
+ */
+export async function crearCarruselDesdeReferencia(ws: number, quien: string, id: number, tipo?: unknown, laminas?: unknown, o: { seco?: boolean } = {}): Promise<CreadoDesdeReferencia> {
   let c: Carrusel | null;
   try { c = await referenciaDelNegocio(id); } catch { return { ok: false, error: 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
   if (!c) return { ok: false, error: 'Ese carrusel no está entre los de las cuentas que sigues ni en la biblioteca de ejemplos.' };
@@ -67,6 +71,7 @@ export async function crearCarruselDesdeReferencia(ws: number, quien: string, id
     marca: await marcaDelNegocio(ws, kit), nuevoId: randomUUID, notas: notasDe(e),
   });
   const titulo = `Carrusel · ${plan.tipo.nombre}`;
+  if (o.seco) return { ok: true, id: '(seco)', titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de, doc };
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
   return { ok: true, id: r.id, titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de, doc };

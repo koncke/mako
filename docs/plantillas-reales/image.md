@@ -690,7 +690,7 @@ Cada pregunta es un mensaje de MaKo en el hilo, con las opciones como píldoras.
    - 1, 2, 4 y 7: `{}`. Son de cualquier modo de vender, la misma regla que dejó la miniatura de Doory en `{}`.
 4. **`public/cv/plantillas/<slug>.webp`:** las 12 miniaturas salen del propio editor, en el banco de esbuild + Chrome sin ventana (`docs/hallazgos-editor-imagen.md`, «Verificar el editor sin el dev server»), con las fotos ya puestas. **En el mismo paso** se mide cada texto con la fuente cargada (`measureText`). Un texto que no entra se arregla en la fuente de la plantilla con la medida escrita, como `AJUSTES`.
 5. **`public/cv/plantillas/fotos/`:** las 5 fotos y la silueta. **Nunca se renombran ni se borran:** los diseños guardados las apuntan por ruta. Si hay que cambiar una, se sube con otro nombre.
-6. **`scripts/image-editor/traducir-plantillas.mjs` y `traduce-plantillas.mjs`:** se borran, porque solo servían para las de Doory.
+6. **`scripts/image-editor/traducir-plantillas.mjs` y `traduce-plantillas.mjs`:** se borran, porque solo servían para las de Doory. ✅ **Hecho el 6/11/2026**, junto con las 10 plantillas, sus JSON, sus WebP y `mako/plantillas-etiquetas.ts`.
 
 ### 5.2 «Nuevo diseño» y la tarjeta
 

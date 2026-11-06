@@ -6,6 +6,23 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
+
+**Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
+`Cannot find module 'C:\Users\…\Temp\unir-bitacora-Wzhlax\devwt-plantilla-rechazadoscriptsunir-bitacora.mjs'`: una ruta con
+los separadores comidos y pegada a la carpeta del repo de prueba.
+
+**La causa.** El test configura el merge driver con la ruta ABSOLUTA del script
+(`git config merge.bitacora.driver "node <RAIZ>\scripts\unir-bitacora.mjs %O %A %B %P"`), y git no ejecuta ese comando
+directo: lo pasa por `sh -c`, que se come cada `\`. `git config --get` lo devuelve entero, así que leyendo la config no se
+ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona, usa la ruta RELATIVA con barras normales
+(`node scripts/unir-bitacora.mjs …`) y por eso funciona: la trampa es del test, no del driver.
+
+**Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
+mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
+`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+(o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 
 **Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
@@ -84,6 +101,66 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
+
+Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el
+mismo worktree y empujados desde el mismo `HEAD`. O sea que `punta/varios-grafo-encuadre` no llevaba el
+arreglo del grafo: llevaba **los cuatro** commits. Un «mandás» en el segundo puso en rojo al segundo, al
+tercero y al cuarto, y cada rojo gastó su corrida de Actions (~14 min) persiguiendo un fallo que no
+tenía nada que ver con el cambio que la punta traía.
+
+Me lo pregunté al empujar la segunda y lo contesté mal: «son todos commits MÍOS, así que apilar es
+inofensivo». La propiedad no tiene nada que ver — lo que importa es que **la punta es la unidad del
+chequeo**. Con las puntas apiladas, el rojo de la de abajo es el rojo de todas las de arriba, que es
+exactamente lo que la regla de Martín del 3/11 vino a eliminar («que se vaya deployando lo que ya pasó
+en lugar de todo junto»). El memo ya lo decía, con otras palabras: «una punta cortada de otra se mira
+con `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos». «Ajenos» se
+lee como «de otro chat», y el problema es igual con los propios.
+
+**How to apply:**
+
+- **Un ítem = un commit = una punta, y la punta sale de `origin/main`, no del commit anterior.** Antes
+  de empujar: `git log --oneline origin/main..HEAD` tiene que mostrar **un** commit. Si muestra más, la
+  punta está apilada.
+- Para desapilar sin perder nada, en el worktree propio: `git checkout --detach origin/main` +
+  `git cherry-pick <sha>` por punta, y `git push --force-with-lease=refs/heads/punta/<n>:<sha viejo>`.
+  El índice de hallazgos se auto-mezcló solo (`Auto-merging docs/hallazgos.md`) en los tres casos; aun
+  así, entre el cherry-pick y el push va el chequeo de marcas (`grep -c '^<<<<<<<'` = 0).
+- Ojo con el `--force-with-lease`: la rama remota puede no estar en el sha que empujaste. La mía estaba
+  en el commit de *merge* que hice después, y el push rebotó con «stale info». El sha de verdad lo da
+  `git ls-remote --heads origin`, no la memoria.
+- La marca `ci-rojo/<punta>` queda apuntando al sha viejo. No hace falta borrarla: `ci-main-verde.sh`
+  sólo relanza una punta «si su rama sigue en el MISMO commit que dio rojo», y el push nuevo trae su
+  propia corrida.
+
+## Un archivo de `lib/` que guarda el TEXTO que lee una persona es COPY, aunque sea `.ts` y aunque el lector sea un agente (6/11/2026)
+
+Una punta dio rojo en `tests/puente-panel-copy.test.ts` → «ninguna pantalla del repo le habla al
+cliente de vos», con **una** forma en 6.007 archivos revisados: un «mandás» en una línea agregada a
+`lib/agente-skill.ts` (el texto de la skill que lee el Claude Code del cliente). El resto del archivo ya
+estaba en español neutro; la línea nueva era la única con voseo.
+
+**Why:** el memo del tren dice que un chat que toca **copy** corre también las barredoras antes de pasar
+la punta, y es fácil leer «copy» como «una pantalla» — un `.tsx`, un botón, un título. El detector no
+mira pantallas: barre el repo entero con `git ls-files`. Un `.ts` de `lib/` que contiene prosa en
+español (una skill, una plantilla de prompt, el cuerpo de un email, un mensaje de WhatsApp) es copy con
+todas las letras, y que lo lea un agente en vez de una persona no lo cambia: ese texto se le muestra al
+cliente en su terminal.
+
+**How to apply:**
+
+- No hace falta adivinar qué barredora mira lo que tocaste: **`node scripts/tests-afectados.mjs --base
+  origin/main --listar --explicar`** lo contesta en un comando y sin correr nada. Las barredoras corren
+  SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
+  no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
+  selector.
+- El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
+  reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
+  un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
+- Al agregar un renglón a un texto largo ya escrito, el registro lo marca el archivo, no el autor: esa
+  skill dice «No mandes», «si los mandas», «dilo», «díselo». Un renglón en voseo adentro de eso queda
+  mal aun sin guard.
+
 ## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
 
 Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
@@ -126,6 +203,168 @@ chequeado como culpable.
 - Lo que queda por arreglar, en `scripts/guardas-push.sh`: separar el fallo de medición del hallazgo. Un
   `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
   «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
+
+## Tres puntas rojas por tipos que el test en verde no podía ver (6/11/2026)
+
+**Vive en:** la regla quedó en AGENTS.md → «Para validar lo tuyo sin el tsc completo». Afectó a
+`tests/memoria-guardia.test.ts`, `tests/limpiar-temporales.test.ts` y `tests/runner-salud.test.ts`.
+
+**Síntoma:** tres puntas de la misma tanda en rojo, todas en el paso «Tipos», todas con sus tests **en verde** localmente
+(5/0, 5/0 y 21/0). Diez minutos de ida y vuelta por cada una.
+
+**La causa es una sola: `node --import tsx --test` SACA los tipos, no los chequea.** Un archivo de test puede estar
+perfectamente verde y no compilar. Las tres fallas, todas en archivos de test nuevos:
+
+1. Un **`@ts-expect-error`** sobre el `import` de un `.mjs`. El tsconfig los resuelve con `allowJs`, así que no había error
+   que esperar, y **un directivo sin usar ES un error** (TS2578). Lo puse «por prolijidad», en dos archivos distintos.
+   ⚠️ La señal estaba a la vista y no la leí: **ningún test del repo usa ese directivo**, y `tests/minutos-actions.test.ts`
+   importa un `.mjs` sin nada. Cuando algo que parece necesario no aparece ni una vez en 1.600 archivos, no es necesario.
+2. Un argumento en la **posición equivocada** de un helper con parámetros opcionales: `correr('al-abrir', 'startup')`, donde
+   el segundo es el `env`. Corre perfecto — el helper ignora lo que no entiende — y es un error de tipos.
+3. Un **`.find(...)`** usado sin comprobar que encontró (posible `undefined`) más una propiedad que el tipo que yo mismo
+   había anotado no tenía.
+
+⚠️ **Y lo que lo volvió caro: el chequeo local estaba negado.** La guardia de RAM negó `tsc-acotado` las cuatro veces que lo
+intenté (1,7 a 2,2 GB libres contra los 3 que pide), así que el único que chequeaba tipos era la punta. **Cuando el chequeo
+local no está disponible, el costo de cada error de tipos pasa de segundos a diez minutos** — y conviene saberlo antes de
+pushear, no después.
+
+**La regla que queda, y está en AGENTS.md porque gobierna código nuevo: un archivo de test NUEVO, o uno que importa un
+`.mjs`, se pasa por `node scripts/tsc-acotado.mjs` antes de pushear.** Un test en verde no es un archivo que compila.
+## Los scripts llenaban %TEMP%, y la culpa no estaba repartida como decía el pendiente (6/11/2026)
+
+**Vive en:** `scripts/perfil-cdp.mjs` (nuevo) · `scripts/limpiar-temporales.mjs` (nuevo) · `scripts/mirar-consola.mjs`,
+`scripts/mirar-pantalla.mjs`, `scripts/onboarding-vg-recorrer.mjs`. Lo fija `tests/limpiar-temporales.test.ts`.
+
+**El pendiente nombraba dos culpables. Medidos el 6/11, no pesan ni parecido:**
+
+| | Medido |
+|---|---|
+| `tsx-marti` (la caché de transpilado de tsx) | **216.852 entradas** de primer nivel; **207.092** con más de 2 días. Un `du` sobre esa carpeta **no terminó en 120 s** |
+| `mako-cdp-*` (los perfiles de Chrome) | **0 carpetas** |
+
+⚠️ **La regla que queda: antes de barrer, contar.** El agujero de los perfiles era real —ninguno de los tres scripts de CDP
+borraba el suyo, ni al terminar, ni con Ctrl-C, ni al morir— pero **no es lo que ocupa el disco**. Haber arreglado lo que el
+pendiente nombraba primero habría dejado el problema entero intacto, con la sensación de estar resuelto.
+
+**El borrado del perfil va en `process.on('exit')`, no en un `finally`:** los tres son scripts de top-level await que pueden
+morir en cualquier `await` del medio, y un `finally` tampoco corre si el proceso se va por una señal.
+⚠️ **Y Chrome primero, la carpeta después:** en Windows un Chrome vivo tiene los archivos del perfil abiertos y el borrado
+falla con EBUSY. El helper se queda con el hijo, lo mata y reintenta (`maxRetries`), porque Chrome tarda un instante en
+soltarlos. Si el borrado falla no avisa ni cambia el código de salida: un script que ya hizo su trabajo no puede fallar por
+no haber podido limpiar.
+
+**La caché de tsx se vacía POR DENTRO, nunca la carpeta raíz, y nunca lo de los últimos 2 días:** la está usando cualquier
+chat que corra un test en este momento, y sacarle una entrada a un proceso vivo lo hace fallar con un error que no tiene nada
+que ver con su código.
+
+**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`. No lo corrí: borra 207.092
+entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
+## Un dato que se calcula y nadie lee es un dato que miente: la guardia del Runner apagada (6/11/2026)
+
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`estado`, `alAbrir`, `tareaDeLaCuenta`). Lo fija
+`tests/runner-salud.test.ts`, probado rompiéndolo.
+
+**El pendiente decía:** «si se vence el reloj del Runner, el vigía se apaga y nada lo avisa». Al medirlo, el agujero era otro
+y peor.
+
+**Lo que había:** `tareaDeLaCuenta` devuelve `{ existe, prendida }` **desde que nació**, y `alAbrir` miraba sólo `existe`.
+Una guardia con `enabled: false` se leía **igual que una sana**: la tarea está, así que nadie avisa, y la única red que queda
+cuando no hay Runner —entregar lo del Ops Center de a 20 minutos— no corre. Y `estado`, que es **el JSON que lee la guardia**,
+no decía una palabra de su propia tarea.
+
+⚠️ **La regla que queda: un campo que se calcula y ningún call-site lee no es código de más, es una afirmación falsa
+esperando.** `prendida` daba la respuesta correcta todo el tiempo; el agujero era que nadie preguntaba. Al revisar una guarda,
+la pregunta no es sólo «¿mide bien?» sino «¿alguien lee lo que mide?».
+
+Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la tarea que hay que prender** cuando está apagada,
+igual que cuando no existe.
+
+**Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
+es que, cuando se caiga, **se diga**.
+## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
+
+**Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
+`.github/workflows/punta.yml` (el paso que configura los drivers). Lo fija `tests/unir-indice-hallazgos.test.ts`.
+
+**Síntoma:** `docs/hallazgos.md`, el índice que manda a cada documento por área, con **199 filas para 69 áreas distintas**
+y sólo **53 documentos** `hallazgos-*.md` en disco. Competitors Spy con 27 filas, Infraestructura con 24. Buscar un tema
+obliga a leer la misma área veinte veces, así que nadie lo abre y lo aprendido se vuelve a descubrir.
+
+⚠️ **La causa NO era que alguien escribiera mal, y por eso la regla escrita no podía ganar.** El atributo era
+`docs/hallazgos*.md merge=union` — **sin guion**, así que el mismo glob agarraba los documentos por área *y el índice*.
+Para los documentos está bien: cada cosecha AGREGA una sección, y unir las líneas de los dos lados deja las dos. Pero el
+índice es una **tabla con una fila por área**, y una cosecha no agrega una fila: **REESCRIBE** la celda de su área metiendo
+su entrada adelante. Para `union`, la fila vieja y la nueva son dos líneas distintas, así que deja **las dos**. Cada punta
+que cosechaba duplicaba la fila de su área, y la siguiente duplicaba la duplicada.
+
+**La regla que queda: `merge=union` sirve para un archivo donde se AGREGA, y corrompe uno donde se REESCRIBE.** Antes de
+poner `union` sobre un glob, hay que preguntarse si todos los archivos que agarra crecen de la misma forma. Acá la
+diferencia entre «crece» y «se reescribe» era un guion en el patrón.
+
+⚠️ **Y la pista estaba escrita adentro del propio índice, en una fila que el problema había duplicado.** Otro chat ya lo
+había diagnosticado ese día («`merge=union` sobre el ÍNDICE no une: DUPLICA la fila») y lo cosechó… en el índice, donde se
+duplicó cuatro veces. **Un documento que se corrige a mano contra algo que lo rompe solo, pierde**: la regla «Una fila por
+área» se agregó el 6/11 y el archivo siguió duplicándose igual, porque el daño no lo hacía el que escribía sino la mezcla,
+después de que los dos lados escribieron bien.
+
+El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazgos-*.md` (con guion) sigue con `union`, y
+`docs/hallazgos.md` tiene su **driver**, que une **celda por celda** y deja las dos entradas (primero la de main). Lo que no
+entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
+persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
+
+### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
+
+**Vive en:** `docs/hallazgos.md` (217 filas → **77, una por área**) · la guarda nueva, al final de
+`tests/unir-indice-hallazgos.test.ts`.
+
+⚠️ **Lo que había NO eran «130 filas de más».** Eran **140 filas**, y además, cosas que contar filas no ve:
+
+- **492 entradas repetidas palabra por palabra DENTRO de una misma celda**, en 25 celdas. No es un efecto de `union`
+  sobre líneas: es una cosecha que rehízo la celda sobre una celda ya duplicada. En Customer Success la mitad de la
+  celda era texto repetido (69.603 → 35.373 caracteres).
+- **Una fila entera metida DENTRO de la celda de otra**: se perdió el salto de línea y la fila de «Aislamiento» quedó
+  adentro de la de «Tab Pagos de la ficha» — dos veces, y con la segunda mitad del texto de Tab Pagos adentro de la
+  celda de Aislamiento. Para markdown eso no es una fila: el índice simplemente **no mostraba** esa área.
+- **Dos filas sin su `|` de cierre**, que la herramienta del repo tampoco contaba.
+
+⚠️ **Y el «22 anidan / 9 no» estaba medido con `includes`, no con sufijo.** Sólo **4** de las 33 claves repetidas tenían a
+las otras como SUFIJO; en 19 más la celda larga las contenía *en el medio*. Da igual para tirarlas —contenida es
+contenida— pero cambia el arreglo: el chequeo que lo hace seguro es **contención**, no «es el final de».
+
+⚠️ **El camino obvio —unir por el SUFIJO COMÚN más largo— garabatea el texto, y el obvio siguiente también.** El sufijo
+común empieza a mitad de palabra: con `…sin IA. **B**: x` contra `…con IA. **B**: x` arranca dentro de « IA.», así que
+`prefijo + prefijo + sufijo` le pega ese pedazo a la entrada equivocada. El arreglo cantado —cortar en cada `**negrita**`—
+rompe distinto: `**99**` es un énfasis a mitad de oración, no un título, y al reordenar las piezas las dos mitades de una
+misma oración quedan separadas por otra entrada. Eso se vio como «17 entradas perdidas» y **no faltaba ninguna**: estaban,
+partidas. **El límite de una entrada es `**Título (fecha)**:` — la negrita seguida de dos puntos**, que es el formato que
+deja la cosecha. Con ese corte: 0 perdidas, verificado entrada por entrada.
+
+**Lo que hace falta para creerle a una pasada así:** contar filas no alcanza. Se compara el **conjunto de títulos** de
+entrada y **el texto de cada entrada, palabra por palabra**, antes y después (1.621 títulos, los mismos). Lo que el
+conteo no puede cubrir va a mano: cinco títulos tenían **dos versiones y ninguna contenía a la otra** (el tren rojo de
+main, el empate de operaciones, el cartel de Gemini, las variantes del texto viejo, buscar una llamada por su número);
+ésas se leen y se juntan, y quedan marcadas en el commit.
+
+⚠️ **`--consolidar` de la herramienta sólo ve las filas que apuntan a `hallazgos-*.md`.** `filaDelIndice` pide ese patrón
+en la 2.ª celda, y 7 de las 77 filas mandan a otra cosa (`recorrido-visual-30-10.md`, `promesas/…`,
+`proveedores-de-cobro.md`, `mako-iniciativa/`). Por eso dice «70 filas» sobre una tabla de 77 — y las repetidas de esas 7
+le eran **invisibles**: dos filas de «UI compartida» estaban duplicadas y la herramienta nunca las vio.
+
+⚠️ **Un `|` en el texto de una celda le inventa columnas a la fila** (16 filas lo tenían: `number | null`, `USD|EUR`,
+`{mode:'immediate'|'scheduled'}`). Va escapado, `\|`. Y escaparlo con `(^|[^\\])\|` lo hace **a medias** sobre un `r||s`:
+el primer match se come el carácter de antes del segundo `|`, así que el segundo no matchea. Va con lookbehind,
+`(?<!\\)\|`.
+
+⚠️ **Un documento borrado sigue vivo en el índice, y nada lo chequeaba.** La fila «Aislamiento» mandaba a
+`auditoria-aislamiento-workspace.md`, borrado el 17/10/2026 por viejo —su material vive en `hallazgos-seguridad.md`, que
+se declara «la ÚNICA fuente del área»—. Repuntada. La guarda nueva mira en disco que cada link exista, que haya una sola
+fila por clave, que ninguna fila tenga columnas de más y que una línea en blanco no haya partido la tabla.
+
+⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
+documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,
+«Customer Success» y «Customer Success (Clients)». Son claves distintas, así que la guarda las deja pasar; juntarlas o no
+es una decisión sobre cómo se busca en el índice, y no se tomó acá.
 
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
@@ -1259,6 +1498,47 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
   (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
 
 *25/10/2026, el Cerebro (claude5).*
+
+## La guardia de RAM negaba un `git commit` por lo que decía el MENSAJE, y su copia versionada estaba vieja (6/11/2026)
+
+**Vive en:** `scripts/claude-hooks/guardia/memoria.mjs` (la copia versionada de `~/.claude/guardia/memoria.mjs`) ·
+`clasificar`, `soloLoQueCorre`, `PESADO`. Lo fija `tests/memoria-guardia.test.ts`, probado rompiéndolo.
+
+**Síntoma:** `git commit` NEGADO por la guardia de RAM, con 2,2 GB libres y «esto necesita 3». Después, un `grep` también.
+Y lo que se estaba commiteando era el arreglo de la alarma de minutos: **el chat se quedaba sin poder guardar su trabajo
+justo cuando la máquina está cargada, que es exactamente cuando más importa guardarlo.**
+
+**La causa:** `clasificar` probaba el regex `PESADO` **contra el texto entero del comando**. El mensaje del commit decía
+«el tsc entero lo corre la punta», y `\btsc\b` matcheó. El `grep` siguiente llevaba `tsc` y `npm test` como *patrones de
+búsqueda*. Un commit no pide un byte de RAM.
+
+⚠️ **Y el archivo ya tenía un caso de esta misma familia anotado arriba**, del 11/10: «el patrón suelto `typecheck` agarraba
+el NOMBRE de un test liviano (`npx tsx --test tests/typecheck-lock.test.ts`)». Se arregló **sacando esa palabra de la lista**,
+no la causa. Así que volvió, con otra palabra. **La regla que queda: cuando una guarda clasifica por el texto de un comando,
+se arregla separando lo que CORRE de lo que viaja adentro como data; sacar la palabra que falló deja la trampa armada.**
+
+⚠️ **Y había un SEGUNDO camino a «pesado» con la misma causa, que me frenó mientras arreglaba el primero.**
+`tandaDeTestsSinFreno` cuenta cuántos archivos `.test.ts` **nombra** el comando (3 o más = una tanda que levanta un proceso
+por núcleo). Un comando que los nombra dentro de un `node -e` y de un `grep` los nombra tres veces **sin correr ninguno**:
+otra vez NEGADO. Las dos preguntas van ahora sobre `soloLoQueCorre(cmd)`. **Arreglar un solo camino de los dos habría dejado
+el síntoma vivo con la sensación de estar resuelto** — y el regex de `PESADO` no tenía nada que ver con este.
+
+Lo que ahora se saca antes de clasificar (`soloLoQueCorre`): el **cuerpo de un heredoc**, el valor de las banderas que toman
+TEXTO (`-m`, `--message`, `-e`, `--eval`, `-p`, `--print`) y, en el tramo de un `grep`/`rg`/`findstr`, **sus comillas**, porque
+su patrón puede venir sin bandera (`grep -rn "npx tsc" .`) y nunca se ejecuta. ⚠️ Sólo en ESE tramo: `sh -c "npx tsc"` sí
+ejecuta y tiene que seguir contándose.
+⚠️ El cuerpo de un heredoc se saca **salvo que se lo coma un intérprete**: `bash <<'EOF' … npx tsc … EOF` sí ejecuta, y
+tiene que seguir contando como pesado. Y `cat` y `tee` **no** son intérpretes (`cat > notas.md <<EOF` escribe, no ejecuta):
+los puse en la lista y el test que acababa de escribir los cazó.
+
+⚠️ **De paso, lo más caro del hallazgo: la copia versionada estaba VIEJA.** El 29/10 los topes de `pesado` y `workflow`
+subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unresponsive» con 9 chats), y el cambio se hizo
+**sólo en `~/.claude`**. El repo seguía en 2,5: **reinstalar la guardia desde el repo bajaba los topes y devolvía la pantalla
+negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
+`~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
+
+**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
+`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 

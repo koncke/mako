@@ -138,16 +138,21 @@ export function avanceDe(ev: EventoVsl, duracionS: number | null): number | null
  * Devuelve el mapa visitor_id → mejor avance (null = arrancó pero no se pudo
  * medir). Los eventos sin visitor_id se descartan: sin identidad no hay persona
  * que deduplicar y sumarían de a uno inflando el denominador.
+ *
+ * ⚠️ RECIBE UN CONJUNTO DE EVENTOS Y DEVUELVE UNA CURVA: el corte por video se hace
+ * AGRUPANDO AFUERA, antes de llamar (`videosDelPeriodo` en lib/graficos-datos-extra.ts,
+ * que es lo que dibuja el VSL Analyst). **No se vuelve a agregar un parámetro `videoId`
+ * acá.** Hubo uno durante meses, nadie se lo pasó nunca, y filtraba mal: su condición era
+ * `if (videoId && ev.video_id && ev.video_id !== videoId)`, así que un evento SIN
+ * `video_id` entraba en la curva de CUALQUIER video. Agrupar afuera los manda a su propio
+ * grupo, que es lo correcto y lo que ya hace el único camino vivo.
  */
 export function avancePorPersona(
   eventos: EventoVsl[],
   duracionS: number | null,
-  videoId?: string | null,
 ): Map<string, number | null> {
   const porPersona = new Map<string, number | null>();
   for (const ev of eventos) {
-    // Dos videos distintos no se promedian: son dos curvas, no una.
-    if (videoId && ev.video_id && ev.video_id !== videoId) continue;
     // ⚠️ Y ACÁ EL CORTE ES POR OTRA RAZÓN que la de `avanceDe`: no alcanza con
     // que el avance dé null, porque la persona entra al mapa IGUAL (con valor
     // null) y `porPersona.size` es lo que lib/landing-analyst.ts cuenta como
@@ -175,9 +180,8 @@ export function avancePorPersona(
 export function curvaRetencion(
   eventos: EventoVsl[],
   duracionS: number | null,
-  videoId?: string | null,
 ): Retencion {
-  return curvaDesdeAvances(avancePorPersona(eventos, duracionS, videoId).values());
+  return curvaDesdeAvances(avancePorPersona(eventos, duracionS).values());
 }
 
 /**
@@ -251,16 +255,16 @@ export function curvaDesdeAvances(avancesPorPersona: Iterable<number | null>): R
  * Dónde abandonan, según los eventos 'exit' (el punto exacto de salida).
  * Complementa la curva: la curva dice cuántos quedan, esto dice dónde se van.
  * Un exit sin avance medible NO cuenta como "abandonó en 0%".
+ *
+ * Por video se agrupa AFUERA, igual que `avancePorPersona` (ver su comentario).
  */
 export function histogramaAbandono(
   eventos: EventoVsl[],
   duracionS: number | null,
-  videoId?: string | null,
 ): Array<{ corte: number; salidas: number }> {
   const porPersona = new Map<string, number>();
   for (const ev of eventos) {
     if (ev.tipo_evento !== 'exit') continue;
-    if (videoId && ev.video_id && ev.video_id !== videoId) continue;
     const id = (ev.visitor_id ?? '').trim();
     if (!id) continue;
     const avance = avanceDe(ev, duracionS);

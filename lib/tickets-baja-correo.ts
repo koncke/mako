@@ -10,10 +10,19 @@ import 'server-only';
 // ⚠️ SE ESCRIBE EN DOS LUGARES, Y POR ESO ESTÁ ACÁ Y NO EN CADA RUTA:
 //   · `usuarios.perfil.ticketsPorEmail` de ESA cuenta (mig 0364), que es lo que la persona ve en su cuenta;
 //   · `correo_bajas` por su DIRECCIÓN (mig 0410), que es lo que vale para TODAS sus cuentas.
-// Una fila de `usuarios` no es una persona: es una persona en un negocio, y la misma dirección puede estar en varios
-// (`usuarios(email)` tiene un índice NO único, 0053). El bug que esto arregla era justamente la mitad de abajo: quien
-// apretaba «Dejar de recibirlos» en el correo de un negocio los seguía recibiendo por el otro. Con la regla en dos rutas
-// distintas, el próximo camino vuelve a escribir una sola mitad.
+// Una fila de `usuarios` no es una persona: es una persona en un negocio.
+//
+// ⚠️⚠️ CORRECCIÓN (6/11/2026, el mismo día): acá decía «y la misma dirección puede estar en varias
+// (`usuarios(email)` tiene un índice NO único, 0053)». **ES FALSO.** La 0053 declara `email text not null unique` y
+// ninguna migración lo saca; medido contra producción, `usuarios_email_key` = `UNIQUE (email)`, y el `idx_usuarios_email`
+// que se citó es un índice de MÁS, no único, al lado del único. O sea que `filasDe` devuelve siempre UNA fila, y el bug de
+// «apretó la baja en un negocio y los sigue recibiendo por el otro» **no podía pasar**. Esto se queda igual igual: la
+// razón de ser de la 0410 es la OTRA —quien no tiene cuenta no tenía dónde guardar su «no me escribas»—, que sí es real,
+// y escribir los dos lugares desde un solo módulo sigue siendo lo correcto. Ver docs/hallazgos-ajustes.md →
+// «El índice de más que se leyó como el único».
+//
+// Y el porqué de que la regla viva acá y no en cada ruta se sostiene solo: con la regla en dos rutas distintas, el
+// próximo camino vuelve a escribir una sola mitad.
 //
 // ⚠️ Y EL ORDEN IMPORTA: primero la dirección. Si lo segundo falla, queda una baja que frena MÁS correos de los que la
 // persona apagó, que es el lado correcto para equivocarse. Al revés quedaría una baja a medias que sigue escribiendo.
@@ -35,10 +44,13 @@ async function emailDe(usuarioId: number): Promise<string> {
 }
 
 /**
- * TODAS las filas de `usuarios` con esa dirección, con su perfil.
+ * Las filas de `usuarios` con esa dirección, con su perfil. **Hoy es siempre UNA**: `usuarios.email` es `unique`
+ * (mig 0053, medido en producción el 6/11/2026). Acá decía «son VARIAS a propósito»: ver la corrección de la cabecera.
  *
- * ⚠️ `.eq('email', …)` y NO `.maybeSingle()`: son VARIAS a propósito, y es el caso que todo esto viene a arreglar. Un
- * `maybeSingle()` sobre el email tira PGRST116 en cuanto hay dos (ver el hallazgo de `filaPropia`, lib/perfil.ts).
+ * ⚠️ Se deja con `.eq(…).limit(50)` y no se vuelve a `.maybeSingle()`, por dos razones y ninguna es la de antes: una
+ * lista no se cae si mañana alguien saca el `unique` (un `maybeSingle()` ahí tira PGRST116, que es el hallazgo de
+ * `filaPropia`, lib/perfil.ts), y el `for` de `cambiarBajaPorEmail` ya está escrito sobre una lista. Un error de lectura
+ * vuelve como `null` y lo convierte en «no se pudo», nunca en «no hay ninguna».
  */
 async function filasDe(email: string): Promise<FilaConPerfil[] | null> {
   const { data, error } = await getSupabaseServer().from('usuarios').select('id, perfil').eq('email', email).limit(50);
