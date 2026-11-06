@@ -110,6 +110,13 @@ async function main() {
     etapa: await leadsDeCohorte('etapa_actual', 'lead', null),
     sinVentana: await leadsDeCohorte('etapa_actual', 'lead', null, null, null, { sinVentana: true }),
   }));
+  // ── 4. El alta en lote de siempre (`proponer_leads`), aplicada en el acto: las UTM que manda Claude llegan al lead ─────
+  const defLote = porId('proponer_leads');
+  if (!defLote || defLote.tipo !== 'accion') throw new Error('falta proponer_leads');
+  const r4 = await runWithWorkspace(WS, () => aplicarEnElActo(defLote, { leads: [{ nombre: 'Con Campaña', email: 'campana@ejemplo.test', utm_source: 'ig', utm_campaign: 'otoño' }] }, ctx, { ws: WS, origen: 'api:t_prueba' }));
+  const conCampana = db.leads.find((l) => l.email === 'campana@ejemplo.test');
+  out.lote = { ok: r4.ok, utm_source: conCampana?.utm_source ?? null, utm_campaign: conCampana?.utm_campaign ?? null };
+
   out.ids = { vivo: 101, rosa: 102, migrados: migrados.map((l) => l.id) };
   out.red = red;
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));

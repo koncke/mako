@@ -9,12 +9,13 @@
 // la operación `migrar_contactos` por el camino de un token detallado y la cohorte de una automatización. Las reglas puras
 // (lib/migracion-leads.ts) se ejecutan acá.
 //
-// Probado rompiéndolo (6/11/2026), con la base en 12/0:
+// Probado rompiéndolo (6/11/2026), con la base en 12/0 (13/0 con el alta en lote, que se sumó después):
 //   · sin `sinMigrados` en `leadsDeCohorte` (lib/nutricion.ts) → 10/2: «la cohorte de "Un Lead Entró"…» y «…ni al activar».
 //   · sin el `'migracion'` en `quedaDondeLoPusieron` (app/crm/origen-lead.ts) → 11/1: «el CRM automático no lo mueve».
 //   · sin el chequeo por id en `createLead` Y sin el índice de la 0404 en el doble → 10/2: «el mismo id dos veces» y el
 //     segundo envío del lote.
 //   · sin `etapaAbierta` en `ubicarEnEtapas` → 9/3: el «ganado» entraba (las que miran las etapas finales).
+//   · sin las UTM en `crearLeadsDePropuesta` (lib/api-mako/flujo.ts) → 12/1: «el alta en lote… ya no tira las UTM».
 // =============================================================================
 
 import { test } from 'node:test';
@@ -87,6 +88,10 @@ test('la cohorte de «Un Lead Entró» (los parados en la entrada) NO trae a nin
 test('…ni al activar una automatización y pedir «los que ya están» (sin ventana)', () => {
   const r = resultado();
   for (const id of r.operacion.r1.datos.leadIds) assert.ok(!r.cohorte.sinVentana.includes(id));
+});
+
+test('el alta en lote de siempre (proponer_leads), aplicada en el acto por un token, ya no tira las UTM', () => {
+  assert.deepEqual(resultado().lote, { ok: true, utm_source: 'ig', utm_campaign: 'otoño' });
 });
 
 test('nada salió a la red', () => {
