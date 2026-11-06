@@ -1,0 +1,93 @@
+'use client'
+
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Export/ExportColumns.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// ⚠️ Vive en Transactions/ (no en Export/): hoy lo usa sólo el «Export» de Income. Los textos, traducidos.
+
+import { ChipSelect } from './ChipSelect'
+import { Button, Text } from '@/app/admin/_polar/orbit'
+import { Box } from '@/app/admin/_polar/orbit/components/Box'
+
+export interface ExportColumnGroup<T extends string> {
+  readonly label: string
+  readonly columns: readonly { readonly value: T; readonly label: string }[]
+}
+
+export interface ExportColumnConfig<T extends string> {
+  groups: readonly ExportColumnGroup<T>[]
+  all: T[]
+  labels: Record<T, string>
+  defaults: T[]
+  order: (selected: T[]) => T[]
+  isDefault: (selected: T[]) => boolean
+  summarize: (selected: T[]) => string
+}
+
+interface ExportColumnsProps<T extends string> {
+  config: ExportColumnConfig<T>
+  selected: T[]
+  onChange: (columns: T[]) => void
+}
+
+export function ExportColumns<T extends string>({
+  config,
+  selected,
+  onChange,
+}: ExportColumnsProps<T>) {
+  const allSelected = selected.length === config.all.length
+  const isDefault = config.isDefault(selected)
+
+  return (
+    <Box flexDirection="column" rowGap="l">
+      <Box alignItems="center" justifyContent="between" columnGap="l">
+        <Text variant="caption" color="muted">
+          {selected.length} de {config.all.length} elegidas
+        </Text>
+        <Box alignItems="center" columnGap="xs">
+          {!isDefault && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="dark:text-polar-500 dark:hover:text-polar-300 h-7 px-2 text-xs font-normal text-gray-500 hover:text-gray-900"
+              onClick={() => onChange(config.defaults)}
+            >
+              Volver a las de siempre
+            </Button>
+          )}
+          {!allSelected && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="dark:text-polar-500 dark:hover:text-polar-300 h-7 px-2 text-xs font-normal text-gray-500 hover:text-gray-900"
+              onClick={() => onChange(config.all)}
+            >
+              Elegir todas
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {config.groups.map((group) => {
+        const groupValues = new Set<T>(
+          group.columns.map((column) => column.value),
+        )
+        return (
+          <Box key={group.label} flexDirection="column" rowGap="s">
+            <Text variant="label" color="muted">
+              {group.label}
+            </Text>
+            <ChipSelect
+              options={[...group.columns]}
+              selected={selected.filter((column) => groupValues.has(column))}
+              onChange={(next) =>
+                onChange([
+                  ...selected.filter((column) => !groupValues.has(column)),
+                  ...(next as T[]),
+                ])
+              }
+            />
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}

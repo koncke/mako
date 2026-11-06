@@ -31,6 +31,7 @@
 // =============================================================================
 
 import { sumarMeses } from './cobrado-lead';
+import type { HistoriaSuscripcion } from './suscripcion-meses';
 
 /** Dos pagos de la misma suscripción a menos de estos días son UN cobro (completar el mes en dos pagos). */
 export const VENTANA_JUNTAR_DIAS = 7;
@@ -54,6 +55,11 @@ export type PagoIngreso = {
   /** Cómo entró: «transferencia», «stripe»… `null` = no se sabe. */
   medio: string | null;
   concepto: string | null;
+  /**
+   * El cobro de la pasarela que lo asentó (`pagos.cobro_id`, o el cobro mismo), si salió por la pasarela. Lo usa Admin › Sales ›
+   * Orders para atar el pago a su RECIBO (`recibos.cobro_id`): sin él, el pago y su recibo serían dos renglones del mismo pago.
+   */
+  cobroId?: number | null;
 };
 
 /** Quién es cada cliente, para dibujarlo. */
@@ -349,12 +355,63 @@ export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo
 
 export type PorCobrar = { cliente: string; fecha: string; usd: number; atrasado: boolean };
 
-/** Lo que se espera cobrar: cada suscripción viva con su vencimiento (atrasada o en los próximos `dias`), lo más cercano primero. */
-export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31): PorCobrar[] {
+/**
+ * Lo que la SUSCRIPCIÓN MES A MES (lib/suscripcion-meses.ts, la misma cuenta que la ficha del lead y la tab Pagos) dice de lo
+ * que viene. `sinCobro`: cortada con un corte guardado, o terminado su plazo: no se espera nada más.
+ */
+export type ProximoDeSuscripcion = {
+  sinCobro: boolean;
+  /** Lo que ya venció (hoy incluido) y no está completo: desde el mes más viejo, por lo que falta de todos. */
+  atrasado: { fecha: string; usd: number } | null;
+  /** El próximo vencimiento de mañana en adelante, por lo que falta de ESE mes (su mensualidad, si no tiene nada pagado). */
+  siguiente: { fecha: string; usd: number } | null;
+};
+
+/**
+ * ⚠️ EL PRÓXIMO COBRO DE UNA SUSCRIPCIÓN SALE DE SU HISTORIA, NO DEL ÚLTIMO PAGO MÁS UN MES (6/11/2026, Admin › Sales). Con la
+ * regla de los tramos, una suscripción que vence el día 5 y cuyo último mes se pagó el 4 decía «vence el 4», y con el monto de
+ * ese último pago; cuando la mensualidad cambia de un mes a otro (un cambio guardado, mig 0401), el monto también mentía. Acá:
+ * la fecha es `proximaFecha` (el vencimiento de su mes, con su día de cobro) y el monto lo que falta de ese mes, que sale de
+ * `montoDelMes` (con los cambios guardados); sin monto conocido, la mensualidad de hoy (`montoHoyUsd`).
+ */
+export function proximoDeHistoria(h: Pick<HistoriaSuscripcion, 'cortadaDesde' | 'terminada' | 'montoHoyUsd' | 'proximo' | 'proximaFecha' | 'deudaUsd' | 'meses'>, hoy: string): ProximoDeSuscripcion {
+  if (h.cortadaDesde || h.terminada) return { sinCobro: true, atrasado: null, siguiente: null };
+  const mensual = h.montoHoyUsd ?? 0;
+  const atrasado = h.proximo && h.proximo.vence <= hoy
+    ? { fecha: h.proximo.vence, usd: r2(h.deudaUsd > 0 ? h.deudaUsd : h.proximo.faltaUsd ?? mensual) }
+    : null;
+  let siguiente: ProximoDeSuscripcion['siguiente'] = null;
+  // `proximaFecha` es «de hoy en adelante»: el que vence HOY ya está en lo atrasado (como `atrasado: vence <= hoy` de siempre).
+  if (h.proximaFecha && h.proximaFecha > hoy) {
+    const mes = h.meses.find((m) => m.vence === h.proximaFecha && m.estado !== 'pagado' && m.estado !== 'cortado');
+    siguiente = { fecha: h.proximaFecha, usd: r2(mes ? mes.faltaUsd ?? mes.esperadoUsd ?? mensual : mensual) };
+  }
+  return { sinCobro: false, atrasado, siguiente };
+}
+
+/**
+ * Lo que se espera cobrar: cada suscripción viva con su vencimiento (atrasada o en los próximos `dias`), lo más cercano primero.
+ * `proximos` (por clave de suscripción, `lead:<id>:<crm>`): las que tienen su historia mes a mes la usan (fecha y monto); las
+ * demás —la pasarela, o sin historia— siguen con la regla de los tramos (el último cobro más un mes). Viva o cortada lo siguen
+ * diciendo los tramos, como el MRR: la historia sólo pone CUÁNDO y CUÁNTO.
+ */
+export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): PorCobrar[] {
   const hasta = masDias(hoy, dias);
   const out: PorCobrar[] = [];
+  // Dos claves de la misma suscripción (pagos con y sin su CRM) apuntan a la MISMA historia: se cuenta una vez.
+  const usadas = new Set<ProximoDeSuscripcion>();
   for (const t of tramos) {
-    if (t.fin != null || t.vence > hasta) continue;
+    if (t.fin != null) continue;
+    const p = proximos?.get(t.suscripcion);
+    if (p) {
+      if (usadas.has(p)) continue;
+      usadas.add(p);
+      if (p.sinCobro) continue;
+      if (p.atrasado) out.push({ cliente: t.cliente, fecha: p.atrasado.fecha, usd: p.atrasado.usd, atrasado: true });
+      if (p.siguiente && p.siguiente.fecha <= hasta) out.push({ cliente: t.cliente, fecha: p.siguiente.fecha, usd: p.siguiente.usd, atrasado: false });
+      continue;
+    }
+    if (t.vence > hasta) continue;
     const usd = t.cambios[t.cambios.length - 1]?.usd ?? 0;
     out.push({ cliente: t.cliente, fecha: t.vence, usd, atrasado: t.vence <= hoy });
   }
@@ -389,15 +446,21 @@ export type Ingresos = {
   entradas: Entrada[];
 };
 
-/** Un pago que entró, sin más que lo que hace falta para repartirlo: cuándo, cuánto en dólares, por dónde y de quién. */
-export type Entrada = { fecha: string; usd: number | null; medio: string | null; recurrente: boolean; nombre: string };
+/**
+ * Un pago que entró, sin más que lo que hace falta para repartirlo: cuándo, cuánto en dólares, por dónde y de quién.
+ * `id` y `cliente` (la clave de `PagoIngreso`) los suma Admin › Analytics › Events, que muestra cada pago como un evento con el
+ * link a su negocio (`ws:<n>`): por el nombre solo no se puede, dos clientes pueden llamarse igual. Opcionales para quien arma
+ * una `Entrada` a mano (los ejemplos de las pantallas); `entradasDe` los pone siempre. `concepto` y `cobroId` los suma Admin ›
+ * Sales › Orders (el renglón del pago y su recibo).
+ */
+export type Entrada = { fecha: string; usd: number | null; medio: string | null; recurrente: boolean; nombre: string; id?: string; cliente?: string; concepto?: string | null; cobroId?: number | null };
 
 /** Los pagos válidos (con fecha y hasta hoy), el más viejo primero. `usd` null = sin su valor en dólares: no suma. */
 export function entradasDe(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string): Entrada[] {
   return pagosValidos(pagos, hoy)
     .slice()
     .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.id.localeCompare(b.id)))
-    .map((p) => ({ fecha: p.fecha, usd: usdDe(p.usd), medio: p.medio, recurrente: p.suscripcion != null, nombre: quien.get(p.cliente)?.nombre ?? p.cliente }));
+    .map((p) => ({ fecha: p.fecha, usd: usdDe(p.usd), medio: p.medio, recurrente: p.suscripcion != null, nombre: quien.get(p.cliente)?.nombre ?? p.cliente, id: p.id, cliente: p.cliente, concepto: p.concepto, cobroId: p.cobroId ?? null }));
 }
 
 export type PagoReciente = PagoIngreso & { nombre: string; recurrente: boolean };
@@ -411,7 +474,11 @@ export function pagosRecientes(pagos: readonly PagoIngreso[], quien: ReadonlyMap
     .map((p) => ({ ...p, nombre: quien.get(p.cliente)?.nombre ?? p.cliente, recurrente: p.suscripcion != null }));
 }
 
-export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string, n = 12): Ingresos {
+/**
+ * `proximos`: lo que la historia mes a mes de cada suscripción dice de su próximo cobro (`proximoDeHistoria`), por la clave de
+ * la suscripción. Lo arma el lector (lib/admin-ingresos.ts); sin él, lo que viene sale de los tramos.
+ */
+export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string, n = 12, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): Ingresos {
   const periodos = periodosDe(pagos, hoy);
   const tramos = tramosDe(periodos, hoy);
   const movimientos = movimientosDe(tramos);
@@ -436,7 +503,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
     meses,
     movimientos,
     clientes,
-    porCobrar: porCobrarDe(tramos, hoy),
+    porCobrar: porCobrarDe(tramos, hoy, 31, proximos),
     pagos: pagosRecientes(pagos, quien, hoy),
     entradas: entradasDe(pagos, quien, hoy),
   };

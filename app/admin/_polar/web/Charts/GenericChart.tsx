@@ -1,3 +1,5 @@
+'use client'
+
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Charts/GenericChart.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
 import {

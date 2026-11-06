@@ -4,7 +4,7 @@
 
 import { Spinner } from '@/app/admin/_polar/orbit'
 import { ParsedMetricsResponse } from '@/app/admin/_polar/datos/polar-tipos'
-import { getFormattedMetricValue } from '@/app/admin/_polar/web/utils/metrics'
+import { descargarCsv, filasCsvDeMetricas, getFormattedMetricValue } from '@/app/admin/_polar/web/utils/metrics'
 import {
   ArrowDownRight,
   ArrowOutwardOutlined,
@@ -122,24 +122,11 @@ const MetricChartBox = ({
     [onHoverPeriodChange],
   )
 
+  // MaKo: el CSV de un solo gráfico se arma con el armador de la app (lib/csv-celda.ts: comillas y sin fórmulas), la plata
+  // en dólares. El de Polar armaba cada celda a mano entre comillas.
   const handleExport = useCallback(() => {
     if (!data || !selectedMetric) return
-
-    const rows = [
-      ['Timestamp', selectedMetric.display_name],
-      ...data.periods.map((period) => [
-        period.timestamp.toISOString(),
-        String(period[metric] ?? ''),
-      ]),
-    ]
-    const csv = rows.map((row) => row.map((v) => `"${v}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `polar-${metric}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    descargarCsv(`mako-${metric}.csv`, filasCsvDeMetricas(data, [metric]))
   }, [data, metric, selectedMetric])
 
   const hoveredPeriod = useMemo(() => {
@@ -159,7 +146,9 @@ const MetricChartBox = ({
 
     const value = hoveredPeriod ? hoveredPeriod[metric] : data.totals[metric]
 
-    return getFormattedMetricValue(metricInfo, value ?? 0)
+    // MaKo: un valor que no se pudo calcular (un promedio sin pagos) se dice «—», no «0».
+    if (value == null) return '—'
+    return getFormattedMetricValue(metricInfo, value)
   }, [hoveredPeriod, data, metric])
 
   const trend = useMemo(() => {
@@ -328,7 +317,7 @@ const MetricChartBox = ({
                 )}
                 {exportable && (
                   <DropdownMenuItem onClick={handleExport}>
-                    Export
+                    Exportar
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

@@ -37,8 +37,9 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  calcularIngresos, periodosDe, tramosDe, TIPOS_MOVIMIENTO, type ClienteIngreso, type PagoIngreso,
+  calcularIngresos, periodosDe, porCobrarDe, proximoDeHistoria, tramosDe, TIPOS_MOVIMIENTO, type ClienteIngreso, type PagoIngreso,
 } from '../lib/admin-ingresos-reglas';
+import { historiaDeSuscripcion, type MovimientoSuscripcion, type PagoDeSuscripcion } from '../lib/suscripcion-meses';
 import { filasDeSaldos, mesesVisibles } from '../app/admin/ingresos/ingresos-vista';
 import { destinoDeCustomers, PESTANAS_ADMIN, rutaPestanaAdmin } from '../app/admin/pestanas-reglas';
 import { createElement } from 'react';
@@ -240,3 +241,69 @@ test('9 · la pantalla DIBUJA el caso real: el MRR de hoy, lo que pagó cada uno
   assert.doesNotMatch(vacio, /US\$ 0/, 'sin tarjetas en cero');
 });
 
+// =============================================================================
+// 10 · El próximo cobro sale de la historia mes a mes (6/11/2026, Admin › Sales)
+// =============================================================================
+// Con la regla de los tramos, el próximo cobro era el último pago más un mes, con el monto de ese pago. Una suscripción que
+// vence el día 5, que pagó noviembre en dos pagos (el 4 y el 5) y que tiene guardado que desde diciembre paga más, salía «vence
+// el 4/12 por 238» cuando la ficha dice «próxima el 5 de diciembre» por 426 (la forma de un cliente real, con datos de mentira).
+// Probado rompiéndolo el 6/11/2026: base 9/1 (el 7 ya estaba rojo: lee app/admin/page.tsx, que la tab nueva borró). Cada rotura,
+// sola, deja 8/2 (el 7 y el 10):
+//   · `porCobrarDe` ignora `proximos` (la regla de antes)                                   → 10 cae (12-04 · 238)
+//   · `proximoDeHistoria` toma `montoHoyUsd` y no lo que falta del mes que toca              → 10 cae (el parcial de enero)
+//   · `proximoDeHistoria` no corta con `cortadaDesde`                                        → 10 cae (la cortada sigue «por cobrar»)
+//   · `porCobrarDe` sin el `usadas` (dos claves de la misma suscripción)                     → 10 cae (sale dos veces)
+//   · `proximoDeHistoria` con `proximaFecha >= hoy` (el que vence hoy, dos veces)            → 10 cae
+test('10 · el próximo cobro de una suscripción a mano sale de su historia: el día de cobro y el monto guardado del mes', () => {
+  const hoy = '2026-11-06';
+  // La mensualidad cambió dos veces: 146 desde la venta, 238 desde noviembre y 426 desde diciembre (mig 0401).
+  const movimientos: MovimientoSuscripcion[] = [
+    { tipo: 'monto', desde: '2026-08-05', montoUsd: 146 },
+    { tipo: 'monto', desde: '2026-11-01', montoUsd: 238 },
+    { tipo: 'monto', desde: '2026-12-01', montoUsd: 426 },
+  ];
+  let id = 500;
+  const mensualidad = (fecha: string, usd: number): PagoDeSuscripcion =>
+    ({ id: ++id, monto_usd: usd, pagado: true, fecha_esperada: null, fecha_pago: fecha, es_mensualidad: true, nacio_cobrada: true });
+  const pagosLead = [mensualidad('2026-08-05', 146), mensualidad('2026-09-05', 146), mensualidad('2026-10-06', 146), mensualidad('2026-11-04', 94), mensualidad('2026-11-05', 144)];
+  const historia = historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos, pagos: pagosLead, hoy });
+  assert.equal(historia.proximaFecha, '2026-12-05', 'la ficha: próxima el 5 de diciembre');
+  // Lo cobrado en Admin: los mismos pagos, normalizados por el lector (la clave de una suscripción de la casa).
+  const sub = 'lead:900:casa';
+  const pagos: PagoIngreso[] = pagosLead.map((q) => ({ id: `p:${q.id}`, cliente: 'ws:77', suscripcion: sub, fecha: q.fecha_pago as string, usd: Number(q.monto_usd), medio: 'transferencia', concepto: null }));
+  const quienes = new Map<string, ClienteIngreso>([['ws:77', { clave: 'ws:77', nombre: 'Estudio Norte', ws: 77, leadId: 900 }]]);
+  const viejo = calcularIngresos(pagos, quienes, hoy);
+  assert.deepEqual(viejo.porCobrar.map((p) => [p.cliente, p.fecha, p.usd]), [['ws:77', '2026-12-04', 238]], 'sin la historia, la regla de los tramos (la de antes)');
+  const proximos = new Map([[sub, proximoDeHistoria(historia, hoy)]]);
+  const nuevo = calcularIngresos(pagos, quienes, hoy, 12, proximos);
+  assert.deepEqual(nuevo.porCobrar.map((p) => [p.cliente, p.fecha, p.usd, p.atrasado]), [['ws:77', '2026-12-05', 426, false]], 'el 5/12 por 426, como la ficha');
+  assert.equal(nuevo.mrr, viejo.mrr, 'el MRR no cambia: la historia sólo pone cuándo y cuánto');
+
+  // El 10/12, sin pagar diciembre: atrasado por lo que falta, y enero (que ya tiene un adelanto de 100) por lo que falta de enero.
+  const hoy2 = '2026-12-10';
+  const conAdelanto = [...pagosLead, { id: ++id, monto_usd: 100, pagado: true, fecha_esperada: null, fecha_pago: '2026-12-09', suscripcion_mes: '2027-01-01' } satisfies PagoDeSuscripcion];
+  const h2 = historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos, pagos: conAdelanto, hoy: hoy2 });
+  const p2 = proximoDeHistoria(h2, hoy2);
+  assert.deepEqual(p2.atrasado, { fecha: '2026-12-05', usd: 426 });
+  assert.deepEqual(p2.siguiente, { fecha: '2027-01-05', usd: 326 }, 'lo que FALTA de enero, no la mensualidad entera');
+  const tramos2 = tramosDe(periodosDe(pagos, hoy2), hoy2);
+  assert.deepEqual(porCobrarDe(tramos2, hoy2, 31, new Map([[sub, p2]])).map((p) => [p.fecha, p.usd, p.atrasado]), [['2026-12-05', 426, true], ['2027-01-05', 326, false]]);
+  // Lo que vence HOY va una sola vez, en lo atrasado.
+  const pHoy = proximoDeHistoria(historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos, pagos: pagosLead, hoy: '2026-12-05' }), '2026-12-05');
+  assert.deepEqual([pHoy.atrasado, pHoy.siguiente], [{ fecha: '2026-12-05', usd: 426 }, null]);
+
+  // Un corte guardado desde diciembre: no se espera diciembre, aunque el tramo siga vivo (vence el 4/12 y tiene su gracia).
+  const seCorta = historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos: [...movimientos, { tipo: 'corte', desde: '2026-12-01' }], pagos: pagosLead, hoy });
+  assert.deepEqual(calcularIngresos(pagos, quienes, hoy, 12, new Map([[sub, proximoDeHistoria(seCorta, hoy)]])).porCobrar, [], 'el corte que viene: nada por cobrar');
+  // Cortada desde este mes: `sinCobro`, ni lo atrasado.
+  const cortada = historiaDeSuscripcion({ inicio: '2026-08-05', montoUsd: 426, plazoMeses: null, movimientos: [...movimientos, { tipo: 'corte', desde: '2026-12-01' }], pagos: pagosLead, hoy: '2026-12-10' });
+  const pc = proximoDeHistoria(cortada, '2026-12-10');
+  assert.equal(pc.sinCobro, true);
+  assert.deepEqual(porCobrarDe(tramosDe(periodosDe(pagos, '2026-12-10'), '2026-12-10'), '2026-12-10', 31, new Map([[sub, pc]])), [], 'cortada: ni lo atrasado');
+
+  // Dos claves de la misma suscripción (pagos con y sin su CRM) son UNA historia: sale una vez.
+  const conCrm = pagos.map((p, i) => (i === 4 ? { ...p, suscripcion: 'lead:900:31' } : p));
+  const p1 = proximoDeHistoria(historia, hoy);
+  const dos = calcularIngresos(conCrm, quienes, hoy, 12, new Map([[sub, p1], ['lead:900:31', p1]]));
+  assert.equal(dos.porCobrar.length, 1, 'una sola vez');
+});

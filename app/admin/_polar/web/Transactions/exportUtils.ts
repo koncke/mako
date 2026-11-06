@@ -1,0 +1,52 @@
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Export/utils.ts. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// ⚠️ Vive en Transactions/ (no en Export/): hoy lo usa sólo el «Export» de Income. Lo que Polar hace en el server
+//    (`downloadCsvExport` pide el CSV a su API) MaKo lo hace en el navegador: las filas ya están en la página. Queda
+//    `downloadExport` (el link que baja el archivo) recibiendo el archivo armado en vez de una URL.
+
+import type { DateRange } from '@/app/admin/_polar/web/Metrics/DateRangePicker'
+import type { ExportColumnConfig, ExportColumnGroup } from './ExportColumns'
+
+export interface ExportSelection<T extends string> {
+  dateRange: DateRange
+  timezone: string
+  columns: T[]
+}
+
+export function createExportColumnConfig<T extends string>(groups: readonly ExportColumnGroup<T>[], defaults: T[]): ExportColumnConfig<T> {
+  const all: T[] = groups.flatMap((group) => group.columns.map((column) => column.value))
+
+  const labels = Object.fromEntries(groups.flatMap((group) => group.columns.map((column) => [column.value, column.label]))) as Record<T, string>
+
+  const order = (selected: T[]): T[] => {
+    const selectedColumns = new Set(selected)
+    return all.filter((column) => selectedColumns.has(column))
+  }
+
+  const isDefault = (selected: T[]): boolean => {
+    const selectedColumns = new Set(selected)
+    return selected.length === defaults.length && defaults.every((column) => selectedColumns.has(column))
+  }
+
+  const summarize = (selected: T[]): string => {
+    if (selected.length === 0) return 'Ninguna columna elegida'
+    if (selected.length === all.length) return 'Todas las columnas'
+    const ordered = order(selected)
+    const shown = ordered
+      .slice(0, 3)
+      .map((column) => labels[column])
+      .join(', ')
+    return ordered.length > 3 ? `${shown} +${ordered.length - 3}` : shown
+  }
+
+  return { groups, all, labels, defaults, order, isDefault, summarize }
+}
+
+/** Baja un archivo ya armado (el `link.click()` de Polar). */
+export function downloadExport(blob: Blob, filename: string) {
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(link.href))
+}

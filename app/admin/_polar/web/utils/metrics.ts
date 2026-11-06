@@ -11,6 +11,7 @@ import {
   parse,
 } from 'date-fns'
 import { formatCostAmount, formatPercentage, formatScalar } from './formatters'
+import { armarCsv } from '@/lib/csv-celda'
 
 /**
  * Converts a Date object to an ISO date string (YYYY-MM-DD) in local timezone.
@@ -150,8 +151,9 @@ export const getPreviousDateRange = (
   return [previousStartDate, previousEndDate]
 }
 
-// MaKo: las métricas de Polar que MaKo mide (app/admin/_polar/datos/metricas.ts). Las otras (orders, checkouts,
-// net revenue, churn rate, LTV, cancelaciones por motivo…) no tienen un dato detrás: se sacaron (relevo, «se sacó»).
+// MaKo: las métricas de Polar que MaKo mide (app/admin/_polar/datos/metricas.ts). Las otras (net revenue, checkouts,
+// committed/trial MRR, renewed, cancelaciones por motivo, churn rate, LTV, seats, usage…) no tienen un dato detrás: se sacaron
+// (relevo, «se sacó»). Los grupos van en el orden de Polar; los de costos viven en Analytics › Costs, no acá.
 export const DEFAULT_OVERVIEW_METRICS: MetricaSlug[] = ['revenue', 'monthly_recurring_revenue', 'cumulative_revenue']
 
 type MetricEntry = {
@@ -168,14 +170,63 @@ export type MetricGroup = {
 const entrada = (slug: MetricaSlug): MetricEntry => ({ slug, display_name: METRICAS[slug].display_name, description: DESCRIPCION[slug] })
 
 export const METRIC_GROUPS: MetricGroup[] = [
-  { category: 'Revenue', metrics: [entrada('revenue'), entrada('cumulative_revenue')] },
+  { category: 'Revenue', metrics: [entrada('revenue'), entrada('cumulative_revenue'), entrada('average_order_value')] },
+  { category: 'Orders', metrics: [entrada('orders'), entrada('one_time_products'), entrada('one_time_products_revenue')] },
   {
     category: 'Subscriptions',
-    metrics: [entrada('monthly_recurring_revenue'), entrada('new_mrr'), entrada('expansion_mrr'), entrada('contraction_mrr'), entrada('churned_mrr'), entrada('reactivated_mrr')],
+    metrics: [
+      entrada('new_subscriptions'), entrada('active_subscriptions'), entrada('monthly_recurring_revenue'), entrada('new_mrr'),
+      entrada('expansion_mrr'), entrada('contraction_mrr'), entrada('churned_mrr'), entrada('reactivated_mrr'),
+    ],
   },
+  { category: 'Cancellations', metrics: [entrada('churned_subscriptions')] },
+  { category: 'Unit Economics', metrics: [entrada('average_revenue_per_user')] },
 ]
+
+/**
+ * MaKo: el «Export» de Polar baja `/v1/metrics/export`; acá el CSV se arma en el navegador con lo que la pantalla ya tiene,
+ * por el único armador de CSV de la app (lib/csv-celda.ts: comillas y sin fórmulas). Una fila por período, una columna por
+ * métrica, la plata en dólares.
+ */
+export const filasCsvDeMetricas = (
+  data: { periods: ReadonlyArray<{ timestamp: Date } & Partial<Record<MetricaSlug, number | null>>> },
+  slugs: readonly MetricaSlug[],
+): (string | number | null)[][] => [
+  ['Timestamp', ...slugs.map((s) => METRICAS[s].display_name)],
+  ...data.periods.map((p) => [
+    toISODate(p.timestamp),
+    ...slugs.map((s) => {
+      const v = p[s]
+      if (v == null) return null
+      return METRICAS[s].type === 'currency' || METRICAS[s].type === 'currency_sub_cent' ? v / 100 : v
+    }),
+  ]),
+]
+
+export const descargarCsv = (nombre: string, filas: (string | number | null)[][]) => {
+  const blob = new Blob([armarCsv(filas)], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombre
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export const ALL_METRICS = METRIC_GROUPS.flatMap((g) => g.metrics)
 
 export const metricGroupSlug = (category: string): string =>
   category.toLowerCase().replace(/\s+/g, '-')
+
+/**
+ * MaKo: los grupos de Polar que tienen al menos una métrica medida, con sólo esas métricas (Analytics › Metrics). Es el
+ * `RECURRING_ONLY_GROUPS` de Polar con la regla de MaKo: lo que no se midió no se dibuja, ni en cero ni vacío.
+ */
+export const gruposConDatos = (
+  metrics: Partial<Record<MetricaSlug, unknown>>,
+): { slug: string; title: string; metrics: MetricaSlug[] }[] =>
+  METRIC_GROUPS.map((g) => ({
+    slug: metricGroupSlug(g.category),
+    title: g.category,
+    metrics: g.metrics.map((m) => m.slug).filter((slug) => metrics[slug]),
+  })).filter((g) => g.metrics.length > 0)

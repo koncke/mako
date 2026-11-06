@@ -1,0 +1,176 @@
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Settings/OrganizationCustomerEmailSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+
+import { useUpdateOrganization } from '@/app/admin/_polar/datos/polar-tipos'
+import { useOptimisticSave } from '@/hooks/useOptimisticSave'
+import { extractApiErrorMessage } from '@/app/admin/_polar/web/utils/api/errors'
+import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import { Switch } from '@/app/admin/_polar/orbit'
+import { Box } from '@/app/admin/_polar/orbit/components/Box'
+import React from 'react'
+import { toast } from '../Toast/use-toast'
+import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
+
+interface OrganizationCustomerEmailSettingsProps {
+  organization: schemas['Organization']
+  readOnly: boolean
+}
+
+type CustomerEmail = {
+  key: keyof schemas['OrganizationCustomerEmailSettings']
+  title: string
+  description: string
+}
+
+const customerEmailGroups: { title: string; emails: CustomerEmail[] }[] = [
+  {
+    title: 'Purchases',
+    emails: [
+      {
+        key: 'order_confirmation',
+        title: 'Order confirmation',
+        description: 'Sent when a customer completes a one-time purchase',
+      },
+      {
+        key: 'subscription_confirmation',
+        title: 'Subscription confirmation',
+        description: 'Sent when a customer starts a new subscription',
+      },
+    ],
+  },
+  {
+    title: 'Trials',
+    emails: [
+      {
+        key: 'subscription_trial_conversion_reminder',
+        title: 'Trial conversion reminder',
+        description:
+          'Sent before a trial ends and converts to a paid subscription',
+      },
+      {
+        key: 'subscription_cycled_after_trial',
+        title: 'Trial converted',
+        description: 'Sent when a trial ends and the subscription becomes paid',
+      },
+    ],
+  },
+  {
+    title: 'Renewals',
+    emails: [
+      {
+        key: 'subscription_renewal_reminder',
+        title: 'Renewal reminder',
+        description:
+          'Sent 7 days before a subscription with a long billing cycle renews',
+      },
+      {
+        key: 'subscription_cycled',
+        title: 'Subscription cycled',
+        description: 'Sent when a subscription renews or is invoiced for usage',
+      },
+      {
+        key: 'payment_method_expiration_reminder',
+        title: 'Card expiring',
+        description:
+          'Sent before a card backing an active subscription expires',
+      },
+      {
+        key: 'subscription_past_due',
+        title: 'Subscription past due',
+        description:
+          'Sent when a subscription payment fails and becomes overdue',
+      },
+    ],
+  },
+  {
+    title: 'Subscription changes',
+    emails: [
+      {
+        key: 'subscription_updated',
+        title: 'Subscription updated',
+        description:
+          'Sent when a customer changes their subscription to a different product',
+      },
+      {
+        key: 'subscription_paused',
+        title: 'Subscription paused',
+        description: 'Sent when a customer pauses their subscription',
+      },
+      {
+        key: 'subscription_resumed',
+        title: 'Subscription resumed',
+        description:
+          'Sent when a paused subscription resumes and billing restarts',
+      },
+      {
+        key: 'subscription_cancellation',
+        title: 'Subscription canceled',
+        description: 'Sent when a customer cancels their subscription',
+      },
+      {
+        key: 'subscription_uncanceled',
+        title: 'Subscription uncanceled',
+        description:
+          'Sent when a customer reactivates a previously canceled subscription',
+      },
+      {
+        key: 'subscription_revoked',
+        title: 'Subscription revoked',
+        description:
+          'Sent when a canceled subscription permanently ends at the end of the billing cycle',
+      },
+    ],
+  },
+]
+
+const OrganizationCustomerEmailSettings: React.FC<
+  OrganizationCustomerEmailSettingsProps
+> = ({ organization, readOnly }) => {
+  const updateOrganization = useUpdateOrganization()
+
+  const { value: settings, update } = useOptimisticSave(
+    organization.customer_email_settings,
+    async (customer_email_settings) => {
+      const { error } = await updateOrganization.mutateAsync({
+        id: organization.id,
+        body: { customer_email_settings },
+      })
+
+      if (error) {
+        toast({
+          title: 'Customer Email Settings Update Failed',
+          description: `Error updating customer email settings: ${extractApiErrorMessage(error)}`,
+        })
+        return false
+      }
+
+      return true
+    },
+  )
+
+  return (
+    <Box flexDirection="column" rowGap="2xl">
+      {customerEmailGroups.map((group) => (
+        <SettingsGroup key={group.title} title={group.title}>
+          {group.emails.map(({ key, title, description }) => (
+            <SettingsGroupItem
+              key={key}
+              layout="inline"
+              title={title}
+              description={description}
+            >
+              <Switch
+                checked={settings[key]}
+                disabled={readOnly}
+                onCheckedChange={(checked) =>
+                  update((previous) => ({ ...previous, [key]: checked }))
+                }
+              />
+            </SettingsGroupItem>
+          ))}
+        </SettingsGroup>
+      ))}
+    </Box>
+  )
+}
+
+export default OrganizationCustomerEmailSettings
