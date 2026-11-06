@@ -18,6 +18,11 @@
 //   · sin la tabla, seguir sin bajas en vez de no mandar (fallar ABIERTO)            → 9 / 1 (el 5c)
 //   · «Volver a recibirlos» sin borrar la fila de `correo_bajas`                     → 9 / 1 (el 5b)
 //
+// Y lo de la CASILLA de Notificaciones (6/11/2026), con el archivo en 12 / 0:
+//   · la ruta resolviendo la persona con `filaPropia` en vez de la sesión          → 11 / 1 (el 5e)
+//   · la ruta escribiendo `correo_bajas` por su cuenta, sin el módulo compartido   → 11 / 1 (el 5e)
+//   · `cambiarBajaPorEmail` sin tocar el perfil (una sola capa)                    → 10 / 2 (el 5b y el 5d)
+//
 // PROBADO ROMPIÉNDOLO (4/11/2026), con el archivo en 8 / 0, una rotura por vez y restaurada:
 //   · `reclamar` que no compara contra el hito que había (sin `.is`/`.eq`)          → 7 / 1 (el 3: dos correos a la vez)
 //   · el GET de la baja que apaga como el POST                                       → 7 / 1 (el 5)
@@ -30,14 +35,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(__dirname, '..');
+/** El código de un archivo, sin sus comentarios: lo que se afirma es lo que CORRE, no lo que explica. */
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8')
+  .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 /** Lo que el hijo importa y corre, por su ruta: así un cambio en cualquiera de los tres vuelve a correr este test. */
 const CORRE = {
   vuelta: 'lib/tickets-avance-email.ts',
   baja: 'app/api/email/unsubscribe/tickets/route.ts',
   cron: 'app/api/cron/tickets/route.ts',
+  // La ruta de la casilla no la corre el hijo (ver el 5e), pero va acá para que un cambio suyo vuelva a correr esto.
+  casilla: 'app/api/perfil/correos-tickets/route.ts',
 };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_tickets-avance-email-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'], timeout: 240_000,
@@ -153,4 +164,33 @@ test('7. el cron de tickets corre la vuelta', () => {
   assert.equal(R.cron.body.correos.enviados, 2);
   // El #122 se levantó con los correos apagados: al volverlos a prender, le llega el hito de hoy (uno, no los perdidos).
   assert.deepEqual(R.correosCron, ['Recibimos tu ticket · Ticket #122', 'Recibimos tu ticket · Ticket #130']);
+});
+
+test('5d. la casilla de Notificaciones apaga lo mismo que el link, sin pasar por el correo', () => {
+  // Se ejecuta el módulo que la ruta usa (lib/tickets-baja-correo.ts), con su base y su escritura de verdad.
+  assert.equal(R.casillaAntes, false, 'arranca recibiendo');
+  assert.equal(R.casillaApaga, true, 'el apagado se guarda');
+  // La MISMA baja que el link, con su camino anotado: un solo módulo las escribe, así no se escribe una sola mitad.
+  assert.deepEqual(R.bajasTrasCasilla, [{ tipo: 'ticket-avance', por: 'notificaciones' }]);
+  assert.equal(R.casillaDespues, true, 'y se vuelve a leer apagada');
+  assert.deepEqual(R.correos5g, [], 'y frena el correo de verdad, no sólo la casilla');
+  assert.equal(R.casillaPrende, true);
+  assert.equal(R.bajasTrasPrenderCasilla, 0, 'prenderla borra la fila, igual que el link');
+  assert.equal(R.casillaFinal, false);
+  assert.deepEqual(R.correos5h, ['Recibimos tu ticket · Ticket #145'], 'y el que esperaba sale al prenderla');
+  assert.equal(R.casillaSinEmail, false, 'sin dirección no se escribe nada');
+});
+
+test('5e. la ruta de la casilla saca la persona de la SESIÓN, no de `filaPropia`', () => {
+  // ⚠️ Esto es lo único de la ruta que el hijo no puede ejecutar (necesita un pedido de Next), y es el error que la
+  // rompería justo para quien la necesita: `filaPropia` (lib/perfil.ts) hace `.maybeSingle()` sobre `eq('email', …)` y
+  // tira PGRST116 con DOS filas de la misma dirección — la persona con cuenta en su negocio y en el de su cliente.
+  // Escrito como la FALLA y no como la forma: si alguien resuelve la sesión de otra manera correcta, esto sigue verde.
+  const src = leer('app/api/perfil/correos-tickets/route.ts');
+  assert.doesNotMatch(src, /filaPropia|notif-inapp/, 'no puede resolver la persona con filaPropia');
+  assert.match(src, /getUsuarioActual\(\)/, 'la persona sale de la sesión');
+  // Y pasa por el módulo compartido, no por una copia de la escritura en dos capas.
+  assert.match(src, /cambiarBajaPorEmail\(/);
+  assert.match(src, /apagadosPorEmail\(/);
+  assert.doesNotMatch(src, /from\('correo_bajas'\)|ticketsPorEmail/, 'la escritura vive en lib/tickets-baja-correo.ts');
 });
