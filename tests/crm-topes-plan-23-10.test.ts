@@ -65,6 +65,8 @@ test('lo que entra solo nunca se pierde: el freno vive en las altas A MANO, no e
     'app/crm/actions.ts', 'app/crm/nuevo-crm-actions.ts', 'lib/api-mako/areas/chats.run.ts', 'lib/api-mako/areas/crm.run.ts',
     // (23/10/2026) crear_alumno_curso: un alumno nuevo es un lead que se crea a mano por la API, como el alta del CRM.
     'lib/api-mako/areas/curso.run.ts',
+    // (6/11/2026) migrar_contactos: una migración la pide el dueño por la API, contacto por contacto; no entra sola.
+    'lib/migracion-leads-server.ts',
     'lib/topes-crm.ts',
   ], 'un freno nuevo (o en un webhook) se decide a propósito');
 });
