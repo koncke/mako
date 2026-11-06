@@ -89,6 +89,34 @@ export function vigente(leidoEn: string | null | undefined, ahora = Date.now()):
   return Number.isFinite(t) && ahora - t <= DIAS_VIGENTE * DIA;
 }
 
+/** El corte de vigencia: lo leído ANTES de esto ya no se muestra y hay que borrarlo (`podar`). */
+export const limiteDeVigencia = (ahora: number = Date.now()): string => new Date(ahora - DIAS_VIGENTE * DIA).toISOString();
+
+/**
+ * ¿Alcanza esta cadencia de renovación para que la galería nunca se vea vacía por vencimiento? Pide que entren DOS corridas
+ * antes del vencimiento, no una: con una sola oportunidad, cualquier corrida que falle (la cuota de YouTube, un 403, el deploy
+ * caído) vacía la pantalla y nadie se entera. Vive acá, con `DIAS_VIGENTE`, porque es una propiedad de la regla de los 30 días
+ * — y acá no hay `server-only`, así que la prueba el test (lib/thumbnails/renovar.ts la usa; tests/thumbnails-renovar.test.ts).
+ */
+export const cadenciaAlcanza = (diasEntreCorridas: number): boolean =>
+  Number.isFinite(diasEntreCorridas) && diasEntreCorridas > 0 && diasEntreCorridas * 2 <= DIAS_VIGENTE;
+
+/**
+ * Cada cuántos días dispara un schedule de cron de Vercel, para las formas que usamos (cada tantos minutos u horas, un día de
+ * la semana, un día del mes). `null` si no lo sabe leer: quien pregunte decide qué hacer con eso, y no se devuelve un número
+ * tranquilizador inventado. El día del mes vale 31, que es el PEOR caso — y es justo el que no alcanza.
+ */
+export function diasEntreCorridas(schedule: string): number | null {
+  const campos = schedule.trim().split(/\s+/);
+  if (campos.length !== 5) return null;
+  const [, , dia, mes, semana] = campos;
+  if (mes !== '*') return null;
+  if (dia === '*' && semana === '*') return 1;
+  if (dia === '*' && /^[0-6]$/.test(semana)) return 7;
+  if (/^(?:[1-9]|1\d|2\d|3[01])$/.test(dia) && semana === '*') return 31;
+  return null;
+}
+
 /** Un Short (hasta 3 minutos) no es una miniatura que se diseñe: se dibuja el cuadro del video. */
 export function esCorto(duracion: string | null): boolean {
   const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(duracion ?? '');

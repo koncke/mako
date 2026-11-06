@@ -7,41 +7,6 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
-## «Llega al techo» con un tercio gastado: el techo lo ponía el crédito y la cuenta era de reservas (6/11/2026)
-
-**Síntoma:** `laminas` paró diciendo «Llega al techo: corta acá» con **US$0,54 gastados de un tope pedido de US$1,50**. De la
-salida no se podía saber si faltaba crédito o si era un límite nuestro, y por eso nadie lo revisó.
-
-**Lo obvio era que el tope de US$1,50 estaba mal puesto, y no.** Eran dos cosas, y ninguna se decía:
-
-1. **El techo efectivo no era el pedido: lo ponía el crédito.** `techoConCredito` devuelve `min(pedido, libre − reserva)` y
-   nada más, así que un techo de US$0,70 (crédito) y un techo de US$0,70 (pedido) se imprimen igual. Medido el 6/11 a la
-   tarde: la clave de Spy tenía **US$1,98 libres de US$10 y la reserva de Spy son US$2 → el techo era US$0,00**, y el script
-   decía «Puede gastar hasta US$0.00» sin agregar que no había con qué.
-2. **Lo que se comparaba contra el techo era la suma de los TECHOS de cada tanda, no el gasto.** Cada tanda de 40 links lleva
-   su `maxTotalChargeUsd` con un margen del 1,5× sobre el precio de lista (US$0,14) para que Apify no la corte a mitad, y ese
-   número inflado se acumulaba como si fuera plata gastada. Apify cobra **lo que LLEGA**, a US$0,0027 por link medido: 40 links
-   son US$0,11, no US$0,14. Con un techo de US$0,70 leía 200 links de 400 cuando pagaba 254 — y **una tanda que no trae nada
-   (carruseles borrados o privados) descontaba su techo igual**: se podía cortar «al techo» sin haber gastado un centavo.
-
-**La regla:**
-- **Cuando una corrida para, dice por qué, con el número, y qué lo destraba.** «No hay crédito libre (quedan US$X, la reserva
-  es US$Y)» se arregla cargando crédito; «llegué al tope que me pediste (US$Z)» se arregla con `--techo-usd`; «se terminaron
-  las tandas» no se arregla. Son tres cosas distintas y «al techo» las dice todas iguales. El porqué se imprime también **en
-  seco**, antes de gastar: ahí es donde se revisa.
-- **El margen de un techo por tanda no es gasto.** Contra el techo de la corrida va el precio MEDIDO (`USD_POR_LINK_MEDIDO`,
-  US$0,0027), no el de lista (US$0,0023, que subestima la factura) ni el de lista con margen. El margen vive sólo en el
-  `maxTotalChargeUsd` de la tanda, y ese techo se recorta a lo que queda para que no pueda gastar de más.
-- **La última tanda se recorta a los links que caben**, no se descarta entera.
-- **Una sola regla para el plan y para la corrida** (`siguienteTanda`): en seco se alimenta con el gasto probable y en vivo con
-  lo que Apify ya cobró. Dos cuentas paralelas es cómo se llega a que el seco y lo real no coincidan.
-
-**Vive en:** `lib/carruseles/biblioteca.ts` (`motivoDelTecho`, `siguienteTanda`, `planDeTandas`, `porQueParo`),
-`scripts/carruseles-biblioteca.mts` (`laminas`), con `tests/carruseles-techo.test.ts`.
-
-⚠️ **Y la trampa del entorno que lo tapaba:** `techoConCredito` devolviendo **0** no es un error, es un número válido. El
-script seguía su curso, entraba al bucle y la primera tanda cortaba «al techo». Un tope que vale cero parece un tope cumplido.
-
 ## Cargar la biblioteca de Thumbnails: el 6% de los canales se quedaba con un tercio de la vidriera (6/11/2026)
 
 **Qué se hizo.** La biblioteca de Thumbnails estaba **vacía en producción** (0 canales, 0 miniaturas: la pestaña decía que no estaba cargada) y se cargó desde la PC con los pasos de [thumbnails.md](../carruseles/thumbnails.md): `descubrir` (12 búsquedas, las 12 permitidas del balde de 100 por día de toda la app) → **93 canales** → `leer` → **1.784 videos**, ~93 unidades de cuota.
@@ -55,6 +20,33 @@ script seguía su curso, entraba al bucle y la primera tanda cortaba «al techo�
 ⚠️ **Esto es un parche, no el arreglo.** Excluir a mano no escala: cada `leer` mensual trae videos nuevos del mismo tipo. **El arreglo de fondo es ordenar por el múltiplo** (vistas ÷ la mediana del canal), que es justo lo que normaliza mercados distintos — y es lo que espera la enmienda III.L de YouTube. Mientras no se firme, la vidriera la decide una métrica que no se puede comparar.
 
 ⚠️ **Y dos trampas al medirlo, las dos mías, las dos silenciosas.** (1) `thumbnails_videos.canal_id` es el id **numérico** de `thumbnails_canales`, no el id de YouTube (que en la tabla de canales **también** se llama `canal_id`): unir por el campo equivocado da 0 videos por canal y **no da error**. (2) El tipo `Thumbnail` **no tiene** campo de imagen —la URL se arma del id del video con `imagenDeVideo()`—, así que un chequeo de «¿cuántas saldrían en blanco?» contra un campo inexistente contesta «todas». Casi reporté 1.743 miniaturas en blanco que estaban perfectas.
+
+**Medido de nuevo el 6/11 a la noche, y los totales de arriba ya eran viejos:** `estado` contra producción dice **79 canales activos, 14 excluidos y 1.520 miniaturas visibles** (la curaduría siguió después de escribir esto). El número de un documento es una FOTO: antes de repetirlo, `estado`. Ver [una-medicion-tiene-fecha].
+
+## El cron que no existía: «una vez por mes» es la cadencia equivocada para un vencimiento de 30 días (6/11/2026)
+
+**El síntoma que nadie iba a ver hasta que lo viera un cliente.** Sin la enmienda III.L de YouTube, lo que se guarda de su API (títulos, vistas) **vence a los 30 días**: la pantalla no muestra lo leído hace más (`vigente`, `DIAS_VIGENTE = 30`) y la regla obliga a borrarlo (`podar`). El documento lo dejaba como un paso a mano —«cada mes: `leer` de nuevo y `podar --de-verdad`»— y **no había ningún cron**. La galería no se rompe: se va vaciando, tarjeta por tarjeta, hasta el cartel de «todavía no está cargada».
+
+**Lo que el pendiente pedía estaba mal, y es el hallazgo.** Cuatro de los dieciocho encargos de Thumbnails decían «agendar una vez por mes». Un cron mensual el día 1 **no alcanza**: entre el 1 de enero y el 1 de febrero pasan **31 días**, así que lo leído el 1 de enero vence el 31 y la galería aparece vacía un día entero antes de que el cron la salve. Y con una sola oportunidad por vencimiento, **cualquier** corrida que falle (la cuota de YouTube, un 403, el deploy caído) la vacía igual, sin red. **La regla que queda: una tarea que renueva algo con vencimiento corre al menos DOS veces por vencimiento, no una.** Acá quedó semanal (`55 6 * * 0`): cuatro oportunidades por vencimiento, y releer es barato (~3 unidades de las 10.000 diarias por canal, unas 240 por corrida).
+
+**Dónde vive, y por qué no son dos copias.** `lib/thumbnails/renovar.ts` tiene el trabajo (releer + podar), `app/api/cron/thumbnails-renovar/route.ts` lo llama desde Vercel y `scripts/thumbnails-biblioteca.mts` llama **la misma función** en `leer` y `podar`. Antes el trabajo vivía sólo en el script: un cron que lo copiara habría quedado como la segunda copia que se separa y nadie sabe cuál es la que corre.
+
+**Tres decisiones que no se ven en el diff:**
+
+- **Releer ANTES de podar.** Al revés, una corrida que falla al leer borra lo vencido y deja la galería **más** vacía de lo que estaba. Y sin clave de YouTube no hace nada de las dos cosas (fail-closed): una poda sin lectura es pérdida neta.
+- **El cron NO descubre canales.** `descubrir` usa `search.list`, que tiene un balde de **100 llamadas por día para TODA la app** — el mismo del que come Competitors Spy. Un cron automático se lo comería y dejaría a Spy sin búsquedas. Descubrir sigue siendo a mano.
+- **La clave es la de la PLATAFORMA**, nunca la del negocio: la biblioteca es global (mig 0409, sin `workspace_id`), así que llenarla con la cuota de un cliente es gastarle su balde para la vidriera de todos. Por lo mismo no va por `correrPorWorkspace`: un solo trabajo, como `/api/cron/spy-poda`.
+
+⚠️ **Y una trampa del entorno que costó un run de Actions.** El mensaje de «sin clave» decía «no releí ni **podé** nada»
+— el pretérito de PODAR, que es de lo que habla la función. `tests/puente-panel-copy.test.ts` (el guarda de voseo del repo,
+que barre 6.009 archivos) lo lee como el *vos* de «poder» (→ «puede»), porque son la misma palabra escrita, y da rojo: «El
+producto se usa en México: la interfaz va en español neutro». No es un falso positivo que convenga excepcionar: **un mensaje
+sobre podar no puede usar su propio verbo en primera persona**, y la salida es escribirlo impersonal («no se relee ni se poda
+nada»). La misma colisión existe con «anoté/anotá», «corté/cortá» y «miré/mirá». El guarda no distingue —no puede—, así que
+la regla práctica es: en un texto que sale del repo, el pretérito de primera persona de un verbo de la primera conjugación es
+indistinguible de un imperativo voseante, y conviene evitarlo.
+
+⚠️ **Lo que el cron NO arregla, y conviene no confundirlo:** la cadencia que se arregló acá es la de **que no se vacíe**, no la de la curaduría. Cada relectura trae videos nuevos de los mismos canales **sin que nadie los mire** (el mismo agujero que la biblioteca de carruseles: ver «Sin hacer»). El cron hace que la galería nunca esté vacía; que lo que haya sirva a un dueño de negocio sigue dependiendo del múltiplo y del trámite III.L.
 
 ## «Tu IA no contestó ahora»: el camino de respaldo era más débil que el principal (6/11/2026)
 
@@ -262,11 +254,7 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
 - Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
-- **Láminas, medido el 6/11 a la tarde:** quedan **168 carruseles visibles sin sus láminas**, los 168 con link (antes eran 111
-  sin leer más 57 que el actor no dio: la curaduría de la tarde cambió el conjunto). Lo probable, US$0,45. **Trabado por plata,
-  no por código:** la clave de Spy de la plataforma tiene US$1,98 libres de US$10 y la reserva de Spy son US$2, así que el techo
-  de la corrida es **US$0,00** y no puede leer ninguno. Lo destraba Martín cargando crédito en Apify (o sumando otra clave en
-  Integraciones → Apify del negocio de la plataforma); desde el 6/11 el script lo DICE con el número en vez de cortar «al techo».
+- **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
 - **«Editar» de punta a punta con un carrusel real** se probó en producción el 6/11: abre el diseño de 8 páginas, pero «Tu IA no contestó ahora» y sale la guía con miniaturas vacías. Causa sin encontrar (`lib/carruseles/replica.ts:387`), encargada al chat de Carruseles.
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.

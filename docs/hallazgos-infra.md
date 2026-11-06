@@ -84,6 +84,66 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
+
+Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el
+mismo worktree y empujados desde el mismo `HEAD`. O sea que `punta/varios-grafo-encuadre` no llevaba el
+arreglo del grafo: llevaba **los cuatro** commits. Un «mandás» en el segundo puso en rojo al segundo, al
+tercero y al cuarto, y cada rojo gastó su corrida de Actions (~14 min) persiguiendo un fallo que no
+tenía nada que ver con el cambio que la punta traía.
+
+Me lo pregunté al empujar la segunda y lo contesté mal: «son todos commits MÍOS, así que apilar es
+inofensivo». La propiedad no tiene nada que ver — lo que importa es que **la punta es la unidad del
+chequeo**. Con las puntas apiladas, el rojo de la de abajo es el rojo de todas las de arriba, que es
+exactamente lo que la regla de Martín del 3/11 vino a eliminar («que se vaya deployando lo que ya pasó
+en lugar de todo junto»). El memo ya lo decía, con otras palabras: «una punta cortada de otra se mira
+con `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos». «Ajenos» se
+lee como «de otro chat», y el problema es igual con los propios.
+
+**How to apply:**
+
+- **Un ítem = un commit = una punta, y la punta sale de `origin/main`, no del commit anterior.** Antes
+  de empujar: `git log --oneline origin/main..HEAD` tiene que mostrar **un** commit. Si muestra más, la
+  punta está apilada.
+- Para desapilar sin perder nada, en el worktree propio: `git checkout --detach origin/main` +
+  `git cherry-pick <sha>` por punta, y `git push --force-with-lease=refs/heads/punta/<n>:<sha viejo>`.
+  El índice de hallazgos se auto-mezcló solo (`Auto-merging docs/hallazgos.md`) en los tres casos; aun
+  así, entre el cherry-pick y el push va el chequeo de marcas (`grep -c '^<<<<<<<'` = 0).
+- Ojo con el `--force-with-lease`: la rama remota puede no estar en el sha que empujaste. La mía estaba
+  en el commit de *merge* que hice después, y el push rebotó con «stale info». El sha de verdad lo da
+  `git ls-remote --heads origin`, no la memoria.
+- La marca `ci-rojo/<punta>` queda apuntando al sha viejo. No hace falta borrarla: `ci-main-verde.sh`
+  sólo relanza una punta «si su rama sigue en el MISMO commit que dio rojo», y el push nuevo trae su
+  propia corrida.
+
+## Un archivo de `lib/` que guarda el TEXTO que lee una persona es COPY, aunque sea `.ts` y aunque el lector sea un agente (6/11/2026)
+
+Una punta dio rojo en `tests/puente-panel-copy.test.ts` → «ninguna pantalla del repo le habla al
+cliente de vos», con **una** forma en 6.007 archivos revisados: un «mandás» en una línea agregada a
+`lib/agente-skill.ts` (el texto de la skill que lee el Claude Code del cliente). El resto del archivo ya
+estaba en español neutro; la línea nueva era la única con voseo.
+
+**Why:** el memo del tren dice que un chat que toca **copy** corre también las barredoras antes de pasar
+la punta, y es fácil leer «copy» como «una pantalla» — un `.tsx`, un botón, un título. El detector no
+mira pantallas: barre el repo entero con `git ls-files`. Un `.ts` de `lib/` que contiene prosa en
+español (una skill, una plantilla de prompt, el cuerpo de un email, un mensaje de WhatsApp) es copy con
+todas las letras, y que lo lea un agente en vez de una persona no lo cambia: ese texto se le muestra al
+cliente en su terminal.
+
+**How to apply:**
+
+- No hace falta adivinar qué barredora mira lo que tocaste: **`node scripts/tests-afectados.mjs --base
+  origin/main --listar --explicar`** lo contesta en un comando y sin correr nada. Las barredoras corren
+  SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
+  no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
+  selector.
+- El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
+  reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
+  un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
+- Al agregar un renglón a un texto largo ya escrito, el registro lo marca el archivo, no el autor: esa
+  skill dice «No mandes», «si los mandas», «dilo», «díselo». Un renglón en voseo adentro de eso queda
+  mal aun sin guard.
+
 ## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
 
 Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
