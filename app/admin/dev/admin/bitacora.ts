@@ -536,6 +536,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin?tab=customers',
   },
+  {
+    fecha: '6 nov', hora: '02:04', chat: 'Admin', sesion: 'cli_a2afc90c-6245-54ef-9c4f-239cdad34edb', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Admin entera de nuevo: copia completa de UNA app, Polar, con sus funcionalidades',
+    pedido: 'borres todo… copia por completo… cuando digo copio no es solamente el diseño, es también las funcionalidades… Cómo distribuyen cada página… que seas criterioso y que copies al 100% como lo hacen otras personas',
+    puntos: [
+      'Rechazó dos versiones por mezclar: la de doce apps y la de Studio Admin, que dejó adentro las pantallas viejas («tres lugares para configurar mi perfil», «usuarios en tres lugares», «ingreso mensual en Customers»).',
+      'La fuente es una sola, polarsource/polar (Apache-2.0): un perfil, un modo oscuro, cada dato en un solo lugar. El reparto y el porqué, en docs/investigacion-admin.md.',
+      'El Cerebro decidió lo que Polar no tiene (clic derecho, cómo llegó cada cliente, Desconectar, los clientes de agencia como filtro, el rango en Cost Drivers, «Para mirar», «Ver ejemplo» del recibo) y dejó 43 arreglos en docs/admin/revision-cerebro-6-11.md.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '06:18', chat: 'Admin', sesion: 'cli_a2afc90c-6245-54ef-9c4f-239cdad34edb', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que Polar no tiene, en su lugar, y cada pantalla comparada con la de Polar',
+    puntos: [
+      'La lista de negocios tiene clic derecho (Ver ficha, Entrar a su cuenta, Administrar) y el filtro «De agencias»; cada cliente de una agencia dice de cuál es.',
+      'La ficha dice cómo llegó el cliente (Llegó por, Quería resolver, A corregir en su oferta), su primer mes, y cada computadora tiene «Desconectar» con el segundo factor.',
+      'Cost Drivers elige el período como Polar (30 días, 3 y 12 meses, desde siempre, hoy); At Risk suma «Para mirar»; Settings › General tiene «Ver ejemplo» del recibo.',
+      'Comparando a 1440 y 390, en oscuro y en claro: el documento ya no scrollea entero, la barra sin filetes, Cost Drivers no se corta, los selectores de fecha muestran su rótulo, Events dice la hora en un formato, Members entra en la ficha. Las 84 capturas, en docs/admin/polar/.',
+    ],
+    commits: [
+      { sha: 'e502d760', msg: 'Admin › Customers: clic derecho, «De agencias», cómo llegó y «Desconectar» la computadora', lineas: 350, archivos: 13 },
+      { sha: 'd9a0b4fa', msg: 'Admin: el rango de Polar en Cost Drivers, «Para mirar» en At Risk y «Ver ejemplo» del recibo', lineas: 326, archivos: 12 },
+      { sha: '1ff303dd', msg: 'Admin: lo que se veía mal comparando con Polar, arreglado, y las capturas', lineas: 242, archivos: 97 },
+    ],
+    archivos: [
+      'app/admin/_polar/web/Customer/menu-contextual-negocios.ts — el clic derecho de la lista',
+      'app/admin/_polar/datos/clientes.ts — los filtros, la ventana de Cost Drivers y «Para mirar»',
+      'app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx — cómo llegó y las computadoras',
+      'docs/admin/polar/ — las capturas; tests/admin-polar-pantalla.test.ts — lo que se veía mal',
+    ],
+    revisar: '/admin/customers',
+  },
 ];
 
 export const PARTES: Parte[] = [
