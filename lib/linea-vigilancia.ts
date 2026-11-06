@@ -55,6 +55,12 @@ export const DEDUP_LINEA_MIN = 20 * 60;
 /** Las marcas viven en los settings del workspace DUEÑO de la línea, una por línea. */
 export const keyDesde = (linea: string): string => `wa.linea.caida.desde.${linea}`;
 export const keyAvisado = (linea: string): string => `wa.linea.caida.avisado.${linea}`;
+/**
+ * EL ÚLTIMO NÚMERO de la línea (6/11/2026). El webhook de Evolution le pone `numero = null` a la fila cuando la línea se
+ * cae, y el aviso de la caída salía sin nombrarla: un negocio con dos líneas sin etiqueta no sabía cuál. El webhook lo
+ * guarda acá ANTES de borrarlo, y `lineaLegible` lo usa sólo si la fila no tiene número. Sin migración: es un setting.
+ */
+export const keyUltimoNumero = (linea: string): string => `wa.linea.ultimo_numero.${linea}`;
 
 export type MarcasLinea = { desde: string | null; avisado: string | null };
 
@@ -98,11 +104,14 @@ export function decidirLinea(e: {
   return { que: 'avisar' };
 }
 
-/** Cómo se nombra la línea en el aviso: el nombre que le puso el negocio, o su número. */
-export function lineaLegible(f: { etiqueta: string | null; numero: string | null }): string | null {
+/**
+ * Cómo se nombra la línea en el aviso: el nombre que le puso el negocio, o su número. El número de la fila gana; si la
+ * caída lo borró, el último que tuvo (`keyUltimoNumero`).
+ */
+export function lineaLegible(f: { etiqueta: string | null; numero: string | null; ultimoNumero?: string | null }): string | null {
   const etiqueta = (f.etiqueta ?? '').trim();
   if (etiqueta) return `«${etiqueta}»`;
-  const dig = (f.numero ?? '').replace(/\D/g, '');
+  const dig = (f.numero ?? '').replace(/\D/g, '') || (f.ultimoNumero ?? '').replace(/\D/g, '');
   return dig ? `+${dig}` : null;
 }
 

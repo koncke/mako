@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
        */
       case 'probar':
         if (!b.id) return faltaId();
-        return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') });
+        return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.', {}, undefined, { muestra: true }) });
       case 'flujo-get':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) });

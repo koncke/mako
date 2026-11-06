@@ -29,6 +29,17 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
+/**
+ * ¿La foto ya terminó y no cargó? (recorrido visual del 30/10/2026, C1: 16 de 42 caras del CRM con el ícono de imagen
+ * rota). Una foto que falla ANTES de que React tome la página (el HTML del server la pide de entrada y el proxy del avatar
+ * contesta 404) dispara su `error` sin nadie escuchando: el `onError` no corre nunca y la imagen rota queda a la vista.
+ * Al montar se pregunta esto: terminada (`complete`) y sin ancho (`naturalWidth` 0) es una foto que no cargó. Una que
+ * todavía está cargando da `complete` false, y para ésa sigue valiendo el `onError`.
+ */
+export function fotoQueNoCargo(img: { complete: boolean; naturalWidth: number } | null | undefined): boolean {
+  return !!img && img.complete && img.naturalWidth === 0;
+}
+
 /** Las iniciales de un nombre: dos letras, en mayúscula. Sin nombre, «?». Ignora lo que no es letra ni número. */
 export function inicialesDe(nombre: string | null | undefined): string {
   const palabras = String(nombre ?? '').trim().split(/\s+/).map((p) => p.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean);

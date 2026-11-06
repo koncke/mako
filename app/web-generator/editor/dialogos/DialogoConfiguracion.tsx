@@ -20,14 +20,15 @@
 // página aplica a lo que existe).
 //
 //   · Formato (Página web · Presentación) y, en una presentación, «Relación de aspecto»
-//     (16:9 · 4:3 · Fluido): T3 de la tanda 2 («Falta la funcionalidad de crear presentaciones,
+//     (16:9 · 4:3 · 4:5 · Fluido): T3 de la tanda 2 («Falta la funcionalidad de crear presentaciones,
 //     no solo landings»). Con una forma fija, «Ancho de las secciones» no se ofrece: todas las
 //     diapositivas miden lo mismo (css.ts, «Presentaciones»), y un control que no cambia nada se
 //     lee como roto.
 //
 // Lo que NO se copia de Gamma, y por qué:
-//   · Las relaciones de aspecto 4:5, 9:16, Carta, A4 y «Sin páginas»: son de documentos y
-//     redes, no de una landing ni de una presentación.
+//   · Las relaciones de aspecto 9:16, Carta, A4 y «Sin páginas»: son de documentos y redes, no de
+//     una landing ni de una presentación. 4:5 SÍ desde el 6/11/2026 (llamada con Leila del 5/11:
+//     «ofrecer el carrusel 4:5», que ya existe en Image): una presentación de 4:5 es un carrusel.
 //   · «Mostrar guías de desbordamiento» como interruptor: la guía sale siempre en el editor y no
 //     se ve si todo entra.
 //   · Tamaño de fuente base y «Adapta el contenido»: lo decide el tema (escala) en css.ts.
@@ -40,7 +41,7 @@ import { useEditorState } from '@tiptap/react';
 import { NODO, type AttrsTarjeta } from '@/lib/editor-landing/doc';
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
 import { estiloPorId } from '@/lib/editor-landing/animaciones';
-import { diapositivaFija, esPresentacion, proporcionDe, terminoTarjeta, type FormatoDoc, type Proporcion } from '@/lib/editor-landing/api-tipos';
+import { PROPORCIONES, diapositivaFija, esPresentacion, proporcionDe, terminoTarjeta, type FormatoDoc, type Proporcion } from '@/lib/editor-landing/api-tipos';
 import { useEditorLanding } from '../contexto';
 import { Campo, CampoImagen, EstilosGmp, FilaAjuste, Icono, Interruptor, ModalGma, Segmentado, useConfigViva, useFijo, type OpcionSeg } from './piezas-gma';
 
@@ -56,11 +57,8 @@ const FORMATOS_OPC: OpcionSeg<FormatoDoc>[] = [
   { valor: 'pagina', texto: 'Página web' },
   { valor: 'presentacion', texto: 'Presentación' },
 ];
-const PROPORCIONES_OPC: OpcionSeg<Proporcion>[] = [
-  { valor: '16:9', texto: '16:9' },
-  { valor: '4:3', texto: '4:3' },
-  { valor: 'fluido', texto: 'Fluido' },
-];
+// Salen de PROPORCIONES (api-tipos.ts): una proporción nueva se ofrece sola, y la pantalla no ofrece una que el guardado tira.
+const PROPORCIONES_OPC: OpcionSeg<Proporcion>[] = PROPORCIONES.map((valor) => ({ valor, texto: valor === 'fluido' ? 'Fluido' : valor }));
 const ALINEACIONES: OpcionSeg<AttrsTarjeta['alineacion']>[] = [
   { valor: 'arriba', texto: 'Arriba' },
   { valor: 'centro', texto: 'Centro' },

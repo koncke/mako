@@ -79,7 +79,8 @@ test('se ve: el estado en el interruptor «Activar» (sin chip arriba del lienzo
   const perfil = leer('app/automations/SecuenciaPerfil.tsx');
   assert.ok(!perfil.includes('EstadoDeLaAutomatizacion'), 'sin el chip de estado arriba del lienzo');
   assert.ok(!perfil.includes('Pausada · no sale nada'), 'sin «Pausada · no sale nada» en el lienzo');
-  assert.match(perfil, />Activar<\/span>\s*<button onClick=\{\(\) => \(activa \? void toggle\(\)[^\n]*aria-pressed=\{activa\}/);
+  // Prendida dice «Activa» y apagada «Activar» (recorrido visual del 30/10/2026, A3).
+  assert.match(perfil, /\{activa \? 'Activa' : 'Activar'\}<\/span>\s*<button onClick=\{\(\) => \(activa \? void toggle\(\)[^\n]*aria-pressed=\{activa\}/);
   const fila = leer('app/automations/SimuladorWhatsApp.tsx');
   assert.match(fila, /<span data-pausada role="img" aria-label="Pausada" title="Pausada: no sale nada"[\s\S]{0,400}>⏸<\/span>/);
 });
