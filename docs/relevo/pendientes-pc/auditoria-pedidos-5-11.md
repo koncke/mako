@@ -85,7 +85,7 @@ Dónde se discrepó con el agente que midió: 2.2 (nombre del contacto en los ch
 | A6 Reloj automático de 2 semanas por cliente de agencia | A MEDIAS | El mes corre desde que el cliente termina el onboarding (`lib/agencia-cobro-reglas.ts:10`). No hay reloj fijo de 14 días | `inicio_at = alta + 14 días` y que el cron de renovaciones lo respete: `lib/agencia-cobro.ts`, `lib/agencia-cobro-reglas.ts` |
 | A7 Partner: 100% del primer mes, link de referidos | HECHO | `lib/partners-reglas.ts:28`, `app/partners/referidos/page.tsx`. Juanfran prefiere recurrente (40% de por vida): no está | Decisión de Martín |
 | A7c Prueba gratis de 15 días | A MEDIAS | Sólo hay 7 (`lib/planes-mako.ts:75`); lo de 15 se dijo como ejemplo | Sumarlo si se promete |
-| A8 Prioridad a los tickets de Joan y Juanfran | FALTA | La prioridad sale sólo del texto (`lib/tickets-reglas.ts:401`); no hay regla por agencia | Subir prioridad por agencia en el triage |
+| A8 Prioridad a los tickets de Joan y Juanfran | **HECHO** (este renglón decía FALTA: estaba desactualizado el mismo día) | `subirPorAgencia` y la marca `agencia` en el triage (`lib/tickets-reglas.ts:311`, `clasificar` con `deAgencia`), cableado en `lib/tickets-db.ts:305` con `deAgencia: n.identidad.agencia === true`, que sale de `administraUnaAgencia` en `identidadDe` (`lib/tickets-db.ts:146`). Baja→media, media→alta, nunca urgente; lo de un tercero y lo automático no suben; el mazo los pone DETRÁS de los de su prioridad que llegaron solos (`ordenDelMazo`). 5 casos en `tests/tickets-agencia.test.ts`, probados rompiéndolo | — |
 
 ---
 
