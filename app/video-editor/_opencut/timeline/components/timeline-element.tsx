@@ -104,6 +104,7 @@ import { transicionPorId } from "@/app/video-editor/_opencut/transiciones/catalo
 import { FranjasAnimacion } from "@/app/video-editor/_opencut/animaciones/components/franjas-animacion";
 import { leerMarcas } from "@/app/video-editor/_opencut/plantillas/huecos";
 import { abrirReemplazo } from "@/app/video-editor/_opencut/reemplazo/estado";
+import { propuestaDe } from "@/app/video-editor/_opencut/broll/pistas";
 
 const KEYFRAME_INDICATOR_MIN_WIDTH_PX = 40;
 /** Entre dos clips pegados queda 1 px de cada lado, como el filo oscuro de CapCut. */
@@ -464,6 +465,16 @@ export function TimelineElement({
 							onResizeStart={onResizeStart}
 							isDropTarget={isDropTarget}
 						/>
+						{/* Una propuesta de MaKo (B-roll o cambio de plano, broll/pistas.ts) va con borde punteado hasta que la
+						    persona la deja o la saca. */}
+						{propuestaDe(element) && (
+							<div
+								aria-hidden
+								data-propuesta-mako
+								className="pointer-events-none absolute inset-x-0 top-0 z-10 rounded-[4px] border-2 border-dashed border-white/85"
+								style={{ height: baseTrackHeight }}
+							/>
+						)}
 						{/* El tramo de la Entrada / Salida / Combinado (animaciones/components/franjas-animacion.tsx). */}
 						<FranjasAnimacion
 							element={renderElement}

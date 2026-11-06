@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import {
   codificarClaves, clavesNombradas, elegirClaves, indicesDeClaves, leerClaves, normalizarClave, PARAM_CLAVES,
   PENALIZACION_REPETIDA, PUNTAJE_MINIMO,
-} from '../app/video-editor/_opencut/subtitles/claves';
+} from '../lib/editor-video/claves';
 import { colorDePalabra, resaltadoDe } from '../app/video-editor/_opencut/text/resaltado';
 import { DEFAULTS_CLAVES, PARAM_CLAVES_COLOR, PARAM_RESALTAR, PARAM_RESALTAR_COLOR } from '../app/video-editor/_opencut/params/extra/subtitulos';
 import { codificarPalabras, PARAM_PALABRAS } from '../app/video-editor/_opencut/subtitles/palabras';
