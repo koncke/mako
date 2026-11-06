@@ -115,6 +115,39 @@ test('el nombre de un funnel en una frase conserva las marcas y las siglas', () 
   assert.equal(preguntaDeCopiloto('ticket', { entrada: 'funnel', funnel: 'organico' }, 'Martín'), 'Para orgánico en Instagram: ¿cuánto te deja una venta, en dólares?');
 });
 
+test('lo que se dice del negocio no borra la charla ni vuelve atrás (la revisión del 6/11)', () => {
+  const ticket: PerfilCopiloto = { entrada: 'funnel', funnel: 'vsl-llamada' };
+  assert.equal(pasoDeCopiloto(ticket), 'ticket');
+  // Contar que el negocio arranca de cero no es pedir empezar de nuevo; y con el número adentro, se lee el ticket.
+  assert.equal(interpretarEscrito(ticket, 'Estoy empezando de cero en esto, vendo mentorías').tipo, 'libre');
+  const conNumero = interpretarEscrito(ticket, '3000 y arranco de cero');
+  assert.equal(conNumero.tipo, 'respuesta');
+  assert.equal('perfil' in conNumero && conNumero.perfil.ticket, 3000);
+  // Una pregunta con «otra opción» va a MaKo; «¿volvemos atrás?» sí vuelve.
+  assert.equal(interpretarEscrito(ticket, '¿Hay otra opción para el ticket?').tipo, 'libre');
+  assert.equal(interpretarEscrito(ticket, '¿volvemos atrás?').tipo, 'volver');
+  // «Otra opción» suelta en una frase larga es charla.
+  assert.equal(comandoDeCopiloto('me gusta tener otra opción de pago para mis clientes', 'fuerte'), null);
+});
+
+test('aceptar la propuesta pide un sí claro: «No sé si me sirve» va a MaKo', () => {
+  const lista: PerfilCopiloto = { entrada: 'funnel', funnel: 'organico', ticket: 1000, objetivo: 'ventas', ritmo: 3, formato: 'reels', competencia: 'luego' };
+  assert.equal(pasoDeCopiloto(lista), 'propuesta');
+  assert.equal(interpretarEscrito(lista, 'No sé si me sirve').tipo, 'libre');
+  assert.equal(interpretarEscrito(lista, 'me gusta este funnel pero tengo dudas').tipo, 'libre', 'nombrar el funnel no lo borra');
+  for (const t of ['Me sirve, empecemos', 'sí', 'dale', 'perfecto, vamos']) {
+    const r = interpretarEscrito(lista, t);
+    assert.equal(r.tipo, 'respuesta', `«${t}»`);
+    assert.equal('perfil' in r && r.perfil.aceptado, true, `«${t}»`);
+  }
+});
+
+test('«no lo enseña» sale cuando se PIDE otro funnel, no cuando se lo nombra charlando', () => {
+  const derek: PerfilCopiloto = { entrada: 'referente', referente: 'derek-chamizo' };
+  assert.equal(interpretarEscrito(derek, 'tengo muchos seguidores en instagram, que hago').tipo, 'libre');
+  assert.equal(interpretarEscrito(derek, 'quiero instagram orgánico').tipo, 'fuera');
+});
+
 // ── Probado rompiéndolo (6/11/2026) ───────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado:
 //   1. sacar la regla de «empezar» de comandoDeCopiloto                     → 1 rojo («volvamos a empezar»).
@@ -123,3 +156,6 @@ test('el nombre de un funnel en una frase conserva las marcas y las siglas', () 
 //   4. «la otra opción» sin elegir la otra en un paso de dos                 → 1 rojo («el caso de Martín»).
 //   5. acuseDeVolver que dice siempre «Volvemos un paso.»                     → 1 rojo («MaKo acusa…»).
 //   6. enFrase con toLowerCase() entero («Para orgánico en instagram»)        → 1 rojo («el nombre de un funnel en una frase…»).
+//   7. devolver `\bde cero\b` suelto como «empezar»                          → 1 rojo («lo que se dice del negocio…»).
+//   8. aceptar la propuesta con /sirve|empec|ok|dale/ sin anclar              → 1 rojo («aceptar la propuesta pide un sí claro»).
+//   9. fueraDe sin mirar si lo pide                                            → 1 rojo («"no lo enseña" sale cuando se PIDE…»).

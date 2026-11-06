@@ -430,14 +430,17 @@ export function leerRespuestaCopiloto(paso: PasoCopiloto, texto: string, p: Perf
       return null;
     }
     case 'competencia':
-      if (/^s[ií]|investig/.test(l)) return { competencia: 'si' };
-      if (/adelante|luego|despu|no/.test(l)) return { competencia: 'luego' };
+      if (/^s[ií](?![a-záéíóúñ])|investig/.test(l)) return { competencia: 'si' };
+      if (/adelante|luego|despu|^no\b|todav[ií]a no|ahora no/.test(l)) return { competencia: 'luego' };
       return null;
-    case 'propuesta':
-      if (/sirve|empec|ok|dale/.test(l)) return { aceptado: true };
-      if (/funnel/.test(l)) return { funnel: undefined, referente: undefined, entrada: undefined, ajuste: undefined, antesDelAjuste: undefined, ticket: undefined, presupuestoMes: undefined, llamadas: undefined, objetivo: undefined, ritmo: undefined, formato: undefined, competencia: undefined };
-      if (/n[uú]mero/.test(l)) return { ticket: undefined, presupuestoMes: undefined, llamadas: undefined, ajuste: undefined, antesDelAjuste: undefined };
+    case 'propuesta': {
+      // Aceptar termina la charla y guarda: sólo con un sí claro, sin un «no» en la frase («No sé si me sirve» va a MaKo).
+      const pl = plano(t).replace(/[¡!¿?.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!/\bno\b|\bnada\b/.test(pl) && /^(si\b|ok\b|okay\b|dale\b|perfecto\b|listo\b|de acuerdo\b|me sirve\b|empecemos\b|vamos\b|acepto\b)/.test(pl)) return { aceptado: true };
+      if (/cambi\w* (el )?funnel|otro funnel/.test(pl)) return { funnel: undefined, referente: undefined, entrada: undefined, ajuste: undefined, antesDelAjuste: undefined, ticket: undefined, presupuestoMes: undefined, llamadas: undefined, objetivo: undefined, ritmo: undefined, formato: undefined, competencia: undefined };
+      if (/cambi\w* (los )?numeros|otros numeros/.test(pl)) return { ticket: undefined, presupuestoMes: undefined, llamadas: undefined, ajuste: undefined, antesDelAjuste: undefined };
       return null;
+    }
     default: return null;
   }
 }
@@ -478,13 +481,23 @@ export type ComandoCopiloto = 'volver' | 'empezar';
  */
 export function comandoDeCopiloto(texto: string, fuerza: 'fuerte' | 'debil'): ComandoCopiloto | null {
   const l = plano(texto).replace(/[¡!¿?.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const corto = l.split(' ').length <= 6;
   if (fuerza === 'fuerte') {
-    if (/\b(volv\w*|vuelv\w*|empez\w*|empec\w*|empiez\w*|arranc\w*|arranqu\w*|comenz\w*|comienz\w*|comenc\w*) (a empezar|a arrancar|de nuevo|de cero|otra vez|desde (el )?(principio|cero|inicio))\b|\bdesde (el )?(principio|cero)\b|\breinici\w*|\bresete\w*|\bborr\w* todo\b|\bde cero\b/.test(l)) return 'empezar';
-    // «Volver» sólo como pedido de moverse («volver», «volvamos atrás»): «quiero volver a vender como antes» es una charla.
-    if (/\bme equivoqu\w*|\bme confund\w*|\beleg\w* mal\b|\btoqu\w* mal\b|\bsin querer\b|\bpor error\b|^(no )?(quiero |prefiero )?la otra( opcion)?$|\botra opcion\b|\bno era (eso|esa|ese|asi)\b|^(quiero |podemos |vamos a )?(volver|volvamos|vuelvo)( atras| para atras| a la (pregunta|opcion) anterior| al paso anterior)?$|\bvolv(er|amos|emos) (atras|para atras|a la anterior|al paso anterior|a la pregunta anterior)\b|^atras$|\bir atras\b|\bpaso anterior\b|^deshac\w*$|\bcorreg(ir|i)\b/.test(l)) return 'volver';
+    // «Empezar» sólo con la forma de un PEDIDO (volvamos, empecemos, empezar, arrancamos…), nunca un gerundio ni un presente que
+    // cuenta algo del negocio: «estoy empezando de cero en esto» o «3000 y arranco de cero» no borran la charla (revisión, 6/11).
+    const verbo = '(volv(amos|er|emos)|vuelvo|empec(emos|e)|empez(ar|amos)|arranqu(emos|e)|arranc(ar|amos)|comenc(emos|e)|comenz(ar|amos))';
+    if (new RegExp(`\\b${verbo} (a empezar|a arrancar|de nuevo|de cero|otra vez|desde (el )?(principio|cero|inicio))\\b`).test(l)
+      || /^(quiero |podemos |vamos a )?(reiniciar|resetear|borrar todo|desde (el )?(principio|cero))$/.test(l)
+      || (corto && /\breinici(ar|emos|a)\b|\bresete(ar|emos|a)\b|\bborr(a|ar|emos) todo\b/.test(l))) return 'empezar';
+    // Una PREGUNTA no pide volver («¿hay otra opción para el ticket?» va a MaKo), salvo que pregunte justo eso («¿podemos volver?»).
+    if (esPregunta(texto)) return /^(podemos |puedo |se puede )?(volver|volvamos|volvemos)( atras| para atras| al paso anterior| a la pregunta anterior)?$/.test(l) ? 'volver' : null;
+    // «Volver» sólo como pedido de moverse («volver», «volvamos atrás»): «quiero volver a vender como antes» es una charla. Y «la otra
+    // opción» en un mensaje corto: «me gusta otra opción de pago para mis clientes» es charla.
+    if (/\bme equivoqu\w*|\bme confund\w*|\beleg\w* mal\b|\btoqu\w* mal\b|\bsin querer\b|\bpor error\b|^(no )?(quiero |prefiero )?la otra( opcion)?$|\bno era (eso|esa|ese|asi)\b|^(quiero |podemos |vamos a )?(volver|volvamos|vuelvo)( atras| para atras| a la (pregunta|opcion) anterior| al paso anterior)?$|\bvolv(er|amos|emos) (atras|para atras|a la anterior|al paso anterior|a la pregunta anterior)\b|^atras$|\bir atras\b|\bpaso anterior\b|^deshac\w*$|\bcorreg(ir|i)\b/.test(l)
+      || (corto && /\botra opcion\b/.test(l))) return 'volver';
     return null;
   }
-  return /^(quiero |prefiero |me gustaria |puedo )?(cambiar|cambiarlo|cambialo|cambiarla|cambiar eso|cambiar esto|cambiar la respuesta|otra cosa|eso no)$/.test(l) ? 'volver' : null;
+  return /^(quiero |prefiero |me gustaria |puedo )?(cambiar|cambiarlo|cambi[aá]lo|cambiarla|cambiar eso|cambiar esto|cambiar la respuesta|otra cosa|eso no)$/.test(l) ? 'volver' : null;
 }
 
 /** Los campos que contesta cada paso. Volver a un paso borra los suyos y los de los pasos siguientes. */
@@ -539,6 +552,10 @@ export type Interpretado =
 /** El funnel nombrado no lo enseña el referente que eligió. */
 function fueraDe(p: PerfilCopiloto, texto: string): FueraDelReferente | null {
   if (p.entrada !== 'referente' || !p.referente) return null;
+  // Sólo cuando lo PIDE (el nombre del funnel solo, o «quiero…», «mejor…»): «tengo muchos seguidores en instagram, qué hago» es una
+  // charla y va a MaKo, que tiene la tabla de quién enseña qué. Una pregunta, también.
+  const l = plano(texto).replace(/[¡!¿?.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (esPregunta(texto) || !(l.split(' ').length <= 4 || /\b(quiero|prefiero|hagamos|armemos|mejor|elijo|vamos con|usar|usemos|me interesa|vender con|armar)\b/.test(l))) return null;
   const f = funnelDelTexto(texto);
   if (!f || !funnelsDelReferente(p.referente).length || ensenaElFunnel(p.referente, f)) return null;
   return { referente: p.referente, funnel: f, quienes: quienesEnsenan(f, p.referente) };
@@ -591,8 +608,9 @@ export function textoDeFuera(x: FueraDelReferente): { texto: string; opciones: A
   return {
     texto,
     opciones: [
-      ...quienes.map((id) => ({ texto: `Seguir a ${nombreDelReferente(id)}`, cambio: { entrada: 'referente' as const, referente: id, funnel: x.funnel } })),
-      { texto: `${f.corto} sin referente`, cambio: { entrada: 'funnel' as const, referente: undefined, funnel: x.funnel } },
+      // Cambiar de funnel deja atrás el aviso que se había aceptado: si no, la charla seguiría mostrando el funnel de antes del aviso.
+      ...quienes.map((id) => ({ texto: `Seguir a ${nombreDelReferente(id)}`, cambio: { entrada: 'referente' as const, referente: id, funnel: x.funnel, ajuste: undefined, antesDelAjuste: undefined } })),
+      { texto: `${f.corto} sin referente`, cambio: { entrada: 'funnel' as const, referente: undefined, funnel: x.funnel, ajuste: undefined, antesDelAjuste: undefined } },
       { texto: `Seguir con ${ref.nombre}`, cambio: null },
     ],
   };

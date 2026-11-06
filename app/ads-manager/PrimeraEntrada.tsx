@@ -56,17 +56,18 @@ async function guardar(perfil: PerfilCopiloto): Promise<boolean> {
 async function leerGuardado(): Promise<PerfilCopiloto | null> {
   const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'copiloto_leer' }) }).catch(() => null);
   const j = r?.ok ? await r.json().catch(() => null) as { perfil?: PerfilCopiloto } | null : null;
-  return j?.perfil ?? null;
+  // `{}` es «nada guardado», no un perfil: adoptarlo reiniciaría la charla.
+  return j?.perfil && Object.keys(j.perfil).length > 0 ? j.perfil : null;
 }
 
 /** Algo que dijo MaKo (o la persona) fuera del guion, pegado a la pregunta en la que pasó. */
-type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null }>; visible: boolean };
+type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null; deshacer?: boolean }>; visible: boolean };
 /** Un mensaje para MaKo: sale por el motor, en orden. */
-type Envio = { vez: number; paso: PasoCopiloto; texto: string; enviado: boolean; visible: boolean };
+type Envio = { vez: number; paso: PasoCopiloto; texto: string; enviado: boolean; visible: boolean; fallo?: boolean };
 
 /** Lo que el motor (el chat del Cerebro) le pasa a la pantalla. */
 type Motor = {
-  items: readonly ItemHilo[]; listo: boolean; enCurso: boolean; segs: number; ahora: number;
+  items: readonly ItemHilo[]; listo: boolean; fallo: boolean; enCurso: boolean; segs: number; ahora: number;
   tarjeta: ReturnType<typeof useChatCliente>['tarjeta'];
   correrTarjeta: ReturnType<typeof useChatCliente>['correrTarjeta']; reintentar: ReturnType<typeof useChatCliente>['reintentar'];
   recargar: () => void; enviar: (t: string) => boolean; marcas: ReturnType<typeof useChatCliente>['marcas'];
@@ -82,7 +83,7 @@ function MotorDelCopiloto({ pantalla, onMotor }: { pantalla: string; onMotor: (m
   ref.current = k;
   useEffect(() => {
     onMotor({
-      items: k.items, listo: k.esJefe && k.cargado && !k.errorCarga, enCurso: k.enCurso, segs: k.segs, ahora: k.ahora, tarjeta: k.tarjeta, marcas: k.marcas,
+      items: k.items, listo: k.esJefe && k.cargado && !k.errorCarga, fallo: !!k.errorCarga, enCurso: k.enCurso, segs: k.segs, ahora: k.ahora, tarjeta: k.tarjeta, marcas: k.marcas,
       correrTarjeta: (...a) => ref.current.correrTarjeta(...a), reintentar: (...a) => ref.current.reintentar(...a), recargar: () => ref.current.recargar(),
       enviar: (t) => ref.current.enviar(t),
     });
@@ -99,6 +100,16 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const [notas, setNotas] = useState<Nota[]>([]);
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [motor, setMotor] = useState<Motor | null>(null);
+  // El motor se monta con el primer mensaje libre y NO se desmonta: «Empezar de nuevo» vacía los envíos, y desmontarlo dejaba un
+  // `motor` viejo cuyo `enviar` apuntaba a un hook que ya no existía.
+  const [conMotor, setConMotor] = useState(false);
+  /** Lo último que se guardó de verdad (lo que respondió el servidor con ok): contra eso se sabe si MaKo cambió algo. */
+  const ultimoGuardado = useRef<string>(JSON.stringify(inicial));
+  /** El perfil de ahora, para los efectos que terminan después de un turno. */
+  const pAhora = useRef(p);
+  pAhora.current = p;
+  /** Lo de antes de «Empezar de nuevo», para que «Deshacer» devuelva también lo hablado. */
+  const antesDeEmpezar = useRef<{ p: PerfilCopiloto; notas: Nota[]; envios: Envio[]; base: Set<string> | null } | null>(null);
   /** Los mensajes del Cerebro que ya estaban antes del primer envío de acá: no se dibujan (son de otras tabs). */
   const base = useRef<Set<string> | null>(null);
   const guardando = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -112,7 +123,14 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const tramo = tramoDe(paso);
   const hayAtras = pasosRespondidos(p).length > 0;
 
-  const guardarYa = useCallback((sig: PerfilCopiloto) => { guardando.current = guardar(sig); return guardando.current; }, []);
+  const guardarYa = useCallback((sig: PerfilCopiloto) => {
+    guardando.current = guardar(sig).then((ok) => {
+      if (ok) ultimoGuardado.current = JSON.stringify(sig);
+      else setError('No pude guardar tu respuesta. Prueba otra vez.');
+      return ok;
+    });
+    return guardando.current;
+  }, []);
 
   const terminar = async (sig: PerfilCopiloto) => {
     setTerminando(true);
@@ -146,6 +164,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const volver = () => { const v = volverUnPaso(p); if (v) ir(v.perfil); };
   const empezarDeNuevo = (dijo?: string) => {
     const previo = p;
+    antesDeEmpezar.current = { p, notas, envios, base: base.current };
     esconderDesde('entrada');
     // Lo que ya se habló con MaKo queda en su chat (el Cerebro), no en esta charla nueva.
     if (motor) base.current = new Set(motor.items.map((x) => x.id));
@@ -153,27 +172,56 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     setP({});
     void guardarYa({});
     if (dijo) nota({ paso: 'entrada', de: 'yo', texto: dijo });
-    nota({ paso: 'entrada', de: 'mako', texto: 'Empezamos de nuevo.', opciones: [{ texto: 'Deshacer', perfil: previo }] });
+    nota({ paso: 'entrada', de: 'mako', texto: 'Empezamos de nuevo.', opciones: [{ texto: 'Deshacer', perfil: previo, deshacer: true }] });
+  };
+  /** «Deshacer» de «Empezar de nuevo»: vuelve el perfil y también lo que se habló (las notas, lo de MaKo). */
+  const deshacerEmpezar = () => {
+    const a = antesDeEmpezar.current;
+    if (!a) return;
+    antesDeEmpezar.current = null;
+    base.current = a.base;
+    setNotas(a.notas);
+    setEnvios(a.envios);
+    setP(a.p);
+    setError(null);
+    void guardarYa(a.p);
   };
 
   // Lo que se habla con MaKo sale de a uno, cuando el Cerebro está abierto y libre.
   useEffect(() => {
-    if (!motor?.listo || motor.enCurso) return;
-    const sig = envios.find((e) => !e.enviado && e.visible);
-    if (!sig) return;
+    const sig = envios.find((e) => !e.enviado && !e.fallo && e.visible);
+    if (!sig || !motor) return;
+    // Sin poder abrir el chat (o si no lo toma), el mensaje no queda «enviando» para siempre: se dice y se puede volver a escribir.
+    const fallo = () => {
+      setEnvios((es) => es.map((e) => (e.vez === sig.vez ? { ...e, fallo: true } : e)));
+      nota({ paso: sig.paso, de: 'mako', texto: 'No pude mandarle esto a MaKo. Recarga la página y vuelve a escribirlo.' });
+    };
+    if (motor.fallo) { fallo(); return; }
+    if (!motor.listo || motor.enCurso) return;
     if (base.current == null) base.current = new Set(motor.items.map((x) => x.id));
     void guardando.current.then(() => {
       if (motor.enviar(sig.texto)) setEnvios((es) => es.map((e) => (e.vez === sig.vez ? { ...e, enviado: true } : e)));
+      else fallo();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motor, envios]);
 
   // Al terminar un turno de MaKo, lo guardado puede haber cambiado (guardó el funnel que acordaron): se muestra.
+  // Se adopta SÓLO si lo cambió MaKo (lo guardado no es lo último que guardó esta pantalla) y la persona no tocó nada mientras MaKo
+  // contestaba (el perfil de ahora es el del arranque del turno): un clic en una pastilla en el medio gana.
   const estabaEnCurso = useRef(false);
+  const pAlTurno = useRef<string | null>(null);
   useEffect(() => {
     const ocupado = !!motor?.enCurso || !!motor?.tarjeta;
+    if (!estabaEnCurso.current && ocupado) pAlTurno.current = JSON.stringify(pAhora.current);
     if (estabaEnCurso.current && !ocupado) {
+      const alTurno = pAlTurno.current;
       void guardando.current.then(() => leerGuardado()).then((g) => {
-        if (g && JSON.stringify(g) !== JSON.stringify(p)) setP(aplicarCambio(g, { aceptado: undefined }));
+        if (!g) return;
+        const gs = JSON.stringify(g);
+        if (gs === ultimoGuardado.current || JSON.stringify(pAhora.current) !== alTurno) return;
+        ultimoGuardado.current = gs;
+        setP(aplicarCambio(g, { aceptado: undefined }));
       });
     }
     estabaEnCurso.current = ocupado;
@@ -199,6 +247,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
       return;
     }
     // Lo demás, a MaKo: con el paso en el que está y lo que falta preguntar.
+    setConMotor(true);
     setEnvios((es) => [...es, { vez: Date.now(), paso, texto: t, enviado: false, visible: true }]);
   };
 
@@ -211,7 +260,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     const grupos: ItemHilo[][] = [];
     for (const x of propios) {
       if (x.k === 'msg' && x.role === 'user') grupos.push([]);
-      if (!grupos.length) grupos.push([]);
+      // Lo que llega sin un mensaje de acá delante es la respuesta a algo de antes de «Empezar de nuevo»: no es de ningún envío.
+      if (!grupos.length) continue;
       grupos.at(-1)!.push(x.k === 'msg' ? { ...x, desde: undefined } : x);
     }
     const enviados = envios.filter((e) => e.enviado);
@@ -221,7 +271,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     const linea: Array<{ t: number; paso: PasoCopiloto; xs: ItemHilo[] }> = [];
     for (const n of notas) if (n.visible) linea.push({ t: Number(n.id.split('-').at(-1)), paso: n.paso, xs: [{ k: 'msg', id: n.id, role: n.de === 'yo' ? 'user' : 'assistant', texto: n.texto, at: null }] });
     enviados.forEach((e, i) => { if (e.visible && grupos[i]) linea.push({ t: e.vez, paso: e.paso, xs: grupos[i] }); });
-    for (const e of envios) if (!e.enviado && e.visible) linea.push({ t: e.vez, paso: e.paso, xs: [{ k: 'msg', id: `pend-${e.vez}`, role: 'user', texto: e.texto, at: null, estado: 'enviando' }] });
+    for (const e of envios) if (!e.enviado && e.visible) linea.push({ t: e.vez, paso: e.paso, xs: [{ k: 'msg', id: `pend-${e.vez}`, role: 'user', texto: e.texto, at: null, ...(e.fallo ? {} : { estado: 'enviando' as const }) }] });
     linea.sort((a, b) => a.t - b.t);
     for (const l of linea) sumar(l.paso, l.xs);
     const out: ItemHilo[] = [];
@@ -294,7 +344,11 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           <div role="group" aria-label="Respuestas rápidas" className="aa-rapidas aa-rapidas--nota">
             {n.opciones.map((o) => (
               <button key={o.texto} type="button" className="of-pill" disabled={terminando}
-                onClick={() => { setNotas((ns) => ns.map((x) => (x.id === n.id ? { ...x, opciones: undefined } : x))); if (o.perfil) ir(o.perfil); }}>{o.texto}</button>
+                onClick={() => {
+                  if (o.deshacer) { deshacerEmpezar(); return; }
+                  setNotas((ns) => ns.map((x) => (x.id === n.id ? { ...x, opciones: undefined } : x)));
+                  if (o.perfil) ir(o.perfil);
+                }}>{o.texto}</button>
             ))}
           </div>
         ),
@@ -304,7 +358,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   };
 
   const onMotor = useCallback((m: Motor) => setMotor(m), []);
-  const enCurso = terminando || !!motor?.enCurso || envios.some((e) => !e.enviado && e.visible);
+  const enCurso = terminando || !!motor?.enCurso || envios.some((e) => !e.enviado && !e.fallo && e.visible);
 
   return (
     <div className="aa aa-arranque aa-copiloto">
@@ -331,7 +385,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
             </div>
           }>
           <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={motor?.ahora ?? ahora}
-            escribiendo={terminando ? { segs: 1 } : motor?.enCurso ? { segs: motor.segs } : envios.some((e) => !e.enviado && e.visible) ? { segs: 0 } : null}
+            escribiendo={terminando ? { segs: 1 } : motor?.enCurso ? { segs: motor.segs } : envios.some((e) => !e.enviado && !e.fallo && e.visible) ? { segs: 0 } : null}
             tarjeta={motor?.tarjeta ?? null} onTarjeta={(x, a) => void motor?.correrTarjeta(x, a)} onReintentar={motor?.reintentar ?? nada} onRecargar={motor?.recargar ?? nada}
             marcas={motor?.marcas} enMensaje={enMensaje} />
           {opciones.length > 0 && paso !== 'referente' && (
@@ -347,7 +401,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           )}
         </PanelDeChat>
       </div>
-      {envios.length > 0 && <MotorDelCopiloto pantalla={pantalla} onMotor={onMotor} />}
+      {conMotor && <MotorDelCopiloto pantalla={pantalla} onMotor={onMotor} />}
     </div>
   );
 }

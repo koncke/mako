@@ -37,6 +37,8 @@ Lo que se encontró usando cada pantalla a 1440 y a 390 (banco de `scripts/banco
 | ¿Un fondo? (tanda 7) | Crema en la tab, gris alrededor y debajo | `var(--bg)`; medido en claro y oscuro, 4 anchos, barra abierta y plegada |
 | ¿Se cae a 390? (tanda 7) | La ayuda de la caja («Responde o pregunta a MaKo…») se partía en dos renglones a 390 y a 768 con la barra abierta | «Responde o pregunta»: un renglón en las 160 |
 
+| ¿Lo encuentra otro? (tanda 7, revisor que no escribió el código) | Ocho fallas de leer texto libre y de la charla: «estoy empezando de cero» borraba todo, «No sé si me sirve» aceptaba la propuesta, «Deshacer» perdía lo hablado, un `{}` guardado reiniciaba la charla | Arregladas, cada una con su test o su prueba en el banco (`docs/hallazgos-marketing-copilot.md` → «La revisión de la tanda») |
+
 **Descartado (tanda 7):** la caja del medio de «Hoy», «Campañas» y «Plan» sigue abriendo la conversación al costado: no tiene hilo (es una barra de pedidos) y la respuesta necesita uno. Tampoco se ofrecen como funnel los que el curso enseña y la ficha no (Sofía y el formulario, Ramiro y el VSL, Jaime y el mini VSL, Juan ADS y los formularios): el agente improvisaría el método. Si Martín los quiere, primero hay que escribirles el marco en la ficha.
 
 **Descartado:** una columna «Escalar» separada de «Funcionan» (es la misma decisión: lo que funciona se escala, y eso lo dice la tarjeta del Media Buyer en Hoy); un cuarto estado «Pausadas» como columna (no se les pide nada: van en una lista plegable); una sección «Medir» también en los funnels con anuncios (el Media Buyer ya mide, en Hoy y Biblioteca).

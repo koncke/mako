@@ -76,7 +76,7 @@ export function quienEnsenaQue(p: PerfilCopiloto): string {
   const suyo = r && q
     ? `\nEL REFERENTE ELEGIDO, ${r.completo}, enseña en «${r.curso}»: ${q.tema}. Canal: ${q.canal}. Para: ${q.para.toLowerCase()}. ${q.funnels.length ? `Sus estrategias en el CoPilot: ${q.funnels.map((id) => FUNNELS.find((x) => x.id === id)!.corto).join(', ')}.` : 'No enseña un funnel para conseguir clientes: úsalo sólo para esa parte de la venta.'}${q.nota ? ` ${q.nota}` : ''} Si te piden algo que su curso no enseña, dilo («eso no está en su curso») y propone a quien sí, de la lista de arriba; nunca se lo atribuyas.`
     : '';
-  return `QUIÉN ENSEÑA QUÉ (medido en el curso de cada referente de MaKo; sólo atribuyes a alguien lo que está acá):\n${lineas.join('\n')}\n· Otra parte de la venta, no un funnel: ${otros.join('; ')}.${suyo}`;
+  return `QUIÉN ENSEÑA QUÉ (medido en el curso de cada referente de MaKo; sólo atribuyes a alguien lo que está aquí):\n${lineas.join('\n')}\n· Otra parte de la venta, no un funnel: ${otros.join('; ')}.${suyo}`;
 }
 
 const us = (n: number) => fmtDinero(n);
