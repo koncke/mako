@@ -109,7 +109,10 @@ test('sin canales, el Recurrente al grupo sale igual, y no inscribe a la cohorte
   // El corte de la cohorte va DESPUÉS de mandarle al grupo, y ANTES de leer la cohorte.
   const grupo = c.indexOf('await mandarRecurrenteAlGrupo(base, sec.disparador, sec.cron_proxima_at)');
   const corte = c.indexOf('if (opts?.soloGrupo) continue;');
-  assert.ok(grupo > 0 && corte > grupo && corte < c.indexOf('leadsDeCohorte('), 'soloGrupo inscribe a la cohorte, o corta antes del grupo');
+  // La cohorte se lee con `cohorteOSaltear(` desde el 6/11/2026 (una que no se pudo leer saltea esa automatización).
+  const cohorte = c.indexOf('cohorteOSaltear(');
+  assert.ok(cohorte > 0, 'no encontré dónde lee la cohorte');
+  assert.ok(grupo > 0 && corte > grupo && corte < cohorte, 'soloGrupo inscribe a la cohorte, o corta antes del grupo');
 });
 
 // ── Los datos «{ }» ───────────────────────────────────────────────────────────
