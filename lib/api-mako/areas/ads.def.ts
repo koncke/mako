@@ -909,6 +909,32 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'agenteId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el id del agente (de ver_media_buyer, en agentesPropios).' }],
     canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
+  // ── Marketing CoPilot (6/11/2026): la primera entrada de la tab y el funnel que el negocio eligió. Lo mismo que la charla de
+  //    la pantalla (lib/media-buyer/copiloto.ts, puro): qué funnel conviene según ticket, presupuesto y quién llama.
+  {
+    id: 'ver_copiloto_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver el plan del Marketing CoPilot',
+    descripcion: 'Lo que el negocio respondió en la primera entrada del Marketing CoPilot (el funnel o el referente que eligió, el ticket, el presupuesto mensual, quién toma las llamadas, el ritmo de publicación) y lo que MaKo propone con eso: el funnel que conviene y por qué, si el elegido no le sirve, y los primeros pasos con la pantalla de MaKo donde se hace cada uno. Un funnel orgánico, de YouTube, de lead magnets o de webinar no tiene Campañas; sólo los de anuncios.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'copiloto_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir o cambiar el funnel del Marketing CoPilot',
+    descripcion: 'PROPONE guardar lo que el negocio decidió en el Marketing CoPilot: el funnel (vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, youtube u organico) o un referente, el ticket, el presupuesto mensual en dólares (0 si no hay), quién toma las llamadas y, si es orgánico o YouTube, el objetivo, el ritmo y el formato. Sólo se cambia lo que se pasa. No toca la cuenta de Meta ni gasta nada.',
+    escribe: 'guarda el perfil en marketing-copilot.perfil (app_settings)',
+    parametros: [
+      { nombre: 'funnel', tipo: 'string', enum: ['vsl-llamada', 'mensajes', 'formulario', 'carrito', 'webinar', 'lead-magnet', 'youtube', 'organico'], descripcion: 'el funnel que se arma.' },
+      { nombre: 'referente', tipo: 'string', descripcion: 'el id de un referente de MaKo que inspira la estrategia (ver_plan_funnel lo nombra), si sigue el de uno.' },
+      { nombre: 'ticket', tipo: 'number', minimo: 0.01, descripcion: 'lo que deja una venta, en dólares.' },
+      { nombre: 'presupuestoMes', tipo: 'number', minimo: 0, descripcion: 'lo que puede poner en anuncios por mes, en dólares (0 = nada por ahora).' },
+      { nombre: 'llamadas', tipo: 'string', enum: ['yo', 'equipo', 'nadie'], descripcion: 'quién toma las llamadas o contesta los mensajes.' },
+      { nombre: 'objetivo', tipo: 'string', enum: ['viralidad', 'ventas', 'mixto'], descripcion: 'sólo en orgánico: qué busca con el contenido.' },
+      { nombre: 'ritmo', tipo: 'number', minimo: 1, maximo: 21, descripcion: 'piezas (o videos en YouTube) por semana.' },
+      { nombre: 'formato', tipo: 'string', enum: ['reels', 'stories', 'carruseles', 'mezcla', 'largos', 'shorts'], descripcion: 'el formato con el que empieza.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
   {
     id: 'ver_biblioteca_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Ver la Biblioteca del Media Buyer',

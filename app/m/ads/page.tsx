@@ -16,6 +16,10 @@ import { PantallaM, VacioM } from '@/app/m/_ui';
 import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
 import { vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
+import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { copilotoListo } from '@/lib/media-buyer/copiloto';
+import { getUsuarioActual } from '@/lib/auth';
+import { PrimeraEntrada } from '@/app/ads-manager/PrimeraEntrada';
 import { MediaBuyerM } from './MediaBuyerM';
 import '@/app/ads-manager/aa.css';
 import './mb-m.css';
@@ -25,10 +29,15 @@ export const dynamic = 'force-dynamic';
 export default async function MediaBuyerMovil() {
   const ctx = await requireMovil({ navKey: 'ads-manager' });
   if (ctx.ws == null) return <PantallaM><VacioM frase="Elige un negocio para ver su Media Buyer." /></PantallaM>;
-  const [op, guardada, dec, cupo, token] = await Promise.all([
+  const [op, guardada, dec, cupo, token, perfil, yo] = await Promise.all([
     wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws),
     credWs('META_ACCESS_TOKEN', ctx.ws).catch(() => null),
+    leerPerfilCopiloto(ctx.ws), getUsuarioActual().catch(() => null),
   ]);
+  // La primera entrada, igual que en la computadora (app/ads-manager/page.tsx): sólo para quien nunca trabajó con el Media Buyer.
+  if (!copilotoListo(perfil) && !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0) {
+    return <PantallaM><PrimeraEntrada nombre={(yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo'} inicial={perfil} /></PantallaM>;
+  }
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const vista = await vistaMediaBuyer(ctx.ws, config.kpi, config.objetivo).catch(() => null);
   const puedeOperar = typeof op === 'number' && op === ctx.ws;

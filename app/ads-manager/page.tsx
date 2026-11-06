@@ -21,7 +21,10 @@ import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { metasDelMes } from '@/lib/media-buyer/datos';
 import { vistaMediaBuyer } from '@/lib/media-buyer/vista';
+import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { copilotoListo, aplicarCambio } from '@/lib/media-buyer/copiloto';
 import { MediaBuyer } from './MediaBuyer';
+import { PrimeraEntrada } from './PrimeraEntrada';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,7 +32,7 @@ export const revalidate = 0;
 // La página no pone su aire ni su ancho máximo: los pone aa.css (también el lugar del chat de MaKo abierto, `--ancho-panel-mako`).
 const A_SANGRE = { padding: 0 } as const;
 
-export default async function MediaBuyerPage({ searchParams }: { searchParams: Promise<{ decision?: string | string[]; producto?: string | string[]; vista?: string | string[] }> }) {
+export default async function MediaBuyerPage({ searchParams }: { searchParams: Promise<{ estrategia?: string | string[]; decision?: string | string[]; producto?: string | string[]; vista?: string | string[] }> }) {
   await requireRolWs([], { nav: 'ads-manager' });
   // El super admin sin un negocio elegido no opera NINGUNA cuenta (17/10/2026): antes caía a la de Mauricio (ws1).
   if (await adsSinNegocio()) {
@@ -43,19 +46,27 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
 
-  const [yo, guardada, dec, metas, token, cupo] = await Promise.all([
+  const [yo, guardada, dec, metas, token, cupo, perfil] = await Promise.all([
     getUsuarioActual().catch(() => null),
     leerConfig(ws),
     leerDecisiones(ws, 30),
     metasDelMes(ws).catch(() => null),
     credWs('META_ACCESS_TOKEN', ws).catch(() => null),
     cupoDe(ws),
+    leerPerfilCopiloto(ws),
   ]);
   // El modo que VALE: un negocio en Esencial nunca ve el piloto prendido (lib/media-buyer/plan.ts → modoEfectivo).
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
-  const vista = await vistaMediaBuyer(ws, config.kpi, config.objetivo);
   const nombre = (yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
+  // LA PRIMERA ENTRADA (6/11/2026): quien nunca trabajó con el Media Buyer (sin corrida, sin decisiones, sin piloto) y no terminó
+  // la charla ve SÓLO esa charla. Quien ya operaba no la ve: su pantalla no cambia (se la ofrece Ajustes → «Tu estrategia»).
   const sp = await searchParams;
+  const primera = !copilotoListo(perfil) && !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0;
+  // `?estrategia=1` (Ajustes → «Tu estrategia»): vuelve a la propuesta con lo ya respondido, para discutirla o cambiarla.
+  if (primera || sp.estrategia === '1') {
+    return <Pagina ancho="completo" style={A_SANGRE}><PrimeraEntrada nombre={nombre} inicial={aplicarCambio(perfil, { aceptado: undefined })} /></Pagina>;
+  }
+  const vista = await vistaMediaBuyer(ws, config.kpi, config.objetivo);
 
   return (
     <Pagina ancho="completo" style={A_SANGRE}>

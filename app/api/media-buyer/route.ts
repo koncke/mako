@@ -32,6 +32,8 @@ import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
 import { guardarRespuestasArranque, lienzoMediaBuyer } from '@/lib/media-buyer/vista';
 import { borrarAgentePropio, guardarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { sanearRespuestas } from '@/lib/media-buyer/arranque';
+import { sanearPerfil } from '@/lib/media-buyer/copiloto';
+import { guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
@@ -148,6 +150,11 @@ export async function POST(req: NextRequest) {
         let avisoGenerados: string | null = null;
         try { generados = await generadosDelNegocio(ws); } catch (e) { avisoGenerados = `No pude leer tus videos de MaKo: ${e instanceof Error ? e.message : String(e)}`; }
         return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion, generados, avisoGenerados });
+      }
+      case 'copiloto': {
+        // La primera entrada del Marketing CoPilot (6/11/2026): lo que respondió, por negocio. Sólo lo conocido, con su forma.
+        await guardarPerfilCopiloto(ws, sanearPerfil(body.perfil));
+        return J({ ok: true });
       }
       case 'arranque': {
         await guardarRespuestasArranque(ws, sanearRespuestas(body.respuestas));

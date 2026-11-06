@@ -37,6 +37,8 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
   // tope diario y las metas del mes), y eso sale por la API.
   arranque: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer'],
   lienzo: ['ver_campanas_media_buyer'],
+  // La primera entrada del Marketing CoPilot (6/11/2026): lo respondido, por negocio.
+  copiloto: ['ver_copiloto_media_buyer', 'copiloto_media_buyer'],
   agente: ['agente_media_buyer'],
   agente_borrar: ['borrar_agente_media_buyer'],
   // DÓNDE, HASTA y «Nueva campaña» (29/10/2026).

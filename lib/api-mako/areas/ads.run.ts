@@ -32,6 +32,8 @@ import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
 import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambioDeAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
+import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
 import { conjuntosDe as conjuntosDeMB, generadosDelNegocio as generadosDelNegocioMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
@@ -1445,6 +1447,38 @@ export const RUNNERS: Runners = {
     },
   },
   // ── Los agentes y la Biblioteca (25/10/2026): lo mismo que el panel «N activos» y la pestaña Biblioteca de la pantalla.
+  // ── Marketing CoPilot (6/11/2026).
+  ver_copiloto_media_buyer: {
+    leer: async (_input, ctx) => {
+      const perfil = await leerPerfilCopiloto(ctx.ws);
+      const f = funnelElegido(perfil);
+      const decide = perfil.ticket != null && perfil.llamadas ? { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas } : null;
+      return J({
+        perfil, paso: pasoDeCopiloto(perfil), funnel: f ? { id: f.id, nombre: f.nombre } : null,
+        secciones: seccionesDe(f?.id), propuesta: propuestaDe(perfil),
+        recomendado: decide ? recomendarFunnel(decide) : null, veredicto: f && decide ? evaluarFunnel(f.id, decide) : null,
+      });
+    },
+  },
+  copiloto_media_buyer: {
+    preparar: async (input, ctx) => {
+      const actual = await leerPerfilCopiloto(ctx.ws);
+      const cambio: Partial<PerfilCopiloto> = {};
+      for (const k of ['funnel', 'referente', 'llamadas', 'objetivo', 'formato'] as const) { const v = str(input, k); if (v) (cambio as Record<string, unknown>)[k] = v; }
+      for (const k of ['ticket', 'presupuestoMes', 'ritmo'] as const) { const v = num(input, k); if (v != null) (cambio as Record<string, unknown>)[k] = v; }
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para guardar.', faltan: ['funnel', 'ticket', 'presupuestoMes', 'llamadas'] };
+      const nuevo = sanearPerfil({ ...actual, ...cambio, entrada: actual.entrada ?? (cambio.referente ? 'referente' : 'funnel') });
+      // Cambiar de funnel borra el aviso de antes: el nuevo se evalúa de cero.
+      const final = cambio.funnel || cambio.referente ? aplicarPerfil(nuevo, { ajuste: undefined, aceptado: undefined }) : nuevo;
+      const f = funnelElegido(final);
+      if (!f) return { error: 'Falta el funnel o un referente (funnel: vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, youtube u organico).', faltan: ['funnel'] };
+      return { payload: { perfil: final }, resumen: `Marketing CoPilot: ${f.nombre}${final.presupuestoMes != null ? `, ${final.presupuestoMes} dólares al mes` : ''}${final.ticket != null ? `, venta de ${final.ticket}` : ''}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarPerfilCopiloto(ctx.ws, sanearPerfil(payload.perfil));
+      return { ok: true, resumen: 'Guardado en el Marketing CoPilot.' };
+    },
+  },
   modo_agente_media_buyer: {
     preparar: async (input, ctx) => {
       const a = str(input, 'agente') as AgenteMako;

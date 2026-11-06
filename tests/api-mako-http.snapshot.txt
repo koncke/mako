@@ -162,6 +162,7 @@ contar_leads_por_etapa
 contar_segmento_email
 contexto_etapa
 contexto_negocio
+copiloto_media_buyer
 cortar_acceso_curso
 cortar_frase_video
 cortar_recordatorio_cuota
@@ -670,6 +671,7 @@ ver_comunidad
 ver_conexion_meta
 ver_configuracion_landing
 ver_contexto_video
+ver_copiloto_media_buyer
 ver_creacion
 ver_cuadrante_retencion
 ver_cuenta_meta
