@@ -1457,6 +1457,89 @@ de Actions a un cuelgue de verdad. `MAKO_TESTS_SIN_AVANCE_MIN` ya permite moverl
 
 ---
 
+## `.git/info/attributes` le gana a `.gitattributes`, y tenía el glob viejo: toda mezcla local duplicaba el índice (6/11/2026, noche)
+
+⚠️ **Es el PASO ANTERIOR al de «Por qué hay que CONTAR el índice aunque el driver esté configurado»**, más
+arriba: esa entrada mide la duplicación **con el atributo en efecto**; acá el atributo NO estaba en efecto y el
+driver no se llamó nunca. Antes de culpar al camino limpio del driver, comprobá que el atributo sea el suyo.
+
+**El síntoma.** Mezclar o rebasar `origin/main` en una punta que había cosechado dejaba el índice
+(`docs/hallazgos.md`) con **una fila por área REPETIDA** —115 filas de main pasaban a 117, con dos
+«Automations» y dos «Infraestructura»— y el `git merge` salía con **código 0 y sin una palabra**. Se
+leía como «el driver no sirve» o «mi punta trae el índice sucio».
+
+⚠️ **El diagnóstico que circulaba era el equivocado**: «los atributos se leen del árbol de tu punta,
+que todavía dice `merge=union`». No era el árbol. La punta y main tenían los dos el glob CON guion
+(`docs/hallazgos-*.md merge=union`) y el driver del índice declarado
+(`docs/hallazgos.md merge=indice-hallazgos`). La causa era **`.git/info/attributes`**, que no está
+versionado, **GANA sobre `.gitattributes`** y seguía con el glob viejo, `docs/hallazgos*.md` SIN guion:
+atrapaba también el índice y lo mezclaba con `union`, que para una tabla de una fila por área
+duplica la fila en vez de unir la celda.
+
+**Cómo se comprueba en un segundo, y es lo único que hay que mirar antes de culpar al driver:**
+
+    git check-attr merge -- docs/hallazgos.md     # tiene que decir «indice-hallazgos», no «union»
+    cat "$(git rev-parse --git-common-dir)/info/attributes"
+
+Con el glob corregido ahí (o el archivo borrado: `.gitattributes` ya declara las dos reglas) y el
+driver configurado, la misma mezcla sale limpia, deja 115 filas, una por área, y lo dice:
+«[unir-indice-hallazgos] docs/hallazgos.md: los dos lados cosecharon en la tabla; quedan las dos
+entradas». El `git config merge.indice-hallazgos.driver` y el de las bitácoras siguen siendo
+necesarios: sin ellos el atributo no tiene a quién llamar.
+
+**Vive en:** `.git/info/attributes` (por clon, sin versionar) · `.gitattributes` ·
+`scripts/unir-indice-hallazgos.mjs` · `tests/unir-indice-hallazgos.test.ts`
+
+## Un `ci-rojo` de «Tipos: SIN TIEMPO» NO se relanza si además hay UN test rojo, y el test puede ser de una celda AJENA (6/11/2026, noche)
+
+**El síntoma.** `ci-rojo/aut-chat-links` sobre una punta que toca un archivo. Leyendo la corrida
+(`git credential fill` para el token, como ya está escrito más arriba): fallaron DOS pasos, «Tipos» y
+«Tests afectados».
+
+- **«Tipos» decía literalmente que no eran tipos**: `Tipos: SIN TIEMPO — NO son errores de tipos. El
+  tsc no terminó en 842 s (tope TIPOS_TOPE_S=840 s)`. Para eso existe el paso «Relanzar si la máquina
+  no llegó a los tipos»… **que exige `steps.afectados.outcome != 'failure'`**. Con un test rojo al lado,
+  el relanzo automático NO ocurre y la punta queda roja por el reloj del runner.
+- **Y el único test rojo era `tests/unir-indice-hallazgos.test.ts`** quejándose de una fila con un `|`
+  sin escapar… **de una entrada AJENA** («Ocho puntas en una tarde»), que estaba en main en el momento
+  de la mezcla y que main arregló veinte minutos después. El árbol mezclado con el main de después pasa
+  la guarda sin tocar nada.
+
+**La regla:** ante un `ci-rojo`, primero QUÉ PASO falló y después QUÉ archivo; si el rojo es la guarda
+del índice, mirá de quién es la fila antes de buscar en lo tuyo, y volvé a mezclar main. Un rojo de
+«Tipos» que dice SIN TIEMPO no se arregla cambiando código: se vuelve a pushear (el relanzo solo no
+sale si hay otro rojo).
+
+**Vive en:** `.github/workflows/punta.yml` (pasos «Tipos» y «Relanzar si la máquina no llegó a los
+tipos») · `tests/unir-indice-hallazgos.test.ts`
+
+## Otro rojo falso con la lista alfabética: una dependencia que está en `package.json` y NO en `node_modules` (6/11/2026)
+
+**El síntoma.** `node scripts/tests-afectados.mjs --base origin/main` sobre una punta que toca UN archivo
+(`lib/flujo-ia.ts`) devolvió **ROJO · 3.379 tests de 563 archivos · 38 min · RAM libre mínima 0,4 GB**, con
+~230 archivos rojos que arrancan en la «a» (`admin-polar-*`, `video-editor-*`, `curso-*`): nada que ver con
+el cambio. Y **exit 1, no 99**, así que la regla «99 es "no pude chequear"» no lo cubría.
+
+**La causa, que estaba en el log de la tanda y no en el veredicto:** `Cannot find module
+'@tanstack/react-table'`. Está en el `package.json` de `main` (`^9.3.1`) y **no está instalada en ningún
+`node_modules` de la máquina** — ni en el del clon ni en el del worktree al que apuntan los junctions. Una
+punta que no la toca arrastra el rojo de todo lo que importa, directa o transitivamente, una pantalla de
+`app/admin/_polar`. Actions no lo ve porque hace `npm ci`.
+
+**Cómo se descarta en dos minutos, sin reinstalar nada** (que acá lo frena la guarda de RAM):
+1. leer el `.log` de una tanda roja en el directorio que el veredicto nombra (`%TEMP%/tests-afectados-*`):
+   si dice `Cannot find module`, no es el código;
+2. `grep <paquete> package.json` y `ls node_modules/<paquete>`: si está declarado y no instalado, es eso;
+3. correr SOLO los rojos que tocan lo que cambiaste, de a dos o tres (`node --import tsx --test tests/a.test.ts
+   tests/b.test.ts`): verdes, confirmado.
+
+**La regla que queda:** un veredicto rojo con una lista alfabética larga de archivos que el cambio no toca se
+LEE en el log de la tanda antes de creerle; con una dependencia declarada y sin instalar, `tests-afectados` no
+puede dar verde en esta PC y el chequeo real es Actions. Un junction de `node_modules` a otro worktree no
+arregla esto: los dos árboles tienen la misma falta.
+
+**Vive en:** `scripts/tests-afectados.mjs` · `package.json` (`@tanstack/react-table`)
+
 ## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
 
 **El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:

@@ -6786,6 +6786,7 @@ imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta 
   escrita en el pedido, se respeta, salvo que hable de un cliente («no es lead entrante, es un cliente entrante»).
 - **El link que escribió el dueño se borraba** («que les mande el link https://sprint.mauriciobustos.com/»): se queda si
   está tal cual en el pedido (`linksDelPedido`); el que inventa el modelo se sigue borrando, y otra ruta del mismo sitio también.
+  ⚠️ Eso dejó afuera el link que la TARJETA YA TENÍA: ver «El link que la tarjeta ya tenía», abajo (#287, 6/11/2026).
 - **`{{empresa_del_lead}}` se borraba y dejaba «¿Sigues al frente de?» al lead:** una llave que nombra un dato que existe
   pasa a la del catálogo (`aliasDeVariable`: empresa, apellido, nombre_completo, nombre), con aviso.
 - **Un pedido de 8.304 caracteres se cortaba a 2.000 en silencio** y MaKo armaba otra cosa: ahora la ruta lo rechaza
@@ -6801,6 +6802,37 @@ imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta 
 
 **Vive en:** lib/flujo-ia.ts · lib/flujo-ia-intencion.ts · lib/flujo-ia-crear-core.ts · tests:
 tests/chat-mako-prueba-de-chats.test.ts, tests/flujo-ia.test.ts («en el medio»), tests/flujo-ia-arreglos.test.ts (alias).
+
+### El link que la tarjeta YA tenía: el `deja` del pedido no alcanzaba (#287, 6/11/2026)
+
+**Síntoma:** se le pide un cambio por chat y MaKo reescribe una tarjeta que nadie nombró, dejándola sin el
+link que ese mensaje ya llevaba. El lead lo recibe sin link y NADA FALLA: ni un error, ni un aviso rojo.
+
+**Causa:** el arreglo del 22/10 puso `deja` en `limpiarTexto`, pero alimentado sólo con `linksDelPedido`
+— los links del PEDIDO. Al editar, el link no está en el pedido («hacé el primer mensaje más corto»):
+está en la tarjeta. Y `limpiarTexto` borra toda URL por diseño, porque los links los pone el código
+desde `ctx.links`. Así que al reescribir el texto, el link se iba.
+
+⚠️ **El diagnóstico obvio —«pasá todos los links del flujo»— era el equivocado:** revive el link que
+una persona borró a propósito en OTRA tarjeta. El `deja` se arma POR TARJETA, emparejada por su id, que
+es con lo que `cambiar` la nombra (la misma forma que `protegidasPorElPedido` y que el `previo?.url` de
+los botones, que ya conservaba así el link de un botón). Lo arma `deIAEdicion` desde `base`, que son los
+pasos de ANTES; crear no lleva nada, porque no hay «antes». **Y hay un caso en que son NINGUNO:** el
+parche que CAMBIA el link (`"link"` sin texto nuevo). Ahí el viejo se va porque eso es lo que se pidió;
+conservarlo dejaba el mensaje con los DOS — y sólo se nota con un link sin protocolo, porque el que
+tiene `https://` ya lo saca `RX_URL` del cuerpo (una rotura con `https://` da VERDE y no prueba nada).
+
+**No era sólo el cuerpo.** `limpiarTexto` lo llaman tres lugares y los tres borraban: el cuerpo, el
+asunto y la vista previa de un email (`textoLimpio`), el mensaje de la tarjeta «MaKo en WhatsApp»
+(`resolverAccion`, donde además el parche sin tocar `mensaje` restaura el viejo y tapa el agujero) y el
+objetivo de un AI Step (`objetivoDeIA`). Los links se juntan de todos esos textos (`linksDeLaTarjeta`).
+
+**Lo que queda sin hacer:** pasarlo por el arnés con IA REAL (`scripts/probar-chats/automations.mts`, el
+caso `creame-otra` y uno de editar) — gasta IA de verdad y es decisión de Martín. Acá se fijó con tests
+puros sobre `deIAEdicion`, `limpiarTexto` y `objetivoDeIA`, que es como está fijado el resto del archivo.
+
+**Vive en:** `lib/flujo-ia.ts` (`linksDeLaTarjeta`, `dejaDeLaTarjeta`, `textoLimpio`, `resolverAccion`,
+`objetivoDeIA`, `parcheMensaje`) · `tests/chat-mako-prueba-de-chats.test.ts`
 
 ### Sin hacer
 
