@@ -21,6 +21,33 @@ Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-
 
 ⚠️ **Y dos trampas al medirlo, las dos mías, las dos silenciosas.** (1) `thumbnails_videos.canal_id` es el id **numérico** de `thumbnails_canales`, no el id de YouTube (que en la tabla de canales **también** se llama `canal_id`): unir por el campo equivocado da 0 videos por canal y **no da error**. (2) El tipo `Thumbnail` **no tiene** campo de imagen —la URL se arma del id del video con `imagenDeVideo()`—, así que un chequeo de «¿cuántas saldrían en blanco?» contra un campo inexistente contesta «todas». Casi reporté 1.743 miniaturas en blanco que estaban perfectas.
 
+**Medido de nuevo el 6/11 a la noche, y los totales de arriba ya eran viejos:** `estado` contra producción dice **79 canales activos, 14 excluidos y 1.520 miniaturas visibles** (la curaduría siguió después de escribir esto). El número de un documento es una FOTO: antes de repetirlo, `estado`. Ver [una-medicion-tiene-fecha].
+
+## El cron que no existía: «una vez por mes» es la cadencia equivocada para un vencimiento de 30 días (6/11/2026)
+
+**El síntoma que nadie iba a ver hasta que lo viera un cliente.** Sin la enmienda III.L de YouTube, lo que se guarda de su API (títulos, vistas) **vence a los 30 días**: la pantalla no muestra lo leído hace más (`vigente`, `DIAS_VIGENTE = 30`) y la regla obliga a borrarlo (`podar`). El documento lo dejaba como un paso a mano —«cada mes: `leer` de nuevo y `podar --de-verdad`»— y **no había ningún cron**. La galería no se rompe: se va vaciando, tarjeta por tarjeta, hasta el cartel de «todavía no está cargada».
+
+**Lo que el pendiente pedía estaba mal, y es el hallazgo.** Cuatro de los dieciocho encargos de Thumbnails decían «agendar una vez por mes». Un cron mensual el día 1 **no alcanza**: entre el 1 de enero y el 1 de febrero pasan **31 días**, así que lo leído el 1 de enero vence el 31 y la galería aparece vacía un día entero antes de que el cron la salve. Y con una sola oportunidad por vencimiento, **cualquier** corrida que falle (la cuota de YouTube, un 403, el deploy caído) la vacía igual, sin red. **La regla que queda: una tarea que renueva algo con vencimiento corre al menos DOS veces por vencimiento, no una.** Acá quedó semanal (`55 6 * * 0`): cuatro oportunidades por vencimiento, y releer es barato (~3 unidades de las 10.000 diarias por canal, unas 240 por corrida).
+
+**Dónde vive, y por qué no son dos copias.** `lib/thumbnails/renovar.ts` tiene el trabajo (releer + podar), `app/api/cron/thumbnails-renovar/route.ts` lo llama desde Vercel y `scripts/thumbnails-biblioteca.mts` llama **la misma función** en `leer` y `podar`. Antes el trabajo vivía sólo en el script: un cron que lo copiara habría quedado como la segunda copia que se separa y nadie sabe cuál es la que corre.
+
+**Tres decisiones que no se ven en el diff:**
+
+- **Releer ANTES de podar.** Al revés, una corrida que falla al leer borra lo vencido y deja la galería **más** vacía de lo que estaba. Y sin clave de YouTube no hace nada de las dos cosas (fail-closed): una poda sin lectura es pérdida neta.
+- **El cron NO descubre canales.** `descubrir` usa `search.list`, que tiene un balde de **100 llamadas por día para TODA la app** — el mismo del que come Competitors Spy. Un cron automático se lo comería y dejaría a Spy sin búsquedas. Descubrir sigue siendo a mano.
+- **La clave es la de la PLATAFORMA**, nunca la del negocio: la biblioteca es global (mig 0409, sin `workspace_id`), así que llenarla con la cuota de un cliente es gastarle su balde para la vidriera de todos. Por lo mismo no va por `correrPorWorkspace`: un solo trabajo, como `/api/cron/spy-poda`.
+
+⚠️ **Y una trampa del entorno que costó un run de Actions.** El mensaje de «sin clave» decía «no releí ni **podé** nada»
+— el pretérito de PODAR, que es de lo que habla la función. `tests/puente-panel-copy.test.ts` (el guarda de voseo del repo,
+que barre 6.009 archivos) lo lee como el *vos* de «poder» (→ «puede»), porque son la misma palabra escrita, y da rojo: «El
+producto se usa en México: la interfaz va en español neutro». No es un falso positivo que convenga excepcionar: **un mensaje
+sobre podar no puede usar su propio verbo en primera persona**, y la salida es escribirlo impersonal («no se relee ni se poda
+nada»). La misma colisión existe con «anoté/anotá», «corté/cortá» y «miré/mirá». El guarda no distingue —no puede—, así que
+la regla práctica es: en un texto que sale del repo, el pretérito de primera persona de un verbo de la primera conjugación es
+indistinguible de un imperativo voseante, y conviene evitarlo.
+
+⚠️ **Lo que el cron NO arregla, y conviene no confundirlo:** la cadencia que se arregló acá es la de **que no se vacíe**, no la de la curaduría. Cada relectura trae videos nuevos de los mismos canales **sin que nadie los mire** (el mismo agujero que la biblioteca de carruseles: ver «Sin hacer»). El cron hace que la galería nunca esté vacía; que lo que haya sirva a un dueño de negocio sigue dependiendo del múltiplo y del trámite III.L.
+
 ## «Tu IA no contestó ahora»: el camino de respaldo era más débil que el principal (6/11/2026)
 
 **Síntoma:** Martín apretó «Editar» en un carrusel de la biblioteca y leyó «Tu IA no contestó ahora», con el modal en blanco.

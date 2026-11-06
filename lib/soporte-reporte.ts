@@ -100,23 +100,16 @@ export function esTextoDeError(frase: string): boolean {
 export const limpio = (v: unknown, tope: number): string => sinNombres(sinDatos(sinSecretos(corta(v, tope * 2)))).slice(0, tope).trim();
 
 /**
- * La pantalla: la de `rutaSinDatos` (sin los valores de la query que no son números) y además sin los tokens del CAMINO
- * (/pagar/<token>, /compartido/<token>, /l/vista/<token>: un segmento largo de letras y números, o con @) ni los números que
- * pueden ser un teléfono o un código (más de 9 cifras, o la clave es code, otp, tel…).
- * ⚠️ CON PUNTOS TAMBIÉN (27/10/2026): el token del portal del alumno es `c1.<ws>.<lead>.<versión>.<firma>`, y sin el punto en
- *    la lista el segmento pasaba ENTERO al ticket: la credencial del alumno, a la vista del equipo.
+ * La pantalla: sin los tokens del CAMINO (/pagar/<token>, /compartido/<token>, /l/vista/<token>: un segmento largo de letras
+ * y números, o con @) ni los números que pueden ser un teléfono o un código (más de 9 cifras, o la clave es code, otp, tel…).
+ *
+ * ⚠️ DESDE EL 6/11/2026 ES `rutaSinDatos` TAL CUAL, y queda nombrada acá porque es el nombre que usa el botón y sus tests.
+ * Esta regla vivía SÓLO acá, y `/api/errores` —que usa `rutaSinDatos` directo— mandaba la ruta con los tokens adentro. Una
+ * regla de privacidad en el camino de UNA pantalla es una regla que los otros caminos no tienen: ahora está en
+ * `rutaSinDatos` (lib/errores-app-reglas.ts) y la tienen los dos. Si hace falta endurecerla, se endurece allá.
+ * El detalle de qué cuenta como token (incluido el punto del token del alumno, 27/10/2026), en esa función.
  */
-export function rutaSoporte(ruta: string): string {
-  const r = rutaSinDatos(ruta);
-  if (!r) return '';
-  const [camino, query = ''] = r.split('?');
-  const c = camino.split('/').map((s) => (s.includes('@') || (/^[A-Za-z0-9_.-]{16,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s)) ? ':token' : s)).join('/');
-  const q = query.split('&').filter(Boolean).map((par) => {
-    const [k, v = ''] = par.split('=');
-    return /^\d{1,9}$/.test(v) && !/^(code|otp|tel|telefono|phone|pin|token)$/i.test(k) ? par : `${k}=…`;
-  });
-  return `${c}${q.length ? `?${q.join('&')}` : ''}`;
-}
+export const rutaSoporte = (ruta: string): string => rutaSinDatos(ruta);
 
 export type ReporteSoporte = {
   error: string;

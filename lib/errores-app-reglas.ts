@@ -51,16 +51,36 @@ export function sinDatos(texto: string): string {
     .replace(/\+?\d[\d\s().-]{6,}\d/g, '«número»');
 }
 
-/** La pantalla sin los valores de la query (salvo los números: son ids) ni el host. */
+/** Los nombres de query cuyo valor no se guarda NI siendo números: son un código o un teléfono, no un id. */
+const CLAVES_SENSIBLES = /^(code|otp|tel|telefono|phone|pin|token)$/i;
+
+/**
+ * La pantalla sin el host, sin los tokens del CAMINO y sin los valores de la query que no son ids.
+ *
+ * ⚠️ EL CAMINO TAMBIÉN SE TAPA, Y HASTA EL 6/11/2026 NO (la parte que importa de este arreglo). Esta función la usa
+ * `sanearReporte`, o sea `/api/errores`: cualquier pestaña de la app le manda la ruta donde se cayó, y hay rutas cuya ruta ES
+ * la credencial — `/pagar/<token>`, `/compartido/<token>`, `/l/vista/<token>`, el portal del alumno
+ * (`c1.<ws>.<lead>.<versión>.<firma>`). Viajaban enteras y quedaban guardadas en el reporte de un error.
+ * Y la query conservaba cualquier número de hasta 12 cifras: un teléfono entra ahí cómodo.
+ *
+ * La regla es la que ya tenía `rutaSoporte` (lib/soporte-reporte.ts) para el botón «Reportar a Soporte», que SÍ los tapaba.
+ * Vive acá y no allá porque soporte-reporte importa de este archivo: la misma regla en un solo lugar, para los dos caminos.
+ * Un segmento es un token si tiene un @ o si son 16+ caracteres de letras, números, `_`, `.` o `-` con al menos una letra y
+ * un número (un slug de palabras no lo es). El punto está en la lista a propósito: sin él, el token del portal del alumno
+ * pasaba entero (27/10/2026).
+ */
 export function rutaSinDatos(ruta: string): string {
   const r = corta(ruta, 400);
   if (!r.startsWith('/') || r.startsWith('//')) return '';
-  const [camino, query = ''] = r.split('?');
+  const [crudo, query = ''] = r.split('?');
+  const camino = crudo.slice(0, 160).split('/')
+    .map((s) => (s.includes('@') || (/^[A-Za-z0-9_.-]{16,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s)) ? ':token' : s))
+    .join('/');
   const q = query.split('&').filter(Boolean).slice(0, 8).map((par) => {
     const [k, v = ''] = par.split('=');
-    return /^\d{1,12}$/.test(v) ? `${k}=${v}` : `${k}=…`;
+    return /^\d{1,9}$/.test(v) && !CLAVES_SENSIBLES.test(k) ? `${k}=${v}` : `${k}=…`;
   });
-  return `${camino.slice(0, 160)}${q.length ? `?${q.join('&')}` : ''}`;
+  return `${camino}${q.length ? `?${q.join('&')}` : ''}`;
 }
 
 /** La pantalla como patrón: los números y los uuid son `:id` (dos leads distintos son la misma pantalla). */
