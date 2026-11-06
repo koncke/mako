@@ -76,7 +76,7 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'conocimientos' | 'agente' | 'cobros' | 'customers'
+  | 'conocimientos' | 'agente' | 'cobros' | 'customers' | 'approvals'
   // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
   | 'api-mako'
   // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
@@ -280,6 +280,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'agente', label: 'Client Agents', href: '/m/agente', icon: 'mako', navKey: 'admin-agente', familia: null, oculta: true, superAdmin: true },
   // Customers (26/10/2026): su fila de More la arma la familia de la sidebar (Sales), como en la computadora.
   { id: 'customers', label: 'Admin', href: '/m/customers', icon: 'cs', navKey: 'admin-customers', familia: null, oculta: true, superAdmin: true },
+  // Approvals (5/11/2026): del menú de la foto del super admin, como Knowledge; su fila de More la arma ese menú.
+  { id: 'approvals', label: 'Approvals', href: '/m/approvals', icon: 'check', navKey: 'admin-approvals', familia: null, oculta: true, superAdmin: true },
   // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
   ...SECCIONES_CREACION,
 ];
@@ -292,6 +294,7 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/api-mako': '/m/api-mako',
   '/admin/cobros': '/m/cobros',
   '/admin/agente': '/m/agente',
+  '/admin/approvals': '/m/approvals',
   // Admin (5/11/2026; era Customers, /customers): la tab del super admin. Exacta: /admin/dev y las demás subrutas no.
   '/admin': '/m/customers',
 };

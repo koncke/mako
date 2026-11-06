@@ -10,7 +10,9 @@
 //
 // Lee la base de producción del `.env.local` del clon (como scripts/tiendas-cuenta-revision.mts). Ninguna clave sale por la
 // consola: cada línea es el estado, la fuente y, si no se pudo leer, el motivo.
-// ⚠️ `--correr` es una vuelta de verdad: si algo cambió, Martín recibe el aviso, y la hora siguiente ya no lo repite.
+// ⚠️ `--correr` es una vuelta de verdad: si algo cambió, Martín recibe el aviso, y la hora siguiente ya no lo repite. Y si main
+//    tiene una versión de la extensión más nueva que la tienda, la sube y la manda a revisión (lib/extension-publicar.ts).
+//    `--probar` no publica ni guarda nada.
 // =============================================================================
 
 import path from 'node:path';

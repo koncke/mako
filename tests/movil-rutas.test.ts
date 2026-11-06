@@ -120,6 +120,7 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
     // 26/10/2026: Customers en el teléfono (/m/customers), oculta como las demás del super admin.
     ['customers', 'admin-customers', null, true],
+    ['approvals', 'admin-approvals', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
     // 29/10/2026: Video Generator queda oculta (una plantilla de Video); Reels y Carousels se retiraron.
