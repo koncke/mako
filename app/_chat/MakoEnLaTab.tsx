@@ -82,15 +82,26 @@ const LUGAR_PANEL = ANCHO_PANEL + 2 * AIRE_PANEL;
  * que la barra cambie de ancho (app/_components/Sidebar.tsx). Lo usa la estrella: medida con la barra quedaba debajo del panel
  * desplegado, y la criatura que volaba a ella se «escondía detrás» (Martín, la llamada con Leandro, 59:33).
  */
+/** El borde derecho de la barra propia de la tab si se ve (mide algo de ancho), si no el de la de MaKo. */
+function bordeDe(propia: Element | null, medida: Element | null): number {
+  const r = propia?.getBoundingClientRect();
+  return Math.round(r && r.width > 0 ? r.right : medida?.getBoundingClientRect().right ?? 0);
+}
+
 function useBordeDeLaBarra(visible = false): number {
   const [borde, setBorde] = useState(BARRA_PLEGADA);
   useLayoutEffect(() => {
+    // Una tab con su PROPIA barra al lado de la de MaKo (Admin: el sidebar de Studio Admin, 5/11/2026) la marca con
+    // `data-barra-de-la-tab`: la estrella va al costado de ésa, no encima. Escondida (el teléfono la vuelve un cajón), mide 0
+    // de ancho y vale la de MaKo.
+    const propia = document.querySelector('[data-barra-de-la-tab]');
     const barra = document.querySelector('[data-sidebar]');
     const medida = visible ? panelDeLaBarra(barra) : barra;
-    const medir = () => setBorde(Math.round(medida?.getBoundingClientRect().right ?? 0));
+    const medir = () => setBorde(bordeDe(propia, medida));
     medir();
     const ro = medida && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
     if (medida) ro?.observe(medida);
+    if (propia) ro?.observe(propia);
     window.addEventListener('resize', medir);
     return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
   }, [visible]);

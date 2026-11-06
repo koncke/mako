@@ -1,5 +1,8 @@
 # Relevo — la tab Admin (nube, 5/11/2026)
 
+> ⚠️ **6/11/2026: la PANTALLA de Admin se rehízo con el código de Studio Admin** (Martín rechazó esta versión). Lo vigente de
+> la pantalla está en [nube-admin-copia.md](nube-admin-copia.md); de acá valen las cuentas y lo que le toca al Cerebro.
+
 > Lo escribe la sesión de la nube que hace el encargo [admin-encargo.md](admin-encargo.md) (cuenta `nube`, sesión
 > `cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1`). Se reescribe en cada tanda. Lo de Martín, textual, está en el encargo y en la
 > bitácora del área (app/admin/dev/admin/bitacora.ts).

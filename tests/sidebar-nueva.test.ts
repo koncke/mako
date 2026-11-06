@@ -192,9 +192,10 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
   assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
   // La barra sigue el modo: blanca en claro, ACOTADA a la barra (en :root las --sidebar* siguen oscuras: son la «isla
-  // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra.
+  // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra. Desde el 6/11/2026 la regla no
+  // alcanza al sidebar de Admin (Studio Admin, `.sa`), que marca sus piezas con el mismo `data-sidebar`.
   const ui = leer('app/_ui/ui.css');
-  assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
+  assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\]:not\(\.sa \[data-sidebar\]\) \{\s*--sidebar: #FFFFFF;/);
   assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
   assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #121212;/);
   assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
@@ -306,7 +307,7 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /admin/guiones (el método de redacción y las bibliotecas de guiones) se fueron el 29/10/2026 (Martín: «Elimina esto
   // […], no quiero ninguna mención en todo MaKo»): redirigen al Copywriter y NO tienen casa a propósito (abajo).
   // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
-  const RUTAS = ['/admin/estrategia', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  const RUTAS = ['/admin/estrategia', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook', '/admin/approvals'];
   for (const ruta of ['/admin/copywriting', '/admin/guiones']) {
     assert.ok(![...ADMIN_NAV, ...SUPERADMIN_MENU, ...ARRIBA, ...FAMILIAS.flatMap(itemsDe)].some((i) => i.href === ruta), `${ruta} volvió a tener un ítem`);
     assert.match(sinComentarios(leer(`app${ruta}/page.tsx`)), /redirect\(await rutaConWs\('\/copywriter'\)\);/, `${ruta} no redirige al Copywriter`);

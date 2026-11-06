@@ -2,7 +2,7 @@
 
 ## 5/11/2026, ~23:30 UTC (20:30 ART): Creem afuera, consulta a Whop, números de migración
 
-**Creem rechazó la tienda, definitivo** (5/11 19:30). Desconectada de la plataforma: queda sólo Mercado Pago. No se arma otra cuenta con Leandro; el porqué está en la memoria `creem-alta-leandro`. La limpieza del sitio y de la moderación va en `punta/creem-fuera`, todavía afuera.
+**Creem rechazó la tienda, definitivo** (5/11 19:30). Desconectada de la plataforma: queda sólo Mercado Pago. No se arma otra cuenta con Leandro; el porqué está en la memoria `creem-alta-leandro`. La limpieza del sitio y de la moderación ya está en main (`docs/relevo/nube-creem-fuera.md`).
 
 **Whop:** la consulta salió el 5/11 a las 23:06 UTC a `support@whop.com`, desde `equipo@hola-mako.com`, y Resend la da entregada (`01a1adf6-6ab6-7772-8491-edd8e71a5540`). Sin respuesta todavía. Si dicen que sí, Martín crea la cuenta y el formulario se completa con datos verdaderos. Respaldo: dLocal Go, con el sí del contador. Comparación en `docs/proveedores-de-cobro.md`. A terceros, MaKo se describe tal cual y en tono normal: nunca como si hiciera algo ilegal.
 
@@ -10,21 +10,18 @@
 
 | Número | Quién | Estado |
 |---|---|---|
-| 0394_decisiones_ignoradas, 0397_recibos, 0398_actividad_uso | | aplicadas |
-| 0396_wa_mensajes_automatico | `punta/codigo-primer-contacto` | sin aplicar |
-| 0399_recibos_negocio, 0400_comprobantes_leidos | `punta/automations-pagos` | sin aplicar |
-| 0401_suscripcion_movimientos | `punta/suscripciones-ficha` | sin aplicar |
-| 0402 | `punta/agencia-cobro` | sin aplicar |
+| 0394_decisiones_ignoradas, 0397_recibos, 0398_actividad_uso, 0401_suscripcion_movimientos | | aplicadas, en main |
+| 0399_recibos_negocio, 0400_comprobantes_leidos | `punta/automations-pagos` | aplicadas; la rama camino a main |
+| 0402_agencia_cobra_desde | `punta/agencia-cobro` | aplicada; la rama camino a main |
+| 0396_wa_mensajes_automatico | `punta/codigo-primer-contacto` | **sin aplicar:** va DESPUÉS del deploy; confirmar el nombre en main |
 
-Se lo mandé a los tres chats y los mensajes a la nube no confirman lectura: **antes de aplicar, mirar el nombre real del archivo en main.**
+**La suscripción de los tres clientes de la plataforma ya está cargada** (`docs/relevo/nube-suscripciones.md`, paso 2). Código: mensualidad 146 en octubre, 238 en noviembre, 426 desde diciembre, día 5; pagos de 94 y 144 de noviembre y el medio del 21/10 pasado a cripto. Leila y Florencia: 97. Medido con `vistaDeIngresos`: MRR US$432, cobrado US$578, «Subió +US$92». Falta un arreglo: `porCobrar` le pone a Código 4/12 por US$238, y lo real es 5/12 por US$426; se lo pasé al chat de la copia de Admin. **No registrar esos pagos de nuevo.** Mirar las pantallas con sesión queda pendiente: en el navegador de la app pide el segundo paso de Martín.
 
-**Admin está en producción.** `vistaDeIngresos` da lo esperado por `docs/relevo/nube-admin.md`: MRR US$340, cobrado US$340, 3 pagando, por cobrar Florencia 18/11, Código 21/11 y Leila 26/11. **Faltan los US$238 de noviembre de Código:** se cargan UNA vez, como dice `docs/relevo/nube-suscripciones.md` paso 2, cuando esa punta esté en producción. Hasta entonces Revenue subestima lo cobrado (340 contra 578 reales) y le pone a Código el próximo cobro el 21/11, cuando es el 5/12. Mirar las pantallas con sesión queda pendiente: en el navegador de la app pide el segundo paso de Martín.
-
-**Cobro de Código:** `punta/agencia-cobro` sigue afuera, sin subir desde las 12:33 ART, y el chat está quieto. El lunes 9/11 vence Pablo. Si no entró, los controles programados avisan y se suspende a mano como hasta ahora.
+**Cobro de Código:** `punta/agencia-cobro` trae sólo lo del acuerdo del 30/10, apagado por defecto: no tiene el PDF por WhatsApp, el diferencial ni la suspensión del día 6 y de las 2 semanas. Lo que falta está arriba de todo en `docs/relevo/nube-agencia-cobro.md`. **Hay que arrancar un chat nuevo para eso, en un turno de Martín:** un turno automático no puede. Hasta entonces, no prender la mensualidad del negocio 13; los controles programados avisan y se suspende a mano. El lunes 9/11 vence Pablo.
 
 **La pantalla de Admin se rehace.** Martín la rechazó el 5/11: «está horrible… copies tanto el diseño como la funcionalidad». Chat nuevo «Admin: copia literal de Studio Admin» (`punta/admin-copia`), que porta `arhamkhnz/next-shadcn-admin-dashboard` pantalla por pantalla; el mapa está en su encargo. El chat viejo quedó anulado, sin tocar `app/admin`. Un chat de la nube no avisa al terminar: mirar la rama. Si dejó dicho que no tiene navegador, las capturas lado a lado las saco yo desde la PC, en `docs/admin/copia/`.
 
-**Un chat de la nube quieto no lee los mensajes.** Admin viejo, Recibos y Agencias siguieron quietos minutos después de recibirlos; sólo avanzan los que están corriendo. Para algo urgente: chat nuevo, en un turno de Martín, o que Martín lo abra. Recibos y CRM todavía tienen su 0398 repetida, y `tests/migraciones-numero-unico.test.ts` los frena en rojo hasta renumerar.
+**Un chat de la nube quieto no lee los mensajes; uno corriendo, sí.** El CRM recibió el reparto corriendo y renumeró solo. Admin viejo, Recibos y Agencias siguieron quietos. Si una rama queda trabada con su chat quieto, se mezcla desde `C:/dev/wt-puntas` con un commit nuevo: así pasaron el 5/11 Approvals, Recibos, Agencias y Primer contacto.
 
 **Whop y la casilla:** nada prueba que `equipo@hola-mako.com` reciba. La prueba del 5/11 23:13 UTC (`Prueba de la casilla equipo 5-11-kq7`) no apareció en el Gmail de Martín y el reenvío vive en Porkbun, con su inicio de sesión. Si no recibe, la respuesta de Whop se pierde: `docs/hallazgos-comunicacion.md`.
 

@@ -3853,3 +3853,59 @@ página suelta (computadora y 390 px), no con la sesión de Martín.
 `docs/promesas/2910-llamada-thiago.md` daba por inexistentes «dar de baja», «Lánzame una campaña» y las publicaciones recurrentes, y ya estaban en main. Con 8 chats en la nube, lo que dice «falta» envejece más rápido que el doc.
 
 **La regla:** antes de prometerle algo a un cliente o de repartirlo a un chat, se mide contra main. La auditoría del 5/11 de 142 pedidos dio 40 hechos, 39 a medias, 25 sin hacer y 38 sin poder verificar.
+
+## Approvals: la pestaña, los paneles sin API y la extensión que se publica sola (5/11/2026, nube)
+
+**Vive en:** `app/admin/approvals/` y `app/m/approvals/` (la pestaña) · `lib/vigia-aprobaciones.ts` (`listaDeAprobaciones`, el
+`panel` de cada ítem, `lecturaDePanel`, `anotarPanel`) · `lib/vigia-aprobaciones-fuentes.ts` · `lib/vigia-aprobaciones-server.ts`
+(`anotarLecturaDePanel`, `publicarExtensionSiHaceFalta`) · `lib/extension-publicar.ts` · `scripts/vigia-paneles.mts` ·
+`anotar_lectura_de_panel` y `ver_aprobaciones_pendientes` (área operaciones) · `tests/vigia-aprobaciones*.test.ts` ·
+`tests/extension-publicar.test.ts` · `tests/ls-files-con-tope.test.ts`.
+
+**El pedido, textual (por el Cerebro):** «todo deberías poder revisarlo tú, no hay nada que debería hacerlo yo a mano» y «si hay
+cosas que publicar... automáticamente».
+
+**Lo que quedó:**
+- **Approvals** en el menú de la foto del super admin (`SUPERADMIN_MENU`), en la computadora y en el teléfono. Lee lo GUARDADO por
+  el vigía, nunca las tiendas. El orden lo decide el módulo puro (`prioridad`): lo que pide algo, lo que no se pudo leer o le falta
+  algo, lo que está en revisión, lo no enviado, lo aprobado. Una fila sin lectura buena de más de un día dice «(viejo)».
+- **Ninguna fila dice «a mano».** Lo que no tiene API (la cuenta de Play Console, las verificaciones de Meta, la app de Google y
+  SSL.com) declara su `panel`: la página, qué mirar y cómo se traduce lo que dice. Lo lee una tarea programada del Cerebro con la
+  sesión de Martín y lo guarda con `scripts/vigia-paneles.mts`. Lo que todavía no se puede leer dice qué falta: una clave (con
+  «Cargarla», que abre esa tarjeta de Integraciones ahí mismo) o que la tarea lea ese panel.
+- **La extensión se publica sola:** el cron compara `EXTENSION_VERSION` (la de este deploy) con la tienda. Si main es más nueva,
+  sube el zip de `public/` y lo manda a revisión con la API V2 y la cuenta de servicio de la plataforma.
+
+**El diagnóstico obvio era el equivocado, cuatro veces:**
+- **«El panel es una fuente más del cron».** El cron corre en Vercel y los paneles piden la sesión de Martín en su navegador. Lo
+  lee la PC y lo escribe en su PROPIA clave (`vigia.paneles`): el cron escribe `vigia.aprobaciones` cada hora con
+  compare-and-set, y dos escritores con dos ritmos son dos claves. Y como la tarea es de una sesión de Claude, su silencio lo mide
+  el servidor: una lectura de panel vale un día y después es «no pude leerlo» desde su hora (regla 6), que avisa una vez.
+- **«Para mandar la nueva, se cancela la revisión de la anterior».** Con versiones que suben casi todos los días, cancelar
+  reinicia la cola de Google cada vez y no se aprueba ninguna. La nueva espera a que termine la que está en revisión.
+- **«El cron baja el zip de hola-mako.com».** El `.zip` no está entre lo que el matcher del proxy saltea: sin sesión contesta 307 a
+  /login y `fetch` recibe HTML con un 200. Se lee de `public/`, sumado a la función con `outputFileTracingIncludes`, y antes de
+  subirlo se abre el zip y su manifest tiene que decir la versión de main.
+- **«Dos tests rojos en mi punta son de mi código».** `git ls-files` del repo entero pasó 1 MiB por 42 bytes con los cuatro
+  archivos de la pestaña, y dos tests sin relación lo leían sin `maxBuffer` (ENOBUFS). Tres chats lo arreglaron el mismo día por
+  separado y el arreglo chocó al mezclar main. Quedó la guarda `tests/ls-files-con-tope.test.ts`.
+
+**Una trampa de la guarda de nombres de tabs:** `tests/mako-nombres-de-tabs.test.ts` lee cualquier «X › Y» del código como una
+ruta de MaKo. Un texto de Creem decía «Balance › Payout Account» y la daba en rojo (hoy Creem es un hecho registrado: rechazó la
+tienda y es definitivo). Las pantallas de otras empresas van entre comillas: «Payout Account», en «Balance».
+
+**Lo que NO se midió:**
+- **Las formas de la API V2 de la Chrome Web Store** (el cuerpo de `:upload` y de `:publish`, `uploadState`, `state`): salen de
+  lo anotado en el repo y de la documentación de la V2. La nube no llega a developer.chrome.com ni a la API, y la plataforma no
+  tiene las claves. Un campo distinto da un fallo con su motivo en Approvals (y a los tres, «piden algo»), nunca un éxito.
+- **Que la cuenta de servicio pueda publicar:** hay que sumarla en el panel de la tienda. Sin eso, la tienda contesta 403 y la
+  fila lo dice.
+- **Los textos y las URL de los paneles:** son los esperados (Play Console en español, SSL.com en inglés). Si un panel dice
+  otra cosa, la tarea guarda «no pude» con el texto literal (`--guardar <id> auto <texto>`) y la tabla se corrige con eso.
+
+**SIN hacer:**
+- La tarea programada del Cerebro que lee los paneles: la arma él (docs/relevo/nube-approvals.md, con la lista exacta).
+- `VERSION_EN_TIENDA` (lib/extension-tienda.ts) se sigue actualizando con un commit cuando Google aprueba: el vigía ya lo ve
+  (`chrome-web-store` aprobado con la versión nueva) pero no escribe código.
+- La verificación del negocio de Meta tiene API (`verification_status` del Business), pero pide un token con acceso al negocio que
+  la plataforma no tiene: queda en el panel. Lo mismo SSL.com, cuya API pide claves de cuenta que no están cargadas.

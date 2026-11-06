@@ -30,6 +30,8 @@ const COPYRIGHT: Readonly<Record<string, string>> = {
   'LICENSE-SOCIAL-MEDIA-SKILLS': 'Copyright (c) 2026 Charlie Hills',
   'LICENSE-INSTAGRAM-CAROUSEL-SKILL': 'Copyright (c) 2026 Jeevan Bavandla',
   'LICENSE-MOTION-SKILLS': 'Copyright (c) 2025 Motion',
+  // El código de Admin (5/11/2026): arhamkhnz/next-shadcn-admin-dashboard, portado en app/admin/_studio.
+  'LICENSE-STUDIO-ADMIN': 'Copyright (c) 2024 Mohammed Arham Khan',
 };
 
 const archivos = () => readdirSync(AVISOS).filter((f) => f.startsWith('LICENSE-')).sort();

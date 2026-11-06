@@ -64,6 +64,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Recibos de pago por correo y WhatsApp, con registro en SuperAdmin (construido en `punta/recibos`, 5/11: falta aplicar la 0397 y cargar el 0001 y el 0002) | `Lee docs/relevo/nube-recibos.md y seguimos desde ahí.` |
 | Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
+| Approvals (la pestaña, los paneles sin API y la extensión que se publica sola, 5/11) | `Lee docs/relevo/nube-approvals.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | Black November de Leila (la rampa del número, el horario de las prendidas y los bloques de venta de las landings, 5/11) | `Lee docs/relevo/nube-black-november.md y seguimos desde ahí.` |
 | Creem fuera: rechazó la tienda (5/11, definitivo); las legales, la moderación sin proveedor y LatAm sin Creem | `Lee docs/relevo/nube-creem-fuera.md y seguimos desde ahí.` |

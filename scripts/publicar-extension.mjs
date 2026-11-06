@@ -1,6 +1,10 @@
 // =============================================================================
 // Subir la extensión a la Chrome Web Store, sin abrir el navegador
 // =============================================================================
+// ⛔ YA NO HACE FALTA, Y YA NO ANDA (5/11/2026). Habla la API V1, que Google apagó el 15/10/2026. Desde el 5/11 la extensión
+// se publica SOLA: el vigía de las aprobaciones (cron de cada hora) sube el zip de main y lo manda a revisión con la API V2 y la
+// cuenta de servicio de la plataforma (lib/extension-publicar.ts). Lo que pasó se ve en la pestaña Approvals. Este script queda
+// por lo que explica (las trampas del zip y del borrador), no para correrlo.
 // Uso:
 //   node scripts/publicar-extension.mjs            # sube y manda a revisión
 //   node scripts/publicar-extension.mjs --solo-subir   # sube y NO publica

@@ -1,0 +1,193 @@
+/* Aviso de licencia (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. */
+/* =============================================================================
+   Admin (/admin) — el tema de Studio Admin, limitado a `.sa` (5/11/2026)
+   =============================================================================
+   Copiado de arhamkhnz/next-shadcn-admin-dashboard (Studio Admin, MIT, src/app/globals.css, commit 036631e del 5/11/2026).
+   Martín, 5/11/2026: «copies tanto el diseño como la funcionalidad de alguna otra aplicación... Tenés prohibido pensar
+   por tu propia cuenta». Los VALORES son los suyos, sin tocar uno: el radio, los oklch claros y oscuros, el sidebar.
+
+   La receta es la del Video Editor (app/video-editor/capcut-theme.css → AGENTS.md, «Una pantalla oscura se hace
+   redefiniendo TOKENS»):
+   · los vars se definen DENTRO de `.sa`, la raíz de Admin; afuera no existen, y el resto de MaKo no se entera;
+   · al `@theme` global sólo se le suman NOMBRES QUE NO EXISTÍAN (los del sidebar y los gráficos de shadcn) o un
+     `var(--sa-…, <el default de Tailwind>)` (los radios), así afuera de `.sa` todo resuelve a lo de siempre;
+   · `--primary`, `--accent` y `--border` ya son nombres de MaKo con su `--color-*` en globals.css: dentro de `.sa`
+     se redefinen con los valores de Studio y los `bg-primary` / `border-border` de Studio resuelven a esos;
+   · el `@layer base` de Studio (los bordes y el body) va limitado a `.sa`;
+   · el `.dark` de Studio es el oscuro de MaKo (`[data-tema="oscuro"]`): el botón de la luna de Studio cambia el modo
+     de MaKo (app/admin/_studio/shell/theme-switcher.tsx), no un tema aparte;
+   · los portales de radix (menús, selects, diálogos) se montan en un contenedor ADENTRO de `.sa`
+     (app/admin/_studio/portal.ts): en <body> se dibujarían sin colores.
+
+   ⚠️ LAS VARIANTES `data-open:`, `data-active:`… DE SHADCN (shadcn/tailwind.css) VALEN SÓLO ADENTRO DE `.sa`.
+      Studio las usa con la semántica de shadcn (`[data-state="open"]`, `[data-active]` que no es "false"); afuera de
+      `.sa` siguen siendo la de Tailwind (`[data-open]` a secas), que es lo que el Video Editor ya usa.
+
+   Este archivo lo importa app/globals.css: las directivas @theme/@custom-variant/@utility sólo valen dentro de la
+   entrada de Tailwind. */
+
+@theme inline {
+  --radius-sm: var(--sa-radius-sm, 0.25rem);
+  --radius-md: var(--sa-radius-md, 0.375rem);
+  --radius-lg: var(--sa-radius-lg, 0.5rem);
+  --radius-xl: var(--sa-radius-xl, 0.75rem);
+  --radius-2xl: var(--sa-radius-2xl, 1rem);
+  --radius-3xl: var(--sa-radius-3xl, 1.5rem);
+  --radius-4xl: var(--sa-radius-4xl, 2rem);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-heading: var(--font-sans);
+}
+
+/* Las variantes de shadcn (shadcn@4.23.0, dist/tailwind.css), sólo adentro de `.sa`. */
+@custom-variant data-open {
+  &:not(:where(.sa, .sa *))[data-open] { @slot; }
+  &:where(.sa, .sa *):where([data-state="open"], [data-open]:not([data-open="false"])) { @slot; }
+}
+@custom-variant data-closed {
+  &:not(:where(.sa, .sa *))[data-closed] { @slot; }
+  &:where(.sa, .sa *):where([data-state="closed"], [data-closed]:not([data-closed="false"])) { @slot; }
+}
+@custom-variant data-checked {
+  &:not(:where(.sa, .sa *))[data-checked] { @slot; }
+  &:where(.sa, .sa *):where([data-state="checked"], [data-checked]:not([data-checked="false"])) { @slot; }
+}
+@custom-variant data-unchecked {
+  &:not(:where(.sa, .sa *))[data-unchecked] { @slot; }
+  &:where(.sa, .sa *):where([data-state="unchecked"], [data-unchecked]:not([data-unchecked="false"])) { @slot; }
+}
+@custom-variant data-selected {
+  &:not(:where(.sa, .sa *))[data-selected] { @slot; }
+  &:where(.sa, .sa *):where([data-selected="true"]) { @slot; }
+}
+@custom-variant data-disabled {
+  &:not(:where(.sa, .sa *))[data-disabled] { @slot; }
+  &:where(.sa, .sa *):where([data-disabled="true"], [data-disabled]:not([data-disabled="false"])) { @slot; }
+}
+@custom-variant data-active {
+  &:not(:where(.sa, .sa *))[data-active] { @slot; }
+  &:where(.sa, .sa *):where([data-state="active"], [data-active]:not([data-active="false"])) { @slot; }
+}
+@custom-variant data-horizontal {
+  &:not(:where(.sa, .sa *))[data-horizontal] { @slot; }
+  &:where(.sa, .sa *):where([data-orientation="horizontal"]) { @slot; }
+}
+@custom-variant data-vertical {
+  &:not(:where(.sa, .sa *))[data-vertical] { @slot; }
+  &:where(.sa, .sa *):where([data-orientation="vertical"]) { @slot; }
+}
+
+/* shadcn la esconde; en MaKo una barra de desplazamiento no se esconde nunca (AGENTS.md → «Dos reglas de layout»,
+   regla 4): el mismo nombre dibuja la barra FINA. */
+@utility no-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* El tema por defecto de Studio («default», sin preset), en claro. */
+.sa {
+  --radius: 0.625rem;
+  --sa-radius-sm: calc(var(--radius) - 4px);
+  --sa-radius-md: calc(var(--radius) - 2px);
+  --sa-radius-lg: var(--radius);
+  --sa-radius-xl: calc(var(--radius) + 4px);
+  --sa-radius-2xl: calc(var(--radius) + 8px);
+  --sa-radius-3xl: calc(var(--radius) + 12px);
+  --sa-radius-4xl: calc(var(--radius) + 16px);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  /* La letra de Studio es Geist (la de verdad, de next/font: la «Geist» de MaKo es Urbanist con ese nombre). */
+  --font-sans: var(--font-geist-sa), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono-sa), ui-monospace, monospace;
+
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* El `.dark` de Studio, con el oscuro de MaKo. */
+[data-tema="oscuro"] .sa {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* El `@layer base` de Studio, sólo adentro de Admin. */
+@layer base {
+  .sa *,
+  .sa ::before,
+  .sa ::after {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+}
