@@ -3,11 +3,11 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerSubnav.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: «Members» siempre (Polar la muestra sólo a un Customer de tipo `team`: todo negocio de MaKo tiene su equipo). «Events»
-// es la subpágina del negocio (Polar, con `analytics:read`, lleva a Analytics › Events filtrado por el cliente: en Admin el
-// super admin siempre puede, y la de acá ya es la del negocio).
+// es la rama de Polar con `analytics:read` (que el super admin siempre tiene): un link EXTERNO a Analytics › Events filtrado por
+// el negocio (`rutaDeEventosDelNegocio`, el `buildCustomerEventsPath` de Polar), sin la query del rango de las métricas.
 
 import { Subnav, SubnavItem } from '@/app/admin/_polar/orbit'
-import { rutaDeFicha } from '@/app/admin/_polar/datos/cliente'
+import { rutaDeEventosDelNegocio, rutaDeFicha } from '@/app/admin/_polar/datos/cliente'
 import Link from '@/app/_ui/Link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { CUSTOMER_METRICS_QUERY_PARAMS } from './useCustomerMetricsParams'
@@ -23,7 +23,11 @@ export const CustomerSubnav = ({ ws }: CustomerSubnavProps) => {
   const items = [
     { label: 'Overview', href: rutaDeFicha(ws) },
     { label: 'Usage', href: rutaDeFicha(ws, 'usage') },
-    { label: 'Events', href: rutaDeFicha(ws, 'events') },
+    {
+      label: 'Events',
+      href: rutaDeEventosDelNegocio(ws),
+      external: true,
+    },
     { label: 'Members', href: rutaDeFicha(ws, 'members') },
   ]
 
@@ -38,9 +42,9 @@ export const CustomerSubnav = ({ ws }: CustomerSubnavProps) => {
 
   return (
     <Subnav label="Secciones del negocio">
-      {items.map(({ label, href }) => (
+      {items.map(({ label, href, external }) => (
         <SubnavItem key={href} active={pathname === href}>
-          <Link href={`${href}${query}`}>{label}</Link>
+          <Link href={external ? href : `${href}${query}`}>{label}</Link>
         </SubnavItem>
       ))}
     </Subnav>

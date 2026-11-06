@@ -1,6 +1,7 @@
 // =============================================================================
 // Admin › Customers › <negocio>: las lecturas del server de la ficha (lo que Polar pide con useCustomer, useMetrics,
-// useSubscriptions, useOrders, useEvents, useCustomerMeters y useMembers). Las conversiones, en ./cliente.ts (puro).
+// useSubscriptions, useOrders, useCustomerMeters y useMembers). Las conversiones, en ./cliente.ts (puro). Los eventos (`useEvents`
+// del Timeline) son los de Analytics › Events (eventos-server.ts `leerTimelineDelNegocio`): una sola definición.
 // =============================================================================
 // ⚠️ CRUZA NEGOCIOS: sólo el super admin. Cada page.tsx llama a `exigirSuperAdmin()` ANTES de llamar a estas.
 // ⚠️ UNA LECTURA POR PEDIDO (`cache` de React): la cabecera, la lista de la izquierda (app/admin/_polar/datos/clientes-server.ts)
@@ -16,52 +17,44 @@ import type { Metadata } from 'next'
 import { getWorkspace, wsSuperAdmin } from '@/lib/workspace'
 import { getSesionAdmin } from '@/lib/auth'
 import { puedeOperar } from '@/lib/operaciones-reglas'
-import { listarUsuarios } from '@/lib/usuarios'
 import { caraDeUsuario } from '@/lib/gravatar'
 import { nombreDePlan, ROTULO_SEGMENTO } from '@/lib/clientes-plataforma-reglas'
 import { SERVICIOS_METODO } from '@/lib/metodo-catalogo'
 import { integracionConectada } from '@/lib/credenciales'
 import { listarPcDelNegocio } from '@/lib/ia-pc'
-import { vistaDeActividad } from '@/lib/actividad'
 import { tabsDeNegocios } from '@/lib/actividad-reglas'
-import { faltaLaTabla } from '@/lib/actividad-registro'
-import { vistaDeErrores } from '@/lib/admin-errores'
-import { estadoDeError, ROTULO_ESTADO_ERROR } from '@/lib/admin-errores-reglas'
-import { porId } from '@/lib/api-mako/registro'
 import { getSupabaseServer } from '@/lib/supabase'
 import { leerTodo } from '@/lib/supabase-paginado'
 import { leerClientes, leerIngresos } from './clientes-server'
-import { vistaOrders, vistaSuscripciones } from './ventas-server'
+import { vistaSuscripciones } from './ventas-server'
+import { leerActividad, leerOrdenes, leerTimelineDelNegocio, leerUsuarios } from './eventos-server'
+import type { EventoDeTimeline } from './eventos'
 import type { Pedido, SuscripcionVenta } from './ventas'
 import {
   computadorasDeLaFicha,
   contactoDe,
-  eventosDelNegocio,
   inicioDeActividad,
   wsDeId,
   miembrosDe,
   pedidosDelNegocio,
   suscripcionesDelNegocio,
-  type AccionDeMaKo,
   type AltaNegocio,
   type ComputadorasDeLaFicha,
   type ConexionNegocio,
-  type ErrorDelNegocio,
-  type EventoNegocio,
   type IaDelDia,
   type MiembroNegocio,
   type NegocioCabecera,
-  type ReporteDelNegocio,
 } from './cliente'
 
 const motivo = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const DIA_MS = 86_400_000
 
-const usuarios = cache(listarUsuarios)
-const actividad = cache(() => vistaDeActividad())
-const errores = cache(() => vistaDeErrores())
-// Los pedidos y las suscripciones son los de Admin › Sales (ventas-server.ts): la misma cuenta, el mismo estado y los mismos ids.
-const pedidos = cache(() => vistaOrders())
+// Las personas, el uso y los pedidos se leen UNA vez por pedido, con los mismos `cache` de Analytics › Events (eventos-server.ts):
+// en el Overview, el Timeline lee los pedidos y las personas también. Los pedidos y las suscripciones son los de Admin › Sales
+// (ventas-server.ts): la misma cuenta, el mismo estado y los mismos ids.
+const usuarios = leerUsuarios
+const actividad = leerActividad
+const pedidos = leerOrdenes
 const suscripciones = cache(() => vistaSuscripciones())
 
 // ── Las personas (Members) ─────────────────────────────────────────────────────────────────────────────────────────
@@ -142,7 +135,8 @@ export type ResumenNegocio = {
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
   computadoras: ComputadorasDeLaFicha
-  eventos: EventoNegocio[]
+  /** Los últimos eventos del negocio, para el Timeline (los de Analytics › Events, filtrados por él). */
+  eventos: EventoDeTimeline[]
   avisos: string[]
 }
 
@@ -151,7 +145,7 @@ async function conexionesDe(ws: number): Promise<ConexionNegocio[]> {
   return Promise.all(servicios.map(async (s) => ({ key: s.key, nombre: s.nombre, conectada: await integracionConectada(s.key, ws) })))
 }
 
-/** Los pedidos del negocio (Sales), lo que paga por mes hoy y los movimientos de su MRR (`vistaDeIngresos`, la de Overview). */
+/** Los pedidos del negocio (Sales) y lo que paga por mes hoy (`vistaDeIngresos`, la de Overview). */
 const ingresosDe = cache(async (ws: number) => {
   const avisos: string[] = []
   const [orders, ingresos] = await Promise.all([
@@ -167,7 +161,6 @@ const ingresosDe = cache(async (ws: number) => {
     pedidos: orders ? pedidosDelNegocio(orders.pedidos, ws) : [] as Pedido[],
     /** `null` = no se pudo leer (no es «no paga nada»). */
     mrrUsd: v ? (v.clientes.find((c) => c.ws === ws)?.mrr ?? 0) : null,
-    movimientos: v ? v.movimientos.filter((m) => m.cliente === `ws:${ws}`) : [],
   }
 })
 
@@ -180,11 +173,12 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
     ingresosDe(ws),
     conexionesDe(ws).catch((e) => { avisos.push(`sus conexiones: ${motivo(e)}`); return null }),
     opera ? listarPcDelNegocio(ws).catch((e) => { avisos.push(`sus computadoras: ${motivo(e)}`); return null }) : Promise.resolve(null),
-    leerEventos(ws),
+    leerTimelineDelNegocio(ws),
   ])
   avisos.push(...ingresos.avisos)
   const subs = await suscripciones().catch((e) => ({ suscripciones: [] as SuscripcionVenta[], avisos: [`sus suscripciones: ${motivo(e)}`] }))
-  avisos.push(...subs.avisos, ...eventos.avisos)
+  // Lo que el Timeline no pudo leer, salvo lo que ya dijeron los pagos de arriba (Sales lee lo mismo y lo avisa una vez).
+  avisos.push(...subs.avisos, ...eventos.avisos.filter((a) => !avisos.some((b) => a.endsWith(b))))
   return {
     hoy: ingresos.hoy,
     pedidos: ingresos.pedidos,
@@ -195,67 +189,6 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
     eventos: eventos.eventos,
     avisos: [...new Set(avisos)],
   }
-})
-
-// ── Events (y el Timeline del Overview) ────────────────────────────────────────────────────────────────────────────
-
-/** Cuántas acciones de MaKo y cuántos reportes de un negocio se leen: la lista es para mirar, no un archivo. */
-export const TOPE_ACCIONES = 300
-export const TOPE_REPORTES = 100
-
-async function accionesDe(ws: number): Promise<AccionDeMaKo[]> {
-  const { data, error } = await getSupabaseServer().from('actividad_acciones').select('creado, operacion, canal, ok')
-    .eq('workspace_id', ws).order('creado', { ascending: false }).limit(TOPE_ACCIONES)
-  if (error) {
-    if (faltaLaTabla(error)) return []
-    throw new Error(error.message)
-  }
-  return ((data ?? []) as Array<{ creado: string; operacion: string; canal: string; ok: boolean | null }>).map((a) => ({
-    creado: String(a.creado), operacion: String(a.operacion), titulo: porId(String(a.operacion))?.titulo ?? String(a.operacion),
-    canal: String(a.canal), ok: a.ok === true,
-  }))
-}
-
-async function reportesDe(ws: number): Promise<ReporteDelNegocio[]> {
-  const { data, error } = await getSupabaseServer().from('tickets').select('id, titulo, tipo, estado, created_at')
-    .eq('workspace_id', ws).order('created_at', { ascending: false }).limit(TOPE_REPORTES)
-  if (error) throw new Error(error.message)
-  return ((data ?? []) as Array<Record<string, unknown>>).map((t) => ({
-    id: Number(t.id), titulo: String(t.titulo ?? ''), tipo: String(t.tipo ?? ''), estado: String(t.estado ?? ''), creado: String(t.created_at ?? ''),
-  }))
-}
-
-async function erroresDe(ws: number): Promise<{ errores: ErrorDelNegocio[]; avisos: string[] }> {
-  const v = await errores()
-  const ahora = Date.now()
-  return {
-    errores: v.errores.filter((e) => e.negocios.includes(ws)).map((e) => ({
-      id: e.id, titulo: e.titulo, origen: e.origen, veces: e.veces, ultimaVez: e.ultimaVez, ruta: e.ruta,
-      estado: ROTULO_ESTADO_ERROR[estadoDeError(e, ahora)].rotulo,
-    })),
-    avisos: [...v.avisos, ...(v.hayMas ? ['los errores más viejos (se leen los 500 más recientes de todos los negocios)'] : [])],
-  }
-}
-
-export type LecturaEventos = { eventos: EventoNegocio[]; avisos: string[] }
-
-export const leerEventos = cache(async (ws: number): Promise<LecturaEventos> => {
-  const avisos: string[] = []
-  const [negocio, ingresos, acciones, err, reportes] = await Promise.all([
-    getWorkspace(ws).catch(() => null),
-    ingresosDe(ws),
-    accionesDe(ws).catch((e) => { avisos.push(`lo que hizo MaKo: ${motivo(e)}`); return [] as AccionDeMaKo[] }),
-    erroresDe(ws).catch((e) => { avisos.push(`sus errores: ${motivo(e)}`); return { errores: [] as ErrorDelNegocio[], avisos: [] as string[] } }),
-    reportesDe(ws).catch((e) => { avisos.push(`sus reportes: ${motivo(e)}`); return [] as ReporteDelNegocio[] }),
-  ])
-  avisos.push(...ingresos.avisos, ...err.avisos)
-  const eventos = eventosDelNegocio({
-    ws, creado: negocio?.created_at ?? new Date(0).toISOString(),
-    pedidos: ingresos.pedidos,
-    movimientos: ingresos.movimientos,
-    acciones, errores: err.errores, reportes,
-  })
-  return { eventos: negocio ? eventos : eventos.filter((e) => e.name !== 'customer.created'), avisos: [...new Set(avisos)] }
 })
 
 // ── Usage ──────────────────────────────────────────────────────────────────────────────────────────────────────────
