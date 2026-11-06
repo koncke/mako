@@ -7,11 +7,10 @@
 //     MaKo no se muestra salvo mientras se edita»). Los filtros van en la URL y se leen acá.
 //   · `?ver=crear` → «Crear desde cero»: la pantalla de Create (app/_crear/PantallaCrear.tsx, desde ./ImageEditorCliente.tsx) con
 //     el chat de MaKo a la izquierda, sus diseños detrás de la «←» y las plantillas de «Nuevo diseño» (./plantillas-crear.ts).
-//   · `?ver=carruseles` (el link de antes, que viajó en avisos y en la API) → redirige a `/image-editor` con sus filtros.
+//   · `?ver=carruseles` (el link de antes, que viajó en avisos y en la API) → los ejemplos con sus filtros, sin redirigir (./vista.ts).
 // La page aplica el guard (./acceso.ts: la pregunta de toda tab). Sin onboarding: los ejemplos y las plantillas son el arranque.
 
-import { redirect } from 'next/navigation';
-import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
@@ -22,7 +21,7 @@ import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { kitParaUsar } from '@/lib/marca/kits-server';
 import { requireEditorImagen } from './acceso';
 import { ImageEditorCliente } from './ImageEditorCliente';
-import { querySinVer, vistaDeImage } from './ruta';
+import { vistaDeImage } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,12 +29,8 @@ export const revalidate = 0;
 export default async function ImageEditorPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireEditorImagen();
   const q = await searchParams;
+  // `?ver=carruseles` (el link de antes) abre los ejemplos con sus filtros, sin redirigir (./vista.ts).
   const vista = vistaDeImage(q);
-  // El link viejo de los ejemplos: a la portada, con sus filtros (y el `?ws=` de la pestaña).
-  if (vista === 'redirigir') {
-    const resto = querySinVer(q);
-    redirect(await rutaConWs(resto ? `/image-editor?${resto}` : '/image-editor'));
-  }
   const ws = await getWorkspaceActual();
   const ejemplos = vista === 'ejemplos';
   const [explorador, thumbnails, negocio, kit] = await Promise.all([

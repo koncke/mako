@@ -4,7 +4,7 @@
 // =============================================================================
 // Martín, 6/11/2026: «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal… también en celular». Sin `?ver=`,
 // los ejemplos (carruseles, anuncios y miniaturas de YouTube: app/image-editor/carruseles/ExplorarCarruseles.tsx); con
-// `?ver=crear`, lo de abajo; `?ver=carruseles` (el link de antes) redirige a la portada con sus filtros.
+// `?ver=crear`, lo de abajo; `?ver=carruseles` (el link de antes) abre la portada con sus filtros (app/image-editor/vista.ts).
 // La tab de escritorio (app/image-editor, la copia de Canva sobre Doory) destilada: el buscador, «Diseños recientes» en
 // una grilla de dos columnas con su miniatura y el «+» flotante abajo a la derecha, «Nuevo diseño», que abre
 // «¿Qué vas a crear hoy?» con las MISMAS plantillas de la computadora (app/image-editor/plantillas-crear.ts) y crea por la
@@ -18,12 +18,10 @@
 // =============================================================================
 
 import './image-editor.css';
-import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { rutaConWs } from '@/lib/workspace';
 import { filtrosThumbnailDeQuery } from '@/lib/thumbnails/explorar';
 import { leerThumbnails } from '@/lib/thumbnails/servidor';
-import { querySinVer, vistaDeImage } from '@/app/image-editor/ruta';
+import { vistaDeImage } from '@/app/image-editor/vista';
 import { listarDisenos } from '@/lib/image-editor/server';
 import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { InicioImagenM } from './InicioImagenM';
@@ -40,7 +38,6 @@ export default async function ImageEditorPagina({ searchParams }: { searchParams
   // y «Editar», que arma la versión del negocio y abre el MISMO editor (./[diseno]).
   const q = await searchParams;
   const vista = vistaDeImage(q);
-  if (vista === 'redirigir') { const resto = querySinVer(q); redirect(await rutaConWs(resto ? `/m/image-editor?${resto}` : '/m/image-editor')); }
   if (vista === 'ejemplos') {
     const [e, t] = ctx.ws == null ? [null, null] : await Promise.all([leerExplorador(), leerThumbnails()]);
     return (

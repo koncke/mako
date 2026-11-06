@@ -460,7 +460,7 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
 
 /**
  * La query de unos filtros, sólo con lo que no es el valor inicial. Sin `ver=carruseles` desde el 6/11/2026: el explorador ES
- * la portada de Image (`/image-editor`), y `?ver=carruseles` sólo redirige ahí (app/image-editor/page.tsx).
+ * la portada de Image (`/image-editor`), y `?ver=carruseles` abre lo mismo (app/image-editor/vista.ts).
  */
 export function queryDeFiltros(f: FiltrosCarrusel): string {
   const q = new URLSearchParams();

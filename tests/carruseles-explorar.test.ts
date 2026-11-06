@@ -212,3 +212,12 @@ test('parecidos: mismo tipo y palabras del tema, el que más rindió primero; si
   const z1 = k({ id: 905, competidorId: 3, creador: { nombre: 'Zoe', usuario: 'zoe', foto: null }, formato: 'tutorial' });
   assert.deepEqual(creadoresParecidos(x1, [x1, x2, y1, y2, z1]).map((x) => x.nombre), ['Bruno'], 'comparten sus tipos; Zoe no');
 });
+
+test('qué muestra /image-editor: los ejemplos son la portada; «Crear desde cero» es ?ver=crear; el link viejo abre los ejemplos', async () => {
+  const { vistaDeImage } = await import('../app/image-editor/vista');
+  assert.equal(vistaDeImage({}), 'ejemplos');
+  assert.equal(vistaDeImage({ ver: 'carruseles', q: 'cafe' }), 'ejemplos', 'sin redirigir: un redirect debajo del loader es el React #310');
+  assert.equal(vistaDeImage({ ver: 'crear' }), 'crear');
+  assert.equal(vistaDeImage({ ver: ['crear', 'x'] }), 'crear');
+  assert.equal(vistaDeImage({ ver: 'cualquiera' }), 'ejemplos');
+});

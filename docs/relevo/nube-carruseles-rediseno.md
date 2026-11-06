@@ -98,7 +98,7 @@ Todo desde la raíz del clon, con el `.env.local` (producción). Los comandos si
   avatar del cliente es el paso siguiente (Flow).
 - **Una biblioteca de anuncios para todos** necesita Foreplay o Atria con cuenta paga a nombre de MaKo y permiso escrito de
   reventa: lo decide Martín (la comparación, en `docs/hallazgos-carruseles.md`).
-- **No se tocó la sidebar:** desde el 6/11 (tarde) los ejemplos SON la portada de Image (`/image-editor`); `?ver=carruseles` redirige ahí.
+- **No se tocó la sidebar:** desde el 6/11 (tarde) los ejemplos SON la portada de Image (`/image-editor`); `?ver=carruseles` abre lo mismo.
 
 ## Pulido del 6/11/2026 (la sesión que terminó el rediseño, en `punta/carruseles-pulido`)
 
@@ -141,8 +141,10 @@ Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404
 **Hecho** (capturas a 1440 y 390, claro y oscuro: `docs/carruseles/capturas-2026-11-06/`):
 
 1. **Los ejemplos son la portada de Image** (`/image-editor`, también en el teléfono). «¿Qué vas a crear hoy?» quedó detrás de
-   «＋ Crear desde cero» (`?ver=crear`). `?ver=carruseles` (el link de antes: avisos, API) redirige a la portada con sus filtros
-   (`vistaDeImage`, `querySinVer` en app/image-editor/ruta.ts). Borrar un diseño o «Crear otro diseño» vuelven a `?ver=crear`.
+   «＋ Crear desde cero» (`?ver=crear`). `?ver=carruseles` (el link de antes: avisos, API) abre los ejemplos con sus filtros
+   SIN redirigir (`vistaDeImage`, app/image-editor/vista.ts) y la pantalla saca el `ver=` de la barra: un `redirect()` debajo de
+   `app/image-editor/loading.tsx` es el React #310 (tests/redirige-antes-del-loader.test.ts lo frenó en el veredicto). Borrar un
+   diseño o «Crear otro diseño» vuelven a `?ver=crear`.
 2. **Se fueron** el filtro CTA y su contador (el CTA sigue en la tarjeta, «Comenta «GUÍA»»), la pastilla «Biblioteca» y su modal
    (`EditarBiblioteca.tsx`, `FranjaCarruseles.tsx`), y «Tamaño de la tarjeta» con sus colores: siempre grande. La carga de la
    biblioteca desde la PC no se tocó (y sus operaciones de la API, tampoco).
@@ -177,6 +179,10 @@ Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404
   fila que se desliza, fuera de la vista: ahora va primero (es lo que cambia la pantalla) y las pastillas después.
 - **Cambiado al probar los tests rompiendo el código:** el test de «no repartir con una cuenta elegida» daba verde con el
   reparto puesto (con una sola cuenta, repartir no cambia nada): ahora prueba con dos cuentas elegidas.
+- **Cambiado por el veredicto de la nube (5 rojos, todos de esta tanda):** la redirección de `?ver=carruseles` quedó como «abre
+  lo mismo» (arriba); las tres operaciones nuevas de la API no tenían decidida su receta del chat; la página del teléfono
+  importaba `app/image-editor/ruta.ts`, que los tests tratan como puerta del motor del editor (se mudó a `vista.ts`); el error
+  de Thumbnails no traía «Reportar a Soporte»; y el test de Apify no conocía el `medio`.
 - **Cambiado al releer el script de carga:** `excluir` escribía sin `--de-verdad` (todo lo demás es en seco por defecto), y
   `sumar` no validaba el rubro ni el idioma.
 - **Descartado:** dejar «Búsquedas guardadas» fuera. Martín no la nombró y sirve a quien guardó una; se ve sólo si hay alguna.

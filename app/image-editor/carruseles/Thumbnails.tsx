@@ -14,6 +14,7 @@
 
 import { useMemo, useState } from 'react';
 import { Modal } from '@/app/_ui/Modal';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Dropdown } from '@/app/components/Dropdown';
 import { ENMIENDA_III_L, FALTA_LA_ENMIENDA, LEYENDA_DERIVADA } from '@/lib/spy-reglas';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
@@ -121,7 +122,7 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
       </div>
 
       {!datos || !datos.ok ? (
-        <div className={s.vacio} role="alert"><p>No pude leer las miniaturas de ejemplo. Vuelve a intentar en un rato.</p></div>
+        <div className={s.vacio} role="alert"><p>No pude leer las miniaturas de ejemplo. Vuelve a intentar en un rato.</p><ReportarASoporte /></div>
       ) : !lista.length ? (
         <div className={s.vacio}><p>Las miniaturas que mejor rinden en ventas, marketing, emprendimiento y servicios aparecen aquí muy pronto.</p></div>
       ) : vistos.length === 0 ? (

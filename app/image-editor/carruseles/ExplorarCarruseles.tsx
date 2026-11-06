@@ -148,6 +148,16 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   // El «hace cuánto» se calcula una vez montada la pantalla (el server no dibuja fechas relativas).
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => { setAhora(Date.now()); }, []);
+  // El link de antes (`?ver=carruseles`) abre esta misma pantalla sin redirigir (app/image-editor/vista.ts): acá se saca el `ver`
+  // de la barra de direcciones, sin navegar, para que un link copiado sea el de la portada.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('ver') !== 'carruseles') return;
+      u.searchParams.delete('ver');
+      window.history.replaceState(window.history.state, '', u.pathname + u.search);
+    } catch { /* sin URL que tocar (un test) */ }
+  }, []);
 
   const cambiar = useCallback((cambio: Partial<FiltrosCarrusel>) => {
     setF((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(queryDeFiltros(nuevo)); return nuevo; });
