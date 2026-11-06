@@ -1126,7 +1126,11 @@ const MODELO_VISION: Partial<Record<ProvName, string>> = {
  * documentos y las fotos de la cara de marca se lo come solo (medido el 16/08/2026,
  * con un cliente trabado en vivo).
  */
-type DocOpts = { dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number; redDePlataforma?: boolean };
+type DocOpts = {
+  dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number; redDePlataforma?: boolean;
+  /** El tope de la respuesta con su Claude (4096 si no se dice). «Editar» un carrusel de 10 láminas pide más (6/11/2026). */
+  maxTokens?: number;
+};
 
 /** Una data URL (imagen o PDF) como bloque de Claude. Lo que no es base64 o no es un tipo que Claude mira, afuera. */
 function bloquesParaClaude(o: DocOpts): Array<Record<string, unknown>> {
@@ -1181,7 +1185,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     const bloques = bloquesParaClaude(opts);
     if (bloques.length) {
       const { conClaveDelNegocio } = await import('./anthropic');
-      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch(() => null);
+      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch(() => null);
       if (r && 'texto' in r) return { text: opts.json ? soloElJson(r.texto) || r.texto : r.texto, provider: 'anthropic' };
       if (r && 'error' in r) errores.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
     }

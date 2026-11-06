@@ -3,8 +3,9 @@
 // =============================================================================
 // El modal «Filtros» de los carruseles (6/11/2026): copiado de «Filters & views» de Top Carousels
 // (docs/carruseles/referencia-top-carousels/filtros.jpg). A la izquierda los filtros (deslizadores de dos puntas para el múltiplo,
-// las interacciones y las láminas; publicado, tipo, de dónde; y «Ocultar tipos» con chips). A la derecha cómo se ve (orden, tamaño
-// de tarjeta y la leyenda de colores del múltiplo). Se arma sobre una COPIA: nada cambia hasta «Aplicar».
+// las interacciones y las láminas; publicado, tipo, de dónde; y «Ocultar tipos» con chips). A la derecha cómo se ve (el orden y la
+// leyenda de colores del múltiplo). Se arma sobre una COPIA: nada cambia hasta «Aplicar». Sin «Tamaño de la tarjeta» (6/11/2026;
+// Martín: «eso no lo quiero, solo grande»).
 //
 // Sólo filtra por lo que MaKo tiene: el «tema» de la referencia no existe en nuestros datos (sólo el TIPO: lista, tutorial…), así
 // que no se inventa; «Ocultar tipos» hace lo que allá hace «Hide topics».
@@ -52,7 +53,7 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
   const ocultos = new Set(f.ocultar ?? []);
   const alternarOculto = (v: Formato) => { const n = new Set(ocultos); if (n.has(v)) n.delete(v); else n.add(v); poner({ ocultar: [...n] }); };
 
-  const reiniciar = () => setF({ ...FILTROS_INICIALES, que: f.que, orden: f.que === 'anuncios' ? 'aire' : 'outlier', cta: f.cta, creadores: f.creadores, q: f.q, vista: f.vista });
+  const reiniciar = () => setF({ ...FILTROS_INICIALES, que: f.que, orden: f.que === 'anuncios' ? 'aire' : 'outlier', creadores: f.creadores, q: f.q, vista: f.vista });
 
   return (
     <Modal titulo="Filtros" onCerrar={onCerrar} ancho={900} alto="min(88vh, 720px)" completaEnCelular
@@ -141,13 +142,6 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
               {ordenes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
-          <div className={s.campo}>
-            <span className={s.etiqueta}>Tamaño de la tarjeta</span>
-            <div className={s.segmentoDoble} role="radiogroup" aria-label="Tamaño de la tarjeta">
-              <button type="button" role="radio" aria-checked={(f.tamano ?? 'grande') === 'grande'} onClick={() => poner({ tamano: 'grande' })}>Grande</button>
-              <button type="button" role="radio" aria-checked={f.tamano === 'chico'} onClick={() => poner({ tamano: 'chico' })}>Compacta</button>
-            </div>
-          </div>
           {!anuncios && (
             <div className={s.campo}>
               <span className={s.etiqueta}>Colores del múltiplo</span>

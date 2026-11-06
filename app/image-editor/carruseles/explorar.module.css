@@ -23,6 +23,10 @@
 .pastilla:active { transform: scale(0.97); }
 .pastilla[aria-pressed='true'] { background: var(--primary-bg); border-color: transparent; color: var(--primary-strong, var(--primary)); }
 .pastilla:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* «Crear desde cero» (6/11/2026): la entrada a las plantillas, discreta, al final de las pastillas. */
+.crear { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; color: var(--dim); font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.crear:hover { color: var(--ink); background: var(--velo-hover); }
+.crear:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-2); color: var(--ink); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 
 .busca { box-sizing: border-box; width: 100%; max-width: 640px; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--dim); box-shadow: 0 1px 2px rgba(18, 21, 27, 0.05); }
@@ -68,7 +72,8 @@
 
 /* ── La grilla y la tarjeta ── */
 .grilla { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
-.raiz[data-tamano='chico'] .grilla { grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 20px 14px; }
+/* Las miniaturas de YouTube (Thumbnails, 6/11/2026): 16:9, más anchas (3 columnas en 1440, como en YouTube). */
+.grillaAncha { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
 
 .tarjeta { min-width: 0; display: flex; flex-direction: column; gap: 10px; animation: entra 280ms cubic-bezier(.2, .7, .2, 1) both; }
 @keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -76,6 +81,14 @@
 
 .mini { position: relative; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); transition: box-shadow 200ms ease, transform 200ms ease; }
 .mini[data-anuncio='si'] { aspect-ratio: 1 / 1; }
+.mini169 { aspect-ratio: 16 / 9; cursor: pointer; }
+.miniImagen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
+.duracion { position: absolute; right: 8px; bottom: 8px; height: 20px; padding: 0 6px; border-radius: 5px; background: rgba(18, 21, 27, 0.82); color: #fff; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; pointer-events: none; }
+.yt { margin-left: auto; color: var(--dim); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.yt:hover { color: var(--ink); text-decoration: underline; }
+.notaFuente { margin: 0; text-align: center; font-size: 12px; color: var(--faint, var(--dim)); }
+.abiertaThumb { display: flex; flex-direction: column; gap: 12px; }
+.abiertaThumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; background: var(--surface-2); display: block; }
 .tarjeta:hover .mini { box-shadow: 0 14px 30px -14px rgba(18, 21, 27, 0.35); transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) { .tarjeta:hover .mini { transform: none; } }
 
@@ -96,7 +109,10 @@
 .tarjeta:hover .ant, .tarjeta:hover .sig, .ant:focus-visible, .sig:focus-visible { opacity: 1; }
 .ant:active, .sig:active { transform: scale(0.92); }
 .ant:focus-visible, .sig:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-@media (hover: none) { .ant, .sig { display: none; } }
+/* Sin mouse (el teléfono, una tablet): las flechas quedan a la vista, más chicas (6/11/2026; Martín: «muchos no tengo el botón
+   para desplazar a la derecha»). Sólo existen cuando la tarjeta tiene sus láminas guardadas: sin ellas no se prometen. */
+@media (hover: none) { .ant, .sig { opacity: 0.92; width: 28px; height: 28px; margin-top: -14px; } }
+.raiz[data-telefono='si'] .ant, .raiz[data-telefono='si'] .sig { opacity: 0.92; width: 28px; height: 28px; margin-top: -14px; }
 .puntos { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; gap: 4px; pointer-events: none; }
 .puntos i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); box-shadow: 0 0 2px rgba(0, 0, 0, 0.35); transition: background 160ms ease, transform 160ms ease; }
 .puntos i[data-actual='si'] { background: #fff; transform: scale(1.25); }
@@ -167,6 +183,7 @@
 .raiz[data-telefono='si'] .cabeza { gap: 10px; padding-bottom: 0; }
 .raiz[data-telefono='si'] .cabeza h1 { font-size: 24px; }
 .raiz[data-telefono='si'] .grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
+.raiz[data-telefono='si'] .grillaAncha { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .raiz[data-telefono='si'] .busca { height: 44px; padding: 0 14px; }
 .raiz[data-telefono='si'] .filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; -webkit-overflow-scrolling: touch; }
 .raiz[data-telefono='si'] .filtros::-webkit-scrollbar { display: none; }
@@ -183,7 +200,7 @@
 @media (max-width: 560px) {
   .col { padding: 20px 16px 32px; }
   .grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
-  .raiz[data-tamano='chico'] .grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grillaAncha { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── El modal «Filtros» ── */
@@ -200,9 +217,6 @@
 .chipTipo { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer; }
 .chipTipo[aria-pressed='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); text-decoration: line-through; }
 .chipTipo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.segmentoDoble { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.segmentoDoble button { height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
-.segmentoDoble button[aria-checked='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .leyenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--dim); }
 .leyenda li { display: flex; align-items: center; gap: 10px; }
 .leyenda .mult { min-width: 52px; justify-content: center; }

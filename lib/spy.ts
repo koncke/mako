@@ -453,7 +453,7 @@ export type PiezaVista = {
   miniatura?: string | null;
   /** La fecha en que la FUENTE dice que terminó (un anuncio inactivo de la Biblioteca). No es «no vino en esta lectura». */
   dejoDeVerseEn?: string | null;
-  /** Sólo Instagram: si es carrusel, imagen o video, y sus láminas (lib/spy-medio.ts). Se escribe aparte (`guardarMedios`). */
+  /** Instagram y anuncios: si es carrusel, imagen o video, y (Instagram) sus láminas (lib/spy-medio.ts). Se escribe aparte (`guardarMedios`). */
   medio?: Medio | null;
   laminas?: number | null;
 };
@@ -559,7 +559,8 @@ export async function guardarVistas(
 let medioSinColumna = false;
 
 /**
- * Escribe si cada publicación de Instagram es un carrusel, una imagen o un video, y las láminas de un carrusel (mig 0391).
+ * Escribe si cada publicación de Instagram (o cada anuncio, desde el 6/11/2026) es un carrusel, una imagen o un video, y las
+ * láminas de un carrusel (mig 0391).
  * Un update por grupo, nunca uno por pieza. NUNCA tira y nunca hace fallar la lectura: es un dato de más. Sin la columna,
  * deja de intentar hasta el próximo arranque.
  */
@@ -570,7 +571,7 @@ async function guardarMedios(competidorId: number, vistas: readonly PiezaVista[]
   const db = await getTenantDb();
   for (const g of grupos) {
     const r = await db.from('spy_piezas').update({ medio: g.medio, laminas: g.laminas })
-      .eq('competidor_id', competidorId).eq('canal', 'instagram').in('ref', g.refs);
+      .eq('competidor_id', competidorId).eq('canal', g.canal).in('ref', g.refs);
     if (r.error) {
       if (faltaLaColumnaDeMedio(r.error)) { medioSinColumna = true; console.warn('[spy] la 0391 (medio, láminas) todavía no está aplicada'); return; }
       console.warn('[spy] no pude guardar el medio:', r.error.message);

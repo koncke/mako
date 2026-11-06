@@ -15,6 +15,14 @@
 // La Biblioteca no da gasto ni resultados fuera de la UE, así que no hay outlier: el orden «Mayor outlier» es, para ellos,
 // «Más días al aire» (./explorar.ts). Sin la fecha de inicio, null: no se afirma un cero.
 //
+// SÓLO IMÁGENES (6/11/2026; Martín: «en anuncios trajiste un montón de videos, cuando estamos viendo solo imágenes»). El explorador
+// es de Image: un anuncio en video no se puede «Editar» como un diseño, así que no se muestra ni se cuenta. Cómo se sabe:
+//   · lo dice Spy desde el 6/11/2026: el actor de Apify trae `displayFormat` (VIDEO, IMAGE, CAROUSEL…) y la pieza guarda su
+//     `medio` (lib/spy-todo-reglas.ts → `anuncioDeApify`, `medioDeAnuncio`);
+//   · lo de antes no tiene `medio`: su miniatura, si sigue siendo la del CDN de Meta, lo delata (los cuadros de un video van en
+//     `/t15.` y las imágenes de un anuncio en `/t39.`). Sin ninguna de las dos señales, se muestra: sin dato no es «video». La
+//     lectura de cada cuenta que Spy repite cada semana le pone el `medio` a todos.
+//
 // Puro, con su test (tests/carruseles-anuncios.test.ts).
 // =============================================================================
 
@@ -29,7 +37,20 @@ export type PiezaAnuncio = {
   id: number; competidor_id: number; canal: string; tipo: string; url: string | null; texto: string | null; titulo?: string | null;
   analisis?: { gancho?: string; tipoGancho?: string; formato?: string } | null;
   publicada_en: string | null; dejo_de_verse_en: string | null; visto_primera_vez: string; miniatura: string | null;
+  /** carrusel · imagen · video (mig 0391; en los anuncios, desde el 6/11/2026). Ausente o null: no se sabe. */
+  medio?: string | null;
 };
+
+/**
+ * ¿El anuncio es un video? `true` sólo con una señal: su `medio`, o la miniatura del CDN de Meta en la carpeta de los cuadros de
+ * video (`/t15.`). Sin señal, `false`: no se esconde lo que no se sabe.
+ */
+export function esAnuncioEnVideo(p: Pick<PiezaAnuncio, 'medio' | 'miniatura'>): boolean {
+  if (p.medio === 'video') return true;
+  if (p.medio === 'imagen' || p.medio === 'carrusel') return false;
+  const u = p.miniatura ?? '';
+  return /^https:\/\/[^/]*(?:fbcdn\.net|facebook\.com)\/v\/t15\./i.test(u);
+}
 
 const DIA = 86_400_000;
 
@@ -52,14 +73,14 @@ export function rotuloAire(c: Pick<Carrusel, 'diasAlAire' | 'activo'>): string |
 
 /**
  * Los anuncios de los competidores como tarjetas del explorador (clase «anuncio»). Sólo los de un competidor que el negocio
- * sigue; con o sin imagen (un anuncio sin miniatura se ve con su texto). Los que siguen al aire van antes, en el orden.
+ * sigue y sólo los de IMAGEN (un video no entra: ver arriba); uno sin miniatura se ve con su texto.
  */
 export function anunciosDe(piezas: readonly PiezaAnuncio[], competidores: readonly CompetidorParaCarrusel[], ahora = Date.now()): Carrusel[] {
   const porId = new Map(competidores.map((c) => [c.id, c]));
   const out: Carrusel[] = [];
   for (const p of piezas) {
     const c = porId.get(p.competidor_id);
-    if (!c || p.canal !== 'anuncios' || p.tipo !== 'anuncio') continue;
+    if (!c || p.canal !== 'anuncios' || p.tipo !== 'anuncio' || esAnuncioEnVideo(p)) continue;
     const texto = [p.titulo, p.texto].map((x) => x?.trim()).filter(Boolean).join('\n') || null;
     const formato = formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto });
     out.push({

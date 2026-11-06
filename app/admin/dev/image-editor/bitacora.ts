@@ -342,4 +342,36 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  {
+    fecha: '6 nov', hora: '11:00', chat: 'Carruseles y Thumbnails (nube)', sesion: 'cli_51816bfa-5baf-5efc-81a6-fc18bc5235f4', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Lo que vio en producción: OUTLIER como portada, sin CTA ni Biblioteca, sólo imágenes, «Editar» y una tab Thumbnails',
+    pedido: 'Martín, textual: «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal, no "¿Qué vas a crear hoy?"... solo quiero carruseles que le sirvan a dueños de negocio... elimina el filtro de "CTA" porque todos le van a servir a dueños, ojo, no necesariamente solo los que tienen CTA, hay algunos que si sirven, reflexiones, o cosas así, que por cierto en el filtro de CTA pusiste puros de DenBorg, no creo que ella sea la que mas carruseles haga... Muchos no tengo el botón para desplazar a la derecha para ver las otras slides... Luego, en anuncios trajiste un montón de videos, cuando estamos viendo solo imagenes. No quiero que esté activado el filtro semanal por defecto. En filtros sigue diciendo "Tamaño de la tarjeta" eso no lo quiero, solo grande... Y enlimina lo de "biblioteca" eso no lo quiero, aparte que esta horrible... También quisiera una tab que sea "Thumbnails", para traer de la misma manera miniaturas top en el mercado, estoy seguro que debe haber una API o un repo o algo que traiga eso...»',
+    puntos: [
+      'Llegó por el Cerebro, con «Editar» fallando en producción («Tu IA no contestó ahora»). La hora del pedido es aproximada: llegó en el brief de la sesión.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '12:10', chat: 'Carruseles y Thumbnails (nube)', sesion: 'cli_51816bfa-5baf-5efc-81a6-fc18bc5235f4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Image abre con los ejemplos; «Editar» sin láminas anda; Thumbnails de YouTube',
+    puntos: [
+      'Al entrar a Image se ven los ejemplos («Encuentra tu siguiente OUTLIER»); las plantillas quedaron detrás de «＋ Crear desde cero», también en el teléfono. El link de antes (?ver=carruseles) lleva ahí.',
+      'Se fueron el filtro CTA (el CTA sigue en la tarjeta), la pastilla «Biblioteca» y «Tamaño de la tarjeta». Ya no arranca con «Últimos 7 días».',
+      'Una cuenta no llena la pantalla: como mucho 2 de la misma en cada 12 tarjetas, salvo que elijas esa cuenta.',
+      'En «Anuncios» sólo imágenes: los videos no se ven ni cuentan.',
+      'Las flechas para pasar las láminas se ven siempre en el teléfono.',
+      '«Editar» con un carrusel sin láminas ya escribe la versión con tu IA (antes no probaba tu Claude y cortaba la respuesta); si falla, dice por qué y de quién es, y el diseño con guías se ve.',
+      'Thumbnails: miniaturas de YouTube de canales de ventas, marketing, emprendimiento y servicios, con filtros, «Ver en YouTube» y «Editar» en un diseño de 1280 × 720. El múltiplo espera el trámite con YouTube: mientras tanto, las vistas.',
+    ],
+    archivos: [
+      'app/image-editor/page.tsx y ruta.ts — los ejemplos como portada; ?ver=crear para las plantillas',
+      'lib/carruseles/variedad.ts — que una cuenta no llene la pantalla',
+      'lib/carruseles/anuncios.ts, lib/spy-medio.ts, lib/spy-todo-reglas.ts — los anuncios en video, afuera',
+      'lib/carruseles/replica.ts y replica-servidor.ts — «Editar» sin láminas, los avisos y la miniatura de YouTube',
+      'lib/thumbnails/ y app/image-editor/carruseles/Thumbnails.tsx — la tab Thumbnails',
+      'supabase/migrations/0409_thumbnails_biblioteca.sql — la biblioteca de miniaturas (sin aplicar)',
+      'scripts/thumbnails-biblioteca.mts y carruseles-probar-editar.mts — lo que corre el Cerebro desde la PC',
+      'docs/carruseles/thumbnails.md — la fuente elegida y cómo se carga',
+    ],
+    revisar: '/image-editor',
+  },
 ];

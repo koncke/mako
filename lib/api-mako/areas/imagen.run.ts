@@ -19,7 +19,10 @@ import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantilla
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
-import { replicarCarrusel } from '@/lib/carruseles/replica-servidor';
+import { replicarCarrusel, replicarEjemplo } from '@/lib/carruseles/replica-servidor';
+import { FILTROS_THUMBNAIL, filtrarThumbnails, filtrosThumbnailDeQuery, imagenDeVideo, queryDeThumbnails, urlDeVideo, type Thumbnail } from '@/lib/thumbnails/explorar';
+import { guardarThumbnail, leerThumbnails, thumbnailPorId } from '@/lib/thumbnails/servidor';
+import { ENMIENDA_III_L, FALTA_LA_ENMIENDA, LEYENDA_DERIVADA } from '@/lib/spy-reglas';
 import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { estructuraDe, frasesDe, planDeReferencia } from '@/lib/carruseles/referencia';
 import { esTipoCarrusel } from '@/lib/carruseles/tipos';
@@ -94,8 +97,8 @@ function cambiosDe(input: Record<string, unknown>): { actual: string; nuevo: str
   return out;
 }
 
-/** El link al explorador con unos filtros (`/image-editor?ver=carruseles&…`). */
-const linkExplorador = (query: string, ws: number) => linkApp(`/image-editor?${query}`, ws);
+/** El link a los ejemplos con unos filtros (`/image-editor?…`: desde el 6/11/2026 son la portada de Image, sin `?ver=`). */
+const linkExplorador = (query: string, ws: number) => linkApp(query ? `/image-editor?${query}` : '/image-editor', ws);
 
 /** Un carrusel como lo devuelve la API: su creador y el link a SU publicación (es una referencia, no algo de MaKo). */
 const carruselParaApi = (c: Carrusel) => ({
@@ -263,7 +266,7 @@ export const RUNNERS: Runners = {
         // Los de la biblioteca de ejemplos (públicos, de la plataforma): se ven aunque el negocio todavía no siga a nadie.
         deLaBiblioteca: r.ejemplos,
         ...(r.paso === 'listo'
-          ? { siguiente: 'Usa buscar_carruseles para ver los que mejor funcionan.', link: linkExplorador('ver=carruseles', ctx.ws) }
+          ? { siguiente: 'Usa buscar_carruseles para ver los que mejor funcionan.', link: linkExplorador('', ctx.ws) }
           : {
             siguiente: r.ejemplos ? `Ya puede mirar los ejemplos de la biblioteca con buscar_carruseles. Para ver también los de su rubro: ${r.frase}` : r.frase,
             ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}),
@@ -280,7 +283,7 @@ export const RUNNERS: Runners = {
       if (!r.carruseles.length) return JSON.stringify({ paso: r.paso, carruseles: [], siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) });
       const base = filtrosDeQuery(new URLSearchParams({
         q: str(input, 'buscar') ?? '', periodo: str(input, 'periodo') ?? '', orden: str(input, 'orden') ?? '', vista: str(input, 'vista') ?? '',
-        origen: str(input, 'origen') ?? '', que: str(input, 'que') ?? '', cta: input.cta === true ? '1' : '',
+        origen: str(input, 'origen') ?? '', que: str(input, 'que') === 'anuncios' ? 'anuncios' : '',
       }));
       const f = { ...FILTROS_INICIALES, ...base, outlierMin: pisoDeOutlier(input.outlierMinimo) };
       const vistos = filtrarCarruseles(r.carruseles, f, new Set(r.guardados.map((g) => g.id)));
@@ -313,7 +316,7 @@ export const RUNNERS: Runners = {
       const guardar = payload.guardar !== false;
       const r = await guardarCarrusel(id, guardar);
       if (!r.ok) return { ok: false, resumen: r.error };
-      return { ok: true, resumen: guardar ? 'Guardado.' : 'Sacado de los guardados.', datos: { carruselId: id, link: linkExplorador('ver=carruseles&vista=guardados', ctx.ws) } };
+      return { ok: true, resumen: guardar ? 'Guardado.' : 'Sacado de los guardados.', datos: { carruselId: id, link: linkExplorador('vista=guardados', ctx.ws) } };
     },
   },
 
@@ -412,7 +415,93 @@ export const RUNNERS: Runners = {
       };
     },
   },
+
+  // ── Thumbnails (6/11/2026): las MISMAS funciones que la pantalla (lib/thumbnails/). Lo que se lee, de la biblioteca global. ──
+  buscar_thumbnails: {
+    leer: async (input, ctx) => {
+      const r = await leerThumbnails();
+      if (!r.ok) return JSON.stringify({ error: 'No pude leer las miniaturas de ejemplo. Vuelve a intentar.' });
+      if (!r.thumbnails.length) return JSON.stringify({ thumbnails: [], siguiente: 'La biblioteca de miniaturas todavía no tiene videos: se carga desde la plataforma.' });
+      const f = { ...FILTROS_THUMBNAIL, ...filtrosThumbnailDeQuery(new URLSearchParams({
+        q: str(input, 'buscar') ?? '', nicho: str(input, 'nicho') ?? '', idioma: str(input, 'idioma') ?? '', periodo: str(input, 'periodo') ?? '',
+        orden: str(input, 'orden') ?? '', vista: str(input, 'vista') ?? '',
+      })) };
+      const vistos = filtrarThumbnails(r.thumbnails, f, new Set(r.guardados));
+      const tope = typeof input.tope === 'number' ? Math.max(1, Math.min(30, Math.round(input.tope))) : 10;
+      return JSON.stringify({
+        total: vistos.length,
+        thumbnails: vistos.slice(0, tope).map(thumbnailParaApi),
+        link: linkExplorador(queryDeThumbnails(f), ctx.ws),
+        nota: `Son miniaturas de videos públicos de YouTube (de su canal: siempre con su link). Para que el negocio tenga SU versión editable de una, editar_ejemplo_thumbnail. ${ENMIENDA_III_L ? `El múltiplo: ${LEYENDA_DERIVADA}` : `Sin múltiplo: ${FALTA_LA_ENMIENDA}`}`,
+      });
+    },
+  },
+
+  guardar_thumbnail: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = typeof input.thumbnailId === 'number' ? input.thumbnailId : NaN;
+      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id de la miniatura (de buscar_thumbnails).', faltan: ['thumbnailId'] };
+      const guardar = input.guardar !== false;
+      const r = await leerThumbnails();
+      if (!r.ok) return { error: 'No pude leer las miniaturas. Vuelve a intentar.', falla: true };
+      const t = r.thumbnails.find((x) => x.id === id);
+      if (!t) return { error: 'Esa miniatura no está en la biblioteca. Búscala con buscar_thumbnails.' };
+      if (r.guardados.includes(id) === guardar) return { error: guardar ? 'Esa miniatura ya está guardada.' : 'Esa miniatura no estaba guardada.', yaEstaba: true };
+      const quien = t.canal.handle || t.canal.nombre;
+      return { payload: { thumbnailId: id, guardar }, resumen: guardar ? `Guardar la miniatura de ${quien} en las referencias.` : `Sacar la miniatura de ${quien} de las referencias.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = Number(payload.thumbnailId);
+      const guardar = payload.guardar !== false;
+      const r = await guardarThumbnail(id, guardar);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: guardar ? 'Guardada.' : 'Sacada de los guardados.', datos: { thumbnailId: id, link: linkExplorador('que=thumbnails&vista=guardados', ctx.ws) } };
+    },
+  },
+
+  // «Editar» una miniatura: la MISMA función que el botón (lib/carruseles/replica-servidor.ts, `replicarEjemplo`), sin el armado en
+  // vivo, en 1280 × 720. Con la IA del negocio; sin ella, sale con una guía y lo dice.
+  editar_ejemplo_thumbnail: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = typeof input.thumbnailId === 'number' ? input.thumbnailId : NaN;
+      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id de la miniatura (de buscar_thumbnails).', faltan: ['thumbnailId'] };
+      let t: Thumbnail | null;
+      try { t = await thumbnailPorId(id); } catch { return { error: 'No pude leer esa miniatura. Vuelve a intentar.', falla: true }; }
+      if (!t) return { error: 'Esa miniatura no está en la biblioteca. Búscala con buscar_thumbnails.' };
+      const pedido = str(input, 'pedido');
+      return {
+        payload: { thumbnailId: id, ...(pedido ? { pedido: pedido.slice(0, 400) } : {}) },
+        resumen: `Armar tu versión editable (1280 × 720) de la miniatura de ${t.canal.handle || t.canal.nombre}${t.titulo ? ` («${t.titulo.slice(0, 80)}»)` : ''}: su diseño, con el texto escrito para tu negocio por tu IA${pedido ? ` («${pedido.slice(0, 120)}»)` : ''}. Sus palabras no se copian.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await replicarEjemplo(ctx.ws, QUIEN, { que: 'thumbnail', id: Number(payload.thumbnailId) }, { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const url = link(r.id, ctx.ws);
+      const bloque = bloqueDiseno(r.id, { titulo: r.titulo, ancho: 1280, alto: 720, estado: 'Nuevo', nota: r.aviso ?? 'Tu versión, lista para editar.' });
+      return {
+        ok: true,
+        resumen: `${r.sinIA ? 'Creada con una guía' : 'Creada con tu texto'}. Ábrela aquí: ${url}${r.aviso ? ` · ${r.aviso}` : ''}`,
+        datos: { disenoId: r.id, link: url, bloque, sinIA: !!r.sinIA, ...(r.conectar ? { conectar: linkApp(r.conectar, ctx.ws) } : {}) },
+      };
+    },
+  },
 };
+
+/** Una miniatura como la devuelve la API: su canal, sus vistas y el link a SU video (es una referencia, no algo de MaKo). */
+const thumbnailParaApi = (t: Thumbnail) => ({
+  id: t.id,
+  canal: t.canal.handle || t.canal.nombre,
+  titulo: t.titulo,
+  video: urlDeVideo(t.video),
+  imagen: imagenDeVideo(t.video),
+  vistas: t.vistas,
+  publicado: t.publicado,
+  rubro: t.nicho,
+  idioma: t.idioma,
+  // Sólo con la enmienda III.L (lib/spy-reglas.ts): sin ella es null.
+  multiplo: t.outlier == null ? null : t.outlier,
+});
 
 /** El pedido de cambio de la biblioteca desde lo que mandó el modelo (o el payload confirmado). */
 function pedidoDeBiblioteca(input: Record<string, unknown>): CambioBiblioteca | { error: string; faltan: string[] } {

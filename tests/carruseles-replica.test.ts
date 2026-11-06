@@ -11,6 +11,10 @@
 //   · `medidasDeImagen` con ancho y alto al revés en JPEG → 1 rojo;
 //   · `avisoSinIA` que no manda a conectar la IA cuando no hay ninguna → 1 rojo;
 //   · el prompt sin pedir la palabra del CTA cuando el original la pide → 1 rojo.
+// Y la miniatura de YouTube (6/11/2026), base 20/0, restaurando desde memoria:
+//   · `leerReplica` sin forzar 16:9 y una lámina → 1 rojo;
+//   · `promptDeReplica` sin el prompt de miniatura → 1 rojo;
+//   · `esCdnPermitido` sin mirar https, usuario ni puerto → 1 rojo; con `includes` en vez del host exacto → 1 rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,8 +23,8 @@ import { altoEstimado, documentoDeCarrusel } from '../lib/carruseles/documento';
 import { estiloSinSerif } from '../lib/carruseles/marca-kit';
 import { fuenteDelEditorDeImagen } from '../lib/image-editor/fuente-del-editor';
 import {
-  CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, LAMINAS_MAX, ajustarTextos, avisoSinIA, documentoDeReplica, eventosDe, leerReplica, lineaDeEvento, medidasDeImagen, notasDeReplica,
-  promptDeReplica, type Replica,
+  ALTO_MINIATURA, ANCHO_MINIATURA, CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, LAMINAS_MAX, ajustarTextos, avisoSinIA, documentoDeReplica, documentoGuiaMiniatura,
+  esCdnPermitido, eventosDe, leerReplica, lineaDeEvento, medidasDe, medidasDeImagen, notasDeReplica, promptDeReplica, proveedorDelError, vuelveASinVer, type Replica,
 } from '../lib/carruseles/replica';
 import { tipoCarrusel } from '../lib/carruseles/tipos';
 
@@ -169,10 +173,22 @@ test('sin la IA: dice qué hacer, y sólo manda a conectar cuando lo que falta e
   const sin = avisoSinIA('No hay ninguna IA que pueda mirar esto. Conecta tu Claude, tu GPT o tu Gemini en Integraciones.');
   assert.equal(sin.conectar, CONECTAR_IA);
   assert.match(sin.aviso, /Conecta tu Claude/);
+  // 6/11/2026: Martín leyó «Tu IA no contestó ahora» sin saber por qué. El aviso nombra la IA y dice de quién es lo que pasó.
   const caida = avisoSinIA('No se pudo leer el documento con ninguna IA. gemini: HTTP 503 high demand');
   assert.equal(caida.conectar, null);
-  assert.match(caida.aviso, /no es tu configuración de MaKo/);
-  assert.deepEqual(marcasDeVoseo(sin.aviso + caida.aviso), []);
+  assert.match(caida.aviso, /^Tu Gemini tiene demasiada demanda/);
+  assert.match(caida.aviso, /no de tu configuración/);
+  const cuota = avisoSinIA('anthropic: HTTP 429 rate_limit_error');
+  assert.match(cuota.aviso, /^Tu Claude no tiene cuota/);
+  assert.equal(cuota.conectar, CONECTAR_IA, 'sin cuota, se arregla en Integraciones');
+  const clave = avisoSinIA('openai: HTTP 401 Incorrect API key provided');
+  assert.match(clave.aviso, /^Tu GPT rechazó la clave/);
+  const lento = avisoSinIA('gemini: timeout after 120000ms');
+  assert.match(lento.aviso, /tardó más de 2 minutos/);
+  const otro = avisoSinIA('algo raro que nadie clasificó');
+  assert.match(otro.aviso, /^Tu IA contestó con un error/);
+  for (const a of [sin, caida, cuota, clave, lento, otro]) assert.match(a.aviso, /cada lámina trae una guía/, 'siempre dice qué quedó');
+  assert.deepEqual(marcasDeVoseo([sin, caida, cuota, clave, lento, otro].map((a) => a.aviso).join(' ')), []);
 });
 
 const T = (rol: string, texto: string, o: Record<string, unknown> = {}) => ({ rol, texto, x: 0.1, y: 0.3, ancho: 0.5, tamano: 0.03, color: '#111111', negrita: false, alinear: 'left', mayus: false, letra: 'sans', ...o }) as never;
@@ -244,4 +260,72 @@ test('«Editar» sin láminas (con guías): letra de palo seco, texto grande y d
     const texto = pg.objects.find((o) => o.name === 'Texto' || o.name === 'Bajada');
     if (texto) assert.ok((texto.top as number) >= (titular.top as number) + (titular.height as number), 'el texto va debajo del titular');
   }
+});
+
+// ── «Editar» una miniatura de YouTube (6/11/2026: la tab Thumbnails) ────────────────────────────────────────────────────────
+
+test('miniatura: el prompt pide UNA lámina 16:9 con un gancho corto, y sin la imagen arma una igual', () => {
+  const p = promptDeReplica({ ...base, laminas: 1, vistas: 1, miniatura: true, tituloOriginal: 'Cómo cerrar 10 ventas por WhatsApp' } as never);
+  assert.match(p, /MINIATURA de un video de YouTube/);
+  assert.match(p, /UNA sola lámina, apaisada \(16:9, 1280 × 720\)/);
+  assert.match(p, /de 2 a 6 palabras/);
+  assert.match(p, /nunca el título entero/);
+  assert.match(p, /No pongas el nombre, el @ ni la marca del canal/);
+  assert.match(p, /Sonrisa Llena/);
+  const sinVer = promptDeReplica({ ...base, laminas: 1, vistas: 0, miniatura: true } as never);
+  assert.match(sinVer, /No tienes la imagen/);
+  assert.deepEqual(marcasDeVoseo(p + sinVer), []);
+});
+
+test('miniatura: lo que devuelve la IA se lee como UNA lámina 16:9 aunque traiga más, y el diseño es de 1280 × 720 sin reacomodar', () => {
+  const crudo = JSON.stringify({ titulo: 'Más ventas', proporcion: '4:5', laminas: [
+    { fondo: '#101010', textos: [{ rol: 'titulo', texto: 'VENDE MÁS HOY', x: 0.05, y: 0.3, ancho: 0.55, tamano: 0.11, color: '#FFE600', negrita: true, alinear: 'left', mayus: true, letra: 'gruesa' }], foto: { x: 0.6, y: 0, ancho: 0.4, alto: 1, persona: true, descripcion: 'cara' } },
+    { fondo: '#FFFFFF', textos: [{ rol: 'cuerpo', texto: 'otra', x: 0.1, y: 0.1, ancho: 0.5, tamano: 0.03 }] },
+  ] });
+  const r = leerReplica(crudo, { laminas: 1, miniatura: true });
+  assert.ok(!('error' in r), JSON.stringify(r));
+  const rep = r as Replica;
+  assert.equal(rep.proporcion, '16:9', 'una miniatura siempre es 16:9, diga lo que diga la IA');
+  assert.equal(rep.laminas.length, 1);
+  const doc = documentoDeReplica({ replica: rep, estilo, marca: { nombre: 'Sonrisa Llena', usuario: null }, foto: null, nuevoId });
+  assert.equal(doc.width, ANCHO_MINIATURA);
+  assert.equal(doc.height, ALTO_MINIATURA);
+  const pag = (doc.pages as Array<Record<string, unknown>>)[0];
+  assert.equal(pag.name, 'Miniatura');
+  const tit = (pag.objects as Array<Record<string, unknown>>).find((o) => o.type === 'textbox')!;
+  assert.equal(tit.text, 'VENDE MÁS HOY');
+  assert.ok((tit.left as number) + (tit.width as number) <= ANCHO_MINIATURA && (tit.top as number) + (tit.height as number) <= ALTO_MINIATURA, 'dentro de la miniatura');
+  assert.deepEqual(medidasDe('16:9'), { ancho: 1280, alto: 720 });
+});
+
+test('miniatura sin la IA: igual sale editable, con un titular grande y el nombre del negocio, nunca un recuadro de «Tu foto»', () => {
+  const doc = documentoGuiaMiniatura({ marca: { nombre: 'Sonrisa Llena', usuario: null }, nuevoId, notas: 'Ejemplo de @canal' });
+  assert.equal(doc.width, 1280);
+  assert.equal(doc.height, 720);
+  const objs = ((doc.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>);
+  assert.ok(objs.every((o) => o.type === 'textbox'), 'sólo textos: nada de un recuadro para la foto');
+  assert.ok(objs.some((o) => o.text === 'Sonrisa Llena'));
+  for (const o of objs) assert.ok((o.left as number) + (o.width as number) <= 1280 && (o.top as number) + (o.height as number) <= 720, String(o.name));
+  assert.deepEqual(marcasDeVoseo(objs.map((o) => String(o.text)).join(' ')), []);
+});
+
+test('las imágenes de afuera que «Editar» puede mirar: sólo los CDN de YouTube, Instagram y Meta, por https y sin trampas', () => {
+  for (const ok of ['https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg', 'https://scontent-gru1-1.cdninstagram.com/v/t51/x.jpg', 'https://scontent.xx.fbcdn.net/v/t39/x.jpg']) assert.equal(esCdnPermitido(ok), true, ok);
+  for (const no of ['http://i.ytimg.com/vi/x/hq.jpg', 'https://i.ytimg.com.evil.tld/x.jpg', 'https://user:pass@i.ytimg.com/x.jpg', 'https://i.ytimg.com:8443/x.jpg',
+    'https://evilcdninstagram.com/x.jpg', 'https://169.254.169.254/latest', 'no es una url']) assert.equal(esCdnPermitido(no), false, no);
+});
+
+test('de qué IA es el error: se nombra la marca comercial, o ninguna', () => {
+  assert.equal(proveedorDelError('chatCheapTools(gemini · cuenta 2): HTTP 503'), 'Gemini');
+  assert.equal(proveedorDelError('anthropic/claude-haiku: overloaded'), 'Claude');
+  assert.equal(proveedorDelError('openai: 429'), 'GPT');
+  assert.equal(proveedorDelError('se cortó'), null);
+});
+
+test('si la IA que mira falla, se prueba UNA vez sin mirar; salvo que sea la cuenta, la demora o que no haya IA', () => {
+  for (const si of ['No se pudo leer el documento con ninguna IA. openai/OPENAI_API_KEY: respuesta vacía', 'gemini: HTTP 400 Unsupported MIME type', 'anthropic: image exceeds 5 MB maximum'])
+    assert.equal(vuelveASinVer(si), true, si);
+  for (const no of ['gemini: HTTP 429 RESOURCE_EXHAUSTED', 'anthropic: Your credit balance is too low', 'openai: HTTP 401 Incorrect API key provided',
+    'gemini: The operation was aborted due to timeout', 'gemini: HTTP 503 high demand', 'No hay ninguna IA que pueda mirar esto. Conecta tu Claude, tu GPT o tu Gemini en Integraciones.'])
+    assert.equal(vuelveASinVer(no), false, no);
 });

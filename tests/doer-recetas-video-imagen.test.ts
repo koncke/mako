@@ -80,7 +80,9 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
   const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos',
     // Las plantillas de venta de AI Avatar (6/11/2026): una lista de formas de negocios ficticios, como listar_plantillas_video.
-    'ver_plantillas_avatar']);
+    'ver_plantillas_avatar',
+    // Las miniaturas de YouTube de ejemplo (6/11/2026, la tab Thumbnails): una lista de la biblioteca, como buscar_carruseles.
+    'buscar_thumbnails']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta
@@ -92,7 +94,10 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
   // Los presets de subtítulos de la marca (06/11/2026) no editan ningún proyecto del navegador: se guardan en el negocio,
   // con un «sí». La receta del editor (qué proyecto, qué refs) no tiene nada que decirles, y lo que falta (el nombre, la
   // marca si hay dos iguales) lo pide su propio `preparar`.
-  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel', 'guardar_preset_subtitulos', 'borrar_preset_subtitulos']);
+  // Las miniaturas (6/11/2026): guardar_thumbnail es como guardar_carrusel, y editar_ejemplo_thumbnail es la misma función que
+  // editar_ejemplo_carrusel (la IA del negocio lee el negocio; el chat sólo pasa el id).
+  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel', 'guardar_preset_subtitulos', 'borrar_preset_subtitulos',
+    'guardar_thumbnail', 'editar_ejemplo_thumbnail']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)

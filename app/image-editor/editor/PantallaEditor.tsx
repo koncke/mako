@@ -33,7 +33,7 @@ import { crearAdaptadorNube } from '../mako/adaptadorNube';
 import { mudarLocales } from '../mako/mudanza';
 import { crearDiseno, leerDiseno } from '../mako/nube';
 import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
-import { RUTA_INICIO, rutaDiseno } from '../ruta';
+import { RUTA_CREAR, rutaDiseno } from '../ruta';
 import styles from './pantalla.module.css';
 
 type Abierto = { id: string; titulo: string; doc: DoryDocument; version: number };
@@ -119,7 +119,7 @@ export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null
   // «Archivo → Crear un diseño nuevo» de Canva: el editor no sabe de rutas, así que la cáscara lo registra
   // como comando (TopBar lo muestra si existe). Va a la portada de la tab, «¿Qué vas a crear hoy?»; el `?ws=` lo pone el router.
   useEffect(
-    () => registerCommand({ id: 'file.new', label: 'Crear un diseño nuevo', run: () => router.push(RUTA_INICIO) }),
+    () => registerCommand({ id: 'file.new', label: 'Crear un diseño nuevo', run: () => router.push(RUTA_CREAR) }),
     [router],
   );
 
@@ -156,7 +156,7 @@ export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null
     return (
       <div className={styles.aviso}>
         <p>{carga.estado === 'no-existe' ? 'Este diseño no existe o se eliminó.' : carga.mensaje}</p>
-        <Link href={RUTA_INICIO} className={styles.volver}>Crear otro diseño</Link>
+        <Link href={RUTA_CREAR} className={styles.volver}>Crear otro diseño</Link>
       </div>
     );
   }

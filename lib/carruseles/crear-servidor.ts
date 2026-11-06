@@ -48,7 +48,8 @@ export async function referenciaDelNegocio(id: number): Promise<Carrusel | null>
 }
 
 export type CreadoDesdeReferencia =
-  | { ok: true; id: string; titulo: string; tipo: string; laminas: number; de: string }
+  /** `doc`: el diseño que se guardó (la pantalla de «Editar» lo dibuja lámina por lámina, también sin la IA). */
+  | { ok: true; id: string; titulo: string; tipo: string; laminas: number; de: string; doc: Record<string, unknown> }
   | { ok: false; error: string; falla?: boolean };
 
 /** Crea el diseño en el negocio `ws`. `tipo` y `laminas` son lo que eligió la persona; sin ellos, lo que se entendió. */
@@ -68,5 +69,5 @@ export async function crearCarruselDesdeReferencia(ws: number, quien: string, id
   const titulo = `Carrusel · ${plan.tipo.nombre}`;
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
-  return { ok: true, id: r.id, titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de };
+  return { ok: true, id: r.id, titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de, doc };
 }
