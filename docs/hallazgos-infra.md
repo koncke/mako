@@ -249,7 +249,60 @@ mismo chequeo (por eso antes corría los tests que la leen).
 **Sin comprobar** (un workflow no se prueba del todo sin correrlo): que el `schedule` de sobre-main arranque a tiempo (GitHub atrasa
 los horarios hasta ~30 min; si un día no terminó a las 11:05, el despliegue no ve la marca y compila); que los deployments de
 GitHub traigan el ambiente «Production» para los deploys que crea el cron por la API (los eventos llegaban, así que existen, pero
-no se miró su forma); que `deployments: read` alcance para leerlos; y la estimación del script contra el panel de facturación.
+no se miró su forma); y que `deployments: read` alcance para leerlos.
+
+### La alarma de minutos daba rojo todos los días porque nadie buscó el número bueno (6/11/2026)
+
+**Síntoma:** la alarma del vigía daba rojo todos los días. Estimaba **US$52,07** (8.678 min facturables del 1 al 6/11) contra
+**US$15,94 de US$30** del panel: 3,3 veces de más. Una alarma que suena siempre entrena a todos a ignorarla.
+
+⚠️ **La causa de la causa era una frase falsa en la cabecera del propio script**, y por eso nadie lo arregló en días:
+decía que el número real «el `GITHUB_TOKEN` de Actions no puede leer». **Es falso.** Lo que no puede leer es el panel de
+Settings → Billing. Los minutos facturables de verdad están en dos endpoints de Actions, que se leen con `actions: read`:
+
+- `GET /repos/{repo}/actions/workflows/{id}/timing` → `billable.<runner>.total_ms` del **ciclo de facturación en curso**.
+  Un pedido por workflow (siete en este repo), no uno por corrida.
+- `GET /repos/{repo}/actions/runs/{id}/timing` → lo mismo por corrida.
+
+**Y el repo YA usaba el de por-corrida en otra parte** (`scripts/tests-afectados.mjs`). Estaba a la vista. La regla que queda:
+**cuando un script dice de sí mismo «esto es una estimación porque el dato bueno no se puede leer», eso es una hipótesis del que
+lo escribió, no un hecho del entorno — se verifica antes de construirle una alarma encima.**
+
+**Las dos causas candidatas que estaban anotadas eran las dos ciertas, y ninguna alcanzaba sola:**
+
+1. **`--incluidos 0`**, puesto «para avisar antes de tiempo, nunca tarde». El plan Free del repo privado trae **2.000 minutos
+   incluidos** (AGENTS.md), y se cobraban todos. Pero 8.678 − 2.000 = 6.678 min → US$40: **todavía 2,5 veces el panel.** Los
+   minutos incluidos explican menos de la mitad del hueco.
+2. **La estimación por duración sobre-cuenta ~1,9x.** `Math.ceil(ms/60_000)` sobre `run_started_at → updated_at` mide la
+   duración de la **corrida**, que incluye la cola y los huecos entre jobs; GitHub factura por **JOB**. El caso extremo medido:
+   «después del deploy», 834 corridas y 679 min facturables a ~0,8 min cada una, casi todas con sus jobs salteados por su `if`
+   (GitHub no cobra un job salteado, y el `conclusion === 'skipped'` del script sólo atrapa la corrida entera salteada, no la
+   corrida exitosa cuyos jobs se saltearon).
+
+⚠️ **Lo que NO se hizo: subir el umbral del 80 %.** Apaga el síntoma y deja la alarma mintiendo. Lo que se hizo es que la alarma
+**juzgue el número de GitHub**: rojo sólo sobre el facturable real, y cuando el `/timing` no se puede leer, **amarillo y nunca
+rojo** — «no doy rojo sobre un número que sé que sobre-cuenta». Es la misma regla que ya tenía el script para la API caída
+(«la palabra rojo es para algo confirmado»), que no se le había aplicado a su propio número.
+
+⚠️ **No se pudo medir desde la notebook:** los dos PAT que hay en `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) dan
+**404 en `koncke/mako`** — son de Mauricio y el repo es de la cuenta `hola-mako`. Una medición de los minutos de Actions sólo
+corre **dentro** de Actions (con `github.token`) o con un PAT que cree Martín. El arreglo no lo necesita: el script lee el número
+cuando corre allá, y acá los tests lo prueban contra una API de mentira.
+
+### `process.exit()` después de un `fetch` revienta en Windows, y el test parecía roto (6/11/2026)
+
+**Síntoma:** el test del script fallaba con `3221226505` (0xC0000409) y
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` — **con la salida del script perfecta,
+el aviso correcto y todo lo esperado impreso**. El diagnóstico obvio (un cuerpo de respuesta HTTP sin leer en el camino del 403)
+era el equivocado: cancelarlo no cambió nada.
+
+**La causa:** `AbortSignal.timeout(...)` deja un timer, y `process.exit()` lo pisa mientras se está cerrando. Node 24.17.0 en
+Windows. Reproducido en 12 líneas sin nada de este repo: cuatro `fetch` con `AbortSignal.timeout` y un `process.exit(0)` →
+revienta; con `process.exitCode = 0` → sale limpio, mismo código, mismo tiempo (0,8 s).
+
+**La regla que queda: en un script que hace `fetch`, el código de salida se pone con `process.exitCode`, nunca con
+`process.exit()`.** En Linux (el vigía) no pasa, así que un rojo de esto aparece sólo en la notebook y parece un test roto.
+Vale para cualquier script del repo que combine `fetch` con `process.exit`.
 
 **Vive en:** `.github/workflows/sobre-main.yml`, `.github/workflows/despues-del-deploy.yml`, `.github/workflows/punta.yml`,
 `lib/desplegar-main-reglas.ts`, `lib/desplegar-main.ts`, `lib/github-commits.ts` (`mainEstaRojo`), `scripts/minutos-actions.mjs`.
@@ -329,6 +382,24 @@ lo que carga el tsc, o un runner de 16 GB (plata: lo decide Martín).
 - La primera versión del test de punta a punta medía sólo el TIEMPO (< 30 s) y daba verde sin el `kill`: con la máquina libre, el
   proyecto lento igual termina en ~8 s. Lo que prueba el corte es que el tsc no llegó a imprimir sus diagnósticos.
 - Un test que se cuelga y cae por su `timeout` sale «cancelled», no «fail». Al probar una rotura, se mira el EXIT del archivo.
+
+## Verde en Actions y producción vieja: la punta la firmó `noreply@anthropic.com` y Vercel no la despliega (6/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Lo que cambió la punta», la guarda del autor) · `tests/punta-ci.test.ts`.
+
+**Síntoma:** el peor de todos, porque no se ve. La punta da **verde**, `main` **avanza**, y a producción **no llega nada**. Pasó
+con la mezcla de `punta/spy-busqueda` (`9202c22d2`).
+
+**La causa:** la nube firma los commits con `noreply@anthropic.com` por default, y **Vercel bloquea el despliegue de un autor que
+no es del equipo** (build-deploy, 17/08). `punta.yml` ya frenaba a `github-actions[bot]` por exactamente ese motivo, con el
+comentario escrito al lado, y **no frenaba este correo**: la guarda existía y le faltaba un caso.
+
+**La regla que queda: una guarda contra «un autor que Vercel no despliega» tiene que enumerar los autores que de verdad
+aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bot de Actions y la nube.
+
+⚠️ **Y `@users.noreply.github.com` NO se frena, a propósito.** Es el correo privado de una **persona** que tiene el mail oculto en
+GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
+para que nadie lo "arregle" de más.
 
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
@@ -585,6 +656,13 @@ casos y ningún error que leer.
 **El autor de la mezcla.** Una mezcla hecha en Actions sale de github-actions[bot], y Vercel puede bloquear a un autor que no es del equipo: main avanzaría sin llegar a producción. Autor y committer se toman del último commit de la punta, y sólo en los dos pasos que mezclan: en un `GITHUB_ENV` alcanzarían también a los tests que arman repos de prueba.
 
 **Dos puntas que agregan en el mismo renglón chocan, y se arregla moviendo el renglón.** Tickets y vigilancia agregaban en el mismo lugar del índice, de `hallazgos-comunicacion.md` y al final de la bitácora. Corriendo la entrada de una, las dos llegan solas. ⚠️ `merge=union` no sirve para una bitácora: el choque arranca adentro del objeto del hito, y la unión deja un solo objeto con las claves repetidas.
+
+⚠️ **Y en `docs/hallazgos.md`, `merge=union` no choca: DUPLICA la fila, en silencio** (visto el 6/11/2026: Carruseles tenía
+dos filas casi iguales, y el mismo día el área quedó con tres). El índice es **una línea por área**, así que dos puntas que
+cosechan en la misma área el mismo día cambian la MISMA línea; la unión deja las dos versiones, una debajo de la otra, y la
+mezcla sale **exitosa**. Nadie lo ve hasta que alguien lee el índice. **La regla para una corrida con varias puntas de la
+misma área: la fila del índice la toca UNA sola punta** (y su commit dice que las otras no lo tocan a propósito). Lo que ya
+quedó duplicado lo junta `scripts/unir-indice-hallazgos.py`, pero el arreglo de fondo es no escribirlo dos veces.
 
 **Las dos redes que el flujo da por hechas estaban muertas: que un flujo exista no es que dé un veredicto.** `punta.yml` no corre «los demás» porque los corre `semanal-tests.yml`, y su «Tipos» sale OK PARCIAL (el tsc entero muere a los ~360 s) porque el entero lo corre `tipos-respaldo.yml`. Un test miraba que el archivo existiera. Medido con la API el 3/11: la semanal dio su único verde el 19/10 (657 s); el 2/11 la canceló su propio techo de 20 min a los 1.165 s, sin veredicto y sin mail, porque la suite casi se duplicó. El respaldo nunca dio uno: el 26/10 no había minutos, y el 2/11 murió en `fallocate -l 10G /swapfile` con «Text file busy», porque el runner ya trae ese archivo en uso. Y hacen falta: «los demás» cazó rojos de verdad en `integracion` (corridas 385 y 389).
 - **Regla:** antes de sacar un chequeo «porque lo cubre la red», se mira la última corrida de esa red con la API, no el archivo.
@@ -11031,3 +11109,40 @@ comandos de docs/relevo/nube-metodologia.md.
 - **Un chat de la nube quieto o «waiting on a human» no avisa y no siempre lee:** el de Carruseles no leyó nada durante más de una hora y el de Marketing CoPilot esperó toda la noche. En un turno automático no se puede abrir un chat nuevo. Lo que funcionó: un agente local en un worktree propio (`git worktree add --detach`, y `cmd //c mklink /J node_modules` hacia otro clon), que subió por la misma punta. Costó unos 415 mil tokens por tarea.
 - **Mirar el `git diff` antes de un `sed` por varios archivos:** un reemplazo de «En prueba» tocó tres tests que hablaban del período de prueba del plan. `git grep` no distingue dos usos de la misma frase.
 - **Git Bash y Node ven `/tmp` distinto:** `cat > /tmp/x` escribe en la carpeta de Git Bash y Node lee `C:\tmp\x`. Un archivo temporal entre los dos va por ruta de Windows.
+
+## `merge=union` sobre el ÍNDICE de hallazgos no une: DUPLICA la fila (6/11/2026)
+
+`.gitattributes` tiene `docs/hallazgos*.md merge=union`, y eso es lo que permite que ocho chats escriban su cosecha sin
+choques. Funciona perfecto para los documentos POR ÁREA, donde cada uno **agrega una sección al final**: dos secciones
+distintas en lugares distintos se unen y queda todo.
+
+**Pero `docs/hallazgos.md` no es un documento: es una TABLA con UNA fila por área**, y la cosecha de un área se escribe
+**reescribiendo esa fila**. Cuando dos puntas tocan la misma fila, `union` no la mezcla: **deja las dos**. Con tres puntas
+de la misma área el mismo día, la tabla queda con tres filas «Ticketera», cada una con el resumen de su punta y una copia
+del historial anterior — unos 14.800 caracteres cada una.
+
+**Medido el 6/11/2026 sobre `origin/main`**, contando filas por área en `docs/hallazgos.md`:
+
+| Área | Filas |
+|---|---|
+| Competitors Spy | 27 |
+| Infraestructura | 18 |
+| Planes, capas y cobro | 8 |
+| Comunicación | 8 |
+| Plan · Agency Dashboard | 6 cada una |
+
+No se pierde nada —de eso se encarga `union`—, pero el índice es lo único que dice qué documento abrir, y a 27 filas por
+área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
+abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
+
+**Qué hacer mientras el formato sea éste:** al cosechar, después de que la punta llegue a main, mirar si quedó duplicada la
+fila de tu área y consolidarla en una (se concatenan los resúmenes nuevos y se deja UNA cola de historial). Es lo que se
+hizo con las tres filas de Ticketera en este commit.
+
+**El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
+de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
+unir— o que `scripts/unir-bitacora.mjs` (el driver que ya existe para las bitácoras) tome también este archivo y sepa
+fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 de Infraestructura hay que consolidarlas
+igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
+
+**Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
