@@ -70,8 +70,30 @@ test('MaKo: configurar_aviso_whatsapp no los cambia, ni al proponer ni al confir
   const op = bloque(src, 'configurar_aviso_whatsapp: {', 'quitar_destinatario_notificaciones: {');
   const preparar = bloque(op, 'preparar:', 'ejecutar:');
   const ejecutar = op.slice(op.indexOf('ejecutar:'));
-  for (const [nombre, cuerpo, escritura] of [['proponer', preparar, 'getNotifPrefs()'], ['confirmar', ejecutar, 'setNotifPrefs(']] as const) {
+  for (const [nombre, cuerpo, escritura] of [['proponer', preparar, 'avisoWaActivo('], ['confirmar', ejecutar, 'setCanalesPlantilla(']] as const) {
     const g = cuerpo.indexOf('esAvisoSoloSuperAdmin(aviso)');
     assert.ok(g > 0 && g < cuerpo.indexOf(escritura), `al ${nombre} no frena los avisos del super admin`);
   }
 });
+
+// El interruptor de MaKo es el MISMO que mira el envío (06/11/2026). Hasta ese día `configurar_aviso_whatsapp` leía y
+// escribía `notification_prefs.avisos`, que el envío dejó de leer cuando los apagados se mudaron a la plantilla
+// (lib/perfil.ts → `avisoWaActivo`): MaKo decía «apagado» y el aviso seguía saliendo. Se fijan LOS DOS lados: lo que lee
+// el envío y lo que escribe MaKo. Probado rompiéndolo (base 5 / 0): la escritura vuelta a `setNotifPrefs` → 3 / 2 (cae
+// también el de los avisos del super admin, que mira la misma escritura); apagar sin el guard del fijo → 4 / 1.
+test('MaKo prende y apaga el aviso en la plantilla, que es lo que mira el envío', () => {
+  const perfil = sinComentarios(leer('lib/perfil.ts'));
+  const estado = bloque(perfil, 'export async function estadoAviso(', 'const IN_APP_KEY');
+  assert.match(estado, /getPlantilla\(tipo\)/, 'el envío lee la plantilla del aviso');
+  assert.match(estado, /activo: p\.enabled, wa: p\.canales\.wa/, 'el envío mira enabled y el canal de WhatsApp');
+  assert.doesNotMatch(estado, /prefs\.avisos|avisos\[/, 'el envío no mira las preferencias viejas');
+  const src = sinComentarios(leer('lib/api-mako/areas/equipo.run.ts'));
+  const op = bloque(src, 'configurar_aviso_whatsapp: {', 'quitar_destinatario_notificaciones: {');
+  assert.doesNotMatch(op, /NotifPrefs|prefs\.avisos/, 'MaKo no escribe en un campo que nadie lee');
+  assert.match(bloque(op, 'preparar:', 'ejecutar:'), /await avisoWaActivo\(ctx\.ws, aviso\)/, 'el «ya está» se mide con lo que mira el envío');
+  const ejecutar = op.slice(op.indexOf('ejecutar:'));
+  assert.match(ejecutar, /await setCanalesPlantilla\(aviso, \{ wa: valor \}\)/, 'escribe el canal de WhatsApp de la plantilla');
+  const iFijo = ejecutar.indexOf("porDefecto === 'siempre'");
+  assert.ok(iFijo > 0 && iFijo < ejecutar.indexOf('setCanalesPlantilla('), 'un aviso fijo no se apaga, tampoco al confirmar');
+});
+

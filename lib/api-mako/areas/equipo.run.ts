@@ -327,7 +327,9 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const p = await getNotifPrefs();
       const canal = (c: NotifPrefs['horario']) => ({ activo: c.activo, whatsapp: c.wa, email: c.email });
-      const apagados = Object.entries(p.avisos).filter(([, v]) => v === false).map(([id]) => ({ id, titulo: tituloAviso(id) }));
+      // Los apagados salen de la plantilla de cada aviso, que es lo que mira el envío (no de `p.avisos`, que ya no lee nadie).
+      const { listarPlantillas } = await import('@/lib/plantillas');
+      const apagados = (await listarPlantillas()).filter((x) => x.categoria !== 'reporte' && !(x.enabled && x.canales.wa)).map((x) => ({ id: x.id, titulo: tituloAviso(x.id) }));
       return json({
         reportes: { horario: canal(p.horario), diario: canal(p.diario), semanal: canal(p.semanal) },
         secciones: p.secciones,
@@ -519,7 +521,7 @@ export const RUNNERS: Runners = {
   },
 
   configurar_aviso_whatsapp: {
-    preparar: async (input): Promise<Preparado> => {
+    preparar: async (input, ctx): Promise<Preparado> => {
       const aviso = str(input, 'aviso')!;
       const valor = bool(input, 'valor')!;
       if (esReporteDelCatalogo(aviso)) return { error: `«${aviso}» es un reporte, no un aviso: usa configurar_reporte.` };
@@ -531,9 +533,13 @@ export const RUNNERS: Runners = {
       // Los que configura SÓLO el super admin (la caída y la vuelta del WhatsApp, la grabación de Fathom):
       // Martín, 10/10/2026. Ni por MaKo: se cambian desde /mensajes (lib/avisos-catalogo.ts, AVISOS_SOLO_SUPERADMIN).
       if (esAvisoSoloSuperAdmin(aviso)) return { error: `El aviso «${tituloAviso(aviso)}» lo configura la agencia: no se cambia desde aquí.` };
-      const prefs = await getNotifPrefs();
-      const actual = prefs.avisos[aviso] !== false;
-      if (actual === valor) return { error: `El aviso «${tituloAviso(aviso)}» ya está ${siNo(valor)}.` };
+      // ⚠️ El interruptor que mira el ENVÍO es la plantilla del aviso (`avisoWaActivo`: prendida y con WhatsApp). Hasta el
+      // 06/11/2026 esto leía y escribía `notification_prefs.avisos`, que nadie lee desde que los apagados se mudaron al store
+      // (lib/perfil.ts): MaKo contestaba «apagado» y el aviso seguía saliendo (docs/hallazgos-comunicacion.md).
+      // Uno FIJO (el que avisa que los números dejaron de llegar) no se apaga: el mismo guard que `setEnabledPlantilla`.
+      if (!valor && CATALOGO_AVISOS.find((c) => c.id === aviso)?.porDefecto === 'siempre') return { error: `El aviso «${tituloAviso(aviso)}» no se apaga: es el que te dice que algo dejó de funcionar.` };
+      const actual = await avisoWaActivo(ctx.ws, aviso);
+      if (actual === valor) return { error: `El aviso «${tituloAviso(aviso)}» ya está ${siNo(valor)}.`, yaEstaba: true };
       return { payload: { aviso, valor }, resumen: `${valor ? 'Prender' : 'Apagar'} el aviso de WhatsApp «${tituloAviso(aviso)}».${valor ? '' : ' Solo corta el WhatsApp al grupo del negocio.'}` };
     },
     ejecutar: async (payload) => escribir(async () => {
@@ -543,9 +549,13 @@ export const RUNNERS: Runners = {
       if (!avisoSilenciable(aviso)) return { ok: false, resumen: `El aviso «${aviso}» ya no existe.` };
       // Una pendiente propuesta ANTES del 10/10/2026 sobre uno del super admin no se aplica al confirmarla.
       if (esAvisoSoloSuperAdmin(aviso)) return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» lo configura la agencia.` };
-      const prefs = await getNotifPrefs();
-      await setNotifPrefs({ ...prefs, avisos: { ...prefs.avisos, [aviso]: payload.valor === true } });
-      return `Aviso «${tituloAviso(aviso)}»: ${siNo(payload.valor === true)}.`;
+      const valor = payload.valor === true;
+      const { setEnabledPlantilla, setCanalesPlantilla } = await import('@/lib/plantillas');
+      // Prender lo deja saliendo por WhatsApp (la plantilla prendida y su canal); apagar corta SÓLO el WhatsApp, como dice el resumen.
+      if (!valor && CATALOGO_AVISOS.find((c) => c.id === aviso)?.porDefecto === 'siempre') return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» no se apaga.` };
+      if (valor) await setEnabledPlantilla(aviso, true);
+      await setCanalesPlantilla(aviso, { wa: valor });
+      return `Aviso «${tituloAviso(aviso)}»: ${siNo(valor)}.`;
     }),
   },
 

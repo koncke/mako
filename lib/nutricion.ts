@@ -7014,6 +7014,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   //      de descalificar no se le contesta solo. Se manda el MISMO borrador (enviarBorrador lo
   //      reclama de forma atómica): si el setter lo aprueba a mano en paralelo, sale uno solo.
   let contestado = false;
+  let incierto = false;
   let porQueNoSolo: string | null = null;
   // Sin el audio que el caso pedía, no sale sola (§5): una persona mira el texto antes.
   if (sinAudio) porQueNoSolo = `no salió en audio: ${sinAudio}`;
@@ -7057,6 +7058,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
         const { enviarBorrador } = await import('@/lib/evolution-envio');
         const env = await enviarBorrador(borradorId, 'mako-auto');
         contestado = env.ok;
+        incierto = env.incierto === true;
         if (!env.ok) porQueNoSolo = `no salió (${(env.error ?? '').slice(0, 120)})`;
       } else {
         porQueNoSolo = d.motivo;
@@ -7070,6 +7072,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   const por = social ? ` por ${NOMBRE_CANAL[social.canal]}` : '';
   const borrador = contestado && sugerida
     ? `\n\nLe contesté solo${enAudio}${por} (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
+    // Un envío solo que se cortó por tiempo NO dejó el borrador para aprobar (quedó «incierto»): decirlo así.
+    : incierto && sugerida
+      ? `\n\nIntenté contestarle solo${enAudio} y WhatsApp no contestó a tiempo: no sé si salió. Míralo en el chat antes de mandarlo otra vez:\n${sugerida.slice(0, 300)}`
     // Por las redes, el texto ENTERO: la persona lo copia y lo manda desde su Instagram.
     : social && sugerida
       ? `\n\nTe dejé esta respuesta para mandarla tú${por}${porQueNoSolo ? ` (no la mandé sola: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, TOPE_TEXTO_SOCIAL)}`

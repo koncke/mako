@@ -17910,14 +17910,14 @@ curl -L \
 
 ### `PATCH /api/v1/equipo/notificaciones/avisos/{aviso}` — Prender o apagar un aviso
 
-PROPONE silenciar o volver a prender un aviso concreto que MaKo manda al grupo de WhatsApp del negocio (lead nuevo de Meta, recordatorio de reunión, grabación lista, tracking apagado, objetivo en riesgo…), queda pendiente hasta el «sí». Apagarlo solo corta el WhatsApp. Pide antes listar_avisos_disponibles para el id: vale cualquiera de esa lista, figure o no en Configuraciones. Los reportes (horario, diario, semanal) no se apagan aquí: usa configurar_reporte. Si la agencia apagó esa plantilla, prenderlo aquí no la hace salir.
+PROPONE silenciar o volver a prender un aviso concreto que MaKo manda al grupo de WhatsApp del negocio (lead nuevo de Meta, recordatorio de reunión, grabación lista, tracking apagado, objetivo en riesgo…), queda pendiente hasta el «sí». Apagarlo solo corta el WhatsApp. Pide antes listar_avisos_disponibles para el id: vale cualquiera de esa lista, figure o no en Configuraciones. Los reportes (horario, diario, semanal) no se apagan aquí: usa configurar_reporte.
 
 - **Ruta por operación:** `POST /api/v1/equipo/configurar_aviso_whatsapp`
 - **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** app_settings notification_prefs.avisos[id]
+- **Escribe:** app_settings mako.plantillas.store[id] (enabled y canales.wa)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**

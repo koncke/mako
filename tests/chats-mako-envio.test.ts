@@ -58,7 +58,7 @@ import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno, llevaDatosDeClientes } from '../lib/doer-herramientas';
 import { REGISTRO, type Vista } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
-import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esEnvioIncierto, TOPE_TEXTO_ENVIO } from '../lib/chats-envio-reglas';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esEnvioIncierto, estadoTrasFallarEnvio, TOPE_TEXTO_ENVIO } from '../lib/chats-envio-reglas';
 import { MAX_TEXTO, lineasDelPayload } from '../lib/inbox-movil-reglas';
 import type { IdentidadCanal } from '../lib/chats-tipos';
 
@@ -194,6 +194,18 @@ test('el texto: lo que se ve es lo que sale; «sí, dale» no es el mensaje; el 
   // Un corte por tiempo no es «no salió».
   for (const e of ['The operation was aborted due to timeout', 'Request timed out', 'AbortError: This operation was aborted', 'fetch failed', 'read ECONNRESET', 'socket hang up']) assert.equal(esEnvioIncierto(e), true, e);
   for (const e of ['Ese número no tiene WhatsApp', 'el contacto está bloqueado', 'connect ECONNREFUSED 10.0.0.1:8080', 'getaddrinfo ENOTFOUND evo', null]) assert.equal(esEnvioIncierto(e), false, String(e));
+  // Y el BORRADOR que se cortó por tiempo no vuelve a la bandeja (06/11/2026, el «Sin hacer» de la tercera revisión del
+  // 21/10): con «pendiente», el próximo «Enviar» o el envío solo de MaKo lo duplicaba. Probado rompiéndolo (la función
+  // devolviendo siempre 'pendiente'; y `enviarBorrador` escribiendo 'pendiente' a mano): base 8 / 0 → 7 / 1 cada una.
+  assert.equal(estadoTrasFallarEnvio('The operation was aborted due to timeout'), 'incierto');
+  assert.equal(estadoTrasFallarEnvio('read ECONNRESET'), 'incierto');
+  assert.equal(estadoTrasFallarEnvio('Ese número no tiene WhatsApp'), 'pendiente', 'lo que seguro no salió se puede volver a mandar');
+  assert.equal(estadoTrasFallarEnvio(null), 'pendiente');
+  const envio = leer('lib/evolution-envio.ts');
+  const cuerpo = envio.slice(envio.indexOf('export async function enviarBorrador('), envio.indexOf('async function enviarMediaDelBorrador('));
+  assert.ok(cuerpo.length > 200, 'encontré el cuerpo de enviarBorrador');
+  assert.match(cuerpo, /const estado = estadoTrasFallarEnvio\(r\.error\);\n\s*await supabase\.from\('wa_borradores'\)\.update\(\{ estado \}\)/, 'enviarBorrador decide el estado con la regla, no a mano');
+  assert.doesNotMatch(cuerpo, /update\(\{ estado: 'pendiente' \}\)/, 'ningún camino lo devuelve a «pendiente» sin preguntar');
 
   const id = (canal: IdentidadCanal['canal'], o: Partial<IdentidadCanal> = {}): IdentidadCanal => ({ canal, cuenta: null, rotulo: canal, destino: null, ref: `${canal}-ref`, telefono: null, ultimaFecha: null, puedeEscribir: true, motivoNoEscribir: null, bloqueado: false, ...o });
   const wa = identidadParaEnviar([id('whatsapp', { cuenta: 'ventas' }), id('whatsapp', { cuenta: 'soporte' })], 'whatsapp', 'soporte');

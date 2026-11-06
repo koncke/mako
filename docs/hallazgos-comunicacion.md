@@ -59,6 +59,36 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Tres avisos que mentían o se podían duplicar, cerrados en el barrido de pendientes (6/11/2026, nube)
+
+Salieron de leer los «Sin hacer» contra main (docs/relevo/pendientes-barrido.md). Los tres compilaban y tenían tests verdes.
+
+- **«Apaga el aviso X» por MaKo no apagaba nada.** `configurar_aviso_whatsapp` (lib/api-mako/areas/equipo.run.ts) leía y
+  escribía `notification_prefs.avisos`, y el envío dejó de leer ese campo cuando los apagados se mudaron a la plantilla
+  (`avisoWaActivo` → `estadoAviso`, lib/perfil.ts). MaKo contestaba «Aviso: apagado» y el aviso seguía saliendo. Ahora
+  lee `avisoWaActivo` y escribe la plantilla (`setCanalesPlantilla` con `wa`; prender también la deja `enabled`), y un aviso
+  FIJO no se apaga, igual que en `setEnabledPlantilla`. `ver_preferencias_notificaciones` saca los apagados de la plantilla.
+  **Regla:** cuando un campo deja de leerse, se buscan sus ESCRITORES, no sólo sus lectores: el que escribe en un campo
+  muerto informa un éxito. Lo fija tests/avisos-solo-superadmin.test.ts (los dos lados del contrato).
+- **Si la IA no redactaba el aviso, salía el EJEMPLO de fábrica.** `generarMensajeAviso` (lib/plantillas.ts) devolvía la
+  referencia tal cual en el `catch` y con la respuesta vacía, y la referencia de quien nunca editó el texto es el ejemplo del
+  catálogo: «En 30 min tienes la R2 con Laura Gil… crm/482». Ahora sale el texto propio del negocio, o los datos reales del
+  evento (`textoSinIA`, lib/aviso-sin-ia.ts; tests/aviso-sin-ia.test.ts). El link `crm/482` sigue en el ejemplo de la
+  PANTALLA, pero ya no hay camino que lo mande.
+- **Un borrador de WhatsApp cortado por tiempo volvía a «pendiente».** `enviarBorrador` (lib/evolution-envio.ts) lo
+  devolvía siempre, y Evolution corta a los 30 s con el mensaje a veces entregado: el próximo «Enviar», o el envío solo de
+  MaKo, lo mandaba dos veces. Ahora queda «incierto» (`estadoTrasFallarEnvio`, lib/chats-envio-reglas.ts) y la persona lee
+  que mire el chat; el motor lo trata como un descartado (sigue el flujo, no lo rehace). Era el «Sin hacer» de la tercera
+  revisión del 21/10, abajo.
+
+Y uno de Automations, en el mismo commit: **el aviso «en 30 min tienes la reunión» al dueño recorría sólo los negocios con
+Calendly** (`correrPorWorkspace('calendly')` en app/api/cron/reunion-recordatorio/route.ts), así que a quien agenda por
+Cal.com (Código Inmobiliario) no le llegaba nunca. Ahora va a los de cualquiera de las dos agendas (`AGENDAS_DEL_DUENO`);
+lo fija tests/recordatorio-lead.test.ts.
+
+**Vive en:** lib/api-mako/areas/equipo.run.ts · lib/plantillas.ts · lib/aviso-sin-ia.ts · lib/evolution-envio.ts ·
+lib/chats-envio-reglas.ts · app/api/cron/reunion-recordatorio/route.ts · *6/11/2026, barrido de pendientes (nube).*
+
 ## Con dos líneas de MaKo en un grupo, `fromMe` no alcanza: MaKo se contestaba a sí misma (4/11/2026, nube)
 
 **Síntoma:** en el grupo de un cliente, MaKo armó la ficha de otra persona en vez de agendar lo que pedía el audio de Joan. Después se contestó a sí misma: «No entiendo: ¿vos me estás pidiendo…?».
@@ -970,8 +1000,8 @@ su código. Si un día se quiere que salgan, se les pone `porDefecto` y vuelven 
 **La regla.** En Notificaciones va sólo lo que sale: un evento de MaKo (`AVISOS_POR_EVENTO`) o un aviso con `porDefecto`
 'on' o 'siempre' (lib/notif-catalogo.ts, y lo fija tests/notificaciones-solo-lo-que-sale.test.ts).
 
-**Sin hacer:** `configurar_aviso_whatsapp` escribe en `notification_prefs.avisos`, que el envío no lee: tendría que
-escribir en el store o retirarse.
+**Sin hacer:** ~~`configurar_aviso_whatsapp` escribe en `notification_prefs.avisos`, que el envío no lee~~ (HECHO el
+6/11/2026: escribe la plantilla, ver «Tres avisos que mentían…» arriba).
 
 **Vive en:** lib/plantillas.ts (`estaPrendida`) · lib/avisos.ts (`emitirDelCatalogo`, `emitirAviso`) · lib/perfil.ts
 (`estadoAviso`, `avisoWaActivo`) · lib/notif-catalogo.ts (`AVISOS_WA_EN_VIVO`, `PUSH_TIPOS`) ·
@@ -11940,8 +11970,8 @@ tests/chats-mako-envio.test.ts · *21/10/2026, chat «CRM» (claude4), segunda r
   vez». Evolution corta a los 30 s y el mensaje pudo haber salido.
 - **La bandeja /mako/pendientes es otra puerta de confirmación de estos envíos** y cortaba en 240 (hallazgos-api-mako).
 
-**Sin hacer:** tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
-el próximo «Enviar» puede duplicarlo. Habría que marcarlo «incierto», como `contestar_dm`. Los otros usos de
+**Sin hacer:** ~~tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
+el próximo «Enviar» puede duplicarlo~~ (HECHO el 6/11/2026: queda «incierto», ver «Tres avisos que mentían…»). Los otros usos de
 `estaBloqueado` exacto (fuera de la puerta) no se revisaron.
 **Vive en:** lib/api-mako/areas/chats.run.ts · lib/chats-envio-reglas.ts · lib/evolution-block.ts · lib/borrador-camino.ts ·
 tests/chats-mako-envio.test.ts y tests/_chats-envio-hijo.ts · *21/10/2026, chat «CRM» (claude4), tercera revisión del

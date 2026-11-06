@@ -18,6 +18,7 @@ import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaA
 import { esFlujoValido, type Flujo } from './flujos-tipos';
 import { sanearFrecuencia } from './disparador-mensaje';
 import { conVariables } from './variables-resolver';
+import { textoSinIA } from './aviso-sin-ia';
 import { estaOculta, ocultar, restaurar, conInterruptor, porOculto, queOcultos } from './plantillas-ocultas';
 import { AVISOS_POR_EVENTO } from './aviso-evento';
 
@@ -750,13 +751,15 @@ export async function generarMensajeAviso(
    */
   const ws = await getWorkspaceActual();
   const ref = ws == null ? refCruda : await conVariables(refCruda, { ws, ...ctxLead }, datos);
+  // Sin la IA, nunca el EJEMPLO de fábrica (datos inventados): el texto propio del negocio o los datos reales (lib/aviso-sin-ia.ts).
+  const sinIA = textoSinIA({ referencia: refCruda, resuelta: ref, deFabrica: CATALOGO_AVISOS.find((c) => c.id === id)?.ejemplo, contexto });
   try {
     const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {
       effort: 'low', maxTokens: 700, feature: 'avisos', motivo: `MaKo: aviso ${id}`,
     });
-    return out.trim() || ref;
+    return out.trim() || sinIA;
   } catch {
-    return ref;
+    return sinIA;
   }
 }
