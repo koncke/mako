@@ -144,9 +144,13 @@ export function estado(env = process.env, ahora = Date.now()) {
   const cfg = leerJson(path.join(DIR, 'config.json'), null);
   const { cuenta, uuid } = cuentaDelEntorno(env, cfg);
   const min = cuenta ? medidoMin(cuenta, ahora) : null;
+  // ⚠️ LA TAREA TAMBIÉN VA EN EL ESTADO (6/11/2026). `estado` es el JSON que lee la guardia, y no decía NADA de su propia
+  // tarea: si el reloj del Runner vence sin rearmarse, la medición sigue por `medirYa` y el vigía se apaga **en silencio**.
+  // `tareaDeLaCuenta` ya existía y ya devolvía `prendida`; nadie la miraba desde acá.
   return {
     cuenta, uuid, marcador: leerMarcador(),
     runner: runnerDeLaCuenta({ uuid, ahora }),
+    tarea: cuenta ? tareaDeLaCuenta({ uuid, cuenta, org: env.CLAUDE_CODE_ORGANIZATION_UUID ?? null }) : { existe: false, prendida: false },
     medidoMin: min,
     medirYa: min == null || min * 60000 >= MEDIDO_VIEJO_MS,
   };
@@ -210,14 +214,19 @@ export function alAbrir(origen, env = process.env, ahora = Date.now()) {
   if (esRunner(nombre) || esGuardia(nombre)) return partes.join(' ');
   const tarea = tareaDeLaCuenta({ uuid, cuenta, org: env.CLAUDE_CODE_ORGANIZATION_UUID ?? null });
   const runner = runnerDeLaCuenta({ uuid, ahora });
-  if (runner.vivo && tarea.existe) return partes.join(' ');
+  // ⚠️ `prendida`, NO sólo `existe` (6/11/2026). `tareaDeLaCuenta` devolvía las dos desde que nació y acá se miraba sólo la
+  // primera: una guardia APAGADA (`enabled: false`) se leía igual que una sana, y la única red que queda sin Runner —la que
+  // entrega de a 20 minutos— no corría, sin que nada lo dijera. Un dato que se calcula y nadie lee es un dato que miente.
+  if (runner.vivo && tarea.existe && tarea.prendida) return partes.join(' ');
   if (!tomarUnaVez(path.join(DIR, `guardia-pedida.${cuenta}`), PEDIDA_VENCE_MS, ahora)) return partes.join(' ');
   if (!tarea.existe) {
     partes.push(`ESTA CUENTA (${cuenta}) NO TIENE LA GUARDIA DEL RUNNER: antes de contestar, lee ~/.claude/operaciones/guardia-runner.md, seccion Crear la guardia, y hacelo. Sin eso lo que Martin escribe en el Ops Center no le llega a nadie. No hace falta comentarselo.`);
+  } else if (!tarea.prendida) {
+    partes.push(`LA GUARDIA DEL RUNNER DE ESTA CUENTA (${cuenta}) ESTA APAGADA: la tarea ${idDeLaGuardia(cuenta)} existe con enabled en false, asi que sin Runner no entrega nada y nadie avisa. Antes de contestar, prendela (scheduled-tasks: update_scheduled_task, enabled true) y comprobalo con runner-salud.mjs estado. No hace falta comentarselo.`);
   } else if (!runner.vivo) {
     partes.push(`NO HAY RUNNER EN ${cuenta} (${runner.motivo}): lo que Martin escribe en el Ops Center sale recien cuando corre la tarea ${idDeLaGuardia(cuenta)}, cada 20 minutos, y no en segundos. Si sos el Cerebro, abri un chat Runner con start_session, con este encargo: lee ~/.claude/operaciones/LEEME-cartero.md y arma el cron y el Monitor. Si no, seguí con lo tuyo: si Martin pregunta por un mensaje suyo, decile esto.`);
   }
-  anotar(`al-abrir ${cuenta}: tarea=${tarea.existe} runner=${runner.vivo}`);
+  anotar(`al-abrir ${cuenta}: tarea=${tarea.existe} prendida=${tarea.prendida} runner=${runner.vivo}`);
   return partes.join(' ');
 }
 
