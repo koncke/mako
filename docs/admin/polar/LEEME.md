@@ -1,6 +1,6 @@
 # Admin, la copia de Polar: cómo quedó cada pantalla (6/11/2026)
 
-Las 21 pantallas de la tab Admin, a **1440** y a **390** px de ancho, en **oscuro** y en **claro**: `<pantalla>-<ancho>-<modo>.jpg`.
+Las 22 pantallas de la tab Admin, a **1440** y a **390** px de ancho, en **oscuro** y en **claro**: `<pantalla>-<ancho>-<modo>.jpg`.
 Se comparan con las capturas del panel real de Polar, en [../referencia-polar/](../referencia-polar/LEEME.md).
 
 ## Cómo se sacaron
@@ -26,6 +26,13 @@ Se comparan con las capturas del panel real de Polar, en [../referencia-polar/](
   en Checkouts, a 390, el estado se leía «Cualquier e:».
 - **Analytics › Events:** la hora de un pago llevaba el año y se cortaba («04 de nov de 20…»).
 - **Customers a 390:** los cinco rangos al lado del título se salían por la derecha; van debajo.
+
+## La segunda vuelta, con los 43 arreglos de la revisión del Cerebro (6/11/2026)
+
+Las capturas de esta carpeta son las de DESPUÉS de los arreglos de docs/admin/revision-cerebro-6-11.md (Settings › Members es
+nueva). Comparando salió una más: en Members, «Invitado» y «Sin acceso enviado» iban en fila y la aclaración se montaba sobre la
+columna 2FA; van apilados. ⚠️ Con el código de los arreglos, el dev de Turbopack pasa los 12 GB después de cuatro o cinco
+rutas (el kernel lo mata y las capturas salen en blanco): se sacaron de a dos o tres rutas, reiniciando el dev entre tandas.
 
 Lo que se ve distinto de Polar a propósito (el orden de la barra, la ficha sin gráfico de ingresos, lo que MaKo no puede llenar)
 está en [docs/relevo/nube-admin-polar.md](../../relevo/nube-admin-polar.md).

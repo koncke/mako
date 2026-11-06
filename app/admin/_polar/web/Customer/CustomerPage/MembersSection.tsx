@@ -245,8 +245,10 @@ export const MembersSection = ({ miembros, destino, negocios = null, vacio, sinT
             id: 'estado',
             cell: ({ row: { original } }) => {
               const [label, color] = ROTULO_ESTADO_MIEMBRO[original.estado]
+              // ⚠️ Apilados: en fila, «Invitado» + «Sin acceso enviado» no entran en los 105 px de la columna y la aclaración se
+              //    dibujaba encima de la columna 2FA (capturas del 6/11/2026).
               return (
-                <Box alignItems="center" gap="s">
+                <Box flexDirection="column" alignItems="start" rowGap="xs" minWidth={0}>
                   <Status color={color} status={label} size="small" />
                   {original.estado === 'invitado' && (
                     <Text variant="caption" color="muted">
