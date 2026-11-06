@@ -8,16 +8,16 @@ pasada, no un plan: para cada item hay un veredicto y la prueba que lo sostiene.
 
 | Veredicto | Cuántos |
 |---|---|
-| **Ya estaban hechos** cuando se escribió la foto | **5** |
+| **Ya estaban hechos** cuando se escribió la foto | **6** |
 | **Parcialmente hechos**: la foto describe un estado que ya no existe | **6** |
 | **Son de un área** que tiene un chat trabajando al lado | **17** |
 | **No se entienden**, ni leyendo el `original` | **3** |
 | **Los destraba Martín**, o piden un teléfono, la base de producción o una clave | **20** |
-| **Quedan míos** | **22** |
+| **Quedan míos** | **21** |
 
 Los dos primeros renglones se cruzan con los otros: de los 6 «parciales», el **309** lo termina Infra y
-el **583** lo terminé yo (está contado en los 22), y el **580** y el **596** siguen con su área. Los 73
-ids se reparten sin solaparse así: 5 + 6 + 17 + 3 + 20 + 22 = 73, contando cada id una sola vez en la
+el **583** lo terminé yo (está contado en los 21), y el **580** y el **596** siguen con su área. Los 73
+ids se reparten sin solaparse así: 6 + 6 + 17 + 3 + 20 + 21 = 73, contando cada id una sola vez en la
 fila que manda.
 
 Y hay un número que no estaba en la lista: **73 ids son 68 trabajos**. Cinco items están escritos dos
@@ -26,8 +26,8 @@ veces, con otro título: `67 ≡ 325` (la página de «no encontrado»), `306 �
 
 ## Lo que más tiempo ahorra: los fantasmas
 
-Cinco pendientes **ya estaban cerrados el 6/11**, y tres de ellos se habían cerrado en los dos días
-anteriores. Un sexto grupo (los «parciales») describe un árbol que cambió el 5/11, el día antes de la foto.
+Seis pendientes **ya estaban cerrados el 6/11**, y cuatro de ellos ese mismo día o el anterior. Otro
+grupo (los «parciales») describe un árbol que cambió el 5/11, el día antes de la foto.
 
 | id | Qué decía | Prueba de que ya estaba |
 |---|---|---|
@@ -36,6 +36,7 @@ anteriores. Un sexto grupo (los «parciales») describe un árbol que cambió el
 | **591** | «Cinco tablas con `workspace_id` quedan fuera del proxy de inquilino» | Las cinco están DENTRO de `TABLAS_DE_INQUILINO`: `lib/tablas-de-inquilino.ts:66` (`avisos_programados`), `:83` (`flujo_corridas`), `:96` (`insistencias`), `:140` (`replay_lotes`, `replay_sesiones`). El comentario de `:63-65` nombra el hallazgo y el test. Commit **eb6092ef1, 17/10**: veinte días antes de la foto. |
 | **594** | «Dos STT clavados en `whisper-1` no pasan por el choke point» | `transcribeMediaBuffer` (`lib/transcribe.ts:178`) y `transcribeAd` (`:266`) llaman a `escuchar()`, que llama a `ai.transcribirAudio` (`:64`). No queda ningún `whisper-1` en el archivo. Commit **cf00a3b92, 22/10** («IA7: una sola puerta para el audio»). Lo que sí sigue con las keys del entorno es `lib/transcribe-plataforma.ts:91`, y eso es a propósito: son las clases de los cursos, no el negocio. |
 | **601** | «`contexto.ts` sigue con el `GRAFO` viejo» | No existe ningún `const GRAFO` en `lib/copywriter/`: `contexto.ts:1-12` es un re-export de `lib/negocio-para-crear.ts`, que ya lee `grafoParaChat`. El encabezado fecha la mudanza el 29/10. |
+| **364** | «Al mover un bloque en el Copywriter, lo que estaba dentro se queda atrás» | Existe `lib/copywriter/seccion-arrastre.ts` y el editor lo usa: `app/copywriter/editor/CuerpoNotion.tsx:37` lo importa y `MenuLateral` (`:244-251`) selecciona la sección con `setSelection(tramo.desde, tramo.hasta)` **antes** del arrastre de BlockNote. Con su test (`tests/copywriter-arrastrar-seccion.test.ts`, probado rompiéndolo) y su recorrido visual. Commit **8b384b9e5, 6/11**: el mismo día de la foto. ⚠️ **Este casi se me pasa**, y por mi culpa: busqué `DragHandleMenu`/`children` —los nombres de la API de BlockNote que el item nombra— en vez del nombre que le puso el repo. Lo delató la fila del índice de `docs/hallazgos.md`. Antes de dar un item por abierto, se lee la fila de su área en el índice. |
 
 ### Los parciales: la foto cuenta un estado que ya no existe
 
@@ -132,29 +133,85 @@ diecinueve juntos.
 | # | id | Qué le cuesta al cliente | Estado |
 |---|---|---|---|
 | 1 | **600** | **Escribe un documento, se guarda bien, y la pantalla dice «No existe».** Ver abajo: es el peor de los 73. | **hecho** (`punta/varios-copywriter-crear`) |
-| 2 | **590** | Alguien sin sesión puede ejecutar acciones de pantallas que no son el CRM. Medido hoy: **95** archivos con `'use server'` en `app/`, **24** con `exigirSesion`; fuera de `app/crm` quedan **71 sin corte**, entre ellos `app/admin/cobros/actions.ts`, `app/customer-success/actions.ts` y `app/configuraciones/*`. | abierto, grande |
+| 2 | **590** | **La premisa es FALSA y casi la reporto como el agujero más grande de la lista.** Ver abajo: los 60 archivos `'use server'` de fuera del CRM tienen su puerta, con 21 nombres distintos. Lo que falta de verdad es el GUARD, y es chico. | corregido; el guard sigue abierto |
 | 3 | **587** | Nueve pendientes del núcleo de la API, y uno **rompe skills ya instaladas en clientes** (`historial_whatsapp` y `reuniones_lead` por `/api/agente/consultar`). Otro devuelve el error dentro de un 200. | abierto, se cierran de a uno |
 | 4 | **583** | Una tarea que se pide recurrente por la API se crea como tarea única, sin aviso. | **hecho** (`punta/varios-plan-recurrente-api`) |
 | 5 | **606** | El reporte de WhatsApp dice una meta y la pantalla dice otra. **Y la receta del item está mal** — ver abajo. | abierto, pide una firma |
 | 6 | **573** | Se filtra un mes, los gráficos cambian y los números de arriba siguen mostrando el negocio entero. Hay alcance empezado (`app/general/datos.ts:25` importa de `lib/general-alcance.ts`) pero `leerVistaGeneral()` (`lib/vista-general.ts:112`) sigue sin recibirlo, y es la que alimenta el objetivo, los KPIs, el semáforo y los pendientes. Más los dos formateadores de plata (`fmtUSD`, `lib/format.ts:12`). | abierto |
 | 7 | **599** | Leer una imagen, un PDF escaneado o un audio **puede cobrar en la OpenAI del cliente**: verificado, no hay ningún `sinPago` en `lib/ai-cheap.ts`. Más el PDF externo de Offer y el umbral de `alertaFoco` sin medir. | abierto |
-| 8 | **364** | Mueve un título y el texto que iba debajo queda suelto. Confirmado abierto: `CuerpoNotion.tsx` importa `DragHandleMenu`/`SideMenu` (`:30-31`) y el «Duplicar» sí copia los hijos (`:267-275`), pero el arrastre sigue siendo el de BlockNote. | abierto |
-| 9 | **67 ≡ 325** | Entra a un link viejo y ve una pantalla ajena a MaKo. Confirmado: **no existe `app/not-found.tsx`**. El bloqueo que los dos declaran («pide un navegador para copiar la referencia») **ya no aplica a este chat**. | abierto, destrabado |
-| 10 | **335** | Copywriter, Newsletter, Automations y WhatsApp escriben sin apoyarse en los 5.050 emails ya estudiados. **La verificación que pedía el item está hecha, y la respuesta es cero** — ver abajo. | medido |
-| 11 | **465 ≡ 609 ≡ 466** | En Offer, AI Avatar, Web Generator, Dashboard y Video nadie puede guardar lo que hizo para reusarlo, y nadie puede retirar lo que publica un cliente. Confirmado: `lib/creaciones-enchufes.ts:169` tiene `ENCHUFES` con tres tipos. Tres items, un trabajo; toca `app/admin/`, que el brief anterior prohibía. | abierto |
-| 12 | **307** | El Second Brain contesta sin saber la mitad de lo que pasa. `construirCerebro()` vive en `lib/cerebro-grafo.ts:326`; medir las 21 lecturas pide la base. Lo que sí se puede sin ella es el item 569. «El Second Brain bien en el teléfono» es otra cosa y debería ser su propio item. | abierto, grande |
-| 13 | **569** | Un campo nuevo del brief no aparece en el mapa que promete «todo lo que MaKo sabe de tu negocio». Confirmado: `lib/cerebro-grafo.ts:155-158` tiene las cuatro listas fijas, usadas en `:506-507`. Latente mientras ningún workspace tenga esquema propio. | abierto |
-| 14 | **566** | Una campaña nace en pausa y alguien tiene que prenderla a mano a la hora justa. Verificado: `lib/calendario.ts` no tiene tipo `'anuncio'`. **Empieza a gastar plata a una hora**: pasa por `lanzar` con zona, fecha de fin y topes, y por revisión adversarial. | abierto, no sale en una tanda |
-| 15 | **603** | En cinco pantallas el clic derecho no hace lo mismo que en el resto. Y una pide decidir: el selector de Offer es el `Dropdown` de la casa, así que tocarlo cambia el desplegable de **toda** la app. | abierto |
-| 16 | **333** | Ocho restos del Ops Center en un item. Dos ya tienen base: `CARTERO_VIVO_MS` existe (`lib/centro-chats.ts:25`, `:221`) y «Renombrar» por fila también (`app/admin/operaciones/Conversacion.tsx:112-114`). `/api/mako-doer` sigue en pie. | abierto |
-| 17 | **477** | Un título pegado al borde se corta en el mapa del negocio. | **hecho** (`punta/varios-grafo-encuadre`) |
-| 18 | **570** | Todo lo medido del grafo se puede romper sin una señal roja. Confirmado: `lib/cerebro-grafo.ts:36` lleva `import 'server-only'`, así que ningún test lo importa. La salida está escrita en el propio archivo (`:71`): la parte pura vive en `lib/cerebro-modelo.ts`, sin la marca. | abierto |
-| 19 | **602** | Costo para el cliente hoy: ninguno. El costo es que la próxima pantalla vuelva a hacer el menú distinto. Confirmado: `app/_ui/MenuContextual.tsx` lo usan nueve pantallas por ruta directa, pero `grep -c MenuContextual app/_ui/index.ts` = **0** y no está en el catálogo. | abierto, chico |
-| 20 | **312** | El menú promete VSL Generator y no existe. Confirmado: `app/_components/nav.ts:494` lo marca `comingSoon: true` — **y hay otros siete iguales** (Sales Email, Newsletters, Closing Script, Sales Roleplay, YouTube Writer, Ideas). No es una excepción: es cómo está armado el menú. Si molesta, la decisión es sobre los ocho. | abierto, prioridad baja |
+| 8 | **67 ≡ 325** | Entra a un link viejo y ve una pantalla ajena a MaKo. Confirmado: **no existe `app/not-found.tsx`**. El bloqueo que los dos declaran («pide un navegador para copiar la referencia») **ya no aplica a este chat**. | abierto, destrabado |
+| 9 | **335** | Copywriter, Newsletter, Automations y WhatsApp escriben sin apoyarse en los 5.050 emails ya estudiados. **La verificación que pedía el item está hecha, y la respuesta es cero** — ver abajo. | medido |
+| 10 | **465 ≡ 609 ≡ 466** | En Offer, AI Avatar, Web Generator, Dashboard y Video nadie puede guardar lo que hizo para reusarlo, y nadie puede retirar lo que publica un cliente. Confirmado: `lib/creaciones-enchufes.ts:169` tiene `ENCHUFES` con tres tipos. Tres items, un trabajo; toca `app/admin/`, que el brief anterior prohibía. | abierto |
+| 11 | **307** | El Second Brain contesta sin saber la mitad de lo que pasa. `construirCerebro()` vive en `lib/cerebro-grafo.ts:326`; medir las 21 lecturas pide la base. Lo que sí se puede sin ella es el item 569. «El Second Brain bien en el teléfono» es otra cosa y debería ser su propio item. | abierto, grande |
+| 12 | **569** | Un campo nuevo del brief no aparece en el mapa que promete «todo lo que MaKo sabe de tu negocio». Confirmado: `lib/cerebro-grafo.ts:155-158` tiene las cuatro listas fijas, usadas en `:506-507`. Latente mientras ningún workspace tenga esquema propio. | abierto |
+| 13 | **566** | Una campaña nace en pausa y alguien tiene que prenderla a mano a la hora justa. Verificado: `lib/calendario.ts` no tiene tipo `'anuncio'`. **Empieza a gastar plata a una hora**: pasa por `lanzar` con zona, fecha de fin y topes, y por revisión adversarial. | abierto, no sale en una tanda |
+| 14 | **603** | En cinco pantallas el clic derecho no hace lo mismo que en el resto. Y una pide decidir: el selector de Offer es el `Dropdown` de la casa, así que tocarlo cambia el desplegable de **toda** la app. | abierto |
+| 15 | **333** | Ocho restos del Ops Center en un item. Dos ya tienen base: `CARTERO_VIVO_MS` existe (`lib/centro-chats.ts:25`, `:221`) y «Renombrar» por fila también (`app/admin/operaciones/Conversacion.tsx:112-114`). `/api/mako-doer` sigue en pie. | abierto |
+| 16 | **477** | Un título pegado al borde se corta en el mapa del negocio. | **hecho** (`punta/varios-grafo-encuadre`) |
+| 17 | **570** | Todo lo medido del grafo se puede romper sin una señal roja. Confirmado: `lib/cerebro-grafo.ts:36` lleva `import 'server-only'`, así que ningún test lo importa. La salida está escrita en el propio archivo (`:71`): la parte pura vive en `lib/cerebro-modelo.ts`, sin la marca. | abierto |
+| 18 | **602** | Costo para el cliente hoy: ninguno. El costo es que la próxima pantalla vuelva a hacer el menú distinto. Confirmado: `app/_ui/MenuContextual.tsx` lo usan nueve pantallas por ruta directa, pero `grep -c MenuContextual app/_ui/index.ts` = **0** y no está en el catálogo. | abierto, chico |
+| 19 | **312** | El menú promete VSL Generator y no existe. Confirmado: `app/_components/nav.ts:494` lo marca `comingSoon: true` — **y hay otros siete iguales** (Sales Email, Newsletters, Closing Script, Sales Roleplay, YouTube Writer, Ideas). No es una excepción: es cómo está armado el menú. Si molesta, la decisión es sobre los ocho. | abierto, prioridad baja |
 
-## Tres cosas que no sabíamos
+## Cuatro cosas que no sabíamos
 
-### 1. El peor bug de los 73 estaba descrito en una línea, y es real (item 600, B7)
+### 1. El «agujero de seguridad» del item 590 no existe, y lo reprodujo mi propia medición
+
+Esto va primero porque es lo que más cerca estuvo de costar una tanda entera. El item 590 dice que
+«fuera del CRM quedan pantallas que no revisan si la persona inició sesión» y da el número: «85 de 145
+server actions de app/crm ya arrancan con `exigirSesion()`; falta el mismo barrido en las otras tabs».
+Lo medí con un `grep` de `exigirSesion` y me dio **71 archivos sin corte**, con nombres que asustan:
+`app/admin/cobros/actions.ts`, `app/customer-success/actions.ts`, `app/configuraciones/*`. Lo tenía
+escrito como la prioridad número 2 de los 22.
+
+**No hay ningún archivo sin puerta.** De los 60 `'use server'` de fuera del CRM, los 60 llaman a una, y
+cada tab tiene la suya con otro nombre:
+
+| La puerta | Archivos que la llaman |
+|---|---|
+| `getRolWsEfectivo` | 18 |
+| `getSesionAdmin` | 8 |
+| `adminDeWorkspaceActual` | 7 |
+| `ctxAdmin` (local, por tab) | 6 |
+| `requireRolWs` | 6 |
+| `requireSesion` | 5 |
+| `exigirSesion` (la que yo buscaba) | **3** |
+| `wsSuperAdmin`, `guard`, `ctxDeBandeja`, `soloMiembro`, `soloAdmin`, `conActor`, `veEditorVideo`, `requireCapa`, `personaDelRequest`, `sesionDe` | 1 a 3 cada una |
+
+Leí seis a mano para no quedarme en el `grep`: `app/general/actions.ts` → `guard()`;
+`app/admin/cobros/actions.ts` → `getSesionAdmin()`; `app/competitor-spy/actions.ts` → `soloMiembro()` /
+`soloAdmin()`; `app/stories/actions.ts` y `app/video-generator/actions.ts` → `ctxAdmin()`;
+`app/customer-success/comunidad/actions.ts` → `conActor()`. El único que no aparecía con ninguno de los
+veinte nombres que probé primero, `app/m/mako/acciones.ts`, usa el vigesimoprimero
+(`personaDelRequest()`, y corta: `if ('error' in persona) return`).
+
+**Y ya estaba medido.** `docs/relevo/pendientes-barrido.md:113`, C14, dice textual: *«`'use server'`
+fuera del CRM sin `exigirSesion()` — **medido, sin agujero**: los 60 archivos tienen su puerta
+(`adminDeWorkspaceActual`, `puerta()`, `veEditorVideo`, `ctxDeBandeja`…); el de comunidad sirve al
+alumno a propósito»*. La lista del 6/11 lo volvió a escribir como pendiente sin ese veredicto.
+
+**Why, y es la regla que queda:** un `grep` del NOMBRE de un guard no mide si hay guard, mide si hay
+*ese* guard. En un repo donde cada tab se construyó con su propia puerta, los dos resultados no se
+parecen: 3 archivos contra 60. Y el error es de los peores que puede producir una medición de
+seguridad, porque **falla hacia el lado que parece responsable**: una alarma falsa de 71 archivos se
+siente como diligencia, manda una tanda a «arreglar» código sano, y lo que entra son 71 diffs de
+seguridad sin revisar que nadie pidió.
+
+El propio item traía la pista y la leí al revés: *«leer `getUsuarioActual()` NO corta: el guard tiene
+que aceptar sólo las formas que cortan, en positivo»*. Esa frase es sobre ESCRIBIR el guard —hay que
+enumerar las formas— y es justamente la prueba de que hay muchas. Si hubiera una sola, no habría nada
+que enumerar.
+
+**Lo que sí queda de 590, y es chico:** no existe el guard. `tests/crm-acciones-sesion.test.ts` barre
+`app/crm` y nada barre el resto, así que un `'use server'` nuevo puede entrar sin puerta y nadie se
+entera: hoy la única forma de saberlo es leer 60 archivos a mano, que es lo que hizo C14 una vez. Para
+escribirlo hay que extender su lista `CORTES` con las 21 formas, **y cada una verificada de que CORTA**
+(tira o devuelve antes de tocar datos) — un `getUsuarioActual()` suelto no cuenta. No lo escribí: una
+lista incompleta da un rojo falso que frena los pushes de todos, y una lista indulgente da un verde
+falso, que es peor que no tener guard. Hay un worktree `wt-seguridad-0311` abierto.
+
+La segunda mitad del item —«el barrido de entrada por URL al resto de las tabs»— sigue sin medir.
+
+### 2. El peor bug de los 73 estaba descrito en una línea, y es real (item 600, B7)
 
 `lib/copywriter/server.ts` → `crear()`: si `cambiarIndice()` devuelve `!ok`, borra el documento que
 acababa de escribir. Y `cambiarIndice()` (mismo archivo) devuelve `falla(500, …)` **cuando
@@ -166,7 +223,7 @@ y lee «No existe». El `catch` que promete limpiar un huérfano es el que produ
 **La regla:** un rollback no se dispara con «la operación falló», sino con «la operación **no** dejó
 rastro». Antes de borrar hay que volver a leer. Está arreglado así.
 
-### 2. La receta del item 606 estaba equivocada, y al aplicarla se empeora
+### 3. La receta del item 606 estaba equivocada, y al aplicarla se empeora
 
 El item dice: «unificarlo es mover esos dos call-sites a `objetivosContextoTexto()`». No se puede, por
 dos razones que sólo se ven leyendo las dos funciones:
@@ -183,7 +240,7 @@ El mapeo es mecánico (`metrica: 'cash_usd'` y `metrica: 'cierres'`, ver `migrar
 `lib/objectives.ts:568-595`), pero **cambia qué número lee el cliente en su reporte**, así que lo firma
 Martín. Lo dejé sin tocar.
 
-### 3. Los 5.050 emails estudiados no los lee nadie (item 335)
+### 4. Los 5.050 emails estudiados no los lee nadie (item 335)
 
 El item pedía comprobar si los patrones de email se usan. Está comprobado y la respuesta es **cero**:
 `docs/conocimiento/patrones-email.md` existe y pesa 92 kB, y **ningún archivo de `lib/` ni de `app/` lo

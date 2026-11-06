@@ -77,6 +77,8 @@ const PROPUESTA = leer('lib', 'plan-propuesta.ts');
 const AUTO = leer('lib', 'reunion-auto.ts');
 const IMPORTAR = leer('lib', 'importar-en-segundo-plano.ts');
 const ROUTE = leer('app', 'api', 'plan-fathom', 'route.ts');
+const AGENTE = leer('app', 'api', 'agente', 'plan', 'route.ts');
+const SKILL = leer('lib', 'agente-skill.ts');
 
 /** El cuerpo de una plantilla de prompt, sacado del fuente. Es seguro cortar por el
  *  backtick siguiente porque adentro de un template de este repo no va ninguno (regla de
@@ -218,6 +220,26 @@ test('LA CADENA NO SE CORTA EN NINGÚN MAPEO INTERMEDIO', () => {
   }
   // Y el borrador lo declara y lo persiste: sin esto, el `map` copia a la nada.
   assert.match(PROPUESTA, /recurrente\?: boolean;/, 'PropuestaTarea no declara el campo');
+
+  // CUARTO CAMINO, el que faltaba (6/11/2026, item 583): una propuesta que NO sale de una
+  // reunión, sino de un agente externo por `POST /api/agente/plan`. Su `map` copiaba cinco
+  // campos de los seis y `recurrente` se caía ahí, sin error — un campo que no está en el
+  // objeto que devuelve el `map` es indistinguible de uno que el agente no mandó. El
+  // comentario de `limpiarTarea` ya decía que por el choke point pasan todos «incluida la
+  // API del agente», y por eso nadie lo buscó acá. Acá el valor viene del CUERPO HTTP
+  // (`o.recurrente`, un `Record<string, unknown>`), no de una tarea ya tipada, así que el
+  // patrón es el otro: el `=== true` es la narrowing del `unknown`, no una segunda regla
+  // (el desempate con `deadline` sigue siendo de `decidirRecurrente`, y sólo de él).
+  assert.match(AGENTE, /recurrente: o\.recurrente === true \? true : undefined/, 'app/api/agente/plan/route.ts no copia «recurrente» al borrador');
+  // Y la skill que lee el agente tiene que DECIRLE que el campo existe: una puerta que
+  // acepta un campo del que nadie habla es una puerta cerrada («escribir la salida no es
+  // ofrecerla», el nombre que este repo le puso al bug).
+  // ⚠️ Y el patrón es el CAMPO con su valor, no la palabra. Probando la rotura con
+  // `/recurrente/` el test quedó en VERDE: la palabra sigue apareciendo en la prosa que la
+  // explica («una recurrente marcada como tarea normal…»), así que medía la explicación y
+  // no la instrucción. Es el «copiar una línea en un regex no prueba nada» de AGENTS.md,
+  // encontrado rompiéndolo.
+  assert.match(SKILL, /\\`recurrente: true\\`/, 'lib/agente-skill.ts no le dice al agente que puede mandar «recurrente: true»');
 });
 
 test('el ALTA lo pasa en los DOS tableros, que es donde la tarea nace', () => {
