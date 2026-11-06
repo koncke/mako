@@ -120,7 +120,7 @@ export const DEFS: readonly OperacionDef[] = [
     // 6/11/2026 (la promesa a la agencia de Thiago: «gestionar las reuniones de tu equipo»): lo mismo que la vista «Llamadas»
     // de la pantalla, con el filtro por persona. Las R1 y R2 del CRM, NO la agenda de Google.
     id: 'llamadas_del_equipo', area: 'calendario', tipo: 'lectura',
-    titulo: 'Las R1 y R2 de cada persona del equipo',
+    titulo: 'Reuniones por persona del equipo',
     descripcion: 'Las R1 y R2 de los leads (de dos meses atrás a cuatro adelante) de una persona del equipo: las que lleva como closer o como setter. Dice cuándo, si asistió, no vino, está sin marcar o se canceló, y cuántas tiene cada persona. Sin «persona», las de todo el equipo. Úsala para «¿qué llamadas tiene Ana esta semana?» o «¿cuántas sin marcar tiene cada closer?».',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'El nombre como figura en el equipo (closer o setter). «sin_asignar» = las que no tienen ninguno. Si se omite, todas.', ejemplo: 'Ana Pérez' },

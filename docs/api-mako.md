@@ -20307,7 +20307,7 @@ curl -L \
   -d '{"desde":"2026-11-03","hasta":"2026-11-09"}'
 ```
 
-### `GET /api/v1/calendario/llamadas` — Las R1 y R2 de cada persona del equipo
+### `GET /api/v1/calendario/llamadas` — Reuniones por persona del equipo
 
 Las R1 y R2 de los leads (de dos meses atrás a cuatro adelante) de una persona del equipo: las que lleva como closer o como setter. Dice cuándo, si asistió, no vino, está sin marcar o se canceló, y cuántas tiene cada persona. Sin «persona», las de todo el equipo. Úsala para «¿qué llamadas tiene Ana esta semana?» o «¿cuántas sin marcar tiene cada closer?».
 
