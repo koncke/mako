@@ -49,10 +49,12 @@ export const CustomersOverview = ({
           interval={interval}
         />
         <Grid
+          // `minmax(0, 1fr)` como el `grid-cols-3` de Tailwind que usa Polar: con `1fr` a secas una columna no baja de su
+          // contenido y la tercera (Cost Drivers) se salía por la derecha a 1440 (medido en las capturas del 6/11/2026).
           templateColumns={{
-            base: '1fr',
-            md: '1fr',
-            xl: '1fr 1fr 1fr',
+            base: 'minmax(0, 1fr)',
+            md: 'minmax(0, 1fr)',
+            xl: 'repeat(3, minmax(0, 1fr))',
           }}
           gap="3xl"
         >

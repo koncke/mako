@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export const DateRangeSelect = ({ value, onChange }: { value: Intervalo; onChange: (v: Intervalo) => void }) => (
   <Select value={value} onValueChange={(v) => onChange(esIntervalo(v) ? v : 'allTime')}>
-    <SelectTrigger className="w-full sm:w-52">
-      <span className="flex items-center gap-2">
-        <CalendarMonthOutlined fontSize="inherit" />
+    {/* ⚠️ El ícono y el rótulo van SUELTOS en el botón, sin un <span> que los envuelva: el SelectTrigger de Orbit le pone
+        `line-clamp-1` a todo span hijo directo, y eso le gana al `flex` del envoltorio (el ícono quedaba en un renglón y el
+        rótulo en el segundo, recortado: el selector salía vacío en Orders y en Subscriptions). */}
+    <SelectTrigger className="w-full justify-start gap-2 sm:w-52">
+      <CalendarMonthOutlined fontSize="inherit" className="shrink-0" />
+      <span className="flex-1 text-left">
         <SelectValue />
       </span>
     </SelectTrigger>

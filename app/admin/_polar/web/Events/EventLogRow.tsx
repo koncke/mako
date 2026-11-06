@@ -11,12 +11,15 @@ import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { twMerge } from 'tailwind-merge'
 import { EventTimestamp } from './EventTimestamp'
 
+// ⚠️ El día de un pago va en el MISMO formato que los demás («04-nov»), sin el año: con el año salía «04 de nov de 2026»,
+//    el doble de largo, y la celda lo cortaba en «04 de nov de 20…» al lado de «06-nov, 14:20:00». El año está en el
+//    detalle (EventTimestamp).
 export const formatEventTimestamp = (timestamp: string, soloDia = false) =>
   new Date(timestamp).toLocaleString('es-AR', {
     month: 'short',
     day: '2-digit',
     ...(soloDia
-      ? { year: 'numeric' as const, timeZone: 'UTC' }
+      ? { timeZone: 'UTC' }
       : {
           hour: '2-digit' as const,
           minute: '2-digit' as const,

@@ -36,12 +36,9 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
             accessorKey: 'concepto',
             cell: ({ row: { original } }) => (
               <Link href={rutaDePedido(original)} key={original.id}>
-                <Box
-                  as="span"
-                  display="inline-flex"
-                  alignItems="center"
-                  columnGap="s"
-                >
+                {/* El medio va debajo del concepto: en línea, con la columna angosta de la ficha, se dibujaba encima del estado
+                    («TransferePagado», capturas del 6/11/2026). */}
+                <Box as="span" display="flex" flexDirection="column">
                   {original.concepto || (original.recurrente ? 'Mensualidad' : 'Pago')}
                   <Text as="span" variant="caption" color="muted">
                     {medioEnTexto(original.medio)}
@@ -79,6 +76,7 @@ export const CustomerOrdersTable = ({ pedidos }: CustomerOrdersTableProps) => {
           {
             header: '',
             accessorKey: 'action',
+            size: 70,
             cell: ({ row: { original } }) => (
               <Box justifyContent="end">
                 <Link href={rutaDePedido(original)}>

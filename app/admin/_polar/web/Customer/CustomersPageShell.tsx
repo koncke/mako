@@ -1,7 +1,7 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomersPageShell.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
-// MaKo: sin la organización (la subnav no la necesita).
+// MaKo: sin la organización (la subnav no la necesita), y el título y los rangos en dos renglones en el teléfono.
 
 import { MasterDetailLayoutContent } from '@/app/admin/_polar/web/Layout/MasterDetailLayout'
 import { CHART_RANGES, ChartRange } from '@/app/admin/_polar/web/utils/metrics'
@@ -22,13 +22,15 @@ export const CustomersPageShell = ({
 }: CustomersPageShellProps) => (
   <MasterDetailLayoutContent
     header={
+      // ⚠️ En el teléfono va en dos renglones: los cinco rangos («Desde siempre · 12m · 3m · 30d · Hoy») al lado del título se
+      //    salían por la derecha a 390 px (capturas del 6/11/2026). En la computadora, el renglón de 2rem de Polar.
       <Box
-        height="2rem"
+        height={{ base: 'auto', md: '2rem' }}
         display="flex"
-        flexDirection="row"
-        alignItems="center"
+        flexDirection={{ base: 'column', md: 'row' }}
+        alignItems={{ base: 'start', md: 'center' }}
         justifyContent="between"
-        rowGap="xl"
+        rowGap="m"
         width="100%"
       >
         <Text variant="heading-xs" as="h1">

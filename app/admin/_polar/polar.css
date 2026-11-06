@@ -147,7 +147,12 @@
   letter-spacing: 0.015em;
   text-rendering: optimizeLegibility;
 }
-.pl *, .pl ::after, .pl ::before, .pl ::backdrop { border-color: var(--border); }
+/* ⚠️ EN `@layer base`, como en Polar (globals.css: `@layer base { * { @apply border-border } }`). Afuera de una capa le gana a
+   TODAS las clases de Tailwind, que viven en `@layer utilities`: `border-transparent`, `border-gray-200` y `dark:border-polar-800`
+   dejaban de aplicarse y cada renglón de la barra salía con un filete (medido el 6/11/2026 en las capturas). */
+@layer base {
+  .pl *, .pl ::after, .pl ::before, .pl ::backdrop { border-color: var(--border); }
+}
 
 /* El oscuro (`:root.dark` de Polar) es el de MaKo. */
 :root[data-tema="oscuro"] .pl {

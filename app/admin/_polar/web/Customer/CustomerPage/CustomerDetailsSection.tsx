@@ -216,16 +216,22 @@ export const CustomerDetailsSection = ({
               key={pc.id}
               label={pc.sistema ? `${pc.nombre} · ${pc.sistema}` : pc.nombre}
               value={
-                <Box as="span" alignItems="center" columnGap="xs">
-                  <Text as="span" variant="caption" color="muted">
-                    {pc.persona}
-                  </Text>
-                  <Status
-                    color={pc.enLinea ? 'green' : 'gray'}
-                    size="small"
-                    status={pc.enLinea ? 'En línea' : 'Sin conexión'}
-                  />
+                // Lo único que cede es el nombre de la persona (se corta con «…»); el estado y el botón no se achican.
+                <Box as="div" display="flex" flexDirection="row" alignItems="center" justifyContent="end" columnGap="s" minWidth={0}>
+                  <Box minWidth={0}>
+                    <Text as="span" variant="caption" color="muted" truncate>
+                      {pc.persona}
+                    </Text>
+                  </Box>
+                  <Box flexShrink={0}>
+                    <Status
+                      color={pc.enLinea ? 'green' : 'gray'}
+                      size="small"
+                      status={pc.enLinea ? 'En línea' : 'Sin conexión'}
+                    />
+                  </Box>
                   <Button
+                    className="shrink-0"
                     size="sm"
                     variant="secondary"
                     onClick={() => setADesconectar({ id: pc.id, nombre: pc.nombre })}

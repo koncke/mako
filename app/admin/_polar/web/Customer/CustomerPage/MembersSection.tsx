@@ -48,6 +48,21 @@ interface MembersSectionProps {
 
 type Aviso = { tono: 'ok' | 'warn' | 'error'; texto: string }
 
+/**
+ * Los anchos de las columnas de Members. Suman 723 px: entran en la ficha a 1440 (744 px de tabla, medido el 6/11/2026). Con el
+ * default de 150 de TanStack la tabla medía 1.000 y el «⋯» de cada persona quedaba afuera, del otro lado de un scroll de
+ * costado. Lo fija tests/admin-polar-pantalla.test.ts, que los suma.
+ */
+export const ANCHOS_MIEMBROS = {
+  persona: 220,
+  rol: 95,
+  estado: 105,
+  dosPasos: 60,
+  ultimoIngreso: 105,
+  alta: 90,
+  acciones: 48,
+} as const
+
 export const MembersSection = ({ miembros }: MembersSectionProps) => {
   const router = useRouter()
   const [aviso, setAviso] = useState<Aviso | null>(null)
@@ -92,11 +107,12 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
       )}
       <DataTable
         data={miembros}
+        // Los anchos, en ANCHOS_MIEMBROS (arriba del componente).
         columns={[
           {
             header: 'Persona',
             accessorKey: 'email',
-            size: 260,
+            size: ANCHOS_MIEMBROS.persona,
             cell: ({ row: { original } }) => (
               <Box alignItems="center" gap="m">
                 <Avatar
@@ -117,6 +133,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           },
           {
             header: 'Rol',
+            size: ANCHOS_MIEMBROS.rol,
             accessorKey: 'rol',
             cell: ({ row: { original } }) => {
               if (!original.rol) return <Text>—</Text>
@@ -126,6 +143,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           },
           {
             header: 'Estado',
+            size: ANCHOS_MIEMBROS.estado,
             id: 'estado',
             cell: ({ row: { original } }) => {
               const [label, color] = ROTULO_ESTADO_MIEMBRO[original.estado]
@@ -144,7 +162,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             header: '2FA',
             id: 'mfa',
-            size: 80,
+            size: ANCHOS_MIEMBROS.dosPasos,
             cell: ({ row: { original } }) =>
               original.mfa == null ? (
                 <Text>—</Text>
@@ -158,6 +176,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           },
           {
             header: 'Último ingreso',
+            size: ANCHOS_MIEMBROS.ultimoIngreso,
             accessorKey: 'ultimoIngreso',
             cell: ({ row: { original } }) =>
               original.ultimoIngreso ? (
@@ -168,6 +187,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           },
           {
             header: 'Alta',
+            size: ANCHOS_MIEMBROS.alta,
             accessorKey: 'creado',
             cell: ({ row: { original } }) => (
               <FormattedDateTime datetime={original.creado} />
@@ -176,7 +196,7 @@ export const MembersSection = ({ miembros }: MembersSectionProps) => {
           {
             id: 'actions',
             header: () => null,
-            size: 60,
+            size: ANCHOS_MIEMBROS.acciones,
             cell: ({ row: { original } }) => (
               <Box justifyContent="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>

@@ -120,7 +120,11 @@ const ClientPage: React.FC<ClientPageProps> = ({ checkouts, avisos }) => {
             <div className="col-span-2 sm:col-span-1">
               <Input type="text" placeholder="Filtrar por email" value={texto} onChange={(e) => setTexto(e.target.value)} />
             </div>
-            <CheckoutStatusSelect value={status} onChange={onStatusSelect} />
+            {/* ⚠️ En Polar este renglón del teléfono lo comparten el estado y el producto; sin el filtro de producto, el estado va
+                a lo ancho (en media columna se leía «Cualquier e:», capturas del 6/11/2026). */}
+            <div className="col-span-2 sm:col-span-1">
+              <CheckoutStatusSelect value={status} onChange={onStatusSelect} />
+            </div>
           </div>
         </div>
         {checkouts.length === 0 ? (

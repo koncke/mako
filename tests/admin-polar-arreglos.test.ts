@@ -8,8 +8,8 @@
 //   2. un cobro de «Vender un plan» vive en Products › Checkout Links y NO en Sales › Checkouts (la regla es UNA,
 //      `esDeVenderUnPlan`), y lo demás sin pagar, en Checkouts; las dos listas no comparten ningún cobro;
 //   3. Analytics › Costs sin «By Customer»: el gasto por negocio vive en Customers › Cost Drivers;
-//   4. un cliente de una agencia no va en la lista de Customers ni cuenta en su crecimiento (28/09/2026), y la búsqueda ⌘K lo
-//      encuentra diciendo de qué agencia es;
+//   4. un cliente de una agencia no va en la lista de Customers por defecto ni cuenta en su crecimiento (28/09/2026): se ve con
+//      el filtro «De agencias» (decisión del Cerebro, 6/11/2026), y la búsqueda ⌘K lo encuentra diciendo de qué agencia es;
 //   5. los textos de las piezas de Polar en español (lo que no es un nombre de la barra);
 //   6. el `Alert` de Orbit con «Reportar a Soporte» cuando es un error (`danger`) o lo pide (`soporte`), y no dos veces;
 //   8. las lecturas que se repiten en un pedido van con `cache` de React.
@@ -135,7 +135,7 @@ const fila = (ws: number, nombre: string, segmentos: Fila['segmentos'], creado =
   ws, nombre, creado, capa: 'completo', estado: 'activo', motivoRiesgo: null, sinEntrar: 1, mrrUsd: 0, planAManoTxt: null, segmentos,
 })
 
-test('4 · un cliente de una agencia no es un cliente de MaKo: no va en la lista ni en el crecimiento, y la búsqueda dice de quién es', () => {
+test('4 · un cliente de una agencia no es un cliente de MaKo: no va en «Todos» ni en el crecimiento, sí en «De agencias», y la búsqueda dice de quién es', () => {
   const filas = [fila(21, 'Estudio Norte', ['cliente']), fila(27, 'Agencia Faro', ['agency']), fila(30, 'Consultorio Arce', ['de-agencia'], '2026-10-20T12:00:00Z')]
   assert.equal(esClienteDeMaKo({ segmentos: ['de-agencia'] }), false)
   assert.equal(esClienteDeMaKo({ segmentos: ['agency', 'partner'] }), true, 'una agencia sí es un cliente de MaKo')

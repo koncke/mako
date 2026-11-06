@@ -27,7 +27,11 @@ const DashboardLayout = (
   }>,
 ) => {
   return (
-    <div className="pl min-w-0 flex-1" style={{ height: '100dvh' }}>
+    // ⚠️ EL ALTO: en la columna del layout raíz de MaKo, `flex-1` ANULA el `height` (su base 0% manda) y el contenedor crece
+    // con su contenido: scrolleaba el DOCUMENTO entero y la lista de Customers se iba con él (medido el 6/11/2026: 2.540 px en una
+    // ventana de 900). Desde md va `flex: none` con el alto de la ventana (menos la barra de inspección) y `overflow: hidden`, y
+    // scrollea cada panel por adentro, como en Polar; en una pantalla angosta scrollea el documento, como dice Polar abajo.
+    <div className="pl min-w-0 flex-1 md:h-[calc(100dvh-var(--barra-agencia,0px))] md:flex-none md:overflow-hidden">
       <SidebarProvider open className="h-full! min-h-0!">
         <div className="relative flex h-full w-full flex-col bg-white md:flex-row md:bg-gray-100 md:p-2 dark:bg-transparent">
           <MobileNav />
