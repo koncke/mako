@@ -78,6 +78,8 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
   const [wsLeido, setWsLeido] = useState<number | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
   const [probando, setProbando] = useState(false);
+  /** Los correos de avance de SUS tickets (mig 0410). Es de la DIRECCIÓN de quien mira, no de la cuenta que mira. */
+  const [correos, setCorreos] = useState<Leido<{ recibir: boolean }>>(VACIO);
   const { toast, show, clear } = useToast();
 
   // Cada lectura por su lado: si una falla, su canal lo dice y los otros andan. Con un `.catch(() => {})` por fetch, un 500
@@ -86,6 +88,11 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
     pedir<NotifInApp>('/api/perfil/notif-inapp', 'inApp').then((d) => setInApp({ dato: d, error: null }), (e: Error) => setInApp({ dato: null, error: e.message }));
     pedir<NotifPush>('/api/perfil/notif-push', 'push').then((d) => setPush({ dato: d, error: null }), (e: Error) => setPush({ dato: null, error: e.message }));
     pedir<Array<unknown>>('/api/push/suscripcion', 'dispositivos').then((d) => setTelefonos(d.length), () => setTelefonos(null));
+    // `recibir` viene del server (lee la tabla de bajas y el perfil): no se adivina desde acá.
+    fetch('/api/perfil/correos-tickets').then((r) => r.json()).then((j) => {
+      if (!j?.ok) throw new Error(j?.error || 'No se pudieron leer');
+      setCorreos({ dato: { recibir: j.recibir !== false }, error: null });
+    }).catch((e: Error) => setCorreos({ dato: null, error: e.message }));
     if (admin) {
       fetch('/api/perfil/destinatarios').then((r) => r.json()).then((j) => {
         if (!j?.ok) throw new Error(j?.error || 'No se pudieron leer');
@@ -110,6 +117,24 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
       window.dispatchEvent(new Event(EVENTO_PREFS_IN_APP));
     } catch (e) {
       setInApp({ dato: previo, error: null });
+      show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
+    }
+  };
+
+  /**
+   * Los correos de los tickets, optimista. Es la MISMA baja que el link del pie del correo
+   * (app/api/email/unsubscribe/tickets): los dos caminos escriben por `lib/tickets-baja-correo.ts`.
+   */
+  const guardarCorreos = async (recibir: boolean) => {
+    const previo = correos.dato;
+    setCorreos({ dato: { recibir }, error: null });
+    try {
+      const j = await guardarJson('/api/perfil/correos-tickets', { recibir });
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      // Sesión sin cuenta propia: no hay dirección a la que escribirle, así que no hay nada que apagar.
+      if (j.guardado === false) { setCorreos({ dato: previo, error: null }); show('Esta sesión no tiene cuenta propia', undefined, 'warn'); return; }
+    } catch (e) {
+      setCorreos({ dato: previo, error: null });
       show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
     }
   };
@@ -157,13 +182,22 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
     return (
       <>
         <TituloAjustes titulo="Notificaciones" bajada={deOtro ? 'A quién le avisa MaKo en esta cuenta.' : undefined} />
-        {errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? dest.error)}
+        {errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? correos.error ?? dest.error)}
         <GrupoAjustes titulo="Canales">
           {!deOtro && <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />}
           {!deOtro && <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />}
           {admin && <FilaAjustes icono="whatsapp" titulo={NOMBRE_CANAL.whatsapp} href={`${BASE}?canal=whatsapp`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.telefonos.length, 'whatsapp')} />} />}
           {admin && <FilaAjustes icono="email" titulo={NOMBRE_CANAL.email} href={`${BASE}?canal=email`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.emails.length, 'email')} />} />}
         </GrupoAjustes>
+
+        {/* ⚠️ Es de la DIRECCIÓN de quien mira, no de la cuenta que mira (por eso `!deOtro`): apagarlo desde la cuenta de un
+            cliente apagaría los correos del que está mirando, no los del cliente. Vale para TODAS sus cuentas con ese email,
+            que es el punto de la mig 0410 (lib/tickets-baja-correo.ts). */}
+        {!deOtro && <GrupoAjustes titulo="Correos de MaKo">
+          <FilaAjustes titulo="Avances de mis tickets" detalle="Cuando un ticket tuyo cambia de estado. Los vas a seguir viendo en Tickets."
+            fin={<Switch checked={correos.dato?.recibir !== false} disabled={!correos.dato} label={undefined}
+              onChange={(v) => void guardarCorreos(v)} />} />
+        </GrupoAjustes>}
 
         {!deOtro && <GrupoAjustes titulo="No molestar">
           <FilaAjustes titulo="Pausar los avisos al celular" detalle={silencio ? `Hora de ${ciudadDeZona(zona)}` : undefined}
