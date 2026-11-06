@@ -2,7 +2,7 @@
 // Admin › Overview (la portada copiada del dashboard de Polar) y su búsqueda ⌘K: las funciones puras, EJECUTADAS
 // =============================================================================
 // Lo que se prueba: los links viejos (/admin?tab=…) van a su sección nueva; los rangos que MaKo puede contestar; los widgets
-// (Revenue, Activity, Por cobrar, Top Customers, At Risk, Margen bruto) se arman con lo que leen las lecturas de MaKo, y la
+// (Revenue, Activity, Por cobrar, Top Customers, At Risk, AI margin) se arman con lo que leen las lecturas de MaKo, y la
 // portada los tiene en dos filas de tres, en el orden de Polar; lo que espera a Martín (los
 // banners); el índice y la búsqueda; los datos de ejemplo no nombran a nadie real; y la página pregunta por el super admin
 // ANTES de leer nada.
@@ -16,8 +16,15 @@
 //   · `buscar` sin `normalizar` (mayúsculas y acentos)                    → 13/1 (búsqueda)
 //   · `armarIndice` sin sacar la plataforma (y sus personas)              → 13/1 (índice)
 //   · `await exigirSuperAdmin()` movido debajo de `destinoDeTabViejo`     → 13/1 (la guarda)
-//   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk)
+//   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk; hoy `riesgoDeOverview`, abajo)
 // Y un cambio sin efecto (renombrar la variable local `destino` de la página) la deja en 14/0.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026, la revisión del Cerebro: puntos 7 y 34), base 18/0:
+//   · `accounts` sin negocio vuelve a '/admin/customers'                                  → 17/1 (links viejos)
+//   · `accounts` sin leer `ws` (el link de los avisos de plan a mano)                      → 17/1 (links viejos)
+//   · `riesgoDeOverview` con su lista sin el `href` del CRM (`rutaDeQuienPaga` → ws sólo)  → 17/1 (at risk)
+//   · `riesgoDeOverview` que da «Nada en riesgo» (`ok: true`, lista vacía) sin la lectura  → 17/1 (at risk)
+// Y un cambio sin efecto (renombrar la `n` local del case `accounts`) la deja en 18/0.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026, Por cobrar y Margen bruto), base 18/0:
 //   · el total de «Por cobrar» sin las atrasadas (deja de ser la suma de la lista) → 17/1 (Por cobrar)
@@ -35,13 +42,15 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import type { MesIngresos } from '../lib/admin-ingresos-reglas'
 import {
-  actividadReciente, barrasDeIngresos, desdeDelMargen, destinoDeTabViejo, diaRelativo, filasDeRiesgo, hrefDeMes,
-  margenBruto, margenDeLecturas, margenPorcentaje, mesesDelRango, metricasRecordadas, motivoDeRiesgoTxt, pedidosDeAgencias,
-  pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, rangosDisponibles, tiempoRelativo, tituloDeAgencias, tituloDeBajas,
-  tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
+  actividadReciente, barrasDeIngresos, desdeDelMargen, destinoDeTabViejo, diaRelativo, hrefDeMes,
+  margenBruto, margenDeLecturas, margenPorcentaje, mesesDelRango, metricasRecordadas, pedidosDeAgencias,
+  pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, rangosDisponibles, riesgoDeOverview, tiempoRelativo, tituloDeAgencias,
+  tituloDeBajas, tituloDeDisputas, tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
 } from '../app/admin/_polar/datos/resumen'
+import { clientesEnRiesgo } from '../app/admin/_polar/datos/clientes'
 import { armarIndice, buscar, TOPE_POR_CLASE } from '../app/admin/_polar/datos/busqueda-tipos'
 import { indiceEjemplo, resumenEjemplo } from '../app/admin/_polar/datos/ejemplo/resumen'
+import { destinoDeCustomers } from '../app/customers/destino'
 import { realesEn } from './_reales'
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -61,9 +70,14 @@ test('links viejos: cada /admin?tab=… va a su sección nueva, y lo demás se q
   assert.equal(destinoDeTabViejo({ tab: 'customers', cliente: '21' }), '/admin/customers/21')
   assert.equal(destinoDeTabViejo({ tab: 'customers', cliente: '0' }), '/admin/customers', 'un id que no es válido se cae')
   assert.equal(destinoDeTabViejo({ tab: 'customers', cliente: '21/../9' }), '/admin/customers', 'nada que no sea un número')
-  assert.equal(destinoDeTabViejo({ tab: 'accounts' }), '/admin/customers')
+  // `?tab=accounts` era un contrato de la Admin vieja: lo nombran los mails de «Quieren entrar», el «Administrar» de la ficha y
+  // los avisos de plan a mano (punto 34 de la revisión del Cerebro). Sin negocio, a Overview, donde están esos pedidos.
+  assert.equal(destinoDeTabViejo({ tab: 'accounts' }), '/admin', 'el mail de «Quieren entrar»: a Overview, donde está el pedido')
+  assert.equal(destinoDeCustomers({ tab: 'accounts' }), '/admin', '/customers?tab=accounts también')
   assert.equal(destinoDeTabViejo({ tab: 'accounts', cuenta: '7' }), '/admin/customers/7')
-  assert.equal(destinoDeTabViejo({ tab: 'accounts', cliente: '7' }), '/admin/customers', '`accounts` lee `cuenta`, no `cliente`')
+  assert.equal(destinoDeTabViejo({ tab: 'accounts', ws: '12' }), '/admin/customers/12', 'el aviso de plan a mano (`/admin?tab=accounts&ws=12`): a su ficha')
+  assert.equal(destinoDeTabViejo({ tab: 'accounts', ws: '12;drop' }), '/admin', 'un ws que no es un número se cae')
+  assert.equal(destinoDeTabViejo({ tab: 'accounts', cliente: '7' }), '/admin', '`accounts` lee `cuenta` o `ws`, no `cliente`')
   assert.equal(destinoDeTabViejo({ tab: 'billing' }), '/admin/sales')
   assert.equal(destinoDeTabViejo({ tab: 'activity' }), '/admin/analytics/events')
   assert.equal(destinoDeTabViejo({ tab: 'agents' }), '/admin/analytics/events?tipo=agente')
@@ -104,18 +118,27 @@ test('Top Customers: los que más pagaron, sin los que no pagaron nada, y qué p
   assert.equal(topClientes([], 0).parte, null, 'sin nada cobrado no hay porcentaje (ni un 0% inventado)')
 })
 
-test('At Risk: el más grave primero (pausado, cobro, sin uso), con su motivo en palabras', () => {
-  const r = filasDeRiesgo([
-    { ws: 1, nombre: 'Uno', plan: 'Pro', riesgo: true, motivoRiesgo: 'sin-uso', sinEntrar: 20, mrrUsd: 900 },
-    { ws: 2, nombre: 'Dos', plan: 'Pro', riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 1, mrrUsd: 100 },
-    { ws: 3, nombre: 'Tres', plan: 'Pro', riesgo: true, motivoRiesgo: 'pausado', sinEntrar: null, mrrUsd: 0 },
-    { ws: 4, nombre: 'Cuatro', plan: 'Pro', riesgo: false, motivoRiesgo: null, sinEntrar: 0, mrrUsd: 500 },
-  ])
-  assert.equal(r.total, 3)
-  assert.deepEqual(r.filas.map((f) => f.ws), [3, 2, 1])
-  assert.deepEqual(r.filas.map((f) => f.motivo), ['Pausado', 'Cobro fallido', 'Sin entrar · hace 20 días'])
-  assert.equal(motivoDeRiesgoTxt('sin-uso', null), 'Nadie entró nunca')
-  assert.equal(r.filas[2].mrrCentavos, 90000)
+// Punto 7 de la revisión del Cerebro: la tarjeta At Risk es LA lista de Customers › At Risk, no una cuenta propia.
+test('At Risk: la tarjeta dibuja la lista de Customers › At Risk (con los atrasados), y sin la lectura dice «no pude leer»', () => {
+  const fila = (ws: number, nombre: string, motivoRiesgo: 'pausado' | 'cobro' | 'sin-uso' | null, estado = 'activo') => ({
+    ws, nombre, capa: 'completo', estado, motivoRiesgo, sinEntrar: 20, mrrUsd: ws * 100, planAManoTxt: null, segmentos: ['cliente' as const],
+  })
+  const atRisk = clientesEnRiesgo(
+    [fila(1, 'Uno', 'sin-uso'), fila(2, 'Dos', 'cobro'), fila(3, 'Tres', 'pausado', 'pausado'), fila(4, 'Cuatro', null)],
+    [
+      { clave: 'ws:4', ws: 4, leadId: null, nombre: 'Cuatro', estado: 'atrasado', mrr: 400, diasAtraso: 3 },
+      { clave: 'lead:77', ws: null, leadId: 77, nombre: 'Ana Gómez', estado: 'atrasado', mrr: 50, diasAtraso: 1 },
+    ],
+  )
+  const r = riesgoDeOverview({ atRisk, error: null }, 9)
+  assert.ok(r.ok)
+  assert.equal(r.datos.total, 5, 'el número grande es el largo de la lista de la página')
+  assert.deepEqual(r.datos.filas.map((f) => f.clave), ['ws:4', 'lead:77', 'ws:2', 'ws:3', 'ws:1'], 'el atrasado (que Por cobrar pinta en rojo) va primero')
+  assert.deepEqual(r.datos.filas.map((f) => f.texto), ['Atrasado 3 días', 'Atrasado 1 día', 'Cobro fallido', 'Pausado', 'Sin entrar hace 20 días'])
+  assert.deepEqual(r.datos.filas.map((f) => f.grave), [true, true, true, false, false])
+  assert.equal(r.datos.filas[0].href, '/admin/customers/4')
+  assert.equal(r.datos.filas[1].href, '/crm/77?ws=9', 'un atrasado sin cuenta de MaKo abre su ficha del CRM')
+  assert.deepEqual(riesgoDeOverview({ atRisk: null, error: 'base caída' }, 9), { ok: false, error: 'base caída' }, 'sin la lectura no es «Nada en riesgo»')
 })
 
 test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lecturas cuentan para «hoy» y no se listan', () => {
@@ -263,6 +286,10 @@ test('lo que espera: los títulos dicen cuántos, y sin nada no hay banner', () 
   assert.equal(tituloDeAgencias(2), '2 pedidos de agencias esperan tu firma')
   assert.equal(tituloDeBajas(0), null)
   assert.equal(tituloDeBajas(1), 'Una persona pidió eliminar su cuenta')
+  assert.equal(tituloDeBajas(2, 1), '2 personas pidieron eliminar su cuenta · 1 vencida', 'la vencida va en el título (punto 38)')
+  assert.equal(tituloDeBajas(3, 2), '3 personas pidieron eliminar su cuenta · 2 vencidas')
+  assert.equal(tituloDeDisputas(0), null)
+  assert.equal(tituloDeDisputas(1), 'Un cliente disputó un cargo')
 })
 
 test('lo que espera: los pedidos de ingreso, de las agencias y de baja, con lo que se puede hacer con cada uno', () => {

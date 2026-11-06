@@ -7,28 +7,32 @@
 //     Analytics › Metrics son los ÚNICOS lugares con el gráfico de ingresos (Martín, 6/11/2026).
 //   · Activity: los pagos que entraron (la misma vista) y lo que hizo MaKo (lib/actividad.ts, `vistaDeActividad`).
 //   · Top Customers: los que más pagaron desde el primer pago (los clientes de `vistaDeIngresos`).
-//   · At Risk: los negocios en riesgo de lib/clientes-plataforma.ts (`vistaDeClientes`): pausados, con un cobro fallido o
-//     sin uso.
+//   · At Risk: LA MISMA lista que Customers › At Risk (`vistaDeAtRisk` de ./clientes.ts): atrasados, cobros fallidos,
+//     pausados, los que dejaron de pagar y los sin uso, sin los clientes de una agencia (revisión del Cerebro, 6/11/2026,
+//     punto 7: la tarjeta tenía su propia cuenta y escondía a los atrasados).
 //   · Por cobrar (el «Available balance» de Polar, decidido 6/11/2026): los próximos cobros de `vistaDeIngresos().porCobrar`
 //     (lo atrasado y lo que vence en los próximos 31 días, con la historia mes a mes de cada suscripción). No se recalcula.
-//   · Margen bruto (el «Gross margin» de Polar): lo cobrado (lo mismo que suma Revenue) contra el gasto de IA que paga MaKo
-//     (lib/costos-ia.ts, el mismo `costoDe` que Analytics › Costs), de los últimos 30 días y de cada uno de los últimos meses.
-//   · Lo que ESPERA a Martín (los banners de arriba, donde Polar pone el estado de la organización y las disputas): quién
-//     pidió entrar (lib/pedidos-ingreso.ts), qué pidieron las agencias (lib/agencia.ts) y quién pidió eliminar su cuenta
-//     (lib/baja-cuenta.ts).
+//   · AI margin (el «Gross margin» de Polar, con otro nombre: sólo resta la IA pagada por API, ni los planes Max ni la
+//     infraestructura; revisión del Cerebro, puntos 12 y 39): lo cobrado (lo mismo que suma Revenue) contra el gasto de IA que
+//     paga MaKo (lib/costos-ia.ts, el mismo `costoDe` que Analytics › Costs), de los últimos 30 días y de cada mes de antes.
+//   · Lo que ESPERA a Martín (arriba de los widgets, donde Polar avisa las disputas por responder): un contracargo abierto
+//     (`disputasDe` de ./ventas.ts, puntos 28 y 38), quién pidió eliminar su cuenta (lib/baja-cuenta.ts), qué pidieron las
+//     agencias (lib/agencia.ts) y quién pidió entrar (lib/pedidos-ingreso.ts). Una lista, una fila por espera.
 //
 // ⚠️ LA PLATA VA EN CENTAVOS, como en Polar (`formatCurrency` divide por 100). MaKo guarda dólares: se multiplica acá.
 // ⚠️ «NO PUDE LEER» ES OTRO ESTADO: cada lectura viaja como `Lectura` y la vista dice el error, nunca un cero.
 
 import { diaTxt, type Entrada, type MesIngresos, type Movimiento, type PorCobrar } from '@/lib/admin-ingresos-reglas'
 import type { Corte } from '@/lib/costos-ia'
-import { haceTxt } from '@/lib/clientes-plataforma-reglas'
 import { diasQueQuedan, fechaDeLaBaja } from '@/lib/baja-cuenta-reglas'
+import { textoContracargo } from '@/lib/cobros-reglas'
 import { detalleDelPedido } from '@/lib/pedidos-ingreso-reglas'
 import { ROTULO_ROL, type RolAlta } from '@/lib/agencia-altas'
 import { ALL_METRICS } from '@/app/admin/_polar/web/utils/metrics'
 import type { MetricaSlug } from './metricas'
 import type { PlanAlta } from './alta'
+import { leadDeClave, rutaDeQuienPaga, type ClienteEnRiesgo, type PropsAtRisk } from './clientes'
+import type { DisputaVenta } from './ventas'
 
 /** Lo que leyó el server: los datos, o por qué no se pudo. */
 export type Lectura<T> = { ok: true; datos: T } | { ok: false; error: string }
@@ -44,8 +48,15 @@ export const ID_WS = /^[1-9]\d{0,11}$/
 type Param = string | string[] | undefined
 const uno = (v: Param): string | undefined => (Array.isArray(v) ? v[0] : v)
 
-/** A dónde va un `/admin?tab=…` viejo. `null` = no es un link viejo: se dibuja Overview. */
-export function destinoDeTabViejo(sp: { tab?: Param; cliente?: Param; cuenta?: Param }): string | null {
+/**
+ * A dónde va un `/admin?tab=…` viejo. `null` = no es un link viejo: se dibuja Overview.
+ * ⚠️ `accounts` era un contrato de la Admin vieja (app/admin/pestanas-reglas.ts: «Su `?tab=accounts` se queda: lo nombran los
+ *    mails de "Quieren entrar"»). Sin negocio, es el link de esos mails: los pedidos viven en Overview, arriba de los widgets, y
+ *    no en Customers (revisión del Cerebro del 6/11/2026, punto 34). Con un negocio nombrado va a su ficha: por `cuenta` (el
+ *    «Administrar» de la ficha vieja) o por `ws` (los avisos de plan a mano, `linkApp('/admin?tab=accounts', ws)`). El `ws`
+ *    sólo arma el destino: la ficha vuelve a preguntar por el super admin.
+ */
+export function destinoDeTabViejo(sp: { tab?: Param; cliente?: Param; cuenta?: Param; ws?: Param }): string | null {
   const tab = uno(sp.tab)
   const ws = (v: Param) => {
     const s = uno(v)
@@ -61,8 +72,8 @@ export function destinoDeTabViejo(sp: { tab?: Param; cliente?: Param; cuenta?: P
       return n ? `/admin/customers/${n}` : '/admin/customers'
     }
     case 'accounts': {
-      const n = ws(sp.cuenta)
-      return n ? `/admin/customers/${n}` : '/admin/customers'
+      const n = ws(sp.cuenta) ?? ws(sp.ws)
+      return n ? `/admin/customers/${n}` : '/admin'
     }
     case 'billing':
       return '/admin/sales'
@@ -165,7 +176,8 @@ export function barrasDeIngresos(ing: Pick<IngresosResumen, 'meses' | 'hoy'>, n 
 
 // ── Top Customers ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ClienteTop = { clave: string; nombre: string; ws: number | null; pagos: number; totalCentavos: number }
+/** `href`: su ficha, o la del CRM si pagó sin cuenta de MaKo (`rutaDeQuienPaga`); `null` = nada que abrir. */
+export type ClienteTop = { clave: string; nombre: string; ws: number | null; leadId: number | null; pagos: number; totalCentavos: number; href: string | null }
 /** `parte`: el % de todo lo cobrado que pagaron los de la lista (`null` sin nada cobrado). */
 export type TopClientes = { filas: ClienteTop[]; parte: number | null }
 
@@ -174,16 +186,23 @@ export type TopClientes = { filas: ClienteTop[]; parte: number | null }
  * SIEMPRE (`ClienteResumen.total`), no por período: el titular dice «del total cobrado», no «de los últimos 12 meses».
  */
 export function topClientes(
-  clientes: ReadonlyArray<{ clave: string; nombre: string; ws: number | null; pagos: number; total: number }>,
+  clientes: ReadonlyArray<{ clave: string; nombre: string; ws: number | null; leadId?: number | null; pagos: number; total: number }>,
   cobradoTotal: number,
   n = 5,
+  plataforma: number | null = null,
 ): TopClientes {
   const filas = clientes
     .filter((c) => c.total > 0)
     .slice()
     .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre, 'es'))
     .slice(0, n)
-    .map((c) => ({ clave: c.clave, nombre: c.nombre, ws: c.ws, pagos: c.pagos, totalCentavos: aCentavos(c.total) }))
+    .map((c) => {
+      const leadId = c.leadId ?? leadDeClave(c.clave)
+      return {
+        clave: c.clave, nombre: c.nombre, ws: c.ws, leadId, pagos: c.pagos, totalCentavos: aCentavos(c.total),
+        href: rutaDeQuienPaga({ ws: c.ws, leadId }, plataforma),
+      }
+    })
   const suma = filas.reduce((s, c) => s + c.totalCentavos, 0)
   const total = aCentavos(cobradoTotal)
   return { filas, parte: total > 0 ? Math.round((suma / total) * 100) : null }
@@ -191,37 +210,32 @@ export function topClientes(
 
 // ── At Risk ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type MotivoRiesgo = 'pausado' | 'cobro' | 'sin-uso'
-export type FilaRiesgo = { ws: number; nombre: string; plan: string; motivo: string; mrrCentavos: number }
+/** Un negocio en riesgo de la tarjeta: el renglón de Customers › At Risk, con a dónde lleva. */
+export type FilaRiesgo = ClienteEnRiesgo & { href: string | null }
+/** `total` es el largo de la lista (la de la página At Risk, adonde lleva «Ver todo»): la tarjeta muestra las primeras. */
 export type Riesgo = { filas: FilaRiesgo[]; total: number }
 
-/** Lo que Polar escribe como «Past due» / «Cancels …», con los motivos de MaKo. */
-export function motivoDeRiesgoTxt(motivo: MotivoRiesgo, sinEntrar: number | null): string {
-  if (motivo === 'pausado') return 'Pausado'
-  if (motivo === 'cobro') return 'Cobro fallido'
-  return sinEntrar == null ? 'Nadie entró nunca' : `Sin entrar · ${haceTxt(sinEntrar).toLowerCase()}`
-}
-
-const PESO_RIESGO: Record<MotivoRiesgo, number> = { pausado: 0, cobro: 1, 'sin-uso': 2 }
-
-/** Los negocios en riesgo de `vistaDeClientes`, el más grave primero (y a igual motivo, el que más paga). */
-export function filasDeRiesgo(
-  filas: ReadonlyArray<{ ws: number; nombre: string; plan: string; riesgo: boolean; motivoRiesgo: MotivoRiesgo | null; sinEntrar: number | null; mrrUsd: number }>,
-): Riesgo {
-  const en = filas.filter((f): f is typeof f & { motivoRiesgo: MotivoRiesgo } => f.riesgo && f.motivoRiesgo != null)
-  const orden = en
-    .slice()
-    .sort((a, b) => PESO_RIESGO[a.motivoRiesgo] - PESO_RIESGO[b.motivoRiesgo] || b.mrrUsd - a.mrrUsd || a.nombre.localeCompare(b.nombre, 'es'))
-  return {
-    total: orden.length,
-    filas: orden.map((f) => ({ ws: f.ws, nombre: f.nombre, plan: f.plan, motivo: motivoDeRiesgoTxt(f.motivoRiesgo, f.sinEntrar), mrrCentavos: aCentavos(f.mrrUsd) })),
-  }
+/**
+ * La tarjeta At Risk: LA lista de Customers › At Risk (`vistaDeAtRisk`, ./clientes.ts), no una cuenta propia (revisión del
+ * Cerebro del 6/11/2026, punto 7: la tarjeta contaba pausados, cobros fallidos y sin uso, y escondía a los atrasados que la
+ * página sí cuenta, así que un cliente que debía salía en rojo en Por cobrar y al lado «Nada en riesgo»). Si falta una de las
+ * dos lecturas, es «no pude leer», como en la página: nunca «Nada en riesgo».
+ */
+export function riesgoDeOverview(v: Pick<PropsAtRisk, 'atRisk' | 'error'>, plataforma: number | null): Lectura<Riesgo> {
+  if (v.atRisk == null) return { ok: false, error: v.error ?? 'no se pudo leer' }
+  const filas = v.atRisk.map((c) => ({ ...c, href: rutaDeQuienPaga(c, plataforma) }))
+  return { ok: true, datos: { filas, total: filas.length } }
 }
 
 // ── Por cobrar (el «Available balance» de Polar) ─────────────────────────────────────────────────────────────────
 
-/** Un próximo cobro: de quién, cuándo vence y cuánto. `atrasado`: ya venció (hoy incluido) y no está completo. */
-export type FilaPorCobrar = { id: string; nombre: string; ws: number | null; fecha: string; cuando: string; atrasado: boolean; centavos: number; href: string | null }
+/**
+ * Un próximo cobro: de quién, cuándo vence y cuánto. `atrasado`: ya venció (hoy incluido) y no está completo. `href`: su ficha,
+ * o la del CRM si no tiene cuenta de MaKo (`rutaDeQuienPaga`); `null` = nada que abrir.
+ */
+export type FilaPorCobrar = {
+  id: string; nombre: string; ws: number | null; leadId: number | null; fecha: string; cuando: string; atrasado: boolean; centavos: number; href: string | null
+}
 /** `totalCentavos` es la suma de TODAS las filas (la lista no se corta: la tarjeta scrollea, como la de Polar). */
 export type PorCobrarResumen = { filas: FilaPorCobrar[]; totalCentavos: number }
 
@@ -233,25 +247,37 @@ export type PorCobrarResumen = { filas: FilaPorCobrar[]; totalCentavos: number }
  */
 export function porCobrarResumen(
   porCobrar: ReadonlyArray<PorCobrar>,
-  clientes: ReadonlyArray<{ clave: string; nombre: string; ws: number | null }>,
+  clientes: ReadonlyArray<{ clave: string; nombre: string; ws: number | null; leadId?: number | null }>,
   hoy: string,
+  plataforma: number | null = null,
 ): PorCobrarResumen {
   const quien = new Map(clientes.map((c) => [c.clave, c]))
   const filas = porCobrar.map((p, i): FilaPorCobrar => {
     const c = quien.get(p.cliente)
     const ws = c?.ws ?? wsDeClave(p.cliente)
+    const leadId = c?.leadId ?? leadDeClave(p.cliente)
     return {
       id: `${p.cliente}:${p.fecha}:${i}`,
       nombre: c?.nombre ?? (ws != null ? `Workspace ${ws}` : p.cliente),
       ws,
+      leadId,
       fecha: p.fecha,
       cuando: diaTxt(p.fecha, hoy),
       atrasado: p.atrasado,
       centavos: aCentavos(p.usd),
-      href: hrefDeCliente(ws),
+      href: rutaDeQuienPaga({ ws, leadId }, plataforma),
     }
   })
   return { filas, totalCentavos: filas.reduce((s, f) => s + f.centavos, 0) }
+}
+
+/**
+ * A dónde lleva «Ver todo» de Por cobrar: con algo atrasado, a las suscripciones atrasadas (`?status=past_due`), que es lo que
+ * hay que mirar; si no, a Subscriptions (revisión del Cerebro del 6/11/2026, punto 8: abría filtrada en «Activa» y escondía a
+ * los que deben).
+ */
+export function hrefDePorCobrar(r: Pick<PorCobrarResumen, 'filas'> | null): string {
+  return r?.filas.some((f) => f.atrasado) ? '/admin/sales/subscriptions?status=past_due' : '/admin/sales/subscriptions'
 }
 
 // ── Margen bruto (el «Gross margin» de Polar) ────────────────────────────────────────────────────────────────────
@@ -462,12 +488,31 @@ export type PedidoBaja = {
 export type { PlanAlta } from './alta'
 
 export type Esperan = {
+  /** Los contracargos que todavía piden algo (`disputasPorResponder`): se cuentan, la lista vive en Sales › Disputes. */
+  disputas: Lectura<{ porResponder: number }>
   ingreso: Lectura<{ pedidos: PedidoIngreso[]; hayMas: boolean }>
   /** ⚠️ lib/agencia.ts devuelve `[]` cuando no puede leer: acá no se distingue «no hay» de «no pude» (se anota). */
   agencias: { carteras: PedidoCartera[]; altas: PedidoAlta[] }
   bajas: Lectura<{ bajas: PedidoBaja[] }>
   planes: PlanAlta[]
   planPorDefecto: string
+}
+
+/**
+ * El texto con que Mercado Pago avisa un contracargo que está en revisión (`textoContracargo`, fase «mp», `in_process`). Es el
+ * ÚNICO texto de Mercado Pago que pide algo: `estadoDeDisputa` (./ventas.ts) dice `en_revision` de TODO texto de Mercado Pago,
+ * incluso del que ya se resolvió, y contarlos a todos dejaba el aviso prendido para siempre (revisión del Cerebro, punto 28).
+ */
+const MP_EN_REVISION = textoContracargo({ pasarela: 'mercadopago', fase: 'mp', estado: 'in_process' })
+
+/**
+ * Cuántos contracargos piden algo: los abiertos, los que ya descontaron la plata y el de Mercado Pago en revisión, de la MISMA
+ * lista que Sales › Disputes (`disputasDe`). Los ganados, perdidos, cerrados o con la plata devuelta no avisan.
+ */
+export function disputasPorResponder(disputas: ReadonlyArray<Pick<DisputaVenta, 'estado' | 'texto'>>): number {
+  return disputas.filter((d) =>
+    d.estado === 'abierta' || d.estado === 'plata_afuera' || (d.estado === 'en_revision' && d.texto.trim() === MP_EN_REVISION),
+  ).length
 }
 
 const nombreWs = (nombres: Readonly<Record<number, string>>, ws: number) => nombres[ws] ?? `Workspace ${ws}`
@@ -515,7 +560,11 @@ export function pedidosDeBaja(
   })
 }
 
-/** El título de cada banner (el `title` del `Alert` de Polar). `null` = no hay nada: el banner no se dibuja. */
+/** El título de cada fila de lo que espera. `null` = no hay nada: la fila no se dibuja. */
+export function tituloDeDisputas(n: number): string | null {
+  if (n <= 0) return null
+  return n === 1 ? 'Un cliente disputó un cargo' : `${n} clientes disputaron un cargo`
+}
 export function tituloDeIngreso(n: number): string | null {
   if (n <= 0) return null
   return n === 1 ? 'Una persona quiere entrar a MaKo' : `${n} personas quieren entrar a MaKo`
@@ -524,9 +573,56 @@ export function tituloDeAgencias(n: number): string | null {
   if (n <= 0) return null
   return n === 1 ? 'Una agencia espera tu firma' : `${n} pedidos de agencias esperan tu firma`
 }
-export function tituloDeBajas(n: number): string | null {
+/** Con alguna vencida, el dato que iba en la frase del aviso pasa al título («… · 1 vencida»; punto 38). */
+export function tituloDeBajas(n: number, vencidas = 0): string | null {
   if (n <= 0) return null
-  return n === 1 ? 'Una persona pidió eliminar su cuenta' : `${n} personas pidieron eliminar su cuenta`
+  const base = n === 1 ? 'Una persona pidió eliminar su cuenta' : `${n} personas pidieron eliminar su cuenta`
+  return vencidas > 0 ? `${base} · ${vencidas} ${vencidas === 1 ? 'vencida' : 'vencidas'}` : base
+}
+
+/**
+ * Las filas de lo que espera, en el orden en que se dibujan (revisión del Cerebro del 6/11/2026, puntos 28 y 38): UNA lista
+ * chica, una fila por espera, con el título a la izquierda y su botón a la derecha. Cada aviso de Polar medía unos 130 px, y con
+ * tres prendidos los widgets quedaban fuera de la primera pantalla. El contracargo va primero: es plata que se va. `peligro`: va
+ * en rojo (un contracargo, o una baja que se pasó del plazo). Lo que no se pudo leer no es una fila: va en el aviso de arriba
+ * (`faltasDeEspera`).
+ */
+export type ClaveEspera = 'disputas' | 'bajas' | 'agencias' | 'ingreso'
+export type FilaEspera = { clave: ClaveEspera; titulo: string; peligro: boolean; accion: string }
+
+export function filasDeEspera(e: Pick<Esperan, 'disputas' | 'bajas' | 'agencias' | 'ingreso'>): FilaEspera[] {
+  const filas: FilaEspera[] = []
+  const disputas = e.disputas.ok ? tituloDeDisputas(e.disputas.datos.porResponder) : null
+  if (disputas) filas.push({ clave: 'disputas', titulo: disputas, peligro: true, accion: 'Revisar' })
+  if (e.bajas.ok) {
+    const vencidas = e.bajas.datos.bajas.filter((b) => b.vencido).length
+    const t = tituloDeBajas(e.bajas.datos.bajas.length, vencidas)
+    if (t) filas.push({ clave: 'bajas', titulo: t, peligro: vencidas > 0, accion: 'Revisar' })
+  }
+  const agencias = tituloDeAgencias(e.agencias.carteras.length + e.agencias.altas.length)
+  if (agencias) filas.push({ clave: 'agencias', titulo: agencias, peligro: false, accion: 'Revisar' })
+  if (e.ingreso.ok) {
+    const n = e.ingreso.datos.pedidos.length
+    const t = tituloDeIngreso(n)
+    if (t) filas.push({ clave: 'ingreso', titulo: t, peligro: false, accion: n === 1 ? 'Ver el pedido' : 'Ver los pedidos' })
+  }
+  return filas
+}
+
+/** Una fila por clave (para que cada pieza dibuje la suya con la MISMA regla que la lista). */
+export const filaDeEspera = (e: Parameters<typeof filasDeEspera>[0], clave: ClaveEspera): FilaEspera | null =>
+  filasDeEspera(e).find((f) => f.clave === clave) ?? null
+
+/**
+ * Lo que no se pudo leer de lo que espera, dicho como lo dice el aviso de lectura («No pude leer …», `AvisosDeLectura`). Un
+ * «no pude leer» no es «no hay nadie»: si no, un pedido de entrar se perdería sin que nada lo dijera.
+ */
+export function faltasDeEspera(e: Pick<Esperan, 'disputas' | 'bajas' | 'ingreso'>): string[] {
+  return [
+    !e.disputas.ok ? `las disputas: ${e.disputas.error}` : null,
+    !e.bajas.ok ? `quién pidió eliminar su cuenta: ${e.bajas.error}` : null,
+    !e.ingreso.ok ? `quién quiere entrar: ${e.ingreso.error}` : null,
+  ].filter((x): x is string => x != null)
 }
 
 // ── Todo junto ────────────────────────────────────────────────────────────────────────────────────────────────────

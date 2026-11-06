@@ -15,13 +15,15 @@
 //     aparece acá;
 //   · el límite de 10 filas de `usePayouts`: la lista son TODOS los próximos cobros, así el número grande es la suma de lo que
 //     se ve (la tarjeta scrollea, como la de Polar).
-// «Ver todo» lleva a Sales › Subscriptions (donde está cada suscripción con su próximo cobro), no a Finance.
+// «Ver todo» lleva a Sales › Subscriptions (donde está cada suscripción con su próximo cobro), no a Finance; con algo
+// atrasado, filtrada en las atrasadas (`hrefDePorCobrar`, revisión del Cerebro del 6/11/2026, punto 8). Un cobro de un lead
+// sin cuenta de MaKo abre su ficha del CRM (punto 24).
 
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useRouter } from '@/app/_ui/Link'
-import type { Lectura, PorCobrarResumen } from '@/app/admin/_polar/datos/resumen'
+import { hrefDePorCobrar, type Lectura, type PorCobrarResumen } from '@/app/admin/_polar/datos/resumen'
 import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
@@ -49,7 +51,7 @@ export const AccountWidget = ({ className, porCobrar }: AccountWidgetProps) => {
           {total}
         </Text>
       }
-      action={<WidgetLink href="/admin/sales/subscriptions" />}
+      action={<WidgetLink href={hrefDePorCobrar(porCobrar.ok ? porCobrar.datos : null)} />}
       className={className}
     >
       {!porCobrar.ok ? (

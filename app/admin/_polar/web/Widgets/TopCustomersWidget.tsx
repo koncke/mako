@@ -4,8 +4,9 @@
 //
 // MaKo: los que más le pagaron a MaKo (los clientes de lib/admin-ingresos.ts, `topClientes` en
 // app/admin/_polar/datos/resumen.ts). ⚠️ Polar cuenta los últimos 12 meses; MaKo tiene lo pagado por cliente desde SIEMPRE,
-// así que el titular dice «del total cobrado». Un cliente sin cuenta de MaKo (un lead que pagó) no tiene ficha en
-// Customers: su fila no lleva link.
+// así que el titular dice «del total cobrado» (y «Ver todo» abre Top Customers desde siempre, con los mismos montos). Un
+// cliente sin cuenta de MaKo (un lead que pagó) abre su ficha del CRM de la plataforma; sin nada que abrir, la fila no es un
+// link (revisión del Cerebro del 6/11/2026, punto 24).
 
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Text } from '@/app/admin/_polar/orbit'
@@ -26,7 +27,6 @@ interface TopCustomersWidgetProps {
 
 export const TopCustomersWidget = ({ className, top }: TopCustomersWidgetProps) => {
   const router = useRouter()
-  const basePath = '/admin/customers'
   const customers = top.ok ? top.datos.filas : []
   const share = top.ok ? top.datos.parte : null
 
@@ -41,7 +41,7 @@ export const TopCustomersWidget = ({ className, top }: TopCustomersWidgetProps) 
           <Text color="muted">del total cobrado</Text>
         </Box>
       }
-      action={<WidgetLink href={`${basePath}/top`} />}
+      action={<WidgetLink href="/admin/customers/top" />}
       className={className}
     >
       {!top.ok ? (
@@ -60,7 +60,7 @@ export const TopCustomersWidget = ({ className, top }: TopCustomersWidgetProps) 
       ) : (
         <Box flexDirection="column" paddingBottom="m">
           {customers.map((customer) => (
-            <ListRow key={customer.clave} href={customer.ws != null ? `${basePath}/${customer.ws}` : undefined}>
+            <ListRow key={customer.clave} href={customer.href ?? undefined}>
               <Box alignItems="baseline" columnGap="s" minWidth={0}>
                 <Text truncate>{customer.nombre}</Text>
                 <Text color="muted">

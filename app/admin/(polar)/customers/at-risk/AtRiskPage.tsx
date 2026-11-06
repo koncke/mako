@@ -5,6 +5,8 @@
 // (`clientesEnRiesgo`, app/admin/_polar/datos/clientes.ts): un renglón por negocio, con su motivo más grave.
 // Debajo, «Para mirar» (decisión del Cerebro, 6/11/2026; `clientesParaMirar`): lo que pide atención sin ser un riesgo de cobro
 // (pago pendiente, fin de lo gratis, sin empezar, en prueba, nuevo), en una tabla con las mismas columnas. No suma al riesgo.
+// Es LA cuenta de riesgo: la tarjeta At Risk de la portada dibuja la misma lista (revisión del Cerebro del 6/11/2026, punto 7).
+// Un atrasado sin cuenta de MaKo abre su ficha del CRM; sin nada que abrir, la fila no es clicable (`rutaDeQuienPaga`, punto 24).
 
 import { CustomerCell } from '@/app/admin/_polar/web/Customer/CustomerCell'
 import { CustomersPageShell } from '@/app/admin/_polar/web/Customer/CustomersPageShell'
@@ -13,6 +15,7 @@ import { useClientSidePagination } from '@/app/admin/_polar/web/Customer/useClie
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   rutaDeNegocio,
+  rutaDeQuienPaga,
   type ClienteEnRiesgo,
   type ClienteParaMirar,
   type PropsAtRisk,
@@ -109,7 +112,7 @@ const ParaMirar = ({ items }: { items: ClienteParaMirar[] }) => {
   )
 }
 
-export const AtRiskPage = ({ atRisk, error, avisos, paraMirar }: PropsAtRisk) => {
+export const AtRiskPage = ({ atRisk, error, avisos, paraMirar, plataforma }: PropsAtRisk & { plataforma: number | null }) => {
   const router = useRouter()
   const items = atRisk ?? []
   const { pageItems, pagination, setPagination, rowCount, pageCount } =
@@ -145,10 +148,10 @@ export const AtRiskPage = ({ atRisk, error, avisos, paraMirar }: PropsAtRisk) =>
             pagination={pagination}
             onPaginationChange={setPagination}
             getRowId={(item) => item.clave}
+            isRowClickable={(row) => rutaDeQuienPaga(row.original, plataforma) != null}
             onRowClick={(row) => {
-              if (row.original.ws != null) {
-                router.push(rutaDeNegocio(row.original.ws))
-              }
+              const ruta = rutaDeQuienPaga(row.original, plataforma)
+              if (ruta) router.push(ruta)
             }}
           />
         </>

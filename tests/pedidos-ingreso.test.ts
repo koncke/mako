@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RUTA_QUIEREN_ENTRAR, altaDelPedido, detalleDelPedido, pedidoQueVuelve, textoDelCartel } from '../lib/pedidos-ingreso-reglas';
 import { inicialDeAlta } from '../app/admin/_polar/datos/alta';
+import { faltasDeEspera, filasDeEspera } from '../app/admin/_polar/datos/resumen';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -102,9 +103,12 @@ test('el cableado: la pantalla de login lo dice, sólo si quedó; la bandeja abr
   assert.match(bandeja, /<CreateCustomerModal\s+key=\{alta\.id\}\s+pedido=\{alta\}\s+opciones=\{opciones\}\s+onClose=\{\(\) => setAlta\(null\)\}\s+onCreated=\{\(\) => router\.refresh\(\)\}/, '«Dar de alta» abre el alta de siempre, con el pedido');
   assert.deepEqual(inicialDeAlta({ planes: [{ id: 'completo', nombre: 'Pro', descripcion: '', aviso: null }], planPorDefecto: 'completo' }, { email: 'ana@b.co', nombre: null }),
     { nombre: 'ana', email: 'ana@b.co', adminNombre: '', plan: 'completo' }, 'el alta trae lo del pedido (`altaDelPedido`)');
-  const iError = bandeja.indexOf("if (!lectura.ok) return <ErrorAlert title=\"No pude leer quién quiere entrar\"");
-  const iNadie = bandeja.indexOf('if (!title && !isShown && !alta) return null');
-  assert.ok(iError > 0 && iNadie > iError, 'sin nadie no se dibuja, pero un error sí');
+  // Desde la revisión del Cerebro del 6/11/2026 (punto 38) lo que espera es UNA lista, una fila por espera, y lo que no se pudo
+  // leer va en el aviso de lectura de arriba (`faltasDeEspera`): sin nadie no hay fila, y un error de lectura no es «nadie».
+  // Probado rompiéndolo (6/11/2026): `faltasDeEspera` sin la lectura de quién quiere entrar → 9/1 (este test); base 10/0.
+  const nada = { disputas: { ok: true as const, datos: { porResponder: 0 } }, bajas: { ok: true as const, datos: { bajas: [] } }, agencias: { carteras: [], altas: [] } };
+  assert.deepEqual(filasDeEspera({ ...nada, ingreso: { ok: true, datos: { pedidos: [], hayMas: false } } }), [], 'sin nadie no se dibuja');
+  assert.deepEqual(faltasDeEspera({ ...nada, ingreso: { ok: false, error: 'caída' } }), ['quién quiere entrar: caída'], 'pero un error sí');
   assert.doesNotMatch(bandeja, /dangerouslySetInnerHTML/, 'los datos los escribe quien pide');
 });
 

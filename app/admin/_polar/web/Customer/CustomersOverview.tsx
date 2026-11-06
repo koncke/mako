@@ -20,6 +20,9 @@ import { TopCustomersList } from './TopCustomersList'
 
 export type CustomersOverviewProps = PropsOverview
 
+/** Las columnas de las tres listas (Top Customers, At Risk, Cost Drivers): tantas como entren, de 210 px como mínimo. */
+export const COLUMNAS_OVERVIEW = 'repeat(auto-fit, minmax(210px, 1fr))'
+
 export const CustomersOverview = ({
   creados,
   desde,
@@ -49,13 +52,12 @@ export const CustomersOverview = ({
           interval={interval}
         />
         <Grid
-          // `minmax(0, 1fr)` como el `grid-cols-3` de Tailwind que usa Polar: con `1fr` a secas una columna no baja de su
-          // contenido y la tercera (Cost Drivers) se salía por la derecha a 1440 (medido en las capturas del 6/11/2026).
-          templateColumns={{
-            base: 'minmax(0, 1fr)',
-            md: 'minmax(0, 1fr)',
-            xl: 'repeat(3, minmax(0, 1fr))',
-          }}
+          // Las columnas dependen del LUGAR que queda, no de la ventana (revisión del Cerebro del 6/11/2026, punto 36): con
+          // `xl: repeat(3, …)` cada una medía 248 px a 1536 con la barra de MaKo plegada, 192 con la barra fija y 107 a 1280
+          // con la barra fija (unos 64 px para el nombre). Con `auto-fit` y un mínimo de 210 px entran tantas como quepan: a
+          // 1440 con la barra plegada el contenedor mide unos 744 px (3 × 216 + 2 × 48 de separación) y siguen siendo tres.
+          // Con 240 de mínimo ahí ya caían a dos. Lo fija tests/admin-polar-overview-customers.test.ts.
+          templateColumns={COLUMNAS_OVERVIEW}
           gap="3xl"
         >
           <Box flexDirection="column" rowGap="l">

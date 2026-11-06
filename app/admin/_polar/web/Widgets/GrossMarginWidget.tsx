@@ -2,7 +2,10 @@
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/GrossMarginWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: el margen de lo cobrado (lo mismo que suma Revenue, `vistaDeIngresos`) contra el gasto de IA que paga MaKo
+// MaKo: «AI margin», no «Gross margin» (revisión del Cerebro del 6/11/2026, puntos 12 y 39): el costo es SÓLO la IA pagada por
+// API con las claves de MaKo, sin los planes Max ni la infraestructura, así que un mes con todo gratis da 100% y eso no es lo
+// que gana MaKo. La leyenda lo dice. «Gross margin» vuelve cuando se puedan cargar los costos fijos.
+// El margen de lo cobrado (lo mismo que suma Revenue, `vistaDeIngresos`) contra el gasto de IA que paga MaKo
 // (lib/costos-ia.ts, el mismo total que Analytics › Costs), de los últimos 30 días y de cada uno de los cinco meses completos
 // de antes, como en Polar. Polar lo pedía con dos `useMetrics` (`revenue` y `costs`, por día y por mes); acá lo arma el server
 // de una lectura (app/admin/_polar/datos/resumen.ts, `margenBruto`) y llega por props. Lo que cambió:
@@ -21,7 +24,7 @@ import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
 
-const WIDGET_TITLE = 'Margen bruto'
+const WIDGET_TITLE = 'AI margin'
 
 interface GrossMarginWidgetProps {
   className?: string
@@ -41,7 +44,7 @@ export const GrossMarginWidget = ({ className, margen }: GrossMarginWidgetProps)
           <Text variant="heading-m" weight="book">
             {trailingMargin != null ? `${trailingMargin}%` : '–'}
           </Text>
-          <Text color="muted">Últimos {DIAS_MARGEN} días</Text>
+          <Text color="muted">Últimos {DIAS_MARGEN} días · sólo resta la IA por API</Text>
         </Box>
       }
       action={<WidgetLink href="/admin/analytics/costs" />}

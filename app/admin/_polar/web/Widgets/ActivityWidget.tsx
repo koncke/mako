@@ -15,7 +15,7 @@ import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
 
-const WIDGET_TITLE = 'Actividad'
+const WIDGET_TITLE = 'Activity'
 
 interface ActivityWidgetProps {
   className?: string

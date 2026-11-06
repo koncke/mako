@@ -3,30 +3,38 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/(home)/DisputesBanner.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // LO QUE ESPERA A MARTÍN, arriba de los widgets: donde Polar avisa el estado de la organización y las disputas por
-// responder, MaKo avisa quién pidió entrar, qué pidieron las agencias y quién pidió eliminar su cuenta. Cada banner es el
-// `Alert` de Polar (como `DisputesBanner`): dice cuántos hay y su acción abre un `Modal` con la lista y las acciones de
-// siempre, contra los mismos endpoints que usaban las pantallas viejas (app/admin/PedidosDeIngreso.tsx,
-// AprobacionesDeAgencia.tsx y BajasDeCuenta.tsx; se leyeron, no se importan):
+// responder, MaKo avisa un contracargo abierto, quién pidió eliminar su cuenta, qué pidieron las agencias y quién pidió
+// entrar. Polar usa un `Alert` por aviso (`DisputesBanner`); acá es UNA `List size="small"` con una fila por espera, el
+// título a la izquierda y su botón a la derecha, sin frase (revisión del Cerebro del 6/11/2026, punto 38: cada aviso medía
+// unos 130 px y con tres prendidos los widgets quedaban fuera de la primera pantalla). Las filas y su orden salen de
+// `filasDeEspera` (app/admin/_polar/datos/resumen.ts). La del contracargo va primera y lleva a Sales › Disputes (punto 28: el
+// aviso de Polar se había usado de molde y el original se perdió, y sin entrar a Disputes no se sabía). Las demás abren un
+// `Modal` con la lista y las acciones de siempre, contra los mismos endpoints que usaban las pantallas viejas
+// (app/admin/PedidosDeIngreso.tsx, AprobacionesDeAgencia.tsx y BajasDeCuenta.tsx; se leyeron, no se importan):
 //   · «Quieren entrar»: /api/admin/pedidos-ingreso (descartar) y, para dar de alta, EL formulario de Customers
 //     (`CreateCustomerModal`, que manda al alta de siempre: /api/admin/workspaces `crear`);
 //   · las agencias: /api/admin/agencia (dejar mirar a un cliente) y /api/admin/agencia/altas (sumar a alguien a su equipo);
 //   · las bajas: /api/admin/bajas-cuenta (cancelar, eliminar a la persona, cerrar el del negocio ya borrado). El negocio
 //     entero NO se borra desde acá: desde su ficha (Customers › <negocio>), con el nombre escrito a mano.
-// Las dos reglas que ya tenían: SIN NADA ESPERANDO, NO SE DIBUJA NADA; y un error de lectura NO es «no hay nadie»: se dice.
+// Las dos reglas que ya tenían: SIN NADA ESPERANDO, NO SE DIBUJA NADA; y un error de lectura NO es «no hay nadie»: se dice, en
+// el aviso de lectura de arriba («Puede faltar algo», `AvisosDeLectura`, el mismo de Customers; punto 42), no como una fila.
 // Lo que se lee viene del server (la portada); después de cada acción se vuelve a pedir la página (`router.refresh()`).
 
 import { Alert, Button, InlineModal, List, ListItem, Modal, Text } from '@/app/admin/_polar/orbit'
 import { useRouter } from '@/app/_ui/Link'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { CreateCustomerModal } from '@/app/admin/_polar/web/Customer/CreateCustomerModal'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import {
-  tituloDeAgencias,
-  tituloDeBajas,
-  tituloDeIngreso,
+  faltasDeEspera,
+  filaDeEspera,
+  filasDeEspera,
   type Esperan,
+  type FilaEspera,
   type PedidoIngreso,
 } from '@/app/admin/_polar/datos/resumen'
 import { useState, type ReactNode } from 'react'
+import { twMerge } from 'tailwind-merge'
 
 type Respuesta = { ok?: boolean; error?: string; aviso?: { tono: 'ok' | 'warn'; texto: string } }
 
@@ -47,14 +55,33 @@ const AvisoFila = ({ aviso }: { aviso: { tono: 'ok' | 'warn'; texto: string } })
   <Text color={aviso.tono === 'ok' ? 'success' : 'warning'}>{aviso.texto}</Text>
 )
 
-/** El cuerpo de cada modal: el título y la frase de Polar (`p-8`, como ConfirmModal) y la lista. */
-const CuerpoModal = ({ title, description, children }: { title: string; description: string; children: ReactNode }) => (
+/** El cuerpo de cada modal: el título, la frase de Polar si dice algo que el título no (`p-8`, como ConfirmModal) y la lista. */
+const CuerpoModal = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
   <div className="flex flex-col gap-y-4 p-8">
     <h3 className="text-xl font-medium">{title}</h3>
-    <p className="dark:text-polar-400 max-w-full text-sm text-gray-500">{description}</p>
+    {description && <p className="dark:text-polar-400 max-w-full text-sm text-gray-500">{description}</p>}
     {children}
   </div>
 )
+
+/** Una fila de la lista de lo que espera: el título a la izquierda (en rojo si es urgente) y su botón a la derecha. */
+const FilaDeEspera = ({ fila, onClick }: { fila: FilaEspera; onClick: () => void }) => (
+  <ListItem size="small">
+    <Text color={fila.peligro ? 'danger' : 'default'}>{fila.titulo}</Text>
+    <Button variant="secondary" size="sm" className="shrink-0" onClick={onClick}>
+      {fila.accion}
+    </Button>
+  </ListItem>
+)
+
+// ── Un contracargo ────────────────────────────────────────────────────────────────────────────────────────────────
+// Se cuenta acá y se resuelve en Sales › Disputes (con la misma lista, `disputasDe`): la fila sólo lleva ahí.
+
+const Disputas = ({ esperan }: { esperan: Esperan }) => {
+  const router = useRouter()
+  const fila = filaDeEspera(esperan, 'disputas')
+  return fila ? <FilaDeEspera fila={fila} onClick={() => router.push('/admin/sales/disputes')} /> : null
+}
 
 // ── Quieren entrar ────────────────────────────────────────────────────────────────────────────────────────────────
 // «Dar de alta» abre EL formulario de alta de Customers (`CreateCustomerModal`, Martín 6/11/2026: un solo formulario), con el
@@ -69,11 +96,12 @@ const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
   const [error, setError] = useState<string | null>(null)
   const lectura = esperan.ingreso
 
-  if (!lectura.ok) return <ErrorAlert title="No pude leer quién quiere entrar" error={lectura.error} />
+  // Lo que no se pudo leer lo dice el aviso de arriba (`faltasDeEspera`): una fila sin datos no tiene qué ofrecer.
+  if (!lectura.ok) return null
   const { pedidos, hayMas } = lectura.datos
-  const title = tituloDeIngreso(pedidos.length)
+  const fila = filaDeEspera(esperan, 'ingreso')
   // Sin nadie esperando no se dibuja; con un modal abierto se queda (el formulario, para leer el aviso de la última alta).
-  if (!title && !isShown && !alta) return null
+  if (!fila && !isShown && !alta) return null
 
   const descartar = async (p: PedidoIngreso) => {
     setOcupado(p.id)
@@ -94,23 +122,14 @@ const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
 
   return (
     <>
-      {title && (
-        <Alert
-          title={title}
-          description="Pidieron entrar y todavía no tienen cuenta. Dales de alta o descarta el pedido."
-          actions={[{ text: pedidos.length === 1 ? 'Ver el pedido' : 'Ver los pedidos', onClick: show }]}
-        />
-      )}
+      {fila && <FilaDeEspera fila={fila} onClick={show} />}
       <Modal
         title="Quieren entrar"
         className="lg:w-[720px]"
         isShown={isShown}
         hide={cerrar}
         modalContent={
-          <CuerpoModal
-            title="Quieren entrar"
-            description="Quien pidió entrar a MaKo y todavía no tiene cuenta. Al darle de alta, sale solo de esta lista."
-          >
+          <CuerpoModal title="Quieren entrar">
             {error && <ErrorAlert title="No se pudo descartar" error={error} />}
             {pedidos.length === 0 ? (
               <Text color="muted">Ya no queda nadie esperando.</Text>
@@ -174,8 +193,8 @@ const DeAgencias = ({ esperan }: { esperan: Esperan }) => {
   /** El resultado de la última firma, pegado a SU renglón (la clave del renglón). */
   const [aviso, setAviso] = useState<{ clave: string; aviso: { tono: 'ok' | 'warn'; texto: string } } | null>(null)
   const { carteras, altas } = esperan.agencias
-  const title = tituloDeAgencias(carteras.length + altas.length)
-  if (!title && !isShown) return null
+  const fila = filaDeEspera(esperan, 'agencias')
+  if (!fila && !isShown) return null
 
   const firmar = async (clave: string, url: string, body: unknown) => {
     setOcupado(clave)
@@ -196,13 +215,7 @@ const DeAgencias = ({ esperan }: { esperan: Esperan }) => {
 
   return (
     <>
-      {title && (
-        <Alert
-          title={title}
-          description="Una agencia quiere entrar al dashboard de un cliente suyo, o sumarle a alguien al equipo."
-          actions={[{ text: 'Revisar', onClick: show }]}
-        />
-      )}
+      {fila && <FilaDeEspera fila={fila} onClick={show} />}
       <Modal
         title="Pedidos de las agencias"
         className="lg:w-[720px]"
@@ -280,11 +293,12 @@ const Bajas = ({ esperan }: { esperan: Esperan }) => {
   const [aConfirmar, setAConfirmar] = useState<number | null>(null)
   const lectura = esperan.bajas
 
-  if (!lectura.ok) return <ErrorAlert title="No pude leer quién pidió eliminar su cuenta" error={lectura.error} />
+  // Lo que no se pudo leer lo dice el aviso de arriba (`faltasDeEspera`).
+  if (!lectura.ok) return null
   const { bajas } = lectura.datos
-  const title = tituloDeBajas(bajas.length)
-  if (!title && !isShown) return null
-  const vencidas = bajas.filter((b) => b.vencido).length
+  // Con alguna vencida, la fila lo dice en su título y va en rojo (`filasDeEspera`).
+  const fila = filaDeEspera(esperan, 'bajas')
+  if (!fila && !isShown) return null
 
   const accion = async (id: number, que: 'cancelar' | 'eliminar-persona' | 'terminar') => {
     setOcupado(id)
@@ -303,20 +317,7 @@ const Bajas = ({ esperan }: { esperan: Esperan }) => {
 
   return (
     <>
-      {title && (
-        <Alert
-          variant={vencidas > 0 ? 'danger' : 'warning'}
-          /* Es una urgencia, no un error: sin «Reportar a Soporte». */
-          soporte={false}
-          title={title}
-          description={
-            vencidas > 0
-              ? `${vencidas === 1 ? 'Una ya se pasó' : `${vencidas} ya se pasaron`} del plazo que le dijimos.`
-              : 'Le dijimos una fecha: hay que borrarla antes de que venza.'
-          }
-          actions={[{ text: 'Revisar', onClick: show }]}
-        />
-      )}
+      {fila && <FilaDeEspera fila={fila} onClick={show} />}
       <Modal
         title="Pidieron eliminar su cuenta"
         className="lg:w-[720px]"
@@ -382,23 +383,24 @@ const Bajas = ({ esperan }: { esperan: Esperan }) => {
 }
 
 /**
- * Los banners de lo que espera a Martín, y arriba lo que no se pudo leer del todo. Sin nada (ni un error de lectura), no se
- * dibuja ninguno, y la caja tampoco ocupa lugar (`empty:hidden`: en Polar cada banner es un hermano del cuerpo, que separa
- * con `gap-y-16`; tres juntos van más cerca). Cada banner queda montado con su modal abierto aunque el último pedido se
- * haya resuelto: el aviso de la última acción (el acceso que no salió, con su link) tiene que poder leerse.
+ * Lo que espera a Martín: arriba lo que no se pudo leer (el aviso de lectura, aparte), y debajo UNA lista con una fila por
+ * espera, el contracargo primero. Sin nada (ni una fila ni un aviso), no ocupa lugar: la caja queda `hidden`, y una caja que
+ * no se muestra no suma el espacio entre secciones del cuerpo. Cada pieza queda MONTADA aunque no tenga fila: su modal (que se
+ * dibuja en un portal) sigue abierto si el último pedido se resolvió, porque el aviso de la última acción (el acceso que no
+ * salió, con su link) tiene que poder leerse.
  */
-export const EsperaBanners = ({ esperan, avisos }: { esperan: Esperan; avisos: string[] }) => (
-  <div className="flex flex-col gap-y-4 empty:hidden">
-    {avisos.length > 0 && (
-      <Alert
-        variant="warning"
-        soporte
-        title="No pude leer todo: lo que ves puede quedarse corto"
-        description={avisos.join(' · ')}
-      />
-    )}
-    <Bajas esperan={esperan} />
-    <DeAgencias esperan={esperan} />
-    <QuierenEntrar esperan={esperan} />
-  </div>
-)
+export const EsperaBanners = ({ esperan, avisos }: { esperan: Esperan; avisos: string[] }) => {
+  const filas = filasDeEspera(esperan)
+  const faltas = [...faltasDeEspera(esperan), ...avisos]
+  return (
+    <div className={twMerge('flex flex-col gap-y-4', filas.length === 0 && faltas.length === 0 && 'hidden')}>
+      <AvisosDeLectura avisos={faltas} />
+      <List size="small" className={filas.length === 0 ? 'hidden' : undefined}>
+        <Disputas esperan={esperan} />
+        <Bajas esperan={esperan} />
+        <DeAgencias esperan={esperan} />
+        <QuierenEntrar esperan={esperan} />
+      </List>
+    </div>
+  )
+}

@@ -10,7 +10,11 @@ interface EmptyStateProps {
   title: string
   description: string
   actions?: (ButtonProps & { text: string })[]
-  /** Grow to fill the parent's remaining space, e.g. to match sibling list heights. */
+  /**
+   * Grow to fill the parent's remaining space, e.g. to match sibling list heights. MaKo: con `fill` el relleno baja a `xl`
+   * (revisión del Cerebro del 6/11/2026, punto 36): adentro de una columna de unos 210 px, el `3xl` de Polar dejaba el texto
+   * en una tira de 114 px.
+   */
   fill?: boolean
 }
 
@@ -31,7 +35,7 @@ export const EmptyState = ({
       borderWidth={1}
       borderStyle="solid"
       borderColor="border-primary"
-      padding="3xl"
+      padding={fill ? 'xl' : '3xl'}
       flexGrow={fill ? 1 : undefined}
     >
       <div className="dark:text-polar-500 text-5xl text-gray-500">{icon}</div>
