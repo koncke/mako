@@ -568,6 +568,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/customers',
   },
+  {
+    fecha: '6 nov', hora: '08:07', chat: 'Admin', sesion: 'cli_a2afc90c-6245-54ef-9c4f-239cdad34edb', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los 43 arreglos de la revisión del Cerebro: la plata cierra entre pantallas y cada cosa tiene un solo lugar',
+    puntos: [
+      'La plata: devolver un pago devuelve ESE pago (una renovación se devuelve desde la pasarela), cada pago lleva su recibo, un pago devuelto sigue en Orders, «Cargar pago» registra el pago en el CRM del cliente (mig 0408, sin aplicar) y un pago de la noche cae en su día.',
+      'Lo que paga por mes es la mensualidad, la misma en la ficha, el MRR y Subscriptions; Por cobrar no pierde a quien debe a los 15 días; Subscriptions muestra a los atrasados primero, con Por mes y Debe.',
+      'Overview: At Risk es la misma cuenta que su página; un contracargo avisa arriba; la tarjeta de margen se llama AI margin y dice qué resta. Metrics, Costs y Usage ya no corren las fechas un día en Argentina.',
+      'Cost Drivers reparte el gasto por negocio desde el 1/11, con Claude de MaKo en una línea aparte. Events separa lo que MaKo leyó de lo que hizo, y «N eventos hoy» coincide con su filtro.',
+      'Settings › Members: el equipo de MaKo, los admins y las personas sin negocio. Members agrega, muda y elimina personas, y suspender pide confirmación. La ficha dice el plan y cómo está en palabras, y su Activity.',
+      'Settings guarda lo escrito aunque se salga enseguida y no pisa lo de la otra pantalla; los precios dicen «Guardado». Finance › Income es el libro de los pedidos de Orders.',
+      'Cada página tiene su pantalla de carga, la barra no precarga todo, los filtros de Sales no releen el server, /admin pliega la barra de MaKo, ⌘K dice cuando no pudo leer, y «Vender» arma un link nuevo.',
+      'Comparado con Polar de nuevo, a 1440 y 390 en oscuro y en claro; un revisor aparte confirmó el segundo factor y que todo /admin es del super admin.',
+    ],
+    commits: [
+      { sha: 'b29817d0', msg: 'Admin › Analytics y gasto de IA: puntos 5, 11, 12, 13, 33, 39, 40, 42 y 43 de la revisión del Cerebro', lineas: 1462, archivos: 34 },
+      { sha: 'f1e2e810', msg: 'Admin › Overview y Customers: los puntos 7, 8, 12, 24, 28, 29, 34, 35, 36, 38, 39, 41 y 42 de la revisión del Cerebro', lineas: 1196, archivos: 26 },
+      { sha: 'c2b28448', msg: 'Admin: la carga, la búsqueda, «Vender», copiar y la URL sin ir al server (puntos 21, 23, 24, 31, 32 y 37)', lineas: 1282, archivos: 26 },
+      { sha: 'a4ff907f', msg: 'Admin › la ficha de un negocio, sus personas y Settings: los puntos 15, 16, 18, 20, 22, 25, 27, 30, 39, 41 y 42 de la revisión', lineas: 1951, archivos: 37 },
+      { sha: 'b45ce098', msg: 'Admin › Sales y Finance: la plata de la revisión del 6/11 (puntos 1-4, 6, 8-10, 17, 19, 26, 41-43 y 24)', lineas: 1885, archivos: 43 },
+      { sha: '16301cf4', msg: 'Admin: el pago devuelto también redirige desde el layout, antes del loader', lineas: 40, archivos: 6 },
+      { sha: '3b8120c6', msg: 'Admin: las capturas después de los arreglos, y Members sin pisar la columna 2FA', lineas: 13, archivos: 71 },
+    ],
+    archivos: [
+      'docs/admin/revision-cerebro-6-11.md — los 43 arreglos; docs/relevo/nube-admin-polar.md — cómo quedó cada sección',
+      'app/admin/_polar/datos/ventas.ts y lib/admin-ingresos-reglas.ts — pedidos, recibos, mensualidad y Por cobrar',
+      'app/admin/_polar/datos/personas.ts — qué persona va a la ficha y cuál a Settings › Members',
+      'app/admin/(polar)/layout-reglas.ts — las redirecciones que el layout repite antes del loader',
+      'supabase/migrations/0408_recibo_pagos_pago.sql — sin aplicar',
+    ],
+    revisar: '/admin',
+  },
 ];
 
 export const PARTES: Parte[] = [
