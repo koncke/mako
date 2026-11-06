@@ -40,11 +40,14 @@ import { RUTA_INICIO, rutaDiseno } from './ruta';
 import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarCarruseles';
 import { FranjaCarruseles } from './carruseles/FranjaCarruseles';
 import { useCarruselesDeImage } from './carruseles/useCarruselesDeImage';
+import { MiniaturaTarjetaDiseno } from './MiniaturaDiseno';
+import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
 import type { FiltrosCarrusel } from '@/lib/carruseles/explorar';
 import chat from './mako/chat/chat.module.css';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
 
+const EjemploPlantillaImagen = dynamic(() => import('./EjemploPlantillaImagen').then((m) => m.EjemploPlantillaImagen), { ssr: false });
 const PantallaEditor = dynamic(() => import('./editor/PantallaEditor').then((m) => m.PantallaEditor), { ssr: false });
 
 const SIN_HILO: Hilo = { mensajes: [], corriendo: false };
@@ -172,6 +175,31 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
   }, [onPlantilla]);
   const carruseles = useCarruselesDeImage({ negocio, kit, crearPlantilla });
 
+  // Las plantillas reales (6/11/2026, lib/image-editor/plantillas-reales.ts): la tarjeta dibuja la ESTRUCTURA que se crea y
+  // «Ver ejemplo» abre la misma composición llena, de un negocio ficticio. Los carruseles siguen con lo suyo.
+  const estructuras = useMemo(() => {
+    let n = 0;
+    const out = new Map<string, DocumentoDoory>();
+    for (const p of PLANTILLAS_NUEVO_DISENO) {
+      const real = p.real ? plantillaImagen(p.real) : null;
+      if (real) out.set(p.id, real.estructura(() => `t${++n}`));
+    }
+    return out;
+  }, []);
+  const [ejemploReal, setEjemploReal] = useState<{ tarjeta: string; real: string } | null>(null);
+  const miniaturaCarrusel = carruseles.miniatura;
+  const miniatura = useCallback((p: { id: string; nombre: string }) => {
+    const doc = estructuras.get(p.id);
+    return doc ? <MiniaturaTarjetaDiseno doc={doc} nombre={p.nombre} /> : miniaturaCarrusel(p);
+  }, [estructuras, miniaturaCarrusel]);
+  const verEjemploCarrusel = carruseles.onVerEjemplo;
+  const onVerEjemplo = useCallback((p: { id: string }) => {
+    const real = PLANTILLAS_NUEVO_DISENO.find((x) => x.id === p.id)?.real;
+    if (real) setEjemploReal({ tarjeta: p.id, real });
+    else verEjemploCarrusel(p);
+  }, [verEjemploCarrusel]);
+  const plantillaDelEjemplo = ejemploReal ? plantillaImagen(ejemploReal.real) : null;
+
   const onTitulo = useCallback((t: string) => { if (abierto) conTitulo(abierto, t); }, [abierto, conTitulo]);
   const alAbrir = useCallback((a: EditorAbierto | null) => { editor.current = a; }, []);
 
@@ -189,8 +217,8 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       pieLista={aviso ? <p role="alert" style={{ margin: 0, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></p> : null}
       plantillas={plantillasNuevo}
       onPlantilla={onPlantilla}
-      miniatura={carruseles.miniatura}
-      onVerEjemplo={carruseles.onVerEjemplo}
+      miniatura={miniatura}
+      onVerEjemplo={onVerEjemplo}
       ejemplos={EJEMPLOS_NUEVO_DISENO}
       // Arriba de las plantillas, los carruseles que mejor les funcionan a las cuentas que sigue el negocio (4/11/2026).
       arribaDePlantillas={vista === 'carruseles' ? null : <FranjaCarruseles />}
@@ -213,6 +241,9 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       ) : null}
     </PantallaCrear>
     {carruseles.dialogos}
+    {ejemploReal && plantillaDelEjemplo && (
+      <EjemploPlantillaImagen p={plantillaDelEjemplo} alSalir={() => setEjemploReal(null)} alUsar={() => crearPlantilla(ejemploReal.tarjeta)} />
+    )}
     <ModalGuardarPlantilla tipo="formato_imagen" de={comoPlantilla} alSalir={() => setComoPlantilla(null)} alGuardar={propias.recargar} />
     </>
   );
