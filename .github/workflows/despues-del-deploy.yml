@@ -159,8 +159,14 @@ jobs:
           exit $alarma
 
       # ── LOS MINUTOS DEL MES (6/11/2026) ───────────────────────────────────────────────────────────────────────────────
-      # El tope de gasto de Actions (US$30) se agotó una vez, y con el tope agotado ninguna punta llega a main. Esto lo avisa al 80 %:
-      # una ESTIMACIÓN por la duración de cada corrida (el dato real es el panel de facturación, que el GITHUB_TOKEN no puede leer).
+      # El tope de gasto de Actions (US$30) se agotó una vez, y con el tope agotado ninguna punta llega a main. Esto lo avisa al 80 %.
+      #
+      # ⚠️ EL ROJO SALE DEL NÚMERO DE GITHUB, NO DE LA ESTIMACIÓN (arreglado el 6/11/2026). Hasta ese día esto daba rojo TODOS los
+      # días: estimaba US$52,07 contra US$15,94 del panel (3,3x). Dos cosas lo causaban, y las dos estaban acá:
+      #   · `ACTIONS_INCLUIDOS: '0'` — el plan Free del repo privado trae 2.000 minutos incluidos (AGENTS.md) y se cobraban todos.
+      #   · la estimación por duración de la corrida sobre-cuenta ~1,9x (incluye la cola y los huecos entre jobs; GitHub factura
+      #     por JOB). Ahora el script lee el facturable REAL en `/actions/workflows/{id}/timing` y la alarma juzga ESE número.
+      # No se tocó el umbral del 80 %: subirlo apaga el síntoma y deja la alarma mintiendo.
       # El tope, el precio y los minutos incluidos se pueden cambiar con variables del repo (Settings → Variables) sin tocar esto.
       - name: ¿Cuántos minutos de Actions van este mes?
         if: "!cancelled()"
@@ -169,6 +175,6 @@ jobs:
           REPO: ${{ github.repository }}
           ACTIONS_TOPE_USD: ${{ vars.ACTIONS_TOPE_USD || '30' }}
           ACTIONS_PRECIO_MIN: ${{ vars.ACTIONS_PRECIO_MIN || '0.006' }}
-          ACTIONS_INCLUIDOS: ${{ vars.ACTIONS_INCLUIDOS || '0' }}
+          ACTIONS_INCLUIDOS: ${{ vars.ACTIONS_INCLUIDOS || '2000' }}
         run: |
           node scripts/minutos-actions.mjs --repo "$REPO" --alarma 80 --resumen "$GITHUB_STEP_SUMMARY"

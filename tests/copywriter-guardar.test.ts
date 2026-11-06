@@ -49,6 +49,16 @@ test('70 guiones con títulos largos entran en el índice, y un índice que fall
   assert.equal(h.docsDespues, h.docsAntes, 'cada crear fallido dejaba un documento que nadie ve');
 });
 
+test('B7: si la escritura del índice LLEGA y el cliente ve un corte, el documento NO se borra', () => {
+  // `cambiarIndice` devuelve `falla(500)` cuando `cambiarSettingSi` tira, y un timeout cuya escritura sí llegó deja la
+  // fila puesta. Antes, `crear` leía ese fallo como «no se escribió», borraba el documento, y la página quedaba en la
+  // lista abriendo «No existe» sobre un texto recién escrito. Ahora `crear` vuelve a leer el índice antes de borrar.
+  const c = correr().cortado as { crear: string; filas: number; abre: string };
+  assert.equal(c.filas, 1, 'la fila tiene que estar UNA vez en el árbol (la escritura llegó, y el reintento no la duplica)');
+  assert.equal(c.abre, 'abre', 'la página quedó en la lista y el documento se había borrado: abría «No existe»');
+  assert.equal(c.crear, 'ok', 'la creación salió (la fila está): devolver un error deja a la pantalla mintiendo');
+});
+
 test('ninguna URL pasa el tope de PostgREST, y nada sale a la red', () => {
   const s = correr();
   assert.ok((s.urlMasLarga as number) <= 8_000, `la URL más larga midió ${s.urlMasLarga}: un valor largo viajó en la URL`);

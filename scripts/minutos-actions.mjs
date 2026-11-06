@@ -6,20 +6,32 @@
 // de gasto de Actions (US$30) se agotó una vez, y con el tope agotado NINGUNA punta llega a main. Esto da el desglose que se midió
 // ese día a mano, y lo corre el vigía de .github/workflows/despues-del-deploy.yml con `--alarma 80` (rojo al 80 % del tope).
 //
-// ⚠️ ES UNA ESTIMACIÓN, por la duración de cada corrida (`run_started_at` → `updated_at`). El dato real es el panel de facturación
-// de GitHub (Settings → Billing), que el GITHUB_TOKEN de Actions no puede leer. Dos números:
-//   · «reloj»: la suma de las duraciones, como se midió el 6/11 (4.495 min del 1 al 6/11).
-//   · «facturable»: cada corrida redondeada al minuto (GitHub factura cada JOB redondeado), 0 si se salteó o duró menos de
-//     10 s (ningún job llegó a correr: una corrida cancelada en la cola, o con todos sus jobs salteados por su `if`). Un workflow
-//     con varios jobs en paralelo factura más que esto: los de este repo corren un job por corrida.
+// ⚠️ LA ALARMA JUZGA EL NÚMERO DE GITHUB, NO LA ESTIMACIÓN (arreglado el 6/11/2026; antes daba rojo todos los días).
+// GitHub publica los minutos facturables de verdad en `/actions/workflows/{id}/timing` (`billable.<runner>.total_ms`, el CICLO
+// de facturación en curso) y en `/actions/runs/{id}/timing`. Los lee el `GITHUB_TOKEN` con `actions: read` — son endpoints de
+// Actions, no de facturación. Es un pedido por workflow (siete en este repo), no uno por corrida.
+//
+// ⚠️ **La cabecera vieja decía que ese número «el GITHUB_TOKEN de Actions no puede leer», y era FALSO.** Lo que no puede leer es
+// el panel de Settings → Billing; el facturable por workflow sí. Esa frase es la razón por la que la alarma pasó días mintiendo:
+// todos creían que el número bueno no se podía conseguir. El repo ya usaba el endpoint por corrida en otra parte
+// (`scripts/tests-afectados.mjs`), así que estaba a la vista.
+//
+// Tres números, y sólo el primero manda:
+//   · «facturable REAL»: lo que dice GitHub por workflow. Es el único sobre el que la alarma da ROJO.
+//   · «reloj»: la suma de las duraciones de las corridas (`run_started_at` → `updated_at`), para el desglose por día.
+//   · «facturable estimado»: cada corrida redondeada al minuto, 0 si se salteó o duró menos de 10 s. **Sobre-cuenta ~1,9x**
+//     porque la duración de la CORRIDA incluye la cola y los huecos entre jobs, y GitHub factura por JOB. Medido el 6/11:
+//     estimaba 8.678 min (US$52,07) contra US$15,94 del panel. Sirve para el desglose; no para juzgar.
+//
 // El costo es `max(0, facturable − incluidos) × precio`: US$0,006 el minuto del runner Linux de 2 núcleos (AGENTS.md), y los
-// minutos incluidos del plan en 0 a propósito (si hay, la estimación avisa antes de tiempo, nunca tarde).
+// minutos incluidos del plan son 2.000 (AGENTS.md: el repo es privado de la cuenta Free `hola-mako`). Estaban en 0 «para avisar
+// antes de tiempo»: no avisaba antes, avisaba SIEMPRE, que es lo mismo que no avisar.
 //
 // Uso:
 //   GH_TOKEN=… node scripts/minutos-actions.mjs                     # el mes en curso (UTC), koncke/mako
 //   node scripts/minutos-actions.mjs --desde 2026-11-01 --hasta 2026-11-06
 //   node scripts/minutos-actions.mjs --alarma 80 --resumen "$GITHUB_STEP_SUMMARY"   # el vigía: rojo (exit 1) al 80 % del tope
-// Opciones: --repo dueño/nombre · --tope 30 · --precio 0.006 · --incluidos 0 · --json. También por entorno: ACTIONS_TOPE_USD,
+// Opciones: --repo dueño/nombre · --tope 30 · --precio 0.006 · --incluidos 2000 · --json. También por entorno: ACTIONS_TOPE_USD,
 // ACTIONS_PRECIO_MIN, ACTIONS_INCLUIDOS. El token: GH_TOKEN, GITHUB_TOKEN o `gh auth token`.
 //
 // ⚠️ La API de corridas devuelve como mucho 1.000 resultados por búsqueda: se pide DÍA por DÍA, y un día con más se vuelve a pedir
@@ -113,11 +125,19 @@ export function texto(r, o) {
   l.push('|---|---:|---:|---:|');
   for (const [d, x] of r.porDia) l.push(`| ${d} | ${x.corridas} | ${num(x.reloj)} | ${num(x.facturable)} |`);
   l.push('');
-  l.push(`- Costo estimado: **${usd(r.costo)}** de un tope de ${usd(r.tope)} (${Math.round(r.pct)} %), a ${usd(o.precio)} el minuto y con ${num(o.incluidos)} minutos incluidos.`);
-  l.push(`- Ritmo de los últimos días: ${num(r.ritmoDiario)} min/día → el mes cerraría en ~${num(r.proyeccion.facturable)} min (${usd(r.proyeccion.costo)}).`);
+  if (o.real?.ok) {
+    l.push('| Workflow | Min. facturables REALES (GitHub, ciclo en curso) |');
+    l.push('|---|---:|');
+    for (const [w, min] of o.real.porWorkflow) l.push(`| ${w} | ${num(min)} |`);
+    l.push(`| **Total** | **${num(o.real.totalMin)}** |`);
+    l.push('');
+  }
+  l.push(...(o.lineasDelVeredicto ?? []).filter((x) => !x.startsWith('::')));
+  l.push(`- Estimado por duración: ${num(r.facturable)} min (${usd(r.costo)} a ${usd(o.precio)} el minuto, con ${num(o.incluidos)} incluidos). **Sobre-cuenta ~1,9x**: la duración de la corrida incluye la cola y los huecos entre jobs, y GitHub factura por job.`);
+  l.push(`- Ritmo de los últimos días: ${num(r.ritmoDiario)} min/día → el mes cerraría en ~${num(r.proyeccion.facturable)} min estimados (${usd(r.proyeccion.costo)}), o sea un techo.`);
   if (r.enCurso) l.push(`- ${r.enCurso} corrida(s) en curso no cuentan todavía.`);
   if (o.incompletos?.length) l.push(`- ⚠️ Días con más corridas de las que la API devuelve (cuentan de menos): ${o.incompletos.join(', ')}.`);
-  l.push('- Es una estimación por la duración de cada corrida: el dato real es el panel de facturación de GitHub.');
+  if (!o.real?.ok) l.push(`- ⚠️ Sin el facturable real de GitHub (${o.real?.motivo ?? 'no se pidió'}): acá abajo sólo hay estimación.`);
   return l.join('\n');
 }
 
@@ -133,7 +153,11 @@ async function pedir(base, ruta, tk) {
     headers: { Authorization: `Bearer ${tk}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
     signal: AbortSignal.timeout(30_000),
   });
-  if (!r.ok) throw new Error(`GitHub ${r.status} en ${ruta}`);
+  // El cuerpo de una respuesta que no se lee queda abierto: se cancela antes de tirar el error (higiene, no el crash de abajo).
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ya estaba cerrado */ }
+    throw new Error(`GitHub ${r.status} en ${ruta}`);
+  }
   return r.json();
 }
 
@@ -169,6 +193,56 @@ export async function leerCorridas({ base, repo, desde, hasta, tk }) {
   return { runs, incompletos };
 }
 
+/**
+ * Los minutos FACTURABLES de verdad, los que dice GitHub: un pedido a `/actions/workflows/{id}/timing` por workflow.
+ * ⚠️ Cubre el CICLO DE FACTURACIÓN en curso, no el `--desde/--hasta` del desglose: es el número que hay que comparar con el tope.
+ * Si no se puede leer, devuelve `{ ok: false, motivo }` y el que llama NO da rojo (la palabra rojo es para algo confirmado).
+ */
+export async function leerFacturableReal({ base, repo, tk }) {
+  let workflows;
+  try {
+    workflows = (await pedir(base, `/repos/${repo}/actions/workflows?per_page=100`, tk)).workflows ?? [];
+  } catch (e) {
+    return { ok: false, motivo: `no pude listar los workflows (${e instanceof Error ? e.message : e})` };
+  }
+  const porWorkflow = [];
+  let totalMin = 0;
+  for (const w of workflows) {
+    let t;
+    try { t = await pedir(base, `/repos/${repo}/actions/workflows/${w.id}/timing`, tk); }
+    catch (e) { return { ok: false, motivo: `no pude leer el facturable de «${w.name}» (${e instanceof Error ? e.message : e})` }; }
+    const ms = Object.values(t?.billable ?? {}).reduce((s, b) => s + (Number(b?.total_ms) || 0), 0);
+    const min = ms / 60_000;
+    if (min > 0) porWorkflow.push([w.name || w.path || String(w.id), min]);
+    totalMin += min;
+  }
+  porWorkflow.sort((a, b) => b[1] - a[1]);
+  return { ok: true, porWorkflow, totalMin };
+}
+
+/**
+ * Qué decir y con qué color. La alarma da ROJO sólo sobre el facturable REAL de GitHub; sobre la estimación, nunca.
+ * Devuelve { codigo, lineas }: codigo 1 es rojo, 0 es verde o amarillo.
+ */
+export function veredicto({ real, estimado, incluidos, precio, tope, alarma, proyeccion }) {
+  const lineas = [];
+  if (!real?.ok) {
+    lineas.push(`::warning::Sólo tengo la ESTIMACIÓN (${usd(Math.max(0, estimado - incluidos) * precio)} de ${usd(tope)}): ${real?.motivo ?? 'no pude leer el facturable de GitHub'}. No doy rojo sobre un número que sé que sobre-cuenta ~1,9x.`);
+    return { codigo: 0, lineas };
+  }
+  const costo = Math.max(0, real.totalMin - incluidos) * precio;
+  const pct = tope > 0 ? (costo / tope) * 100 : 0;
+  lineas.push(`- Facturable REAL de GitHub (ciclo en curso): **${num(real.totalMin)} min** → ${usd(costo)} de un tope de ${usd(tope)} (${Math.round(pct)} %), descontando ${num(incluidos)} minutos incluidos.`);
+  if (alarma != null && pct >= alarma) {
+    lineas.push(`::error::Actions va en ${usd(costo)} de ${usd(tope)} en este ciclo (${Math.round(pct)} %, el número de GitHub). Al llegar al tope, ninguna punta llega a main: juntá los cambios en una punta por tema, o Martín sube el tope en Settings → Billing.`);
+    return { codigo: 1, lineas };
+  }
+  if (proyeccion != null && proyeccion >= tope) {
+    lineas.push(`::warning::Al ritmo de los últimos días el mes cierra arriba del tope de ${usd(tope)} (proyección sobre la estimación, que sobre-cuenta: tomala como un techo).`);
+  }
+  return { codigo: 0, lineas };
+}
+
 function args(argv) {
   const o = {};
   for (let i = 0; i < argv.length; i++) {
@@ -190,7 +264,8 @@ async function main() {
     hasta: hoy,
     tope: Number(a.tope ?? process.env.ACTIONS_TOPE_USD ?? 30),
     precio: Number(a.precio ?? process.env.ACTIONS_PRECIO_MIN ?? 0.006),
-    incluidos: Number(a.incluidos ?? process.env.ACTIONS_INCLUIDOS ?? 0),
+    // 2.000: el plan Free del repo privado `hola-mako` (AGENTS.md). En 0 la alarma daba rojo todos los días.
+    incluidos: Number(a.incluidos ?? process.env.ACTIONS_INCLUIDOS ?? 2000),
     hoy,
   };
   const alarma = a.alarma != null ? Number(a.alarma) : null;
@@ -204,20 +279,25 @@ async function main() {
     return 0;
   }
   const r = resumir(leido.runs, o);
-  const t = texto(r, { ...o, incompletos: leido.incompletos });
-  if (a.json) console.log(JSON.stringify({ ...o, ...r, incompletos: leido.incompletos }, null, 2));
+  // El número que juzga la alarma es el de GitHub, no el nuestro. Si no se puede leer, no hay rojo.
+  const real = await leerFacturableReal({ base: process.env.GITHUB_API_URL || 'https://api.github.com', repo: o.repo, tk });
+  const v = veredicto({ real, estimado: r.facturable, incluidos: o.incluidos, precio: o.precio, tope: o.tope, alarma, proyeccion: r.proyeccion.costo });
+  const t = texto(r, { ...o, incompletos: leido.incompletos, real, lineasDelVeredicto: v.lineas });
+  if (a.json) console.log(JSON.stringify({ ...o, ...r, real, incompletos: leido.incompletos }, null, 2));
   else console.log(t);
   if (a.resumen) { try { appendFileSync(a.resumen, `${t}\n`); } catch { /* el resumen es un favor */ } }
-  if (alarma != null && r.pct >= alarma) {
-    console.log(`::error::Actions va en ${usd(r.costo)} de ${usd(r.tope)} este mes (${Math.round(r.pct)} %, estimado). Al llegar al tope, ninguna punta llega a main: subí el tope en Settings → Billing o juntá las puntas.`);
-    return 1;
-  }
-  if (r.proyeccion.costo >= r.tope) {
-    console.log(`::warning::Al ritmo de los últimos días el mes cierra en ~${usd(r.proyeccion.costo)}, arriba del tope de ${usd(r.tope)} (estimado).`);
-  }
-  return 0;
+  for (const linea of v.lineas) if (linea.startsWith('::')) console.log(linea);
+  return v.codigo;
 }
 
+// ⚠️ `process.exitCode`, NUNCA `process.exit()`: con un `fetch` previo que usó `AbortSignal.timeout`, el exit forzado revienta
+// en Windows con «Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94» y un código de salida
+// 3221226505 (0xC0000409). Node 24.17.0. Reproducido el 6/11/2026 con cuatro fetch y un process.exit(0), sin nada de este repo:
+// el timer del AbortSignal se está cerrando cuando el exit forzado lo pisa. En Linux (el vigía) no pasa; en la notebook sí, y
+// hacía fallar al test con el script funcionando perfecto. Con `exitCode` el proceso termina solo, en el mismo tiempo.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().then((c) => process.exit(c), (e) => { console.log(`::warning::minutos-actions falló: ${e instanceof Error ? e.message : e}`); process.exit(0); });
+  main().then(
+    (c) => { process.exitCode = c; },
+    (e) => { console.log(`::warning::minutos-actions falló: ${e instanceof Error ? e.message : e}`); process.exitCode = 0; },
+  );
 }
