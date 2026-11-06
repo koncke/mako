@@ -199,6 +199,7 @@ const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
 const InstagramVivo = dynamic(() => import('./disenos/InstagramVivo'));
 const AnuncioVivo = dynamic(() => import('./disenos/AnuncioVivo'));
 const HooksVivo = dynamic(() => import('./disenos/HooksVivo'));
+const VslVivo = dynamic(() => import('./disenos/VslVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1745,6 +1746,14 @@ export function EditorInforme({
               // «Hooks y retención» con su DISEÑO PROPIO (la copia de Ondra, ./disenos/HojaHooks.tsx): los datos de sus componentes y lo
               // que escribió MaKo en su caja de IA; un guion abre su pop-up, y un avatar, lo de siempre de su pieza.
               <HooksVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'vsl' && !enGrilla && !editando && !dueno ? (
+              // «VSL y YouTube» con su DISEÑO PROPIO (la copia de Pelago, ./disenos/HojaVsl.tsx): los datos de sus componentes y lo que
+              // escribió MaKo en su caja de IA; un video o un día abre lo de siempre de su pieza.
+              <VslVivo
                 hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}

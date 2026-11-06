@@ -1,0 +1,54 @@
+// =============================================================================
+// POST /api/image-editor/carruseles/replicar — «Editar» un carrusel (o un anuncio) de ejemplo, armándose en vivo (6/11/2026)
+// =============================================================================
+// POST json {id, pedido?} → NDJSON: una línea por evento (lib/carruseles/replica.ts, `EventoReplica`): `leer`, `escribir`, una
+// `lamina` por página ya armada (la pantalla la dibuja apenas llega) y `fin` con el id del diseño. Copiado de «Replicar» del
+// Web Generator (app/api/landing-generator/replicar/route.ts): la misma forma de stream y el mismo `maxDuration`.
+//
+// Lo que corre (las láminas, la IA DEL NEGOCIO con visión, su foto, el diseño): lib/carruseles/replica-servidor.ts. La IA va
+// adentro de `conSuIADelNegocio` (allá), nunca con la de la plataforma.
+//
+// La puerta es la del Image Editor (`puerta`: sesión, admin con la tab en su capa y un workspace). Va detrás de la sesión (NO
+// está en lib/rutas-publicas.ts) y el proxy le exige Origin propio al POST. El id se vuelve a leer de la base del negocio.
+
+import type { NextRequest } from 'next/server';
+import { runWithWorkspace } from '@/lib/workspace';
+import { puerta } from '@/lib/image-editor/server';
+import { rateLimit } from '@/lib/rate-limit';
+import { replicarCarrusel } from '@/lib/carruseles/replica-servidor';
+import { lineaDeEvento } from '@/lib/carruseles/replica';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+// La visión de hasta 10 láminas con la IA del negocio tarda de 20 a 90 s; el tope de la IA es 120 s.
+export const maxDuration = 300;
+
+const fallo = (error: string, status: number) =>
+  Response.json({ ok: false, error }, { status, headers: { 'cache-control': 'no-store' } });
+
+export async function POST(req: NextRequest) {
+  const p = await puerta();
+  if (p instanceof Response) return p;
+  if (!rateLimit(`image-editor:replicar:${p.ws}`, 12, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
+  const body = (await req.json().catch(() => null)) as { id?: unknown; pedido?: unknown } | null;
+  const id = Number(body?.id);
+  if (!Number.isSafeInteger(id) || id === 0) return fallo('Falta el carrusel.', 400);
+  const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
+
+  const enc = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(ctrl) {
+      const mandar = (linea: string) => { try { ctrl.enqueue(enc.encode(linea)); } catch { /* se cerró */ } };
+      try {
+        const r = await runWithWorkspace(p.ws, () => replicarCarrusel(p.ws, p.quien, id, { pedido, alEvento: (e) => mandar(lineaDeEvento(e)) }));
+        if (!r.ok) mandar(lineaDeEvento({ fase: 'fin', ok: false, error: r.error, conectar: r.conectar ?? null }));
+      } catch (e) {
+        console.error('[carruseles] replicar:', e instanceof Error ? e.message : e);
+        mandar(lineaDeEvento({ fase: 'fin', ok: false, error: 'No pude armar el diseño. Vuelve a intentar.' }));
+      } finally {
+        try { ctrl.close(); } catch { /* ya cerrado */ }
+      }
+    },
+  });
+  return new Response(stream, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' } });
+}

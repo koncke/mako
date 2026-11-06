@@ -24,9 +24,16 @@
 // En una PAUSA entre dos palabras sigue resaltada la última que se dijo (como CapCut
 // y las apps de subtítulos tipo karaoke): si se apagara en cada silencio, el resaltado
 // parpadearía entre palabra y palabra.
+//
+// Las PALABRAS CLAVE («Resaltar palabras clave automáticamente», ../subtitles/claves.ts)
+// van por el mismo camino: son índices de palabras con su color, fijos (no dependen del
+// tiempo), y no necesitan tiempos por palabra. Sin karaoke y sin claves, null: el dibujo
+// va por el camino de siempre.
 
 import {
+	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
+	PARAM_CLAVES_COLOR,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
@@ -36,9 +43,14 @@ import {
 	leerCodificadas,
 	PARAM_PALABRAS,
 } from "@/app/video-editor/_opencut/subtitles/palabras";
+import { indicesDeClaves, PARAM_CLAVES, palabrasDelTexto } from "@/app/video-editor/_opencut/subtitles/claves";
 
 export type ResaltadoTexto = {
-	modo: "palabra" | "frase";
+	/**
+	 * «ninguno» = sin karaoke (no hay modo, o el texto no tiene tiempos que valgan) pero
+	 * con palabras clave: el dibujo pinta sólo las claves.
+	 */
+	modo: "palabra" | "frase" | "ninguno";
 	/**
 	 * La palabra que se está diciendo (o la última que se dijo, en una pausa), contada
 	 * entre las palabras del TEXTO en orden (las muletillas no están en el texto y no
@@ -51,6 +63,13 @@ export type ResaltadoTexto = {
 	color: string;
 	/** 0–1: la opacidad de las que todavía no se dijeron (1 = sin efecto). */
 	noDichas: number;
+	/**
+	 * «Resaltar palabras clave» (subtitles/claves.ts): qué palabras del texto (contadas en
+	 * orden) van con `claveColor` todo el tiempo. Vacío = ninguna.
+	 */
+	claves: readonly number[];
+	/** El color de las palabras clave (hex). */
+	claveColor: string;
 };
 
 /**
@@ -105,7 +124,7 @@ export function tieneTiemposPorPalabra(params: Readonly<Record<string, unknown>>
  * (desde su `startTime`) y `recorteInicio` su `trimStart`, los dos en segundos: las
  * palabras van relativas al origen del recorte, así que la mitad derecha de un
  * «Dividir» (que corre el `trimStart`) sigue resaltando donde se dijo cada palabra.
- * Null si el modo es «Ninguno» o el texto no tiene tiempos por palabra que valgan.
+ * Null si no hay karaoke que valga (modo «Ninguno» o sin tiempos por palabra) NI palabras clave.
  */
 export function resaltadoDe({
 	params,
@@ -116,10 +135,20 @@ export function resaltadoDe({
 	tiempo: number;
 	recorteInicio: number;
 }): ResaltadoTexto | null {
-	const modo = params[PARAM_RESALTAR];
-	if (modo !== "palabra" && modo !== "frase") return null;
-	const inicios = iniciosDePalabras(String(params.content ?? ""), params[PARAM_PALABRAS]);
-	if (!inicios || inicios.length === 0) return null;
+	const contenido = String(params.content ?? "");
+	// Las palabras clave no necesitan tiempos: un subtítulo importado (.srt) también las lleva.
+	const claves = indicesDeClaves(contenido, params[PARAM_CLAVES]);
+	const colorClave = params[PARAM_CLAVES_COLOR];
+	const claveColor = typeof colorClave === "string" && colorClave ? colorClave : DEFAULTS_CLAVES.color;
+	const crudo = params[PARAM_RESALTAR];
+	const modo = crudo === "palabra" || crudo === "frase" ? crudo : null;
+	const inicios = modo ? iniciosDePalabras(contenido, params[PARAM_PALABRAS]) : null;
+	if (!modo || !inicios || inicios.length === 0) {
+		if (claves.length === 0) return null;
+		// Sólo las claves: todo cuenta como dicho (nada se atenúa) y ninguna es «la que se dice».
+		const total = palabrasDelTexto(contenido).length;
+		return { modo: "ninguno", actual: -1, dichas: total, color: DEFAULTS_RESALTADO.color, noDichas: 1, claves, claveColor };
+	}
 
 	// Cuántas ya empezaron: se cuentan en ORDEN y se corta en la primera que falta,
 	// así lo dicho es siempre un comienzo del texto (Whisper las da en orden).
@@ -138,12 +167,25 @@ export function resaltadoDe({
 			typeof opacidad === "number" && Number.isFinite(opacidad)
 				? Math.min(1, Math.max(0, opacidad / 100))
 				: DEFAULTS_RESALTADO.noDichasOpacidad / 100,
+		claves,
+		claveColor,
 	};
 }
 
 /** ¿La palabra `palabra` va con el color de lo pronunciado? */
 export function vaResaltada(r: ResaltadoTexto, palabra: number): boolean {
+	if (r.modo === "ninguno") return false;
 	return r.modo === "palabra" ? palabra === r.actual : palabra < r.dichas;
+}
+
+/**
+ * El color de una palabra: la que se dice (karaoke) gana, después la clave, y si no el
+ * del texto. Así una clave se ve también mientras se dice, con el color del karaoke.
+ */
+export function colorDePalabra(r: ResaltadoTexto, palabra: number, colorTexto: string): string {
+	if (vaResaltada(r, palabra)) return r.color;
+	if (r.claves.includes(palabra)) return r.claveColor;
+	return colorTexto;
 }
 
 // ── Contar las palabras sobre lo que se dibuja ───────────────────────────────

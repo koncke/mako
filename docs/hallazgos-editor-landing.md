@@ -4088,3 +4088,16 @@ lib/api-mako/areas/landing-contenido.helpers.ts. Test: tests/bloques-venta-landi
 
 **Regla:** un bloque que afirma algo de afuera (una fecha, una compra, un número) sale sólo con el dato que cargó el negocio.
 La cuenta regresiva tiene UNA fecha para todos: nunca un reloj por visitante que vuelve a empezar.
+
+## El carrusel 4:5 en el Web Generator (6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **Pedido** (Leila 5/11): el carrusel 4:5 existía en Image (lib/carruseles/) y no en el Web Generator.
+- **Una tabla, no una por pantalla:** `FORMA_DE` y `ANCHO_DIAPO_EM` (lib/editor-landing/api-tipos.ts) los leen la pantalla, las
+  miniaturas, la tira de secciones, Presentar, el PDF y el PowerPoint. Con la relación escrita en cada una, la quinta se olvida.
+- **Trampa 1:** una diapositiva vertical con el ancho de la horizontal (64,5 em) no entra en la pantalla: la 4:5 va a 43 em, y la
+  miniatura deriva `--gm-base` de ESE ancho (`100cqw / 43`). Con un ancho para todas, la miniatura salía cortada.
+- **Trampa 2:** pptxgenjs sólo trae sus layouts: la 4:5 pide `pptx.defineLayout(…)` ANTES de `pptx.layout = …`. Al revés, el
+  archivo sale en 16:9 sin un error.
+- **Trampa 3:** el acento de arriba de la tarjeta (`gm-tarjeta`) se come el alto de una vertical: la 4:5 no lo lleva.
+
+**Vive en:** lib/editor-landing/api-tipos.ts, lib/editor-landing/css.ts, lib/editor-landing/exportar-pptx.ts, app/web-generator/editor/Presentar.tsx, app/web-generator/MiniaturaLanding.tsx, tests/editor-landing-carrusel-45.test.ts

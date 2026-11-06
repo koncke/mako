@@ -15,13 +15,22 @@ import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina } from '../../_ui/Ajustes';
 import { EXTENSION_URL_TIENDA, VERSION_EN_TIENDA } from '@/lib/extension-tienda';
-import { InstalarApp } from './InstalarApp';
+import { InstalarApp, ParaQueSirve, VER_ESCRITORIO } from './InstalarApp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function InstalarPage() {
+export default async function InstalarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs(['closer', 'setter']);
+  // `?ver=escritorio`: «Para qué sirve» MaKo en la computadora (6/11/2026). Lo lee el server: un link copiado abre lo mismo.
+  if ((await searchParams).ver === VER_ESCRITORIO) {
+    const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
+    return (
+      <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'instalar')} activa="instalar">
+        <ParaQueSirve />
+      </AjustesPagina>
+    );
+  }
   // La raíz de MaKo, sin pantalla ni `?ws=`: el teléfono la abre con su versión (proxy → /m) y entra a
   // la cuenta de quien escanea, no a la que esta computadora esté mirando.
   const url = APP_BASE_URL;

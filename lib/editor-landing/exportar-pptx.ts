@@ -49,14 +49,21 @@ export const ALTO_DIAPO = 5.625;
 export type Caja = { x: number; y: number; w: number; h: number };
 
 /** El tamaño de la diapositiva (pulgadas) y el layout de pptxgenjs que le corresponde. */
-export type TamanoDiapo = { w: number; h: number; layout: 'LAYOUT_16x9' | 'LAYOUT_4x3' };
+export type TamanoDiapo = { w: number; h: number; layout: 'LAYOUT_16x9' | 'LAYOUT_4x3' | 'LAYOUT_4x5' };
 export const DIAPO_16x9: TamanoDiapo = { w: ANCHO_DIAPO, h: ALTO_DIAPO, layout: 'LAYOUT_16x9' };
 export const DIAPO_4x3: TamanoDiapo = { w: ANCHO_DIAPO, h: 7.5, layout: 'LAYOUT_4x3' };
+/**
+ * 4:5, un carrusel (6/11/2026): pptxgenjs no trae ese layout, así que se define (`defineLayout` en `exportarPptx`). El mismo
+ * ancho que los otros dos, para que los márgenes en pulgadas de `cajasDeDiseno` den igual; lo que crece es el alto.
+ */
+export const DIAPO_4x5: TamanoDiapo = { w: ANCHO_DIAPO, h: 12.5, layout: 'LAYOUT_4x5' };
 
-/** El tamaño según la configuración: 4:3 sólo en una presentación de 4:3; todo lo demás, 16:9. */
+/** El tamaño según la configuración: 4:3 y 4:5 sólo en una presentación de esa forma; todo lo demás, 16:9. */
 export function tamanoDiapo(config: Pick<ConfigLanding, 'formato' | 'proporcion'> | null | undefined): TamanoDiapo {
   const r = relacionDe(config);
-  return r !== null && Math.abs(r - 4 / 3) < 0.01 ? DIAPO_4x3 : DIAPO_16x9;
+  if (r !== null && Math.abs(r - 4 / 3) < 0.01) return DIAPO_4x3;
+  if (r !== null && Math.abs(r - 4 / 5) < 0.01) return DIAPO_4x5;
+  return DIAPO_16x9;
 }
 
 export type Trozo = {
@@ -500,6 +507,7 @@ export async function exportarPptx(op: {
   const { default: PptxGenJS } = await import('pptxgenjs');
   const pptx = new PptxGenJS();
   const tam = tamanoDiapo(op.config);
+  if (tam.layout === 'LAYOUT_4x5') pptx.defineLayout({ name: 'LAYOUT_4x5', width: tam.w, height: tam.h });
   pptx.layout = tam.layout;
   pptx.title = op.titulo;
   const diapos = modeloDiapositivas(op.elegidas, op.tema, tam);

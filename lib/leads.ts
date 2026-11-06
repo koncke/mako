@@ -65,6 +65,7 @@ import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqV
 import type { VentaTipo } from './venta-tipo';
 import type { EntradaSocial } from './canal-social';
 import { faltaColumnaNuevaDelAlta, sinColumnasNuevas, traeColumnasNuevas } from './lead-alta-columnas';
+import { INDICE_ID_EXTERNO, LeadYaMigradoError } from './migracion-leads';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
@@ -304,6 +305,11 @@ export type Lead = {
   deal_obligaciones?: { cliente?: string[]; prestador?: string[] } | null;
   facturado_por_id?: number | null;
 
+  // De dónde se migró (mig 0405, lib/migracion-leads.ts). Opcionales: una base sin la migración no las trae.
+  id_externo?: string | null;
+  migrado_de?: string | null;
+  fecha_original?: string | null;
+
   created_at: string;
   updated_at: string;
 };
@@ -361,6 +367,15 @@ export type LeadCreateInput = {
   pagina_registro?: string | null;
   /** Cómo entró por Instagram o Messenger (`entradaSocialDe`, mig 0290_lead_entrada). */
   entrada_social?: EntradaSocial | null;
+  /**
+   * El id que el contacto tenía en el CRM del que se migra (mig 0405, lib/migracion-leads.ts). Con él, volver a migrar
+   * NO lo repite: `createLead` tira `LeadYaMigradoError` si ya hay un lead con ese id (dentro de su `migrado_de`).
+   */
+  id_externo?: string | null;
+  /** El CRM del que se migra («GoHighLevel»): el mismo id en dos CRM viejos son dos personas. */
+  migrado_de?: string | null;
+  /** Cuándo se creó el contacto en el CRM anterior (ISO). `created_at` sigue siendo cuándo entró a MaKo. */
+  fecha_original?: string | null;
 };
 
 export type LeadUpdateInput = {
@@ -1015,6 +1030,20 @@ async function casaParaElAlta(supabase: SupabaseClient, pedido: number | null | 
   }
 }
 
+/**
+ * El lead que ya tiene ese id del CRM viejo, en ESTE negocio (getTenantDb pone el `workspace_id`), o null.
+ * «No pude leer» TIRA: contestar «no está» con la base caída es crear a la misma persona dos veces.
+ */
+export async function leadPorIdExterno(migradoDe: string | null, idExterno: string): Promise<number | null> {
+  const db = await getTenantDb();
+  let q = db.from('leads').select('id').eq('id_externo', idExterno);
+  q = migradoDe ? q.eq('migrado_de', migradoDe) : q.is('migrado_de', null);
+  const { data, error } = await q.limit(1);
+  if (error) throw new Error(`No pude buscar el contacto ${idExterno} por su id del CRM anterior: ${error.message}`);
+  const fila = ((data ?? []) as Array<{ id: number | string }>)[0];
+  return fila ? Number(fila.id) : null;
+}
+
 export async function createLead(input: LeadCreateInput & {
   permitirDuplicado?: boolean;
   /**
@@ -1027,6 +1056,15 @@ export async function createLead(input: LeadCreateInput & {
   const sinNombrePermitido = input.nombreOpcional === true && !!(input.telefono?.trim() || input.email?.trim());
   if ((!input.nombre || !input.nombre.trim()) && !sinNombrePermitido) {
     throw new Error('Nombre es requerido');
+  }
+  // ⚠️ EL ID DEL CRM VIEJO VA ANTES QUE LOS DUPLICADOS (la migración de Thiago, 6/11/2026): volver a mandar un lote tiene
+  // que contestar «ya estaba», que es un hecho, y no «se parece a otro», que es una sospecha para una persona. Y es más
+  // fuerte que `permitirDuplicado`: aquél apaga la sospecha, éste no se apaga.
+  const idExterno = input.id_externo?.trim() || null;
+  const migradoDe = input.migrado_de?.trim() || null;
+  if (idExterno) {
+    const ya = await leadPorIdExterno(migradoDe, idExterno);
+    if (ya != null) throw new LeadYaMigradoError(ya, idExterno);
   }
   if (!input.permitirDuplicado) {
     const dup = await duplicadosDeLead(input);
@@ -1080,10 +1118,20 @@ export async function createLead(input: LeadCreateInput & {
       // Instagram o Messenger. Sólo si vino, y con el reintento de abajo si la migración no llegó.
       ...(input.pagina_registro?.trim() ? { pagina_registro: input.pagina_registro.trim() } : {}),
       ...(input.entrada_social ? { entrada_social: input.entrada_social } : {}),
+      // Lo de la migración (mig 0405): SÓLO SI VINO, así un alta de siempre no nombra columnas que pueden faltar. Y NO va
+      // a `sinColumnasNuevas`: un migrado sin su id no se puede volver a migrar sin repetirse, así que sin la columna tira.
+      ...(idExterno ? { id_externo: idExterno } : {}),
+      ...(migradoDe ? { migrado_de: migradoDe } : {}),
+      ...(input.fecha_original ? { fecha_original: input.fecha_original } : {}),
       ...(solo ? { setter: solo, closer: solo } : {}),
   };
   const insertar = (f: Record<string, unknown>) => supabase.from('leads').insert(f).select('*').single();
   let { data, error } = await insertar(fila);
+  // Dos altas con el mismo id del CRM viejo a la vez: la segunda choca con el índice de la 0405 y es «ya estaba».
+  if (error && idExterno && error.code === '23505' && String(error.message ?? '').includes(INDICE_ID_EXTERNO)) {
+    const ya = await leadPorIdExterno(migradoDe, idExterno);
+    if (ya != null) throw new LeadYaMigradoError(ya, idExterno);
+  }
   // ⚠️ SIN LA MIGRACIÓN, EL LEAD ENTRA IGUAL (lib/lead-alta-columnas.ts): un deploy que llega antes que
   // la 0290_lead_entrada no puede mandar cada opt-in a propuesta ni perder el lead de un DM. Una sola
   // vez, y sólo si lo que falta es una de ESAS columnas.
@@ -2679,9 +2727,14 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
  * Engagement del VSL para VARIOS visitors en UNA sola query (evita el N+1 de
  * llamar getVslEngagement por lead en un loop). Devuelve un Map por visitor_id;
  * los visitors sin filas no aparecen (el caller los trata como 'sin_datos').
+ *
+ * `estricto`: si la lectura falla, TIRA en vez de devolver el mapa vacío. Lo usa quien DECIDE con esto (el motor de
+ * Automations: la cohorte «vio poco el VSL» y la condición «No reprodujo el VSL»). Con el mapa vacío, una base caída
+ * hacía que TODOS «no lo vieron» y les salía el mensaje (6/11/2026, docs/hallazgos-chatbot.md). La pantalla sigue tolerante.
  */
 export async function getVslEngagementMap(
   visitorIds: Array<string | null>,
+  opts: { estricto?: boolean } = {},
 ): Promise<Map<string, VslEngagement>> {
   const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
   const map = new Map<string, VslEngagement>();
@@ -2707,6 +2760,7 @@ export async function getVslEngagementMap(
     durs = d;
   } catch (e) {
     console.error(`[getVslEngagementMap] falló: ${e instanceof Error ? e.message : String(e)}`);
+    if (opts.estricto) throw e;
     return map;
   }
   type Fila = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null };

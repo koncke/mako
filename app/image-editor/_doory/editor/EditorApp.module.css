@@ -61,6 +61,10 @@
   display: flex;
   flex-direction: row;
   background: var(--cv-chrome);
+  /* El ancho del editor, para que el panel de herramientas decida por ÉL y no por la ventana (chrome/ToolHost.module.css).
+     Sin nombre a propósito: un módulo CSS puede renombrar un `container-name` y la consulta del otro archivo no lo encuentra
+     (medido en el banco: con nombre no aplicaba). El panel es hijo directo de este cuerpo: es su contenedor más cercano. */
+  container-type: inline-size;
 }
 
 /* El área del lienzo: relativa para que la barra del objeto flote arriba sobre el lienzo. */

@@ -11,6 +11,7 @@ import { getTenantDb } from '@/lib/workspace';
 import { enviarTexto, enviarMedia, enviarAudio } from '@/lib/evolution';
 import { subirMediaSaliente, extDeMime } from '@/lib/evolution-media';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
+import { estadoTrasFallarEnvio, TEXTO_BORRADOR_INCIERTO } from '@/lib/chats-envio-reglas';
 
 const ahoraISO = () => new Date().toISOString();
 
@@ -348,7 +349,7 @@ export async function listBorradores(): Promise<Borrador[]> {
 // Envía un borrador pendiente (setter, 1 clic) y lo marca enviado. CLAIM ATÓMICO:
 // el UPDATE ... WHERE estado='pendiente' hace la exclusión mutua en la DB, así
 // dos setters (o un doble-clic) no mandan el mismo mensaje dos veces al lead.
-export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok: boolean; error?: string }> {
+export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok: boolean; error?: string; incierto?: boolean }> {
   const supabase = await getTenantDb();
   const { data: claimed } = await supabase.from('wa_borradores')
     .update({ estado: 'enviando' })
@@ -367,8 +368,13 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
     // ⚠️ La vista previa se lee APARTE del claim: pedir la columna ahí, sin la migración aplicada, frenaría todo borrador.
     : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name, sinVistaPrevia: await borradorSinVistaPrevia(supabase, b.id), quien: 'persona' });
   if (!r.ok) {
-    // Falló el envío → devolvemos el borrador a 'pendiente' para reintentar.
-    await supabase.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', id);
+    // Falló el envío: vuelve a 'pendiente' para reintentar SÓLO si seguro no salió. Un corte por tiempo pudo haber
+    // entregado el mensaje: queda 'incierto' y nadie lo vuelve a mandar desde la bandeja (`estadoTrasFallarEnvio`).
+    const estado = estadoTrasFallarEnvio(r.error);
+    // El «incierto» lleva la hora y quién: pudo haber salido, así que cuenta para el tope de respuestas solas por 24 h y para
+    // el goteo (lo leen por `enviado_at`/`enviado_por`). Sin eso, MaKo podía pasarse del tope (la revisión del 6/11/2026).
+    await supabase.from('wa_borradores').update(estado === 'incierto' ? { estado, enviado_at: ahoraISO(), enviado_por: porEmail } : { estado }).eq('id', id);
+    if (estado === 'incierto') return { ok: false, incierto: true, error: TEXTO_BORRADOR_INCIERTO };
     return { ok: false, error: r.error };
   }
   await supabase.from('wa_borradores').update({ estado: 'enviado', enviado_at: ahoraISO(), enviado_por: porEmail }).eq('id', id);

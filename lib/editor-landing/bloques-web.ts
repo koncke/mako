@@ -20,6 +20,7 @@
 // =============================================================================
 
 import type { JsonNodo } from './doc';
+import { FORMA_DE, formaFija, type ProporcionFija } from './api-tipos';
 
 export type Abrir = { titulo: string; href: string };
 
@@ -34,7 +35,7 @@ export type BloqueLanding = {
   /** La dirección pública (la del dominio propio verificado si tiene uno), o null si no está en internet. */
   url: string | null;
   /** Lo que dibuja la miniatura (MiniaturaLanding): la primera sección y el tema. */
-  miniatura: { tarjeta: JsonNodo | null; tema: string; proporcion: '16:9' | '4:3' | null };
+  miniatura: { tarjeta: JsonNodo | null; tema: string; proporcion: ProporcionFija | null };
   /** «Nueva», «Copia», «Replicada»: corto, en una píldora (además del estado). */
   nota?: string;
   abrir: Abrir;
@@ -154,7 +155,7 @@ export function sanearBloqueWeb(o: Record<string, unknown>, rutaInterna: (v: unk
       return {
         t: 'landing', id, titulo, formato: o.formato === 'presentacion' ? 'presentacion' : 'landing', estado,
         url: estado === 'borrador' ? null : url,
-        miniatura: { tarjeta: seccion(m.tarjeta), tema, proporcion: m.proporcion === '4:3' ? '4:3' : m.proporcion === '16:9' ? '16:9' : null },
+        miniatura: { tarjeta: seccion(m.tarjeta), tema, proporcion: typeof m.proporcion === 'string' && Object.hasOwn(FORMA_DE, m.proporcion) ? formaFija(m.proporcion) : null },
         ...(nota ? { nota } : {}), abrir: a,
       };
     }

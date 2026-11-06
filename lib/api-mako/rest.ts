@@ -120,6 +120,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
   ['POST', '/crm/en-bloque/otro-crm', 'agregar_en_bloque_a_crm'],
+  // La migración de la agencia de Thiago (6/11/2026): un lote del CRM anterior, quieto y sin repetir por su id de allá.
+  ['POST', '/crm/migraciones', 'migrar_contactos'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
@@ -684,6 +686,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
   ...OPERACIONES_API.map((o): RutaRest => ['POST', `/video/proyectos/{proyecto}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   ['GET', '/video/voz', 'ver_voz_cliente'],
+  // Los presets de subtítulos de la marca (lib/editor-video/presets-subtitulos.ts): viven en el negocio, no en un proyecto.
+  ['GET', '/video/presets-subtitulos', 'listar_presets_subtitulos'],
+  ['POST', '/video/presets-subtitulos', 'guardar_preset_subtitulos'],
+  ['DELETE', '/video/presets-subtitulos/{preset}', 'borrar_preset_subtitulos'],
   ['GET', '/video/avatares', 'ver_avatares'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],

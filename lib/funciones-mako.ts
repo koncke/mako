@@ -281,18 +281,23 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     hace: [
       'Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo',
       // 4/11/2026: el explorador (app/image-editor/carruseles), con lo que Competitors Spy ya trajo.
-      'Carruseles que funcionan: los de las cuentas que sigues en Competitors Spy, con su outlier (cuántas veces la mediana de su cuenta), buscar por tema o @cuenta, filtrar, ordenar, lo de esta semana, guardar y guardar búsquedas',
+      // 6/11/2026: el rediseño copiado de la interfaz de Top Carousels («Encuentra tu siguiente OUTLIER»): lo primero que se ve.
+      'Carruseles que funcionan: los de las cuentas que sigues en Competitors Spy, con su outlier (cuántas veces la mediana de su cuenta), buscar por tema o @cuenta, filtrar (fecha, láminas, tipo, cuentas, CTA), ordenar, guardar y guardar búsquedas; las láminas se pasan dentro de la tarjeta',
+      'Filtro CTA: los carruseles que piden comentar una palabra («Comenta GUÍA») o mandarla por mensaje, con la palabra en la tarjeta',
+      // 6/11/2026: los anuncios de Spy en la misma pantalla (lib/carruseles/anuncios.ts).
+      'Anuncios de la competencia: los que trajo Competitors Spy de las cuentas que sigues, ordenados por cuántos días llevan al aire',
       // 4/11/2026: la biblioteca de ejemplos (lib/carruseles/biblioteca.ts), la misma para todos los negocios.
       'Una biblioteca de ejemplos, la misma para todos los negocios: carruseles públicos de Instagram de una lista de cuentas y de temas (hashtags), cada uno con su @creador y el link al original; se ve aunque no sigas a nadie',
       'Carruseles de MaKo por tipo (lista, paso a paso, historia, antes y después, mito vs. realidad, opinión, caso con números, preguntas): la estructura con una guía en cada lámina y el nombre del negocio, y «Ver ejemplo» con un negocio ficticio',
-      'Hacer el mío: un carrusel nuevo con la ESTRUCTURA de uno de las cuentas que sigues (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras',
+      // 6/11/2026: «Editar» reemplaza a «Hacer el mío» (lib/carruseles/replica.ts): del ejemplo a la edición, en un paso.
+      'Editar un ejemplo: tu versión editable de un carrusel o un anuncio, con su mismo diseño, el texto escrito para tu negocio por TU IA y tu foto donde el ejemplo tiene una persona; sin tu IA, cada lámina trae una guía',
       // 5/11/2026: los kits de marca del Second Brain (lib/marca/kits.ts).
       'Tu marca en cada diseño: los carruseles de MaKo salen con tus colores, tus fuentes y tu logo, y el chat los usa (con varios kits, eliges cuál); «Discutir» te contesta sin tocar el diseño',
     ],
-    noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues y la biblioteca de ejemplos, leída de Instagram directo', 'Un negocio no edita la biblioteca de ejemplos: la edita la plataforma', 'Todavía no: escribir con IA el texto de cada lámina de un carrusel (trae guías)', 'Todavía no: pedirle fotos a un banco de imágenes'],
+    noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues y la biblioteca de ejemplos, leída de Instagram directo', 'Un negocio no edita la biblioteca de ejemplos: la edita la plataforma', 'No copia las palabras de un ejemplo: copia el diseño y la IA escribe las tuyas', 'Los anuncios son sólo los de las cuentas que sigues en Spy: no hay una biblioteca de anuncios de todos', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'editar ejemplo', 'mi versión', 'cta', 'comenta la palabra', 'anuncios de la competencia', 'espiar anuncios', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
     conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },

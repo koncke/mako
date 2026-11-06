@@ -619,11 +619,6 @@ export const USER_NAV: NavItem[] = [
   // «Business settings» e «Integrations» quedan como SECCIONES de Settings (`soloSeccion`): no se dibujan en el menú, y sus keys
   // siguen siendo la puerta de sus páginas (`requireRolWs([], { nav: 'configuraciones' })`, las capas).
   { key: 'perfil', label: 'Settings', href: '/perfil', icon: 'tuerca', rolesWs: ['closer', 'setter'], match: (p) => starts('/perfil')(p) || starts('/configuraciones')(p) || starts('/equipo')(p) || starts('/metodo')(p) || starts('/integraciones')(p) },
-  { key: 'integraciones', label: 'Integrations', href: '/integraciones', icon: 'integraciones', soloSeccion: true, match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
-  // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
-  // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
-  // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
-  { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
   // MaKo Partners (20/10/2026, feedback del 18/10 pt 10; Martín: «"MaKo Partners" debería ir dentro del desplegable del
   // perfil, no como una tab»). Desde el 24/10/2026 la ve el ADMIN de CUALQUIER negocio, no sólo el de una agencia
   // (Martín: «la tab de MaKo Partners para clientes»): cualquier negocio con plan recomienda MaKo, y era la única puerta
@@ -634,7 +629,15 @@ export const USER_NAV: NavItem[] = [
   // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
   // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
   // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).
+  // PARTNERS Y AGENCY, DEBAJO DE SETTINGS (6/11/2026, llamada con Leila del 5/11: «acceso más visible desde el menú de
+  // perfil»). Agency iba cuarto, después de API, y una agencia no lo encontraba. Subió el PAR: Settings sigue primero (24/10)
+  // y Agency sigue «abajo de Partners» (25/10, el pedido de arriba).
   { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', noEnPlataforma: true, match: starts('/agency') },
+  { key: 'integraciones', label: 'Integrations', href: '/integraciones', icon: 'integraciones', soloSeccion: true, match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
+  // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
+  // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
+  // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
+  { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

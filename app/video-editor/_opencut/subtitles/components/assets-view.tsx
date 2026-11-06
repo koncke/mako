@@ -10,12 +10,16 @@
 //   Agregar subtítulos      «Ingresar manualmente»: el texto se divide solo.
 //
 // Lo que CapCut tiene acá y no se hace en v1 se dibuja APAGADO con su rótulo:
-// «Subtítulos bilingües» y «Resaltar palabras clave automáticamente» (fuera de
-// alcance, docs/diseno-editor-video.md §1) y «Emojis de IA».
+// «Subtítulos bilingües» (fuera de alcance, docs/diseno-editor-video.md §1) y
+// «Emojis de IA». «Resaltar palabras clave automáticamente» anda desde el 6/11/2026
+// (pedido de Leila, 30/10): elige la palabra que pesa de cada subtítulo (../claves.ts).
+//
+// Plantillas lleva arriba los PRESETS de la marca (los estilos guardados del negocio,
+// ../presets.ts), con su tacho; elegir uno lo aplica a todos, con sus palabras clave.
 //
 // Rótulos del es-LA.po de CapCut 9.3 (`pc_caption_menu_*`, `pc_materiallib_*`).
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { Checkbox } from "@/app/video-editor/_opencut/components/ui/checkbox";
@@ -49,6 +53,17 @@ import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resalta
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "../estado";
 import { cancelarGeneracion, generarSubtitulos } from "../generar";
 import { aplicarEstiloASubtitulos, insertarSubtitulos, lienzoDe, subtitulosDe } from "../insert";
+import {
+	aplicarPreset,
+	estiloDePreset,
+	modoClavesDePreset,
+	plantillaDePreset,
+	PREFIJO_PRESET,
+	presetDeId,
+	usePresetsSubtitulos,
+} from "../presets";
+import type { PresetSubtitulos } from "@/lib/editor-video/presets-subtitulos";
+import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 
 /** Ids de las secciones (ranura `seccionesBiblioteca`, ver ../registro.ts). */
 export const SECCIONES_SUBTITULOS = {
@@ -225,7 +240,11 @@ export function SubtitulosAutomaticosView() {
 					</Tooltip>
 				</Campo>
 				<div className="flex flex-col gap-1">
-					<FilaInterruptor rotulo="Resaltar palabras clave automáticamente" activo={false} desactivado />
+					<FilaInterruptor
+						rotulo="Resaltar palabras clave automáticamente"
+						activo={prefs.claves}
+						onCambio={(v) => prefs.fijar({ claves: v })}
+					/>
 					<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />
 					<FilaInterruptor
 						rotulo="Identificar las muletillas"
@@ -309,6 +328,38 @@ function MiniaturaPlantilla({
 	);
 }
 
+/** Un preset de la marca: la miniatura de su estilo y el tacho para borrarlo. */
+function TarjetaPreset({
+	preset,
+	elegida,
+	onElegir,
+	onBorrar,
+}: {
+	preset: PresetSubtitulos;
+	elegida: boolean;
+	onElegir: () => void;
+	onBorrar: () => void;
+}) {
+	return (
+		<div className="group relative">
+			<MiniaturaPlantilla plantilla={plantillaDePreset(preset)} elegida={elegida} onElegir={onElegir} />
+			<span className="pointer-events-none mt-1 block truncate text-[11px] text-(--cc-text-2)" title={preset.nombre}>
+				{preset.nombre}
+				{preset.marca ? <span className="text-(--cc-text-3)"> · {preset.marca}</span> : null}
+			</span>
+			<button
+				type="button"
+				onClick={onBorrar}
+				aria-label={`Borrar el preset ${preset.nombre}`}
+				title="Borrar"
+				className="absolute top-1 right-1 hidden size-6 cursor-pointer items-center justify-center rounded-[5px] bg-(--cc-sunken) group-hover:flex focus-visible:flex"
+			>
+				<IconoBorrar />
+			</button>
+		</div>
+	);
+}
+
 export function PlantillasSubtitulosView() {
 	const editor = useEditor();
 	const elegida = usePreferenciasSubtitulos((s) => s.plantilla);
@@ -317,6 +368,30 @@ export function PlantillasSubtitulosView() {
 		(e) => subtitulosDe(e.scenes.getActiveSceneOrNull()?.tracks).length > 0,
 	);
 	const [aplicando, setAplicando] = useState(false);
+	const presets = usePresetsSubtitulos((s) => s.presets);
+	const estadoPresets = usePresetsSubtitulos((s) => s.estado);
+	const cargarPresets = usePresetsSubtitulos((s) => s.cargar);
+	const borrarPreset = usePresetsSubtitulos((s) => s.borrar);
+	useEffect(() => {
+		void cargarPresets();
+	}, [cargarPresets]);
+
+	const elegirPreset = async (preset: PresetSubtitulos) => {
+		fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
+		if (!haySubtitulos || aplicando) return;
+		setAplicando(true);
+		try {
+			const n = await aplicarPreset(editor, preset);
+			if (n > 0) toast.success("Se aplicó a todos los subtítulos");
+		} finally {
+			setAplicando(false);
+		}
+	};
+	const borrar = async (preset: PresetSubtitulos) => {
+		if (!(await borrarPreset(preset.id))) return;
+		if (elegida === `${PREFIJO_PRESET}${preset.id}`) fijar({ plantilla: PLANTILLAS_SUBTITULO[0].id });
+		toast.success("Preset borrado");
+	};
 
 	// Las fuentes de las miniaturas: cada tarjeta pide su muestra al entrar en pantalla
 	// (MiniaturaPlantilla). La fuente ENTERA llega al elegir (aplicarEstiloASubtitulos →
@@ -345,6 +420,28 @@ export function PlantillasSubtitulosView() {
 
 	return (
 		<div className="scrollbar-thin h-full overflow-y-auto p-3">
+			{presets.length > 0 && (
+				<div className="pb-3">
+					<p className="pb-1.5 text-[12px] text-(--cc-text-2)">De tu marca</p>
+					<GrillaBiblioteca minimo={84}>
+						{presets.map((p) => (
+							<TarjetaPreset
+								key={p.id}
+								preset={p}
+								elegida={elegida === `${PREFIJO_PRESET}${p.id}`}
+								onElegir={() => void elegirPreset(p)}
+								onBorrar={() => void borrar(p)}
+							/>
+						))}
+					</GrillaBiblioteca>
+				</div>
+			)}
+			{presets.length === 0 && estadoPresets === "listo" && (
+				<p className="pb-3 text-[11.5px] text-(--cc-text-3)">
+					Guarda el estilo de un subtítulo como preset de tu marca desde su panel.
+				</p>
+			)}
+			{presets.length > 0 && <p className="pb-1.5 text-[12px] text-(--cc-text-2)">Plantillas</p>}
 			<GrillaBiblioteca minimo={84}>
 				{PLANTILLAS_SUBTITULO.map((p) => (
 					<MiniaturaPlantilla
@@ -357,6 +454,23 @@ export function PlantillasSubtitulosView() {
 			</GrillaBiblioteca>
 		</div>
 	);
+}
+
+/**
+ * El estilo de los subtítulos que se agregan a mano o se importan: la plantilla elegida
+ * o el preset de la marca, con sus palabras clave (o las automáticas, si están prendidas).
+ */
+function estiloYClaves(plantilla: string, lienzo: { width: number; height: number }) {
+	const preset = presetDeId(plantilla, usePresetsSubtitulos.getState().presets);
+	const automaticas = usePreferenciasSubtitulos.getState().claves;
+	return {
+		estilo: preset ? estiloDePreset(preset, lienzo) : paramsDePlantilla(plantillaPorId(plantilla), lienzo),
+		claves: automaticas
+			? ({ tipo: "auto", siempre: preset?.claves.siempre } as const)
+			: preset
+				? modoClavesDePreset(preset)
+				: null,
+	};
 }
 
 // ── Subtítulos locales ───────────────────────────────────────────────────────
@@ -381,7 +495,7 @@ export function SubtitulosLocalesView() {
 			const n = await insertarSubtitulos({
 				editor,
 				captions: resultado.captions,
-				estilo: paramsDePlantilla(plantillaPorId(plantilla), lienzoDe(editor)),
+				...estiloYClaves(plantilla, lienzoDe(editor)),
 			});
 			// `pc_ai_writer_has_been_add`.
 			if (n > 0) toast.success("Subtítulos agregados");
@@ -463,7 +577,7 @@ export function AgregarSubtitulosView() {
 			const n = await insertarSubtitulos({
 				editor,
 				captions,
-				estilo: paramsDePlantilla(plantillaPorId(plantilla), lienzo),
+				...estiloYClaves(plantilla, lienzo),
 			});
 			if (n > 0) {
 				setTexto("");

@@ -68,6 +68,11 @@ export type TokenGuardado = {
   expira: string | null;
   /** la última vez que se regeneró (valor nuevo, mismos permisos) */
   regenerado?: string;
+  /**
+   * Un token de AGENCIA (`mako_agt_…`, lib/api-mako/tokens-cartera.ts): vale para los clientes aprobados de la cartera de
+   * este workspace, nunca para el workspace mismo. Sólo `true` lo prende: un valor raro no da acceso a una cartera.
+   */
+  cartera?: true;
 };
 
 /** Lo que baja a la pantalla: sin el hash. */
@@ -81,7 +86,7 @@ export const hashDeToken = (token: string): string => createHash('sha256').updat
 /** `mako_pat_…9f3a` / `mkoag_l_…9f3a`: el prefijo dice qué es y los cuatro últimos lo distinguen. */
 export function pistaDe(token: string): string {
   const t = (token ?? '').trim();
-  const m = /^(mako_pat_|mkoag_(?:[lpe]_)?)/i.exec(t);
+  const m = /^(mako_pat_|mako_agt_|mkoag_(?:[lpe]_)?)/i.exec(t);
   return `${m ? m[1] : ''}…${t.slice(-4)}`;
 }
 
@@ -139,6 +144,7 @@ export function parsearLista(raw: string | null | undefined, areas: readonly str
       creadoPor: typeof t.creadoPor === 'string' ? t.creadoPor : '',
       expira: typeof t.expira === 'string' ? t.expira : null,
       ...(typeof t.regenerado === 'string' ? { regenerado: t.regenerado } : {}),
+      ...(t.cartera === true ? { cartera: true as const } : {}),
     });
   }
   return out;
