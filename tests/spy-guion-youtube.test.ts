@@ -20,6 +20,10 @@
 //   · `guionDeYoutubeConGemini` sin `videoMetadata`                             → 6
 //   · `guionDeYoutubeConGemini` que con un 400 prueba el otro modelo           → 6
 //   · la ruta sin `conSuIADelNegocio` alrededor de `provsDe('gemini')`         → 7
+// Y el piso de caracteres por minuto (6/11/2026), base 8/0:
+//   · `guionDeYoutubeConGemini` sin el piso (toma cualquier texto)              → 6
+//   · el video entero pedido sin su duración                                    → 6b
+//   · el `corto` de un tramo que no llega a la nota                             → 6b
 // Correr: node --import tsx --test tests/spy-guion-youtube.test.ts
 // =============================================================================
 
@@ -30,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ESPERA_SATURADO_MS, ESPERA_TOPE_MS, ESPERA_TRAS_FALLO_MS, NOTA_PENDIENTE, TOPE_GUION_YT, TRANSCRIBIENDO_VENCE_MS, TRANSCRIBIENDO_YT_VENCE_MS,
+  ESPERA_SATURADO_MS, ESPERA_TOPE_MS, ESPERA_TRAS_FALLO_MS, NOTA_GUION_CORTO, NOTA_PENDIENTE, TOPE_GUION_YT, TRANSCRIBIENDO_VENCE_MS, TRANSCRIBIENDO_YT_VENCE_MS,
   enlaceDeLaPublicacion, esDeYoutube, hayQueTranscribir, leerGuion, reclamarGuion, segundosDeDuracion, tieneGuion, tramosDeYoutube,
   transcribirGuionYoutube, vistaDeGuion, type DepsGuionYoutube, type ResultadoTramoYt,
 } from '../lib/spy-transcripcion';
@@ -45,6 +49,8 @@ const T0 = Date.parse('2026-11-04T12:00:00Z');
 type Doble = DepsGuionYoutube & {
   store: { crudo: string | null };
   pedidos: Array<{ desdeS: number; hastaS: number } | null>;
+  /** La duración que se le pasó a cada pedido (sólo con el video entero). */
+  duraciones: Array<number | null | undefined>;
   /** Cuántos pedidos hubo a la vez como máximo. */
   maxAlaVez: number;
   reservas: number;
@@ -56,15 +62,16 @@ function doble(): Doble {
   let n = 0;
   let enCurso = 0;
   const d: Doble = {
-    store: { crudo: null }, pedidos: [], maxAlaVez: 0, reservas: 0, hayDia: true, respuestas: [],
+    store: { crudo: null }, pedidos: [], duraciones: [], maxAlaVez: 0, reservas: 0, hayDia: true, respuestas: [],
     leer: async () => ({ crudo: d.store.crudo, version: d.store.crudo }),
     cambiarSi: async (version, nuevo) => {
       if (d.store.crudo !== version) return false;
       d.store.crudo = nuevo;
       return true;
     },
-    youtube: async (_url, tramo) => {
+    youtube: async (_url, tramo, duracionS) => {
       d.pedidos.push(tramo);
+      d.duraciones.push(duracionS);
       enCurso += 1;
       d.maxAlaVez = Math.max(d.maxAlaVez, enCurso);
       await new Promise((ok) => setTimeout(ok, 5));
@@ -237,6 +244,44 @@ test('6. Gemini de mentira: la clave del negocio, el video en fileData, el tramo
   assert.equal(R.H.r.motivo, 'fallo');
   assert.equal(R.I.r.ok, true);
   assert.equal(R.I.r.texto, '');
+  // El piso: dos frases en 10 minutos con STOP van al otro modelo, que lo trae entero. Las dos vueltas se pagaron y se ven.
+  assert.deepEqual(R.J.pedidos.map((p) => p.modelo), ['gemini-flash-latest', 'gemini-flash-lite-latest']);
+  assert.equal(R.J.r.ok, true);
+  assert.equal(R.J.r.corto, undefined, 'el del otro modelo pasó el piso');
+  assert.match(R.J.r.texto, /gemini-flash-lite-latest/);
+  assert.equal(R.J.uso.length, 2, 'cada respuesta de Google se registra: el pedido corto también costó');
+  // Los dos cortos: el más largo, marcado, nunca un fallo (un video de poca voz existe).
+  assert.equal(R.K.r.ok, true);
+  assert.equal(R.K.r.corto, true);
+  assert.equal(R.K.pedidos.length, 2);
+  // El video entero con su duración también tiene piso; sin duración (vuelta B), no.
+  assert.deepEqual(R.L.pedidos.map((p) => p.modelo), ['gemini-flash-latest', 'gemini-flash-lite-latest']);
+  assert.equal(R.L.r.corto, undefined);
+  // «(vacío)» en 10 minutos con piso: se pregunta al otro, que sí lo transcribe.
+  assert.equal(R.M.pedidos.length, 2);
+  assert.equal(R.M.r.corto, undefined);
+});
+
+test('6b. un tramo corto en todos los modelos se guarda y se dice; el video entero lleva su duración', async () => {
+  const d = doble();
+  d.respuestas = [{ ok: true, texto: 'Lo poco que se dijo.', tokens: 1, corto: true }];
+  await unaVez(d, T0, 'PT4M');
+  assert.deepEqual(d.duraciones, [240], 'el video entero se pide con su duración, para que tenga piso');
+  const g = leerGuion(d.store.crudo)!;
+  assert.equal(g.estado, 'listo');
+  assert.equal(g.texto, 'Lo poco que se dijo.');
+  assert.equal(g.motivo, NOTA_GUION_CORTO);
+  // Uno largo: la nota de hasta dónde y la de corto, juntas.
+  const largo = doble();
+  largo.respuestas = [{ ok: true, texto: 'Primer tramo.', tokens: 1 }, { ok: true, texto: 'Segundo corto.', tokens: 1, corto: true }];
+  await unaVez(largo, T0, 'PT2H');
+  assert.equal(leerGuion(largo.store.crudo)?.motivo, `Hasta el minuto 30. ${NOTA_GUION_CORTO}`);
+  assert.deepEqual(largo.duraciones, [null, null, null], 'un tramo ya dice cuánto dura');
+  // Vacío y corto: no se afirma «no tiene voz».
+  const mudo = doble();
+  mudo.respuestas = [{ ok: true, texto: '', tokens: 1, corto: true }];
+  await unaVez(mudo, T0, 'PT4M');
+  assert.doesNotMatch(leerGuion(mudo.store.crudo)?.motivo ?? '', /No tiene voz/);
 });
 
 test('7. el servidor, la ruta y la pantalla pasan por acá', () => {

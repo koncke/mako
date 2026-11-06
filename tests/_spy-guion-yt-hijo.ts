@@ -24,7 +24,7 @@ type Pedido = { modelo: string; clave: string; video: string | null; tramo: unkn
 let pedidos: Array<Pedido> = [];
 let otros: string[] = [];
 /** Qué contesta cada modelo en esta vuelta. */
-let contesta: Record<string, 'ok' | '503' | '400' | 'cortado' | 'vacio'> = {};
+let contesta: Record<string, 'ok' | '503' | '400' | 'cortado' | 'vacio' | 'corto'> = {};
 
 const json = (cuerpo: unknown, status = 200) => new Response(JSON.stringify(cuerpo), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -48,7 +48,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   const usageMetadata = { promptTokenCount: 18_600, candidatesTokenCount: 900, totalTokenCount: 19_500 };
   if (que === 'cortado') return json({ candidates: [{ content: { parts: [{ text: 'Hola a todos, hoy' }] }, finishReason: 'MAX_TOKENS' }], usageMetadata });
   if (que === 'vacio') return json({ candidates: [{ content: { parts: [{ text: '(vacío)' }] }, finishReason: 'STOP' }], usageMetadata });
-  return json({ candidates: [{ content: { parts: [{ text: `Hola a todos. Esto lo dijo el video (${modelo}).` }] }, finishReason: 'STOP' }], usageMetadata });
+  // Lo que midió el 6/11: un tramo de 10 minutos que vuelve con dos frases y `finishReason=STOP`, sin error.
+  if (que === 'corto') return json({ candidates: [{ content: { parts: [{ text: `Hola a todos, hoy les cuento (${modelo}).` }] }, finishReason: 'STOP' }], usageMetadata });
+  // Un guion entero de 10 minutos (~7.000 caracteres: por encima del piso de 600 por minuto).
+  return json({ candidates: [{ content: { parts: [{ text: `Hola a todos. Esto lo dijo el video (${modelo}). ${'Y siguió hablando de lo suyo. '.repeat(240)}` }] }, finishReason: 'STOP' }], usageMetadata });
 }) as typeof fetch;
 
 const CON_GEMINI = 13, SIN_IA = 14;
@@ -63,11 +66,11 @@ async function main() {
   pg.db.credenciales.push({ workspace_id: CON_GEMINI, clave: 'GEMINI_API_KEY', valor_enc: cifrarSecreto(`gemini-13-${'k'.repeat(40)}`, CON_GEMINI, 'GEMINI_API_KEY'), servicio: 'GEMINI_API_KEY' });
 
   const out: Record<string, unknown> = {};
-  const vuelta = async (nombre: string, ws: number, url: string, tramo: { desdeS: number; hastaS: number } | null, que: typeof contesta) => {
+  const vuelta = async (nombre: string, ws: number, url: string, tramo: { desdeS: number; hastaS: number } | null, que: typeof contesta, duracionS?: number) => {
     sat.olvidarSaturados();
     pedidos = []; otros = []; contesta = que;
     const usoAntes = (pg.db.anthropic_usage ?? []).length;
-    const r = await runWithWorkspace(ws, () => ai.guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube' }))
+    const r = await runWithWorkspace(ws, () => ai.guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube', duracionS }))
       .catch((e) => ({ tiro: e instanceof Error ? e.message : String(e) }));
     // `recordUsage` corre sin esperarlo (`void`): su fila llega un instante después.
     await new Promise((ok) => setTimeout(ok, 60));
@@ -83,6 +86,11 @@ async function main() {
   await vuelta('G', CON_GEMINI, 'https://www.youtube.com/watch?v=AbCdEfGhIj0&list=x', null, {});
   await vuelta('H', CON_GEMINI, URL_YT, null, { 'gemini-flash-latest': 'cortado' });
   await vuelta('I', CON_GEMINI, URL_YT, null, { 'gemini-flash-latest': 'vacio' });
+  // El piso (6/11/2026): un tramo de 10 minutos con dos frases va al otro modelo; si los dos vienen cortos, el más largo, marcado.
+  await vuelta('J', CON_GEMINI, URL_YT, { desdeS: 0, hastaS: 600 }, { 'gemini-flash-latest': 'corto' });
+  await vuelta('K', CON_GEMINI, URL_YT, { desdeS: 0, hastaS: 600 }, { 'gemini-flash-latest': 'corto', 'gemini-flash-lite-latest': 'corto' });
+  await vuelta('L', CON_GEMINI, URL_YT, null, { 'gemini-flash-latest': 'corto' }, 240);
+  await vuelta('M', CON_GEMINI, URL_YT, { desdeS: 0, hastaS: 600 }, { 'gemini-flash-latest': 'vacio' });
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 
