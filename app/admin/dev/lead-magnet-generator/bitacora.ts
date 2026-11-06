@@ -34,7 +34,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Producir el artefacto', detalle: 'Guía, checklist, prompts y planilla nacen como página de Copywriting con su estructura; la clase grabada, como landing · el link público de solo lectura sale de la tab', estado: 'hecha' },
   { titulo: 'La página que lo pide', detalle: 'Una landing con formulario que entra al CRM y su página de gracias con el link del lead magnet, como borrador', estado: 'hecha' },
   { titulo: 'Quiz con diagnóstico', detalle: 'Un bloque del Web Generator: preguntas con puntos y un resultado por rango · el contacto entra al CRM con el resultado y las respuestas · el flujo copiado de SurveyJS', estado: 'hecha' },
-  { titulo: 'MaKo propone el lead magnet', detalle: 'Desde la oferta del negocio y lo que hacen sus competidores en Competitors Spy, con la IA del negocio', estado: 'cola' },
+  { titulo: 'MaKo propone el lead magnet', detalle: 'Hasta 3 desde la oferta del negocio y la de sus competidores en Competitors Spy (anónimos), con la IA del negocio · el código descarta lo que nombre a un competidor o use una plantilla que no existe', estado: 'hecha' },
   { titulo: 'El lead magnet baja de la oferta', detalle: 'Decidido en el modelo de 4 entidades: es de la OFERTA, no del producto · hoy sigue siendo un blob singleton por workspace', estado: 'cola' },
 ];
 
@@ -215,6 +215,23 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/lead-magnets/server.ts, lib/entregable.ts, lib/entregable-fundir.ts',
       'docs/hallazgos-lead-magnets.md — las dos revisiones',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '03:45', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo propone el lead magnet desde la oferta y la competencia',
+    puntos: [
+      '**En «Nuevo lead magnet», «MaKo te propone»**: hasta 3 propuestas con su plantilla, su nombre y por qué, y «Armar este». Un botón, porque cuesta la IA del negocio; la última queda guardada.',
+      '**La IA elige y redacta; el código decide**: descarta lo que nombre a un competidor, use una plantilla que no existe, diga salir de la competencia sin habérsele pasado ninguna, esté con «vos» o repita uno que ya tiene.',
+      '⚠️ A la IA los competidores le llegan anónimos («Competidor 1») y el código igual busca sus nombres, con límites de palabra: con un `includes`, «Max» descartaba todo lo que dijera «maximizar».',
+      'Sólo con la IA del negocio, sin la red de la plataforma y adentro de «sólo su IA». Por la API, `proponer_magnet`, una lectura que no guarda nada.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: [
+      'lib/lead-magnets/propuesta.ts — lo que lee la IA y lo que el código le acepta',
+      'lib/lead-magnets/proponer.ts — la lectura de la oferta y Competitors Spy, y la llamada',
+      'app/lead-magnet-generator/PropuestasMaKo.tsx — el bloque de «Nuevo»',
     ],
   },
 ];

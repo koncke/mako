@@ -36,3 +36,20 @@
 .lmg-ejemplo { display: flex; flex-direction: column; gap: 14px; }
 .lmg-ejemplo h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--ink); }
 .lmg-ejemplo p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+
+/* «MaKo te propone» (arriba de las plantillas de «Nuevo»): una lista con filete, no una pila de tarjetas. La sección y su título
+   son los de las plantillas (app/_crear/crear.css). */
+.lmg-propone__cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lmg-propone__cab > div { flex: 1 1 260px; min-width: 0; }
+.lmg-propone__sub { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
+.lmg-propone__lista { list-style: none; margin: 0; padding: 0 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.lmg-propone__fila { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; }
+.lmg-propone__fila + .lmg-propone__fila { border-top: 1px solid var(--border); }
+.lmg-propone__texto { min-width: 0; flex: 1 1 auto; }
+.lmg-propone__nombre { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.lmg-propone__porque { margin: 3px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+.lmg-propone__meta { margin: 6px 0 0; font-size: 12px; color: var(--dim); }
+.lmg-propone .lmg-error, .lmg-propone .lmg-aviso { margin: 0; }
+@media (max-width: 640px) {
+  .lmg-propone__fila { flex-direction: column; align-items: stretch; }
+}

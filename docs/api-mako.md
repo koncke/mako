@@ -48,7 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet` · `dejar_compartir_magnet`
+- **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet` · `dejar_compartir_magnet` · `proponer_magnet`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
@@ -20601,11 +20601,11 @@ curl -L \
 
 ## Lead magnets — `leadmagnet`
 
-Tab **Lead Magnet** (`/lead-magnet-generator`). 1 lecturas · 5 acciones.
+Tab **Lead Magnet** (`/lead-magnet-generator`). 2 lecturas · 5 acciones.
 
 ### `GET /api/v1/leadmagnet/plantillas` — Ver las plantillas de lead magnet
 
-Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla y clase grabada. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.
+Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla, clase grabada y quiz con diagnóstico. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.
 
 - **Ruta por operación:** `GET /api/v1/leadmagnet/ver_plantillas_magnet`
 - **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
@@ -20628,7 +20628,7 @@ curl -L \
 
 ### `POST /api/v1/leadmagnet/lead-magnets` — Armar un lead magnet con una plantilla
 
-Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.
+Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada, quiz con diagnóstico). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.
 
 - **Ruta por operación:** `POST /api/v1/leadmagnet/armar_magnet`
 - **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
@@ -20772,6 +20772,29 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/links"
+```
+
+### `GET /api/v1/leadmagnet/propuestas` — Proponer lead magnets desde la oferta
+
+MaKo propone hasta 3 lead magnets para el negocio, con la IA del negocio: desde su oferta (lo que promete, a quién, lo que frena a su cliente) y lo que hace su competencia en Competitors Spy. Cada propuesta trae su plantilla, su nombre, por qué y de dónde sale; se arma con armar_magnet (plantilla y nombre). Nunca nombra a un competidor. Sin la IA del negocio, o sin oferta ni competidores leídos, dice qué falta.
+
+- **Ruta por operación:** `GET /api/v1/leadmagnet/proponer_magnet`
+- **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** ia
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/propuestas"
 ```
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`

@@ -641,7 +641,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'lead-magnet-generator', titulo: 'Lead Magnet Generator', familia: 'Sales Machine',
     estado: 'parcial', verEnApp: '/lead-magnet-generator',
-    alcance: 'Producir el lead magnet entregable: plantillas que crean la pieza en Copywriting o el Web Generator, su página de captura, su link público y el quiz con diagnóstico (un bloque del Web Generator). Falta que MaKo lo proponga.',
+    alcance: 'Producir el lead magnet entregable: plantillas que crean la pieza en Copywriting o el Web Generator, su página de captura, su link público, el quiz con diagnóstico (un bloque del Web Generator) y lo que MaKo propone desde la oferta y Competitors Spy.',
     // El trabajo real del lead magnet NO cae en la tab: cae en el paso «Entregable»
     // del onboarding. Con solo page.tsx + nav.ts el historial del área eran commits
     // del sidebar y ni uno del entregable — un área movida que se leía tranquila.

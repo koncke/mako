@@ -541,6 +541,7 @@ proponer_estado_campana
 proponer_estado_conjunto
 proponer_lead
 proponer_leads
+proponer_magnet
 proponer_presupuesto_campana
 proponer_presupuesto_conjunto
 proponer_reanalizar_guion

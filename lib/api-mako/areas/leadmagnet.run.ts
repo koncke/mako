@@ -15,6 +15,8 @@ import { PLANTILLAS_LEAD_MAGNET, plantillaLeadMagnet, nombreInicial, NOMBRE_HERR
 import { rutaDePagina } from '@/lib/lead-magnets/pieza';
 import { armarLeadMagnet, crearPaginaDeCaptura, dejarDeCompartir, linkPublico, listarLeadMagnets, ponerPrimero, revisarParaCompartir } from '@/lib/lead-magnets/server';
 import type { Entregable } from '@/lib/entregable';
+import { proponerLeadMagnets } from '@/lib/lead-magnets/proponer';
+import { ROTULO_FUENTE } from '@/lib/lead-magnets/propuesta';
 
 const json = (o: unknown): string => JSON.stringify(o);
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
@@ -160,5 +162,21 @@ export const RUNNERS: Runners = {
       listo();
       return { ok: true, resumen: 'Listo: es el primero de la lista.' };
     }),
+  },
+
+  proponer_magnet: {
+    leer: async () => {
+      const r = await proponerLeadMagnets({ guardar: false });
+      if (!r.ok) {
+        const falta = 'falta' in r ? r.falta : undefined;
+        return { content: json({ error: r.error }), isError: true, ...(falta === 'ia' ? { falta: { servicio: 'ia' } } : {}) };
+      }
+      return json({
+        propuestas: r.propuestas.map((p) => ({ plantilla: p.plantilla, nombre: p.nombre, por_que: p.porQue, de_donde: ROTULO_FUENTE[p.fuente] })),
+        ...(r.descartadas ? { descartadas: r.descartadas, nota_descartadas: 'Las que nombraban a un competidor, usaban una plantilla que no existe o repetían una que ya tiene.' } : {}),
+        ...(r.aviso ? { aviso: r.aviso } : {}),
+        siguiente: 'Para armar una: armar_magnet con su plantilla y su nombre.',
+      });
+    },
   },
 };

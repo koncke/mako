@@ -23,12 +23,16 @@ import {
   EJEMPLOS_LEAD_MAGNET, RUTA_TAB, plantillasParaCrear, proyectosDe, type LeadMagnetVista,
 } from './reglas';
 import { DetalleLeadMagnet } from './DetalleLeadMagnet';
+import { PropuestasMaKo } from './PropuestasMaKo';
+import type { PropuestasGuardadas } from '@/lib/lead-magnets/propuesta';
 import { pedirLeadMagnet } from './cliente';
 
-export function LeadMagnets({ lista, error, actual }: {
+export function LeadMagnets({ lista, error, actual, propuestas = null }: {
   lista: LeadMagnetVista[];
   error: string | null;
   actual: string | null;
+  /** La última propuesta de MaKo (lib/lead-magnets/proponer.ts), para verla sin gastar la IA otra vez. */
+  propuestas?: PropuestasGuardadas | null;
 }) {
   const router = useRouter();
   const { toast, show, clear } = useToast();
@@ -53,13 +57,15 @@ export function LeadMagnets({ lista, error, actual }: {
     }],
   })), [lista, router, actual, show]);
 
-  const usar = useCallback(async (pl: PlantillaCrear): Promise<string | null> => {
-    const r = await pedirLeadMagnet<{ ruta: string; aviso: string | null }>({ accion: 'armar', plantilla: pl.id });
+  // Armar con una plantilla: la tarjeta de la galería (con su nombre por defecto) y «Armar este» de lo que propuso MaKo.
+  const armar = useCallback(async (plantilla: string, nombre?: string): Promise<string | null> => {
+    const r = await pedirLeadMagnet<{ ruta: string; aviso: string | null }>({ accion: 'armar', plantilla, ...(nombre ? { nombre } : {}) });
     if (!r.ok) return r.error;
     if (r.aviso) return r.aviso;
     router.push(r.ruta);
     return null;
   }, [router]);
+  const usar = useCallback((pl: PlantillaCrear) => armar(pl.id), [armar]);
 
   const pl = ejemplo ? plantillaLeadMagnet(ejemplo) : null;
   return (
@@ -75,6 +81,7 @@ export function LeadMagnets({ lista, error, actual }: {
         onPlantilla={usar}
         onVerEjemplo={(p) => setEjemplo(p.id)}
         ejemplos={EJEMPLOS_LEAD_MAGNET}
+        arribaDePlantillas={<PropuestasMaKo guardadas={propuestas} onArmar={armar} />}
       >
         {abierto ? <DetalleLeadMagnet key={abierto.id} lm={abierto} esPrimero={lista[0]?.id === abierto.id} />
           // Se pidió UNO (`?lm=`) y la lista no se pudo leer: se dice acá, no detrás de la «←». Sin esto se veía «Nuevo lead

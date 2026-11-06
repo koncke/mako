@@ -82,6 +82,11 @@ reales con datos de ejemplo y abre el quiz publicado en Chromium).
   (`tab-error-abierto-1024.png`). El mensaje salía repetido y el botón ocupaba todo el ancho: corregido al mirar la captura.
 - **El quiz:** el rótulo de cada respuesta lleva su número; el foco va al paso nuevo; exportado, la portada sola.
 
+- **«MaKo te propone» es un botón y no corre al entrar**: cada pedido gasta la IA del negocio. Al entrar se ve la última
+  propuesta guardada (`tab-propone-1024.png`); sin ninguna, sólo el título y el botón (`tab-propone-sin-propuestas-1440.png`).
+- **Las propuestas van en una lista con filete, no en tarjetas como las plantillas**: son tres ideas para elegir una, y con el
+  mismo peso que las plantillas competían con ellas.
+
 **Lo que descarté, y por qué:**
 - **Mostrar en la lista de la izquierda cuál es el primero (el que mandan las automatizaciones).** La lista es la pieza
   compartida de Create (`app/_crear/PantallaCrear.tsx`) y no tiene un lugar para un rótulo por renglón; agregarlo es tocar las
@@ -98,7 +103,7 @@ hola-mako.site y el Pixel mandando a `/api/track/optin` de producción. Lo prob�
 ## Lo que pide producción
 
 - **Ninguna migración.** Nada que aplicar.
-- **Nada que configurar.** La tab se ve sólo desde la plataforma (el super admin sin mirar a un cliente). El bloque Quiz y el
+- **Nada que configurar.** «MaKo te propone» usa la IA conectada del negocio (la plataforma, la suya). La tab se ve sólo desde la plataforma (el super admin sin mirar a un cliente). El bloque Quiz y el
   objetivo «Quiz con diagnóstico» del Web Generator los ve todo negocio que use el Web Generator.
 
 ## Lo que decide Martín
@@ -113,6 +118,18 @@ hola-mako.site y el Pixel mandando a `/api/track/optin` de producción. Lo prob�
 4. **¿El quiz se parece a Typeform?** Se copió de SurveyJS (código abierto) porque Typeform no se abre desde la nube. Si
    quiere otra referencia, se mide en su Chrome.
 
+## Tanda 3: MaKo propone el lead magnet (hecha)
+
+- **En «Nuevo lead magnet», arriba de las plantillas, «MaKo te propone»**: un botón pide hasta 3 propuestas desde la oferta del
+  negocio y lo que hace su competencia en Competitors Spy, con la IA del negocio. Cada una dice su plantilla, su nombre, por qué y
+  de dónde sale, y «Armar este» la crea como una tarjeta de la galería. La última propuesta queda guardada.
+- **En el teléfono**, lo mismo en la hoja de «Nuevo».
+- **API de MaKo:** `proponer_magnet` (lectura, cuesta la IA del negocio, no guarda nada).
+- **El prompt es editable** en /configuraciones (grupo «Lead Magnet (MaKo propone)»), y lo que el código descarta no depende del
+  texto.
+
+Tests: `tests/lead-magnets-propuesta.test.ts` (6, cada regla probada rompiéndola).
+
 ## Lo que sigue
 
-- **Tanda 3:** MaKo propone el lead magnet desde la oferta y Competitors Spy, con la IA del negocio.
+- Nada pedido queda sin hacer. Lo que espera una decisión, arriba.

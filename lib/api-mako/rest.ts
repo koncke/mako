@@ -35,6 +35,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/leadmagnet/lead-magnets/{id}/links', 'link_publico_magnet'],
   ['PUT', '/leadmagnet/lead-magnets/{id}/primero', 'primero_magnet'],
   ['DELETE', '/leadmagnet/lead-magnets/{id}/links', 'dejar_compartir_magnet'],
+  ['GET', '/leadmagnet/propuestas', 'proponer_magnet'],
   // ── imagen (15/10/2026): el Image Editor ────────────────────────────────────
   ['GET', '/imagen/disenos', 'listar_disenos_imagen'],
   ['POST', '/imagen/disenos', 'crear_diseno_imagen'],

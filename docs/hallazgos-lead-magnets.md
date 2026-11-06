@@ -168,3 +168,24 @@ Un segundo revisor, sobre el quiz y los arreglos de la primera: siete confirmado
   revisadas. Se arregló en el arnés (cambia la cara inicial) y el estado que no se veía tenía un hueco real: con `?lm=` y la
   lista sin leer, la tab mostraba «Nuevo» como si no existiera. **Antes de dar por mirada una captura, comparala con la de al
   lado: si son iguales, no miraste lo que dice el nombre.**
+
+## MaKo propone el lead magnet, tanda 3 (nube, 6/11/2026)
+
+**Vive en:** `lib/lead-magnets/propuesta.ts` (puro), `lib/lead-magnets/proponer.ts`, `app/lead-magnet-generator/PropuestasMaKo.tsx`,
+`lib/api-mako/areas/leadmagnet.*` (`proponer_magnet`), `tests/lead-magnets-propuesta.test.ts`.
+
+- **La IA elige y redacta; el código decide qué se muestra.** `leerPropuestas` descarta, con su motivo, lo que usa una plantilla
+  que no existe, dice salir de la competencia sin que se le haya pasado ninguna, nombra a un competidor (por su nombre, su @ o su
+  rótulo «Competidor N»), está con «vos» o repite uno que ya tiene. Probado rompiendo cada regla.
+- **A la IA los competidores le llegan ANÓNIMOS**, y el código igual busca sus nombres: un referente conocido se reconoce por lo
+  que promete, y la IA puede escribir su nombre aunque nadie se lo haya dado. «Sin caras ni nombres de gurús» se cumple en las dos
+  capas.
+- ⚠️ **«Que no nombre a X» se compara con límites de palabra Unicode**, sin tildes ni mayúsculas. Con un `includes`, un
+  competidor que se llama «Max» descarta toda propuesta que diga «maximizar». El test que lo probaba sólo miraba `ok`, que sigue
+  en `true` con todo descartado: dio verde con la rotura puesta, y se rehízo para mirar lo que pasó.
+- **Cada negocio paga su IA.** Sin la suya no corre (la plataforma usa la de MaKo, que es la suya), sin la red de la plataforma y
+  adentro de «sólo su IA» (D6b). Por eso es un botón: al entrar no se gasta nada, y se ve la última propuesta guardada.
+- **Por la API es una lectura (GET) que no escribe**: `proponerLeadMagnets({ guardar: false })`. La pantalla sí guarda su
+  última propuesta (`mako.lead-magnets.propuestas`, una caché con un solo escritor).
+- **Lo que falta para proponer se dice con el lugar donde se arregla**: sin oferta ni competidores, «Ir a Offer»; sin su IA, el
+  modal de la IA en la tab.

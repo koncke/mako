@@ -26,14 +26,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_plantillas_magnet', area: 'leadmagnet', tipo: 'lectura',
     titulo: 'Ver las plantillas de lead magnet',
-    descripcion: 'Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla y clase grabada. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.',
+    descripcion: 'Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla, clase grabada y quiz con diagnóstico. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
   },
   {
     id: 'armar_magnet', area: 'leadmagnet', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Armar un lead magnet con una plantilla',
-    descripcion: 'Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.',
+    descripcion: 'Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada, quiz con diagnóstico). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.',
     parametros: [
       { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'El id de la plantilla (de ver_plantillas_magnet).', ejemplo: 'guia' },
       { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'Cómo se llama el lead magnet. Si se omite, el nombre de la plantilla.', ejemplo: 'Guía: tu agenda llena en 30 días' },
@@ -72,5 +72,14 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [ID_LM],
     canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: false,
     reversible: false, escribe: 'revoca el link (shares, recurso lead-magnet) y saca el enlace del lead magnet',
+  },
+  {
+    // Al FINAL del área (AGENTS.md: una operación nueva no le saca el lugar a las de antes). Cuesta la IA DEL NEGOCIO: sin la
+    // suya no corre. No escribe nada (la pantalla guarda su última propuesta; por la API, no).
+    id: 'proponer_magnet', area: 'leadmagnet', tipo: 'lectura',
+    titulo: 'Proponer lead magnets desde la oferta',
+    descripcion: 'MaKo propone hasta 3 lead magnets para el negocio, con la IA del negocio: desde su oferta (lo que promete, a quién, lo que frena a su cliente) y lo que hace su competencia en Competitors Spy. Cada propuesta trae su plantilla, su nombre, por qué y de dónde sale; se arma con armar_magnet (plantilla y nombre). Nunca nombra a un competidor. Sin la IA del negocio, o sin oferta ni competidores leídos, dice qué falta.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'ia', gating: GATING, datosDeClientes: false,
   },
 ];

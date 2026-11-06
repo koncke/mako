@@ -15,17 +15,31 @@ import { PLANTILLAS_LEAD_MAGNET } from '@/lib/lead-magnets/plantillas';
 import { rutaDePagina, rutaDePieza } from '@/lib/lead-magnets/pieza';
 import { RUTA_TAB, estadoDe, rutaDeLeadMagnet, type LeadMagnetVista } from '@/app/lead-magnet-generator/reglas';
 import { pedirLeadMagnet } from '@/app/lead-magnet-generator/cliente';
+import type { PropuestaLM, PropuestasGuardadas } from '@/lib/lead-magnets/propuesta';
 
-export function LeadMagnetsM({ lista, abierto }: { lista: LeadMagnetVista[]; abierto: LeadMagnetVista | null }) {
+export function LeadMagnetsM({ lista, abierto, guardadas = null }: { lista: LeadMagnetVista[]; abierto: LeadMagnetVista | null; guardadas?: PropuestasGuardadas | null }) {
   const router = useRouter();
   const toast = useToastM();
   const [hoja, setHoja] = useState(false);
   const [haciendo, setHaciendo] = useState<string | null>(null);
 
-  const armar = async (plantilla: string) => {
+  // Lo que propuso MaKo (lib/lead-magnets/proponer.ts): la última guardada al entrar; «Que MaKo proponga» pide otra.
+  const [propuestas, setPropuestas] = useState<PropuestaLM[]>(guardadas?.propuestas ?? []);
+  const proponer = async () => {
+    if (haciendo) return;
+    setHaciendo('proponer');
+    const r = await pedirLeadMagnet<{ propuestas: PropuestaLM[]; aviso: string | null }>({ accion: 'proponer' }, { timeoutMs: 95_000 });
+    setHaciendo(null);
+    if (!r.ok) { toast(r.error); return; }
+    if (r.aviso) toast(r.aviso);
+    if (!r.propuestas.length) { toast('Esta vez no salió ninguno que valga la pena. Prueba de nuevo.'); return; }
+    setPropuestas(r.propuestas);
+  };
+
+  const armar = async (plantilla: string, nombre?: string) => {
     if (haciendo) return;
     setHaciendo('armar');
-    const r = await pedirLeadMagnet<{ ruta: string; aviso: string | null }>({ accion: 'armar', plantilla });
+    const r = await pedirLeadMagnet<{ ruta: string; aviso: string | null }>({ accion: 'armar', plantilla, ...(nombre ? { nombre } : {}) });
     setHaciendo(null);
     if (!r.ok) { toast(r.error); return; }
     if (r.aviso) toast(r.aviso);
@@ -110,12 +124,25 @@ export function LeadMagnetsM({ lista, abierto }: { lista: LeadMagnetVista[]; abi
         <Button variant="primary" size="lg" full onClick={() => setHoja(true)} disabled={!!haciendo}>Nuevo</Button>
       </PieFijoM>
       <SheetM abierto={hoja} onCerrar={() => setHoja(false)} titulo="¿Qué vas a crear hoy?">
-        <ListaM>
-          {PLANTILLAS_LEAD_MAGNET.map((pl) => (
-            <FilaM key={pl.id} icono="leadmagnet" titulo={`${pl.emoji} ${pl.nombre}`} segunda={pl.ayuda}
-              onClick={() => { setHoja(false); void armar(pl.id); }} deshabilitada={!!haciendo} />
-          ))}
-        </ListaM>
+        <SeccionM titulo="MaKo te propone">
+          <ListaM>
+            {propuestas.map((p) => (
+              <FilaM key={`${p.plantilla}:${p.nombre}`} icono="leadmagnet" titulo={p.nombre} segunda={p.porQue}
+                onClick={() => { setHoja(false); void armar(p.plantilla, p.nombre); }} deshabilitada={!!haciendo} />
+            ))}
+            <FilaM icono="cerebro" titulo={haciendo === 'proponer' ? 'MaKo está pensando…' : propuestas.length ? 'Proponer otros' : 'Que MaKo proponga'}
+              segunda={propuestas.length ? undefined : 'Desde tu oferta y lo que hace tu competencia'}
+              onClick={() => void proponer()} deshabilitada={!!haciendo} />
+          </ListaM>
+        </SeccionM>
+        <SeccionM titulo="Plantillas">
+          <ListaM>
+            {PLANTILLAS_LEAD_MAGNET.map((pl) => (
+              <FilaM key={pl.id} icono="leadmagnet" titulo={`${pl.emoji} ${pl.nombre}`} segunda={pl.ayuda}
+                onClick={() => { setHoja(false); void armar(pl.id); }} deshabilitada={!!haciendo} />
+            ))}
+          </ListaM>
+        </SeccionM>
       </SheetM>
     </>
   );
