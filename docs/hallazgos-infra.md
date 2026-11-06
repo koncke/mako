@@ -361,6 +361,29 @@ el primer match se come el carácter de antes del segundo `|`, así que el segun
 se declara «la ÚNICA fuente del área»—. Repuntada. La guarda nueva mira en disco que cada link exista, que haya una sola
 fila por clave, que ninguna fila tenga columnas de más y que una línea en blanco no haya partido la tabla.
 
+### Y arreglarlo abrió el agujero siguiente: una mezcla LIMPIA devuelve las filas que main ya había juntado
+
+**Vive en:** `scripts/unir-indice-hallazgos.mjs` (`entradasDeCelda`, `unirCeldas`, `unaFilaPorClave`).
+
+⚠️ **La guarda nueva se puso en rojo en una punta ajena media hora después, y la punta no había hecho nada mal.**
+`punta/spy-oferta-capturada` se había cortado ANTES de que main tuviera una fila por área, así que tenía las filas
+viejas; al mezclar el main nuevo, **git las devolvió** — un lado las borró y el otro las conservó, y eso se resuelve
+conservando. Quedó en 85 filas para 77 áreas. **Le va a pasar a toda punta abierta de antes del 6/11.**
+
+⚠️ **Y el driver no lo veía porque la mezcla salía LIMPIA.** Los dos lados tocaron renglones distintos, así que
+`git merge-file` devolvía 0 y el único filtro de ese camino era «tirar las filas byte a byte idénticas» — que era *lo
+único seguro a ciegas* mientras el índice estaba duplicado, y dejó de alcanzar el día que main quedó con una fila por
+área. **Un filtro que se justifica por «es lo único seguro» hay que volver a mirarlo cuando cambia lo que había antes.**
+
+⚠️ **Y tirarlas por clave perdía hallazgos: de las 8 filas de más, sólo 2 estaban contenidas en la de main.** Las otras 6
+traían la cosecha propia de la punta (la de MaKo (IA), 24.218 caracteres). Así que el driver une **por entrada**, con la
+misma mecánica de la pasada a mano, y con su red: si alguna entrada no aparece textual en el resultado, esa clave **no se
+toca** y quedan las dos filas. Mejor un rojo de la guarda, que lo mira una persona, que una entrada perdida en silencio.
+
+Probado con el caso real, llamando al driver como lo llama git (base, ours, theirs): 123 filas → **77 para 77 áreas**,
+1.625 títulos, los mismos. Y `--consolidar` ahora hace el trabajo de verdad, no sólo las idénticas: es el comando que le
+queda a quien se encuentre el rojo.
+
 ⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
 documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,
 «Customer Success» y «Customer Success (Clients)». Son claves distintas, así que la guarda las deja pasar; juntarlas o no

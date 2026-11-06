@@ -25,7 +25,9 @@
 //      (primero el de main, después el de la punta, como en las bitácoras). Si los dos escribieron lo mismo, queda una vez.
 //   3. cualquier otra cosa —una fila nueva, una borrada, el encabezado cambiado de los dos lados, una celda reescrita de
 //      punta a punta— queda como el choque de siempre, con sus marcas, y lo resuelve una persona.
-//   Y en los dos caminos se tiran las filas BYTE A BYTE IDÉNTICAS, que sólo pueden ser daño de `union`.
+//   Y en los dos caminos se deja UNA FILA POR ÁREA, uniendo las celdas por entrada (`unaFilaPorClave`, más abajo): hace
+//   falta incluso cuando la mezcla sale limpia, porque una punta cortada antes del 6/11/2026 trae las filas viejas y git
+//   las devuelve. Si alguna entrada no sobrevive textual, esa clave no se toca.
 //
 // También se puede correr a mano para reparar lo ya duplicado, sin mezclar nada:
 //   node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md          # dice cuántas filas sacaría
@@ -71,6 +73,111 @@ export function sinFilasRepetidas(lineas) {
   return { lineas: out, sacadas };
 }
 
+// =============================================================================
+// Juntar DOS FILAS de la misma área que NO son idénticas (6/11/2026, de noche)
+// =============================================================================
+// Tirar sólo las idénticas alcanzaba mientras el índice estaba duplicado: eran el caso seguro a ciegas. Dejó de alcanzar
+// el día que main pasó a tener UNA fila por área: una punta cortada ANTES de eso tiene las filas viejas, y al mezclar el
+// main nuevo **git las devuelve** (un lado borró, el otro conservó → se conserva). Medido en `punta/spy-oferta-capturada`:
+// 85 filas para 77 áreas, 8 de más. ⚠️ Y de esas 8, sólo 2 estaban CONTENIDAS en la fila de main: las otras 6 traían la
+// cosecha propia de la punta, así que tirarlas por clave **perdería hallazgos**. Por eso se unen por ENTRADA.
+//
+// ⚠️ El límite de una entrada es `**Título (fecha)**:` —la negrita seguida de DOS PUNTOS—, no cualquier `**negrita**`:
+// `**99**, que NO es verde` es un énfasis a mitad de oración, y cortar ahí deja las dos mitades separadas cuando se
+// reordena. Y unir por el sufijo común más largo tampoco sirve: arranca a mitad de palabra.
+//
+// Y nunca se junta a ciegas: si alguna entrada original no aparece TEXTUAL en el resultado, esta clave **no se toca** y
+// quedan las dos filas. Mejor un rojo de la guarda, que lo mira una persona, que una entrada perdida en silencio.
+const ARRANQUE_DE_ENTRADA = /(?:^|(?<=[\s·]))\*\*[^*]{2,200}\*\*\s*:/g;
+const normalizar = (s) => s.replace(/\s+/g, ' ').trim();
+
+/** Parte una celda en entradas de cosecha. Lo que haya antes de la primera es una entrada más (prosa sin título). */
+export function entradasDeCelda(celda) {
+  const t = celda.trim();
+  const cortes = [];
+  ARRANQUE_DE_ENTRADA.lastIndex = 0;
+  for (let m; (m = ARRANQUE_DE_ENTRADA.exec(t)) !== null; ) cortes.push(m.index);
+  if (!cortes.length) return t ? [t] : [];
+  const out = cortes[0] > 0 ? [t.slice(0, cortes[0]).trim()] : [];
+  for (let i = 0; i < cortes.length; i++) out.push(t.slice(cortes[i], cortes[i + 1]).trim());
+  return out.filter(Boolean);
+}
+
+/**
+ * Une las celdas de varias filas de la MISMA área en una. Cada celda es una lista ordenada de entradas (lo más nuevo
+ * adelante, que es como escribe la cosecha), así que se mezclan como listas ordenadas: se emite la cabeza que no
+ * aparezca más atrás en ninguna otra. Devuelve null si alguna entrada no sobrevivió textual.
+ */
+export function unirCeldas(celdas) {
+  const limpias = [...new Set(celdas.map((c) => c.trim()))].filter(Boolean);
+  const vivas = limpias.filter((x) => !limpias.some((y) => y !== x && y.includes(x))); // contenida es contenida
+  let piezas;
+  if (vivas.length <= 1) {
+    piezas = entradasDeCelda(vivas[0] ?? '');
+  } else {
+    const listas = vivas.map((c) => entradasDeCelda(c).map(normalizar));
+    const textoDe = new Map();
+    for (const c of vivas) for (const e of entradasDeCelda(c)) if (!textoDe.has(normalizar(e))) textoDe.set(normalizar(e), e);
+    const pos = listas.map(() => 0);
+    const puestas = new Set();
+    piezas = [];
+    for (let guarda = 0; guarda < 20000; guarda++) {
+      for (let j = 0; j < listas.length; j++) while (pos[j] < listas[j].length && puestas.has(listas[j][pos[j]])) pos[j]++;
+      const cabezas = listas.map((l, i) => (pos[i] < l.length ? { i, k: l[pos[i]] } : null)).filter(Boolean);
+      if (!cabezas.length) break;
+      const masAtras = (k, propia) => listas.some((l, j) => l.indexOf(k, pos[j] + (j === propia ? 1 : 0)) >= 0);
+      const elegida = cabezas.find((c) => !masAtras(c.k, c.i)) ?? cabezas[0];
+      piezas.push(textoDe.get(elegida.k));
+      puestas.add(elegida.k);
+    }
+  }
+  // una entrada repetida palabra por palabra no aporta (hay celdas que ya la traían dos veces); las cortas no se tocan
+  const vistas = new Set();
+  const finales = [];
+  for (const p of piezas) {
+    const k = normalizar(p);
+    if (k.length >= 40 && vistas.has(k)) continue;
+    vistas.add(k);
+    finales.push(p);
+  }
+  const texto = finales.join(' ').replace(/[ \t]+/g, ' ').trim();
+  // la red: todo lo que entró tiene que seguir, textual
+  const blob = normalizar(texto);
+  for (const c of limpias) for (const e of entradasDeCelda(c)) if (!blob.includes(normalizar(e))) return null;
+  return texto;
+}
+
+/** Deja UNA fila por área, uniendo las celdas. La fila queda donde estaba la primera. Devuelve { lineas, juntadas }. */
+export function unaFilaPorClave(lineas) {
+  const porClave = new Map();
+  for (const l of lineas) {
+    const f = filaDelIndice(l);
+    if (!f) continue;
+    if (!porClave.has(f.clave)) porClave.set(f.clave, []);
+    porClave.get(f.clave).push(l);
+  }
+  const unido = new Map();
+  for (const [clave, filas] of porClave) {
+    if (filas.length < 2) continue;
+    const texto = unirCeldas(filas.map((l) => filaDelIndice(l).celda));
+    if (texto == null) continue; // no se pudo verificar: quedan las dos y lo mira una persona
+    const c = filas[0].split('|');
+    unido.set(clave, `|${c[1]}|${c[2]}| ${texto} |`);
+  }
+  if (!unido.size) return { lineas, juntadas: 0 };
+  const hechas = new Set();
+  const out = [];
+  let juntadas = 0;
+  for (const l of lineas) {
+    const f = filaDelIndice(l);
+    if (!f || !unido.has(f.clave)) { out.push(l); continue; }
+    if (hechas.has(f.clave)) { juntadas++; continue; }
+    hechas.add(f.clave);
+    out.push(unido.get(f.clave));
+  }
+  return { lineas: out, juntadas };
+}
+
 /**
  * Une el índice cuando los dos lados sólo tocaron CELDAS de filas que ya existían. Devuelve el texto, o null si es
  * cualquier otro choque (y entonces lo resuelve una persona).
@@ -104,24 +211,28 @@ export function unirPorCelda(base, ours, theirs) {
     const celda = `${pt}${pa}${fb.celda}`; // primero lo que ya llegó a main, después lo de la punta
     out.push(`|${B[i].split('|')[1]}|${B[i].split('|')[2]}|${celda}|${fb.cola}`);
   }
-  return sinFilasRepetidas(out).lineas.join(eol);
+  return unaFilaPorClave(out).lineas.join(eol);
 }
 
-/** `--consolidar <archivo> [--aplicar]`: saca las filas repetidas de un índice ya dañado. */
+/** `--consolidar <archivo> [--aplicar]`: deja UNA fila por área, uniendo las celdas sin perder una entrada. */
 function consolidar(args) {
   const archivo = args.find((a) => !a.startsWith('--'));
   if (!archivo) { console.error('uso: unir-indice-hallazgos.mjs --consolidar <archivo> [--aplicar]'); return 2; }
   const texto = readFileSync(archivo, 'utf8');
   const eol = texto.includes('\r\n') ? '\r\n' : '\n';
-  const { lineas, sacadas } = sinFilasRepetidas(texto.replace(/\r\n/g, '\n').split('\n'));
+  const { lineas, juntadas } = unaFilaPorClave(texto.replace(/\r\n/g, '\n').split('\n'));
   const filas = lineas.filter((l) => filaDelIndice(l)).length;
-  if (!sacadas) { console.log(`${archivo}: ${filas} filas, ninguna repetida.`); return 0; }
+  const claves = new Set(lineas.map((l) => filaDelIndice(l)?.clave).filter(Boolean)).size;
+  const quedan = filas - claves;
+  const aviso = quedan ? ` ⚠️ Quedan ${quedan} fila(s) de más que NO se pudieron verificar: se juntan a mano.` : '';
+  if (!juntadas) { console.log(`${archivo}: ${filas} filas para ${claves} área(s), nada que juntar.${aviso}`); return 0; }
   if (!args.includes('--aplicar')) {
-    console.log(`${archivo}: sacaría ${sacadas} fila(s) repetida(s) y quedarían ${filas}. Con --aplicar se escribe.`);
+    // `filas` ya es la cuenta de DESPUÉS: `lineas` viene unido. Restarle `juntadas` contaría dos veces.
+    console.log(`${archivo}: juntaría ${juntadas} fila(s) y quedarían ${filas}. Con --aplicar se escribe.${aviso}`);
     return 0;
   }
   writeFileSync(archivo, lineas.join(eol));
-  console.log(`${archivo}: saqué ${sacadas} fila(s) repetida(s); quedaron ${filas}.`);
+  console.log(`${archivo}: junté ${juntadas} fila(s); quedaron ${filas} para ${claves} área(s).${aviso}`);
   return 0;
 }
 
@@ -131,9 +242,11 @@ function driver([base, ours, theirs, ruta = ours]) {
   const m = spawnSync('git', ['merge-file', '-p', '-L', 'la punta', '-L', 'la base', '-L', 'main', ours, base, theirs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (m.status === 0) {
     const eol = m.stdout.includes('\r\n') ? '\r\n' : '\n';
-    const { lineas, sacadas } = sinFilasRepetidas(m.stdout.replace(/\r\n/g, '\n').split('\n'));
+    // ⚠️ Una mezcla LIMPIA puede dejar filas de más: una punta cortada antes de que main tuviera una fila por área trae
+    // las viejas, y «un lado borró, el otro conservó» se resuelve conservando. Así que acá también se junta por área.
+    const { lineas, juntadas } = unaFilaPorClave(m.stdout.replace(/\r\n/g, '\n').split('\n'));
     writeFileSync(ours, lineas.join(eol));
-    if (sacadas) console.error(`[unir-indice-hallazgos] ${ruta}: mezcla limpia, y saqué ${sacadas} fila(s) repetida(s).`);
+    if (juntadas) console.error(`[unir-indice-hallazgos] ${ruta}: mezcla limpia, y junté ${juntadas} fila(s) de la misma área.`);
     return 0;
   }
   const unido = unirPorCelda(texto(base), texto(ours), texto(theirs));
