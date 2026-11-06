@@ -11135,9 +11135,14 @@ No se pierde nada —de eso se encarga `union`—, pero el índice es lo único 
 área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
 abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
 
-**Qué hacer mientras el formato sea éste:** al cosechar, después de que la punta llegue a main, mirar si quedó duplicada la
-fila de tu área y consolidarla en una (se concatenan los resúmenes nuevos y se deja UNA cola de historial). Es lo que se
-hizo con las tres filas de Ticketera en este commit.
+**Qué hacer mientras el formato sea éste:** al cosechar, mirar si quedó duplicada la fila de tu área y consolidarla en una
+(se concatenan los resúmenes nuevos y se deja UNA cola de historial).
+
+⚠️ **Y consolidarla AL FINAL de la corrida, no en el medio: medido el 6/11 cometiendo el error.** Se consolidaron las 3
+filas de Ticketera en una, y al llegar a main las puntas que venían detrás volvió a 6 — cada punta en vuelo que tocó esa
+línea reintroduce su versión, y la consolidación de una punta es sólo «una versión más» para `union`. Consolidar sirve una
+vez que no queda ninguna punta propia corriendo; hacerlo antes es trabajo que se deshace solo y, peor, da la impresión de
+que ya está ordenado.
 
 **El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
 de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
