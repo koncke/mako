@@ -9,9 +9,11 @@
       "integracion": false,
       "punta/**": false,
       "ci-rojo/**": false,
-      "espera-main/**": false
+      "espera-main/**": false,
+      "claude/**": false
     }
   },
+  "ignoreCommand": "bash scripts/vercel-saltar-build.sh",
   "crons": [
     {
       "path": "/api/cron/avisos-programados",

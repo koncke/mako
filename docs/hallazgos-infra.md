@@ -84,6 +84,26 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El gasto de Vercel: cada llegada a main compila en una máquina de 30 núcleos (6/11/2026)
+
+**Síntoma:** Martín: «el gasto de Vercel se disparó por las nubes». Medido en `/v1/billing/charges`: los builds costaban US$0 hasta el 20/10, de US$2 a US$12 por día hasta el 1/11, US$22 y US$26 el 2 y el 3/11, y **US$75,81 el 4/11**. El 98 % es el proyecto mako. Todo lo demás (funciones, tráfico) son unos US$2 por día.
+
+**Lo obvio era tráfico o funciones, y no.** Es sólo «Build CPU Minutes», y son dos cosas que se multiplican:
+
+1. **El precio de cada build.** Desde el 20/10, `resourceConfig.buildMachineSelection: elastic` subió el proyecto solo a Turbo (`buildMachineElasticReason: sustained-high-cpu`). Se cobra por núcleo: 30 núcleos × 3 minutos × US$0,0035 ≈ **US$0,32 por build**. Vercel no avisa.
+2. **La cantidad de builds.** `punta.yml` nació el 4/11 a las 00:03: cada rama llega sola a main y cada llegada compila. Main pasó de unos 15 builds por día a **176**.
+
+Lo que se gastaba de más ese día:
+- 54 previews de ramas `claude/*`: `deploymentEnabled` apagaba `punta/**`, y los chats de la nube trabajan en `claude/*`.
+- Un tercio de los builds de main (79 de 231, en 48 h) sólo cambiaba documentos o tests.
+- Más de un tercio (86 de 232) arrancó antes de que terminara el anterior: Vercel ya no encola commits de la misma rama, y el intermedio se compila aunque nadie lo vaya a usar.
+
+**La regla:** una rama que nadie mira va en `deploymentEnabled`. Lo que no sale en la app no construye (`scripts/vercel-saltar-build.sh`, con su test). Sumar un chat o una automatización que empuja a main tiene un costo: unos US$0,32 por cada empujón.
+
+**Medir:** `/v1/billing/charges` llega con uno o dos días de atraso, así que hoy se estima con `/v6/deployments`. Un build de 30 núcleos son unos 90 minutos de CPU.
+
+**Sin hacer, y cuesta decisión de Martín:** en el proyecto, `buildQueue.configuration: WAIT_FOR_NAMESPACE_QUEUE` (un build por rama: los intermedios se saltean), y fijar la máquina en Enhanced (8 núcleos): sale más barato si tarda menos de 11 minutos, sin medir. Y si con eso no alcanza, agrupar las llegadas a main.
+
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
 **Vive en:** `scripts/tipos-ci.mjs` (`TIPOS_TOPE_S`, `SALIDA_SIN_TIEMPO`, `TIPOS-RAM`) · `.github/workflows/punta.yml` (Tipos antes de
