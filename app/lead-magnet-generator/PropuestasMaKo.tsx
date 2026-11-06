@@ -71,7 +71,7 @@ export function PropuestasMaKo({ guardadas, onArmar }: {
           {error.texto}
           {error.falta === 'oferta' && <Link href="/offer">Ir a Offer</Link>}
           {error.falta === 'ia' && <LinkIntegracion href="/integraciones?abrir=ia">Conectar mi IA</LinkIntegracion>}
-          {!error.falta && <ReportarASoporte />}
+          <ReportarASoporte />
         </p>
       )}
       {aviso && <p className="lmg-aviso" role="status">{aviso}</p>}

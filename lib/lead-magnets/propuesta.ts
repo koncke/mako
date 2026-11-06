@@ -9,7 +9,7 @@
 //   · la fuente tiene que estar en lo que se le pasó (sin competidores leídos, «la competencia» es inventada);
 //   · ni el nombre ni el porqué nombran a un competidor: a la IA le llegan ANÓNIMOS («Competidor 1»), y el código igual
 //     busca sus nombres y su @ por si los dedujo (un referente famoso se reconoce por lo que promete);
-//   · español neutro con tú (lo lee el lead: el nombre es el título del lead magnet);
+//   · español neutro, de «tú» (lo lee el lead: el nombre es el título del lead magnet);
 //   · nada que ya tenga, ni dos iguales.
 // Lo que no pasa se cuenta (`descartadas`, con su motivo), no se rellena: si no queda ninguna, la pantalla lo dice.
 //
@@ -185,7 +185,7 @@ export function leerPropuestas(texto: string, d: Pick<DossierLM, 'nCompetidores'
     if (nombrado) { no(`nombra a un competidor (${nombrado})`); continue; }
     if (/(?<![\p{L}])competidor(?:es)?\s*\d/iu.test(`${nombre} ${porQue}`)) { no('nombra a un competidor por su número'); continue; }
     const voseo = marcasDeVoseo(`${nombre}. ${porQue}`);
-    if (voseo.length) { no(`está con «vos» (${voseo[0]})`); continue; }
+    if (voseo.length) { no(`no está en español neutro (${voseo[0]})`); continue; }
     const k = normalizar(nombre);
     if (vistos.has(k)) { no('ya lo tiene, o está repetida'); continue; }
     vistos.add(k);

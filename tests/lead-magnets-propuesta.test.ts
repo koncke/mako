@@ -76,7 +76,7 @@ test('y descarta, con su motivo, lo que no se puede mostrar', () => {
   assert.match(motivo({ porQue: 'Como hace CLINICAS AL MAXIMO, pero gratis.' }), /competidor/, 'sin tildes ni mayúsculas, igual');
   assert.match(motivo({ porQue: 'Lo que @clinicasalmaximo regala.' }), /competidor/, 'su @');
   assert.match(motivo({ porQue: 'El Competidor 1 no lo dice.' }), /número/, 'el rótulo anónimo tampoco');
-  assert.match(motivo({ nombre: 'Checklist: revisá tus anuncios hoy' }), /vos/, 'en neutro: lo lee el lead');
+  assert.match(motivo({ nombre: 'Checklist: revisá tus anuncios hoy' }), /neutro/, 'en neutro: lo lee el lead');
   assert.match(motivo({ nombre: 'Guía: tu agenda llena' }), /ya lo tiene/, 'uno que ya tiene');
   assert.match(motivo({ nombre: 'Hola' }), /sin nombre/);
   assert.match(motivo({ porQue: '' }), /porqué/);
