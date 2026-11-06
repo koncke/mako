@@ -44,7 +44,7 @@ export function Revenue({ vista }: { vista: VistaIngresos }) {
               <ReceiptText />
             </EmptyMedia>
             <EmptyTitle>Todavía no entró ningún pago</EmptyTitle>
-            <EmptyDescription>Cuando cargues el pago de un cliente en su ficha del CRM, sale acá.</EmptyDescription>
+            <EmptyDescription>Cuando cargues el pago de un cliente en su ficha del CRM, sale aquí.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button asChild size="sm">
