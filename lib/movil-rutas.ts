@@ -73,6 +73,10 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'dashboard' | 'mas';
 export type IdSeccionMas =
   | 'plan' | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'ai-avatar' | 'lead-magnet' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
+  // Competitor Spy (6/11/2026): su pantalla del teléfono es app/m/competitor-spy. ⚠️ El id de una fila nueva de
+  // `SECCIONES_MAS` tiene que estar ACÁ además de en la fila: `DefSeccionMas.id` es esta unión, y sin el miembro el tsc
+  // marca la fila, `QUERY_DE_SECCION` y `aSeccion` —tres errores lejos del cambio—.
+  | 'competitor-spy'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
