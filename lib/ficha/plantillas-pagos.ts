@@ -13,6 +13,9 @@
 //   · «Venta con contrato»: el high-ticket de llamada, con el plan de cuotas y todo lo que se vendió.
 //   · «De un vistazo» (épica): un número gigante y su botón, la próxima cuota y el link a mano.
 // Un bloque sin datos se calla (./reglas-pagos.ts), así que un lead abierto ve la oferta y los links.
+// (5/11/2026) TODAS arrancan con la SUSCRIPCIÓN, mes a mes: en una venta de suscripción es la tab entera (el estado, cuánto
+// paga, cuándo le toca, lo pagado y su historia, con sus acciones) y calla el estado de cuenta, las cuotas, los movimientos
+// y la venta, que dibuja adentro. En cualquier otra venta se calla ella. docs/investigacion-suscripciones.md.
 //
 // ⚠️ EL TIPO es el de lib/ficha/plantillas-tab.ts (del CRM), importado: el contrato acordado el 16/10/2026. La galería
 //    importa ESTA lista de vuelta (un ciclo sólo de tipos, que no existe en el JavaScript).
@@ -32,6 +35,7 @@ export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
     bajada: 'Qué debe, el link para cobrarle y lo que ya pagó.',
     sugeridaPara: ['carrito', 'formulario-meta', 'landing', 'prospeccion'],
     bloques: [
+      { id: 'suscripcion', ancho: 12, diseno: 'completa' },
       { id: 'cobrado', ancho: 6, diseno: 'numero' },
       { id: 'venta', ancho: 6, diseno: 'cajas' },
       { id: 'oferta', ancho: 12 },
@@ -45,8 +49,8 @@ export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
     bajada: 'Cuánto paga por mes, si está al día y los meses cobrados.',
     sugeridaPara: ['evento', 'te-escriben'],
     bloques: [
+      { id: 'suscripcion', ancho: 12, diseno: 'completa' },
       { id: 'cobrado', ancho: 6, diseno: 'numero' },
-      { id: 'suscripcion', ancho: 6, diseno: 'numero' },
       { id: 'cuotas', ancho: 12, diseno: 'tabla' },
       { id: 'movimientos', ancho: 12, diseno: 'lista' },
       { id: 'links-de-pago', ancho: 12, diseno: 'pendiente' },
@@ -59,6 +63,7 @@ export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
     bajada: 'El plan de cuotas, el contrato y todo lo que se vendió.',
     sugeridaPara: ['una-llamada', 'dos-reuniones', 'respaldo'],
     bloques: [
+      { id: 'suscripcion', ancho: 12, diseno: 'completa' },
       { id: 'cobrado', ancho: 6, diseno: 'numero' },
       { id: 'venta', ancho: 6, diseno: 'cajas' },
       { id: 'cuotas', ancho: 12, diseno: 'tabla' },
@@ -76,6 +81,7 @@ export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
     id: 'pagos-de-un-vistazo', tab: 'pagos', nombre: 'De un vistazo', epico: true,
     bajada: 'Lo que debe, en grande, y el botón de lo que toca.',
     bloques: [
+      { id: 'suscripcion', ancho: 12, diseno: 'completa' },
       { id: 'cobrado', ancho: 12, diseno: 'numero' },
       { id: 'cuotas', ancho: 12, diseno: 'proxima' },
       { id: 'links-de-pago', ancho: 12, diseno: 'pendiente' },

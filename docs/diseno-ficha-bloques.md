@@ -191,7 +191,7 @@ Hoy es una sola tarjeta fija que mezcla todo, y un ganado sin cargar dibuja unas
 | `cobrado`<br>también en Resumen y CS | **Estado de cuenta** (16/10/2026): primero lo que DEBE («Debe $500», «Al día», «Pagó todo»), una línea con cuándo venció o cuándo es la próxima, y UN botón con lo que toca hacer ahora (cobrar la cuota vencida, registrar el pago, registrar el mes). Debajo, «$X cobrado de $Y» con la barra. En una mensualidad, «Al día · próxima el …». Moneda original donde exista. En un becado no se dibuja. | No: sale de las cuotas; su botón abre el cobro que toca | ¼ · ⅓ · ½ · completo | número grande con barra · chip de semáforo · anillo | — | Sí (16/10/2026) |
 | `cuotas`<br>también en CS · Pagos | El plan cuota por cuota (inicial, cobradas, por vencer y vencidas) con el comprobante y deshacer; arriba, inicial, cuota, cantidad y día de pago. Sin cuotas, arma el plan y dice si cuadra con el cierre. | Marcar pagada, deshacer y registrar otro pago; nuevo: editar una cuota, armar el plan y cobrar una cuota con link | ½ · completo | tabla · lista con chips · sólo la próxima · calendario | Plan y comprobante | Sí (16/10/2026): editar, armar el plan sin ganar el lead y cobrar una cuota con link. Falta el diseño calendario |
 | `movimientos`<br>también en CS · Pagos | Todo lo que movió plata, del más nuevo al más viejo: cada cobro (a mano, con su método, o por la pasarela), los rechazos y las devoluciones. Arriba, los avisos que piden algo: un contracargo, una devolución que falló, una renovación rechazada. Sin movimientos no se dibuja. | No: es lo que ya pasó | ½ · completo | lista · los últimos 5 | — | Sí (16/10/2026) |
-| `suscripcion`<br>también en CS · Pagos | La mensualidad, el plazo (o «mes a mes»), activa o cancelada, el fin del plazo, las cobradas y si falló la última renovación. Sólo en una suscripción. | Mensualidad y plazo; cancelar, sólo el admin; registrar una cobrada a mano | ⅓ · ½ | número grande «$800/mes · activa» · tarjeta con el estado · línea de meses | Monto | Sí (16/10/2026). Faltan los diseños tarjeta y línea de meses |
+| `suscripcion`<br>también en CS · Pagos | La suscripción mes a mes (5/11/2026, docs/investigacion-suscripciones.md): el estado, cuánto paga hoy, cuándo le toca, lo pagado y un renglón por mes con lo que tocaba, lo que entró y sus pagos (varios y parciales), y lo que cambió. Sólo en una suscripción; con ella en la hoja, el estado de cuenta, las cuotas y la venta se callan. | Registrar un pago con su mes, su medio y su comprobante; cambiar el monto desde un mes, cortar y retomar (el admin); adjuntar un comprobante | ½ · completo | mes a mes con acciones · número grande «$800/mes · activa» · tarjeta con el estado · línea de meses | Monto | Sí (5/11/2026, mes a mes). Los otros tres diseños dibujan el mismo |
 | `recordatorios-de-cobro`<br>también en CS · Pagos | Qué recordatorio de cuota está corriendo y cuándo sale: «MaKo le recuerda la cuota 3 · jueves». Se corta solo al marcar el pago. | Cortarlo (pausar la cobranza no existe) | ⅓ · ½ | renglón · lista por cuota | — | A medias: no hay forma barata de leerlo por lead |
 | `contrato`<br>también en CS · Pagos | El contrato firmado, con Ver y Descargar. | Subir, reemplazar y «Leer con IA», que llena sólo lo vacío | ⅓ · ½ | franja con botones · vista previa | — | Sí (16/10/2026) |
 | `datos-fiscales`<br>también en CS · Pagos | Facturado por, razón social, identificación fiscal, domicilio, correo de facturación (si falta, el del lead) y el documento fiscal. | Campo por campo; subir el documento con lectura por IA | ½ · completo | grilla · lista compacta | Datos y documento fiscal | Sí (16/10/2026) |
@@ -252,7 +252,7 @@ La ficha de CS usa los mismos bloques con una plantilla fija «cliente», que no
 
 - **Resumen:** `proxima-reunion` → `contacto` → `redes-y-web` → `ingreso-estimado` → `calificacion` → `lo-que-contesto` → `origen` → `setter-y-closer` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** `reunion-1` → `reunion-2` → `agendar-reunion` → `lo-que-salio-de-la-llamada` → `cohorte`
-- **Pagos:** `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `movimientos` → `suscripcion` → `confirmacion-de-pago` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones`
+- **Pagos:** `suscripcion` → `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `movimientos` → `confirmacion-de-pago` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones`
 - **Tracking:** `visitas` → `video-visto` → `actividad-en-pagina` → `grabacion-de-visita`
 
 Es lo de hoy pasado a bloques, sin perder nada. Suma al Resumen el origen y el setter y closer, que hoy quedan escondidos. El «Va bien» entra en la próxima reunión, la cohorte pasa a Reuniones y «Dijo que sí» a Pagos. Los avisos quedan como hoy.
@@ -261,7 +261,7 @@ Es lo de hoy pasado a bloques, sin perder nada. Suma al Resumen el origen y el s
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `cambios-de-mako` → `proxima-reunion` → `contacto` → `lo-que-contesto` → `video-visto` → `calificacion` → `setter-y-closer` → `tiempo-en-etapa` → `ingreso-estimado` → `cobrado` → `charla-whatsapp` → `origen` → `redes-y-web` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** `reunion-1` → `reunion-2` → `lo-que-salio-de-la-llamada` → `agendar-reunion` → `mensaje-listo` → `diagnostico-mako` → `cohorte` → `ciclo-de-venta`
-- **Pagos:** `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `movimientos` → `suscripcion` → `recordatorios-de-cobro` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `excepciones` → `cliente-en-cs`
+- **Pagos:** `suscripcion` → `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `movimientos` → `recordatorios-de-cobro` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `excepciones` → `cliente-en-cs`
 - **Tracking:** `visitas` → `anuncio-de-origen` → `actividad-en-pagina` → `grabacion-de-visita`
 
 El Resumen es lo que el closer lee 30 segundos antes de entrar (cuándo, cuánto del VSL vio y qué contestó), lo que el setter necesita para contactarlo y lo que el dueño ve que se cae. En Reuniones, cada reunión al lado de lo que salió de ella, para preparar la R2 mirando la R1. En Pagos, con el lead abierto se ven la oferta, los links y «Dijo que sí»; con la venta aparece el resto. Todos los avisos del deal quedan prendidos: es el funnel para el que se diseñó el modelo (ws1). `charla-whatsapp` depende de la decisión 2.
@@ -270,7 +270,7 @@ El Resumen es lo que el closer lee 30 segundos antes de entrar (cuándo, cuánto
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `proxima-reunion` → `contacto` → `lo-que-contesto` → `video-visto` → `calificacion` → `setter-y-closer` → `ingreso-estimado` → `cobrado` → `charla-whatsapp` → `origen` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** `reunion-1` → `lo-que-salio-de-la-llamada` → `agendar-reunion` → `mensaje-listo` → `diagnostico-mako` → `ciclo-de-venta`
-- **Pagos:** `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `movimientos` → `suscripcion` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `cliente-en-cs`
+- **Pagos:** `suscripcion` → `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `movimientos` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `cliente-en-cs`
 - **Tracking:** la misma de *Llamada con R1 y R2*.
 
 Es la que hoy siembra «Nuevo CRM» con «Llamada de venta». Con una sola llamada, la ficha gira alrededor de ella: si no vino, reagendar; si vino, mandar el seguimiento. El closer suele cerrar ahí mismo y mandar el link en vivo, por eso la oferta y los links van arriba. Ganado pide servicio, promesa, obligaciones y datos fiscales en todo funnel, así que sus bloques quedan puestos para que cada aviso tenga dónde completarse.
@@ -279,7 +279,7 @@ Es la que hoy siembra «Nuevo CRM» con «Llamada de venta». Con una sola llama
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `proxima-reunion` → `contacto` → `charla-whatsapp` → `lo-que-contesto` → `lo-que-le-mandamos` → `automatizaciones-en-curso` → `setter-y-closer` → `tiempo-en-etapa` → `cobrado` → `origen` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** `reunion-1` → `ciclo-de-venta`
-- **Pagos:** `cobrado` → `suscripcion` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `oferta` → `recordatorios-de-cobro` → `cliente-en-cs`
+- **Pagos:** `suscripcion` → `cobrado` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `oferta` → `recordatorios-de-cobro` → `cliente-en-cs`
 - **Tracking:** sin lista propia.
 - **Avisos que nacen apagados:** datos y documento fiscal, servicio, promesa y obligaciones (contrato tampoco va). Se suman con un toque.
 
@@ -289,7 +289,7 @@ Si se anotó, cuándo es el evento (con su lugar y hora), si le llegan los recor
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `lo-que-contesto` → `calificacion` → `origen` → `charla-whatsapp` → `automatizaciones-en-curso` → `tiempo-en-etapa` → `setter-y-closer` → `ingreso-estimado` → `proxima-reunion` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale (no hay etapa de reunión).
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
+- **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
 - **Tracking:** `anuncio-de-origen` → `visitas` → `actividad-en-pagina`
 - **Avisos que nacen apagados:** empresa, plan, comprobante de pago, servicio, promesa, obligaciones y datos fiscales.
 
@@ -299,7 +299,7 @@ Pesa lo que contestó y de qué anuncio vino. «¿Era calificado?» va arriba po
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `lo-que-contesto` → `pagina-de-registro` → `origen` → `proxima-reunion` → `charla-whatsapp` → `automatizaciones-en-curso` → `lo-que-le-mandamos` → `tiempo-en-etapa` → `calificacion` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos` → `suscripcion`
+- **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
 - **Tracking:** `visitas` → `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `anuncio-de-origen`
 - **Avisos que nacen apagados:** servicio, promesa, obligaciones y datos fiscales.
 
@@ -309,7 +309,7 @@ Lo que completó, en qué página y si le llegó la nutrición le dicen al equip
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `charla-dm` → `charla-whatsapp` → `pase-a-humano` → `mensaje-listo` → `contacto` → `publicacion-de-entrada` → `origen` → `setter-y-closer` → `tiempo-en-etapa` → `automatizaciones-en-curso` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `cuotas` → `suscripcion` → `movimientos`
+- **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `cuotas` → `movimientos`
 - **Tracking:** sin lista propia.
 - **Avisos que nacen apagados:** calificado, empresa, plan, comprobante de pago, contrato y datos fiscales. El teléfono sigue avisando, porque pedirlo es parte de la charla.
 
@@ -319,7 +319,7 @@ La venta es la charla: sin ver la ventana de 24 h ni el pase a humano, el equipo
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `redes-y-web` → `lo-que-le-mandamos` → `charla-whatsapp` → `charla-dm` → `tiempo-en-etapa` → `setter-y-closer` → `ingreso-estimado` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `suscripcion` → `cuotas` → `movimientos`
+- **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `cuotas` → `movimientos`
 - **Tracking:** sin lista propia.
 - **Avisos que nacen apagados:** contrato y datos fiscales (el B2B de LinkedIn los suma con un toque).
 
@@ -329,7 +329,7 @@ Los toques y el tiempo sin moverse dicen a quién insistir. Las redes son la ide
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `cobrado` → `origen` → `lo-que-contesto` → `charla-whatsapp` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `suscripcion` → `oferta` → `cliente-en-cs`
+- **Pagos:** `suscripcion` → `cobrado` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `oferta` → `cliente-en-cs`
 - **Tracking:** `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `visitas` → `anuncio-de-origen`
 - **Avisos que nacen apagados:** setter, calificado, empresa, plan, servicio, promesa, obligaciones, datos y documento fiscal. El comprobante sólo se pide en un pago a mano.
 
@@ -338,7 +338,7 @@ Sin llamada, la pregunta es si compró y cuánto, y el chip de cobrado responde 
 ### Cliente en Customer Success (plantilla fija, cualquier funnel)
 
 - **CS · Resumen:** `senal-de-atencion` → `reloj-del-programa` → `contacto` → `cobrado` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `notas`
-- **CS · Pagos:** `cobrado` → `cuotas` → `suscripcion` → `links-de-pago` → `movimientos` → `recordatorios-de-cobro` → `contrato` → `datos-fiscales`
+- **CS · Pagos:** `suscripcion` → `cobrado` → `cuotas` → `links-de-pago` → `movimientos` → `recordatorios-de-cobro` → `contrato` → `datos-fiscales`
 
 Al entregar, lo primero es si hay que mirarlo hoy, en qué semana va y qué se le prometió, que hoy está enterrado en Pagos. Servicio, promesa y obligaciones viven en el Resumen y no en Pagos, así no se repiten. CS le cobra a alguien que ya compró: sin oferta ni «Dijo que sí», con la cobranza arriba. Sujeta a la decisión 6.
 
@@ -403,6 +403,14 @@ al detail de un lead, que le salten los templates y el ¿Qué vas a crear hoy?»
   recibe `epico: true` y decide cómo se agranda.
 - **«Volver a la plantilla»** de una tab devuelve su lista, su nombre y su épica (su plantilla elegida queda); el de
   toda la ficha, todo menos el estilo. Elegir otra plantilla para toda la ficha deja los nombres.
+
+- **La barra de un bloque, más simple (5/11/2026).** Elegido, un bloque muestra su nombre, mover, «Datos ▾» u
+  «Opciones ▾» (lo que va adentro), «⋯» y quitar. En «⋯» van el ancho, el diseño, «Obligatorio», el título y el ícono
+  (`masDelBloque`, app/crm/lead-view/ficha/armar.ts). Por qué: de las 58 acciones del historial de las fichas, 36 son
+  quitar, 5 poner y 4 mover, y lo que pasó a «⋯» suma 5 (docs/relevo/suscripciones-medicion.md §3). Copiado del «⋮⋮» de
+  un bloque de Notion y de «Customize» de Attio y HubSpot, donde a la vista están agregar, quitar y mover. La barra de la
+  hoja (Deshacer, Agregar bloque, Templates, dispositivo y Estilo de la hoja) no cambió: el dispositivo y el estilo los
+  pidió Martín a la vista.
 
 ## 7. El Resumen nativo (16/10/2026)
 

@@ -21,6 +21,7 @@
 import { fechaEnPalabras } from './date-utils';
 import { montoDeTarjeta, suscripcionDeFila, ventaTipoDe, VENTA_SIN_COBRO, type VentaTipo } from './venta-tipo';
 import type { EstadoCobro, TipoCobro } from './cobros-tipos';
+import { historiaDeSuscripcion, type HistoriaSuscripcion, type MovimientoSuscripcion, type PagoDeSuscripcion } from './suscripcion-meses';
 
 /**
  * El comienzo del `motivo` que `aplicarPagoFallido` (lib/cobros.ts) escribe cuando falla la RENOVACIÓN de una
@@ -69,8 +70,13 @@ export type EntradaCobrado = {
   fechaCierre: string | null | undefined;
   /** La cancelación de una suscripción MANUAL (`leads.suscripcion_cancelada_at`, mig 0292). */
   suscripcionCanceladaAt?: string | null;
-  pagos: readonly CuotaParaCobrado[];
+  pagos: readonly (CuotaParaCobrado & Partial<Pick<PagoDeSuscripcion, 'suscripcion_mes' | 'suscripcion_ajuste' | 'metodo' | 'concepto' | 'comprobante_path'>>)[];
   cobros?: readonly CobroParaCobrado[];
+  /**
+   * Los cambios de una suscripción (mig 0401, lib/suscripcion-meses.ts): los montos desde una fecha, los cortes y las
+   * vueltas. Sin ellos (o sin la migración), el monto del lead vale para todos los meses, como siempre.
+   */
+  movimientos?: readonly MovimientoSuscripcion[];
   /** YYYY-MM-DD de hoy en la zona del NEGOCIO (`hoyEnWorkspace`), no la del server. */
   hoy: string;
 };
@@ -115,6 +121,12 @@ export type Cobrado = {
     mesesCubiertos: number;
     /** Una manual sin fecha de cierre: no hay desde cuándo contar los meses, y `sinRegistrar` en 0 no quiere decir «al día». */
     sinCierre: boolean;
+    /** (5/11/2026) La mensualidad no está cargada y `mensualidadUsd` sale de lo pagado el último mes: una estimación. */
+    mensualidadInferida: boolean;
+    /** El primer mes que falta completar (lib/suscripcion-meses.ts), o null. */
+    proximoMes: HistoriaSuscripcion['proximo'];
+    /** La suscripción mes a mes (lib/suscripcion-meses.ts): la misma cuenta que dibuja la tab Pagos. */
+    historia: HistoriaSuscripcion;
   };
   /** Lo cobrado en su moneda ORIGINAL, donde no fue en dólares (`pagos.moneda` + `monto_original`). */
   monedas: Array<{ moneda: string; monto: number }>;
@@ -317,31 +329,43 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       while (f < hoy && k < 1200) { k++; f = sumarMeses(ancla, k); }
       proximaRenovacion = finPlazo && f >= finPlazo ? null : f;
     }
-    // Los meses que cubre lo cobrado, DE A UNA (`mesesDeUnaCobrada`): una mensualidad, un mes; un adelanto, sus meses.
-    // La MISMA regla que el asistente de Ganado.
-    const mesesCubiertos = cobradas.reduce((s, q) => s + mesesDeUnaCobrada(q, suscripcionMonto).meses, 0);
-    // Una manual se registra mes a mes: los meses que ya empezaron y no tienen su cobrada, avisan.
+    // ⚠️ LOS MESES SALEN DE LA SUSCRIPCIÓN MES A MES (5/11/2026, lib/suscripcion-meses.ts), la misma cuenta que dibuja la
+    // tab Pagos. Hasta acá cada cobrada contaba un mes (`mesesDeUnaCobrada`): noviembre de Código Inmobiliario, pagado en
+    // DOS pagos, contaba como dos meses y lo daba por adelantado; y el monto, uno solo para todos los meses, no podía
+    // decir que octubre valía 146 y noviembre 238. Sin cambios guardados, una mensualidad registrada sigue valiendo un mes.
+    const historia = historiaDeSuscripcion({
+      inicio: fechaCierre, montoUsd: e.suscripcionMontoUsd ?? null, plazoMeses: suscripcionMeses,
+      canceladaAt: e.suscripcionCanceladaAt ?? null, movimientos: e.movimientos ?? [], pagos: e.pagos as readonly PagoDeSuscripcion[], hoy,
+    });
+    const cortadaManual = fuente === 'manual' && !!historia.cortadaDesde;
+    const estadoFinal: EstadoSuscripcion = estado === 'activa' && cortadaManual ? 'cancelada' : estado;
+    if (estadoFinal !== 'activa') proximaRenovacion = null;
+    else if (fuente === 'manual') proximaRenovacion = historia.proximaFecha;
+    const mesesCubiertos = historia.mesesPagados;
+    // Una manual se registra mes a mes: los meses que ya vencieron y no están completos, avisan.
     let sinRegistrar = 0;
-    if (fuente === 'manual' && estado === 'activa' && fechaCierre && fechaCierre <= hoy) {
-      let esperadas = 1;
-      while (sumarMeses(fechaCierre, esperadas) <= hoy && esperadas < 1200) esperadas++;
-      if (suscripcionMeses) esperadas = Math.min(esperadas, suscripcionMeses);
-      sinRegistrar = Math.max(0, esperadas - mesesCubiertos);
+    if (fuente === 'manual' && estadoFinal === 'activa' && fechaCierre && fechaCierre <= hoy) {
+      sinRegistrar = historia.mesesSinPagar + historia.mesesParciales;
     }
+    const soloParcial = sinRegistrar > 0 && historia.mesesSinPagar === 0;
     // ⚠️ SIN CIERRE NO HAY MESES QUE CONTAR, Y «AL DÍA» NO ES EL VALOR POR DEFECTO (ticket #53, Leila, 04/11/2026). Sacar a un
     // cliente de Ganado borra su `fecha_cierre` (lib/lead-desenlace.ts: la venta sólo vive con `cerro`). `sinRegistrar` quedaba
     // en 0 porque no se contaba, y la cuenta caía al último renglón: un cliente que decía «Falta registrar 2 meses» pasó a
     // «Al día», en verde, en el mismo clic que lo sacó de Ganado. Una cuota con fecha sí se puede medir: ésa no entra acá.
-    const sinCierre = fuente === 'manual' && estado === 'activa' && !fechaCierre;
+    const sinCierre = fuente === 'manual' && estadoFinal === 'activa' && !fechaCierre;
+    // La mensualidad de HOY: la de este mes con los cambios guardados; sin monto cargado, lo pagado el último mes (una
+    // estimación, `mensualidadInferida`). Pedido del encargo: un monto vacío no puede dar MRR 0 con pagos hechos.
+    const mensualidad = fuente === 'manual' ? historia.montoHoyUsd ?? suscripcionMonto : suscripcionMonto;
     const totalUsd = suscripcionMonto && suscripcionMeses ? redondo(suscripcionMonto * suscripcionMeses) : null;
     const pct = totalUsd ? Math.min(100, Math.round((cobradoUsd / totalUsd) * 100)) : null;
     const cuando = proxima?.fecha ?? proximaRenovacion;
     const semaforo: Cobrado['semaforo'] =
-      estado === 'cancelada' ? { tono: 'gris', texto: 'Cancelada' }
+      estadoFinal === 'cancelada' ? { tono: 'gris', texto: 'Cancelada' }
       : renovacionFallida ? { tono: 'rojo', texto: 'Falló la renovación' }
       : vencidas.length ? { tono: 'rojo', texto: 'Cuota vencida' }
-      : estado === 'terminada' ? { tono: 'gris', texto: `Terminó el ${ddmm(finPlazo as string, hoy)}` }
+      : estadoFinal === 'terminada' ? { tono: 'gris', texto: `Terminó el ${ddmm(finPlazo as string, hoy)}` }
       : cobradas.length === 0 && impagas.length === 0 ? { tono: 'gris', texto: 'Sin cobros registrados' }
+      : soloParcial ? { tono: 'ambar', texto: sinRegistrar === 1 ? 'Pago parcial' : `${sinRegistrar} meses con pago parcial` }
       : sinRegistrar > 0 ? { tono: 'ambar', texto: sinRegistrar === 1 ? 'Falta registrar 1 mes' : `Falta registrar ${sinRegistrar} meses` }
       : sinCierre && !proxima ? { tono: 'gris', texto: 'Sin fecha de cierre' }
       : { tono: 'verde', texto: cuando ? `Al día · próxima el ${ddmm(cuando, hoy)}` : 'Al día' };
@@ -353,9 +377,9 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       texto: totalUsd ? `${usd(cobradoUsd)} cobrado de ${usd(totalUsd)}` : `${usd(cobradoUsd)} cobrado`,
       semaforo,
       suscripcion: {
-        estado,
-        mensualidadTexto: montoDeTarjeta({ ventaTipo: tipo, monto: null, suscripcionMonto }).texto,
-        mensualidadUsd: suscripcionMonto,
+        estado: estadoFinal,
+        mensualidadTexto: montoDeTarjeta({ ventaTipo: tipo, monto: null, suscripcionMonto: mensualidad }).texto,
+        mensualidadUsd: mensualidad,
         meses: suscripcionMeses,
         finPlazo,
         proximaRenovacion,
@@ -364,6 +388,9 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
         sinRegistrar,
         mesesCubiertos,
         sinCierre,
+        mensualidadInferida: fuente === 'manual' && historia.montoInferido,
+        proximoMes: estadoFinal === 'activa' ? historia.proximo : null,
+        historia,
       },
       cuadra: null,
     };

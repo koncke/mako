@@ -48,7 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
+- **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
 ## General — `general`
@@ -2621,7 +2621,7 @@ PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (qued
 | `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
 | `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
 | `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
-| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| cripto \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque, cripto (Binance, USDT) u otro. |
 
 ```bash
 curl -L \
@@ -2643,7 +2643,7 @@ PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelant
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron), recalcula total_cobrado_usd del lead y deja historial
+- **Escribe:** insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron; en una suscripción, el mes que paga o si es un ajuste), recalcula total_cobrado_usd del lead y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2656,7 +2656,9 @@ PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelant
 | `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
 | `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
 | `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
-| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| cripto \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque, cripto (Binance, USDT) u otro. |
+| `mes` | string | no | En una suscripción: AAAA-MM que paga (sin valor, el más viejo que falta). |
+| `ajuste` | boolean | no | En una suscripción: true si no paga un mes (un diferencial). |
 
 ```bash
 curl -L \
@@ -20296,7 +20298,7 @@ curl -L \
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`
 
-Tab **CRM** (`/crm`). 3 lecturas · 14 acciones.
+Tab **CRM** (`/crm`). 4 lecturas · 15 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe, Mercado Pago y Creem
 
@@ -20802,6 +20804,63 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/plan" \
   -d '{"primeraCuota":"PRIMERA_CUOTA","tramos":[]}'
+```
+
+### `GET /api/v1/cobros/ventas/{leadId}/suscripcion/meses` — Ver una suscripción mes a mes
+
+La suscripción de un lead mes a mes, como la tab Pagos: cuánto paga hoy (o el estimado si nadie cargó la mensualidad), el día de cobro, el próximo vencimiento, lo pagado en total y los ajustes, y cada mes con lo que tocaba, lo que entró, sus pagos y lo que cambió (empezó, subió, bajó, se cortó, volvió). Trae también los cambios guardados con su id.
+
+- **Ruta por operación:** `GET /api/v1/cobros/ver_suscripcion_lead`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe, Mercado Pago y Creem)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion/meses"
+```
+
+### `POST /api/v1/cobros/ventas/{leadId}/suscripcion/cambios` — Cambiar el monto, cortar o retomar
+
+PROPONE un cambio de la suscripción de un lead que se cobra a mano, desde un mes: tipo=monto (la mensualidad nueva, sube o baja; los meses de antes quedan como estaban), corte (deja de pagar desde ese mes) o vuelta (vuelve desde ese mes, con otro monto si cambió). También para cargar la mensualidad que falta: tipo=monto desde el primer mes. Sólo el administrador. La que cobra la pasarela se cambia en su cobro.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cambiar_suscripcion`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega el cambio a suscripcion_movimientos (y el monto de antes la primera vez), deja suscripcion_monto_usd en la mensualidad de hoy, cancela o reactiva si el corte o la vuelta son de este mes, y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+| `tipo` | string (monto \\| corte \\| vuelta) | sí | monto, corte o vuelta. |
+| `desde` | string | sí | AAAA-MM: el mes desde el que vale. |
+| `montoUsd` | number | no | en dólares. Obligatoria con tipo=monto. |
+| `dia` | number | no | desde ese mes; sin valor, el de siempre. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion/cambios" \
+  -d '{"tipo":"monto","desde":"DESDE"}'
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

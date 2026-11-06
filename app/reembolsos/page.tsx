@@ -155,9 +155,8 @@ export default function Page() {
       <ul>
         <li>Te respondemos dentro de los <strong>{PLAZO_RESPUESTA}</strong>.</li>
         <li>
-          Si corresponde la devolución, la hacemos por el <strong>mismo medio con el que pagaste</strong>{' '}
-          (Stripe o Mercado Pago). Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de
-          Mercado Pago.
+          Si corresponde la devolución, la hacemos por el <strong>mismo medio con el que pagaste</strong>.
+          Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de Mercado Pago.
         </li>
         {/* Hasta el 5/11/2026 acá iba cómo devolvía Creem, el vendedor registrado de lo que se cobraba desde
             Latinoamérica. Creem rechazó la tienda de MaKo ese día y no cobró nada (docs/creem-retiros.md). */}

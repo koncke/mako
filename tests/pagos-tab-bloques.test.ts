@@ -60,6 +60,8 @@ const COBRO = fuente(`${DIR}/bloques-cobro.tsx`);
 const DEAL = fuente(`${DIR}/bloques-deal.tsx`);
 const PIEZAS = fuente(`${DIR}/piezas.tsx`);
 const COBRAR = fuente(`${DIR}/cobrar.tsx`);
+// (5/11/2026) La suscripción, mes a mes: docs/investigacion-suscripciones.md.
+const SUS = fuente(`${DIR}/suscripcion.tsx`);
 type Regla = { estaVacio?: (c: CtxFicha) => boolean; disenos?: readonly string[] };
 const R = REGLAS_PAGOS as Record<string, Regla>;
 
@@ -70,7 +72,9 @@ test('las plantillas de la tab: cada bloque tiene componente, ancho del catálog
   for (const p of PLANTILLAS_TAB_PAGOS) {
     assert.equal(p.tab, 'pagos');
     assert.ok(p.nombre.length <= 20 && p.bajada.length <= 70, `${p.id}: el texto de la tarjeta es largo`);
-    assert.equal(p.bloques[0]?.id, 'cobrado', `${p.id}: no arranca con el estado de cuenta (qué debe, qué pagó, qué hago)`);
+    // (5/11/2026) Primero la suscripción mes a mes (en cualquier otra venta se calla) y después el estado de cuenta.
+    assert.equal(p.bloques[0]?.id, 'suscripcion', `${p.id}: no arranca con la suscripción (en una suscripción es la tab entera)`);
+    assert.equal(p.bloques[1]?.id, 'cobrado', `${p.id}: no sigue con el estado de cuenta (qué debe, qué pagó, qué hago)`);
     assert.equal(new Set(p.bloques.map((b) => b.id)).size, p.bloques.length, `${p.id}: un bloque repetido`);
     for (const s of p.sugeridaPara ?? []) assert.ok(IDS_PLANTILLA.includes(s), `${p.id}: sugerida para «${s}», que no es un tipo de funnel`);
     for (const b of p.bloques) {
@@ -165,10 +169,12 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /<CobrarConLink lead=\{/);
   assert.match(COBRO, /<CobrosDelLead cobros=\{lista\} error=\{errLeer\} esAdmin=\{!!opciones\?\.ok && opciones\.esAdmin\}/);
   assert.match(COBRAR, /<CobrarCuotaConLink lead=\{leadCobro\} pasarelas=\{pasarelas\} cuentas=\{cuentas\} cuota=\{\{ pagoId: q\.id,/);
-  // Cancelar una suscripción: sólo el admin, con confirmación; la de la pasarela en la pasarela, la manual en el CRM.
-  assert.match(COBRO, /\{ctx\.esAdmin && s\.estado === 'activa' && <Button[^\n]*setPreguntar\(true\)/);
-  assert.match(COBRO, /activaPasarela\s*\? await cancelarSuscripcionAction\(activaPasarela\.id\)[\s\S]{0,200}: await cambiarEstadoSuscripcionAction\(lead\.id, 'cancelada'\)/);
-  assert.match(COBRO, /<Confirm title="¿Cancelar la suscripción\?"/);
+  // Cortar una suscripción (5/11/2026, era «Cancelar»): sólo el admin, la manual en el CRM desde un mes, con su paso; la de
+  // la pasarela se cancela en su cobro (la lista de cobros, sólo el admin).
+  assert.match(SUS, /const admin = ctx\.esAdmin;/);
+  assert.match(SUS, /\{admin && manual && s\.estado === 'activa' && <Button[^\n]*setAbierto\(\{ que: 'cortar' \}\)/);
+  assert.match(SUS, /await cambiarSuscripcionAction\(leadId, \{ tipo, desde: mes, montoUsd: m \}\)/);
+  assert.match(fuente('app/crm/[id]/CobrosDelLead.tsx'), /cancelarSuscripcionAction\(c\.id\)/);
   // La venta, el contrato y los datos del deal: campo por campo, y «Leer con IA».
   assert.match(COBRO, /guardarVentaAction\(lead\.id, c, \{ tipoVisto: tipo, crm \}\)/);
   assert.match(DEAL, /guardarCampoDealAction\(ctx\.lead\.id, \{ seccion, campo, valor: v \|\| null \}\)/);
@@ -266,13 +272,17 @@ test('Deshacer un pago sólo si se cobró EXACTO; el de desmarcar conserva cómo
   assert.match(COBRAR, /moneda: q\.moneda \?\? null, montoOriginal: q\.monto_original \?\? null, concepto: q\.concepto \?\? null, metodo: q\.metodo \?\? null,/);
   assert.match(COBRO, /const r = await guardarVentaAction\(leadId, d, \{ tipoVisto: visto, crm \}\);\s*if \(!r\.ok\) return;\s*visto = r\.ventaTipo;/);
   // La venta deshace en el CRM que se mira (22/10/2026, mig 0324); la suscripción es siempre de la casa.
-  assert.equal((COBRO.match(/void deshacerVenta\(lead\.id, atras, r\.ventaTipo(, crm)?\)/g) ?? []).length, 2, 'la venta y la suscripción deshacen con el tipo');
+  // La venta deshace con el tipo; la suscripción (5/11/2026) deshace sus cambios por id (deshacerCambioSuscripcionAction).
+  assert.equal((COBRO.match(/void deshacerVenta\(lead\.id, atras, r\.ventaTipo(, crm)?\)/g) ?? []).length, 1, 'la venta deshace con el tipo');
+  assert.match(SUS, /await deshacerCambioSuscripcionAction\(lead\.id, ids\)/);
 });
 
 test('sin los cobros leídos no se ofrece registrar el mes (podría cobrarlo la pasarela), ni en la tab ni en la API', () => {
   assert.match(COBRO, /return \{ cobrado, cobros, leidos: cobros !== null && !sinLeer, sinLeer \};/);
   assert.match(COBRO, /const e = leido && !leidos && leido\.accion\?\.tipo === 'registrar-mes' \? \{ \.\.\.leido, accion: null \} : leido;/);
-  assert.match(COBRO, /\{leidos && s\.fuente === 'manual' && s\.estado === 'activa' && <Button[^\n]*cobrar\.registrarMes/);
+  // La suscripción mes a mes (5/11/2026): sus acciones, sólo con los cobros leídos, y registrar sólo en la manual.
+  assert.match(SUS, /\{leidos && acciones\}/);
+  assert.match(SUS, /\{manual && s\.estado !== 'terminada' && <Button[^\n]*setAbierto\(\{ que: 'pagar' \}\)/);
   assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /const accion = e\?\.accion && !\(cobrosSinLeer && e\.accion\.tipo === 'registrar-mes'\) \? e\.accion : null;/);
 });
 
@@ -324,7 +334,8 @@ test('el link de UNA cuota: manda la cuota, es un pago único, y en dólares no 
 // bloques-cobro.tsx, 17 / 1; con la suscripción en `false ? 56 : 30`, 17 / 1.
 test('la épica de los bloques de plata llega por PropsBloque, sin un cast que la apague', () => {
   assert.match(COBRO, /export function EstadoDeCuenta\(props: PropsBloque\) \{[\s\S]*?const \{ epico \} = props;/, 'el estado de cuenta lee la épica de la tab');
-  assert.match(COBRO, /fontSize: props\.epico \? 56 : 30/, 'la mensualidad se agranda con la tab épica');
+  assert.match(SUS, /const \{ ctx, titulo, editando, epico \} = props;/, 'la suscripción lee la épica de la tab');
+  assert.match(SUS, /fontSize: epico \? 30 : 20/, 'la mensualidad se agranda con la tab épica');
   const dir = 'app/crm/lead-view/ficha';
   const archivos = (readdirSync(join(RAIZ, dir), { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f));
   assert.ok(archivos.length > 10, `no se leyó la carpeta de la ficha (${archivos.length} archivos)`);

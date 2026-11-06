@@ -10775,6 +10775,18 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 
 **La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
 
+## La lista entera del repo pasó el megabyte de child_process (5/11/2026, nube, `punta/suscripciones-ficha`)
+
+**Síntoma:** dos barredoras (tests/resend-clave-admin y tests/puente-leads-retirado) dieron rojo con `spawnSync git ENOBUFS`
+en una punta que no las tocaba. **Causa:** `execFileSync` corta la salida en 1 MiB (1.048.576 bytes) si nadie le pide otro
+`maxBuffer`, y `git ls-files` del repo entero medía 1.048.494 bytes en main: once archivos nuevos lo pasaron. No es la
+punta: es la próxima que sume archivos, sea cual sea. **Regla:** toda llamada que lista el repo ENTERO (`ls-files` sin
+carpeta, `ls-tree -r` sobre un ref) lleva `maxBuffer: 64 * 1024 * 1024`; lo fija tests/git-lista-entera-buffer.test.ts. Lo
+que lista una carpeta (app y lib suman ~216 KB) todavía tiene aire, y el día que no, es la misma regla.
+
+El mismo día lo arregló en paralelo otra cuenta (docs/hallazgos-pruebas.md); lo que suma esta entrada es la guarda.
+
+**Vive en:** tests/git-lista-entera-buffer.test.ts (y el molde, `archivosVersionados` en tests/colision-de-nombres.test.ts).
 ## La lista de archivos del repo entero pasó el megabyte (5/11/2026)
 
 **Vive en:** `tests/resend-clave-admin.test.ts` y `tests/puente-leads-retirado.test.ts`.
