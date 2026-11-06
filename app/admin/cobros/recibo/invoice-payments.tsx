@@ -1,8 +1,8 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Hecho con las piezas de
 // src/app/(main)/dashboard/invoice/_components/invoice-details.tsx (su DatePicker, copiado) e invoice-adjustments.tsx (sus campos).
 // Studio no tiene «cómo se pagó»: MaKo lo necesita para el recibo de lo que entra por fuera de la pasarela (Binance, una
 // transferencia), con su referencia y la foto del comprobante. Va en la pestaña «Pago» del formulario.
-"use client";
 
 import * as React from "react";
 

@@ -1,6 +1,6 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. El botón «Settings» de su dashboard/finance abre acá
 // su Sheet (src/components/ui/sheet.tsx), con sus campos (field, input-group, switch).
-"use client";
 
 // =============================================================================
 // Billing › Ajustes — lo que se configura una vez para cobrar (6/11/2026)

@@ -1,6 +1,6 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. La tabla de clientes de Studio
 // (src/app/(main)/dashboard/default/_components/recent-customers-table/{table,columns}.tsx) con el libro de recibos de MaKo.
-"use client";
 
 // =============================================================================
 // Billing › Recibos — el libro de recibos de MaKo (6/11/2026)

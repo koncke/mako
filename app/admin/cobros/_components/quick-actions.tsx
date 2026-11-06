@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/quick-actions.tsx.
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/quick-actions.tsx.
 
 // «Quick Transfer» de Studio → «Vender un plan»: el monto y «Vender», que abre el diálogo con el resto (los avatares son los
 // últimos que compraron). «Shortcuts» → los atajos de Billing, cada uno a algo que existe.

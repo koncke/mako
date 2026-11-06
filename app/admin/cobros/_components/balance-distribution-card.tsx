@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/balance-distribution-card.tsx.
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/balance-distribution-card.tsx.
 
 // «Account Allocation» de Studio → por dónde entró la plata (Stripe, Mercado Pago, Binance…). El selector de moneda de Studio
 // elige acá el período: todo está en dólares (lo que entró sin su valor en dólares no suma, como en Revenue).

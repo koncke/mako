@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/popover.tsx.
 "use client"
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/popover.tsx.
 
 import * as React from "react"
 import { cn } from "cn"

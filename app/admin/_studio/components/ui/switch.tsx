@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/switch.tsx.
 "use client"
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/switch.tsx.
 
 import * as React from "react"
 import { cn } from "cn"

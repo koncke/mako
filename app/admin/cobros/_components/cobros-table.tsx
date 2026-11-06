@@ -1,6 +1,6 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. La tabla de clientes de Studio
 // (src/app/(main)/dashboard/default/_components/recent-customers-table/{table,columns}.tsx) con los cobros de MaKo.
-"use client";
 
 // =============================================================================
 // Billing › Cobros — lo que MaKo cobró, y en qué quedó la cuenta de cada comprador (6/11/2026)

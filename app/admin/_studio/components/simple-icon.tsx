@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/simple-icon.tsx.
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/simple-icon.tsx.
 
 import type * as React from "react";
 

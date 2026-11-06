@@ -1,6 +1,6 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/invoice/page.tsx e
 // _components/invoice.tsx.
-"use client";
 
 // =============================================================================
 // Billing › Cargar pago — el recibo de plata que entra por FUERA de la pasarela, como la factura de Studio (6/11/2026)

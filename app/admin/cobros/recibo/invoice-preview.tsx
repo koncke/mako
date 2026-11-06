@@ -1,7 +1,7 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/invoice/_components/invoice-preview.tsx
 // y print-invoice.tsx. «Print» imprime el papel (los estilos de impresión, en app/admin/_studio/studio-theme.css); «Download PDF»
 // baja el PDF de verdad del recibo (lib/recibo-pdf.ts), que existe recién al emitirlo: antes, el botón se apaga y lo dice.
-"use client";
 
 import * as React from "react";
 

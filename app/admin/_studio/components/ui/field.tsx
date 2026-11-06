@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/field.tsx.
 "use client"
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/components/ui/field.tsx.
 
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"

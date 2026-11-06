@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/page.tsx.
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/page.tsx.
 
 // =============================================================================
 // Admin › Billing — la página de finanzas de Studio Admin, con los cobros de MaKo (6/11/2026)

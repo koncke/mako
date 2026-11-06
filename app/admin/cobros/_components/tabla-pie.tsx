@@ -1,7 +1,7 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: el pie de
 // src/app/(main)/dashboard/default/_components/recent-customers-table/table.tsx (las elegidas, filas por página y las páginas),
 // sacado a un archivo porque lo usan las dos tablas de Billing.
-"use client";
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 

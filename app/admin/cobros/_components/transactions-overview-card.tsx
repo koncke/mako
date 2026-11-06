@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/transactions-overview-card.tsx.
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/finance/_components/transactions-overview-card.tsx.
 
 // «Spending Overview» de Studio → lo cobrado (la línea llena, como su gasto) y lo que vence (la punteada, como su ingreso):
 // la punteada es lo que todavía no pasó (AGENTS.md: «lo medido y lo supuesto no se dibujan igual»). Semana, Mes y Año en el

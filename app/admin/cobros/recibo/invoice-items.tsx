@@ -1,8 +1,8 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/invoice/_components/invoice-items.tsx.
 // «Invoice Items» → qué se pagó: un renglón por concepto (se arrastran para ordenarlos, como en Studio). Units, Unit cost y
 // Line total → Mes, Importe y el importe en su moneda (un renglón de MaKo no tiene cantidad). La moneda es UNA por recibo.
 // «Add Item» suma un renglón vacío o el de un plan con su precio (el atajo de la pantalla de antes).
-"use client";
 
 import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";

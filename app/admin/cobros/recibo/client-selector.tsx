@@ -1,7 +1,7 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/invoice/_components/client-selector.tsx
 // e invoice-details.tsx (su campo de referencia). «Billed To» → la cuenta de MaKo que pagó, y «A nombre de»: así sale en el
 // recibo (con la cuenta elegida se completa solo; se corrige si hace falta). «Add New Client» no va: una cuenta nace de su alta.
-"use client";
 
 import { UserRound } from "lucide-react";
 import { Controller, useFormContext } from "react-hook-form";

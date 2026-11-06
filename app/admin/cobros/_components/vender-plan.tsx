@@ -1,5 +1,5 @@
-// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Hecho con sus piezas (Dialog, Field, Select, InputGroup).
 "use client";
+// Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Hecho con sus piezas (Dialog, Field, Select, InputGroup).
 
 // =============================================================================
 // «Vender un plan» — el link de pago de un plan de MaKo, en el diálogo de Studio (6/11/2026)

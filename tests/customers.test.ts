@@ -124,7 +124,8 @@ test('sólo el super admin, antes de leer nada; y el proxy también la cierra', 
   const page = leer('app/admin/page.tsx');
   const puerta = page.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
   assert.ok(puerta > 0, 'sin la puerta del super admin');
-  for (const lectura of ['<ContenidoCobros />', '<ContenidoAgentes />', 'await PestanaClientes(cliente)', 'await PestanaCuentas(sesionAdmin, cuenta)']) {
+  // Billing es app/admin/cobros/billing.tsx desde el 6/11/2026 (la página de finanzas de Studio Admin).
+  for (const lectura of ['<Billing vista={sp.vista} recibo={sp.recibo} />', '<ContenidoAgentes />', 'await PestanaClientes(cliente)', 'await PestanaCuentas(sesionAdmin, cuenta)']) {
     assert.ok(page.indexOf(lectura) > puerta, `${lectura} antes de la puerta`);
   }
   assert.ok(page.indexOf('vistaDeClientes(') > puerta, 'los clientes se leen antes de la puerta');

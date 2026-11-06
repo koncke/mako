@@ -1,7 +1,7 @@
+"use client";
 // Aviso de licencia de Studio Admin (MIT): lib/avisos/LICENSE-STUDIO-ADMIN. Original: src/app/(main)/dashboard/invoice/_components/invoice-form.tsx.
 // Las tres pestañas de Studio (Invoice, Payment, Business, que allá no cambian nada) → Recibo, Pago y Notas, que muestran cada
 // parte del formulario. Las secciones van separadas como en Studio.
-"use client";
 
 import * as React from "react";
 
