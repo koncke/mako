@@ -83,7 +83,7 @@ const USUARIOS = [
   { id: 2, nombre: 'Equipo MaKo', email: 'equipo@ejemplo.com', workspace_id: 9 },
 ]
 
-test('23 · el índice: se arma sin la plataforma, y si falla una lectura de QUIÉN entra viaja vacío y con su error', async () => {
+test('23 · el índice: se arma sin el negocio de la plataforma, y si falla una lectura de QUIÉN entra viaja vacío y con su error', async () => {
   const { leerIndice, buscar } = await import('../app/admin/_polar/datos/busqueda-tipos')
   const plan = (c: string) => (c === 'completo' ? 'MaKo Esencial' : c)
   const lecturas = {
@@ -92,7 +92,8 @@ test('23 · el índice: se arma sin la plataforma, y si falla una lectura de QUI
   const ok = await leerIndice(lecturas, plan)
   assert.equal(ok.error, null)
   assert.deepEqual(ok.negocios.map((n) => n.ws), [21, 22], 'la plataforma no entra')
-  assert.deepEqual(ok.personas.map((p) => p.id), [1], 'ni sus personas')
+  // Sus personas SÍ entran desde el punto 25: llevan a Settings › Members, no a la ficha de un negocio.
+  assert.deepEqual(ok.personas.map((p) => [p.id, p.ws]), [[1, 21], [2, null]], 'el equipo de MaKo, sin negocio (lleva a Settings › Members)')
   assert.deepEqual(buscar(ok, 'norte').negocios.map((n) => n.ws), [21])
   // La plataforma no se adivina: con su lectura caída, antes entraba como un cliente (y llevaba a una ficha 404).
   const sinPlataforma = await leerIndice({ ...lecturas, plataforma: async () => { throw new Error('workspaces: timeout') } }, plan)

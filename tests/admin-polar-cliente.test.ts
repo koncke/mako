@@ -386,7 +386,7 @@ test('27 · la cabecera dice el plan y cómo está en palabras (el texto de At R
   assert.deepEqual(estadoDeLaCabecera('MaKo Pro', 'activo', null), { estadoTxt: 'MaKo Pro', grave: false }, 'sin saber si debe, no dice «Activo»')
   // El texto es el mismo de At Risk (clientesEnRiesgo), con su motivo más grave.
   const riesgo = clientesEnRiesgo(
-    [{ ws: 42, nombre: 'Estudio Norte', capa: 'agencia', estado: 'activo', motivoRiesgo: null, sinEntrar: 3, mrrUsd: 238, planAManoTxt: null }],
+    [{ ws: 42, nombre: 'Estudio Norte', capa: 'agencia', estado: 'activo', motivoRiesgo: null, sinEntrar: 3, mrrUsd: 238, planAManoTxt: null, segmentos: ['cliente'] }],
     [{ clave: 'ws:42', ws: 42, nombre: 'Estudio Norte', estado: 'atrasado', mrr: 238, diasAtraso: 4 }],
   )[0]
   assert.equal(estadoDeLaCabecera('MaKo Pro', 'activo', riesgo).estadoTxt, 'MaKo Pro · Atrasado 4 días')
