@@ -128,6 +128,31 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 El perfil queda para explorar a un creador, no para encontrar una pieza.
 
+**Y desde el 6/11/2026 es un comando del script oficial: `links`** (antes vivía en una copia temporal, ya borrada). Toma uno
+o varios links en la línea de comandos o con `--archivo lista.txt` (uno por renglón), y en seco dice cuántos son, cuáles no
+entendió, cuáles ya están y cuánto puede costar. Lo que apareció armándolo, y que no es obvio:
+
+- **Un link se reduce a su `ref` (el shortcode), y ese ref tiene que ser EL MISMO que saca `piezasDeApify`** del permalink que
+  devuelve el actor: si no, la misma pieza se guarda dos veces (el upsert va por `ref`). Por eso `linkDeInstagram` normaliza
+  `/p/`, `/reel/`, `/reels/`, `/tv/`, con o sin `www`, con o sin protocolo y con la cola `?igsh=…` del botón «Copiar enlace».
+  ⚠️ **Y la trampa al probarlo:** con la barra antes del `?` (`…/p/XXX/?igsh=1`) un ref mal recortado se corta igual en la
+  barra. El caso que de verdad prueba la regla es el link **sin** barra (`…/p/XXX?igsh=1`); con el otro, romper el recorte a
+  propósito daba 0 rojos.
+- **Un shortcode suelto no se acepta.** Sin el dominio no hay forma de saber si «DAbC_1-xyz» es un link, un nombre de cuenta o
+  una palabra: adivinarlo es gastar plata en una corrida que no trae nada.
+- **El creador de un link suelto va con `fuente: 'tema'`,** o sea no se lee entero: de su cuenta no se midió nada, sin su
+  mediana no hay outlier, y lo que no se midió no se dice.
+- **Si el actor no dice de quién es la publicación (`ownerUsername`), la fila no se puede guardar:** sin creador no hay
+  `cuenta_id`. Antes eso quedaba como un número en un total; ahora se dice link por link, junto con los que el actor no
+  devolvió (borrados, privados, o el link mal copiado).
+- **Un link ya guardado no se vuelve a pagar** (se dice cuántos eran; `--de-nuevo` lo fuerza). Y si está **escondido**
+  (`dejo_de_verse_en`), el comando avisa que **leerlo de nuevo no lo revive** y deja el SQL para que se vea: el upsert por
+  `ref` no toca esa columna.
+
+**Vive en:** `lib/carruseles/biblioteca.ts` (`linkDeInstagram`, `planDeLinks`), `scripts/carruseles-biblioteca.mts`
+(`links`, y `guardarLeidas`, que es el guardado que ahora comparte con `leer`: una sola copia de las seis cosas que hay que
+hacer bien para que PostgREST no rechace la fila entera), con `tests/carruseles-por-link.test.ts`.
+
 ## Sin dato no es «no»: el filtro gratis tiraba a Hormozi y a Leila (5/11/2026)
 
 **Síntoma:** el filtro `(laminas ?? 0) >= 3 && parece_contenido === true` descartó 582 de 1.344 piezas, entre ellas 11 de las 13 de `leilahormozi` y 6 de las 11 de `hormozi`.
@@ -257,8 +282,8 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
 - **Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire. El filtro no puede ser el de arriba.
-- **La lectura por links no está en el script oficial:** vivió en una copia temporal, ya borrada. La entrada de arriba es lo que hay que sumarle a `scripts/carruseles-biblioteca.mts`.
-- 1 de los 245 links sin leer, y 26 creadores de la lista sin leer.
+- 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
+  correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
 - Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
