@@ -4,7 +4,7 @@
 // Leila (30/10/2026): plantillas propias, que se puedan guardar para el negocio o compartir con la comunidad, con
 // estrellas. Martín (13/10/2026, el pedido de las estrellas): «para que los usuarios hagan sus creaciones y otros usuarios
 // puedan puntuarles». Es el MISMO mecanismo que las creaciones (lib/creaciones.ts, mig 0273): una plantilla propia es una
-// creación con `estado = 'privada'` (mig 0404), que sólo ve su negocio; compartirla la pasa a 'publicada'.
+// creación con `estado = 'privada'` (mig 0406), que sólo ve su negocio; compartirla la pasa a 'publicada'.
 //
 // Lo que gobierna, y por qué:
 //   · PRIVADA NO SE LIMPIA: es del mismo negocio, y lo que la hace útil es justamente lo suyo (su precio, su link).

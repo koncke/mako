@@ -17,7 +17,7 @@ Lo que se aprendió está en [docs/hallazgos-plantillas.md](../hallazgos-plantil
 
 | Qué | Commit |
 |---|---|
-| Plantillas propias (creación `privada`, mig 0404), compartir con limpieza de datos, enchufes de Copywriter (`guion`) e Image (`formato_imagen`), «Guardar como plantilla» en el «⋯» de cada proyecto, «Tus plantillas» y «De la comunidad» en «Nuevo …», pestañas «Ranking» y «Tus plantillas» en /creaciones, y en la API `guardar_como_plantilla`, `compartir_plantilla` y `ranking_creaciones` | `516196cef` |
+| Plantillas propias (creación `privada`, mig 0406), compartir con limpieza de datos, enchufes de Copywriter (`guion`) e Image (`formato_imagen`), «Guardar como plantilla» en el «⋯» de cada proyecto, «Tus plantillas» y «De la comunidad» en «Nuevo …», pestañas «Ranking» y «Tus plantillas» en /creaciones, y en la API `guardar_como_plantilla`, `compartir_plantilla` y `ranking_creaciones` | `516196cef` |
 | Offer: las 9 plantillas en «Nueva oferta» (la forma en la tarjeta, «Ver ejemplo» con la oferta llena), usar una arranca la conversación con la forma; API `ver_plantillas_oferta` | `45c4c5bf8` |
 | AI Avatar: las 10 plantillas de venta y los 5 presets nuevos en la galería, «Ver ejemplo» con el guion por secciones; API `ver_plantillas_avatar` | `e6d2ae5f8` |
 | Video: «Ver ejemplo» en las 5 plantillas que se quedan, sin tocar el catálogo del editor; `listar_plantillas_video` trae el ejemplo | `9d6d27e96` |
@@ -25,8 +25,8 @@ Lo que se aprendió está en [docs/hallazgos-plantillas.md](../hallazgos-plantil
 
 ## Lo que tiene que hacer alguien con la base (la nube no puede)
 
-- **Aplicar la migración 0404** (`supabase/migrations/0404_plantillas_propias.sql`): ANTES o JUNTO con el deploy. Sin ella,
-  «Sólo mi negocio» contesta «Falta la migración 0404» y compartir sigue andando. Es idempotente y no crea funciones.
+- **Aplicar la migración 0406** (`supabase/migrations/0406_plantillas_propias.sql`): ANTES o JUNTO con el deploy. Sin ella,
+  «Sólo mi negocio» contesta «Falta la migración 0406» y compartir sigue andando. Es idempotente y no crea funciones.
 
 ## Lo que falta, con dónde vive
 
