@@ -53,7 +53,12 @@ export type OrigenLeadId =
   | 'grupo_whatsapp' // se trajo de un grupo de WhatsApp (app/crm/grupo-wa-server.ts)
   // La venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): el comprador que no estaba en el CRM
   // (`registrarVentaExterna`, lib/cobros.ts).
-  | 'stripe';
+  | 'stripe'
+  // Guardado A PROPÓSITO desde su perfil, con el botón «Guardar en MaKo» de la extensión (6/11/2026, lo prometido a la agencia de
+  // Thiago): alguien abrió el perfil y lo eligió, así que es una carga a mano, no alguien que llegó solo (`instagram` es «escribió
+  // por Instagram»). Lo escribe lib/perfil-captura-db.ts.
+  | 'perfil_instagram'
+  | 'perfil_linkedin';
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -85,6 +90,8 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
   grupo_whatsapp: { id: 'grupo_whatsapp', lista: 'Grupo de WhatsApp' },
   stripe: { id: 'stripe', lista: 'Stripe' },
+  perfil_instagram: { id: 'perfil_instagram', lista: 'Perfil de Instagram' },
+  perfil_linkedin: { id: 'perfil_linkedin', lista: 'Perfil de LinkedIn' },
 };
 
 /**

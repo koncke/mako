@@ -313,6 +313,8 @@ export function canalDeEntrada(origen: string | null | undefined): { texto: stri
     case 'skool': return { texto: 'Pidió entrar a tu Skool', tono: 'good' };
     case 'grupo_whatsapp': return { texto: 'Traído de un grupo de WhatsApp', tono: 'dim' };
     case 'stripe': return { texto: 'Compró por un link de pago de Stripe', tono: 'good' };
+    case 'perfil_instagram': return { texto: 'Lo guardaste desde su perfil de Instagram', tono: 'dim' };
+    case 'perfil_linkedin': return { texto: 'Lo guardaste desde su perfil de LinkedIn', tono: 'dim' };
     default: return { texto: 'Sin dato de origen', tono: 'dim' };
   }
 }

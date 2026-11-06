@@ -41,6 +41,7 @@ import {
   capturaDe, conPaginaCapturada, juzgarCaptura, leerCapturaDePagina, leerPaginasCapturadas, paginasDeLaCaptura, PAGINAS_POR_COMPETIDOR,
   VERSION_CAPTURA, type CapturaDePagina, type PaginaCapturada,
 } from '../lib/spy-pagina-capturada';
+import { esMasVieja } from '../lib/version-comparar';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const leer = (r: string) => readFileSync(`${RAIZ}${r}`, 'utf8').replace(/\r\n/g, '\n');
@@ -263,7 +264,9 @@ test('6. la captura entra por la ruta de la extensión, sólo para SUS páginas;
 
 test('7. sin permisos nuevos, la versión que sabe capturar, y la política lo dice', () => {
   const m = JSON.parse(leer('extension/manifest.json')) as { version: string; permissions: string[]; host_permissions: string[]; optional_host_permissions?: string[] };
-  assert.equal(m.version, VERSION_CAPTURA);
+  // La que se publica sabe capturar: no es MÁS VIEJA que la primera que supo (`VERSION_CAPTURA`). Era `equal` y dio rojo en la 0.77.0
+  // («Guardar en MaKo», 6/11/2026), que no le cambió nada a la captura: subir la versión es lo normal, bajarla es lo que se cuida.
+  assert.equal(esMasVieja(m.version, VERSION_CAPTURA), false, `la extensión ${m.version} es más vieja que la que sabe capturar (${VERSION_CAPTURA})`);
   assert.deepEqual(m.permissions, ['storage', 'alarms', 'webRequest', 'scripting', 'activeTab'], 'un permiso nuevo lo revisa la tienda y desactiva la extensión');
   assert.deepEqual(m.host_permissions, ['https://hola-mako.com/*', 'https://labs.google/*', 'https://flow.google.com/*', 'https://aisandbox-pa.googleapis.com/*', 'https://web.whatsapp.com/*']);
   assert.equal(m.optional_host_permissions, undefined);
