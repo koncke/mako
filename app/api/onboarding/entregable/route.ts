@@ -11,7 +11,8 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarEntregables, siguientePreguntaEntregable, describirArchivoEntregable, getEntregables, setEntregables, type Entregable, type PasoHistorial } from '@/lib/entregable';
+import { generarEntregables, siguientePreguntaEntregable, describirArchivoEntregable, getEntregables, cambiarEntregables, type PasoHistorial } from '@/lib/entregable';
+import { fundirDelOnboarding } from '@/lib/entregable-fundir';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -45,11 +46,12 @@ export async function POST(req: NextRequest) {
     try {
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.entregables) ? body.entregables : [];
-        const limpio: Entregable[] = arr
-          .map((g) => { const o = (g ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), nombre: s(o.nombre), tipo: s(o.tipo), queEs: s(o.queEs), fomo: s(o.fomo) }; })
-          // No borrar la tarjeta por vaciar solo el nombre: se conserva si tiene algún contenido.
-          .filter((g) => g.nombre || g.queEs || g.fomo);
-        await setEntregables(limpio);
+        // Se FUNDE sobre lo guardado y por el compare-and-set (6/11/2026): esta pantalla tiene la lista de cuando abrió, y
+        // reemplazarla entera borraba lo armado en la tab Lead Magnet mientras tanto, el enlace de cada uno y el orden que
+        // decide qué link mandan las automatizaciones (`fundirDelOnboarding`, lib/entregable.ts).
+        const entrantes = arr.map((g) => { const o = (g ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), nombre: s(o.nombre), tipo: s(o.tipo), queEs: s(o.queEs), fomo: s(o.fomo) }; });
+        const w = await cambiarEntregables((lista) => ({ lista: fundirDelOnboarding(lista, entrantes), valor: true }));
+        if (!w.ok) return Response.json({ ok: false, error: w.error }, { status: w.status });
         return Response.json({ ok: true, ...(await estado()) });
       }
       const historialDe = (v: unknown): PasoHistorial[] =>
@@ -71,7 +73,14 @@ export async function POST(req: NextRequest) {
         : undefined;
       const r = await generarEntregables(respuestas);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-      await setEntregables(r.entregables);
+      // Los que ya tienen enlace o su pieza armada se quedan, primero y en su orden (como `regenerarLeadMagnets`): son una
+      // página de verdad. Por el compare-and-set: la IA tarda, y en el medio se pudo armar otro en la tab.
+      const w = await cambiarEntregables((lista) => {
+        const armados = lista.filter((e) => e.enlace || e.pieza);
+        const nombres = new Set(armados.map((e) => e.nombre.trim().toLowerCase()));
+        return { lista: [...armados, ...r.entregables.filter((e) => !nombres.has(e.nombre.trim().toLowerCase()))], valor: true };
+      });
+      if (!w.ok) return Response.json({ ok: false, error: w.error }, { status: w.status });
       return Response.json({ ok: true, ...(await estado()), uso: r.uso });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });

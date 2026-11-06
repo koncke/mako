@@ -10840,3 +10840,13 @@ El mismo día lo arregló en paralelo otra cuenta (docs/hallazgos-pruebas.md); l
   Playwright corre con el node 22 del sistema (`require('playwright')`), no con el 24 de `scripts/node24.sh`.
 - **Un banco mide lo que monta:** el Image Editor se «arregló» una vez en una réplica del encabezado (`122071b5c`) que no tenía
   el panel de herramientas, que era lo que se comía el lugar.
+
+## En la nube, el pre-push con el Node del shell da rojos de mentira (6/11/2026, nube, barrido de pendientes)
+
+El shell de una sesión de la nube trae Node 22 (`/opt/node22`) y el hook de pre-push usa el `node` del PATH. Medido al subir
+`punta/barrido-plata`: el filtro dio **18 archivos rojos** («la tanda salió con 1») sobre un commit cuyo veredicto, con Node 24,
+acababa de dar 6791 tests en verde; cada uno de esos tests, corrido solo, pasaba con los dos Node. Con
+`export PATH="$(sh scripts/node24.sh):$PATH"` en el MISMO comando del push, el filtro dio 92 de 92 en verde. **Regla:** en la nube,
+el `export` del Node 24 va también delante del `git push`, no sólo del veredicto (cada comando arranca con el PATH de base). Y el
+hook no estaba instalado en el clon de la nube: el primer push salió sin guardas (las corrí a mano antes); se instala con los dos
+comandos de docs/relevo/nube-metodologia.md.

@@ -57,6 +57,9 @@ import { precioDe, type EstadoCobroLanding } from '@/lib/editor-landing/pago-lan
 import {
   AL_VENCER, TOPES_VENTA, attrsEscasez, esNodoVenta, fechaValida, instanteDeHoraLocal, instanteValido, resumenBloqueVenta, type ItemPrueba,
 } from '@/lib/editor-landing/bloques-venta';
+import {
+  TOPES_QUIZ, attrsQuiz, esNodoQuiz, hrefResultado, preguntasCompletas, resultadosCompletos, resumenQuiz,
+} from '@/lib/editor-landing/quiz';
 import { cortarSinPartir } from '@/lib/unicode-seguro';
 import { OBJETIVOS_LANDING as OBJETIVOS_IA, type ObjetivoLanding } from '@/lib/landing-spec';
 import { pendienteVencido, urlDeDominio, type EstadoDominio } from '@/lib/editor-landing/dominios-reglas';
@@ -275,6 +278,7 @@ export function nombreDeBloque(n: JsonNodo): string {
     return e.src ? `${que} (${nombreDeProveedor(e.proveedor) ?? e.proveedor})` : `${que} sin enlace`;
   }
   if (esNodoVenta(n.type)) return resumenBloqueVenta(n.type, a);
+  if (esNodoQuiz(n.type)) return resumenQuiz(a);
   return NOMBRE_NODO[n.type] ?? n.type;
 }
 
@@ -2451,3 +2455,61 @@ export function planBloqueVenta(
     datos: { seccion: id },
   };
 }
+
+/**
+ * `configurar_quiz_landing` (6/11/2026, Lead Magnet Generator: lib/editor-landing/quiz.ts): pone o cambia el quiz con
+ * diagnóstico de una sección. Lo que no se pasa queda como estaba; `preguntas` y `resultados` reemplazan la lista entera. Al
+ * crearlo exige una pregunta con dos opciones y un resultado con título (sin eso no se muestra), y un link de botón tiene que
+ * ser uno de la casa (http(s), una sección o una página del sitio).
+ */
+export function planQuiz(c: LandingContenido, e: Record<string, unknown>): PlanContenido | FallaPlan {
+  const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
+  if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
+  const u = ubicarSeccion(c, id);
+  if (!u) return noEstaSeccion(c, id);
+  const ya = buscarNodos(c, (n) => n.type === NODO.quiz, u)[0] ?? null;
+  const previo = ya ? attrsDe(ya.nodo) : {};
+  const patch: Record<string, unknown> = {};
+  for (const k of ['titulo', 'intro', 'empezar', 'enviar'] as const) if (typeof e[k] === 'string') patch[k] = e[k];
+  if (typeof e.pideTelefono === 'boolean') patch.pideTelefono = e.pideTelefono;
+  if (e.preguntas !== undefined) {
+    if (!Array.isArray(e.preguntas)) return { error: 'Las preguntas van en una lista.', faltan: ['preguntas'] };
+    if (e.preguntas.length > TOPES_QUIZ.preguntas) return { error: `Van hasta ${TOPES_QUIZ.preguntas} preguntas.` };
+    for (const [i, p] of (e.preguntas as Array<Record<string, unknown>>).entries()) {
+      const ops = Array.isArray(p?.opciones) ? p.opciones : [];
+      if (typeof p?.texto !== 'string' || !p.texto.trim()) return { error: `La pregunta ${i + 1} no tiene texto («texto»).` };
+      if (ops.length < 2 || ops.length > TOPES_QUIZ.opciones) return { error: `La pregunta ${i + 1} lleva de 2 a ${TOPES_QUIZ.opciones} opciones.` };
+      for (const o of ops as Array<Record<string, unknown>>) {
+        if (typeof o?.texto !== 'string' || !o.texto.trim()) return { error: `Una opción de la pregunta ${i + 1} no tiene texto.` };
+        if (o.puntos !== undefined && !(typeof o.puntos === 'number' && Number.isInteger(o.puntos) && o.puntos >= 0 && o.puntos <= TOPES_QUIZ.puntos)) {
+          return { error: `Los puntos de una opción van de 0 a ${TOPES_QUIZ.puntos}, enteros.` };
+        }
+      }
+    }
+    patch.preguntas = e.preguntas;
+  }
+  if (e.resultados !== undefined) {
+    if (!Array.isArray(e.resultados)) return { error: 'Los resultados van en una lista.', faltan: ['resultados'] };
+    if (!e.resultados.length || e.resultados.length > TOPES_QUIZ.resultados) return { error: `Van de 1 a ${TOPES_QUIZ.resultados} resultados.` };
+    for (const [i, r] of (e.resultados as Array<Record<string, unknown>>).entries()) {
+      if (typeof r?.titulo !== 'string' || !r.titulo.trim()) return { error: `El resultado ${i + 1} no tiene título («titulo»).` };
+      if (typeof r?.href === 'string' && r.href.trim() && !hrefResultado(r.href)) return { error: `El link del botón del resultado ${i + 1} no es válido: va https://…, #t-<sección> o pagina:<id>.` };
+    }
+    patch.resultados = e.resultados;
+  }
+  const nuevoAttrs = attrsQuiz({ ...previo, ...patch });
+  if (!preguntasCompletas(nuevoAttrs).length) return { error: 'Falta una pregunta con su texto y dos opciones («preguntas»): sin eso no se muestra.', faltan: ['preguntas'] };
+  if (!resultadosCompletos(nuevoAttrs).length) return { error: 'Falta un resultado con título («resultados»): sin eso no se muestra.', faltan: ['resultados'] };
+  const cambios = Object.keys(patch).filter((k) => JSON.stringify(attrsQuiz(previo)[k as keyof typeof nuevoAttrs] ?? null) !== JSON.stringify(nuevoAttrs[k as keyof typeof nuevoAttrs] ?? null));
+  if (ya && !cambios.length) return { error: 'Ese quiz ya está así.', yaEstaba: true };
+  const nuevo: JsonNodo = { type: NODO.quiz, attrs: NORMALIZAR_NODOS[NODO.quiz](nuevoAttrs) };
+  const nueva = ya ? conNodo(ya.tarjeta, ya.ruta, nuevo) : { ...u.tarjeta, content: [...(u.tarjeta.content ?? []), nuevo] };
+  const frena = frenaElSaneo([u.tarjeta], [nueva]);
+  if (frena) return frena;
+  return {
+    contenido: conSeccion(c, u, nueva),
+    resumen: `${ya ? 'Cambiar' : 'Agregar'} en la sección «${corto(tituloSeccion(u.tarjeta))}» el ${resumenQuiz(nuevo.attrs)}. ${NOTA_VERSION}`,
+    datos: { seccion: id },
+  };
+}
+

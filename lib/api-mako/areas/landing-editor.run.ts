@@ -48,7 +48,7 @@ import {
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planFormatoTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
-  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planBloqueVenta, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
+  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planBloqueVenta, planQuiz, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
@@ -480,6 +480,7 @@ export const RUNNERS_EDITOR: Runners = {
     que: 'poner el bloque de venta', conZona: true,
     planear: (i, d, x) => planBloqueVenta(d.contenido, i, { zona: x.zona ?? 'UTC', ahoraMs: Date.now() }),
   }) },
+  configurar_quiz_landing: { ...edicion({ que: 'poner el quiz', planear: (i, d) => planQuiz(d.contenido, i) }) },
   configurar_boton_landing: { ...edicion({ que: 'cambiar el botón', planear: (i, d) => planConfigurarBoton(d.contenido, i) }) },
   cambiar_imagen_landing: { ...edicion({
     que: 'cambiar la imagen', imagenes: ['imagen'],

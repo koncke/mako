@@ -28,6 +28,7 @@ import type { OperacionDef, Gating, Parametro } from '../tipos';
 import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
 import { AL_VENCER, TOPES_VENTA } from '@/lib/editor-landing/bloques-venta';
+import { TOPES_QUIZ } from '@/lib/editor-landing/quiz';
 import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
 import {
@@ -693,6 +694,44 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'quedan', rotulo: 'Quedan', tipo: 'number', entero: true, minimo: 0, maximo: TOPES_VENTA.total, descripcion: 'escasez: cuántos quedan.' },
       { nombre: 'total', rotulo: 'De', tipo: 'number', entero: true, minimo: 1, maximo: TOPES_VENTA.total, descripcion: 'escasez: de cuántos.' },
       { nombre: 'unidad', rotulo: 'Qué', tipo: 'string', max: TOPES_VENTA.unidad, descripcion: 'escasez: lugares, cupos, unidades (sin ella, lugares).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'configurar_quiz_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Quiz con diagnóstico',
+    descripcion: `Pone o cambia en una sección el quiz con diagnóstico: preguntas de opción única, cada opción suma puntos y el puntaje elige un resultado («desde» N puntos: gana el de «desde» más alto que alcanza). Antes del resultado pide nombre y correo, que entran al CRM con su resultado y sus respuestas. Lo que no se pasa queda; preguntas y resultados reemplazan la lista entera. Sin una pregunta completa y un resultado con título no se muestra. ${VERSION}`,
+    parametros: [
+      P_ID, P_SECCION,
+      { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPES_QUIZ.titulo, descripcion: 'El título de la portada.' },
+      { nombre: 'intro', rotulo: 'Qué van a saber', tipo: 'string', max: TOPES_QUIZ.intro, descripcion: 'Una frase en la portada.' },
+      { nombre: 'empezar', rotulo: 'Botón de empezar', tipo: 'string', max: TOPES_QUIZ.boton, descripcion: 'Opcional (Empezar).' },
+      { nombre: 'enviar', rotulo: 'Botón de enviar', tipo: 'string', max: TOPES_QUIZ.boton, descripcion: 'Opcional (Ver mi resultado).' },
+      { nombre: 'pideTelefono', rotulo: 'Pedir WhatsApp', tipo: 'boolean', descripcion: 'Suma el WhatsApp (opcional para quien contesta).' },
+      {
+        nombre: 'preguntas', rotulo: 'Preguntas', tipo: 'object[]', max: TOPES_QUIZ.preguntas, descripcion: 'En orden. Reemplazan a las de hoy.',
+        campos: [
+          { nombre: 'texto', tipo: 'string', obligatorio: true, max: TOPES_QUIZ.pregunta, descripcion: 'La pregunta.' },
+          {
+            nombre: 'opciones', tipo: 'object[]', obligatorio: true, max: TOPES_QUIZ.opciones, descripcion: 'De 2 a 6.',
+            campos: [
+              { nombre: 'texto', tipo: 'string', obligatorio: true, max: TOPES_QUIZ.opcion, descripcion: 'La opción.' },
+              { nombre: 'puntos', tipo: 'number', entero: true, minimo: 0, maximo: TOPES_QUIZ.puntos, descripcion: 'Cuánto suma (0 si se omite).' },
+            ],
+          },
+        ],
+      },
+      {
+        nombre: 'resultados', rotulo: 'Resultados', tipo: 'object[]', max: TOPES_QUIZ.resultados, descripcion: 'De 1 a 6. Reemplazan a los de hoy.',
+        campos: [
+          { nombre: 'desde', tipo: 'number', entero: true, minimo: 0, maximo: TOPES_QUIZ.desde, descripcion: 'Desde cuántos puntos sale.' },
+          { nombre: 'titulo', tipo: 'string', obligatorio: true, max: TOPES_QUIZ.resultadoTitulo, descripcion: 'El diagnóstico, en pocas palabras.' },
+          { nombre: 'texto', tipo: 'string', max: TOPES_QUIZ.resultadoTexto, descripcion: 'Qué significa y qué hacer ahora.' },
+          { nombre: 'boton', tipo: 'string', max: TOPES_QUIZ.boton, descripcion: 'Opcional: el botón del resultado.' },
+          { nombre: 'href', tipo: 'string', max: TOPES_QUIZ.href, descripcion: 'A dónde lleva el botón: https://…, #t-<sección> o pagina:<id>.' },
+        ],
+      },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',

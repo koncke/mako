@@ -13,6 +13,11 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
 import { resolverToken, filtrarPorShare, registrarVisita, RECURSO_GUION, RECURSO_INFORME } from '@/lib/shares';
+import { RECURSO_LEAD_MAGNET } from '@/lib/share-nombre';
+import { paginaDelShareLM } from '@/lib/lead-magnets/compartir';
+import { abrirLeadMagnetCompartido } from '@/lib/lead-magnets/compartir-server';
+import LeadMagnetCompartido from './LeadMagnetCompartido';
+import './lead-magnet.css';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
@@ -95,6 +100,9 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   if (acceso?.share.recurso === RECURSO_INFORME) return { ...GENERICA, title: 'Informe compartido' };
   // Un guion tampoco: ni su título ni el negocio. La pestaña dice qué ES.
   if (acceso?.share.recurso === RECURSO_GUION) return { ...GENERICA, title: 'Guion compartido' };
+  // Un LEAD MAGNET sí se nombra (5/11/2026): el negocio lo hizo para regalarlo, y que quien recibe el link sepa qué es ANTES
+  // de abrirlo es para lo que se manda. El nombre es el del día del link (la etiqueta), nunca el negocio.
+  if (acceso?.share.recurso === RECURSO_LEAD_MAGNET) return { ...GENERICA, title: acceso.share.etiqueta?.trim() || 'Material compartido' };
   if (!acceso || acceso.share.recurso !== 'curso') return GENERICA;
   const slug = acceso.share.recurso_id;
   // Branding se sirve por su propio recurso; como curso da 404 (ver más abajo). Y el
@@ -150,6 +158,17 @@ export default async function CompartidoPage({ params, searchParams }: {
     await registrarVisita(acceso);
     const invitado = acceso.invitado ? acceso.invitado.nombre?.trim() || acceso.invitado.email : null;
     return <GuionCompartido token={token} guion={abierto.guion} catalogos={abierto.catalogos} invitado={invitado} />;
+  }
+
+  // ── Un LEAD MAGNET para leer (5/11/2026, el Lead Magnet Generator: lib/lead-magnets/) ──
+  // `paginaDelShareLM` decide en POSITIVO qué página deja LEER este link (nunca editar). Lo que lee corre en el workspace DEL
+  // LINK, y una página en la Papelera es un 404.
+  if (acceso.share.recurso === RECURSO_LEAD_MAGNET) {
+    const a = paginaDelShareLM(acceso.share);
+    const abierto = a ? await abrirLeadMagnetCompartido(a) : null;
+    if (!abierto) notFound();
+    await registrarVisita(acceso);
+    return <LeadMagnetCompartido titulo={abierto.titulo} emoji={abierto.emoji} doc={abierto.doc} />;
   }
 
   // ── La TAB ENTERA de Conocimientos: el selector con todos los cursos ──

@@ -29,7 +29,8 @@
 >   (`lib/mako-intencion.ts`) y una fila REST por operación en `rest.ts`, regenerar docs y snapshot, y **antes de integrar, la
 >   revisión de seguridad** (un lector sin contexto leyendo el código: encontró cuatro cosas en comunidad que los tests de la rama
 >   daban por verdes).
-> - **Sin hacer de esta tanda:** la página de gracias de una landing (`gracias`) sigue sin API (la pantalla la asigna junto con los
+> - **Sin hacer de esta tanda:** ~~la página de gracias de una landing (`gracias`) sigue sin API~~ (HECHO el 6/11/2026: `gracias`
+>   en `guardar_landing`, el barrido de pendientes) (la pantalla la asigna junto con los
 >   productos); `textoDelPago` de `app/crm/[id]/deal-actions.ts` es una copia de `textoDelCobro` (lib/pagos-campo.ts); la etapa
 >   «efectiva» de `ficha_lead` ignora el funnel del lead (`docs/relevo/crm-pendientes-b1.md`); los riesgos de comunidad que no se
 >   arreglaron están en `docs/hallazgos-api-mako.md`.

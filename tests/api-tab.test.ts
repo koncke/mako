@@ -45,6 +45,7 @@ const PERMITIDOS: Record<string, string[]> = {
   setting: ['app/automations/', 'app/m/automations/', 'app/admin/', 'lib/'],
   chats: ['app/chats/', 'app/m/chats/', 'app/admin/', 'lib/'],
   copywriter: ['app/copywriter/', 'app/m/copywriter/', 'app/admin/', 'lib/'],
+  'lead-magnet-generator': ['app/lead-magnet-generator/', 'app/m/lead-magnet-generator/', 'app/admin/', 'lib/'],
 };
 
 function archivos(dir: string): string[] {
