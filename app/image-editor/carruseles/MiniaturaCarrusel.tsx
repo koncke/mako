@@ -18,10 +18,10 @@ type Obj = Record<string, unknown>;
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
 const pctX = (v: number) => `${(v / ANCHO_CARRUSEL) * 100}%`;
-const pctY = (v: number) => `${(v / ALTO_CARRUSEL) * 100}%`;
 const cq = (v: number) => `${(v / ANCHO_CARRUSEL) * 100}cqw`;
 
-function Objeto({ o }: { o: Obj }) {
+function Objeto({ o, alto }: { o: Obj; alto: number }) {
+  const pctY = (v: number) => `${(v / alto) * 100}%`;
   const tipo = str(o.type);
   if (tipo === 'textbox') {
     const estilo: CSSProperties = {
@@ -39,17 +39,26 @@ function Objeto({ o }: { o: Obj }) {
     const w = num(o.width); const h = num(o.height);
     return <span style={{ position: 'absolute', left: pctX(num(o.left) - w / 2), top: pctY(num(o.top) - h / 2), width: pctX(w), height: pctY(h), background: str(o.fill), borderRadius: '50%' }} />;
   }
+  if (tipo === 'image' && /^https:\/\//.test(str(o.src))) {
+    // La foto del cliente en una réplica (lib/carruseles/replica.ts): cubre su lugar como en el editor (sin deformarse).
+    const w = num(o.width) * num(o.scaleX, 1); const h = num(o.height) * num(o.scaleY, 1);
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={str(o.src)} alt="" style={{ position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(w), height: pctY(h), objectFit: 'cover', objectPosition: '50% 25%' }} />;
+  }
   return null;
 }
 
-/** Una página: su fondo y sus objetos, a la proporción del carrusel (4:5). El ancho lo pone quien la monta. */
-export function PaginaCarrusel({ pagina, style, etiqueta }: { pagina: Obj; style?: CSSProperties; etiqueta?: string }) {
+/**
+ * Una página: su fondo y sus objetos, a la proporción del carrusel (4:5, o la que diga `alto`: una réplica de un anuncio
+ * cuadrado es 1080 × 1080). El ancho lo pone quien la monta.
+ */
+export function PaginaCarrusel({ pagina, style, etiqueta, alto = ALTO_CARRUSEL }: { pagina: Obj; style?: CSSProperties; etiqueta?: string; alto?: number }) {
   const fondo = str((pagina.background as Obj | undefined)?.color, '#fff');
   const objetos = Array.isArray(pagina.objects) ? (pagina.objects as Obj[]) : [];
   return (
     <div role="img" aria-label={etiqueta ?? str(pagina.name, 'Lámina')}
-      style={{ position: 'relative', aspectRatio: `${ANCHO_CARRUSEL} / ${ALTO_CARRUSEL}`, containerType: 'inline-size', background: fondo, overflow: 'hidden', borderRadius: 6, ...style }}>
-      {objetos.map((o, i) => <Objeto key={str(o.id, String(i))} o={o} />)}
+      style={{ position: 'relative', aspectRatio: `${ANCHO_CARRUSEL} / ${alto}`, containerType: 'inline-size', background: fondo, overflow: 'hidden', borderRadius: 6, ...style }}>
+      {objetos.map((o, i) => <Objeto key={str(o.id, String(i))} o={o} alto={alto} />)}
     </div>
   );
 }

@@ -80,7 +80,11 @@ export async function GET(req: NextRequest) {
     workspace: auth.ctx.ws,
     version_api: VERSION_API,
     token: auth.token.clase === 'detallado'
-      ? { clase: 'detallado', nombre: auth.token.nombre, expira: auth.token.expira, permisos: Object.fromEntries(Object.entries(auth.token.permisos).map(([k, v]) => [k, CODIGO_NIVEL[v as 'lectura' | 'escritura']])) }
+      ? {
+        clase: 'detallado', nombre: auth.token.nombre, expira: auth.token.expira, permisos: Object.fromEntries(Object.entries(auth.token.permisos).map(([k, v]) => [k, CODIGO_NIVEL[v as 'lectura' | 'escritura']])),
+        // Un token de agencia: este pedido corrió en el cliente de `workspace` (el header X-MaKo-Cliente), no en la agencia.
+        ...(auth.token.cartera ? { agencia: auth.token.ws, cliente: auth.ctx.ws } : {}),
+      }
       : { clase: 'clasico', alcance: { nivel: auth.ctx.alcance, ...TEXTO_ALCANCE[auth.ctx.alcance] } },
     alcance: { nivel: auth.ctx.alcance, ...TEXTO_ALCANCE[auth.ctx.alcance] },
     como: {

@@ -2137,3 +2137,92 @@ botón) y dice el resultado con `textoDeSubtitulos`.
 
 **Vive en:** lib/aperturas/video.ts, app/video-editor/_opencut/chat/PanelChat.tsx. Lo fija tests/iniciativa-video.test.ts.
 
+
+## Palabras clave automáticas y los presets de la marca: lo que pidió Leila (6/11/2026, nube)
+
+**Lo que se hizo:** «Resaltar palabras clave automáticamente» dejó de estar en «Próximamente» (Biblioteca › Subtítulos ›
+Subtítulos automáticos), el panel de un subtítulo suma «Palabras clave» (prender, color) y «Guardar como preset», y
+Subtítulos › Plantillas arranca con «De tu marca». Por chat y por la API: `palabras_clave` (auto · estas · ninguna),
+`usar_preset_subtitulos`, y `listar/guardar/borrar_preset_subtitulos`.
+
+- **Qué se elige es una regla, no una IA** (`subtitles/claves.ts`): gratis, en el navegador, y se prueba. Pesan: las de la marca
+  (`siempre` del preset), números y montos, palabras de venta, números dichos con letras y nombres propios (mayúscula que no
+  abre la frase). La palabra de contenido sola entra desde 6 letras: un subtítulo de relleno queda SIN clave (resaltar por
+  resaltar apaga a la que importa). La repetida en los dos de antes pierde 5: una de venta (7) cae debajo del mínimo; un
+  número (10), no.
+- **Se guardan las PALABRAS (normalizadas), no las posiciones** (`subtitulo.claves`): corregir una letra o «Dividir» no corre el
+  color a otra palabra. Y no se declara en `params/extra` (lo declarado se dibuja como control) y va en `NO_ESTILO`: es de SU
+  texto, como los tiempos. El color (`subtitulo.clavesColor`) sí es estilo y sí se declara.
+- **El dibujo no se tocó: se generalizó el color por palabra.** `resaltadoDe` devuelve el resaltado también SIN karaoke cuando hay
+  claves (modo «ninguno», nada atenuado), y `colorDePalabra` decide: la que se dice gana, después la clave, después el texto. Un
+  .srt importado lleva claves (no necesitan tiempos). Sin karaoke ni claves sigue siendo `null` y el dibujo va por el camino de siempre.
+- **Un preset es una PLANTILLA del editor con nombre, relativa al lienzo** (`plantillaDeParams` es la inversa de `paramsDePlantilla`).
+  Guardar los params crudos del motor fallaba sin error: el `fontSize` es relativo al alto del lienzo y el relleno del fondo al
+  `fontSize`, así que un preset de 16:9 salía la mitad de grande en 9:16. El relleno vuelve a «em» con
+  `param × REFERENCIA / (15 × alto)` (no depende del tamaño de letra). Ida y vuelta exacta para las 16 de fábrica en los dos lienzos.
+- **Los presets viven en el NEGOCIO, no en el navegador** (`app_settings` `video_editor.presets_subtitulos`, una lista; sin
+  migración): los ve todo el equipo. «Por cliente» lo da que una agencia tiene un negocio por cliente; `marca` es la etiqueta
+  libre dentro de uno. Se escribe con compare-and-set y reintento (`cambiarSettingSi` ya compara por `updated_at` con valores largos).
+  Leer es ESTRICTO: guardar sobre una lista vacía por una base caída borraría los de la marca.
+- **Un preset escribe SIEMPRE sus claves** (en ninguna si no las usa), como una plantilla escribe siempre el trazo: si no, pasar
+  de uno con claves a uno sin ellas las dejaba. Y se aplica en UN paso de deshacer (`aplicarEstiloASubtitulos` con `porSubtitulo`).
+- **La API busca el preset ANTES de proponer y la propuesta lleva el id** (`proponerEnElEditor`): un nombre mal escrito vuelve con
+  la lista, y renombrarlo antes de aceptar no rompe la propuesta. Dos con el mismo nombre en marcas distintas: se pide la marca.
+- ⚠️ **El test que fijaba «borrar_silencios_video es la ÚLTIMA del área» (test 51 del chat) se rompía con cualquier operación
+  nueva**: era la regla «una nueva va al final» escrita como una foto. Ahora dice lo que cuida: va detrás de las que ya estaban.
+- ⚠️ **En la nube no hay `node_modules`** (`npm ci --ignore-scripts` primero) y el `tsc-acotado` del editor muere con el heap de
+  2,5 GB: va `--heap=8192`. Los rojos de `soundtouchjs` y `EyeDropper` son de la lista, no del cambio.
+
+**Sin hacer:** agrandar o hacer rebotar la palabra clave (tipo Hormozi: necesita medir el renglón con dos tamaños, `text/dibujar.ts`);
+emojis de IA; marcar o desmarcar UNA palabra a mano desde el texto del subtítulo (hoy: el chat con «estas», o prender/apagar); nada
+se miró en un navegador (la nube no corre el editor).
+
+**Vive en:** `app/video-editor/_opencut/subtitles/{claves,presets,insert,estilos,generar}.ts` · `text/resaltado.ts` · `text/dibujar.ts` ·
+`subtitles/components/{assets-view,pestana-subtitulos}.tsx` · `lib/editor-video/presets-subtitulos{,-server}.ts` ·
+`app/api/video-editor/presets/route.ts` · `chat/{linea,aplicar,comandos,contexto}.ts` · test `tests/video-editor-subtitulos-claves.test.ts`.
+
+*6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*
+
+## B-roll y cambios de plano automáticos, al estilo de Submagic (6/11/2026, nube)
+
+**Lo que se hizo:** Biblioteca › Multimedia › «B-roll de MaKo» (y su botón en la barra de la línea de tiempo): «Proponer» lee lo
+que se dice, pone fotos de Pexels encima del video donde se dice algo que se puede mostrar y, si se pide, cambios de plano
+(acercamientos al ritmo de las frases). Cada propuesta queda en la línea de tiempo con borde punteado y se deja o se saca una por
+una (o todas). Por el chat del editor (`broll`) y por la API de MaKo (`proponer_broll_video`). Sumó el efecto «Acercar».
+
+- **DÓNDE lo decide el código; QUÉ, la IA del negocio** (`lib/editor-video/broll.ts`). Los huecos arrancan donde arranca una frase,
+  duran de 1,5 a 4 s, dejan libre el gancho (2 s) y el cierre, no pisan nada de lo que la persona ya puso encima y están
+  separados por el aire del ritmo, así que cualquier subconjunto que elija la IA también lo está. La IA elige por NÚMERO y escribe
+  la búsqueda; un número que no está, una búsqueda con una URL o repetida se descartan (`eleccionDeIA`). Sin IA, el respaldo
+  busca la palabra más fuerte de la frase: el B-roll sale igual.
+- **Las palabras de un subtítulo y las de una foto no son las mismas.** Las palabras clave premian números, «gratis», «importante»:
+  se resaltan pero no se fotografían. El B-roll saca números (también los dichos con letras: «tres semanas»), lo abstracto y las
+  formas verbales evidentes (`-aba`, `-ando`, `-aron`): «llegaba» pesaba por largo y no tiene foto.
+- **La fuente es Pexels con la clave de CADA negocio** (`lib/pexels.ts`, la integración «Pexels» con sus tres registros y su
+  logo de simple-icons). Su licencia deja el uso comercial sin atribución obligatoria; Openverse (el de las portadas) está
+  «licencia no verificada» para anuncios. Su API pide nombrar a quien sacó la foto: va en cada fila y en el elemento. El
+  navegador pide la foto por su ID; la URL la dice Pexels y sólo se baja de `images.pexels.com`, por `fetchSeguro` y con magic
+  bytes. Sin la clave, el modal de Pexels se abre en el mismo panel.
+- **El cambio de plano es una CAPA del efecto «Acercar», no un cambio en el clip.** Una capa de efecto cambia todo lo que tiene
+  debajo, así que la pista «Planos» va ÚLTIMA (pegada a la principal): acerca sólo a quien habla, no las fotos ni los textos de
+  arriba. Cortar o escalar el clip de la persona habría sido pisar lo que editó. Cortan en el borde de una frase, el primero va
+  abierto, y el cerrado fuerte va donde se dice algo con peso.
+- **Lo pendiente se CALCULA de la línea de tiempo, no se recuerda.** La marca `mako.propuesta` («broll» o «plano») va en los
+  params del elemento (como las marcas de las plantillas): sobrevive a recargar y a un Ctrl+Z, y el panel la lee de ahí.
+  «Dejar» la vacía y «Sacar» borra; ninguna de las dos toca un elemento sin la marca, y una pista de MaKo que queda vacía se va.
+  Volver a proponer reemplaza sólo lo pendiente del tipo que se volvió a calcular: si Pexels falló, lo propuesto antes se queda.
+- **Sin subtítulos, se transcribe acá mismo y no se ponen** (Whisper en el navegador, como «Subtítulos automáticos»): el B-roll
+  no obliga a subtitular.
+- **Probado con respuestas de un modelo escritas a mano** (tests/video-editor-broll.test.ts: 20 casos, 19 roturas). La IA real se
+  prueba desde la PC con `scripts/probar-broll-ia.mts` (tres guiones ficticios, en el Cliente de Prueba): la nube no tiene claves.
+
+**Sin hacer:** videos de Pexels como B-roll (sólo fotos); «Cambiar por otra foto» de una propuesta (las alternativas ya llegan de
+la búsqueda y no se guardan); el acercamiento va al centro del cuadro (no sigue la cara); nada se miró en un navegador ni se
+corrió con la IA real.
+
+**Vive en:** `lib/editor-video/{broll,broll-pexels,broll-ia,broll-prompts,claves}.ts` · `lib/pexels.ts` ·
+`app/api/video-editor/broll/route.ts` · `app/video-editor/_opencut/broll/` · `effects/definitions/efectos.ts` («acercar») ·
+`timeline/components/timeline-element.tsx` (el borde punteado) · `chat/{linea,aplicar,comandos}.ts` · test
+`tests/video-editor-broll.test.ts` · arnés `scripts/probar-broll-ia.mts`.
+
+*6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*

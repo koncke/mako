@@ -250,6 +250,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
   // proveedor más flojo se ve y se descarta.
   { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
+  { feature: 'video-editor-broll', label: 'B-roll del Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Elige entre los huecos que arma el código (lib/editor-video/broll.ts) dónde va una foto encima del video y escribe qué buscar en Pexels. Lee lo que se dice en el video del propio negocio: sin PII. Sin la IA, sale igual con las palabras de cada frase.' },
   // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts). Desde el 5/11/2026 con LA IA DEL NEGOCIO, sin Gemini
   // (`deSuIA`; Martín, 22/10/2026: «sin Gemini»): su Claude y su GPT, y si no tiene ninguna, «conecta tu IA». Claude de MaKo
   // vetado sin fila en CLAUDE_PERMITIDO: vuelve una PROPUESTA que la persona mira.
@@ -262,6 +263,9 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.
   { feature: 'reels-writer', label: 'Escribir guion de Reel (Instagram)', grupo: 'Copywriting', def: GEMINI(), nota: 'Guion completo (hook, escenas, moraleja, CTA) con la metodología de los cursos. Sin PII.' },
   { feature: 'carousels-writer', label: 'Escribir carrusel de Instagram', grupo: 'Copywriting', def: GEMINI(), nota: 'Slides 2-10 (portada-gancho → historia → CTA) con la metodología de los cursos. Sin PII.' },
+  // 6/11/2026: «Editar» un carrusel de ejemplo (lib/carruseles/replica-servidor.ts). Es VISIÓN (`leerDocumentoIA`): mira las láminas
+  // con la IA del negocio (su Claude, su GPT o su Gemini, adentro de `conSuIADelNegocio`) y devuelve el diseño con sus textos.
+  { feature: 'carrusel-replica', label: 'Editar un carrusel de ejemplo', grupo: 'Copywriting', def: GEMINI(), nota: 'Mira las láminas de un carrusel (o un anuncio) de ejemplo y devuelve su diseño con los textos escritos para el negocio. Corre con la IA del negocio. Sin PII.' },
   { feature: 'stories-writer', label: 'Escribir arco de Stories (Instagram)', grupo: 'Copywriting', def: GEMINI(), nota: 'El día entero de stories (una idea, gancho → contexto → CTA) con la metodología de los cursos. Sin PII.' },
   // El plan de clips de un anuncio con avatar (lib/video-planner.ts). Escribe el
   // guion Y los prompts de video, así que carga más estructura que un writer de

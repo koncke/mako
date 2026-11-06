@@ -51,7 +51,10 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   email: { titulo: 'Email', tab: 'Email', ruta: '/email' },
   // El ÁREA se sigue llamando `chatbot` (es la clave del registro, de las operaciones y de
   // los permisos de los tokens); la TAB es Automations desde el 09/10/2026 (ex /chatbot).
-  chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
+  // El TÍTULO también desde el 6/11/2026 (recorrido visual del 30/10, AP1: «Chatbot y secuencias» era un nombre viejo en el
+  // índice de la API y en el permiso de un token). Es lo que se LEE: un token ya hecho no cambia, porque el permiso se
+  // guarda por la CLAVE (`chatbot`), no por este texto.
+  chatbot: { titulo: 'Automations', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/dashboard' },
   // 17/10/2026: la tab Experiments se retiró y los experimentos viven en el Dashboard («Editar con MaKo»). El ÁREA sigue
   // llamándose `experimentos`: es la clave del registro, de las operaciones y de los permisos de los tokens.

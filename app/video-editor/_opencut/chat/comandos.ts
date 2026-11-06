@@ -26,6 +26,10 @@
 //                                              la corre chat/aplicar.ts después del lote
 //   borrar los silencios                       quitarSilencios (audio/borrar-silencios.ts: el del
 //                                              botón de la barra), LARGA y la última
+//   palabras clave                             UpdateElementsCommand con `subtitulo.claves` (el
+//                                              «Palabras clave» del panel del subtítulo)
+//   usar un preset de subtítulos               aplicarPreset (subtitles/presets.ts: el de la
+//                                              pestaña Plantillas), LARGA
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -77,8 +81,8 @@ import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subti
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_plantilla", "borrar_silencios"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "broll" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "broll", "usar_plantilla", "borrar_silencios"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */

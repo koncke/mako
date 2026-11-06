@@ -52,7 +52,7 @@ import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { Ico } from './Ico';
 import { varsDeTema, type Tema } from '@/lib/editor-landing/temas';
 import { parrafo, tarjeta, titulo, type JsonNodo } from '@/lib/editor-landing/doc';
-import type { FormatoDoc, Proporcion } from '@/lib/editor-landing/api-tipos';
+import { cuadroCss, formaFija, type FormatoDoc, type Proporcion } from '@/lib/editor-landing/api-tipos';
 import type { BorradorViejo } from '@/lib/editor-landing/server';
 import { pedirDocs, marcarReciente } from './cliente';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -138,7 +138,7 @@ const TARJETA_VACIA: JsonNodo = tarjeta([titulo('', 1), parrafo()], { id: 'tvaci
  * que se puedan tocar.
  *
  * T3 (tanda 2): con `formato: 'presentacion'` la miniatura es la DIAPOSITIVA, con la forma de
- * su `proporcion` (16:9 o 4:3; «Fluido» se dibuja 16:9: una miniatura necesita un cuadro). El
+ * su `proporcion` (16:9, 4:3 o 4:5; «Fluido» se dibuja 16:9: una miniatura necesita un cuadro). El
  * formato lo declara el PADRE DIRECTO del `.gm-doc` (`data-formato`/`data-proporcion`):
  * `htmlDeTarjeta` no conoce la configuración, y css.ts («15b. Presentaciones») lee el
  * envoltorio. `aspecto` es el cuadro de una PÁGINA (16 / 10 por default).
@@ -155,8 +155,8 @@ export function MiniaturaLanding({ tarjeta: t, tema, formato = 'pagina', proporc
   // el VSL vacío de un diseño tiene que verse como un ▶ (pedido de Martín, 14/10/2026).
   const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }), [t, tema]);
   const diapo = formato === 'presentacion';
-  const prop: Proporcion = proporcion === '4:3' ? '4:3' : '16:9';
-  const cuadro = diapo ? (prop === '4:3' ? '4 / 3' : '16 / 9') : aspecto;
+  const prop: Proporcion = formaFija(proporcion);
+  const cuadro = diapo ? cuadroCss(prop) : aspecto;
   return (
     <div className="gp-mini" data-entera={entera ? 'si' : undefined} style={entera ? undefined : { aspectRatio: cuadro }} aria-hidden="true" inert>
       <div
@@ -690,6 +690,8 @@ export const CSS_GP = `
 .gp .gp-mini[data-entera="si"] { overflow: visible; border-radius: 0; background: transparent; }
 .gp .gp-mini-lienzo { height: 100%; pointer-events: none; user-select: none; }
 .gp .gp-mini .gm-doc { --gm-base: calc(100cqw / 64.5); --gm-base-movil: calc(100cqw / 64.5); height: 100%; }
+/* Una diapositiva de 4:5 mide 43em de ancho (ANCHO_DIAPO_EM, api-tipos.ts): con 64.5 la letra saldría más chica que en el editor. */
+.gp .gp-mini [data-proporcion="4:5"] > .gm-doc { --gm-base: calc(100cqw / 43); --gm-base-movil: calc(100cqw / 43); }
 .gp .gp-mini .gm-fondo { height: 100%; }
 .gp .gp-mini[data-entera="si"] .gm-doc, .gp .gp-mini[data-entera="si"] .gm-fondo { height: auto; }
 

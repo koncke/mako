@@ -38,6 +38,10 @@ import { TICKS_PER_SECOND, roundMediaTime } from "@/app/video-editor/_opencut/wa
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
+import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
+import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
+import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
+import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/element/revertir";
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
@@ -124,6 +128,22 @@ async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (
 		const hecho = await generarSubtitulos(editor);
 		return hecho.ok ? [] : [MOTIVO_SUBTITULOS[hecho.motivo]];
 	}
+	if (r.op === "usar_preset_subtitulos") {
+		// El MISMO de la pestaña Plantillas: estilo, renglones y palabras clave en un paso de deshacer.
+		await usePresetsSubtitulos.getState().cargar();
+		const preset = usePresetsSubtitulos.getState().presets.find((p) => p.id === r.preset);
+		if (!preset) return ["ese preset ya no está (lo borraron)"];
+		const n = await aplicarPreset(editor, preset);
+		if (n > 0) usePreferenciasSubtitulos.getState().fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
+		return n > 0 ? [] : ["no hay subtítulos"];
+	}
+	if (r.op === "broll") {
+		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
+		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos });
+		if (!hecho.ok) return [textoDeBroll(hecho)];
+		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
+		return avisos;
+	}
 	if (r.op === "usar_plantilla") {
 		const plantilla = plantillaPorId(r.plantilla);
 		if (!plantilla) return [`no existe la plantilla «${r.plantilla}»`];
@@ -158,6 +178,8 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	generar_subtitulos: "generar los subtítulos",
 	usar_plantilla: "usar la plantilla",
 	borrar_silencios: "borrar los silencios",
+	usar_preset_subtitulos: "usar el preset",
+	broll: "proponer el B-roll",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */

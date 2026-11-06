@@ -67,7 +67,7 @@ export function FranjaCarruseles() {
     <section className={s.franja} aria-labelledby="franja-carruseles">
       <div className={s.cabeza}>
         <h2 id="franja-carruseles">{r.semana ? 'Carruseles que funcionan esta semana' : 'Carruseles que funcionan'}</h2>
-        <Link href={`/image-editor?ver=carruseles${r.semana ? '&vista=semana' : ''}`} className={s.todos}>Ver todos ({r.total})</Link>
+        <Link href={`/image-editor?ver=carruseles${r.semana ? '&periodo=7' : ''}`} className={s.todos}>Ver todos ({r.total})</Link>
       </div>
       <ul className={s.fila}>
         {r.carruseles.map((c) => <Mini key={c.id} c={c} />)}

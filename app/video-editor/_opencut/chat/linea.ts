@@ -56,6 +56,7 @@ import { ANIM, categoriasPara } from "@/app/video-editor/_opencut/params/extra/a
 import { DEFAULTS_TEXTO, TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 import {
 	DEFAULTS_RESALTADO,
+	PARAM_CLAVES_COLOR,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
@@ -80,6 +81,7 @@ import {
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
+import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 
 export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
@@ -149,6 +151,8 @@ export type RefElemento = {
 	oculto?: boolean;
 	/** Un texto que es un subtítulo (params.subtitulo). */
 	subtitulo?: boolean;
+	/** Un subtítulo: sus palabras clave (subtitles/claves.ts), normalizadas. */
+	claves?: string[];
 	/** Lo agrega esta misma propuesta (agregar_texto o capa_efecto con "ref"): sus ids se conocen al aplicar. */
 	nuevo?: boolean;
 	/** Un audio que salió de «Extraer audio» de un video: los cortes lo parten como a su video. */
@@ -495,6 +499,9 @@ function disponiblesJson(d: Disponibles): Record<string, unknown> | undefined {
 		efectos: mapa(d.efectos),
 		curvas_velocidad: Object.fromEntries(d.curvas.map((c) => [c.id, `${c.nombre} (media ${textoNumero(c.media)}×)`])),
 		fuentes_sugeridas: d.fuentes.sugeridas,
+		...(d.presets?.length
+			? { presets_subtitulos: Object.fromEntries(d.presets.map((p) => [p.id, `${p.nombre}${p.marca ? ` (${p.marca})` : ""}: ${p.resumen}`])) }
+			: {}),
 	};
 }
 
@@ -594,6 +601,9 @@ export function vistaDeLinea({
 					...(sonoro ? { volumenDb: Number(el.params?.volume ?? 0) || 0, silenciado: el.params?.muted === true } : {}),
 					...("hidden" in el ? { oculto: el.hidden === true } : {}),
 					...(el.type === "text" && el.params?.subtitulo === true ? { subtitulo: true } : {}),
+					...(el.type === "text" && el.params?.subtitulo === true && leerClaves(el.params?.[PARAM_CLAVES]).length
+						? { claves: leerClaves(el.params?.[PARAM_CLAVES]) }
+						: {}),
 					...(el.type === "audio" && typeof el.params?.[EXTRAIDO_DE] === "string" ? { extraido: true } : {}),
 					...(el.type === "video" || el.type === "image" ? { mediaId: el.mediaId, acepta: aceptaDe(el.params ?? {}) } : {}),
 					...deHueco(el, leerMarcas(el.params)),
@@ -622,6 +632,7 @@ export function vistaDeLinea({
 			...(sonoro ? { volumen_db: r.volumenDb, silenciado: r.silenciado } : {}),
 			...(r.oculto ? { oculto: true } : {}),
 			...(r.subtitulo ? { subtitulo: true } : {}),
+			...(r.claves?.length ? { palabras_clave: r.claves } : {}),
 			...(r.hueco ? { hueco: r.hueco } : {}),
 			...(r.muestra ? { muestra: true, ...(r.opcional ? { opcional: true } : {}) } : {}),
 			...(r.acepta && r.acepta !== "ambos" ? { acepta: r.acepta } : {}),
@@ -725,7 +736,11 @@ export type OperacionResuelta =
 	 *  `todo`: se pidió para todo el video (sin "ref" ni selección), y el aviso lo dice; `minimoS`: la pausa más corta. */
 	| { op: "borrar_silencios"; els: RefElemento[]; todo: boolean; minimoS: number }
 	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
-	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> };
+	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> }
+	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
+	| { op: "usar_preset_subtitulos"; preset: string }
+	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
+	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -1041,7 +1056,7 @@ export function revisarOperaciones({
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1087,6 +1102,66 @@ export function revisarOperaciones({
 			}
 			if (!cuantos) continue;
 			cambios.push({ tipo: "cambia", titulo: cuantos === 1 ? "1 subtítulo" : `${cuantos} subtítulos`, antes: textoResaltar(antes), despues: textoResaltar(despues) });
+			continue;
+		}
+		if (op.op === "palabras_clave") {
+			// Como el panel («Palabras clave»): a TODOS los subtítulos, en el mismo paso. No necesita tiempos por palabra.
+			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado).sort((a, b) => a.inicio - b.inicio);
+			if (!subs.length) {
+				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide las palabras clave después" : "no hay subtítulos");
+				continue;
+			}
+			const libres = subs.filter((r) => !r.bloqueada);
+			if (!libres.length) { descartes.push("los subtítulos están en una pista bloqueada"); continue; }
+			const textos = libres.map((r) => estado.get(r.ref)?.texto ?? r.texto ?? "");
+			const elegidas =
+				op.modo === "auto"
+					? elegirClaves(textos, { siempre: d.palabrasDeMarca })
+					: op.modo === "estas"
+						? clavesNombradas(textos, op.palabras ?? [])
+						: textos.map(() => []);
+			if (op.modo === "estas" && elegidas.every((e) => e.length === 0)) {
+				descartes.push(`${(op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ")} no aparece en ningún subtítulo`);
+				continue;
+			}
+			let cuantos = 0;
+			const ejemplos: string[] = [];
+			libres.forEach((r, i) => {
+				const nuevas = codificarClaves(elegidas[i] ?? []);
+				if (nuevas === codificarClaves(r.claves ?? []) && !op.color) return;
+				const params: ParamValues = { [PARAM_CLAVES]: nuevas, ...(op.color ? { [PARAM_CLAVES_COLOR]: op.color } : {}) };
+				resueltas.push({ op: "params", de: "palabras_clave", el: r, params });
+				cuantos++;
+				for (const w of elegidas[i] ?? []) if (ejemplos.length < 4 && !ejemplos.includes(w)) ejemplos.push(w);
+			});
+			if (!cuantos) continue;
+			const conAlguna = elegidas.filter((e) => e.length > 0).length;
+			cambios.push({
+				tipo: "cambia",
+				titulo: cuantos === 1 ? "1 subtítulo" : `${cuantos} subtítulos`,
+				antes: subs.some((r) => r.claves?.length) ? "con palabras clave" : "sin palabras clave",
+				despues:
+					op.modo === "ninguna"
+						? "sin palabras clave"
+						: `palabras clave en ${conAlguna}${ejemplos.length ? ` (${ejemplos.map((w) => `«${w}»`).join(", ")}…)` : ""}${op.color ? ` en ${op.color}` : ""}`,
+			});
+			continue;
+		}
+		if (op.op === "usar_preset_subtitulos") {
+			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			if (!subs.length) {
+				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide el preset después" : "no hay subtítulos");
+				continue;
+			}
+			const p = presetDelChat(d.presets ?? [], op.preset);
+			if ("motivo" in p) { descartes.push(p.motivo); continue; }
+			resueltas.push({ op: "usar_preset_subtitulos", preset: p.preset.id });
+			cambios.push({
+				tipo: "cambia",
+				titulo: subs.length === 1 ? "1 subtítulo" : `${subs.length} subtítulos`,
+				antes: "su estilo de ahora",
+				despues: `el preset «${p.preset.nombre}»${p.preset.marca ? ` de ${p.preset.marca}` : ""}`,
+			});
 			continue;
 		}
 		if (op.op === "agregar_texto") {
@@ -1660,6 +1735,19 @@ export function revisarOperaciones({
 			cambios.push({ tipo: "agrega", titulo: "Subtítulos automáticos", antes: "", despues: "de todo el video, transcritos en tu navegador" });
 			continue;
 		}
+		if (op.op === "broll") {
+			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
+			if (!conSonido) { descartes.push("no hay video con voz para proponer B-roll"); continue; }
+			const planos = op.planos !== false;
+			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos });
+			cambios.push({
+				tipo: "agrega",
+				titulo: "B-roll de MaKo",
+				antes: "",
+				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
+			continue;
+		}
 		if (op.op !== "revertir" && op.op !== "congelar" && op.op !== "normalizar") continue;
 		const r = resolver(op.ref);
 		if ("motivo" in r) { descartes.push(r.motivo); continue; }
@@ -1694,6 +1782,21 @@ export function revisarOperaciones({
 		cambios.push({ tipo: "agrega", titulo: "Cuadro congelado", antes: "", despues: `3 s de ${el.titulo} en ${textoSegundos(op.en)} (lo que sigue se corre)` });
 	}
 	return { resueltas, cambios, descartes };
+}
+
+/** Un preset de la marca por su id o por su nombre (sin tildes ni mayúsculas); dos con el mismo nombre no se eligen. */
+export function presetDelChat(
+	presets: NonNullable<Disponibles["presets"]>,
+	cual: string,
+): { preset: NonNullable<Disponibles["presets"]>[number] } | { motivo: string } {
+	if (!presets.length) return { motivo: "este negocio todavía no tiene presets de subtítulos: se guardan desde el panel de un subtítulo" };
+	const porId = presets.find((p) => p.id === cual);
+	if (porId) return { preset: porId };
+	const norm = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+	const iguales = presets.filter((p) => norm(p.nombre) === norm(cual));
+	if (iguales.length === 1) return { preset: iguales[0] };
+	if (iguales.length > 1) return { motivo: `hay ${iguales.length} presets «${corto(cual, 30)}»: elige por marca` };
+	return { motivo: `no hay un preset «${corto(cual, 30)}» (están: ${presets.map((p) => p.nombre).join(", ")})` };
 }
 
 /** «3 cambios», «1 texto nuevo y 2 cambios»: la cabecera de la revisión. */

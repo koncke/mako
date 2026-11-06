@@ -4045,4 +4045,47 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: '06 nov', hora: '05:10', chat: 'Thiago: migrar', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las promesas a la agencia de Thiago: migrar su CRM, el token de agencia y el Calendario',
+    pedido: 'Cumplí estas promesas a la agencia de Thiago (`docs/promesas/2910-llamada-thiago.md`), medidas el 6/11/2026 como faltantes en main: 1. Guía «Migrar tu CRM con Claude» en `/api-mako` (`app/api-mako/articulos-meta.ts`), probada paso a paso contra la API real del repo. 2. `createLead` acepta UTM, fecha original e id externo, y no repite un lead con el mismo id externo. 3. Migrados quietos: un lead migrado no dispara «Un Lead Entró» ni ninguna automatización ni nutrición. Test rompiéndolo: es lo que evita escribirle de golpe a miles de contactos. 4. Token de agencia: un token que sirva para toda su cartera (hoy se acuña por cuenta en `lib/api-mako/tokens-creador.ts`), para que no migre 27 clientes de a uno. Es lo más delicado: cada pedido dice a qué cliente va, y nunca alcanza a uno que no sea de esa agencia. Tests de aislamiento rompiéndolo, y seguí las guardas de `docs/relevo/seguridad-aislamiento.md`. 5. Calendario: anuncio y email programados de verdad (hoy son recordatorios, `lib/calendario.ts`), y reuniones del equipo: closers y setters con filtro por persona. 6. CRM: una reserva de Google Calendar mueve al lead de etapa.',
+    puntos: [
+      'Llegó como encargo para la nube, con lo medido el 6/11 contra main. El detalle de cada promesa, en docs/promesas/2910-llamada-thiago.md.',
+    ],
+  },
+  {
+    fecha: '06 nov', hora: '05:21', chat: 'Thiago: migrar', sesion: 'cli_91316e17-68c8-5ad6-b41d-9daaf694e7b4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Migrar desde otro CRM: sin repetir a nadie, en su etapa y con los contactos quietos',
+    puntos: [
+      '**Se guarda de dónde vino:** el id del CRM anterior, el nombre de ese CRM, la fecha en que se creó allá y las UTM.',
+      '**Migrar dos veces no repite a nadie:** el id del CRM anterior es la llave; repetir un lote saltea a los que ya entraron, y el que ya estaba por email o teléfono queda con su id anotado.',
+      '**Entran quietos:** un migrado no recibe ningún mensaje ni entra a una automatización por llegar, aunque su columna tenga una. Sólo un hecho nuevo (moverlo a mano, que reserve, que conteste) lo hace entrar.',
+      '**Nace en su etapa abierta.** Los ganados y perdidos del CRM anterior vuelven en «descartados»: decide Martín cómo se traen.',
+      '**Y el alta en lote de siempre** ya no pierde las UTM cuando la aplica un token.',
+    ],
+    archivos: [
+      'lib/migracion-leads.ts — la regla, pura · lib/migracion-leads-server.ts — el alta de cada contacto',
+      'lib/leads.ts — createLead con id externo · lib/nutricion.ts — sinMigrados en leadsDeCohorte',
+      'lib/api-mako/areas/crm.def.ts / crm.run.ts — migrar_contactos (POST /api/v1/crm/migraciones)',
+      'supabase/migrations/0405_leads_migracion.sql — SIN APLICAR',
+      'tests/migrar-contactos.test.ts — el código real contra una base de mentira; cada rotura da rojo',
+    ],
+    revisar: '/api-mako?tab=docs&art=migrar-crm',
+  },
+  {
+    fecha: '6 nov', hora: '09:30', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cambiar el precio de un producto por MaKo muestra el precio de antes',
+    puntos: [
+      'Al confirmar en /mako/revisar, el título dice «200 USD; antes 2000 USD»: antes se aprobaba el precio nuevo sin ver el anterior.',
+      'El producto queda fijo al revisar: el título nombra ese producto y su precio de antes.',
+    ],
+    archivos: [
+      'lib/producto-precio-texto.ts — precioDelResumen',
+      'lib/api-mako/areas/crm.run.ts y crm.def.ts — guardar_producto',
+      'tests/producto-precio-texto.test.ts — probado rompiéndolo',
+    ],
+    commits: [{ sha: '66dc65fbe', msg: 'Automations y CRM: el VSL con la base caída ya no inscribe a todos, y el cambio de precio se ve', lineas: 161, archivos: 8 }],
+    revisar: '/mako/revisar',
+  },
 ];

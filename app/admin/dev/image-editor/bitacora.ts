@@ -312,4 +312,34 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/competitor-spy',
   },
+  {
+    fecha: '6 nov', hora: '01:23', chat: 'Carruseles rediseño (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Rehacer la tab de carruseles: ejemplos editables, la interfaz de Top Carousels y los anuncios',
+    pedido: 'Martín, textual: «no se entiende bien la funcionalidad». — Por el Cerebro: 1. Lo principal al entrar son los ejemplos de carruseles; ahí se elige uno para editar, y recién entonces aparece la vista de edición; la barra lateral de MaKo no se muestra salvo mientras se edita. 2. Copiar la interfaz de Top Carousels: el encabezado «Encuentra tu siguiente OUTLIER» y sus botones, el filtro, las opciones, el diseño de las tarjetas y pasar a la siguiente slide dentro de la tarjeta; sólo la interfaz, nunca sus datos ni sus puntajes. 3. Sacar el texto «De las cuentas que sigues en Competitors Spy y de la biblioteca de ejemplos.», el botón «compacta» y las pestañas «Esta semana» y «Cuentas»; lo que hacían pasa a filtros. 4. Filtro «CTA»: los carruseles que piden «Comenta X palabra», con una regla probada con ejemplos reales. 5. Todos los carruseles tienen que ser EDITABLES, guiándose por «replicate» del Web Generator; generar con IA, con el avatar del cliente, usando su propia IA conectada. 6. «Hacer el mío» salta a un paso «Elige el tipo» que quedó viejo: del ejemplo a la edición, sin pasos que no aporten. 7. Espía de anuncios en imagen: investigar fuentes (la Biblioteca de Anuncios de Meta, Apify, Foreplay, Atria), términos y precios, y sumarlo a esta tab con filtros si se puede con lo que MaKo ya tiene; lo que pida una cuenta o un pago nuevo, anotado para Martín.',
+    puntos: [
+      'Llegó por el Cerebro. Sacar los carruseles («scrapea todo») lo corre el Cerebro desde la PC; nada se baja de Top Carousels.',
+    ],
+  },
+  {
+    fecha: '6 nov', hora: '02:15', chat: 'Carruseles rediseño (nube)', sesion: 'cli_2d35006a-fe6c-5d03-8553-0079fb075fc8', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Carruseles nuevos: los ejemplos primero, «Editar» con tu IA, el filtro CTA y los anuncios de Spy',
+    puntos: [
+      'Al entrar a Carruseles se ven sólo los ejemplos, sin el chat al costado: «Encuentra tu siguiente OUTLIER», Guardados, Búsquedas guardadas, Seguir cuentas y la búsqueda grande.',
+      'Una fila de filtros: Carruseles o Anuncios, Filtros (publicado, láminas, tipo, de dónde), Outlier, CTA, Cuentas y el orden. Se fueron la bajada, «compacta» y las pestañas «Esta semana» y «Cuentas».',
+      'En la tarjeta se pasan las láminas (flechas, o el dedo en el teléfono), con el outlier, el CTA que pide («Comenta «GUÍA»») y «Editar».',
+      '«Editar» reemplaza a «Hacer el mío»: MaKo lee las láminas con la IA del negocio, escribe el texto para su negocio, pone su foto donde el ejemplo tiene una persona y abre el diseño editable. Se ve armándose lámina por lámina. Sin IA, el mismo diseño con guías y «Conectar mi IA».',
+      'Anuncios: los que Spy trajo de las cuentas que sigue el negocio, ordenados por días al aire.',
+      'En la API de MaKo: buscar_carruseles filtra por CTA y por anuncios, y editar_ejemplo_carrusel arma la versión del negocio.',
+    ],
+    archivos: [
+      'app/image-editor/carruseles/ExplorarCarruseles.tsx — la pantalla (copiada de la interfaz de Top Carousels)',
+      'app/image-editor/carruseles/EditarCarrusel.tsx — «Editar», armándose en vivo',
+      'lib/carruseles/replica.ts y replica-servidor.ts — del ejemplo al diseño editable, con la IA del negocio',
+      'lib/carruseles/cta.ts — el filtro CTA',
+      'lib/carruseles/anuncios.ts — los anuncios de Spy en la misma tab',
+      'supabase/migrations/0404_carruseles_laminas_cta.sql — las láminas y el CTA de la biblioteca (sin aplicar)',
+      'scripts/carruseles-biblioteca.mts — `laminas`: trae las láminas de lo guardado (lo corre el Cerebro)',
+    ],
+    revisar: '/image-editor?ver=carruseles',
+  },
 ];

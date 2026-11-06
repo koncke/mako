@@ -970,7 +970,14 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   const def = DEFS_VIDEO.find((d) => d.id === 'borrar_silencios_video');
   assert.ok(def && def.tipo === 'accion', 'falta borrar_silencios_video en la API');
   assert.equal(def.confirmacion, 'pantalla');
-  assert.equal(DEFS_VIDEO.at(-1)!.id, 'borrar_silencios_video', 'una operación nueva va al final de su área');
+  // Al final de su área cuando se sumó (28/10): después de todas las que ya estaban. Lo que se sumó DESPUÉS (las palabras
+  // clave y los presets, 6/11) va detrás de ella, no delante.
+  const indice = (id: string) => DEFS_VIDEO.findIndex((d) => d.id === id);
+  const iSilencios = indice('borrar_silencios_video');
+  for (const id of ['usar_plantilla_video', 'listar_proyectos_video', 'ver_proyecto_video', 'calcular_alcance_anuncio', 'cambiar_texto_video']) {
+    assert.ok(indice(id) >= 0 && indice(id) < iSilencios, `${id} va antes que borrar_silencios_video: una operación nueva va al final de su área`);
+  }
+  assert.ok(indice('resaltar_claves_subtitulos') > iSilencios, 'lo del 6/11 va detrás');
   assert.ok(sinComentarios(leer('lib/api-mako/areas/video.run.ts')).includes("borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },"));
 });
 

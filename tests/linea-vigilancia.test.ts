@@ -153,7 +153,7 @@ test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con
   const iEmite = rama.indexOf("emitirDelCatalogo('wa-reconectado'");
   assert.ok(iLimpia > 0 && iEmite > iLimpia, 'el «volvió» sale antes de limpiar las marcas (o no sale)');
   // (15/10/2026: con sus DATOS, que cita la automatización de la plataforma. Desde el 16/10, SÓLO los datos: sin texto.)
-  assert.match(rama, /ws, datos: datosVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
+  assert.match(rama, /ws, datos: datosVolvio\(\{ linea: await nombre\(\) \}\), dedupKey: `volvio:\$\{linea\}`/);
 });
 
 // Era «el cliente los VE y los puede apagar» (09/10/2026, «las dos cosas»). Martín lo revirtió el 10/10/2026:
@@ -197,6 +197,31 @@ test('la línea se nombra con lo que le puso el negocio, o con su número', () =
   assert.equal(lineaLegible({ etiqueta: 'Ventas', numero: '5215512345678' }), '«Ventas»');
   assert.equal(lineaLegible({ etiqueta: '  ', numero: '52 1 55 1234 5678' }), '+5215512345678');
   assert.equal(lineaLegible({ etiqueta: null, numero: null }), null);
+});
+
+// EL ÚLTIMO NÚMERO (6/11/2026). El webhook le borra el número a la fila cuando la línea se cae, y el aviso salía sin decir
+// cuál. PROBADO ROMPIÉNDOLO (base del archivo en verde):
+//   · `lineaLegible` sin el respaldo `ultimoNumero`                          → 1 fallo (el primero de abajo)
+//   · el webhook guardando el número DESPUÉS del update que lo borra          → 1 fallo (el segundo)
+//   · el vigilante nombrando la caída con `lineaLegible(f)` otra vez          → 1 fallo (el segundo)
+test('sin número en la fila, la línea se nombra con el último que tuvo; el de la fila gana', () => {
+  assert.equal(lineaLegible({ etiqueta: null, numero: null, ultimoNumero: '5215512345678' }), '+5215512345678');
+  assert.equal(lineaLegible({ etiqueta: null, numero: '5215599990000', ultimoNumero: '5215512345678' }), '+5215599990000');
+  assert.equal(lineaLegible({ etiqueta: 'Ventas', numero: null, ultimoNumero: '5215512345678' }), '«Ventas»');
+  assert.equal(lineaLegible({ etiqueta: null, numero: null, ultimoNumero: '  ' }), null);
+});
+
+test('⚠️ el webhook guarda el número ANTES de borrarlo, y el vigilante lo usa en los dos avisos', () => {
+  const wh = sinComentarios(leer('../app/api/webhooks/evolution/route.ts'));
+  const i = wh.indexOf("if (estado === 'desconectado') {");
+  assert.ok(i > 0, 'el webhook no maneja la caída');
+  const iGuarda = wh.indexOf('setSetting(keyUltimoNumero(instance)', i);
+  const iUpdate = wh.indexOf(".from('evolution_instancias').update(patch)", i);
+  assert.ok(iGuarda > 0 && iUpdate > iGuarda, 'el número se guarda después de borrarlo (o no se guarda)');
+  const v = sinComentarios(leer('../lib/lineas-vigilante.ts'));
+  assert.match(v, /getSetting\(keyUltimoNumero\(linea\)\)/);
+  assert.equal((v.match(/linea: await nombre\(\)/g) ?? []).length, 2, 'la caída y el «volvió» nombran la línea con el respaldo');
+  assert.doesNotMatch(v, /lineaLegible\(f\)/, 'ningún aviso nombra la línea sin el respaldo');
 });
 
 test('⚠️ el vigilante recorre las FILAS, deja afuera la voz y le avisa SÓLO al cliente', () => {

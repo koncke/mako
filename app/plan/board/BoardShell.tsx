@@ -10,6 +10,7 @@
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
 import { SelectorVista } from '@/app/_ui/SelectorVista';
+import { RazonObjetivo } from './RazonObjetivo';
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction, useMemo, useCallback, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
@@ -4025,7 +4026,7 @@ function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenPro
  * número que explica por qué este proyecto es el norte.
  */
 function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () => void; prog: { total: number; done: number; pct: number } }) {
-  return <ProyectoCardTile l={objetivo} prog={prog} isTop onOpen={onOpen} />;
+  return <ProyectoCardTile l={objetivo} prog={prog} isTop conRazon onOpen={onOpen} />;
 }
 
 // ── filtro por etiqueta ─────────────────────────────────────────────────────────
@@ -4760,8 +4761,11 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // La card de proyecto (misma en la vista Proyectos y en el modal "MaKo cargó", así son
 // IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
 // grilla queda apagado (es para barrer de un vistazo).
-export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse, sinRanking = false, elegido = false, haySeleccion = false, onElegir }: {
-  l: Label; prog: { total: number; done: number; pct: number; recurrentes?: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
+export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, conRazon = false, onOpen, onAgarrar, onSoltarse, sinRanking = false, elegido = false, haySeleccion = false, onElegir }: {
+  l: Label; prog: { total: number; done: number; pct: number; recurrentes?: number }; isTop: boolean; verDetalle?: boolean;
+  /** La razón del Perro, en cinco renglones como mucho (la tarjeta del Objetivo Principal de Prioridades). */
+  conRazon?: boolean;
+  onOpen: () => void;
   /** está seleccionado para una acción en lote */
   elegido?: boolean;
   /** hay algo seleccionado en la grilla: la casilla se queda a la vista aunque el mouse no
@@ -4881,6 +4885,10 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
       {verDetalle && l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{stripHtml(l.detalle)}</div>}
       {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}
+      {/* ⚠️ EL OBJETIVO PRINCIPAL DICE POR QUÉ ES EL NORTE (recorrido visual del 30/10/2026, P2: la tarjeta se estira al alto
+          de las tres tareas de al lado y quedaban ~200 px vacíos entre «Objetivo Principal» y la fecha). Ese lugar lo ocupa
+          la razón del Perro, que es lo que explica el número; cortada en cinco renglones, entera en el `title` (RazonObjetivo.tsx). */}
+      {conRazon && !verDetalle && l.scoreRazon && <RazonObjetivo razon={l.scoreRazon} />}
       <span style={{ flex: 1 }} />
       {/* EL DEADLINE, EN LA PREVIEW. «Aún no sale el deadline en la preview de las cards de
           los proyectos» (23/09/2026). Estaba sólo en la tabla y en el detalle, así que la

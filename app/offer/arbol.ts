@@ -235,14 +235,23 @@ export function renglonesDeOffer(a: ArbolOffer): RenglonOffer[] {
 export type PlantillaOffer = { id: string; nombre: string; rotulo: string };
 
 export function plantillasDeOffer(a: ArbolOffer): PlantillaOffer[] {
-  return a.funnels.flatMap((f) => {
-    const funnel = f.nombre.trim() || 'Funnel sin nombre';
+  // Dos funnels que se llaman igual se distinguen con «(2)», como las conversaciones (`titulosUnicos`).
+  const funnels = titulosUnicos(a.funnels.map((f) => f.nombre), 'Funnel sin nombre');
+  const crudas = a.funnels.flatMap((f, i) => {
+    const funnel = funnels[i];
     const ofertas = [...f.ofertas.filter((o) => o.principal), ...f.ofertas.filter((o) => !o.principal)];
     return [
       { id: valorNueva(f.id, null), nombre: 'Crear una oferta nueva', rotulo: funnel },
       ...ofertas.map((o) => ({ id: valorNueva(f.id, o.id), nombre: `Analizar «${o.nombre.trim() || 'Oferta sin nombre'}»`, rotulo: funnel })),
     ];
   });
+  // OF1 del recorrido visual (30/10/2026): con dos funnels, dos tarjetas se llamaban «Crear una oferta nueva» y lo que las
+  // distinguía era el rótulo, un texto chiquito adentro del cuadro. El nombre que se repite lleva su funnel al lado, como en
+  // la lista de conversaciones («a · Coaching», `renglonesDeOffer`); el que no se repite queda corto.
+  const veces = new Map<string, number>();
+  for (const p of crudas) veces.set(p.nombre, (veces.get(p.nombre) ?? 0) + 1);
+  const nombres = titulosUnicos(crudas.map((p) => ((veces.get(p.nombre) ?? 0) > 1 ? `${p.nombre} · ${p.rotulo}` : p.nombre)), 'Oferta');
+  return crudas.map((p, i) => ({ ...p, nombre: nombres[i] }));
 }
 
 /**

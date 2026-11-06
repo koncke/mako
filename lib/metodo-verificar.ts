@@ -532,6 +532,24 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   },
 
   // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts): leer UN video de la lista con la clave.
+  // Pexels (el B-roll del Video Editor, lib/pexels.ts): una búsqueda de una foto. Lo que queda del mes lo dicen sus
+  // headers (`X-Ratelimit-Remaining`), y es el dato que la persona reconoce de SU cuenta.
+  async pexels(v) {
+    const r = await fetch('https://api.pexels.com/v1/search?query=office&per_page=1', {
+      headers: { Authorization: v.PEXELS_API_KEY }, cache: 'no-store', signal: timeout(),
+    });
+    if (r.status === 401 || r.status === 403) return { ok: false, error: 'API key inválida.' };
+    if (r.status === 429) return { ok: false, error: 'La key llegó a su límite de Pexels. Vuelve a probar en una hora.' };
+    let body: { photos?: unknown } = {};
+    try { body = (await r.json()) as typeof body; } catch { /* sin JSON */ }
+    if (r.status >= 400 || !Array.isArray(body.photos)) return { ok: false, error: `Pexels respondió ${r.status}.` };
+    const quedan = r.headers.get('x-ratelimit-remaining');
+    const tope = r.headers.get('x-ratelimit-limit');
+    const facts: Fact[] = [{ k: 'Puede buscar fotos', v: 'Sí', c: 'var(--good)' }];
+    if (quedan && tope) facts.push({ k: 'Búsquedas que te quedan este mes', v: `${Number(quedan).toLocaleString('es-MX')} de ${Number(tope).toLocaleString('es-MX')}` });
+    return { ok: true, detalle: 'Key válida — MaKo puede buscar fotos para el B-roll.', facts };
+  },
+
   async vimeo(v) {
     const { status, body } = await fetchJson('https://api.vimeo.com/me/videos?per_page=1&fields=name', {
       headers: { Authorization: `bearer ${v.VIMEO_TOKEN}`, Accept: 'application/vnd.vimeo.*+json;version=3.4' },

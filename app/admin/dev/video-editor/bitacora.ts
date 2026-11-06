@@ -394,4 +394,53 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-video.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  {
+    fecha: "6 nov", hora: "00:40", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "Lo pendiente del Video Editor que pidió Leila: palabras clave, B-roll y clips mágicos",
+    pedido: "Terminá lo pendiente del Video Editor que pidió Leila (clienta) en la llamada del 30/10/2026: 1. Subtítulos: «Resaltar palabras clave automáticamente» sigue en «Próximamente». Hacerlo andar. Presets guardados por marca o por cliente. Karaoke y resaltado por palabra ya existen. 2. B-roll y cambio de plano automáticos: al estilo de Submagic, que es la app que nombró Martín. MaKo propone dónde y qué poner, y la persona acepta o saca cada uno. Fuente de imágenes con licencia. Propuesta visible en la línea de tiempo, sin pisar lo que ya editó. 3. Clips mágicos: de un video largo a varios cortos, eligiendo los mejores momentos con la transcripción, con subtítulos y formato vertical. Cada clip abre en el editor. Mirá cómo lo hacen OpusClip y un repo abierto que encuentres. Cada negocio paga su IA. Sumá las operaciones a la API de MaKo. No toques el motor de Flow ni AI Avatar. Motion está suspendido a propósito: no lo retomes.",
+    puntos: ["El pedido llegó por esta sesión de la nube; se entrega por punta/video-subtitulos-clips, en tandas que funcionan solas."],
+  },
+  {
+    fecha: "6 nov", hora: "02:30", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las palabras clave de los subtítulos se resaltan solas, y los estilos de la marca quedan guardados",
+    puntos: [
+      "En Subtítulos automáticos, «Resaltar palabras clave automáticamente» ya anda: cada subtítulo pinta de verde la palabra que pesa (un número, un monto, una palabra de venta, un nombre o la de la marca). Los de relleno no llevan ninguna.",
+      "En el panel de un subtítulo: «Palabras clave» para prenderlas o apagarlas en todos y cambiarles el color, y «Guardar como preset» con nombre, marca o cliente y las palabras que se resaltan siempre.",
+      "Los presets salen arriba en Subtítulos › Plantillas («De tu marca») para todo el equipo, en cualquier computadora, y sirven igual en un video vertical y en uno horizontal.",
+      "Por el chat del editor y por la API de MaKo: elegir las palabras clave (solas, unas en particular o ninguna), aplicar un preset, y listar, crear, cambiar o borrar presets.",
+    ],
+    archivos: [
+      "lib/editor-video/claves.ts — qué palabra se elige (reglas, sin IA; estaba en app/video-editor/_opencut/subtitles/claves.ts)",
+      "app/video-editor/_opencut/subtitles/presets.ts — los presets en el editor",
+      "lib/editor-video/presets-subtitulos.ts · presets-subtitulos-server.ts — las reglas y el guardado en el negocio",
+      "app/api/video-editor/presets/route.ts — la ruta del editor",
+      "tests/video-editor-subtitulos-claves.test.ts — 18 casos, 15 roturas",
+    ],
+    commits: [
+      { sha: "9e2c1fc31", msg: "Video Editor: palabras clave automáticas y presets de subtítulos de la marca", lineas: 2292, archivos: 34 },
+      { sha: "c53e77207", msg: "Video Editor: los presets de subtítulos con su receta y su lugar en la cuenta de revisión", lineas: 13, archivos: 3 },
+    ],
+    revisar: "/video-editor",
+  },
+  {
+    fecha: "6 nov", hora: "05:30", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo propone el B-roll y los cambios de plano del video, y la persona deja o saca cada uno",
+    puntos: [
+      "En Multimedia › «B-roll de MaKo» (y en la barra de la línea de tiempo), «Proponer» pone fotos de Pexels encima del video donde se dice algo que se puede mostrar, y acercamientos al ritmo de las frases.",
+      "Cada propuesta se ve en la línea de tiempo con borde punteado y se deja o se saca una por una (o todas). Lo que la persona ya puso encima no se toca.",
+      "La IA del negocio elige qué foto va; sin IA, sale igual con las palabras de cada frase. Las fotos son de Pexels con la clave de cada negocio (se conecta en el mismo panel).",
+      "Por el chat del editor y por la API de MaKo (proponer_broll_video). No se miró en un navegador ni se corrió con la IA real (la nube no tiene claves).",
+    ],
+    archivos: [
+      "lib/editor-video/broll.ts — dónde va cada imagen y cada cambio de plano (reglas, sin IA)",
+      "lib/editor-video/broll-ia.ts · broll-prompts.ts — qué imagen elige la IA del negocio",
+      "lib/pexels.ts · lib/editor-video/broll-pexels.ts — las fotos de Pexels",
+      "app/video-editor/_opencut/broll/ — el panel, las pistas y Dejar / Sacar",
+      "tests/video-editor-broll.test.ts — 20 casos, 19 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];
