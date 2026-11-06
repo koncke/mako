@@ -24,5 +24,6 @@ import '../_opencut/transiciones/registro';
 import '../_opencut/audio/registro';
 import '../_opencut/avatar/registro';
 import '../_opencut/plantillas/registro';
+import '../_opencut/broll/registro';
 
 export {};

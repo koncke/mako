@@ -516,6 +516,7 @@ proponer_ampliar_tareas
 proponer_borrar_angulo
 proponer_borrar_avatar
 proponer_borrar_guion_valorado
+proponer_broll_video
 proponer_cambio_etapa
 proponer_cierre_tareas
 proponer_corregir_angulo_guion

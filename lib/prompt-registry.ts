@@ -71,6 +71,7 @@ import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXP
 import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
+import { BROLL_SYSTEM_TEMPLATE, BROLL_USER_TEMPLATE } from './editor-video/broll-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
@@ -785,6 +786,22 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el video o los elementos elegidos'), v('linea', 'la línea de tiempo: pistas y elementos con su referencia, tiempos y textos')], scope: 'full', sensitive: false,
         default: CHAT_VIDEO_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y la línea de tiempo actual. Conserva los slots: {{instruccion}} y {{linea}} llegan delimitados como dato no confiable.',
+      },
+      {
+        // El B-roll (lib/editor-video/broll-ia.ts; defaults en lib/editor-video/broll-prompts.ts). Las keys y los slots
+        // los fija tests/video-editor-broll.test.ts.
+        key: 'video_editor.broll.system', source: 'override',
+        label: 'B-roll: qué imagen y dónde (system)', kind: 'system', dynamic: true,
+        variables: [v('objetivo', 'cuántas imágenes como mucho (sale del código, por el largo del video)'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
+        default: BROLL_SYSTEM_TEMPLATE,
+        context: 'MaKo elige entre los huecos que armó el código y escribe la búsqueda de una foto para cada uno. NO le pidas tiempos: los huecos ya los tienen, y un número que no está en la lista se descarta en código. Conserva {{objetivo}} y {{formato}}.',
+      },
+      {
+        key: 'video_editor.broll.user', source: 'override',
+        label: 'B-roll: el negocio y los huecos (user)', kind: 'user', dynamic: true,
+        variables: [v('negocio', 'de qué trata el negocio (del Second Brain)'), v('huecos', 'los huecos posibles: número, frase y palabras')], scope: 'full', sensitive: false,
+        default: BROLL_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el negocio y los huecos. {{huecos}} llega delimitado como dato no confiable (lo dijo una persona en el video).',
       },
     ],
   },

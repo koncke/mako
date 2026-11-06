@@ -738,7 +738,9 @@ export type OperacionResuelta =
 	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
 	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> }
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
-	| { op: "usar_preset_subtitulos"; preset: string };
+	| { op: "usar_preset_subtitulos"; preset: string }
+	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
+	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -1054,7 +1056,7 @@ export function revisarOperaciones({
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1731,6 +1733,19 @@ export function revisarOperaciones({
 			if (!conSonido) { descartes.push("no hay video ni audio para subtitular"); continue; }
 			resueltas.push({ op: "generar_subtitulos" });
 			cambios.push({ tipo: "agrega", titulo: "Subtítulos automáticos", antes: "", despues: "de todo el video, transcritos en tu navegador" });
+			continue;
+		}
+		if (op.op === "broll") {
+			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
+			if (!conSonido) { descartes.push("no hay video con voz para proponer B-roll"); continue; }
+			const planos = op.planos !== false;
+			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos });
+			cambios.push({
+				tipo: "agrega",
+				titulo: "B-roll de MaKo",
+				antes: "",
+				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
 			continue;
 		}
 		if (op.op !== "revertir" && op.op !== "congelar" && op.op !== "normalizar") continue;
