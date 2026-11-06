@@ -2737,6 +2737,30 @@ La app de la Mac firmada se arma con `firmarAppMac` (scripts/ia-pc/firmar-mac.mj
 un guion, y nada le pone la firma local. «Firmada» es `problemasParaNotarizar` vacío, mirado ANTES de notarizar. La clave y
 el certificado de Apple van en `%USERPROFILE%\.mako-firma-mac`, nunca en OneDrive (tests/ia-pc-firma-mac.test.ts).
 
+# Nada se entrega sin autocrítica: lo que se ve revisando no espera a los ojos de Martín
+
+Pedido de Martín, textual, el 6/11/2026: **«pases por un proceso de autocrítica y reflexión que te vayas haciendo preguntas de
+esto tiene sentido, este diseño está bien, para que puedas ir mejorándolo sin la necesidad de que yo lo tenga que ver en el
+producto»**. Su ejemplo: si hay funnels distintos y se entrega la misma pantalla con una pestaña «Campañas», en un funnel orgánico
+no tiene sentido; hay que decidir si sale, si va a otro lado o si es otra lógica. Y: **«te encuentras cosas que cambiarías o que
+mejorarías, hazlo directamente, no me preguntes»**.
+
+Antes de dar una tanda por terminada:
+
+1. **Usala como el cliente**, de punta a punta, a 1440 y a 390 px, con datos reales de ejemplo, vacía y con muchísimos datos. Leer el
+   código no alcanza.
+2. **Preguntate y contestá:** ¿tiene sentido? ¿Alguien que entra sin explicación sabe qué hacer? ¿Qué sobra? ¿Lo de antes sigue
+   teniendo sentido con la idea nueva? ¿Hay un dato en dos lugares? ¿Cada botón hace algo? ¿Se ve bien de verdad?
+3. **Lanzá un revisor que no haya escrito el código**, que critique diseño, lógica, bugs y sentido común. Lo que Martín ya decidió no
+   se discute en la crítica: se comprueba que esté hecho.
+4. **Lo que encuentres, cambialo de una.** Se puede tirar lo ya hecho. Una decisión chica la tomás vos con sentido común; sólo queda
+   para Martín lo que cambia plata o a qué tiene acceso un cliente.
+5. **Repetí hasta que una vuelta entera no encuentre nada importante.** Terminar lo pedido no es terminar.
+6. **En tu relevo, una sección «Autocrítica»:** qué cambiaste por esto y qué descartaste, con capturas. Subí las capturas aunque no
+   hayas terminado: el Cerebro revisa cada entrega y le manda al chat qué cambiar, sin pasar por Martín.
+
+Un cambio chico se revisa a mano: esta regla no pide una corrida de agentes para un arreglo de un archivo.
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de
