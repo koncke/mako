@@ -394,4 +394,30 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-video.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  {
+    fecha: "6 nov", hora: "00:40", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "Lo pendiente del Video Editor que pidió Leila: palabras clave, B-roll y clips mágicos",
+    pedido: "Terminá lo pendiente del Video Editor que pidió Leila (clienta) en la llamada del 30/10/2026: 1. Subtítulos: «Resaltar palabras clave automáticamente» sigue en «Próximamente». Hacerlo andar. Presets guardados por marca o por cliente. Karaoke y resaltado por palabra ya existen. 2. B-roll y cambio de plano automáticos: al estilo de Submagic, que es la app que nombró Martín. MaKo propone dónde y qué poner, y la persona acepta o saca cada uno. Fuente de imágenes con licencia. Propuesta visible en la línea de tiempo, sin pisar lo que ya editó. 3. Clips mágicos: de un video largo a varios cortos, eligiendo los mejores momentos con la transcripción, con subtítulos y formato vertical. Cada clip abre en el editor. Mirá cómo lo hacen OpusClip y un repo abierto que encuentres. Cada negocio paga su IA. Sumá las operaciones a la API de MaKo. No toques el motor de Flow ni AI Avatar. Motion está suspendido a propósito: no lo retomes.",
+    puntos: ["El pedido llegó por esta sesión de la nube; se entrega por punta/video-subtitulos-clips, en tandas que funcionan solas."],
+  },
+  {
+    fecha: "6 nov", hora: "02:30", chat: "Video Editor: subtítulos, B-roll y clips (nube)", sesion: "cli_e9e561bd-9357-538e-a412-924b21532f41", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las palabras clave de los subtítulos se resaltan solas, y los estilos de la marca quedan guardados",
+    puntos: [
+      "En Subtítulos automáticos, «Resaltar palabras clave automáticamente» ya anda: cada subtítulo pinta de verde la palabra que pesa (un número, un monto, una palabra de venta, un nombre o la de la marca). Los de relleno no llevan ninguna.",
+      "En el panel de un subtítulo: «Palabras clave» para prenderlas o apagarlas en todos y cambiarles el color, y «Guardar como preset» con nombre, marca o cliente y las palabras que se resaltan siempre.",
+      "Los presets salen arriba en Subtítulos › Plantillas («De tu marca») para todo el equipo, en cualquier computadora, y sirven igual en un video vertical y en uno horizontal.",
+      "Por el chat del editor y por la API de MaKo: elegir las palabras clave (solas, unas en particular o ninguna), aplicar un preset, y listar, crear, cambiar o borrar presets.",
+    ],
+    archivos: [
+      "app/video-editor/_opencut/subtitles/claves.ts — qué palabra se elige (reglas, sin IA)",
+      "app/video-editor/_opencut/subtitles/presets.ts — los presets en el editor",
+      "lib/editor-video/presets-subtitulos.ts · presets-subtitulos-server.ts — las reglas y el guardado en el negocio",
+      "app/api/video-editor/presets/route.ts — la ruta del editor",
+      "tests/video-editor-subtitulos-claves.test.ts — 18 casos, 15 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];

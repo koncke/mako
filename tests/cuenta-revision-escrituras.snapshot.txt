@@ -16,6 +16,7 @@ DELETE /api/onboarding/voz → cortada
 DELETE /api/push/suscripcion → PERMITIDA
 DELETE /api/v1/1/1 → pública (no usa la sesión)
 DELETE /api/v1/1/1/a/b → pública (no usa la sesión)
+DELETE /api/video-editor/presets → cortada
 DELETE /api/video-editor/proyectos → cortada
 DELETE /api/whatsapp/templates/drafts → cortada
 PATCH /api/compartir → cortada
@@ -174,6 +175,7 @@ POST /api/ia-pc/modelo → cortada
 POST /api/ia-pc/soltar → pública (no usa la sesión)
 POST /api/ia-pc/turno/1 → pública (no usa la sesión)
 POST /api/ia-permiso → PERMITIDA
+POST /api/image-editor/carruseles/replicar → cortada
 POST /api/image-editor/disenos → cortada
 POST /api/image-editor/ia → cortada
 POST /api/image-editor/subidos → cortada
@@ -273,6 +275,7 @@ POST /api/track/vsl → pública (no usa la sesión)
 POST /api/v1/1/1 → pública (no usa la sesión)
 POST /api/v1/1/1/a/b → pública (no usa la sesión)
 POST /api/video-editor/ia → cortada
+POST /api/video-editor/presets → cortada
 POST /api/video-editor/tts → cortada
 POST /api/webhooks/calcom → pública (no usa la sesión)
 POST /api/webhooks/calendly → pública (no usa la sesión)

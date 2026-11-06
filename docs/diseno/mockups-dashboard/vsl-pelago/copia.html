@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pelago — la copia (Overview)</title>
+<!-- La copia de la página «Overview» de Pelago, escrita desde lo MEDIDO (demos/pelago/captura): valores.json, las capturas a 1440 y 390,
+     los estados y el INFORME. Código nuestro: nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE», ni el logo de Pelago (la
+     marca va con un trazo propio), ni las fotos de producto (van degradados propios). Los textos y las cifras son los del demo, para
+     comparar captura contra captura. Los gráficos los dibuja pelago.js con las cifras leídas de la captura. -->
+<link rel="stylesheet" href="pelago.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 16 16"><path d="M3 13.5V8M6.3 13.5V4.5M9.6 13.5V7M12.9 13.5V2.5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 16 16"><path d="M2.5 5l5.5-2.5L13.5 5v6L8 13.5 2.5 11zM2.5 5L8 7.5l5.5-2.5M8 7.5v6"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 16 16"><path d="M2.5 2.5h5.3l5.7 5.7-5.3 5.3-5.7-5.7zM5.3 5.3h.1"/></symbol>
+  <symbol id="i-users" viewBox="0 0 16 16"><circle cx="6" cy="6" r="2.2"/><path d="M2.5 13c.4-2.2 1.9-3.3 3.5-3.3s3.1 1.1 3.5 3.3M10.5 4a2 2 0 0 1 0 4M11.5 9.8c1.1.3 1.8 1.4 2 3.2"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 16 16"><path d="M2.5 6.5v3h2l5 3v-9l-5 3h-2zM11.5 6a2.5 2.5 0 0 1 0 4"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 16 16"><path d="M2.5 4.5h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-10zM2.5 4.5V4a1.5 1.5 0 0 1 1.5-1.5h7.5M10.5 9h.1"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M6 9h4M6 11.5h4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 16 16"><path d="M2.5 5h7M12.5 5h1M2.5 11h2M7.5 11h6"/><circle cx="11" cy="5" r="1.5"/><circle cx="6" cy="11" r="1.5"/></symbol>
+  <symbol id="i-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.8"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.5 1.7c-.5.2-.8.6-.8 1.2M8 11.4v.1"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6.5 4l4 4-4 4"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3l3.2 3.2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M12.8 9.6A5.2 5.2 0 1 1 6.4 3.2a4.2 4.2 0 0 0 6.4 6.4z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16"><path d="M4 11.5V7.5a4 4 0 0 1 8 0v4l1 1H3zM6.5 13.5a1.6 1.6 0 0 0 3 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></symbol>
+  <symbol id="i-dn" viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6"/><path d="M8 5v3.2l2 1.3"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 16 16"><path d="M8 13.5c-2.3 0-4-1.6-4-3.8 0-2.6 2.6-3.6 3-6.2 1.6 1 2.2 2.3 2.2 3.4.6-.3 1-.9 1.2-1.6 1 .9 1.6 2.4 1.6 3.9 0 2.4-1.7 4.3-4 4.3zM8 13.5c-.9 0-1.6-.7-1.6-1.6 0-1.2 1.2-1.6 1.6-2.8.6.7 1.6 1.4 1.6 2.6 0 1-.7 1.8-1.6 1.8z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 16 16"><path d="M8 2.5l5.5 3L8 8.5l-5.5-3zM2.5 8L8 11l5.5-3M2.5 10.5L8 13.5l5.5-3"/></symbol>
+  <symbol id="i-mug" viewBox="0 0 16 16"><path d="M3 5.5h7.5v4.5a3 3 0 0 1-3 3h-1.5a3 3 0 0 1-3-3zM10.5 6.5h1.2a1.6 1.6 0 0 1 0 3.2h-1.2M5.5 2.5c-.4.6-.4 1.2 0 1.8M7.8 2.5c-.4.6-.4 1.2 0 1.8"/></symbol>
+  <symbol id="i-plate" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.7"/><circle cx="8" cy="8" r="3.2"/></symbol>
+  <symbol id="i-vase" viewBox="0 0 16 16"><path d="M6.3 2.5h3.4M6.8 2.5v2.2C5 5.6 4.2 7.4 4.6 9.6c.4 2.3 1.8 3.9 3.4 3.9s3-1.6 3.4-3.9c.4-2.2-.4-4-2.2-4.9V2.5"/></symbol>
+  <symbol id="i-plant" viewBox="0 0 16 16"><path d="M3.5 8.5h9l-1.2 5H4.7zM8 8.5V5.5M8 5.5C8 3.8 9.2 2.6 11 2.6c0 1.8-1.2 2.9-3 2.9zM8 6.5c0-1.4-1-2.4-2.6-2.4 0 1.4 1 2.4 2.6 2.4z"/></symbol>
+  <symbol id="i-pot" viewBox="0 0 16 16"><path d="M3 7.5h8.5v1.8a3.6 3.6 0 0 1-3.6 3.6H6.6A3.6 3.6 0 0 1 3 9.3zM11.5 8.2l2-1.2M6 7.5V6.3a1.3 1.3 0 0 1 2.6 0v1.2M6.9 5.2V4.4"/></symbol>
+  <symbol id="i-linen" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="1.3"/><path d="M6.3 3v10M9.6 3v10M3 6.3h10M3 9.6h10"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6"/><path d="M2.4 8h11.2M8 2.4c1.6 1.6 2.3 3.5 2.3 5.6S9.6 12 8 13.6M8 2.4C6.4 4 5.7 5.9 5.7 8S6.4 12 8 13.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 16 16"><path d="M8 2.5l1.7 3.5 3.8.5-2.8 2.7.7 3.8L8 11.2 4.6 13l.7-3.8-2.8-2.7 3.8-.5z"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 0 5.5 5.5H8z"/><path d="M10 1.8v4.2h4.2A4.2 4.2 0 0 0 10 1.8z"/></symbol>
+  <symbol id="i-bellsm" viewBox="0 0 16 16"><path d="M4 11.5V7.5a4 4 0 0 1 8 0v4l1 1H3zM6.5 13.5a1.6 1.6 0 0 0 3 0"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M3 4.5h10M3 8h10M3 11.5h7"/></symbol>
+  <symbol id="i-glaze" viewBox="0 0 16 16"><path d="M8 2.5c2.6 2.6 4.2 4.8 4.2 7a4.2 4.2 0 0 1-8.4 0c0-2.2 1.6-4.4 4.2-7z"/><path d="M6 10.2a2 2 0 0 0 2 2"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- el armazón: la barra de la izquierda (no pasa a MaKo) -->
+  <aside class="side">
+    <a class="brand" href="#"><span class="brand__mark"><svg class="i" style="width:20px;height:20px;stroke-width:2"><use href="#i-glaze"/></svg></span><span><b>Pelago</b><small>Fernhill Ceramics</small></span></a>
+    <div class="nav__label">Sell</div>
+    <a class="nav__item" aria-current="page" href="#"><svg class="i"><use href="#i-grid"/></svg>Overview</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-chart"/></svg>Demand</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-box"/></svg>Orders<span class="nav__n">29</span><svg class="i nav__chev"><use href="#i-chev"/></svg></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-tag"/></svg>Products<span class="nav__n nav__n--soft">7</span><svg class="i nav__chev"><use href="#i-chev"/></svg></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-users"/></svg>Customers<svg class="i nav__chev" style="margin-left:auto"><use href="#i-chev"/></svg></a>
+    <div class="nav__label">Grow</div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-mega"/></svg>Marketing<svg class="i nav__chev" style="margin-left:auto"><use href="#i-chev"/></svg></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-wallet"/></svg>Finance<svg class="i nav__chev" style="margin-left:auto"><use href="#i-chev"/></svg></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-doc"/></svg>Reports</a>
+    <div class="nav__label">Studio</div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-sliders"/></svg>Settings</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-help"/></svg>Support</a>
+    <a class="goal" href="#"><span class="goal__h">October goal <b>55%</b></span><span class="goal__bar"><i></i></span><small>$34k of $62k · pace $54k</small></a>
+    <button class="me" type="button"><span class="av">NH</span><span><b>Noor Haddad</b><small>Head of commerce</small></span><svg class="i"><use href="#i-dots"/></svg></button>
+  </aside>
+
+  <main class="main">
+    <!-- el teléfono: la barra de arriba de 390 (no pasa a MaKo) -->
+    <div class="mtop">
+      <button class="ibtn ibtn--menu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <a class="brand" href="#"><span class="brand__mark"><svg class="i" style="width:18px;height:18px;stroke-width:2"><use href="#i-glaze"/></svg></span><span><b>Pelago</b></span></a>
+      <span class="mtop__sp"></span>
+      <button class="ibtn" aria-label="Search"><svg class="i"><use href="#i-search"/></svg></button>
+      <button class="ibtn" aria-label="Theme"><svg class="i"><use href="#i-moon"/></svg></button>
+      <button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="ibtn__dot"></span></button>
+      <button class="btn btn--primary" aria-label="New"><svg class="i"><use href="#i-plus"/></svg></button>
+    </div>
+    <!-- el armazón: la barra de arriba (no pasa a MaKo) -->
+    <header class="top">
+      <button class="finder-btn" type="button"><svg class="i"><use href="#i-search"/></svg>Search orders, products, customers…<kbd>⌘K</kbd></button>
+      <span class="top__sp"></span>
+      <a class="pulse" href="#"><i></i>14 today <span>$2.2k</span></a>
+      <button class="ibtn" aria-label="Theme"><svg class="i"><use href="#i-moon"/></svg></button>
+      <button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="ibtn__dot"></span></button>
+      <button class="btn btn--primary top__new" type="button"><svg class="i"><use href="#i-plus"/></svg>New</button>
+    </header>
+
+    <section class="head">
+      <div>
+        <div class="head__date">Tuesday, October 20 · Fernhill Ceramics</div>
+        <h1 class="head__title">Good morning, Noor</h1>
+        <p class="head__lede">14 orders so far today ($2,219), 8 more than last Tuesday by now, one wholesale. <b>21 to pack</b> and <b>7 pieces running low</b>.</p>
+      </div>
+      <div class="head__actions">
+        <div class="seg" id="seg"><span class="seg__pill"></span><button class="seg__btn" aria-pressed="false">7 days</button><button class="seg__btn" aria-pressed="true">30 days</button><button class="seg__btn" aria-pressed="false">October</button></div>
+        <button class="btn btn--ghost" type="button"><svg class="i"><use href="#i-down"/></svg>Export</button>
+      </div>
+    </section>
+
+    <div class="ov">
+      <div class="ov__r1">
+        <section class="card glazed ov-rev">
+          <div class="rev__h"><h2 class="rev__t">Revenue</h2><span class="rev__p">Last 30 days</span></div>
+          <div class="rev__big"><span class="rev__v" data-cuenta>$55,239</span><span class="rev__chg"><svg class="i"><use href="#i-up"/></svg>+4.8%</span></div>
+          <p class="rev__vs">vs the 30 days before</p>
+          <div class="rev__bars" id="rev-bars"></div>
+          <div class="rev__mix"><span class="t-sea" style="flex:47"></span><span class="t-gold" style="flex:9"></span><span class="t-salmon" style="flex:44"></span></div>
+          <div class="rev__leg"><span><i class="t-sea"></i>Online shop<b>47%</b></span><span><i class="t-gold"></i>Studio shop<b>9%</b></span><span><i class="t-salmon"></i>Wholesale<b>44%</b></span></div>
+          <div class="rev__stats"><div><span>Orders</span><b data-cuenta>395</b></div><div><span>Average order</span><b data-cuenta>$140</b></div><div><span>Pieces</span><b data-cuenta>1,891</b></div></div>
+        </section>
+
+        <section class="card ov-today">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-clock"/></svg></span><h2 class="card__t">Today, by the hour</h2><a class="btn btn--xs btn--ghost card__aside" href="#"><svg class="i" style="width:14px;height:14px"><use href="#i-box"/></svg>Orders</a></div>
+          <div class="dial" id="dial"></div>
+          <p class="today__foot">Busiest so far: <b>9 AM</b> with 4 orders. Hover a spoke to read its hour.</p>
+        </section>
+
+        <section class="card ov-kiln">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-glaze"/></svg></span><h2 class="card__t">From the kiln</h2><a class="btn btn--xs btn--ghost card__aside" href="#">Stock</a></div>
+          <div class="kiln__lab">Booked</div>
+          <div class="kiln__list">
+            <div><button class="kiln__row"><span class="kiln__th gl-tide"></span><span><b>Pebble espresso set</b><small>36 pcs · Oct 22</small></span></button><button class="ibtn ibtn--book" aria-label="Book"><svg class="i" style="width:14px;height:14px"><use href="#i-flame"/></svg></button></div>
+            <div><button class="kiln__row"><span class="kiln__th gl-celadon"></span><span><b>Kyusu side-handle pot</b><small>8 pcs · Oct 23</small></span></button><button class="ibtn ibtn--book" aria-label="Book"><svg class="i" style="width:14px;height:14px"><use href="#i-flame"/></svg></button></div>
+            <div><button class="kiln__row"><span class="kiln__th gl-tenmoku"></span><span><b>Ember tumbler</b><small>60 pcs · Oct 24</small></span></button><button class="ibtn ibtn--book" aria-label="Book"><svg class="i" style="width:14px;height:14px"><use href="#i-flame"/></svg></button></div>
+          </div>
+          <div class="kiln__lab kiln__lab--2">Running low</div>
+          <div class="kiln__list">
+            <div><button class="kiln__row"><span class="kiln__th gl-stone"></span><span><b>Hanging planter</b><small>7 left · reorder at 10</small></span></button><button class="ibtn ibtn--add" aria-label="Reorder"><svg class="i"><use href="#i-plus"/></svg></button></div>
+            <div><button class="kiln__row"><span class="kiln__th gl-celadon"></span><span><b>Nesting bowl trio</b><small>10 left · reorder at 10</small></span></button><button class="ibtn ibtn--add" aria-label="Reorder"><svg class="i"><use href="#i-plus"/></svg></button></div>
+            <div><button class="kiln__row"><span class="kiln__th gl-tide"></span><span><b>Tideline bottle vase</b><small>8 left · reorder at 8</small></span></button><button class="ibtn ibtn--add" aria-label="Reorder"><svg class="i"><use href="#i-plus"/></svg></button></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card ov-demand">
+        <div class="dem__h">
+          <span class="card__ic"><svg class="i"><use href="#i-chart"/></svg></span><h2 class="card__t">Demand by category</h2>
+          <div class="dem__leg"><span><i class="tone-petrol"></i>Online shop</span><span><i class="tone-ochre"></i>Studio shop</span><span><i class="tone-clay"></i>Wholesale</span><span><i class="dash"></i>Last year</span></div>
+          <span class="dem__cmp">Compare <button class="switch" aria-label="Compare with last year" aria-pressed="true"></button></span>
+          <a class="btn btn--xs btn--ghost" href="#">Explore <svg class="i" style="width:13px;height:13px"><use href="#i-chev"/></svg></a>
+        </div>
+        <div class="dem__body">
+          <div class="rail" id="rail"><span class="rail__pill"></span></div>
+          <div class="chart" id="chart"></div>
+          <aside class="mp">
+            <div class="mp__h">October 2026 <span class="mp__soft">so far</span></div>
+            <div class="mp__cat">All categories</div>
+            <div class="mp__v" data-cuenta>$33,973</div>
+            <span class="mp__chg"><svg class="i"><use href="#i-dn"/></svg>−2% vs Oct 1–20 ’25</span>
+            <div class="mp__ch">
+              <div class="mp__row"><i class="tone-petrol"></i><span>Online shop</span><b>$18,005</b><span class="meter"><span class="tone-petrol" style="width:100%"></span></span></div>
+              <div class="mp__row"><i class="tone-ochre"></i><span>Studio shop</span><b>$3,902</b><span class="meter"><span class="tone-ochre" style="width:21.7%"></span></span></div>
+              <div class="mp__row"><i class="tone-clay"></i><span>Wholesale</span><b>$12,066</b><span class="meter"><span class="tone-clay" style="width:67%"></span></span></div>
+            </div>
+            <div class="mp__stub"><span class="mp__lab">Top buyer</span><span class="mp__who"><span class="av">AN</span><span><b>Atelier Nord</b><small>$1,180 in the month</small></span></span></div>
+            <div class="mp__stub"><span class="mp__lab">Best seller</span><span class="mp__who"><span class="kiln__th gl-oat"></span><span><b>Morning mug</b><small>Oat glaze · $32</small></span></span></div>
+          </aside>
+        </div>
+      </section>
+
+      <div class="ov__r3">
+        <section class="card ov-orders">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-box"/></svg></span><h2 class="card__t">Latest orders</h2>
+            <span class="card__aside" style="display:flex;gap:8px"><button class="btn btn--xs btn--soft"><svg class="i" style="width:14px;height:14px"><use href="#i-box"/></svg>Pack 21 paid</button><a class="btn btn--xs btn--ghost" href="#">All</a></span></div>
+          <table class="table">
+            <thead><tr><th style="width:158px">Order</th><th style="width:143px">Customer</th><th style="width:145px">Channel</th><th>Status</th><th>Total</th></tr></thead>
+            <tbody id="orders"></tbody>
+          </table>
+        </section>
+        <section class="card ov-best">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-star"/></svg></span><h2 class="card__t">Best sellers</h2><span class="card__sub">October</span></div>
+          <div class="best" id="best"></div>
+        </section>
+      </div>
+
+      <div class="ov__r4">
+        <section class="card ov-margin">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-pie"/></svg></span><h2 class="card__t">Where each $100 goes</h2><a class="btn btn--xs btn--ghost card__aside" href="#">Costs</a></div>
+          <div class="mg__big"><b data-cuenta>$20</b><span>of every $100 sold this month stays with the studio</span></div>
+          <div class="mg__bar"><span class="tone-ochre" style="flex:36"></span><span class="tone-rose" style="flex:4"></span><span class="tone-sand" style="flex:3"></span><span class="tone-sky" style="flex:8"></span><span class="tone-petrol" style="flex:9"></span><span class="tone-slate" style="flex:2"></span><span class="tone-clay" style="flex:18"></span><span class="keep" style="flex:20"></span></div>
+          <ul class="mg__leg">
+            <li><i class="tone-ochre"></i>Clay &amp; glaze<b>$36</b></li><li><i class="tone-clay"></i>Studio &amp; shop<b>$18</b></li>
+            <li><i class="tone-petrol"></i>Marketing<b>$9</b></li><li><i class="tone-sky"></i>Shipping<b>$8</b></li>
+            <li><i class="tone-rose"></i>Kiln firing<b>$4</b></li><li><i class="tone-sand"></i>Packaging<b>$3</b></li>
+            <li><i class="tone-slate"></i>Payment fees<b>$2</b></li>
+          </ul>
+        </section>
+        <section class="card ov-feed">
+          <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-bellsm"/></svg></span><h2 class="card__t">Activity</h2></div>
+          <ul class="feed" id="feed"></ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="pelago.js"></script>
+</body>
+</html>

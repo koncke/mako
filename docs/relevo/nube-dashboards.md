@@ -1,5 +1,15 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## 📬 Para el Cerebro (6/11/2026, chat en la nube)
+
+- **Hooks y retención está en main** (`660de5707`). Desde el 6/11 a producción lo lleva el cron de una vez por día.
+- **VSL y YouTube (la copia de Pelago) está hecha**: la sección de abajo. Es la vigésima hoja copiada, del Dashboard (la plantilla
+  `vsl-analyst`, que pasa a ofrecerse). Suma una pieza a la plantilla («Día por día»: los cuartos de cada día) y queda en 11 paneles con la
+  caja de IA. **⚠️ Pelago no estaba en la propuesta** (que para VSL decía «sin referencia propia: la de Hooks», y Ondra ya es Hooks): estaba
+  sin usar y cada tarjeta tiene su par en la pregunta del video.
+- **Sigue Inmobiliaria** (Lintel sigue frenada: abajo) **y Cold Calling**, que tampoco tiene diseño propio y no estaba en esta lista: la
+  plantilla `cold-calling` (4/11) no se ofrece en «Nueva hoja» hasta tener el suyo.
+
 ## 📬 Para el Cerebro (5/11/2026, ~04:20 UTC)
 
 - **Anuncio ganador está en producción.** Entró a main (`30430f5e4`, la punta `dash-anuncio` tal cual, con su veredicto: 7.111 tests y
@@ -194,6 +204,63 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## VSL y YouTube: la vigésima hoja copiada (la de Pelago), con «¿quién llega al final, y ésos compran más?» (6/11/2026)
+
+La referencia es Pelago (`docs/diseno/mockups-dashboard/demos/pelago/`): la página «Overview» de una tienda de cerámica, clara y cálida,
+con la barra de la izquierda, la cabecera con el saludo, «Revenue» (la tarjeta vidriada en petróleo, con su número grande, las barras de
+30 días y la mezcla por canal), «Today, by the hour» (un reloj de rayos), «From the kiln» (dos listas de tres), «Demand by category» (el
+riel de categorías con su pastilla que corre, las columnas apiladas de puntos que se vuelven sólidas al pasar, y el panel del mes con sus
+dos talones), «Latest orders», «Best sellers», «Where each $100 goes» y «Activity».
+
+**Por qué Pelago:** la propuesta (§7.3) dejaba a VSL «sin referencia propia: la de Hooks», y Hooks ya es Ondra. Pelago estaba sin usar, y
+cada tarjeta tiene su par: el reloj es la curva del video, las columnas por mes son las columnas por tramo de lo que vieron, «de cada $100»
+es «de cada 100 que le dan play».
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «VSL y YouTube» con el diseño de Pelago**, con su miniatura de verdad (la plantilla no se ofrecía).
+- **La cabecera:** cuántos le dieron play y cuántos lo vieron entero, y cuánto agendan los que vieron más de la mitad contra los que no lo
+  vieron. **Le dieron play** («Revenue»): el número, cuántos llegan al final, las barras de los últimos 30 días (hoy en amarillo), qué parte
+  llega al final, a la mitad o se va antes, y las vistas del VSL, el costo por vista y los que agendaron.
+- **Dónde se van** («Today, by the hour»): la curva del video como rayos de un reloj (arriba el inicio y el final, a la derecha el 25%,
+  abajo la mitad); el rayo de color, que late, es donde más gente se va; pasar por un rayo dice cuántos siguen ahí. **Tus videos** («From
+  the kiln»): los más vistos y los demás, cada uno con sus play y cuántos llegan al final; tocar uno abre su pieza.
+- **¿Los que más ven, más agendan?** («Demand by category»): los leads de cada tramo de lo que vieron (de «No lo vio» a «75-100%»), cada
+  columna en tres pisos (no agendaron, agendaron sin comprar, compraron); el riel y el panel dicen el tramo elegido, con cuánto agendan
+  contra todos, el tramo que más agenda y tu video más visto.
+- **Los últimos días** («Latest orders»): los play de cada día y cuántos pasan un cuarto, la mitad y el final. **Dónde más se van** («Best
+  sellers»): los seis tramos de 5% que más gente pierden. **De cada 100 que le dan play** («Where each $100 goes»): cuántos se van antes
+  del 25%, del 25% al 50%, del 50% al 75%, del 75% al final y cuántos llegan (suman 100). **Qué dice tu video** («Activity»): lo que escribió
+  MaKo en la caja de IA de la hoja (nunca corre al abrir; compartida o en la miniatura no se lee).
+
+**Lo que se copió de Pelago, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/vsl-pelago/copia.html` con `pelago.css` y `pelago.js`) sale de lo medido del demo: `valores.json`,
+  las capturas a 1440 y a 390, los estados y el INFORME. Nada del código de la tienda, ni sus fotos de producto (van degradados propios), ni
+  el logo. Las barras de «Revenue», las horas del reloj y las columnas de cada mes se leyeron de la captura, una por una.
+- **A 1440 las tarjetas de la copia caen en las de la captura a 0-3 px; en el teléfono, a ±4** (franjas de tinta por tarjeta), con el
+  gráfico de 12 meses corriéndose de costado y arrancando en el final, como el demo.
+- **El movimiento medido:** la pastilla del riel y la del selector corren .35 s con (.2, .8, .2, 1); el rayo de ahora late (dial-pulse,
+  1,8 s); al pasar por una columna su relleno de puntos se vuelve sólido (.2 s); las filas de la tabla se pintan al pasar.
+- **⚠️ Lo SUPUESTO** (el INFORME corta la receta de «Overview»): la cabecera sube desde 12 px (.65 s); las tarjetas desde 16 px (.7 s, desde
+  .25 s, cada .06 s); las barras crecen .9 s; los rayos se dibujan .8 s; las líneas del riel 1,1 s; los números cuentan .9 s.
+
+**Lo que Pelago tiene y MaKo no mide, y no está:** el rango de 7 y 30 días y el mes (el período es el de la hoja), el año pasado y el ritmo
+del mes sobre las columnas, el cambio del número grande contra antes (cada comparación es otra lectura de los eventos del video, lo más
+pesado del Dashboard), las fotos de producto y la actividad de un equipo. La barra de la izquierda y la de arriba son el armazón de Pelago:
+en MaKo las pone la app. **Y la retención es por cortes de 5% del avance de cada persona** (el resumen del Pixel), no segundo a segundo.
+
+**Lo que cambió de la copia a la adaptación, a propósito:** a 900 px (con la barra de MaKo al lado) las tres tarjetas de arriba no entran
+(el reloj mide 280): «Le dieron play» va a lo ancho y las dos de al lado comparten la fila; el panel del tramo baja y se parte en dos
+columnas; la tabla y «Dónde más se van» van una debajo de la otra. Los altos de Pelago son mínimos (lo que escribe MaKo estira la tarjeta).
+En el teléfono la tabla no esconde los play (la copia esconde la columna del cliente) y el gráfico de los tramos se corre de costado con 64
+px por columna (los rótulos son más largos que los meses).
+
+**Dónde vive:**
+- El modelo: `lib/vsl-diseno.ts`, puro. Los datos de ejemplo: `lib/vsl-diseno-muestra.ts` (cuadran: los play de los días y los de los videos
+  suman el número grande).
+- El dibujo: `app/dashboard/disenos/HojaVsl.tsx`; lo vivo, `VslVivo.tsx`; la hoja de estilos, `vsl-css.ts` (la arma un script del chat desde
+  `pelago.css`, con la cola de la adaptación: todo en `.pel`, clases `pel-*`, `@container`). Las capturas de la adaptación:
+  `vsl-pelago/captura/mako-1200.png` y `mako-390.png`. El test: `tests/dashboard-diseno-vsl.test.ts` (9, con 14 roturas).
 
 ## Hooks y retención: la decimonovena hoja copiada (la de Ondra), con «¿en qué parte del video se van, y qué gancho los retiene?» (punta `dash-hooks`, 5/11/2026)
 

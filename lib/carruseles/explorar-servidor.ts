@@ -21,6 +21,7 @@ import { podarVencido } from '../spy-reglas';
 import { cortarSinPartir } from '../unicode-seguro';
 import { carruselDeLaBiblioteca, carruselesDeLaBiblioteca } from './biblioteca-servidor';
 import { esDeBiblioteca, unirConBiblioteca } from './biblioteca';
+import { anunciosDe, type PiezaAnuncio } from './anuncios';
 import {
   CLAVE_BUSQUEDAS, CLAVE_GUARDADOS, TOPE_BUSQUEDAS, carruselesDe, conGuardado, filtrosDeQuery, pasoDelExplorador, queryDeFiltros,
   sanearBusquedas, sanearGuardados,
@@ -29,6 +30,8 @@ import {
 
 /** Cuántas publicaciones se leen como mucho (todas las cuentas juntas): 25 cuentas × 240 publicaciones. */
 export const PUBLICACIONES_A_LEER = 6000;
+/** Cuántos anuncios se leen como mucho (todas las cuentas juntas): los que Spy trajo de la Biblioteca de Anuncios. */
+export const ANUNCIOS_A_LEER = 2000;
 /** Lo que viaja al navegador: el texto se corta (la búsqueda de la pantalla mira el principio y el gancho). */
 export const TEXTO_EN_PANTALLA = 320;
 
@@ -46,6 +49,8 @@ export type Explorador = {
   ejemplos: number;
   /** La biblioteca no se pudo leer: se ve lo del negocio y se dice. */
   avisoBiblioteca: string | null;
+  /** Cuántos anuncios de la competencia trajo Spy (./anuncios.ts): sin ninguno, el filtro «Anuncios» lo dice. */
+  anuncios: number;
 };
 
 /**
@@ -63,6 +68,19 @@ export async function leerExplorador(): Promise<Explorador | { ok: false; error:
   const competidores = (comp.data ?? []) as CompetidorParaCarrusel[];
   const conIg = competidores.filter((c) => !!c.instagram);
   const piezas: PiezaParaCarrusel[] = [];
+  const anuncios: PiezaAnuncio[] = [];
+  // Los anuncios (6/11/2026, ./anuncios.ts): los que Spy trajo de ESTAS cuentas con la clave del negocio. No dependen del
+  // Instagram de la cuenta (se buscan por su Página). Si no se pueden leer, se ven los carruseles igual: no es un error de todo.
+  if (competidores.length) {
+    try {
+      await leerPorPaginas<Record<string, unknown>>(db, 'spy_piezas', '*', (pagina) => {
+        for (const f of pagina) anuncios.push(podarVencido(f) as unknown as PiezaAnuncio);
+        return anuncios.length < ANUNCIOS_A_LEER;
+      }, { orden: [{ col: 'id', asc: false }], filtros: (q) => q.eq('canal', 'anuncios').eq('tipo', 'anuncio').in('competidor_id', competidores.map((c) => c.id)) });
+    } catch (e) {
+      console.warn('[carruseles] no pude leer los anuncios de Spy:', e instanceof Error ? e.message : e);
+    }
+  }
   if (conIg.length) {
     try {
       // `*` y no una lista de columnas: `medio` y `laminas` (mig 0391) pueden no existir todavía, y una columna nombrada
@@ -76,7 +94,7 @@ export async function leerExplorador(): Promise<Explorador | { ok: false; error:
     }
   }
   const [guardados, busquedas, biblioteca] = await Promise.all([getSetting(CLAVE_GUARDADOS), getSetting(CLAVE_BUSQUEDAS), deLaBiblioteca()]);
-  return armar(carruselesDe(piezas, competidores), sanearGuardados(guardados), sanearBusquedas(busquedas), { competidores: competidores.length, conInstagram: conIg.length }, biblioteca);
+  return armar([...carruselesDe(piezas, competidores), ...anunciosDe(anuncios, competidores)], sanearGuardados(guardados), sanearBusquedas(busquedas), { competidores: competidores.length, conInstagram: conIg.length }, biblioteca);
 }
 
 /** La biblioteca de ejemplos, sin tirar: si falla, ninguno y el aviso. */
@@ -91,12 +109,13 @@ async function deLaBiblioteca(): Promise<{ carruseles: Carrusel[]; aviso: string
 
 function armar(propios: Carrusel[], guardados: Guardado[], busquedas: BusquedaGuardada[], cuentas: Explorador['cuentas'], biblioteca: { carruseles: Carrusel[]; aviso: string | null } = { carruseles: [], aviso: null }): Explorador {
   // El paso habla de lo del NEGOCIO (qué le falta para ver las cuentas que sigue); la biblioteca se ve igual.
-  const p = pasoDelExplorador({ ...cuentas, carruseles: propios.length });
+  const p = pasoDelExplorador({ ...cuentas, carruseles: propios.filter((c) => c.clase !== 'anuncio').length });
   const todos = unirConBiblioteca(propios, biblioteca.carruseles)
     .map((c) => ({ ...c, texto: c.texto ? cortarSinPartir(c.texto, TEXTO_EN_PANTALLA) : null }));
   return {
     ok: true, carruseles: todos, guardados, busquedas, cuentas, paso: p.paso, frase: p.frase, accion: p.accion,
     ejemplos: todos.filter((c) => c.origen === 'biblioteca').length, avisoBiblioteca: biblioteca.aviso,
+    anuncios: todos.filter((c) => c.clase === 'anuncio').length,
   };
 }
 
@@ -129,9 +148,11 @@ async function esPublicacionDelNegocio(id: number): Promise<boolean | null> {
     try { return !!(await carruselDeLaBiblioteca(id)); } catch { return null; }
   }
   const db = await getTenantDb();
-  const { data, error } = await db.from('spy_piezas').select('id').eq('id', id).eq('canal', 'instagram').eq('tipo', 'publicacion').maybeSingle();
+  // Una publicación de Instagram o un anuncio (6/11/2026): los dos se guardan.
+  const { data, error } = await db.from('spy_piezas').select('id, canal, tipo').eq('id', id).maybeSingle();
   if (error) return null;
-  return !!data;
+  const f = data as { canal?: string; tipo?: string } | null;
+  return !!f && ((f.canal === 'instagram' && f.tipo === 'publicacion') || (f.canal === 'anuncios' && f.tipo === 'anuncio'));
 }
 
 /** Guarda o saca un carrusel de los guardados del negocio. Idempotente: guardar lo que ya está dice `ya`. */

@@ -165,6 +165,17 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
   const onTitulo = useCallback((t: string) => { if (abierto) conTitulo(abierto, t); }, [abierto, conTitulo]);
   const alAbrir = useCallback((a: EditorAbierto | null) => { editor.current = a; }, []);
 
+  // Los ejemplos de carruseles (6/11/2026, Martín: «Lo principal al entrar son los ejemplos de carruseles… La barra lateral de
+  // MaKo no se muestra salvo mientras se edita»): la pantalla es SÓLO la grilla, sin la tarjeta del chat. «Editar» arma el
+  // diseño y abre el editor, que sí la tiene (./carruseles/EditarCarrusel.tsx).
+  if (!abierto && vista === 'carruseles' && explorador) {
+    return 'error' in explorador ? (
+      <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
+        No pude leer los carruseles de ejemplo. Vuelve a intentar.<ReportarASoporte />
+      </div>
+    ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} />;
+  }
+
   return (
     <>
     {/* Otro diseño (o la portada) es otra pantalla: la tarjeta vuelve al chat y «Nuevo diseño» se cierra. */}
@@ -194,12 +205,6 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
         <div className="cv" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <PantallaEditor disenoId={abierto} ws={ws} ranuraChat={ranura} salir={salir} onAbierto={alAbrir} onCarga={setCarga} onTitulo={onTitulo} senales={senales} />
         </div>
-      ) : vista === 'carruseles' && explorador ? (
-        'error' in explorador ? (
-          <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
-            No pude leer los carruseles de las cuentas que sigues. Vuelve a intentar.<ReportarASoporte />
-          </div>
-        ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} onUsar={carruseles.onUsar} />
       ) : null}
     </PantallaCrear>
     {carruseles.dialogos}
