@@ -33,7 +33,7 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email` · `conectar_seguimiento_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
+- **Automations** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing` · `configurar_bloque_venta_landing`
@@ -7798,7 +7798,7 @@ curl -L \
   "https://hola-mako.com/api/v1/email/seguimiento"
 ```
 
-## Chatbot y secuencias — `chatbot`
+## Automations — `chatbot`
 
 Tab **Automations** (`/automations`). 19 lecturas · 22 acciones.
 
@@ -7807,7 +7807,7 @@ Tab **Automations** (`/automations`). 19 lecturas · 22 acciones.
 Lista las secuencias de mensajes vigentes (no archivadas) del negocio con su id, nombre, etapa del funnel y si están activas o pausadas. Úsala para conseguir el secuenciaId antes de cualquier otra operación sobre una secuencia. «Activa» no garantiza que salgan mensajes: para eso mira también estado_canal_whatsapp_chatbot.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/listar_secuencias_nutricion`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7828,7 +7828,7 @@ curl -L \
 Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque, por el puerto «btn:<id>»— o «link»; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ficha_secuencia_mensajes`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7851,7 +7851,7 @@ curl -L \
 Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: cuándo cae cada uno (`cuando`: los hechos del lead que lo deciden, como «Su reunión sigue en pie»), qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. Un mismo hecho vale lo mismo en todo el flujo, y dos caminos que mandan lo mismo son uno. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántos quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/escenarios_secuencia`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7874,7 +7874,7 @@ curl -L \
 Los KPIs del chatbot en los últimos 30 días: por secuencia, mensajes enviados por WhatsApp y por email, respuestas, aperturas y clics de email, inscriptos activos y completados; y la serie diaria de 30 días. Úsala para «cuántos mensajes salieron esta semana» o «cuántos contestaron». Las aperturas y clics existen solo para email; «respuestas» es la cantidad de inscripciones pausadas porque el lead contestó.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/metricas_chatbot`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7897,7 +7897,7 @@ curl -L \
 Las etapas de nutrición del funnel de este negocio en las que no arranca ninguna automatización: cuenta todos los CRON de cada una. Una pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una automatización.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/huecos_secuencias`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7918,7 +7918,7 @@ curl -L \
 Si el número de WhatsApp no oficial desde el que salen las secuencias está conectado, sin vincular, desconectado (desde cuándo y si el dispositivo quedó desvinculado) o desconocido (no se pudo leer, que NO es lo mismo que desconectado). Es el último estado registrado, no una prueba en vivo: puede decir conectado sobre una sesión que se cayó hace poco. Úsala antes de proponer activar una secuencia y cuando una secuencia activa no manda nada.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/estado_canal_whatsapp_chatbot`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** externo
@@ -7940,7 +7940,7 @@ curl -L \
 Para una etapa del funnel estándar: en qué situación está el lead, qué objetivo conviene para su secuencia (agendar, preparar, reactivar, cualificar o confirmar el pago) y por qué. Úsala antes de proponer crear una secuencia o guardar su estrategia. Una etapa personalizada del editor del funnel no tiene contexto y devuelve null.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/contexto_etapa`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7963,7 +7963,7 @@ curl -L \
 Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. La etapa se pasa por su clave, que cambia de un negocio a otro.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/etapas_para_secuencia`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -7984,7 +7984,7 @@ curl -L \
 Los cinco objetivos del catálogo (agendar, preparar, reactivar, cualificar, confirmar el pago) con su etiqueta, más los objetivos propios que el dueño escribió en este negocio. Un objetivo propio es descriptivo: el motor solo sabe cerrar y encadenar secuencias con los cinco del catálogo.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/listar_objetivos_secuencia`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8005,7 +8005,7 @@ curl -L \
 Las situaciones para las que este negocio tiene que grabar una nota de voz, según las entradas de leads y el canal que declaró en su funnel, con el guion de cada una (qué decir, en orden) y si ya está grabada. Sin entradas declaradas devuelve una lista vacía a propósito: primero hay que declarar el funnel. Úsala para «qué me falta grabar».
 
 - **Ruta por operación:** `GET /api/v1/chatbot/audios_requeridos`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8027,7 +8027,7 @@ curl -L \
 Los casos del ensayo del onboarding que aplican a este negocio (el lead no responde, pregunta el precio, no es tu cliente, quiere reprogramar…), filtrados por los audios que corresponden a su funnel y por si tiene video: título, qué define el dueño al responderlo, cómo termina bien y mal. Úsala junto con ensayo_hecho para saber qué falta ensayar.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/escenarios_ensayo`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8048,7 +8048,7 @@ curl -L \
 En qué paso quedó el onboarding del chatbot (recorrido completo) o de sus tramos de WhatsApp y de email: qué pasos están hechos y cuándo, cuáles faltan, cuáles son opcionales y si la tab ya está lista. Úsala para saber si el negocio ya configuró el agente antes de sugerir algo.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/estado_onboarding_chatbot`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8072,7 +8072,7 @@ curl -L \
 Para cada paso de WhatsApp oficial de una secuencia: el nombre de su plantilla y su estado en Meta (sin_enviar, pending, approved, rejected, paused…). El motor no manda un paso oficial hasta que su plantilla esté aprobada. Lee el catálogo local de plantillas, no consulta a Meta en vivo. Los pasos por el número no oficial y los de audio no llevan plantilla.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/plantillas_meta_de_secuencia`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8096,7 +8096,7 @@ curl -L \
 Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». espera_toque: está parado en un DM con botones, esperando que toque uno (los títulos). Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/inscripciones_lead`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8119,7 +8119,7 @@ curl -L \
 Las secuencias de mensajes archivadas de este negocio (listar_secuencias_nutricion no las muestra): id, nombre, clave, etapa, cuándo se archivaron y si estaban prendidas al archivarse. Úsala para conseguir el secuenciaId antes de desarchivar_secuencia. Trae las 200 archivadas más recientes.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/listar_secuencias_archivadas`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8141,7 +8141,7 @@ curl -L \
 PROPONE activar o pausar una secuencia de mensajes (deja la acción pendiente de confirmación; no la ejecuta). Activarla hace que el motor empiece a inscribir leads y a mandar pasos; pausarla frena inscripciones y envíos nuevos. Pide antes el secuenciaId con listar_secuencias_nutricion y, si es para activar, revisa estado_canal_whatsapp_chatbot.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/proponer_toggle_nutricion`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8172,7 +8172,7 @@ curl -L \
 PROPONE crear una automatización nueva (una secuencia de nutrición del lienzo de Automations) a partir de un pedido en palabras, con su disparador: una etapa, una etiqueta que se agrega al lead o un evento. MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8207,7 +8207,7 @@ curl -L \
 PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_espera_paso`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8239,7 +8239,7 @@ curl -L \
 El horario de oficina y el goteo (de WhatsApp y de email) de UNA automatización: el horario suyo si tiene, si no el del negocio (dice cuál vale y de dónde sale). Úsala cuando pregunten a qué hora manda una automatización o cuántos mensajes manda por día. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/configuracion_automatizacion`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8262,7 +8262,7 @@ curl -L \
 PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/configurar_automatizacion`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8301,7 +8301,7 @@ curl -L \
 PROPONE devolver una secuencia archivada al listado. Vuelve PAUSADA aunque estuviera prendida al archivarse: para que mande, hay que activarla aparte con proponer_toggle_nutricion. Las inscripciones que se cancelaron al archivarla NO vuelven, y esos leads no pueden reingresar a esa secuencia. Pide antes el secuenciaId con listar_secuencias_archivadas.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/desarchivar_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8329,7 +8329,7 @@ curl -L \
 PROPONE guardar a quién le hablan los audios y mensajes del negocio (masculino, femenino o mixto), que ajusta cómo se escriben los guiones. Úsala cuando el dueño diga a quién le vende.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/guardar_publico_audios`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8359,7 +8359,7 @@ curl -L \
 PROPONE sumar un objetivo escrito por el dueño a la lista de objetivos de secuencia del negocio, cuando ninguno de los cinco del catálogo describe lo que busca. Es descriptivo: el motor no sabe cerrar ni encadenar secuencias con él. Revisa antes listar_objetivos_secuencia para no repetirlo. Máximo 30.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/agregar_objetivo_custom`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8389,7 +8389,7 @@ curl -L \
 PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Con partes, el aviso son esos mensajes en orden (textos, notas de voz con la Voz de MaKo y archivos de la biblioteca); desde una automatización salen tal cual, sin título ni firma. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/avisar_al_equipo`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8431,7 +8431,7 @@ curl -L \
 PROPONE reabrir desde cero el onboarding del chatbot y devuelve un link para confirmarlo. La tab /automations vuelve a abrir en el recorrido, y los pasos que comparte con otras tabs (la conexión del número de WhatsApp, el email) se vuelven a pedir: no hay forma de volver a marcarlos sin rehacerlos. Úsala solo si el dueño pide rehacer la configuración del chatbot.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/reabrir_onboarding_chatbot`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8457,7 +8457,7 @@ curl -L \
 PROPONE cambiar la estrategia de una secuencia y devuelve un link para revisarla: objetivo, gancho, preguntas de cualificación, criterio de calificación, desenlace (qué cuenta como logrado, a qué etapa y a qué secuencia pasa el lead) y modo. Solo cambian los campos que pases; el resto se conserva. Si la secuencia todavía no tiene estrategia, el objetivo es obligatorio. El desenlace mueve leads de etapa solo desde el motor; en una secuencia armada con tarjetas (condiciones, esperas, «Si responde») el desenlace y el modo no se cambian por aquí: cuándo termina y qué pasa al responder son tarjetas del lienzo. Los escenarios se agregan con agregar_escenario_secuencia.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/guardar_estrategia_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8502,7 +8502,7 @@ curl -L \
 PROPONE reescribir la lista de pasos de una secuencia (texto, canal, espera, condición) y devuelve un link para revisarla. Sólo en una secuencia SIN ramas (sin condiciones, sin «Si responde», sin «Ir a»): una con ramas se edita en el lienzo de /automations, y por aquí contesta un error. La lista que pases REEMPLAZA a la actual en ese orden: un paso que no esté se borra. Dentro de cada paso, un campo que omitas se conserva del paso que hoy ocupa esa posición, y las variantes ya generadas se mantienen. En un paso de WhatsApp oficial con plantilla aprobada, cambiar el texto NO cambia lo que recibe el lead: sigue saliendo la plantilla aprobada con el texto anterior. Un paso de audio a un lead que todavía no es cliente queda como borrador para que alguien lo mande. Un [corchete] distinto de [tu link …] deja el paso sin salir nunca. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/editar_pasos_secuencia_mensajes`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8544,7 +8544,7 @@ curl -L \
 SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_botones_mensaje`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8579,7 +8579,7 @@ curl -L \
 PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arrancar: una etapa de un producto, una etiqueta, un evento de Instagram, Messenger o el email que llega, o un Recurrente con su horario). La lista que pases REEMPLAZA a la actual y arranca por CUALQUIERA de sus CRON; el primero es el principal. Cambia a quién le escribe: en una automatización activa, la próxima corrida inscribe con los CRON nuevos. Lee antes ficha_secuencia_mensajes (su campo disparadores tiene la forma de cada CRON: pasa el mismo id para conservar la próxima ocurrencia de un horario que no cambia). Un evento de Instagram o Messenger necesita su subtipo; «grupo_mako» sólo vale con horario.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_crons_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8633,7 +8633,7 @@ curl -L \
 PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
 
 - **Ruta por operación:** `POST /api/v1/chatbot/agregar_escenario_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8667,7 +8667,7 @@ curl -L \
 PROPONE archivar UNA secuencia y devuelve un link para revisarlo: deja de listarse, de inscribir y de enviar, y sus inscripciones vivas se CANCELAN. Esos leads no pueden volver a entrar a esa secuencia nunca, aunque se desarchive. Su etapa vuelve a quedar sin secuencia. Para solo frenarla un rato, usa proponer_toggle_nutricion.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/archivar_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8695,7 +8695,7 @@ curl -L \
 PROPONE mandar los mensajes de UN escenario de una secuencia (el camino que recorre un lead por sus condiciones), en orden y marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Si tiene más de un escenario, pasa su número (de escenarios_secuencia); con uno solo, no hace falta. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado; los de Instagram y Messenger no se prueban en vivo.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/probar_secuencia`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8724,7 +8724,7 @@ curl -L \
 PROPONE guardar el link del video de preparación que acompaña a la bienvenida y a los audios post-agenda, y devuelve un link para revisarlo. Es un dato exacto que sale escrito a desconocidos: tiene que empezar con http:// o https://. No cambia las secuencias ya armadas hasta rearmarlas desde los audios (solo por WhatsApp o en la app).
 
 - **Ruta por operación:** `POST /api/v1/chatbot/guardar_link_video`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8754,7 +8754,7 @@ curl -L \
 PROPONE sumar un lead magnet (nombre y enlace) a los entregables del negocio y devuelve un link para revisarlo. Al confirmar devuelve su leadMagnetId, que se cuelga de una secuencia con guardar_estrategia_secuencia (lead_magnet_id). El motor no entrega archivos: el lead magnet viaja como enlace dentro del texto. El enlace tiene que empezar con http:// o https://.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_lead_magnet`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8785,7 +8785,7 @@ curl -L \
 La prueba de la tarjeta «A/B TEST»: si corre, el día, cuánta gente entró a cada rama y cuántos lograron el objetivo, y cómo terminó («Ganó B», «Empate: quedó A», «Todavía no se sabe»). Mientras corre no hay ganador: MaKo decide una sola vez, cuando junta la gente del plan. Sin prueba corriendo, todos van a la rama A. Las ramas (letra, porcentaje, a qué tarjeta sigue) están en ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ver_prueba_ab`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8808,7 +8808,7 @@ curl -L \
 PROPONE empezar la prueba de la tarjeta «A/B TEST» y devuelve un link para revisarla. Corre sobre lo PUBLICADO: la tarjeta guardada, con sus ramas sumando 100 y cada una llevando a algo. Antes MaKo calcula cuánta gente hace falta por rama para ver el salto (efecto) y cuántos días tarda con el ritmo de los últimos 30; con poca gente lo dice («No llega en 60 días»). Mide «Respondió» (o «Agendó», si ése es el objetivo) y cuida que no bajen las agendas.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/empezar_prueba_ab`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8837,7 +8837,7 @@ curl -L \
 PROPONE detener la prueba de la tarjeta «A/B TEST»: desde ahí todos van a la rama A y no se declara ganador. Los que ya estaban en otra rama terminan su camino.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/detener_prueba_ab`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8865,7 +8865,7 @@ curl -L \
 PROPONE cambiar el texto (o el asunto de un email) de UNA tarjeta de WhatsApp o email, aunque haya ramas, y devuelve un link para revisarlo. Suelta las variantes del texto anterior. Una nota de voz, un archivo, uno de varias partes, el WhatsApp oficial o un email con diseño se cambian en el lienzo; un DM, con cambiar_botones_mensaje. El id de la tarjeta, en ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_texto_mensaje`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8896,7 +8896,7 @@ curl -L \
 Los leads detrás de un número de las Métricas, en los últimos 30 días: quiénes respondieron, quiénes siguen adentro o quiénes entraron. Úsala para seguir a los que contestaron.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/quienes_de_automatizacion`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8921,7 +8921,7 @@ curl -L \
 Los topes del negocio por día y por hora, la rampa del número de WhatsApp y la del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ver_limites_envio`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Automations»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -8943,7 +8943,7 @@ curl -L \
 PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email, y sus rampas. Mira antes ver_limites_envio.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_limites_envio`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.

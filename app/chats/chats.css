@@ -343,12 +343,18 @@
   flex: none;
   box-sizing: border-box;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--rio-border);
 }
+/* EN UN RENGLÓN (recorrido visual del 30/10/2026, CH2: «Etapa» caía sola a un segundo renglón en los 340 px de la lista).
+   Si no entran, la fila se corre de costado ADENTRO de su caja (AGENTS.md: «una fila de filtros» puede), sin recortar el
+   nombre que eligió cada negocio: recortado, un funnel elegido decía «Reno…» y una etapa «A…». El chip que asoma en el
+   borde es la pista de que hay más. Los menús van por portal (portalRio): el corte de la fila no los toca. */
+.rio .rio-filtros { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.rio .rio-filtros > * { flex: none; }
 /* El texto del chip se corta con «…»: un filtro con un nombre largo («Administrar Ventas y Soporte») no empuja al resto. */
 .rio .rio-chip-txt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
