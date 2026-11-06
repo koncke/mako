@@ -16,6 +16,15 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 ## Para medir en producción (lo hace una sesión local)
 
+0. **La 0410 (`correo_bajas`) YA ESTÁ APLICADA y verificada: 6/11/2026, desde la PC** (`leads` = 3.134, o sea el proyecto
+   correcto; `NOTIFY pgrst` hecho). Verificado en la base: las cinco columnas, el `unique (email, tipo)` —que es lo que hace
+   idempotente el upsert—, el `check` de minúsculas y el de `tipo`, los tres **probados insertando y revertido** (la tabla
+   quedó en 0 filas); RLS prendida y `anon`/`authenticated` sin ningún grant. Y por el camino que usa la app, no por SQL:
+   `GET /rest/v1/correo_bajas?tipo=eq.ticket-avance` da **200 y `[]`**, así que PostgREST ya la ve y el cron no se frena.
+   ⚠️ Esto **tenía que ir primero**: sin la tabla, la vuelta del cron no manda NINGÚN correo de avance y lo dice en su
+   renglón («falta la migración 0410»). Es a propósito —escribirle a quien pidió la baja es peor que un correo de menos—,
+   pero significa que desplegar el código sin la migración apaga los correos de todos.
+
 1. **Que la 0364 esté aplicada.** El commit dbc64bdd7 dice que sí. Si faltara, el cron lo escribe una vez: «falta la migración 0364».
    ```sql
    select column_name from information_schema.columns where table_name = 'tickets' and column_name in ('avance_email', 'avance_email_at');
@@ -32,14 +41,35 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 ## Lo que quedó afuera, a propósito
 
-- **Tickets sin cuenta** (por WhatsApp sin perfil, el alumno de un curso): no tienen dónde guardar «no me escribas». Si hace falta,
-  se necesita una tabla de bajas por email (una migración).
+- **Tickets sin cuenta** (por WhatsApp sin perfil, el alumno de un curso): **RESUELTO el 6/11** con la mig 0410
+  (`correo_bajas`, la baja por DIRECCIÓN). ⚠️ Y de paso se vio que la mitad de este renglón era falsa: a quien no tiene cuenta
+  nunca le salió un correo de avance (`decidirAvance` pide `usuario_id` y un email de verdad). Y el otro camino —quien tiene cuenta en DOS
+  negocios con la misma dirección— está MEDIDO y no le pasaba a nadie: el 6/11 había 0 direcciones duplicadas en `usuarios`.
+  O sea que la 0410 cerró el agujero ANTES de que pase, que para una baja de correo es el momento correcto, pero no hubo
+  ninguna persona recibiendo correos que había pedido no recibir. El detalle, en
+  docs/hallazgos-ticketera.md → «La baja de los correos estaba atada a una CUENTA».
 - **Los automáticos** (lo que MaKo abre solo): no mandan correo. MaKo ya se lo dijo en el chat.
-- **Una casilla en Notificaciones** para prenderlos y apagarlos: hoy se hace desde el link del correo, que también los vuelve a prender.
+- **Una casilla en Notificaciones** para prenderlos y apagarlos: hoy se hace desde el link del correo, que también los vuelve a
+  prender. **SIGUE PENDIENTE, con el motor ya hecho** (6/11): `cambiarBajaPorEmail` y `apagadosPorEmail`
+  (lib/tickets-baja-correo.ts) hacen las dos capas; falta la ruta en `app/api/perfil/` y la fila con el `Switch` en
+  `app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta resuelve a la persona por el EMAIL DE LA SESIÓN, no con `filaPropia`
+  (lib/perfil.ts), que usa `.maybeSingle()` sobre el email y tira con dos cuentas de la misma dirección.
 
 ## Tickets
 
-Los #50, #51, #52 y #53 los ve otro agente: no se tocan hasta que el Cerebro los pase.
+~~Los #50, #51, #52 y #53 los ve otro agente: no se tocan hasta que el Cerebro los pase.~~ **LOS CUATRO ESTÁN RESUELTOS**
+(medido en producción el 6/11/2026): los cuatro quedaron en `resuelto` el 4/11 entre las 08:45 y las 08:46 UTC, con el hito del
+deploy, el aviso al cliente y su correo de avance. Lo que entregó cada uno, del historial:
+
+| # | Qué quedó |
+|---|---|
+| 50 | En Chats, quien comentó tu publicación ya no dice «Mensaje no compatible», y los audios se pueden acelerar |
+| 51 | Con una imagen adjunta se puede grabar un audio, y el campo de Chats en el teléfono queda pegado al teclado |
+| 52 | La pantalla Plan ya no se vuelve a dibujar sola de noche |
+| 53 | Una mensualidad sin fecha de cierre ya no dice «Al día» en la ficha |
+
+⚠️ No hay que confirmar con nadie quién los tiene: ya no los tiene nadie. Este renglón quedó dos días diciendo que no se
+tocaran y es lo que hace que un chat los vuelva a tomar.
 
 ### #56 — Natalia (ws 19), «los leads de la campaña X con nombre y teléfono» · punta `punta/ticket-56`
 

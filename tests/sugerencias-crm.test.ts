@@ -56,6 +56,7 @@ import { join } from 'node:path';
 import {
   sugerenciasDelCrm, yaExiste, diasParadosDe, plantillaDeClave, parsearCalladas, conCallada, sinCalladas, sinCallada, estaCallada, claveCallada,
   dePantalla, esperaDePlantilla, pedidoParaElCerebro, UMBRALES_SUGERENCIAS, TOPE_TEXTO, CLAVE_CALLADAS,
+  claveHaciendo, haciendoseAhora, CANDADO_HACERLO_MS,
   type EntradaSugerencias, type LeadSug, type AutomatizacionSug, type Sugerencia,
 } from '../lib/sugerencias-crm';
 import { generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
@@ -491,4 +492,47 @@ test('el pedido que sale al Cerebro NOMBRA el CRM: «este CRM» no le dice nada'
   assert.ok(pedidos.length >= 5, `encontré ${pedidos.length} pedidos`);
   // (`\b` no ve la «é» como letra: «éste» se busca después de un espacio.)
   for (const p of pedidos) assert.doesNotMatch(pedidoParaElCerebro(p, 'X'), /\beste CRM\b|(?:^|\s)éste\b/i, p.slice(0, 70));
+});
+
+// ── «Hacerlo» dos veces: el candado vive en la BASE (#514, 6/11/2026) ────────
+
+test('el candado de «Hacerlo» tiene clave por CRM y por sugerencia, y VENCE', () => {
+  // Dos sugerencias distintas no se tapan entre sí, y la misma en otro CRM tampoco.
+  assert.notEqual(claveHaciendo(3, 'etapa:agenda'), claveHaciendo(3, 'etapa:agendaj2'));
+  assert.notEqual(claveHaciendo(3, 'etapa:agenda'), claveHaciendo(4, 'etapa:agenda'));
+  // El ws NO va en la clave: `app_settings` tiene PK (workspace_id, key) y lo escribe `cambiarSettingSi`
+  // con el ws del request. Lo que se chequea acá es que la clave no se coma el id del CRM.
+  assert.equal(claveHaciendo(12, 'x'), 'crm.sugerencias.haciendo:12|x');
+  assert.notEqual(claveHaciendo(1, '2|x'), claveHaciendo(12, 'x'));
+  // Vencimiento: tiene que ser MÁS que el techo de la ruta (maxDuration 420 s), si no un pedido vivo
+  // puede perder su propio candado y la segunda pestaña crea la segunda automatización.
+  const techoDeLaRuta = Number((leer('app/api/crm/mako/route.ts').match(/export const maxDuration = (\d+)/) ?? [])[1]);
+  assert.ok(techoDeLaRuta > 0, 'no encontré el maxDuration de la ruta');
+  assert.ok(CANDADO_HACERLO_MS > techoDeLaRuta * 1000, `el candado (${CANDADO_HACERLO_MS} ms) vence antes que el techo de la ruta (${techoDeLaRuta} s)`);
+  const ahora = Date.parse('2026-11-06T12:00:00.000Z');
+  const iso = (ms: number) => new Date(ahora - ms).toISOString();
+  assert.equal(haciendoseAhora(iso(1000), ahora), true, 'un candado recién puesto frena');
+  assert.equal(haciendoseAhora(iso(CANDADO_HACERLO_MS - 1), ahora), true);
+  assert.equal(haciendoseAhora(iso(CANDADO_HACERLO_MS), ahora), false, 'un candado vencido no frena a nadie: si no, la sugerencia queda muerta para siempre');
+  assert.equal(haciendoseAhora(null, ahora), false);
+  assert.equal(haciendoseAhora('', ahora), false);
+  assert.equal(haciendoseAhora('cualquier cosa', ahora), false, 'lo ilegible no es un candado');
+});
+
+test('el server reclama el candado en la BASE antes de calcular, y lo suelta SIEMPRE y sólo el suyo', () => {
+  const s = sinComentarios(leer('lib/sugerencias-crm-server.ts'));
+  const hacer = s.slice(s.indexOf('export async function hacerSugerencia'));
+  const i = (t: string) => { const k = hacer.indexOf(t); assert.notEqual(k, -1, `no encontré ${t}`); return k; };
+  // El `Set` del proceso queda como primer filtro barato, pero NO es el que decide: dos instancias
+  // serverless tienen un `Set` cada una y las dos lo pasaban.
+  assert.match(hacer, /const previo = await getSettingEstricto\(candado\);/, '«no pude leer» no puede valer por «no lo tiene nadie»');
+  assert.match(hacer, /if \(haciendoseAhora\(previo, Date\.now\(\)\)\) return YA_SE_ESTA;/);
+  assert.match(hacer, /if \(!\(await cambiarSettingSi\(candado, previo, reclamo\)\)\) return YA_SE_ESTA;/, 'el candado se toma con compare-and-set o no se toma');
+  // ANTES de calcular (que es lo que tarda, y donde las dos pestañas se cruzaban) y antes de crear.
+  assert.ok(i('cambiarSettingSi(candado') < i('await calcular('), 'calcula antes de reclamar: las dos pestañas vuelven a cruzarse');
+  assert.ok(i('cambiarSettingSi(candado') < i('crearDesdePlantilla('), 'crea sin haber reclamado el candado');
+  // Y SE SUELTA SIEMPRE: en el `finally`, y sólo si sigue siendo el mío (compara el valor).
+  const fin = hacer.slice(hacer.lastIndexOf('} finally {'));
+  assert.match(fin, /borrarSettingSi\(candado, reclamo\)/, 'un candado que no se suelta deja la sugerencia muerta para siempre');
+  assert.ok(!/borrarSetting\(candado\)/.test(hacer), 'borra el candado sin comparar: si venció y otro lo tomó, le suelta el de él');
 });

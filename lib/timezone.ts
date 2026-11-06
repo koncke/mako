@@ -154,6 +154,21 @@ export async function hoyEnWorkspace(date: Date = new Date()): Promise<string> {
   return hoyEnTz(await tzActual(), date);
 }
 
+/**
+ * El MISMO «hoy», pero si no se sabe de qué negocio es o no se puede leer su zona, TIRA.
+ *
+ * ⚠️ Para lo que DECIDE con el día, no para mostrarlo (AGENTS.md → «cuando la zona DECIDE algo … se usa
+ * `zonaDelNegocioEstricta`»). `hoyEnWorkspace` nunca tira: un 5xx de Supabase le da `ZONA_POR_DEFECTO`
+ * (Tijuana), y en un corte de plata eso falla ABIERTO — para un negocio al este de Tijuana el día cae
+ * un día ATRÁS, así que una reunión que ya pasó parece futura y el requisito no se exige. Sin negocio en
+ * contexto tampoco se adivina (el `?? OWNER_WS` silencioso es el día de OTRO cliente).
+ */
+export async function hoyEnWorkspaceEstricto(date: Date = new Date()): Promise<string> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new Error('No hay un negocio en contexto: no puedo saber qué día es «hoy» para él.');
+  return hoyEnTz(await zonaDelNegocioEstricta(ws), date);
+}
+
 // ── El escritor ───────────────────────────────────────────────────────────────────────────────────
 
 export type ResultadoZona = {

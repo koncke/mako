@@ -307,6 +307,29 @@ async function main() {
   const viejaMovioAvance = resumenPlan(filaPlan(v10.id));
   out.revision = { telCli, telAtorada, telPlan, antesEsc, escCli, cienFuera, escPlan, viejaNoTocoAvance, viejaMovioAvance };
 
+
+  // ── 11. EL TABLERO DEL CLIENTE NO ES TODA LA TABLA (#507, 6/11/2026) ───────
+  // `experimento_tareas` guarda tres cosas: el plan del negocio, lo que propuso una Retro y los
+  // pasos de un experimento. `listTareas()` no filtraba, así que el kanban del cliente las pintaba
+  // mezcladas. `listTareas({ soloDelPlan: true })` deja sólo las del Plan; sin la opción, todo
+  // (los lectores que necesitan la tabla entera no se tocan).
+  reset();
+  const delPlan = await enWs(() => todo.crearTarea({ titulo: 'del plan' }));
+  const aMano = await enWs(() => todo.crearTarea({ titulo: 'a mano', origen: 'manual' }));
+  const deRetro = await enWs(() => todo.crearTarea({ titulo: 'la propuso la Retro', origen: 'retro' }));
+  const dePaso = await enWs(() => todo.crearTarea({ titulo: 'paso de un experimento', origen: 'experimento' }));
+  // Y las dos que el `origen` NO delata: nacieron de una Retro o de un experimento por su columna.
+  const porRetroId = await enWs(() => todo.crearTarea({ titulo: 'de una Retro, con origen mako', origen: 'mako', retro_id: 7 }));
+  const porExpId = await enWs(() => todo.crearTarea({ titulo: 'de un experimento, a mano', origen: 'manual', experimento_id: 9 }));
+  const titulos = (ts: Array<{ titulo: string }>) => ts.map((t) => t.titulo).sort();
+  out.filtroDelPlan = {
+    creadas: [delPlan.id, aMano.id, deRetro.id, dePaso.id, porRetroId.id, porExpId.id].length,
+    todas: titulos(await enWs(() => todo.listTareas())),
+    soloDelPlan: titulos(await enWs(() => todo.listTareas({ soloDelPlan: true }))),
+    // La Retro sigue viendo las suyas por su propia lectura: el filtro no se las esconde.
+    deLaRetro: titulos(await enWs(() => todo.listTareasDeRetro(7))),
+  };
+
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }
 

@@ -6,6 +6,98 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## ⚠️ La marca de «ya le avisé» era TAMBIÉN el permiso para pausarlo, y se escribía antes de tener el PDF (6/11/2026)
+
+**Vive en:** `lib/agencia-mes.ts` (`corridaDeUnaAgencia`, paso 2, y `lecturaParaPausas`), `lib/agencia-mes-avisos.ts` (nuevo),
+`tests/agencia-mes.test.ts`. Encontrado auditando el primer cobro real del 9/11 ANTES de que saliera; no llegó a pasar.
+
+El aviso de la entrada de un cliente se manda una sola vez, y lo que lo cuida es un renglón en `app_settings` de la
+plataforma: `agencia.mensualidad.<ag>.avisoentrada.<cliente>.<día>`. El paso 2 del cron lo reclamaba **antes** de armar el
+PDF y lo soltaba sólo en la rama del `else` de `r.ok`:
+
+```ts
+for (…) if (await cambiarSettingSi(claves[i], null, valores[i])) ganadas.push(i);   // ① reclama
+if (ganadas.length) {
+  const pdf = await pdfDelCobro(tabla, m.hoy, m.agencia);                            // ② puede TIRAR
+  const r = await mandarPdfAlGrupoDeLaAgencia(…);                                    // ③ puede TIRAR
+  if (r.ok) entradas = ganadas.length;
+  else { ok = false; for (const i of ganadas) await borrarSettingSi(…); }            // ④ sólo con ok:false
+}
+```
+
+**El diagnóstico obvio era el equivocado.** Leído como un dedup, ① antes de ② es un detalle de orden: se manda un día
+después y no pasa nada. No es un dedup: ese MISMO renglón es el que `lecturaParaPausas` convierte en
+`avisoEntrada: true` (`lib/agencia-mes.ts`), y `quienVaEnPausa` **sólo pausa al cliente que recibió el aviso** —la regla
+«lo que no se le dijo no se exige», que tiene su test—. O sea que el renglón cierra dos puertas a la vez:
+
+1. el aviso queda filtrado **para siempre** (`porAvisar` descarta lo que ya tiene marca): no se reintenta ni mañana ni nunca;
+2. el cliente queda en «Paga para entrar» el día de su vencimiento, por una entrada que **nadie le mandó**.
+
+Y `④` no cubría ninguno de los dos caminos por los que se llega ahí, porque los dos **tiran** en vez de devolver
+`ok: false`: `cambiarSettingSi` tira con cualquier error de la base (así que una base que falla al reclamar la segunda
+marca deja la primera puesta sola, sin mandar nada), y `pdfDelCobro` / el envío tiran antes de contestar. El `catch` de
+`avisarMensualidades` los agarraba a los dos y devolvía `ok: false` con el error — **con las marcas puestas**.
+
+- **La regla que queda: lo que se manda se arma ANTES de reclamar la marca, y la marca se suelta también cuando algo TIRA.**
+  Vive en `reclamarYMandar` (`lib/agencia-mes-avisos.ts`), con la base inyectada, y es lo que hay que usar para todo aviso
+  de cobro que se mande una sola vez. El paso 1 (la mensualidad del mes) ya lo hacía bien —`pdfDelCobro` antes de
+  `avisarUnaVez`—, y `avisarPausasNuevas` también —escribe la marca **después** del envío—: el paso 2 era el único al revés.
+- **Una marca de idempotencia que además es un permiso se suelta con `try/finally`, no en una rama del resultado.** Mientras
+  un renglón signifique dos cosas («no lo repitas» y «ya se le avisó»), escribirlo de más no demora un aviso: autoriza una
+  pausa. Si alguna vez conviene separarlas, son dos renglones.
+- **Probado rompiéndolo:** con el `try/catch` sacado y la suelta sólo en el `else` del `ok` (el código de antes), la base da
+  **2 rojos de 42** — «el envío TIRA» y «la base TIRA al reclamar la segunda». Con el arreglo, 42 / 0.
+
+⚠️ **Lo que esto NO cubre:** que `pdfDelCobro` tire sigue cortando la corrida entera de esa agencia (el `catch` de
+`avisarMensualidades`), así que ese día tampoco se revisan sus pausas. Es el lado conservador a propósito —la regla 3 dice
+que un error nunca suspende— pero significa que un PDF roto deja a la agencia sin aviso Y sin pausas hasta que se arregle.
+
+## Nadie avisaba que una agencia no pagó: la pausa se veía, el impago no (#498, 6/11/2026)
+
+**Vive en:** `lib/agencia-mes-reglas.ts` (`textoDeMesImpago`, puro), `lib/agencia-mes.ts` (paso 4 de `corridaDeUnaAgencia`,
+`avisarAMartin`), `tests/agencia-mes.test.ts`.
+
+El día 6 sin el total del mes, la agencia y sus clientes quedan en pausa, y al grupo de la agencia le llega
+`textoDePausaDelMes`. A Martín, nada: `avisarAMartin` ya existía, pero sus únicos llamadores eran los del lector de
+comprobantes (dudoso, otra moneda, falla de lectura). Una agencia podía quedar meses sin pagar sin que se enterara nadie,
+porque el único lugar donde se veía era una pantalla a la que hay que entrar.
+
+- **La pausa no es el aviso.** Pausar es automático y silencioso para el que no está mirando; el que decide qué hacer con
+  una agencia que no paga (esperar, llamar, dar de baja) necesita que el dato lo busque a él. Son dos cosas distintas y
+  cada una tiene su destinatario: el grupo de la agencia y el grupo del super admin.
+- **`avisarAMartin` devuelve ahora si LLEGÓ** (`grupo || campanita`). Antes era `Promise<void>` y se comía los dos errores:
+  marcar «ya avisado» un aviso que no salió por ningún canal es perder el único aviso de que una agencia no pagó. El aviso
+  va por `avisarUnaVez`, así que un canal caído suelta la marca y mañana se reintenta.
+- **Se avisa pasado el límite, no el día del límite** (`m.hoy <= p.limite` no avisa): el 5 todavía se puede pagar. Y en
+  seco (`?dry=1`) no se avisa nada.
+
+## La guarda que faltaba: la plataforma era un cliente de agencia alcanzable (#495, 6/11/2026)
+
+**Vive en:** `lib/agencia-cobro-reglas.ts` (`clienteDeAgenciaTocable`, puro), `lib/agencia-baja.ts`, `lib/agencia-plan.ts`,
+`tests/agencia-cobro.test.ts`.
+
+El pendiente decía que estas guardas estaban en la rama `agency-thiago-2910` y había que portarlas. **La premisa era
+falsa**: la rama ya está mezclada en `main` (`git merge-base --is-ancestor` da sí, y el diff va al revés: main tiene +89
+líneas que la rama no). Tres de las seis cosas que el pendiente pedía ya estaban (`aplicarSubidasPendientes` con
+`.limit(2000)`, H5 aceptando `cubierto`, la pausa programada pidiendo al-día). Las otras **no estaban en ningún lado**:
+nunca se escribieron.
+
+- **Lo único que había entre una agencia y la cuenta de la plataforma era una AUSENCIA.** `darDeBajaClienteDeAgencia`
+  validaba enteros positivos y `agenciaWs !== clienteWs`, y después leía `agencia_clientes`; `cambiarPlanDeCliente` no
+  validaba **nada**. Con una fila apuntando `cliente_ws` al workspace de la plataforma, la baja llegaba a
+  `cancelarSuscripcionCobro` y `anularCobro` sobre los cobros de la plataforma y la dejaba pausada con el corte
+  `sin-agencia`. No es alcanzable desde la app de hoy —`abrirCuentaDePartner` siempre crea un workspace NUEVO, y es el
+  único `insert` a esa tabla—, pero lo que lo evitaba era que la fila no existiera, no una guarda.
+- **La regla que queda: lo que vale es la guarda de ADENTRO, no la ausencia del dato de afuera.** `clienteDeAgenciaTocable`
+  es pura, corre ANTES de leer la cartera (el test lo fija comparando las posiciones en el archivo) y la contesta el mismo
+  error que «no es de tu agencia»: a una agencia no se le dice cuál es el ws de la plataforma.
+- **`wsSuperAdmin()` cae a 9 si no encuentra la fila `capa = 'superadmin'`**, así que el número se resuelve afuera y se
+  pasa: la guarda no adivina. Un 9 de más es un falso positivo que no cobra de menos.
+- **Lo que sigue SIN hacer, y lo vi de paso:** `negocioPausado` (`lib/workspace.ts`) no exime al ws1 ni a la plataforma —si
+  queda `pausado` con un corte `paga-para-entrar` vigente, el super admin se queda afuera de la herramienta con la que
+  arreglaría el cobro—; y `darDeBajaClienteDeAgencia` consulta `tienePlanPropioVivo` **después** de haber cancelado y
+  anulado (es deliberado, para que un reintento no pause a quien ya paga su plan, y está comentado: no lo toqué).
+
 ## La mensualidad de una agencia: 14 días sin costo y un pago por mes, por fuera de MaKo (5/11/2026)
 
 **Vive en:** `lib/agencia-mes-reglas.ts` (lo puro, con `tests/agencia-mes.test.ts`), `lib/agencia-mes.ts` (leer, escribir, avisar),

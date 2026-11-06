@@ -874,3 +874,103 @@ test('la lista de fotos se achica para entrar: no tira un pedido que no tiene qu
   assert.equal(muchas.length, 40);
   void editor;
 });
+
+// ── Lo que la persona LEE cuando un cambio no se aplica (encargo del 6/11/2026) ──────────────────
+// El motivo de un descarte se dibuja tal cual en el panel («No se aplica: …», PanelMakoIA.tsx), así que es texto de
+// pantalla: no puede nombrar un campo del JSON del catálogo, el id de una operación ni un formato interno. Decía cosas
+// como «estilo no es algo de cambiar_texto», «un texto nuevo con una ref inválida» y «un color que no es #RRGGBB».
+// Lo técnico no se perdió: `validarOperaciones` lo manda a la consola con la operación entera.
+test('ningún motivo visible nombra un campo del JSON, un id de operación ni un formato interno', () => {
+  // Operaciones malformadas a propósito, una por familia de motivo. No importa que la IA las produzca: lo que se fija
+  // es que NINGÚN camino de rechazo pueda escribir jerga en la pantalla.
+  const malas: unknown[] = [
+    null, 42, 'texto', {}, { op: '' },
+    { op: 'inventada_por_la_ia' },
+    { op: 'cambiar_texto', ref: 'e1', texto: 'x', estilo: { fuente: '<script>' } },
+    { op: 'cambiar_texto', ref: 'e1', texto: 'x', campoQueNoVa: 1 },
+    { op: 'cambiar_texto', ref: 'e1' },
+    { op: 'estilo_texto', ref: 'e1' },
+    { op: 'estilo_texto', ref: 'e1', tamano: 99999 },
+    { op: 'estilo_texto', ref: 'e1', color: 'rojo' },
+    { op: 'estilo_texto', ref: 'e1', mayusculas: 'gritado' },
+    { op: 'estilo_texto', ref: 'e1', interlineado: 99 },
+    { op: 'estilo_texto', ref: 'e1', espaciado: 99999 },
+    { op: 'estilo_texto', ref: 'e1', alineacion: 'diagonal' },
+    { op: 'estilo_texto', ref: 'e1', negrita: 'si' },
+    { op: 'agregar_texto', texto: '' },
+    { op: 'agregar_texto', texto: 'x', pagina: 'zzz' },
+    { op: 'agregar_texto', texto: 'x', x: 999999 },
+    { op: 'agregar_texto', texto: 'x', ancho: -5 },
+    { op: 'agregar_texto', texto: 'x', ref: 'e1' },
+    { op: 'mover', ref: 'e1' },
+    { op: 'mover', ref: 'e1', x: 999999 },
+    { op: 'tamano', ref: 'e1', escala: 2, ancho: 10 },
+    { op: 'tamano', ref: 'e1', escala: 99999 },
+    { op: 'tamano', ref: 'e1' },
+    { op: 'tamano', ref: 'e1', ancho: 999999 },
+    { op: 'girar', ref: 'e1', grados: 9999 },
+    { op: 'opacidad', ref: 'e1', opacidad: 500 },
+    { op: 'color', ref: 'e1', color: 'verde' },
+    { op: 'borde', ref: 'e1' },
+    { op: 'borde', ref: 'e1', color: 'azul' },
+    { op: 'borde', ref: 'e1', grosor: 9999 },
+    { op: 'borrar', refs: [] },
+    { op: 'alinear', refs: ['e1'] },
+    { op: 'duplicar', ref: 'e1', corrido: 999999 },
+    { op: 'duplicar', ref: 'e1', nueva: 'zzz' },
+    { op: 'orden', ref: 'e1' },
+    { op: 'bloquear', ref: 'e1' },
+    { op: 'fondo_color', color: 'gris' },
+    { op: 'fondo_color', color: '#fff', pagina: 'zzz' },
+    { op: 'agregar_pagina', despues: 'zzz' },
+    { op: 'agregar_pagina', duplicar: 'si' },
+    { op: 'agregar_pagina', nueva: 'e1' },
+    { op: 'borrar_pagina' },
+    { op: 'agregar_forma', forma: 'triangulo' },
+    { op: 'agregar_forma', forma: 'circulo', ancho: -1 },
+    { op: 'agregar_forma', forma: 'circulo', color: 'rosa' },
+    { op: 'agregar_forma', forma: 'circulo', pagina: 'zzz' },
+    { op: 'agregar_forma', forma: 'circulo', nueva: 'e1' },
+    { op: 'agregar_foto', foto: 'zzz' },
+    { op: 'agregar_foto', foto: 'o1', x: 999999 },
+    { op: 'agregar_foto', foto: 'o1', ancho: -1 },
+    { op: 'agregar_foto', foto: 'o1', cubrir: 'si' },
+    { op: 'agregar_foto', foto: 'o1', pagina: 'zzz' },
+    { op: 'agregar_foto', foto: 'o1', nueva: 'e1' },
+    { op: 'fondo_foto', foto: 'zzz' },
+    { op: 'fondo_foto', foto: 'o1', pagina: 'zzz' },
+  ];
+  // ⚠️ LO PROHIBIDO NO SON «LOS IDS DE LAS OPERACIONES»: varios son palabras castellanas perfectamente legibles
+  //    (`duplicar`, `alinear`, `orden`, `color`, `borde`, `mover`, `girar`, `bloquear`, `borrar`), y un motivo que las usa
+  //    está BIEN («un alinear sin decir hacia dónde»). Prohibir el id entero daba rojos falsos sobre texto correcto, que
+  //    es la otra forma de romper esto. Lo que no puede aparecer nunca, porque no es castellano:
+  //      · un identificador snake_case (`cambiar_texto`, `agregar_pagina`): es, exactamente, la forma del bug de antes;
+  //      · un campo del JSON entre guillemets (`«estilo»`, `«cubrir»`, `«a»`): la otra forma del mismo bug;
+  //      · un formato o literal interno (#RRGGBB, true/false/null, «n1», «la vista», JSON);
+  //      · `ref` / `refs` como palabra suelta, que es jerga pura y no significa nada para nadie.
+  const snake = OPERACIONES_CHAT_IMAGEN.map((o) => o.op).filter((op) => op.includes('_'));
+  const camposJson = ['estilo', 'ref', 'refs', 'nueva', 'pagina', 'despues', 'cubrir', 'duplicar', 'corrido', 'grados', 'alineacion', 'mayusculas', 'tamano', 'a'];
+  const literales = ['#RRGGBB', 'true', 'false', 'null', 'undefined', 'JSON', 'la vista', 'n1', 'n2'];
+  const vistos: string[] = [];
+  const falla = (motivo: string, que: string) =>
+    `el motivo «${motivo}» nombra ${que}, que es interno: eso lo LEE la persona en «No se aplica: …». ` +
+    'Lo técnico va al console.warn de validarOperaciones, no al texto.';
+  for (const mala of malas) {
+    const v = validarOperacion(mala);
+    if (v.ok) continue;   // alguna puede validar si el catálogo cambió: no es lo que se mide acá
+    vistos.push(v.motivo);
+    const bajo = v.motivo.toLowerCase();
+    for (const id of snake) assert.ok(!bajo.includes(id.toLowerCase()), falla(v.motivo, `el id interno «${id}»`));
+    for (const l of literales) assert.ok(!bajo.includes(l.toLowerCase()), falla(v.motivo, `el literal «${l}»`));
+    for (const c of camposJson) {
+      assert.ok(!bajo.includes(`«${c}»`), falla(v.motivo, `el campo del JSON «${c}»`));
+      if (c === 'ref' || c === 'refs') {
+        assert.ok(!new RegExp(String.raw`\b${c}\b`).test(bajo), falla(v.motivo, `la palabra «${c}»`));
+      }
+    }
+    // Y es corto: se dibujan hasta tres juntos, separados por « · ».
+    assert.ok(v.motivo.length <= 90, `el motivo «${v.motivo}» tiene ${v.motivo.length} caracteres: no entra en la línea`);
+    assert.ok(!/^[A-Z]/.test(v.motivo), `el motivo «${v.motivo}» arranca en mayúscula: se concatena en una frase`);
+  }
+  assert.ok(vistos.length >= 40, `sólo ${vistos.length} de ${malas.length} operaciones se rechazaron: ¿cambió el catálogo?`);
+});
