@@ -15,6 +15,43 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
+
+**Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
+El CRM resultó estar limpio —todas sus iniciales ya salen de `iniciales()`— pero el mismo bug estaba
+vivo en **los tres lugares de Spy**: `SpyApp.tsx` (`const inicial`), `BuscadorAlta.tsx` (ídem) y
+`DetallePieza.tsx` (`nombre.slice(0, 1)`).
+
+**Por qué en Spy es peor que en cualquier otra tab:** los nombres los trae **Instagram**, donde el
+emoji en el nombre es la norma, no la excepción. «🔥 Alex Hormozi» es un nombre de perfil normal.
+
+**La falla.** `charAt(0)` y `slice(0, 1)` toman la primera **unidad UTF-16**, no el primer carácter:
+de un emoji, media pieza. El HTML del server no puede llevar media pieza (sale «�»), el navegador sí
+la tiene, y React ve dos textos distintos al hidratar y **tira el árbol entero**: no se rompe el
+avatar, se cae la pantalla. Ya había pasado dos veces, en `/calendario` (ticket #10, 27/10) y en el
+CRM (ticket #39, 1/11).
+
+⚠️ **Por qué sobrevivió a DOS barridos.** La guarda de toda la app
+(`tests/iniciales-con-emoji.test.ts`) buscaba las formas de **muchas** palabras —`split(/\s+/)` con
+`.map((w) => w[0])`, `${p[0][0]}${p[1][0]}`—. Una inicial de **UNA letra** no tiene ninguna de esas
+formas, así que pasaba limpia. **La guarda medía la forma del código viejo, no la falla.** Ahora el
+caso 3 del mismo test marca cualquier `charAt(0)` / `slice(0, 1)` / `[0]` seguido de `toUpperCase()`
+que **tire el resto** (la línea que conserva el resto con `slice(1)` es poner la mayúscula, y no corta
+nada: ésa no se marca).
+
+⚠️ **Y un falso positivo que vale saber:** `app/admin/_polar/orbit/components/Avatar.tsx` usa
+`charAt(0)` y **no** es un bug, porque antes limpia todo lo que no sea `[a-zA-Z ]`: el emoji ya no
+está cuando indexa. Los ports de código ajeno (`_opencut`, `_doory`, `_polar`) quedan afuera de la
+guarda por eso.
+
+**Lo que NO se pudo cerrar: el ticket #39 no se reprodujo.** Medido en `errores_app` (producción):
+pasó **una sola vez**, el 1/11 11:35, en `/crm?funnel=17` del negocio 15, y **no volvió en cinco días**
+de uso diario. Su mensaje es `args[]=HTML` (la estructura no coincide), no `args[]=text` como el del
+emoji y como el de `/plan` (ticket #52, ws 11, 3 veces, ya resuelto en `30af8f732`: el plazo de la
+tarjeta se calculaba en el server). Con una sola aparición y sin forma de reproducirlo, **no se tocó
+el CRM a ciegas**: se arregló la clase donde sí estaba viva y se dejó la guarda que la caza en
+cualquier pantalla nueva.
+
 ### `ad_type=ALL` de la Ad Library no significa «todos los anuncios»
 
 El enum de `ad_type` es **temático** (`ALL, EMPLOYMENT_ADS, FINANCIAL_PRODUCTS_AND_SERVICES_ADS,

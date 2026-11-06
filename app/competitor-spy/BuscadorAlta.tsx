@@ -30,6 +30,7 @@ import { LogoRed } from './LogoRed';
 import { useConectarIntegracion } from '../_components/ConectarIntegracion';
 import { fotoPorNosotros } from '@/lib/foto-instagram-reglas';
 import { dibujarContador } from '@/lib/spy-reglas';
+import { iniciales } from '@/lib/unicode-seguro';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { ESPERA_COMPLETAR_MS, coincideCompetidor } from '@/lib/spy-alta-reglas';
 import {
@@ -131,7 +132,9 @@ const FLECHA = (
   </svg>
 );
 
-const inicial = (s: string) => s.replace(/^@/, '').charAt(0).toUpperCase() || '?';
+// De la pieza de la casa, no de `charAt(0)`: ver el porqué en SpyApp.tsx (media pieza de emoji tira la pantalla al
+// hidratar). `iniciales` ya saltea el «@» y el emoji.
+const inicial = (s: string) => iniciales(s, 1, '?');
 const sinProtocolo = (s: string) => s.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
 // El logo de cada red es `LogoRed` (./LogoRed.tsx): el mismo en toda la tab.

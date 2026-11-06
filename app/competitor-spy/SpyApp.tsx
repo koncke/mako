@@ -63,6 +63,7 @@ import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import type { NombreIconoMenu } from '../_ui/iconos-menu';
 import { dibujarContador } from '@/lib/spy-reglas';
+import { iniciales } from '@/lib/unicode-seguro';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
@@ -606,7 +607,11 @@ type Pestana = 'contenido' | 'funnel';
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
 
-const inicial = (nombre: string): string => nombre.replace(/^@/, '').charAt(0).toUpperCase() || '·';
+// La inicial sale de la pieza de la casa, no de `charAt(0)`: la primera UNIDAD UTF-16 de «🔥 Alex Hormozi» es media
+// pieza del emoji, el HTML del server no la puede llevar («�») y el navegador sí, y React tira la PANTALLA ENTERA al
+// hidratar (#418). Ya pasó dos veces: el ticket #10 en /calendario y el #39 en el CRM. Y en Spy los nombres vienen de
+// Instagram, donde el emoji en el nombre es la norma. `iniciales` saltea el emoji y el «@», así que no hay que limpiarlo.
+const inicial = (nombre: string): string => iniciales(nombre, 1, '·');
 
 function Vacio({ titulo, children, botones, icono }: { titulo: string; children?: React.ReactNode; botones?: React.ReactNode; icono?: React.ReactNode }) {
   return (

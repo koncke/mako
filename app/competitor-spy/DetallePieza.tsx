@@ -26,6 +26,7 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import { MakoStar } from '../_components/MakoBrand';
 import { BotonIntegracion } from '../_components/ConectarIntegracion';
 import { LogoRed, redDePieza } from './LogoRed';
+import { iniciales } from '@/lib/unicode-seguro';
 import { Modal } from '@/app/_ui/Modal';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -289,7 +290,9 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
         <div className="spyd-info">
           <div className="spyd-quien">
             {/* eslint-disable-next-line @next/next/no-img-element -- su foto ya está en nuestro Storage o en el CDN de su red */}
-            {cara ? <img src={cara} alt="" referrerPolicy="no-referrer" /> : <span data-cara aria-hidden>{nombre.slice(0, 1).toUpperCase()}</span>}
+            {/* La inicial, de la pieza de la casa: `slice(0, 1)` de «🔥 Alex» es media pieza del emoji y tira la pantalla
+                al hidratar (ver SpyApp.tsx). En Spy los nombres vienen de Instagram, donde el emoji es la norma. */}
+            {cara ? <img src={cara} alt="" referrerPolicy="no-referrer" /> : <span data-cara aria-hidden>{iniciales(nombre, 1, '·')}</span>}
             <div>
               <b>{nombre}</b>
               {seguidores && <small>{seguidores}</small>}
