@@ -1,91 +1,108 @@
-# Relevo — la mensualidad de una agencia (nube, 5/11/2026)
+# Relevo — el cobro automático de las agencias (nube, 6/11/2026)
 
-> Lo escribió la sesión de la nube que lo construyó (cuenta `nube`, sesión `cli_6296ebf3-1e24-5957-8413-d80fe6d457fb`). Esta
-> sesión no le puede escribir al Cerebro: todo lo que hace falta está acá. Lo que no se ve en el código, en
-> [docs/hallazgos-agencias.md](../hallazgos-agencias.md) → «La mensualidad de una agencia».
+> Lo escribió la sesión de la nube que lo construyó (cuenta `nube`, sesión `cli_72e438bf-f295-5e72-888d-863b786b03a4`), sobre lo que
+> había dejado en main la sesión `cli_6296ebf3…` (la mensualidad del acuerdo del 30/10, apagada). **Esta sesión no vio la base ni
+> producción**: lo «medido» es en la nube (tests y tipos). Entrega por **`punta/agencia-cobro-2`**. Lo que no se ve en el código, en
+> [docs/hallazgos-agencias.md](../hallazgos-agencias.md) → «La segunda vuelta».
+>
+> **Fecha que manda: lunes 9/11.** Pablo arranca campañas y paga su entrada ese día; Giselle vence el 11/11. Los pasos de abajo tienen que
+> estar hechos ANTES del lunes, y el paso 4 antes del 9/11 a las 14:07 UTC (el cron que le manda a Código el PDF de la entrada de Giselle).
 
-## ⚠️ Lo que Martín pidió DESPUÉS de esta tanda, y no está (5/11/2026, por la tarde)
+## Para decirle a Martín, con estas palabras
 
-Esta punta se construyó con el acuerdo del 30/10. Martín lo cambió el 5/11, y sus reglas ganan sobre lo que dice abajo:
+- **La mensualidad de Código ya corre sola**, por el grupo de MaKo con la agencia, nunca con sus clientes:
+  - **el 1 de cada mes**, el PDF con la mensualidad renglón por renglón (diciembre: **US$ 426** con los siete);
+  - **dos días antes de que un cliente empiece**, el PDF de su entrada: sus días hasta el próximo 5, sin contar ese 5. Pablo, si entra el 9/11:
+    **26 días, US$ 40,73**; Giselle el 11/11: **US$ 37,60**; Marcela el 13/11: **US$ 34,47**; Patricia, **US$ 1,5667 por día** desde que entre.
+- **Mandan la captura de Binance al grupo y MaKo la anota sola**, saca el recibo y contesta ahí. Un pago menor queda a cuenta y MaKo dice
+  cuánto falta. **Lo dudoso te llega a ti** (al grupo de SuperAdmin), y a ellos MaKo les dice que lo revisa el equipo.
+- **«Paga para entrar», sola:** el cliente que no paga su entrada a tiempo queda en pausa y su cliente ve «Contacta a tu agencia», sin montos.
+  **El día 6 sin la mensualidad**, la agencia y todos sus clientes. **Pagado, vuelven a entrar solos.** No se toca nada de Meta. Si la base falla,
+  no se pausa a nadie.
+- **Lo que tienes que hacer tú:** nada, salvo cuando MaKo te mande un comprobante para revisar. Ahí le dices a MaKo «marcá pagada la entrada de
+  Pablo con la orden …» (o la mensualidad), y sale el recibo.
 
-- **Avisos del 1 al 5 al grupo de WhatsApp de MaKo con la agencia, con PDF ítem por ítem**, y MaKo pide el comprobante ahí. Nunca a los clientes de la agencia. Acá: por la app y por correo, sin PDF.
-- **Diferencial por día, igual para todos:** cada cliente paga sus días desde que empieza hasta el próximo 5, sin contar ese 5 (US$47 ÷ días del ciclo). Acá: `COBRA_LOS_DIAS_DEL_PRIMER_MES` suma días a la mensualidad siguiente. Da otros números: noviembre fueron US$238, no US$285, y diciembre son US$426, no US$527,83.
-- **Suspensión sola:** el día 6 sin el total se suspenden la agencia y todos sus clientes; una cuenta que pasa las 2 semanas sin pagar se suspende sola. Un error de la base nunca suspende. Acá: no hay nada que suspenda.
-- **El estado «Paga para entrar»** de Pablo y Patricia: no está. Hoy siguen suspendidos a mano.
+## Lo que tiene que hacer el Cerebro, en este orden
 
-No prender la mensualidad del negocio 13 hasta que esto esté: el aviso le diría otro total. El detalle está en la memoria del Cerebro (`cobro-agencia-codigo`).
-
-## Lo pedido
-
-El cobro de una agencia según lo acordado con Código Inmobiliario (Juanfran y Joan, negocio 13) el 30/10/2026: la agencia paga su
-plan (Pro, US$97) y cada cliente el suyo (Esencial, US$47, del catálogo de planes); desde que la agencia invita a un cliente corren
-14 días sin costo y después cuenta; si lo dan de baja antes, no se cobra; se paga una vez por mes, del 1 al 5, por Binance. El día 1,
-aviso a los admins de la agencia con el total y el detalle, por la app y por correo (WhatsApp no: grupos apagados desde el ban del
-3/11); y un aviso 2 días antes de que venza el plazo de un cliente. MaKo no cobra nada: calcula y avisa.
-
-## Lo hecho (punta `punta/agencia-cobro`)
-
-- **Reglas puras** — `lib/agencia-mes-reglas.ts`, con `tests/agencia-mes.test.ts` (16 casos, probado rompiéndolo: cada rotura cae,
-  renombrar una variable no). El caso real al 5/11: Brigitte, Natalia, Sergio, Pablo y Patricia cuentan; Giselle (con la fecha
-  corregida al 28/10) sin costo hasta el 11/11 y Marcela hasta el 13/11. **Noviembre = US$ 285** (Pro + Brigitte, Natalia, Pablo y
-  Sergio, que cuentan el 1/11).
-- **Servidor** — `lib/agencia-mes.ts`: leer la mensualidad, marcar «Pagado» (y quitarlo), corregir la fecha de un cliente, prender o
-  apagar, y los avisos.
-- **Pantalla** — en `/agency` (el Agency Dashboard; el pedido decía «/agencia», que es el panel del canal de MaKo del super admin):
-  la tarjeta del mes (total, renglones, hasta cuándo se paga, «Pagado»), la columna «Mensualidad» de la lista (desde cuándo cuenta
-  cada uno, o hasta cuándo está sin costo) y, para el super admin, «Marcar pagado», «Corregir fecha» (en la ficha de la cuenta) y
-  prender o apagar. Se miró con datos de ejemplo a 1440 y 1024 (sin base en la nube): sin desbordes.
-- **Cron** — `app/api/cron/agencia-mensualidad` (`7 14 * * *`): del 1 al 5 el aviso del mes, una vez y no si está pagado; y el de los
-  clientes a los que les quedan 1 o 2 días. Por las notificaciones de la app y por correo a los admins. `?dry=1` dice qué saldría.
-- **API de MaKo** — `ver_mensualidad_agencia` (área cs, la agencia) y, para el super admin (área cobros, sólo la plataforma, sin HTTP):
-  `ver_mensualidades_agencias`, `marcar_mensualidad_pagada`, `corregir_reloj_mensualidad`, `prender_mensualidad_agencia`. Las tres que
-  escriben están en `NO_EN_FLUJOS`.
-- **Bitácora** — `app/admin/dev/payment-gateway/bitacora.ts` (el pedido y lo hecho).
-
-## La decisión que tomé (el acuerdo no la decía)
-
-Lo que se paga del 1 al 5 es ESE mes, por adelantado, por los que cuentan el día 1. Un cliente que empieza a contar a mitad de mes
-suma sus días de ese mes a la mensualidad siguiente, por día. Con la cartera de hoy y sin bajas, **diciembre = US$ 527,83** (Pro, los
-siete, y los días de noviembre de Patricia, Giselle y Marcela). Si Martín prefiere no cobrar esos días: `COBRA_LOS_DIAS_DEL_PRIMER_MES
-= false` en `lib/agencia-mes-reglas.ts` (diciembre quedaría en US$ 426).
-
-## Lo que falta, en orden (es del Cerebro, desde la PC)
-
-1. **Aplicar la migración** `supabase/migrations/0402_agencia_cobra_desde.sql` (sólo agrega `agencia_clientes.cobra_desde date`, sin
-   aplicar). Número elegido barriendo main, las 377 ramas y etiquetas de origin: el más alto era 0393. Orden: da igual, el código
-   tolera que falte (sin ella, «Corregir fecha» dice que falta).
+1. **Las migraciones** (sólo agregan; el código tolera que falten, pero sin la 0403 el comprobante del grupo no deja su lectura guardada):
 
    ```bash
    node scripts/apply-migration.mjs supabase/migrations/0402_agencia_cobra_desde.sql
    ```
 
-2. **Corregir la fecha de Giselle (negocio 17) al 2026-10-28**: en `/agency?ws=13` (super admin) → su cuenta → «Corregir fecha», o
-   por MaKo con `corregir_reloj_mensualidad` (agenciaWs 13, clienteWs 17, dia 2026-10-28). Sin esto cuenta desde el 12/10.
-3. **Mirar la cartera real antes de prender**: `ver_mensualidades_agencias` con agenciaWs 13, o `/agency?ws=13`. El pedido separaba
-   «Pablo y Patricia ya vencieron» de «Natalia cuenta» con Natalia y Pablo invitados el mismo día (14/10): por las reglas los dos
-   cuentan desde el 28/10. Si la base dice otra cosa (otra fecha, una baja), vale la base.
-4. **Prender la mensualidad del 13 desde 2026-11**: botón «Prender desde noviembre» en `/agency?ws=13`, o `prender_mensualidad_agencia`
-   (agenciaWs 13, desde 2026-11). Está apagada para todas las agencias: así no le llega «paga por Binance» a quien paga por pasarela.
-   ⚠️ Prenderla hoy (5/11) hace que el cron de hoy mande el aviso de noviembre si todavía no está marcado pagado (el aviso del mes
-   prueba del 1 al 5). Si noviembre ya está pagado, marcarlo «Pagado» antes de prenderla, o prenderla desde 2026-12.
-5. Correr el cron en seco y mirar qué saldría:
+   ```bash
+   node scripts/apply-migration.mjs supabase/migrations/0403_comprobantes_del_grupo.sql
+   ```
+
+   La 0402 puede estar aplicada ya (era el paso 1 del relevo anterior): es idempotente. La 0403 se eligió barriendo main (llega a 0402) y
+   todas las ramas y etiquetas de origin el 6/11: si el chat de Admin tomó la 0403 antes, se renombra el archivo (el código no la nombra).
+2. **El deploy:** la punta `punta/agencia-cobro-2` llega a main con el verde de `punta.yml`; «en producción» es el deploy de Vercel en «Ready».
+3. **La fecha de Giselle (negocio 17) al 2026-10-28**, si no se hizo: en `/agency?ws=13` → su cuenta → «Corregir fecha», o por MaKo
+   `corregir_reloj_mensualidad` (agenciaWs 13, clienteWs 17, dia 2026-10-28). Sin esto cuenta desde el 12/10 y no paga entrada.
+4. **Prender la mensualidad del 13, desde diciembre, con las entradas desde hoy:** por MaKo `prender_mensualidad_agencia` con agenciaWs 13,
+   desde 2026-12, entradasDesde = el día que se prende (ej. 2026-11-07), medio Binance. (El botón de `/agency?ws=13` hace lo mismo: prende desde el
+   mes siguiente y las entradas desde hoy.) Noviembre se cobró a mano: no se avisa ni se exige. Brigitte, Natalia y Sergio, cuyos 14 días
+   terminaron antes, cuentan como «de antes» y no pagan entrada.
+5. **Pablo, Patricia y el usuario 15 a «Paga para entrar».** Hoy están suspendidos a mano (`usuarios.estado='suspendido'`). Primero en seco:
+
+   ```bash
+   node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/agencia-paga-para-entrar.mts --usuarios 19,22,15
+   ```
+
+   Mirar lo que lista (de qué cuenta es cada uno, de qué agencia, cómo está). Si está bien, lo mismo con `--aplicar`. Pausa la CUENTA con el corte
+   `paga-para-entrar` (causa `entrada`) y recién después reactiva a la persona: nunca hay un momento en que entre sin pagar. ⚠️ Si alguno es de la
+   agencia misma, o de una cuenta que no es cliente aprobado de una agencia con la mensualidad prendida, lo lista y NO lo toca: eso lo decide
+   Martín. Necesita el paso 4 antes (si la mensualidad está apagada, no toca a nadie).
+6. **El cron en seco**, y mirar qué saldría y a quién pausaría:
 
    ```bash
    curl -s -H "Authorization: Bearer $CRON_SECRET" "https://hola-mako.com/api/cron/agencia-mensualidad?dry=1"
    ```
 
-## Cómo probarlo en el negocio de prueba (nunca en el ws1)
+   El 7 u 8/11 tiene que decir: nada del mes (diciembre se avisa el 1/12), ninguna entrada todavía (Giselle sale el 9/11) y ninguna pausa nueva
+   (Pablo y Patricia ya están). El 9/11: «Entrada de Giselle: US$ 37,60».
+7. **Mirar `/agency?ws=13`** (el super admin): la tarjeta de diciembre en US$ 332 proyectado (Pro, Brigitte, Natalia, Sergio, Giselle y Marcela;
+   Pablo y Patricia entran cuando paguen), «Entradas por pagar» con Pablo y Patricia en lo de hoy, y «En pausa: Pablo · Patricia».
+8. **Las tres tareas programadas** (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) avisan y no escriben: pueden quedar o apagarse.
 
-No hay una agencia de prueba: el Cliente de Prueba (ws 3) no es agencia. Lo que se puede probar sin tocar a Código:
+## Qué se construyó
 
-- Las reglas: `node --import tsx --test tests/agencia-mes.test.ts`.
-- La pantalla con la mensualidad APAGADA: el super admin en `/agency?ws=13` ve la tarjeta «Mensualidad · apagada» con cómo quedaría el
-  mes, y la columna «Mensualidad»; eso no escribe nada ni le avisa a nadie.
-- ⚠️ Prender la mensualidad del 13 o marcar un mes le llega a la agencia real (el aviso del día 1, el de los plazos). Para probar el
-  aviso sin ellos: una agencia de prueba haría falta (un negocio con capa `agencia`, fila en `agencias` y un cliente en
-  `agencia_clientes` cuyo admin sea un correo de MaKo). No la creé: escribir en producción es del Cerebro.
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Las reglas | `lib/agencia-mes-reglas.ts` | el ciclo del 5 al 5, `diferencialDe`, en qué está cada cliente, la mensualidad de un mes, `asignarPago` (exacto, combinación, parcial, de más, ambiguo), `quienVaEnPausa`, `pasoDePausa`, los textos y las tablas |
+| La pausa | `lib/agencia-mes-pausas.ts` | aplica «Paga para entrar» con la base inyectada; una lectura que falla no pausa ni reabre |
+| El servidor | `lib/agencia-mes.ts` | lee el libro y las cuentas (estricto), los PDF al grupo (copia al hilo de la app antes, `anotarLoDelEquipo` después), aplica un pago, el recibo de lo completo (`mensualidad:<ag>:<mes>`, `diferencial:<ag>:<cliente>:<ciclo>`), la corrida del cron |
+| El comprobante | `lib/agencia-mes-comprobante.ts` + `lib/mako-doer-in.ts` | una foto o PDF de una persona en el grupo de una agencia con la mensualidad prendida se lee ANTES del turno de MaKo; si es un comprobante, se atiende y el turno no corre |
+| El PDF | `lib/agencia-mes-pdf.ts` | el aviso de cobro, con el aspecto del recibo, determinista |
+| El corte | `lib/plan-acceso-reglas.ts`, `lib/workspace.ts` | el motivo `paga-para-entrar`: corta aunque el corte general esté apagado; /cuenta-pausada dice «Contacta a tu agencia» (a la agencia: el comprobante al grupo) |
+| La migración | `supabase/migrations/0403_comprobantes_del_grupo.sql` | `comprobantes_leidos` acepta la fila del grupo sin lead (`origen='grupo'`) y `aplicado_a` |
+| El script | `scripts/agencia-paga-para-entrar.mts` | los usuarios suspendidos a mano, al estado nuevo |
+| La pantalla | `app/agency/Mensualidad.tsx`, `AgencyApp.tsx`, `actions.ts` | el mes con lo que entró y lo que falta, «Entradas por pagar» con «Marcar pagada», quién está en pausa |
+| La API de MaKo | `lib/api-mako/areas/cobros.*` | **nueva:** `marcar_entrada_pagada`; `marcar_mensualidad_pagada` con `orden` (y monto) saca el recibo; `prender_mensualidad_agencia` con `entradasDesde`; `ver_mensualidades_agencias` y `ver_mensualidad_agencia` con lo que se debe hoy y quién está en pausa. Las que escriben, en `NO_EN_FLUJOS`; ninguna por HTTP |
 
-## Sin verificar
+## Decisiones que tomé (con su porqué)
 
-- La pantalla con la cartera real (sólo con datos de ejemplo).
-- El correo real del aviso (el texto está en el test; el envío es `avisarDePlataforma`, el mismo de la baja de un cliente).
+- **El que entra un día 5 paga su ciclo entero como entrada y no está en esa mensualidad** («hasta el próximo 5, sin contar ese 5»: el 5 no
+  es su «próximo 5»). El que entra del 1 al 4 paga esos días y SÍ está en la mensualidad de ese mes.
+- **La mensualidad de un mes se recalcula** (alguien entra, alguien se va). Si cambia del 1 al 5 y no está pagada, sale el PDF de nuevo
+  («actualizado»). El día 6 se exige lo que se le dijo (o el total de hoy, si bajó): nunca más de lo avisado.
+- **Sin el PDF, no hay pausa.** Sin el aviso del mes o sin el de la entrada de un cliente, no se pausa: no se puede pedir que se pague lo que no
+  se pidió. Si el grupo de Código no existe o WhatsApp no anda, el aviso queda en el hilo de la app y cuenta como dado.
+- **Un pago parcial** se anota a cuenta (completa en orden lo que alcanza) y MaKo dice cuánto falta; no reabre a nadie hasta cubrir.
+- **Un comprobante que calza exacto con dos cosas distintas** (Pablo y Patricia, en pausa el mismo día, deben lo mismo) **va a Martín**:
+  el comprobante no dice de quién es.
+- **La IA que lee el comprobante es la de la plataforma** (es el cobro de MaKo). Va a Martín: lo dudoso, otra moneda (sólo USD, USDT, USDC),
+  una orden que no tiene 18 dígitos, de más, nada pendiente, o cualquier falla nuestra.
+- **Reactivar a mano se respeta:** si el super admin reactiva una cuenta que la mensualidad pausó, no se vuelve a pausar por la misma causa
+  (`perdonadas`); sí por una nueva.
+- **Apagar la mensualidad no reabre a nadie:** las cuentas en pausa quedan así hasta reabrirlas a mano.
+
+## Lo que NO está verificado
+
+- **Nada contra la base ni producción.** Ni un comprobante real de Binance leído, ni un PDF mandado al grupo de Código, ni una pausa real.
+- **La lectura de un PDF de comprobante** (WhatsApp lo guarda como documento): sólo se probó la de una foto en los tests de la tarjeta.
+- **jsPDF dentro del bundle de Next** con este PDF (mismo caso que los recibos: `serverExternalPackages: ['jspdf']`).
+- **Que el grupo de MaKo de Código exista** (`mako.grupo_jid` del 13). Sin grupo, el PDF queda en el hilo de la app.
+- **Un comprobante que llega por el grupo de la APP** (no por WhatsApp) no se lee: sólo el de WhatsApp.
+- **El recibo cuando una sola orden completa la entrada de un cliente y la mensualidad a la vez**: sale un recibo con las dos cosas
+  (`mensualidad:<ag>:<mes>`); no se probó contra `emitir_recibo` de verdad.

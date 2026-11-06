@@ -6,7 +6,7 @@
 // agencia y todos sus clientes; pagado, entra solo; un error de la base o de una lectura NUNCA pausa. El caso real de Código
 // Inmobiliario, con sus clientes por su nombre de pila y números de cuenta inventados.
 //
-// Probado ROMPIÉNDOLO (6/11/2026), una rotura a la vez, con la base en verde (36 / 0):
+// Probado ROMPIÉNDOLO (6/11/2026), una rotura a la vez, con la base en verde (37 / 0):
 //   · `proximoCinco` con el 5 como «próximo» (el que empieza un 5 no paga)       → 2 fallos.
 //   · `diasDelCiclo` = 31 fijo                                                    → 8 fallos (la tarifa de noviembre: Pablo, Giselle…).
 //   · `entraEnElMes` con `desde > inicio` en vez de `>=` (el 5 se cobra dos veces) → 1 fallo («el que empieza un 5»).
@@ -17,6 +17,7 @@
 //   · `pasoDePausa` reabriendo una pausa a mano (sin corte)                       → 1 fallo.
 //   · `asignarPago` sin buscar un pendiente exacto antes de completar en orden    → 1 fallo (el pago de Giselle iba a Pablo).
 //   · `revisarPausas` decidiendo con una lectura que tiró                         → 1 fallo (la base que falla).
+//   · `asignarPago` eligiendo el primero cuando dos entradas cuestan lo mismo      → 1 fallo (Pablo y Patricia el mismo día).
 // Renombrar una variable local de `cuentaDelMes` (`lineas` → `renglones`): 0 fallos.
 //
 // Correr: node --import tsx --test tests/agencia-mes.test.ts
@@ -236,6 +237,13 @@ test('menos de lo que se debe: completa en orden y lo que sobra queda a cuenta (
   assert.deepEqual(r.aplicado, [{ clave: 'entrada:104', montoUsd: 40.73 }, { clave: 'entrada:106', montoUsd: 9.27 }]);
   assert.deepEqual(r.cubiertas, ['entrada:104']);
   assert.equal(r.faltaUsd, 28.33);
+});
+
+test('dos entradas del mismo día cuestan lo mismo: un pago que calza con las dos no se elige, va a una persona', () => {
+  const pablo = pend('entrada:104', 40.73, '2026-11-09');
+  const patricia = pend('entrada:105', 40.73, '2026-11-09');
+  assert.deepEqual(asignarPago(40.73, [pablo, patricia, PENDIENTES[1]]), { tipo: 'ambiguo', opciones: [['entrada:104'], ['entrada:105']] });
+  assert.equal(asignarPago(81.46, [pablo, patricia]).tipo, 'cubre', 'las dos juntas sí se sabe');
 });
 
 test('de más, o sin nada que pagar, no se decide solo', () => {

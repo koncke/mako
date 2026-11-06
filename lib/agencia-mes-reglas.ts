@@ -342,6 +342,8 @@ export type Asignacion =
   | { tipo: 'parcial'; aplicado: Array<{ clave: string; montoUsd: number }>; cubiertas: string[]; faltaUsd: number }
   /** Más de lo que se debe, o no se debe nada: lo decide una persona. */
   | { tipo: 'de-mas'; debeUsd: number }
+  /** Cubre exacto MÁS DE UNA cosa distinta (dos entradas del mismo día cuestan lo mismo): el comprobante no dice de quién es. */
+  | { tipo: 'ambiguo'; opciones: string[][] }
   | { tipo: 'nada-pendiente' };
 
 /**
@@ -357,15 +359,21 @@ export function asignarPago(montoUsd: number, pendientes: readonly Pendiente[]):
   const exacto = (suma: number) => cubre(montoUsd, suma) && !deMas(montoUsd, suma);
   const conjunto = (ps: readonly Pendiente[]): Asignacion => ({ tipo: 'cubre', claves: ps.map(clavePendiente), aplicado: ps.map((p) => ({ clave: clavePendiente(p), montoUsd: p.debeUsd })) });
   if (exacto(total)) return conjunto(lista);
-  // Uno solo, en orden; después las combinaciones (las más chicas primero, y entre ellas la de lo más viejo).
-  for (const p of lista) if (exacto(p.debeUsd)) return conjunto([p]);
+  // Uno solo; después las combinaciones, las más chicas primero. Si a un tamaño le calzan DOS conjuntos distintos (Pablo y
+  // Patricia entran el mismo día y cuestan lo mismo), no se elige: el comprobante no dice de quién es, y eso va a una persona.
+  const unoSolo = lista.filter((p) => exacto(p.debeUsd));
+  if (unoSolo.length > 1) return { tipo: 'ambiguo', opciones: unoSolo.map((p) => [clavePendiente(p)]) };
+  if (unoSolo.length === 1) return conjunto(unoSolo);
   const n = Math.min(lista.length, 12);
   for (let tam = 2; tam < n; tam++) {
+    const calzan: Pendiente[][] = [];
     for (let mask = 1; mask < 1 << n; mask++) {
       if (bits(mask) !== tam) continue;
       const ps = lista.slice(0, n).filter((_, i) => mask & (1 << i));
-      if (exacto(redondo(ps.reduce((a, p) => a + p.debeUsd, 0)))) return conjunto(ps);
+      if (exacto(redondo(ps.reduce((a, p) => a + p.debeUsd, 0)))) calzan.push(ps);
     }
+    if (calzan.length > 1) return { tipo: 'ambiguo', opciones: calzan.map((ps) => ps.map(clavePendiente)) };
+    if (calzan.length === 1) return conjunto(calzan[0]);
   }
   if (deMas(montoUsd, total)) return { tipo: 'de-mas', debeUsd: total };
   // Parcial: completa en orden lo que alcanza; el resto, a cuenta del primero que no se completa.

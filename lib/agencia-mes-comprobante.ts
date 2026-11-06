@@ -114,6 +114,7 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   const asig = asignarPago(l.monto!, m.pendientes);
   if (asig.tipo === 'nada-pendiente') return revisar('no se debía nada', 0);
   if (asig.tipo === 'de-mas') return revisar(`es más de lo que se debía (${usd(asig.debeUsd)})`, asig.debeUsd);
+  if (asig.tipo === 'ambiguo') return revisar(`calza exacto con más de una cosa: ${asig.opciones.map((o) => o.map((c) => concepto(c, m)).join(' + ')).join(' o ')}`, l.monto!);
 
   // 5. Se guarda la lectura (el N.º cuenta una vez: lo frena el índice único) y se aplica.
   const esperado = asig.tipo === 'cubre' ? asig.aplicado.reduce((a, x) => a + x.montoUsd, 0) : totalDebe;
