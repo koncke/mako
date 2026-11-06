@@ -57,6 +57,43 @@ existe `listTareasConTope`, que devuelve también `leidas` (las filas ANTES de f
 puertas de arriba · tests/plan-kanban-server.test.ts + tests/_plan-kanban-hijo.ts (base 14/0; cinco roturas, cinco cazadas:
 ignorar la opción, mirar sólo `origen` sin `retro_id`/`experimento_id`, el GET sin filtrar, /plan filtrando una lectura de tres
 y filtrar el cron de cierre → 13/1 cada una).
+## Un choke point que dice «por acá pasan TODOS» hace que nadie mire los mapeos de arriba (6/11/2026)
+
+`recurrente` («se repite para siempre», mig 0163) se caía en `app/api/agente/plan/route.ts`: ese `map`
+copiaba cinco campos de los seis, y una tarea que un agente externo pedía semanal entraba como tarea
+única. El Perro le ponía score y deadline, se llevaba un puesto del ranking y titilaba pidiendo una
+fecha que nunca iba a tener — el síntoma exacto que la mig 0163 vino a eliminar.
+
+**Why, y es la parte que importa:** `limpiarTarea` (`lib/plan-propuesta.ts:187-220`) es el choke point
+real y está bien hecho; su comentario dice que por él pasan todos los productores de un borrador,
+«la reunión, el cron, el importador de archivos, el doer de WhatsApp, **la API del agente**, y la
+relectura de la fila». Esa frase es cierta **y por eso mismo desactiva la búsqueda**: el que audita lee
+que la API del agente está cubierta, verifica el choke point, lo encuentra sano y cierra. Pero un choke
+point sanea lo que LE LLEGA, y entre el cuerpo HTTP y él hay un `map` a mano que decide qué llega.
+
+Es el tercer campo que se pierde en ese mismo mapeo: primero el `minuto` (agosto), después `enriquece`
+—cuyo comentario en el archivo ya decía «el mapeo de esta ruta solo copiaba cuatro campos»— y ahora
+`recurrente`. Tres veces el mismo agujero, y las tres **sin error**: un campo que no está en el objeto
+que devuelve el `map` es indistinguible de uno que el cliente no mandó.
+
+**How to apply:**
+
+- Un comentario que enumera a los productores de un choke point describe **a quién sanea**, no a quién
+  le llega. Al auditar un campo, la pregunta no es «¿pasa por el saneo?» sino «¿quién construye el
+  objeto que entra al saneo?». En este riel hay cuatro `map` a mano, y están en el test.
+- **Y una puerta que acepta un campo del que nadie habla es una puerta cerrada.** El arreglo no termina
+  en la ruta: `lib/agente-skill.ts` (lo que el agente externo LEE) tiene que nombrar el campo, y
+  `plugin/` se regenera con `node --import tsx scripts/generar-plugin.mjs` o la guarda del pre-push
+  frena. «Escribir la salida no es ofrecerla» es el nombre que este repo le puso al bug, y acá aplica a
+  una API igual que a una pantalla.
+- Fijado en `tests/plan-recurrente-nace.test.ts` → «LA CADENA NO SE CORTA EN NINGÚN MAPEO INTERMEDIO»,
+  que pasó de tres caminos a cuatro, más la skill.
+- ⚠️ **La rotura enseñó algo que no se veía escribiendo el test.** La primera versión del guard de la
+  skill era `assert.match(SKILL, /recurrente/)`: con la instrucción borrada **quedó en VERDE 12/12**,
+  porque la palabra sigue apareciendo en la prosa que la explica («una recurrente marcada como tarea
+  normal…»). Medía la explicación, no la instrucción. El patrón tiene que ser el CAMPO con su valor
+  (`` \`recurrente: true\` ``), no la palabra. Es el «copiar una línea en un regex no prueba nada» de
+  AGENTS.md, y se cayó en él escribiendo un guard para evitar otro bug.
 
 ## MaKo toma la iniciativa en el Plan: el borrador del onboarding, con la clave del NEGOCIO (5/11/2026)
 

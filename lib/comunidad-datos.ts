@@ -31,6 +31,7 @@ import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { leerTodo } from './supabase-paginado';
+import { fotoDePersonaSegura } from './foto-perfil';
 import { esDelProducto } from '@/app/customer-success/pertenencia';
 import {
   NIVEL_MAX, nivelDe, puntosParaSubir, nombreDeNivel, sanearNombresNivel, distribucionDeNiveles,
@@ -333,7 +334,9 @@ export async function infoDeMiembros(ws: number, claves: Iterable<string>, respa
         const { data, error } = await sb.from('usuarios').select('id, nombre, foto_url').in('id', ids);
         if (error) throw new Error(error.message);
         for (const f of (data ?? []) as Array<{ id: number; nombre: string | null; foto_url: string | null }>) {
-          out.set(claveDeUsuario(Number(f.id)), { nombre: (f.nombre ?? '').trim(), foto: f.foto_url && /^https:\/\//i.test(f.foto_url) ? f.foto_url : null });
+          // Sólo los orígenes nuestros (lib/foto-perfil.ts): la foto la elige la persona y acá la
+          // dibuja TODO el que lea el muro, así que un https cualquiera es un web bug con público.
+          out.set(claveDeUsuario(Number(f.id)), { nombre: (f.nombre ?? '').trim(), foto: fotoDePersonaSegura(f.foto_url) });
         }
       }),
       ...lotes([...leads]).map(async (ids) => {
