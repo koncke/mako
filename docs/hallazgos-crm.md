@@ -11872,3 +11872,17 @@ un bloque llegaba a 12 botones porque cada ancho era uno. Lo que se hizo es esco
   dónde caer.
 
 **Vive en:** app/crm/lead-view/ficha/Armador.tsx, app/crm/lead-view/ficha/armar.ts. Lo fija tests/ficha-barra-mas.test.ts.
+
+## La foto que no carga, el nombre cortado y las flechas sin texto (C1, C2 y C4 del recorrido; 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **C1, la foto rota:** el `onError` de un `<img>` NO se dispara si la imagen falló ANTES de hidratar (el HTML del server ya la
+  pidió): la tarjeta quedaba con el ícono roto para siempre. Al montar se mira `fotoQueNoCargo(img)` (`complete &&
+  naturalWidth === 0`, lib/tarjeta-kanban.ts) y cae a las iniciales. Vale para toda foto que dibuje el server.
+- **C2, el nombre:** dos renglones (`-webkit-line-clamp: 2`, `overflow-wrap: anywhere`) y `title`: el teléfono de un lead sin
+  nombre se lee entero.
+- **C4, las flechas:** el renglón de flechas del menú contextual (`enLinea`) lleva su rótulo con `conRotulo`: «Mover la etapa»,
+  y «Mover la hoja» en la ficha. Dos flechas solas no dicen qué mueven.
+- **La difusión** (pedido de Leila del 5/11): el modal rediseñado (`6bf0a40a8`) está en main desde el 2/11 y el CRM lo monta. Si
+  ella vio la cara vieja, producción no lo tenía todavía.
+
+**Vive en:** lib/tarjeta-kanban.ts, app/_ui/TarjetaKanban.tsx, app/_ui/MenuContextual.tsx, app/crm/menu-contextual-crm.ts, tests/recorrido-crm-tarjeta.test.ts

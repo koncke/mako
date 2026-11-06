@@ -102,3 +102,13 @@ foto, Platform) lo decide el chat de la barra (app/_components/nav.ts es de ese 
   - El teléfono (/m/cuenta, /m/configuraciones/*) conserva su diseño propio de listas (ya era el patrón de Linear mobile);
     sólo el Perfil (InformacionPersonal) es el mismo componente y cambió con la computadora.
   - El ícono de «Settings» (la tuerca) en el índice: lo define el chat Ops Center para la barra y el menú.
+
+## «Para qué sirve» MaKo en la computadora, y Agency a la vista (6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **Desktop** (Leila 5/11: no había pantalla que lo explicara): una fila «Para qué sirve» en Instalar la app abre un detalle
+  (`?ver=escritorio`, leído en el server) con tres filas de una línea y las descargas al pie. Sin párrafos: Settings copia a
+  Linear, y Martín rechazó dos versiones por textos de más (25/10).
+- **Agency** (Leila 5/11: más a la vista desde el menú del perfil): Partners y Agency suben justo debajo de Settings. La primera
+  versión puso Agency arriba de Partners y contradecía el «abajo de Partners» de Martín del 25/10: el orden entre las dos es suyo.
+
+**Vive en:** app/perfil/instalar/InstalarApp.tsx, app/perfil/instalar/page.tsx, app/_components/nav.ts, tests/recorrido-instalar-agency.test.ts

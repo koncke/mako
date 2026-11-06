@@ -12752,3 +12752,12 @@ El PDF de cobro a Código fue el primer documento con pie que salió por la voz 
 - **`scripts/mensaje-equipo-al-grupo.mts` no existe en main,** aunque lo nombre `docs/relevo/pedidos-perdidos-2810.md`.
 
 **Sin hacer:** MaKo no sabe qué es un comprobante de pago. Una foto sin citar cae en un turno libre, sin precedente en 45 días. Lo arma el chat de `punta/agencia-cobro`.
+
+## /chats sin un chat elegido: dos paneles vacíos y un filtro que bajaba de renglón (CH2, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- `PanelContacto` dibujaba «Elige un chat.» al lado del vacío del centro, que dice lo mismo: sin chat, el panel no se dibuja.
+- La fila de filtros envolvía y «Etapa» caía sola a un segundo renglón. Achicar los rótulos los cortaba («Eta…»): la fila va en
+  un renglón que se corre de costado (`overflow-x: auto`, cada filtro `flex: none`). Es contenido, no navegación: ahí la regla
+  de la casa permite el scroll lateral.
+
+**Vive en:** app/chats/PanelContacto.tsx, app/chats/chats.css, tests/recorrido-chats.test.ts
