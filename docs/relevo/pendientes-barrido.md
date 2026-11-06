@@ -44,6 +44,15 @@ entero). ⚠️ El hook de pre-push NO estaba instalado en este clon de la nube:
 
 | 7 | **API de MaKo:** `guardar_landing` marca o desmarca la página de gracias (la pantalla podía, la API no) | lib/api-mako/areas/landing.def.ts · landing.run.ts | `punta/barrido-gracias` |
 
+**Autocrítica de la tanda 7:** el veredicto la frenó en rojo, y con razón: la descripción larga del parámetro `gracias` dejaba sin
+`configurar_formulario_landing` a «cambia el formulario de la landing: agrega el teléfono» en el turno de la app (el presupuesto de
+12.000). Se acortó y se compensó en la descripción de la operación (+18 caracteres en total). No pasó revisión adversarial: es un
+parámetro más de una acción que se confirma en pantalla, con lo mismo que ya hacía la pantalla.
+
+**Dónde quedó el barrido:** la cola de CÓDIGO que no necesita producción ni una decisión está hecha. Lo que queda es de otro chat
+(C8 Plan, C11 Automations, la plantilla del pago rechazado y la automatización sin disparador), de una decisión (C3, C4, C10, C16),
+de una pantalla con referencia (C12) o pulido sin efecto (C13), y lo de producción (P1–P17) con su paso exacto.
+
 **La tanda 6 subió el 6/11/2026** a `punta/barrido-plata` (cabeza `868239ebb`, veredicto en verde: 6791 tests de 695 archivos y el
 tsc entero). La tanda 5 (`punta/barrido-envios`) ya está en main. ⚠️ El primer intento del push dio 18 rojos de mentira: el hook usa
 el Node del shell (22); con el Node 24 en el mismo comando, 92 de 92 en verde (docs/hallazgos-infra.md).
@@ -95,12 +104,12 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 | C5 | La etiqueta en lote corta en 200 sin avisar | app/api/crm/etiquetas/route.ts | 3 | **HECHO** antes (27/10: la barra manda de a tandas, `TANDA_ETIQUETAS_LOTE`) |
 | C6 | Pixel de una landing dada de baja: la pastilla «desactualizado» queda para siempre; `snippetDesactualizado` sigue en 3 lectores | lib/landing-token.ts · lib/pixel-estado.ts | 3 | **HECHO** antes: `snippetDesactualizado` delega en `estadoPixel`, que mira las páginas con visitas (`paginasVivas`) |
 | C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | **HECHO** (tanda 6, con revisión): era peor de lo anotado, `/r` ponía el código muerto también en `?ref=` y la compra quedaba sin partner |
-| C8 | Plan: aviso cuando una reunión no se pudo leer | lib/reunion-auto.ts · lib/reunion-descartadas.ts | 3 | por medir |
+| C8 | Plan: aviso cuando una reunión no se pudo leer | lib/reunion-auto.ts · lib/reunion-descartadas.ts | 3 | **OTRO CHAT (Plan)**, medido: es un EVENTO de la plataforma nuevo con el molde de `reunion_tareas_al_plan` (lib/reunion-plan-aviso.ts, emitido desde `registrarNoLeida`, lib/reunion-descartadas.ts) y su fila en SuperAdmin por `scripts/mudanza-avisos-plataforma.mts` (producción). El hermano (P7) todavía no está aplicado: primero ése |
 | C9 | Una landing confirmada deja el lead sin `pagina_registro` | app/crm/revisar/[id]/propuesta-lead.ts | 3 | **HECHO** antes (propuesta-lead.ts:121 la copia normalizada) |
 | C10 | El lead que pierde el compare-and-set de Zernio queda con `meta_ad_id` | lib/zernio-entrante.ts | 3 | **HECHO** antes (`quitarHuerfano` lo borra y le pasa el anuncio al ganador con `.is(null)`). Queda la otra mitad: el primer mensaje del anuncio llega SIN referral → **decisión** de atribución |
 | C11 | La etapa de un CRM agregado no se deriva (agendar no lo mueve); los agregados entran por el barrido de la hora, no por evento; «Mover a Ganado» en un agregado no registra la venta | lib/lead-funnel.ts · lib/leads.ts | 3 | **OTRO CHAT (Automations) + MARTÍN**: es el motor y la decisión «ganar en un funnel agregado ¿es venta?» |
-| C12 | Página propia de «no encontrado» (no hay `app/not-found.tsx`) | app/not-found.tsx | 5 | por medir |
-| C13 | Restos: `TAB_DE_DATO` sin uso, `Lead` sin `suscripcion_cancelada_at`, código muerto de creativos | lib/datos-aviso.ts · lib/leads.ts · lib/creativo-mako-fuentes.ts | 5 | por medir |
+| C12 | Página propia de «no encontrado» (no hay `app/not-found.tsx`) | app/not-found.tsx | 5 | **sin hacer a propósito**: una pantalla nueva se copia de una app que la resolvió (AGENTS.md) y desde la nube no se abre ninguna; queda para un chat con navegador |
+| C13 | Restos: `TAB_DE_DATO` sin uso, `Lead` sin `suscripcion_cancelada_at`, código muerto de creativos | lib/datos-aviso.ts · lib/leads.ts · lib/creativo-mako-fuentes.ts | 5 | medido: `TAB_DE_DATO` sólo lo lee tests/datos-aviso.test.ts (lo reemplazó `armar.ts` de la ficha); no cambia nada para nadie. Pulido: se deja |
 | C14 | `'use server'` fuera del CRM sin `exigirSesion()` | app/**/actions.ts | 2 | **medido, sin agujero**: los 60 archivos tienen su puerta (`adminDeWorkspaceActual`, `puerta()`, `veEditorVideo`, `ctxDeBandeja`…); el de comunidad sirve al alumno a propósito |
 | C15 | Responder con clic derecho en Automations (`useCitaDelChat`) | app/automations | 3 | **HECHO** (tanda 6) |
 | C16 | «Por tiempo» agenda al instante al elegirlo (`CRON_DEFAULT`) | app/agencia/FlujoAviso.tsx | 3 | DUDA: la bitácora lo da como decisión 5.1 de Martín |
