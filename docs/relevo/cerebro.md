@@ -1,5 +1,21 @@
 # Relevo del Cerebro
 
+## 6/11/2026, ~11:45 UTC (08:45 ART): cómo terminó la noche
+
+**En producción desde las 11:08 UTC** (el cron de las 11:05 corrió solo, READY en 3 min, `7db26c611`): Admin (copia de Polar con los 43 arreglos), Carruseles (rediseño y pulido), Marketing CoPilot, Lead Magnets, Video (presets, palabras clave, B-roll, clips), Thiago (Usar en un anuncio, Guardar en MaKo, migrar CRM, token de agencia, Calendario), Plantillas, Recorrido visual, Dashboards (no queda hoja pendiente) y el primer lote de Barrido. Migraciones aplicadas: 0404 a 0408.
+
+**Falta llevar:** `punta/marketing-copilot` en `361c64223` (una cuenta vacía también ve la primera entrada). Cuando entre a main: `scripts/desplegar-ya.mjs` desde `C:/dev/wt-puntas`, y borrar `C:/dev/wt-copilot` (primero `cmd //c rmdir` del enlace `node_modules`, después `git worktree remove`).
+
+**Sin probar:** el agente del CoPilot con la IA real (14 conversaciones en `docs/marketing-copilot/conversaciones.md`); «Editar» de carruseles con IA real; en Admin, «Cargar pago», devolver y eliminar con datos reales; el token de agencia con una agencia de verdad; que la marca de la 0396 quede `automatico = true` en el primer WhatsApp automático.
+
+**Trabado:**
+- El chat «Marketing CoPilot» de la nube figura «waiting on a human» desde antes de las 05:45 UTC y no subió nada: lo construyó un agente de la PC. Si Martín lo destraba, tiene dicho que traiga main y sume encima.
+- Láminas de carruseles: `carruseles-biblioteca.mts laminas` no corre porque en Apify quedan US$1,99 y la reserva de Spy es de US$2. Hace falta otra clave en Spy del negocio de la plataforma. Quedan 1.275 sin láminas; US$2,93 lo probable.
+- Barrido recibió dos veces «seguí con nada por detrás y las funciones» y quedó quieto. La lista priorizada está en `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md` y en `docs/relevo/pendientes-barrido.md`: chat nuevo.
+- Horario de 10 a 20 de Leila: pendiente, se corre de día en México (`docs/relevo/pendientes-pc/pasos-cerebro-6-11.md` A2).
+
+**Cuenta:** claude3 al 88 %; reinicia el 11/11 09:00 UTC. Una corrida de 13 agentes gastó 3,97 M de tokens: no repetirla con la cuenta justa.
+
 ## 6/11/2026, ~05:30 UTC (02:30 ART): noche con chats en la nube
 
 **Pedido de Martín:** avanzar con todo, toda la noche, sin pedir permiso, y asegurar que los chats sigan trabajando.

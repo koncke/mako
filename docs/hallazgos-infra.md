@@ -10850,3 +10850,12 @@ acababa de dar 6791 tests en verde; cada uno de esos tests, corrido solo, pasaba
 el `export` del Node 24 va también delante del `git push`, no sólo del veredicto (cada comando arranca con el PATH de base). Y el
 hook no estaba instalado en el clon de la nube: el primer push salió sin guardas (las corrí a mano antes); se instala con los dos
 comandos de docs/relevo/nube-metodologia.md.
+
+## Muchas puntas llegando a la vez a main (noche del 6/11/2026)
+
+- **`docs/api-mako.md` chocó dos veces en la misma noche:** «Mientras corrían los tests main se movió, y ahora la punta choca». No se elige un lado: `git checkout --theirs docs/api-mako.md`, `node --import tsx scripts/generar-api-doc.mjs` y commit. Sin el `--import tsx` falla con `ERR_MODULE_NOT_FOUND`. **Sin hacer:** que `.github/workflows/punta.yml` lo regenere solo cuando ése es el único choque.
+- **El rojo de «Tipos» sobre main dos veces fue la máquina:** «El tsc no terminó en 842 s», con 139–159 MB disponibles y 4,6 GB de swap. El mensaje ya lo dice: «Es la máquina, no el código». Se lee el registro antes de buscar un error, y la corrida siguiente da verde.
+- **El cron diario de Vercel anda:** a las 11:05 UTC desplegó `7db26c611`, READY en 3 minutos, sin intervención. Lo que llegó a main hasta esa hora salió junto: unas decenas de pushes, un build.
+- **Un chat de la nube quieto o «waiting on a human» no avisa y no siempre lee:** el de Carruseles no leyó nada durante más de una hora y el de Marketing CoPilot esperó toda la noche. En un turno automático no se puede abrir un chat nuevo. Lo que funcionó: un agente local en un worktree propio (`git worktree add --detach`, y `cmd //c mklink /J node_modules` hacia otro clon), que subió por la misma punta. Costó unos 415 mil tokens por tarea.
+- **Mirar el `git diff` antes de un `sed` por varios archivos:** un reemplazo de «En prueba» tocó tres tests que hablaban del período de prueba del plan. `git grep` no distingue dos usos de la misma frase.
+- **Git Bash y Node ven `/tmp` distinto:** `cat > /tmp/x` escribe en la carpeta de Git Bash y Node lee `C:\tmp\x`. Un archivo temporal entre los dos va por ruta de Windows.
