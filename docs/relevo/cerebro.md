@@ -1,5 +1,19 @@
 # Relevo del Cerebro
 
+## 6/11/2026, ~03:00 UTC (00:00 ART): Vercel, cobro de Código prendido, Admin con Polar
+
+**Vercel:** factura en curso US$291,94 contra US$40 de antes; US$248 son builds. Causa y números en `docs/hallazgos-infra.md`, «El gasto de Vercel». Activo: `claude/**` no construye, lo que sólo cambia documentos no construye (un commit así ya salió CANCELED) y «un build por rama». La máquina quedó **fija en Turbo**: Enhanced murió por memoria y no hay otra entre 16 y 60 GB. **Falta medir el ahorro en el panel** (`/~/usage`, con la sesión de Martín en el navegador de la app), no en `/v1/billing/charges`. Si no alcanza: agrupar llegadas a main o bajarle la memoria al build.
+
+**Cobro de Código: prendido y corre solo.** 0402 y 0403 aplicadas, Giselle corregida, Pablo y Patricia en «Paga para entrar». Primer envío real: 9/11, 14:07 UTC, entrada de Giselle, US$37,60. **Mirar que salga**: nunca se envió de verdad. Pasos en `docs/relevo/nube-agencia-cobro.md`.
+
+**Admin se rehace copiando Polar** (`polarsource/polar`), en el chat «Admin: borrar todo y copiar Polar», rama `punta/admin-polar`: entrega todo junto. Lo que hay hoy en `/admin` es la copia rechazada de Studio Admin. Capturas del panel real en `docs/admin/referencia-polar/`. Al entrar, compararlas antes de avisarle a Martín, y actualizar `app/admin/_studio` si quedó algo.
+
+**Casilla:** `equipo@`, `info@` y `leandro@hola-mako.com` reenvían a `hola.mako.app@gmail.com`, según el panel de Porkbun. Ahí va la respuesta de Whop, y el conector de Gmail no la ve.
+
+**Approvals:** la tarea `vigia-paneles-diario` lee los paneles a las 9:30. Google aprobado, Meta sin pendientes salvo los permisos de anuncios (falta el video), Play en borrador (faltan las capturas de la ficha: hace falta entrar con la cuenta de revisión), SSL.com pide sesión.
+
+---
+
 ## 5/11/2026, ~23:30 UTC (20:30 ART): Creem afuera, consulta a Whop, números de migración
 
 **Creem rechazó la tienda, definitivo** (5/11 19:30). Desconectada de la plataforma: queda sólo Mercado Pago. No se arma otra cuenta con Leandro; el porqué está en la memoria `creem-alta-leandro`. La limpieza del sitio y de la moderación ya está en main (`docs/relevo/nube-creem-fuera.md`).

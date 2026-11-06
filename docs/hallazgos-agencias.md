@@ -17,7 +17,8 @@ los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y
   onboarding, Stripe en Europa). Ese sigue para las agencias que pagan con tarjeta. Mezclarlos le avisaría «paga por Binance» a quien
   ya paga por Stripe: por eso la mensualidad está **apagada por defecto y se prende por agencia** (`agencia.mensualidad.<ws>.config`
   en la plataforma). ⚠️ Hasta que alguien la prenda en el negocio 13, no pasa nada.
-- **El acuerdo no dice qué mes paga cada pago, y había que decidirlo.** Quedó: lo del 1 al 5 es ESE mes por adelantado, por los que
+- ⚠️ **REEMPLAZADO EL 6/11/2026 (abajo, «La segunda vuelta»): el ciclo va del 5 al 5 y la entrada de cada cliente es un cobro
+  aparte. Lo que sigue de este punto es historia.** El acuerdo no dice qué mes paga cada pago, y había que decidirlo. Quedó: lo del 1 al 5 es ESE mes por adelantado, por los que
   cuentan el día 1; un cliente que empieza a contar a mitad de mes suma sus días de ese mes a la mensualidad siguiente, por día
   (`COBRA_LOS_DIAS_DEL_PRIMER_MES`). Sin eso, un cliente dado de baja después de sus 14 días pero antes del día 1 siguiente no pagaba
   nunca, y «después ese cliente cuenta» era falso. Si Martín prefiere no cobrar esos días, es esa constante en `false`. Con la cartera
@@ -44,10 +45,37 @@ los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y
   pasar una acción nueva sin puerta si otra sumaba una llamada de más. Cada `export async function` de `app/agency/actions.ts` pasa
   por `adminDeWorkspaceActual` o por `superAdminEnLaAgencia`.
 
+### La segunda vuelta: el PDF al grupo, el comprobante y «Paga para entrar» (6/11/2026, `punta/agencia-cobro-2`)
+
+**Vive en:** `lib/agencia-mes-reglas.ts` (el ciclo, la entrada, `asignarPago`, `quienVaEnPausa`, `pasoDePausa`), `lib/agencia-mes-pausas.ts`
+(aplica la pausa con la base inyectada), `lib/agencia-mes.ts`, `lib/agencia-mes-comprobante.ts` (el comprobante del grupo, enganchado en
+`atenderEntranteDoer` de `lib/mako-doer-in.ts`), `lib/agencia-mes-pdf.ts`, `supabase/migrations/0403_comprobantes_del_grupo.sql`,
+`scripts/agencia-paga-para-entrar.mts`.
+
+- **«Paga para entrar» es un motivo de corte, no una columna nueva.** `workspaces.estado='pausado'` no cortaba nada salvo con el motivo
+  `sin-agencia` (que diría «Tu agencia dejó de administrar tu cuenta»): el motivo `paga-para-entrar` corta aunque el corte general esté
+  apagado (`negocioPausado`), la pasarela no lo toca (`pasoDeAcceso` → nada) y /cuenta-pausada dice «Contacta a tu agencia» sin montos.
+  ⚠️ Lo propio (agencia, rol, causas) va ANIDADO en `mensualidad`: `guardarCorte` de lib/plan-acceso.ts reescribe el corte con un spread
+  y un campo suelto que `leerCorte` no conociera se perdería en esa vuelta. El test lo pasa por la vuelta.
+- **Quién se pausa se decide con TODO leído, o no se decide.** `revisarPausas` recibe la base inyectada: si `leer` tira, no pausa ni
+  reabre nada (probado con una base que falla). Una pausa a mano (pausada sin corte) o de otro motivo no se toca, y una reactivación a mano
+  se respeta (`perdonadas`): vuelve a pausar sólo una causa nueva.
+- **No se exige lo que no se le dijo.** El día 6 se compara lo pagado contra lo que se avisó (o el total de hoy, si bajó por una baja), y
+  sin el aviso del mes, o sin el PDF de la entrada de un cliente, no se pausa.
+- **Dos entradas del mismo día cuestan lo mismo.** Pablo y Patricia en pausa el mismo día deben US$40,73 cada uno: un comprobante de ese
+  monto no dice de quién es. `asignarPago` devuelve `ambiguo` y va a Martín; elegir el primero le habría abierto la cuenta al otro.
+- **El comprobante del grupo se lee con la IA de la PLATAFORMA**, no la de la agencia: es el cobro de MaKo, y la agencia puede no tener
+  IA. Se guarda en `comprobantes_leidos` (`origen='grupo'`, sin lead: la 0403), así el N.º de operación cuenta una vez por negocio, y la
+  orden queda además en el libro (`orden.<N>`, compare-and-set) y se cruza con `reciboDePago`.
+- **Lo que viaja a la pantalla de la agencia va sin el libro crudo** (`paraLaPantalla`): un prop de un `'use client'` llega al navegador.
+- **Trampa del entorno (la nube):** `node scripts/tsc-acotado.mjs` contestó «NO SE PUDO CHEQUEAR (código undefined)» en este contenedor;
+  el mismo tsconfig (`armarTsconfig`) corrido con `spawnSync` a mano dio 0. No es un rojo del código: el veredicto corre el tsc entero.
+
 ### Sin hacer
 
-- Aplicar la 0402 y corregir la fecha de Giselle (17) al 2026-10-28; prender la mensualidad del 13 desde 2026-11. Detalle en
-  `docs/relevo/nube-agencia-cobro.md`.
+- Aplicar la 0402 (si falta) y la 0403, corregir la fecha de Giselle (17) al 2026-10-28, prender la mensualidad del 13 desde 2026-12 y
+  pasar a 19, 22 y 15 a «Paga para entrar». En orden, en `docs/relevo/nube-agencia-cobro.md`.
+- Un comprobante que llega por el grupo de la APP (no por WhatsApp) no se lee: hoy sólo el de WhatsApp.
 - La pantalla se miró con datos de ejemplo (sin base en la nube), no con la cartera real.
 - Un aviso al super admin cuando pasa el día 5 sin el «Pagado»: hoy sólo se ve en la pantalla y en `ver_mensualidades_agencias`.
 
@@ -502,6 +530,6 @@ tests/verificacion-plata-agency-2910.test.ts.
 **`mako.numero_dueno` no identifica al cliente.** En el negocio 17 (Giselle) es el número de Joan, de Código, porque ese negocio nació como una prueba suya. Cruzar los participantes de un grupo contra ese dato da una coincidencia falsa con el grupo de la agencia. Tampoco sirve para mandarle algo a la clienta. Su fecha tampoco sale de `agencia_clientes` (dice 28/09): vale el 28/10, cuando se creó su usuario.
 
 **Sin hacer:**
-- Todo lo automático sigue en `punta/agencia-cobro`, con la regla encargada el 5/11 y sin confirmar que el chat la haya leído. Hasta que llegue, el PDF y la suspensión son a mano. Tres tareas programadas (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) miran si llegó el comprobante y sólo avisan.
+- ~~Todo lo automático sigue en `punta/agencia-cobro`~~: llegó con `punta/agencia-cobro-2` (6/11/2026, «La segunda vuelta», arriba). Las tres tareas programadas (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) siguen: avisan, no escriben, y pueden apagarse cuando la mensualidad esté prendida.
 - El pago del 5/11 no deja rastro en la base: se apoya en lo que dijo Martín. Marcarlo «Pagado» cuando exista la pantalla.
 - Para armar el PDF con `jspdf`: `maxWidth` parte la línea, pero la altura no se ajusta y se pisa con la de abajo. Medir con `splitTextToSize`, y mirar el PDF dibujado antes de mandarlo.

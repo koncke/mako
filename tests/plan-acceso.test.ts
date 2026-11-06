@@ -143,7 +143,15 @@ test('el corte de acceso por falta de pago está APAGADO: el cron no toca nada y
   const acceso = fuente('lib/plan-acceso.ts');
   assert.match(acceso, /const sinAgencia = CORTE_DE_ACCESO_PRENDIDO \? null : await cuentasSinAgencia\(opts\.soloWs\);\n\s*if \(sinAgencia && !sinAgencia\.size\) return out;/);
   assert.match(acceso, /if \(sinAgencia && paso\.tipo === 'cortar'\) continue;/);
-  assert.match(fuente('lib/workspace.ts'), /if \(corte\?\.motivo === 'sin-agencia' && corte\.vigente\) return !\(Date\.parse\(corte\.desde\) > Date\.now\(\)\);\n\s*return CORTE_DE_ACCESO_PRENDIDO;/);
+  // ⚠️ 6/11/2026: y «Paga para entrar» (la mensualidad de una agencia, lib/agencia-mes.ts), que también vale con el corte
+  // apagado. El guard ya no fija la línea de al lado: afirma lo que cuida, en asserts separados.
+  const ws = fuente('lib/workspace.ts');
+  const cuerpo = ws.slice(ws.indexOf('export const negocioPausado'), ws.indexOf('const corteDelNegocio'));
+  assert.ok(cuerpo.length > 100, 'encontré negocioPausado');
+  assert.match(cuerpo, /if \(corte\?\.motivo === 'sin-agencia' && corte\.vigente\) return !\(Date\.parse\(corte\.desde\) > Date\.now\(\)\);/, 'la cuenta que su agencia soltó');
+  assert.match(cuerpo, /if \(corte\?\.motivo === 'paga-para-entrar' && corte\.vigente\) return true;/, '«Paga para entrar», sólo vigente');
+  // Lo demás —un pausado sin corte, o con otro motivo— se abre como siempre: después de esas dos, sólo queda el interruptor.
+  assert.deepEqual([...cuerpo.matchAll(/return ([^;]+);/g)].map((m) => m[1]), ['false', '!(Date.parse(corte.desde) > Date.now())', 'true', 'CORTE_DE_ACCESO_PRENDIDO']);
 });
 
 // =============================================================================

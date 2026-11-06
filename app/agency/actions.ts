@@ -24,7 +24,7 @@ import { headers } from 'next/headers';
 import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { planCuentaDe } from '@/lib/agencia-cobro-reglas';
 import { cambiarPlanDeCliente } from '@/lib/agencia-plan';
-import { apagarMensualidad, corregirRelojDeCliente, marcarMesPagado, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
+import { apagarMensualidad, corregirRelojDeCliente, marcarEntradaPagada, marcarMesPagado, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
 
 const emailDeQuienMira = () => getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
 
@@ -135,9 +135,9 @@ export async function cambiarPlanClienteAction(clienteWs: number, plan: string):
   }
 }
 
-// ── La MENSUALIDAD de la agencia (acuerdo del 30/10/2026, lib/agencia-mes.ts) ─────────────────────────────────────────
-// Todo lo que escribe es del SUPER ADMIN parado en la agencia: marcar un mes pagado, corregir el reloj de un cliente y
-// prender o apagar la mensualidad. La agencia la LEE (viene con el HTML de la página); no anota sus propios pagos.
+// ── La MENSUALIDAD de la agencia (Martín, 5/11/2026; lib/agencia-mes.ts) ─────────────────────────────────────────────────
+// Todo lo que escribe es del SUPER ADMIN parado en la agencia: marcar un mes o una entrada pagados, corregir el reloj de un
+// cliente y prender o apagar la mensualidad. La agencia la LEE (viene con el HTML de la página); no anota sus propios pagos.
 
 type ResultadoMensualidad = { ok: true; resumen: string; yaEstaba?: true } | { ok: false; error: string };
 
@@ -173,6 +173,19 @@ export async function quitarMesPagadoAction(mes: string, pagadoEl: string | null
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude sacar la marca.' };
+  }
+}
+
+/** Marca la ENTRADA de un cliente pagada (sus días hasta el próximo 5), con el día en que entró. Si estaba en pausa, vuelve a entrar. */
+export async function marcarEntradaPagadaAction(clienteWs: number, pagadoEl: string): Promise<ResultadoMensualidad> {
+  try {
+    const p = await superAdminEnLaAgencia();
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = await marcarEntradaPagada({ agenciaWs: p.agenciaWs, clienteWs: Number(clienteWs), pagadoEl: String(pagadoEl), autor: p.autor });
+    if (r.ok) revalidatePath('/agency');
+    return r.ok ? { ok: true, resumen: r.resumen, ...(r.yaEstaba ? { yaEstaba: true as const } : {}) } : { ok: false, error: r.error };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude marcar la entrada.' };
   }
 }
 

@@ -502,15 +502,15 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
-  // ── LA MENSUALIDAD DE UNA AGENCIA, por fuera de MaKo (acuerdo con Código Inmobiliario, 30/10/2026; lib/agencia-mes.ts) ──
-  // MaKo no cobra: calcula, avisa el día 1 y dos días antes de que un cliente empiece a contar, y el super admin anota lo
-  // que entró. Sólo la plataforma y, en la app, el super admin GLOBAL (lo preguntan el runner y `faltaParaConfirmar`); sin
+  // ── LA MENSUALIDAD DE UNA AGENCIA, por fuera de MaKo (Martín, 5/11/2026, sobre el acuerdo del 30/10; lib/agencia-mes.ts) ──
+  // MaKo no cobra por la pasarela: manda el PDF al grupo de WhatsApp con la agencia, lee el comprobante de Binance que mandan
+  // ahí y pausa a quien no paga. Lo que va a Martín (un comprobante dudoso) lo anota él con estas operaciones. Sólo la plataforma y, en la app, el super admin GLOBAL (lo preguntan el runner y `faltaParaConfirmar`); sin
   // HTTP; y las tres que escriben van en NO_EN_FLUJOS (lib/api-mako/flujo.ts): un paso de una automatización se confirma solo.
   // Al final del área (AGENTS.md: una operación nueva no le saca el lugar a otra).
   {
     id: 'ver_mensualidades_agencias', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver las mensualidades de las agencias',
-    descripcion: 'Sólo para la plataforma: las agencias con la mensualidad por fuera de MaKo prendida y, de cada una, el total de este mes, hasta qué día se paga, si ya está pagado (y qué día) y los meses anteriores sin pagar. Con agenciaWs, el detalle de una: cada renglón, desde qué día cuenta cada cliente, a quién le quedan días sin costo y hasta cuándo, y desde qué día corre el reloj de cada uno (la invitación o la fecha corregida). Una agencia con la mensualidad apagada sale con apagada: true y cómo quedaría este mes.',
+    descripcion: 'Sólo para la plataforma: las agencias con la mensualidad por fuera de MaKo prendida y, de cada una, el total de este mes (cubre del 5 al 5), hasta qué día se paga, cuánto entró, qué se debe hoy, quién está en pausa y los meses anteriores sin pagar. Con agenciaWs, el detalle de una: cada renglón, lo que se debe hoy (meses y entradas, con sus días y el precio por día), en qué está cada cliente (cuenta, sin costo, debe su entrada, paga para entrar, de baja) y desde qué día corre su reloj. Una agencia con la mensualidad apagada sale con apagada: true y cómo quedaría este mes.',
     parametros: [
       { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de cuenta de la agencia. Sin esto, todas.' },
     ],
@@ -519,13 +519,16 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_mensualidad_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Marcar pagada la mensualidad de una agencia',
-    descripcion: 'Sólo el super admin: anota que una agencia pagó su mensualidad de un mes (por fuera de MaKo, por Binance u otro medio), con el día en que entró. Guarda el total de ese momento: lo que cambie después en su cartera no lo modifica. Con quitar: true, saca la marca (si se anotó por error). Sólo meses desde que se prendió y hasta el actual.',
-    escribe: 'el pago del mes de esa agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.pago.<mes>)',
+    descripcion: 'Sólo el super admin: anota que una agencia pagó su mensualidad de un mes, con el día en que entró (por ejemplo, un comprobante que MaKo mandó a revisar). Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia; sin ella queda anotado sin recibo. Si la agencia o sus clientes estaban en pausa por ese mes, vuelven a entrar. Con quitar: true, saca la marca y anula su recibo. Sólo meses desde que se prendió y hasta el actual.',
+    escribe: 'el pago del mes de esa agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.pago.<mes> y .orden.<orden>), su recibo y la pausa de sus cuentas',
     parametros: [
       { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia (de ver_mensualidades_agencias).' },
       { nombre: 'mes', rotulo: 'Mes', tipo: 'string', obligatorio: true, max: 7, descripcion: 'AAAA-MM, el mes que pagó.' },
       { nombre: 'pagadoEl', rotulo: 'Día del pago', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD en que entró el pago. Sin esto, hoy.' },
       { nombre: 'quitar', rotulo: 'Quitar la marca', tipo: 'boolean', descripcion: 'true: saca la marca de pagado de ese mes.' },
+      { nombre: 'orden', rotulo: 'Orden de Binance', tipo: 'string', max: 40, descripcion: 'los 18 dígitos del «Order ID» del comprobante. Con esto sale el recibo.' },
+      { nombre: 'montoPagado', rotulo: 'Monto pagado', tipo: 'number', minimo: 0.01, maximo: 100000, descripcion: 'lo que dice el comprobante, en dólares. Sin esto, lo que se debía.' },
+      { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 5, descripcion: 'USD, USDT o USDC (sin esto, USDT).' },
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
@@ -545,13 +548,29 @@ export const DEFS: readonly OperacionDef[] = [
     // aTerceros: prenderla hace que MaKo les escriba a los admins de la agencia (la app y el correo) cada mes.
     id: 'prender_mensualidad_agencia', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Prender o apagar la mensualidad de una agencia',
-    descripcion: 'Sólo el super admin: prende la mensualidad por fuera de MaKo de una agencia desde un mes (el primero que se factura así; los días de antes no se cobran) y por qué medio paga (sin esto, Binance). Desde ahí MaKo le avisa a sus admins el total el día 1 de cada mes, y dos días antes de que un cliente empiece a contar, por la app y por correo. Con apagar: true, deja de avisar; lo pagado queda anotado. Apagada, la agencia sigue con el cobro por su link.',
+    descripcion: 'Sólo el super admin: prende la mensualidad por fuera de MaKo de una agencia: desde qué mes MaKo manda el PDF del mes al grupo de WhatsApp con la agencia (del 1 al 5), desde qué día se cobra la entrada de cada cliente (sus días hasta el próximo 5; los que empezaron antes entraron a mano) y por qué medio paga (sin esto, Binance). Desde ahí MaKo lee el comprobante que mandan al grupo, saca el recibo y pausa sola a quien no paga («Paga para entrar»): el cliente que no pagó su entrada y, el día 6 sin el total, la agencia y sus clientes. Con apagar: true, deja de avisar y de pausar; lo pagado queda anotado. Apagada, la agencia sigue con el cobro por su link.',
     escribe: 'la mensualidad de la agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.config)',
     parametros: [
       { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
       { nombre: 'desde', rotulo: 'Desde', tipo: 'string', max: 7, descripcion: 'AAAA-MM, el primer mes que se factura así. Sin esto, el actual.' },
+      { nombre: 'entradasDesde', rotulo: 'Entradas desde', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD: los clientes cuyos 14 días terminan desde ese día pagan su entrada. Sin esto, hoy.' },
       { nombre: 'medio', rotulo: 'Medio de pago', tipo: 'string', max: 40, descripcion: 'por dónde paga (sin esto, Binance).' },
       { nombre: 'apagar', rotulo: 'Apagar', tipo: 'boolean', descripcion: 'true: la apaga.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'marcar_entrada_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Marcar pagada la entrada de un cliente',
+    descripcion: 'Sólo el super admin: anota que una agencia pagó la entrada de un cliente (sus días hasta el próximo 5), con el día en que entró (por ejemplo, un comprobante que MaKo mandó a revisar). Si estaba en pausa, sus días se cuentan desde ese día y vuelve a entrar. Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia.',
+    escribe: 'la entrada del cliente (app_settings de la plataforma, agencia.mensualidad.<agencia>.entrada.<cliente>), su recibo y su pausa',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
+      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta del cliente (de ver_mensualidades_agencias con agenciaWs).' },
+      { nombre: 'pagadoEl', rotulo: 'Día del pago', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD en que entró el pago. Sin esto, hoy.' },
+      { nombre: 'orden', rotulo: 'Orden de Binance', tipo: 'string', max: 40, descripcion: 'los 18 dígitos del «Order ID». Con esto sale el recibo.' },
+      { nombre: 'montoPagado', rotulo: 'Monto pagado', tipo: 'number', minimo: 0.01, maximo: 100000, descripcion: 'lo que dice el comprobante, en dólares. Sin esto, lo que se debía.' },
+      { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 5, descripcion: 'USD, USDT o USDC (sin esto, USDT).' },
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

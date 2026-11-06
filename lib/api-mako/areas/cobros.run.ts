@@ -49,11 +49,31 @@ import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 import { agenciasHabilitadas } from '@/lib/agencia';
-import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0402, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
+import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0402, marcarEntradaPagada, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
+import { referenciaNormal } from '@/lib/recibos-reglas';
 import { esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
 const NO_SUPER_ADMIN_MES = 'Sólo el super admin anota la mensualidad de una agencia.';
+
+/**
+ * La orden de Binance de un pago que anota el super admin (opcional): con ella sale el recibo. 18 dígitos (`referenciaNormal`);
+ * el monto, el que dice el comprobante (sin esto, lo que se debía) y en dólares.
+ */
+function pagoConOrden(input: Record<string, unknown>, debeUsd: number): { pago: { orden: string; monto: number; moneda: string; montoUsd: number } | null } | { error: string; faltan?: string[] } {
+  const crudo = typeof input.orden === 'string' ? input.orden.trim() : '';
+  if (!crudo) return { pago: null };
+  const orden = referenciaNormal('binance', crudo);
+  if (!orden) return { error: 'La orden de Binance son los 18 dígitos del «Order ID».', faltan: ['orden'] };
+  const moneda = (typeof input.moneda === 'string' && input.moneda.trim() ? input.moneda.trim() : 'USDT').toUpperCase();
+  if (!/^(USD|USDT|USDC)$/.test(moneda)) return { error: 'El pago va en dólares (USD, USDT o USDC).', faltan: ['moneda'] };
+  const monto = typeof input.montoPagado === 'number' && input.montoPagado > 0 ? Math.round(input.montoPagado * 100) / 100 : debeUsd;
+  return { pago: { orden, monto, moneda, montoUsd: monto } };
+}
+const pagoDelPayload = (v: unknown): { orden: string; monto: number; moneda: string; montoUsd: number } | null => {
+  const o = v as { orden?: unknown; monto?: unknown; moneda?: unknown; montoUsd?: unknown } | null;
+  return o && typeof o.orden === 'string' && typeof o.monto === 'number' && typeof o.moneda === 'string' && typeof o.montoUsd === 'number' ? { orden: o.orden, monto: o.monto, moneda: o.moneda, montoUsd: o.montoUsd } : null;
+};
 /** ¿Quien confirma es el super admin GLOBAL? Fuera de un request (un flujo, un cron) no hay cookies: eso es un «no». */
 async function esSuperAdmin(): Promise<boolean> {
   try { return (await getSesionAdmin()) != null; } catch { return false; }
@@ -1147,10 +1167,13 @@ export const RUNNERS: Runners = {
         return {
           agencia_ws: ws, agencia: m.agencia, apagada: m.config == null, medio: m.config?.medio ?? null,
           mes: m.actual.mes, total_usd: m.actual.cuenta.totalUsd, se_paga_hasta: m.actual.cuenta.limite,
-          pagado: m.actual.pago != null, pagado_el: m.actual.pago?.pagadoEl ?? null,
+          pagado: m.actual.pagado, pagado_usd: m.actual.pagadoUsd, pagado_el: m.actual.pago?.pagadoEl ?? null,
+          agencia_en_pausa: m.agenciaEnPausa,
           clientes_que_cuentan: m.clientes.filter((c) => c.situacion.tipo === 'cuenta').length,
           sin_costo: m.clientes.flatMap((c) => (c.situacion.tipo === 'sin-costo' ? [{ cliente_ws: c.ws, nombre: c.nombre, hasta: c.situacion.hasta }] : [])),
-          meses_sin_pagar: m.anteriores.filter((x) => !x.pago).map((x) => x.mes),
+          en_pausa: m.clientes.filter((c) => c.enPausa).map((c) => ({ cliente_ws: c.ws, nombre: c.nombre })),
+          se_debe_usd: Math.round(m.pendientes.reduce((a, p) => a + p.debeUsd, 0) * 100) / 100,
+          meses_sin_pagar: m.anteriores.filter((x) => !x.pagado).map((x) => x.mes),
         };
       }));
       return json({ agencias: filas, nota: 'apagada: true = esa agencia paga con su link (cobro por pasarela); lo de total_usd es cómo quedaría. Con agenciaWs, el detalle de una.' });
@@ -1170,14 +1193,16 @@ export const RUNNERS: Runners = {
       if (!x) return { error: `Ese mes no se factura: va de ${m.config.desde} a ${m.actual.mes}.` };
       if (input.quitar === true) {
         if (!x.pago) return { error: `${mes} no estaba marcado pagado.`, yaEstaba: true };
-        return { payload: { agenciaWs, mes, quitar: true, pagadoEl: x.pago.pagadoEl }, resumen: `Sacar la marca de pagado de ${m.agencia}, ${mes} (pagado el ${x.pago.pagadoEl}, ${usdMes(x.pago.totalUsd)}).` };
+        return { payload: { agenciaWs, mes, quitar: true, pagadoEl: x.pago.pagadoEl }, resumen: `Sacar la marca de pagado de ${m.agencia}, ${mes} (pagado el ${x.pago.pagadoEl}, ${usdMes(x.pago.pagadoUsd)}), y anular su recibo.` };
       }
       const pagadoEl = s(input.pagadoEl) ?? m.hoy;
       if (!esDiaMes(pagadoEl)) return { error: 'El día del pago va como AAAA-MM-DD.', faltan: ['pagadoEl'] };
-      if (x.pago && x.pago.pagadoEl === pagadoEl) return { error: `${mes} ya estaba marcado pagado el ${pagadoEl}.`, yaEstaba: true };
+      if (x.pagado) return { error: `${mes} ya estaba pagado.`, yaEstaba: true };
+      const pago = pagoConOrden(input, x.debeUsd);
+      if ('error' in pago) return pago;
       return {
-        payload: { agenciaWs, mes, pagadoEl, totalUsd: x.cuenta.totalUsd },
-        resumen: `Marcar pagada la mensualidad de ${m.agencia} de ${mes}: ${usdMes(x.cuenta.totalUsd)}, entró el ${pagadoEl}.`,
+        payload: { agenciaWs, mes, pagadoEl, totalUsd: x.cuenta.totalUsd, ...(pago.pago ? { pago: pago.pago } : {}) },
+        resumen: `Marcar pagada la mensualidad de ${m.agencia} de ${mes}: ${usdMes(x.debeUsd)}, entró el ${pagadoEl}.${pago.pago ? ` Con la orden ${pago.pago.orden}: sale el recibo al grupo de la agencia.` : ' Sin orden: queda anotado, sin recibo.'} Si la agencia o un cliente estaban en pausa por esto, vuelven a entrar.`,
       };
     },
     faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
@@ -1189,7 +1214,7 @@ export const RUNNERS: Runners = {
         const r = await quitarMesPagado({ agenciaWs, mes, pagadoEl: typeof payload.pagadoEl === 'string' ? payload.pagadoEl : null });
         return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
       }
-      const r = await marcarMesPagado({ agenciaWs, mes, pagadoEl: String(payload.pagadoEl ?? ''), autor: autorDe(ctx) });
+      const r = await marcarMesPagado({ agenciaWs, mes, pagadoEl: String(payload.pagadoEl ?? ''), autor: autorDe(ctx), pago: pagoDelPayload(payload.pago) });
       if (!r.ok) return { ok: false, resumen: r.error };
       // Lo que se vio al proponer es lo que se marca: si la cuenta cambió en el medio, se dice (el total guardado es el de ahora).
       const visto = typeof payload.totalUsd === 'number' ? payload.totalUsd : null;
@@ -1240,11 +1265,13 @@ export const RUNNERS: Runners = {
       }
       const desde = s(input.desde) ?? m.actual.mes;
       if (!esMes(desde)) return { error: 'El mes va como AAAA-MM.', faltan: ['desde'] };
+      const entradasDesde = s(input.entradasDesde) ?? m.config?.entradasDesde ?? m.hoy;
+      if (!esDiaMes(entradasDesde)) return { error: 'El día de las entradas va como AAAA-MM-DD.', faltan: ['entradasDesde'] };
       const medio = s(input.medio) ?? m.config?.medio ?? 'Binance';
-      if (m.config && m.config.desde === desde && m.config.medio === medio) return { error: 'Ya está prendida así.', yaEstaba: true };
+      if (m.config && m.config.desde === desde && m.config.medio === medio && m.config.entradasDesde === entradasDesde) return { error: 'Ya está prendida así.', yaEstaba: true };
       return {
-        payload: { agenciaWs, desde, medio },
-        resumen: `Prender la mensualidad de ${m.agencia} desde ${desde}, por ${medio}: se le avisa el total el día 1 y dos días antes de que un cliente empiece a contar. Este mes iría en ${usdMes(m.actual.cuenta.totalUsd)}.`,
+        payload: { agenciaWs, desde, medio, entradasDesde },
+        resumen: `Prender la mensualidad de ${m.agencia}: el PDF del mes al grupo de WhatsApp con la agencia desde ${desde} (del 1 al 5), la entrada de cada cliente cuyos 14 días terminan desde el ${entradasDesde}, por ${medio}; y «Paga para entrar» sola: el cliente que no paga su entrada y, el día 6 sin el total, la agencia y sus clientes.`,
       };
     },
     faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
@@ -1253,7 +1280,37 @@ export const RUNNERS: Runners = {
       const agenciaWs = Number(payload.agenciaWs);
       const r = payload.apagar === true
         ? await apagarMensualidad({ agenciaWs })
-        : await prenderMensualidad({ agenciaWs, desde: String(payload.desde ?? ''), medio: typeof payload.medio === 'string' ? payload.medio : null, autor: autorDe(ctx) });
+        : await prenderMensualidad({ agenciaWs, desde: String(payload.desde ?? ''), entradasDesde: typeof payload.entradasDesde === 'string' ? payload.entradasDesde : null, medio: typeof payload.medio === 'string' ? payload.medio : null, autor: autorDe(ctx) });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  marcar_entrada_pagada: {
+    preparar: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las mensualidades de las agencias son sólo de la plataforma.' };
+      const agenciaWs = n(input.agenciaWs);
+      const clienteWs = n(input.clienteWs);
+      if (agenciaWs == null || clienteWs == null) return { error: 'Faltan la agencia y el cliente.', faltan: ['agenciaWs', 'clienteWs'] };
+      const m = await mensualidadDeAgencia(agenciaWs);
+      if (!m.ok) return { error: `No pude armar su mensualidad: ${m.error}`, falla: true };
+      if (!m.config) return { error: 'Esa agencia no tiene la mensualidad prendida.' };
+      const c = m.clientes.find((x) => x.ws === clienteWs);
+      if (!c) return { error: 'Ese cliente no es de esa agencia. Pide ver_mensualidades_agencias con su agenciaWs.' };
+      const p = m.pendientes.find((x) => x.tipo === 'entrada' && x.ws === clienteWs);
+      if (!p || p.tipo !== 'entrada') return { error: `${c.nombre} no debe su entrada.`, yaEstaba: true };
+      const pagadoEl = s(input.pagadoEl) ?? m.hoy;
+      if (!esDiaMes(pagadoEl)) return { error: 'El día del pago va como AAAA-MM-DD.', faltan: ['pagadoEl'] };
+      const pago = pagoConOrden(input, p.debeUsd);
+      if ('error' in pago) return pago;
+      return {
+        payload: { agenciaWs, clienteWs, pagadoEl, ...(pago.pago ? { pago: pago.pago } : {}) },
+        resumen: `Marcar pagada la entrada de ${c.nombre} (${m.agencia}): ${usdMes(p.debeUsd)}, ${p.entrada.dias} días del ${p.entrada.desde} al ${p.entrada.hasta}.${pago.pago ? ` Con la orden ${pago.pago.orden}: sale el recibo al grupo de la agencia.` : ' Sin orden: queda anotada, sin recibo.'} Si estaba en pausa, vuelve a entrar.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    ejecutar: (payload, ctx) => seguro('marcar la entrada', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      const r = await marcarEntradaPagada({ agenciaWs: Number(payload.agenciaWs), clienteWs: Number(payload.clienteWs), pagadoEl: String(payload.pagadoEl ?? ''), autor: autorDe(ctx), pago: pagoDelPayload(payload.pago) });
       return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
   },

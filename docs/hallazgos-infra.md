@@ -84,6 +84,34 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El gasto de Vercel: cada llegada a main compila en una máquina de 30 núcleos (6/11/2026)
+
+**Síntoma:** Martín: «el gasto de Vercel se disparó por las nubes». **La factura en curso (16/10 al 16/11) iba en US$291,94 el 6/11, con diez días por delante; las dos anteriores fueron de US$40.** Son US$248 de builds, US$24 de funciones y tráfico y US$40 fijos de asientos, menos US$20 de crédito incluido. El 98 % de los builds es el proyecto mako.
+
+**Lo obvio era tráfico o funciones, y no.** Es «Build CPU Minutes». Y la primera medición de esta entrada también se equivocó: **`/v1/billing/charges` da el costo DESPUÉS del crédito, con uno o dos días de atraso y sin los asientos del ciclo entero.** Decía «US$0 hasta el 20/10» y eran los US$20 incluidos, que se comieron esos días. Martín lo vio en el panel y tenía razón. Para decir cuánto se gasta, el número es el del panel: `/~/usage` y «Upcoming Invoice» en `/~/settings/billing`. Sus barras diarias van en la hora de la cuenta, no en UTC. Son dos cosas que se multiplican:
+
+1. **El precio de cada build.** Desde el 20/10, `resourceConfig.buildMachineSelection: elastic` subió el proyecto solo a Turbo (`buildMachineElasticReason: sustained-high-cpu`). Se cobra por núcleo, con el tiempo después del build y redondeando al minuto: un build de 232 s son 4 × 30 × US$0,0035 = **US$0,42**, y el 4/11 el promedio era US$0,33. De esos 232 s, 117 son compilar con 29 procesos. Vercel no avisa.
+2. **La cantidad de builds.** `punta.yml` nació el 4/11 a las 00:03: cada rama llega sola a main y cada llegada compila. Main pasó de unos 15 builds por día a **176**.
+
+Lo que se gastaba de más ese día:
+- 54 previews de ramas `claude/*`: `deploymentEnabled` apagaba `punta/**`, y los chats de la nube trabajan en `claude/*`.
+- Un tercio de los builds de main (79 de 231, en 48 h) sólo cambiaba documentos o tests.
+- Más de un tercio (86 de 232) arrancó antes de que terminara el anterior: Vercel ya no encola commits de la misma rama, y el intermedio se compila aunque nadie lo vaya a usar.
+
+**La regla:** una rama que nadie mira va en `deploymentEnabled`. Lo que no sale en la app no construye (`scripts/vercel-saltar-build.sh`, con su test). Sumar un chat o una automatización que empuja a main tiene un costo: unos US$0,32 por cada empujón.
+
+**Medir hoy:** `/v6/deployments` da los builds al instante: un build de 30 núcleos son de 90 a 120 minutos de CPU. Comparado contra el panel, dio US$33 para el 5 y el 6/11, igual que la factura.
+
+**Hecho el 6/11, con el sí de Martín:** en el proyecto, `resourceConfig.buildQueue.configuration: WAIT_FOR_NAMESPACE_QUEUE`, un build por rama: los intermedios se saltean. Vive en Vercel, no en el repo, y es lo único que cambió ahí: la máquina sigue en Elastic.
+
+**El presupuesto no frena nada:** hay uno de US$80 en Spend Management, con «Pause» apagado, y está pasado. Sólo avisa. Prender «Pause» apagaría producción al llegar al tope.
+
+**La máquina más chica NO anda (medido el 6/11).** Enhanced, 8 núcleos y 16 GB: `npm run build` murió con SIGKILL a los 162 s, `errorCode: out_of_memory`, compilando el mismo commit que en Turbo tarda 207 s. Standard tiene la mitad de memoria. **Entre 16 y 60 GB no hay máquina**: mientras el build pida más de 16 GB, es Turbo. Cambiarla además rompe lo que llega en el medio: el build de main que arrancó durante la prueba hizo saltar «El deploy de producción falló».
+
+**Quedó fijada en Turbo** (`buildMachineSelection: fixed`), y no en Elastic: al sacarla de Elastic se borró lo que había aprendido (`elasticBuildMachine`), y podría arrancar de una máquina chica y morir por memoria en un push real.
+
+**Sin hacer:** medir el ahorro en el panel. Si no alcanza, las dos palancas que quedan son agrupar las llegadas a main y bajarle la memoria al build.
+
 ## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
 
 **Vive en:** `scripts/tipos-ci.mjs` (`TIPOS_TOPE_S`, `SALIDA_SIN_TIEMPO`, `TIPOS-RAM`) · `.github/workflows/punta.yml` (Tipos antes de

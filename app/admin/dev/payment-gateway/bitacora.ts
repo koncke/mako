@@ -644,4 +644,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/planes',
   },
+  {
+    fecha: '6 nov', hora: '02:14', chat: 'Agency › Cobro', sesion: 'cli_72e438bf-f295-5e72-888d-863b786b03a4', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El cobro automático de las agencias: el PDF al grupo, el comprobante y la suspensión sola',
+    pedido: '«siempre tabla, PDF, por el grupo de WhatsApp con Código. Nunca a los clientes de ellos», «cobrarle el diferencial… hasta el próximo 5, no hasta el próximo primero», y que toda cuenta que pase las 2 semanas se suspenda sola. Las reglas: 1. Aviso del mes del 1 al 5 al grupo de WhatsApp de MaKo con la agencia, tabla ítem por ítem en PDF, y MaKo pide ahí el comprobante de Binance; arranca el 1/12. 2. Comprobante en el grupo: si cubre, se marca el mes y sale el recibo; un pago parcial no frena nada; un comprobante dudoso le llega a Martín, no se decide solo. 3. Diferencial por día, igual para todos: cada cliente paga sus días desde que empieza hasta el próximo 5, sin contar ese 5; tarifa US$47 ÷ días del ciclo; la fecha límite es ese mismo día; si no paga, se suspende y se recalcula desde el día que entra. 4. Suspensión sola: la cuenta que pasa las 2 semanas sin pagar, y el día 6 sin el total del mes la agencia y todos sus clientes; el estado «Paga para entrar»; el cliente ve «contacta a tu agencia», sin montos; pagado, entra solo; un error de la base o de una lectura NUNCA suspende; no se tocan sus campañas de Meta. 5. El comando para pasar a los usuarios 19, 22 y 15 al estado nuevo.',
+    puntos: ['Llegó como encargo a una sesión de la nube (las reglas de Martín del 5/11, citadas en el encargo), que entrega por punta/agencia-cobro-2.'],
+    revisar: '/agency',
+  },
+  {
+    fecha: '6 nov', hora: '02:14', chat: 'Agency › Cobro', sesion: 'cli_72e438bf-f295-5e72-888d-863b786b03a4', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La mensualidad de las agencias, sola: el PDF al grupo, el comprobante de Binance y «Paga para entrar»',
+    puntos: [
+      'El primero de cada mes, Código recibe en su grupo de MaKo el PDF con su mensualidad renglón por renglón (diciembre: US$ 426 con los siete), y dos días antes de que un cliente empiece, el PDF de su entrada: sus días hasta el próximo 5 (Pablo: 26 días, US$ 40,73).',
+      'Mandan la captura del pago de Binance al grupo y MaKo la anota sola, saca el recibo y lo contesta ahí. Un pago menor queda a cuenta; lo dudoso te llega a ti.',
+      'El cliente que no paga su entrada a tiempo queda en «Paga para entrar», y el día 6 sin la mensualidad, la agencia y sus clientes. Pagado, vuelven a entrar solos. Si la base falla, no se pausa a nadie.',
+      'Está apagada hasta que se prenda para Código.',
+    ],
+    commits: [
+      { sha: 'f9a014b0c', msg: 'Mensualidad de agencias: el diferencial por día, el PDF al grupo, el comprobante de Binance y «Paga para entrar»', lineas: 2871, archivos: 23 },
+    ],
+    archivos: [
+      'lib/agencia-mes-reglas.ts — el ciclo del 5 al 5, la entrada, a qué se aplica un pago y quién va en pausa',
+      'lib/agencia-mes-pausas.ts — la pausa, con la base inyectada (probada con una base que falla)',
+      'lib/agencia-mes-comprobante.ts — el comprobante del grupo (enganchado en lib/mako-doer-in.ts)',
+      'lib/agencia-mes-pdf.ts — el PDF del cobro',
+      'supabase/migrations/0403_comprobantes_del_grupo.sql — la lectura del grupo, sin lead',
+      'scripts/agencia-paga-para-entrar.mts — los usuarios suspendidos a mano, al estado nuevo',
+      'tests/agencia-mes.test.ts — 37 casos, 11 roturas, cada una cae',
+      'docs/relevo/nube-agencia-cobro.md — los pasos del Cerebro, en orden',
+    ],
+    revisar: '/agency',
+  },
 ];

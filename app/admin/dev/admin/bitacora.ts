@@ -502,7 +502,7 @@ export const BITACORA: Hito[] = [
     revisar: '/admin',
   },
   {
-    fecha: '6 nov', hora: '02:30', chat: 'Admin', sesion: 'cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    fecha: '6 nov', hora: '00:45', chat: 'Admin', sesion: 'cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
     titulo: 'Billing con el código de Studio Admin: finanzas y Cargar pago (tanda 2 de la copia)',
     puntos: [
       'Billing es la página de finanzas de Studio: lo cobrado este mes, el MRR, lo que vence y lo atrasado; cómo entra la plata; el aviso de lo que espera; la línea de lo cobrado y lo que vence; por dónde entra; las pasarelas; lo que vence en 31 días; vender un plan y los atajos.',
@@ -518,6 +518,23 @@ export const BITACORA: Hito[] = [
       'tests/admin-studio.test.ts, tests/cobro-lanzamiento.test.ts, tests/admin-cobros.test.ts',
     ],
     revisar: '/admin?tab=billing',
+  },
+  {
+    fecha: '6 nov', hora: '02:00', chat: 'Admin', sesion: 'cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Customers con el código de Studio Admin: el CRM y la ficha de cada negocio (tanda 3 de la copia)',
+    puntos: [
+      'Customers es la pantalla CRM de Studio: las cuatro tarjetas (MRR, clientes, activos y en riesgo), lo que entró por mes con cuántos de los activos pagan, el cliente más nuevo de los últimos 30 días, cuántos terminaron su configuración y la tabla de los negocios con su grupo, la última vez, su estado y lo que pagan.',
+      'La tabla busca, filtra por grupo y por estado, y pasa de página como la de Studio. El lápiz de cada fila abre su ficha.',
+      'La ficha es el perfil de Studio: la miga de pan que vuelve a Customers, la cabecera con «Administrar» y «Entrar a su cuenta», y tres pestañas (Resumen con su costado, Plan y cobro, y Actividad).',
+      'Se borró la pantalla de antes (CustomersApp) y su clic derecho, que Studio no tiene.',
+    ],
+    archivos: [
+      'app/admin/clientes/customers.tsx, customers-vista.ts y _components — Customers',
+      'app/admin/clientes/perfil — la ficha',
+      'app/admin/_studio/components/ui — progress, breadcrumb; la paginación en español',
+      'tests/admin-studio.test.ts, tests/customers.test.ts, tests/clic-derecho-listas.test.ts, tests/primer-mes.test.ts, tests/plan-a-mano-recorrido.test.ts',
+    ],
+    revisar: '/admin?tab=customers',
   },
 ];
 

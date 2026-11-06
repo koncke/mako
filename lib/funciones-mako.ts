@@ -367,7 +367,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['partners', 'agency'],
     que: 'MaKo Partners y Agency Dashboard: los referidos que traes a MaKo y, si te sumas como agencia con el plan Pro, las cuentas de MaKo de tus clientes.',
-    hace: ['Ver tus referidos', 'Sumarte como agencia (con el plan Pro activo)', 'Las cuentas de MaKo de tus clientes'],
+    hace: ['Ver tus referidos', 'Sumarte como agencia (con el plan Pro activo)', 'Las cuentas de MaKo de tus clientes', 'La mensualidad de la agencia por Binance (cuando MaKo la prende): el PDF del mes y de la entrada de cada cliente por el grupo de MaKo, el comprobante que mandas ahí y su recibo, y la pausa de quien no paga'],
     // 4/11/2026: el teléfono no vende, y éstas existen para vender MaKo a otros (lib/tienda.ts → TABS_QUE_VENDEN).
     noHace: ['No están en el teléfono: se usan en la computadora'],
     alias: ['partners', 'referidos', 'agency', 'agencia'],
