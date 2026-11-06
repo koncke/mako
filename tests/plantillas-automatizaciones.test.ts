@@ -44,8 +44,8 @@ import {
 import { camposDelFlujo } from '../lib/nutricion-grafo-motor';
 import { frenoDelFlujo, emojiDeSecuencia, OP_EMITIR_RECIBO, OP_LEER_COMPROBANTE, type ProductoParaDisparo } from '../lib/flujo-conversacion';
 import {
-  problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
-  TRIGGER_AVISO_MAKO, EVENTOS_MAKO_OFRECIDOS,
+  problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, disparaPorEvento, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
+  TRIGGER_AVISO_MAKO, TRIGGER_PAGO, EVENTOS_MAKO_OFRECIDOS,
 } from '../lib/disparadores';
 import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
 import { datoDe, tokensDe } from '../lib/variables-aviso';
@@ -123,6 +123,8 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
   // 5/11/2026, la tarjeta Pagos (docs/relevo/pagos-automations-encargo.md): leer un comprobante y emitir el recibo.
   ['comprobante-llego', 'Le Llegó un Comprobante', 'cobrar'],
   ['recibo-al-cobrar', 'Emitir Recibo al Cobrar', 'cobrar'],
+  // 6/11/2026 (pendiente 288): el otro lado del CRON «Pagos», que ya emitía el evento y no tenía plantilla.
+  ['pago-rechazado', 'Le Rechazaron el Pago', 'cobrar'],
   // El AI Analyst del Dashboard (13/10/2026: Automations consume el Dashboard).
   ['mako-analisis', 'El AI Analyst Terminó', 'medir'],
   ['mako-charla', 'Un Lead Te Escribió', 'vender'],
@@ -480,6 +482,53 @@ test('los datos del EQUIPO van sólo en «MaKo en WhatsApp», y cada aviso nuevo
   }
 });
 
+/**
+ * EN LAS DEL CRON «PAGOS», EL AVISO AL EQUIPO NO CUELGA DEL CANAL DEL LEAD (6/11/2026, el pendiente 288). Un mensaje a
+ * quien no tiene teléfono (o un email a quien no tiene email) cancela la INSCRIPCIÓN ENTERA (lib/nutricion.ts), no sólo
+ * ese mensaje: lo que cuelga de esa rama no sale, y el aviso al equipo se va con él. En una plantilla de la PLATA eso es
+ * el negocio enterado de un cobro menos, así que el aviso va ARRIBA de la condición que pregunta el canal.
+ *
+ * ⚠️ ACOTADO AL CRON «Pagos» A PROPÓSITO: en las de etapa hay SIETE avisos que sí cuelgan del canal (le_mk, la_mk1,
+ * la_mk2, la_mk3, ln_mk, lt_mk y lc_mk), porque informan de lo que pasó en el carril de WhatsApp y a quien sólo tiene
+ * email le corre el camino de email. Subirlos es otra decisión, con su pedido (docs/hallazgos-chatbot.md).
+ */
+test('en las del CRON «Pagos» el aviso al equipo no cuelga del canal del lead: sin teléfono se cancelaría la inscripción entera y el aviso con ella', () => {
+  const vistos: string[] = [];
+  for (const p of PLANTILLAS) {
+    if (p.cron.fijo !== TRIGGER_PAGO) continue;
+    const pasos = normalizar(pasosDePlantilla(p));
+    // Lo que cuelga de una rama que pregunta el canal del lead, a cualquier profundidad (el primero y sus descendientes).
+    const bajoElCanal = new Set<string>();
+    for (const x of pasos) {
+      if (claseDe(x) !== 'condicion') continue;
+      for (const r of x.ramas ?? []) {
+        if (!r.filas.some((f) => f.campo === 'tiene_telefono' || f.campo === 'tiene_email') || !r.siguiente) continue;
+        bajoElCanal.add(r.siguiente);
+        for (const k of descendientes(pasos, r.siguiente)) bajoElCanal.add(k);
+      }
+    }
+    for (const x of pasos) {
+      if (claseDe(x) !== 'accion' || x.accion?.operacion !== OP_AVISAR) continue;
+      if (bajoElCanal.has(x.id!)) vistos.push(`${p.id}/${x.id}`);
+    }
+  }
+  assert.deepEqual(vistos, [], 'un aviso de una plantilla de Pagos cuelga del canal del lead');
+  assert.ok(PLANTILLAS.filter((p) => p.cron.fijo === TRIGGER_PAGO).length >= 3, 'la prueba se quedó sin plantillas del CRON «Pagos» que mirar');
+});
+
+// LA PLATA AL LEAD SE APRUEBA (la regla de la cabecera de la lib: «La plata y lo sensible, para aprobar»). Con el MISMO
+// regex con que esta prueba ya mide los escenarios del AI Step, abajo. Hasta el 6/11/2026 la regla no se medía en los
+// MENSAJES: un «tu pago no se procesó» con «Sale sola» le sale al cliente sin que nadie lo lea.
+test('un mensaje al lead que habla de plata NO sale solo: queda para aprobar', () => {
+  for (const p of PLANTILLAS) {
+    for (const x of p.pasos as readonly PasoDePlantilla[]) {
+      if (claseDe(x) !== 'mensaje') continue;
+      const t = [...textosDeTarjeta(x), x.cuerpo ?? '', x.asunto ?? '', x.preheader ?? ''].join(' ');
+      if (/precio|cuesta|pago|descuento/i.test(t)) assert.equal(x.revisar, true, `${p.id}/${x.id}: habla de plata y sale sola`);
+    }
+  }
+});
+
 test('no trae datos de un cliente real: ni nombres, ni links, ni números, ni su firma', () => {
   for (const p of PLANTILLAS) {
     for (const t of textos(p)) {
@@ -774,6 +823,8 @@ const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-analisis': ['mako'], 'mako-charla': ['mako'],
   // «Leer comprobante» no manda nada (sólo los avisos al equipo); «Emitir recibo» se lo manda al lead por WhatsApp.
   'comprobante-llego': ['mako'], 'recibo-al-cobrar': ['whatsapp'],
+  // «Le rechazaron el pago»: el aviso al equipo y el WhatsApp al cliente para que lo reintente.
+  'pago-rechazado': ['whatsapp', 'mako'],
   'instagram-te-escribieron': ['instagram', 'mako'], 'messenger-te-escribieron': ['messenger', 'mako'], 'email-recibido': ['email', 'mako'],
   'email-newsletter': ['email'],
 };
@@ -793,8 +844,8 @@ test('filtrarPlantillas: cada palabra, sin acentos ni mayúsculas; canal y objet
   assert.deepEqual(ids({ texto: '  agendó   LLAMADA ' }), ['lead-agendo'], 'los espacios de más');
   assert.ok(ids({ texto: 'historia' }).includes('instagram-te-escribieron'), 'busca también en la línea');
   assert.deepEqual(ids({ canal: 'instagram', objetivo: 'cobrar' }), [], 'las dos a la vez');
-  assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['lead-confirmo-compra', 'recibo-al-cobrar']);
-  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['lead-confirmo-compra', 'mako-cobranza', 'mako-pago', 'comprobante-llego', 'recibo-al-cobrar']);
+  assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['lead-confirmo-compra', 'recibo-al-cobrar', 'pago-rechazado']);
+  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['lead-confirmo-compra', 'mako-cobranza', 'mako-pago', 'comprobante-llego', 'recibo-al-cobrar', 'pago-rechazado']);
   assert.deepEqual(ids({ texto: 'no existe nada asi' }), []);
 });
 
@@ -839,6 +890,14 @@ test('crear una de un CANAL: nace con TODOS los eventos de su categoría en la f
   }
   // Un Evento de MaKo: UNO, con su evento.
   assert.deepEqual(filaDePlantilla(plantillaPorId('mako-pago')!, 'k', 'x').disparadores, [{ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: 'pago_recibido' }]);
+  // Las del CRON «Pagos» (5 y 6/11/2026) nacen con UN evento, el suyo, y con «Cada vez»: lo que las hace correr es ESE
+  // hecho de la pasarela, no toda la categoría. Y el motor las elige por el subtipo (`disparaPorEvento`): con el evento
+  // de al lado, «Le Rechazaron el Pago» saldría a cobrarle a quien acaba de pagar.
+  const rechazado = filaDePlantilla(plantillaPorId('pago-rechazado')!, 'k', 'x');
+  assert.deepEqual(rechazado.disparadores, [{ id: 'd1', trigger_tipo: TRIGGER_PAGO, subtipo: 'rechazado' }]);
+  assert.equal(rechazado.reentrada, 'siempre', 'a una suscripción le rechazan la renovación todos los meses');
+  assert.equal(disparaPorEvento({ trigger_tipo: TRIGGER_PAGO, subtipo: 'rechazado' }, 'pago', { subtipo: 'rechazado' }), true);
+  assert.equal(disparaPorEvento({ trigger_tipo: TRIGGER_PAGO, subtipo: 'rechazado' }, 'pago', { subtipo: 'aprobado' }), false);
   // Una de etapa no trae lista: la elige la persona.
   assert.equal(filaDePlantilla(plantillaPorId('lead-agendo')!, 'k', 'x').disparadores, undefined);
 });

@@ -6,6 +6,23 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
+
+**Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
+`Cannot find module 'C:\Users\…\Temp\unir-bitacora-Wzhlax\devwt-plantilla-rechazadoscriptsunir-bitacora.mjs'`: una ruta con
+los separadores comidos y pegada a la carpeta del repo de prueba.
+
+**La causa.** El test configura el merge driver con la ruta ABSOLUTA del script
+(`git config merge.bitacora.driver "node <RAIZ>\scripts\unir-bitacora.mjs %O %A %B %P"`), y git no ejecuta ese comando
+directo: lo pasa por `sh -c`, que se come cada `\`. `git config --get` lo devuelve entero, así que leyendo la config no se
+ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona, usa la ruta RELATIVA con barras normales
+(`node scripts/unir-bitacora.mjs …`) y por eso funciona: la trampa es del test, no del driver.
+
+**Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
+mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
+`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+(o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 
 **Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
