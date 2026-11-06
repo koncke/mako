@@ -2256,6 +2256,40 @@ Y donde haya un guard así, dos cosas más:
 - **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
   que él contesta.
 
+# El vocabulario de UN negocio no se escribe en el código: ni nombres, ni correos, ni programas
+
+Un literal que nombra a un cliente —su dominio, su rubro, el nombre de su programa— se le
+aplica a TODOS. Y cuando lo que gobierna es descartar algo, falla del lado invisible: la
+fila no se escribe, no hay error, no hay aviso, y nadie vuelve a mirar.
+
+El mismo bug salió **tres veces del mismo módulo** (`lib/closing.ts`), por tres mecanismos
+distintos, y cada vez el que vino después no lo vio porque buscaba el mecanismo anterior:
+
+| | Qué estaba cableado | Se fue a | Fallback |
+|---|---|---|---|
+| 14/08/2026 | los correos y el dominio del dueño | `lib/closing-internos.ts` | `SIN_INTERNOS`: nadie es interno |
+| 06/11/2026 | la taxonomía del rubro, en el prompt | `lib/closing-taxonomia.ts` | `TAXONOMIA_NEUTRA`: sin rubro |
+| 06/11/2026 | los nombres de sus programas, en un regex | `lib/closing-marcadores.ts` | `SIN_MARCADORES`: ningún nombre |
+
+Lo que queda como regla para código nuevo:
+
+1. **Se resuelve por workspace, por el lector de siempre de ese dato** (el embudo por
+   `reunionesDe`, la oferta por `listarOfertas`, el perfil por `perfilNegocioTexto`). Un
+   `.from` propio para esto es una segunda fuente de verdad.
+2. **El fallback es el que NO destruye**, y se elige escribiendo los dos costos al lado:
+   analizar de más se ve en la pantalla y en la factura; descartar de más no se ve en ningún
+   lado. Nunca se cae a los valores del cliente de antes: es el mismo agujero servido por el
+   camino de error.
+3. **La decisión vive en un módulo SIN `server-only`.** Que una función esté `export`ada no
+   la hace testeable: `preClassify` lo estaba, y `lib/closing.ts` importa `server-only` en la
+   línea 27, así que ningún test la podía ejecutar.
+4. **Mudarlo a configuración no alcanza si la configuración admite una palabra genérica.** Un
+   producto llamado «Programa» o «Consultoría» descarta las ventas de su propio dueño: el
+   mismo bug, servido por la config. Hace falta el filtro (`PALABRAS_GENERICAS`, un mínimo de
+   largo, y excluir lo que ya rotula una etapa de venta de ese negocio).
+5. **Un detector así se mide antes de defenderlo.** El de los programas cazaba **0 de 28**
+   entregas reales y nadie lo sabía mientras discutía cuánto ahorraba.
+
 # `OWNER_WS` NO es la plataforma: es un cliente. Lo de MaKo va en `wsSuperAdmin()`
 
 `OWNER_WS` vale 1 y el 1 es **Mauricio, un cliente**. El nombre engaña y ya se llevó
