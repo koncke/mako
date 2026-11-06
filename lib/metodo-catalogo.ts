@@ -723,6 +723,26 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts). Cada clave alcanza para LEER la lista de videos:
   // ninguna pide permiso de escribir.
   {
+    key: 'pexels',
+    nombre: 'Pexels',
+    categoria: 'Datos',
+    // El B-roll del Video Editor (lib/pexels.ts): la licencia de Pexels deja el uso comercial, y cada negocio usa SU
+    // clave (el límite de 200 búsquedas por hora es de su cuenta). Gratis.
+    paraQue: 'Fotos con licencia para el B-roll de tus videos: MaKo propone cuáles y dónde, y tú eliges.',
+    campos: [
+      { env: 'PEXELS_API_KEY', label: 'API key', secreto: true, placeholder: 'abc123…', nota: 'Gratis. Está en pexels.com/api, con tu cuenta de Pexels.' },
+    ],
+    tutorial: {
+      url: 'https://www.pexels.com/api/',
+      urlLabel: 'Pexels → API',
+      pasos: [
+        'Entra a pexels.com/api con tu cuenta de Pexels (crearla es gratis).',
+        'Toca «Your API Key», completa para qué la usas (por ejemplo «videos de mi negocio») y acepta.',
+        'Copia la key que aparece y pégala en "API key".',
+      ],
+    },
+  },
+  {
     key: 'vimeo',
     nombre: 'Vimeo',
     categoria: 'Datos',

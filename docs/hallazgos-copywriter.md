@@ -354,6 +354,22 @@ lib/movil-creacion.ts · lib/movil-rutas.ts · tests/barra-sin-dev.test.ts
 (`conGuias`) · lib/copywriter/ia.ts · app/copywriter/PanelMaKo.tsx · app/copywriter/editor/EditorGuion.tsx ·
 app/m/copywriter/GuionM.tsx
 
+## Arrastrar un título dejaba su contenido atrás (6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **Síntoma** (llamada con Leila del 5/11, pendientes 1.8): arrastrar «Gancho» por el asa ⋮⋮ movía sólo el título; los
+  párrafos de abajo se quedaban donde estaban.
+- **Causa:** en BlockNote un título y lo que tiene debajo son bloques HERMANOS (los títulos desplegables están apagados en
+  `esquema.tsx`). El `dragStart` de BlockNote mueve la SELECCIÓN entera cuando abarca varios bloques; si no, sólo el del asa.
+- **El arreglo:** `seccionDe` (lib/copywriter/seccion-arrastre.ts, puro) da la sección del título —hasta el próximo título del
+  mismo nivel o más alto— y `MenuLateral` (CuerpoNotion.tsx) la selecciona en `onDragStartCapture`, ANTES del arrastre de
+  BlockNote. En burbuja llega tarde: BlockNote ya tomó la selección de un solo bloque.
+- **Trampa:** `editor.setSelection(a, b)` tira si un extremo no tiene texto propio. Por eso `hasta` es el ÚLTIMO bloque con
+  texto: un divisor o una tabla al final de la sección se quedan donde estaban (raro, y dicho en el módulo).
+- **Se vio arrastrando** en Chromium con el editor de verdad (docs/recorrido-visual/copywriter-arrastre-*.png). El test fija
+  la sección y el enganche; el gesto en sí sólo lo prueba un navegador.
+
+**Vive en:** lib/copywriter/seccion-arrastre.ts, app/copywriter/editor/CuerpoNotion.tsx, tests/copywriter-arrastrar-seccion.test.ts
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».

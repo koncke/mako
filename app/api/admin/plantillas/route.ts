@@ -137,7 +137,7 @@ async function postEnSuStore(req: NextRequest) {
       if (!(await restaurarPlantilla(b.id))) return NextResponse.json({ ok: false, error: 'Este mensaje no se puede recuperar.' }, { status: 400 });
       return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
     }
-    case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') }); }
+    case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.', {}, undefined, { muestra: true }) }); }
     case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }
     case 'flujo-set': {
       if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });

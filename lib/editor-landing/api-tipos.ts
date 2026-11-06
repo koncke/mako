@@ -42,9 +42,28 @@ export type ConfigSitio = {
  */
 export const FORMATOS = ['pagina', 'presentacion'] as const;
 export type FormatoDoc = (typeof FORMATOS)[number];
-/** La «Relación de aspecto» de Gamma para una presentación. En una página no se usa. */
-export const PROPORCIONES = ['16:9', '4:3', 'fluido'] as const;
+/**
+ * La «Relación de aspecto» de Gamma para una presentación. En una página no se usa.
+ * 4:5 desde el 6/11/2026 (llamada con Leila del 5/11: «ofrecer el carrusel 4:5», el formato de Instagram que ya existe en
+ * Image, lib/carruseles/): una presentación de 4:5 es un CARRUSEL, una diapositiva por imagen.
+ */
+export const PROPORCIONES = ['16:9', '4:3', '4:5', 'fluido'] as const;
 export type Proporcion = (typeof PROPORCIONES)[number];
+/** Las que tienen forma. «Fluido» se dibuja 16:9 cuando hace falta un cuadro (una miniatura). */
+export type ProporcionFija = Exclude<Proporcion, 'fluido'>;
+/** Ancho y alto de cada forma: de acá salen la relación, el cuadro de la miniatura, la hoja del PDF y el PowerPoint. */
+export const FORMA_DE: Readonly<Record<ProporcionFija, readonly [number, number]>> = { '16:9': [16, 9], '4:3': [4, 3], '4:5': [4, 5] };
+/**
+ * El ancho de la diapositiva en em de la letra base (la tarjeta de css.ts, «15b»; Presentar.tsx). Una de 4:5 es más angosta:
+ * con el ancho de una 16:9 (64,5 em) mediría 80 em de alto y la letra quedaría chica al presentarla. 43 em × 53,75 em.
+ */
+export const ANCHO_DIAPO_EM: Readonly<Record<ProporcionFija, number>> = { '16:9': 64.5, '4:3': 64.5, '4:5': 43 };
+/** La forma que se dibuja: la proporción si tiene forma; cualquier otra cosa (fluido, vacío, inválida), 16:9. */
+export function formaFija(p: unknown): ProporcionFija {
+  return p === '4:3' || p === '4:5' ? p : '16:9';
+}
+/** «4 / 5»: el `aspect-ratio` CSS de una forma. */
+export const cuadroCss = (p: unknown): string => FORMA_DE[formaFija(p)].join(' / ');
 
 export type ConfigLanding = {
   tema: string;                      // id de TEMAS (lib/editor-landing/temas.ts) o 'ws:<id>' (temas propios)
@@ -95,10 +114,11 @@ export function proporcionDe(c: { proporcion?: unknown } | null | undefined): Pr
 /** ¿La diapositiva tiene forma fija? (presentación y no «Fluido»). */
 export const diapositivaFija = (c: { formato?: unknown; proporcion?: unknown } | null | undefined): boolean =>
   esPresentacion(c) && proporcionDe(c) !== 'fluido';
-/** Ancho / alto de la diapositiva (16/9 o 4/3), o null si no tiene forma fija. La usan Presentar y el PPTX. */
+/** Ancho / alto de la diapositiva (16/9, 4/3 o 4/5), o null si no tiene forma fija. La usan Presentar y el PPTX. */
 export function relacionDe(c: { formato?: unknown; proporcion?: unknown } | null | undefined): number | null {
   if (!diapositivaFija(c)) return null;
-  return proporcionDe(c) === '4:3' ? 4 / 3 : 16 / 9;
+  const [w, h] = FORMA_DE[formaFija(proporcionDe(c))];
+  return w / h;
 }
 
 /**

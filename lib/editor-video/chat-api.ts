@@ -195,6 +195,10 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
   { op: 'usar_preset_subtitulos', id: 'usar_preset_subtitulos', titulo: 'Aplicar un preset de la marca', parametros: [
     texto('preset', 'Preset', 'El preset: su nombre o su id (de listar_presets_subtitulos).', true, 80),
   ] },
+  { op: 'broll', id: 'proponer_broll_video', titulo: 'Proponer B-roll y cambios de plano', parametros: [
+    elegir('ritmo', 'Ritmo', ['poco', 'normal', 'mucho'], 'Opcional: cuántas imágenes («normal», una cada 9 s).', false),
+    si('planos', 'Cambios de plano', 'Opcional: proponer también los acercamientos (sin esto, sí).', false),
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

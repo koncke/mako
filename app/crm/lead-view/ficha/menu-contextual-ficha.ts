@@ -141,7 +141,7 @@ export function itemsFicha(ids: ReadonlyArray<IdOpcionFicha | null>, d: { hoja?:
     if (id === 'hoja_izquierda' && ids[i + 1] === 'hoja_derecha') {
       const m = d.hoja?.mover;
       it = {
-        id: 'hoja_izquierda+hoja_derecha', label: 'Mover la hoja',
+        id: 'hoja_izquierda+hoja_derecha', label: 'Mover la hoja', conRotulo: true,
         enLinea: [
           { ...renglon('hoja_izquierda'), ...(d.iconoIzquierda ? { icono: d.iconoIzquierda } : {}), deshabilitado: !m?.izquierda },
           { ...renglon('hoja_derecha'), ...(d.iconoDerecha ? { icono: d.iconoDerecha } : {}), deshabilitado: !m?.derecha },

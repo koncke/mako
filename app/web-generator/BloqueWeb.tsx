@@ -29,6 +29,7 @@ import type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, Bloque
 import { ELIGE_TU, SALTEAR, textoDeOpcion, textoEligeTu, textoSaltear } from '@/lib/editor-landing/bloques-web';
 import { bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
+import { FORMA_DE, formaFija, type ProporcionFija } from '@/lib/editor-landing/api-tipos';
 import { temaPorId, urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { tarjetasDe, type JsonNodo } from '@/lib/editor-landing/doc';
 import { RUTA_DOMINIO, type RespuestaDominio } from '@/lib/editor-landing/dominios-reglas';
@@ -71,9 +72,9 @@ function Estilos({ temas }: { temas: readonly Tema[] }) {
   );
 }
 
-/** La miniatura de una sección, en el marco del hilo (16:10 una página, 16:9 o 4:3 una presentación). */
-function Mini({ tarjeta, tema, presentacion = false, proporcion = null }: { tarjeta: JsonNodo | null; tema: Tema; presentacion?: boolean; proporcion?: '16:9' | '4:3' | null }) {
-  const forma = presentacion ? (proporcion === '4:3' ? [4, 3] : [16, 9]) : [16, 10];
+/** La miniatura de una sección, en el marco del hilo (16:10 una página; 16:9, 4:3 o 4:5 una presentación). */
+function Mini({ tarjeta, tema, presentacion = false, proporcion = null }: { tarjeta: JsonNodo | null; tema: Tema; presentacion?: boolean; proporcion?: ProporcionFija | null }) {
+  const forma = presentacion ? FORMA_DE[formaFija(proporcion)] : [16, 10];
   return (
     <div className="ch-creado__mini ch-web__mini" style={{ aspectRatio: `${forma[0]} / ${forma[1]}`, ['--r' as string]: forma[0] / forma[1] }}>
       <div className="gma gp ch-web__lienzo">

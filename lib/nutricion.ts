@@ -167,6 +167,7 @@ import { datoDeCampo } from '@/lib/dato-evento';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 // Los traídos de un grupo de WhatsApp no entran a los barridos que mandan solos (ver la cohorte de reactivación).
 import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
+import { ORIGEN_MIGRACION, quitarMigrados } from '@/lib/migracion-leads';
 // Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
 import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
 
@@ -1363,12 +1364,35 @@ export async function leadsDeCohorte(
       // escribe a quien no corresponde).
       const out = new Set<number>();
       for (const key of keys) for (const id of await clientesEnEtapaDeEntrega(prod, key)) out.add(id);
-      return [...out];
+      return await sinMigrados([...out]);
     } catch (e) {
       throw new Error(`cohorte entrega_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o);
+  return sinMigrados(await cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o));
+}
+
+/**
+ * LA COHORTE NUNCA TRAE A UN MIGRADO DE OTRO CRM (6/11/2026, la agencia de Thiago: miles de contactos de golpe). Lo que entra
+ * por migración (`origen_lead: 'migracion'`, lib/migracion-leads.ts) no le da la bienvenida a nadie ni entra a lo que cuelga
+ * de su etapa o de su etiqueta en el barrido de la hora, ni se ofrece al activar (`existentesEnEtapa` pasa por acá). Entra a
+ * una automatización SÓLO por un hecho nuevo, por el evento de siempre (`enrolarPorEvento`): lo mueven a mano, reserva, le
+ * ponen una etiqueta, contesta. Ésa es la diferencia con los traídos de un grupo, que sí entran colgados de su etapa.
+ *
+ * ⚠️ Una puerta para TODAS las cohortes, no un filtro por disparador: el próximo disparador nuevo la hereda sin que nadie se
+ * acuerde. Y TIRA si no puede leer (como toda cohorte): un universo a medias le escribe a quien no corresponde.
+ * La lista se pide de a 300 ids: la cohorte puede pasar las 1000 filas y un `.in()` largo no entra en la URL.
+ */
+async function sinMigrados(ids: number[]): Promise<number[]> {
+  if (!ids.length) return ids;
+  const db = await getTenantDb();
+  const migrados = new Set<number>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data, error } = await db.from('leads').select('id').eq('origen_lead', ORIGEN_MIGRACION).in('id', ids.slice(i, i + 300));
+    if (error) throw new Error(`cohorte: no pude ver cuáles son migrados de otro CRM: ${error.message}`);
+    for (const r of (data ?? []) as Array<{ id: number | string }>) migrados.add(Number(r.id));
+  }
+  return quitarMigrados(ids, migrados);
 }
 
 /**
@@ -1544,7 +1568,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .gte('created_at', desde));
-    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
+    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id), { estricto: true });
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) >= UMBRAL_VSL_PCT)
       .map((r) => r.id);
@@ -1558,7 +1582,7 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .gte('created_at', desde));
-    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
+    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id), { estricto: true });
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) < UMBRAL_VSL_PCT)
       .map((r) => r.id);
@@ -2405,8 +2429,10 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; sol
       if (sec.disparador.grupo) await mandarRecurrenteAlGrupo(base, sec.disparador, sec.cron_proxima_at);
       if (!barreElDisparador(sec)) continue;
       if (opts?.soloGrupo) continue;
-      // Una o varias etapas (punto 14).
-      const candidatos = (await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id)))
+      // Una o varias etapas (punto 14). Sin poder leerla, se saltea ESA automatización (`cohorteOSaltear`).
+      const cohorte = await cohorteOSaltear(sec);
+      if (!cohorte) continue;
+      const candidatos = (await aTiempo(supabase, sec, cohorte))
         .filter((id) => !yaInscriptos.has(id));
       if (candidatos.length === 0) continue;
       const { nuevas, reusar } = await aInscribir(supabase, sec, candidatos)
@@ -2428,6 +2454,21 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; sol
     }
   }
   return creadas;
+}
+
+/**
+ * LA COHORTE DE UNA AUTOMATIZACIÓN PARA EL COMMIT, o null si no se pudo leer (6/11/2026). Una cohorte que no se pudo leer
+ * saltea ESA automatización, no el negocio entero: desde que la del VSL es estricta (una base caída ya no da «nadie lo vio»,
+ * lib/leads.ts), tirar en `comprometerInscripciones` cortaba las demás automatizaciones y todos los envíos del negocio en esa
+ * corrida. Saltearla no inscribe a nadie: la próxima vuelta lo vuelve a intentar.
+ */
+async function cohorteOSaltear(sec: ReturnType<typeof vistasPorDisparador>[number]): Promise<number[] | null> {
+  try {
+    return await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id);
+  } catch (e) {
+    console.error(`[nutricion] la cohorte de la automatización #${sec.id} no se pudo leer (se saltea esta vuelta): ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
 }
 
 /**
@@ -3610,7 +3651,8 @@ async function hechosDelCatalogo(
   const pide = (x: Fuente) => fuentes.has(x);
   const visitantes = [...new Set(filasLead.map((f) => f.visitor_id).filter((v): v is string => !!v))];
 
-  const leerVsl = async () => (pide('vsl') ? getVslEngagementMap(visitantes) : null);
+  // Estricto: con la base caída, el mapa vacío daba «no reprodujo el VSL» para todos (6/11/2026).
+  const leerVsl = async () => (pide('vsl') ? getVslEngagementMap(visitantes, { estricto: true }) : null);
   const leerClics = async (): Promise<Map<string, number> | null> => {
     if (!pide('clics')) return null;
     const m = new Map<string, number>();
@@ -7014,6 +7056,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   //      de descalificar no se le contesta solo. Se manda el MISMO borrador (enviarBorrador lo
   //      reclama de forma atómica): si el setter lo aprueba a mano en paralelo, sale uno solo.
   let contestado = false;
+  let incierto = false;
   let porQueNoSolo: string | null = null;
   // Sin el audio que el caso pedía, no sale sola (§5): una persona mira el texto antes.
   if (sinAudio) porQueNoSolo = `no salió en audio: ${sinAudio}`;
@@ -7057,6 +7100,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
         const { enviarBorrador } = await import('@/lib/evolution-envio');
         const env = await enviarBorrador(borradorId, 'mako-auto');
         contestado = env.ok;
+        incierto = env.incierto === true;
         if (!env.ok) porQueNoSolo = `no salió (${(env.error ?? '').slice(0, 120)})`;
       } else {
         porQueNoSolo = d.motivo;
@@ -7070,6 +7114,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   const por = social ? ` por ${NOMBRE_CANAL[social.canal]}` : '';
   const borrador = contestado && sugerida
     ? `\n\nLe contesté solo${enAudio}${por} (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
+    // Un envío solo que se cortó por tiempo NO dejó el borrador para aprobar (quedó «incierto»): decirlo así.
+    : incierto && sugerida
+      ? `\n\nIntenté contestarle solo${enAudio} y WhatsApp no contestó a tiempo: no sé si salió. Míralo en el chat antes de mandarlo otra vez:\n${sugerida.slice(0, 300)}`
     // Por las redes, el texto ENTERO: la persona lo copia y lo manda desde su Instagram.
     : social && sugerida
       ? `\n\nTe dejé esta respuesta para mandarla tú${por}${porQueNoSolo ? ` (no la mandé sola: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, TOPE_TEXTO_SOCIAL)}`

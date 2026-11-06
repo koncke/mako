@@ -58,6 +58,9 @@ export const ICON: Record<string, IconDef> = {
   gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: su spark OFICIAL, blanco sobre azul
   // ElevenLabs: logo negro sobre claro → tile blanco con borde (como panda/google).
   elevenlabs: { sym: 'ic-elevenlabs', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  // Pexels: su marca de simple-icons 16.36.0 (el cuadrado verde #05A081 con la «P» calada), sobre blanco: la «P» queda
+  // blanca, como en su ícono.
+  pexels: { sym: 'ic-pexels', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   'apify-instagram': { sym: 'ic-apify-instagram', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   // Los otros grabadores de reuniones (26/10/2026, lib/grabadores). Loom, Zoom y Google Meet: los marks oficiales de
@@ -273,6 +276,7 @@ export function BrandDefs() {
           elevenlabs.io/press): dos barras que ocupan TODO el alto y tienen las esquinas rectas. Las de
           antes eran dos rectángulos redondeados de medio alto, dibujados a ojo. */}
       <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><path fill="#000" d="M4.6035 0v24h4.9317V0zm9.8613 0v24h4.9317V0z" /></symbol>
+      <symbol id="ic-pexels" viewBox="0 0 24 24"><path fill="#05A081" d="M1.5 0A1.5 1.5 0 000 1.5v21A1.5 1.5 0 001.5 24h21a1.5 1.5 0 001.5-1.5v-21A1.5 1.5 0 0022.5 0h-21zm6.75 6.75h5.2715a3.843 3.843 0 01.627 7.6348V17.25H8.25V6.75zm1.5 1.5v7.5h2.8984v-2.8145h.873a2.343 2.343 0 100-4.6855H9.75Z" /></symbol>
       {/* Creem — su ícono oficial, pegado tal cual de creem.io/new-branding/Logo/SVG/«creem logo icon_black.svg»
           (bajado el 01/11/2026), en su negro #151617. */}
       <symbol id="ic-creem" viewBox="0 0 121 121"><path fill="#151617" d="M22.1102 11C24.1187 11.0001 25.9669 12.0982 26.9281 13.8619L51.2059 58.4106C52.5699 60.9134 55.7048 61.8368 58.2077 60.473C60.7108 59.109 61.6342 55.9742 60.2701 53.4712L41.5466 19.113C39.554 15.4566 42.2004 11 46.3645 11H103.806C107.885 11 110.539 15.2933 108.715 18.9416L65.0579 106.254C63.0356 110.298 57.2654 110.298 55.2431 106.254L11.5863 18.9416C9.76212 15.2933 12.4156 11 16.4946 11H22.1102Z" /></symbol>

@@ -15,17 +15,24 @@ Cada negocio paga su IA; todo a la API de MaKo; sin tocar Flow, AI Avatar ni Mot
 
 ## Lo hecho
 
-- **Tanda 1 (palabras clave y presets):** ver docs/hallazgos-video-editor.md → «Palabras clave automáticas y los presets de la
-  marca». Test `tests/video-editor-subtitulos-claves.test.ts` (18, 15 roturas). Sin migración (los presets van en app_settings).
+- **Tanda 1 (palabras clave y presets):** subida a `punta/video-subtitulos-clips` (`9e2c1fc31`, `c53e77207`). Ver
+  docs/hallazgos-video-editor.md → «Palabras clave automáticas y los presets de la marca». Test
+  `tests/video-editor-subtitulos-claves.test.ts` (18, 15 roturas). Sin migración (los presets van en app_settings).
+- **Tanda 2 (B-roll y cambios de plano):** Multimedia › «B-roll de MaKo», fotos de Pexels con la clave del negocio (integración
+  nueva «Pexels»), el efecto «Acercar», chat `broll` y API `proponer_broll_video`. Ver docs/hallazgos-video-editor.md → «B-roll y
+  cambios de plano automáticos». Test `tests/video-editor-broll.test.ts` (20, 19 roturas). Sin migración.
 
 ## Lo que quedó a medias
 
-- Tandas 2 (B-roll) y 3 (clips mágicos): en curso.
+- Tanda 3 (clips mágicos): en curso.
 
 ## Lo que falta verificar
 
 - Nada se miró en un navegador: la nube no corre el editor (necesita WebGPU y el WASM). Lo primero en producción:
   Subtítulos automáticos con el interruptor prendido, el panel «Palabras clave», guardar un preset y verlo en Plantillas.
+- El B-roll con la IA real: `node --env-file=<.env.local> --import tsx --conditions=react-server scripts/probar-broll-ia.mts --ws 3`
+  (en la PC; gasta la IA del Cliente de Prueba). Y en el editor: conectar Pexels desde el panel, «Proponer» sobre un video con voz,
+  ver el borde punteado, Dejar / Sacar y Ctrl+Z.
 
 ## Lo que espera a Martín
 

@@ -279,7 +279,12 @@ async function crearLeadsDePropuesta(ws: number, propuestaId: string, ctx: Ctx):
     }
     let creados = 0; let omitidos = 0; const errores: string[] = [];
     for (const f of filasDeLeads(prop.datos as Record<string, unknown>)) {
-      try { await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, instagram: usuarioInstagram(f.instagram), empresa: f.empresa }); creados++; }
+      try {
+        await createLead({ nombre: f.nombre, email: f.email, telefono: f.telefono, instagram: usuarioInstagram(f.instagram), empresa: f.empresa,
+          utm_source: f.utm_source, utm_medium: f.utm_medium, utm_campaign: f.utm_campaign, utm_content: f.utm_content,
+        });
+        creados++;
+      }
       catch (e) {
         if (e instanceof LeadDuplicadoError) omitidos++;
         else errores.push(`${f.nombre}: ${e instanceof Error ? e.message : String(e)}`);

@@ -21,10 +21,10 @@
 //    tenía sombra de tarjeta ni los colores de sección del prototipo. En oscuro (`[data-tema="oscuro"]`) se redefinen.
 // =============================================================================
 
-import { forwardRef, useEffect, type CSSProperties, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
-import { colorDeNombre, inicialesDe, NOMBRE_PRIORIDAD, type ColorTarjeta, type InsigniaCanal, type PrioridadTarea } from '@/lib/tarjeta-kanban';
+import { colorDeNombre, fotoQueNoCargo, inicialesDe, NOMBRE_PRIORIDAD, type ColorTarjeta, type InsigniaCanal, type PrioridadTarea } from '@/lib/tarjeta-kanban';
 
 // ⚠️ LAS VARIABLES VAN EN TODA PIEZA DEL KIT, no en unas raíces. Hasta el 18/10 vivían en `.tk-raiz, .tk, .tk-ptabs,
 // .tk-feat, .tk-sheet`, y una pieza usada SUELTA no las veía: el círculo del Plan (dentro de la tarjeta del Plan, que no
@@ -72,7 +72,9 @@ export const CSS_TARJETAS = `
 .tk-fila { display: flex; align-items: center; --tk-gap: 12px; gap: var(--tk-gap); min-width: 0; }
 .tk-tx { flex: 1; min-width: 0; }
 .tk-nom { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); line-height: 1.25; min-width: 0; }
-.tk-nom > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* El nombre baja a DOS renglones antes de cortarse (C2 del recorrido del 30/10/2026: en un lead sin nombre, el nombre es el
+   teléfono, y con «Ver info» al lado no entraba ni a 1536 px). Lo entero va en el title. */
+.tk-nom > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; min-width: 0; }
 .tk-sub { display: block; font-size: 12.5px; color: var(--tk-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .tk-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex: none; }
 .tk-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
@@ -206,14 +208,21 @@ export function CaraTarjeta({ nombre, foto, insignia, tam = 46, color }: {
 }) {
   const c = color ?? colorDeNombre(nombre);
   const ins = Math.max(17, Math.round(tam * 0.38));
+  // La foto que no cargó, por estado y no tocando el DOM: así sobrevive a un re-render (C1 del recorrido del 30/10).
+  // Se guarda CUÁL foto falló: si cambia la foto, se vuelve a intentar.
+  const [fallo, setFallo] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  // Una foto que falló antes de hidratar ya no avisa: se pregunta al montar (`fotoQueNoCargo`, lib/tarjeta-kanban.ts).
+  useEffect(() => { if (foto && fotoQueNoCargo(imgRef.current)) setFallo(foto); }, [foto]);
+  const conFoto = !!foto && fallo !== foto;
   return (
     <span className="tk-cara" style={{ width: tam, height: tam }}>
       <EstiloTarjetas />
-      {foto
+      {conFoto
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }} />
+        ? <img ref={imgRef} src={foto} alt="" referrerPolicy="no-referrer" onError={() => setFallo(foto ?? null)} />
         : null}
-      <span className={`tk-ini tk-c-${c}`} aria-hidden style={{ fontSize: Math.round(tam * 0.36), ...(foto ? { display: 'none' } : {}) }}>{inicialesDe(nombre)}</span>
+      <span className={`tk-ini tk-c-${c}`} aria-hidden style={{ fontSize: Math.round(tam * 0.36), ...(conFoto ? { display: 'none' } : {}) }}>{inicialesDe(nombre)}</span>
       {insignia && (
         <span className={`tk-insignia tk-c-${insignia.color}`} title={insignia.nombre} style={{ width: ins, height: ins }}>
           <Icon name={insignia.icono} size={Math.max(9, Math.round(ins * 0.55))} />
@@ -279,8 +288,8 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
         {antes}
         {portada ? null : cara}
         <div className="tk-tx">
-          <div className="tk-nom"><span>{nombre || 'Sin nombre'}</span>{sinLeer && <i className="tk-punto" title="Espera respuesta" />}</div>
-          {subtitulo ? <span className="tk-sub">{subtitulo}</span> : null}
+          <div className="tk-nom"><span title={nombre || undefined}>{nombre || 'Sin nombre'}</span>{sinLeer && <i className="tk-punto" title="Espera respuesta" />}</div>
+          {subtitulo ? <span className="tk-sub" title={subtitulo}>{subtitulo}</span> : null}
         </div>
         {pildora && (
           <button type="button" className="tk-pill tk-pill--suave" title={pildora.titulo}
