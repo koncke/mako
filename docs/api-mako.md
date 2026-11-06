@@ -20916,7 +20916,7 @@ MaKo propone hasta 3 lead magnets para el negocio, con la IA del negocio: desde 
 - **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
-- **Costo:** ia
+- **Costo:** ia · puede tardar
 - **Solo la plataforma (MaKo).**
 - **Solo el administrador del workspace.**
 - **Requiere la tab:** lead-magnet-generator

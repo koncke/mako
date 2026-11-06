@@ -26,7 +26,9 @@ export default async function LeadMagnetsMovil({ searchParams }: { searchParams:
   // La sección es del super admin (como su escritorio): `getSesionAdmin()` y su negocio, no mirando a un cliente.
   if (!(await getSesionAdmin()) || !(await esLaPlataforma())) redirect(await rutaConWs(HOME_MOVIL));
   const sp = await searchParams;
-  const [r, landings, compartidos, propuestas] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza(), propuestasGuardadas()]);
+  const [r, landings, compartidos] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza()]);
+  // Sin las que ya armó (comparando con su lista de hoy): una propuesta armada no se vuelve a ofrecer.
+  const propuestas = r.ok ? await propuestasGuardadas(r.lista.map((e) => e.nombre)) : null;
   const lista: LeadMagnetVista[] = r.ok ? r.lista.map((e) => vistaDeLeadMagnet(e, landings, compartidos)) : [];
   const abierto = typeof sp.lm === 'string' ? lista.find((x) => x.id === sp.lm) ?? null : null;
   return (

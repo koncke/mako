@@ -169,13 +169,17 @@ export const RUNNERS: Runners = {
       const r = await proponerLeadMagnets({ guardar: false });
       if (!r.ok) {
         const falta = 'falta' in r ? r.falta : undefined;
-        return { content: json({ error: r.error }), isError: true, ...(falta === 'ia' ? { falta: { servicio: 'ia' } } : {}) };
+        // Sin oferta o sin la IA del negocio es una REGLA (`guarda`), no una falla nuestra: no abre un ticket.
+        if (falta) return { content: json({ ok: false, error: r.error, guarda: true }), isError: true, ...(falta === 'ia' ? { falta: { servicio: 'ia' } } : {}) };
+        return { content: json({ ok: false, error: r.error }), isError: true };
       }
       return json({
         propuestas: r.propuestas.map((p) => ({ plantilla: p.plantilla, nombre: p.nombre, por_que: p.porQue, de_donde: ROTULO_FUENTE[p.fuente] })),
-        ...(r.descartadas ? { descartadas: r.descartadas, nota_descartadas: 'Las que nombraban a un competidor, usaban una plantilla que no existe o repetían una que ya tiene.' } : {}),
+        ...(r.descartadas.length ? { descartadas: r.descartadas } : {}),
         ...(r.aviso ? { aviso: r.aviso } : {}),
-        siguiente: 'Para armar una: armar_magnet con su plantilla y su nombre.',
+        siguiente: r.propuestas.length
+          ? 'Para armar una: armar_magnet con su plantilla y su nombre.'
+          : 'Esta vez no quedó ninguna que se pueda mostrar: se puede volver a pedir, o armar una con ver_plantillas_magnet y armar_magnet.',
       });
     },
   },

@@ -24,7 +24,7 @@ import {
 } from './reglas';
 import { DetalleLeadMagnet } from './DetalleLeadMagnet';
 import { PropuestasMaKo } from './PropuestasMaKo';
-import type { PropuestasGuardadas } from '@/lib/lead-magnets/propuesta';
+import type { PropuestaLM, PropuestasGuardadas } from '@/lib/lead-magnets/propuesta';
 import { pedirLeadMagnet } from './cliente';
 
 export function LeadMagnets({ lista, error, actual, propuestas = null }: {
@@ -40,6 +40,8 @@ export function LeadMagnets({ lista, error, actual, propuestas = null }: {
   const [errorEjemplo, setErrorEjemplo] = useState<string | null>(null);
   const [usandoEjemplo, setUsandoEjemplo] = useState(false);
   const plantillas = useMemo(() => plantillasParaCrear(), []);
+  // Lo que propuso MaKo vive acá y no en el bloque: «Nuevo» se desmonta al abrir otra cosa, y lo que se pagó no se pierde.
+  const [propuestasMaKo, setPropuestasMaKo] = useState<PropuestaLM[]>(propuestas?.propuestas ?? []);
   const abierto = actual ? lista.find((x) => x.id === actual) ?? null : null;
 
   const proyectos: ProyectoCrear[] = useMemo(() => proyectosDe(lista).map((p) => ({
@@ -81,7 +83,7 @@ export function LeadMagnets({ lista, error, actual, propuestas = null }: {
         onPlantilla={usar}
         onVerEjemplo={(p) => setEjemplo(p.id)}
         ejemplos={EJEMPLOS_LEAD_MAGNET}
-        arribaDePlantillas={<PropuestasMaKo guardadas={propuestas} onArmar={armar} />}
+        arribaDePlantillas={<PropuestasMaKo propuestas={propuestasMaKo} onPropuestas={setPropuestasMaKo} onArmar={armar} />}
       >
         {abierto ? <DetalleLeadMagnet key={abierto.id} lm={abierto} esPrimero={lista[0]?.id === abierto.id} />
           // Se pidió UNO (`?lm=`) y la lista no se pudo leer: se dice acá, no detrás de la «←». Sin esto se veía «Nuevo lead

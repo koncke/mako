@@ -189,3 +189,28 @@ Un segundo revisor, sobre el quiz y los arreglos de la primera: siete confirmado
   última propuesta (`mako.lead-magnets.propuestas`, una caché con un solo escritor).
 - **Lo que falta para proponer se dice con el lugar donde se arregla**: sin oferta ni competidores, «Ir a Offer»; sin su IA, el
   modal de la IA en la tab.
+
+### La revisión de la tanda 3 (nube, 6/11/2026)
+
+Un revisor que no la escribió encontró cinco confirmadas y seis posibles; se arreglaron todas. Lo que enseña:
+
+- **«Que no nombre a X» con el nombre entero no alcanza.** Pasaban el apellido solo («Contreras»), la forma junta
+  («SofiaContreras»), el nombre de un curso y un referente que no está en Spy. Ahora se prohíben también el apellido de un nombre
+  de PERSONA (dos o tres palabras con mayúscula y sin palabras de negocio, largo), la forma sin espacios, y el catálogo entero de
+  referentes (`lib/asesores/catalogo.ts`: nombre, nombre completo, curso). ⚠️ El apellido sólo de un nombre de persona: de
+  «Clínicas al Máximo» prohibiría «máximo», y de un referente de tres palabras, una palabra común («pastor»).
+- **Lo que leyó Spy trae nombres:** el análisis se hizo sabiendo de quién era. Se tapan (`[nombre]`) ANTES de que lo lea la IA,
+  con el mismo patrón que se usa para descartar.
+- **Cortar antes de mirar deja pasar un nombre partido** («…Sofía Contrera»): cada chequeo mira el texto entero, y un nombre que
+  pasa de 90 se descarta entero (el porqué se corta en una palabra, después).
+- **Una regla de prompt sin su chequeo, otra vez:** «no inventes números» no tenía código. `numerosInventados` descarta plata,
+  porcentajes y plazos que no estén en lo que leyó; un número chico suelto es la forma de la pieza («10 puntos») y pasa.
+- **Una propuesta guardada que ya se armó se volvía a ofrecer**, y armarla otra vez creaba una segunda pieza. Las guardadas se
+  filtran contra la lista de hoy (`sinLasQueYaTiene`).
+- **Un estado que vive en un componente que se desmonta se pierde:** «Nuevo» se desmonta al abrir otra cosa, y las propuestas
+  recién pagadas desaparecían. Viven en la pantalla de arriba.
+- **«Conectar mi IA» abre «Tus cuentas de IA» ahí mismo** (`app/_chat/ModalCuentasIA.tsx`, como la apertura de MaKo): la primera
+  versión salía a /integraciones y la excusé en un test, cuando el modal ya existía. Antes de sumar una excepción a una guarda,
+  buscar si ya hay una pieza que lo resuelve.
+- **Por la API, «sin oferta» y «sin tu IA» son REGLAS (`guarda: true`)**: sin la marca, el «no puedo» de MaKo abría un ticket por
+  una configuración que falta.

@@ -128,7 +128,9 @@ hola-mako.site y el Pixel mandando a `/api/track/optin` de producción. Lo prob�
 - **El prompt es editable** en /configuraciones (grupo «Lead Magnet (MaKo propone)»), y lo que el código descarta no depende del
   texto.
 
-Tests: `tests/lead-magnets-propuesta.test.ts` (6, cada regla probada rompiéndola).
+Tests: `tests/lead-magnets-propuesta.test.ts` (8, cada regla probada rompiéndola). Un tercer revisor la leyó: encontró, entre otras,
+que un apellido o el nombre de un curso pasaban, y que un número inventado no tenía chequeo. Arreglado; el detalle en
+`docs/hallazgos-lead-magnets.md`.
 
 ## Lo que sigue
 

@@ -80,6 +80,6 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Proponer lead magnets desde la oferta',
     descripcion: 'MaKo propone hasta 3 lead magnets para el negocio, con la IA del negocio: desde su oferta (lo que promete, a quién, lo que frena a su cliente) y lo que hace su competencia en Competitors Spy. Cada propuesta trae su plantilla, su nombre, por qué y de dónde sale; se arma con armar_magnet (plantilla y nombre). Nunca nombra a un competidor. Sin la IA del negocio, o sin oferta ni competidores leídos, dice qué falta.',
     parametros: [],
-    salida: 'json', canales: TODOS, costo: 'ia', gating: GATING, datosDeClientes: false,
+    salida: 'json', canales: TODOS, costo: 'ia', gating: GATING, datosDeClientes: false, lenta: true,
   },
 ];

@@ -23,7 +23,9 @@ export default async function LeadMagnetGeneratorPage({ searchParams }: { search
   const sp = await searchParams;
   const actual = typeof sp.lm === 'string' ? sp.lm : null;
   // Una lectura de la lista y una de las landings (para saber cuáles están publicadas y cuáles se borraron).
-  const [r, landings, compartidos, propuestas] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza(), propuestasGuardadas()]);
+  const [r, landings, compartidos] = await Promise.all([listarLeadMagnets(), landingsDelNegocio(), compartidosPorPieza()]);
+  // Sin las que ya armó (comparando con su lista de hoy): una propuesta armada no se vuelve a ofrecer.
+  const propuestas = r.ok ? await propuestasGuardadas(r.lista.map((e) => e.nombre)) : null;
   // Sólo lo que la pantalla dibuja: ni el qué es ni la línea de anuncio (los escribe el onboarding y los lee la IA).
   const lista: LeadMagnetVista[] = r.ok ? r.lista.map((e) => vistaDeLeadMagnet(e, landings, compartidos)) : [];
   return (

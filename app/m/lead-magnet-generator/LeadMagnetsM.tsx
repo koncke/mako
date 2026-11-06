@@ -25,12 +25,19 @@ export function LeadMagnetsM({ lista, abierto, guardadas = null }: { lista: Lead
 
   // Lo que propuso MaKo (lib/lead-magnets/proponer.ts): la última guardada al entrar; «Que MaKo proponga» pide otra.
   const [propuestas, setPropuestas] = useState<PropuestaLM[]>(guardadas?.propuestas ?? []);
+  // Lo que falta para proponer, con su fila que lleva adonde se arregla (como en la computadora): la oferta o la IA.
+  const [falta, setFalta] = useState<'oferta' | 'ia' | null>(null);
   const proponer = async () => {
     if (haciendo) return;
     setHaciendo('proponer');
+    setFalta(null);
     const r = await pedirLeadMagnet<{ propuestas: PropuestaLM[]; aviso: string | null }>({ accion: 'proponer' }, { timeoutMs: 95_000 });
     setHaciendo(null);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) {
+      toast(r.error);
+      if (r.falta === 'oferta' || r.falta === 'ia') setFalta(r.falta);
+      return;
+    }
     if (r.aviso) toast(r.aviso);
     if (!r.propuestas.length) { toast('Esta vez no salió ninguno que valga la pena. Prueba de nuevo.'); return; }
     setPropuestas(r.propuestas);
@@ -130,6 +137,8 @@ export function LeadMagnetsM({ lista, abierto, guardadas = null }: { lista: Lead
               <FilaM key={`${p.plantilla}:${p.nombre}`} icono="leadmagnet" titulo={p.nombre} segunda={p.porQue}
                 onClick={() => { setHoja(false); void armar(p.plantilla, p.nombre); }} deshabilitada={!!haciendo} />
             ))}
+            {falta === 'oferta' && <FilaM icono="tag" titulo="Cargar tu oferta" segunda="MaKo propone desde ella" href="/m/offer" />}
+            {falta === 'ia' && <FilaM icono="cerebro" titulo="Conectar tu IA" segunda="Tu Claude, tu GPT o tu Gemini" href="/m/cuenta/ia" />}
             <FilaM icono="cerebro" titulo={haciendo === 'proponer' ? 'MaKo está pensando…' : propuestas.length ? 'Proponer otros' : 'Que MaKo proponga'}
               segunda={propuestas.length ? undefined : 'Desde tu oferta y lo que hace tu competencia'}
               onClick={() => void proponer()} deshabilitada={!!haciendo} />

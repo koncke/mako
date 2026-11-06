@@ -24,7 +24,7 @@ import { CONECTA_TU_IA } from '../ia-mensajes';
 import { listarLeadMagnets, type Falla } from './server';
 import {
   FORMA_PROPUESTAS, PROPONER_LM_SYSTEM_TEMPLATE, PROPONER_LM_USER_TEMPLATE, dossierParaProponer, leerGuardadas, leerPropuestas,
-  plantillasParaLaIA, type PropuestaLM, type PropuestasGuardadas,
+  plantillasParaLaIA, sinLasQueYaTiene, type PropuestaLM, type PropuestasGuardadas,
 } from './propuesta';
 
 export const FEATURE_PROPONER_LM = 'lead-magnet-propone';
@@ -34,14 +34,18 @@ export const KEY_PROMPT_PROPONER_USER = 'lead-magnet.proponer.user';
 
 /** Por qué no se pudo proponer, para que la pantalla ofrezca lo que lo arregla. */
 export type FaltaPropuesta = 'oferta' | 'ia';
-export type Propuesto = { ok: true; propuestas: PropuestaLM[]; descartadas: number; aviso: string | null; en: string };
+/** `descartadas`: el motivo de cada propuesta que el código no dejó pasar (sin la propuesta: puede nombrar a quien no debe). */
+export type Propuesto = { ok: true; propuestas: PropuestaLM[]; descartadas: string[]; aviso: string | null; en: string };
 
 const falla = (status: number, error: string, falta?: FaltaPropuesta): Falla & { falta?: FaltaPropuesta } => ({ ok: false, error, status, ...(falta ? { falta } : {}) });
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** La última propuesta guardada (para dibujar sin gastar la IA). null si no hay o no se pudo leer. */
-export async function propuestasGuardadas(): Promise<PropuestasGuardadas | null> {
-  try { return leerGuardadas(await getSetting(CLAVE_PROPUESTAS_LM)); } catch { return null; }
+/**
+ * La última propuesta guardada (para dibujar sin gastar la IA), sin las que ya armó: una armada no se vuelve a ofrecer (armarla
+ * otra vez crea una segunda pieza). null si no hay o no se pudo leer. `nombres`: los de su lista de hoy.
+ */
+export async function propuestasGuardadas(nombres: readonly string[]): Promise<PropuestasGuardadas | null> {
+  try { return sinLasQueYaTiene(leerGuardadas(await getSetting(CLAVE_PROPUESTAS_LM)), nombres); } catch { return null; }
 }
 
 /**
@@ -67,6 +71,10 @@ export async function proponerLeadMagnets(o: { guardar?: boolean } = {}): Promis
   if (!ofertas.ok) return falla(503, 'No pude leer tu oferta: vuelve a intentarlo.');
   if (!lista.ok) return lista;
   const aviso = comp.ok ? null : 'No pude leer tus competidores: propuse sólo desde tu oferta.';
+  // Sin oferta y sin poder leer los competidores, no se sabe si tiene de dónde proponer: «carga un competidor» sería falso.
+  if (!comp.ok && !ofertas.o.some((o) => (o.promesa ?? '').trim() || (o.para_quien ?? '').trim())) {
+    return falla(503, 'No pude leer tus competidores: vuelve a intentarlo.');
+  }
   const dossier = dossierParaProponer({
     ofertas: ofertas.o,
     competidores: comp.ok ? comp.competidores.map((c) => ({ nombre: c.nombre, instagram: c.instagram, oferta: c.oferta })) : [],
@@ -87,7 +95,7 @@ export async function proponerLeadMagnets(o: { guardar?: boolean } = {}): Promis
       hastaMs: Date.now() + 45_000, redDePlataforma: false,
     });
     if (!texto.trim()) return falla(502, await errorDeCascada(errores, 'proponer un lead magnet'));
-    const l = leerPropuestas(texto, { nCompetidores: dossier.nCompetidores, prohibidos: dossier.prohibidos, yaTiene: lista.lista.map((e) => e.nombre) });
+    const l = leerPropuestas(texto, { ...dossier, yaTiene: lista.lista.map((e) => e.nombre) });
     if (!l.ok) return falla(502, 'MaKo no contestó algo que se entienda: vuelve a intentarlo.');
     if (l.descartadas.length) console.log(`[lead-magnets] ws=${ws} descarté ${l.descartadas.length} propuesta(s): ${l.descartadas.map((d) => d.motivo).join(' · ').slice(0, 300)}`);
     const en = new Date().toISOString();
@@ -95,6 +103,6 @@ export async function proponerLeadMagnets(o: { guardar?: boolean } = {}): Promis
     if (l.propuestas.length && o.guardar !== false) {
       try { await setSetting(CLAVE_PROPUESTAS_LM, JSON.stringify({ en, propuestas: l.propuestas } satisfies PropuestasGuardadas)); } catch { /* se ve igual; al volver no está */ }
     }
-    return { ok: true as const, propuestas: l.propuestas, descartadas: l.descartadas.length, aviso, en };
+    return { ok: true as const, propuestas: l.propuestas, descartadas: l.descartadas.map((d) => d.motivo), aviso, en };
   });
 }

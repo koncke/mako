@@ -234,4 +234,17 @@ export const BITACORA: Hito[] = [
       'app/lead-magnet-generator/PropuestasMaKo.tsx — el bloque de «Nuevo»',
     ],
   },
+  {
+    fecha: '6 nov', hora: '04:00', chat: 'Lead Magnet', sesion: 'cli_a7d6638b-0aff-5cb9-a16a-98377f9db136', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de «MaKo te propone»: once arreglos',
+    puntos: [
+      '**Ni un nombre de competidor ni de referente**: además del nombre entero, su apellido (si es una persona), la forma sin espacios y el catálogo de referentes; y lo que leyó Spy llega a la IA con los nombres tapados.',
+      '**Ni un número inventado**: plata, porcentajes y plazos tienen que estar en la oferta o la competencia.',
+      'Cada chequeo mira el texto entero (cortar antes dejaba pasar un nombre partido); «De tu oferta» exige una oferta; una propuesta ya armada no se vuelve a ofrecer; lo propuesto no se pierde al cambiar de vista.',
+      '«Conectar mi IA» abre «Tus cuentas de IA» ahí mismo; en el teléfono, las filas que llevan a Offer o a la IA.',
+    ],
+    revisar: '/lead-magnet-generator',
+    archivos: ['lib/lead-magnets/propuesta.ts', 'app/lead-magnet-generator/PropuestasMaKo.tsx', 'docs/hallazgos-lead-magnets.md'],
+  },
 ];
