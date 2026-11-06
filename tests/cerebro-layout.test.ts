@@ -2,8 +2,11 @@
 // y el usuario deja de reconocer el suyo. Por eso están en un test y no en un comentario.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layoutCerebro, huellaDe, gradosDe } from '../lib/cerebro-layout';
-import { radioNodo, type NodoCerebro, type AristaCerebro } from '../lib/cerebro-modelo';
+import { AIRE_MAX_N1, AIRE_POR_LETRA_N1, airePorTitulosN1, NIVEL1, radioNodo, type NodoCerebro, type AristaCerebro } from '../lib/cerebro-modelo';
 
 const nodo = (id: string, area: NodoCerebro['area'], extra: Partial<NodoCerebro> = {}): NodoCerebro => ({
   id, area, etiqueta: id, detalle: '', fuente: '', autoria: 'mako', ...extra,
@@ -126,4 +129,40 @@ test('todos los nodos entran en el encuadre', () => {
     assert.ok(p.x >= encuadre.x && p.x <= encuadre.x + encuadre.lado, `${id} se sale en x`);
     assert.ok(p.y >= encuadre.y && p.y <= encuadre.y + encuadre.lado, `${id} se sale en y`);
   }
+});
+
+test('el aire por los títulos de las carpetas madre NO depende del modo (6/11/2026)', () => {
+  // El encuadre mide los PUNTOS, y la etiqueta de una carpeta madre va centrada en su punto
+  // y en versalitas (`.cbg-et-n1`), así que es más ancha: pegada al borde se corta. La regla
+  // nació el 4/11 arreglando el mapa de un CURSO y quedó detrás de un `curso ? … : 0` en
+  // Grafo.tsx, así que el mapa del NEGOCIO se seguía cortando — con las mismas carpetas
+  // (`NIVEL1`) y la misma clase CSS. Lo que se fija acá es que la regla sea UNA, sin modo:
+  // es pura y recibe etiquetas, no sabe si viene de un curso o de un negocio.
+  const delNegocio = NIVEL1.map((p) => p.nombre);           // NEGOCIO, OFERTA, MERCADO, MENSAJE, FUNNEL
+  const aireNegocio = airePorTitulosN1(delNegocio);
+  assert.ok(aireNegocio > 0, 'las carpetas del NEGOCIO tienen etiqueta: su aire no puede ser 0');
+  // La más larga es «Negocio»/«Mercado»/«Mensaje» (7 letras) → 7 × 3,75 = 26,25.
+  assert.equal(aireNegocio, 7 * AIRE_POR_LETRA_N1);
+  // Y es chico contra el de un curso: por eso el `curso ?` parecía inofensivo (el encuadre
+  // del negocio casi no se mueve) y a la vez por eso el título igual se cortaba.
+  assert.ok(airePorTitulosN1(['Hip Hop Recordings de los noventa en vinilo']) > aireNegocio);
+
+  // El tope y el piso, que son los que evitan que un título absurdo se coma el mapa.
+  assert.equal(airePorTitulosN1([]), 0, 'sin carpetas no se pide aire');
+  assert.equal(airePorTitulosN1(['x'.repeat(500)]), AIRE_MAX_N1, 'un título larguísimo tiene que topear');
+  // Manda el MÁS LARGO, no el primero ni el promedio: con uno corto adelante, el largo se
+  // cortaría igual.
+  assert.equal(airePorTitulosN1(['ab', 'abcdefgh']), airePorTitulosN1(['abcdefgh']));
+
+  // ⚠️ Y EL CALL-SITE, QUE ES DONDE ESTABA EL BUG. Probando la rotura se vio que volver a
+  // poner el `curso ? … : 0` en Grafo.tsx deja este test en VERDE 9/9: la regla pura sigue
+  // siendo correcta, y el componente la llama mal. O sea que lo de arriba no alcanza.
+  // Grafo.tsx mide el DOM (`getBoundingClientRect`) y un test no lo puede montar, así que
+  // acá se lee como TEXTO —el mismo recurso, y por el mismo motivo, que usa
+  // tests/plan-recurrente-nace.test.ts con los módulos `server-only`—. Lo que se cuida es
+  // que la llamada NO lleve un condicional adelante: el bug no era la regla, era el `?`.
+  const grafo = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'second-brain', 'Grafo.tsx'), 'utf8');
+  const llamada = /const mitadTitulo = (.+);/.exec(grafo);
+  assert.ok(llamada, 'no encontré el cálculo del aire en app/second-brain/Grafo.tsx');
+  assert.match(llamada[1], /^airePorTitulosN1\(/, `el aire del encuadre vuelve a depender del modo: «${llamada[1].slice(0, 60)}»`);
 });
