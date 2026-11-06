@@ -4,7 +4,8 @@
 //   audio de la línea de tiempo → 16 kHz mono → Whisper en el navegador
 //   (palabras con tiempo) → sin marcas de no-voz → sin muletillas (si se pidió)
 //   → subtítulos cortados por pausas y largo → pista «Subtítulos» con la
-//   plantilla elegida.
+//   plantilla elegida (o el preset de la marca) y, si se pidió, las palabras
+//   clave de cada uno (./claves.ts).
 //
 // Todo local y gratis: el audio no sale de la máquina del cliente (decisión 6 de
 // docs/diseno-editor-video.md). Lo único que baja de internet es el modelo, una
@@ -23,7 +24,8 @@ import {
 } from "@/app/video-editor/_opencut/services/transcription/service";
 import { paramsDePlantilla, plantillaPorId } from "./estilos";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "./estado";
-import { insertarSubtitulos, lienzoDe } from "./insert";
+import { insertarSubtitulos, lienzoDe, type ModoClaves } from "./insert";
+import { estiloDePreset, modoClavesDePreset, presetDeId, usePresetsSubtitulos } from "./presets";
 import { motivoDeLaFalla, textoDeSubtitulos, type MotivoSubtitulos, type ResultadoSubtitulos } from "./resultado";
 
 // Cada «Generar» lleva un número; cancelar lo cambia. Un trabajo que vuelve de
@@ -113,11 +115,20 @@ export async function generarSubtitulos(editor: EditorCore): Promise<ResultadoSu
 		).map((c) => ({ ...c, precision: resultado.precision }));
 		// `pc_fail_to_recognize_voice`.
 		if (captions.length === 0) return falla("sin-voz");
+		// La plantilla elegida puede ser un preset de la marca: trae su color de las claves y
+		// sus palabras de siempre. Sin preset, las claves salen solas si el interruptor está.
+		const preset = presetDeId(prefs.plantilla, usePresetsSubtitulos.getState().presets);
+		const conClavesSolas: ModoClaves | null = prefs.claves
+			? { tipo: "auto", siempre: preset?.claves.siempre }
+			: preset
+				? modoClavesDePreset(preset)
+				: null;
 		const puestos = await insertarSubtitulos({
 			editor,
 			captions,
-			estilo: paramsDePlantilla(plantillaPorId(prefs.plantilla), lienzo),
+			estilo: preset ? estiloDePreset(preset, lienzo) : paramsDePlantilla(plantillaPorId(prefs.plantilla), lienzo),
 			reemplazar: prefs.eliminarActuales,
+			claves: conClavesSolas,
 		});
 		// Con subtítulos para poner, 0 es que la escena ya no estaba.
 		if (puestos === 0) return falla("sin-proyecto");
