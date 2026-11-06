@@ -12,8 +12,8 @@ se publique sola en la Chrome Web Store.
 
 ## Lo hecho
 
-Todo por `punta/approvals`, en tres tandas. Lleva adentro `punta/vigia-creem` (Creem en el vigía), con su texto corregido: sola,
-esa punta da rojo en `tests/mako-nombres-de-tabs.test.ts` («Balance › Payout» se lee como una ruta de MaKo).
+Todo por `punta/approvals`, en tres tandas. Creem rechazó la tienda de MaKo el 5/11 y es definitivo (docs/creem-retiros.md): su fila
+es un hecho registrado (`definitivo` en `ITEMS`), rechazada, sin panel que mirar y sin «a mano».
 
 | Tanda | Qué cambia para Martín |
 |---|---|
@@ -23,13 +23,13 @@ esa punta da rojo en `tests/mako-nombres-de-tabs.test.ts` («Balance › Payout�
 
 Declarado en la API de MaKo:
 - `ver_aprobaciones_pendientes`: devuelve lo mismo que la pestaña, con el orden, «viejo» y lo que falta en palabras.
-- `anotar_lectura_de_panel` (nueva, confirmación por chat, sólo la plataforma): «Creem ya aprobó» lo anota MaKo, igual que la tarea.
+- `anotar_lectura_de_panel` (nueva, confirmación por chat, sólo la plataforma): «Google ya aprobó la app» lo anota MaKo, igual que la tarea.
 - Publicar la extensión no es una operación: lo hace el cron solo. Su estado sale en la fila de la extensión de `ver_aprobaciones_pendientes`.
 
 ## Lo que le toca al Cerebro: la tarea programada que lee los paneles
 
 Una tarea programada en la PC, con el navegador de Martín y su sesión iniciada en cada panel. Una vez por día alcanza (una
-lectura vale 24 horas). Sin ella, esas cinco filas dicen «Sin leer». Si deja de correr, a las 24 horas pasan a «no pude
+lectura vale 24 horas). Sin ella, esas cuatro filas dicen «Sin leer». Si deja de correr, a las 24 horas pasan a «no pude
 leerlo» y Martín recibe UN aviso. Esa es la red: el silencio de la tarea lo mide el servidor.
 
 **Por cada panel:**
@@ -60,10 +60,9 @@ que es la fuente de verdad (`ITEMS[].panel` en `lib/vigia-aprobaciones.ts`).
 | `play-cuenta` | https://play.google.com/console/developers | El cartel de arriba de la página de inicio y «Verificación de identidad» en los detalles de la cuenta | «rechaz» → rechazado · «se requiere una acción» / «verifica tu identidad» → piden_algo · «estamos verificando» / «en revisión» → en_revision · «solicitar acceso a producción» → sin_enviar · «se verificó tu identidad» / «identidad verificada» → aprobado |
 | `meta-verificaciones` | https://developers.facebook.com/apps/2586146911825340/settings/basic/ | La verificación del negocio y la de acceso. Si una está aprobada y la otra no, manda la que no | «rechaz» → rechazado · «se requiere una acción» / «action required» → piden_algo · «en revisión» / «in review» → en_revision · «iniciar verificación» / «no verificado» / «not verified» → sin_enviar · «verificado» / «verified» → aprobado |
 | `google-oauth` | https://console.cloud.google.com/auth/verification?project=mako-500317 | El estado arriba del «Centro de verificación» | «rechaz» → rechazado · «se necesita una acción» / «action needed» → piden_algo · «en revisión» / «pending» → en_revision · «sin verificar» / «not verified» → sin_enviar · «verificación completada» / «verified» → aprobado |
-| `creem-tienda` | https://www.creem.io/dashboard/balances/accounts | El cartel de la tienda y el de «Payout Account» | «rejected» / «not approved» → rechazado · «action required» / «add payout account» / «not verified» → piden_algo · «under review» / «pending» → en_revision · «approved» / «verified» → aprobado |
 | `firma-windows` | https://secure.ssl.com/certificate_orders | El estado del pedido del certificado de firma de código en «Orders» | «rejected» / «canceled» → rechazado · «documents required» / «action required» → piden_algo · «validating» / «pending» → en_revision · «issued» → aprobado |
 
-⚠️ Los textos son los esperados, no medidos. La nube no ve los paneles. La primera vez que la tarea lea cada uno, conviene
+⚠️ Los textos son los esperados, no medidos. La nube no ve los paneles. Creem no está: rechazó la tienda y es definitivo. La primera vez que la tarea lea cada uno, conviene
 `--guardar <id> auto "<texto del panel>"`: lo que no esté en la tabla vuelve como «no pude» con el texto, y se corrige la tabla en
 `lib/vigia-aprobaciones.ts` (`panel.traduccion`; el orden importa: lo negado va antes de lo aprobado, y un test lo cuida).
 

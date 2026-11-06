@@ -135,16 +135,19 @@ test('el cron: cada 30 minutos y en la pasada diaria; en la diaria, el webhook a
   assert.match(c, /const r = await barrerLeadsDeZernio\(ws, dias\);/);
 });
 
-test('el aviso en «Anuncios de Meta»: sin permiso o sin webhook, se dice qué hacer; mira la clave de la conexión', () => {
+// ⚠️ 5/11/2026: «sin webhook» YA NO dice «MaKo todavía no recibe los leads»: con este barrido, llegan igual (cada media hora). Lo
+// decide `avisoDeLeads` (lib/zernio-leads-estado.ts) con lo que contesta la API, EJECUTADO en tests/zernio-leads-estado.test.ts y
+// tests/zernio-webhook-suscripcion.test.ts (`avisoDeLeadsZernio`). Acá queda lo que une las piezas: la clave de la conexión y el texto.
+test('el aviso en «Anuncios de Meta»: sin permiso o «llegan cada media hora», se dice qué hacer; mira la clave de la conexión', () => {
   const m = leer('lib/meta-conexion-zernio.ts');
-  assert.match(m, /leadsEnElWebhook\(ws, conexion\)\.catch\(\(\) => undefined\)/);
-  assert.match(m, /const leads = escucha === true \? 'si' : escucha === false \? 'sin-permiso' : escucha === null \? 'sin-webhook' : null;/);
+  assert.match(m, /avisoDeLeadsZernio\(ws, conexion\)\.catch\(\(\) => null\)/, 'el modal no le pregunta por la conexión de anuncios');
   const z = leer('lib/zernio.ts');
   assert.match(z, /const c = cuentaAnuncios \? await cfgDeCuenta\(ws, cuentaAnuncios\) : await cfg\(ws\);/);
   const p = leer('app/integraciones/ConectarMetaZernio.tsx');
   assert.match(p, /\{conectada && estado\.leads === 'sin-permiso' && \(/);
   assert.match(p, /Los leads de tus formularios no le llegan a MaKo: tu cuenta de Zernio necesita su complemento de anuncios\./);
-  assert.match(p, /\{conectada && estado\.leads === 'sin-webhook' && \(/);
+  assert.match(p, /\{conectada && estado\.leads === 'tarde' && \(/);
+  assert.doesNotMatch(p, /todavía no recibe los leads/, 'volvió el aviso que salía en falso');
 });
 
 // ── Probado ROMPIÉNDOLO (29/10/2026) ──────────────────────────────────────────

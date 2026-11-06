@@ -14,6 +14,32 @@ import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 
 const ahoraISO = () => new Date().toISOString();
 
+/**
+ * QUIÉN MANDA ESTE WHATSAPP (5/11/2026, mig 0396): una PERSONA (Chats, un borrador aprobado) o una AUTOMATIZACIÓN (la
+ * nutrición, los recordatorios, el curso, una prueba). Lo decide el «tiempo hasta el primer contacto» (lib/primer-contacto.ts),
+ * donde una bienvenida automática contada como una persona diría que el negocio contesta al minuto.
+ *
+ * ⚠️ SIN `quien`, AUTOMÁTICO: todos los que llaman a estas funciones sin decirlo son automatizaciones, y las dos puertas de una
+ * persona lo dicen (`quien: 'persona'`: el envío de Chats, app/api/whatsapp/evolution/mensajes/route.ts, y el borrador aprobado,
+ * `enviarBorrador`). Lo que escribe una persona desde su teléfono no pasa por acá: llega por el webhook con el default `false`.
+ * Un emisor NUEVO tiene que decidirse: tests/primer-contacto-emisores.test.ts enumera los archivos que llaman y falla con uno que
+ * no está en su lista.
+ */
+export type QuienEnvia = 'persona' | 'automatico';
+
+/**
+ * Marca el saliente como AUTOMÁTICO por su id, DESPUÉS del upsert: si el eco del webhook llegó antes, la fila es la suya (con el
+ * default `false` de la 0396) y el upsert de acá no la toca (`ignoreDuplicates`); el UPDATE la corrige igual. Una persona no se
+ * marca: `false` es el default. Sin la migración aplicada, la columna no existe y no se marca nada (el lector dice «No se sabe»):
+ * mandar ya salió y no se toca por esto.
+ */
+async function marcarSiEsAutomatico(waMessageId: string, quien: QuienEnvia = 'automatico'): Promise<void> {
+  if (quien !== 'automatico') return;
+  const supabase = await getTenantDb();
+  const { error } = await supabase.from('wa_mensajes').update({ automatico: true }).eq('wa_message_id', waMessageId).eq('from_me', true);
+  if (error && !esColumnaInexistente(error)) console.error(`[evolution-envio] no pude marcar ${waMessageId} como automático: ${error.message}`);
+}
+
 // ¿El lead ya PAGÓ? Solo entonces el no oficial le manda automático directo
 // (riesgo de ban bajo). Regla dura del PDF = "ya pagó" → gateamos por
 // fecha_primer_pago EXCLUSIVAMENTE. Un 'ganado' sin pago registrado (p.ej.
@@ -60,7 +86,7 @@ export async function tieneBorradorPendienteDePaso(inscripcionId: number, paso: 
 // default — lo de siempre. Ver lib/lineas-whatsapp.ts: una línea que no es del negocio no
 // manda nada, y el motivo vuelve como el error de este envío.
 // `sinVistaPrevia`: los links sin la tarjeta (`sinVistaPrevia` del paso, lib/mensaje-partes.ts; #869).
-export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null; linea?: string | null; sinVistaPrevia?: boolean }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
+export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null; linea?: string | null; sinVistaPrevia?: boolean; quien?: QuienEnvia }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarTexto(params.telefono, params.texto, params.linea, { sinVistaPrevia: params.sinVistaPrevia });
   if (!r.ok) return { ok: false, error: r.error };
   // Espejo del saliente SOLO si Evolution devolvió el id real: así el eco del
@@ -80,6 +106,7 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
       wa_timestamp: ahoraISO(),
       raw: { local: true },
     }, { onConflict: 'workspace_id,wa_message_id', ignoreDuplicates: true }); // si ya llegó el eco del webhook, gana esa fila (más rica)
+    await marcarSiEsAutomatico(r.id, params.quien);
   }
   return { ok: true, chatJid: r.chatJid };
 }
@@ -88,7 +115,7 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
 // wa_mensajes (sube el binario a wa-media). Mismo patrón de dedup por el eco del webhook.
 export async function enviarMediaYEspejar(params: {
   telefono: string; media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' };
-  caption?: string; leadId?: number | null; linea?: string | null;
+  caption?: string; leadId?: number | null; linea?: string | null; quien?: QuienEnvia;
 }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarMedia(params.telefono, params.media, params.caption, params.linea);
   if (!r.ok) return { ok: false, error: r.error };
@@ -104,12 +131,13 @@ export async function enviarMediaYEspejar(params: {
       // autoritativa del saliente; si el eco del webhook (sin media) insertó
       // primero, la actualizamos para que la media se vea igual.
     }, { onConflict: 'workspace_id,wa_message_id' });
+    await marcarSiEsAutomatico(r.id, params.quien);
   }
   return { ok: true, chatJid: r.chatJid };
 }
 
 // Envía una nota de voz por el no oficial y la espeja como tipo='audio'.
-export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null; linea?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
+export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null; linea?: string | null; quien?: QuienEnvia }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarAudio(params.telefono, params.base64, params.linea);
   if (!r.ok) return { ok: false, error: r.error };
   if (r.id) {
@@ -125,6 +153,7 @@ export async function enviarAudioYEspejar(params: { telefono: string; base64: st
       // autoritativa del saliente; si el eco del webhook (sin media) insertó
       // primero, la actualizamos para que la media se vea igual.
     }, { onConflict: 'workspace_id,wa_message_id' });
+    await marcarSiEsAutomatico(r.id, params.quien);
   }
   return { ok: true, chatJid: r.chatJid };
 }
@@ -336,7 +365,7 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
   const r = b.audio_id != null || b.adjunto_id != null
     ? await enviarMediaDelBorrador(b)
     // ⚠️ La vista previa se lee APARTE del claim: pedir la columna ahí, sin la migración aplicada, frenaría todo borrador.
-    : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name, sinVistaPrevia: await borradorSinVistaPrevia(supabase, b.id) });
+    : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name, sinVistaPrevia: await borradorSinVistaPrevia(supabase, b.id), quien: 'persona' });
   if (!r.ok) {
     // Falló el envío → devolvemos el borrador a 'pendiente' para reintentar.
     await supabase.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', id);
@@ -357,15 +386,15 @@ async function enviarMediaDelBorrador(b: {
     const audio = await getAudio(Number(b.audio_id));
     const b64 = audio ? await audioBase64(audio) : null;
     if (!audio || !b64) return { ok: false, error: audio ? 'no pude bajar el audio' : 'el audio ya no existe' };
-    const r = await enviarAudioYEspejar({ telefono: b.telefono, base64: b64, mimetype: audio.media_mime, leadId: b.lead_id, linea: b.instance_name });
-    if (r.ok && pie) await enviarYEspejar({ telefono: b.telefono, texto: pie, leadId: b.lead_id, linea: b.instance_name }).catch(() => { /* el audio ya salió: el pie es un extra */ });
+    const r = await enviarAudioYEspejar({ telefono: b.telefono, base64: b64, mimetype: audio.media_mime, leadId: b.lead_id, linea: b.instance_name, quien: 'persona' });
+    if (r.ok && pie) await enviarYEspejar({ telefono: b.telefono, texto: pie, leadId: b.lead_id, linea: b.instance_name, quien: 'persona' }).catch(() => { /* el audio ya salió: el pie es un extra */ });
     return r;
   }
   const [{ getAdjunto, adjuntoBase64 }, { mediaDeAdjunto }] = await Promise.all([import('@/lib/setting-adjuntos'), import('@/lib/nutricion-grafo-motor')]);
   const adj = await getAdjunto(Number(b.adjunto_id));
   const b64 = adj ? await adjuntoBase64(adj) : null;
   if (!adj || !b64) return { ok: false, error: adj ? 'no pude bajar el archivo' : 'el archivo ya no existe' };
-  return enviarMediaYEspejar({ telefono: b.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: pie || undefined, leadId: b.lead_id, linea: b.instance_name });
+  return enviarMediaYEspejar({ telefono: b.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: pie || undefined, leadId: b.lead_id, linea: b.instance_name, quien: 'persona' });
 }
 
 /**

@@ -462,10 +462,15 @@ export function veredictoGesto(p: { dx: number; dy: number; vx: number; vy: numb
  *  30 s). Después de salir no hay vuelta: le avisó al cliente o se la firmó al Cerebro. */
 export const VENTANA_DESHACER_MS = 8000;
 
-/** El orden del mazo: lo más urgente primero y, dentro de cada prioridad, el que espera hace más. */
+/**
+ * El orden del mazo: lo más urgente primero y, dentro de cada prioridad, el que espera hace más. Lo que SUBIÓ por ser de una
+ * agencia (`triage.agencia`, `subirPorAgencia`) va detrás de los de su prioridad que llegaron ahí solos: así no le quita el lugar
+ * a un cliente con algo roto (5/11/2026).
+ */
 export function ordenDelMazo(ts: readonly FilaTicket[]): number[] {
+  const subio = (t: FilaTicket) => (t.triage?.agencia ? 1 : 0);
   return ts.filter(porDecidir)
-    .sort((a, b) => PRIORIDADES.indexOf(a.prioridad) - PRIORIDADES.indexOf(b.prioridad) || Date.parse(a.created_at) - Date.parse(b.created_at))
+    .sort((a, b) => PRIORIDADES.indexOf(a.prioridad) - PRIORIDADES.indexOf(b.prioridad) || subio(a) - subio(b) || Date.parse(a.created_at) - Date.parse(b.created_at))
     .map((t) => t.id);
 }
 

@@ -54,7 +54,14 @@ test('3. la marca se guarda y se ve; el alta la toma del negocio', () => {
   assert.equal(leerTriage(JSON.parse(JSON.stringify(t)))?.regla, 'Leandro', 'la regla se pierde al leer lo guardado');
   // Desde el 27/10 también con `hastaUnDia` (Leila): tests/feedback-2710-tanda1.test.ts. Desde el 30/10 con `decideMartin` (el pedido
   // delegado desde el grupo que decide Martín: tests/despacho-grupo.test.ts, el 13).
-  assert.match(sinComentarios(leer('lib/tickets-db.ts')), /clasificar\([^;]*aprobadoPorRegla: reglaDelNegocio\(n\.identidad\.ws\)\?\.nombre \?\? null, hastaUnDia: reglaDelNegocio\(n\.identidad\.ws\)\?\.hastaUnDia, decideMartin \}\);/);
+  // Cada argumento por separado, adentro de la llamada al triage (5/11/2026: sumar `deAgencia` al final ponía rojo la línea entera).
+  const db = sinComentarios(leer('lib/tickets-db.ts'));
+  const i = db.indexOf('let triage = clasificar(');
+  assert.ok(i >= 0, 'no encontré la llamada al triage en crearTicket');
+  const llamada = db.slice(i, db.indexOf('\n', i));
+  assert.match(llamada, /aprobadoPorRegla: reglaDelNegocio\(n\.identidad\.ws\)\?\.nombre \?\? null/, 'el alta no toma la regla del negocio');
+  assert.match(llamada, /hastaUnDia: reglaDelNegocio\(n\.identidad\.ws\)\?\.hastaUnDia/, 'el alta no toma el tope de un día');
+  assert.match(llamada, /[{,]\s*decideMartin\s*[,}]/, 'el alta no le pasa lo que decide Martín');
   assert.match(leer('app/tickets/bandeja/BandejaTickets.tsx'), /t\.triage\.regla \? `aprobado por regla: \$\{t\.triage\.regla\}`/, 'la bandeja no la muestra');
   assert.match(leer('scripts/tickets.ts'), /APROBADO POR REGLA \(\$\{triage\.regla\}\)[\s\S]*?NO lo reclasifiques/, 'el Cerebro no sabe que no lo devuelva');
 });

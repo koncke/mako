@@ -36,7 +36,7 @@ export type EstadoMetaZernio = {
   activo: boolean; conexion: string | null; cuentas: Cuenta[]; pixeles: Pixel[]; cuenta: string | null; pixel: string | null; error: string | null;
   paginas: Pagina[]; pagina: { pageId: string | null; preguntar: boolean; sugerida: string | null };
   /** ¿Le llegan a MaKo los leads de los formularios? (lib/meta-conexion-zernio.ts, 29/10/2026). Sin el campo acá, no tipaba. */
-  leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
+  leads?: 'si' | 'tarde' | 'sin-permiso' | null;
   /** Un 429 de Zernio: en cuánto se vuelve a leer sola (ticket #34). */
   reintentarEnMs?: number | null;
 };
@@ -209,15 +209,16 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
         </span>
       )}
 
-      {/* Los leads de los formularios (29/10/2026): si no le llegan a MaKo, se dice por qué y qué hacer (`leadsEnElWebhook`). */}
+      {/* Los leads de los formularios (29/10/2026): si no le llegan a MaKo, se dice por qué y qué hacer (`avisoDeLeads`, lib/zernio-leads-estado.ts). */}
       {conectada && estado.leads === 'sin-permiso' && (
         <span role="status" data-leads-zernio="sin-permiso" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
           Los leads de tus formularios no le llegan a MaKo: tu cuenta de Zernio necesita su complemento de anuncios. Actívalo en zernio.com y vuelve a conectar.
         </span>
       )}
-      {conectada && estado.leads === 'sin-webhook' && (
-        <span role="status" data-leads-zernio="sin-webhook" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
-          MaKo todavía no recibe los leads de tus formularios: toca «Volver a conectar».
+      {/* Llegan, pero cada media hora (el barrido): el webhook no los escucha. NO es «no recibe»: eso salía en falso (5/11/2026). */}
+      {conectada && estado.leads === 'tarde' && (
+        <span role="status" data-leads-zernio="tarde" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>
+          Tus leads llegan cada media hora. Para que lleguen al instante, toca «Volver a conectar».
         </span>
       )}
       {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}

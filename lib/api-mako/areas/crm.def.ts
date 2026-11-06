@@ -1484,6 +1484,19 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'suma cada lead al CRM (una fila en lead_funnel, en su columna de entrada) con su historial; no lo saca del suyo',
   },
+  // ── EL PRIMER CONTACTO (5/11/2026): lo que Martín le prometió a Código Inmobiliario el 30/10. Antes de `armar_tab_ficha`, que
+  //    va última a propósito. El id y el título no repiten las palabras de todo el área («lead», «etapa», «mover»): las lleva el
+  //    parámetro, que no puntúa.
+  {
+    id: 'tiempo_primer_contacto', area: 'crm', tipo: 'lectura',
+    titulo: 'Cuánto tardan en contactar',
+    descripcion: 'Cuánto tardó una persona del negocio en escribirle o llamar a cada persona nueva desde que entró al CRM (WhatsApp, email, Instagram, Messenger o una llamada), SIN contar los mensajes automáticos: la mediana, cuántos en la primera hora, los sin contactar y los que más esperaron. «No se sabe» = mensajes de antes de que MaKo separara lo automático (5/11/2026). Sirve para contestar «los leads no sirven». Sin dias, los últimos 30.',
+    parametros: [
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 90, descripcion: 'los leads que entraron en los últimos N días (por defecto, 30).' },
+      { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el primer contacto de UN lead, por su id.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba

@@ -351,7 +351,10 @@ test('13. A2: el pedido delegado con plata, envíos o borrados, o de alguien sin
   // Y `crearTicket` lo calcula para todo delegado, con lo que pidió (no con la descripción, que trae lo de antes).
   const db = sinComentarios(leer('lib/tickets-db.ts'));
   assert.ok(db.includes("const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\\n${contexto.pedido ?? ''}`, n.identidad) : null;"), 'crearTicket no lo calcula');
-  assert.ok(db.includes('hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin })'), 'crearTicket no se lo pasa al triage');
+  // El argumento, no la línea entera (5/11/2026: el triage sumó `deAgencia` después y la línea literal daba rojo con el código bien).
+  const llamada = db.slice(db.indexOf('let triage = clasificar('), db.indexOf('\n', db.indexOf('let triage = clasificar(')));
+  assert.ok(llamada.length > 20, 'no encontré la llamada al triage en crearTicket');
+  assert.match(llamada, /[{,]\s*decideMartin\s*[,}]/, 'crearTicket no se lo pasa al triage');
   // La descripción del ticket no dice «hazlo»: la lee también el pedido que espera a Martín.
   assert.doesNotMatch(sinComentarios(leer('lib/tickets-del-grupo.ts')), /Elige el jefe, el modelo y el esfuerzo/);
 });

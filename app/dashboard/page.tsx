@@ -66,7 +66,7 @@ import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing
 import { accionDeLaHojaClosing, avisoDeLaHojaClosing, esHojaClosing } from './aviso-closing';
 import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
 import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
-import { agendaParaElClosing } from '@/lib/closing-diseno-server';
+import { agendaParaElClosing, primerContactoParaElClosing } from '@/lib/closing-diseno-server';
 import { agendaParaComercial } from '@/lib/comercial-diseno-server';
 import { etapasDeLaEntregaEnOrden } from '@/lib/cs-diseno-server';
 import { variablesDeQuienMira } from '../general/datos';
@@ -199,11 +199,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const etapasCs = hayDisenoCs ? etapasDeLaEntregaEnOrden() : Promise.resolve(null);
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
+  // Y el PRIMER CONTACTO (5/11/2026, lib/primer-contacto.ts): nombra leads, así que tampoco para el closer ni el setter.
+  const contactoClosing = hayDisenoClosing && !unica ? primerContactoParaElClosing() : Promise.resolve(null);
   const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
-  const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas] = await Promise.all([
-    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing, agendaComercial, etapasCs,
+  const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas, contacto] = await Promise.all([
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing, agendaComercial, etapasCs, contactoClosing,
   ]);
 
   return (
@@ -234,7 +236,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
         disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido ? {
-          closing: hayDisenoClosing ? { agenda, quien } : null,
+          closing: hayDisenoClosing ? { agenda, quien, contacto } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
           marketing: hayDisenoMarketing ? { quien } : null,

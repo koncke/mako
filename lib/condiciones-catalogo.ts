@@ -75,6 +75,7 @@
 //     quien sólo comentó cae en la rama «si no», y es una regla de Meta, no una falla.
 // =============================================================================
 
+import { RESULTADOS_COMPROBANTE, esResultadoComprobante } from './comprobante-reglas';
 import type { FilaCondicion, HechosLead } from './flujo-grafo';
 // Puro y compartido (lo importa también app/crm/CrmBoard.tsx): el mapeo índice → lugar de la ficha
 // vive ahí UNA vez (tests/reunion-slot-fuente-unica.test.ts).
@@ -130,7 +131,8 @@ export type Fuente =
   | 'cs'          // cs_clientes.estado
   | 'reuniones'   // el ORDEN de las reuniones de los embudos que nombran las filas (`reunionesDe`)
   | 'social'      // ig_conversaciones: la conversación que cuenta, por lead y canal (`conversacionesDeLeads`)
-  | 'sigue';      // «¿te sigue?» EN VIVO a Zernio, sólo por quien escribió por DM (`siguenEnInstagram`)
+  | 'sigue'       // «¿te sigue?» EN VIVO a Zernio, sólo por quien escribió por DM (`siguenEnInstagram`)
+  | 'comprobante'; // comprobantes_leidos: la última lectura de las últimas 48 h (`resultadosDeComprobante`, lib/comprobantes.ts)
 
 /** Los catálogos de los que sale el valor de una condición de lista. */
 export type CatalogoValor =
@@ -254,6 +256,11 @@ export type HechosCatalogo = {
   entrega?: ReadonlySet<string>;
   /** Sin fila en cs_clientes = 'activo'. */
   estadoCliente?: string;
+  /**
+   * «Su comprobante» (5/11/2026, la tarjeta «Leer comprobante»): el resultado de su ÚLTIMA lectura de las últimas 48 h
+   * (lib/comprobante-reglas.ts), `no_llego` sin ninguna. Ausente = no se leyó (la condición dice «no sé»).
+   */
+  comprobante?: string;
   /**
    * La conversación que cuenta en cada canal (`conversacionQueCuenta`). Leída, los DOS canales están:
    * `null` = no tenemos conversación por ahí. El bloque ausente = no se leyó (todo «no sé»).
@@ -666,6 +673,19 @@ export const CONDICIONES: readonly DefCondicion[] = [
   {
     id: 'cuotas_vencidas', seccion: 'Pagos', seccionEntrega: 'Pagos del cliente', ambito: 'ambos', rotulo: ['Cuotas vencidas', 'Cuotas vencidas'], negable: false, valor: { t: 'numero', unidad: '', def: 1, min: 0, max: 60 }, fuentes: ['pagos'],
     evaluar: (f, h) => compara(f, h.catalogo?.pagos?.vencidas),
+  },
+  {
+    // LA CONDICIÓN DE LA TARJETA «Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): «si coincide
+    // con lo que debía pagar, si el número de operación ya se usó, si no se pudo leer». Lo decide el CÓDIGO al leer
+    // (`resultadoDe`, lib/comprobante-reglas.ts); acá sólo se compara. «Cubre» es SÓLO una lectura sin dudas, en la moneda de
+    // la cuota y por lo que tocaba: lo demás va a una persona, a la vista en el lienzo.
+    id: 'comprobante', seccion: 'Pagos', seccionEntrega: 'Pagos del cliente', ambito: 'ambos', rotulo: ['Su comprobante', 'Su comprobante no'], negable: true,
+    valor: { t: 'opciones', opciones: RESULTADOS_COMPROBANTE.map((r) => ({ value: r.id, label: r.rotulo })) }, fuentes: ['comprobante'],
+    evaluar: (f, h) => {
+      const r = h.catalogo?.comprobante;
+      if (r == null || !esResultadoComprobante(f.valor)) return null;
+      return r === f.valor;
+    },
   },
 
   // ── Mensajes ──

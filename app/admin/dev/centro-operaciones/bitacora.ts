@@ -2442,10 +2442,11 @@ export const BITACORA: Hito[] = [
     titulo: 'Approvals: ninguna aprobación se mira «a mano»',
     revisar: '/admin/approvals',
     puntos: [
-      '**Lo que no tiene API se lee de su panel:** la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem y el certificado de Windows. Lo lee una tarea del Cerebro con tu sesión y lo guarda; el vigía lo muestra y avisa si cambia.',
+      '**Lo que no tiene API se lee de su panel:** la cuenta de Play Console, las verificaciones de Meta, la app de Google y el certificado de Windows. Lo lee una tarea del Cerebro con tu sesión y lo guarda; el vigía lo muestra y avisa si cambia.',
       '**Una lectura vale un día:** si nadie vuelve a leer un panel, la fila dice «no pude leerlo» desde cuándo y te avisa una vez.',
       '**Lo que falta se dice exacto:** una clave (con «Cargarla») o que la tarea lea ese panel, nunca «míralo».',
-      '**También desde el chat:** «Creem ya aprobó» lo anota MaKo, con `anotar_lectura_de_panel`.',
+      '**También desde el chat:** «Google ya aprobó la app» lo anota MaKo, con `anotar_lectura_de_panel`.',
+      '**Creem, rechazada y definitiva:** su fila lo dice como un hecho, sin panel que mirar.',
     ],
     archivos: [
       'lib/vigia-aprobaciones.ts — el panel de cada ítem (qué abrir, qué mirar, cómo traducirlo), lecturaDePanel, anotarPanel, regla 6',

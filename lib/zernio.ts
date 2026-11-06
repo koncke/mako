@@ -46,6 +46,7 @@ import { profileDeLaCuenta } from './zernio-profile';
 import { seguimientoDe, seguimientoNoSe, conTope, CONCURRENCIA_SEGUIMIENTO } from './canal-social';
 import type { BotonZernio } from './botones-social';
 import { publicacionesDeZernio, type PublicacionDeLaCuenta } from './publicacion-cron';
+import { avisoDeLeads, escuchaComoBooleano, escuchaDelWebhook, type AvisoLeads, type EscuchaWebhook, type LecturaLeads } from './zernio-leads-estado';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
@@ -485,16 +486,49 @@ async function asegurarWebhookEn(ws: number, c: ZernioCfg, maestro: string): Pro
  * error cuando Zernio los rechaza, y alguien tiene que poder decirle al negocio por qué no le entran.
  */
 export async function leadsEnElWebhook(ws: number, cuentaAnuncios?: string | null): Promise<boolean | null> {
+  const w = await webhookDeLeads(ws, cuentaAnuncios);
+  return w.hayMaestro ? escuchaComoBooleano(w.escucha) : null;
+}
+
+/**
+ * El webhook de MaKo en la cuenta de Zernio de ESA conexión de anuncios (`escuchaDelWebhook`, lib/zernio-leads-estado.ts). Sin el
+ * secreto maestro no hay URL que buscar: `hayMaestro: false` (y no se afirma nada de él).
+ */
+export async function webhookDeLeads(ws: number, cuentaAnuncios?: string | null): Promise<{ hayMaestro: boolean; escucha: EscuchaWebhook }> {
   const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
-  if (!maestro) return null;
+  if (!maestro) return { hayMaestro: false, escucha: 'no-esta' };
   // Con varias claves (29/10/2026), la de la conexión de anuncios: sus leads llegan por el webhook de ESA cuenta de Zernio.
   const c = cuentaAnuncios ? await cfgDeCuenta(ws, cuentaAnuncios) : await cfg(ws);
   const { ruta } = webhookDeLaCuenta(maestro, ws, c.byok);
-  const url = linkApp(ruta, null);
   const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
-  const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
-  if (!nuestro) return null;
-  return nuestro.isActive !== false && (nuestro.events ?? []).includes(EVENTO_LEADS);
+  return { hayMaestro: true, escucha: escuchaDelWebhook(r.webhooks ?? [], linkApp(ruta, null), EVENTO_LEADS) };
+}
+
+/**
+ * ¿La API de Zernio le entrega a esta conexión los leads de sus formularios? El MISMO pedido que el barrido de cada 30 minutos
+ * (lib/zernio-leads-barrido.ts), con uno solo y desde ahora: no trae leads, sólo contesta si puede. 403 = falta el complemento
+ * de anuncios. Cualquier otra falla es «no se sabe».
+ */
+export async function leadsPorLaApi(ws: number, cuentaAnuncios: string): Promise<LecturaLeads> {
+  try {
+    const k = await cfgDeCuenta(ws, cuentaAnuncios);
+    const q = new URLSearchParams({ platform: 'meta', since: String(Math.floor(Date.now() / 1000)), limit: '1', accountIds: cuentaAnuncios });
+    await zFetch(k.apiKey, `/ads/leads?${q.toString()}`);
+    return 'anda';
+  } catch (e) {
+    return e instanceof ZernioError && e.status === 403 ? 'sin-complemento' : 'no-se';
+  }
+}
+
+/**
+ * Lo que dice el modal «Anuncios de Meta» de los leads de los formularios (`avisoDeLeads`). Pregunta a la API sólo si el webhook no
+ * los escucha: con el webhook bien, un pedido de menos a Zernio (su tope por minuto es el ticket #34).
+ */
+export async function avisoDeLeadsZernio(ws: number, cuentaAnuncios: string): Promise<AvisoLeads> {
+  const w = await webhookDeLeads(ws, cuentaAnuncios).catch(() => null);
+  if (w?.hayMaestro && w.escucha === 'escucha') return 'si';
+  const lectura = await leadsPorLaApi(ws, cuentaAnuncios);
+  return avisoDeLeads({ hayMaestro: w?.hayMaestro ?? false, webhook: w?.escucha ?? null, lectura });
 }
 
 // ── Mandar ───────────────────────────────────────────────────────────────────

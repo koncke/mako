@@ -200,7 +200,8 @@ test('nada tira: sin red, cada lector dice «no pude» (o, un panel sin leer, qu
   }));
   for (const [id, l] of Object.entries(todo)) {
     const panelSinLeer = l.tipo === 'sin_credencial' && l.faltan.join() === FALTA_LECTURA_PANEL && !!ITEMS.find((i) => i.id === id)?.panel;
-    assert.ok(l.tipo === 'no_pude' || panelSinLeer, `${id}: ${JSON.stringify(l)}`);
+    const registrado = l.tipo === 'leido' && l.fuente === 'registro' && !!ITEMS.find((i) => i.id === id)?.definitivo;
+    assert.ok(l.tipo === 'no_pude' || panelSinLeer || registrado, `${id}: ${JSON.stringify(l)}`);
     const texto = JSON.stringify(l);
     for (const secreto of [SECRETO_META, P8.slice(40, 80), 'tok-de-mentira']) assert.ok(!texto.includes(secreto), `${id} lleva una clave`);
   }
@@ -215,7 +216,8 @@ test('de punta a punta: la primera vuelta sólo dice lo que falta para leer solo
   ]);
   const e1 = entorno(fichas('0.74.3', 0).f, { creds: { MAKO_META_APP_SECRET: SECRETO_META }, dominiosResend: async () => ({ ok: true, domains: [{ name: 'hola-mako.com', status: 'verified' }] }) });
   const r1 = vuelta(null, await leerTodo(e1), T0);
-  assert.deepEqual([...new Set(r1.avisos.map((a) => a.tipo))], ['falta'], 'nada viejo se anuncia como novedad');
+  // Creem es un hecho registrado (rechazada el 5/11/2026): su único aviso sale en esta primera vuelta, y es lo único que no es «falta».
+  assert.deepEqual([...new Set(r1.avisos.filter((a) => a.item !== 'creem-tienda').map((a) => a.tipo))], ['falta'], 'nada viejo se anuncia como novedad');
   const e2 = entorno(fichas('0.75.0', 1).f, { creds: { MAKO_META_APP_SECRET: SECRETO_META }, dominiosResend: async () => ({ ok: true, domains: [{ name: 'hola-mako.com', status: 'verified' }] }) });
   const r2 = vuelta(r1.nuevo, await leerTodo(e2), T0 + 3600_000);
   assert.deepEqual(r2.avisos.map((a) => a.item).sort(), ['app-store', 'chrome-web-store']);

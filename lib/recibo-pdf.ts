@@ -43,7 +43,22 @@ export type FotoRecibo = {
   sello?: { texto: string } | null;
   /** «Ver ejemplo»: sin número, con una marca. */
   ejemplo?: boolean;
+  /**
+   * La plantilla (5/11/2026, la tarjeta «Emitir recibo» de Automations: «varios templates [...] que el usuario pueda elegir»).
+   * Sin valor, `clasico`: la de los recibos 0001 y 0002 de la plataforma, que NO cambia. Las otras cambian el aspecto, nunca
+   * lo que dice: el pie fijo («No es una factura fiscal») y los datos son los mismos en las tres.
+   */
+  plantilla?: PlantillaRecibo;
 };
+
+/** Las plantillas del recibo. Una nueva se suma acá, en `PLANTILLAS_RECIBO` y en su caso del dibujo. */
+export type PlantillaRecibo = 'clasico' | 'compacto' | 'marca';
+export const PLANTILLAS_RECIBO: ReadonlyArray<{ id: PlantillaRecibo; nombre: string; detalle: string }> = [
+  { id: 'clasico', nombre: 'Clásico', detalle: 'El recibo completo: qué se pagó, cómo se pagó y los comprobantes.' },
+  { id: 'compacto', nombre: 'Compacto', detalle: 'Una hoja corta: el total, el concepto y el pago en dos renglones.' },
+  { id: 'marca', nombre: 'Con tu marca', detalle: 'Una franja con el nombre de tu negocio arriba, y el resto como el clásico.' },
+];
+export const esPlantillaRecibo = (v: unknown): v is PlantillaRecibo => PLANTILLAS_RECIBO.some((p) => p.id === v);
 
 export type Comprobante = { bytes: Uint8Array; mime: 'image/png' | 'image/jpeg'; fecha: string | null; medio: string };
 
@@ -135,8 +150,18 @@ export async function pdfDelRecibo(f: FotoRecibo, comprobantes: readonly Comprob
   const rot = rotulosDelDocumento(medios);
   doc.setProperties({ title: t(`${rot.titulo}${f.numero != null ? ` N.º ${numeroEnTexto(f.numero)}` : ''}`), author: t(f.emisor.nombre), creator: 'MaKo' });
 
+  const plantilla: PlantillaRecibo = esPlantillaRecibo(f.plantilla) ? f.plantilla : 'clasico';
+  // ── «Con tu marca»: una franja oscura con el nombre del negocio, arriba de todo ──
+  if (plantilla === 'marca') {
+    doc.setFillColor(28, 28, 30);
+    doc.rect(0, 0, ANCHO, 12, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text(t(f.emisor.nombre.toUpperCase()), MARGEN, 7.8);
+  }
   // ── Cabecera: el emisor a la izquierda, el título y el número a la derecha ──
-  let y = 22;
+  let y = plantilla === 'marca' ? 28 : 22;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
   doc.setTextColor(20, 20, 20);
@@ -188,6 +213,16 @@ export async function pdfDelRecibo(f: FotoRecibo, comprobantes: readonly Comprob
   doc.text(t(totalesEnTexto(f.totales)), MARGEN + UTIL - 5, y + 15, { align: 'right' });
   y += 31;
 
+  if (plantilla === 'compacto') {
+    // ── Compacto: el concepto y el pago en dos renglones, sin tablas ──
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(40, 40, 40);
+    const conceptos = f.lineas.map((l) => `${l.concepto}${l.mes ? ` (${l.mes})` : ''}: ${formatoMonto(Number(l.monto), l.moneda)}`).join(' · ');
+    y = parrafo(doc, `Por: ${conceptos}`, MARGEN, y, UTIL, 10) + 2;
+    const pagos = f.pagos.map((p) => `${esMedio(p.medio) ? ROTULO_MEDIO[p.medio] : p.medio}, ${fechaConHora(p.fecha, f.zona)}${p.referencia ? `, ${p.referencia}` : ''}`).join(' · ');
+    y = parrafo(doc, `Pagado por ${pagos}.`, MARGEN, y, UTIL, 10) + 4;
+  } else {
   // ── Qué se pagó ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -211,6 +246,7 @@ export async function pdfDelRecibo(f: FotoRecibo, comprobantes: readonly Comprob
   y = tabla(doc, y + 6, [{ titulo: 'Fecha y hora', peso: 3 }, { titulo: 'Medio', peso: 2.2 }, { titulo: rotRef, peso: 3.8 }, { titulo: 'Monto', peso: 2, derecha: true }],
     f.pagos.map((p) => [fechaConHora(p.fecha, f.zona), esMedio(p.medio) ? ROTULO_MEDIO[p.medio] : p.medio, p.referencia, formatoMonto(Number(p.monto), p.moneda)]));
   y += 3;
+  }
 
   // ── La nota, el impuesto y la leyenda del medio ──
   doc.setFont('helvetica', 'normal');
@@ -233,7 +269,7 @@ export async function pdfDelRecibo(f: FotoRecibo, comprobantes: readonly Comprob
   }
 
   // ── Página 2: los comprobantes ──
-  const imagenes = comprobantes.filter((c) => (c.mime === 'image/png' || c.mime === 'image/jpeg') && medidaDeImagen(c.bytes));
+  const imagenes = plantilla === 'compacto' ? [] : comprobantes.filter((c) => (c.mime === 'image/png' || c.mime === 'image/jpeg') && medidaDeImagen(c.bytes));
   if (imagenes.length) {
     doc.addPage();
     const mediosC = [...new Set(imagenes.map((c) => (esMedio(c.medio) ? ROTULO_MEDIO[c.medio] : c.medio)))].join(' y ');

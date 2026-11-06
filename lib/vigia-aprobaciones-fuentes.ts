@@ -27,7 +27,7 @@
 
 import { createPrivateKey, createSign } from 'node:crypto';
 import type { Estado, Lectura, PanelesGuardados } from './vigia-aprobaciones';
-import { APPLE_ID_APP, ITEMS, META_APP_ID_VIGIA, PAQUETE_APP, lecturaDePanel } from './vigia-aprobaciones';
+import { APPLE_ID_APP, ITEMS, META_APP_ID_VIGIA, PAQUETE_APP, lecturaDePanel, lecturaDefinitiva } from './vigia-aprobaciones';
 import { pemPkcs8 } from './push-apns-reglas';
 import { esDominioDeMako } from './email-remitente';
 
@@ -497,9 +497,14 @@ const DE_SU_PANEL: Readonly<Record<string, Lector>> = Object.fromEntries(
   ITEMS.filter((i) => i.panel).map((i) => [i.id, (e: Entorno) => leerDelPanel(e, i.id)] as const),
 );
 
+/** Lo que ya no cambia (`definitivo` en ITEMS, como la tienda de Creem): el hecho registrado, sin red. */
+const DE_SU_REGISTRO: Readonly<Record<string, Lector>> = Object.fromEntries(
+  ITEMS.filter((i) => i.definitivo).map((i) => [i.id, async () => lecturaDefinitiva(i)!] as const),
+);
+
 /**
- * Un lector por ítem del inventario: por API, por algo público o de su panel (los que tienen `panel` en ITEMS). El test cruza
- * estas claves con `ITEMS`.
+ * Un lector por ítem del inventario: por API, por algo público, de su panel (los que tienen `panel` en ITEMS) o de su registro
+ * (los `definitivo`). El test cruza estas claves con `ITEMS`.
  */
 export const LECTORES: Readonly<Record<string, Lector>> = {
   'app-store': (e) => leerAppStore(e),
@@ -509,6 +514,7 @@ export const LECTORES: Readonly<Record<string, Lector>> = {
   'meta-permisos': (e) => leerMetaPermisos(e),
   'resend-dominios': (e) => leerResend(e),
   ...DE_SU_PANEL,
+  ...DE_SU_REGISTRO,
 };
 
 /** Lee todo, en paralelo. Nunca tira: un lector que revienta es «no pude leer». */

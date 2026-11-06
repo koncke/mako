@@ -388,7 +388,9 @@ test('la galería no se mete en un Recurrente ni en una difusión, y el system y
   const ctx = ctxWs11(PEDIDO_LEILA);
   const user = userDeCrear(ctx, { perfil: '', voz: null, pedido: 'recordatorio de la reunión', recurrente: { linea: 'CUÁNDO: x', conQuien: false } });
   assert.doesNotMatch(user, /LA DE ESA CATEGORÍA/);
-  assert.match(user, /DISPARADORES \(clave/, 'sin a quién puesto, el modelo elige la cohorte');
+  // Lo que cuida: que la lista de a quién (las etapas, con sus claves) viaje para que el modelo elija. El encabezado
+  // «(clave y qué lo dispara)» se sacó el 5/11/2026 para entrar en el techo de Groq: se mira la lista, no el rótulo.
+  assert.match(user, /\nDISPARADORES:\n- Etapa \(llega a\): d1 /, 'sin a quién puesto, el modelo elige la cohorte');
   const system = leer('lib/flujo-ia.ts');
   assert.match(system, /8\. Arma SÓLO lo que pide el pedido: sin avisos al equipo, etiquetas, esperas, seguimientos ni "si_responde" que no pida\./);
   assert.doesNotMatch(system, /Una automatización por categoría, completa/);
