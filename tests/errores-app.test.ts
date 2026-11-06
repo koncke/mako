@@ -53,6 +53,30 @@ test('sin datos de clientes: emails, teléfonos y lo citado no se guardan; la qu
   assert.doesNotMatch(JSON.stringify(r), /ana@negocio/, 'ni en el mensaje ni en el stack');
 });
 
+test('la RUTA que manda /api/errores va sin los tokens del camino ni los números largos', () => {
+  // ⚠️ El agujero hasta el 6/11/2026: `rutaSinDatos` sólo tapaba la QUERY, y hay rutas cuya ruta ES la credencial. El
+  // reporte de un error las guardaba enteras. El botón «Reportar a Soporte» ya las tapaba (`rutaSoporte`); esto no.
+  //
+  // ⚠️ Probado ROMPIÉNDOLO, tres veces. Al mudar la regla a `rutaSinDatos`, `rutaSoporte` quedó delegando en ella, así que
+  // las guardas que ya tenía el botón ahora también cubren este camino — una rotura da rojo en los tres archivos:
+  //   (a) el camino sin tapar (lo de antes): errores-app 12/1, reportar-a-soporte 10/1, curso-soporte-alumno 5/1;
+  //   (b) la query con `\d{1,12}` y sin CLAVES_SENSIBLES (lo de antes): 12/1, 10/1 y 6/0;
+  //   (c) el punto fuera del juego de caracteres del token (el del portal del alumno): 12/1, 11/0 y 5/1.
+  assert.equal(rutaSinDatos('/pagar/AbCdEf1234567890xyz'), '/pagar/:token');
+  assert.equal(rutaSinDatos('/compartido/curso/c1.15.8842.3.9f2ab77c1de4'), '/compartido/curso/:token');
+  assert.equal(rutaSinDatos('/l/vista/ana@cliente.com'), '/l/vista/:token');
+  assert.equal(rutaSinDatos('/automations/campana-de-prueba'), '/automations/campana-de-prueba', 'un slug de palabras no es un token');
+  assert.equal(rutaSinDatos('/crm/123'), '/crm/123', 'un id corto sigue siendo la pantalla');
+  // Un teléfono entra cómodo en 10-12 cifras, que era lo que la query conservaba.
+  assert.equal(rutaSinDatos('/crm/123?tel=5491155551234&code=123456&ws=3&etapa=nueva'), '/crm/123?tel=…&code=…&ws=3&etapa=…');
+  assert.equal(rutaSinDatos('/crm?lead=1234567890'), '/crm?lead=…', 'diez cifras ya no son un id');
+
+  // Y el reporte que se guarda, que es lo que de verdad viaja a la base.
+  const r = base({ ruta: '/compartido/curso/c1.15.8842.3.9f2ab77c1de4?tel=5491155551234' });
+  assert.equal(r.ruta, '/compartido/curso/:token?tel=…');
+  assert.doesNotMatch(JSON.stringify(r), /9f2ab77c1de4|5491155551234/, 'ni el token ni el teléfono quedan guardados');
+});
+
 test('el ruido no es un bug: extensiones, la red, un deploy nuevo, Next y el proveedor de IA', () => {
   // Rota: vaciar la lista RUIDO → este test falla (cada pestaña vieja después de un deploy abriría un ticket).
   const ruido: Array<Partial<ReporteError>> = [

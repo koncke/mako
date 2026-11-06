@@ -84,6 +84,93 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
+
+Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
+
+```
+  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+  Corre esto y volve a pushear:
+      node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+El documento no estaba viejo. Corriendo el mismo script a mano: `✓ docs/branding-mako.md al día`, cero
+diff. **Lo que pasaba es que el worktree no tenía `node_modules`**, así que `--import tsx` moría con
+`ERR_MODULE_NOT_FOUND` y salía con 1 — y `scripts/guardas-push.sh:73` lee ese 1 como «el documento
+difiere»:
+
+```sh
+if ! node --import tsx scripts/sync-gramatica-doc.mjs --check; then
+  echo "  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo..."
+```
+
+**Why:** el `if !` no distingue «medí y hay diferencia» de «no pude medir». Las dos cosas salen con 1. Y
+el mensaje no es neutro: afirma una causa falsa y manda a un comando que **tampoco puede correr**, así
+que seguir la instrucción al pie de la letra no desbloquea nada. Es la misma forma que «Una verificación
+que no verifica es la otra mitad de un test que no prueba» (AGENTS.md), pero del lado de la guarda: una
+guarda que no corre no es neutral, miente.
+
+Y no es una sola: `scripts/guardas-push.sh` tiene varias guardas con esta forma exacta (la de
+`sync-gramatica-doc`, la de `generar-plugin --check`), todas con un mensaje que nombra el archivo
+chequeado como culpable.
+
+**How to apply:**
+
+- **Un worktree nuevo necesita `node_modules` antes del primer push**, aunque el commit sea de pura
+  documentación: las guardas del pre-push corren `tsx`. En esta máquina se hace con un enlace, no con un
+  `npm install`: `cmd /c mklink /J C:\dev\wt-<chat>\node_modules <clon>\node_modules` (`ln -s` en Git
+  Bash COPIA, y acá copiar son gigas). Al borrar el worktree, el enlace va primero (`cmd //c rmdir`) y
+  después `git worktree remove`.
+- Si una guarda del pre-push acusa a un archivo que no tocaste, **corré su script a mano antes de
+  creerle**. Si dice «al día», la guarda no midió: falta una dependencia, no sobra un desfase.
+- Lo que queda por arreglar, en `scripts/guardas-push.sh`: separar el fallo de medición del hallazgo. Un
+  `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
+  «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
+
+## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
+
+Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
+Cinco estaban cerrados **antes** de que se escribiera la foto, y el `LEEME.md` del reparto lo avisaba
+(«es una FOTO del 6/11 y envejece»). El detalle con su prueba está en
+[encargos-6-11/triaje-varios.md](encargos-6-11/triaje-varios.md).
+
+| id | Decía | Cerrado por | Cuándo |
+|---|---|---|---|
+| 319 | faltan cuenta regresiva, prueba social y escasez en las landings | `9bfa14326` | **5/11**, el día anterior |
+| 473 | AGENTS.md dice que Creem modera lo que genera imagen o video | `1be60d0a4` | **5/11**, el día anterior |
+| 594 | dos STT clavados en `whisper-1` fuera del choke point | `cf00a3b92` | 22/10 |
+| 591 | cinco tablas con `workspace_id` fuera del proxy de inquilino | `eb6092ef1` | **17/10**, veinte días antes |
+| 601 | `lib/copywriter/contexto.ts` sigue con el `GRAFO` viejo | — | mudado el 29/10 |
+
+Y otros seis describían un árbol que ya no existe: el **306** afirma que `lib/aperturas/` tiene tres
+archivos y tiene nueve; el **583** daba a `juzgarConCriterio` por código muerto y lo llama
+`lib/reunion-auto.ts:431`; el **580** pedía un compare-and-set que ya está en
+`lib/cs-mover-etapa.ts:278`; el **596** decía que a `leadsEnElWebhook` no lo usa nadie y lo usa
+`app/api/cron/meta-leads-poll/route.ts:54`.
+
+**Why:** una lista de pendientes es una medición con fecha, y el repo se mueve más rápido que ella.
+El costo no es simétrico: un pendiente olvidado espera, uno fantasma se lleva una tanda entera de
+trabajo y además hace dudar de la lista completa.
+
+**How to apply:**
+
+- **Antes de trabajar un item, se comprueba, y la prueba es un commit o un archivo con su línea** —
+  nunca «el documento lo dice». Es la misma regla de
+  «[Un "no cambió nada" sobre PRODUCCIÓN se contesta con `git log`](../AGENTS.md)», aplicada al revés:
+  un «falta» también se contesta con `git log`.
+- **Los números de línea de un item envejecen antes que el item.** El **309** manda a
+  `docs/hallazgos.md:145,163,164,180,181,188,302,303` y el archivo tiene 300 líneas; de los dos
+  duplicados que denunciaba, el de `AI Avatar` ya estaba resuelto. Se busca por el CONTENIDO (`grep` del
+  símbolo), nunca por el número.
+- ⚠️ **«Es de otra área» NO significa «tiene dueño».** Verifiqué los once `equipo-*.json` del reparto:
+  **ningún id se repite entre dos archivos**. De los 17 items de «Varios» cuyo código vive en el área de
+  otro chat, sólo **4** tienen un equivalente real en la lista de ese chat (el 467 ≡ Infra 100, el 468 ≡
+  Infra 104, el 309 ≡ Infra 611, el 476 ≡ Admin 230). Los otros 13 no están en ninguna lista: marcarlos
+  «de otra área» y seguir es tirarlos. Hay que pasárselos a mano, y decir en el reporte que se pasaron.
+- Y al revés: **el reparto de un item a un área sale mejor del que lo mide que del que lo escribió.**
+  El 467 lo tenía Infra con el archivo correcto (`lib/credenciales.ts:285`) mientras «Varios» lo mandaba
+  a `lib/integraciones.ts`, donde la función no existe.
+
 ## El recorte de Vercel SÍ funcionó, y los builds son el 97% de la factura: medido en el panel (6/11/2026)
 
 El relevo lo dejó pedido con el motivo escrito: «Falta medir el ahorro en el panel (`/~/usage`, con la sesión de Martín en el navegador de la app), **no en `/v1/billing/charges`**». Medido el 6/11 a las ~18:20 UTC, con Martín entrando en el navegador de la app:
@@ -162,7 +249,60 @@ mismo chequeo (por eso antes corría los tests que la leen).
 **Sin comprobar** (un workflow no se prueba del todo sin correrlo): que el `schedule` de sobre-main arranque a tiempo (GitHub atrasa
 los horarios hasta ~30 min; si un día no terminó a las 11:05, el despliegue no ve la marca y compila); que los deployments de
 GitHub traigan el ambiente «Production» para los deploys que crea el cron por la API (los eventos llegaban, así que existen, pero
-no se miró su forma); que `deployments: read` alcance para leerlos; y la estimación del script contra el panel de facturación.
+no se miró su forma); y que `deployments: read` alcance para leerlos.
+
+### La alarma de minutos daba rojo todos los días porque nadie buscó el número bueno (6/11/2026)
+
+**Síntoma:** la alarma del vigía daba rojo todos los días. Estimaba **US$52,07** (8.678 min facturables del 1 al 6/11) contra
+**US$15,94 de US$30** del panel: 3,3 veces de más. Una alarma que suena siempre entrena a todos a ignorarla.
+
+⚠️ **La causa de la causa era una frase falsa en la cabecera del propio script**, y por eso nadie lo arregló en días:
+decía que el número real «el `GITHUB_TOKEN` de Actions no puede leer». **Es falso.** Lo que no puede leer es el panel de
+Settings → Billing. Los minutos facturables de verdad están en dos endpoints de Actions, que se leen con `actions: read`:
+
+- `GET /repos/{repo}/actions/workflows/{id}/timing` → `billable.<runner>.total_ms` del **ciclo de facturación en curso**.
+  Un pedido por workflow (siete en este repo), no uno por corrida.
+- `GET /repos/{repo}/actions/runs/{id}/timing` → lo mismo por corrida.
+
+**Y el repo YA usaba el de por-corrida en otra parte** (`scripts/tests-afectados.mjs`). Estaba a la vista. La regla que queda:
+**cuando un script dice de sí mismo «esto es una estimación porque el dato bueno no se puede leer», eso es una hipótesis del que
+lo escribió, no un hecho del entorno — se verifica antes de construirle una alarma encima.**
+
+**Las dos causas candidatas que estaban anotadas eran las dos ciertas, y ninguna alcanzaba sola:**
+
+1. **`--incluidos 0`**, puesto «para avisar antes de tiempo, nunca tarde». El plan Free del repo privado trae **2.000 minutos
+   incluidos** (AGENTS.md), y se cobraban todos. Pero 8.678 − 2.000 = 6.678 min → US$40: **todavía 2,5 veces el panel.** Los
+   minutos incluidos explican menos de la mitad del hueco.
+2. **La estimación por duración sobre-cuenta ~1,9x.** `Math.ceil(ms/60_000)` sobre `run_started_at → updated_at` mide la
+   duración de la **corrida**, que incluye la cola y los huecos entre jobs; GitHub factura por **JOB**. El caso extremo medido:
+   «después del deploy», 834 corridas y 679 min facturables a ~0,8 min cada una, casi todas con sus jobs salteados por su `if`
+   (GitHub no cobra un job salteado, y el `conclusion === 'skipped'` del script sólo atrapa la corrida entera salteada, no la
+   corrida exitosa cuyos jobs se saltearon).
+
+⚠️ **Lo que NO se hizo: subir el umbral del 80 %.** Apaga el síntoma y deja la alarma mintiendo. Lo que se hizo es que la alarma
+**juzgue el número de GitHub**: rojo sólo sobre el facturable real, y cuando el `/timing` no se puede leer, **amarillo y nunca
+rojo** — «no doy rojo sobre un número que sé que sobre-cuenta». Es la misma regla que ya tenía el script para la API caída
+(«la palabra rojo es para algo confirmado»), que no se le había aplicado a su propio número.
+
+⚠️ **No se pudo medir desde la notebook:** los dos PAT que hay en `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) dan
+**404 en `koncke/mako`** — son de Mauricio y el repo es de la cuenta `hola-mako`. Una medición de los minutos de Actions sólo
+corre **dentro** de Actions (con `github.token`) o con un PAT que cree Martín. El arreglo no lo necesita: el script lee el número
+cuando corre allá, y acá los tests lo prueban contra una API de mentira.
+
+### `process.exit()` después de un `fetch` revienta en Windows, y el test parecía roto (6/11/2026)
+
+**Síntoma:** el test del script fallaba con `3221226505` (0xC0000409) y
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` — **con la salida del script perfecta,
+el aviso correcto y todo lo esperado impreso**. El diagnóstico obvio (un cuerpo de respuesta HTTP sin leer en el camino del 403)
+era el equivocado: cancelarlo no cambió nada.
+
+**La causa:** `AbortSignal.timeout(...)` deja un timer, y `process.exit()` lo pisa mientras se está cerrando. Node 24.17.0 en
+Windows. Reproducido en 12 líneas sin nada de este repo: cuatro `fetch` con `AbortSignal.timeout` y un `process.exit(0)` →
+revienta; con `process.exitCode = 0` → sale limpio, mismo código, mismo tiempo (0,8 s).
+
+**La regla que queda: en un script que hace `fetch`, el código de salida se pone con `process.exitCode`, nunca con
+`process.exit()`.** En Linux (el vigía) no pasa, así que un rojo de esto aparece sólo en la notebook y parece un test roto.
+Vale para cualquier script del repo que combine `fetch` con `process.exit`.
 
 **Vive en:** `.github/workflows/sobre-main.yml`, `.github/workflows/despues-del-deploy.yml`, `.github/workflows/punta.yml`,
 `lib/desplegar-main-reglas.ts`, `lib/desplegar-main.ts`, `lib/github-commits.ts` (`mainEstaRojo`), `scripts/minutos-actions.mjs`.
