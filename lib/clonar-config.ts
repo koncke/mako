@@ -23,6 +23,9 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { claveNombre, traducirEtiquetasEnSecuencia } from './etiquetas-reglas';
 import { pasosParaElDestino } from './clonar-pasos';
+import { columnasParaElDestino, disparadoresParaElDestino } from './clonar-disparadores';
+import type { FilaDisparadores } from './disparadores';
+import { esColumnaInexistente } from './nutricion-grafo-motor';
 
 /** Settings de contexto que se replican tal cual. */
 const KEYS_COPIABLES = [
@@ -57,6 +60,12 @@ type CtxClon = {
 type TablaClon = {
   tabla: string;
   cols: string[];
+  /**
+   * Columnas de una migración que puede no estar aplicada. PostgREST rechaza la consulta ENTERA si una
+   * columna no existe, así que se piden aparte: con el error de columna que falta se vuelve a pedir sin
+   * ellas y la copia sigue (y se avisa). Lo que no llega tampoco se escribe (ver `secuenciaParaElDestino`).
+   */
+  colsOpcionales?: string[];
   forzar?: Record<string, unknown>;
   /** Columna que hace de clave natural para no duplicar. Default: 'clave'. */
   clave?: string;
@@ -75,16 +84,58 @@ type TablaClon = {
  *     del DUEÑO, que este clon no copia, y `linea` (el número por mensaje) es una línea del dueño: no
  *     viajan (`pasosParaElDestino`, lib/clonar-pasos.ts, con el porqué de cada uno). La columna
  *     `instance_name` tampoco se copia: el mensaje sale por la línea de la automatización del destino.
+ *
+ * Y SUS CRON (la lista de la mig 0241, 06/11/2026). Sin copiar `disparadores`, una automatización con
+ * varios CRON llegaba con UNO —el de las columnas— y un primer CRON de Instagram llegaba sin su evento
+ * (el `subtipo` vive sólo en la lista). Lo que esa lista lleva adentro, y por qué cada campo viaja o no,
+ * está en `disparadoresParaElDestino` (lib/clonar-disparadores.ts: puro, con test). Lo mismo que los
+ * pasos: ids del DUEÑO que acá son otra cosa o nada.
  */
 function secuenciaParaElDestino(r: Record<string, unknown>, ctx: CtxClon): Record<string, unknown> {
   const mapa = ctx.etiquetas;
-  const t = traducirEtiquetasEnSecuencia(r.pasos, r.etiqueta_id, (id) => mapa?.get(id) ?? null);
-  if (t.sinTraducir) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${t.sinTraducir} ${t.sinTraducir === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no hay una igual en este cliente).`);
+  const traducir = (id: number) => mapa?.get(id) ?? null;
+  const quien = `«${String(r.nombre ?? r.clave)}»`;
+  const t = traducirEtiquetasEnSecuencia(r.pasos, r.etiqueta_id, traducir);
+  // Los CRON: las etiquetas con el MISMO mapa que los pasos, sin los ámbitos del dueño y sin su
+  // próxima ocurrencia (`disparadoresParaElDestino`, lib/clonar-disparadores.ts: puro, con test).
+  const cron = disparadoresParaElDestino(r as unknown as FilaDisparadores, traducir);
+  const sinEtiqueta = t.sinTraducir + cron.etiquetas;
+  if (sinEtiqueta) ctx.avisos.push(`${quien}: ${sinEtiqueta} ${sinEtiqueta === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no hay una igual en este cliente).`);
+  if (cron.ambitos) ctx.avisos.push(`${quien}: ${cron.ambitos} ${cron.ambitos === 1 ? 'CRON quedó' : 'CRON quedaron'} sin su embudo o su producto, y sin la etapa que colgaba de ahí (son del dueño: elige los de este cliente).`);
+  if (cron.horarios) ctx.avisos.push(`${quien}: ${cron.horarios} ${cron.horarios === 1 ? 'horario arranca' : 'horarios arrancan'} su grilla aquí (la próxima vez del dueño no viaja).`);
   // Los adjuntos y las líneas del dueño no viajan (`pasosParaElDestino`, lib/clonar-pasos.ts: puro, con test).
   const { pasos, adjuntos: anulados, lineas: sinLinea } = pasosParaElDestino(t.pasos);
-  if (anulados) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${anulados} ${anulados === 1 ? 'audio o archivo quedó' : 'audios o archivos quedaron'} sin adjuntar (son de la biblioteca del dueño).`);
-  if (sinLinea) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${sinLinea} ${sinLinea === 1 ? 'mensaje vuelve' : 'mensajes vuelven'} a la línea de la automatización.`);
-  return { ...r, pasos, etiqueta_id: t.etiquetaId };
+  if (anulados) ctx.avisos.push(`${quien}: ${anulados} ${anulados === 1 ? 'audio o archivo quedó' : 'audios o archivos quedaron'} sin adjuntar (son de la biblioteca del dueño).`);
+  if (sinLinea) ctx.avisos.push(`${quien}: ${sinLinea} ${sinLinea === 1 ? 'mensaje vuelve' : 'mensajes vuelven'} a la línea de la automatización.`);
+  const fila: Record<string, unknown> = {
+    ...r, pasos, etiqueta_id: t.etiquetaId,
+    // El PRIMER CRON vive en las COLUMNAS y su verdad son ellas (mig 0241): si acá no se reescriben,
+    // el destino se queda con el ámbito y la ocurrencia del dueño que la fila trae copiados tal cual.
+    ...columnasParaElDestino(cron.disparadores[0]),
+    disparadores: cron.disparadores,
+  };
+  // ⚠️ LO QUE EL ORIGEN NO TRAJO NO SE ESCRIBE. Origen y destino son la MISMA base: si la columna no
+  // vino en el select es porque su migración no está aplicada (`colsOpcionales`), y escribirla sería un
+  // PGRST204 que se lleva puesta la copia de TODAS las automatizaciones. Sin la 0241 el destino dispara
+  // por sus columnas, como hoy; sin la 0230, por su etapa.
+  for (const col of ['etapas', 'disparadores']) if (!(col in r)) delete fila[col];
+  return fila;
+}
+
+/**
+ * EL SELECT DEL ORIGEN, TOLERANDO LAS COLUMNAS DE UNA MIGRACIÓN QUE PUEDE FALTAR, Y SÓLO ESO. Es la
+ * misma regla que `leerFilasDeSecuencias` (lib/nutricion.ts): PostgREST rechaza la consulta ENTERA
+ * cuando una columna no existe, así que sin esto agregar `disparadores` a `cols` dejaba la copia de
+ * `nutricion_secuencias` en 0 filas hasta que alguien aplique la 0241. Cualquier otro error (la tabla,
+ * un permiso, la red) vuelve tal cual: `esColumnaInexistente` mira 42703 / PGRST204.
+ */
+async function leerOrigen(sb: ReturnType<typeof getSupabaseServer>, t: TablaClon, avisos: string[]) {
+  const pedir = (cols: readonly string[]) => sb.from(t.tabla).select(cols.join(', ')).eq('workspace_id', OWNER_WS);
+  const opcionales = t.colsOpcionales ?? [];
+  const r = await pedir([...t.cols, ...opcionales]);
+  if (!opcionales.length || !r.error || !esColumnaInexistente(r.error)) return r;
+  avisos.push(`${t.tabla}: falta ${opcionales.map((c) => `${t.tabla}.${c}`).join(' o ')} (su migración no está aplicada): se copia sin ${opcionales.length === 1 ? 'esa columna' : 'esas columnas'}.`);
+  return await pedir(t.cols);
 }
 
 const TABLAS: TablaClon[] = [
@@ -127,11 +178,20 @@ const TABLAS: TablaClon[] = [
   // Las secuencias llegan SIEMPRE pausadas: un workspace de prueba nunca debe
   // empezar a mandar solo, ni siquiera si en el origen estaban activas. Con sus
   // etiquetas traducidas y sin los adjuntos del dueño (`secuenciaParaElDestino`).
+  // ⚠️ `cron` VIAJA CON LA LISTA, no después: la verdad del primer CRON son las COLUMNAS (mig 0241),
+  // así que con `disparadores` copiado y `cron` no, un «todos los lunes a las 9» llegaba sin horario
+  // —o sea cada hora (`decidirAgenda` sin cron devuelve `toca: true`)— mientras el segundo CRON de la
+  // misma automatización llegaba con el suyo. `funnel_id` y `producto_id` se LEEN para poder sacarlos
+  // avisando: son ids del dueño y nunca se escriben (ver `disparadoresParaElDestino`).
   {
     tabla: 'nutricion_secuencias',
-    cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'etiqueta_id', 'pasos', 'estrategia'],
+    cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'etiqueta_id', 'pasos', 'estrategia', 'funnel_id', 'producto_id', 'cron'],
     forzar: { activa: false },
     preparar: secuenciaParaElDestino,
+    // La 0230 (`etapas`) y la 0241 (`disparadores`) pueden no estar aplicadas: medido en producción el
+    // 09/10/2026, la 0241 no lo estaba. `disparadores_rev` NO va acá: no es configuración, es el
+    // compare-and-set de la lista, y su default 0 es el correcto para una fila nueva.
+    colsOpcionales: ['etapas', 'disparadores'],
   },
 ];
 
@@ -197,7 +257,7 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
       // Las secuencias se traducen con el mapa de las etiquetas, que se arma recién ahora:
       // después de copiar el catálogo (va antes en TABLAS), con lo que el destino ya tenía.
       if (t.tabla === 'nutricion_secuencias') ctx.etiquetas = await mapaDeEtiquetas(sb, destino, avisos);
-      const { data: src, error: eSrc } = await sb.from(t.tabla).select(t.cols.join(', ')).eq('workspace_id', OWNER_WS);
+      const { data: src, error: eSrc } = await leerOrigen(sb, t, avisos);
       // «No pude leer» no es «no hay»: se dice, en vez de contar 0 copiadas.
       if (eSrc) { avisos.push(`${t.tabla}: ${eSrc.message}`); tablas[t.tabla] = 0; continue; }
       const origenFilas = (src ?? []) as unknown as Array<Record<string, unknown>>;

@@ -263,6 +263,18 @@ test('datos-6: los clonadores copian el catálogo de etiquetas ANTES y traducen 
   // Los adjuntos (y las líneas) del dueño no viajan: lo decide una función PURA que se ejecuta en
   // tests/clonar-pasos.test.ts (sexta tanda, segunda pasada); acá, que el clon la use.
   assert.match(prep, /= pasosParaElDestino\(t\.pasos\);/, 'los adjuntos del dueño no viajan');
+  // Y LOS CRON (la lista de la mig 0241, 6/11/2026): la misma trampa un nivel más abajo. Cada
+  // `Disparador` lleva ids del DUEÑO (la etiqueta del CRON, las de «Ignorar», el embudo, el producto) y
+  // la próxima ocurrencia de SU grilla: lo decide una función PURA que se EJECUTA en
+  // tests/clonar-disparadores.test.ts; acá, que el clon la use y que la lista viaje.
+  assert.match(tablas, /colsOpcionales: \['etapas', 'disparadores'\]/, 'sin la lista, una automatización con varios CRON llega con uno (y el primero de Instagram, sin su evento)');
+  assert.match(tablas, /cols: \[[^\]]*'cron'[^\]]*\]/, 'la verdad del primer CRON son las COLUMNAS: con la lista copiada y sin `cron`, un «lunes a las 9» dispara CADA HORA');
+  assert.doesNotMatch(tablas, /disparadores_rev/, '`disparadores_rev` no es configuración: es el compare-and-set de la lista, y su default 0 es el correcto');
+  assert.match(prep, /= disparadoresParaElDestino\(r as unknown as FilaDisparadores, traducir\);/);
+  assert.match(prep, /\.\.\.columnasParaElDestino\(cron\.disparadores\[0\]\),/, 'el primer CRON vive en las columnas: sin reescribirlas, el destino se queda con el ámbito del dueño');
+  assert.match(prep, /if \(!\(col in r\)\) delete fila\[col\]/, 'escribir una columna sin su migración es un PGRST204 que deja la copia en 0 filas');
+  assert.match(prep, /disparadores: cron\.disparadores,/, 'la lista cruda lleva los ids del dueño adentro: viaja la traducida');
+  assert.match(cc, /await leerOrigen\(sb, t, avisos\)/, 'el select tiene que tolerar la columna que falta, o la copia entera queda en 0 filas');
   const dm = sinComentarios(leer('lib/datos-mau.ts'));
   const setting = bloque(dm, '  setting: {', "\n    nota: 'Los audios");
   assert.ok(setting.indexOf("tabla: 'crm_etiquetas'") >= 0 && setting.indexOf("tabla: 'crm_etiquetas'") < setting.indexOf("tabla: 'nutricion_secuencias'"));
