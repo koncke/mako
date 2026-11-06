@@ -307,14 +307,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_quieren_entrar', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver quién quiere entrar a MaKo',
-    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Admin › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
+    descripcion: 'Sólo para la plataforma: el aviso «Quieren entrar» de Admin › Overview: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {
     id: 'ver_agentes_de_clientes', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver en qué trabajan los clientes',
-    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (al pie de Admin › Activity): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están al pie de Admin › Activity.',
+    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (en Admin › Analytics › Events, tipo «Agente»): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Admin › Analytics › Events.',
     parametros: [
       { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántas sesiones, las más nuevas primero. Sin esto, 20.' },
     ],
@@ -386,7 +386,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_recibos', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los recibos de MaKo',
-    descripcion: 'Sólo para la plataforma: el libro de recibos (Admin › Billing › Recibos). De cada uno, el N.º, a nombre de quién, lo recibido por moneda, el medio y la orden, la fecha, el estado (emitido, devuelto, contracargo, anulado) y cómo salió por correo y por WhatsApp. Con filtros de mes, cuenta, medio, estado o sólo los que no salieron.',
+    descripcion: 'Sólo para la plataforma: el libro de recibos (cada uno con su pago en Admin › Sales › Orders). De cada uno, el N.º, a nombre de quién, lo recibido por moneda, el medio y la orden, la fecha, el estado (emitido, devuelto, contracargo, anulado) y cómo salió por correo y por WhatsApp. Con filtros de mes, cuenta, medio, estado o sólo los que no salieron.',
     parametros: [
       { nombre: 'mes', rotulo: 'Mes', tipo: 'string', max: 7, descripcion: 'AAAA-MM: sólo los pagados ese mes.' },
       { nombre: 'cuenta', rotulo: 'Cuenta', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de la cuenta (ws) a la que le llega.' },
@@ -473,7 +473,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_ingresos_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los ingresos de MaKo',
-    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Revenue. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale de lo registrado a mano en el CRM de la plataforma y de la pasarela.',
+    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Analytics › Metrics. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale de lo registrado a mano en el CRM de la plataforma y de la pasarela.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
@@ -482,7 +482,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_personas_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver las personas de MaKo',
-    descripcion: 'Sólo para la plataforma: como Admin › Users, las personas de todos los negocios con su estado de alta (activo: entró en 30 días; inactivo; invitado: nunca entró, y si se le mandó el acceso; suspendido), su rol, su negocio y cuándo entró. Con estado, sólo ésas.',
+    descripcion: 'Sólo para la plataforma: las personas de todos los negocios (cada una en el Members de su negocio, en Admin › Customers) con su estado de alta (activo: entró en 30 días; inactivo; invitado: nunca entró, y si se le mandó el acceso; suspendido), su rol, su negocio y cuándo entró. Con estado, sólo ésas.',
     parametros: [
       { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ['activo', 'inactivo', 'invitado', 'suspendido'], descripcion: 'sólo las de ese estado. Sin esto, todas.' },
     ],
@@ -491,14 +491,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_errores_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los errores de la app',
-    descripcion: 'Sólo para la plataforma: como Admin › Errors, los errores de la app agrupados (sin resolver, nuevos de 7 días, los que volvieron después de resueltos), cuántas veces pasaron, dónde, a cuántos negocios y su ticket; y los últimos reportes de las personas.',
+    descripcion: 'Sólo para la plataforma: los errores de la app agrupados (cada uno es un evento de Admin › Analytics › Events) (sin resolver, nuevos de 7 días, los que volvieron después de resueltos), cuántas veces pasaron, dónde, a cuántos negocios y su ticket; y los últimos reportes de las personas.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {
     id: 'ver_actividad_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver quién usa la app',
-    descripcion: 'Sólo para la plataforma: como Admin › Activity, cuántas personas de los negocios usaron la app hoy, en 7 y en 30 días; quién entra cada semana (nuevos, siguen, volvieron, dejaron); qué tabs se usan y cuáles nadie abrió; cada negocio con su uso; quién dejó de entrar, y lo último que hizo MaKo.',
+    descripcion: 'Sólo para la plataforma: cuántas personas de los negocios usaron la app hoy, en 7 y en 30 días; quién entra cada semana (nuevos, siguen, volvieron, dejaron); qué tabs se usan y cuáles nadie abrió; cada negocio con su uso; quién dejó de entrar, y lo último que hizo MaKo.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

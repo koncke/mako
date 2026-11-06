@@ -1121,8 +1121,8 @@ function lineaDelAlta(c: Cobro, estado: EstadoAlta | null, sinMail = false): str
   if (!c.alta_capa) return '';
   if (estado === 'hecha' && sinMail) return ` ⚠️ Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada, pero el mail de acceso NO salió: pásale el link de entrada a mano.`;
   if (estado === 'hecha') return ` Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada y le llegó el acceso.`;
-  if (estado === 'ya_tenia_cuenta') return ' Ese email ya tenía una cuenta de MaKo: el plan NO se cambió solo, revísalo en /admin/cobros.';
-  if (estado === 'error') return ' ⚠️ El alta de su cuenta falló: revísalo en /admin/cobros.';
+  if (estado === 'ya_tenia_cuenta') return ' Ese email ya tenía una cuenta de MaKo: el plan NO se cambió solo, revísalo en Admin › Sales.';
+  if (estado === 'error') return ' ⚠️ El alta de su cuenta falló: revísalo en Admin › Sales.';
   return '';
 }
 

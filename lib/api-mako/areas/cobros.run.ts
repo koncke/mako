@@ -741,7 +741,7 @@ export const RUNNERS: Runners = {
           lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
         })),
         hay_mas: hayMas,
-        nota: 'Para darle de alta: Admin › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
+        nota: 'Para darle de alta: Admin › Overview › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
       });
     },
   },
@@ -758,7 +758,7 @@ export const RUNNERS: Runners = {
           titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
         })),
         total: sesiones.length,
-        nota: 'Los mensajes textuales están al pie de Admin › Activity.',
+        nota: 'Los mensajes textuales están en Admin › Analytics › Events.',
       });
     },
   },
@@ -977,7 +977,7 @@ export const RUNNERS: Runners = {
 
   cargar_pago_a_mano: {
     preparar: async (input, ctx) => {
-      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no carga pagos de MaKo: se hace en Billing o por el chat.' };
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no carga pagos de MaKo: se hace en Admin › Sales o por el chat.' };
       if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Los recibos de MaKo son sólo de la plataforma.' };
       const cuenta = n(input.cuenta);
       const lineas = Array.isArray(input.lineas) ? input.lineas as Array<Record<string, unknown>> : [];
@@ -1019,7 +1019,7 @@ export const RUNNERS: Runners = {
       const nro = String(r.numero).padStart(4, '0');
       return {
         ok: true, ...(r.yaEstaba ? { yaEstaba: true } : {}),
-        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Admin › Billing › Recibos.${r.aviso ? ` ${r.aviso}` : ''}`,
+        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Admin › Sales › Orders.${r.aviso ? ` ${r.aviso}` : ''}`,
         datos: { reciboId: r.id, numero: r.numero },
       };
     }),
@@ -1293,7 +1293,7 @@ export const RUNNERS: Runners = {
           rol: rolTxt(fila), estado: estadoDeAlta(fila, ahora), detalle: detalleDeAlta(fila, ahora), ultima_vez: u.ultimo_login, alta: u.created_at.slice(0, 10),
         };
       }).filter((f) => !filtro || f.estado === filtro);
-      return json({ personas: filas, nota: 'estado: activo (entró en 30 días), inactivo, invitado (nunca entró) o suspendido. Para suspender o reenviar el acceso: Admin › Users.' });
+      return json({ personas: filas, nota: 'estado: activo (entró en 30 días), inactivo, invitado (nunca entró) o suspendido. Para suspender o reenviar el acceso: el Members de su negocio, en Admin › Customers.' });
     },
   },
 
@@ -1311,7 +1311,7 @@ export const RUNNERS: Runners = {
         })),
         reportes: v.reportes.slice(0, 20).map((t) => ({ ticket: t.id, titulo: t.titulo, tipo: t.tipo, estado: ESTADO_TICKET_TXT[t.estado] ?? t.estado, quien: t.quien, negocio: t.negocio, cuando: t.creado })),
         hay_mas: v.hayMas, avisos: v.avisos,
-        nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en Admin › Errors.',
+        nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en el evento, en Admin › Analytics › Events.',
       });
     },
   },
