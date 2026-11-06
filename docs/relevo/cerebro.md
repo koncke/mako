@@ -1,5 +1,27 @@
 # Relevo del Cerebro
 
+## 6/11/2026, ~16:30 UTC (13:30 ART): la cuenta claude3 llegó al 98 % y Martín pasa a otra
+
+**Esperando a Martín (no se avanza sin él):**
+- **dLocal Go: ¿seguimos cobrando a banco?** Preguntado y sin contestar. No paga en cripto: sólo pesos a banco, al cambio oficial. La cuenta a nombre de Leandro tiene el paso 1 verificado (procesa hasta US$3.000). Falta el paso 2: banco y CBU, DNI, comprobante de domicilio y constancia de monotributo (revisada: coincide, vale hasta el 6/12). Eso lo cargan Martín o Leandro. También falta el sí del contador. Números en `docs/proveedores-de-cobro.md`, al final. Si dice que sí: un chat en la nube para el conector (`lib/cobros*`).
+- **Dos chats «waiting on a human»** que sólo él destraba: «Admin Costs con todo lo que pagamos, y pesos al blue diario» (`punta/admin-costos`, `punta/pesos-al-blue` y `punta/cuota-en-su-moneda` todavía no existen) y «Nada por detrás» (lo suyo ya está en main).
+- **Whop:** no abrir cuenta todavía; decide él. Ofrecerle mandar la consulta a FastSpring. **Railway:** falta saber si hay servidor propio.
+- **Cosas suyas o de Leandro:** tarjeta de Panda, baja de ElevenLabs, rotar claves pegadas en 7 chats viejos (`docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md` §7).
+
+**Lo primero al entrar:**
+1. Armar el vigía (`node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`, en segundo plano).
+2. **Revisar a mano lo que entró a main sin que nadie lo mire**, con capturas y contra los pedidos de Martín: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails` (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6; ese chat seguía corriendo a las 16:05 UTC), `punta/nada-por-detras` (2cb406043) y `punta/github-minutos` (f7c2f57da). Lo que falle se le manda a su chat sin pasar por Martín. Producción compila sola a las 08:05 ART.
+3. **Pasos que los chats dejaron para la PC:** `docs/relevo/nube-carruseles-rediseno.md` («Lo que le queda al Cerebro»: la carga de Thumbnails, en `docs/carruseles/thumbnails.md`, y la prueba de «Editar») y `docs/relevo/nube-nada-por-detras.md` («Para el Cerebro»: `mudanza-avisos-plataforma`). No corrí ninguno.
+4. **Migraciones:** 0409 aplicada el 6/11. Siguiente libre: 0410.
+
+**Abierto, con su medición:**
+- **GitHub:** US$15,94 de US$30 a las 16:05 UTC (panel `github.com/settings/billing`). La alarma de `scripts/minutos-actions.mjs` dice US$51,87 y da rojo todos los días: es falsa. Se lo pedí corregir al chat «Bajar lo que gasta GitHub Actions», sin confirmación. Falta medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.
+- **Carruseles:** quedan 990 a la vista (388 escondidos hoy, se deshace con `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`). Láminas en 744 de 912: faltan 111, y `laminas` cortó «al techo» con US$0,54 de 1,50, sin mirar por qué. La clave `sdae…` tiene US$2,21 libres. Después: más cuentas, también de referentes (`lib/asesores`). «Editar» daba «Tu IA no contestó ahora» en producción; el chat tenía encargada la causa: comprobarlo con `/image-editor/b31f62ec-5727-4ac7-bde7-2bb141bf0727`.
+- **Leila:** su negocio quedó de 10 a 20. Su automatización #721 sigue de 0 a 24 por decisión de Martín: no se cambia ni se vuelve a preguntar. El barrido a los demás negocios no se corrió.
+- **Sin hacer:** primer `automatico = true` (0396); gasto de Vercel desde el 16/11; «Probar MaKo» con 5,5 GB libres; extensión 0.76.0; video de Meta; capturas de Play; build 2 de Apple; control del cobro de Código el lunes 9/11 14:07 UTC y de Pablo, Giselle y Marcela. Certificado SSL y corte de grupos: guardados para más adelante.
+
+**Herramientas de esta sesión:** `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad` (`mig/ci-log.mjs`, `mig/ci-causa.mjs`, `mig/ci-relanzar.mjs`, `mig/vercel-ver.mjs`, `mig/lam-clave.mjs`, `revision/COMO.md`). `C:/dev/wt-puntas` queda libre, en origin/main.
+
 ## 6/11/2026, ~11:45 UTC (08:45 ART): cómo terminó la noche
 
 **En producción desde las 11:08 UTC** (el cron de las 11:05 corrió solo, READY en 3 min, `7db26c611`): Admin (copia de Polar con los 43 arreglos), Carruseles (rediseño y pulido), Marketing CoPilot, Lead Magnets, Video (presets, palabras clave, B-roll, clips), Thiago (Usar en un anuncio, Guardar en MaKo, migrar CRM, token de agencia, Calendario), Plantillas, Recorrido visual, Dashboards (no queda hoja pendiente) y el primer lote de Barrido. Migraciones aplicadas: 0404 a 0408.
