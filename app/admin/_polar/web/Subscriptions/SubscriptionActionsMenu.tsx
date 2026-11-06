@@ -1,21 +1,21 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionActionsMenu.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: lo único que se le hace a una suscripción desde acá es CORTARLA, y sólo la de la pasarela (`cancelarSuscripcionMakoAction`:
+// deja de cobrar en el acto; en Mercado Pago no se puede deshacer). Una a mano se cambia o se corta en su ficha del CRM (los
+// cambios de monto, los cortes y las vueltas, mig 0401), que es donde se registran sus pagos. Sin pausar ni «descancelar»: MaKo no
+// lo tiene.
 
+import { useState } from 'react'
+import { useRouter } from '@/app/_ui/Link'
+import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
+import { cancelarSuscripcionMakoAction } from '@/app/admin/cobros/actions'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
-import CancelSubscriptionModal from '@/app/admin/_polar/web/Subscriptions/CancelSubscriptionModal'
-import PauseSubscriptionModal from '@/app/admin/_polar/web/Subscriptions/PauseSubscriptionModal'
-import { toast } from '@/app/admin/_polar/web/Toast/use-toast'
-import {
-  useCancelScheduledPause,
-  useResumeSubscription,
-  useUncancelSubscription,
-} from '@/app/admin/_polar/datos/polar-tipos'
-import { extractApiErrorMessage } from '@/app/admin/_polar/web/utils/api/errors'
-import { getPauseAction } from '@/app/admin/_polar/web/utils/subscription'
+import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
+import { AvisoDeError, AvisoHecho } from '@/app/admin/_polar/web/Orders/Aviso'
 import { MoreVertOutlined } from '@/app/admin/_polar/orbit/icons'
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
-import { Button, InlineModal } from '@/app/admin/_polar/orbit'
+import { Button } from '@/app/admin/_polar/orbit'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,155 +23,55 @@ import {
   DropdownMenuTrigger,
 } from '@/app/admin/_polar/atoms/DropdownMenu'
 
-interface SubscriptionActionsMenuProps {
-  subscription: schemas['Subscription']
-}
-
-const SubscriptionActionsMenu = ({
-  subscription,
-}: SubscriptionActionsMenuProps) => {
-  const cancellationModal = useModal()
-  const pauseModal = useModal()
-
-  const pauseAction = getPauseAction(subscription)
-
-  const uncancelSubscription = useUncancelSubscription(subscription.id)
-  const resumeSubscription = useResumeSubscription(subscription.id)
-  const cancelScheduledPause = useCancelScheduledPause(subscription.id)
-
-  const handleUncancel = async () => {
-    try {
-      await uncancelSubscription.mutateAsync()
-      toast({
-        title: 'Subscription Uncanceled',
-        description:
-          'The subscription has been uncanceled and will continue at the next billing cycle.',
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to uncancel the subscription: ${extractApiErrorMessage(error as Record<string, unknown>)}`,
-      })
-    }
-  }
-
-  const handleResume = async () => {
-    try {
-      await resumeSubscription.mutateAsync()
-      toast({
-        title: 'Subscription Resumed',
-        description:
-          'The subscription has been resumed and charged for a new billing period.',
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to resume the subscription: ${extractApiErrorMessage(error as Record<string, unknown>)}`,
-      })
-    }
-  }
-
-  const handleCancelScheduledPause = async () => {
-    try {
-      await cancelScheduledPause.mutateAsync()
-      toast({
-        title: 'Scheduled Pause Canceled',
-        description:
-          'The subscription will no longer be paused at the end of the period.',
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to cancel the scheduled pause: ${extractApiErrorMessage(error as Record<string, unknown>)}`,
-      })
-    }
-  }
-
-  const handleCopyId = () => {
-    navigator.clipboard
-      .writeText(subscription.id)
-      .then(() =>
-        toast({
-          title: 'Subscription ID copied',
-          description: 'The subscription ID has been copied to clipboard',
-        }),
-      )
-      .catch(() =>
-        toast({
-          title: 'Failed to copy',
-          description: 'Could not copy the subscription ID to clipboard',
-        }),
-      )
-  }
+const SubscriptionActionsMenu = ({ subscription }: { subscription: SuscripcionVenta }) => {
+  const router = useRouter()
+  const cortar = useModal()
+  const [error, setError] = useState<string | null>(null)
+  const [hecho, setHecho] = useState<string | null>(null)
+  const cobroId = subscription.cobroParaCortar
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="secondary" size="icon">
+          <Button variant="secondary" size="icon" aria-label="Más acciones">
             <MoreVertOutlined fontSize="small" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleCopyId}>
-            Copy Subscription ID
+          {cobroId != null && <DropdownMenuItem onClick={cortar.show}>Cortar la suscripción</DropdownMenuItem>}
+          <DropdownMenuItem
+            onClick={() => {
+              navigator.clipboard.writeText(subscription.id).then(() => setHecho('Copiaste el ID de la suscripción.')).catch(() => setError('No pude copiar el ID.'))
+            }}
+          >
+            Copiar el ID de la suscripción
           </DropdownMenuItem>
-          {subscription.status !== 'canceled' &&
-            (subscription.cancel_at_period_end ? (
-              <DropdownMenuItem
-                onClick={handleUncancel}
-                disabled={uncancelSubscription.isPending}
-              >
-                Uncancel
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={cancellationModal.show}>
-                Cancel Subscription
-              </DropdownMenuItem>
-            ))}
-          {pauseAction === 'resume' ? (
-            <DropdownMenuItem
-              onClick={handleResume}
-              disabled={resumeSubscription.isPending}
-            >
-              Resume Now
-            </DropdownMenuItem>
-          ) : pauseAction === 'cancel_scheduled_pause' ? (
-            <DropdownMenuItem
-              onClick={handleCancelScheduledPause}
-              disabled={cancelScheduledPause.isPending}
-            >
-              Cancel Scheduled Pause
-            </DropdownMenuItem>
-          ) : pauseAction === 'pause' ? (
-            <DropdownMenuItem onClick={pauseModal.show}>
-              Pause Subscription
-            </DropdownMenuItem>
-          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      <InlineModal
-        isShown={cancellationModal.isShown}
-        hide={cancellationModal.hide}
-        modalContent={
-          <CancelSubscriptionModal
-            subscription={subscription}
-            onCancellation={cancellationModal.hide}
-            hide={cancellationModal.hide}
-          />
-        }
-      />
-      <InlineModal
-        isShown={pauseModal.isShown}
-        hide={pauseModal.hide}
-        modalContent={
-          <PauseSubscriptionModal
-            subscription={subscription}
-            onPause={pauseModal.hide}
-            hide={pauseModal.hide}
-          />
-        }
-      />
+      {(error || hecho) && (
+        <div className="fixed right-6 bottom-6 z-50 max-w-sm">
+          <AvisoDeError texto={error} />
+          <AvisoHecho texto={hecho} />
+        </div>
+      )}
+      {cobroId != null && (
+        <ConfirmModal
+          isShown={cortar.isShown}
+          hide={cortar.hide}
+          title="¿Cortar la suscripción?"
+          description={`La pasarela deja de cobrarle a ${subscription.cliente.nombre} en el acto. No se devuelve nada (eso es «Devolver el pago», en el pedido). En Mercado Pago no se puede deshacer.`}
+          destructive
+          destructiveText="Cortar la suscripción"
+          onConfirm={async () => {
+            setError(null)
+            const r = await cancelarSuscripcionMakoAction(cobroId).catch(() => ({ ok: false, resumen: 'No pude cortar la suscripción.' }))
+            if (!r.ok) return setError(r.resumen)
+            setHecho(r.resumen || 'Suscripción cortada.')
+            router.refresh()
+          }}
+        />
+      )}
     </>
   )
 }

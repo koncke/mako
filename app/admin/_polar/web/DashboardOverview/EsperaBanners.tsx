@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/app/admin/_polar/orbit'
-import Link, { useRouter } from '@/app/_ui/Link'
+import { useRouter } from '@/app/_ui/Link'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { altaDelPedido } from '@/lib/pedidos-ingreso-reglas'
@@ -431,9 +431,9 @@ const Bajas = ({ esperan }: { esperan: Esperan }) => {
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {b.negocioWs != null && (
-                        <Link href={`/admin/customers/${b.negocioWs}`}>
-                          <Button variant="secondary" size="sm">Ver el negocio</Button>
-                        </Link>
+                        <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/customers/${b.negocioWs}`)}>
+                          Ver el negocio
+                        </Button>
                       )}
                       {b.puedeTerminar && (
                         <Button size="sm" loading={ocupado === b.id} disabled={ocupado != null} onClick={() => void accion(b.id, 'terminar')}>

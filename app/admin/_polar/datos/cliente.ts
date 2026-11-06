@@ -439,9 +439,9 @@ export type UsuarioParaMiembro = {
 export function miembrosDe(usuarios: readonly UsuarioParaMiembro[], ws: number, caraDe?: (u: UsuarioParaMiembro) => string | null): MiembroNegocio[] {
   return usuarios
     .filter((u) => u.rol === 'usuario' && u.workspace_id === ws)
-    .map((u) => ({
+    .map((u): MiembroNegocio => ({
       id: u.id, nombre: u.nombre ?? '', email: u.email, rol: u.rol_ws,
-      estado: u.estado === 'activo' || u.estado === 'suspendido' ? u.estado : 'invitado',
+      estado: u.estado === 'activo' ? 'activo' : u.estado === 'suspendido' ? 'suspendido' : 'invitado',
       accesoEnviado: u.invitacion_enviada_at, ultimoIngreso: u.ultimo_login, creado: u.created_at,
       mfa: typeof u.mfa_activo === 'boolean' ? u.mfa_activo : null, cara: caraDe?.(u) ?? null,
     }))

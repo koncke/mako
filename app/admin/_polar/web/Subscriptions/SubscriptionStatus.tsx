@@ -1,14 +1,23 @@
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionStatus.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: la fecha de la pastilla es la del corte (o el fin del plazo fijo, si está por terminar), como `ends_at` de Polar. Sin pausa:
+// MaKo no pausa suscripciones.
 
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { Pill } from '@/app/admin/_polar/orbit'
 import { CircleX, Clock } from '@/app/admin/_polar/orbit/icons'
 import { useMemo } from 'react'
 import { twMerge } from 'tailwind-merge'
-import {
-  getSubscriptionStatusBorderColor,
-  subscriptionStatusDisplayNames,
-} from './utils'
+import { getSubscriptionStatusBorderColor, subscriptionStatusDisplayNames } from './utils'
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
+/** «5 nov» o «5 nov 2025» (un YYYY-MM sale «nov 2026»). */
+export const fechaCorta = (iso: string, hoy?: string): string => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const mes = MESES[m - 1] ?? ''
+  const anio = !hoy || hoy.slice(0, 4) !== String(y) ? ` ${y}` : ''
+  return d ? `${d} ${mes}${anio}` : `${mes} ${y}`
+}
 
 const StatusLabel = ({
   color,
@@ -23,105 +32,37 @@ const StatusLabel = ({
   icon?: React.ReactNode
   children: React.ReactNode
 }) => {
-  let prettyEventDate = null
-  if (dt) {
-    const event = new Date(dt)
-    const now = new Date()
-    if (event.getFullYear() !== now.getFullYear()) {
-      prettyEventDate = event.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    } else {
-      prettyEventDate = event.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-      })
-    }
-  }
-
   return (
     <div className={`flex flex-row items-center gap-x-2`}>
       <span className={twMerge('h-2 w-2 rounded-full border-2', color)} />
-      <span className="capitalize">{children}</span>
-      {prettyEventDate && (
+      <span>{children}</span>
+      {dt && (
         <Pill color="gray">
           {icon}
-          <span>
-            {eventLabel
-              ? `${eventLabel} on ${prettyEventDate}`
-              : prettyEventDate}
-          </span>
+          <span>{eventLabel ? `${eventLabel} el ${fechaCorta(dt)}` : fechaCorta(dt)}</span>
         </Pill>
       )}
     </div>
   )
 }
 
-export const SubscriptionStatus = ({
-  subscription,
-}: {
-  subscription: schemas['Subscription']
-}) => {
-  const {
-    status,
-    ends_at,
-    pause_at_period_end,
-    resumes_at,
-    current_period_end,
-  } = subscription
-  const isEnding = useMemo(() => ends_at !== null, [ends_at])
-
-  const color = useMemo(
-    () =>
-      getSubscriptionStatusBorderColor(status, isEnding || pause_at_period_end),
-    [status, isEnding, pause_at_period_end],
-  )
-
-  // A scheduled cancellation takes precedence; otherwise surface the pause
-  // schedule — when a paused sub resumes, or when an active sub will pause.
-  const { eventDate, eventLabel } = useMemo<{
-    eventDate: string | null
-    eventLabel?: string
-  }>(() => {
-    if (isEnding) {
-      return { eventDate: ends_at }
-    }
-    if (status === 'paused') {
-      return { eventDate: resumes_at, eventLabel: 'Resumes' }
-    }
-    if (pause_at_period_end) {
-      return { eventDate: current_period_end, eventLabel: 'Pauses' }
-    }
+export const SubscriptionStatus = ({ subscription }: { subscription: SuscripcionVenta }) => {
+  const { estado, termino, terminaEl } = subscription
+  const isEnding = estado !== 'canceled' && terminaEl !== null
+  const color = useMemo(() => getSubscriptionStatusBorderColor(estado, isEnding), [estado, isEnding])
+  const { eventDate, eventLabel } = useMemo<{ eventDate: string | null; eventLabel?: string }>(() => {
+    if (estado === 'canceled') return { eventDate: termino, eventLabel: 'Terminó' }
+    if (isEnding) return { eventDate: terminaEl, eventLabel: 'Termina' }
     return { eventDate: null }
-  }, [
-    isEnding,
-    ends_at,
-    status,
-    resumes_at,
-    pause_at_period_end,
-    current_period_end,
-  ])
-
+  }, [estado, termino, terminaEl, isEnding])
   const icon = useMemo(() => {
-    if (status === 'canceled') {
-      return <CircleX className="size-3" />
-    }
-    if (eventDate) {
-      return <Clock className="size-3" />
-    }
+    if (estado === 'canceled') return <CircleX className="size-3" />
+    if (eventDate) return <Clock className="size-3" />
     return null
-  }, [status, eventDate])
-
+  }, [estado, eventDate])
   return (
-    <StatusLabel
-      color={color}
-      dt={eventDate}
-      eventLabel={eventLabel}
-      icon={icon}
-    >
-      {subscriptionStatusDisplayNames[subscription.status]}
+    <StatusLabel color={color} dt={eventDate} eventLabel={eventLabel} icon={icon}>
+      {subscriptionStatusDisplayNames[estado]}
     </StatusLabel>
   )
 }

@@ -1,95 +1,88 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionOrdersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: los pedidos de una suscripción son sus MESES (la historia mes a mes, lib/suscripcion-meses.ts, la misma cuenta que la ficha):
+// cuánto tocaba, cuánto entró y qué cambió (empezó, subió, bajó, se cortó, volvió), con el link al pedido de cada pago. Lo pidió
+// Martín; Polar sólo lista los pedidos. Una suscripción de la pasarela no tiene historia acá (sus cobros están en Orders).
 
-import { OrderStatus } from '@/app/admin/_polar/web/Orders/OrderStatus'
-import { useOrders } from '@/app/admin/_polar/datos/polar-tipos'
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
-
-const BILLING_REASON_LABELS: Record<schemas['OrderBillingReason'], string> = {
-  purchase: 'Purchase',
-  subscription_create: 'New Subscription',
-  subscription_cycle: 'Renewal',
-  subscription_update: 'Plan Change',
-  subscription_meter_cycle: 'Meter',
-}
-import { formatCurrency } from '@/app/admin/_polar/lib/currency'
-import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
-import { DataTable } from '@/app/admin/_polar/orbit'
-import { Button } from '@/app/admin/_polar/orbit'
 import Link from '@/app/_ui/Link'
+import { ROTULO_CAMBIO_MES, ROTULO_ESTADO_MES, type MesVenta, type SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
+import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
+import { Button, DataTable, Status, type StatusColor } from '@/app/admin/_polar/orbit'
+import { fechaCorta } from './SubscriptionStatus'
 
-interface SubscriptionOrdersSectionProps {
-  organization: schemas['Organization']
-  subscription: schemas['Subscription']
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+const nombreDelMes = (mes: string) => `${MESES[Number(mes.slice(5, 7)) - 1] ?? mes} ${mes.slice(0, 4)}`
+
+const COLOR_ESTADO: Record<MesVenta['estado'], StatusColor> = {
+  pagado: 'green', parcial: 'yellow', vencido: 'red', 'vence-hoy': 'yellow', 'por-cobrar': 'blue', proximo: 'gray', cortado: 'gray',
 }
 
-const SubscriptionOrdersSection = ({
-  organization,
-  subscription,
-}: SubscriptionOrdersSectionProps) => {
-  const { data: orders, isLoading } = useOrders(organization.id, {
-    subscription_id: [subscription.id],
-    sorting: ['-created_at'],
-    limit: 100,
-  })
-
+const SubscriptionOrdersSection = ({ subscription, hoy }: { subscription: SuscripcionVenta; hoy: string }) => {
+  if (subscription.historia.length === 0) {
+    return null
+  }
+  const meses = [...subscription.historia].reverse()
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-lg">Orders</h3>
+      <h3 className="text-lg">Mes a mes</h3>
       <DataTable
-        data={orders?.items ?? []}
+        data={meses}
         columns={[
           {
-            header: 'Billing Reason',
-            accessorKey: 'billing_reason',
+            header: 'Mes',
+            accessorKey: 'mes',
             cell: ({ row: { original } }) => (
-              <Link
-                href={`/dashboard/${organization.slug}/sales/${original.id}`}
-              >
-                <span>{BILLING_REASON_LABELS[original.billing_reason]}</span>
-              </Link>
-            ),
-          },
-          {
-            header: 'Date',
-            accessorKey: 'created_at',
-            cell: ({ row: { original } }) => (
-              <span className="dark:text-polar-500 text-sm text-gray-500">
-                <FormattedDateTime datetime={original.created_at} />
+              <span className="flex items-center gap-2">
+                <span className="capitalize">{nombreDelMes(original.mes)}</span>
+                {original.cambio && (
+                  <span className="dark:text-polar-500 text-xs text-gray-500">
+                    {ROTULO_CAMBIO_MES[original.cambio]}
+                    {original.antesUsd != null && original.esperadoUsd != null ? ` (de ${usdEnTexto(original.antesUsd, 'compact')})` : ''}
+                  </span>
+                )}
               </span>
             ),
           },
           {
-            header: 'Status',
-            accessorKey: 'status',
+            header: 'Vence',
+            accessorKey: 'vence',
             cell: ({ row: { original } }) => (
-              <OrderStatus status={original.status} />
+              <span className="dark:text-polar-500 text-sm text-gray-500">{fechaCorta(original.vence, hoy)}</span>
             ),
           },
           {
-            header: 'Amount',
-            accessorKey: 'net_amount',
-            cell: ({ row: { original } }) =>
-              formatCurrency('compact')(original.net_amount, original.currency),
+            header: 'Estado',
+            accessorKey: 'estado',
+            cell: ({ row: { original } }) => <Status color={COLOR_ESTADO[original.estado]} status={ROTULO_ESTADO_MES[original.estado]} />,
+          },
+          {
+            header: 'Tocaba',
+            accessorKey: 'esperadoUsd',
+            cell: ({ row: { original } }) => (original.esperadoUsd != null ? usdEnTexto(original.esperadoUsd, 'compact') : 'Sin monto'),
+          },
+          {
+            header: 'Entró',
+            accessorKey: 'pagadoUsd',
+            cell: ({ row: { original } }) => usdEnTexto(original.pagadoUsd, 'compact'),
           },
           {
             header: '',
-            accessorKey: 'action',
-            cell: ({ row: { original } }) => (
-              <div className="flex justify-end">
-                <Link
-                  href={`/dashboard/${organization.slug}/sales/${original.id}`}
-                >
-                  <Button variant="secondary" size="sm">
-                    View
-                  </Button>
-                </Link>
-              </div>
-            ),
+            accessorKey: 'pedidos',
+            cell: ({ row: { original } }) =>
+              original.pedidos[0] ? (
+                <div className="flex justify-end">
+                  <Link href={`/admin/sales/${original.pedidos[0]}`}>
+                    <Button variant="secondary" size="sm">
+                      Ver
+                    </Button>
+                  </Link>
+                </div>
+              ) : null,
           },
         ]}
-        isLoading={isLoading}
+        isLoading={false}
         className="text-sm"
       />
     </div>

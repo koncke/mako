@@ -1,50 +1,23 @@
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Disputes/DisputeStatusSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: en qué quedó un contracargo, como lo escribió lib/cobros-reglas.ts (`textoContracargo`): abierta, la plata se descontó o
+// volvió, ganada, perdida, cerrada, o en revisión (Mercado Pago). Los de Polar (needs response, under review…) no se pueden saber
+// en MaKo: no guarda la disputa, sólo el texto de su última fase.
 
-import {
-  DisputeStatusDisplayTitle,
-  type DisputeStatusFilter,
-} from '@/app/admin/_polar/web/utils/dispute'
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/app/admin/_polar/orbit'
-import React from 'react'
+import { ESTADOS_DISPUTA, ROTULO_ESTADO_DISPUTA, esEstadoDisputa, type EstadoDisputa } from '@/app/admin/_polar/datos/ventas'
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/app/admin/_polar/orbit'
 
-const STATUSES: schemas['DisputeStatus'][] = [
-  'needs_response',
-  'under_review',
-  'won',
-  'lost',
-  'prevented',
-  'early_warning',
-]
-
-interface Props {
-  value: DisputeStatusFilter
-  onChange: (value: DisputeStatusFilter) => void
-}
-
-export const DisputeStatusSelect: React.FC<Props> = ({ value, onChange }) => (
-  <Select
-    value={value}
-    onValueChange={(value) => onChange(value as DisputeStatusFilter)}
-  >
+export const DisputeStatusSelect = ({ value, onChange }: { value: EstadoDisputa | null; onChange: (value: EstadoDisputa | null) => void }) => (
+  <Select value={value ?? 'any'} onValueChange={(v) => onChange(esEstadoDisputa(v) ? v : null)}>
     <SelectTrigger>
-      <SelectValue placeholder="Select a status" />
+      <SelectValue placeholder="Elige un estado" />
     </SelectTrigger>
     <SelectContent>
-      <SelectItem value="any">
-        <span className="whitespace-nowrap">Any status</span>
-      </SelectItem>
+      <SelectItem value="any">Cualquier estado</SelectItem>
       <SelectSeparator />
-      {STATUSES.map((status) => (
-        <SelectItem key={status} value={status}>
-          {DisputeStatusDisplayTitle[status]}
+      {ESTADOS_DISPUTA.map((s) => (
+        <SelectItem key={s} value={s}>
+          {ROTULO_ESTADO_DISPUTA[s].titulo}
         </SelectItem>
       ))}
     </SelectContent>

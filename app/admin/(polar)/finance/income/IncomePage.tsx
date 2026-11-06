@@ -47,7 +47,7 @@ export default function ClientPage({ datos }: { datos: DatosIngresos }) {
             <Alert variant="warning" title="La lista puede quedarse corta" description={`No pude leer ${datos.avisos.join('; ')}.`} />
           )}
           {filas.length === 0 ? (
-            <EmptyState icon={<AttachMoneyOutlined />} title="Todavía no entró nada" description="Cuando alguien pague un plan, el pago aparece acá." />
+            <EmptyState icon={<AttachMoneyOutlined />} title="Todavía no entró nada" description="Cuando alguien pague un plan, el pago aparece aquí." />
           ) : (
             <TransactionsList
               transactions={pagina.items}

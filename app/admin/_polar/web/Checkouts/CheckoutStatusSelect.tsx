@@ -1,7 +1,6 @@
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/CheckoutStatusSelect/CheckoutStatusSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
-import { CheckoutStatusDisplayTitle } from '@/app/admin/_polar/web/utils/checkout'
-import { enums, schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import { ESTADOS_CHECKOUT, esEstadoCheckout, type EstadoCheckout } from '@/app/admin/_polar/datos/ventas'
 import {
   Select,
   SelectContent,
@@ -11,32 +10,25 @@ import {
   SelectValue,
 } from '@/app/admin/_polar/orbit'
 import React from 'react'
+import { CheckoutStatusDisplayTitle } from './CheckoutStatus'
 
 interface CheckoutStatusSelectProps {
-  value: schemas['CheckoutStatus'] | null
-  onChange: (value: schemas['CheckoutStatus'] | null) => void
+  value: EstadoCheckout | null
+  onChange: (value: EstadoCheckout | null) => void
 }
 
-const CheckoutStatusSelect: React.FC<CheckoutStatusSelectProps> = ({
-  value,
-  onChange,
-}) => {
+const CheckoutStatusSelect: React.FC<CheckoutStatusSelectProps> = ({ value, onChange }) => {
   return (
-    <Select
-      value={value ?? 'any'}
-      onValueChange={(value) =>
-        onChange(value === 'any' ? null : (value as schemas['CheckoutStatus']))
-      }
-    >
+    <Select value={value ?? 'any'} onValueChange={(v) => onChange(esEstadoCheckout(v) ? v : null)}>
       <SelectTrigger>
-        <SelectValue placeholder="Select a status" />
+        <SelectValue placeholder="Elige un estado" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="any">
-          <span className="whitespace-nowrap">Any status</span>
+          <span className="whitespace-nowrap">Cualquier estado</span>
         </SelectItem>
         <SelectSeparator />
-        {enums.checkoutStatusValues.map((status) => (
+        {ESTADOS_CHECKOUT.map((status) => (
           <SelectItem key={status} value={status}>
             {CheckoutStatusDisplayTitle[status]}
           </SelectItem>

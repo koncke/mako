@@ -16,20 +16,20 @@
 //   7. el CSV de las métricas va en dólares y por el armador de la app;
 //   8. cada page.tsx de Analytics pregunta `exigirSuperAdmin()` ANTES de leer, y Events traduce `?tipo=`.
 //
-// Probado rompiéndolo el 6/11/2026 (base: 17 pasan / 0 fallan; el arnés restaura de memoria). Cada rotura, sola:
-//   · `clientesConSuscripcionAl` cuenta a todo cliente con un movimiento (sin `despues > 0`)        → 16/1 (1)
-//   · `metricasDeIngresos` pone las de suscripciones aunque no haya `movimientos`                  → 16/1 (2)
-//   · `totalesDe` suma el MRR (un `stock`) en vez de tomar el último mes                            → 16/1 (3)
-//   · `rangosMensuales` sin el filtro de `minDate` (ofrece «El año pasado» a medias)               → 16/1 (4)
-//   · `ALIAS_TIPO.error` sin 'reporte' (los reportes quedan fuera del link viejo de Errors)        → 16/1 (5)
-//   · `eventosDePagos` busca el negocio por el nombre del cliente en vez de su clave               → 16/1 (5)
-//   · `armarEventos` sin el corte de las acciones de MaKo al llegar al tope                         → 16/1 (5)
-//   · `filtrarEventos` filtra por el primer negocio de un error y no por cualquiera                → 16/1 (5)
-//   · `conteoPorTipo` respeta el filtro de tipos (la lista de tipos se vacía al elegir uno)        → 16/1 (5)
-//   · `negociosDe` arma el corte por negocio aunque no sea atribuible                               → 16/1 (6)
-//   · `cambiosDe` compara contra cero sin mes anterior                                              → 16/1 (6)
-//   · `filasCsvDeMetricas` deja la plata en centavos                                                → 16/1 (7)
-//   · events/page.tsx lee (`leerEventos()`) antes de `exigirSuperAdmin()`                           → 16/1 (8)
+// Probado rompiéndolo el 6/11/2026 (base: 8 pasan / 0 fallan; el arnés restaura de memoria). Cada rotura, sola:
+//   · `clientesConSuscripcionAl` cuenta a todo cliente con un movimiento (sin `despues > 0`)        → 6/2 (1, 7)
+//   · `metricasDeIngresos` pone las de suscripciones aunque no haya `movimientos`                  → 7/1 (2)
+//   · `totalesDe` suma también los `stock` (el MRR, el acumulado) en vez de tomar el último         → 5/3 (1, 3, 6)
+//   · `rangosMensuales` sin el filtro de `minDate` (ofrece «El año pasado» a medias)               → 7/1 (4)
+//   · `ALIAS_TIPO.error` sin 'reporte' (los reportes quedan fuera del link viejo de Errors)        → 7/1 (5)
+//   · `eventosDePagos` busca el negocio por el nombre del cliente en vez de su clave               → 7/1 (5)
+//   · `armarEventos` sin el corte de las acciones de MaKo al llegar al tope                         → 7/1 (5)
+//   · `filtrarEventos` filtra por el primer negocio de un error y no por cualquiera                → 7/1 (5)
+//   · `conteoPorTipo` lista también los tipos sin ningún evento                                     → 7/1 (5)
+//   · `negociosDe` arma el corte por negocio aunque no sea atribuible                               → 7/1 (6)
+//   · `cambiosDe` compara contra cero sin mes anterior                                              → 7/1 (6)
+//   · `filasCsvDeMetricas` deja la plata en centavos                                                → 7/1 (7)
+//   · events/page.tsx lee (`void leerEventos()`) antes de `exigirSuperAdmin()`                      → 7/1 (8)
 // =============================================================================
 
 import { test } from 'node:test'
@@ -203,6 +203,7 @@ test('5. Events: el link viejo, el negocio de cada evento, lo que quedó afuera 
 
   const tipos = conteoPorTipo(v.eventos, rango)
   assert.ok(tipos.every((t) => t.occurrences > 0))
+  assert.deepEqual(conteoPorTipo(v.eventos, { ...rango, negocios: [2] }).map((t) => t.name), ['mako', 'error', 'reporte'], 'sólo los tipos que tienen algún evento')
   assert.equal(tipos.reduce((s, t) => s + t.occurrences, 0), filtrarEventos(v.eventos, rango).length, 'cuenta todos los tipos, no sólo los elegidos')
 
   const barras = cubetas(v.eventos, new Date('2026-08-01T00:00:00Z'), AHORA)

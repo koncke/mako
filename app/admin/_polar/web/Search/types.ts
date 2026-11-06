@@ -7,7 +7,7 @@ import type { ResultadoNegocio, ResultadoPersona } from '@/app/admin/_polar/dato
 
 type SearchResultItem =
   | (ResultadoNegocio & { type: 'customer'; id: string })
-  | (ResultadoPersona & { type: 'member'; id: string })
+  | (Omit<ResultadoPersona, 'id'> & { type: 'member'; id: string })
 
 export interface SearchResultPage {
   id: string

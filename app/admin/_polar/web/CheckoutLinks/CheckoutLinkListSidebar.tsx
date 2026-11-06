@@ -19,6 +19,7 @@ import ProductSelect from '@/app/admin/_polar/web/Products/ProductSelect'
 import { AddOutlined, ArrowDownward, ArrowUpward, CheckOutlined, LinkOutlined } from '@/app/admin/_polar/orbit/icons'
 import { Alert, Button } from '@/app/admin/_polar/orbit'
 import Link, { useRouter } from '@/app/_ui/Link'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
@@ -121,8 +122,9 @@ export const CheckoutLinkListSidebar = ({ datos }: { datos: DatosCheckoutLinks |
         )}
         <div className="dark:divide-polar-800 flex h-full grow flex-col divide-y divide-gray-50 overflow-y-auto">
           {!ok ? (
-            <div className="p-4">
+            <div className="flex flex-col items-start gap-2 p-4">
               <Alert variant="danger" title="No pude leer los links" description={'error' in datos ? datos.error : undefined} />
+              <ReportarASoporte error={'error' in datos ? datos.error : 'No pude leer los links.'} />
             </div>
           ) : (
             <>

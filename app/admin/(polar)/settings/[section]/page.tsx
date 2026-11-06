@@ -1,42 +1,33 @@
-// Copiado de polarsource/polar (Apache-2.0), /tmp/claude-0/-home-user-mako/52beedef-99d8-5d17-8f21-3a599afd3cce/scratchpad/H/settings/[section]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/settings/[section]/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// Admin › Settings › Payments y Customer Notifications (/admin/settings/<sección>). Una sección que MaKo no tiene es un 404,
+// como en Polar. ⚠️ SÓLO EL SUPER ADMIN, en la primera línea y antes de leer. Cada sección lee sólo lo suyo.
 
-import {
-  getSettingsSection,
-  SettingsSectionSlug,
-} from '@/app/admin/_polar/web/Settings/settingsSections'
-import { getServerSideAPI } from '@/app/admin/_polar/web/utils/client/serverside'
-import { getOrganizationBySlugOrNotFound } from '@/app/admin/_polar/web/utils/organization'
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
+import { leerAjustesNotificaciones, leerAjustesPagos } from '@/app/admin/_polar/datos/ajustes-server'
+import { getSettingsSection } from '@/app/admin/_polar/web/Settings/settingsSections'
 import SettingsSectionPage from './SettingsSectionPage'
 
-export async function generateMetadata(props: {
-  params: Promise<{ organization: string; section: string }>
-}): Promise<Metadata> {
+export const dynamic = 'force-dynamic'
+
+export async function generateMetadata(props: { params: Promise<{ section: string }> }): Promise<Metadata> {
   const { section } = await props.params
   return {
-    title: getSettingsSection(section)?.title ?? 'Settings', // " | Polar is added by the template"
+    title: getSettingsSection(section)?.title ?? 'Settings',
   }
 }
 
-export default async function Page(props: {
-  params: Promise<{ organization: string; section: string }>
-}) {
-  const params = await props.params
-  const api = await getServerSideAPI()
-  const organization = await getOrganizationBySlugOrNotFound(
-    api,
-    params.organization,
-  )
+export default async function Page(props: { params: Promise<{ section: string }> }) {
+  await exigirSuperAdmin()
+  const { section } = await props.params
 
-  if (!getSettingsSection(params.section, organization)) {
-    notFound()
+  if (section === 'payments') {
+    return <SettingsSectionPage section="payments" pagos={await leerAjustesPagos()} />
   }
-
-  return (
-    <SettingsSectionPage
-      organization={organization}
-      section={params.section as SettingsSectionSlug}
-    />
-  )
+  if (section === 'customer-notifications') {
+    return <SettingsSectionPage section="customer-notifications" notificaciones={await leerAjustesNotificaciones()} />
+  }
+  notFound()
 }

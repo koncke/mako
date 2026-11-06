@@ -1,159 +1,190 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Settings/OrganizationPaymentSettings.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// Settings › Payments: los precios con que MaKo cobra, con los grupos y los renglones de ajustes de Polar
+// (`SettingsGroup` / `SettingsGroupItem`: el nombre a la izquierda, el control a la derecha).
+//   · «Mercado Pago»: el precio de cada plan activo en la moneda de la Mercado Pago de MaKo (`guardarPrecioLocalAction`).
+//     Sin ese precio, /planes no ofrece Mercado Pago para ese plan: nunca se inventa una tasa.
+//   · «Cliente de agencia»: lo que paga una agencia por cada cliente, en dólares y en Mercado Pago
+//     (`guardarPrecioClienteAgenciaAction`).
+// ⚠️ GUARDA AL SALIR DEL CAMPO, NO CON LA DEMORA DE POLAR (`useAutoSave` a 200 ms): un precio a medio escribir («1» de
+//    «130000») se guardaría y saldría en /planes. Un valor que no se entiende NO borra el precio: se dice.
+// ⚠️ LO QUE SE SACÓ: la moneda por defecto y el comportamiento de impuestos de Polar (MaKo cobra en dólares por Stripe y en
+//    la moneda de su cuenta por Mercado Pago, sin elegirla; no calcula impuestos).
 
-import { useIsManagedAsCode } from '@/hooks/permissions'
-import { useUpdateOrganization } from '@/app/admin/_polar/datos/polar-tipos'
-import { useAutoSave } from '@/hooks/useAutoSave'
-import { setValidationErrors } from '@/app/admin/_polar/web/utils/api/errors'
-import { enums, isValidationError, schemas } from '@/app/admin/_polar/datos/polar-tipos'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/app/admin/_polar/orbit'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '@/app/admin/_polar/ui/form'
-import React from 'react'
-import { useForm } from 'react-hook-form'
-import { CurrencySelector } from '../CurrencySelector'
+import { guardarPrecioClienteAgenciaAction, guardarPrecioLocalAction } from '@/app/admin/cobros/actions'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
+import { Alert, Input, Text } from '@/app/admin/_polar/orbit'
+import { Box } from '@/app/admin/_polar/orbit/components/Box'
+import { useRouter } from '@/app/_ui/Link'
+import { formatCurrency } from '@/app/admin/_polar/lib/currency'
+import React, { useState } from 'react'
 import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
+import { numeroLocal, numeroSimple, type DatosPagos, type PrecioClienteAgencia, type PrecioPlanLocal } from '@/app/admin/_polar/datos/ajustes'
 
-interface OrganizationPaymentSettingsProps {
-  organization: schemas['Organization']
-  readOnly: boolean
+const usd = (n: number) => formatCurrency('statistics')(Math.round(n * 100), 'usd')
+
+function Fallo({ texto }: { texto: string }) {
+  return (
+    <div role="alert" className="flex flex-col items-start gap-2">
+      <Text color="error">{texto}</Text>
+      <ReportarASoporte error={texto} />
+    </div>
+  )
 }
 
-type FormSchema = Pick<
-  schemas['OrganizationUpdate'],
-  'default_presentment_currency' | 'default_tax_behavior'
->
+function PrecioDePlan({ plan, moneda }: { plan: PrecioPlanLocal; moneda: string }) {
+  const router = useRouter()
+  const [valor, setValor] = useState(plan.local != null ? String(plan.local) : '')
+  const [guardado, setGuardado] = useState(plan.local != null ? String(plan.local) : '')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-const taxBehaviorOptionDisplayNames: Record<
-  schemas['TaxBehaviorOption'],
-  string
-> = {
-  exclusive: 'Exclusive',
-  inclusive: 'Inclusive',
-  location: 'Location based',
-}
-
-const OrganizationPaymentSettings: React.FC<
-  OrganizationPaymentSettingsProps
-> = ({ organization: _organization, readOnly: _readOnly }) => {
-  const managedAsCode = useIsManagedAsCode(_organization.id)
-  const readOnly = _readOnly || managedAsCode
-  const organization = _organization as schemas['Organization'] & {
-    default_presentment_currency: schemas['PresentmentCurrency']
-  }
-  const form = useForm<FormSchema>({
-    defaultValues: {
-      default_presentment_currency: organization.default_presentment_currency,
-      default_tax_behavior: organization.default_tax_behavior,
-    },
-  })
-  const { control, setError } = form
-
-  const updateOrganization = useUpdateOrganization()
-  const onSave = async (body: FormSchema) => {
-    const { data, error } = await updateOrganization.mutateAsync({
-      id: organization.id,
-      body,
-    })
-
-    if (error) {
-      if (isValidationError(error.detail)) {
-        setValidationErrors(error.detail, setError)
-      } else {
-        setError('root', { message: error.detail })
-      }
+  async function guardar() {
+    if (valor.trim() === guardado.trim()) return
+    const n = numeroLocal(valor)
+    if (n === undefined) {
+      setError('Ese precio no se entiende: escribe sólo el número.')
       return
     }
-
-    return {
-      ...data,
-      default_presentment_currency:
-        data.default_presentment_currency as schemas['PresentmentCurrency'],
+    setGuardando(true)
+    const r = await guardarPrecioLocalAction(plan.id, n).catch(() => ({ ok: false as const, error: 'No pude guardar el precio.' }))
+    setGuardando(false)
+    if (!r.ok) {
+      setError(r.error)
+      return
     }
+    setError(null)
+    setGuardado(valor)
+    router.refresh()
   }
 
-  useAutoSave({
-    form,
-    onSave,
-    delay: 200,
-  })
+  return (
+    <SettingsGroupItem title={plan.nombre} description={`${usd(plan.precioUsd)} por mes en dólares.`}>
+      <Box flexDirection="column" rowGap="s" width="100%">
+        <Input
+          aria-label={`Precio de ${plan.nombre} en ${moneda}`}
+          inputMode="decimal"
+          placeholder="Sin cargar"
+          value={valor}
+          disabled={guardando}
+          onChange={(e) => setValor(e.target.value)}
+          onBlur={() => void guardar()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void guardar()
+          }}
+          postSlot={<span className="dark:text-polar-500 text-xs text-gray-500">{moneda}</span>}
+        />
+        {error && <Fallo texto={error} />}
+      </Box>
+    </SettingsGroupItem>
+  )
+}
+
+function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteAgencia; conMercadoPago: boolean }) {
+  const router = useRouter()
+  const [usdTxt, setUsdTxt] = useState(String(inicial.usd))
+  const [monto, setMonto] = useState(inicial.mp ? String(inicial.mp.monto) : '')
+  const [moneda, setMoneda] = useState(inicial.mp?.moneda ?? 'ARS')
+  const [guardado, setGuardado] = useState(JSON.stringify([String(inicial.usd), inicial.mp ? String(inicial.mp.monto) : '', inicial.mp?.moneda ?? 'ARS']))
+  const [error, setError] = useState<string | null>(null)
+
+  async function guardar() {
+    const ahora = JSON.stringify([usdTxt.trim(), monto.trim(), moneda])
+    if (ahora === guardado) return
+    const u = numeroSimple(usdTxt)
+    if (u == null) {
+      setError('El precio en dólares tiene que ser mayor a cero.')
+      return
+    }
+    const m = numeroSimple(monto)
+    if (m === undefined) {
+      setError('El monto en Mercado Pago no se entiende: escribe sólo el número.')
+      return
+    }
+    if (m != null && !/^[A-Z]{3}$/.test(moneda)) {
+      setError('La moneda son tres letras (ARS, MXN…).')
+      return
+    }
+    const r = await guardarPrecioClienteAgenciaAction({ usd: u, moneda, monto: m }).catch(() => ({ ok: false as const, error: 'No pude guardar el precio.' }))
+    if (!r.ok) {
+      setError(r.error)
+      return
+    }
+    setError(null)
+    setGuardado(ahora)
+    router.refresh()
+  }
+
+  const alSalir = () => void guardar()
+  const conEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void guardar()
+  }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-        }}
-      >
-        <SettingsGroup>
-          <SettingsGroupItem
-            title="Default payment currency"
-            description="The default currency for products and checkout. Used as fallback if the customer's local currency is not available or defined on a product."
-          >
-            <FormField
-              control={control}
-              name="default_presentment_currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <CurrencySelector
-                      disabled={readOnly}
-                      value={field.value as schemas['PresentmentCurrency']}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </SettingsGroupItem>
-          <SettingsGroupItem
-            title="Default tax behavior"
-            description="The default tax behavior applied on products."
-          >
-            <FormField
-              control={control}
-              name="default_tax_behavior"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Select
-                      disabled={readOnly}
-                      onValueChange={field.onChange}
-                      defaultValue={field.value || undefined}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a benefit type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {enums.taxBehaviorOptionValues.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {taxBehaviorOptionDisplayNames[value]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </SettingsGroupItem>
+    <SettingsGroup
+      title="Cliente de agencia"
+      description={`Lo que paga una agencia por cada cliente, cada mes. ${conMercadoPago ? 'Se cobra con la Mercado Pago de MaKo.' : 'Conecta Mercado Pago para cobrarlo.'}`}
+    >
+      <SettingsGroupItem title="Por mes, en dólares">
+        <Input aria-label="Por mes, en dólares" inputMode="decimal" value={usdTxt} onChange={(e) => setUsdTxt(e.target.value)} onBlur={alSalir} onKeyDown={conEnter} postSlot={<span className="dark:text-polar-500 text-xs text-gray-500">USD</span>} />
+      </SettingsGroupItem>
+      <SettingsGroupItem title="En Mercado Pago" description="Sin este monto no sale el link del primer mes: no se inventa una tasa.">
+        <Box columnGap="s" width="100%">
+          <Input aria-label="Monto en Mercado Pago" inputMode="decimal" placeholder="Sin cargar" value={monto} onChange={(e) => setMonto(e.target.value)} onBlur={alSalir} onKeyDown={conEnter} />
+          <Input
+            aria-label="Moneda de Mercado Pago"
+            className="w-20"
+            maxLength={3}
+            value={moneda}
+            onChange={(e) => setMoneda(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+            onBlur={alSalir}
+            onKeyDown={conEnter}
+          />
+        </Box>
+      </SettingsGroupItem>
+      {error ? (
+        <Box paddingHorizontal="xl" paddingVertical="l">
+          <Fallo texto={error} />
+        </Box>
+      ) : null}
+    </SettingsGroup>
+  )
+}
+
+const OrganizationPaymentSettings: React.FC<{ datos: DatosPagos }> = ({ datos }) => {
+  const { locales } = datos
+  const activos = locales?.planes.filter((p) => p.activo) ?? []
+
+  return (
+    <Box flexDirection="column" rowGap="2xl">
+      {!locales ? (
+        <Box flexDirection="column" rowGap="s">
+          <Alert variant="danger" title="No pude leer los precios de los planes" description={datos.errorLocales ?? undefined} />
+          {datos.errorLocales && <ReportarASoporte error={datos.errorLocales} />}
+        </Box>
+      ) : !locales.moneda ? (
+        <SettingsGroup title="Mercado Pago">
+          <SettingsGroupItem title="No está conectada" description="Sin ella, los planes se pagan sólo con tarjeta, en dólares." />
         </SettingsGroup>
-      </form>
-    </Form>
+      ) : (
+        <SettingsGroup title="Mercado Pago" description={`El precio de cada plan por mes, en ${locales.moneda}. Sin precio, ese plan se paga sólo con tarjeta, en dólares.`}>
+          {activos.map((p) => (
+            <PrecioDePlan key={p.id} plan={p} moneda={locales.moneda as string} />
+          ))}
+        </SettingsGroup>
+      )}
+
+      {datos.precioAgencia ? (
+        <ClienteDeAgencia inicial={datos.precioAgencia} conMercadoPago={datos.conMercadoPago} />
+      ) : (
+        <Box flexDirection="column" rowGap="s">
+          <Alert variant="danger" title="No pude leer el precio del cliente de agencia" description={datos.errorAgencia ?? undefined} />
+          {datos.errorAgencia && <ReportarASoporte error={datos.errorAgencia} />}
+        </Box>
+      )}
+    </Box>
   )
 }
 

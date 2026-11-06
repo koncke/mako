@@ -1,6 +1,6 @@
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionStatusSelect.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import { ESTADOS_SUSCRIPCION, type FiltroEstadoSuscripcion } from '@/app/admin/_polar/datos/ventas'
 import {
   Select,
   SelectContent,
@@ -13,53 +13,28 @@ import {
 import React from 'react'
 import { subscriptionStatusDisplayNames } from './utils'
 
-const SELECTABLE_STATUSES = [
-  'active',
-  'trialing',
-  'paused',
-  'past_due',
-  'canceled',
-  'unpaid',
-] as const satisfies readonly schemas['SubscriptionStatus'][]
-
-export const subscriptionStatusFilterValues = [
-  'any',
-  ...SELECTABLE_STATUSES,
-] as const
-
-export type SubscriptionStatusFilter =
-  (typeof subscriptionStatusFilterValues)[number]
-
-export const DEFAULT_SUBSCRIPTION_STATUS: SubscriptionStatusFilter = 'active'
+const esFiltro = (v: string): v is FiltroEstadoSuscripcion => v === 'any' || (ESTADOS_SUSCRIPCION as readonly string[]).includes(v)
 
 interface SubscriptionStatusSelectProps {
-  value: SubscriptionStatusFilter
-  onChange: (value: SubscriptionStatusFilter) => void
+  value: FiltroEstadoSuscripcion
+  onChange: (value: FiltroEstadoSuscripcion) => void
 }
 
-const SubscriptionStatusSelect: React.FC<SubscriptionStatusSelectProps> = ({
-  value,
-  onChange,
-}) => {
+const SubscriptionStatusSelect: React.FC<SubscriptionStatusSelectProps> = ({ value, onChange }) => {
   return (
-    <Select
-      value={value}
-      onValueChange={(value) => onChange(value as SubscriptionStatusFilter)}
-    >
+    <Select value={value} onValueChange={(v) => onChange(esFiltro(v) ? v : 'any')}>
       <SelectTrigger>
-        <SelectValue placeholder="Select a status" />
+        <SelectValue placeholder="Elige un estado" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="any">
-          <span className="whitespace-nowrap">Any status</span>
+          <span className="whitespace-nowrap">Cualquier estado</span>
         </SelectItem>
         <SelectSeparator />
-        {SELECTABLE_STATUSES.map((status) => (
+        {ESTADOS_SUSCRIPCION.map((status) => (
           <React.Fragment key={status}>
             <SelectGroup>
-              <SelectItem value={status}>
-                {subscriptionStatusDisplayNames[status]}
-              </SelectItem>
+              <SelectItem value={status}>{subscriptionStatusDisplayNames[status]}</SelectItem>
             </SelectGroup>
           </React.Fragment>
         ))}

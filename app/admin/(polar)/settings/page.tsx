@@ -1,25 +1,23 @@
-// Copiado de polarsource/polar (Apache-2.0), /tmp/claude-0/-home-user-mako/52beedef-99d8-5d17-8f21-3a599afd3cce/scratchpad/H/settings/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/settings/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// Admin › Settings › General (/admin/settings): quién emite los recibos de MaKo. ⚠️ SÓLO EL SUPER ADMIN, en la primera
+// línea y antes de leer.
 
-import { getServerSideAPI } from '@/app/admin/_polar/web/utils/client/serverside'
-import { getOrganizationBySlugOrNotFound } from '@/app/admin/_polar/web/utils/organization'
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
+import { leerAjustesGeneral } from '@/app/admin/_polar/datos/ajustes-server'
 import SettingsPage from './SettingsPage'
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: 'Settings', // " | Polar is added by the template"
+    title: 'Settings',
   }
 }
 
-export default async function Page(props: {
-  params: Promise<{ organization: string }>
-}) {
-  const params = await props.params
-  const api = await getServerSideAPI()
-  const organization = await getOrganizationBySlugOrNotFound(
-    api,
-    params.organization,
-  )
-
-  return <SettingsPage organization={organization} />
+export default async function Page() {
+  await exigirSuperAdmin()
+  const datos = await leerAjustesGeneral()
+  return <SettingsPage datos={datos} />
 }

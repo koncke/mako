@@ -1,185 +1,46 @@
 'use client'
 
-// Copiado de polarsource/polar (Apache-2.0), /tmp/claude-0/-home-user-mako/52beedef-99d8-5d17-8f21-3a599afd3cce/scratchpad/H/settings/[section]/SettingsSectionPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/settings/[section]/SettingsSectionPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// ⚠️ LO QUE SE SACÓ: las secciones de Polar que MaKo no llena (web/Settings/settingsSections.ts), el aviso de sandbox de
+//    Customer Notifications, el «Managed as code» y el permiso `organization:manage` (Admin entero es del super admin, y
+//    cada acción vuelve a preguntar `getSesionAdmin()`).
 
-import { ManagedAsCodeBadge } from '@/app/admin/_polar/web/Dashboard/ManagedAsCodeBadge'
-import AccessRestricted from '@/app/admin/_polar/web/Finance/AccessRestricted'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
-import FeatureSettings from '@/app/admin/_polar/web/Settings/FeatureSettings'
-import OrganizationAccessTokensSettings from '@/app/admin/_polar/web/Settings/OrganizationAccessTokensSettings'
 import OrganizationCustomerEmailSettings from '@/app/admin/_polar/web/Settings/OrganizationCustomerEmailSettings'
-import OrganizationCustomerPortalSettings from '@/app/admin/_polar/web/Settings/OrganizationCustomerPortalSettings'
-import OrganizationDisputeSettings from '@/app/admin/_polar/web/Settings/OrganizationDisputeSettings'
-import OrganizationDomainsSettings from '@/app/admin/_polar/web/Settings/OrganizationDomainsSettings'
-import OrganizationEmbedSettings from '@/app/admin/_polar/web/Settings/OrganizationEmbedSettings'
 import OrganizationPaymentSettings from '@/app/admin/_polar/web/Settings/OrganizationPaymentSettings'
-import OrganizationSubscriptionSettings from '@/app/admin/_polar/web/Settings/OrganizationSubscriptionSettings'
-import {
-  SETTINGS_SECTIONS,
-  SettingsSectionSlug,
-} from '@/app/admin/_polar/web/Settings/settingsSections'
-import { useHasPermission, useIsManagedAsCode } from '@/hooks/permissions'
-import { CONFIG } from '@/app/admin/_polar/web/utils/config'
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import { SETTINGS_SECTIONS, type SettingsSectionSlug } from '@/app/admin/_polar/web/Settings/settingsSections'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { Alert } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
-import Link from '@/app/_ui/Link'
-import {
-  DeveloperSettings,
-  NotificationsSettings,
-  ProfileSettings,
-  SecuritySettings,
-} from './PersonalSettingsSections'
+import type { DatosNotificaciones, DatosPagos } from '@/app/admin/_polar/datos/ajustes'
 
-const SectionContent = ({
-  section,
-  organization,
-  readOnly,
-}: {
-  section: SettingsSectionSlug
-  organization: schemas['Organization']
-  readOnly: boolean
-}) => {
-  switch (section) {
+type Props =
+  | { section: 'payments'; pagos: DatosPagos }
+  | { section: 'customer-notifications'; notificaciones: DatosNotificaciones }
+
+const SectionContent = (props: Props) => {
+  switch (props.section) {
     case 'payments':
-      return (
-        <OrganizationPaymentSettings
-          organization={organization}
-          readOnly={readOnly}
-        />
-      )
-    case 'subscriptions':
-      return (
-        <OrganizationSubscriptionSettings
-          organization={organization}
-          readOnly={readOnly}
-        />
-      )
-    case 'disputes':
-      return (
-        <OrganizationDisputeSettings
-          organization={organization}
-          readOnly={readOnly}
-        />
-      )
-    case 'customer-portal':
-      return (
-        <OrganizationCustomerPortalSettings
-          organization={organization}
-          readOnly={readOnly}
-        />
-      )
+      return <OrganizationPaymentSettings datos={props.pagos} />
     case 'customer-notifications':
-      return (
-        <>
-          {CONFIG.IS_SANDBOX && (
-            <Alert
-              variant="warning"
-              title="Sandbox notice"
-              description={
-                <>
-                  In sandbox, customer-facing emails are only delivered to{' '}
-                  <Link
-                    href={`/dashboard/${organization.slug}/settings/members`}
-                    className="font-medium underline hover:no-underline"
-                  >
-                    members of your organization
-                  </Link>
-                  . Sub-addressing aliases like{' '}
-                  <strong className="font-medium">you+test@example.com</strong>{' '}
-                  are accepted.
-                </>
-              }
-            />
-          )}
-          <OrganizationCustomerEmailSettings
-            organization={organization}
-            readOnly={readOnly}
-          />
-        </>
-      )
-    case 'embedding':
-      return (
-        <OrganizationEmbedSettings
-          organization={organization}
-          readOnly={readOnly}
-        />
-      )
-    case 'domains':
-      return readOnly ? (
-        <AccessRestricted message="You don't have permission to manage domains for this organization." />
+      return props.notificaciones.ok ? (
+        <OrganizationCustomerEmailSettings emisor={props.notificaciones.emisor} waSolo={props.notificaciones.waSolo} />
       ) : (
-        <OrganizationDomainsSettings organization={organization} />
+        <Box flexDirection="column" rowGap="s">
+          <Alert variant="danger" title="No pude leer cómo le llega el recibo" description={props.notificaciones.error} />
+          <ReportarASoporte error={props.notificaciones.error} />
+        </Box>
       )
-    case 'access-tokens':
-      return readOnly ? (
-        <AccessRestricted message="You don't have permission to manage access tokens for this organization. Ask an admin if you need access." />
-      ) : (
-        <OrganizationAccessTokensSettings organization={organization} />
-      )
-    case 'features':
-      return (
-        <>
-          {CONFIG.IS_SANDBOX && (
-            <Alert
-              title="Preview features in sandbox"
-              description={
-                <>
-                  To enable paid access to preview features in sandbox, go to{' '}
-                  <Link
-                    href={`/dashboard/${organization.slug}/settings/billing`}
-                    className="font-medium underline hover:no-underline"
-                  >
-                    Settings → Billing
-                  </Link>
-                  .
-                </>
-              }
-            />
-          )}
-          <FeatureSettings organization={organization} readOnly={readOnly} />
-        </>
-      )
-    case 'notifications':
-      return <NotificationsSettings organization={organization} />
-    case 'profile':
-      return <ProfileSettings />
-    case 'security':
-      return <SecuritySettings />
-    case 'developer':
-      return <DeveloperSettings />
   }
 }
 
-export default function SettingsSectionPage({
-  organization,
-  section,
-}: {
-  organization: schemas['Organization']
-  section: SettingsSectionSlug
-}) {
-  const canManageOrganization = useHasPermission(
-    organization.id,
-    'organization:manage',
-  )
-  const managedAsCode = useIsManagedAsCode(organization.id)
-
+export default function SettingsSectionPage(props: Props) {
+  const section: SettingsSectionSlug = props.section
   return (
-    <DashboardBody
-      wrapperClassName="max-w-(--breakpoint-md)!"
-      title={SETTINGS_SECTIONS[section].title}
-    >
+    <DashboardBody wrapperClassName="max-w-(--breakpoint-md)!" title={SETTINGS_SECTIONS[section].title}>
       <Box flexDirection="column" rowGap="2xl">
-        {section === 'payments' && managedAsCode && (
-          <Box>
-            <ManagedAsCodeBadge />
-          </Box>
-        )}
-        <SectionContent
-          section={section}
-          organization={organization}
-          readOnly={!canManageOrganization}
-        />
+        <SectionContent {...props} />
       </Box>
     </DashboardBody>
   )

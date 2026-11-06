@@ -1,180 +1,59 @@
 'use client'
 
 // Copiado de polarsource/polar (Apache-2.0), clients/apps/web/src/components/Subscriptions/SubscriptionInvoicePreview.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo: «Next invoice» es el primer mes que falta completar de la historia mes a mes (`proximo`): si ya venció, «Lo que debe»;
+// si no, «Próximo cobro», por lo que falta de ese mes. Una de la pasarela no tiene esto (la pasarela no le cuenta a MaKo cuánto
+// va a cobrar): si su renovación falló, se dice con su motivo.
 
-import {
-  InvoicePreview,
-  type InvoiceLineItem,
-} from '@/app/admin/_polar/web/Orders/InvoicePreview'
+import { InvoicePreview } from '@/app/admin/_polar/web/Orders/InvoicePreview'
 import { OrderSection } from '@/app/admin/_polar/web/Orders/OrderSection'
-import { useProduct } from '@/app/admin/_polar/datos/polar-tipos'
-import { useSubscriptionChargePreview } from '@/app/admin/_polar/datos/polar-tipos'
-import { isFreePrice, isSeatBasedPrice } from '@/app/admin/_polar/web/utils/product'
-import {
-  billsUsageOnMeterCycle,
-  formatBilledMeterUnits,
-} from '@/app/admin/_polar/web/utils/subscription'
-import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
+import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
-import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
-import { useMemo } from 'react'
+import { fechaCorta } from './SubscriptionStatus'
 
-const SubscriptionInvoicePreview = ({
-  subscription,
-}: {
-  subscription: schemas['Subscription']
-}) => {
-  const isTrialing = subscription.status === 'trialing'
-  const isActive = subscription.status === 'active'
-  const isPaused = subscription.status === 'paused'
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
-  const isCancelingAtPeriodEnd =
-    subscription.cancel_at_period_end && !subscription.ended_at
-
-  const isPausing = subscription.pause_at_period_end || isPaused
-  const isResumingCharge =
-    isPausing && subscription.resumes_at !== null && !isCancelingAtPeriodEnd
-  const isPausingIndefinitely = isPausing && !subscription.resumes_at
-
-  // The query and the render below share one gate: a narrower `enabled` leaves
-  // states that render the preview without ever fetching it.
-  const showsCharge =
-    (isActive || isTrialing || isResumingCharge) && !isPausingIndefinitely
-
-  const { data: chargePreview } = useSubscriptionChargePreview(
-    subscription.id,
-    { enabled: showsCharge },
-  )
-
-  const productId = useMemo(
-    () => subscription.pending_update?.product_id ?? subscription.product_id,
-    [subscription],
-  )
-  const { data: product } = useProduct(productId)
-
-  const seats = useMemo(
-    () => subscription.pending_update?.seats ?? subscription.seats,
-    [subscription],
-  )
-
-  const isFreeProduct = subscription.prices.some(isFreePrice)
-  // Usage settled on an earlier meter cycle is shown by SubscriptionUsageChargePreview
-  const usageOnMeterCycle = billsUsageOnMeterCycle(subscription)
-  const hasMeters = subscription.meters.length > 0 && !usageOnMeterCycle
-
-  if (!showsCharge || !chargePreview) {
+const SubscriptionInvoicePreview = ({ subscription: s, hoy }: { subscription: SuscripcionVenta; hoy: string }) => {
+  if (s.renovacionFallida) {
+    return (
+      <Box flexDirection="column" borderTopWidth={1} borderStyle="solid" borderColor="border-primary" paddingTop="4xl">
+        <OrderSection title="Falló la renovación">
+          <Text color="danger">{s.renovacionFallida}</Text>
+        </OrderSection>
+      </Box>
+    )
+  }
+  const p = s.proximo
+  if (!p || s.estado === 'canceled') {
     return null
   }
-
-  const hasNextInvoice =
-    !isFreeProduct ||
-    hasMeters ||
-    chargePreview.base_amount > 0 ||
-    chargePreview.prorations.length > 0
-  if (!hasNextInvoice) {
+  const monto = p.faltaUsd ?? s.mensualidadUsd
+  if (monto == null) {
     return null
   }
-
-  if (
-    isCancelingAtPeriodEnd &&
-    usageOnMeterCycle &&
-    chargePreview.prorations.length === 0
-  ) {
-    return null
-  }
-
-  const isSeatBasedProduct = product?.prices.some(
-    (price) =>
-      price.price_currency === subscription.currency && isSeatBasedPrice(price),
-  )
-
-  const productName = product?.name ?? subscription.product.name
-  const baseLabel =
-    isSeatBasedProduct && seats != null
-      ? `${productName} (${seats} ${seats === 1 ? 'seat' : 'seats'})`
-      : productName
-
-  const items: InvoiceLineItem[] = [
-    { id: 'base', label: baseLabel, amount: chargePreview.base_amount },
-    ...(chargePreview.prorations ?? []).map((proration, index) => ({
-      id: `proration-${index}`,
-      label: proration.label,
-      amount: proration.amount,
-    })),
-    ...(hasMeters ? subscription.meters : []).map((meter) => ({
-      id: meter.id,
-      label: meter.meter.name,
-      description: formatBilledMeterUnits(meter),
-      amount: meter.amount,
-    })),
-  ]
-
-  const chargeDate = isTrialing
-    ? subscription.trial_end
-    : isResumingCharge
-      ? subscription.resumes_at
-      : subscription.current_period_end
-
-  let title = 'Upcoming renewal'
-  let dateLabel = 'Next invoice'
-  if (isTrialing) {
-    title = 'First charge after trial'
-    dateLabel = 'Trial ends'
-  } else if (isCancelingAtPeriodEnd) {
-    title = 'Final charge'
-    dateLabel = 'Subscription ends'
-  } else if (isResumingCharge) {
-    title = 'Charge on resume'
-    dateLabel = 'Resumes'
-  }
-
-  const note = isCancelingAtPeriodEnd
-    ? `This will be the final charge when the subscription ends.${
-        hasMeters
-          ? ' Final amount may vary based on usage until the end of the billing period.'
-          : ''
-      }`
-    : hasMeters
-      ? 'Final charges may vary based on usage until the end of the billing period.'
-      : null
-
+  const vencido = p.vencido || p.vence <= hoy
+  const titulo = vencido ? 'Lo que debe' : 'Próximo cobro'
+  const mes = `${MESES[Number(p.mes.slice(5, 7)) - 1] ?? p.mes} ${p.mes.slice(0, 4)}`
+  const items = vencido && s.deudaUsd > monto
+    ? [{ id: 'deuda', label: 'Los meses vencidos', description: `desde ${mes}`, amount: s.deudaUsd }]
+    : [{ id: p.mes, label: `Mensualidad de ${mes}`, description: p.faltaUsd != null && s.mensualidadUsd != null && p.faltaUsd < s.mensualidadUsd ? 'Lo que falta de ese mes' : null, amount: monto }]
+  const total = items.reduce((t, i) => t + i.amount, 0)
   return (
-    <Box
-      flexDirection="column"
-      borderTopWidth={1}
-      borderStyle="solid"
-      borderColor="border-primary"
-      paddingTop="4xl"
-    >
+    <Box flexDirection="column" borderTopWidth={1} borderStyle="solid" borderColor="border-primary" paddingTop="4xl">
       <OrderSection
-        title={title}
+        title={titulo}
         description={
           <Box alignItems="center" columnGap="s">
-            <Text color="muted">{dateLabel}</Text>
-            {chargeDate && (
-              <>
-                <Text color="muted">·</Text>
-                <Text color="muted">
-                  <FormattedDateTime dateStyle="medium" datetime={chargeDate} />
-                </Text>
-              </>
-            )}
+            <Text color="muted">{vencido ? 'Venció' : 'Vence'}</Text>
+            <Text color="muted">·</Text>
+            <Text color="muted">{fechaCorta(p.vence, hoy)}</Text>
           </Box>
         }
       >
-        <InvoicePreview
-          currency={subscription.currency}
-          items={items}
-          subtotalAmount={chargePreview.subtotal_amount}
-          discountAmount={chargePreview.discount_amount}
-          netAmount={chargePreview.net_amount}
-          taxAmount={chargePreview.tax_amount}
-          totalAmount={chargePreview.total_amount}
-          appliedBalanceAmount={chargePreview.applied_balance_amount}
-          dueAmount={chargePreview.due_amount}
-        />
-        {note && <Text color="muted">{note}</Text>}
+        <InvoicePreview currency="USD" items={items} subtotalAmount={total} totalAmount={total} />
+        {s.fuente === 'manual' && <Text color="muted">Se cobra a mano: entra cuando se registra el pago en el CRM.</Text>}
       </OrderSection>
     </Box>
   )
