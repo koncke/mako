@@ -139,6 +139,12 @@ Lo que MaKo necesita y Studio no tiene. No se inventó nada; se dice dónde qued
 
 ## Lo que falta
 
+> ⚠️ **Antes de la tanda 4, una pregunta (6/11, ~02:20 UTC).** En `main` entró `ab89fd161` (cuenta claude3): capturas del panel
+> de **Polar** en `docs/admin/referencia-polar/`, con un LEEME que las llama «la referencia de la tab Admin» (una sola barra,
+> sin barra superior, Inter, Overview de Polar…). El encargo de esta sesión es Studio Admin, sin mezclar otra fuente. No hay
+> otra decisión escrita. Si Martín cambió la fuente a Polar, las tandas 4 y 5 no se hacen con Studio y lo ya subido se rehace;
+> si no, se sigue como está abajo.
+
 - **Tanda 4: Activity** = `analytics`, con sus pestañas, sobre `vistaDeActividad`.
 - **Tanda 5: Errors** = `infrastructure`: un grupo por negocio, salud, filtros por faceta, sobre `vistaDeErrores`.
 - Cada una: capturas lado a lado en `docs/admin/copia/` y borrar su pantalla vieja.
