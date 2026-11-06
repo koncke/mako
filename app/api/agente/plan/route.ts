@@ -72,7 +72,8 @@ export async function GET(req: NextRequest) {
         });
       }
       // Cliente: su board simple. Las "categorías" son sus proyectos.
-      const [tareas, cats] = await Promise.all([listTareas(), listCategorias()]);
+      // Sólo las del PLAN (#507), como /plan y como la API de MaKo.
+      const [tareas, cats] = await Promise.all([listTareas({ soloDelPlan: true }), listCategorias()]);
       const nombreCat = new Map(cats.map((c) => [c.id, c.nombre]));
       return NextResponse.json({
         ok: true,

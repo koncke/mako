@@ -58,7 +58,9 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   let tareas: Tarea[] = [];
   let categorias: Categoria[] = [];
   let dbDown = false;
-  try { tareas = await listTareas(); } catch { dbDown = true; }
+  // SÓLO LAS DEL PLAN (6/11/2026, #507): `experimento_tareas` también guarda lo que propuso una Retro
+  // y los pasos de un experimento, que tienen su propia pantalla. El cliente veía las tres mezcladas.
+  try { tareas = await listTareas({ soloDelPlan: true }); } catch { dbDown = true; }
   try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
 
   // G4: cliente nuevo con el board en blanco → sembrarle su plan de arranque
@@ -68,12 +70,12 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   if (!dbDown && categorias.length === 0 && tareas.length === 0) {
     try {
       await seedTodoBoardSiVacio();
-      [tareas, categorias] = await Promise.all([listTareas(), listCategorias()]);
+      [tareas, categorias] = await Promise.all([listTareas({ soloDelPlan: true }), listCategorias()]);
     } catch (e) { console.error('[plan] seed board por defecto', e); }
   } else if (!dbDown && tareas.length) {
     // El board ya existe: cerrar solas las tarjetas del arranque cuyo trabajo ya
     // está hecho (conectó Meta, cargó el funnel…). Sin candidatas no consulta nada.
-    try { if (await autocompletarPorSenales(tareas)) tareas = await listTareas(); }
+    try { if (await autocompletarPorSenales(tareas)) tareas = await listTareas({ soloDelPlan: true }); }
     catch (e) { console.error('[plan] autocompletar por señales', e); }
   }
 

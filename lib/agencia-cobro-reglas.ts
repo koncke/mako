@@ -293,6 +293,32 @@ export function subeEnElActo(p: { diferenciaCobrada: boolean; algoPagado: boolea
 }
 
 /**
+ * ¿SE PUEDE TOCAR ESTA CUENTA COMO «CLIENTE DE UNA AGENCIA»? (6/11/2026, #495)
+ *
+ * Lo que valida `darDeBajaClienteDeAgencia` y `cambiarPlanDeCliente` antes de cancelar una suscripción, anular un link o
+ * cambiarle el plan a alguien. Hasta hoy lo único que había entre una agencia y la cuenta de la PLATAFORMA era que no
+ * existiera una fila suya en `agencia_clientes`: con esa fila puesta (un script, una semilla, un camino nuevo que acepte un
+ * ws que ya existe), `darDeBajaClienteDeAgencia` llegaba a `cancelarSuscripcionCobro` y `anularCobro` sobre los cobros de
+ * la plataforma, y la dejaba pausada con el corte `sin-agencia`. El alta de hoy siempre crea un workspace NUEVO
+ * (`abrirCuentaDePartner`), así que no es alcanzable desde la app — pero el daño es la plataforma entera, y lo que lo
+ * evitaba era una ausencia, no una guarda.
+ *
+ * ⚠️ `plataformaWs` sale de `wsSuperAdmin()`, que CAE A 9 si no encuentra la fila `capa = 'superadmin'`. Por eso el que
+ *    pregunta pasa el número ya resuelto: acá no se adivina, y un 9 de más es un falso positivo que no cobra de menos.
+ * ⚠️ NO reemplaza la verificación de que la fila sea de ESA agencia: es la guarda de ADENTRO, la que vale aunque la fila
+ *    exista. Las dos corren.
+ */
+export function clienteDeAgenciaTocable(p: { agenciaWs: number; clienteWs: number; plataformaWs: number }): { ok: true } | { ok: false; error: string } {
+  const { agenciaWs, clienteWs, plataformaWs } = p;
+  if (!Number.isInteger(agenciaWs) || !Number.isInteger(clienteWs) || agenciaWs <= 0 || clienteWs <= 0) return { ok: false, error: 'Cuenta inválida.' };
+  // Una agencia no se da de baja a sí misma por este camino (su baja es otra cosa).
+  if (agenciaWs === clienteWs) return { ok: false, error: 'Cuenta inválida.' };
+  // La plataforma no es cliente de nadie, ni siquiera con la fila puesta.
+  if (clienteWs === plataformaWs) return { ok: false, error: 'Esa cuenta no es de tu agencia.' };
+  return { ok: true };
+}
+
+/**
  * ¿Ya entró el primer pago a precio de Pro después de pedir la subida? (los pagos de sus suscripciones anotadas en Pro; `alcanza`:
  * el pago es de al menos el precio de Pro en su moneda, porque una pasarela que no tomó el monto nuevo cobra el de Esencial).
  */
