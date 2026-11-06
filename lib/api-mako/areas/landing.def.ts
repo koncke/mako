@@ -527,7 +527,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
       { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
@@ -535,7 +535,11 @@ export const DEFS: readonly OperacionDef[] = [
       // Los valores salen de la misma lista que la pantalla (lib/landing-conversion.ts), más «mako» para no elegir.
       { nombre: 'conversion', rotulo: 'Qué hace la gente', tipo: 'string', enum: [...CONVERSIONES, 'mako'], descripcion: 'Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está.' },
       // La página de GRACIAS (6/11/2026): la pantalla la marca en el paso 2 del Pixel y la API no podía (docs/relevo/api-mako.md).
-      { nombre: 'gracias', rotulo: 'Página de gracias', tipo: 'boolean', descripcion: 'true = es la página de gracias: quien llega ya compró y MaKo lo pasa a Ganado en los productos de esta página (y le manda el curso si su funnel lo invita). false = deja de serlo. Sin este parámetro queda como está.' },
+      // ⚠️ CORTA a propósito: el turno de la app tiene 12.000 caracteres de herramientas y con la larga (~260) una frase de la
+      // landing dejaba de traer `configurar_formulario_landing` (tests/ops-center-clasificador-app.test.ts). Para que entre con aire
+      // se sacó de la descripción de arriba «La URL es un dato exacto: deja un link…» (el link lo pone el código: la tarjeta). Lo
+      // que hace va en el resumen de la tarjeta, que no cuenta.
+      { nombre: 'gracias', rotulo: 'Página de gracias', tipo: 'boolean', descripcion: 'true = página de gracias (quien llega pasa a Ganado).' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
     escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos, la conversión y si es la página de gracias de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',

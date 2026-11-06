@@ -11981,7 +11981,7 @@ curl -L \
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
 
 - **Ruta por operación:** `POST /api/v1/landing/guardar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -12000,7 +12000,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 | `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
 | `productos` | string[] | no | Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están. |
 | `conversion` | string (agenda \\| compra \\| datos \\| registro \\| whatsapp \\| ninguna \\| mako) | no | Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está. |
-| `gracias` | boolean | no | true = es la página de gracias: quien llega ya compró y MaKo lo pasa a Ganado en los productos de esta página (y le manda el curso si su funnel lo invita). false = deja de serlo. Sin este parámetro queda como está. |
+| `gracias` | boolean | no | true = página de gracias (quien llega pasa a Ganado). |
 
 ```bash
 curl -L \

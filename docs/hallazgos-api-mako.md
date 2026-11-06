@@ -3157,4 +3157,10 @@ Pixel). Va como los otros dos: ausente no la toca (`conLanding`, lib/landing-con
 —quien llegue ahí pasa a Ganado en sus productos y recibe el curso si su funnel lo invita— porque la visita no prueba la compra
 (lib/landing-gracias.ts) y el «sí» se da leyéndolo; si la página todavía no tiene productos, lo dice. En /mako/revisar un booleano es
 un casillero: apagado y sin venir en la propuesta va `null`, que la validación descarta, así que editar los productos de una
-propuesta no desmarca la de gracias. **Vive en:** lib/api-mako/areas/landing.def.ts y landing.run.ts · tests/api-mako-acciones-1710.test.ts
+propuesta no desmarca la de gracias.
+⚠️ **Y un parámetro nuevo de una operación GRANDE también le saca el lugar a otra** (el presupuesto de 12.000 del turno de la app):
+con la descripción larga del parámetro (~260 caracteres), «cambia el formulario de la landing: agrega el teléfono» dejaba de traer
+`configurar_formulario_landing` y el veredicto dio rojo en tests/ops-center-clasificador-app.test.ts. Va una descripción de una
+línea y se le sacó a la de la operación una frase que el código ya cumple (el link de la tarjeta): +18 caracteres en total (2057 →
+2075). La regla ya estaba escrita para las operaciones nuevas; vale igual para un parámetro: se mide antes de entregar.
+**Vive en:** lib/api-mako/areas/landing.def.ts y landing.run.ts · tests/api-mako-acciones-1710.test.ts
