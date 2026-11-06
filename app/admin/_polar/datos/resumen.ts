@@ -37,7 +37,7 @@ export const aCentavos = (usd: number) => Math.round(usd * 100)
 
 // ── Los links viejos (/admin?tab=…) ────────────────────────────────────────────────────────────────────────────────
 // /admin?tab=… viaja en mails ya mandados, en marcadores y en otras pantallas (lib/pedidos-ingreso-reglas.ts,
-// `destinoDeCustomers` de app/admin/pestanas-reglas.ts). La portada lo manda a su sección nueva ANTES de leer nada.
+// `destinoDeCustomers` de app/customers/destino.ts). La portada lo manda a su sección nueva ANTES de leer nada.
 
 export const ID_WS = /^[1-9]\d{0,11}$/
 

@@ -32,8 +32,8 @@ del pie: el perfil y el modo oscuro viven en la barra de MaKo, que es UNA.
 
 | Sección de Admin | En Polar (`…/dashboard/[organization]/(header)/`) | Qué es en MaKo |
 |---|---|---|
-| Overview | `(home)` | La portada: ingresos, actividad, los que más pagan, los en riesgo y lo que espera a Martín |
-| Customers | `customers` (Overview, Top Customers, At Risk, Cost Drivers) y la ficha `customers/[customerId]` (Overview, Usage, Events, Members) | Un customer es un NEGOCIO. Members es el ÚNICO lugar de las personas |
+| Overview | `(home)` | La portada: las seis tarjetas de Polar (ingresos, actividad, «Por cobrar» en lugar del saldo; los que más pagan, los en riesgo y el margen bruto), «Metrics» y lo que espera a Martín |
+| Customers | `customers` (Overview, Top Customers, At Risk, Cost Drivers) y la ficha `customers/[customerId]` (Overview, Usage, Events, Members) | Un customer es un NEGOCIO. Members es el ÚNICO lugar de las personas. «Events» lleva a Analytics › Events filtrado por el negocio, como en Polar |
 | Analytics | `analytics` (Metrics, Events, Costs) | MRR e ingresos mes a mes; todo lo que pasa (pagos, lo que hizo MaKo, errores y reportes, las sesiones de los agentes); el gasto de IA |
 | Sales | `sales` (Orders, Subscriptions, Checkouts, Disputes) | Cada pago con su recibo; las suscripciones con su historia; los cobros pendientes; los contracargos |
 | Products | `products` (Catalogue, Checkout Links) | Los planes; «Vender un plan» |

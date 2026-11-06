@@ -1,5 +1,8 @@
 # Relevo — Admin con el código de Studio Admin (nube, 6/11/2026)
 
+> ⛔ **REEMPLAZADO el 6/11/2026.** Martín rechazó la copia de Studio Admin y Admin se rehízo como copia del dashboard de Polar:
+> el relevo vigente es [nube-admin-polar.md](nube-admin-polar.md). Lo de abajo es historia; su código se borró.
+
 > Lo escribe la sesión de la nube que hace la copia (cuenta `nube`, sesión `cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d`). Se
 > reescribe en cada tanda. El pedido de Martín, textual, está en la bitácora del área (app/admin/dev/admin/bitacora.ts); la
 > fuente y por qué, en [docs/investigacion-admin.md](../investigacion-admin.md). El relevo de las cuentas (que se conservan):
