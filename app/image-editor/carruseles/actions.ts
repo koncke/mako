@@ -1,7 +1,8 @@
 'use server';
 
 // =============================================================================
-// El explorador de carruseles del Image Editor: guardar, búsquedas guardadas, el resumen de la portada y «Hacer el mío»
+// El explorador de carruseles del Image Editor: guardar, búsquedas guardadas y el resumen de la portada («Editar» va por
+// app/api/image-editor/carruseles/replicar, que se arma en vivo)
 // =============================================================================
 // La misma puerta que el editor (`puerta`, lib/image-editor/server.ts: sesión + la tab Image en su capa + un negocio).
 // Lo que escriben es del NEGOCIO (sus referencias), con compare-and-set (lib/carruseles/explorar-servidor.ts). Leer y
@@ -11,7 +12,6 @@
 
 import { puerta } from '@/lib/image-editor/server';
 import { borrarBusqueda, guardarBusqueda, guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
-import { crearCarruselDesdeReferencia } from '@/lib/carruseles/crear-servidor';
 import { bibliotecaParaEditar, cambiarBiblioteca, puedeEditarBiblioteca, type BibliotecaParaEditar } from '@/lib/carruseles/biblioteca-servidor';
 import type { CambioBiblioteca } from '@/lib/carruseles/biblioteca';
 import { ordenarCarruseles, tendenciasDeLaSemana, type BusquedaGuardada, type Carrusel, type PasoExplorador } from '@/lib/carruseles/explorar';
@@ -24,17 +24,6 @@ export async function guardarCarruselAction(id: number, guardar: boolean): Promi
   if ((await puerta()) instanceof Response) return NO_ENTRA;
   const r = await guardarCarrusel(Number(id), !!guardar);
   return r.ok ? { ok: true, ids: r.valor.map((g) => g.id) } : r;
-}
-
-/**
- * «Hacer el mío»: crea un diseño con la ESTRUCTURA del carrusel `id` (de las cuentas que sigue el negocio) y el tipo y las
- * láminas que eligió la persona en la confirmación. La referencia se vuelve a leer en el server (lib/carruseles/crear-servidor.ts).
- */
-export async function crearCarruselDesdeReferenciaAction(id: number, tipo: string, laminas: number): Promise<{ ok: true; id: string } | Mal> {
-  const p = await puerta();
-  if (p instanceof Response) return NO_ENTRA;
-  const r = await crearCarruselDesdeReferencia(p.ws, p.quien, Number(id), tipo, Number(laminas));
-  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }
 
 /** Guarda la búsqueda de ahora con un nombre. */

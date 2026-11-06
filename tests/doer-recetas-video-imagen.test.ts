@@ -85,7 +85,9 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
   // (el tipo, si la referencia no encaja con ninguno) lo pide su propio `preparar`.
   // La biblioteca de ejemplos (cambiar_biblioteca_carruseles) la edita la plataforma: suma o saca una cuenta o un tema y
   // no toca ningún diseño; lo que falta (el @, el motivo) lo pide su propio `preparar`.
-  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles']);
+  // «Editar» un ejemplo (editar_ejemplo_carrusel, 6/11/2026) escribe los textos con la IA del negocio leyendo él mismo el
+  // negocio (lib/carruseles/replica-servidor.ts): el modelo del chat sólo pasa el id y, si lo dijo el dueño, el pedido.
+  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)
