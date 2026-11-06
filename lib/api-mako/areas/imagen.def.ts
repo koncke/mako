@@ -15,7 +15,7 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
+import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
 /** La biblioteca de ejemplos la edita el admin del negocio de la plataforma (lib/carruseles/biblioteca-servidor.ts). */
@@ -114,13 +114,15 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_carruseles', area: 'imagen', tipo: 'lectura',
     titulo: 'Buscar carruseles que funcionan',
-    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces lo que suele hacer su cuenta). Busca por tema o por @cuenta. Son referencias: no se copian.',
+    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces lo que suele hacer su cuenta). Busca por tema o por @cuenta. Con que=anuncios, los anuncios que Spy trajo de esas cuentas (con sus días al aire). Con cta, sólo los que piden comentar una palabra.',
     parametros: [
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del tema, o un @cuenta.' },
       { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo que suele hacer su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
       { nombre: 'periodo', tipo: 'string', enum: PERIODOS_CARRUSEL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
-      { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion o traidos.' },
-      { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos, semana (lo de esta semana) o guardados.' },
+      { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion, traidos o aire (los anuncios que más días llevan).' },
+      { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos o guardados (semana = publicados en los últimos 7 días).' },
+      { nombre: 'que', tipo: 'string', enum: QUE_VER_CARRUSEL.map((x) => x.value), descripcion: 'carruseles (por defecto) o anuncios.' },
+      { nombre: 'cta', tipo: 'boolean', descripcion: 'true = sólo los que piden comentar (o mandar por mensaje) una palabra, los que publican los dueños de negocio.' },
       { nombre: 'origen', tipo: 'string', enum: ORIGENES_CARRUSEL.map((x) => x.value), descripcion: 'cuentas (las que sigue), biblioteca (los ejemplos) o todos.' },
       { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántos devolver (10 por defecto).' },
     ],
@@ -173,5 +175,19 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'gratis', gating: GATING_PLATAFORMA,
     reversible: true,
     escribe: 'carruseles_biblioteca_cuentas / _temas (y borra las publicaciones de una cuenta que sale)',
+  },
+  // ── «Editar» un ejemplo (6/11/2026): al FINAL del área (AGENTS.md: una operación nueva no le saca el lugar a otra). La IA del
+  //    negocio replica el diseño con sus textos (lib/carruseles/replica-servidor.ts); sin su IA, sale con guías. ──
+  {
+    id: 'editar_ejemplo_carrusel', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Tu versión editable de un ejemplo',
+    descripcion: 'Arma un diseño EDITABLE copiando el diseño de un ejemplo de buscar_carruseles (dónde va cada texto, colores, cuántas láminas) con los textos escritos para el negocio por su propia IA, y su foto donde había una persona. Sus palabras no se copian. Tarda hasta 2 minutos.',
+    parametros: [
+      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id que dio buscar_carruseles (negativo = de la biblioteca; también un anuncio).' },
+      { nombre: 'pedido', tipo: 'string', max: 400, descripcion: 'Lo que el dueño quiere en especial («sobre mi curso de X»), si lo dijo.' },
+    ],
+    canales: SIN_HTTP, costo: 'ia', gating: GATING,
+    reversible: true,
+    escribe: 'insert en image_disenos (y su foto en image_subidos)',
   },
 ];

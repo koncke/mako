@@ -6,9 +6,10 @@
 // diseños detrás de la «←» y, en el centro, las plantillas de «Nuevo diseño» (./plantillas-crear.ts).
 // Sin onboarding: la plantilla es el arranque (29/10/2026).
 //
-// `?ver=carruseles` (4/11/2026): en el centro, «Carruseles que funcionan» (./carruseles/ExplorarCarruseles.tsx), las
-// publicaciones de las cuentas que el negocio sigue en Competitors Spy. Es una VISTA de la misma pantalla, no una pestaña
-// (Create no tiene pestañas arriba). Se lee en el server, con los filtros de la URL.
+// `?ver=carruseles` (4/11/2026; rehecha el 6/11/2026): los carruseles (y los anuncios) de ejemplo para elegir uno y editarlo
+// (./carruseles/ExplorarCarruseles.tsx), a pantalla completa y SIN la tarjeta del chat de MaKo (Martín: «La barra lateral de
+// MaKo no se muestra salvo mientras se edita»). Es una VISTA de la misma tab, no una pestaña. Se lee en el server, con los
+// filtros de la URL.
 
 import { getWorkspaceActual } from '@/lib/workspace';
 import { Pagina } from '@/app/_ui';
@@ -43,6 +44,7 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
               carruseles: explorador.carruseles, guardados: explorador.guardados.map((g) => g.id), busquedas: explorador.busquedas,
               paso: explorador.paso, frase: explorador.frase, accion: explorador.accion,
               ejemplos: explorador.ejemplos, avisoBiblioteca: explorador.avisoBiblioteca, puedeEditarBiblioteca: editaBiblioteca,
+              anuncios: explorador.anuncios,
             },
             filtros: filtrosDeQuery(q),
           }
