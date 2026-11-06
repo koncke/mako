@@ -4,10 +4,12 @@
 //
 // LA VISTA de Admin › Analytics › Costs, PURA (todo por props: se captura con datos de ejemplo). La pantalla de Polar con
 // sus dos pestañas (Overview y LLM) y sus secciones en el mismo orden, con el gasto de IA de MaKo (`datos/costos.ts`):
-//   · Overview: el gráfico del gasto por día; «Breakdown» por feature (lo que en Polar es el tipo de evento); «Changes»
-//     contra el mes anterior; «By Customer» por negocio, SÓLO si el corte es real (si no, se dice por qué);
-//   · LLM: «By Model» y «By Vendor». El «By Customer» de esta pestaña se sacó: en MaKo todo costo es de IA, así que sería
-//     la misma lista dos veces.
+//   · Overview: el gráfico del gasto por día; «Breakdown» (Desglose) por feature (lo que en Polar es el tipo de evento);
+//     «Changes» (Cambios) contra el mes anterior;
+//   · LLM: «By Model» (Por modelo) y «By Vendor» (Por proveedor).
+// Los dos «By Customer» de Polar se sacaron (6/11/2026): el gasto de IA de cada negocio vive en UN lugar, Customers › Cost
+// Drivers, donde lo puso Martín. Costs no lleva un link ahí: Cost Drivers mira el mes en curso y Costs cualquier mes, así que
+// desde un mes viejo el link llevaría a otra cosa. Los títulos de las secciones, en español (no son nombres de la barra).
 // Se sacaron: «Anomalies» (los eventos por encima del p99 de su tipo: MaKo guarda el gasto agregado, no cada llamada con su
 // costo comparable), la cantidad de clientes de cada modelo y el detalle de un tipo (`costs/[spanId]`: no hay llamadas que
 // listar). En vez del rango de días de Polar, el mes (`resumenDelPeriodo` lee un mes), y el selector va a la URL (`?mes=`).
@@ -20,7 +22,6 @@ import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
   Alert,
-  Avatar,
   Select,
   SelectContent,
   SelectItem,
@@ -39,7 +40,6 @@ import {
   ChartNoAxesColumn as BarChart2,
   Minus,
   TrendingUp,
-  Users,
 } from '@/app/admin/_polar/orbit/icons'
 import { useRouter } from '@/app/_ui/Link'
 import { useMemo } from 'react'
@@ -113,6 +113,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
         <div className="mb-8">
           <Alert
             variant="warning"
+            soporte
             title="No pude leer todo"
             description={vista.avisos.join(' · ')}
           />
@@ -134,7 +135,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
           {/* Where money is going */}
           <section>
             <SectionHeader
-              title="Breakdown"
+              title="Desglose"
               description="Cada función de MaKo, por lo que gastó este mes."
             />
             {vista.porFeature.length === 0 ? (
@@ -186,7 +187,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
           {vista.previo && (
             <section>
               <SectionHeader
-                title="Changes"
+                title="Cambios"
                 description="Lo que más cambió contra el mes anterior."
               />
               {vista.cambios.length === 0 ? (
@@ -247,66 +248,6 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
             </section>
           )}
 
-          {/* By Customer */}
-          <section>
-            <SectionHeader
-              title="By Customer"
-              description="Los negocios que más gastaron este mes."
-            />
-            {vista.porNegocio === null ? (
-              <EmptyState
-                icon={<Users />}
-                title="Este mes no se puede repartir por negocio"
-                description="El gasto de Claude con la clave de MaKo no guarda de qué negocio vino: repartirlo diría que un negocio gastó lo de todos."
-              />
-            ) : vista.porNegocio.length === 0 ? (
-              <EmptyState
-                icon={<Users />}
-                title="Sin gasto por negocio"
-                description="Este mes ningún negocio gastó en IA con las claves de MaKo."
-              />
-            ) : (
-              <RankedList>
-                {vista.porNegocio.map((r, i) => (
-                  <RankedListItem
-                    key={r.clave}
-                    itemKey={r.clave}
-                    rank={i + 1}
-                    share={r.share}
-                    onSelect={
-                      r.ws ? () => router.push(`/admin/customers/${r.ws}`) : undefined
-                    }
-                    label={
-                      <>
-                        <Avatar
-                          name={r.label}
-                          avatar_url={null}
-                          className="h-9 w-9 shrink-0 text-xs"
-                        />
-                        <Box flexDirection="column" flex={1} minWidth={0}>
-                          <Text variant="title" truncate>
-                            {r.label}
-                          </Text>
-                        </Box>
-                      </>
-                    }
-                    stats={
-                      <Text as="span" variant="caption" color="muted" tabularNums>
-                        {r.llamadas.toLocaleString('es-AR')} llamadas
-                      </Text>
-                    }
-                    value={
-                      <Box width={96} justifyContent="end">
-                        <Text as="span" variant="default" tabularNums>
-                          {fmt(r.costo, 'usd')}
-                        </Text>
-                      </Box>
-                    }
-                  />
-                ))}
-              </RankedList>
-            )}
-          </section>
         </div>
       </TabsContent>
 
@@ -314,7 +255,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
         <div className="flex flex-col gap-y-10">
           <section>
             <SectionHeader
-              title="By Model"
+              title="Por modelo"
               description="Los modelos de IA, por lo que gastaron este mes."
             />
             {vista.porModelo.length === 0 ? (
@@ -330,7 +271,7 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
 
           <section>
             <SectionHeader
-              title="By Vendor"
+              title="Por proveedor"
               description="Los proveedores de IA, por lo que gastaron este mes."
             />
             {vista.porProveedor.length === 0 ? (

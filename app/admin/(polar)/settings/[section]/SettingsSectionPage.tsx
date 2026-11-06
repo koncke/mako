@@ -10,7 +10,6 @@ import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import OrganizationCustomerEmailSettings from '@/app/admin/_polar/web/Settings/OrganizationCustomerEmailSettings'
 import OrganizationPaymentSettings from '@/app/admin/_polar/web/Settings/OrganizationPaymentSettings'
 import { SETTINGS_SECTIONS, type SettingsSectionSlug } from '@/app/admin/_polar/web/Settings/settingsSections'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { Alert } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import type { DatosNotificaciones, DatosPagos } from '@/app/admin/_polar/datos/ajustes'
@@ -27,10 +26,7 @@ const SectionContent = (props: Props) => {
       return props.notificaciones.ok ? (
         <OrganizationCustomerEmailSettings emisor={props.notificaciones.emisor} waSolo={props.notificaciones.waSolo} />
       ) : (
-        <Box flexDirection="column" rowGap="s">
-          <Alert variant="danger" title="No pude leer cómo le llega el recibo" description={props.notificaciones.error} />
-          <ReportarASoporte error={props.notificaciones.error} />
-        </Box>
+        <Alert variant="danger" title="No pude leer cómo le llega el recibo" description={props.notificaciones.error} />
       )
   }
 }

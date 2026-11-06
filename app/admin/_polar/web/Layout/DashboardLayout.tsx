@@ -86,7 +86,7 @@ export const DashboardBody = ({
   contextView,
   contextViewClassName,
   contextViewPlacement = 'right',
-  contextViewTitle = 'Details',
+  contextViewTitle = 'Detalle',
   header,
   titleActions,
   wide = false,

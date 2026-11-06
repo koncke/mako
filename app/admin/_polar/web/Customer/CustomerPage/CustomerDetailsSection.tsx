@@ -121,7 +121,7 @@ export const CustomerDetailsSection = ({
       rowGap="2xl"
       alignItems="start"
     >
-      <Section title="Details">
+      <Section title="Datos">
         <Row label="ID" value={copyable(String(negocio.ws))} />
         <Row label="Nombre" value={copyable(negocio.nombre)} />
         <Row label="Plan" value={negocio.plan} />

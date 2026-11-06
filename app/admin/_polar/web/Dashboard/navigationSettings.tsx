@@ -27,7 +27,7 @@ const base = `${BASE}/settings`
 
 const settingsGroupsList = (): SettingsGroupDefinition[] => [
   {
-    title: 'Organization',
+    title: 'Organización',
     routes: [
       { id: 'settings-general', title: 'General', link: base, icon: <Settings2 size="1em" />, if: true, checkIsActive: (path) => path === base },
     ],

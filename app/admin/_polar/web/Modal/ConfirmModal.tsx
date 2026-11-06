@@ -1,4 +1,6 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Modal/ConfirmModal.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// MaKo: los textos en español, y los dos botones se pueden nombrar (`confirmText`, `cancelText`): un botón dice su acción
+// («Pausar la cuenta»), no «Confirmar» a secas. Por defecto, «Confirmar» y «No cambiar nada» (el de los otros modales de Admin).
 
 import { Button } from '@/app/admin/_polar/orbit'
 import { Input } from '@/app/admin/_polar/orbit'
@@ -28,6 +30,10 @@ export interface ConfirmModalProps extends Omit<
   body?: React.ReactNode
   destructive?: boolean
   destructiveText?: string
+  /** MaKo: el botón de confirmar cuando no es destructivo (nombra su acción: «Pausar la cuenta»). */
+  confirmText?: string
+  /** MaKo: el botón que cierra sin hacer nada. */
+  cancelText?: string
   confirmPrompt?: string
   onConfirm: () => unknown
   onCancel?: () => void
@@ -38,7 +44,9 @@ export const ConfirmModal = ({
   description,
   body,
   destructive,
-  destructiveText = 'Delete',
+  destructiveText = 'Eliminar',
+  confirmText = 'Confirmar',
+  cancelText = 'No cambiar nada',
   confirmPrompt = undefined,
   onConfirm,
   onCancel,
@@ -123,8 +131,7 @@ export const ConfirmModal = ({
               {confirmPrompt && (
                 <>
                   <p className="dark:text-polar-400 max-w-full text-sm text-gray-500">
-                    Please enter &quot;{normalizedConfirmPrompt}&quot; to
-                    confirm:
+                    Escribe «{normalizedConfirmPrompt}» para confirmar:
                   </p>
                   <FormField
                     control={control}
@@ -133,7 +140,7 @@ export const ConfirmModal = ({
                       validate: (value) =>
                         normalizeWhitespace(value ?? '') ===
                           normalizedConfirmPrompt ||
-                        'Please enter the exact text to confirm',
+                        'Escribe el texto exacto para confirmar',
                     }}
                     render={({ field }) => {
                       return (
@@ -164,14 +171,14 @@ export const ConfirmModal = ({
                   loading={isConfirming}
                   disabled={promptMismatch || isConfirming}
                 >
-                  {destructive ? destructiveText : 'Confirm'}
+                  {destructive ? destructiveText : confirmText}
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={handleCancel}
                   disabled={isConfirming}
                 >
-                  Cancel
+                  {cancelText}
                 </Button>
               </div>
             </form>

@@ -1,4 +1,8 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/packages/orbit/src/components/Alert.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+// MaKo: TODO AVISO DE ERROR LLEVA «Reportar a Soporte» (AGENTS.md). El de `variant="danger"` lo trae solo, al final de su
+// descripción, con el título y lo que dice la descripción (`textoDeAviso`, ./alert-texto.ts); un aviso que dice que algo no se
+// pudo leer (un `warning`) lo pide con `soporte`, y un `danger` que no es un error (una urgencia) lo apaga con `soporte={false}`.
+// Así el botón vive en UN lugar y no se repite al lado de cada aviso. El «Dismiss» de Polar, en español.
 
 import {
   CircleAlert,
@@ -10,6 +14,8 @@ import {
   X,
 } from '../icons'
 import type { CSSProperties, ReactNode } from 'react'
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
+import { textoDeAviso } from './alert-texto'
 import { Box } from './Box'
 import { ButtonGroup, type ButtonGroupActions } from './ButtonGroup'
 import { Grid } from './Grid'
@@ -75,6 +81,11 @@ export interface AlertProps {
    * The first is the primary action, the second a quieter ghost button.
    */
   actions?: ButtonGroupActions
+  /**
+   * MaKo: si lleva «Reportar a Soporte». Por default, sólo `danger` (un error). Un `warning` de «no pude leer» lo pide con
+   * `true`; un `danger` que no es un error, con `false`.
+   */
+  soporte?: boolean
 }
 
 // A button has no Box equivalent, so the dismiss control is a native button
@@ -103,9 +114,11 @@ export const Alert = ({
   loading,
   onDismiss,
   actions,
+  soporte,
 }: AlertProps) => {
   const { icon: VariantIcon, accentColor } = variantStyles[variant]
   const Icon = loading ? LoaderCircle : VariantIcon
+  const conSoporte = soporte ?? variant === 'danger'
 
   return (
     <Grid
@@ -136,7 +149,7 @@ export const Alert = ({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label="Cerrar el aviso"
           style={dismissResetStyle}
         >
           <Box
@@ -152,9 +165,17 @@ export const Alert = ({
           </Box>
         </button>
       )}
-      {description && (
+      {(description || conSoporte) && (
         <GridItem colStart={2}>
-          <Text color="muted">{description}</Text>
+          <Text color="muted">
+            {description}
+            {conSoporte && (
+              <ReportarASoporte
+                error={textoDeAviso(title, description, (t) => t === ReportarASoporte)}
+                style={description ? undefined : { marginLeft: 0 }}
+              />
+            )}
+          </Text>
         </GridItem>
       )}
       {actions && (

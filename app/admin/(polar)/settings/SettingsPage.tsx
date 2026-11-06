@@ -7,7 +7,6 @@
 
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import OrganizationProfileSettings from '@/app/admin/_polar/web/Settings/OrganizationProfileSettings'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { Alert } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import type { DatosGeneral } from '@/app/admin/_polar/datos/ajustes'
@@ -19,10 +18,7 @@ export default function ClientPage({ datos }: { datos: DatosGeneral }) {
         {datos.ok ? (
           <OrganizationProfileSettings emisor={datos.emisor} />
         ) : (
-          <Box flexDirection="column" rowGap="s">
-            <Alert variant="danger" title="No pude leer los datos del recibo" description={datos.error} />
-            <ReportarASoporte error={datos.error} />
-          </Box>
+          <Alert variant="danger" title="No pude leer los datos del recibo" description={datos.error} />
         )}
       </Box>
     </DashboardBody>

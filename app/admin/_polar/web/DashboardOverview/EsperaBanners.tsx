@@ -7,37 +7,28 @@
 // `Alert` de Polar (como `DisputesBanner`): dice cuántos hay y su acción abre un `Modal` con la lista y las acciones de
 // siempre, contra los mismos endpoints que usaban las pantallas viejas (app/admin/PedidosDeIngreso.tsx,
 // AprobacionesDeAgencia.tsx y BajasDeCuenta.tsx; se leyeron, no se importan):
-//   · «Quieren entrar»: /api/admin/pedidos-ingreso (descartar) y el alta de siempre, /api/admin/workspaces `crear`;
+//   · «Quieren entrar»: /api/admin/pedidos-ingreso (descartar) y, para dar de alta, EL formulario de Customers
+//     (`CreateCustomerModal`, que manda al alta de siempre: /api/admin/workspaces `crear`);
 //   · las agencias: /api/admin/agencia (dejar mirar a un cliente) y /api/admin/agencia/altas (sumar a alguien a su equipo);
 //   · las bajas: /api/admin/bajas-cuenta (cancelar, eliminar a la persona, cerrar el del negocio ya borrado). El negocio
 //     entero NO se borra desde acá: desde su ficha (Customers › <negocio>), con el nombre escrito a mano.
 // Las dos reglas que ya tenían: SIN NADA ESPERANDO, NO SE DIBUJA NADA; y un error de lectura NO es «no hay nadie»: se dice.
 // Lo que se lee viene del server (la portada); después de cada acción se vuelve a pedir la página (`router.refresh()`).
 
-import { Alert, Button, Input, List, ListItem, Modal, Text } from '@/app/admin/_polar/orbit'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/app/admin/_polar/orbit'
+import { Alert, Button, InlineModal, List, ListItem, Modal, Text } from '@/app/admin/_polar/orbit'
 import { useRouter } from '@/app/_ui/Link'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
-import { altaDelPedido } from '@/lib/pedidos-ingreso-reglas'
-import { avisoInvitacion, type AvisoInvitacion } from '@/lib/invitacion-aviso'
+import { CreateCustomerModal } from '@/app/admin/_polar/web/Customer/CreateCustomerModal'
 import {
   tituloDeAgencias,
   tituloDeBajas,
   tituloDeIngreso,
   type Esperan,
   type PedidoIngreso,
-  type PlanAlta,
 } from '@/app/admin/_polar/datos/resumen'
-import { useId, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
-type Respuesta = { ok?: boolean; error?: string; aviso?: { tono: 'ok' | 'warn'; texto: string }; invitacion?: Parameters<typeof avisoInvitacion>[0] }
+type Respuesta = { ok?: boolean; error?: string; aviso?: { tono: 'ok' | 'warn'; texto: string } }
 
 async function postJson(url: string, body: unknown): Promise<Respuesta> {
   try {
@@ -48,18 +39,8 @@ async function postJson(url: string, body: unknown): Promise<Respuesta> {
   }
 }
 
-/** El error de una lectura o de una acción, con su «Reportar a Soporte» (AGENTS.md: todo aviso de error lo lleva). */
-const ErrorAlert = ({ title, error }: { title: string; error: string }) => (
-  <Alert
-    variant="danger"
-    title={title}
-    description={
-      <>
-        {error} <ReportarASoporte error={`${title}: ${error}`} />
-      </>
-    }
-  />
-)
+/** El error de una lectura o de una acción (el `Alert` `danger` de Orbit trae su «Reportar a Soporte»). */
+const ErrorAlert = ({ title, error }: { title: string; error: string }) => <Alert variant="danger" title={title} description={error} />
 
 /** El resultado de una acción que le manda algo a alguien, pegado a su renglón. */
 const AvisoFila = ({ aviso }: { aviso: { tono: 'ok' | 'warn'; texto: string } }) => (
@@ -76,101 +57,14 @@ const CuerpoModal = ({ title, description, children }: { title: string; descript
 )
 
 // ── Quieren entrar ────────────────────────────────────────────────────────────────────────────────────────────────
-
-const AltaDelPedido = ({
-  pedido,
-  planes,
-  planPorDefecto,
-  onVolver,
-}: {
-  pedido: PedidoIngreso
-  planes: PlanAlta[]
-  planPorDefecto: string
-  onVolver: () => void
-}) => {
-  const router = useRouter()
-  const inicial = altaDelPedido(pedido)
-  const [nombre, setNombre] = useState(inicial.nombre)
-  const [capa, setCapa] = useState(planPorDefecto)
-  const [adminEmail, setAdminEmail] = useState(inicial.adminEmail)
-  const [adminNombre, setAdminNombre] = useState(inicial.adminNombre)
-  const [creando, setCreando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [hecho, setHecho] = useState<AvisoInvitacion | null>(null)
-  const ids = { nombre: useId(), plan: useId(), email: useId(), admin: useId() }
-  const plan = planes.find((p) => p.id === capa)
-  const puedeCrear = nombre.trim().length > 0 && !creando && !hecho
-
-  const crear = async () => {
-    if (!puedeCrear) return
-    setError(null)
-    setCreando(true)
-    try {
-      const j = await postJson('/api/admin/workspaces', { action: 'crear', nombre: nombre.trim(), capa, adminEmail: adminEmail.trim(), adminNombre: adminNombre.trim() })
-      if (!j.ok) {
-        setError(j.error ?? 'No se pudo crear el cliente.')
-        return
-      }
-      setHecho(avisoInvitacion(j.invitacion, adminEmail.trim()))
-      router.refresh()
-    } finally {
-      setCreando(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-y-2">
-          <label htmlFor={ids.nombre} className="text-sm font-medium">Nombre del cliente</label>
-          <Input id={ids.nombre} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Por ejemplo, Estudio Norte" />
-        </div>
-        <div className="flex flex-col gap-y-2">
-          <label htmlFor={ids.plan} className="text-sm font-medium">Plan</label>
-          <Select value={capa} onValueChange={setCapa}>
-            <SelectTrigger id={ids.plan}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {planes.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-y-2">
-          <label htmlFor={ids.email} className="text-sm font-medium">Email del admin</label>
-          <Input id={ids.email} type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="ana@ejemplo.com" />
-        </div>
-        <div className="flex flex-col gap-y-2">
-          <label htmlFor={ids.admin} className="text-sm font-medium">Nombre del admin</label>
-          <Input id={ids.admin} value={adminNombre} onChange={(e) => setAdminNombre(e.target.value)} placeholder="Nombre y apellido" />
-        </div>
-      </div>
-      {plan && <Text color="muted">{plan.descripcion}</Text>}
-      {plan?.aviso && <Text color="warning">{plan.aviso}</Text>}
-      {error && <ErrorAlert title="No se pudo crear el cliente" error={error} />}
-      {hecho && <AvisoFila aviso={hecho} />}
-      <div className="flex flex-row-reverse gap-x-4 pt-2">
-        {!hecho && (
-          <Button onClick={() => void crear()} loading={creando} disabled={!puedeCrear}>
-            Crear la cuenta y mandarle el acceso
-          </Button>
-        )}
-        <Button variant="ghost" onClick={onVolver} disabled={creando}>
-          {hecho ? 'Volver a la lista' : 'Cancelar'}
-        </Button>
-      </div>
-    </div>
-  )
-}
+// «Dar de alta» abre EL formulario de alta de Customers (`CreateCustomerModal`, Martín 6/11/2026: un solo formulario), con el
+// nombre y el email del pedido ya puestos. Al crear, el pedido sale solo de la lista (el server lo cierra al dar de alta).
 
 const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
   const router = useRouter()
   const { isShown, show, hide } = useModal()
   const [alta, setAlta] = useState<PedidoIngreso | null>(null)
+  const opciones = { planes: esperan.planes, planPorDefecto: esperan.planPorDefecto }
   const [ocupado, setOcupado] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const lectura = esperan.ingreso
@@ -178,8 +72,8 @@ const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
   if (!lectura.ok) return <ErrorAlert title="No pude leer quién quiere entrar" error={lectura.error} />
   const { pedidos, hayMas } = lectura.datos
   const title = tituloDeIngreso(pedidos.length)
-  // Sin nadie esperando no se dibuja; con el modal abierto se queda (para leer el aviso de la última alta).
-  if (!title && !isShown) return null
+  // Sin nadie esperando no se dibuja; con un modal abierto se queda (el formulario, para leer el aviso de la última alta).
+  if (!title && !isShown && !alta) return null
 
   const descartar = async (p: PedidoIngreso) => {
     setOcupado(p.id)
@@ -194,7 +88,6 @@ const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
   }
 
   const cerrar = () => {
-    setAlta(null)
     setError(null)
     hide()
   }
@@ -215,40 +108,56 @@ const QuierenEntrar = ({ esperan }: { esperan: Esperan }) => {
         hide={cerrar}
         modalContent={
           <CuerpoModal
-            title={alta ? `Dar de alta a ${alta.nombre ?? alta.email}` : 'Quieren entrar'}
-            description={alta ? 'Se crea su cuenta y MaKo le manda el acceso a su email.' : 'Quien pidió entrar a MaKo y todavía no tiene cuenta. Al darle de alta, sale solo de esta lista.'}
+            title="Quieren entrar"
+            description="Quien pidió entrar a MaKo y todavía no tiene cuenta. Al darle de alta, sale solo de esta lista."
           >
-            {alta ? (
-              <AltaDelPedido pedido={alta} planes={esperan.planes} planPorDefecto={esperan.planPorDefecto} onVolver={() => setAlta(null)} />
+            {error && <ErrorAlert title="No se pudo descartar" error={error} />}
+            {pedidos.length === 0 ? (
+              <Text color="muted">Ya no queda nadie esperando.</Text>
             ) : (
-              <>
-                {error && <ErrorAlert title="No se pudo descartar" error={error} />}
-                {pedidos.length === 0 ? (
-                  <Text color="muted">Ya no queda nadie esperando.</Text>
-                ) : (
-                  <List size="small">
-                    {pedidos.map((p) => (
-                      <ListItem key={p.id} size="small" className="flex-wrap gap-y-2">
-                        <div className="flex min-w-0 flex-col gap-y-0.5">
-                          <Text truncate>{p.nombre ? `${p.nombre} · ${p.email}` : p.email}</Text>
-                          <Text color="muted">{p.detalle}</Text>
-                        </div>
-                        <div className="flex shrink-0 gap-x-2">
-                          <Button variant="ghost" size="sm" loading={ocupado === p.id} disabled={ocupado != null} onClick={() => void descartar(p)}>
-                            Descartar
-                          </Button>
-                          <Button size="sm" disabled={ocupado != null} onClick={() => setAlta(p)}>
-                            Dar de alta
-                          </Button>
-                        </div>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-                {hayMas && <Text color="muted">Se ven los 50 más recientes.</Text>}
-              </>
+              <List size="small">
+                {pedidos.map((p) => (
+                  <ListItem key={p.id} size="small" className="flex-wrap gap-y-2">
+                    <div className="flex min-w-0 flex-col gap-y-0.5">
+                      <Text truncate>{p.nombre ? `${p.nombre} · ${p.email}` : p.email}</Text>
+                      <Text color="muted">{p.detalle}</Text>
+                    </div>
+                    <div className="flex shrink-0 gap-x-2">
+                      <Button variant="ghost" size="sm" loading={ocupado === p.id} disabled={ocupado != null} onClick={() => void descartar(p)}>
+                        Descartar
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={ocupado != null}
+                        onClick={() => {
+                          hide()
+                          setAlta(p)
+                        }}
+                      >
+                        Dar de alta
+                      </Button>
+                    </div>
+                  </ListItem>
+                ))}
+              </List>
             )}
+            {hayMas && <Text color="muted">Se ven los 50 más recientes.</Text>}
           </CuerpoModal>
+        }
+      />
+      <InlineModal
+        isShown={alta != null}
+        hide={() => setAlta(null)}
+        modalContent={
+          alta ? (
+            <CreateCustomerModal
+              key={alta.id}
+              pedido={alta}
+              opciones={opciones}
+              onClose={() => setAlta(null)}
+              onCreated={() => router.refresh()}
+            />
+          ) : null
         }
       />
     </>
@@ -397,6 +306,8 @@ const Bajas = ({ esperan }: { esperan: Esperan }) => {
       {title && (
         <Alert
           variant={vencidas > 0 ? 'danger' : 'warning'}
+          /* Es una urgencia, no un error: sin «Reportar a Soporte». */
+          soporte={false}
           title={title}
           description={
             vencidas > 0
@@ -481,12 +392,9 @@ export const EsperaBanners = ({ esperan, avisos }: { esperan: Esperan; avisos: s
     {avisos.length > 0 && (
       <Alert
         variant="warning"
+        soporte
         title="No pude leer todo: lo que ves puede quedarse corto"
-        description={
-          <>
-            {avisos.join(' · ')} <ReportarASoporte error={`Admin › Overview: ${avisos.join(' · ')}`} />
-          </>
-        }
+        description={avisos.join(' · ')}
       />
     )}
     <Bajas esperan={esperan} />

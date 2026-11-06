@@ -22,6 +22,7 @@ import {
   type FiltroLista,
   type OrdenLista,
 } from '@/app/admin/_polar/datos/clientes'
+import type { OpcionesAlta } from '@/app/admin/_polar/datos/alta'
 import { armarCsv } from '@/lib/csv-celda'
 
 import {
@@ -51,11 +52,14 @@ interface CustomerListSidebarProps {
   customers: ClienteDeLista[] | null
   /** El motivo por el que no se pudo leer la lista. */
   error?: string | null
+  /** Los planes del alta (el «+»: el único formulario de alta de Admin, app/admin/_polar/datos/alta.ts). */
+  opciones: OpcionesAlta
 }
 
 export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
   customers: todos,
   error,
+  opciones,
 }) => {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -305,6 +309,7 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
           <CreateCustomerModal
             onClose={hideCreateCustomerModal}
             onCreated={() => router.refresh()}
+            opciones={opciones}
           />
         }
       />

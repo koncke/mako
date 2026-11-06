@@ -49,7 +49,8 @@ export const getFormattedMetricValue = (
 
 export const getTimestampFormatter = (
   interval: schemas['TimeInterval'],
-  locale: string = 'en-US',
+  // MaKo: en español («6 nov», «nov 2026»), no en inglés.
+  locale: string = 'es',
 ): ((value: Date) => string) => {
   switch (interval) {
     case 'hour':
@@ -107,12 +108,13 @@ export const dateRangeToInterval = (startDate: Date, endDate: Date) => {
 
 export type ChartRange = 'all_time' | '12m' | '3m' | '30d' | 'today'
 
+// MaKo: los rótulos en español (los rangos cortos se leen igual: 12m, 3m, 30d).
 export const CHART_RANGES: Record<ChartRange, string> = {
-  all_time: 'All Time',
+  all_time: 'Desde siempre',
   '12m': '12m',
   '3m': '3m',
   '30d': '30d',
-  today: 'Today',
+  today: 'Hoy',
 }
 
 /**
@@ -163,6 +165,8 @@ type MetricEntry = {
 }
 
 export type MetricGroup = {
+  /** MaKo: el slug del grupo va aparte del rótulo (el rótulo está en español; el slug es el de Polar y no cambia). */
+  slug: string
   category: string
   metrics: MetricEntry[]
 }
@@ -170,17 +174,18 @@ export type MetricGroup = {
 const entrada = (slug: MetricaSlug): MetricEntry => ({ slug, display_name: METRICAS[slug].display_name, description: DESCRIPCION[slug] })
 
 export const METRIC_GROUPS: MetricGroup[] = [
-  { category: 'Revenue', metrics: [entrada('revenue'), entrada('cumulative_revenue'), entrada('average_order_value')] },
-  { category: 'Orders', metrics: [entrada('orders'), entrada('one_time_products'), entrada('one_time_products_revenue')] },
+  { slug: 'revenue', category: 'Ingresos', metrics: [entrada('revenue'), entrada('cumulative_revenue'), entrada('average_order_value')] },
+  { slug: 'orders', category: 'Pedidos', metrics: [entrada('orders'), entrada('one_time_products'), entrada('one_time_products_revenue')] },
   {
-    category: 'Subscriptions',
+    slug: 'subscriptions',
+    category: 'Suscripciones',
     metrics: [
       entrada('new_subscriptions'), entrada('active_subscriptions'), entrada('monthly_recurring_revenue'), entrada('new_mrr'),
       entrada('expansion_mrr'), entrada('contraction_mrr'), entrada('churned_mrr'), entrada('reactivated_mrr'),
     ],
   },
-  { category: 'Cancellations', metrics: [entrada('churned_subscriptions')] },
-  { category: 'Unit Economics', metrics: [entrada('average_revenue_per_user')] },
+  { slug: 'cancellations', category: 'Bajas', metrics: [entrada('churned_subscriptions')] },
+  { slug: 'unit-economics', category: 'Por cliente', metrics: [entrada('average_revenue_per_user')] },
 ]
 
 /**
@@ -192,7 +197,7 @@ export const filasCsvDeMetricas = (
   data: { periods: ReadonlyArray<{ timestamp: Date } & Partial<Record<MetricaSlug, number | null>>> },
   slugs: readonly MetricaSlug[],
 ): (string | number | null)[][] => [
-  ['Timestamp', ...slugs.map((s) => METRICAS[s].display_name)],
+  ['Fecha', ...slugs.map((s) => METRICAS[s].display_name)],
   ...data.periods.map((p) => [
     toISODate(p.timestamp),
     ...slugs.map((s) => {
@@ -226,7 +231,7 @@ export const gruposConDatos = (
   metrics: Partial<Record<MetricaSlug, unknown>>,
 ): { slug: string; title: string; metrics: MetricaSlug[] }[] =>
   METRIC_GROUPS.map((g) => ({
-    slug: metricGroupSlug(g.category),
+    slug: g.slug,
     title: g.category,
     metrics: g.metrics.map((m) => m.slug).filter((slug) => metrics[slug]),
   })).filter((g) => g.metrics.length > 0)

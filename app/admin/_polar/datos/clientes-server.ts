@@ -11,7 +11,10 @@ import { cache } from 'react'
 import { vistaDeClientes, type VistaClientes } from '@/lib/clientes-plataforma'
 import { vistaDeIngresos, type VistaIngresos } from '@/lib/admin-ingresos'
 import { resumenDelPeriodo, type ResumenPeriodo } from '@/lib/costos-ia'
+import { CAPA_DEFAULT, CAPAS_VENDIBLES } from '@/lib/capas'
+import { avisoAltaAMano } from '@/lib/plan-esencial-reglas'
 import type { Lectura } from './clientes'
+import type { OpcionesAlta } from './alta'
 
 const motivo = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -41,3 +44,14 @@ export const leerCostos = cache(async (periodo: string): Promise<Lectura<Resumen
     return { ok: false, error: motivo(e) }
   }
 })
+
+/**
+ * Los planes del formulario de alta (el de Customers, ./alta.ts): los que se venden, con su aviso de plan a mano. Se arman en
+ * el server para no llevar el catálogo de capas entero al navegador. No lee la base.
+ */
+export function opcionesDeAlta(): OpcionesAlta {
+  return {
+    planes: CAPAS_VENDIBLES.map((c) => ({ id: c.id, nombre: c.nombre, descripcion: c.descripcion, aviso: avisoAltaAMano(c.id) })),
+    planPorDefecto: CAPA_DEFAULT,
+  }
+}

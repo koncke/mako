@@ -2,15 +2,18 @@
 // Admin › Users y Admin › Errors (5/11/2026)
 // =============================================================================
 // Martín: «gestión de usuarios, estado de alta» y «cuándo la app se crashea o los bugs que tienen, el reporte». Lo que fija,
-// EJECUTANDO las reglas (lib/admin-usuarios-reglas.ts, lib/admin-errores-reglas.ts) y DIBUJANDO las dos pantallas:
+// EJECUTANDO las reglas (lib/admin-usuarios-reglas.ts, lib/admin-errores-reglas.ts):
 //   1. los cuatro estados de alta de shadcn-admin: suspendido gana, sin entrar es invitado, 30 días separan activo de inactivo;
 //   2. «nunca se le mandó el acceso» se dice (no es lo mismo que «no entró»);
 //   3. el orden (los que entran primero, los suspendidos al final) y la búsqueda sin tildes;
 //   4. el menú: reenviar sólo a un invitado, reactivar sólo a un suspendido, entrar sólo con un negocio;
 //   5. la página: la puerta del super admin antes de leer, y el perfil de la persona no viaja al navegador;
 //   6. los estados de Sentry: nuevo, sin resolver, resuelto y «volvió» con la MISMA regla que abre el ticket nuevo;
-//   7. lo que guardó el reportador (jsonb) se lee con cuidado, y los negocios no se repiten;
-//   8. las dos pantallas dibujan lo que dicen.
+//   7. lo que guardó el reportador (jsonb) se lee con cuidado, y los negocios no se repiten.
+// Desde el 6/11/2026 (la copia de Polar) las personas se gestionan en Customers › <negocio> › Members
+// (app/admin/_polar/web/Customer/CustomerPage/MembersSection.tsx) y los errores son un tipo de evento de Analytics › Events:
+// el 4 y el 5 miran esas piezas. Las pantallas Users y Errors de Studio Admin (el viejo 8) se borraron con su test; lo que
+// dibuja la ficha nueva lo fija tests/admin-polar-cliente.test.ts.
 //
 // Probado rompiéndolo el 5/11/2026 (con todo puesto: 0 fallos; el arnés restaura de memoria). Cada rotura, sola, va arriba del
 // test que la caza y da 1 fallo, salvo dos: sacar el `suspendido` primero da 3 (1, 3 y 4) y «Se le mandó» sin mirar
@@ -22,26 +25,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import {
   accionesDe, conteosDeAlta, detalleDeAlta, estadoDeAlta, rolTxt, usuariosVisibles, type FilaUsuario,
 } from '../lib/admin-usuarios-reglas';
 import { conteosDeErrores, erroresVisibles, estadoDeError, filaDeError, type FilaError } from '../lib/admin-errores-reglas';
 import { MARGEN_REGRESION_MS } from '../lib/errores-app-reglas';
-import { Users } from '../app/admin/usuarios/users';
-import type { UserRow } from '../app/admin/usuarios/data';
-import { ErroresAdmin } from '../app/admin/errores/ErroresAdmin';
+import { cambioDeEstado, miembrosDe, type UsuarioParaMiembro } from '../app/admin/_polar/datos/cliente';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const AHORA = Date.parse('2026-11-05T15:00:00Z');
 const hace = (dias: number) => new Date(AHORA - dias * 86_400_000).toISOString();
-const router = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
-const texto = (el: ReturnType<typeof createElement>) => renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, el))
-  .replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 // Personas de mentira (AGENTS.md: nada de datos reales en tests/).
 const u = (p: Partial<FilaUsuario>): FilaUsuario => ({
@@ -87,25 +82,40 @@ test('4 · el menú de la fila: reenviar sólo a un invitado, reactivar sólo a 
   assert.deepEqual(accionesDe(u({}), AHORA), ['inspeccionar', 'suspender']);
   assert.deepEqual(accionesDe(u({ estado: 'suspendido' }), AHORA), ['inspeccionar', 'reactivar']);
   assert.deepEqual(accionesDe(u({ rol: 'admin', workspaceId: null }), AHORA), ['suspender']);
-  // Las acciones van por la ruta de siempre, con los nombres que esa ruta conoce.
-  const pantalla = sinComentarios(leer('app/admin/usuarios/users.tsx'));
+  // Las acciones van por la ruta de siempre, con los nombres que esa ruta conoce. Desde el 6/11/2026 la pantalla es Members de
+  // la ficha de un negocio (la copia de Polar): «Reenviar el acceso» manda `reinvitar` y «Suspender»/«Reactivar» `estado`.
+  const pantalla = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/MembersSection.tsx'));
+  const acciones = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/acciones.ts'));
   const ruta = sinComentarios(leer('app/api/admin/usuarios/route.ts'));
-  assert.match(pantalla, /fetch\('\/api\/admin\/usuarios'/);
+  assert.match(acciones, /post\('\/api\/admin\/usuarios', a\)/, 'las acciones de una persona van a /api/admin/usuarios');
+  assert.match(pantalla, /accionDelMiembro\(\{ action: 'reinvitar', id: m\.id \}\)/, 'la pantalla manda «reinvitar»');
+  assert.match(pantalla, /accionDelMiembro\(cambioDeEstado\(m\)\)/, 'la pantalla manda el cambio de estado');
+  assert.deepEqual(cambioDeEstado({ id: 7, estado: 'suspendido' }), { action: 'estado', id: 7, estado: 'activo' });
+  assert.deepEqual(cambioDeEstado({ id: 7, estado: 'invitado' }), { action: 'estado', id: 7, estado: 'suspendido' });
   for (const a of ['reinvitar', 'estado']) {
-    assert.match(pantalla, new RegExp(`action: '${a}'`), `la pantalla manda «${a}»`);
     assert.match(ruta, new RegExp(`case '${a}':`), `la ruta no conoce «${a}»`);
   }
 });
 
-//   5 · la página lee las personas antes de `getSesionAdmin` · el perfil viaja al navegador (`perfil: u.perfil`)
+//   5 · la página lee las personas antes de `exigirSuperAdmin()` · `miembrosDe` copia el perfil al navegador
 test('5 · la puerta del super admin antes de leer, y el perfil de la persona no viaja al navegador', () => {
-  const page = sinComentarios(leer('app/admin/page.tsx'));
-  const puerta = page.indexOf('await getSesionAdmin()');
-  assert.ok(puerta > 0);
-  for (const lectura of ['listarUsuarios()', 'vistaDeErrores(']) assert.ok(page.indexOf(lectura) > puerta, `${lectura} antes de la puerta`);
-  const armado = page.slice(page.indexOf('async function PestanaUsuarios'), page.indexOf('async function PestanaErrores'));
-  assert.ok(armado.length > 200 && armado.length < 2000, 'el recorte es la función');
-  assert.doesNotMatch(armado, /perfil/, 'el perfil (teléfono, bio) no va a la tabla');
+  // Las personas (Members) y los errores (Analytics › Events): cada página pregunta por el super admin antes de leer.
+  for (const [rel, lectura] of [['app/admin/(polar)/customers/[id]/members/page.tsx', 'leerMiembros('], ['app/admin/(polar)/analytics/events/page.tsx', 'leerEventos(']] as const) {
+    const page = sinComentarios(leer(rel));
+    const cuerpo = page.slice(page.indexOf('export default async function'));
+    const puerta = cuerpo.indexOf('await exigirSuperAdmin()');
+    assert.ok(puerta > 0, `${rel}: sin la puerta del super admin`);
+    assert.ok(cuerpo.indexOf(lectura) > puerta, `${rel}: ${lectura} antes de la puerta`);
+  }
+  assert.match(sinComentarios(leer('app/admin/_polar/datos/guarda.ts')), /await getSesionAdmin\(\)/, 'la puerta es el super admin global');
+  // Lo que viaja de cada persona: sus campos de la tabla, nunca su perfil (teléfono, bio).
+  const conPerfil = { id: 5, email: 'ana@ejemplo.com', nombre: 'Ana Ruiz', rol: 'usuario', estado: 'activo', ultimo_login: hace(1), created_at: hace(60),
+    workspace_id: 3, rol_ws: 'admin', invitacion_enviada_at: null, perfil: { telefono: '+00 000', bio: 'algo' } } as UsuarioParaMiembro;
+  const [m] = miembrosDe([conPerfil], 3);
+  assert.ok(m, 'la persona del negocio se lista');
+  assert.ok(!('perfil' in m), 'el perfil no va a la tabla');
+  assert.doesNotMatch(JSON.stringify(m), /telefono|bio/, 'ni su teléfono ni su bio');
+  assert.deepEqual(miembrosDe([{ ...conPerfil, rol: 'admin' }], 3), [], 'un admin de MaKo no es una persona del negocio');
 });
 
 const er = (p: Partial<FilaError>): FilaError => ({
@@ -139,23 +149,4 @@ test('7 · lo que guardó el reportador se lee con cuidado, y los negocios no se
   assert.equal(f.personas, 1);
   assert.equal(f.stack, null, 'un stack que no es texto no se dibuja');
   assert.equal(filaDeError({ id: 1, titulo: 't', origen: 'mako', veces: 1, primera_vez: hace(1), ultima_vez: hace(1), ejemplo: null, afectados: 'x', ticket_id: 5 }, { estado: 'nuevo', resuelto_at: null }).ticketEstado, 'nuevo');
-});
-
-//   8 · Users dibuja el estado de la base en vez del de alta · Errors sin errores dibuja la tabla vacía
-test('8 · las dos pantallas dibujan lo que dicen', () => {
-  // Users es la tabla de Studio Admin (app/admin/usuarios/users.tsx): el estado de ALTA va en la insignia, y su detalle (cuándo
-  // entró, si se le mandó el acceso) en el `title` de la insignia.
-  const filas: UserRow[] = [u({}), u({ id: 2, email: 'b@ejemplo.com', nombre: 'Beto', ultimoLogin: null, estado: 'activo', invitacionEnviada: null })].map((f) => ({ ...f, tipo: 'Cliente' as const }));
-  const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, createElement(Users, { users: filas, ahoraMs: AHORA, tz: 'UTC' })));
-  const tu = texto(createElement(Users, { users: filas, ahoraMs: AHORA, tz: 'UTC' }));
-  assert.match(tu, /0 elegidas/);
-  assert.match(tu, /Beto .* Invitado/, 'el estado de ALTA, no el de la base');
-  assert.match(html, /title="Nunca se le mandó el acceso"/, 'el detalle del alta, en la insignia');
-  assert.match(tu, /Ana Ruiz .* Activo/);
-  assert.match(html, /title="Entró hace 2 días"/);
-  const te = texto(createElement(ErroresAdmin, { vista: { errores: [er({ ticketEstado: 'resuelto', ticketResueltoAt: hace(10), ultimaVez: hace(1) })], hayMas: false, reportes: [], nombres: { 3: 'Estudio Ejemplo' }, avisos: [] }, ahoraMs: AHORA }));
-  assert.match(te, /Volvió TypeError en \/crm/);
-  assert.match(te, /#12 · Resuelto/);
-  const vacio = texto(createElement(ErroresAdmin, { vista: { errores: [], hayMas: false, reportes: [], nombres: {}, avisos: [] }, ahoraMs: AHORA }));
-  assert.match(vacio, /La app no registró ningún error/);
 });

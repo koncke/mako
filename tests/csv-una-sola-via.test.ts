@@ -106,7 +106,7 @@ test('TODA exportación a CSV del repo pasa por lib/csv-celda.ts (R1: ningún es
   assert.ok(fuentes.length > 1000, `leyó ${fuentes.length} archivos de app/, lib/ y components/`);
   // Los detectores ven lo que tienen que ver (si dejaran de verlo, el assert de abajo pasaría en vacío).
   const sumideros = new Set(fuentes.filter((x) => SUMIDERO_CSV.test(sinComentarios(x.codigo))).map((x) => x.ruta));
-  for (const conocido of ['app/admin/AdminView.tsx', 'app/crm/ExportarLeadsModal.tsx', 'app/customer-success/ClientesApp.tsx', 'app/plan/board/ExportarModal.tsx', 'app/api/agente/metricas/route.ts', 'app/api/graficos/exportar/route.ts']) {
+  for (const conocido of ['app/admin/_polar/web/Orders/ExportCsvModal.tsx', 'app/crm/ExportarLeadsModal.tsx', 'app/customer-success/ClientesApp.tsx', 'app/plan/board/ExportarModal.tsx', 'app/api/agente/metricas/route.ts', 'app/api/graficos/exportar/route.ts']) {
     assert.ok(sumideros.has(conocido), `el detector de sumideros ya no ve ${conocido}`);
   }
   const conCsv = new Set(fuentes.filter((x) => definidosConCsv(sinComentarios(x.codigo)).length > 0).map((x) => x.ruta));
@@ -192,7 +192,8 @@ test('sinComentarios: saca los comentarios y deja las URL', () => {
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corre este archivo con los de CSV, se restaura): 7 roturas de la guarda, 7 rojas.
 //   · R1: un exportador (el del Plan) que vuelve a escribir su propio `replace(/"/g, '""')` → 2 rojas (la barrida y la del dueño único)
 //   · R1: el detector que no ve `replaceAll` → 1 · el que no saca los comentarios → 3
-//   · R2: el detector que no ve un `new Blob(…text/csv…)` → 2 · AdminView sin el import del helper → 1
+//   · R2: el detector que no ve un `new Blob(…text/csv…)` → 2 · AdminView sin el import del helper → 1 (AdminView se borró el
+//     6/11/2026 con la copia de Polar: el sumidero conocido de Admin es ahora app/admin/_polar/web/Orders/ExportCsvModal.tsx)
 //   · R3: un `export const nuevoACsv` en un archivo SIN el helper → 1 (la primera versión de esta rotura la ponía en un archivo que YA importaba el helper y no podía dar rojo)
 //   · «csv» como substring (`/csv/i`): DocsView y GraphicsView —«Do-csV-iew»— entran → 1 (es lo que pasó en la primera versión del detector, y por eso la regla es «csv» como PALABRA)
 // =============================================================================

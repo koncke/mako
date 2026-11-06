@@ -133,8 +133,10 @@ test('quien da de alta a mano lee que ese negocio NO tiene los topes de la tabla
   assert.match(avisoAltaAMano('completo')!, /no tiene los topes de su plan[\s\S]*sólo a quien paga en línea/);
   assert.equal(avisoAltaAMano('agencia'), avisoAltaAMano('completo'), 'Pro también tiene topes (3 WhatsApp, 5 usuarios)');
   assert.equal(avisoAltaAMano('pm'), null, 'una capa sin topes no lleva el aviso');
-  const alta = fuente('app/admin/AdminView.tsx');
-  assert.match(alta, /\{avisoAltaAMano\(capa\) && <div [^>]*>\{avisoAltaAMano\(capa\)\}<\/div>\}/, 'el alta del super admin no lo muestra');
+  // El alta del super admin: desde el 6/11/2026 es «New Customer» de Admin › Customers (la copia de Polar; antes, la grilla
+  // vieja de AdminView). El server arma cada plan con su aviso y el formulario lo dibuja debajo del plan elegido.
+  assert.match(fuente('app/admin/_polar/datos/clientes-server.ts'), /aviso: avisoAltaAMano\(c\.id\)/, 'los planes del alta sin su aviso');
+  assert.match(fuente('app/admin/_polar/web/Customer/CreateCustomerModal.tsx'), /\{planElegido\?\.aviso && <FormDescription [^>]*>\{planElegido\.aviso\}<\/FormDescription>\}/, 'el alta del super admin no lo muestra');
 });
 
 // ── Que VENDA (24/10/2026, noche) ───────────────────────────────────────────────────────────────────────────────────

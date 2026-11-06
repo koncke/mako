@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from '@/app/admin/_polar/ui/popover'
 import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { CalendarDays } from '@/app/admin/_polar/orbit/icons'
 import { useCallback, useMemo } from 'react'
 import { Matcher } from 'react-day-picker'
@@ -47,9 +48,9 @@ const DatePicker: React.FC<DatePickerProps> = (props) => {
             )}
           >
             {internalValue ? (
-              format(internalValue, 'PPP')
+              format(internalValue, 'PPP', { locale: es })
             ) : (
-              <span>Pick a date</span>
+              <span>Elige una fecha</span>
             )}
             <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
           </Button>

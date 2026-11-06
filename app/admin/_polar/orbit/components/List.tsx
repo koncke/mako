@@ -50,7 +50,7 @@ export const ListItem = ({
   checked,
   onCheckedChange,
   checkboxVisible,
-  checkboxLabel = 'Select item',
+  checkboxLabel = 'Elegir',
 }: ListItemProps) => {
   const hasCheckbox = !!onCheckedChange
 

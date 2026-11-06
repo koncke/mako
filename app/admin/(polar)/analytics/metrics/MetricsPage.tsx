@@ -73,6 +73,7 @@ export default function MetricsPage({
         <div className="mb-8">
           <Alert
             variant="warning"
+            soporte
             title="No pude leer todo: los números pueden quedarse cortos"
             description={avisos.join(' · ')}
           />

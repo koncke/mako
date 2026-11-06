@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: 'Order',
+    title: 'Pedido',
   }
 }
 

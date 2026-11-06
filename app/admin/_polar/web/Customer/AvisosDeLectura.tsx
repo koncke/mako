@@ -10,6 +10,7 @@ export const AvisosDeLectura = ({ avisos }: { avisos?: readonly string[] }) =>
   avisos && avisos.length > 0 ? (
     <Alert
       variant="warning"
+      soporte
       title="Puede faltar algo"
       description={`No pude leer ${avisos.join('; ')}.`}
     />

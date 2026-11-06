@@ -40,7 +40,7 @@ const BackLink = ({ href, title, className }: { href: string; title: string; cla
   const { isMobile, setOpenMobile } = useSidebar()
   return (
     <SidebarMenuItem className={twMerge('flex flex-row items-center gap-2', className)}>
-      <SidebarMenuButton tooltip="Back to Dashboard" asChild>
+      <SidebarMenuButton tooltip="Volver al panel" asChild>
         <Link
           href={href}
           className="dark:hover:bg-polar-900! flex flex-row items-center gap-4 rounded-lg px-2 text-black transition-colors duration-75 hover:bg-white! dark:text-white"

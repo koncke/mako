@@ -18,25 +18,26 @@
 import type { Entrada, Ingresos, MesIngresos, Movimiento } from '@/lib/admin-ingresos-reglas'
 import type { Metric, MetricsTotals, ParsedMetricPeriod, ParsedMetricsResponse } from './polar-tipos'
 
+// Los nombres, en español (no son nombres de la barra de Polar: son lo que mide cada gráfico). Los slugs, los de Polar.
 export const METRICAS = {
-  revenue: { slug: 'revenue', display_name: 'Revenue', type: 'currency' },
-  cumulative_revenue: { slug: 'cumulative_revenue', display_name: 'Cumulative Revenue', type: 'currency' },
-  average_order_value: { slug: 'average_order_value', display_name: 'Average Order Value', type: 'currency' },
-  orders: { slug: 'orders', display_name: 'Orders', type: 'scalar' },
-  one_time_products: { slug: 'one_time_products', display_name: 'One-Time Products', type: 'scalar' },
-  one_time_products_revenue: { slug: 'one_time_products_revenue', display_name: 'One-Time Products Revenue', type: 'currency' },
-  new_subscriptions: { slug: 'new_subscriptions', display_name: 'New Subscriptions', type: 'scalar' },
-  active_subscriptions: { slug: 'active_subscriptions', display_name: 'Active Subscriptions', type: 'scalar' },
-  monthly_recurring_revenue: { slug: 'monthly_recurring_revenue', display_name: 'Monthly Recurring Revenue', type: 'currency' },
-  new_mrr: { slug: 'new_mrr', display_name: 'New MRR', type: 'currency' },
-  expansion_mrr: { slug: 'expansion_mrr', display_name: 'Expansion MRR', type: 'currency' },
-  contraction_mrr: { slug: 'contraction_mrr', display_name: 'Contraction MRR', type: 'currency' },
-  churned_mrr: { slug: 'churned_mrr', display_name: 'Churned MRR', type: 'currency' },
-  reactivated_mrr: { slug: 'reactivated_mrr', display_name: 'Reactivated MRR', type: 'currency' },
-  churned_subscriptions: { slug: 'churned_subscriptions', display_name: 'Churned Subscriptions', type: 'scalar' },
-  average_revenue_per_user: { slug: 'average_revenue_per_user', display_name: 'Average Revenue Per User', type: 'currency' },
-  costs: { slug: 'costs', display_name: 'Costs', type: 'currency_sub_cent' },
-  cumulative_costs: { slug: 'cumulative_costs', display_name: 'Cumulative Costs', type: 'currency_sub_cent' },
+  revenue: { slug: 'revenue', display_name: 'Ingresos', type: 'currency' },
+  cumulative_revenue: { slug: 'cumulative_revenue', display_name: 'Ingresos acumulados', type: 'currency' },
+  average_order_value: { slug: 'average_order_value', display_name: 'Pago promedio', type: 'currency' },
+  orders: { slug: 'orders', display_name: 'Pedidos', type: 'scalar' },
+  one_time_products: { slug: 'one_time_products', display_name: 'Pagos únicos', type: 'scalar' },
+  one_time_products_revenue: { slug: 'one_time_products_revenue', display_name: 'Ingresos por pagos únicos', type: 'currency' },
+  new_subscriptions: { slug: 'new_subscriptions', display_name: 'Suscripciones nuevas', type: 'scalar' },
+  active_subscriptions: { slug: 'active_subscriptions', display_name: 'Suscripciones activas', type: 'scalar' },
+  monthly_recurring_revenue: { slug: 'monthly_recurring_revenue', display_name: 'MRR (ingreso mensual recurrente)', type: 'currency' },
+  new_mrr: { slug: 'new_mrr', display_name: 'MRR nuevo', type: 'currency' },
+  expansion_mrr: { slug: 'expansion_mrr', display_name: 'MRR que subió', type: 'currency' },
+  contraction_mrr: { slug: 'contraction_mrr', display_name: 'MRR que bajó', type: 'currency' },
+  churned_mrr: { slug: 'churned_mrr', display_name: 'MRR que se cortó', type: 'currency' },
+  reactivated_mrr: { slug: 'reactivated_mrr', display_name: 'MRR que volvió', type: 'currency' },
+  churned_subscriptions: { slug: 'churned_subscriptions', display_name: 'Suscripciones cortadas', type: 'scalar' },
+  average_revenue_per_user: { slug: 'average_revenue_per_user', display_name: 'Ingreso promedio por cliente', type: 'currency' },
+  costs: { slug: 'costs', display_name: 'Gasto de IA', type: 'currency_sub_cent' },
+  cumulative_costs: { slug: 'cumulative_costs', display_name: 'Gasto de IA acumulado', type: 'currency_sub_cent' },
 } as const satisfies Record<string, { slug: string; display_name: string; type: Metric['type'] }>
 
 export type MetricaSlug = keyof typeof METRICAS

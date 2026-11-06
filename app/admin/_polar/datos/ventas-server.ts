@@ -22,6 +22,7 @@ import {
   checkoutsDe, disputasDe, pedidosDe, suscripcionesDe,
   type CheckoutVenta, type ClienteVenta, type CobroVenta, type DisputaVenta, type Pedido, type ReciboVenta, type SuscripcionDeLead, type SuscripcionVenta,
 } from './ventas'
+import { esDeVenderUnPlan } from './checkout-link'
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -45,7 +46,8 @@ export function cobroDeMako(c: CobroMako): CobroVenta {
   return {
     id: c.id, nombre: c.nombre, email: c.email, plan: c.plan, concepto: c.concepto, monto: c.monto, moneda: c.moneda, montoUsd: c.monto_usd,
     tipo: c.tipo, modo: c.modo, proveedor: c.proveedor, estado: c.estado, motivo: c.motivo, altaEstado: c.alta_estado, altaWs: c.alta_ws,
-    altaWsNombre: c.alta_ws_nombre, createdAt: c.created_at, pagadoAt: c.pagado_at, link: c.link, suscripcionViva: c.suscripcionViva,
+    altaWsNombre: c.alta_ws_nombre, altaCapa: c.alta_capa, creadoPor: c.creado_por, createdAt: c.created_at, pagadoAt: c.pagado_at,
+    link: c.link, suscripcionViva: c.suscripcionViva,
   }
 }
 
@@ -151,12 +153,24 @@ export async function vistaSuscripciones(): Promise<VistaSuscripciones> {
 
 // ── Checkouts ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type VistaCheckouts = { checkouts: CheckoutVenta[]; avisos: string[]; truncado: boolean }
+export type VistaCheckouts = {
+  checkouts: CheckoutVenta[]
+  avisos: string[]
+  truncado: boolean
+  /** Los ids de los links de «Vender un plan»: no son checkouts, viven en Products › Checkout Links (./checkout-link.ts). */
+  linksDeVenta: number[]
+}
 
 export async function vistaCheckouts(): Promise<VistaCheckouts> {
   const cobros = await cobrosDeMakoAction().catch((e) => ({ ok: false as const, error: mensaje(e) }))
-  if (!cobros.ok) return { checkouts: [], avisos: [`los cobros de la pasarela: ${cobros.error}`], truncado: false }
-  return { checkouts: checkoutsDe(cobros.cobros.map(cobroDeMako)), avisos: cobros.truncado ? ['los cobros: se ven los 200 más nuevos'] : [], truncado: cobros.truncado }
+  if (!cobros.ok) return { checkouts: [], avisos: [`los cobros de la pasarela: ${cobros.error}`], truncado: false, linksDeVenta: [] }
+  const filas = cobros.cobros.map(cobroDeMako)
+  return {
+    checkouts: checkoutsDe(filas),
+    avisos: cobros.truncado ? ['los cobros: se ven los 200 más nuevos'] : [],
+    truncado: cobros.truncado,
+    linksDeVenta: filas.filter((c) => esDeVenderUnPlan({ alta_capa: c.altaCapa, creado_por: c.creadoPor })).map((c) => c.id),
+  }
 }
 
 // ── Disputes ─────────────────────────────────────────────────────────────────────────────────────────────────────────

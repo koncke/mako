@@ -133,7 +133,7 @@ test('4. la tarjeta: «Nueva cuenta» arriba, los bloques, «Nuevo dispositivo»
   assert.equal((html.match(/<button type="button" class="tci-nuevo-fila">/g) ?? []).length, 2, '«Nuevo dispositivo» en cada cuenta');
   assert.doesNotMatch(html, /\/api\/ia-pc\/descargar/, 'el recuadro con la descarga al final de cada cuenta se fue (24/10/2026)');
   assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
-  // Lo mismo en la ficha de un cliente del super admin (ComputadorasDelNegocio.tsx) y en el teléfono (/m/cuenta/ia).
-  assert.match(sinComentarios(leer('app/admin/ComputadorasDelNegocio.tsx')), /<CuentasYDispositivos grupos=\{grupos\} ahora=\{ahora\}/);
+  // Lo mismo en el teléfono (/m/cuenta/ia). (La ficha de un cliente del super admin, app/admin/ComputadorasDelNegocio.tsx, se
+  // borró el 6/11/2026 con la copia de Polar: las computadoras de un negocio se ven en su ficha nueva, ver tests/ia-pc-varias.)
   assert.match(sinComentarios(leer('app/m/cuenta/ia/IaM.tsx')), /<SeccionM titulo=\{`Cuenta \$\{cuenta\.numero\}`\}>/);
 });

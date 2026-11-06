@@ -125,6 +125,7 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
               ? 'La cuenta vuelve a quedar activa.'
               : 'La cuenta queda pausada. Se puede reactivar desde este mismo menú.'
           }
+          confirmText={pausado ? 'Reactivar la cuenta' : 'Pausar la cuenta'}
           onConfirm={onPausar}
         />
         <ConfirmModal

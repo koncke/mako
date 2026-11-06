@@ -66,7 +66,7 @@ const CopyToClipboardInput = ({
           {isCopied ? (
             <Check className="text-sm" fontSize="inherit" />
           ) : (
-            buttonLabel || 'Copy'
+            buttonLabel || 'Copiar'
           )}
         </Button>
       )}

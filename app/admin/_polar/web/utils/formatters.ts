@@ -51,7 +51,7 @@ export const formatCostAmount = (cents: number): string =>
 export const formatPercentage = (value: number): string =>
   stripTrailingZeros(percentageFormatter.format(value))
 
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+const regionNames = new Intl.DisplayNames(['es'], { type: 'region' })
 
 export const formatCountry = (country: string): string =>
   regionNames.of(country) ?? country
@@ -64,7 +64,7 @@ export const formatMetadataValue = (
   }
 
   if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No'
+    return value ? 'Sí' : 'No'
   }
 
   return String(value)

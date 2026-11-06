@@ -34,7 +34,7 @@ export const DashboardSidebar = ({ search }: { search?: (o: { open: boolean; onO
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader className="flex flex-row items-center justify-end md:pt-3.5">
         <m.div className="flex flex-row items-center gap-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}>
-          <Button className="relative size-8! p-0" variant="ghost" onClick={() => setSearchOpen(true)} aria-label="Search">
+          <Button className="relative size-8! p-0" variant="ghost" onClick={() => setSearchOpen(true)} aria-label="Buscar">
             <Search size={16} aria-hidden="true" />
           </Button>
         </m.div>

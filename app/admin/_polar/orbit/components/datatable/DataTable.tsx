@@ -179,7 +179,7 @@ export function DataTable<TData extends RowData>({
                   colSpan={allColumns.length}
                   className="h-24 text-center"
                 >
-                  Loading...
+                  Cargando…
                 </TableCell>
               </TableRow>
             ) : (
@@ -236,7 +236,7 @@ export function DataTable<TData extends RowData>({
                       colSpan={allColumns.length}
                       className="h-24 text-center"
                     >
-                      No Results
+                      No hay resultados
                     </TableCell>
                   </TableRow>
                 )}

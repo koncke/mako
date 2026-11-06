@@ -14,7 +14,6 @@ import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { Alert } from '@/app/admin/_polar/orbit'
 import type { DataTablePaginationState, DataTableSortingState } from '@/app/admin/_polar/orbit'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { AttachMoneyOutlined } from '@/app/admin/_polar/orbit/icons'
 import { useMemo, useState } from 'react'
 import { ordenarIngresos, paginar, type DatosIngresos } from '@/app/admin/_polar/datos/finanzas'
@@ -37,14 +36,11 @@ export default function ClientPage({ datos }: { datos: DatosIngresos }) {
       titleActions={datos.ok && filas.length > 0 ? <IncomePageHeader filas={filas} hoy={datos.hoy} /> : undefined}
     >
       {!datos.ok ? (
-        <div className="flex flex-col items-start gap-2">
-          <Alert variant="danger" title="No pude leer lo que entró" description={datos.error} />
-          <ReportarASoporte error={datos.error} />
-        </div>
+        <Alert variant="danger" title="No pude leer lo que entró" description={datos.error} />
       ) : (
         <div className="flex flex-col gap-4">
           {datos.avisos.length > 0 && (
-            <Alert variant="warning" title="La lista puede quedarse corta" description={`No pude leer ${datos.avisos.join('; ')}.`} />
+            <Alert variant="warning" soporte title="La lista puede quedarse corta" description={`No pude leer ${datos.avisos.join('; ')}.`} />
           )}
           {filas.length === 0 ? (
             <EmptyState icon={<AttachMoneyOutlined />} title="Todavía no entró nada" description="Cuando alguien pague un plan, el pago aparece aquí." />

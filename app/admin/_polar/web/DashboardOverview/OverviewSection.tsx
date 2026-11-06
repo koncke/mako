@@ -19,7 +19,6 @@ import {
   RANGO_POR_DEFECTO, ROTULO_RANGO, mesesDelRango, metricasRecordadas, rangosDisponibles,
   type IngresosResumen, type Lectura, type RangoOverview,
 } from '@/app/admin/_polar/datos/resumen'
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte'
 import { useRouter } from '@/app/_ui/Link'
 import React, { useCallback } from 'react'
 import { MetricSelectorModalContent, useMetricSelectorModal } from './MetricSelectorModal'
@@ -84,11 +83,7 @@ export function OverviewSection({ ingresos }: OverviewSectionProps) {
         <Alert
           variant="danger"
           title="No pude leer tus ingresos"
-          description={
-            <>
-              {ingresos.error} <ReportarASoporte error={`No pude leer tus ingresos: ${ingresos.error}`} />
-            </>
-          }
+          description={ingresos.error}
           actions={[{ text: 'Reintentar', onClick: () => router.refresh() }]}
         />
       )}

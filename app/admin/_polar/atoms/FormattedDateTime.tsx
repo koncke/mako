@@ -12,7 +12,7 @@ interface FormattedDateTimeProps {
 
 const FormattedDateTime: React.FC<FormattedDateTimeProps> = ({
   datetime,
-  locale = 'en-US',
+  locale = 'es',
   dateStyle = 'medium',
   timeStyle = 'short',
   resolution = 'day',
@@ -25,7 +25,7 @@ const FormattedDateTime: React.FC<FormattedDateTimeProps> = ({
   const formatted = useMemo(() => {
     try {
       if (!isValidDate) {
-        return 'Invalid date'
+        return 'Fecha inválida'
       }
 
       if (resolution === 'time') {
@@ -47,7 +47,7 @@ const FormattedDateTime: React.FC<FormattedDateTimeProps> = ({
         dateStyle,
       })
     } catch {
-      return 'Invalid date or locale'
+      return 'Fecha inválida'
     }
   }, [parsedDate, isValidDate, locale, resolution, dateStyle, timeStyle])
 

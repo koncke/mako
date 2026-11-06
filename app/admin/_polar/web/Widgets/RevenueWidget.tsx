@@ -21,7 +21,7 @@ interface RevenueWidgetProps {
   ingresos: Lectura<IngresosResumen>
 }
 
-const WIDGET_TITLE = 'Revenue'
+const WIDGET_TITLE = 'Ingresos'
 const MONTHS = 5
 
 // Whole dollars, then compact from $10K so the month labels stay narrow.

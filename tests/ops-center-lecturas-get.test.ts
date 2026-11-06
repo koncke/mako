@@ -40,9 +40,10 @@ test('quien lee ya no llama a la acción (volvería a la cola)', () => {
     assert.doesNotMatch(centro, new RegExp(`\\b${a}\\(`), `useCentro volvió a leer con ${a}`);
   }
   for (const q of ['foto', 'pushes', 'credito']) assert.ok(centro.includes(`leerCentro<`) && centro.includes(`('${q}')`), `falta leerCentro('${q}')`);
-  // Las computadoras ya no son del Centro (23/10/2026): las lee la ficha de UN cliente, por GET y con su negocio.
-  const ficha = sinComentarios(leer('app/admin/AdminView.tsx'));
-  assert.match(ficha, /leerCentro<LecturaComputadoras>\('computadoras', \{ ws: String\(ws\) \}\)/);
+  // Las computadoras ya no son del Centro (23/10/2026): las lee la ficha de UN cliente. Desde el 6/11/2026 (la copia de Polar)
+  // esa ficha las lee en el SERVER, con su negocio (`listarPcDelNegocio(ws)`), y no llama a la acción (haría cola).
+  const ficha = sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts'));
+  assert.match(ficha, /listarPcDelNegocio\(ws\)/);
   assert.doesNotMatch(ficha, /\bcomputadorasDelNegocioAction\(/, 'la ficha volvió a leer con la acción (haría cola)');
   assert.match(centro, />\('turnos', \{ l: locales, dir: claveParaUrl\(c\) \}\)\.catch\(\(\) => null\);/);
   const bandeja = sinComentarios(leer('app/tickets/bandeja/BandejaTickets.tsx'));

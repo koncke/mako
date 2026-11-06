@@ -18,8 +18,9 @@
 //   · `const ws = OWNER_WS` en venderPlanAction (con su import) → 5 pases, 1 fallo;
 //   · `ws` como parámetro de anularCobroMakoAction → 5 pases, 1 fallo;
 //   · un `for` delante de reembolsarCobro → 5 pases, 1 fallo;
-//   · CAPAS_LISTA en lugar de CAPAS_VENDIBLES en VenderPlan.tsx → 5 pases, 1 fallo (desde el 6/11/2026,
-//     app/admin/cobros/_components/vender-plan.tsx: el diálogo de Studio Admin);
+//   · CAPAS_LISTA en lugar de CAPAS_VENDIBLES en VenderPlan.tsx → 5 pases, 1 fallo (desde el 6/11/2026 la venta es
+//     Products › Checkout Links de la copia de Polar: el formulario ofrece los planes de planesMako(), y planValido rechaza
+//     la capa de la plataforma);
 //   · el guard de la página después de leer los cobros → 5 pases, 1 fallo;
 //   · el item del nav con la key 'dev-cobros' → 5 pases, 1 fallo.
 //   Restaurado a mano: 6 pases.
@@ -31,6 +32,8 @@ import { join } from 'node:path';
 import { ADMIN_NAV, FAMILIAS, SUPERADMIN_MENU, USER_NAV, itemsDe } from '../app/_components/nav';
 import { puedeVerItem } from '../lib/nav-visibilidad';
 import { CAPAS_VENDIBLES } from '../lib/capas';
+import { planValido, planesDeSetting } from '../lib/planes-mako';
+import { PLANES_ASIGNABLES } from '../app/admin/_polar/datos/cliente';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -131,9 +134,17 @@ test('reembolsar mueve plata: una sola llamada, sin vueltas que la repitan', () 
 
 test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en la action', () => {
   assert.ok(!CAPAS_VENDIBLES.some((c) => c.id === 'superadmin'));
-  const vp = sinComentarios(leer('app/admin/cobros/_components/vender-plan.tsx'));
-  assert.match(vp, /CAPAS_VENDIBLES\.map\(/, 'los planes se listan desde CAPAS_VENDIBLES');
-  assert.doesNotMatch(vp, /\bCAPAS\b|\bCAPAS_LISTA\b/, 'el catálogo entero incluye la capa superadmin');
+  // Desde el 6/11/2026 «Vender un plan» es Products › Checkout Links (la copia de Polar): el formulario ofrece los PLANES de
+  // MaKo (`productos`, leídos con planesMako() → productoDePlan), nunca el catálogo de capas; y un plan no puede tener la capa
+  // de la plataforma (planValido la rechaza). El plan que se le pone a mano a un negocio (Editar, en su ficha) sale de
+  // PLANES_ASIGNABLES, que es CAPAS_VENDIBLES.
+  const form = sinComentarios(leer('app/admin/_polar/web/CheckoutLinks/CheckoutLinkForm.tsx'));
+  assert.match(form, /productos\.filter\(\(p\) => p\.activo\)/, 'el formulario ofrece los planes activos que le pasan');
+  assert.doesNotMatch(form, /\bCAPAS\b|\bCAPAS_LISTA\b/, 'el catálogo entero incluye la capa superadmin');
+  assert.match(sinComentarios(leer('app/admin/_polar/datos/productos-server.ts')), /\(await planesMako\(\)\)\.map\(productoDePlan\)/, 'los planes salen de planesMako()');
+  assert.equal(planValido({ id: 'x', nombre: 'X', capa: 'superadmin', precioUsd: 10 }), null, 'un plan con la capa de la plataforma no existe');
+  assert.ok(planesDeSetting(JSON.stringify([{ id: 'x', nombre: 'X', capa: 'superadmin', precioUsd: 10 }])).every((p) => p.capa !== 'superadmin'));
+  assert.ok(PLANES_ASIGNABLES.length > 0 && !PLANES_ASIGNABLES.some((p) => p.capa === 'superadmin'), 'Editar en la ficha no ofrece la capa de la plataforma');
   // Y el server lo vuelve a preguntar ANTES de crear un lead o un cobro: la pantalla no protege nada. La action delega en
   // lib/vender-plan.ts, donde ventaValida valida la capa y venderPlan la llama antes del lead y del cobro.
   const v = acciones(ACTIONS).find((a) => a.nombre === 'venderPlanAction')!;
@@ -150,18 +161,23 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {
-  // Desde el 25/10/2026 /admin/cobros redirige a Admin › Billing; desde el 6/11/2026 Billing es app/admin/cobros/billing.tsx
-  // (la página de finanzas de Studio Admin).
+  // Desde el 25/10/2026 /admin/cobros redirige a Admin; desde el 6/11/2026 a Sales (la copia de Polar), donde se leen los cobros.
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');
-  assert.ok(guard < page.indexOf("redirect('/admin?tab=billing')"), 'el guard va ANTES de mandarlo a Billing');
-  const customers = sinComentarios(leer('app/admin/page.tsx'));
-  const puerta = customers.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
-  assert.ok(puerta > 0, 'Customers sin la puerta del super admin');
-  assert.ok(puerta < customers.indexOf('<Billing vista={sp.vista} recibo={sp.recibo} />'), 'el guard va ANTES de leer los cobros');
-  for (const p of [page, customers]) assert.doesNotMatch(p, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
-  assert.match(sinComentarios(leer('app/admin/cobros/billing.tsx')), /const datos = await cobrosDeMakoAction\(\);\s*if \(!datos\.ok\) return <ErrorSeccion /);
+  const destino = page.indexOf("redirect('/admin/sales')");
+  assert.ok(destino > 0 && guard < destino, 'el guard va ANTES de mandarlo a Sales');
+  const sales = sinComentarios(leer('app/admin/(polar)/sales/page.tsx'));
+  const puerta = sales.indexOf('await exigirSuperAdmin()');
+  assert.ok(puerta > 0, 'Sales sin la puerta del super admin');
+  assert.ok(puerta < sales.indexOf('await vistaOrders()'), 'el guard va ANTES de leer los cobros');
+  const guarda = sinComentarios(leer('app/admin/_polar/datos/guarda.ts'));
+  assert.match(guarda, /const sesion = await getSesionAdmin\(\)\s*if \(!sesion\) redirect\('\/inicio'\)/, 'la puerta de Admin es el rol global');
+  for (const p of [page, sales, guarda]) assert.doesNotMatch(p, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
+  // Un cobro que no se pudo leer se DICE (un aviso), no se dibuja como una lista vacía.
+  const ventas = sinComentarios(leer('app/admin/_polar/datos/ventas-server.ts'));
+  assert.match(ventas, /cobrosDeMakoAction\(\)\.catch\(/);
+  assert.match(ventas, /if \(!cobros\.ok\) avisos\.push\(/, 'los cobros que no se leyeron, en los avisos');
 });
 
 // Desde el 17/10/2026 la familia Admin salió de la barra: Cobros («Billing») es una SECCIÓN de Clients que sólo ve el

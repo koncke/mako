@@ -15,7 +15,6 @@ import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { emailDuenoWorkspace } from './usuarios';
 import { nombreDePlan } from './clientes-plataforma-reglas';
-import { RUTA_QUIEREN_ENTRAR } from './pedidos-ingreso-reglas';
 import { avisosFinDeRegaloCerca, avisosPlanAManoVencido, CLAVE_PLAN_A_MANO, fechaConAnio, leerPlanAMano, planAManoNuevo, tocaAvisarFinDeRegalo, tocaAvisarPlanAMano, type PlanAMano } from './plan-a-mano-reglas';
 import { estadoDePrueba, pagaSuPlan } from './prueba-uso';
 
@@ -90,7 +89,9 @@ export async function avisarPlanesAManoVencidos(opts: { ahoraMs?: number; enSeco
       if (opts.enSeco) { avisados++; continue; }
       const w = await getWorkspace(ws);
       if (!w) continue;
-      const datos = { negocio: w.nombre, plan: nombreDePlan(w.capa), hasta: p.hasta, linkPlan: linkApp('/configuraciones/plan', ws), linkCustomers: linkApp(RUTA_QUIEREN_ENTRAR, plataforma) };
+      // El link de Martín va a donde se resuelve: la ficha de ESE negocio en Admin (la copia de Polar, 6/11/2026: «Editar» da o
+      // quita el plan a mano). Antes era Admin › Accounts (`/admin?tab=accounts`), que hoy redirige a la lista de negocios.
+      const datos = { negocio: w.nombre, plan: nombreDePlan(w.capa), hasta: p.hasta, linkPlan: linkApp('/configuraciones/plan', ws), linkCustomers: linkApp(`/admin/customers/${ws}`, plataforma) };
       const a = antes ? avisosFinDeRegaloCerca(datos) : avisosPlanAManoVencido({ ...datos, regalo: p.regalo });
       const tag = antes ? 'plan-a-mano-antes' : 'plan-a-mano-fin';
       const duenio = (await emailDuenoWorkspace(ws)).trim().toLowerCase();

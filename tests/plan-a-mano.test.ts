@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { avisosPlanAManoVencido, CLAVE_PLAN_A_MANO, DIAS_PLAN_A_MANO, DIAS_REGALO, leerPlanAMano, llevaTopesDePrueba, planAManoNuevo, rotuloDeDias, tocaAvisarPlanAMano } from '../lib/plan-a-mano-reglas';
+import { cambiosDelNegocio, opcionesDePlanAMano } from '../app/admin/_polar/datos/cliente';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -50,9 +51,9 @@ test('los 6 meses gratis NO son una prueba: su plan entero mientras duran, y al 
   assert.ok(uso.indexOf('if (!llevaTopesDePrueba(p, Date.now())) return nada;') > 0, 'estadoDePrueba no lo da «en prueba» mientras dura');
   const mano = sinComentarios(readFileSync(join(RAIZ, 'lib/plan-a-mano.ts'), 'utf8').replace(/\r\n/g, '\n'));
   assert.match(mano, /avisosPlanAManoVencido\(\{ \.\.\.datos, regalo: p\.regalo \}\)/, 'el cron usa el texto de los 6 meses');
-  assert.match(mano, /linkCustomers: linkApp\(RUTA_QUIEREN_ENTRAR, plataforma\)/, 'lleva a Accounts, no a /admin (que redirige a otra pestaña)');
-  const ui = sinComentarios(readFileSync(join(RAIZ, 'app/admin/AdminView.tsx'), 'utf8').replace(/\r\n/g, '\n'));
-  assert.match(ui, /\{rotuloDeDias\(d\)\}<\/button>/);
+  assert.match(mano, /linkCustomers: linkApp\(`\/admin\/customers\/\$\{ws\}`, plataforma\)/, 'lleva a la ficha del negocio en Admin, donde se resuelve');
+  // En Admin (la copia de Polar, 6/11/2026: «Editar» en la ficha del negocio) los 6 meses se ofrecen con su rótulo.
+  assert.ok(opcionesDePlanAMano(false).some((o) => o.value === String(DIAS_REGALO) && o.label === rotuloDeDias(DIAS_REGALO)), 'los 6 meses, con su rótulo');
 });
 
 test('el vencimiento se arma con los días elegidos y se lee tolerante', () => {
@@ -144,9 +145,16 @@ test('en Customers se da junto con el plan; la plataforma nunca; 0 lo quita', ()
   assert.match(caso, /await ponerPlanAMano\(body\.id, dias\)/);
   const m = sinComentarios(fuente('lib/plan-a-mano.ts'));
   assert.match(m.slice(m.indexOf('export async function ponerPlanAMano(')), /if \(dias === 0\)/, '0 = sin vencimiento');
-  const ui = fuente('app/admin/AdminView.tsx');
-  assert.match(ui, /postWs\(\{ action: 'plan_a_mano', id: w\.id, dias \}\)/);
-  assert.match(ui, /DIAS_PLAN_A_MANO\.map\(/, 'los días se eligen de la lista, no se escriben');
+  // La pantalla: «Editar» en la ficha del negocio (la copia de Polar, 6/11/2026; antes, la grilla vieja de AdminView). Los días
+  // se eligen de la lista (`opcionesDePlanAMano`) y el pedido va a la ruta de arriba.
+  assert.deepEqual(opcionesDePlanAMano(true).filter((o) => o.value !== 'igual' && o.value !== '0').map((o) => Number(o.value)), [...DIAS_PLAN_A_MANO], 'los días se eligen de la lista, no se escriben');
+  const n = { ws: 41, nombre: 'Estudio Norte', capa: 'completo' as const };
+  for (const d of DIAS_PLAN_A_MANO) assert.deepEqual(cambiosDelNegocio(n, { nombre: n.nombre, capa: n.capa, planAMano: String(d) }), [{ action: 'plan_a_mano', id: 41, dias: d }]);
+  assert.deepEqual(cambiosDelNegocio(n, { nombre: n.nombre, capa: n.capa, planAMano: '0' }), [{ action: 'plan_a_mano', id: 41, dias: 0 }], '0 lo quita');
+  const modal = fuente('app/admin/_polar/web/Customer/EditCustomerModal.tsx');
+  assert.match(modal, /const cambios = cambiosDelNegocio\(negocio, valores\)/);
+  assert.match(modal, /await enOrden\(cambios, accionDelNegocio\)/);
+  assert.match(fuente('app/admin/_polar/web/Customer/CustomerPage/acciones.ts'), /export const accionDelNegocio = \(a: AccionNegocio\) => post\('\/api\/admin\/workspaces', a\)/);
 });
 
 // Probado rompiéndolo (28/10/2026), una rotura por vez sobre la base en verde (6 pases, 0 fallos), restaurando el archivo desde

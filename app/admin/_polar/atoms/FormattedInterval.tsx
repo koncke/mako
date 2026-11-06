@@ -13,7 +13,7 @@ interface FormattedIntervalProps {
 const FormattedInterval: React.FC<FormattedIntervalProps> = ({
   startDatetime,
   endDatetime,
-  locale = 'en-US',
+  locale = 'es',
   hideCurrentYear = true,
 }) => {
   const formatted = useMemo(() => {

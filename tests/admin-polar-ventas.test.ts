@@ -45,7 +45,8 @@ const recibo = (over: Partial<ReciboVenta>): ReciboVenta => ({
 
 const cobro = (over: Partial<CobroVenta>): CobroVenta => ({
   id: 1, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', plan: 'MaKo Pro', concepto: 'MaKo Pro', monto: 297, moneda: 'USD', montoUsd: 297, tipo: 'unico',
-  modo: 'real', proveedor: 'stripe', estado: 'pagado', motivo: null, altaEstado: null, altaWs: null, altaWsNombre: null, createdAt: '2026-11-01T10:00:00Z',
+  modo: 'real', proveedor: 'stripe', estado: 'pagado', motivo: null, altaEstado: null, altaWs: null, altaWsNombre: null, altaCapa: null, creadoPor: null,
+  createdAt: '2026-11-01T10:00:00Z',
   pagadoAt: '2026-11-01T10:05:00Z', link: null, suscripcionViva: false, ...over,
 })
 

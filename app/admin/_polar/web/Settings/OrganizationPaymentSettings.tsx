@@ -160,10 +160,7 @@ const OrganizationPaymentSettings: React.FC<{ datos: DatosPagos }> = ({ datos })
   return (
     <Box flexDirection="column" rowGap="2xl">
       {!locales ? (
-        <Box flexDirection="column" rowGap="s">
-          <Alert variant="danger" title="No pude leer los precios de los planes" description={datos.errorLocales ?? undefined} />
-          {datos.errorLocales && <ReportarASoporte error={datos.errorLocales} />}
-        </Box>
+        <Alert variant="danger" title="No pude leer los precios de los planes" description={datos.errorLocales ?? undefined} />
       ) : !locales.moneda ? (
         <SettingsGroup title="Mercado Pago">
           <SettingsGroupItem title="No está conectada" description="Sin ella, los planes se pagan sólo con tarjeta, en dólares." />
@@ -179,10 +176,7 @@ const OrganizationPaymentSettings: React.FC<{ datos: DatosPagos }> = ({ datos })
       {datos.precioAgencia ? (
         <ClienteDeAgencia inicial={datos.precioAgencia} conMercadoPago={datos.conMercadoPago} />
       ) : (
-        <Box flexDirection="column" rowGap="s">
-          <Alert variant="danger" title="No pude leer el precio del cliente de agencia" description={datos.errorAgencia ?? undefined} />
-          {datos.errorAgencia && <ReportarASoporte error={datos.errorAgencia} />}
-        </Box>
+        <Alert variant="danger" title="No pude leer el precio del cliente de agencia" description={datos.errorAgencia ?? undefined} />
       )}
     </Box>
   )

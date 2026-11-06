@@ -8,6 +8,9 @@
 //
 // ⚠️ NO ENTRAN el negocio de la plataforma ni sus personas (ni quien no tiene negocio): no son clientes, y Customers no los
 //    lista (lib/clientes-plataforma.ts los saca), así que no tienen a dónde llevar.
+// ⚠️ UN CLIENTE DE UNA AGENCIA SÍ ENTRA, diciendo de qué agencia es («De Agencia Faro · MaKo Pro»). La lista de Customers no lo
+//    cuenta (no es un cliente de MaKo: ./clientes.ts `esClienteDeMaKo`), pero su ficha existe y la búsqueda es por donde se
+//    llega: encontrar no es contar. Sin el detalle se leería como un cliente más de MaKo.
 
 export type ResultadoNegocio = { tipo: 'negocio'; ws: number; nombre: string; detalle: string }
 export type ResultadoPersona = { tipo: 'persona'; id: number; ws: number | null; nombre: string; email: string; negocio: string | null }
@@ -28,15 +31,26 @@ export function armarIndice(p: {
   usuarios: ReadonlyArray<{ id: number; nombre: string; email: string; workspace_id: number | null }>
   plataforma: number | null
   plan: (capa: string) => string
+  /** De qué agencia es cada cliente de una agencia (el ws del cliente → el de su agencia). */
+  deAgencia?: ReadonlyMap<number, number>
 }): IndiceBusqueda {
   const clientes = p.workspaces.filter((w) => w.id !== p.plataforma)
   const nombre = new Map(clientes.map((w) => [w.id, w.nombre]))
+  const detalle = (w: (typeof clientes)[number]) => {
+    const ag = p.deAgencia?.get(w.id)
+    const partes = [
+      ag != null ? `De ${nombre.get(ag) ?? 'una agencia'}` : null,
+      p.plan(w.capa),
+      w.estado === 'pausado' ? 'Pausado' : null,
+    ]
+    return partes.filter(Boolean).join(' · ')
+  }
   return {
     negocios: clientes.map((w) => ({
       tipo: 'negocio',
       ws: w.id,
       nombre: w.nombre,
-      detalle: w.estado === 'pausado' ? `${p.plan(w.capa)} · Pausado` : p.plan(w.capa),
+      detalle: detalle(w),
     })),
     personas: p.usuarios
       .filter((u) => u.workspace_id != null && nombre.has(u.workspace_id))

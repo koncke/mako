@@ -106,7 +106,6 @@ export const COSTOS_EJEMPLO: VistaCostos = armarCostos({
   periodo: '2026-11',
   actual: resumen('2026-11', 1, false),
   previo: resumen('2026-10', 0.8, false),
-  nombres: NOMBRES,
   hoy: HOY_EJEMPLO,
   avisos: [],
 })

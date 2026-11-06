@@ -24,7 +24,7 @@
 //   · el repartidor con `redirect(await rutaConWs('/general'))` de vuelta al final          → cae 3 (3 / 1)
 //   · el repartidor con el onboarding ANTES de `quienOpera` (sin `!opera`)                  → cae 3 (3 / 1)
 //   · el repartidor con el `if (rolWs === 'closer' …) redirect(… '/crm')` de vuelta           → cae 3 (3 / 1)
-//   · «Inspeccionar» de AdminView con `/general?ws=` otra vez                               → cae 4 (3 / 1)
+//   · «Entrar a su cuenta» de la ficha de Admin con `/general?ws=` otra vez                              → cae 4 (3 / 1)
 //   · el callback de Google con `|| '/'` otra vez                                          → cae 4 (3 / 1)
 //   · «Ir al inicio» del cartel del plan con `homeDeCapa(capa)` otra vez                    → cae 4 (3 / 1)
 
@@ -84,10 +84,13 @@ test('3: el repartidor: teléfono primero, después quienOpera, el onboarding y 
 });
 
 test('4: los otros caminos de entrada van al repartidor, no a /general ni a la landing', () => {
-  const admin = codigo('app/admin/AdminView.tsx');
-  assert.equal(admin.split('<a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`}').length - 1, 2, '«Inspeccionar» (tabla y tarjetas)');
-  assert.doesNotMatch(admin, /\/general\?ws=/);
-  assert.match(codigo('app/admin/FichaWorkspace.tsx'), /<a href=\{`\/inicio\?ws=\$\{w\.id\}`\} title=\{`Entrar a \$\{w\.nombre\}`\} className="fw-entrar">/);
+  // Admin (la copia de Polar desde el 6/11/2026): «Entrar a su cuenta» en la ficha de un negocio y «Abrir su MaKo» en un pedido.
+  const ficha = codigo('app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx');
+  assert.match(ficha, /<a href=\{`\/inicio\?ws=\$\{negocio\.ws\}`\}>Entrar a su cuenta<\/a>/, '«Entrar a su cuenta» de la ficha');
+  assert.match(codigo('app/admin/_polar/web/Orders/OrderCustomerContext.tsx'), /href=\{`\/inicio\?ws=\$\{customer\.ws\}`\}/, '«Abrir su MaKo» de un pedido');
+  for (const f of ['app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx', 'app/admin/_polar/web/Orders/OrderCustomerContext.tsx']) {
+    assert.doesNotMatch(codigo(f), /\/general\?ws=/, `${f}: a /general y no al repartidor`);
+  }
   const partners = codigo('app/partners/PartnersApp.tsx');
   assert.match(partners, /if \(superAdmin\) \{ window\.location\.href = `\/inicio\?ws=\$\{ws\}`; return; \}/);
   assert.doesNotMatch(partners, /window\.location\.href = '\/general'/, 'la agencia entraba a /general');

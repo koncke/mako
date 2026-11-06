@@ -46,8 +46,8 @@ export const createSelectionColumn = <TData extends RowData>(
         <Checkbox
           aria-label={
             selection.count > 0
-              ? `Select all rows on this page, ${selection.count} selected`
-              : 'Select all rows on this page'
+              ? `Elegir todas las filas de esta página, ${selection.count} elegidas`
+              : 'Elegir todas las filas de esta página'
           }
           checked={pagePartiallySelected ? 'indeterminate' : pageFullySelected}
           className={selectionRevealClassName(selection.count > 0)}
@@ -64,7 +64,7 @@ export const createSelectionColumn = <TData extends RowData>(
       }}
     >
       <Checkbox
-        aria-label={`Select row ${row.index + 1}`}
+        aria-label={`Elegir la fila ${row.index + 1}`}
         checked={selection.isSelected(row.original)}
         className={selectionRevealClassName(selection.count > 0)}
       />

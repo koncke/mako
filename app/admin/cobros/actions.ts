@@ -76,6 +76,10 @@ export type CobroMako = {
   alta_ws: number | null;
   /** El nombre del workspace que se creó al pagar. */
   alta_ws_nombre: string | null;
+  /** La capa que da de alta al pagarse (y si lo armó «Vender un plan» o el checkout de /planes: `creado_por`). */
+  alta_capa: string | null;
+  /** Quién lo armó: la persona («Vender un plan»), «planes:…» (el checkout público de /planes), o null. */
+  creado_por: string | null;
   created_at: string;
   pagado_at: string | null;
   /** /pagar/<token>, sólo mientras se puede pagar (pendiente o rechazado). */
@@ -118,6 +122,7 @@ function fila(c: Cobro, nombres: Map<number, string>): CobroMako {
     tipo: c.tipo, modo: c.modo, proveedor: c.proveedor, estado: c.estado, motivo: c.motivo,
     alta_estado: c.alta_estado, alta_motivo: c.alta_motivo, alta_ws: c.alta_ws,
     alta_ws_nombre: c.alta_ws != null ? nombres.get(c.alta_ws) ?? null : null,
+    alta_capa: c.alta_capa ?? null, creado_por: c.creado_por ?? null,
     created_at: c.created_at, pagado_at: c.pagado_at,
     link: c.estado === 'pendiente' || c.estado === 'fallido' ? linkDelCobro(c.token) : null,
     suscripcionViva: suscripcionViva(c),

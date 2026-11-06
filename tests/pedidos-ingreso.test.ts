@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RUTA_QUIEREN_ENTRAR, altaDelPedido, detalleDelPedido, pedidoQueVuelve, textoDelCartel } from '../lib/pedidos-ingreso-reglas';
+import { inicialDeAlta } from '../app/admin/_polar/datos/alta';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -94,31 +95,33 @@ test('el cableado: la pantalla de login lo dice, sólo si quedó; la bandeja abr
   assert.ok(cb.indexOf('await accesoInvitadoPorEmail(email)') < cb.indexOf('registrarPedido('), 'el alumno de un curso no es un pedido');
   const login = fuente('app/login/LoginForm.tsx');
   assert.match(login, /'pedido-registrado': TEXTO_PEDIDO_REGISTRADO,/);
-  const admin = fuente('app/admin/AdminView.tsx');
-  assert.match(admin, /<PedidosDeIngreso vuelta=\{vueltaPedidos\} onDarDeAlta=/);
-  assert.match(admin, /setAdminEmail\(a\.adminEmail\); setAdminNombre\(a\.adminNombre\);/);
-  assert.match(admin, /setNombre\(''\); setAdminEmail\(''\); setAdminNombre\(''\);\s*setVueltaPedidos\(\(n\) => n \+ 1\);/);
-  const bandeja = fuente('app/admin/PedidosDeIngreso.tsx');
-  assert.match(bandeja, /if \(!pedidos\.length && !error\) return null;/, 'sin nadie no se dibuja, pero un error sí');
+  // La bandeja: desde el 6/11/2026 es el aviso «Quieren entrar» de la portada de Admin (la copia de Polar; antes,
+  // app/admin/PedidosDeIngreso.tsx en la grilla vieja). «Dar de alta» abre EL formulario de alta con lo del pedido puesto, y al
+  // crear se vuelve a pedir la página (el server ya sacó el pedido de la lista).
+  const bandeja = fuente('app/admin/_polar/web/DashboardOverview/EsperaBanners.tsx');
+  assert.match(bandeja, /<CreateCustomerModal\s+key=\{alta\.id\}\s+pedido=\{alta\}\s+opciones=\{opciones\}\s+onClose=\{\(\) => setAlta\(null\)\}\s+onCreated=\{\(\) => router\.refresh\(\)\}/, '«Dar de alta» abre el alta de siempre, con el pedido');
+  assert.deepEqual(inicialDeAlta({ planes: [{ id: 'completo', nombre: 'Pro', descripcion: '', aviso: null }], planPorDefecto: 'completo' }, { email: 'ana@b.co', nombre: null }),
+    { nombre: 'ana', email: 'ana@b.co', adminNombre: '', plan: 'completo' }, 'el alta trae lo del pedido (`altaDelPedido`)');
+  const iError = bandeja.indexOf("if (!lectura.ok) return <ErrorAlert title=\"No pude leer quién quiere entrar\"");
+  const iNadie = bandeja.indexOf('if (!title && !isShown && !alta) return null');
+  assert.ok(iError > 0 && iNadie > iError, 'sin nadie no se dibuja, pero un error sí');
   assert.doesNotMatch(bandeja, /dangerouslySetInnerHTML/, 'los datos los escribe quien pide');
 });
 
-test('lo que espera a Martín se ve sin abrir Accounts: el cartel de Customers, el teléfono y el link del aviso', () => {
+test('lo que espera a Martín se ve al entrar a Admin: la portada, el teléfono y el link del aviso', () => {
   assert.equal(textoDelCartel(0, 0), null, 'sin nada, no se dibuja');
   assert.equal(textoDelCartel(1, 0), '1 quiere entrar');
   assert.equal(textoDelCartel(2, 1), '2 quieren entrar · 1 pedido de agencia');
   assert.equal(textoDelCartel(0, 3), '3 pedidos de agencia');
-  assert.equal(RUTA_QUIEREN_ENTRAR, '/admin?tab=accounts');
-  // Desde el 5/11/2026 (Admin con el shell de Studio Admin), lo que espera va en la tarjeta del pie del sidebar, en TODAS las
-  // secciones, y lleva a la bandeja; el sobre de arriba del sidebar lleva al mismo lugar.
-  const pag = fuente('app/admin/page.tsx');
-  assert.match(pag, /<AdminShell cuenta=\{await cuentaDe\(sesionAdmin\)\} esperan=\{await queEspera\(\)\}>/);
-  assert.match(pag, /return e \? textoDelCartel\(e\.quierenEntrar, e\.deAgencias\) : null;/);
-  assert.match(fuente('app/admin/_studio/shell/support-card.tsx'), /<Link prefetch=\{false\} href=\{RUTA_QUIEREN_ENTRAR\}/);
-  assert.match(fuente('app/admin/_studio/shell/nav-main.tsx'), /<Link prefetch=\{false\} href=\{RUTA_QUIEREN_ENTRAR\} title="Quieren entrar">/);
+  // Desde el 6/11/2026 (la copia de Polar) lo que espera va arriba de la portada de Admin (Overview, /admin), donde Polar avisa
+  // lo que hay que responder: el aviso «Quieren entrar» y los de las agencias y las bajas.
+  assert.equal(RUTA_QUIEREN_ENTRAR, '/admin');
+  assert.match(fuente('app/admin/_polar/web/DashboardOverview/DashboardPage.tsx'), /<EsperaBanners esperan=\{resumen\.esperan\} avisos=\{resumen\.avisos\} \/>/);
+  assert.match(fuente('app/admin/_polar/web/DashboardOverview/EsperaBanners.tsx'), /<QuierenEntrar esperan=\{esperan\} \/>/);
+  assert.match(fuente('app/admin/(polar)/page.tsx'), /leerResumenDeAdmin\(\)/, 'la portada lee lo que espera');
   assert.match(fuente('app/m/customers/page.tsx'), /<CustomersM vista=\{vista\} arriba=\{bandeja\} ingresos=\{ingresos\} errores=\{errores\} actividad=\{actividad\} \/>/);
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /padre=\{\{ href: RUTA_MAS, label: 'More' \}\} \/>\s*\{arriba\}/);
-  assert.equal(R.linkDelAviso, true, 'el aviso lleva a Accounts, no a /admin (que redirige a otra pestaña)');
+  assert.equal(R.linkDelAviso, true, 'el aviso lleva a la portada de Admin, donde está «Quieren entrar» (un `?tab=` viejo redirige a otra sección)');
   assert.deepEqual(R.espera, { quierenEntrar: 1, deAgencias: 2 });
 });
 

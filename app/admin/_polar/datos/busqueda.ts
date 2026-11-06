@@ -10,9 +10,17 @@ import { cache } from 'react'
 import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
 import { listarUsuarios } from '@/lib/usuarios'
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
+import { todasLasCarteras } from '@/lib/agencia'
+import { esCarteraVigente } from '@/lib/agencia-cartera'
 import { armarIndice, type IndiceBusqueda } from './busqueda-tipos'
 
 export const indiceDeBusqueda = cache(async (): Promise<IndiceBusqueda> => {
-  const [workspaces, usuarios, plataforma] = await Promise.all([listarWorkspaces(), listarUsuarios(), wsSuperAdmin().catch(() => null)])
-  return armarIndice({ workspaces, usuarios, plataforma, plan: nombreDePlan })
+  // Las carteras sólo agregan el «De <agencia>» de un cliente de agencia: si no se pueden leer, `todasLasCarteras` da `[]` y
+  // el resultado sale sin ese detalle (no se esconde a nadie).
+  const [workspaces, usuarios, plataforma, carteras] = await Promise.all([
+    listarWorkspaces(), listarUsuarios(), wsSuperAdmin().catch(() => null), todasLasCarteras(),
+  ])
+  const deAgencia = new Map<number, number>()
+  for (const f of carteras) if (esCarteraVigente(f)) deAgencia.set(Number(f.cliente_ws), Number(f.agencia_ws))
+  return armarIndice({ workspaces, usuarios, plataforma, plan: nombreDePlan, deAgencia })
 })

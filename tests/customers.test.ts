@@ -11,6 +11,9 @@
 //   4. Billing y Client Agents viven adentro (las rutas viejas redirigen después de su guard) y salen del menú;
 //   5. la grilla es la MISMA (AdminView), filtrada por el segmento; /clients ya no la dibuja para el super admin;
 //   6. la API: dos lecturas, sólo la plataforma, que el runner repregunta.
+// ⚠️ Desde el 6/11/2026 Admin es la copia de Polar (app/admin/(polar), app/admin/_polar): se borraron la pantalla de Customers
+//    (app/customers/CustomersApp.tsx) y la grilla de Accounts (app/admin/AdminView.tsx), y con ellas los casos que fijaban SU
+//    forma (la tarjeta de plata, la flecha, «Administrar»). La puerta, los redirects y lo que lee el server siguen acá.
 //
 // Probado rompiéndolo (con todo puesto: 0 fallos). Cada rotura, sola:
 //   · `segmentosDe` deja a un cliente de agencia también como «cliente»                      → 1 fallo (1)
@@ -51,6 +54,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAMILIAS, SUPERADMIN_MENU, USER_NAV, itemsDe } from '../app/_components/nav';
 import { masCompleto, rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
+import { destinoDeCustomers } from '../app/customers/destino';
 import { puedeVerItem } from '../lib/nav-visibilidad';
 import { DEFS } from '../lib/api-mako/areas/cobros.def';
 import {
@@ -121,15 +125,19 @@ test('los números: activos y nuevos sin los clientes de agencias; el MRR, de to
 // ── 3. La puerta ─────────────────────────────────────────────────────────────────
 
 test('sólo el super admin, antes de leer nada; y el proxy también la cierra', () => {
-  const page = leer('app/admin/page.tsx');
-  const puerta = page.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
-  assert.ok(puerta > 0, 'sin la puerta del super admin');
-  // Billing es app/admin/cobros/billing.tsx desde el 6/11/2026 (la página de finanzas de Studio Admin).
-  for (const lectura of ['<Billing vista={sp.vista} recibo={sp.recibo} />', '<ContenidoAgentes />', 'await PestanaClientes(cliente)', 'await PestanaCuentas(sesionAdmin, cuenta)']) {
-    assert.ok(page.indexOf(lectura) > puerta, `${lectura} antes de la puerta`);
+  // Desde el 6/11/2026 Admin es la copia de Polar: los negocios se leen en Admin › Customers (su lista, en el layout, y su
+  // Overview), con `leerClientes()` → `vistaDeClientes()`. Cada uno pregunta por el super admin ANTES de leer (la puerta de cada
+  // página de Admin la fijan también los tests/admin-polar-*).
+  assert.match(leer('app/admin/_polar/datos/guarda.ts'), /const sesion = await getSesionAdmin\(\)\s*if \(!sesion\) redirect\('\/inicio'\)/, 'la puerta es el super admin global');
+  assert.match(leer('app/admin/_polar/datos/clientes-server.ts'), /vistaDeClientes\(/, 'los negocios salen de vistaDeClientes');
+  for (const rel of ['app/admin/(polar)/customers/layout.tsx', 'app/admin/(polar)/customers/page.tsx']) {
+    const page = leer(rel);
+    const cuerpo = page.slice(page.indexOf('export default async function'));
+    const puerta = cuerpo.indexOf('await exigirSuperAdmin()');
+    assert.ok(puerta > 0, `${rel}: sin la puerta del super admin`);
+    assert.ok(cuerpo.indexOf('leerClientes()') > puerta, `${rel}: los clientes se leen antes de la puerta`);
+    assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada negocio');
   }
-  assert.ok(page.indexOf('vistaDeClientes(') > puerta, 'los clientes se leen antes de la puerta');
-  assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada negocio');
   assert.match(leer('proxy.ts'), /const SOLO_ADMIN = \[[^\]]*'\/customers'[^\]]*\];/);
   assert.match(leer('proxy.ts'), /const SOLO_ADMIN = \['\/admin',/, 'Admin (/admin) también en el proxy');
 });
@@ -137,11 +145,20 @@ test('sólo el super admin, antes de leer nada; y el proxy también la cierra', 
 // ── 4. Billing y Agents, adentro ─────────────────────────────────────────────────
 
 test('Billing y Client Agents viven en Customers: las rutas viejas redirigen después de su guard y salen del menú', () => {
-  for (const [rel, destino] of [['app/admin/cobros/page.tsx', '/admin?tab=billing'], ['app/admin/agente/page.tsx', '/admin?tab=agents'], ['app/customers/page.tsx', 'destinoDeCustomers(await searchParams)']]) {
+  // Desde el 6/11/2026 (la copia de Polar) Billing es Sales y Agents un tipo de evento de Analytics › Events.
+  for (const [rel, destino] of [['app/admin/cobros/page.tsx', '/admin/sales'], ['app/admin/agente/page.tsx', '/admin/analytics/events?tipo=agente'], ['app/customers/page.tsx', 'destinoDeCustomers(await searchParams)']]) {
     const p = leer(rel);
     const guard = p.indexOf("redirect('/inicio')");
     assert.ok(guard > 0 && guard < Math.max(p.indexOf(`redirect('${destino}')`), p.indexOf(`redirect(${destino})`)), `${rel}: el guard, y después a ${destino}`);
   }
+  // /customers sin `?tab=` abría la lista de los negocios, y la sigue abriendo; con `?tab=`, la MISMA tabla que /admin?tab=.
+  assert.equal(destinoDeCustomers({}), '/admin/customers', 'sin tab, /customers abría la lista de los negocios (no Overview)');
+  assert.equal(destinoDeCustomers({ cliente: '7' }), '/admin/customers/7');
+  assert.equal(destinoDeCustomers({ tab: 'accounts', cuenta: '12' }), '/admin/customers/12');
+  assert.equal(destinoDeCustomers({ tab: 'billing' }), '/admin/sales');
+  assert.equal(destinoDeCustomers({ tab: 'customers', cliente: '7' }), '/admin/customers/7');
+  assert.equal(destinoDeCustomers({ tab: 'nada', cuenta: '1;drop' }), '/admin/customers', 'un id que no es un número se cae');
+  assert.equal(destinoDeCustomers({ tab: 'customers', cliente: '21/../9' }), '/admin/customers', 'nada que no sea un número');
   assert.ok(!SUPERADMIN_MENU.some((i) => i.href === '/admin/cobros' || i.href === '/admin/agente'), 'volvieron al menú de la foto');
   const item = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'admin-customers');
   assert.ok(item, 'Admin no está en la barra');
@@ -157,21 +174,10 @@ test('Billing y Client Agents viven en Customers: las rutas viejas redirigen des
 
 // ── 5. El rediseño (26/10/2026): lo suyo, sin tarjetas en cero; la grilla de administración en Accounts ───────────
 
-test('Customers dibuja lo suyo: plata sólo si entró algo, «Para mirar», chips y la ficha en un panel; la grilla vieja vive en Accounts', () => {
-  const app = leer('app/customers/CustomersApp.tsx');
-  assert.doesNotMatch(app, /<AdminView/, 'la grilla vieja volvió a la pestaña Customers');
-  // Sin plata, una línea que lo dice y el link a vender: nunca un «US$ 0».
-  assert.match(app, /if \(numero <= 0 && !cobrado\) \{\s*return \(\s*<div className="cu-plata-vacia">/);
-  assert.match(app, /Todavía no entró plata por MaKo\./);
-  assert.match(app, /href="\/admin\?tab=billing">Vender un plan/);
-  // La ficha: UNA acción principal, y «Administrar» lleva a Accounts con su ficha abierta.
-  assert.equal((app.match(/className="cu-entrar"/g) ?? []).length, 1);
-  assert.match(app, /href=\{`\/admin\?tab=accounts&cuenta=\$\{f\.ws\}`\}/);
-  const page = leer('app/admin/page.tsx');
-  assert.match(page, /<AdminView incrustado trabajo=\{trabajo\}[\s\S]*?abrirInicial=\{cuenta\} \/>/);
-  assert.match(page, /tab === 'accounts' \? await PestanaCuentas\(sesionAdmin, cuenta\)/);
-  assert.doesNotMatch(page, /searchParams[^\n]*\bws\?/, '?ws= hace mirar a un cliente: la ficha va en ?cuenta=');
-  assert.match(leer('app/admin/AdminView.tsx'), /const \[abierto, setAbierto\] = useState<number \| null>\(abrirInicial\);/);
+test('/clients no vuelve a dibujar la grilla del super admin (la de los negocios vive en Admin › Customers)', () => {
+  // Hasta el 6/11/2026 esto fijaba también la pantalla de Customers (app/customers/CustomersApp.tsx) y la grilla de Accounts
+  // (AdminView): se borraron con la copia de Polar, y la ficha de un negocio es ahora una página, /admin/customers/<ws>, sin `?ws=`
+  // (lo fija tests/admin-polar-resumen.test.ts). Queda lo de /clients.
   const pantalla = leer('app/customer-success/pantalla.tsx');
   // Desde el 29/10/2026 el super admin ve acá el directorio de la comunidad («Members»); un link que nombra a un cliente sigue
   // yendo a Customers. La guarda de que no lee leads está en tests/cs-kanban-ficha-ui.test.ts.
@@ -288,7 +294,11 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.deepEqual(estadoEnUnaPalabra(sinLeer), { rotulo: 'Activo', tono: 'good' });
   assert.deepEqual(paraMirar([{ ...sinLeer, ws: 1, nombre: 'X' }], ahora), []);
   assert.equal(sinUso({ sinEntrar: 40, sinLeads: null, onboardingHecho: null }), false);
-  assert.match(leer('app/customers/CustomersApp.tsx'), /\['Configuración', f\.onboardingHecho == null \? '—'/);
+  // En la ficha de Admin (la copia de Polar, 6/11/2026; era la lista de app/customers/CustomersApp.tsx): «No se pudo leer».
+  assert.match(leer('app/admin/_polar/datos/cliente-server.ts'), /onboardingHecho: fila \? fila\.onboardingHecho : null,/);
+  const detalle = leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx');
+  assert.match(detalle, /const siNo = \(v: boolean \| null, si: string, no: string\) =>\s*v == null \? <Text as="span" color="muted">No se pudo leer<\/Text> : v \? si : no/);
+  assert.match(detalle, /value=\{siNo\(alta\.onboardingHecho, 'Terminado', 'Sin terminar'\)\}/);
   // 5. Las lecturas que crecen con el uso, paginadas (PostgREST corta en 1000 sin avisar y sin orden).
   assert.doesNotMatch(servidor, /\.limit\(\d{4,}\)/, 'un `.limit()` grande no pasa el techo de 1000');
   for (const tabla of ['usuarios', 'agente_sesiones', 'pagos', 'partner_codigos']) {
@@ -300,15 +310,12 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.equal(comparacionCerrada(serie([0, 0, 0, 0, 500, 100])), null, 'contra un mes en cero no hay %');
   assert.equal(comparacionCerrada(null), null);
   assert.equal(comparacionCerrada(serie([300, 100])), null, 'con un solo mes cerrado no hay contra qué');
-  const app = leer('app/customers/CustomersApp.tsx');
-  assert.match(app, /<p className="cu-plata-num">\{usdTxt\(numero\)\}<\/p>/, 'nada pegado al número de arriba');
-  assert.doesNotMatch(app, /% vs \{MES/);
   // 7. A un cliente de agencia lo opera su agencia con su propia sesión: nunca «Sin uso», y su «Última vez» lo dice.
   assert.match(servidor, /const porUso = actividadLeida && !deAgencia\.has\(w\.id\) && sinUso\(actividad\);/);
   assert.equal(ultimaVezTxt({ sinEntrar: null, segmentos: ['de-agencia'] }), 'Lo opera su agencia');
   assert.equal(ultimaVezTxt({ sinEntrar: 3, segmentos: ['de-agencia'] }), 'Hace 3 días', 'si su equipo entra, se dice');
   assert.equal(ultimaVezTxt({ sinEntrar: null, segmentos: ['cliente'] }), 'Nunca');
-  assert.doesNotMatch(app + movil, /haceTxt\((f|c)\.sinEntrar\)/, 'la «Última vez» se dice con ultimaVezTxt en las dos pantallas');
+  assert.doesNotMatch(movil, /haceTxt\((f|c)\.sinEntrar\)/, 'la «Última vez» se dice con ultimaVezTxt en el teléfono');
   // 8. En la app, el super admin GLOBAL (como la pantalla), no el admin del workspace de la plataforma.
   const run = leer('lib/api-mako/areas/cobros.run.ts');
   for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {

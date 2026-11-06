@@ -51,12 +51,12 @@ export const COBROS_EJEMPLO: CobroVenta[] = [
   {
     id: 301, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', plan: 'MaKo Pro', concepto: 'MaKo Pro', monto: 297, moneda: 'USD', montoUsd: 297,
     tipo: 'suscripcion', modo: 'real', proveedor: 'stripe', estado: 'pagado', motivo: null, altaEstado: 'hecha', altaWs: 41, altaWsNombre: 'Estudio Norte',
-    createdAt: '2026-10-05T10:00:00Z', pagadoAt: '2026-10-05T10:05:00Z', link: null, suscripcionViva: true,
+    altaCapa: 'agencia', creadoPor: 'planes:pro', createdAt: '2026-10-05T10:00:00Z', pagadoAt: '2026-10-05T10:05:00Z', link: null, suscripcionViva: true,
   },
   {
     id: 302, nombre: 'Carlos Ruiz', email: 'carlos@ejemplo.com', plan: 'MaKo Esencial', concepto: 'MaKo Esencial', monto: 47, moneda: 'USD', montoUsd: 47,
     tipo: 'suscripcion', modo: 'real', proveedor: 'mercadopago', estado: 'pendiente', motivo: null, altaEstado: null, altaWs: null, altaWsNombre: null,
-    createdAt: '2026-11-03T18:00:00Z', pagadoAt: null, link: '/pagar/ejemplo', suscripcionViva: false,
+    altaCapa: 'completo', creadoPor: 'planes:esencial', createdAt: '2026-11-03T18:00:00Z', pagadoAt: null, link: '/pagar/ejemplo', suscripcionViva: false,
   },
 ]
 

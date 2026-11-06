@@ -9,7 +9,8 @@
 //   2. el turno va a una que conteste; con varias, a la que contestó el último turno (no salta cada 30 s), sin turnos a la
 //      última conectada, y si una se apaga, a la que queda;
 //   3. cada una dice su sistema (desde la 0.4.0) y cuándo se conectó; la tarjeta ofrece «Conectar otra computadora»;
-//   4. el super admin ve las de UN negocio por vez, en la ficha de ese cliente (desde el 23/10/2026: Martín, al ver las de
+//   4. el super admin ve las de UN negocio por vez, en la ficha de ese cliente (desde el 6/11/2026, la de la copia de Polar:
+//      Admin › Customers › <negocio>; «Desconectar» se perdió ahí, ver el 4b) (desde el 23/10/2026: Martín, al ver las de
 //      todos en «Tus cuentas de IA»: «estas cruzando workspace»), sin secretos, con «Desconectar»; desconectar revoca al
 //      instante (su token ya no sirve, y sale del turno y de las listas), y con el negocio equivocado no toca nada. Y ninguna
 //      pantalla del super admin vuelve a listar las de todos.
@@ -24,10 +25,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { detalleDeLaPc, elegirPc, sistemaDeLaVersion, type PcDeNegocio } from '../lib/ia-pc-reglas';
-import { VistaComputadoras } from '../app/admin/ComputadorasDelNegocio';
+import { detalleDeLaPc, elegirPc, sistemaDeLaVersion } from '../lib/ia-pc-reglas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -123,36 +121,26 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
     const i = acc.indexOf(`export async function ${n}(`);
     assert.ok(i > 0 && /if \(!puedeOperar\(admin, await wsSuperAdmin\(\)\)\) return \{ ok: false, error: NO_PUEDE \};/.test(acc.slice(i, i + 400)), `${n} sin la puerta del super admin`);
   }
-  // La pantalla, por negocio y persona, con «Desconectar» que pide confirmar.
-  // 23/10/2026: el MISMO dibujo que el cliente (cuentas → dispositivos), con el email ENTERO, y sólo lo de ESE negocio.
-  const cuenta = { proveedor: 'claude' as const, email: 'mauricio@gmail.com', plan: 'max' };
-  const pcs: PcDeNegocio[] = [
-    { id: 1, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Mauricio', sistema: 'Windows', enLinea: true, conClaude: true, conectadaAt: '2026-10-22T12:00:00Z', ultimoLatido: new Date().toISOString(), cuentas: [cuenta], ubicacion: 'Grandbourg, Buenos Aires, Argentina', version: '0.4.0+windows' },
-    { id: 2, ws: 1, negocio: 'Mauricio Bustos', persona: 'mauricio@negocio.com', nombre: 'PC de Martín', sistema: null, enLinea: false, conClaude: true, conectadaAt: '2026-10-21T12:00:00Z', ultimoLatido: '2026-10-22T10:00:00Z', cuentas: [cuenta], ubicacion: null, version: '0.3.2' },
-  ];
-  const ajena: PcDeNegocio = { ...pcs[0], id: 9, ws: 13, negocio: 'Código Inmobiliario', persona: 'ana@negocio.com', nombre: 'MacBook de Ana', cuentas: [] };
-  const html = renderToStaticMarkup(createElement(VistaComputadoras, { ws: 1, negocio: 'Mauricio Bustos', lectura: { ok: true, pcs: [...pcs, ajena] }, ahora: Date.parse('2026-10-22T12:30:00Z'), onDesconectar: () => {} }));
-  assert.match(html, /Computadoras.*1 de 2 en línea/);
-  assert.doesNotMatch(html, /MacBook de Ana/, 'en la ficha de un negocio, una computadora de otro');
-  assert.equal((html.match(/>Cuenta 1</g) ?? []).length, 1, 'la misma cuenta en dos computadoras es UN bloque');
-  assert.match(html, /mauricio@gmail\.com/, 'el super admin ve el email entero');
-  assert.match(html, /PC de Mauricio.*En línea.*Windows · Grandbourg, Buenos Aires, Argentina/);
-  assert.match(html, /PC de Martín.*Sin conexión/);
-  assert.equal((html.match(/>Desconectar</g) ?? []).length, 2);
-  // En la ficha del cliente (Clientes → su ficha → Equipo), y NUNCA más en «Tus cuentas de IA» del super admin: ni en la
-  // computadora ni en el teléfono, ni por la lectura del Centro sin un negocio.
-  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /<ComputadorasDelNegocio key=\{wAbierto\.id\} ws=\{wAbierto\.id\} negocio=\{wAbierto\.nombre\}/);
+  // La pantalla: desde el 6/11/2026 (la copia de Polar) las computadoras de un negocio se ven en SU ficha, Admin › Customers ›
+  // <negocio> › Overview (CustomerDetailsSection, «Conexiones»), leídas por el server con `listarPcDelNegocio(ws)` (las de UN
+  // negocio, el 1 de arriba) y sin secretos: viajan sólo el nombre, la persona, el sistema, si está en línea y cuándo se conectó.
+  // Antes era app/admin/ComputadorasDelNegocio.tsx, adentro de la ficha de la grilla vieja (AdminView).
+  const ficha = sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts'));
+  assert.match(ficha, /listarPcDelNegocio\(ws\)\.catch\(/, 'la ficha lee las computadoras de SU negocio');
+  assert.match(ficha, /computadoras: computadoras\?\.map\(\(pc\) => \(\{ id: pc\.id, nombre: pc\.nombre, persona: pc\.persona, sistema: pc\.sistema, enLinea: pc\.enLinea, conectadaAt: pc\.conectadaAt \}\)\) \?\? null,/, 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas)');
+  const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
+  assert.match(seccion, /computadoras == null \? \(\s*<Row label="Computadoras" value=\{<Text as="span" color="muted">No se pudieron leer<\/Text>\} \/>/, '«no pude leer» no es «no tiene»');
+  const pagina = sinComentarios(leer('app/admin/(polar)/customers/[id]/page.tsx'));
+  const cuerpo = pagina.slice(pagina.indexOf('export default async function'));
+  assert.ok(cuerpo.indexOf('await exigirSuperAdmin()') > 0 && cuerpo.indexOf('await exigirSuperAdmin()') < cuerpo.indexOf('leerResumen('), 'la ficha pregunta por el super admin antes de leer');
   for (const f of ['app/admin/operaciones/Uso.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx', 'app/admin/operaciones/PiezasCentro.tsx', 'app/admin/operaciones/useCentro.ts']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /Computadoras|computadoras/, `${f}: las computadoras de los clientes volvieron a «Tus cuentas de IA»`);
   }
   assert.match(sinComentarios(leer('app/api/operaciones/lectura/route.ts')), /computadoras: \(req\) => computadorasDelNegocioAction\(Number\(req\.nextUrl\.searchParams\.get\('ws'\)\)\)/, 'la lectura pide el negocio');
   assert.match(sinComentarios(leer('lib/ia-pc.ts')), /export async function listarPcDelNegocio\(ws: number\)[\s\S]{0,200}\.eq\('workspace_id', ws\)/, 'la lectura es de UN negocio');
   assert.doesNotMatch(sinComentarios(leer('lib/ia-pc.ts')), /listarTodasLasPc/, 'volvió una lectura de las de todos los negocios');
-  // La revisión del 23/10: la ficha las dibuja sólo para quien pasa la guarda del Centro, y el Ops Center de la plataforma
-  // no se dibuja mirando a un cliente (su «Tus cuentas de IA» lee el negocio de la pestaña).
-  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /\{verComputadoras && \(\s*<ComputadorasDelNegocio/, 'la ficha muestra la sección a quien no puede leerla');
-  // La grilla del super admin vive en Admin › Accounts desde el 5/11/2026 (app/admin/page.tsx; era /customers).
-  assert.match(sinComentarios(leer('app/admin/page.tsx')), /verComputadoras=\{puedeOperar\(sesionAdmin, plataforma\)\}/);
+  // La revisión del 23/10: el Ops Center de la plataforma no se dibuja mirando a un cliente (su «Tus cuentas de IA» lee el
+  // negocio de la pestaña).
   const puerta = sinComentarios(leer('app/admin/operaciones/page.tsx'));
   const iGuarda = puerta.indexOf('puedeOperar(admin'), iMirando = puerta.indexOf('if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));');
   const iLee = puerta.indexOf('datosDelCentroSiOpera()');
@@ -160,4 +148,15 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   const puertaM = sinComentarios(leer('app/m/operaciones/page.tsx'));
   const iMirandoM = puertaM.indexOf("if (ctx?.impersonando) redirect(await rutaConWs('/m/second-brain'));");
   assert.ok(iMirandoM > 0 && iMirandoM < puertaM.indexOf('listarPedidos()'), 'en el teléfono, mirando a un cliente, el Centro se dibuja igual');
+});
+
+// ⚠️ FUNCIÓN PERDIDA (6/11/2026): la ficha de un negocio de la grilla vieja (app/admin/ComputadorasDelNegocio.tsx) tenía
+// «Desconectar» en cada computadora (`desconectarComputadoraAction`, que sigue en app/admin/operaciones/acciones.ts) y se
+// dibujaba sólo para quien pasaba la guarda del Centro (`puedeOperar`: el super admin con su segundo factor). La ficha nueva
+// (CustomerDetailsSection) las lista sin «Desconectar» y para todo super admin (`exigirSuperAdmin`). Queda como TODO con lo que
+// tiene que volver a cumplir.
+test('4b. la ficha nueva de un negocio: «Desconectar» en cada computadora, y sólo para quien pasa la guarda del Centro', { todo: 'función perdida con la copia de Polar: las computadoras de la ficha sin «Desconectar» ni puedeOperar' }, () => {
+  const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
+  assert.match(seccion, /desconectarComputadoraAction|>Desconectar</, 'la ficha no ofrece «Desconectar»');
+  assert.match(sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts')), /puedeOperar\(/, 'las computadoras se leen sin la guarda del Centro');
 });

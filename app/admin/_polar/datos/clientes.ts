@@ -9,7 +9,7 @@
 //
 // DE DÓNDE SALE CADA DATO:
 //   · la lista y el crecimiento: `vistaDeClientes()` (lib/clientes-plataforma.ts), un renglón por negocio (sin el de la
-//     plataforma);
+//     plataforma ni los clientes de una agencia: `esClienteDeMaKo`);
 //   · Top Customers: `vistaDeIngresos().entradas` (lib/admin-ingresos.ts), cada pago con la clave de su cliente: el navegador
 //     suma los del rango elegido (como el `useTopCustomers` de Polar);
 //   · At Risk: los atrasados y los que dejaron de pagar (ingresos) + los pausados, los cobros fallidos y los sin uso
@@ -79,8 +79,17 @@ export const ordenDeParam = (v: string | null | undefined): OrdenLista =>
 export const filtroDeParam = (v: string | null | undefined): FiltroLista =>
   (FILTROS as readonly string[]).includes(v ?? '') ? (v as FiltroLista) : 'all'
 
-export function listaDeClientes(filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa'>>): ClienteDeLista[] {
-  return filas.map((f) => ({
+/**
+ * ¿Va en la lista de Customers? Un cliente de una AGENCIA no (Martín, 28/09/2026, en la grilla vieja de Admin: «Los clientes de
+ * agencia deberían aparecer dentro de la tab de EQUIPO de esa agencia como una card de cliente. No como un cliente más de
+ * MaKo»): a ese negocio no le factura MaKo, le factura su agencia, y contarlo decía que MaKo tiene un cliente donde tiene medio.
+ * Cuenta el pedido pendiente y no el revocado (lib/clientes-plataforma.ts → `esCarteraVigente` → el segmento «de-agencia»).
+ * Su ficha se sigue abriendo por su link, y la búsqueda ⌘K lo encuentra diciendo de qué agencia es (./busqueda-tipos.ts).
+ */
+export const esClienteDeMaKo = (f: Pick<FilaCliente, 'segmentos'>): boolean => !f.segmentos.includes('de-agencia')
+
+export function listaDeClientes(filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'>>): ClienteDeLista[] {
+  return filas.filter(esClienteDeMaKo).map((f) => ({
     ws: f.ws,
     nombre: f.nombre,
     creado: f.creado,
@@ -375,6 +384,8 @@ export function costosPorCliente(
 // ── Las props de cada página (lo que arma el page.tsx con las lecturas de clientes-server.ts) ─────────────────────
 
 type LecturaClientes = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado'>> }>
+/** Overview cuenta los negocios de la lista (sin los clientes de una agencia): necesita su segmento. */
+type LecturaClientesConSegmento = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado' | 'segmentos'>> }>
 type LecturaIngresos = Lectura<Pick<Ingresos, 'entradas' | 'clientes'>>
 type LecturaCostos = Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>>
 
@@ -433,9 +444,9 @@ export function vistaDeCostos(clientes: LecturaClientes, costos: LecturaCostos, 
   return { costos: costosPorCliente(costos.datos, nombres, limite), error: null, mesDeCostos }
 }
 
-/** Overview: el crecimiento y las tres listas cortas. */
-export function vistaDeOverview(clientes: LecturaClientes, ingresos: LecturaIngresos, costos: LecturaCostos, periodo: string, ahoraMs: number): PropsOverview {
-  const creados = clientes.ok ? clientes.datos.filas.map((f) => f.creado) : []
+/** Overview: el crecimiento (los negocios de la lista: sin los clientes de una agencia) y las tres listas cortas. */
+export function vistaDeOverview(clientes: LecturaClientesConSegmento, ingresos: LecturaIngresos, costos: LecturaCostos, periodo: string, ahoraMs: number): PropsOverview {
+  const creados = clientes.ok ? clientes.datos.filas.filter(esClienteDeMaKo).map((f) => f.creado) : []
   const top = vistaDeTop(ingresos, ahoraMs, creados)
   const riesgo = vistaDeAtRisk(clientes, ingresos, 5)
   const costo = vistaDeCostos(clientes, costos, periodo, 5)

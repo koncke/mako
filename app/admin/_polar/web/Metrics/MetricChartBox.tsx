@@ -55,11 +55,11 @@ interface MetricChartBoxProps {
 const EXPERIMENTAL_METRICS: Record<string, { tooltip: string }> = {
   churn_rate: {
     tooltip:
-      'Churn rate values vary based on the selected time interval. For best results, use monthly or longer intervals.',
+      'La tasa de bajas cambia según el intervalo elegido. Se lee mejor por mes o más.',
   },
   ltv: {
     tooltip:
-      'LTV is based on Churn Rate, and values vary based on the selected interval. For best results, use monthly or longer intervals.',
+      'El LTV sale de la tasa de bajas y cambia según el intervalo elegido. Se lee mejor por mes o más.',
   },
 }
 
@@ -295,7 +295,7 @@ const MetricChartBox = ({
                   <ArrowOutwardOutlined fontSize="small" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Share Chart</TooltipContent>
+              <TooltipContent>Compartir el gráfico</TooltipContent>
             </Tooltip>
           )}
           {(shareable || exportable) && (
@@ -312,7 +312,7 @@ const MetricChartBox = ({
               <DropdownMenuContent align="end">
                 {shareable && (
                   <DropdownMenuItem className="md:hidden" onClick={showModal}>
-                    Share Chart
+                    Compartir el gráfico
                   </DropdownMenuItem>
                 )}
                 {exportable && (

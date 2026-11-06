@@ -310,13 +310,36 @@ export type ClienteResumen = ClienteIngreso & {
   /** Lo que paga por mes hoy. */
   mrr: number;
   estado: EstadoClienteIngreso;
-  /** El próximo pago esperado (el vencimiento más cercano de sus suscripciones vivas). */
+  /**
+   * El próximo pago esperado (el vencimiento más cercano de sus suscripciones vivas). Una suscripción con su historia mes a mes
+   * lo toma de ahí (`proximoDeHistoria`, lo mismo que `porCobrar`); sin historia, el último cobro más un mes. `null` = no se
+   * espera nada (la historia dice que se cortó o que terminó su plazo).
+   */
   proximo: string | null;
   /** Días de atraso (si `estado` es atrasado). */
   diasAtraso: number | null;
 };
 
-export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string): ClienteResumen[] {
+/**
+ * Lo que se espera de un cliente: la fecha más cercana entre sus suscripciones vivas. ⚠️ CON LA MISMA REGLA QUE `porCobrarDe`
+ * (6/11/2026): la que tiene su historia mes a mes la toma de ahí (lo atrasado, o el siguiente vencimiento; nada si se cortó o
+ * terminó su plazo), la que no tiene, el último cobro más un mes. Antes, el estado y el próximo pago del cliente salían siempre
+ * del último pago más un mes, y el mismo cliente decía «vence el 4» en su renglón y «el 5» en lo que viene.
+ */
+export function proximoDelCliente(vivos: readonly Tramo[], proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): string | null {
+  const fechas: string[] = [];
+  for (const t of vivos) {
+    const p = proximos?.get(t.suscripcion);
+    if (!p) { fechas.push(t.vence); continue; }
+    if (p.sinCobro) continue;
+    const f = p.atrasado?.fecha ?? p.siguiente?.fecha;
+    if (f) fechas.push(f);
+  }
+  return fechas.length ? fechas.sort()[0] : null;
+}
+
+/** `proximos`: la historia de cada suscripción (`proximoDeHistoria`, por la clave de la suscripción), la de `calcularIngresos`. */
+export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): ClienteResumen[] {
   const out = new Map<string, ClienteResumen>();
   const base = (clave: string): ClienteResumen => {
     const q = quien.get(clave);
@@ -340,11 +363,15 @@ export function clientesDe(pagos: readonly PagoIngreso[], tramos: readonly Tramo
     c.mrr = hoyMrr.get(c.clave) ?? 0;
     const vivos = suyos.filter((t) => t.fin == null);
     if (vivos.length) {
-      const vence = vivos.map((t) => t.vence).sort()[0];
+      // Viva lo dicen los tramos (como el MRR); cuándo y cuánto, la historia si la tiene.
+      const vence = proximoDelCliente(vivos, proximos);
       c.proximo = vence;
-      const dias = diasEntre(hoy, vence);
-      if (dias <= 0) { c.estado = 'atrasado'; c.diasAtraso = -dias; }
-      else c.estado = dias <= AVISO_PROXIMO_DIAS ? 'por-vencer' : 'al-dia';
+      if (vence == null) c.estado = 'al-dia';
+      else {
+        const dias = diasEntre(hoy, vence);
+        if (dias <= 0) { c.estado = 'atrasado'; c.diasAtraso = -dias; }
+        else c.estado = dias <= AVISO_PROXIMO_DIAS ? 'por-vencer' : 'al-dia';
+      }
     } else if (suyos.length) c.estado = 'cortado';
   }
   const peso = (e: EstadoClienteIngreso) => ESTADOS_CLIENTE.indexOf(e);
@@ -483,7 +510,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
   const tramos = tramosDe(periodos, hoy);
   const movimientos = movimientosDe(tramos);
   const meses = mesesDe(pagos, tramos, movimientos, hoy, n);
-  const clientes = clientesDe(pagos, tramos, quien, hoy);
+  const clientes = clientesDe(pagos, tramos, quien, hoy, proximos);
   const mrrHoy = mrrPorClienteEn(tramos, hoy);
   const mrr = sumaDe(mrrHoy);
   const pagando = mrrHoy.size;

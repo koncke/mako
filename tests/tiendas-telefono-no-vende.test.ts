@@ -210,9 +210,10 @@ test('10. Community no va en la app de iPhone (Apple 1.2 pide bloquear desde la 
 });
 
 test('11. todo lo que dibuja el teléfono parsea: los demás tests leen el texto, y un `<div>` de menos no lo ve ninguno', async () => {
+  // (Las bajas de cuenta del super admin eran app/admin/BajasDeCuenta.tsx; desde el 6/11/2026, el aviso de la portada de Admin.)
   const ts = (await import('typescript')).default;
   const rotos: string[] = [];
-  for (const f of [...archivos('app/m'), 'app/_chat/HiloMako.tsx', 'app/_chat/ReportarRespuesta.tsx', 'app/_components/CartelPagoCliente.tsx', 'app/perfil/EliminarCuenta.tsx', 'app/admin/BajasDeCuenta.tsx']) {
+  for (const f of [...archivos('app/m'), 'app/_chat/HiloMako.tsx', 'app/_chat/ReportarRespuesta.tsx', 'app/_components/CartelPagoCliente.tsx', 'app/perfil/EliminarCuenta.tsx', 'app/admin/_polar/web/DashboardOverview/EsperaBanners.tsx']) {
     if (!f.endsWith('.tsx')) continue;
     const s = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX) as unknown as { parseDiagnostics: unknown[] };
     if (s.parseDiagnostics.length) rotos.push(f);

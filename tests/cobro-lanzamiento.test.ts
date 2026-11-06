@@ -32,8 +32,11 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const COBROS = fuente('lib/cobros.ts');
 const ACCIONES = fuente('app/admin/cobros/actions.ts');
-// Desde el 6/11/2026 la lista de cobros es la tabla de Studio Admin (Admin › Billing › Cobros), con sus diálogos.
-const LISTA = fuente('app/admin/cobros/_components/cobros-table.tsx');
+// Desde el 6/11/2026 (la copia de Polar) el reembolso de un cobro de la pasarela está en Sales › <pedido> (la sección
+// Refunds) y «Cortar la suscripción» en Sales › Subscriptions (su menú), con la lista armada en app/admin/_polar/datos/ventas.ts.
+const REEMBOLSO = fuente('app/admin/_polar/web/Orders/OrderRefundsSection.tsx');
+const CORTAR = fuente('app/admin/_polar/web/Subscriptions/SubscriptionActionsMenu.tsx');
+const VENTAS = fuente('app/admin/_polar/datos/ventas.ts');
 const COMPRA = fuente('lib/compra-plan.ts');
 
 /** La función entera, desde su firma hasta la `}` de la columna 0 que la cierra. */
@@ -66,11 +69,15 @@ test('una suscripción «viva» es la que la pasarela sigue cobrando: pagada o c
 test('la pantalla: la casilla viene marcada en una suscripción viva, y «Cortar la suscripción» aparece aunque ya se haya devuelto', () => {
   // Al pedir el reembolso, la casilla arranca marcada si la suscripción sigue viva; se ve sólo en ese caso, y lo que diga va
   // al servidor (nunca un corte sin suscripción viva).
-  assert.match(LISTA, /if \(tipo === "reembolsar"\) setCortar\(c\.suscripcionViva\);/);
-  assert.match(LISTA, /pedido\?\.tipo === "reembolsar" && c\.suscripcionViva && \(\s*<div[^>]*>\s*<Checkbox id="cortar-suscripcion" checked=\{cortar\} onCheckedChange=\{\(v\) => setCortar\(v === true\)\} \/>/);
-  assert.match(LISTA, /reembolsarCobroMakoAction\(c\.id, null, \{ cortarSuscripcion: c\.suscripcionViva && cortar \}\)/);
+  assert.match(REEMBOLSO, /porLaPasarela && cobro\?\.suscripcionViva \? \(\s*<label[^>]*>\s*<Checkbox checked=\{cortar\} onCheckedChange=\{\(v\) => setCortar\(v === true\)\} \/>/, 'la casilla, sólo con una suscripción viva');
+  assert.match(REEMBOLSO, /reembolsarCobroMakoAction\(cobro\.id, null, \{ cortarSuscripcion: cobro\.suscripcionViva && cortar \}\)/, 'lo que dice la casilla va al servidor, nunca un corte sin suscripción viva');
+  // La casilla ARRANCA marcada si la suscripción sigue viva (devolver sin cortar deja a la pasarela cobrando todos los meses).
+  assert.match(REEMBOLSO, /const \[cortar, setCortar\] = useState\(\s*!!cobro\?\.suscripcionViva\s*\)|setCortar\(\s*!!?cobro\??\.suscripcionViva\s*\)/, 'la casilla de cortar la suscripción tiene que arrancar marcada en una suscripción viva');
   // «Cortar la suscripción» depende SÓLO de que esté viva (también con el primer pago ya devuelto).
-  assert.match(LISTA, /\{c\.suscripcionViva && \(\s*<DropdownMenuItem variant="destructive" onSelect=\{\(\) => pedir\("cortar", c\)\}>\s*Cortar la suscripción\s*<\/DropdownMenuItem>/);
+  assert.match(CORTAR, /\{cobroId != null && <DropdownMenuItem onClick=\{cortar\.show\}>Cortar la suscripción<\/DropdownMenuItem>\}/);
+  assert.match(CORTAR, /cancelarSuscripcionMakoAction\(cobroId\)/);
+  assert.match(VENTAS, /if \(c\.tipo !== 'suscripcion' \|\| deLeads\.has\(c\.id\) \|\| \(c\.estado !== 'pagado' && c\.estado !== 'reembolsado'\)\) continue/, 'una suscripción con el primer pago devuelto sigue en la lista');
+  assert.match(VENTAS, /cobroParaCortar: c\.suscripcionViva \? c\.id : null,/, 'se corta si está viva, sin mirar si ya se devolvió');
 });
 
 // ── 2 · Las claves de prueba no se ofrecen al público ──────────────────────

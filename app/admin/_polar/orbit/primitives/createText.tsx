@@ -297,7 +297,7 @@ function Text<E extends TextTag = 'p'>({
       loadingStyle = undefined
     } else {
       content = renderSingleLineSkeleton(
-        placeholderText ?? children ?? 'Loading...',
+        placeholderText ?? children ?? 'Cargando…',
       )
       loadingStyle = { position: 'relative', display: 'inline-block' }
     }

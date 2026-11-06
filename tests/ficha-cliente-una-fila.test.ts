@@ -133,7 +133,9 @@ test('las dos fichas fijan su ALTO: no lo deciden por lo que tengan adentro', ()
   // dentro» (29/09/2026, y era la segunda vez). El default de `Modal` es un TOPE, que
   // está bien para un diálogo y no para una ficha con un tablero adentro: elegir la
   // vista de Equipo de un cliente sin gente la encogía a la mitad.
-  for (const f of ['../app/customer-success/FichaCliente.tsx', '../app/admin/FichaWorkspace.tsx']) {
+  // (La otra era la ficha de un negocio en la grilla vieja de Admin, app/admin/FichaWorkspace.tsx: desde el 6/11/2026 esa ficha
+  // es una PÁGINA de la copia de Polar, Admin › Customers › <negocio>, y no un modal.)
+  for (const f of ['../app/customer-success/FichaCliente.tsx']) {
     assert.ok(/alto="min\(85vh, 720px\)"/.test(leer(f)), `${f} deja que el contenido decida el alto`);
   }
   // Y el prop existe de verdad, con `height` ADEMÁS del tope de la hoja.

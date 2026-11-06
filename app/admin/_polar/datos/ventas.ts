@@ -12,7 +12,8 @@
 //     pago»: el libro de recibos, lib/recibos.ts). El estado sale del recibo (devuelto, anulado…); sin recibo, «Pagado».
 //   · Subscriptions: cada lead de suscripción de la plataforma con su historia mes a mes (`suscripcionesDeLaPlataforma`, la misma
 //     cuenta que la ficha) y los cobros de suscripción de la pasarela que no son de ninguno de esos leads.
-//   · Checkouts: los cobros de la pasarela que NO se pagaron (pendientes, rechazados, anulados): lo pagado ya es un pedido.
+//   · Checkouts: los cobros de la pasarela que NO se pagaron (pendientes, rechazados, anulados): lo pagado ya es un pedido. Un
+//     link de «Vender un plan» NO: es un Checkout Link y vive en Products (./checkout-link.ts, la misma regla para las dos).
 //   · Disputes: los cobros cuyo motivo es un contracargo (lib/cobros-reglas.ts, `esTextoDeContracargo`) y los recibos marcados.
 //
 // Sin `server-only` ni `'use client'`: lo usan las vistas del navegador y tests/admin-polar-ventas.test.ts, que lo EJECUTA.
@@ -23,6 +24,7 @@ import { esTextoDeContracargo } from '@/lib/cobros-reglas'
 import { NOMBRE_PASARELA, esPasarela, type EstadoAlta, type EstadoCobro, type ModoCobro, type TipoCobro } from '@/lib/cobros-tipos'
 import { MEDIOS, ROTULO_MEDIO, esMedio, referenciaNormal, type EstadoRecibo, type MedioRecibo } from '@/lib/recibos-reglas'
 import type { Metric } from './polar-tipos'
+import { esDeVenderUnPlan } from './checkout-link'
 
 // ── Lo común ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -304,9 +306,9 @@ export function totalesDePedidos(pedidos: readonly Pedido[]): { orders: number; 
 }
 
 /** Lo que MiniMetricChartBox lee de una métrica: su nombre y su tipo (no su slug). */
-export const METRICA_ORDERS: Metric = { slug: 'revenue', display_name: 'Orders', type: 'scalar' }
-export const METRICA_REVENUE: Metric = { slug: 'revenue', display_name: 'Revenue', type: 'currency' }
-export const METRICA_AOV: Metric = { slug: 'revenue', display_name: 'Average Order Value', type: 'currency' }
+export const METRICA_ORDERS: Metric = { slug: 'revenue', display_name: 'Pedidos', type: 'scalar' }
+export const METRICA_REVENUE: Metric = { slug: 'revenue', display_name: 'Ingresos', type: 'currency' }
+export const METRICA_AOV: Metric = { slug: 'revenue', display_name: 'Pago promedio', type: 'currency' }
 
 /** «Billing reason» de Polar, con lo que MaKo sabe: si es de una suscripción o un pago suelto. */
 export const motivoDePedido = (p: Pick<Pedido, 'recurrente' | 'origen'>): string =>
@@ -511,6 +513,9 @@ export type CobroVenta = {
   altaEstado: EstadoAlta | null
   altaWs: number | null
   altaWsNombre: string | null
+  /** La capa que da de alta al pagarse (con `creadoPor` dice si es un link de «Vender un plan»: ./checkout-link.ts). */
+  altaCapa: string | null
+  creadoPor: string | null
   createdAt: string
   pagadoAt: string | null
   /** /pagar/<token>, sólo mientras se puede pagar. */
@@ -644,10 +649,14 @@ export type CheckoutVenta = {
   link: string | null
 }
 
-/** Los cobros SIN pagar: lo pagado ya es un pedido (Orders), y un reembolsado también. El más nuevo primero. */
+/**
+ * Los cobros SIN pagar: lo pagado ya es un pedido (Orders), y un reembolsado también. El más nuevo primero. Un link de «Vender
+ * un plan» no es un checkout: es un Checkout Link (Products › Checkout Links), y mostrarlo acá era el mismo cobro dos veces.
+ */
 export function checkoutsDe(cobros: readonly CobroVenta[]): CheckoutVenta[] {
   return cobros
     .flatMap((c): CheckoutVenta[] => {
+      if (esDeVenderUnPlan({ alta_capa: c.altaCapa, creado_por: c.creadoPor })) return []
       const estado = ESTADO_CHECKOUT_DE[c.estado]
       return estado
         ? [{ id: c.id, estado, createdAt: c.createdAt, nombre: c.nombre, email: c.email, producto: c.plan ?? c.concepto, monto: c.monto, moneda: c.moneda, montoUsd: c.montoUsd, tipo: c.tipo, modo: c.modo, proveedor: c.proveedor, motivo: c.motivo, link: c.link }]

@@ -24,6 +24,7 @@ import {
   subMonths,
   subYears,
 } from 'date-fns'
+import { es } from 'date-fns/locale'
 import * as React from 'react'
 
 import { CalendarMonthOutlined } from '@/app/admin/_polar/orbit/icons'
@@ -186,7 +187,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 endDatetime={date.to}
               />
             ) : (
-              format(date.from, 'LLL dd, yy')
+              format(date.from, 'dd LLL yy', { locale: es })
             )
           ) : (
             <span>Elige una fecha</span>

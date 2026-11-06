@@ -11,8 +11,8 @@
 //   5. Events: `?tipo=error` abre crashes y reportes, `?tipo=agente` las sesiones del agente; cada pago lleva a su negocio
 //      por la clave (no por el nombre); lo que un lector deja afuera por su tope se dice; los filtros, el conteo por tipo y
 //      las barras del histograma;
-//   6. Costs: la parte de cada feature y su cambio contra el mes anterior, «Changes» vacío sin mes anterior, el corte por
-//      negocio NO se arma si no es atribuible, el gasto por día con su acumulado;
+//   6. Costs: la parte de cada feature y su cambio contra el mes anterior, «Changes» vacío sin mes anterior, el gasto por día
+//      con su acumulado, y SIN el corte por negocio (vive en Customers › Cost Drivers: un dato, un lugar; 6/11/2026);
 //   7. el CSV de las métricas va en dólares y por el armador de la app;
 //   8. cada page.tsx de Analytics pregunta `exigirSuperAdmin()` ANTES de leer, y Events traduce `?tipo=`.
 //
@@ -26,7 +26,7 @@
 //   · `armarEventos` sin el corte de las acciones de MaKo al llegar al tope                         → 7/1 (5)
 //   · `filtrarEventos` filtra por el primer negocio de un error y no por cualquiera                → 7/1 (5)
 //   · `conteoPorTipo` lista también los tipos sin ningún evento                                     → 7/1 (5)
-//   · `negociosDe` arma el corte por negocio aunque no sea atribuible                               → 7/1 (6)
+//   · `armarCostos` vuelve a armar `porNegocio` (el «By Customer» de Costs, que vive en Cost Drivers) → 7/1 (6)
 //   · `cambiosDe` compara contra cero sin mes anterior                                              → 7/1 (6)
 //   · `filasCsvDeMetricas` deja la plata en centavos                                                → 7/1 (7)
 //   · events/page.tsx lee (`void leerEventos()`) antes de `exigirSuperAdmin()`                      → 7/1 (8)
@@ -45,7 +45,7 @@ import { metricasDeIngresos, propsDeMetricas, rangosMensuales, recortarMetricas 
 import {
   armarEventos, conteoPorTipo, cortesVisibles, cubetas, filtrarEventos, MAX_BARRAS, tiposDeUrl, type EntradasEventos,
 } from '../app/admin/_polar/datos/eventos'
-import { armarCostos, cambiosDe, diasDelMes, filasDe, mesAnterior, metricasDeCostos, negociosDe } from '../app/admin/_polar/datos/costos'
+import { armarCostos, cambiosDe, diasDelMes, filasDe, mesAnterior, metricasDeCostos } from '../app/admin/_polar/datos/costos'
 import { filasCsvDeMetricas, gruposConDatos } from '../app/admin/_polar/web/utils/metrics'
 import type { ResumenPeriodo } from '../lib/costos-ia'
 
@@ -232,9 +232,6 @@ test('6. Costs: la parte de cada feature, el cambio contra el mes anterior, el c
   assert.deepEqual(cambiosDe([corte('a', 1, 3)], null), [], 'sin mes anterior, ningún cambio')
   assert.deepEqual(cambiosDe([corte('a', 1, 3), corte('b', 1, 1)], [corte('a', 1, 3)]).map((f) => f.clave), ['b'])
 
-  assert.equal(negociosDe(resumen([], false).porWorkspace, {}), null, 'no atribuible: no hay corte por negocio')
-  const neg = negociosDe(resumen([], true).porWorkspace, { 1: 'Estudio Norte' })!
-  assert.deepEqual(neg.map((f) => [f.ws, f.label]), [[1, 'Estudio Norte'], [2, 'Negocio 2']])
 
   assert.equal(diasDelMes('2026-11', AHORA).length, 6, 'el mes en curso, hasta hoy')
   assert.equal(diasDelMes('2026-02', AHORA).length, 28)
@@ -244,7 +241,8 @@ test('6. Costs: la parte de cada feature, el cambio contra el mes anterior, el c
   assert.equal(m.totals.costs, 75)
   assert.equal(m.totals.cumulative_costs, 75)
 
-  const v = armarCostos({ periodo: '2026-11', actual: resumen([corte('a', 1, 1)], true), previo: null, nombres: {}, hoy: AHORA, avisos: ['x'] })
+  const v = armarCostos({ periodo: '2026-11', actual: resumen([corte('a', 1, 1)], true), previo: null, hoy: AHORA, avisos: ['x'] })
+  assert.equal('porNegocio' in v, false, 'el gasto por negocio vive en Customers › Cost Drivers, no en Costs')
   assert.equal(v.previo, null)
   assert.deepEqual(v.cambios, [])
   assert.deepEqual(v.meses, ['2026-11', '2026-10'])
@@ -253,7 +251,7 @@ test('6. Costs: la parte de cada feature, el cambio contra el mes anterior, el c
 test('7. el CSV de las métricas: una fila por período, la plata en dólares, por el armador de la app', () => {
   const data = metricasDeIngresos(ING.meses, ING)
   const filas = filasCsvDeMetricas(data, ['revenue', 'active_subscriptions'])
-  assert.deepEqual(filas[0], ['Timestamp', 'Revenue', 'Active Subscriptions'])
+  assert.deepEqual(filas[0], ['Fecha', 'Ingresos', 'Suscripciones activas'], 'los encabezados, en español')
   const oct = filas.find((f) => f[0] === '2026-10-01')!
   assert.deepEqual(oct.slice(1), [300, 2])
   assert.match(sinComentarios(leer('app/admin/_polar/web/utils/metrics.ts')), /from '@\/lib\/csv-celda'/)

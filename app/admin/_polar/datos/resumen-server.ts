@@ -20,8 +20,7 @@ import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
 import { zonaDelNegocio } from '@/lib/timezone'
 import { hoyEnTz } from '@/lib/date-utils'
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
-import { CAPA_DEFAULT, CAPAS_VENDIBLES } from '@/lib/capas'
-import { avisoAltaAMano } from '@/lib/plan-esencial-reglas'
+import { opcionesDeAlta } from './clientes-server'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
   actividadReciente, filasDeRiesgo, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, topClientes,
@@ -99,8 +98,7 @@ export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<Resu
       ingreso: ingreso.ok ? { ok: true, datos: { pedidos: pedidosDeIngreso(ingreso.datos.pedidos), hayMas: ingreso.datos.hayMas } } : ingreso,
       agencias: pedidosDeAgencias(carteras, altas, nombres),
       bajas: bajas.ok ? { ok: true, datos: { bajas: pedidosDeBaja(bajas.datos, ahoraMs) } } : bajas,
-      planes: CAPAS_VENDIBLES.map((c) => ({ id: c.id, nombre: c.nombre, descripcion: c.descripcion, aviso: avisoAltaAMano(c.id) })),
-      planPorDefecto: CAPA_DEFAULT,
+      ...opcionesDeAlta(),
     },
     avisos,
   }

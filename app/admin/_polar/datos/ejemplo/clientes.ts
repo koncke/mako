@@ -26,10 +26,10 @@ import {
 export const AHORA_EJEMPLO = Date.parse('2026-11-06T18:00:00Z')
 export const MES_EJEMPLO = '2026-11'
 
-type FilaEjemplo = Pick<FilaCliente, 'ws' | 'nombre' | 'capa' | 'estado' | 'creado' | 'motivoRiesgo' | 'sinEntrar' | 'mrrUsd' | 'planAManoTxt'>
+type FilaEjemplo = Pick<FilaCliente, 'ws' | 'nombre' | 'capa' | 'estado' | 'creado' | 'motivoRiesgo' | 'sinEntrar' | 'mrrUsd' | 'planAManoTxt' | 'segmentos'>
 
 const fila = (ws: number, nombre: string, creado: string, extra: Partial<FilaEjemplo> = {}): FilaEjemplo => ({
-  ws, nombre, capa: 'completo', estado: 'activo', creado, motivoRiesgo: null, sinEntrar: 2, mrrUsd: 0, planAManoTxt: null, ...extra,
+  ws, nombre, capa: 'completo', estado: 'activo', creado, motivoRiesgo: null, sinEntrar: 2, mrrUsd: 0, planAManoTxt: null, segmentos: ['cliente'], ...extra,
 })
 
 const filas: FilaEjemplo[] = [

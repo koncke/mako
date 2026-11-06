@@ -75,8 +75,12 @@ test('Billing: lo que mueve plata queda en la computadora, y Client Agents lee c
   const cobros = leer('app/m/cobros/CobrosM.tsx');
   assert.doesNotMatch(cobros, /anularCobroMakoAction|reembolsarCobroMakoAction|crearCobro|venderPlan/i, 'una acción que mueve plata en el teléfono');
   assert.match(leer('app/m/cobros/page.tsx'), /cobrosDeMakoAction\(\)/);
-  // La pantalla de escritorio es la pestaña Agents de Customers desde el 25/10/2026 (app/admin/agente/Contenido.tsx).
-  for (const f of ['app/admin/agente/Contenido.tsx', 'app/m/agente/page.tsx']) assert.match(leer(f), /leerSesionesAgente\(\)/, `${f}: otra lectura`);
-  assert.doesNotMatch(leer('app/admin/agente/Contenido.tsx'), /from\('agente_sesiones'\)/, 'la lectura volvió a la página');
+  // La pantalla de escritorio es, desde el 6/11/2026, un tipo de evento de Admin › Analytics › Events (la copia de Polar), que
+  // lee con la misma función (antes era app/admin/agente/Contenido.tsx, la pestaña Agents).
+  assert.match(leer('app/m/agente/page.tsx'), /leerSesionesAgente\(\)/, 'app/m/agente/page.tsx: otra lectura');
+  assert.match(leer('app/admin/_polar/datos/eventos-server.ts'), /leerSesionesAgente\(TOPE_SESIONES\)/, 'Analytics › Events: otra lectura');
+  for (const f of ['app/admin/_polar/datos/eventos-server.ts', 'app/admin/(polar)/analytics/events/page.tsx']) {
+    assert.doesNotMatch(leer(f), /from\('agente_sesiones'\)/, `${f}: la lectura volvió a la página`);
+  }
 });
 

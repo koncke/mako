@@ -86,7 +86,11 @@ test('al vencer: el aviso previo no consume el del fin, y un vencido no recibe e
   assert.ok(R.mails.some((m: { asunto: string }) => m.asunto === 'Terminaron los 6 meses gratis de Terminó'));
   assert.equal(R.marcas[34].previo, false);
   assert.equal(R.marcas[34].vencido, true);
-  assert.ok(R.mails.every((m: { cuerpo: string; to: string }) => m.to !== R.EMAIL_MAKO || /\/admin\?tab=accounts/.test(m.cuerpo)), 'el link lleva a donde se resuelve: Admin › Accounts');
+  // Desde el 6/11/2026 (la copia de Polar) se resuelve en la ficha de ESE negocio (Admin › Customers › <negocio>, «Editar»).
+  const aMartin = R.mails.filter((m: { to: string }) => m.to === R.EMAIL_MAKO);
+  assert.ok(aMartin.length > 0, 'a Martín no le llegó ningún aviso');
+  assert.ok(aMartin.every((m: { cuerpo: string }) => /\/admin\/customers\/\d+/.test(m.cuerpo)), 'el link lleva a donde se resuelve: la ficha del negocio en Admin');
+  assert.ok(aMartin.every((m: { cuerpo: string }) => !/\/admin\?tab=/.test(m.cuerpo)), 'un `?tab=` viejo redirige a otra sección');
 });
 
 test('las reglas del aviso: la ventana, y una sola vez', () => {
@@ -107,18 +111,20 @@ test('las reglas del aviso: la ventana, y una sola vez', () => {
   assert.match(a.martin.cuerpo, /No se pausa nada/);
 });
 
-test('la fecha a la vista: Customers (ficha y teléfono), Accounts y Tu plan', () => {
+test('la fecha a la vista: la ficha del negocio en Admin, el teléfono y Tu plan', () => {
   const r = (dias: number, regalo = true): PlanAMano => ({ desde: new Date(AHORA).toISOString(), hasta: new Date(AHORA + dias * DIA).toISOString(), avisadoAt: null, ...(regalo ? { regalo: true as const } : {}) });
   assert.match(textoDePlanAMano(r(100), AHORA), /^Gratis hasta el \d+ de \w+ de 2027$/);
   assert.match(textoDePlanAMano(r(-1), AHORA), /^Sus 6 meses gratis terminaron el /);
   assert.match(textoDePlanAMano(r(7, false), AHORA), /^Prueba a mano hasta el /);
   assert.match(textoDePlanAMano(r(-1, false), AHORA), /^Su prueba a mano venció el /);
-  assert.match(R.textos[31], /^Gratis hasta el /, 'Accounts');
+  assert.match(R.textos[31], /^Gratis hasta el /, 'la lista de Admin');
   assert.match(R.textos[34], /^Sus 6 meses gratis terminaron/);
   assert.equal(R.textos[22] ?? null, null, 'sin plan a mano, nada');
-  assert.match(fuente('app/customers/CustomersApp.tsx'), /f\.prueba \? 'En prueba gratis' : f\.planAManoTxt \?\? 'Plan a mano'/);
+  // La ficha de un negocio de Admin (la copia de Polar, 6/11/2026; antes eran Customers y Accounts): la cabecera y «Plan a mano».
+  const ficha = fuente('app/admin/_polar/datos/cliente-server.ts');
+  assert.equal((ficha.match(/planAMano: fila\?\.planAManoTxt \?\? null,/g) ?? []).length, 2, 'la cabecera y el alta, con el texto de la lista');
+  assert.match(fuente('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'), /<Row label="Plan a mano" value=\{alta\.planAMano\} \/>/);
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /c\.prueba \? 'En prueba gratis' : c\.planAManoTxt \?\? 'Plan a mano'/);
-  assert.match(fuente('app/admin/AdminView.tsx'), /\{w\.planAManoTxt && <span /);
   assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(fuente('app/m/configuraciones/plan/PlanM.tsx'), /gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(fuente('lib/api-mako/areas/negocio.run.ts'), /gratis_hasta: gratisHasta/, 'la API lo dice');
@@ -153,8 +159,8 @@ test('«Para mirar» lo pide cuando faltan 14 días o terminó sin resolver, nun
 //   · la ventana de 14 días no se respeta                     -> 33 / 2
 //   · también a una prueba de 7 días                          -> 34 / 1
 //   · se marca aunque Martín no se enteró                     -> 33 / 2
-//   · el link vuelve a /admin                                 -> 33 / 2
-//   · Accounts sin la fecha / no la dibuja                    -> 34 / 1 cada una
+//   · el link vuelve a /admin (desde el 6/11/2026: a la ficha, /admin/customers/<ws>) -> 33 / 2
+//   · Accounts sin la fecha / no la dibuja (desde el 6/11: la ficha de Admin) -> 34 / 1 cada una
 //   · la ficha, el teléfono o Tu plan sin la fecha            -> 34 / 1 cada una
 //   · «Para mirar» no lo pide                                 -> 34 / 1
 //   · una prueba dice «gratis hasta»                          -> 34 / 1

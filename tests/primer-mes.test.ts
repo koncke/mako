@@ -163,9 +163,18 @@ test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
   assert.match(fuente('app/vsl/Landing.tsx'), /PRUEBA_GRATIS_PRENDIDA \? PRUEBA_DIAS : 'apagada'/, 'una landing publicada no sigue prometiendo días gratis');
   assert.match(fuente('app/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
   assert.match(fuente('app/m/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
-  assert.match(fuente('app/customers/CustomersApp.tsx'), /primer mes a \$\{usdTxt\(f\.primerMesUsd\)\}/);
+  // (La lista de clientes de la computadora, app/customers/CustomersApp.tsx, se borró el 6/11/2026 con la copia de Polar: ver el
+  // TODO de abajo.)
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /primer mes a \$\{usdTxt\(c\.primerMesUsd\)\}/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
+});
+
+// ⚠️ FUNCIÓN PERDIDA (6/11/2026): la lista de clientes de Admin en la computadora (app/customers/CustomersApp.tsx) decía «primer
+// mes a US$ X» de quien entró con el descuento del primer mes (`primerMesUsd`, lib/clientes-plataforma.ts). La copia de Polar
+// (Admin › Customers) no lo dice ni en la lista ni en la ficha; el teléfono sí (arriba). Queda como TODO.
+test('Admin › Customers dice quién paga el primer mes con descuento', { todo: 'función perdida con la copia de Polar: Admin › Customers no muestra el primer mes con descuento' }, () => {
+  const datos = fuente('app/admin/_polar/datos/clientes.ts') + fuente('app/admin/_polar/datos/cliente.ts') + fuente('app/admin/_polar/datos/cliente-server.ts');
+  assert.match(datos, /primerMesUsd/, 'Admin › Customers no lee el primer mes con descuento');
 });
 
 // Roturas (31/10/2026; sobre la cookie de lib/promo-entrada.ts; base 13 / 0), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):

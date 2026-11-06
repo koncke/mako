@@ -5,6 +5,7 @@
 import { ChevronLeft, ChevronRight } from '@/app/admin/_polar/orbit/icons'
 import * as React from 'react'
 import { DateRange, DayPicker } from 'react-day-picker'
+import { es } from 'react-day-picker/locale/es'
 
 import { buttonVariants } from '@/app/admin/_polar/orbit/components/ui/button'
 import { cn } from '@/app/admin/_polar/lib/utils'
@@ -19,6 +20,8 @@ function Calendar({
 }: CalendarProps) {
   return (
     <DayPicker
+      /* MaKo: el calendario en español (los meses y los días), no en inglés. */
+      locale={es}
       showOutsideDays={showOutsideDays}
       className={cn('p-3', className)}
       classNames={{

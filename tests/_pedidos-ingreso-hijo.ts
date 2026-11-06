@@ -139,7 +139,8 @@ async function main() {
   out.getConAdmin = { status: g.status, emails: ((await g.json()).pedidos as Array<{ email: string }>).map((f) => f.email) };
 
   // ── Lo que espera a Martín, y a dónde lleva el aviso ──
-  out.linkDelAviso = mails.some((m) => m.tag === 'pedido-ingreso' && m.cuerpo.includes('/admin?tab=accounts'));
+  // Desde el 6/11/2026 «Quieren entrar» está en la portada de Admin (la copia de Polar): el link es /admin, sin `?tab=`.
+  out.linkDelAviso = mails.some((m) => m.tag === 'pedido-ingreso' && /https?:\/\/\S+\/admin$/m.test(m.cuerpo) && !m.cuerpo.includes('/admin?tab='));
   db.agencia_clientes = [{ agencia_ws: 10, cliente_ws: 20, estado: 'pendiente' }];
   db.agencia_altas = [{ id: 1, agencia_ws: 10, cliente_ws: 20, email: 'x@ejemplo.com', estado: 'pendiente' }];
   const { cuantoEspera } = await import('../lib/pedidos-ingreso');

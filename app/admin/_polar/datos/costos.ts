@@ -3,12 +3,12 @@
 // =============================================================================
 // Polar reparte el costo de sus eventos (`_cost.amount`) por tipo de evento, cliente, modelo y proveedor, y lo compara con
 // el período anterior. MaKo tiene lo mismo, agregado, en lib/costos-ia.ts (`resumenDelPeriodo`): por FEATURE (lo que en
-// Polar es el tipo de evento), por negocio, por modelo y por proveedor, de un MES (o de todo). Acá sólo las cuentas que
-// arman lo que dibuja la vista; la lectura, en costos-server.ts.
+// Polar es el tipo de evento), por modelo y por proveedor, de un MES (o de todo). Acá sólo las cuentas que arman lo que
+// dibuja la vista; la lectura, en costos-server.ts.
 //
-// ⚠️ EL CORTE POR NEGOCIO NO SIEMPRE ES REAL (la cabecera de lib/costos-ia.ts): toda fila de Claude con la clave de MaKo se
-//    anota en el workspace 1. Cuando el período tiene filas así (`atribuible: false`), «By Customer» NO se dibuja con
-//    números: se dice por qué (`porNegocio: null`). Mostrarlo sería decir que un cliente gastó lo de todos.
+// ⚠️ SIN EL CORTE POR NEGOCIO (6/11/2026): el gasto de IA de cada negocio vive en UN lugar, Customers › Cost Drivers (donde lo
+//    puso Martín; app/admin/_polar/datos/clientes.ts `costosPorCliente`). El «By Customer» de Polar en Costs era la misma
+//    lista dos veces y se sacó.
 // ⚠️ LO QUE NO ES DE MAKO NO ENTRA: lo pagado con la clave de Anthropic de un negocio y lo del crédito de los planes Max ya
 //    vienen en 0 en `costUsd` (`costoDe`). Polar no tiene ese corte; se anota en el relevo.
 // La plata va en CENTAVOS (como en Polar: `formatCurrency` divide por 100), y un costo de IA es de fracciones de centavo:
@@ -38,8 +38,6 @@ export type FilaCosto = {
   delta: number
   /** El cambio contra el anterior, en %. null = no se puede (sin anterior, o el anterior en 0). */
   pct: number | null
-  /** Sólo en el corte por negocio: a qué ficha lleva. */
-  ws?: number
 }
 
 export type PeriodoCostos = { periodo: string; desde: string; hasta: string }
@@ -57,8 +55,6 @@ export type VistaCostos = {
   porFeature: FilaCosto[]
   /** Lo que más cambió contra el mes anterior (los 6 de Polar). Vacío sin mes anterior. */
   cambios: FilaCosto[]
-  /** null = el corte por negocio no es real en este período (ver la cabecera). */
-  porNegocio: FilaCosto[] | null
   porModelo: FilaCosto[]
   porProveedor: FilaCosto[]
   avisos: string[]
@@ -154,14 +150,6 @@ export function metricasDeCostos(porDia: readonly Corte[], mes: string, hoy: Dat
   return { periods, totals: totalesDe(periods, metrics), metrics }
 }
 
-/** Los cortes por negocio, sólo si son reales (ver la cabecera); los 5 de Polar. */
-export function negociosDe(actual: ResumenPeriodo['porWorkspace'], nombres: Readonly<Record<number, string>>, n = 5): FilaCosto[] | null {
-  if (actual.some((c) => !c.atribuible)) return null
-  return filasDe(actual, null, (clave) => nombres[Number(clave)] ?? `Negocio ${clave}`)
-    .slice(0, n)
-    .map((f) => ({ ...f, ws: Number(f.clave) }))
-}
-
 const limites = (mes: string) => {
   const [y, m] = mes.split('-').map(Number)
   return { desde: new Date(Date.UTC(y, m - 1, 1)).toISOString(), hasta: new Date(Date.UTC(y, m, 1) - 1).toISOString() }
@@ -172,7 +160,6 @@ export function armarCostos(e: {
   actual: ResumenPeriodo
   /** null = el mes anterior no se pudo leer (su aviso va en `avisos`). */
   previo: ResumenPeriodo | null
-  nombres: Readonly<Record<number, string>>
   hoy: Date
   avisos: string[]
 }): VistaCostos {
@@ -186,7 +173,6 @@ export function armarCostos(e: {
     metricas: metricasDeCostos(e.actual.porDia, e.periodo, e.hoy),
     porFeature: filasDe(e.actual.porFeature, prev?.porFeature ?? null),
     cambios: cambiosDe(e.actual.porFeature, prev?.porFeature ?? null),
-    porNegocio: negociosDe(e.actual.porWorkspace, e.nombres),
     porModelo: filasDe(e.actual.porModelo, prev?.porModelo ?? null),
     porProveedor: filasDe(e.actual.porProveedor, prev?.porProveedor ?? null),
     avisos: e.avisos,

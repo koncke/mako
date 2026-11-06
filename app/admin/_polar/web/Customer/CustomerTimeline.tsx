@@ -287,7 +287,7 @@ export const CustomerTimeline = ({ eventos, viewAllHref }: CustomerTimelineProps
   return (
     <ContextCard>
       <div className="flex flex-row items-center justify-between gap-2">
-        <h3 className="text-lg">Timeline</h3>
+        <h3 className="text-lg">Línea de tiempo</h3>
         <SegmentedControl<SourceFilter>
           size="sm"
           options={[

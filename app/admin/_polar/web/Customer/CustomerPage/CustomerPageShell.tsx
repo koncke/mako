@@ -47,6 +47,7 @@ export const CustomerPageShell = ({
         {avisos.length > 0 && (
           <Alert
             variant="warning"
+            soporte
             title="Puede faltar algo"
             description={`No se pudo leer: ${avisos.join('; ')}.`}
           />

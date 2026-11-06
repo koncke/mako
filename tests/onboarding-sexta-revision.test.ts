@@ -143,10 +143,11 @@ test('10. la caja: sin nada que ofrecer el «+» queda apagado, y lo pegado cuan
 });
 
 test('11. el CSV de clientes no deja entrar una fórmula', () => {
-  const admin = sinComentarios(leer('app/admin/AdminView.tsx'));
+  // Desde el 6/11/2026 el CSV de clientes es «Export Customers» de Admin › Customers (la copia de Polar; era el de AdminView).
+  const lista = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerListSidebar.tsx'));
   // El escape vive en el helper único de Infra (lib/csv-celda.ts; la guarda es tests/csv-una-sola-via.test.ts): el CSV de clientes lo usa.
-  assert.ok(admin.includes("import { armarCsv } from '@/lib/csv-celda';"), 'AdminView importa el helper único de CSV');
-  assert.ok(admin.includes("const csv = armarCsv([cab, ...cuerpo], { sep: ';' });"), 'el CSV de clientes se arma con el helper');
+  assert.ok(lista.includes("import { armarCsv } from '@/lib/csv-celda'"), 'la lista de clientes importa el helper único de CSV');
+  assert.ok(lista.includes('const texto = armarCsv(filasDeExportacion(customers))'), 'el CSV de clientes se arma con el helper');
 });
 
 // ROTURAS (21/10/2026, romper.js + roturas-sexta.json del scratchpad; con quinta-revision, pdf-confirmar,

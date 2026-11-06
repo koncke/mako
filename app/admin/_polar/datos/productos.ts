@@ -20,6 +20,7 @@
 import type { PlanMako } from '@/lib/planes-mako'
 import type { Cobro, EstadoAlta, EstadoCobro, Pasarela, TipoCobro } from '@/lib/cobros-tipos'
 import { capaDef } from '@/lib/capas'
+import { esDeVenderUnPlan } from './checkout-link'
 
 // ─── Catalogue ──────────────────────────────────────────────────────────────
 
@@ -126,9 +127,8 @@ export type LinkDeVenta = {
   alta: EstadoAlta | null
 }
 
-/** ¿Lo armó una persona con «Vender un plan»? Los del checkout público de /planes llevan `creado_por` «planes:…». */
-export const esDeVenderUnPlan = (c: Pick<Cobro, 'alta_capa' | 'creado_por'>): boolean =>
-  !!c.alta_capa && !String(c.creado_por ?? '').startsWith('planes:')
+/** ¿Lo armó una persona con «Vender un plan»? La regla es UNA y la usa también Sales › Checkouts (./checkout-link.ts). */
+export { esDeVenderUnPlan } from './checkout-link'
 
 /** El plan que vende un link de esa capa: el único plan con esa capa, o el nombre de la capa si hay más de uno (o ninguno). */
 export function productoDeCapa(capa: string, productos: readonly Pick<ProductoMako, 'capa' | 'nombre'>[]): string {

@@ -9,7 +9,10 @@
 //   4. un pago único es cash y nunca MRR; un pago sin dólares no se suma; uno con fecha futura no entra;
 //   5. dos lugares de una agencia se suman (el segundo es «sube», no «nuevo»);
 //   6. la identidad: MRR del mes = MRR del anterior + nuevo + vuelve + sube − baja − corte, todos los meses;
-//   7. el lector: qué pago cuenta como recurrente (`esRecurrente`), y que la pantalla y la API se queden con el super admin.
+//   7. el lector: qué pago cuenta como recurrente (`esRecurrente`), y que la pantalla y la API se queden con el super admin;
+//   8. la tabla de saldos del teléfono (app/admin/ingresos/ingresos-vista.ts) cierra exacta desde el primer mes.
+// (Hasta el 6/11/2026 fijaba también la pantalla de Studio Admin, app/admin/ingresos/revenue.tsx, y las pestañas por
+//  `?tab=`. Se borraron con la copia de Polar: los links viejos y el gráfico de ingresos los fija tests/admin-polar-resumen.test.ts.)
 //
 // Probado rompiéndolo el 5/11/2026 (con todo puesto: 0 fallos; el arnés restaura de memoria). Cada rotura, sola:
 //   · `VENTANA_JUNTAR_DIAS = 0` (los dos pagos de Código, dos cobros)                       → 3 fallos (1, 2, 8)
@@ -21,14 +24,9 @@
 //   · `pagosValidos` deja entrar un pago de mañana                                            → 1 fallo (4)
 //   · `movimientosDe` por suscripción y no por cliente (el segundo lugar sale «nuevo»)        → 1 fallo (5)
 //   · `esRecurrente` cuenta una cuota del plan de un pago único                               → 1 fallo (7)
-//   · app/admin/page.tsx lee los ingresos antes de `getSesionAdmin`                           → 1 fallo (7)
-//   · `destinoDeCustomers` sin `?tab=` manda a Revenue (no a Customers)                       → 1 fallo (8)
-//   · `destinoDeCustomers` deja pasar un `?cuenta=` que no es un número                       → 1 fallo (8)
+//   · Analytics › Metrics lee los ingresos antes de `exigirSuperAdmin()` (era app/admin/page.tsx) → 1 fallo (7)
 //   · `filasDeSaldos` saca «Al empezar» del cierre del mes anterior                           → 1 fallo (8)
 //   · `mesesVisibles` dibuja los doce meses aunque los primeros estén vacíos                  → 1 fallo (8)
-//   · la pantalla dibuja el MRR del mes pasado en vez del de hoy (`usdCorto(r.mrrMesPasado)`) → 1 fallo (9)
-//   · sin pagos, la pantalla dibuja las tarjetas en «US$ 0»                                  → 1 fallo (9)
-//   (Desde el 5/11/2026 la pantalla es la de Studio Admin, dashboard/default: app/admin/ingresos/revenue.tsx.)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -41,12 +39,6 @@ import {
 } from '../lib/admin-ingresos-reglas';
 import { historiaDeSuscripcion, type MovimientoSuscripcion, type PagoDeSuscripcion } from '../lib/suscripcion-meses';
 import { filasDeSaldos, mesesVisibles } from '../app/admin/ingresos/ingresos-vista';
-import { destinoDeCustomers, PESTANAS_ADMIN, rutaPestanaAdmin } from '../app/admin/pestanas-reglas';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { Revenue } from '../app/admin/ingresos/revenue';
-import { filasDeClientes, tarjetasDe } from '../app/admin/ingresos/revenue-vista';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -175,22 +167,17 @@ test('7 · el lector: qué es recurrente, y la puerta del super admin antes de l
   assert.doesNotMatch(lector, /OWNER_WS/, 'nunca el 1, que es un cliente');
   assert.match(lector, /nombrados\.has\(Number\(c\.id\)\)/, 'un cobro que ya asentó su pago no se cuenta dos veces');
 
-  const page = sinComentarios(leer('app/admin/page.tsx'));
-  const puerta = page.indexOf('await getSesionAdmin()');
+  // Desde el 6/11/2026 los ingresos se ven en Analytics › Metrics (la copia de Polar; el `?tab=revenue` viejo va ahí). La puerta
+  // es `exigirSuperAdmin()` (getSesionAdmin, el rol global: app/admin/_polar/datos/guarda.ts).
+  const page = sinComentarios(leer('app/admin/(polar)/analytics/metrics/page.tsx'));
+  const puerta = page.indexOf('await exigirSuperAdmin()');
   assert.ok(puerta > 0, 'la página pregunta por el super admin');
-  const lectura = page.indexOf('vistaDeIngresos(');
+  const lectura = page.indexOf('vistaDeIngresos(', page.indexOf('export default'));
   assert.ok(lectura > 0 && puerta < lectura, 'la puerta va ANTES de leer los ingresos');
+  assert.match(sinComentarios(leer('app/admin/_polar/datos/guarda.ts')), /await getSesionAdmin\(\)/, 'la puerta es el super admin global');
 });
 
-test('8 · /customers llega a la MISMA pestaña de Admin, y la tabla de saldos cierra exacta desde el primer mes', () => {
-  assert.equal(PESTANAS_ADMIN[0], 'revenue', 'Revenue primero: es lo que Martín pide hoy');
-  assert.equal(rutaPestanaAdmin('revenue'), '/admin');
-  assert.equal(destinoDeCustomers({}), '/admin?tab=customers', 'sin tab, /customers abría la lista de los negocios');
-  assert.equal(destinoDeCustomers({ tab: 'accounts', cuenta: '12' }), '/admin?tab=accounts&cuenta=12');
-  assert.equal(destinoDeCustomers({ tab: 'billing' }), '/admin?tab=billing');
-  assert.equal(destinoDeCustomers({ tab: 'customers', cliente: '7' }), '/admin?tab=customers&cliente=7');
-  assert.equal(destinoDeCustomers({ tab: 'nada', cuenta: '1;drop' }), '/admin?tab=customers', 'un id que no es un número se cae');
-
+test('8 · la tabla de saldos (el teléfono) cierra exacta desde el primer mes', () => {
   const r = calcularIngresos([...OCTUBRE, ...NOVIEMBRE_CODIGO], quien('leila', 'codigo', 'flor'), '2026-11-05');
   const meses = mesesVisibles(r.meses);
   assert.deepEqual(meses.map((m) => m.mes), ['2026-09', '2026-10', '2026-11'], 'desde el primero con plata, y al menos tres');
@@ -204,41 +191,6 @@ test('8 · /customers llega a la MISMA pestaña de Admin, y la tabla de saldos c
   // Desde un mes que no es el primero, «Al empezar» sigue cerrando: inicio + movimientos = cierre.
   const dos = filasDeSaldos(meses.slice(-1));
   assert.deepEqual(dos.find((f) => f.id === 'inicio')!.valores, [340]);
-});
-
-test('9 · la pantalla DIBUJA el caso real: el MRR de hoy, lo que pagó cada uno y su suscripción; sin pagos, qué hacer', () => {
-  const router = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
-  const texto = (v: Parameters<typeof Revenue>[0]['vista']) => renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, createElement(Revenue, { vista: v })))
-    .replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
-  const quienes = new Map<string, ClienteIngreso>([
-    ['leila', { clave: 'leila', nombre: 'Negocio L', ws: 11, leadId: 1 }],
-    ['codigo', { clave: 'codigo', nombre: 'Negocio C', ws: 13, leadId: 2 }],
-    ['flor', { clave: 'flor', nombre: 'Negocio F', ws: null, leadId: 3 }],
-  ]);
-  const r = calcularIngresos([...OCTUBRE, ...NOVIEMBRE_CODIGO], quienes, '2026-11-05');
-  // Las cuatro tarjetas de Studio, con lo de MaKo: el MRR de HOY (no el del mes pasado) y su «desde».
-  const tarjetas = tarjetasDe(r);
-  assert.deepEqual(tarjetas.map((t) => t.titulo), ['Cobrado en total', 'Clientes nuevos', 'Clientes pagando', 'MRR']);
-  assert.equal(tarjetas[3].valor, 'US$ 432');
-  assert.equal(tarjetas[3].nota, 'Al cerrar el mes pasado: US$ 340');
-  assert.deepEqual(tarjetas[3].cambio, { texto: '+27%', sube: true });
-  assert.equal(tarjetas[0].valor, 'US$ 578');
-  assert.equal(tarjetas[2].valor, '3');
-  // La tabla de clientes: Plan es lo que paga por mes, y abajo lo que pagó en total.
-  const fila = filasDeClientes(r.clientes).find((f) => f.name === 'Negocio C')!;
-  assert.equal(fila.plan, 'US$ 238 / mes');
-  assert.equal(fila.total, 'US$ 384');
-  assert.equal(fila.status, 'Suscrito');
-  assert.equal(fila.ruta, '/admin?tab=customers&cliente=13');
-  assert.equal(filasDeClientes(r.clientes).find((f) => f.name === 'Negocio F')!.ruta, '/crm/3', 'sin cuenta, a su ficha del CRM');
-  const t = texto({ ...r, avisos: [] });
-  assert.match(t, /MRR US\$ 432/, 'el MRR de hoy, grande');
-  assert.match(t, /Cobrado en total US\$ 578/);
-  assert.match(t, /Negocio C ws 13 .*US\$ 238 \/ mes Pagó US\$ 384 en total/, 'lo que paga por mes y lo que pagó en total');
-  assert.match(t, /sin cuenta en MaKo/, 'un cliente sin cuenta se dice');
-  const vacio = texto({ ...calcularIngresos([], new Map(), '2026-11-05'), avisos: [] });
-  assert.match(vacio, /Todavía no entró ningún pago/);
-  assert.doesNotMatch(vacio, /US\$ 0/, 'sin tarjetas en cero');
 });
 
 // =============================================================================

@@ -202,7 +202,11 @@ test('13. la ruta pide la confirmación y es con sesión; las dos páginas de la
 test('14. dónde se pide: en el teléfono y en la computadora, y nunca mirando a otro', () => {
   assert.match(sinComentarios(leer('app/m/cuenta/CuentaM.tsx')), /\{!datos\.vista && <ListaM><EliminarCuentaM \/><\/ListaM>\}/);
   assert.match(sinComentarios(leer('app/perfil/page.tsx')), /\{!vista\.deOtro && <EliminarCuenta \/>\}/);
-  assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /<BajasDeCuenta vuelta=/);
+  // Lo que pidieron se resuelve en la portada de Admin (la copia de Polar del 6/11/2026): el aviso de las bajas, contra la ruta
+  // de siempre (era app/admin/BajasDeCuenta.tsx en la grilla vieja).
+  const espera = sinComentarios(leer('app/admin/_polar/web/DashboardOverview/EsperaBanners.tsx'));
+  assert.match(espera, /<Bajas esperan=\{esperan\} \/>/, 'la portada de Admin no dibuja las bajas');
+  assert.match(espera, /postJson\('\/api\/admin\/bajas-cuenta', \{ id, accion: que \}\)/, 'las bajas se resuelven por /api/admin/bajas-cuenta');
   const r = sinComentarios(leer('app/api/admin/workspaces/route.ts'));
   assert.ok(r.indexOf('await cerrarBajasDelNegocio(body.id, admin.email') > r.indexOf('await eliminarWorkspace(body.id'), 'se cierra después de borrar');
 });

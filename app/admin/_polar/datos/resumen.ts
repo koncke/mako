@@ -23,6 +23,7 @@ import { detalleDelPedido } from '@/lib/pedidos-ingreso-reglas'
 import { ROTULO_ROL, type RolAlta } from '@/lib/agencia-altas'
 import { ALL_METRICS } from '@/app/admin/_polar/web/utils/metrics'
 import type { MetricaSlug } from './metricas'
+import type { PlanAlta } from './alta'
 
 /** Lo que leyó el server: los datos, o por qué no se pudo. */
 export type Lectura<T> = { ok: true; datos: T } | { ok: false; error: string }
@@ -332,8 +333,8 @@ export type PedidoBaja = {
   /** El negocio ya se borró y quedó algo: se cierra avisándole. */
   puedeTerminar: boolean
 }
-/** Los planes que se pueden dar al dar de alta (el «Nuevo cliente» de siempre). */
-export type PlanAlta = { id: string; nombre: string; descripcion: string; aviso: string | null }
+/** Los planes que se pueden dar al dar de alta: los de UN formulario, el de Customers (./alta.ts). */
+export type { PlanAlta } from './alta'
 
 export type Esperan = {
   ingreso: Lectura<{ pedidos: PedidoIngreso[]; hayMas: boolean }>
