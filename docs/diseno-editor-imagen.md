@@ -53,12 +53,13 @@ app/image-editor/
   espacio.ts               la base IndexedDB de la etapa 1, por workspace: sólo la LEE la mudanza
   ruta.ts                  rutas internas con el `?ws=`
   ImageEditorCliente.tsx   raíz `.cv` (tokens + estilos base de Doory), monta todo sin SSR
-  inicio/                  Inicio de Canva: franja, chips, buscador, círculos, «Crear un diseño», recientes en cuadrícula o lista
+  vista.ts                 qué muestra /image-editor según el `?ver=`/`?que=` (crear, carruseles, anuncios, thumbnails)
+  carruseles/              el explorador de ejemplos: ExplorarCarruseles.tsx, Thumbnails.tsx
   editor/PantallaEditor.tsx carga el diseño de la base, arma el adaptador (con «Copiar y redimensionar») y monta EditorApp
   presentador/             /image-editor/presentador — la ventana de «Vista de presentador» (sin la cáscara)
   (editor/CreditoDoory.tsx  borrado: 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.)
   mako/servicios.ts        fuentes, elementos y plantillas del lado de MaKo (fuentes.ts, elementos.ts, plantillas.ts)
-  mako/registro.ts         los paneles que suma MaKo (hoy «Proyectos», ProyectosPanel.tsx)
+  mako/chat/               el chat de MaKo dentro del editor (PanelMakoIA.tsx, acciones.ts)
   mako/nube.ts             los pedidos a /api/image-editor/* y la subida firmar → bucket → registrar
   mako/adaptadorNube.ts    el EditorAdapter de MaKo: guarda con compare-and-set, sube a «Subidos»
   mako/mudanza.ts          sube a la base lo que la etapa 1 dejó en el navegador
@@ -97,8 +98,10 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
 
 1. **Texto de pantalla**: el rótulo de Canva en español, en tú, corto. Los textos de Doory viven en
    `_doory/editor/**/strings.ts`: se cambian ahí, no en el JSX.
-2. **Colores**: los `--cv-*` de `styles/tokens.css`. El re-vestido cambia los VALORES por la paleta
-   medida de Canva (`relevamiento-canva-armazon.md`), no los nombres.
+2. **Colores**: los `--cv-*` de `_doory/styles/tokens.css` (colgados de `.cv`), y hoy sus VALORES son los de MaKo:
+   el re-vestido del 29/10 cambió los valores, no los nombres. Un color nuevo se agrega como token ahí, nunca a mano
+   en el JSX, y **no se vuelve al violeta de Canva**: lo medido en `relevamiento-canva-armazon.md` es la referencia de
+   PROPORCIONES, no la paleta a copiar.
 3. **Navegación**: `Link`/`useRouter` de `@/app/_ui/Link`, o `rutaEditor()`.
 4. **Nada del server importa de `_doory/`**: el motor entra sólo por `ImageEditorCliente`.
 5. **Imágenes de afuera se copian antes al almacenamiento propio**: Openverse/Picsum no mandan CORS y
@@ -108,7 +111,9 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
    con el lock de la máquina; `tsconfig.cv.json` no se versiona). El completo lo corre el pre-push.
 8. **Borrar** = el tacho de la casa (`BotonBorrar`).
 9. **Tamaños: UNA lista**, `_doory/editor/dialogs/resizeSizes.ts` (nombres en `strings.ts → dialog.resizeSizes`).
-   De ahí salen Redimensionar, el popover de tamaño de la página (`engine/presets.ts`) y el Inicio (`inicio/tamanos.ts`).
+   De ahí salen Redimensionar y el popover de tamaño de la página (`engine/presets.ts`). ⚠️ **`inicio/tamanos.ts` ya
+   no existe**: la pantalla de arranque es `app/_crear/PantallaCrear.tsx` (la tab Create), y los 30 tamaños menos
+   usados y «Tamaño personalizado» viven SÓLO en Redimensionar — es un pendiente, no el diseño.
 10. **Un módulo de `app/image-editor/` que importe un VALOR de `_doory/` lleva `'use client'`** (o entra en `PUERTA`
     del test 4 de `tests/image-editor-integracion.test.ts`).
 11. **La barra del objeto flota sobre el lienzo**: si cambia su alto, cambia `TOOLBAR_BAND` de `workspace/Workspace.tsx`.
@@ -129,6 +134,6 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
 | 1 | Port de Doory + cáscara de MaKo + textos en español + crédito | hecha (14/10) |
 | 2 | **Re-vestido como Canva**: barra superior (Archivo, Redimensionar, título, Compartir violeta), riel izquierdo con panel (Diseño, Elementos, Texto, Marca, Subidos, Herramientas, Proyectos, Apps), barra contextual, barra inferior (Notas, zoom, cuadrícula de páginas, pantalla completa), inicio de Canva; paleta y proporciones medidas | hecha (14/10), **vista en el banco**: crear, texto, plantilla, imagen, PNG, PDF, presentador. Falta mirarla dentro de la cáscara en producción. Lo que no se hizo, en `hallazgos-editor-imagen.md` |
 | 3 | **Supabase**: tabla de diseños (jsonb + miniatura, por workspace), bucket de imágenes, adaptador; Marca, versiones, compartir y comentarios con tablas propias | diseños, «Subidos», miniaturas y la mudanza **hechos (14/10, mig 0278 aplicada)**. Marca, versiones, compartir y comentarios: pendientes |
-| 4 | **Catálogo propio**: ~64 fuentes alojadas + combinaciones, packs de íconos MIT/Apache por Iconify, emoji Fluent/Noto, ilustraciones CC0, formas/líneas/marcos/cuadrículas propias, plantillas propias (las 10 de Doory al principio), fotos de Unsplash | en parte (14/10): 70 fuentes + 14 combinaciones, 7 sets de Iconify, las 10 plantillas de Doory en español, con el texto del lienzo y las miniaturas también (`scripts/image-editor/traducir-plantillas.mjs`). Falta alojar las fuentes, ilustraciones, plantillas propias y fotos |
+| 4 | **Catálogo propio**: ~64 fuentes alojadas + combinaciones, packs de íconos MIT/Apache por Iconify, emoji Fluent/Noto, ilustraciones CC0, formas/líneas/marcos/cuadrículas propias, plantillas propias, fotos de Unsplash | en parte (6/11): 70 fuentes + 14 combinaciones, 7 sets de Iconify, y **9 plantillas propias** generadas por código (`lib/image-editor/plantillas-reales.ts`), en «Nuevo diseño». Las 10 de Doory, que estaban al principio, se borraron el 6/11 con sus WebP y sus scripts (por su licencia): el panel «Diseño» quedó vacío. Falta alojar las fuentes, ilustraciones, las fotos y la miniatura de cada plantilla propia (el panel pide una URL) |
 | 5 | **Lo que a Doory le falta frente a Canva**: texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto Elevar/Salpicadura/Eco/Glitch, líneas en codo/curvas, gráficos con datos, ajustes de foto que faltan, quitar fondo de objetos, borrador mágico | pendiente |
 | 6 | **API de MaKo** (área del editor: listar/crear/exportar diseños) y Estrellas `formato_imagen` | **API hecha (15/10)**: área `imagen`, 7 operaciones (listar, ver los textos, plantillas, crear, cambiar textos, copiar, eliminar) con el permiso de la tab, también por WhatsApp. Exportar no: el render es del navegador. Las Estrellas `formato_imagen` esperan a Martín (§13.6: ¿plantilla del editor o formato del Image Generator?) |

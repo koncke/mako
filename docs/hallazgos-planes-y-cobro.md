@@ -10,6 +10,45 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Al cliente de una agencia los carteles de tope le vendían un SEGUNDO plan, y el fail-closed de agencias no aplicaba acá (6/11/2026, #494)
+
+**Vive en:** `app/_components/CtaPasarAPro.tsx` (nuevo) y `app/_components/useClienteDeAgencia.ts`, `lib/plan-esencial-reglas.ts`
+(`TEXTO_PEDIR_PRO_A_LA_AGENCIA`), y el pie de ocho pantallas. La lista cerrada, en `tests/cliente-de-agencia-y-partners-2910.test.ts`.
+La regla de producto es de Thiago (29/10/2026, «yo no me meto con ese cliente»): [hallazgos-agencias.md](hallazgos-agencias.md).
+
+- **La barra se arregló el 29/10 por un camino que los carteles NO pueden usar, y por eso el bug siguió dos semanas.**
+  `noParaClienteDeAgencia` (`lib/nav-visibilidad.ts`) decide **ítems de la barra, por su `key`**. Un cartel de tope no es un ítem:
+  es el pie de ocho pantallas, con ocho estilos distintos (un botón oscuro, un `<a>` con borde, un Link inline, `className="aa-link"`).
+  Quien busque «¿ya está resuelto lo del cliente de agencia?» encuentra `noParaClienteDeAgencia` y dice que sí.
+- **⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: son DOS `null` con el mismo nombre, y el fail-closed de `lib/agencia.ts` ya corrió
+  una capa antes.** La cabecera de `esClienteDeAgencia` grita —con razón— que el «no sé» se lee como **sí** (`!== false`): ofrecer de
+  más le rompe el trato a la agencia. El reflejo es copiar eso en el cliente, y está mal: en el navegador el dato llega por
+  `/api/auth/me`, y ahí el «no pude leer la cartera» **ya viene resuelto como `true`** (`cuentaActualEsDeAgencia`, `lib/vista-de-otro.ts`,
+  compara `!== false` antes de contestar). El `null` del hook de cliente significa otra cosa: «el fetch todavía no contestó, o falló».
+  Tratar **ese** `null` como «sí» le esconde el link a TODOS en el primer dibujo y no cierra nada. Va por verdad, a propósito, y está
+  dicho al lado del `if`. **Antes de copiar un `!== false` de ese módulo: preguntá de qué `null` estás hablando.**
+- **Arreglar UNO arregló CUATRO, y nueve archivos no eran nueve pantallas.** `app/crm/PasarAPro.tsx` lo usan el tablero
+  (`CartelTope` ← `CrmBoard`), el alta de un lead (`crm/new/NewLeadForm`) y la barra del CRM (`CrmToolbar`). Y el del teléfono
+  (`app/m/configuraciones/equipo/EquipoM.tsx`) **ya estaba bien**: el teléfono no vende (T5), su cartel dice sólo que llegó al tope.
+- **La regla que queda: se envuelve el CTA, no se toca el texto del tope.** `<CtaPasarAPro>` recibe el link como `children` —cada
+  cartel conserva su botón, nadie rediseña ocho pantallas— y la decisión vive una sola vez. «Llegaste al tope de tu plan» es verdad
+  para el cliente de la agencia igual: lo único que cambia es **a quién se lo pide**. Una sola lectura de `/api/auth/me` para los ocho
+  (el hook la memoiza a nivel de módulo): nadie vuelve a hacer ese `fetch` por su cuenta.
+  **Probado rompiéndolo:** sacado el envoltorio de un cartel, el barrido de `app/**/*.tsx` lo nombra.
+- **Trampa del entorno: un componente compartido que llegue a `app/m` pone en rojo `tests/tiendas-telefono-no-vende.test.ts`.** Ese
+  test barre `app/m/**` buscando `/Pasar a Pro/` y `/ROTULO_PASAR_A_PRO/` (T5), así que no distingue el upsell del **arreglo** del
+  upsell. No hizo falta: el teléfono ya no tiene link que envolver.
+
+⚠️ **Lo que esto NO cubre, y es el mismo bug de plata:**
+- **La familia de la PRUEBA GRATIS, sin tocar.** «Empezar mi plan ya» y «Pasar al plan ya» llevan a `RUTA_EMPEZAR_PLAN`, que es el
+  mismo `/configuraciones/plan`, y ninguno pregunta por la agencia: `app/_ui/EmpezarPlanYa.tsx` (lo usan `/ai-avatar`,
+  `crm/ExportarLeadsModal`, `/video-generator` ×2), `app/_components/CartelPrueba.tsx`, `app/_ui/FranjaPrueba.tsx` y la rama de prueba
+  de `app/web-generator/editor/dialogos/DialogoPublicar.tsx`. Es el mismo `<CtaPasarAPro>` con otro texto en cada uno; antes hay que
+  decidir si un cliente de agencia puede estar en prueba de MaKo.
+- **El texto del tope sigue diciéndole «Pasa a MaKo Pro».** `textoTope` (`lib/topes-plan.ts`) y `textoCupo`
+  (`lib/media-buyer/plan.ts`) terminan en un CTA en prosa. Se dejó así por decisión (el texto del tope se queda, y es server-side con
+  tests): al cliente de la agencia ahora le queda «Pasa a MaKo Pro para tener más. Pídele a tu agencia que te pase a Pro.»
+
 ## El recibo que un NEGOCIO le manda a su cliente: la tarjeta «Pagos › Emitir recibo» (5/11/2026, nube)
 
 Lo de abajo (los recibos de MaKo) es el libro de la PLATAFORMA. Éste es el de cada negocio con SUS clientes, desde Automations

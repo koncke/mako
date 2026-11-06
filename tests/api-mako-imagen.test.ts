@@ -5,8 +5,8 @@
 //   1. el documento en blanco tiene la forma del que arma el editor (`createBlankDocument`);
 //   2. cambiar textos respeta las mayúsculas del motor (`textCase` + `caseSource`), entra en grupos y no
 //      inventa: lo que no encuentra lo devuelve;
-//   3. cada plantilla, cargada del lado del server, pasa la validación del guardado (si no, «crear desde una
-//      plantilla» fallaría con 422 recién al confirmar);
+//   3. no quedó ninguna de las 10 plantillas de Doory (6/11/2026): ni en el panel «Diseño», ni en la API, ni en
+//      disco. Es el guard contra la reincidencia, y vive SÓLO acá (los diez slugs no se repiten en otro test);
 //   4. las siete operaciones llevan el permiso de la tab (`image-editor`) y de admin, como toda tab.
 //
 // PROBADO ROMPIÉNDOLO (15/10/2026): sin `rolMinimo` en GATING de imagen.def.ts, el 4 falla (0/1); con
@@ -14,14 +14,21 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createBlankDocument } from '../app/image-editor/_doory/lib/document';
-import { cambiarTextos, documentoEnBlanco, resumirDoc, srcsLocales, textosDe, TOPE_DOC_BYTES } from '../lib/image-editor/reglas';
+import { cambiarTextos, documentoEnBlanco, resumirDoc, textosDe } from '../lib/image-editor/reglas';
 import { DEFS } from '../lib/api-mako/areas/imagen.def';
-import { catalogoPlantillas, documentoDePlantilla } from '../app/image-editor/mako/plantillas';
+import { servicioPlantillas } from '../app/image-editor/mako/plantillas';
 
 const RAIZ = join(import.meta.dirname, '..');
+
+/** Las 10 que servía el panel «Diseño» hasta el 6/11/2026, por su slug (eran sus JSON y sus WebP). */
+const DOORY = [
+  'bold-sale-announcement', 'bold-youtube-thumbnail', 'botanical-celebration-invitation', 'clean-business-card',
+  'grand-opening-flyer', 'modern-pitch-deck', 'modern-resume', 'night-bloom-concert-poster', 'rooftop-event-story',
+  'serif-quote-card',
+] as const;
 
 test('1: el documento en blanco tiene la forma del que arma el editor', () => {
   const nuestro = documentoEnBlanco(1080, 1350, 'p1') as { pages: { id: string }[] };
@@ -61,19 +68,26 @@ test('2: cambiar textos respeta las mayúsculas del motor, entra en grupos y dic
   assert.deepEqual(textosDe(r.doc), [{ pagina: 1, nombre: null, textos: ['Chau', 'LIQUIDACIÓN', 'Cambiado'] }]);
 });
 
-test('3: cada plantilla, cargada del lado del server, se puede guardar como diseño', async () => {
-  const lista = catalogoPlantillas();
-  assert.equal(lista.length, 10);
-  for (const p of lista) {
-    const doc = await documentoDePlantilla(p.slug);
-    assert.ok(doc, `${p.slug}: no cargó`);
-    const r = resumirDoc(doc);
-    assert.ok(r, `${p.slug}: no tiene forma de diseño`);
-    assert.equal(r.ancho, p.ancho, `${p.slug}: el ancho del catálogo no es el del documento`);
-    assert.deepEqual(srcsLocales(doc), [], `${p.slug}: tiene imágenes locales y el server la rechazaría`);
-    assert.ok(JSON.stringify(doc).length < TOPE_DOC_BYTES, `${p.slug}: pasa el tope del documento`);
+test('3: no quedó ninguna de las 10 plantillas de Doory: ni en el panel «Diseño», ni en la API, ni en disco', async () => {
+  // Eran material ajeno adentro del producto: la Attribution Assurance License del código portado aplica «in whole or
+  // part, with or without modification», así que sacar el crédito visible (29/10/2026, `editor/CreditoDoory.tsx`) no la
+  // desactivaba. Las plantillas de MaKo son propias, se generan por código y se eligen en «Nuevo diseño»
+  // (lib/image-editor/plantillas-reales.ts; las cuidan image-plantillas-reales.test.ts y -crear.test.ts, que ya fijan
+  // que se puedan guardar como diseño: sin fotos locales y bajo el tope).
+  const panel = servicioPlantillas(null);
+  assert.deepEqual((await panel.list({})).results, [], 'el panel «Diseño» volvió a servir plantillas');
+  assert.equal((await panel.list({})).count, 0);
+  assert.deepEqual(await panel.categories(), [], 'las categorías eran las de Doory: sin plantillas no llevan a nada');
+  await assert.rejects(() => panel.get(DOORY[0]), /no existe/i, 'una de Doory se puede volver a abrir');
+  for (const slug of DOORY) {
+    assert.ok(!existsSync(join(RAIZ, 'app/image-editor/mako/plantillas', `${slug}.json`)), `${slug}.json volvió`);
+    assert.ok(!existsSync(join(RAIZ, 'public/cv/plantillas', `${slug}.webp`)), `${slug}.webp volvió`);
   }
-  assert.equal(await documentoDePlantilla('no-existe'), null);
+  // Y la API ya no las ofrece ni las acepta: `listar_plantillas_imagen` trae sólo `reales`, y `crear_diseno_imagen`
+  // con un slug que no es de una real contesta que no existe.
+  const run = readFileSync(join(RAIZ, 'lib/api-mako/areas/imagen.run.ts'), 'utf8');
+  assert.doesNotMatch(run, /catalogoPlantillas|documentoDePlantilla/, 'la API volvió a leer el catálogo de Doory');
+  assert.doesNotMatch(run, /cv\/plantillas\/\$\{/, 'la API volvió a mandar la miniatura de una plantilla borrada');
 });
 
 test('4: las operaciones del área llevan el permiso de la tab y de admin, y la definición no arrastra el server', () => {

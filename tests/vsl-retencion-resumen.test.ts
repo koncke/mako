@@ -60,7 +60,7 @@ function deSiempre(evs: EventoResumible[], dur: number | null) {
     const k = (e.video_id ?? '').trim();
     (porVideo.get(k) ?? porVideo.set(k, []).get(k)!).push(e);
   }
-  return new Map([...porVideo].map(([v, es]) => [v, { avances: avancePorPersona(es, dur, null), salidas: histogramaAbandono(es, dur, null) }]));
+  return new Map([...porVideo].map(([v, es]) => [v, { avances: avancePorPersona(es, dur), salidas: histogramaAbandono(es, dur) }]));
 }
 /** El cálculo NUEVO: el resumen (lo que devuelve la función SQL), sin la vista previa por host, por video. */
 function delResumen(evs: EventoResumible[], dur: number | null) {
@@ -100,7 +100,7 @@ test('paridad: el resumen da el MISMO avance y las mismas salidas que los evento
 
 test('la curva desde los avances es la MISMA que curvaRetencion sobre los eventos', () => {
   const evs = eventos(800, 99).filter((e) => !e.prueba && !esPreviewDeEditor(e.landing_url ?? '') && (e.video_id ?? '').trim() === 'vidA');
-  const vieja = curvaRetencion(evs, 300, null);
+  const vieja = curvaRetencion(evs, 300);
   const p = avancesDeResumen(resumirEventos(evs), 300);
   const nueva = curvaDesdeAvances([...p.values()].map((x) => x.avance));
   assert.deepEqual(nueva, vieja);

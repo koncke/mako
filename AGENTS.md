@@ -156,6 +156,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+- **Un test que lanza un hijo y PARSEA su salida lleva `maxBuffer: 64 * 1024 * 1024` desde la primera línea.** Sin él, node corta el stdout en 1 MB y el JSON llega partido: el error es «Unterminated string in JSON», que no se parece a la causa, y aparece cuando la salida crece — o sólo en el runner. Lo exige una guarda (`tests/tanda-no-la-mata-un-test-lento.test.ts`) y el filtro del pre-push puede no alcanzar a correrla por su tope de 90 s, así que el rojo llega de Actions 14 minutos después: la regla estaba cosechada en cinco `docs/hallazgos-*.md` y en ninguno de los archivos que se leen ANTES de escribir, y volvió a costar una corrida el 6/11/2026.
 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
@@ -605,6 +606,22 @@ build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mj
 `--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
 segundos.
+
+⚠️ **UN TEST EN VERDE NO DICE NADA DE LOS TIPOS, y por ahí se van las puntas rojas (6/11/2026).** `node --import tsx --test`
+**saca** los tipos, no los chequea: un test con 14 casos en verde puede tener errores de tipos que sólo aparecen en el `tsc`
+de la punta, diez minutos después. Costó **tres rojos en una tanda**, todos en archivos de test nuevos y todos invisibles
+para `tsx`:
+
+- un `@ts-expect-error` sobre un `import` de un `.mjs`. El tsconfig resuelve `.mjs` con `allowJs`, así que **no hay error que
+  esperar** y un directivo sin usar ES un error (TS2578). **Ningún test del repo usa ese directivo**: si te hace falta para
+  importar un script, no te hace falta.
+- un argumento en la posición equivocada de un helper con parámetros opcionales (`correr('al-abrir', 'startup')` donde el
+  segundo es el `env`). Corre perfecto: el helper ignora lo que no entiende.
+- un `.find(...)` usado sin comprobar que encontró (`undefined` posible) y una propiedad que el tipo declarado no tenía.
+
+**La regla: un archivo de test NUEVO, o uno que importa un `.mjs`, se pasa por el acotado antes de pushear.** Es un comando y
+segundos: `node scripts/tsc-acotado.mjs tests/lo-nuevo.test.ts`. Y si la guardia de RAM lo niega (pasa, y entonces el único
+que chequea es la punta), al menos sabé que lo que estás pusheando no está chequeado.
 
 **UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
 acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
@@ -2332,6 +2349,14 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
   componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
   `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+  ⚠️ **Y un default tapa el call site que falta** (6/11/2026, #510): `faltantesParaMover` tenía `?? hoyEnTijuana()` y su
+  llamador real no pasaba el día NUNCA, así que el corte del día de todo negocio era el de Tijuana — y ese corte decide si
+  se exige la asistencia a la reunión para mover un lead (Ganado incluido). En una función PURA el día es **obligatorio**
+  (que lo frene el compilador) y lo resuelve quien llama, con el ws que tenga a mano (`hoyDelWorkspace(ctx.ws)`,
+  `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
+  va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
+  eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
+  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
@@ -2384,6 +2409,45 @@ botones mal». No faltaba nada: no se veía nada.
 
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
+
+# Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
+
+De esto depende cada `.maybeSingle()` del repo: sobre una columna que puede repetirse, con dos filas PostgREST
+contesta **PGRST116** y el lector tira (es lo que ya tiró el webhook de Calendly, y lo que fija
+`tests/crm-fathom-links.test.ts`). Así que «¿esta columna es única?» es una pregunta que se contesta **antes** de
+elegir el lector — y hay dos formas de contestarla mal, las dos con un resultado plausible:
+
+1. **Leyendo un `create index` y creyendo que es EL índice de la columna.** Una tabla puede tener los dos. La 0053
+   declara `email text not null unique` en la línea 27 y, catorce líneas más abajo,
+   `create index if not exists idx_usuarios_email on usuarios (email)`: un índice de **MÁS**, no único, al lado de la
+   constraint. Un `grep` de «index» + «email» encuentra el segundo, que es el que se parece a la pregunta. Eso mandó la
+   tanda de la mig 0410 entera: se escribió «`usuarios(email)` tiene un índice NO único (0053)» en una migración, en un
+   `docs/hallazgos-*` y en la cabecera de un módulo, y de ahí salió un bug que **no podía pasar**.
+2. **Midiendo las filas repetidas y leyendo el 0 como «todavía no pasó».** Un `count` de 0 es igual de compatible con
+   «no puede pasar»: no distingue las dos cosas, y confirma la hipótesis falsa en vez de romperla. El 6/11/2026 se midió
+   «direcciones con más de una fila = 0» y se anotó como «el esquema lo permite pero no hubo víctimas».
+
+**Lo que sí contesta, en un comando, y contra la base que está CORRIENDO** (un archivo de migración dice lo que se
+quiso aplicar, no lo que está aplicado):
+
+```sql
+select i.relname, ix.indisunique, pg_get_indexdef(ix.indexrelid)
+  from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid
+ where t.relname = '<tabla>';
+```
+
+Y antes de inventar un criterio de desempate para «cuál de las N filas es la que vale», **buscá quién ya depende de
+que no haya N**: acá la 0178 construye `agencia_altas` entera sobre que «el email es LA identidad: `usuarios.email` es
+único», y el caso que parecía necesitar dos filas —alguien que trabaja en su cuenta y en la de un cliente de su
+agencia— el producto lo modela con la cookie firmada de agencia y su cartera (`agencia_clientes`, 0175). El detalle,
+en [docs/hallazgos-ajustes.md](docs/hallazgos-ajustes.md) → «El índice de MÁS que se leyó como el único».
+
+⚠️ **Y el `error` de esa lectura no se funde con «no hay fila».** Son tres estados (hay fila / no hay / no pude leer) y
+el que escribe necesita los tres: `if (error || !data) return null` salía por /perfil/notificaciones como
+«Esta sesión no tiene cuenta propia» sobre una persona que sí la tiene. El criterio: el que **ESCRIBE** corta con un
+motivo que la pantalla pueda decir; el que **LEE** puede caer al default (fail-open de una preferencia), y eso se
+decide a propósito, no por tener un `catch` de más. Moldes: `filaPropia` (lib/perfil.ts), `filaDeLaSesion`
+(app/api/recorridos/route.ts) y el `sinLeer` de `usuarioDelPerfil`.
 
 # Cuando algo «no aparece», el orden es datos → server → navegador, y no se saltea
 
@@ -3604,6 +3668,15 @@ cualquier proceso que recorra el tablero entero en segundo plano:
   historial es lo único que deja volver a mano.
 - **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
   Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+  ⚠️ **Y la LECTURA del tablero también** (6/11/2026, #507): `listTareas({ soloDelPlan: true })` (lib/todo.ts). El
+  filtro es un parámetro con el default de hoy —todo— porque hay lectores que necesitan la tabla ENTERA y romperlos es
+  silencioso: el cierre por señales (`autocompletarPorSenales` y su cron), buscar una por id para editarla o cerrarla, y
+  la deduplicación de lo que se propone. Lo pide quien PRESENTA el tablero, y son SIETE puertas: /plan, su GET,
+  «Hoy»/«Semana», el foco de /general, `leerTablero` de la API, `ver_plan` y /api/agente/plan. La que se olvida devuelve
+  las tareas de la Retro al tablero. ⚠️ **Y filtrar le rompe el aviso de «se cortó» a quien lo mide**: la lectura no
+  pagina (PostgREST corta en 1000 filas sin avisar) y `recortado` se calculaba con el largo de la lista.
+  De 1000 leídas quedan 800 y el aviso desaparece: se mide con `listTareasConTope().leidas`, las filas ANTES
+  de filtrar. Toda lectura que filtra en memoria lo que vino de un tope mide el tope con lo LEÍDO.
 - **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
   foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
   prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
@@ -7376,6 +7449,15 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
+- ⚠️ **UN CANDADO EN MEMORIA NO ES UN CANDADO** (6/11/2026, #514). Un `Set` a nivel de módulo contra el
+  doble clic funciona en desarrollo (un proceso) y no en producción (N instancias): dos pestañas
+  atendidas por dos instancias pasan las dos. El que decide es la BASE — se reclama con
+  compare-and-set (`cambiarSettingSi`) **antes** de calcular nada, y el `Set` queda como primer filtro
+  barato. Y todo candado así: **VENCE** (si no, el proceso que muere con él puesto deja la acción
+  muerta para siempre; el plazo se elige contra el `maxDuration` de SU ruta, no «un rato»), **se suelta
+  siempre** (`finally`) **y sólo si sigue siendo el propio** (`borrarSettingSi`, que compara el valor:
+  si venció y otro lo tomó, borrarlo es soltarle el de él), y **se lee estricto** («no pude leer» no es
+  «no lo tiene nadie»). Moldes: `hacerSugerencia` (lib/sugerencias-crm-server.ts) y `crearDifusion`.
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
@@ -7843,6 +7925,25 @@ el producto miente.
 mismo barrido, **una era falsa alarma** y recortarla habría empobrecido una descripción
 correcta.
 
+## Y su CONTENIDO no entra al producto aunque su CÓDIGO sí: sacarle el crédito no desactiva la licencia
+
+Portar un editor trae dos cosas distintas, y se tratan distinto: **su motor** puede quedarse
+con su crédito en el `LICENSE-*` del repo; **su contenido** (plantillas, assets, textos de
+ejemplo) es material ajeno adentro del producto y sale. El editor de imágenes vino con las 10
+plantillas de Doory —bodas, conciertos, currículums— y encima no le servían a ningún negocio:
+se borraron el 6/11/2026, con sus JSON, sus WebP y sus etiquetas (hallazgos-editor-imagen.md).
+
+**Que el crédito visible ya no esté no cambia nada.** La Attribution Assurance License de
+Doory aplica «in whole or part, with or without modification»: borrar `CreditoDoory.tsx`
+(29/10/2026) dejó de mostrarla, no de deberla. Traducir el contenido al español tampoco: eso
+ES la modificación que la licencia nombra.
+
+**Para código nuevo:** una plantilla, una foto de muestra o un texto de ejemplo que entre al
+producto se genera o se escribe acá. En el editor de imágenes van a
+`lib/image-editor/plantillas-reales.ts` (generadas por código, estructura y ejemplo de la
+misma función) o a las plantillas propias del negocio
+(`app/creaciones/usePlantillasPropias.ts`), nunca al panel que servía las de Doory.
+
 ## Y para leerlos: grepeá la ruta, no abras el documento
 
 **Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro
@@ -7939,6 +8040,14 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
   versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
   GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
+
+- **Y el primo del default: el valor que se pone PARA QUE NO QUEDE CRUDO.** `{{link_pago}}`, sin cobro pendiente, no
+  sale como `{{link_pago}}`: sale «sin link de pago pendiente», a propósito, porque un token crudo en el WhatsApp de un
+  cliente parece un mensaje roto (`valoresDelCobro`, lib/variables-del-lead.ts). Está bien **donde la ausencia es un
+  hecho** y es una trampa donde no lo es: un pago rechazado deja el cobro en `fallido`, así que una plantilla que le
+  dijera «pagá acá: {{link_pago}}» le manda esa frase justo a quien tiene que pagar, sin un solo error (6/11/2026,
+  el pendiente 288; docs/hallazgos-chatbot.md). **Antes de usar un dato así en un texto que SALE, preguntá en qué
+  estado está la entidad de la que se lee**, no sólo si el token existe.
 
 # Dos escritores con dos ritmos son dos claves
 

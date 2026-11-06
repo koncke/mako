@@ -11,12 +11,12 @@
 // dos juegos de textos del mismo tipo: no pueden tener capas distintas ni separarse con el tiempo.
 //
 // Se generan acá y no en JSON escritos a mano (image.md, 5.1: doce JSON de fabric crudo son ~400 KB). Los objetos tienen la
-// forma que guarda el motor (app/image-editor/mako/plantillas/*.json y lib/carruseles/documento.ts): `textbox`, `rect`,
+// forma que guarda el motor (la de `DoryDocument`, como lib/carruseles/documento.ts): `textbox`, `rect`,
 // `ellipse` y `path`, con NOMBRES por función («Gancho», «Titular», «Tu foto», «Acción»): así el chat del editor los
 // encuentra por su nombre. Sin grupos (Fabric ubica a los hijos de un grupo desde su centro, y el chat no edita adentro):
 // lo que va inclinado (las notificaciones de la 1, la polaroid de la 10) se rota capa por capa alrededor de un mismo pivote.
 //
-// Las fotos son MARCOS VACÍOS (un `rect` con `isPlaceholder`, como «Foto» de rooftop-event-story.json): al tocarlos, el
+// Las fotos son MARCOS VACÍOS (un `rect` con `isPlaceholder`, como lo hacían las plantillas de Doory): al tocarlos, el
 // editor pide la foto. Ni la estructura ni el ejemplo traen fotos de stock ni caras (image.md, trampa 6); las fotos de
 // muestra son un paso aparte. Un marco vacío no sale en la descarga (`render.ts` lo filtra).
 //

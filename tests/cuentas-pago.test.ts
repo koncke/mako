@@ -190,9 +190,11 @@ test('la ruta de las cuentas: sólo el admin, cerrada sin negocio, y nunca devue
   assert.match(src, /credDelCliente\(claveDeCuenta\(CLAVE_PASARELA\[p\], cuenta\), ctx\.ws\)/, 'la clave guardada se lee con credDelCliente, nunca del entorno');
   assert.match(src, /descubrirPasarela\(p, ctx\.ws, clave, ctx\.autor, \{ guardarClave: true, cuenta \}\)/);
   assert.match(src, /desconectarPasarela\(ctx\.ws, p, ctx\.autor, cuenta\)/);
-  // La pantalla no arrastra nada del server.
+  // La pantalla no arrastra nada del server. `CtaPasarAPro` (6/11/2026, #494) es 'use client' y lee /api/auth/me por fetch:
+  // es el que esconde «Pasar a Pro» al cliente de una agencia, que le pide el cambio de plan a ella.
   const ui = leer('app/integraciones/CuentasDePago.tsx');
-  assert.deepEqual([...ui.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).sort(), ['../components/ConfirmDialog', '@/lib/cuentas-integracion', 'react']);
+  assert.deepEqual([...ui.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]).sort(),
+    ['../_components/CtaPasarAPro', '../components/ConfirmDialog', '@/lib/cuentas-integracion', 'react']);
   assert.match(leer('app/integraciones/ServicioConfigForm.tsx'), /\(esPasarela\(servicio\.key\) \|\| esProveedorAgendaConCuentas\(servicio\.key\)\) && \(\s*\n\s*<CuentasDePago/);
 });
 
@@ -226,6 +228,12 @@ test('un id que no descifra igual suelta su ruteo; un link de una cuenta descone
   assert.deepEqual(R.pagar.conectadaMp, { url: 'https://www.mercadopago.com/checkout/x' });
   assert.deepEqual(R.pagar.desconectadaMp, { error: 'desconectada' }, 'el link de MP de una cuenta desconectada cobraba donde MaKo no se entera');
   assert.deepEqual(R.tarjeta, { ninguna: false, soloC2: true });
+});
+
+// 6/11/2026: la tarjeta de Apify decía «Sin conectar» con Spy leyendo perfecto, y el cliente volvía a configurar al vicio.
+// Conectada = AL MENOS UNA de las cinco claves con valor real, igual que una pasarela con sólo una cuenta con sufijo.
+test('la tarjeta de Apify se conecta con cualquiera de sus claves, no sólo con la primera', () => {
+  assert.deepEqual(R.apify, { sinNinguna: false, soloLa2: true, soloLa1: true, soloElNombre: false });
 });
 
 test('la 0328 completa la cuenta de los cobros de ANTES, sólo donde no hay duda', () => {

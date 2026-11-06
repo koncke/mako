@@ -112,3 +112,70 @@ foto, Platform) lo decide el chat de la barra (app/_components/nav.ts es de ese 
   versión puso Agency arriba de Partners y contradecía el «abajo de Partners» de Martín del 25/10: el orden entre las dos es suyo.
 
 **Vive en:** app/perfil/instalar/InstalarApp.tsx, app/perfil/instalar/page.tsx, app/_components/nav.ts, tests/recorrido-instalar-agency.test.ts
+
+## El índice de MÁS que se leyó como el único, y un «no pude leer» que salía como «no tenés cuenta» (6/11/2026, `punta/perfil-lectura-caida`)
+
+Dos cosas, y la primera es la que cuesta tiempo: **el diagnóstico que gobernó una tanda entera era falso, y nadie lo
+notó porque la medición que lo iba a desmentir decía lo mismo que él.**
+
+**1 · «`usuarios(email)` tiene un índice NO único (0053)» ES FALSO.** La 0053 declara `email text not null unique`
+(línea 27) y, **catorce líneas más abajo**, `create index if not exists idx_usuarios_email on usuarios (email)`: un
+índice de MÁS, no único, al lado de la constraint. Quien buscó «índice» + «email» en esa migración encontró la segunda
+línea, que es la que se parece a la pregunta, y contestó por ella. Medido contra producción el 6/11/2026:
+`usuarios_email_key` = `UNIQUE (email)`, `idx_usuarios_email` no único, 23 filas, 0 direcciones repetidas. Ninguna
+migración saca el `unique`.
+
+- **⚠️ UNA MEDICIÓN DE 0 NO DISTINGUE «TODAVÍA NO PASÓ» DE «NO PUEDE PASAR», y ésa es la regla que queda.** Ese mismo
+  día se midió «direcciones con más de una fila = 0» y se escribió como «el esquema lo permite, pero no le pasó a
+  nadie» — o sea que la medición correcta **confirmó** la hipótesis falsa en vez de romperla. Para saber si una columna
+  puede repetirse, lo que contesta es la **constraint**, no un `count` y no una línea de `create index`:
+  `select i.relname, ix.indisunique from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid where t.relname = '<tabla>';`
+- **Y el producto ya decía que es único, en otra parte.** La 0178 construye `agencia_altas` ENTERA sobre que «el email
+  es LA identidad: `usuarios.email` es único» (crear la fila quema el email). El caso que se citó —quien trabaja en su
+  cuenta y en la de un cliente de su agencia— **no** se modela con dos filas: entra con la cookie firmada de agencia y
+  su cartera aprobada (`agencia_clientes`, 0175). Antes de inventar un criterio de desempate, buscar quién ya depende
+  de lo contrario.
+- **Dónde quedó escrito, y corregido:** el encabezado de la mig 0410, `docs/hallazgos-ticketera.md` y la cabecera de
+  `lib/tickets-baja-correo.ts` (más el pedido con el que llegó esto, que lo repetía). El `comment on table` de la 0410
+  NO se tocó: ese archivo tiene que seguir diciendo lo que se aplicó.
+- **Lo que NO se cae: la 0410 se queda.** Su otra razón es independiente y sí es real — quien **no tiene cuenta** no
+  tenía ningún lugar donde guardar su «no me escribas». `filasDe` (lib/tickets-baja-correo.ts) devuelve siempre una
+  sola fila, y se deja con `.eq(…).limit(50)`: no se cae si mañana alguien saca el `unique`.
+
+**2 · `filaPropia` fundía «no pude LEER su fila» con «no tiene fila».** `if (error || !data) return null`, y río arriba
+los dos salen de `setNotifInApp` / `setNotifPush` como `guardado: false`, que la pantalla dibuja con una sola frase:
+**«Esta sesión no tiene cuenta propia»** (app/perfil/NotificacionesPanel.tsx). Con la lectura caída esa frase es falsa
+—la persona SÍ tiene cuenta— y manda a buscar el problema del otro lado. Ahora un `error` tira, la ruta contesta 500 con
+el motivo y `guardado:false` significa sólo lo que su comentario dice.
+
+- **El criterio ya existía dos veces acá, sin que `filaPropia` lo usara:** `filaDeLaSesion`
+  (app/api/recorridos/route.ts) tira con estas mismas palabras («no pude leer es un tercer estado»), y
+  `usuarioDelPerfil` (lib/perfil.ts) ya separa `sinLeer` de `sinNadie`. Tres copias de la misma lectura por email, con
+  tres criterios distintos.
+- **La asimetría es a propósito y está fijada con test:** el que **ESCRIBE** corta; el que **LEE** sigue cayendo al
+  default, porque `/api/perfil/notif-inapp` lo consume el `NotificationsProvider`, montado en el layout y corriendo en
+  CADA pantalla — un 500 ahí deja la app entera sin notificaciones por una preferencia que no se pudo leer (la misma
+  regla que `estadoAviso`).
+- **El motivo que llega al toast arranca con lo que la persona puede hacer** («Vuelve a intentarlo: no pude leer tu
+  cuenta»), y el técnico va al log. El toast muestra `e.message` tal cual.
+
+**Dos trampas del entorno, para no volver a pagarlas:**
+
+- **`.maybeSingle()` con varias filas NO lo decide el PostgREST de mentira: lo decide supabase-js.** A diferencia de
+  `single()`, `maybeSingle()` **no manda** `Accept: application/vnd.pgrst.object+json`: pide JSON normal y reduce el
+  array en el cliente — 0 → `data: null` sin error, 1 → el objeto, >1 → arma él el PGRST116 con status 406
+  (`isMaybeSingle`, node_modules/@supabase/postgrest-js). O sea que `tests/_postgrest-de-mentira.ts` ya contesta igual
+  que el de verdad para los tres casos y no hay que tocarle nada.
+- **El clon compartido estaba MUY atrasado respecto de `origin/main`.** Los archivos que nombraba el pedido (la mig
+  0410, `tests/_postgrest-de-mentira.ts`, `docs/hallazgos-ticketera.md`, `tests/tickets-avance-email.test.ts`) no
+  existían en el árbol local y sí en `origin/main`. **Antes de contestar «ese archivo no existe», `git ls-tree
+  origin/main` / `git cat-file -e origin/main:<ruta>`** — y trabajar desde un worktree de `origin/main`.
+
+**Lo que quedó SIN hacer:** cuando falla la **ESCRITURA** (no la lectura), los tres setters siguen tirando
+`` throw new Error(`perfil: ${error.message}`) `` y ese mensaje de Postgres llega al toast tal cual
+(lib/perfil.ts, `setNotifInApp` / `setNotifPush` / `setNotifVistoHasta`). No es el mismo estado que éste —una escritura
+caída ya sale como error, no como «no tenés cuenta»— pero es un aviso que dice el estado interno. Y `emailDe`
+(lib/tickets-baja-correo.ts) tiene la MISMA forma (`'' = no existe o no se pudo leer`) y **no es un defecto**: sus dos
+llamadores lo convierten en `null` y en `false`, o sea del lado seguro; antes de «arreglarlo», mirar esos dos.
+
+**Vive en:** lib/perfil.ts, tests/perfil-lectura-caida.test.ts, tests/_perfil-lectura-caida-hijo.ts, supabase/migrations/0410_correo_bajas.sql, lib/tickets-baja-correo.ts, docs/hallazgos-ticketera.md

@@ -60,7 +60,8 @@ test('el SCRAPER: cada acción del CRM pasa por el candado, después del «sólo
   // La pantalla: el texto del candado y el botón.
   const ui = fuente('app/crm/TraerDeGrupoWA.tsx');
   assert.match(ui, /if \(!r\.ok\) \{ setErr\(r\.error\); setPasarAPro\(r\.pasarAPro \?\? null\); setLineas\(\[\]\); return; \}/);
-  assert.match(ui, /\{pasarAPro && <a href=\{pasarAPro\} style=\{btnPro\}>\{ROTULO_PASAR_A_PRO\}<\/a>\}/);
+  // El link va ENVUELTO en `CtaPasarAPro` (6/11/2026, #494): al cliente de una agencia, en vez del link, a quién pedírselo.
+  assert.match(ui, /\{pasarAPro && <CtaPasarAPro><a href=\{pasarAPro\} style=\{btnPro\}>\{ROTULO_PASAR_A_PRO\}<\/a><\/CtaPasarAPro>\}/);
 });
 
 test('el SCRAPER por la API: la lista, el pedido de un grupo y las dos ejecuciones', () => {

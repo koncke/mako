@@ -6,6 +6,23 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
+
+**Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
+`Cannot find module 'C:\Users\…\Temp\unir-bitacora-Wzhlax\devwt-plantilla-rechazadoscriptsunir-bitacora.mjs'`: una ruta con
+los separadores comidos y pegada a la carpeta del repo de prueba.
+
+**La causa.** El test configura el merge driver con la ruta ABSOLUTA del script
+(`git config merge.bitacora.driver "node <RAIZ>\scripts\unir-bitacora.mjs %O %A %B %P"`), y git no ejecuta ese comando
+directo: lo pasa por `sh -c`, que se come cada `\`. `git config --get` lo devuelve entero, así que leyendo la config no se
+ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona, usa la ruta RELATIVA con barras normales
+(`node scripts/unir-bitacora.mjs …`) y por eso funciona: la trampa es del test, no del driver.
+
+**Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
+mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
+`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+(o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 
 **Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
@@ -83,6 +100,269 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
+
+Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el
+mismo worktree y empujados desde el mismo `HEAD`. O sea que `punta/varios-grafo-encuadre` no llevaba el
+arreglo del grafo: llevaba **los cuatro** commits. Un «mandás» en el segundo puso en rojo al segundo, al
+tercero y al cuarto, y cada rojo gastó su corrida de Actions (~14 min) persiguiendo un fallo que no
+tenía nada que ver con el cambio que la punta traía.
+
+Me lo pregunté al empujar la segunda y lo contesté mal: «son todos commits MÍOS, así que apilar es
+inofensivo». La propiedad no tiene nada que ver — lo que importa es que **la punta es la unidad del
+chequeo**. Con las puntas apiladas, el rojo de la de abajo es el rojo de todas las de arriba, que es
+exactamente lo que la regla de Martín del 3/11 vino a eliminar («que se vaya deployando lo que ya pasó
+en lugar de todo junto»). El memo ya lo decía, con otras palabras: «una punta cortada de otra se mira
+con `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos». «Ajenos» se
+lee como «de otro chat», y el problema es igual con los propios.
+
+**How to apply:**
+
+- **Un ítem = un commit = una punta, y la punta sale de `origin/main`, no del commit anterior.** Antes
+  de empujar: `git log --oneline origin/main..HEAD` tiene que mostrar **un** commit. Si muestra más, la
+  punta está apilada.
+- Para desapilar sin perder nada, en el worktree propio: `git checkout --detach origin/main` +
+  `git cherry-pick <sha>` por punta, y `git push --force-with-lease=refs/heads/punta/<n>:<sha viejo>`.
+  El índice de hallazgos se auto-mezcló solo (`Auto-merging docs/hallazgos.md`) en los tres casos; aun
+  así, entre el cherry-pick y el push va el chequeo de marcas (`grep -c '^<<<<<<<'` = 0).
+- Ojo con el `--force-with-lease`: la rama remota puede no estar en el sha que empujaste. La mía estaba
+  en el commit de *merge* que hice después, y el push rebotó con «stale info». El sha de verdad lo da
+  `git ls-remote --heads origin`, no la memoria.
+- La marca `ci-rojo/<punta>` queda apuntando al sha viejo. No hace falta borrarla: `ci-main-verde.sh`
+  sólo relanza una punta «si su rama sigue en el MISMO commit que dio rojo», y el push nuevo trae su
+  propia corrida.
+
+## Un archivo de `lib/` que guarda el TEXTO que lee una persona es COPY, aunque sea `.ts` y aunque el lector sea un agente (6/11/2026)
+
+Una punta dio rojo en `tests/puente-panel-copy.test.ts` → «ninguna pantalla del repo le habla al
+cliente de vos», con **una** forma en 6.007 archivos revisados: un «mandás» en una línea agregada a
+`lib/agente-skill.ts` (el texto de la skill que lee el Claude Code del cliente). El resto del archivo ya
+estaba en español neutro; la línea nueva era la única con voseo.
+
+**Why:** el memo del tren dice que un chat que toca **copy** corre también las barredoras antes de pasar
+la punta, y es fácil leer «copy» como «una pantalla» — un `.tsx`, un botón, un título. El detector no
+mira pantallas: barre el repo entero con `git ls-files`. Un `.ts` de `lib/` que contiene prosa en
+español (una skill, una plantilla de prompt, el cuerpo de un email, un mensaje de WhatsApp) es copy con
+todas las letras, y que lo lea un agente en vez de una persona no lo cambia: ese texto se le muestra al
+cliente en su terminal.
+
+**How to apply:**
+
+- No hace falta adivinar qué barredora mira lo que tocaste: **`node scripts/tests-afectados.mjs --base
+  origin/main --listar --explicar`** lo contesta en un comando y sin correr nada. Las barredoras corren
+  SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
+  no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
+  selector.
+- El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
+  reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
+  un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
+- Al agregar un renglón a un texto largo ya escrito, el registro lo marca el archivo, no el autor: esa
+  skill dice «No mandes», «si los mandas», «dilo», «díselo». Un renglón en voseo adentro de eso queda
+  mal aun sin guard.
+
+## Una guarda del pre-push que NO PUDO CORRER dice «quedó viejo», y el comando que propone tampoco corre (6/11/2026)
+
+Primer push desde un worktree nuevo (`C:/dev/wt-varios-6-11`), con un commit de SÓLO documentación:
+
+```
+  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+  Corre esto y volve a pushear:
+      node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+El documento no estaba viejo. Corriendo el mismo script a mano: `✓ docs/branding-mako.md al día`, cero
+diff. **Lo que pasaba es que el worktree no tenía `node_modules`**, así que `--import tsx` moría con
+`ERR_MODULE_NOT_FOUND` y salía con 1 — y `scripts/guardas-push.sh:73` lee ese 1 como «el documento
+difiere»:
+
+```sh
+if ! node --import tsx scripts/sync-gramatica-doc.mjs --check; then
+  echo "  X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo..."
+```
+
+**Why:** el `if !` no distingue «medí y hay diferencia» de «no pude medir». Las dos cosas salen con 1. Y
+el mensaje no es neutro: afirma una causa falsa y manda a un comando que **tampoco puede correr**, así
+que seguir la instrucción al pie de la letra no desbloquea nada. Es la misma forma que «Una verificación
+que no verifica es la otra mitad de un test que no prueba» (AGENTS.md), pero del lado de la guarda: una
+guarda que no corre no es neutral, miente.
+
+Y no es una sola: `scripts/guardas-push.sh` tiene varias guardas con esta forma exacta (la de
+`sync-gramatica-doc`, la de `generar-plugin --check`), todas con un mensaje que nombra el archivo
+chequeado como culpable.
+
+**How to apply:**
+
+- **Un worktree nuevo necesita `node_modules` antes del primer push**, aunque el commit sea de pura
+  documentación: las guardas del pre-push corren `tsx`. En esta máquina se hace con un enlace, no con un
+  `npm install`: `cmd /c mklink /J C:\dev\wt-<chat>\node_modules <clon>\node_modules` (`ln -s` en Git
+  Bash COPIA, y acá copiar son gigas). Al borrar el worktree, el enlace va primero (`cmd //c rmdir`) y
+  después `git worktree remove`.
+- Si una guarda del pre-push acusa a un archivo que no tocaste, **corré su script a mano antes de
+  creerle**. Si dice «al día», la guarda no midió: falta una dependencia, no sobra un desfase.
+- Lo que queda por arreglar, en `scripts/guardas-push.sh`: separar el fallo de medición del hallazgo. Un
+  `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
+  «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
+
+## Tres puntas rojas por tipos que el test en verde no podía ver (6/11/2026)
+
+**Vive en:** la regla quedó en AGENTS.md → «Para validar lo tuyo sin el tsc completo». Afectó a
+`tests/memoria-guardia.test.ts`, `tests/limpiar-temporales.test.ts` y `tests/runner-salud.test.ts`.
+
+**Síntoma:** tres puntas de la misma tanda en rojo, todas en el paso «Tipos», todas con sus tests **en verde** localmente
+(5/0, 5/0 y 21/0). Diez minutos de ida y vuelta por cada una.
+
+**La causa es una sola: `node --import tsx --test` SACA los tipos, no los chequea.** Un archivo de test puede estar
+perfectamente verde y no compilar. Las tres fallas, todas en archivos de test nuevos:
+
+1. Un **`@ts-expect-error`** sobre el `import` de un `.mjs`. El tsconfig los resuelve con `allowJs`, así que no había error
+   que esperar, y **un directivo sin usar ES un error** (TS2578). Lo puse «por prolijidad», en dos archivos distintos.
+   ⚠️ La señal estaba a la vista y no la leí: **ningún test del repo usa ese directivo**, y `tests/minutos-actions.test.ts`
+   importa un `.mjs` sin nada. Cuando algo que parece necesario no aparece ni una vez en 1.600 archivos, no es necesario.
+2. Un argumento en la **posición equivocada** de un helper con parámetros opcionales: `correr('al-abrir', 'startup')`, donde
+   el segundo es el `env`. Corre perfecto — el helper ignora lo que no entiende — y es un error de tipos.
+3. Un **`.find(...)`** usado sin comprobar que encontró (posible `undefined`) más una propiedad que el tipo que yo mismo
+   había anotado no tenía.
+
+⚠️ **Y lo que lo volvió caro: el chequeo local estaba negado.** La guardia de RAM negó `tsc-acotado` las cuatro veces que lo
+intenté (1,7 a 2,2 GB libres contra los 3 que pide), así que el único que chequeaba tipos era la punta. **Cuando el chequeo
+local no está disponible, el costo de cada error de tipos pasa de segundos a diez minutos** — y conviene saberlo antes de
+pushear, no después.
+
+**La regla que queda, y está en AGENTS.md porque gobierna código nuevo: un archivo de test NUEVO, o uno que importa un
+`.mjs`, se pasa por `node scripts/tsc-acotado.mjs` antes de pushear.** Un test en verde no es un archivo que compila.
+## Los scripts llenaban %TEMP%, y la culpa no estaba repartida como decía el pendiente (6/11/2026)
+
+**Vive en:** `scripts/perfil-cdp.mjs` (nuevo) · `scripts/limpiar-temporales.mjs` (nuevo) · `scripts/mirar-consola.mjs`,
+`scripts/mirar-pantalla.mjs`, `scripts/onboarding-vg-recorrer.mjs`. Lo fija `tests/limpiar-temporales.test.ts`.
+
+**El pendiente nombraba dos culpables. Medidos el 6/11, no pesan ni parecido:**
+
+| | Medido |
+|---|---|
+| `tsx-marti` (la caché de transpilado de tsx) | **216.852 entradas** de primer nivel; **207.092** con más de 2 días. Un `du` sobre esa carpeta **no terminó en 120 s** |
+| `mako-cdp-*` (los perfiles de Chrome) | **0 carpetas** |
+
+⚠️ **La regla que queda: antes de barrer, contar.** El agujero de los perfiles era real —ninguno de los tres scripts de CDP
+borraba el suyo, ni al terminar, ni con Ctrl-C, ni al morir— pero **no es lo que ocupa el disco**. Haber arreglado lo que el
+pendiente nombraba primero habría dejado el problema entero intacto, con la sensación de estar resuelto.
+
+**El borrado del perfil va en `process.on('exit')`, no en un `finally`:** los tres son scripts de top-level await que pueden
+morir en cualquier `await` del medio, y un `finally` tampoco corre si el proceso se va por una señal.
+⚠️ **Y Chrome primero, la carpeta después:** en Windows un Chrome vivo tiene los archivos del perfil abiertos y el borrado
+falla con EBUSY. El helper se queda con el hijo, lo mata y reintenta (`maxRetries`), porque Chrome tarda un instante en
+soltarlos. Si el borrado falla no avisa ni cambia el código de salida: un script que ya hizo su trabajo no puede fallar por
+no haber podido limpiar.
+
+**La caché de tsx se vacía POR DENTRO, nunca la carpeta raíz, y nunca lo de los últimos 2 días:** la está usando cualquier
+chat que corra un test en este momento, y sacarle una entrada a un proceso vivo lo hace fallar con un error que no tiene nada
+que ver con su código.
+
+**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`. No lo corrí: borra 207.092
+entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
+## Un dato que se calcula y nadie lee es un dato que miente: la guardia del Runner apagada (6/11/2026)
+
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`estado`, `alAbrir`, `tareaDeLaCuenta`). Lo fija
+`tests/runner-salud.test.ts`, probado rompiéndolo.
+
+**El pendiente decía:** «si se vence el reloj del Runner, el vigía se apaga y nada lo avisa». Al medirlo, el agujero era otro
+y peor.
+
+**Lo que había:** `tareaDeLaCuenta` devuelve `{ existe, prendida }` **desde que nació**, y `alAbrir` miraba sólo `existe`.
+Una guardia con `enabled: false` se leía **igual que una sana**: la tarea está, así que nadie avisa, y la única red que queda
+cuando no hay Runner —entregar lo del Ops Center de a 20 minutos— no corre. Y `estado`, que es **el JSON que lee la guardia**,
+no decía una palabra de su propia tarea.
+
+⚠️ **La regla que queda: un campo que se calcula y ningún call-site lee no es código de más, es una afirmación falsa
+esperando.** `prendida` daba la respuesta correcta todo el tiempo; el agujero era que nadie preguntaba. Al revisar una guarda,
+la pregunta no es sólo «¿mide bien?» sino «¿alguien lee lo que mide?».
+
+Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la tarea que hay que prender** cuando está apagada,
+igual que cuando no existe.
+
+**Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
+es que, cuando se caiga, **se diga**.
+## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
+
+**Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
+`.github/workflows/punta.yml` (el paso que configura los drivers). Lo fija `tests/unir-indice-hallazgos.test.ts`.
+
+**Síntoma:** `docs/hallazgos.md`, el índice que manda a cada documento por área, con **199 filas para 69 áreas distintas**
+y sólo **53 documentos** `hallazgos-*.md` en disco. Competitors Spy con 27 filas, Infraestructura con 24. Buscar un tema
+obliga a leer la misma área veinte veces, así que nadie lo abre y lo aprendido se vuelve a descubrir.
+
+⚠️ **La causa NO era que alguien escribiera mal, y por eso la regla escrita no podía ganar.** El atributo era
+`docs/hallazgos*.md merge=union` — **sin guion**, así que el mismo glob agarraba los documentos por área *y el índice*.
+Para los documentos está bien: cada cosecha AGREGA una sección, y unir las líneas de los dos lados deja las dos. Pero el
+índice es una **tabla con una fila por área**, y una cosecha no agrega una fila: **REESCRIBE** la celda de su área metiendo
+su entrada adelante. Para `union`, la fila vieja y la nueva son dos líneas distintas, así que deja **las dos**. Cada punta
+que cosechaba duplicaba la fila de su área, y la siguiente duplicaba la duplicada.
+
+**La regla que queda: `merge=union` sirve para un archivo donde se AGREGA, y corrompe uno donde se REESCRIBE.** Antes de
+poner `union` sobre un glob, hay que preguntarse si todos los archivos que agarra crecen de la misma forma. Acá la
+diferencia entre «crece» y «se reescribe» era un guion en el patrón.
+
+⚠️ **Y la pista estaba escrita adentro del propio índice, en una fila que el problema había duplicado.** Otro chat ya lo
+había diagnosticado ese día («`merge=union` sobre el ÍNDICE no une: DUPLICA la fila») y lo cosechó… en el índice, donde se
+duplicó cuatro veces. **Un documento que se corrige a mano contra algo que lo rompe solo, pierde**: la regla «Una fila por
+área» se agregó el 6/11 y el archivo siguió duplicándose igual, porque el daño no lo hacía el que escribía sino la mezcla,
+después de que los dos lados escribieron bien.
+
+El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazgos-*.md` (con guion) sigue con `union`, y
+`docs/hallazgos.md` tiene su **driver**, que une **celda por celda** y deja las dos entradas (primero la de main). Lo que no
+entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
+persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
+
+⚠️ **SIN HACER, y no es mecánico: juntar las 130 filas de más que ya están.** Medido: de las 31 áreas con filas repetidas,
+**22 anidan** (la celda más larga contiene a las otras, que es lo que deja el metido-adelante) y **9 NO** — en ésas, cada
+fila tiene texto que las demás no tienen, y colapsarlas por clave **perdería hallazgos**. Por eso este cambio **frena la
+hemorragia y no toca el contenido**. Para la pasada que falta hay un modo que cuenta antes de escribir:
+`node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md` (con `--aplicar` escribe, y hoy saca sólo la fila
+idéntica); las 9 que no anidan las tiene que juntar alguien leyéndolas.
+
+## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
+
+Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
+Cinco estaban cerrados **antes** de que se escribiera la foto, y el `LEEME.md` del reparto lo avisaba
+(«es una FOTO del 6/11 y envejece»). El detalle con su prueba está en
+[encargos-6-11/triaje-varios.md](encargos-6-11/triaje-varios.md).
+
+| id | Decía | Cerrado por | Cuándo |
+|---|---|---|---|
+| 319 | faltan cuenta regresiva, prueba social y escasez en las landings | `9bfa14326` | **5/11**, el día anterior |
+| 473 | AGENTS.md dice que Creem modera lo que genera imagen o video | `1be60d0a4` | **5/11**, el día anterior |
+| 594 | dos STT clavados en `whisper-1` fuera del choke point | `cf00a3b92` | 22/10 |
+| 591 | cinco tablas con `workspace_id` fuera del proxy de inquilino | `eb6092ef1` | **17/10**, veinte días antes |
+| 601 | `lib/copywriter/contexto.ts` sigue con el `GRAFO` viejo | — | mudado el 29/10 |
+
+Y otros seis describían un árbol que ya no existe: el **306** afirma que `lib/aperturas/` tiene tres
+archivos y tiene nueve; el **583** daba a `juzgarConCriterio` por código muerto y lo llama
+`lib/reunion-auto.ts:431`; el **580** pedía un compare-and-set que ya está en
+`lib/cs-mover-etapa.ts:278`; el **596** decía que a `leadsEnElWebhook` no lo usa nadie y lo usa
+`app/api/cron/meta-leads-poll/route.ts:54`.
+
+**Why:** una lista de pendientes es una medición con fecha, y el repo se mueve más rápido que ella.
+El costo no es simétrico: un pendiente olvidado espera, uno fantasma se lleva una tanda entera de
+trabajo y además hace dudar de la lista completa.
+
+**How to apply:**
+
+- **Antes de trabajar un item, se comprueba, y la prueba es un commit o un archivo con su línea** —
+  nunca «el documento lo dice». Es la misma regla de
+  «[Un "no cambió nada" sobre PRODUCCIÓN se contesta con `git log`](../AGENTS.md)», aplicada al revés:
+  un «falta» también se contesta con `git log`.
+- **Los números de línea de un item envejecen antes que el item.** El **309** manda a
+  `docs/hallazgos.md:145,163,164,180,181,188,302,303` y el archivo tiene 300 líneas; de los dos
+  duplicados que denunciaba, el de `AI Avatar` ya estaba resuelto. Se busca por el CONTENIDO (`grep` del
+  símbolo), nunca por el número.
+- ⚠️ **«Es de otra área» NO significa «tiene dueño».** Verifiqué los once `equipo-*.json` del reparto:
+  **ningún id se repite entre dos archivos**. De los 17 items de «Varios» cuyo código vive en el área de
+  otro chat, sólo **4** tienen un equivalente real en la lista de ese chat (el 467 ≡ Infra 100, el 468 ≡
+  Infra 104, el 309 ≡ Infra 611, el 476 ≡ Admin 230). Los otros 13 no están en ninguna lista: marcarlos
+  «de otra área» y seguir es tirarlos. Hay que pasárselos a mano, y decir en el reporte que se pasaron.
+- Y al revés: **el reparto de un item a un área sale mejor del que lo mide que del que lo escribió.**
+  El 467 lo tenía Infra con el archivo correcto (`lib/credenciales.ts:285`) mientras «Varios» lo mandaba
+  a `lib/integraciones.ts`, donde la función no existe.
 
 ## El recorte de Vercel SÍ funcionó, y los builds son el 97% de la factura: medido en el panel (6/11/2026)
 
@@ -162,7 +442,60 @@ mismo chequeo (por eso antes corría los tests que la leen).
 **Sin comprobar** (un workflow no se prueba del todo sin correrlo): que el `schedule` de sobre-main arranque a tiempo (GitHub atrasa
 los horarios hasta ~30 min; si un día no terminó a las 11:05, el despliegue no ve la marca y compila); que los deployments de
 GitHub traigan el ambiente «Production» para los deploys que crea el cron por la API (los eventos llegaban, así que existen, pero
-no se miró su forma); que `deployments: read` alcance para leerlos; y la estimación del script contra el panel de facturación.
+no se miró su forma); y que `deployments: read` alcance para leerlos.
+
+### La alarma de minutos daba rojo todos los días porque nadie buscó el número bueno (6/11/2026)
+
+**Síntoma:** la alarma del vigía daba rojo todos los días. Estimaba **US$52,07** (8.678 min facturables del 1 al 6/11) contra
+**US$15,94 de US$30** del panel: 3,3 veces de más. Una alarma que suena siempre entrena a todos a ignorarla.
+
+⚠️ **La causa de la causa era una frase falsa en la cabecera del propio script**, y por eso nadie lo arregló en días:
+decía que el número real «el `GITHUB_TOKEN` de Actions no puede leer». **Es falso.** Lo que no puede leer es el panel de
+Settings → Billing. Los minutos facturables de verdad están en dos endpoints de Actions, que se leen con `actions: read`:
+
+- `GET /repos/{repo}/actions/workflows/{id}/timing` → `billable.<runner>.total_ms` del **ciclo de facturación en curso**.
+  Un pedido por workflow (siete en este repo), no uno por corrida.
+- `GET /repos/{repo}/actions/runs/{id}/timing` → lo mismo por corrida.
+
+**Y el repo YA usaba el de por-corrida en otra parte** (`scripts/tests-afectados.mjs`). Estaba a la vista. La regla que queda:
+**cuando un script dice de sí mismo «esto es una estimación porque el dato bueno no se puede leer», eso es una hipótesis del que
+lo escribió, no un hecho del entorno — se verifica antes de construirle una alarma encima.**
+
+**Las dos causas candidatas que estaban anotadas eran las dos ciertas, y ninguna alcanzaba sola:**
+
+1. **`--incluidos 0`**, puesto «para avisar antes de tiempo, nunca tarde». El plan Free del repo privado trae **2.000 minutos
+   incluidos** (AGENTS.md), y se cobraban todos. Pero 8.678 − 2.000 = 6.678 min → US$40: **todavía 2,5 veces el panel.** Los
+   minutos incluidos explican menos de la mitad del hueco.
+2. **La estimación por duración sobre-cuenta ~1,9x.** `Math.ceil(ms/60_000)` sobre `run_started_at → updated_at` mide la
+   duración de la **corrida**, que incluye la cola y los huecos entre jobs; GitHub factura por **JOB**. El caso extremo medido:
+   «después del deploy», 834 corridas y 679 min facturables a ~0,8 min cada una, casi todas con sus jobs salteados por su `if`
+   (GitHub no cobra un job salteado, y el `conclusion === 'skipped'` del script sólo atrapa la corrida entera salteada, no la
+   corrida exitosa cuyos jobs se saltearon).
+
+⚠️ **Lo que NO se hizo: subir el umbral del 80 %.** Apaga el síntoma y deja la alarma mintiendo. Lo que se hizo es que la alarma
+**juzgue el número de GitHub**: rojo sólo sobre el facturable real, y cuando el `/timing` no se puede leer, **amarillo y nunca
+rojo** — «no doy rojo sobre un número que sé que sobre-cuenta». Es la misma regla que ya tenía el script para la API caída
+(«la palabra rojo es para algo confirmado»), que no se le había aplicado a su propio número.
+
+⚠️ **No se pudo medir desde la notebook:** los dos PAT que hay en `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) dan
+**404 en `koncke/mako`** — son de Mauricio y el repo es de la cuenta `hola-mako`. Una medición de los minutos de Actions sólo
+corre **dentro** de Actions (con `github.token`) o con un PAT que cree Martín. El arreglo no lo necesita: el script lee el número
+cuando corre allá, y acá los tests lo prueban contra una API de mentira.
+
+### `process.exit()` después de un `fetch` revienta en Windows, y el test parecía roto (6/11/2026)
+
+**Síntoma:** el test del script fallaba con `3221226505` (0xC0000409) y
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` — **con la salida del script perfecta,
+el aviso correcto y todo lo esperado impreso**. El diagnóstico obvio (un cuerpo de respuesta HTTP sin leer en el camino del 403)
+era el equivocado: cancelarlo no cambió nada.
+
+**La causa:** `AbortSignal.timeout(...)` deja un timer, y `process.exit()` lo pisa mientras se está cerrando. Node 24.17.0 en
+Windows. Reproducido en 12 líneas sin nada de este repo: cuatro `fetch` con `AbortSignal.timeout` y un `process.exit(0)` →
+revienta; con `process.exitCode = 0` → sale limpio, mismo código, mismo tiempo (0,8 s).
+
+**La regla que queda: en un script que hace `fetch`, el código de salida se pone con `process.exitCode`, nunca con
+`process.exit()`.** En Linux (el vigía) no pasa, así que un rojo de esto aparece sólo en la notebook y parece un test roto.
+Vale para cualquier script del repo que combine `fetch` con `process.exit`.
 
 **Vive en:** `.github/workflows/sobre-main.yml`, `.github/workflows/despues-del-deploy.yml`, `.github/workflows/punta.yml`,
 `lib/desplegar-main-reglas.ts`, `lib/desplegar-main.ts`, `lib/github-commits.ts` (`mainEstaRojo`), `scripts/minutos-actions.mjs`.
@@ -242,6 +575,24 @@ lo que carga el tsc, o un runner de 16 GB (plata: lo decide Martín).
 - La primera versión del test de punta a punta medía sólo el TIEMPO (< 30 s) y daba verde sin el `kill`: con la máquina libre, el
   proyecto lento igual termina en ~8 s. Lo que prueba el corte es que el tsc no llegó a imprimir sus diagnósticos.
 - Un test que se cuelga y cae por su `timeout` sale «cancelled», no «fail». Al probar una rotura, se mira el EXIT del archivo.
+
+## Verde en Actions y producción vieja: la punta la firmó `noreply@anthropic.com` y Vercel no la despliega (6/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Lo que cambió la punta», la guarda del autor) · `tests/punta-ci.test.ts`.
+
+**Síntoma:** el peor de todos, porque no se ve. La punta da **verde**, `main` **avanza**, y a producción **no llega nada**. Pasó
+con la mezcla de `punta/spy-busqueda` (`9202c22d2`).
+
+**La causa:** la nube firma los commits con `noreply@anthropic.com` por default, y **Vercel bloquea el despliegue de un autor que
+no es del equipo** (build-deploy, 17/08). `punta.yml` ya frenaba a `github-actions[bot]` por exactamente ese motivo, con el
+comentario escrito al lado, y **no frenaba este correo**: la guarda existía y le faltaba un caso.
+
+**La regla que queda: una guarda contra «un autor que Vercel no despliega» tiene que enumerar los autores que de verdad
+aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bot de Actions y la nube.
+
+⚠️ **Y `@users.noreply.github.com` NO se frena, a propósito.** Es el correo privado de una **persona** que tiene el mail oculto en
+GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
+para que nadie lo "arregle" de más.
 
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
@@ -1101,6 +1452,47 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
   (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
 
 *25/10/2026, el Cerebro (claude5).*
+
+## La guardia de RAM negaba un `git commit` por lo que decía el MENSAJE, y su copia versionada estaba vieja (6/11/2026)
+
+**Vive en:** `scripts/claude-hooks/guardia/memoria.mjs` (la copia versionada de `~/.claude/guardia/memoria.mjs`) ·
+`clasificar`, `soloLoQueCorre`, `PESADO`. Lo fija `tests/memoria-guardia.test.ts`, probado rompiéndolo.
+
+**Síntoma:** `git commit` NEGADO por la guardia de RAM, con 2,2 GB libres y «esto necesita 3». Después, un `grep` también.
+Y lo que se estaba commiteando era el arreglo de la alarma de minutos: **el chat se quedaba sin poder guardar su trabajo
+justo cuando la máquina está cargada, que es exactamente cuando más importa guardarlo.**
+
+**La causa:** `clasificar` probaba el regex `PESADO` **contra el texto entero del comando**. El mensaje del commit decía
+«el tsc entero lo corre la punta», y `\btsc\b` matcheó. El `grep` siguiente llevaba `tsc` y `npm test` como *patrones de
+búsqueda*. Un commit no pide un byte de RAM.
+
+⚠️ **Y el archivo ya tenía un caso de esta misma familia anotado arriba**, del 11/10: «el patrón suelto `typecheck` agarraba
+el NOMBRE de un test liviano (`npx tsx --test tests/typecheck-lock.test.ts`)». Se arregló **sacando esa palabra de la lista**,
+no la causa. Así que volvió, con otra palabra. **La regla que queda: cuando una guarda clasifica por el texto de un comando,
+se arregla separando lo que CORRE de lo que viaja adentro como data; sacar la palabra que falló deja la trampa armada.**
+
+⚠️ **Y había un SEGUNDO camino a «pesado» con la misma causa, que me frenó mientras arreglaba el primero.**
+`tandaDeTestsSinFreno` cuenta cuántos archivos `.test.ts` **nombra** el comando (3 o más = una tanda que levanta un proceso
+por núcleo). Un comando que los nombra dentro de un `node -e` y de un `grep` los nombra tres veces **sin correr ninguno**:
+otra vez NEGADO. Las dos preguntas van ahora sobre `soloLoQueCorre(cmd)`. **Arreglar un solo camino de los dos habría dejado
+el síntoma vivo con la sensación de estar resuelto** — y el regex de `PESADO` no tenía nada que ver con este.
+
+Lo que ahora se saca antes de clasificar (`soloLoQueCorre`): el **cuerpo de un heredoc**, el valor de las banderas que toman
+TEXTO (`-m`, `--message`, `-e`, `--eval`, `-p`, `--print`) y, en el tramo de un `grep`/`rg`/`findstr`, **sus comillas**, porque
+su patrón puede venir sin bandera (`grep -rn "npx tsc" .`) y nunca se ejecuta. ⚠️ Sólo en ESE tramo: `sh -c "npx tsc"` sí
+ejecuta y tiene que seguir contándose.
+⚠️ El cuerpo de un heredoc se saca **salvo que se lo coma un intérprete**: `bash <<'EOF' … npx tsc … EOF` sí ejecuta, y
+tiene que seguir contando como pesado. Y `cat` y `tee` **no** son intérpretes (`cat > notas.md <<EOF` escribe, no ejecuta):
+los puse en la lista y el test que acababa de escribir los cazó.
+
+⚠️ **De paso, lo más caro del hallazgo: la copia versionada estaba VIEJA.** El 29/10 los topes de `pesado` y `workflow`
+subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unresponsive» con 9 chats), y el cambio se hizo
+**sólo en `~/.claude`**. El repo seguía en 2,5: **reinstalar la guardia desde el repo bajaba los topes y devolvía la pantalla
+negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
+`~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
+
+**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
+`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
@@ -10951,3 +11343,78 @@ comandos de docs/relevo/nube-metodologia.md.
 - **Un chat de la nube quieto o «waiting on a human» no avisa y no siempre lee:** el de Carruseles no leyó nada durante más de una hora y el de Marketing CoPilot esperó toda la noche. En un turno automático no se puede abrir un chat nuevo. Lo que funcionó: un agente local en un worktree propio (`git worktree add --detach`, y `cmd //c mklink /J node_modules` hacia otro clon), que subió por la misma punta. Costó unos 415 mil tokens por tarea.
 - **Mirar el `git diff` antes de un `sed` por varios archivos:** un reemplazo de «En prueba» tocó tres tests que hablaban del período de prueba del plan. `git grep` no distingue dos usos de la misma frase.
 - **Git Bash y Node ven `/tmp` distinto:** `cat > /tmp/x` escribe en la carpeta de Git Bash y Node lee `C:\tmp\x`. Un archivo temporal entre los dos va por ruta de Windows.
+
+## `merge=union` sobre el ÍNDICE de hallazgos no une: DUPLICA la fila (6/11/2026)
+
+`.gitattributes` tiene `docs/hallazgos*.md merge=union`, y eso es lo que permite que ocho chats escriban su cosecha sin
+choques. Funciona perfecto para los documentos POR ÁREA, donde cada uno **agrega una sección al final**: dos secciones
+distintas en lugares distintos se unen y queda todo.
+
+**Pero `docs/hallazgos.md` no es un documento: es una TABLA con UNA fila por área**, y la cosecha de un área se escribe
+**reescribiendo esa fila**. Cuando dos puntas tocan la misma fila, `union` no la mezcla: **deja las dos**. Con tres puntas
+de la misma área el mismo día, la tabla queda con tres filas «Ticketera», cada una con el resumen de su punta y una copia
+del historial anterior — unos 14.800 caracteres cada una.
+
+**Medido el 6/11/2026 sobre `origin/main`**, contando filas por área en `docs/hallazgos.md`:
+
+| Área | Filas |
+|---|---|
+| Competitors Spy | 27 |
+| Infraestructura | 18 |
+| Planes, capas y cobro | 8 |
+| Comunicación | 8 |
+| Plan · Agency Dashboard | 6 cada una |
+
+No se pierde nada —de eso se encarga `union`—, pero el índice es lo único que dice qué documento abrir, y a 27 filas por
+área deja de poder leerse. La regla de la casa es «un documento que no está en el índice es un documento que nadie va a
+abrir»; esto es su otra punta: **un índice ilegible no lo abre nadie tampoco.**
+
+**Qué hacer mientras el formato sea éste:** al cosechar, mirar si quedó duplicada la fila de tu área y consolidarla en una
+(se concatenan los resúmenes nuevos y se deja UNA cola de historial).
+
+⚠️ **Y consolidarla AL FINAL de la corrida, no en el medio: medido el 6/11 cometiendo el error.** Se consolidaron las 3
+filas de Ticketera en una, y al llegar a main las puntas que venían detrás volvió a 6 — cada punta en vuelo que tocó esa
+línea reintroduce su versión, y la consolidación de una punta es sólo «una versión más» para `union`. Consolidar sirve una
+vez que no queda ninguna punta propia corriendo; hacerlo antes es trabajo que se deshace solo y, peor, da la impresión de
+que ya está ordenado.
+
+**El arreglo de fondo, SIN HACER, porque es una decisión de formato y la paga todo el repo:** que el índice sea una lista
+de secciones en vez de una tabla de una fila por área —o un archivo por área bajo `docs/hallazgos/`, que `union` sí sabe
+unir— o que `scripts/unir-bitacora.mjs` (el driver que ya existe para las bitácoras) tome también este archivo y sepa
+fundir dos versiones de la misma fila. Las 27 filas de Competitors Spy y las 18 de Infraestructura hay que consolidarlas
+igual, y eso es trabajo de quien tenga esas áreas: acá se consolidó sólo Ticketera.
+
+**Vive en:** `.gitattributes` (la línea `docs/hallazgos*.md merge=union`) · `docs/hallazgos.md` · `scripts/unir-bitacora.mjs`
+
+---
+
+## Armar una punta leyendo `origin/main` DOS veces le revierte a main lo que ganó en el medio (6/11/2026)
+
+**Vive en:** el procedimiento, no en un archivo. Lo que lo produce es `git read-tree origin/main` / `git show origin/main:<x>`
+en un comando y `git commit-tree … -p origin/main` en otro.
+
+**Por qué alguien hace esto.** Con el árbol de trabajo lleno de cambios de VARIOS encargos a la vez, la forma limpia de sacar
+una punta por ítem —sin `checkout`, sin `stash` y sin tocar lo de las otras sesiones— es armar el commit con plumbing: un
+índice temporal (`GIT_INDEX_FILE`), `read-tree` de main, `git add` sólo de las rutas del ítem, `write-tree` y `commit-tree`
+con main como padre. Es correcto y no toca el disco de nadie.
+
+⚠️ **La trampa: `origin/main` es un ref, y se LEE cada vez.** Entre el comando que armó el árbol y el que puso el padre pasó
+un `git push` mío de otra punta — y **el pre-push hace `fetch`** (AGENTS.md ya lo dice: «el remoto se mueve mientras corre el
+hook»). Así que el árbol salió del main de hace dos minutos y el padre fue el main de ahora: el commit resultante **borra en
+silencio** lo que main ganó en el medio. Medido: mi punta del editor llegó a `docs/hallazgos.md` con **303 líneas contra 304**,
+y la que faltaba era la fila de Infraestructura que otra punta acababa de ampliar. No hay conflicto, no hay aviso, y
+`git diff --stat` dice «2 archivos» como si todo estuviera bien — la deleción aparece en OTRO hunk, lejos del que se fue a
+mirar.
+
+Es la misma familia que el `reset` sin `--hard` y el `--amend` de AGENTS.md: **un revert exacto disfrazado de trabajo normal.**
+Lo que la hace peor acá es que el commit nunca pasó por el árbol de trabajo, así que ninguno de los chequeos que uno hace por
+costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
+
+**Las dos reglas:**
+
+1. **El sha del padre se PINCHA una vez y se usa para todo:** `BASE=$(git rev-parse origin/main)`, y de ahí salen el
+   `read-tree`, los `git show` y el `-p`. Un ref leído dos veces son dos valores distintos.
+2. **Y se verifica contra ESE padre, no contra el ref:** `git diff --stat "$BASE" "$SHA"` y, para los archivos que son
+   listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
+   (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
+   que desapareció sin que nadie la borrara.

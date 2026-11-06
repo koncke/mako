@@ -3,7 +3,99 @@
 El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relevamientos en
 [editor-imagen/](editor-imagen/). Acá va lo que costó: síntoma → causa → dónde vive → la regla.
 
+⚠️ **El plano y el comentario de las plantillas estuvieron VIEJOS, y ya costaron una vez** (corregidos el 6/11/2026,
+`punta/imagen-docs-al-dia`). `diseno-editor-imagen.md` describía `inicio/` y `mako/registro.ts` (con un `ProyectosPanel`)
+como si existieran —ninguno de los dos existe: la pantalla de arranque es `app/_crear/PantallaCrear.tsx`, y el `grep` de
+`ProyectosPanel` sobre `app/` y `lib/` da **cero**—, apuntaba a `styles/tokens.css` cuando el archivo es
+`_doory/styles/tokens.css`, y su regla de colores seguía diciendo que el re-vestido cambia los valores «por la paleta medida
+de Canva» cuando desde el 29/10 los `--cv-*` **son los de MaKo**. El comentario de `mako/plantillas.ts` decía dos cosas
+falsas: «el crédito ya se muestra» (Martín borró `editor/CreditoDoory.tsx` el 29/10) y «el TEXTO del lienzo sigue en inglés»
+(`b9a7dae2f`, 14/10: los diez documentos en español y las miniaturas redibujadas — `bold-sale-announcement.json` dice «FIN
+DE TEMPORADA»).
+
+Tres cosas que esto deja, y la tercera es la que no se ve:
+
+1. **Un plano que miente no es inerte: PRESCRIBE.** Esa misma nota del inglés ya hizo que un plan repitiera el error una vez.
+   Un documento con el porqué viejo se lee como una decisión vigente y se programa sobre él.
+2. **Lo que delata a un plano viejo es un `ls`, no una lectura.** Las cuatro afirmaciones falsas se cayeron con `ls` y un
+   `grep` de un minuto. Cuando un documento nombra una carpeta o un archivo, verificar que exista cuesta menos que leerlo.
+3. ⚠️ **Y la lista de encargos del 6/11 también estaba vieja, en las dos direcciones.** Decía que el documento «todavía habla
+   de Noto Sans y del violeta de Canva»: **«Noto Sans» no aparece ni una vez** en el archivo. Y no mencionaba tres de las
+   cuatro cosas que sí estaban mal. Un encargo es una medición con fecha igual que cualquier otra: se verifica contra el
+   árbol antes de trabajarlo, y lo que sobre o falte se corrige en el mismo commit.
+
 ---
+
+---
+
+## Lo que quedó SIN hacer de los 33 encargos del editor y los 18 de Thumbnails (6/11/2026)
+
+El barrido del 6/11 dejó 33 encargos del Image Editor y 18 de Thumbnails. Esto es lo que NO se hizo, con el archivo donde
+vive y, cuando lo hay, el motivo por el que no alcanzaba con sentarse a escribirlo. **Lo primero son las tres correcciones
+a la lista**, porque una lista vieja hace trabajar de más:
+
+### La lista del 6/11 estaba vieja en tres lugares
+
+- **Siete de los 18 encargos de Thumbnails ya estaban hechos** cuando se escribieron: cinco pedían «cargar la biblioteca»
+  (ids 9, 132, 138, 199, 378) y dos «curarla» (133, 139). Medido con `estado` contra producción: **79 canales activos, 14
+  excluidos, 1.520 miniaturas visibles, 0 vencidas**. La lista es una foto; antes de trabajar un encargo, el comando que lo
+  mide.
+- **Los números del documento de Thumbnails también estaban viejos** (85 canales / 1.643 miniaturas / 8 excluidos, del
+  momento de la carga). Corregidos.
+- **El encargo del plano del editor (id 166) pedía sacar cosas que no están y no nombraba tres de las cuatro que sí
+  estaban mal.** «Noto Sans» no aparece ni una vez en `diseno-editor-imagen.md`. El detalle, arriba.
+
+### No alcanza con programarlo: lo tiene que decidir o firmar Martín
+
+- **El múltiplo de Thumbnails (y el orden de la vidriera)** espera la **enmienda III.L** de las Developer Policies de
+  YouTube — un trámite, no código. Hasta que se firme, el orden es «Más vistas» y las vistas crudas **no son comparables
+  entre mercados**: por eso hubo que excluir 14 canales a mano, y por eso **excluir a mano no escala** (cada relectura
+  mensual trae videos nuevos de los mismos canales). `lib/thumbnails/explorar.ts` (`ENMIENDA_III_L`), y los números en
+  [hallazgos-carruseles.md](hallazgos-carruseles.md).
+- **Las diez caras de referentes borrosas** (encargo 544) piden **exportar el original desde Canva**, que es la cuenta de
+  Martín. Medido: los 32 archivos de `public/asesores/grandes/` están los 32 a 600×600, así que **el problema no es la
+  medida sino el origen** — diez son los 200×200 de Canva escalados. Vive en `public/asesores/grandes/` y
+  `lib/asesores/catalogo.ts`; hay una punta abierta de otro chat (`punta/gurus-diez-caras`).
+- **Reescribir el editor prestado para que la licencia deje de aplicar** (encargo 145): 444 archivos y ~39 mil líneas en
+  `app/image-editor/_doory/`. Es un programa de trabajo, no una tarea; el orden medido está en el propio encargo.
+
+### Se puede programar, y por qué no se hizo en esta tanda
+
+- ⚠️ **Borrar la co-edición (encargo 146) NO es borrar una carpeta, y el encargo lo describe como «la forma más barata y
+  rápida».** Medido: además de los 18 archivos de `_doory/editor/collab/`, **20 archivos de afuera la referencian** —
+  `EditorApp.tsx`, `EditorProvider.tsx`, `engine/editor.ts`, `engine/persistence.ts`, `TopBar.tsx`, `SaveStatus.tsx`,
+  `chrome/FollowBadge.tsx`, `chrome/PresenceStack.tsx`, `workspace/PresenceLayer.tsx`, `panels/AnimatePanel.tsx`,
+  `panels/NotesBar.tsx`, `dialogs/Presenter.tsx`, `strings.ts` y más. Sacarla es desenchufar 20 call sites del editor que
+  el cliente abre, y el veredicto de que quedó bien es un typecheck. **Sigue valiendo la pena** (son 4.396 líneas con
+  licencia ajena que no corren) y entra en una tanda con el typecheck acotado a mano, no en una pasada a ciegas.
+- **Borrar las diez plantillas de Doory** (encargos 155 y 548, el mismo): toca el panel, la API y **tres tests, dos de los
+  cuales se rompen a propósito** (el 1 de `plantillas-crear`, «primero lo en blanco», y el 5, la lista literal
+  `PLANTILLAS_NUEVO_DISENO`). Se reescriben, no se fuerzan — y eso pide correr los tests, que es justo lo que no se pudo.
+  `app/image-editor/mako/plantillas/`.
+- **El `window.prompt` para renombrar un diseño** (encargo 153): `ImageEditorCliente.tsx:115` y
+  `carruseles/ExplorarCarruseles.tsx:213`. La referencia está en el repo (el Web Generator ya edita en el lugar), así que
+  acá no hace falta ir a buscar una app de afuera.
+- **Las fuentes del editor se bajan de jsDelivr** (encargo 148): 499 variantes de afuera, un archivo frío tardó 12,6 s y el
+  motor corta a los 8 (`LOAD_TIMEOUT_MS`), así que el texto cae a la fuente del sistema **sin un solo error**. La regla que
+  ya está pagada: **nada de `next/font/google`** (rompió el build de producción de todos los chats el 15/10, porque baja la
+  fuente AL COMPILAR); si hace falta, `next/font/local` con el `woff2` en el repo.
+- **Un logo SVG que el cliente sube se guarda rasterizado** (encargo 152): el bucket no acepta SVG (es un documento activo
+  bajo nuestro dominio) y el adaptador lo dibuja a PNG (`mako/nube.ts`, `aRaster`). Conservarlo vectorial pide sanearlo en
+  el server y servirlo **desde un origen sin cookies**, que es una decisión de infraestructura.
+
+### Lo que sólo se cierra MIRÁNDOLO (y por qué no se pudo acá)
+
+Cinco encargos del editor (167, 412, 407, 164, 157/406) y tres de Thumbnails (143, 200, y la prueba de «Editar» de 142/380)
+no son código: son **mirar la pantalla en producción** o **correr la prueba con la IA de verdad del ws 3**. Los tres de
+Thumbnails dependen de la biblioteca cargada, que ya lo está.
+
+⚠️ **Y el obstáculo de esta ventana, que conviene anotar porque se va a repetir:** la PC estuvo entre **1,3 y 2,3 GB de RAM
+libre** durante toda la tanda (10-20 chats sobre el mismo clon), y la guardia de RAM bloquea `tsc` y `node --test` por
+debajo de 3 GB — con razón: lo que protege es que no se caigan todos los chats a la vez. El `typecheck-lock` esperó su turno
+10 minutos y después 15 más por RAM. **Lo que sí se pudo** fue pushear a `punta/…`: desde el 15/10 el pre-push sólo corre el
+`tsc` local cuando el push va a `main`, así que a una punta corren sólo las guardas baratas y el chequeo de verdad lo hace
+GitHub Actions, que tiene su propia RAM. Para una tanda así, **la secuencia es punta + Actions, no esperar la RAM**; lo que
+no se puede delegar es la prueba que necesita la base o una clave (los scripts de la PC), y eso sí espera.
 
 ## MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco (5/11/2026)
 
@@ -358,7 +450,9 @@ El `setState` en el efecto es el patrón de Doory para resetear el selector cuan
 
 ## Las plantillas en español: un texto más largo desborda su caja, y eso se MIDE
 
-**Vive en:** `scripts/image-editor/traducir-plantillas.mjs` (`T` y `AJUSTES`) · `public/cv/plantillas/*.webp`
+**Vive en:** nada ya — las 10 plantillas de Doory, sus WebP y los dos scripts que las traducían se borraron el
+6/11/2026 (ver «Sacar las de Doory tocó SIETE archivos de test»). Queda por lo que enseña de medir un texto con su
+fuente: lo usa `lib/image-editor/plantillas-reales.ts`, que genera sus medidas con el mismo criterio.
 
 El 14/10 el texto del lienzo de las 10 plantillas pasó a español neutro (89 textos, por igualdad exacta con el
 original; un texto en mayúsculas guarda el original en `caseSource` y se traduce ése). En la hoja de contactos de las
@@ -636,13 +730,80 @@ tests/image-editor-plantillas-crear.test.ts
 
 **Vive en:** lib/model-catalogo.ts
 
-## Dos tests se rompen a propósito al sacar las de Doory (29/10/2026)
+## Sacar las de Doory tocó SIETE archivos de test, y los dos que el plan nombraba no eran ninguno (6/11/2026, claude1)
 
-- Se rompen el test 1 de tests/image-editor-plantillas-crear.test.ts («primero lo en blanco») y el 5 (la lista literal
-  `PLANTILLAS_NUEVO_DISENO` en las dos pantallas).
-- **Regla:** se reescriben con el cambio, no se fuerzan.
+**Vive en:** `app/image-editor/mako/plantillas.ts` · `lib/api-mako/areas/imagen.run.ts` · los siete tests de abajo.
 
-**Vive en:** tests/image-editor-plantillas-crear.test.ts
+Las 10 plantillas de Doory se borraron el 6/11/2026 (encargos 155 y 548): sus 10 JSON, sus 10 WebP, su tabla de
+etiquetas y los dos scripts que sólo las traducían. Eran material ajeno adentro del producto: la Attribution Assurance
+License del código portado aplica «in whole or part, with or without modification», así que sacar el crédito visible el
+29/10 (`editor/CreditoDoory.tsx`) no la desactivaba. El motor (`_doory/`) se queda, con su crédito en `LICENSE-DOORY`:
+lo que se fue es su CONTENIDO.
+
+**El diagnóstico obvio era el equivocado.** Esta sección decía, desde el 29/10, que se rompían «el test 1 de
+`image-editor-plantillas-crear` y el 5», y el encargo lo repetía. Al medirlo: **esos dos ya estaban adaptados** por
+`bebd4cde0` (6/11), que sacó las de Doory de «Nuevo diseño» una semana después de escribirse el hallazgo — el test 1 ya
+verificaba que NO estuvieran. Los que se rompían eran otros, y eran siete archivos, no dos:
+
+| Archivo | Qué le pasó |
+|---|---|
+| `api-mako-imagen.test.ts` | el test 3 recorría las 10 (`lista.length === 10`). Ahora es el GUARD de que no vuelvan |
+| `plantillas-sugeridas-editores.test.ts` | cuatro tests de qué se le sugiere a quién en Imagen: sin sujeto |
+| `chat-bloques.test.ts` | exigía `<img src="/cv/plantillas/<slug>.webp">` y el WebP **en disco** |
+| `_bloques-tarjeta-hijo.ts` | `catalogoPlantillas()[0]?.slug ?? ''` daba `''` y la tarjeta se creaba sin plantilla |
+| `image-plantillas-reales.test.ts` | el assert de «no choca con una de Doory» se quedó sin con qué chocar |
+| `image-editor-plantillas-crear.test.ts` | el test **4** (no el 1 ni el 5): fijaba la rama `documentoDePlantilla` |
+| `image-editor-colores-mako.test.ts` | un `if (f.includes('/mako/plantillas/')) continue` que ya no saltea nada |
+
+**Reglas:**
+
+- **Un hallazgo sobre qué tests rompe un cambio caduca.** Dice qué se rompía con el código de ESE día; una semana
+  después, otra punta puede haber adaptado justo esos dos. Antes de confiarle el alcance a un hallazgo de tests, se
+  mide: `grep` de los símbolos que se van (acá `catalogoPlantillas`, `documentoDePlantilla`, `ETIQUETAS_IMAGEN`) más el
+  slug de cada cosa borrada. Eso dio los siete; el hallazgo daba dos, y ninguno.
+- **Lo que un test exige en DISCO no lo encuentra ningún grep de símbolos.** `chat-bloques` pedía que
+  `public/cv/plantillas/<slug>.webp` existiera (`existsSync`), y lo sacaba del slug que le devolvía un proceso hijo: no
+  nombra ningún archivo borrado. Apareció al barrer por slug, no por símbolo.
+- **Los diez slugs viven en UN solo test.** El guard contra la reincidencia (`api-mako-imagen.test.ts`, test 3) los
+  lista una vez y chequea el panel, la API y el disco; los otros seis tests apuntan a él en vez de repetir la lista.
+- **Un test que pierde su sujeto se reescribe sobre lo que SÍ hay que proteger, o se va.** Los cuatro de «qué se le
+  sugiere a quién en Imagen» se fueron (no hay plantillas que ordenar) y quedó uno que fija que el panel no sugiera
+  nada; el test 3 pasó de recorrer las diez a vigilar que no vuelvan. Lo que no se hizo: duplicar sobre las plantillas
+  reales lo que ya cuidan `image-plantillas-reales.test.ts` y `-crear.test.ts` (que se puedan guardar como diseño, sin
+  fotos locales y bajo el tope).
+- **El cableado se queda aunque se vaya el contenido.** Las señales del negocio siguen bajando desde la page hasta
+  `servicioPlantillas` (su test lo fija): es lo primero que hará falta cuando el panel sirva las plantillas propias.
+- ⚠️ **Vaciar una carpeta de `public/` deja su exención del proxy abierta, y eso es un hueco de seguridad.** Los 10 WebP
+  eran los ÚNICOS archivos de `public/cv/`, así que al borrarlos `cv` quedó en la lista de carpetas que `proxy.ts`
+  saltea por extensión sin tener nada que servir. No lo vio ningún grep de este cambio: lo cazó
+  `tests/proxy-matcher-completo.test.ts` («sólo abre un hueco») en Actions. **Regla:** una carpeta de `public/` que se
+  vacía SALE de esa lista, igual que una nueva entra. El comentario de `proxy.ts` ahora lo dice.
+
+**Los tres rojos del primer push, y que ninguno era un test «ya adaptado»** (corrida 455): el typecheck cazó un
+`c.plantilla` que quedó en el test del carrusel (el campo se había ido del tipo), `image-plantillas-reales-crear` fijaba
+la frase vieja de la descripción de la API («el id o el slug») y `proxy-matcher-completo`, lo de `cv`. **Los tres son el
+cambio, no el entorno:** se arreglaron en un ciclo. El cuarto rojo de esa corrida
+(`tests/coaches-ops-center.test.ts`) lo marcó el propio runner como FLAKY — rojo en proceso compartido, verde aislado.
+
+**Lo que el panel «Diseño» muestra ahora:** nada, a propósito. `PLANTILLAS` y `CATEGORIAS` se fueron enteras (ocho
+categorías con 0 no llevan a ningún lado) y el texto del panel manda a donde SÍ hay plantillas:
+`templates.empty` = «Las plantillas están en «Nuevo diseño».» (`_doory/editor/strings.ts`).
+
+**Lo que quedó SIN hacer:**
+
+- **El bloque «creado» del chat perdió su miniatura.** Era la única con WebP: las plantillas reales se generan por
+  código y no tienen uno, así que al crear un diseño desde el chat va el marco con «ancho × alto»
+  (`app/_chat/BloqueHilo.tsx`, `Creado`, que ya lo manejaba). Lo arreglaría el WebP de cada real, en el banco de esbuild
+  + Chrome sin ventana, o dibujar `MiniaturaDiseno` en el bloque.
+- **El panel «Diseño» sirviendo las plantillas propias del negocio:** es lo que lo vuelve a llenar
+  (`app/creaciones/usePlantillasPropias.ts` hoy sólo alimenta «Nuevo diseño»). Necesita una miniatura por plantilla:
+  el panel espera una URL (`thumbnail_url`), no un SVG.
+- **No se miró en el editor.** Que el panel vacío se vea bien (y no como una pestaña rota) está leído en el código
+  (`TemplatesPanel.tsx` ya dibuja `templates.empty` sin plantillas), no medido en la pantalla.
+- **Las fotos de muestra del ejemplo y las preguntas al crear** siguen pendientes, y **no son parte de este borrado**:
+  en `docs/relevo/nube-plantillas.md` figuran como lo que FALTA AGREGAR a las plantillas reales (hoy los marcos dicen
+  «Tu foto»), no como algo de Doory que sacar. El encargo las listaba bajo «qué hay que borrar» leyendo mal la coma de
+  `hallazgos-plantillas.md`; no hay fotos de muestra en el repo (`public/cv/plantillas/` quedó vacío).
 
 ## «Páginas 1 / 1» se pisaba con la cuadrícula a 1366: la barra de abajo miraba la VENTANA (29/10/2026, claude3)
 
@@ -911,3 +1072,71 @@ no es parte de este pedido («sin inventar», sin gasto de IA).
   tarjeta falsa de 348 (docs/relevo/nube-recorrido-visual.md). Antes y después en docs/recorrido-visual/imagen-barra-chat-*.png.
 
 **Vive en:** app/image-editor/_doory/editor/EditorApp.module.css, app/image-editor/_doory/editor/chrome/ToolHost.module.css, tests/recorrido-imagen-panel.test.ts
+
+---
+
+## Lo que el cliente ve cuando el chat del editor NO puede aplicar algo (6/11/2026, `punta/imagen-chat-fallas`)
+
+Tres encargos del barrido del 6/11 que son el mismo tema: el camino de la falla del chat de MaKo en el editor. Los tres se
+veían bien leyendo el código y los tres se leen mal desde la pantalla.
+
+### 1. Una subida trabada no es un error: es un «corriendo» para siempre
+
+**Síntoma.** El cliente adjunta una foto al chat con la red trabada, ve el spinner, y nunca se le dice que falló: tiene que
+cerrar y empezar de nuevo.
+
+**La causa.** `subirConProgreso` (`app/customer-success/curso/subir-video.ts`) —que el adaptador del editor usa para subir a
+«Subidos», vía `subirArchivo` de `mako/nube.ts`— **no fijaba `xhr.timeout`**. Un XHR sin plazo con el socket abierto y sin
+bytes moviéndose no falla: espera a que el navegador se rinda, y eso puede no pasar.
+
+**Lo que NO se hizo, y es la parte interesante.** La salida obvia es `xhr.timeout`, y está mal: `xhr.timeout` es el TOTAL de
+la petición, así que el mismo número mataría un video de 300 MB del portal de cursos que va perfecto por una línea lenta —
+esa función la comparten los dos. Lo que se mide es el **ATASCO**: un reloj de 1 s que compara contra el último evento de
+progreso, reiniciado por cada `upload.onprogress` **y por `upload.onload`** (después de que salen los bytes no llegan más
+eventos de progreso, y ahí el mismo reloj pasa a medir cuánto tarda el bucket en contestar, que también puede no llegar
+nunca). `trabadaMs` ausente o 0 = como antes, sin plazo: **lo elige quien llama**, porque un video de una clase y una foto de
+2 MB no se esperan lo mismo. El editor pasa 45 s.
+
+**La regla:** *un plazo para una transferencia se pone sobre el PROGRESO, no sobre la duración.* Un tope de duración castiga
+al lento y al trabado por igual, así que se termina eligiendo entre cortar subidas buenas o no cortar ninguna.
+
+Y la otra mitad: un `abort` nuestro por atasco y un `abort` de la persona son **el mismo evento del XHR**. El mensaje los
+separa («se quedó trabada / revisa tu conexión» vs «Subida cancelada»), porque para quien lo lee son dos cosas distintas.
+
+### 2. El motivo de un descarte lo LEE la persona, y nombraba campos del JSON
+
+**Síntoma.** El panel dibuja `No se aplica: <motivo> · <motivo>` tal cual. Decía cosas como `«estilo» no es algo de
+cambiar_texto`, `un texto nuevo con una ref inválida`, `un color que no es #RRGGBB`, `un «cubrir» que no es true o false`.
+
+**La causa no es descuido: es que el campo tenía DOS lectores y uno sólo.** El comentario de `validarOperacion`
+(`lib/image-editor/chat/catalogo.ts`) ya decía «el motivo es corto: lo ve la persona», y aun así 27 de los 51 motivos
+nombraban una clave del JSON, el id de una operación o un formato interno — porque son también lo único que había para
+entender por qué la IA propuso algo inválido. Un campo que sirve para la pantalla **y** para depurar termina escrito para
+el que depura: es el que lo lee todos los días.
+
+**El arreglo son dos cosas, no una.** Los 27 motivos reescritos en castellano de pantalla, y lo técnico mandado a
+`console.warn` **con la operación entera** — que además es más útil que la frase que se perdió. Los nombres de los campos
+del estilo salen de un mapa (`NOMBRE_ESTILO`), para que agregar uno nuevo obligue a elegirle un nombre en vez de filtrar
+el interno.
+
+**Y la red es un test, no la regla escrita.** `tests/image-editor-chat.test.ts` manda ~60 operaciones malformadas, una por
+familia de rechazo, y falla si algún motivo contiene un id de operación, una clave del JSON (`ref`, `pagina`, `cubrir`,
+`nueva`…) o un formato interno (`#RRGGBB`, `true`, `null`, `n1`, `la vista`, `inválid`) — y también si pasa de 90
+caracteres o arranca en mayúscula, que son las otras dos formas de romper la línea donde se concatena.
+
+### 3. Dos pedidos seguidos dejaban dos «Aceptar» vivos, y aceptar los dos duplicaba las páginas
+
+**Síntoma.** El cliente pide un cambio, no lo acepta, pide otro, y acepta los dos: el diseño queda con las páginas
+repetidas y las tiene que borrar a mano sin entender qué pasó.
+
+**La causa.** `pedirEdicion` sumaba el mensaje nuevo y **no tocaba la propuesta anterior**, que seguía `pendiente` con su
+botón. Las dos propuestas son tandas de operaciones completas sobre el mismo diseño: aplicar las dos aplica las dos.
+
+**La regla:** *pedir de nuevo ES descartar lo anterior.* El pedido nuevo se escribió MIRANDO lo que la propuesta vieja no
+resolvió, y su `refs` apunta a una vista del documento que ya no es la de ahora. Se cierran sólo las `pendiente`: una
+`aplicando` está a mitad de camino y la cierra su propio `aceptarPropuesta`.
+
+⚠️ **Y el detalle del texto:** se marca igual que el botón «Descartar» (estado + `aviso` limpio), **no** con un `aviso`
+propio. El `aviso` se dibuja con `role="alert"` y un «reportar a soporte» al lado (`PanelMakoIA.tsx`): usarlo para un
+reemplazo normal convierte en falla algo que no lo es. La tarjeta se apaga a «Descartado» justo arriba del pedido nuevo, y
+en ese contexto se lee solo.
