@@ -99,3 +99,33 @@ Todo desde la raíz del clon, con el `.env.local` (producción). Los comandos si
 - **Una biblioteca de anuncios para todos** necesita Foreplay o Atria con cuenta paga a nombre de MaKo y permiso escrito de
   reventa: lo decide Martín (la comparación, en `docs/hallazgos-carruseles.md`).
 - **No se tocó la sidebar:** «Carruseles» sigue siendo una vista de Image (`?ver=carruseles`).
+
+## Pulido del 6/11/2026 (la sesión que terminó el rediseño, en `punta/carruseles-pulido`)
+
+Con las capturas de Top Carousels ya en el repo (`docs/carruseles/referencia-top-carousels/`). Capturas nuevas: `docs/carruseles/pulido-2026-11-06/` (computadora 1440 y teléfono 390, claro y oscuro: grilla, tarjeta con el mouse, carrusel abierto, filtros, parecidos, y el resultado de «Editar»).
+
+**Hecho:** (1) el CTA agarra «envía/manda/escribe PALABRA por DM», «Comenta o envía X por DM» y el portugués «comente: Viver de POT»; (2) el tipo se lee en portugués, alemán e inglés (**1.253 → 1.213 sin tipo**, ver abajo); (3) el carrusel abierto, modal en dos partes; (4) el modal de filtros con deslizadores de dos puntas (múltiplo, interacciones, láminas), publicado, tipo, de dónde, «Ocultar tipos», orden, tamaño de tarjeta y la leyenda de colores; el múltiplo lleva color por nivel; (5) 4 columnas en 1440, «Editar» al pasar el mouse junto a parecidos y guardar (liviano y visible en celular), pastillas y filtros en una fila que se desliza en el teléfono, sin el «16» suelto, @creador entero y la fecha abajo; (6) «Editar»: letras reales del editor, texto que llena la lámina, sin recuadro «Tu foto», y un camino digno sin láminas.
+
+### Autocrítica
+
+- **¿Tiene sentido?** Sí: entrar, ver ejemplos, tocar uno, verlo grande y apretar «Editar». Se sacó lo que no aportaba: el desplegable de filtros, el menú «Outlier», los puntitos de láminas y el botón negro en cada tarjeta (le ganaba a los ejemplos).
+- **¿Se entiende sin explicación?** El múltiplo tiene color y leyenda en el modal; «Parecidos» y «Creadores parecidos» dicen de dónde salen en su `title`. Lo que NO se entiende solo y quedó: «Parecidos» cambia la grilla a una banda «Parecidos a …» con «Volver», sin otro rastro.
+- **¿Cada botón hace algo?** Sí, uno por uno en el banco: abrir (imagen y título), Editar (arma), guardar, parecidos (banda), flechas y contador, creadores parecidos (filtra a ese creador), ver original, Filtros (aplica, quita), CTA, Cuentas y Orden.
+- **Lo que se encontró y se cambió en la pasada:** el visor del carrusel abierto dejaba franjas negras a los costados y las flechas bajo el pliegue; «Editar» en el teléfono quedaba debajo de todo (ahora va en el pie fijo de la caja); la etiqueta «6 láminas» se partía en dos renglones; «gritado» del CTA por letras tapaba una palabra clave en pies cortos.
+- **Lo que NO está probado:** el flujo de «Editar» con una IA real (la nube y la PC no la gastaron); el diseño se miró con lo que devolvería un modelo, armado a mano (`scripts/banco-carruseles/replica-html.mts`), no con una respuesta real. Tampoco el `tsc` (la PC no tenía memoria: lo corre GitHub).
+- **Qué sobra todavía:** el parámetro `largo` (2 a 4, 5 a 7, 8+ láminas) sigue en la API y en los links viejos aunque la pantalla usa el deslizador de láminas; el «tema» de la referencia no existe (sólo el tipo).
+
+### Lo que le queda al Cerebro desde la PC
+
+Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404, CTA y láminas) siguen siendo los mismos; sumá:
+
+1. **El tipo de lo ya guardado** (GRATIS, no le pide nada a Apify). En seco muestra «Carruseles sin tipo: 1253 → 1213»; después, de verdad:
+
+   ```bash
+   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar
+   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar --de-verdad
+   ```
+
+   Quedan **1.213 sin tipo** de 1.470 (8 sin texto, que vence a los 30 días). Bajarlos de ahí necesita las láminas (`laminas`, ya descrito arriba) y leerlas con visión.
+2. **Mirar «Editar» con una IA real en el ws3** con un carrusel CON láminas y otro SIN: que el texto sea del negocio, que las letras sean las del editor y que no haya recuadros grises.
+3. **Decidir el «tema»** (finanzas, salud, marketing…): clasificar cada carrusel con IA para sumar el filtro de la referencia.

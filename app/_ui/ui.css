@@ -939,6 +939,11 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
   animation: mkPop .16s ease;
 }
 .mk-modal:focus { outline: none; }
+/* `completaEnCelular`: en un celular, toda la pantalla (la caja de escritorio no deja lugar a dos partes). */
+@media (max-width: 640px) {
+  .mk-modal__fondo:has(> .mk-modal[data-completa]) { padding: 0; align-items: stretch; }
+  .mk-modal[data-completa] { max-width: none !important; width: 100%; height: 100dvh !important; max-height: none; border-radius: 0; border: 0; }
+}
 
 .mk-modal__cab {
   flex: none;

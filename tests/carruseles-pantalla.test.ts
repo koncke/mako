@@ -67,7 +67,8 @@ test('cada tarjeta trae «Editar», sus láminas para pasar adentro y el CTA que
     carrusel({ id: -1, laminasImagenes: ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg'], cta: { palabra: 'GUÍA', via: 'comentario' } }),
     carrusel({ id: -2, laminas: 5 }),
   ]) }));
-  assert.equal(cuantas(html, '>Editar</button>'), 2, 'una por tarjeta');
+  assert.equal(cuantas(html, '>Editar</button>'), 4, 'dos por tarjeta: el de pasar el mouse (computadora) y el liviano que queda a la vista (celular)');
+  assert.equal(cuantas(html, 'aria-label="Ver parecidos"'), 2, 'parecidos, en cada tarjeta');
   assert.equal(cuantas(html, 'src="https://a/'), 3, 'las tres láminas, en la tarjeta');
   assert.match(html, />1\/3</, 'en qué lámina está');
   assert.match(html, /aria-label="Lámina siguiente"/);
@@ -83,7 +84,7 @@ test('los anuncios: con sus días al aire y su propia lista', async () => {
     filtrosIniciales: { ...FILTROS_INICIALES, que: 'anuncios', orden: 'aire' },
   }));
   assert.match(html, /46 días al aire/);
-  assert.equal(cuantas(html, '>Editar</button>'), 1, 'sólo el anuncio: no se mezclan');
+  assert.equal(cuantas(html, '>Editar</button>'), 2, 'sólo el anuncio (sus dos botones): no se mezclan');
   assert.match(html, /aria-label="Anuncios"/);
 });
 
@@ -93,4 +94,49 @@ test('sin nada que mirar, la frase y la acción (no una grilla vacía)', async (
   assert.match(html, /Sigue a las cuentas de tu rubro/);
   assert.match(html, />Seguir una cuenta</);
   assert.doesNotMatch(html, /Editar<\/button>/);
+});
+
+test('el carrusel abierto (modal en dos partes) y el modal de filtros: lo que pidió Martín, dibujado', async () => {
+  const { CarruselAbierto } = await import('@/app/image-editor/carruseles/CarruselAbierto');
+  const { FiltrosCarruselModal } = await import('@/app/image-editor/carruseles/FiltrosCarruselModal');
+  const { FILTROS_INICIALES } = await import('@/lib/carruseles/explorar');
+  const c = carrusel({
+    id: -5, gancho: 'Mi primer cliente de 1.000 dólares', laminasImagenes: ['https://a/1.jpg', 'https://a/2.jpg', 'https://a/3.jpg'], outlier: 4.6,
+    multiplo: { veces: 4.6, formato: 'imagenes', metrica: 'interaccion', canal: 'instagram', valor: 4600, mediana: 1000, comparadas: 12 },
+    cta: { palabra: 'GUÍA', via: 'comentario' },
+  });
+  const abierto = renderToStaticMarkup(createElement(CarruselAbierto, {
+    c, guardado: false, nParecidos: 3, creadoresParecidos: [{ id: -9, nombre: 'Bruno', usuario: 'bruno', foto: null, n: 4 }], telefono: false,
+    onGuardar: () => {}, onEditar: () => {}, onParecidos: () => {}, onCreador: () => {}, onCerrar: () => {},
+  }));
+  assert.match(abierto, /@ana\.ventas/, 'el @creador');
+  assert.match(abierto, /Lista o tips · Publicado/, 'el tipo y la fecha');
+  assert.match(abierto, /Mi primer cliente de 1\.000 dólares/, 'el título');
+  assert.match(abierto, /4,6×/, 'el múltiplo');
+  assert.match(abierto, /Lo usual de este creador: 1k me gusta y comentarios/, 'con lo usual de su cuenta');
+  assert.match(abierto, /1 \/ 3/, 'el contador de láminas');
+  assert.match(abierto, /aria-label="Lámina siguiente"/);
+  assert.match(abierto, /<strong>Editar<\/strong>/, 'Editar es la acción principal');
+  assert.match(abierto, />Guardar</);
+  assert.match(abierto, /Ver original/);
+  assert.match(abierto, /Parecidos · 3/);
+  assert.match(abierto, /Creadores parecidos/);
+  assert.match(abierto, /data-completa/, 'a pantalla completa en el celular');
+  // Sin dato de «lo usual», no se inventa.
+  const sinDato = renderToStaticMarkup(createElement(CarruselAbierto, {
+    c: { ...c, multiplo: undefined }, guardado: true, nParecidos: 0, creadoresParecidos: [], telefono: false,
+    onGuardar: () => {}, onEditar: () => {}, onParecidos: () => {}, onCreador: () => {}, onCerrar: () => {},
+  }));
+  assert.doesNotMatch(sinDato, /Lo usual de este creador/);
+  assert.doesNotMatch(sinDato, /Parecidos ·/);
+  assert.match(sinDato, />Guardado</);
+
+  const filtros = renderToStaticMarkup(createElement(FiltrosCarruselModal, {
+    filtros: FILTROS_INICIALES, carruseles: [c, carrusel({ id: -6, formato: 'tutorial' })], formatos: [{ value: 'lista', label: 'Lista o tips', n: 1 }, { value: 'tutorial', label: 'Tutorial', n: 1 }],
+    dosOrigenes: true, onAplicar: () => {}, onCerrar: () => {},
+  }));
+  for (const t of ['Múltiplo', 'Interacciones', 'Láminas', 'Publicado', 'Tipo', 'Ocultar tipos', 'Ordenar por', 'Tamaño de la tarjeta', 'Colores del múltiplo', 'Quitar filtros', 'Cancelar']) assert.ok(filtros.includes(t), `falta «${t}»`);
+  assert.equal(cuantas(filtros, 'type="range"'), 6, 'tres deslizadores de dos puntas');
+  assert.equal(cuantas(filtros, 'data-nivel='), 5, 'la leyenda de colores: cinco niveles');
+  assert.match(filtros, /Ver 2 carruseles/, 'el botón dice cuántos quedan');
 });

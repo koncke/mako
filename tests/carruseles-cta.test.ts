@@ -94,3 +94,26 @@ test('una palabra larga o rara no rompe nada', () => {
   assert.equal(palabra('Comenta "ESTRATEGIA2026" y te paso el calendario'), 'ESTRATEGIA2026');
   assert.equal(palabra(`${'texto '.repeat(400)} Comenta GUÍA y te la mando`), 'GUÍA');
 });
+
+test('«envía/manda/escribe PALABRA por DM», en español, inglés y portugués (los que se escapaban el 6/11)', () => {
+  assert.deepEqual(ctaDeTexto('Comenta o envía AGENCIA por DM'), { palabra: 'AGENCIA', via: 'mensaje' });
+  assert.deepEqual(ctaDeTexto('Envía RELEVANCIA por DM'), { palabra: 'RELEVANCIA', via: 'mensaje' }, 'un pie corto de 4 palabras no «grita»');
+  assert.equal(palabra('Si quieres más, envía AGENCIA por DM y lo vemos'), 'AGENCIA');
+  assert.equal(palabra('Manda PLAN por mensaje privado'), 'PLAN');
+  assert.equal(palabra('Escribe LISTA al DM'), 'LISTA');
+  assert.equal(palabra('DM GUIDE for the template'), 'GUIDE');
+  assert.equal(palabra('Send "AI" by DM to get the prompt'), 'AI');
+  assert.equal(palabra('Escreva QUERO no direct'), 'QUERO');
+  assert.deepEqual(ctaDeTexto('comente: Viver de POT'), { palabra: 'POT', via: 'comentario' }, 'portugués con dos puntos');
+});
+
+test('sin palabra, o sin DM, no es CTA (cuéntame, te leo, un DM suelto)', () => {
+  assert.equal(palabra('Cuéntame en comentarios qué te pareció'), null);
+  assert.equal(palabra('Te leo en los comentarios'), null);
+  assert.equal(palabra('Envía un DM'), null);
+  assert.equal(palabra('Send me a DM'), null);
+  assert.equal(palabra('Manda tus dudas por DM'), null);
+  assert.equal(palabra('Envía un mensaje por DM'), null);
+  assert.equal(palabra('Envía fotos de tu negocio'), null);
+  assert.equal(palabra('COMENTE: VIVER DE POT PARA TODOS NESSA SEMANA'), null, 'gritado');
+});

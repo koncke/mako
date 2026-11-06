@@ -28,18 +28,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from '@/app/_ui/Link';
 import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { Dropdown, type DropdownGroup } from '@/app/components/Dropdown';
+import { Dropdown } from '@/app/components/Dropdown';
 import {
-  FILTROS_INICIALES, LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL,
-  contadorCorto, creadoresDe, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nombreDeBusqueda, queryDeFiltros,
-  rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
-  type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel,
+  FILTROS_INICIALES, ORDENES_CARRUSEL, QUE_VER_CARRUSEL,
+  contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
+  parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
+  type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel,
 } from '@/lib/carruseles/explorar';
 import { rotuloAire } from '@/lib/carruseles/anuncios';
-import { explicarMultiplo, MULTIPLO_FUERTE } from '@/lib/multiplo-rendimiento';
-import type { Formato } from '@/lib/spy-detalle';
+import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { EditarBiblioteca } from './EditarBiblioteca';
 import { EditarCarrusel } from './EditarCarrusel';
+import { CarruselAbierto } from './CarruselAbierto';
+import { FiltrosCarruselModal } from './FiltrosCarruselModal';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction } from './actions';
 import s from './explorar.module.css';
 
@@ -118,6 +119,10 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
   const [cuantas, setCuantas] = useState(DE_A);
   const [aviso, setAviso] = useState<string | null>(null);
   const [editando, setEditando] = useState<Carrusel | null>(null);
+  /** El carrusel abierto (el modal de dos partes), el modal de filtros y «parecidos a…». */
+  const [abierto, setAbierto] = useState<Carrusel | null>(null);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [parecidosDe, setParecidosDe] = useState<Carrusel | null>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [, start] = useTransition();
   // El «hace cuánto» se calcula una vez montada la pantalla (el server no dibuja fechas relativas).
@@ -176,55 +181,46 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
     });
   };
 
-  // ── Los filtros: un desplegable con secciones (el de siempre de la casa) ──
-  const grupos: DropdownGroup[] = [
-    { title: 'Publicado', options: PERIODOS_CARRUSEL.map((p) => ({ value: `p:${p.value}`, label: p.label })) },
-    ...(f.que === 'carruseles' ? [{ title: 'Láminas', options: LARGOS_CARRUSEL.map((l) => ({ value: `l:${l.value}`, label: l.label })) }] : []),
-    ...(formatos.length ? [{ title: 'Tipo', options: [{ value: 'f:', label: 'Cualquier tipo' }, ...formatos.map((x) => ({ value: `f:${x.value}`, label: x.label, sub: `${x.n}` }))] }] : []),
-    ...(dosOrigenes ? [{ title: 'De dónde', options: ORIGENES_CARRUSEL.map((o) => ({ value: `o:${o.value}`, label: o.label })) }] : []),
-    ...(f.que === 'carruseles' ? [{ title: 'Mostrar', options: [{ value: 'i:1', label: 'También imágenes sueltas' }] }] : []),
-  ];
-  const marcados = [
-    `p:${f.periodo}`, ...(f.que === 'carruseles' ? [`l:${f.largo}`] : []), ...(formatos.length ? [`f:${f.formato}`] : []),
-    ...(dosOrigenes ? [`o:${f.origen}`] : []), ...(f.conImagenes ? ['i:1'] : []),
-  ];
-  const filtrosActivos = [f.periodo !== 'todo', f.largo !== 'todos', !!f.formato, f.conImagenes, f.origen !== 'todos'].filter(Boolean).length;
-  const elegirFiltro = (v: string) => {
-    if (v.startsWith('o:')) cambiar({ origen: v.slice(2) as OrigenFiltro });
-    else if (v.startsWith('p:')) cambiar({ periodo: v.slice(2) as PeriodoCarrusel });
-    else if (v.startsWith('l:')) cambiar({ largo: v.slice(2) as LargoCarrusel });
-    else if (v.startsWith('f:')) cambiar({ formato: v.slice(2) as Formato | '' });
-    else if (v === 'i:1') cambiar({ conImagenes: !f.conImagenes });
-  };
+  // ── Los filtros: un modal (./FiltrosCarruselModal.tsx). Acá, cuántos hay prendidos para el botón ──
+  const filtrosActivos = [f.periodo !== 'todo', f.largo !== 'todos', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
+    !!f.interMin || !!f.interMax, !!f.lamMin || !!f.lamMax, !!f.ocultar?.length].filter(Boolean).length;
   const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
   const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
 
   const hayAlgo = datos.carruseles.length > 0;
-  const listos = vistos.slice(0, cuantas);
+  const listas = parecidosDe ? parecidosA(parecidosDe, delLado) : vistos;
+  const listos = listas.slice(0, cuantas);
   const guardadosVista = f.vista === 'guardados';
+  const abrirParecidos = (c: Carrusel) => { setAbierto(null); setParecidosDe(c); setCuantas(DE_A); };
+
+  // Las pastillas (Guardados, Búsquedas, Seguir cuentas): en la computadora van bajo el título; en el teléfono, en la MISMA fila
+  // que los filtros, que se desliza (así el primer ejemplo no arranca a la mitad de la pantalla).
+  const botones = (
+    <div className={s.botones}>
+      <button type="button" className={s.pastilla} aria-pressed={guardadosVista} onClick={() => cambiar({ vista: guardadosVista ? 'todos' : 'guardados' })}>
+        <Marcador lleno={guardadosVista} /> Guardados{guardados.size ? <span className={s.n}>{guardados.size}</span> : null}
+      </button>
+      {busquedas.length > 0 && (
+        <Dropdown value="" search={busquedas.length > 7} alContenido ariaLabel="Búsquedas guardadas"
+          options={busquedas.map((b) => ({ value: b.id, label: b.nombre }))}
+          botonLabel={<span>{telefono ? 'Búsquedas' : 'Búsquedas guardadas'} <span className={s.n}>{busquedas.length}</span></span>}
+          onChange={usarBusqueda} buttonStyle={pastilla(false, telefono)} />
+      )}
+      <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
+      {datos.puedeEditarBiblioteca ? <button type="button" className={s.pastilla} onClick={() => setBiblioteca(true)}>Biblioteca</button> : null}
+    </div>
+  );
 
   return (
-    <div className={s.raiz} data-telefono={telefono ? 'si' : undefined}>
+    <div className={s.raiz} data-telefono={telefono ? 'si' : undefined} data-tamano={f.tamano ?? 'grande'}>
       <div className={s.col}>
         <header className={s.cabeza}>
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
-          <div className={s.botones}>
-            <button type="button" className={s.pastilla} aria-pressed={guardadosVista} onClick={() => cambiar({ vista: guardadosVista ? 'todos' : 'guardados' })}>
-              <Marcador lleno={guardadosVista} /> Guardados{guardados.size ? <span className={s.n}>{guardados.size}</span> : null}
-            </button>
-            {busquedas.length > 0 && (
-              <Dropdown value="" search={busquedas.length > 7} alContenido ariaLabel="Búsquedas guardadas"
-                options={busquedas.map((b) => ({ value: b.id, label: b.nombre }))}
-                botonLabel={<span>{telefono ? 'Búsquedas' : 'Búsquedas guardadas'} <span className={s.n}>{busquedas.length}</span></span>}
-                onChange={usarBusqueda} buttonStyle={pastilla(false, telefono)} />
-            )}
-            <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-            {datos.puedeEditarBiblioteca ? <button type="button" className={s.pastilla} onClick={() => setBiblioteca(true)}>Biblioteca</button> : null}
-          </div>
+          {telefono ? null : botones}
           {hayAlgo && (
             <label className={s.busca}>
               <Lupa />
-              <input type="search" value={f.q} onChange={(e) => cambiar({ q: e.target.value })} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
+              <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
                 aria-label="Buscar carruseles por tema o por @creador" enterKeyHint="search" />
             </label>
           )}
@@ -240,23 +236,18 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
         ) : (
           <>
             <div className={s.filtros}>
+              {telefono ? botones : null}
               <div className={s.segmento} role="radiogroup" aria-label="Qué ver">
                 {QUE_VER_CARRUSEL.map((q) => (
                   <button key={q.value} type="button" role="radio" aria-checked={f.que === q.value}
-                    onClick={() => cambiar({ que: q.value, creadores: [], formato: '', orden: q.value === 'anuncios' ? 'aire' : 'outlier' })}>
+                    onClick={() => { setParecidosDe(null); cambiar({ que: q.value, creadores: [], formato: '', ocultar: [], orden: q.value === 'anuncios' ? 'aire' : 'outlier' }); }}>
                     {q.label}{q.value === 'anuncios' && anuncios ? <span className={s.n}>{anuncios}</span> : null}
                   </button>
                 ))}
               </div>
-              <Dropdown value="" varios={marcados} minimo={marcados.length} columns={[grupos]} subEnColumnas alContenido search={false}
-                ariaLabel="Filtros" botonLabel={<span>Filtros{filtrosActivos ? ` · ${filtrosActivos}` : ''}</span>} onChange={elegirFiltro}
-                buttonStyle={chip(filtrosActivos > 0)} />
-              {f.que === 'carruseles' && (
-                <Dropdown value={String(f.outlierMin)} search={false} alContenido ariaLabel="Outlier mínimo"
-                  options={OUTLIER_MINIMOS.map((m) => ({ value: String(m), label: m ? `Outlier ${m}×+` : 'Cualquier outlier', sub: m ? `${m} veces lo que hace su cuenta, o más` : undefined }))}
-                  botonLabel={<span>{f.outlierMin ? `Outlier ${f.outlierMin}×+` : 'Outlier'}</span>} onChange={(v) => cambiar({ outlierMin: Number(v) })}
-                  buttonStyle={chip(f.outlierMin > 0)} />
-              )}
+              <button type="button" className={s.chip} aria-pressed={filtrosActivos > 0} onClick={() => setFiltrosAbiertos(true)}>
+                <Ajustes /> Filtros{filtrosActivos ? <span className={s.n}>{filtrosActivos}</span> : null}
+              </button>
               <button type="button" className={s.chip} aria-pressed={f.cta} onClick={() => cambiar({ cta: !f.cta })}
                 title="Los que piden comentar una palabra: los que publican los dueños de negocio">
                 CTA{conCta ? <span className={s.n}>{conCta}</span> : null}
@@ -271,7 +262,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
               <span className={s.espacio} />
               {!sinFiltros({ ...f, que: 'carruseles' }) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
               {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
-              <span className={s.total}>{contadorCorto(vistos.length)}</span>
+              {telefono ? null : <span className={s.total}>{contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}</span>}
               <Dropdown value={orden} search={false} alContenido ariaLabel="Orden" align="right"
                 options={ordenes.map((o) => ({ value: o.value, label: o.label }))}
                 botonLabel={<span>{ORDENES_CARRUSEL.find((o) => o.value === orden)?.label}</span>} onChange={(v) => cambiar({ orden: v as OrdenCarrusel })}
@@ -289,28 +280,36 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
               </div>
             ) : null}
 
+            {parecidosDe ? (
+              <div className={s.banda}>
+                <span>Parecidos a «{(parecidosDe.gancho || parecidosDe.texto || 'este carrusel').slice(0, 60)}»</span>
+                <button type="button" className={s.texto} onClick={() => setParecidosDe(null)}>Volver</button>
+              </div>
+            ) : null}
+
             {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
 
-            {vistos.length === 0 ? (
+            {listas.length === 0 ? (
               <div className={s.vacio}>
-                <p>{guardadosVista && !guardados.size
+                <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : guardadosVista && !guardados.size
                   ? 'Guarda un carrusel con el marcador y aparece aquí.'
                   : f.que === 'anuncios' && !anuncios
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
-                {f.que === 'anuncios' && !anuncios
-                  ? <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
-                  : !sinFiltros({ ...f, que: 'carruseles' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
+                {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
+                  : f.que === 'anuncios' && !anuncios
+                    ? <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
+                    : !sinFiltros({ ...f, que: 'carruseles' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
               </div>
             ) : (
               <>
                 <ul className={s.grilla} aria-label={f.que === 'anuncios' ? 'Anuncios' : 'Carruseles'}>
                   {listos.map((c) => (
                     <TarjetaCarrusel key={c.id} c={c} ahora={ahora} guardado={guardados.has(c.id)} telefono={telefono}
-                      onGuardar={() => alternarGuardado(c)} onEditar={() => setEditando(c)} />
+                      onAbrir={() => setAbierto(c)} onGuardar={() => alternarGuardado(c)} onEditar={() => setEditando(c)} onParecidos={() => abrirParecidos(c)} />
                   ))}
                 </ul>
-                {vistos.length > cuantas && (
+                {listas.length > cuantas && (
                   <button type="button" className={s.mas} onClick={() => setCuantas((n) => n + DE_A)}>Ver más</button>
                 )}
               </>
@@ -318,6 +317,17 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
           </>
         )}
       </div>
+      {abierto ? (
+        <CarruselAbierto key={abierto.id} c={abierto} guardado={guardados.has(abierto.id)} telefono={telefono}
+          nParecidos={parecidosA(abierto, delLado).length} creadoresParecidos={creadoresParecidos(abierto, delLado)}
+          onGuardar={() => alternarGuardado(abierto)} onEditar={() => { const c = abierto; setAbierto(null); setEditando(c); }}
+          onParecidos={() => abrirParecidos(abierto)} onCreador={(id) => { setAbierto(null); setParecidosDe(null); cambiar({ creadores: [id] }); }}
+          onCerrar={() => setAbierto(null)} />
+      ) : null}
+      {filtrosAbiertos ? (
+        <FiltrosCarruselModal filtros={f} carruseles={delLado} formatos={formatos} dosOrigenes={dosOrigenes}
+          onAplicar={(c) => { setFiltrosAbiertos(false); setParecidosDe(null); cambiar(c); }} onCerrar={() => setFiltrosAbiertos(false)} />
+      ) : null}
       {editando ? <EditarCarrusel key={editando.id} carrusel={editando} onCerrar={() => setEditando(null)} /> : null}
       {biblioteca ? (
         <Modal titulo="Biblioteca de ejemplos" onCerrar={() => setBiblioteca(false)} ancho={720}>
@@ -367,7 +377,6 @@ function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
         <>
           {i > 0 && <button type="button" className={s.ant} onClick={() => ir(i - 1)} aria-label="Lámina anterior"><Flecha izq /></button>}
           {i < total - 1 && <button type="button" className={s.sig} onClick={() => ir(i + 1)} aria-label="Lámina siguiente"><Flecha /></button>}
-          <span className={s.puntos} aria-hidden>{imagenes.map((src, k) => <i key={src} data-actual={k === i ? 'si' : undefined} />)}</span>
           <span className={s.indice}>{i + 1}/{total}</span>
         </>
       )}
@@ -375,34 +384,49 @@ function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
   );
 }
 
-function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onEditar, telefono }: {
-  c: Carrusel; ahora: number | null; guardado: boolean; onGuardar: () => void; onEditar: () => void; telefono: boolean;
+const Ajustes = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>
+);
+const Parecidos = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><rect x="3" y="6" width="12" height="15" rx="2" /><path d="M8 3h11a2 2 0 0 1 2 2v12" /></svg>
+);
+
+function TarjetaCarrusel({ c, ahora, guardado, onAbrir, onGuardar, onEditar, onParecidos, telefono }: {
+  c: Carrusel; ahora: number | null; guardado: boolean; onAbrir: () => void; onGuardar: () => void; onEditar: () => void; onParecidos: () => void; telefono: boolean;
 }) {
   const titulo = c.gancho || c.texto || '';
   const anuncio = c.clase === 'anuncio';
-  const fuerte = c.outlier != null && c.outlier >= MULTIPLO_FUERTE;
+  const nivel = anuncio ? null : nivelDeMultiplo(c.outlier);
   const aire = anuncio ? rotuloAire(c) : null;
   const sinLaminasGuardadas = !anuncio && (c.laminas ?? 0) > 1 && imagenesDe(c).length <= 1;
   return (
     <li className={s.tarjeta}>
-      <div className={s.mini} data-anuncio={anuncio ? 'si' : undefined}>
+      {/* Tocar la imagen abre el carrusel; los botones de adentro hacen lo suyo. */}
+      <div className={s.mini} data-anuncio={anuncio ? 'si' : undefined}
+        onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>
         <Laminas c={c} titulo={titulo} />
         <span className={s.marcas}>
-          {c.outlier != null && (
-            <span className={s.outlier} data-fuerte={fuerte ? 'si' : undefined}
-              title={c.multiplo ? explicarMultiplo(c.multiplo) : `${String(c.outlier).replace('.', ',')} veces lo que suele hacer esta cuenta`}>
-              {rotuloOutlier(c.outlier)}
-            </span>
-          )}
           {aire ? <span className={s.aire} data-activo={c.activo === false ? undefined : 'si'}>{aire}</span> : null}
           {sinLaminasGuardadas ? <span className={s.laminas} title={`${c.laminas} láminas`}>{c.laminas} láminas</span> : null}
         </span>
-        <button type="button" className={s.guardar} data-guardado={guardado ? 'si' : undefined} onClick={onGuardar}
-          aria-pressed={guardado} aria-label={guardado ? 'Quitar de guardados' : 'Guardar'} title={guardado ? 'Quitar de guardados' : 'Guardar'}>
-          <Marcador lleno={guardado} />
-        </button>
+        <span className={s.sobreImagen}>
+          <button type="button" className={s.editar} onClick={onEditar}>Editar</button>
+          <button type="button" className={s.icono} onClick={onParecidos} aria-label="Ver parecidos" title="Ver parecidos"><Parecidos /></button>
+          <button type="button" className={s.icono} data-guardado={guardado ? 'si' : undefined} onClick={onGuardar}
+            aria-pressed={guardado} aria-label={guardado ? 'Quitar de guardados' : 'Guardar'} title={guardado ? 'Quitar de guardados' : 'Guardar'}>
+            <Marcador lleno={guardado} />
+          </button>
+        </span>
       </div>
       <div className={s.pie}>
+        <div className={s.fila1}>
+          {c.outlier != null && nivel ? (
+            <span className={s.mult} data-nivel={nivel} title={c.multiplo ? explicarMultiplo(c.multiplo) : `${String(c.outlier).replace('.', ',')} veces lo que suele hacer esta cuenta`}>
+              {rotuloOutlier(c.outlier)}
+            </span>
+          ) : null}
+          {titulo ? <button type="button" className={s.gancho} onClick={onAbrir}>{titulo}</button> : null}
+        </div>
         <div className={s.creador}>
           {c.creador.foto
             // eslint-disable-next-line @next/next/no-img-element
@@ -418,22 +442,13 @@ function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onEditar, telefono }: 
           )}
           {ahora != null && c.publicada && !anuncio ? <span className={s.cuando}>{haceCuanto(c.publicada, ahora)}</span> : null}
         </div>
-        {titulo ? <p className={s.gancho}>{titulo}</p> : null}
         <div className={s.datos}>
           {!anuncio && <span title="Me gusta">♥ {contadorCorto(c.megusta)}</span>}
           {!anuncio && <span title="Comentarios">💬 {contadorCorto(c.comentarios)}</span>}
           {c.cta ? <span className={s.cta} title="Pide comentar una palabra">{rotuloCta(c.cta)}</span> : c.formato && c.formato !== 'otro' ? <span className={s.formato}>{rotuloFormato(c.formato)}</span> : null}
         </div>
-        <div className={s.acciones}>
-          <button type="button" className={s.editar} onClick={onEditar}>Editar</button>
-          {c.url ? (
-            <a href={c.url} target={telefono ? undefined : '_blank'} rel="noopener noreferrer" className={s.original}
-              title={anuncio ? 'Ver el anuncio en la Biblioteca de Anuncios' : 'Ver la publicación original en Instagram'}
-              aria-label={anuncio ? 'Ver el anuncio original' : 'Ver la publicación original'}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 4h6v6" /><path d="M20 4 11 13" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" /></svg>
-            </a>
-          ) : null}
-        </div>
+        {/* En el celular no hay «pasar el mouse»: «Editar» queda a la vista, liviano. */}
+        <button type="button" className={s.editarLiviano} onClick={onEditar}>Editar</button>
       </div>
     </li>
   );

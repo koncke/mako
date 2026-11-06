@@ -15,8 +15,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { marcasDeVoseo } from '../lib/voseo';
+import { altoEstimado, documentoDeCarrusel } from '../lib/carruseles/documento';
+import { estiloSinSerif } from '../lib/carruseles/marca-kit';
+import { fuenteDelEditorDeImagen } from '../lib/image-editor/fuente-del-editor';
 import {
-  CONECTAR_IA, LAMINAS_MAX, avisoSinIA, documentoDeReplica, eventosDe, leerReplica, lineaDeEvento, medidasDeImagen, notasDeReplica,
+  CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, LAMINAS_MAX, ajustarTextos, avisoSinIA, documentoDeReplica, eventosDe, leerReplica, lineaDeEvento, medidasDeImagen, notasDeReplica,
   promptDeReplica, type Replica,
 } from '../lib/carruseles/replica';
 import { tipoCarrusel } from '../lib/carruseles/tipos';
@@ -113,12 +116,13 @@ test('el diseño: una página por lámina, cada texto una capa de texto en su lu
   assert.equal(titular.type, 'textbox');
   assert.equal(titular.text, '5 errores que te hacen perder pacientes');
   assert.equal(titular.left, Math.round(0.08 * 1080));
-  assert.equal(titular.top, Math.round(0.1 * 1350));
-  assert.equal(titular.fontSize, Math.round(0.08 * 1080));
+  assert.ok((titular.fontSize as number) >= Math.round(0.08 * 1080), 'el titular llena: nunca más chico que lo pedido');
   assert.equal(titular.fontWeight, 800);
-  // Sin foto del cliente, el lugar de la foto queda marcado (y se dice qué va).
-  assert.ok(objs.some((o) => o.name === 'Foto: lugar' && o.type === 'rect'));
-  assert.ok(objs.some((o) => o.name === 'Foto: qué va' && String(o.text).includes('la dueña sonriendo')));
+  assert.match(String(titular.fontFamily), /Montserrat/, 'una letra REAL del editor, no la serif de un tipo de MaKo');
+  assert.ok((titular.top as number) >= 0 && (titular.top as number) + (titular.height as number) <= 1350, 'entra en la lámina');
+  // Sin foto del cliente NO hay recuadro gris ni «Tu foto»: la lámina es tipografía y color.
+  assert.ok(!objs.some((o) => o.type === 'rect'), 'sin recuadros');
+  assert.ok(!objs.some((o) => /Tu foto|Foto:/.test(String(o.text ?? o.name))), 'sin «Tu foto»');
 });
 
 test('el diseño: la foto del cliente va donde había una PERSONA, cubriendo su lugar sin deformarse; un anuncio cuadrado es 1:1', () => {
@@ -139,7 +143,7 @@ test('el diseño: la foto del cliente va donde había una PERSONA, cubriendo su 
   const cuadrado = documentoDeReplica({ replica: { ...r, proporcion: '1:1' }, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
   assert.equal(cuadrado.height, 1080);
   const t = ((cuadrado.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>).find((o) => o.name === 'Titular')!;
-  assert.equal(t.top, Math.round(0.1 * 1080), 'la posición se mide contra SU alto');
+  assert.ok((t.top as number) + (t.height as number) <= 1080, 'se mide contra SU alto: en 1:1 entra en 1080');
 });
 
 test('el armado en vivo: una línea por evento, y una línea a medias no rompe nada', () => {
@@ -169,4 +173,75 @@ test('sin la IA: dice qué hacer, y sólo manda a conectar cuando lo que falta e
   assert.equal(caida.conectar, null);
   assert.match(caida.aviso, /no es tu configuración de MaKo/);
   assert.deepEqual(marcasDeVoseo(sin.aviso + caida.aviso), []);
+});
+
+const T = (rol: string, texto: string, o: Record<string, unknown> = {}) => ({ rol, texto, x: 0.1, y: 0.3, ancho: 0.5, tamano: 0.03, color: '#111111', negrita: false, alinear: 'left', mayus: false, letra: 'sans', ...o }) as never;
+
+test('el diseño llena la lámina: texto chiquito crece, conserva la jerarquía y nada se pisa', () => {
+  const textos = ajustarTextos([
+    T('titulo', 'Cómo cobrar más sin perder clientes', { tamano: 0.03, y: 0.1 }),
+    T('cuerpo', 'Tres cambios simples que puedes hacer hoy mismo en tu consulta', { tamano: 0.02, y: 0.4 }),
+  ], { ancho: 1080, alto: 1350, libre: true });
+  const [t, c] = textos;
+  assert.ok(t.tamano * 1080 >= 81, 'el titular es grande (antes 32 px)');
+  assert.ok(c.tamano * 1080 >= 45, 'el cuerpo se lee (antes 22 px)');
+  assert.ok(t.tamano > c.tamano, 'el titular sigue siendo el más grande');
+  assert.ok(t.ancho >= 0.84, 'sin foto, usa el ancho de la lámina');
+  const alturaT = altoEstimado(t.texto, t.tamano * 1080, t.ancho * 1080, 1.06);
+  assert.ok(t.y * 1350 + alturaT <= c.y * 1350, 'el cuerpo va debajo del titular, sin pisarlo');
+  const fin = c.y * 1350 + altoEstimado(c.texto, c.tamano * 1080, c.ancho * 1080, 1.3);
+  assert.ok(fin <= 1350 * 0.93, 'no se sale de la lámina');
+  assert.ok(fin - t.y * 1350 >= 1350 * 0.45, 'ocupa buena parte de la lámina, no un renglón perdido');
+});
+
+test('el diseño: un texto enorme se achica para entrar, y con foto del cliente sólo se acotan los tamaños', () => {
+  const largo = 'palabra '.repeat(60).trim();
+  const [g] = ajustarTextos([T('cuerpo', largo, { tamano: 0.12, ancho: 0.84, x: 0.08, y: 0.1 })], { ancho: 1080, alto: 1350, libre: true });
+  assert.ok(g.tamano <= 0.07, 'el cuerpo tiene tope');
+  assert.ok(g.y * 1350 + altoEstimado(g.texto, g.tamano * 1080, g.ancho * 1080, 1.3) <= 1350, 'entra');
+  const [f] = ajustarTextos([T('titulo', 'Hola', { tamano: 0.01, x: 0.05, ancho: 0.4, y: 0.2 })], { ancho: 1080, alto: 1350, libre: false });
+  assert.equal(f.x, 0.05, 'con foto, el lugar es el que vio la IA');
+  assert.equal(f.ancho, 0.4);
+  assert.ok(f.tamano >= 0.075, 'pero el tamaño no queda chiquito');
+});
+
+test('las letras: sólo del editor (si no, caen a la del sistema en silencio) y la serif sólo si el original es serif', () => {
+  for (const familia of FAMILIAS_DE_LA_REPLICA) assert.ok(fuenteDelEditorDeImagen(familia), `el editor no tiene «${familia}»`);
+  const r = leerReplica(JSON.stringify({ laminas: [{ fondo: '#fff', textos: [T('titulo', 'A'), T('cuerpo', 'B', { letra: 'inventada' }), T('titulo', 'C', { letra: 'serif' })] }] }), { laminas: 1 }) as Replica;
+  assert.deepEqual(r.laminas[0].textos.map((t) => t.letra), ['sans', 'sans', 'serif'], 'una letra inventada es sans');
+  const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
+  const fam = ((doc.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>).map((o) => String(o.fontFamily));
+  assert.match(fam[0], /Montserrat/);
+  assert.match(fam[1], /Inter/);
+  assert.match(fam[2], /Playfair/);
+  const conMarca = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId, conFuentesDeMarca: true });
+  assert.match(String((((conMarca.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>)[0]).fontFamily), new RegExp(estilo.titular.familia), 'con kit, la letra de la marca');
+});
+
+test('el prompt: sin avatar no se piden fotos; el texto llena; con el pie, sólo para entender el tema', () => {
+  const sin = promptDeReplica(base);
+  assert.match(sin, /No pongas fotos ni personas/);
+  assert.match(sin, /LLENA la lámina/);
+  assert.doesNotMatch(sin, /espacio para su foto/);
+  const con = promptDeReplica({ ...base, vistas: 1, pie: 'Mi primer cliente de 1000 dólares. Comenta GUÍA' });
+  assert.match(con, /<<<PIE[\s\S]*primer cliente[\s\S]*PIE>>>/);
+  assert.match(con, /NO copies sus frases/);
+});
+
+test('«Editar» sin láminas (con guías): letra de palo seco, texto grande y dentro de la lámina; con letras de la marca, se respetan', () => {
+  const lista = tipoCarrusel('lista')!;
+  assert.equal(lista.estilo.titular.respaldo, 'serif', 'el tipo «lista» es serif: lo que se veía en editar-aviso.png');
+  const e = estiloSinSerif(lista.estilo, null);
+  assert.equal(e.titular.familia, 'Montserrat');
+  assert.equal(e.titular.respaldo, 'sans-serif');
+  const conMarca = estiloSinSerif(lista.estilo, { fuentes: { titulos: 'Fraunces', texto: null } } as never);
+  assert.equal(conMarca.titular.familia, lista.estilo.titular.familia, 'con letras de la marca, no se toca');
+  const doc = documentoDeCarrusel({ laminas: lista.estructura(5), estilo: e, marca: { nombre: 'Sonrisa Llena', usuario: 'sonrisa' }, nuevoId });
+  for (const pg of doc.pages as Array<{ objects: Array<Record<string, unknown>> }>) {
+    const titular = pg.objects.find((o) => o.name === 'Titular')!;
+    assert.ok((titular.fontSize as number) >= 64, 'el titular se lee de un vistazo (antes 72 fijo, y el cuerpo de 42)');
+    for (const o of pg.objects.filter((x) => x.type === 'textbox')) assert.ok((o.top as number) + (o.height as number) <= 1350, `${String(o.name)} entra en la lámina`);
+    const texto = pg.objects.find((o) => o.name === 'Texto' || o.name === 'Bajada');
+    if (texto) assert.ok((texto.top as number) >= (titular.top as number) + (titular.height as number), 'el texto va debajo del titular');
+  }
 });

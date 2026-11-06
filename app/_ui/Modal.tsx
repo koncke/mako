@@ -54,6 +54,7 @@ export function Modal({
   sinFiletes = false,
   contenedor = false,
   sinCerrar = false,
+  completaEnCelular = false,
 }: {
   /** El título de la caja. Es el nombre de LA COSA, no una instrucción. */
   titulo: ReactNode;
@@ -111,6 +112,8 @@ export function Modal({
   contenedor?: boolean;
   /** Algo corriendo que no se cierra, se PARA con el botón del pie: sin la ✕ (el clic afuera y Escape los decide `onCerrar`). */
   sinCerrar?: boolean;
+  /** En un celular (≤ 640 px) ocupa toda la pantalla, sin márgenes ni esquinas: lo que tiene dos partes o muchos campos no entra en una caja chica. */
+  completaEnCelular?: boolean;
 }) {
   const capa = useCapaModal(true, { anidada, contenedor });
   const arriba = capa.esElDeArriba;
@@ -210,6 +213,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         data-sin-filetes={sinFiletes ? '' : undefined}
+        data-completa={completaEnCelular ? '' : undefined}
         aria-labelledby={tituloId}
         aria-label={etiqueta}
         tabIndex={-1}

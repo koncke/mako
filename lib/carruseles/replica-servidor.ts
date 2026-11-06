@@ -23,7 +23,7 @@ import { BUCKET_IMAGE } from '../image-editor/reglas';
 import { esNuestra, tipoDeImagen } from '../spy-miniaturas';
 import { kitParaUsar } from '../marca/kits-server';
 import { fuenteDelEditorDeImagen } from '../image-editor/fuente-del-editor';
-import { estiloConKit } from './marca-kit';
+import { estiloConKit, estiloSinSerif } from './marca-kit';
 import { marcaDelNegocio } from './marca';
 import { tipoCarrusel } from './tipos';
 import { estructuraDe } from './referencia';
@@ -117,8 +117,8 @@ export async function replicarCarrusel(ws: number, quien: string, id: number, o:
   const anuncio = c.clase === 'anuncio';
   const urls = imagenesDe(c).slice(0, IMAGENES_MAX);
   const total = anuncio ? 1 : Math.max(1, Math.min(LAMINAS_MAX, c.laminas ?? urls.length ?? 1));
-  avisar({ fase: 'leer', laminas: total, vistas: Math.min(urls.length, total) });
   const imagenes = (await Promise.all(urls.map(comoDataUrl))).filter((x): x is string => !!x);
+  avisar({ fase: 'leer', laminas: total, vistas: Math.min(imagenes.length, total) });
 
   /** Sin IA (o sin láminas que mirar): la estructura del ejemplo, editable, con guías. */
   const conGuias = async (motivo: { aviso: string; conectar: string | null } | null): Promise<ResultadoReplica> => {
@@ -128,7 +128,6 @@ export async function replicarCarrusel(ws: number, quien: string, id: number, o:
     avisar({ fase: 'fin', ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso: motivo?.aviso ?? null, conectar: motivo?.conectar ?? null });
     return { ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso: motivo?.aviso ?? null, conectar: motivo?.conectar ?? null };
   };
-  if (!imagenes.length) return conGuias({ aviso: 'Este ejemplo todavía no tiene sus láminas guardadas: cada lámina trae una guía.', conectar: null });
 
   const [{ contextoDelNegocio, vozDelNegocio }, kit] = await Promise.all([import('../negocio-para-crear'), kitParaUsar().catch(() => null)]);
   const [negocio, voz, marca, foto] = await Promise.all([
@@ -139,26 +138,35 @@ export async function replicarCarrusel(ws: number, quien: string, id: number, o:
   ]);
   const prompt = promptDeReplica({
     laminas: total, vistas: imagenes.length, negocio, voz: voz ?? '', nombreNegocio: marca.nombre, cta: c.cta?.palabra ?? null,
-    conAvatar: !!foto, pedido: o.pedido ?? null, anuncio,
+    conAvatar: !!foto, pedido: o.pedido ?? null, anuncio, pie: c.texto || c.gancho || null,
   });
   avisar({ fase: 'escribir', con: 'tu IA' });
   let crudo: string;
   try {
-    const { leerDocumentoIA } = await import('../ai-cheap');
+    const { leerDocumentoIA, chatCheap } = await import('../ai-cheap');
     const { conSuIADelNegocio } = await import('../ia-del-negocio');
-    const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
-      dataUrl: imagenes[0], dataUrls: imagenes, isPdf: false, nombreArchivo: anuncio ? 'anuncio' : 'carrusel', prompt, json: true,
-      feature: FEATURE_REPLICA, motivo: anuncio ? 'Editar un anuncio de ejemplo' : 'Editar un carrusel de ejemplo', timeoutMs: o.timeoutMs ?? 120_000,
-    }));
-    crudo = r.text;
+    const motivo = anuncio ? 'Editar un anuncio de ejemplo' : 'Editar un carrusel de ejemplo';
+    // Sin ninguna imagen que mirar (la portada no se pudo bajar), la IA escribe la versión del negocio con el tema y el pie.
+    if (!imagenes.length) {
+      crudo = await conSuIADelNegocio(ws, () => chatCheap({
+        system: 'Eres diseñador de carruseles de Instagram para negocios. Respondes sólo con el JSON pedido.', user: prompt, json: true,
+        feature: FEATURE_REPLICA, motivo, timeoutMs: o.timeoutMs ?? 120_000,
+      }));
+    } else {
+      const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+        dataUrl: imagenes[0], dataUrls: imagenes, isPdf: false, nombreArchivo: anuncio ? 'anuncio' : 'carrusel', prompt, json: true,
+        feature: FEATURE_REPLICA, motivo, timeoutMs: o.timeoutMs ?? 120_000,
+      }));
+      crudo = r.text;
+    }
   } catch (e) {
     return conGuias(avisoSinIA(e instanceof Error ? e.message : String(e)));
   }
   const replica = leerReplica(crudo, { laminas: total });
   if ('error' in replica) return conGuias({ aviso: `${replica.error} Por ahora, cada lámina trae una guía.`, conectar: null });
 
-  const estilo = estiloConKit((tipoCarrusel(estructuraDe(c).tipo ?? 'lista') ?? tipoCarrusel('lista'))!.estilo, kit, fuenteDelEditorDeImagen);
-  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas: notasDeReplica(c) });
+  const estilo = estiloSinSerif(estiloConKit((tipoCarrusel(estructuraDe(c).tipo ?? 'lista') ?? tipoCarrusel('lista'))!.estilo, kit, fuenteDelEditorDeImagen), kit);
+  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas: notasDeReplica(c), conFuentesDeMarca: !!kit?.fuentes.titulos });
   const paginas = (doc.pages as Record<string, unknown>[]) ?? [];
   paginas.forEach((pagina, indice) => avisar({ fase: 'lamina', indice, total: paginas.length, pagina, ancho: doc.width as number, alto: doc.height as number }));
   const titulo = `${anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
