@@ -651,6 +651,19 @@ export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number }): string {
   return `La mensualidad de ${nombreDelMes(p.mes)} no entró: desde hoy tu cuenta y las de tus clientes están en pausa. Falta ${usd(p.faltaUsd)}. Manda aquí el comprobante y vuelven a entrar en el acto.`;
 }
 
+/**
+ * EL AVISO AL SUPER ADMIN DE UNA AGENCIA QUE NO PAGó (6/11/2026, #498). No va al grupo de la agencia —eso ya lo dice
+ * `textoDePausaDelMes`—: va a Martín, para que no haya que entrar a mirar la pantalla. Sin él, una agencia puede quedar
+ * meses sin pagar y no enterarse nadie.
+ *
+ * Es un reporte, no un mensaje a una persona: sin segunda persona, con el monto y los días que lleva.
+ */
+export function textoDeMesImpago(p: { agencia: string; mes: Mes; debeUsd: number; diasDeAtraso: number }): string {
+  const d = p.diasDeAtraso;
+  const cuanto = d <= 0 ? 'vence hoy' : d === 1 ? 'lleva 1 día de atraso' : `lleva ${d} días de atraso`;
+  return `${p.agencia}: la mensualidad de ${nombreDelMes(p.mes)} no entró y ${cuanto}. Falta ${usd(p.debeUsd)}. La cuenta de la agencia y las de sus clientes quedan en pausa hasta que entre el pago.`;
+}
+
 /** Lo que contesta MaKo a un comprobante del grupo, según lo que hizo. Lo arma el código, nunca un modelo. */
 export function textoDeComprobante(r:
   | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; reabiertas: number }

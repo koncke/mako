@@ -30,7 +30,7 @@ import { linkApp } from './app-url';
 import { anularCobro, cancelarSuscripcionCobro } from './cobros';
 import { avisarDePlataforma } from './invitaciones';
 import { CLAVE_CORTE, type CorteGuardado } from './plan-acceso-reglas';
-import { finDeLoQuePago, queHacerEnLaBaja, type CobroEnLaBaja } from './agencia-cobro-reglas';
+import { clienteDeAgenciaTocable, finDeLoQuePago, queHacerEnLaBaja, type CobroEnLaBaja } from './agencia-cobro-reglas';
 import { KEY_QUIEN_PAGA, quienPagaDe } from './agency-reglas';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
@@ -80,7 +80,11 @@ export async function adminsDeCuenta(ws: number): Promise<string[]> {
 
 export async function darDeBajaClienteDeAgencia(p: { agenciaWs: number; clienteWs: number; autor: string }): Promise<ResultadoBajaCliente> {
   const { agenciaWs, clienteWs } = p;
-  if (!Number.isInteger(agenciaWs) || !Number.isInteger(clienteWs) || agenciaWs <= 0 || clienteWs <= 0 || agenciaWs === clienteWs) return { ok: false, error: 'Cuenta inválida.' };
+  // ⚠️ LA PLATAFORMA NO ES CLIENTE DE NADIE (6/11/2026, #495): antes de leer la cartera, porque lo que viene después
+  // CANCELA suscripciones y ANULA links. Con una fila `agencia_clientes` apuntando al ws de la plataforma, esto le
+  // cancelaba sus cobros y la dejaba pausada. Ver `clienteDeAgenciaTocable`.
+  const tocable = clienteDeAgenciaTocable({ agenciaWs, clienteWs, plataformaWs: await wsSuperAdmin() });
+  if (!tocable.ok) return { ok: false, error: tocable.error };
   const db = getSupabaseServer();
   const { data: fila, error: eFila } = await db.from('agencia_clientes').select('estado').eq('agencia_ws', agenciaWs).eq('cliente_ws', clienteWs).maybeSingle();
   if (eFila) return { ok: false, error: `No pude leer tu cartera: ${eFila.message}` };

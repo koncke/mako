@@ -29,10 +29,11 @@ import {
   asignarPago, cicloDe, cuentaDelMes, cuentaDesde, diasDelCiclo, diferencialDe, entradasPorAvisar, esDia, leerConfigMensualidad,
   leerCortePagaParaEntrar, leerEntrada, leerPagoDelMes, mesQueSeAvisa, pasoDePausa, planQueSeCobra, preciosDelCatalogo, proximoCinco,
   quienVaEnPausa, situacion, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes, textoDeSituacion, textoDelAvisoDeEntradas,
-  textoDelAvisoDelMes, usd, usdDia, clavePendiente,
+  textoDelAvisoDelMes, textoDeMesImpago, usd, usdDia, clavePendiente, diaLimite, diasEntre,
   type ClienteDeAgencia, type CuentaDelMes, type Pendiente,
 } from '../lib/agencia-mes-reglas';
 import { revisarPausas, type DepsPausas, type LecturaParaPausas } from '../lib/agencia-mes-pausas';
+import { reclamarYMandar, type DepsAviso, type Reclamo } from '../lib/agencia-mes-avisos';
 import { leerCorte, leOfrecePagar, pasoDeAcceso, textoDelCorte, type CorteGuardado } from '../lib/plan-acceso-reglas';
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 import { marcasDeVoseo } from '../lib/voseo';
@@ -416,4 +417,98 @@ test('el PDF del cobro es determinista (mismos datos, mismos bytes) y es un PDF'
   const b = await pdfDelCobro(t, '2026-12-01', 'Código Inmobiliario');
   assert.equal(Buffer.from(a.slice(0, 5)).toString(), '%PDF-');
   assert.deepEqual(Buffer.from(a), Buffer.from(b));
+});
+
+// ── La marca del aviso de una entrada: si el aviso no salió, NO queda puesta (lib/agencia-mes-avisos.ts, 6/11/2026) ──
+// Por qué importa: `lecturaParaPausas` lee esa marca como «ya se le avisó» y `quienVaEnPausa` sólo pausa al que se le avisó.
+// Una marca puesta sin que el PDF saliera deja al cliente sin aviso para siempre Y lo pausa por una entrada que nadie mandó.
+
+/** Una base de mentira de `app_settings`: `reclamar` es el compare-and-set contra «no existe». */
+function baseDeAvisos(falla: { reclamarEn?: string; soltar?: boolean } = {}) {
+  const filas = new Map<string, string>();
+  const deps: DepsAviso = {
+    reclamar: async (clave, valor) => {
+      if (falla.reclamarEn === clave) throw new Error('la base no contestó');
+      if (filas.has(clave)) return false;
+      filas.set(clave, valor);
+      return true;
+    },
+    soltar: async (clave, valor) => {
+      if (falla.soltar) throw new Error('tampoco pude borrar');
+      if (filas.get(clave) === valor) filas.delete(clave);
+      return true;
+    },
+  };
+  return { filas, deps };
+}
+
+const DOS: Reclamo[] = [{ clave: 'avisoentrada.25.2026-11-10', valor: '{"montoUsd":37.6}' }, { clave: 'avisoentrada.26.2026-11-10', valor: '{"montoUsd":40.73}' }];
+
+test('el aviso de las entradas salió: las marcas quedan puestas, y una segunda corrida no lo repite', async () => {
+  const { filas, deps } = baseDeAvisos();
+  const r = await reclamarYMandar(DOS, async () => ({ ok: true }), deps);
+  assert.deepEqual({ ok: r.ok, mandadas: r.mandadas }, { ok: true, mandadas: 2 });
+  assert.deepEqual([...filas.keys()].sort(), ['avisoentrada.25.2026-11-10', 'avisoentrada.26.2026-11-10']);
+  // La corrida de al lado no gana ninguna: no manda nada y no toca lo que ya está.
+  let mando = false;
+  const otra = await reclamarYMandar(DOS, async () => { mando = true; return { ok: true }; }, deps);
+  assert.deepEqual({ ok: otra.ok, mandadas: otra.mandadas, mando }, { ok: true, mandadas: 0, mando: false });
+  assert.equal(filas.size, 2);
+});
+
+test('⛔ el envío devuelve que no salió: no queda NI UNA marca puesta (mañana se reintenta)', async () => {
+  const { filas, deps } = baseDeAvisos();
+  const r = await reclamarYMandar(DOS, async () => ({ ok: false, error: 'sin grupo de MaKo' }), deps);
+  assert.deepEqual({ ok: r.ok, mandadas: r.mandadas, error: r.error }, { ok: false, mandadas: 0, error: 'sin grupo de MaKo' });
+  assert.deepEqual([...filas.keys()], []);
+});
+
+test('⛔ el envío TIRA: no queda ni una marca puesta, y el error sigue subiendo', async () => {
+  const { filas, deps } = baseDeAvisos();
+  await assert.rejects(
+    () => reclamarYMandar(DOS, async () => { throw new Error('Evolution cortó'); }, deps),
+    /Evolution cortó/,
+  );
+  assert.deepEqual([...filas.keys()], [], 'una marca puesta sin aviso pausa al cliente por una entrada que nadie le mandó');
+});
+
+test('⛔ la base TIRA al reclamar la segunda: se suelta la primera (no queda a medias)', async () => {
+  const { filas, deps } = baseDeAvisos({ reclamarEn: 'avisoentrada.26.2026-11-10' });
+  let mando = false;
+  await assert.rejects(() => reclamarYMandar(DOS, async () => { mando = true; return { ok: true }; }, deps), /la base no contestó/);
+  assert.equal(mando, false, 'no se manda un aviso incompleto');
+  assert.deepEqual([...filas.keys()], [], 'la primera marca no puede quedar puesta sola');
+});
+
+test('sin nada que avisar no se manda nada, y eso no es un fallo', async () => {
+  const { deps } = baseDeAvisos();
+  let mando = false;
+  const r = await reclamarYMandar([], async () => { mando = true; return { ok: true }; }, deps);
+  assert.deepEqual({ ok: r.ok, mandadas: r.mandadas, mando }, { ok: true, mandadas: 0, mando: false });
+});
+
+// ── El aviso al super admin de un mes que no entró (#498, 6/11/2026) ──────────────────────────────────────────────
+// Lo que va al grupo de la agencia es `textoDePausaDelMes`; esto va a Martín, para que nadie tenga que entrar a mirar
+// la pantalla: sin él una agencia podía quedar meses sin pagar y no enterarse nadie.
+
+test('el aviso de un mes impago nombra la agencia, el mes, lo que falta y los días de atraso', () => {
+  const t = textoDeMesImpago({ agencia: 'Código Inmobiliario', mes: '2026-12', debeUsd: 426, diasDeAtraso: 3 });
+  assert.match(t, /Código Inmobiliario/);
+  assert.match(t, /diciembre/);
+  assert.match(t, /US\$ 426/);
+  assert.match(t, /3 días de atraso/);
+  // Es un REPORTE a Martín, no un mensaje a la agencia: no se le habla a nadie.
+  assert.doesNotMatch(t, /\b(tu|tus|te|manda|paga)\b/i, 'es un reporte, no un mensaje a la agencia');
+  // El singular y el «vence hoy» no se escriben en plural.
+  assert.match(textoDeMesImpago({ agencia: 'A', mes: '2026-12', debeUsd: 1, diasDeAtraso: 1 }), /lleva 1 día de atraso/);
+  assert.match(textoDeMesImpago({ agencia: 'A', mes: '2026-12', debeUsd: 1, diasDeAtraso: 0 }), /vence hoy/);
+});
+
+test('el día 5 todavía no es atraso y el 6 sí: el aviso sale cuando el mes ya venció', () => {
+  // El pendiente lleva su `limite` (el 5) y el cron compara con el día de la AGENCIA: `hoy <= limite` no avisa.
+  const limite = diaLimite('2026-12');
+  assert.equal(limite, '2026-12-05');
+  assert.equal('2026-12-05' > limite, false, 'el 5 no es atraso');
+  assert.equal('2026-12-06' > limite, true, 'el 6 sí');
+  assert.equal(diasEntre(limite, '2026-12-06'), 1);
 });
