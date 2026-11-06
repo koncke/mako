@@ -74,6 +74,9 @@ import type { PasoGeneracion } from './Generando';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, funnelParaPedido, leerValor, plantillasDeOffer, renglonesDeOffer, valorSesion } from './arbol';
+// Las 9 plantillas reales (docs/plantillas-reales/offer.md, 6/11/2026): la forma en la tarjeta, el ejemplo con «Ver ejemplo».
+import { PLANTILLAS_OFERTA, PREFIJO_PLANTILLA_OFERTA, mensajeDePlantilla, plantillaDeTarjeta, type PlantillaOferta } from '@/lib/offer-plantillas';
+import { VistaDiagnostico, VistaOferta } from './Conclusion';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { CabeceraDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -246,6 +249,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   /** Abriendo o creando una conversación desde el selector. */
   const [cambiando, setCambiando] = useState(false);
   const [errorSelector, setErrorSelector] = useState<string | null>(null);
+  // «Ver ejemplo» de una de las 9 plantillas (lib/offer-plantillas.ts): la oferta llena de un negocio ficticio, aparte.
+  const [ejemploOferta, setEjemploOferta] = useState<PlantillaOferta | null>(null);
   /**
    * ¿El árbol se pudo LEER? «No pude leer» no es «no hay funnels» (AGENTS.md): con el árbol caído la
    * bienvenida no puede mandar a crear un funnel a un negocio que tiene tres. Pasa a true sólo cuando
@@ -872,11 +877,29 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   // ── «Nueva oferta» en la pantalla de Create (29/10/2026) ────────────────────
   /** Una plantilla: crear en un funnel o analizar una de sus ofertas (el valor es el del árbol, `valorNueva`). */
   const crearDesdePlantilla = async (valor: string): Promise<string | null> => {
+    const forma = plantillaDeTarjeta(valor);
+    if (forma) return usarPlantillaOferta(forma);
     const el = leerValor(valor);
     if (!el || el.tipo !== 'nueva') return 'No pude abrir esa plantilla.';
     if (cambiando || generando.current) return 'Espera a que MaKo termine.';
     return nuevaSesion(el.funnelId, el.ofertaBaseId);
   };
+  /**
+   * Una de las 9 plantillas: una oferta nueva en el funnel de la abierta (o el primero) que arranca con la forma elegida dicha
+   * en el primer mensaje (`mensajeDePlantilla`). «Revisar tu oferta» parte de la oferta principal del funnel, como «Analizar».
+   */
+  const usarPlantillaOferta = async (p: PlantillaOferta): Promise<string | null> => {
+    const funnel = funnelParaPedido(arbol, sesionRef.current);
+    if (funnel == null) return 'Para usarla, crea un funnel en el CRM.';
+    if (cambiando || generando.current) return 'Espera a que MaKo termine.';
+    const error = await nuevaSesion(funnel, null);
+    if (error) return error;
+    const t = mensajeDePlantilla(p);
+    const res = await mandar({ texto: t, docs: [], fuente: 'tu respuesta' });
+    if (res !== 'salio') setTexto((ahora) => (ahora.trim() ? ahora : t));
+    return null;
+  };
+
   /**
    * Lo escrito en «¿Qué vas a crear hoy?»: una oferta nueva en el funnel de la abierta (o el primero) y lo escrito como su
    * primer mensaje. `mandar` decide con refs (`sesionRef`), que `nuevaSesion` ya dejó en la conversación nueva.
@@ -1043,7 +1066,15 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   //   · el centro es la oferta armándose (./DocumentoVivo.tsx): reemplaza al riel de las piezas, que queda en el onboarding.
   if (!arranque) {
     const proyectos: ProyectoCrear[] = renglonesDeOffer(arbol).map((x) => ({ id: x.id, nombre: x.nombre, cuando: x.cuando }));
-    const plantillas: PlantillaCrear[] = plantillasDeOffer(arbol).map((p) => ({ id: p.id, nombre: p.nombre, rotulo: p.rotulo, formato: '3 / 4' }));
+    // Arriba, «Tus funnels» (crear o analizar en uno); después, las 9 plantillas por lo que vende el negocio. La tarjeta de una
+    // plantilla muestra su FORMA (cuándo usarla y sus chips); el ejemplo lleno se abre con «Ver ejemplo».
+    const plantillas: PlantillaCrear[] = [
+      ...plantillasDeOffer(arbol).map((p) => ({ id: p.id, nombre: p.nombre, rotulo: p.rotulo, formato: '3 / 4', grupo: 'Tus funnels' })),
+      ...PLANTILLAS_OFERTA.map((p): PlantillaCrear => ({
+        id: `${PREFIJO_PLANTILLA_OFERTA}${p.id}`, nombre: p.nombre, formato: '3 / 4', grupo: p.grupo, insignia: p.ficha.insignia,
+        rotulo: p.ficha.insignia, ayuda: p.cuando, extracto: `${p.nombre}\n${p.cuando}`, chips: p.ficha.chips, verEjemplo: true,
+      })),
+    ];
     const chatDeLaTarjeta = (volver: ReactNode) => (
       <div className="of-tarjeta">
         <CabeceraDeChat clave={`offer:${sesion?.id ?? 'nueva'}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO}
@@ -1108,6 +1139,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           ) : undefined}
           plantillas={plantillas}
           onPlantilla={(p) => crearDesdePlantilla(p.id)}
+          onVerEjemplo={(p) => setEjemploOferta(plantillaDeTarjeta(p.id))}
           ejemplos={EJEMPLOS_NUEVA_OFERTA}
           onPedido={pedirOferta}
           trasCrear="mako"
@@ -1116,6 +1148,20 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           {sesion ? <DocumentoVivo sesion={sesion} acciones={acciones} /> : null}
         </PantallaCrear>
         {ventanaOferta}
+        {ejemploOferta && (
+          <Modal titulo={`Ejemplo: ${ejemploOferta.negocio.nombre} (negocio ficticio)`} onCerrar={() => setEjemploOferta(null)} ancho={860}
+            pie={(
+              <>
+                <Button variant="secondary" onClick={() => setEjemploOferta(null)}>Volver</Button>
+                <Button variant="primary" onClick={() => { const p = ejemploOferta; setEjemploOferta(null); void usarPlantillaOferta(p).then((e) => { if (e) setErrorSelector(e); }); }}>
+                  Usar esta plantilla
+                </Button>
+              </>
+            )}>
+            {ejemploOferta.diagnostico && <VistaDiagnostico d={ejemploOferta.diagnostico.d} calculo={ejemploOferta.diagnostico.calculo} conProbar={false} deOtro />}
+            <VistaOferta p={ejemploOferta.ejemplo} provisional={null} />
+          </Modal>
+        )}
       </>
     );
   }

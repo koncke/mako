@@ -39,11 +39,15 @@ import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_c
 import { ButtonLink } from '@/app/_ui';
 import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 import { rutaEditarEnEditor } from '@/app/video-editor/desde/desde';
+import { rutaUsarEnAnuncio } from '@/lib/anuncio-desde-pieza';
 import { avisarPuente } from '@/app/video-generator/avisar-puente';
 import { crearLookAction, estadoLookAction, crearVideoAction, borrarLookAction, type InicioOut, type LookCard } from './actions';
 import { filmarTomas, SONDEO_MS, type TomaAvatar } from './filmar';
 import { CATEGORIAS, PLANTILLAS_AVATAR, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
+// Las 10 plantillas de venta (docs/plantillas-reales/avatar.md, 6/11/2026): la forma en la tarjeta, el ejemplo aparte.
+import { PLANTILLAS_VENTA_AVATAR, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
+import { EjemploVenta } from './EjemploVenta';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
 import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -70,6 +74,8 @@ function escribirQuery(v: Vista, presetId: string | null) {
 // El estudio, adentro de la pantalla única de Create
 // ═════════════════════════════════════════════════════════════════════════════
 
+/** El prefijo del id de la tarjeta de una plantilla de venta (las de los presets son su id pelado). */
+const PREFIJO_VENTA = 'venta:';
 /** Lo que se escribe solo en «¿Qué vas a crear hoy?» de la tarjeta: escenas, porque lo escrito va a la barra del estudio. */
 const EJEMPLOS = [
   'Con camisa blanca, de noche, en la ciudad',
@@ -156,20 +162,40 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
 
   // «Nuevo avatar» de la tarjeta: los presets como plantillas. Usar uno lo pone en la barra del estudio (como «Use preset»
   // de Higgsfield): todavía no genera nada, falta la foto y lo que se quiera escribir.
-  const plantillas = useMemo<PlantillaCrear[]>(() => PLANTILLAS_AVATAR.map((p) => ({
-    id: p.id,
-    nombre: p.nombre,
-    formato: '9 / 16',
-    imagen: looks.find((l) => l.plantillaId === p.id && l.url)?.url || p.ejemplo?.poster || null,
-    rotulo: p.categoria,
-  })), [looks]);
+  // Arriba, las 10 plantillas de VENTA (una forma de guion sobre un preset: cuándo usarla y sus secciones; el ejemplo con
+  // «Ver ejemplo»); después, los presets de siempre.
+  const plantillas = useMemo<PlantillaCrear[]>(() => [
+    ...PLANTILLAS_VENTA_AVATAR.map((p): PlantillaCrear => ({
+      id: `${PREFIJO_VENTA}${p.id}`, nombre: p.nombre, formato: '9 / 16', grupo: 'Plantillas de venta',
+      insignia: `9:16 · ~${p.duracion} s`, rotulo: p.rubro, ayuda: p.cuando, extracto: `${p.nombre}\n${p.cuando}`,
+      chips: p.estructura, verEjemplo: true,
+    })),
+    ...PLANTILLAS_AVATAR.map((p): PlantillaCrear => ({
+      id: p.id,
+      nombre: p.nombre,
+      formato: '9 / 16',
+      grupo: 'Presets',
+      imagen: looks.find((l) => l.plantillaId === p.id && l.url)?.url || p.ejemplo?.poster || null,
+      rotulo: p.categoria,
+    })),
+  ], [looks]);
+  const [ejemploVenta, setEjemploVenta] = useState<PlantillaVentaAvatar | null>(null);
+  /** Una plantilla de venta: su preset y su escena van a la barra del estudio, como «Use preset». No genera nada. */
+  const usarVenta = useCallback((p: PlantillaVentaAvatar) => {
+    setPresetId(p.presetId); setDetalle(p.detalle.slice(0, MAX_DETALLE)); setVista({ tipo: 'nueva' }); setError('');
+  }, []);
 
   return (
     <PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos={proyectos} actual={proyecto?.id ?? null}
       onAbrir={(x) => { setVista({ tipo: 'proyecto', id: x.id }); setError(''); }}
       pieLista={looks.length > 0 ? <button type="button" className="hf-pie-todos" onClick={() => setVista({ tipo: 'todos' })}>Ver todos en grilla</button> : null}
       plantillas={plantillas} tituloPlantillas="Presets"
-      onPlantilla={(pl) => { setPresetId(pl.id); setVista({ tipo: 'nueva' }); setError(''); return null; }}
+      onPlantilla={(pl) => {
+        const venta = pl.id.startsWith(PREFIJO_VENTA) ? plantillaVentaAvatar(pl.id.slice(PREFIJO_VENTA.length)) : null;
+        if (venta) { usarVenta(venta); return null; }
+        setPresetId(pl.id); setVista({ tipo: 'nueva' }); setError(''); return null;
+      }}
+      onVerEjemplo={(pl) => setEjemploVenta(plantillaVentaAvatar(pl.id.slice(PREFIJO_VENTA.length)))}
       ejemplos={EJEMPLOS}
       // Lo que se escribe en «¿Qué vas a crear hoy?» es la escena: va a la barra del estudio (el prompt de Higgsfield).
       onPedido={(texto) => { setDetalle(texto.slice(0, MAX_DETALLE)); setVista({ tipo: 'nueva' }); }}>
@@ -195,6 +221,10 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
             onGenerar={() => preset && void generar({ plantillaId: preset.id, fotoId, detalle })} />
         )}
 
+        {ejemploVenta && (
+          <EjemploVenta p={ejemploVenta} alSalir={() => setEjemploVenta(null)}
+            alUsar={() => { const p = ejemploVenta; setEjemploVenta(null); usarVenta(p); }} />
+        )}
         {selector && (
           <SelectorPresets looks={looks} actual={presetId}
             onCerrar={() => setSelector(false)}
@@ -575,6 +605,8 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
   const [linea, setLinea] = useState('');
   const [errorVideo, setErrorVideo] = useState('');
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
+  const [menuHooks, setMenuHooks] = useState(false);
+  const cerrarHooks = useCallback(() => setMenuHooks(false), []);
 
   const cambiar = useCallback((t: TomaAvatar) => setTomas((ts) => ts.map((x) => (x.n === t.n ? { ...x, ...t } : x))), []);
   const filmar = useCallback(async (plan: string, lista: number[]) => { await filmarTomas(plan, lista, cambiar); }, [cambiar]);
@@ -656,6 +688,11 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
               </ol>
               <div className="hf-video-acciones">
                 {listas === tomas.length && planId && <ButtonLink href={rutaEditarEnEditor(`anuncio:${planId}`)}>Editar y exportar</ButtonLink>}
+                {/* «Usar en un anuncio» (6/11/2026, lo prometido a Thiago): un video de UNA toma (un hook, una frase) va derecho; uno
+                    de varias tomas se arma primero en el editor («Editar y exportar»), que también tiene «Usar en un anuncio». */}
+                {listas === tomas.length && planId && tomas.length === 1 && (
+                  <ButtonLink variant="secondary" href={rutaUsarEnAnuncio({ origen: 'avatar', titulo: p.nombre, texto: guion, creativo: { tipo: 'toma', plan: planId, toma: tomas[0].n } })}>Usar en un anuncio</ButtonLink>
+                )}
                 {parada && planId && (
                   <button type="button" className="hf-boton" onClick={() => {
                     setTomas((t) => t.map((x) => (x.fase === 'error' ? { ...x, fase: 'esperando', detalle: undefined } : x)));
@@ -670,6 +707,9 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
               {v.url ? <video src={v.url} controls playsInline preload="metadata" /> : <span className="hf-video-sin">{v.listas}/{v.tomas} tomas filmadas</span>}
               <p className="hf-video-guion">{v.guion}</p>
               <ButtonLink variant="secondary" size="sm" href={rutaEditarEnEditor(`anuncio:${v.planId}`)}>Editar y exportar</ButtonLink>
+              {v.tomas === 1 && v.primeraToma != null && (
+                <ButtonLink variant="secondary" size="sm" href={rutaUsarEnAnuncio({ origen: 'avatar', titulo: p.nombre, texto: v.guion, creativo: { tipo: 'toma', plan: v.planId, toma: v.primeraToma } })}>Usar en un anuncio</ButtonLink>
+              )}
             </div>
           ))}
           {tomas.length === 0 && p.videos.length === 0 && <p className="hf-vacio">Todavía no hiciste videos con este avatar.</p>}
@@ -685,6 +725,24 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
               placeholder={preset ? `Lo que dice tu avatar. Ejemplo: ${preset.guion}` : 'Lo que dice tu avatar'} aria-label="Lo que dice tu avatar" />
             <div className="hf-barra-fila">
               {preset && !guion && <button type="button" className="hf-pastilla" onClick={() => setGuion(preset.guion)}>Usar el ejemplo</button>}
+              {/* Los hooks del Media Buyer (lo prometido a Thiago: hooks de video con el avatar). Se filma sólo el gancho: el resto
+                  del video ganador ya está probado. */}
+              {(inicio.hooks ?? []).length > 0 && (
+                <span style={{ position: 'relative' }}>
+                  <Pastilla abierta={menuHooks} onClick={() => setMenuHooks((m) => !m)} etiqueta="Un hook de tus anuncios ganadores">
+                    <Icon name="rayo" size={14} /> Hooks ganadores
+                  </Pastilla>
+                  {menuHooks && (
+                    <Menu onCerrar={cerrarHooks} ancho>
+                      {(inicio.hooks ?? []).map((h) => (
+                        <OpcionMenu key={h.id} elegida={guion === h.gancho} onClick={() => { setGuion(h.gancho); setMenuHooks(false); }}>
+                          {h.gancho}{h.de ? <small> · de «{h.de}»</small> : null}
+                        </OpcionMenu>
+                      ))}
+                    </Menu>
+                  )}
+                </span>
+              )}
               <span className="hf-pastilla hf-pastilla--dato"><Icon name="mic" size={14} /> Voz de Flow{inicio.acento ? ` · ${inicio.acento}` : ''}</span>
               <button type="button" className="hf-pastilla" onClick={() => setLinea(SIN_MOTOR.voz)}>Tu voz <small>Pronto</small></button>
               <button type="button" className="hf-pastilla" onClick={() => setLinea(SIN_MOTOR.movimiento)}>Motion <small>Pronto</small></button>

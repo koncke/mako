@@ -10,7 +10,11 @@
 //     de Canva más pedidos). Los otros 30 de Canva siguen en «Redimensionar» del editor (_doory/editor/dialogs/resizeSizes.ts);
 //   · el CARRUSEL de Instagram (1080 × 1350, varias páginas): la tab Carousels se deprecó el 29/10/2026 y el DISEÑO de un
 //     carrusel vive acá (su texto se le pide a MaKo en el mismo chat);
-//   · las PLANTILLAS con diseño (las de Doory en español, ./mako/plantillas.ts), con su miniatura;
+//   · las PLANTILLAS REALES (6/11/2026, docs/plantillas-reales/image.md; lib/image-editor/plantillas-reales.ts): nueve
+//     piezas de un negocio ficticio del elenco (miniaturas, publicaciones, historias, anuncios y la clase), con la ESTRUCTURA
+//     en el documento que se crea y el ejemplo lleno en «Ver ejemplo». La miniatura la dibuja ../MiniaturaDiseno.tsx desde
+//     esa misma estructura. Reemplazan en «Nuevo diseño» a las 10 de Doory (bodas, conciertos, currículums), que siguen
+//     en el panel «Diseño» del editor y en la API;
 //   · los CARRUSELES DE MaKo POR TIPO (4/11/2026, lib/carruseles/tipos.ts: lista, paso a paso, historia, antes y después…),
 //     arriba de todo y en su sección: el documento trae la ESTRUCTURA (una guía de qué va en cada lámina) con el nombre del
 //     negocio en la cabecera, y el ejemplo lleno de un negocio ficticio se ve aparte («Ver ejemplo»). La miniatura la
@@ -24,7 +28,7 @@ import type { PlantillaCrear } from '@/app/_crear/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 import { TIPOS_CARRUSEL, type IdTipoCarrusel } from '@/lib/carruseles/tipos';
-import { catalogoPlantillas } from './mako/plantillas';
+import { PLANTILLAS_IMAGEN } from '@/lib/image-editor/plantillas-reales';
 
 /** Una tarjeta de «¿Qué vas a crear hoy?» con lo que hace falta para crear el diseño. */
 export type PlantillaNuevoDiseno = PlantillaCrear & {
@@ -37,6 +41,8 @@ export type PlantillaNuevoDiseno = PlantillaCrear & {
   plantilla?: string;
   /** Un carrusel de MaKo por tipo (lib/carruseles/tipos.ts): el documento sale de su estructura, no en blanco. */
   carrusel?: IdTipoCarrusel;
+  /** Una plantilla real (lib/image-editor/plantillas-reales.ts): el documento es su ESTRUCTURA. */
+  real?: string;
   /** El nombre del diseño que se crea, si no es el de la tarjeta («Carrusel · Lista o tips»: en la lista de diseños, «Lista o
    *  tips» solo no dice qué es). */
   tituloDiseno?: string;
@@ -63,16 +69,21 @@ const conCarrusel = (lista: PlantillaNuevoDiseno[]): PlantillaNuevoDiseno[] => {
   return i < 0 ? [CARRUSEL, ...lista] : [...lista.slice(0, i + 1), CARRUSEL, ...lista.slice(i + 1)];
 };
 
-const CON_DISENO: PlantillaNuevoDiseno[] = catalogoPlantillas().map((p) => ({
-  id: `plantilla-${p.slug}`,
-  nombre: p.titulo,
+/** El prefijo del id de la tarjeta de una plantilla real. */
+export const PREFIJO_REAL = 'real-';
+
+const REALES: PlantillaNuevoDiseno[] = PLANTILLAS_IMAGEN.map((p) => ({
+  id: `${PREFIJO_REAL}${p.id}`,
+  nombre: p.nombre,
   ancho: p.ancho,
   alto: p.alto,
   paginas: p.paginas,
-  plantilla: p.slug,
+  real: p.id,
+  grupo: p.grupo,
   formato: formato(p.ancho, p.alto),
-  // La miniatura es la de Doory, en public/cv/plantillas/ (la misma que usa el panel «Diseño» del editor).
-  imagen: `/cv/plantillas/${p.slug}.webp`,
+  insignia: p.insignia,
+  ayuda: p.cuando,
+  verEjemplo: true,
 }));
 
 /** La sección de los carruseles por tipo: la primera de «¿Qué vas a crear hoy?». */
@@ -94,8 +105,8 @@ const POR_TIPO: PlantillaNuevoDiseno[] = TIPOS_CARRUSEL.map((t) => ({
   verEjemplo: true,
 }));
 
-/** Todas, en el orden en que se ven: los carruseles por tipo, los tamaños en blanco (con el carrusel) y las que traen diseño. */
-export const PLANTILLAS_NUEVO_DISENO: readonly PlantillaNuevoDiseno[] = [...POR_TIPO, ...conCarrusel(TAMANOS), ...CON_DISENO];
+/** Todas, en el orden en que se ven: los carruseles por tipo, las plantillas reales por formato y los tamaños en blanco. */
+export const PLANTILLAS_NUEVO_DISENO: readonly PlantillaNuevoDiseno[] = [...POR_TIPO, ...REALES, ...conCarrusel(TAMANOS)];
 
 /** La plantilla con ese id, o null (la acción no confía en lo que llega del navegador). */
 export function plantillaNueva(id: string): PlantillaNuevoDiseno | null {

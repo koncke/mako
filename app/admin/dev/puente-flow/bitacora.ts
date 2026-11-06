@@ -122,4 +122,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-generator',
   },
+  {
+    fecha: '6 nov', hora: '02:52', chat: 'Thiago anuncios', sesion: 'cli_bf66b858-af9b-52bd-97de-5d68c180abe6', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Guardar en MaKo»: el perfil abierto de Instagram o LinkedIn, como lead del CRM (extensión 0.77.0)',
+    puntos: [
+      'Lo prometido a la agencia de Thiago. Sobre un perfil de Instagram o de LinkedIn, el desplegable ofrece «Guardar en MaKo»: de a uno, a la vista y con dos toques. El primero lee el perfil una vez (mundo aislado, sólo `activeTab`) y MaKo dice qué entendió y si ya está, sin guardar; «Guardar en mi CRM» crea el lead con el nombre que la persona corrige.',
+      'Lo interpreta el servidor (lib/perfil-captura.ts): el usuario sale de la DIRECCIÓN, nunca del título, que lo escribe quien tiene la cuenta. El lead nace con su @ o su LinkedIn, su origen propio y la foto de Instagram.',
+      'Sin permisos nuevos ni content scripts. La política de privacidad lo dice (6/11/2026).',
+      '⚠️ Nadie lo probó en una página real de Instagram ni de LinkedIn (la nube no puede): hay que verlo en el Chrome de Martín antes de publicar la 0.77.0.',
+    ],
+    commits: [
+      { sha: '39e48790', msg: 'Extensión 0.77.0: «Guardar en MaKo» guarda como lead el perfil abierto de Instagram o LinkedIn', lineas: 1015, archivos: 20 },
+    ],
+    archivos: [
+      'extension/perfil-reglas.js · perfil-leer.js · popup.js · popup.html — el botón, el lector y las pantallas',
+      'lib/perfil-captura.ts · lib/perfil-captura-db.ts · app/api/crm/extension/route.ts — qué se entiende y qué se guarda',
+      'app/crm/origen-lead.ts · lib/leads.ts — el origen y el LinkedIn del lead',
+      'tests/perfil-extension.test.ts — 11 casos, seis roturas en la cabecera',
+      'docs/hallazgos-extension.md · docs/hallazgos-crm.md',
+    ],
+    revisar: '/crm',
+  },
 ];

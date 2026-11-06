@@ -582,6 +582,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
   ['POST', '/negocio/archivero/documentos', 'sumar_documento_second_brain'],
   ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
+  ['GET', '/negocio/plantillas-oferta', 'ver_plantillas_oferta'],
   ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
   ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],
   ['POST', '/negocio/avatares/generaciones', 'generar_avatares'],
@@ -681,6 +682,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
   ['GET', '/video/plantillas', 'listar_plantillas_video'],
+  ['GET', '/video/plantillas-avatar', 'ver_plantillas_avatar'],
   ['GET', '/video/proyectos', 'listar_proyectos_video'],
   ['GET', '/video/proyectos/{proyecto}', 'ver_proyecto_video'],
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
@@ -840,6 +842,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/creaciones/creaciones/{creacionId}/retiro', 'retirar_creacion'],
   ['POST', '/creaciones/creaciones/{creacionId}/usos', 'usar_creacion'],
   ['GET', '/creaciones/mias', 'mis_creaciones'],
+  ['POST', '/creaciones/plantillas', 'guardar_como_plantilla'],
+  ['POST', '/creaciones/creaciones/{creacionId}/compartida', 'compartir_plantilla'],
+  ['GET', '/creaciones/ranking', 'ranking_creaciones'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],
