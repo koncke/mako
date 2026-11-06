@@ -2984,8 +2984,9 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
 - **Que llegue un mail de verdad**: prender «Receiving» en el dominio en Resend + el MX del cliente, y
   sumar `email.received` a la ruta nueva (un webhook con `RESEND_INBOUND_WEBHOOK_SECRET`) o delegarlo
   desde /api/webhooks/resend (`case 'email.received'` → `recibirEmailEntrante`). Lo decide Martín.
-- **Un email del lead no PAUSA la automatización que le está escribiendo** (una respuesta de WhatsApp
-  sí). Es del motor: `lib/nutricion.ts` (`pausarPorRespuesta` del lado del webhook).
+- ~~**Un email del lead no PAUSA la automatización que le está escribiendo**~~ *(hecho el 6/11/2026:
+  `pausarPorEmailRecibido`, y el porqué del orden y de que no conteste, más abajo en «Un email del lead
+  pausa, pero no puede CONTESTAR»).*
 - `email_entrantes` tiene que entrar a `TABLAS_DE_INQUILINO` (`lib/tablas-de-inquilino.ts`) y el
   servicio `'email'` a `ServicioRuteo` (`lib/webhook-ruteo-huella.ts`) para anotar los fallos de ruteo
   en el super admin como los demás webhooks.
@@ -3274,8 +3275,8 @@ ANTES del deploy. La tabla que falta contesta `PGRST205`, no `42P01`: ver
 - **`setTriggerSecuencia` acepta los seis por `TRIGGERS`**: hay que rechazar `SOLO_DESDE_EL_CRON` ahí
   también (`lib/setting-secuencias.ts`, otra parte). Hoy lo llaman /email (cerrado en su puerta), la API
   de email (cerrada) y la ruta del CRON de antes (`action: 'trigger'`).
-- **Un email del lead no pausa** lo que le escriben (una respuesta de WhatsApp sí). Es una decisión de
-  producto: con `origen: 'email'` sería una línea en `recibirEmailEntrante`. `lib/email-entrante.ts`
+- ~~**Un email del lead no pausa** lo que le escriben~~ *(hecho el 6/11/2026; y NO era una línea: ver
+  «Un email del lead pausa, pero no puede CONTESTAR» más abajo).* `lib/email-entrante.ts`
 - **`cambiar_crons_secuencia` por HTTP**: es una decisión (el snapshot y su fila en `lib/api-mako/rest.ts`).
 - **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino`.
 - **El clon no copia `disparadores`** (la lista de CRON): una automatización con varios llega con uno, y
@@ -8138,3 +8139,46 @@ la línea de WhatsApp por la que sale el recibo es la de por defecto, no la de l
 - **A4** (Mayúscula Inicial en los nombres): sale de las plantillas y de la base; cambiar la regla es suya.
 
 **Vive en:** app/automations/SecuenciaPerfil.tsx; las preguntas, en docs/relevo/nube-recorrido-visual.md
+
+## Un email del lead pausa, pero no puede CONTESTAR (6/11/2026, `punta/chat-pausa-por-email`) [motor, canales]
+
+El síntoma: el lead contestaba el email y la secuencia le mandaba el siguiente igual. Figuraba dos veces
+como pendiente «de una línea» (`origen: 'email'` y listo). **No es una línea, y las dos cosas que faltan
+son las que no se ven.**
+
+**1. LA PAUSA VA ANTES DEL DISPARO, y el orden no es cosmético.** El mismo email que pausa puede ARRANCAR
+una automatización: el CRON «Recibes un email» la inscribe en `enrolarPorEmailRecibido`. Pausando después,
+`pausarPorRespuesta` marca 'respondio' la inscripción que acaba de nacer y esa automatización no manda
+nunca — se prende, se inscribe y queda muda, sin un error en ningún log. El webhook de Zernio ya tenía
+la lección escrita para los DM (`lib/zernio-entrante.ts`, «LA PAUSA VA ANTES DEL DISPARO»); el del email
+la volvió a pagar entera porque nadie la leyó del otro archivo.
+
+**2. NO HAY `MedioAIStep` DE EMAIL, así que pausar «como WhatsApp» CONTESTA POR WHATSAPP.** `MedioAIStep`
+son tres: `whatsapp | instagram | messenger`. En `pausarPorRespuesta`, `medio = social ?? 'whatsapp'`: con
+un origen que no es social —y el email no lo es— cae en `'whatsapp'` y todo lo que viene después
+(`charlaDelLead`, el AI Step, el borrador del modo asistido, la charla abierta) le contesta **al teléfono**
+a quien escribió un mail. Es el bug que se arregló para Instagram el 14/10/2026, y por email sería peor:
+por Instagram al menos el canal existe. Por eso `origen: 'email'` corta con `soloPausa` justo antes de
+contestar: pasa lo que es pausar (el 'respondio', el destrabe de `requiere` y «Contestó» en el acto) y no
+pasa nada que escriba. **La regla que queda: antes de sumar un `origen` nuevo a `pausarPorRespuesta`, mirá
+si ese canal tiene un `MedioAIStep`. Si no lo tiene, el default silencioso es WhatsApp.**
+
+**3. FALLA CERRADA, a propósito.** El fallo de la pausa NO se traga: sin try/catch, la fila queda en
+'error', el webhook contesta 503 y Resend reintenta (la pausa es idempotente — su `update` pide
+`estado='activa'`— y el disparo todavía no corrió). Tragárselo dejaría la secuencia avanzando sobre
+alguien que contestó, que es el daño entero del pendiente.
+
+**Probado rompiéndolo:** 7 roturas en tests/email-entrante.test.ts, base 9 / 0, las 7 cayeron 8 / 1 (la
+pausa después del disparo, sin la pausa, el fallo tragado con try/catch, el origen de vuelta a
+`no_oficial`, sin el corte de `soloPausa`, el corte adelantado comiéndose «Contestó», y `soloPausa`
+comparado contra un valor que no existe). Una trampa del arnés: los archivos son CRLF y un patrón
+escrito con `\n` no empata con nada — las primeras tres roturas dieron «0 ocurrencias» y se leen como
+«no aplica», no como un falso verde.
+
+**Sin hacer:** no hay AI Step de email, así que un email del lead no se contesta solo (sólo pausa). Si
+alguna vez se quiere que conteste, es un `MedioAIStep` nuevo con su charla, su redactor y su envío —no un
+`origen` más. Y el cuerpo del email no viaja a la pausa: `EmailRecibido` trae asunto y remitente, el cuerpo
+lo baja después `guardarEmailEntrante`.
+
+**Vive en:** lib/email-entrante.ts (`pausarPorEmailRecibido`, paso 4bis) · lib/nutricion.ts
+(`pausarPorRespuesta`, `soloPausa`) · tests/email-entrante.test.ts

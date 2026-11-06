@@ -139,6 +139,36 @@ test('el cableado: la firma, la lectura estricta, la fila ANTES del disparo, y e
   assert.doesNotMatch(lib, /resend_from/, 'rutear por el remitente le daría a un cliente los mails de MaKo');
 });
 
+test('la pausa: un email del lead pausa lo que le estaba escribiendo, ANTES de inscribir y sin contestar', () => {
+  const lib = sinComentarios(leer('lib/email-entrante.ts'));
+  const recibir = lib.slice(lib.indexOf('export async function recibirEmailEntrante('));
+  // UNA puerta, con `origen: 'email'` (es lo que le dice al motor «pausá y no contestes»).
+  assert.match(lib, /export async function pausarPorEmailRecibido\(leadId: number, recibidoAt: string \| null\): Promise<number> \{\n\s+const \{ pausarPorRespuesta \} = await import\('\.\/nutricion'\);\n\s+return pausarPorRespuesta\(leadId, \{ origen: 'email', recibidoAt \}\);\n\}/);
+  // ⚠️ EL ORDEN ES LO QUE SE FIJA: pausar después de inscribir pausaría la automatización que este
+  // mismo email acaba de arrancar («Recibes un email»), y nacería en 'respondio' sin mandar nada.
+  const iPausa = recibir.indexOf('await pausarPorEmailRecibido(');
+  const iEnrol = recibir.indexOf('await enrolarPorEmailRecibido(');
+  assert.ok(iPausa > 0, 'el email del lead no pausa nada: la secuencia le sigue escribiendo a quien contestó');
+  assert.ok(iEnrol > iPausa, 'la pausa va ANTES del disparo');
+  // Y SIN try/catch: falla cerrada. Si no se pudo pausar, no se inscribe y Resend reintenta.
+  assert.doesNotMatch(recibir, /pausarPorEmailRecibido\([^)]*\)[\s\S]{0,40}catch/, 'tragarse el fallo de la pausa deja la secuencia avanzando sobre quien contestó');
+
+  // Del otro lado: `origen: 'email'` corta ANTES de contestar, y el único medio sigue siendo whatsapp/IG/MSN.
+  const nut = sinComentarios(leer('lib/nutricion.ts'));
+  const fn = nut.slice(nut.indexOf('export async function pausarPorRespuesta('));
+  const cuerpo = fn.slice(0, fn.indexOf('\n}\n'));
+  assert.match(cuerpo, /const soloPausa = opts\?\.origen === 'email';/);
+  const iCorte = cuerpo.indexOf('if (soloPausa) {');
+  const iCharla = cuerpo.indexOf('await charlaDelLead(leadId, medio)');
+  const iAsistir = cuerpo.indexOf('await asistirRespuesta(');
+  assert.ok(iCorte > 0 && iCharla > iCorte && iAsistir > iCorte,
+    'sin el corte, un email contesta por WhatsApp al teléfono de quien escribió un mail (el bug de Instagram del 14/10)');
+  assert.match(cuerpo, /if \(soloPausa\) \{\n\s+if \(opts\?\.atencion\) opts\.atencion\.contestada = false;\n\s+return respondidas\.length;\n\s+\}/);
+  // Lo que SÍ corre con un email: anotar 'respondio', el destrabe de `requiere` y «Contestó».
+  assert.ok(cuerpo.indexOf("estado: 'respondio'") < iCorte, 'la pausa misma tiene que quedar del lado que corre');
+  assert.ok(cuerpo.indexOf('await alContestar(leadId, pausadas, secsActivas)') < iCorte, '«Contestó» corta en el acto, también por email');
+});
+
 test('la migración: email_id único, los mismos estados que el código, y cerrada a anon', () => {
   const mig = leer('supabase/migrations/0245_email_entrantes.sql');
   assert.match(mig, /ORDEN DE DESPLIEGUE/);
