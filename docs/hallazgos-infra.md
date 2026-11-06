@@ -204,6 +204,34 @@ chequeado como culpable.
   `--check` que no pudo importar su módulo tendría que salir con un código propio (2), y la guarda decir
   «no pude medir X» en vez de «X quedó viejo». Vive en el área de Infra, que tiene 43 items abiertos.
 
+## Tres puntas rojas por tipos que el test en verde no podía ver (6/11/2026)
+
+**Vive en:** la regla quedó en AGENTS.md → «Para validar lo tuyo sin el tsc completo». Afectó a
+`tests/memoria-guardia.test.ts`, `tests/limpiar-temporales.test.ts` y `tests/runner-salud.test.ts`.
+
+**Síntoma:** tres puntas de la misma tanda en rojo, todas en el paso «Tipos», todas con sus tests **en verde** localmente
+(5/0, 5/0 y 21/0). Diez minutos de ida y vuelta por cada una.
+
+**La causa es una sola: `node --import tsx --test` SACA los tipos, no los chequea.** Un archivo de test puede estar
+perfectamente verde y no compilar. Las tres fallas, todas en archivos de test nuevos:
+
+1. Un **`@ts-expect-error`** sobre el `import` de un `.mjs`. El tsconfig los resuelve con `allowJs`, así que no había error
+   que esperar, y **un directivo sin usar ES un error** (TS2578). Lo puse «por prolijidad», en dos archivos distintos.
+   ⚠️ La señal estaba a la vista y no la leí: **ningún test del repo usa ese directivo**, y `tests/minutos-actions.test.ts`
+   importa un `.mjs` sin nada. Cuando algo que parece necesario no aparece ni una vez en 1.600 archivos, no es necesario.
+2. Un argumento en la **posición equivocada** de un helper con parámetros opcionales: `correr('al-abrir', 'startup')`, donde
+   el segundo es el `env`. Corre perfecto — el helper ignora lo que no entiende — y es un error de tipos.
+3. Un **`.find(...)`** usado sin comprobar que encontró (posible `undefined`) más una propiedad que el tipo que yo mismo
+   había anotado no tenía.
+
+⚠️ **Y lo que lo volvió caro: el chequeo local estaba negado.** La guardia de RAM negó `tsc-acotado` las cuatro veces que lo
+intenté (1,7 a 2,2 GB libres contra los 3 que pide), así que el único que chequeaba tipos era la punta. **Cuando el chequeo
+local no está disponible, el costo de cada error de tipos pasa de segundos a diez minutos** — y conviene saberlo antes de
+pushear, no después.
+
+**La regla que queda, y está en AGENTS.md porque gobierna código nuevo: un archivo de test NUEVO, o uno que importa un
+`.mjs`, se pasa por `node scripts/tsc-acotado.mjs` antes de pushear.** Un test en verde no es un archivo que compila.
+
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
 Triaje de los 73 «Varios» de `docs/encargos-6-11/equipo-otro.json` contra `origin/main` (3e83ac1ce).
