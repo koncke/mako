@@ -580,6 +580,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
   ['POST', '/negocio/archivero/documentos', 'sumar_documento_second_brain'],
   ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
+  ['GET', '/negocio/plantillas-oferta', 'ver_plantillas_oferta'],
   ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
   ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],
   ['POST', '/negocio/avatares/generaciones', 'generar_avatares'],
