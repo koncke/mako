@@ -48,7 +48,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_plantillas_imagen', area: 'imagen', tipo: 'lectura',
     titulo: 'Ver las plantillas del Image Editor',
-    descripcion: 'Las plantillas del Image Editor. En "reales", las de MaKo con su ejemplo lleno (los textos de un negocio ficticio); en "plantillas", las de diseño libre, primero las sugeridas para este negocio. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`: el id o el slug).',
+    descripcion: 'Las plantillas del Image Editor, en "reales": las de MaKo con su ejemplo lleno (los textos de un negocio ficticio). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`: su id).',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
@@ -58,7 +58,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Propone crear un diseño en el Image Editor: en blanco, de un tamaño con nombre o a medida, o a partir de una plantilla (con sus textos de ejemplo; después se cambian con cambiar_textos_diseno_imagen). Devuelve el link para abrirlo. No dibuja ni descarga: eso se hace en el editor.',
     parametros: [
       { nombre: 'titulo', tipo: 'string', max: 200, descripcion: 'El título del diseño. Si se omite, «Diseño sin título».' },
-      { nombre: 'plantilla', tipo: 'string', max: 80, descripcion: 'El id de una plantilla real o el slug de una de diseño libre (listar_plantillas_imagen). Si viene, manda sobre el tamaño.' },
+      { nombre: 'plantilla', tipo: 'string', max: 80, descripcion: 'El id de una plantilla de MaKo (listar_plantillas_imagen, "reales"). Si viene, manda sobre el tamaño.' },
       { nombre: 'tamano', tipo: 'string', enum: Object.keys(TAMANOS_API), descripcion: 'Un tamaño con nombre. Si no viene ni plantilla ni ancho y alto, publicacion_instagram.' },
       { nombre: 'ancho', tipo: 'number', entero: true, minimo: 16, maximo: 8000, descripcion: 'Ancho a medida, en px (con alto).' },
       { nombre: 'alto', tipo: 'number', entero: true, minimo: 16, maximo: 8000, descripcion: 'Alto a medida, en px (con ancho).' },

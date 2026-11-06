@@ -247,7 +247,9 @@ test('(4) la lectura elige el tablero con tableroActual() y lee plan_tareas para
   const src = sinComentarios(leer('lib/vista-general.ts'));
   assert.match(src, /await tableroActual\(\)/);
   assert.match(src, /tablero === 'dueno'\) return tareasDelDuenoParaFoco\(\(await listPlanBoard\(\)\)\.tareas\)/);
-  assert.match(src, /tablero === 'cliente'\) return tareasDelClienteParaFoco\(await listTareas\(\)\)/);
+  // Y SÓLO las del PLAN (6/11/2026, #507): `experimento_tareas` también guarda lo que propuso una
+  // Retro y los pasos de un experimento, y el foco no manda a nadie a una tarea que no es de su plan.
+  assert.match(src, /tablero === 'cliente'\) return tareasDelClienteParaFoco\(await listTareas\(\{ soloDelPlan: true \}\)\)/);
   // Y la página ya no elige tabla por su cuenta.
   assert.doesNotMatch(sinComentarios(leer('app/dashboard/FocusDeGeneral.tsx')), /listTareas|experimento_tareas/);
 });

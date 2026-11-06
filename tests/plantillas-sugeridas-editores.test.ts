@@ -4,9 +4,14 @@
 // Martín, 16/10/2026: «en todos los lugares que usamos templates, que al principio se posicionen los sugeridos para el
 // negocio, que MaKo lo tome de lo analizado de su offer, de su funnel... Y que tenga un texto sutil de "Sugerido"».
 // La regla es la del módulo compartido (lib/plantillas-sugeridas.ts, con su test); acá se fija lo de los editores: que
-// cada plantilla tenga su fila de etiquetas con valores del catálogo, qué se sugiere a quién, que el Image Editor ordene
-// la galería ENTERA antes de filtrar y paginar, y el cableado: la page lee las señales, bajan hasta la galería, y la
-// API de MaKo y el chat «Editar con IA» dan el mismo orden.
+// cada plantilla tenga su fila de etiquetas con valores del catálogo, qué se sugiere a quién, y el cableado: la page lee
+// las señales, bajan hasta la galería, y la API de MaKo y el chat «Editar con IA» dan el mismo orden.
+//
+// ⚠️ **Lo que se sugiere es sólo de Video desde el 6/11/2026.** El panel del Image Editor se quedó sin plantillas: las
+// 10 de Doory se borraron (eran material ajeno) y las de MaKo se eligen en «Nuevo diseño», no en el panel. Se fueron
+// con ellas la tabla `plantillas-etiquetas.ts` y los cuatro tests de qué se le sugiere a quién en Imagen, que no tienen
+// sujeto. Queda el CABLEADO de Imagen (abajo), porque es lo primero que hará falta cuando el panel sirva las plantillas
+// propias del negocio; que no vuelva ninguna de Doory lo guarda el test 3 de tests/api-mako-imagen.test.ts.
 //
 // PROBADO ROMPIÉNDOLO: ver el final.
 //
@@ -22,8 +27,7 @@ import { ENTRADAS } from '../lib/pipeline';
 import { PLANTILLAS, plantillasEnOrden, plantillasParaApi } from '../lib/editor-video/plantillas';
 import { ETIQUETAS_VIDEO } from '../lib/editor-video/plantillas-etiquetas';
 import { catalogoParaPrompt } from '../lib/editor-video/chat-catalogo';
-import { catalogoPlantillas, servicioPlantillas } from '../app/image-editor/mako/plantillas';
-import { ETIQUETAS_IMAGEN } from '../app/image-editor/mako/plantillas-etiquetas';
+import { servicioPlantillas } from '../app/image-editor/mako/plantillas';
 
 const RAIZ = join(__dirname, '..');
 // Líneas `//` primero y bloques después (docs/hallazgos-ia.md, 16/10/2026).
@@ -41,39 +45,34 @@ const sugeridasVideo = (s: SenalesNegocio | null) => plantillasEnOrden(s).filter
 const listaImagen = async (s: SenalesNegocio | null, q: Parameters<ReturnType<typeof servicioPlantillas>['list']>[0] = {}) =>
   (await servicioPlantillas(s).list(q)).results;
 const sugeridasImagen = async (s: SenalesNegocio | null) => (await listaImagen(s)).filter((t) => t.suggested_reason).map((t) => t.slug);
-const SLUGS_IMAGEN = catalogoPlantillas().map((p) => p.slug);
 
 // ── Las etiquetas: una fila por plantilla, con valores del catálogo ──────────────────────────
+// Sólo Video: la tabla de Imagen (`plantillas-etiquetas.ts`) se borró con las 10 plantillas de Doory, que eran sus
+// únicas diez filas (6/11/2026).
 
-test('cada plantilla de las dos galerías tiene su fila de etiquetas, y no sobra ninguna', () => {
+test('cada plantilla de la galería de Video tiene su fila de etiquetas, y no sobra ninguna', () => {
   assert.deepEqual(Object.keys(ETIQUETAS_VIDEO).sort(), PLANTILLAS.map((p) => p.id).sort());
-  assert.deepEqual(Object.keys(ETIQUETAS_IMAGEN).sort(), [...SLUGS_IMAGEN].sort());
 });
 
 test('las etiquetas usan valores del catálogo', () => {
   const canales = CANALES.map((c) => c.id) as string[];
   const entradas = Object.keys(ENTRADAS);
   const cuellos = FASES.map((f) => f.cuello) as string[];
-  for (const [galeria, tabla] of [['Video', ETIQUETAS_VIDEO], ['Imagen', ETIQUETAS_IMAGEN]] as const) {
-    for (const [id, e] of Object.entries(tabla)) {
-      for (const v of e.canal ?? []) assert.ok(canales.includes(v), `${galeria}/${id}: el canal «${v}» no existe`);
-      for (const v of e.entrada ?? []) assert.ok(entradas.includes(v), `${galeria}/${id}: la entrada «${v}» no existe`);
-      for (const v of e.cuello ?? []) assert.ok(cuellos.includes(v), `${galeria}/${id}: el cuello «${v}» no existe`);
-      for (const v of e.cobro ?? []) assert.ok(v === 'unico' || v === 'suscripcion', `${galeria}/${id}: el cobro «${v}» no existe`);
-    }
+  for (const [id, e] of Object.entries(ETIQUETAS_VIDEO)) {
+    for (const v of e.canal ?? []) assert.ok(canales.includes(v), `Video/${id}: el canal «${v}» no existe`);
+    for (const v of e.entrada ?? []) assert.ok(entradas.includes(v), `Video/${id}: la entrada «${v}» no existe`);
+    for (const v of e.cuello ?? []) assert.ok(cuellos.includes(v), `Video/${id}: el cuello «${v}» no existe`);
+    for (const v of e.cobro ?? []) assert.ok(v === 'unico' || v === 'suscripcion', `Video/${id}: el cobro «${v}» no existe`);
   }
 });
 
 // ── Sin señales, nada cambia ─────────────────────────────────────────────────────────────────
 
-test('sin señales: las dos galerías, la API y el chat en el orden de siempre y sin «Sugerido»', async () => {
+test('sin señales: la galería de Video, la API y el chat en el orden de siempre y sin «Sugerido»', async () => {
   for (const s of [null, NADA]) {
     assert.deepEqual(plantillasEnOrden(s).map((x) => x.plantilla.id), PLANTILLAS.map((p) => p.id));
     assert.deepEqual(sugeridasVideo(s), []);
-    assert.deepEqual((await listaImagen(s)).map((t) => t.slug), SLUGS_IMAGEN);
-    assert.deepEqual(await sugeridasImagen(s), []);
     assert.ok(plantillasParaApi(s).plantillas.every((p) => !('sugerida' in p)));
-    assert.ok(catalogoPlantillas(s).every((p) => !('sugerida' in p)));
     assert.doesNotMatch(catalogoParaPrompt(s), /SUGERIDA/);
   }
 });
@@ -109,32 +108,16 @@ test('video · las variantes no se sugieren nunca, y nunca más de tres', () => 
 
 // ── Qué se sugiere a quién: Image Editor ─────────────────────────────────────────────────────
 
-test('imagen · cierra en persona: la historia de evento, el volante y la tarjeta, con su porqué', async () => {
-  const lista = await listaImagen(EN_PERSONA);
-  assert.deepEqual(lista.filter((t) => t.suggested_reason).map((t) => t.slug), ['rooftop-event-story', 'grand-opening-flyer', 'clean-business-card']);
-  assert.deepEqual(lista.slice(0, 3).map((t) => t.suggested_reason), ['Cierras en persona', 'Cierras en persona', 'Cierras en persona']);
-});
-
-test('imagen · cobra en un checkout: el anuncio de oferta', async () => {
-  assert.deepEqual(await sugeridasImagen(CHECKOUT), ['bold-sale-announcement']);
-});
-
-test('imagen · quien vende por llamada no ve ninguna «Sugerido»: ninguna de las 10 lleva un eje genérico', async () => {
-  const s: SenalesNegocio = { ...NADA, canales: ['llamadas'], cobros: ['suscripcion'], cuello: 'conversion' };
-  assert.deepEqual(await sugeridasImagen(s), []);
-  assert.deepEqual((await listaImagen(s)).map((t) => t.slug), SLUGS_IMAGEN);
-});
-
-test('imagen · se ordena la galería ENTERA y después se filtra y se pagina', async () => {
-  // Cuatro coinciden (oferta, evento, volante y tarjeta) y van tres: la tarjeta, la última, queda afuera.
-  const s: SenalesNegocio = { ...NADA, canales: ['presencial', 'carrito'] };
-  assert.deepEqual(await sugeridasImagen(s), ['bold-sale-announcement', 'rooftop-event-story', 'grand-opening-flyer']);
-  const negocios = await listaImagen(s, { category: 'negocios' });
-  assert.deepEqual(negocios.map((t) => t.slug), ['clean-business-card']);
-  assert.equal(negocios[0].suggested_reason, undefined, 'filtrar no la vuelve «Sugerido»: no está entre las tres');
-  const pagina1 = await servicioPlantillas(s).list({ page: 1, page_size: 2 });
-  assert.deepEqual(pagina1.results.map((t) => t.slug), ['bold-sale-announcement', 'rooftop-event-story'], 'la primera página empieza por las sugeridas');
-  assert.equal(pagina1.count, SLUGS_IMAGEN.length);
+// El panel «Diseño» del Image Editor se quedó SIN plantillas el 6/11/2026: las 10 de Doory se borraron (eran material
+// ajeno; el guard de que no vuelvan está en tests/api-mako-imagen.test.ts, test 3). Con eso se fueron los cuatro tests
+// de qué se le sugiere a quién en Imagen: no tienen sujeto. Lo que se prueba acá es que, sin plantillas, el panel no
+// miente con un «Sugerido» ni se cae — y el CABLEADO que baja las señales hasta el servicio se queda entero (el test de
+// más abajo lo fija), porque es lo primero que hará falta cuando el panel sirva las plantillas propias del negocio.
+test('imagen · sin plantillas, el panel no sugiere nada, con señales o sin ellas', async () => {
+  for (const s of [null, NADA, CHECKOUT, EN_PERSONA, TODO]) {
+    assert.deepEqual(await listaImagen(s), [], 'el panel volvió a servir plantillas: revisá el test 3 de api-mako-imagen');
+    assert.deepEqual(await sugeridasImagen(s), []);
+  }
 });
 
 // ── El cableado ──────────────────────────────────────────────────────────────────────────────
@@ -168,11 +151,8 @@ test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
   const v = plantillasParaApi(CHECKOUT).plantillas;
   assert.equal(v[0].id, 'oferta');
   assert.equal((v[0] as { sugerida?: string }).sugerida, 'Vendes con checkout');
-  const i = catalogoPlantillas(EN_PERSONA);
-  assert.equal(i[0].slug, 'rooftop-event-story');
-  assert.equal(i[0].sugerida, 'Cierras en persona');
   assert.match(leer('lib', 'api-mako', 'areas', 'video.run.ts'), /plantillasParaApi\(await senalesDelNegocio\(\)\.catch\(\(\) => null\)\)/);
-  assert.match(leer('lib', 'api-mako', 'areas', 'imagen.run.ts'), /catalogoPlantillas\(await senalesDelNegocio\(\)\.catch\(\(\) => null\)\)/);
+  // Imagen ya no: su área no tiene plantillas que ordenar (las 10 de Doory se borraron el 6/11/2026).
 });
 
 test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sugerida marcada', () => {
@@ -193,12 +173,11 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 //   · una plantilla de video sin su fila                                              -> 13/2
 //   · una etiqueta con un canal que no existe                                         -> 14/1
 //   · el orden del video sin la tabla de etiquetas                                    -> 9/6
-//   · el servicio de imagen ordena lo ya filtrado                                     -> 14/1
-//   · el servicio de imagen ordena sin las señales                                    -> 12/3
 //   · la page de imagen no las lee / el cliente, la pantalla, el adaptador o el
 //     catálogo no las pasan / el panel no dibuja «Sugerido»                           -> 14/1 cada una
-//   · la tarjeta de presentación con un cuello genérico                               -> 14/1
 //   · la API del video no lee las señales / no marca / en el orden de siempre         -> 14/1 cada una
-//   · la API de imagen ordena sin las señales                                         -> 14/1
 //   · el chat no rearma usar_plantilla / ia.ts no le pasa las señales / el renglón no
 //     marca la sugerida / no dice que elija una sugerida                              -> 14/1 cada una
+// Las roturas que medían el ORDEN de la galería de imagen (ordenar lo ya filtrado, ordenar sin las señales, la API de
+// imagen sin las señales, la tarjeta de presentación con un cuello genérico) se fueron el 6/11/2026 con las plantillas
+// que ordenaban. La base ya no es 15: la de ahora se mide al correrlo.

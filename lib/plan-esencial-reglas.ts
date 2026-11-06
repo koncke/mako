@@ -64,6 +64,15 @@ export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
 // Adónde lleva «Pasar a Pro»: la ruta de UN lugar, `RUTA_CAMBIAR_PLAN` (lib/topes-plan.ts), no una propia.
 
 /**
+ * LO QUE VE EL CLIENTE DE UNA AGENCIA DONDE IRÍA «Pasar a Pro» (6/11/2026, #494; Thiago el 29/10: «yo no me meto con ese
+ * cliente»). Su plan lo paga y lo cambia su agencia: el link le vendía un SEGUNDO plan del mismo negocio. Va sin link, a
+ * propósito — no hay nada que toque él—, y el texto del tope de al lado no cambia: llegar al tope es verdad para él igual.
+ * Lo pone `CtaPasarAPro` (app/_components/CtaPasarAPro.tsx), el único lugar que decide esto en los carteles.
+ * El mismo tono que «Tu plan» ya usa para él (app/configuraciones/plan/PlanPanel.tsx: «Lo maneja tu agencia»).
+ */
+export const TEXTO_PEDIR_PRO_A_LA_AGENCIA = 'Pídele a tu agencia que te pase a Pro.';
+
+/**
  * Lo que tiene que leer QUIEN DA DE ALTA A MANO (24/10/2026, el Cerebro: «dejalo donde lo lea quien da de alta a mano»). El
  * candado de las tabs de Pro (arriba) y los topes del plan (lib/topes-plan.ts) se hacen cumplir SÓLO a quien MaKo le cobra
  * por la pasarela. Sin pasarela, las primeras ventas del lanzamiento son por llamada y se dan de alta a mano: ese negocio

@@ -48,7 +48,7 @@ import { linkApp } from './app-url';
 import { KEY_QUIEN_PAGA, quienPagaDe } from './agency-reglas';
 import { precioDelPlanEn, rehacerPrimerMes } from './agencia-cobro';
 import { adminsDeCuenta } from './agencia-baja';
-import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, esSuscripcionViva, leerCambioDePlan, planDeCapa, subeEnElActo, subidaCobrada, type PlanCuenta } from './agencia-cobro-reglas';
+import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, clienteDeAgenciaTocable, esSuscripcionViva, leerCambioDePlan, planDeCapa, subeEnElActo, subidaCobrada, type PlanCuenta } from './agencia-cobro-reglas';
 import { rigeElPlanDeAgencia } from './plan-esencial-reglas';
 
 type Fila = {
@@ -71,6 +71,11 @@ async function guardarCambio(ws: number, plan: PlanCuenta, pendiente: boolean): 
 
 export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: number; plan: PlanCuenta; autor: string }): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
   const db = getSupabaseServer();
+  // ⚠️ LA PLATAFORMA NO ES CLIENTE DE NADIE, y acá no había NINGUNA validación (6/11/2026, #495): ni que los ids fueran
+  // enteros positivos, ni que la agencia no fuera el cliente. Lo que viene después le cambia la capa al workspace y le
+  // toca la suscripción. Ver `clienteDeAgenciaTocable`.
+  const tocable = clienteDeAgenciaTocable({ agenciaWs: p.agenciaWs, clienteWs: p.clienteWs, plataformaWs: await wsSuperAdmin() });
+  if (!tocable.ok) return { ok: false, error: tocable.error };
   const { data: fila } = await db.from('agencia_clientes').select('estado').eq('agencia_ws', p.agenciaWs).eq('cliente_ws', p.clienteWs).maybeSingle();
   if (!fila) return { ok: false, error: 'Esa cuenta no es de tu agencia.' };
   if ((fila as { estado: string }).estado === 'revocado') return { ok: false, error: 'Esa cuenta está dada de baja.' };

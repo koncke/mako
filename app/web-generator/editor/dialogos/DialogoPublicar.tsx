@@ -67,6 +67,7 @@ import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing
 import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
 import Link from '@/app/_ui/Link';
+import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
 import { esTopeDePrueba, RUTA_CAMBIAR_PLAN, RUTA_EMPEZAR_PLAN } from '@/lib/topes-plan';
 
 /** El tope del plan al publicar o conectar un dominio (lib/editor-landing/tope-landings.ts): el cartel lleva «Pasar a Pro». */
@@ -74,7 +75,8 @@ function PasarAPro({ error }: { error: string }) {
   // En la PRUEBA GRATIS (25/10/2026): «Disponible al terminar tu prueba», con el botón para empezar el plan ya.
   if (esTopeDePrueba(error)) return <> <Link href={RUTA_EMPEZAR_PLAN} style={{ fontWeight: 600 }}>Empezar mi plan ya</Link></>;
   if (!error.startsWith('Llegaste al tope de tu plan')) return null;
-  return <> <Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 600 }}>Pasar a Pro</Link></>;
+  // El cliente de una AGENCIA no sube de plan para publicar una landing más (6/11/2026, #494): se lo pide a su agencia.
+  return <> <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 600 }}>Pasar a Pro</Link></CtaPasarAPro></>;
 }
 import {
   Campo, CampoImagen, EstilosGmp, FilaAjuste, Giro, Icono, Interruptor, MenuGma, ModalGma, Pestanas, Segmentado,

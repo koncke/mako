@@ -18,15 +18,25 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { USER_NAV } from '../app/_components/nav';
 import { puedeVerItem } from '../lib/nav-visibilidad';
+import { TEXTO_PEDIR_PRO_A_LA_AGENCIA } from '../lib/plan-esencial-reglas';
 import { ventaValida } from '../lib/vender-plan-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
-  .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
+  .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+function tsx(dir: string): string[] {
+  return readdirSync(join(RAIZ, dir)).flatMap((n) => {
+    const rel = `${dir}/${n}`;
+    if (statSync(join(RAIZ, rel)).isDirectory()) return tsx(rel);
+    return rel.endsWith('.tsx') ? [rel] : [];
+  });
+}
 
 test('la barra: MaKo Partners no se le ve al cliente de una agencia, y al resto sí', () => {
   const partners = USER_NAV.find((x) => x.key === 'partners');
@@ -61,6 +71,51 @@ test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomiend
     'el grupo «Recomienda MaKo» va adentro de !clienteDeAgencia');
   assert.match(panel, /clienteDeAgencia \? 'Lo maneja tu agencia' : gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(panel, /!suscripcion && clienteDeAgencia && \([\s\S]*?pídeselo a ella/);
+});
+
+// =============================================================================
+// LOS CARTELES DE TOPE (6/11/2026, #494) — el otro camino, y por qué es otro
+// =============================================================================
+// La barra se arregló con `noParaClienteDeAgencia`, que decide ÍTEMS por su key. Un cartel de tope no es un ítem: es el pie
+// de ocho pantallas, y cada una ofrecía «Pasar a Pro» con un link a /configuraciones/plan. El cliente de la agencia hacía
+// clic y le pagaba a MaKo un SEGUNDO plan del que su agencia ya paga. Ahora el link va envuelto en `CtaPasarAPro`.
+test('los carteles de tope: el «Pasar a Pro» va envuelto en CtaPasarAPro, y sin él no hay link', () => {
+  const cta = fuente('app/_components/CtaPasarAPro.tsx');
+  assert.match(cta, /const deAgencia = useClienteDeAgencia\(\);\n\s*if \(!deAgencia\) return <>\{children\}<\/>;/,
+    'el `null` del primer dibujo va por el link: el «no sé» de la BASE ya llega como `true` desde /api/auth/me');
+  assert.match(cta, /\{TEXTO_PEDIR_PRO_A_LA_AGENCIA\}<\/span>/);
+  assert.doesNotMatch(cta.slice(cta.indexOf('if (!deAgencia)')), /<a |<Link /, 'al cliente de una agencia, SIN link: no hay nada que toque él');
+  assert.match(TEXTO_PEDIR_PRO_A_LA_AGENCIA, /^Pídele a tu agencia/, 'de TÚ, y dice a quién pedírselo');
+  // Una sola lectura de /api/auth/me para los ocho carteles (el hook la memoiza a nivel de módulo).
+  assert.match(fuente('app/_components/useClienteDeAgencia.ts'), /promesa \?\?= fetch\('\/api\/auth\/me'\)/);
+
+  // ⚠️ LA LISTA ESTÁ CERRADA: un cartel nuevo con «Pasar a Pro» sin envolver rompe este test, y ahí se decide de qué lado cae.
+  //    No lo envuelven, con motivo: la pantalla del candado y la barra ya lo resuelven con `deAgencia`, y los dos de /agency
+  //    son de la AGENCIA (su botón para cambiarle el plan a su cliente, y su landing, donde el cliente no entra: su guard).
+  const SIN_ENVOLVER: Record<string, string> = {
+    'app/no-esta-en-tu-plan/page.tsx': 'el cartel del candado ya decide con `deAgencia` (test de arriba)',
+    'app/_components/Sidebar.tsx': 'la barra dice «De MaKo Pro» al cliente de una agencia (`esPro` devuelve «agencia»)',
+    'app/agency/LandingAgency.tsx': 'es la landing de /agency: el cliente de una agencia no entra (app/agency/page.tsx)',
+  };
+  // ⚠️ `\s*` A LOS DOS LADOS, y no es cosmético: en app/crm/PasarAPro.tsx el rótulo está en su propio renglón, así que un
+  //    `>Pasar a Pro<` pelado no lo veía — el barrido daba verde sobre el cartel del CRM, que es el que alimenta a cuatro pantallas.
+  const CTA = />\s*(?:Pasar a Pro|\{ROTULO_PASAR_A_PRO\}|Pásate a MaKo Pro)\s*</g;
+  const sinPuerta: string[] = [];
+  for (const rel of tsx('app')) {
+    const src = fuente(rel);
+    const cuantos = (src.match(CTA) ?? []).length;
+    if (!cuantos || rel in SIN_ENVOLVER) continue;
+    if ((src.match(/<CtaPasarAPro>/g) ?? []).length < cuantos) sinPuerta.push(rel);
+  }
+  assert.deepEqual(sinPuerta, [], 'cada «Pasar a Pro» de un cartel va envuelto en <CtaPasarAPro>, o entra en SIN_ENVOLVER con su motivo');
+  // Y los que ya están: si uno pierde el envoltorio, no alcanza con que el barrido quede vacío.
+  for (const rel of [
+    'app/crm/PasarAPro.tsx', 'app/crm/TraerDeGrupoWA.tsx', 'app/whatsapp/EvolutionConnect.tsx', 'app/equipo/EquipoView.tsx',
+    'app/web-generator/editor/dialogos/DialogoPublicar.tsx', 'app/integraciones/CuentasDePago.tsx',
+    'app/ads-manager/Automatizaciones.tsx', 'app/ads-manager/Ajustes.tsx',
+  ]) assert.match(fuente(rel), /<CtaPasarAPro>/, rel);
+  // El teléfono no vende (T5): ni el link ni este texto. Su cartel de tope dice sólo que llegó.
+  assert.doesNotMatch(fuente('app/m/configuraciones/equipo/EquipoM.tsx'), /Pasar a Pro|CtaPasarAPro/);
 });
 
 test('/partners y /m/partners: el cliente de una agencia vuelve al inicio', () => {

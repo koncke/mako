@@ -1615,6 +1615,45 @@ inofensiva.
 
 ## Topes
 
+### ⚠️ El `maxTokens` que se le pide a `leerDocumentoIA` NO llegaba a Gemini, que es el camino de VISIÓN (6/11/2026)
+
+`leerConGemini` armaba el pedido al endpoint nativo con `generationConfig: { temperature: 0, response_mime_type }` y **nunca
+`maxOutputTokens`**: el tope que pidiera quien llama se perdía en silencio y valía el default del modelo. Y ése es el camino
+PRINCIPAL de todo lo que mira una imagen o un PDF: «Editar» un carrusel pide 8.000 tokens de salida para que el JSON de hasta
+12 láminas entre (`TOKENS_DE_SALIDA`, lib/carruseles/replica-servidor.ts) y el pedido salía sin pedir nada. El día que algo
+pida más de lo que el modelo da por defecto, la respuesta vuelve cortada —y una respuesta cortada no se distingue de «la IA no
+contestó»: `leerReplica` da «no pude leerlo» y el cliente ve la guía.
+
+Lo mismo al revés vale para la capa barata, donde el default sí existe y es chico: `chatCheap` manda
+`(opts.maxTokens ?? 512)`, así que **el que no pide tope pide 512**. Por eso el camino de respaldo de «Editar» cortaba un
+carrusel entero (docs/hallazgos-carruseles.md, «el camino de respaldo era más débil que el principal»).
+
+**La regla:** un tope de salida que el llamador pide tiene que VIAJAR en el pedido, y se comprueba leyendo el cuerpo que sale,
+no el argumento que entra (`tests/carruseles-editar.test.ts` lo hace con la red de mentira: la cascada corre de verdad y el
+test mira el JSON que le llega al proveedor). Sin `maxTokens` se sigue mandando sin nada, como antes.
+
+**Por qué esto se puede tocar sin miedo, medido:** de los 16 llamadores de `leerDocumentoIA` (El Archivero, contratos, recibos,
+fiscales, el manual de marca, avatares, anuncios…) **el único que pasa `maxTokens` es «Editar» un carrusel**. Para todos los
+demás el pedido sale igual que antes, porque no piden tope. O sea que el campo estuvo muerto todo este tiempo: el primer
+llamador que lo usó fue el primero en descubrir que no servía.
+
+**Vive en:** lib/ai-cheap.ts (`leerConGemini`, `chatCheap` → `paramsDeSalida`) · 6/11/2026
+
+### ⚠️ Un modelo de Gemini que se cuelga se come el plazo ENTERO, y el plazo es por llamada, no por pedido (6/11/2026)
+
+Medido con la red instrumentada en «Editar» un carrusel, dos veces el mismo día: `gemini-flash-latest` no contesta y aborta a
+los **120,0 s** (el `timeoutMs` que pasó quien llamó), y recién entonces `gemini-flash-lite-latest` contesta en **8,4 s**. En
+otra corrida el principal devolvió 503 en 8,1 s y el respaldo contestó en 8,7 s: el mismo pedido salió en 33 s o en 277 s según
+si el primer modelo se colgaba o rebotaba rápido. La cascada funciona —siempre contestó alguien—, pero **el presupuesto de
+tiempo no existe como concepto: cada escalón arranca con su propio plazo completo**, y el total puede pasar el `maxDuration` de
+la ruta que lo llamó (300 s en `app/api/image-editor/carruseles/replicar/route.ts`). Cuando eso pasa, el stream se corta sin
+mandar el final y la pantalla espera para siempre: no hay error, hay silencio.
+
+Un comentario que dice «tarda de 20 a 90 s» al lado de un `maxDuration = 300` es lo que hace que nadie vea el riesgo. Las
+mediciones de una ruta que llama a una cascada van con el PEOR caso medido, no con el típico.
+
+**Vive en:** lib/ai-cheap.ts (el plazo por intento) · app/api/image-editor/carruseles/replicar/route.ts (`maxDuration`) · 6/11/2026
+
 ### ⚠️ `effort: 'low'` NO apaga el razonamiento de Claude: el único knob es `thinking: false`
 
 Se elige `effort:'low'` creyendo que así la llamada sale rápida y barata, y el modelo sigue
@@ -7517,3 +7556,53 @@ que falte el autor en la memoria.
   el guard.
  / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
   es tocar el veto: es de Martín.
+
+---
+
+## El catálogo prometía «nunca con Gemini» y la VISIÓN no lo miraba (6/11/2026, `punta/marca-sin-gemini`)
+
+**Vive en:** `lib/ai-cheap.ts` (`DocOpts.sinGemini`, `leerDocumentoIA`) · `lib/archivo-a-texto.ts` (`OpcionesLectura.sinGemini`) ·
+`lib/marca/leer-manual.ts` · `lib/model-catalogo.ts` (`marca-leer`, `deSuIA: true`)
+
+**El síntoma: una promesa escrita que el código no cumplía.** `model-catalogo.ts` declara la feature `marca-leer` con
+`deSuIA: true`, `fallback: []` y la nota, textual, «Corre con la IA del negocio (su Claude o su GPT), **nunca con Gemini**»
+—la decisión de Martín del 22/10 para Image—. El camino de TEXTO lo cumplía: `chatClaude` lee el catálogo y pasa `sinGemini`,
+que filtra `gemini` de la cascada. El camino de **VISIÓN** no: `leerDocumentoIA` recorre `VISION_CASCADE`
+(`['gemini', 'openai']`) y **no tenía la opción**, así que leer la IMAGEN de un brand board seguía usando el Gemini del
+negocio cuando era lo único que tenía. Era la última excepción de Image, declarada como inconsistencia D6b y nunca cerrada.
+
+**La causa de fondo, que es la parte reutilizable:** `sinGemini` se implementó donde se necesitaba —la cascada de texto— y
+no como una propiedad de «pedirle algo a una IA». Quedó una función (`chatCheapCascade`) que la respeta y otra
+(`leerDocumentoIA`) que no, con el mismo catálogo detrás. **Una decisión sobre QUÉ IA puede correr una feature tiene que
+valer en TODOS los caminos que llaman a una IA, o la promesa del catálogo es decorativa.** Y lo que se lee es el catálogo:
+la nota del `marca-leer` es lo que un chat futuro va a citar como verdad.
+
+⚠️ **Y la puerta tenía un segundo lado, que es el que no se ve.** Un manual de marca **escaneado** no entra por el camino de
+visión directo: entra por `archivoATexto`, que llama a `leerDocumentoIA` dos veces (PDF e imagen) por su cuenta. Arreglar
+sólo el primero dejaba la misma fuga para el PDF escaneado, que es el caso más probable de un manual de marca de verdad.
+`sinGemini` va enhebrado por los dos. Es «enumerá los caminos que no pasan por ahí» de AGENTS.md: un `grep` de
+`leerDocumentoIA` los lista en un segundo, y sin ese grep el arreglo queda a medias y se lee como completo.
+
+Y la red gratis de la plataforma (que es Gemini) se filtra con la misma lista: una feature «de su IA» que cae en la cuenta
+gratis de MaKo es exactamente lo contrario de su IA.
+
+⚠️ **Y DOS GUARDAS LEEN ESTE FUENTE PALABRA POR PALABRA: el orden de las propiedades de la llamada es parte del
+contrato.** Las dos dieron rojo en Actions con el arreglo puesto, y ninguna es un test del comportamiento:
+
+- `tests/onboarding-red-plataforma.test.ts` exige, con un `assert.match` sobre el fuente, que la red de plataforma filtre
+  con el texto literal **`VISION_CASCADE.includes(x.provider)`** («la red sólo prueba los que MIRAN: trae gemini y groq, y
+  groq no tiene visión»). Reemplazarlo por la lista ya filtrada —que es lo natural— lo rompe. La salida es **sumar** la
+  condición al lado (`&& (!opts.sinGemini || x.provider !== 'gemini')`) en vez de reemplazar el término: son dos preguntas
+  distintas y el guard pregunta por la primera.
+- `tests/adjuntos-chats-de-texto.test.ts` cuenta **exactamente dos** apariciones de
+  `redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs })` en `lib/archivo-a-texto.ts` («el plazo no llega a la
+  visión»). Agregar la propiedad nueva DESPUÉS de `timeoutMs` deja la cuenta en cero. Va **antes**.
+
+**La regla:** cuando un guard afirma algo leyendo el fuente, su assert es una API tan real como la firma de la función — y
+no aparece en ningún `import`, así que `tsc` no la ve y el editor no la autocompleta. Antes de reordenar o reescribir una
+llamada en un archivo caliente (`ai-cheap.ts`, `archivo-a-texto.ts`), un `grep` del nombre del archivo en `tests/` dice
+quién lo está mirando. Son dos segundos, y el rojo cuesta un run de Actions de diez minutos.
+
+**Lo que cambia para un negocio que sólo tiene Gemini:** su manual de marca ya no se lee, y se le dice
+(`errorDeCascada` / «conecta tu IA»). No es una regresión encubierta: es lo que `fallback: []` del catálogo ya decidía, y
+antes el código lo desobedecía en silencio.
