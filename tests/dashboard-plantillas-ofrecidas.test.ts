@@ -36,14 +36,18 @@ test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna o
   // Anuncio ganador se ofrece desde el 5/11: trae su diseño (la copia de Prism). Hooks y retención también (la copia de Ondra).
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'ads-analyst'), 'Anuncio ganador (la copia de Prism) se ofrece');
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'hooks-retencion'), 'Hooks y retención (la copia de Ondra) se ofrece');
-  // «VSL y YouTube» todavía no está copiada: no se ofrece.
-  for (const viejo of ['vsl-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
+  // VSL y YouTube se ofrece desde el 6/11: trae su diseño (la copia de Pelago).
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'vsl-analyst'), 'VSL y YouTube (la copia de Pelago) se ofrece');
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.every((p) => !!instanciarPlantilla(p).diseno));
 });
 
 test('una plantilla vieja sigue existiendo para quien la tiene, pero no se crea desde la API', () => {
-  assert.ok(plantillaHojaDe('vsl-analyst'), 'el código de la vieja sigue (las hojas que ya existen y los «Ver …» de antes)');
-  assert.equal(plantillaOfrecidaDe('vsl-analyst'), undefined);
+  // Desde el 6/11/2026 casi todas traen su diseño, así que la regla se mira sobre TODAS (con un id fijo, el test se quedaba sin ejemplo
+  // cada vez que se copiaba la que nombraba): el código de cada una sigue, y desde la API se crea sólo la que se ofrece.
+  for (const p of PLANTILLAS_HOJA) {
+    assert.ok(plantillaHojaDe(p.id), `${p.id}: el código sigue (las hojas que ya existen y los «Ver …» de antes)`);
+    assert.equal(plantillaOfrecidaDe(p.id)?.id, esPlantillaOfrecida(p) ? plantillaHojaDe(p.id)?.id : undefined, `${p.id}: se crea desde la API sólo si se ofrece`);
+  }
   assert.equal(plantillaOfrecidaDe('closing')?.id, 'closing');
 });
 
