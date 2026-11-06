@@ -6,6 +6,58 @@ grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/age
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
 
+## La copia de Polar: lo que sólo se vio en las capturas (6/11/2026)
+
+Admin es la copia del dashboard de Polar (docs/investigacion-admin.md). Todo compilaba, los tests pasaban y cada dato estaba
+bien; lo que sigue se vio recién al poner cada pantalla al lado de su captura de Polar (docs/admin/referencia-polar/), a 1440 y
+a 390, en oscuro y en claro. Las capturas de cómo quedó, en docs/admin/polar/. Lo fija tests/admin-polar-pantalla.test.ts.
+
+- **El documento entero scrolleaba.** Síntoma: la lista de negocios y la ficha se iban juntas con la rueda, y la barra de Polar
+  se perdía arriba. Causa: el contenedor de Admin (`DashboardLayout`) tenía `flex-1` y un `height: 100dvh`; en una columna
+  flex, `flex: 1 1 0%` decide el alto y el `height` no cuenta, así que medía lo que su contenido. Es la misma trampa que
+  `Pagina` (AGENTS.md: su `flex: 1` anula el `height` de una pantalla de alto completo). Va `md:flex-none` con el alto de la
+  ventana menos la barra de inspección, y `overflow-hidden`: adentro scrollea cada panel.
+  **Vive en:** app/admin/_polar/web/Layout/DashboardLayout.tsx
+- **Una regla de CSS sin capa le gana a todas las clases de Tailwind.** Síntoma: cada renglón de la barra de Admin tenía un
+  filete gris que Polar no tiene. Causa: `.pl * { border-color: … }` estaba fuera de una capa; las utilidades de Tailwind viven
+  en `@layer utilities`, y lo que no tiene capa gana siempre, así que `border-transparent` no se aplicaba. Polar la tiene en
+  `@layer base`. ⚠️ Una capa con OTRO nombre tampoco sirve: la que no está en el `@layer theme, base, components, utilities`
+  de Tailwind va después de `utilities` y también le gana (el test lo cubre: la primera versión sólo pedía «alguna capa» y daba
+  verde con el nombre cambiado).
+  **Vive en:** app/admin/_polar/polar.css
+- **El `SelectTrigger` de Orbit recorta a un renglón todo `<span>` hijo directo** (`[&>span]:line-clamp-1`). Síntoma: el
+  selector de fechas de Orders y Subscriptions salía vacío, con el ícono solo. Causa: ícono y rótulo iban juntos en un
+  `<span className="flex">`; el `line-clamp` (más específico) le ganaba al `flex`, el ícono quedaba en el primer renglón y el
+  rótulo en el segundo, recortado. Ícono y rótulo van sueltos en el botón. No da error y en el código se lee bien.
+  **Vive en:** app/admin/_polar/web/Orders/DateRangeSelect.tsx
+- **TanStack le da 150 px a cada columna sin `size`, y la tabla de Orbit es `table-fixed`.** Members medía 1.000 px en una
+  columna de 744 y el «⋯» de cada persona quedaba del otro lado de un scroll de costado. Los anchos van en `ANCHOS_MIEMBROS`,
+  que el test suma.
+  **Vive en:** app/admin/_polar/web/Customer/CustomerPage/MembersSection.tsx
+- **Una grilla de `1fr` no deja achicar lo que tiene un mínimo.** Customers › Overview cortaba Cost Drivers a la derecha: un
+  `1fr` es `minmax(auto, 1fr)` y el ancho mínimo de una tabla empuja. Va `minmax(0, 1fr)`.
+  **Vive en:** app/admin/_polar/web/Customer/CustomersOverview.tsx
+- **Un formato de fecha distinto para un caso es otro ancho de celda.** El día de un pago (que no tiene hora) iba con el año
+  («04 de nov de 2026») al lado de «06-nov, 14:20:00», y la celda lo cortaba. Va «04-nov», y el año está en el detalle.
+  **Vive en:** app/admin/_polar/web/Events/EventLogRow.tsx
+- **Sacar un filtro de un renglón de Polar deja al otro en media columna.** En Checkouts, Polar comparte el renglón del
+  teléfono entre el estado y el producto; sin el producto, el estado se leía «Cualquier e:». Y en Customers los cinco rangos
+  al lado del título se salían a 390: van debajo en el teléfono.
+  **Vive en:** app/admin/(polar)/sales/checkouts/CheckoutsPage.tsx, app/admin/_polar/web/Customer/CustomersPageShell.tsx
+
+**Cómo se probó, y lo que el banco no es.** La nube no ve la base de producción y el dev de Next con el layout raíz completo
+pasa los 12 GB (Turbopack y webpack: los dos murieron sin memoria, y `next build` también). Las capturas salen de un banco: un
+layout raíz mínimo y las lecturas de Admin cambiadas por los ejemplos de `app/admin/_polar/datos/ejemplo/`, que se pone y se
+saca con un script y se verifica con `git diff --quiet` antes de commitear. ⚠️ El banco no tiene `ModoDelUsuario`, que en la app
+vuelve a poner el oscuro después de un redirect: Checkout Links (que redirige a su primer link) salía en claro y NO era un bug.
+Antes de arreglar lo que sólo se ve en un banco, se mira qué del layout real falta en el banco. Y en la nube `tsc-acotado`
+necesita `--heap=7000`: con el tope por defecto sale sin código de salida ni errores.
+
+**El diagnóstico obvio que era el equivocado:** el filete de la barra parecía un color mal portado, y se buscó en las clases de
+los ítems; las clases estaban bien, las tapaba una regla de otro archivo. Antes de tocar las clases de un elemento que «no
+toma» su estilo, se mira qué regla gana con `getComputedStyle` y la hoja de donde sale.
+
+
 ## Activity: MaKo no sabía qué se usaba, sólo el último ingreso (5/11/2026)
 
 **Síntoma:** Martín pidió ver «qué acciones hacen los usuarios dentro de MaKo, cuándo se conectan, qué no están utilizando», y lo
