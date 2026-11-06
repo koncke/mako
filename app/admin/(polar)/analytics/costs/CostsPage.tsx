@@ -4,8 +4,9 @@
 //
 // LA VISTA de Admin › Analytics › Costs, PURA (todo por props: se captura con datos de ejemplo). La pantalla de Polar con
 // sus dos pestañas (Overview y LLM) y sus secciones en el mismo orden, con el gasto de IA de MaKo (`datos/costos.ts`):
-//   · Overview: el gráfico del gasto por día; «Breakdown» (Desglose) por feature (lo que en Polar es el tipo de evento);
-//     «Changes» (Cambios) contra el mes anterior;
+//   · Overview: los gráficos del gasto por día y del margen bruto (revisión del 6/11/2026: el `gross_margin` y el
+//     `gross_margin_percentage` de Polar, con la cuenta de la tarjeta de Overview); «Breakdown» (Desglose) por feature (lo que en
+//     Polar es el tipo de evento); «Changes» (Cambios) contra el mes anterior;
 //   · LLM: «By Model» (Por modelo) y «By Vendor» (Por proveedor).
 // Los dos «By Customer» de Polar se sacaron (6/11/2026): el gasto de IA de cada negocio vive en UN lugar, Customers › Cost
 // Drivers, donde lo puso Martín. Costs no lleva un link ahí: Cost Drivers mira el mes en curso y Costs cualquier mes, así que
@@ -17,7 +18,7 @@
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { MetricGroup } from '@/app/admin/_polar/web/Metrics/dashboards/MetricGroup'
-import { COST_METRICS, plataDeCosto, type FilaCosto, type VistaCostos } from '@/app/admin/_polar/datos/costos'
+import { metricasDeCostosConDatos, plataDeCosto, type FilaCosto, type VistaCostos } from '@/app/admin/_polar/datos/costos'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -130,8 +131,10 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
 
       <TabsContent value="overview">
         <div className="flex flex-col gap-y-10">
+          {/* Las de Polar (`getMetricsForType('costs')`) que MaKo llena: el gasto, el acumulado y el margen bruto (con la cuenta de
+              la tarjeta «Margen bruto» de Overview, que lleva acá). Sin lo que entró, el margen no se dibuja. */}
           <MetricGroup
-            metricKeys={[...COST_METRICS]}
+            metricKeys={metricasDeCostosConDatos(vista.metricas)}
             data={vista.metricas}
             interval="day"
             completarFila

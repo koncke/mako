@@ -61,22 +61,11 @@ export const OrderCustomerContext = ({ customer, plataforma }: { customer: Clien
       <ContextCard>
         <div className="flex flex-col gap-3 md:gap-0">
           {/* MaKo: Polar muestra aquí el ID del cliente en monoespaciada; el de MaKo es el número de un workspace, que no le dice
-              nada a nadie. Va el NOMBRE del negocio, con el link a su ficha (Customers › <negocio>). */}
-          <DetailRow
-            label="Cuenta"
-            value={
-              customer.ws != null ? (
-                <Link href={`/admin/customers/${customer.ws}`} className="min-w-0 truncate text-blue-500 hover:underline">
-                  {customer.nombre || 'Su negocio'}
-                </Link>
-              ) : (
-                'Sin cuenta en MaKo'
-              )
-            }
-          />
-          {customer.ws == null && <DetailRow label="Nombre" value={customer.nombre} />}
+              nada a nadie: va su NOMBRE (el «Name» de Polar), sin link. El único link a su ficha es «Ver el cliente», arriba, como
+              en Polar (revisión del 6/11/2026: había dos al mismo lugar). «Entrar a su cuenta» vive en la ficha: no se repite acá. */}
+          <DetailRow label="Nombre" value={customer.nombre || undefined} />
+          {customer.ws == null && <DetailRow label="Cuenta" value="Sin cuenta en MaKo" />}
           <DetailRow label="Email" value={customer.email} />
-          {customer.ws != null && <DetailRow label="Entrar" value={<Link href={`/inicio?ws=${customer.ws}`} className="text-blue-500 hover:underline">Abrir su MaKo</Link>} />}
         </div>
       </ContextCard>
     </div>

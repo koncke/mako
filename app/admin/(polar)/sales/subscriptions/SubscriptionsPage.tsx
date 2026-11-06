@@ -13,6 +13,7 @@ import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { SubscriptionStatus as SubscriptionStatusComponent, fechaCorta } from '@/app/admin/_polar/web/Subscriptions/SubscriptionStatus'
 import { ExportCsvModal } from '@/app/admin/_polar/web/Orders/ExportCsvModal'
 import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { useDataTableQueryState } from '@/app/admin/_polar/web/Orders/useDataTableQueryState'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
@@ -68,7 +69,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
 
   // MaKo: la tabla es un `@container` y las columnas ceden por el ancho de SU caja (el `meta`, DataTable de orbit): a 390, con
   // las cinco de Polar sólo se veían Cliente y el Estado cortado. Angosta, el Cliente (con el producto debajo) y el Estado;
-  // un poco más ancha vuelven Desde y Próxima; ancha, el Producto, como en Polar.
+  // un poco más ancha vuelven Desde y Próximo cobro; ancha, el Producto, como en Polar.
   const columns: DataTableColumnDef<SuscripcionVenta>[] = [
     {
       id: 'customer',
@@ -107,11 +108,27 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
       cell: ({ row: { original } }) => (original.empezo ? <Text as="span" tabularNums>{fechaCorta(original.empezo, hoy)}</Text> : '—'),
     },
     {
+      // El «Renewal Date» de Polar (`current_period_end`), con lo que MaKo SÍ sabe: cuándo y cuánto se cobra. Son las filas de la
+      // tarjeta «Por cobrar» de Overview (`porCobrar`, la historia mes a mes: no se recalculan), así su total se coteja acá. Sin
+      // un cobro esperado en los próximos 31 días, la renovación sola, en gris.
       accessorKey: 'current_period_end',
       enableSorting: true,
       meta: { width: '15%', className: 'hidden @xl:table-cell' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Próxima" />,
-      cell: ({ row: { original } }) => (original.renovacion ? <Text as="span" tabularNums>{fechaCorta(original.renovacion, hoy)}</Text> : '—'),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Próximo cobro" />,
+      cell: ({ row: { original } }) =>
+        original.porCobrar?.length ? (
+          <div className="flex flex-col">
+            {original.porCobrar.map((p) => (
+              <Text key={`${p.fecha}:${p.atrasado}`} as="span" tabularNums color={p.atrasado ? 'danger' : undefined}>
+                {p.atrasado ? 'Venció ' : ''}{fechaCorta(p.fecha, hoy)} · {usdEnTexto(p.usd, 'compact')}
+              </Text>
+            ))}
+          </div>
+        ) : original.renovacion ? (
+          <Text as="span" tabularNums color="muted">{fechaCorta(original.renovacion, hoy)}</Text>
+        ) : (
+          '—'
+        ),
     },
     {
       accessorKey: 'product',

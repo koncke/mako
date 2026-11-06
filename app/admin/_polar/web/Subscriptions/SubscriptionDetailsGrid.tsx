@@ -7,7 +7,7 @@
 // «Discount», «Trial», pausa ni los motivos de la cancelación: MaKo no los guarda. Lo que MaKo suma: quién cobra (a mano o la
 // pasarela) y lo que debe, cuando debe.
 
-import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
+import { ROTULO_FUENTE_SUSCRIPCION, type SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { DetailCell, DetailGrid } from '@/app/admin/_polar/web/Orders/OrderSection'
 import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { Text } from '@/app/admin/_polar/orbit'
@@ -40,9 +40,9 @@ export const SubscriptionDetailsGrid = ({ subscription: s, hoy }: { subscription
             : undefined
         }
       />
-      {/* «A mano» a secas: el porqué («entra cuando se registra el pago en el CRM») lo dice Próximo cobro, abajo. Con la
-          aclaración entre paréntesis la celda se cortaba en «A mano (se registra cada …». */}
-      <DetailCell label="La cobra" value={s.fuente === 'manual' ? 'A mano' : 'La pasarela'} />
+      {/* «Registrada a mano» (revisión del 6/11/2026): «A mano» a secas se confundía con el «Plan a mano» de la ficha, que es
+          otra cosa (un plan dado sin cobro). El porqué («entra cuando se registra el pago en el CRM») lo dice Próximo cobro, abajo. */}
+      <DetailCell label="Cómo se cobra" value={ROTULO_FUENTE_SUSCRIPCION[s.fuente]} />
       <DetailCell label="Pagó en total" value={usdEnTexto(s.pagadoUsd, 'compact')} />
       {s.deudaUsd > 0 && (
         <DetailCell

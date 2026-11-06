@@ -13,15 +13,26 @@
 //    vienen en 0 en `costUsd` (`costoDe`). Polar no tiene ese corte; se anota en el relevo.
 // La plata va en CENTAVOS (como en Polar: `formatCurrency` divide por 100), y un costo de IA es de fracciones de centavo:
 // no se redondea.
+// ⚠️ EL MARGEN BRUTO (revisión del 6/11/2026): Polar lo pone en su Costs (`getMetricsForType('costs')`: costs, cost_per_user,
+//    gross_margin, gross_margin_percentage, cashflow) y la tarjeta «Margen bruto» de Overview lleva acá con «Ver todo». Va con la
+//    MISMA cuenta que esa tarjeta: `margenPorcentaje` de ./resumen.ts (importada, no copiada), sobre lo que ENTRÓ (los pagos de
+//    `vistaDeIngresos().entradas`, la misma suma que Revenue) y el gasto de IA del mes. Un mes sin NINGUNA fila de gasto no tiene
+//    margen («no se midió» no es cero: su margen sería un 100% inventado), como en Overview. `cost_per_user` y `cashflow` no van:
+//    MaKo no tiene usuarios por suscripción ni el neto de las pasarelas.
 // Puro (sin server-only): lo usan la vista y los tests; el tipo de `resumenDelPeriodo` se importa sólo como tipo.
 // =============================================================================
 
 import type { Corte, ResumenPeriodo } from '@/lib/costos-ia'
-import { METRICAS, totalesDe } from './metricas'
+import type { Entrada } from '@/lib/admin-ingresos-reglas'
+import { METRICAS, totalesDe, type MetricaSlug } from './metricas'
+import { aCentavos, margenPorcentaje } from './resumen'
 import type { ParsedMetricPeriod, ParsedMetricsResponse } from './polar-tipos'
 
-/** Las métricas de costos de Polar que MaKo puede llenar (las de Polar sin `cost_per_user`, margen ni cashflow). */
-export const COST_METRICS = ['costs', 'cumulative_costs'] as const
+/** Las métricas de costos de Polar que MaKo puede llenar, en el orden de Polar (sin `cost_per_user` ni `cashflow`). */
+export const COST_METRICS = ['costs', 'cumulative_costs', 'gross_margin', 'gross_margin_percentage'] as const
+
+/** Las que trae la respuesta, en el orden de Polar: sin lo que entró no hay margen (no se dibuja en cero). */
+export const metricasDeCostosConDatos = (m: ParsedMetricsResponse): MetricaSlug[] => COST_METRICS.filter((k) => !!m.metrics[k])
 
 export type FilaCosto = {
   clave: string
@@ -136,18 +147,59 @@ export function diasDelMes(mes: string, hoy: Date): string[] {
   return out
 }
 
-/** El gasto por día del mes, con el acumulado, en la forma de las métricas de Polar (`costs`, `cumulative_costs`). */
-export function metricasDeCostos(porDia: readonly Corte[], mes: string, hoy: Date): ParsedMetricsResponse {
+/**
+ * El margen bruto de un período, en %: lo que entró contra el gasto de IA, con `margenPorcentaje` de Overview (lo mismo que su
+ * tarjeta para ese mes). `gastoMedido`: false si el período no tiene NINGUNA fila de gasto (→ null, nunca un 100% inventado).
+ */
+export function margenDelPeriodo(cobradoUsd: number, gastoUsd: number, gastoMedido: boolean): number | null {
+  return margenPorcentaje(aCentavos(cobradoUsd), gastoMedido ? centavos(gastoUsd) : null)
+}
+
+/**
+ * El gasto por día del mes, con el acumulado, en la forma de las métricas de Polar (`costs`, `cumulative_costs`), y, si llega lo
+ * que entró (`entradas`, la lista de `vistaDeIngresos`), el margen bruto de cada día y del mes (`gross_margin`, en centavos, y
+ * `gross_margin_percentage`, como fracción: es el `percentage` de Polar). Sin `entradas` (no se pudo leer), el margen no sale.
+ */
+export function metricasDeCostos(
+  porDia: readonly Corte[],
+  mes: string,
+  hoy: Date,
+  entradas: ReadonlyArray<Pick<Entrada, 'fecha' | 'usd'>> | null = null,
+): ParsedMetricsResponse {
   const delDia = new Map(porDia.map((c) => [c.clave, centavos(c.costUsd)]))
+  const medido = porDia.some((c) => c.clave.startsWith(mes))
+  const cobradoDelDia = new Map<string, number>()
+  for (const e of entradas ?? []) if (e.usd != null && e.fecha.startsWith(mes)) cobradoDelDia.set(e.fecha.slice(0, 10), (cobradoDelDia.get(e.fecha.slice(0, 10)) ?? 0) + e.usd)
   let acumulado = 0
+  let cobradoMes = 0
+  // El gasto del mes como lo suma Overview (`margenBruto`: cada fila del mes, en dólares), no reconstruido de los centavos.
+  const gastoMes = porDia.filter((c) => c.clave.startsWith(mes)).reduce((s, c) => s + c.costUsd, 0)
   const periods: ParsedMetricPeriod[] = diasDelMes(mes, hoy).map((iso) => {
     const [y, mm, d] = iso.split('-').map(Number)
     const costo = delDia.get(iso) ?? 0
     acumulado += costo
-    return { timestamp: new Date(y, mm - 1, d), costs: costo, cumulative_costs: acumulado }
+    const p: ParsedMetricPeriod = { timestamp: new Date(y, mm - 1, d), costs: costo, cumulative_costs: acumulado }
+    if (entradas) {
+      const cobrado = cobradoDelDia.get(iso) ?? 0
+      cobradoMes += cobrado
+      const pct = margenDelPeriodo(cobrado, costo / 100, medido)
+      p.gross_margin = aCentavos(cobrado) - costo
+      p.gross_margin_percentage = pct == null ? null : pct / 100
+    }
+    return p
   })
   const metrics: ParsedMetricsResponse['metrics'] = { costs: METRICAS.costs, cumulative_costs: METRICAS.cumulative_costs }
-  return { periods, totals: totalesDe(periods, metrics), metrics }
+  if (entradas) {
+    metrics.gross_margin = METRICAS.gross_margin
+    metrics.gross_margin_percentage = METRICAS.gross_margin_percentage
+  }
+  const totals = totalesDe(periods, metrics)
+  if (entradas) {
+    // El del MES, con la cuenta de Overview (no la suma ni el promedio de los días).
+    const pct = margenDelPeriodo(cobradoMes, gastoMes, medido)
+    totals.gross_margin_percentage = pct == null ? null : pct / 100
+  }
+  return { periods, totals, metrics }
 }
 
 const limites = (mes: string) => {
@@ -185,6 +237,8 @@ export function armarCostos(e: {
   avisos: string[]
   /** El nombre para personas de cada feature (`nombresDeFeatures`). Sin esto, la clave tal cual. */
   nombreDeFeature?: (clave: string) => string
+  /** Lo que entró (`vistaDeIngresos().entradas`), para el margen bruto. null = no se pudo leer: sin margen (y su aviso). */
+  entradas?: ReadonlyArray<Pick<Entrada, 'fecha' | 'usd'>> | null
 }): VistaCostos {
   const prev = e.previo
   const meses = [...new Set([e.periodo, ...e.actual.mesesDisponibles])].sort().reverse()
@@ -193,7 +247,7 @@ export function armarCostos(e: {
     meses,
     ...limites(e.periodo),
     previo: prev ? { periodo: mesAnterior(e.periodo), ...limites(mesAnterior(e.periodo)) } : null,
-    metricas: metricasDeCostos(e.actual.porDia, e.periodo, e.hoy),
+    metricas: metricasDeCostos(e.actual.porDia, e.periodo, e.hoy, e.entradas ?? null),
     porFeature: filasDe(e.actual.porFeature, prev?.porFeature ?? null, e.nombreDeFeature),
     cambios: cambiosDe(e.actual.porFeature, prev?.porFeature ?? null, e.nombreDeFeature),
     porModelo: filasDe(e.actual.porModelo, prev?.porModelo ?? null),

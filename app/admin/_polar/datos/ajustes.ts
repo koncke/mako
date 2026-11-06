@@ -107,9 +107,12 @@ export const DATOS_DE_LA_FRASE: readonly DatoDelCorreo[] = [
   { marca: '{{nombre}}', rotulo: 'A nombre de' },
 ]
 
-/** Un pago de EJEMPLO (ficticio) para mostrar cómo llega el correo. */
+/**
+ * Un pago de EJEMPLO (ficticio) para mostrar cómo llega el correo: el de los ejemplos de Admin (ejemplo/negocios.ts), la
+ * mensualidad de noviembre de Estudio Norte (MaKo Pro, US$ 97, el 1 de noviembre por Stripe) con su recibo N.º 0012.
+ */
 export const PAGO_DE_EJEMPLO: DatosDelTexto = {
-  numero: 12, monto: 'US$ 97', concepto: 'MaKo Pro', fecha: '5 nov 2026', medio: 'transferencia', aNombre: 'Estudio Norte',
+  numero: 12, monto: 'US$ 97', concepto: 'MaKo Pro', fecha: '1 nov 2026', medio: 'Stripe', aNombre: 'Estudio Norte',
 }
 
 /** El texto con un dato más al final (con un espacio en el medio si hace falta). */

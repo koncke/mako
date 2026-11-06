@@ -11,10 +11,13 @@
 //   4. Analytics › Costs: el nombre para personas de cada función (el del catálogo de modelos), la plata en centavos («< US$ 0,01»
 //      para lo que no llega) y el último gráfico estira su fila (nada de media fila vacía);
 //   5. Settings › Customer Notifications: los datos del correo con su nombre y un ejemplo legible, sin llaves;
-//   6. Products: los beneficios de un plan se leen enteros (sin cortar, y los seis en una página);
+//   6. Products: la ficha de un plan sin «Beneficios» (revisión del 6/11/2026: Benefits se saca), con sus descuentos;
 //   7. Checkout Links: el índice salta al primer link DESPUÉS de hidratar (no tira `redirect()` mientras dibuja);
-//   8. el detalle de un pedido nombra la CUENTA por su negocio (con link a su ficha), no «Workspace 41»;
-//   9. los ejemplos: «Estudio Norte» es el ws 42 en todos, y el Pro cuesta lo de PLANES_MAKO_DEFAULT.
+//   8. el detalle de un pedido nombra al cliente por su negocio, con UN link a su ficha (el de Polar) y sin «Entrar»;
+//   9. los ejemplos: «Estudio Norte» es el ws 42 en todos, y cada plan cuesta lo de PLANES_MAKO_DEFAULT (por mes o por año).
+//   (3, 5, 6 y 8 cambiaron el 6/11/2026 con la revisión: la hora sin segundos, el correo de ejemplo con el pago de noviembre de
+//   Estudio Norte, la ficha de un plan sin «Beneficios» y un solo link a la ficha del cliente. Base: 9/0; rompiendo, cada uno 8/1:
+//   la hora vuelve a «:00» → (3); ProductOverview vuelve a dibujar «Beneficios» → (6); vuelve el link «Cuenta» → (8).)
 //
 // Probado rompiéndolo el 6/11/2026 (base: 9/0). Cada rotura, sola, deja 8/1 (el test que se nombra):
 //   · `fechaDeParams` ignora `from`/`to` (vuelve siempre al intervalo)                                → 8/1 (1)
@@ -25,9 +28,9 @@
 //   · `plataDeCosto` sin el «< US$ 0,01»                                                                 → 8/1 (4)
 //   · `claseDeAncho` sin el estirón del último                                                            → 8/1 (4)
 //   · `vistaPreviaDelCorreo` devuelve la plantilla sin los datos                                         → 8/1 (5)
-//   · ProductBenefits vuelve a la página de 5                                                             → 8/1 (6)
+//   · ProductOverview vuelve a dibujar ProductBenefits (6/11/2026)                                        → 8/1 (6)
 //   · MasterDetailIndex vuelve a llamar a `redirect()`                                                    → 8/1 (7)
-//   · OrderCustomerContext vuelve a «Workspace <n>»                                                       → 8/1 (8)
+//   · OrderCustomerContext vuelve a «Workspace <n>», o al segundo link «Cuenta», o a «Entrar»             → 8/1 (8)
 //   · el ejemplo del Pro vuelve a US$ 297                                                                 → 8/1 (9)
 // =============================================================================
 
@@ -49,7 +52,9 @@ import { formatCurrency } from '../app/admin/_polar/lib/currency'
 import { claseDeAncho } from '../app/admin/_polar/web/Metrics/dashboards/reparto'
 import { CATALOGO_MODELOS } from '../lib/model-catalogo'
 import { DATOS_DE_LA_FRASE, DATOS_DEL_ASUNTO, conDato, vistaPreviaDelCorreo } from '../app/admin/_polar/datos/ajustes'
-import { ProductBenefits } from '../app/admin/_polar/web/Products/ProductPage/ProductBenefits'
+import { ProductOverview } from '../app/admin/_polar/web/Products/ProductPage/ProductOverview'
+import { productoDePlan } from '../app/admin/_polar/datos/productos'
+import { rutaDelCliente } from '../app/admin/_polar/web/Orders/OrderCustomerContext'
 import { destinoDelIndice } from '../app/admin/_polar/web/CheckoutLinks/MasterDetailIndex'
 import { textoDelCambio } from '../app/admin/_polar/web/Subscriptions/SubscriptionOrdersSection'
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako'
@@ -84,17 +89,17 @@ test('1 · el filtro de fechas de Sales: un intervalo o un rango a mano, en la U
   assert.deepEqual(rangoDeFecha({ desde: '2026-10-20', hasta: '2026-10-22' }, HOY), { desde: '2026-10-20', hasta: '2026-10-22' })
 
   // Lo que se dibuja: cada intervalo con su rango en días del negocio, «Desde siempre» desde el primer día con datos.
-  assert.equal(primerDia(PEDIDOS_EJEMPLO.map((p) => p.fecha), HOY), '2026-10-21')
+  assert.equal(primerDia(PEDIDOS_EJEMPLO.map((p) => p.fecha), HOY), '2026-06-02', 'el primer pago de los ejemplos (ejemplo/negocios.ts)')
   assert.equal(primerDia([], HOY), HOY, 'sin datos, hoy')
   assert.equal(primerDia([null, 'basura', '2026-12-01'], HOY), HOY, 'lo que no es una fecha (o es futuro) no corre el piso')
-  const intervalos = intervalosConRango(HOY, '2026-10-21')
-  assert.deepEqual(intervalos.find((i) => i.slug === 'allTime'), { slug: 'allTime', label: 'Desde siempre', desde: '2026-10-21', hasta: HOY })
+  const intervalos = intervalosConRango(HOY, '2026-06-02')
+  assert.deepEqual(intervalos.find((i) => i.slug === 'allTime'), { slug: 'allTime', label: 'Desde siempre', desde: '2026-06-02', hasta: HOY })
   assert.deepEqual(intervalos.find((i) => i.slug === 'thisMonth'), { slug: 'thisMonth', label: 'Este mes', desde: '2026-11-01', hasta: '2026-11-30' })
 
   // Y filtra: un rango a mano en Orders y en Subscriptions (por la fecha en que empezó).
-  assert.deepEqual(filtrarPedidos(PEDIDOS_EJEMPLO, { estado: null, desde: '2026-11-04', hasta: '2026-11-05' }, HOY).map((p) => p.id), ['p-501', 'r-8'])
-  assert.deepEqual(filtrarPedidos(PEDIDOS_EJEMPLO, { estado: null, intervalo: 'lastMonth' }, HOY).map((p) => p.id), ['p-488'], 'el intervalo sigue andando')
-  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'any', desde: '2026-08-01', hasta: '2026-08-31' }, HOY).map((s) => s.id), ['l-900'])
+  assert.deepEqual(filtrarPedidos(PEDIDOS_EJEMPLO, { estado: null, desde: '2026-11-01', hasta: '2026-11-02' }, HOY).map((p) => p.id), ['c-101', 'p-1022', 'p-1021'])
+  assert.deepEqual(filtrarPedidos(PEDIDOS_EJEMPLO, { estado: null, intervalo: 'lastMonth' }, HOY).map((p) => p.fecha.slice(0, 7)), Array(7).fill('2026-10'), 'el intervalo sigue andando')
+  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'any', desde: '2026-08-01', hasta: '2026-08-31' }, HOY).map((s) => s.id), ['l-9', 'l-14'])
 
   // El selector es el DateRangePicker de Polar (no un Select con el texto partido por `line-clamp`).
   const select = sinComentarios(leer('app/admin/_polar/web/Orders/DateRangeSelect.tsx'))
@@ -122,15 +127,15 @@ test('2 · un rango de fechas en español, en el orden del español; y la píldo
   assert.match(formatTimeRange({ from: new Date(2025, 10, 6, 14), to: new Date(2025, 10, 6, 15) }, true, ahora), /^6 nov 2025, 14:00–15:00$/)
 })
 
-test('3 · la hora de un evento: UN formato, en una línea', () => {
-  assert.equal(horaDelEvento('2026-11-06T14:20:00Z', false, 'UTC'), '06 nov, 14:20:00')
+test('3 · la hora de un evento: UN formato, en una línea (y sin los segundos, revisión del 6/11/2026)', () => {
+  assert.equal(horaDelEvento('2026-11-06T14:20:00Z', false, 'UTC'), '06 nov, 14:20')
   assert.equal(horaDelEvento('2026-11-04T00:00:00Z', true), '04 nov', 'un pago: su día, sin la hora que no tiene (y en UTC, como se guardó)')
   assert.equal(horaDelEvento('2026-11-04T23:30:00Z', true, 'America/Mexico_City'), '04 nov', 'el día de un pago no se corre con la zona')
   assert.equal(horaDelEvento('no es una fecha'), '—')
-  // Los dos con la misma forma «DD mes»: lo que tiene hora sólo le suma «, HH:MM:SS».
-  const conHora = horaDelEvento('2026-10-20T13:30:00Z', false, 'UTC')
+  // Los dos con la misma forma «DD mes»: lo que tiene hora sólo le suma «, HH:MM».
+  const conHora = horaDelEvento('2026-10-20T13:30:45Z', false, 'UTC')
   const soloDia = horaDelEvento('2026-10-12T00:00:00Z', true)
-  assert.match(conHora, /^\d{2} [a-z]+, \d{2}:\d{2}:\d{2}$/)
+  assert.match(conHora, /^\d{2} [a-z]+, \d{2}:\d{2}$/, 'sin los segundos (aunque el instante los tenga)')
   assert.match(soloDia, /^\d{2} [a-z]+$/)
   assert.doesNotMatch(conHora + soloDia, /-|de /, 'nada de «06-nov» ni «04 de nov de 2026»')
 })
@@ -176,7 +181,7 @@ function vacio() {
 test('5 · Customer Notifications: los datos del correo con su nombre, y un ejemplo legible', () => {
   const deSiempre = vistaPreviaDelCorreo('', '')
   assert.equal(deSiempre.asunto, 'Tu recibo de MaKo N.º 0012', 'el texto de siempre, con un pago de ejemplo')
-  assert.equal(deSiempre.intro, 'Recibimos tu pago de US$ 97 por MaKo Pro, el 5 nov 2026, por transferencia.')
+  assert.equal(deSiempre.intro, 'Recibimos tu pago de US$ 97 por MaKo Pro, el 1 nov 2026, por Stripe.', 'el pago de noviembre de Estudio Norte de los ejemplos')
   const escrito = vistaPreviaDelCorreo(conDato('Gracias', '{{nombre}}'), conDato('Llegó', '{{monto}}'))
   assert.deepEqual(escrito, { asunto: 'Gracias Estudio Norte', intro: 'Llegó US$ 97' }, 'lo que se escribió, con los datos puestos')
   assert.equal(conDato('', '{{numero}}'), '{{numero}}')
@@ -190,14 +195,13 @@ test('5 · Customer Notifications: los datos del correo con su nombre, y un ejem
   assert.doesNotMatch(pantalla, /\{\{/, 'sin «{{numero}}» en un rótulo o un placeholder')
 })
 
-test('6 · Products: los beneficios de un plan se leen enteros', () => {
-  const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro')!
-  const html = renderToStaticMarkup(createElement(ProductBenefits, { product: { nombre: pro.nombre, incluye: pro.incluye } }))
-  for (const b of pro.incluye) assert.ok(html.includes(b.replace(/&/g, '&amp;')), `«${b}» está, entero`)
-  assert.doesNotMatch(html, /Página \d+ de/, 'los seis en una página (un plan tiene a lo sumo 8 renglones)')
-  assert.doesNotMatch(html, /pl-truncate/, 'sin cortar a un renglón')
-  const ocho = renderToStaticMarkup(createElement(ProductBenefits, { product: { nombre: 'X', incluye: Array.from({ length: 9 }, (_, i) => `b${i}`) } }))
-  assert.match(ocho, /Página 1 de 2/, 'si pasa de 8 (no debería), el paginador de Polar')
+test('6 · Products: la ficha de un plan no dibuja «Beneficios» (Benefits se saca), sí sus descuentos; un archivado, nada', () => {
+  const pro = productoDePlan(PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro')!)
+  const html = renderToStaticMarkup(createElement(ProductOverview, { product: pro }))
+  assert.match(html, /Descuentos/, 'los descuentos, como en Polar')
+  assert.doesNotMatch(html, /Beneficios/, 'sin la sección de beneficios')
+  for (const b of PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro')!.incluye) assert.ok(!html.includes(b.replace(/&/g, '&amp;')), `«${b}» no se dibuja`)
+  assert.equal(renderToStaticMarkup(createElement(ProductOverview, { product: { ...pro, activo: false } })), '', 'un archivado no tiene descuentos (Polar tampoco)')
 })
 
 test('7 · Checkout Links: el índice salta después de hidratar, nunca tirando `redirect()` mientras dibuja', () => {
@@ -216,7 +220,12 @@ test('7 · Checkout Links: el índice salta después de hidratar, nunca tirando 
 test('8 · el detalle de un pedido: la cuenta por su negocio, y lo que cambió un mes en un renglón', () => {
   const ctx = sinComentarios(leer('app/admin/_polar/web/Orders/OrderCustomerContext.tsx'))
   assert.doesNotMatch(ctx, /Workspace \$\{/, 'nada de «Workspace 41»')
-  assert.match(ctx, /href=\{`\/admin\/customers\/\$\{customer\.ws\}`\}[^>]*>\s*\{customer\.nombre/, 'el nombre, con link a su ficha')
+  // Revisión del 6/11/2026: UN link a su ficha («Ver el cliente», el «View Customer» de Polar), no dos; y sin «Entrar» (está en la ficha).
+  assert.equal(ctx.match(/<Link\b/g)?.length, 1, 'un solo link en la tarjeta del cliente')
+  assert.match(ctx, /<Link href=\{ruta\}/, 'el de «Ver el cliente» (`rutaDelCliente`)')
+  assert.doesNotMatch(ctx, /\/inicio\?ws=|Abrir su MaKo/, 'sin «Entrar: Abrir su MaKo»')
+  assert.match(ctx, /<DetailRow label="Nombre" value=\{customer\.nombre/, 'su nombre, como el «Name» de Polar')
+  assert.equal(rutaDelCliente({ clave: 'ws:42', nombre: 'Estudio Norte', ws: 42, leadId: 7, email: null }, 9), '/admin/customers/42')
   assert.match(textoDelCambio({ cambio: 'subio', antesUsd: 238, esperadoUsd: 426 }), /^Subió \(de US\$\s?238\)$/)
   assert.equal(textoDelCambio({ cambio: null, antesUsd: null, esperadoUsd: 100 }), '')
   assert.match(textoDelCambio({ cambio: 'empezo', antesUsd: null, esperadoUsd: 146 }), /^Empezó$/)
@@ -235,9 +244,11 @@ test('9 · los ejemplos: «Estudio Norte» es el ws 42 en todos, y el Pro cuesta
 
   const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro')!.precioUsd
   const esencial = PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd
-  const precio = (plan: string | null | undefined) => (/MaKo Pro/.test(plan ?? '') ? pro : /MaKo Esencial/.test(plan ?? '') ? esencial : null)
+  const anual = (id: string) => PLANES_MAKO_DEFAULT.find((p) => p.id === id)!.precioAnualUsd
+  const precio = (plan: string | null | undefined) =>
+    /MaKo Pro/.test(plan ?? '') ? (/un año/.test(plan ?? '') ? anual('pro') : pro) : /MaKo Esencial/.test(plan ?? '') ? (/un año/.test(plan ?? '') ? anual('esencial') : esencial) : null
   for (const p of PEDIDOS_EJEMPLO) if (precio(p.concepto) != null) assert.equal(p.usd, precio(p.concepto), `${p.id}: ${p.concepto}`)
-  for (const c of COBROS_VENTAS) if (precio(c.plan) != null) assert.equal(c.montoUsd, precio(c.plan), `cobro ${c.id}: ${c.plan}`)
+  for (const c of COBROS_VENTAS) if (precio(c.plan) != null && c.moneda === 'USD') assert.equal(c.montoUsd, precio(c.plan), `cobro ${c.id}: ${c.plan}`)
   for (const c of CHECKOUTS_EJEMPLO) if (precio(c.producto) != null) assert.equal(c.montoUsd, precio(c.producto), `checkout ${c.id}`)
   for (const s of SUSCRIPCIONES_EJEMPLO) if (precio(s.producto) != null) assert.equal(s.mensualidadUsd, precio(s.producto), `suscripción ${s.id}`)
 })

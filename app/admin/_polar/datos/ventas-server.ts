@@ -20,7 +20,7 @@ import type { EstadoRecibo } from '@/lib/recibos-reglas'
 import { cobrosDeMakoAction, type CobroMako } from '@/app/admin/cobros/actions'
 import { recibosAction } from '@/app/admin/cobros/recibos-actions'
 import {
-  checkoutsDe, disputasDe, pedidosDe, suscripcionesDe,
+  checkoutsDe, conPorCobrar, disputasDe, pedidosDe, suscripcionesDe,
   type CheckoutVenta, type ClienteVenta, type CobroVenta, type DisputaVenta, type Pedido, type ReciboVenta, type SuscripcionDeLead, type SuscripcionVenta,
 } from './ventas'
 import { esDeVenderUnPlan } from './checkout-link'
@@ -120,10 +120,13 @@ export async function vistaSuscripciones(): Promise<VistaSuscripciones> {
   const plataforma = await wsSuperAdmin().catch((e) => { avisos.push(`la plataforma: ${mensaje(e)}`); return null })
   if (plataforma == null) return { hoy: hoyEnTz('UTC'), suscripciones: [], avisos, plataforma }
   const hoy = await hoyDeLaPlataforma(plataforma)
-  const [subs, cobros, wss] = await Promise.all([
+  const [subs, cobros, wss, ingresos] = await Promise.all([
     suscripcionesDeLaPlataforma(plataforma, hoy),
     leerCobros().catch((e) => ({ ok: false as const, error: mensaje(e) })),
     listarWorkspaces().catch((e) => { avisos.push(`los nombres de los negocios: ${mensaje(e)}`); return [] }),
+    // El próximo cobro de cada una, TAL CUAL lo dice la tarjeta «Por cobrar» de Overview (`porCobrar`, con la historia mes a mes):
+    // no se recalcula acá. Sin esta lectura, la columna dice sólo la renovación.
+    vistaDeIngresos().catch((e) => { avisos.push(`el próximo cobro de cada una: ${mensaje(e)}`); return null }),
   ])
   avisos.push(...subs.avisos)
   if (!cobros.ok) avisos.push(`los cobros de la pasarela: ${cobros.error}`)
@@ -149,12 +152,11 @@ export async function vistaSuscripciones(): Promise<VistaSuscripciones> {
     conceptos: s.pagos.filter((p) => p.pagado && p.concepto).sort((a, b) => String(a.fecha_pago ?? '').localeCompare(String(b.fecha_pago ?? ''))).map((p) => String(p.concepto)),
     cobroIds: s.cobroIds,
   }))
-  return {
-    hoy,
-    suscripciones: suscripcionesDe({ leads, cobros: cobros.ok ? cobros.cobros.map(cobroDeMako) : [], nombreDeWs: new Map(wss.map((w) => [w.id, w.nombre])), hoy }),
-    avisos,
-    plataforma,
-  }
+  const lista = suscripcionesDe({ leads, cobros: cobros.ok ? cobros.cobros.map(cobroDeMako) : [], nombreDeWs: new Map(wss.map((w) => [w.id, w.nombre])), hoy })
+  if (!ingresos) return { hoy, suscripciones: lista, avisos, plataforma }
+  const { suscripciones, sinSuscripcion } = conPorCobrar(lista, ingresos.porCobrar)
+  if (sinSuscripcion > 0) avisos.push(`${sinSuscripcion === 1 ? 'un cobro' : `${sinSuscripcion} cobros`} de «Por cobrar» de un cliente que no tiene su suscripción en esta lista`)
+  return { hoy, suscripciones, avisos, plataforma }
 }
 
 // ── Checkouts ────────────────────────────────────────────────────────────────────────────────────────────────────────

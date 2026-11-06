@@ -9,10 +9,13 @@
 //   · new_subscriptions, active_subscriptions, churned_subscriptions, average_revenue_per_user → de `movimientos` (los
 //     cambios del MRR de cada CLIENTE: un cliente con dos lugares cuenta una vez, como en el MRR de la vista).
 //   Si quien llama no pasa `entradas` o `movimientos`, esas métricas NO salen (no van en cero: no se midieron).
-//   · costs y cumulative_costs → el gasto de IA por día de Analytics › Costs (`metricasDeCostos`, datos/costos.ts).
+//   · costs y cumulative_costs → el gasto de IA por día de Analytics › Costs (`metricasDeCostos`, datos/costos.ts);
+//   · gross_margin y gross_margin_percentage (revisión del 6/11/2026) → el margen bruto de Analytics › Costs, con la MISMA cuenta
+//     que la tarjeta «Margen bruto» de Overview (`margenPorcentaje`, datos/resumen.ts): lo que entró contra el gasto de IA. Se
+//     arman en costos.ts (`metricasDeCostos`); acá sólo su nombre, su tipo y cómo se resume.
 //
 // Las de Polar que MaKo no puede llenar (net revenue, checkouts, committed/trial MRR, renewed, cancelaciones por motivo,
-// churn rate, LTV, cost per user, gross margin, cashflow, seats, usage…) no están: se anotan en docs/relevo/nube-admin-polar.md.
+// churn rate, LTV, cost per user, cashflow, seats, usage…) no están: se anotan en docs/relevo/nube-admin-polar.md.
 // =============================================================================
 
 import type { Entrada, Ingresos, MesIngresos, Movimiento } from '@/lib/admin-ingresos-reglas'
@@ -38,6 +41,8 @@ export const METRICAS = {
   average_revenue_per_user: { slug: 'average_revenue_per_user', display_name: 'Ingreso promedio por cliente', type: 'currency' },
   costs: { slug: 'costs', display_name: 'Gasto de IA', type: 'currency_sub_cent' },
   cumulative_costs: { slug: 'cumulative_costs', display_name: 'Gasto de IA acumulado', type: 'currency_sub_cent' },
+  gross_margin: { slug: 'gross_margin', display_name: 'Margen bruto', type: 'currency' },
+  gross_margin_percentage: { slug: 'gross_margin_percentage', display_name: 'Margen bruto %', type: 'percentage' },
 } as const satisfies Record<string, { slug: string; display_name: string; type: Metric['type'] }>
 
 export type MetricaSlug = keyof typeof METRICAS
@@ -62,17 +67,21 @@ export const DESCRIPCION: Record<MetricaSlug, string> = {
   average_revenue_per_user: 'El MRR dividido por los clientes con una suscripción viva.',
   costs: 'Lo que MaKo gastó en IA, con sus propias claves (lo de la clave de un negocio y el crédito de los planes Max no entran).',
   cumulative_costs: 'El gasto de IA sumado día a día dentro del período.',
+  gross_margin: 'Lo que entró menos lo que MaKo gastó en IA (sin las comisiones de las pasarelas: MaKo no las guarda).',
+  gross_margin_percentage: 'El margen bruto como parte de lo que entró: la misma cuenta que la tarjeta «Margen bruto» de Overview.',
 }
 
 /**
  * Cómo se resume cada métrica para un período entero (lo que el cuadro muestra sin el cursor encima):
- * `flujo` se suma; `stock` es el valor del último período con dato; las dos razones se rehacen con sus sumas.
+ * `flujo` se suma; `stock` es el valor del último período con dato; las dos razones se rehacen con sus sumas; `aparte` lo pone
+ * quien arma la respuesta (el margen bruto %, con `margenPorcentaje` de Overview: costos.ts), y `totalesDe` lo deja en null.
  */
-export const RESUMEN: Record<MetricaSlug, 'flujo' | 'stock' | 'aov' | 'arpu'> = {
+export const RESUMEN: Record<MetricaSlug, 'flujo' | 'stock' | 'aov' | 'arpu' | 'aparte'> = {
   revenue: 'flujo', cumulative_revenue: 'stock', average_order_value: 'aov', orders: 'flujo', one_time_products: 'flujo',
   one_time_products_revenue: 'flujo', new_subscriptions: 'flujo', active_subscriptions: 'stock', monthly_recurring_revenue: 'stock',
   new_mrr: 'flujo', expansion_mrr: 'flujo', contraction_mrr: 'flujo', churned_mrr: 'flujo', reactivated_mrr: 'flujo',
   churned_subscriptions: 'flujo', average_revenue_per_user: 'arpu', costs: 'flujo', cumulative_costs: 'stock',
+  gross_margin: 'flujo', gross_margin_percentage: 'aparte',
 }
 
 export const aCentavos = (usd: number) => Math.round(usd * 100)
@@ -117,6 +126,7 @@ export function totalesDe(periods: readonly ParsedMetricPeriod[], metrics: Parse
   for (const slug of Object.keys(metrics) as MetricaSlug[]) {
     const regla = RESUMEN[slug]
     if (regla === 'flujo') out[slug] = suma(slug)
+    else if (regla === 'aparte') out[slug] = null
     else if (regla === 'stock' || regla === 'arpu') {
       const con = periods.filter((p) => p[slug] != null)
       out[slug] = con.length ? (con[con.length - 1][slug] ?? null) : null
@@ -172,7 +182,7 @@ export function metricasDeIngresos(meses: readonly MesIngresos[], vista: VistaPa
   })
   const SIN_ENTRADAS: MetricaSlug[] = ['orders', 'one_time_products', 'one_time_products_revenue', 'average_order_value']
   const SIN_MOVIMIENTOS: MetricaSlug[] = ['new_subscriptions', 'churned_subscriptions', 'active_subscriptions', 'average_revenue_per_user']
-  const COSTOS: MetricaSlug[] = ['costs', 'cumulative_costs']
+  const COSTOS: MetricaSlug[] = ['costs', 'cumulative_costs', 'gross_margin', 'gross_margin_percentage']
   const metrics: ParsedMetricsResponse['metrics'] = {}
   for (const slug of Object.keys(METRICAS) as MetricaSlug[]) {
     if (COSTOS.includes(slug)) continue

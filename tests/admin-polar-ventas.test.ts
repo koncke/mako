@@ -16,6 +16,8 @@
 //   · checkouts/page.tsx lee (`vistaCheckouts`) antes de `exigirSuperAdmin()`                    → 10/1 (9)
 //   · una vista ('use client') importa un VALOR de ventas-server                                 → 10/1 (10)
 //   · un cambio sin efecto (renombrar la variable local `usados` de `pedidosDe`)                 → 11/0 (sigue verde)
+// 6/11/2026, revisión: los ejemplos pasaron a ser los pagos de ejemplo/negocios.ts (2, 5, 6 y 8 miran esos), y una disputa
+// nombra al negocio de su pedido. Base 12/0; `disputasDe` vuelve al nombre del cobro → 11/1 (7).
 // El 12 (el aviso de Cargar pago cuando lo recibido no es lo del recibo), sumado el 6/11/2026. Base: 12/0. Cada rotura, sola, 11/1
 // (y renombrar la variable local `dif` de `avisoDeDiferencia` sigue en 12/0):
 //   · `avisoDeDiferencia` compara contra el primer pago y no contra la suma de los de la misma moneda
@@ -95,8 +97,10 @@ test('2 · los intervalos de Polar en días del negocio', () => {
   assert.deepEqual(rangoDe('last3Months', '2026-11-06'), { desde: '2026-08-06', hasta: '2026-11-06' })
   assert.deepEqual(rangoDe('thisWeek', '2026-11-06'), { desde: '2026-11-01', hasta: '2026-11-07' }, 'la semana arranca el domingo')
   assert.equal(rangoDe('allTime', '2026-11-06'), null)
+  // El ejemplo (los pagos de ejemplo/negocios.ts): «el mes pasado» son los siete pedidos de octubre, ni uno de septiembre ni de noviembre.
   const filtrados = filtrarPedidos(PEDIDOS_EJEMPLO, { estado: null, intervalo: 'lastMonth' }, '2026-11-06')
-  assert.deepEqual(filtrados.map((p) => p.id), ['p-488'])
+  assert.deepEqual(filtrados.map((p) => p.id), ['p-1020', 'r-8', 'p-1019', 'p-1018', 'p-1017', 'p-1016', 'p-1015'])
+  assert.ok(filtrados.every((p) => p.fecha.startsWith('2026-10')))
 })
 
 test('3 · las cajas de Orders: lo devuelto y lo anulado no suman; lo que no tiene dólares se cuenta aparte', () => {
@@ -155,9 +159,12 @@ test('4 · las suscripciones: los clientes (ganados o que pagaron), sin repetir 
 })
 
 test('5 · el filtro de Subscriptions arranca en Activa, y por la fecha en que empezó', () => {
-  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'active', intervalo: 'allTime' }, '2026-11-06').length, 2)
-  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'any', intervalo: 'lastMonth' }, '2026-11-06').map((s) => s.id), ['c-301'])
-  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'canceled', intervalo: 'allTime' }, '2026-11-06'), [])
+  // El ejemplo: activas Estudio Norte, Clínica Dental Sonríe, Óptica Visión Clara y la de la pasarela de Floristería Pétalo; la del
+  // gimnasio se cortó; Panadería La Espiga, Taller Mecánico Ruta 9 y Viajes Horizonte deben su último mes.
+  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'active', intervalo: 'allTime' }, '2026-11-06').map((s) => s.id), ['l-7', 'l-9', 'l-10', 'c-101'])
+  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'past_due', intervalo: 'allTime' }, '2026-11-06').map((s) => s.id), ['l-8', 'l-12', 'l-14'])
+  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'any', intervalo: 'thisMonth' }, '2026-11-06').map((s) => s.id), ['c-101'], 'por la fecha en que empezó')
+  assert.deepEqual(filtrarSuscripciones(SUSCRIPCIONES_EJEMPLO, { estado: 'canceled', intervalo: 'allTime' }, '2026-11-06').map((s) => s.id), ['l-11'])
 })
 
 test('6 · Checkouts: sólo lo que NO se pagó; el filtro por email', () => {
@@ -167,7 +174,7 @@ test('6 · Checkouts: sólo lo que NO se pagó; el filtro por email', () => {
   ])
   assert.deepEqual(lista.map((c) => [c.id, c.estado]), [[2, 'open'], [3, 'failed'], [4, 'expired']])
   assert.deepEqual(filtrarCheckouts(lista, { estado: null, consulta: 'MARTA' }).map((c) => c.id), [3])
-  assert.deepEqual(filtrarCheckouts(CHECKOUTS_EJEMPLO, { estado: 'open', consulta: '' }).map((c) => c.id), [302])
+  assert.deepEqual(filtrarCheckouts(CHECKOUTS_EJEMPLO, { estado: 'open', consulta: '' }).map((c) => c.id), [104], 'el de /planes; los de «Vender un plan» son Checkout Links')
 })
 
 test('7 · Disputes: los contracargos que escribió lib/cobros-reglas.ts, leídos de su texto', () => {
@@ -185,6 +192,7 @@ test('7 · Disputes: los contracargos que escribió lib/cobros-reglas.ts, leído
   const disputas = disputasDe({ cobros: [cobro({ id: 40, motivo: abierto }), cobro({ id: 41, motivo: 'La tarjeta no tenía fondos.' })], recibos: pedidos.flatMap((p) => (p.recibo ? [p.recibo] : [])), pedidos })
   assert.deepEqual(disputas.map((d) => [d.id, d.pedido, d.estado]), [['c-40', 'c-40', 'abierta']], 'el cobro y su recibo son UNA disputa; un rechazo no es un contracargo')
   assert.equal(DISPUTAS_EJEMPLO[0].estado, estadoDeDisputa(DISPUTAS_EJEMPLO[0].texto))
+  assert.equal(DISPUTAS_EJEMPLO[0].cliente, 'Viajes Horizonte', 'el cliente es el negocio de su pedido (como en Orders), no quien pagó el cobro')
 })
 
 test('8 · Cargar pago: lo que falta se dice antes, y el pedido va con su formulario', () => {
@@ -201,9 +209,11 @@ test('8 · Cargar pago: lo que falta se dice antes, y el pedido va con su formul
   assert.equal(pedido.pagos[0].fecha, '2026-11-06T12:00')
   // El orden y la página, en memoria.
   const ord = ordenar(PEDIDOS_EJEMPLO, { id: 'net_amount', desc: true }, COMPARADORES_PEDIDO)
-  // (6/11/2026: el ejemplo del Pro pasó de US$ 297 a US$ 97, su precio en lib/planes-mako.ts: el orden por monto cambió.)
-  assert.deepEqual(ord.map((p) => p.id), ['r-8', 'p-488', 'p-501'])
-  assert.deepEqual(paginar(ord, 5, 2), { filas: [ord[2]], total: 3, paginas: 2, pagina: 1 }, 'una página de más cae en la última')
+  // (6/11/2026: los pedidos de ejemplo son los pagos de ejemplo/negocios.ts: el año de Esencial de Marta Ríos, la puesta en marcha
+  // de Agencia Brújula y, al final, la mensualidad en pesos de Estudio Norte, que no tiene su valor en dólares.)
+  assert.deepEqual(ord.slice(0, 2).map((p) => p.id), ['p-1020', 'r-8'])
+  assert.equal(ord.at(-1)?.id, 'p-1002', 'lo que no tiene dólares, al final')
+  assert.deepEqual(paginar(ord, 20, 10), { filas: ord.slice(20), total: 25, paginas: 3, pagina: 2 }, 'una página de más cae en la última')
   assert.ok(COBROS_EJEMPLO.length > 0)
 })
 

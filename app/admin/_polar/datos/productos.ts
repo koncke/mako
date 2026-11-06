@@ -35,8 +35,6 @@ export type ProductoMako = {
   precioAnualUsd: number | null
   /** El precio por mes en la moneda de una cuenta de Mercado Pago (ARS, MXN…): sin él, ese plan no se cobra por ahí. */
   preciosLocales: Record<string, number>
-  /** Lo que incluye: en la ficha, los «Benefits» de Polar. */
-  incluye: string[]
   /** `false` = archivado: no se ofrece, quien ya lo paga lo sigue pagando. */
   activo: boolean
   /** El descuento que se le ofrece antes de darse de baja (lib/retencion-plan.ts): el único descuento atado a un plan. */
@@ -52,7 +50,6 @@ export const productoDePlan = (p: PlanMako): ProductoMako => {
     precioUsd: p.precioUsd,
     precioAnualUsd: typeof p.precioAnualUsd === 'number' && p.precioAnualUsd > 0 ? p.precioAnualUsd : null,
     preciosLocales: { ...p.preciosLocales },
-    incluye: [...p.incluye],
     activo: p.activo,
     descuento: d && d.pct > 0 && d.meses > 0 ? { pct: d.pct, meses: d.meses } : null,
   }

@@ -4,50 +4,31 @@
 // =============================================================================
 // FICTICIOS: ninguna persona, negocio ni monto es de un cliente real. Se arman con las mismas funciones puras que usa el
 // server (app/admin/_polar/datos/productos.ts y finanzas.ts), así lo que se ve es lo que la página dibujaría con esos datos.
-// Los planes salen de los de fábrica (lib/planes-mako.ts), con un precio en pesos inventado para el de Mercado Pago.
+// Los planes salen de los de fábrica (lib/planes-mako.ts), con un precio en pesos inventado para el de Mercado Pago. Los cobros y
+// los pedidos son los de Sales (./ventas.ts, sobre los negocios y los pagos de ./negocios.ts): el link de «Vender un plan» con que
+// entró Floristería Pétalo es el MISMO cobro que su pago en Orders, y el libro de Income son los pedidos de Orders.
 
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako'
-import type { Entrada } from '@/lib/admin-ingresos-reglas'
 import { linksDeVenta, productoDePlan, type CobroDeVenta, type DatosCheckoutLinks, type ProductoMako } from '../productos'
-import { filasDeIngresos, type DatosIngresos } from '../finanzas'
+import { movimientosDe, type DatosIngresos } from '../finanzas'
 import type { DatosGeneral, DatosNotificaciones, DatosPagos, Emisor } from '../ajustes'
+import { COBROS_EJEMPLO as COBROS_DE_SALES, HOY_EJEMPLO, PEDIDOS_EJEMPLO } from './ventas'
 
 /** Los planes de fábrica, con Esencial y Pro a precio en pesos argentinos (inventado). */
 export const PRODUCTOS_EJEMPLO: ProductoMako[] = PLANES_MAKO_DEFAULT.map((p) =>
   productoDePlan({ ...p, preciosLocales: p.id === 'esencial' ? { ARS: 56000 } : p.id === 'pro' ? { ARS: 115000 } : {} }),
 )
 
-const cobro = (c: Partial<CobroDeVenta> & Pick<CobroDeVenta, 'id' | 'nombre' | 'email'>): CobroDeVenta => ({
-  alta_capa: 'completo',
-  monto: 47,
-  moneda: 'USD',
-  monto_usd: 47,
-  tipo: 'suscripcion',
-  proveedor: 'stripe',
-  estado: 'pendiente',
-  created_at: '2026-11-04T15:20:00Z',
-  pagado_at: null,
-  creado_por: 'Super admin',
-  alta_ws: null,
-  alta_estado: null,
-  url: null,
-  alta_ws_nombre: null,
-  ...c,
-})
-
-/** Cobros de la plataforma: tres de «Vender un plan» y uno del checkout público de /planes (que NO es un link). */
-export const COBROS_EJEMPLO: CobroDeVenta[] = [
-  cobro({ id: 101, nombre: 'Ana Gómez', email: 'ana@ejemplo.com', url: 'https://hola-mako.com/pagar/tok-ejemplo-1' }),
-  cobro({
-    id: 102, nombre: 'Estudio Norte', email: 'hola@estudionorte.example', alta_capa: 'agencia', monto: 97, monto_usd: 97, estado: 'pagado',
-    pagado_at: '2026-11-02T13:05:00Z', created_at: '2026-11-01T10:00:00Z', alta_ws: 42, alta_estado: 'hecha', alta_ws_nombre: 'Estudio Norte',
-  }),
-  cobro({
-    id: 103, nombre: 'Luis Prado', email: 'luis@ejemplo.com', proveedor: 'mercadopago', moneda: 'ARS', monto: 56000, monto_usd: null,
-    estado: 'fallido', url: 'https://hola-mako.com/pagar/tok-ejemplo-3',
-  }),
-  cobro({ id: 104, nombre: 'Marta Ruiz', email: 'marta@ejemplo.com', creado_por: 'planes:esencial', estado: 'pagado', pagado_at: '2026-10-30T09:00:00Z' }),
-]
+/**
+ * Los cobros de la plataforma como los lee Products (`listarCobros`, con `creado_por` y la URL armada): los MISMOS de Sales. Son
+ * links de «Vender un plan» los tres que armó una persona (101, 102 y 103); el de /planes (104) y los de una ficha no.
+ */
+export const COBROS_EJEMPLO: CobroDeVenta[] = COBROS_DE_SALES.map((c) => ({
+  id: c.id, nombre: c.nombre, email: c.email, alta_capa: c.altaCapa, monto: c.monto, moneda: c.moneda, monto_usd: c.montoUsd, tipo: c.tipo,
+  proveedor: c.proveedor === 'mercadopago' ? 'mercadopago' : 'stripe', estado: c.estado, created_at: c.createdAt, pagado_at: c.pagadoAt,
+  creado_por: c.creadoPor, alta_ws: c.altaWs, alta_estado: c.altaEstado,
+  url: c.link ? `https://hola-mako.com${c.link}` : null, alta_ws_nombre: c.altaWsNombre,
+}))
 
 export const CHECKOUT_LINKS_EJEMPLO: DatosCheckoutLinks = {
   productos: PRODUCTOS_EJEMPLO,
@@ -58,16 +39,8 @@ export const CHECKOUT_LINKS_EJEMPLO: DatosCheckoutLinks = {
   avisos: [],
 }
 
-/** Lo que entró, del más viejo al más nuevo (la forma de `entradasDe`). */
-export const ENTRADAS_EJEMPLO: Entrada[] = [
-  { fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-15', usd: 300, medio: 'transferencia', recurrente: false, nombre: 'Estudio Norte' },
-  { fecha: '2026-10-21', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado' },
-  { fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte' },
-]
-
-export const INGRESOS_EJEMPLO: DatosIngresos = { ok: true, filas: filasDeIngresos(ENTRADAS_EJEMPLO), hoy: '2026-11-06', avisos: [] }
+/** Finance › Income: el libro de los pedidos de Orders (lo que entró, y lo que salió: la devolución de Agencia Brújula). */
+export const INGRESOS_EJEMPLO: DatosIngresos = { ok: true, filas: movimientosDe(PEDIDOS_EJEMPLO), hoy: HOY_EJEMPLO, avisos: [] }
 
 const EMISOR_EJEMPLO: Emisor = {
   nombre: 'MaKo · hola-mako.com',

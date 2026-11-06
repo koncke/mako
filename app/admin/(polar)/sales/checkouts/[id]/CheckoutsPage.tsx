@@ -5,7 +5,8 @@
 // MaKo: lo que se vende (el plan o el concepto, con su monto en la moneda del cobro) y «Payment Attempts» con lo que MaKo guarda
 // del intento: si la pasarela lo rechazó, su motivo (es lo único guardado: no hay un renglón por intento). Lo que sí se hace acá,
 // como en la pantalla de cobros de antes: copiar el link y anularlo (`anularCobroMakoAction`). Darle el plan a su cuenta es de un
-// cobro PAGADO: está en su pedido.
+// cobro PAGADO: está en su pedido. Sin el ID de Polar debajo del título (revisión del 6/11/2026): el de MaKo es el número del
+// cobro («302» suelto), que no le dice nada a nadie y Polar no rotula.
 
 import { useState } from 'react'
 import { useRouter } from '@/app/_ui/Link'
@@ -38,7 +39,6 @@ const ClientPage: React.FC<{ checkout: CheckoutVenta }> = ({ checkout }) => {
             <h2 className="text-xl">Link de pago</h2>
             <CheckoutStatus checkout={checkout} />
           </div>
-          <span className="dark:text-polar-500 font-mono text-sm text-gray-500">{checkout.id}</span>
         </div>
       }
       header={

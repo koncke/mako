@@ -31,13 +31,13 @@ import {
   type CobroDeVenta,
   type ProductoMako,
 } from '../app/admin/_polar/datos/productos'
-import { celdasDeExportacion, filasDeIngresos, medioDeIngreso, ordenarIngresos, paginar, tipoDeIngreso } from '../app/admin/_polar/datos/finanzas'
+import { celdasDeExportacion, medioDeIngreso, movimientosDe, ordenarIngresos, paginar, tipoDeIngreso, type PedidoParaIngreso } from '../app/admin/_polar/datos/finanzas'
 import { emisorConCambios, mismoEmisor, numeroLocal, numeroSimple, problemaDelPerfil, type Emisor } from '../app/admin/_polar/datos/ajustes'
 import { getSettingsSection } from '../app/admin/_polar/web/Settings/settingsSections'
-import { CHECKOUT_LINKS_EJEMPLO, COBROS_EJEMPLO, ENTRADAS_EJEMPLO, INGRESOS_EJEMPLO, PRODUCTOS_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/productos'
+import { CHECKOUT_LINKS_EJEMPLO, COBROS_EJEMPLO, INGRESOS_EJEMPLO, PRODUCTOS_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/productos'
+import { PEDIDOS_EJEMPLO } from '../app/admin/_polar/datos/ejemplo/ventas'
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '../lib/planes-mako'
 import { armarCsv } from '../lib/csv-celda'
-import type { Entrada } from '../lib/admin-ingresos-reglas'
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url))
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n')
@@ -72,11 +72,13 @@ test('un plan como producto: el descuento de retención y el anual sólo si exis
   const q = productoDePlan(plan({ id: 'x', nombre: 'X', retencion: { pausa: { meses: 1 } } }))
   assert.equal(q.descuento, null, 'pausar no es un descuento')
   assert.equal(q.precioAnualUsd, null)
-  // Los de fábrica: todos se convierten, y su «incluye» no se comparte por referencia.
+  // Los de fábrica: todos se convierten, y sus precios locales no se comparten por referencia. (Lo que un plan «incluye» ya no
+  // viaja: los Benefits de Polar se sacaron, revisión del 6/11/2026.)
   const todos = PLANES_MAKO_DEFAULT.map(productoDePlan)
   assert.equal(todos.length, PLANES_MAKO_DEFAULT.length)
-  todos[0].incluye.push('x')
-  assert.notEqual(PLANES_MAKO_DEFAULT[0].incluye.at(-1), 'x')
+  todos[0].preciosLocales.XXX = 1
+  assert.equal(PLANES_MAKO_DEFAULT[0].preciosLocales.XXX, undefined)
+  assert.ok(todos.every((p) => !('incluye' in p)), 'un producto no lleva los beneficios')
 })
 
 // ─── Checkout Links ─────────────────────────────────────────────────────────
@@ -146,45 +148,90 @@ test('el monto que se propone: el precio del plan en la moneda del link, nunca c
 
 // ─── Finance › Income ───────────────────────────────────────────────────────
 
-const entradas: Entrada[] = [
-  { fecha: '2026-09-02', usd: 47, medio: 'stripe', recurrente: true, nombre: 'Ana Gómez' },
-  { fecha: '2026-10-15', usd: 300.5, medio: 'transferencia', recurrente: false, nombre: '=HYPERLINK("x")' },
-  { fecha: '2026-10-15', usd: null, medio: 'binance', recurrente: false, nombre: 'Luis Prado' },
-  { fecha: '2026-11-02', usd: 97, medio: 'mercadopago', recurrente: true, nombre: 'Estudio Norte' },
+// Pedidos de Orders (la forma de `pedidosDe`), con lo que el libro necesita: uno pagado, uno con «=» en el nombre, uno sin su valor
+// en dólares, uno devuelto entero (con su recibo, sin el monto devuelto), uno con una devolución parcial en la moneda del recibo,
+// uno anulado y uno en USDT sin su valor en dólares.
+const pedido = (p: Partial<PedidoParaIngreso> & Pick<PedidoParaIngreso, 'id' | 'fecha'>): PedidoParaIngreso => ({
+  cliente: { clave: 'ws:42', nombre: 'Estudio Norte', ws: 42, leadId: 7, email: null }, concepto: null, medio: 'stripe', recurrente: true,
+  usd: 97, estado: 'paid', recibo: null, ...p,
+})
+const reciboDe = (r: Partial<NonNullable<PedidoParaIngreso['recibo']>>): NonNullable<PedidoParaIngreso['recibo']> => ({
+  devueltoAt: null, devueltoMonto: null, monedaDetalle: 'USD',
+  pagos: [{ id: 1, medio: 'binance', referencia: '1', fecha: '2026-10-12T14:00:00Z', monto: 300, moneda: 'USDT', montoUsd: null, de: null, comprobante: false, anulado: false }],
+  ...r,
+})
+const pedidos: PedidoParaIngreso[] = [
+  pedido({ id: 'p-1', fecha: '2026-09-02', cliente: { clave: 'ws:42', nombre: 'Estudio Norte', ws: 42, leadId: 7, email: null }, usd: 47 }),
+  pedido({ id: 'p-2', fecha: '2026-10-15', cliente: { clave: 'lead:9', nombre: '=HYPERLINK("x")', ws: null, leadId: 9, email: null }, usd: 300.5, medio: 'transferencia', recurrente: false }),
+  pedido({ id: 'p-3', fecha: '2026-10-15', cliente: { clave: 'lead:10', nombre: 'Luis Prado', ws: null, leadId: 10, email: null }, usd: null, medio: 'transferencia', recurrente: false }),
+  pedido({ id: 'c-4', fecha: '2026-10-20', usd: 97, estado: 'refunded', recibo: reciboDe({ devueltoAt: '2026-10-25T13:30:00Z' }) }),
+  pedido({ id: 'c-5', fecha: '2026-10-21', usd: 97, estado: 'partially_refunded', recibo: reciboDe({ devueltoAt: '2026-10-26T10:00:00Z', devueltoMonto: 40, monedaDetalle: 'USD' }) }),
+  pedido({ id: 'c-6', fecha: '2026-10-22', usd: 97, estado: 'void', recibo: reciboDe({}) }),
+  pedido({ id: 'r-7', fecha: '2026-11-02', usd: null, medio: 'binance', recurrente: false, estado: 'refunded', recibo: reciboDe({ devueltoAt: '2026-11-03T09:00:00Z', monedaDetalle: 'USDT' }) }),
+  pedido({ id: 'c-8', fecha: '2026-10-23', usd: 97, estado: 'partially_refunded', recibo: reciboDe({ devueltoAt: '2026-10-27T10:00:00Z' }) }),
 ]
 
-test('Income: el más nuevo primero (y a igual día, el que entró después), de a páginas', () => {
-  const filas = filasDeIngresos(entradas)
-  assert.deepEqual(ordenarIngresos(filas).map((f) => f.id), ['i3', 'i2', 'i1', 'i0'])
-  assert.deepEqual(ordenarIngresos(filas, false).map((f) => f.id), ['i0', 'i1', 'i2', 'i3'])
-  const p = paginar(ordenarIngresos(filas), 1, 3)
-  assert.deepEqual(p.items.map((f) => f.id), ['i0'])
-  assert.equal(p.rowCount, 4)
-  assert.equal(p.pageCount, 2)
-  assert.deepEqual(paginar(filas, 9, 3).items.map((f) => f.id), ['i3'], 'una página de más cae en la última')
-  assert.equal(paginar([], 0, 50).pageCount, 1)
-  assert.equal(tipoDeIngreso({ recurrente: true }), 'Suscripción')
-  assert.equal(tipoDeIngreso({ recurrente: false }), 'Compra')
+test('Income es el LIBRO: lo que entró en positivo, lo devuelto en negativo el día que salió, y lo anulado no mueve plata', () => {
+  const libro = movimientosDe(pedidos)
+  const de = (id: string) => libro.find((m) => m.id === id)
+  assert.deepEqual(libro.map((m) => [m.id, m.fecha, m.monto, m.moneda]), [
+    ['p-1', '2026-09-02', 47, 'USD'],
+    ['p-2', '2026-10-15', 300.5, 'USD'],
+    ['p-3', '2026-10-15', null, null],
+    ['c-4', '2026-10-20', 97, 'USD'],
+    ['c-5', '2026-10-21', 97, 'USD'],
+    ['c-8', '2026-10-23', 97, 'USD'],
+    ['c-4:devolucion', '2026-10-25', -97, 'USD'],
+    ['c-5:devolucion', '2026-10-26', -40, 'USD'],
+    ['c-8:devolucion', '2026-10-27', null, null],
+    ['r-7', '2026-11-02', 300, 'USDT'],
+    ['r-7:devolucion', '2026-11-03', -300, 'USDT'],
+  ], 'el más viejo primero; c-6 (anulado) no está')
+  assert.equal(de('c-4:devolucion')?.tipo, 'devolucion')
+  assert.equal(de('c-4:devolucion')?.pedido, 'c-4', 'cada movimiento lleva a su pedido de Orders')
+  assert.equal(de('c-5:devolucion')?.monto, -40, 'una devolución parcial resta lo devuelto, no el pago entero')
+  assert.equal(de('c-8:devolucion')?.monto, null, 'una devolución parcial sin su monto: no se sabe cuánto (no se inventa)')
+  assert.equal(de('r-7')?.moneda, 'USDT', 'sin su valor en dólares, en la moneda que se recibió')
+  assert.ok(libro.every((m) => !('estado' in m) && !('recibo' in m)), 'el estado y el recibo son del pedido (Orders), no del libro')
+  assert.equal(tipoDeIngreso({ recurrente: true, tipo: 'cobro' }), 'Suscripción')
+  assert.equal(tipoDeIngreso({ recurrente: false, tipo: 'cobro' }), 'Compra')
+  assert.equal(tipoDeIngreso({ recurrente: true, tipo: 'devolucion' }), 'Devolución')
   assert.equal(medioDeIngreso('mercadopago'), 'Mercado Pago')
   assert.equal(medioDeIngreso('binance'), 'Binance')
   assert.equal(medioDeIngreso(null), 'Sin medio')
 })
 
-test('el CSV de Income: el rango con los dos extremos, las columnas en su orden, y un nombre con «=» neutralizado', () => {
-  const filas = filasDeIngresos(entradas)
-  const celdas = celdasDeExportacion(filas, ['gross_amount', 'created_at', 'customer'], { desde: '2026-10-15', hasta: '2026-11-02' })
+test('Income: el más nuevo primero (y a igual día, lo que entró antes de lo que salió), de a páginas', () => {
+  const libro = movimientosDe(pedidos)
+  assert.deepEqual(ordenarIngresos(libro).map((f) => f.id).slice(0, 3), ['r-7:devolucion', 'r-7', 'c-8:devolucion'])
+  assert.deepEqual(ordenarIngresos(libro, false).map((f) => f.id).slice(0, 2), ['p-1', 'p-2'])
+  const p = paginar(ordenarIngresos(libro), 1, 10)
+  assert.deepEqual(p.items.map((f) => f.id), ['p-1'])
+  assert.equal(p.rowCount, 11)
+  assert.equal(p.pageCount, 2)
+  assert.deepEqual(paginar(libro, 9, 10).items.map((f) => f.id), ['r-7:devolucion'], 'una página de más cae en la última')
+  assert.equal(paginar([], 0, 50).pageCount, 1)
+})
+
+test('el CSV de Income: el rango con los dos extremos, las columnas en su orden, el pedido de cada uno, y un nombre con «=» neutralizado', () => {
+  const libro = movimientosDe(pedidos)
+  const celdas = celdasDeExportacion(libro, ['gross_amount', 'created_at', 'customer'], { desde: '2026-10-15', hasta: '2026-10-20' })
   assert.deepEqual(celdas[0], ['Fecha', 'De quién', 'Monto'], 'el orden es el de los grupos, no el de la selección')
   assert.deepEqual(celdas.slice(1), [
     ['2026-10-15', '=HYPERLINK("x")', 300.5],
     ['2026-10-15', 'Luis Prado', null],
-    ['2026-11-02', 'Estudio Norte', 97],
+    ['2026-10-20', 'Estudio Norte', 97],
   ])
   const texto = armarCsv(celdas)
   assert.match(texto, /'=HYPERLINK/, 'armarCsv le antepone el apóstrofo a lo que arranca como fórmula')
-  const todas = celdasDeExportacion(filas, ['created_at', 'type', 'customer', 'method', 'gross_amount', 'currency'], { desde: '2026-01-01', hasta: '2026-12-31' })
-  assert.deepEqual(todas[1], ['2026-09-02', 'Suscripción', 'Ana Gómez', 'Stripe', 47, 'USD'])
-  assert.deepEqual(todas[3], ['2026-10-15', 'Compra', 'Luis Prado', 'Binance', null, null], 'sin su valor en dólares: monto y moneda vacíos')
-  assert.equal(INGRESOS_EJEMPLO.ok && INGRESOS_EJEMPLO.filas.length, ENTRADAS_EJEMPLO.length)
+  const todas = celdasDeExportacion(libro, ['created_at', 'type', 'customer', 'method', 'order_id', 'gross_amount', 'currency'], { desde: '2026-01-01', hasta: '2026-12-31' })
+  assert.deepEqual(todas[0], ['Fecha', 'Tipo', 'De quién', 'Medio', 'Pedido', 'Monto', 'Moneda'])
+  assert.deepEqual(todas[1], ['2026-09-02', 'Suscripción', 'Estudio Norte', 'Stripe', 'p-1', 47, 'USD'])
+  assert.deepEqual(todas[3], ['2026-10-15', 'Compra', 'Luis Prado', 'Transferencia', 'p-3', null, null], 'sin saber cuánto: monto y moneda vacíos')
+  assert.deepEqual(todas[7], ['2026-10-25', 'Devolución', 'Estudio Norte', 'Stripe', 'c-4', -97, 'USD'], 'lo que salió, negativo y con su pedido')
+  // El ejemplo: el libro son los pedidos de Orders (ejemplo/ventas.ts), y la devolución de Agencia Brújula entra y sale.
+  assert.ok(INGRESOS_EJEMPLO.ok)
+  assert.deepEqual(INGRESOS_EJEMPLO.ok && INGRESOS_EJEMPLO.filas, movimientosDe(PEDIDOS_EJEMPLO))
 })
 
 // ─── Settings ───────────────────────────────────────────────────────────────
@@ -265,6 +312,10 @@ test('ninguna vista del navegador importa VALORES de un módulo de servidor, y I
 })
 
 // PROBADO ROMPIÉNDOLO (6/11/2026). Base: 14 pass / 0 fail. Cada rotura, restaurada después (y la base otra vez 14/0):
+// (6/11/2026, revisión: Income pasó a ser el LIBRO de movimientos y se sumó su test. Base: 15/0. Cada rotura, sola:
+//   · `movimientosDe` deja pasar el pedido anulado                                      → 12/3 (el libro, el orden, el CSV)
+//   · el CSV de Income sin el pedido de cada movimiento (`order_id` vacío)              → 14/1 (el CSV de Income)
+//   Las demás roturas de ese día, en tests/admin-polar-arreglos-3.test.ts.)
 //   · `filtrarProductos` sin el «archivados al final»                                   → 13/1 (el catálogo)
 //   · `esDeVenderUnPlan` sin el corte de `creado_por` «planes:»                         → 13/1 (Checkout Links)
 //   · `productoDeCapa` elige el primer plan de la capa (`>= 1` en vez de `=== 1`)        → 13/1 (el plan de un link)

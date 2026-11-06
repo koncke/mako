@@ -3,11 +3,12 @@
 // =============================================================================
 // ⚠️ CRUZA TODOS LOS NEGOCIOS: sólo el super admin (lo pregunta la página antes de llamar). `resumenDelPeriodo` pagina sin
 //    el techo de 1000 filas (su cabecera). Si el mes que se mira no se puede leer, sube el error (la pantalla dice «No pude
-//    leer»); si falla el anterior, se avisa y la pantalla sigue sin esas comparaciones. El gasto por negocio no se lee acá:
-//    vive en Customers › Cost Drivers.
+//    leer»); si falla el anterior, se avisa y la pantalla sigue sin esas comparaciones; si falla lo que entró, se avisa y la
+//    pantalla sigue sin el margen bruto. El gasto por negocio no se lee acá: vive en Customers › Cost Drivers.
 
 import 'server-only'
 import { gastoPorDia, resumenDelPeriodo, type Corte } from '@/lib/costos-ia'
+import { vistaDeIngresos } from '@/lib/admin-ingresos'
 import { CATALOGO_MODELOS } from '@/lib/model-registry'
 import { armarCostos, mesAnterior, nombresDeFeatures, type VistaCostos } from './costos'
 
@@ -17,12 +18,15 @@ const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export async function leerCostos(periodo: string, hoy = new Date()): Promise<VistaCostos> {
   const avisos: string[] = []
-  const [actual, previo] = await Promise.allSettled([
+  const [actual, previo, ingresos] = await Promise.allSettled([
     resumenDelPeriodo(periodo),
     resumenDelPeriodo(mesAnterior(periodo)),
+    // Lo que entró, para el margen bruto: la misma lista que suma Revenue en Overview (la tarjeta «Margen bruto» lleva acá).
+    vistaDeIngresos(hoy),
   ])
   if (actual.status === 'rejected') throw actual.reason
   if (previo.status === 'rejected') avisos.push(`el mes anterior (sin comparaciones): ${mensaje(previo.reason)}`)
+  if (ingresos.status === 'rejected') avisos.push(`lo que entró (sin el margen bruto): ${mensaje(ingresos.reason)}`)
   return armarCostos({
     periodo,
     actual: actual.value,
@@ -30,6 +34,7 @@ export async function leerCostos(periodo: string, hoy = new Date()): Promise<Vis
     hoy,
     avisos,
     nombreDeFeature: NOMBRE_DE_FEATURE,
+    entradas: ingresos.status === 'fulfilled' ? ingresos.value.entradas : null,
   })
 }
 

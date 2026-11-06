@@ -533,6 +533,13 @@ export type SuscripcionVenta = {
   renovacionFallida: string | null
   /** El cobro de la pasarela que la cobra todos los meses, si se puede cortar desde acá. */
   cobroParaCortar: number | null
+  /**
+   * El próximo cobro como lo dice la tarjeta «Por cobrar» de Overview: las filas de `vistaDeIngresos().porCobrar` de ESTE cliente
+   * (lo atrasado y lo que vence en los próximos 31 días, de la historia mes a mes, `proximoDeHistoria`; en la pasarela, la regla
+   * de los tramos). NO se recalcula acá (`conPorCobrar`): así la columna «Próximo cobro» suma lo mismo que la tarjeta. Sin la
+   * lectura (`undefined`), la columna dice sólo la renovación.
+   */
+  porCobrar?: Array<{ fecha: string; usd: number; atrasado: boolean }>
 }
 
 /** Lo que el server lee de una suscripción de un lead (lib/admin-ingresos.ts, `suscripcionesDeLaPlataforma`), recortado. */
@@ -674,6 +681,41 @@ export function suscripcionesDe(e: {
   return out
 }
 
+/**
+ * Le pone a cada suscripción sus filas de «Por cobrar» (`vistaDeIngresos().porCobrar`, lib/admin-ingresos-reglas.ts `porCobrarDe`),
+ * TAL CUAL: la misma fecha y el mismo monto que la tarjeta de Overview, sin recalcular nada. Cada fila es de un CLIENTE (su clave,
+ * `ws:<n>` o `lead:<id>`): va a la primera suscripción viva de ese cliente (si no tiene ninguna viva, a la primera), así ninguna
+ * fila se cuenta dos veces y la suma de la columna es la de la tarjeta. Una fila de un cliente sin suscripción en la lista no
+ * tiene dónde ir: vuelve en `sinSuscripcion` (la pantalla lo dice, nunca se pierde en silencio).
+ */
+export function conPorCobrar(
+  subs: readonly SuscripcionVenta[],
+  porCobrar: ReadonlyArray<{ cliente: string; fecha: string; usd: number; atrasado: boolean }>,
+): { suscripciones: SuscripcionVenta[]; sinSuscripcion: number } {
+  const out = subs.map((s) => ({ ...s, porCobrar: [] as Array<{ fecha: string; usd: number; atrasado: boolean }> }))
+  let sinSuscripcion = 0
+  for (const p of porCobrar) {
+    const delCliente = out.filter((s) => s.cliente.clave === p.cliente)
+    const destino = delCliente.find((s) => s.estado !== 'canceled') ?? delCliente[0]
+    if (!destino) { sinSuscripcion += 1; continue }
+    destino.porCobrar.push({ fecha: p.fecha, usd: p.usd, atrasado: p.atrasado })
+  }
+  return { suscripciones: out, sinSuscripcion }
+}
+
+/** Lo que suma la columna «Próximo cobro» (en dólares): lo mismo que el total de la tarjeta «Por cobrar» de Overview. */
+export const totalPorCobrar = (subs: readonly Pick<SuscripcionVenta, 'porCobrar'>[]): number =>
+  r2(subs.reduce((s, x) => s + (x.porCobrar ?? []).reduce((t, p) => t + p.usd, 0), 0))
+
+/** La fecha con que se ordena la columna «Próximo cobro»: el primer cobro que espera; sin ninguno, la renovación. */
+export const fechaDelProximoCobro = (s: Pick<SuscripcionVenta, 'porCobrar' | 'renovacion'>): string | null =>
+  s.porCobrar?.length ? s.porCobrar.map((p) => p.fecha).sort()[0] : s.renovacion
+
+/** Cómo se cobra una suscripción: la que se registra a mano en el CRM (no es el «Plan a mano» de la ficha) o la pasarela. */
+export const ROTULO_FUENTE_SUSCRIPCION: Readonly<Record<SuscripcionVenta['fuente'], string>> = {
+  manual: 'Registrada a mano', pasarela: 'Por la pasarela',
+}
+
 export type FiltroSuscripciones = { estado: FiltroEstadoSuscripcion } & FechaElegida
 
 /** Polar filtra por estado y por la fecha en que EMPEZÓ (`started_after`/`started_before`). */
@@ -686,14 +728,18 @@ export const COMPARADORES_SUSCRIPCION: Readonly<Record<string, (a: SuscripcionVe
   customer: (a, b) => porTexto(a.cliente.nombre, b.cliente.nombre),
   status: (a, b) => ESTADOS_SUSCRIPCION.indexOf(a.estado) - ESTADOS_SUSCRIPCION.indexOf(b.estado),
   started_at: (a, b) => porTexto(a.empezo, b.empezo),
-  current_period_end: (a, b) => porTexto(a.renovacion, b.renovacion),
+  current_period_end: (a, b) => porTexto(fechaDelProximoCobro(a), fechaDelProximoCobro(b)),
   product: (a, b) => porTexto(a.producto, b.producto),
 }
 
 export function filasCsvSuscripciones(subs: readonly SuscripcionVenta[]): Array<Array<string | number | null>> {
   return [
-    ['Cliente', 'Estado', 'Desde', 'Próxima', 'Producto', 'Por mes (USD)', 'Debe (USD)', 'Cobra'],
-    ...subs.map((s) => [s.cliente.nombre, ROTULO_ESTADO_SUSCRIPCION[s.estado], s.empezo, s.renovacion, s.producto, s.mensualidadUsd, s.deudaUsd || null, s.fuente === 'manual' ? 'A mano' : 'La pasarela']),
+    ['Cliente', 'Estado', 'Desde', 'Próximo cobro', 'Por cobrar (USD)', 'Producto', 'Por mes (USD)', 'Debe (USD)', 'Cómo se cobra'],
+    ...subs.map((s) => [
+      s.cliente.nombre, ROTULO_ESTADO_SUSCRIPCION[s.estado], s.empezo, fechaDelProximoCobro(s),
+      s.porCobrar?.length ? r2(s.porCobrar.reduce((t, p) => t + p.usd, 0)) : null,
+      s.producto, s.mensualidadUsd, s.deudaUsd || null, ROTULO_FUENTE_SUSCRIPCION[s.fuente],
+    ]),
   ]
 }
 
@@ -807,7 +853,13 @@ export type DisputaVenta = {
  */
 export function disputasDe(e: { cobros: readonly CobroVenta[]; recibos: readonly ReciboVenta[]; pedidos: readonly Pedido[] }): DisputaVenta[] {
   const pedidoDeCobro = new Map<number, string>()
-  for (const p of e.pedidos) if (p.cobroId != null && !pedidoDeCobro.has(p.cobroId)) pedidoDeCobro.set(p.cobroId, p.id)
+  // El cliente de una disputa es el del pedido (el negocio, como en Orders), si el cobro está en Orders; si no, el del cobro.
+  const clienteDeCobro = new Map<number, string>()
+  for (const p of e.pedidos) {
+    if (p.cobroId == null || pedidoDeCobro.has(p.cobroId)) continue
+    pedidoDeCobro.set(p.cobroId, p.id)
+    if (p.cliente?.nombre) clienteDeCobro.set(p.cobroId, p.cliente.nombre)
+  }
   const pedidoDeRecibo = new Map<number, string>()
   for (const p of e.pedidos) if (p.recibo) pedidoDeRecibo.set(p.recibo.id, p.id)
   const out: DisputaVenta[] = []
@@ -816,7 +868,7 @@ export function disputasDe(e: { cobros: readonly CobroVenta[]; recibos: readonly
     if (!c.motivo || !esTextoDeContracargo(c.motivo)) continue
     cobrosConDisputa.add(c.id)
     out.push({
-      id: `c-${c.id}`, pedido: pedidoDeCobro.get(c.id) ?? null, cliente: c.altaWsNombre ?? c.nombre ?? c.email ?? `Cobro ${c.id}`,
+      id: `c-${c.id}`, pedido: pedidoDeCobro.get(c.id) ?? null, cliente: clienteDeCobro.get(c.id) ?? c.altaWsNombre ?? c.nombre ?? c.email ?? `Cobro ${c.id}`,
       estado: estadoDeDisputa(c.motivo), razon: razonDeDisputa(c.motivo), texto: c.motivo, usd: c.montoUsd, proveedor: c.proveedor,
     })
   }

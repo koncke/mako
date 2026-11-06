@@ -152,7 +152,10 @@ const OrganizationProfileSettings: React.FC<OrganizationProfileSettingsProps> = 
         }}
       >
         <Box flexDirection="column" rowGap="2xl">
-          <SettingsGroup title="Perfil" description="Quién emite: sale en cada recibo y en su correo.">
+          {/* «Datos del recibo», como lo llama el pedido (revisión del 6/11/2026): «Perfil» es el de la persona, que vive en la
+              barra de MaKo, y «tres lugares para configurar mi perfil» fue un motivo del rechazo. La entrada de la barra sigue
+              siendo «General», como en Polar. */}
+          <SettingsGroup title="Datos del recibo" description="Quién emite: sale en cada recibo y en su correo.">
             <Box flexDirection="column" padding="xl">
               <OrganizationDetailsForm />
             </Box>
