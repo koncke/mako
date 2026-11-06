@@ -11,7 +11,7 @@ import { useRouter } from '@/app/_ui/Link'
 import CheckoutStatus from '@/app/admin/_polar/web/Checkouts/CheckoutStatus'
 import CheckoutStatusSelect from '@/app/admin/_polar/web/Checkouts/CheckoutStatusSelect'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
-import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import { useDataTableQueryState } from '@/app/admin/_polar/web/Orders/useDataTableQueryState'
 import { montoEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
@@ -131,7 +131,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ checkouts, avisos }) => {
           <EmptyState
             icon={<ShoppingCart />}
             title="No hay links de pago sin pagar"
-            description="Un link de pago que se vende desde MaKo aparece aquí mientras no se paga; pagado, pasa a Orders."
+            description="Un link sin pagar aparece aquí."
           />
         ) : (
           <DataTable

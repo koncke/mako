@@ -8,8 +8,12 @@
 //
 // De dónde sale cada cosa (la lectura, en ventas-server.ts):
 //   · Orders: cada pago que entró (lib/admin-ingresos.ts, `vistaDeIngresos().entradas`: el CRM de la plataforma y la pasarela),
-//     atado a su RECIBO por el cobro (`recibos.cobro_id`), más los recibos que no tienen su pago en lo cobrado (los de «Cargar
-//     pago»: el libro de recibos, lib/recibos.ts). El estado sale del recibo (devuelto, anulado…); sin recibo, «Pagado».
+//     atado a SU recibo por el PAGO (revisión del Cerebro, 6/11/2026, punto 2: hay un recibo por cada pago, y atarlo por el cobro
+//     le daba a cada renovación el recibo de otro mes): `recibo_pagos.pago_id` (mig 0408, lo que ata «Cargar pago»), o la clave
+//     de `reciboDePago` (`medio + referencia` del recibo contra `proveedor + proveedor_pago_id` del pago). Un pago viejo sin su
+//     `proveedor_pago_id` se ata por el cobro sólo si ese cobro tiene UN recibo. Más los cobros DEVUELTOS (`c-<id>`, en estado
+//     devuelto: su pago ya no está en lo cobrado, punto 3) y los recibos que no quedaron atados a ningún pago (`r-<id>`; los de
+//     «Cargar pago» sin atar al CRM no suman: punto 4). El estado sale del recibo (devuelto, anulado…); sin recibo, «Pagado».
 //   · Subscriptions: cada lead de suscripción de la plataforma con su historia mes a mes (`suscripcionesDeLaPlataforma`, la misma
 //     cuenta que la ficha) y los cobros de suscripción de la pasarela que no son de ninguno de esos leads.
 //   · Checkouts: los cobros de la pasarela que NO se pagaron (pendientes, rechazados, anulados): lo pagado ya es un pedido. Un
@@ -24,6 +28,7 @@ import { esTextoDeContracargo } from '@/lib/cobros-reglas'
 import { NOMBRE_PASARELA, esPasarela, type EstadoAlta, type EstadoCobro, type ModoCobro, type TipoCobro } from '@/lib/cobros-tipos'
 import { MEDIOS, ROTULO_MEDIO, diferencia, esMedio, referenciaNormal, type EstadoRecibo, type MedioRecibo } from '@/lib/recibos-reglas'
 import { formatoMonto } from '@/lib/pasarela-moneda'
+import { diaEnLaZona } from '@/lib/admin-ingresos-reglas'
 import type { Metric } from './polar-tipos'
 import { esDeVenderUnPlan } from './checkout-link'
 import { armarCsv } from '@/lib/csv-celda'
@@ -145,6 +150,8 @@ export type PagoDelRecibo = {
   de: string | null
   comprobante: boolean
   anulado: boolean
+  /** El pago del CRM de la plataforma que es este cobro (`recibo_pagos.pago_id`, mig 0408). Sin la migración, ausente. */
+  pagoId?: number | null
 }
 
 /** Un recibo del libro (lib/recibos.ts), con lo que dibuja la pantalla y nada más (sin rutas de archivos). */
@@ -158,6 +165,11 @@ export type ReciboVenta = {
   cobroId: number | null
   emitidoAt: string
   fechaPago: string
+  /**
+   * El DÍA del pago en la zona del recibo (YYYY-MM-DD, `diaDelRecibo`): el que dice su PDF. `fechaPago` es un instante en UTC, y
+   * un pago del 31/10 a las 22:00 de Argentina es el 1/11 en UTC (punto 6). Sin él, el día de `fechaPago`.
+   */
+  diaPago?: string
   lineas: Array<{ concepto: string; mes: string | null; monto: number; moneda: string }>
   totalDetalle: number
   monedaDetalle: string
@@ -177,10 +189,20 @@ export type ReciboVenta = {
   historial: Array<{ at: string; que: string; quien?: string }>
 }
 
-/** Un pedido: un pago que entró (con su recibo, si tiene) o un recibo cuyo pago no está en lo cobrado. */
+/** Un pedido: un pago que entró (con su recibo, si tiene), un cobro devuelto o un recibo cuyo pago no está en lo cobrado. */
 export type Pedido = {
   /** `p-<id de pagos>` (el CRM), `c-<id de cobros>` (la pasarela) o `r-<id de recibos>` (sólo el recibo). */
   id: string
+  /**
+   * El id del pago en la pasarela (`pagos.proveedor_pago_id`, o el del cobro si el pedido es el cobro). Dice si es el pago que
+   * devuelve «Devolver el pago» (el PRIMERO del cobro, `cobros.proveedor_pago_id`) o una renovación (punto 1). null = no se sabe.
+   */
+  proveedorPagoId?: string | null
+  /**
+   * ¿Suma en los totales? `false` = un recibo cargado a mano que no quedó atado a ningún pago del CRM (`r-`, origen manual):
+   * Overview no lo ve, y si el mismo pago está en el CRM se contaría dos veces (punto 4). Ausente = suma.
+   */
+  suma?: boolean
   /** YYYY-MM-DD, el día que entró. */
   fecha: string
   cliente: ClienteVenta | null
@@ -208,6 +230,10 @@ export type EntradaVenta = {
   cliente?: string
   concepto?: string | null
   cobroId?: number | null
+  /** La pasarela del pago (`pagos.proveedor`, o la del cobro): con `proveedorPagoId`, la clave de su recibo. */
+  proveedor?: string | null
+  /** El id del pago en la pasarela (`pagos.proveedor_pago_id`, o el del cobro). */
+  proveedorPagoId?: string | null
 }
 
 /** El id de un renglón de lo cobrado (`p:12`, `c:34`) en la URL (`p-12`). */
@@ -222,24 +248,78 @@ export function usdDelRecibo(r: Pick<ReciboVenta, 'pagos'>): number | null {
 }
 
 /**
- * Los pedidos: cada entrada de lo cobrado con su recibo (atado por el cobro), y cada recibo que no quedó atado a ninguna entrada
- * (un pago cargado a mano con «Cargar pago», que no vive en el CRM). El más nuevo primero.
- * ⚠️ Un pago cargado a mano en el CRM Y con su recibo de «Cargar pago» sale DOS veces: MaKo no guarda qué recibo es de qué pago
- * del CRM (no hay columna que los ate), y atarlos por fecha y monto sería adivinar. Lo dice el informe de la tab.
+ * El día del pago de un recibo en SU zona (la que se copió al emitirlo, `recibos.zona`): el que dice su PDF. Lo arma
+ * `reciboDeListado` (ventas-server.ts). Punto 6: con el día de la fecha en UTC, un pago de la noche caía en el día siguiente.
+ */
+export const diaDelRecibo = (fechaPago: string, zona: string | null | undefined): string => diaEnLaZona(fechaPago, zona)
+
+/**
+ * La clave de un pago en el libro de recibos: la de `reciboDePago` (lib/recibos.ts), `medio + referencia` normalizada. De un
+ * pago del CRM: `proveedor + proveedor_pago_id`. null si el medio no es del libro o la referencia no se puede leer.
+ */
+export function claveDePago(medio: string | null | undefined, referencia: string | null | undefined): string | null {
+  const m = String(medio ?? '').trim().toLowerCase()
+  if (!esMedio(m) || referencia == null) return null
+  const ref = referenciaNormal(m, referencia)
+  return ref ? `${m}:${ref}` : null
+}
+
+/**
+ * Los pedidos: cada entrada de lo cobrado con SU recibo, cada cobro DEVUELTO (`cobros`, su pago ya no está en lo cobrado) y cada
+ * recibo que no quedó atado a ningún pago. El más nuevo primero.
+ *
+ * Cómo se ata un pago a su recibo (punto 2 de la revisión del 6/11/2026), en este orden:
+ *   1. `recibo_pagos.pago_id` (mig 0408): lo que ata «Cargar pago» con el pago del CRM que registró o eligió;
+ *   2. la clave de `reciboDePago`: el `medio + referencia` del recibo contra el `proveedor + proveedor_pago_id` del pago;
+ *   3. un pago viejo SIN `proveedor_pago_id`, por su cobro, sólo si ese cobro tiene UN recibo (con varios, cada uno es de otra
+ *      renovación: elegir uno sería darle el recibo de otro mes, que es lo que pasaba atando por el cobro).
+ *
+ * Un recibo cargado a mano que no se ató a ningún pago sale como `r-` y NO SUMA (`suma: false`, punto 4): Overview no lo ve, y si
+ * el mismo pago está en el CRM se contaría dos veces.
+ *
+ * `zona`: la de la plataforma, para el día de un cobro devuelto sin recibo (punto 6).
  */
 export function pedidosDe(e: {
   entradas: readonly EntradaVenta[]
   recibos: readonly ReciboVenta[]
   clientes: ReadonlyMap<string, Omit<ClienteVenta, 'email'> & { email?: string | null }>
   nombreDeWs: ReadonlyMap<number, string>
+  /** Los cobros de la plataforma (`cobrosDeMakoAction`): de acá salen los devueltos, que `vistaDeIngresos` no trae (punto 3). */
+  cobros?: readonly CobroVenta[]
+  zona?: string | null
 }): Pedido[] {
-  const reciboDeCobro = new Map<number, ReciboVenta>()
-  for (const r of e.recibos) if (r.cobroId != null && !reciboDeCobro.has(r.cobroId)) reciboDeCobro.set(r.cobroId, r)
+  const reciboDePagoId = new Map<number, ReciboVenta>()
+  const reciboDeClave = new Map<string, ReciboVenta>()
+  const recibosDeCobro = new Map<number, ReciboVenta[]>()
+  for (const r of e.recibos) {
+    for (const p of r.pagos) {
+      if (p.anulado) continue
+      if (p.pagoId != null && !reciboDePagoId.has(p.pagoId)) reciboDePagoId.set(p.pagoId, r)
+      const clave = claveDePago(p.medio, p.referencia)
+      if (clave && !reciboDeClave.has(clave)) reciboDeClave.set(clave, r)
+    }
+    if (r.cobroId != null) recibosDeCobro.set(r.cobroId, [...(recibosDeCobro.get(r.cobroId) ?? []), r])
+  }
+  const reciboDelPago = (q: { pagoId: number | null; proveedor: string | null | undefined; proveedorPagoId: string | null | undefined; cobroId: number | null | undefined }): ReciboVenta | null => {
+    if (q.pagoId != null) {
+      const r = reciboDePagoId.get(q.pagoId)
+      if (r) return r
+    }
+    if (q.proveedorPagoId) {
+      const clave = claveDePago(q.proveedor, q.proveedorPagoId)
+      return clave ? reciboDeClave.get(clave) ?? null : null
+    }
+    const delCobro = q.cobroId != null ? recibosDeCobro.get(q.cobroId) ?? [] : []
+    return delCobro.length === 1 ? delCobro[0] : null
+  }
+
   const usados = new Set<number>()
+  const vistos = new Set<string>()
   const out: Pedido[] = []
   for (const x of e.entradas) {
     if (!x.id || !/^[pc]:\d+$/.test(x.id)) continue
-    const recibo = x.cobroId != null ? reciboDeCobro.get(x.cobroId) ?? null : null
+    vistos.add(x.id)
+    const recibo = reciboDelPago({ pagoId: x.id.startsWith('p:') ? Number(x.id.slice(2)) : null, proveedor: x.proveedor, proveedorPagoId: x.proveedorPagoId, cobroId: x.cobroId })
     if (recibo) usados.add(recibo.id)
     const c = x.cliente ? e.clientes.get(x.cliente) : undefined
     const ws = c?.ws ?? wsDeClave(x.cliente)
@@ -255,6 +335,29 @@ export function pedidosDe(e: {
       recibo,
       cobroId: x.cobroId ?? null,
       origen: x.id.startsWith('c:') ? 'pasarela' : 'crm',
+      proveedorPagoId: x.proveedorPagoId ?? null,
+    })
+  }
+  // Punto 3: un cobro DEVUELTO ya no está en lo cobrado (el cobro pasa a `reembolsado` y su pago a `pagado: false`). Sin esto, el
+  // pedido desaparecía al devolverlo (la página caía en 404 y se perdía el resultado) o reaparecía como un recibo «Cargado a mano».
+  for (const c of e.cobros ?? []) {
+    if (c.estado !== 'reembolsado' || vistos.has(`c:${c.id}`)) continue
+    const recibo = reciboDelPago({ pagoId: null, proveedor: c.proveedor, proveedorPagoId: c.proveedorPagoId, cobroId: c.id })
+    if (recibo) usados.add(recibo.id)
+    out.push({
+      id: `c-${c.id}`,
+      fecha: recibo?.diaPago ?? (c.pagadoAt ? diaEnLaZona(c.pagadoAt, e.zona) : c.createdAt.slice(0, 10)),
+      cliente: { clave: c.altaWs != null ? `ws:${c.altaWs}` : null, nombre: c.altaWsNombre ?? c.nombre ?? c.email ?? `Cobro ${c.id}`, ws: c.altaWs, leadId: null, email: c.email },
+      concepto: c.plan ?? c.concepto,
+      medio: c.proveedor,
+      recurrente: c.tipo === 'suscripcion',
+      usd: (recibo ? usdDelRecibo(recibo) : null) ?? c.montoUsd,
+      // La pasarela ya lo devolvió entero (`reembolsado`), aunque el recibo todavía no lo diga.
+      estado: 'refunded',
+      recibo,
+      cobroId: c.id,
+      origen: 'pasarela',
+      proveedorPagoId: c.proveedorPagoId ?? null,
     })
   }
   for (const r of e.recibos) {
@@ -262,7 +365,7 @@ export function pedidosDe(e: {
     const nombre = r.destinoWs != null ? e.nombreDeWs.get(r.destinoWs) ?? r.aNombre : r.aNombre
     out.push({
       id: `r-${r.id}`,
-      fecha: r.fechaPago.slice(0, 10),
+      fecha: r.diaPago ?? r.fechaPago.slice(0, 10),
       cliente: { clave: r.destinoWs != null ? `ws:${r.destinoWs}` : null, nombre, ws: r.destinoWs, leadId: null, email: null },
       concepto: r.lineas.map((l) => l.concepto).join(', ') || null,
       medio: r.pagos.find((p) => !p.anulado)?.medio ?? null,
@@ -272,6 +375,8 @@ export function pedidosDe(e: {
       recibo: r,
       cobroId: r.cobroId,
       origen: 'recibo',
+      proveedorPagoId: null,
+      suma: r.origen !== 'manual',
     })
   }
   return out.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.id.localeCompare(a.id)))
@@ -293,28 +398,101 @@ export const COMPARADORES_PEDIDO: Readonly<Record<string, (a: Pedido, b: Pedido)
 
 /**
  * Las tres cajas de arriba de Orders (Polar: `orders`, `revenue`, `average_order_value` con los mismos filtros de la tabla). En
- * centavos, como las métricas de Polar. Lo devuelto (refunded/void) no suma a lo que entró; lo que no tiene dólares, tampoco.
+ * centavos, como las métricas de Polar. Lo devuelto (refunded/void) no suma a lo que entró; lo que no tiene dólares, tampoco; y un
+ * recibo cargado a mano sin atar a un pago del CRM (`suma: false`), tampoco: Overview no lo ve y podría ser el mismo pago que ya
+ * está en el CRM (punto 4). Ése se cuenta aparte, en `aManoSinSumar`, para decirlo debajo de las cajas.
  */
-export function totalesDePedidos(pedidos: readonly Pedido[]): { orders: number; revenue: number; averageOrderValue: number; sinDolares: number } {
-  const valen = pedidos.filter((p) => p.estado === 'paid' || p.estado === 'partially_refunded')
+export function totalesDePedidos(pedidos: readonly Pedido[]): {
+  orders: number; revenue: number; averageOrderValue: number; sinDolares: number
+  /** Los recibos cargados a mano que no suman (con su plata en dólares, la que tiene). */
+  aManoSinSumar: { recibos: number; usd: number }
+} {
+  const entraron = pedidos.filter((p) => p.estado === 'paid' || p.estado === 'partially_refunded')
+  const valen = entraron.filter((p) => p.suma !== false)
   const conUsd = valen.filter((p) => p.usd != null)
   const revenue = r2(conUsd.reduce((s, p) => s + (p.usd as number), 0))
+  const sueltos = entraron.filter((p) => p.suma === false)
   return {
     orders: pedidos.length,
     revenue: aCentavos(revenue),
     averageOrderValue: conUsd.length ? aCentavos(r2(revenue / conUsd.length)) : 0,
     sinDolares: valen.length - conUsd.length,
+    aManoSinSumar: { recibos: sueltos.length, usd: r2(sueltos.reduce((s, p) => s + (p.usd ?? 0), 0)) },
   }
 }
+
+/** «2 recibos cargados a mano no suman en Ingresos: US$ 300» (debajo de las cajas de Orders). null si no hay. */
+export function textoDeSinSumar(t: { recibos: number; usd: number }): string | null {
+  if (!t.recibos) return null
+  return `${t.recibos === 1 ? '1 recibo cargado a mano no suma' : `${t.recibos} recibos cargados a mano no suman`} en Ingresos: ${usdEnTextoPlano(t.usd)}`
+}
+
+const usdEnTextoPlano = (n: number) => `US$ ${n.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`
 
 /** Lo que MiniMetricChartBox lee de una métrica: su nombre y su tipo (no su slug). */
 export const METRICA_ORDERS: Metric = { slug: 'revenue', display_name: 'Pedidos', type: 'scalar' }
 export const METRICA_REVENUE: Metric = { slug: 'revenue', display_name: 'Ingresos', type: 'currency' }
 export const METRICA_AOV: Metric = { slug: 'revenue', display_name: 'Pago promedio', type: 'currency' }
 
-/** «Billing reason» de Polar, con lo que MaKo sabe: si es de una suscripción o un pago suelto. */
-export const motivoDePedido = (p: Pick<Pedido, 'recurrente' | 'origen'>): string =>
-  p.origen === 'recibo' ? 'Cargado a mano' : p.recurrente ? 'Suscripción' : 'Pago único'
+/**
+ * «Billing reason» de Polar, con lo que MaKo sabe: si es de una suscripción o un pago suelto. «Cargado a mano» lo dice el RECIBO
+ * (`origen: 'manual'`), no que el pedido sea sólo un recibo: un cobro devuelto con su recibo de la pasarela sigue siendo de la
+ * pasarela (punto 3), y un pago del CRM atado a su recibo de «Cargar pago» sí se cargó a mano.
+ */
+export const motivoDePedido = (p: Pick<Pedido, 'recurrente'> & { recibo: Pick<ReciboVenta, 'origen'> | null }): string =>
+  p.recibo?.origen === 'manual' ? 'Cargado a mano' : p.recurrente ? 'Suscripción' : 'Pago único'
+
+// ── Devolver un pedido (OrderRefundsSection) ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Qué ofrece «Devoluciones» para un pedido (punto 1 de la revisión del 6/11/2026). `reembolsarCobroMakoAction` devuelve el pago
+ * del COBRO (`cobros.proveedor_pago_id`), que es el PRIMERO: cada renovación de la pasarela es otro pedido con el mismo cobro, y
+ * ofrecer el botón ahí devolvía septiembre al pedir noviembre. Así que:
+ *   · `pasarela`: el pedido ES el pago del cobro (los dos ids coinciden) → «Devolver el pago», por el monto del PEDIDO (`usd`: el
+ *     del cobro es la mensualidad de hoy, y el primer mes pudo ser otro);
+ *   · `en-la-pasarela`: otro pago del mismo cobro (una renovación, o uno sin su id) → sin botón, con el texto de qué hacer;
+ *   · `a-mano`: un recibo de «Cargar pago» sin cobro → «Marcar devuelto»;
+ *   · null: ya devuelto, o nada que devolver desde acá.
+ */
+export type DevolucionDelPedido = { tipo: 'pasarela'; usd: number | null } | { tipo: 'a-mano' } | { tipo: 'en-la-pasarela'; texto: string } | null
+
+export function devolucionDelPedido(
+  order: Pick<Pedido, 'estado' | 'proveedorPagoId' | 'usd'> & { recibo: Pick<ReciboVenta, 'origen' | 'estado'> | null },
+  cobro: Pick<CobroVenta, 'estado' | 'modo' | 'proveedorPagoId' | 'montoUsd'> | null,
+): DevolucionDelPedido {
+  if (order.estado === 'refunded' || order.estado === 'partially_refunded') return null
+  if (cobro && cobro.modo === 'real' && (cobro.estado === 'pagado' || cobro.estado === 'reembolsado')) {
+    if (cobro.estado === 'pagado' && cobro.proveedorPagoId && order.proveedorPagoId && cobro.proveedorPagoId === order.proveedorPagoId) return { tipo: 'pasarela', usd: order.usd ?? cobro.montoUsd }
+    return {
+      tipo: 'en-la-pasarela',
+      texto: order.proveedorPagoId
+        ? 'Una renovación se devuelve desde el panel de la pasarela; MaKo la registra sola con el aviso.'
+        : 'Este pago se devuelve desde el panel de la pasarela; MaKo lo registra solo con el aviso.',
+    }
+  }
+  if (!cobro && order.recibo?.origen === 'manual' && order.recibo.estado === 'emitido') return { tipo: 'a-mano' }
+  return null
+}
+
+/** El resumen de una devolución que viaja en la URL (`?hecho=`, punto 3): texto plano, recortado. null si no es un texto. */
+export function hechoDeLaUrl(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : ''
+  return s ? s.slice(0, 300) : null
+}
+
+/**
+ * La suscripción de un pedido, para el enlace «Suscripción» del detalle (punto 19): primero la del COBRO (la de la pasarela,
+ * `c-<cobro>` o la del lead que lo tiene), y si no, la de a mano cuya historia lista ESTE pedido entre los pagos de un mes. Sin
+ * ninguna, null: el enlace no se dibuja (armar `l-<lead>` a ciegas daba 404, o la suscripción de otro lead del mismo negocio).
+ */
+export function suscripcionDelPedido(order: Pick<Pedido, 'id' | 'cobroId'>, subs: readonly Pick<SuscripcionVenta, 'id' | 'cobroIds' | 'historia'>[]): string | null {
+  if (order.cobroId != null) {
+    const s = subs.find((x) => x.id === `c-${order.cobroId}`) ?? subs.find((x) => x.cobroIds?.includes(order.cobroId as number))
+    if (s) return `/admin/sales/subscriptions/${s.id}`
+  }
+  const s = subs.find((x) => x.historia.some((m) => m.pedidos.includes(order.id)))
+  return s ? `/admin/sales/subscriptions/${s.id}` : null
+}
 
 /**
  * El archivo de «Export» (Polar: ExportOrdersModal / ExportSubscriptionsModal), ya armado por el único armador de CSV de la app
@@ -347,14 +525,18 @@ export const ROTULO_ESTADO_PEDIDO: Readonly<Record<EstadoPedido, string>> = {
 export const MONEDAS_RECIBO = ['USD', 'USDT', 'USDC', 'ARS', 'MXN', 'EUR'] as const
 
 export type LineaCargarPago = { concepto: string; mes: string; monto: string }
-export type PagoCargarPago = { medio: MedioRecibo; referencia: string; fecha: string; hora: string; monto: string; moneda: string; de: string; comprobante: { path: string; nombre: string } | null }
+/**
+ * `pagoCrm`: el pago del CRM de la plataforma que ES este cobro (su id, como texto del select), o '' = registrarlo en el CRM al
+ * emitir (punto 4: «Cargar pago» registra el pago en `pagos` del lead de esa cuenta; si ya estaba, se ata en vez de crear otro).
+ */
+export type PagoCargarPago = { medio: MedioRecibo; referencia: string; fecha: string; hora: string; monto: string; moneda: string; de: string; comprobante: { path: string; nombre: string } | null; pagoCrm: string }
 export type FormCargarPago = { cuenta: string; aNombre: string; moneda: string; lineas: LineaCargarPago[]; pagos: PagoCargarPago[]; notaPdf: string; notaInterna: string }
 
 export function formCargarPagoInicial(hoy: string): FormCargarPago {
   return {
     cuenta: '', aNombre: '', moneda: 'USD',
     lineas: [{ concepto: '', mes: '', monto: '' }],
-    pagos: [{ medio: 'binance', referencia: '', fecha: hoy, hora: '12:00', monto: '', moneda: 'USDT', de: '', comprobante: null }],
+    pagos: [{ medio: 'binance', referencia: '', fecha: hoy, hora: '12:00', monto: '', moneda: 'USDT', de: '', comprobante: null, pagoCrm: '' }],
     notaPdf: '', notaInterna: '',
   }
 }
@@ -414,11 +596,35 @@ export function pedidoCargarPago(f: FormCargarPago, formId: string, enviar: bool
     pagos: f.pagos.map((p) => ({
       medio: p.medio, referencia: p.referencia, fecha: `${p.fecha}T${p.hora || '00:00'}`, monto: numero(p.monto), moneda: p.moneda,
       de: p.de.trim() || null, comprobante_path: p.comprobante?.path ?? null, comprobante_nombre: p.comprobante?.nombre ?? null,
+      pago_crm: /^[1-9]\d{0,11}$/.test(p.pagoCrm) ? Number(p.pagoCrm) : null,
     })),
     notaPdf: f.notaPdf.trim() || null,
     notaInterna: f.notaInterna.trim() || null,
     enviar,
   }
+}
+
+/**
+ * «Usar el precio de un plan»: el concepto y el precio del plan en el primer renglón, y la moneda del recibo en DÓLARES (punto 17:
+ * el precio de un plan es en dólares; con el recibo en ARS dejaba «ARS 97», y el aviso de diferencia no lo veía).
+ */
+export function conElPrecioDelPlan(f: FormCargarPago, plan: { nombre: string; precioUsd: number }): FormCargarPago {
+  return {
+    ...f,
+    moneda: 'USD',
+    lineas: f.lineas.map((l, i) => (i === 0 ? { ...l, concepto: plan.nombre, monto: String(plan.precioUsd) } : l)),
+  }
+}
+
+/** Un pago del CRM de la plataforma que no tiene recibo: lo que «Cargar pago» ofrece primero para atar (punto 4). */
+export type PagoSinRecibo = { pagoId: number; ws: number; fecha: string; usd: number | null; medio: string | null; concepto: string | null }
+
+/** Los pagos del CRM (`p-<id>`) con su cuenta de MaKo y sin recibo, de los pedidos de Orders. El más nuevo primero. */
+export function pagosSinReciboDe(pedidos: readonly Pedido[]): PagoSinRecibo[] {
+  return pedidos
+    .filter((p) => p.origen === 'crm' && !p.recibo && p.estado === 'paid' && p.cliente?.ws != null && /^p-\d+$/.test(p.id))
+    .map((p) => ({ pagoId: Number(p.id.slice(2)), ws: p.cliente!.ws as number, fecha: p.fecha, usd: p.usd, medio: p.medio, concepto: p.concepto }))
+    .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.pagoId - a.pagoId))
 }
 
 // =============================================================================
@@ -493,6 +699,8 @@ export type SuscripcionVenta = {
   renovacionFallida: string | null
   /** El cobro de la pasarela que la cobra todos los meses, si se puede cortar desde acá. */
   cobroParaCortar: number | null
+  /** Los cobros de suscripción de la pasarela que son de ella (los de su lead, o el suyo): para hallarla desde un pedido (punto 19). */
+  cobroIds?: number[]
 }
 
 /** Lo que el server lee de una suscripción de un lead (lib/admin-ingresos.ts, `suscripcionesDeLaPlataforma`), recortado. */
@@ -557,6 +765,11 @@ export type CobroVenta = {
   /** /pagar/<token>, sólo mientras se puede pagar. */
   link: string | null
   suscripcionViva: boolean
+  /**
+   * El id en la pasarela del PRIMER pago del cobro (`cobros.proveedor_pago_id`): el que devuelve `reembolsarCobro`. Un pedido con
+   * otro id es una renovación (punto 1).
+   */
+  proveedorPagoId?: string | null
 }
 
 /**
@@ -578,7 +791,8 @@ export function suscripcionesDe(e: {
     if (l.estadoLead !== 'ganado' && !(l.cobradoUsd > 0)) continue
     const s = l.suscripcion
     const h = s.historia
-    const estado: EstadoSuscripcionVenta = s.estado !== 'activa' ? 'canceled' : s.fuente === 'manual' && h.mesesSinPagar > 0 ? 'past_due' : s.renovacionFallida ? 'past_due' : 'active'
+    // «Atrasada» también con deuda (punto 8): quien pagó una parte de un mes vencido seguía «Activa» y no se distinguía.
+    const estado: EstadoSuscripcionVenta = s.estado !== 'activa' ? 'canceled' : s.fuente === 'manual' && (h.mesesSinPagar > 0 || h.deudaUsd > 0) ? 'past_due' : s.renovacionFallida ? 'past_due' : 'active'
     const viva = l.cobroIds.map((id) => cobroDe.get(id)).find((c) => c?.suscripcionViva)
     out.push({
       id: `l-${l.leadId}`,
@@ -604,6 +818,7 @@ export function suscripcionesDe(e: {
         : [],
       renovacionFallida: s.renovacionFallida,
       cobroParaCortar: viva?.id ?? null,
+      cobroIds: [...l.cobroIds],
     })
   }
   for (const c of e.cobros) {
@@ -629,6 +844,7 @@ export function suscripcionesDe(e: {
       historia: [],
       renovacionFallida: null,
       cobroParaCortar: c.suscripcionViva ? c.id : null,
+      cobroIds: [c.id],
     })
   }
   return out
@@ -636,11 +852,20 @@ export function suscripcionesDe(e: {
 
 export type FiltroSuscripciones = { estado: FiltroEstadoSuscripcion; intervalo: Intervalo }
 
-/** Polar filtra por estado y por la fecha en que EMPEZÓ (`started_after`/`started_before`). */
+/**
+ * Polar filtra por estado y por la fecha en que EMPEZÓ (`started_after`/`started_before`). ⚠️ «Activa» también muestra las
+ * ATRASADAS (punto 8): Polar no las incluye en Active, pero esta pantalla contesta quién debe, y «Por cobrar › Ver todo» abría la
+ * lista en «Activa» sin ninguna de las que deben (está en «Diferencias con Polar» del relevo). «Atrasada» sigue aparte.
+ */
 export function filtrarSuscripciones(subs: readonly SuscripcionVenta[], f: FiltroSuscripciones, hoy: string): SuscripcionVenta[] {
   const rango = rangoDe(f.intervalo, hoy)
-  return subs.filter((s) => (f.estado === 'any' || s.estado === f.estado) && (rango == null || (s.empezo != null && enRango(s.empezo, rango))))
+  const pasa = (s: SuscripcionVenta) => f.estado === 'any' || s.estado === f.estado || (f.estado === 'active' && s.estado === 'past_due')
+  return subs.filter((s) => pasa(s) && (rango == null || (s.empezo != null && enRango(s.empezo, rango))))
 }
+
+/** Las atrasadas primero, sin tocar el orden de adentro de cada grupo (el de la columna elegida): como `suscripcionesDelNegocio`. */
+export const primeroLasAtrasadas = <T extends Pick<SuscripcionVenta, 'estado'>>(subs: readonly T[]): T[] =>
+  [...subs.filter((s) => s.estado === 'past_due'), ...subs.filter((s) => s.estado !== 'past_due')]
 
 export const COMPARADORES_SUSCRIPCION: Readonly<Record<string, (a: SuscripcionVenta, b: SuscripcionVenta) => number>> = {
   customer: (a, b) => porTexto(a.cliente.nombre, b.cliente.nombre),

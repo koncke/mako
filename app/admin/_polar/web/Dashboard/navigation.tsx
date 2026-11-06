@@ -181,16 +181,16 @@ export const generalRoutesList = (): Route[] => [
   },
 ]
 
-const orgFinanceSubRoutesList = (): SubRoute[] => [{ title: 'Income', link: `${BASE}/finance/income` }]
-
+// MaKo: Finance abre Income directo, sin subítem (revisión del Cerebro del 6/11/2026, punto 26): con uno solo, la barra
+// desplegaba Finance para mostrar Income y nada más. Polar tiene más subpáginas (Payouts, Account) que MaKo no tiene.
 export const organizationRoutesList = (): Route[] => [
   {
     id: 'finance',
     title: 'Finance',
-    link: `${BASE}/finance`,
+    link: `${BASE}/finance/income`,
     icon: <AttachMoneyOutlined fontSize="inherit" />,
+    checkIsActive: (currentRoute: string): boolean => currentRoute.startsWith(`${BASE}/finance`),
     if: true,
-    subs: orgFinanceSubRoutesList(),
   },
   {
     id: 'settings',

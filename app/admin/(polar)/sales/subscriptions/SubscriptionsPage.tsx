@@ -3,7 +3,9 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/sales/subscriptions/SubscriptionsPage.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // MaKo: la vista es PURA (todo por props). Filtra, ordena y pagina en memoria con el estado en la URL, como Polar en su server.
-// El estado arranca en «Activa», como `DEFAULT_SUBSCRIPTION_STATUS` de Polar. Lo que se sacó: el filtro por producto (una
+// El estado arranca en «Activa», como `DEFAULT_SUBSCRIPTION_STATUS` de Polar, pero acá «Activa» incluye a las atrasadas, primero
+// (revisión del Cerebro del 6/11/2026, punto 8: esta pantalla contesta quién debe). «Por mes» y «Debe» son columnas de MaKo (los
+// valores del CSV): sin ellas no se veía quién paga cuánto ni quién debe. Lo que se sacó: el filtro por producto (una
 // suscripción a mano no tiene producto del catálogo), el de «se corta al final del período» (MaKo no lo guarda), la etiqueta de
 // versión del producto y las columnas de metadata.
 
@@ -12,16 +14,18 @@ import { useRouter } from '@/app/_ui/Link'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { SubscriptionStatus as SubscriptionStatusComponent, fechaCorta } from '@/app/admin/_polar/web/Subscriptions/SubscriptionStatus'
 import { ExportCsvModal } from '@/app/admin/_polar/web/Orders/ExportCsvModal'
-import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import { useDataTableQueryState } from '@/app/admin/_polar/web/Orders/useDataTableQueryState'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_SUSCRIPCION, ESTADOS_SUSCRIPCION, ESTADO_SUSCRIPCION_POR_DEFECTO, PAGINA_POR_DEFECTO,
-  esIntervalo, csvDeSuscripciones, filtrarSuscripciones, ordenar, paginar,
+  esIntervalo, csvDeSuscripciones, filtrarSuscripciones, ordenar, paginar, primeroLasAtrasadas,
   type FiltroEstadoSuscripcion, type Intervalo, type SuscripcionVenta,
 } from '@/app/admin/_polar/datos/ventas'
 import { Avatar, DataTable, DataTableColumnDef, DataTableColumnHeader, InlineModal, Status, Text } from '@/app/admin/_polar/orbit'
+import { Box } from '@/app/admin/_polar/orbit/components/Box'
+import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { AllInclusiveOutlined } from '@/app/admin/_polar/orbit/icons'
 import React from 'react'
 import SubscriptionFilters from './SubscriptionFilters'
@@ -51,10 +55,11 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
   const onDateChange = (value: Intervalo) => setParams({ range: value === 'allTime' ? null : value, page: null })
 
   const filtradas = useMemo(() => filtrarSuscripciones(suscripciones, { estado: status, intervalo }, hoy), [suscripciones, status, intervalo, hoy])
-  const ordenadas = useMemo(
-    () => ordenar(filtradas, sorting[0] ? { id: sorting[0].id, desc: sorting[0].desc } : null, COMPARADORES_SUSCRIPCION),
-    [filtradas, sorting],
-  )
+  // En «Activa», las atrasadas primero (el orden de la columna sigue adentro de cada grupo).
+  const ordenadas = useMemo(() => {
+    const o = ordenar(filtradas, sorting[0] ? { id: sorting[0].id, desc: sorting[0].desc } : null, COMPARADORES_SUSCRIPCION)
+    return status === 'active' ? primeroLasAtrasadas(o) : o
+  }, [filtradas, sorting, status])
   const pagina = paginar(ordenadas, pagination.pageIndex, pagination.pageSize)
 
   const {
@@ -106,6 +111,30 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
         </div>
       ),
     },
+    {
+      id: 'mensualidad',
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Por mes" className="flex justify-end" />,
+      cell: ({ row: { original } }) => (
+        <Box display="block" textAlign="right">
+          <Text as="span" tabularNums>{original.mensualidadUsd != null ? usdEnTexto(original.mensualidadUsd, 'standard') : '—'}</Text>
+        </Box>
+      ),
+    },
+    {
+      id: 'deuda',
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Debe" className="flex justify-end" />,
+      cell: ({ row: { original } }) => (
+        <Box display="block" textAlign="right">
+          {original.deudaUsd > 0 ? (
+            <Text as="span" tabularNums color="danger">{usdEnTexto(original.deudaUsd, 'standard')}</Text>
+          ) : (
+            <Text as="span" color="muted">—</Text>
+          )}
+        </Box>
+      ),
+    },
   ]
 
   return (
@@ -123,7 +152,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, suscripciones, avisos }) =
           <EmptyState
             icon={<AllInclusiveOutlined fontSize="inherit" />}
             title="Todavía no hay suscripciones"
-            description="Cuando un cliente de MaKo se suscribe (a mano en el CRM o por la pasarela), aparece aquí con su historia mes a mes."
+            description="Aparecen aquí cuando un cliente se suscribe."
           />
         ) : (
           <DataTable

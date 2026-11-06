@@ -206,7 +206,7 @@ const CANAL: Record<string, string> = { app: 'En la app', whatsapp: 'Por WhatsAp
 const ORIGEN: Record<string, string> = { navegador: 'En el navegador', servidor: 'En el servidor', mako: 'En MaKo' }
 
 /** Lo que hace falta de un pedido de Admin › Sales (`Pedido`, ./ventas.ts), con lo de su recibo que dice si se devolvió. */
-export type PedidoEvento = Pick<Pedido, 'id' | 'fecha' | 'cliente' | 'concepto' | 'medio' | 'recurrente' | 'usd' | 'estado'> & {
+export type PedidoEvento = Pick<Pedido, 'id' | 'fecha' | 'cliente' | 'concepto' | 'medio' | 'recurrente' | 'usd' | 'estado' | 'suma'> & {
   recibo: Pick<ReciboVenta, 'devueltoAt' | 'devueltoMonto' | 'monedaDetalle' | 'anuladoAt'> | null
 }
 
@@ -219,6 +219,9 @@ export type PedidoEvento = Pick<Pedido, 'id' | 'fecha' | 'cliente' | 'concepto' 
 export function eventosDePedidos(pedidos: readonly PedidoEvento[]): EventoAdmin[] {
   const out: EventoAdmin[] = []
   for (const p of pedidos) {
+    // Un recibo cargado a mano sin su pago en el CRM no suma en Orders (ventas.ts, `suma`): tampoco es un «Pago recibido» acá, o el
+    // mismo pago del CRM se contaba dos veces (revisión del Cerebro del 6/11/2026, punto 4).
+    if (p.suma === false) continue
     const ws = p.cliente?.ws ?? null
     const negocios = ws != null && p.cliente ? [{ ws, nombre: p.cliente.nombre }] : []
     const persona = ws == null ? (p.cliente?.nombre ?? null) : null

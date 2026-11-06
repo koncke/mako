@@ -4,7 +4,8 @@
 //
 // MaKo: «Product» es el concepto del pago (MaKo no ata un pago a un producto del catálogo); «Invoice number» es el número del
 // recibo; «Billing reason» dice si es de una suscripción (con el link a ella) o un pago suelto. Sin «Discount»: MaKo no guarda
-// descuentos de un pago.
+// descuentos de un pago. ⚠️ La ruta de la suscripción la busca el server (`suscripcionDelPedido`, sales/[id]/page.tsx): armar
+// `l-<lead>` desde el cliente daba 404 o abría otra (revisión del Cerebro del 6/11/2026, punto 19). Sin ruta, sin enlace.
 
 import type { Pedido } from '@/app/admin/_polar/datos/ventas'
 import { motivoDePedido } from '@/app/admin/_polar/datos/ventas'
@@ -16,11 +17,7 @@ import Link from '@/app/_ui/Link'
 import { OrderStatus } from './OrderStatus'
 import { DetailCell, DetailGrid } from './OrderSection'
 
-export const OrderDetails = ({ order }: { order: Pedido }) => {
-  const suscripcion =
-    order.recurrente && order.cliente?.leadId != null
-      ? `/admin/sales/subscriptions/l-${order.cliente.leadId}`
-      : null
+export const OrderDetails = ({ order, suscripcion = null }: { order: Pedido; suscripcion?: string | null }) => {
   return (
     <DetailGrid>
       <DetailCell label="Concepto" value={order.concepto ?? undefined} />

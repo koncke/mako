@@ -13,7 +13,7 @@ import { SubscriptionDetailsGrid } from '@/app/admin/_polar/web/Subscriptions/Su
 import SubscriptionInvoicePreview from '@/app/admin/_polar/web/Subscriptions/SubscriptionInvoicePreview'
 import SubscriptionOrdersSection from '@/app/admin/_polar/web/Subscriptions/SubscriptionOrdersSection'
 import { OrderCustomerContext } from '@/app/admin/_polar/web/Orders/OrderCustomerContext'
-import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import type { SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { Button, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'

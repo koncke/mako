@@ -43,7 +43,7 @@ export const ExportCsvModal = ({
         <Text>{n === 1 ? 'Va 1 fila, la del filtro de la tabla.' : `Van ${n} filas, las del filtro de la tabla.`}</Text>
         <div className="flex flex-row gap-x-4">
           <Button onClick={bajar} disabled={n === 0}>Exportar</Button>
-          <Button variant="ghost" onClick={hide}>No cambiar nada</Button>
+          <Button variant="ghost" onClick={hide}>Cerrar</Button>
         </div>
       </div>
     </div>

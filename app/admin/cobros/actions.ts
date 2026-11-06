@@ -89,6 +89,11 @@ export type CobroMako = {
    * Es lo que habilita «Cortar la suscripción»: reembolsar no la corta (revisión del 23/10/2026).
    */
   suscripcionViva: boolean;
+  /**
+   * El id en la pasarela del PRIMER pago del cobro: el que devuelve `reembolsarCobro`. Admin › Sales lo compara con el del pedido
+   * para no ofrecer «Devolver el pago» en una renovación, que devolvería otro mes (revisión del Cerebro del 6/11/2026, punto 1).
+   */
+  proveedor_pago_id: string | null;
 };
 
 export type DatosCobrosMako =
@@ -126,6 +131,7 @@ function fila(c: Cobro, nombres: Map<number, string>): CobroMako {
     created_at: c.created_at, pagado_at: c.pagado_at,
     link: c.estado === 'pendiente' || c.estado === 'fallido' ? linkDelCobro(c.token) : null,
     suscripcionViva: suscripcionViva(c),
+    proveedor_pago_id: c.proveedor_pago_id ?? null,
   };
 }
 

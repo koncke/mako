@@ -36,11 +36,14 @@ import { KEY_QUIEN_PAGA, quienPagaDe } from './agency-reglas';
 import type { Cobro } from './cobros-tipos';
 import type { PartePreparada } from './mako-tarjeta';
 import { pdfDelRecibo, type Comprobante, type FotoRecibo, type LineaRecibo, type PagoRecibo } from './recibo-pdf';
+import { registrarPagoSuelto } from './pagos';
+import { diaEnLaZona } from './admin-ingresos-reglas';
 import {
   AVISO_TIPO_RECIBO, INTENTOS_CORREO, KEY_EMISOR, KEY_WA_SOLO, MEDIOS, ROTULO_MEDIO, claveDeEnvio, claveDeRecibo, correosDelRecibo, decidirCorreo, decidirWa,
   destinoDelRecibo, devolucionPorAvisar, instanteDeLaFecha, diaYMes, emisorDe, esConcurrenteDeResend, esMedio, leyendaDelMedio, mesDeFecha, mesEnTexto, nombreDelPdf, pieWhatsApp,
   referenciaNormal, rotulosDelDocumento, sniffComprobante, textoCorreo, textoCorreoDevolucion, textoDeInvalido, textoDeOcupado, totalesEnTexto, transicionRecibo,
   validarDestinoManual, type Destino, type EstadoRecibo, type EventoRecibo, type MedioRecibo, type PagaRecibo,
+  AVISO_SIN_CRM, conceptoDelPagoDeRecibo, leadDeLaCuenta, metodoDelMedio, planParaElCrm, prefijoDelPagoDeRecibo, problemaDeLosElegidos, type CobroDelRecibo,
 } from './recibos-reglas';
 
 const db = () => getSupabaseServer();
@@ -85,6 +88,8 @@ export type ReciboFila = {
 export type ReciboPagoFila = {
   id: number; recibo_id: number; medio: string; referencia: string; fecha: string; monto: number; moneda: string; monto_usd: number | null;
   impuesto: number | null; de: string | null; comprobante_path: string | null; comprobante_nombre: string | null; anulado: boolean;
+  /** El pago del CRM de la plataforma que es este cobro (mig 0408). Sin la migración, ausente. */
+  pago_id?: number | null;
 };
 
 const n = (v: unknown): number | null => (v == null || v === '' ? null : Number(v));
@@ -101,6 +106,7 @@ function reciboDeFila(f: Record<string, unknown>): ReciboFila {
 }
 const pagoDeFila = (f: Record<string, unknown>): ReciboPagoFila => ({
   ...(f as unknown as ReciboPagoFila), id: Number(f.id), recibo_id: Number(f.recibo_id), monto: Number(f.monto), monto_usd: n(f.monto_usd), impuesto: n(f.impuesto),
+  pago_id: n(f.pago_id),
 });
 
 export async function leerRecibo(id: number): Promise<{ recibo: ReciboFila; pagos: ReciboPagoFila[] } | null> {
@@ -740,6 +746,92 @@ export async function emitirReciboManual(m: ReciboManual): Promise<Emitido & { a
   }, plataforma);
   if (r.ok && m.enviar && !r.yaEstaba) await despacharRecibo(r.id);
   return r.ok ? { ...r, ...(aviso ? { aviso } : {}) } : r;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Cargar pago» en el CRM (revisión del Cerebro del 6/11/2026, punto 4; mig 0408)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que decide, en lib/recibos-reglas.ts (puro, con test). ⚠️ Lo llama SÓLO `cargarPagoAction`, después de emitir: nunca
+// `emitirReciboManual`, que también la llama el flujo de agencias, que ya marcó su mes en su propio registro (lib/agencia-mes.ts).
+
+/** La columna de la mig 0408 no está (42703 / PGRST204): se emite el recibo y no se registra nada (registrarlo sin atarlo contaba doble). */
+const faltaLaColumnaDelPago = (e: { code?: string | null; message?: string | null } | null | undefined): boolean =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /pago_id/.test(e.message ?? ''));
+
+/**
+ * ¿Se pueden atar estos pagos del CRM a un recibo de esta cuenta? Cada uno tiene que existir en el CRM de la plataforma, estar
+ * cobrado, ser de una ficha de ESA cuenta (`leads.cliente_ws`) y no tener ya su recibo. null = sí; si no, el porqué. Se pregunta
+ * ANTES de emitir: un recibo emitido gasta su número.
+ */
+export async function problemaParaAtar(destinoWs: number, ids: readonly number[]): Promise<string | null> {
+  const forma = problemaDeLosElegidos(ids);
+  if (forma) return forma;
+  const unicos = [...new Set(ids)];
+  if (!unicos.length) return null;
+  const plataforma = await wsSuperAdmin();
+  const { data, error } = await db().from('pagos').select('id, lead_id, pagado').eq('workspace_id', plataforma).in('id', unicos);
+  if (error) return `No pude leer los pagos del CRM: ${error.message}`;
+  const filas = (data ?? []) as Array<{ id: number; lead_id: number; pagado: boolean | null }>;
+  if (filas.length !== unicos.length || filas.some((f) => !f.pagado)) return 'Ese pago del CRM ya no está cobrado: vuelve a abrir el formulario.';
+  const { data: ls, error: e2 } = await db().from('leads').select('id, cliente_ws').eq('workspace_id', plataforma).in('id', [...new Set(filas.map((f) => Number(f.lead_id)))]);
+  if (e2) return `No pude leer las fichas del CRM: ${e2.message}`;
+  if (((ls ?? []) as Array<{ cliente_ws: number | null }>).some((l) => Number(l.cliente_ws) !== destinoWs) || (ls ?? []).length === 0) return 'Ese pago del CRM es de otra cuenta.';
+  const { data: ya, error: e3 } = await db().from('recibo_pagos').select('pago_id').in('pago_id', unicos).eq('anulado', false).limit(1);
+  if (e3) return faltaLaColumnaDelPago(e3) ? 'Todavía no se puede atar un pago del CRM: emítelo sin elegir uno.' : `No pude leer los recibos: ${e3.message}`;
+  if ((ya ?? []).length) return 'Ese pago del CRM ya tiene su recibo.';
+  return null;
+}
+
+/**
+ * Registra en el CRM de la plataforma los cobros de un recibo recién emitido por «Cargar pago», y ata cada uno a su pago
+ * (`recibo_pagos.pago_id`): los que se eligieron atar, a ese pago; el resto, a UN pago nuevo en la ficha de esa cuenta, como
+ * mensualidad si es una suscripción (`registrarPagoSuelto`, el mismo camino que la ficha). Idempotente: lo que ya está atado no se
+ * toca, y un pago ya registrado para este recibo (su concepto empieza con «Recibo N.º 0003») se reusa en vez de crear otro. Nunca
+ * tira: lo que no se pudo vuelve como `aviso` (el recibo ya salió y no suma en Ingresos, que es lo que dice Orders).
+ */
+export async function registrarReciboEnElCrm(p: {
+  reciboId: number; numero: number; destinoWs: number; lineas: ReadonlyArray<{ concepto: string }>; atar: ReadonlyMap<string, number>;
+}): Promise<{ aviso?: string }> {
+  try {
+    const plataforma = await wsSuperAdmin();
+    const { data, error } = await db().from('recibo_pagos').select('id, medio, referencia, fecha, monto_usd, anulado, pago_id').eq('recibo_id', p.reciboId);
+    if (error) return { aviso: faltaLaColumnaDelPago(error) ? AVISO_SIN_CRM['sin-columna'] : AVISO_SIN_CRM['no-pude'] };
+    const cobros: CobroDelRecibo[] = ((data ?? []) as Array<Record<string, unknown>>).map((f) => ({
+      id: Number(f.id), medio: String(f.medio), referencia: String(f.referencia), fecha: String(f.fecha), monto_usd: n(f.monto_usd), anulado: !!f.anulado, pago_id: n(f.pago_id),
+    }));
+    const plan = planParaElCrm(cobros, p.atar);
+    for (const a of plan.atar) {
+      const { error: e } = await db().from('recibo_pagos').update({ pago_id: a.pagoId }).eq('id', a.id).is('pago_id', null);
+      if (e) return { aviso: faltaLaColumnaDelPago(e) ? AVISO_SIN_CRM['sin-columna'] : AVISO_SIN_CRM['no-pude'] };
+    }
+    if (!plan.registrar) return {};
+    const usd = plan.registrar.usd;
+    if (usd == null || !(usd > 0)) return { aviso: AVISO_SIN_CRM['sin-dolares'] };
+    const { data: ls, error: e2 } = await db().from('leads').select('id, estado_lead, venta_tipo').eq('workspace_id', plataforma).eq('cliente_ws', p.destinoWs).limit(20);
+    if (e2) return { aviso: AVISO_SIN_CRM['no-pude'] };
+    const lead = leadDeLaCuenta((ls ?? []) as Array<{ id: number; estado_lead: string | null; venta_tipo: string | null }>);
+    if (!lead.ok) return { aviso: AVISO_SIN_CRM[lead.motivo] };
+    const zona = await runWithWorkspace(plataforma, () => zonaDelNegocioEstricta(plataforma)).catch(() => 'UTC');
+    // Un reintento (el pago se registró y lo que se cortó fue atarlo) encuentra su pago por el número del recibo.
+    const prefijo = prefijoDelPagoDeRecibo(p.numero);
+    const { data: ya, error: e3 } = await db().from('pagos').select('id, concepto').eq('workspace_id', plataforma).eq('lead_id', lead.id).ilike('concepto', `${prefijo}%`).limit(5);
+    if (e3) return { aviso: AVISO_SIN_CRM['no-pude'] };
+    let pagoId = ((ya ?? []) as Array<{ id: number; concepto: string | null }>).find((x) => String(x.concepto ?? '').startsWith(prefijo))?.id ?? null;
+    if (pagoId == null) {
+      const medio = cobros.find((c) => c.id === plan.registrar!.ids[0])?.medio ?? 'otro';
+      const r = await runWithWorkspace(plataforma, () => registrarPagoSuelto(lead.id, {
+        monto: usd, fecha: diaEnLaZona(plan.registrar!.fecha, zona), mensualidad: lead.suscripcion,
+        concepto: conceptoDelPagoDeRecibo(p.numero, p.lineas), metodo: metodoDelMedio(medio),
+      }));
+      pagoId = r.pagoId;
+    }
+    const { error: e4 } = await db().from('recibo_pagos').update({ pago_id: Number(pagoId) }).in('id', plan.registrar.ids).is('pago_id', null);
+    if (e4) return { aviso: AVISO_SIN_CRM['no-pude'] };
+    return {};
+  } catch (e) {
+    console.error(`[recibos] recibo ${p.reciboId}: no pude registrarlo en el CRM: ${msg(e)}`);
+    return { aviso: AVISO_SIN_CRM['no-pude'] };
+  }
 }
 
 /** El comprobante de un pago cargado a mano: sólo JPEG o PNG por sus bytes, en `plataforma/recibos/comprobantes/`. */

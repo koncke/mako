@@ -59,7 +59,7 @@ const SalesFilters: React.FC<SalesFiltersProps> = ({
         <DateRangeSelect value={intervalo} onChange={onDateChange} />
       </Box>
       <Box display="flex" flexWrap="wrap" alignItems="center" gap="m">
-        {libro.estado === 'falta-migracion' && <Text color="muted">Los recibos todavía no están listos: falta aplicar la migración 0397.</Text>}
+        {libro.estado === 'falta-migracion' && <Text color="muted">Los recibos todavía no están listos.</Text>}
         <Button
           onClick={onExport}
           className="flex w-full flex-row items-center md:w-auto"

@@ -65,6 +65,8 @@ interface DataTableProps<TData extends RowData> {
   ) => string
   selection?: DataTableSelection<TData>
   onRowClick?: (row: DataTableRow<TData>) => void
+  /** MaKo: con `onRowClick`, qué filas se abren (sin esto, todas). Una fila que no abre nada no lleva la mano ni el clic. */
+  isRowClickable?: (row: DataTableRow<TData>) => boolean
   isRowActive?: (row: DataTableRow<TData>) => boolean
 }
 
@@ -96,6 +98,7 @@ export function DataTable<TData extends RowData>({
   getRowId,
   selection,
   onRowClick,
+  isRowClickable,
   isRowActive,
 }: DataTableProps<TData>) {
   const allColumns = React.useMemo(
@@ -190,7 +193,7 @@ export function DataTable<TData extends RowData>({
                       key={row.id}
                       className={twMerge(
                         'group/row',
-                        onRowClick && 'cursor-pointer',
+                        onRowClick && (isRowClickable?.(row) ?? true) && 'cursor-pointer',
                       )}
                       data-state={
                         isRowActive?.(row) ||
@@ -198,7 +201,7 @@ export function DataTable<TData extends RowData>({
                           ? 'selected'
                           : undefined
                       }
-                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      onClick={onRowClick && (isRowClickable?.(row) ?? true) ? () => onRowClick(row) : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const colSpan = getCellColSpan

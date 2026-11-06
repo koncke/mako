@@ -15,10 +15,10 @@ import { revalidatePath } from 'next/cache';
 import { getSesionAdmin } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import {
-  anularRecibo, emitirReciboManual, guardarEmisor, guardarWaSolo, leerEmisor, leerWaSolo, listarRecibos, marcarReciboDevueltoAMano, reenviarRecibo,
-  type FiltroRecibos, type ReciboListado, type PagoManual,
+  anularRecibo, emitirReciboManual, guardarEmisor, guardarWaSolo, leerEmisor, leerWaSolo, listarRecibos, marcarReciboDevueltoAMano, problemaParaAtar,
+  reenviarRecibo, registrarReciboEnElCrm, type FiltroRecibos, type ReciboListado, type PagoManual,
 } from '@/lib/recibos';
-import { totalesDelRegistro, type Emisor, type EstadoRecibo } from '@/lib/recibos-reglas';
+import { AVISO_SIN_CRM, claveDelCobro, totalesDelRegistro, type Emisor, type EstadoRecibo } from '@/lib/recibos-reglas';
 import type { LineaRecibo } from '@/lib/recibo-pdf';
 import { planesMako } from '@/lib/compra-plan';
 
@@ -61,20 +61,44 @@ async function cuentasActivas(): Promise<Array<{ id: number; nombre: string }>> 
 }
 
 export type PedidoCargarPago = {
-  formId: string; destinoWs: number; aNombre: string; mes: string | null; lineas: LineaRecibo[]; pagos: PagoManual[];
+  formId: string; destinoWs: number; aNombre: string; mes: string | null; lineas: LineaRecibo[];
+  /** `pago_crm`: el pago del CRM de la plataforma que ES este cobro (el formulario lo ofrece primero); null = registrarlo. */
+  pagos: Array<PagoManual & { pago_crm?: number | null }>;
   notaPdf: string | null; notaInterna: string | null; enviar: boolean;
 };
 
-/** «Cargar pago»: el recibo de plata que entró por fuera de la pasarela (Binance, transferencia…). */
+/**
+ * «Cargar pago»: el recibo de plata que entró por fuera de la pasarela (Binance, transferencia…), y el PAGO en el CRM de la
+ * plataforma (revisión del Cerebro del 6/11/2026, punto 4): sólo con el recibo, Orders lo sumaba y Overview, Metrics y Finance
+ * no lo veían. Cada cobro se ata al pago del CRM que se eligió (uno que ya estaba sin recibo) o a uno nuevo en la ficha de esa
+ * cuenta (`registrarReciboEnElCrm`). Los pagos elegidos se validan ANTES de emitir: un recibo emitido gasta su número. Si el
+ * recibo sale y el CRM no, se dice (`aviso`) y el recibo no suma en Ingresos. ⚠️ El registro va ACÁ y nunca en
+ * `emitirReciboManual`: también la llama el flujo de agencias, que ya marcó su mes en su propio registro.
+ */
 export async function cargarPagoAction(p: PedidoCargarPago): Promise<{ ok: true; id: number; numero: number; yaEstaba: boolean; aviso?: string } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!admin) return { ok: false, error: NO_ADMIN };
   try {
+    const atar = new Map<string, number>();
+    const elegidos: number[] = [];
+    for (const q of p.pagos ?? []) {
+      const id = q.pago_crm;
+      if (id == null) continue;
+      if (!Number.isSafeInteger(id) || id <= 0) return { ok: false, error: 'Ese pago del CRM no existe.' };
+      elegidos.push(id);
+      atar.set(claveDelCobro(String(q.medio ?? ''), String(q.referencia ?? '')), id);
+    }
+    // Todos los elegidos (no los del Map: dos cobros con el mismo pago tienen que llegar repetidos para frenarse).
+    const problema = await problemaParaAtar(p.destinoWs, elegidos);
+    if (problema) return { ok: false, error: problema };
     const r = await emitirReciboManual({ ...p, autor: autorDe(admin) });
     if (!r.ok) return { ok: false, error: r.error };
+    const crm = await registrarReciboEnElCrm({ reciboId: r.id, numero: r.numero, destinoWs: p.destinoWs, lineas: p.lineas, atar })
+      .catch(() => ({ aviso: AVISO_SIN_CRM['no-pude'] }));
     revalidatePath('/customers');
+    const aviso = [r.aviso, crm.aviso].filter(Boolean).join(' ');
     // El id viaja para «Bajar el PDF» del recibo recién emitido (Admin › Billing › Cargar pago, 6/11/2026).
-    return { ok: true, id: r.id, numero: r.numero, yaEstaba: r.yaEstaba, ...(r.aviso ? { aviso: r.aviso } : {}) };
+    return { ok: true, id: r.id, numero: r.numero, yaEstaba: r.yaEstaba, ...(aviso ? { aviso } : {}) };
   } catch (e) {
     return { ok: false, error: mensaje(e, 'No pude emitir el recibo.') };
   }

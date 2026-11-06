@@ -24,7 +24,7 @@ export function IncomePageHeader({ filas, hoy, className }: { filas: FilaIngreso
         wrapperClassNames="gap-x-2"
       >
         <FileDownloadOutlined fontSize="inherit" />
-        <Text>Bajar</Text>
+        <Text>Exportar</Text>
       </Button>
       <ExportTransactionsModal filas={filas} hoy={hoy} isShown={isExportModalShown} hide={hideExportModal} />
     </>

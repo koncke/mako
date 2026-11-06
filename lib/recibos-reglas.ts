@@ -532,3 +532,87 @@ export function textoDeInvalido(mensaje: string): string | null {
   const m = /RECIBO_INVALIDO (.+)$/.exec(mensaje);
   return m ? `${m[1].charAt(0).toUpperCase()}${m[1].slice(1)}.` : null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Cargar pago» en el CRM: qué pago del CRM es cada cobro de un recibo (mig 0408, `recibo_pagos.pago_id`)
+// ─────────────────────────────────────────────────────────────────────────────
+// Revisión del Cerebro del 6/11/2026, punto 4: «Cargar pago» sólo emitía un recibo, así que Orders lo sumaba y Overview, Metrics y
+// Finance no lo veían, y si el mismo pago estaba en el CRM se contaba dos veces. Ahora `cargarPagoAction` registra el pago en el
+// CRM de la plataforma (o lo ata a uno que ya estaba). Lo que decide sin base vive acá, para que los tests lo EJECUTEN; la base,
+// en lib/recibos.ts (`registrarReciboEnElCrm`). ⚠️ NUNCA en `emitirReciboManual`: también la llama el flujo de agencias, que ya
+// marcó su mes en su propio registro (lib/agencia-mes.ts).
+
+/** La ficha del CRM de la plataforma de una cuenta (`leads.cliente_ws`): la única, o la única ganada. Si no, no se elige. */
+export function leadDeLaCuenta(leads: ReadonlyArray<{ id: number; estado_lead: string | null; venta_tipo: string | null }>):
+  { ok: true; id: number; suscripcion: boolean } | { ok: false; motivo: 'sin-ficha' | 'varias' } {
+  const ganadas = leads.filter((l) => l.estado_lead === 'ganado');
+  const elegido = leads.length === 1 ? leads[0] : ganadas.length === 1 ? ganadas[0] : null;
+  if (!elegido) return { ok: false, motivo: leads.length ? 'varias' : 'sin-ficha' };
+  return { ok: true, id: Number(elegido.id), suscripcion: elegido.venta_tipo === 'suscripcion' };
+}
+
+/** Lo que se le dice a quien cargó el pago cuando no quedó en el CRM (el recibo salió igual y no suma en Ingresos). */
+export const AVISO_SIN_CRM: Readonly<Record<'sin-ficha' | 'varias' | 'sin-dolares' | 'sin-columna' | 'no-pude', string>> = {
+  'sin-ficha': 'El recibo salió, pero esa cuenta no tiene su ficha en el CRM: el pago no suma en Ingresos.',
+  varias: 'El recibo salió, pero esa cuenta tiene varias fichas en el CRM: el pago no se registró en ninguna.',
+  'sin-dolares': 'El recibo salió, pero el pago no tiene su valor en dólares: no se registró en el CRM.',
+  'sin-columna': 'El recibo salió, pero el pago todavía no se puede registrar en el CRM: no suma en Ingresos.',
+  'no-pude': 'El recibo salió, pero no pude registrar el pago en el CRM: no suma en Ingresos.',
+};
+
+/** El comienzo del concepto del pago que registra un recibo: lo identifica (un reintento lo encuentra en vez de crear otro). */
+export const prefijoDelPagoDeRecibo = (numero: number): string => `Recibo N.º ${numeroEnTexto(numero)}`;
+
+/** El concepto del pago del CRM que registra un recibo: su número y lo que se pagó (hasta 200, el tope de `pagos.concepto`). */
+export function conceptoDelPagoDeRecibo(numero: number, lineas: ReadonlyArray<{ concepto: string }>): string {
+  const que = lineas.map((l) => l.concepto.trim()).filter(Boolean).join(', ');
+  return `${prefijoDelPagoDeRecibo(numero)}${que ? `: ${que}` : ''}`.slice(0, 200);
+}
+
+/** El método del pago del CRM (lib/pagos-campo.ts `METODOS_PAGO`) por el medio del recibo. */
+export function metodoDelMedio(medio: string): 'transferencia' | 'efectivo' | 'cripto' | 'tarjeta' | 'otro' {
+  if (medio === 'transferencia' || medio === 'efectivo') return medio;
+  if (medio === 'binance') return 'cripto';
+  if (esPasarela(medio)) return 'tarjeta';
+  return 'otro';
+}
+
+/**
+ * Lo que se ve sin la base en los pagos del CRM elegidos para atar (`cargarPagoAction`): un id que no es un id, o el MISMO pago
+ * elegido para dos cobros (se contaría como dos). null = la forma está bien; lo demás lo mira `problemaParaAtar` (lib/recibos.ts).
+ */
+export function problemaDeLosElegidos(ids: readonly number[]): string | null {
+  if (ids.some((x) => !Number.isSafeInteger(x) || x <= 0)) return 'Ese pago del CRM no existe.';
+  if (new Set(ids).size !== ids.length) return 'Elegiste el mismo pago del CRM para dos cobros.';
+  return null;
+}
+
+/** Un cobro de un recibo, como lo lee lib/recibos.ts para atarlo. */
+export type CobroDelRecibo = { id: number; medio: string; referencia: string; fecha: string; monto_usd: number | null; anulado: boolean; pago_id: number | null };
+
+/** La clave de un cobro (`medio:referencia` normalizada): con la que el formulario dice a qué pago del CRM atarlo. */
+export const claveDelCobro = (medio: string, referencia: string): string =>
+  `${medio}:${esMedio(medio) ? referenciaNormal(medio, referencia) ?? referencia.trim() : referencia.trim()}`;
+
+/**
+ * Qué hacer con los cobros de un recibo en el CRM. Los que ya tienen su pago, nada (un reintento no registra dos veces). Los que se
+ * eligieron atar (`atar`: la clave de cada cobro, `claveDelCobro`, → el pago del CRM que ya lo tenía), a ese pago. El resto, a UN
+ * pago nuevo con lo que suman en dólares y el instante del último: dos órdenes de un mismo mes (94 + 144) son UNA mensualidad, no
+ * dos meses (lib/suscripcion-meses.ts). Si alguno de los que hay que registrar no tiene su valor en dólares, `usd` es null y no se
+ * registra (`pagos.monto_usd` no admite vacío y nunca se pone una tasa).
+ */
+export function planParaElCrm(cobros: readonly CobroDelRecibo[], atar: ReadonlyMap<string, number>):
+  { atar: Array<{ id: number; pagoId: number }>; registrar: { ids: number[]; usd: number | null; fecha: string } | null } {
+  const conPago: Array<{ id: number; pagoId: number }> = [];
+  const resto: CobroDelRecibo[] = [];
+  for (const c of cobros) {
+    if (c.anulado || c.pago_id != null) continue;
+    const pagoId = atar.get(claveDelCobro(c.medio, c.referencia));
+    if (pagoId != null) conPago.push({ id: c.id, pagoId });
+    else resto.push(c);
+  }
+  if (!resto.length) return { atar: conPago, registrar: null };
+  const usd = resto.some((c) => c.monto_usd == null) ? null : Math.round(resto.reduce((s, c) => s + Number(c.monto_usd), 0) * 100) / 100;
+  const fecha = resto.map((c) => c.fecha).sort().at(-1) as string;
+  return { atar: conPago, registrar: { ids: resto.map((c) => c.id), usd, fecha } };
+}

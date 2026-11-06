@@ -14,14 +14,14 @@ import { MiniMetricChartBox } from '@/app/admin/_polar/web/Metrics/MiniMetricCha
 import { OrderStatus } from '@/app/admin/_polar/web/Orders/OrderStatus'
 import { ExportCsvModal } from '@/app/admin/_polar/web/Orders/ExportCsvModal'
 import { CargarPagoModal } from '@/app/admin/_polar/web/Orders/CargarPagoModal'
-import { AvisosDeLectura } from '@/app/admin/_polar/web/Orders/Aviso'
+import { AvisosDeLectura } from '@/app/admin/_polar/web/Customer/AvisosDeLectura'
 import { useDataTableQueryState } from '@/app/admin/_polar/web/Orders/useDataTableQueryState'
 import { usdEnTexto } from '@/app/admin/_polar/web/Orders/montos'
 import { useModal } from '@/app/admin/_polar/web/Modal/useModal'
 import { EmptyState } from '@/app/admin/_polar/web/Shared/EmptyState'
 import {
   COMPARADORES_PEDIDO, METRICA_AOV, METRICA_ORDERS, METRICA_REVENUE, PAGINA_POR_DEFECTO,
-  esEstadoPedido, esIntervalo, csvDePedidos, filtrarPedidos, medioEnTexto, ordenar, paginar, totalesDePedidos,
+  esEstadoPedido, esIntervalo, csvDePedidos, filtrarPedidos, medioEnTexto, ordenar, paginar, textoDeSinSumar, totalesDePedidos,
   type EstadoPedido, type Intervalo, type Pedido,
 } from '@/app/admin/_polar/datos/ventas'
 import type { DatosCargarPago, EstadoLibro } from '@/app/admin/_polar/datos/ventas-server'
@@ -209,6 +209,8 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
             getRowId={(row) => row.id}
           />
         )}
+        {/* Punto 4: un recibo cargado a mano que no quedó atado a un pago del CRM no suma (Overview no lo ve). Se dice debajo. */}
+        {textoDeSinSumar(totales.aManoSinSumar) && <Text color="muted">{textoDeSinSumar(totales.aManoSinSumar)}</Text>}
         {totales.sinDolares > 0 && (
           <Text color="muted">
             {totales.sinDolares === 1
@@ -234,7 +236,7 @@ const ClientPage: React.FC<ClientPageProps> = ({ hoy, pedidos, avisos, libro, ca
         <InlineModal
           isShown={isCargarShown}
           hide={hideCargar}
-          modalContent={<CargarPagoModal cuentas={cargarPago.cuentas} planes={cargarPago.planes} hoy={hoy} hide={hideCargar} />}
+          modalContent={<CargarPagoModal cuentas={cargarPago.cuentas} planes={cargarPago.planes} pagosSinRecibo={cargarPago.pagosSinRecibo} hoy={hoy} hide={hideCargar} />}
         />
       )}
     </DashboardBody>
