@@ -28,7 +28,7 @@ animaciones. Commit de referencia: `036631e` (5/11/2026). El aviso de la licenci
 | Revenue | `default`: las cuatro tarjetas, «Customer Activity» y la tabla de clientes | portada (tanda 1) |
 | Users | `users`: filtros, ocultar columnas, exportar, lista o grilla, selección | portada (tanda 1) |
 | Billing | `finance` (Dashboard, Accounts, Transactions) y los recibos con `invoice` | portada (tanda 2) |
-| Customers | `crm`, y la ficha de un cliente con `profile` | por portar |
+| Customers | `crm`, y la ficha de un cliente con `profile` (`?cliente=<ws>`) | portada (tanda 3) |
 | Activity | `analytics`, con sus pestañas | por portar |
 | Errors | `infrastructure`: un grupo por negocio, salud, filtros por faceta | por portar |
 

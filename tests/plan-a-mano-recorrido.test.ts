@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DIAS_AVISO_REGALO, avisosFinDeRegaloCerca, fechaConAnio, regaloParaMirar, textoDePlanAMano, tocaAvisarFinDeRegalo, type PlanAMano } from '../lib/plan-a-mano-reglas';
 import { paraMirar } from '../lib/clientes-plataforma-reglas';
+import { plataTxt } from '../app/admin/clientes/customers-vista';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -116,7 +117,11 @@ test('la fecha a la vista: Customers (ficha y teléfono), Accounts y Tu plan', (
   assert.match(R.textos[31], /^Gratis hasta el /, 'Accounts');
   assert.match(R.textos[34], /^Sus 6 meses gratis terminaron/);
   assert.equal(R.textos[22] ?? null, null, 'sin plan a mano, nada');
-  assert.match(fuente('app/customers/CustomersApp.tsx'), /f\.prueba \? 'En prueba gratis' : f\.planAManoTxt \?\? 'Plan a mano'/);
+  // La ficha de Customers (Admin, app/admin/clientes): lo que paga dice el plan a mano con su fecha.
+  const sinPagar = { mrrUsd: 0, primerMesUsd: null, prueba: false, planAManoTxt: 'Gratis hasta el 1 de mayo de 2027' };
+  assert.equal(plataTxt(sinPagar), 'Gratis hasta el 1 de mayo de 2027', 'la ficha de Customers');
+  assert.equal(plataTxt({ ...sinPagar, prueba: true }), 'En prueba gratis');
+  assert.equal(plataTxt({ ...sinPagar, planAManoTxt: null }), 'Plan a mano');
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /c\.prueba \? 'En prueba gratis' : c\.planAManoTxt \?\? 'Plan a mano'/);
   assert.match(fuente('app/admin/AdminView.tsx'), /\{w\.planAManoTxt && <span /);
   assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);

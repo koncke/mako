@@ -57,6 +57,7 @@ import {
   cobradoPorMes, comparacionCerrada, enPrueba, enRiesgo, estadoEnUnaPalabra, factura, haceTxt, kpisDeClientes, mrrDe, pagoPendiente, paraMirar,
   segmentosDe, sinUso, ultimaVezTxt, type CobroMrr,
 } from '../lib/clientes-plataforma-reglas';
+import { configuracionTxt, destinoCliente, entradoEn, tarjetasKpi } from '../app/admin/clientes/customers-vista';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -157,16 +158,24 @@ test('Billing y Client Agents viven en Customers: las rutas viejas redirigen des
 
 // ── 5. El rediseño (26/10/2026): lo suyo, sin tarjetas en cero; la grilla de administración en Accounts ───────────
 
-test('Customers dibuja lo suyo: plata sólo si entró algo, «Para mirar», chips y la ficha en un panel; la grilla vieja vive en Accounts', () => {
-  const app = leer('app/customers/CustomersApp.tsx');
-  assert.doesNotMatch(app, /<AdminView/, 'la grilla vieja volvió a la pestaña Customers');
+// Desde el 6/11/2026 Customers es la pantalla CRM de Studio Admin (app/admin/clientes), y su ficha, el perfil de Studio.
+test('Customers dibuja lo suyo: plata sólo si entró algo, la tabla y la ficha con UNA acción; la grilla vieja vive en Accounts', () => {
+  const crm = leer('app/admin/clientes/customers.tsx');
+  assert.doesNotMatch(crm, /<AdminView/, 'la grilla vieja volvió a la pestaña Customers');
   // Sin plata, una línea que lo dice y el link a vender: nunca un «US$ 0».
-  assert.match(app, /if \(numero <= 0 && !cobrado\) \{\s*return \(\s*<div className="cu-plata-vacia">/);
-  assert.match(app, /Todavía no entró plata por MaKo\./);
-  assert.match(app, /href="\/admin\?tab=billing">Vender un plan/);
-  // La ficha: UNA acción principal, y «Administrar» lleva a Accounts con su ficha abierta.
-  assert.equal((app.match(/className="cu-entrar"/g) ?? []).length, 1);
-  assert.match(app, /href=\{`\/admin\?tab=accounts&cuenta=\$\{f\.ws\}`\}/);
+  assert.equal(entradoEn(null, '6m'), null, 'sin pagos no hay barras');
+  const pipeline = leer('app/admin/clientes/_components/pipeline-activity.tsx');
+  assert.match(pipeline, /\{entrado \? \([\s\S]*?\) : \(\s*<Empty[\s\S]*?Todavía no entró plata por MaKo\.[\s\S]*?<Link href="\/admin\?tab=billing">Vender un plan<\/Link>/);
+  const sinPlata = tarjetasKpi({ filas: [], kpis: kpisDeClientes([], Date.now()), paraMirar: [], actividadLeida: true });
+  assert.equal(sinPlata[0]?.valor, '—', 'el MRR sin plata no es «US$ 0»');
+  assert.doesNotMatch(JSON.stringify(sinPlata), /US\$ 0\b/);
+  // La ficha: UNA acción principal (el único botón sin `variant`), y «Administrar» lleva a Accounts con su ficha abierta.
+  const cabecera = leer('app/admin/clientes/perfil/profile-header.tsx');
+  assert.equal((cabecera.match(/<Button size="sm" asChild>/g) ?? []).length, 1);
+  assert.match(cabecera, /<a href=\{destinoCliente\("entrar", f\.ws\)\}>/);
+  assert.match(cabecera, /<Link href=\{destinoCliente\("administrar", f\.ws\)\}>/);
+  assert.equal(destinoCliente('administrar', 12), '/admin?tab=accounts&cuenta=12');
+  assert.equal(destinoCliente('entrar', 12), '/inicio?ws=12');
   const page = leer('app/admin/page.tsx');
   assert.match(page, /<AdminView incrustado trabajo=\{trabajo\}[\s\S]*?abrirInicial=\{cuenta\} \/>/);
   assert.match(page, /tab === 'accounts' \? await PestanaCuentas\(sesionAdmin, cuenta\)/);
@@ -288,7 +297,8 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.deepEqual(estadoEnUnaPalabra(sinLeer), { rotulo: 'Activo', tono: 'good' });
   assert.deepEqual(paraMirar([{ ...sinLeer, ws: 1, nombre: 'X' }], ahora), []);
   assert.equal(sinUso({ sinEntrar: 40, sinLeads: null, onboardingHecho: null }), false);
-  assert.match(leer('app/customers/CustomersApp.tsx'), /\['Configuración', f\.onboardingHecho == null \? '—'/);
+  assert.equal(configuracionTxt({ onboardingHecho: null }), '—', 'la ficha de Customers');
+  assert.equal(configuracionTxt({ onboardingHecho: false }), 'Sin terminar');
   // 5. Las lecturas que crecen con el uso, paginadas (PostgREST corta en 1000 sin avisar y sin orden).
   assert.doesNotMatch(servidor, /\.limit\(\d{4,}\)/, 'un `.limit()` grande no pasa el techo de 1000');
   for (const tabla of ['usuarios', 'agente_sesiones', 'pagos', 'partner_codigos']) {
@@ -300,8 +310,9 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.equal(comparacionCerrada(serie([0, 0, 0, 0, 500, 100])), null, 'contra un mes en cero no hay %');
   assert.equal(comparacionCerrada(null), null);
   assert.equal(comparacionCerrada(serie([300, 100])), null, 'con un solo mes cerrado no hay contra qué');
-  const app = leer('app/customers/CustomersApp.tsx');
-  assert.match(app, /<p className="cu-plata-num">\{usdTxt\(numero\)\}<\/p>/, 'nada pegado al número de arriba');
+  const kpis = leer('app/admin/clientes/_components/kpi-cards.tsx');
+  assert.doesNotMatch(kpis, /<Badge/, 'nada pegado al número de arriba (sin la insignia de tendencia de Studio)');
+  const app = ['customers.tsx', 'customers-vista.ts', 'perfil/profile-status-sidebar.tsx', 'perfil/profile-overview.tsx'].map((r) => leer(`app/admin/clientes/${r}`)).join('\n');
   assert.doesNotMatch(app, /% vs \{MES/);
   // 7. A un cliente de agencia lo opera su agencia con su propia sesión: nunca «Sin uso», y su «Última vez» lo dice.
   assert.match(servidor, /const porUso = actividadLeida && !deAgencia\.has\(w\.id\) && sinUso\(actividad\);/);
