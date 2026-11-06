@@ -199,7 +199,7 @@ test('5. un «transcribiendo» de YouTube no se corta a los 6 minutos; la pantal
 });
 
 type Pedido = { modelo: string; clave: string; video: string | null; tramo: unknown; resolucion: string | null };
-type Vuelta = { r: { ok: boolean; motivo?: string; texto?: string; error?: string; tiro?: string }; pedidos: Pedido[]; otros: string[]; uso: Array<Record<string, unknown>>; saturadoLatest: boolean };
+type Vuelta = { r: { ok: boolean; motivo?: string; texto?: string; error?: string; tiro?: string; corto?: true }; pedidos: Pedido[]; otros: string[]; uso: Array<Record<string, unknown>>; saturadoLatest: boolean };
 let R: Record<string, Vuelta> & { error?: string };
 const hijo = () => {
   if (R) return R;
@@ -248,7 +248,7 @@ test('6. Gemini de mentira: la clave del negocio, el video en fileData, el tramo
   assert.deepEqual(R.J.pedidos.map((p) => p.modelo), ['gemini-flash-latest', 'gemini-flash-lite-latest']);
   assert.equal(R.J.r.ok, true);
   assert.equal(R.J.r.corto, undefined, 'el del otro modelo pasó el piso');
-  assert.match(R.J.r.texto, /gemini-flash-lite-latest/);
+  assert.match(R.J.r.texto ?? '', /gemini-flash-lite-latest/);
   assert.equal(R.J.uso.length, 2, 'cada respuesta de Google se registra: el pedido corto también costó');
   // Los dos cortos: el más largo, marcado, nunca un fallo (un video de poca voz existe).
   assert.equal(R.K.r.ok, true);

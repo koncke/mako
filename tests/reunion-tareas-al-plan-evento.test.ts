@@ -41,11 +41,11 @@ const cuerpo = (id: string): string => {
 const tarjetaPara = (d0: Record<string, string | undefined>): string => {
   const d: Record<string, string | undefined> = { negocio_numero: '14', ...d0 };
   const c = pasos().find((x) => x.id === 'rp_cuantas')!;
-  const cumple = (f: { campo: string; valor: string; no?: boolean }) => {
-    const v = d[f.campo.replace(/^dato:/, '')];
-    return v != null && (f.no ? v !== f.valor : v === f.valor);
+  const cumple = (f: { campo: unknown; valor?: unknown; no?: boolean }) => {
+    const v = d[String(f.campo).replace(/^dato:/, '')];
+    return v != null && (f.no ? v !== String(f.valor) : v === String(f.valor));
   };
-  const rama = c.ramas?.find((r) => r.filas.every(cumple));
+  const rama = c.ramas?.find((r) => r.filas.every((f) => cumple(f)));
   return rama?.siguiente ?? c.si_no ?? '';
 };
 const sinVacios = (d: object): Record<string, string> => Object.fromEntries(Object.entries(d).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
