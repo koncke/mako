@@ -4,11 +4,11 @@
 // FICTICIOS: ningún nombre, correo ni monto es de un cliente real. Se arman con las mismas funciones puras que usa el
 // server (app/admin/_polar/datos/resumen.ts), así lo que se ve es lo que la portada dibujaría con esos datos.
 
-import type { Entrada, MesIngresos } from '@/lib/admin-ingresos-reglas'
+import type { Entrada, MesIngresos, PorCobrar } from '@/lib/admin-ingresos-reglas'
 import { armarIndice, type IndiceBusqueda } from '../busqueda-tipos'
 import {
-  actividadReciente, filasDeRiesgo, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, topClientes,
-  type IngresosResumen, type ResumenAdmin,
+  actividadReciente, filasDeRiesgo, margenBruto, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, porCobrarResumen,
+  topClientes, type IngresosResumen, type ResumenAdmin,
 } from '../resumen'
 
 /** «Ahora» de los ejemplos: el 6 de noviembre de 2026 a las 15:00 (hora de Buenos Aires). */
@@ -73,6 +73,26 @@ const nombres: Record<number, string> = {
 
 const usdTxt = (c: number) => `US$ ${(c / 100).toLocaleString('es-AR')}`
 
+/** Lo que `vistaDeIngresos().porCobrar` diría: una mensualidad atrasada y las que vencen en el próximo mes. */
+const porCobrar: PorCobrar[] = [
+  { cliente: 'ws:25', fecha: '2026-11-02', usd: 470, atrasado: true },
+  { cliente: 'ws:22', fecha: '2026-11-09', usd: 470, atrasado: false },
+  { cliente: 'ws:23', fecha: '2026-11-12', usd: 470, atrasado: false },
+  { cliente: 'ws:24', fecha: '2026-11-18', usd: 470, atrasado: false },
+  { cliente: 'lead:310', fecha: '2026-11-25', usd: 500, atrasado: false },
+  { cliente: 'ws:21', fecha: '2026-12-03', usd: 470, atrasado: false },
+]
+
+/** El gasto de IA de MaKo por día (UTC), de junio a hoy: entre US$ 6 y US$ 11,40 por día. */
+function gastoPorDiaDe(desde: string, hasta: string): Array<{ clave: string; costUsd: number }> {
+  const out: Array<{ clave: string; costUsd: number }> = []
+  for (let t = Date.parse(`${desde}T00:00:00Z`); t <= Date.parse(`${hasta}T00:00:00Z`); t += 86_400_000) {
+    const d = new Date(t)
+    out.push({ clave: d.toISOString().slice(0, 10), costUsd: 6 + (d.getUTCDate() % 7) * 0.9 })
+  }
+  return out
+}
+
 export const resumenEjemplo: ResumenAdmin = {
   ingresos: { ok: true, datos: ingresosEjemplo },
   top: { ok: true, datos: topClientes(clientes, ingresosEjemplo.cobradoTotal) },
@@ -104,6 +124,11 @@ export const resumenEjemplo: ResumenAdmin = {
       nombres,
       usdTxt,
     }),
+  },
+  porCobrar: { ok: true, datos: porCobrarResumen(porCobrar, clientes, HOY) },
+  margen: {
+    ok: true,
+    datos: margenBruto({ hoy: HOY, meses, entradas: ingresosEjemplo.entradas, gastoPorDia: gastoPorDiaDe('2026-06-01', HOY) }),
   },
   esperan: {
     ingreso: {

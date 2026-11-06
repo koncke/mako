@@ -78,7 +78,7 @@ const num = (v: unknown) => (Number(v) || 0);
  *  Anthropic de un negocio también, porque esa plata es del negocio (lib/veto-claude.ts, la
  *  segunda puerta). Sumarlas acá haría ver un gasto de Claude que no es de MaKo, y el veto
  *  parecería roto. */
-function costoDe(r: FilaUso): number {
+function costoDe(r: Pick<FilaUso, 'provider' | 'motivo' | 'cost_usd'>): number {
   const p = r.provider ?? 'anthropic';
   if (GRATIS.includes(p)) return 0;
   if (esDeLaClaveDelNegocio(r.motivo)) return 0;
@@ -88,7 +88,9 @@ function costoDe(r: FilaUso): number {
   return num(r.cost_usd);
 }
 
-function agrupar(filas: FilaUso[], clave: (r: FilaUso) => string): Corte[] {
+type FilaDeCosto = Pick<FilaUso, 'provider' | 'motivo' | 'cost_usd' | 'input_tokens' | 'output_tokens'>;
+
+function agrupar<F extends FilaDeCosto>(filas: readonly F[], clave: (r: F) => string): Corte[] {
   const m = new Map<string, Corte>();
   for (const r of filas) {
     const k = clave(r) || '—';
@@ -167,6 +169,25 @@ export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriod
     delNegocio: { llamadas: delNegocio.length, costUsd: delNegocio.reduce((s, r) => s + num(r.cost_usd), 0) },
     delCredito: { llamadas: delCredito.length, costUsd: delCredito.reduce((s, r) => s + num(r.cost_usd), 0) },
   };
+}
+
+/**
+ * El gasto de MaKo POR DÍA (UTC, la misma clave que `porDia`) desde `desde` (YYYY-MM-DD, incluido) hasta ahora, en UNA
+ * lectura paginada de esa ventana. Con el mismo `costoDe` que `resumenDelPeriodo`: cada día suma lo mismo que en Admin ›
+ * Analytics › Costs. Existe para quien necesita VARIOS meses juntos (el margen bruto de Admin › Overview, 6/11/2026):
+ * `resumenDelPeriodo` por mes serían N lecturas, cada una con `mesesConDatos`, que lee la tabla ENTERA. Global como aquél:
+ * lo gatea quien llama (sólo el super admin).
+ */
+export async function gastoPorDia(desde: string): Promise<Corte[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) throw new Error(`gastoPorDia: «${desde}» no es un día (YYYY-MM-DD)`);
+  type Fila = FilaDeCosto & Pick<FilaUso, 'created_at'>;
+  const filas = await leerTodo<Fila>(getSupabaseServer(), 'anthropic_usage', 'created_at, motivo, provider, cost_usd, input_tokens, output_tokens', {
+    orden: [{ col: 'created_at', asc: true }, { col: 'id', asc: true }],
+    filtros: (q) => q.gte('created_at', `${desde}T00:00:00.000Z`),
+    // Lo lee la portada de Admin, que alguien espera mirando: de a una, cada página paga su ida y vuelta.
+    paralelo: 4,
+  });
+  return agrupar(filas, (r) => r.created_at.slice(0, 10)).sort((a, b) => a.clave.localeCompare(b.clave));
 }
 
 /** Los meses que tienen al menos una fila, más nuevo primero. Alimenta el

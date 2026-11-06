@@ -10,35 +10,33 @@
 //   · `PlanUpsell` (vender el plan de Polar) y `OrganizationStatusBanner` (el alta de la organización en Polar, su checklist
 //     de onboarding) no son de MaKo: en su lugar van los banners de lo que espera a Martín (EsperaBanners.tsx);
 //     `DisputesBanner` es el molde de esos banners;
-//   · `AccountWidget` (el saldo de la cuenta de Polar y sus payouts) y `GrossMarginWidget` (ingresos menos costos
-//     atribuibles) se sacaron sin dejar el hueco: MaKo no tiene una cuenta con saldo ni el costo de IA de la plataforma
-//     atribuible por negocio (lib/costos-ia.ts). Cada fila queda con los dos widgets que hay, en dos columnas.
+//   · `AccountWidget` («Available balance», el saldo de la cuenta de Polar y sus payouts) es «Por cobrar»: los próximos
+//     cobros de MaKo (decidido el 6/11/2026: MaKo no tiene saldo para retirar, y sin esa tarjeta la grilla queda con un
+//     hueco). `GrossMarginWidget` es el margen de lo cobrado contra el gasto de IA de MaKo (el de toda la plataforma: no se
+//     reparte por negocio). Las dos filas son de tres, como en Polar, en su orden.
 
 import { OverviewQuickActions } from '@/app/admin/_polar/web/DashboardOverview/OverviewQuickActions'
 import { OverviewSection } from '@/app/admin/_polar/web/DashboardOverview/OverviewSection'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
+import { AccountWidget } from '@/app/admin/_polar/web/Widgets/AccountWidget'
 import { ActivityWidget } from '@/app/admin/_polar/web/Widgets/ActivityWidget'
 import RevenueWidget from '@/app/admin/_polar/web/Widgets/RevenueWidget'
 import { CustomerRiskWidget } from '@/app/admin/_polar/web/Widgets/CustomerRiskWidget'
+import { GrossMarginWidget } from '@/app/admin/_polar/web/Widgets/GrossMarginWidget'
 import { TopCustomersWidget } from '@/app/admin/_polar/web/Widgets/TopCustomersWidget'
 import type { IndiceBusqueda } from '@/app/admin/_polar/datos/busqueda-tipos'
 import type { ResumenAdmin } from '@/app/admin/_polar/datos/resumen'
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
-import { Children, PropsWithChildren } from 'react'
-import { twMerge } from 'tailwind-merge'
+import { PropsWithChildren } from 'react'
 import { EsperaBanners } from './EsperaBanners'
 
 const cellClassName =
   'dark:border-polar-700 border-t-0 border-r border-b border-l-0 border-gray-200'
 
-// Polar las arma de a tres (`lg:grid-cols-3`). Con los widgets que MaKo puede llenar, la fila mide lo que trae: sin una
-// celda vacía. Las clases van escritas enteras (Tailwind no ve una clase armada con un número).
-const COLUMNAS: Record<number, string> = { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' }
-
 const WidgetRow = ({ children }: PropsWithChildren) => (
   <div className="dark:border-polar-700 overflow-hidden rounded-xl border border-gray-200">
-    <div className={twMerge('-mr-px -mb-px grid grid-cols-1', COLUMNAS[Children.count(children)] ?? 'lg:grid-cols-3')}>
+    <div className="-mr-px -mb-px grid grid-cols-1 lg:grid-cols-3">
       {children}
     </div>
   </div>
@@ -69,10 +67,12 @@ export default function OverviewPage({ resumen, indice }: OverviewPageProps) {
         <WidgetRow>
           <RevenueWidget className={cellClassName} ingresos={resumen.ingresos} />
           <ActivityWidget className={cellClassName} actividad={resumen.actividad} />
+          <AccountWidget className={cellClassName} porCobrar={resumen.porCobrar} />
         </WidgetRow>
         <WidgetRow>
           <TopCustomersWidget className={cellClassName} top={resumen.top} />
           <CustomerRiskWidget className={cellClassName} riesgo={resumen.riesgo} />
+          <GrossMarginWidget className={cellClassName} margen={resumen.margen} />
         </WidgetRow>
       </div>
 

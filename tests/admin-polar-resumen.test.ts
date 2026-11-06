@@ -2,7 +2,8 @@
 // Admin › Overview (la portada copiada del dashboard de Polar) y su búsqueda ⌘K: las funciones puras, EJECUTADAS
 // =============================================================================
 // Lo que se prueba: los links viejos (/admin?tab=…) van a su sección nueva; los rangos que MaKo puede contestar; los widgets
-// (Revenue, Activity, Top Customers, At Risk) se arman con lo que leen las lecturas de MaKo; lo que espera a Martín (los
+// (Revenue, Activity, Por cobrar, Top Customers, At Risk, Margen bruto) se arman con lo que leen las lecturas de MaKo, y la
+// portada los tiene en dos filas de tres, en el orden de Polar; lo que espera a Martín (los
 // banners); el índice y la búsqueda; los datos de ejemplo no nombran a nadie real; y la página pregunta por el super admin
 // ANTES de leer nada.
 //
@@ -17,6 +18,15 @@
 //   · `await exigirSuperAdmin()` movido debajo de `destinoDeTabViejo`     → 13/1 (la guarda)
 //   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk)
 // Y un cambio sin efecto (renombrar la variable local `destino` de la página) la deja en 14/0.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026, Por cobrar y Margen bruto), base 18/0:
+//   · el total de «Por cobrar» sin las atrasadas (deja de ser la suma de la lista) → 17/1 (Por cobrar)
+//   · un mes sin gasto medido contado como gasto 0 (`gasto == null ? 0 : …`)       → 17/1 (margen)
+//   · el gasto que no se leyó tomado como «sin gasto» (ok con `gastoPorDia: []`)   → 17/1 (margen, lecturas)
+//   · la ventana de 31 días en vez de 30 (`diasAntes(p.hoy, DIAS_MARGEN)`)          → 17/1 (margen)
+//   · `AccountWidget` y `GrossMarginWidget` intercambiados en la portada            → 17/1 (la portada)
+//   · la grilla con `lg:grid-cols-2` en vez de la de Polar                         → 17/1 (la portada)
+// Y un cambio sin efecto (renombrar el `Map` local `quien` de `porCobrarResumen`) la deja en 18/0.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -25,9 +35,10 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import type { MesIngresos } from '../lib/admin-ingresos-reglas'
 import {
-  actividadReciente, barrasDeIngresos, destinoDeTabViejo, diaRelativo, filasDeRiesgo, hrefDeMes, mesesDelRango,
-  metricasRecordadas, motivoDeRiesgoTxt, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, rangosDisponibles,
-  tiempoRelativo, tituloDeAgencias, tituloDeBajas, tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
+  actividadReciente, barrasDeIngresos, desdeDelMargen, destinoDeTabViejo, diaRelativo, filasDeRiesgo, hrefDeMes,
+  margenBruto, margenDeLecturas, margenPorcentaje, mesesDelRango, metricasRecordadas, motivoDeRiesgoTxt, pedidosDeAgencias,
+  pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, rangosDisponibles, tiempoRelativo, tituloDeAgencias, tituloDeBajas,
+  tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
 } from '../app/admin/_polar/datos/resumen'
 import { armarIndice, buscar, TOPE_POR_CLASE } from '../app/admin/_polar/datos/busqueda-tipos'
 import { indiceEjemplo, resumenEjemplo } from '../app/admin/_polar/datos/ejemplo/resumen'
@@ -139,6 +150,99 @@ test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lectur
   assert.equal(b.filas.length, 0)
 })
 
+test('Por cobrar: lo que ya calculó `porCobrar`, con el nombre del negocio, y el total es la suma de la lista', () => {
+  const r = porCobrarResumen(
+    [
+      { cliente: 'ws:25', fecha: '2026-11-02', usd: 470, atrasado: true },
+      { cliente: 'lead:310', fecha: '2026-11-25', usd: 499.5, atrasado: false },
+      { cliente: 'ws:30', fecha: '2026-12-03', usd: 100, atrasado: false },
+      { cliente: 'lead:77', fecha: '2025-12-30', usd: 50, atrasado: false },
+    ],
+    [
+      { clave: 'ws:25', nombre: 'Viajes Horizonte', ws: 25 },
+      { clave: 'lead:310', nombre: 'Ana Gómez', ws: null },
+    ],
+    '2026-11-06',
+  )
+  assert.deepEqual(r.filas.map((f) => f.nombre), ['Viajes Horizonte', 'Ana Gómez', 'Workspace 30', 'lead:77'], 'en el orden de la vista; sin nombre, el número del negocio (no se inventa)')
+  assert.deepEqual(r.filas.map((f) => f.centavos), [47000, 49950, 10000, 5000])
+  assert.equal(r.totalCentavos, r.filas.reduce((s, f) => s + f.centavos, 0), 'el número grande es la suma de lo que se ve')
+  assert.equal(r.totalCentavos, 111950)
+  assert.deepEqual(r.filas.map((f) => f.href), ['/admin/customers/25', null, '/admin/customers/30', null], 'un lead sin cuenta de MaKo no tiene ficha')
+  assert.deepEqual(r.filas.map((f) => f.cuando), ['2 nov', '25 nov', '3 dic', '30 dic 2025'])
+  assert.equal(r.filas[0].atrasado, true)
+  assert.equal(new Set(r.filas.map((f) => f.id)).size, 4, 'cada fila con su clave')
+  assert.deepEqual(porCobrarResumen([], [], '2026-11-06'), { filas: [], totalCentavos: 0 }, 'sin nada por cobrar, 0 y la lista vacía')
+})
+
+test('Margen bruto: los últimos 30 días y los cinco meses completos de antes, con lo cobrado contra el gasto de IA', () => {
+  assert.equal(margenPorcentaje(100000, 25000), 75)
+  assert.equal(margenPorcentaje(0, 25000), null, 'sin ingresos no hay margen (Polar: «–»)')
+  assert.equal(margenPorcentaje(100000, null), null, 'sin el gasto medido tampoco: nunca un 100% inventado')
+  assert.equal(margenPorcentaje(10000, 15000), -50, 'gastar más de lo cobrado es un margen negativo')
+  assert.equal(desdeDelMargen('2026-11-06'), '2026-06-01')
+  assert.equal(desdeDelMargen('2026-03-31'), '2025-10-01', 'cruza el año')
+
+  const meses = [
+    { mes: '2026-05', cobrado: 999 },
+    { mes: '2026-06', cobrado: 1000 },
+    { mes: '2026-07', cobrado: 0 },
+    { mes: '2026-08', cobrado: 1000 },
+    { mes: '2026-09', cobrado: 1000 },
+    { mes: '2026-10', cobrado: 400 },
+    { mes: '2026-11', cobrado: 2000 },
+  ]
+  const gastoPorDia = [
+    { clave: '2026-05-20', costUsd: 999 },
+    { clave: '2026-06-03', costUsd: 100 }, { clave: '2026-06-20', costUsd: 100 },
+    { clave: '2026-07-10', costUsd: 50 },
+    // agosto: sin una sola fila de gasto (no se midió)
+    { clave: '2026-09-15', costUsd: 0 },
+    { clave: '2026-10-07', costUsd: 300 }, { clave: '2026-10-08', costUsd: 200 }, { clave: '2026-10-31', costUsd: 300 },
+    { clave: '2026-11-05', costUsd: 100 }, { clave: '2026-11-07', costUsd: 5000 },
+  ]
+  const entradas = [
+    { fecha: '2026-10-07', usd: 9999 }, // fuera de la ventana (el 8/10 es el primer día de los 30)
+    { fecha: '2026-10-08', usd: 1000 },
+    { fecha: '2026-11-06', usd: 1000 },
+    { fecha: '2026-11-07', usd: 9999 }, // después de hoy
+    { fecha: '2026-11-01', usd: null }, // sin su valor en dólares: no suma (como en Revenue)
+  ]
+  const m = margenBruto({ hoy: '2026-11-06', meses, entradas, gastoPorDia })
+  assert.equal(m.ultimos30, 70, '(2000 − (200 + 300 + 100)) / 2000, del 8/10 al 6/11')
+  assert.deepEqual(m.meses.map((x) => x.mes), ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10'], 'los cinco completos, sin el mes en curso')
+  assert.deepEqual(m.meses.map((x) => x.margen), [80, null, null, 100, -100], 'junio 80%; julio sin ingresos; agosto sin gasto medido; septiembre con gasto 0; octubre a pérdida')
+  assert.equal(m.meses[4].href, '/admin/analytics/costs?mes=2026-10', 'cada mes lleva a Costs de ese mes')
+
+  const sinGastoReciente = margenBruto({ hoy: '2026-11-06', meses, entradas, gastoPorDia: gastoPorDia.filter((d) => d.clave < '2026-10-08') })
+  assert.equal(sinGastoReciente.ultimos30, null, 'sin una fila de gasto en los 30 días, «–»')
+})
+
+test('Margen bruto: si no se pudo leer el gasto o los ingresos, la tarjeta es un error (nunca un 0%)', () => {
+  const ingresos = { ok: true as const, datos: { hoy: '2026-11-06', meses: [{ ...mes('2026-10', 1000) }], entradas: [] } }
+  const sinGasto = margenDeLecturas(ingresos, { ok: false, error: 'timeout' })
+  assert.deepEqual(sinGasto, { ok: false, error: 'el gasto de IA: timeout' })
+  const sinIngresos = margenDeLecturas({ ok: false, error: 'caída' }, { ok: true, datos: [] })
+  assert.deepEqual(sinIngresos, { ok: false, error: 'los ingresos: caída' })
+  const bien = margenDeLecturas(ingresos, { ok: true, datos: [{ clave: '2026-10-02', costUsd: 250 }] })
+  assert.equal(bien.ok && bien.datos.meses.at(-1)?.margen, 75)
+})
+
+test('la portada: dos filas de tres widgets, en el orden de Polar, y el gasto del margen se lee UNA vez', () => {
+  const vista = sinComentarios(leer('app/admin/_polar/web/DashboardOverview/DashboardPage.tsx'))
+  const orden = ['<RevenueWidget', '<ActivityWidget', '<AccountWidget', '<TopCustomersWidget', '<CustomerRiskWidget', '<GrossMarginWidget']
+  const pos = orden.map((w) => vista.indexOf(w))
+  for (const [i, p] of pos.entries()) assert.ok(p > 0, `${orden[i]} está en la portada`)
+  assert.deepEqual([...pos].sort((a, b) => a - b), pos, 'Revenue · Activity · Por cobrar / Top Customers · At Risk · Gross margin')
+  const filas = vista.split('<WidgetRow>').slice(1).map((f) => f.slice(0, f.indexOf('</WidgetRow>')))
+  assert.equal(filas.length, 2, 'dos filas')
+  assert.deepEqual(filas.map((f) => (f.match(/Widget className=/g) ?? []).length), [3, 3], 'de tres widgets cada una')
+  assert.match(vista, /className="-mr-px -mb-px grid grid-cols-1 lg:grid-cols-3"/, 'la grilla de Polar')
+  const server = sinComentarios(leer('app/admin/_polar/datos/resumen-server.ts'))
+  assert.equal((server.match(/leerGastoPorDia\(/g) ?? []).length, 1, 'una lectura del gasto')
+  assert.doesNotMatch(server, /resumenDelPeriodo\(/, 'nada de una lectura por mes de la tabla entera')
+})
+
 test('tiempo relativo: como el `formatRelativeTime` de Polar, en español', () => {
   const ahora = Date.parse('2026-11-06T18:00:00Z')
   assert.equal(tiempoRelativo('2026-11-06T17:59:40Z', ahora), 'ahora')
@@ -237,6 +341,8 @@ test('búsqueda: sin acentos ni mayúsculas, primero lo que EMPIEZA con lo escri
 test('los datos de ejemplo se arman y no nombran a nadie real', () => {
   assert.equal(resumenEjemplo.ingresos.ok, true)
   assert.equal(resumenEjemplo.actividad.ok && resumenEjemplo.actividad.datos.filas.length > 0, true)
+  assert.equal(resumenEjemplo.porCobrar.ok && resumenEjemplo.porCobrar.datos.filas.length > 0, true)
+  assert.equal(resumenEjemplo.margen.ok && resumenEjemplo.margen.datos.meses.length, 5)
   assert.deepEqual(realesEn(JSON.stringify(resumenEjemplo)), [])
   assert.deepEqual(realesEn(JSON.stringify(indiceEjemplo)), [])
 })

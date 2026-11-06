@@ -6,6 +6,8 @@
 //
 // ⚠️ CADA LECTURA FALLA SOLA: si una se cae, su widget dice «No pude leer…» y los demás se dibujan igual. Lo que se leyó a
 //    medias (las `avisos` de cada lector) va en `avisos` y la vista lo dice arriba.
+// ⚠️ EL MARGEN BRUTO LEE EL GASTO DE IA UNA VEZ (`leerGastoPorDia`, los últimos meses) y lo reparte por día y por mes en
+//    ./resumen.ts (`margenBruto`): `resumenDelPeriodo` por mes serían N lecturas de la tabla entera.
 // ⚠️ `vistaDeClientes` vuelve a leer `vistaDeIngresos` adentro (el MRR de cada negocio sale de ahí): son dos lecturas de los
 //    pagos por carga de la portada. Se anotó; arreglarlo es tocar lib/clientes-plataforma.ts.
 
@@ -21,10 +23,11 @@ import { zonaDelNegocio } from '@/lib/timezone'
 import { hoyEnTz } from '@/lib/date-utils'
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
 import { opcionesDeAlta } from './clientes-server'
+import { leerGastoPorDia } from './costos-server'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
-  actividadReciente, filasDeRiesgo, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, topClientes,
-  type Lectura, type ResumenAdmin,
+  actividadReciente, desdeDelMargen, filasDeRiesgo, margenDeLecturas, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso,
+  porCobrarResumen, topClientes, type Lectura, type ResumenAdmin,
 } from './resumen'
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -33,7 +36,10 @@ const leer = <T,>(p: Promise<T>): Promise<Lectura<T>> =>
 
 export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<ResumenAdmin> {
   const ahoraMs = ahora.getTime()
-  const [ingresos, clientes, actividad, ingreso, carteras, altas, bajas, wss, tz] = await Promise.all([
+  // El gasto de IA del margen bruto, en UNA lectura desde el mes más viejo que dibuja. Se calcula con el día UTC de AYER: el
+  // día de la plataforma puede ser uno más o uno menos que el UTC, y así la ventana siempre lo cubre (a lo sumo un mes de más).
+  const desdeGasto = desdeDelMargen(new Date(ahoraMs - 86_400_000).toISOString().slice(0, 10))
+  const [ingresos, clientes, actividad, ingreso, carteras, altas, bajas, wss, tz, gasto] = await Promise.all([
     leer(vistaDeIngresos(ahora)),
     leer(vistaDeClientes(ahoraMs)),
     leer(vistaDeActividad(ahora)),
@@ -43,6 +49,7 @@ export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<Resu
     leer(bajasPendientes()),
     listarWorkspaces().catch(() => []),
     wsSuperAdmin().then(zonaDelNegocio).catch(() => 'UTC'),
+    leer(leerGastoPorDia(desdeGasto)),
   ])
 
   const avisos: string[] = []
@@ -94,6 +101,10 @@ export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<Resu
               usdTxt: usd,
             }),
           },
+    porCobrar: ingresos.ok
+      ? { ok: true, datos: porCobrarResumen(ingresos.datos.porCobrar, ingresos.datos.clientes, ingresos.datos.hoy) }
+      : ingresos,
+    margen: margenDeLecturas(ingresos, gasto),
     esperan: {
       ingreso: ingreso.ok ? { ok: true, datos: { pedidos: pedidosDeIngreso(ingreso.datos.pedidos), hayMas: ingreso.datos.hayMas } } : ingreso,
       agencias: pedidosDeAgencias(carteras, altas, nombres),

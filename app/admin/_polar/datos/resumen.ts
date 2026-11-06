@@ -9,6 +9,10 @@
 //   · Top Customers: los que más pagaron desde el primer pago (los clientes de `vistaDeIngresos`).
 //   · At Risk: los negocios en riesgo de lib/clientes-plataforma.ts (`vistaDeClientes`): pausados, con un cobro fallido o
 //     sin uso.
+//   · Por cobrar (el «Available balance» de Polar, decidido 6/11/2026): los próximos cobros de `vistaDeIngresos().porCobrar`
+//     (lo atrasado y lo que vence en los próximos 31 días, con la historia mes a mes de cada suscripción). No se recalcula.
+//   · Margen bruto (el «Gross margin» de Polar): lo cobrado (lo mismo que suma Revenue) contra el gasto de IA que paga MaKo
+//     (lib/costos-ia.ts, el mismo `costoDe` que Analytics › Costs), de los últimos 30 días y de cada uno de los últimos meses.
 //   · Lo que ESPERA a Martín (los banners de arriba, donde Polar pone el estado de la organización y las disputas): quién
 //     pidió entrar (lib/pedidos-ingreso.ts), qué pidieron las agencias (lib/agencia.ts) y quién pidió eliminar su cuenta
 //     (lib/baja-cuenta.ts).
@@ -16,7 +20,8 @@
 // ⚠️ LA PLATA VA EN CENTAVOS, como en Polar (`formatCurrency` divide por 100). MaKo guarda dólares: se multiplica acá.
 // ⚠️ «NO PUDE LEER» ES OTRO ESTADO: cada lectura viaja como `Lectura` y la vista dice el error, nunca un cero.
 
-import type { Entrada, MesIngresos, Movimiento } from '@/lib/admin-ingresos-reglas'
+import { diaTxt, type Entrada, type MesIngresos, type Movimiento, type PorCobrar } from '@/lib/admin-ingresos-reglas'
+import type { Corte } from '@/lib/costos-ia'
 import { haceTxt } from '@/lib/clientes-plataforma-reglas'
 import { diasQueQuedan, fechaDeLaBaja } from '@/lib/baja-cuenta-reglas'
 import { detalleDelPedido } from '@/lib/pedidos-ingreso-reglas'
@@ -211,6 +216,126 @@ export function filasDeRiesgo(
     total: orden.length,
     filas: orden.map((f) => ({ ws: f.ws, nombre: f.nombre, plan: f.plan, motivo: motivoDeRiesgoTxt(f.motivoRiesgo, f.sinEntrar), mrrCentavos: aCentavos(f.mrrUsd) })),
   }
+}
+
+// ── Por cobrar (el «Available balance» de Polar) ─────────────────────────────────────────────────────────────────
+
+/** Un próximo cobro: de quién, cuándo vence y cuánto. `atrasado`: ya venció (hoy incluido) y no está completo. */
+export type FilaPorCobrar = { id: string; nombre: string; ws: number | null; fecha: string; cuando: string; atrasado: boolean; centavos: number; href: string | null }
+/** `totalCentavos` es la suma de TODAS las filas (la lista no se corta: la tarjeta scrollea, como la de Polar). */
+export type PorCobrarResumen = { filas: FilaPorCobrar[]; totalCentavos: number }
+
+/**
+ * La tarjeta «Por cobrar»: lo que `vistaDeIngresos()` ya calculó en `porCobrar` (lo atrasado y lo que vence en los próximos
+ * 31 días, con la historia mes a mes de cada suscripción, lib/admin-ingresos-reglas.ts `porCobrarDe`). Acá NO se recalcula
+ * nada: se le pone el nombre del negocio (de la misma vista, `clientes`), la fecha en palabras y el link a su ficha. El orden
+ * es el de la vista (lo más cercano primero).
+ */
+export function porCobrarResumen(
+  porCobrar: ReadonlyArray<PorCobrar>,
+  clientes: ReadonlyArray<{ clave: string; nombre: string; ws: number | null }>,
+  hoy: string,
+): PorCobrarResumen {
+  const quien = new Map(clientes.map((c) => [c.clave, c]))
+  const filas = porCobrar.map((p, i): FilaPorCobrar => {
+    const c = quien.get(p.cliente)
+    const ws = c?.ws ?? wsDeClave(p.cliente)
+    return {
+      id: `${p.cliente}:${p.fecha}:${i}`,
+      nombre: c?.nombre ?? (ws != null ? `Workspace ${ws}` : p.cliente),
+      ws,
+      fecha: p.fecha,
+      cuando: diaTxt(p.fecha, hoy),
+      atrasado: p.atrasado,
+      centavos: aCentavos(p.usd),
+      href: hrefDeCliente(ws),
+    }
+  })
+  return { filas, totalCentavos: filas.reduce((s, f) => s + f.centavos, 0) }
+}
+
+// ── Margen bruto (el «Gross margin» de Polar) ────────────────────────────────────────────────────────────────────
+
+/** Polar: `TRAILING_DAYS = 30` y `MONTHS = 5` (los cinco meses COMPLETOS antes del actual). */
+export const DIAS_MARGEN = 30
+export const MESES_MARGEN = 5
+
+/** `(ingresos − costos) / ingresos`, redondeado (el `marginPercentage` de Polar). `null` sin ingresos o sin el gasto medido. */
+export function margenPorcentaje(ingresosCentavos: number, costosCentavos: number | null): number | null {
+  if (costosCentavos == null) return null
+  return ingresosCentavos > 0 ? Math.round(((ingresosCentavos - costosCentavos) / ingresosCentavos) * 100) : null
+}
+
+export type MesMargen = { mes: string; margen: number | null; href: string }
+/** `ultimos30`: el margen de los últimos 30 días (el titular); `meses`: el de cada mes completo, el más viejo primero. */
+export type MargenBruto = { ultimos30: number | null; meses: MesMargen[] }
+
+/** YYYY-MM-DD `n` días antes de `dia`. */
+const diasAntes = (dia: string, n: number) => new Date(Date.parse(`${dia}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10)
+
+/** El primer día que tiene que traer la lectura del gasto: el del mes más viejo del margen (`MESES_MARGEN` antes del actual). */
+export function desdeDelMargen(hoy: string): string {
+  const [y, m] = hoy.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 - MESES_MARGEN, 1)).toISOString().slice(0, 10)
+}
+
+/**
+ * El margen bruto de Overview. Los ingresos son lo cobrado con la MISMA suma que el widget Revenue (`meses[].cobrado` por mes;
+ * los pagos de `entradas` para la ventana de 30 días); los costos, el gasto de IA que paga MaKo por día (`porDia` de
+ * lib/costos-ia.ts, el mismo `costoDe` que Analytics › Costs, en dólares).
+ *
+ * ⚠️ «NO SE MIDIÓ» NO ES CERO: un mes (o la ventana) sin NINGUNA fila de gasto es un mes en que MaKo no registró uso de IA (la
+ *    tabla todavía no existía, o no se escribió), y su margen sería un 100% inventado: va `null` («–»). Un mes con filas en
+ *    0 (todo con IA gratis) sí es un gasto medido de 0. El gasto que NO SE PUDO LEER no llega acá: `margenDeLecturas` lo
+ *    deja como error de la tarjeta.
+ * ⚠️ Los días del gasto son UTC (como `porDia` y la pantalla de Costs) y los de los pagos, los de su fecha: en el borde de un
+ *    día puede caer en la ventana uno de un lado y no del otro.
+ */
+export function margenBruto(p: {
+  hoy: string
+  meses: ReadonlyArray<Pick<MesIngresos, 'mes' | 'cobrado'>>
+  entradas: ReadonlyArray<Pick<Entrada, 'fecha' | 'usd'>>
+  gastoPorDia: ReadonlyArray<Pick<Corte, 'clave' | 'costUsd'>>
+}): MargenBruto {
+  const mesActual = p.hoy.slice(0, 7)
+  const desde = diasAntes(p.hoy, DIAS_MARGEN - 1)
+  const enVentana = (dia: string) => dia >= desde && dia <= p.hoy
+
+  const gastoVentana = p.gastoPorDia.filter((d) => enVentana(d.clave))
+  const cobradoVentana = p.entradas.reduce((s, e) => (enVentana(e.fecha) && e.usd != null ? s + e.usd : s), 0)
+  const ultimos30 = margenPorcentaje(
+    aCentavos(cobradoVentana),
+    gastoVentana.length ? gastoVentana.reduce((s, d) => s + d.costUsd, 0) * 100 : null,
+  )
+
+  const cobradoDe = new Map(p.meses.map((m) => [m.mes, m.cobrado]))
+  const gastoDe = new Map<string, number>()
+  for (const d of p.gastoPorDia) {
+    const mes = d.clave.slice(0, 7)
+    gastoDe.set(mes, (gastoDe.get(mes) ?? 0) + d.costUsd)
+  }
+  const [y, m] = mesActual.split('-').map(Number)
+  const meses: MesMargen[] = []
+  for (let i = MESES_MARGEN; i >= 1; i--) {
+    const mes = new Date(Date.UTC(y, m - 1 - i, 1)).toISOString().slice(0, 7)
+    const gasto = gastoDe.get(mes)
+    meses.push({
+      mes,
+      margen: margenPorcentaje(aCentavos(cobradoDe.get(mes) ?? 0), gasto == null ? null : gasto * 100),
+      href: `/admin/analytics/costs?mes=${mes}`,
+    })
+  }
+  return { ultimos30, meses }
+}
+
+/** La tarjeta con lo que leyó el server: si no se pudieron leer los ingresos o el gasto, es un error (nunca un 0%). */
+export function margenDeLecturas(
+  ingresos: Lectura<Pick<IngresosResumen, 'hoy' | 'meses' | 'entradas'>>,
+  gasto: Lectura<ReadonlyArray<Pick<Corte, 'clave' | 'costUsd'>>>,
+): Lectura<MargenBruto> {
+  if (!ingresos.ok) return { ok: false, error: `los ingresos: ${ingresos.error}` }
+  if (!gasto.ok) return { ok: false, error: `el gasto de IA: ${gasto.error}` }
+  return { ok: true, datos: margenBruto({ hoy: ingresos.datos.hoy, meses: ingresos.datos.meses, entradas: ingresos.datos.entradas, gastoPorDia: gasto.datos }) }
 }
 
 // ── Activity ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -411,6 +536,8 @@ export type ResumenAdmin = {
   top: Lectura<TopClientes>
   riesgo: Lectura<Riesgo>
   actividad: Lectura<Actividad>
+  porCobrar: Lectura<PorCobrarResumen>
+  margen: Lectura<MargenBruto>
   esperan: Esperan
   /** Lo que no se pudo leer del todo: lo que se muestra puede quedarse corto. */
   avisos: string[]

@@ -7,7 +7,7 @@
 //    vive en Customers › Cost Drivers.
 
 import 'server-only'
-import { resumenDelPeriodo } from '@/lib/costos-ia'
+import { gastoPorDia, resumenDelPeriodo, type Corte } from '@/lib/costos-ia'
 import { armarCostos, mesAnterior, type VistaCostos } from './costos'
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -27,4 +27,13 @@ export async function leerCostos(periodo: string, hoy = new Date()): Promise<Vis
     hoy,
     avisos,
   })
+}
+
+/**
+ * El gasto de IA de MaKo por día (UTC) desde `desde` (YYYY-MM-DD), en UNA lectura: lo usa el margen bruto de Overview
+ * (app/admin/_polar/datos/resumen-server.ts), que necesita varios meses. Cada día suma lo mismo que en esta pantalla (el
+ * mismo `costoDe` de lib/costos-ia.ts). Si no se puede leer, sube el error: la tarjeta dice «No pude leer», nunca un 0%.
+ */
+export function leerGastoPorDia(desde: string): Promise<Corte[]> {
+  return gastoPorDia(desde)
 }
