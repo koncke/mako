@@ -130,6 +130,7 @@ como_conectar
 comparar_agendas_meta_crm
 compartir_borrador_landing
 compartir_documento_copywriter
+compartir_plantilla
 conectar_componentes_dashboard
 conectar_dominio_email
 conectar_seguimiento_email
@@ -304,6 +305,7 @@ generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
+guardar_como_plantilla
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -519,6 +521,7 @@ proponer_ampliar_tareas
 proponer_borrar_angulo
 proponer_borrar_avatar
 proponer_borrar_guion_valorado
+proponer_broll_video
 proponer_cambio_etapa
 proponer_cierre_tareas
 proponer_corregir_angulo_guion
@@ -558,6 +561,7 @@ quitar_dependencia_plan
 quitar_estrella
 quitar_filtro_dashboard
 r2_sin_lead
+ranking_creaciones
 reabrir_decision_media_buyer
 reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
@@ -712,6 +716,8 @@ ver_perfil_guiones
 ver_perfil_negocio
 ver_personalidad_voz
 ver_plan
+ver_plantillas_avatar
+ver_plantillas_oferta
 ver_post_comunidad
 ver_preferencias_notificaciones
 ver_prioridades_plan

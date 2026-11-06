@@ -361,6 +361,11 @@ export type LeadCreateInput = {
    * del alta (app/crm/new/InstagramBuscador.tsx) y llega normalizado por `usuarioInstagram`.
    */
   instagram?: string | null;
+  /**
+   * El link del perfil de LinkedIn (mig 0274), con una sola forma: `https://www.linkedin.com/in/<id>/`. Lo pasa «Guardar en
+   * MaKo» de la extensión (lib/perfil-captura-db.ts). No es un canal de contacto: MaKo no escribe por LinkedIn.
+   */
+  linkedin?: string | null;
   /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado por `respuestasDelOptin`. */
   optin_respuestas?: Array<{ pregunta: string; respuesta: string }> | null;
   /** La página donde dejó sus datos, ya normalizada (mig 0290_lead_entrada). */
@@ -1107,6 +1112,8 @@ export async function createLead(input: LeadCreateInput & {
       // la mig 0258 aplicada, un alta sin Instagram tiene que seguir entrando; con Instagram,
       // el error dice qué columna falta en vez de perder el lead en silencio.
       ...(input.instagram?.trim() ? { instagram: input.instagram.trim() } : {}),
+      // Igual que Instagram: SÓLO SI VINO (mig 0274), así un alta sin LinkedIn no nombra la columna.
+      ...(input.linkedin?.trim() ? { linkedin: input.linkedin.trim().slice(0, 300) } : {}),
       // Igual que Instagram: SÓLO SI VINO, así un alta sin respuestas entra sin la mig 0274.
       ...(input.optin_respuestas?.length ? { optin_respuestas: input.optin_respuestas } : {}),
       // ⚠️ EL ANUNCIO SE ESCRIBE (tanda B del CRM, 14/10/2026). Estaba en `LeadCreateInput` y no
@@ -2727,9 +2734,14 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
  * Engagement del VSL para VARIOS visitors en UNA sola query (evita el N+1 de
  * llamar getVslEngagement por lead en un loop). Devuelve un Map por visitor_id;
  * los visitors sin filas no aparecen (el caller los trata como 'sin_datos').
+ *
+ * `estricto`: si la lectura falla, TIRA en vez de devolver el mapa vacío. Lo usa quien DECIDE con esto (el motor de
+ * Automations: la cohorte «vio poco el VSL» y la condición «No reprodujo el VSL»). Con el mapa vacío, una base caída
+ * hacía que TODOS «no lo vieron» y les salía el mensaje (6/11/2026, docs/hallazgos-chatbot.md). La pantalla sigue tolerante.
  */
 export async function getVslEngagementMap(
   visitorIds: Array<string | null>,
+  opts: { estricto?: boolean } = {},
 ): Promise<Map<string, VslEngagement>> {
   const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
   const map = new Map<string, VslEngagement>();
@@ -2755,6 +2767,7 @@ export async function getVslEngagementMap(
     durs = d;
   } catch (e) {
     console.error(`[getVslEngagementMap] falló: ${e instanceof Error ? e.message : String(e)}`);
+    if (opts.estricto) throw e;
     return map;
   }
   type Fila = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null };

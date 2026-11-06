@@ -231,11 +231,13 @@ test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado 
   // automatización (Martín: «en su lugar que allí vaya el ícono de configuraciones»).
   assert.match(chrome, /<BotonTuerca lado=\{ALTO_ACCION\}/, 'la tuerca no está al lado del título');
   assert.doesNotMatch(chrome, /Pedirle un cambio a MaKo/, 'volvió el ✦ de MaKo al título');
-  assert.doesNotMatch(chrome, />Activar</, '«Activar» sigue arriba');
+  // El rótulo dice «Activa» prendida y «Activar» apagada (recorrido visual del 30/10/2026, A3).
+  const ROTULO = "{activa ? 'Activa' : 'Activar'}</span>";
+  assert.ok(!chrome.includes(ROTULO) && !/>Activar</.test(chrome), '«Activar» sigue arriba');
   const herramientas = tramo(PERFIL, 'herramientas={rolAdmin ? (', 'pie={(', 1_600);
   assert.doesNotMatch(herramientas, /Pedirle un cambio a MaKo/, 'el ✦ volvió a la fila del zoom');
   const pie = tramo(PERFIL, 'pie={(', 'editorEntrada={(', 4_000);
-  assert.ok(pie.indexOf('>Activar<') >= 0 && pie.indexOf('>Activar<') < pie.indexOf("'Publicar'"), '«Activar» no está al lado de «Publicar»');
+  assert.ok(pie.indexOf(ROTULO) >= 0 && pie.indexOf(ROTULO) < pie.indexOf("'Publicar'"), '«Activar» no está al lado de «Publicar»');
   // ⛔ «Publicar» ya no va en el click derecho del lienzo (decimoquinta tanda, punto 5: «Elimina las opciones de
   // "Publicar, acomodar y centrar" en el desplegable cuando le doy click derecho»): tests/automations-decimoquinta.test.ts.
   assert.doesNotMatch(PERFIL, /onPublicar=/);

@@ -42,6 +42,7 @@ import { CATALOGO_ESCENARIOS, escenarioPorId, escenariosParaCamara } from '@/lib
 import type { Camara } from '@/lib/puestas-data';
 import { CREDITOS_POR_DURACION, creditosDeClip } from '@/lib/costo-clip';
 import { plantillasParaApi } from '@/lib/editor-video/plantillas';
+import { ejemploDeVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { NOTA_COPIA, proyectoEntero, proyectoEnLista } from '@/lib/editor-video/espejo';
 import { leerEspejo, listarEspejos, resolverProyecto } from '@/lib/editor-video/espejo-server';
@@ -566,7 +567,18 @@ export const RUNNERS: Runners = {
   // El catálogo del Video Editor (lo arma lib/editor-video/plantillas.ts, puro), con las sugeridas para ESTE
   // negocio primero, como en la pestaña Plantillas (lib/plantillas-sugeridas.ts).
   listar_plantillas_video: {
-    leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),
+    // Con el ejemplo de cada una (6/11/2026, lib/editor-video/plantillas-ejemplos.ts): lo que trae «Ver ejemplo», de un
+    // negocio FICTICIO. La plantilla nace con su estructura; el ejemplo es para ver cómo queda llena.
+    leer: async () => {
+      const base = plantillasParaApi(await senalesDelNegocio().catch(() => null));
+      return json({
+        ...base,
+        plantillas: base.plantillas.map((p) => {
+          const e = ejemploDeVideo(p.id);
+          return e ? { ...p, cuando: e.cuando, objetivo: e.objetivo, ejemplo_completo: { negocio: `${e.negocio} (ficticio)`, textos: e.textos, guion: e.guion, tomas: e.tomas, ...(e.anuncio ? { anuncio: e.anuncio } : {}) } } : p;
+        }),
+      });
+    },
   },
 
   // La COPIA de lectura de los proyectos del editor, que el editor sube mientras se edita (mig 0299,
@@ -635,6 +647,7 @@ export const RUNNERS: Runners = {
   borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },
   resaltar_claves_subtitulos: { ...enElEditor('resaltar_claves_subtitulos') },
   usar_preset_subtitulos: { ...enElEditor('usar_preset_subtitulos') },
+  proponer_broll_video: { ...enElEditor('proponer_broll_video') },
 
   ver_contexto_video: {
     leer: async () => {
@@ -891,6 +904,21 @@ export const RUNNERS: Runners = {
       } catch {
         return { ok: false, resumen: 'No se pudo borrar el preset.' };
       }
+    },
+  },
+  ver_plantillas_avatar: {
+    leer: async (input) => {
+      const { PLANTILLAS_VENTA_AVATAR, plantillaVentaAvatar } = await import('@/lib/ai-avatar/plantillas-venta');
+      const linea = (p: (typeof PLANTILLAS_VENTA_AVATAR)[number]) => ({
+        id: p.id, nombre: p.nombre, cuando: p.cuando, rubro: p.rubro, preset: p.presetId, estructura: p.estructura, duracion_segundos: p.duracion,
+      });
+      if (typeof input.id === 'string' && input.id.trim()) {
+        const p = plantillaVentaAvatar(input.id.trim());
+        if (!p) return json({ error: 'No existe esa plantilla.', disponibles: PLANTILLAS_VENTA_AVATAR.map((x) => x.id) });
+        return json({ ...linea(p), escena: p.detalle, pide: p.pide, ejemplo: { negocio: `${p.negocio} (ficticio)`, ...p.ejemplo },
+          nota: 'El ejemplo es de un negocio ficticio: es la forma, nunca un dato de este negocio.' });
+      }
+      return json({ plantillas: PLANTILLAS_VENTA_AVATAR.map(linea), nota: 'Con id, trae el ejemplo completo de una.' });
     },
   },
 };

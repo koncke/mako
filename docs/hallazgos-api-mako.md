@@ -3141,3 +3141,11 @@ tests/horas-del-negocio.test.ts
   «quien la enlaza».
 
 **Vive en:** lib/contexto-ig.ts · lib/api-mako/areas/contenido.run.ts
+
+## Los nombres de las áreas en el índice de la API (AP1, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- «Chatbot y secuencias» y «Ads (Manager y Analyst)» eran los nombres viejos: el título del área sale de `lib/api-mako/tipos.ts`
+  y de ahí a `/api-mako` y a docs/api-mako.md, que se regenera (`node --import tsx scripts/generar-api-doc.mjs`) en el mismo
+  commit o el pre-push lo frena. Las CLAVES (`chatbot`) no se tocan: están en tokens y en permisos guardados.
+
+**Vive en:** lib/api-mako/tipos.ts, app/api-mako/Articulos.tsx, docs/api-mako.md

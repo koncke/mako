@@ -1566,3 +1566,11 @@ Y en el teléfono también: topeado en 340 dentro de 390.
 **Regla:** antes de nombrar una clase en el `<style>` de un componente, `grep` del prefijo en la hoja de la tab. Ahora es
 `.of-vivo*`, y tests/crear-qa-pantallas.test.ts cruza las clases que DEFINEN las dos hojas (falla si se repite una).
 («430 px» en su captura son 340 de CSS: su pantalla de 1920 está al 125 %.)
+
+## Dos plantillas de «Nueva oferta» con el mismo nombre (OF1, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- Con dos funnels, dos tarjetas se llamaban «Crear una oferta nueva» y las distinguía el rótulo, un texto chiquito adentro del
+  cuadro. El nombre que se REPITE lleva su funnel al lado («· Coaching»), como la lista de conversaciones; el que no se repite
+  queda corto. Dos funnels del mismo nombre se distinguen con «(2)» (`titulosUnicos`).
+
+**Vive en:** app/offer/arbol.ts (`plantillasDeOffer`), tests/offer-v2-pantalla.test.ts

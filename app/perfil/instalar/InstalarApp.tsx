@@ -19,6 +19,40 @@ import { SinConexion } from './SinConexion';
 /** La descarga del instalador de cada sistema: la misma ruta que usan el chat sin la app y «Tus cuentas de IA». */
 export const DESCARGA_DE = { windows: '/api/ia-pc/descargar?os=windows', mac: '/api/ia-pc/descargar?os=mac' } as const;
 
+/** El detalle «Para qué sirve» de MaKo en la computadora (`?ver=escritorio`, lo lee la página en el server). */
+export const VER_ESCRITORIO = 'escritorio';
+export const RUTA_PARA_QUE_SIRVE = `/perfil/instalar?ver=${VER_ESCRITORIO}`;
+
+/**
+ * PARA QUÉ SIRVE MaKo EN LA COMPUTADORA (6/11/2026, llamada con Leila del 5/11: «no hay pantalla que explique para qué
+ * sirve»). Tres cosas, una por fila y una línea cada una, como el resto de Settings (Linear): ningún párrafo. Lo que dice es
+ * lo que la app hace HOY (docs/plan-instalador-escritorio.md, ./SinConexion.tsx): usar la IA de la persona en sus chats de
+ * MaKo (nunca para atender leads solo: AGENTS.md, «la computadora del cliente NUNCA atiende leads sola»), la copia sin
+ * conexión y que arranca sola, sin ventana. Lo que todavía no hace (grabar llamadas, exportar video) no se promete.
+ */
+export const PARA_QUE_SIRVE = [
+  { icono: 'mako', titulo: 'Tu Claude o tu ChatGPT en MaKo', detalle: 'Tus chats con MaKo usan tu propia suscripción.' },
+  { icono: 'candado', titulo: 'Sin conexión', detalle: 'Guarda una copia cifrada de tu CRM y tu Plan en esta computadora.' },
+  { icono: 'computadora', titulo: 'Arranca sola', detalle: 'Queda prendida al encender la computadora, sin una ventana más.' },
+] as const;
+
+/** «Para qué sirve»: el detalle, con las descargas al pie (la acción que sigue a entenderlo). */
+export function ParaQueSirve() {
+  const boton = (href: string, titulo: string) => <a className="aj-boton" data-variante="borde" href={href} title={titulo}>Descargar</a>;
+  return (
+    <>
+      <TituloAjustes titulo="MaKo en tu computadora" volver={{ href: '/perfil/instalar', label: 'Instalar la app' }} />
+      <GrupoAjustes titulo="Para qué sirve">
+        {PARA_QUE_SIRVE.map((f) => <FilaAjustes key={f.titulo} icono={f.icono} titulo={f.titulo} detalle={f.detalle} />)}
+      </GrupoAjustes>
+      <GrupoAjustes titulo="Descargar">
+        <FilaAjustes icono="computadora" titulo="Windows" detalle="Instalador .exe" fin={boton(DESCARGA_DE.windows, AVISO_SMARTSCREEN)} />
+        <FilaAjustes icono="computadora" titulo="Mac" detalle="MaKo.app en un .zip" fin={boton(DESCARGA_DE.mac, AVISO_GATEKEEPER)} />
+      </GrupoAjustes>
+    </>
+  );
+}
+
 export function InstalarApp({ qr, url, extension, sinConexion }: {
   /** El código para la cámara del teléfono (un data URL), o null si no se pudo armar. */
   qr: string | null;
@@ -44,6 +78,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
         <FilaAjustes icono="computadora" titulo="Mac" detalle="MaKo.app en un .zip"
           fin={boton(DESCARGA_DE.mac, 'Descargar', { titulo: AVISO_GATEKEEPER })} />
         {sinConexion && <SinConexion email={sinConexion.email} noDisponible={sinConexion.noDisponible} />}
+        <FilaAjustes icono="pregunta" titulo="Para qué sirve" href={RUTA_PARA_QUE_SIRVE} />
       </GrupoAjustes>
 
       <GrupoAjustes titulo="En tu teléfono">

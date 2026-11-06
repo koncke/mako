@@ -78,7 +78,9 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 });
 
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
-  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos']);
+  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles', 'listar_presets_subtitulos',
+    // Las plantillas de venta de AI Avatar (6/11/2026): una lista de formas de negocios ficticios, como listar_plantillas_video.
+    'ver_plantillas_avatar']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta
@@ -96,7 +98,7 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
     .map((d) => d.id)
     .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id) && !ACCIONES_SIN_RECETA.has(id));
   assert.deepEqual(sinGrupo, [], `operaciones sin receta decidida: ${sinGrupo.join(', ')}. Súmalas a un grupo de lib/doer-recetas.ts`);
-  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 37, 'el editor tiene 37 operaciones de escritura (lib/editor-video/chat-api.ts; la 36 y la 37, resaltar_claves_subtitulos y usar_preset_subtitulos, 06/11)');
+  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 38, 'el editor tiene 38 operaciones de escritura (lib/editor-video/chat-api.ts; la 36 y la 37, resaltar_claves_subtitulos y usar_preset_subtitulos, y la 38, proponer_broll_video, 06/11)');
   // Leila se lo pidió a MaKo el 27/10 y la receta le hacía decir que no podía: lo que tiene operación no va en «no puede».
   const noPuede = /no puede por chat \(([^)]*)\)/.exec(recetasDelTurno(new Set(['borrar_silencios_video']), false))?.[1] ?? '';
   assert.ok(noPuede, 'la receta del editor ya no dice qué no se puede');

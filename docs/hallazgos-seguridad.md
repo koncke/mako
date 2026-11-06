@@ -2703,3 +2703,17 @@ proxy que no compila el matcher no dice qué pedidos le llegan.
 **Vive en:** `proxy.ts` (`config.matcher`) · `tests/proxy-matcher-completo.test.ts` · `lib/linea-freno.ts` · `lib/mako-salida.ts` ·
 `lib/reunion-destinatarios.ts` · `lib/cuenta-revision-reglas.ts` · `app/api/auth/contrasena/route.ts` · `scripts/tiendas-cuenta-revision.mts` ·
 `scripts/tiendas-cuenta-revision-revertir.mts` · `app/configuraciones/telefonos-actions.ts` · `tests/cuenta-revision-escrituras.test.ts`.
+
+## Las fotos huérfanas del bucket `avatars`: el script en seco (6/11/2026, nube, barrido de pendientes)
+
+La mudanza de las fotos adivinables (`renombrarFotosAdivinables`, lib/fotos-contacto.ts) sólo mueve las que una fila VIVA nombra.
+Las que quedaron sin fila (un lead borrado, una foto refrescada, una carrera entre subir y escribir la URL) siguen en el bucket
+público con el nombre de antes (`leads/<ws>/<lead>.jpg`). `scripts/avatars-huerfanas.mts` las lista por negocio y, con
+`--borrar`, las borra; la regla es `huerfanas` (lib/avatars-huerfanas.ts, con test).
+- **Lo que cuenta como nombrado no es sólo `leads.foto_auto_url`:** un lead en la PAPELERA (mig 0340) vuelve con su foto JSON,
+  así que su URL se lee ahí también; y la `foto_url` de un contacto de WhatsApp. Sin la papelera, recuperar un lead le dejaba la
+  cara rota.
+- **No toca lo de menos de 24 h ni lo que no tiene fecha** (la fila que la va a nombrar puede estar escribiéndose) **ni un objeto
+  con otro formato** (no es una foto de lead).
+**Sin hacer:** correrlo. Lee producción y borra fotos: lo corre el Cerebro desde la PC, en seco primero, y `--borrar` con el sí
+de Martín. **Vive en:** scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts · tests/avatars-huerfanas.test.ts

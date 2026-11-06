@@ -44,6 +44,7 @@ import dynamic from 'next/dynamic';
 import { useCerrarAfuera } from './cerrar-afuera';
 import { useRouter } from '@/app/_ui/Link';
 import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear';
+import { rutaUsarEnAnuncio } from '@/lib/anuncio-desde-pieza';
 import type { DocVivo } from './propuesta';
 
 // BlockNote es sólo del navegador (usa el DOM al crearse): en Next se carga sin SSR, como pide su documentación. El
@@ -302,6 +303,14 @@ export function EditorGuion(p: PropsEditorGuion) {
       setPublicando(false);
     }
   };
+  // «Usar en un anuncio» (6/11/2026, lo prometido a la agencia de Thiago): el texto de la página como el texto principal de una
+  // campaña, en /anuncio/nuevo (app/_crear/usar-en-anuncio.ts). Ahí se elige el video o la imagen y se PROPONE: lanzarla la
+  // confirma una persona en /mako/revisar. Tampoco desde el editor compartido: quien edita por un link no tiene anuncios.
+  const usarEnAnuncio = () => {
+    setMenuPagina(false);
+    if (!doc) return;
+    router.push(rutaUsarEnAnuncio({ origen: 'copywriter', titulo: titulo.trim() || null, texto: textoDelDoc(doc.leer()) }));
+  };
 
   const ruta = rutaDe(p.paginas, id);
   const emojiPagina = guion.pagina.emoji ?? INFO_TIPO[props.tipo].emoji;
@@ -337,6 +346,11 @@ export function EditorGuion(p: PropsEditorGuion) {
                 {!compartido && (
                   <button type="button" role="menuitem" className="nt-menu-fila" data-publicar-texto="" disabled={publicando} onClick={() => void publicarTexto()}>
                     <span className="nt-menu-cuadro" aria-hidden>↑</span><span className="nt-menu-textos"><span className="nt-menu-nombre">{publicando ? 'Llevándolo al Calendario…' : 'Publicar en redes'}</span></span>
+                  </button>
+                )}
+                {!compartido && (
+                  <button type="button" role="menuitem" className="nt-menu-fila" data-usar-en-anuncio="" onClick={usarEnAnuncio}>
+                    <span className="nt-menu-cuadro" aria-hidden>📣</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Usar en un anuncio</span></span>
                   </button>
                 )}
                 {p.onCompartir && !compartido && (

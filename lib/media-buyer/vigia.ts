@@ -21,7 +21,7 @@ import { crearNotificacion } from '@/lib/notificaciones';
 import { leerConfig, leerDecisiones, guardarPropuestas, cupoDe } from './store';
 import { leerDatosCuenta, cuentaDelNegocio, fmtUnidad, type DatosCuenta } from './datos';
 import { arbolDesdeZernio, senalesDeVentana, type FilaLeadAd } from './senales';
-import { objetivoRecomendado, type DecisionPrevia } from './motor';
+import { objetivoRecomendado, previaDeDecision } from './motor';
 import { modoEfectivo, ordenDelCupo, recomendadasHoy } from './plan';
 import { resolverTacticas } from './tacticas';
 import { pausasPorFecha, pausasPendientes, propuestaHasta } from './zona';
@@ -64,9 +64,8 @@ async function senalesDeHoy(ws: number, datos: DatosCuenta, dia: { hoy: string; 
   return senalesDeVentana(metricas, leads, dia.hoy, dia.hoy, datos.conversor.aUsdNum);
 }
 
-const previa = (d: Decision): DecisionPrevia => ({
-  tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidadId: d.entidadId, estado: d.estado, creada: d.creada, aplicadaAt: d.aplicadaAt, origen: d.origen,
-});
+// Lo que el motor ve de cada decisión: UNA función (motor.ts), con los anuncios creados y su original (el Relevo los usa).
+const previa = previaDeDecision;
 
 /** Mira la cuenta del negocio AHORA: la fecha de fin y el Stop Loss del día. Nunca tira. */
 export async function vigilarCuenta(ws: number, opts: { cuentasVistas?: Set<string> } = {}): Promise<ResumenVigia> {

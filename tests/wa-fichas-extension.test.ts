@@ -310,5 +310,6 @@ test('10. la política de privacidad dice lo que hace: cada sitio del manifest, 
   assert.match(pol, /registro de tus últimas 30 extracciones/);
   // 3/11/2026 (0.75.0): «Guardar en Spy» (lo que dice lo mira tests/spy-captura.test.ts).
   // 4/11/2026 (0.76.0): «Capturar» en «Sus páginas» (lo que dice lo mira tests/spy-captura-pagina.test.ts).
-  assert.match(pol, /const ACTUALIZADO = '4 de noviembre de 2026'/, 'la política cambió y la fecha no');
+  // 6/11/2026 (0.77.0): «Guardar en MaKo» sobre un perfil (lo que dice lo mira tests/perfil-extension.test.ts).
+  assert.match(pol, /const ACTUALIZADO = '6 de noviembre de 2026'/, 'la política cambió y la fecha no');
 });

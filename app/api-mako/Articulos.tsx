@@ -504,7 +504,7 @@ function CampanaEmail({ d }: { d: DatosArticulos }) {
     <>
       <h2 id="necesitas">Lo que necesitas</h2>
       <ul>
-        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Email», «CRM» y «Chatbot y secuencias».</li>
+        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Email», «CRM» y «Automations».</li>
         <li><strong>Claude</strong> con la posibilidad de hacer pedidos a una API: Claude Code, o Claude con una herramienta que llame a URLs.</li>
         <li>Un <strong>dominio tuyo</strong> donde puedas cargar registros DNS. El email de tu negocio sale sólo de tu dominio, nunca del de MaKo.</li>
         <li>Tu <strong>cuenta de Resend</strong>, que es gratis. Tus emails salen desde ahí, con tu clave. Si no la tienes, Claude te guía.</li>
@@ -535,7 +535,7 @@ function CampanaEmail({ d }: { d: DatosArticulos }) {
       </ul>
 
       <h2 id="endpoints">Los endpoints</h2>
-      <p>Están en <Link href="/api-mako?tab=docs&area=email">Email</Link>, <Link href="/api-mako?tab=docs&area=crm">CRM</Link> y <Link href="/api-mako?tab=docs&area=chatbot">Chatbot y secuencias</Link>, con sus parámetros y ejemplos.</p>
+      <p>Están en <Link href="/api-mako?tab=docs&area=email">Email</Link>, <Link href="/api-mako?tab=docs&area=crm">CRM</Link> y <Link href="/api-mako?tab=docs&area=chatbot">Automations</Link>, con sus parámetros y ejemplos.</p>
     </>
   );
 }

@@ -1330,4 +1330,20 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-clients.test.ts — probado rompiéndolo (2 roturas)",
     ],
   },
+  {
+    fecha: "6 nov", hora: "09:30", chat: "Barrido de pendientes (nube)", sesion: "cli_908aa36b-adb2-556c-b042-b48962ca685a", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "Dar de alta un cliente o un alumno frena por el tope de contactos del plan",
+    puntos: [
+      "La pantalla de Customer Success creaba clientes y alumnos sin mirar el tope del plan Esencial; la API de MaKo sí lo miraba. Ahora frenan los dos, antes de crear.",
+      "Un alumno que ya era cliente (se reusa) no frena: sólo cuando se crea uno nuevo.",
+    ],
+    archivos: [
+      "app/customer-success/actions.ts — crearClienteAction",
+      "app/customer-success/curso/invitar-actions.ts — invitarNuevoAlumnoAction",
+      "tests/crm-topes-plan-23-10.test.ts — probado rompiéndolo",
+    ],
+    commits: [{ sha: 'ae8c568df', msg: 'Customer Success: el alta de un cliente y la de un alumno frenan por el tope del plan', lineas: 33, archivos: 3 }],
+    revisar: "/classroom/clients",
+  },
 ];

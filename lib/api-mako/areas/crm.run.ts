@@ -79,6 +79,7 @@ import { enElTope, estadoTopeCrm, frenarAltaPorTope, TopeDelPlanError } from '@/
 import { etapaAbierta, leerLoteMigracion, migradoDeLimpio, porEtapa, ubicarEnEtapas } from '@/lib/migracion-leads';
 import { crearMigrados, idsExternosQueYaEstan, textoSinMigracion } from '@/lib/migracion-leads-server';
 import { textoSoloPro, textoTope } from '@/lib/topes-plan';
+import { precioDelResumen } from '@/lib/producto-precio-texto';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
@@ -3410,7 +3411,11 @@ export const RUNNERS: Runners = {
         descripcion: existente?.descripcion ?? null,
         activo: b(input.activo) ?? existente?.activo ?? true,
       };
-      const precio = payload.monto_usd != null ? `${String(payload.monto_usd)} USD${tipo === 'suscripcion' ? ' al mes' : ''}` : 'sin precio';
+      // Al editar, la tarjeta dice el precio de antes y el de ahora (lib/producto-precio-texto.ts): se aprueba lo que se ve.
+      const precio = precioDelResumen({
+        antes: existente ? { monto_usd: existente.monto_usd ?? null, suscripcion: existente.tipo === 'suscripcion' } : undefined,
+        ahora: { monto_usd: (payload.monto_usd as number | null) ?? null, suscripcion: tipo === 'suscripcion' },
+      });
       return { payload, resumen: `${existente ? `Editar el producto «${existente.nombre}»` : 'Crear el producto'} «${String(payload.nombre)}» (${tipo === 'suscripcion' ? 'suscripción' : 'pago único'}, ${precio}).${cambiaTipo}` };
     },
     ejecutar: (payload) => seguro('guardar el producto', async () => {

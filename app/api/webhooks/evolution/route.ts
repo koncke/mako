@@ -28,6 +28,8 @@ import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels
 import { acusarDesdeElGrupo } from '@/lib/insistencias';
 import { espejarDeWhatsApp } from '@/lib/grupo-espejo';
 import { verificarFirma } from '@/lib/evolution-firma';
+import { setSetting } from '@/lib/settings';
+import { keyUltimoNumero } from '@/lib/linea-vigilancia';
 
 /**
  * El texto plano de un mensaje entrante, para mirar si es un «ok».
@@ -173,7 +175,20 @@ export async function POST(req: NextRequest) {
         const perfil = (body.data?.profileName as string) || null;
         if (perfil) patch.perfil_nombre = perfil;
       }
-      if (estado === 'desconectado') { patch.numero = null; }
+      if (estado === 'desconectado') {
+        patch.numero = null;
+        // EL NÚMERO SE GUARDA ANTES DE BORRARLO (6/11/2026): el aviso de la caída lo nombra (lib/lineas-vigilante.ts →
+        // `lineaLegible`), y con la fila sin número un negocio con dos líneas no sabía cuál se cayó. Los avisos repetidos de
+        // «close» leen la fila ya sin número y no lo pisan. Si falla, el aviso sale sin el número: no frena el evento.
+        try {
+          const { data: antes } = await supabase.from('evolution_instancias')
+            .select('workspace_id, numero').eq('instance_name', instance).maybeSingle();
+          const fila = antes as { workspace_id: number | null; numero: string | null } | null;
+          if (fila?.numero && fila.workspace_id) {
+            await runWithWorkspace(fila.workspace_id, () => setSetting(keyUltimoNumero(instance), fila.numero as string));
+          }
+        } catch (e) { console.error(`[webhook:evolution] no pude guardar el último número de ${instance}: ${e instanceof Error ? e.message : String(e)}`); }
+      }
       await supabase.from('evolution_instancias').update(patch).eq('instance_name', instance);
       return Response.json({ ok: true });
     }
