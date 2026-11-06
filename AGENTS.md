@@ -156,6 +156,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+- **Un test que lanza un hijo y PARSEA su salida lleva `maxBuffer: 64 * 1024 * 1024` desde la primera línea.** Sin él, node corta el stdout en 1 MB y el JSON llega partido: el error es «Unterminated string in JSON», que no se parece a la causa, y aparece cuando la salida crece — o sólo en el runner. Lo exige una guarda (`tests/tanda-no-la-mata-un-test-lento.test.ts`) y el filtro del pre-push puede no alcanzar a correrla por su tope de 90 s, así que el rojo llega de Actions 14 minutos después: la regla estaba cosechada en cinco `docs/hallazgos-*.md` y en ninguno de los archivos que se leen ANTES de escribir, y volvió a costar una corrida el 6/11/2026.
 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 

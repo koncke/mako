@@ -121,10 +121,20 @@ export function colorHex(x: unknown): string | null {
 
 const CAMPOS_ESTILO = ['fuente', 'tamano', 'color', 'negrita', 'cursiva', 'subrayado', 'alineacion', 'mayusculas', 'interlineado', 'espaciado'] as const;
 
+/**
+ * Cómo se llama cada campo del estilo EN LA PANTALLA. El nombre del campo del JSON no se dibuja: los que son iguales
+ * están acá igual, con sus tildes, para que agregar uno nuevo obligue a elegirle un nombre en vez de filtrar el interno.
+ */
+const NOMBRE_ESTILO: Readonly<Record<(typeof CAMPOS_ESTILO)[number], string>> = {
+  fuente: 'la letra', tamano: 'el tamaño de la letra', color: 'el color del texto', negrita: 'la negrita',
+  cursiva: 'la cursiva', subrayado: 'el subrayado', alineacion: 'la alineación', mayusculas: 'las mayúsculas',
+  interlineado: 'el espacio entre renglones', espaciado: 'el espacio entre letras',
+};
+
 /** El estilo de un texto, de los campos sueltos de la operación. `vacio` = se acepta sin ningún campo (agregar_texto). */
 function validarEstilo(raw: Record<string, unknown>, vacio: boolean): { ok: true; estilo: EstiloTexto } | { ok: false; motivo: string } {
   const e: EstiloTexto = {};
-  const mal = (campo: string) => ({ ok: false as const, motivo: `un estilo de texto con «${campo}» inválido` });
+  const mal = (campo: (typeof CAMPOS_ESTILO)[number]) => ({ ok: false as const, motivo: `no pude cambiar ${NOMBRE_ESTILO[campo]}` });
   if (raw.fuente !== undefined) {
     if (typeof raw.fuente !== 'string' || !raw.fuente.trim() || raw.fuente.trim().length > 60 || /["'<>;{}]/.test(raw.fuente)) return mal('fuente');
     e.fuente = raw.fuente.trim();
@@ -162,7 +172,7 @@ function validarEstilo(raw: Record<string, unknown>, vacio: boolean): { ok: true
     if (!enRango(n, -200, 1000)) return mal('espaciado');
     e.espaciado = Math.round(n);
   }
-  if (!vacio && !Object.keys(e).length) return { ok: false, motivo: 'un estilo de texto sin cambios' };
+  if (!vacio && !Object.keys(e).length) return { ok: false, motivo: 'un cambio de estilo que no decía qué cambiar' };
   return { ok: true, estilo: e };
 }
 
@@ -217,12 +227,12 @@ function conEstiloAfuera(raw: Record<string, unknown>): Record<string, unknown> 
 
 /** Una operación de la IA, validada; o el motivo por el que no. El motivo es corto: lo ve la persona. */
 export function validarOperacion(crudo: unknown): Validada {
-  if (!esObjeto(crudo) || typeof crudo.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
+  if (!esObjeto(crudo) || typeof crudo.op !== 'string') return { ok: false, motivo: 'un cambio que no entendí' };
   const op = crudo.op as IdOperacionImagen;
-  if (!IDS.has(op)) return { ok: false, motivo: `«${String(crudo.op).slice(0, 30)}» no es algo que pueda hacer` };
+  if (!IDS.has(op)) return { ok: false, motivo: 'algo que todavía no sé hacer en el diseño' };
   const raw = conEstiloAfuera(crudo);
   const extra = sobrante(raw, VALIDAS[op]);
-  if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de ${op}` };
+  if (extra) return { ok: false, motivo: 'un cambio con un dato que no va ahí' };
   const ref = raw.ref;
   const sinRef = (que: string) => ({ ok: false as const, motivo: `${que} sin elemento` });
   switch (op) {
@@ -239,10 +249,10 @@ export function validarOperacion(crudo: unknown): Validada {
     case 'agregar_texto': {
       const texto = textoValido(raw.texto);
       if (!texto) return { ok: false, motivo: `un texto vacío o de más de ${TOPES_CHAT_IMAGEN.texto} caracteres` };
-      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un texto en una página que no es de la vista' };
-      if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'un texto con una posición inválida' };
-      if (raw.ancho !== undefined && !medida(raw.ancho)) return { ok: false, motivo: 'un texto con un ancho inválido' };
-      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un texto nuevo con una ref inválida' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un texto en una página que ya no está' };
+      if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'un texto en un lugar que se sale del diseño' };
+      if (raw.ancho !== undefined && !medida(raw.ancho)) return { ok: false, motivo: 'un texto con un ancho que no se puede usar' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un texto nuevo que no pude identificar' };
       const v = validarEstilo(raw, true);
       if (!v.ok) return v;
       return {
@@ -259,7 +269,7 @@ export function validarOperacion(crudo: unknown): Validada {
     }
     case 'mover': {
       if (!esRef(ref)) return sinRef('un movimiento');
-      if (raw.x === undefined && raw.y === undefined) return { ok: false, motivo: 'un movimiento sin x ni y' };
+      if (raw.x === undefined && raw.y === undefined) return { ok: false, motivo: 'un movimiento sin decir hacia dónde' };
       if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'un movimiento fuera de rango' };
       return { ok: true, op: { op, ref, ...(raw.x !== undefined ? { x: r1(raw.x as number) } : {}), ...(raw.y !== undefined ? { y: r1(raw.y as number) } : {}) } };
     }
@@ -276,7 +286,7 @@ export function validarOperacion(crudo: unknown): Validada {
     }
     case 'rotar': {
       const g = numero(raw.grados);
-      if (!esRef(ref) || !enRango(g, -360, 360)) return { ok: false, motivo: 'un giro incompleto o fuera de -360 a 360' };
+      if (!esRef(ref) || !enRango(g, -360, 360)) return { ok: false, motivo: 'un giro sin elemento, o de más de una vuelta' };
       return { ok: true, op: { op, ref, grados: r1(g) } };
     }
     case 'opacidad': {
@@ -286,14 +296,14 @@ export function validarOperacion(crudo: unknown): Validada {
     }
     case 'color': {
       const c = colorHex(raw.color);
-      if (!esRef(ref) || !c) return { ok: false, motivo: 'un color que no es #RRGGBB' };
+      if (!esRef(ref) || !c) return { ok: false, motivo: 'un color que no pude leer' };
       return { ok: true, op: { op, ref, color: c } };
     }
     case 'borde': {
       if (!esRef(ref)) return sinRef('un borde');
       if (raw.color === undefined && raw.grosor === undefined) return { ok: false, motivo: 'un borde sin color ni grosor' };
       const c = raw.color === undefined ? undefined : colorHex(raw.color);
-      if (c === null) return { ok: false, motivo: 'un borde con un color que no es #RRGGBB' };
+      if (c === null) return { ok: false, motivo: 'un borde con un color que no pude leer' };
       if (raw.grosor !== undefined && !enRango(numero(raw.grosor), 0, 200)) return { ok: false, motivo: 'un grosor fuera de 0 a 200' };
       return { ok: true, op: { op, ref, ...(c ? { color: c } : {}), ...(raw.grosor !== undefined ? { grosor: r1(raw.grosor as number) } : {}) } };
     }
@@ -302,20 +312,20 @@ export function validarOperacion(crudo: unknown): Validada {
       const refs = Array.isArray(raw.refs) ? [...new Set(raw.refs.filter(esRef))] : [];
       if (!refs.length) return { ok: false, motivo: op === 'borrar' ? 'un borrado sin elementos' : 'un alinear sin elementos' };
       if (op === 'borrar') return { ok: true, op: { op, refs } };
-      if (!['izquierda', 'centro', 'derecha', 'arriba', 'medio', 'abajo'].includes(String(raw.a))) return { ok: false, motivo: 'un alinear sin «a» (izquierda, centro, derecha, arriba, medio o abajo)' };
+      if (!['izquierda', 'centro', 'derecha', 'arriba', 'medio', 'abajo'].includes(String(raw.a))) return { ok: false, motivo: 'un alinear sin decir hacia dónde (izquierda, centro, derecha, arriba, medio o abajo)' };
       return { ok: true, op: { op, refs, a: raw.a as AlinearA } };
     }
     case 'duplicar': {
       if (!esRef(ref)) return sinRef('un duplicar');
-      if ((raw.dx !== undefined && !posicion(raw.dx)) || (raw.dy !== undefined && !posicion(raw.dy))) return { ok: false, motivo: 'un duplicar corrido fuera de rango' };
-      if (raw.nueva !== undefined && !esRefNueva(raw.nueva)) return { ok: false, motivo: 'una copia con una ref que no es «n1», «n2»…' };
+      if ((raw.dx !== undefined && !posicion(raw.dx)) || (raw.dy !== undefined && !posicion(raw.dy))) return { ok: false, motivo: 'una copia movida demasiado lejos' };
+      if (raw.nueva !== undefined && !esRefNueva(raw.nueva)) return { ok: false, motivo: 'una copia que no pude identificar' };
       return {
         ok: true,
         op: { op, ref, ...(raw.dx !== undefined ? { dx: r1(raw.dx as number) } : {}), ...(raw.dy !== undefined ? { dy: r1(raw.dy as number) } : {}), ...(raw.nueva !== undefined ? { nueva: raw.nueva as string } : {}) },
       };
     }
     case 'capa': {
-      if (!esRef(ref) || !['frente', 'atras', 'subir', 'bajar'].includes(String(raw.a))) return { ok: false, motivo: 'un cambio de orden sin «a» (frente, atras, subir o bajar)' };
+      if (!esRef(ref) || !['frente', 'atras', 'subir', 'bajar'].includes(String(raw.a))) return { ok: false, motivo: 'un cambio de orden sin decir adónde (al frente, atrás, subir o bajar)' };
       return { ok: true, op: { op, ref, a: raw.a as CapaA } };
     }
     case 'bloquear': {
@@ -324,14 +334,14 @@ export function validarOperacion(crudo: unknown): Validada {
     }
     case 'fondo': {
       const c = colorHex(raw.color);
-      if (!c) return { ok: false, motivo: 'un fondo con un color que no es #RRGGBB' };
-      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que no es de la vista' };
+      if (!c) return { ok: false, motivo: 'un fondo con un color que no pude leer' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que ya no está' };
       return { ok: true, op: { op, color: c, ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}) } };
     }
     case 'agregar_pagina': {
-      if (raw.despues_de !== undefined && !esRefPagina(raw.despues_de)) return { ok: false, motivo: 'una página nueva después de una que no es de la vista' };
-      if (raw.duplicar !== undefined && typeof raw.duplicar !== 'boolean') return { ok: false, motivo: 'un «duplicar» que no es true o false' };
-      if (raw.nueva !== undefined && !esRefPagina(raw.nueva)) return { ok: false, motivo: 'una página nueva con una ref inválida' };
+      if (raw.despues_de !== undefined && !esRefPagina(raw.despues_de)) return { ok: false, motivo: 'una página nueva después de otra que ya no está' };
+      if (raw.duplicar !== undefined && typeof raw.duplicar !== 'boolean') return { ok: false, motivo: 'una página nueva sin decir si es una copia' };
+      if (raw.nueva !== undefined && !esRefPagina(raw.nueva)) return { ok: false, motivo: 'una página nueva que no pude identificar' };
       return { ok: true, op: { op, ...(raw.despues_de !== undefined ? { despues_de: raw.despues_de as string } : {}), ...(raw.duplicar === true ? { duplicar: true } : {}), ...(raw.nueva !== undefined ? { nueva: raw.nueva as string } : {}) } };
     }
     case 'borrar_pagina': {
@@ -339,12 +349,12 @@ export function validarOperacion(crudo: unknown): Validada {
       return { ok: true, op: { op, pagina: raw.pagina } };
     }
     case 'agregar_forma': {
-      if (raw.forma !== 'rectangulo' && raw.forma !== 'circulo') return { ok: false, motivo: 'una forma que no es rectangulo ni circulo' };
+      if (raw.forma !== 'rectangulo' && raw.forma !== 'circulo') return { ok: false, motivo: 'una forma que no es un rectángulo ni un círculo' };
       if (!posicion(raw.x) || !posicion(raw.y) || !medida(raw.ancho) || !medida(raw.alto)) return { ok: false, motivo: 'una forma sin medidas válidas' };
       const c = raw.color === undefined ? undefined : colorHex(raw.color);
-      if (c === null) return { ok: false, motivo: 'una forma con un color que no es #RRGGBB' };
-      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una forma en una página que no es de la vista' };
-      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una forma nueva con una ref que no es «n1», «n2»…' };
+      if (c === null) return { ok: false, motivo: 'una forma con un color que no pude leer' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una forma en una página que ya no está' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una forma nueva que no pude identificar' };
       return {
         ok: true,
         op: {
@@ -357,9 +367,9 @@ export function validarOperacion(crudo: unknown): Validada {
       if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
       if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'una foto fuera de la página' };
       if ((raw.ancho !== undefined && !medida(raw.ancho)) || (raw.alto !== undefined && !medida(raw.alto))) return { ok: false, motivo: 'una foto sin medidas válidas' };
-      if (raw.cubrir !== undefined && typeof raw.cubrir !== 'boolean') return { ok: false, motivo: 'un «cubrir» que no es true o false' };
-      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una foto en una página que no es de la vista' };
-      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una foto nueva con una ref que no es «n1», «n2»…' };
+      if (raw.cubrir !== undefined && typeof raw.cubrir !== 'boolean') return { ok: false, motivo: 'una foto sin decir si tiene que cubrir el espacio' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una foto en una página que ya no está' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una foto nueva que no pude identificar' };
       return {
         ok: true,
         op: {
@@ -373,7 +383,7 @@ export function validarOperacion(crudo: unknown): Validada {
     }
     case 'fondo_foto': {
       if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
-      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que no es de la vista' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que ya no está' };
       return { ok: true, op: { op, foto: raw.foto, ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}) } };
     }
   }
@@ -410,6 +420,10 @@ export function validarOperaciones(raw: unknown): { operaciones: OperacionImagen
     const v = validarOperacion(r);
     if (!v.ok) {
       if (nueva) caidas.add(nueva);
+      // ⚠️ El MOTIVO es para la persona y no nombra ni un campo del JSON ni el id de una operación (encargo del
+      //    6/11/2026: leía «estilo no es algo de cambiar_texto»). Lo técnico va acá, que es donde se busca cuando hay
+      //    que entender por qué la IA propuso algo inválido — y es más útil que la frase: está la operación entera.
+      console.warn('[image-editor/chat] operación descartada:', v.motivo, JSON.stringify(r).slice(0, 400));
       descartes.push(v.motivo);
     } else if (refsQueUsa(r).some((x) => caidas.has(x))) {
       if (nueva) caidas.add(nueva);
