@@ -641,6 +641,52 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **El tope de 14 paneles (§31) se miró antes de tocar la plantilla:** Hooks no suma piezas; las que el diseño pide de más (lo que llega al
   llamado y el ThruPlay por gancho, los guiones por avatar) van como métricas de las piezas que ya estaban.
 
+## 33. VSL y YouTube (Pelago): un armador de CSS que no ve una clase compuesta, y un efecto que no se entera de que llegaron los datos (6/11/2026, chat en la nube)
+
+**Vive en:** `lib/vsl-diseno.ts`, `app/dashboard/disenos/HojaVsl.tsx`, `docs/diseno/mockups-dashboard/vsl-pelago/`.
+
+- **El armador que prefija las clases (`.x` → `.pel-x`) no veía la segunda clase de un selector compuesto** (`.col.is-hi`): el regex
+  saltaba la que venía pegada a otra. La hoja salía sin el estado «elegido» y nada fallaba. El regex va con `(?<!\d)\.` (cualquier punto
+  que no siga a un dígito: `1.5px` no es una clase).
+- **El gráfico del teléfono tiene que arrancar en el final** (como el demo): el efecto que lo corre dependía del ancho y de la métrica, y
+  cuando llegaban los datos ninguna de las dos cambiaba. Va con `listo` en las dependencias, y un `requestAnimationFrame`.
+- **Dos roturas no las cazaba el test** (la pila sin tope en los leads y una fuga donde no se sabe la caída): se sumaron los casos. Es la
+  regla de siempre: una rotura que da verde es un caso que falta, no un test que sobra.
+- **El veredicto corre sobre el árbol de trabajo**: tocar un archivo mientras corre el tsc lo contamina. Y en la nube el clon viene
+  superficial (`git fetch --unshallow origin main` una vez).
+
+## 34. Inmobiliaria (Torque): Lintel quedó sin medir completa, y una plantilla general no pasa de 12 piezas (6/11/2026, chat en la nube)
+
+**Vive en:** `lib/inmobiliaria-diseno.ts`, `app/dashboard/disenos/HojaInmobiliaria.tsx`, `docs/diseno/mockups-dashboard/inmobiliaria-torque/`.
+
+- **La referencia de la propuesta (Lintel) tiene cuatro tarjetas vacías en la captura y el demo da 403 desde la nube.** Se copió Torque
+  (un taller: sus bahías son tus proyectos, su tablero de trabajos son tus interesados por etapa). Si la PC mide Lintel completa y Martín
+  la prefiere, se puede rehacer.
+- **Una plantilla GENERAL pasa por la misma puerta que la IA y no lleva más de 12 piezas** (`TOPE_COMPONENTES_IA`,
+  `tests/graficos-ia.test.ts`); el tope de 14 paneles (§31) es otro, el de la hoja con su sección y su portada. Sumar el tablero de
+  interesados dejaba 13: salió el mapa «De dónde te buscan» (las visitas a las páginas, que no son de la visita a la compra), y la tarjeta
+  de actividad de Torque pasó a «Los que avanzan» (los del tablero que compraron o agendaron).
+- **«Los que avanzan» es una MUESTRA del tablero** (hasta 50 interesados), no la lista entera: la cabecera de la tarjeta dice cuántos
+  compraron en el período, de la apertura. Ordenar el tablero por agendas metía a todos los agendados y dejaba vacías las primeras
+  columnas: se dejó el orden de siempre.
+- **Un rótulo al lado del título de una tarjeta lo corta** («Los que ava…»): va corto y con `white-space: nowrap; flex: none`.
+
+## 35. Cold Calling (Corvane): la entrada de la página no está en el INFORME, y «No contestó» no se calcula restando (6/11/2026, chat en la nube)
+
+**Vive en:** `lib/cold-calling-diseno.ts`, `app/dashboard/disenos/HojaColdCalling.tsx`, `docs/diseno/mockups-dashboard/cold-calling-corvane/`.
+
+- **Cold Calling no estaba en la lista de la propuesta** (es del 4/11) y no se ofrecía: tenía sus piezas y le faltaba el diseño. Se copió
+  Corvane, un panel de pagos: el gráfico grande son las llamadas día por día, «Needs you» es lo que sigue después de llamar, el feed en vivo
+  es a quién llamaste, las barras son quién llamó y el dinero repartido es cómo terminan.
+- **Los controles del medidor de Corvane se tomaron con la barra lateral PLEGADA**: el control n.º 1 la plegó al apretarlo, y desde ahí las
+  cajas están corridas 160 px. Las cajas buenas son las de «paneles» (se midieron antes).
+- **La entrada de la página «Overview» vive en un chunk que el INFORME no muestra** (como Orvel, §General del relevo). No se inventó: las
+  tarjetas quedan quietas; lo medido (el punto que late, la píldora que corre .28 s con rebote, los hover) está.
+- **«No contestaron» no es llamadas menos contestaron**: eso suma las «Sin marcar», y la fuente dice que nunca cuentan ahí. El número
+  sale de «Cómo terminan»; el tercer número de la fila pasó a «Agendan, de los que contestan» (con el mínimo de 5 de `tasa_agenda`).
+- **El botón «Grabar llamada» de la hoja abre la misma grabadora de la ficha** (`GrabarEnFrio`) y al cerrarla la hoja vuelve a leer
+  (`refrescar` del editor). En el arnés de captura la grabadora se reemplaza: trae acciones del servidor que no se empaquetan en el navegador.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
