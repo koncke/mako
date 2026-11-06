@@ -46,6 +46,36 @@ devolvía error. **Los dos caminos que fallan de verdad no devuelven error: tira
 aviso quedaba filtrado **para siempre** y el cliente caía en «Paga para entrar» el día de su
 vencimiento **por un aviso que nadie le mandó**. Arreglado antes del lunes, probado rompiéndolo.
 
+### Infra cerro 10 de 10, y el hallazgo mas fino de la noche
+
+**UN COMENTARIO EQUIVOCADO CONGELO UN BUG DURANTE DIAS.** La alarma de minutos no mentia por lo que
+yo habia medido: restar las canceladas y los 2.000 del plan seguia dando US$40 contra US$15,94. La
+causa de fondo era **una frase falsa en la cabecera del propio script**, que decia que el facturable
+real no se puede leer con el `GITHUB_TOKEN`. **Se puede** — `/actions/workflows/{id}/timing` — y
+**el repo ya usaba ese endpoint** en `scripts/tests-afectados.mjs`. Todos leian que el numero bueno
+no se podia conseguir, y buscaban por otro lado.
+**La regla: antes de dar por cierta una limitacion escrita en un comentario, se comprueba.**
+
+⚠️ **El indice de hallazgos se duplica solo.** `docs/hallazgos*.md merge=union` —sin guion— agarra
+tambien el indice, que es una tabla que cada cosecha **reescribe**: union deja las dos versiones.
+Paso de 199 a 202 filas en una noche. La causa esta arreglada; quedan ~130 filas de mas, y
+**colapsarlas por clave perderia hallazgos**: de 31 areas repetidas, 22 anidan y 9 no.
+
+⚠️ **Un test en verde no dice NADA de los tipos:** `tsx --test` los saca. Costo tres rojos; la regla
+quedo en AGENTS.md.
+
+**Lo que necesita la mano de Martin:**
+- **Copiar `scripts/claude-hooks/guardia/memoria.mjs` a `~/.claude/guardia/`.** La guardia que corre
+  esta vieja y **niega commits por su mensaje**. ⚠️ La copia del repo tambien estaba atrasada: los
+  topes subieron a 3 GB el 29/10 **solo en `~/.claude`**, asi que reinstalar sin mas devuelve la
+  pantalla negra.
+- **`node scripts/limpiar-temporales.mjs --aplicar`**: **207.092 entradas** en `tsx-marti`.
+
+⚠️ **Y una trampa que costo trabajo repetido:** cuatro relevos siguen diciendo «migracion sin
+aplicar» de migraciones que ya estan puestas. La medicion se escribio en un documento NUEVO sin
+corregir los viejos, y por eso tres pendientes llegaron a una lista como abiertos. **Cuando se mide
+que algo ya esta hecho, se corrige el documento que lo decia mal.**
+
 ### ⚠️ Y un patrón que apareció ONCE veces hoy: guardas que fijan el TEXTO del código viejo
 
 De los rojos de la noche, la mayoría no eran bugs: eran **guardas que exigían que el código siguiera
