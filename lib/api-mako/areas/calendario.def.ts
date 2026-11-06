@@ -128,4 +128,17 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
+  {
+    // 6/11/2026 (la promesa a Thiago: «programar en el Calendar un email»): el Email del Calendario deja de ser un recordatorio.
+    // Programa el broadcast con la MISMA regla que programar_broadcast (lib/calendario-email.ts): es un envío masivo diferido.
+    id: 'enlazar_email_calendario', area: 'calendario', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Enlazar un Email del Calendario con Email Marketing',
+    descripcion: 'Propone enlazar una publicación de formato Email del Calendario con un broadcast de Email Marketing (borrador o programado): queda programado para la hora del evento, a todo su segmento, con las mismas reglas que programar_broadcast. Si después se mueve el evento, el email se mueve con él. El evento necesita una hora y estar en el futuro. Deja un link para revisar y confirmar.',
+    parametros: [
+      { nombre: 'eventoId', tipo: 'string', obligatorio: true, max: 80, descripcion: 'El id del evento (de listar_eventos_calendario).' },
+      { nombre: 'broadcastId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id del broadcast de Email Marketing (de listar_broadcasts).' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: GATING,
+    reversible: true, escribe: 'programa el broadcast en email_broadcasts y anota el enlace en calendario_eventos',
+  },
 ];

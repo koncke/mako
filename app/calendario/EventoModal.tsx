@@ -28,6 +28,7 @@ import {
 } from '@/lib/calendario-modelo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { PublicarEnRed } from './PublicarEnRed';
+import { EnlazarEmail } from './EnlazarEmail';
 
 /** El ícono de cada tipo y de cada formato (la regla de la casa: cada opción de un desplegable lleva el suyo). */
 export const ICONO_TIPO: Record<TipoEvento, NombreIconoMenu> = { publicacion: 'enviar', bloque: 'reloj', llamada: 'telefono', otro: 'nota', entrega: 'cliente' };
@@ -67,6 +68,9 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
   const editando = !!inicial.id;
   // Mientras espera a Zernio no se borra ni se tilda: primero se cancela (28/10/2026, PublicarEnRed).
   const [programada, setProgramada] = useState(false);
+  // Un Email enlazado a Email Marketing (6/11/2026): lo dice el email, no un tilde.
+  const [conEmail, setConEmail] = useState(false);
+  const esEmail = tipo === 'publicacion' && inicial.tipo === 'publicacion' && formato === 'email' && inicial.formato === 'email';
   const sinGuardar = tipo !== inicial.tipo || fecha !== inicial.fecha || hora !== (inicial.hora ?? '') || (tipo === 'publicacion' && formato !== (inicial.formato ?? 'reel'));
   const listo = titulo.trim().length > 0 && titulo.trim().length <= TOPE_TITULO && !!fecha;
 
@@ -125,11 +129,14 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
 
         <TextField label="Notas" multiline value={notas} maxLength={4000} onChange={(e) => setNotas(e.target.value)} />
 
-        {editando && inicial.id && tipo === 'publicacion' && inicial.tipo === 'publicacion' && (
+        {editando && inicial.id && tipo === 'publicacion' && inicial.tipo === 'publicacion' && !esEmail && (
           <PublicarEnRed id={inicial.id} sinGuardar={sinGuardar} onProgramada={setProgramada} onCambio={() => onCambioPublicacion?.()} />
         )}
+        {editando && inicial.id && esEmail && (
+          <EnlazarEmail id={inicial.id} sinGuardar={sinGuardar} onEnlazado={setConEmail} onCambio={() => onCambioPublicacion?.()} />
+        )}
 
-        {editando && onHecho && !programada && (
+        {editando && onHecho && !programada && !conEmail && (
           <Checkbox checked={!!inicial.hecho} disabled={guardando} onChange={(v) => onHecho(v)} label={tipo === 'publicacion' ? 'Ya se publicó' : 'Ya está hecho'} />
         )}
         {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}

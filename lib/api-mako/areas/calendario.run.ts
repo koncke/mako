@@ -12,6 +12,7 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
 import { hoyEnWorkspace } from '@/lib/timezone';
+import { ejecutarEnlace, prepararEnlace } from '@/lib/calendario-email';
 import { crearEventos, leerLlamadasDeVenta, listarPropios, recurrentesDelRango, zonaDelCalendario } from '@/lib/calendario';
 import {
   DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, esPestanaLlamadas, estadoDeLlamada, llamadasDeLaPersona, llamadasDeLaPestana,
@@ -243,5 +244,17 @@ export const RUNNERS: Runners = {
         ...(filas.length > 200 ? { recortado: `Son ${filas.length}: van las primeras 200.` } : {}),
       });
     },
+  },
+
+  // 6/11/2026: el Email del Calendario, enlazado a Email Marketing (lib/calendario-email.ts: la regla de programar_broadcast).
+  enlazar_email_calendario: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const eventoId = str(input, 'eventoId');
+      const broadcastId = typeof input.broadcastId === 'number' ? input.broadcastId : Number(input.broadcastId);
+      if (!eventoId) return { error: 'Falta el id del evento.', faltan: ['eventoId'] };
+      if (!Number.isInteger(broadcastId) || broadcastId <= 0) return { error: 'Falta el id del broadcast.', faltan: ['broadcastId'] };
+      return prepararEnlace(eventoId, broadcastId, ctx);
+    },
+    ejecutar: (payload, ctx): Promise<Ejecutado> => ejecutarEnlace(payload, ctx),
   },
 };

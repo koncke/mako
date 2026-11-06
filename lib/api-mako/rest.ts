@@ -44,6 +44,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/calendario/anticipacion', 'anticipacion_agenda'],
   ['POST', '/calendario/publicaciones/programaciones', 'programar_publicacion'],
   ['GET', '/calendario/llamadas', 'llamadas_del_equipo'],
+  ['POST', '/calendario/eventos/{eventoId}/email', 'enlazar_email_calendario'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
