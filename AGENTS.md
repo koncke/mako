@@ -6086,6 +6086,22 @@ repo** — ahí no está escrito, justamente. Y si el cambio de etiqueta es por 
 Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, así que lleva
 `aria-label` propio.
 
+# Una pantalla no pinta su propio fondo: el de la página es var(--bg), el del layout (6/11/2026)
+
+Martín, sobre el Marketing CoPilot: «el background no es igual en toda la tab de copilot, es blanco y crema en algunos lados, eso
+esta mal, ya varias veces cometes el mismo error». Se repite por la misma vía: al copiar una referencia se copia su tono de fondo («el
+apenas cálido» de AdAmigo era `color-mix(var(--bg) 95%, var(--mako) 5%)`) y se pinta en el contenedor de la tab. Ese contenedor termina
+donde termina su contenido (ni `A_SANGRE` ni `min-height: 100%` lo estiran: el padre no tiene alto), y alrededor y debajo queda el
+fondo del layout, de otro color.
+
+- **El fondo de la página es `var(--bg)` o nada**: el contenedor de una pantalla no declara otro. Lo que va encima son tarjetas
+  (`var(--surface)`). Si una referencia pide otro tono de fondo, se cambia el token para toda la app o no se cambia.
+- **Nada de «casi fondos»**: un `color-mix` con 70 % o más de `var(--bg)` y otro color opaco es un fondo propio disfrazado.
+  `tests/un-solo-fondo.test.ts` lo barre en `app/` y `lib/`, y fija los contenedores del CoPilot.
+- **Se mide con el navegador, en claro y en oscuro, a lo ancho y a lo alto**: `scripts/banco-copilot/medir-fondo.mjs` toma
+  `getComputedStyle` en una grilla de puntos y falla si el fondo de la página no es uno solo. Una captura con poco contenido es la que
+  lo muestra: con la pantalla llena, el corte queda abajo del pliegue.
+
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
 La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). **Desde el 17/10/2026 cada persona

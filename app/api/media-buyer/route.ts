@@ -33,7 +33,7 @@ import { guardarRespuestasArranque, lienzoMediaBuyer } from '@/lib/media-buyer/v
 import { borrarAgentePropio, guardarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { sanearRespuestas } from '@/lib/media-buyer/arranque';
 import { sanearPerfil } from '@/lib/media-buyer/copiloto';
-import { guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { guardarPerfilCopiloto, leerPerfilCopilotoEstricto } from '@/lib/media-buyer/copiloto-store';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
@@ -155,6 +155,11 @@ export async function POST(req: NextRequest) {
         // La primera entrada del Marketing CoPilot (6/11/2026): lo que respondió, por negocio. Sólo lo conocido, con su forma.
         await guardarPerfilCopiloto(ws, sanearPerfil(body.perfil));
         return J({ ok: true });
+      }
+      case 'copiloto_leer': {
+        // Lo guardado, después de un turno de MaKo en la charla (6/11/2026): si guardó el funnel que acordaron
+        // (copiloto_media_buyer), la charla de la pantalla lo muestra.
+        return J({ ok: true, perfil: await leerPerfilCopilotoEstricto(ws) });
       }
       case 'arranque': {
         await guardarRespuestasArranque(ws, sanearRespuestas(body.respuestas));

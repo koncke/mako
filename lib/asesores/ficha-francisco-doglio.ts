@@ -1,25 +1,28 @@
-// Ficha de asesor destilada de las transcripciones de «ARCADIA» (app/conocimientos/curso-arcadia.ts), el programa de Francisco Doglio: el equipo de setters y su rutina, que las llamadas agendadas se cumplan, y webinars que venden. Algunas clases las dan miembros de su equipo. Paráfrasis propia, no copia del curso.
-export const FICHA_FRANCISCO_DOGLIO = `Francisco Doglio («ARCADIA»): el sistema comercial de una oferta de ticket alto: cuándo y cómo sumar setters, su rutina y su reporte diario, que las llamadas agendadas se cumplan, y webinars que preparan la venta. Aconseja inspirado en su método; no hables como si fueras él.
+// Ficha de asesor destilada de las transcripciones de «ARCADIA» (app/conocimientos/curso-arcadia.ts), el programa de Francisco Doglio: historias de Instagram que venden (el ciclo de promoción de siete días), el equipo de setters y su rutina, que las llamadas agendadas se cumplan, y webinars que venden. Algunas clases las dan miembros de su equipo. Paráfrasis propia, no copia del curso.
+// 6/11/2026: el marco 1 (el ciclo por historias) se sumó al medir qué enseña cada referente para el Marketing CoPilot: su curso tiene
+// esa clase entera («2. Estrategias de Promoción de Ventas») y la ficha no decía nada de historias (lib/media-buyer/copiloto-referentes.ts).
+// Para hacerle lugar sin pasar el tope, el reporte del setter se juntó con su rutina.
+export const FICHA_FRANCISCO_DOGLIO = `Francisco Doglio («ARCADIA»): el sistema comercial de una oferta de ticket alto: historias de Instagram que venden, cuándo y cómo sumar setters y su rutina, que las llamadas agendadas se cumplan, y webinars que preparan la venta. Aconseja inspirado en su método; no hables como si fueras él.
 
 MARCOS
 
-1. Un setter se contrata cuando hay con qué
+1. El ciclo de promoción por historias
+Qué es: siete días seguidos de historias de Instagram, cada uno con su tema: el anuncio (una encuesta, el dolor, tu solución y por qué ahora), en qué se diferencia tu método, tu historia, una creencia de la persona sobre sí misma, resultados reales de clientes, un regalo (una clase gratis) y una creencia sobre lo de afuera.
+Cuándo: para validar una oferta o tener un pico de ventas con quien ya te sigue, después de publicar todos los días.
+Regla: cada día termina pidiendo que respondan una palabra por mensaje, y ahí sigue el setter. Se hace entero y seguido: un día salteado le quita el efecto.
+(clase: 2. Estrategias de Promoción de Ventas)
+
+2. Un setter se contrata cuando hay con qué
 Qué es: el setter conversa con los interesados y agenda la llamada con el closer.
 Cuándo: antes de buscar uno.
-Regla: hace falta volumen (unas siete conversaciones por día como mínimo), un ticket de al menos mil dólares y una oferta que ya cierre unas diez ventas por mes. Con un negocio chico sólo vas a atraer a alguien sin experiencia: primero se arman los sistemas, después se contrata.
+Regla: hace falta volumen (unas siete conversaciones por día como mínimo), un ticket de al menos mil dólares y una oferta que ya cierre unas diez ventas por mes. Primero se arman los sistemas, después se contrata.
 (clase: 1. Hiring Onboarding Setters)
 
-2. La rutina del setter empieza por la agenda
-Qué es: lo primero del día es confirmar las llamadas de hoy y hacer seguimiento a quienes no se presentaron ayer.
-Cuándo: cada mañana.
-Regla: el setter mira el calendario del closer, revisa a cada persona antes de escribirle y le confirma la llamada. Recién después vienen las conversaciones nuevas.
-(clase: Rutina diaria - Setter)
-
-3. El reporte del final del día
-Qué es: un mensaje fijo al grupo del equipo con bienvenidas enviadas, mensajes que entraron, seguimientos, links de agenda enviados, llamadas agendadas, horas trabajadas y qué mejorar.
-Cuándo: todos los días, desde el primero.
-Regla: lo que no se anota no se mejora; el formato es siempre el mismo para poder comparar días y personas.
-(clase: 1. EOD Setter)
+3. La rutina del setter empieza por la agenda
+Qué es: lo primero del día es confirmar las llamadas de hoy y seguir a quienes no se presentaron ayer; al final, un reporte fijo al grupo del equipo (mensajes, links de agenda enviados, llamadas agendadas, qué mejorar).
+Cuándo: cada día, desde el primero.
+Regla: lo que no se anota no se mejora; el formato es siempre el mismo para comparar días y personas.
+(clase: Rutina diaria - Setter, 1. EOD Setter)
 
 4. La asistencia se trabaja antes de la llamada
 Qué es: subir el porcentaje de personas que se presentan a la llamada agendada.

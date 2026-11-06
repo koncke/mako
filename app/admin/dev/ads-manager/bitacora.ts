@@ -668,4 +668,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '6 nov', hora: '13:00', chat: 'Marketing CoPilot (nube, tercera sesión)', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Lo que Martín encontró usando el Marketing CoPilot: dos chats, «volvamos a empezar», los referentes y el fondo',
+    pedido: "Llegó por el Cerebro, a una sesión en la nube: «Arreglá lo que Martín encontró al usar Marketing CoPilot en producción (`app/ads-manager/PrimeraEntrada.tsx`, `lib/media-buyer/`, `docs/relevo/nube-marketing-copilot.md`, `lib/asesores/`). Textual, 6/11/2026:\n\n«Mira como se bugea esto. Si hay un chat en el medio, por que se abre el chat al costado... Y le dije \"Volvamos a empezar\" porque seleccioné por error a un influencer y queria la otra opción y no funcionó cuando le dije eso... Y en los gurus, no creo que hayas puesto a todos, pusiste a pocos... Y fijate bien, porque por ejemplo Doglio, no creo que te enseñe a hacer webinar, o si?... El enseña organico en Instagram, estrategia de stories, etc... Y también fijate que el background no es igual en toda la tab de copilot, es blanco y crema en algunos lados, eso esta mal, ya varias veces cometes el mismo error...»\n\nLo que se vio en su captura: al escribir en la caja de la primera entrada se abrió el chat del Ops Center al costado («desde Marketing CoPilot: Volvamos a empezar»); con ese panel abierto la charla queda angosta, las tarjetas de referentes se pisan y se cortan, y el texto de la caja se parte («Respon / de a»). El panel crema termina y alrededor queda blanco.\n\nHacé:\n1. **Un solo chat.** Lo que se escribe en la primera entrada se contesta ahí, en el medio, con la IA del negocio y el contexto del CoPilot. No se abre ningún chat al costado (`discutir` en `PrimeraEntrada.tsx`). Sin IA conectada, lo dice ahí mismo y ofrece conectarla.\n2. **Volver atrás.** Botón «Volver» en cada paso y «Empezar de nuevo». Y lo escrito tiene que funcionar: «volvamos a empezar», «me equivoqué», «quiero la otra opción», «cambiar» se reconocen sin gastar IA. Tests con esas frases, rompiéndolos.\n3. **Todos los referentes.** Todos los de `lib/asesores` que tengan retrato y ficha, no unos pocos. Si hay muchos, buscador y grilla que no se rompa.\n4. **Cada referente, sólo lo que enseña.** Medilo, no lo supongas: leé la ficha y los títulos de clases de su curso (`lib/asesores/cursos.ts`, `public/cono-tx/`) y armá una tabla con qué enseña cada uno (funnel, canal, para qué negocio) y la evidencia. Doglio: Martín dice orgánico en Instagram y stories; comprobalo. Al elegir un referente sólo se ofrecen sus estrategias. Si alguien pide algo que ese referente no enseña, el agente lo dice y propone quién sí. Sin inventar. Dejá la tabla en `docs/marketing-copilot/referentes.md` y como datos en el código, y úsala en el contexto del agente: hoy una ficha se pega entera aunque no venga al caso.\n5. **Un solo fondo en toda la tab.** Primera entrada, Hoy, Campañas, Plan, Ajustes y Biblioteca: el mismo fondo de punta a punta, en claro y en oscuro, sin marcos crema con blanco alrededor. Usá el token de fondo de la app, sin colores propios. Medilo con un test o con `getComputedStyle` en el banco, a lo ancho y a lo alto. Martín dice que este error se repite: mirá por qué pasa (`A_SANGRE`, los anchos máximos) y dejá una regla en `AGENTS.md` junto a las de diseño, con una guarda si se puede.\n6. **Que no se rompa con poco ancho:** a 390, 768, 1024 y 1440, con la barra de MaKo abierta y plegada. La caja no parte el texto ni se corta.\n\nUsala de punta a punta con `scripts/banco-copilot/`, con capturas en `docs/marketing-copilot/`, y mirá la autocrítica de `AGENTS.md`. Lo que encuentres, cambialo sin preguntar. El chat «Marketing CoPilot» original está trabado: no cuentes con él.\n\nEntrega por `punta/copilot-feedback`, agrupando pushes: el tope de GitHub Actions es US$30 y la cuenta está por encima del 90 %, así que subí cada tanda apenas esté en verde, con el relevo al día. Cosecha en `docs/hallazgos-marketing-copilot.md`, con su fila en `docs/hallazgos.md`.»",
+    puntos: [],
+  },
+  {
+    fecha: '6 nov', hora: '15:10', chat: 'Marketing CoPilot (nube, tercera sesión)', cuenta: 'nube',
+    sesion: 'cli_6aaf2fd7-6ec9-587c-932f-ed7300ecf965',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un chat en el medio, volver y empezar de nuevo, los 32 referentes con lo que enseña cada uno, y un solo fondo',
+    puntos: [
+      '**Un solo chat:** lo escrito en la primera entrada se contesta en el medio, debajo de la pregunta en la que se escribió, con la IA del negocio y el contexto del CoPilot. Ya no se abre el chat al costado; sin IA, «Conecta tu IA» ahí mismo.',
+      '**Volver:** «‹ Volver» y «Empezar de nuevo» en cada paso, y «volvamos a empezar», «me equivoqué», «quiero la otra opción» y «cambiar» se entienden sin IA. MaKo dice en una línea qué hizo.',
+      '**Los 32 referentes**, con buscador, y lo que enseña cada uno medido en su curso: elegido uno, sólo se ofrecen sus estrategias, y si se le pide otra cosa dice quién la enseña. Doglio enseña historias de Instagram y setters, y también webinars.',
+      '**Un solo fondo** en toda la tab, en claro y en oscuro, medido en 160 pantallas; la regla quedó en AGENTS.md.',
+    ],
+    archivos: [
+      'app/ads-manager/PrimeraEntrada.tsx · aa.css · Ajustes.tsx — la charla, la grilla, el fondo',
+      'lib/media-buyer/copiloto.ts · copiloto-referentes.ts · copiloto-contexto.ts · copiloto-store.ts — volver, qué enseña cada uno, el contexto del agente',
+      'lib/asesores/ficha-francisco-doglio.ts — el ciclo de historias',
+      'app/api/media-buyer/route.ts — `copiloto_leer`',
+      'tests/marketing-copilot-volver · marketing-copilot-referentes · un-solo-fondo — con sus roturas al pie',
+      'scripts/banco-copilot/medir-fondo.mjs · entrada.tsx — la medida en el navegador',
+      'docs/marketing-copilot/referentes.md · docs/hallazgos-marketing-copilot.md · docs/relevo/nube-marketing-copilot.md · AGENTS.md',
+    ],
+    revisar: '/ads-manager?estrategia=1',
+  },
 ];

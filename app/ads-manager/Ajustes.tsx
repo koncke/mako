@@ -32,6 +32,7 @@ import { HASTA_SIN_SUBIR_DIAS, type LugarZona } from '@/lib/media-buyer/zona';
 import { ElegirLugares } from './ElegirLugares';
 import { aplicarCambio, conCampanas, evaluarFunnel, funnelElegido, usaAnuncios, usaLlamadas, sanearPerfil, type Llamadas, type ObjetivoOrganico, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { inspiradoEn, asesorPorId } from '@/lib/asesores/catalogo';
+import { ensenaElFunnel } from '@/lib/media-buyer/copiloto-referentes';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
@@ -137,7 +138,8 @@ export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }:
   };
   const veredicto = perfil && funnel && perfil.ticket != null
     ? evaluarFunnel(funnel.id, { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas ?? 'yo' }) : null;
-  const refInspirado = perfil?.referente ? asesorPorId(perfil.referente) : null;
+  // «Inspirado en» sólo si el referente enseña ESTE funnel (medido en su curso: lib/media-buyer/copiloto-referentes.ts).
+  const refInspirado = perfil?.referente && funnel && ensenaElFunnel(perfil.referente, funnel.id) ? asesorPorId(perfil.referente) : null;
   const txt = (n: number | null) => (n == null ? '' : String(n));
   const recomendado = config.ultimaCorridaInfo && typeof config.ultimaCorridaInfo.objetivo === 'number' && config.ultimaCorridaInfo.objetivoEsRecomendado
     ? config.ultimaCorridaInfo.objetivo as number : null;

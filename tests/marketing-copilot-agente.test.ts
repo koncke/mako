@@ -131,13 +131,20 @@ test('conversación 6: un referente se nombra «inspirado en», no es él, y lan
   assert.deepEqual(FUENTES.filter((n) => [REGLAS_DEL_COPILOTO, negocioDelCopiloto(p), CONOCIMIENTO_ANUNCIOS].join('\n').includes(n)), []);
 });
 
-test('qué fichas viajan: a lo sumo dos, la del referente primero, y por tipo de funnel', () => {
+test('qué fichas viajan: sólo las que vienen al caso (lo que cada referente enseña, medido en su curso)', () => {
   const f = (funnel: PerfilCopiloto['funnel'], extra: Partial<PerfilCopiloto> = {}) => fichasDelCopiloto({ entrada: 'funnel', funnel, ...extra });
-  assert.deepEqual(f('youtube'), ['derek-chamizo']);
+  // Sin referente: la de quien mejor cubre el funnel para un servicio (YouTube de marca personal, no canales que viven del CPM).
+  assert.deepEqual(f('youtube'), ['sergio-begueria']);
   assert.deepEqual(f('lead-magnet'), ['sofia-contreras']);
-  assert.deepEqual(f('vsl-llamada'), ['juan-ads']);
-  assert.deepEqual(f('organico', { referente: 'guille-collado' }), ['guille-collado', 'julian-otalora']);
-  assert.deepEqual(f('organico', { referente: 'julian-otalora' }), ['julian-otalora']);
+  assert.deepEqual(f('vsl-llamada'), ['marcos-razzetti'], 'Juan ADS enseña la campaña, no el VSL: el VSL con su sesión está en la ficha de Marcos');
+  assert.deepEqual(f('formulario'), ['marcos-razzetti'], 'el formulario con su filtro, también');
+  // Un referente que enseña ese funnel alcanza solo: una segunda ficha sobre lo mismo son 5.000 caracteres más en cada mensaje.
+  assert.deepEqual(f('organico', { entrada: 'referente', referente: 'guille-collado' }), ['guille-collado']);
+  assert.deepEqual(f('organico', { entrada: 'referente', referente: 'julian-otalora' }), ['julian-otalora']);
+  // Un referente que NO enseña el funnel no viaja (aceptó el que propuso MaKo, o lo cambió el agente).
+  assert.deepEqual(f('carrito', { entrada: 'referente', referente: 'francisco-doglio' }), ['juan-ads']);
+  // Uno que enseña otra parte de la venta (la oferta, la llamada) viaja para esa parte, con la del funnel.
+  assert.deepEqual(f('formulario', { entrada: 'referente', referente: 'hormozi' }), ['hormozi', 'marcos-razzetti']);
   assert.deepEqual(fichasDelCopiloto({}), ['juan-ads'], 'sin funnel, el de anuncios');
   for (const id of ['derek-chamizo', 'julian-otalora', 'guille-collado', 'francisco-doglio', 'sofia-contreras', 'juan-ads']) {
     assert.ok(contextoDelCopiloto({ entrada: 'referente', referente: id as never }).length > 3000, id);
@@ -192,7 +199,9 @@ test('conversación 11 (orgánico: viralidad o ventas, cuánto): el reparto lleg
 test('conversación 12 (YouTube sin audiencia, 3 horas): la ficha de canales automatizados no manda', () => {
   const n = negocioDelCopiloto({ entrada: 'funnel', funnel: 'youtube', ticket: 1000, presupuestoMes: 0, llamadas: 'yo', ritmo: 1 });
   assert.match(n, /YOUTUBE PARA ESTE NEGOCIO/);
-  assert.match(n, /ignora lo de nichos por CPM/);
+  // Sin referente viaja la de marca personal (Sergio Begueria); el aviso del CPM, sólo si eligió a Derek Chamizo.
+  assert.doesNotMatch(n, /nichos por CPM/);
+  assert.match(negocioDelCopiloto({ entrada: 'referente', referente: 'derek-chamizo', ticket: 1000, presupuestoMes: 0, llamadas: 'yo', ritmo: 1 }), /ignora lo de nichos por CPM/);
   assert.match(n, /un video bueno por semana/);
   assert.match(n, /tarda meses/);
   assert.doesNotMatch(n, /TAMAÑO DE LA CUENTA/);
@@ -226,9 +235,12 @@ test('está conectado: el chat de la tab usa este contexto y sus herramientas ex
   const ids = new Set(REGISTRO.map((d) => d.id));
   for (const h of HERRAMIENTAS_DEL_COPILOTO) assert.ok(ids.has(h), `${h} no está en la API de MaKo`);
   // La tab declara el mismo origen (si no, el chat caería al contexto del Ops Center).
-  for (const f of ['app/ads-manager/MediaBuyer.tsx', 'app/ads-manager/PrimeraEntrada.tsx']) {
-    assert.match(readFileSync(join(RAIZ, f), 'utf8'), /<MakoEnLaTab tab="Marketing CoPilot"/, f);
-  }
+  assert.match(readFileSync(join(RAIZ, 'app/ads-manager/MediaBuyer.tsx'), 'utf8'), /<MakoEnLaTab tab="Marketing CoPilot"/);
+  // La primera entrada contesta EN EL MEDIO, con el mismo origen: un solo chat, nunca el panel al costado (Martín, 6/11/2026).
+  const pe = readFileSync(join(RAIZ, 'app/ads-manager/PrimeraEntrada.tsx'), 'utf8').replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.doesNotMatch(pe, /<MakoEnLaTab|from '@\/app\/_chat\/MakoEnLaTab'/, 'la primera entrada no abre el chat al costado');
+  assert.match(pe, /desdeDelCopiloto\(pantalla\)/, 'lo que se escribe va al CoPilot');
+  assert.match(pe, /useChatCliente\(\{[^}]*entrarAlCerebro: true[^}]*desde,/, 'con el Cerebro, como la estrella');
 });
 
 // ── Probado rompiéndolo (6/11/2026) ───────────────────────────────────────────
