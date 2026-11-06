@@ -869,7 +869,7 @@ export const RUNNERS: Runners = {
       try {
         const r = await guardarPreset(payload.preset, typeof payload.id === 'string' ? payload.id : null);
         return r.ok
-          ? { ok: true, resumen: `Preset «${r.preset.nombre}» guardado: ya sale en Subtítulos › Plantillas del editor.`, datos: { presetId: r.preset.id } }
+          ? { ok: true, resumen: `Preset «${r.preset.nombre}» guardado: ya sale en las plantillas de Subtítulos del Video Editor.`, datos: { presetId: r.preset.id } }
           : { ok: false, resumen: `No se guardó: ${r.motivo}.` };
       } catch {
         return { ok: false, resumen: 'No se pudo guardar el preset.' };
