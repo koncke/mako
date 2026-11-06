@@ -182,3 +182,18 @@ test('«al techo» a secas no alcanza: cada corte dice su causa, su número y qu
   // Y sin saber el crédito tampoco se culpa al tope.
   assert.match(porQueParo({ ...base, corte: 'techo', ...motivoDelTecho(1.5, null, RESERVA_CREDITO_USD) }), /no se gasta a ciegas|no dijo/i);
 });
+
+test('un «no queda crédito» que dice APIFY a mitad de la corrida no se cuenta como el techo', () => {
+  // El crédito se agota mientras la corrida avanza: al empezar el techo era el pedido y tenía lugar de sobra. Si ese corte se
+  // contara como techo, el renglón final diría «llegué al tope que me pediste» sobre un tope que no se tocó.
+  const conLugar = motivoDelTecho(1.5, { usado: 1, tope: 10 }, RESERVA_CREDITO_USD);
+  assert.equal(conLugar.motivo, 'pedido', 'al empezar el techo era el pedido');
+  const apify = porQueParo({ ...conLugar, corte: 'apify', quedanFuera: 120, gastado: 0.33 });
+  assert.match(apify, /Apify dijo que no queda crédito/i);
+  assert.match(apify, /Cargá crédito/i, 'y qué lo destraba');
+  assert.doesNotMatch(apify, /tope que me pediste/i, 'nunca le echa la culpa al tope');
+  assert.match(apify, /120/, 'con cuántos quedaron sin leer');
+  assert.match(apify, /US\$0\.33/, 'y lo que se gastó');
+  // Y es distinto de los otros tres cortes con el mismo techo.
+  for (const corte of ['todo', 'techo', 'sin-techo'] as const) assert.notEqual(apify, porQueParo({ ...conLugar, corte, quedanFuera: 120, gastado: 0.33 }));
+});

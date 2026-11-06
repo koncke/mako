@@ -427,8 +427,14 @@ export const techoDeTanda = (cuantos: number): number =>
   Math.max(0.01, Math.ceil(Math.max(0, cuantos) * USD_POR_PUBLICACION * MARGEN_TECHO_TANDA * 100) / 100);
 
 export type TandaDeLinks = { desde: number; cuantos: number; techoUsd: number };
-/** Por qué no se leyó más: se leyó todo, se llegó al techo, o no había techo con que empezar. */
-export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo';
+/**
+ * Por qué no se leyó más: se leyó todo, se llegó al techo, no había techo con que empezar, o fue APIFY el que dijo que no
+ * queda crédito a mitad de la corrida.
+ * ⚠️ `'apify'` no es `'techo'`: el techo podía tener lugar de sobra. Contarlo como techo hace que el renglón final diga
+ * «llegué al tope que me pediste» sobre un tope que no se tocó, que es la clase de mensaje que estas funciones existen para
+ * no escribir.
+ */
+export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo' | 'apify';
 export type PlanDeTandas = { tandas: TandaDeLinks[]; probableUsd: number; quedanFuera: number; corte: CorteDeTandas };
 
 /**
@@ -484,6 +490,8 @@ export function porQueParo(o: {
   const gasto = typeof o.gastado === 'number' ? ` Se gastó ${usdTexto(o.gastado)}.` : '';
   if (o.corte === 'todo') return `Paró porque se terminaron las tandas: se pidieron todos los de esta corrida, no fue el techo.${gasto}`;
   const faltan = `Quedan ${o.quedanFuera} sin leer: `;
+  // Lo que dijo Apify gana sobre lo que decía el techo al empezar: el crédito se puede agotar a mitad de la corrida.
+  if (o.corte === 'apify') return `${faltan}Apify dijo que no queda crédito en ninguna clave. Cargá crédito y volvé a correrlo.${gasto}`;
   if (o.motivo === 'sin-saber') return `${faltan}${o.porque}.${gasto}`;
   if (o.motivo === 'sin-credito' || o.motivo === 'credito') {
     return `${faltan}${o.porque}. Lo destraba cargar crédito en Apify (o esperar el mes que viene), no un \`--techo-usd\` más alto.${gasto}`;

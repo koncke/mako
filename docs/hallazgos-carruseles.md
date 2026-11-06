@@ -35,6 +35,10 @@ salida no se podía saber si faltaba crédito o si era un límite nuestro, y por
 - **La última tanda se recorta a los links que caben**, no se descarta entera.
 - **Una sola regla para el plan y para la corrida** (`siguienteTanda`): en seco se alimenta con el gasto probable y en vivo con
   lo que Apify ya cobró. Dos cuentas paralelas es cómo se llega a que el seco y lo real no coincidan.
+- ⚠️ **Y un «no queda crédito» que dice APIFY a mitad de la corrida NO es el techo.** Al empezar, el techo podía tener lugar de
+  sobra (motivo `'pedido'`): si ese corte se cuenta como techo, el renglón final dice «llegué al tope que me pediste» sobre un
+  tope que no se tocó — el mismo mensaje equivocado, por el otro lado. Es un corte propio (`'apify'`), y el que decide qué
+  renglón sale es la función pura, no una bandera en el script: una bandera no se puede probar sin gastar crédito.
 
 **Vive en:** `lib/carruseles/biblioteca.ts` (`motivoDelTecho`, `siguienteTanda`, `planDeTandas`, `porQueParo`),
 `scripts/carruseles-biblioteca.mts` (`laminas`), con `tests/carruseles-techo.test.ts`.

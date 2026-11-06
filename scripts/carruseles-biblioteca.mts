@@ -545,7 +545,6 @@ async function laminas() {
   const pagan = conCredito(ks, por0);
   let guardadas = 0;
   let sinImagenes = 0;
-  let cortoApify = false;
   let pedidos = 0;   // cuántos links ya se pidieron
   let cobrado = 0;   // lo que Apify cobró, contado por lo que LLEGÓ (no por el techo de la tanda, que lleva margen)
   let nTanda = 0;
@@ -564,7 +563,7 @@ async function laminas() {
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
       if (r && esFaltaDeCredito(r.status, r.cuerpo)) {
         console.log(`  ✖ Apify dice que no queda crédito en ninguna clave (iba por la tanda ${nTanda}, ${conLink.length - pedidos + links.length} links sin leer). Corta acá; lo guardado queda.`);
-        cortoApify = true;
+        corte = 'apify';
         break;
       }
       console.log(`  ✖ Tanda ${nTanda}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
@@ -588,9 +587,8 @@ async function laminas() {
   const { total: c1 } = await creditos(ks);
   const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
   console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
-  // Por qué no siguió, con el número: nunca un «al techo» mudo. Si Apify cortó antes que el techo, lo dice eso y no el techo.
-  if (cortoApify) console.log('  Paró porque Apify dijo que no queda crédito en ninguna clave: cargá crédito y volvé a correrlo.');
-  else console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
+  // Por qué no siguió, con el número: nunca un «al techo» mudo. Un corte de Apify a mitad se dice como tal, no como el techo.
+  console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);
 }
 
@@ -657,6 +655,9 @@ async function links() {
   if (!plan.tandas.length) { console.log('  No se gastó nada.'); return; }
 
   const pagan = conCredito(ks, por0);
+  // ⚠️ Cada comando de este script trae sus piezas por dentro (`const { … } = await imp(…)`): eso NO es un import del
+  // módulo, así que lo que usan dos comandos se trae en los dos. `laminas` lo trae aparte.
+  const { entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
   let pedidosHechos = 0;
   let cobrado = 0;
   let nTanda = 0;
@@ -676,7 +677,9 @@ async function links() {
     const q = new URLSearchParams({ maxItems: String(lote.length), maxTotalChargeUsd: String(tanda.techoUsd), timeout: '280' });
     const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) })));
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
-      if (r && esFaltaDeCredito(r.status, r.cuerpo)) { console.log('  ✖ Apify dice que no queda crédito en ninguna clave. Corta acá; lo guardado queda.'); corte = 'sin-techo'; break; }
+      // ⚠️ Un «no queda crédito» de Apify NO es el techo: si se lo contara como techo, el renglón final diría «llegué al tope
+      // que me pediste» con un tope que todavía tenía lugar. Lo dice esto y nada más.
+      if (r && esFaltaDeCredito(r.status, r.cuerpo)) { console.log(`  ✖ Apify dice que no queda crédito en ninguna clave (iba por la tanda ${nTanda}, ${plan.links.length - pedidosHechos + lote.length} links sin leer). Corta acá; lo guardado queda.`); corte = 'apify'; break; }
       console.log(`  ✖ Tanda ${nTanda}: Apify contestó HTTP ${r?.status ?? '—'}. Sigue con la próxima.`);
       continue;
     }
