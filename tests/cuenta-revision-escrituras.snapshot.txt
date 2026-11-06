@@ -246,6 +246,7 @@ POST /api/operaciones/cartero → pública (no usa la sesión)
 POST /api/pagar/email → pública (no usa la sesión)
 POST /api/perfil → cortada
 POST /api/perfil/avatar → cortada
+POST /api/perfil/correos-tickets → PERMITIDA
 POST /api/perfil/destinatarios → cortada
 POST /api/perfil/notif-inapp → PERMITIDA
 POST /api/perfil/notif-push → PERMITIDA

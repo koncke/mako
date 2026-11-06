@@ -1045,6 +1045,30 @@ lado: sobrevive a una fuente nueva y sigue cazando que alguien muestre lo person
 Para buscar las que faltan: `grep -rn "assert.match(.*leer(" tests/` y, de esas, las que piden una EXPRESION completa en
 vez de un nombre. La pregunta sigue siendo la misma: *seguiria en verde si alguien arregla el bug de otra manera?*
 
+**Y el contraejemplo, que importa tanto como la regla: no toda guarda que lee el repo es fragil.** El mismo dia, la
+casilla de Notificaciones puso roja `tests/cuenta-revision-escrituras.test.ts`, y esa guarda estaba **bien**: lleva un
+snapshot de TODA ruta que escribe y exige que cada una este clasificada para la cuenta de revision de las tiendas (una
+contrasena que tienen terceros). La ruta nueva aparecio como `POST /api/perfil/correos-tickets -> cortada` y el mensaje
+del rojo decia exactamente que decidir y como regenerar. La diferencia con las tres de arriba es la forma de la pregunta:
+**esta no pide un texto, pide una DECISION sobre algo nuevo**, y se contesta sin tocar el test. Se resolvio sumandola a
+`PERMITIDO_EN_REVISION` (lib/cuenta-revision-reglas.ts) con su porque, igual que sus dos hermanas de la misma pantalla
+(`notif-push` y `notif-inapp`): en revision se toca cada interruptor, y uno que contesta 503 se reporta como un bug.
+Probado al reves: sacandola de la lista, 5/1.
+
+⚠️ **Dos cosas del PROCESO que costaron una corrida de Actions cada una, y las dos son faciles de repetir:**
+1. **Reproducir un rojo localmente prueba que encontraste UNA causa, no LA causa.** Esta punta dio rojo, encontre la
+   guarda fragil de `agencia-grupos` corriendo los tests que nombran el archivo que toque, la arregle, subi, y volvio a
+   dar rojo: faltaba esta otra, que ningun test "que nombra mi archivo" iba a encontrar porque es una de las 254 que
+   **barren el repo entero**. El log de la corrida es la autoridad; la lista de "tests afectados" local no lo es.
+2. **Leer el log de Actions no necesita `gh`** (no esta instalado) ni los PAT de `.env.local` (son de Mauricio y dan 404
+   contra koncke/mako). El token del push sirve:
+   `TOK=$(printf 'protocol=https
+host=github.com
+
+' | git credential fill | sed -n 's/^password=//p')` y con eso
+   `/actions/runs?branch=...`, `/actions/runs/<id>/jobs` (dice QUE paso fallo) y `/actions/runs/<id>/logs` (el zip).
+
+
 **Vive en:** `tests/ticketera-mazo.test.ts` (G5) · `tests/ticketera-movil-y-avisos.test.ts` (B5) · `lib/foto-perfil.ts`
 (`fotoDePersonaSegura`) · `tests/foto-persona-origen.test.ts`
 ## La baja de los correos estaba atada a una CUENTA, y una cuenta no es una persona (6/11/2026, mig 0410)
