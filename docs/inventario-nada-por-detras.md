@@ -88,6 +88,13 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
   a las alertas de Meta, que van después: lib/canal-vigilante.ts, `avisarPorEmail`). Mudarla pide primero esas dos cosas
   en `enviarAvisoPorEmail` para un evento de la plataforma.
 
+- **6/11/2026 (nube, chat «Nada por detrás»): la pieza para sacar a UN negocio sin regla escondida.** Todo evento de la
+  plataforma trae ahora de qué negocio es (`negocio_numero`, lo pone `emitirPorEvento` con `datosDeLaPlataforma`, lib/aviso-evento.ts),
+  y la CONDITION «Es / No es el negocio número N» lo pregunta en SuperAdmin (lib/variables-aviso.ts). Es lo que faltaba para mudar un
+  aviso que un negocio tenía apagado a mano en /mensajes: el interruptor viejo se rehace con «No es el negocio número N». La primera:
+  la plantilla de `reunion_tareas_al_plan` (#280, sin fila creada) nace con «No es el negocio número 13» en cada rama. Lo fijan
+  tests/dato-evento.test.ts (5) y tests/reunion-tareas-al-plan-evento.test.ts, probados rompiéndolos.
+
 ## El orden
 
 - **Lote 1 (las dos capturas):** WhatsApp caído con texto literal (dos eventos: «se desconectó», cuando WhatsApp cerró

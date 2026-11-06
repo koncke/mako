@@ -1131,11 +1131,16 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     objetivo: 'clientes',
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_tareas_al_plan' },
+    // ⚠️ «NO ES EL NEGOCIO NÚMERO 13» EN CADA RAMA (6/11/2026, «nada por detrás»): Código Inmobiliario tenía este aviso APAGADO a
+    // mano en /mensajes (medido el 17/10), y un evento de la plataforma no lee ese interruptor. Su fila todavía no está creada:
+    // nace con la exclusión escrita (y pausada, porque el aviso nacía apagado), y en SuperAdmin se ve y se edita. En cada rama y
+    // no en una CONDITION delante: CONDITION → CONDITION no se arma (`problemasDeForma`), y el «Si no» de la última es el fin.
     pasos: [
       condicion('rp_cuantas', [
-        [[{ campo: 'dato:plan_varias', valor: 'sí' }], 'rp_varias_mk'],
-        [[{ campo: 'dato:plan_resto', valor: 'sí' }], 'rp_resto_mk'],
-      ], 'rp_una_mk'),
+        [[{ campo: 'dato:negocio_numero', no: true, valor: '13' }, { campo: 'dato:plan_varias', valor: 'sí' }], 'rp_varias_mk'],
+        [[{ campo: 'dato:negocio_numero', no: true, valor: '13' }, { campo: 'dato:plan_resto', valor: 'sí' }], 'rp_resto_mk'],
+        [[{ campo: 'dato:negocio_numero', no: true, valor: '13' }], 'rp_una_mk'],
+      ], null),
       mako('rp_varias_mk', '📝 Leí tus *{{plan_reuniones}}* nuevas:{{plan_lista}}\n\nEn total *{{plan_tuyas}}*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
       mako('rp_resto_mk', '📝 Terminé de leer tu reunión *{{plan_titulo}}*\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* más y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} todavía no pude leer todo. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
       mako('rp_una_mk', '📝 Leí tu reunión *{{plan_titulo}}*\n👥 Con {{plan_con}}\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
