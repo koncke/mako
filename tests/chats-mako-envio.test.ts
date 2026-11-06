@@ -204,7 +204,8 @@ test('el texto: lo que se ve es lo que sale; «sí, dale» no es el mensaje; el 
   const envio = leer('lib/evolution-envio.ts');
   const cuerpo = envio.slice(envio.indexOf('export async function enviarBorrador('), envio.indexOf('async function enviarMediaDelBorrador('));
   assert.ok(cuerpo.length > 200, 'encontré el cuerpo de enviarBorrador');
-  assert.match(cuerpo, /const estado = estadoTrasFallarEnvio\(r\.error\);\n\s*await supabase\.from\('wa_borradores'\)\.update\(\{ estado \}\)/, 'enviarBorrador decide el estado con la regla, no a mano');
+  assert.match(cuerpo, /const estado = estadoTrasFallarEnvio\(r\.error\);/, 'enviarBorrador decide el estado con la regla, no a mano');
+  assert.match(cuerpo, /update\(estado === 'incierto' \? \{ estado, enviado_at: ahoraISO\(\), enviado_por: porEmail \} : \{ estado \}\)/, 'el «incierto» cuenta para los topes (pudo haber salido)');
   assert.doesNotMatch(cuerpo, /update\(\{ estado: 'pendiente' \}\)/, 'ningún camino lo devuelve a «pendiente» sin preguntar');
 
   const id = (canal: IdentidadCanal['canal'], o: Partial<IdentidadCanal> = {}): IdentidadCanal => ({ canal, cuenta: null, rotulo: canal, destino: null, ref: `${canal}-ref`, telefono: null, ultimaFecha: null, puedeEscribir: true, motivoNoEscribir: null, bloqueado: false, ...o });

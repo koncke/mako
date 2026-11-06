@@ -28,7 +28,30 @@ permiso». Este archivo es el registro de ese barrido. **Se mantiene al día en 
 
 | 2 | Customer Success: el alta de un cliente y la de un alumno frenan por el tope de leads del plan (la API ya lo hacía) | app/customer-success/actions.ts · app/customer-success/curso/invitar-actions.ts | `punta/barrido-envios` |
 
-La cosecha de la tanda 1: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar».
+| 3 | «No reprodujo el VSL» y la cohorte «vio poco el VSL» no se cumplen para todos con la base caída (la lectura del motor es estricta) | lib/leads.ts · lib/nutricion.ts | `punta/barrido-envios` |
+| 3 | Cambiar el precio de un producto por MaKo: el título de /mako/revisar dice también el precio de antes, y el producto queda fijo al revisar | lib/producto-precio-texto.ts · lib/api-mako/areas/crm.run.ts · crm.def.ts | `punta/barrido-envios` |
+| 4 | Lo que encontró el revisor (ver «Autocrítica») | varios | `punta/barrido-envios` |
+
+La cosecha: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar» y docs/hallazgos-chatbot.md →
+«"No reprodujo el VSL" se cumplía para TODOS con la base caída».
+
+## Autocrítica (regla del 6/11/2026)
+
+Un lector que no escribió el código revisó las tandas 1 a 3 antes de subirlas. Lo que encontró y se cambió:
+- La lista de avisos apagados de MaKo leía la vista del cliente, que viene vacía: un aviso apagado no aparecía nunca. → la de la agencia.
+- Prender por WhatsApp un aviso apagado entero revivía su email. → sólo WhatsApp.
+- Sin datos del evento, el aviso sin IA volvía a mandar el ejemplo inventado; y «Probar» mostraba la instrucción al modelo. → `''` y
+  `muestra`; un ejemplo con variables cuenta como propio.
+- El borrador «incierto» no contaba para el tope de 24 h ni el goteo. → lleva `enviado_at` y `enviado_por`.
+- El freno de Customer Success miraba `usarLeadId == null` y la lib reusa con `> 0`: un `0` se salteaba el freno. → la misma condición.
+- La cohorte del VSL estricta cortaba todas las automatizaciones y los envíos del negocio. → saltea sólo esa automatización.
+- El título «2000 → 200» quedaba viejo si se corregía el monto en el formulario, y el producto se podía cambiar. → «200 USD; antes
+  2000 USD» (lo de antes no cambia) y el `id` fijo al revisar.
+
+Descartado a propósito: frenar el tope DESPUÉS del chequeo de duplicados en Customer Success (hoy un alta en el tope que es un
+duplicado recibe el tope y no «usar ese»): el CRM y la API frenan en el mismo orden; cambiar los tres es otra tanda. Y el «Pasar a
+Pro» del commit de la tanda 2 no se ve: Customer Success devuelve el texto sin `pasarAPro` y su pantalla no dibuja ese botón.
+Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 
 ## Cola de CÓDIGO que hace este barrido (vigente, en orden)
 
@@ -132,10 +155,16 @@ en Chrome (tanda 5, en pausa por él).
   0318/0319 ya son una sola de cada una.
 - Todo lo de Creem (nube-creem-revision.md): viejo, Creem rechazó la tienda el 5/11.
 
-## DUDA (no se pudo cerrar sin producción o sin leer más)
+## Las ocho DUDAS, cerradas (verificadas el 6/11 contra el código)
 
-Las secuencias sin candado entre el cron y la vía rápida (lib/nutricion-grafo-motor.ts) · «No reprodujo el VSL» con la base caída
-(lib/condiciones-catalogo.ts) · el chat del lienzo que reescribe una tarjeta no nombrada (app/automations/pedidos-chat.ts) · el Deshacer de
-abierta a Ganado · la compra a Meta que puede salir dos veces (lib/cobros-externos-meta.ts) · el cursor de `reconciliarCobros` y la
-renovación de Stripe con el aviso perdido (lib/cobros.ts) · el 2FA que se quita sin código fresco (app/api/auth/2fa) · un «sí» suelto que
-confirma otra pendiente (lib/mako-intencion.ts).
+| Qué | Veredicto | Quién sigue |
+|---|---|---|
+| Secuencias sin candado entre el cron y la vía rápida | HECHO: turno por negocio con compare-and-set (lib/motor-turno.ts) | — |
+| «No reprodujo el VSL» con la base caída | VIGENTE → **HECHO en la tanda 3** | — |
+| El chat del lienzo reescribe una tarjeta no nombrada y le borra el link | VIGENTE: `limpiarTexto` borra todo link que no esté en el pedido, también el que el mensaje YA tenía (lib/flujo-ia.ts) | **OTRO CHAT (Automations)**: es la máquina de IA del lienzo y pide correr su arnés con IA real (`scripts/probar-chats/automations.mts`), que la nube no puede |
+| El Deshacer de abierta a Ganado borra el monto | HECHO: repone la foto sin pasar por la regla (lib/deshacer-movimiento.ts) | — |
+| La compra a Meta que puede salir dos veces | ACEPTABLE: va con un `eventId` fijo por venta y Meta deduplica | — |
+| `reconciliarCobros` y la renovación de Stripe (mes 2+) con el aviso perdido | El cursor NO es bug (los pendientes van del más nuevo). La renovación con el aviso perdido SÍ: ningún cron lista las facturas de una suscripción ya pagada | **CÓDIGO de plata con revisión adversarial** (Pagos): un barrido de `facturasPagadasStripe` por suscripción activa → `aplicarPagoAprobado` con el id de la factura; probablemente una columna para rotar |
+| El 2FA se quita o se regeneran los códigos sin un código fresco | VIGENTE (app/api/perfil/seguridad/route.ts, `quitarFactor`, `generarCodigosRecuperacion`) | **MARTÍN**: qué piden los que no tienen TOTP (WhatsApp, email, llave) |
+| Un «sí» suelto con dos pendientes vivas | No confirma las dos («aclara cuál»), pero el modelo elige el id | **MARTÍN**: ¿«la preguntada» es la más reciente? |
+| Confirmar un cambio de precio no muestra el de antes | VIGENTE → **HECHO en la tanda 3** | — |

@@ -15,13 +15,16 @@ import { join } from 'node:path';
 import { precioDelResumen } from '../lib/producto-precio-texto';
 
 test('editar: dice lo que había y lo que queda; crear o sin cambio: sólo el que queda', () => {
-  assert.equal(precioDelResumen({ antes: { monto_usd: 2000, suscripcion: false }, ahora: { monto_usd: 200, suscripcion: false } }), 'precio: 2000 USD → 200 USD');
-  assert.equal(precioDelResumen({ antes: { monto_usd: null, suscripcion: false }, ahora: { monto_usd: 97, suscripcion: true } }), 'precio: sin precio → 97 USD al mes');
+  assert.equal(precioDelResumen({ antes: { monto_usd: 2000, suscripcion: false }, ahora: { monto_usd: 200, suscripcion: false } }), '200 USD; antes 2000 USD');
+  assert.equal(precioDelResumen({ antes: { monto_usd: null, suscripcion: false }, ahora: { monto_usd: 97, suscripcion: true } }), '97 USD al mes; antes sin precio');
   assert.equal(precioDelResumen({ antes: { monto_usd: 500, suscripcion: false }, ahora: { monto_usd: 500, suscripcion: false } }), '500 USD');
   assert.equal(precioDelResumen({ ahora: { monto_usd: 1500, suscripcion: false } }), '1500 USD', 'al crear no hay antes');
 });
 
-test('CABLEADO: guardar_producto arma su precio con la regla', () => {
+test('CABLEADO: guardar_producto arma su precio con la regla, y el producto no se cambia al revisar', () => {
+  const def = readFileSync(join(__dirname, '..', 'lib/api-mako/areas/crm.def.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const d = def.slice(def.indexOf("id: 'guardar_producto'"), def.indexOf("id: 'proponer_leads'"));
+  assert.match(d, /nombre: 'id', tipo: 'number', entero: true, minimo: 1, fijoAlRevisar: true,/, 'el título nombra este producto: el id no se edita');
   const src = readFileSync(join(__dirname, '..', 'lib/api-mako/areas/crm.run.ts'), 'utf8').replace(/\r\n/g, '\n');
   const op = src.slice(src.indexOf('  guardar_producto: {'), src.indexOf('  proponer_leads: {'));
   assert.ok(op.length > 500, 'encontré guardar_producto');

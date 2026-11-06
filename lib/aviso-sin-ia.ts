@@ -8,7 +8,10 @@
 // de otro negocio (docs/relevo/automations-nube-2710.md, Leila 1). Un mensaje que sale solo no afirma lo que no pasó.
 //
 // La regla: si el negocio escribió su propio texto, sale ése (ya con sus variables resueltas: lo escribió una persona).
-// Si no, salen los datos reales del evento —el contexto, feo pero cierto—, nunca el ejemplo.
+// Un ejemplo de fábrica que es una PLANTILLA con variables (`{{lead_nombre}}`) cuenta como propio: resuelto, es exacto.
+// Si no, salen los datos reales del evento —el contexto, feo pero cierto—, nunca el ejemplo; y sin contexto, NADA (`''`:
+// los que llaman ya caen a su texto o no mandan). La vista previa de «Probar» (`muestra`) sí muestra el ejemplo: ahí es lo
+// que se pidió ver, y su «contexto» es una instrucción para el modelo, no un dato.
 // Sin `server-only`: lo prueba tests/aviso-sin-ia.test.ts.
 // =============================================================================
 
@@ -21,8 +24,11 @@ export function textoSinIA(o: {
   deFabrica: string | undefined;
   /** Los datos reales del evento, como se le pasaron a la IA. */
   contexto: string;
+  /** La vista previa de «Probar»: muestra la referencia (el ejemplo, si no hay texto propio). */
+  muestra?: boolean;
 }): string {
-  const propia = o.referencia.trim() !== '' && o.referencia.trim() !== (o.deFabrica ?? '').trim();
-  if (propia) return o.resuelta;
-  return o.contexto.trim() || o.resuelta;
+  const ref = o.referencia.trim();
+  const propia = ref !== '' && (ref !== (o.deFabrica ?? '').trim() || ref.includes('{{'));
+  if (propia || o.muestra) return o.resuelta;
+  return o.contexto.trim();
 }

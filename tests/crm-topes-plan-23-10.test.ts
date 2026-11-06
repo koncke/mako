@@ -98,7 +98,9 @@ test('Customer Success frena el alta de un cliente y la de un alumno nuevo, ante
   assert.match(cliente, /if \(e instanceof TopeDelPlanError\) return \{ ok: false, error: e\.message \};/);
   const inv = sinComentarios(leer('app/customer-success/curso/invitar-actions.ts'));
   const alumno = inv.slice(inv.indexOf('export async function invitarNuevoAlumnoAction('));
-  assert.match(alumno, /if \(datos\.usarLeadId == null\) \{\n\s*try \{ await frenarAltaPorTope\(ws, 'crm\.leads'\); \}/, 'sólo frena al CREAR uno');
+  assert.match(alumno, /const reusa = Number\.isInteger\(datos\.usarLeadId\) && Number\(datos\.usarLeadId\) > 0;\n\s*if \(!reusa\) \{\n\s*try \{ await frenarAltaPorTope\(ws, 'crm\.leads'\); \}/, 'sólo frena al CREAR uno, con la condición de la lib');
+  // La misma condición que usa la lib para reusar (si cambia allá, cambia acá).
+  assert.match(sinComentarios(leer('lib/curso-alta-alumno.ts')), /Number\.isInteger\(usar\) && usar > 0/);
   assert.ok(alumno.indexOf("frenarAltaPorTope(ws, 'crm.leads')") < alumno.indexOf('await darDeAltaAlumno('), 'antes del alta');
 });
 

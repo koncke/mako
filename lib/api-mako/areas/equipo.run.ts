@@ -329,7 +329,11 @@ export const RUNNERS: Runners = {
       const canal = (c: NotifPrefs['horario']) => ({ activo: c.activo, whatsapp: c.wa, email: c.email });
       // Los apagados salen de la plantilla de cada aviso, que es lo que mira el envío (no de `p.avisos`, que ya no lee nadie).
       const { listarPlantillas } = await import('@/lib/plantillas');
-      const apagados = (await listarPlantillas()).filter((x) => x.categoria !== 'reporte' && !(x.enabled && x.canales.wa)).map((x) => ({ id: x.id, titulo: tituloAviso(x.id) }));
+      // ⚠️ Con la vista de la AGENCIA (la que lee el envío, `getPlantilla`): la del cliente viene vacía de avisos del catálogo
+      // (`AVISOS_DEL_CLIENTE = []`) y un aviso apagado por MaKo no aparecía nunca (la revisión del 6/11/2026).
+      const apagados = (await listarPlantillas({ vista: 'agencia', ocultos: true }))
+        .filter((x) => x.categoria !== 'reporte' && avisoSilenciable(x.id) && !esAvisoSoloSuperAdmin(x.id) && !(x.enabled && x.canales.wa))
+        .map((x) => ({ id: x.id, titulo: tituloAviso(x.id) }));
       return json({
         reportes: { horario: canal(p.horario), diario: canal(p.diario), semanal: canal(p.semanal) },
         secciones: p.secciones,
@@ -550,11 +554,17 @@ export const RUNNERS: Runners = {
       // Una pendiente propuesta ANTES del 10/10/2026 sobre uno del super admin no se aplica al confirmarla.
       if (esAvisoSoloSuperAdmin(aviso)) return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» lo configura la agencia.` };
       const valor = payload.valor === true;
-      const { setEnabledPlantilla, setCanalesPlantilla } = await import('@/lib/plantillas');
+      const { setEnabledPlantilla, setCanalesPlantilla, getPlantilla } = await import('@/lib/plantillas');
       // Prender lo deja saliendo por WhatsApp (la plantilla prendida y su canal); apagar corta SÓLO el WhatsApp, como dice el resumen.
       if (!valor && CATALOGO_AVISOS.find((c) => c.id === aviso)?.porDefecto === 'siempre') return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» no se apaga.` };
-      if (valor) await setEnabledPlantilla(aviso, true);
-      await setCanalesPlantilla(aviso, { wa: valor });
+      if (valor) {
+        // Un aviso APAGADO entero se prende sólo por WhatsApp: el email que tenía no vuelve solo (lo pidió el WhatsApp).
+        const antes = await getPlantilla(aviso);
+        await setEnabledPlantilla(aviso, true);
+        await setCanalesPlantilla(aviso, antes && !antes.enabled ? { wa: true, email: false } : { wa: true });
+      } else {
+        await setCanalesPlantilla(aviso, { wa: false });
+      }
       return `Aviso «${tituloAviso(aviso)}»: ${siNo(valor)}.`;
     }),
   },

@@ -86,6 +86,18 @@ Calendly** (`correrPorWorkspace('calendly')` en app/api/cron/reunion-recordatori
 Cal.com (Código Inmobiliario) no le llegaba nunca. Ahora va a los de cualquiera de las dos agendas (`AGENDAS_DEL_DUENO`);
 lo fija tests/recordatorio-lead.test.ts.
 
+**Lo que encontró la revisión de un lector que no escribió el código, y se cambió el mismo día:**
+- `ver_preferencias_notificaciones` armaba los apagados con `listarPlantillas()`, la vista del CLIENTE, que viene vacía de
+  avisos del catálogo (`AVISOS_DEL_CLIENTE = []`): el aviso apagado no aparecía nunca. Va con la de la agencia, la que lee el envío.
+- Prender por WhatsApp un aviso apagado ENTERO revivía también su email: ahora lo prende sólo por WhatsApp.
+- `textoSinIA` sin datos del evento devolvía igual el ejemplo inventado (`contexto || resuelta`): ahora devuelve `''` y quien
+  llama cae a su texto o no manda. «Probar» (que pasa una INSTRUCCIÓN como contexto) muestra el ejemplo (`muestra`), y un ejemplo
+  de fábrica con variables cuenta como propio (resuelto es exacto).
+- El borrador «incierto» no contaba para el tope de respuestas solas por 24 h ni para el goteo (los leen por `enviado_at` /
+  `enviado_por`): ahora lleva los dos.
+**Regla:** un arreglo de una salida que «no puede afirmar» se prueba también con la entrada VACÍA: ahí el respaldo de siempre
+vuelve a colarse.
+
 **Vive en:** lib/api-mako/areas/equipo.run.ts · lib/plantillas.ts · lib/aviso-sin-ia.ts · lib/evolution-envio.ts ·
 lib/chats-envio-reglas.ts · app/api/cron/reunion-recordatorio/route.ts · *6/11/2026, barrido de pendientes (nube).*
 

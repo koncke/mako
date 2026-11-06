@@ -38,6 +38,12 @@ al default sirve para dibujar, nunca para decidir»). La función ahora acepta `
 la pantalla (lib/queries.ts) sigue tolerante. Lo prueba tests/vsl-estricto.test.ts ejecutando la lectura contra una base de
 mentira caída (tests/_vsl-estricto-hijo.ts).
 
+⚠️ **Y volverla estricta cambió el ALCANCE de la falla** (lo vio la revisión del mismo día): `comprometerInscripciones` no
+atrapaba nada por automatización, así que una cohorte del VSL que tiraba cortaba las demás automatizaciones y todos los envíos
+del negocio en esa corrida (y se perdía la ocurrencia del CRON ya reclamado). Ahora una cohorte que no se pudo leer saltea
+ESA automatización y lo dice en el log. **Regla:** al pasar una lectura de tolerante a estricta, seguí quién atrapa lo que
+ahora tira, antes de subir.
+
 **Vive en:** lib/leads.ts (`getVslEngagementMap`) · lib/nutricion.ts · *6/11/2026, barrido de pendientes (nube).*
 
 ## Tres formas de decirlo y arrancar de a poco, para Black November de Leila (31/10/2026, llamada, punto 5.8)

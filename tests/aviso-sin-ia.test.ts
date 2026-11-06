@@ -5,9 +5,10 @@
 // negocio que nunca editó el texto es el EJEMPLO del catálogo, con una reunión inventada y el link a un lead de otro
 // negocio (docs/relevo/automations-nube-2710.md, Leila 1). La regla vive en lib/aviso-sin-ia.ts.
 //
-// PROBADO ROMPIÉNDOLO (base 3 / 0):
-//   · `textoSinIA` devolviendo siempre `resuelta` (lo de antes)                → 2 / 1
-//   · `generarMensajeAviso` volviendo a `return ref;` en el catch              → 2 / 1
+// PROBADO ROMPIÉNDOLO (base 4 / 0):
+//   · `textoSinIA` devolviendo siempre `resuelta` (lo de antes)                → 2 / 2
+//   · `generarMensajeAviso` volviendo a `return ref;` en el catch              → 3 / 1
+//   · sin contexto, de vuelta a `contexto || resuelta`                         → 3 / 1
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,8 +31,15 @@ test('sin la IA: el ejemplo de fábrica no sale; salen los datos reales del even
 test('sin la IA: el texto que escribió el negocio sale, con sus variables resueltas', () => {
   const out = textoSinIA({ referencia: 'Hola, {{lead_nombre}} agendó', resuelta: 'Hola, Paola agendó', deFabrica: 'Ejemplo de fábrica', contexto: 'datos' });
   assert.equal(out, 'Hola, Paola agendó');
-  // Un contexto vacío no deja el aviso sin texto.
-  assert.equal(textoSinIA({ referencia: 'Ejemplo', resuelta: 'Ejemplo', deFabrica: 'Ejemplo', contexto: '  ' }), 'Ejemplo');
+  // Un ejemplo de fábrica que es una PLANTILLA con variables: resuelto es exacto, y sale (la revisión del 6/11).
+  assert.equal(textoSinIA({ referencia: 'Entró {{lead_nombre}}', resuelta: 'Entró Paola', deFabrica: 'Entró {{lead_nombre}}', contexto: 'Lead: Paola' }), 'Entró Paola');
+});
+
+test('sin la IA y sin datos del evento: nada (el que llama cae a su texto); en «Probar», el ejemplo', () => {
+  // Antes `contexto || resuelta` devolvía el ejemplo inventado cuando el flujo no traía datos (la revisión del 6/11).
+  assert.equal(textoSinIA({ referencia: 'Ejemplo', resuelta: 'Ejemplo', deFabrica: 'Ejemplo', contexto: '  ' }), '');
+  // «Probar» manda una instrucción como contexto: mostrarla en la vista previa no tiene sentido; el ejemplo sí.
+  assert.equal(textoSinIA({ referencia: 'Ejemplo', resuelta: 'Ejemplo', deFabrica: 'Ejemplo', contexto: 'Usa datos de ejemplo realistas.', muestra: true }), 'Ejemplo');
 });
 
 test('CABLEADO: generarMensajeAviso usa la regla en los dos retornos sin IA', () => {

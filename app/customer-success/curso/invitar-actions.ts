@@ -193,7 +193,9 @@ export async function invitarNuevoAlumnoAction(datos: {
     const ws = await getWorkspaceActual();
     if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
     // El tope de leads del plan cuando el alumno se CREA (no al usar uno que ya existe), como crear_alumno_curso de la API.
-    if (datos.usarLeadId == null) {
+    // ⚠️ Con la MISMA condición con que lib/curso-alta-alumno.ts decide reusar: un `usarLeadId: 0` crea, y frena.
+    const reusa = Number.isInteger(datos.usarLeadId) && Number(datos.usarLeadId) > 0;
+    if (!reusa) {
       try { await frenarAltaPorTope(ws, 'crm.leads'); } catch (e) { if (e instanceof TopeDelPlanError) return { ok: false, error: e.message }; throw e; }
     }
     // El alta, el kanban, «sólo de este producto» y la invitación viven en lib/curso-alta-alumno.ts desde el

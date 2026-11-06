@@ -92,7 +92,10 @@ test('MaKo prende y apaga el aviso en la plantilla, que es lo que mira el envío
   assert.doesNotMatch(op, /NotifPrefs|prefs\.avisos/, 'MaKo no escribe en un campo que nadie lee');
   assert.match(bloque(op, 'preparar:', 'ejecutar:'), /await avisoWaActivo\(ctx\.ws, aviso\)/, 'el «ya está» se mide con lo que mira el envío');
   const ejecutar = op.slice(op.indexOf('ejecutar:'));
-  assert.match(ejecutar, /await setCanalesPlantilla\(aviso, \{ wa: valor \}\)/, 'escribe el canal de WhatsApp de la plantilla');
+  assert.match(ejecutar, /await setCanalesPlantilla\(aviso, antes && !antes\.enabled \? \{ wa: true, email: false \} : \{ wa: true \}\)/, 'prender escribe el canal de WhatsApp de la plantilla (sin revivir el email)');
+  assert.match(ejecutar, /await setCanalesPlantilla\(aviso, \{ wa: false \}\)/, 'apagar corta sólo el WhatsApp');
+  // La lista de apagados mira la vista que lee el envío (la de la agencia), no la del cliente, que viene vacía.
+  assert.match(src, /listarPlantillas\(\{ vista: 'agencia', ocultos: true \}\)/);
   const iFijo = ejecutar.indexOf("porDefecto === 'siempre'");
   assert.ok(iFijo > 0 && iFijo < ejecutar.indexOf('setCanalesPlantilla('), 'un aviso fijo no se apaga, tampoco al confirmar');
 });

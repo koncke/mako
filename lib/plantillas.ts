@@ -737,6 +737,8 @@ export async function generarMensajeAviso(
   id: string, contexto: string,
   ctxLead: { leadId?: number | null; leadNombre?: string | null } = {},
   datos?: Record<string, string>,
+  /** `muestra`: la vista previa de «Probar» (sin la IA, se ve la referencia; su contexto es una instrucción). */
+  opts: { muestra?: boolean } = {},
 ): Promise<string> {
   const refCruda = await referenciaPlantilla(id);
   /**
@@ -752,7 +754,7 @@ export async function generarMensajeAviso(
   const ws = await getWorkspaceActual();
   const ref = ws == null ? refCruda : await conVariables(refCruda, { ws, ...ctxLead }, datos);
   // Sin la IA, nunca el EJEMPLO de fábrica (datos inventados): el texto propio del negocio o los datos reales (lib/aviso-sin-ia.ts).
-  const sinIA = textoSinIA({ referencia: refCruda, resuelta: ref, deFabrica: CATALOGO_AVISOS.find((c) => c.id === id)?.ejemplo, contexto });
+  const sinIA = textoSinIA({ referencia: refCruda, resuelta: ref, deFabrica: CATALOGO_AVISOS.find((c) => c.id === id)?.ejemplo, contexto, muestra: opts.muestra });
   try {
     const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {

@@ -33,3 +33,13 @@ test('CABLEADO: el motor lo pide estricto en la condición y en las dos cohortes
   assert.equal((src.match(/getVslEngagementMap\(rows\.map\(\(r\) => r\.visitor_id\), \{ estricto: true \}\)/g) ?? []).length, 2, 'vio_vsl_sin_agendar y vio_poco_vsl');
   assert.doesNotMatch(src, /getVslEngagementMap\(rows\.map\(\(r\) => r\.visitor_id\)\);/, 'ninguna cohorte tolerante');
 });
+
+// Y el alcance (la revisión del 6/11/2026): una cohorte que no se pudo leer saltea ESA automatización, no corta las demás
+// ni los envíos del negocio. Probado rompiéndolo (sin el try/catch alrededor de la cohorte): 2 / 1.
+test('una cohorte que no se pudo leer saltea esa automatización, no el negocio', () => {
+  const src = leer('lib/nutricion.ts');
+  const c = src.slice(src.indexOf('export async function comprometerInscripciones('), src.indexOf('async function reclamarOcurrenciaExtra('));
+  assert.ok(c.length > 1000, 'encontré comprometerInscripciones');
+  assert.match(c, /try \{\n\s*cohorte = await leadsDeCohorte\(/);
+  assert.match(c, /\} catch \(e\) \{\n\s*console\.error\(`\[nutricion\] la cohorte de la automatización #\$\{sec\.id\} no se pudo leer[^`]*`\);\n\s*continue;/);
+});

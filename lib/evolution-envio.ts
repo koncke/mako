@@ -371,7 +371,9 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
     // Falló el envío: vuelve a 'pendiente' para reintentar SÓLO si seguro no salió. Un corte por tiempo pudo haber
     // entregado el mensaje: queda 'incierto' y nadie lo vuelve a mandar desde la bandeja (`estadoTrasFallarEnvio`).
     const estado = estadoTrasFallarEnvio(r.error);
-    await supabase.from('wa_borradores').update({ estado }).eq('id', id);
+    // El «incierto» lleva la hora y quién: pudo haber salido, así que cuenta para el tope de respuestas solas por 24 h y para
+    // el goteo (lo leen por `enviado_at`/`enviado_por`). Sin eso, MaKo podía pasarse del tope (la revisión del 6/11/2026).
+    await supabase.from('wa_borradores').update(estado === 'incierto' ? { estado, enviado_at: ahoraISO(), enviado_por: porEmail } : { estado }).eq('id', id);
     if (estado === 'incierto') return { ok: false, incierto: true, error: TEXTO_BORRADOR_INCIERTO };
     return { ok: false, error: r.error };
   }

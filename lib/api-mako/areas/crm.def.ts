@@ -1068,7 +1068,8 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Crear o editar un producto',
     descripcion: 'PROPONE crear un producto u oferta del catálogo, o editar uno existente pasando su id (de listar_productos); deja un link donde el administrador revisa el precio y confirma. Al editar, lo que no venga conserva el valor guardado.',
     parametros: [
-      { nombre: 'id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del producto a editar; sin id se crea uno nuevo.' },
+      // `fijoAlRevisar`: el título de /mako/revisar nombra este producto y su precio de antes; cambiar el id ahí aplicaría otro.
+      { nombre: 'id', tipo: 'number', entero: true, minimo: 1, fijoAlRevisar: true, descripcion: 'id del producto a editar; sin id se crea uno nuevo.' },
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del producto.' },
       { nombre: 'tipo', tipo: 'string', enum: ['unico', 'suscripcion'], descripcion: 'unico (pago único) o suscripcion (mensual). Obligatorio al crear; al editar, sin valor conserva el tipo guardado.' },
       { nombre: 'monto_usd', tipo: 'number', minimo: 0, descripcion: 'precio en USD, o la mensualidad si es suscripción.' },

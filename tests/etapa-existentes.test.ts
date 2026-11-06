@@ -60,7 +60,9 @@ test('el motor: la ventana se puede saltear SÓLO al contar e incluir; el barrid
   // El barrido (el plan y el commit) pide la cohorte de siempre: con la ventana.
   for (const f of ['export async function planificarInscripciones(', 'export async function comprometerInscripciones(']) {
     const cuerpo = funcion(src, f);
-    assert.match(cuerpo, /leadsDeCohorte\(sec\.trigger_tipo, etapasDe\(sec\), sec\.funnel_id, sec\.producto_id, sec\.etiqueta_id\)\)/, `${f} cambió cómo pide la cohorte`);
+    // Sin un sexto argumento (las opciones, `sinVentana`): `))` en el plan, `);` en el commit, que desde el 6/11/2026 la lee
+    // aparte para saltear sólo esa automatización si la cohorte no se pudo leer.
+    assert.match(cuerpo, /leadsDeCohorte\(sec\.trigger_tipo, etapasDe\(sec\), sec\.funnel_id, sec\.producto_id, sec\.etiqueta_id\)[);]/, `${f} cambió cómo pide la cohorte`);
     assert.doesNotMatch(cuerpo, /sinVentana/, `${f} no puede saltear la ventana`);
   }
   // Contar: por la MISMA puerta que el barrido, sólo CRON por etapa y sin horario.
