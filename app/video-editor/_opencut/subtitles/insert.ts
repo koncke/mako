@@ -23,7 +23,7 @@ import type {
 import { buildEmptyTrack } from "@/app/video-editor/_opencut/timeline/placement/track-factory";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
-import { PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
+import { PARAM_CLAVES_COLOR, PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import {
 	bordeInferiorDe,
 	buildSubtitleTextElement,
@@ -31,6 +31,7 @@ import {
 } from "./build-subtitle-text-element";
 import type { Lienzo } from "./estilos";
 import { PARAM_PALABRAS } from "./palabras";
+import { clavesNombradas, codificarClaves, elegirClaves, PARAM_CLAVES } from "./claves";
 import type { SubtitleCue } from "./types";
 
 export const NOMBRE_PISTA_SUBTITULOS = "Subtítulos";
@@ -87,11 +88,17 @@ export async function insertarSubtitulos({
 	captions,
 	estilo,
 	reemplazar = false,
+	claves = null,
 }: {
 	editor: EditorCore;
 	captions: SubtitleCue[];
 	estilo?: Record<string, ParamValue>;
 	reemplazar?: boolean;
+	/**
+	 * «Resaltar palabras clave automáticamente»: con esto, cada subtítulo nace con sus
+	 * palabras clave (./claves.ts); `siempre` son las de la marca (su preset).
+	 */
+	claves?: ModoClaves | null;
 }): Promise<number> {
 	if (captions.length === 0 || !editor.scenes.getActiveSceneOrNull()) return 0;
 	const lienzo = lienzoDe(editor);
@@ -105,6 +112,12 @@ export async function insertarSubtitulos({
 		.map((caption, index) =>
 			buildSubtitleTextElement({ index, caption, canvasSize: lienzo, estilo }),
 		);
+	if (claves && claves.tipo !== "ninguna") {
+		const elegidas = clavesDeTextos(elementos.map((e) => String(e.params.content ?? "")), claves);
+		elementos.forEach((e, i) => {
+			e.params = { ...e.params, [PARAM_CLAVES]: codificarClaves(elegidas[i] ?? []) };
+		});
+	}
 
 	// Reparto en pistas: cada cue en la primera pista donde no pisa a nadie.
 	const pistas: TextTrack[] = [];
@@ -156,6 +169,7 @@ export async function aplicarEstiloASubtitulos({
 	estilo,
 	excepto,
 	bordeComun,
+	porSubtitulo,
 }: {
 	editor: EditorCore;
 	estilo: Record<string, ParamValue>;
@@ -167,6 +181,11 @@ export async function aplicarEstiloASubtitulos({
 	 * el suyo (una plantilla no mueve lo que el cliente subió).
 	 */
 	bordeComun?: number | null;
+	/**
+	 * Lo que va sólo en cada uno (id del elemento → params), en el MISMO paso de
+	 * deshacer: las palabras clave de un preset (./presets.ts), que son de su texto.
+	 */
+	porSubtitulo?: ReadonlyMap<string, ParamValues>;
 }): Promise<number> {
 	const lienzo = lienzoDe(editor);
 	await cargarFuentes([String(estilo.fontFamily ?? "")]);
@@ -186,10 +205,57 @@ export async function aplicarEstiloASubtitulos({
 		if (estilo["transform.positionX"] != null) {
 			ubicado["transform.positionX"] = estilo["transform.positionX"];
 		}
-		return { trackId: track.id, elementId: element.id, params: { ...estilo, ...ubicado } };
+		return { trackId: track.id, elementId: element.id, params: { ...estilo, ...ubicado, ...(porSubtitulo?.get(element.id) ?? {}) } };
 	});
 	actualizarSubtitulos({ editor, cambios });
 	return cambios.length;
+}
+
+/** Cómo se eligen las palabras clave de los subtítulos (./claves.ts). */
+export type ModoClaves =
+	| { tipo: "auto"; siempre?: readonly string[] }
+	| { tipo: "nombradas"; palabras: readonly string[] }
+	| { tipo: "ninguna" };
+
+/** Las palabras clave de cada texto, en orden (normalizadas). */
+export function clavesDeTextos(textos: readonly string[], modo: ModoClaves): string[][] {
+	if (modo.tipo === "auto") return elegirClaves(textos, { siempre: modo.siempre });
+	if (modo.tipo === "nombradas") return clavesNombradas(textos, modo.palabras);
+	return textos.map(() => []);
+}
+
+/** Las palabras clave de cada subtítulo de la lista (id → lo que se guarda en `subtitulo.claves`). */
+export function clavesDeSubtitulos(lista: readonly SubtituloEnPista[], modo: ModoClaves): Map<string, string> {
+	const elegidas = clavesDeTextos(lista.map(({ element }) => String(element.params.content ?? "")), modo);
+	return new Map(lista.map(({ element }, i) => [element.id, codificarClaves(elegidas[i] ?? [])]));
+}
+
+/**
+ * «Resaltar palabras clave» en TODOS los subtítulos, en un solo paso de deshacer. Con
+ * `color`, también el color. Devuelve cuántos subtítulos quedaron con alguna.
+ */
+export function ponerClavesEnSubtitulos({
+	editor,
+	modo,
+	color,
+}: {
+	editor: EditorCore;
+	modo: ModoClaves;
+	color?: string;
+}): number {
+	const lista = subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks);
+	const claves = clavesDeSubtitulos(lista, modo);
+	const cambios = lista.flatMap(({ track, element }) => {
+		const nuevas = claves.get(element.id) ?? "";
+		const igualClaves = String(element.params[PARAM_CLAVES] ?? "") === nuevas;
+		const igualColor = !color || element.params[PARAM_CLAVES_COLOR] === color;
+		if (igualClaves && igualColor) return [];
+		const params: ParamValues = { [PARAM_CLAVES]: nuevas };
+		if (color) params[PARAM_CLAVES_COLOR] = color;
+		return [{ trackId: track.id, elementId: element.id, params }];
+	});
+	actualizarSubtitulos({ editor, cambios });
+	return [...claves.values()].filter(Boolean).length;
 }
 
 /**
@@ -198,7 +264,7 @@ export async function aplicarEstiloASubtitulos({
  * quedaba con los del elegido, que no coinciden con lo que dice, y perdía los suyos
  * (y con ellos el resaltado, dividir donde cae la palabra y las muletillas).
  */
-const NO_ESTILO = new Set(["content", PARAM_SUBTITULO, PARAM_PALABRAS]);
+const NO_ESTILO = new Set(["content", PARAM_SUBTITULO, PARAM_PALABRAS, PARAM_CLAVES]);
 
 /** El estilo de un subtítulo, para escribirlo en los demás. */
 export function estiloDe(element: TextElement): Record<string, ParamValue> {

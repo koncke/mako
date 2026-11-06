@@ -4,7 +4,8 @@
 // Lo mismo al pedir (PanelChat.tsx) y al aceptar (aplicar.ts): si al aceptar se mirara
 // otra cosa que al pedir, una propuesta válida se descartaría (o al revés).
 //   · lo disponible del motor, con la lista de Google Fonts del selector de fuentes
-//     (async la primera vez; después queda en caché, fonts/google-fonts.ts);
+//     (async la primera vez; después queda en caché, fonts/google-fonts.ts), y los
+//     presets de subtítulos de la marca (subtitles/presets.ts);
 //   · el lienzo, los medios sin sonido y la transcripción, de la línea de tiempo dada;
 //   · Multimedia entera: la vista elige qué se lista (chat/linea.ts, sin los ocultos).
 // =============================================================================
@@ -16,6 +17,8 @@ import { loadFontAtlas } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { transcripcionDe } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import { presetDeId, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
+import { resumenPreset } from "@/lib/editor-video/presets-subtitulos";
 import { disponiblesDelMotor, type Disponibles } from "./disponibles";
 import type { TranscripcionChat } from "./linea";
 
@@ -33,7 +36,16 @@ export async function disponiblesChat(editor: EditorCore): Promise<Disponibles> 
 				),
 			]
 		: [];
-	return disponiblesDelMotor({ atlas, fuentesProyecto });
+	// Los presets de la marca (subtitles/presets.ts): si no cargan, el chat no los ofrece.
+	const presetsStore = usePresetsSubtitulos.getState();
+	await presetsStore.cargar().catch(() => undefined);
+	const presets = usePresetsSubtitulos.getState().presets;
+	const elegido = presetDeId(usePreferenciasSubtitulos.getState().plantilla, presets);
+	return {
+		...disponiblesDelMotor({ atlas, fuentesProyecto }),
+		presets: presets.map((p) => ({ id: p.id, nombre: p.nombre, marca: p.marca, resumen: resumenPreset(p) })),
+		palabrasDeMarca: elegido?.claves.siempre ?? [],
+	};
 }
 
 /** El resto de lo que ven la vista y la revisión, de ESTA línea de tiempo. */

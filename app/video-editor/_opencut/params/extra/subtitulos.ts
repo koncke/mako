@@ -32,6 +32,14 @@ export const PARAM_RESALTAR_COLOR = "subtitulo.resaltarColor";
 /** «Subtítulos no pronunciados › Opacidad», 0–100: 100 = sin efecto. */
 export const PARAM_NO_DICHAS_OPACIDAD = "subtitulo.noDichasOpacidad";
 
+/**
+ * «Resaltar palabras clave»: el color de las palabras clave de cada subtítulo (hex).
+ * Las palabras van en `subtitulo.claves` (subtitles/claves.ts), que NO se declara: es
+ * de SU texto, como los tiempos. El color sí es estilo: viaja con «Aplicar en todos»,
+ * con los presets de la marca y con «Pegar atributos».
+ */
+export const PARAM_CLAVES_COLOR = "subtitulo.clavesColor";
+
 export type ModoResaltar = "ninguno" | "palabra" | "frase";
 export const MODOS_RESALTAR: readonly ModoResaltar[] = ["ninguno", "palabra", "frase"];
 
@@ -41,6 +49,9 @@ export const DEFAULTS_RESALTADO = {
 	color: "#ffe14d",
 	noDichasOpacidad: 100,
 };
+
+/** Verde y no amarillo: con el karaoke prendido (amarillo), la palabra que se dice y la clave se distinguen. */
+export const DEFAULTS_CLAVES = { color: "#4ade80" };
 
 const sinFotograma = { keyframable: false } as const;
 
@@ -70,6 +81,13 @@ export const paramsSubtitulos: Partial<Record<ElementType, ElementParamDefinitio
 			label: "Color",
 			type: "color",
 			default: DEFAULTS_RESALTADO.color,
+			...sinFotograma,
+		},
+		{
+			key: PARAM_CLAVES_COLOR,
+			label: "Color de las palabras clave",
+			type: "color",
+			default: DEFAULTS_CLAVES.color,
 			...sinFotograma,
 		},
 		{

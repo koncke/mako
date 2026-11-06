@@ -684,6 +684,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
   ...OPERACIONES_API.map((o): RutaRest => ['POST', `/video/proyectos/{proyecto}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   ['GET', '/video/voz', 'ver_voz_cliente'],
+  // Los presets de subtítulos de la marca (lib/editor-video/presets-subtitulos.ts): viven en el negocio, no en un proyecto.
+  ['GET', '/video/presets-subtitulos', 'listar_presets_subtitulos'],
+  ['POST', '/video/presets-subtitulos', 'guardar_preset_subtitulos'],
+  ['DELETE', '/video/presets-subtitulos/{preset}', 'borrar_preset_subtitulos'],
   ['GET', '/video/avatares', 'ver_avatares'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
