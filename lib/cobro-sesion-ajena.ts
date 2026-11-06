@@ -35,6 +35,31 @@ export async function avisarFacturaDeOtraSuscripcion(ws: number, c: Cobro, f: { 
   }
 }
 
+/**
+ * Una RENOVACIÓN de Stripe cobrada que MaKo no tiene y es de hace más de 14 días (6/11/2026, `renovacionesPerdidasStripe` en
+ * lib/cobros.ts): no se asienta sola, porque asentarla dispara el aviso al equipo y el CRON «Pagos» del lead por un pago viejo.
+ * Queda un ticket para asentarla a mano. El `ref` es la factura: la vuelta de cada día no abre otro. Nunca tira.
+ */
+export async function avisarRenovacionVieja(ws: number, c: Cobro, factura: string): Promise<void> {
+  try {
+    const [{ crearTicket }, { identidadDelSistema }] = await Promise.all([import('./tickets-db'), import('./errores-app')]);
+    const r = await crearTicket({
+      identidad: await identidadDelSistema(), tipo: 'bug', declaradoPor: 'sistema', sistema: true, canal: 'sistema',
+      titulo: `Stripe cobró una renovación del cobro ${c.id} que no entró a MaKo`.slice(0, 140),
+      descripcion: [
+        `Stripe cobró la factura ${factura} de la suscripción ${c.proveedor_suscripcion_id ?? '—'}, del cobro ${c.id} del negocio ${ws} (${c.concepto}), y MaKo no tiene esa cuota: su aviso se perdió.`,
+        'Es de hace más de 14 días, así que no se asienta sola (le avisaría hoy al equipo y al lead por un pago viejo).',
+        'Asiéntala a mano en la ficha del lead, con la fecha del pago.',
+      ].join('\n'),
+      contexto: { ws, cobroId: c.id, factura, suscripcion: c.proveedor_suscripcion_id },
+      ref: `cobro-renovacion-vieja:${factura}`,
+    });
+    if (!r.ok) console.error(`[cobros] no pude abrir el ticket de la renovación ${factura} del cobro ${c.id}: ${r.error}`);
+  } catch (e) {
+    console.error(`[cobros] no pude abrir el ticket de la renovación ${factura} del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 /** Lo que el ticket cuenta de la sesión. */
 type Sesion = { id: string; paymentLink?: string | null; monto: number | null; moneda: string | null };
 

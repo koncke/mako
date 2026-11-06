@@ -19,6 +19,7 @@ import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelCha
 import { HiloMako, type EnMensaje, type Quien } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
+import type { MensajeWA } from '@/lib/centro-mensajes';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { estaAbajo } from '@/lib/centro-caja';
@@ -47,6 +48,8 @@ export type PropsVistaChatMako = {
   /** Arriba de la caja: las fases con Cancelar, o Discutir / Editar y el error. */
   encima: ReactNode;
   caja: PropsCajaChat;
+  /** «Responder» del clic derecho: pone la cita del mensaje en la caja (useCitaDelChat, en ChatMako). */
+  onCitar?: (m: MensajeWA) => void;
   /** La cabecera única (PanelChat.tsx): la estrella, «MaKo», en línea o escribiendo, la «←» a la lista y el ✕. La arma ChatMako. */
   cabecera: CabeceraChat;
 };
@@ -86,7 +89,7 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
         estado="">
         {p.items.length || p.escribiendo
           ? <HiloMako items={p.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo} tarjeta={null}
-              onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} />
+              onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} onCitar={p.onCitar} />
           : p.vacio}
       </PanelDeChat>
     </div>

@@ -22,6 +22,19 @@ import { esPruebaDePlan } from './prueba-plan-reglas';
 export const COOKIE_REF = 'mako_ref';
 export const DIAS_COOKIE_REF = 60;
 
+/**
+ * QUÉ CÓDIGO VALE EN /r/<código> (6/11/2026). El primero vale (docs/referidos.md): si el navegador ya traía la cookie de
+ * otro partner, no se pisa. PERO SÓLO SI ESE PRIMERO SIGUE SIENDO DE UN PARTNER: una cookie de un código muerto (un
+ * partner que ya no está, o el de la plataforma) tapaba el link vigente, y como /r pone el mismo código en `?ref=`, al
+ * comprar no quedaba ninguno (`codigoQueCuenta` descarta los dos) y la venta salía sin el partner que la trajo.
+ * «No se pudo leer» (`previoEsDePartner` null) vale como el primero, igual que al comprar: no se le quita a nadie por una
+ * base caída.
+ */
+export function refQueVale(p: { previo: string | null; previoEsDePartner: boolean | null; codigo: string }): { ref: string; ponerCookie: boolean } {
+  if (p.previo && p.previoEsDePartner !== false) return { ref: p.previo, ponerCookie: false };
+  return { ref: p.codigo, ponerCookie: true };
+}
+
 /** Desde cuántos meses PAGADOS del referido se gana (docs/referidos.md: «desde su 2º pago»). */
 export const PAGOS_PARA_ACREDITAR = 2;
 

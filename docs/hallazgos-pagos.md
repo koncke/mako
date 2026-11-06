@@ -1803,3 +1803,32 @@ automático del diferencial (hoy lo calcula Martín y se registra como ajuste).
 **Vive en:** lib/suscripcion-meses.ts · lib/suscripcion-movimientos.ts · lib/suscripcion-cambios.ts · lib/suscripcion-api.ts ·
 lib/cobrado-lead.ts · lib/queries.ts · app/crm/lead-view/ficha/pagos/suscripcion.tsx · app/crm/lead-view/ficha/reglas-pagos.ts ·
 app/crm/[id]/suscripcion-actions.ts · app/api/crm/comprobante-pago/route.ts · supabase/migrations/0401_suscripcion_movimientos.sql
+
+## La renovación de Stripe con su aviso perdido no entraba nunca (6/11/2026, nube, barrido de pendientes)
+
+El mes 2 en adelante de una suscripción de Stripe entra SÓLO por su `invoice.paid`. `reconciliarCobros` (lib/cobros.ts) mira la
+sesión del checkout, que ya está pagada, así que un aviso perdido (Stripe reintenta 3 días y abandona) era plata cobrada que MaKo no
+asentaba: ni la cuota, ni la ganancia del partner (que se acredita con el 2º mes), ni la cuota que mira el corte por falta de pago.
+Ahora una vez por día el cron recorre las suscripciones activas de Stripe CON LEAD cuya última cuota tiene más de 25 días, lista
+sus facturas pagadas y asienta las que faltan (`renovacionesPerdidasStripe` + `renovacionesQueFaltan`, lib/cobros-eventos.ts), con el
+mismo camino y el mismo id que el aviso. Lo fija tests/stripe-renovacion-perdida.test.ts.
+
+Lo que se cuida, y por qué (la mitad lo encontró la revisión adversarial antes de subir):
+- **Sólo `subscription_cycle`:** la factura de la creación nunca es una renovación, y un cobro viejo que guardó un `cs_` o `pi_`
+  para su primer pago la duplicaría. En una prueba gratis el primer pago (el día 8) sí es un ciclo: lo excluye `primera`.
+- **«Ya está» es su cuota en `pagos` (por `cobro_id`):** sin lead no hay cuota, y volver a aplicar una renovación ya aplicada
+  repetiría el aviso al equipo (su dedup dura 3 días). Por eso sólo cobros con lead.
+- **Sin valor en dólares no hay cuota:** una venta externa en pesos nace con `monto_usd` null; `aplicarPagoAprobado` no le escribe la
+  cuota, así que la «renovación perdida» se volvía a aplicar cada día (reescribiendo el `motivo` del cobro, que lee la baja pedida) y
+  terminaba en un ticket falso. Se descarta con `montoUsdDeLaCuota`, el mismo cálculo.
+- **Cuatro días de margen, no dos horas:** Stripe reintenta su aviso hasta 3 días; asentada antes, el reintento la encontraba con
+  cuota y volvía a llamar al CRON «Pagos» del lead (una automatización con reentrada «siempre» diría «gracias» dos veces).
+- **Hasta 14 días, sola; más vieja, un ticket** (`avisarRenovacionVieja`, lib/cobro-sesion-ajena.ts): asentarla dispara el aviso y
+  el CRON del lead, y un WhatsApp de «gracias por tu pago» por un pago de hace meses es peor que no mandarlo.
+- **Todas, y empezando por otra cada día:** con un `.limit` antes del filtro, las de id más alto (las más nuevas, justo las del 2º
+  mes) no se miraban nunca; con el mismo orden cada día, las que el tiempo dejaba afuera, tampoco.
+**Sin hacer:** el orden de los NEGOCIOS en la vuelta del día (`giro` del cron, app/api/cron/cobros-reconciliar/route.ts) repite si
+la cantidad de negocios con pasarela divide a 48: si una corrida se queda sin tiempo, los del final pierden ese día (hoy son pocos
+y la corrida termina). Una anual cuesta una llamada a Stripe por día pasados los 25 días (gratis, con el tope de tiempo).
+**Vive en:** lib/cobros.ts (`renovacionesPerdidasStripe`) · lib/cobros-eventos.ts (`renovacionesQueFaltan`) ·
+lib/cobro-sesion-ajena.ts · app/api/cron/cobros-reconciliar/route.ts · tests/stripe-renovacion-perdida.test.ts

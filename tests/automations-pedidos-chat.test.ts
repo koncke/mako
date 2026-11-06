@@ -163,10 +163,12 @@ test('5. el cableado: la ruta lista con la puerta de la lista, y el chat pregunt
   // El chat: la ruta ANTES de MaKo, con su plazo, y sin respuesta útil, el mensaje entero (lo de siempre).
   const chat = leer('app/automations/ChatMako.tsx');
   const enviar = chat.slice(chat.indexOf('const enviarTexto = async'), chat.indexOf('/** Lo que pide un clic en una burbuja'));
-  const iRuta = enviar.indexOf("const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));");
+  // (6/11/2026: lo que se manda a la ruta es lo escrito SIN la cita de «Responder», `lemos`: se busca la llamada, no su variable.)
+  const iRuta = enviar.indexOf('const crudo = await pedirPedidos(cuerpoPedidos(');
   const iTurno = enviar.indexOf('return turno(t, null, origen, actual');
   assert.ok(iRuta > 0 && iTurno > iRuta, 'el chat tiene que preguntar a la ruta ANTES de mandarle a MaKo');
-  assert.match(enviar, /const leida = interpretacionDe\(crudo, t\);\n\s*const i = crea \? paraLienzoVacio\(leida, t\) : leida;/, 'con el lienzo vacío, «crea una…» es de ésta');
+  // El mismo texto (desde el 6/11/2026 es `lemos`, lo escrito sin la cita de «Responder») en la lectura y en el lienzo vacío.
+  assert.match(enviar, /const leida = interpretacionDe\(crudo, (\w+)\);\n\s*const i = crea \? paraLienzoVacio\(leida, \1\) : leida;/, 'con el lienzo vacío, «crea una…» es de ésta');
   // La ruta con su plazo, y nunca tira: sin respuesta, null (y el mensaje entero va a MaKo).
   const cliente = leer('app/automations/pedidos-cliente.ts');
   assert.match(cliente, /fetch\('\/api\/mako\/pedidos', \{\n\s*method: 'POST',[^\n]*signal: AbortSignal\.timeout\(ms\),/);

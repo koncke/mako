@@ -18,6 +18,7 @@ import type { Tactica } from './tipos';
 import {
   STOP_GASTO_MIN, STOP_DIAS_MIN, CALIDAD_LEADS_MIN, CALIDAD_TASA_CUENTA_MIN, BAJAR_COSTO_MIN, BAJAR_PCT, APAGAR_COSTO_MIN,
   SURF_COSTO_MAX, SURF_RESULTADOS_MIN, SURF_SALTO_MAX_PCT, REVIVE_COSTO_MAX, GANADOR_RESULTADOS_MIN,
+  RELEVO_DIAS_MIN, RELEVO_RESULTADOS_MIN, RELEVO_MARGEN_PCT,
 } from './motor';
 
 /** Las tácticas que se configuran (estado, umbrales, campañas). `manual` es de una persona y `hasta`, la fecha de fin que puso ella. */
@@ -81,9 +82,13 @@ export const TACTICAS: Record<TacticaAuto, DefTactica> = {
   },
   ganador: {
     nombre: 'Ganador', icono: '🏆', nivel: 'Anuncio',
-    que: 'Escribe variaciones de texto o de hook del anuncio que mejor convierte.',
+    que: 'Escribe variaciones de texto, de botón o de hook del anuncio que mejor convierte, y pausa el original cuando una le gana.',
     parametros: [
       { id: 'resultados', nombre: 'Resultados en 7 días como mínimo', unidad: 'cantidad', recomendado: GANADOR_RESULTADOS_MIN, min: 1, max: 20 },
+      // El Relevo (motor.ts): pausar el original cuando su variación le gana.
+      { id: 'relevoDias', nombre: 'Pausar el original: días de la variación como mínimo', unidad: 'días', recomendado: RELEVO_DIAS_MIN, min: 7, max: 30 },
+      { id: 'relevoResultados', nombre: 'Pausar el original: resultados de la variación como mínimo', unidad: 'cantidad', recomendado: RELEVO_RESULTADOS_MIN, min: 1, max: 30 },
+      { id: 'relevoMargenPct', nombre: 'Pausar el original: la variación tiene que costar menos, en %', unidad: '%', recomendado: RELEVO_MARGEN_PCT, min: 5, max: 80 },
     ],
   },
 };

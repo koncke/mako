@@ -3371,4 +3371,18 @@ FEEDBACK PROBAR:
     ],
     revisar: "/whatsapp",
   },
+  {
+    fecha: "6 nov", hora: "12:30", chat: "Barrido de pendientes (nube)", sesion: "cli_908aa36b-adb2-556c-b042-b48962ca685a", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Responder» con el clic derecho en el chat de Automations",
+    puntos: [
+      "En el chat con MaKo de una automatización, el clic derecho sobre un mensaje ahora ofrece «Responder»: la cita queda arriba de la caja y sale con lo que escribas.",
+      "Lo citado no se toma como un pedido nuevo: citar «archiva la automatización» y escribir «mejor no» ya no la archiva.",
+    ],
+    archivos: [
+      "app/automations/ChatMako.tsx y app/automations/ChatMakoVista.tsx — useCitaDelChat y separarCita",
+      "tests/chats-responder-clic-derecho.test.ts — probado rompiéndolo (3 roturas, 1 fallo cada una)",
+    ],
+    revisar: "/automations",
+  },
 ];
