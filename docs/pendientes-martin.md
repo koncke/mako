@@ -17,6 +17,27 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — 1 de 5 revisada
+
+El relevo del 6/11 las dejó pedidas: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails`
+(25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6), `punta/nada-por-detras` (2cb406043) y
+`punta/github-minutos` (f7c2f57da).
+
+**✅ `punta/dashboards-edicion` — REVISADA el 6/11 en producción, está bien.** Martín había preguntado
+por esto («que los dashboards sean editables, sean utilizables»).
+- En la computadora el editor está completo: deshacer y rehacer, **Añadir datos**, **Bloques**,
+  **Añadir un gráfico**, texto, enlaces y formas, vistas por dispositivo, y **Personalización**.
+  El botón alterna «Editar» / «Ver», como corresponde.
+- En el teléfono el tablero se ve entero —las hojas, el gráfico de leads por día, los números de los
+  últimos 30 días y las otras hojas— y **dice que editar es en la computadora**, en vez de ofrecer un
+  editor que ahí no se puede usar. Es la decisión correcta y está escrita en la pantalla.
+- ⚠️ **Lo que NO probé, a propósito:** que GUARDAR un cambio persista. Eso escribe en el tablero real
+  de Martín en producción, y no se toca su tablero para probar. Lo prueba él, o se hace en el ws 3.
+
+**Faltan cuatro**: copilot-feedback, carruseles-thumbnails, nada-por-detras y github-minutos.
+
+---
+
 ## 📋 LA LISTA COMPLETA, BARRIDA EL 6/11/2026 → [pendientes-todo-6-11.md](pendientes-todo-6-11.md)
 
 Martín la pidió entera («no solamente de lo que se hizo en la última sesión»). Siete agentes leyeron
