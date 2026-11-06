@@ -36,6 +36,37 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 - ⚠️ **`duplicadosDeLead` se traga la falla de la consulta del @** (la deja en el log y sigue): con esa consulta caída, «ya
   está» se lee como «no está» y se puede crear uno repetido. Es lo mismo que pasa en el alta a mano; la de LinkedIn sí tira.
 - Pasa por `frenarAltaPorTope(ws, 'crm.leads')`: es un alta a mano.
+## Migrar desde otro CRM: quietos, sin repetir y en su etapa (6/11/2026, nube)
+
+La promesa a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md): pasar los contactos de su CRM anterior por la API, con
+su Claude, guardando de dónde vino cada uno y sin escribirle a nadie de golpe. Es la operación `migrar_contactos`
+(`POST /api/v1/crm/migraciones`), la regla en `lib/migracion-leads.ts` y la mig 0405. Relevo: [relevo/nube-thiago-migrar.md](relevo/nube-thiago-migrar.md).
+
+- **«`createLead` acepta UTM» ya era cierto y no alcanzaba: el camino que usa Claude las tiraba.** `proponer_leads` guardaba
+  las UTM en la propuesta y `crearLeadsDePropuesta` (lib/api-mako/flujo.ts), que la aplica en el acto con un token detallado,
+  creaba el lead con cinco campos. Medido leyendo el camino entero, no la función. Arreglado; lo cubre tests/migrar-contactos.test.ts.
+  **Vive en:** `lib/api-mako/flujo.ts`, `lib/api-mako/flujo-params.ts`.
+- **«Quietos» no se consigue con `quedaDondeLoPusieron`.** Ésa saca al lead del CRM automático y de los barridos que no cuelgan
+  de nada, y deja pasar a propósito lo que cuelga de su etapa o de su etiqueta: un traído de un grupo nace en una etapa que no
+  manda, y esa guarda vive en el alta. Un migrado nace en la etapa que tenía allá, que puede tener una automatización colgada:
+  el barrido de la hora («Un Lead Entró» incluido) lo inscribía en la próxima vuelta. La puerta es `sinMigrados`, en
+  `leadsDeCohorte` (lib/nutricion.ts): UNA para todas las cohortes, así el próximo disparador la hereda. Entra a una
+  automatización sólo por el evento de un hecho nuevo (moverlo a mano, una reserva, una etiqueta, que conteste).
+  **Vive en:** `lib/nutricion.ts`, `app/crm/origen-lead.ts`.
+- **Nace en su etapa; no se mueve después.** Mover en bloque (`pasar_en_bloque_otra_columna`) dispara el evento de etapa de
+  cada lead, y ése SÍ inscribe. Por eso la etapa viaja en el alta (`pipeline_stage`) y la guía le pide a Claude que no mueva ni
+  etiquete a los migrados.
+- **Sólo a una etapa abierta.** «Ganado» lo vuelve venta con la fecha de HOY (los paneles contarían una venta que no pasó hoy)
+  y cliente de Customer Success. Los ganados y perdidos vuelven en `descartados`: **lo decide Martín** (ver el relevo).
+- **El id del CRM viejo es un hecho, no una sospecha.** Va ANTES del chequeo de duplicados y no lo apaga `permitirDuplicado`.
+  El mismo id de OTRO CRM viejo es otra persona (`migrado_de` en el índice único). El que ya estaba por email o teléfono se
+  ADOPTA: se le anota su id y no se mueve ni se aquieta (ya es un lead vivo).
+- **Un alta con varios campos nuevos rompe tests que fijan la forma EXACTA de una fila** (tests/flujo-acciones.test.ts): se
+  actualiza el test con un caso que traiga el campo, no sólo con la forma nueva.
+- ⚠️ **Sin hacer, y es de Martín:** `created_at` sigue siendo cuándo entró a MaKo, así que los paneles cuentan un migrado el día
+  que se migró (5.000 «leads nuevos» hoy). Se guarda `fecha_original`; contarlo en su fecha es `coalesce(fecha_original,
+  created_at)` en los lectores de leads por período. Y un lead migrado que se manda a la papelera y se vuelve a migrar choca
+  con el índice único al restaurarlo.
 
 ## «Grabar» la llamada desde la ficha: lo que el navegador deja grabar y lo que no (4/11/2026, nube)
 
@@ -11889,3 +11920,17 @@ un bloque llegaba a 12 botones porque cada ancho era uno. Lo que se hizo es esco
   dónde caer.
 
 **Vive en:** app/crm/lead-view/ficha/Armador.tsx, app/crm/lead-view/ficha/armar.ts. Lo fija tests/ficha-barra-mas.test.ts.
+
+## La foto que no carga, el nombre cortado y las flechas sin texto (C1, C2 y C4 del recorrido; 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **C1, la foto rota:** el `onError` de un `<img>` NO se dispara si la imagen falló ANTES de hidratar (el HTML del server ya la
+  pidió): la tarjeta quedaba con el ícono roto para siempre. Al montar se mira `fotoQueNoCargo(img)` (`complete &&
+  naturalWidth === 0`, lib/tarjeta-kanban.ts) y cae a las iniciales. Vale para toda foto que dibuje el server.
+- **C2, el nombre:** dos renglones (`-webkit-line-clamp: 2`, `overflow-wrap: anywhere`) y `title`: el teléfono de un lead sin
+  nombre se lee entero.
+- **C4, las flechas:** el renglón de flechas del menú contextual (`enLinea`) lleva su rótulo con `conRotulo`: «Mover la etapa»,
+  y «Mover la hoja» en la ficha. Dos flechas solas no dicen qué mueven.
+- **La difusión** (pedido de Leila del 5/11): el modal rediseñado (`6bf0a40a8`) está en main desde el 2/11 y el CRM lo monta. Si
+  ella vio la cara vieja, producción no lo tenía todavía.
+
+**Vive en:** lib/tarjeta-kanban.ts, app/_ui/TarjetaKanban.tsx, app/_ui/MenuContextual.tsx, app/crm/menu-contextual-crm.ts, tests/recorrido-crm-tarjeta.test.ts

@@ -52,11 +52,13 @@ const TEXTO_PERMISO: Record<'lectura' | 'escritura', string> = { lectura: 'Lectu
  */
 let recienAcunado: { id: string; token: string } | null = null;
 
-export function Tokens({ tokens, vista, indice, workspace }: {
+export function Tokens({ tokens, vista, indice, workspace, agencia = false }: {
   tokens: TokensDelWorkspace | null;
   vista: VistaTokens;
   indice: AreaDocs[];
   workspace: string;
+  /** ¿Esta cuenta es una agencia? Entonces el propietario puede ser toda su cartera (el token de agencia). */
+  agencia?: boolean;
 }) {
   const router = useRouter();
   const [nuevo, setNuevoEstado] = useState<{ id: string; token: string } | null>(() => recienAcunado);
@@ -94,7 +96,7 @@ export function Tokens({ tokens, vista, indice, workspace }: {
   let cuerpo: ReactNode;
   if (vista.v === 'nuevo') {
     cuerpo = (
-      <FormToken modo="nuevo" indice={indice} workspace={workspace}
+      <FormToken modo="nuevo" indice={indice} workspace={workspace} agencia={agencia}
         onListo={(r) => { setNuevo({ id: r.publico.id, token: r.token }); ir(T); }} onCancelar={() => ir(T)} />
     );
   } else if (vista.v === 'clasicos') {
@@ -196,6 +198,7 @@ function Lista({ tokens, nuevo, onEliminar }: { tokens: TokenPublico[]; nuevo: {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 240px', minWidth: 0 }}>
                       <Link href={hrefToken(t.id)} style={{ fontWeight: 600 }}>{t.nombre}</Link>
+                      {t.cartera && <span className="gh-label" style={{ marginLeft: 8 }}>Agencia</span>}
                       <span style={{ marginLeft: 8, color: 'var(--gh-fg-muted)', fontSize: 12 }}>{resumenPermisos(t.permisos)}</span>
                     </div>
                     <span style={{ color: 'var(--gh-fg-muted)', fontSize: 12 }}>{ultimoUso(t.ultimoUso)}</span>
@@ -230,11 +233,12 @@ function vencimientoTexto(op: OpcionExpiracion, fecha: string): string {
   return `El token vencerá el ${fechaLarga(Date.now() + Number(op) * 86_400_000)}.`;
 }
 
-function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
+function FormToken({ modo, token, indice, workspace, agencia = false, onListo, onCancelar }: {
   modo: 'nuevo' | 'editar';
   token?: TokenPublico;
   indice: AreaDocs[];
   workspace: string;
+  agencia?: boolean;
   onListo: (r: { token: string; publico: TokenPublico }) => void;
   onCancelar: () => void;
 }) {
@@ -243,6 +247,8 @@ function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
   const [expiracion, setExpiracion] = useState<OpcionExpiracion>(EXPIRACION_POR_DEFECTO);
   const [fecha, setFecha] = useState('');
   const [permisos, setPermisos] = useState<Permisos>(token?.permisos ?? {});
+  // El propietario, como en GitHub (tú o una organización): esta cuenta, o TODOS los clientes de la agencia.
+  const [cartera, setCartera] = useState(token?.cartera === true);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -257,7 +263,7 @@ function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
     setEnviando(true);
     try {
       if (modo === 'nuevo') {
-        const r = await crearTokenApi({ nombre, descripcion, permisos: permisos as Record<string, string>, expiracion, fecha });
+        const r = await crearTokenApi({ nombre, descripcion, permisos: permisos as Record<string, string>, expiracion, fecha, cartera });
         if ('error' in r) { setError(r.error); return; }
         onListo(r);
       } else if (token) {
@@ -316,10 +322,16 @@ function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
 
       <div className="gh-form-group">
         <span className="gh-form-label">Propietario del recurso</span>
-        <select className="gh-form-control" style={{ width: 280 }} disabled value="ws" aria-label="Propietario del recurso">
+        <select className="gh-form-control" style={{ width: 320 }} disabled={modo !== 'nuevo' || !agencia} value={cartera ? 'cartera' : 'ws'}
+          aria-label="Propietario del recurso" onChange={(e) => setCartera(e.target.value === 'cartera')}>
           <option value="ws">{workspace}</option>
+          {(agencia || cartera) && <option value="cartera">Todos los clientes de {workspace}</option>}
         </select>
-        <p className="gh-note">Un token es de un solo workspace: el que estás mirando.</p>
+        <p className="gh-note">
+          {cartera
+            ? <>Vale para cada cliente aprobado de tu agencia, nunca para tu cuenta. Cada pedido dice a qué cliente va con el header <code>X-MaKo-Cliente</code>.</>
+            : 'Un token es de un solo workspace: el que estás mirando.'}
+        </p>
       </div>
 
       <h3 style={{ fontSize: 20, fontWeight: 400, margin: '32px 0 4px' }}>Permisos</h3>
@@ -371,7 +383,7 @@ function FormToken({ modo, token, indice, workspace, onListo, onCancelar }: {
         <div style={{ padding: 16 }}>
           {elegidos.length ? (
             <>
-              <p style={{ marginBottom: 8 }}><strong>{elegidos.length} {elegidos.length === 1 ? 'permiso' : 'permisos'}</strong> sobre «{workspace}»:</p>
+              <p style={{ marginBottom: 8 }}><strong>{elegidos.length} {elegidos.length === 1 ? 'permiso' : 'permisos'}</strong> sobre {cartera ? `cada cliente de «${workspace}»` : `«${workspace}»`}:</p>
               <ul style={{ margin: 0, paddingLeft: '1.5em' }}>
                 {elegidos.map(([a, n]) => <li key={a}>{TEXTO_PERMISO[n]} en «{titulo(a)}»</li>)}
               </ul>
@@ -409,7 +421,7 @@ function Detalle({ t, indice, workspace, onEliminar }: { t: TokenPublico; indice
         <dt style={{ color: 'var(--gh-fg-muted)' }}>Vencimiento</dt><dd style={{ margin: 0 }}><Vence t={t} /></dd>
         <dt style={{ color: 'var(--gh-fg-muted)' }}>Último uso</dt><dd style={{ margin: 0 }}>{ultimoUso(t.ultimoUso)} · <Link href={`/api-mako?tab=registro&token=${encodeURIComponent(t.id)}`}>Ver en el registro</Link></dd>
         <dt style={{ color: 'var(--gh-fg-muted)' }}>Token</dt><dd style={{ margin: 0 }}><code>{t.pista}</code></dd>
-        <dt style={{ color: 'var(--gh-fg-muted)' }}>Propietario</dt><dd style={{ margin: 0 }}>{workspace}</dd>
+        <dt style={{ color: 'var(--gh-fg-muted)' }}>Propietario</dt><dd style={{ margin: 0 }}>{t.cartera ? `Todos los clientes de ${workspace}` : workspace}</dd>
       </dl>
       {t.descripcion && <p style={{ whiteSpace: 'pre-line' }}>{t.descripcion}</p>}
 

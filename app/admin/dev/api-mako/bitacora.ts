@@ -543,4 +543,21 @@ export const BITACORA: Hito[] = [
     revisar: '/integraciones',
     tickets: [41],
   },
+  {
+    fecha: '06 nov', hora: '05:28', chat: 'Thiago: migrar', sesion: 'cli_91316e17-68c8-5ad6-b41d-9daaf694e7b4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Token de agencia: uno para todos los clientes, y nunca llega a uno ajeno',
+    pedido: '4. Token de agencia: un token que sirva para toda su cartera (hoy se acuña por cuenta en `lib/api-mako/tokens-creador.ts`), para que no migre 27 clientes de a uno. Es lo más delicado: cada pedido dice a qué cliente va, y nunca alcanza a uno que no sea de esa agencia.',
+    puntos: [
+      '**En API → Tokens, una agencia elige como propietario «Todos los clientes de la agencia»** y sale un token que empieza con mako_agt_.',
+      '**Cada pedido dice a qué cliente va** con el encabezado X-MaKo-Cliente. MaKo mira en cada pedido que siga siendo agencia y que el cliente esté aprobado en su cartera.',
+      '**Nunca llega a un cliente que no es suyo** (contesta 404), ni a la cuenta de la agencia. Sin cliente, contesta con la lista de sus clientes.',
+      '**La guía «Migrar tu CRM con Claude»** está en API → Documentación, la primera de «Guías», con su parte para agencias.',
+    ],
+    archivos: [
+      'lib/api-mako/tokens-cartera.ts — la regla · tokens-cartera-server.ts — las lecturas estrictas · http.ts — el corte en autenticar',
+      'app/api-mako/Tokens.tsx — el propietario · app/api-mako/Articulos.tsx — la guía',
+      'tests/api-mako-token-agencia.test.ts — dos agencias, sobre crearToken y autenticar reales · tests/api-mako-migrar-crm-guia.test.ts',
+    ],
+    revisar: '/api-mako?tab=tokens&v=nuevo',
+  },
 ];

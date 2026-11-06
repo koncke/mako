@@ -21,6 +21,7 @@ import { tarjetasDe, type JsonNodo, type LandingContenido } from './doc';
 import { DISENOS_LANDING } from './disenos-landing';
 import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from './replicar-reglas';
 import type { GrupoTema } from './temas';
+import { formaFija } from './api-tipos';
 import { MAX_LANDINGS_BLOQUE, type BloqueDominio, type BloqueElegir, type BloqueLanding, type BloqueLandings, type BloquePublicada, type EstadoLanding, type FilaDns } from './bloques-web';
 
 export type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, BloquePublicada, EstadoLanding, FilaDns, OpcionBloque } from './bloques-web';
@@ -66,7 +67,7 @@ export function bloqueLanding(d: LandingParaBloque, url: string | null, nota?: s
     formato: presentacion ? 'presentacion' : 'landing',
     estado,
     url: estado === 'borrador' ? null : url,
-    miniatura: { tarjeta: d.primera, tema: d.tema, proporcion: presentacion ? (d.proporcion === '4:3' ? '4:3' : '16:9') : null },
+    miniatura: { tarjeta: d.primera, tema: d.tema, proporcion: presentacion ? formaFija(d.proporcion) : null },
     ...(nota ? { nota } : {}),
     abrir: { titulo: 'Abrir en el editor', href: rutaEditor(d.id) },
   };

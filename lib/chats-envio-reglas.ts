@@ -132,3 +132,17 @@ export function esEnvioIncierto(error: string | null | undefined): boolean {
   if (/ECONNREFUSED|ENOTFOUND|EAI_AGAIN/i.test(e)) return false;
   return /abort|time ?out|timed out|tiempo de espera|fetch failed|ECONNRESET|socket hang up|other side closed|UND_ERR_SOCKET|terminated/i.test(e);
 }
+
+/**
+ * Tras un envío de un borrador de WhatsApp que FALLÓ (`enviarBorrador`, lib/evolution-envio.ts): ¿a qué estado vuelve?
+ * «pendiente» si seguro no salió (se puede mandar otra vez), «incierto» si pudo haber salido (un corte por tiempo, la
+ * conexión caída a mitad). Hasta el 06/11/2026 volvía siempre a «pendiente», y el próximo «Enviar» —o el envío solo de
+ * MaKo— podía mandarle el mismo mensaje dos veces al lead (docs/hallazgos-comunicacion.md, la tercera revisión del 21/10).
+ * Un «incierto» no se lista en la bandeja ni frena el flujo, como un descartado.
+ */
+export function estadoTrasFallarEnvio(error: string | null | undefined): 'pendiente' | 'incierto' {
+  return esEnvioIncierto(error) ? 'incierto' : 'pendiente';
+}
+
+/** Lo que se le dice a quien mandó un borrador que quedó «incierto». */
+export const TEXTO_BORRADOR_INCIERTO = 'WhatsApp no contestó a tiempo y no sé si salió. Mira el chat antes de mandarlo otra vez: si no llegó, escríbelo desde ahí.';

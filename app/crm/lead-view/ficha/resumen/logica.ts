@@ -315,6 +315,7 @@ export function canalDeEntrada(origen: string | null | undefined): { texto: stri
     case 'stripe': return { texto: 'Compró por un link de pago de Stripe', tono: 'good' };
     case 'perfil_instagram': return { texto: 'Lo guardaste desde su perfil de Instagram', tono: 'dim' };
     case 'perfil_linkedin': return { texto: 'Lo guardaste desde su perfil de LinkedIn', tono: 'dim' };
+    case 'migracion': return { texto: 'Migrado de otro CRM', tono: 'dim' };
     default: return { texto: 'Sin dato de origen', tono: 'dim' };
   }
 }

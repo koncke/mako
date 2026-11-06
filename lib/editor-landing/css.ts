@@ -733,12 +733,15 @@ function diapo(resto: string, prop = FIJA, raiz = ''): string[] {
 const GUIA = D + '[data-modo="editor"][data-formato="presentacion"]';
 
 const PRESENTACION: string[] = [
-  '/* ── 15b. Presentaciones: la diapositiva (16:9 · 4:3) y la guía de desbordamiento ── */',
+  '/* ── 15b. Presentaciones: la diapositiva (16:9 · 4:3 · 4:5) y la guía de desbordamiento ── */',
   r(diapo(' .gm-pagina'), 'font-size: var(--gm-base, min(18px, calc(100vw / 68.5)));'),
   r(diapo(' .gm-tarjeta'), 'width: min(64.5em, calc(100% - 4em)); min-height: auto; margin-top: 3.5em; aspect-ratio: 16 / 9; --gm-radio-tarjeta: inherit; --gm-tarjeta-borde: inherit; --gm-tarjeta-sombra: inherit;'),
   r(diapo(' .gm-tarjeta', '[data-proporcion="4:3"]'), 'aspect-ratio: 4 / 3;'),
+  // 4:5, un carrusel (6/11/2026): más angosta (ANCHO_DIAPO_EM de api-tipos.ts), o con el ancho de una 16:9 mide 80 em de alto.
+  // Pesa lo mismo que la de arriba; la de la miniatura (abajo, con `data-modo`) pesa más y le gana con el 100 %.
+  r(diapo(' .gm-tarjeta', '[data-proporcion="4:5"]'), 'width: min(43em, calc(100% - 4em)); aspect-ratio: 4 / 5;'),
   // La imagen de acento arriba no se come media diapositiva de 16:9 (en 4:3 queda la de siempre).
-  r(diapo(' .gm-tarjeta[data-diseno="arriba"] > .gm-acento', ':not([data-proporcion="fluido"]):not([data-proporcion="4:3"])'), 'height: 13.5em;'),
+  r(diapo(' .gm-tarjeta[data-diseno="arriba"] > .gm-acento', ':not([data-proporcion="fluido"]):not([data-proporcion="4:3"]):not([data-proporcion="4:5"])'), 'height: 13.5em;'),
   // Una miniatura de una diapositiva: el cuadro entero, con la forma de la diapositiva.
   r(diapo(' .gm-tarjeta', FIJA, '[data-modo="miniatura"]'), 'width: 100%; margin: 0;'),
   // La guía de desbordamiento (sólo en el editor; ver arriba por qué no se ve si todo entra).
@@ -747,6 +750,7 @@ const PRESENTACION: string[] = [
   r(GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::before', 'border-bottom: 200em solid rgba(229, 72, 77, 0.07);'),
   r(GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::after', 'top: 1px; border-bottom: 2px dashed rgba(229, 72, 77, 0.85);'),
   r([GUIA + '[data-proporcion="4:3"] .gm-tarjeta > .gm-tarjeta-fondo::before', GUIA + '[data-proporcion="4:3"] .gm-tarjeta > .gm-tarjeta-fondo::after'], 'aspect-ratio: 4 / 3;'),
+  r([GUIA + '[data-proporcion="4:5"] .gm-tarjeta > .gm-tarjeta-fondo::before', GUIA + '[data-proporcion="4:5"] .gm-tarjeta > .gm-tarjeta-fondo::after'], 'aspect-ratio: 4 / 5;'),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

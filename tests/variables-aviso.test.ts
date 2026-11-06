@@ -200,9 +200,11 @@ test('⚠️ Y el camino CON modelo sustituye ANTES, en los TRES retornos', () =
   const cuerpo = src.slice(src.indexOf('export async function generarMensajeAviso'));
   assert.match(cuerpo, /const ref = ws == null \? refCruda : await conVariables\(refCruda/,
     'la sustitución dejó de cubrir los tres retornos');
-  // Los tres retornos siguen saliendo de `ref`, que es el ya resuelto.
-  assert.match(cuerpo, /out\.trim\(\) \|\| ref/);
-  assert.match(cuerpo, /return ref;/);
+  // Los dos retornos sin modelo salen de `sinIA`, que se arma con `ref` (el ya resuelto) — desde el 06/11/2026 nunca con el
+  // ejemplo de fábrica (lib/aviso-sin-ia.ts, tests/aviso-sin-ia.test.ts).
+  assert.match(cuerpo, /textoSinIA\(\{ referencia: refCruda, resuelta: ref,/);
+  assert.match(cuerpo, /out\.trim\(\) \|\| sinIA/);
+  assert.match(cuerpo, /return sinIA;/);
 });
 
 // ── El catálogo extenso del CRM (04/10/2026) ────────────────────────────────

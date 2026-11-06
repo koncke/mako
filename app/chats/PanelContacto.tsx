@@ -78,7 +78,9 @@ export function PanelContacto({
   onAbrirFicha: (leadId: number) => void;
   onCambio: () => void;
 }) {
-  if (!abierto) return null;
+  // Sin chat elegido, el panel no se dibuja (recorrido visual del 30/10/2026, CH2): el centro ya dice «Elige un chat de la
+  // lista.», y dos paneles vacíos diciendo lo mismo se leían como una pantalla rota. Se vuelve a abrir con el chat.
+  if (!abierto || !chat) return null;
   return (
     <aside className="rio-drawer" aria-label={pestana === 'contacto' ? 'Contacto' : 'Actividad'}>
       <header className="rio-cab">
@@ -88,9 +90,7 @@ export function PanelContacto({
         </div>
         <button type="button" className="rio-icono-btn" onClick={onCerrar} title="Cerrar panel" aria-label="Cerrar panel"><PanelRightClose size={20} strokeWidth={1.5} /></button>
       </header>
-      {!chat ? (
-        <div className="rio-vacio">Elige un chat.</div>
-      ) : pestana === 'contacto' ? (
+      {pestana === 'contacto' ? (
         <Contacto key={chat.clave} ws={ws} chat={chat} etapas={etapas} version={version} onAbrirFicha={onAbrirFicha} />
       ) : (
         <Actividad key={chat.clave} ws={ws} chat={chat} equipo={equipo} version={version} onCambio={onCambio} />

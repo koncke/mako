@@ -73,6 +73,12 @@ export type ItemMenuContextual = {
   vacio?: string;
   /** Una LÍNEA de botones sin rótulo: cada uno se anuncia por su `label`. El `id` de afuera es sólo la key. */
   enLinea?: ReadonlyArray<ItemMenuContextual>;
+  /**
+   * Con `enLinea`: el `label` del grupo se LEE a la izquierda y los botones van chicos a la derecha («Mover la etapa  ← →»).
+   * Recorrido visual del 30/10/2026 (C4): dos flechas sueltas sin texto no dicen qué mueven. Sin esto, la línea es sólo de
+   * botones (las reacciones de un mensaje, donde el emoji ya se lee).
+   */
+  conRotulo?: boolean;
   /** El título de la SECCIÓN que empieza en este renglón (22/10/2026, el «⋯» de una columna del CRM: «Ya no se entienden si
    *  son tantas, ponlas en secciones»): una raya arriba, si no es el primero, y el título chico. */
   seccion?: string;
@@ -190,13 +196,15 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
         if (it.enLinea?.length) {
           return (
             <Fragment key={it.id}>{titulo(it, k)}
-            <div role="group" aria-label={it.label} style={{ display: 'flex', gap: 4 }}
+            <div role="group" aria-label={it.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}
               onMouseEnter={(e) => onEncima?.(it, e.currentTarget)}>
+              {/* El rótulo arranca donde arranca el texto de los otros renglones (el lugar del ícono: 18 + 10 de aire). */}
+              {it.conRotulo && <span aria-hidden style={{ ...RENGLON, flex: 1, minWidth: 0, paddingLeft: 38, cursor: 'default', color: 'var(--ink)' }}>{it.label}</span>}
               {it.enLinea.map((b) => (
                 <button key={b.id} type="button" role="menuitem" className="mk-mctx__item" disabled={b.deshabilitado}
                   title={b.label} aria-label={b.label}
                   onClick={() => onElegir(b, padre)}
-                  style={{ ...RENGLON, flex: 1, justifyContent: 'center', height: 34, padding: 0, color: 'var(--dim)', opacity: b.deshabilitado ? 0.45 : 1, cursor: b.deshabilitado ? 'default' : 'pointer' }}>
+                  style={{ ...RENGLON, flex: it.conRotulo ? 'none' : 1, width: it.conRotulo ? 34 : undefined, justifyContent: 'center', height: 34, padding: 0, color: 'var(--dim)', opacity: b.deshabilitado ? 0.45 : 1, cursor: b.deshabilitado ? 'default' : 'pointer' }}>
                   <Marca it={b} />
                 </button>
               ))}

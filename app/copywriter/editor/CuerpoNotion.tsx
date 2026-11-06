@@ -29,11 +29,12 @@ import { es } from '@blocknote/core/locales';
 import {
   BasicTextStyleButton, BlockTypeSelect, CreateLinkButton, DragHandleMenu, FormattingToolbar, FormattingToolbarController,
   RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, TableRowHeaderItem, useBlockNoteEditor,
-  useComponentsContext, useCreateBlockNote, useExtensionState, type DefaultReactSuggestionItem,
+  useComponentsContext, useCreateBlockNote, useExtensionState, type DefaultReactSuggestionItem, type SideMenuProps,
 } from '@blocknote/react';
 import { getDefaultReactSlashMenuItems } from '@blocknote/react';
 import { BlockNoteView, type Theme } from '@blocknote/mantine';
 import { nombreDeSeccion } from '@/lib/copywriter/doc';
+import { seccionDe, type BloqueArrastre } from '@/lib/copywriter/seccion-arrastre';
 import { aBloques, deBloques, TIPOS_BN, type BloqueBN, type Secciones } from '@/lib/copywriter/notion-bloques';
 import type { JsonNodo } from '@/lib/copywriter/tipos';
 import { buscarBloquesCopy, catalogoCopy, type DefBloqueCopy } from './bloques';
@@ -188,7 +189,7 @@ export function CuerpoNotion(p: PropsCuerpo) {
         slashMenu={false} formattingToolbar={false} sideMenu={false} emojiPicker={false}>
         <SuggestionMenuController triggerCharacter="/" getItems={itemsDelMenu} />
         <FormattingToolbarController formattingToolbar={() => <BarraSeleccion conMako={p.conMako} onMako={(t) => vivo.current.onMako?.(t)} />} />
-        {!p.movil && <SideMenuController sideMenu={(s) => <SideMenu {...s} dragHandleMenu={MenuDelAsa} />} />}
+        {!p.movil && <SideMenuController sideMenu={(s) => <MenuLateral {...s} dragHandleMenu={MenuDelAsa} />} />}
       </BlockNoteView>
     </div>
   );
@@ -232,6 +233,24 @@ function BarraSeleccion({ conMako, onMako }: { conMako: boolean; onMako: (selecc
       <CreateLinkButton key="enlace" />
     </FormattingToolbar>
   );
+}
+
+/**
+ * El menú lateral (el «+» y el asa ⋮⋮), con UNA diferencia: arrastrar un TÍTULO se lleva su sección, lo que tiene debajo
+ * hasta el próximo título de su nivel (llamada con Leila del 5/11: «arrastrar un bloque deja su contenido atrás»). Antes
+ * del arrastre de BlockNote (en captura, así corre primero) se selecciona la sección; BlockNote mueve la selección entera
+ * cuando abarca varios bloques. La regla es pura: lib/copywriter/seccion-arrastre.ts.
+ */
+function MenuLateral(p: SideMenuProps) {
+  const editor = useBlockNoteEditor(esquemaCopy);
+  const elegido = useExtensionState(SideMenuExtension, { editor, selector: (s) => s?.block });
+  const alEmpezar = () => {
+    if (!elegido) return;
+    const tramo = seccionDe(editor.document as unknown as BloqueArrastre[], elegido.id);
+    // Si la selección no se puede armar, el arrastre sigue como siempre (el título solo): nunca se corta el gesto.
+    if (tramo) { try { editor.setSelection(tramo.desde, tramo.hasta); } catch { /* el título solo */ } }
+  };
+  return <div style={{ display: 'contents' }} onDragStartCapture={alEmpezar}><SideMenu {...p} /></div>;
 }
 
 /** El menú del asa ⋮⋮ (Notion): Eliminar · Duplicar, y en una tabla la fila de encabezado. */

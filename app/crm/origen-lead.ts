@@ -58,7 +58,10 @@ export type OrigenLeadId =
   // Thiago): alguien abrió el perfil y lo eligió, así que es una carga a mano, no alguien que llegó solo (`instagram` es «escribió
   // por Instagram»). Lo escribe lib/perfil-captura-db.ts.
   | 'perfil_instagram'
-  | 'perfil_linkedin';
+  | 'perfil_linkedin'
+  // ⚠️ Y EL DE LA MIGRACIÓN (6/11/2026, la agencia de Thiago), que también MANDA: ver `quedaDondeLoPusieron`. Lo escribe
+  // `migrar_leads` (lib/api-mako/areas/crm.run.ts, lib/migracion-leads.ts).
+  | 'migracion';
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -92,6 +95,7 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   stripe: { id: 'stripe', lista: 'Stripe' },
   perfil_instagram: { id: 'perfil_instagram', lista: 'Perfil de Instagram' },
   perfil_linkedin: { id: 'perfil_linkedin', lista: 'Perfil de LinkedIn' },
+  migracion: { id: 'migracion', lista: 'Migrado de otro CRM' },
 };
 
 /**
@@ -100,9 +104,13 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
  * toman los barridos que mandan sin que nadie los cuelgue de nada (`reactivacion_viejo`, `ultimo_intento_antes_noresp`,
  * lib/nutricion.ts). Nadie los invitó a esa conversación: a un grupo se entra por otra cosa.
  * Lo que alguien hace A PROPÓSITO sí corre: moverlo a mano, o colgarle una automatización a su etapa o a su etiqueta.
+ *
+ * ⚠️ Y LOS MIGRADOS DE OTRO CRM, también (6/11/2026, la agencia de Thiago: miles de contactos de golpe). Para ellos hay una
+ * puerta MÁS fuerte: el barrido de la hora de las automatizaciones nunca los toma, ni colgados de su etapa ni de su etiqueta
+ * (`sinMigrados`, lib/nutricion.ts). Entran sólo por un hecho nuevo, por el evento de siempre.
  */
 export function quedaDondeLoPusieron(origen: string | null | undefined): boolean {
-  return origen === ORIGEN_LEAD.grupo_whatsapp.id;
+  return origen === ORIGEN_LEAD.grupo_whatsapp.id || origen === ORIGEN_LEAD.migracion.id;
 }
 
 /**

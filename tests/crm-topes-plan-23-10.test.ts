@@ -62,9 +62,14 @@ test('lo que entra solo nunca se pierde: el freno vive en las altas A MANO, no e
   assert.doesNotMatch(leer('lib/leads.ts'), /topes-crm|frenarAltaPorTope/);
   const conFreno = execFileSync('git', ['grep', '--untracked', '-l', 'frenarAltaPorTope', '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' }).trim().split('\n').sort();
   assert.deepEqual(conFreno, [
-    'app/crm/actions.ts', 'app/crm/nuevo-crm-actions.ts', 'lib/api-mako/areas/chats.run.ts', 'lib/api-mako/areas/crm.run.ts',
+    'app/crm/actions.ts', 'app/crm/nuevo-crm-actions.ts',
+    // (6/11/2026) Customer Success: el alta de un cliente y la de un alumno a mano, como la API (`crear_alumno_curso`).
+    'app/customer-success/actions.ts', 'app/customer-success/curso/invitar-actions.ts',
+    'lib/api-mako/areas/chats.run.ts', 'lib/api-mako/areas/crm.run.ts',
     // (23/10/2026) crear_alumno_curso: un alumno nuevo es un lead que se crea a mano por la API, como el alta del CRM.
     'lib/api-mako/areas/curso.run.ts',
+    // (6/11/2026) migrar_contactos: una migración la pide el dueño por la API, contacto por contacto; no entra sola.
+    'lib/migracion-leads-server.ts',
     // (6/11/2026) «Guardar en MaKo» de la extensión: una persona elige el perfil y toca «Guardar en mi CRM»; es un alta a mano.
     'lib/perfil-captura-db.ts',
     'lib/topes-crm.ts',
@@ -85,6 +90,22 @@ test('los frenos: el alta del tablero y la de WhatsApp, importar (las que se cre
   const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
   assert.match(run, /if \(tope && enElTope\(tope, 'crm\.funnels'\)\) return \{ error:/, 'MaKo no propone un CRM que va a fallar');
   assert.match(sinComentarios(leer('lib/api-mako/areas/chats.run.ts')), /if \(err instanceof TopeDelPlanError\) return \{ ok: false, resumen:/);
+});
+
+// Las dos altas a mano de Customer Success (6/11/2026). Probado rompiéndolo (base 7 / 0): sin el freno del
+// cliente → 6 / 1; el del alumno frenando también al usar uno que ya existe → 6 / 1.
+test('Customer Success frena el alta de un cliente y la de un alumno nuevo, antes de crear', () => {
+  const cs = sinComentarios(leer('app/customer-success/actions.ts'));
+  const cliente = cs.slice(cs.indexOf('export async function crearClienteAction('), cs.indexOf('export async function autoasignarAction('));
+  const iFreno = cliente.indexOf("await frenarAltaPorTope(wsAlta, 'crm.leads')");
+  assert.ok(iFreno > 0 && iFreno < cliente.indexOf('await crearClienteGanado('), 'el cliente se frena antes de crearse');
+  assert.match(cliente, /if \(e instanceof TopeDelPlanError\) return \{ ok: false, error: e\.message \};/);
+  const inv = sinComentarios(leer('app/customer-success/curso/invitar-actions.ts'));
+  const alumno = inv.slice(inv.indexOf('export async function invitarNuevoAlumnoAction('));
+  assert.match(alumno, /const reusa = Number\.isInteger\(datos\.usarLeadId\) && Number\(datos\.usarLeadId\) > 0;\n\s*if \(!reusa\) \{\n\s*try \{ await frenarAltaPorTope\(ws, 'crm\.leads'\); \}/, 'sólo frena al CREAR uno, con la condición de la lib');
+  // La misma condición que usa la lib para reusar (si cambia allá, cambia acá).
+  assert.match(sinComentarios(leer('lib/curso-alta-alumno.ts')), /Number\.isInteger\(usar\) && usar > 0/);
+  assert.ok(alumno.indexOf("frenarAltaPorTope(ws, 'crm.leads')") < alumno.indexOf('await darDeAltaAlumno('), 'antes del alta');
 });
 
 test('la pantalla: el cartel en el tablero y «Pasar a Pro» al lado del error, sin borrar ni esconder nada', () => {
