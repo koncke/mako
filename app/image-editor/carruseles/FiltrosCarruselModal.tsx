@@ -89,7 +89,7 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
                 <span className={s.etiqueta}>Láminas</span>
                 <Deslizador nombre="Las láminas" pasos={PASOS_LAMINAS} desde={lams[0]} hasta={lams[1]}
                   rotulo={(v, ultimo) => `${v}${ultimo ? '+' : ''}`}
-                  onCambio={(a, b) => poner({ lamMin: a === 0 ? 0 : PASOS_LAMINAS[a], lamMax: b === PASOS_LAMINAS.length - 1 ? 0 : PASOS_LAMINAS[b], largo: 'todos' })} />
+                  onCambio={(a, b) => poner({ lamMin: a === 0 ? 0 : PASOS_LAMINAS[a], lamMax: b === PASOS_LAMINAS.length - 1 ? 0 : PASOS_LAMINAS[b] })} />
               </div>
             )}
             <label className={s.campo}>

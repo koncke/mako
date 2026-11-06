@@ -259,6 +259,34 @@ comandos se trae en los dos. Lo cazó el `tsc` entero de la punta; el acotado de
 cinco veces, con 0,8 a 2,1 GB libres de los 3 que pide) y **el pre-push, cuando no tiene RAM, avisa y deja subir** a propósito.
 **O sea: un comando nuevo que no se puede correr no está probado hasta que la punta da verde.** No se da por hecho antes.
 
+## Dos formas de pedir lo mismo, con dos respuestas distintas: el filtro de largo (6/11/2026)
+
+**Síntoma:** no se veía. El explorador tenía DOS filtros de largo de carrusel —el desplegable viejo (`largo`: 2 a 4, 5 a 7, 8+)
+y el deslizador de láminas del modal «Filtros» (`lamMin`/`lamMax`)— y la pantalla ya sólo mostraba el deslizador. El viejo
+seguía vivo en el tipo, en la URL y en la búsqueda guardada.
+
+**Lo obvio era borrarlo, y estaba mal:** `?largo=cortos` está en links copiados y en búsquedas guardadas del negocio. Borrarlo
+de golpe hace que un link viejo cambie de resultado **en silencio** (pasa a no filtrar nada y muestra 912 en vez de 180).
+
+**Y el hallazgo que no se veía: los dos filtros NO respondían lo mismo.** `enLargo` hacía `if (c.laminas == null) return false`
+—o sea tiraba todo lo que no dice cuántas láminas tiene— y el deslizador lo deja («sin dato no es "no"», la entrada de acá
+abajo). Son **79 de 990** las piezas sin ese dato (8 %): `?largo=cortos` las escondía todas y el deslizador 2–4 las muestra.
+No era una duplicación inocente: eran dos reglas distintas con la misma cara.
+
+**La regla:** una sola fuente de verdad, el deslizador de láminas. `largo` queda como **alias de ENTRADA** y nada más
+(`ALIAS_LARGO_CARRUSEL` en `lib/carruseles/opciones.ts`): al leer la URL se traduce a `lamMin`/`lamMax` y desde ahí no existe
+más. Así el link viejo sigue dando un resultado sensato, con la regla buena, y no hay un segundo filtro con su propia lógica.
+Lo que diga el deslizador gana: el alias sólo entra si el link no trae `lmin` ni `lmax`. Una búsqueda guardada con `largo` se
+re-sanea a `lmin=2&lmax=4` la primera vez que se lee, así que el alias se va solo.
+
+**Vive en:** `lib/carruseles/opciones.ts` (`ALIAS_LARGO_CARRUSEL`), `lib/carruseles/explorar.ts` (`filtrosDeQuery`,
+`rotuloLaminas`), `app/image-editor/carruseles/FiltrosCarruselModal.tsx`. Lo prueba `tests/carruseles-explorar.test.ts`: que
+`?largo=cortos` y el deslizador en 2–4 devuelvan EXACTAMENTE la misma lista, con una pieza sin láminas adentro.
+
+⚠️ **Y la regla de método: un filtro retirado de la pantalla no está retirado.** Mientras siga en el tipo de los filtros y en
+la URL, sigue filtrando para quien tenga el link —y con la lógica de cuando se escribió, que puede ser anterior a la regla que
+el área ya aprendió. Sacarlo es sacarlo del TIPO; para los links viejos se deja una traducción de entrada, no una copia.
+
 ## Sin dato no es «no»: el filtro gratis tiraba a Hormozi y a Leila (5/11/2026)
 
 **Síntoma:** el filtro `(laminas ?? 0) >= 3 && parece_contenido === true` descartó 582 de 1.344 piezas, entre ellas 11 de las 13 de `leilahormozi` y 6 de las 11 de `hormozi`.

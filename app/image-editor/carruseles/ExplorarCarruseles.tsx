@@ -81,7 +81,11 @@ const perfilDeInstagram = (usuario: string) => `https://www.instagram.com/${enco
 /** Cuántas tarjetas se dibujan de una vez: más no se miran y la página se pone pesada. «Ver más» suma otras tantas. */
 const DE_A = 40;
 
-/** TODAS las claves que escriben los filtros (de carruseles y de miniaturas), y las viejas: así no queda ninguna colgada. */
+/**
+ * TODAS las claves que escriben los filtros (de carruseles y de miniaturas), y las viejas: así no queda ninguna colgada.
+ * `largo`, `cta`, `tam` y `ver` ya no son filtros (6/11/2026) y siguen acá para que un link viejo que los traiga quede limpio
+ * al cambiar un filtro o al apretar «Quitar filtros»; `largo` se traduce a `lmin`/`lmax` al entrar (lib/carruseles/opciones.ts).
+ */
 const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
 
 /** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`): un link copiado abre lo mismo. */
@@ -233,7 +237,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   };
 
   // ── Los filtros: un modal (./FiltrosCarruselModal.tsx). Acá, cuántos hay prendidos para el botón ──
-  const filtrosActivos = [f.periodo !== 'todo', f.largo !== 'todos', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
+  const filtrosActivos = [f.periodo !== 'todo', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
     !!f.interMin || !!f.interMax, !!f.lamMin || !!f.lamMax, !!f.ocultar?.length].filter(Boolean).length;
   const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
   const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
