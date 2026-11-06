@@ -534,9 +534,11 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'productos', rotulo: 'Productos', tipo: 'string[]', max: 11, vaciaEsValor: true, descripcion: 'Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están.' },
       // Los valores salen de la misma lista que la pantalla (lib/landing-conversion.ts), más «mako» para no elegir.
       { nombre: 'conversion', rotulo: 'Qué hace la gente', tipo: 'string', enum: [...CONVERSIONES, 'mako'], descripcion: 'Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está.' },
+      // La página de GRACIAS (6/11/2026): la pantalla la marca en el paso 2 del Pixel y la API no podía (docs/relevo/api-mako.md).
+      { nombre: 'gracias', rotulo: 'Página de gracias', tipo: 'boolean', descripcion: 'true = es la página de gracias: quien llega ya compró y MaKo lo pasa a Ganado en los productos de esta página (y le manda el curso si su funnel lo invita). false = deja de serlo. Sin este parámetro queda como está.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
-    escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos y la conversión de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
+    escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos, la conversión y si es la página de gracias de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
   },
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,

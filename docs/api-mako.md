@@ -11988,7 +11988,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos y la conversión de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
+- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos, la conversión y si es la página de gracias de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -12000,6 +12000,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 | `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
 | `productos` | string[] | no | Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están. |
 | `conversion` | string (agenda \\| compra \\| datos \\| registro \\| whatsapp \\| ninguna \\| mako) | no | Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está. |
+| `gracias` | boolean | no | true = es la página de gracias: quien llega ya compró y MaKo lo pasa a Ganado en los productos de esta página (y le manda el curso si su funnel lo invita). false = deja de serlo. Sin este parámetro queda como está. |
 
 ```bash
 curl -L \

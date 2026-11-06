@@ -560,4 +560,17 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako?tab=tokens&v=nuevo',
   },
+  {
+    fecha: '6 nov', hora: '14:20', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La página de gracias de una landing, también por la API',
+    puntos: [
+      'Con la API de MaKo (y desde el chat) ya se puede marcar una página como la de gracias, o desmarcarla, como en el paso 2 del Pixel. La tarjeta para aprobarlo dice lo que hace: quien llegue ahí pasa a Ganado.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing.def.ts y landing.run.ts — `gracias` en guardar_landing',
+      'tests/api-mako-acciones-1710.test.ts — corrido con la base de mentira, probado rompiéndolo (2 roturas)',
+    ],
+    revisar: '/integraciones?abrir=landing',
+  },
 ];

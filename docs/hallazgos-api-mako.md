@@ -3149,3 +3149,12 @@ tests/horas-del-negocio.test.ts
   commit o el pre-push lo frena. Las CLAVES (`chatbot`) no se tocan: están en tokens y en permisos guardados.
 
 **Vive en:** lib/api-mako/tipos.ts, app/api-mako/Articulos.tsx, docs/api-mako.md
+
+## La página de gracias de una landing, por la API (6/11/2026, nube, barrido de pendientes)
+
+`guardar_landing` ya asignaba los productos y la conversión de una página; faltaba `gracias` (la pantalla la marca en el paso 2 del
+Pixel). Va como los otros dos: ausente no la toca (`conLanding`, lib/landing-config.ts), y el resumen de la tarjeta dice lo que hace
+—quien llegue ahí pasa a Ganado en sus productos y recibe el curso si su funnel lo invita— porque la visita no prueba la compra
+(lib/landing-gracias.ts) y el «sí» se da leyéndolo; si la página todavía no tiene productos, lo dice. En /mako/revisar un booleano es
+un casillero: apagado y sin venir en la propuesta va `null`, que la validación descarta, así que editar los productos de una
+propuesta no desmarca la de gracias. **Vive en:** lib/api-mako/areas/landing.def.ts y landing.run.ts · tests/api-mako-acciones-1710.test.ts
