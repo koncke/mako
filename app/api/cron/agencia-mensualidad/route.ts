@@ -1,23 +1,22 @@
 // =============================================================================
-// Cron: la mensualidad de las agencias — el aviso del mes y el de los plazos por vencer (acuerdo del 30/10/2026)
+// Cron: la mensualidad de las agencias — los PDF al grupo, y «Paga para entrar» (Martín, 5/11/2026)
 // =============================================================================
-// Una vez por día (vercel.json: `7 14 * * *`, o sea 14:07 UTC ≈ 8:07 en CDMX; el minuto 7 no lo usa otro cron):
-//   · del 1 al 5 de cada mes, a cada agencia con la mensualidad prendida, el total del mes y su detalle (una vez por mes,
-//     y no si ya está marcado pagado). Si el del día 1 no salió por ningún lado, lo intenta al día siguiente;
-//   · el aviso de que a un cliente le quedan 1 o 2 días sin costo, para que la agencia lo dé de baja si no le pagó (una
-//     vez por cliente y por fecha: si se corrige su fecha, se avisa la nueva).
-// Por las notificaciones de la app (las ven los admins de la agencia) y por correo. ⚠️ POR WHATSAPP NO: los grupos
-// automáticos están apagados desde el ban del 3/11 (docs/relevo/nube-whatsapp.md). Lo que se arma y se dice, en
-// lib/agencia-mes.ts y lib/agencia-mes-reglas.ts.
+// Una vez por día (vercel.json: `7 14 * * *`, o sea 14:07 UTC ≈ 8:07 en Tijuana y 11:07 en Buenos Aires), a cada agencia con la
+// mensualidad prendida (lib/agencia-mes.ts, `avisarMensualidades`):
+//   · del 1 al 5, el PDF del mes al grupo de WhatsApp de MaKo con la agencia (una vez; otra vez si el total cambió y todavía no
+//     se pagó), y MaKo pide ahí el comprobante de Binance. Nunca a los clientes de la agencia;
+//   · el PDF de la entrada de cada cliente al que le quedan 1 o 2 días sin costo (o vence hoy): sus días hasta el próximo 5;
+//   · «Paga para entrar»: pausa al cliente cuya entrada venció sin pagar y, desde el día 6 sin el total del mes, a la agencia y
+//     a todos sus clientes; reabre a quien ya pagó. ⚠️ Si una lectura falla, esa agencia no se pausa ni se reabre.
+// El comprobante que mandan al grupo lo lee lib/agencia-mes-comprobante.ts al llegar (no este cron), y reabre en el acto.
 //
-// ⚠️ POR QUÉ NO USA `correrPorWorkspace`: ese helper recorre los negocios con una integración conectada, y la mensualidad
-// no depende de ninguna: recorre las agencias que la tienen prendida (un setting de la plataforma). Cada una con su `try`,
-// así una rota no le apaga la corrida a las demás.
+// ⚠️ POR QUÉ NO USA `correrPorWorkspace`: la mensualidad no depende de una integración: recorre las agencias que la tienen
+// prendida (un setting de la plataforma). Cada una con su `try`, así una rota no le apaga la corrida a las demás.
 //
-//   GET /api/cron/agencia-mensualidad          → corre y avisa (lo que agenda Vercel)
-//   GET /api/cron/agencia-mensualidad?dry=1    → qué saldría, sin mandar nada
+//   GET /api/cron/agencia-mensualidad          → corre, manda y pausa (lo que agenda Vercel)
+//   GET /api/cron/agencia-mensualidad?dry=1    → qué saldría y a quién pausaría, sin mandar ni escribir nada
 //
-// COSTO: cero tokens (lecturas de la base y aritmética). MaKo no cobra nada acá. Auth: Bearer ${CRON_SECRET}.
+// COSTO: cero tokens (lecturas, aritmética y un PDF). MaKo no cobra por la pasarela acá. Auth: Bearer ${CRON_SECRET}.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';

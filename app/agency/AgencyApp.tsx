@@ -37,7 +37,7 @@ import { DarDeBaja } from './DarDeBaja';
 import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
 import { cambiarPlanClienteAction } from './actions';
 import { CorregirReloj, Mensualidad } from './Mensualidad';
-import type { Mensualidad as DatosMensualidad, FilaMensualidad } from '@/lib/agencia-mes';
+import type { MensualidadPantalla as DatosMensualidad, FilaMensualidad } from '@/lib/agencia-mes';
 import { textoDeSituacion, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
@@ -219,7 +219,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
             )}
             {/* Con la mensualidad prendida, lo que se paga este mes es su total (plan de la agencia y clientes que cuentan). */}
             {mesPrendido ? (
-              <Kpi valor={usdMes(mesPrendido.cuenta.totalUsd)} rotulo={`Tu mensualidad · ${mesPrendido.pago ? 'pagada' : 'sin pagar'}`} tono={mesPrendido.pago ? undefined : 'warn'} />
+              <Kpi valor={usdMes(mesPrendido.cuenta.totalUsd)} rotulo={`Tu mensualidad · ${mesPrendido.pagado ? 'pagada' : mesPrendido.pagadoUsd > 0 ? 'a cuenta' : 'sin pagar'}`} tono={mesPrendido.pagado ? undefined : 'warn'} />
             ) : (
               <Kpi valor={usd != null ? usdTxt(kpis.pagasTu * usd) : kpis.pagasTu} rotulo={`Pagas tú al mes · ${kpis.pagasTu} ${kpis.pagasTu === 1 ? 'cuenta' : 'cuentas'}`} />
             )}

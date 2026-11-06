@@ -3,7 +3,8 @@
 // =============================================================================
 // Mensualidad — lo que la agencia paga este mes en MaKo, por fuera de MaKo (acuerdo con Código Inmobiliario, 30/10/2026)
 // =============================================================================
-// El total del mes, sus renglones, quién todavía está sin costo y hasta cuándo, y los meses anteriores con su «Pagado».
+// El total del mes (cubre del 5 al 5), sus renglones, las entradas por pagar, quién está en pausa, quién todavía está sin costo y
+// hasta cuándo, y los meses anteriores con su «Pagado». Las reglas de Martín del 5/11/2026, en lib/agencia-mes-reglas.ts.
 // La estructura es la de la «próxima factura» de un portal de facturación (Stripe Billing): el monto y hasta cuándo se
 // paga arriba, con su estado; los renglones abajo, con el total al pie. Las piezas visuales son las del Agency Dashboard
 // (las clases `ad-*` de AgencyApp.tsx), así se lee como parte de la misma pantalla. Desde cuándo cuenta CADA cliente va en
@@ -19,9 +20,9 @@ import { createPortal } from 'react-dom';
 import { ErrorState, Modal } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
-import type { Mensualidad as DatosMensualidad, MesDeMensualidad, FilaMensualidad } from '@/lib/agencia-mes';
-import { DIA_LIMITE_DE_PAGO, DIAS_SIN_COSTO, conceptoDeLinea, diaCorto, diaLargo, nombreDelMes, sumarDias, usd } from '@/lib/agencia-mes-reglas';
-import { corregirRelojAction, marcarMesPagadoAction, mensualidadPrendidaAction, quitarMesPagadoAction } from './actions';
+import type { MensualidadPantalla as DatosMensualidad, MesDeMensualidad, FilaMensualidad } from '@/lib/agencia-mes';
+import { DIA_LIMITE_DE_PAGO, DIAS_SIN_COSTO, conceptoDeLinea, diaCorto, diaLargo, mesDe, mesSiguiente, nombreDelMes, periodoDelCiclo, sumarDias, usd, usdDia, type Pendiente } from '@/lib/agencia-mes-reglas';
+import { corregirRelojAction, marcarEntradaPagadaAction, marcarMesPagadoAction, mensualidadPrendidaAction, quitarMesPagadoAction } from './actions';
 
 type Aviso = (texto: string, tono?: 'good' | 'bad', deshacer?: () => void) => void;
 type Resultado = { ok: true; resumen: string } | { ok: false; error: string };
@@ -49,6 +50,7 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
 }) {
   const raiz = useRef<HTMLElement | null>(null);
   const [pagar, setPagar] = useState<MesDeMensualidad | null>(null);
+  const [entrada, setEntrada] = useState<Extract<Pendiente, { tipo: 'entrada' }> | null>(null);
   const [apagar, setApagar] = useState(false);
   const { ocupado, correr } = useCorrer(onAviso);
 
@@ -66,7 +68,11 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
 
   const a = m.actual;
   const mesTxt = nombreDelMes(a.mes);
-  const sinCosto = m.clientes.filter((c) => c.situacion.tipo === 'sin-costo');
+  const sinCosto = m.clientes.filter((c) => c.situacion.tipo === 'sin-costo' && c.situacion.entrada);
+  const entradas = m.pendientes.filter((p): p is Extract<Pendiente, { tipo: 'entrada' }> => p.tipo === 'entrada' && p.limite <= sumarDias(m.hoy, 2));
+  const enPausa = [...(m.agenciaEnPausa ? [m.agencia] : []), ...m.clientes.filter((c) => c.enPausa).map((c) => c.nombre)];
+  // Apagada: se prende desde este mes si todavía no pasó su día 5; si pasó, desde el siguiente (el de hoy ya no se avisa).
+  const desdeSugerido = Number(m.hoy.slice(8, 10)) <= DIA_LIMITE_DE_PAGO ? mesDe(m.hoy) : mesSiguiente(mesDe(m.hoy));
 
   return (
     <section ref={raiz} id="mensualidad" className="am" aria-labelledby="am-titulo">
@@ -76,22 +82,22 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
           <b className="am-total">{usd(a.cuenta.totalUsd)}</b>
           <span className="am-sub">
             {m.config
-              ? `Se paga una vez, del 1 al ${DIA_LIMITE_DE_PAGO} de ${mesTxt}, por ${m.config.medio}.`
-              : `Así quedaría ${mesTxt} si la prendes. Se paga por fuera de MaKo y se avisa el día 1.`}
+              ? `Cubre ${periodoDelCiclo(a.mes)}. Se paga del 1 al ${DIA_LIMITE_DE_PAGO} de ${mesTxt}, por ${m.config.medio}: el PDF y el comprobante van por el grupo de MaKo.`
+              : `Así quedaría ${mesTxt} si la prendes. Se paga por fuera de MaKo: el PDF va por el grupo de WhatsApp con la agencia.`}
           </span>
         </div>
         <div className="am-cab-acc">
           {m.config && <EstadoPago mes={a} />}
-          {superAdmin && m.config && !a.pago && (
+          {superAdmin && m.config && !a.pagado && (
             <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado} onClick={() => setPagar(a)}>Marcar pagado</button>
           )}
-          {superAdmin && m.config && a.pago && (
+          {superAdmin && m.config && a.pago && a.pagado && (
             <button type="button" className="ad-acc" disabled={ocupado}
               onClick={() => void correr(() => quitarMesPagadoAction(a.mes, a.pago?.pagadoEl ?? null))}>Quitar «Pagado»</button>
           )}
           {superAdmin && !m.config && (
             <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado}
-              onClick={() => void correr(() => mensualidadPrendidaAction(a.mes))}>Prender desde {mesTxt}</button>
+              onClick={() => void correr(() => mensualidadPrendidaAction(desdeSugerido))}>Prender desde {nombreDelMes(desdeSugerido)}</button>
           )}
         </div>
       </div>
@@ -106,10 +112,30 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
         ))}
         <div className="ad-fila am-fila am-pie" role="row"><span role="cell">Total</span><span role="cell" className="ad-num">{usd(a.cuenta.totalUsd)}</span></div>
       </div>
+      {enPausa.length > 0 && (
+        <p className="ad-nota am-pausa" role="status">En pausa hasta que entre el pago: {enPausa.join(' · ')}.</p>
+      )}
+      {m.config && entradas.length > 0 && (
+        <>
+          <h3 className="ad-sub">Entradas por pagar</h3>
+          <div className="ad-tabla am-tabla" role="table" aria-label="Las entradas por pagar">
+            {entradas.map((p) => (
+              <div key={p.ws} className="ad-fila am-mes" role="row">
+                <span role="cell" className="am-concepto"><b>Entrada de {p.nombre}</b><em>{p.entrada.dias} días, del {diaCorto(p.entrada.desde)} al {diaCorto(p.entrada.hasta)} · {usdDia(p.entrada.tarifaUsd)} por día</em></span>
+                <span role="cell"><span className="ad-est" data-tono={p.limite < m.hoy ? 'bad' : 'warn'}><i />{p.limite < m.hoy ? 'Vencida' : p.limite === m.hoy ? 'Vence hoy' : `Vence el ${diaCorto(p.limite)}`}</span></span>
+                <span role="cell" className="ad-num">{usd(p.debeUsd)}</span>
+                <span role="cell" className="ad-fila-acc">
+                  {superAdmin && <button type="button" className="ad-acc" disabled={ocupado} onClick={() => setEntrada(p)}>Marcar pagada</button>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {sinCosto.length > 0 && (
         <p className="ad-nota">
           Todavía sin costo: {sinCosto.map((c) => `${c.nombre} hasta el ${c.situacion.tipo === 'sin-costo' ? diaCorto(c.situacion.hasta) : ''}`).join(' · ')}.
-          {' '}Si un cliente no te pagó, dalo de baja antes y no se cobra.
+          {' '}Ese día paga su entrada: sus días hasta el próximo 5. Si un cliente no te pagó, dalo de baja antes y no se cobra.
         </p>
       )}
 
@@ -121,9 +147,9 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
               <div key={x.mes} className="ad-fila am-mes" role="row">
                 <span role="cell" className="am-concepto"><b className="am-mes-nombre">{nombreDelMes(x.mes)} {x.mes.slice(0, 4)}</b></span>
                 <span role="cell"><EstadoPago mes={x} /></span>
-                <span role="cell" className="ad-num">{usd(x.pago?.totalUsd ?? x.cuenta.totalUsd)}</span>
+                <span role="cell" className="ad-num">{usd(x.cuenta.totalUsd)}</span>
                 <span role="cell" className="ad-fila-acc">
-                  {superAdmin && !x.pago && <button type="button" className="ad-acc" disabled={ocupado} onClick={() => setPagar(x)}>Marcar pagado</button>}
+                  {superAdmin && !x.pagado && <button type="button" className="ad-acc" disabled={ocupado} onClick={() => setPagar(x)}>Marcar pagado</button>}
                 </span>
               </div>
             ))}
@@ -146,9 +172,17 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
             void correr(() => marcarMesPagadoAction(mes, dia), () => void correr(() => quitarMesPagadoAction(mes, dia)));
           }} />
       )}
+      {entrada && (
+        <ModalEntrada p={entrada} hoy={m.hoy} ocupado={ocupado} onCerrar={() => setEntrada(null)}
+          onGuardar={(dia) => {
+            const ws = entrada.ws;
+            setEntrada(null);
+            void correr(() => marcarEntradaPagadaAction(ws, dia));
+          }} />
+      )}
       {apagar && (
         <ConfirmDialog titulo="¿Apagar la mensualidad de esta agencia?"
-          detalle="Deja de avisarle el día 1 y antes de cada plazo. Lo que ya marcaste pagado queda anotado."
+          detalle="Deja de mandar los PDF al grupo y de pausar a quien no paga. Lo que ya marcaste pagado queda anotado; las cuentas en pausa siguen así hasta que las reabras."
           confirmLabel="Apagar la mensualidad" onCancel={() => setApagar(false)}
           onConfirm={() => { setApagar(false); void correr(() => mensualidadPrendidaAction(null)); }} />
       )}
@@ -157,10 +191,32 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
   );
 }
 
-/** «Pagado el 03/11» o «Sin pagar · hasta el 05/11». */
+/** «Pagado el 03/12», «Entró US$ 200 · falta US$ 226» o «Sin pagar · hasta el 05/12». */
 function EstadoPago({ mes }: { mes: MesDeMensualidad }) {
-  if (mes.pago) return <span className="ad-est" data-tono="good"><i />Pagado el {diaCorto(mes.pago.pagadoEl)}</span>;
+  if (mes.pagado) return <span className="ad-est" data-tono="good"><i />Pagado el {diaCorto(mes.pago?.pagadoEl ?? mes.cuenta.limite)}</span>;
+  if (mes.pagadoUsd > 0) return <span className="ad-est" data-tono="warn"><i />Entró {usd(mes.pagadoUsd)} · falta {usd(mes.debeUsd)}</span>;
   return <span className="ad-est" data-tono="warn"><i />Sin pagar · hasta el {diaCorto(mes.cuenta.limite)}</span>;
+}
+
+function ModalEntrada({ p, hoy, ocupado, onCerrar, onGuardar }: {
+  p: Extract<Pendiente, { tipo: 'entrada' }>; hoy: string; ocupado: boolean; onCerrar: () => void; onGuardar: (dia: string) => void;
+}) {
+  const [dia, setDia] = useState(hoy);
+  return (
+    <Modal titulo={`Pagada: la entrada de ${p.nombre}`} encabezado="Mensualidad" ancho={420} onCerrar={onCerrar}
+      pie={
+        <>
+          <button type="button" className="ad-acc" onClick={onCerrar}>No marcar</button>
+          <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado || !dia} onClick={() => onGuardar(dia)}>Marcar {usd(p.debeUsd)} pagado</button>
+        </>
+      }>
+      <label className="am-campo">
+        <span>Día en que entró el pago</span>
+        <input className="ad-buscar" type="date" value={dia} max={sumarDias(hoy, 1)} data-autofocus onChange={(e) => setDia(e.target.value)} />
+      </label>
+      <p className="ad-nota">Si estaba en pausa, vuelve a entrar. Sin la orden de Binance no sale el recibo: para eso, pídeselo a MaKo con la orden.</p>
+    </Modal>
+  );
 }
 
 function ModalPagado({ mes, hoy, ocupado, onCerrar, onGuardar }: {
@@ -172,14 +228,14 @@ function ModalPagado({ mes, hoy, ocupado, onCerrar, onGuardar }: {
       pie={
         <>
           <button type="button" className="ad-acc" onClick={onCerrar}>No marcar</button>
-          <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado || !dia} onClick={() => onGuardar(dia)}>Marcar {usd(mes.cuenta.totalUsd)} pagado</button>
+          <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado || !dia} onClick={() => onGuardar(dia)}>Marcar {usd(mes.debeUsd)} pagado</button>
         </>
       }>
       <label className="am-campo">
         <span>Día en que entró el pago</span>
         <input className="ad-buscar" type="date" value={dia} max={sumarDias(hoy, 1)} data-autofocus onChange={(e) => setDia(e.target.value)} />
       </label>
-      <p className="ad-nota">Queda anotado con este total. Lo que cambie después en la cartera no lo modifica.</p>
+      <p className="ad-nota">Queda anotado con este total, sin recibo (para el recibo, pídeselo a MaKo con la orden de Binance). Si la agencia o sus clientes estaban en pausa por este mes, vuelven a entrar.</p>
     </Modal>
   );
 }
@@ -248,6 +304,7 @@ const CSS = `
 .am-campo span{ font-size:13px; font-weight:600; color:var(--ink); }
 .am-campo .ad-buscar{ max-width:none; }
 .am-apagar{ margin-top:14px; }
+.am-pausa{ color:var(--bad); font-weight:600; }
 .am-link{ border:0; background:none; padding:0; font:inherit; color:var(--bad); cursor:pointer; text-decoration:underline; }
 @media (max-width: 980px){
   .am-tabla .am-mes{ grid-template-columns:1fr auto; row-gap:4px; }

@@ -97,7 +97,9 @@ export type Vigencia =
   | { estado: 'vencido'; cobroId: number; hasta: string; motivo: MotivoCorte; deuda?: Deuda };
 
 /** `sin-agencia` (29/10/2026, lib/agencia-baja.ts): la agencia dio de baja la cuenta de su cliente; la reabre SÓLO su propio plan. */
-export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago' | 'sin-agencia';
+/** `paga-para-entrar` (6/11/2026, lib/agencia-mes.ts): la mensualidad de una agencia no entró (la entrada de un cliente, o el
+ *  total del mes el día 6). La pone y la saca SÓLO la mensualidad: con el pago, la cuenta vuelve a entrar sola. */
+export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago' | 'sin-agencia' | 'paga-para-entrar';
 
 /** N meses después de la fecha (YYYY-MM-DD o ISO), con el día capado al último del mes. Devuelve YYYY-MM-DD. */
 export function mesesDespuesDe(fecha: string, n: number): string {
@@ -307,7 +309,23 @@ export function vigenciaDeClienteDeAgencia(cobros: readonly CobroDelLugar[], pag
  * sigue en pie (`vigente`). Queda guardado aunque se reabra: es lo que impide volver a cortar por el MISMO vencimiento
  * a un negocio que alguien reactivó a mano. Con impago, la deuda de ese momento.
  */
-export type CorteGuardado = { cobroId: number; hasta: string; motivo: MotivoCorte; desde: string; vigente: boolean; deuda?: Deuda | null };
+export type CorteGuardado = { cobroId: number; hasta: string; motivo: MotivoCorte; desde: string; vigente: boolean; deuda?: Deuda | null; mensualidad?: CorteDeMensualidad | null };
+
+/**
+ * Lo propio de un corte `paga-para-entrar`: de qué agencia, si la cuenta es la agencia o un cliente, por qué está en pausa
+ * (`entrada`, `mes:AAAA-MM`) y qué causas se reactivaron A MANO (`perdonadas`: no la vuelven a pausar). Las reglas, en
+ * lib/agencia-mes-reglas.ts (`pasoDePausa`). ⚠️ Va ANIDADO a propósito: `guardarCorte` de lib/plan-acceso.ts reescribe el corte con
+ * un spread, y un campo suelto que `leerCorte` no conoce se perdería en esa vuelta.
+ */
+export type CorteDeMensualidad = { agenciaWs: number; rol: 'agencia' | 'cliente'; causas: string[]; perdonadas: string[] };
+
+function leerCorteDeMensualidad(v: unknown): CorteDeMensualidad | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.agenciaWs !== 'number' || !Number.isSafeInteger(o.agenciaWs) || o.agenciaWs <= 0) return null;
+  const lista = (x: unknown): string[] => (Array.isArray(x) ? [...new Set(x.filter((c): c is string => typeof c === 'string' && /^(entrada|mes:\d{4}-\d{2})$/.test(c)))] : []);
+  return { agenciaWs: o.agenciaWs, rol: o.rol === 'agencia' ? 'agencia' : 'cliente', causas: lista(o.causas), perdonadas: lista(o.perdonadas) };
+}
 
 export const CLAVE_CORTE = 'plan.corte_por_pago';
 
@@ -318,7 +336,8 @@ export function leerCorte(crudo: string | null | undefined): CorteGuardado | nul
     if (typeof v.cobroId !== 'number' || typeof v.hasta !== 'string' || typeof v.motivo !== 'string') return null;
     const d = v.deuda;
     const deuda = d && typeof d === 'object' && typeof d.cobroId === 'number' && typeof d.ciclos === 'number' ? d : null;
-    return { cobroId: v.cobroId, hasta: v.hasta, motivo: v.motivo as MotivoCorte, desde: String(v.desde ?? ''), vigente: v.vigente !== false, deuda };
+    const mensualidad = v.motivo === 'paga-para-entrar' ? leerCorteDeMensualidad(v.mensualidad) : null;
+    return { cobroId: v.cobroId, hasta: v.hasta, motivo: v.motivo as MotivoCorte, desde: String(v.desde ?? ''), vigente: v.vigente !== false, deuda, ...(mensualidad ? { mensualidad } : {}) };
   } catch { return null; }
 }
 
@@ -336,6 +355,8 @@ export type Paso =
   | { tipo: 'soltar' };
 
 export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte: CorteGuardado | null): Paso {
+  // «Paga para entrar» lo pone y lo saca SÓLO la mensualidad de la agencia (lib/agencia-mes.ts): la pasarela no lo toca.
+  if (corte?.motivo === 'paga-para-entrar') return { tipo: 'nada' };
   const vigente = !!corte?.vigente;
   if (v.estado === 'vencido') {
     if (estadoWs === 'pausado') return { tipo: 'nada' };
@@ -362,6 +383,13 @@ const fechaCorta = (d: string): string => `${d.slice(8, 10)}/${d.slice(5, 7)}/${
 export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean; pagaSuAgencia?: boolean } = {}): { titulo: string; detalle: string } {
   if (!c) return { titulo: opts.paraAgencia ? 'Este cliente está pausado' : 'Tu cuenta está pausada', detalle: 'Si crees que es un error, escríbenos y lo vemos.' };
   const fecha = fechaCorta(c.hasta);
+  // «Paga para entrar» (6/11/2026, Martín: «El cliente ve "contacta a tu agencia", sin montos»). La agencia, cuando la pausada es
+  // ella, sabe por dónde se paga: el comprobante al grupo de MaKo.
+  if (c.motivo === 'paga-para-entrar') {
+    if (opts.paraAgencia) return { titulo: 'Este cliente está en pausa', detalle: 'Su pago no entró. Manda el comprobante al grupo de MaKo y vuelve a entrar en el acto. Sus datos están guardados.' };
+    if (c.mensualidad?.rol === 'agencia') return { titulo: 'Tu cuenta está en pausa', detalle: 'La mensualidad de MaKo no entró. Manda el comprobante de Binance al grupo de MaKo y vuelves a entrar en el acto. Tus datos están guardados.' };
+    return { titulo: 'Tu cuenta está en pausa', detalle: 'Contacta a tu agencia para volver a entrar. Tus datos están guardados.' };
+  }
   if (c.motivo === 'renovacion-sin-autorizar') {
     // La agencia que mira a su cliente es la que tiene que activarla (desde MaKo Partners, «Activar renovación»).
     return opts.paraAgencia
@@ -385,7 +413,7 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
  */
 export function leOfrecePagar(p: { esAgencia: boolean; corte: Pick<CorteGuardado, 'vigente' | 'motivo'> | null; quienPaga: 'agencia' | 'cliente' | 'no-se' | null }): boolean {
   if (p.esAgencia || !p.corte?.vigente || p.quienPaga === 'agencia' || p.quienPaga === 'no-se') return false;
-  return p.corte.motivo !== 'renovacion-sin-autorizar' && p.corte.motivo !== 'devuelto';
+  return p.corte.motivo !== 'renovacion-sin-autorizar' && p.corte.motivo !== 'devuelto' && p.corte.motivo !== 'paga-para-entrar';
 }
 
 /** El aviso de la mora (dentro de la app, mientras todavía se entra). */

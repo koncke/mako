@@ -357,6 +357,9 @@ export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
   if ((await filaDelNegocio(ws))?.estado !== 'pausado') return false;
   const corte = await corteDelNegocio(ws);
   if (corte?.motivo === 'sin-agencia' && corte.vigente) return !(Date.parse(corte.desde) > Date.now());
+  // «Paga para entrar» (6/11/2026, la mensualidad de una agencia, lib/agencia-mes.ts): vale aunque el corte general esté
+  // apagado. Lo pone y lo saca la mensualidad: con el pago, vuelve a entrar sola.
+  if (corte?.motivo === 'paga-para-entrar' && corte.vigente) return true;
   return CORTE_DE_ACCESO_PRENDIDO;
 });
 

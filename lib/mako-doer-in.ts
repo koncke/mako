@@ -762,11 +762,39 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
   }
+  // ⚠️ EL COMPROBANTE DE LA MENSUALIDAD DE UNA AGENCIA (6/11/2026, lib/agencia-mes-comprobante.ts). Martín: «MaKo pide ahí el
+  // comprobante de Binance». Una foto o un PDF de una persona en el grupo de una agencia con la mensualidad prendida se lee como
+  // comprobante ANTES del turno; si lo era, ya se contestó (lo arma el código) y el turno no corre: MaKo no contesta dos veces.
+  if (jid === suyo && (await comprobanteDeLaMensualidad(wsData, instance, data, jid))) return { engaged: true, skip: 'comprobante de la mensualidad' };
   // ⚠️ NUNCA UNA KEY EN EL GRUPO (WA2, 22/10/2026; la pieza 1.6 del chat de la app, en este canal). Una clave pegada se
   // TAPA en el mensaje entero —el texto, el caption, la cita y por eso el payload que va a la cola— antes de todo: la
   // cola, la memoria (`mako_doer_conv`), el router y el modelo. Desde acá el crudo no se vuelve a leer (lib/doer-claves.ts).
   const tapado = taparClavesDelMensaje(data);
   return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
+}
+
+/**
+ * ¿Era el comprobante de la mensualidad de una agencia? (lib/agencia-mes-comprobante.ts) `true` = ya se atendió y el turno no
+ * corre. Sólo una foto o un PDF de una PERSONA (no el eco de MaKo), y sólo si la agencia tiene la mensualidad prendida. Nunca tira:
+ * ante cualquier falla, el mensaje sigue al turno como siempre.
+ */
+async function comprobanteDeLaMensualidad(wsData: number, instance: string, data: MsgIn, jid: string): Promise<boolean> {
+  const id = data.key?.id;
+  if (data.key?.fromMe || !id) return false;
+  const adj = adjuntoDe(data);
+  if (!adj || (adj.tipo !== 'image' && adj.tipo !== 'document')) return false;
+  try {
+    const { hayQueLeerComprobante, atenderComprobanteDeAgencia } = await import('@/lib/agencia-mes-comprobante');
+    if (!(await hayQueLeerComprobante(wsData))) return false;
+    const b64 = adj.base64 ?? (await fetchMediaBase64EnInstancia(instance, jid, id, false))?.base64 ?? null;
+    if (!b64) return false;
+    const r = await atenderComprobanteDeAgencia({ agenciaWs: wsData, waMensajeId: id, bytes: new Uint8Array(Buffer.from(b64, 'base64')) });
+    console.log(`[mako-doer] ws${wsData}: archivo del grupo → ${r.que}`);
+    return r.atendido;
+  } catch (e) {
+    console.error(`[mako-doer] ws${wsData}: el comprobante de la mensualidad: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
 }
 
 /**

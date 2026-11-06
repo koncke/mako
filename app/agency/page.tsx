@@ -24,7 +24,7 @@ import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
 import { precioClienteDeAgencia } from '@/lib/agencia-cobro';
-import { mensualidadDeAgencia, mensualidadPrendida } from '@/lib/agencia-mes';
+import { mensualidadDeAgencia, mensualidadPrendida, paraLaPantalla } from '@/lib/agencia-mes';
 import { AgencyApp, AgencyPlataforma } from './AgencyApp';
 import { LandingAgency } from './LandingAgency';
 
@@ -70,11 +70,11 @@ export default async function AgencyPage({ searchParams }: { searchParams: Promi
     return <LandingAgency estado={estado} usd={precio.usd} volver="/agency" />;
   }
 
-  // LA MENSUALIDAD (acuerdo del 30/10/2026, lib/agencia-mes.ts): la agencia la ve si está prendida; el super admin parado
+  // LA MENSUALIDAD (Martín, 5/11/2026, lib/agencia-mes.ts): la agencia la ve si está prendida; el super admin parado
   // en ella, siempre (desde ahí la prende). Apagada, la agencia sigue con el cobro por pasarela de siempre.
   // `null` de `mensualidadPrendida` es «no pude leer»: se muestra la mensualidad, que dice el error, en vez de esconderla.
   // Arranca antes que la cartera y corre a la par (ninguna de las dos tira).
-  const mensualidadP = (esSuper ? Promise.resolve(true) : mensualidadPrendida(ws)).then((ver) => (ver !== false ? mensualidadDeAgencia(ws) : null));
+  const mensualidadP = (esSuper ? Promise.resolve(true) : mensualidadPrendida(ws)).then((ver) => (ver !== false ? mensualidadDeAgencia(ws).then(paraLaPantalla) : null));
   const cartera = await cuentasDePartner(ws);
   const mensualidad = await mensualidadP;
   const cuenta = ID.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
