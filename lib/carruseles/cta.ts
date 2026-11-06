@@ -126,7 +126,7 @@ export function ctaDeTexto(texto: string | null | undefined): CtaCarrusel | null
   const reEnvia = new RegExp(`${ENVIA}\\s+${objeto}`, 'giu');
   for (const m of t.matchAll(reEnvia)) evaluar(m as RegExpExecArray, 'mensaje', false);
   // Portugués con dos puntos: «comente: Viver de POT» (la clave es la palabra en mayúsculas de las próximas palabras).
-  const reDosPuntos = /\b(?:[Cc]omente|[Cc]omenta|COMENTE|COMENTA)\s*:\s*(?:\p{L}+\s+){0,3}?(?<p>\p{Lu}[\p{Lu}\p{N}]+)(?![\p{L}\p{N}])/gu;
+  const reDosPuntos = new RegExp(String.raw`\b(?:[Cc]omente|[Cc]omenta|COMENTE|COMENTA)\s*:\s*(?:\p{L}+\s+){0,3}?(?<p>\p{Lu}[\p{Lu}\p{N}]+)(?![\p{L}\p{N}])`, 'gu');
   for (const m of t.matchAll(reDosPuntos)) evaluar(m as RegExpExecArray, 'comentario', false);
   // «Mándame un mensaje con la palabra AGENDA», «…en comentarios la palabra GUÍA»: «la palabra X» suelta, y por dónde la
   // pide lo dice la misma oración (sin ninguno de los dos, no se sabe qué se pide y no cuenta).
