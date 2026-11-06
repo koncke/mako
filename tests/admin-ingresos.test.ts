@@ -26,8 +26,9 @@
 //   · `destinoDeCustomers` deja pasar un `?cuenta=` que no es un número                       → 1 fallo (8)
 //   · `filasDeSaldos` saca «Al empezar» del cierre del mes anterior                           → 1 fallo (8)
 //   · `mesesVisibles` dibuja los doce meses aunque los primeros estén vacíos                  → 1 fallo (8)
-//   · la pantalla dibuja el MRR del mes pasado en vez del de hoy (`usd(vista.mrrMesPasado)`)  → 1 fallo (9)
+//   · la pantalla dibuja el MRR del mes pasado en vez del de hoy (`usdCorto(r.mrrMesPasado)`) → 1 fallo (9)
 //   · sin pagos, la pantalla dibuja las tarjetas en «US$ 0»                                  → 1 fallo (9)
+//   (Desde el 5/11/2026 la pantalla es la de Studio Admin, dashboard/default: app/admin/ingresos/revenue.tsx.)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -43,7 +44,8 @@ import { destinoDeCustomers, PESTANAS_ADMIN, rutaPestanaAdmin } from '../app/adm
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { IngresosAdmin } from '../app/admin/ingresos/IngresosAdmin';
+import { Revenue } from '../app/admin/ingresos/revenue';
+import { filasDeClientes, tarjetasDe } from '../app/admin/ingresos/revenue-vista';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -203,23 +205,35 @@ test('8 · /customers llega a la MISMA pestaña de Admin, y la tabla de saldos c
   assert.deepEqual(dos.find((f) => f.id === 'inicio')!.valores, [340]);
 });
 
-test('9 · la pantalla DIBUJA el caso real: el MRR de hoy, lo que pagó cada uno y el medio; sin pagos, qué hacer', () => {
+test('9 · la pantalla DIBUJA el caso real: el MRR de hoy, lo que pagó cada uno y su suscripción; sin pagos, qué hacer', () => {
   const router = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
-  const texto = (v: Parameters<typeof IngresosAdmin>[0]['vista']) => renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, createElement(IngresosAdmin, { vista: v })))
+  const texto = (v: Parameters<typeof Revenue>[0]['vista']) => renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, createElement(Revenue, { vista: v })))
     .replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
   const quienes = new Map<string, ClienteIngreso>([
     ['leila', { clave: 'leila', nombre: 'Negocio L', ws: 11, leadId: 1 }],
     ['codigo', { clave: 'codigo', nombre: 'Negocio C', ws: 13, leadId: 2 }],
     ['flor', { clave: 'flor', nombre: 'Negocio F', ws: null, leadId: 3 }],
   ]);
-  const t = texto({ ...calcularIngresos([...OCTUBRE, ...NOVIEMBRE_CODIGO], quienes, '2026-11-05'), avisos: [] });
-  assert.match(t, /Ingreso mensual \(MRR\) US\$ 432/, 'el MRR de hoy, grande');
-  assert.match(t, /desde US\$ 340 en oct/, 'con su «desde»');
-  assert.match(t, /Cobrado desde siempre US\$ 578/);
-  assert.match(t, /Negocio C .*US\$ 238 US\$ 384/, 'lo que paga por mes y lo que pagó en total');
-  assert.match(t, /Subió Negocio C/, 'el movimiento de noviembre');
-  assert.match(t, /\+US\$ 92/);
-  assert.match(t, /Binance/, 'el medio real del pago');
+  const r = calcularIngresos([...OCTUBRE, ...NOVIEMBRE_CODIGO], quienes, '2026-11-05');
+  // Las cuatro tarjetas de Studio, con lo de MaKo: el MRR de HOY (no el del mes pasado) y su «desde».
+  const tarjetas = tarjetasDe(r);
+  assert.deepEqual(tarjetas.map((t) => t.titulo), ['Cobrado en total', 'Clientes nuevos', 'Clientes pagando', 'MRR']);
+  assert.equal(tarjetas[3].valor, 'US$ 432');
+  assert.equal(tarjetas[3].nota, 'Al cerrar el mes pasado: US$ 340');
+  assert.deepEqual(tarjetas[3].cambio, { texto: '+27%', sube: true });
+  assert.equal(tarjetas[0].valor, 'US$ 578');
+  assert.equal(tarjetas[2].valor, '3');
+  // La tabla de clientes: Plan es lo que paga por mes, y abajo lo que pagó en total.
+  const fila = filasDeClientes(r.clientes).find((f) => f.name === 'Negocio C')!;
+  assert.equal(fila.plan, 'US$ 238 / mes');
+  assert.equal(fila.total, 'US$ 384');
+  assert.equal(fila.status, 'Suscrito');
+  assert.equal(fila.ruta, '/admin?tab=customers&cliente=13');
+  assert.equal(filasDeClientes(r.clientes).find((f) => f.name === 'Negocio F')!.ruta, '/crm/3', 'sin cuenta, a su ficha del CRM');
+  const t = texto({ ...r, avisos: [] });
+  assert.match(t, /MRR US\$ 432/, 'el MRR de hoy, grande');
+  assert.match(t, /Cobrado en total US\$ 578/);
+  assert.match(t, /Negocio C ws 13 .*US\$ 238 \/ mes Pagó US\$ 384 en total/, 'lo que paga por mes y lo que pagó en total');
   assert.match(t, /sin cuenta en MaKo/, 'un cliente sin cuenta se dice');
   const vacio = texto({ ...calcularIngresos([], new Map(), '2026-11-05'), avisos: [] });
   assert.match(vacio, /Todavía no entró ningún pago/);

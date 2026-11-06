@@ -30,7 +30,8 @@ import {
 } from '../lib/admin-usuarios-reglas';
 import { conteosDeErrores, erroresVisibles, estadoDeError, filaDeError, type FilaError } from '../lib/admin-errores-reglas';
 import { MARGEN_REGRESION_MS } from '../lib/errores-app-reglas';
-import { UsuariosAdmin } from '../app/admin/usuarios/UsuariosAdmin';
+import { Users } from '../app/admin/usuarios/users';
+import type { UserRow } from '../app/admin/usuarios/data';
 import { ErroresAdmin } from '../app/admin/errores/ErroresAdmin';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -87,7 +88,7 @@ test('4 · el menú de la fila: reenviar sólo a un invitado, reactivar sólo a 
   assert.deepEqual(accionesDe(u({ estado: 'suspendido' }), AHORA), ['inspeccionar', 'reactivar']);
   assert.deepEqual(accionesDe(u({ rol: 'admin', workspaceId: null }), AHORA), ['suspender']);
   // Las acciones van por la ruta de siempre, con los nombres que esa ruta conoce.
-  const pantalla = sinComentarios(leer('app/admin/usuarios/UsuariosAdmin.tsx'));
+  const pantalla = sinComentarios(leer('app/admin/usuarios/users.tsx'));
   const ruta = sinComentarios(leer('app/api/admin/usuarios/route.ts'));
   assert.match(pantalla, /fetch\('\/api\/admin\/usuarios'/);
   for (const a of ['reinvitar', 'estado']) {
@@ -142,10 +143,16 @@ test('7 · lo que guardó el reportador se lee con cuidado, y los negocios no se
 
 //   8 · Users dibuja el estado de la base en vez del de alta · Errors sin errores dibuja la tabla vacía
 test('8 · las dos pantallas dibujan lo que dicen', () => {
-  const tu = texto(createElement(UsuariosAdmin, { filas: [u({}), u({ id: 2, email: 'b@ejemplo.com', nombre: 'Beto', ultimoLogin: null, estado: 'activo', invitacionEnviada: null })], ahoraMs: AHORA }));
-  assert.match(tu, /Todos 2/);
-  assert.match(tu, /Beto .* Invitado Nunca se le mandó el acceso/, 'el estado de ALTA, no el de la base');
-  assert.match(tu, /Ana Ruiz .* Activo Entró hace 2 días/);
+  // Users es la tabla de Studio Admin (app/admin/usuarios/users.tsx): el estado de ALTA va en la insignia, y su detalle (cuándo
+  // entró, si se le mandó el acceso) en el `title` de la insignia.
+  const filas: UserRow[] = [u({}), u({ id: 2, email: 'b@ejemplo.com', nombre: 'Beto', ultimoLogin: null, estado: 'activo', invitacionEnviada: null })].map((f) => ({ ...f, tipo: 'Cliente' as const }));
+  const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, createElement(Users, { users: filas, ahoraMs: AHORA, tz: 'UTC' })));
+  const tu = texto(createElement(Users, { users: filas, ahoraMs: AHORA, tz: 'UTC' }));
+  assert.match(tu, /0 elegidas/);
+  assert.match(tu, /Beto .* Invitado/, 'el estado de ALTA, no el de la base');
+  assert.match(html, /title="Nunca se le mandó el acceso"/, 'el detalle del alta, en la insignia');
+  assert.match(tu, /Ana Ruiz .* Activo/);
+  assert.match(html, /title="Entró hace 2 días"/);
   const te = texto(createElement(ErroresAdmin, { vista: { errores: [er({ ticketEstado: 'resuelto', ticketResueltoAt: hace(10), ultimaVez: hace(1) })], hayMas: false, reportes: [], nombres: { 3: 'Estudio Ejemplo' }, avisos: [] }, ahoraMs: AHORA }));
   assert.match(te, /Volvió TypeError en \/crm/);
   assert.match(te, /#12 · Resuelto/);

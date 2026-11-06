@@ -26,6 +26,10 @@
 //   · /aup vuelve a decir «El texto … pasa por el servicio de moderación de Creem» → 5 / 2
 //   · /terminos vuelve a decir «el pedido se revisa solo»                        → 6 / 1
 //   · /privacidad vuelve a decir «Creem, Stripe y Mercado Pago, para cobrar tu plan» → 6 / 1
+// Y el mismo día, al medir que la plataforma sólo tiene Mercado Pago conectado (con el archivo en verde, 8 / 0):
+//   · /terminos vuelve a decir «Stripe o Mercado Pago»           → 7 / 1
+//   · /privacidad vuelve a decir «Stripe y Mercado Pago»         → 7 / 1
+//   · /reembolsos vuelve a decir «(Stripe o Mercado Pago)»       → 7 / 1
 // Correr: node --import tsx --test tests/creem-revision-sitio.test.ts
 // =============================================================================
 
@@ -127,9 +131,19 @@ test('5. ninguna legal nombra a Creem, y ninguna afirma una revisión automátic
     assert.doesNotMatch(t, /creem/i, `${ruta}: Creem rechazó la tienda de MaKo y no cobra, no vende ni modera nada`);
     assert.doesNotMatch(t, /se revisa solo|revisión automática|merchant of record|vendedor registrado/i, `${ruta}: afirma algo que ya no pasa`);
   }
-  assert.match(texto(html(createElement(Terminos))), /Los pagos se procesan con Stripe o Mercado Pago/);
-  assert.match(texto(html(createElement(Privacidad))), /Stripe y Mercado Pago, para cobrar tu plan/);
-  assert.match(texto(html(createElement(Reembolsos))), /\(Stripe o Mercado Pago\)/);
+});
+
+test('7. las legales nombran como quien cobra el plan sólo a la pasarela que la plataforma tiene conectada (5/11/2026: Mercado Pago)', () => {
+  const terminos = texto(html(createElement(Terminos)));
+  const privacidad = texto(html(createElement(Privacidad)));
+  const reembolsos = texto(html(createElement(Reembolsos)));
+  assert.match(terminos, /Los pagos en línea se procesan con Mercado Pago/);
+  assert.match(privacidad, /Mercado Pago, para cobrar tu plan/);
+  assert.match(reembolsos, /mismo medio con el que pagaste\s*\.\s*Cuándo se ve/);
+  // Stripe sí puede aparecer como la cuenta propia de un negocio para cobrarles a SUS clientes: eso no se toca.
+  assert.doesNotMatch(terminos, /se procesan con Stripe/);
+  assert.doesNotMatch(privacidad, /Stripe[^.]*para cobrar tu plan/);
+  assert.doesNotMatch(reembolsos, /\(Stripe/);
 });
 
 test('6. el rechazo de la moderación nombra la misma dirección que sirve /aup', async () => {

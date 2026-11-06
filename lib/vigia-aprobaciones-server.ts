@@ -30,11 +30,19 @@ import { EXTENSION_VERSION } from './extension-version';
 import { EXTENSION_ID } from './extension-tienda';
 import { ENV_SECRETO_APP } from './meta-login';
 import {
-  CLAVE_ESTADO, leerGuardado, listaDeAprobaciones, mensajeDeAvisos, vuelta, type Aviso, type FilaLista, type Lectura,
+  CLAVE_ESTADO, CLAVE_PANELES, anotarPanel, leerGuardado, leerPaneles, listaDeAprobaciones, mensajeDeAvisos, vuelta,
+  type Aviso, type FilaLista, type Lectura, type LecturaPanel, type PanelesGuardados,
 } from './vigia-aprobaciones';
 import {
-  CLAVE_CWS_PUBLISHER, CLAVE_GOOGLE, CLAVES_ASC, leerTodo, type CredencialesVigia, type DominiosResend,
+  CLAVE_CWS_PUBLISHER, CLAVE_GOOGLE, CLAVES_ASC, leerTodo, tokenGoogle, type CredencialesVigia, type DominiosResend, type Entorno,
+  type TokenGoogle,
 } from './vigia-aprobaciones-fuentes';
+import {
+  CLAVE_PUBLICACION, conLaPublicacion, decidirPublicacion, guardarPaso, leerEstadoTienda, leerPublicacion, marcaDeSubida, publicar,
+  subir, versionDelZip, type Dependencias, type ResumenPublicacion,
+} from './extension-publicar';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 /** El tipo del aviso en la bandeja y en el push. Sólo lo reciben los admin del workspace de la plataforma. */
 export const TIPO_AVISO_VIGIA = 'vigia-aprobaciones';
@@ -70,10 +78,20 @@ async function dominios(ws: number): Promise<DominiosResend> {
   return { ok: false, error: r.error, sinClave: r.error === SIN_CLAVE_DE_DOMINIOS || r.error === KEY_SOLO_ENVIO_DE_MAKO };
 }
 
+/** Lo que guardó la tarea del Cerebro de los paneles, o null si la base no contestó (eso es «no pude leer», no «vacío»). */
+async function paneles(ws: number): Promise<PanelesGuardados | null> {
+  try { return leerPaneles(await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_PANELES))); } catch { return null; }
+}
+
 /** Lee todas las fuentes AHORA, sin escribir ni avisar nada: la vuelta y la prueba de la consola (`--probar`). */
 export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
-  const { creds, sinLeer } = await credenciales(ws);
-  return leerTodo({
+  return leerTodo(await entornoDe(ws));
+}
+
+/** El entorno de verdad de los lectores: la red, las credenciales de la plataforma y lo guardado de los paneles. */
+async function entornoDe(ws: number): Promise<Entorno> {
+  const [{ creds, sinLeer }, delPanel] = await Promise.all([credenciales(ws), paneles(ws)]);
+  return {
     fetch: globalThis.fetch.bind(globalThis),
     ahoraMs: () => Date.now(),
     creds,
@@ -82,13 +100,62 @@ export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
     extensionId: EXTENSION_ID,
     metaApiVersion: process.env.META_API_VERSION,
     dominiosResend: () => dominios(ws),
+    paneles: delPanel,
+  };
+}
+
+/** El zip de ESTE deploy (public/, sumado a la función en next.config.ts → outputFileTracingIncludes) y la versión que dice. */
+async function zipDelDeploy(): Promise<{ bytes: Uint8Array; version: string | null } | { error: string }> {
+  try {
+    const bytes = new Uint8Array(await readFile(path.join(process.cwd(), 'public', `mako-puente-${EXTENSION_VERSION}.zip`)));
+    return { bytes, version: await versionDelZip(bytes) };
+  } catch {
+    return { error: `no encontré el zip de la ${EXTENSION_VERSION} en este deploy` };
+  }
+}
+
+/**
+ * La extensión se publica sola (lib/extension-publicar.ts): si la versión de main es más nueva que la de la tienda, la sube y la
+ * manda a revisión. Marca ANTES de tocar la tienda, con compare-and-set (regla 3). Nunca tira: lo que pase vuelve como resumen
+ * para la fila de la extensión en Approvals. Sólo la corre la vuelta del cron (`--probar` no publica).
+ */
+async function publicarExtensionSiHaceFalta(ws: number, e: Entorno, token: () => Promise<TokenGoogle>): Promise<ResumenPublicacion> {
+  const faltan = [...(e.creds.TIENDAS_GOOGLE_CUENTA_SERVICIO ? [] : [CLAVE_GOOGLE]), ...(e.creds.CWS_PUBLISHER_ID ? [] : [CLAVE_CWS_PUBLISHER])];
+  if (e.credsSinLeer?.some((c) => c === CLAVE_GOOGLE || c === CLAVE_CWS_PUBLISHER)) return { tipo: 'no_pude', motivo: 'no pude leer las claves de la tienda' };
+  if (faltan.length) return { tipo: 'falta', faltan };
+  const t = await token();
+  if ('lectura' in t) return { tipo: 'no_pude', motivo: t.lectura.tipo === 'no_pude' ? t.lectura.motivo : 'Google no dio un token' };
+  const dep: Dependencias = {
+    fetch: e.fetch, token: t.token, publisherId: String(e.creds.CWS_PUBLISHER_ID), extensionId: e.extensionId,
+    versionMain: EXTENSION_VERSION, zip: zipDelDeploy,
+  };
+  const tienda = await leerEstadoTienda(dep);
+  if ('error' in tienda) return { tipo: 'no_pude', motivo: tienda.error };
+  return runWithWorkspace(ws, async (): Promise<ResumenPublicacion> => {
+    let crudo: string | null;
+    try { crudo = await getSettingEstricto(CLAVE_PUBLICACION); } catch { return { tipo: 'no_pude', motivo: 'no pude leer la última publicación' }; }
+    const previa = leerPublicacion(crudo);
+    const ahora = Date.now();
+    const decision = decidirPublicacion(EXTENSION_VERSION, tienda, previa, ahora);
+    if (decision.hacer !== 'subir' && decision.hacer !== 'publicar') return { tipo: 'decidido', decision, previa };
+    const marca = JSON.stringify(marcaDeSubida(previa, EXTENSION_VERSION, ahora));
+    if (!(await cambiarSettingSi(CLAVE_PUBLICACION, crudo, marca))) {
+      return { tipo: 'decidido', decision: { hacer: 'esperar', motivo: `Otra vuelta está mandando la ${EXTENSION_VERSION}` }, previa };
+    }
+    let resultado = decision.hacer === 'subir' ? await subir(dep) : await publicar(dep);
+    if (decision.hacer === 'subir' && resultado.paso === 'subida') resultado = await publicar(dep);
+    const guardado = guardarPaso(previa, EXTENSION_VERSION, resultado, Date.now());
+    // Si esto no se escribe, la marca de «subiendo» vence sola en `SUBIENDO_VENCE_MS` y la vuelta siguiente decide de nuevo.
+    await cambiarSettingSi(CLAVE_PUBLICACION, marca, JSON.stringify(guardado)).catch(() => false);
+    console.log(`[vigia-aprobaciones] extensión ${EXTENSION_VERSION}: ${resultado.paso}${resultado.error ? ` (${resultado.error})` : ''}`);
+    return { tipo: 'hecho', resultado, guardado };
   });
 }
 
 /** Una lectura en una línea, sin claves: para el log del cron y la consola. */
 export function resumenDeLectura(l: Lectura): string {
   return l.tipo === 'leido' ? `${l.estado}${l.version ? ` ${l.version}` : ''} (${l.fuente})${l.detalle ? ` — ${l.detalle}` : ''}`
-    : l.tipo === 'no_pude' ? `no pude: ${l.motivo}` : l.tipo === 'sin_credencial' ? `falta ${l.faltan.join(', ')}` : 'a mano';
+    : l.tipo === 'no_pude' ? `no pude: ${l.motivo}` : `falta ${l.faltan.join(', ')}`;
 }
 
 /** Una vuelta entera: lee todo, guarda el estado y, si algo cambió, le avisa a Martín. */
@@ -97,7 +164,12 @@ export async function correrVigiaAprobaciones(): Promise<ResultadoVigia> {
   return runWithWorkspace(ws, async (): Promise<ResultadoVigia> => {
     const crudo = await getSettingEstricto(CLAVE_ESTADO);
     const previo = leerGuardado(crudo);
-    const lecturas = await leerAhora(ws);
+    const e = await entornoDe(ws);
+    const token = tokenGoogle(e);
+    const lecturas = await leerTodo(e, token);
+    let pub: ResumenPublicacion;
+    try { pub = await publicarExtensionSiHaceFalta(ws, e, token); } catch { pub = { tipo: 'no_pude', motivo: 'la publicación falló' }; }
+    lecturas['chrome-web-store'] = conLaPublicacion(lecturas['chrome-web-store'], pub, EXTENSION_VERSION);
     const resumen: Record<string, string> = {};
     for (const [id, l] of Object.entries(lecturas)) resumen[id] = resumenDeLectura(l);
     const { nuevo, avisos } = vuelta(previo, lecturas, Date.now());
@@ -111,9 +183,33 @@ export async function correrVigiaAprobaciones(): Promise<ResultadoVigia> {
   });
 }
 
-/** La lista de lo que espera, de lo GUARDADO (no lee nada afuera): la operación de la API y la consola. */
-export async function listaGuardadaDeAprobaciones(): Promise<{ ultimaVuelta: string | null; filas: FilaLista[] }> {
+/**
+ * La lista de lo que espera, de lo GUARDADO (no lee nada afuera): la pestaña Approvals (computadora y teléfono), la operación
+ * de la API y la consola. Tira si la base no contesta: «no pude leer» no es una lista vacía.
+ */
+export async function listaGuardadaDeAprobaciones(ahoraMs: number = Date.now()): Promise<{ ultimaVuelta: string | null; filas: FilaLista[] }> {
   const ws = await wsSuperAdmin();
   const g = leerGuardado(await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_ESTADO)));
-  return { ultimaVuelta: g.ultimaVuelta ?? null, filas: listaDeAprobaciones(g) };
+  return { ultimaVuelta: g.ultimaVuelta ?? null, filas: listaDeAprobaciones(g, ahoraMs) };
+}
+
+/**
+ * Guarda lo que se leyó del panel de una aprobación sin API (scripts/vigia-paneles.mts y `anotar_lectura_de_panel`). Con
+ * compare-and-set: la tarea guarda varios paneles seguidos y una persona puede anotar uno a la vez. No avisa: el vigía lo toma
+ * en su próxima vuelta y avisa si cambió algo, como con cualquier lectura.
+ */
+export async function anotarLecturaDePanel(
+  id: string,
+  lectura: { estado: string; nota?: string | null } | { noPude: string },
+): Promise<{ ok: true; lectura: LecturaPanel } | { ok: false; error: string }> {
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    for (let intento = 0; intento < 3; intento++) {
+      const crudo = await getSettingEstricto(CLAVE_PANELES);
+      const r = anotarPanel(leerPaneles(crudo), id, lectura, Date.now());
+      if (!r.ok) return r;
+      if (await cambiarSettingSi(CLAVE_PANELES, crudo, JSON.stringify(r.nuevo))) return { ok: true as const, lectura: r.lectura };
+    }
+    return { ok: false as const, error: 'Otra lectura se guardó al mismo tiempo, tres veces seguidas. Vuelve a guardarla.' };
+  });
 }
