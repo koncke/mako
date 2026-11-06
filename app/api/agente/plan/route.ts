@@ -133,6 +133,14 @@ export async function POST(req: NextRequest) {
             // única opción era «crear otra». El resultado es el tablero con dos
             // tarjetas de lo mismo, que es justo lo que el cruce vino a evitar.
             enriquece: o.enriquece as { id: string; razon: string; confianza?: 'alta' | 'media' } | undefined,
+            // «Se repite para siempre» (mig 0163). Se caía acá por el MISMO agujero que `enriquece`: el choke point
+            // (`limpiarTarea` → `decidirRecurrente`, lib/plan-propuesta.ts) dice en su comentario que por él pasan
+            // todos los productores «incluida la API del agente», y este mapeo copiaba cinco campos de los seis. Una
+            // tarea pedida semanal entraba como tarea única, el Perro le ponía score y deadline, se llevaba un puesto
+            // del ranking y titilaba pidiendo una fecha que nunca iba a tener. Y sin error: un campo que no está en el
+            // objeto que devuelve el `map` es indistinguible de uno que el agente no mandó.
+            // El desempate con `deadline` NO va acá: lo hace `decidirRecurrente`, para todos los productores igual.
+            recurrente: o.recurrente === true ? true : undefined,
           };
         }),
         // `preguntas` ya no viaja: el alta dejó de preguntar (05/10/2026). Si un agente

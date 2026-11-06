@@ -229,6 +229,10 @@
       "schedule": "47 6 * * *"
     },
     {
+      "path": "/api/cron/thumbnails-renovar",
+      "schedule": "55 6 * * 0"
+    },
+    {
       "path": "/api/cron/spy-todo",
       "schedule": "23 * * * *"
     },

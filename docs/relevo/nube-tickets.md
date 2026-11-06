@@ -43,8 +43,10 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 - **Tickets sin cuenta** (por WhatsApp sin perfil, el alumno de un curso): **RESUELTO el 6/11** con la mig 0410
   (`correo_bajas`, la baja por DIRECCIÓN). ⚠️ Y de paso se vio que la mitad de este renglón era falsa: a quien no tiene cuenta
-  nunca le salió un correo de avance (`decidirAvance` pide `usuario_id` y un email de verdad). El que SÍ pedía la baja y la
-  seguía recibiendo era otro: quien tiene cuenta en DOS negocios con la misma dirección. El detalle, en
+  nunca le salió un correo de avance (`decidirAvance` pide `usuario_id` y un email de verdad). Y el otro camino —quien tiene cuenta en DOS
+  negocios con la misma dirección— está MEDIDO y no le pasaba a nadie: el 6/11 había 0 direcciones duplicadas en `usuarios`.
+  O sea que la 0410 cerró el agujero ANTES de que pase, que para una baja de correo es el momento correcto, pero no hubo
+  ninguna persona recibiendo correos que había pedido no recibir. El detalle, en
   docs/hallazgos-ticketera.md → «La baja de los correos estaba atada a una CUENTA».
 - **Los automáticos** (lo que MaKo abre solo): no mandan correo. MaKo ya se lo dijo en el chat.
 - **Una casilla en Notificaciones** para prenderlos y apagarlos: hoy se hace desde el link del correo, que también los vuelve a
