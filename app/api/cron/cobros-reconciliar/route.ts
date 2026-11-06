@@ -22,7 +22,7 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
-import { asegurarPlazosCreem, cobradoEnLaPasarela, getCobro, mantenerAvisosCreem, mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { asegurarPlazosCreem, cobradoEnLaPasarela, getCobro, mantenerAvisosCreem, mantenerAvisosStripe, reconciliarCobros, renovacionesPerdidasStripe, workspacesConPasarela } from '@/lib/cobros';
 import { despacharPendientes, recibosQueFaltan } from '@/lib/recibos';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
@@ -80,6 +80,8 @@ export async function GET(req: NextRequest) {
       const r = await runWithWorkspace(ws, () => reconciliarCobros(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS }));
       resultados.push({ ws, ok: true, ...r });
       if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
+      // Las renovaciones de Stripe cuyo `invoice.paid` se perdió (6/11/2026, lib/cobros.ts): una vez por día, con la misma reserva.
+      if (delDia) await runWithWorkspace(ws, () => renovacionesPerdidasStripe(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS })).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} renovaciones de Stripe:`, msg(e)));
       await runWithWorkspace(ws, () => mantenerAvisosCreem(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Creem:`, msg(e)));
       if (delDia) await runWithWorkspace(ws, () => asegurarPlazosCreem(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} plazos de Creem:`, msg(e)));
       if (r.cambiados || r.errores) {
