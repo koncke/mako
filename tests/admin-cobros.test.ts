@@ -18,7 +18,8 @@
 //   · `const ws = OWNER_WS` en venderPlanAction (con su import) → 5 pases, 1 fallo;
 //   · `ws` como parámetro de anularCobroMakoAction → 5 pases, 1 fallo;
 //   · un `for` delante de reembolsarCobro → 5 pases, 1 fallo;
-//   · CAPAS_LISTA en lugar de CAPAS_VENDIBLES en VenderPlan.tsx → 5 pases, 1 fallo;
+//   · CAPAS_LISTA en lugar de CAPAS_VENDIBLES en VenderPlan.tsx → 5 pases, 1 fallo (desde el 6/11/2026,
+//     app/admin/cobros/_components/vender-plan.tsx: el diálogo de Studio Admin);
 //   · el guard de la página después de leer los cobros → 5 pases, 1 fallo;
 //   · el item del nav con la key 'dev-cobros' → 5 pases, 1 fallo.
 //   Restaurado a mano: 6 pases.
@@ -130,7 +131,7 @@ test('reembolsar mueve plata: una sola llamada, sin vueltas que la repitan', () 
 
 test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en la action', () => {
   assert.ok(!CAPAS_VENDIBLES.some((c) => c.id === 'superadmin'));
-  const vp = sinComentarios(leer('app/admin/cobros/VenderPlan.tsx'));
+  const vp = sinComentarios(leer('app/admin/cobros/_components/vender-plan.tsx'));
   assert.match(vp, /CAPAS_VENDIBLES\.map\(/, 'los planes se listan desde CAPAS_VENDIBLES');
   assert.doesNotMatch(vp, /\bCAPAS\b|\bCAPAS_LISTA\b/, 'el catálogo entero incluye la capa superadmin');
   // Y el server lo vuelve a preguntar ANTES de crear un lead o un cobro: la pantalla no protege nada. La action delega en
@@ -149,7 +150,8 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {
-  // Desde el 25/10/2026 /admin/cobros redirige a Admin › Billing, que monta app/admin/cobros/Contenido.tsx.
+  // Desde el 25/10/2026 /admin/cobros redirige a Admin › Billing; desde el 6/11/2026 Billing es app/admin/cobros/billing.tsx
+  // (la página de finanzas de Studio Admin).
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');
@@ -157,9 +159,9 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
   const customers = sinComentarios(leer('app/admin/page.tsx'));
   const puerta = customers.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
   assert.ok(puerta > 0, 'Customers sin la puerta del super admin');
-  assert.ok(puerta < customers.indexOf('<ContenidoCobros />'), 'el guard va ANTES de leer los cobros');
+  assert.ok(puerta < customers.indexOf('<Billing vista={sp.vista} recibo={sp.recibo} />'), 'el guard va ANTES de leer los cobros');
   for (const p of [page, customers]) assert.doesNotMatch(p, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
-  assert.match(sinComentarios(leer('app/admin/cobros/Contenido.tsx')), /await cobrosDeMakoAction\(\)/);
+  assert.match(sinComentarios(leer('app/admin/cobros/billing.tsx')), /const datos = await cobrosDeMakoAction\(\);\s*if \(!datos\.ok\) return <ErrorSeccion /);
 });
 
 // Desde el 17/10/2026 la familia Admin salió de la barra: Cobros («Billing») es una SECCIÓN de Clients que sólo ve el

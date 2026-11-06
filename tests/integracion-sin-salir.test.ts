@@ -83,8 +83,9 @@ test('la pieza es UNA: monta el ServicioSuelto de /integraciones, por portal y e
  */
 const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/_components/SaldoMaKo.tsx': { porque: 'ir a MIRAR el saldo de la IA (#saldo-ia), no conectar' },
-  // Desde el 25/10/2026 Billing es una pestaña de Customers: el link vive en su contenido.
-  'app/admin/cobros/Contenido.tsx': { porque: 'abre /integraciones en el workspace de MaKo (`?ws=` explícito): el modal se abriría en el de la pestaña' },
+  // Desde el 6/11/2026 Billing es la página de finanzas de Studio Admin: el link vive en su aviso y en su atajo «Pasarelas».
+  'app/admin/cobros/billing-vista.ts': { porque: 'el aviso «Conecta Stripe o Mercado Pago» abre /integraciones en el workspace de MaKo (`?ws=` explícito): el modal se abriría en el de la pestaña' },
+  'app/admin/cobros/_components/quick-actions.tsx': { porque: 'el atajo «Pasarelas» abre /integraciones en el workspace de MaKo (`?ws=` explícito): el modal se abriría en el de la pestaña' },
   'app/admin/ui/CatalogoUI.tsx': { porque: 'el catálogo de la UI: un ejemplo del componente' },
   'app/api-mako/Articulos.tsx': { porque: 'el agente de Claude (token clásico): su modal no se abre suelto' },
   'app/api-mako/Tokens.tsx': { porque: 'el agente de Claude (token clásico): su modal no se abre suelto' },

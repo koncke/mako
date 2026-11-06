@@ -385,7 +385,20 @@ export type Ingresos = {
   porCobrar: PorCobrar[];
   /** Los últimos pagos que entraron, el más nuevo primero (como «Payments» de Stripe). */
   pagos: PagoReciente[];
+  /** Todo lo que entró, un renglón por pago (Admin › Billing reparte y dibuja desde acá). */
+  entradas: Entrada[];
 };
+
+/** Un pago que entró, sin más que lo que hace falta para repartirlo: cuándo, cuánto en dólares, por dónde y de quién. */
+export type Entrada = { fecha: string; usd: number | null; medio: string | null; recurrente: boolean; nombre: string };
+
+/** Los pagos válidos (con fecha y hasta hoy), el más viejo primero. `usd` null = sin su valor en dólares: no suma. */
+export function entradasDe(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string): Entrada[] {
+  return pagosValidos(pagos, hoy)
+    .slice()
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.id.localeCompare(b.id)))
+    .map((p) => ({ fecha: p.fecha, usd: usdDe(p.usd), medio: p.medio, recurrente: p.suscripcion != null, nombre: quien.get(p.cliente)?.nombre ?? p.cliente }));
+}
 
 export type PagoReciente = PagoIngreso & { nombre: string; recurrente: boolean };
 
@@ -425,6 +438,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
     clientes,
     porCobrar: porCobrarDe(tramos, hoy),
     pagos: pagosRecientes(pagos, quien, hoy),
+    entradas: entradasDe(pagos, quien, hoy),
   };
 }
 

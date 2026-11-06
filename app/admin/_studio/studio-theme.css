@@ -191,3 +191,52 @@
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 }
+
+/* La impresión del recibo de Billing (Studio Admin, src/app/globals.css: [data-print-root]). El papel vive en un portal al
+   <body> (app/admin/cobros/recibo/invoice-preview.tsx) y sólo se imprime él. ⚠️ Acotado con `:has()`: con la regla tal cual
+   de Studio (`body > *:not([data-print-root])`), imprimir cualquier otra pantalla de MaKo daba una hoja en blanco. */
+[data-print-root] {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: Letter;
+    margin: 0;
+  }
+
+  html:has(body > [data-print-root]),
+  body:has(> [data-print-root]) {
+    width: 8.5in !important;
+    height: 11in !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(> [data-print-root]) > *:not([data-print-root]) {
+    display: none !important;
+  }
+
+  [data-print-root] {
+    display: block !important;
+    width: 8.5in !important;
+    height: 11in !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    background: white !important;
+  }
+
+  [data-print-root] [data-print-paper] {
+    width: 8.5in !important;
+    height: 11in !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-print-root] [data-print-paper],
+  [data-print-root] [data-print-paper] * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

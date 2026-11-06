@@ -16,7 +16,7 @@
 // LAS SECCIONES (`?tab=`, leída acá; son las seis del sidebar):
 //   · revenue: dashboard/default de Studio (app/admin/ingresos/revenue.tsx) con lo que entra (lib/admin-ingresos.ts);
 //   · users: dashboard/users de Studio (app/admin/usuarios/users.tsx) con las personas de todos los negocios;
-//   · billing: lo que era /admin/cobros (app/admin/cobros/Contenido.tsx) — por portar (dashboard/finance e invoice);
+//   · billing: dashboard/finance (Resumen, Cobros, Recibos) y su recibo dashboard/invoice (app/admin/cobros/billing.tsx);
 //   · customers: los negocios, con su ficha (app/customers/CustomersApp.tsx) — por portar (dashboard/crm y profile);
 //   · accounts: la grilla de administración (AdminView), la otra vista de Customers. `?cuenta=<ws>` abre su ficha;
 //   · activity: la medición de la mig 0398 (app/admin/actividad) — por portar (dashboard/analytics). Al pie, Agents;
@@ -40,7 +40,7 @@ import { getPerfil } from '@/lib/perfil';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
 import { vistaDeIngresos } from '@/lib/admin-ingresos';
 import { clientesGanados, filasDeTodos } from '@/app/customer-success/trabajo';
-import { ContenidoCobros } from '@/app/admin/cobros/Contenido';
+import { Billing } from '@/app/admin/cobros/billing';
 import { ContenidoAgentes } from '@/app/admin/agente/Contenido';
 import { AdminView } from '@/app/admin/AdminView';
 import '@/app/integraciones/tus-cuentas-ia.css';
@@ -67,7 +67,7 @@ export const metadata = { title: 'Admin' };
 
 const ID = /^[1-9]\d{0,11}$/;
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ tab?: string; cuenta?: string; cliente?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ tab?: string; cuenta?: string; cliente?: string; vista?: string; recibo?: string }> }) {
   await requireSesion();
   const sesionAdmin = await getSesionAdmin();
   if (!sesionAdmin) redirect('/inicio');
@@ -81,7 +81,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {tab === 'revenue' ? await PestanaIngresos()
         : tab === 'users' ? await PestanaUsuarios()
         : tab === 'errors' ? await PestanaErrores()
-        : tab === 'billing' ? <ContenidoCobros />
+        : tab === 'billing' ? <Billing vista={sp.vista} recibo={sp.recibo} />
         : tab === 'activity' || tab === 'agents' ? await PestanaActividad()
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
         : await PestanaClientes(cliente)}

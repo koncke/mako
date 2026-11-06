@@ -32,7 +32,8 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const COBROS = fuente('lib/cobros.ts');
 const ACCIONES = fuente('app/admin/cobros/actions.ts');
-const LISTA = fuente('app/admin/cobros/ListaCobrosMako.tsx');
+// Desde el 6/11/2026 la lista de cobros es la tabla de Studio Admin (Admin › Billing › Cobros), con sus diálogos.
+const LISTA = fuente('app/admin/cobros/_components/cobros-table.tsx');
 const COMPRA = fuente('lib/compra-plan.ts');
 
 /** La función entera, desde su firma hasta la `}` de la columna 0 que la cierra. */
@@ -63,10 +64,13 @@ test('una suscripción «viva» es la que la pasarela sigue cobrando: pagada o c
 });
 
 test('la pantalla: la casilla viene marcada en una suscripción viva, y «Cortar la suscripción» aparece aunque ya se haya devuelto', () => {
-  assert.match(LISTA, /cortarRef\.current = c\.suscripcionViva;/);
-  assert.match(LISTA, /<input type="checkbox" defaultChecked onChange=\{\(e\) => \{ cortarRef\.current = e\.target\.checked; \}\}/);
-  assert.match(LISTA, /reembolsarCobroMakoAction\(c\.id, null, \{ cortarSuscripcion: c\.suscripcionViva && cortarRef\.current \}\)/);
-  assert.match(LISTA, /\{c\.suscripcionViva && \(\n\s*<Button[^>]*onClick=\{\(\) => void cortar\(c\)\}>Cortar la suscripción<\/Button>/);
+  // Al pedir el reembolso, la casilla arranca marcada si la suscripción sigue viva; se ve sólo en ese caso, y lo que diga va
+  // al servidor (nunca un corte sin suscripción viva).
+  assert.match(LISTA, /if \(tipo === "reembolsar"\) setCortar\(c\.suscripcionViva\);/);
+  assert.match(LISTA, /pedido\?\.tipo === "reembolsar" && c\.suscripcionViva && \(\s*<div[^>]*>\s*<Checkbox id="cortar-suscripcion" checked=\{cortar\} onCheckedChange=\{\(v\) => setCortar\(v === true\)\} \/>/);
+  assert.match(LISTA, /reembolsarCobroMakoAction\(c\.id, null, \{ cortarSuscripcion: c\.suscripcionViva && cortar \}\)/);
+  // «Cortar la suscripción» depende SÓLO de que esté viva (también con el primer pago ya devuelto).
+  assert.match(LISTA, /\{c\.suscripcionViva && \(\s*<DropdownMenuItem variant="destructive" onSelect=\{\(\) => pedir\("cortar", c\)\}>\s*Cortar la suscripción\s*<\/DropdownMenuItem>/);
 });
 
 // ── 2 · Las claves de prueba no se ofrecen al público ──────────────────────

@@ -87,7 +87,7 @@ test('la venta a mano: el código tiene que ser de un partner, y queda en el cob
   const guarda = v.indexOf("update({ ref_codigo: venta.refCodigo }).eq('id', r.cobro.id).eq('workspace_id', ws)", cobro);
   assert.ok(chequeo > 0 && abierto > chequeo && cobro > abierto, 'se pregunta ANTES del link que ya existe y de crear el cobro');
   assert.ok(guarda > cobro, 'y se guarda en el cobro que se creó');
-  assert.match(fuente('app/admin/cobros/VenderPlan.tsx'), /refCodigo: refCodigo\.trim\(\) \|\| null/);
+  assert.match(fuente('app/admin/cobros/_components/vender-plan.tsx'), /refCodigo: refCodigo\.trim\(\) \|\| null/);
   assert.match(fuente('lib/api-mako/areas/cobros.def.ts'), /nombre: 'codigoPartner', rotulo: 'Código de partner', tipo: 'string'/);
   assert.match(fuente('lib/api-mako/areas/cobros.run.ts'), /refCodigo: s\(input\.codigoPartner\) \}\);/);
 });

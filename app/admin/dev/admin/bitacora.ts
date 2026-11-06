@@ -501,6 +501,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin',
   },
+  {
+    fecha: '6 nov', hora: '02:30', chat: 'Admin', sesion: 'cli_f877b32d-9536-5c7b-942c-bafca9f3fa8d', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Billing con el código de Studio Admin: finanzas y Cargar pago (tanda 2 de la copia)',
+    puntos: [
+      'Billing es la página de finanzas de Studio: lo cobrado este mes, el MRR, lo que vence y lo atrasado; cómo entra la plata; el aviso de lo que espera; la línea de lo cobrado y lo que vence; por dónde entra; las pasarelas; lo que vence en 31 días; vender un plan y los atajos.',
+      'Sus pestañas Cobros y Recibos son la tabla de Studio con lo de siempre: copiar el link, anular, darle el plan a su cuenta, cortar la suscripción y reembolsar; bajar el PDF, ver el comprobante, reenviar, marcar devuelto y anular. Los precios y los datos del recibo, en Ajustes.',
+      'Cargar pago es la factura de Studio: el formulario a la izquierda (de quién, qué se pagó, cómo se pagó y las notas) y el recibo a la derecha, con Imprimir y Bajar el PDF al emitirlo.',
+      'Se borraron las siete pantallas de antes de app/admin/cobros.',
+    ],
+    archivos: [
+      'app/admin/cobros/billing.tsx, billing-vista.ts y _components — Billing',
+      'app/admin/cobros/recibo — Cargar pago',
+      'lib/admin-ingresos-reglas.ts — `entradas` (lo que entró, para repartirlo)',
+      'app/admin/_studio/components/ui — item, field, popover, calendar, switch, button-group',
+      'tests/admin-studio.test.ts, tests/cobro-lanzamiento.test.ts, tests/admin-cobros.test.ts',
+    ],
+    revisar: '/admin?tab=billing',
+  },
 ];
 
 export const PARTES: Parte[] = [

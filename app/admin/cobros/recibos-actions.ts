@@ -66,14 +66,15 @@ export type PedidoCargarPago = {
 };
 
 /** «Cargar pago»: el recibo de plata que entró por fuera de la pasarela (Binance, transferencia…). */
-export async function cargarPagoAction(p: PedidoCargarPago): Promise<{ ok: true; numero: number; yaEstaba: boolean; aviso?: string } | { ok: false; error: string }> {
+export async function cargarPagoAction(p: PedidoCargarPago): Promise<{ ok: true; id: number; numero: number; yaEstaba: boolean; aviso?: string } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!admin) return { ok: false, error: NO_ADMIN };
   try {
     const r = await emitirReciboManual({ ...p, autor: autorDe(admin) });
     if (!r.ok) return { ok: false, error: r.error };
     revalidatePath('/customers');
-    return { ok: true, numero: r.numero, yaEstaba: r.yaEstaba, ...(r.aviso ? { aviso: r.aviso } : {}) };
+    // El id viaja para «Bajar el PDF» del recibo recién emitido (Admin › Billing › Cargar pago, 6/11/2026).
+    return { ok: true, id: r.id, numero: r.numero, yaEstaba: r.yaEstaba, ...(r.aviso ? { aviso: r.aviso } : {}) };
   } catch (e) {
     return { ok: false, error: mensaje(e, 'No pude emitir el recibo.') };
   }
