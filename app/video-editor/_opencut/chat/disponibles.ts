@@ -31,6 +31,13 @@ export type Disponibles = {
 	efectos: Array<OpcionChat & { tipo: string }>;
 	/** `media`: la velocidad media de la curva (lo que se estira o encoge el clip). */
 	curvas: Array<OpcionChat & { media: number }>;
+	/**
+	 * Los presets de subtítulos de la marca (subtitles/presets.ts): `usar_preset_subtitulos`
+	 * elige uno por su id. Opcional: sin cargar (los tests, un editor sin red), no hay.
+	 */
+	presets?: Array<{ id: string; nombre: string; marca: string | null; resumen: string }>;
+	/** Las palabras que la marca resalta siempre (las del preset elegido en Subtítulos). */
+	palabrasDeMarca?: string[];
 	fuentes: {
 		/** minúsculas → como se escribe («bebas neue» → «Bebas Neue»). */
 		todas: ReadonlyMap<string, string>;

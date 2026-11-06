@@ -1,5 +1,9 @@
 # Relevo — Carruseles que funcionan, en la nube (pedido de Martín del 4/11/2026)
 
+> **6/11/2026: la pantalla se rediseñó entera** (copiada de la interfaz de Top Carousels, sin la bajada, «compacta» ni las
+> pestañas «Esta semana» y «Cuentas»; «Hacer el mío» pasó a ser «Editar», con la IA del negocio). Lo vigente está en
+> [nube-carruseles-rediseno.md](nube-carruseles-rediseno.md); lo de abajo es la historia.
+
 Lo escribe la sesión de la nube que hizo el trabajo. **Esta sesión no puede escribirle al Cerebro:** todo lo que hace falta
 está acá. La nube no llega a la base, a Apify ni a topcarousels.com: lo de abajo se probó con datos inventados y un banco
 (el componente real en Chromium, a 1280 y 390, claro y oscuro).

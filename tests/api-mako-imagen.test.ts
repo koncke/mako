@@ -79,8 +79,9 @@ test('3: cada plantilla, cargada del lado del server, se puede guardar como dise
 test('4: las operaciones del área llevan el permiso de la tab y de admin, y la definición no arrastra el server', () => {
   // 7 del editor + 4 de los carruseles (4/11/2026: estado_carruseles, buscar_carruseles, guardar_carrusel y
   // crear_carrusel_desde_referencia, «Hacer el mío») + 2 de la biblioteca de ejemplos, que edita SÓLO la plataforma
-  // (ver_biblioteca_carruseles y cambiar_biblioteca_carruseles: la ven todos los negocios y ningún negocio la cambia).
-  assert.equal(DEFS.length, 13);
+  // (ver_biblioteca_carruseles y cambiar_biblioteca_carruseles: la ven todos los negocios y ningún negocio la cambia)
+  // + editar_ejemplo_carrusel (6/11/2026: «Editar» un ejemplo con la IA del negocio).
+  assert.equal(DEFS.length, 14);
   const DE_LA_PLATAFORMA = new Set(['ver_biblioteca_carruseles', 'cambiar_biblioteca_carruseles']);
   for (const d of DEFS) {
     assert.equal(d.area, 'imagen');
@@ -148,5 +149,5 @@ test('7: el runner del área carga en un node suelto con --conditions=react-serv
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', `const m = await import(${href}); process.stdout.write(String(Object.keys(m.RUNNERS).length));`], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20,
   });
-  assert.equal(salida.trim(), '13');
+  assert.equal(salida.trim(), '14');
 });
