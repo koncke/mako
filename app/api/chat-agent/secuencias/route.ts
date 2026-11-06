@@ -66,7 +66,7 @@ import { archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-hueco
 import { tzActual } from '@/lib/timezone';
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
-import { getEntregables, setEntregables } from '@/lib/entregable';
+import { cambiarEntregables, getEntregables } from '@/lib/entregable';
 import { getInstanciaRow, motivoCaida } from '@/lib/evolution';
 import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
@@ -539,9 +539,10 @@ export async function POST(req: NextRequest) {
       // Solo http(s): un enlace con otro esquema (javascript:, data:) termina
       // pegado en un mensaje que sale a un desconocido.
       if (!/^https?:\/\//i.test(enlace)) return Response.json({ ok: false, error: 'El enlace tiene que empezar con http:// o https://' }, { status: 400 });
-      const lista = await getEntregables();
+      // Por la puerta única de la lista: con la lectura tolerante, una base caída dejaba la lista con este solo lead magnet.
       const nuevoLm = { id: `lm-${Date.now().toString(36)}`, nombre, tipo: 'Lead magnet', queEs: '', fomo: '', enlace };
-      await setEntregables([...lista, nuevoLm]);
+      const g = await cambiarEntregables<true>((lista) => ({ lista: [...lista, nuevoLm], valor: true }));
+      if (!g.ok) return Response.json({ ok: false, error: g.error }, { status: g.status });
       return Response.json({ ok: true, id: nuevoLm.id });
     }
     // «Duplicar»: una copia PAUSADA con los mismos pasos y el mismo disparador. Un paso que ya no pasa

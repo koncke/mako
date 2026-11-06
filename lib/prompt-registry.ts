@@ -117,6 +117,7 @@ import {
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
 import { CRITERIO_JUEZ_SYSTEM_TEMPLATE, CRITERIO_JUEZ_USER_TEMPLATE } from './plan-criterio-reglas';
+import { PROPONER_LM_SYSTEM_TEMPLATE, PROPONER_LM_USER_TEMPLATE } from './lead-magnets/propuesta';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
@@ -1463,6 +1464,30 @@ export const REGISTRY: Group[] = [
         label: 'Verificador del reporte (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
         default: RETRO3_VERIF_SYSTEM,
         context: 'El verificador que contrasta el borrador del reporte contra los números medidos antes de publicarlo. Conserva el esquema JSON de salida.',
+      },
+    ],
+  },
+  // MaKo propone el lead magnet (6/11/2026): la IA elige y redacta; lib/lead-magnets/propuesta.ts (`leerPropuestas`) descarta lo
+  // que nombre a un competidor, use una plantilla que no existe, esté con «vos» o repita uno que ya tiene. Editar el texto no
+  // apaga esa segunda capa.
+  {
+    group: 'Lead Magnet (MaKo propone)',
+    icon: '🧲',
+    blurb: 'En «Nuevo lead magnet», MaKo propone hasta 3 desde la oferta del negocio y lo que hace su competencia en Competitors Spy, con la IA del negocio. Los competidores le llegan anónimos.',
+    entries: [
+      {
+        key: 'lead-magnet.proponer.system', source: 'override',
+        label: 'Proponer lead magnets (system)', kind: 'system', dynamic: true,
+        variables: [v('plantillas', 'las plantillas que existen, con su id'), v('forma', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: PROPONER_LM_SYSTEM_TEMPLATE,
+        context: 'Cómo elige y cómo escribe cada propuesta. No borres {{plantillas}} ni {{forma}}: sin ellos inventa plantillas o contesta otra forma, y el código las descarta todas.',
+      },
+      {
+        key: 'lead-magnet.proponer.user', source: 'override',
+        label: 'La oferta y la competencia (user)', kind: 'user', dynamic: true,
+        variables: [v('oferta', 'la oferta principal del negocio'), v('competencia', 'la oferta leída de cada competidor, anónima'), v('yaTiene', 'los lead magnets que ya tiene')], scope: 'full', sensitive: false,
+        default: PROPONER_LM_USER_TEMPLATE,
+        context: 'Lo que lee: la oferta, la competencia (como «Competidor 1», sin nombres) y lo que ya tiene. No borres {{oferta}}/{{competencia}}/{{yaTiene}}.',
       },
     ],
   },

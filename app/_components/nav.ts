@@ -459,6 +459,13 @@ export const FAMILIAS: NavFamilia[] = [
           key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
           match: starts('/ai-avatar'),
         },
+        {
+          // 5/11/2026: sale de «Coming soon» a su casa futura (Create), con el diseño único de Create (app/_crear/PantallaCrear.tsx):
+          // plantillas de guía, checklist, prompts, planilla y clase grabada que crean la pieza en su herramienta (lib/lead-magnets/).
+          // `adminOnly` y su puerta (app/lead-magnet-generator/puerta.ts): sólo la plataforma, hasta que Martín la abra a los clientes.
+          key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet', href: '/lead-magnet-generator', icon: 'leadmagnet',
+          match: starts('/lead-magnet-generator'),
+        },
       ],
     ],
   },
@@ -467,12 +474,12 @@ export const FAMILIAS: NavFamilia[] = [
 /**
  * LAS «PRONTO» del super admin (17/10/2026 noche): salieron de la barra al menú de la foto › Platform › Coming soon
  * (prototipo: «lo poco usado detrás de "More", no en la lista», como Linear). Cada una con su casa futura: VSL Generator
- * y Lead Magnet → Create; Sales Email, Newsletters y Competitor Spy → Marketing; Closing Script y Sales Roleplay → Sales.
+ * → Create; Sales Email, Newsletters y Competitor Spy → Marketing; Closing Script y Sales Roleplay → Sales. Lead Magnet ya
+ * está en Create desde el 5/11/2026.
  * Todas `adminOnly` desde el 11/10/2026.
  */
 export const PRONTO: NavItem[] = [
   { key: 'vsl-writer', adminOnly: true, label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
-  { key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
   { key: 'sales-email', adminOnly: true, label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
   { key: 'newsletters', adminOnly: true, label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
   { key: 'closing-script', adminOnly: true, label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },

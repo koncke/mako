@@ -87,6 +87,7 @@ import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
 import { SCRIPT_VENTA } from './bloques-venta';
+import { SCRIPT_QUIZ } from './quiz';
 
 /**
  * WCAG 2.2.2 (la regla de los hallazgos: lo que se mueve solo más de 5 s lleva pausa): un título partido termina de
@@ -466,6 +467,8 @@ export const SCRIPT_PAGINA = [
   // (g) Los bloques de venta (5/11/2026, bloques-venta.ts): el reloj de la cuenta regresiva y el pop de la prueba social.
   //     Antes del corte de las animaciones: no dependen de él.
   ...SCRIPT_VENTA,
+  // (h) El quiz con diagnóstico (6/11/2026, quiz.ts): los pasos, el puntaje y el resultado. Tampoco depende de las animaciones.
+  ...SCRIPT_QUIZ,
   '  try { fondosEnVideo(); } catch (e) {}',
   "  if (!d.body || d.body.getAttribute('data-gm-animar') !== '1') return;",
   '  var IO = w.IntersectionObserver;',

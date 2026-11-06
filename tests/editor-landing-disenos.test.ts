@@ -228,8 +228,9 @@ test('la página de gracias de un diseño con video lleva UN video vacío en su 
     }
   }
   assert.deepEqual(mal, []);
-  // El webinar (sin botón) y el lead magnet (con «Descargar ahora») en los 8 diseños con video.
-  assert.equal(conGracias, 2 * DISENOS_LANDING.filter((d) => d.video).length, 'las plantillas con página de gracias cambiaron: revisar el test');
+  // El webinar (sin botón), el lead magnet (con «Descargar ahora») y la clase grabada (5/11/2026, con su siguiente paso) en los
+  // 8 diseños con video.
+  assert.equal(conGracias, 3 * DISENOS_LANDING.filter((d) => d.video).length, 'las plantillas con página de gracias cambiaron: revisar el test');
   // Y la que trae botón lo deja debajo del video: titular → texto → video → botón.
   const lm = landingDesde(DISENOS_LANDING.find((d) => d.video)!, 'lead-magnet')!.paginas.find((p) => p.ruta === 'gracias')!;
   assert.deepEqual(lm.doc.content[0].content!.map((n) => (esVideo(n) ? 'video' : n.type)), ['heading', 'paragraph', 'video', NODO.botones]);

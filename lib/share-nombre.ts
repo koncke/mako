@@ -58,6 +58,13 @@ export const RECURSO_GUION = 'copywriter';
 export const GUION_SIN_NOMBRE = 'Guion';
 
 /**
+ * Un LEAD MAGNET para leer (5/11/2026, el Lead Magnet Generator: lib/lead-magnets/server.ts → `linkPublico`): una página del
+ * Copywriter que ve SIN LOGIN quien la recibe, de solo lectura. Su `recurso_id` es el id de la página (`g…`); su nombre, la
+ * `etiqueta` (el nombre del lead magnet el día que se creó el link). Vive acá por la misma razón que `RECURSO_INFORME`.
+ */
+export const RECURSO_LEAD_MAGNET = 'lead-magnet';
+
+/**
  * Qué comparte esta fila, con el nombre de HOY.
  *
  * `tituloDeCurso` resuelve un slug a su título actual — en este repo es `buscarCurso`,

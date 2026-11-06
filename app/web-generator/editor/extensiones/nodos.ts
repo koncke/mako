@@ -35,6 +35,7 @@ import {
 } from '@/lib/editor-landing/especificacion';
 import { normalizarGrafico } from '@/lib/editor-landing/grafico-svg';
 import { attrsCuentaRegresiva, attrsEscasez, attrsPruebaSocial } from '@/lib/editor-landing/bloques-venta';
+import { attrsQuiz } from '@/lib/editor-landing/quiz';
 import { embedDeIframe } from '@/lib/embeds';
 import {
   attrsDelJson, attrsSinParseo, dato, especificar, focoDeFondo, hijo, urlDeFondo, vistaDom,
@@ -532,6 +533,8 @@ const ventaDe = (nombre: string, tag: string, attrs: (raw: unknown) => Record<st
 export const CuentaRegresiva = ventaDe(NODO.cuentaRegresiva, 'div.gm-cuenta', attrsCuentaRegresiva);
 export const PruebaSocial = ventaDe(NODO.pruebaSocial, 'div.gm-prueba', attrsPruebaSocial);
 export const Escasez = ventaDe(NODO.escasez, 'div.gm-escasez', attrsEscasez);
+/** El quiz con diagnóstico (6/11/2026, quiz.ts): un átomo con el mismo molde; sus preguntas viajan en el JSON, no en el HTML. */
+export const Quiz = ventaDe(NODO.quiz, 'div.gm-quiz', attrsQuiz);
 
 export const HtmlLibre = Node.create<OpcionesNodo>({
   name: NODO.htmlLibre,
