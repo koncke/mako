@@ -244,7 +244,7 @@ async function main() {
   if (!rp.ok) throw new Error(`crearCobro prueba: ${rp.error}`);
   const sesP = stripe.slice(antes).find((x) => x.ruta === '/v1/checkout/sessions')!.p;
   out.pruebaAbierta = { dias: sesP.get('subscription_data[trial_period_days]'), cupon: sesP.get('discounts[0][coupon]') };
-  db.workspaces.push({ id: 80, nombre: 'Por decidir', capa: 'agencia', estado: 'activo' });
+  db.workspaces.push({ id: 80, nombre: 'En prueba', capa: 'agencia', estado: 'activo' });
   const filaP = db.cobros.find((c) => c.id === rp.cobro.id)!;
   Object.assign(filaP, { alta_ws: 80, alta_capa: 'agencia', suscripcion_estado: 'activa', estado: 'pendiente', inicio_at: new Date(ahora + 5 * 86_400_000).toISOString() });
   out.pruebaEstado = (await estadoDePrueba(80)).enPrueba;

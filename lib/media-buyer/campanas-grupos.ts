@@ -6,7 +6,7 @@
 // sentido». Hasta el 6/11 cada columna era un producto del CRM: con un solo producto, todas las campañas caían en una columna; con seis,
 // bajaban de fila. Ahora el producto es un FILTRO y las columnas dicen lo que hay que hacer con cada campaña:
 //   · Funcionan: cuestan menos que lo que busca el negocio, con resultados suficientes para creerlo → candidatas a subir.
-//   · En prueba: todavía no hay con qué decidir (pocos resultados, o está dentro del margen) → se las deja correr.
+//   · Por decidir: todavía no hay con qué decidir (pocos resultados, o está dentro del margen) → se las deja correr.
 //   · Para revisar: caras, o gastaron lo que cuesta un resultado y no trajeron ninguno, o Meta las retuvo → mirarlas hoy.
 // Las pausadas van aparte (no se les pide nada). Es la misma vara del motor (objetivo de costo, y poco gasto no decide: ver
 // docs/conocimiento/anuncios-high-ticket.md → «Cuándo apagar»).
