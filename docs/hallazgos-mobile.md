@@ -1986,3 +1986,69 @@ pasar lo que haya atrás. El fondo del composer se extiende por debajo.
 
 **Vive en:** `Caja` (app/_chat/CajaChat.tsx) · `micAlLadoDeLaFlecha` (lib/centro-caja.ts) · `tecladoDelComposer` (app/m/mako/chat-ui.ts) ·
 app/m/chats/[clave]/ComposerChatsM.tsx · tests/caja-nota-con-adjuntos.test.ts.
+
+---
+
+## Montar una pieza de escritorio en /m: lo que NO viaja con ella (6/11/2026)
+
+Competitor Spy en el teléfono (`app/m/competitor-spy`) se escribió REUSANDO los componentes de `app/competitor-spy`,
+como /m/ads reusa el árbol del Media Buyer. Lo que costó no es el reuso: es lo que el componente da por sentado de la
+pantalla que lo monta.
+
+- **El CSS no viaja con el componente, y no se nota hasta que se ve.** Montar `TarjetaPieza`, `GrillaPiezas` o
+  `MejoresPiezas` fuera de `SpyApp` las deja SIN una sola regla: el catálogo queda como texto suelto, sin grilla y sin
+  miniaturas recortadas. **El diagnóstico obvio era el equivocado** —el relevo decía «cada componente de Spy trae su
+  propio CSS en un `const CSS` con `<style>{CSS}</style>`»— y es verdad de SEIS de ellos (`GraficoSpy`, `DetallePieza`,
+  `SuOferta`, `Esqueletos`, `BuscadorAlta`, `SusPaginas`); el resto vive en el `const CSS` de 39 KB de
+  `app/competitor-spy/SpyApp.tsx`. **Regla:** antes de montar una pieza de escritorio en /m, `grep '<style>{CSS'` en ESE
+  archivo; lo que no lo trae se viste en la hoja de /m, como DESCENDIENTE del prefijo entero de la carpeta
+  (`.m-competitor-spy .spy-pcard{…}`), que además es lo que permite destilarla —una columna, no cinco— sin tocar la
+  computadora. No alcanza con mirar si el componente «se ve bien» en la computadora: ahí lo viste su página.
+- **Los tokens de color de una tab viven en SU clase raíz.** `.spy` declara `--t1..--t4`, `--t-ink`, `--t-dim`, `--ig`,
+  `--yt` y `--gap`, y los usan la tarjeta de pieza (el tinte por canal) y el buscador de alta. Fuera de `.spy` resuelven
+  a NADA (un `var()` sin valor no es un error: es nada), así que la raíz de la pantalla de /m los declara de nuevo. Y
+  ⚠️ `@keyframes spy-latido` está declarado DOS veces en SpyApp, con definiciones distintas: un keyframe es global y no
+  se puede acotar a una clase, así que /m usa un nombre propio y se lo pone al elemento, en vez de declararlo otra vez.
+- **Una pieza que es dueña de su CAJA necesita que la caja sea una prop.** `DetallePieza` ERA un `Modal` de
+  `@/app/_ui/Modal`, que /m no usa (AGENTS.md). Se le abrió UNA puerta, `marco` (`MarcoDetalle`): el `Modal` sigue
+  siendo el default y el teléfono le pasa su `SheetM`. Es el único cambio que necesitó el escritorio; copiar la pieza
+  habría duplicado el guion, «Hacer uno así» y sus números.
+- **`GrillaPiezas` escribe `grid-template-columns` en el estilo EN LÍNEA** (calcula las columnas que entran: dos a
+  390 px), y un estilo en línea le gana a cualquier clase: la columna única del teléfono necesita `!important`. Lo que
+  queda abierto: la PAGINACIÓN sigue contando esas dos columnas (`porPagina = columnas * FILAS_POR_PAGINA`), así que una
+  página del teléfono trae el doble de tarjetas de las que debería.
+- **`MejoresPiezas` se dibuja en `position: absolute` para no sumarle alto al riel**, y mide el hueco que quedó. En una
+  columna sola eso es 0 y la tarjeta no se ve: su salida es `--mejores-fluye: 1`, que el componente pregunta por CSS
+  (`getComputedStyle`), y la declara quien lo monta.
+- **Y un componente que ESPERA una lectura no se puede montar sin ella.** `SuOferta` con `vista={undefined}` dibuja
+  el bloque con lo que ya hay guardado —parecía justo lo que el teléfono necesita— y, al lado, un `EsqueletoPuntaje`:
+  su `leyendo` es `!vista || vista.estado === 'leyendo'`, así que sin la lectura queda un loader PUESTO PARA SIEMPRE
+  («una espera que no termina no es un loader», AGENTS.md). Se destiló a las filas clave → valor de /m, con los MISMOS
+  cuatro rótulos. **Regla:** antes de montar una pieza con `vista`/`estado`, se mira qué dibuja con el valor que /m le
+  va a pasar de verdad, no el que tiene en la computadora.
+- **`estadoDeResultados` (lib/spy-vista.ts) no sirve para una pantalla que no LEE.** Con `lecturas: null` —lo que tiene
+  quien sólo muestra lo ya leído— devuelve `'cargando'` a propósito (sin la lectura en la mano no se puede afirmar «no
+  hay»), y eso en pantalla es un esqueleto que no termina nunca. Lo que /m sabe es `mirado_en`: leído y vacío, o nunca
+  leído. **Regla:** una función que decide un estado a partir de una lectura es de quien hace la lectura.
+
+**Lo que quedó SIN hacer, con el archivo donde vive:**
+
+- **La primera lectura de un competidor sigue siendo de la computadora.** `app/m/competitor-spy/page.tsx` NO llama a
+  `debeLeerAlAbrir`/`revisarAction`: abrir una ficha vieja en el teléfono no dispara la lectura que paga Apify y YouTube
+  con la clave del negocio, porque eso es una decisión de producto (y arrastra la película de la lectura,
+  `app/competitor-spy/OrdenSpy.tsx`, que no está montada). Mientras tanto, la ficha de alguien sin nada leído lo DICE.
+- **El diagnóstico de su oferta nota por nota** (el analista de Offer, `/api/competitor-spy/oferta`) no se pide desde el
+  teléfono por lo mismo: es una corrida de IA del negocio disparada por abrir una pantalla. El teléfono muestra lo que
+  la IA ya dejó escrito en `spy_competidores.oferta` (`SuOferta` con `parte="cabeza"`).
+- **Guardar un anuncio pegado y dejar de mirar a un competidor** quedaron en la computadora (se dicen en la fila
+  `ComputadoraM` de `app/m/competitor-spy/SpyM.tsx`), igual que replicar su sitio y el recorrido con la extensión, que
+  son los dos que el diseño manda decir (docs/diseno-competitors-spy.md §8).
+- **El riel de análisis** («¿En qué publica?» y «A dónde manda») no está: `RielAnalisis`/`CajaMix` no se exportan de
+  `SpyApp.tsx`, y sacarlos de ahí era mudar dos componentes más.
+- **Nunca se vio en un teléfono de verdad.** Lo medido a 390 px es lo de la computadora (`GraficoSpy`, el detalle y
+  «Copiar estructura»: docs/relevo/nube-spy.md); la columna de esta pantalla, su hoja de filtros y el `BuscadorAlta`
+  adentro de `PantallaM` (que le pone `transform` mientras se tira el pull, y `transform` mueve lo `fixed`) no.
+
+**Vive en:** `app/m/competitor-spy/` (page.tsx, SpyM.tsx, competitor-spy.css) · `marco` en
+`app/competitor-spy/DetallePieza.tsx` · la fila `competitor-spy` de `SECCIONES_MAS` y su `QUERY_DE_SECCION`
+(lib/movil-rutas.ts).

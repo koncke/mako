@@ -1,0 +1,364 @@
+/* =============================================================================
+   /m/competitor-spy — la hoja de la pantalla (6/11/2026)
+   =============================================================================
+   ⚠️ TODAS LAS CLASES ARRANCAN CON `.m-competitor-spy` (el nombre ENTERO de la carpeta): Next deja la
+   hoja cargada al salir de la ruta, y un prefijo corto se pisa con otra pantalla (AGENTS.md).
+
+   ⚠️ Y POR ESO LAS PIEZAS DE ESCRITORIO SE VISTEN ACÁ, COMO DESCENDIENTES. `GraficoSpy`,
+   `DetallePieza`, `BuscadorAlta`, `SuOferta` y `Esqueletos` traen su `<style>` adentro y se montan
+   vestidos; `TarjetaPieza`, `GrillaPiezas`, `MejoresPiezas` y `LogoRed` NO: su CSS vive en el `const
+   CSS` de app/competitor-spy/SpyApp.tsx, que esta pantalla no monta. Montarlas sin esto deja el
+   catálogo como texto suelto, sin grilla y sin miniaturas. Las reglas de abajo son las de SpyApp
+   DESTILADAS para una columna de 390 px; no se tocó el escritorio para esto.
+
+   Lo mismo con los tokens de color: `--t1..--t4`, `--t-ink`, `--t-dim`, `--ig` y `--yt` los declara
+   `.spy` (la raíz de la computadora) y los usan la tarjeta y el buscador. Acá se declaran de nuevo,
+   con los mismos valores, en la raíz de la pantalla.
+   ============================================================================= */
+
+.m-competitor-spy {
+  /* Los mismos de .spy (app/competitor-spy/SpyApp.tsx): los cuatro tintes pastel y las dos marcas. */
+  --t1: #e5e8cd; --t2: #d9e8e1; --t3: #f0e4cc; --t4: #dbe3ef;
+  --t-ink: #17181c; --t-dim: #17181ca8;
+  --ig: #D62976; --yt: #FF0000;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ── El campo de arriba: el mismo lugar que la barra de la computadora, en el ancho del dedo. Abre
+      el MISMO buscador (BuscadorAlta), que ya está hecho para el teléfono. ── */
+.m-competitor-spy__campo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--faint);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.m-competitor-spy__campo > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.m-competitor-spy__campo:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--border), var(--focus-ring); }
+
+/* ── La cara de un competidor en una fila (su caricatura, su foto o su inicial), 44 px. ── */
+.m-competitor-spy__cara {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--t1);
+  color: var(--t-ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+.m-competitor-spy__cara img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ── El encabezado de la ficha: la cara grande, el nombre y de dónde se lee. `data-m-titulo-grande`
+      hace que el nombre chico aparezca en la barra al hacer scroll (app/m/_ui/LEEME.md §2). ── */
+.m-competitor-spy__quien { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 2px 0 4px; }
+.m-competitor-spy__quien .m-competitor-spy__cara { width: 72px; height: 72px; border-radius: 18px; font-size: 28px; }
+.m-competitor-spy__quien > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+[data-m] .m-competitor-spy__quien h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.m-competitor-spy__de { color: var(--faint); font-size: var(--fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+[data-m] .m-competitor-spy__frescura { color: var(--faint); font-size: var(--fs-sm); }
+
+/* ── Sus números: las celdas pastel del riel de la computadora, de a dos. Un contador ausente NO
+      deja celda vacía: quien dibuja decide (lib/spy-reglas.ts → `dibujarContador`). ── */
+.m-competitor-spy__kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.m-competitor-spy__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.m-competitor-spy__kpi b { color: var(--faint); font-size: var(--fs-meta); font-weight: 600; }
+.m-competitor-spy__kpi strong { font-size: 19px; font-weight: 700; letter-spacing: -.015em; font-variant-numeric: tabular-nums; }
+.m-competitor-spy__kpi small { color: var(--faint); font-size: var(--fs-meta); }
+
+/* ── UN BLOQUE POR PANTALLA, PLEGADOS (docs/diseno-competitors-spy.md §8). El molde es el de
+      app/m/offer/offer.css: <details> con su chevron, el primero abierto. ── */
+.m-competitor-spy__bloque { border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); }
+[data-m] .m-competitor-spy__bloque > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px 0 16px;
+  cursor: pointer;
+  font-size: var(--fs-card);
+  font-weight: 700;
+  color: var(--ink);
+}
+[data-m] .m-competitor-spy__bloque > summary::-webkit-details-marker { display: none; }
+[data-m] .m-competitor-spy__bloque > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-lg); }
+[data-m] .m-competitor-spy__bloque > summary > svg { flex: none; color: var(--faint); transition: transform .16s var(--ease-out); }
+[data-m] .m-competitor-spy__bloque[open] > summary > svg { transform: rotate(180deg); }
+.m-competitor-spy__cuerpo { padding: 0 12px 14px; min-width: 0; }
+
+/* ── La hoja de los filtros y del orden: una lista por pregunta, con la marca en la elegida. ── */
+.m-competitor-spy-hoja { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.m-competitor-spy-hoja__buscar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: var(--faint);
+}
+.m-competitor-spy-hoja__buscar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  /* 16 px: por debajo de eso, iOS hace zoom al enfocar (app/m/_ui/LEEME.md §4). */
+  font-size: 16px;
+  color: var(--ink);
+}
+.m-competitor-spy-hoja__grupo { color: var(--faint); font-size: var(--fs-meta); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.m-competitor-spy-hoja__elegida { color: var(--accent); }
+/* El pie de la hoja del detalle de una pieza: el botón de la casa, a lo ancho del pulgar. */
+.m-competitor-spy-hoja .mk-btn { width: 100%; }
+.m-competitor-spy-hoja__titulo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-competitor-spy-hoja__titulo small { color: var(--faint); font-size: var(--fs-sm); font-weight: 600; }
+
+/* La frase de lo que está filtrado, debajo del título de «Todas sus piezas». */
+.m-competitor-spy__filtro { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.m-competitor-spy__filtro button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.m-competitor-spy__filtro button[data-puesto='si'] { background: var(--accent); color: var(--on-primary); box-shadow: none; }
+
+/* =============================================================================
+   LAS PIEZAS DE ESCRITORIO QUE NO TRAEN SU CSS, destiladas para UNA columna
+   ============================================================================= */
+
+/* ── Todas sus piezas (GrillaPiezas.tsx). ⚠️ UNA COLUMNA, Y CON `!important`: el componente escribe
+      `grid-template-columns` en el ESTILO EN LÍNEA (calcula las columnas que entran, dos a 390 px) y
+      un estilo en línea le gana a cualquier clase. La galería del teléfono es de una columna
+      (docs/diseno-competitors-spy.md §8): una tarjeta por fila, con la miniatura en su proporción. ── */
+.m-competitor-spy .spy-pgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 14px;
+  align-items: start;
+}
+.m-competitor-spy .spy-pgrid__celda { min-width: 0; display: flex; align-self: start; }
+.m-competitor-spy .spy-pgrid__celda > * { flex: 1; min-width: 0; }
+.m-competitor-spy .spy-todas { display: flex; flex-direction: column; gap: 14px; }
+.m-competitor-spy .spy-todas__cabecera { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── La tarjeta de una pieza (TarjetaPieza.tsx): sin borde, con TINTE por canal, el creativo a sangre
+      en su proporción real y el pie con el texto y el número. ⚠️ EL TEXTO VA SIEMPRE DEBAJO DE LA
+      FOTO, no en su lugar: una miniatura que no carga nunca deja la caja en blanco (§8). ── */
+.m-competitor-spy .spy-pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: inherit;
+  text-decoration: none;
+}
+.m-competitor-spy .spy-pcard[data-canal='instagram'] { background: var(--t3); }
+.m-competitor-spy .spy-pcard[data-canal='youtube'] { background: var(--t4); }
+.m-competitor-spy .spy-pcard[data-canal='anuncios'] { background: var(--t2); }
+.m-competitor-spy .spy-pcard__media { position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden; }
+.m-competitor-spy .spy-pcard__foto { position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+.m-competitor-spy .spy-pcard__texto-creativo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 46px 16px 0;
+  color: var(--t-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 78px), transparent calc(100% - 50px));
+  mask-image: linear-gradient(#000 calc(100% - 78px), transparent calc(100% - 50px));
+}
+.m-competitor-spy .spy-pcard__puntos { position: absolute; z-index: 2; top: 14px; left: 12px; display: flex; }
+.m-competitor-spy .spy-pcard__puntos i { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), inset 0 0 0 1px #0000001f; }
+.m-competitor-spy .spy-pcard__tag {
+  position: absolute;
+  z-index: 1;
+  bottom: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  box-shadow: var(--sombra-tarjeta);
+}
+.m-competitor-spy .spy-pcard__tag--viva { padding-left: 8px; background: rgba(22, 26, 25, .82); color: #fff; }
+.m-competitor-spy .spy-pcard .spy-pcard__tag.spy-pcard__tag--analizando {
+  top: 12px; right: 12px; left: auto; bottom: auto;
+  padding-left: 8px; background: rgba(22, 26, 25, .82); color: #fff; max-width: none; display: inline-flex; line-height: normal;
+}
+.m-competitor-spy .spy-pcard__tag + .spy-pcard__tag {
+  bottom: 44px; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 26px;
+}
+.m-competitor-spy .spy-pcard__veces {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 99px;
+  background: rgba(18, 21, 27, .72);
+  color: #fff;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.m-competitor-spy .spy-pcard__veces[data-fuerte='si'] { background: var(--mako); color: #12151b; }
+.m-competitor-spy .spy-pcard__tag--analizando ~ .spy-pcard__veces { top: 44px; }
+.m-competitor-spy .spy-pcard__pie { display: flex; align-items: flex-end; gap: 10px; padding: 12px 14px 14px 16px; }
+.m-competitor-spy .spy-pcard__texto { flex: 1; min-width: 0; }
+.m-competitor-spy .spy-pcard__texto small { display: block; color: var(--t-dim); font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-competitor-spy .spy-pcard__texto b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-card); font-weight: 600; line-height: 1.3; }
+.m-competitor-spy .spy-pcard__num {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.m-competitor-spy .spy-pcard__num svg { opacity: .75; flex: 0 0 auto; }
+.m-competitor-spy .spy-pcard__num b { font-size: var(--fs-md); font-weight: 700; line-height: 1; }
+
+/* ── Las páginas de la galería (GrillaPiezas.tsx): los controles, a 44 px. ── */
+.m-competitor-spy .spy-paginas { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.m-competitor-spy .spy-paginas__cuenta { color: var(--faint); font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.m-competitor-spy .spy-paginas__botones { display: flex; align-items: center; gap: 4px; }
+.m-competitor-spy .spy-paginas__n,
+.m-competitor-spy .spy-paginas__flecha {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.m-competitor-spy .spy-paginas__n[aria-current='page'] { background: var(--ink); color: var(--bg); }
+.m-competitor-spy .spy-paginas__flecha:disabled { opacity: .35; cursor: default; }
+.m-competitor-spy .spy-paginas__salto { min-width: 24px; text-align: center; color: var(--faint); }
+
+/* ── «Lo que mejor le fue» (MejoresPiezas.tsx). ⚠️ `--mejores-fluye: 1` es lo que el componente
+      pregunta para saber que está en una columna sola: así dibuja sus cinco filas en vez de medir el
+      hueco de un riel que acá no existe. Sin esto, la tarjeta va `position: absolute` y no se ve. ── */
+.m-competitor-spy .spy-mejores { --mejores-fluye: 1; position: static; }
+.m-competitor-spy .spy-mejores__tarjeta { position: static; display: flex; flex-direction: column; padding: 0; }
+[data-m] .m-competitor-spy .spy-mejores h3 { display: none; }
+.m-competitor-spy .spy-mejores ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.m-competitor-spy .spy-mejores li button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.m-competitor-spy .spy-mejores__mini { position: relative; flex: none; width: 44px; height: 44px; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+.m-competitor-spy .spy-mejores__mini img { width: 100%; height: 100%; object-fit: cover; }
+.m-competitor-spy .spy-mejores__red { position: absolute; right: 2px; bottom: 2px; line-height: 0; }
+.m-competitor-spy .spy-mejores__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-competitor-spy .spy-mejores__texto b { font-size: var(--fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-competitor-spy .spy-mejores__texto small { color: var(--faint); font-size: var(--fs-meta); font-weight: 600; }
+.m-competitor-spy .spy-mejores__veces {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--dim);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.m-competitor-spy .spy-mejores__veces[data-alto='true'] { background: var(--mako); color: #12151b; }
+
+/* El punto de estado de una pieza (TarjetaPieza.tsx) y el botón primario del buscador de alta
+   (BuscadorAlta.tsx lo usa y no lo define: su `.spy-boton` sí viene con él). */
+.m-competitor-spy .spy-punto { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.m-competitor-spy .spy-punto-vivo { background: var(--good); }
+.m-competitor-spy .spy-boton-primario { background: var(--accent); color: var(--on-primary); }
+/* El latido de los esqueletos del buscador: su `@keyframes spy-latido` vive en SpyApp, que acá no se
+   monta. Con otro nombre, para no declarar en global uno que el escritorio ya tiene (dos veces). */
+.m-competitor-spy .spy-hueso { animation-name: m-competitor-spy-latido; }
+@keyframes m-competitor-spy-latido { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-m] .m-competitor-spy__bloque > summary > svg { transition: none; }
+  .m-competitor-spy .spy-hueso { animation: none; }
+}

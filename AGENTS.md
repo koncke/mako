@@ -11075,6 +11075,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Y una pieza de escritorio que se MONTA en /m trae menos de lo que parece (6/11/2026, Competitor Spy).** Antes de
+  reusarla se miran tres cosas en SU archivo: (1) si trae su CSS (`<style>{CSS}</style>`) o si vive en el `const CSS` de
+  la pantalla que la monta —la mitad de las de Spy—, porque sin él se dibuja sin una sola regla y en la computadora
+  nadie lo nota; (2) si usa tokens declarados en la clase RAÍZ de su tab (`.spy` declara `--t1..--t4`, `--t-ink`,
+  `--ig`…), que fuera de ella resuelven a nada; (3) si es dueña de su CAJA —un `Modal`, que /m no usa—, y entonces la
+  caja se vuelve una prop con el `Modal` como default y el teléfono le pasa su `SheetM` (molde: `marco` /
+  `MarcoDetalle`, app/competitor-spy/DetallePieza.tsx). Lo que se viste en /m va como DESCENDIENTE del prefijo entero de
+  la carpeta, que es lo que además permite destilarla (una columna, no cinco) sin tocar el escritorio.
+  Lo que costó: docs/hallazgos-mobile.md, «Montar una pieza de escritorio en /m».
 - **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
   Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
   que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes
