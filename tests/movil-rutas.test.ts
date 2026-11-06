@@ -286,6 +286,11 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   assert.equal(rutaMovil('/marketing/salud'), '/m/configuraciones/integraciones', 'la salud de Meta no es el Dashboard');
   assert.equal(rutaMovil('/ads-manager'), '/m/ads');
   assert.equal(rutaMovil('/ads-manager/123?ws=4'), '/m/ads');
+  // Marketing CoPilot (6/11/2026): «Cambiar mi estrategia» (`?estrategia=1`) viaja y reabre la charla en el teléfono; lo demás de la
+  // computadora (`vista`, `decision`) no lo lee el teléfono y no viaja. Y de vuelta a la computadora, igual.
+  assert.equal(rutaMovil('/ads-manager?estrategia=1'), '/m/ads?estrategia=1');
+  assert.equal(rutaMovil('/ads-manager?vista=campanas&decision=abc&ws=4'), '/m/ads');
+  assert.equal(rutaEscritorio('/m/ads?estrategia=1'), '/ads-manager?estrategia=1');
   assert.equal(rutaMovil('/customer-success'), '/m/cs');
   assert.equal(rutaMovil('/customer-success?vista=avance'), '/m/cs');
   for (const p of ['/automations', '/automations?sec=12', '/chatbot?sec=12', '/chat-bot', '/chat-agent', '/setting']) {

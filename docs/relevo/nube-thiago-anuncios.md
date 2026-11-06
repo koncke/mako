@@ -45,10 +45,10 @@ sesión, `claude/laughing-meitner-yuqvk9`). **Sin migración.**
 
 1. **«Subir creativos»**: listar los `generados` que ya devuelve `subir_preparar` y mandar su `ref` (y, si el creativo viene a
    relevar un anuncio, el `original`). Hoy la pantalla sólo sube archivos del disco: el video de MaKo sale sólo por la API.
-2. **La decisión del relevo** es `tactica: 'ganador'` + `tipo: 'pausar'`: `rotuloDe` y `POR_TACTICA` (`mb-modelo.ts`) la pintan
-   como «Anuncio ganador» / «probar textos nuevos». Necesita su rótulo («Pausar el original»). No se sumó una táctica nueva
-   porque `Record<Tactica, …>` de esa pantalla no compilaba.
-3. **`Autopilot.tsx` no pinta `v.cta`** de una variación: la del botón se distingue por su `gancho` («Mismo texto, botón X»).
+2. ✅ **Hecho (6/11, Marketing CoPilot, segunda sesión de la nube).** La decisión del relevo (`tactica: 'ganador'` + `tipo: 'pausar'`)
+   se pinta «Le gana su variación», en verde, con su «Impacto esperado» y su frase del pie (`mb-modelo.ts`; lo fija
+   `tests/marketing-copilot-relevo-pantalla.test.ts`).
+3. ✅ **Hecho (mismo día).** `Autopilot.tsx` dice el botón de una variación de botón («Botón: Solicitar ahora», con `NOMBRE_BOTON`).
 4. **Automatizaciones** ya muestra los tres números nuevos del Ganador (salen de `TACTICAS`): conviene mirarlos en pantalla.
 
 ## Lo que falta verificar (en producción, después del deploy diario)

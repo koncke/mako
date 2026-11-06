@@ -25,6 +25,25 @@ test('la primera entrada: quien nunca operó el Media Buyer o tiene la cuenta va
     assert.match(src, /<SinAnuncios perfil=\{perfil\} \/>/, f);
   }
   assert.match(leer('app/ads-manager/page.tsx'), /sp\.estrategia === '1'/, '«Cambiar mi estrategia» reabre la charla');
+  // En el teléfono también (6/11/2026): el link es el mismo (/ads-manager?estrategia=1) y el desvío lo deja viajar.
+  const m = sinComentarios(leer('app/m/ads/page.tsx'));
+  assert.match(m, /=== '1';/, 'el teléfono lee ?estrategia=1');
+  assert.match(m, /if \(reabrir \|\| \(!copilotoListo\(perfil\)/, 'y con él reabre la charla');
+});
+
+test('el teléfono le habla al CoPilot, no al chat general: «Pídele algo a MaKo» y «Pregúntale» abren su hoja', () => {
+  const src = sinComentarios(leer('app/m/ads/MediaBuyerM.tsx'));
+  assert.doesNotMatch(src, /\/m\/mako/, 'el chat general no lleva el desde del CoPilot');
+  assert.match(src, /className="aa-orden-m" onClick=\{\(\) => setCopiloto\(/);
+  assert.match(src, /onPreguntar=\{\(\) => \{ setAbierta\(null\); setCopiloto\(\{ pedido:/);
+  assert.match(src, /<HojaDelCopiloto /);
+  const h = sinComentarios(leer('app/m/ads/HojaDelCopiloto.tsx'));
+  assert.match(h, /useChatCliente\(\{[^}]*entrarAlCerebro: true[^}]*desde \}\)/, 'la conversación es el Cerebro, como la estrella');
+  assert.match(h, /desdeDelCopiloto\(pantalla\)/);
+  // Y el Plan en el teléfono con anuncios: la tarjeta de la computadora.
+  assert.match(src, /seccionesDelTelefono\(perfil\)/);
+  assert.match(src, /<SeccionPlan perfil=\{perfil\} \/>/);
+  assert.match(sinComentarios(leer('app/m/ads/page.tsx')), /perfil=\{perfil\} \/>/, 'la página le pasa el perfil');
 });
 
 test('al terminar la charla se sale del ?estrategia=1 (si no, la página la mostraría otra vez)', () => {
