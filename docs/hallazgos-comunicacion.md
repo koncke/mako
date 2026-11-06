@@ -98,6 +98,14 @@ lo fija tests/recordatorio-lead.test.ts.
 **Regla:** un arreglo de una salida que «no puede afirmar» se prueba también con la entrada VACÍA: ahí el respaldo de siempre
 vuelve a colarse.
 
+Y en la tanda siguiente, **el aviso de la línea caída no decía cuál línea**: el webhook de Evolution le pone `numero = null` a
+la fila cuando llega el «close», antes de que el vigilante confirme la caída, así que `lineaLegible` no tenía qué nombrar y el
+renglón «📱» se iba entero (un negocio con dos líneas sin etiqueta no sabía cuál se cayó). Ahora el webhook guarda el número
+ANTES de borrarlo, en un setting del negocio (`keyUltimoNumero`, lib/linea-vigilancia.ts; los «close» repetidos leen la fila ya
+vacía y no lo pisan), y el vigilante lo usa sólo si la fila no tiene número, en la caída y en el «volvió». Sin migración: el
+`desconectar()` deliberado no lo necesita (esa línea no avisa). Lo fija tests/linea-vigilancia.test.ts (el orden guardar →
+borrar, y los dos avisos con el respaldo).
+
 **Vive en:** lib/api-mako/areas/equipo.run.ts · lib/plantillas.ts · lib/aviso-sin-ia.ts · lib/evolution-envio.ts ·
 lib/chats-envio-reglas.ts · app/api/cron/reunion-recordatorio/route.ts · *6/11/2026, barrido de pendientes (nube).*
 
@@ -10396,9 +10404,10 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   la instancia viva en Evolution (una llevó 22 días así); una desvinculada no tiene instancia
   (`esInstanciaInexistente`, en un solo lugar). Ni el estado de la fila ni `ultima_conexion_at`
   sirven: el webhook escribe lo mismo en los dos casos.
-- **El aviso de línea caída nunca va a nombrar el número**: el webhook y `desconectar()` ponen
+- ~~**El aviso de línea caída nunca va a nombrar el número**: el webhook y `desconectar()` ponen
   `numero` en null y las 3 filas de prod tienen `etiqueta` null. El ejemplo del catálogo, que lo
-  muestra, promete algo que no pasa. Hace falta guardar el último número conocido.
+  muestra, promete algo que no pasa. Hace falta guardar el último número conocido.~~ HECHO el
+  6/11/2026, sin migración: ver «Tres avisos que mentían…» arriba.
 - **Un aviso apagado se loguea como «ya avisado hace poco»**: `emitirDelCatalogo` devuelve
   `deduped: true` y no `apagado` (`lib/avisos.ts`). Sólo afecta al log, y lo hace mentir.
 - **La cobranza prometía dos veces**: el texto decía «¿Le escribo?» y `requiereRespuesta: true` hacía

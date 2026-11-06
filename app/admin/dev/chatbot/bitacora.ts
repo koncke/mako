@@ -3357,4 +3357,18 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "6 nov", hora: "11:40", chat: "Barrido de pendientes (nube)", sesion: "cli_908aa36b-adb2-556c-b042-b48962ca685a", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "El aviso de WhatsApp caído dice cuál número se cayó",
+    puntos: [
+      "Cuando se cae una línea de WhatsApp de un negocio, el aviso ahora nombra el número aunque la línea ya no lo tenga (antes salía sin decir cuál).",
+    ],
+    archivos: [
+      "app/api/webhooks/evolution/route.ts — guarda el número antes de borrarlo",
+      "lib/linea-vigilancia.ts y lib/lineas-vigilante.ts — keyUltimoNumero y el respaldo en los dos avisos",
+      "tests/linea-vigilancia.test.ts — probado rompiéndolo (3 roturas, 1 fallo cada una)",
+    ],
+    revisar: "/whatsapp",
+  },
 ];
