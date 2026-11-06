@@ -26,6 +26,8 @@ permiso». Este archivo es el registro de ese barrido. **Se mantiene al día en 
 | 1 | Si la IA no redacta un aviso, ya no sale el ejemplo de fábrica (reunión inventada, link a un lead ajeno) | lib/plantillas.ts · lib/aviso-sin-ia.ts | `punta/barrido-envios` |
 | 1 | Un borrador de WhatsApp cortado por tiempo queda «incierto» y no se manda dos veces | lib/evolution-envio.ts · lib/chats-envio-reglas.ts | `punta/barrido-envios` |
 
+| 2 | Customer Success: el alta de un cliente y la de un alumno frenan por el tope de leads del plan (la API ya lo hacía) | app/customer-success/actions.ts · app/customer-success/curso/invitar-actions.ts | `punta/barrido-envios` |
+
 La cosecha de la tanda 1: docs/hallazgos-comunicacion.md → «Tres avisos que mentían o se podían duplicar».
 
 ## Cola de CÓDIGO que hace este barrido (vigente, en orden)
@@ -33,19 +35,19 @@ La cosecha de la tanda 1: docs/hallazgos-comunicacion.md → «Tres avisos que m
 | # | Qué | Archivo | Prio | Estado |
 |---|---|---|---|---|
 | C1 | El aviso de línea CAÍDA no puede nombrar el número: el webhook y `desconectar()` borran `numero` | app/api/webhooks/evolution/route.ts:176 · lib/evolution.ts | 3 | necesita guardar el último número (columna nueva o no borrarlo): **migración**, se escribe tolerante |
-| C2 | `crearClienteAction` (Customer Success) no frena por el tope del plan; la API sí | app/customer-success/actions.ts | 2 | por medir |
-| C3 | `embeddings` y `transcribe` gastan IA sin `recordUsage` (no se ve en el Uso) | lib/embeddings.ts · lib/transcribe.ts | 2 | por medir |
-| C4 | `tieneBorradorNutriPendiente` cuenta borradores de automatizaciones pausadas | lib/evolution-envio.ts | 3 | por medir |
-| C5 | La etiqueta en lote corta en 200 sin avisar | app/api/crm/etiquetas/route.ts | 3 | por medir |
-| C6 | Pixel de una landing dada de baja: la pastilla «desactualizado» queda para siempre; `snippetDesactualizado` sigue en 3 lectores | lib/landing-token.ts · lib/pixel-estado.ts · lib/landing-pulso-server.ts · lib/api-mako/areas/landing.run.ts · app/api/cron/tracking-vigilante | 3 | por medir |
+| C2 | `crearClienteAction` (Customer Success) no frena por el tope del plan; la API sí | app/customer-success/actions.ts | 2 | **HECHO** (tanda 2) |
+| C3 | `embeddings` gasta IA sin `recordUsage` (no se ve en el Uso) | lib/embeddings.ts | 4 | medido: `transcribe` ya va por `transcribirAudio`. Embeddings: una fila por vector llenaría la tabla del Uso (miles por ingesta) y entraría en la cuenta de cuota de las keys de Gemini → **decisión** de cómo registrarlo (agregado por día) |
+| C4 | `tieneBorradorNutriPendiente` cuenta borradores de automatizaciones pausadas | lib/evolution-envio.ts | 3 | **decisión** (hallazgos-chatbot: «pausar no es archivar»): ¿un borrador de una pausada sigue frenando? → Automations / Martín |
+| C5 | La etiqueta en lote corta en 200 sin avisar | app/api/crm/etiquetas/route.ts | 3 | **HECHO** antes (27/10: la barra manda de a tandas, `TANDA_ETIQUETAS_LOTE`) |
+| C6 | Pixel de una landing dada de baja: la pastilla «desactualizado» queda para siempre; `snippetDesactualizado` sigue en 3 lectores | lib/landing-token.ts · lib/pixel-estado.ts | 3 | **HECHO** antes: `snippetDesactualizado` delega en `estadoPixel`, que mira las páginas con visitas (`paginasVivas`) |
 | C7 | Cookie de un código de partner muerto tapa el link vigente | app/r/[codigo]/route.ts | 4 | por medir |
 | C8 | Plan: aviso cuando una reunión no se pudo leer | lib/reunion-auto.ts · lib/reunion-descartadas.ts | 3 | por medir |
-| C9 | Una landing confirmada deja el lead sin `pagina_registro` | app/crm/revisar/[id]/acciones.ts | 3 | por medir |
-| C10 | El lead que pierde el compare-and-set de Zernio queda con `meta_ad_id` | lib/zernio-entrante.ts | 3 | por medir |
-| C11 | La etapa de un CRM agregado no se deriva (agendar no lo mueve) | lib/lead-funnel.ts | 3 | por medir |
+| C9 | Una landing confirmada deja el lead sin `pagina_registro` | app/crm/revisar/[id]/propuesta-lead.ts | 3 | **HECHO** antes (propuesta-lead.ts:121 la copia normalizada) |
+| C10 | El lead que pierde el compare-and-set de Zernio queda con `meta_ad_id` | lib/zernio-entrante.ts | 3 | **HECHO** antes (`quitarHuerfano` lo borra y le pasa el anuncio al ganador con `.is(null)`). Queda la otra mitad: el primer mensaje del anuncio llega SIN referral → **decisión** de atribución |
+| C11 | La etapa de un CRM agregado no se deriva (agendar no lo mueve); los agregados entran por el barrido de la hora, no por evento; «Mover a Ganado» en un agregado no registra la venta | lib/lead-funnel.ts · lib/leads.ts | 3 | **OTRO CHAT (Automations) + MARTÍN**: es el motor y la decisión «ganar en un funnel agregado ¿es venta?» |
 | C12 | Página propia de «no encontrado» (no hay `app/not-found.tsx`) | app/not-found.tsx | 5 | por medir |
 | C13 | Restos: `TAB_DE_DATO` sin uso, `Lead` sin `suscripcion_cancelada_at`, código muerto de creativos | lib/datos-aviso.ts · lib/leads.ts · lib/creativo-mako-fuentes.ts | 5 | por medir |
-| C14 | `'use server'` fuera del CRM sin `exigirSesion()` (66 archivos): barrido + guard | app/**/actions.ts | 2 | grande: con cuidado (las públicas no llevan sesión) |
+| C14 | `'use server'` fuera del CRM sin `exigirSesion()` | app/**/actions.ts | 2 | **medido, sin agujero**: los 60 archivos tienen su puerta (`adminDeWorkspaceActual`, `puerta()`, `veEditorVideo`, `ctxDeBandeja`…); el de comunidad sirve al alumno a propósito |
 | C15 | Responder con clic derecho en Automations (`useCitaDelChat`) | app/automations | 3 | por medir |
 | C16 | «Por tiempo» agenda al instante al elegirlo (`CRON_DEFAULT`) | app/agencia/FlujoAviso.tsx | 3 | DUDA: la bitácora lo da como decisión 5.1 de Martín |
 
