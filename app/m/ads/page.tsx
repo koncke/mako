@@ -36,7 +36,10 @@ export default async function MediaBuyerMovil() {
     leerPerfilCopiloto(ctx.ws), getUsuarioActual().catch(() => null),
   ]);
   // La primera entrada, igual que en la computadora (app/ads-manager/page.tsx): sólo para quien nunca trabajó con el Media Buyer.
-  if (!copilotoListo(perfil) && !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0) {
+  // La misma regla que la computadora (app/ads-manager/page.tsx): una cuenta medida vacía tampoco «operaba».
+  const nuncaOpero = !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0;
+  const cuentaVacia = guardada.ultimaCorridaInfo?.campanas === 0;
+  if (!copilotoListo(perfil) && (nuncaOpero || cuentaVacia)) {
     return <PantallaM><PrimeraEntrada nombre={(yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo'} inicial={perfil} /></PantallaM>;
   }
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };

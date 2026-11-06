@@ -14,10 +14,12 @@ const RAIZ = join(import.meta.dirname, '..');
 const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('la primera entrada: sólo quien nunca operó el Media Buyer, igual en la computadora y el teléfono', () => {
+test('la primera entrada: quien nunca operó el Media Buyer o tiene la cuenta vacía, igual en la computadora y el teléfono', () => {
   for (const f of ['app/ads-manager/page.tsx', 'app/m/ads/page.tsx']) {
     const src = sinComentarios(leer(f));
-    assert.match(src, /!copilotoListo\(perfil\) && !guardada\.encendido && !guardada\.ultimaCorrida && dec\.decisiones\.length === 0/, `${f}: la condición cambió`);
+    assert.match(src, /const nuncaOpero = !guardada\.encendido && !guardada\.ultimaCorrida && dec\.decisiones\.length === 0/, `${f}: la condición cambió`);
+    assert.match(src, /const cuentaVacia = guardada\.ultimaCorridaInfo\?\.campanas === 0/, `${f}: una cuenta vacía ve la primera entrada`);
+    assert.match(src, /!copilotoListo\(perfil\) && \(nuncaOpero \|\| cuentaVacia\)/, `${f}: la condición cambió`);
     assert.match(src, /<PrimeraEntrada /, f);
     assert.match(src, /conCampanas\(elegido\.id, perfil\.presupuestoMes\)/, `${f}: un funnel sin anuncios no ve Campañas`);
     assert.match(src, /<SinAnuncios perfil=\{perfil\} \/>/, f);

@@ -62,7 +62,11 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   // LA PRIMERA ENTRADA (6/11/2026): quien nunca trabajó con el Media Buyer (sin corrida, sin decisiones, sin piloto) y no terminó
   // la charla ve SÓLO esa charla. Quien ya operaba no la ve: su pantalla no cambia (se la ofrece Ajustes → «Tu estrategia»).
   const sp = await searchParams;
-  const primera = !copilotoListo(perfil) && !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0;
+  // Una cuenta que la última corrida midió VACÍA tampoco «operaba», aunque el cron haya corrido o queden decisiones viejas: sin campañas
+  // no hay pantalla que respetar, y lo primero que ve es qué hacer (medido en producción el 6/11: la plataforma veía «Hoy · Campañas»).
+  const nuncaOpero = !guardada.encendido && !guardada.ultimaCorrida && dec.decisiones.length === 0;
+  const cuentaVacia = guardada.ultimaCorridaInfo?.campanas === 0;
+  const primera = !copilotoListo(perfil) && (nuncaOpero || cuentaVacia);
   // `?estrategia=1` (Ajustes → «Tu estrategia»): vuelve a la propuesta con lo ya respondido, para discutirla o cambiarla.
   if (primera || sp.estrategia === '1') {
     return <Pagina ancho="completo" style={A_SANGRE}><PrimeraEntrada nombre={nombre} inicial={aplicarCambio(perfil, { aceptado: undefined })} /></Pagina>;
