@@ -216,4 +216,14 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [PARAM_PROYECTO, ...o.parametros],
     canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   })),
+  // Las 10 plantillas de venta de AI Avatar (6/11/2026, docs/plantillas-reales/avatar.md): datos de MaKo, de negocios ficticios.
+  {
+    id: 'ver_plantillas_avatar', area: 'video', tipo: 'lectura',
+    titulo: 'Plantillas de AI Avatar',
+    descripcion: 'Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar».',
+    parametros: [
+      { nombre: 'id', rotulo: 'Plantilla', tipo: 'string', max: 40, descripcion: 'el id de una plantilla, para traer su ejemplo completo.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'ai-avatar', rolMinimo: 'admin' },
+  },
 ];

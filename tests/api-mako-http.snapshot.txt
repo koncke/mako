@@ -707,6 +707,7 @@ ver_perfil_guiones
 ver_perfil_negocio
 ver_personalidad_voz
 ver_plan
+ver_plantillas_avatar
 ver_plantillas_oferta
 ver_post_comunidad
 ver_preferencias_notificaciones

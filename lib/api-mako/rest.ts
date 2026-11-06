@@ -680,6 +680,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
   ['GET', '/video/plantillas', 'listar_plantillas_video'],
+  ['GET', '/video/plantillas-avatar', 'ver_plantillas_avatar'],
   ['GET', '/video/proyectos', 'listar_proyectos_video'],
   ['GET', '/video/proyectos/{proyecto}', 'ver_proyecto_video'],
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).

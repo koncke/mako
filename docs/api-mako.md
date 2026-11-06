@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
@@ -15655,7 +15655,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 16 lecturas · 35 acciones.
+Tab **Video Generator** (`/video-generator`). 17 lecturas · 35 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -17150,6 +17150,30 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/borrar-silencios"
+```
+
+### `GET /api/v1/video/plantillas-avatar` — Plantillas de AI Avatar
+
+Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar».
+
+- **Ruta por operación:** `GET /api/v1/video/ver_plantillas_avatar`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ai-avatar
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | no | el id de una plantilla, para traer su ejemplo completo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/plantillas-avatar"
 ```
 
 ## Image Editor (diseños) — `imagen`
