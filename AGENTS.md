@@ -7870,6 +7870,25 @@ el producto miente.
 mismo barrido, **una era falsa alarma** y recortarla habría empobrecido una descripción
 correcta.
 
+## Y su CONTENIDO no entra al producto aunque su CÓDIGO sí: sacarle el crédito no desactiva la licencia
+
+Portar un editor trae dos cosas distintas, y se tratan distinto: **su motor** puede quedarse
+con su crédito en el `LICENSE-*` del repo; **su contenido** (plantillas, assets, textos de
+ejemplo) es material ajeno adentro del producto y sale. El editor de imágenes vino con las 10
+plantillas de Doory —bodas, conciertos, currículums— y encima no le servían a ningún negocio:
+se borraron el 6/11/2026, con sus JSON, sus WebP y sus etiquetas (hallazgos-editor-imagen.md).
+
+**Que el crédito visible ya no esté no cambia nada.** La Attribution Assurance License de
+Doory aplica «in whole or part, with or without modification»: borrar `CreditoDoory.tsx`
+(29/10/2026) dejó de mostrarla, no de deberla. Traducir el contenido al español tampoco: eso
+ES la modificación que la licencia nombra.
+
+**Para código nuevo:** una plantilla, una foto de muestra o un texto de ejemplo que entre al
+producto se genera o se escribe acá. En el editor de imágenes van a
+`lib/image-editor/plantillas-reales.ts` (generadas por código, estructura y ejemplo de la
+misma función) o a las plantillas propias del negocio
+(`app/creaciones/usePlantillasPropias.ts`), nunca al panel que servía las de Doory.
+
 ## Y para leerlos: grepeá la ruta, no abras el documento
 
 **Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro
