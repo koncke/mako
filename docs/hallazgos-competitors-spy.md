@@ -15,6 +15,40 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### «Spy mira sólo 50 por vez» eran TRES topes distintos, y el que sobraba cortaba datos ya bajados (6/11/2026)
+
+**Lo medido.** `TOPES.piezasPorVuelta` (50, lib/spy-reglas.ts) tiene cuatro usos, y el barrido completo muestra que
+**ninguno toca Meta**:
+
+| Camino | Tope | Dónde | Qué cuesta subirlo |
+|---|---|---|---|
+| YouTube Data API | `piezasPorVuelta` | lib/spy-youtube.ts:386,390 · lib/spy.ts:769 | una llamada por página; y YA tiene su camino largo (`VIDEOS_POR_LECTURA_COMPLETA`) |
+| Meta / Business Discovery | **`PIEZAS_A_LEER` = 25** | lib/instagram-perfil.ts:105 | la credencial, y un límite que Meta no acepte tira la consulta ENTERA |
+| Apify | **`PIEZAS_DE_APIFY` = 100** | lib/instagram-perfil.ts:130 | nada: «el actor YA DEVUELVE todas las que trajo» |
+| Lo que la persona CAPTURÓ en su navegador | `piezasPorVuelta` | lib/spy-captura-db.ts:79 | **nada: ya está bajado** |
+
+**El que importaba era el cuarto, y no estaba en el pedido.** En «Guardar en Spy», los anuncios ya están dibujados en
+la pestaña de la persona y el servidor los interpreta; cortar en 50 es **pérdida pura**, y encima silenciosa: el
+desplegable decía «50 anuncios en la ficha de Ana» sin decir «de 213». La captura tiene su techo de verdad mucho más
+arriba (`TOPE_TOKENS` = 20.000 tokens, ~2.800 anuncios).
+
+**La regla que queda.** Un tope de «traer de afuera» y un tope de «quedarme con lo que ya tengo» **no pueden ser la
+misma constante**: el primero tiene precio y el segundo no. Son dos campos de `TOPES`
+(`piezasPorVuelta` / `piezasDeUnaCaptura`), cada uno con su comentario diciendo qué cuesta subirlo. Y si el segundo
+igual corta, **se dice cuántos quedaron afuera** (`sinGuardar`), con la misma forma que ya tenía `otros` («N de otros
+anunciantes no se guardaron»).
+
+**Dos cosas que NO se tocaron, y por qué:**
+
+- **Meta sigue en 25 y es un trámite, no código**: sin la credencial de Business Discovery no se puede medir, y en la
+  Graph API un límite que no acepta no devuelve «no acepto»: falla la consulta entera.
+- **YouTube sigue en 50 por vuelta a propósito**: el competidor que publica mucho ya está cubierto por la lectura
+  completa (`VIDEOS_POR_LECTURA_COMPLETA`, el camino de «traer todo»). Subir la vuelta de rutina pagaría más llamadas
+  en TODAS las lecturas para resolver un caso que ya tiene su camino.
+
+**Y un dato del barrido:** el 50 **no tenía ni un test**. `grep piezasPorVuelta` sobre `tests/` daba cero: se podía
+cambiar sin que nada se quejara, en las dos direcciones.
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
