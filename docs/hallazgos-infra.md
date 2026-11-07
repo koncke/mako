@@ -383,7 +383,7 @@ que configura los drivers (el 6). Reintenta 5 veces y se rinde.
 
 ⚠️ **Y el archivo que pierde esta carrera es SIEMPRE el mismo, por diseño: `docs/hallazgos.md`.** Lo toca toda punta
 que cosecha, y su driver sólo acepta lo que va ADELANTE de la celda de main (`prefijoNuevo`). Dos puntas que cosechan en
-la celda de la MISMA área dentro de esa ventana de 17 minutos chocán: acá fue la celda de «Infraestructura», que otra
+la celda de la MISMA área dentro de esa ventana de 17 minutos chocan: acá fue la celda de «Infraestructura», que otra
 punta de la misma tanda también estaba tocando.
 
 **La cura está en el propio log y son tres comandos:** `git merge origin/main`, resolver el índice con
