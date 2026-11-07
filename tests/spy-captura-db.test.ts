@@ -12,6 +12,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 import type { Captura, Token } from '../lib/spy-captura';
+import { TOPES } from '../lib/spy-reglas';
 
 type Comp = { id: number; nombre: string; landing_url: string | null; pagina_anuncios: string | null };
 type Vista = { canal: string; ref: string; fuente: string; url?: string; dejoDeVerseEn?: string | null };
@@ -120,6 +121,31 @@ test('a su ficha entran sólo los suyos, y se avisa cuántos quedaron afuera', a
   assert.ok(estado.vistas[0].every((v) => v.canal === 'anuncios' && v.fuente === 'recorrido'));
   assert.equal(estado.altas.length, 0, 'ya existía: no se crea otro');
   assert.equal(estado.actos, 0);
+});
+
+// ⚠️ LO CAPTURADO NO SE CORTA CON EL TOPE DE LAS LECTURAS DE AFUERA (6/11/2026). Antes se cortaba en
+// `TOPES.piezasPorVuelta` (50), que es el tope de traer de AFUERA: acá los anuncios ya están bajados en la pestaña de
+// la persona, así que cortarlos es pérdida pura. Y si igual sobran, se DICE cuántos quedaron afuera: el desplegable
+// decía «50 anuncios» sin decir «de 213».
+test('lo capturado NO se corta con el tope de las lecturas de afuera, y lo que sobra se dice', async () => {
+  estado.competidores = [{ id: 7, nombre: 'Ana', landing_url: null, pagina_anuncios: null }];
+  const tarjetas = (n: number, desde = 1) => Array.from({ length: n }, (_, i) =>
+    tarjeta(String(1000000000000000 + desde + i), 'Ana', 'anaoficial', 'ana.com')).flat();
+
+  // 120 anuncios suyos en la pestaña: antes entraban 50 y 70 se tiraban sin decir nada.
+  const r = await guardarCaptura(biblioteca({ tokens: tarjetas(120) }), 7);
+  assert.ok(r.ok && r.tipo === 'anuncios');
+  assert.equal(r.ok && r.tipo === 'anuncios' && r.guardados, 120, 'los 120, no 50');
+  assert.ok(120 > TOPES.piezasPorVuelta, 'el caso tiene que pasar el tope viejo, o no prueba nada');
+  assert.equal(estado.vistas[0].length, 120);
+  assert.equal(r.ok && r.tipo === 'anuncios' && r.sinGuardar, undefined, 'entraron todos: no se dice nada');
+
+  // Pasado SU tope, lo que queda afuera se dice (y no se promete que vuelva solo).
+  estado.vistas = [];
+  const muchos = await guardarCaptura(biblioteca({ tokens: tarjetas(TOPES.piezasDeUnaCaptura + 13) }), 7);
+  assert.equal(muchos.ok && muchos.tipo === 'anuncios' && muchos.guardados, TOPES.piezasDeUnaCaptura);
+  assert.equal(muchos.ok && muchos.tipo === 'anuncios' && muchos.sinGuardar, 13, 'los que no entraron se cuentan');
+  assert.ok(TOPES.piezasDeUnaCaptura > TOPES.piezasPorVuelta, 'lo capturado tiene su propio tope, más alto');
 });
 
 test('su Página: el id gana al nombre, y un id nunca se cambia por un nombre', async () => {
