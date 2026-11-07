@@ -7805,3 +7805,47 @@ quién lo está mirando. Son dos segundos, y el rojo cuesta un run de Actions de
 **Lo que cambia para un negocio que sólo tiene Gemini:** su manual de marca ya no se lee, y se le dice
 (`errorDeCascada` / «conecta tu IA»). No es una regresión encubierta: es lo que `fallback: []` del catálogo ya decidía, y
 antes el código lo desobedecía en silencio.
+
+## La red gratis de la plataforma no corre para NADIE: dos guardas que se excluyen (6/11/2026, `punta/chat-avisos-ia-imposibles`)
+
+Buscando sacar cuatro avisos del lienzo que decían «La IA gratis de MaKo llegó a su tope de hoy», el pendiente daba por
+motivo «con IA16 la red no corre FUERA del ws9». **Medido, el motivo es más fuerte: tampoco corre ADENTRO.** Son dos
+guardas, en dos archivos distintos, que no pueden ser verdad a la vez:
+
+1. `provsGratisDePlataforma()` (lib/ai-cheap.ts) devuelve `[]` salvo que el workspace en curso SEA el del super admin:
+   `if ((await getWorkspaceActual()...) !== ws) return [];` — la decisión de Martín del 22/10/2026 («Cada usuario debe
+   poder pagar su token»: las keys de la plataforma son sólo para lo interno de MaKo).
+2. Y **sus cuatro llamadores** están detrás de la condición CONTRARIA, `wsActual !== wsSA`: sólo corren cuando el
+   workspace en curso **no** es el del super admin («el super admin ya probó SUS keys arriba: repetirlas es gastar
+   tiempo en lo que ya falló»), y eso también es correcto por separado. Son `chatCheapCascade` (:1017), el contador
+   `hayRed` (:817, que ya lo dice en su comentario: «Hoy da false siempre»), el lector de documentos (:1224) y
+   `transcribirAudio` (:2132).
+
+⚠️ **Y «el único llamador» es justo el error que cometimos al escribir esto**: la primera versión del test afirmaba que
+había uno, y la rotura mostró cuatro. Contar los llamadores de una función exportada se lee como un dato obvio y no lo
+es: el grep del nombre encuentra también la declaración y la llamada recursiva, y la guarda del cuarto no está en un
+`if` que lo encierre sino en la MISMA expresión.
+
+Las dos juntas dejan `red` siempre vacía: el `for` sobre los proveedores gratis nunca itera y el
+`erroresPlataformaOut?.push()` del error de la red es **código muerto**, en los cuatro. Ninguna de las dos guardas está mal:
+lo que quedó mal es el **efecto combinado**, que ningún archivo nombra porque cada una tiene su porqué escrito en su
+propio lugar.
+
+**La regla que queda: una guarda correcta más una guarda correcta puede ser una función apagada.** Cuando dos archivos
+deciden por separado «sólo acá» y «sólo allá» sobre el MISMO camino, hay que medir la intersección — y la intersección
+no se lee en ninguno de los dos comentarios. Acá el síntoma era al revés de lo esperado: el pendiente decía «esta rama
+ya no puede pasar para un cliente» y la verdad era «esta rama no puede pasar para nadie, y además hay 30 líneas de
+cascada que no corren».
+
+**Lo que SÍ puede llegar todavía en `erroresPlataformaOut`** (y por eso el aviso no se puede simplificar más allá de
+esto): un fallo del **crédito** de Claude de la plataforma, que es otra cosa que la red gratis y sí alcanza a un cliente
+— pero sólo para las features de `CREDITO_HABILITADO_PARA` (lib/veto-claude.ts), que son las del wizard de onboarding y
+las del editor de landings. `chatbot-crear-ia`, el único llamador que le pasa `red` a `falloDeIA`, no está en esa lista.
+`tests/ia-aviso-sin-ia-propia.test.ts` lo fija: si entra, el test pide que el aviso lo diga con sus palabras.
+
+**Sin hacer:** decidir si la rama de la red gratis de `chatCheapCascade` se borra o se arregla. Hoy es código que se lee
+como vivo (tiene su `TECHO_ENTRADA`, su orden `otroPrimero` y su registro de uso) y no corre nunca. Borrarla o
+habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un cliente, que es justo lo que decidió que no.
+
+**Vive en:** lib/ai-cheap.ts (`provsGratisDePlataforma` y su llamador en `chatCheapCascade`) · lib/veto-claude.ts
+(`CREDITO_HABILITADO_PARA`) · lib/flujo-ia.ts (`sinIAPropia`) · tests/ia-aviso-sin-ia-propia.test.ts
