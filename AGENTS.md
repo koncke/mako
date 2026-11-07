@@ -10392,6 +10392,41 @@ número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro
 Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
 de siempre: era la tercera escritura de la misma regla y la única que faltaba.
 
+# Un prompt nuevo se DECLARA en el registro, y lo exige una guarda del push (6/11/2026)
+
+«Todo prompt de MaKo es editable desde /configuraciones» no lo chequeaba nada: `guardas-push.sh` no decía
+la palabra «prompt» y de los 2.307 `tests/*.test.ts` **ninguno recorría el `REGISTRY`**. Así entraron
+**29 prompts que la app usa y la pantalla no muestra**, y **4 que la pantalla muestra y nadie lee**
+(`campaign.*`: el override se guarda y el texto no llega a ningún modelo).
+
+Nada lo iba a avisar, porque los dos lados fallan en silencio **a propósito**: `getPromptText` hace
+`override ?? fallback`, así que una key fuera del registro ANDA; y `renderTemplate`
+(lib/prompt-render-pure.ts) reemplaza SÓLO los slots declarados —defensa anti-inyección—, así que un dato
+que no coincide con un `{{slot}}` se tira sin error y un `{{slot}}` que nadie llena viaja literal al modelo.
+
+Lo exige **`scripts/prompts-registro-sincronizado.mjs`** (en `guardas-push.sh`, ~10 s), que EJECUTA el
+registro —`server-only` neutralizado con el parche de `Module._load`— y barre `lib/ app/ scripts/`:
+
+- **Un prompt nuevo va al `REGISTRY` con su Entry**, o la guarda frena. Si todavía no está cableado, se dice
+  en su `context` (el molde: `mako.modo.*`).
+- **La `key` de la Entry sólo es el identificador de lectura con `source: 'override'`.** Las otras tres
+  fuentes resuelven por `storeKey` (`modoByKey.get(e.storeKey)`, `fases[e.storeKey]`), así que ahí la red es
+  que esa `storeKey` exista en `MODOS` (lib/mako-prompts.ts) — sin la fila, la pantalla muestra el default
+  como si fuera el valor vigente y guardar escribe donde nadie lee.
+- **Los `{{slots}}` del template, el `variables:` de la Entry y las claves que recibe `renderPrompt` son el
+  mismo conjunto.** Un slot vivo que el `variables:` no declara es un dato que el que edita puede borrar sin
+  que nada se lo diga.
+- **La key va LITERAL en el call-site**, o por una tabla `PROMPTS_* = { campo: { key: '…' } }` o una constante
+  `CLAVE_*`/`KEY_*`. Otra indirección frena el push: por ahí entra una huérfana que nada ve.
+- Las excepciones viven en el propio script, cada una con su motivo y su fecha, **y la guarda falla si la
+  lista crece o si una entrada ya no corresponde**: es un contador que sólo puede bajar.
+- Para ver el estado sin juzgar nada: `node --import tsx scripts/prompts-registro-sincronizado.mjs --listar`.
+
+⚠️ **Un test de un prompt NO necesita regexear el fuente del registro.** Los cinco que lo cruzan hoy
+(`tests/offer-ia-cableado.test.ts` y los parciales de closing, copywriter y editor-landing) leen
+`lib/prompt-registry.ts` como texto porque es `server-only`; con el stub se importa y se leen `key`,
+`variables` y `default` como datos.
+
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 
 En este repo, sobre el mismo mensaje, el ROUTER contesta «¿cuánto gastar?» (el tier) y

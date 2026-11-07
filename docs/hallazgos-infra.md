@@ -38,6 +38,53 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
 `wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
 (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+**La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
+
+**Síntoma.** Con 2,5 GB libres, un `grep -n "rama" scripts/tsc-acotado.mjs` quedó frenado con «esto necesita 3»: un grep
+que lee cuarenta líneas. No era la RAM del comando, era el nombre del archivo.
+
+**La causa.** `soloLoQueCorre` ya vacía lo que va entre comillas en un tramo de `grep`/`rg` —el PATRÓN nunca se ejecuta—,
+pero el ARGUMENTO sin comillas queda, y ahí viaja la RUTA: `scripts/tsc-acotado.mjs` contiene `tsc`, así que el
+clasificador ve un typecheck. Es la TERCERA vez de la misma familia, y el archivo ya anota las otras dos (el patrón
+`typecheck` agarrando el NOMBRE de un test; el `node -e` que nombra tests sin correrlos). Lo que las une: **leer un
+archivo no es correrlo**, y la ruta leída es tan «mención» como el patrón entre comillas.
+
+**Muerde más de lo que parece.** El falso positivo pega justo cuando la RAM está al límite, que es cuando uno está
+esperando una ventana para el chequeo de verdad: se gasta la ventana leyendo. El 6/11 se perdió una de 3.396 MB así, y
+la de abajo no llegó: entre que el vigía avisa y el comando sale, otra sesión del clon ya tomó la RAM.
+
+**Regla:** la guardia se arregla, no se esquiva (AGENTS.md). Mientras tenga el agujero, lo que sólo LEE un archivo va con
+las tools de leer y buscar (Read/Grep), que no pasan por el hook. El arreglo es vaciar también los argumentos-ruta del
+tramo de un `grep`/`sed`/`cat`/`head`, no sólo sus comillas.
+
+**Y las búsquedas sin acotar no terminan: en un worktree, `node_modules` es un junction** y ripgrep lo sigue. Un grep a
+la raíz, a `lib/` o a `tests/` corta a los 20 s sin decir por qué; el mismo patrón acotado a `app/<área>` vuelve al
+instante. Antes de buscar en un worktree, se acota la carpeta.
+
+**Un rebase con el `merge=union` viejo en la base DUPLICA las filas del índice de hallazgos (6/11/2026).**
+
+**Síntoma.** `tests/unir-indice-hallazgos.test.ts` en rojo en la punta: «esta fila no tiene tres columnas (un `|` sin
+escapar)», señalando una fila del CRM que nadie de la punta había tocado. Medido: el índice de la punta tenía 84 filas y
+cuatro áreas repetidas (Infraestructura 5×); el de `origin/main`, 77 filas y ninguna.
+
+**La causa.** La punta salió de un commit anterior al 6/11, cuando `.gitattributes` todavía tenía
+`docs/hallazgos*.md merge=union` —sin guion—, que también agarraba al índice. Al rebasar, git resolvió el choque de la
+tabla CONCATENANDO: quedaron la fila de main y la de la punta, y con ellas volvió una fila vieja con un `|` crudo que
+main ya había escapado. **No hay conflicto, así que nada avisa**, y el driver nuevo (`merge=indice-hallazgos`) no
+interviene porque lo configura el workflow, no la PC.
+
+**Regla:** el índice no se arrastra desde una base vieja. Al rebasar una punta que lo toca:
+`git checkout origin/main -- docs/hallazgos.md` y volver a meter la entrada propia ADELANTE de la celda de su área, con
+los `|` del texto escapados (`\|`). Lo verifica en el acto, sin Actions y sin RAM:
+`node --import tsx --test tests/unir-indice-hallazgos.test.ts`.
+
+**Y el arreglo ajeno no viaja de paso.** Al rehacer la celda apareció una entrada de main con un `|` crudo
+(`` `grep -c '^| '` ``, dentro de backticks) que partía la fila y dejaba en rojo a CUALQUIER punta que cosechara. Escaparlo
+en la punta propia parece gratis y no lo es: el driver dejó de ver «los dos cosecharon en su celda» —lo único que sabe
+mezclar— y mandó el choque a mano, con lo que la punta perdió la corrida entera («La punta no se pudo mezclar con main.
+Archivos en choque: docs/hallazgos.md»). Agregar una entrada a la celda propia es seguro; MODIFICAR una ajena no. El
+arreglo de una fila que no es tuya va en su propia punta, y mientras tanto se espera: `punta/indice-sin-choques` lo
+resolvió en main a los diez minutos.
 
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 
@@ -151,6 +198,52 @@ línea, que a Chrome le da igual. Con eso `--check` pasa y lo que se despliega e
 `\r\n` a `\n` antes de `h.update`, en los dos modos. Es una línea y cierra la familia entera. No lo hice acá porque
 cambia la huella de TODOS los clones a la vez: entra con el commit que la regenera, y el que lo haga tiene que correr
 el `--check` en un worktree limpio antes y después.
+
+## Ocho puntas en una tarde: tres rojos que NO eran del código, y una punta que se llevó la cosecha de otra (6/11/2026)
+
+Medido subiendo ocho puntas de Competitors Spy la tarde que main podó el índice de hallazgos. Los tres rojos que
+costaron tiempo tienen causas distintas y ninguna es el código:
+
+**1. «Llevar a main (sin forzar)» rojo = una carrera perdida, no un problema tuyo.** `punta/spy-juntar-repetidos` pasó
+las guardas, los tests y el tsc, y murió en el ÚLTIMO paso: main se movió mientras la corrida chequeaba. Se lee en el
+nombre del paso rojo, y **relanzar la corrida no alcanza** (ver el punto 2): hay que rehacer la punta sobre el main de
+ahora.
+
+**2. Un `ci-rojo/<punta>` NO siempre significa «arreglá tu código», y el paso rojo lo dice en una palabra.** De mis
+tres rojos: uno fue tipos de verdad (un miembro que faltaba en una unión), uno fue la carrera de arriba y uno fue
+`Tipos: SIN TIEMPO` **con salida 97**, que el propio log aclara: «NO son errores de tipos… el tsc estaba en swap:
+esperaba al disco. Es la MÁQUINA (el runner sin RAM libre), no el código». Antes de tocar una línea: leer el nombre
+del paso rojo y, si es «Tipos», mirar si la salida fue 1 (errores) o 97 (sin tiempo).
+
+**3. Y la que no se ve: `merge=union` sobre `docs/hallazgos-*.md` hace que una punta se lleve la cosecha de OTRA.**
+Rehice cinco puntas con `git cherry-pick` sobre el main nuevo, en un worktree donde las cinco se habían escrito una
+detrás de la otra. El `union` del documento del área no mezcla «main contra la punta»: mezcla los dos árboles que
+tiene, y el mío ya traía las entradas de las puntas anteriores. Resultado medido: el commit de la punta de la oferta
+(`4f80f5247`) metió en `docs/hallazgos-competitors-spy.md` la entrada del acortador, que es de OTRA punta — y así una
+entrada llegó a main **sin su código**. No rompe nada (la entrada es verdadera y vive en el documento correcto), pero
+hay que saberlo: **el documento del área de una punta rehecha puede traer de más, y el índice no** (tiene driver por
+celda y no se contamina igual). Si eso molesta, el documento del área se restaura de main antes del cherry-pick, como
+se hace con el índice.
+
+### Y el `|` de un comando citado parte la FILA del indice (6/11/2026)
+
+La entrada de arriba cita el comando de control y **su `|` parte la fila de la tabla del índice**: la deja en cuatro
+celdas y pone ROJO a main (`tests/unir-indice-hallazgos.test.ts`: «esta fila no tiene tres columnas: un `|` sin escapar
+en el texto», 6 !== 5). Se escapa con una barra invertida.
+
+**Y lo que importa más que el arreglo: la punta que lo metió salió VERDE.** Era una punta de sólo documentos, y para
+ésas el flujo corre «los tests que la leen, sin tipos» — y `unir-indice-hallazgos` **no quedó entre los afectados por un
+cambio en `docs/hallazgos.md`**, que es justo el archivo que vigila. Lo habría cazado `sobre-main.yml` al día siguiente,
+con main rojo toda la noche y cada punta yendo a `espera-main/`.
+
+**La regla: después de escribir en el índice se corre su test a mano** (`node --import tsx --test
+tests/unir-indice-hallazgos.test.ts`, tres segundos). El filtro de la punta no lo elige solo, y una cosecha es
+justo lo último que se hace antes de subir, cuando ya nadie mira.
+
+**Y lo que sí funciona, en cuatro líneas** (es lo que dejó ocho puntas verdes): rehacer la punta sobre `origin/main`
+con `cherry-pick -n`, `git checkout origin/main -- docs/hallazgos.md`, volver a escribir la entrada **adelante en la
+celda de su área** (una fila por área desde el 6/11) y controlarlo CONTANDO: `grep -c '^| '` igual que main y la fila
+del área, una sola. Relanzar con `workflow_dispatch` no sirve para esto: la mezcla vuelve a chocar igual.
 
 ## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
 

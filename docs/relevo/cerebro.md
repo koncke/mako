@@ -15,7 +15,7 @@ la RAM libre **0,16 GB**. Los 4,1 GB son los 27 procesos de `claude`, o sea los 
 tocan. El commit entró con 2,1 GB libres sin liberar nada más.
 
 **Qué quedó en su punta:** `punta/tickets-tipos-sin-tiempo`, dos commits. El primero es la cosecha
-del chat de Tickets que llevaba horas escrita y sin commitear en `C:devwt-tickets-0411` (ya verde
+del chat de Tickets que llevaba horas escrita y sin commitear en `C:\dev\wt-tickets-0411` (ya verde
 en `main`): **un rojo del paso «Tipos» puede no tener un solo error de tipos** — si no termina en el
 tope de 840 s sale con código 97 y el registro dice «SIN TIEMPO», idéntico a un rojo real, y si
 corta dos veces la red que relanza se gasta sola. El segundo corrige el párrafo de
@@ -274,7 +274,7 @@ vez que avisa.
 1. Armar el vigía (`node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`, en segundo plano).
 2. **Revisar a mano lo que entró a main sin que nadie lo mire**, con capturas y contra los pedidos de Martín: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails` (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6; ese chat seguía corriendo a las 16:05 UTC), `punta/nada-por-detras` (2cb406043) y `punta/github-minutos` (f7c2f57da). Lo que falle se le manda a su chat sin pasar por Martín. Producción compila sola a las 08:05 ART.
 3. **Pasos que los chats dejaron para la PC:** `docs/relevo/nube-carruseles-rediseno.md` («Lo que le queda al Cerebro»: la carga de Thumbnails, en `docs/carruseles/thumbnails.md`, y la prueba de «Editar») y `docs/relevo/nube-nada-por-detras.md` («Para el Cerebro»: `mudanza-avisos-plataforma`). No corrí ninguno.
-4. **Migraciones:** 0409 aplicada el 6/11. Siguiente libre: 0410.
+4. **Migraciones:** 0411 es la última en disco (0410 `correo_bajas` y 0411 `carruseles_revisada`, las dos del 6/11). **Siguiente libre: 0412.** ⚠️ Este número se MIDE antes de usarlo (`ls supabase/migrations | tail -1`): el que figuraba acá quedó viejo en una tarde y dos chats estuvieron por chocar.
 
 **Abierto, con su medición:**
 - **GitHub:** US$15,94 de US$30 a las 16:05 UTC (panel `github.com/settings/billing`). La alarma de `scripts/minutos-actions.mjs` dice US$51,87 y da rojo todos los días: es falsa. Se lo pedí corregir al chat «Bajar lo que gasta GitHub Actions», sin confirmación. Falta medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.

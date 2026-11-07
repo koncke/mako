@@ -2679,3 +2679,81 @@ o la absorbe MaKo; si dLocal se ofrece **junto con** Mercado Pago o **en vez de*
 y Europa siguen sin pasarela**. Ese hueco lo iba a tapar Whop (nunca contestó) o FastSpring (nunca se
 le escribió), y no se resuelve dibujando el checkout: hoy un comprador de allá **no tiene por dónde
 pagar**.
+
+## Dos pasarelas nos rechazaron sin decir por qué, y las dos veces escribimos una deducción en el lugar del hecho (6/11/2026)
+
+**El síntoma.** Creem rechazó la tienda el 5/11 a las 19:30 («falls outside what we can support under our
+acceptable use policy and risk requirements», final y sin apelación). dLocal Go cerró la cuenta el 6/11 a las
+19:02, después de haber APROBADO la documentación del titular días antes. **Ninguno de los dos dijo qué regla
+incumplimos.**
+
+**Lo que más caro salió, y no fue el rechazo.** Nuestra nota de Creem dice, textual, «Motivo, **deducido**:
+prohíbe face-swap… (AI Avatar)». Esa palabra se pierde en tres semanas y la deducción queda leyéndose como el
+motivo. Sobre esa base se eligió el proveedor siguiente. Con dLocal estuvimos por repetirlo: yo le dije al dueño
+que la frase que nos hundió era «con goteo para que no te baneen», y después leí el contrato: **esa frase no está
+prohibida en ningún lado de su Anexo 1.** El dueño me frenó con la pregunta correcta — «no busques frases y
+supongas; andá y leé los términos».
+
+**La regla:** cuando un proveedor no da el motivo, en la nota va «no lo dijeron» y la pregunta que falta hacerles.
+Una deducción se escribe aparte, con su palabra, y **nunca es la base para elegir el proveedor siguiente**.
+
+**La cláusula que te citan puede ser justamente la que los exime de explicar.** dLocal invocó «la sección 11 de
+nuestros términos». En el texto vigente la 11 es **Data Protection**: no tiene nada que ver. Lo que sí existe es
+una cláusula de terminación donde **cualquiera de las partes puede terminar sin causa y sin dar razón**. O sea
+que la cita no era el motivo: era el permiso para no darlo. **Leer la cláusula citada es el primer paso, no el
+último**, y lo sustantivo vive en el Anexo 1, que está en otra parte del mismo documento.
+
+**Lo que dLocal Go SÍ prohíbe por nombre** (Anexo 1, bajo el título «Marketing practices»), y que nuestra home
+tenía arriba de todo:
+
+- «Business investment opportunities operating as "get rich quick schemes"» — PROHIBIDO
+- «Deceptive marketing tactics related to … false or inaccurate claims, **before/after claims, endorsements**…» — PROHIBIDO
+- «Fake references and other services or products that foster deception» — PROHIBIDO
+
+Nuestra portada abría con «De meses por debajo de $10k USD a más de $70k USD en tres meses», que es un
+*before/after claim* de manual, y seguía con tres testimonios con cifras, que son *endorsements*. Coincide con el
+ítem palabra por palabra.
+
+**Y lo que NO está en esa lista, aunque todos asumimos que sí:** no hay un solo ítem sobre automatizar mensajes,
+sobre WhatsApp, sobre APIs no oficiales ni sobre recolectar datos de terceros. Lo único que prohíben sobre
+extracción de datos es extraer datos **de dLocal**. El rubro tampoco era el problema: exigen estar en una de once
+industrias y «Productos digitales» nos incluye.
+
+**La diferencia entre que te aprueben y que te rechacen puede ser una palabra.** Top Carousels hace lo mismo que
+nuestro Competitor Spy y tiene Stripe. Se describen así: «reads an account's last 40 **public** carousels» y
+«Real posts, saved at a point in time», bajo una sección llamada «The library». Nunca escriben «scraping» ni
+«extraer», y no hay una sola cifra de dinero en su portada. Nosotros escribíamos «toca **Extraer**» y «los
+contactos caen a tu CRM con nombre y perfil». **Esa palabra, «públicas», está haciendo trabajo legal**, y
+nosotros no la decíamos en ninguna parte.
+
+**El texto con el que nos presentábamos describía el RIESGO en vez de la FUNCIÓN.** En
+`proveedores-de-cobro.md` teníamos, para mandarle a los proveedores: «an **unofficial line** using Evolution, not
+the official WhatsApp Business API, and messages are **paced gradually to lower the risk of bans**». Lo segundo
+es una frase que nadie nos pidió: el código hace **envío espaciado**, que es lo que hace cualquier herramienta de
+correo y se llama límite de ritmo. «Para bajar el riesgo de baneos» es una declaración escrita, entregada a un
+equipo de compliance, de que el producto evade el control de una plataforma. **Describir la función con
+exactitud no es esconder nada; agregarle nuestra propia lectura del riesgo sí nos cuesta la cuenta.**
+
+⚠️ **Pero hay una asimetría que ninguna palabra arregla, y conviene no engañarse.** Top Carousels lee
+publicaciones **públicas**. Nosotros importamos **contactos de un grupo de WhatsApp: nombre y perfil de personas
+que nunca dieron permiso**. No es lo mismo. Whop lo marcó por su nombre el 6/11, junto con la línea no oficial, y
+recomendó vender sin esas dos funciones. Eso es una decisión de producto del dueño, y **se declara igual**: si un
+proveedor dice que no a eso, es un no de verdad y no un problema de redacción.
+
+**Cómo se lee un contrato de pasarela, porque la herramienta de siempre no sirve.** `WebFetch` resume y tiene
+tope de caracteres por cita: pedirle «transcribí el Anexo 1 ítem por ítem» devuelve un resumen y se come
+justo los ítems que importan — me pasó dos veces y la segunda me hizo perder la pista. Lo que funciona es bajar
+la página entera y leerla acá:
+
+```
+curl -sL "https://dlocalgo.com/en/terms-and-conditions" -o terms.html
+# sacar etiquetas, y después buscar el Anexo: el estado (Prohibited/Restricted)
+# suele venir en la LÍNEA SIGUIENTE al ítem, no en la misma.
+```
+
+**Vive en:** `docs/proveedores-de-cobro.md` (la comparación y el texto de presentación) ·
+`https://dlocalgo.com/en/terms-and-conditions` (Anexo 1, «Marketing practices») · la memoria
+`creem-alta-leandro` · la home, `app/vsl/landing-html.ts`.
+
+**Sin hacer:** preguntarle a dLocal **qué ítem del Anexo 1** consideran que incumplimos, y a Whop lo mismo.
+Preguntar no gasta el intento; aplicar sí.
