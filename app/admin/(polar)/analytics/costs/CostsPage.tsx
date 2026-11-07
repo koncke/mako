@@ -244,8 +244,8 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                           {p.quienPaga === 'mauricio'
                             ? 'lo paga Mauricio'
                             : p.quienPaga === 'compartido'
-                              ? `a medias con Leandro · pagás ${fmt(mio, 'usd')}`
-                              : 'lo pagás vos'}
+                              ? `a medias con Leandro · tu parte: ${fmt(mio, 'usd')}`
+                              : 'a tu cargo'}
                         </Text>
                         <Text as="span" variant="caption" color={viejo ? 'warning' : 'muted'}>
                           {p.comoSeSabe === 'api'
