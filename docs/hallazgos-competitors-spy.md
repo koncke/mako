@@ -15,6 +15,43 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### La cola de caricaturas frenada: «falta un cron» era el diagnóstico equivocado (6/11/2026)
+
+**El síntoma.** Si el Runner no genera —la causa conocida: su cuenta de Claude sin Canva conectado, que **no anota
+ningún error**—, la pendiente espera, la tarjeta del competidor sigue diciendo «Haciendo su caricatura…» para siempre
+y no hay nada en ninguna pantalla. `masVieja` tenía **un solo lector en todo el repo**:
+`scripts/spy-caricaturas-pendientes.mjs`, que corre a mano.
+
+**El diagnóstico obvio, y por qué era el equivocado.** «No hay cron ni pantalla que lea `masVieja`» lleva derecho a
+un cron: `listarCola` recorre TODOS los negocios, así que hace falta la clave de servicio, unas `DepsTodos` nuevas del
+lado del servidor (las de `lib/spy-caricatura-servidor.ts` son de UN negocio e ignoran su argumento `ws`), una ruta
+`/api/cron/…` y una fila en `vercel.json` — **que una corrida no puede tocar desde un worktree** (la agrega quien
+integra: `tests/cron-registrado.test.ts`). Es decir: el camino obvio no estaba disponible, y es cinco veces más
+grande.
+
+**Lo que ya estaba.** `masVieja` tiene dos mitades y se habían confundido: la de **todos** los negocios (la que
+necesita el Runner, para elegir a quién le pide la próxima) y la de **este** negocio, que es la que una pantalla
+necesita. Y la segunda ya estaba a mano: el registro vive en `app_settings` del negocio, y `listarCompetidores`
+(lib/spy.ts) **ya lo lee en cada pedido** para decidir qué tarjeta dice «Haciendo su caricatura…». Faltaba quedarse
+con la fecha, no con el booleano. Cero claves de servicio, cero crons, cero migraciones.
+
+**La regla que queda.** Un número que no debería crecer se dibuja **donde vive la cosa que mide**, con el dato que ya
+llega en el pedido, y **sólo para quien puede hacer algo con él**: el Runner es nuestro, así que `frenadaDesde` lo
+manda el server sólo al super admin (en la página y en la ruta del refresco, las dos). A un cliente «la cola está
+frenada» no le dice nada que pueda hacer, y su tarjeta ya muestra su foto sin cartel. El agregado por negocio es
+`esperaMasVieja`; el de todos los negocios se queda donde estaba, en el Runner.
+
+**El umbral tiene techo, y no es una opinión.** `COLA_FRENADA_MS` = 6 h, y tiene que quedar **por debajo de
+`ESPERA_TRAS_FALLO_MS`** (24 h): pasada esa espera, una pendiente que falló deja de estar «pendiente» y la frase no
+se diría nunca. El test lo fija con un `assert` sobre las dos constantes, no con un número escrito a mano.
+
+**Y lo que no cuenta como «frenada»**, porque Canva sí contestó: la que falló y espera su reintento, la que se
+rindió a los tres fallos, la que ya está, un referente dibujado y una foto que no es nuestra. Una cola «frenada» es
+sólo la que **nadie tocó**.
+
+**Sin hacer:** la vista de TODOS los negocios juntos sigue siendo del Runner (un comando). Si alguna vez se quiere en
+el tablero del super admin, ahí sí hace falta la clave de servicio y la fila de `vercel.json`.
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
