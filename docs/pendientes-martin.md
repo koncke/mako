@@ -53,7 +53,22 @@ ya usaba ese endpoint en `scripts/tests-afectados.mjs`. Estaba a la vista.
 sobre el facturable real de GitHub; sobre la estimación, nunca» y «sin el facturable real de GitHub,
 la estimación NO da rojo: avisa».
 
-**Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
+**✅ `punta/copilot-feedback` — REVISADA el 7/11, está bien.** El commit con contenido es
+`907c1f213` (el `eaec41da6` del relevo es sólo el veredicto de tests, no toca archivos). Arregla
+cosas que rompían la charla del Marketing CoPilot: frases como «estoy empezando de cero» o «3000 y
+arranco de cero» la borraban entera, aceptar la propuesta no pedía un sí claro, y «Deshacer» no
+devolvía lo hablado.
+
+**Lo comprobé corriendo, no leyendo el mensaje:** `tests/marketing-copilot-volver.test.ts` **14/14**,
+y los nombres calzan uno a uno con lo que promete — «lo que se dice del negocio no borra la charla ni
+vuelve atrás», «aceptar la propuesta pide un sí claro: *No sé si me sirve* va a MaKo», «*no lo enseña*
+sale cuando se PIDE otro funnel, no cuando se lo nombra charlando». Está en main.
+
+⚠️ **Lo único sin test: el «Deshacer».** Está implementado y hace lo que dice (`deshacerEmpezar`,
+`app/ads-manager/PrimeraEntrada.tsx:178`: devuelve el perfil **y** las notas de la charla), pero es
+estado de React y no lo cubre un test de node. Se prueba en el navegador o no se prueba.
+
+**Faltan dos**: carruseles-thumbnails y nada-por-detras.
 
 ---
 
