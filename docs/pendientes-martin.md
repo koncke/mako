@@ -110,6 +110,30 @@ y por eso las tomas tampoco llegan al editor. Necesita un contenedor con su cuen
 y **primero se mide el costo del contenedor y se le pasa el número antes de prenderlo**. Eso último
 es parte de la decisión, no un agregado.
 
+**✅ EL NÚMERO QUE FALTABA, MEDIDO EL 7/11: prenderlo cuesta US$0,56 al mes.** La condición de Martín
+era «primero se mide el costo del contenedor y se le pasa el número antes de prenderlo», y eso era
+lo único que lo frenaba desde el 21/10.
+
+| | Medido | Cuánto sale en Railway |
+|---|---|---|
+| **El bucle prendido, sin trabajo** | 56-57 MB de RAM, CPU ~0 (sondea cada 15 s) | **US$0,56 al mes** |
+| **Un video de 70 s** | 41 s de CPU, 292 MB de pico, 25,7 MB de salida | **~US$0,0016** (con las ~15 pasadas de ffmpeg del pipeline: ~US$0,002-0,003) |
+
+Railway cobra por uso real, no por lo asignado (su documentación: «You are only charged for the
+resources you actually use»), a US$20/vCPU-mes, US$10/GB-mes y US$0,05/GB de subida. Mil videos por
+mes serían ~US$3: **el piso pesa más que el trabajo**, y el piso es medio dólar.
+
+Va como un servicio más en la cuenta de Railway que ya se paga (US$21/mes, hoy a cargo de Mauricio,
+corriendo Evolution): no hace falta otro plan.
+
+**Lo que falta, y no lo puede destrabar nadie más:** provisionar el contenedor con la cuenta de
+Martín y cablear la cola. Cuando prenda, lo primero que va a montar es **el trabajo que espera turno
+desde el 01/09**.
+
+La medición y la trampa de medirlo al revés («el costo de un worker de cola no es su trabajo: es su
+espera») quedaron en `docs/hallazgos-video-pipeline.md`.
+
+
 ### 2. Editar un video pedido por chat: **la app de escritorio Y el servidor** — decidido, sin hacer
 
 Pregunta D7a del 21/10: ¿el render se hace en un servidor de MaKo (lo paga MaKo) o en el editor

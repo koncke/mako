@@ -1765,3 +1765,48 @@ clonarlo.
   *speech-to-speech* sobre el audio ya generado, porque preserva el tiempo y los labios siguen
   coincidiendo (lección 11 del curso).
 - **Corregir `formato` en `lib/apimart-reglas.ts`**, que hoy afirma lo contrario de lo medido.
+
+---
+
+## Lo que cuesta prender el worker de montaje: US$0,56 al mes (medido el 7/11/2026)
+
+Martín decidió el 21/10 «sí, desplegarlo» (pregunta D7b), **con una condición que es parte de la
+decisión y no un agregado: medir el costo del contenedor y pasarle el número ANTES de prenderlo.**
+Eso quedó sin hacer 17 días. Acá está el número, medido, no estimado.
+
+**Lo que define el costo no es el render: es que el bucle está PRENDIDO.** `worker/montar-cola.mjs`
+sondea cada 15 s (`DORMIR_MS = 15_000`), así que es un contenedor 24/7, no una función que se
+despierta. Por eso lo primero que hay que medir es cuánto ocupa **girando en vacío**.
+
+| Medición | Cómo se midió | Resultado |
+|---|---|---|
+| RAM en reposo | 8 muestras del `WorkingSet64` del proceso, una cada 3 s, con `MAKO_URL` apuntando a un puerto muerto | **56-57 MB**, planas |
+| CPU en reposo | un `fetch` cada 15 s | ~0 |
+| Un render de 70 s | 720×1280, h264 + subtítulos quemados con `ass`, `preset veryfast`, entrada sintética | **41 s de CPU**, **292 MB de pico**, 14,9 s de reloj, 25,7 MB de salida |
+
+Railway cobra **por segundo de uso real**, no por lo asignado — está en su propia documentación
+(«You are only charged for the resources you actually use»), a US$20 por vCPU-mes, US$10 por GB-mes
+y US$0,05 por GB de egress.
+
+**La cuenta, entonces:**
+
+- **Tenerlo prendido: 0,056 GB × US$10 = US$0,56 al mes.** Eso es todo el piso.
+- **Cada video: ~US$0,0016** por ese render (CPU US$0,00032 + RAM US$0,000016 + subida US$0,00126).
+  ⚠️ El pipeline encadena **~15 invocaciones de ffmpeg**, no una, así que el número real por video
+  está más cerca de **US$0,002-0,003**. El que manda no es la CPU: es la **subida del archivo**.
+- Mil videos por mes serían **~US$3**. El piso pesa más que el trabajo.
+
+**Dónde va:** la cuenta de Railway ya existe y ya se paga (US$21/mes, hoy a cargo de Mauricio,
+`lib/costos-fijos.ts`), corriendo Evolution. Esto es un servicio más en esa cuenta: lo que suma es
+lo de arriba, no otro plan.
+
+**Lo que esto NO desbloquea solo:** el contenedor hay que provisionarlo con la cuenta de Martín y
+cablear la cola. Y hay **un trabajo esperando turno desde el 01/09** — cuando prenda, lo primero que
+va a hacer es montarlo.
+
+⚠️ **La trampa de medir esto mal, que es la razón de escribirlo:** la intuición manda a medir «qué
+sale un render», y eso da una cifra tan chica que parece que no hay nada que decidir. **El costo de
+un worker de cola no es su trabajo: es su espera.** Acá dio al revés de lo que uno teme —la espera
+sale US$0,56 y el trabajo centavos— pero porque el bucle consume 56 MB. Con un runtime más pesado o
+un sondeo que mantenga algo en memoria, la misma arquitectura puede costar veinte veces más sin que
+cambie una línea del pipeline. **Se mide el reposo primero, y después el trabajo.**
