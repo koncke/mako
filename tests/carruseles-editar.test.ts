@@ -8,7 +8,7 @@
 // (tests/_carruseles-editar-hijo.ts) lo corre entero con la base, el bucket y la RED de la IA de mentira: la cascada
 // (lib/ai-cheap.ts) corre de verdad, así que lo que se mira es el pedido que le LLEGA al proveedor.
 //
-// Probado rompiéndolo (6/11/2026), base 8/0 — cada rotura, los rojos MEDIDOS:
+// Probado rompiéndolo (6/11/2026), base 10/0 — cada rotura, los rojos MEDIDOS:
 //   · volver `chatCheapCascade` a `chatCheap` en el camino sin imágenes → 1 rojo;
 //   · dejar `TOKENS_DE_SALIDA` en 512, como antes del arreglo → 4 rojos;
 //   · sacar los CDN de `esImagenPermitida` (sólo nuestro bucket) → 1 rojo;
@@ -18,7 +18,11 @@
 //   · que el modo seco devuelva sin armar el documento (como estaba hasta hoy) → 2 rojos;
 //   · no sanear el `@` que escribió el modelo (`conElArrobaDelNegocio`) → 1 rojo;
 //   · tratar un 429 de su cuenta como un bache y reintentar (`vuelveASinVer`) → 1 rojo;
-//   · y un cambio SIN efecto (renombrar `avisar`) → 8 verdes, como tiene que ser.
+//   · y un cambio SIN efecto (renombrar `avisar`) → 10 verdes, como tiene que ser.
+// Y con la foto de una lámina con gente (6/11/2026, encargos 25, 120, 193 y 387; la lista completa, con la base de los tres
+// archivos del área, está en tests/carruseles-foto-lamina.test.ts):
+//   · no reservar el lugar de la foto que la IA de imagen está armando → 1 rojo acá (y 2 en el área);
+//   · que el prompt no pregunte QUIÉN está en la foto → 1 rojo acá (y 3 en el área).
 //
 // ⚠️ Dos de esas roturas no daban NINGÚN rojo con la primera versión de este archivo, y las dos enseñan algo:
 //   · `chatCheap` y `chatCheapCascade` salen por el MISMO endpoint, así que con una sola clave cargada el pedido se ve igual.
@@ -128,4 +132,30 @@ test('el @ que inventa la IA no llega a la pantalla; el mail del negocio, intact
   const arrobaSuelta = (t: string) => /(^|[^\w.])@sonrisallena\b/.test(t);
   assert.ok(!todos.some(arrobaSuelta), `el @ inventado tiene que salir: «${todos.find(arrobaSuelta)}»`);
   assert.ok(todos.some((t) => t.includes('hola@sonrisallena.com')), 'un mail NO es un @ de Instagram: no se toca');
+});
+
+test('el ejemplo muestra a OTRA persona: esa foto se le pide a la IA de IMAGEN del negocio y su lugar queda reservado', () => {
+  const c = R.personaAjena;
+  assert.equal(c.ok, true);
+  assert.equal(c.preguntaQuien, true, 'al prompt le llegó la pregunta de QUIÉN está en cada foto');
+  assert.equal(c.aGenerar.length, 1, `se le pide una foto: ${JSON.stringify(c.aGenerar)}`);
+  assert.equal(c.aGenerar[0].lamina, 1, 'la lámina que tenía la persona');
+  assert.equal(c.aGenerar[0].quien, 'otra');
+  assert.equal(c.aGenerar[0].conCara, false, 'no es el dueño: su cara no va de referencia');
+  assert.match(c.aGenerar[0].escena, /sala de espera/, 'la escena es la que la IA de texto VIO');
+  // Y el titular de esa lámina se queda en su columna: cuando la foto llegue, cae al lado y no encima.
+  assert.ok(c.anchos[1] <= Math.round(0.45 * 1080), `la lámina 2 reservó el lugar de la foto: ancho ${c.anchos[1]}`);
+  assert.ok(c.anchos[0] > 900, `la portada, sin foto, llena la lámina: ancho ${c.anchos[0]}`);
+});
+
+test('sin la IA de imagen del negocio no se le promete ninguna foto: el texto llena la lámina', () => {
+  const c = R.personaAjenaSinFlow;
+  assert.equal(c.ok, true);
+  assert.deepEqual(c.aGenerar, [], 'sin su extensión no hay quién genere: no se reserva un lugar vacío');
+  assert.ok(c.anchos[1] > 900, `el titular toma el ancho de la lámina: ${c.anchos[1]}`);
+  // Sin su foto Y sin IA de imagen no hay nada que poner, así que el prompt directamente pide que no ponga fotos.
+  assert.equal(c.preguntaQuien, false);
+  // Y si el modelo igual contesta una foto (lo hace: este caso devuelve la misma respuesta con la persona), el documento la
+  // IGNORA. Lo que no puede pasar nunca es que ahí aparezca un recuadro, ni la cara del dueño pegada encima.
+  assert.ok(!c.textos.some((t) => /tu foto/i.test(t)), `sin foto no va un recuadro: ${c.textos.join(' · ')}`);
 });

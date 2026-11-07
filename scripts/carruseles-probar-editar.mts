@@ -6,11 +6,14 @@
 // (`replicarEjemplo`, lib/carruseles/replica-servidor.ts) y muestra cada paso: cuántas láminas llegaron a la IA, qué contestó
 // cada IA del negocio (o por qué no), cuánto tardó y cómo quedó el diseño.
 //
-// ⚠️ EN SECO POR DEFECTO: usa la IA del negocio (gasta SU cuota, unos centavos) pero no copia su foto ni guarda el diseño. Con
-//    `--guardar` lo guarda en sus diseños (Image) como haría la pantalla. Probar en el ws 3 (Cliente de Prueba), nunca en el ws 1.
+// ⚠️ EN SECO POR DEFECTO: usa la IA del negocio (gasta SU cuota, unos centavos) pero no copia su foto, no le pide NINGUNA foto a
+//    su IA de imagen (eso haría generar a la pestaña del cliente) y no guarda el diseño. Con `--guardar` hace las tres cosas,
+//    como la pantalla.
+// ⚠️ EL WS 3 (Cliente de Prueba) NO TIENE NINGUNA CLAVE DE IA: con `--ws 3` lo que se ejercita es el camino SIN IA. Para probar
+//    con la IA de verdad va `--ws 9` (Martín: tiene Claude, GPT y Gemini). Nunca el ws 1, que es un cliente real.
 //
 // Uso (desde la raíz del clon):
-//   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --id -123
+//   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 9 --id -123
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --id 45 --que thumbnail
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas
 //     --sin-laminas: elige solo un carrusel de la biblioteca que tenga portada y NO láminas (el caso del 6/11).
@@ -24,8 +27,8 @@ const op = (k: string): string | null => { const i = xs.indexOf(`--${k}`); retur
 const tiene = (k: string) => xs.includes(`--${k}`);
 
 const ws = Number(op('ws'));
-if (!Number.isSafeInteger(ws) || ws <= 0) { console.log('Falta --ws <n> (usa el 3, el Cliente de Prueba).'); process.exit(1); }
-if (ws === 1) { console.log('✖ El ws 1 es de un cliente real (Mauricio): prueba en el ws 3.'); process.exit(1); }
+if (!Number.isSafeInteger(ws) || ws <= 0) { console.log('Falta --ws <n> (el 9 para probar con la IA de verdad; el 3, Cliente de Prueba, no tiene ninguna clave).'); process.exit(1); }
+if (ws === 1) { console.log('✖ El ws 1 es de un cliente real (Mauricio): prueba en el ws 9 (con IA) o en el ws 3 (sin IA).'); process.exit(1); }
 const que = op('que') === 'thumbnail' ? 'thumbnail' : 'carrusel';
 
 const { runWithWorkspace } = await imp('lib/workspace.ts');
@@ -61,4 +64,14 @@ if (r.aviso) console.log(`  Aviso que vería la persona: ${r.aviso}`);
 for (const e of r.errores ?? []) console.log(`  · error de la IA: ${String(e).slice(0, 500)}`);
 const paginas = (r.doc?.pages as Array<{ objects?: Array<{ type?: string; text?: string; name?: string }> }> | undefined) ?? [];
 paginas.forEach((p, i) => console.log(`  Lámina ${i + 1}: ${(p.objects ?? []).filter((o) => o.type === 'textbox').map((o) => `«${String(o.text).slice(0, 60)}»`).join(' · ') || '(sin textos)'}`));
+// Lo que se le va a pedir a la IA de IMAGEN del negocio (lib/carruseles/foto-lamina.ts): la foto de una lámina con gente.
+const aGenerar = (r as { aGenerar?: Array<{ lamina: number; quien: string; conCara: boolean; escena: string }> }).aGenerar ?? [];
+if (aGenerar.length) {
+  console.log(`\n  Fotos para su IA de imagen (${aGenerar.length}):`);
+  for (const g of aGenerar) console.log(`   · lámina ${g.lamina + 1} · ${g.quien}${g.conCara ? ' (con su cara de referencia)' : ''} · ${g.escena.slice(0, 160)}`);
+} else {
+  console.log('\n  Fotos para su IA de imagen: ninguna (o el ejemplo no tiene gente, o su extensión de Flow no está conectada).');
+}
+const fotosPedidas = (r as { fotosPedidas?: number }).fotosPedidas;
+if (fotosPedidas) console.log(`  Pedidas de verdad a su navegador: ${fotosPedidas}`);
 if (!tiene('guardar')) console.log('\nEn seco: no se guardó nada. Con --guardar queda en los diseños de Image de ese negocio.');

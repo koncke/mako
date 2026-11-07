@@ -39,7 +39,7 @@ const AJENA = 'https://cualquier-cdn.example.com/portada.jpg';
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0, 0, 0, 0]);
 
 const pg = crearPostgrest({
-  tablas: ['workspaces', 'credenciales', 'carruseles_biblioteca_piezas', 'carruseles_biblioteca_cuentas', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes'],
+  tablas: ['workspaces', 'credenciales', 'carruseles_biblioteca_piezas', 'carruseles_biblioteca_cuentas', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'flow_puentes', 'flow_trabajos'],
 });
 
 /** Cada pedido que le llegó a una IA: por dónde salió, cuántas imágenes llevaba y cuánto lugar pidió para la respuesta. */
@@ -47,11 +47,26 @@ export type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: strin
 let pedidos: PedidoIA[] = [];
 /** Los hosts que se pidieron afuera de la base: así se ve por qué camino bajó cada imagen. */
 let red: string[] = [];
+/** El texto de cada pedido tal como le LLEGA al proveedor: lo único con lo que se puede ver qué se le pidió de verdad. */
+let prompts: string[] = [];
 /** Qué contesta la IA en esta corrida: el JSON, o un status de error (429 sin cuota, 500 un bache). */
 let contesta: { json?: string; status?: number } = {};
 
 const cuerpo = (init: RequestInit): Record<string, unknown> => {
-  try { return JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>; } catch { return {}; }
+  try {
+    const b = JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>;
+    // Todo `{"text": "…"}` del cuerpo, a cualquier profundidad: el prompt viaja distinto en cada proveedor.
+    const recorrer = (v: unknown) => {
+      if (Array.isArray(v)) { v.forEach(recorrer); return; }
+      if (!v || typeof v !== 'object') return;
+      const o = v as Record<string, unknown>;
+      if (typeof o.text === 'string' && o.text.length > 40) prompts.push(o.text);
+      if (typeof o.content === 'string' && o.content.length > 40) prompts.push(o.content);
+      Object.values(o).forEach(recorrer);
+    };
+    recorrer(b);
+    return b;
+  } catch { return {}; }
 };
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -134,9 +149,31 @@ const RESPUESTA_IA = JSON.stringify({
   })),
 });
 
+/**
+ * Lo mismo, pero con una foto en la lámina 2 que muestra a OTRA persona (`quien: 'otra'`): el caso del encargo 387, en el que
+ * hasta hoy se le pegaba encima la cara del dueño del negocio.
+ */
+const RESPUESTA_CON_PERSONA = JSON.stringify({
+  proporcion: '4:5',
+  titulo: 'Mis 9 pasos',
+  laminas: Array.from({ length: 9 }, (_, i) => ({
+    fondo: '#101010',
+    foto: i === 1 ? { x: 0.5, y: 0.1, ancho: 0.45, alto: 0.6, quien: 'otra', descripcion: 'un paciente sonriendo en la sala de espera' } : null,
+    textos: [
+      { rol: 'titulo', letra: 'gruesa', texto: `PASO ${i + 1} PARA TU NEGOCIO`, x: 0.06, y: 0.2, ancho: i === 1 ? 0.4 : 0.84, tamano: 0.1, color: '#FFFFFF', negrita: true, alinear: 'left', mayus: true },
+    ],
+  })),
+});
+
 export type Salida = {
   ok: boolean; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
   laminasMostradas: number; textos: string[]; pedidos: PedidoIA[]; red: string[]; paginas: number; permitida: boolean;
+  /** Lo que se le va a pedir a la IA de IMAGEN del negocio (lib/carruseles/foto-lamina.ts): de qué lámina y con qué cara. */
+  aGenerar: Array<{ lamina: number; quien: string; conCara: boolean; escena: string }>;
+  /** ¿El prompt le preguntó a la IA QUIÉN está en cada foto? (sin IA de imagen y sin su foto, se le pide que no ponga ninguna). */
+  preguntaQuien: boolean;
+  /** El ancho del primer texto de cada lámina: así se ve si el lugar de la foto quedó RESERVADO o el titular se estiró. */
+  anchos: number[];
 };
 
 async function main() {
@@ -148,11 +185,22 @@ async function main() {
   const { replicarEjemplo, esImagenPermitida } = await import('../lib/carruseles/replica-servidor');
 
   /** `conIA`: las claves que tiene cargadas el negocio (D6b: la IA que corre es la suya, nunca la de la plataforma). */
-  const correr = async (o: { portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta }): Promise<Salida> => {
+  const correr = async (o: {
+    portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta;
+    /** El puente a Flow del cliente: su IA de IMAGEN. Sin él no se le promete ninguna foto a la lámina. */
+    puente?: boolean;
+  }): Promise<Salida> => {
     sembrar(o.portada);
     pg.db.credenciales.length = 0;
     for (const clave of o.conIA) pg.db.credenciales.push({ workspace_id: WS, clave, valor_enc: cifrarSecreto(`negocio-${'x'.repeat(30)}`, WS, clave), servicio: clave.split('_')[0].toLowerCase() });
-    red = []; pedidos = []; contesta = o.responde;
+    pg.db.flow_puentes.length = 0;
+    if (o.puente) {
+      pg.db.flow_puentes.push({
+        workspace_id: WS, estado: 'listo', estado_detalle: '', etiqueta: 'Chrome', project_id: 'p',
+        ultimo_visto: new Date().toISOString(), version: '0.70.0', token_hash: 'x', created_at: new Date().toISOString(),
+      });
+    }
+    red = []; pedidos = []; prompts = []; contesta = o.responde;
     const mostradas: Array<Record<string, unknown>> = [];
     const r = await runWithWorkspace(WS, () => replicarEjemplo(WS, 'test', { que: 'carrusel', id: -55 }, {
       seco: true, timeoutMs: 5_000,
@@ -161,11 +209,19 @@ async function main() {
     const textos = mostradas.flatMap((p) => ((p.objects as Array<Record<string, unknown>>) ?? []).filter((x) => x.type === 'textbox').map((x) => String(x.text)));
     const doc = (r as { doc?: Record<string, unknown> }).doc;
     const paginas = Array.isArray(doc?.pages) ? doc.pages.length : 0;
+    const anchos = ((doc?.pages as Array<Record<string, unknown>> | undefined) ?? []).map((p) => {
+      const t = ((p.objects as Array<Record<string, unknown>>) ?? []).find((x) => x.type === 'textbox');
+      return Number(t?.width ?? 0);
+    });
     return {
       ok: r.ok, sinIA: (r as { sinIA?: boolean }).sinIA, aviso: (r as { aviso?: string | null }).aviso ?? null,
       conectar: (r as { conectar?: string | null }).conectar ?? null, vistas: (r as { vistas?: number }).vistas,
       errores: (r as { errores?: string[] }).errores, laminasMostradas: mostradas.length, textos,
       pedidos: [...pedidos], red: [...new Set(red)], paginas, permitida: esImagenPermitida(o.portada ?? ''),
+      aGenerar: ((r as { aGenerar?: Array<{ lamina: number; quien: string; conCara: boolean; escena: string }> }).aGenerar ?? [])
+        .map((p) => ({ lamina: p.lamina, quien: p.quien, conCara: p.conCara, escena: p.escena })),
+      preguntaQuien: /"dueno" si ahí está la persona que FIRMA/.test(prompts.join('\n')),
+      anchos,
     };
   };
 
@@ -186,6 +242,11 @@ async function main() {
     sinCuota: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { status: 429 } }),
     // 7. Sin ninguna IA conectada: guías, y el modal NO queda en blanco.
     sinIA: await correr({ portada: NUESTRA, conIA: [], responde: {} }),
+    // 8. El ejemplo muestra a OTRA persona (un paciente, no la dueña) y el negocio tiene su IA de IMAGEN conectada: esa foto
+    //    se le pide a la IA de imagen y su lugar queda RESERVADO en la lámina.
+    personaAjena: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_CON_PERSONA }, puente: true }),
+    // 9. El mismo caso SIN su IA de imagen (no tiene la extensión): no se le promete nada y el texto llena la lámina.
+    personaAjenaSinFlow: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_CON_PERSONA } }),
   };
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }

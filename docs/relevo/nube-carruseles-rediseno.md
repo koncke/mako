@@ -94,8 +94,12 @@ Todo desde la raíz del clon, con el `.env.local` (producción). Los comandos si
 
 - **Las capturas de Top Carousels no llegaron:** `docs/carruseles/referencia-top-carousels/` no está en main ni en ninguna
   rama, y la nube no abre su sitio. La pantalla se copió de la descripción del pedido. Cuando estén, se ajustan los valores.
-- **Una persona en una lámina que no es el cliente** queda como un recuadro con su guía: generarla con la IA de imagen y el
-  avatar del cliente es el paso siguiente (Flow).
+- ~~**Una persona en una lámina que no es el cliente** queda como un recuadro con su guía: generarla con la IA de imagen y el
+  avatar del cliente es el paso siguiente (Flow).~~ **Hecho el 6/11/2026** (`punta/carruseles-persona`): el recuadro ya no
+  existía —lo había sacado el pulido del mismo día— y lo que faltaba era la foto. Ahora la IA dice QUIÉN está en cada foto
+  (`quien`: el autor del ejemplo, otra persona o algo que no es gente), la cara del cliente va sólo donde el ejemplo muestra a
+  su autor, y la que falta se le pide a la IA de imagen del negocio (`lib/carruseles/foto-lamina.ts`). Qué quedó abierto —las
+  fotos que no son gente, el cron que lo asiente sin que nadie abra el diseño— en `docs/hallazgos-carruseles.md` → «Sin hacer».
 - **Una biblioteca de anuncios para todos** necesita Foreplay o Atria con cuenta paga a nombre de MaKo y permiso escrito de
   reventa: lo decide Martín (la comparación, en `docs/hallazgos-carruseles.md`).
 - **No se tocó la sidebar:** desde el 6/11 (tarde) los ejemplos SON la portada de Image (`/image-editor`); `?ver=carruseles` abre lo mismo.

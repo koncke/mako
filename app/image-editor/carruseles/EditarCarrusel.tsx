@@ -177,6 +177,8 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, onCerrar }: 
           </ol>
         ) : null}
         {fin?.aviso ? <p className={s.aviso}>{fin.aviso}</p> : null}
+        {/* La NOTA no frena el salto al editor (ver el efecto de arriba): el diseño está bien y la foto llega después. */}
+        {fin?.ok && fin.nota ? <p className={s.aviso}>{fin.nota}</p> : null}
         {error ? <p role="alert" className={s.error}>{error}<ReportarASoporte /></p> : null}
       </div>
     </Modal>

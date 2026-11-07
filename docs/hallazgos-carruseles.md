@@ -7,6 +7,110 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+## La lámina con una persona: el recuadro ya no estaba, y lo que faltaba era la FOTO (6/11/2026)
+
+**Síntoma:** cuatro encargos del 6/11 (ids 25, 120, 193 y 387) decían lo mismo: «cuando el ejemplo tiene una persona, la
+lámina sale con un recuadro vacío» y «el cliente recibe un cuadro gris en lugar de su foto».
+
+**Lo obvio era que seguía el recuadro gris, y no: eso ya estaba cerrado.** Antes de escribir una línea se ejecutó
+`documentoDeReplica` contra main con una lámina que pide una foto, en los tres casos posibles. Lo que salió:
+
+| El ejemplo tiene | Con foto del cliente | Sin foto del cliente |
+|---|---|---|
+| una persona | la foto del cliente, cubriendo su lugar | **nada**: los textos se reacomodan y llenan la lámina |
+| algo que no es gente | **nada** | **nada** |
+
+Ni un `rect`, ni un «Tu foto», ni una guía escrita adentro del hueco: el pulido del 6/11 (`documentoDeReplica`, ver más
+abajo) ya los había sacado. **Tres de los cuatro encargos describían un síntoma que ya no existía** — eran una foto del
+estado de la mañana. La regla: antes de arreglar un pendiente del mismo día, hay que EJECUTAR el camino que describe; un
+encargo escrito a las 13:00 habla de un commit de las 15:00 que todavía no existía.
+
+**Lo que SÍ estaba roto era el 387, y no es un recuadro: es la cara equivocada.** El prompt pedía `persona: true|false`, y
+`documentoDeReplica` pegaba la foto del cliente en TODA lámina con `persona: true`. **Un booleano no sabe contestar «quién»:**
+lo único que sabía decir era «hay alguien». Así que en un ejemplo que muestra a un paciente, a un alumno o a un equipo, la
+cara del dueño del negocio salía pegada encima de ellos. Ahora el modelo contesta `quien`: `dueno` (la persona que FIRMA el
+ejemplo: ahí va la foto del cliente), `otra` (alguien más: su cara NO va) o `cosa` (no hay gente). Un campo viejo
+(`persona: true`) se sigue leyendo como `dueno`, y un valor inventado cae en `cosa` — nunca pone la cara de nadie.
+
+**Lo que faltaba, entonces, no era sacar un recuadro: era que ahí HAYA una foto.** Y se arma con lo que el producto ya
+tiene: la IA de imagen del negocio (su Google Flow por la extensión) con el método de `lib/flow-imagen.ts`
+(`promptFinal`), que a la escena le suma la identidad de la foto, la luz y el realismo. La escena es la `descripcion` que la
+IA de texto vio en esa lámina. Con la cara del dueño como referencia cuando la lámina es SUYA; sin cara cuando es de otra
+persona.
+
+**⚠️ Es ASÍNCRONO y no puede no serlo, y eso define todo el diseño.** La que genera es la pestaña del cliente (su cuenta de
+Google, sus créditos), que VIENE A BUSCAR el trabajo con un polling: no hay a quién esperar desde Vercel, y «Editar» ya llega
+a 276,9 s contra un `maxDuration` de 300. Así que:
+
+1. «Editar» abre el diseño con lo que HAY (la foto del cliente donde el ejemplo muestra a su autor) y **reserva el lugar** de
+   las fotos que pidió. La reserva es la mitad que se olvida: sin ella los textos se reacomodan para llenar la lámina y, cuando
+   la foto llega, le cae encima al titular.
+2. La foto se asienta en el diseño ya guardado **al ABRIRLO** (`asentarFotosDeLamina`, en el GET del diseño), que es cuando
+   alguien lo mira. Cuesta una lectura de `app_settings` cuando no hay nada anotado.
+3. Y nunca se promete lo que no se puede dar: si el puente no está `listo`, no late o la extensión es vieja, no se encola nada
+   y no se reserva ningún lugar. Un trabajo que nadie toma deja la lámina esperando para siempre.
+
+**⚠️ LA URL QUE DEVUELVE FLOW VENCE (`Expires`, ~6 h) y por eso no puede entrar en el documento.** Guardarla adentro del
+diseño es una imagen que mañana se dibuja ROTA, y una imagen rota no se lee como «venció un enlace»: se lee como que la app
+perdió el archivo. La foto se baja y se sube a «Subidos» del Image Editor, igual que la del cliente. Es la misma trampa que
+`urlDeFlowVencida` ya documenta para la tira de variantes de Video, aplicada a un documento que se guarda.
+
+### ⚠️ Lo que más tiempo va a ahorrar: el modelo contestó `"texts"` en vez de `"textos"`, y se tiraba el diseño entero
+
+Medido con la IA real (ws 9, carrusel `-895`, 6/11): la IA devolvió el diseño PERFECTO —9 láminas, con los textos del
+negocio, los colores y la letra— y escribió la clave **`"texts"`**, con todo el resto en español (`laminas`, `fondo`, `foto`,
+`rol`, `letra`, `texto`). `leerReplica` no la encontraba, contestaba «La IA no encontró textos en las láminas» y la pantalla
+caía a las GUÍAS. O sea: **el síntoma que Martín reportó como «la guía no se parece al ejemplo» era una respuesta buena
+tirada a la basura por el nombre de un campo**, con 200 s de su Gemini ya pagados. Las dos corridas, antes y después:
+
+```
+antes: [200.4 s] ⚠ SIN la IA (con guías) · «La IA no encontró textos en las láminas»
+       Lámina 1: «Cómo lograr [el resultado]» · «El resultado que va a tener y en cuánto tiempo.»   ← la guía
+después: [100.4 s] ✓ con la IA del negocio · «Carrusel · Metas y Negocio»
+       Lámina 1: «A LOS 22 AÑOS ANOTÉ MIS METAS DE NEGOCIO» · «Martin Koncke»                       ← el diseño
+```
+
+**La regla: el nombre de un campo que escribe un modelo NO es un contrato**, aunque el prompt lo dicte y aunque acierte todos
+los demás. Lo que es exacto se acota (`num`, `color`); lo que es un NOMBRE se lee por sus dos formas (`listaDe`:
+`textos`/`texts`, `laminas`/`slides`). Es el corolario de AGENTS.md → «una regla en un prompt no es una regla», aplicado a la
+FORMA y no al contenido. Y falla callado: el camino de respaldo existe y funciona, así que nadie ve un error.
+
+### Lo que la IA real dijo de la biblioteca de VERDAD (cuatro corridas, ws 9, 6/11)
+
+El encargo daba por hecho que «el ejemplo tiene una persona» quiere decir una foto grande de alguien. Medido sobre cuatro
+carruseles con sus láminas guardadas, pidiéndole a su Gemini que marque `quien` en cada una:
+
+- **`-136` (10 láminas):** las 10 con el MISMO retrato chiquito del creador en la cabecera (0,15 × 0,11 de la lámina, ~1,7 %
+  del área), las 10 marcadas `dueno`. Correcto, y ahí la foto del cliente se pega sin generar nada: para un avatar de
+  cabecera, su retrato es MEJOR que una escena armada. Por eso se generan sólo las fotos de al menos el 8 % del área.
+- **`-747` (11 láminas):** tres fotos GRANDES y las tres `cosa` (un cielo con montañas, tres pantallas de celular, una foto de
+  una publicación). Ninguna es gente.
+- **`-1321` (5 láminas):** ninguna foto; sólo tipografía.
+- **`-1154` (10 láminas):** ocho fotos a sangre, seis `cosa` (ilustración antigua, cintas VHS, manchas de pintura, un escáner),
+  una `dueno` («dentista sonriendo en el consultorio») y una **`otra`** («paciente feliz mostrando su nueva sonrisa»). Ese
+  es el caso exacto del encargo 387: hasta hoy, la cara del dueño se pegaba sobre el paciente.
+
+**O sea: la gente en la biblioteca real es, casi siempre, el retrato chico del creador en la cabecera —que la foto del cliente
+ya cubre— y las fotos grandes casi nunca son personas.** El camino de la IA de imagen es para un caso más raro de lo que el
+pedido suponía, y el que más láminas toca sigue abierto: **las fotos `cosa`** (ver «Sin hacer»).
+
+**Y en el ws 9, el del propio Martín, hoy no se puede ver funcionando** (medido el 6/11): no tiene **ninguna** foto de cara de
+marca cargada (`getPersona().fotos` = `[]`) ni un look de AI Avatar, y su puente de Flow está `sin_sesion` («Abre Google Flow
+desde el ícono de MaKo e inicia sesión»), con el último latido de las 15:45 UTC y la extensión 0.74.3. Las dos puntas de este
+camino —la foto y la IA de imagen— son de la PERSONA, no del plan: sin eso, lo único que puede salir es el diseño sin fotos.
+Antes de dar por roto «la lámina sale sin la cara», hay que mirar esas dos cosas.
+
+**Vive en:** `lib/carruseles/replica.ts` (`QuienEnLaFoto`, `quienDe`, `listaDe`, `escenaDeLamina`, `fotosAGenerar`,
+`documentoDeReplica` con `reservadas`), `lib/carruseles/foto-lamina.ts` (la red: `pedirFotosDeLamina`,
+`asentarFotosDeLamina`, `subirAlEditor`), `lib/carruseles/replica-servidor.ts` (lo cablea; `fotoDelCliente` ahora devuelve el
+`fotoId` de la cara de marca, que es lo único que `caraDeFoto` puede traducir al `mediaId` de Flow),
+`app/api/image-editor/disenos/[id]/route.ts` (el GET asienta). Lo prueban `tests/carruseles-foto-lamina.test.ts` con su hijo
+(el orquestador de verdad contra una base y un Storage de mentira) y `tests/carruseles-replica.test.ts` (lo puro).
+
+**Y una trampa del arnés, medida escribiéndola:** el JPEG de mentira de un test tiene que llevar el largo de VERDAD en su
+segmento APP0 (`00 0e`). Con uno de más, `medidasDeImagen` se pasa del `ff c0`, no encuentra las medidas, `subirAlEditor`
+devuelve `null` — y el síntoma es idéntico a «el diseño no se asentó»: puestas 0, caídas 0, el pendiente ahí.
+
 ## «Llega al techo» con un tercio gastado: el techo lo ponía el crédito y la cuenta era de reservas (6/11/2026)
 
 **Síntoma:** `laminas` paró diciendo «Llega al techo: corta acá» con **US$0,54 gastados de un tope pedido de US$1,50**. De la
@@ -563,6 +667,25 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
   `tests/carruseles-editar.test.ts` corre los seis casos del carrusel, y la miniatura sólo se probó a mano con la IA real
   (21,6 s, una lámina de 1280 × 720 con el gancho del negocio). Su camino en seco ya armaba el documento, así que ahí no vivía
   el bug, pero es la mitad del orquestador sin arnés.
-- **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
-  imagen del avatar es el paso siguiente.
+- ~~**Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
+  imagen del avatar es el paso siguiente.~~ **Cerrado el 6/11/2026** (ver la entrada de arriba): el recuadro ya no existía, y
+  lo que faltaba —que ahí haya una foto— se le pide a la IA de imagen del negocio. **Lo que queda:**
+  - **Las fotos `cosa`** (un producto, una pantalla, un lugar) siguen sin nada: la lámina abre con los textos llenando el
+    espacio que iba a ocupar la foto. Y son LA MAYORÍA de las fotos grandes de la biblioteca (medido: 9 de 12 en cuatro
+    carruseles). No se generan porque un producto o un local inventado no es el del negocio — pero un cielo, una textura o un
+    fondo genérico no afirman nada, y ésos sí se podrían armar. **Es una decisión de producto** (`fotosAGenerar`,
+    `lib/carruseles/replica.ts`): o se generan las `cosa` que son fondo, o se buscan en el stock que ya existe
+    (`lib/imagenes-stock.ts`, Openverse y Picsum, que ya se usa en las landings).
+  - **Nadie asienta la foto si nadie abre el diseño.** Hoy la asienta el GET del diseño
+    (`app/api/image-editor/disenos/[id]/route.ts`); un cron que la asiente a ciegas —como `flow-abandono` hace con la cola—
+    no está, y la pantalla de «Editar» tampoco sondea: el aviso dice «aparece en el diseño en unos minutos» y hay que volver
+    a abrirlo.
+  - **Una lámina `dueno` SIN su foto cargada queda sin nada** (y con el aviso de que la suba). Generar «al dueño» sin una cara
+    de referencia sería inventarle una, que es justo lo que el método de `lib/flow-imagen.ts` existe para no hacer.
+  - **El camino de Flow no se pudo ver de punta a punta desde la PC**: el ws 9 no tiene foto de cara de marca ni la sesión de
+    Flow abierta (ver arriba). Lo probado es la decisión, el pedido que se encola y el asentado, con el orquestador
+    corriendo de verdad (`tests/carruseles-foto-lamina.test.ts`). Falta una corrida con el navegador de Martín conectado:
+    ahí se mide cuánto tarda y si la imagen vuelve con la url de nuestro Storage o con la de Flow.
+  - **El tope son 2 fotos por diseño** (`FOTOS_GENERADAS_MAX`): cada una es una generación en la pestaña del cliente. Sin
+    medir si su navegador aguanta más, no se sube.
 

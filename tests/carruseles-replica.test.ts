@@ -6,7 +6,7 @@
 //   · `leerReplica` sin acotar x/ancho a la lámina → 1 rojo (un texto salía de la lámina);
 //   · sin reparar el JSON roto (`parseJsonObject`) → 1 rojo;
 //   · aceptar una lámina sin textos como réplica → 1 rojo;
-//   · la foto del cliente sin mirar `persona` (va también donde había un paisaje) → 1 rojo;
+//   · la foto del cliente sin mirar quién está en la foto (va también donde había un paisaje) → 1 rojo;
 //   · `documentoDeReplica` con el alto de 4:5 en un anuncio 1:1 → 1 rojo;
 //   · `medidasDeImagen` con ancho y alto al revés en JPEG → 1 rojo;
 //   · `avisoSinIA` que no manda a conectar la IA cuando no hay ninguna → 1 rojo;
@@ -15,6 +15,12 @@
 //   · `leerReplica` sin forzar 16:9 y una lámina → 1 rojo;
 //   · `promptDeReplica` sin el prompt de miniatura → 1 rojo;
 //   · `esCdnPermitido` sin mirar https, usuario ni puerto → 1 rojo; con `includes` en vez del host exacto → 1 rojo.
+// Y la lámina con una persona (6/11/2026, encargos 25, 120, 193 y 387), base 29/0 acá y 48/0 en los tres archivos del área:
+//   · la foto del cliente donde haya CUALQUIER persona, no sólo donde el ejemplo muestra a su autor → 1 rojo;
+//   · pedirle a la IA de imagen también lo que no es gente → 1 rojo; generar «al dueño» sin su cara → 1 rojo;
+//   · no reservar el lugar de la foto que está por llegar → 2 rojos (uno acá, uno en el orquestador);
+//   · exigir la clave `textos` en español (el `"texts"` que contestó la IA real) → 1 rojo;
+//   · que el prompt no pregunte QUIÉN está en la foto → 3 rojos (dos acá, uno en el orquestador).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,9 +29,10 @@ import { altoEstimado, documentoDeCarrusel } from '../lib/carruseles/documento';
 import { estiloSinSerif } from '../lib/carruseles/marca-kit';
 import { fuenteDelEditorDeImagen } from '../lib/image-editor/fuente-del-editor';
 import {
-  ALTO_MINIATURA, ANCHO_MINIATURA, CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, LAMINAS_MAX, ajustarTextos, avisoSinIA, documentoDeReplica, documentoGuiaMiniatura,
+  ALTO_MINIATURA, ANCHO_MINIATURA, AREA_MINIMA_GENERADA, CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, FOTOS_GENERADAS_MAX, LAMINAS_MAX, ajustarTextos, avisoSinIA,
+  cajaDeFoto, documentoDeReplica, documentoGuiaMiniatura, escenaDeLamina, fotosAGenerar,
   conElArrobaDelNegocio, esCdnPermitido, eventosDe, leerReplica, lineaDeEvento, medidasDe, medidasDeImagen, notasDeReplica, promptDeReplica, proveedorDelError,
-  vuelveASinVer, type Replica,
+  vuelveASinVer, type FotoReplica, type Replica,
 } from '../lib/carruseles/replica';
 import { tipoCarrusel } from '../lib/carruseles/tipos';
 
@@ -48,11 +55,14 @@ test('el prompt: copia el diseño y el patrón, nunca sus frases, y dice cuánta
   assert.deepEqual(marcasDeVoseo(p), [], 'el prompt pide español neutro y está escrito en español neutro');
 });
 
-test('el prompt: con un original que pide comentar una palabra, la versión pide la suya; con avatar, marca dónde va la persona', () => {
+test('el prompt: con un original que pide comentar una palabra, la versión pide la suya; con avatar, pregunta QUIÉN está en la foto', () => {
   const p = promptDeReplica({ ...base, cta: 'GUÍA', conAvatar: true });
   assert.match(p, /pide comentar «GUÍA»/);
   assert.match(p, /UNA palabra que tenga sentido para este negocio/);
-  assert.match(p, /persona: true/);
+  assert.match(p, /"dueno" si ahí está la persona que FIRMA/);
+  assert.match(p, /"otra" si es alguien más/);
+  assert.match(p, /"quien":"dueno\|otra\|cosa"/, 'y la forma del JSON lo pide');
+  assert.ok(!/persona":true\|false/.test(p), 'el booléano viejo no se pide más: no sabía contestar quién');
   assert.match(promptDeReplica({ ...base, anuncio: true, laminas: 1, vistas: 1 }), /un anuncio de imagen/);
 });
 
@@ -60,7 +70,7 @@ const BUENO = JSON.stringify({
   proporcion: '4:5',
   titulo: '5 errores al cobrar',
   laminas: [
-    { fondo: '#111111', foto: { x: 0.5, y: 0.4, ancho: 0.5, alto: 0.6, persona: true, descripcion: 'la dueña sonriendo' }, textos: [
+    { fondo: '#111111', foto: { x: 0.5, y: 0.4, ancho: 0.5, alto: 0.6, quien: 'dueno', descripcion: 'la dueña sonriendo' }, textos: [
       { rol: 'titulo', texto: '5 errores que te hacen perder pacientes', x: 0.08, y: 0.1, ancho: 0.84, tamano: 0.08, color: '#FFFFFF', negrita: true, alinear: 'left', mayus: false },
       { rol: 'firma', texto: 'Sonrisa Llena', x: 0.08, y: 0.92, ancho: 0.5, tamano: 0.025, color: '#bbb', negrita: false, alinear: 'left' },
     ] },
@@ -75,7 +85,7 @@ test('leer lo que devuelve la IA: lo bueno pasa, acotado a la lámina', () => {
   assert.equal(r.titulo, '5 errores al cobrar');
   assert.equal(r.laminas[0].textos[1].color, '#BBBBBB', 'un color corto se lee completo');
   assert.equal(r.laminas[1].textos[0].alinear, 'center');
-  assert.equal(r.laminas[0].foto?.persona, true);
+  assert.equal(r.laminas[0].foto?.quien, 'dueno');
 });
 
 test('leer lo que devuelve la IA: nada sale de la lámina ni es enorme; un rol inventado es «cuerpo»', () => {
@@ -142,7 +152,7 @@ test('el diseño: la foto del cliente va donde había una PERSONA, cubriendo su 
   assert.ok(Math.abs((img.height as number) * (img.scaleY as number) - lugarH) < 1, 'cubre el alto');
   assert.equal(img.scaleX, img.scaleY, 'sin deformarse');
   // Donde NO había una persona (un paisaje), no va su cara.
-  const paisaje = { ...r, laminas: [{ ...r.laminas[0], foto: { ...r.laminas[0].foto!, persona: false } }] };
+  const paisaje = { ...r, laminas: [{ ...r.laminas[0], foto: { ...r.laminas[0].foto!, quien: 'cosa' as const } }] };
   const sinCara = documentoDeReplica({ replica: paisaje, estilo, marca: { nombre: 'X', usuario: null }, foto, nuevoId });
   assert.ok(!((sinCara.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>).some((o) => o.type === 'image'));
   const cuadrado = documentoDeReplica({ replica: { ...r, proporcion: '1:1' }, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
@@ -280,7 +290,7 @@ test('miniatura: el prompt pide UNA lámina 16:9 con un gancho corto, y sin la i
 
 test('miniatura: lo que devuelve la IA se lee como UNA lámina 16:9 aunque traiga más, y el diseño es de 1280 × 720 sin reacomodar', () => {
   const crudo = JSON.stringify({ titulo: 'Más ventas', proporcion: '4:5', laminas: [
-    { fondo: '#101010', textos: [{ rol: 'titulo', texto: 'VENDE MÁS HOY', x: 0.05, y: 0.3, ancho: 0.55, tamano: 0.11, color: '#FFE600', negrita: true, alinear: 'left', mayus: true, letra: 'gruesa' }], foto: { x: 0.6, y: 0, ancho: 0.4, alto: 1, persona: true, descripcion: 'cara' } },
+    { fondo: '#101010', textos: [{ rol: 'titulo', texto: 'VENDE MÁS HOY', x: 0.05, y: 0.3, ancho: 0.55, tamano: 0.11, color: '#FFE600', negrita: true, alinear: 'left', mayus: true, letra: 'gruesa' }], foto: { x: 0.6, y: 0, ancho: 0.4, alto: 1, quien: 'dueno' as const, descripcion: 'cara' } },
     { fondo: '#FFFFFF', textos: [{ rol: 'cuerpo', texto: 'otra', x: 0.1, y: 0.1, ancho: 0.5, tamano: 0.03 }] },
   ] });
   const r = leerReplica(crudo, { laminas: 1, miniatura: true });
@@ -351,4 +361,146 @@ test('el @ del negocio se queda y el que inventó el modelo se va; un mail no es
   ], foto: null }] }), { laminas: 1 });
   assert.ok(!('error' in r));
   assert.deepEqual((r as Replica).laminas[0].textos.map((t) => t.texto), ['TU TITULAR']);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUIÉN está en la foto, y la foto que arma la IA de imagen (6/11/2026, encargos 25, 120, 193 y 387)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Una lámina con una foto en la mitad derecha y un titular a la izquierda: la forma del caso real. */
+const conFoto = (quien: FotoReplica['quien'], mas: Partial<FotoReplica> = {}): Replica => ({
+  proporcion: '4:5',
+  titulo: 'x',
+  laminas: [{
+    fondo: '#101010',
+    foto: { x: 0.5, y: 0.1, ancho: 0.45, alto: 0.5, quien, descripcion: 'la dueña sonriendo en su consultorio, luz de ventana', ...mas },
+    textos: [{ rol: 'titulo', texto: 'ASÍ DUPLICAMOS LAS CITAS', x: 0.06, y: 0.2, ancho: 0.4, tamano: 0.1, color: '#FFFFFF', negrita: true, alinear: 'left', mayus: true, letra: 'gruesa' }],
+  }],
+});
+const LA_FOTO = { id: 'f1', url: 'https://x.supabase.co/storage/v1/object/public/image-editor/9/f1.jpg', ancho: 1000, alto: 1200 };
+const objetosDe = (doc: Record<string, unknown>, i = 0) =>
+  ((doc.pages as Array<Record<string, unknown>>)[i].objects as Array<Record<string, unknown>>);
+
+test('la cara del cliente va SÓLO donde el ejemplo muestra a su autor: donde muestra a otra persona, no es él', () => {
+  const marca = { nombre: 'Sonrisa Llena', usuario: null };
+  const suya = documentoDeReplica({ replica: conFoto('dueno'), estilo, marca, foto: LA_FOTO, nuevoId });
+  assert.equal(objetosDe(suya).filter((o) => o.type === 'image').length, 1, 'el lugar de SU autor es el del dueño del negocio');
+
+  // El bug del encargo 387: con el `persona: true` de antes, la cara del cliente se pegaba igual encima de un alumno o de un
+  // cliente ajeno. Un booleano no sabe contestar «quién».
+  const ajena = documentoDeReplica({ replica: conFoto('otra'), estilo, marca, foto: LA_FOTO, nuevoId });
+  assert.deepEqual(objetosDe(ajena).filter((o) => o.type === 'image'), [], 'la cara del dueño NO va donde hay otra persona');
+  const cosa = documentoDeReplica({ replica: conFoto('cosa'), estilo, marca, foto: LA_FOTO, nuevoId });
+  assert.deepEqual(objetosDe(cosa).filter((o) => o.type === 'image'), [], 'ni donde no hay gente');
+  // Y NUNCA un recuadro: el pulido del 6/11 sacó el «Tu foto» gris y esto no lo puede traer de vuelta.
+  for (const d of [ajena, cosa]) {
+    assert.deepEqual(objetosDe(d).filter((o) => o.type === 'rect'), [], 'sin recuadro donde no hay foto');
+    assert.ok(!objetosDe(d).some((o) => /tu foto/i.test(String(o.text ?? ''))), 'ni una guía escrita adentro del hueco');
+  }
+});
+
+test('una lámina cuya foto está generando la IA de imagen conserva el LUGAR de la foto: el titular no se estira encima', () => {
+  const marca = { nombre: 'Sonrisa Llena', usuario: null };
+  const r = conFoto('otra');
+  const suelto = objetosDe(documentoDeReplica({ replica: r, estilo, marca, foto: null, nuevoId }))[0];
+  const reservado = objetosDe(documentoDeReplica({ replica: r, estilo, marca, foto: null, nuevoId, reservadas: [0] }))[0];
+  // Sin reservar, el titular toma el ancho de la lámina (es lo correcto cuando NO va a llegar ninguna foto).
+  assert.ok((suelto.width as number) > 900, `suelto: ${suelto.width}`);
+  // Reservado, se queda en la columna que vio la IA: cuando la foto llegue, cae al lado y no encima.
+  assert.ok((reservado.width as number) <= Math.round(0.45 * 1080), `reservado: ${reservado.width}`);
+  assert.ok((reservado.left as number) + (reservado.width as number) <= Math.round(0.5 * 1080) + 1, 'y no se mete en el lugar de la foto');
+  // La misma reserva que hace la foto del cliente cuando YA está.
+  const conLaSuya = objetosDe(documentoDeReplica({ replica: conFoto('dueno'), estilo, marca, foto: LA_FOTO, nuevoId })).find((o) => o.type === 'textbox')!;
+  assert.ok((conLaSuya.width as number) <= Math.round(0.45 * 1080));
+});
+
+test('a la IA de imagen se le piden las fotos que faltan: la del dueño sólo con su cara, la ajena siempre, un objeto nunca', () => {
+  assert.deepEqual(fotosAGenerar(conFoto('cosa'), { tieneCara: true }), [], 'un producto o un lugar inventado no es el del negocio');
+  assert.deepEqual(fotosAGenerar(conFoto('dueno'), { tieneCara: false }), [], 'sin su cara cargada no se le inventa una');
+
+  const suya = fotosAGenerar(conFoto('dueno'), { tieneCara: true });
+  assert.equal(suya.length, 1);
+  assert.deepEqual(suya[0].caja, cajaDeFoto(conFoto('dueno').laminas[0].foto!, { ancho: 1080, alto: 1350 }), 'cae justo donde iba la foto');
+  assert.equal(suya[0].conCara, true, 'la identidad la pone su foto');
+  assert.equal(suya[0].lamina, 0);
+
+  const ajena = fotosAGenerar(conFoto('otra'), { tieneCara: true });
+  assert.equal(ajena.length, 1);
+  assert.equal(ajena[0].conCara, false, 'no es el dueño: su cara no va como referencia');
+
+  // Un avatar decorativo (un círculo en la cabecera) no vale una generación: para eso el retrato que ya hay es MEJOR.
+  const chiquita = conFoto('otra', { ancho: 0.12, alto: 0.1 });
+  assert.ok(chiquita.laminas[0].foto!.ancho * chiquita.laminas[0].foto!.alto < AREA_MINIMA_GENERADA);
+  assert.deepEqual(fotosAGenerar(chiquita, { tieneCara: true }), []);
+
+  // El tope: cada foto es una generación en la pestaña del cliente.
+  const muchas: Replica = { ...conFoto('otra'), laminas: Array.from({ length: 6 }, () => conFoto('otra').laminas[0]) };
+  assert.equal(fotosAGenerar(muchas, { tieneCara: true }).length, FOTOS_GENERADAS_MAX);
+  assert.equal(fotosAGenerar(muchas, { tieneCara: true, maximo: 0 }).length, 0);
+});
+
+test('la escena que se le pide a la IA de imagen: la composición que se vio, sin letras, sin @ y diciendo si es el dueño o no', () => {
+  const f = conFoto('dueno').laminas[0].foto!;
+  const suya = escenaDeLamina(f, { proporcion: '4:5' });
+  assert.match(suya, /vertical 4:5/);
+  assert.match(suya, /consultorio/, 'lo que la IA de texto VIO es la escena');
+  assert.doesNotMatch(escenaDeLamina({ ...f, descripcion: 'La dentista en su consultorio de Monterrey.' }, { proporcion: '4:5' }), /\.\./, 'sin el punto doble («Monterrey.. one person»), medido con la IA real');
+  assert.match(suya, /No lettering/, 'los textos del carrusel son capas que se editan, no píxeles');
+  assert.match(suya, /subject of the reference photo/);
+
+  const ajena = escenaDeLamina({ ...f, quien: 'otra' }, { proporcion: '4:5' });
+  assert.match(ajena, /NOT the brand owner/);
+
+  // Un @ que se colara en la descripción no viaja al modelo de imagen (es la marca de otro).
+  assert.doesNotMatch(escenaDeLamina({ ...f, descripcion: 'el coach @otrocreador frente a su público' }, { proporcion: '4:5' }), /@otrocreador/);
+  // Sin descripción no se manda una escena vacía: hay un respaldo (si no, el modelo inventa cualquier cosa).
+  assert.match(escenaDeLamina({ ...f, descripcion: '' }, { proporcion: '4:5' }), /bright everyday workplace/);
+  assert.match(escenaDeLamina({ ...f, descripcion: '' }, { proporcion: '16:9' }), /horizontal 16:9/);
+});
+
+test('el prompt: con la IA de imagen prendida se piden las fotos aunque el negocio no tenga su cara cargada', () => {
+  const sinNada = promptDeReplica({ ...base, conAvatar: false, conIAdeImagen: false });
+  assert.match(sinNada, /No pongas fotos ni personas/);
+  const conIA = promptDeReplica({ ...base, conAvatar: false, conIAdeImagen: true });
+  assert.doesNotMatch(conIA, /No pongas fotos ni personas/, 'la foto de una persona ajena la puede ARMAR la IA de imagen');
+  assert.match(conIA, /"cosa" si no hay gente/);
+  assert.match(conIA, /es QUÉ SE VE en esa foto/, 'sin la descripción no hay con qué generar nada');
+});
+
+test('un modelo que contesta el campo viejo (`persona`) se sigue entendiendo, y un valor inventado no mete gente', () => {
+  const leer = (foto: unknown) => {
+    const r = leerReplica(JSON.stringify({ proporcion: '4:5', titulo: 'x', laminas: [{ fondo: '#000000', foto, textos: [
+      { rol: 'titulo', texto: 'HOLA', x: 0.1, y: 0.2, ancho: 0.8, tamano: 0.1, color: '#FFFFFF' },
+    ] }] }), { laminas: 1 });
+    assert.ok(!('error' in r));
+    return (r as Replica).laminas[0].foto;
+  };
+  const caja = { x: 0.5, y: 0.1, ancho: 0.4, alto: 0.5, descripcion: 'alguien' };
+  assert.equal(leer({ ...caja, persona: true })?.quien, 'dueno', 'el booleano viejo quería decir «va la cara del cliente»');
+  assert.equal(leer({ ...caja, persona: false })?.quien, 'cosa');
+  assert.equal(leer({ ...caja, quien: 'OTRA' })?.quien, 'otra', 'no importa cómo lo escriba');
+  assert.equal(leer({ ...caja, quien: 'dueño' })?.quien, 'dueno', 'ni con la ñ que el modelo pone igual');
+  assert.equal(leer({ ...caja, quien: 'un señor' })?.quien, 'cosa', 'un valor inventado NO pone la cara del cliente');
+  assert.equal(leer({ ...caja, quien: 'otra', persona: false })?.quien, 'otra', 'manda el campo nuevo');
+});
+
+test('la IA escribe `texts` en vez de `textos` y el diseño IGUAL se lee: el nombre de un campo de un modelo no es un contrato', () => {
+  // MEDIDO el 6/11/2026 con la IA real (ws 9, carrusel -895): todo en español menos esa clave, y el diseño entero se tiraba.
+  const enIngles = JSON.stringify({
+    proporcion: '4:5', titulo: 'Martin Koncke Metas',
+    laminas: [{ fondo: '#111111', foto: null, texts: [
+      { rol: 'titulo', letra: 'gruesa', texto: 'ESTABLECE TUS METAS ANTES DE CRECER', x: 0.08, y: 0.58, ancho: 0.84, tamano: 0.09, color: '#E5C585', negrita: true, alinear: 'left', mayus: true },
+    ] }],
+  });
+  const r = leerReplica(enIngles, { laminas: 1 });
+  assert.ok(!('error' in r), `se tiró un diseño que estaba bien: ${JSON.stringify(r)}`);
+  assert.deepEqual((r as Replica).laminas[0].textos.map((t) => t.texto), ['ESTABLECE TUS METAS ANTES DE CRECER']);
+  // Y la misma trampa un nivel más arriba (`slides` por `laminas`), que falla igual de callado.
+  const slides = leerReplica(JSON.stringify({ proporcion: '4:5', titulo: 'x', slides: [{ fondo: '#000000', foto: null, textos: [
+    { rol: 'titulo', texto: 'HOLA', x: 0.1, y: 0.2, ancho: 0.8, tamano: 0.1, color: '#FFFFFF' },
+  ] }] }), { laminas: 1 });
+  assert.ok(!('error' in slides));
+  assert.equal((slides as Replica).laminas.length, 1);
+  // Lo que NO cambia: sin ninguna lámina con texto sigue siendo un error (y de ahí salen las guías).
+  assert.ok('error' in leerReplica(JSON.stringify({ laminas: [{ fondo: '#000000', textos: [] }] }), { laminas: 1 }));
 });

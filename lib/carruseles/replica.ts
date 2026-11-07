@@ -12,7 +12,12 @@
 //
 // QUÉ SE COPIA Y QUÉ NO (los dos permisos de AGENTS.md): se copia el DISEÑO y la ESTRUCTURA (cuántas láminas, dónde va cada
 // cosa, cómo abre y qué pide al final). No se copian sus palabras (la IA escribe las del negocio, con el mismo patrón), ni sus
-// fotos (donde había una persona va la foto del cliente, su avatar), ni su nombre o su @.
+// fotos, ni su nombre o su @.
+//
+// Y DE LA FOTO SE COPIA EL LUGAR, NO LA GENTE (6/11/2026, encargos 25, 120, 193 y 387): la IA dice QUIÉN está ahí
+// (`QuienEnLaFoto`). Donde el ejemplo muestra a SU AUTOR va la foto del dueño del negocio; donde muestra a otra persona, no va
+// su cara —no es él— y esa foto la arma la IA de imagen del negocio con la escena que se vio (`fotosAGenerar` acá,
+// ./foto-lamina.ts para la red). Nunca un recuadro vacío ni una guía escrita adentro de un hueco.
 //
 // Puro: el prompt, la lectura de lo que devuelve el modelo (que puede venir roto: se repara y se acota, nunca se cree) y el
 // documento. La red (las láminas, la IA, el avatar, guardar) vive en ./replica-servidor.ts. Lo prueba
@@ -46,7 +51,22 @@ export type TextoReplica = {
   mayus: boolean;
   letra: Letra;
 };
-export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
+/**
+ * QUIÉN está en la foto de una lámina. Lo decide la IA mirando el ejemplo, y de eso depende qué va a ir ahí:
+ *   · `dueno` → la persona que FIRMA el ejemplo (su cara hablando, su selfie, su retrato). Ése es el lugar del dueño del
+ *     negocio: ahí va su foto, y si hay IA de imagen, su foto EN ESA ESCENA;
+ *   · `otra`  → alguien que no es quien firma (un cliente, un alumno, un equipo, gente de archivo). La cara del dueño NO va
+ *     ahí: esa foto la genera la IA de imagen, sin su cara;
+ *   · `cosa`  → no hay gente (un producto, una pantalla, un lugar).
+ *
+ * ⚠️ ANTES ERA UN `persona: boolean`, y era el bug del 6/11/2026 (encargo 387): «hay una persona» se leía como «va la cara
+ * del cliente», así que un ejemplo que mostraba a un ALUMNO salía con la cara del dueño pegada encima. Un booleano no puede
+ * contestar «quién»: lo único que sabía decir era «hay alguien».
+ */
+export const QUIENES = ['dueno', 'otra', 'cosa'] as const;
+export type QuienEnLaFoto = (typeof QUIENES)[number];
+
+export type FotoReplica = { x: number; y: number; ancho: number; alto: number; quien: QuienEnLaFoto; descripcion: string };
 export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null };
 export type Proporcion = '4:5' | '1:1' | '16:9';
 export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[] };
@@ -81,6 +101,12 @@ export type PedidoReplica = {
   cta: string | null;
   /** ¿Hay foto del cliente (su avatar) para poner donde el original tiene una persona? */
   conAvatar: boolean;
+  /**
+   * ¿La IA de IMAGEN del negocio puede generar la foto de una lámina? (su puente a Flow, listo y latiendo). Con esto, una
+   * lámina que muestra a OTRA persona también puede tener su foto: se genera, sin la cara del dueño. Sin avatar y sin IA de
+   * imagen no se piden fotos: la lámina es tipografía y color.
+   */
+  conIAdeImagen?: boolean;
   /** Lo que la persona pidió de más («hazlo sobre mi curso de X»), si pidió algo. */
   pedido?: string | null;
   /** Un anuncio (una sola imagen) en vez de un carrusel. */
@@ -92,6 +118,19 @@ export type PedidoReplica = {
   /** El pie del original: sólo para entender el tema y la estructura (no se copia). Útil cuando se ve nada más que la portada. */
   pie?: string | null;
 };
+
+/**
+ * Las dos líneas de la foto, iguales en el carrusel y en la miniatura. Se piden los DOS datos juntos a propósito: `quien`
+ * decide si va la cara del dueño y `descripcion` es lo único con lo que la IA de imagen puede volver a armar esa escena.
+ */
+const LINEA_QUIEN =
+  '- Donde el original tiene una foto, pon `foto` con su lugar y `quien`: "dueno" si ahí está la persona que FIRMA el ejemplo'
+  + ' (su cara hablando, su selfie, su retrato: ése es el lugar del dueño del negocio), "otra" si es alguien más (un cliente,'
+  + ' un alumno, un equipo, gente de archivo), "cosa" si no hay gente (un producto, una pantalla, un lugar). Si no hay ninguna'
+  + ' foto, `foto: null`.';
+const LINEA_DESCRIPCION =
+  '- `descripcion` es QUÉ SE VE en esa foto, en una frase: el lugar, la luz, el encuadre y la ropa. Sin nombres, sin marcas y'
+  + ' sin el texto que esté escrito encima.';
 
 /** El prompt (un solo mensaje: lo lee la IA junto con las imágenes). Los datos del negocio van marcados como datos. */
 export function promptDeReplica(p: PedidoReplica): string {
@@ -111,7 +150,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma va el NOMBRE del negocio, tal como está escrito abajo, y nada más: nunca un @, un usuario ni un sitio web, porque no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
-    p.conAvatar ? '- Donde el original tiene la foto de una persona, marca `persona: true`: ahí va la foto del dueño del negocio.' : '- No pongas fotos ni personas: la lámina es sólo tipografía y color. Deja `foto: null` en todas.',
+    ...(p.conAvatar || p.conIAdeImagen ? [LINEA_QUIEN, LINEA_DESCRIPCION] : ['- No pongas fotos ni personas: la lámina es sólo tipografía y color. Deja `foto: null` en todas.']),
     '- El texto LLENA la lámina: titulares grandes (tamano entre 0.08 y 0.14), cuerpo de 0.045 a 0.06, nada chiquito ni mucho vacío. Pocas palabras por lámina, las justas para que se lean de un vistazo. Respeta la jerarquía del original: lo que en el original es grande, aquí también lo es.',
     '- `letra` es el estilo de la letra del original: sans (palo seco), gruesa (palo seco muy pesada), condensada (alta y angosta), serif, manuscrita o mono. Si dudas, sans.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes: escribe la frase sin ese dato.',
@@ -125,7 +164,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     'Devuelve SÓLO un JSON con esta forma:',
-    `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"quien":"dueno|otra|cosa","descripcion":"qué se ve"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -160,7 +199,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     'Devuelve SÓLO un JSON con esta forma:',
-    `{"proporcion":"16:9","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"proporcion":"16:9","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"quien":"dueno|otra|cosa","descripcion":"qué se ve"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     'x, y, ancho y alto son FRACCIONES de la imagen (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho.',
   ].filter((l) => l !== '').join('\n');
 }
@@ -179,6 +218,34 @@ const color = (v: unknown, def: string): string => {
   const corto = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(t);
   return corto ? `#${corto[1]}${corto[1]}${corto[2]}${corto[2]}${corto[3]}${corto[3]}`.toUpperCase() : def;
 };
+/**
+ * El array de un campo que el modelo escribe EN ESPAÑOL o en inglés, sin avisar.
+ *
+ * ⚠️ MEDIDO EL 6/11/2026 CON LA IA REAL (ws 9, carrusel -895): el modelo contestó el diseño PERFECTO —9 láminas, con los
+ * textos del negocio, los colores y la letra— y puso la clave `"texts"` en vez de `"textos"`, con todo el resto en español
+ * (`laminas`, `fondo`, `foto`, `rol`, `letra`, `texto`). `leerReplica` no la encontraba, devolvía «La IA no encontró textos
+ * en las láminas» y la pantalla caía a las GUÍAS: el síntoma que Martín reportó como «la guía no se parece al ejemplo», con
+ * la respuesta buena ya en la mano y tirada a la basura. 200 s de IA del negocio pagados para nada.
+ *
+ * La regla que queda: **el nombre de un campo que escribe un modelo NO es un contrato**, aunque el prompt lo dicte y aunque
+ * acierte todos los demás. Lo que es exacto se acota (`num`, `color`), y lo que es un NOMBRE se lee por sus dos formas.
+ * Es el mismo corolario de AGENTS.md → «una regla en un prompt no es una regla» aplicado a la forma, no al contenido.
+ */
+const listaDe = (...candidatos: unknown[]): unknown[] => candidatos.find(Array.isArray) as unknown[] ?? [];
+
+/**
+ * Quién está en la foto, de lo que contestó el modelo. `persona` es el campo VIEJO (hasta el 6/11/2026 el prompt pedía un
+ * booleano): un modelo que lo conteste igual se lee como «el dueño», que es lo que hacía antes. Sin ninguno de los dos, `cosa`:
+ * nadie dijo que hubiera gente.
+ */
+const quienDe = (v: unknown, persona: unknown): QuienEnLaFoto => {
+  const t = String(v ?? '').trim().toLowerCase();
+  if ((QUIENES as readonly string[]).includes(t)) return t as QuienEnLaFoto;
+  if (/^(due|own)/.test(t)) return 'dueno';
+  if (/^(otra|otro|other)/.test(t)) return 'otra';
+  return persona === true || persona === 'true' ? 'dueno' : 'cosa';
+};
+
 const limpio = (v: unknown, max: number): string => (typeof v === 'string' ? v.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '');
 
 /** Un `@usuario` suelto (no el de un mail: ahí el `@` viene pegado a una letra). El `.` y el `_` son válidos en un handle. */
@@ -212,7 +279,7 @@ export function conElArrobaDelNegocio(texto: string, usuario: string | null | un
 export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
-  const lista = Array.isArray(j.laminas) ? j.laminas : [];
+  const lista = listaDe(j.laminas, j.slides);
   const n = Math.max(1, Math.min(LAMINAS_MAX, Math.round(o.laminas) || lista.length || 1));
   const laminas: LaminaReplica[] = [];
   for (const crudaL of lista.slice(0, n)) {
@@ -220,7 +287,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const fondo = color(l.fondo, '#FFFFFF');
     const tintaDef = esOscuro(fondo) ? '#FFFFFF' : '#111111';
     const textos: TextoReplica[] = [];
-    for (const crudoT of Array.isArray(l.textos) ? l.textos.slice(0, TEXTOS_POR_LAMINA) : []) {
+    for (const crudoT of listaDe(l.textos, l.texts).slice(0, TEXTOS_POR_LAMINA)) {
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
       const contenido = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO), o.usuario);
       if (!contenido) continue;
@@ -241,7 +308,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const fx = f ? num(f.x, 0, 0.95, 0) : 0;
     const fy = f ? num(f.y, 0, 0.95, 0) : 0;
     const foto: FotoReplica | null = f
-      ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), persona: f.persona === true || f.persona === 'true', descripcion: limpio(f.descripcion, 200) }
+      ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), quien: quienDe(f.quien, f.persona), descripcion: limpio(f.descripcion, 200) }
       : null;
     laminas.push({ fondo, textos, foto });
   }
@@ -342,13 +409,22 @@ export type FotoDelCliente = { id: string; url: string; ancho: number; alto: num
 
 type Obj = Record<string, unknown>;
 
+/** El lugar de una foto, en píxeles del documento. */
+export type CajaDeFoto = { left: number; top: number; width: number; height: number };
+
+/** El lugar de la foto de una lámina, en píxeles: lo mismo que usa el documento, para que lo generado caiga donde iba. */
+export const cajaDeFoto = (f: FotoReplica, m: { ancho: number; alto: number }): CajaDeFoto => ({
+  left: Math.round(f.x * m.ancho), top: Math.round(f.y * m.alto),
+  width: Math.round(f.ancho * m.ancho), height: Math.round(f.alto * m.alto),
+});
+
 /** La foto dentro de su lugar, cubriéndolo sin deformarse (se recorta lo que sobra, como «Rellenar» del editor). */
-function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: number; width: number; height: number }): Obj {
+export function fotoQueCubre(id: string, f: FotoDelCliente, caja: CajaDeFoto, nombre = 'Foto: la tuya'): Obj {
   const escala = Math.max(caja.width / f.ancho, caja.height / f.alto);
   const anchoVisible = caja.width / escala;
   const altoVisible = caja.height / escala;
   return {
-    type: 'image', id, name: 'Foto: la tuya', src: f.url, assetId: f.id, crossOrigin: 'anonymous', originX: 'left', originY: 'top',
+    type: 'image', id, name: nombre, src: f.url, assetId: f.id, crossOrigin: 'anonymous', originX: 'left', originY: 'top',
     left: caja.left, top: caja.top, width: Math.round(anchoVisible * 10) / 10, height: Math.round(altoVisible * 10) / 10,
     cropX: Math.round(((f.ancho - anchoVisible) / 2) * 10) / 10, cropY: Math.round(Math.max(0, (f.alto - altoVisible) / 4) * 10) / 10,
     scaleX: escala, scaleY: escala, angle: 0, opacity: 1, visible: true, strokeUniform: true,
@@ -356,25 +432,30 @@ function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: 
 }
 
 /**
- * El diseño editable de la réplica: una página por lámina, con su fondo, la foto del cliente SÓLO donde el original tiene una
- * persona y el cliente tiene foto, y cada texto como una capa de texto. Sin foto del cliente no hay recuadro ni «Tu foto»: la
+ * El diseño editable de la réplica: una página por lámina, con su fondo, la foto del cliente SÓLO donde el original muestra a
+ * SU AUTOR (`quien: 'dueno'`) y el cliente tiene foto, y cada texto como una capa de texto. Sin foto del cliente no hay recuadro ni «Tu foto»: la
  * lámina es tipografía y color. Las letras son del editor (ver arriba); con el kit de marca del negocio, las de su marca
  * (`conFuentesDeMarca`, con las del `estilo`). En las notas de la primera página, de dónde salió (no salen en la imagen).
  */
 export function documentoDeReplica(o: {
   replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string; conFuentesDeMarca?: boolean;
+  /**
+   * Las láminas cuya foto la está GENERANDO la IA de imagen (./foto-lamina.ts): su lugar se RESERVA igual que si la foto ya
+   * estuviera. Sin esto los textos se reacomodan para llenar la lámina y, cuando la foto llega, le cae encima al titular.
+   */
+  reservadas?: readonly number[];
 }): Record<string, unknown> {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
   const reacomodar = o.replica.proporcion !== '16:9';
+  const reservadas = new Set(o.reservadas ?? []);
   const pages = o.replica.laminas.map((l, i) => {
     const objetos: Obj[] = [];
-    const conFoto = !!(l.foto && l.foto.persona && o.foto);
-    if (l.foto && l.foto.persona && o.foto) {
-      const caja = { left: Math.round(l.foto.x * W), top: Math.round(l.foto.y * H), width: Math.round(l.foto.ancho * W), height: Math.round(l.foto.alto * H) };
-      objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
-    }
-    for (const t of ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !conFoto })) {
+    // La foto del cliente va SÓLO donde el ejemplo muestra a su AUTOR (`quien: 'dueno'`). Donde muestra a otra persona no va
+    // su cara: ésa la genera la IA de imagen (encargo 387 del 6/11/2026).
+    const suCara = l.foto?.quien === 'dueno' ? o.foto : null;
+    if (suCara && l.foto) objetos.push(fotoQueCubre(o.nuevoId(), suCara, cajaDeFoto(l.foto, { ancho: W, alto: H })));
+    for (const t of ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !suCara && !reservadas.has(i) })) {
       const titular = ES_TITULAR.has(t.rol);
       const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
       const base = o.conFuentesDeMarca ? (titular ? o.estilo.titular : o.estilo.texto) : titular ? letra.titular : letra.texto;
@@ -393,6 +474,90 @@ export function documentoDeReplica(o: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// La foto de una lámina, generada con la IA de imagen (el camino de Flow)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que falta cuando el ejemplo tiene gente no es un recuadro: es la FOTO. Donde el ejemplo muestra a su autor, la del dueño
+// del negocio alcanza — pero es un retrato pegado en un hueco que pedía una escena (su local, su escritorio, su mano con el
+// producto). Y donde el ejemplo muestra a OTRA persona, la cara del dueño no va: no es él.
+//
+// Las dos se arreglan con lo mismo, que el producto ya tiene: la IA de imagen del negocio (su Google Flow por la extensión,
+// lib/flow-cola.ts) y el método de lib/flow-imagen.ts (`promptFinal`), que a la escena le suma la identidad de la foto, la luz
+// y el realismo. Acá vive lo PURO: qué escena se le pide y de qué láminas. La red, en ./foto-lamina.ts.
+//
+// ⚠️ Es ASÍNCRONO y no puede ser de otra manera: la que genera es la pestaña del cliente (su cuenta de Google, sus créditos),
+// que VIENE A BUSCAR el trabajo. «Editar» no la espera —ya llega a 276,9 s contra un `maxDuration` de 300— así que el diseño
+// abre con lo que hay y la foto se ASIENTA después (./foto-lamina.ts, `asentarFotosDeLamina`).
+
+/** Cuántas fotos como mucho se le piden a la IA de imagen por diseño: cada una es una generación en la pestaña del cliente. */
+export const FOTOS_GENERADAS_MAX = 2;
+/**
+ * Qué parte de la lámina tiene que ocupar la foto para que valga generarla (fracción del área). Debajo de esto es un avatar
+ * decorativo —un círculo en la cabecera—, y para eso el retrato del cliente es MEJOR que una escena generada.
+ */
+export const AREA_MINIMA_GENERADA = 0.08;
+/** El largo de la escena que se le manda a la IA de imagen: es una composición, no un guion. */
+const LARGO_ESCENA = 220;
+
+/** Una foto que hay que pedirle a la IA de imagen, ya con todo lo que necesita el trabajo de Flow. */
+export type PedidoDeFotoLamina = {
+  /** Qué página del diseño (0 = la portada). */
+  lamina: number;
+  caja: CajaDeFoto;
+  quien: QuienEnLaFoto;
+  /** La composición que se le pide (sin la cara: la identidad la pone la foto). */
+  escena: string;
+  /** ¿Va con la cara del dueño como referencia de identidad? Sólo cuando la foto del ejemplo es de SU autor. */
+  conCara: boolean;
+};
+
+/**
+ * La ESCENA que se le pide a la IA de imagen para esa lámina: lo que la IA de texto vio en la foto del ejemplo, limpio.
+ *
+ * ⚠️ Nunca la cara (`lib/ai-avatar/plantillas.ts`: describir el aspecto rompe el parecido; la identidad la pone la foto), y
+ * nunca texto adentro de la imagen: los textos del carrusel son capas que se editan, no píxeles.
+ */
+export function escenaDeLamina(f: FotoReplica, o: { proporcion: Proporcion }): string {
+  const limpia = f.descripcion
+    .replace(ARROBA, '$1')
+    .replace(/["“”«»]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, LARGO_ESCENA)
+    // El punto final de la descripción, que si no deja «… en Monterrey.. one person …» (medido con la IA real el 6/11/2026).
+    .replace(/[.;,\s]+$/, '');
+  const quienes = f.quien === 'dueno'
+    ? 'one person, the subject of the reference photo'
+    : f.quien === 'otra'
+      ? 'one person who is NOT the brand owner'
+      : 'no people';
+  const forma = o.proporcion === '16:9' ? 'horizontal 16:9' : o.proporcion === '1:1' ? 'square' : 'vertical 4:5';
+  const escena = limpia || (f.quien === 'cosa' ? 'a tidy workspace with natural light' : 'a person in a bright everyday workplace, waist-up, looking at the camera');
+  return `A ${forma} photo for one slide of an Instagram carousel. Scene: ${escena}. ${quienes}. No lettering, captions or logos anywhere in the image.`;
+}
+
+/**
+ * De qué láminas se le pide la foto a la IA de imagen, en orden y hasta `maximo`.
+ *
+ * · `dueno` → sólo con su foto cargada: sin una cara de referencia, generar «al dueño» sería inventarle una (y eso es
+ *   exactamente lo que el método de lib/flow-imagen.ts existe para no hacer). Sin foto queda el aviso que ya había.
+ * · `otra`  → siempre: es la que hoy sale vacía (o, antes del 6/11, con la cara del dueño encima).
+ * · `cosa`  → nunca por ahora: un producto o un lugar inventado no es el del negocio. Queda anotado.
+ */
+export function fotosAGenerar(r: Replica, o: { tieneCara: boolean; maximo?: number }): PedidoDeFotoLamina[] {
+  const m = medidasDe(r.proporcion);
+  const tope = Math.max(0, o.maximo ?? FOTOS_GENERADAS_MAX);
+  const out: PedidoDeFotoLamina[] = [];
+  r.laminas.forEach((l, lamina) => {
+    const f = l.foto;
+    if (out.length >= tope || !f || f.quien === 'cosa') return;
+    if (f.quien === 'dueno' && !o.tieneCara) return;
+    if (f.ancho * f.alto < AREA_MINIMA_GENERADA) return;
+    out.push({ lamina, caja: cajaDeFoto(f, m), quien: f.quien, escena: escenaDeLamina(f, { proporcion: r.proporcion }), conCara: f.quien === 'dueno' });
+  });
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Lo que se ve mientras se arma (copiado de «Replicar» del Web Generator: lib/editor-landing/replicar-progreso.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -401,7 +566,16 @@ export type EventoReplica =
   | { fase: 'leer'; laminas: number; vistas: number }
   | { fase: 'escribir'; con: string }
   | { fase: 'lamina'; indice: number; total: number; pagina: Record<string, unknown>; ancho: number; alto: number }
-  | { fase: 'fin'; ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null }
+  | {
+    fase: 'fin'; ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null;
+    /**
+     * Una NOTA, no un aviso: el diseño está bien y lo que dice no hay que arreglarlo («tu IA de imagen está armando la foto
+     * de una lámina»). Va aparte porque un `aviso` FRENA el salto al editor a propósito (app/image-editor/carruseles/
+     * EditarCarrusel.tsx: «si salió sin la IA, NO navega solo»), y frenarlo por una foto que llega después sería castigar
+     * al que salió bien.
+     */
+    nota?: string | null;
+  }
   | { fase: 'fin'; ok: false; error: string; conectar?: string | null };
 
 export const lineaDeEvento = (e: EventoReplica): string => `${JSON.stringify(e)}\n`;

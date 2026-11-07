@@ -2615,6 +2615,18 @@ resolvía a un borrador REAL pero equivocado. El mismo link, cuando lo escribe e
 llegar intactos, **no los transporta el modelo**: los pone el código, o se corrigen
 contra el valor real antes de salir (`lib/link-borrador.ts`).
 
+El otro corolario, del lado de la FORMA: **el NOMBRE de un campo que escribe un modelo
+tampoco es un contrato.** Medido el 6/11/2026 con la IA real (ws 9): pidiéndole un
+carrusel en un JSON con claves en español, contestó el diseño perfecto —los textos del
+negocio, los colores, la letra— y escribió `"texts"` en vez de `"textos"`, con todas las
+demás claves en español. El lector no la encontraba, devolvía «la IA no encontró textos»
+y la pantalla caía al camino de respaldo: una respuesta BUENA tirada a la basura, 200 s
+de la IA del cliente pagados, y ningún error a la vista. Así que un campo cuyo nombre lo
+escribe un modelo **se lee por sus dos formas** (`listaDe`, `lib/carruseles/replica.ts`:
+`textos`/`texts`, `laminas`/`slides`), lo mismo que un valor se acota. Y un `enum` que
+decide algo se lee con su default SEGURO: ante un valor inventado, el que no hace nada
+(`quienDe`, ahí mismo, cae en «no hay gente» y no en «pon la cara del cliente»).
+
 Y cuando el saneo tenga que elegir entre dos señales que se contradicen, **gana la más
 cara de producir**. Un `tipo` es un token que el modelo tira sin pensar; una lista de
 opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo viejo
