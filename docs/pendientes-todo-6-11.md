@@ -56,9 +56,10 @@ perder más tiempo que uno olvidado.
   - Qué falta: Leer `curso_sesiones` en producción y reintentarlas. Son del 05 al 12/10, cuando la IA de Google daba error, y nadie las volvió a pedir: Customer Success deja esperando esas sesiones.
   - Dónde: `docs/relevo/pendientes-barrido.md P13 · docs/pendientes.md:518 · curso_sesiones del ws 1`
   - ⛔ Lo frena: Cuesta crédito de IA: pide el sí de Martín
-- **Medir qué funciones de `public` puede ejecutar la clave pública** · _chico_
-  - Qué falta: Correr `node scripts/medir-funciones-publicas.mjs`. Es una medición de seguridad que nunca se hizo.
-  - Dónde: `scripts/medir-funciones-publicas.mjs · docs/relevo/pendientes-barrido.md P12`
+- **Medir qué funciones de `public` puede ejecutar la clave pública** · _chico_ · ✅ **HECHO el 7/11/2026 — `369d962d3`**
+  - El resultado: **las 25 funciones de `public` (las de MaKo) están CERRADAS** — 0 ejecutables por `anon`, 0 por `authenticated`, 0 SECURITY DEFINER alcanzables, 0 que toquen tablas con `workspace_id`. La 0319 hizo lo que decía. Las 49 que `anon` sí ejecuta están todas FUERA de `public` (auth, extensions, graphql_public, realtime, storage): es la plomería de Supabase, pensada para llamarse sin sesión, y ninguna toca datos de clientes. Extensiones alcanzables por anon: `pgcrypto`, `pg_stat_statements`, `uuid-ossp` — **ninguna de red ni de archivos**, así que no hay SSRF por `/rest/v1/rpc`.
+  - ⚠️ La trampa, anotada en `docs/hallazgos-seguridad.md`: el `--json` del script escribe `{defaults, filas}` con filas PLANAS, no `{app, extensiones}` como está organizada la salida de texto. Leerlo mal da «0 funciones, 0 expuestas» — un informe de seguridad perfecto construido sobre nada. **Un cero no es un resultado hasta que se ve el denominador**: hay que poder decir «0 de 25».
+  - Dónde: `scripts/medir-funciones-publicas.mjs · docs/hallazgos-seguridad.md · docs/relevo/pendientes-barrido.md P12`
 - **Las fuentes de pedidos que NADIE leyo (lo mas grande que falta)** · _grande_
   - Qué falta: El reparto del 27/10 (workflow wf_1f30be35-c5e, con los MAU-xx, MK-xx y las llamadas de Leandro, Leila y Aaron), `docs/feedback-22-10.md` (76 lineas, nadie), la llamada con Mauricio del 22/10 (C3, C4, C5), el WhatsApp personal de Martin con los clientes, los chats de clientes dentro de la app que no terminaron en ticket, los mensajes del Ops Center que el Runner no levanto el 27/10, las capturas y el correo equipo@hola-mako.com. Hecho = cada fuente leida y sus pedidos repartidos.
   - Dónde: `docs/relevo/pedidos-perdidos-2810.md:59-69,199-225,291-292 · docs/feedback-22-10.md · C:/dev/cerebro-herramientas/llamada-mau-22-10.txt`
