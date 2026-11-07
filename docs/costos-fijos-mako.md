@@ -27,7 +27,7 @@ con lo que sale de SU bolsillo, no con el total.
 
 | partida | US$/mes | |
 |---|---|---|
-| Claude de Mauricio (`mbustos@elevate.com.mx` = `claude1`) | 200,00 | |
+| Claude de Mauricio (la cuenta `claude1`, ver ~/.claude/cuentas.tsv) | 200,00 | |
 | Vercel | 60,00 | piso medido US$54 + ~1 build/día a US$0,33 |
 | Supabase Pro | 25,00 | **consultado a la API**: la org está en plan `pro` |
 | Railway | 21,00 | corre Evolution, el WhatsApp no oficial |
