@@ -143,7 +143,9 @@ test('el carrusel abierto (modal en dos partes) y el modal de filtros: lo que pi
   assert.match(sinDato, />Guardado</);
 
   const filtros = renderToStaticMarkup(createElement(FiltrosCarruselModal, {
-    filtros: FILTROS_INICIALES, carruseles: [c, carrusel({ id: -6, formato: 'tutorial' })], formatos: [{ value: 'lista', label: 'Lista o tips', n: 1 }, { value: 'tutorial', label: 'Tutorial', n: 1 }],
+    // Los dos tienen que ser contenidos DISTINTOS: con el mismo pie, las mismas láminas y el mismo día serían el mismo
+    // carrusel dos veces y la grilla deja uno (lib/carruseles/duplicados.ts), así que el botón diría «Ver 1 carrusel».
+    filtros: FILTROS_INICIALES, carruseles: [c, carrusel({ id: -6, formato: 'tutorial', texto: 'cómo cobrar tu primera consulta sin descuentos' })], formatos: [{ value: 'lista', label: 'Lista o tips', n: 1 }, { value: 'tutorial', label: 'Tutorial', n: 1 }],
     dosOrigenes: true, onAplicar: () => {}, onCerrar: () => {},
   }));
   for (const t of ['Múltiplo', 'Interacciones', 'Láminas', 'Publicado', 'Tipo', 'Ocultar tipos', 'Ordenar por', 'Colores del múltiplo', 'Quitar filtros', 'Cancelar']) assert.ok(filtros.includes(t), `falta «${t}»`);

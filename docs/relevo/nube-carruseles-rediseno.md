@@ -113,7 +113,10 @@ Con las capturas de Top Carousels ya en el repo (`docs/carruseles/referencia-top
 - **¿Cada botón hace algo?** Sí, uno por uno en el banco: abrir (imagen y título), Editar (arma), guardar, parecidos (banda), flechas y contador, creadores parecidos (filtra a ese creador), ver original, Filtros (aplica, quita), CTA, Cuentas y Orden.
 - **Lo que se encontró y se cambió en la pasada:** el visor del carrusel abierto dejaba franjas negras a los costados y las flechas bajo el pliegue; «Editar» en el teléfono quedaba debajo de todo (ahora va en el pie fijo de la caja); la etiqueta «6 láminas» se partía en dos renglones; «gritado» del CTA por letras tapaba una palabra clave en pies cortos.
 - **Lo que NO está probado:** el flujo de «Editar» con una IA real (la nube y la PC no la gastaron); el diseño se miró con lo que devolvería un modelo, armado a mano (`scripts/banco-carruseles/replica-html.mts`), no con una respuesta real. Tampoco el `tsc` (la PC no tenía memoria: lo corre GitHub).
-- **Qué sobra todavía:** el parámetro `largo` (2 a 4, 5 a 7, 8+ láminas) sigue en la API y en los links viejos aunque la pantalla usa el deslizador de láminas; el «tema» de la referencia no existe (sólo el tipo).
+- **Qué sobra todavía:** el «tema» de la referencia no existe (sólo el tipo). ~~El parámetro `largo`~~ **hecho el 6/11 a la
+  noche:** no estaba en la API de MaKo (`buscar_carruseles` nunca lo ofreció), sólo en la URL y en las búsquedas guardadas,
+  y quedó como ALIAS DE ENTRADA que se traduce a `lmin`/`lmax` (`ALIAS_LARGO_CARRUSEL`, `lib/carruseles/opciones.ts`). Por
+  qué no se borró, y las dos lógicas distintas que tenía, en `docs/hallazgos-carruseles.md` → «Dos formas de pedir lo mismo».
 
 ### Lo que le queda al Cerebro desde la PC
 
