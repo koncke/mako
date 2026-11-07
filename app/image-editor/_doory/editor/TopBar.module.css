@@ -42,11 +42,6 @@
   align-items: center;
 }
 
-.presence {
-  display: flex;
-  flex: none;
-}
-
 .end {
   display: flex;
   align-items: center;

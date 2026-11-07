@@ -4,7 +4,6 @@
  */
 import { animationStrings } from './animation/strings'
 import { audioStrings } from './audio/strings'
-import { collab } from './collab/strings'
 import { print } from './dialogs/print/strings'
 import { videoStrings } from './dialogs/video/strings'
 
@@ -1503,7 +1502,6 @@ export const t = {
       modeOff: 'Modo comentario desactivado',
     },
   },
-  collab,
   print,
   video: videoStrings,
   animation: animationStrings,

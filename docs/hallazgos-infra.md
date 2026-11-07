@@ -38,6 +38,53 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
 `wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
 (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+**La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
+
+**Síntoma.** Con 2,5 GB libres, un `grep -n "rama" scripts/tsc-acotado.mjs` quedó frenado con «esto necesita 3»: un grep
+que lee cuarenta líneas. No era la RAM del comando, era el nombre del archivo.
+
+**La causa.** `soloLoQueCorre` ya vacía lo que va entre comillas en un tramo de `grep`/`rg` —el PATRÓN nunca se ejecuta—,
+pero el ARGUMENTO sin comillas queda, y ahí viaja la RUTA: `scripts/tsc-acotado.mjs` contiene `tsc`, así que el
+clasificador ve un typecheck. Es la TERCERA vez de la misma familia, y el archivo ya anota las otras dos (el patrón
+`typecheck` agarrando el NOMBRE de un test; el `node -e` que nombra tests sin correrlos). Lo que las une: **leer un
+archivo no es correrlo**, y la ruta leída es tan «mención» como el patrón entre comillas.
+
+**Muerde más de lo que parece.** El falso positivo pega justo cuando la RAM está al límite, que es cuando uno está
+esperando una ventana para el chequeo de verdad: se gasta la ventana leyendo. El 6/11 se perdió una de 3.396 MB así, y
+la de abajo no llegó: entre que el vigía avisa y el comando sale, otra sesión del clon ya tomó la RAM.
+
+**Regla:** la guardia se arregla, no se esquiva (AGENTS.md). Mientras tenga el agujero, lo que sólo LEE un archivo va con
+las tools de leer y buscar (Read/Grep), que no pasan por el hook. El arreglo es vaciar también los argumentos-ruta del
+tramo de un `grep`/`sed`/`cat`/`head`, no sólo sus comillas.
+
+**Y las búsquedas sin acotar no terminan: en un worktree, `node_modules` es un junction** y ripgrep lo sigue. Un grep a
+la raíz, a `lib/` o a `tests/` corta a los 20 s sin decir por qué; el mismo patrón acotado a `app/<área>` vuelve al
+instante. Antes de buscar en un worktree, se acota la carpeta.
+
+**Un rebase con el `merge=union` viejo en la base DUPLICA las filas del índice de hallazgos (6/11/2026).**
+
+**Síntoma.** `tests/unir-indice-hallazgos.test.ts` en rojo en la punta: «esta fila no tiene tres columnas (un `|` sin
+escapar)», señalando una fila del CRM que nadie de la punta había tocado. Medido: el índice de la punta tenía 84 filas y
+cuatro áreas repetidas (Infraestructura 5×); el de `origin/main`, 77 filas y ninguna.
+
+**La causa.** La punta salió de un commit anterior al 6/11, cuando `.gitattributes` todavía tenía
+`docs/hallazgos*.md merge=union` —sin guion—, que también agarraba al índice. Al rebasar, git resolvió el choque de la
+tabla CONCATENANDO: quedaron la fila de main y la de la punta, y con ellas volvió una fila vieja con un `|` crudo que
+main ya había escapado. **No hay conflicto, así que nada avisa**, y el driver nuevo (`merge=indice-hallazgos`) no
+interviene porque lo configura el workflow, no la PC.
+
+**Regla:** el índice no se arrastra desde una base vieja. Al rebasar una punta que lo toca:
+`git checkout origin/main -- docs/hallazgos.md` y volver a meter la entrada propia ADELANTE de la celda de su área, con
+los `|` del texto escapados (`\|`). Lo verifica en el acto, sin Actions y sin RAM:
+`node --import tsx --test tests/unir-indice-hallazgos.test.ts`.
+
+**Y el arreglo ajeno no viaja de paso.** Al rehacer la celda apareció una entrada de main con un `|` crudo
+(`` `grep -c '^| '` ``, dentro de backticks) que partía la fila y dejaba en rojo a CUALQUIER punta que cosechara. Escaparlo
+en la punta propia parece gratis y no lo es: el driver dejó de ver «los dos cosecharon en su celda» —lo único que sabe
+mezclar— y mandó el choque a mano, con lo que la punta perdió la corrida entera («La punta no se pudo mezclar con main.
+Archivos en choque: docs/hallazgos.md»). Agregar una entrada a la celda propia es seguro; MODIFICAR una ajena no. El
+arreglo de una fila que no es tuya va en su propia punta, y mientras tanto se espera: `punta/indice-sin-choques` lo
+resolvió en main a los diez minutos.
 
 **Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
 

@@ -2,7 +2,6 @@ import { assetsApi, designsApi, exportsApi, isApiError } from '@/app/image-edito
 import type { AppConfig } from '@/app/image-editor/_doory/types/api'
 import type { EditorAdapter } from '@/app/image-editor/_doory/types/adapter'
 import { RevisionConflictError } from './errors'
-import { createRealtimeConnection, flushLiveRoom } from './realtime'
 import { assetToRef, createAccountServices } from './services'
 
 export interface AccountAdapterOptions {
@@ -29,21 +28,6 @@ function conflictFrom(error: unknown): RevisionConflictError | null {
 export function createAccountAdapter(designId: string, getRevision: () => number, options: AccountAdapterOptions = {}): EditorAdapter {
   const interval = options.thumbnailIntervalMs ?? DEFAULT_THUMBNAIL_INTERVAL
   let lastThumbnailAt = 0
-  const realtime =
-    options.config?.features.realtime === true
-      ? createRealtimeConnection({
-          designId,
-          setTitle: async (title) => {
-            await designsApi.patch(designId, { title })
-          },
-          requireSignIn: options.requireSignIn ?? (async () => false),
-          refreshSession: options.refreshSession,
-          onRevision: options.onRevision,
-          uploadThumbnail: async (image) => {
-            await designsApi.uploadThumbnail(designId, image)
-          },
-        })
-      : null
 
   const adapter: EditorAdapter = {
     async save({ document, title, thumbnail }) {
@@ -67,8 +51,7 @@ export function createAccountAdapter(designId: string, getRevision: () => number
       return assetToRef(await assetsApi.upload(file, { name: opts?.name }))
     },
     resolveSrc: async (src) => src,
-    services: createAccountServices(designId, () => flushLiveRoom(realtime)),
-    realtime,
+    services: createAccountServices(designId),
   }
   if (options.config?.features.server_pdf) {
     adapter.exportPdf = ({ svgPages, width, height, sizes, bleedMm, cropMarks, title, lang, fonts, signal, onUploadProgress }) =>
