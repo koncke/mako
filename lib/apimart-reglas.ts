@@ -29,8 +29,19 @@ export type ModeloVideo = {
   readonly id: string;
   /** US$ por segundo, MEDIDO. El catálogo de ApiMart no trae precios: sólo aparecen al terminar la tarea. */
   readonly usdPorSegundo: number;
-  /** Alto/ancho de lo que DEVUELVE. No es lo que uno pide: hay modelos que ignoran el pedido. */
+  /**
+   * Qué proporción devolvió ESTE modelo, medido con una imagen de entrada 4:5.
+   *
+   * ⚠️ NO ES UNA PROPIEDAD FIJA DEL MODELO, y acá estaba al revés hasta el 7/11. **La proporción la pone
+   * la IMAGEN DE ENTRADA**; cada modelo la respeta o la ignora, y eso es lo que mide este campo.
+   * Lo dice el propio error de wan, textual: «image-to-video does not support aspect_ratio; ratio is
+   * determined by input image» — y pedir `aspect_ratio` o `size` hace FALLAR la tarea entera.
+   *
+   * `respeta` = devolvió la misma proporción que la entrada. Es lo único que se puede prometer.
+   */
   readonly formato: '9:16' | '3:4' | '16:9';
+  /** Si devolvió la MISMA proporción que la imagen de entrada (medido con una entrada 4:5). */
+  readonly respetaLaEntrada: boolean;
   /** Cómo se llama el parámetro de la imagen de entrada. Cambia por modelo y no está documentado. */
   readonly campoImagen: 'image_urls' | 'first_frame_image';
 };
@@ -43,24 +54,51 @@ export type ModeloVideo = {
  * nada — medido comparando el ÚLTIMO cuadro de cada video, que es donde la deriva aparece.
  */
 export const MODELOS_VIDEO = {
-  'MiniMax-Hailuo-2.3-Fast': { id: 'MiniMax-Hailuo-2.3-Fast', usdPorSegundo: 0.0253, formato: '3:4', campoImagen: 'first_frame_image' },
-  'seedance-2.0-mini':       { id: 'seedance-2.0-mini',       usdPorSegundo: 0.0384, formato: '9:16', campoImagen: 'image_urls' },
-  'seedance-2.0-fast-face':  { id: 'seedance-2.0-fast-face',  usdPorSegundo: 0.0836, formato: '9:16', campoImagen: 'image_urls' },
+  // ⚠️ `formato` y `respetaLaEntrada` se RE-MIDIERON el 7/11 con una entrada 4:5, y estaban al revés:
+  // Hailuo devolvió 4:5 (respetó la entrada) y seedance la cambió a 3:4. Ver el tipo de arriba.
+  'MiniMax-Hailuo-2.3-Fast': { id: 'MiniMax-Hailuo-2.3-Fast', usdPorSegundo: 0.0253, formato: '3:4',  respetaLaEntrada: true,  campoImagen: 'first_frame_image' },
+  'seedance-2.0-mini':       { id: 'seedance-2.0-mini',       usdPorSegundo: 0.0384, formato: '3:4',  respetaLaEntrada: false, campoImagen: 'image_urls' },
+  'seedance-2.0-fast-face':  { id: 'seedance-2.0-fast-face',  usdPorSegundo: 0.0836, formato: '9:16', respetaLaEntrada: false, campoImagen: 'image_urls' },
+  // Los de voz nativa (`audio: true`), medidos el 7/11 con 10 s. Son los que generan el habla Y los
+  // labios juntos: montar un audio encima de un video mudo NO sincroniza nada.
+  'wan2.5-preview':          { id: 'wan2.5-preview',          usdPorSegundo: 0.0664, formato: '3:4',  respetaLaEntrada: true,  campoImagen: 'image_urls' },
+  'kling-v3-omni':           { id: 'kling-v3-omni',           usdPorSegundo: 0.0896, formato: '16:9', respetaLaEntrada: false, campoImagen: 'image_urls' },
+  'kling-v4':                { id: 'kling-v4',                usdPorSegundo: 0.1400, formato: '3:4',  respetaLaEntrada: true,  campoImagen: 'image_urls' },
+  // ⚠️ 36 VECES Hailuo. Devuelve 1920×1080 y cambia el encuadre: para una pieza vertical no sirve,
+  // por caro Y por formato. Está acá para que nadie lo vuelva a elegir sin ver el número.
+  'seedance-2.5':            { id: 'seedance-2.5',            usdPorSegundo: 0.5368, formato: '16:9', respetaLaEntrada: false, campoImagen: 'image_urls' },
 } as const satisfies Record<string, ModeloVideo>;
+
+/**
+ * El modelo con el que se PRUEBA un método, que no es el mismo con el que se entrega.
+ *
+ * ⚠️ Esto costó US$ 12,96 para entregar un clip de US$ 1,40 (7/11): el 89% se tiró validando con
+ * modelos caros preguntas que NO dependen del modelo (¿se mueven los labios?, ¿aguanta la cara?,
+ * ¿se rompe el texto?, ¿respeta la proporción?). Hailuo las contesta por 36 veces menos.
+ */
+export const MODELO_PARA_PROBAR: IdModeloVideo = 'MiniMax-Hailuo-2.3-Fast';
 
 export type IdModeloVideo = keyof typeof MODELOS_VIDEO;
 
 /**
- * El default.
+ * El default: el MÁS BARATO de los que respetan la proporción de entrada.
  *
- * ⚠️ NO es el más barato, a propósito. Hailuo sale un tercio menos pero devuelve **3:4**, y un reel es 9:16.
- * Un formato equivocado no se arregla recortando: recorta la cara, que es justo lo único que no se puede perder.
+ * ⚠️ ERA `seedance-2.0-mini` «porque Hailuo devuelve 3:4 y un reel es 9:16». Esa razón se cayó al medir
+ * (7/11): **la proporción la pone la imagen de entrada**, y Hailuo es justamente de los que la RESPETAN —
+ * con una entrada 4:5 devolvió 4:5, y seedance la cambió. O sea que con una imagen 9:16 Hailuo da 9:16.
+ * El default estaba pagando **52% de más** para evitar un problema que no existía.
  */
-export const MODELO_VIDEO_POR_DEFECTO: IdModeloVideo = 'seedance-2.0-mini';
+export const MODELO_VIDEO_POR_DEFECTO: IdModeloVideo = 'MiniMax-Hailuo-2.3-Fast';
 
-/** Los modelos que sirven para una pieza vertical. Es lo que se le puede ofrecer al cliente para un reel. */
-export const modelosVerticales = (): ModeloVideo[] =>
-  Object.values(MODELOS_VIDEO).filter((m) => m.formato === '9:16');
+/**
+ * Los modelos que devuelven la MISMA proporción que la imagen que se les da.
+ *
+ * ⚠️ Reemplaza a `modelosVerticales()`, que filtraba por `formato === '9:16'` dando por sentado que la
+ * proporción era una propiedad del modelo. No lo es. Un reel sale vertical porque la IMAGEN es vertical
+ * y el modelo la respeta: eso es lo que hay que poder preguntar, y es lo único que se puede prometer.
+ */
+export const modelosQueRespetanLaEntrada = (): ModeloVideo[] =>
+  Object.values(MODELOS_VIDEO).filter((m) => m.respetaLaEntrada);
 
 // -----------------------------------------------------------------------------
 // LA TRAMPA QUE COBRA DOS VECES

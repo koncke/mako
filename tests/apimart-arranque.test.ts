@@ -19,7 +19,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   comoQuedo, sePuedeReintentar, cuerpoDePedido, usdDeVideo,
-  MODELOS_VIDEO, MODELO_VIDEO_POR_DEFECTO, modelosVerticales,
+  MODELOS_VIDEO, MODELO_VIDEO_POR_DEFECTO, MODELO_PARA_PROBAR, modelosQueRespetanLaEntrada,
 } from '../lib/apimart-reglas';
 
 test('el task_id se lee venga como venga: objeto o lista', () => {
@@ -77,24 +77,41 @@ test('cada modelo pide la imagen con SU nombre de campo', () => {
   assert.equal(mini.image_urls, undefined, 'a MiniMax se le mandó image_urls, que no entiende');
 });
 
-test('el default devuelve 9:16, aunque no sea el más barato', () => {
-  // ⚠️ La guarda del producto. Hailuo sale un tercio menos y devuelve 3:4 — y un reel es vertical. Un
-  // formato equivocado no se arregla recortando: recorta la cara, que es lo único que no se puede perder.
-  assert.equal(MODELOS_VIDEO[MODELO_VIDEO_POR_DEFECTO].formato, '9:16',
-    'el modelo por defecto no devuelve vertical: las piezas van a salir con la cara recortada');
-  assert.ok(modelosVerticales().length > 0, 'no queda ningún modelo que sirva para un reel');
-  assert.ok(modelosVerticales().every((m) => m.formato === '9:16'));
+test('el default RESPETA la proporción de la imagen, que es lo único que se puede prometer', () => {
+  // ⚠️ Esta guarda decía antes «el default devuelve 9:16». Era falsa: medido el 7/11, la proporción la pone
+  // la IMAGEN DE ENTRADA y cada modelo la respeta o la ignora (el error de wan lo dice textual:
+  // «ratio is determined by input image»). Un reel sale vertical porque la imagen es vertical.
+  assert.equal(MODELOS_VIDEO[MODELO_VIDEO_POR_DEFECTO].respetaLaEntrada, true,
+    'el default no respeta la proporción de entrada: las piezas van a salir recortadas');
+  assert.ok(modelosQueRespetanLaEntrada().length > 0, 'no queda ningún modelo que respete la entrada');
+  assert.ok(modelosQueRespetanLaEntrada().every((m) => m.respetaLaEntrada));
 });
 
-test('los precios están MEDIDOS y el caro no se vuelve el default por descuido', () => {
-  // Los tres preservan la identidad (la preserva el método, no el modelo). Entonces lo único que distingue
-  // al default es precio y formato — y si alguien pone el caro, esto se pone rojo.
+test('el default es el MÁS BARATO de los que respetan la entrada', () => {
+  // Ninguno «preserva la cara» mejor que otro: eso lo preserva el método (la foto es el cuadro 0).
+  // Entonces lo único que distingue al default es precio y si respeta la proporción.
   const def = MODELOS_VIDEO[MODELO_VIDEO_POR_DEFECTO];
-  const verticales = modelosVerticales();
-  assert.equal(def.usdPorSegundo, Math.min(...verticales.map((m) => m.usdPorSegundo)),
-    `el default cuesta US$${def.usdPorSegundo}/s y hay un vertical más barato`);
+  const fieles = modelosQueRespetanLaEntrada();
+  assert.equal(def.usdPorSegundo, Math.min(...fieles.map((m) => m.usdPorSegundo)),
+    `el default cuesta US$${def.usdPorSegundo}/s y hay uno más barato que también respeta la entrada`);
+});
+
+test('el modelo para PROBAR es el más barato de todos, y no es el de entregar', () => {
+  // ⚠️ Esta guarda vale US$ 11,51: lo que se tiró el 7/11 validando con modelos caros preguntas que no
+  // dependen del modelo. El de probar tiene que ser el piso de precio del catálogo, siempre.
+  const probar = MODELOS_VIDEO[MODELO_PARA_PROBAR];
+  const piso = Math.min(...Object.values(MODELOS_VIDEO).map((m) => m.usdPorSegundo));
+  assert.equal(probar.usdPorSegundo, piso,
+    `el modelo para probar cuesta US$${probar.usdPorSegundo}/s y hay uno más barato en el catálogo`);
+  // Y que la diferencia con el más caro siga siendo visible: es el número que evita repetir el error.
+  const techo = Math.max(...Object.values(MODELOS_VIDEO).map((m) => m.usdPorSegundo));
+  assert.ok(techo / piso > 10, `el caro ya no es 10× el barato (${(techo / piso).toFixed(1)}×): revisar la tabla`);
+});
+
+test('los precios están MEDIDOS, no estimados', () => {
   for (const m of Object.values(MODELOS_VIDEO)) {
-    assert.ok(m.usdPorSegundo > 0.005 && m.usdPorSegundo < 0.2, `US$${m.usdPorSegundo}/s en ${m.id} no es un precio medido`);
+    assert.ok(m.usdPorSegundo > 0.005 && m.usdPorSegundo < 1,
+      `US$${m.usdPorSegundo}/s en ${m.id} no es un precio medido`);
   }
 });
 

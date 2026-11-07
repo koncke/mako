@@ -1631,3 +1631,137 @@ porque la diferencia se descubre tarde.
 
 **Vive en:** la integración todavía NO está en `lib/` — esto se midió con scripts sueltos. Cuando se escriba el
 cliente, las tres trampas van resueltas ahí. Precios medidos en `docs/hallazgos-ai-avatar.md`.
+
+## Validar el MÉTODO con el modelo caro: US$ 13 para un clip de US$ 1,40 (7/11/2026)
+
+**Cómo empezó.** Martín pidió un clip: Mauricio le da la mano a Heisenberg y dice una frase. Ocho
+generaciones de video después, su mensaje fue: *«ya te vas gastando casi todos los créditos… algo
+estás haciendo muy mal»*. Y el golpe: *«cuando te pido que sigas el método de AvatarHype, **que lo
+pensaron para ahorrar**, ahora de pronto me gastaste todos los créditos»*.
+
+Medido contra la cuenta real: **US$ 12,96 gastados, US$ 1,45 sirvieron. El 89% se tiró.**
+
+### La causa, y NO era la que yo creía
+
+Yo creía que el problema era elegir mal el modelo. El clip que Martín rechazó salió de `wan2.5` y
+se veía de plástico, así que subí de gama: `seedance-2.5` (**US$ 5,37** por 10 s) y `kling-v4`
+(**US$ 1,40**). Pero el clip que finalmente sirvió salió de kling-v4 **por US$ 1,40**, con el mismo
+modelo que ya había fallado antes. Lo que cambió fue el PROMPT, no el modelo.
+
+**La pregunta que yo estaba contestando —¿se mueven los labios?, ¿aguanta la cara?, ¿se rompe el
+texto?— NO DEPENDE DEL MODELO.** Hailuo contesta las tres por **US$ 0,15**: 36 veces más barato que
+seedance-2.5. Validé con el caro un método que se valida con el barato.
+
+**LA REGLA: el método se prueba con el modelo más barato del catálogo. El caro se usa UNA vez, al
+final, cuando el método ya está probado.** Y su corolario: **disparar dos modelos «para elegir» es
+pagar dos veces una decisión que una medición barata resuelve.** Lo hice cinco veces.
+
+### Precios medidos el 7/11 (el catálogo NO los trae: sólo aparecen en `/v1/tasks/{id}` al terminar)
+
+| modelo | 10 s | lo que devolvió con una entrada 4:5 |
+|---|---|---|
+| MiniMax-Hailuo-2.3-Fast | **0,149** | 4:5 (768×960). Fotográfico, pero NO abrió la boca |
+| seedance-2.0-mini | 0,234 | 3:4. **Rompió el texto del encuadre** |
+| wan2.5-preview | 0,664 | 4:5 (858×1072). Habla y sincroniza, pero cara de plástico |
+| kling-v3-omni | 0,896 | 16:9 |
+| **kling-v4** | **1,400** | **4:5 (852×1064). El que sirvió** |
+| skyreels-v4-std | 1,400 | cobró con la URL de entrada ROTA |
+| seedance-2.5 | **5,368** | 16:9 (1920×1080). Calidad altísima, encuadre equivocado |
+
+### ⚠️ Y la corrección a `lib/apimart-reglas.ts`, que tenía los formatos al revés
+
+La tabla declara `seedance-2.0-mini: '9:16'` y `MiniMax-Hailuo-2.3-Fast: '3:4'`. **Medido con una
+entrada 4:5, Hailuo devolvió 4:5 y seedance devolvió 3:4.** O sea que `formato` no es una propiedad
+fija del modelo: **la proporción la pone la imagen de entrada, y cada modelo la respeta o la
+ignora**. Lo dice el propio error de wan, textual:
+
+> `image-to-video does not support aspect_ratio; ratio is determined by input image`
+
+Pedir `aspect_ratio` o `size` en image-to-video **hace fallar la tarea entera**.
+
+### Las trampas de la API que costaron plata
+
+**1. ApiMart acepta CUALQUIER parámetro inventado, devuelve 200 y arranca la tarea.** Probé siete
+nombres distintos para una pista de audio (`audio_url`, `input_audio`, `ref_audio`…): los siete
+devolvieron `task_id`. No valida nombres, los ignora. **Conclusión doble: la API no se puede
+descubrir sondeando, y sondear parámetros CUESTA.** De ahí salieron US$ 1,40 tirados en una tarea de
+`skyreels` con una URL de imagen rota — que cobró igual. Consultar `/v1/tasks/{id}` es gratis;
+**hacer POST a `/v1/videos/generations` NO**.
+
+**2. `audio` es un BOOLEANO, no una pista.** El error lo dice: `cannot unmarshal string into Go
+struct field Alias.audio of type bool`. `audio: true` significa «generá también el audio», no «usá
+este audio». **No hay en el catálogo ningún modelo de lipsync que acepte una pista de audio propia**
+(319 modelos revisados uno por uno, no por grep de palabras que yo supusiera).
+
+**3. veo3.1 rechaza por contenido** (`did not pass content safety review`) cuando la referencia tiene
+una cara de actor reconocible. Es política, no error: no se reintenta.
+
+### El texto del cuadro: generar desde la PLANCHA y pegarlo después
+
+`seedance` escribió **«CREATIVE STRATEGER»** y **«GROWTHALEX»** donde la referencia decía «CREATIVE
+STRATEGIST» y «GROWITHALEX». Es la misma falla que ya estaba anotada para imagen, y pasa igual en
+video.
+
+**La solución es estructural, no de prompt: se genera desde la imagen SIN letras («la plancha») y el
+texto se superpone después con ffmpeg. Lo que no está en el cuadro, ningún modelo lo puede romper.**
+
+Y la capa de texto **no se reconstruye: se extrae.** Teniendo la imagen con letras y la plancha sin
+letras, la diferencia entre las dos ES el texto, con la tipografía ORIGINAL exacta y su antialias.
+Sale con una resta pixel a pixel (umbral 26 para el ruido de JPEG, alfa proporcional a la
+diferencia). Ventaja sobre redibujarla con webfonts: no hay que adivinar la familia comercial y no
+puede fallar en silencio porque una fuente no cargó. **Verificación obligatoria: plancha + capa
+tiene que reconstruir la original** (dio 7,5 de diferencia media sobre 255).
+
+⚠️ Sólo sirve si las dos imágenes están ALINEADAS. Se mide ANTES: la diferencia media en la zona
+SIN texto tiene que ser ruido de compresión (dio 4,3). Si la gente también cambió, la resta marca
+personas y no letras.
+
+### Lo que el curso del repo ya decía y yo no leí hasta el final
+
+`lib/curso-avatar.ts` — «Avatares de IA que se parecen», 23 lecciones hechas con los anuncios reales
+de Mauricio — tenía escritas las dos causas de que el video se viera mal:
+
+- **Lección 3:** *«El texto describe la ESCENA y la CÁMARA. La foto define la CARA.»* Mis prompts
+  decían «dark hair greying at the temples, glasses, black t-shirt». Esa descripción **compite con
+  la foto y el modelo prefiere el texto**: por eso la cara salía alisada.
+- **Lección 6:** *«si la persona es de sonrisa fácil, la foto de referencia tiene que ser
+  sonriendo»*, con la línea textual para sostenerla mientras habla. Yo animaba desde una cara en
+  reposo, que es exactamente lo que el curso dice que entrega «una versión neutra y estirada».
+- **Lección 19:** *«Todo lo que sale mal por el input se puede detectar ANTES de gastar un
+  crédito… ¿Está sonriendo? Preguntarle al usuario si su cara funciona mejor sonriendo, **que es un
+  dato que él sabe y nosotros no**.»* Martín me dio ese dato dos veces mandándome la foto sonriendo.
+
+**LA REGLA: antes de la PRIMERA generación de un área, se lee el curso de esa área.** Está en el
+repo, en `lib/curso-avatar.ts` y en `app/conocimientos/`. Ocho generaciones antes de abrirlo es el
+error más caro del día, y no fue de criterio: fue de orden.
+
+### ElevenLabs: el clon existe, está listado, y el plan no lo deja hablar
+
+`/v1/voices` devuelve **7 clones de Mauricio** con sus nombres y su material. Al pedir audio,
+HTTP 401: *«Instantly cloned voices are not available on your current plan»*. El plan lo dice en
+claro: `can_use_instant_voice_cloning: false` (tier `payg`).
+
+**El listado no miente, pero tampoco avisa: el único momento en que se entera es al generar.** Antes
+de prometerle a alguien la voz de su clon, se consulta `/v1/user/subscription` y se mira esa bandera.
+
+⚠️ **Y hay un segundo filo independiente, latente en el repo:** `lib/elevenlabs.ts` usa
+`FORMATO_STS = 'mp3_44100_192'` en `decirConVoz`, y ese formato **exige el tier Creator**. Debajo de
+eso la API contesta 403 hablando del FORMATO, no de la voz — así que el día que le falle a un
+cliente con BYOK, el problema se va a buscar en el lugar equivocado. La Voz de MaKo NO está
+afectada: usa `mp3_44100_128` y una voz profesional (probado, anda).
+
+**Lo que SÍ se rescata: las muestras de un clon se pueden BAJAR aunque el clon no pueda hablar.**
+`GET /v1/voices/{id}` con `show_legacy=true` lista `samples[]`, y
+`/v1/voices/{id}/samples/{sid}/audio` devuelve el audio original. Así se recuperaron los 7 audios
+reales de Mauricio (11 minutos de celular, una junta, los anuncios). El material está; falta dónde
+clonarlo.
+
+### Lo que quedó SIN hacer
+
+- **La voz propia.** `ref-voicestudio` y `ref-localai-studio` están clonados en `C:/dev/` (el segundo
+  se describe como «tu propio HeyGen + ElevenLabs, 100% en tu PC»). La máquina tiene una RTX 4060 de
+  **8 GB** de VRAM; LocalAI Studio pide 16 GB, pero clonar voz entra en 8. Sin probar todavía.
+- **El clip definitivo con la voz de Mauricio.** El camino que conserva la sincronía es
+  *speech-to-speech* sobre el audio ya generado, porque preserva el tiempo y los labios siguen
+  coincidiendo (lección 11 del curso).
+- **Corregir `formato` en `lib/apimart-reglas.ts`**, que hoy afirma lo contrario de lo medido.

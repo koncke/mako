@@ -11926,3 +11926,34 @@ Dormido → Dado de baja) y las ediciones viven en la tab `/newsletters`. **Regl
   con el CRON en la etapa «Suscripto». Nada crea esa fila solo (`tests/automatizaciones-solo-plantillas.test.ts`).
 - **Con el envío apagado no se «envía»** (quema la edición: queda `enviado` con todo `simulado`): se prueba al email de
   quien la pide y se programa. Lo fija tests/newsletter.test.ts; el porqué, en docs/hallazgos-newsletters.md.
+
+## Un método de generación se prueba con el modelo MÁS BARATO; el caro se usa una vez, al final (7/11/2026)
+
+Lo pagamos: **US$ 12,96 para entregar un clip de US$ 1,40**, con el 89% tirado. Lo dijo Martín, y la
+frase es la regla: *«el método de AvatarHype lo pensaron para AHORRAR»*.
+
+Las preguntas que se contestan al probar una generación —¿se mueven los labios?, ¿aguanta la cara?,
+¿se rompe el texto del cuadro?, ¿respeta la proporción?— **no dependen del modelo**. Hailuo las
+contesta por **US$ 0,15**; seedance-2.5 cuesta **US$ 5,37**. Se itera con el barato hasta que el
+método está probado, y recién ahí se gasta una vez en el bueno.
+
+Y su corolario, que es donde se va la plata sin darse cuenta: **disparar dos modelos «para elegir»
+paga dos veces una decisión que una medición barata ya resuelve.**
+
+**ANTES de la primera generación de un área, se lee el curso de esa área.** Están en el repo:
+`lib/curso-avatar.ts` («Avatares de IA que se parecen», 23 lecciones de los anuncios reales de
+Mauricio) y `app/conocimientos/`. Ese día, las dos causas de que el video se viera mal estaban
+escritas ahí —no describir la cara con palabras porque compite con la foto, y usar una referencia
+SONRIENDO si la persona es de sonrisa fácil— y el curso se abrió recién después de ocho
+generaciones. No fue un error de criterio: fue de orden.
+
+**Un POST a un endpoint de generación arranca una tarea que SE PAGA, aunque la entrada sea basura.**
+ApiMart además acepta cualquier parámetro inventado y devuelve 200: la API **no se puede descubrir
+sondeando**. Consultar `/v1/tasks/{id}` es gratis; probar parámetros no (US$ 1,40 en una sola tarea
+con la URL de imagen rota).
+
+**Y en el código: un precio de modelo que no se midió no se escribe como dato.** El catálogo de
+ApiMart no trae precios —sólo aparecen en `/v1/tasks/{id}` al terminar— y lo mismo vale para el
+formato de salida: `lib/apimart-reglas.ts` declaraba `formato` como propiedad fija del modelo y
+está al revés de lo medido, porque **la proporción la pone la imagen de entrada** y cada modelo la
+respeta o la ignora. Ver `docs/hallazgos-video-pipeline.md`.
