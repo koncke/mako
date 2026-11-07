@@ -65,7 +65,7 @@ import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, esperaMasVieja, leerRegistro } from './spy-caricatura-reglas';
 import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
-import { FORMATOS, GUIA_DE_FORMATOS, formatoDe } from './spy-detalle';
+import { FORMATOS, GUIA_DE_FORMATOS, VERSION_FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
@@ -1092,7 +1092,10 @@ async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: read
     const ref = original.get(p.ref.trim().toLowerCase());
     if (!ref) continue;
     await db.from('spy_piezas')
-      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro' }, texto_leido_en: ahora, updated_at: ahora })
+      // `formatosV`: con qué catálogo de formatos se clasificó (lib/spy-detalle.ts). Sin esta marca, lo analizado con los
+      // once formatos viejos y dejado en `otro` no se puede distinguir de lo analizado hoy, y los dos criterios conviven
+      // sin que nada lo avise.
+      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, texto_leido_en: ahora, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
   const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));
