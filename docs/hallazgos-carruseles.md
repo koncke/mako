@@ -285,6 +285,47 @@ Martín: «solo quiero carruseles que le sirvan a dueños de negocio». Se escon
 - **El modelo:** `gemini-3.5-flash-lite` contesta 400 si se le manda `thinkingConfig`. Los otros cortes de Gemini están en `docs/hallazgos-ia.md`.
 - **Para deshacer:** `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any(<ids>)`, con los `piezas[].id` de `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`, que trae el motivo de cada una.
 
+## Un ejemplo nuevo no se ve hasta que alguien lo mira (6/11/2026)
+
+**El agujero, que estaba anotado en «Sin hacer» y nadie había cerrado:** la biblioteca la curó una persona a mano (598
+escondidas de 1.588 entre el 5 y el 6/11), pero **lo que trajera la próxima lectura iba a aparecerle al cliente sin que nadie
+lo mirara**. Medido el 6/11: las 1.588 entraron el 4 y el 5/11, así que el agujero todavía no se había materializado.
+
+**Lo obvio era filtrar automático, y ya estaba medido dos veces que no sirve** (las dos en este documento): el modelo barato
+se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true`
+tiraba 457 piezas de las que 363 servían. Así que no hay filtro: hay un **estado**, y decide una persona.
+
+**La regla:** `revisada_en` (mig 0411) en null = nadie la miró, y la biblioteca NO la muestra. El comando `revisar` del
+script deja una hoja HTML con las miniaturas y sus ids, y aplica lo que la persona decida: `--aprobar`, o `--esconder` con su
+motivo, que queda escrito en un JSON al lado de la hoja (la tabla no tiene columna para el motivo, y sin motivo no se puede
+deshacer). GRATIS: no le pide nada a Apify.
+
+**Cinco decisiones que no se ven en el diff:**
+
+- **Es un estado APARTE de `dejo_de_verse_en`, no el mismo.** «La miramos y no sirve» y «nadie la miró» no son lo mismo, y
+  los dos SQL de deshacer que viven en este documento salen de la FECHA de `dejo_de_verse_en`: mezclarlos los rompería.
+- ⚠️ **El backfill de la migración no es opcional: sin él, aplicarla vacía la vidriera de golpe** (las 990 que hoy se ven
+  pasarían a «sin mirar»). Las que ya están pasaron por la curaduría, así que la migración las marca. Una columna nueva con
+  la regla «sólo se muestra lo que la tiene» siempre tiene que decidir qué pasa con lo que ya existe, y el default (null) es
+  justo el que esconde todo.
+- **El filtro va en memoria, NO en un `filtros` de PostgREST.** Una columna que todavía no existe haría fallar la lectura
+  ENTERA (la misma trampa de la 0373 y de la 0391), y `estaRevisada` mira si la fila **trae** la columna, no si su valor es
+  null: con la 0411 sin aplicar, todo se ve como antes. Verificado contra producción con el código nuevo y la migración sin
+  aplicar: `carruselesDeLaBiblioteca()` devuelve los mismos 800 y una pieza suelta se abre igual.
+- **El upsert de la lectura NUNCA manda `revisada_en`,** como tampoco manda `dejo_de_verse_en`: si lo mandara, releer una
+  pieza ya aprobada la volvería a esconder. Lo fija un test sobre `filasDeLectura`.
+- **`laminas` no paga lo que nadie miró.** Es el mismo error de «primero limpiar, después leer láminas» (169 de las 770
+  láminas pagadas eran de carruseles que después se escondieron), sólo que ahora hay con qué filtrarlo.
+
+**Vive en:** `supabase/migrations/0411_carruseles_revisada.sql` (**sin aplicar**: la aplica Martín o el Cerebro),
+`lib/carruseles/biblioteca.ts` (`estaRevisada`, `sinRevisar`, `hojaDeRevision`), `lib/carruseles/biblioteca-servidor.ts`,
+`scripts/carruseles-biblioteca.mts` (`revisar`; `estado` dice cuántas faltan), con `tests/carruseles-biblioteca.test.ts`.
+
+⚠️ **Y una trampa del arnés de «probarlo rompiéndolo»:** el contador de rojos leía el resumen de `node --test` de la salida
+capturada, y una aserción que falla comparando dos objetos grandes imprime un diff que **desborda el `maxBuffer` de
+`execFileSync`** (1 MB): la salida vuelve cortada, sin el resumen, y la rotura se anota como «0 rojos» cuando el test la cazó
+perfecto. Un «0 rojos» se confirma corriendo ESA rotura a mano antes de creerle.
+
 ## Top Carousels: su biblioteca no se recorre, ni con la sesión de Martín (5/11/2026)
 
 Sus términos del 7/10/2026 prohíben entrar con herramientas automáticas, bajar carruseles en cantidad y republicar la biblioteca, y avisan que pueden cerrar la cuenta sin devolver el dinero. `robots.txt` veda `/explore` y `/api/`, y deja a los agentes `/llms.txt` y `/llms-full.txt`. Tener la sesión abierta no cambia nada.
@@ -391,7 +432,12 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **El tipo de 1.213 carruseles** sigue vacío: sólo las láminas (o la portada leída) lo dirían. `lib/carruseles/clasificar.ts`.
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
-- **Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire. El filtro no puede ser el de arriba.
+- ~~**Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire.~~
+  **Cerrado el 6/11/2026** con `revisada_en` (mig 0411) y el comando `revisar` (ver la entrada de arriba). **Lo que queda:**
+  la migración **sin aplicar** (la aplica Martín o el Cerebro: `node scripts/apply-migration.mjs
+  supabase/migrations/0411_carruseles_revisada.sql`) y que la pantalla de «Editar la biblioteca» todavía no muestra ni
+  aprueba lo que está sin mirar — hoy eso se hace con el script (`app/image-editor/carruseles/`,
+  `lib/carruseles/biblioteca-servidor.ts` → `bibliotecaParaEditar`).
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
   correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
