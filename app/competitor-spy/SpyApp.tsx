@@ -83,8 +83,9 @@ import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
 import { avisoDeTraida } from '@/lib/spy-todo-reglas';
 import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
+import { EN_PALABRAS, paresParecidos, type CompetidorJuntable } from '@/lib/spy-juntar-reglas';
 import {
-  competidoresAction, guardarAnuncioAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
+  competidoresAction, guardarAnuncioAction, juntarCompetidoresAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
   revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
@@ -208,6 +209,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .spy-cola-frenada{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .spy-cola-frenada small{color:var(--dim)}
+.spy-repetido{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spy-repetido button{margin-left:auto}
 .spy-sin-anuncios a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
 .spy-volver__grupo{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
@@ -951,6 +954,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
+
+  // ── Dos cargas de la MISMA persona (6/11/2026) ────────────────────────────────────────────────
+  // El alta ya no las crea, pero las que ya estaban siguen repetidas, y borrar una se lleva TODAS sus piezas sin
+  // vuelta atrás. Juntar las muda. Quién queda lo decide `cualQueda` por piezas leídas, no por el nombre: el nombre
+  // se arregla, las piezas no. Se ofrece de a UN par: con tres cargas, el siguiente aparece al juntar el primero.
+  const pares = useMemo(
+    () => (puedeBorrar
+      ? paresParecidos(competidores as unknown as CompetidorJuntable[], Object.fromEntries(Object.entries(resumen).map(([k, v]) => [k, v.vivas + v.idas])))
+      : []),
+    [competidores, resumen, puedeBorrar],
+  );
+  const [juntando, setJuntando] = useState<{ queda: Competidor; seVa: Competidor } | null>(null);
   const [elegido, setElegido] = useState<number | null>(abierto ?? (iniciales.length === 1 ? iniciales[0].id : null));
   // ── ENTRAR A UN COMPETIDOR ES EL LOADER (EntradaFicha.tsx). Con un link directo también: nace en el centro. La ficha queda
   // escondida (`data-entrando`) mientras su caricatura espera, y aparece cuando sus tarjetitas salen de ella. ──
@@ -1487,6 +1502,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   };
 
   /**
+   * Junta dos cargas de la misma persona. Si falla, el error va a la pantalla y NO se cierra la confirmación: lo único
+   * que la cierra es haberlo hecho (lib/spy-juntar.ts no borra nada si la mudanza se corta).
+   */
+  const juntar = async (quedaId: number, seVaId: number) => {
+    setOcupado(true); setError(null);
+    try {
+      const r = await juntarCompetidoresAction(quedaId, seVaId);
+      if (!r.ok) { setError(r.error); return; }
+      setJuntando(null);
+      await recargarLista();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  /**
    * Su país. Se recarga la lista porque la ficha lee de ahí (`competidores`), y con el país cambia lo que dice el lugar de
    * sus anuncios y a qué país abre la Biblioteca. No se relee nada de afuera: no cuesta una lectura.
    */
@@ -1791,6 +1822,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           </Vacio>
         )}
 
+        {/* ⚠️ REPETIDOS: se ofrece JUNTAR, no borrar. Borrar se lleva sus piezas y no se deshace; juntar las muda al
+            que queda y después saca la copia (lib/spy-juntar.ts). Sólo al administrador, igual que borrar. */}
+        {!c && pares.map((p) => {
+          const queda = competidores.find((x) => x.id === p.queda);
+          const seVa = competidores.find((x) => x.id === p.seVa);
+          if (!queda || !seVa) return null;
+          return (
+            <p key={`${p.queda}-${p.seVa}`} className="spy-aviso spy-repetido">
+              <Icon name="users" size={14} />
+              <span><b>{queda.nombre}</b> y <b>{seVa.nombre}</b> {EN_PALABRAS[p.motivo]}.</span>
+              <button type="button" className="spy-boton" disabled={ocupado} onClick={() => setJuntando({ queda, seVa })}>Juntarlos</button>
+            </p>
+          );
+        })}
+
         {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
         {!c && <RejillaSugeridos sugeridos={sugeridos} ocupado={ocupado} onSumar={(x) => { void sumarSugerido(x); }} />}
 
@@ -2073,6 +2119,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           onClose={() => setModal(null)}
           onAgregar={(v) => void sumarCanal(v)}
           onAbrir={(id) => { setModal(null); irA(id); }}
+        />
+      )}
+      {/* La confirmación dice QUÉ PASA, no «esto no se puede deshacer»: lo leído no se pierde, es lo único que importa. */}
+      {juntando && (
+        <ConfirmModal
+          msg={`¿Juntar a ${juntando.seVa.nombre} dentro de ${juntando.queda.nombre}? Lo leído de ${juntando.seVa.nombre} pasa a su ficha y la copia se va. No se pierde ninguna pieza.`}
+          confirmLabel="Juntarlos"
+          onOk={() => void juntar(juntando.queda.id, juntando.seVa.id)}
+          onCancel={() => setJuntando(null)}
         />
       )}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}

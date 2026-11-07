@@ -10426,6 +10426,29 @@ registro —`server-only` neutralizado con el parche de `Module._load`— y barr
 (`tests/offer-ia-cableado.test.ts` y los parciales de closing, copywriter y editor-landing) leen
 `lib/prompt-registry.ts` como texto porque es `server-only`; con el stub se importa y se leen `key`,
 `variables` y `default` como datos.
+⚠️ **Y la guarda mira el CABLEADO, no si la pantalla correcta lo lee.** Lo medido el 6/11 pasando los
+prompts del escritor de Instagram al registro:
+
+- **Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro.**
+  Uno que se quedó con la constante queda **mudo**: el usuario edita, guarda, ve su texto en pantalla — y
+  esa pantalla sigue escribiendo con el default. Sin error, sin tipo roto, y con la key perfecta (así que la
+  guarda da verde). Lo que lo fija es **contar los usos de la constante en un test**
+  (`tests/ig-writer-prompts.test.ts`: 0 en el motor, 1 en el Copywriter y sólo como respaldo del `.catch`).
+- **Si el DEFAULT vive en un módulo que la UI también importa** —y por eso no puede llevar `server-only`:
+  las `METODOLOGIA_*` de `lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo
+  archivo— el default se queda ahí y la resolución editable va en un **módulo server aparte**
+  (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan todos.
+- **Si el prompt se arma de VARIOS bloques, el orden vive en UNA función** (`componerMetodologia`). Con dos
+  caminos —el default y el editable— el prompt sin editar y el editado le pueden llegar al modelo en distinto
+  orden y nada lo chequea: el test compara las dos salidas con nada editado, y tienen que ser idénticas.
+- **Un contrato JSON que lee un parser determinista del mismo archivo NO se registra** (`REEL_JSON_SHAPE` y
+  compañía): editarlo desde /configuraciones es editar el parser, y el síntoma sería «la pieza vino sin
+  escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del prompt que sí se edita, con el aviso en su
+  `context`.
+- **La key «por tabla» que la guarda acepta es `PROMPTS_X.campo.key` con el campo LITERAL.** Un
+  `PROMPTS_X[formato].key` no se puede seguir y frena el push: la resolución por formato se escribe como un
+  `switch` exhaustivo con los tres accesos a la vista, que además hace que un formato nuevo no compile hasta
+  tener su Entry.
 
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 

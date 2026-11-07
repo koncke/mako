@@ -18,6 +18,7 @@ import {
   listarCompetidores, listarPiezas, mirarCompetidor, ponerPais, quitarCanal, quitarCompetidor, resumenDePiezas,
   type Competidor, type LecturaCanalSpy, type Pieza, type ResumenPiezas,
 } from '@/lib/spy';
+import { juntarCompetidores } from '@/lib/spy-juntar';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { marcarActosSpy } from '@/lib/spy-actos';
 import { anotarPasos, claveLectura, marcaValida, type PasoLectura } from '@/lib/spy-lectura-pasos';
@@ -219,6 +220,21 @@ export async function guardarAnuncioAction(id: number, enlace: string, copy?: st
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try { return await guardarAnuncioPegado(id, enlace, copy); } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * Junta dos cargas de la misma persona: las piezas del que se va se MUDAN al que queda y recién después se lo quita
+ * (lib/spy-juntar.ts dice por qué ese orden). Del administrador, como borrar: se lleva una fila del negocio.
+ */
+export async function juntarCompetidoresAction(quedaId: number, seVaId: number): Promise<{ ok: true; mudadas: number } | { ok: false; error: string }> {
+  const no = await soloAdmin();
+  if (no) return { ok: false, error: no };
+  try {
+    const r = await juntarCompetidores(quedaId, seVaId);
+    return r.ok ? { ok: true, mudadas: r.mudadas } : r;
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 export async function quitarCompetidorAction(id: number): Promise<{ ok: true } | { ok: false; error: string }> {

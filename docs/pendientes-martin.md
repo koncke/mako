@@ -107,7 +107,7 @@ frase…». El Runner lo tiene y lo pasa cuando se le pida.
 
 ---
 
-## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — 1 de 5 revisada
+## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — ✅ 5 de 5 revisadas (7/11)
 
 El relevo del 6/11 las dejó pedidas: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails`
 (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6), `punta/nada-por-detras` (2cb406043) y
@@ -182,7 +182,52 @@ node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mt
   --env=C:/dev/mako-api/.env.local --eventos=reunion_tareas_al_plan --aplicar
 ```
 
-**Faltan dos**: copilot-feedback y carruseles-thumbnails.
+**✅ `punta/copilot-feedback` — REVISADA el 7/11, está bien y arregló dos bugs que estaban callados.**
+Marketing CoPilot decide por frases qué hacer con lo que escribe el cliente, y eso es frágil. Los dos que
+había, que nadie veía porque no dan error:
+
+- **`^s[ií]` aceptaba cualquier palabra que empiece con «si».** «Sinceramente no me convence» se leía como un
+  SÍ. Ahora pide que sea la palabra entera.
+- **`/no/` sin límites de palabra.** «Bueno, dale» contiene «no» adentro de *bueno*, así que se leía como «más
+  tarde» en vez de como un sí. Lo mismo con «nosotros», «ninguno», «menos».
+
+**Y lo más importante, que es hacia dónde se equivoca:** ahora todo lo dudoso **va a MaKo en vez de actuar**.
+Una pregunta nunca dispara una acción, aceptar la propuesta pide un sí claro **y que la frase no tenga un «no»**
+(«No sé si me sirve» ya no acepta), y «borrar todo» sólo cuenta en un mensaje corto. El lado seguro es el lado
+de preguntar, y es el que eligieron.
+
+**El test que lo cuida es del tipo bueno** (`tests/marketing-copilot-volver.test.ts`): prueba **frases reales
+contra el resultado** —«No sé si me sirve» tiene que ir a MaKo— y **no fija el texto de la solución**. Si mañana
+alguien reemplaza las expresiones por otra cosa, sigue en verde mientras la conducta sea la correcta. Es lo
+contrario de las guardas que esta misma semana congelaron cuatro ramas por pedir que el código dijera lo mismo.
+
+Verificado que caza el bug viejo sin correrlo: «No sé si me sirve» contiene «sirve», y el código anterior
+(`/sirve|empec|ok|dale/`) lo aceptaba, así que con el código de antes ese `assert` falla.
+
+**✅ `punta/carruseles-thumbnails` — REVISADA el 7/11, está bien.** Lo que arreglaba era un crash: el link
+viejo `?ver=carruseles` —que viajó en avisos y en la API— hacía un `redirect()` **debajo del loader**, y eso
+en Next va adentro del stream y tira **React #310**. Es la misma familia que el crash de Spy de esta noche:
+un atajo durante el render no rompe una parte, tira la pantalla entera.
+
+La solución es una función pura (`vistaDeImage`) con **el default del lado seguro**: cualquier `ver=` que no
+conozca cae en los ejemplos, sin redirigir y sin romperse. Y queda escrito por qué vive en su propio archivo:
+la página del teléfono no puede importar `ruta.ts`, que otro test trata como la puerta del motor del editor.
+
+🔎 **Lo que encontré de paso, y NO es de esta punta** (la guarda es del 23/10, la punta sólo se apoya en ella):
+`tests/redirige-antes-del-loader.test.ts` está probada rompiéndola una y otra vez —anota los conteos, «base
+12 / 0», «base 14 / 0»—, que es la disciplina correcta. Pero una parte compara **fragmentos de código**
+textuales entre `app/plan/layout.tsx` y `app/plan/page.tsx`.
+
+Eso no es capricho: el layout **copia** la decisión de la página, y si se desincronizan hay un bucle de
+redirección. El problema es real. Lo frágil es la forma: **si alguien lo arregla mejor** —sacando la condición
+a un helper compartido, que elimina la duplicación de raíz— **la guarda se pone roja**. O sea que bloquea
+justo el arreglo bueno. La pregunta que la distingue sigue siendo la misma: *¿seguiría en verde si alguien
+arregla el bug de otra manera?* Acá, no.
+
+**No lo toco en esta pasada**: cambiar una guarda que vigila diez rutas pide su propia tanda y su propia
+rotura medida. Queda anotado con el archivo.
+
+**LAS CINCO ESTÁN REVISADAS.**
 
 ---
 
