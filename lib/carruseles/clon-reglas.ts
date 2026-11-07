@@ -67,11 +67,37 @@ export const REFERENCIAS_RECOMENDADAS = 1;
 /** El tope duro. Entre 2 y esto se avisa; arriba se rechaza. */
 export const TOPE_REFERENCIAS = 4;
 
-const COMO_SE_LLAMA: Record<QueSeClona, string> = {
+/** Cómo se llama cada pieza cuando hay que nombrarla en pantalla. */
+export const COMO_SE_LLAMA: Record<QueSeClona, string> = {
   carrusel: 'lámina de carrusel',
   anuncio: 'pieza de anuncio',
   thumbnail: 'miniatura de YouTube',
 };
+
+/** El nombre de la pieza EN INGLÉS, porque el preámbulo va en inglés: así se midió. */
+const EN_INGLES: Record<QueSeClona, string> = {
+  carrusel: 'carousel slide',
+  anuncio: 'single-image ad',
+  thumbnail: 'YouTube thumbnail',
+};
+
+/**
+ * Qué modelo CONSERVA la imagen y cuál la redibuja. **Medido el 7/11/2026 con la misma referencia y el mismo
+ * pedido**, no leído de una lista.
+ *
+ * | modelo | US$ | qué hizo |
+ * |---|---|---|
+ * | `gemini-nano-banana-2.1-ext` | 0,0120 | conservó tipografía, encabezado, encuadre, fondo y la otra persona |
+ * | `seedream-5-0-flash` | 0,0137 | la cara salió mejor, pero **redibujó todo y rompió el texto del encabezado** |
+ *
+ * ⚠️ La diferencia no es «calidad»: es **obediencia**. El segundo hace mejores caras y peores copias, y en una
+ * copia el texto roto se nota antes que una cara un 10 % mejor — «GREATINE STRATEOIST» es inusable y una cara
+ * apenas distinta, no.
+ */
+export const MODELO_QUE_CONSERVA = 'gemini-nano-banana-2.1-ext';
+
+/** Lo que cuesta, medido: una lámina clonada sale un centavo. */
+export const USD_POR_LAMINA_CLONADA = 0.0120;
 
 /**
  * El prompt para clonar, armado para que la REFERENCIA mande.
@@ -79,14 +105,57 @@ const COMO_SE_LLAMA: Record<QueSeClona, string> = {
  * `pedido` es lo único que cambia: lo que el negocio quiere distinto del ejemplo («que diga X», «con mi logo»).
  * Todo lo que el ejemplo ya muestra —el estilo, el color, la composición— NO se escribe: está en la imagen.
  */
+/**
+ * Lo que NO se toca, dicho ANTES de lo que cambia. Es la mitad que faltaba.
+ *
+ * ⚠️ SALIÓ DE UNA COMPARACIÓN MEDIDA EL 7/11/2026, y el antes/después es brutal. La versión anterior decía
+ * «con el mismo estilo visual que la imagen de referencia», y eso **le pide al modelo que reinterprete**: le
+ * describís un estilo en vez de pedirle que conserve una imagen. Martín lo rechazó mirando el resultado: «ni
+ * siquiera la tipografía es igual, ni cómo se acomoda la letra».
+ *
+ * Con la MISMA referencia (la portada de un carrusel real) y el MISMO pedido —cambiar a UNA persona—:
+ *   · con este preámbulo → se conservaron la tipografía, el encabezado, el encuadre, el fondo y la otra
+ *     persona; cambió sólo la cara pedida. **US$0,012.**
+ *   · sin él, el modelo libre → redibujó todo y **rompió el texto del encabezado**: «CREATIVE STRATEGIST»
+ *     salió «GREATINE STRATEOIST» y «©2026» salió «©2023».
+ *
+ * Va en inglés porque así se midió. No es una preferencia: es el texto que produjo el resultado bueno.
+ */
+const NO_TOQUES = (que: string) => [
+  `This reference image is a ${que} and it is the only source of truth.`,
+  'Keep it exactly as it is. Do not redraw it, do not restyle it, do not change the layout.',
+  'Keep the typography, the text, the colours, the framing, the background and the people unchanged.',
+  'ONE change only:',
+].join(' ');
+
+/**
+ * El prompt del clonado: primero lo que se conserva, después el único cambio.
+ *
+ * ⚠️ Y el largo NO es el enemigo, que era lo que yo creía. Lo que compite con la referencia es DESCRIBIR EL
+ * ESTILO con palabras; enumerar lo que hay que dejar quieto **ancla** en vez de competir. El prompt que
+ * funcionó tenía ~470 caracteres y el que falló, menos.
+ */
 export function promptDeClon(que: QueSeClona, pedido: string): string {
   const p = pedido.replace(/\s+/g, ' ').trim();
-  return `Una ${COMO_SE_LLAMA[que]} con el mismo estilo visual que la imagen de referencia. ${p}`.trim();
+  return `${NO_TOQUES(EN_INGLES[que])} ${p}`.trim();
 }
 
-/** Por qué un pedido de clonado no sirve, o `null` si sirve. */
-export function porQueNoSirveElClon(prompt: string, referencias: number): string | null {
-  const p = prompt.replace(/\s+/g, ' ').trim();
+/** Sólo para los tests y para explicarlo en pantalla: el preámbulo que conserva la imagen. */
+export const PREAMBULO_CLON = NO_TOQUES('carousel slide');
+
+/**
+ * Por qué un pedido de clonado no sirve, o `null` si sirve.
+ *
+ * ⚠️ RECIBE EL PEDIDO DE LA PERSONA, **no** el prompt armado por `promptDeClon`. Lo digo fuerte porque me
+ * equivoqué el 7/11 y el test me lo cazó: el preámbulo que conserva la imagen son 211 caracteres, así que
+ * validando el prompt ENTERO contra el tope de 240 quedaba rechazado **cualquier** pedido — el clonado no
+ * habría dejado pasar ni uno.
+ *
+ * El tope sigue valiendo para el pedido, por el motivo de siempre: con una imagen enfrente, describir con
+ * palabras compite con ella. Lo que NO compite es enumerar qué dejar quieto, y por eso el preámbulo no cuenta.
+ */
+export function porQueNoSirveElClon(pedido: string, referencias: number): string | null {
+  const p = pedido.replace(/\s+/g, ' ').trim();
   if (!referencias) {
     return 'Para clonar hace falta al menos una imagen de referencia: sin ella esto es generar desde cero.';
   }
