@@ -14,6 +14,13 @@
 //   · puenteAnda        ← estadoDelPuente de puente-avisos.tsx, por lo mismo.
 //   · leerHistorialEstricto ← el parseo de leerHistorial (video-datos.ts), que no
 //                         exporta esEntrada/limpiarUrlsMuertas y traga los errores.
+//                         ⚠️ El RECORTE ya no es copia: desde el 6/11/2026 los dos
+//                         lados importan `recortarPorCupo` de
+//                         app/video-generator/historial-cupos.ts. La copia del tope
+//                         (`MAX_HISTORIAL = 10` acá, otro allá) habría dejado a esta
+//                         lectura cortando a 10 entradas mientras la pantalla ve
+//                         hasta 20: lo que MaKo contesta por WhatsApp y lo que la
+//                         persona mira en la tab serían dos listas distintas.
 //   · leerPuenteEstricto ← estadoPuente (lib/flow-cola.ts), que ignora el error.
 //   · contextoVideoSinFirmar ← estadoContextoVideo (video-datos.ts) sin las fotos.
 // Si cambia el criterio de la pantalla o de la lib, cambia acá también — o mejor:
@@ -27,6 +34,7 @@ import { KEY_DIAGNOSTICO, sanearDiagnostico, type Diagnostico } from '@/lib/flow
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import type { EstadoPuente, Puente } from '@/lib/flow-cola';
 import { KEY_HISTORIAL_VIDEO, type MarcaImagen, type MarcaVideo, type PlanGuardado } from '@/app/video-generator/video-datos';
+import { recortarPorCupo } from '@/app/video-generator/historial-cupos';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { getPersona } from '@/lib/persona';
 import { resolverAcento } from '@/lib/acento-workspace';
@@ -44,8 +52,6 @@ const numOpt = (v: unknown): number | null => (typeof v === 'number' && Number.i
 // null— y además traga toda excepción devolviendo []: un 5xx de la base se leía
 // como «no hay anuncios». Acá un error de LECTURA tira HistorialIlegible; JSON roto
 // o shape viejo siguen siendo lista vacía, igual que allá.
-
-const MAX_HISTORIAL = 10;
 
 const esEntrada = (e: unknown): e is PlanGuardado => {
   if (!e || typeof e !== 'object') return false;
@@ -86,7 +92,7 @@ export async function leerHistorialEstricto(): Promise<PlanGuardado[]> {
   let arr: unknown;
   try { arr = JSON.parse(raw); } catch { return []; }
   if (!Array.isArray(arr)) return [];
-  return arr.filter(esEntrada).slice(0, MAX_HISTORIAL).map(limpiarUrlsMuertas);
+  return recortarPorCupo(arr.filter(esEntrada).map(limpiarUrlsMuertas));
 }
 
 /**

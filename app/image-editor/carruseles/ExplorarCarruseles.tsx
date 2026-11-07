@@ -81,7 +81,11 @@ const perfilDeInstagram = (usuario: string) => `https://www.instagram.com/${enco
 /** Cuántas tarjetas se dibujan de una vez: más no se miran y la página se pone pesada. «Ver más» suma otras tantas. */
 const DE_A = 40;
 
-/** TODAS las claves que escriben los filtros (de carruseles y de miniaturas), y las viejas: así no queda ninguna colgada. */
+/**
+ * TODAS las claves que escriben los filtros (de carruseles y de miniaturas), y las viejas: así no queda ninguna colgada.
+ * `largo`, `cta`, `tam` y `ver` ya no son filtros (6/11/2026) y siguen acá para que un link viejo que los traiga quede limpio
+ * al cambiar un filtro o al apretar «Quitar filtros»; `largo` se traduce a `lmin`/`lmax` al entrar (lib/carruseles/opciones.ts).
+ */
 const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'conf', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
 
 /** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`): un link copiado abre lo mismo. */
@@ -236,7 +240,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   };
 
   // ── Los filtros: un modal (./FiltrosCarruselModal.tsx). Acá, cuántos hay prendidos para el botón ──
-  const filtrosActivos = [f.periodo !== 'todo', f.largo !== 'todos', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
+  const filtrosActivos = [f.periodo !== 'todo', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
     !!f.interMin || !!f.interMax, !!f.lamMin || !!f.lamMax, !!f.ocultar?.length, !!f.soloConfirmados].filter(Boolean).length;
   const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
   const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
@@ -292,8 +296,13 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
                 <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca miniaturas o @canales' : 'Busca miniaturas, temas o @canales'}
                   aria-label="Buscar miniaturas por tema o por @canal" enterKeyHint="search" />
               ) : (
-                <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
-                  aria-label="Buscar carruseles por tema o por @creador" enterKeyHint="search" />
+                // En «Anuncios» la búsqueda es la misma, pero lo que se busca son anuncios: el texto decía «carruseles» con la
+                // pestaña de anuncios elegida (6/11/2026, revisión de las capturas).
+                <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }}
+                  placeholder={f.que === 'anuncios'
+                    ? (telefono ? 'Busca anuncios o @creadores' : 'Busca anuncios, temas o @creadores')
+                    : (telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores')}
+                  aria-label={f.que === 'anuncios' ? 'Buscar anuncios por tema o por @creador' : 'Buscar carruseles por tema o por @creador'} enterKeyHint="search" />
               )}
             </label>
           )}
@@ -478,7 +487,10 @@ function TarjetaCarrusel({ c, ahora, guardado, onAbrir, onGuardar, onEditar, onP
         <Laminas c={c} titulo={titulo} />
         <span className={s.marcas}>
           {aire ? <span className={s.aire} data-activo={c.activo === false ? undefined : 'si'}>{aire}</span> : null}
-          {sinLaminasGuardadas ? <span className={s.laminas} title={`${c.laminas} láminas`}>{c.laminas} láminas</span> : null}
+          {/* La etiqueta sale SÓLO cuando el carrusel dice tener más de una lámina y de esas láminas se guardó únicamente la
+              portada: es la respuesta a «no tengo el botón para desplazar a la derecha» (6/11/2026). El título decía lo mismo
+              que la etiqueta y no explicaba nada. */}
+          {sinLaminasGuardadas ? <span className={s.laminas} title={`Tiene ${c.laminas} láminas, pero por ahora sólo se guardó la portada: por eso no hay flecha para pasarlas`}>{c.laminas} láminas</span> : null}
         </span>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onEditar}>Editar</button>

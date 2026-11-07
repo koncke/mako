@@ -14,6 +14,97 @@ MaKo. Corrida de 9 agentes, 2026-08-18.
 
 ---
 
+## El diagnóstico obvio era el equivocado: el recorte del historial ya estaba bien, lo que faltaba era el TIPO (06/11/2026, item 558)
+
+**El síntoma.** El historial del Video Generator guarda 10 entradas. Cada video de «AI
+Avatar» entra ahí como un plan más y empuja un anuncio afuera — y con el anuncio se va el
+único puntero a sus clips, que están **pagados**: los `.mp4` siguen en el bucket
+`video-clips` colgados de un `planId` que sólo vivía en esa fila de `app_settings`.
+
+**El diagnóstico obvio: «arreglar el tope».** Y el tope ya estaba arreglado. Desde el
+01/09 el recorte de `guardarEnHistorial` es inteligente: conserva primero los que tienen
+clips pagados, el recién guardado nunca cae, y loguea lo que tira (está cosechado más
+abajo, «El tope de 10 del historial evicta un anuncio terminado sin avisar»). Volver a
+tocarlo no podía servir.
+
+**La causa real: nada distinguía un avatar de un anuncio.** `PlanGuardado` no tenía ni
+`tipo`, ni `esAvatar`, ni `origen`. Las únicas marcas eran indirectas —una sola `escena`
+que va de la toma 1 a la última, `imagenes['1'].reusadaDe`, `clipsMinimos: 1`— y **las
+tres las produce igual un anuncio normal que reusa su escenario**
+(`reusarEscenariosAction`). Así que ninguna regla del recorte, por buena que fuera, podía
+proteger a un anuncio de un avatar: para el recorte eran la misma cosa. Lo que faltaba no
+era una regla mejor, era el **dato** sobre el que decidir.
+
+⚠️ **La forma de reconocer este caso: el guard está bien y el DATO no alcanza.** Es el
+primo del patrón que este documento ya tiene escrito («un guard que protege UNA cosa y
+decide mirando UNA sola»): ahí el estado estaba a dos saltos, acá no existe. Antes de
+mejorar una heurística de desempate, preguntar si lo que se quiere desempatar es
+distinguible.
+
+### Dos cosas que aparecieron arreglando esto
+
+**1. El recorte viejo REORDENABA el historial guardado, y eso se escribía.** Era
+`[todos[0], ...pagados, ...sinPagar].slice(0, 10)`: cruzar el tope una sola vez dejaba
+los pagados flotando arriba y guardaba esa lista. Y la lista se lee como «el último
+tocado primero» (`app/m/video/datos.ts`) y se recorre de nuevo a viejo
+(`avataresDelHistorial`). Nadie lo había visto porque sólo pasa al cruzar el tope. Ahora
+la prioridad decide **sólo quién se queda**; el orden lo sigue poniendo quien llama
+(`recortarPorCupo` re-emite con `entradas.filter`).
+
+**2. El tope estaba escrito dos veces, con la deuda declarada al lado — y eso no
+alcanzó.** `lib/api-mako/areas/video.helpers.ts` tenía su propio `MAX_HISTORIAL = 10` y su
+encabezado ya decía que era una copia y que «si cambia el criterio de la pantalla, cambia
+acá también». El día que el número dejó de ser un número, el comentario no cambió nada: la
+copia habría dejado a MaKo contestando por WhatsApp una lista más corta que la que la
+persona está mirando en la tab. **Regla:** una constante copiada con su deuda escrita al
+lado sigue siendo una constante copiada. Ahora los dos lados importan `recortarPorCupo`.
+
+### La decisión sobre lo YA guardado: cuentan como anuncios, y se acabó
+
+Los planes que están hoy en `app_settings` no tienen el campo, así que un avatar viejo
+parece un anuncio. Se evaluó inferirlo por las marcas indirectas y **se descartó**:
+
+1. **La inferencia no distingue** (es la causa real de arriba) y el error no es simétrico:
+   marcar un ANUNCIO como avatar lo muda al cupo de los avatares, donde una tanda de
+   avatares nuevos lo evicta — justo el daño que la cura viene a evitar. Al revés no pasa
+   nada: el avatar viejo se queda donde ya estaba.
+2. **Un historial guardado no se altera al desplegar.** Con el default en `'anuncio'` el
+   cambio es invisible para lo que ya está escrito: misma lista, mismo orden, mismo largo
+   (lo ejecuta un test). Cualquier inferencia reparticiona la lista de alguien el día del
+   deploy, y una repartición es un recorte en cuanto un cupo queda corto.
+
+**Regla que queda:** un tope compartido entre dos features es una decisión de producto, no
+un detalle de persistencia. Si dos pantallas escriben en la misma clave, el tope va **por
+tipo**, y el tipo se sella en el **único lugar por el que pasan las dos** —acá `conAvatar`,
+que es lo que convierte un plan en un avatar— nunca en cada llamador: un sello escrito dos
+veces se queda viejo en uno de los dos, y «viejo» acá significa un avatar que vuelve a
+competir por el lugar de un anuncio sin que nada avise.
+
+**Vive en:** `app/video-generator/historial-cupos.ts` (nuevo: la regla y los dos números,
+sin `server-only` para que se pueda ejecutar) · `app/video-generator/video-datos.ts`
+(`PlanGuardado.tipo`, `leerHistorial`, `guardarEnHistorial`) ·
+`app/video-editor/avatar/avatares.ts` (`conAvatar` sella) ·
+`lib/api-mako/areas/video.helpers.ts` (importa, ya no copia) · `app/ai-avatar/looks.ts`
+(el comentario que citaba `MAX_HISTORIAL`) · `tests/video-historial-cupos.test.ts`
+
+### Lo que quedó SIN hacer
+
+- **La pantalla no separa lo que el cupo separó.** El Video Generator lista los avatares
+  en su historial como si fueran anuncios (`app/video-generator/page.tsx` →
+  `EstudioVideo`), y el rótulo sale del `pedido`. El cupo los protege; la lista los
+  confunde.
+- **La lista del teléfono consulta el montaje de CADA entrada**
+  (`app/m/video/datos.ts` → `leerVideos` → `montajeDe`): con el cupo nuevo su techo pasa
+  de 10 a 20 consultas por carga.
+- **Los clips que el tope viejo ya huerfanó no los recupera nadie.** No hay barrido del
+  bucket `video-clips` contra los `planId` vivos; el `console.warn` de
+  `guardarEnHistorial` sólo deja traza de los que se tiren de ahora en más.
+- **Un avatar viejo FILMADO sigue ocupando un lugar del cupo de los anuncios** (lo protege
+  la regla de los clips pagados, igual que antes). La cura corta la hemorragia; no
+  reescribe el pasado.
+
+---
+
 ## `composer.ts` y `Composer.tsx` en la misma carpeta: verde en el CI, roto en Windows (30/10/2026)
 
 **El síntoma.** Al rescatar `nube/video-generator-2710`, el tsc acotado sobre el estudio dio tres rojos en un archivo que la
