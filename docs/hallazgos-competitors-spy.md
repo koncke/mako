@@ -198,6 +198,40 @@ del `-servidor`, porque el ciclo no da error: rompe al inicializar, y sólo en a
 a pagar la IA una vez** (es el mismo precio que una web que cambió). Y el desafío de un antibots **no se evade**: se
 usa lo que la persona ya miró en su navegador.
 
+### Lo que de Spy NO es código, y el número de migración del relevo ya está tomado (6/11/2026)
+
+**El número de migración del relevo está vencido.** `docs/relevo/nube-spy.md` dice «hace falta un bucket privado, o sea
+una migración: **pido el número**» y los encargos repiten «el número libre es 0410». Medido el 6/11 en disco:
+**0410 y 0411 ya existen** (`0410_correo_bajas.sql`, `0411_carruseles_revisada.sql`). Es la segunda vez que pasa en
+esta tab —el 31/10 el relevo decía 0306 y en disco el más alto era 0357—, así que vale como regla y no como anécdota:
+**el número de la próxima migración no se lee de un relevo ni de un pendiente**; se barre el disco de todos los
+worktrees y, con coordinador, se le pide a él (AGENTS.md → «El próximo número de migración es un recurso COMPARTIDO»).
+
+**Y lo de Spy que no se destraba escribiendo código**, con lo que lo destraba y dónde vive. Trece de los treinta y tres
+encargos del 6/11 son éstos: no tiene sentido volver a triarlos.
+
+| Qué | Qué lo destraba | Dónde vive |
+|---|---|---|
+| El guion de un video de YouTube (7 pruebas, 503) y su costo por minuto | la IA del negocio contra el servicio real, y una decisión de Martín: ¿un negocio SIN su Gemini transcribe con la clave de la plataforma? Hoy AGENTS lo prohíbe | `lib/spy-transcripcion-servidor.ts` (`tramoDeYoutube`) |
+| La primera lectura real de anuncios por Apify (¿trae `pageID`?) | una clave de Apify con crédito, desde la PC: la nube no llega a Apify | `scripts/probar-anuncios-apify.mjs` · `lib/spy-todo-reglas.ts` |
+| El competidor 13 del ws 11 con 12 piezas, y el YouTube de Leila | la base de producción desde la PC (son 6 consultas de LECTURA, ya escritas) | `docs/relevo/nube-spy.md:99-107` y `:191-208` |
+| ¿Compartir las lecturas ahorra algo? | leer `spy_lecturas_canal.ahorros` en producción | `lib/spy-compartido-db.ts` (`anotarAhorro`) |
+| La cola de caricaturas contra la base real | el Runner en la PC, con Canva conectado en su cuenta de Claude | `scripts/spy-caricaturas-pendientes.mjs` y `spy-caricatura-guardar.mjs` |
+| Que el fin de crédito de Apify diga lo que se supuso | una corrida real que se quede sin crédito | `lib/spy-todo-reglas.ts` (`esFaltaDeCredito`) |
+| «Capturar» en un Chrome de verdad, y publicar la extensión | la tienda de Chrome (es un trámite de Martín) y una persona que pase la barrera | `public/mako-puente-0.77.0.zip` · `extension/spy-pagina.js` |
+| Media docena de pantallas con un competidor real, y cuánto tarda la ficha | mirar producción con Den Borg: la vista de prueba no tiene el CDN de Meta | `app/competitor-spy/` |
+| «Sugeridos», la oferta de un competidor y el guion de un reel, con un negocio real | un negocio con su IA y su Apify | `/api/competitor-spy/oferta` · `lib/spy-transcripcion-servidor.ts` |
+| Guardar el diseño de «Copiar su sitio» | un bucket PRIVADO: una migración (número por pedir) y cambiar el lado que lee, porque hoy todo asume una URL pública | `lib/spy-miniaturas.ts` · `supabase/migrations/0361_spy_miniaturas_guardadas.sql` |
+| Las 50 piezas por vuelta de Meta | la credencial de Business Discovery: un límite que la Graph API no acepta tira la consulta ENTERA, y sin credencial no se mide | `lib/instagram-perfil.ts` (`PIEZAS_A_LEER`) |
+
+**El código de todos está escrito** (lo verifiqué uno por uno: `tramoDeYoutube`, `ver_sugeridos`/`sumar_sugerido`,
+`bloqueOfertaDeOtro`, `ANUNCIOS_POR_APIFY = true`, el cron `spy-todo` en `vercel.json:236`, los dos scripts del
+Runner). Lo único que falta es correrlos donde se puede.
+
+**Y un pendiente FANTASMA menos:** «los formatos nuevos del catálogo en el análisis de piezas» ya estaba hecho — el
+prompt recibe los 19 con su definición (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`, `lib/spy.ts`), con su test. Lo que
+faltaba de verdad era otra cosa, y está arriba en «Los 19 formatos».
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
