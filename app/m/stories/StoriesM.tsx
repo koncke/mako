@@ -45,8 +45,13 @@ export function StoriesM({ perfilListo, historial = [] }: { perfilListo: boolean
   const [idea, setIdea] = useState('');
   // El historial guardado siembra la lista, y la pantalla abre con la última secuencia a la
   // vista: lo que se escribió ayer sigue ahí al volver (item 129 del barrido del 6/11).
-  const [sesion, setSesion] = useState<Item[]>(() => deHistorial(historial));
-  const [actual, setActual] = useState<Item | null>(() => deHistorial(historial)[0] ?? null);
+  // ⚠️ UN SOLO `deHistorial(historial)` para los dos estados: con una llamada por cada uno,
+  // `actual` sale de OTRO array y deja de ser el mismo objeto que su fila — el tilde de «la
+  // que estás mirando» no aparece y una sola secuencia guardada se dibuja además como una
+  // lista de uno (la identidad es lo que las dos cosas comparan).
+  const guardadas = deHistorial(historial);
+  const [sesion, setSesion] = useState<Item[]>(guardadas);
+  const [actual, setActual] = useState<Item | null>(guardadas[0] ?? null);
   const [hoja, setHoja] = useState(false);
   const [escribiendo, setEscribiendo] = useState(false);
   const [error, setError] = useState('');

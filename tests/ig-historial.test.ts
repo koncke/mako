@@ -224,8 +224,13 @@ test('la pantalla del teléfono siembra la lista con lo guardado y abre con la �
 
   const m = sinComentarios(leer('app/m/stories/StoriesM.tsx'));
   // La lista arranca con lo guardado, y lo que se mira es la última pieza (no la pantalla vacía).
-  assert.match(m, /useState<Item\[\]>\(\(\) => deHistorial\(historial\)\)/);
-  assert.match(m, /useState<Item \| null>\(\(\) => deHistorial\(historial\)\[0\] \?\? null\)/);
+  assert.match(m, /const guardadas = deHistorial\(historial\);/);
+  assert.match(m, /useState<Item\[\]>\(guardadas\)/);
+  assert.match(m, /useState<Item \| null>\(guardadas\[0\] \?\? null\)/);
+  // Y UNA sola llamada: con una por estado, `actual` sale de otro array y deja de ser el
+  // mismo objeto que su fila (el tilde de «la que mirás» y el «¿hay algo más?» comparan
+  // IDENTIDAD, así que las dos se rompen a la vez, y en silencio).
+  assert.equal([...m.matchAll(/deHistorial\(historial\)/g)].length, 1);
   // La lista aparece cuando hay algo que NO es lo que se está mirando: una sola secuencia,
   // que es la de arriba, no es una lista (y `> 1` dejaba la recarga de una pieza sin lista).
   assert.match(m, /\{sesion\.some\(\(h\) => h !== actual\) && \(/);
