@@ -38,6 +38,12 @@ import {
   fijoSiPagaTodo,
   partidasViejas,
 } from '@/lib/costos-fijos'
+import {
+  CAC_USD,
+  MESES_DE_VIDA,
+  PARTE_DE_COBRAR,
+  type Economia,
+} from '@/lib/economia-unitaria'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
