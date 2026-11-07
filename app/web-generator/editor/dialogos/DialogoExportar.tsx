@@ -30,6 +30,7 @@ import { elegirTarjetas, parsearRango, exportarHtml, type OpExportar, type Rango
 import { exportarPdf } from '@/lib/editor-landing/exportar-pdf';
 import { exportarPng } from '@/lib/editor-landing/exportar-png';
 import { exportarPptx, fuentesDelTema } from '@/lib/editor-landing/exportar-pptx';
+import { terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { useEditorLanding } from '../contexto';
 import { EstilosGmp, Icono, ModalGma, SelectorGma, useFijo } from './piezas-gma';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -111,10 +112,12 @@ export function CuerpoExportar() {
       <EstilosGmp extra={{ href: 'gmp-exportar', css: CSS_EXPORTAR }} />
       <p className="gmp-exp-intro">Descarga una copia estática de esta página.</p>
       <div className="gmp-exp-rango">
-        <SelectorGma etiqueta="Secciones" ancho={230} valor={tipo} onCambiar={(v) => { setTipo(v); setError(null); }}
+        {/* La palabra sale de `terminoTarjeta` (api-tipos.ts), como en todo el editor: «secciones» en una
+            landing, «diapositivas» en una presentación y «láminas» en un carrusel de 4:5 (6/11/2026). */}
+        <SelectorGma etiqueta={terminoTarjeta(config, { plural: true, mayuscula: true })} ancho={230} valor={tipo} onCambiar={(v) => { setTipo(v); setError(null); }}
           opciones={[
-            { valor: 'todas', texto: 'Todas las secciones' },
-            { valor: 'actual', texto: 'Sección actual' },
+            { valor: 'todas', texto: `Todas las ${terminoTarjeta(config, { plural: true })}` },
+            { valor: 'actual', texto: `${terminoTarjeta(config, { mayuscula: true })} actual` },
             { valor: 'personalizado', texto: 'Rango personalizado' },
           ]} />
         {tipo === 'personalizado' && (

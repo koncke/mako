@@ -124,9 +124,17 @@ export function relacionDe(c: { formato?: unknown; proporcion?: unknown } | null
 /**
  * Cómo se llama la tarjeta según el formato («sección» / «diapositiva»: el `selectCardTerm` de
  * Gamma). Para que TODA la UI cambie de palabra con el formato y no cada pantalla a su manera.
+ *
+ * Una presentación de 4:5 es un CARRUSEL (6/11/2026, el pedido de Leila), y sus tarjetas son
+ * LÁMINAS: la palabra que ya usa el carrusel en el Image Editor (lib/carruseles/tipos.ts). Así el
+ * editor entero —el panel, los avisos, el chat— la llama igual en los dos lados.
  */
-export function terminoTarjeta(c: { formato?: unknown } | null | undefined, op: { plural?: boolean; mayuscula?: boolean } = {}): string {
-  const t = esPresentacion(c) ? (op.plural ? 'diapositivas' : 'diapositiva') : (op.plural ? 'secciones' : 'sección');
+export function terminoTarjeta(c: { formato?: unknown; proporcion?: unknown } | null | undefined, op: { plural?: boolean; mayuscula?: boolean } = {}): string {
+  const t = esPresentacion(c)
+    ? proporcionDe(c) === '4:5'
+      ? (op.plural ? 'láminas' : 'lámina')
+      : (op.plural ? 'diapositivas' : 'diapositiva')
+    : (op.plural ? 'secciones' : 'sección');
   return op.mayuscula ? t[0].toUpperCase() + t.slice(1) : t;
 }
 
@@ -282,6 +290,12 @@ export type ParamsGeneracion = {
   modoTexto: 'generar' | 'condensar' | 'conservar';
   /** T3: 'presentacion' pide diapositivas (poco texto, diseños optimizados). Sin el campo, una página. */
   formato?: FormatoDoc;
+  /**
+   * La forma de la diapositiva que se está creando (6/11/2026, el carrusel de Leila). Con
+   * `formato: 'presentacion'` y `'4:5'`, la IA escribe LÁMINAS de carrusel y no diapositivas:
+   * en 4:5 entra la mitad del texto (`ANCHO_DIAPO_EM`). Sin el campo, 16:9 como siempre.
+   */
+  proporcion?: Proporcion;
 };
 
 /**

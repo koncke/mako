@@ -11924,7 +11924,7 @@ curl -L \
 
 ### `POST /api/v1/landing/presentaciones` — Crear una presentación desde una plantilla
 
-Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.
+Crea una presentación nueva (diapositivas) — o un CARRUSEL vertical 4:5 para redes, si la plantilla es una de `carruseles` — en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/landing/crear_presentacion_desde_plantilla`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -11939,7 +11939,7 @@ Crea una presentación nueva (diapositivas) en el editor del Web Generator desde
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `plantilla` | string (pres-pitch \\| pres-propuesta \\| pres-informe-mensual \\| pres-caso-exito \\| pres-onboarding \\| pres-plan-marketing \\| pres-webinar \\| pres-clase \\| pres-roadmap \\| pres-equipo \\| pres-ventas \\| pres-resultados) | sí | La plantilla (de listar_disenos_landing, `presentaciones`). |
+| `plantilla` | string (pres-pitch \\| pres-propuesta \\| pres-informe-mensual \\| pres-caso-exito \\| pres-onboarding \\| pres-plan-marketing \\| pres-webinar \\| pres-clase \\| pres-roadmap \\| pres-equipo \\| pres-ventas \\| pres-resultados \\| carr-lista \\| carr-tutorial \\| carr-historia \\| carr-antes-despues \\| carr-mito \\| carr-opinion \\| carr-caso \\| carr-preguntas) | sí | La plantilla (de listar_disenos_landing: `presentaciones` para una presentación 16:9, `carruseles` para un carrusel vertical 4:5 de redes). |
 | `titulo` | string | no | El nombre de la presentación en el Panel. Sin él, el de la plantilla. |
 
 ```bash

@@ -59,10 +59,11 @@ import {
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
-import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
+import { MUCHO_PARA_EDITAR, terminoTarjeta, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
+import { REGLAS_CARRUSEL_ESQUEMA, REGLAS_CARRUSEL_SECCIONES, REGLAS_CARRUSEL_EDITAR } from './plantillas-carrusel';
 import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
 import { REGLA_NO_EXISTE } from '../no-existe';
 import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
@@ -77,6 +78,30 @@ import { esquemaDeReplica } from './replicar-estructura';
  */
 const esDiapositivas = (params: unknown): boolean =>
   !!params && typeof params === 'object' && (params as { formato?: unknown }).formato === 'presentacion';
+
+/**
+ * ¿Y es un CARRUSEL? (6/11/2026, el pedido de Leila): una presentación de 4:5. Se lee del pedido
+ * crudo, por lo mismo que `esDiapositivas`. Las reglas del carrusel REEMPLAZAN a las de
+ * diapositivas, no se suman: en 4:5 entra la mitad del texto (`ANCHO_DIAPO_EM`), la primera
+ * lámina es un gancho y la última pide una acción. Sin la proporción, una presentación de 16:9.
+ */
+const esCarrusel = (params: unknown): boolean =>
+  esDiapositivas(params) && (params as { proporcion?: unknown }).proporcion === '4:5';
+
+/**
+ * Cómo se llama lo que se está creando: para el título de respaldo, los avisos y el MOTIVO del gasto
+ * de IA (el que se ve en el panel de uso). Un carrusel que gastó no puede figurar como «presentación».
+ */
+const nombreDoc = (params: unknown): string => (esCarrusel(params) ? 'Carrusel' : esDiapositivas(params) ? 'Presentación' : 'Landing');
+/** Lo mismo, en minúscula, para el medio de una frase. */
+const docEnFrase = (params: unknown): string => nombreDoc(params).toLocaleLowerCase('es');
+
+/** Las reglas que se le pegan a la IA según lo que se está creando, para cada uno de los tres prompts. */
+const reglasDeFormato = (params: unknown, cual: 'esquema' | 'secciones' | 'editar'): string => {
+  if (!esDiapositivas(params)) return REGLAS_PAGINA;
+  if (esCarrusel(params)) return cual === 'esquema' ? REGLAS_CARRUSEL_ESQUEMA : cual === 'secciones' ? REGLAS_CARRUSEL_SECCIONES : REGLAS_CARRUSEL_EDITAR;
+  return cual === 'esquema' ? REGLAS_DIAPOSITIVAS_ESQUEMA : cual === 'secciones' ? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_DIAPOSITIVAS_EDITAR;
+};
 
 /** Esquema, secciones e importar (lo que crea una landing). */
 export const FEATURE_GENERAR = 'landing-editor';
@@ -253,14 +278,13 @@ export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: s
 export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: Esquema }>> {
   const t0 = Date.now();
   const params = normalizarParams(p.params);
-  const diapos = esDiapositivas(p.params);
   let texto = '';
   let pedido = '';
-  let tituloFallback = diapos ? 'Presentación' : 'Landing';
+  let tituloFallback = nombreDoc(p.params);
 
   if (p.modo === 'generar') {
     pedido = String(p.prompt ?? '').trim().slice(0, 8_000);
-    if (!pedido) return invalido(diapos ? 'Escribe qué presentación quieres.' : 'Escribe qué landing quieres.');
+    if (!pedido) return invalido(`Escribe qué ${docEnFrase(p.params)} quieres.`);
   } else if (p.modo === 'pegar') {
     texto = String(p.texto ?? '').slice(0, MAX_TEXTO_ENTRADA).trim();
     if (!texto) return invalido('Pega el texto primero.');
@@ -330,7 +354,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     ]);
     const sys = await system(PROMPTS_EDITOR.esquemaSystem, { idioma: bloqueIdioma(params.idioma), formato: FORMATO_ESQUEMA });
     const user = await renderPrompt(PROMPTS_EDITOR.esquemaUser.key, PROMPTS_EDITOR.esquemaUser.tpl, {
-      ajustes: ajustesAutoritativos(params, cantidad) + `\n${diapos ? REGLAS_DIAPOSITIVAS_ESQUEMA : REGLAS_PAGINA}`,
+      ajustes: ajustesAutoritativos(params, cantidad) + `\n${reglasDeFormato(p.params, 'esquema')}`,
       contenido,
       instrucciones,
       contexto,
@@ -339,7 +363,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     const hastaMs = t0 + PLAZOS.esquema.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_GENERAR,
-      motivo: `Esquema de ${diapos ? 'presentación' : 'landing'}${p.modo === 'importar' ? (p.lectura ? ' (leída en el navegador)' : ' (importada)') : p.modo === 'pegar' ? ' (texto pegado)' : ''}`,
+      motivo: `Esquema de ${docEnFrase(p.params)}${p.modo === 'importar' ? (p.lectura ? ' (leída en el navegador)' : ' (importada)') : p.modo === 'pegar' ? ' (texto pegado)' : ''}`,
       maxTokens: 4_000,
       effort: 'medium',
       hastaMs,
@@ -383,7 +407,6 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
   if (!v.ok) return invalido(v.error);
   const indices = v.indices;
   const params = normalizarParams(p.params);
-  const diapos = esDiapositivas(p.params);
 
   // En «Conservar» un punto es un párrafo entero de la persona (hasta el tope de un nodo):
   // tres secciones así pueden no entrar en un pedido, y la salida tiene que copiarlas enteras.
@@ -401,7 +424,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
       formato: FORMATO_SECCIONES,
     }));
     const user = await renderPrompt(PROMPTS_EDITOR.seccionesUser.key, PROMPTS_EDITOR.seccionesUser.tpl, {
-      ajustes: ajustesAutoritativos(params, esq.secciones.length) + `\n${diapos ? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_PAGINA}`,
+      ajustes: ajustesAutoritativos(params, esq.secciones.length) + `\n${reglasDeFormato(p.params, 'secciones')}`,
       esquema: contenidoNoConfiable(tanda.esquema, 'esquema'),
       pedidas: contenidoNoConfiable(tanda.pedidas, 'secciones_pedidas'),
       instrucciones: params.instrucciones ? contenidoNoConfiable(params.instrucciones, 'instrucciones') : '(ninguna)',
@@ -410,7 +433,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
     const hastaIA = t0 + PLAZOS.secciones.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_GENERAR,
-      motivo: `${diapos ? 'Diapositivas' : 'Secciones'} ${indices.map((i) => i + 1).join(', ')} de «${esq.titulo.slice(0, 60)}»`,
+      motivo: `${terminoTarjeta(p.params, { plural: true, mayuscula: true })} ${indices.map((i) => i + 1).join(', ')} de «${esq.titulo.slice(0, 60)}»`,
       // Una sección con un diseño optimizado de seis ítems ronda los 1.500 tokens; con texto
       // conservado, la salida copia lo pedido entero (~4 caracteres por token, más la gramática).
       maxTokens: Math.min(16_000, Math.max(2_200 * indices.length + 800, Math.ceil(tanda.pedidas.length / 2.5))),
@@ -495,7 +518,7 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
         + focoParaEditar(foco)
-        + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`,
+        + `\n${reglasDeFormato(p.params, 'editar')}`,
       secciones: contenidoNoConfiable(json, 'secciones'),
       contexto,
     });

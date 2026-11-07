@@ -81,7 +81,7 @@ import { leerArchivo } from './cliente';
 import { MAX_ARCHIVOS } from '@/lib/editor-landing/adjuntos';
 import { hostDe, type AccionCaja } from './panel-reglas';
 import {
-  EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
+  EJEMPLOS_CAJA, elDocDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
 import { CSS_TIPO, SelectorTipo } from './crear/PiezasTipo';
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
@@ -525,7 +525,7 @@ export default function CajaCrear({
               className="gp-cc-plantilla"
               disabled={!!creando}
               data-creando={creando === p.id ? 'si' : undefined}
-              aria-label={`Crear ${docDe(tipo)} con ${p.pideObjetivo ? 'el diseño' : 'la plantilla'} ${p.nombre}`}
+              aria-label={`Crear ${elDocDe(tipo)} con ${p.pideObjetivo ? 'el diseño' : 'la plantilla'} ${p.nombre}`}
               onClick={() => usar(p)}
             >
               <div className="gp-cc-mini">

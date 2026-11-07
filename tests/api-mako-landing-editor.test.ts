@@ -78,6 +78,7 @@ import {
 } from '../lib/api-mako/areas/landing-editor.helpers';
 import { pedidoDePlantilla } from '../app/web-generator/crear/tipo';
 import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
+import { PLANTILLAS_CARRUSEL } from '../lib/editor-landing/plantillas-carrusel';
 import { NODO as NODO_DOC, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 
 const RAIZ = join(__dirname, '..');
@@ -568,18 +569,22 @@ test('lo que quedó «fuera por ahora»: chat y reversibles, la puerta de la pá
   for (const id of ['duplicar_landing', 'crear_presentacion_desde_plantilla']) assert.match(runnerDe(id), /if \(enFlujo\(ctx\)\) return \{ error:/, id);
 });
 
-test('crear una presentación es EXACTAMENTE el alta de «Plantillas» de la pantalla, con su formato', () => {
+test('crear una presentación o un CARRUSEL es EXACTAMENTE el alta de «Plantillas» de la pantalla, con su formato', () => {
   const d = accion('crear_presentacion_desde_plantilla');
-  assert.deepEqual([...d.parametros.find((p) => p.nombre === 'plantilla')!.enum!], PLANTILLAS_PRESENTACION.map((p) => p.id));
-  for (const p of PLANTILLAS_PRESENTACION) {
+  // 6/11/2026: la MISMA operación crea un carrusel vertical 4:5 (un carrusel ES una presentación de 4:5).
+  const todas = [...PLANTILLAS_PRESENTACION, ...PLANTILLAS_CARRUSEL];
+  assert.deepEqual([...d.parametros.find((p) => p.nombre === 'plantilla')!.enum!], todas.map((p) => p.id));
+  for (const p of todas) {
     const pedido = pedidoDePresentacion(p.id, null)!;
     const pantalla = pedidoDePlantilla(p);
     assert.deepEqual({ ...pedido, contenido: null }, { ...pantalla, contenido: null }, p.id);
     assert.equal(pedido.config?.formato, 'presentacion', `${p.id}: nacería como página`);
+    assert.equal(pedido.config?.proporcion, p.proporcion, `${p.id}: la forma no es la de la plantilla`);
   }
   assert.equal(pedidoDePresentacion(PLANTILLAS_PRESENTACION[0].id, 'Mi charla')!.titulo, 'Mi charla');
   assert.equal(pedidoDePresentacion('no-existe', null), null);
   assert.deepEqual(disenosParaApi().presentaciones.map((p) => p.id), PLANTILLAS_PRESENTACION.map((p) => p.id));
+  assert.deepEqual(disenosParaApi().carruseles.map((p) => p.id), PLANTILLAS_CARRUSEL.map((p) => p.id));
 });
 
 test('la analítica: los números de la tarjeta del editor, y sin publicar los ceros se dicen ciertos', () => {

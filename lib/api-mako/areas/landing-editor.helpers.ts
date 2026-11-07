@@ -310,7 +310,11 @@ export function disenosParaApi() {
     objetivos: OBJETIVOS_LANDING.map((o) => ({ id: o.id, nombre: o.nombre, descripcion: o.descripcion })),
     // Tanda 6: las plantillas de presentación, la MISMA lista que «Plantillas» de la pantalla.
     presentaciones: plantillasDe('presentacion').map((p) => ({ id: p.id, nombre: p.nombre, descripcion: p.descripcion })),
-    nota: 'Una landing se crea cruzando un diseño (cómo se ve) con un objetivo (qué dice): crear_landing_desde_diseno con los dos ids. Una presentación, con crear_presentacion_desde_plantilla y el id de una de `presentaciones`.',
+    // 6/11/2026 (el pedido de Leila): los carruseles verticales 4:5, los tipos de MaKo
+    // (lib/carruseles/tipos.ts) como plantillas de este editor. Se crean con la MISMA operación
+    // que una presentación, porque un carrusel ES una presentación de 4:5.
+    carruseles: plantillasDe('carrusel').map((p) => ({ id: p.id, nombre: p.nombre, descripcion: p.descripcion })),
+    nota: 'Una landing se crea cruzando un diseño (cómo se ve) con un objetivo (qué dice): crear_landing_desde_diseno con los dos ids. Una presentación, con crear_presentacion_desde_plantilla y el id de una de `presentaciones`; un carrusel vertical 4:5 para redes, con la MISMA operación y el id de una de `carruseles`.',
   };
 }
 
@@ -331,7 +335,8 @@ export function pedidoDeCrear(diseno: string, objetivo: string, titulo: string |
  * (con su formato y su proporción), con el título pedido encima. null si la plantilla no existe.
  */
 export function pedidoDePresentacion(plantilla: string, titulo: string | null): Extract<PedidoDocs, { accion: 'crear' }> | null {
-  const p = plantillasDe('presentacion').find((x) => x.id === plantilla);
+  // Las de carrusel también (6/11/2026): la misma forma y el mismo alta, con su 4:5.
+  const p = [...plantillasDe('presentacion'), ...plantillasDe('carrusel')].find((x) => x.id === plantilla);
   if (!p) return null;
   const pedido = pedidoDePlantilla(p);
   return titulo ? { ...pedido, titulo } : pedido;

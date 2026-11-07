@@ -48,6 +48,7 @@ import { PARTES_REPLICA } from '@/lib/editor-landing/replicar-partes';
 import { ESTADOS_SUGERENCIA } from '@/lib/editor-landing/diagnostico';
 // Las plantillas de presentación (tanda 6): la MISMA lista que «Plantillas» de la pantalla (puro).
 import { PLANTILLAS_PRESENTACION } from '@/lib/editor-landing/plantillas-presentaciones';
+import { PLANTILLAS_CARRUSEL } from '@/lib/editor-landing/plantillas-carrusel';
 // Tanda 7: el resto del editor (crear y editar con IA, el contenido, el tema, el sitio, el dominio…).
 import { DEFS_EDITOR } from './landing-editor.def';
 
@@ -478,9 +479,9 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_presentacion_desde_plantilla', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Crear una presentación desde una plantilla',
-    descripcion: 'Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.',
+    descripcion: 'Crea una presentación nueva (diapositivas) — o un CARRUSEL vertical 4:5 para redes, si la plantilla es una de `carruseles` — en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.',
     parametros: [
-      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', obligatorio: true, enum: PLANTILLAS_PRESENTACION.map((p) => p.id), descripcion: 'La plantilla (de listar_disenos_landing, `presentaciones`).' },
+      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', obligatorio: true, enum: [...PLANTILLAS_PRESENTACION, ...PLANTILLAS_CARRUSEL].map((p) => p.id), descripcion: 'La plantilla (de listar_disenos_landing: `presentaciones` para una presentación 16:9, `carruseles` para un carrusel vertical 4:5 de redes).' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPES.titulo, descripcion: 'El nombre de la presentación en el Panel. Sin él, el de la plantilla.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,

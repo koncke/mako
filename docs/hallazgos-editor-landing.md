@@ -6,6 +6,63 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## El carrusel 4:5 se ELIGE al crear: la segunda mitad del pedido de Leila (6/11/2026)
+
+Leila lo pidió TRES veces (2.14 / 3.9 / 4.10 de `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66`): armaba el
+carrusel en el Image Editor, lento, «emulando Canva», porque el rápido no ofrecía el tamaño.
+
+- **El diagnóstico obvio era el equivocado.** La proporción 4:5 ya estaba hecha (`cd0f4811e`, 6/11:
+  `PROPORCIONES`, la hoja, el PDF, el PPTX y la miniatura, con 8 tests), así que el ítem parecía cerrado. No lo estaba:
+  la forma sólo se alcanzaba **creando una presentación 16:9 y cambiándola a mano** en Configuración → «Relación de
+  aspecto». El pedido de Leila era justamente no tener que hacer eso. Una lista de pedidos marcada «A MEDIAS» puede
+  tener hecha la mitad que se ve en el código y faltar entera la que se ve en la pantalla.
+- **Y lo que de verdad faltaba vivía en otro módulo: la exportación.** Un carrusel se CREA para subirlo, y
+  `exportar-png.ts` montaba su lienzo (1280 px) **sin `data-formato="presentacion"`**, así que ninguna regla de «15b.
+  Presentaciones» (css.ts) se aplicaba: fotografiaba el `.gm-doc` fluido, del ancho de una pantalla y con el alto del
+  texto. En una landing es lo que se quiere, y en una presentación no se nota (se mira en el editor), pero una lámina
+  que no es 4:5 la recorta Instagram. Ahora, **con forma fija se fotografía la TARJETA** en un lienzo que la deja tomar
+  su ancho entero (`ANCHO_DIAPO_EM + 4em` por los 18 px de letra base). Medido en Chromium con ese mismo montaje:
+  4:5 → 774 × 968 px (× 2 de `pixelRatio` = **1548 × 1936**, relación 0.800 exacta; Instagram pide 1080 × 1350);
+  16:9 → 2322 × 1306. Lo que no tiene forma sigue saliendo fluido, igual que antes.
+- **La regla:** una superficie que exporta una diapositiva tiene que declarar `data-formato` y `data-proporcion` en el
+  envoltorio, o la hoja la dibuja como una sección. El selector `diapo()` acepta las dos formas (la raíz con el
+  formato, o la raíz adentro de un envoltorio con él): es barato ponerlo y no hay manera de notar que falta.
+- **Las plantillas NO se duplican, pero tampoco se reusa el documento.** Las 8 salen de `TIPOS_CARRUSEL`
+  (`lib/carruseles/tipos.ts`), las mismas que el Image Editor. Lo que **no** sirve es `documentoDeCarrusel`
+  (`lib/carruseles/documento.ts`): ése arma el documento del MOTOR de Imagen (textbox/rect/ellipse en un lienzo de
+  1080 × 1350 px) y este editor es un documento de bloques. Lo compartible de un carrusel es su ESTRUCTURA, no su
+  documento; quien vaya a reusar «lo que ya existe» por el documento se estrella.
+- **«Carrusel» es la primera palabra MASCULINA de la pantalla de crear.** Landing y Presentación son femeninas, así que
+  las frases tenían «la» y «generada» escritos a mano: «La carrusel no se creó», «Carrusel generada». El artículo y el
+  participio salen ahora de `GENERO_TIPO` (`crear/tipo.ts`): `elDocDe`, `esteDocDe`, `participio`.
+- **`temaPorId` MIENTE: un id que no existe devuelve `pewter`, nunca `undefined`** (`lib/editor-landing/temas.ts`). Un
+  `assert.ok(temaPorId(x))` pasa con cualquier cosa, y la plantilla nace con el tema equivocado sin que nada avise. Se
+  cuenta contra la lista (`TEMAS.map(t => t.id)`). Lo descubrió romperlo a propósito: la rotura daba 0 rojos.
+- **Un banco del editor miente si no se le fija `--gm-base`.** La letra de la diapositiva sale de
+  `min(18px, 100vw / 68.5)` —el ancho de una 16:9, no el del contenedor—, así que en un contenedor chico la lámina se
+  achica por `calc(100% - 4em)` y el texto se ve gigante: la primera medición dio la portada a 2,3 × su alto y parecía
+  un bug del producto. Se fija `--gm-base` y se le dan al contenedor **≥ 47em** de esa letra; recién ahí la lámina toma
+  sus 43em y mide 0.800 clavado.
+- **La IA tiene reglas propias para 4:5.** En una lámina entra la mitad que en una diapositiva (43em contra 64,5), y lo
+  que se lee con el pulgar no es lo que se proyecta en una pared. `ParamsGeneracion.proporcion` viaja en todo pedido y
+  `reglasDeFormato` (ia.ts) elige UNO de los tres juegos: página, diapositiva o lámina. Se lee del pedido CRUDO, como
+  `formato`: `normalizarParams` no conoce ninguno de los dos.
+- **Vive en:** `lib/editor-landing/plantillas-carrusel.ts` (nuevo), `app/web-generator/crear/tipo.ts`,
+  `lib/editor-landing/{api-tipos,ia,exportar-png}.ts`, `lib/api-mako/areas/landing-editor.helpers.ts`.
+  **Lo fija:** `tests/web-generator-carrusel-45.test.ts` (12 tests, 28 roturas a propósito, 28 rojos).
+- **Lo que quedó SIN hacer:**
+  - **La letra que LLENA la lámina.** El cuerpo de una lámina 4:5 se ve chico para Instagram (mucho aire arriba y
+    abajo). El Image Editor lo resuelve con `tamanoQueLlena` (`lib/carruseles/documento.ts`): busca la letra más
+    grande que entra. Acá los tamaños son fijos en em y están calibrados para 16:9. La palanca que el sistema ya tiene
+    es `--gm-escala-cuerpo` por `[data-proporcion="4:5"]` en `lib/editor-landing/css.ts` (los títulos la dividen, así
+    que subirla agranda el cuerpo sin tocar los titulares). Es una decisión de diseño: no se tocó.
+  - **El PDF y el PowerPoint de un carrusel no se vieron en pantalla.** Los tamaños están fijados por
+    `tests/editor-landing-carrusel-45.test.ts` (8 × 10 in y 10 × 12,5 in), pero nadie abrió el archivo.
+  - **La palabra «lámina» sólo llega hasta donde llega `terminoTarjeta`.** El diálogo de Exportar escribía
+    «Todas las secciones» a mano (ya pasa por `terminoTarjeta`), pero cualquier otro texto de pantalla con la
+    palabra escrita sigue diciéndola en un carrusel: se busca con
+    `grep -rn "secciones\|diapositiva" app/web-generator --include=*.tsx`.
+
 ## MaKo toma la iniciativa en el Web Generator: «¿Ya está lista para que la vean?» (5/11/2026, nube)
 
 - **Qué hace:** con la página abierta sin publicar y la charla vacía, el chat del editor pregunta un hecho; «Sí, ya está» abre el
