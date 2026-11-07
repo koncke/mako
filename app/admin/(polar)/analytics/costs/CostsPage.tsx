@@ -42,8 +42,12 @@ import {
   CAC_USD,
   MESES_DE_VIDA,
   PARTE_DE_COBRAR,
+  clientesParaNoPerder,
+  dejaUnCliente,
+  loQueQueda,
   type Economia,
 } from '@/lib/economia-unitaria'
+import { USD_DEL_PLAN } from '@/lib/mako-tokens-paquetes'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -70,6 +74,9 @@ import {
 import { useRouter } from '@/app/_ui/Link'
 import { useMemo } from 'react'
 import { fmtPct } from './utils'
+
+/** El plan con el que se muestra «What you keep». Martín, 7/11: «quiero que tomes principalmente clientes de 97». */
+const PLAN_PARA_LA_TABLA = USD_DEL_PLAN.growth
 
 export default function ClientPage({
   vista,
@@ -286,8 +293,12 @@ export default function ClientPage({
               variant="info"
               title="Sale de tu bolsillo"
               description={
-                `${fmt(fijoTuyo, 'usd')} al mes. El total es ${fmt(fijoTotal, 'usd')}: la diferencia la paga Mauricio hoy. ` +
-                `Con 10 clientes son ${fmt(fijoTuyo / 10, 'usd')} por cliente; con 100, ${fmt(fijoTuyo / 100, 'usd')}.`
+                // ⚠️ Antes esta línea decía «Con 10 clientes son US$43,83 por cliente», que es el fijo DIVIDIDO por los
+                // clientes. Martín lo leyó como lo que le queda («¿cómo vendiendo 10 me quedo con 44 dólares?»), y tenía
+                // razón en no entenderlo: un número suelto en dólares al lado de «clientes» se lee como ganancia.
+                // Ahora la frase dice de quién es cada peso y no mezcla un costo repartido con un resultado.
+                `${fmt(fijoTuyo, 'usd')} al mes sale de tu bolsillo. El total es ${fmt(fijoTotal, 'usd')}: ` +
+                `la diferencia la paga Mauricio hoy. Esto no depende de cuántos clientes haya.`
               }
             />
             {viejas.length > 0 && (
@@ -409,6 +420,60 @@ export default function ClientPage({
             {economia.avisos.length > 0 && (
               <Alert variant="warning" title="Falta un dato" description={economia.avisos.join(' · ')} />
             )}
+          </section>
+
+          {/* Lo que queda con N clientes — la pregunta de Martín del 7/11 */}
+          <section>
+            <SectionHeader
+              title="What you keep"
+              description={`Lo que te queda cada mes con clientes del plan de ${fmt(PLAN_PARA_LA_TABLA, 'usd')}. Cada uno deja ${fmt(dejaUnCliente(PLAN_PARA_LA_TABLA), 'usd')}: lo que cobra, menos el ${Math.round(PARTE_DE_COBRAR * 100)}% de cobrarlo y su parte del CAC. Su IA no se resta: la paga él con su propia clave.`}
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[5, 10, 20, 50].map((n) => {
+                const hoy = loQueQueda(n, PLAN_PARA_LA_TABLA, fijoTuyo)
+                const todo = loQueQueda(n, PLAN_PARA_LA_TABLA, fijoTotal)
+                return (
+                  <div
+                    key={n}
+                    className="dark:border-polar-700 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:bg-transparent"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm leading-snug font-medium dark:text-white">
+                        {n} clientes
+                      </span>
+                      <span
+                        className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          hoy > 0
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                            : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        }`}
+                      >
+                        {hoy > 0 ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                        {fmtPct(Math.abs((hoy / (PLAN_PARA_LA_TABLA * n)) * 100))}
+                      </span>
+                    </div>
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="dark:text-polar-500 flex flex-col gap-0.5 text-xs text-gray-400">
+                        <span>entra {fmt(PLAN_PARA_LA_TABLA * n, 'usd')}</span>
+                        <span>si pagaras todo: {fmt(todo, 'usd')}</span>
+                      </div>
+                      <span className="font-mono text-lg font-medium tabular-nums dark:text-white">
+                        {fmt(hoy, 'usd')}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <Alert
+              variant="info"
+              title="Por qué el doble de clientes da MÁS del doble"
+              description={
+                `El gasto fijo se paga UNA vez, no por cliente: la segunda decena ya no tiene que cubrirlo. ` +
+                `Hacen falta ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTuyo) ?? '—'} clientes para no perder con lo que pagás hoy, ` +
+                `y ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTotal) ?? '—'} si pagaras también lo de Mauricio.`
+              }
+            />
           </section>
 
           {/* What changed */}

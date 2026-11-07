@@ -67,6 +67,36 @@ export type Economia = {
 /** El CAC repartido en la vida del cliente, que es lo que pesa cada mes. */
 export const cacPorMes = (): number => CAC_USD / MESES_DE_VIDA;
 
+// =============================================================================
+// LO QUE QUEDA EN EL BOLSILLO con N clientes (7/11/2026)
+// =============================================================================
+// Martín, 7/11: «no entiendo la tabla. ¿Cómo es posible que vendiendo 10 clientes me quede con 44 dólares, y con 20 me
+// quede con 500?». **Tenía razón en no entenderlo, y el error era de la frase, no de la cuenta:** la pantalla decía «con 10
+// clientes son US$43,83 por cliente», que es el GASTO FIJO dividido por los clientes, y se lee como la ganancia.
+//
+// ⚠️ LA IA NO SE RESTA POR CLIENTE. Cada negocio conecta y paga SU propia clave (BYOK, lib/ia-del-negocio.ts): la
+// generación del cliente no es un costo de MaKo. Lo que MaKo gasta de IA es de plataforma y ya está en el fijo. Restarla
+// por cliente la contaría dos veces y haría que el negocio pareciera peor de lo que es.
+//
+// Es LINEAL: cada cliente deja lo mismo, y el fijo se paga una sola vez. Por eso pasar de 10 a 20 no duplica lo que queda,
+// lo más que duplica — la segunda decena ya no tiene que pagar el fijo otra vez.
+
+/** Lo que deja UN cliente de ese plan cada mes: lo que cobra, menos cobrarlo, menos su parte del CAC. */
+export const dejaUnCliente = (planUsd: number): number => planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes();
+
+/** Lo que queda en el bolsillo con `clientes` de ese plan, pagando `fijoMensualUsd`. Negativo = se pierde. */
+export const loQueQueda = (clientes: number, planUsd: number, fijoMensualUsd: number): number =>
+  dejaUnCliente(planUsd) * Math.max(0, clientes) - fijoMensualUsd;
+
+/**
+ * Cuántos clientes de ese plan hacen falta para no perder. `null` si cada uno deja cero o menos: ahí no hay cantidad que
+ * alcance, y devolver un número enorme sugeriría que sí.
+ */
+export function clientesParaNoPerder(planUsd: number, fijoMensualUsd: number): number | null {
+  const deja = dejaUnCliente(planUsd);
+  return deja > 0 ? Math.ceil(fijoMensualUsd / deja) : null;
+}
+
 /**
  * La economía del mes.
  *
