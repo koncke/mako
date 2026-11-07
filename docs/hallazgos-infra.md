@@ -295,6 +295,39 @@ con `cherry-pick -n`, `git checkout origin/main -- docs/hallazgos.md`, volver a 
 celda de su área** (una fila por área desde el 6/11) y controlarlo CONTANDO: `grep -c '^| '` igual que main y la fila
 del área, una sola. Relanzar con `workflow_dispatch` no sirve para esto: la mezcla vuelve a chocar igual.
 
+### Un `ci-rojo/*` puede ser el paso de MEZCLAR, y ahí el código ni se chequeó (6/11/2026, noche)
+
+**Síntoma:** `punta/carruseles-video` apareció en `ci-rojo/` dos veces seguidas. Se buscó el rojo en el código: se
+corrieron los tests del área, los de Spy, los de la pantalla y los nuevos que había traído main, **todos verdes**, y el
+`tsc` acotado nunca pudo correr (la guardia de RAM lo negó diez veces). Cuarenta minutos para nada.
+
+**Lo obvio era que el rojo era del código, y los dos runs fallaron en el PASO 7, «Mezclar main en la punta»** — antes de
+los tipos y de los tests. O sea: **el código no se chequeó ni una vez**, y los tests locales no podían decir nada. Las
+dos causas fueron del índice, y las dos son del archivo, no del código:
+
+1. la punta salió de un main de 70 commits antes, cuando `docs/hallazgos.md` todavía se unía con `merge=union` y tenía
+   74 filas para 28 áreas; contra el main ya limpio, el driver por celda choca;
+2. el segundo intento **arregló de paso una fila ajena** (escapar el `|` de la celda de Infraestructura, que estaba
+   rompiendo el guard). El driver sólo acepta lo que va **adelante** de la celda de main (`prefijoNuevo`): un cambio en
+   el MEDIO es «celda reescrita» y choca a propósito. En el índice, una punta toca sólo la celda de su área, y sólo
+   metiendo su entrada adelante — aunque la fila de otro esté roto; eso se arregla en la punta de esa área.
+
+**La regla: ante un `ci-rojo/*`, lo primero es ver QUÉ PASO falló, no leer el código.** Un rojo en «Mezclar main en la
+punta», «Main está rojo» o «Guardas del push» no dice nada de lo que escribiste.
+
+**Y cómo se lee desde la PC, que es lo que faltaba:** no hay `gh` instalado y los `GITHUB_PAT_*` del `.env.local` son de
+OTRAS cuentas (dan 404 en `koncke/mako`, que parece «no existe»). El token bueno es el del credential manager de
+Windows, como en `C:/dev/cerebro-herramientas/esperar-run.sh`:
+
+```sh
+T=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+curl -sL -H "Authorization: Bearer $T" "https://api.github.com/repos/koncke/mako/actions/runs?branch=punta/<nombre>&per_page=3"
+curl -sL -H "Authorization: Bearer $T" "https://api.github.com/repos/koncke/mako/actions/runs/<id>/jobs"   # el paso que falló
+```
+
+El `jobs` da el nombre del paso en una línea; el log entero (`/actions/jobs/<jobId>/logs`) sólo hace falta para ver el
+mensaje, que en este caso era `CONFLICT (content): Merge conflict in docs/hallazgos.md`.
+
 ## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
 
 - **Sintoma:** `tests/newsletter.test.ts` da 1 rojo en la PC, en la prueba de la tab de newsletters. El
