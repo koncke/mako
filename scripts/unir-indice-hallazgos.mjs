@@ -25,7 +25,9 @@
 //      (primero el de main, después el de la punta, como en las bitácoras). Si los dos escribieron lo mismo, queda una vez.
 //   3. cualquier otra cosa —una fila nueva, una borrada, el encabezado cambiado de los dos lados, una celda reescrita de
 //      punta a punta— queda como el choque de siempre, con sus marcas, y lo resuelve una persona.
-//   Y en los dos caminos se tiran las filas BYTE A BYTE IDÉNTICAS, que sólo pueden ser daño de `union`.
+//   Y en los dos caminos se deja UNA FILA POR ÁREA, uniendo las celdas por entrada (`unaFilaPorClave`, más abajo): hace
+//   falta incluso cuando la mezcla sale limpia, porque una punta cortada antes del 6/11/2026 trae las filas viejas y git
+//   las devuelve. Si alguna entrada no sobrevive textual, esa clave no se toca.
 //
 // También se puede correr a mano para reparar lo ya duplicado, sin mezclar nada:
 //   node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md          # dice cuántas filas sacaría
@@ -71,6 +73,222 @@ export function sinFilasRepetidas(lineas) {
   return { lineas: out, sacadas };
 }
 
+// =============================================================================
+// Juntar DOS FILAS de la misma área que NO son idénticas (6/11/2026, de noche)
+// =============================================================================
+// Tirar sólo las idénticas alcanzaba mientras el índice estaba duplicado: eran el caso seguro a ciegas. Dejó de alcanzar
+// el día que main pasó a tener UNA fila por área: una punta cortada ANTES de eso tiene las filas viejas, y al mezclar el
+// main nuevo **git las devuelve** (un lado borró, el otro conservó → se conserva). Medido en `punta/spy-oferta-capturada`:
+// 85 filas para 77 áreas, 8 de más. ⚠️ Y de esas 8, sólo 2 estaban CONTENIDAS en la fila de main: las otras 6 traían la
+// cosecha propia de la punta, así que tirarlas por clave **perdería hallazgos**. Por eso se unen por ENTRADA.
+//
+// ⚠️ El límite de una entrada es `**Título (fecha)**:` —la negrita seguida de DOS PUNTOS—, no cualquier `**negrita**`:
+// `**99**, que NO es verde` es un énfasis a mitad de oración, y cortar ahí deja las dos mitades separadas cuando se
+// reordena. Y unir por el sufijo común más largo tampoco sirve: arranca a mitad de palabra.
+//
+// Y nunca se junta a ciegas: si alguna entrada original no aparece TEXTUAL en el resultado, esta clave **no se toca** y
+// quedan las dos filas. Mejor un rojo de la guarda, que lo mira una persona, que una entrada perdida en silencio.
+const ARRANQUE_DE_ENTRADA = /(?:^|(?<=[\s·]))\*\*[^*]{2,200}\*\*\s*:/g;
+const normalizar = (s) => s.replace(/\s+/g, ' ').trim();
+
+/** Parte una celda en entradas de cosecha. Lo que haya antes de la primera es una entrada más (prosa sin título). */
+export function entradasDeCelda(celda) {
+  const t = celda.trim();
+  const cortes = [];
+  ARRANQUE_DE_ENTRADA.lastIndex = 0;
+  for (let m; (m = ARRANQUE_DE_ENTRADA.exec(t)) !== null; ) cortes.push(m.index);
+  if (!cortes.length) return t ? [t] : [];
+  const out = cortes[0] > 0 ? [t.slice(0, cortes[0]).trim()] : [];
+  for (let i = 0; i < cortes.length; i++) out.push(t.slice(cortes[i], cortes[i + 1]).trim());
+  return out.filter(Boolean);
+}
+
+/**
+ * Une las celdas de varias filas de la MISMA área en una. Cada celda es una lista ordenada de entradas (lo más nuevo
+ * adelante, que es como escribe la cosecha), así que se mezclan como listas ordenadas: se emite la cabeza que no
+ * aparezca más atrás en ninguna otra. Devuelve null si alguna entrada no sobrevivió textual.
+ */
+export function unirCeldas(celdas) {
+  // ⚠️ El `|` del texto va escapado (`\|`), o markdown le inventa columnas a la fila. Una punta vieja lo trae PELADO y
+  // main escapado: comparadas así, la misma entrada son dos entradas distintas y la unión deja las dos (y la fila
+  // rota). Se compara y se une en pelado, y se escapa recién al final.
+  const pelar = (s) => s.split('\\|').join('|');
+  const escapar = (s) => s.replace(/(?<!\\)\|/g, '\\|');
+  const limpias = [...new Set(celdas.map((c) => pelar(c).trim()))].filter(Boolean);
+  const vivas = limpias.filter((x) => !limpias.some((y) => y !== x && y.includes(x))); // contenida es contenida
+  let piezas;
+  if (vivas.length <= 1) {
+    piezas = entradasDeCelda(vivas[0] ?? '');
+  } else {
+    const listas = vivas.map((c) => entradasDeCelda(c).map(normalizar));
+    const textoDe = new Map();
+    for (const c of vivas) for (const e of entradasDeCelda(c)) if (!textoDe.has(normalizar(e))) textoDe.set(normalizar(e), e);
+    const pos = listas.map(() => 0);
+    const puestas = new Set();
+    piezas = [];
+    for (let guarda = 0; guarda < 20000; guarda++) {
+      for (let j = 0; j < listas.length; j++) while (pos[j] < listas[j].length && puestas.has(listas[j][pos[j]])) pos[j]++;
+      const cabezas = listas.map((l, i) => (pos[i] < l.length ? { i, k: l[pos[i]] } : null)).filter(Boolean);
+      if (!cabezas.length) break;
+      const masAtras = (k, propia) => listas.some((l, j) => l.indexOf(k, pos[j] + (j === propia ? 1 : 0)) >= 0);
+      const elegida = cabezas.find((c) => !masAtras(c.k, c.i)) ?? cabezas[0];
+      piezas.push(textoDe.get(elegida.k));
+      puestas.add(elegida.k);
+    }
+  }
+  // una entrada repetida palabra por palabra no aporta (hay celdas que ya la traían dos veces); las cortas no se tocan
+  const vistas = new Set();
+  const finales = [];
+  for (const p of piezas) {
+    const k = normalizar(p);
+    if (k.length >= 40 && vistas.has(k)) continue;
+    vistas.add(k);
+    finales.push(p);
+  }
+  const texto = finales.join(' ').replace(/[ \t]+/g, ' ').trim();
+  // la red: todo lo que entró tiene que seguir, textual (se mide en pelado, antes de escapar)
+  const blob = normalizar(texto);
+  for (const c of limpias) for (const e of entradasDeCelda(c)) if (!blob.includes(normalizar(e))) return null;
+  return escapar(texto);
+}
+
+/** Deja UNA fila por área, uniendo las celdas. La fila queda donde estaba la primera. Devuelve { lineas, juntadas }. */
+export function unaFilaPorClave(lineas) {
+  const porClave = new Map();
+  for (const l of lineas) {
+    const f = filaDelIndice(l);
+    if (!f) continue;
+    if (!porClave.has(f.clave)) porClave.set(f.clave, []);
+    porClave.get(f.clave).push(l);
+  }
+  const unido = new Map();
+  for (const [clave, filas] of porClave) {
+    if (filas.length < 2) continue;
+    const texto = unirCeldas(filas.map((l) => filaDelIndice(l).celda));
+    if (texto == null) continue; // no se pudo verificar: quedan las dos y lo mira una persona
+    const c = filas[0].split('|');
+    unido.set(clave, `|${c[1]}|${c[2]}| ${texto} |`);
+  }
+  if (!unido.size) return { lineas, juntadas: 0 };
+  const hechas = new Set();
+  const out = [];
+  let juntadas = 0;
+  for (const l of lineas) {
+    const f = filaDelIndice(l);
+    if (!f || !unido.has(f.clave)) { out.push(l); continue; }
+    if (hechas.has(f.clave)) { juntadas++; continue; }
+    hechas.add(f.clave);
+    out.push(unido.get(f.clave));
+  }
+  return { lineas: out, juntadas };
+}
+
+// =============================================================================
+// Y el choque de verdad: main tiene la tabla JUNTA y la punta la vieja (6/11/2026, de noche)
+// =============================================================================
+// `unirPorCelda` pide el MISMO esqueleto en los tres lados (misma cantidad de líneas, misma fila en cada renglón). Eso
+// vale mientras las dos partes sólo metan su entrada adelante. Dejó de valer el día que main pasó de 217 filas a 77:
+// cualquier punta cortada antes tiene 217, y el choque es «la tabla entera contra la tabla entera». Medido: cuatro
+// puntas en rojo al mismo tiempo, todas en el paso «Mezclar main en la punta», y las dos versiones del driver
+// contestaban lo mismo —«queda el choque para resolver a mano»— sobre algo que no tiene nada de ambiguo.
+//
+// Acá la tabla NO se mezcla por renglón: se mezcla por ÁREA. Las filas de los dos lados se juntan por clave con
+// `unirCeldas`, el orden lo manda main (que es la tabla ya consolidada) y las áreas que sólo existen en la punta van
+// después. Lo de FUERA de la tabla sigue la regla de siempre: se acepta que UN lado lo haya cambiado, no los dos
+// distinto. Y si una entrada no sobrevive textual, no se junta nada: queda el choque.
+const PARTIR_ENCABEZADO = /^\|\s*Área\s*\|/;
+const ES_SEPARADOR = (l) => /^\|\s*-+\s*\|/.test(l);
+
+/**
+ * TODA fila de la tabla principal, no sólo las que apuntan a `hallazgos-*.md`.
+ * ⚠️ `filaDelIndice` pide ese patrón en la 2.ª celda, y 7 de las 77 filas mandan a otra cosa
+ * (`recorrido-visual-30-10.md`, `promesas/…`, `mako-iniciativa/`): para mezclar la tabla hay que ver TODAS, o el tramo
+ * parece interrumpido y la mezcla se da por vencida. Acá no hace falta el patrón, porque el tramo ya está acotado por el
+ * encabezado. Y tolera la fila a la que le falta el `|` de cierre, que también existía.
+ */
+function filaDeLaTabla(linea) {
+  if (!linea.startsWith('|') || ES_SEPARADOR(linea)) return null;
+  const celdas = linea.split('|');
+  if (celdas.length < 4) return null;
+  const cuerpo = celdas.slice(3).join('|').replace(/\s*\|\s*$/, '');
+  return { clave: `${celdas[1].trim()}|${celdas[2].trim()}`, c1: celdas[1], c2: celdas[2], celda: cuerpo };
+}
+
+/** Parte el índice en lo de antes de la tabla, sus FILAS y lo de después. null si no se reconoce la forma. */
+function partirIndice(texto) {
+  const lineas = texto.replace(/\r\n/g, '\n').split('\n');
+  const enc = lineas.findIndex((l) => PARTIR_ENCABEZADO.test(l));
+  if (enc < 0) return null;
+  let i = enc + 1;
+  if (ES_SEPARADOR(lineas[i] ?? '')) i++;
+  const desde = i;
+  // el tramo sigue mientras haya filas o líneas en blanco: la línea en blanco suelta era parte del daño del `union`
+  let hasta = -1;
+  for (; i < lineas.length; i++) {
+    if (filaDeLaTabla(lineas[i])) { hasta = i; continue; }
+    if (lineas[i].trim() === '') continue;
+    break;
+  }
+  if (hasta < 0) return null;
+  return {
+    antes: lineas.slice(0, desde),
+    filas: lineas.slice(desde, hasta + 1).filter((l) => filaDeLaTabla(l)),
+    despues: lineas.slice(hasta + 1),
+  };
+}
+
+const mismo = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+/** Un bloque que cambió de un solo lado se resuelve solo; de los dos distinto, no. */
+function unLadoSolo(b, a, t) {
+  if (mismo(a, t)) return a;
+  if (mismo(a, b)) return t;
+  if (mismo(t, b)) return a;
+  return null;
+}
+
+/** Une el índice cuando los dos lados tienen TABLAS distintas: se mezcla por área, no por renglón. */
+export function unirPorFilas(base, ours, theirs) {
+  const eol = ours.includes('\r\n') ? '\r\n' : '\n';
+  const B = partirIndice(base);
+  const A = partirIndice(ours);
+  const T = partirIndice(theirs);
+  if (!B || !A || !T) return null;
+  const antes = unLadoSolo(B.antes, A.antes, T.antes);
+  const despues = unLadoSolo(B.despues, A.despues, T.despues);
+  if (!antes || !despues) return null;
+
+  const porClave = (filas) => {
+    const m = new Map();
+    for (const l of filas) {
+      const f = filaDeLaTabla(l);
+      if (!m.has(f.clave)) m.set(f.clave, []);
+      m.get(f.clave).push(l);
+    }
+    return m;
+  };
+  const b = porClave(B.filas);
+  const a = porClave(A.filas);
+  const t = porClave(T.filas);
+
+  // el orden es el de main; las áreas que sólo están en la punta, después
+  const orden = [...t.keys(), ...[...a.keys()].filter((k) => !t.has(k))];
+  const filas = [];
+  for (const clave of orden) {
+    const deA = a.get(clave) ?? [];
+    const deT = t.get(clave) ?? [];
+    // main la borró y la punta no la tocó: se respeta el borrado. Si la punta cosechó ahí, es un choque de verdad.
+    if (!deT.length && b.has(clave)) {
+      if (mismo(deA, b.get(clave))) continue;
+      return null;
+    }
+    const texto = unirCeldas([...deT, ...deA].map((l) => filaDeLaTabla(l).celda));
+    if (texto == null) return null;
+    const f = filaDeLaTabla(deT[0] ?? deA[0]);
+    filas.push(`|${f.c1}|${f.c2}| ${texto} |`);
+  }
+  return [...antes, ...filas, ...despues].join(eol);
+}
+
 /**
  * Une el índice cuando los dos lados sólo tocaron CELDAS de filas que ya existían. Devuelve el texto, o null si es
  * cualquier otro choque (y entonces lo resuelve una persona).
@@ -104,24 +322,28 @@ export function unirPorCelda(base, ours, theirs) {
     const celda = `${pt}${pa}${fb.celda}`; // primero lo que ya llegó a main, después lo de la punta
     out.push(`|${B[i].split('|')[1]}|${B[i].split('|')[2]}|${celda}|${fb.cola}`);
   }
-  return sinFilasRepetidas(out).lineas.join(eol);
+  return unaFilaPorClave(out).lineas.join(eol);
 }
 
-/** `--consolidar <archivo> [--aplicar]`: saca las filas repetidas de un índice ya dañado. */
+/** `--consolidar <archivo> [--aplicar]`: deja UNA fila por área, uniendo las celdas sin perder una entrada. */
 function consolidar(args) {
   const archivo = args.find((a) => !a.startsWith('--'));
   if (!archivo) { console.error('uso: unir-indice-hallazgos.mjs --consolidar <archivo> [--aplicar]'); return 2; }
   const texto = readFileSync(archivo, 'utf8');
   const eol = texto.includes('\r\n') ? '\r\n' : '\n';
-  const { lineas, sacadas } = sinFilasRepetidas(texto.replace(/\r\n/g, '\n').split('\n'));
+  const { lineas, juntadas } = unaFilaPorClave(texto.replace(/\r\n/g, '\n').split('\n'));
   const filas = lineas.filter((l) => filaDelIndice(l)).length;
-  if (!sacadas) { console.log(`${archivo}: ${filas} filas, ninguna repetida.`); return 0; }
+  const claves = new Set(lineas.map((l) => filaDelIndice(l)?.clave).filter(Boolean)).size;
+  const quedan = filas - claves;
+  const aviso = quedan ? ` ⚠️ Quedan ${quedan} fila(s) de más que NO se pudieron verificar: se juntan a mano.` : '';
+  if (!juntadas) { console.log(`${archivo}: ${filas} filas para ${claves} área(s), nada que juntar.${aviso}`); return 0; }
   if (!args.includes('--aplicar')) {
-    console.log(`${archivo}: sacaría ${sacadas} fila(s) repetida(s) y quedarían ${filas}. Con --aplicar se escribe.`);
+    // `filas` ya es la cuenta de DESPUÉS: `lineas` viene unido. Restarle `juntadas` contaría dos veces.
+    console.log(`${archivo}: juntaría ${juntadas} fila(s) y quedarían ${filas}. Con --aplicar se escribe.${aviso}`);
     return 0;
   }
   writeFileSync(archivo, lineas.join(eol));
-  console.log(`${archivo}: saqué ${sacadas} fila(s) repetida(s); quedaron ${filas}.`);
+  console.log(`${archivo}: junté ${juntadas} fila(s); quedaron ${filas} para ${claves} área(s).${aviso}`);
   return 0;
 }
 
@@ -131,15 +353,24 @@ function driver([base, ours, theirs, ruta = ours]) {
   const m = spawnSync('git', ['merge-file', '-p', '-L', 'la punta', '-L', 'la base', '-L', 'main', ours, base, theirs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (m.status === 0) {
     const eol = m.stdout.includes('\r\n') ? '\r\n' : '\n';
-    const { lineas, sacadas } = sinFilasRepetidas(m.stdout.replace(/\r\n/g, '\n').split('\n'));
+    // ⚠️ Una mezcla LIMPIA puede dejar filas de más: una punta cortada antes de que main tuviera una fila por área trae
+    // las viejas, y «un lado borró, el otro conservó» se resuelve conservando. Así que acá también se junta por área.
+    const { lineas, juntadas } = unaFilaPorClave(m.stdout.replace(/\r\n/g, '\n').split('\n'));
     writeFileSync(ours, lineas.join(eol));
-    if (sacadas) console.error(`[unir-indice-hallazgos] ${ruta}: mezcla limpia, y saqué ${sacadas} fila(s) repetida(s).`);
+    if (juntadas) console.error(`[unir-indice-hallazgos] ${ruta}: mezcla limpia, y junté ${juntadas} fila(s) de la misma área.`);
     return 0;
   }
   const unido = unirPorCelda(texto(base), texto(ours), texto(theirs));
   if (unido != null) {
     writeFileSync(ours, unido);
     console.error(`[unir-indice-hallazgos] ${ruta}: los dos lados cosecharon en la tabla; quedan las dos entradas, primero la de main.`);
+    return 0;
+  }
+  // El esqueleto no coincide: main junta la tabla y la punta trae la vieja. Se mezcla por ÁREA.
+  const porFilas = unirPorFilas(texto(base), texto(ours), texto(theirs));
+  if (porFilas != null) {
+    writeFileSync(ours, porFilas);
+    console.error(`[unir-indice-hallazgos] ${ruta}: las dos tablas son distintas; las junté por área, una fila cada una.`);
     return 0;
   }
   if (typeof m.stdout === 'string' && m.stdout.length) writeFileSync(ours, m.stdout);
