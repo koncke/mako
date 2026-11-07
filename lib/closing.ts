@@ -31,7 +31,10 @@ import { leerTodo } from './supabase-paginado';
 import { credWs } from './credenciales';
 import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
 import { taxonomiaDe, TAXONOMIA_NEUTRA, type Taxonomia } from './closing-taxonomia';
+import { esEntregaExplicita, marcadoresDe, RE_VENTA_FUERTE, SIN_MARCADORES, type Marcadores } from './closing-marcadores';
 import { perfilNegocioTexto } from './onboarding';
+import { listProductos } from './productos';
+import { listarOfertas } from './ofertas';
 import { getPipelineStagesDefault } from './funnels';
 import { reunionesDe } from './funnel-etapas';
 import { chatClaude, conClaveDelNegocio, permisoDeLaClaveDelNegocio } from './anthropic';
@@ -139,14 +142,26 @@ type LeadMatch = {
 // `lib/closing-internos.ts`, sin `server-only`, para poder testearla.
 
 const RE_TEST = /\b(test call|fathom demo|prueba)\b|^test\b|impromptu (google meet|zoom) meeting/i;
-// Marcadores INEQUÍVOCOS de entrega de servicio / coaching que el propio usuario
-// pone en el título (programas en curso con clientes ya activos). Conservador a
-// propósito: ante la duda, no descartamos acá — deja que Claude lea el resumen.
-const RE_SERVICIO_EXPLICITO = /^\s*servicio:|^\s*coaching:|paddock\s*&\s*pit|programa\s+via|sesiones\s+programa|reporte\s+semanal|scaling\s*up|mesa\s+de\s+trabajo/i;
-// Señales FUERTES de VENTA en el título — sirven para rescatar llamadas que no
-// trajeron al prospecto como invitado de calendario (sin email externo) pero que
-// claramente son de venta (calificación, diagnóstico, propuesta, primera junta).
-const RE_VENTA_FUERTE = /\bpropuesta\b|diagn[oó]stico|calificaci[oó]n|primera\s+(junta|sesi[oó]n|llamada|reuni[oó]n)|junta\s*[12]\b|reuni[oó]n\s*[12]\b/i;
+
+// ⚠️ ACÁ VIVÍA EL VOCABULARIO DE UN CLIENTE, HARDCODEADO PARA TODOS LOS WORKSPACES:
+//
+//     const RE_SERVICIO_EXPLICITO = /^\s*servicio:|^\s*coaching:|paddock\s*&\s*pit
+//       |programa\s+via|sesiones\s+programa|reporte\s+semanal|scaling\s*up|mesa\s+de\s+trabajo/i;
+//
+// A otro cliente, una llamada de VENTA titulada «Mesa de trabajo» o «Scaling Up» se le
+// clasificaba como `entrega_servicio` en la PRE-clasificación, o sea antes de que el modelo la
+// leyera: se descartaba sin error, sin aviso y sin dejar ni la fila que el análisis sí deja.
+//
+// Ahora se resuelve por workspace (`marcadoresDelWorkspace`) y la decisión vive en
+// `lib/closing-marcadores.ts`, sin `server-only`, para poder testearla. Los prefijos genéricos
+// (`SERVICIO:`, `COACHING:`) se quedaron en código: son convención de la app, no de un negocio.
+//
+// ⚠️ Y SI ALGUIEN VIENE A APRETAR ESTE DETECTOR PARA AHORRAR: está medido que no ahorra. Caza
+// 0 de 28 entregas (docs/hallazgos-crm.md, 06/10/2026) porque los títulos reales dicen «Junta
+// X y Y», nombres de personas. Lo que sí separa la entrega es el CIERRE del lead
+// (`esGrabacionDeEntrega`, lib/insights-llamada-reparto.ts: 28 de 28 y 19 de 19), y no se
+// puede llamar desde acá porque el match contra el lead corre después. `RE_VENTA_FUERTE` vive
+// ahora en el módulo, que es donde se testea el desempate «ante la duda, VENTA».
 
 /**
  * Quién es «de casa» EN ESTE workspace: las cuentas que graban (la de Fathom y la de cada grabador que pide ese
@@ -179,10 +194,45 @@ async function internosDelWorkspace(): Promise<Internos> {
 }
 
 /**
+ * Cómo llama ESTE negocio a lo que entrega: los nombres de sus ofertas y de sus productos, que
+ * son los que aparecen en el título de una sesión de entrega.
+ *
+ * Las tres fuentes ya existían y ya leen el negocio actual, cada una por su lector de siempre:
+ * `listarOfertas` y `listProductos` (sin filtrar por activo: las entregas de hoy son las del
+ * programa que se dejó de vender) y los rótulos de las etapas de reunión de su embudo
+ * (`reunionesDe` sobre el funnel default, la misma fuente ÚNICA que usa el CRM), que acá entran
+ * como EXCLUSIÓN: un nombre que además rotula una reunión de venta de este negocio no descarta
+ * nada.
+ *
+ * ⚠️ SI ALGO FALLA, NINGÚN MARCADOR (`SIN_MARCADORES`) — nunca los nombres del cliente de
+ * antes. Las razones de la dirección del error están en lib/closing-marcadores.ts: sin
+ * marcadores se analiza de más, que se ve en la pantalla y en la factura (y la paga la clave
+ * del propio negocio desde IA12); descartar una venta no se ve en ningún lado. Los prefijos
+ * `SERVICIO:` / `COACHING:` siguen valiendo igual, así que el detector no queda en cero.
+ *
+ * ⚠️ SIN CACHÉ, igual que `taxonomiaDelNegocio`: son 3 lecturas UNA vez por corrida, al lado de
+ * llamadas a Claude de hasta 120 s que se pagan.
+ */
+async function marcadoresDelWorkspace(): Promise<Marcadores> {
+  try {
+    if ((await getWorkspaceActual()) == null) return SIN_MARCADORES; // sin negocio resuelto no se adivina
+    const [ofertas, productos, stages] = await Promise.all([
+      listarOfertas(), listProductos(), getPipelineStagesDefault(),
+    ]);
+    const deReunion = new Set(reunionesDe(stages));
+    const rotulos = stages.filter((s) => deReunion.has(s.key)).map((s) => s.label);
+    return marcadoresDe([...ofertas.map((o) => o.nombre), ...productos.map((p) => p.nombre)], rotulos);
+  } catch (e) {
+    console.error(`[closing] no pude leer cómo llama este negocio a lo que entrega: ${e instanceof Error ? e.message : String(e)}`);
+    return SIN_MARCADORES;
+  }
+}
+
+/**
  * Pre-clasificación barata. Devuelve la categoría si se puede decidir sin
  * Claude, o null si la llamada es CANDIDATA a venta y necesita análisis.
  */
-export function preClassify(m: Reunion, internos: Internos = SIN_INTERNOS): ClosingCategory | null {
+export function preClassify(m: Reunion, internos: Internos = SIN_INTERNOS, marcadores: Marcadores = SIN_MARCADORES): ClosingCategory | null {
   const title = m.titulo;
   const dur = duracionMin(m);
   const externals = emailsExternos(m).filter((e) => !esInterno(e, internos));
@@ -191,8 +241,9 @@ export function preClassify(m: Reunion, internos: Internos = SIN_INTERNOS): Clos
   if (RE_TEST.test(title)) return 'test';
   if (dur != null && dur < 4) return 'test';
 
-  // Entrega de servicio nombrada explícitamente (aunque haya invitado externo).
-  if (RE_SERVICIO_EXPLICITO.test(title)) return 'entrega_servicio';
+  // Entrega de servicio nombrada explícitamente (aunque haya invitado externo): el prefijo de
+  // la app, o el nombre de un programa de ESTE negocio sin señal de venta en el mismo título.
+  if (esEntregaExplicita(title, marcadores)) return 'entrega_servicio';
 
   // Con prospecto externo → candidata a venta (Claude decide venta/servicio).
   if (externals.length > 0) return null;
@@ -1033,10 +1084,10 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
 
   const candidatas: Reunion[] = [];
 
-  // Quién es «de casa» EN ESTE workspace. Se resuelve UNA vez por corrida y se
-  // pasa: si cada llamada a preClassify lo leyera solo, serían N consultas para
-  // un dato que no cambia en el medio del barrido.
-  const internos = await internosDelWorkspace();
+  // Quién es «de casa» EN ESTE workspace, y cómo llama a lo que entrega. Se resuelven UNA vez
+  // por corrida y se pasan: si cada llamada a preClassify los leyera sola, serían N consultas
+  // para datos que no cambian en el medio del barrido.
+  const [internos, marcadores] = await Promise.all([internosDelWorkspace(), marcadoresDelWorkspace()]);
 
   // ⚠️ LA MISMA REUNIÓN DE DOS GRABADORES (revisión del tren m, 26/10/2026): con Fathom y tl;dv grabando la misma llamada
   // había dos claves, dos análisis y dos filas (score y conteos duplicados). Se procesa UNA: la copia que ya tiene fila
@@ -1049,7 +1100,7 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
     if (!Number.isFinite(m.clave)) continue;
     if (done.has(m.clave)) { result.ya_procesadas++; continue; }
     if (!leTocaA(m, gemelas.get(m.clave) ?? [], (x) => conFila.has(x.clave))) { result.gemelas = (result.gemelas ?? 0) + 1; continue; }
-    const cat = preClassify(m, internos);
+    const cat = preClassify(m, internos, marcadores);
     if (cat !== null) {
       // Descartable sin Claude.
       const lead = matchMeetingToLead(m, leadsByEmail);

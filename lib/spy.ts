@@ -62,7 +62,7 @@ import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { faltaLaColumnaDeMedio, gruposDeMedio, medioDeInstagram, type Medio } from './spy-medio';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
-import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, esperaMasVieja, leerRegistro } from './spy-caricatura-reglas';
 import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, GUIA_DE_FORMATOS, formatoDe } from './spy-detalle';
@@ -179,7 +179,12 @@ export const AUN_SIN_TABLAS = 'Competitors Spy todavía no tiene sus tablas en l
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Los competidores del negocio, el que se miró más tarde primero. */
-export async function listarCompetidores(): Promise<{ ok: true; competidores: Competidor[] } | { ok: false; error: string }> {
+/**
+ * ⚠️ `caricaturasDesde` es para el SUPER ADMIN: desde cuándo espera la caricatura pendiente más vieja de este negocio. Si
+ * crece, el Runner no está generando (la causa conocida: su cuenta de Claude sin Canva, que no anota ningún error), y hasta
+ * el 6/11/2026 eso no se veía en NINGUNA pantalla: sólo corriendo `scripts/spy-caricaturas-pendientes.mjs` a mano.
+ */
+export async function listarCompetidores(): Promise<{ ok: true; competidores: Competidor[]; caricaturasDesde: string | null } | { ok: false; error: string }> {
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
@@ -187,13 +192,15 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const registro = leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null));
   const caricaturas = caricaturasListas(registro);
   const ahora = Date.now();
+  const filas = (data ?? []) as Competidor[];
   return {
     ok: true,
-    competidores: ((data ?? []) as Competidor[]).map((c) => ({
+    competidores: filas.map((c) => ({
       ...c,
       caricatura: caricaturas.get(c.id) ?? null,
       caricaturaPendiente: caricaturaEnCamino(registro[String(c.id)], { avatar: c.avatar, referente: !!referenteDeCompetidor(c) }, ahora),
     })),
+    caricaturasDesde: esperaMasVieja(registro, filas.map((c) => ({ id: c.id, avatar: c.avatar, referente: !!referenteDeCompetidor(c) })), ahora),
   };
 }
 

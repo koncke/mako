@@ -541,8 +541,20 @@ export const TOPES = {
   texto: 4_000,
   /** Cuántos competidores por negocio: cinco competidores bien mirados, no un directorio. */
   competidores: 25,
-  /** Cuántas piezas se traen de un canal por vuelta. */
+  /**
+   * Cuántas piezas se traen DE AFUERA de un canal por vuelta (hoy, el canal de YouTube). Cada pieza cuesta una llamada
+   * o un crédito, así que subirlo tiene precio: para un competidor que publica mucho está la lectura completa
+   * (`VIDEOS_POR_LECTURA_COMPLETA`, lib/spy-youtube.ts), que es el camino de «traer todo».
+   * ⚠️ NO gobierna Meta ni Apify, que tienen el suyo (`PIEZAS_A_LEER` y `PIEZAS_DE_APIFY`, lib/instagram-perfil.ts): en
+   * la Graph API un límite que Meta no acepte tira la consulta ENTERA, y eso no se sube sin poder medirlo.
+   */
   piezasPorVuelta: 50,
+  /**
+   * Cuántas piezas entran de UNA captura del navegador (la Biblioteca de Anuncios abierta en su pestaña). Más alto a
+   * propósito: traer de afuera cuesta; lo capturado **ya está bajado en la pantalla de la persona**, y cortarlo es
+   * pérdida pura. El techo de verdad lo pone la captura (`TOPE_TOKENS`, 20.000 tokens ≈ unos 2.800 anuncios).
+   */
+  piezasDeUnaCaptura: 200,
 } as const;
 
 /** Lo que `queEs` (lib/spy.ts) devuelve: el canal que se reconoció en lo que se pegó. */

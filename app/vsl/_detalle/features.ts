@@ -644,7 +644,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Separa venta de entrega de servicio, sola",
         bullets: [
-          "Un <strong>triage barato sin IA</strong> descarta antes de gastar Claude: internas del equipo, tests y demos (menos de 4 min o título \"test/prueba\") y entrega de servicio nombrada explícitamente (\"SERVICIO:\", \"COACHING:\", weeklies, Scaling Up). Solo las candidatas reales llegan al análisis.",
+          "Un <strong>triage barato sin IA</strong> descarta antes de gastar Claude: internas del equipo, tests y demos (menos de 4 min o título \"test/prueba\") y entrega de servicio nombrada explícitamente (\"SERVICIO:\", \"COACHING:\", o el nombre de <strong>tus</strong> programas, que MaKo saca de tus ofertas y productos). Solo las candidatas reales llegan al análisis.",
           "Claude es el <strong>árbitro final venta-vs-entrega usando el estado del lead como pista fuerte</strong>: un lead ya <em>ganado</em> con cierre anterior a la llamada se lee como coaching, no venta — aunque el título no lo diga.",
           "Las sesiones de servicio se cuentan aparte y <strong>se excluyen del score</strong>, para que el coaching de clientes activos no ensucie tus métricas de cierre.",
           "El match llamada↔lead es por el email del invitado externo de calendario o el share_url ya guardado en la ficha — sin taggear nada a mano.",
