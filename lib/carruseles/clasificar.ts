@@ -27,13 +27,19 @@
 // 40. **Lo que falta no es idioma: son inglés y español, que ya estaban cubiertos.** Y no clasifican porque EL PIE NO DICE EL
 // TIPO: mirando el corpus, la mayoría son publicaciones que no tienen tipo que encontrar —avisos inmobiliarios (baños,
 // recámaras, m2), recetas y comida (tsp, tbsp, meal prep), ropa, saludos de Halloween, cumpleaños, festejos de equipo,
-// encuestas de una línea—, que entraron por los 32 temas (hashtags) prendidos, no por las cuentas de la lista. Se comprobó
-// también por otro lado: los sustantivos que siguen a un número en ese corpus son unidades («years» 14, «hours» 11, «days» 9,
-// «minutes» 8, «meses» 7, «baños», «recámaras», «tsp»), no marcadores de lista.
-// POR ESO: ampliar reglas acá da ~70 piezas más y ahí se termina. **El 85 % sin tipo no se arregla en el clasificador: se
-// arregla CURANDO la biblioteca** (apagar los temas que traen cualquier cosa y esconder lo que no le sirve a un dueño de
-// negocio: `scripts/carruseles-biblioteca.mts`, comandos `tema`, `ocultar` y `excluir`). Un carrusel de verdad que no diga su
-// tipo en el pie sólo lo dice en sus LÁMINAS, y leerlas pide crédito de Apify.
+// encuestas de una línea—. Se comprobó también por otro lado: los sustantivos que siguen a un número en ese corpus son
+// unidades («years» 14, «hours» 11, «days» 9, «minutes» 8, «meses» 7, «baños», «recámaras», «tsp»), no marcadores de lista.
+//
+// ⚠️ Y DE DÓNDE SALEN NO ES DE LOS HASHTAGS. Era la corazonada obvia (y se escribió acá antes de medirla, mal): se midió por
+// fuente y los 32 temas son la parte CHICA, con el mismo problema y menos ruido que las cuentas curadas:
+//     por CUENTA de la lista: 1.190 piezas · 720 visibles · 984 sin tipo (83 %) · 174 fuera de rubro (15 %)
+//     por TEMA (hashtag):       280 piezas · 192 visibles · 229 sin tipo (82 %) ·  32 fuera de rubro (11 %)
+// Apagar los 32 temas saca 280 de 1.470 (192 visibles) y no mueve el porcentaje. **Lo que llena la biblioteca de ruido son
+// las 196 cuentas de la lista**, que publican de todo además de carruseles.
+// POR ESO: ampliar reglas acá da 66 piezas y ahí se termina. **El 85 % sin tipo no se arregla en el clasificador: se arregla
+// CURANDO cuenta por cuenta** (`scripts/carruseles-biblioteca.mts`, comandos `ocultar`, `excluir` y `sacar`; el detalle y las
+// peores cuentas medidas, en docs/hallazgos-carruseles.md). Un carrusel de verdad que no diga su tipo en el pie sólo lo dice
+// en sus LÁMINAS, y leerlas pide crédito de Apify.
 //
 // «PARECE CONTENIDO» (para el orden, nunca para esconder): una señal MEDIBLE con tres valores.
 //   · true: dice algo de contenido — tiene tipo, pide algo al final (guardar, comentar, compartir…), o Instagram dice que la

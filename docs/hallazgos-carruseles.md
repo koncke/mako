@@ -543,15 +543,33 @@ alemán ni inglés», y pedía ampliarlo. Se midió el idioma de los **1.205 car
 falta está en inglés y español, **que ya estaban cubiertos**. Dos mediciones dicen por qué no entran:
 
 1. **El pie no dice el tipo, y la mayoría de esas publicaciones NO TIENEN tipo que encontrar.** Mirando el corpus son avisos
-   inmobiliarios, recetas, ropa, saludos de Halloween, cumpleaños, festejos de equipo, encuestas de una línea: entraron por los
-   **32 temas (hashtags) prendidos**, no por las cuentas de la lista.
+   inmobiliarios, recetas, ropa, saludos de Halloween, cumpleaños, festejos de equipo, encuestas de una línea.
 2. **Los sustantivos que siguen a un número en ese corpus son UNIDADES, no marcadores de lista:** «years» 14, «hours» 11,
    «days» 9, «minutes» 8, «meses» 7, y después «baños», «recámaras», «tsp», «tbsp». Sumarlos a la lista sería inventar.
 
-**La regla que queda: el 85 % sin tipo no se arregla en el clasificador, se arregla CURANDO la biblioteca** (apagar los temas
-que traen cualquier cosa y esconder lo que no le sirve a un dueño: `scripts/carruseles-biblioteca.mts`, comandos `tema`,
-`ocultar`, `excluir`). Un carrusel de verdad que no diga su tipo en el pie sólo lo dice en sus LÁMINAS, y eso pide crédito de
-Apify. Ampliar reglas acá da **66 piezas y ahí se termina**; están medidas y puestas:
+### Y el ruido NO viene de los hashtags: viene de las cuentas de la lista (medido después de escribir lo contrario)
+
+La corazonada obvia era que esas publicaciones entraron por los 32 temas prendidos, y **se escribió acá antes de medirla**.
+Medido por fuente, es al revés: los temas son la parte chica, con el **mismo** porcentaje sin tipo y **menos** ruido que las
+cuentas curadas.
+
+| fuente | piezas | visibles | sin tipo | fuera de rubro |
+|---|---|---|---|---|
+| por CUENTA de la lista | 1.190 | 720 | 984 (**83 %**) | 174 (**15 %**) |
+| por TEMA (hashtag) | 280 | 192 | 229 (**82 %**) | 32 (**11 %**) |
+
+**Apagar los 32 temas saca 280 de 1.470 (192 visibles) y no mueve el porcentaje.** Lo que llena la biblioteca de ruido son las
+**196 cuentas de la lista**, que publican de todo además de carruseles. Las peores medidas (con al menos 4 piezas visibles, por
+porcentaje fuera de rubro): **@froyaorganics 86 %** (6 de 7), @aluncreative 50 %, @livevitae 50 %, **@smrt.cc 36 %** (5 de 14,
+las 14 visibles), @beautyinc 33 %, @femaleinvest 30 %, @themiagabriella 29 %, @girls.in.research 25 %, @jesseitzler 23 %. Y las
+que más lugares ocupan sin tipo: @reputeforge (14 de 14 sin tipo), @thelangspace, @wethinkdeeply, @reynardlowell,
+@sweetorangepeeel, @thesenuka, @myadhdventure (todas 100 % sin tipo, 8 a 14 piezas visibles cada una).
+
+**La regla que queda: el 85 % sin tipo no se arregla en el clasificador, se arregla CURANDO cuenta por cuenta**
+(`scripts/carruseles-biblioteca.mts`, comandos `ocultar`, `excluir`, `sacar`) — y es trabajo de una persona mirando, porque ya
+se midió que el filtro automático no sirve (ver «Sólo lo que le sirve a un dueño de negocio»). Un carrusel de verdad que no
+diga su tipo en el pie sólo lo dice en sus LÁMINAS, y eso pide crédito de Apify. Ampliar reglas acá da **66 piezas y ahí se
+termina**; están medidas y puestas:
 
 - **La lista con dos palabras entre el número y el sustantivo** («5 **simple seo** tips», «6 **social media** facts»): con una
   sola se escapaban. Con tres no entra ninguna más, así que el límite quedó en dos.
@@ -598,7 +616,10 @@ cambio sin efecto (renombrar `LISTA_FRASES`) deja los 13 verdes.
   `lib/carruseles/biblioteca-servidor.ts` → `bibliotecaParaEditar`).
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
   correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
-- Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
+- Los 32 temas de hashtag siguen prendidos. **Medido el 6/11 a la noche: apagarlos saca 280 piezas de 1.470 (192 visibles) y
+  NO mueve el 83 % sin tipo, porque traen menos ruido que las cuentas curadas (11 % contra 15 % fuera de rubro).** Decidirlo
+  sigue pendiente, pero ya no es la palanca que parecía: la palanca son las 196 cuentas de la lista (ver la entrada del
+  clasificador, con las peores medidas una por una).
 - **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). Lo que queda: el mismo TEMA de un
   creador (las de meal prep) NO se junta, porque son carruseles distintos del mismo rubro; juntarlos pide clasificar el tema, y
   eso no existe todavía. Y «you can find anything on the internet» ya no está en la base (0 piezas el 6/11): el ejemplo del
