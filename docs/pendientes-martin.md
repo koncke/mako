@@ -34,33 +34,24 @@ por esto («que los dashboards sean editables, sean utilizables»).
 - ⚠️ **Lo que NO probé, a propósito:** que GUARDAR un cambio persista. Eso escribe en el tablero real
   de Martín en producción, y no se toca su tablero para probar. Lo prueba él, o se hace en el ws 3.
 
-**⚠️ `punta/github-minutos` — REVISADA el 6/11: el script está bien, pero SU ALARMA DA ROJO TODOS LOS
-DÍAS Y ES FALSA.** El relevo ya lo decía («dice US$51,87 y da rojo todos los días: es falsa») y acá
-están los dos números juntos, medidos el mismo día:
+**✅ `punta/github-minutos` — HECHO y VERIFICADO el 7/11. La alarma ya no miente** (commit
+`3181c4568`, en main). Este bloque describía el estado ANTERIOR al arreglo: las dos causas que
+listaba como «SIN confirmar» ya están resueltas, y se comprobó leyendo el código y corriendo
+los tests, no la cabecera.
 
-| | |
+| lo que decía el tablero | cómo está hoy |
 |---|---|
-| Lo que estima `scripts/minutos-actions.mjs` (1 al 6/11) | **US$52,07** · 8.678 minutos facturables · «el mes cerraría en US$345» |
-| Lo que dice el panel de facturación de GitHub | **US$15,94** de US$30 |
+| «los minutos incluidos están en 0 a propósito» | `incluidos` cae en **2.000** por defecto (el plan Free de `hola-mako`), `scripts/minutos-actions.mjs:268` |
+| «la alarma juzga la estimación, que sobre-cuenta» | `veredicto()` da rojo **sólo** sobre el facturable REAL de GitHub; sin ese número avisa en amarillo y sale 0 (`:224-233`) |
 
-**Es 3,3 veces de más, y por eso el aviso ya no significa nada: avisa igual todos los días.** Una
-alarma que siempre suena entrena a todo el mundo a ignorarla, y el día que el gasto sea de verdad
-nadie la va a mirar.
+**Y la cabecera vieja decía una cosa falsa que es la razón de que la alarma mintiera días:** que el
+facturable real «el `GITHUB_TOKEN` de Actions no puede leer». Lo que no puede leer es el panel de
+Settings → Billing; el facturable por workflow (`/actions/workflows/{id}/timing`) **sí**, y el repo
+ya usaba ese endpoint en `scripts/tests-afectados.mjs`. Estaba a la vista.
 
-**Lo que el propio script ya dice de sí mismo** (está en su cabecera, no es un descubrimiento):
-«ES UNA ESTIMACIÓN… El dato real es el panel de facturación de GitHub, que el `GITHUB_TOKEN` de
-Actions no puede leer». O sea que la alarma **no puede** ver el número bueno.
-
-**Las dos causas candidatas, SIN confirmar** (hace falta medirlas antes de tocar nada):
-1. **Los minutos incluidos del plan están en 0 a propósito** (`--incluidos 0`). Si el plan incluye
-   2.000-3.000 minutos, la estimación los cobra todos y se va para arriba.
-2. **Las corridas que no ejecutaron ningún job igual cuentan.** Medido: el workflow «después del
-   deploy» tiene **834 corridas y 679 minutos facturables** en el mes, a ~0,8 min cada una; la
-   mayoría son corridas cuyos jobs se saltearon por su `if`, y GitHub **no cobra un job salteado**.
-
-**Lo que hay que hacer, y NO es subir el umbral:** que la alarma deje de dar rojo sobre una
-estimación que ella misma sabe que es alta. O resta los minutos incluidos del plan y no cuenta las
-corridas sin job, o avisa en amarillo diciendo «estimado, el panel dice otra cosa».
+`tests/minutos-actions.test.ts` **6/6**, y dos de ellos guardan justo esto: «el veredicto: rojo SÓLO
+sobre el facturable real de GitHub; sobre la estimación, nunca» y «sin el facturable real de GitHub,
+la estimación NO da rojo: avisa».
 
 **Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
 
