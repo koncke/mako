@@ -24,7 +24,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { fasesDesde } from '@/app/_ui/armado-en-vivo';
 import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
-import { eventosDe, type EventoReplica } from '@/lib/carruseles/replica';
+import { eventosDe, fasesSegunLaIA, type EventoReplica } from '@/lib/carruseles/replica';
 import type { Carrusel } from '@/lib/carruseles/explorar';
 import type { Thumbnail } from '@/lib/thumbnails/explorar';
 import { rutaDiseno } from '../ruta';
@@ -131,7 +131,9 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, onCerrar }: 
     }
   }, [fin, visibles, paginas.length, abrir]);
 
-  const fases = fasesDesde(ej.fases, fin ? null : fase, { terminado: !!fin, fallo: !!error });
+  // ⚠️ `fin.sinIA` CAMBIA EL TEXTO DE UNA FASE, y no es cosmético: sin esto, «Escribo tu versión con tu IA»
+  // quedaba en verde justo encima del aviso que dice que no hay IA conectada (medido en producción el 7/11).
+  const fases = fasesDesde(fasesSegunLaIA(ej.fases, !!fin?.sinIA), fin ? null : fase, { terminado: !!fin, fallo: !!error });
   const quien = ej.quien;
   const vistas = paginas.slice(0, visibles);
   // Sin nada armado y con un error, la tira de cuadros vacíos no promete nada: se va.

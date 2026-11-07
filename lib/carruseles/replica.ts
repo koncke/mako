@@ -536,3 +536,32 @@ export function documentoGuiaMiniatura(o: { marca: Marca; nuevoId: () => string;
     pages: [{ id: o.nuevoId(), name: 'Miniatura', background: { type: 'solid', color: fondo }, objects: objetos, ...(o.notas ? { notes: o.notas } : {}) }],
   };
 }
+
+/**
+ * El texto de las fases cuando la IA NO escribió nada.
+ *
+ * ⚠️ ESTO ARREGLA UN ÉXITO FALSO, MEDIDO EN PRODUCCIÓN EL 7/11/2026. Se replicó un carrusel en un workspace sin
+ * IA conectada: las tres fases quedaron en verde —«Leo sus láminas», **«Escribo tu versión con tu IA»**, «Armo
+ * el diseño editable»— y abajo, en el mismo cuadro, el aviso decía «Conecta tu Claude, tu GPT o tu Gemini y
+ * MaKo escribe los textos con lo de tu negocio. Por ahora, cada lámina trae una guía».
+ *
+ * O sea: un tilde verde afirmando que escribió con la IA, justo encima del texto que dice que no la hay. El
+ * servidor SÍ lo sabe (`sinIA: true` en el evento `fin`): el dato estaba y la pantalla no lo usaba.
+ *
+ * Y es la familia de falla más cara que este repo tiene escrita: un aviso que contradice a otro no confunde
+ * sólo sobre ese punto — hace desconfiar de todos los demás. Acá además manda a la persona a buscar en el
+ * diseño unos textos suyos que nadie escribió.
+ *
+ * Se cambia el TEXTO y no el estado a propósito: la fase sí terminó y sí produjo láminas. Lo único falso era
+ * el «con tu IA». Marcarla como fallo diría otra mentira —no falló— y tocar el estado obligaría a cambiar
+ * `fasesDesde`, que lo comparten Replicar, Automations, los editores y los dashboards.
+ */
+export function fasesSegunLaIA(
+  fases: readonly { id: string; texto: string }[],
+  sinIA: boolean,
+): { id: string; texto: string }[] {
+  if (!sinIA) return fases.map((f) => ({ id: f.id, texto: f.texto }));
+  return fases.map((f) => (
+    f.id === 'escribir' ? { id: f.id, texto: 'Dejo una guía en cada lámina (todavía no conectaste tu IA)' } : { id: f.id, texto: f.texto }
+  ));
+}
