@@ -10,10 +10,12 @@
 // programador de /instagram, con un aviso para conectar la cuenta. Salieron con la
 // tab Instagram (decisión de Martín): la secuencia se copia y se publica a mano.
 //
-// El historial NO persiste: el patrón writer del repo no tiene tabla genérica de
-// historial (landing_drafts es propia del Landing Generator) y una migración
-// nueva colisiona con la numeración de otras corridas — así que vive en memoria
-// de la sesión de página, dicho honesto en la UI (anotado en pendientes).
+// ⚠️ ESTA PANTALLA NO TIENE ENTRADA desde el 29/10/2026: ./page.tsx redirige al Copywriter
+// (y queda para borrarla en otra tanda, docs/relevo). Por eso su historial sigue en memoria
+// y la UI lo dice: el que SÍ persiste, desde el 6/11/2026, es el de `generarSecuenciaAction`
+// (lib/ig-historial.ts, app_settings por workspace, tope 10), y lo lee el teléfono
+// (app/m/stories). Si alguien revive esta pantalla, lo que corresponde es sembrarla con
+// `historialStoriesAction()` como hace la page del teléfono, no volver a escribir el porqué.
 
 import { useCallback, useState, type CSSProperties } from 'react';
 import { Pagina, PageHeader, Alert, Button } from '@/app/_ui';

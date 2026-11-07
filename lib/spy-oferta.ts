@@ -168,6 +168,16 @@ export function hayQueLeer(g: OfertaDeCompetidor | null, webs: readonly string[]
   return ahora - ms(g.desde) >= esperaTrasFallos(g.fallos);
 }
 
+/**
+ * Lo guardado, listo para volver a leerse YA. Una página capturada con la extensión es información nueva: sin esto, su oferta
+ * se iba a leer recién al día siguiente (`ESPERA_TRAS_FALLO_MS`) o a la semana con tres fallos, y la persona que acaba de
+ * capturarla no veía nada. `null` cuando no hay nada que destrabar (lo último no fue un «no pude»).
+ */
+export function sinEspera(g: OfertaDeCompetidor | null): OfertaDeCompetidor | null {
+  if (!g || g.estado !== 'no-pudo') return null;
+  return { ...g, fallos: 0, desde: new Date(0).toISOString() };
+}
+
 /** La huella de lo que dicen sus webs (FNV-1a sobre el texto sin espacios de más): igual texto, igual huella. */
 export function huellaDe(paginas: ReadonlyArray<PaginaLeida>): string {
   const t = paginas.map((p) => `${webComparable(p.url)}\n${p.texto.replace(/\s+/g, ' ').trim()}`).join('\n\n');
@@ -192,6 +202,11 @@ export type DepsOferta = {
   nuevoIntento: () => string;
   /** Las páginas suyas que enlaza una página de enlaces (beacons, linktree). Vacío si no pudo. */
   enlacesDe?: (url: string) => Promise<string[]>;
+  /**
+   * Lo que la persona YA guardó de esa misma página con la extensión («Capturar», en «Sus páginas»). Es el PLAN B: se usa
+   * sólo cuando el servidor no pudo bajarla o lo que bajó casi no tiene texto. `null` si de esa dirección no hay nada.
+   */
+  capturada?: (url: string) => Promise<PaginaLeida | null>;
 };
 
 export type Reclamo =
@@ -256,14 +271,25 @@ export async function leerSuOferta(
   const paginas: PaginaLeida[] = [];
   const errores: string[] = [];
   for (const url of sinRepetir(aLeer.length ? aLeer : actual.urls).slice(0, MAX_PAGINAS)) {
+    // ⚠️ LA BAJADA DEL SERVIDOR MANDA, Y LA CAPTURADA ES EL PLAN B (6/11/2026). Una web con barrera (el «comprueba que eres
+    // una persona» de Cloudflare en el Beacons de Den Borg) no se baja desde el servidor, y su oferta quedaba sin leer AUNQUE
+    // la persona ya hubiera guardado esa misma página desde su navegador. El desafío NO se evade: se usa lo que ella ya miró.
+    // Y al revés no: una captura es de cuando se capturó, y lo que el servidor puede bajar hoy está más fresco.
+    let leida: PaginaLeida | null = null;
+    let porque = '';
     try {
       const p = await deps.bajar(url);
-      const texto = p.texto.trim();
-      if (texto.length < MIN_TEXTO) { errores.push(`${url}: casi no tiene texto`); continue; }
-      paginas.push({ url: p.url || url, titulo: p.titulo.trim(), texto: texto.slice(0, TOPE_TEXTO_PAGINA) });
+      if (p.texto.trim().length >= MIN_TEXTO) leida = p;
+      else porque = 'casi no tiene texto';
     } catch (e) {
-      errores.push(`${url}: ${msg(e)}`);
+      porque = msg(e);
     }
+    if (!leida && deps.capturada) {
+      const g = await deps.capturada(url).catch(() => null);
+      if (g && g.texto.trim().length >= MIN_TEXTO) leida = g;
+    }
+    if (!leida) { errores.push(`${url}: ${porque || 'casi no tiene texto'}`); continue; }
+    paginas.push({ url: leida.url || url, titulo: leida.titulo.trim(), texto: leida.texto.trim().slice(0, TOPE_TEXTO_PAGINA) });
   }
   if (!paginas.length) {
     if (errores.length) console.warn(`[spy-oferta] no pude leer sus webs: ${errores.join(' · ').slice(0, 600)}`);

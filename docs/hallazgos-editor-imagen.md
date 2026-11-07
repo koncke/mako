@@ -777,7 +777,11 @@ verificaba que NO estuvieran. Los que se rompían eran otros, y eran siete archi
   eran los ÚNICOS archivos de `public/cv/`, así que al borrarlos `cv` quedó en la lista de carpetas que `proxy.ts`
   saltea por extensión sin tener nada que servir. No lo vio ningún grep de este cambio: lo cazó
   `tests/proxy-matcher-completo.test.ts` («sólo abre un hueco») en Actions. **Regla:** una carpeta de `public/` que se
-  vacía SALE de esa lista, igual que una nueva entra. El comentario de `proxy.ts` ahora lo dice.
+  vacía SALE de esa lista, igual que una nueva entra. El comentario de `proxy.ts` ahora lo dice. **Medido en las dos
+  direcciones** (base 5/0): con `cv` en la lista y la carpeta vacía, 4/1; con un archivo en `public/cv/` y `cv`
+  FUERA de la lista, 4/1 («estos archivos pasan por el proxy: sin sesión, un visitante recibe el login en vez del
+  archivo»). ⚠️ Para la segunda, el archivo tiene que estar **en el índice de git**: ese test lee `public/` con
+  `git ls-files`, no del disco.
 
 **Los tres rojos del primer push, y que ninguno era un test «ya adaptado»** (corrida 455): el typecheck cazó un
 `c.plantilla` que quedó en el test del carrusel (el campo se había ido del tipo), `image-plantillas-reales-crear` fijaba
@@ -788,6 +792,18 @@ cambio, no el entorno:** se arreglaron en un ciclo. El cuarto rojo de esa corrid
 **Lo que el panel «Diseño» muestra ahora:** nada, a propósito. `PLANTILLAS` y `CATEGORIAS` se fueron enteras (ocho
 categorías con 0 no llevan a ningún lado) y el texto del panel manda a donde SÍ hay plantillas:
 `templates.empty` = «Las plantillas están en «Nuevo diseño».» (`_doory/editor/strings.ts`).
+
+**Medido en la PC, no sólo en Actions (6/11/2026, 3,2 GB libres).** Los ocho archivos de test que toca el borrado,
+juntos: **57 pasan / 0 fallan en 82 s** (`node --import tsx --test --test-concurrency=2`, por el turno de
+`C:/dev/con-turno.mjs`). Toda la ventana anterior la PC estuvo entre 0,8 y 1,7 GB libres y la guardia bloquea
+`node --test` bajo 3 GB, así que hasta acá el veredicto era el de Actions. Las roturas, de a una y restaurando, están
+en el pie de cada test; dos cosas que enseñaron:
+
+- **`documentoDePlantilla` de vuelta rompe DOS tests, no uno** (5/2): el 3 lo caza leyendo el texto de
+  `imagen.run.ts`, y el 7 —el runner del área cargado en un node suelto con `--conditions=react-server`— se cae al
+  importar un símbolo que ya no existe. El guard contra la reincidencia no está solo.
+- ⚠️ **El guard lee `imagen.run.ts` SIN sacar los comentarios:** nombrar `catalogoPlantillas` ahí, aunque sea en un
+  comentario, lo pone rojo. Falla cerrado y se deja así.
 
 **Lo que quedó SIN hacer:**
 

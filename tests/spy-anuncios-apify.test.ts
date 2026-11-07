@@ -90,6 +90,9 @@ test('4. el crédito manda y está prendido', () => {
 test('5. la pantalla dice que no pauta en su lugar, con la Biblioteca, sin cartel', () => {
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   assert.match(app, /\{!anuncios\.length && sinAnuncios\[c\.id\] && \(\s*<p className="spy-aviso spy-aviso--suave spy-sin-anuncios">/);
-  assert.match(app, /Sin anuncios activos en Meta · lo miré el \{fechaCorta\(sinAnuncios\[c\.id\]\)\}/);
+  // Desde el 6/11/2026 la frase va en una plantilla: con un país que la Biblioteca no cubre se dice OTRA cosa, porque ahí
+  // nunca se pudo mirar (tests/spy-pais.test.ts, caso 5). Lo que no cambia es que con cobertura —o sin saber su país— se
+  // sigue diciendo esto, en el lugar de sus anuncios y sin cartel.
+  assert.match(app, /Sin anuncios activos en Meta · lo miré el \$\{fechaCorta\(sinAnuncios\[c\.id\]\)\}/);
   assert.doesNotMatch(app, /spy-error[^>]*>[^<]*anuncios/i, 'no pautar no es un error');
 });

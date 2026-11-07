@@ -59,6 +59,14 @@ export const PAISES: Pais[] = [
 
 export const PAIS_DEFAULT = 'MX';
 
+/** El nombre de un país por su ISO-2, para escribirlo en pantalla. Uno que no esté en la lista se dice como vino. */
+export const nombreDePais = (iso2: string): string =>
+  PAISES.find((p) => p.iso2 === (iso2 ?? '').trim().toUpperCase())?.nombre ?? (iso2 ?? '').trim().toUpperCase();
+
+/** ¿Es uno de los países de la lista? Lo que se guarda en una columna ISO-2 pasa por acá (el `check` de la base es de 2 letras). */
+export const esPaisConocido = (iso2: unknown): boolean =>
+  typeof iso2 === 'string' && PAISES.some((p) => p.iso2 === iso2.trim().toUpperCase());
+
 /** La lada que arranca seleccionada cuando todavía no hay número. */
 export const DIAL_DEFAULT = PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial;
 
