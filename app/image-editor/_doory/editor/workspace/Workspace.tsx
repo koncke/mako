@@ -12,10 +12,8 @@ import { LazyCommentPins } from './CommentPinsLoader'
 import { PageSlot } from './PageSlot'
 import { Rulers } from './Rulers'
 import { BottomBar } from './BottomBar'
-import { FollowBadge } from '../chrome/FollowBadge'
 import { PageGrid } from './PageGrid'
 import { LazyTimelinePreview } from './TimelineLoader'
-import { usePresenceTracking } from './usePresenceTracking'
 import styles from './Workspace.module.css'
 
 /**
@@ -80,7 +78,6 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   const lastScroll = useRef({ top: 0, left: 0 })
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
   const panning = spaceDown || tool === 'hand'
-  usePresenceTracking(scrollRef, artboards)
 
   const metrics = METRICS
   const layout = useMemo(
@@ -445,7 +442,6 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
           </div>
         </div>
         <LazyCommentPins scrollRef={scrollRef} artboards={artboards} />
-        <FollowBadge />
         <LazyTimelinePreview scrollRef={scrollRef} />
         {grid ? <PageGrid onClose={closeGrid} /> : null}
         {dropping ? <div className={styles.dropHint}>{t.panels.uploadHint}</div> : null}

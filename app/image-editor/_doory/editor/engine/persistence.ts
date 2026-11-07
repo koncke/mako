@@ -13,7 +13,6 @@ import type { EditorEngine } from './editor'
 import { renderPageToCanvas, canvasToBlob } from './render'
 import { pageSize } from './docOps'
 import { assertSaveable } from './assets'
-import { t } from '../strings'
 
 export const AUTOSAVE_DELAY_MS = 1500
 export const THUMBNAIL_WIDTH = 480
@@ -25,30 +24,7 @@ export function isRevisionConflict(err: unknown): boolean {
 export interface PersistenceCallbacks {
   onSaveStateChange?: (state: SaveState) => void
   onConflict?: () => void
-  /** A save was refused because a live-editing room holds the design (`409 use_realtime`): join the room. */
-  onUseRealtime?: () => void
 }
-
-/** The server refuses document saves of a design that has a live room. */
-export function isUseRealtime(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'use_realtime'
-}
-
-/**
- * While a live-editing room is connected the server stores the document, so the controller stops saving it: only a
- * new title still goes out (`saveTitle`), and "save now" asks the room to write the design (`flush`).
- */
-export interface LiveDelegate {
-  saveTitle(title: string): Promise<void>
-  flush(): Promise<void>
-  /** Stores the first page's thumbnail; absent for people who may not (only the owner draws it). */
-  saveThumbnail?(image: Blob): Promise<void>
-}
-
-const TITLE_DELAY_MS = 800
-/** While live, the thumbnail follows the first page this long after the last change, and at most this often. */
-const LIVE_THUMBNAIL_DELAY_MS = 5_000
-const LIVE_THUMBNAIL_EVERY_MS = 15_000
 
 export class PersistenceController {
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -60,10 +36,6 @@ export class PersistenceController {
   private callbacks: PersistenceCallbacks = {}
   private disposers: (() => void)[] = []
   private disposed = false
-  private live: LiveDelegate | null = null
-  private titleTimer: ReturnType<typeof setTimeout> | null = null
-  private thumbTimer: ReturnType<typeof setTimeout> | null = null
-  private lastThumbnailAt = 0
 
   constructor(private readonly engine: EditorEngine) {
     this.lastSavedDoc = engine.state.doc
@@ -76,11 +48,6 @@ export class PersistenceController {
     this.callbacks = callbacks
     if (this.engine.readOnly) return
     const unsub = this.engine.store.subscribe((state, prev) => {
-      if (this.live) {
-        if (state.doc.pages[0] !== prev.doc.pages[0]) this.scheduleLiveThumbnail()
-        if (state.title !== prev.title) this.onChange()
-        return
-      }
       if (state.doc !== prev.doc || state.title !== prev.title) this.onChange()
     })
     this.disposers.push(unsub)
@@ -107,63 +74,12 @@ export class PersistenceController {
 
   isDirty(): boolean {
     const s = this.engine.state
-    if (this.live) return s.title !== this.lastSavedTitle
     return s.doc !== this.lastSavedDoc || s.title !== this.lastSavedTitle
-  }
-
-  /** Hands the document over to a live-editing room (or takes it back with `null`: the next change saves normally). */
-  setLive(live: LiveDelegate | null): void {
-    this.live = live
-    if (this.timer) clearTimeout(this.timer)
-    if (this.titleTimer) clearTimeout(this.titleTimer)
-    if (this.thumbTimer) clearTimeout(this.thumbTimer)
-    this.timer = null
-    this.titleTimer = null
-    this.thumbTimer = null
-    if (!live && this.isDirty()) this.onChange()
-  }
-
-  /** Keeps the dashboard's thumbnail in step with the first page while the room holds the design. */
-  private scheduleLiveThumbnail(): void {
-    if (!this.live?.saveThumbnail || this.thumbTimer || this.disposed) return
-    const wait = Math.max(LIVE_THUMBNAIL_DELAY_MS, this.lastThumbnailAt + LIVE_THUMBNAIL_EVERY_MS - Date.now())
-    this.thumbTimer = setTimeout(() => {
-      this.thumbTimer = null
-      void this.saveLiveThumbnail()
-    }, wait)
-  }
-
-  private async saveLiveThumbnail(): Promise<void> {
-    const live = this.live
-    if (!live?.saveThumbnail) return
-    const doc = this.engine.state.doc
-    const image = await this.thumbnail(doc)
-    if (!image) return
-    try {
-      await live.saveThumbnail(image)
-      this.thumbnailPage = doc.pages[0]
-      this.lastThumbnailAt = Date.now()
-    } catch {
-      /* the thumbnail is a nicety: the next change tries again */
-    }
   }
 
   /** A title that came from the server is the saved one; it must not be sent back. */
   adoptTitle(title: string): void {
     this.lastSavedTitle = title
-  }
-
-  private async saveLiveTitle(): Promise<void> {
-    const live = this.live
-    if (!live) return
-    const title = this.engine.state.title
-    if (title === this.lastSavedTitle) return
-    try {
-      await live.saveTitle(title)
-      this.lastSavedTitle = title
-    } catch {
-      this.engine.toast(t.collab.titleNotSaved, 'error')
-    }
   }
 
   private setState(state: SaveState): void {
@@ -173,11 +89,6 @@ export class PersistenceController {
 
   private onChange(): void {
     if (this.disposed || this.engine.readOnly) return
-    if (this.live) {
-      if (this.titleTimer) clearTimeout(this.titleTimer)
-      this.titleTimer = setTimeout(() => void this.saveLiveTitle(), TITLE_DELAY_MS)
-      return
-    }
     if (this.engine.state.save.status === 'conflict') return
     if (!this.saving) this.setState({ status: 'dirty' })
     if (this.timer) clearTimeout(this.timer)
@@ -187,11 +98,6 @@ export class PersistenceController {
   /** Saves immediately (also the manual "retry" / Ctrl+S path). Resolves when the latest state is saved. */
   async saveNow(): Promise<void> {
     if (this.engine.readOnly) return
-    if (this.live) {
-      await this.saveLiveTitle()
-      await this.live.flush()
-      return
-    }
     if (this.timer) {
       clearTimeout(this.timer)
       this.timer = null
@@ -201,10 +107,6 @@ export class PersistenceController {
   }
 
   private async flush(force = false): Promise<void> {
-    if (this.live) {
-      await this.saveLiveTitle()
-      return
-    }
     if (this.timer) {
       clearTimeout(this.timer)
       this.timer = null
@@ -250,10 +152,7 @@ export class PersistenceController {
       )
       if (stillDirty) this.onChange()
     } catch (err) {
-      if (isUseRealtime(err)) {
-        this.setState({ status: 'dirty' })
-        this.callbacks.onUseRealtime?.()
-      } else if (isRevisionConflict(err)) {
+      if (isRevisionConflict(err)) {
         this.setState({ status: 'conflict' })
         this.callbacks.onConflict?.()
       } else {
@@ -278,8 +177,6 @@ export class PersistenceController {
   dispose(): void {
     this.disposed = true
     if (this.timer) clearTimeout(this.timer)
-    if (this.titleTimer) clearTimeout(this.titleTimer)
-    if (this.thumbTimer) clearTimeout(this.thumbTimer)
     for (const off of this.disposers) off()
     this.disposers = []
   }

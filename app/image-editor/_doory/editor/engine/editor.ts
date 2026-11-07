@@ -36,7 +36,6 @@ import type { CanvasWindow } from './layout'
 import {
   EMPTY_SELECTION,
   type EditorState,
-  type HistoryStatus,
   type EditorStore,
   type SelectionState,
   type Toast,
@@ -51,34 +50,11 @@ function border(obj: FabricObject): number {
   return obj.strokeUniform && !(obj instanceof ActiveSelection) ? obj.strokeWidth || 0 : 0
 }
 
-const NO_IDS: ReadonlySet<string> = new Set()
 
 export interface HistoryState {
   doc: DoryDocument
   activePageId: string
   selection: string[]
-}
-
-/** A user edit that has been applied to the store, as a live-editing session needs to hear about it. */
-export interface LocalChange extends CommitInfo {
-  activePageId: string
-  selection: string[]
-}
-
-/**
- * What the engine needs from a live-editing session (collab/session.ts). While one is attached, edits are shared
- * through it and undo / redo only touch this user's own changes; the snapshot history is not used.
- */
-export interface LiveSession {
-  /** `next` replaced `prev` because of something the user did. */
-  recordLocal(prev: DoryDocument, next: DoryDocument, change: LocalChange): void
-  /** The whole design was replaced (version restore) with `next`. */
-  replaceDocument(prev: DoryDocument, next: DoryDocument): void
-  undo(): Promise<void>
-  redo(): Promise<void>
-  /** Ends the current run of coalesced edits. */
-  seal(): void
-  historyStatus(): HistoryStatus
 }
 
 export interface EditorEngineOptions {
@@ -134,11 +110,6 @@ export class EditorEngine implements PageCanvasHost {
   private disposers: (() => void)[] = []
   private liveRaf = 0
   private disposed = false
-  private live: LiveSession | null = null
-  private liveReadOnly = false
-  private editLocks: ReadonlyMap<string, ReadonlySet<string>> = new Map()
-  /** Told when the user tries to edit text somebody else is editing (set by the live session). */
-  editBlockedHandler: ((pageId: string, id: string) => void) | null = null
 
   constructor(options: EditorEngineOptions) {
     this.adapter = options.adapter
@@ -225,78 +196,13 @@ export class EditorEngine implements PageCanvasHost {
 
   /** The user signed in (guest → account) or access changed. */
   setMode(mode: EditorMeta['mode']): void {
-    const readOnly = isReadOnlyMode(mode) || this.liveReadOnly
+    const readOnly = isReadOnlyMode(mode)
     this.store.setState((s) => ({ mode, readOnly, ui: readOnly ? { ...s.ui, panelId: null, tool: 'select' } : s.ui }))
-  }
-
-  /* -------------------------------------------------------------- live editing */
-
-  get liveSession(): LiveSession | null {
-    return this.live
-  }
-
-  /** Connects the engine to a live-editing session (see `LiveSession`); `null` returns to the snapshot history. */
-  attachLive(session: LiveSession | null): void {
-    this.live = session
-    if (session) this.history.clear({ doc: this.state.doc, activePageId: this.state.activePageId, selection: [] })
-    this.updateHistoryStatus()
-  }
-
-  /** The server says this user may only look (or may edit again): the editor follows. */
-  setLiveReadOnly(readOnly: boolean): void {
-    if (this.liveReadOnly === readOnly) return
-    this.liveReadOnly = readOnly
-    const locked = readOnly || isReadOnlyMode(this.state.mode)
-    this.store.setState((s) => ({ readOnly: locked, ui: locked ? { ...s.ui, panelId: null, tool: 'select' } : s.ui }))
-    for (const view of this.allViews()) {
-      view.setReadOnly(locked)
-      view.setCursor(this.cursorFor(this.tool))
-    }
-  }
-
-  /** Objects (per page) whose text somebody else is editing: they cannot enter text editing here. */
-  setRemoteEditLocks(locks: ReadonlyMap<string, ReadonlySet<string>>): void {
-    this.editLocks = locks
-    for (const [id, view] of this.views) view.setEditLocks(locks.get(id) ?? NO_IDS)
   }
 
   /** Leaves text editing on the active page. */
   stopEditingText(): void {
     this.activeView()?.stopEditing()
-  }
-
-  /**
-   * Applies a document that came from elsewhere (a collaborator, the server's first copy, the result of an
-   * undo): no history step, no autosave, only the canvases whose pages changed are touched and what the user is
-   * doing (selection, text being typed, an object being dragged) is left alone. Resolves when the canvases show it.
-   */
-  async applyRemoteDocument(doc: DoryDocument): Promise<void> {
-    const prev = this.state
-    if (this.disposed || doc === prev.doc) return
-    const keepActive = doc.pages.some((p) => p.id === prev.activePageId)
-    const activePageId = keepActive ? prev.activePageId : doc.pages[Math.min(Math.max(0, this.pageIndex(prev.activePageId)), doc.pages.length - 1)].id
-    this.store.setState({
-      doc,
-      activePageId,
-      docVersion: prev.docVersion + 1,
-      ...(keepActive ? {} : { selection: EMPTY_SELECTION }),
-    })
-    const syncs: Promise<void>[] = []
-    let resized = false
-    for (const [id, view] of this.views) {
-      const page = doc.pages.find((p) => p.id === id)
-      if (!page) continue
-      const size = pageSize(doc, page)
-      if (size.width !== view.pageSize.width || size.height !== view.pageSize.height) {
-        resized = true
-        syncs.push(view.resize(size, page).then(() => view.syncRemote(page)))
-      } else if (page !== view.loadedPage) {
-        syncs.push(view.syncRemote(page))
-      }
-    }
-    await Promise.all(syncs)
-    if (resized) this.view.relayout()
-    this.refreshSelection()
   }
 
   /* ---------------------------------------------------------------- documents */
@@ -324,8 +230,7 @@ export class EditorEngine implements PageCanvasHost {
       : doc.pages.some((p) => p.id === prev.activePageId)
         ? prev.activePageId
         : doc.pages[0].id
-    if (this.live) this.live.recordLocal(prev.doc, doc, { label: info.label, coalesceKey: info.coalesceKey, activePageId, selection: info.selection ?? [] })
-    else this.history.push({ doc, activePageId, selection: info.selection ?? [] }, { label: info.label, coalesceKey: info.coalesceKey })
+    this.history.push({ doc, activePageId, selection: info.selection ?? [] }, { label: info.label, coalesceKey: info.coalesceKey })
     this.store.setState({ doc, activePageId, docVersion: prev.docVersion + 1 })
     this.syncViews(doc)
     this.updateHistoryStatus()
@@ -348,19 +253,15 @@ export class EditorEngine implements PageCanvasHost {
   async loadDocument(raw: unknown): Promise<void> {
     const doc = migrateDocument(raw)
     this.openedDoc = doc
-    this.live?.replaceDocument(this.state.doc, doc)
     this.history.clear({ doc, activePageId: doc.pages[0].id, selection: [] })
     this.store.setState({ doc, activePageId: doc.pages[0].id, selection: EMPTY_SELECTION, docVersion: this.state.docVersion + 1 })
     this.syncViews(doc)
     this.updateHistoryStatus()
   }
 
-  /**
-   * True when the design differs from how it was opened (there is something to reset). Never while others edit it with
-   * the user: "how it was opened" is not theirs to take back.
-   */
+  /** True when the design differs from how it was opened (there is something to reset). */
   get canResetDesign(): boolean {
-    return !this.readOnly && !this.live && this.state.doc !== this.openedDoc
+    return !this.readOnly && this.state.doc !== this.openedDoc
   }
 
   /**
@@ -383,7 +284,6 @@ export class EditorEngine implements PageCanvasHost {
     const page = this.getPage(pageId)
     if (!page) throw new Error(`Unknown page ${pageId}`)
     const view = new PageCanvas(this, page, this.pageSizeOf(pageId), container)
-    view.setEditLocks(this.editLocks.get(pageId) ?? NO_IDS)
     this.views.set(pageId, view)
     this.store.setState((s) => ({ loadingPages: [...s.loadingPages.filter((id) => id !== pageId), pageId] }))
     void view
@@ -472,8 +372,7 @@ export class EditorEngine implements PageCanvasHost {
     const prev = this.state.doc
     const doc = replacePage(prev, next)
     const selection = view.selectedIds()
-    if (this.live) this.live.recordLocal(prev, doc, { ...info, activePageId: this.state.activePageId, selection })
-    else this.history.push({ doc, activePageId: this.state.activePageId, selection }, info)
+    this.history.push({ doc, activePageId: this.state.activePageId, selection }, info)
     this.store.setState({ doc })
     this.updateHistoryStatus()
     this.refreshSelection()
@@ -486,26 +385,16 @@ export class EditorEngine implements PageCanvasHost {
 
   private updateHistoryStatus(): void {
     const h = this.history
-    this.store.setState({ history: this.live ? this.live.historyStatus() : { canUndo: h.canUndo, canRedo: h.canRedo, undoLabel: h.undoLabel, redoLabel: h.redoLabel } })
+    this.store.setState({ history: { canUndo: h.canUndo, canRedo: h.canRedo, undoLabel: h.undoLabel, redoLabel: h.redoLabel } })
   }
 
-  /** Ends the current run of coalesced edits, in whichever history is in use. */
+  /** Ends the current run of coalesced edits. */
   sealHistory(): void {
     this.history.seal()
-    this.live?.seal()
-  }
-
-  /** The history status changed inside the live session (a step was added, undone or redone). */
-  refreshHistoryStatus(): void {
-    this.updateHistoryStatus()
   }
 
   async undo(): Promise<void> {
     if (this.readOnly) return
-    if (this.live) {
-      await this.live.undo()
-      return
-    }
     const label = this.history.undoLabel
     const s = this.history.undo()
     if (!s) return
@@ -515,10 +404,6 @@ export class EditorEngine implements PageCanvasHost {
 
   async redo(): Promise<void> {
     if (this.readOnly) return
-    if (this.live) {
-      await this.live.redo()
-      return
-    }
     const label = this.history.redoLabel
     const s = this.history.redo()
     if (!s) return
@@ -674,10 +559,6 @@ export class EditorEngine implements PageCanvasHost {
 
   onToolDone(): void {
     this.setTool('select')
-  }
-
-  onEditBlocked(pageId: string, id: string): void {
-    this.editBlockedHandler?.(pageId, id)
   }
 
   /* ---------------------------------------------------------------------- ui */
