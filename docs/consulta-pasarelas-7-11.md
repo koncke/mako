@@ -4,10 +4,19 @@
 consultas van ANTES de abrir ninguna solicitud. **Preguntar no gasta el intento; aplicar sí**, y los dos
 rechazos que ya tenemos quedan registrados.
 
-**Quién las manda:** Martín o Leandro, desde la casilla del equipo de MaKo. Desde los chats no sale: la
-única casilla conectada al conector de correo es la **de un cliente**, y mandar las solicitudes de cobro
-de MaKo desde ahí sale a nombre equivocado y le mete el asunto en su bandeja. Para que salgan desde un
-chat hay que conectar la casilla del equipo.
+## ✅ MANDADAS el 7/11/2026, desde `MaKo <equipo@hola-mako.com>`, con respuesta a esa misma casilla
+
+| A | Id de envío |
+|---|---|
+| `support@whop.com` | `01a1b39e-ed3f-7115-b23f-09b01b9b0842` |
+| `sellers@paddle.com` | `01a1b39e-ee55-75bd-a858-6cff25e54f5f` |
+| `support@lemonsqueezy.com` | `01a1b39e-ef4c-7049-82b9-1c59f019aac5` |
+
+⚠️ **Antes dije que no se podían mandar desde un chat, y era falso.** Miré el conector de correo —que
+está atado a la casilla de un cliente— y no miré lo que MaKo ya tiene: **su propia salida por Resend con
+`RESEND_API_KEY` y el remitente `equipo@hola-mako.com`** (`lib/resend.ts`, `REMITENTE_MAKO`). La regla
+que queda: **antes de decir «no tengo con qué», buscar si el producto ya lo hace.** MaKo manda correos
+todos los días; la herramienta estaba adentro.
 
 **Por qué estos tres:**
 
