@@ -874,3 +874,45 @@ textual, **«No pongas fotos ni personas»**. O sea: un negocio sin foto cargada
 
 **Vive en:** `lib/carruseles/clon-reglas.ts` · `tests/clon-desde-referencia.test.ts` ·
 `lib/carruseles/replica.ts` (el otro camino) · `lib/carruseles/replica-servidor.ts:215` (`conAvatar`).
+
+---
+
+## El «recuadro gris con su guía» de las láminas ya no existe — y lo que queda es otra pregunta (7/11/2026)
+
+Era el pendiente **más repetido de todo el inventario: estaba anotado CUATRO veces**, con cuatro
+títulos distintos («Una persona en una lámina que no es el cliente queda como un recuadro con su
+guía», «Las fotos de personas que no son el cliente quedan como un recuadro…», etc.), y clasificado
+como _cliente roto, grande_.
+
+**Verificado contra el código el 7/11: el recuadro se sacó el 6/11.** En `documentoDeReplica`
+(`lib/carruseles/replica.ts:363`) el único objeto que se dibuja donde el original tiene una persona
+es la foto del cliente:
+
+```ts
+const conFoto = !!(l.foto && l.foto.persona && o.foto);
+if (l.foto && l.foto.persona && o.foto) {
+  objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
+}
+```
+
+**No hay rama `else`.** Sin foto del cliente no se dibuja nada: la lámina queda en tipografía y
+color, y el propio archivo lo dice en su cabecera. Salió de un pedido textual de Martín del 6/11
+mirando el resultado: «letra serif, texto chiquito, mucho vacío y un recuadro gris "Tu foto": eso no
+se publicaría».
+
+Los `'Tu foto'` que quedan en `lib/carruseles/replica-servidor.ts:93,99,106` **no son un recuadro**:
+son el NOMBRE del archivo de imagen, y el de `:106` ya lo trae de **AI Avatar**.
+
+### Lo que SÍ queda abierto, y no es un error: es una decisión
+
+Hoy, donde el original muestra una persona, va **la cara del cliente**. En un carrusel con dos
+personas distintas, **el cliente aparece dos veces**. El pendiente pedía «generarla con la IA de
+imagen», y eso es plata por lámina: este mismo día se midió que validar el método de video con el
+modelo caro costó US$13 para entregar un clip de US$1,40
+(`docs/hallazgos-video-pipeline.md`). Generar una segunda persona por carrusel tiene el mismo
+problema de fondo y **lo decide Martín**, no el código.
+
+**La regla que queda, y van tres seguidas:** un pendiente anotado muchas veces no es un pendiente
+más urgente, es uno que **se contó muchas veces**. Las cuatro entradas describían el mismo síntoma
+del mismo día, y el arreglo las apagó a las cuatro de una. Al depurar, **el número de repeticiones
+mide cuánta gente lo vio, no cuánto falta**.
