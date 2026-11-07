@@ -36,8 +36,10 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 
 **Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
-`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
-(o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
+`wf-paso-*`). **HECHO el 7/11**, y «las dos rutas a barras normales» no alcanzaba: ese último rojo tenía una SEGUNDA
+causa, la traducción de rutas de Git Bash. Está arriba, en «La TERCERA vez del mismo rojo de Windows». **Regla:** una
+ruta de Windows metida en un comando que git (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`,
+nunca con `\`.
 **La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
 
 **Síntoma.** Con 2,5 GB libres, un `grep -n "rama" scripts/tsc-acotado.mjs` quedó frenado con «esto necesita 3»: un grep
@@ -164,6 +166,41 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La TERCERA vez del mismo rojo de Windows: «una línea» eran dos trampas, y la segunda no estaba cosechada (7/11/2026)
+
+Las dos entradas de abajo (6/11, y la del arranque de este documento) ya tenían el diagnóstico y lo dejaron
+anotado como **«SIN HACER: una línea»**. Era falso. El `.replace` arregla **tres** de los cuatro rojos, y el
+cuarto es **otra trampa de Windows que no estaba en ningún documento**. Y ahí está el porqué de que esto vuelva
+por tercera vez: **las dos veces anteriores se arregló el archivo donde se vio el rojo, sin enumerar nunca dónde
+más vivía el patrón.**
+
+- **Lo que el diagnóstico heredado no veía.** Con el `.replace(/\\/g, '/')` en la constante `DRIVER` el test
+  queda 10/11. El rojo que sobra es el caso que corre el paso de `punta.yml`, y tiene DOS causas apiladas:
+  1. la del escape otra vez, pero la ruta no sale del repo: sale de `RUNNER_TEMP`, que el helper del test
+     (`correrPaso`, en `tests/_workflow.ts`) armaba con los `\` de Windows. El paso hace
+     `driver="$RUNNER_TEMP/unir-bitacora.mjs"` y mete eso en un `git config`;
+  2. **Git Bash traduce los argumentos que le parecen rutas POSIX** (MSYS path conversion): el
+     `git show origin/main:.gitattributes` del paso le llega a git como `origin\main;.gitattributes`
+     —`/`→`\` y `:`→`;`, porque los `:` le parecen un PATH de Unix— y muere con «ambiguous argument».
+     En el runner (Linux) no pasa: el yml está bien, el que miente es el test.
+- **El síntoma no apunta a ninguna de las dos, y la segunda es la peor:** el paso la esconde con `2>/dev/null`,
+  sale con código 0, y la falta aparece recién después como un `CONFLICT` en `docs/hallazgos.md` —un archivo que
+  el test nunca nombró— porque sin ese `git show` el paso se quedó sin las reglas `merge=` de main.
+- **Dónde vive la regla ahora,** que es el punto: no en el test que falló, sino en los **dos corredores de pasos**,
+  que es donde el patrón vive para todo test futuro — `sh()` y las dos variables de MSYS en el entorno del
+  `correrPaso` de `tests/_workflow.ts` y del `correrPaso` propio de `tests/punta-ci.test.ts`. Un test que corre un
+  paso de workflow en Windows sin eso **no prueba lo que dice probar**.
+- **Probado rompiéndolo (7/11).** Cada pieza sacada por separado da el rojo que le toca: el `.replace`, 3 (los de
+  «git con el driver»); el `sh()`, 1; `MSYS_NO_PATHCONV`, el mismo 1 pero por el `git show`. Juntas son los 4 del
+  síntoma. `tests/punta-ci.test.ts` queda 26/26 y `tests/unir-indice-hallazgos.test.ts` 10/10.
+- **Regla.** Toda ruta que entre a un `git config` —o a cualquier valor que git después pase por un shell— va con
+  `/`, nunca con `\`. Y un test que corre un paso de un workflow en Windows necesita además `MSYS_NO_PATHCONV=1`
+  y `MSYS2_ARG_CONV_EXCL='*'`, o cualquier argumento con `:` (`rev:ruta`, de los más comunes) llega deformado.
+- **Sin hacer, y NO es de esta trampa:** `tests/tipos-ci-tiempo.test.ts` da **2 rojos de 16** en Windows
+  («con la corrida relanzada no queda la marca del rojo» y «los tipos van antes de los tests»). Ya estaban rojos
+  en HEAD antes de este arreglo —medido restaurando el helper original— y son la trampa del CRLF que está más
+  abajo en este documento: el test lee `punta.yml` del disco y lo compara con regex de `\n` contra `\r\n`.
+
 ## Tocar `extension/` desde una PC con Windows deja el zip imposible de poner al día (6/11/2026)
 
 **El síntoma.** Cambié una línea de `extension/popup.js`, el pre-push dijo «public/mako-puente.zip quedó viejo: la
@@ -217,8 +254,9 @@ misma tarde persiguiendo el mismo veredicto, sobre 65 tests afectados.
   por un shell— va con `/`, no con `\` (git acepta barras en Windows). Y la general, que éste y el de
   newsletters confirman: **un rojo local se confirma en LF/Linux antes de perseguirlo**; el camino barato es
   leer la ruta del mensaje, o convertir a LF el archivo que el test LEE y volver a correr.
-- **Sin hacer:** el `.replace(/\\/g, '/')` en `tests/unir-bitacora.test.ts:149` (una línea). Va aparte: es
-  un test ajeno a la corrida que lo encontró.
+- **Hecho el 7/11, y «una línea» era falso:** el `.replace` arregla 3 de los 4 rojos; el cuarto tenía otra causa
+  —la traducción de rutas de Git Bash— y el arreglo terminó en los dos corredores de pasos, no en este test.
+  Ver «La TERCERA vez del mismo rojo de Windows», arriba.
 
 ## Por qué hay que CONTAR el índice aunque el driver esté configurado: su camino limpio no ve la duplicación (6/11/2026)
 

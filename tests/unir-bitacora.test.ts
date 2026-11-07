@@ -12,6 +12,10 @@
 //   · `a.en !== b.en` sacado → cae «en lugares distintos»;
 //   · el orden de `medio` invertido → cae «primero el de main»;
 //   · `sonElementosCompletos` contestando siempre true → caen «un bloque que no cierra» y «el objeto partido».
+// Probado rompiéndolo (7/11/2026, en Windows; en Linux nada de esto cae):
+//   · el `.replace(/\\/g, '/')` de DRIVER sacado → caen los tres casos de «git con el driver»;
+//   · el `sh()` del entorno de correrPaso (_workflow.ts) sacado → cae el del paso de punta.yml;
+//   · MSYS_NO_PATHCONV sacado de ese entorno → cae el del paso también, pero por el `git show origin/main:…`.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -26,7 +30,10 @@ import { unirAgregados, insercion, sonElementosCompletos } from '../scripts/unir
 import { correrPaso, leerWorkflow } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DRIVER = join(RAIZ, 'scripts', 'unir-bitacora.mjs');
+// ⚠️ Barras normales, no las de Windows: el valor va a un `git config`, que lee la barra invertida como escape y la
+// borra — `C:\dev\…\scripts\unir-bitacora.mjs` se guarda `C:dev…scriptsunir-bitacora.mjs` y el driver no existe
+// («Cannot find module»): rojo en TODA PC con Windows, verde en el CI porque es Linux. Vale para TODA ruta en un config.
+const DRIVER = join(RAIZ, 'scripts', 'unir-bitacora.mjs').replace(/\\/g, '/');
 const hayGit = !spawnSync('git', ['--version']).error;
 
 const hito = (titulo: string, extra = '') => [

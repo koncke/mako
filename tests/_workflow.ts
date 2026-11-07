@@ -32,6 +32,9 @@ export function scriptDelPaso(yml: string, nombre: string): string {
   return bloque.slice(r + 1).map((l) => l.slice(10)).join('\n');
 }
 
+/** Una ruta como la escribe el runner: barras normales. En Linux no cambia nada; en Windows evita que `\` se lea como escape. */
+export const sh = (ruta: string) => ruta.replace(/\\/g, '/');
+
 /** Corre el script de un paso en bash, con `antes` (funciones de mentira: gh, node…) y el entorno que pida el test. */
 export function correrPaso(yml: string, nombre: string, o: { antes?: string; env?: Record<string, string>; cwd?: string } = {}) {
   const tmp = mkdtempSync(join(tmpdir(), 'wf-paso-'));
@@ -45,7 +48,15 @@ export function correrPaso(yml: string, nombre: string, o: { antes?: string; env
     cwd: o.cwd ?? tmp,
     encoding: 'utf8',
     // NODE_ENV: con los .d.ts de Next, ProcessEnv lo pide obligatorio (lo cazó el filtro de la punta: TS2769).
-    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: tmp, RUNNER_TEMP: tmp, GITHUB_STEP_SUMMARY: resumen, GITHUB_OUTPUT: salidaGh, ...o.env },
+    // ⚠️ Dos cosas hacen que el paso corra en Windows como en el runner (Linux). Sin ellas el test MIENTE: pasa en
+    // Actions y cae en toda PC con Windows, y el síntoma no apunta a ninguna de las dos (7/11/2026):
+    //   · las rutas van con barras normales: un paso que mete `$RUNNER_TEMP` en un `git config` —punta.yml lo hace con
+    //     el driver de las bitácoras— pierde los separadores, porque para `git config` la barra invertida es escape, y
+    //     queda guardado `C:Users…Tempwf-paso-X` («Cannot find module»);
+    //   · MSYS_NO_PATHCONV / MSYS2_ARG_CONV_EXCL: Git Bash traduce los argumentos que le parecen rutas POSIX, así que
+    //     `git show origin/main:.gitattributes` le llega a git como `origin\main;.gitattributes` («ambiguous argument»)
+    //     y el paso se queda sin las reglas de mezcla de main, en silencio porque va con `2>/dev/null`.
+    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', MSYS_NO_PATHCONV: '1', MSYS2_ARG_CONV_EXCL: '*', HOME: sh(tmp), RUNNER_TEMP: sh(tmp), GITHUB_STEP_SUMMARY: sh(resumen), GITHUB_OUTPUT: sh(salidaGh), ...o.env },
   });
   if (r.error) throw r.error;
   return { codigo: r.status, salida: `${r.stdout}${r.stderr}`, resumen: readFileSync(resumen, 'utf8'), outputs: readFileSync(salidaGh, 'utf8') };

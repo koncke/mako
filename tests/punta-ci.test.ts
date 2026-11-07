@@ -30,7 +30,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { correPaso } from './_workflow';
+import { correPaso, sh } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -191,7 +191,10 @@ function correrPaso(nombre: string, cwd: string, o: { env?: Partial<NodeJS.Proce
   const r = spawnSync('sh', ['-e', script], {
     cwd,
     encoding: 'utf8',
-    env: { ...entornoLimpio(tmp), RUNNER_TEMP: tmp, GITHUB_STEP_SUMMARY: join(tmp, 'resumen'), GITHUB_OUTPUT: salidaGh, GITHUB_REF_NAME: 'punta/prueba', ...o.env },
+    // ⚠️ Como en el runner (Linux), y por lo mismo que el `correrPaso` de _workflow.ts, que lo explica entero: barras
+    // normales porque un `$RUNNER_TEMP` dentro de un `git config` pierde los separadores, y sin MSYS_NO_PATHCONV
+    // Git Bash le pasa a git `origin\main;ruta` en lugar de `origin/main:ruta`.
+    env: { ...entornoLimpio(tmp), MSYS_NO_PATHCONV: '1', MSYS2_ARG_CONV_EXCL: '*', RUNNER_TEMP: sh(tmp), GITHUB_STEP_SUMMARY: sh(join(tmp, 'resumen')), GITHUB_OUTPUT: sh(salidaGh), GITHUB_REF_NAME: 'punta/prueba', ...o.env },
   });
   if (r.error) throw r.error;
   const outputs = Object.fromEntries(readFileSync(salidaGh, 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
