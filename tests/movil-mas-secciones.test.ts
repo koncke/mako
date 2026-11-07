@@ -168,7 +168,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     // 04/11/2026: el Dashboard volvió a la barra (donde estaba Plan) y Plan es la fila de lo diario.
     ['Today', ['plan']],
     ['Sales', ['calendario', 'automations', 'cs']],
-    ['Marketing', ['offer', 'ads']],
+    // Competitor Spy (6/11/2026): fila de Marketing, debajo del CoPilot, con su pantalla del teléfono.
+    ['Marketing', ['offer', 'ads', 'competitor-spy']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
     // AI Avatar, de Pro desde el 29/10/2026: fila de Create, debajo de Copywriting, como en la sidebar.
     ['Create', ['video', 'image', 'copywriting', 'ai-avatar', 'landing']],
@@ -226,6 +227,8 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     curso: ['producto'],
     comunidad: ['producto', 'post'],
     ads: ['estrategia'], // Marketing CoPilot: «Cambiar mi estrategia» reabre la charla en los dos lados (6/11/2026)
+    // Competitor Spy (6/11/2026): la ficha de un competidor es `?competidor=<id>` en los dos lados.
+    'competitor-spy': ['competidor'],
   });
   for (const s of SECCIONES_MAS) {
     const url = rutaEscritorio(s.href);

@@ -176,7 +176,29 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
 /** Un número de la fila de arriba: su rótulo, su valor y, si hace falta, su tono y su explicación (el título al pasar). */
 type NumeroDetalle = { k: string; v: string; tono?: string; titulo?: string };
 
-export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas, analizando, onCerrar }: {
+/**
+ * LA CAJA donde se dibuja el detalle. En la computadora es el `Modal` de la casa (el default de abajo);
+ * en el teléfono es una `SheetM` de MaKo Mobile, que es la ÚNICA diferencia entre los dos —el contenido,
+ * el guion y «Hacer uno así» son los mismos—. Sin esta puerta, /m tendría que importar `Modal`, que es de
+ * escritorio y no se usa ahí (AGENTS.md → «MaKo Mobile»), o copiar la pieza entera.
+ */
+export type MarcoDetalle = (partes: {
+  titulo: ReactNode;
+  /** El tipo de pieza y su puesto: va arriba del título, chico. */
+  encabezado: ReactNode;
+  /** La nota y «Hacer uno así»: en un pie que no scrollea. */
+  pie: ReactNode;
+  onCerrar: () => void;
+  children: ReactNode;
+}) => ReactNode;
+
+const MARCO_MODAL: MarcoDetalle = ({ titulo, encabezado, pie, onCerrar, children }) => (
+  <Modal titulo={titulo} encabezado={encabezado} ancho={980} alto="min(90vh, 800px)" onCerrar={onCerrar} pie={pie}>
+    {children}
+  </Modal>
+);
+
+export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas, analizando, onCerrar, marco = MARCO_MODAL }: {
   p: PiezaVista;
   /** El nombre del competidor. */
   nombre: string;
@@ -188,6 +210,8 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   todas: readonly PiezaVista[];
   analizando: boolean;
   onCerrar: () => void;
+  /** La caja donde se dibuja (ver `MarcoDetalle`). Por defecto, el `Modal` de la computadora. */
+  marco?: MarcoDetalle;
 }) {
   const router = useRouter();
   const [copiando, setCopiando] = useState(false);
@@ -247,8 +271,9 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
     }
   };
 
+  const Marco = marco;
   return (
-    <Modal
+    <Marco
       titulo={p.titulo || a?.gancho || `Una pieza de ${nombre}`}
       encabezado={(
         <span className="spyd-red">
@@ -256,8 +281,6 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {[RED[p.canal], TIPO[p.tipo], puesto].filter(Boolean).join(' · ')}
         </span>
       )}
-      ancho={980}
-      alto="min(90vh, 800px)"
       onCerrar={onCerrar}
       pie={(
         <>
@@ -333,6 +356,6 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {tags.length > 0 && <div className="spyd-tags">{tags.map((t) => <span key={t}>{t}</span>)}</div>}
         </div>
       </div>
-    </Modal>
+    </Marco>
   );
 }
