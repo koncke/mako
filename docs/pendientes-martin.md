@@ -17,6 +17,39 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🔓 DESTRABADO: la guardia negaba los commits por su MENSAJE, no por la RAM (6/11/2026 ~21:10)
+
+**El diagnóstico obvio era el equivocado, y es el que está escrito varias veces más abajo en este
+archivo.** Cada vez que un chat no pudo commitear y la negativa dijo «quedan 1,4 GB de RAM
+disponibles y esto necesita 3», se anotó como falta de RAM. Para lo que de verdad pide memoria (el
+chequeo de tipos, la suite de tests) es cierto. **Para un commit no lo era nunca: un commit no pide
+RAM.** La guardia clasificaba el comando ENTERO, así que un `git commit` cuyo MENSAJE nombra `tsc`,
+`npm test` o `eslint` quedaba clasificado «pesado» y lo negaba — justo cuando la máquina está
+cargada, que es cuando más importa guardar el trabajo.
+
+**Cómo se reconoce en diez segundos:** ¿el MENSAJE del commit nombra `tsc`, `npm test` o `eslint`?
+Si sí, es esto y no es la RAM.
+
+**HECHO** — la guardia arreglada ya estaba en el repo desde el 6/11 18:46 y nadie la había
+instalado. Copiada a `~/.claude/guardia/memoria.mjs`, con respaldo `.antes-6-11-noche`, y verificado
+ANTES de copiar que los cuatro topes son idénticos a los que corrían (3,0 / 3,0 / 1,0 / 0,6 GB):
+eso era lo único que hacía peligrosa la reinstalación, porque el 29/10 una ya bajó topes en
+silencio. Cosechado en `docs/hallazgos-infra.md`, en el mismo párrafo que decía que faltaba hacerlo.
+
+**Qué destraba:** cualquier ítem de más abajo cuyo bloqueo era «no pude commitear». Lo que pide
+tipos o tests sigue necesitando los 3 GB de verdad.
+
+**Qué NO destraba, medido:** cerrar Chrome (23 procesos huérfanos, 1.530 MB) subió la RAM libre
+**0,16 GB**. Los 4,1 GB se los llevan los 27 procesos de `claude`, que son los otros chats y no se
+tocan. La máquina sigue en ~2 GB libres de 15,7.
+
+**Lo que permitió en el acto:** la cosecha del chat de Tickets, horas escrita y sin commitear en
+`C:devwt-tickets-0411`, quedó en `punta/tickets-tipos-sin-tiempo` — primer commit ya verde en
+`main`. Enseña que **un rojo del paso «Tipos» puede no tener un solo error de tipos**: si no termina
+en el tope de 840 s sale con código 97 y el registro dice «SIN TIEMPO», idéntico a un rojo real.
+
+---
+
 ## 🛟 RESCATADO DEL LIMBO: tres decisiones de Martín que vencían el 8/11 (6/11/2026)
 
 **Qué era esto.** En la cola del Ops Center había cinco «pedidos» por vencer. No eran avisos
@@ -74,7 +107,7 @@ frase…». El Runner lo tiene y lo pasa cuando se le pida.
 
 ---
 
-## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — 1 de 5 revisada
+## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — ✅ 5 de 5 revisadas (7/11)
 
 El relevo del 6/11 las dejó pedidas: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails`
 (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6), `punta/nada-por-detras` (2cb406043) y
@@ -119,7 +152,82 @@ Actions no puede leer». O sea que la alarma **no puede** ver el número bueno.
 estimación que ella misma sabe que es alta. O resta los minutos incluidos del plan y no cuenta las
 corridas sin job, o avisa en amarillo diciendo «estimado, el panel dice otra cosa».
 
-**Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
+**✅ `punta/nada-por-detras` — REVISADA el 7/11, está bien hecha.** Es la que más podía doler: cambia **a qué
+negocio le llega un aviso de la plataforma**. Miré lo que los tests no ven:
+
+- **El número se guarda como TEXTO** (`datosDeLaPlataforma` devuelve `String(ws)`) y la condición compara texto.
+  No está el choque clásico de `13` contra `"13"`, que habría hecho que la exclusión no se cumpliera nunca.
+- **Lo pone el emisor central y no cada evento** (`emitirPorEvento`), así que no se puede olvidar al agregar uno.
+- **Las dos banderas coinciden.** El código usa `ev.plataforma` para ofrecer la condición en el editor y
+  `porSubtipo(evento)?.plataforma` para inyectar el dato: salen del mismo catálogo. Si no coincidieran, la
+  condición aparecería en la pantalla y no se cumpliría nunca, en silencio. No pasa.
+- **Usa el NÚMERO y no el nombre**, a propósito y escrito: el nombre se cambia y la condición dejaría de
+  cumplirse sola.
+
+⚠️ **Lo único que queda abierto, y es de diseño, no un error:** un valor que falta **no cumple la condición ni
+negada** (`condiciones-catalogo.ts`). O sea que si algún día un evento de la plataforma se emite sin pasar por
+`emitirPorEvento`, «No es el negocio número 13» no se cumple para NADIE y el aviso deja de salir, sin un error
+en ningún lado. Es el lado seguro (nadie recibe lo que no es suyo), pero se pierde callado.
+
+**El paso que me dejaron NO SE PUEDE CORRER TODAVÍA.** `docs/relevo/nube-nada-por-detras.md` pide crear la fila
+de «Tareas de Reuniones al Plan» **después del deploy que trae esta tanda**. El commit es del 6/11 16:39 UTC y
+el deploy del día había corrido a las 11:05: **esta tanda no está en producción**. Entra con el cron del 7/11
+a las 11:05 UTC. No lo fuerzo con `desplegar-ya.mjs` porque la fila **nace pausada** y prenderla es decisión de
+SuperAdmin: no hay nada que se gane por nueve horas.
+
+Después del deploy, el comando es:
+
+```
+node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts \
+  --env=C:/dev/mako-api/.env.local --eventos=reunion_tareas_al_plan --aplicar
+```
+
+**✅ `punta/copilot-feedback` — REVISADA el 7/11, está bien y arregló dos bugs que estaban callados.**
+Marketing CoPilot decide por frases qué hacer con lo que escribe el cliente, y eso es frágil. Los dos que
+había, que nadie veía porque no dan error:
+
+- **`^s[ií]` aceptaba cualquier palabra que empiece con «si».** «Sinceramente no me convence» se leía como un
+  SÍ. Ahora pide que sea la palabra entera.
+- **`/no/` sin límites de palabra.** «Bueno, dale» contiene «no» adentro de *bueno*, así que se leía como «más
+  tarde» en vez de como un sí. Lo mismo con «nosotros», «ninguno», «menos».
+
+**Y lo más importante, que es hacia dónde se equivoca:** ahora todo lo dudoso **va a MaKo en vez de actuar**.
+Una pregunta nunca dispara una acción, aceptar la propuesta pide un sí claro **y que la frase no tenga un «no»**
+(«No sé si me sirve» ya no acepta), y «borrar todo» sólo cuenta en un mensaje corto. El lado seguro es el lado
+de preguntar, y es el que eligieron.
+
+**El test que lo cuida es del tipo bueno** (`tests/marketing-copilot-volver.test.ts`): prueba **frases reales
+contra el resultado** —«No sé si me sirve» tiene que ir a MaKo— y **no fija el texto de la solución**. Si mañana
+alguien reemplaza las expresiones por otra cosa, sigue en verde mientras la conducta sea la correcta. Es lo
+contrario de las guardas que esta misma semana congelaron cuatro ramas por pedir que el código dijera lo mismo.
+
+Verificado que caza el bug viejo sin correrlo: «No sé si me sirve» contiene «sirve», y el código anterior
+(`/sirve|empec|ok|dale/`) lo aceptaba, así que con el código de antes ese `assert` falla.
+
+**✅ `punta/carruseles-thumbnails` — REVISADA el 7/11, está bien.** Lo que arreglaba era un crash: el link
+viejo `?ver=carruseles` —que viajó en avisos y en la API— hacía un `redirect()` **debajo del loader**, y eso
+en Next va adentro del stream y tira **React #310**. Es la misma familia que el crash de Spy de esta noche:
+un atajo durante el render no rompe una parte, tira la pantalla entera.
+
+La solución es una función pura (`vistaDeImage`) con **el default del lado seguro**: cualquier `ver=` que no
+conozca cae en los ejemplos, sin redirigir y sin romperse. Y queda escrito por qué vive en su propio archivo:
+la página del teléfono no puede importar `ruta.ts`, que otro test trata como la puerta del motor del editor.
+
+🔎 **Lo que encontré de paso, y NO es de esta punta** (la guarda es del 23/10, la punta sólo se apoya en ella):
+`tests/redirige-antes-del-loader.test.ts` está probada rompiéndola una y otra vez —anota los conteos, «base
+12 / 0», «base 14 / 0»—, que es la disciplina correcta. Pero una parte compara **fragmentos de código**
+textuales entre `app/plan/layout.tsx` y `app/plan/page.tsx`.
+
+Eso no es capricho: el layout **copia** la decisión de la página, y si se desincronizan hay un bucle de
+redirección. El problema es real. Lo frágil es la forma: **si alguien lo arregla mejor** —sacando la condición
+a un helper compartido, que elimina la duplicación de raíz— **la guarda se pone roja**. O sea que bloquea
+justo el arreglo bueno. La pregunta que la distingue sigue siendo la misma: *¿seguiría en verde si alguien
+arregla el bug de otra manera?* Acá, no.
+
+**No lo toco en esta pasada**: cambiar una guarda que vigila diez rutas pide su propia tanda y su propia
+rotura medida. Queda anotado con el archivo.
+
+**LAS CINCO ESTÁN REVISADAS.**
 
 ---
 

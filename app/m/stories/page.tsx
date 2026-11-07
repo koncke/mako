@@ -4,8 +4,12 @@
 // La tab de escritorio (app/stories) destilada: el MISMO pedido (qué quieres lograr hoy, con los tres objetivos de
 // app/stories/objetivos.ts, y la idea del día), el MISMO motor (`generarSecuenciaAction`, lib/ig-writer.ts, con su
 // chequeo de que el cierre empuje al DM), la MISMA secuencia frame por frame y «Copiar la secuencia» con el mismo
-// texto (app/stories/texto.ts). Como en escritorio, las secuencias de la sesión viven en la pantalla: no hay
-// historial guardado (StoriesApp.tsx dice por qué).
+// texto (app/stories/texto.ts).
+//
+// El historial SOBREVIVE a recargar desde el 6/11/2026 (item 129 del barrido): las últimas diez secuencias del
+// workspace se guardan en `app_settings` (lib/ig-historial.ts, sin tabla nueva) y esta page las siembra. La page
+// es la que las lee: el server component ya corre detrás del guard, y así la pantalla abre con la última secuencia
+// a la vista en vez de vacía. Una lectura caída devuelve `[]` — se pierde el historial, no la pantalla.
 //
 // Referencia de app real: el visor de historias de Instagram. La secuencia se MIRA como se va a ver: un frame por
 // pantalla, la barra de segmentos arriba (cuántos son y en cuál vas), tocar a la derecha pasa al siguiente y a la
@@ -24,6 +28,7 @@ import { getAnswers, getSchema } from '@/lib/onboarding';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { vistaDe } from '../_creacion/secciones';
+import { historialStoriesAction } from '@/app/stories/actions';
 import { StoriesM } from './StoriesM';
 
 export const dynamic = 'force-dynamic';
@@ -41,11 +46,11 @@ async function perfilConDatos(): Promise<boolean> {
 
 export default async function StoriesPagina() {
   const ctx = await requireMovil({ navKey: 'stories' });
-  const perfilListo = await perfilConDatos();
+  const [perfilListo, historial] = await Promise.all([perfilConDatos(), historialStoriesAction()]);
   return (
     <PantallaM>
       <SeccionesTabM tab="copywriting" activa="stories" vista={vistaDe(ctx)} />
-      <StoriesM perfilListo={perfilListo} />
+      <StoriesM perfilListo={perfilListo} historial={historial} />
     </PantallaM>
   );
 }

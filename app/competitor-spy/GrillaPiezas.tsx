@@ -9,6 +9,11 @@
 // columnas entran (`columnasQueEntran`, el mismo cálculo que `auto-fill`) y una página son esas columnas × `FILAS_POR_PAGINA`.
 // Una página nunca termina con una fila a medias, y la grilla dibuja a lo sumo una página: con 500 piezas, 15 tarjetas en el DOM.
 //
+// ⚠️ LAS COLUMNAS QUE DIBUJA SON LAS QUE CUENTA: el mismo número va al `grid-template-columns` del estilo en línea Y a `porPagina`.
+// Quien la monta en otro ancho las PIDE con `columnas` (el teléfono: una, docs/diseno-competitors-spy.md §8) en vez de taparle el
+// estilo en línea con un `!important` desde su hoja: eso cambiaba lo que se VE sin cambiar lo que se CUENTA, y una página del
+// teléfono traía el doble de tarjetas —el doble de miniaturas que bajar con datos (docs/hallazgos-mobile.md, 6/11/2026).
+//
 // El paginador copia el de GitHub y el de Linear: primera, última, la actual con sus vecinas y «…» (`botonesDePaginas`).
 // Cambiar de página lleva la cabecera de la grilla a la vista (si no se ve), sin animar el scroll de toda la página.
 // =============================================================================
@@ -24,11 +29,12 @@ export function Flecha({ a, size = 16 }: { a: 'izquierda' | 'derecha'; size?: nu
 
 /** El ancho mínimo de una tarjeta y el hueco: los mismos que `.spy-pgrid` en la hoja de la tab. */
 const MINIMO = 210;
-/** En el teléfono, dos columnas: una sola tarjeta a lo ancho es una pantalla entera por pieza. */
+/** En una ventana angosta de la computadora, dos columnas: una sola tarjeta a lo ancho es una pantalla entera por pieza. El
+    teléfono no entra por acá: pide `columnas={1}` y no se mide nada. */
 const MINIMO_ANGOSTO = 150;
 const HUECO = 16;
 
-export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio }: {
+export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio, columnas: pedidas }: {
   piezas: readonly T[];
   /** Cuando cambia (la búsqueda, el tipo, el orden, el competidor), vuelve a la página 1. */
   reinicio: string;
@@ -37,21 +43,30 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
   cabecera: ReactNode;
   /** Lo que se ve si la búsqueda o el tipo no dejan ninguna. */
   vacio?: ReactNode;
+  /**
+   * Cuántas columnas dibujar, en vez de medirlas por el ancho de la caja: el teléfono pide 1
+   * (docs/diseno-competitors-spy.md §8). Es el número que también CUENTA la paginación, así que quien la monta no
+   * tiene que pelearle el `grid-template-columns` del estilo en línea desde su hoja. Sin esto, se mide.
+   */
+  columnas?: number;
 }) {
   const caja = useRef<HTMLDivElement>(null);
   const arriba = useRef<HTMLDivElement>(null);
-  const [columnas, setColumnas] = useState(5);
+  const [medidas, setMedidas] = useState(5);
   const [pagina, setPagina] = useState(1);
+  /** Nunca menos de 1: con 0 columnas una página no tiene tarjetas y las páginas son infinitas. */
+  const columnas = Math.max(1, Math.floor(pedidas ?? medidas));
 
   useLayoutEffect(() => {
+    if (pedidas != null) return;
     const el = caja.current;
     if (!el) return;
-    const medir = () => setColumnas(columnasQueEntran(el.clientWidth, el.clientWidth < 600 ? MINIMO_ANGOSTO : MINIMO, el.clientWidth < 600 ? 12 : HUECO));
+    const medir = () => setMedidas(columnasQueEntran(el.clientWidth, el.clientWidth < 600 ? MINIMO_ANGOSTO : MINIMO, el.clientWidth < 600 ? 12 : HUECO));
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [pedidas]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- volver a la página 1 cuando cambia lo que se mira, no un cálculo
   useEffect(() => { setPagina(1); }, [reinicio]);

@@ -48,7 +48,7 @@ import {
   type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel, type QueVer,
 } from '@/lib/carruseles/explorar';
 import { FILTROS_THUMBNAIL, queryDeThumbnails, type FiltrosThumbnail, type Thumbnail } from '@/lib/thumbnails/explorar';
-import { rotuloAire } from '@/lib/carruseles/anuncios';
+import { anunciosSinSaber, rotuloAire } from '@/lib/carruseles/anuncios';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
@@ -69,7 +69,7 @@ export type DatosExplorador = {
   ejemplos: number;
   /** La biblioteca no se pudo leer (se ve lo del negocio). */
   avisoBiblioteca: string | null;
-  /** Cuántos anuncios de la competencia trajo Spy (el filtro «Anuncios»), sólo los de imagen. Ausente = 0. */
+  /** Cuántos anuncios de la competencia trajo Spy (el filtro «Anuncios»), sin los que se sabe que son video. Ausente = 0. */
   anuncios?: number;
   /** Las miniaturas de YouTube de la biblioteca (Thumbnails, 6/11/2026). Ausente = no se leyeron (se dice al elegirlas). */
   thumbnails?: DatosThumbnails | null;
@@ -86,7 +86,7 @@ const DE_A = 40;
  * `largo`, `cta`, `tam` y `ver` ya no son filtros (6/11/2026) y siguen acá para que un link viejo que los traiga quede limpio
  * al cambiar un filtro o al apretar «Quitar filtros»; `largo` se traduce a `lmin`/`lmax` al entrar (lib/carruseles/opciones.ts).
  */
-const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
+const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'conf', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
 
 /** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`): un link copiado abre lo mismo. */
 function escribirEnLaUrl(query: string) {
@@ -186,6 +186,9 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   const formatos = useMemo(() => formatosDe(delLado), [delLado]);
   const vistos = useMemo(() => filtrarCarruseles(datos.carruseles, f, guardados, ahora ?? Date.now()), [datos.carruseles, f, guardados, ahora]);
   const anuncios = datos.anuncios ?? datos.carruseles.filter((c) => c.clase === 'anuncio').length;
+  // De los anuncios que se están viendo, cuántos no dicen si son video (lib/carruseles/anuncios.ts): el contador lo aclara
+  // en vez de contarlos como imágenes. Se cuenta sobre lo VISTO, que es lo que el número de al lado dice.
+  const sinSaber = useMemo(() => (f.que === 'anuncios' ? anunciosSinSaber(vistos) : 0), [f.que, vistos]);
 
   const alternarGuardado = (c: Carrusel) => {
     const guardar = !guardados.has(c.id);
@@ -238,7 +241,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
 
   // ── Los filtros: un modal (./FiltrosCarruselModal.tsx). Acá, cuántos hay prendidos para el botón ──
   const filtrosActivos = [f.periodo !== 'todo', !!f.formato, f.conImagenes, f.origen !== 'todos', f.outlierMin > 0 || !!f.outlierMax,
-    !!f.interMin || !!f.interMax, !!f.lamMin || !!f.lamMax, !!f.ocultar?.length].filter(Boolean).length;
+    !!f.interMin || !!f.interMax, !!f.lamMin || !!f.lamMax, !!f.ocultar?.length, !!f.soloConfirmados].filter(Boolean).length;
   const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
   const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
 
@@ -334,7 +337,12 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
               <span className={s.espacio} />
               {!sinFiltros({ ...f, que: 'carruseles' }) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
               {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
-              {telefono ? null : <span className={s.total}>{contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}</span>}
+              {telefono ? null : (
+                <span className={s.total}>
+                  {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
+                  {sinSaber > 0 ? <span className={s.dudosos} title="Lo guardado antes del 6/11 no dice su formato. Un recorrido nuevo de la Biblioteca de Anuncios con la extensión lo completa."> · {sinSaber} sin saber si {sinSaber === 1 ? 'es' : 'son'} video</span> : null}
+                </span>
+              )}
               <Dropdown value={orden} search={false} alContenido ariaLabel="Orden" align="right"
                 options={ordenes.map((o) => ({ value: o.value, label: o.label }))}
                 botonLabel={<span>{ORDENES_CARRUSEL.find((o) => o.value === orden)?.label}</span>} onChange={(v) => cambiar({ orden: v as OrdenCarrusel })}

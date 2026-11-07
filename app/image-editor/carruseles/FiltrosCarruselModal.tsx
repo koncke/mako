@@ -121,6 +121,14 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
                 <span>Incluir imágenes sueltas</span>
               </label>
             )}
+            {/* De los anuncios guardados antes del 6/11/2026 no se sabe el formato (lib/carruseles/anuncios.ts): se muestran,
+                y quien mira decide si prefiere ver sólo los que sí lo dicen. */}
+            {anuncios && (
+              <label className={s.casilla}>
+                <input type="checkbox" checked={!!f.soloConfirmados} onChange={(e) => poner({ soloConfirmados: e.target.checked })} />
+                <span>Sólo los que dicen su formato</span>
+              </label>
+            )}
           </div>
           {formatos.length > 0 && (
             <div className={s.campo}>

@@ -53,6 +53,8 @@
 .chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .espacio { flex: 1; }
 .total { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Lo que no se sabe del formato de un anuncio viejo: se dice, más apagado que el total. */
+.dudosos { opacity: 0.75; }
 .texto { border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; padding: 6px 6px; border-radius: 8px; white-space: nowrap; }
 .texto:hover { background: var(--velo-hover); }
 .texto:focus-visible { outline: none; box-shadow: var(--focus-ring); }

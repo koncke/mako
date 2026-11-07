@@ -29,7 +29,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El puente a publicación', detalle: 'Un borrador de contenido_posts POR FRAME · el guion viaja en notas de producción · la media se sube y se programa en /instagram', estado: 'hecha' },
   { titulo: 'Onboarding de tab (Conectar → Contexto → Ensayo)', detalle: '`conectar` sale del estado vivo de Instagram; la primera secuencia generada ES el ensayo · falta unificar el criterio del paso con carousels', estado: 'sigue' },
   { titulo: 'Historial durable de piezas', detalle: 'Hoy la secuencia vive en memoria de la página y la pantalla lo DICE · una tabla propia es migración coordinada, no subir el tope de app_settings', estado: 'cola' },
-  { titulo: 'Prompts editables desde /configuraciones', detalle: 'Los del writer son constantes locales en lib/ig-writer.ts con TODO puesto · van con la skill add-editable-prompt', estado: 'cola' },
+  { titulo: 'Prompts editables desde /configuraciones', detalle: 'Hecho el 6/11/2026: PROMPTS_IG (lib/ig-writer.ts) + PROMPTS_METODOLOGIA_IG (lib/ig-metodologia.ts) · grupo «Escritor de contenido de Instagram» · lo único no editable son los contratos JSON, que los lee el saneo', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -96,7 +96,7 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/ig-formatos.ts — LA fuente única: límites de Zernio + metodología citada. Sin `server-only` a propósito (la UI muestra los límites y los tests la importan)',
-      'lib/ig-writer.ts — el motor compartido (`generarPieza`, saneo por formato). Sus prompts todavía son constantes locales: no son editables desde /configuraciones',
+      'lib/ig-writer.ts — el motor compartido (`generarPieza`, saneo por formato). Sus dos prompts son editables desde /configuraciones (`PROMPTS_IG`, 6/11/2026); la metodología que entra por {{metodologia}}, también (lib/ig-metodologia.ts)',
       'lib/ig-contenido.ts — `crearBorradorPublicacion`; NO es idempotente (doble click = dos borradores) y stories solo deshabilita el botón',
       'app/stories/objetivos.ts — el catálogo de los tres objetivos y cómo cada uno se redacta dentro del pedido',
       'app/stories/actions.ts — `ctxAdmin` fail-closed (agencia sin impersonar = ws null = error, nunca cae al dueño) + la verificación del empuje a DM',

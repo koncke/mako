@@ -17,15 +17,23 @@
 //
 // SÓLO IMÁGENES (6/11/2026; Martín: «en anuncios trajiste un montón de videos, cuando estamos viendo solo imágenes»). El explorador
 // es de Image: un anuncio en video no se puede «Editar» como un diseño, así que no se muestra ni se cuenta. Cómo se sabe:
-//   · lo dice Spy desde el 6/11/2026: el actor de Apify trae `displayFormat` (VIDEO, IMAGE, CAROUSEL…) y la pieza guarda su
-//     `medio` (lib/spy-todo-reglas.ts → `anuncioDeApify`, `medioDeAnuncio`);
+//   · lo dice Spy desde el 6/11/2026: el actor de Apify trae `displayFormat` (VIDEO, IMAGE, CAROUSEL…) y la extensión, el
+//     `<video>` de la tarjeta; la pieza guarda su `medio` (lib/spy-todo-reglas.ts → `anuncioDeApify`; lib/spy-captura.ts);
 //   · lo de antes no tiene `medio`: su miniatura, si sigue siendo la del CDN de Meta, lo delata (los cuadros de un video van en
-//     `/t15.` y las imágenes de un anuncio en `/t39.`). Sin ninguna de las dos señales, se muestra: sin dato no es «video». La
-//     lectura de cada cuenta que Spy repite cada semana le pone el `medio` a todos.
+//     `/t15.` y las imágenes de un anuncio en `/t39.`).
+//
+// ⚠️ Y PARA LO YA GUARDADO ESA PISTA NO EXISTE, medido el 6/11/2026 contra producción: de los 300 anuncios guardados, 297
+// tienen la miniatura ya copiada a NUESTRO bucket (la del CDN vence), 2 quedaron en `/t39.` y 1 sin miniatura → la regla de
+// `/t15.` acierta en 0. Ninguno trae otra señal (ni `analisis`, ni `duracion`, ni el tiempo del video en el texto) y la
+// lectura cruda tampoco quedó (`spy_lecturas_canal` no guarda el canal «anuncios»). Así que de 300 no se sabe nada de 298,
+// y lo honesto es decirlo: un «no sé» se MUESTRA (sin dato no es «video») pero se cuenta aparte (`anunciosSinSaber`) y hay
+// filtro para dejarlo afuera. Qué lo destraba, sin gastar un centavo de Apify: otro recorrido de la Biblioteca de Anuncios
+// con la extensión, que ahora sí guarda el medio. Ver docs/hallazgos-carruseles.md.
 //
 // Puro, con su test (tests/carruseles-anuncios.test.ts).
 // =============================================================================
 
+import type { Medio } from '../spy-medio';
 import { formatoDe } from '../spy-detalle';
 import { tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto } from './cta';
@@ -41,15 +49,38 @@ export type PiezaAnuncio = {
   medio?: string | null;
 };
 
+/** Las carpetas del CDN de Meta que delatan qué es la miniatura: los cuadros de un video y las imágenes de un anuncio. */
+const CARPETA_CDN = (carpeta: string) => new RegExp(`^https://[^/]*(?:fbcdn\\.net|facebook\\.com)/v/${carpeta}\\.`, 'i');
+const CUADRO_DE_VIDEO = CARPETA_CDN('t15');
+const IMAGEN_DE_ANUNCIO = CARPETA_CDN('t39');
+
 /**
- * ¿El anuncio es un video? `true` sólo con una señal: su `medio`, o la miniatura del CDN de Meta en la carpeta de los cuadros de
- * video (`/t15.`). Sin señal, `false`: no se esconde lo que no se sabe.
+ * Qué es el anuncio, con lo que quedó guardado: su `medio` si la lectura lo supo, o la carpeta de su miniatura si todavía
+ * apunta al CDN de Meta. **`null` = no se sabe**, y eso no es ni «video» ni «imagen»: es el estado real de casi todo lo
+ * guardado antes del 6/11/2026 (ver la cabecera). Quien decide qué hacer con un `null` es el explorador, no esta función.
+ */
+export function medioGuardadoDeAnuncio(p: Pick<PiezaAnuncio, 'medio' | 'miniatura'>): Medio | null {
+  if (p.medio === 'video' || p.medio === 'imagen' || p.medio === 'carrusel') return p.medio;
+  const u = p.miniatura ?? '';
+  if (CUADRO_DE_VIDEO.test(u)) return 'video';
+  if (IMAGEN_DE_ANUNCIO.test(u)) return 'imagen';
+  return null;
+}
+
+/**
+ * ¿El anuncio es un video? `true` sólo con una señal (su `medio` o la carpeta `/t15.` del CDN). Sin señal, `false`: no se
+ * esconde lo que no se sabe.
  */
 export function esAnuncioEnVideo(p: Pick<PiezaAnuncio, 'medio' | 'miniatura'>): boolean {
-  if (p.medio === 'video') return true;
-  if (p.medio === 'imagen' || p.medio === 'carrusel') return false;
-  const u = p.miniatura ?? '';
-  return /^https:\/\/[^/]*(?:fbcdn\.net|facebook\.com)\/v\/t15\./i.test(u);
+  return medioGuardadoDeAnuncio(p) === 'video';
+}
+
+/**
+ * De lo que se MUESTRA, cuántos anuncios no dicen si son video (su `medio` quedó en null). Es el número que el contador tiene
+ * que decir para no mentir: «300 anuncios» cuando de 298 no se sabe nada no es un contador, es una afirmación inventada.
+ */
+export function anunciosSinSaber(cs: readonly Pick<Carrusel, 'clase' | 'medio'>[]): number {
+  return cs.filter((c) => c.clase === 'anuncio' && c.medio == null).length;
 }
 
 const DIA = 86_400_000;
@@ -73,14 +104,18 @@ export function rotuloAire(c: Pick<Carrusel, 'diasAlAire' | 'activo'>): string |
 
 /**
  * Los anuncios de los competidores como tarjetas del explorador (clase «anuncio»). Sólo los de un competidor que el negocio
- * sigue y sólo los de IMAGEN (un video no entra: ver arriba); uno sin miniatura se ve con su texto.
+ * sigue y sólo los que NO se sabe que son video (ver arriba); uno sin miniatura se ve con su texto.
+ *
+ * ⚠️ El `medio` de la tarjeta es el que se sabe, `null` incluido. Antes iba `'imagen'` fijo, y ésa era la mentira del
+ * contador: convertía «no sé» en «es imagen» para todas las piezas viejas.
  */
 export function anunciosDe(piezas: readonly PiezaAnuncio[], competidores: readonly CompetidorParaCarrusel[], ahora = Date.now()): Carrusel[] {
   const porId = new Map(competidores.map((c) => [c.id, c]));
   const out: Carrusel[] = [];
   for (const p of piezas) {
     const c = porId.get(p.competidor_id);
-    if (!c || p.canal !== 'anuncios' || p.tipo !== 'anuncio' || esAnuncioEnVideo(p)) continue;
+    const medio = medioGuardadoDeAnuncio(p);
+    if (!c || p.canal !== 'anuncios' || p.tipo !== 'anuncio' || medio === 'video') continue;
     const texto = [p.titulo, p.texto].map((x) => x?.trim()).filter(Boolean).join('\n') || null;
     const formato = formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto });
     out.push({
@@ -95,7 +130,7 @@ export function anunciosDe(piezas: readonly PiezaAnuncio[], competidores: readon
       tipoGancho: p.analisis?.tipoGancho?.trim() || null,
       cierre: cierreDeTexto(texto),
       formato,
-      medio: 'imagen',
+      medio,
       laminas: null,
       megusta: null,
       comentarios: null,

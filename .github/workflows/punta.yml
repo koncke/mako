@@ -262,8 +262,10 @@ jobs:
         if: steps.mezcla.outputs.nada != 'true'
         run: npx next typegen
 
-      # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~10 s, y son lo único que ve una
+      # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~20 s, y son lo único que ve una
       # clave pegada en un documento (claves-en-el-diff) o una referencia generada que quedó vieja (docs/api-mako.md).
+      # (La mitad de esos 20 s es `prompts-registro-sincronizado.mjs`, que arranca tsx e IMPORTA el registro de prompts
+      # para leer sus 173 entradas como datos; agregada el 6/11/2026.)
       - name: Guardas del push
         id: guardas
         if: steps.mezcla.outputs.nada != 'true'

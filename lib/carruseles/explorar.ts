@@ -27,6 +27,7 @@ import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
 import { conVariedad } from './variedad';
+import { sinRepetidos } from './duplicados';
 import { ALIAS_LARGO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
@@ -212,12 +213,18 @@ export type FiltrosCarrusel = {
   lamMax?: number;
   /** Los tipos que no se quieren ver (los chips de «Ocultar tipos»). */
   ocultar?: Formato[];
+  /**
+   * Sólo en «Anuncios» (6/11/2026): dejar afuera los que no dicen si son video. De lo guardado antes del 6/11 no se sabe
+   * (ver ./anuncios.ts), y la pantalla no puede decidir sola: mostrarlos todos esconde videos entre las imágenes, y
+   * esconderlos todos tira 298 anuncios buenos por falta de un dato. Lo elige quien mira; por defecto se muestran.
+   */
+  soloConfirmados?: boolean;
   // ⛔ Sin «Tamaño de la tarjeta» (6/11/2026; Martín: «eso no lo quiero, solo grande»): un link viejo con `tam=chico` abre grande.
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
-  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [],
+  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [], soloConfirmados: false,
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -319,6 +326,9 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (f.vista === 'guardados' && !guardados.has(c.id)) return false;
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
     if (!anuncios && !f.conImagenes && c.medio === 'imagen') return false;
+    // En «Anuncios», lo que no dice si es video se muestra salvo que se pida lo contrario (./anuncios.ts: de lo guardado
+    // antes del 6/11/2026 no se sabe, y «no sé» no es «es video»).
+    if (anuncios && f.soloConfirmados && c.medio == null) return false;
     if (creadores.size && !creadores.has(c.competidorId)) return false;
     if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
@@ -338,8 +348,13 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
   });
   // Un anuncio no tiene outlier: «Mayor outlier» es, para ellos, el que más días lleva al aire.
   const ordenados = ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
-  // Que un creador no llene la pantalla (./variedad.ts), salvo que se haya pedido ver a uno: por cuenta o por @.
-  return porCuenta(f) ? ordenados : conVariedad(ordenados, (c) => c.competidorId);
+  // Se pidió ver una cuenta (por la lista o por @): va entera, sin repartir ni juntar contenido repetido.
+  if (porCuenta(f)) return ordenados;
+  // Dos partes del mismo contenido no ocupan dos lugares de la grilla (./duplicados.ts): queda la que mejor rindió. En
+  // «Guardados» no se junta nada: lo que el negocio guardó se ve entero. Y recién después se reparte por cuenta
+  // (./variedad.ts), para que el reparto sea sobre contenidos distintos.
+  const unaVezCadaContenido = f.vista === 'guardados' ? ordenados : sinRepetidos(ordenados);
+  return conVariedad(unaVezCadaContenido, (c) => c.competidorId);
 }
 
 /** ¿Se está mirando a una cuenta en particular? (ahí no se reparte: se pidió ver a ésa). */
@@ -462,6 +477,7 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     lamMin: alias?.lamMin ?? lmin,
     lamMax: alias?.lamMax ?? lmax,
     ocultar,
+    soloConfirmados: get('conf') === '1',
   };
 }
 
@@ -478,6 +494,7 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.periodo !== 'todo') q.set('periodo', f.periodo);
   if (f.formato) q.set('formato', f.formato);
   if (f.conImagenes) q.set('imagenes', '1');
+  if (f.soloConfirmados) q.set('conf', '1');
   if (f.orden !== 'outlier') q.set('orden', f.orden);
   if (f.vista !== 'todos') q.set('vista', f.vista);
   if (f.que !== 'carruseles') q.set('que', f.que);

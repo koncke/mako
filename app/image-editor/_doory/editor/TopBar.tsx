@@ -1,7 +1,5 @@
 import { Download, Eye, FilePlus, FileText, History, Keyboard, Maximize, MonitorPlay, PencilLine, Play, Presentation, Redo2, RotateCcw, Save, Scaling, Settings, Share, SquarePlus, Undo2, Users } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { useCollabState } from './collab/context'
-import { PresenceStack } from './chrome/PresenceStack'
 import { openAccountDialog } from './chrome/accountGate'
 import { useChrome, useOpenTool } from './chrome/ChromeContext'
 import { useEditor, useEditorState } from './context'
@@ -68,9 +66,7 @@ function TitleField({ onTitle, showSize }: { onTitle: (title: string) => void; s
   const editor = useEditor()
   const title = useEditorState((s) => s.title)
   const size = useEditorState((s) => formatSize(getPageSize(s.doc, s.activePageId), s.doc.unit))
-  const locked = useEditorState((s) => s.readOnly)
-  const cannotRename = useCollabState((s) => !s.canRename) === true
-  const readOnly = locked || cannotRename
+  const readOnly = useEditorState((s) => s.readOnly)
   const [draft, setDraft] = useState<string | null>(null)
   const value = draft ?? title
   const commit = (next: string): void => {
@@ -427,9 +423,6 @@ export function TopBar({ start, end, onTitle, onPresent }: TopBarProps) {
 
       <div className={styles.right}>
         {tiny ? null : <TitleField onTitle={onTitle} showSize={size === 'wide'} />}
-        <div className={styles.presence}>
-          <PresenceStack />
-        </div>
         {narrow ? null : endTools.map((p) => <EndTool key={p.id} panel={p} open={openId === p.id} onToggle={() => toggle(p.id)} />)}
         {tiny ? null : <PresentMenu items={presentItems} iconOnly={size !== 'wide'} />}
         <ShareMenu iconOnly={tiny} />

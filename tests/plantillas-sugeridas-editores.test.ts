@@ -180,4 +180,5 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 //     marca la sugerida / no dice que elija una sugerida                              -> 14/1 cada una
 // Las roturas que medían el ORDEN de la galería de imagen (ordenar lo ya filtrado, ordenar sin las señales, la API de
 // imagen sin las señales, la tarjeta de presentación con un cuello genérico) se fueron el 6/11/2026 con las plantillas
-// que ordenaban. La base ya no es 15: la de ahora se mide al correrlo.
+// que ordenaban. Medido el 6/11/2026: la base es 12/0, y el panel sugiriendo algo (su `list` devolviendo una fila) da
+// 11/1 en «imagen · sin plantillas, el panel no sugiere nada».

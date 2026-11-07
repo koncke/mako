@@ -773,6 +773,85 @@ Reglas que salen de eso:
   sobre cualquier modificado que no reconozcas: `git show HEAD:<ruta> | tr -d '\r' |
   md5sum` contra el archivo (si el disco es el PADRE de un commit reciente, es esto) y
   `ls -l` (una mtime vieja dice que nadie lo editó). La cura es `git checkout -- <rutas>`.
+- ⚠️ **Y EL ÁRBOL VIEJO TIENE UNA SEGUNDA FORMA, Y ES PEOR: `main` NO SE MOVIÓ NUNCA, y el
+  `status` puede estar LIMPIO.** Lo de arriba deja rastro —archivos «modificados»—; esto no
+  deja ninguno. Medido el 06/11/2026 en el clon principal: `refs/heads/main` en `136ef8baa`,
+  del **23/10**, contra un `origin/main` del 6/11: **6.230 commits** de diferencia, merge-base
+  `b51d22388` del 16/10. Ningún comando lo grita y el árbol se lee igual de bien que siempre —
+  **contesta correctamente sobre el repo de hace dos semanas**, que es justo lo que no despierta
+  sospecha. Ese día se escribió con confianza que `docs/proveedores-de-cobro.md` no estaba en
+  main y que los commits de Creem nunca habían llegado: las dos cosas eran FALSAS en
+  `origin/main`, donde ya vivían `lib/creem-api.ts`, el webhook de Creem, la migración 0358,
+  `app/planes/` y `lib/compra-plan-reglas.ts`. El `git log` del clon tampoco avisa: muestra
+  commits reales, prolijos y viejos.
+
+  **Antes de leer el árbol para contestar algo sobre «main», dos comandos:**
+
+  ```bash
+  git fetch origin
+  git rev-list --count refs/heads/main..refs/remotes/origin/main   # 0 = al día
+  ```
+
+  **Y cuando la pregunta es «¿esta ruta existe en main?», se le pregunta a `origin/main`, nunca
+  a `main` ni al disco:** `git cat-file -e refs/remotes/origin/main:<ruta>` para saber si está y
+  `git show refs/remotes/origin/main:<ruta>` para leerla. El disco contesta por el checkout, y
+  el checkout puede ser de cualquier fecha.
+
+- ⚠️ **Y EN UN CLON ATRASADO, UN `status` SUCIO TAMPOCO ES «TRABAJO DE OTRA SESIÓN»: puede ser
+  trabajo QUE YA ESTÁ ARRIBA.** La regla de más arriba —«si no es tuyo, dejalo donde está»—
+  supone un árbol al día. En ese mismo clon, las **14** rutas sin commitear (9 «modificadas» y
+  5 «sin trackear») no eran trabajo en curso de nadie: **las 14 ya estaban en `origin/main`.**
+  Siete, byte a byte idénticas; las otras siete coincidían EXACTO con una versión histórica de
+  arriba (`5178a7d46` del 27/10, `b9d0e22c5` y `be19b8c91` del 26/10, `0edc850a6` del 24/10):
+  son las sobras del trabajo que se pusheó desde un worktree mientras el `main` del clon se
+  quedaba quieto. Y aparecen como «sin trackear» sólo porque esos archivos NACIERON después del
+  commit del clon. Acá «commiteá por ruta explícita» es lo que hace daño: commitear una de esas
+  rutas arma un commit con la versión del 27/10 sobre un main del 23/10, y el día que eso se
+  mezcle con `origin/main` entra como un revert de dos semanas.
+
+  **Se distingue por ruta, y son dos preguntas distintas:**
+
+  ```bash
+  git hash-object <ruta>                            # el blob del disco
+  git rev-parse refs/remotes/origin/main:<ruta>     # iguales → ya está arriba, no es WIP
+  # y si difieren, ¿el disco es una versión VIEJA de arriba?
+  d=$(git hash-object <ruta>); for c in $(git rev-list refs/remotes/origin/main -- <ruta>); do
+    [ "$(git rev-parse $c:<ruta> 2>/dev/null)" = "$d" ] && echo "foto vieja: $c"; done
+  ```
+
+  Si el blob del disco aparece en la historia de arriba, no hay nada que salvar. Si no aparece
+  en ninguna, ahí sí es trabajo que no está en ningún lado.
+
+  ⚠️ **Y LA PREGUNTA QUE LO DISTINGUE ES UNA SOLA, Y NO SE HACE SOLA: ¿los archivos son más
+  NUEVOS, o el árbol es más VIEJO?** Las dos cosas pintan el mismo ` M` y la primera es la única
+  que se piensa. Medido el 07/11/2026 **con esta regla ya escrita y en main**: otra sesión midió
+  el mismo clon una hora después, vio los nueve modificados de `extension/` y concluyó «trabajo
+  sin guardar de la extensión», con el plan de commitearlo en una punta propia — o sea publicar
+  la versión del 27/10 encima de la de hoy. No lo frenó la regla: lo frenó que la medición
+  llegara antes que el commit. Su propio diagnóstico, después: «vi `status` sucio y concluí
+  "trabajo sin guardar" sin preguntarme si los archivos eran más NUEVOS o si el árbol era más
+  VIEJO».
+  - **Y un `stash` NO corre riesgo con un `reset --hard`**: vive en `refs/stash`, que un reset no
+    mueve; sólo lo borran `git stash drop` y `git stash clear`. Que haya stashes no es un
+    argumento contra poner el clon al día — aunque conviene mirar qué tienen adentro, porque en
+    un clon atrasado también suelen estar vencidos: los tres de ése lo estaban (uno lo decía en
+    su propio mensaje, «superada por 35eb66fc7/f94d9bf5b», y los otros dos eran la conversión
+    voseo→tuteo de la interfaz, de agosto, ya aplicada arriba).
+  - ⚠️ **Y una lista de rutas que se cortó para leerla no se reporta como completa.** Ese mismo
+    reporte decía «3 sin rastrear» sobre 5, porque salió de una salida cortada a 12 líneas de 14.
+    Un número de menos en una lista de lo que hay que salvar se lee igual de prolijo que el
+    verdadero.
+
+- ⚠️ **Y PONER `main` AL DÍA «SIN TOCAR EL ÁRBOL DE TRABAJO» ES LA PEOR OPCIÓN DE TODAS.** Un
+  `git update-ref` o un `git branch -f` mueven la rama y dejan el disco como está: el `status`
+  pasa a comparar el árbol viejo contra el commit nuevo y aparecen **9.090 archivos
+  «modificados»** con contenido de hace dos semanas — el revert disfrazado de la regla anterior,
+  multiplicado por el repo entero, en el `.git` que comparten ~90 worktrees y varias sesiones a
+  la vez. El fast-forward tampoco está disponible si el clon tiene commits propios (ahí eran 10:
+  seis merges viejos de `origin/main` y cuatro con trabajo que ya había llegado arriba por la
+  punta, con otro sha). Lo que corresponde es medir las rutas sin commitear UNA POR UNA con los
+  comandos de arriba y recién después mover el árbol — **y avisarle a Martín antes**, porque de
+  ese clon leen todas las demás sesiones.
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
@@ -2255,6 +2334,40 @@ Y donde haya un guard así, dos cosas más:
   lo único sin red justo donde más duele. Ver `exigirClienteDePrueba` en `lib/auth-session.ts`.
 - **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
   que él contesta.
+
+# El vocabulario de UN negocio no se escribe en el código: ni nombres, ni correos, ni programas
+
+Un literal que nombra a un cliente —su dominio, su rubro, el nombre de su programa— se le
+aplica a TODOS. Y cuando lo que gobierna es descartar algo, falla del lado invisible: la
+fila no se escribe, no hay error, no hay aviso, y nadie vuelve a mirar.
+
+El mismo bug salió **tres veces del mismo módulo** (`lib/closing.ts`), por tres mecanismos
+distintos, y cada vez el que vino después no lo vio porque buscaba el mecanismo anterior:
+
+| | Qué estaba cableado | Se fue a | Fallback |
+|---|---|---|---|
+| 14/08/2026 | los correos y el dominio del dueño | `lib/closing-internos.ts` | `SIN_INTERNOS`: nadie es interno |
+| 06/11/2026 | la taxonomía del rubro, en el prompt | `lib/closing-taxonomia.ts` | `TAXONOMIA_NEUTRA`: sin rubro |
+| 06/11/2026 | los nombres de sus programas, en un regex | `lib/closing-marcadores.ts` | `SIN_MARCADORES`: ningún nombre |
+
+Lo que queda como regla para código nuevo:
+
+1. **Se resuelve por workspace, por el lector de siempre de ese dato** (el embudo por
+   `reunionesDe`, la oferta por `listarOfertas`, el perfil por `perfilNegocioTexto`). Un
+   `.from` propio para esto es una segunda fuente de verdad.
+2. **El fallback es el que NO destruye**, y se elige escribiendo los dos costos al lado:
+   analizar de más se ve en la pantalla y en la factura; descartar de más no se ve en ningún
+   lado. Nunca se cae a los valores del cliente de antes: es el mismo agujero servido por el
+   camino de error.
+3. **La decisión vive en un módulo SIN `server-only`.** Que una función esté `export`ada no
+   la hace testeable: `preClassify` lo estaba, y `lib/closing.ts` importa `server-only` en la
+   línea 27, así que ningún test la podía ejecutar.
+4. **Mudarlo a configuración no alcanza si la configuración admite una palabra genérica.** Un
+   producto llamado «Programa» o «Consultoría» descarta las ventas de su propio dueño: el
+   mismo bug, servido por la config. Hace falta el filtro (`PALABRAS_GENERICAS`, un mínimo de
+   largo, y excluir lo que ya rotula una etapa de venta de ese negocio).
+5. **Un detector así se mide antes de defenderlo.** El de los programas cazaba **0 de 28**
+   entregas reales y nadie lo sabía mientras discutía cuánto ahorraba.
 
 # `OWNER_WS` NO es la plataforma: es un cliente. Lo de MaKo va en `wsSuperAdmin()`
 
@@ -4238,8 +4351,24 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   «no agendaste» al que pagó.
 - **La clave de una pasarela se lee con `credDelCliente(clave, ws)`**, nunca `credWs`/`envCred`/`process.env`: esos
   caen al ws1 (Mauricio, un cliente). La de MaKo es la del workspace `wsSuperAdmin()`, conectada desde
-  /integraciones como la de cualquiera. Y **ninguna clave `STRIPE_*`/`MERCADOPAGO_*` va al entorno de Vercel**
-  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
+  /integraciones como la de cualquiera. Y **ninguna clave de pasarela va al entorno de Vercel**
+  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts). ⚠️ Y una que se cargue ahí igual no es un error que
+  avise: `credDelCliente` lee SÓLO la base y `aplicarAEnv` se niega a copiarla, así que queda **inerte** y el conector
+  dice «falta la credencial» (06/11/2026, con las de dLocal Go cargadas en `.env.local` y en Vercel). Ojo también con la
+  skill `add-provider-integration`: dice «per-cliente → `credWs('CLAVE')`», que es correcto para una integración normal
+  y es **exactamente lo prohibido** para una pasarela.
+- ⚠️ **UNA PASARELA NUEVA SE AGREGA A SU LISTA DE PREFIJOS EN EL MISMO COMMIT QUE SU LIB.** El barrido de
+  `tests/pasarela-sin-env.test.ts` es por PREFIJO, así que es tan ancho como su lista — y **quedó ciego dos veces**: con
+  Creem (31/10/2026) y con dLocal Go (06/11/2026), las dos con un `credWs('<X>_API_KEY')` pasando **en verde** y
+  cobrándole a la cuenta del ws1. Un guardia que no mira no da rojo: da un cero correcto sobre la pregunta equivocada.
+  Desde el 06/11 los dos tests del archivo derivan las claves de `CLAVES_DE_PASARELA` leyendo el fuente, así que la
+  quinta pasarela ya no depende de que alguien se acuerde.
+- ⚠️ **Y UNA CAPACIDAD DE PASARELA QUE ES UNA REGIÓN NO ENTRA EN UN BOOLEANO.** `soloEnSuPais` tiene dos valores («sólo
+  el país de su cuenta» y «todo el mundo») y dLocal Go no es ninguno: cobra en LatAm y **no recibe pagos de EE.UU. ni de
+  Europa**. Agregarlo con los dos valores correctos campo por campo (`soloEnSuPais: false`, `merchantOfRecord: false`) lo
+  deja **ofrecido a quien está fuera de LatAm y escondido para quien está dentro** — al revés, sin un ternario de dos
+  ramas y sin que nada falle. Antes de sumar una pasarela regional va `paisesQueCobra` en `CapacidadesPasarela`, y
+  `pasarelasDelPais` filtra por él ANTES de mirar `merchantOfRecord` (docs/hallazgos-planes-y-cobro.md → «dLocal Go»).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
   ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
@@ -10263,6 +10392,64 @@ número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro
 Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
 de siempre: era la tercera escritura de la misma regla y la única que faltaba.
 
+# Un prompt nuevo se DECLARA en el registro, y lo exige una guarda del push (6/11/2026)
+
+«Todo prompt de MaKo es editable desde /configuraciones» no lo chequeaba nada: `guardas-push.sh` no decía
+la palabra «prompt» y de los 2.307 `tests/*.test.ts` **ninguno recorría el `REGISTRY`**. Así entraron
+**29 prompts que la app usa y la pantalla no muestra**, y **4 que la pantalla muestra y nadie lee**
+(`campaign.*`: el override se guarda y el texto no llega a ningún modelo).
+
+Nada lo iba a avisar, porque los dos lados fallan en silencio **a propósito**: `getPromptText` hace
+`override ?? fallback`, así que una key fuera del registro ANDA; y `renderTemplate`
+(lib/prompt-render-pure.ts) reemplaza SÓLO los slots declarados —defensa anti-inyección—, así que un dato
+que no coincide con un `{{slot}}` se tira sin error y un `{{slot}}` que nadie llena viaja literal al modelo.
+
+Lo exige **`scripts/prompts-registro-sincronizado.mjs`** (en `guardas-push.sh`, ~10 s), que EJECUTA el
+registro —`server-only` neutralizado con el parche de `Module._load`— y barre `lib/ app/ scripts/`:
+
+- **Un prompt nuevo va al `REGISTRY` con su Entry**, o la guarda frena. Si todavía no está cableado, se dice
+  en su `context` (el molde: `mako.modo.*`).
+- **La `key` de la Entry sólo es el identificador de lectura con `source: 'override'`.** Las otras tres
+  fuentes resuelven por `storeKey` (`modoByKey.get(e.storeKey)`, `fases[e.storeKey]`), así que ahí la red es
+  que esa `storeKey` exista en `MODOS` (lib/mako-prompts.ts) — sin la fila, la pantalla muestra el default
+  como si fuera el valor vigente y guardar escribe donde nadie lee.
+- **Los `{{slots}}` del template, el `variables:` de la Entry y las claves que recibe `renderPrompt` son el
+  mismo conjunto.** Un slot vivo que el `variables:` no declara es un dato que el que edita puede borrar sin
+  que nada se lo diga.
+- **La key va LITERAL en el call-site**, o por una tabla `PROMPTS_* = { campo: { key: '…' } }` o una constante
+  `CLAVE_*`/`KEY_*`. Otra indirección frena el push: por ahí entra una huérfana que nada ve.
+- Las excepciones viven en el propio script, cada una con su motivo y su fecha, **y la guarda falla si la
+  lista crece o si una entrada ya no corresponde**: es un contador que sólo puede bajar.
+- Para ver el estado sin juzgar nada: `node --import tsx scripts/prompts-registro-sincronizado.mjs --listar`.
+
+⚠️ **Un test de un prompt NO necesita regexear el fuente del registro.** Los cinco que lo cruzan hoy
+(`tests/offer-ia-cableado.test.ts` y los parciales de closing, copywriter y editor-landing) leen
+`lib/prompt-registry.ts` como texto porque es `server-only`; con el stub se importa y se leen `key`,
+`variables` y `default` como datos.
+⚠️ **Y la guarda mira el CABLEADO, no si la pantalla correcta lo lee.** Lo medido el 6/11 pasando los
+prompts del escritor de Instagram al registro:
+
+- **Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro.**
+  Uno que se quedó con la constante queda **mudo**: el usuario edita, guarda, ve su texto en pantalla — y
+  esa pantalla sigue escribiendo con el default. Sin error, sin tipo roto, y con la key perfecta (así que la
+  guarda da verde). Lo que lo fija es **contar los usos de la constante en un test**
+  (`tests/ig-writer-prompts.test.ts`: 0 en el motor, 1 en el Copywriter y sólo como respaldo del `.catch`).
+- **Si el DEFAULT vive en un módulo que la UI también importa** —y por eso no puede llevar `server-only`:
+  las `METODOLOGIA_*` de `lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo
+  archivo— el default se queda ahí y la resolución editable va en un **módulo server aparte**
+  (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan todos.
+- **Si el prompt se arma de VARIOS bloques, el orden vive en UNA función** (`componerMetodologia`). Con dos
+  caminos —el default y el editable— el prompt sin editar y el editado le pueden llegar al modelo en distinto
+  orden y nada lo chequea: el test compara las dos salidas con nada editado, y tienen que ser idénticas.
+- **Un contrato JSON que lee un parser determinista del mismo archivo NO se registra** (`REEL_JSON_SHAPE` y
+  compañía): editarlo desde /configuraciones es editar el parser, y el síntoma sería «la pieza vino sin
+  escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del prompt que sí se edita, con el aviso en su
+  `context`.
+- **La key «por tabla» que la guarda acepta es `PROMPTS_X.campo.key` con el campo LITERAL.** Un
+  `PROMPTS_X[formato].key` no se puede seguir y frena el push: la resolución por formato se escribe como un
+  `switch` exhaustivo con los tres accesos a la vista, que además hace que un formato nuevo no compile hasta
+  tener su Entry.
+
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 
 En este repo, sobre el mismo mensaje, el ROUTER contesta «¿cuánto gastar?» (el tier) y
@@ -11000,6 +11187,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Y una pieza de escritorio que se MONTA en /m trae menos de lo que parece (6/11/2026, Competitor Spy).** Antes de
+  reusarla se miran tres cosas en SU archivo: (1) si trae su CSS (`<style>{CSS}</style>`) o si vive en el `const CSS` de
+  la pantalla que la monta —la mitad de las de Spy—, porque sin él se dibuja sin una sola regla y en la computadora
+  nadie lo nota; (2) si usa tokens declarados en la clase RAÍZ de su tab (`.spy` declara `--t1..--t4`, `--t-ink`,
+  `--ig`…), que fuera de ella resuelven a nada; (3) si es dueña de su CAJA —un `Modal`, que /m no usa—, y entonces la
+  caja se vuelve una prop con el `Modal` como default y el teléfono le pasa su `SheetM` (molde: `marco` /
+  `MarcoDetalle`, app/competitor-spy/DetallePieza.tsx). Lo que se viste en /m va como DESCENDIENTE del prefijo entero de
+  la carpeta, que es lo que además permite destilarla (una columna, no cinco) sin tocar el escritorio.
+  Lo que costó: docs/hallazgos-mobile.md, «Montar una pieza de escritorio en /m».
 - **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
   Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
   que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes

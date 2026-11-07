@@ -170,8 +170,29 @@ MOVER A DM (ManyChat Master «FLOW 3»): el trigger es RESPONDER LA STORY con un
 
 LÍMITE TÉCNICO A RESPETAR EN EL GUION: por API NO salen stickers, encuestas ni links (limitación de Meta) — si un frame los necesita, marcarlo como paso manual en la app, no prometerlo automático.`;
 
-/** Metodología del formato + la transversal (siempre juntas). */
+/** La metodología propia de cada formato, por su id (los DEFAULTS: el texto editable lo
+ *  resuelve lib/ig-metodologia.ts). */
+export const METODOLOGIA_POR_FORMATO: Record<FormatoIg, string> = {
+  reel: METODOLOGIA_REEL,
+  carrusel: METODOLOGIA_CARRUSEL,
+  story: METODOLOGIA_STORY,
+};
+
+/**
+ * CÓMO se juntan los dos bloques (la propia del formato primero, la transversal después).
+ * Vive suelto porque lo usan DOS caminos —el default de acá y el editable de
+ * lib/ig-metodologia.ts— y el orden tiene que ser el mismo en los dos: si se duplica, un
+ * prompt sin editar y el mismo prompt editado le llegan al modelo en distinto orden y nada
+ * lo avisa. `tests/ig-writer-prompts.test.ts` fija que las dos salidas coincidan.
+ */
+export const componerMetodologia = (propia: string, transversal: string): string => `${propia}\n\n${transversal}`;
+
+/**
+ * Metodología del formato + la transversal (siempre juntas), SIN overrides: es el DEFAULT.
+ * Lo que de verdad va al modelo sale de `metodologiaIgVigente` (lib/ig-metodologia.ts), que
+ * aplica lo editado en /configuraciones. Esta función queda para los usos que no pueden
+ * esperar (un test, una vista) y como fuente del default del registro.
+ */
 export function metodologiaDe(formato: FormatoIg): string {
-  const propia = formato === 'reel' ? METODOLOGIA_REEL : formato === 'carrusel' ? METODOLOGIA_CARRUSEL : METODOLOGIA_STORY;
-  return `${propia}\n\n${METODOLOGIA_TRANSVERSAL}`;
+  return componerMetodologia(METODOLOGIA_POR_FORMATO[formato], METODOLOGIA_TRANSVERSAL);
 }
