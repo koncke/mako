@@ -515,7 +515,7 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 
 **Vive en:** `lib/carruseles/{cta,clasificar,replica,documento,explorar}.ts`, `app/image-editor/carruseles/{ExplorarCarruseles,CarruselAbierto,FiltrosCarruselModal,Deslizador}.tsx`. Capturas: `docs/carruseles/pulido-2026-11-06/`. El banco para volver a mirar: `scripts/banco-carruseles/` (el componente real en Chromium con datos inventados; `node scripts/banco-carruseles/build.mjs`, `servir.cjs` y `capturar.mjs`; `replica-html.mts` dibuja lo que arma «Editar»).
 
-- **«Sin tipo» no se arregla ampliando las reglas.** Lo obvio era sumar portugués, alemán e inglés al clasificador. Se hizo (listas con sustantivos de los tres idiomas, «Como + infinitivo», «So … du», «How to», paso a paso, antes/después, mito, opinión impopular y tres puntos numerados) y movió **40 de 1.253** (quedan 1.213). El pie casi nunca DICE el tipo: son textos de una idea, de una receta, de una opinión personal. El resto sólo se resuelve mirando las láminas (visión, con la IA del negocio, cuando estén traídas) o con la portada que lee Instagram. Se probó una regla «frase» (pie corto, sin hashtags ni números) y se descartó: de 66 candidatos, la mitad eran «Comment “WIN” to get…» o «New episode… out now». Sigue en `reclasificar` (gratis) mirar cuántos quedan.
+- **«Sin tipo» no se arregla ampliando las reglas.** Lo obvio era sumar portugués, alemán e inglés al clasificador. Se hizo (listas con sustantivos de los tres idiomas, «Como + infinitivo», «So … du», «How to», paso a paso, antes/después, mito, opinión impopular y tres puntos numerados) y movió **40 de 1.253** (quedan 1.213). **Y el 6/11 a la noche se midió POR QUÉ movió tan poco: ver la entrada de abajo.** El pie casi nunca DICE el tipo: son textos de una idea, de una receta, de una opinión personal. El resto sólo se resuelve mirando las láminas (visión, con la IA del negocio, cuando estén traídas) o con la portada que lee Instagram. Se probó una regla «frase» (pie corto, sin hashtags ni números) y se descartó: de 66 candidatos, la mitad eran «Comment “WIN” to get…» o «New episode… out now». Sigue en `reclasificar` (gratis) mirar cuántos quedan.
 - **El «gritado» del CTA se mide por palabras, no por letras.** «Envía RELEVANCIA por DM» tiene 13 de 21 letras en mayúsculas (61 %) y se leía como un pie gritado: la palabra clave desaparecía. Ahora cuenta palabras enteras en mayúsculas sobre el total y sólo desde 5 palabras.
 - **Un DM sin palabra no es un CTA.** El verbo suelto («envía», «manda», «escribe», «send», «text») sólo cuenta si la misma frase dice por dónde (DM, mensaje, privado, inbox) y trae una palabra; «Send me a DM» devolvía «DM» como palabra clave. «DM» y «MD» nunca son la palabra.
 - **«Editar» salía feo por la capa del diseño, no por la IA.** Las tres causas estaban en `documentoDeReplica`: la letra venía del TIPO de MaKo (la «lista» es DM Serif Display), los tamaños eran los tímidos que devuelve un modelo (0,02 a 0,03 del ancho: 22 a 32 px) y, sin foto del cliente, dibujaba un recuadro gris «Tu foto». Ahora la IA elige una `letra` (sans, gruesa, condensada, serif, manuscrita, mono) que se traduce a una familia REAL del editor, los textos se reacomodan para llenar la lámina con un solo factor (la jerarquía no cambia) y sin foto no hay recuadro. El camino con guías (`documentoDeCarrusel`) también: el titular y el cuerpo toman la letra más grande que entra y el bloque se centra.
@@ -527,9 +527,67 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **«Parecidos» es de lo que ya está en pantalla:** mismo tipo, palabras en común del gancho y del pie, y a igual parecido el que más rindió (`parecidosA`); «creadores parecidos» son los que comparten sus tipos (`creadoresParecidos`). No es una búsqueda semántica: sin nada en común, no hay.
 - **La nube y la PC no corren el `tsc`:** el pulido se probó con los tests del área y el banco; el typecheck lo corre GitHub al subir.
 
+## «El clasificador no reconoce otros idiomas» era el diagnóstico equivocado: el 74 % que falta está en INGLÉS (6/11/2026)
+
+**Vive en:** `lib/carruseles/clasificar.ts`. **Veredicto, medido en seco con `reclasificar` antes y después: 1.213 → 1.147.**
+
+El pendiente (ítems 7, 189 y 385 del 6/11) decía que el 85 % quedaba sin tipo porque «el clasificador no reconoce portugués,
+alemán ni inglés», y pedía ampliarlo. Se midió el idioma de los **1.205 carruseles sin tipo que todavía tienen texto** (de
+1.213 sobre 1.470; sólo **8** ya lo perdieron, así que «el texto venció» no explica nada):
+
+| inglés | español | sin decidir | portugués | alemán | francés |
+|---|---|---|---|---|---|
+| **893 (74 %)** | 164 (14 %) | 120 | 21 | 4 | 3 |
+
+**El portugués y el alemán juntos son 25 piezas, el 2 %** — por eso la tanda anterior movió 40 y no podía mover más. Lo que
+falta está en inglés y español, **que ya estaban cubiertos**. Dos mediciones dicen por qué no entran:
+
+1. **El pie no dice el tipo, y la mayoría de esas publicaciones NO TIENEN tipo que encontrar.** Mirando el corpus son avisos
+   inmobiliarios, recetas, ropa, saludos de Halloween, cumpleaños, festejos de equipo, encuestas de una línea: entraron por los
+   **32 temas (hashtags) prendidos**, no por las cuentas de la lista.
+2. **Los sustantivos que siguen a un número en ese corpus son UNIDADES, no marcadores de lista:** «years» 14, «hours» 11,
+   «days» 9, «minutes» 8, «meses» 7, y después «baños», «recámaras», «tsp», «tbsp». Sumarlos a la lista sería inventar.
+
+**La regla que queda: el 85 % sin tipo no se arregla en el clasificador, se arregla CURANDO la biblioteca** (apagar los temas
+que traen cualquier cosa y esconder lo que no le sirve a un dueño: `scripts/carruseles-biblioteca.mts`, comandos `tema`,
+`ocultar`, `excluir`). Un carrusel de verdad que no diga su tipo en el pie sólo lo dice en sus LÁMINAS, y eso pide crédito de
+Apify. Ampliar reglas acá da **66 piezas y ahí se termina**; están medidas y puestas:
+
+- **La lista con dos palabras entre el número y el sustantivo** («5 **simple seo** tips», «6 **social media** facts»): con una
+  sola se escapaban. Con tres no entra ninguna más, así que el límite quedó en dos.
+- **La lista que se nombra SIN número**: «here are the / my / some», «these are the / my», y el nombre que le pone el creador
+  («checklist», «cheat sheet»). Se exige el artículo: «get on the list» es una lista de ESPERA.
+- **`recipes`** era el único sustantivo de lista con peso que faltaba (9 piezas: «all 9 recipes»), y **francés**, 3 piezas.
+- **Los tipos del catálogo que este clasificador no intentaba**: sus frases fuertes son casi todas en español
+  (`lib/spy-catalogo-datos.ts`) y lo que falta está en inglés. Entraron `entrevista` («new episode», «full episode», «in
+  conversation with»), `recap-evento` («meet the finalists», «thank you to everyone who»), `tutorial` («here's what / how») y
+  `caso-de-exito` («how we made / built / grew»).
+
+**Y un tipo EQUIVOCADO es peor que «sin tipo»**, porque el cliente filtra por tipo justamente para no mirar las 1.470. La
+primera versión de `promo` tomaba «link in bio», «dm us to», «free audit», «want us to»: daban **43 piezas, bien medidas y mal
+tipadas**, porque son el CTA de un carrusel de CONTENIDO (una lista de acciones que subieron y un recap de evento salían
+«Promoción directa»). Se sacaron, y quedaron 8: la tienda y el turno que se venden de frente. **Lo de «Comenta X palabra» ya
+tiene su propio campo y su propia regla en `lib/carruseles/cta.ts`: no se mezcla con el tipo.**
+
+⛔ **Medidas y RECHAZADAS, para que nadie las vuelva a intentar** (están escritas en el archivo, con lo que daban): «i tried»
+como reseña (4, las 4 falsas: «i tried to ask myself»); «which one are you» como tendencia (22, casi todas recetas preguntando
+cuál vas a cocinar); «a reminder that» como frase (8, pero es un giro adentro del texto — el catálogo deja `frase` sin frases
+fuertes a propósito); «work in progress» como detrás de escena (1, falsa); «most people think» como opinión (1).
+
+**Probado rompiéndolo** (base 13/0): volver a una palabra entre medio → 1 rojo; sacar el francés → 1; sacar `recipes` y
+`slides` → 1; no mirar la lista sin número → 1; aceptar «the list» suelto → 1; no mirar los tipos nuevos → 2; volver a meter
+«link in bio» en promo → 1; volver a meter «free audit» y «dm us to» → 1; poner promo ANTES de los tipos de contenido → 1. Un
+cambio sin efecto (renombrar `LISTA_FRASES`) deja los 13 verdes.
+
 ## Sin hacer
 
-- **El tipo de 1.213 carruseles** sigue vacío: sólo las láminas (o la portada leída) lo dirían. `lib/carruseles/clasificar.ts`.
+- **El tipo de 1.147 carruseles** sigue vacío, y **ampliar el clasificador ya no es el camino** (ver la entrada de arriba: el
+  74 % de lo que falta está en inglés, que ya estaba cubierto, y la mayoría son publicaciones sin tipo que encontrar, traídas
+  por los 32 hashtags). Lo que lo movería de verdad: **curar la biblioteca** (apagar temas, esconder lo que no sirve) y, para
+  los carruseles de verdad, **leer las láminas con visión** — trabado por el crédito de Apify. `lib/carruseles/clasificar.ts`.
+- **La pasada de `reclasificar --de-verdad` está SIN correr** con el clasificador nuevo: en seco dice 1.213 → 1.147 y es
+  gratis (no le pide nada a Apify), pero escribe en producción. La corre Martín o el Cerebro:
+  `node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar --de-verdad`.
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
 - ~~**Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire.~~

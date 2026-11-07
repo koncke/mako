@@ -19,6 +19,22 @@
 // arrancar el gancho, «antes / después»). Lo que no dice nada queda «sin tipo», que es la verdad. Nunca se adivina por el
 // largo, el creador o el tema.
 //
+// ⚠️ EL TECHO DE ESTO, MEDIDO (6/11/2026) — el diagnóstico que traía el pendiente era el equivocado.
+// El pendiente decía «el clasificador no reconoce portugués, alemán ni inglés» y pedía bajar el 85 % sin tipo. Se midió el
+// idioma de los 1.205 carruseles sin tipo QUE TIENEN TEXTO (de 1.213 sin tipo sobre 1.470; sólo 8 ya no tienen texto):
+//     inglés 893 (74 %) · español 164 (14 %) · sin decidir 120 · portugués 21 · alemán 4 · francés 3
+// O sea: el portugués y el alemán juntos son 25 piezas, el 2 %. La tanda de pt/de que se agregó antes podía mover 40 y movió
+// 40. **Lo que falta no es idioma: son inglés y español, que ya estaban cubiertos.** Y no clasifican porque EL PIE NO DICE EL
+// TIPO: mirando el corpus, la mayoría son publicaciones que no tienen tipo que encontrar —avisos inmobiliarios (baños,
+// recámaras, m2), recetas y comida (tsp, tbsp, meal prep), ropa, saludos de Halloween, cumpleaños, festejos de equipo,
+// encuestas de una línea—, que entraron por los 32 temas (hashtags) prendidos, no por las cuentas de la lista. Se comprobó
+// también por otro lado: los sustantivos que siguen a un número en ese corpus son unidades («years» 14, «hours» 11, «days» 9,
+// «minutes» 8, «meses» 7, «baños», «recámaras», «tsp»), no marcadores de lista.
+// POR ESO: ampliar reglas acá da ~70 piezas más y ahí se termina. **El 85 % sin tipo no se arregla en el clasificador: se
+// arregla CURANDO la biblioteca** (apagar los temas que traen cualquier cosa y esconder lo que no le sirve a un dueño de
+// negocio: `scripts/carruseles-biblioteca.mts`, comandos `tema`, `ocultar` y `excluir`). Un carrusel de verdad que no diga su
+// tipo en el pie sólo lo dice en sus LÁMINAS, y leerlas pide crédito de Apify.
+//
 // «PARECE CONTENIDO» (para el orden, nunca para esconder): una señal MEDIBLE con tres valores.
 //   · true: dice algo de contenido — tiene tipo, pide algo al final (guardar, comentar, compartir…), o Instagram dice que la
 //     portada tiene texto;
@@ -73,8 +89,22 @@ const SUSTANTIVOS_DE_LISTA = [
   // Alemán (textoComparable saca las tildes y diéresis: «Gründe» es «grunde»).
   'tipps', 'fehler', 'schritte', 'grunde', 'dinge', 'wege', 'regeln', 'lektionen', 'ideen', 'tools', 'gewohnheiten', 'strategien',
   'geheimnisse', 'beispiele', 'bucher', 'fragen', 'mythen', 'vorlagen', 'moglichkeiten', 'zeichen', 'prinzipien', 'methoden',
+  // Francés (6/11/2026: son 3 piezas, pero la regla ya existía para pt y de y el costo de sumarlo es una línea).
+  'astuces', 'conseils', 'etapes', 'erreurs', 'raisons', 'facons', 'choses', 'outils', 'idees', 'lecons', 'regles', 'exemples',
+  // Medidos en el corpus del 6/11: «recipes» es el único sustantivo de lista con peso que faltaba (9 piezas: «all 9 recipes»),
+  // y «slides» se nombra cuando el carrusel se cuenta a sí mismo («montou os 9 slides»).
+  'recipes', 'recetas', 'receitas', 'slides',
 ];
-const LISTA_AMPLIA = new RegExp(`(?<![\\p{L}\\p{N}])(?:[2-9]|[12]\\d|30)\\s+(?:\\p{L}+\\s+)?(?:${SUSTANTIVOS_DE_LISTA.join('|')})(?![\\p{L}\\p{N}])`, 'u');
+// Hasta DOS palabras entre el número y el sustantivo: con UNA, «5 simple seo tips» y «6 social media facts» se escapaban
+// (medido el 6/11/2026; con tres no entra ninguna más, así que el límite queda en dos).
+const LISTA_AMPLIA = new RegExp(`(?<![\\p{L}\\p{N}])(?:[2-9]|[12]\\d|30)\\s+(?:\\p{L}+\\s+){0,2}(?:${SUSTANTIVOS_DE_LISTA.join('|')})(?![\\p{L}\\p{N}])`, 'u');
+
+/**
+ * Una lista que se nombra SIN número: «here are the…», «these are the…» (23 piezas el 6/11) y el nombre del formato puesto
+ * por el creador, «checklist» o «cheat sheet» (9 piezas). Se exige el artículo: «get on the list» es una lista de espera, no
+ * un carrusel de lista, y por eso «the list» suelto no cuenta.
+ */
+const LISTA_FRASES = /(?<![\p{L}\p{N}])(?:here are (?:the|my|some)|these are (?:the|my)|checklist|cheat sheet)(?![\p{L}\p{N}])/u;
 
 // Frases que dicen el tipo y el catálogo de Spy no tiene en inglés (sus equivalentes en español sí están allá).
 const FRASES_EN: ReadonlyArray<readonly [Formato, RegExp]> = [
@@ -99,6 +129,34 @@ const FRASES_MULTI: ReadonlyArray<readonly [Formato, RegExp]> = [
   ['promo', /(?<![\p{L}\p{N}])(?:\d{1,3} ?% (?:off|de desconto|de descuento|rabatt)|oferta especial|frete gratis|shop now|compre agora|comprar ahora|jetzt kaufen|jetzt bestellen|cotiza|cotize)(?![\p{L}\p{N}])/u],
 ];
 
+/**
+ * Los tipos del catálogo que el clasificador de carruseles NO intentaba (6/11/2026): sus frases fuertes son casi todas en
+ * español (lib/spy-catalogo-datos.ts) y el 74 % de lo que queda sin tipo está en inglés. Cada una es una frase que DICE el
+ * tipo; las que se midieron y NO entraron están abajo, con el porqué, para que nadie las vuelva a intentar.
+ *
+ * ⛔ MEDIDAS Y RECHAZADAS, con lo que daban:
+ *   · «i tried» / «we tried» como reseña → 4 piezas, las 4 falsas («i tried to ask myself», «i tried to reach out»);
+ *   · «which one are you» / «rate this» como tendencia → 22, casi todas recetas preguntando cuál vas a cocinar;
+ *   · «a reminder that» / «your reminder» como frase → 8, pero es un giro adentro del texto, no un carrusel de frase
+ *     (el catálogo deja `frase` SIN frases fuertes a propósito);
+ *   · «work in progress» como detrás de escena → 1, falsa;
+ *   · «most people think» como opinión → 1, y es el arranque de cualquier cosa.
+ * Y el orden importa: `promo` va AL FINAL, porque un carrusel de contenido que cierra con «link in bio» es contenido.
+ */
+const FRASES_MAS: ReadonlyArray<readonly [Formato, RegExp]> = [
+  ['tutorial', /(?<![\p{L}\p{N}])(?:here'?s (?:how|what|why)|here is how|this is how (?:i|we|you)|comment faire|pas a pas|voici comment|tutoriel)(?![\p{L}\p{N}])/u],
+  ['caso-de-exito', /(?<![\p{L}\p{N}])how (?:we|i) (?:made|built|grew|turned|took|scaled)(?![\p{L}\p{N}])/u],
+  ['entrevista', /(?<![\p{L}\p{N}])(?:new episode|latest episode|full episode|this episode of|on (?:the|our|my) podcast|in conversation with|sat down with|(?:my|our) guest|interview with|novo episodio|neue folge)(?![\p{L}\p{N}])/u],
+  ['recap-evento', /(?<![\p{L}\p{N}])(?:event recap|recap of (?:the|our)|that'?s a wrap|thank you to everyone who|meet the finalists)(?![\p{L}\p{N}])/u],
+  // Promo, al final: la tienda y el turno que se venden de frente.
+  // ⛔ «link in bio», «dm us to», «free audit», «want us to», «contact us» se midieron y SE SACARON: daban 43 piezas pero
+  // mal tipadas. Son el CTA de un carrusel de CONTENIDO, no el tipo del carrusel: con ellas, una tanda de acciones que subieron
+  // («the stocks that jumped», una lista) y un recap de evento («15 founders joined our program… link in bio to register»)
+  // salían «Promoción directa». **Un tipo equivocado es peor que «sin tipo»**: el cliente filtra por tipo justamente para no
+  // mirar todo. Lo de «Comenta X palabra» ya tiene su propio campo y su propia regla en ./cta.ts; no se mezcla con el tipo.
+  ['promo', /(?<![\p{L}\p{N}])(?:shop now|in stores now|new (?:collection|drop|arrival)|free shipping|use code|discount code|book (?:your|a) (?:call|session|appointment|table)|appointments? available|open for bookings|sizes available|work with (?:us|me)|hire (?:us|me))(?![\p{L}\p{N}])/u],
+];
+
 const MARCA = String.raw`(?:️?⃣|[.)])`;
 const ENUMERADO = new RegExp(String.raw`(?<![\d.,$%])1${MARCA}\s*\S[\s\S]{2,400}?(?<![\d.,$%])2${MARCA}\s*\S[\s\S]{2,400}?(?<![\d.,$%])3${MARCA}`, 'u');
 
@@ -113,9 +171,10 @@ function tipoEn(texto: string | null): Formato | '' {
   const deSpy = formatoPorTexto(texto);
   if (deSpy) return deSpy;
   const n = textoComparable(texto);
-  if (LISTA_AMPLIA.test(n)) return 'lista';
+  if (LISTA_AMPLIA.test(n) || LISTA_FRASES.test(n)) return 'lista';
   for (const [f, re] of FRASES_EN) if (re.test(n)) return f;
   for (const [f, re] of FRASES_MULTI) if (re.test(n)) return f;
+  for (const [f, re] of FRASES_MAS) if (re.test(n)) return f;
   // Tres puntos numerados seguidos (1. 2. 3. / 1) 2) 3) / 1️⃣ 2️⃣ 3️⃣): una lista aunque el título no traiga el número.
   if (ENUMERADO.test(texto)) return 'lista';
   // «Cómo vender…», «How I…» no; «Cómo» con tilde, al ARRANCAR el gancho, es un tutorial («como emprendedora…» no lo es:

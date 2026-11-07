@@ -52,6 +52,41 @@ test('la portada (el texto que escribe Instagram) dice el tipo antes que el pie'
   assert.equal(altDelItem({ caption: 'x' }), null, 'el actor puede no mandarlo: entonces no hay');
 });
 
+// Lo que se agregó el 6/11/2026, con lo medido sobre los 1.205 carruseles sin tipo QUE TIENEN TEXTO (de 1.213 sobre 1.470).
+// El veredicto en seco del script: «Carruseles sin tipo: 1213 → 1147». Cada caso de acá es una pieza REAL del corpus.
+test('el tipo: una lista con dos palabras entre el número y el sustantivo, y la que se nombra sin número', () => {
+  assert.equal(tipoDeCarrusel({ texto: '5 simple seo tips to improve your reach' }), 'lista', 'dos palabras entre medio: con una se escapaba');
+  assert.equal(tipoDeCarrusel({ texto: '6 social media facts every business owner needs to know' }), 'lista');
+  assert.equal(tipoDeCarrusel({ texto: 'Voilà 3 astuces simples pour une accroche' }), 'lista', 'francés: 3 piezas, pero la regla ya existía para pt y de');
+  assert.equal(tipoDeCarrusel({ texto: "Comment sweet and i'll send you all 9 recipes" }), 'lista', '«recipes» era el sustantivo con peso que faltaba');
+  assert.equal(tipoDeCarrusel({ texto: 'These are the tools running my pet brand right now' }), 'lista', 'se nombra sin número');
+  assert.equal(tipoDeCarrusel({ texto: 'Here are the results: Claude, ChatGPT, Gemini' }), 'lista');
+  assert.equal(tipoDeCarrusel({ texto: 'Save this checklist for your next important decision' }), 'lista', 'el creador le pone el nombre del formato');
+  assert.equal(tipoDeCarrusel({ texto: 'Get on the list before it drops' }), '', 'una lista de ESPERA no es un carrusel de lista: por eso se exige el artículo');
+  assert.equal(tipoDeCarrusel({ texto: 'Hace 3 años y 2 meses que vivo acá' }), '', 'los sustantivos que siguen a un número en el corpus son unidades, no listas');
+});
+
+test('el tipo: los tipos del catálogo que el clasificador de carruseles no intentaba, en inglés', () => {
+  assert.equal(tipoDeCarrusel({ texto: 'New episode of The Infinite Loop is out now' }), 'entrevista');
+  assert.equal(tipoDeCarrusel({ texto: 'Watch the full episode on the a16z show' }), 'entrevista');
+  assert.equal(tipoDeCarrusel({ texto: 'Meet the finalists for the Changemaker Award' }), 'recap-evento');
+  assert.equal(tipoDeCarrusel({ texto: 'Thank you to everyone who came by and spent time with us' }), 'recap-evento');
+  assert.equal(tipoDeCarrusel({ texto: "Here's what your skin might be trying to tell you" }), 'tutorial');
+  assert.equal(tipoDeCarrusel({ texto: 'How we made heart data look less like a lab report' }), 'caso-de-exito');
+  assert.equal(tipoDeCarrusel({ texto: 'Book your appointment now and experience the bridal lab' }), 'promo');
+});
+
+// Un tipo EQUIVOCADO es peor que «sin tipo»: el cliente filtra por tipo justamente para no mirar las 1.470. Estas frases se
+// midieron (43 piezas) y se sacaron a propósito, así que el test las fija: son el CTA de un carrusel de CONTENIDO, no su tipo.
+test('el tipo: el CTA de un carrusel de contenido NO lo convierte en promoción', () => {
+  assert.equal(tipoDeCarrusel({ texto: 'The stocks that jumped before the bell. Subscribe at the link in bio.' }), '', '«link in bio» es el CTA, no el tipo');
+  assert.equal(tipoDeCarrusel({ texto: "Likes don't pay you. DM 'GROW' for a free audit." }), '', 'un imán de leads no es una tienda');
+  assert.equal(tipoDeCarrusel({ texto: "Comment SHOP and I'll send you the links to shop the pieces I used" }), '', 'pedir una palabra vive en ./cta.ts, no en el tipo');
+  assert.equal(tipoDeCarrusel({ texto: 'Want us to write it for you? Free copy audit, link in bio.' }), '', 'ofrecer una auditoría gratis es el CTA de todo el rubro');
+  // Y lo que sí es una tienda sigue entrando, para que la regla no quede vacía de tanto recortarla.
+  assert.equal(tipoDeCarrusel({ texto: 'New collection is here, free shipping this week' }), 'promo');
+});
+
 test('parece contenido: medible, con tres valores; un pie corto sin nada es personal, uno que pide algo no', () => {
   assert.equal(pareceContenido({ texto: 'Anytime now….', formato: null, cierre: null }), false, 'el caso medido: la foto del embarazo');
   assert.equal(pareceContenido({ texto: 'Guárdalo 📌', formato: null, cierre: 'guardar' }), true, 'pide algo al final: es contenido');
