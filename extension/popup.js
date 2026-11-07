@@ -1011,7 +1011,9 @@ async function guardarEnSpy(competidorId) {
   }
   const verla = ['Verla en MaKo', () => void abrirMakoEn(`/competitor-spy?competidor=${encodeURIComponent(datos.competidor.id)}`)];
   if (datos.tipo === 'anuncios') {
-    const sub = [`${datos.nuevos} nuevos`, datos.otros ? `${datos.otros} de otros anunciantes no se guardaron` : ''].filter(Boolean).join(' · ');
+    // `sinGuardar`: con muchisimos anuncios en la pestana, los que no entraron por el tope. Se DICE: antes el
+    // desplegable decia «50 anuncios» sin decir «de 213» (lib/spy-captura-db.ts).
+    const sub = [`${datos.nuevos} nuevos`, datos.sinGuardar ? `${datos.sinGuardar} no entraron en esta captura` : '', datos.otros ? `${datos.otros} de otros anunciantes no se guardaron` : ''].filter(Boolean).join(' · ');
     pantallaSpy(`${datos.guardados} ${datos.guardados === 1 ? 'anuncio' : 'anuncios'} en la ficha de ${datos.competidor.nombre}`, sub, [verla]);
   } else if (datos.tipo === 'sitio') {
     pantallaSpy(`Guardado en la ficha de ${datos.competidor.nombre}`, (datos.lineas || []).join(' · ') || 'No vi píxeles, checkout ni video en esta página.', [verla]);

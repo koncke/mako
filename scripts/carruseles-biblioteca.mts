@@ -43,6 +43,11 @@
 //                                y muestra los candidatos. No escribe nada: el bueno se suma con `sumar`.
 //   verificar @a [@b …] [--referente id | --nombre "Nombre"]   Lee esos perfiles (unos US$0,003 cada uno) y dice si son de
 //                                quien se cree: nombre, verificada, seguidores y publicaciones. No escribe nada.
+//   revisar [--aprobar <ids|todas>] [--esconder <ids> --motivo "…"] [--de-verdad] [--hoja archivo.html]
+//                                (6/11/2026, 0411) Lo que entró y NADIE MIRÓ: deja una hoja con sus miniaturas y sus ids
+//                                para mirarlas a ojo, y aplica lo que decida la persona. Lo que no se aprueba NO se ve.
+//                                No hay filtro automático a propósito: ya se midió dos veces que se pasa de estricto.
+//                                GRATIS: no le pide nada a Apify. En seco por defecto.
 //   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre, si parece contenido y,
 //                                con la 0404, el CTA «Comenta X palabra»). GRATIS: no le pide nada a Apify. Sólo llena lo
 //                                que falta. En seco por defecto: dice cuántos piden una palabra y muestra unos de cada lado.
@@ -166,6 +171,18 @@ async function hayColumnaContenido(): Promise<boolean> {
   return columnaContenido;
 }
 
+/** ¿Está la columna de la 0411 (`revisada_en`)? Sin ella no se puede pedir en un `select`: PostgREST rechaza la consulta. */
+let columnaRevisada: boolean | null = null;
+async function hayColumnaRevisada(): Promise<boolean> {
+  if (columnaRevisada != null) return columnaRevisada;
+  const r = await getSupabaseServer().from(S.T_PIEZAS).select('revisada_en').limit(1);
+  columnaRevisada = !r.error;
+  if (r.error && !/revisada_en|42703|PGRST204/i.test(`${r.error.code} ${r.error.message}`)) {
+    console.log(`  (No pude saber si está la 0411: ${r.error.message}.)`);
+  }
+  return columnaRevisada;
+}
+
 /** ¿Están las columnas de la 0404 (`laminas_imagenes`, `cta`)? Sin ellas no se mandan: PostgREST rechazaría la fila ENTERA. */
 let columnas0404: boolean | null = null;
 async function hayColumnas0404(): Promise<boolean> {
@@ -196,6 +213,11 @@ async function estado() {
       const personal = await db.from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).eq('medio', 'carrusel').eq('parece_contenido', false);
       console.log(`  Parecen personales (van después en el orden): ${personal.count ?? '?'}`);
     } else console.log('  (Falta la 0393: la señal «parece contenido» se calcula al mostrar, del texto que queda.)');
+    // Lo que entró y nadie miró (0411): no se ve en ningún negocio hasta que una persona lo apruebe con `revisar`.
+    if (await hayColumnaRevisada()) {
+      const faltan = await db.from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).is('revisada_en', null).is('dejo_de_verse_en', null);
+      console.log(`  Sin mirar (no se ven todavía): ${faltan.count ?? '?'}${faltan.count ? ' → `revisar` deja la hoja para aprobarlas' : ''}`);
+    } else console.log('  ⚠ Falta la 0411 (`revisada_en`): lo que traiga una lectura nueva se le ve al cliente sin que nadie lo mire.');
     const dudosas = b.cuentas.filter((c: { estado: string; fuente: string; leida_en: string | null; piezas: number }) => c.estado === 'activa' && c.fuente === 'lista' && c.leida_en && B.cuentaDudosa(c.piezas));
     for (const c of dudosas) console.log(`  ⚠ @${c.instagram} trajo ${c.piezas} publicación(es): puede no ser su cuenta. \`verificar @${c.instagram} --nombre "${c.nombre}"\``);
   }
@@ -501,6 +523,87 @@ async function reclasificar() {
 }
 
 /**
+ * Lo que entró y NADIE MIRÓ (6/11/2026, 0411). Deja la hoja con las miniaturas y sus ids para mirarlas a ojo, y aplica lo que
+ * decida la persona: `--aprobar` (se ven) o `--esconder --motivo "…"` (no se ven, y el motivo queda escrito al lado).
+ *
+ * ⚠️ NO HAY FILTRO AUTOMÁTICO, Y ES A PROPÓSITO: ya se midió dos veces que no sirve. El modelo barato se pasó de estricto
+ * (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true` tiraba 457 piezas de
+ * las que 363 servían (docs/hallazgos-carruseles.md → «Sin dato no es "no"»). Acá el código sólo prepara el trabajo.
+ *
+ * GRATIS: no le pide nada a Apify.
+ */
+async function revisar() {
+  const deVerdad = args.op.get('de-verdad') === true;
+  if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392.'); process.exit(2); }
+  if (!(await hayColumnaRevisada())) {
+    console.log('✖ Falta aplicar la migración 0411 (supabase/migrations/0411_carruseles_revisada.sql): sin `revisada_en` no hay');
+    console.log('  dónde anotar que alguien la miró, y todo lo que entre se le ve al cliente sin pasar por nadie.');
+    console.log('  La aplica Martín o el Cerebro: node scripts/apply-migration.mjs supabase/migrations/0411_carruseles_revisada.sql');
+    process.exit(2);
+  }
+  const { writeFileSync } = await import('node:fs');
+  const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
+  const db = getSupabaseServer();
+  const cuentas = (await S.cuentasDeBiblioteca()) ?? [];
+  const filas: Array<Record<string, unknown>> = [];
+  await leerPorPaginas(db, S.T_PIEZAS, '*', (p: Array<Record<string, unknown>>) => { filas.push(...p); });
+  const pendientes = B.sinRevisar(filas) as Array<Record<string, unknown> & { id: number }>;
+  const visibles = filas.filter((f) => !f.dejo_de_verse_en && B.estaRevisada(f)).length;
+  console.log(deVerdad ? '▶ Revisión DE VERDAD (escribe).' : '▶ En seco: no escribe. Para aplicar, agrega --de-verdad.');
+  console.log(`  ${filas.length} publicaciones guardadas · ${visibles} se ven · ${pendientes.length} sin mirar.`);
+  if (!pendientes.length) {
+    console.log('  Nada para mirar: todo lo que está a la vista ya pasó por alguien.');
+    return;
+  }
+  // La hoja, con la fecha en el nombre: la de ayer no se pisa (un número de una medición tiene fecha).
+  const hoja = txt('hoja') ?? `carruseles-sin-mirar-${new Date().toISOString().slice(0, 10)}.html`;
+  writeFileSync(hoja, B.hojaDeRevision(pendientes, cuentas), 'utf8');
+  console.log(`  Hoja para mirarlas (ábrela en el navegador): ${hoja}`);
+  console.log(`  Las cuentas que las trajeron: ${[...new Set(pendientes.map((p) => `@${cuentas.find((c: { id: number }) => c.id === p.cuenta_id)?.instagram ?? '?'}`))].slice(0, 12).join(' ')}`);
+
+  const aprobar = txt('aprobar');
+  const esconder = txt('esconder');
+  if (!aprobar && !esconder) {
+    console.log('  Mira la hoja y después: `revisar --aprobar <ids|todas> --de-verdad`, o `revisar --esconder <ids> --motivo "por qué" --de-verdad`.');
+    return;
+  }
+  const pedidos = (v: string): number[] => (v.trim().toLowerCase() === 'todas'
+    ? pendientes.map((p) => p.id)
+    : [...new Set(v.split(/[\s,]+/).map((x) => Number(x)).filter((n) => Number.isSafeInteger(n) && n > 0))]);
+  // ⚠️ Sólo se toca lo que está SIN MIRAR: un id de otra cosa (o uno ya decidido) no se pisa por un número mal copiado.
+  const deLaHoja = new Set(pendientes.map((p) => p.id));
+  const elegidos = (v: string) => { const xs = pedidos(v); return { hacer: xs.filter((i) => deLaHoja.has(i)), fuera: xs.filter((i) => !deLaHoja.has(i)) }; };
+  const motivo = txt('motivo');
+  if (esconder && !motivo) { console.log('✖ Para esconder hace falta --motivo "por qué": el motivo de cada una queda escrito (así se midió la curaduría del 5 y 6/11).'); process.exit(1); }
+  const ap = aprobar ? elegidos(aprobar) : { hacer: [], fuera: [] };
+  const es = esconder ? elegidos(esconder) : { hacer: [], fuera: [] };
+  const choque = ap.hacer.filter((i) => es.hacer.includes(i));
+  if (choque.length) { console.log(`✖ ${choque.join(', ')} está en --aprobar Y en --esconder. No se escribió nada.`); process.exit(1); }
+  for (const i of [...ap.fuera, ...es.fuera]) console.log(`  ⚠ ${i} no está sin mirar (no existe, o ya se decidió): no se toca.`);
+  console.log(`  ${deVerdad ? 'Aplicando' : 'Aplicaría'}: ${ap.hacer.length} aprobada(s), ${es.hacer.length} escondida(s)${motivo ? ` («${motivo}»)` : ''}.`);
+  if (!deVerdad) return;
+  const ahora = new Date().toISOString();
+  let ok = 0;
+  if (ap.hacer.length) {
+    const r = await db.from(S.T_PIEZAS).update({ revisada_en: ahora }).in('id', ap.hacer);
+    if (r.error) { console.log(`  ✖ no pude aprobar: ${r.error.message}`); } else ok += ap.hacer.length;
+  }
+  if (es.hacer.length) {
+    // Escondida Y mirada: si sólo se escondiera, volvería a salir en la hoja de mañana.
+    const r = await db.from(S.T_PIEZAS).update({ revisada_en: ahora, dejo_de_verse_en: ahora }).in('id', es.hacer);
+    if (r.error) { console.log(`  ✖ no pude esconder: ${r.error.message}`); } else {
+      ok += es.hacer.length;
+      // El motivo de cada una, al lado de la hoja: la tabla no tiene columna para eso, y sin el motivo no se puede deshacer.
+      const anota = hoja.replace(/\.html?$/i, '') + '-escondidas.json';
+      const antes = es.hacer.map((i) => pendientes.find((p) => p.id === i));
+      writeFileSync(anota, JSON.stringify({ cuando: ahora, motivo, piezas: antes.map((p) => ({ id: p?.id, ref: p?.ref, url: p?.url })) }, null, 1), 'utf8');
+      console.log(`  El motivo y los ids quedaron en ${anota}. Para deshacer: update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any('{${es.hacer.join(',')}}');`);
+    }
+  }
+  console.log(`▶ Listo: ${ok} publicaciones decididas. Quedan ${pendientes.length - ok} sin mirar.`);
+}
+
+/**
  * Las láminas de los carruseles guardados que no las tienen (6/11/2026, 0404). Cada publicación se pide POR SU LINK (la receta de
  * docs/hallazgos-carruseles.md, «Traer un carrusel puntual: por su link»), de a 40 por corrida de Apify, y sus imágenes se bajan
  * a nuestro bucket. Con la clave de Spy de la plataforma y los dos techos de siempre (el pedido y el crédito libre del mes).
@@ -516,8 +619,12 @@ async function laminas() {
   const { entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
   const db = getSupabaseServer();
   const filas: Array<{ id: number; ref: string; url: string | null; laminas: number | null; texto: string | null; cta: string | null }> = [];
-  await leerPorPaginas(db, S.T_PIEZAS, 'id, ref, url, laminas, texto, cta, medio, laminas_imagenes, dejo_de_verse_en', (p: Array<Record<string, unknown>>) => {
-    for (const f of p) if (f.medio === 'carrusel' && !f.dejo_de_verse_en && !(Array.isArray(f.laminas_imagenes) && f.laminas_imagenes.length)) filas.push(f as never);
+  // ⚠️ Lo que nadie miró todavía NO se paga (0411): es el mismo error de «primero limpiar, después leer láminas» (169 de las
+  // 770 láminas pagadas el 6/11 eran de carruseles que después se escondieron). La columna se pide sólo si existe: pedir una
+  // que falta hace que PostgREST rechace la consulta entera.
+  const colRevisada = (await hayColumnaRevisada()) ? ', revisada_en' : '';
+  await leerPorPaginas(db, S.T_PIEZAS, `id, ref, url, laminas, texto, cta, medio, laminas_imagenes, dejo_de_verse_en${colRevisada}`, (p: Array<Record<string, unknown>>) => {
+    for (const f of p) if (f.medio === 'carrusel' && !f.dejo_de_verse_en && B.estaRevisada(f) && !(Array.isArray(f.laminas_imagenes) && f.laminas_imagenes.length)) filas.push(f as never);
   });
   const conLink = filas.filter((f) => typeof f.url === 'string' && /^https:\/\/(?:www\.)?instagram\.com\//.test(f.url)).slice(0, max);
   const porLeer = conLink.length;
@@ -718,6 +825,7 @@ switch (args.comando) {
   case 'buscar': await buscar(); break;
   case 'verificar': await verificar(); break;
   case 'reclasificar': await reclasificar(); break;
+  case 'revisar': await revisar(); break;
   case 'laminas': await laminas(); break;
   case 'links': await links(); break;
   case 'sumar':
@@ -733,6 +841,6 @@ switch (args.comando) {
     await cambio({ que: 'tema', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^#/, '') });
     break;
   default:
-    console.log(`No conozco «${args.comando}». Comandos: estado, leer, links, buscar, verificar, reclasificar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
+    console.log(`No conozco «${args.comando}». Comandos: estado, leer, links, buscar, verificar, reclasificar, revisar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
     process.exit(1);
 }
