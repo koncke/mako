@@ -43,7 +43,25 @@ registro queda MUDO a la edición (key drift = el usuario edita y no pasa nada).
 ## Reglas
 
 - La `key` del registro y la key de `renderPrompt` deben coincidir EXACTAMENTE
-  (el key drift es el bug clásico). Verificalo.
+  (el key drift es el bug clásico). **La forma de que no pueda driftear es
+  declararlas JUNTAS** y que el registro importe ese objeto, no el texto:
+  `export const PROMPTS_X = { system: { key: 'x.system', tpl: X_SYSTEM } } as const;`
+  y en el registro `key: PROMPTS_X.system.key, default: PROMPTS_X.system.tpl`
+  (patrón de `lib/copywriter/experto.ts`, `lib/ig-writer.ts`).
+- **Registrarlo no alcanza: tienen que pasar por el registro TODOS los call sites.**
+  Uno que se quedó con la constante queda MUDO (el usuario edita, guarda, y esa
+  pantalla sigue escribiendo igual: sin error, sin tipo roto). Buscá los usos de la
+  constante antes de dar por cerrado, y fijalos CONTÁNDOLOS en un test.
+- **Si el default vive en un módulo que la UI también importa** (y por eso no lleva
+  `server-only`), el default se queda ahí y la resolución editable va en un módulo
+  server aparte, por el que pasan todos. Molde: `lib/ig-formatos.ts` (los defaults)
+  + `lib/ig-metodologia.ts` (`metodologiaIgVigente`).
+- **Si el prompt se arma de varios bloques, el orden vive en UNA función** (molde:
+  `componerMetodologia`): con el camino default y el editable por separado, el
+  prompt sin editar y el editado le llegan al modelo en distinto orden y nada avisa.
+- **NO registres un contrato JSON que lee un parser determinista** (`*_JSON_SHAPE`):
+  editarlo es editar el parser. Va como slot (`{{jsonShape}}`) del prompt que sí se
+  edita, con el aviso en su `context`.
 - Modelo por defecto `claude-opus-4-8` con `thinking:true` para tareas de
   análisis/escritura; `effort` según complejidad. Etiquetá `feature` para el
   desglose de gasto (`lib/anthropic.ts` registra tokens/costo).

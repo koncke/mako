@@ -10279,6 +10279,32 @@ número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro
 Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
 de siempre: era la tercera escritura de la misma regla y la única que faltaba.
 
+# Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro
+
+Agregar la entrada a `lib/prompt-registry.ts` es la mitad. Un call site que se quedó con la
+constante queda **mudo**: el usuario edita en /configuraciones, guarda, ve su texto en
+pantalla — y esa pantalla sigue escribiendo con el default. No hay error, no hay tipo roto y
+el registro dice «editable». Es la misma familia que el key drift, con la diferencia de que
+acá la key está perfecta.
+
+Pasa sobre todo cuando **el DEFAULT vive en un módulo que la UI también importa** y por eso
+no puede llevar `server-only` (el caso medido el 6/11/2026: las `METODOLOGIA_*` de
+`lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo archivo).
+Ahí el default se queda donde está —una cosa, un lugar— y la resolución editable va en un
+módulo server aparte (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan
+todos. Lo que lo fija es **contar los usos de la constante en un test** (0 en el motor, 1 en
+el Copywriter y sólo como respaldo del `.catch`): el compilador no tiene nada que decir.
+
+Y si el prompt se arma de VARIOS bloques, **el orden de los bloques vive en UNA función**
+(`componerMetodologia`). Con dos caminos —el default y el editable— aparece un drift que
+nada chequea: el prompt sin editar y el mismo prompt editado le llegan al modelo en distinto
+orden. El test compara las dos salidas con nada editado y tienen que ser idénticas.
+
+**Lo que NO se registra**: un contrato JSON que lee un parser determinista del mismo archivo
+(`REEL_JSON_SHAPE` y compañía). Editarlo desde /configuraciones es editar el parser, y el
+síntoma sería «la pieza vino sin escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del
+prompt que sí se edita, con el aviso en su `context`.
+
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 
 En este repo, sobre el mismo mensaje, el ROUTER contesta «¿cuánto gastar?» (el tier) y
