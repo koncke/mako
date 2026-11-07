@@ -196,7 +196,7 @@ async function main() {
   };
 
   const VIVO = { estado: 'listo', vivo: true, version: '0.70.0' };
-  const out: Record<string, Salida> & { rutaValida?: boolean } = {
+  const out: Record<string, Salida> = {
     // 1. El puente listo y latiendo: se le pide la foto de la lámina ajena, sin la cara del dueño.
     ajena: await correr({ puente: VIVO, pedidos: [pedido(false)] }),
     // 2. La lámina de SU autor: el mismo pedido, con su cara como referencia de identidad.
@@ -219,8 +219,10 @@ async function main() {
     // 9. La url que devolvió es una FIRMADA de Flow, que vence: no se puede guardar en el documento.
     urlQueVence: await correr({ puente: VIVO, pedidos: [pedido(false)], asentar: true, responde: [{ estado: 'listo', url: DE_FLOW }] }),
   };
-  out.rutaValida = RUTA_SUBIDA.test(out.ajena.trabajos[0]?.ruta ?? '');
-  process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
+  // La ruta de subida tiene que tener la forma que el puente sabe FIRMAR: con otra, el trabajo se genera y la pestaña no
+  // puede subir el archivo (lib/flow-cola.ts, `firmarSubidas`).
+  const rutaValida = RUTA_SUBIDA.test(out.ajena.trabajos.find((t) => t.tipo === 'generar_imagen')?.ruta ?? '');
+  process.stdout.write(`@@RESULTADO@@${JSON.stringify({ ...out, rutaValida })}`);
 }
 
 main().then(() => process.exit(0), (e) => { process.stdout.write(`@@RESULTADO@@${JSON.stringify({ error: e instanceof Error ? e.stack : String(e) })}`); process.exit(0); });
