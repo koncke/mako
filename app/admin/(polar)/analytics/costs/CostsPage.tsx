@@ -38,6 +38,12 @@ import {
   fijoSiPagaTodo,
   partidasViejas,
 } from '@/lib/costos-fijos'
+import {
+  CAC_USD,
+  MESES_DE_VIDA,
+  PARTE_DE_COBRAR,
+  type Economia,
+} from '@/lib/economia-unitaria'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -65,7 +71,13 @@ import { useRouter } from '@/app/_ui/Link'
 import { useMemo } from 'react'
 import { fmtPct } from './utils'
 
-export default function ClientPage({ vista }: { vista: VistaCostos }) {
+export default function ClientPage({
+  vista,
+  economia,
+}: {
+  vista: VistaCostos
+  economia: Economia
+}) {
   const router = useRouter()
   const dateRange = useMemo(() => rangoDelMes(vista.periodo), [vista.periodo])
   const previo = useMemo(
@@ -288,6 +300,114 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                   'muestra lo ultimo confirmado, no lo de hoy.'
                 }
               />
+            )}
+          </section>
+
+          {/* Unit economics — lo vivo cruzado con el fijo */}
+          <section>
+            <SectionHeader
+              title="Unit economics"
+              description={`Los clientes que pagan hoy, cruzados con el gasto fijo y lo que cuesta cobrar (${Math.round(PARTE_DE_COBRAR * 100)}%). La adquisición se reparte en los ${MESES_DE_VIDA} meses que dura un cliente.`}
+            />
+            {economia.clientes === 0 ? (
+              <EmptyState
+                icon={<BarChart2 />}
+                title="Todavía no hay clientes que paguen"
+                description="Sin clientes, el gasto fijo no se reparte entre nadie: no hay por cliente que mostrar."
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    clave: 'clientes',
+                    label: 'Clientes que pagan',
+                    pie: ['las pruebas no cuentan:', 'no facturan'],
+                    valor: String(economia.clientes),
+                    pct: null as number | null,
+                  },
+                  {
+                    clave: 'fijo-por-cliente',
+                    label: 'Gasto fijo por cliente',
+                    pie: [fmt(fijoTuyo, 'usd'), `entre ${economia.clientes} clientes`],
+                    valor: economia.fijoPorCliente == null ? '—' : fmt(economia.fijoPorCliente, 'usd'),
+                    pct: null as number | null,
+                  },
+                  {
+                    clave: 'deja-cliente',
+                    label: 'Lo que deja cada cliente',
+                    pie: ['ya sin cobrar ni IA', `CAC ${fmt(CAC_USD / MESES_DE_VIDA, 'usd')}/mes`],
+                    valor: economia.dejaCadaCliente == null ? '—' : fmt(economia.dejaCadaCliente, 'usd'),
+                    pct: null as number | null,
+                  },
+                  {
+                    clave: 'resultado',
+                    label: 'Queda este mes',
+                    pie: ['ya con todo adentro', economia.margen == null ? 'no pude leer lo facturado' : 'de lo facturado'],
+                    valor: economia.resultadoDelMes == null ? '—' : fmt(economia.resultadoDelMes, 'usd'),
+                    pct: economia.margen,
+                  },
+                ].map((t) => {
+                  // El mismo semáforo que «Changes», al revés: acá ganar es verde.
+                  const bien = t.pct != null && t.pct > 0
+                  const mal = t.pct != null && t.pct < 0
+                  return (
+                    <div
+                      key={t.clave}
+                      className="dark:border-polar-700 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:bg-transparent"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm leading-snug font-medium dark:text-white">
+                          {t.label}
+                        </span>
+                        {t.pct != null && (
+                          <span
+                            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              bien
+                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                : mal
+                                  ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                                  : 'dark:bg-polar-700 bg-gray-100 text-gray-500 dark:text-gray-400'
+                            }`}
+                          >
+                            {bien ? (
+                              <ArrowUpRight className="size-3" />
+                            ) : mal ? (
+                              <ArrowDownRight className="size-3" />
+                            ) : (
+                              <Minus className="size-3" />
+                            )}
+                            {fmtPct(t.pct * 100)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-end justify-between gap-2">
+                        <div className="dark:text-polar-500 flex flex-col gap-0.5 text-xs text-gray-400">
+                          {t.pie.map((l) => (
+                            <span key={l}>{l}</span>
+                          ))}
+                        </div>
+                        <span className="font-mono text-lg font-medium tabular-nums dark:text-white">
+                          {t.valor}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {economia.equilibrio != null && (
+              <Alert
+                variant={economia.faltanParaElEquilibrio === 0 ? 'success' : 'warning'}
+                title={economia.faltanParaElEquilibrio === 0 ? 'Punto de equilibrio pasado' : 'Todavía no llega al equilibrio'}
+                description={
+                  economia.faltanParaElEquilibrio === 0
+                    ? `Hacen falta ${economia.equilibrio} clientes para cubrir el fijo, y hay ${economia.clientes}.`
+                    : `Hacen falta ${economia.equilibrio} clientes para cubrir el fijo. Hay ${economia.clientes}: faltan ${economia.faltanParaElEquilibrio}.`
+                }
+              />
+            )}
+            {economia.avisos.length > 0 && (
+              <Alert variant="warning" title="Falta un dato" description={economia.avisos.join(' · ')} />
             )}
           </section>
 
