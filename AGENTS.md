@@ -773,6 +773,65 @@ Reglas que salen de eso:
   sobre cualquier modificado que no reconozcas: `git show HEAD:<ruta> | tr -d '\r' |
   md5sum` contra el archivo (si el disco es el PADRE de un commit reciente, es esto) y
   `ls -l` (una mtime vieja dice que nadie lo editó). La cura es `git checkout -- <rutas>`.
+- ⚠️ **Y EL ÁRBOL VIEJO TIENE UNA SEGUNDA FORMA, Y ES PEOR: `main` NO SE MOVIÓ NUNCA, y el
+  `status` puede estar LIMPIO.** Lo de arriba deja rastro —archivos «modificados»—; esto no
+  deja ninguno. Medido el 06/11/2026 en el clon principal: `refs/heads/main` en `136ef8baa`,
+  del **23/10**, contra un `origin/main` del 6/11: **6.230 commits** de diferencia, merge-base
+  `b51d22388` del 16/10. Ningún comando lo grita y el árbol se lee igual de bien que siempre —
+  **contesta correctamente sobre el repo de hace dos semanas**, que es justo lo que no despierta
+  sospecha. Ese día se escribió con confianza que `docs/proveedores-de-cobro.md` no estaba en
+  main y que los commits de Creem nunca habían llegado: las dos cosas eran FALSAS en
+  `origin/main`, donde ya vivían `lib/creem-api.ts`, el webhook de Creem, la migración 0358,
+  `app/planes/` y `lib/compra-plan-reglas.ts`. El `git log` del clon tampoco avisa: muestra
+  commits reales, prolijos y viejos.
+
+  **Antes de leer el árbol para contestar algo sobre «main», dos comandos:**
+
+  ```bash
+  git fetch origin
+  git rev-list --count refs/heads/main..refs/remotes/origin/main   # 0 = al día
+  ```
+
+  **Y cuando la pregunta es «¿esta ruta existe en main?», se le pregunta a `origin/main`, nunca
+  a `main` ni al disco:** `git cat-file -e refs/remotes/origin/main:<ruta>` para saber si está y
+  `git show refs/remotes/origin/main:<ruta>` para leerla. El disco contesta por el checkout, y
+  el checkout puede ser de cualquier fecha.
+
+- ⚠️ **Y EN UN CLON ATRASADO, UN `status` SUCIO TAMPOCO ES «TRABAJO DE OTRA SESIÓN»: puede ser
+  trabajo QUE YA ESTÁ ARRIBA.** La regla de más arriba —«si no es tuyo, dejalo donde está»—
+  supone un árbol al día. En ese mismo clon, las **14** rutas sin commitear (9 «modificadas» y
+  5 «sin trackear») no eran trabajo en curso de nadie: **las 14 ya estaban en `origin/main`.**
+  Siete, byte a byte idénticas; las otras siete coincidían EXACTO con una versión histórica de
+  arriba (`5178a7d46` del 27/10, `b9d0e22c5` y `be19b8c91` del 26/10, `0edc850a6` del 24/10):
+  son las sobras del trabajo que se pusheó desde un worktree mientras el `main` del clon se
+  quedaba quieto. Y aparecen como «sin trackear» sólo porque esos archivos NACIERON después del
+  commit del clon. Acá «commiteá por ruta explícita» es lo que hace daño: commitear una de esas
+  rutas arma un commit con la versión del 27/10 sobre un main del 23/10, y el día que eso se
+  mezcle con `origin/main` entra como un revert de dos semanas.
+
+  **Se distingue por ruta, y son dos preguntas distintas:**
+
+  ```bash
+  git hash-object <ruta>                            # el blob del disco
+  git rev-parse refs/remotes/origin/main:<ruta>     # iguales → ya está arriba, no es WIP
+  # y si difieren, ¿el disco es una versión VIEJA de arriba?
+  d=$(git hash-object <ruta>); for c in $(git rev-list refs/remotes/origin/main -- <ruta>); do
+    [ "$(git rev-parse $c:<ruta> 2>/dev/null)" = "$d" ] && echo "foto vieja: $c"; done
+  ```
+
+  Si el blob del disco aparece en la historia de arriba, no hay nada que salvar. Si no aparece
+  en ninguna, ahí sí es trabajo que no está en ningún lado.
+
+- ⚠️ **Y PONER `main` AL DÍA «SIN TOCAR EL ÁRBOL DE TRABAJO» ES LA PEOR OPCIÓN DE TODAS.** Un
+  `git update-ref` o un `git branch -f` mueven la rama y dejan el disco como está: el `status`
+  pasa a comparar el árbol viejo contra el commit nuevo y aparecen **9.090 archivos
+  «modificados»** con contenido de hace dos semanas — el revert disfrazado de la regla anterior,
+  multiplicado por el repo entero, en el `.git` que comparten ~90 worktrees y varias sesiones a
+  la vez. El fast-forward tampoco está disponible si el clon tiene commits propios (ahí eran 10:
+  seis merges viejos de `origin/main` y cuatro con trabajo que ya había llegado arriba por la
+  punta, con otro sha). Lo que corresponde es medir las rutas sin commitear UNA POR UNA con los
+  comandos de arriba y recién después mover el árbol — **y avisarle a Martín antes**, porque de
+  ese clon leen todas las demás sesiones.
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
@@ -2255,6 +2314,40 @@ Y donde haya un guard así, dos cosas más:
   lo único sin red justo donde más duele. Ver `exigirClienteDePrueba` en `lib/auth-session.ts`.
 - **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
   que él contesta.
+
+# El vocabulario de UN negocio no se escribe en el código: ni nombres, ni correos, ni programas
+
+Un literal que nombra a un cliente —su dominio, su rubro, el nombre de su programa— se le
+aplica a TODOS. Y cuando lo que gobierna es descartar algo, falla del lado invisible: la
+fila no se escribe, no hay error, no hay aviso, y nadie vuelve a mirar.
+
+El mismo bug salió **tres veces del mismo módulo** (`lib/closing.ts`), por tres mecanismos
+distintos, y cada vez el que vino después no lo vio porque buscaba el mecanismo anterior:
+
+| | Qué estaba cableado | Se fue a | Fallback |
+|---|---|---|---|
+| 14/08/2026 | los correos y el dominio del dueño | `lib/closing-internos.ts` | `SIN_INTERNOS`: nadie es interno |
+| 06/11/2026 | la taxonomía del rubro, en el prompt | `lib/closing-taxonomia.ts` | `TAXONOMIA_NEUTRA`: sin rubro |
+| 06/11/2026 | los nombres de sus programas, en un regex | `lib/closing-marcadores.ts` | `SIN_MARCADORES`: ningún nombre |
+
+Lo que queda como regla para código nuevo:
+
+1. **Se resuelve por workspace, por el lector de siempre de ese dato** (el embudo por
+   `reunionesDe`, la oferta por `listarOfertas`, el perfil por `perfilNegocioTexto`). Un
+   `.from` propio para esto es una segunda fuente de verdad.
+2. **El fallback es el que NO destruye**, y se elige escribiendo los dos costos al lado:
+   analizar de más se ve en la pantalla y en la factura; descartar de más no se ve en ningún
+   lado. Nunca se cae a los valores del cliente de antes: es el mismo agujero servido por el
+   camino de error.
+3. **La decisión vive en un módulo SIN `server-only`.** Que una función esté `export`ada no
+   la hace testeable: `preClassify` lo estaba, y `lib/closing.ts` importa `server-only` en la
+   línea 27, así que ningún test la podía ejecutar.
+4. **Mudarlo a configuración no alcanza si la configuración admite una palabra genérica.** Un
+   producto llamado «Programa» o «Consultoría» descarta las ventas de su propio dueño: el
+   mismo bug, servido por la config. Hace falta el filtro (`PALABRAS_GENERICAS`, un mínimo de
+   largo, y excluir lo que ya rotula una etapa de venta de ese negocio).
+5. **Un detector así se mide antes de defenderlo.** El de los programas cazaba **0 de 28**
+   entregas reales y nadie lo sabía mientras discutía cuánto ahorraba.
 
 # `OWNER_WS` NO es la plataforma: es un cliente. Lo de MaKo va en `wsSuperAdmin()`
 
