@@ -27,7 +27,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { paginaParaVer } from '@/lib/landing-fetch';
 import { copyDeHtml } from '@/lib/landing-extraer';
-import { esPaginaDeError, paginaFinal } from '@/lib/pagina-real';
+import { esPaginaDeError, paginaFinal, soloRedirige } from '@/lib/pagina-real';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { paginasSuyas } from '@/lib/spy-pagina-capturada-servidor';
 import { webComparable } from '@/lib/spy-oferta';
@@ -58,6 +58,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const pagina = await paginaFinal(url, paginaParaVer);
+    // Un acortador del que no se pudo sacar el destino (medido con `linktw.in/pywydg`: manda a diez lados y sólo escribe su
+    // página de «expirado») NO es la página del competidor: en el marco se vería su «Redirecting…». Queda «Abrir».
+    if (soloRedirige(pagina.html)) {
+      console.warn(`[spy-pagina] ws=${ws} ${url}: sólo redirige y no se pudo saber a dónde`);
+      return Response.json({ ok: true, estado: 'no-pudo' });
+    }
     const { titulo, texto } = copyDeHtml(pagina.html);
     if (esPaginaDeError(texto.slice(0, 240), titulo)) {
       console.warn(`[spy-pagina] ws=${ws} ${url}: contestó con su página de error («${titulo || texto.slice(0, 60)}»)`);

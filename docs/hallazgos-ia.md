@@ -4,6 +4,51 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Un prompt «hardcodeado» puede tener el default en un archivo que la UI importa — y entonces el registro no alcanza (6/11/2026)
+
+**Síntoma (items 26, 129 y 197 del barrido del 6/11):** «Las instrucciones de carruseles y stories están fijas y no se pueden
+tocar: para cambiar cómo escribe MaKo un carrusel hay que pedirle un cambio de código a alguien del equipo». Los tres items
+apuntaban al mismo archivo, `lib/ig-writer.ts`, y los tres decían lo mismo: pasar sus prompts al patrón editable.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+
+1. **Los prompts de `lib/ig-writer.ts` NO son las instrucciones de cómo se escribe un carrusel.** Sus dos templates son el
+   andamio (quién sos, qué formato, devolvé JSON); lo que de verdad dice cómo se escribe un carrusel es
+   `METODOLOGIA_CARRUSEL` / `METODOLOGIA_STORY` / `METODOLOGIA_REEL` + `METODOLOGIA_TRANSVERSAL`, y **esos viven en otro
+   archivo** (`lib/ig-formatos.ts`), entran por el slot `{{metodologia}}` y eran lo que el item pedía poder tocar. Registrar
+   sólo los dos templates cumple la letra del pendiente y no el pedido: seguirías necesitando un commit para cambiar la
+   doctrina del carrusel.
+2. **La pantalla que usa esa metodología no es la que decía el item.** `/carousels` y `/reels` se retiraron el 29/10/2026 y
+   `/stories` de escritorio quedó deprecada el mismo día: las tres redirigen (a Image y al Copywriter). El único consumidor
+   del motor es hoy `app/stories/actions.ts` → `generarSecuenciaAction`, que lo lee `/m/stories` (el teléfono, por URL).
+   Pero la metodología tiene **un segundo call site, y ése sí es el camino del cliente**: `lib/copywriter/ia.ts` la suma
+   cuando el guion es de tipo Reel o Story. Haber tocado sólo `lib/ig-writer.ts` habría dejado al Copywriter —la pantalla
+   real— escribiendo con el texto hardcodeado, con el registro diciendo «editable».
+
+**La regla:** cuando el DEFAULT de un prompt vive en un módulo que la UI también importa (sin `server-only`, porque la
+pantalla necesita otra cosa del mismo archivo), **la resolución editable va en un módulo server aparte y TODOS los call
+sites pasan por ahí**. Acá: el default queda en `lib/ig-formatos.ts` (una cosa, un lugar) y `lib/ig-metodologia.ts`
+(`metodologiaIgVigente`) resuelve lo vigente. Un call site que se quede con la constante queda **mudo**: el usuario edita en
+/configuraciones y esa pantalla sigue escribiendo igual, sin un error, sin un tipo roto y sin que el registro lo note. La
+forma de que no vuelva a pasar es contar los usos de la constante en un test (`tests/ig-writer-prompts.test.ts` fija que
+`lib/ig-writer.ts` tenga CERO y que el único del Copywriter sea el respaldo del `.catch`).
+
+**Y el orden de los bloques vive en UNA función.** Al existir dos caminos (el default `metodologiaDe` y el editable
+`metodologiaIgVigente`) aparece una forma de drift que nada chequea: que el prompt sin editar y el mismo prompt editado le
+lleguen al modelo en distinto orden. Por eso `componerMetodologia` (lib/ig-formatos.ts) es la única que decide «primero la
+del formato, después la transversal», y el test compara las dos salidas con nada editado: tienen que ser idénticas,
+carácter por carácter.
+
+**Lo que a propósito NO se registró:** los tres contratos JSON (`REEL_JSON_SHAPE`, `CARRUSEL_JSON_SHAPE`,
+`STORY_JSON_SHAPE`, lib/ig-writer.ts). Los lee el saneo determinista del MISMO archivo: editarlos desde /configuraciones
+sería editar el parser, y el síntoma sería «la pieza vino sin escenas» en toda pieza. Es el mismo criterio que el grupo
+«Creador de campañas», donde `{{jsonShape}}` es un slot y no una entrada.
+
+**Sin hacer, y dónde vive:** `buildContenidoBrief` (lib/ig-writer.ts) envuelve el perfil del negocio con
+`contenidoNoConfiable` pero **no** las etiquetas de las etapas del funnel ni los trozos de conocimiento, que también los
+escribe gente (`getFunnelDefault`, `formatKnowledge`). Es el mismo tenant, así que el riesgo es bajo, pero el archivo
+declara la regla y no la cumple entera. Se dejó porque cerrarla cambia el texto que se le manda al modelo y eso es una
+decisión aparte de la editabilidad.
 ## Ninguna guarda del pre-push mira el registro de prompts: un prompt mal cableado entra en silencio (medido el 6/11/2026)
 
 **Síntoma:** ninguno. Un prompt que no está en `lib/prompt-registry.ts` funciona igual en runtime

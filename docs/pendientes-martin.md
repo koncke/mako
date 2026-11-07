@@ -152,7 +152,37 @@ Actions no puede leer». O sea que la alarma **no puede** ver el número bueno.
 estimación que ella misma sabe que es alta. O resta los minutos incluidos del plan y no cuenta las
 corridas sin job, o avisa en amarillo diciendo «estimado, el panel dice otra cosa».
 
-**Faltan tres**: copilot-feedback, carruseles-thumbnails y nada-por-detras.
+**✅ `punta/nada-por-detras` — REVISADA el 7/11, está bien hecha.** Es la que más podía doler: cambia **a qué
+negocio le llega un aviso de la plataforma**. Miré lo que los tests no ven:
+
+- **El número se guarda como TEXTO** (`datosDeLaPlataforma` devuelve `String(ws)`) y la condición compara texto.
+  No está el choque clásico de `13` contra `"13"`, que habría hecho que la exclusión no se cumpliera nunca.
+- **Lo pone el emisor central y no cada evento** (`emitirPorEvento`), así que no se puede olvidar al agregar uno.
+- **Las dos banderas coinciden.** El código usa `ev.plataforma` para ofrecer la condición en el editor y
+  `porSubtipo(evento)?.plataforma` para inyectar el dato: salen del mismo catálogo. Si no coincidieran, la
+  condición aparecería en la pantalla y no se cumpliría nunca, en silencio. No pasa.
+- **Usa el NÚMERO y no el nombre**, a propósito y escrito: el nombre se cambia y la condición dejaría de
+  cumplirse sola.
+
+⚠️ **Lo único que queda abierto, y es de diseño, no un error:** un valor que falta **no cumple la condición ni
+negada** (`condiciones-catalogo.ts`). O sea que si algún día un evento de la plataforma se emite sin pasar por
+`emitirPorEvento`, «No es el negocio número 13» no se cumple para NADIE y el aviso deja de salir, sin un error
+en ningún lado. Es el lado seguro (nadie recibe lo que no es suyo), pero se pierde callado.
+
+**El paso que me dejaron NO SE PUEDE CORRER TODAVÍA.** `docs/relevo/nube-nada-por-detras.md` pide crear la fila
+de «Tareas de Reuniones al Plan» **después del deploy que trae esta tanda**. El commit es del 6/11 16:39 UTC y
+el deploy del día había corrido a las 11:05: **esta tanda no está en producción**. Entra con el cron del 7/11
+a las 11:05 UTC. No lo fuerzo con `desplegar-ya.mjs` porque la fila **nace pausada** y prenderla es decisión de
+SuperAdmin: no hay nada que se gane por nueve horas.
+
+Después del deploy, el comando es:
+
+```
+node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts \
+  --env=C:/dev/mako-api/.env.local --eventos=reunion_tareas_al_plan --aplicar
+```
+
+**Faltan dos**: copilot-feedback y carruseles-thumbnails.
 
 ---
 

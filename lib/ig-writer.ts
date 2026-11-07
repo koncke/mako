@@ -10,8 +10,12 @@
 // Patrón: scaffold-mako-writer, plantilla lib/campaign-structurer.ts (de donde
 // se REUSAN brandSystem y parseJsonObject — una cosa, un lugar).
 //
-// TODO: mover los templates a prompt-registry (archivo tomado por sesión
-// paralela 15/08). Mientras vivan acá NO son editables desde /configuraciones.
+// Los dos templates son EDITABLES desde /configuraciones (6/11/2026, skill
+// add-editable-prompt): su key y su default van juntos en `PROMPTS_IG` y se
+// resuelven con `renderPrompt`. La metodología que entra por {{metodologia}}
+// también (lib/ig-metodologia.ts). Lo único que NO se edita son los contratos
+// JSON de abajo: los lee el saneo determinista de este mismo archivo, así que
+// editarlos sería editar el parser.
 // =============================================================================
 
 import 'server-only';
@@ -21,9 +25,11 @@ import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { getWorkspaceActual } from './workspace';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
-import { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
+import { renderPrompt } from './prompt-render';
+import { contenidoNoConfiable } from './prompt-render-pure';
+import { metodologiaIgVigente } from './ig-metodologia';
 import {
-  type FormatoIg, metodologiaDe,
+  type FormatoIg,
   CAPTION_MAX, LIMITES_REEL, LIMITES_CARRUSEL,
 } from './ig-formatos';
 
@@ -161,7 +167,7 @@ export const STORY_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido 
 Reglas: UNA sola idea en todo el día; el primer frame es el gancho y abre una curiosidad que no se resuelve hasta el final; cambiar de tipo en CADA frame (nunca dos seguidos del mismo); ningún frame es hablar a cámara más de 30-45 segundos.`;
 
 // ── Templates (con {{slots}}) ─────────────────────────────────────────────────
-// TODO: mover a prompt-registry (archivo tomado por sesión paralela 15/08).
+// Editables desde /configuraciones: ver `PROMPTS_IG` abajo.
 
 const NOMBRE_FORMATO: Record<FormatoIg, string> = { reel: 'un REEL', carrusel: 'un CARRUSEL', story: 'un DÍA DE STORIES' };
 
@@ -183,6 +189,17 @@ CONTEXTO DEL NEGOCIO (datos reales):
 {{contexto}}
 
 Devolvé el JSON de la pieza.`;
+
+/**
+ * Las claves del registro (lib/prompt-registry.ts) pegadas a su default. Se declaran
+ * JUNTOS a propósito: el bug clásico del registro es una key que la UI edita y ningún
+ * call site lee (key drift), y el compilador no lo ve. Acá la key del render y la del
+ * registro son LA MISMA constante.
+ */
+export const PROMPTS_IG = {
+  system: { key: 'ig.writer.system', tpl: IG_WRITER_SYSTEM_TEMPLATE },
+  user: { key: 'ig.writer.user', tpl: IG_WRITER_USER_TEMPLATE },
+} as const;
 
 // ── Brief del negocio ─────────────────────────────────────────────────────────
 
@@ -331,13 +348,16 @@ export async function generarPieza(ws: number, formato: FormatoIg, pedido: strin
   if (ws !== wsActual) return { ok: false, error: 'El workspace pedido no es el de esta sesión.' };
 
   try {
-    const contexto = await buildContenidoBrief(texto);
-    const system = await brandSystem(renderTemplate(IG_WRITER_SYSTEM_TEMPLATE, {
+    const [contexto, metodologia] = await Promise.all([
+      buildContenidoBrief(texto),
+      metodologiaIgVigente(formato),
+    ]);
+    const system = await brandSystem(await renderPrompt(PROMPTS_IG.system.key, PROMPTS_IG.system.tpl, {
       formato: NOMBRE_FORMATO[formato],
-      metodologia: metodologiaDe(formato),
+      metodologia,
       jsonShape: formato === 'reel' ? REEL_JSON_SHAPE : formato === 'carrusel' ? CARRUSEL_JSON_SHAPE : STORY_JSON_SHAPE,
     }));
-    const user = renderTemplate(IG_WRITER_USER_TEMPLATE, {
+    const user = await renderPrompt(PROMPTS_IG.user.key, PROMPTS_IG.user.tpl, {
       pedido: contenidoNoConfiable(texto, 'pedido_usuario'),
       contexto,
     });
