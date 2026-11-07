@@ -1503,3 +1503,13 @@ es exactamente lo que ese módulo existe para evitar.
 - **Nada avisa POR QUÉ un tramo no pasa a su hermano.** Se frena y se ve, que es la regla del
   módulo, pero alguien que insiste no tiene cómo saber que el tope es el otro pedazo de la
   misma toma.
+- ⚠️ **Con la pila de deshacer LLENA, un clic que sólo selecciona tira la entrada más vieja.**
+  Es de la mecánica que ya estaba, no del reorden: `apilar()` corre en el `pointerdown` y hace
+  `[...pila.slice(-29), ahora]`, así que con 30 entradas la primera se cae; el `soltar` saca la
+  del final con `mismoPlan` y la vieja ya no vuelve. Pasaba igual tocando un borde, y ahora
+  también tocando un bloque — un camino más al mismo agujero. Queda en 29 de 30, así que no
+  duele, pero es un tope que recorta EN SILENCIO. El arreglo limpio no es mover el tope: es
+  apilar en el PRIMER cambio real del gesto y no al agarrarlo (guardar el plan de antes en un
+  ref y empujarlo cuando el plan de verdad cambia), y eso toca el camino del borde, así que
+  pide su propia vuelta de roturas. Vive en `app/video-generator/EditorAnuncio.tsx`
+  (`apilar`, y el `soltar` del efecto del arrastre).
