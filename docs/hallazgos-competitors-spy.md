@@ -1864,5 +1864,23 @@ piso va al otro modelo (y a otra cuenta); si ninguno lo pasa vuelve el más larg
 (`NOTA_GUION_CORTO`, lib/spy-transcripcion.ts): un video de poca voz existe, y tirarlo lo dejaba sin guion para siempre. El video
 entero (uno de menos de 10 minutos) se pide con su duración para tener piso. Cada respuesta de Google se registra en el Uso, también
 la corta: costó igual. Lo fija tests/spy-guion-youtube.test.ts (6 y 6b), probado rompiéndolo (3 roturas, las 3 caen).
+**Revisado el 7/11/2026 (la punta entró a main sin que nadie la mirara). Dos cosas que el piso se llevó puestas:**
+
+1. **«No tiene voz: es sólo música o imagen.» ya no se puede ver.** El prompt le pide a Gemini que devuelva `(vacío)` cuando no se
+   dice nada, y el código distingue esa palabra… y enseguida la tira: `const limpio = texto === '(vacío)' ? '' : texto`
+   (lib/ai-cheap.ts). Un texto de 0 caracteres nunca llega al piso, así que un video mudo recorre los dos modelos de cada cuenta y
+   vuelve con `corto: true`; `algunoCorto` entonces elige el otro motivo. Resultado: **al cliente siempre le sale «puede ser sólo
+   música o imagen, O que no lo transcribí», nunca la frase limpia** — y cada video mudo cuesta el doble (dos modelos por cuenta)
+   en la clave de Gemini del negocio. `(vacío)` es la respuesta EXPLÍCITA de Gemini y se podría devolver ahí mismo, sin reintentar.
+2. **Dos tests verdes sobre formas que producción no produce.** `tests/spy-guion-youtube.test.ts:139` fija la frase limpia con un
+   doble que devuelve `{ok:true, texto:''}` SIN `corto` — y `tramoDeYoutube` ya no puede devolver eso. Y la vuelta `I` del hijo pide
+   `tramo=null` **sin duración** (piso 0, por eso pasa): `transcribirGuionYoutube` nunca llama así, porque `tramo===null` sale sólo
+   cuando la duración SE CONOCE (`tramosDeYoutube`). Los dos verdes tapan el único caso real.
+
+**La regla que queda:** cuando un piso se mide contra la LONGITUD, el centinela que significa «vacío a propósito» hay que leerlo
+ANTES de medir — si no, «no había nada que decir» y «me cortaste» se vuelven el mismo caso. Y un doble de test que devuelve una
+forma que la función real ya no devuelve es un verde que no prueba nada: el doble tiene que poder devolver sólo lo que devuelve
+el original.
+
 **Sin medir:** en producción, con qué frecuencia el respaldo (`gemini-flash-lite-latest`) pasa el piso; si es el que corta, la nota
 va a salir seguido y el arreglo de fondo es otro modelo de respaldo para el STT de video.

@@ -12893,6 +12893,24 @@ El PDF de cobro a Código fue el primer documento con pie que salió por la voz 
 - ⚠️ **CONDITION → CONDITION no se arma**: la exclusión del 13 va como una fila más en CADA rama de la CONDITION que ya había (y el «Si
   no» pasa a ser el fin). El «Si no» con tarjeta no se puede excluir: por eso la tarjeta de siempre pasó a ser una rama.
 
+
+⚠️ **Y lo que ese «Si no» convertido en fin significa, revisado el 7/11/2026** (la punta entró a main sin que nadie la mirara):
+la regla del catálogo es que **«no sé» no es «no», ni negado** — `cumpleCatalogo` hace `if (si == null) return false` aunque la
+fila tenga `no: true` (lib/condiciones-catalogo.ts), y `cumpleDato` devuelve `null` cuando el evento no trajo el dato. Juntando
+las dos cosas: **si `negocio_numero` alguna vez no viaja, NINGUNA de las tres ramas se cumple y, sin «Si no», no le sale a NADIE.**
+Antes del cambio el «Si no» era `rp_una_mk` y siempre salía algo. Hoy no pasa —`dePlataforma` sale de la definición del evento,
+así que `emitirPorEvento` lo pone siempre— pero la plantilla quedó a un dato de distancia de un apagón silencioso, y el modo de
+fallar de un aviso que no sale es que nadie se entera. Una corrida encolada ANTES del deploy (sus `datos` ya guardados, sin el
+campo) es el camino concreto; hoy no hay ninguna porque la fila todavía no existe.
+
+**La regla que queda:** una CONDITION cuyo «Si no» es el fin sólo es segura si TODOS los datos que pregunta son obligatorios por
+construcción. Si alguno puede faltar, el «Si no» tiene que llevar la tarjeta de siempre: con `no: true` la intuición dice «si no
+sé, no es 13, entonces sale», y el motor hace exactamente lo contrario.
+
+⚠️ **Y el test no usa el motor:** `tests/reunion-tareas-al-plan-evento.test.ts` reimplementa la evaluación en un helper
+(`cumple`, con su propio `v != null &&`) en vez de llamar a `cumpleFila`. Hoy coincide con la regla real; el día que
+`cumpleCatalogo` cambie, el test va a seguir verde diciendo lo de antes.
+
 **Vive en:** `lib/aviso-evento.ts` (`datosDeLaPlataforma`) · `lib/variables-aviso.ts` (`negocio_numero`) · `lib/plantillas-automatizaciones.ts`
 (`mako-reunion-tareas-al-plan`) · tests: `tests/dato-evento.test.ts` (5), `tests/reunion-tareas-al-plan-evento.test.ts`
 

@@ -1,4 +1,11 @@
 # Pendientes de Martín — tablero vivo
+> ⚠️ **ESTE ARCHIVO VIVE EN GIT: LEELO DE UN CLON AL DÍA (7/11/2026).** El 7/11 una revisión entera se repitió
+> porque `C:/dev/wt-puntas` estaba **dos commits atrás de `origin/main`** y su tablero todavía decía «1 de 5
+> revisada» cuando main ya decía «5 de 5». Nada avisa: el archivo se abre igual y se lee creíble.
+> **Antes de elegir qué hacer: `git -C <el clon> fetch origin && git -C <el clon> log --oneline -1 origin/main -- docs/pendientes-martin.md`**,
+> o leé el tablero de un worktree que esté en main. Un tablero viejo no dice «estoy viejo», dice «esto falta».
+
+
 
 **Qué es esto.** La lista única de lo que Martín pidió y todavía no está. Se actualiza **en el mismo
 commit** que resuelve cada cosa: una línea que dice `HECHO` sin su commit al lado no vale.
@@ -203,6 +210,20 @@ negocio le llega un aviso de la plataforma**. Miré lo que los tests no ven:
 negada** (`condiciones-catalogo.ts`). O sea que si algún día un evento de la plataforma se emite sin pasar por
 `emitirPorEvento`, «No es el negocio número 13» no se cumple para NADIE y el aviso deja de salir, sin un error
 en ningún lado. Es el lado seguro (nadie recibe lo que no es suyo), pero se pierde callado.
+**Segunda pasada el 7/11 sobre el OTRO commit de esta punta, `f27ef1a4e` (el piso del guion de YouTube), que la
+primera revisión no miró:**
+
+⚠️ **«No tiene voz: es sólo música o imagen.» dejó de ser alcanzable.** El piso mide LARGO, y el `(vacío)` que
+Gemini manda **a propósito** se convierte en texto vacío ANTES de medirlo. Entonces un video mudo recorre los dos
+modelos de cada cuenta —cuesta el doble, en la clave de Gemini del negocio— y vuelve marcado `corto`, así que al
+cliente le sale siempre «puede ser sólo música o imagen, **o que no lo transcribí**», nunca la frase limpia. Dos
+tests lo tapan porque prueban formas que producción no produce: el doble devuelve `{ok:true, texto:''}` sin
+`corto` (`tramoDeYoutube` ya no puede), y la vuelta `I` pide `tramo=null` sin duración, combinación que
+`transcribirGuionYoutube` nunca arma. Está escrito con la regla en `docs/hallazgos-competitors-spy.md`.
+
+**El índice de hallazgos no perdió nada** al compactarse de 362 filas a una por área en ese mismo commit:
+54 documentos antes, 54 después, y los 54 del disco están indexados.
+
 
 **El paso que me dejaron NO SE PUEDE CORRER TODAVÍA.** `docs/relevo/nube-nada-por-detras.md` pide crear la fila
 de «Tareas de Reuniones al Plan» **después del deploy que trae esta tanda**. El commit es del 6/11 16:39 UTC y
@@ -247,6 +268,17 @@ de la charla), pero es estado de React y el test de node no lo toca. Se prueba e
 viejo `?ver=carruseles` —que viajó en avisos y en la API— hacía un `redirect()` **debajo del loader**, y eso
 en Next va adentro del stream y tira **React #310**. Es la misma familia que el crash de Spy de esta noche:
 un atajo durante el render no rompe una parte, tira la pantalla entera.
+**Segunda pasada el 7/11 (sin saber que ya estaba revisada: ver el aviso de arriba). Lo que suma:**
+- **Nada cuelga de lo que borró**: saca `EditarBiblioteca.tsx` (166 líneas), `FranjaCarruseles.tsx` (91) y su
+  `franja.module.css`, y no quedó un import a ninguno. Los nombra la bitácora de `/admin/dev`, que es prosa.
+- **El route handler nuevo está bien cerrado**: `puerta()`, `rateLimit` por ws, `runWithWorkspace(p.ws, …)` y el
+  id validado como entero seguro antes de tocar la base. La action nueva copia el patrón de la que ya estaba.
+- ⚠️ **Lo que conviene saber**: uno de los cinco rojos se cerró **ensanchando la lista de excepciones** del test
+  que exige que toda operación del Doer tenga receta. `buscar_thumbnails`, `guardar_thumbnail` y
+  `editar_ejemplo_thumbnail` entraron a `LECTURAS_SIN_RECETA` / `ACCIONES_SIN_RECETA`. Los motivos están
+  escritos y valen lo mismo que para `buscar_carruseles`, pero son tres operaciones que salen sin receta: es
+  justo lo que ese test vigila.
+
 
 La solución es una función pura (`vistaDeImage`) con **el default del lado seguro**: cualquier `ver=` que no
 conozca cae en los ejemplos, sin redirigir y sin romperse. Y queda escrito por qué vive en su propio archivo:
