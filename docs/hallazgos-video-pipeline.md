@@ -1415,3 +1415,66 @@ avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
   hacen lo mismo con el mismo default (10,005). No se comparte porque el worker no puede
   importar TypeScript: se copia suelto en la imagen. Si aparece un tercer consumidor, el
   default deja de ser un número repetido y pasa a ser un dato del pedido.
+
+## Un reel NO son 60 segundos de video generado, y costearlo así da 100 veces de más (7/11/2026)
+
+**El síntoma.** Martín preguntó qué cobrar por planes de 2, 4 y 7 posteos de video por semana. Costeé un reel
+de 60 s como 60 segundos de video generado —8 clips de 8 s— y me dio **US$4,80 a US$27,50 por pieza**, o sea
+**US$144 a US$600 al mes** en la cadencia diaria. Con eso le dije que los planes tenían que salir **US$480** y
+que el video «no era un plan de MaKo, era otro producto». Él contestó «me parece muy caro» y me mandó a mirar
+el curso de Avatar Hype, que está **en nuestro propio portal**.
+
+**Lo que dice la clase de producción, textual** (`curso-creativos-ugc-realistas`, «UGC sin producto ·
+Producción»):
+
+> «hemos cogido **una captura de pantalla de un reel de Instagram**… una vez que tenéis ya la referencia en
+> imagen… ir a este **agente de prompts con el método 6C**, le cargáis la imagen y os devuelve el prompt lo más
+> similar posible a esa imagen de referencia… listo para copiar en **los modelos de generación de imagen**»
+
+**Generan IMÁGENES. El reel se arma editando, en CapCut.** El minuto de video generado no existe en su método.
+
+**Medido en las 9.719 transcripciones del portal**, qué nombra el ecosistema entero:
+
+| | menciones |
+|---|---:|
+| Midjourney | 1.788 |
+| CapCut | 1.483 |
+| Canva | 1.177 |
+| Sora | 649 |
+| Kling | 546 |
+| Veo 3 | **216** |
+
+Las tres primeras son generar imágenes y **editar**. Generar video con Veo es lo que menos se enseña.
+
+**El costo real, con su método:** 3 a 6 imágenes por pieza. **US$0,05 a US$2 por reel**, contra los US$4,80 a
+27,50 que yo había calculado. A 30 piezas por mes son **US$2 a 15**, no US$144 a 600. **Cabe de sobra en un
+plan de US$47**, y no hace falta inventar uno de US$480.
+
+**LA REGLA QUE QUEDA, y es más general que el video:** antes de costear una pieza hay que medir **cuánto de
+ella sale del modelo caro**. Yo asumí que «video de 60 segundos» = «60 segundos de modelo de video», y esa sola
+suposición movió el precio de un plan de US$47 a US$480. **El costo de un producto no se estima por su
+duración: se estima por sus llamadas.**
+
+**Y dónde estaba la respuesta:** en nuestro propio portal de conocimientos, que tiene 130 cursos y 9.719
+transcripciones. **Antes de estimar algo que alguien ya hace, se busca ahí.** Lo mismo para precios,
+herramientas y método.
+
+### Los precios verificados, por si sirven igual (7/11/2026)
+
+Imagen, por imagen: **FLUX.2 klein US$0,001** (Replicate) · GPT Image 2 low US$0,006 (fal) · FLUX.2 dev
+US$0,012 · Imagen 4 Fast US$0,02 (Vertex) · GPT Image 2 medium US$0,047 (Replicate) · Nano Banana 2 US$0,067.
+
+Video, por segundo: Veo 3.1 Lite US$0,03 · Veo 3.1 Fast US$0,10 · Kling v3 estándar US$0,084 (fal, el más
+barato para Kling) · Wan 3.0 US$0,10 · Veo 3.1 completo US$0,40 con audio.
+
+⚠️ **Muapi cobra por GENERACIÓN y los demás por SEGUNDO**, así que un clip de 4 s en Muapi cuesta lo mismo que
+uno de 8. Como las puestas de MaKo van de 4 a 10 s (`lib/puestas-data.ts`, `segundosClip`), lo correcto es
+**clips cortos por fal, clips de 8 o más por Muapi**: ~20% de ahorro sin cambiar nada de lo que ve el cliente.
+
+⚠️ **Y los endpoints se mueven:** Sora 2 cerró el 24/09/2026 y **los de Veo 3.1 en fal se apagan el 17/11/2026**.
+El proveedor tiene que ser **una fila de un catálogo**, no una ruta cableada, o en un mes hay clientes viendo
+errores. Ver [open-generative-ai-investigacion-7-11.md](open-generative-ai-investigacion-7-11.md).
+
+**Vive en:** el portal (`app/conocimientos/curso-creativos-ugc-realistas.ts`, clases «ApiMart», «Catálogo de
+modelos IA» y las cuatro de UGC) · `public/cono-tx/` · `lib/curso-avatar.ts` (el método 6C ya está acá) ·
+`lib/puestas-data.ts`.
