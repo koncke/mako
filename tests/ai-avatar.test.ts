@@ -29,7 +29,7 @@ import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
 import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
 import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
-import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, type PuenteVisto } from '../lib/ai-avatar/requisitos';
+import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, avisoDeCosto, type PuenteVisto } from '../lib/ai-avatar/requisitos';
 import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
@@ -285,4 +285,92 @@ test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo
 test('refrescar no se traga lo recién creado: el server gana en cada id y lo nuevo local queda arriba', () => {
   const r = mezclarPorId([{ id: 'nuevo', v: 1 }, { id: 'a', v: 1 }], [{ id: 'a', v: 2 }, { id: 'b', v: 2 }]);
   assert.deepEqual(r, [{ id: 'nuevo', v: 1 }, { id: 'a', v: 2 }, { id: 'b', v: 2 }]);
+});
+
+// =============================================================================
+// Las DOS ramas de AI Avatar: la de Flow y la de MaKo (7/11/2026)
+// =============================================================================
+// Martín, 7/11: «que ahí se pueda elegir tanto la rama de Flow como la rama de APIs directamente, es decir,
+// los créditos de MaKo en este caso». Lo que sigue prueba que elegir una rama CAMBIA lo que se le pide a la
+// persona — que es lo único que hace que la elección signifique algo.
+
+/** Un puente roto a propósito: por la rama de MaKo no tiene que importar nada de esto. */
+const PUENTE_ROTO: PuenteVisto = { estado: 'sin_conectar', vivo: false, actualizada: false };
+
+test('por la rama de MaKo no se le pide NI UNA cosa de Flow', () => {
+  // ⚠️ ES EL TEST QUE IMPORTA. Pedirle a alguien que eligió MaKo que instale una extensión, conecte un
+  // navegador y abra una cuenta de Google es mandarlo a hacer cuatro cosas que no va a usar — y un aviso
+  // falso no confunde sólo sobre ese punto: hace desconfiar de todos los demás.
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 1, para: 'avatar', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  const ids = r.pasos.map((x) => x.id);
+  for (const deFlow of ['extension', 'conectar', 'actualizar', 'flow'] as const) {
+    assert.ok(!ids.includes(deFlow), `la rama de MaKo pide «${deFlow}», que es de Flow`);
+  }
+  assert.equal(r.listo, true, 'con foto y saldo, la rama de MaKo tendría que estar lista');
+});
+
+test('la rama de Flow sigue intacta: sin motor, el camino es el de siempre', () => {
+  // La guarda de que no rompí a nadie que ya estaba generando.
+  const sinMotor = requisitosAvatar({ puente: PUENTE_ROTO, instalada: false, enTelefono: false, fotos: 1, para: 'avatar' });
+  const conFlow = requisitosAvatar({ motor: 'flow', puente: PUENTE_ROTO, instalada: false, enTelefono: false, fotos: 1, para: 'avatar' });
+  assert.deepEqual(sinMotor.pasos.map((x) => x.id), conFlow.pasos.map((x) => x.id));
+  assert.ok(sinMotor.pasos.some((x) => x.id === 'extension'), 'la rama de Flow dejó de pedir la extensión');
+  assert.equal(sinMotor.listo, false, 'con el puente sin conectar, Flow no puede estar listo');
+});
+
+test('sin saldo no se genera, y el motivo NO manda a instalar nada', () => {
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 1, para: 'avatar', saldoMt: 10, cuestaMt: 1_200,
+  });
+  assert.equal(r.listo, false, 'con 10 MT y un costo de 1.200 se dejó generar');
+  assert.equal(r.falta?.id, 'saldo');
+  assert.ok(!/extensi|chrome|google|flow/i.test(r.falta?.ayuda ?? ''),
+    `el motivo manda a Flow cuando el problema es el saldo: «${r.falta?.ayuda}»`);
+});
+
+test('el saldo de la rama de MaKo falla CERRADO, igual que el del medidor', () => {
+  // Un saldo que no se pudo leer no habilita. Si acá dijera que sí y el server frenara, la persona ve el
+  // paso en verde y un error al apretar — que es el aviso que se contradice con el de al lado.
+  for (const saldo of [null, undefined]) {
+    const r = requisitosAvatar({
+      motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+      fotos: 1, para: 'avatar', saldoMt: saldo, cuestaMt: 1_200,
+    });
+    assert.equal(r.listo, false, `un saldo ${String(saldo)} dejó generar`);
+  }
+});
+
+test('para el VIDEO no se vuelve a pedir la foto: el avatar ya la tiene', () => {
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 0, para: 'video', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  assert.ok(!r.pasos.some((x) => x.id === 'foto'), 'se pidió la foto otra vez para el video');
+  assert.equal(r.listo, true);
+});
+
+test('lo que se le dice que va a gastar cambia con la rama, y ninguna de las dos miente', () => {
+  const flow = avisoDeCosto('flow');
+  const mako = avisoDeCosto('mako');
+  assert.notEqual(flow, mako, 'las dos ramas avisan lo mismo y una de las dos está mintiendo');
+  assert.ok(/Flow/.test(flow), 'la rama de Flow no nombra de dónde salen los créditos');
+  assert.ok(/MaKo Tokens/.test(mako), 'la rama de MaKo no nombra los MaKo Tokens');
+  assert.ok(!/Google Flow/.test(mako), 'la rama de MaKo le dice que gasta créditos de Google Flow: es falso');
+  assert.equal(avisoDeCosto(), flow, 'sin motor, el aviso tiene que ser el de siempre');
+});
+
+test('la rama de MaKo pide una foto DE VERDAD, no una imagen generada', () => {
+  // Medido el 7/11 y pagado cuatro veces: una generación usada como referencia de identidad da una cara que
+  // no es la de la persona, y no lo arregla ningún prompt. Si el texto no lo dice, nadie lo sabe.
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 0, para: 'avatar', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  const foto = r.pasos.find((x) => x.id === 'foto');
+  assert.ok(foto, 'no hay paso de foto');
+  assert.ok(/IA|generad/i.test(foto.ayuda), `el paso de la foto no avisa que no sirve una imagen de IA: «${foto.ayuda}»`);
 });
