@@ -210,12 +210,18 @@ export type FiltrosCarrusel = {
   lamMax?: number;
   /** Los tipos que no se quieren ver (los chips de «Ocultar tipos»). */
   ocultar?: Formato[];
+  /**
+   * Sólo en «Anuncios» (6/11/2026): dejar afuera los que no dicen si son video. De lo guardado antes del 6/11 no se sabe
+   * (ver ./anuncios.ts), y la pantalla no puede decidir sola: mostrarlos todos esconde videos entre las imágenes, y
+   * esconderlos todos tira 298 anuncios buenos por falta de un dato. Lo elige quien mira; por defecto se muestran.
+   */
+  soloConfirmados?: boolean;
   // ⛔ Sin «Tamaño de la tarjeta» (6/11/2026; Martín: «eso no lo quiero, solo grande»): un link viejo con `tam=chico` abre grande.
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
-  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [],
+  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [], soloConfirmados: false,
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -324,6 +330,9 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (f.vista === 'guardados' && !guardados.has(c.id)) return false;
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
     if (!anuncios && !f.conImagenes && c.medio === 'imagen') return false;
+    // En «Anuncios», lo que no dice si es video se muestra salvo que se pida lo contrario (./anuncios.ts: de lo guardado
+    // antes del 6/11/2026 no se sabe, y «no sé» no es «es video»).
+    if (anuncios && f.soloConfirmados && c.medio == null) return false;
     if (creadores.size && !creadores.has(c.competidorId)) return false;
     if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
@@ -461,6 +470,7 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     lamMin: Math.round(numero('lmin', 20)),
     lamMax: Math.round(numero('lmax', 20)),
     ocultar,
+    soloConfirmados: get('conf') === '1',
   };
 }
 
@@ -478,6 +488,7 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.largo !== 'todos') q.set('largo', f.largo);
   if (f.formato) q.set('formato', f.formato);
   if (f.conImagenes) q.set('imagenes', '1');
+  if (f.soloConfirmados) q.set('conf', '1');
   if (f.orden !== 'outlier') q.set('orden', f.orden);
   if (f.vista !== 'todos') q.set('vista', f.vista);
   if (f.que !== 'carruseles') q.set('que', f.que);
