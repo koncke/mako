@@ -4,20 +4,22 @@
 //
 // MaKo: Polar muestra los MEDIDORES del cliente (lo que consumió de cada uno, el gráfico apilado y la tabla). Un negocio de
 // MaKo no tiene medidores: tiene TABS. Cada tab es un medidor (lo consumido son las pantallas que se abrieron, con sus
-// acciones y cuántas personas la usaron) y la IA es otro (sus llamadas y lo que costaron), del uso medido (`actividad_uso`, mig
-// 0398) y de las llamadas anotadas en el negocio (`anthropic_usage`). Debajo, lo que NO usa: las tabs que nadie del negocio
+// acciones y cuántas personas la usaron) y la IA es otro (sus llamadas), del uso medido (`actividad_uso`, mig 0398) y de las
+// llamadas anotadas en el negocio (`anthropic_usage`). Debajo, lo que NO usa: las tabs que nadie del negocio
 // abrió en el rango. Se sacaron Credited, Balance, Overages y «Add credits»: MaKo no da créditos por cliente. La IA no va en el
 // gráfico: se cuenta en llamadas, no en pantallas, y apilarla con las tabs sumaría dos cosas distintas.
 // ⚠️ «No usa» sólo se afirma desde que se mide: antes del primer día medido no hay nada que mirar, y se dice.
 // ⚠️ La IA cuenta las llamadas ANOTADAS en este negocio, las pague quien las pague (su clave, el crédito de MaKo); Claude con
 //    la clave de MaKo se anota en la plataforma y no entra acá. Eso se explicaba en un párrafo debajo de la tabla: la pantalla
 //    dice QUÉ, el porqué va acá (la regla de la casa, 6/11/2026).
+// ⛔ SIN LA COLUMNA «Costo» (revisión del 6/11/2026; Polar tampoco la tiene: Meter, Consumed, Credited, Balance, Overages). Sumaba
+//    el `cost_usd` de las llamadas del negocio sin mirar si el gasto es atribuible, con la regla opuesta a la de Cost Drivers. Lo
+//    que le cuesta a MaKo este negocio se dice UNA vez, en su Overview, con la regla de Cost Drivers (`costoDelNegocio`).
 // ⚠️ El gráfico dibuja TODOS los períodos del rango desde que se mide, también los vacíos (`usoDelNegocio`, como la serie de
 //    Polar, que trae un punto por período): con sólo los períodos con uso, un rango de meses era una sola barra suelta.
 
 import { usoDelNegocio, type IaDelDia } from '@/app/admin/_polar/datos/cliente'
 import type { FilaUso } from '@/lib/actividad-reglas'
-import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import ShadowBox from '@/app/admin/_polar/atoms/ShadowBox'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
 import {
@@ -48,7 +50,7 @@ export interface CustomerUsageViewProps {
   inicio: string
 }
 
-type Columna = 'nombre' | 'consumido' | 'acciones' | 'personas' | 'costoUsd' | 'ultimo'
+type Columna = 'nombre' | 'consumido' | 'acciones' | 'personas' | 'ultimo'
 
 const unidadTxt = (n: number, unidad: 'pantallas' | 'llamadas') =>
   `${n.toLocaleString('es-AR')} ${unidad === 'pantallas' ? (n === 1 ? 'pantalla' : 'pantallas') : n === 1 ? 'llamada' : 'llamadas'}`
@@ -131,7 +133,7 @@ export const CustomerUsageView = ({
                 ),
                 accessorKey: 'nombre',
                 size: 200,
-                meta: { width: '26%' },
+                meta: { width: '34%' },
                 cell: ({ row }) => (
                   <div className="flex min-w-0 items-center gap-x-2">
                     <span
@@ -147,7 +149,7 @@ export const CustomerUsageView = ({
                   <DataTableColumnHeader column={column} title="Consumido" />
                 ),
                 accessorKey: 'consumido',
-                meta: { width: '18%', className: 'whitespace-nowrap' },
+                meta: { width: '20%', className: 'whitespace-nowrap' },
                 size: 130,
                 cell: ({ row }) => <span>{unidadTxt(row.original.consumido, row.original.unidad)}</span>,
               },
@@ -181,24 +183,10 @@ export const CustomerUsageView = ({
               },
               {
                 header: ({ column }) => (
-                  <DataTableColumnHeader column={column} title="Costo" />
-                ),
-                accessorKey: 'costoUsd',
-                meta: { width: '14%', className: 'hidden @md:table-cell whitespace-nowrap' },
-                size: 100,
-                cell: ({ row }) =>
-                  row.original.costoUsd == null ? (
-                    <span className="dark:text-polar-500 text-gray-500">—</span>
-                  ) : (
-                    <span>{formatCurrency('subcent')(row.original.costoUsd * 100, 'usd')}</span>
-                  ),
-              },
-              {
-                header: ({ column }) => (
                   <DataTableColumnHeader column={column} title="Último uso" />
                 ),
                 accessorKey: 'ultimo',
-                meta: { width: '18%', className: 'hidden @md:table-cell whitespace-nowrap' },
+                meta: { width: '22%', className: 'hidden @md:table-cell whitespace-nowrap' },
                 size: 120,
                 cell: ({ row }) =>
                   row.original.ultimo ? (

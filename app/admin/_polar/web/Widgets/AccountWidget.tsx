@@ -17,6 +17,8 @@
 //     tarjeta tiene el alto fijo de Polar y una sexta fila quedaba cortada a la mitad por el borde). El número grande sigue
 //     siendo el total de TODOS los próximos cobros, y si hay más de los que se ven, al lado se dice cuántos son; el resto está
 //     en «Ver todo».
+// Cada fila: el negocio y, a la derecha y enteros, cuándo vence (en rojo y con su fecha si está atrasado) y cuánto
+// (./ListRow.tsx: el estado con su fecha es un dato, no lo secundario que se corta).
 // «Ver todo» lleva a Sales › Subscriptions (donde está cada suscripción con su próximo cobro), no a Finance.
 
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
@@ -28,7 +30,6 @@ import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
-import { FIJO, PRINCIPAL, SECUNDARIO } from './fila'
 
 export interface AccountWidgetProps {
   className?: string
@@ -64,17 +65,21 @@ export const AccountWidget = ({ className, porCobrar }: AccountWidgetProps) => {
       ) : cobros.length > 0 ? (
         <Box flexDirection="column" paddingBottom="m">
           {cobros.map((cobro) => (
-            <ListRow key={cobro.id} href={cobro.href ?? undefined}>
-              <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                <Text truncate style={PRINCIPAL}>{cobro.nombre}</Text>
-                <Text color={cobro.atrasado ? 'danger' : 'muted'} truncate style={SECUNDARIO}>
-                  {cobro.atrasado ? `Atrasado · ${cobro.cuando}` : cobro.cuando}
-                </Text>
-              </Box>
-              <Text tabularNums style={FIJO}>
-                {formatCurrency('statistics')(cobro.centavos, 'usd')}
-              </Text>
-            </ListRow>
+            <ListRow
+              key={cobro.id}
+              href={cobro.href ?? undefined}
+              nombre={cobro.nombre}
+              dato={
+                <>
+                  <Text as="span" color={cobro.atrasado ? 'danger' : 'muted'}>
+                    {cobro.atrasado ? `Atrasado · ${cobro.cuando}` : cobro.cuando}
+                  </Text>
+                  <Text as="span" tabularNums>
+                    {formatCurrency('statistics')(cobro.centavos, 'usd')}
+                  </Text>
+                </>
+              }
+            />
           ))}
         </Box>
       ) : (

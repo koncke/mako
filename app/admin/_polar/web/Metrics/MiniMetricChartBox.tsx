@@ -1,6 +1,10 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Metrics/MiniMetricChartBox.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo (6/11/2026): Polar formatea todo lo que no es un número como plata con `statistics`. La ficha de un negocio dibuja acá su
+// Profit Margin (un porcentaje, de 0 a 1) y su gasto de IA (centavos con decimales, como lo dice Cost Drivers con `subcent`):
+// cada tipo con su formato. Lo escalar y la plata, como Polar.
 
-import { formatHumanFriendlyScalar } from '@/app/admin/_polar/web/utils/formatters'
+import { formatHumanFriendlyScalar, formatPercentage } from '@/app/admin/_polar/web/utils/formatters'
 import { schemas } from '@/app/admin/_polar/datos/polar-tipos'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -32,7 +36,11 @@ export const MiniMetricChartBox = ({
           {metric &&
             (metric.type === 'scalar'
               ? formatHumanFriendlyScalar(value ?? 0)
-              : formatCurrency('statistics')(value ?? 0, 'usd'))}
+              : metric.type === 'percentage'
+                ? formatPercentage(value ?? 0)
+                : metric.type === 'currency_sub_cent'
+                  ? formatCurrency('subcent')(value ?? 0, 'usd')
+                  : formatCurrency('statistics')(value ?? 0, 'usd'))}
         </h3>
       </CardContent>
     </Card>

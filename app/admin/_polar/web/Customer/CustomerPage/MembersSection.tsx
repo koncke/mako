@@ -3,8 +3,9 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/MembersSection.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
 // ⚠️ ES EL ÚNICO LUGAR DE ADMIN DONDE SE VEN Y SE GESTIONAN LAS PERSONAS (Martín, 6/11/2026: rechazó una versión con «usuarios
-//    en tres lugares»). Las de un negocio son sus usuarios-cliente (`usuarios` con su `workspace_id`); las del equipo de MaKo
-//    van en Settings › Members.
+//    en tres lugares»). Las de un negocio son sus usuarios-cliente (`usuarios` con su `workspace_id`). Las del equipo de MaKo
+//    no se ven en Admin: Polar las pone en Settings › Members, que se sacó (relevo); se gestionan en /equipo del workspace de
+//    la plataforma.
 // MaKo: las columnas de Polar con lo que MaKo sabe de cada persona: su rol en el negocio (Admin, Closer, Setter), su estado
 // (activo, invitado, suspendido, y si se le mandó el acceso), su segundo factor y su último ingreso. Se sacaron Seat (MaKo no
 // vende lugares por persona) y External ID (no tiene). El menú de cada fila: «Editar persona» (nombre y rol), «Reenviar el

@@ -289,13 +289,20 @@ function textoDeRiesgo(motivo: MotivoEnRiesgo, d: { diasAtraso?: number | null; 
 }
 
 /**
+ * Cuántos negocios en riesgo se leen (Polar: `LIMIT = 100`). Lo usan Customers › At Risk y la tarjeta «At Risk» del Overview,
+ * que en Polar comparten la misma consulta (`useAtRisk`): la tarjeta muestra las primeras filas de ESTA lista y su número es el
+ * total de ella («100+» si llegó al tope), app/admin/_polar/datos/resumen.ts `riesgoDeLaTarjeta`.
+ */
+export const LIMITE_AT_RISK = 100
+
+/**
  * Los negocios en riesgo, uno por negocio y con su motivo más grave (Polar junta las suscripciones atrasadas y las que se
  * cancelan, sin repetir). El orden: el motivo, y adentro el que más paga primero.
  *
  * ⚠️ «Dejó de pagar» cuenta SÓLO si el negocio sigue activo y no tiene un plan a mano: uno que se fue hace meses no está
  *    en riesgo, ya se fue; y uno con meses gratis no tiene por qué pagar.
  */
-export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: readonly IngresoParaRiesgo[], limite = 100): ClienteEnRiesgo[] {
+export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: readonly IngresoParaRiesgo[], limite = LIMITE_AT_RISK): ClienteEnRiesgo[] {
   const fila = new Map(filas.map((f) => [f.ws, f]))
   const out = new Map<string, ClienteEnRiesgo>()
   const poner = (c: ClienteEnRiesgo) => {
@@ -355,21 +362,55 @@ export type VistaCostos = {
 export const mesActual = (ahoraMs: number) => new Date(ahoraMs).toISOString().slice(0, 7)
 
 /**
+ * LA regla del gasto de IA POR NEGOCIO (la de Cost Drivers, y la única: la ficha de un negocio la pregunta acá, 6/11/2026). El
+ * corte por negocio de un período vale sólo si es ATRIBUIBLE: con filas de Claude de la clave de MaKo en el período, su
+ * `workspace_id` lo pone `wsDeProveedor` (lib/anthropic-usage.ts), no la medición, y el reparto es una constante
+ * (lib/costos-ia.ts marca cada corte `atribuible: false`). Entonces no se reparte: `null`. Si vale, lo de cada negocio es su
+ * corte tal cual (el mismo `costoDe` de lib/costos-ia.ts: sin la clave del propio negocio ni el crédito de la plataforma).
+ */
+export function gastoPorNegocio(
+  resumen: Pick<ResumenPeriodo, 'porWorkspace'>,
+): ReadonlyMap<number, { llamadas: number; costUsd: number }> | null {
+  if (!resumen.porWorkspace.every((c) => c.atribuible)) return null
+  const out = new Map<number, { llamadas: number; costUsd: number }>()
+  for (const c of resumen.porWorkspace) {
+    const ws = Number(c.clave)
+    if (Number.isSafeInteger(ws)) out.set(ws, { llamadas: c.llamadas, costUsd: c.costUsd })
+  }
+  return out
+}
+
+/**
+ * Lo que MaKo gastó en IA por UN negocio en el período (la ficha › Overview: Costs, Profit y Profit Margin), con
+ * `gastoPorNegocio`, así dice lo mismo que Cost Drivers para ese negocio y ese mes. No atribuible = no hay plata que decir. Un
+ * negocio sin corte en un período atribuible no gastó nada (Cost Drivers no lo lista).
+ */
+export type CostoDelNegocio =
+  | { periodo: string; atribuible: false }
+  | { periodo: string; atribuible: true; llamadas: number; costoCentavos: number }
+
+export function costoDelNegocio(resumen: Pick<ResumenPeriodo, 'periodo' | 'porWorkspace'>, ws: number): CostoDelNegocio {
+  const gasto = gastoPorNegocio(resumen)
+  if (!gasto) return { periodo: resumen.periodo, atribuible: false }
+  const suyo = gasto.get(ws)
+  return { periodo: resumen.periodo, atribuible: true, llamadas: suyo?.llamadas ?? 0, costoCentavos: (suyo?.costUsd ?? 0) * 100 }
+}
+
+/**
  * El gasto de IA de cada negocio del período (lo que le costó a MaKo, sin lo que pagó el negocio con su propia clave ni el
- * crédito de la plataforma). Sólo los que gastaron algo y son negocios de la lista (no la plataforma).
+ * crédito de la plataforma), con `gastoPorNegocio`. Sólo los que gastaron algo y son negocios de la lista (no la plataforma).
  */
 export function costosPorCliente(
   resumen: Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>,
   nombres: ReadonlyMap<number, string>,
   limite = 200,
 ): VistaCostos {
-  const atribuible = resumen.porWorkspace.every((c) => c.atribuible)
-  if (!atribuible) return { periodo: resumen.periodo, atribuible: false, clientes: [] }
+  const gasto = gastoPorNegocio(resumen)
+  if (!gasto) return { periodo: resumen.periodo, atribuible: false, clientes: [] }
   const total = resumen.costUsd
-  const clientes = resumen.porWorkspace
-    .map((c) => ({ ws: Number(c.clave), corte: c }))
-    .filter(({ ws, corte }) => nombres.has(ws) && corte.costUsd > 0)
-    .map(({ ws, corte }) => ({
+  const clientes = [...gasto.entries()]
+    .filter(([ws, corte]) => nombres.has(ws) && corte.costUsd > 0)
+    .map(([ws, corte]) => ({
       ws,
       nombre: nombres.get(ws) ?? `Workspace ${ws}`,
       llamadas: corte.llamadas,
@@ -431,7 +472,7 @@ export function vistaDeTop(ingresos: LecturaIngresos, ahoraMs: number, creados?:
  * At Risk: necesita las DOS lecturas. Sin la de los ingresos no se sabe quién está atrasado, y una lista sin ellos diría
  * «Nada en riesgo» sobre un negocio que debe: es un «no pude leer», no un vacío.
  */
-export function vistaDeAtRisk(clientes: LecturaClientes, ingresos: LecturaIngresos, limite = 100): PropsAtRisk {
+export function vistaDeAtRisk(clientes: LecturaClientes, ingresos: LecturaIngresos, limite = LIMITE_AT_RISK): PropsAtRisk {
   if (!clientes.ok || !ingresos.ok) return { atRisk: null, error: errorDe(clientes) ?? errorDe(ingresos), avisos: [] }
   return { atRisk: clientesEnRiesgo(clientes.datos.filas, ingresos.datos.clientes, limite), error: null, avisos: avisosDe(clientes, ingresos) }
 }

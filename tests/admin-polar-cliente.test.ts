@@ -88,7 +88,7 @@ test('el id del path: un número de negocio, nunca otra cosa', () => {
   assert.equal(wsDeId(undefined), null)
 })
 
-test('Overview › Metrics: lo pagado y los pagos del rango, sin lo devuelto ni lo que no tiene dólares; el MRR aparte', () => {
+test('Overview › Metrics: lo pagado y los pagos del rango, sin lo devuelto ni lo que no tiene dólares (sin lo que paga por mes)', () => {
   const pedidos = [
     pedido('p-1', 7, '2026-10-01', 100),
     pedido('p-2', 7, '2026-10-15', 50, 'refunded'),
@@ -96,11 +96,11 @@ test('Overview › Metrics: lo pagado y los pagos del rango, sin lo devuelto ni 
     pedido('p-4', 7, '2026-09-30', 999),
     pedido('p-5', 7, '2026-11-01', 7),
   ]
-  const c = cifrasDelRango(pedidos, 238, '2026-10-01', '2026-10-31')
+  const c = cifrasDelRango(pedidos, '2026-10-01', '2026-10-31')
   assert.equal(c.revenue, 10000, 'sólo lo pagado en el rango (centavos): lo devuelto y lo sin dólares no suman')
   assert.equal(c.orders, 3, 'los pedidos del rango, los dos bordes incluidos')
   assert.equal(c.sinDolares, 1)
-  assert.equal(c.mrr, 23800, 'lo que paga por mes no depende del rango')
+  assert.ok(!('mrr' in c), 'lo que paga por mes no va en la ficha (nada de ingreso mensual en Customers: revisión del 6/11/2026)')
 })
 
 test('Overview › Orders y Subscriptions: sólo los de ESTE negocio (los de Sales), con el link a su detalle', () => {
@@ -184,7 +184,7 @@ test('Usage: las tabs que usa con sus pantallas, acciones y personas; la IA apar
   const ia = u.medidores.find((m) => m.key === 'ia')
   assert.equal(ia?.consumido, 268, 'las de noviembre: las mismas que reparte Cost Drivers')
   assert.equal(ia?.unidad, 'llamadas')
-  assert.equal(ia?.costoUsd, 1.26)
+  assert.ok(!('costoUsd' in (ia ?? {})), 'el uso no dice plata: el gasto por negocio va en el Overview, con la regla de Cost Drivers')
   assert.ok(!u.series.some((s) => s.key === 'ia'), 'la IA no va en el gráfico (otra unidad)')
   assert.deepEqual(u.sinUso.map((t) => t.key), ['automations'], 'lo que nadie abrió')
   const dia5 = u.serie.find((p) => p.timestamp === '2026-11-05T00:00:00.000Z')

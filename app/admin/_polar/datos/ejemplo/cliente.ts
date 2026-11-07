@@ -21,6 +21,8 @@ import {
 } from '../cliente'
 import { armarEventos, timelineDelNegocio, type EventoDeTimeline } from '../eventos'
 import { ESENCIAL, HOY_NEGOCIOS, NEGOCIOS, PAGOS_EJEMPLO, PRO, pagadoPor } from './negocios'
+import { costoDelNegocio } from '../clientes'
+import { LECTURA_COSTOS_EJEMPLO } from './clientes'
 import type { CustomerOverviewProps } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerOverview'
 import type { CustomerUsageViewProps } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView'
 
@@ -96,7 +98,7 @@ export const CONEXIONES_EJEMPLO: ConexionNegocio[] = [
 ]
 
 export const COMPUTADORAS_EJEMPLO: ComputadoraNegocio[] = [
-  { id: 1, nombre: 'Laptop de Ana', persona: 'Ana Gómez', sistema: 'Mac', enLinea: true, conectadaAt: '2026-10-01T12:00:00Z' },
+  { id: 1, nombre: 'Laptop de Ana', sistema: 'Mac', enLinea: true, conectadaAt: '2026-10-01T12:00:00Z' },
 ]
 
 /** Lo que pasó en el negocio, armado como lo arma Analytics › Events (con un negocio de otro al lado, que no entra). */
@@ -145,20 +147,21 @@ export const OVERVIEW_EJEMPLO: CustomerOverviewProps = {
   alta: ALTA_EJEMPLO,
   inicio: estudioNorte.alta.slice(0, 10),
   pedidos: PEDIDOS_EJEMPLO,
-  mrrUsd: PRO.precioUsd,
+  // Su gasto de IA de noviembre, con la regla de Cost Drivers y la MISMA lectura (./clientes.ts): 268 llamadas, US$ 1,26.
+  costo: LECTURA_COSTOS_EJEMPLO.ok ? costoDelNegocio(LECTURA_COSTOS_EJEMPLO.datos, WS_EJEMPLO) : null,
   suscripciones: SUSCRIPCIONES_EJEMPLO,
   conexiones: CONEXIONES_EJEMPLO,
   computadoras: COMPUTADORAS_EJEMPLO,
   eventos: EVENTOS_EJEMPLO,
 }
 
-/** Las llamadas de IA del negocio: las de noviembre son las que reparte Customers › Cost Drivers (268, US$ 1,26: ./clientes.ts). */
+/** Las llamadas de IA del negocio: las de noviembre son las que cuenta Customers › Cost Drivers (268: ./clientes.ts). Sin plata. */
 const IA_EJEMPLO: IaDelDia[] = [
-  { dia: '2026-08-20', llamadas: 64, costoUsd: 0.3 },
-  { dia: '2026-09-15', llamadas: 152, costoUsd: 0.71 },
-  { dia: '2026-10-08', llamadas: 210, costoUsd: 0.98 },
-  { dia: '2026-11-04', llamadas: 160, costoUsd: 0.75 },
-  { dia: '2026-11-05', llamadas: 108, costoUsd: 0.51 },
+  { dia: '2026-08-20', llamadas: 64 },
+  { dia: '2026-09-15', llamadas: 152 },
+  { dia: '2026-10-08', llamadas: 210 },
+  { dia: '2026-11-04', llamadas: 160 },
+  { dia: '2026-11-05', llamadas: 108 },
 ]
 
 /** Una fila de uso medido: un día, una persona, una tab. */

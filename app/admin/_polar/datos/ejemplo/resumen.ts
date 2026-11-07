@@ -8,12 +8,13 @@
 import type { Entrada, MesIngresos, PorCobrar } from '@/lib/admin-ingresos-reglas'
 import { armarIndice, type IndiceBusqueda } from '../busqueda-tipos'
 import {
-  actividadReciente, filasDeRiesgo, margenBruto, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, porCobrarResumen,
-  topClientes, type IngresosResumen, type ResumenAdmin,
+  actividadReciente, margenBruto, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso, porCobrarResumen,
+  riesgoDeLaTarjeta, topClientes, type IngresosResumen, type ResumenAdmin,
 } from '../resumen'
 import {
-  ESENCIAL, HOY_NEGOCIOS, LEAD_SIN_CUENTA, NEGOCIOS, NOMBRES_EJEMPLO, PAGOS_EJEMPLO, PRO, WS_PLATAFORMA_EJEMPLO, pagadoPor,
+  ESENCIAL, HOY_NEGOCIOS, LEAD_SIN_CUENTA, MOVIMIENTOS_EJEMPLO, NEGOCIOS, NOMBRES_EJEMPLO, PAGOS_EJEMPLO, PRO, WS_PLATAFORMA_EJEMPLO, pagadoPor,
 } from './negocios'
+import { AT_RISK_EJEMPLO } from './clientes'
 
 /** «Ahora» de los ejemplos: el 6 de noviembre de 2026 a las 15:00 (hora de Buenos Aires). */
 export const AHORA_EJEMPLO = Date.parse('2026-11-06T18:00:00Z')
@@ -62,7 +63,8 @@ export const ingresosEjemplo: IngresosResumen = {
   cobradoTotal: meses.reduce((s, m) => s + m.cobrado, 0),
   primerPago: PAGOS_EJEMPLO[0].fecha,
   entradas,
-  movimientos: [],
+  // Los de ./negocios.ts: con ellos salen las suscripciones activas de las métricas por defecto (las de Polar).
+  movimientos: MOVIMIENTOS_EJEMPLO,
 }
 
 /** Lo que pagó cada uno (los clientes de `vistaDeIngresos`), de los mismos pagos. */
@@ -102,16 +104,8 @@ function gastoPorDiaDe(desde: string, hasta: string): Array<{ clave: string; cos
 export const resumenEjemplo: ResumenAdmin = {
   ingresos: { ok: true, datos: ingresosEjemplo },
   top: { ok: true, datos: topClientes(clientes, ingresosEjemplo.cobradoTotal) },
-  riesgo: {
-    ok: true,
-    datos: filasDeRiesgo([
-      { ws: viajes.ws, nombre: viajes.nombre, plan: PRO.nombre, riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 1, mrrUsd: P },
-      { ws: taller.ws, nombre: taller.nombre, plan: ESENCIAL.nombre, riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 3, mrrUsd: E },
-      { ws: optica.ws, nombre: optica.nombre, plan: ESENCIAL.nombre, riesgo: true, motivoRiesgo: 'sin-uso', sinEntrar: 19, mrrUsd: E },
-      { ws: gimnasio.ws, nombre: gimnasio.nombre, plan: ESENCIAL.nombre, riesgo: true, motivoRiesgo: 'pausado', sinEntrar: 12, mrrUsd: 0 },
-      { ws: estudioNorte.ws, nombre: estudioNorte.nombre, plan: PRO.nombre, riesgo: false, motivoRiesgo: null, sinEntrar: 0, mrrUsd: P },
-    ]),
-  },
+  // La misma lista que Customers › At Risk con los mismos datos (./clientes.ts): la tarjeta y la página no se contradicen.
+  riesgo: riesgoDeLaTarjeta(AT_RISK_EJEMPLO),
   actividad: {
     ok: true,
     datos: actividadReciente({

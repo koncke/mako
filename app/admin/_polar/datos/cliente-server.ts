@@ -8,7 +8,8 @@
 //    y la página leen lo mismo; se lee una vez por render.
 // ⚠️ NINGUNA TIRA salvo la del negocio mismo: lo que no se pudo leer va a `avisos` y la vista lo dice («no pude leer» no es un
 //    vacío, ni un cero).
-// ⚠️ La plataforma (`wsSuperAdmin()`) NO es un Customer: la ficha contesta 404 (sus personas viven en Settings › Members).
+// ⚠️ La plataforma (`wsSuperAdmin()`) NO es un Customer: la ficha contesta 404. Sus personas (el equipo de MaKo) no se ven en
+//    Admin: Polar las pone en Settings › Members, que se sacó (relevo); se gestionan en /equipo del workspace de la plataforma.
 
 import 'server-only'
 import { cache } from 'react'
@@ -25,7 +26,8 @@ import { listarPcDelNegocio } from '@/lib/ia-pc'
 import { tabsDeNegocios } from '@/lib/actividad-reglas'
 import { getSupabaseServer } from '@/lib/supabase'
 import { leerTodo } from '@/lib/supabase-paginado'
-import { leerClientes, leerIngresos } from './clientes-server'
+import { leerClientes, leerCostos } from './clientes-server'
+import { costoDelNegocio, mesActual, type CostoDelNegocio } from './clientes'
 import { vistaSuscripciones } from './ventas-server'
 import { leerActividad, leerOrdenes, leerTimelineDelNegocio, leerUsuarios } from './eventos-server'
 import type { EventoDeTimeline } from './eventos'
@@ -130,9 +132,12 @@ export async function leerInicio(ws: number, creado: string): Promise<string> {
 export type ResumenNegocio = {
   hoy: string
   pedidos: Pedido[]
-  /** Lo que paga por mes hoy (dólares). `null` = no se pudo leer. */
-  mrrUsd: number | null
   suscripciones: SuscripcionVenta[]
+  /**
+   * Su gasto de IA del mes en curso, con LA regla de Cost Drivers (`costoDelNegocio`, ./clientes.ts, sobre la misma lectura
+   * `leerCostos(mesActual)`): dice lo mismo que Cost Drivers para este negocio y este mes. `null` = no se pudo leer.
+   */
+  costo: CostoDelNegocio | null
   conexiones: ConexionNegocio[] | null
   computadoras: ComputadorasDeLaFicha
   /** Los últimos eventos del negocio, para el Timeline (los de Analytics › Events, filtrados por él). */
@@ -145,22 +150,18 @@ async function conexionesDe(ws: number): Promise<ConexionNegocio[]> {
   return Promise.all(servicios.map(async (s) => ({ key: s.key, nombre: s.nombre, conectada: await integracionConectada(s.key, ws) })))
 }
 
-/** Los pedidos del negocio (Sales) y lo que paga por mes hoy (`vistaDeIngresos`, la de Overview). */
+/**
+ * Los pedidos del negocio (los de Admin › Sales). ⛔ Ya no lee lo que paga por mes (revisión del 6/11/2026): la ficha no lo
+ * muestra (nada de ingreso mensual en Customers; vive en Overview y en Analytics › Metrics).
+ */
 const ingresosDe = cache(async (ws: number) => {
   const avisos: string[] = []
-  const [orders, ingresos] = await Promise.all([
-    pedidos().catch((e) => { avisos.push(`sus pagos: ${motivo(e)}`); return null }),
-    leerIngresos(),
-  ])
+  const orders = await pedidos().catch((e) => { avisos.push(`sus pagos: ${motivo(e)}`); return null })
   if (orders) avisos.push(...orders.avisos)
-  if (!ingresos.ok) avisos.push(`lo que paga por mes: ${ingresos.error}`)
-  const v = ingresos.ok ? ingresos.datos : null
   return {
-    hoy: orders?.hoy ?? v?.hoy ?? new Date().toISOString().slice(0, 10),
+    hoy: orders?.hoy ?? new Date().toISOString().slice(0, 10),
     avisos,
     pedidos: orders ? pedidosDelNegocio(orders.pedidos, ws) : [] as Pedido[],
-    /** `null` = no se pudo leer (no es «no paga nada»). */
-    mrrUsd: v ? (v.clientes.find((c) => c.ws === ws)?.mrr ?? 0) : null,
   }
 })
 
@@ -169,21 +170,23 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
   // ⚠️ LAS COMPUTADORAS, SÓLO CON LA GUARDA DEL CENTRO (`puedeOperar`: el segundo factor), como en la ficha vieja: sin ella ni se
   // leen ni se dibujan. Es la misma puerta de `computadorasDelNegocioAction` (app/admin/operaciones/acciones.ts).
   const opera = puedeOperar(await getSesionAdmin(), await wsSuperAdmin())
-  const [ingresos, conexiones, computadoras, eventos] = await Promise.all([
+  const [ingresos, conexiones, computadoras, eventos, costos] = await Promise.all([
     ingresosDe(ws),
     conexionesDe(ws).catch((e) => { avisos.push(`sus conexiones: ${motivo(e)}`); return null }),
     opera ? listarPcDelNegocio(ws).catch((e) => { avisos.push(`sus computadoras: ${motivo(e)}`); return null }) : Promise.resolve(null),
     leerTimelineDelNegocio(ws).catch((e) => ({ eventos: [] as EventoDeTimeline[], avisos: [`sus eventos: ${motivo(e)}`] })),
+    leerCostos(mesActual(Date.now())),
   ])
   avisos.push(...ingresos.avisos)
+  if (!costos.ok) avisos.push(`su gasto de IA: ${costos.error}`)
   const subs = await suscripciones().catch((e) => ({ suscripciones: [] as SuscripcionVenta[], avisos: [`sus suscripciones: ${motivo(e)}`] }))
   // Lo que el Timeline no pudo leer, salvo lo que ya dijeron los pagos de arriba (Sales lee lo mismo y lo avisa una vez).
   avisos.push(...subs.avisos, ...eventos.avisos.filter((a) => !avisos.some((b) => a.endsWith(b))))
   return {
     hoy: ingresos.hoy,
     pedidos: ingresos.pedidos,
-    mrrUsd: ingresos.mrrUsd,
     suscripciones: suscripcionesDelNegocio(subs.suscripciones, ws),
+    costo: costos.ok ? costoDelNegocio(costos.datos, ws) : null,
     conexiones,
     computadoras: computadorasDeLaFicha(opera, computadoras),
     eventos: eventos.eventos,
@@ -208,9 +211,14 @@ export type LecturaUso = {
 /** Cuántos días de llamadas de IA se leen: los mismos que el uso por pantalla (lib/actividad.ts `DIAS_LEIDOS`). */
 export const DIAS_IA = 70
 
+/**
+ * Las llamadas de IA anotadas en el negocio, por día. ⛔ Sin `cost_usd` (revisión del 6/11/2026): sumarlo por `workspace_id` era
+ * la segunda regla del gasto por negocio, y la opuesta a la de Cost Drivers (lo sumaba aunque no fuera atribuible, y con lo que
+ * pagó el negocio con su propia clave adentro). La plata de la ficha sale de `costoDelNegocio` (`leerResumen`).
+ */
 async function iaDe(ws: number, hoy: string): Promise<IaDelDia[]> {
   const desde = new Date(Date.parse(`${hoy}T00:00:00Z`) - DIAS_IA * DIA_MS).toISOString()
-  const filas = await leerTodo<{ created_at: string; cost_usd: number | null }>(getSupabaseServer(), 'anthropic_usage', 'created_at, cost_usd', {
+  const filas = await leerTodo<{ created_at: string }>(getSupabaseServer(), 'anthropic_usage', 'created_at', {
     eq: { workspace_id: ws },
     orden: [{ col: 'created_at', asc: true }, { col: 'id', asc: true }],
     filtros: (q) => q.gte('created_at', desde),
@@ -218,9 +226,8 @@ async function iaDe(ws: number, hoy: string): Promise<IaDelDia[]> {
   const porDia = new Map<string, IaDelDia>()
   for (const f of filas) {
     const dia = String(f.created_at).slice(0, 10)
-    const d = porDia.get(dia) ?? { dia, llamadas: 0, costoUsd: 0 }
+    const d = porDia.get(dia) ?? { dia, llamadas: 0 }
     d.llamadas += 1
-    d.costoUsd += Number(f.cost_usd) || 0
     porDia.set(dia, d)
   }
   return [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia))

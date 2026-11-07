@@ -82,7 +82,8 @@ const lecturaIngresos: Lectura<{ entradas: Entrada[]; clientes: ClienteResumen[]
 }
 
 const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: llamadas * 1800, costUsd, atribuible: true })
-const lecturaCostos: Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>> = {
+/** El gasto de IA de noviembre, como lo lee `leerCostos`: lo reparte Cost Drivers y lo dice la ficha de cada negocio. */
+export const LECTURA_COSTOS_EJEMPLO: Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWorkspace'>> = {
   ok: true,
   datos: {
     periodo: MES_EJEMPLO,
@@ -99,7 +100,7 @@ const lecturaCostos: Lectura<Pick<ResumenPeriodo, 'periodo' | 'costUsd' | 'porWo
 }
 
 export const LISTA_EJEMPLO: ClienteDeLista[] = listaDeClientes(filas)
-export const OVERVIEW_EJEMPLO: PropsOverview = vistaDeOverview(lecturaClientes, lecturaIngresos, lecturaCostos, MES_EJEMPLO, AHORA_EJEMPLO)
+export const OVERVIEW_EJEMPLO: PropsOverview = vistaDeOverview(lecturaClientes, lecturaIngresos, LECTURA_COSTOS_EJEMPLO, MES_EJEMPLO, AHORA_EJEMPLO)
 export const TOP_EJEMPLO: PropsTop = vistaDeTop(lecturaIngresos, AHORA_EJEMPLO)
 export const AT_RISK_EJEMPLO: PropsAtRisk = vistaDeAtRisk(lecturaClientes, lecturaIngresos)
-export const COSTOS_EJEMPLO: PropsCostos = vistaDeCostos(lecturaClientes, lecturaCostos, MES_EJEMPLO)
+export const COSTOS_EJEMPLO: PropsCostos = vistaDeCostos(lecturaClientes, LECTURA_COSTOS_EJEMPLO, MES_EJEMPLO)

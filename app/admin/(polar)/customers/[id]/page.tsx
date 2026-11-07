@@ -35,7 +35,7 @@ export default async function Page(props: {
         alta={alta}
         inicio={inicio}
         pedidos={resumen.pedidos}
-        mrrUsd={resumen.mrrUsd}
+        costo={resumen.costo}
         suscripciones={resumen.suscripciones}
         conexiones={resumen.conexiones}
         computadoras={resumen.computadoras}

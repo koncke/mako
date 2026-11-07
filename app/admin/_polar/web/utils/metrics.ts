@@ -156,7 +156,10 @@ export const getPreviousDateRange = (
 // MaKo: las métricas de Polar que MaKo mide (app/admin/_polar/datos/metricas.ts). Las otras (net revenue, checkouts,
 // committed/trial MRR, renewed, cancelaciones por motivo, churn rate, LTV, seats, usage…) no tienen un dato detrás: se sacaron
 // (relevo, «se sacó»). Los grupos van en el orden de Polar; los de costos viven en Analytics › Costs, no acá.
-export const DEFAULT_OVERVIEW_METRICS: MetricaSlug[] = ['revenue', 'monthly_recurring_revenue', 'cumulative_revenue']
+// Las de Overview por defecto son las de Polar (`revenue`, `monthly_recurring_revenue`, `active_subscriptions`, `orders`,
+// `checkouts_conversion`) menos la conversión de checkouts, que MaKo no mide (revisión del 6/11/2026: el acumulado no está en
+// las de Polar y se sacó; sigue en «Personalizar»).
+export const DEFAULT_OVERVIEW_METRICS: MetricaSlug[] = ['revenue', 'monthly_recurring_revenue', 'active_subscriptions', 'orders']
 
 type MetricEntry = {
   slug: keyof schemas['Metrics']

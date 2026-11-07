@@ -149,7 +149,20 @@
   letter-spacing: 0.015em;
   text-rendering: optimizeLegibility;
 }
-.pl *, .pl ::after, .pl ::before, .pl ::backdrop { border-color: var(--border); }
+/* El color de los bordes de Polar (globals.css @layer base: `*, ::after, ::before, ::backdrop, ::file-selector-button`), EN LA
+   CAPA BASE como en Polar. Fuera de capa le ganaba a TODA utilidad de Tailwind (las utilidades van en `@layer utilities`, y una
+   regla sin capa gana siempre): el `border-transparent` de la barra (NavList) no aplicaba y cada ítem inactivo salía
+   encuadrado, y tampoco aplicaba ningún `border-<color>` (revisión del 6/11/2026). Las demás reglas de este archivo quedan fuera
+   de capa A PROPÓSITO: redefinen sus propias utilidades (`.shadow-*`, `.font-*`), son clases de Orbit que nadie combina con una
+   utilidad (`.pl-t-*`, `.pl-c-*`…) o son los tokens de `.pl`. */
+@layer base {
+  .pl *, .pl ::after, .pl ::before, .pl ::backdrop, .pl ::file-selector-button { border-color: var(--border); }
+}
+
+/* La pista «Ctrl K» de la barra de MaKo: en Admin el atajo abre la búsqueda de Polar (OmniSearch, que lo toma primero en
+   `document` y lo marca con preventDefault: app/_components/BuscadorNav.tsx lo respeta), así que la pista no se dibuja mientras
+   Admin está en pantalla (revisión del 6/11/2026). */
+:root:has(.pl) .mk-buscador kbd { display: none; }
 
 /* El oscuro (`:root.dark` de Polar) es el de MaKo. */
 :root[data-tema="oscuro"] .pl {

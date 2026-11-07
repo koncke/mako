@@ -8,7 +8,8 @@
 //   · Details: su id, su nombre, su plan, su estado y su alta (Polar: id, external id, email, name, type, created);
 //   · Alta (en el lugar de Billing): el onboarding, la prueba, el plan a mano y si es de una agencia. Polar pone ahí el saldo,
 //     el nombre fiscal, el Tax ID, la dirección y el país: MaKo no los guarda de un negocio-cliente (se sacaron);
-//   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras.
+//   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras (cada una con su sistema
+//     y si está en línea; sin la persona que la conectó: las personas viven en Members, revisión del 6/11/2026).
 // ⚠️ `ClickToCopy` copia sin el toast de Polar (Admin no tiene un Toaster): el renglón dice «Copiado» un momento.
 
 import type { AltaNegocio, ComputadorasDeLaFicha, ConexionNegocio, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
@@ -175,16 +176,11 @@ export const CustomerDetailsSection = ({
               key={pc.id}
               label={pc.sistema ? `${pc.nombre} · ${pc.sistema}` : pc.nombre}
               value={
-                <Box as="span" alignItems="center" columnGap="xs">
-                  <Text as="span" variant="caption" color="muted">
-                    {pc.persona}
-                  </Text>
-                  <Status
-                    color={pc.enLinea ? 'green' : 'gray'}
-                    size="small"
-                    status={pc.enLinea ? 'En línea' : 'Sin conexión'}
-                  />
-                </Box>
+                <Status
+                  color={pc.enLinea ? 'green' : 'gray'}
+                  size="small"
+                  status={pc.enLinea ? 'En línea' : 'Sin conexión'}
+                />
               }
             />
           ))

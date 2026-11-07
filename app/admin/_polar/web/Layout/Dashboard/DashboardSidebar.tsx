@@ -21,7 +21,10 @@ export const DashboardSidebar = ({ search }: { search?: (o: { open: boolean; onO
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // MaKo: `toLowerCase` como la búsqueda de la barra de MaKo (BuscadorNav): con Bloq Mayús o Shift llega «K», y sin esto
+      // ese Ctrl K se lo quedaba la de MaKo. Va en `document`, que corre antes que el `window` de aquélla, y el preventDefault le
+      // dice que no abra la suya: en Admin, el atajo abre SÓLO ésta.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setSearchOpen(true)
       }

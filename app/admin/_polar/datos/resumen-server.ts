@@ -21,16 +21,18 @@ import { bajasPendientes } from '@/lib/baja-cuenta'
 import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
 import { zonaDelNegocio } from '@/lib/timezone'
 import { hoyEnTz } from '@/lib/date-utils'
-import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
 import { opcionesDeAlta } from './clientes-server'
+import { vistaDeAtRisk, type Lectura as LecturaConAvisos } from './clientes'
 import { leerGastoPorDia } from './costos-server'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
-  actividadReciente, desdeDelMargen, filasDeRiesgo, margenDeLecturas, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso,
-  porCobrarResumen, topClientes, type Lectura, type ResumenAdmin,
+  actividadReciente, desdeDelMargen, margenDeLecturas, pedidosDeAgencias, pedidosDeBaja, pedidosDeIngreso,
+  porCobrarResumen, riesgoDeLaTarjeta, topClientes, type Lectura, type ResumenAdmin,
 } from './resumen'
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+/** Una lectura de acá con la forma de las de Customers (sus `avisos` ya van al aviso de arriba de la portada). */
+const sinAvisos = <T,>(l: Lectura<T>): LecturaConAvisos<T> => (l.ok ? { ok: true, datos: l.datos, avisos: [] } : l)
 const leer = <T,>(p: Promise<T>): Promise<Lectura<T>> =>
   p.then((datos): Lectura<T> => ({ ok: true, datos }), (e): Lectura<T> => ({ ok: false, error: msg(e) }))
 
@@ -81,9 +83,9 @@ export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<Resu
         }
       : ingresos,
     top: ingresos.ok ? { ok: true, datos: topClientes(ingresos.datos.clientes, ingresos.datos.cobradoTotal) } : ingresos,
-    riesgo: clientes.ok
-      ? { ok: true, datos: filasDeRiesgo(clientes.datos.filas.map((f) => ({ ...f, plan: nombreDePlan(f.capa) }))) }
-      : clientes,
+    // La MISMA lista que Customers › At Risk (`vistaDeAtRisk`): sin los ingresos no se sabe quién está atrasado, y es «no pude
+    // leer», no «Nada en riesgo».
+    riesgo: riesgoDeLaTarjeta(vistaDeAtRisk(sinAvisos(clientes), sinAvisos(ingresos))),
     // Sin los pagos no se arma: un Activity que muestra sólo lo de MaKo diría que hoy no entró nada.
     actividad: !ingresos.ok
       ? ingresos

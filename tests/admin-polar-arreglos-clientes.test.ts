@@ -6,7 +6,8 @@
 // corre la función pura o DIBUJA la pieza (renderToStaticMarkup) con los datos de ejemplo y mira lo que sale:
 //   1. las iniciales del Avatar con tildes y emojis («Ana Gómez» → «AG», no «AM»): `iniciales` de lib/unicode-seguro.ts;
 //   2. la mono de Admin es la familia que carga app/layout.tsx («Geist Mono»), y el texto del oscuro es blanco, como Polar;
-//   3. las tarjetas del Overview muestran CINCO filas de UNA línea (el nombre cede último, lo de la derecha no se parte), y
+//   3. las tarjetas del Overview muestran CINCO filas; el nombre y el dato (el monto, el estado con su fecha, cuándo) enteros
+//      —el dato baja de renglón si no entra— y lo secundario se esconde si no entra (ListRow.tsx, revisión del 6/11/2026), y
 //      «Por cobrar» dice el total de TODOS y cuántos son si hay más de los que se ven;
 //   4. Customers › Overview: las tres columnas las decide el ancho de la CAJA (`@container`), no la ventana;
 //   5. el selector de rango de Customers entra en el teléfono («Todo», y el renglón envuelve), y las tablas de Top Customers,
@@ -22,7 +23,10 @@
 //   · polar.css sin el `color: #ffffff` del oscuro                                                           → 7/1 (2)
 //   · `tarjetaPorCobrar` sin cortar (`visibles: r.filas`: las siete filas en la tarjeta)                     → 7/1 (3)
 //   · `fila.ts` con `SECUNDARIO` igual que `PRINCIPAL` (el plan cede lo mismo que el nombre)                  → 6/2 (3 y 6: Orders lo usa)
+//     (desde la revisión del 6/11/2026 las tarjetas usan ListRow.tsx; fila.ts queda para las tablas: rompe sólo la 6)
 //   · ActivityWidget sin el `style={FIJO}` del «cuándo» («hace 12 min» se parte)                             → 7/1 (3)
+//     (desde la revisión del 6/11/2026, medido: ListRow sin el `whiteSpace: 'nowrap'` del dato → 7/1 (3); la fila sin
+//     `flexWrap="wrap"` (el dato no baja y corta el nombre) → 7/1 (3))
 //   · CustomersOverview prende las tres columnas por la ventana (`xl:grid-cols-3` en vez de `@4xl:`)          → 7/1 (4)
 //   · AtRiskPage sin el `hidden @lg:table-cell` del plan (el estado quedaba detrás del scroll)               → 7/1 (5)
 //   · `OPCIONES_DE_RANGO` con «Desde siempre» (el rótulo de `CHART_RANGES` tal cual)                         → 7/1 (5)
@@ -123,7 +127,7 @@ test('2 · la mono es la familia que carga el layout, y en oscuro el texto es bl
 
 // ── 3. Las tarjetas del Overview ─────────────────────────────────────────────────────────────────────────────────
 
-test('3 · las tarjetas del Overview: cinco filas de una línea, el nombre cede último; «Por cobrar» con el total de todas', () => {
+test('3 · las tarjetas del Overview: cinco filas; el nombre y el dato enteros (el dato baja si no entra) y lo secundario se esconde; «Por cobrar» con el total de todas', () => {
   // Por cobrar: el ejemplo tiene siete cobros; se ven cinco y el número grande es el de los siete.
   assert.ok(resumenEjemplo.porCobrar.ok)
   const pc = resumenEjemplo.porCobrar.datos
@@ -147,15 +151,19 @@ test('3 · las tarjetas del Overview: cinco filas de una línea, el nombre cede 
     dibujar(createElement(ActivityWidget, { actividad: resumenEjemplo.actividad })),
     porCobrar,
   ]
+  // Desde la revisión del 6/11/2026 (ListRow.tsx): el nombre y el dato enteros, el dato baja de renglón si no entra, y lo
+  // secundario ocupa sólo lo que sobra y se esconde si le quedan menos de 4,5rem.
   for (const html of widgets) {
     assert.ok(filas(html) > 0 && filas(html) <= VISIBLE_ROWS, 'cinco filas como mucho')
-    assert.ok(html.includes('flex-shrink:0;white-space:nowrap'), 'lo de la derecha (monto, cuándo, motivo) no se parte')
+    assert.equal((html.match(/flex-wrap:wrap;align-items:baseline;[^"]*border-top-width:1px/g) ?? []).length, filas(html), 'cada fila envuelve: el dato baja en vez de cortar el nombre')
+    assert.equal((html.match(/style="flex:0 1 auto;min-width:0;max-width:100%" data-fila="nombre"/g) ?? []).length, filas(html), 'el nombre entero (sólo se corta si solo no entra)')
+    assert.equal((html.match(/margin-left:auto;flex-shrink:0;display:flex;max-width:100%;white-space:nowrap" data-fila="dato"/g) ?? []).length, filas(html), 'el dato, a la derecha y en una línea')
   }
-  for (const html of [widgets[0], widgets[1], widgets[3]]) {
-    assert.ok(html.includes('flex:0 1 auto'), 'el nombre cede último')
-    assert.ok(html.includes('flex:0 1000 auto'), 'lo secundario (pagos, plan, fecha) cede primero')
+  for (const html of [widgets[0], widgets[1]]) {
+    assert.match(html, /class="@container relative min-w-0 self-stretch" style="flex:1 1 0%" data-fila="hueco"><div class="absolute inset-x-0 top-0 @max-\[4.5rem\]:hidden">/, 'lo secundario (pagos, plan) sólo en lo que sobra, y se esconde')
   }
-  assert.ok(widgets[2].includes('flex:0 2 auto') && widgets[2].includes('flex:0 1 auto'), 'Activity: el título cede el doble que el negocio')
+  assert.match(widgets[2], /style="flex:0 1 auto;min-width:0;max-width:100%" data-fila="detalle"/, 'Activity: el negocio baja de renglón entero, no se esconde ni se corta')
+  assert.match(porCobrar, /data-fila="dato"><span class="pl-t-default pl-c-danger">Atrasado · [^<]+<\/span>/, 'Por cobrar: «Atrasado» con su fecha, en el dato (no se corta)')
   assert.match(widgets[2], /hace 12 min/, 'el «cuándo» de la acción de hace 12 minutos')
 })
 
@@ -269,7 +277,10 @@ test('8 · los ejemplos: cada negocio con su número en Overview, Customers y la
 
   const precios = new Set([ESENCIAL.precioUsd, PRO.precioUsd, ESENCIAL.precioAnualUsd, PRO.precioAnualUsd])
   for (const p of PAGOS_EJEMPLO) if (p.usd != null) assert.ok(precios.has(p.usd), `${p.id}: US$ ${p.usd} es un precio de un plan`)
-  assert.equal(FICHA_EJEMPLO.mrrUsd, PRO.precioUsd, 'Estudio Norte paga lo que cuesta Pro')
+  // La ficha no dice lo que paga por mes (revisión del 6/11/2026); su gasto de IA del mes es el de Cost Drivers para el 42.
+  const deCostDrivers = COSTOS_EJEMPLO.costos?.clientes.find((c) => c.ws === WS_EJEMPLO)
+  assert.ok(FICHA_EJEMPLO.costo?.atribuible && deCostDrivers)
+  assert.equal(FICHA_EJEMPLO.costo.atribuible && FICHA_EJEMPLO.costo.costoCentavos, deCostDrivers.costoCentavos, 'la ficha dice lo mismo que Cost Drivers')
   assert.equal(SUSCRIPCIONES_EJEMPLO[0].mensualidadUsd, PRO.precioUsd)
   assert.equal(ingresosEjemplo.cobradoTotal, PAGOS_EJEMPLO.reduce((s, p) => s + (p.usd ?? 0), 0), 'lo cobrado del Overview es la suma de los pagos')
   for (const m of ingresosEjemplo.meses) {

@@ -16,7 +16,7 @@ import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
-import { FIJO, PRINCIPAL, SECUNDARIO, VISIBLE_ROWS } from './fila'
+import { VISIBLE_ROWS } from './fila'
 
 const WIDGET_TITLE = 'Top Customers'
 
@@ -60,17 +60,15 @@ export const TopCustomersWidget = ({ className, top }: TopCustomersWidgetProps) 
         </Box>
       ) : (
         <Box flexDirection="column" paddingBottom="m">
-          {/* MaKo: una fila en UNA línea (el nombre cede último; «6 pagos» en dos renglones cortaba la quinta): ./fila.ts. */}
+          {/* MaKo: el nombre y lo pagado enteros; «N pagos» cede primero y se esconde si no entra (./ListRow.tsx). */}
           {customers.slice(0, VISIBLE_ROWS).map((customer) => (
-            <ListRow key={customer.clave} href={customer.ws != null ? `${basePath}/${customer.ws}` : undefined}>
-              <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                <Text truncate style={PRINCIPAL}>{customer.nombre}</Text>
-                <Text color="muted" truncate style={SECUNDARIO}>
-                  {customer.pagos} {customer.pagos === 1 ? 'pago' : 'pagos'}
-                </Text>
-              </Box>
-              <Text tabularNums style={FIJO}>{formatCurrency('statistics')(customer.totalCentavos, 'usd')}</Text>
-            </ListRow>
+            <ListRow
+              key={customer.clave}
+              href={customer.ws != null ? `${basePath}/${customer.ws}` : undefined}
+              nombre={customer.nombre}
+              secundario={`${customer.pagos} ${customer.pagos === 1 ? 'pago' : 'pagos'}`}
+              dato={<Text as="span" tabularNums>{formatCurrency('statistics')(customer.totalCentavos, 'usd')}</Text>}
+            />
           ))}
         </Box>
       )}

@@ -12,6 +12,7 @@
 //     en Customers y los pedidos de la ficha suman lo mismo).
 
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako'
+import type { Movimiento } from '@/lib/admin-ingresos-reglas'
 
 const plan = (id: 'esencial' | 'pro'): PlanMako => {
   const p = PLANES_MAKO_DEFAULT.find((x) => x.id === id)
@@ -126,3 +127,28 @@ export function pagadoPor(cliente: string): { total: number; pagos: number; sinD
     ultimo: suyos[suyos.length - 1]?.fecha ?? null,
   }
 }
+
+const mov = (fecha: string, n: { ws: number }, tipo: Movimiento['tipo'], antes: number, despues: number): Movimiento => ({
+  fecha, cliente: `ws:${n.ws}`, tipo, delta: despues - antes, antes, despues,
+})
+
+/**
+ * Lo que cambió lo que paga por mes cada negocio (`movimientosDe` de lib/admin-ingresos-reglas.ts), el más nuevo primero: la
+ * historia de los meses del Overview. Panadería La Espiga empieza en junio; Estudio Norte en julio (Esencial) y sube a Pro en
+ * septiembre; Clínica Dental Sonríe y Viajes Horizonte en agosto; Óptica Visión Clara, Taller Mecánico Ruta 9 y Gimnasio Fuerza
+ * Sur en septiembre; el gimnasio se corta en octubre; Floristería Pétalo empieza en noviembre. Acá y no en ./analytics.ts
+ * (6/11/2026): el Overview (./resumen.ts) arma con ellos las suscripciones activas de sus métricas por defecto, y Analytics ›
+ * Metrics y Events los toman de acá: una sola historia.
+ */
+export const MOVIMIENTOS_EJEMPLO: Movimiento[] = [
+  mov('2026-11-02', NEGOCIOS.floristeria, 'nuevo', 0, PRO.precioUsd),
+  mov('2026-10-28', NEGOCIOS.gimnasio, 'corte', ESENCIAL.precioUsd, 0),
+  mov('2026-09-28', NEGOCIOS.gimnasio, 'nuevo', 0, ESENCIAL.precioUsd),
+  mov('2026-09-15', NEGOCIOS.taller, 'nuevo', 0, ESENCIAL.precioUsd),
+  mov('2026-09-05', NEGOCIOS.optica, 'nuevo', 0, ESENCIAL.precioUsd),
+  mov('2026-09-01', NEGOCIOS.estudioNorte, 'sube', ESENCIAL.precioUsd, PRO.precioUsd),
+  mov('2026-08-02', NEGOCIOS.viajes, 'nuevo', 0, PRO.precioUsd),
+  mov('2026-08-01', NEGOCIOS.clinica, 'nuevo', 0, PRO.precioUsd),
+  mov('2026-07-01', NEGOCIOS.estudioNorte, 'nuevo', 0, ESENCIAL.precioUsd),
+  mov('2026-06-02', NEGOCIOS.panaderia, 'nuevo', 0, ESENCIAL.precioUsd),
+]

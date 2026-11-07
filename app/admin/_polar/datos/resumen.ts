@@ -7,8 +7,8 @@
 //     Analytics › Metrics son los ÚNICOS lugares con el gráfico de ingresos (Martín, 6/11/2026).
 //   · Activity: los pagos que entraron (la misma vista) y lo que hizo MaKo (lib/actividad.ts, `vistaDeActividad`).
 //   · Top Customers: los que más pagaron desde el primer pago (los clientes de `vistaDeIngresos`).
-//   · At Risk: los negocios en riesgo de lib/clientes-plataforma.ts (`vistaDeClientes`): pausados, con un cobro fallido o
-//     sin uso.
+//   · At Risk: la MISMA lista que Customers › At Risk (`vistaDeAtRisk` de ./clientes.ts, sobre `vistaDeClientes` y
+//     `vistaDeIngresos`): atrasados, cobros fallidos, pausados, los que dejaron de pagar y los sin uso.
 //   · Por cobrar (el «Available balance» de Polar, decidido 6/11/2026): los próximos cobros de `vistaDeIngresos().porCobrar`
 //     (lo atrasado y lo que vence en los próximos 31 días, con la historia mes a mes de cada suscripción). No se recalcula.
 //   · Margen bruto (el «Gross margin» de Polar): lo cobrado (lo mismo que suma Revenue) contra el gasto de IA que paga MaKo
@@ -22,13 +22,13 @@
 
 import { diaTxt, type Entrada, type MesIngresos, type Movimiento, type PorCobrar } from '@/lib/admin-ingresos-reglas'
 import type { Corte } from '@/lib/costos-ia'
-import { haceTxt } from '@/lib/clientes-plataforma-reglas'
 import { diasQueQuedan, fechaDeLaBaja } from '@/lib/baja-cuenta-reglas'
 import { detalleDelPedido } from '@/lib/pedidos-ingreso-reglas'
 import { ROTULO_ROL, type RolAlta } from '@/lib/agencia-altas'
 import { ALL_METRICS } from '@/app/admin/_polar/web/utils/metrics'
 import type { MetricaSlug } from './metricas'
 import type { PlanAlta } from './alta'
+import { LIMITE_AT_RISK, type ClienteEnRiesgo, type PropsAtRisk } from './clientes'
 
 /** Lo que leyó el server: los datos, o por qué no se pudo. */
 export type Lectura<T> = { ok: true; datos: T } | { ok: false; error: string }
@@ -191,32 +191,23 @@ export function topClientes(
 
 // ── At Risk ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type MotivoRiesgo = 'pausado' | 'cobro' | 'sin-uso'
-export type FilaRiesgo = { ws: number; nombre: string; plan: string; motivo: string; mrrCentavos: number }
-export type Riesgo = { filas: FilaRiesgo[]; total: number }
+/**
+ * La tarjeta «At Risk»: la MISMA lista que Customers › At Risk (`vistaDeAtRisk` → `clientesEnRiesgo`, ./clientes.ts), con el
+ * mismo orden y el mismo motivo por negocio (atrasado, cobro fallido, pausado, dejó de pagar, sin uso). En Polar la tarjeta y la
+ * página llaman al mismo `useAtRisk(organization, 100)`. ⛔ Hasta la revisión del 6/11/2026 la tarjeta tenía su propia cuenta
+ * (sólo pausados, cobros fallidos y sin uso): con los mismos datos decía 4 y la página 5, y otro motivo para el mismo negocio.
+ * `filas` son todas (la tarjeta dibuja las primeras); `total` es cuántas son, y `hayMas` dice que llegó al tope de la consulta
+ * (Polar escribe «100+»).
+ */
+export type Riesgo = { filas: ClienteEnRiesgo[]; total: number; hayMas: boolean }
 
-/** Lo que Polar escribe como «Past due» / «Cancels …», con los motivos de MaKo. */
-export function motivoDeRiesgoTxt(motivo: MotivoRiesgo, sinEntrar: number | null): string {
-  if (motivo === 'pausado') return 'Pausado'
-  if (motivo === 'cobro') return 'Cobro fallido'
-  return sinEntrar == null ? 'Nadie entró nunca' : `Sin entrar · ${haceTxt(sinEntrar).toLowerCase()}`
+export function riesgoDeLaTarjeta(v: Pick<PropsAtRisk, 'atRisk' | 'error'>): Lectura<Riesgo> {
+  if (!v.atRisk) return { ok: false, error: v.error ?? 'no se pudo leer' }
+  return { ok: true, datos: { filas: v.atRisk, total: v.atRisk.length, hayMas: v.atRisk.length >= LIMITE_AT_RISK } }
 }
 
-const PESO_RIESGO: Record<MotivoRiesgo, number> = { pausado: 0, cobro: 1, 'sin-uso': 2 }
-
-/** Los negocios en riesgo de `vistaDeClientes`, el más grave primero (y a igual motivo, el que más paga). */
-export function filasDeRiesgo(
-  filas: ReadonlyArray<{ ws: number; nombre: string; plan: string; riesgo: boolean; motivoRiesgo: MotivoRiesgo | null; sinEntrar: number | null; mrrUsd: number }>,
-): Riesgo {
-  const en = filas.filter((f): f is typeof f & { motivoRiesgo: MotivoRiesgo } => f.riesgo && f.motivoRiesgo != null)
-  const orden = en
-    .slice()
-    .sort((a, b) => PESO_RIESGO[a.motivoRiesgo] - PESO_RIESGO[b.motivoRiesgo] || b.mrrUsd - a.mrrUsd || a.nombre.localeCompare(b.nombre, 'es'))
-  return {
-    total: orden.length,
-    filas: orden.map((f) => ({ ws: f.ws, nombre: f.nombre, plan: f.plan, motivo: motivoDeRiesgoTxt(f.motivoRiesgo, f.sinEntrar), mrrCentavos: aCentavos(f.mrrUsd) })),
-  }
-}
+/** El número grande de la tarjeta: cuántos son, o «100+» si la consulta llegó a su tope (como Polar). */
+export const totalDeRiesgoTxt = (r: Riesgo) => (r.hayMas ? `${LIMITE_AT_RISK}+` : String(r.total))
 
 // ── Por cobrar (el «Available balance» de Polar) ─────────────────────────────────────────────────────────────────
 

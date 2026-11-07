@@ -128,7 +128,8 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   }
   // La pantalla: desde el 6/11/2026 (la copia de Polar) las computadoras de un negocio se ven en SU ficha, Admin › Customers ›
   // <negocio> › Overview (CustomerDetailsSection, «Conexiones»), leídas por el server con `listarPcDelNegocio(ws)` (las de UN
-  // negocio, el 1 de arriba) y sin secretos: viajan sólo el nombre, la persona, el sistema, si está en línea y cuándo se conectó.
+  // negocio, el 1 de arriba) y sin secretos: viajan sólo el nombre, el sistema, si está en línea y cuándo se conectó (sin la
+  // persona desde la revisión del 6/11/2026: las personas viven en Members).
   // Antes era app/admin/ComputadorasDelNegocio.tsx, adentro de la ficha de la grilla vieja (AdminView).
   const ficha = sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts'));
   assert.match(ficha, /listarPcDelNegocio\(ws\)\.catch\(/, 'la ficha lee las computadoras de SU negocio');
@@ -136,7 +137,7 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   // Lo que viaja, EJECUTADO: con una PC con todo (token, cuentas, ubicación), sólo lo que se dibuja.
   const conTodo = { id: 7, ws: 1, negocio: 'X', persona: 'Ana Gómez', nombre: 'PC de Ana', sistema: 'Windows' as const, enLinea: true, conClaude: true,
     conectadaAt: '2026-11-01T10:00:00Z', ultimoLatido: null, cuentas: [], ubicacion: 'Rosario, Santa Fe, Argentina', version: '0.4.0', token: 'mkopc_secreto' };
-  assert.deepEqual(computadorasDeLaFicha(true, [conTodo]), [{ id: 7, nombre: 'PC de Ana', persona: 'Ana Gómez', sistema: 'Windows', enLinea: true, conectadaAt: '2026-11-01T10:00:00Z' }], 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas)');
+  assert.deepEqual(computadorasDeLaFicha(true, [conTodo]), [{ id: 7, nombre: 'PC de Ana', sistema: 'Windows', enLinea: true, conectadaAt: '2026-11-01T10:00:00Z' }], 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas, la persona: ésa vive en Members)');
   const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
   assert.match(seccion, /computadoras == null \? \(\s*<Row label="Computadoras" value=\{<Text as="span" color="muted">No se pudieron leer<\/Text>\} \/>/, '«no pude leer» no es «no tiene»');
   const pagina = sinComentarios(leer('app/admin/(polar)/customers/[id]/page.tsx'));

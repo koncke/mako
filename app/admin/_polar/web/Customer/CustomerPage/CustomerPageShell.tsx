@@ -2,9 +2,9 @@
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerPageShell.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: arriba el nombre del negocio y, en gris, su número (Polar pone el email del cliente: un negocio no tiene uno propio; el
-// de sus personas vive en Members). Debajo de la subnav, lo que no se pudo leer (`avisos`): lo que se muestra puede quedarse
-// corto, y se dice.
+// MaKo: arriba el nombre del negocio y, en gris, su plan («MaKo Pro»). Polar pone el email del cliente: un negocio no tiene uno
+// propio (el de sus personas vive en Members) y su número es un dato interno que no le dice nada a nadie (está en Details, para
+// copiarlo). Debajo de la subnav, lo que no se pudo leer (`avisos`): lo que se muestra puede quedarse corto, y se dice.
 
 import { MasterDetailLayoutContent } from '@/app/admin/_polar/web/Layout/MasterDetailLayout'
 import type { NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
@@ -34,7 +34,7 @@ export const CustomerPageShell = ({
               {negocio.nombre || '—'}
             </Text>
             <Text variant="heading-xs" color="muted">
-              {`Negocio #${negocio.ws}`}
+              {negocio.plan}
             </Text>
           </Box>
 

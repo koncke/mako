@@ -14,6 +14,7 @@ import type {
   ConexionNegocio,
   NegocioCabecera,
 } from '@/app/admin/_polar/datos/cliente'
+import type { CostoDelNegocio } from '@/app/admin/_polar/datos/clientes'
 import type { EventoDeTimeline } from '@/app/admin/_polar/datos/eventos'
 import type { Pedido, SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
 import { rutaDeEventosDelNegocio } from '@/app/admin/_polar/datos/cliente'
@@ -29,7 +30,7 @@ export interface CustomerOverviewProps {
   alta: AltaNegocio
   inicio: string
   pedidos: Pedido[]
-  mrrUsd: number | null
+  costo: CostoDelNegocio | null
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
   computadoras: ComputadorasDeLaFicha
@@ -41,7 +42,7 @@ export const CustomerOverview = ({
   alta,
   inicio,
   pedidos,
-  mrrUsd,
+  costo,
   suscripciones,
   conexiones,
   computadoras,
@@ -49,7 +50,7 @@ export const CustomerOverview = ({
 }: CustomerOverviewProps) => {
   return (
     <Box flexDirection="column" rowGap="5xl">
-      <CustomerMetricsOverview pedidos={pedidos} mrrUsd={mrrUsd} inicio={inicio} />
+      <CustomerMetricsOverview pedidos={pedidos} costo={costo} inicio={inicio} />
       <CustomerTimeline eventos={eventos} viewAllHref={rutaDeEventosDelNegocio(negocio.ws)} />
       <CustomerDetailsSection
         negocio={negocio}

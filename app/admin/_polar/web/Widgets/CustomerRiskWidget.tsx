@@ -2,19 +2,24 @@
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/CustomerRiskWidget.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: los negocios en riesgo de lib/clientes-plataforma.ts (`vistaDeClientes`): pausados, con el último cobro fallido o
-// sin uso. Polar dice «Past due» o «Cancels <fecha>» y el monto de la suscripción; acá va el motivo de MaKo y lo que paga por
-// mes (sin MRR, no se escribe un monto). El armado, en app/admin/_polar/datos/resumen.ts (`filasDeRiesgo`).
+// MaKo: la MISMA lista que Customers › At Risk (como Polar, donde la tarjeta y la página llaman a `useAtRisk(organization, 100)`):
+// `vistaDeAtRisk` → `clientesEnRiesgo` (app/admin/_polar/datos/clientes.ts), con el mismo orden y el mismo motivo por negocio
+// (atrasado, cobro fallido, pausado, dejó de pagar, sin uso), en rojo lo grave como en la página. Se ven las primeras
+// VISIBLE_ROWS; el número grande es el total de la lista («100+» si llegó al tope, como Polar): `riesgoDeLaTarjeta`
+// (app/admin/_polar/datos/resumen.ts). Polar dice «Past due» o «Cancels <fecha>» y el monto de la suscripción; acá el motivo de
+// MaKo y lo que paga por mes (sin un monto que decir, no se escribe). La fila: ./ListRow.tsx.
 
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
-import Link, { useRouter } from '@/app/_ui/Link'
-import type { Lectura, Riesgo } from '@/app/admin/_polar/datos/resumen'
+import { useRouter } from '@/app/_ui/Link'
+import { rutaDeNegocio } from '@/app/admin/_polar/datos/clientes'
+import { totalDeRiesgoTxt, type Lectura, type Riesgo } from '@/app/admin/_polar/datos/resumen'
+import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
-import { FIJO, PRINCIPAL, SECUNDARIO, VISIBLE_ROWS } from './fila'
+import { VISIBLE_ROWS } from './fila'
 
 const WIDGET_TITLE = 'At Risk'
 
@@ -33,7 +38,7 @@ export const CustomerRiskWidget = ({ className, riesgo }: CustomerRiskWidgetProp
       title={WIDGET_TITLE}
       headline={
         <Text variant="heading-m" weight="book">
-          {riesgo.ok ? String(riesgo.datos.total) : '–'}
+          {riesgo.ok ? totalDeRiesgoTxt(riesgo.datos) : '–'}
         </Text>
       }
       action={<WidgetLink href={`${basePath}/at-risk`} />}
@@ -51,37 +56,30 @@ export const CustomerRiskWidget = ({ className, riesgo }: CustomerRiskWidgetProp
         >
           <Text>Nada en riesgo</Text>
           <Text color="muted">
-            Ningún negocio está pausado, con un cobro fallido ni sin uso.
+            Ningún pago atrasado, cobro fallido ni negocio sin uso.
           </Text>
         </Box>
       ) : (
         <Box flexDirection="column" paddingBottom="m">
           {items.slice(0, VISIBLE_ROWS).map((item) => (
-            <Link key={item.ws} href={`${basePath}/${item.ws}`} className="hover:opacity-60">
-              <Box
-                alignItems="center"
-                justifyContent="between"
-                columnGap="m"
-                paddingVertical="s"
-                borderTopWidth={1}
-                borderStyle="solid"
-                borderColor="border-secondary"
-              >
-                {/* MaKo: el plan cede antes que el nombre, y el motivo no se parte (./fila.ts). */}
-                <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                  <Text truncate style={PRINCIPAL}>{item.nombre}</Text>
-                  <Text color="muted" truncate style={SECUNDARIO}>
-                    {item.plan}
+            <ListRow
+              key={item.clave}
+              href={item.ws != null ? rutaDeNegocio(item.ws) : undefined}
+              nombre={item.nombre}
+              secundario={item.plan ?? undefined}
+              dato={
+                <>
+                  <Text as="span" color={item.grave ? 'danger' : 'warning'}>
+                    {item.texto}
                   </Text>
-                </Box>
-                <Box alignItems="baseline" columnGap="m" flexShrink={0}>
-                  <Text color="muted" style={FIJO}>{item.motivo}</Text>
-                  {item.mrrCentavos > 0 && (
-                    <Text tabularNums style={FIJO}>{formatCurrency('statistics')(item.mrrCentavos, 'usd')}</Text>
+                  {item.montoCentavos != null && item.montoCentavos > 0 && (
+                    <Text as="span" tabularNums>
+                      {formatCurrency('statistics')(item.montoCentavos, 'usd')}
+                    </Text>
                   )}
-                </Box>
-              </Box>
-            </Link>
+                </>
+              }
+            />
           ))}
         </Box>
       )}

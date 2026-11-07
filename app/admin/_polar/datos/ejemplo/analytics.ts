@@ -11,7 +11,7 @@
 //   · Costs: el gasto de IA de noviembre, que suma lo mismo que Customers › Cost Drivers (./clientes.ts: US$ 4,20, de Clínica Dental
 //     Sonríe, Estudio Norte, Óptica Visión Clara y la plataforma), con el margen bruto sobre lo que entró (los pagos del Overview).
 
-import type { ClienteIngreso, Movimiento } from '@/lib/admin-ingresos-reglas'
+import type { ClienteIngreso } from '@/lib/admin-ingresos-reglas'
 import type { AccionMako } from '@/lib/actividad'
 import type { Reporte } from '@/lib/admin-errores'
 import type { SesionAgente } from '@/lib/agente-sesiones'
@@ -23,36 +23,18 @@ import { armarCostos, nombresDeFeatures, type VistaCostos } from '../costos'
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo'
 import { ingresosEjemplo } from './resumen'
 import { PEDIDOS_EJEMPLO, PERSONAS_EJEMPLO } from './ventas'
-import { ESENCIAL, LEAD_SIN_CUENTA, NEGOCIOS, NOMBRES_EJEMPLO, PRO, WS_PLATAFORMA_EJEMPLO } from './negocios'
+import { LEAD_SIN_CUENTA, MOVIMIENTOS_EJEMPLO, NEGOCIOS, NOMBRES_EJEMPLO, WS_PLATAFORMA_EJEMPLO } from './negocios'
 
 export const HOY_EJEMPLO = new Date('2026-11-06T15:00:00.000Z')
 
-const { estudioNorte, panaderia, clinica, optica, gimnasio, taller, floristeria, viajes, agencia } = NEGOCIOS
-const E = ESENCIAL.precioUsd
-const P = PRO.precioUsd
-
-const mov = (fecha: string, n: { ws: number }, tipo: Movimiento['tipo'], antes: number, despues: number): Movimiento => ({
-  fecha, cliente: `ws:${n.ws}`, tipo, delta: despues - antes, antes, despues,
-})
+const { estudioNorte, panaderia, clinica, optica, agencia } = NEGOCIOS
 
 /**
- * Lo que cambió lo que paga por mes cada negocio (`movimientosDe` de lib/admin-ingresos-reglas.ts), el más nuevo primero: la
- * historia de los meses del Overview. Panadería La Espiga empieza en junio; Estudio Norte en julio (Esencial) y sube a Pro en
- * septiembre; Clínica Dental Sonríe y Viajes Horizonte en agosto; Óptica Visión Clara, Taller Mecánico Ruta 9 y Gimnasio Fuerza
- * Sur en septiembre; el gimnasio se corta en octubre; Floristería Pétalo empieza en noviembre.
+ * Lo que cambió lo que paga por mes cada negocio: vive en ./negocios.ts (`MOVIMIENTOS_EJEMPLO`) desde el 6/11/2026, porque el
+ * Overview (./resumen.ts) arma sus métricas por defecto con ellos (las suscripciones activas) y no puede importar este archivo
+ * (éste importa aquél). Se re-exporta para quien lo tomaba de acá.
  */
-export const MOVIMIENTOS_EJEMPLO: Movimiento[] = [
-  mov('2026-11-02', floristeria, 'nuevo', 0, P),
-  mov('2026-10-28', gimnasio, 'corte', E, 0),
-  mov('2026-09-28', gimnasio, 'nuevo', 0, E),
-  mov('2026-09-15', taller, 'nuevo', 0, E),
-  mov('2026-09-05', optica, 'nuevo', 0, E),
-  mov('2026-09-01', estudioNorte, 'sube', E, P),
-  mov('2026-08-02', viajes, 'nuevo', 0, P),
-  mov('2026-08-01', clinica, 'nuevo', 0, P),
-  mov('2026-07-01', estudioNorte, 'nuevo', 0, E),
-  mov('2026-06-02', panaderia, 'nuevo', 0, E),
-]
+export { MOVIMIENTOS_EJEMPLO }
 
 /** Quién es cada cliente de lo cobrado (los negocios de ./negocios.ts y el lead que pagó sin tener cuenta). */
 const CLIENTES: ClienteIngreso[] = [

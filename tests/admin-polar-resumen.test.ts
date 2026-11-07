@@ -16,7 +16,8 @@
 //   · `buscar` sin `normalizar` (mayúsculas y acentos)                    → 13/1 (búsqueda)
 //   · `armarIndice` sin sacar la plataforma (y sus personas)              → 13/1 (índice)
 //   · `await exigirSuperAdmin()` movido debajo de `destinoDeTabViejo`     → 13/1 (la guarda)
-//   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk)
+//   · `filasDeRiesgo` sin el orden por motivo                             → 13/1 (at risk; desde la revisión del 6/11/2026 la
+//     tarjeta es la lista de Customers › At Risk: `riesgoDeLaTarjeta`, y su paridad la prueba tests/admin-polar-arreglos-4.test.ts)
 // Y un cambio sin efecto (renombrar la variable local `destino` de la página) la deja en 14/0.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026, Por cobrar y Margen bruto), base 18/0:
@@ -35,11 +36,12 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import type { MesIngresos } from '../lib/admin-ingresos-reglas'
 import {
-  actividadReciente, barrasDeIngresos, desdeDelMargen, destinoDeTabViejo, diaRelativo, filasDeRiesgo, hrefDeMes,
-  margenBruto, margenDeLecturas, margenPorcentaje, mesesDelRango, metricasRecordadas, motivoDeRiesgoTxt, pedidosDeAgencias,
+  actividadReciente, barrasDeIngresos, desdeDelMargen, destinoDeTabViejo, diaRelativo, hrefDeMes,
+  margenBruto, margenDeLecturas, margenPorcentaje, mesesDelRango, metricasRecordadas, pedidosDeAgencias,
   pedidosDeBaja, pedidosDeIngreso, porCobrarResumen, rangosDisponibles, tiempoRelativo, tituloDeAgencias, tituloDeBajas,
-  tituloDeIngreso, topClientes, LIMITE_METRICAS_OVERVIEW,
+  riesgoDeLaTarjeta, tituloDeIngreso, topClientes, totalDeRiesgoTxt, LIMITE_METRICAS_OVERVIEW,
 } from '../app/admin/_polar/datos/resumen'
+import type { ClienteEnRiesgo } from '../app/admin/_polar/datos/clientes'
 import { armarIndice, buscar, TOPE_POR_CLASE } from '../app/admin/_polar/datos/busqueda-tipos'
 import { indiceEjemplo, resumenEjemplo } from '../app/admin/_polar/datos/ejemplo/resumen'
 import { realesEn } from './_reales'
@@ -104,18 +106,17 @@ test('Top Customers: los que más pagaron, sin los que no pagaron nada, y qué p
   assert.equal(topClientes([], 0).parte, null, 'sin nada cobrado no hay porcentaje (ni un 0% inventado)')
 })
 
-test('At Risk: el más grave primero (pausado, cobro, sin uso), con su motivo en palabras', () => {
-  const r = filasDeRiesgo([
-    { ws: 1, nombre: 'Uno', plan: 'Pro', riesgo: true, motivoRiesgo: 'sin-uso', sinEntrar: 20, mrrUsd: 900 },
-    { ws: 2, nombre: 'Dos', plan: 'Pro', riesgo: true, motivoRiesgo: 'cobro', sinEntrar: 1, mrrUsd: 100 },
-    { ws: 3, nombre: 'Tres', plan: 'Pro', riesgo: true, motivoRiesgo: 'pausado', sinEntrar: null, mrrUsd: 0 },
-    { ws: 4, nombre: 'Cuatro', plan: 'Pro', riesgo: false, motivoRiesgo: null, sinEntrar: 0, mrrUsd: 500 },
-  ])
-  assert.equal(r.total, 3)
-  assert.deepEqual(r.filas.map((f) => f.ws), [3, 2, 1])
-  assert.deepEqual(r.filas.map((f) => f.motivo), ['Pausado', 'Cobro fallido', 'Sin entrar · hace 20 días'])
-  assert.equal(motivoDeRiesgoTxt('sin-uso', null), 'Nadie entró nunca')
-  assert.equal(r.filas[2].mrrCentavos, 90000)
+test('At Risk: la tarjeta es la lista de Customers › At Risk tal cual, con su total («100+» en el tope, como Polar)', () => {
+  const fila = (ws: number): ClienteEnRiesgo => ({ clave: `ws:${ws}`, ws, nombre: `N${ws}`, plan: 'MaKo Pro', montoCentavos: 9700, motivo: 'cobro', texto: 'Cobro fallido', grave: true })
+  const r = riesgoDeLaTarjeta({ atRisk: [fila(3), fila(1), fila(2)], error: null })
+  assert.ok(r.ok)
+  assert.deepEqual(r.datos.filas.map((f) => f.ws), [3, 1, 2], 'el orden de la lista, sin reordenar')
+  assert.equal(totalDeRiesgoTxt(r.datos), '3')
+  const tope = riesgoDeLaTarjeta({ atRisk: Array.from({ length: 100 }, (_, i) => fila(i + 1)), error: null })
+  assert.ok(tope.ok)
+  assert.equal(totalDeRiesgoTxt(tope.datos), '100+', 'llegó al tope de la consulta')
+  const caida = riesgoDeLaTarjeta({ atRisk: null, error: 'sin base' })
+  assert.deepEqual(caida, { ok: false, error: 'sin base' }, '«no pude leer», nunca «Nada en riesgo»')
 })
 
 test('Activity: pagos y acciones de MaKo, el día más nuevo primero; las lecturas cuentan para «hoy» y no se listan', () => {

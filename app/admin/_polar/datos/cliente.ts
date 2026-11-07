@@ -9,12 +9,13 @@
 // DE DÓNDE SALE CADA DATO:
 //   · la cabecera y el «Alta» (plan, estado, onboarding, prueba, plan a mano, agencia): `getWorkspace` y la fila del negocio de
 //     `vistaDeClientes()` (lib/clientes-plataforma.ts), la misma que dibuja la lista de la izquierda;
-//   · Metrics, Subscriptions y Orders: `vistaDeIngresos()` (lib/admin-ingresos.ts) — sus `entradas` (cada pago, con la clave
-//     `ws:<n>` del cliente) y sus `clientes` (lo que paga por mes HOY). Sin gráfico de ingresos (Martín, 6/11/2026: nunca en
-//     Customers): sólo las cifras, en las cajas de Polar;
+//   · Metrics, Subscriptions y Orders: los pedidos y las suscripciones de Admin › Sales, los del negocio. Sin gráfico de
+//     ingresos y sin lo que paga por mes (Martín, 6/11/2026: nada de ingreso mensual en Customers): sólo las cifras de Polar
+//     que MaKo llena, lo pagado y los pedidos del rango; y Costs, Profit y Profit Margin del mes sólo si su gasto de IA es
+//     atribuible, con LA regla de Cost Drivers (`costoDelNegocio`, ./clientes.ts);
 //   · las Conexiones: `integracionConectada` de cada servicio de /metodo y las computadoras (lib/ia-pc.ts `listarPcDelNegocio`);
 //   · Usage: `actividad_uso` (lib/actividad.ts, el día y la tab de cada uno) y las llamadas de IA anotadas en ese negocio
-//     (`anthropic_usage` con su `workspace_id`);
+//     (`anthropic_usage` con su `workspace_id`), sin plata: lo que costaron va en Overview, sólo si es atribuible;
 //   · Events NO es de la ficha: es Admin › Analytics › Events filtrado por el negocio (`rutaDeEventosDelNegocio`, como Polar), y
 //     el Timeline del Overview son sus últimos eventos de ahí (app/admin/_polar/datos/eventos.ts `timelineDelNegocio`): una sola
 //     definición de «un evento del negocio» (6/11/2026);
@@ -33,6 +34,7 @@ import type { RolWorkspace } from '@/lib/auth-session'
 import { aCentavos } from './metricas'
 import type { TimeInterval } from './polar-tipos'
 import { totalesDePedidos, type Pedido, type SuscripcionVenta } from './ventas'
+import type { CostoDelNegocio } from './clientes'
 
 export { aCentavos }
 
@@ -97,18 +99,52 @@ export function suscripcionesDelNegocio(subs: readonly SuscripcionVenta[], ws: n
 export type CifrasNegocio = {
   /** Lo que pagó en el rango, en CENTAVOS (como lo dibuja Polar). Lo devuelto no suma (`totalesDePedidos` de Sales). */
   revenue: number
-  /** Lo que paga por mes HOY, en centavos (no depende del rango). */
-  mrr: number
   /** Cuántos pedidos hubo en el rango. */
   orders: number
   /** Pedidos del rango sin su valor en dólares (no suman). */
   sinDolares: number
 }
 
-/** Las cifras de las cajas de Metrics: lo pagado y los pedidos en el rango (días YYYY-MM-DD, los dos incluidos) y el MRR de hoy. */
-export function cifrasDelRango(pedidos: readonly Pedido[], mrrUsd: number, desde: string, hasta: string): CifrasNegocio {
+/**
+ * Las cifras de las cajas de Metrics: lo pagado y los pedidos en el rango (días YYYY-MM-DD, los dos incluidos). ⛔ Sin lo que
+ * paga por mes (revisión del 6/11/2026): era «ingreso mensual en Customers», uno de los motivos del rechazo, y Polar no lo tiene
+ * en la ficha (Revenue, Costs, Profit, Profit Margin, Orders). Vive en Overview y en Analytics › Metrics.
+ */
+export function cifrasDelRango(pedidos: readonly Pedido[], desde: string, hasta: string): CifrasNegocio {
   const t = totalesDePedidos(pedidos.filter((p) => p.fecha >= desde && p.fecha <= hasta))
-  return { revenue: t.revenue, mrr: aCentavos(mrrUsd), orders: t.orders, sinDolares: t.sinDolares }
+  return { revenue: t.revenue, orders: t.orders, sinDolares: t.sinDolares }
+}
+
+/**
+ * Costs, Profit y Profit Margin del negocio (las cajas de Polar), del MES del gasto de IA: lo que pagó ese mes contra lo que MaKo
+ * gastó en IA por él, con `costoDelNegocio` (./clientes.ts), la regla de Cost Drivers. `null` = no hay un costo que decir (el
+ * gasto de ese mes no es atribuible por negocio, o no se pudo leer): las tres cajas no se dibujan. No siguen al rango de las de
+ * arriba: el gasto se mide por mes (como Cost Drivers), y por eso su título lleva el mes.
+ */
+export type CifrasDeCosto = {
+  /** 'YYYY-MM'. */
+  periodo: string
+  /** Lo que pagó ese mes, en centavos. */
+  revenue: number
+  /** Lo que MaKo gastó en IA por él ese mes, en centavos (con decimales: es un gasto de centavos). */
+  costs: number
+  /** `revenue − costs`, en centavos. */
+  profit: number
+  /** `profit / revenue`, de 0 a 1 (`null` si no pagó nada ese mes). */
+  margen: number | null
+}
+
+const ultimoDiaDelMes = (mes: string) => {
+  const [y, m] = mes.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+}
+
+export function cifrasDeCosto(pedidos: readonly Pedido[], costo: CostoDelNegocio | null): CifrasDeCosto | null {
+  if (!costo || !costo.atribuible || !/^\d{4}-\d{2}$/.test(costo.periodo)) return null
+  const revenue = totalesDePedidos(pedidos.filter((p) => p.fecha >= `${costo.periodo}-01` && p.fecha <= ultimoDiaDelMes(costo.periodo))).revenue
+  const costs = costo.costoCentavos
+  const profit = revenue - costs
+  return { periodo: costo.periodo, revenue, costs, profit, margen: revenue > 0 ? profit / revenue : null }
 }
 
 // ── Overview › Details (CustomerDetailsSection): su identidad, su alta y sus conexiones ───────────────────────────
@@ -131,11 +167,13 @@ export type AltaNegocio = {
 
 export type ConexionNegocio = { key: string; nombre: string; conectada: boolean }
 
+/**
+ * Una computadora conectada del negocio. ⛔ Sin la persona que la conectó (revisión del 6/11/2026): las personas viven en UN lugar,
+ * Members; acá va la computadora (su nombre, su sistema y si está en línea).
+ */
 export type ComputadoraNegocio = {
   id: number
   nombre: string
-  /** De quién es (la persona que la conectó). */
-  persona: string
   sistema: 'Windows' | 'Mac' | null
   enLinea: boolean
   conectadaAt: string | null
@@ -151,14 +189,14 @@ export type ComputadorasDeLaFicha = 'oculto' | ComputadoraNegocio[] | null
 
 /**
  * Lo que viaja a la pantalla: sin la guarda, NADA (ni la lista ni que existe); con ella, sólo lo que se dibuja (ni un token, ni sus
- * cuentas, ni la ubicación). `pcs` es lo que leyó el server (`listarPcDelNegocio`), `null` si falló; sin la guarda no se lee.
+ * cuentas, ni la ubicación, ni la persona: ésa vive en Members). `pcs` es lo que leyó el server (`listarPcDelNegocio`), `null` si falló; sin la guarda no se lee.
  */
 export function computadorasDeLaFicha(
   opera: boolean,
-  pcs: ReadonlyArray<Pick<ComputadoraNegocio, 'id' | 'nombre' | 'persona' | 'sistema' | 'enLinea' | 'conectadaAt'>> | null,
+  pcs: ReadonlyArray<Pick<ComputadoraNegocio, 'id' | 'nombre' | 'sistema' | 'enLinea' | 'conectadaAt'>> | null,
 ): ComputadorasDeLaFicha {
   if (!opera) return 'oculto'
-  return pcs?.map((pc) => ({ id: pc.id, nombre: pc.nombre, persona: pc.persona, sistema: pc.sistema, enLinea: pc.enLinea, conectadaAt: pc.conectadaAt })) ?? null
+  return pcs?.map((pc) => ({ id: pc.id, nombre: pc.nombre, sistema: pc.sistema, enLinea: pc.enLinea, conectadaAt: pc.conectadaAt })) ?? null
 }
 
 /** Las conexiones que muestra la sección: las conectadas primero, y sin las que no están (Polar no lista lo vacío). */
@@ -182,14 +220,16 @@ export type MedidorUso = {
   acciones: number | null
   /** Cuántas personas distintas la usaron (la IA no se mide por persona). */
   personas: number | null
-  /** Lo que costaron esas llamadas de IA, en dólares (la tab no tiene). */
-  costoUsd: number | null
   /** El último día con uso (YYYY-MM-DD). */
   ultimo: string | null
 }
 
-/** Las llamadas de IA del negocio, sumadas por día (de `anthropic_usage` con su `workspace_id`). */
-export type IaDelDia = { dia: string; llamadas: number; costoUsd: number }
+/**
+ * Las llamadas de IA del negocio, sumadas por día (de `anthropic_usage` con su `workspace_id`). ⛔ Sin plata (revisión del
+ * 6/11/2026): lo que cuestan sólo se dice si el gasto es atribuible por negocio, con la regla de Cost Drivers, y eso va en el
+ * Overview de la ficha (`cifrasDeCosto`), no acá.
+ */
+export type IaDelDia = { dia: string; llamadas: number }
 
 export type UsoDelNegocio = {
   medidores: MedidorUso[]
@@ -272,19 +312,17 @@ export function usoDelNegocio(
   const orden = [...porTab.entries()].sort((a, b) => b[1].pantallas + b[1].acciones - (a[1].pantallas + a[1].acciones) || a[1].nombre.localeCompare(b[1].nombre, 'es'))
   const medidores: MedidorUso[] = orden.map(([key, m], i) => ({
     key, nombre: m.nombre, color: COLORES[i % COLORES.length], unidad: 'pantallas', consumido: m.pantallas, acciones: m.acciones,
-    personas: m.personas.size, costoUsd: null, ultimo: m.ultimo,
+    personas: m.personas.size, ultimo: m.ultimo,
   }))
   let llamadas = 0
-  let costo = 0
   let ultimoIa: string | null = null
   for (const d of ia) {
     if (d.dia < desde || d.dia > hasta || d.llamadas <= 0) continue
     llamadas += d.llamadas
-    costo += d.costoUsd
     if (!ultimoIa || d.dia > ultimoIa) ultimoIa = d.dia
   }
   if (llamadas > 0) {
-    medidores.push({ key: 'ia', nombre: 'IA', color: COLORES[medidores.length % COLORES.length], unidad: 'llamadas', consumido: llamadas, acciones: null, personas: null, costoUsd: Math.round(costo * 10000) / 10000, ultimo: ultimoIa })
+    medidores.push({ key: 'ia', nombre: 'IA', color: COLORES[medidores.length % COLORES.length], unidad: 'llamadas', consumido: llamadas, acciones: null, personas: null, ultimo: ultimoIa })
   }
   const usadas = new Set(porTab.keys())
   const sinUso = tabs.filter((t) => !usadas.has(t.key)).map(({ key, label }) => ({ key, label }))

@@ -1,4 +1,8 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Widgets/WidgetContainer.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
+//
+// MaKo (revisión del 6/11/2026): `min-h-82` y no el `h-82` de Polar. Con nombres en español una fila de la tarjeta puede
+// necesitar dos renglones (el dato baja para no cortar el nombre: ./ListRow.tsx), y con el alto fijo la quinta quedaba
+// cortada por el borde. Las tarjetas de una misma fila del Overview siguen midiendo lo mismo: la grilla las estira.
 
 import { Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
@@ -21,7 +25,7 @@ export const WidgetContainer = ({
 }: PropsWithChildren<WidgetContainerProps>) => {
   return (
     <div
-      className={twMerge('flex h-82 flex-col gap-6 overflow-hidden', className)}
+      className={twMerge('flex min-h-82 flex-col gap-6 overflow-hidden', className)}
     >
       <Box
         flexShrink={0}

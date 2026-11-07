@@ -14,7 +14,6 @@ import { ListRow } from './ListRow'
 import { WidgetContainer } from './WidgetContainer'
 import { WidgetError } from './WidgetError'
 import { WidgetLink } from './WidgetLink'
-import { FIJO } from './fila'
 
 const WIDGET_TITLE = 'Actividad'
 
@@ -59,22 +58,16 @@ export const ActivityWidget = ({ className, actividad }: ActivityWidgetProps) =>
         </Box>
       ) : (
         <Box flexDirection="column" paddingBottom="m">
+          {/* MaKo: lo que pasó y cuándo, enteros; el negocio (el detalle) baja de renglón si no entra al lado: no se esconde,
+              es de quién es (./ListRow.tsx). */}
           {rows.map((row) => (
-            <ListRow key={row.id} href={row.href ?? undefined}>
-              {/* MaKo: el detalle empieza con el nombre del negocio, así que cede la mitad que el título (`flex-shrink` 1 contra
-                  2) y el «cuándo» no se parte («hace 12 min» en dos renglones cortaba la quinta fila): ./fila.ts. */}
-              <Box alignItems="baseline" columnGap="s" minWidth={0}>
-                <Text truncate style={{ flex: '0 2 auto', minWidth: 0 }}>{row.titulo}</Text>
-                {row.detalle && (
-                  <Text color="muted" truncate style={{ flex: '0 1 auto', minWidth: 0 }}>
-                    {row.detalle}
-                  </Text>
-                )}
-              </Box>
-              <Text color="muted" tabularNums style={FIJO}>
-                {row.cuando}
-              </Text>
-            </ListRow>
+            <ListRow
+              key={row.id}
+              href={row.href ?? undefined}
+              nombre={row.titulo}
+              detalle={row.detalle ?? undefined}
+              dato={<Text as="span" color="muted" tabularNums>{row.cuando}</Text>}
+            />
           ))}
         </Box>
       )}
