@@ -56,6 +56,20 @@ de 2.864 min/día. La estimación sobre-cuenta ~1,9x, pero aun dividida por dos 
 3. Mientras tanto, **se puede seguir trabajando y pusheando**: las ramas suben bien. Lo que no pasa es que
    lleguen solas a `main`. Cuando Actions vuelva, se relanzan y entran.
 
+⚠️ **Y cuando el pago se arregle, esas ramas NO ENTRAN SOLAS.** Un flujo se dispara al PUSHEAR, y ya están
+pusheadas: quedan ahí, rojas, hasta que alguien las vuelva a lanzar. Al 7/11 son **10**. Para eso está
+`scripts/relanzar-puntas.mjs`: busca las corridas que fallaron **sin ejecutar un solo paso** —la huella de un
+trabajo que no arrancó—, saltea las que ya entraron a main y no toca las que fallaron de verdad (ésas tienen un
+paso fallado y son trabajo de su chat).
+
+```
+node scripts/relanzar-puntas.mjs            # muestra cuáles, sin tocar nada
+node scripts/relanzar-puntas.mjs --aplicar  # con el pago YA arreglado
+```
+
+Sin `--aplicar` no relanza nada, a propósito: correrlo antes de que el pago esté arreglado gasta minutos para
+volver a fallar igual.
+
 **Lo urgente igual se puede desplegar**, porque ese camino no usa Actions:
 `node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs` (US$0,33-0,42).
 
