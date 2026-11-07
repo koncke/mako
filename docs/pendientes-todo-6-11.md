@@ -83,9 +83,12 @@ perder más tiempo que uno olvidado.
   - ✅ **Ya está la guarda**, en código y no sólo en un documento (el que implemente el pedido importa el módulo, no lee el doc): `lib/cerebro-nunca-lee.ts` + `tests/cerebro-no-lee-secretos.test.ts`, que recorre los imports de verdad y falla en el momento en que alguien cablee la lectura completa sin filtrar.
   - ⬜ **Sigue pendiente lo de fondo:** ampliar la cobertura más allá del 25 %, el brief que sale de 4 listas fijas, la cobertura de funciones del Second Brain de SuperAdmin (`lib/cerebro-para-chat.ts:146`) y el Second Brain en el teléfono. Con el gap ya listado tabla por tabla en `docs/hallazgos-second-brain.md`.
   - Dónde: `lib/cerebro-grafo.ts:326 · lib/cerebro-nunca-lee.ts · tests/cerebro-no-lee-secretos.test.ts · docs/hallazgos-second-brain.md · lib/cerebro-para-chat.ts:146`
-- **Los cursos completos en Conocimientos: 401 recursos faltan en 10 cursos** · _grande_
-  - Qué falta: Y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazo diez clases sanas. Pedido textual: «No quiero que quede nada. Todas las clases, todos los recursos».
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41`
+- **Los cursos completos en Conocimientos** · _grande_ · ⛔ **TRABADO — pide Chrome conectado (revisado el 7/11/2026 — COMMIT_AQUI)**
+  - ⚠️ **El título de arriba decía «401 recursos faltan» y está al revés.** El 401 es el TOTAL de lecciones de la plataforma: **233 ya publicadas** (230 que matchean + 3 que el autor sacó del curso) y **171 a bajar** (`docs/hallazgos-conocimiento.md:3485-3495`). Faltan 171, no 401.
+  - **Estado medido el 7/11:** el repo ya tiene **131 archivos de curso con 9.684 clases** en `app/conocimientos/`. No es un área vacía.
+  - ⛔ **Lo que lo traba:** bajar las que faltan corre por `scripts/curso-api.mjs`, que necesita **sesión viva en la plataforma externa** — saca el token del `localStorage` de la página y la anon key de los headers de una request real, por CDP. O sea: Chrome conectado y con la sesión de Martín abierta. Desde un chat sin navegador no sale.
+  - ⚠️ **Y la trampa de conteo que ya está escrita, para el que lo retome:** «contar los hijos de un nodo no es contar su subárbol». Un chequeo de completitud tiene que recorrer `parent_module_id` hasta el fondo; mirando un solo nivel, 16 de 28 módulos llenos contestan «vacío» (`docs/hallazgos-conocimiento.md:2550-2558`).
+  - Dónde: `scripts/curso-api.mjs · app/conocimientos/catalogo.ts · docs/hallazgos-conocimiento.md:2550,3485-3495 · app/admin/dev/conocimientos/bitacora.ts:41`
 - **El indice de hallazgos tiene filas duplicadas** · _chico_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — `8cd255a3c`)**
   - **No reproduce.** `| Ads |` aparece **1** vez y `| AI Avatar |` **1**, no 5 y 3. La tabla principal tiene **exactamente 77 filas**, que es el número que declara su propia cabecera, y **ninguna área repetida**.
   - **Lo arregló la limpieza del 6/11** (217 filas → 77) y, sobre todo, lo que la sostiene: `docs/hallazgos.md` tiene su PROPIO driver de merge (`scripts/unir-indice-hallazgos.mjs`, configurado en `.gitattributes` y en `punta.yml`), porque `merge=union` sobre una TABLA deja las dos filas y la punta siguiente duplica la duplicada. Lo vigila `tests/unir-indice-hallazgos.test.ts` — 10 tests, incluido «una fila por área», los 10 en verde el 7/11. El inventario se escribió con la foto anterior a esa limpieza.
@@ -110,9 +113,10 @@ perder más tiempo que uno olvidado.
 - **Focus Tracker (Toggl por BYOK) y Productivity Analyst** · _grande_
   - Qué falta: `git grep` de «Focus Tracker» y «toggl» sin resultados en app, lib ni docs. Puede estar como tarea en la base del /plan.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:162-163`
-- **Cuenta regresiva, pops de prueba social y escasez en las landings** · _mediano_
-  - Qué falta: No hay nada en `app/web-generator/` ni `lib/editor-landing/`. Martin lo marco «super importante» y lo necesitaba la landing de Black November. Van bloques nuevos en `BloqueWeb.tsx`.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:65 (2.10/5.14) · app/web-generator/BloqueWeb.tsx · lib/editor-landing/`
+- **Cuenta regresiva, pops de prueba social y escasez en las landings** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — COMMIT_AQUI)**
+  - **Los tres existen desde el 5/11**, commit `9bfa14326` — «Black November: el número arranca de a poco, el horario del negocio manda y **tres bloques de venta en las landings**», o sea el mismo pedido y la misma landing que lo motivó. Son los nodos `CuentaRegresiva`, `PruebaSocial` y `Escasez` (`app/web-generator/editor/extensiones/nodos.ts:533-535`), cada uno con su panel de configuración (`PanelCuenta`, `PanelPrueba`, `PanelEscasez`) y su ícono, en `app/web-generator/editor/nodos/BloqueVentaVista.tsx`.
+  - ⚠️ **Por qué el barrido no los vio, y es una trampa de nombres que va a repetirse:** buscó en `app/web-generator/BloqueWeb.tsx` y en `lib/editor-landing/`. **`BloqueWeb` NO es un bloque de la landing**: son las tarjetas de landing que MaKo muestra EN EL CHAT (`lib/editor-landing/bloques-web.ts` → `BloqueLanding`, `BloqueElegir`, `BloquePublicada`…). Los bloques de la página viven en `app/web-generator/editor/extensiones/nodos.ts` y `editor/nodos/`. Dos cosas distintas llamadas «bloque» en la misma área.
+  - Dónde: `app/web-generator/editor/extensiones/nodos.ts:533-535 · app/web-generator/editor/nodos/BloqueVentaVista.tsx · app/web-generator/editor/insertar.ts:41,219`
 - **El logo real de Meet (y los logos dibujados a mano)** · _chico_
   - Qué falta: «Muchos logos no son los logos reales»: `LogoMeet` esta dibujado a mano. Hecho = el logo real en su lugar.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55`
