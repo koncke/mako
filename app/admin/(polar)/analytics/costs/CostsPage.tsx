@@ -455,7 +455,7 @@ export default function ClientPage({
                     <div className="flex items-end justify-between gap-2">
                       <div className="dark:text-polar-500 flex flex-col gap-0.5 text-xs text-gray-400">
                         <span>entra {fmt(PLAN_PARA_LA_TABLA * n, 'usd')}</span>
-                        <span>si pagaras todo: {fmt(todo, 'usd')}</span>
+                        <span>pagando todo: {fmt(todo, 'usd')}</span>
                       </div>
                       <span className="font-mono text-lg font-medium tabular-nums dark:text-white">
                         {fmt(hoy, 'usd')}
@@ -470,8 +470,9 @@ export default function ClientPage({
               title="Por qué el doble de clientes da MÁS del doble"
               description={
                 `El gasto fijo se paga UNA vez, no por cliente: la segunda decena ya no tiene que cubrirlo. ` +
-                `Hacen falta ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTuyo) ?? '—'} clientes para no perder con lo que pagás hoy, ` +
-                `y ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTotal) ?? '—'} si pagaras también lo de Mauricio.`
+                // ⚠️ Sin voseo: ninguna pantalla le habla al cliente de «vos» (tests/puente-panel-copy.test.ts).
+                `Hacen falta ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTuyo) ?? '—'} clientes para no perder con el fijo de hoy, ` +
+                `y ${clientesParaNoPerder(PLAN_PARA_LA_TABLA, fijoTotal) ?? '—'} pagando también lo de Mauricio.`
               }
             />
           </section>
