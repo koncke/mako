@@ -14,7 +14,9 @@
 //   6. una web que no se puede leer no llega a la IA;
 //   7. el analista es EL de Offer: habla de un tercero, sin crédito ni red de la plataforma;
 //   8. la ruta, la pantalla, la API y «Dejar de mirarlo» pasan por acá;
-//   9. la pantalla dibuja el diagnóstico de Offer sin los consejos para el dueño de esa oferta.
+//   9. la pantalla dibuja el diagnóstico de Offer sin los consejos para el dueño de esa oferta;
+//  10. una web con barrera que el servidor no puede bajar se lee de lo que la extensión YA capturó (6/11/2026), la bajada
+//      del servidor le gana cuando anda, y capturarla le borra a su oferta la espera del fallo anterior.
 //
 // PROBADO ROMPIÉNDOLO (4/11/2026), una rotura por vez y restaurada, base en verde (qué tests caen):
 //   · `leerSuOferta` que no mira la huella (con su web igual, otra vez a la IA) → 3
@@ -24,6 +26,9 @@
 //   · `esperaTrasFallos` que no espera                                        → 5
 //   · `pedir` sin el corte de `soloDelNegocio` (en el crédito o en la red)     → 7
 //   · `VistaDiagnostico` que dibuja «Lo primero que cambiaría» con `deOtro`   → 9
+//   · `leerSuOferta` sin el plan B de la capturada                            → 10
+//   · la capturada ANTES de la bajada del servidor                            → 10
+//   · `guardarPaginaCapturada` sin `reintentarOfertaYa`                        → 8
 // Correr: node --import tsx --test tests/spy-oferta.test.ts
 // =============================================================================
 
@@ -35,7 +40,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   ESPERA_TRAS_FALLO_MS, FALLOS_HASTA_ESPERAR, LEYENDO_VENCE_MS, VUELVE_A_MIRAR_MS,
-  hayQueLeer, leerOferta, leerSuOferta, reclamarLectura, vistaDeOferta, websDelCompetidor,
+  hayQueLeer, leerOferta, leerSuOferta, reclamarLectura, sinEspera, vistaDeOferta, websDelCompetidor,
   type DepsOferta, type PaginaLeida,
 } from '../lib/spy-oferta';
 import { bloqueOfertaDeOtro } from '../lib/offer-reglas';
@@ -74,6 +79,8 @@ type Doble = DepsOferta & {
   llamadas: Array<{ nombre: string; paginas: PaginaLeida[] }>;
   bajadas: string[];
   paginas: Map<string, PaginaLeida | Error>;
+  /** Lo que la extensión ya guardó de esa dirección (`spy.paginas.<id>`), por su URL. */
+  capturadas: Map<string, PaginaLeida>;
   respuesta: { ok: true; valor: DiagnosticoOferta } | { ok: false; error: string };
 };
 
@@ -98,6 +105,8 @@ function doble(): Doble {
       if (p instanceof Error) throw p;
       return p;
     },
+    capturadas: new Map(),
+    capturada: async (url) => d.capturadas.get(url) ?? null,
     diagnosticar: async (p) => { d.llamadas.push(p); return d.respuesta; },
     nuevoIntento: () => `t${++n}`,
   };
@@ -267,6 +276,12 @@ test('8. la ruta, la pantalla, la API y «Dejar de mirarlo» pasan por acá', ()
   const run = sinComentarios(leer('lib/api-mako/areas/spy.run.ts'));
   assert.match(run, /su_oferta_con_notas: \{\s*leer:/);
   assert.match(run, /await ofertaGuardada\(id\)/);
+  const srv2 = sinComentarios(leer('lib/spy-oferta-servidor.ts'));
+  assert.match(srv2, /capturada: \(url\) => capturadaDe\(competidorId, url\)/, 'lo capturado se le pasa a la lectura');
+  assert.match(srv2, /from '\.\/spy-pagina-capturada'/, 'del módulo PURO: `-servidor` importa de acá y cerraría un ciclo');
+  assert.doesNotMatch(srv2, /from '\.\/spy-pagina-capturada-servidor'/, 'ese import cierra un ciclo con ofertaGuardada');
+  const cap = sinComentarios(leer('lib/spy-pagina-capturada-servidor.ts'));
+  assert.ok(cap.indexOf('setSetting(claveDePaginasCapturadas') < cap.indexOf('reintentarOfertaYa(competidorId)'), 'primero se guarda la página, después se destraba su oferta');
   const spy = sinComentarios(leer('lib/spy.ts'));
   const quitar = spy.slice(spy.indexOf('export async function quitarCompetidor'), spy.indexOf('export async function quitarCanal'));
   assert.match(quitar, /borrarSetting\(claveOfertaSpy\(id\)\)/, 'su oferta se va con él');
@@ -283,4 +298,40 @@ test('9. la pantalla dibuja el diagnóstico de Offer sin los consejos para el du
   assert.match(deOtro, /Promete clientes en 90 días/, 'la tesis');
   assert.match(deOtro, /La garantía de 30 días/, 'lo que ya hace bien');
   assert.equal((deOtro.match(/class="of-fila"/g) ?? []).length, DIMENSION_IDS.length, 'las 9 notas');
+});
+
+test('10. una web con barrera se lee de lo capturado, el servidor le gana cuando anda, y capturarla destraba su oferta', async () => {
+  // Den Borg: su Beacons contesta el desafío de Cloudflare al servidor, y la persona ya la guardó con la extensión.
+  const d = doble();
+  d.paginas.set(WEB, new Error('403'));
+  d.capturadas.set(WEB, { url: WEB, titulo: 'Despega', texto: TEXTO });
+  const r = await leerUnaVez(d, [WEB], T0);
+  assert.equal(r.corrio && r.fin.estado, 'lista', 'con lo capturado, su oferta se lee');
+  assert.equal(d.llamadas.length, 1, 'y llega a la IA');
+  assert.equal(d.llamadas[0].paginas[0].texto, TEXTO.trim());
+
+  // Cuando el servidor SÍ puede bajarla, manda la bajada: una captura es de cuando se capturó.
+  const e = doble();
+  e.capturadas.set(WEB, { url: WEB, titulo: 'Vieja', texto: `VIEJO. ${TEXTO}` });
+  await leerUnaVez(e, [WEB], T0);
+  assert.equal(e.llamadas.length, 1);
+  assert.equal(e.llamadas[0].paginas[0].texto, TEXTO.trim(), 'lo que bajó el servidor, no lo capturado');
+
+  // Una captura que casi no tiene texto (una página que se guardó por su foto) no es una oferta.
+  const f = doble();
+  f.paginas.set(WEB, new Error('403'));
+  f.capturadas.set(WEB, { url: WEB, titulo: 'Despega', texto: 'Just a moment…' });
+  const rf = await leerUnaVez(f, [WEB], T0);
+  assert.equal(rf.corrio && rf.fin.estado, 'no-pudo');
+  assert.equal(f.llamadas.length, 0);
+
+  // Y la espera: tras un fallo su oferta se iba a leer recién al día siguiente. Capturarla la destraba (`sinEspera`), así
+  // que la persona que acaba de capturar la página ve su oferta al abrirlo, no mañana.
+  const fallada = leerOferta(f.store.crudo);
+  assert.equal(fallada?.estado, 'no-pudo');
+  assert.equal(hayQueLeer(fallada, [WEB], T0 + 2000), false, 'sin destrabarla, espera el día');
+  assert.equal(hayQueLeer(sinEspera(fallada), [WEB], T0 + 2000), true, 'destrabada, se lee ya');
+  assert.equal(sinEspera(fallada)?.fallos, 0);
+  assert.equal(sinEspera(leerOferta(d.store.crudo)), null, 'una lectura que SALIÓ bien no se destraba (no se repite la IA)');
+  assert.equal(sinEspera(null), null);
 });

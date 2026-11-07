@@ -50,10 +50,12 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
   docs/hallazgos-ticketera.md → «La baja de los correos estaba atada a una CUENTA».
 - **Los automáticos** (lo que MaKo abre solo): no mandan correo. MaKo ya se lo dijo en el chat.
 - **Una casilla en Notificaciones** para prenderlos y apagarlos: hoy se hace desde el link del correo, que también los vuelve a
-  prender. **SIGUE PENDIENTE, con el motor ya hecho** (6/11): `cambiarBajaPorEmail` y `apagadosPorEmail`
-  (lib/tickets-baja-correo.ts) hacen las dos capas; falta la ruta en `app/api/perfil/` y la fila con el `Switch` en
-  `app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta resuelve a la persona por el EMAIL DE LA SESIÓN, no con `filaPropia`
-  (lib/perfil.ts), que usa `.maybeSingle()` sobre el email y tira con dos cuentas de la misma dirección.
+  prender. **HECHA el 6/11**: «Correos de MaKo → Avances de mis tickets» en /perfil/notificaciones
+  (`app/perfil/NotificacionesPanel.tsx`), con `app/api/perfil/correos-tickets/route.ts`. Apaga lo MISMO que el link del
+  correo —los dos caminos pasan por `lib/tickets-baja-correo.ts`— y vale para todas las cuentas con esa dirección.
+  ⚠️ La ruta resuelve a la persona por el EMAIL DE LA SESIÓN y NO con `filaPropia` (lib/perfil.ts), que usa
+  `.maybeSingle()` sobre el email y tira con dos cuentas de la misma dirección: justo la gente para la que la casilla
+  existe. Lo fija el caso 5e de tests/tickets-avance-email.test.ts, escrito como la falla y no como la forma.
 
 ## Tickets
 

@@ -73,6 +73,10 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'dashboard' | 'mas';
 export type IdSeccionMas =
   | 'plan' | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'ai-avatar' | 'lead-magnet' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
+  // Competitor Spy (6/11/2026): su pantalla del teléfono es app/m/competitor-spy. ⚠️ El id de una fila nueva de
+  // `SECCIONES_MAS` tiene que estar ACÁ además de en la fila: `DefSeccionMas.id` es esta unión, y sin el miembro el tsc
+  // marca la fila, `QUERY_DE_SECCION` y `aSeccion` —tres errores lejos del cambio—.
+  | 'competitor-spy'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
@@ -233,6 +237,10 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
   { id: 'ads', label: 'Marketing CoPilot', href: '/m/ads', icon: 'copiloto', navKey: 'ads-manager', familia: 'marketing' },
+  // Competitor Spy (6/11/2026): la pantalla del teléfono de la tab `market-an`, en Marketing y después del
+  // CoPilot, como en la sidebar. La ficha de un competidor es `?competidor=<id>`, la MISMA clave de la
+  // computadora (QUERY_DE_SECCION), así que un link se abre del mismo modo en los dos lados.
+  { id: 'competitor-spy', label: 'Competitor Spy', href: '/m/competitor-spy', icon: 'spy', navKey: 'market-an', familia: 'marketing' },
   // Create (las piezas).
   // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
@@ -345,6 +353,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
   ads: ['estrategia'], // app/ads-manager/page.tsx y app/m/ads/page.tsx (`?estrategia=1`: «Cambiar mi estrategia» reabre la charla del Marketing CoPilot)
+  'competitor-spy': ['competidor'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -509,13 +518,8 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
   'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
-  // Competitor Spy (31/10/2026): dejó de ser ComingSoon con la Etapa 1 (lista, ficha por bloques y
-  // onboarding), y al salir de `comingSoon` perdió el `/m/pronto/market-an` que se derivaba de esa
-  // marca. La pantalla del teléfono es la Etapa 1.5 del plan: la ficha pasa a UN bloque por
-  // pantalla y los filtros a una hoja que sube desde abajo (docs/diseno-competitors-spy.md §8). Lo
-  // que NO va al teléfono, y se dice en vez de desaparecer: replicar el sitio del competidor (es el
-  // editor) y el recorrido con la extensión (es Chrome de escritorio).
-  'market-an': 'el chat de Competitors Spy',
+  // («market-an», Competitor Spy, salió de acá el 6/11/2026: su pantalla es app/m/competitor-spy,
+  // y su fila, la de la sección `competitor-spy` de SECCIONES_MAS.)
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
@@ -840,6 +844,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // Marketing CoPilot: `?estrategia=1` viaja (los dos lados reabren la charla); lo demás de la computadora (`vista`, `decision`) no
   // lo lee el teléfono, y no viaja.
   if (dentro(p, '/ads-manager')) return aSeccion('ads', q);
+  // Competitor Spy, con su ruta vieja (`/market-analyst`, la que nav.ts todavía matchea). La ficha de un
+  // competidor NO es una subruta: es `?competidor=`, como en la computadora.
+  if (dentro(p, '/competitor-spy') || dentro(p, '/market-analyst')) return aSeccion('competitor-spy', q);
   // Las siete del 15/10/2026, cada una con lo que su pantalla de escritorio lee de la query. Ninguna
   // tiene subpantallas en el teléfono (todavía): una subruta de escritorio cae en la sección.
   if (dentro(p, '/calendario')) return aSeccion('calendario', q);
@@ -1015,6 +1022,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/second-brain') destino = '/second-brain';
   else if (p === '/m/experimentos') destino = '/experimentos';
   else if (p === '/m/offer') destino = '/offer';
+  else if (p === '/m/competitor-spy') destino = '/competitor-spy';
   else if (p === '/m/copywriting') destino = '/ads-writer';
   else if (p === '/m/curso') destino = '/classroom';
   else if (p === '/m/comunidad') destino = '/classroom/community';

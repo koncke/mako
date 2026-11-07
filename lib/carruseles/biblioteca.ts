@@ -85,7 +85,75 @@ export type PiezaBiblioteca = {
   publicada_en: string | null;
   visto_primera_vez: string;
   dejo_de_verse_en: string | null;
+  /**
+   * Cuándo una persona la miró y la dejó pasar (mig 0411). **Ausente o null = nadie la miró y no se muestra**: lo que trae
+   * una lectura nueva espera a que alguien la vea (`estaRevisada`). Sin la columna, se muestra como antes.
+   */
+  revisada_en?: string | null;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Que nadie vea un ejemplo que nadie miró (mig 0411, 6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ¿Esta publicación ya la miró una persona? La biblioteca muestra sólo las que sí.
+ *
+ * ⚠️ Mira si la fila TRAE la columna, no si su valor es null: con la 0411 sin aplicar, PostgREST no devuelve `revisada_en` y
+ * todo tiene que verse como antes (si no, el día que se despliegue el código la vidriera se vacía). Por eso el filtro vive
+ * acá y NO en un `filtros` de PostgREST: una columna que todavía no existe haría fallar la lectura ENTERA, que es la misma
+ * trampa de la 0373 y de la 0391 (ver `guardarMedios`, lib/spy.ts).
+ *
+ * Y por eso el upsert de la lectura NUNCA manda esta columna: así una pieza ya revisada no se vuelve «sin mirar» porque
+ * Spy la leyó de nuevo (`filasDeLectura`), igual que `dejo_de_verse_en`.
+ */
+export function estaRevisada(p: Partial<PiezaBiblioteca> | Record<string, unknown>): boolean {
+  if (!('revisada_en' in p)) return true;
+  const v = (p as { revisada_en?: unknown }).revisada_en;
+  return typeof v === 'string' && v.trim() !== '';
+}
+
+/** Lo que una persona tiene que mirar: lo que está a la vista (no escondido) y todavía no revisó nadie, lo más nuevo primero. */
+export function sinRevisar<T extends Partial<PiezaBiblioteca>>(piezas: readonly T[]): T[] {
+  return piezas.filter((p) => !p.dejo_de_verse_en && !estaRevisada(p)).sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+}
+
+const escapar = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * La hoja para mirar a ojo lo que está sin revisar: las miniaturas con su id a la vista y los comandos ya escritos. Una
+ * persona decide; el código sólo le prepara el trabajo.
+ *
+ * ⚠️ Cada tarjeta lleva SU id escrito encima, no la posición: la posición contada dentro de una hoja se puede correr, y es
+ * el error que ya pasó una vez (docs/hallazgos-carruseles.md → «Mirar hojas de miniaturas con un agente»).
+ */
+export function hojaDeRevision(piezas: readonly PiezaBiblioteca[], cuentas: readonly CuentaBiblioteca[]): string {
+  const nombre = new Map(cuentas.map((c) => [c.id, c.instagram]));
+  const tarjetas = piezas.map((p) => {
+    const pie = (p.texto ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    const foto = p.miniatura ? `<img src="${escapar(p.miniatura)}" alt="" loading="lazy">` : '<div class="sinfoto">sin portada</div>';
+    const link = p.url ? `<a href="${escapar(p.url)}" target="_blank" rel="noreferrer noopener">abrir</a>` : '';
+    return `<figure><b>${p.id}</b> @${escapar(nombre.get(p.cuenta_id) ?? '?')} · ${escapar(p.formato ?? 'sin tipo')} ${link}
+${foto}<figcaption>${escapar(pie)}</figcaption></figure>`;
+  });
+  const ids = piezas.map((p) => p.id).join(',');
+  return `<!doctype html><html lang="es"><meta charset="utf-8"><title>Carruseles sin mirar (${piezas.length})</title>
+<style>body{font:14px system-ui;margin:16px;background:#111;color:#eee}h1{font-size:18px}
+pre{background:#000;padding:10px;border-radius:8px;overflow:auto;font-size:12px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+figure{margin:0;background:#1b1b1b;border-radius:10px;padding:8px}
+img{width:100%;border-radius:6px;display:block}.sinfoto{aspect-ratio:1;display:grid;place-items:center;background:#000;border-radius:6px;color:#888}
+figcaption{font-size:12px;color:#aaa;margin-top:6px}b{color:#7cf}a{color:#7cf}</style>
+<h1>${piezas.length} publicacion(es) que nadie miro todavia</h1>
+<p>Cada tarjeta lleva SU id arriba. Las que sirven se aprueban; las que no, se esconden con el motivo:</p>
+<pre>node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts revisar --aprobar &lt;ids&gt; --de-verdad
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts revisar --esconder &lt;ids&gt; --motivo "por que" --de-verdad
+
+Todas las de esta hoja: --aprobar ${ids || 'todas'}</pre>
+<div class="g">${tarjetas.join('\n')}</div>
+</html>`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los ids

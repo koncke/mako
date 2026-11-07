@@ -15,7 +15,7 @@
 
 import {
   agregarCompetidor, etapaDePieza, guardarAnuncioPegado, leerCompetidor,
-  listarCompetidores, listarPiezas, mirarCompetidor, quitarCanal, quitarCompetidor, resumenDePiezas,
+  listarCompetidores, listarPiezas, mirarCompetidor, ponerPais, quitarCanal, quitarCompetidor, resumenDePiezas,
   type Competidor, type LecturaCanalSpy, type Pieza, type ResumenPiezas,
 } from '@/lib/spy';
 import { nombresDe } from '@/lib/landing-snapshot';
@@ -155,6 +155,14 @@ export async function quitarCanalAction(id: number, red: 'instagram' | 'youtube'
   if (no) return { ok: false, error: no };
   if (red !== 'instagram' && red !== 'youtube' && red !== 'tiktok') return { ok: false, error: 'Esa red no existe.' };
   try { return await quitarCanal(id, red); } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/** De qué país es (ISO-2), o `null` para borrarlo: decide si la Biblioteca de Meta puede traer sus anuncios. */
+export async function ponerPaisAction(id: number, pais: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'No encontré a ese competidor.' };
+  try { return await ponerPais(id, pais); } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
 /** Le suma un canal al competidor que ya está: el upsert por nombre escribe sobre la MISMA fila. */

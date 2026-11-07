@@ -6,6 +6,22 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una rotura que sólo toca el DISCO no la ve un test que lee de git (6/11/2026, claude1).**
+
+**Síntoma.** Probando rompiéndolo `tests/proxy-matcher-completo.test.ts`: se deja un archivo en `public/cv/` con
+`cv` fuera de la lista de carpetas exentas de `proxy.ts` —el caso que tiene que cazar, porque esos archivos se comen
+el login— y el test da **verde**. La conclusión obvia, que el test sólo cubre la otra dirección (una carpeta en la
+lista sin archivos), **era falsa**.
+
+**Causa.** Ese test lista `public/` con `git ls-files` (`deGit('public')`), no con `readdir`: un archivo nuevo sin
+`git add` no existe para él. Con el archivo en el índice da 4/1, como debe. Pasa lo mismo con cualquier test que
+recorra el repo por git —los barridos de rutas, los índices de documentos— y es justo lo que una rotura de prueba
+hace: escribir un archivo y borrarlo sin tocar el índice.
+
+**Regla.** Al medir una rotura que AGREGA un archivo, se la agrega al índice (`git add -- <ruta>` y después
+`git rm --cached -- <ruta>`) antes de creerle al verde. Y una rotura que no cambia el resultado se mira dos veces
+antes de anotarla como «el test no lo cubre»: casi siempre la rotura no llegó a donde el test mira.
+
 **`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
 
 **Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
@@ -100,6 +116,63 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+## Tocar `extension/` desde una PC con Windows deja el zip imposible de poner al día (6/11/2026)
+
+**El síntoma.** Cambié una línea de `extension/popup.js`, el pre-push dijo «public/mako-puente.zip quedó viejo: la
+extensión cambió. Corré: node scripts/zip-extension.mjs», lo corrí, volví a pushear… y dijo exactamente lo mismo.
+Regenerar no lo arregla **nunca**.
+
+**La causa, medida.** `scripts/zip-extension.mjs` calcula la huella de dos formas distintas según el modo, y lo
+documenta: `leer()` en `--check` hace `git show HEAD:extension/<f>` (**el blob**) y al generar hace `readFileSync`
+(**el disco**). En este repo `core.autocrlf=true`, así que el checkout convierte los LF del blob en CRLF: **el disco y
+el blob no tienen los mismos bytes.** Medido con `extension/popup.js`: blob 74.398 B, disco 75.877 B. Así que generar
+escribe en `public/mako-puente.sha` la huella del disco (CRLF) y el `--check` compara contra la del blob (LF). No
+pueden coincidir.
+
+**Por qué nadie lo había visto.** La huella que está commiteada en el repo SÍ coincide con los blobs (`--check` pasa
+en cualquier worktree que no toque `extension/`): la generó alguien cuyo disco tenía los mismos bytes que el blob, o
+sea **desde la nube o desde Linux**, no desde una PC con Windows. El guard viene funcionando porque nadie había
+editado la extensión desde la PC.
+
+**El mismo bug ya estaba cazado dos líneas más abajo, para el otro archivo.** El propio script normaliza los `\r`
+antes de comparar `lib/extension-version.ts`, con este comentario: «`moduloVersion` se arma con `\n` y git deja el
+archivo en CRLF al sacarlo, así que la comparación exacta pasa SOLO en el clon donde el script corrió alguna vez. **Es
+el cuarto guard de esta familia con el mismo bug** — los otros tres son sync-contrato-detalle, sync-gramatica-doc y
+generar-plugin». Es el QUINTO: la huella de la extensión tiene el mismo agujero y quedó sin arreglar, porque el `\r`
+se normalizó en la comparación del `.ts` y no en el cálculo del hash.
+
+**Cómo se sale hoy** (lo que hice, y es un parche a mano, no un arreglo): después de commitear el cambio de
+`extension/`, recalcular la huella **como la calcula `--check`** —sobre los blobs de HEAD— y escribirla en
+`public/mako-puente.sha`. El zip se genera del disco: lo que lleva adentro es el mismo JavaScript con otro fin de
+línea, que a Chrome le da igual. Con eso `--check` pasa y lo que se despliega es el commit.
+
+**El arreglo de verdad, SIN hacer** (vive en `scripts/zip-extension.mjs`): que el cálculo del hash normalice los
+`\r\n` a `\n` antes de `h.update`, en los dos modos. Es una línea y cierra la familia entera. No lo hice acá porque
+cambia la huella de TODOS los clones a la vez: entra con el commit que la regenera, y el que lo haga tiene que correr
+el `--check` en un worktree limpio antes y después.
+
+## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
+
+- **Sintoma:** `tests/newsletter.test.ts` da 1 rojo en la PC, en la prueba de la tab de newsletters. El
+  mensaje no ayuda: dice «recargarAction no abre con la puerta de la tab» y el valor que muestra es un
+  trozo de la FIRMA de la funcion, no una linea del cuerpo.
+- **Causa:** su helper es `const leer = (p) => readFileSync(..., 'utf8')` — **sin** el
+  `.replace(/\r\n/g, '\n')` que usan los demas tests que leen fuente. Despues busca el inicio del cuerpo
+  con `t.search(/[>)] \{\n/)`, que no empata contra `> {\r\n`: `search` devuelve **-1**, el `+3` corta a
+  mitad de la firma y la primera «linea del cuerpo» es basura.
+- **Medido:** con el archivo como esta en disco (CRLF) fallan **16 de 16** funciones; con el mismo
+  contenido en LF, **0 de 16**. O sea: el test es rojo en cualquier Windows (git lo checkoutea con
+  `core.autocrlf=true`) y verde en Actions, que corre en Linux con LF.
+- **Lo obvio que era equivocado:** aparecio corriendo los tests afectados de otra punta —
+  `tests/newsletter.test.ts` lee `lib/prompt-registry.ts`, asi que lo elige cualquier cambio en el
+  registro de prompts— y lo primero que se piensa es «lo rompi yo». No: `app/newsletters/actions.ts` no
+  estaba tocado. **Un rojo local que Actions no ve cuesta el mismo rato que uno de verdad**, y hace dudar
+  de un veredicto que estaba bien.
+- **Regla:** todo test que compare TEXTO de un archivo fuente normaliza los `\r\n` al leer, como ya manda
+  AGENTS.md para las guardas de sincronia. Un patron de test con `\n` se escribe `\r?\n`. Y al reves
+  tambien vale: **un rojo que solo pasa en la PC se confirma en LF antes de perseguirlo.**
+- **Sin hacer:** el `leer` de `tests/newsletter.test.ts:20` (una linea). Va aparte: es de newsletters.
 
 ## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
 
@@ -313,12 +386,81 @@ El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazg
 entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
 persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
 
-⚠️ **SIN HACER, y no es mecánico: juntar las 130 filas de más que ya están.** Medido: de las 31 áreas con filas repetidas,
-**22 anidan** (la celda más larga contiene a las otras, que es lo que deja el metido-adelante) y **9 NO** — en ésas, cada
-fila tiene texto que las demás no tienen, y colapsarlas por clave **perdería hallazgos**. Por eso este cambio **frena la
-hemorragia y no toca el contenido**. Para la pasada que falta hay un modo que cuenta antes de escribir:
-`node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md` (con `--aplicar` escribe, y hoy saca sólo la fila
-idéntica); las 9 que no anidan las tiene que juntar alguien leyéndolas.
+### Y la primera hora del driver: la PODA de las filas duplicadas choca con toda punta en vuelo (6/11/2026, medido)
+
+**Síntoma:** `punta/carruseles-largo` (una cosecha de carruseles, con su fila del índice reescrita) dio rojo a los 51 s en
+«Mezclar main en la punta»: `CONFLICT (content): Merge conflict in docs/hallazgos.md`.
+
+**Lo obvio era que el driver no estaba configurado en el runner, y estaba mal.** El driver corrió y **se negó a propósito**:
+`[unir-indice-hallazgos] docs/hallazgos.md: no es sólo «los dos cosecharon en su celda»; queda el choque para resolver a
+mano`. Del lado de main no había una cosecha: había la **poda** que dejó 199 filas en 69, o sea filas BORRADAS, que es
+justamente lo que el driver manda a una persona. O sea: no es un bug del driver, es el costo de la primera hora. Cualquier
+punta que hubiera cosechado en el índice antes de la poda choca una vez, y una sola vez.
+
+⚠️ **Y la trampa que de verdad cuesta: en la PC, `git merge origin/main` resuelve ese mismo choque SOLO, y mal.** Los
+atributos de la mezcla se leen del árbol de la punta, y una punta anterior a la poda todavía tiene
+`docs/hallazgos*.md merge=union` (sin guion). Entonces en la máquina no hay choque: `union` junta los dos lados y **devuelve
+las 130 filas duplicadas que main acababa de borrar**, con la mezcla en verde y sin una palabra. Lo único que lo cazó fue el
+test nuevo (`tests/unir-indice-hallazgos.test.ts`), que enumeró 4 áreas repetidas. **Una mezcla LIMPIA no es una mezcla
+correcta cuando el atributo que gobierna el archivo está del otro lado.**
+
+**La receta, para la punta que le toque:** mezclar main, y después tirar la resolución de `union` y rehacerla sobre la
+versión de main — `git checkout origin/main -- docs/hallazgos.md`, volver a meter la entrada en la celda de tu área y
+`git commit --amend`. Y antes de subir, correr `node --test --import tsx tests/unir-indice-hallazgos.test.ts`: es el único
+control que distingue «se mezcló» de «se mezcló bien».
+
+### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
+
+**Vive en:** `docs/hallazgos.md` (217 filas → **77, una por área**) · la guarda nueva, al final de
+`tests/unir-indice-hallazgos.test.ts`.
+
+⚠️ **Lo que había NO eran «130 filas de más».** Eran **140 filas**, y además, cosas que contar filas no ve:
+
+- **492 entradas repetidas palabra por palabra DENTRO de una misma celda**, en 25 celdas. No es un efecto de `union`
+  sobre líneas: es una cosecha que rehízo la celda sobre una celda ya duplicada. En Customer Success la mitad de la
+  celda era texto repetido (69.603 → 35.373 caracteres).
+- **Una fila entera metida DENTRO de la celda de otra**: se perdió el salto de línea y la fila de «Aislamiento» quedó
+  adentro de la de «Tab Pagos de la ficha» — dos veces, y con la segunda mitad del texto de Tab Pagos adentro de la
+  celda de Aislamiento. Para markdown eso no es una fila: el índice simplemente **no mostraba** esa área.
+- **Dos filas sin su `|` de cierre**, que la herramienta del repo tampoco contaba.
+
+⚠️ **Y el «22 anidan / 9 no» estaba medido con `includes`, no con sufijo.** Sólo **4** de las 33 claves repetidas tenían a
+las otras como SUFIJO; en 19 más la celda larga las contenía *en el medio*. Da igual para tirarlas —contenida es
+contenida— pero cambia el arreglo: el chequeo que lo hace seguro es **contención**, no «es el final de».
+
+⚠️ **El camino obvio —unir por el SUFIJO COMÚN más largo— garabatea el texto, y el obvio siguiente también.** El sufijo
+común empieza a mitad de palabra: con `…sin IA. **B**: x` contra `…con IA. **B**: x` arranca dentro de « IA.», así que
+`prefijo + prefijo + sufijo` le pega ese pedazo a la entrada equivocada. El arreglo cantado —cortar en cada `**negrita**`—
+rompe distinto: `**99**` es un énfasis a mitad de oración, no un título, y al reordenar las piezas las dos mitades de una
+misma oración quedan separadas por otra entrada. Eso se vio como «17 entradas perdidas» y **no faltaba ninguna**: estaban,
+partidas. **El límite de una entrada es `**Título (fecha)**:` — la negrita seguida de dos puntos**, que es el formato que
+deja la cosecha. Con ese corte: 0 perdidas, verificado entrada por entrada.
+
+**Lo que hace falta para creerle a una pasada así:** contar filas no alcanza. Se compara el **conjunto de títulos** de
+entrada y **el texto de cada entrada, palabra por palabra**, antes y después (1.621 títulos, los mismos). Lo que el
+conteo no puede cubrir va a mano: cinco títulos tenían **dos versiones y ninguna contenía a la otra** (el tren rojo de
+main, el empate de operaciones, el cartel de Gemini, las variantes del texto viejo, buscar una llamada por su número);
+ésas se leen y se juntan, y quedan marcadas en el commit.
+
+⚠️ **`--consolidar` de la herramienta sólo ve las filas que apuntan a `hallazgos-*.md`.** `filaDelIndice` pide ese patrón
+en la 2.ª celda, y 7 de las 77 filas mandan a otra cosa (`recorrido-visual-30-10.md`, `promesas/…`,
+`proveedores-de-cobro.md`, `mako-iniciativa/`). Por eso dice «70 filas» sobre una tabla de 77 — y las repetidas de esas 7
+le eran **invisibles**: dos filas de «UI compartida» estaban duplicadas y la herramienta nunca las vio.
+
+⚠️ **Un `|` en el texto de una celda le inventa columnas a la fila** (16 filas lo tenían: `number | null`, `USD|EUR`,
+`{mode:'immediate'|'scheduled'}`). Va escapado, `\|`. Y escaparlo con `(^|[^\\])\|` lo hace **a medias** sobre un `r||s`:
+el primer match se come el carácter de antes del segundo `|`, así que el segundo no matchea. Va con lookbehind,
+`(?<!\\)\|`.
+
+⚠️ **Un documento borrado sigue vivo en el índice, y nada lo chequeaba.** La fila «Aislamiento» mandaba a
+`auditoria-aislamiento-workspace.md`, borrado el 17/10/2026 por viejo —su material vive en `hallazgos-seguridad.md`, que
+se declara «la ÚNICA fuente del área»—. Repuntada. La guarda nueva mira en disco que cada link exista, que haya una sola
+fila por clave, que ninguna fila tenga columnas de más y que una línea en blanco no haya partido la tabla.
+
+⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
+documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,
+«Customer Success» y «Customer Success (Clients)». Son claves distintas, así que la guarda las deja pasar; juntarlas o no
+es una decisión sobre cómo se busca en el índice, y no se tomó acá.
 
 ## Un pendiente FANTASMA sale más caro que uno olvidado: 5 de 73 ya estaban hechos, 3 del día anterior (6/11/2026)
 
@@ -1491,8 +1633,16 @@ subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unrespo
 negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
 `~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
 
-**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
-`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
+**HECHO el 6/11/2026 ~21:10** (el Cerebro, cuenta 1): copiada a `~/.claude/guardia/memoria.mjs`, con respaldo
+`.antes-6-11-noche`. Antes de copiarla verifiqué que los cuatro topes son IDÉNTICOS a los que ya corrían (3,0 / 3,0 / 1,0 /
+0,6 GB), que es lo único que hacía peligrosa la reinstalación según el párrafo de arriba.
+
+⚠️ **Cómo se reconoce el síntoma, que es la parte que cuesta.** La negativa dice `quedan 1.4 GB de RAM disponibles y esto
+necesita 3`, así que se lee como un problema de memoria y uno sale a cerrar programas. No lo es: **un commit no pide RAM.**
+La pregunta de diez segundos es si el MENSAJE del commit nombra `tsc`, `npm test` o `eslint`; si lo nombra, es esto.
+Medido la noche del 6/11 intentando rescatar una cosecha titulada «Un rojo del paso Tipos…»: cerré Chrome (23 procesos,
+1.530 MB) y la RAM libre subió **0,16 GB**, porque los 4,1 GB se los llevaban los 27 procesos de Claude, que son los otros
+chats y no se tocan. El commit entró después con 2,1 GB libres, sin liberar nada más: nunca había sido la RAM.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
@@ -11418,3 +11568,56 @@ costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
    listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
    (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
    que desapareció sin que nadie la borrara.
+
+## Un rojo del paso «Tipos» NO significa que haya errores de tipos (6/11/2026)
+
+**Lo primero, porque es lo que ahorra las vueltas:** cuando `punta.yml` deja la punta roja en el paso **«Tipos»**, leé la
+PRIMERA línea del paso antes de tocar una coma. Si dice **SIN TIEMPO**, o el paso sale con **código 97**, no hay ningún
+error de tipos: es el runner que no llegó a medir. **Un veredicto que no se pudo medir no es un veredicto**, y el 97 es
+justamente el código que el flujo usa para «no pude medir», no para «está mal».
+
+Medido con `punta/tickets-casilla-correos`. El paso lo dice textual:
+
+> «Tipos: SIN TIEMPO — NO son errores de tipos. El tsc no terminó en 843 s (tope `TIPOS_TOPE_S=840 s`; tope de heap
+> 12.288 MB, RAM del runner 7.933 MB, 2 CPU) y lo corté. Al cortarlo, la máquina tenía **143 MB disponibles** y 4.608 MB de
+> swap usado; el tsc, 1.979 MB en swap. **El tsc estaba en swap: esperaba al disco. Es la MÁQUINA, no el código.**»
+
+Y en esa MISMA corrida roja, los tests dieron `✔ VERDE · 5355 tests de 531 archivos`. O sea: todo verde, cero errores de
+tipos, punta roja.
+
+**Lo que no estaba escrito: si pega DOS veces, se gasta el relanzador.** `punta.yml` ya trata el tope de tiempo como lo que
+es y relanza la corrida una vez («Relanzar si la máquina no llegó a los tipos»). Pero la corrida relanzada lleva
+`relanzo=maquina`, y ese paso está condicionado a `inputs.relanzo != 'maquina'` para no entrar en loop: la segunda vez se
+**saltea** y la punta queda ROJA con su marca `ci-rojo/<punta>`. No hay nada que corregir.
+
+**El remedio, que es lo que el flujo pide («Volvé a subir la punta tal cual»):** relanzar con `relanzo` **vacío**, para que
+la corrida nueva vuelva a tener su propio relanzador. Dos caminos:
+
+- **Un commit más y `git push`** a la misma punta: lo más simple, y además le toca un runner nuevo.
+- **Un `workflow_dispatch`**, para no agregarle un commit:
+
+      TOK=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+      curl -X POST -H "Authorization: Bearer $TOK" \
+        https://api.github.com/repos/koncke/mako/actions/workflows/punta.yml/dispatches \
+        -d '{"ref":"punta/<nombre>","inputs":{"relanzo":""}}'      # -> 204
+
+**⚠️ Y de paso, cómo se diagnostica cualquier rojo de Actions desde la PC**, que es la mitad del tiempo perdido acá: `gh`
+**no está instalado**, y los PAT de `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) son de Mauricio y dan **404**
+contra `koncke/mako`. El token que sirve es el del push, y sale con `git credential fill` (arriba). Con él:
+
+- `/actions/runs?branch=punta%2F<nombre>` → las corridas y su `conclusion`;
+- `/actions/runs/<id>/jobs` → **qué paso falló** (es la llamada que hay que hacer primero);
+- `/actions/runs/<id>/logs` → el zip con el log completo.
+
+**Lo que más caro salió, y no es técnico:** esa punta tuvo **tres causas distintas** de rojo —un test que fijaba el texto
+del código viejo, un snapshot de rutas que pedía una decisión, y este tope de tiempo— y las dos primeras las encontré
+corriendo tests en local. **Reproducir un rojo en local prueba que encontraste UNA causa, no LA causa.** Leer el paso rojo
+del log cuesta dos llamadas a la API y lo dice en una línea.
+
+**SIN HACER, y esto sí es un arreglo de verdad:** **el tope de 840 s se fijó cuando el repo era más chico.** Si el «SIN
+TIEMPO» empieza a aparecer en otras ramas, el tope quedó corto y lo que hay que revisar es ése y por qué el tsc entra en
+swap en un runner de 8 GB (el paso ya se arma un swapfile de 6 GB y el tope de heap es 12.288 MB). Es una decisión de infra
+con costo de minutos, no de un chat. Hasta entonces, un «SIN TIEMPO» aislado se relanza y listo.
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Tipos», `TIPOS_TOPE_S`, y «Relanzar si la máquina no llegó a los
+tipos») · `scripts/typecheck-lock.mjs`

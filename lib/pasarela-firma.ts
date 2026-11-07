@@ -1,5 +1,5 @@
 // =============================================================================
-// pasarela-firma — la firma de los avisos (webhooks) de Stripe y de Mercado Pago
+// pasarela-firma — la firma de los avisos (webhooks) de Stripe, Mercado Pago, Creem y dLocal Go
 // =============================================================================
 // Puro y SIN `server-only`: un `route.ts` sólo exporta sus handlers, y el test lo ejecuta con vectores.
 // Devuelve el MOTIVO del rechazo y no un booleano (molde: lib/standard-webhooks.ts), para que el 401
@@ -168,3 +168,61 @@ export function verificarFirmaCreem(raw: string, header: string | null, secret: 
 
 /** La firma que pondría Creem (para los tests y para probar el endpoint a mano). */
 export const firmarCreem = (raw: string, secret: string): string => hmacHex(secret, raw);
+
+// ── dLocal Go ────────────────────────────────────────────────────────────────────────────────────
+// Fuente: docs.dlocalgo.com/integration-api/welcome-to-dlocal-go-api/payments/notifications, leída
+// el 06/11/2026.
+
+/** El prefijo EXACTO del header, con su coma y su espacio. Afuera para que el test lo fije. */
+export const PREFIJO_FIRMA_DLOCAL = 'V2-HMAC-SHA256, Signature: ';
+
+/**
+ * El mensaje que firma dLocal Go: la API KEY pegada adelante del cuerpo crudo, SIN separador.
+ *
+ * ⚠️ ES EL ÚNICO DE LOS CUATRO QUE METE UNA CREDENCIAL ADENTRO DEL MENSAJE. Stripe firma `t.raw`,
+ * Mercado Pago un manifiesto de ids y Creem el cuerpo pelado; acá el mensaje es `apiKey + raw` y la
+ * clave HMAC es la SECRET key. La consecuencia de diseño, que es la que importa: **verificar un
+ * aviso de dLocal necesita LAS DOS claves del negocio**, no un secreto de webhook aparte. Un
+ * receptor que tenga una sola nunca va a poder verificar nada — y es justo el error que se comete
+ * copiando la forma de Creem, que sí tiene su `CREEM_WEBHOOK_SECRET` separado.
+ *
+ * Y como la api key no lleva separador, firmar con un `.` en el medio (la analogía con Stripe) o al
+ * revés da «no coincide» en el 100% de los avisos, que se lee igual que una clave mal pegada. Por
+ * eso el test fija el vector oficial de la doc.
+ */
+export const manifiestoDlocal = (apiKey: string, raw: string): string => `${apiKey}${raw}`;
+
+/**
+ * `Authorization: V2-HMAC-SHA256, Signature: <hex>` sobre el cuerpo CRUDO.
+ *
+ * FAIL-CLOSED, igual que Creem y al revés que Mercado Pago: sin las dos claves es un RECHAZO. El
+ * motivo es el mismo que el de Creem — el aviso de MP es flaco (un id) y la seguridad real es la
+ * relectura, así que uno falso sólo provoca una lectura. El de dLocal también es flaco
+ * (`{"payment_id": "..."}`), pero dLocal **firma todas** sus notificaciones, así que aceptar una sin
+ * firma sería renunciar a una verificación que el proveedor sí da.
+ *
+ * ⚠️ SIN TIMESTAMP NO HAY PROTECCIÓN CONTRA LA REPETICIÓN, igual que en Creem: una firma válida
+ * capturada vale para siempre. Lo que cubre ese hueco no es esta función, es la deduplicación en
+ * `pasarela_eventos` y la relectura del pago antes de aplicar.
+ */
+export function verificarFirmaDlocal(
+  raw: string,
+  header: string | null,
+  claves: { apiKey: string | null; secret: string | null },
+): FalloFirmaPasarela | null {
+  if (!claves.apiKey || !claves.secret) return 'sin-secreto';
+  if (!header) return 'faltan-headers';
+  // El prefijo se compara sin distinguir mayúsculas y tolerando espacios de más: lo que autentica es
+  // el HMAC, y rechazar por un espacio dejaría afuera tráfico legítimo si dLocal cambia el formato.
+  const i = header.toUpperCase().indexOf('SIGNATURE:');
+  if (!header.toUpperCase().trimStart().startsWith('V2-HMAC-SHA256') || i < 0) return 'faltan-headers';
+  const recibida = header.slice(i + 'SIGNATURE:'.length).trim();
+  // Hex de 64: otra forma es «faltan-headers» y no «no-coincide», para que el log distinga «dLocal
+  // cambió el formato» de «la clave está mal» (el mismo criterio que en Creem).
+  if (!/^[0-9a-fA-F]{64}$/.test(recibida)) return 'faltan-headers';
+  return igualHex(hmacHex(claves.secret, manifiestoDlocal(claves.apiKey, raw)), recibida) ? null : 'no-coincide';
+}
+
+/** La firma que pondría dLocal Go (para los tests y para probar el endpoint a mano). */
+export const firmarDlocal = (raw: string, claves: { apiKey: string; secret: string }): string =>
+  `${PREFIJO_FIRMA_DLOCAL}${hmacHex(claves.secret, manifiestoDlocal(claves.apiKey, raw))}`;

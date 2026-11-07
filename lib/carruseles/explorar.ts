@@ -27,6 +27,7 @@ import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
 import { conVariedad } from './variedad';
+import { sinRepetidos } from './duplicados';
 import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
@@ -352,8 +353,13 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
   });
   // Un anuncio no tiene outlier: «Mayor outlier» es, para ellos, el que más días lleva al aire.
   const ordenados = ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
-  // Que un creador no llene la pantalla (./variedad.ts), salvo que se haya pedido ver a uno: por cuenta o por @.
-  return porCuenta(f) ? ordenados : conVariedad(ordenados, (c) => c.competidorId);
+  // Se pidió ver una cuenta (por la lista o por @): va entera, sin repartir ni juntar contenido repetido.
+  if (porCuenta(f)) return ordenados;
+  // Dos partes del mismo contenido no ocupan dos lugares de la grilla (./duplicados.ts): queda la que mejor rindió. En
+  // «Guardados» no se junta nada: lo que el negocio guardó se ve entero. Y recién después se reparte por cuenta
+  // (./variedad.ts), para que el reparto sea sobre contenidos distintos.
+  const unaVezCadaContenido = f.vista === 'guardados' ? ordenados : sinRepetidos(ordenados);
+  return conVariedad(unaVezCadaContenido, (c) => c.competidorId);
 }
 
 /** ¿Se está mirando a una cuenta en particular? (ahí no se reparte: se pidió ver a ésa). */
