@@ -12,7 +12,7 @@
 // cualquiera que tenga el chat.
 //
 // Hoy el cerebro NO las lee (medido el 7/11 recorriendo sus imports: alcanza 46 de 187 tablas del cliente, y
-// ninguna de éstas). Esto está acá para que siga siendo así el día que alguien cumpla el pedido literal.
+// ninguna de éstas). Esto está aquí para que siga siendo así el día que alguien cumpla el pedido literal.
 //
 // ⚠️ NO ES UNA LISTA DE «DATOS SENSIBLES». Los mensajes de WhatsApp, las llamadas grabadas y los emails
 // también lo son, y ésos SÍ pueden entrar: son el contenido del negocio, que es justamente lo que el cerebro
@@ -28,12 +28,12 @@
  * Las tablas que el Second Brain NO puede alcanzar, con por qué cada una.
  *
  * El criterio para sumar una: **¿lo que guarda sirve para hacerse pasar por el cliente o entrar a sus
- * cuentas?** Si la respuesta es sí, va acá, aunque sea un hash — un hash de un código de 6 dígitos se
+ * cuentas?** Si la respuesta es sí, va aquí, aunque sea un hash — un hash de un código de 6 dígitos se
  * rompe en segundos, y un prefijo de token le dice a quien lo vea cuál token buscar.
  */
 export const NUNCA_LEE: Readonly<Record<string, string>> = {
   credenciales:
-    'Las claves API del negocio. `valor_enc` es AES-256-GCM que ESTA app descifra: «va cifrado» no protege nada acá.',
+    'Las claves API del negocio. `valor_enc` es AES-256-GCM que ESTA app descifra: «va cifrado» no protege nada aquí.',
   credenciales_auditoria:
     'El registro de quién tocó cada credencial y cuándo. No trae el valor, pero sí el mapa de qué tiene conectado y quién entra.',
   ia_pc_codigos:

@@ -67,7 +67,7 @@ function tablasQueAlcanza(): { tablas: Set<string>; archivos: number } {
 }
 
 test('el recorrido lee algo: si no, los otros tests pasan por vacíos', () => {
-  // Un verde construido sobre cero archivos es el peor resultado posible acá: diría «no toca credenciales»
+  // Un verde construido sobre cero archivos es el peor resultado posible aquí: diría «no toca credenciales»
   // porque no tocó nada. Primero se comprueba el denominador.
   const { tablas, archivos } = tablasQueAlcanza();
   assert.ok(archivos > 50, `sólo recorrí ${archivos} archivos desde ${ENTRADA}: ¿se movió el punto de entrada?`);
@@ -85,7 +85,7 @@ test('⚠️ el Second Brain NO alcanza ninguna tabla de credenciales', () => {
 test('la lista prohibida sigue siendo de AUTENTICACIÓN, no de «datos sensibles»', () => {
   // ⚠️ La distinción decide si una tabla nueva va o no. Los mensajes de WhatsApp, las llamadas grabadas y los
   // emails también son sensibles y SÍ pueden entrar: son el contenido del negocio, que es lo que el cerebro
-  // tiene que conocer. Si alguien mete una de ésas acá, el cerebro se queda sin la mitad de su material.
+  // tiene que conocer. Si alguien mete una de ésas aquí, el cerebro se queda sin la mitad de su material.
   for (const t of ['grupo_mensajes', 'llamadas_grabadas', 'email_mensajes', 'leads', 'ig_mensajes']) {
     assert.equal(puedeEntrarAlCerebro(t), true,
       `«${t}» quedó prohibida: es contenido del negocio, no material de autenticación — el cerebro lo necesita`);
@@ -98,7 +98,7 @@ test('la lista prohibida sigue siendo de AUTENTICACIÓN, no de «datos sensibles
 });
 
 test('las prohibidas existen de verdad: una lista con un nombre viejo no protege nada', () => {
-  // Si una tabla se renombra y acá queda el nombre viejo, el guard sigue en verde y ya no cuida nada.
+  // Si una tabla se renombra y aquí queda el nombre viejo, el guard sigue en verde y ya no cuida nada.
   const inquilino = leer('lib/tablas-de-inquilino.ts');
   for (const t of TABLAS_PROHIBIDAS) {
     assert.ok(inquilino.includes(`'${t}'`),
