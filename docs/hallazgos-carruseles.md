@@ -792,3 +792,85 @@ saltee — y saltear un paso es lo normal cuando hay un camino degradado.
 
 **Vive en:** `lib/carruseles/replica.ts` (`fasesSegunLaIA`) · `app/image-editor/carruseles/EditarCarrusel.tsx`
 · `tests/carruseles-replica.test.ts`.
+
+## Clonar es CONSERVAR, y pedir «el mismo estilo» es pedir lo contrario (7/11/2026)
+
+**Cómo empezó.** Se replicó un carrusel real de la biblioteca y se le mostró a Martín como logro. Su respuesta:
+«eso está horrible… la idea era replicar las imágenes… **ni siquiera la tipografía es igual, ni cómo se acomoda
+la letra**… ¿acaso no lo ves?».
+
+Tenía razón, y lo que salió no era una réplica: era otro carrusel que casualmente era beige.
+
+### Primero mi error de método, porque es el que se repite
+
+**Lo juzgué desde la grilla de páginas al 25 % de zoom**, donde ocho láminas beige con tipografía grande se ven
+todas parecidas, y escribí «respetó la estructura». Nunca puse original y copia **al lado, a tamaño real**. Si
+lo hubiera hecho, veía en dos segundos lo que vio él.
+
+**La regla: una copia se juzga al 100 %, al lado del original.** Un zoom al que el defecto no se ve no es una
+revisión — es una confirmación de lo que uno ya creía. Es la misma familia que «medir una propiedad no es ver».
+
+### La causa, y es una frase
+
+`promptDeClon` armaba: *«Una lámina de carrusel **con el mismo estilo visual** que la imagen de referencia…»*.
+
+**Pedir un ESTILO es pedir una interpretación.** El modelo hace exactamente lo que se le pide: algo con ese
+estilo. Conservar una imagen es otra orden, y hay que darla.
+
+### La comparación, medida el 7/11
+
+Misma referencia (la portada real de @growithalex, 97.875 me gusta), mismo pedido —cambiar **una** persona por
+Mauricio—, dos formas de pedirlo:
+
+| | resultado | US$ |
+|---|---|---|
+| **Diciendo primero qué NO se toca** | conservó la tipografía, el encabezado, el encuadre, el fondo, el «Pa» de Breaking Bad y la otra persona. Cambió **sólo** la cara pedida. | **0,0120** |
+| Dejando al modelo libre | la cara salió mejor, pero **redibujó todo**: cambió el encuadre, agrandó la tipografía y **rompió el texto del encabezado** — «CREATIVE STRATEGIST» → «GREATINE STRATEOIST», «©2026» → «©2023». | 0,0137 |
+
+**Y por eso el default es el que conserva, no el que hace mejores caras:** la diferencia entre los dos **no es
+calidad, es obediencia**. En una copia, un encabezado con el texto corrompido es inusable; una cara un 10 %
+menos parecida, no.
+
+**El prompt que funciona dice qué conservar ANTES que qué cambiar**, y nombra lo que más se rompe —tipografía,
+texto, encuadre—, porque lo que el prompt no nombra el modelo lo trata como decorado. Va en inglés: así se
+midió, y no se cambia de idioma sin volver a medir.
+
+### El largo NO era el enemigo, que es lo que yo creía
+
+`TOPE_PROMPT_CON_REFERENCIA` existía porque «con una imagen enfrente, el texto largo compite con ella». **Es
+verdad a medias.** Lo que compite es **describir el estilo con palabras**; **enumerar qué dejar quieto ancla en
+vez de competir**. El prompt que funcionó tiene ~470 caracteres; el que falló, menos.
+
+### ⚠️ Y el bug que casi entra con el arreglo
+
+El validador recibía el **prompt armado**, no el pedido de la persona. Con el preámbulo nuevo (211 caracteres)
+contra un tope de 240, **quedaba rechazado cualquier pedido**: el clonado no habría dejado pasar ni uno. Lo
+cazó un test que ya existía (`un pedido CORTO pasa, que es el caso normal`) — una guarda vieja protegiendo de
+un cambio que todavía no se había escrito. El contrato quedó escrito en la firma: valida **el pedido**.
+
+### Lo que esto dice del camino entero
+
+`lib/carruseles/replica.ts` **no sirve para lo que Martín pide**, y no por un bug: por diseño. Reconstruye un
+documento de texto editable, tiene escrita la regla de **no copiar las fotos del original**, y elige la
+tipografía de seis categorías (`sans`, `gruesa`, `condensada`, `serif`, `manuscrita`, `mono`), así que **nunca**
+va a coincidir con la del ejemplo.
+
+Son dos productos distintos y hay que ofrecer los dos:
+
+| lo que se quiere | el camino |
+|---|---|
+| **Una copia fiel** con un cambio puntual | editar la imagen de referencia (esto) |
+| Un documento con **los textos editables** | reconstruirlo (`replica.ts`) |
+
+**Y lo editable viene DESPUÉS de lo fiel**, no al revés: primero la imagen, encima las capas de texto. Al revés
+—texto primero, imagen nunca— es lo que produjo la réplica que se rechazó.
+
+### El silencio que lo hizo peor
+
+La réplica salió **sin una sola foto**, y hay un motivo mecánico: `conAvatar` sale de si el negocio tiene foto
+cargada (`fotoDelCliente(ws)`), y el workspace de la prueba no la tenía. Con `conAvatar: false` el prompt dice,
+textual, **«No pongas fotos ni personas»**. O sea: un negocio sin foto cargada recibe un carrusel de puro texto
+**y nadie se lo dice**. Eso hay que avisarlo antes de generar, como «Antes de generar» avisa en AI Avatar.
+
+**Vive en:** `lib/carruseles/clon-reglas.ts` · `tests/clon-desde-referencia.test.ts` ·
+`lib/carruseles/replica.ts` (el otro camino) · `lib/carruseles/replica-servidor.ts:215` (`conAvatar`).
