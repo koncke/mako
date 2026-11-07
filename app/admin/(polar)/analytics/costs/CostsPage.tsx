@@ -56,7 +56,13 @@ import { useRouter } from '@/app/_ui/Link'
 import { useMemo } from 'react'
 import { fmtPct } from './utils'
 
-export default function ClientPage({ vista }: { vista: VistaCostos }) {
+export default function ClientPage({
+  vista,
+  economia,
+}: {
+  vista: VistaCostos
+  economia: Economia
+}) {
   const router = useRouter()
   const dateRange = useMemo(() => rangoDelMes(vista.periodo), [vista.periodo])
   const previo = useMemo(
@@ -197,6 +203,70 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                   />
                 ))}
               </RankedList>
+            )}
+          </section>
+
+          {/* Unit economics — lo vivo cruzado con el fijo */}
+          <section>
+            <SectionHeader
+              title="Unit economics"
+              description={`Los clientes que pagan hoy, cruzados con el gasto fijo y lo que cuesta cobrar (${Math.round(PARTE_DE_COBRAR * 100)}%). La adquisición se reparte en los ${MESES_DE_VIDA} meses que dura un cliente.`}
+            />
+            {economia.clientes === 0 ? (
+              <EmptyState
+                icon={<BarChart2 />}
+                title="Todavía no hay clientes que paguen"
+                description="Sin clientes, el gasto fijo no se reparte entre nadie: no hay por cliente que mostrar."
+              />
+            ) : (
+              <RankedList>
+                <RankedListItem
+                  itemKey="clientes"
+                  rank={1}
+                  share={0}
+                  label={<Box flex={1} minWidth={0}><Text variant="title" truncate>Clientes que pagan</Text></Box>}
+                  stats={<Text as="span" variant="caption" color="muted">las pruebas no cuentan: no facturan</Text>}
+                  value={<Box width={96} justifyContent="end"><Text as="span" variant="default" tabularNums>{economia.clientes}</Text></Box>}
+                />
+                <RankedListItem
+                  itemKey="fijo-por-cliente"
+                  rank={2}
+                  share={0}
+                  label={<Box flex={1} minWidth={0}><Text variant="title" truncate>Gasto fijo por cliente</Text></Box>}
+                  stats={<Text as="span" variant="caption" color="muted">{`${fmt(fijoTuyo, 'usd')} repartidos entre ${economia.clientes}`}</Text>}
+                  value={<Box width={96} justifyContent="end"><Text as="span" variant="default" tabularNums>{economia.fijoPorCliente == null ? '—' : fmt(economia.fijoPorCliente, 'usd')}</Text></Box>}
+                />
+                <RankedListItem
+                  itemKey="deja-cliente"
+                  rank={3}
+                  share={0}
+                  label={<Box flex={1} minWidth={0}><Text variant="title" truncate>Lo que deja cada cliente</Text></Box>}
+                  stats={<Text as="span" variant="caption" color="muted">{`ya sin cobrar, IA y la parte del CAC (${fmt(CAC_USD / MESES_DE_VIDA, 'usd')}/mes)`}</Text>}
+                  value={<Box width={96} justifyContent="end"><Text as="span" variant="default" tabularNums>{economia.dejaCadaCliente == null ? '—' : fmt(economia.dejaCadaCliente, 'usd')}</Text></Box>}
+                />
+                <RankedListItem
+                  itemKey="resultado"
+                  rank={4}
+                  share={0}
+                  label={<Box flex={1} minWidth={0}><Text variant="title" truncate>Queda este mes</Text></Box>}
+                  stats={<Text as="span" variant="caption" color="muted">{economia.margen == null ? 'no pude leer lo facturado' : `${Math.round(economia.margen * 100)}% de margen`}</Text>}
+                  value={<Box width={96} justifyContent="end"><Text as="span" variant="default" tabularNums>{economia.resultadoDelMes == null ? '—' : fmt(economia.resultadoDelMes, 'usd')}</Text></Box>}
+                />
+              </RankedList>
+            )}
+            {economia.equilibrio != null && (
+              <Alert
+                variant={economia.faltanParaElEquilibrio === 0 ? 'success' : 'warning'}
+                title={economia.faltanParaElEquilibrio === 0 ? 'Punto de equilibrio pasado' : 'Todavía no llega al equilibrio'}
+                description={
+                  economia.faltanParaElEquilibrio === 0
+                    ? `Hacen falta ${economia.equilibrio} clientes para cubrir el fijo, y hay ${economia.clientes}.`
+                    : `Hacen falta ${economia.equilibrio} clientes para cubrir el fijo. Hay ${economia.clientes}: faltan ${economia.faltanParaElEquilibrio}.`
+                }
+              />
+            )}
+            {economia.avisos.length > 0 && (
+              <Alert variant="warning" title="Falta un dato" description={economia.avisos.join(' · ')} />
             )}
           </section>
 

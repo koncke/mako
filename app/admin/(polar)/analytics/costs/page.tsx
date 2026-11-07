@@ -5,7 +5,7 @@
 // ⚠️ SÓLO EL SUPER ADMIN, antes de leer nada (cruza todos los negocios).
 
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
-import { leerCostos } from '@/app/admin/_polar/datos/costos-server'
+import { leerCostos, leerEconomia } from '@/app/admin/_polar/datos/costos-server'
 import { esMes } from '@/app/admin/_polar/datos/costos'
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import { Alert } from '@/app/admin/_polar/orbit'
@@ -28,7 +28,11 @@ export default async function Page(props: {
   const periodo = pedido ?? hoy.toISOString().slice(0, 7)
   try {
     const vista = await leerCostos(periodo, hoy)
-    return <CostsPage vista={vista} />
+    // El gasto de IA del mes sale de los mismos días que pinta el gráfico, para que no haya dos
+    // números distintos en la misma pantalla.
+    const iaDelMes = vista.porDia.length ? vista.porDia.reduce((a, d) => a + d.usd, 0) : null
+    const economia = await leerEconomia(iaDelMes)
+    return <CostsPage vista={vista} economia={economia} />
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e)
     return (
