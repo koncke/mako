@@ -2,7 +2,6 @@ import { assetsApi, commentsApi, isApiError, shareApi } from '@/app/image-editor
 import type { AccountReason, EditorAdapter } from '@/app/image-editor/_doory/types/adapter'
 import type { FontFamily, ShareRole } from '@/app/image-editor/_doory/types/api'
 import { ReadOnlyDesignError, RevisionConflictError } from './errors'
-import { createRealtimeConnection } from './realtime'
 import { assetToRef, createAccountAssetsService, createPublicServices, createViewerLookup } from './services'
 
 export interface SharedAdapterOptions {
@@ -15,29 +14,13 @@ export interface SharedAdapterOptions {
   ensureSignedIn(reason: AccountReason): Promise<boolean>
   /** Uploaded font families that came with the shared design (`fonts` of `GET /shared/{token}/`). */
   fonts?: readonly FontFamily[]
-  /**
-   * Joins the design's live room: the design id (`design_id` of `GET /shared/{token}/`) and the shell's sign-in flow. Only for
-   * visitors who are signed in; everybody in a room is, so anonymous visitors keep the static view.
-   */
-  live?: { designId: string; requireSignIn(): Promise<boolean>; refreshSession?(): Promise<boolean> }
 }
 
 /** Adapter for `/s/:token`. View and comment links never write; edit links patch through the share token. */
 export function createSharedAdapter(options: SharedAdapterOptions): EditorAdapter {
   const canEdit = options.role === 'edit'
   const publicServices = createPublicServices()
-  const realtime = options.live
-    ? createRealtimeConnection({
-        designId: options.live.designId,
-        auth: { token: options.token, password: options.password },
-        setTitle: null,
-        requireSignIn: options.live.requireSignIn,
-        refreshSession: options.live.refreshSession,
-        onRevision: options.onRevision,
-      })
-    : null
   return {
-    realtime,
     async save({ document }) {
       if (!canEdit) throw new ReadOnlyDesignError()
       try {

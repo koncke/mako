@@ -9,7 +9,6 @@ import { t } from '../strings'
 import { IconButton } from '../ui/Button'
 import { Skeleton } from '../ui/Skeleton'
 import { PageSizeChip } from './PageSizeChip'
-import { PresenceLayer } from './PresenceLayer'
 import { usePageSnapshot } from './useSnapshot'
 import styles from './PageSlot.module.css'
 
@@ -182,7 +181,6 @@ export const PageSlot = memo(function PageSlot({ page, index, total, width, heig
         {live ? <div ref={hostRef} className={styles.host} role="img" aria-label={t.workspace.canvasLabel(index + 1)} /> : null}
         {(loading || (!live && !snapshot)) && page.objects.length > 0 ? <Skeleton className={styles.skeleton} height="100%" width="100%" radius={0} /> : null}
         {page.objects.length === 0 && !loading ? <p className={styles.empty}>{t.workspace.emptyHint}</p> : null}
-        <PresenceLayer pageId={page.id} zoom={zoom} />
       </div>
     </section>
   )

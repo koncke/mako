@@ -149,7 +149,7 @@ port, y su tamaño:
 | 5 | `editor/dialogs` y `editor/ui` | 57 / 5.521 | 32 tocados (Descargar, los menús) |
 | 6 | `editor/toolbar`, `drawers`, `fonts`, `presenter` | 58 / 6.617 | Menos tocados |
 | último | `editor/engine` (el envoltorio de fabric.js) | 107 / 14.924 | El corazón: lo más grande y lo menos tocado |
-| se borra | `editor/collab` | 18 / 4.396 | La co-edición está apagada (decisión 6 de docs/diseno-editor-imagen.md): borrarlo no es reemplazarlo |
+| ~~se borra~~ **hecho (6/11)** | `editor/collab` | 19 / 4.436 | La co-edición está apagada (decisión 6 de docs/diseno-editor-imagen.md): borrarlo no es reemplazarlo. Borrada en `punta/collab-fuera`: 41 archivos y 5.470 líneas, porque el motor tenía la costura (abajo, «Borrar la co-edición no era lo más barato») |
 
 Cada parte reemplazada se escribe desde lo que hace (el comportamiento de Canva), no copiando y renombrando su código:
 renombrar no deja de ser derivado.
@@ -1156,3 +1156,71 @@ resolvió, y su `refs` apunta a una vista del documento que ya no es la de ahora
 propio. El `aviso` se dibuja con `role="alert"` y un «reportar a soporte» al lado (`PanelMakoIA.tsx`): usarlo para un
 reemplazo normal convierte en falla algo que no lo es. La tarjeta se apaga a «Descartado» justo arriba del pedido nuevo, y
 en ese contexto se lee solo.
+## Borrar la co-edición no era lo más barato: el borrado llega al MOTOR (6/11/2026, claude1, `punta/collab-fuera`)
+
+**Vive en:** `app/image-editor/_doory/editor/engine/editor.ts` y `engine/persistence.ts` · `engine/pageCanvas.ts` ·
+`types/adapter.ts` · `features/editor/adapters/{accountAdapter,sharedAdapter}.ts`
+
+El encargo 146 del barrido del 6/11 lo describía como «la forma más barata y rápida de reducir el código con licencia
+ajena»: 18 archivos y 4.396 líneas de `editor/collab/`, con 20 archivos de afuera que la referencian. Medido al hacerlo:
+**41 archivos y 5.470 líneas**, y lo que lo encarece no es el tamaño.
+
+- ⚠️ **Diagnóstico obvio equivocado: «`collab/` es una hoja del árbol, se poda y listo».** No es una hoja: el motor tiene
+  una COSTURA hecha para ella. `engine/editor.ts` traía `LiveSession` y `LocalChange` (dos interfaces), el campo
+  `private live`, `attachLive`, `liveSession`, `setLiveReadOnly`, `liveReadOnly`, `setRemoteEditLocks`,
+  `editBlockedHandler`, `refreshHistoryStatus`, `applyRemoteDocument`, y una rama `if (this.live)` en los DOS `push` al
+  historial, en `loadDocument`, en `canResetDesign`, en `updateHistoryStatus`, en `sealHistory` y en `undo` / `redo`.
+  O sea: borrar la co-edición es operar el historial de deshacer, que es lo último que la tabla de «Reemplazar `_doory/`
+  de a poco» (29/10, acá arriba) dejó para el final a propósito — «el corazón: lo más grande y lo menos tocado». Barato
+  en líneas que se van; caro en dónde hay que cortar.
+- ⚠️ **Y la lista de archivos a desenchufar NO sale de un `grep collab`.** De los 20 que nombraba el encargo, **nueve
+  sólo lo dicen en un comentario** (`animation/playback.ts`, `audio/runtime.ts`, `dialogs/Presenter.tsx`,
+  `engine/pageCanvas.ts`, `panels/{AnimatePanel,AudioTracks,NotesBar}.tsx`, `presenter/{pageProps,timing}.ts`) y **uno
+  era un falso positivo**: `mako/elementos-lista.ts` tiene un ícono que se llama `'collaboration'`. Y le faltaban
+  **cinco que sí importan**, porque en el código se llaman por la presencia y no por la co-edición:
+  `workspace/usePresenceTracking.ts`, `features/editor/adapters/realtime.ts` (huérfano: nadie lo importaba),
+  `workspace/Workspace.tsx` (monta `FollowBadge` y llama `usePresenceTracking`) y `workspace/PageSlot.tsx` (monta
+  `PresenceLayer`), más los tres `.module.css` de esos componentes. La lista sale de **quién IMPORTA la carpeta, y
+  después quién importa a ésos**, nunca de la palabra.
+- **Lo que se borró entero:** `editor/collab/` (19 archivos, 4.436 líneas — no 18 / 4.396: la tabla del 29/10 quedó
+  corta en un archivo), la UI que existía sólo para la presencia (`chrome/FollowBadge.tsx`, `chrome/PresenceStack.tsx`,
+  `workspace/PresenceLayer.tsx`, `workspace/usePresenceTracking.ts` y sus `.module.css`) y
+  `features/editor/adapters/realtime.ts`. Con `setRemoteEditLocks` fuera, los candados de texto de `pageCanvas.ts`
+  (`editLocks`, `setEditLocks`, `onEditBlocked` del host) se quedaban sin quién los llene: se fueron también, y
+  `configure` deja el `editable = true` explícito en vez de depender del default de fabric.
+- **Un mensaje de pantalla vivía adentro de los textos de la co-edición** (`t.collab.titleNotSaved`, «No se pudo guardar
+  el título nuevo.»), y lo usaba `engine/persistence.ts`. No hubo que mudarlo porque murió con el camino que lo mostraba
+  (`saveLiveTitle`, que sólo corre con una sala viva), pero es el modo en que un texto desaparece sin que nada avise:
+  antes de borrar una carpeta de `strings`, se mira quién la lee desde AFUERA.
+- **Y el `realtime` del adaptador era un enchufe de MaKo también.** `types/adapter.ts` declaraba
+  `realtime?: RealtimeConnection | null` y la interfaz entera (24 líneas); `mako/adaptadorNube.ts` nunca lo seteó
+  (decisión 6), así que el camino estaba muerto desde el port. Los dos adaptadores propios de Doory
+  (`accountAdapter`, `sharedAdapter`) sí lo armaban, y no los alcanza ninguna pantalla de MaKo: sólo se re-exportan
+  desde `features/editor/adapters/index.ts`, que nadie importa. Lo que MaKo usa de esa carpeta son `errors`, `images` y
+  `migrateLocalDesign`.
+- **Lo que se queda y no es nuestro:** `features.realtime` y `limits.realtime_max_participants` de
+  `types/api.ts` describen el JSON del servidor Django de Doory, no código que corra acá.
+- **Trampa del entorno, otra vez el CRLF:** los archivos del port están en CRLF (`core.autocrlf=true`), así que un
+  `perl -0pe 's/…\n…/…/'` de varias líneas **no calza y no falla**: deja el archivo igual y sigue. Va `\r?\n` en todo
+  patrón multilínea, o se edita por coincidencia exacta. Es la misma regla que AGENTS.md ya tiene para las guardas y los
+  tests que leen fuente — vale también para EDITAR.
+- Regla: la co-edición no vuelve por la puerta de atrás. Si algún día se quiere, se diseña desde lo que hace (como
+  cualquier parte que se reemplaza), no reponiendo `LiveSession` en el motor.
+
+- **Lo que el typecheck NO ve, y acá casi muerde: `tests/image-editor-dependencias.test.ts` tiene un umbral de CONTEO**
+  (`vistos.length > 300`, puesto para que el barrido no quede mirando una carpeta vacía). Un borrado grande lo voltea sin
+  tocar un tipo: hoy quedan 459 archivos `.ts/.tsx` y pasa, pero se cuenta ANTES de borrar en masa. Y ese guard es de UNA
+  sola dirección —todo lo importado tiene que estar declarado, no al revés—, así que **ningún test caza un paquete
+  declarado que ya nadie importa**: el `yjs` huérfano de acá abajo no lo encuentra nada automático.
+- **Once comentarios quedaron hablando de «collaborators»**: `animation/playback.ts`, `audio/runtime.ts`,
+  `presenter/{pageProps,timing}.ts`, `panels/{AnimatePanel,AudioTracks,NotesBar}.tsx`, `dialogs/Presenter.tsx`,
+  `engine/pageCanvas.ts` y `workspace/{TimelineTracks,TimelineAudio}.tsx` — los dos últimos no estaban ni en la lista del
+  encargo, que decía veinte. No se borraron a propósito: explican POR QUÉ el modelo de datos es como es (una propiedad
+  por entrada, nada en `undefined`), y esa forma quedó aunque la capa que la pedía no esté. Quien los lea tiene que saber
+  que la co-edición ya no existe.
+
+**Lo que quedó SIN hacer:** `yjs` (^13.6.27), `y-protocols` (^1.0.7) y `lib0` (^0.2.114) quedaron **huérfanos en
+`package.json`** (líneas 62, 95 y 96): ya no los importa nadie. No se sacaron en este commit a propósito —
+`package.json` sin el lock rompe el `npm ci` de Vercel, y regenerar el lock desde un worktree es justo la trampa de la
+decisión 8 (el `node_modules` compartido tiene paquetes puestos a mano). Se saca con `npm install --package-lock-only`
+en el CLON, mirando antes `npm ls --depth=0 | grep extraneous`, y en un commit propio que se pueda revertir solo.
