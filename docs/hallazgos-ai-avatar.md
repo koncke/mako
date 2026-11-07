@@ -312,3 +312,58 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   la regla «todo MaKo por la API». **Vive en:** `lib/api-mako/areas/video.def.ts`.
 - **El chat de MaKo no sabe hacer nada de AI Avatar todavía.** Va fijo a la izquierda (la tarjeta de PantallaCrear), pero no tiene herramientas para elegir un preset ni generar, y la
   pantalla compartida no le pasa lo que se ve (`pantalla`): lo que se le pide lo reparte el Cerebro como cualquier mensaje. **Vive en:** `app/_chat/MakoEnLaTab.tsx` y el registro de la API.
+
+## HeyGen no REPLICA el avatar: ANIMA la foto real. Son dos técnicas distintas (7/11/2026)
+
+**Cómo se llegó acá.** Martín pidió clonar piezas de la competencia partiendo de una referencia. Generé un
+anuncio de Mauricio tres veces y las tres me dijo que no era él. La tercera vez preguntó lo correcto: «fíjate
+cómo hace el proceso HeyGen, que replica avatares».
+
+**La respuesta, y explica los tres fracasos:** el Avatar IV de HeyGen es un motor **de foto a video**. Toma UNA
+foto y le mueve la cara según el audio. **La cara nunca se vuelve a dibujar: son los píxeles reales de la
+persona.** Por eso sale idéntica.
+
+Lo que yo hacía era otra cosa: pedirle a un modelo de difusión que **redibujara** a la persona en una escena
+nueva. Eso **siempre** reinterpreta la cara. **No es un problema de prompt ni de modelo: es la técnica
+equivocada para ese objetivo**, y ninguna cantidad de ajuste del prompt lo arregla.
+
+| Lo que se quiere | La técnica |
+|---|---|
+| Que la persona sea **ella** | **Animar** la foto real (foto→video, lip-sync). La identidad no se genera. |
+| Una escena, un fondo, un B-roll | **Generar** (texto→imagen, imagen→imagen). Acá la deriva no importa. |
+
+**Para MaKo:** la cara del cliente sale de su foto; todo lo demás se genera. Mezclarlos en una sola llamada es
+pedirle al generador que haga las dos cosas, y la que pierde es siempre la cara. Es, además, exactamente el
+método que enseña Avatar Hype: lip-sync para la parte hablada y generación para el resto.
+
+**Las piezas que existen en ApiMart para esto** (el catálogo tiene 52 modelos de video): `seedance-2.0-face`,
+`seedance-2.0-fast-face` y `MiniMax-H3-Context-IR`. Las variantes **`-face`** son otra familia que las de
+generación libre: están hechas para preservar identidad. **Las que yo usaba no.**
+
+### ⚠️ Y el error de fondo: tomé dos generaciones por fotos reales, dos veces seguidas
+
+Usé `public/anuncios/anuncio-1.jpg` y después la foto de perfil del ws 1 como «la foto de Mauricio». Las dos
+eran generadas. El clon salía pareciéndose al original porque **el original ya era un clon**: estaba midiendo
+la deriva de una cadena, no el parecido con la persona. Es exactamente lo que el curso del avatar de Mauricio
+marca como «el error más caro de toda la producción»: **«nunca referencies IA con IA»**.
+
+**Cómo se distingue, que es lo que me faltaba:** Martín lo vio a simple vista por **el fondo**. Un retrato de
+estudio con degradado gris parejo y recorte perfecto es casi siempre generado. Una foto real trae desorden:
+ventanas, plantas, sillas, manos con reloj, luz despareja.
+
+**DÓNDE ESTÁ LA FOTO REAL, y no es donde parece:**
+
+- ✅ **`archivero/1/persona/…`** (bucket PRIVADO). Ahí están las fotos que cargó la persona. Cuál es la buena
+  lo dice `app_settings` → **`flow.caras`**, que nombra la que está registrada en Flow como fuente de identidad.
+- ❌ **`avatars/`** NO sirve para esto: ese bucket **no prefija por workspace**, así que mezcla los avatares de
+  todos los negocios y además guarda los generados. Una consulta por nombre devuelve la cara de otra persona.
+  Me pasó: bajé un avatar creyendo que era de Mauricio y era de otro.
+- ❌ **`user_avatar_url`** del ws 1 apunta a una imagen GENERADA. Es la foto de perfil de la app, no una fuente
+  de identidad.
+
+**La regla:** antes de usar una imagen como referencia de identidad hay que saber **de dónde salió**. Si no se
+puede decir quién la sacó y con qué, no sirve como ancla — y el resultado va a parecerse a algo que no es la
+persona, sin que nada avise.
+
+**Vive en:** `archivero/1/persona/` · `app_settings.flow.caras` (ws 1) ·
+`app/conocimientos/curso-avatar-app.ts` (clase 1, «nunca referencies IA con IA») · `lib/curso-avatar.ts`.
