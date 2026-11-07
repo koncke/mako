@@ -16,7 +16,11 @@
 //   4. `apify-spy` (1/11/2026): la clave del propio negocio para Competitors Spy (`APIFY_CLAVE_DE_SPY`). Sólo si quien llama la pide por
 //      nombre, y hoy la pide sólo lib/spy.ts: no es la fuente 3, y no despierta nada del Leads Scraper retirado.
 //      Con VARIAS claves de Spy (5/11/2026) Spy pide además `variasClaves`: si la 1 se queda sin crédito, pasa a la siguiente
-//      (`clavesApifyDeSpy`, abajo). El alta del CRM no lo pide: con ella, la 1 sola, como siempre.
+//      (`clavesApifyDeSpy`, abajo). El alta del CRM NO lo pide: con ella, la 1 sola, como siempre.
+//      ⚠️ Lo intenté cambiar el 7/11/2026 y estaba mal. Que la lista se recorra con `conLaPrimeraConCredito` —una
+//      cascada, no un abanico— prueba que no cuesta más POR LLAMADA, y eso me alcanzó para creerlo gratis. No lo es:
+//      las claves extra las cargó el cliente PARA SPY, y gastárselas desde el CRM le come el crédito del día. La
+//      pregunta no era cuánto cuesta, era de quién es el presupuesto.
 // Sin ninguna fuente que conteste, `ok: false` con el motivo: quien llama lo DICE (nunca inventa un perfil).
 // NUNCA TIRA.
 // =============================================================================

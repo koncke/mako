@@ -203,3 +203,37 @@ guard para todo el runner, con cada string que se le agregue después.
 
 **Vive en:** `tests/puente-panel-copy.test.ts` (`archivosDelRepo`, `FUERA_DE_ALCANCE`) ·
 `lib/api-mako/areas/video.run.ts:363` · *2026-09-16 api-mako-areas*
+
+## Un verde de ANTES de escribir el archivo no dice nada sobre el archivo (7/11/2026)
+
+**Lo que pasó.** Corrí `tests/puente-panel-copy.test.ts` sobre unos cambios, dio verde, y lo tomé como «el
+guard de voz está cubierto». Después creé `lib/cerebro-nunca-lee.ts`, lo pushee, y la punta salió **roja** por
+ese mismo guard.
+
+**Por qué es obvio sólo después:** ese test no mira un diff ni los archivos que tocaste — **recorre los
+archivos DEL REPO**. Un archivo nuevo entra en su alcance recién la vez que el test se corre **después** de
+que el archivo existe. El verde anterior era verdadero y era sobre otro conjunto de archivos.
+
+**La regla:** un test que escanea el repo se vuelve a correr **después** de crear archivos, no antes. Vale
+para todos los de esta familia —el guard de voz, el de tokens `var(--fs-*)`, el de rutas de public, el del
+índice de hallazgos—: ninguno sabe de tu diff.
+
+### Y lo que lo cazó, que importa para el que escriba el próximo módulo
+
+La marca fue **«acá»**. No estaba sólo en un comentario: estaba dentro de un **string** —el motivo que
+acompaña a `credenciales` en `NUNCA_LEE`—, o sea texto que puede terminar en un error que lee un cliente. El
+guard tiene razón: va «aquí».
+
+**Dato para no perder tiempo buscándola a mano:** el detector es `marcasDeVoseo` (`lib/voseo.ts`) y se puede
+correr suelto sobre cualquier archivo, sin el runner de tests:
+
+```
+node --import tsx -e "import('./lib/voseo.ts').then(async m => { const fs = await import('node:fs'); console.log(m.marcasDeVoseo(fs.readFileSync('lib/mi-archivo.ts','utf8'))) })"
+```
+
+Esto sirvió el 7/11 justamente porque la RAM estaba en 1,9 GB y el runner de tests pide 3: **el detector solo
+entra donde la tanda no**. Antes daba `["acá"]`, después `[]`.
+
+**Ojo con grepear voseo a mano:** un patrón como `sos\b` matchea «ésos», y `vos\b` matchea dentro de otras
+palabras. Mis primeros tres «hallazgos» fueron todos falsos positivos. El detector del repo conjuga; una lista
+a mano, no.

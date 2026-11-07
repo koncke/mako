@@ -67,8 +67,6 @@ export interface PageCanvasHost {
   onEditingChange(pageId: string, editing: boolean): void
   onPlaceholderActivate(pageId: string, id: string): void
   onToolDone(): void
-  /** The user tried to edit the text of an object somebody else is editing. */
-  onEditBlocked(pageId: string, id: string): void
 }
 
 export interface OverlayState {
@@ -117,7 +115,6 @@ export class PageCanvas {
   /** Syncs of changes from elsewhere that have not finished; a local commit waits for them (see `settled`). */
   private pendingRemote = 0
   /** Objects whose text somebody else is editing right now. */
-  private editLocks: ReadonlySet<string> = new Set()
 
   constructor(
     private readonly host: PageCanvasHost,
@@ -420,12 +417,6 @@ export class PageCanvas {
     })
   }
 
-  /** The objects whose text somebody else is editing: they stay selectable and movable but cannot enter text editing. */
-  setEditLocks(ids: ReadonlySet<string>): void {
-    this.editLocks = ids
-    for (const o of this.canvas.getObjects()) if (o instanceof IText) o.editable = !ids.has(asDory(o).id ?? '')
-  }
-
   /** Leaves text editing, keeping what was typed. */
   stopEditing(): void {
     const active = this.canvas.getActiveObject()
@@ -435,7 +426,7 @@ export class PageCanvas {
   /** Per-object interactive configuration (selection style, lock, read-only). */
   configure(obj: FabricObject): void {
     ensureId(obj)
-    if (obj instanceof IText) obj.editable = !this.editLocks.has(asDory(obj).id ?? '')
+    if (obj instanceof IText) obj.editable = true
     obj.set(selectionStyle(this.host.theme))
     if (this.host.readOnly) {
       obj.selectable = false
@@ -771,8 +762,6 @@ export class PageCanvas {
       this.host.onTextCreate(this.pageId, { x: e.scenePoint.x, y: e.scenePoint.y, width: 0 })
       return
     }
-    const lockedId = asDory(target).id
-    if (target instanceof IText && lockedId && this.editLocks.has(lockedId)) this.host.onEditBlocked(this.pageId, lockedId)
     if (target instanceof Group && !(target instanceof ActiveSelection)) {
       const sub = e.subTargets?.[0] ?? target.getObjects().find((o) => o.containsPoint(e.scenePoint))
       this.enterGroup(target)

@@ -270,7 +270,30 @@ function anuncioDe(id: string, tramo: readonly Token[]): AnuncioLeido {
     titulo: titular ? titular.slice(0, TOPES.titulo) : null,
     destino: conDestino ? destinoDe(conDestino[1]) : null,
     miniatura,
+    medio: medioDeLaTarjeta(tramo),
   };
+}
+
+/**
+ * ¿La tarjeta dice que el anuncio es un VIDEO? (6/11/2026) Lo decía de dos formas y las dos se tiraban:
+ *   · el content script manda un token `'v'` por cada `<video>` dibujado, con su poster (extension/spy-leer.js), y acá se
+ *     usaba sólo como miniatura de respaldo;
+ *   · la Biblioteca escribe el tiempo del video sobre el creativo («0:15», «0:04 / 1:20») y `RE_TIEMPO_DE_VIDEO` lo saca
+ *     del copy para que no ensucie el texto, sin anotar lo que ese token significaba.
+ *
+ * ⚠️ Sin ninguna de las dos señales devuelve `null`, NO «imagen»: una tarjeta que todavía no cargó su video muestra sólo su
+ * portada como imagen, y afirmar «imagen» ahí es exactamente el error que esto viene a arreglar (un video en una pantalla de
+ * imágenes). Un «no se sabe» se muestra igual, pero contado aparte (lib/carruseles/anuncios.ts).
+ *
+ * El token `'v'` se exige del CDN de Meta, como la miniatura: lo que llega lo manda un navegador y no es de fiar.
+ */
+function medioDeLaTarjeta(tramo: readonly Token[]): Medio | null {
+  for (const x of tramo) {
+    if (x[0] === 'a' && esDelArmazon(x[1])) break;
+    if (x[0] === 'v' && esDelCdn(x[1])) return 'video';
+    if (x[0] === 't' && RE_TIEMPO_DE_VIDEO.test(x[1])) return 'video';
+  }
+  return null;
 }
 
 /** Los anuncios de lo dibujado, sin repetidos. Una tarjeta llega hasta la que sigue. */

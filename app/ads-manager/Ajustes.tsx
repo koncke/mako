@@ -23,6 +23,7 @@ import Link from '@/app/_ui/Link';
 import { Switch, Toast, useToast } from '@/app/_ui';
 import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
+import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
 import type { ConfigMediaBuyer, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
@@ -185,9 +186,10 @@ export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }:
           {/* Apagado igual pausa lo que llegó a su fecha: la fecha de fin vale con el Media Buyer apagado (main, 29/10). */}
           <FilaAjustes titulo="Encendido" detalle={config.encendido ? null : 'Apagado no mira tu cuenta ni lanza nada: sólo pausa lo que llegó a su fecha'}
             fin={<Switch checked={config.encendido} onChange={(v) => void guardar({ encendido: v })} />} />
+          {/* El cupo del plan: al cliente de una agencia el automático se lo habilita ELLA (6/11/2026, #494), no se le ofrece comprarlo. */}
           <FilaAjustes titulo="Modo"
             detalle={cupo.piloto ? <>Por táctica, en <Link href="/ads-manager/automatizaciones" className="aa-link">Automatizaciones</Link></>
-              : <>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'El automático es de MaKo Pro.'} <Link href={RUTA_CAMBIAR_PLAN} className="aa-link">Pasar a Pro</Link></>}
+              : <>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'El automático es de MaKo Pro.'} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} className="aa-link">Pasar a Pro</Link></CtaPasarAPro></>}
             fin={<Pastillas etiqueta="Modo" valor={config.modo} opciones={[['propone', 'Propone'], ['piloto', 'Automático']]}
               deshabilitada={(v) => v === 'piloto' && !cupo.piloto} onCambio={(v) => void guardar({ modo: v })} />} />
         </GrupoAjustes>

@@ -13,8 +13,8 @@
 //   · las PLANTILLAS REALES (6/11/2026, docs/plantillas-reales/image.md; lib/image-editor/plantillas-reales.ts): nueve
 //     piezas de un negocio ficticio del elenco (miniaturas, publicaciones, historias, anuncios y la clase), con la ESTRUCTURA
 //     en el documento que se crea y el ejemplo lleno en «Ver ejemplo». La miniatura la dibuja ../MiniaturaDiseno.tsx desde
-//     esa misma estructura. Reemplazan en «Nuevo diseño» a las 10 de Doory (bodas, conciertos, currículums), que siguen
-//     en el panel «Diseño» del editor y en la API;
+//     esa misma estructura. Reemplazaron a las 10 de Doory (bodas, conciertos, currículums), que el 6/11/2026 se
+//     BORRARON de todo el producto (eran material ajeno): no están acá, ni en el panel «Diseño», ni en la API;
 //   · los CARRUSELES DE MaKo POR TIPO (4/11/2026, lib/carruseles/tipos.ts: lista, paso a paso, historia, antes y después…),
 //     arriba de todo y en su sección: el documento trae la ESTRUCTURA (una guía de qué va en cada lámina) con el nombre del
 //     negocio en la cabecera, y el ejemplo lleno de un negocio ficticio se ve aparte («Ver ejemplo»). La miniatura la
@@ -37,8 +37,6 @@ export type PlantillaNuevoDiseno = PlantillaCrear & {
   alto: number;
   /** Cuántas páginas trae el diseño nuevo. */
   paginas: number;
-  /** El slug de la plantilla con diseño (./mako/plantillas.ts). Sin esto, el diseño nace en blanco. */
-  plantilla?: string;
   /** Un carrusel de MaKo por tipo (lib/carruseles/tipos.ts): el documento sale de su estructura, no en blanco. */
   carrusel?: IdTipoCarrusel;
   /** Una plantilla real (lib/image-editor/plantillas-reales.ts): el documento es su ESTRUCTURA. */

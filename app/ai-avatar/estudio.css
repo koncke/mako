@@ -258,3 +258,14 @@
 }
 .hf-barra-plan { display: flex; justify-content: center; }
 .hf-barra-plan:empty { display: none; }
+
+/* «Antes de generar», plegable (7/11/2026, plan.md T15). Medido a 1024 × 820: desplegada, el bloque pegado al
+   pie ocupaba 452 px de 820 —el 55 % de la pantalla— con 240 de esta tarjeta, y quedaba así todo el tiempo
+   que faltara un paso, que es justo cuando la persona está mirando los presets. */
+.hf-requisitos-cabecera { display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.hf-requisitos-resumen { flex: 1; min-width: 0; font-size: var(--fs-meta); font-weight: 600; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hf-requisitos-flecha { flex: none; display: inline-flex; color: var(--text-dim); transition: transform .18s var(--ease-out, ease); }
+.hf-requisitos-cabecera[aria-expanded="true"] .hf-requisitos-flecha { transform: rotate(180deg); }
+.hf-requisitos-cabecera[aria-expanded="true"] + .hf-requisitos-lista,
+.hf-requisitos-cabecera[aria-expanded="true"] ~ .hf-requisitos-lista { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .hf-requisitos-flecha { transition: none; } }

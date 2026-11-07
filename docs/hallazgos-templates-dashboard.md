@@ -760,3 +760,52 @@ tabla de candidatos está en docs/relevo/nube-dashboards.md).
   es temporal). Para Closing ya están copiados (§12).
 - **Closing sin probar contra la base de un cliente**: el diseño está en la punta `dash-closing-producto` (§13); falta
   crearlo en el ws3 y el ws1 y mirarlo con datos reales.
+
+## El índice decía que faltaba trabajo que estaba HECHO (7/11/2026)
+
+**El síntoma, y por qué nadie lo vio antes:** `docs/diseno/mockups-dashboard/index.html` anunciaba
+**«6 de 21»** y dibujaba quince hojas atenuadas, sin click, como si no existieran. En el disco había
+**dieciocho** construidas. Cada una se fue haciendo en su carpeta (`<hoja>/mako.html`) y nadie volvió al
+índice a marcarla.
+
+**Por qué importa tanto acá:** esta galería no es un listado interno. Su propio README dice que es donde
+Martín aprueba las hojas **«antes de que nada vaya al código»**. Así que doce hojas terminadas eran
+invisibles justo para la única persona que tiene que verlas — y lo que subía era «faltan quince
+dashboards», que es falso y además desalienta: parece que el trabajo no avanzó en una semana.
+
+**Y había una segunda capa, peor:** las seis que SÍ se veían apuntaban a los archivos **sueltos de la raíz**
+(`general.html`, `comercial.html`, `landing.html`…), que son los del lote 1 y quedaron atrás. Landing pesa
+**12 KB** ahí contra **46 KB** en `landing-corbel/mako.html`. O sea que de las seis visibles se estaba
+mirando la versión **anterior**, creyendo que era la actual.
+
+**El estado real, medido:** 18 construidas de 22 carpetas. Faltan cuatro, y son las que no tienen ninguna
+adaptación —sólo la copia de la referencia—: **Hooks y retención** (`hooks-ondra`), **VSL y YouTube**
+(`vsl-pelago`), **Inmobiliaria** (`inmobiliaria-torque`) y **Cold calling** (`cold-calling-corvane`). Las
+cuatro ahora abren su `copia.html` en vez de quedar muertas: la referencia copiada es lo único que hay de
+ellas y antes no se podía ni mirar.
+
+### La regla, que es lo que vale más que el arreglo
+
+**Un índice escrito a mano se desincroniza EN SILENCIO, y su modo de falla es el peor que existe: decir que
+falta trabajo que está hecho.** Nada falla, nada se pone rojo, no hay excepción ni log — simplemente no se
+ve. Y la conclusión que produce («esto no avanzó») es la contraria de la verdad, así que además dispara
+trabajo repetido.
+
+Es exactamente la misma familia que `docs/hallazgos.md` y su índice, que por eso se tocan **en el mismo
+commit**. La diferencia es que allá la regla es una costumbre y acá no alcanzaba: lo vigila
+`tests/mockups-dashboard-indice.test.ts`, que falla si una hoja construida no figura como hecha, si una
+marcada como hecha apunta a un archivo que no existe, si una carpeta del disco no aparece en ninguna fila
+(trabajo invisible), o si alguien vuelve a apuntar a los sueltos viejos de la raíz.
+
+**La trampa de verificación que lo dejó pasar tanto tiempo:** mirar la galería y contar lo que se ve
+CONFIRMA el índice, no lo contradice — la pantalla y el índice son la misma fuente. Lo que lo descubrió fue
+contar las **carpetas del disco** y cruzarlas contra la lista. Cuando una pantalla se dibuja a partir de una
+lista, mirar la pantalla no verifica la lista.
+
+**Vive en:** `docs/diseno/mockups-dashboard/index.html` · `tests/mockups-dashboard-indice.test.ts` ·
+las hojas, en `docs/diseno/mockups-dashboard/<hoja>/`.
+
+**Y un cabo suelto que conviene saber:** la rama `dashboard-denso-0111` (2/11, 3.498 líneas, sólo `docs/`)
+sigue fuera de `main` y **está SUPERADA**: trae la estructura plana vieja y main ya tiene la de carpetas, más
+desarrollada. Traerla haría retroceder el área. Se revisó el 7/11 y se decidió no mergearla; el README de la
+carpeta todavía describe la estructura plana y conviene actualizarlo cuando alguien lo toque.

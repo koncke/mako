@@ -9,17 +9,22 @@
 
 import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui';
+import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
 import { esTelefono } from '@/lib/telefono';
 import { RUTA_CAMBIAR_PLAN, textoTope } from '@/lib/topes-plan';
 
-/** El link «Pasar a Pro», al lado de un error de tope. */
+/** El link «Pasar a Pro», al lado de un error de tope. Lo usan el tablero, el alta de un lead y la barra del CRM. */
 export function PasarAPro() {
   // El teléfono no vende (T5, docs/tiendas-play-appstore.md): el alta de un lead se dibuja también en /m. Sale después de un error, nunca en el primer dibujo.
   if (typeof navigator !== 'undefined' && esTelefono(navigator.userAgent)) return null;
+  // Al cliente de una AGENCIA, el cambio de plan se lo pide a ella (6/11/2026, #494): el link le vendía un segundo plan
+  // del que su agencia ya paga. El texto del tope de al lado no cambia: llegó al tope igual.
   return (
-    <Link href={RUTA_CAMBIAR_PLAN} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-      Pasar a Pro
-    </Link>
+    <CtaPasarAPro>
+      <Link href={RUTA_CAMBIAR_PLAN} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        Pasar a Pro
+      </Link>
+    </CtaPasarAPro>
   );
 }
 

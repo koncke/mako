@@ -53,6 +53,8 @@
 .chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .espacio { flex: 1; }
 .total { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Lo que no se sabe del formato de un anuncio viejo: se dice, más apagado que el total. */
+.dudosos { opacity: 0.75; }
 .texto { border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; padding: 6px 6px; border-radius: 8px; white-space: nowrap; }
 .texto:hover { background: var(--velo-hover); }
 .texto:focus-visible { outline: none; box-shadow: var(--focus-ring); }
@@ -71,7 +73,12 @@
 .boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ── La grilla y la tarjeta ── */
-.grilla { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
+/* 268 px de mínimo daban CUATRO columnas en el banco (que dibuja la pieza sola y esconde la barra de scroll) y TRES en la app
+   real a 1440 con la barra lateral fija: 1440 − 244 (barra) − 10 (scroll `thin`, medido en Chrome 152) − 64 (el padding de
+   .col) = 1122 px de contenido, y cuatro columnas de 268 piden 1132. Faltaban 10 px, justo la barra de scroll. Con 258 entran
+   las cuatro (265 px cada una, la proporción de la referencia) y no cambia nada en el resto: a 1920, con la barra plegada o
+   sin barra siguen siendo cuatro de 299 px, y a 1280 con la barra siguen siendo tres. */
+.grilla { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
 /* Las miniaturas de YouTube (Thumbnails, 6/11/2026): 16:9, más anchas (3 columnas en 1440, como en YouTube). */
 .grillaAncha { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
 

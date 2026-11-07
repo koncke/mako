@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { IconRefresh, IconWrench } from './_shared/composer-icons';
 import { useConfirm } from '../_components/useConfirm';
+import { CtaPasarAPro } from '../_components/CtaPasarAPro';
 
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
 type Qr = { base64: string | null; code: string | null; pairingCode: string | null };
@@ -53,7 +54,10 @@ function CartelTope({ texto, pasarAPro }: { texto: string; pasarAPro: string }) 
   return (
     <div role="status" style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '9px', border: '1px solid var(--warn)', background: 'var(--warn-bg)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontFamily: "'Geist', sans-serif", fontSize: '13px', color: 'var(--ink)' }}>
       <span style={{ flex: '1 1 200px' }}>{texto}</span>
-      <a href={pasarAPro} style={{ padding: '7px 13px', borderRadius: '9px', background: 'var(--ink)', color: 'var(--surface)', fontWeight: 600, textDecoration: 'none' }}>Pasar a Pro</a>
+      {/* El cliente de una agencia no compra una línea más acá (6/11/2026, #494): el plan lo cambia su agencia, que ya se lo paga. */}
+      <CtaPasarAPro>
+        <a href={pasarAPro} style={{ padding: '7px 13px', borderRadius: '9px', background: 'var(--ink)', color: 'var(--surface)', fontWeight: 600, textDecoration: 'none' }}>Pasar a Pro</a>
+      </CtaPasarAPro>
     </div>
   );
 }

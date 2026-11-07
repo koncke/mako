@@ -6,6 +6,12 @@
 // (`erroresRed`) no entraban (lo midió el chat «IA del cliente»). Ahora: sin keys propias, se dice qué le pasó a la IA
 // gratis de MaKo y la salida es SU Claude (/integraciones?abrir=anthropic), que es lo primero que prueba esta cascada.
 // Con keys propias, la red no cambia nada: un 429 de la agencia nunca es de las keys del negocio.
+//
+// ⚠️ Y DESDE EL 6/11/2026 EL AVISO NO HABLA MÁS DE LA IA GRATIS DE MaKo: no puede pasarle nada, porque esa red ya no
+// corre para nadie — y no por una guarda sino por DOS que se excluyen entre sí (el porqué medido está en `sinIAPropia`,
+// lib/flujo-ia.ts). Las cuatro frases («llegó a su tope de hoy», «está al tope», «está saturada», «no contestó») le
+// pedían al cliente esperar un rato por un tope que no existe para él, en vez de conectar su IA. El ancla que las traería
+// de vuelta es el test de las dos guardas, que mira al revés que los demás: fija la RAZÓN, no el texto.
 // ⚠️ PROBADO ROMPIÉNDOLO: los números van al pie.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,19 +28,25 @@ const GROQ_TPD = 'groq/CHEAP_API_KEY: chatCheap(groq): Rate limit reached for mo
 const GEMINI_MINUTO = 'gemini/GEMINI_API_KEY: chatCheap(gemini): HTTP 429';
 const GEMINI_SATURADO = 'gemini/GEMINI_API_KEY: chatCheap(gemini): HTTP 503: This model is currently experiencing high demand';
 
-test('el caso del ws1: sin keys propias y la red al tope de hoy → «llegó a su tope de hoy», con el link a Claude', () => {
-  for (const red of [[GEMINI_DIA], [GROQ_TPD], [GEMINI_DIA, GROQ_TPD]]) {
+test('sin keys propias: la salida es conectar SU IA, pase lo que pase con la red (6/11/2026)', () => {
+  // ⚠️ Hasta el 6/11 esto afirmaba «La IA gratis de MaKo llegó a su tope de hoy»: un motivo que el cliente no puede tener
+  // (ver `sinIAPropia`, lib/flujo-ia.ts). Le decía «prueba en un rato» por un tope que no existe para él, en vez de
+  // mandarlo a conectar su IA, que es lo único que lo desbloquea.
+  for (const red of [[GEMINI_DIA], [GROQ_TPD], [GEMINI_DIA, GROQ_TPD], [GEMINI_MINUTO], [GEMINI_SATURADO], ['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']]) {
     const f = falloDeIA([], false, red);
-    assert.deepEqual(f, { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude o tu GPT para seguir.', link: '/integraciones?abrir=anthropic' });
+    assert.deepEqual(f, { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: '/integraciones?abrir=anthropic' });
   }
   assert.equal(LINK_CONECTA_CLAUDE, '/integraciones?abrir=anthropic');
 });
 
-test('sin keys propias: cada cosa que le pasó a la red se dice distinto, y siempre con la salida (su Claude)', () => {
-  assert.equal(sinIAPropia([GEMINI_MINUTO]).error, 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude o tu GPT.');
-  assert.equal(sinIAPropia([GEMINI_SATURADO]).error, 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude o tu GPT.');
-  assert.equal(sinIAPropia(['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']).error, 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude o tu GPT.');
-  // Sin red que probar (ninguna key de la agencia, o el ws del super admin): no tiene IA, y se dice así.
+test('ningún texto le dice al cliente que espere por la IA gratis de MaKo', () => {
+  const REDES = [[GEMINI_DIA], [GROQ_TPD], [GEMINI_MINUTO], [GEMINI_SATURADO], ['groq/CHEAP_API_KEY: socket hang up'], []];
+  for (const red of REDES) {
+    const e = sinIAPropia(red).error;
+    assert.doesNotMatch(e, /IA gratis de MaKo/, `«${e}» nombra un motivo que el cliente no puede tener`);
+    assert.doesNotMatch(e, /tope de hoy|est[áa] al tope|saturada|prueba en un rato/i, `«${e}» le pide esperar por algo que no se arregla esperando`);
+  }
+  // Sin red que probar: no tiene IA, y se dice así (es lo único que lo desbloquea).
   assert.deepEqual(sinIAPropia([]), { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: LINK_CONECTA_CLAUDE });
   // La red salteada a propósito: con su propio Claude (D6b), o porque el pedido lleva datos de clientes.
   assert.equal(sinIAPropia(['red gratis salteada: el negocio usa su propia IA (su Claude o su GPT)']).error,
@@ -90,6 +102,53 @@ test('el camino real: `generar` le pasa los errores de la red, y el aviso nombra
   }
 });
 
+test('las DOS guardas de la red gratis se excluyen: si alguien las hace compatibles, vuelven los cuatro textos', () => {
+  // ⚠️ ESTE ES EL ANCLA DEL 6/11/2026, y mira al REVÉS que los demás: no fija que los textos estén, fija la RAZÓN por la
+  // que se fueron. Si la red gratis vuelve a poder correr, el cliente otra vez puede toparse con su tope y el aviso tiene
+  // que volver a decírselo — y el que la reviva se entera acá, no por un cliente.
+  const cheap = leer('lib/ai-cheap.ts');
+  // (1) La red sólo devuelve proveedores DENTRO del workspace del super admin.
+  const prov = cheap.slice(cheap.indexOf('export async function provsGratisDePlataforma('), cheap.indexOf('\n}\n', cheap.indexOf('export async function provsGratisDePlataforma(')));
+  assert.match(prov, /if \(\(await getWorkspaceActual\(\)\.catch\(\(\) => null\)\) !== ws\) return \[\];/,
+    'la red gratis volvió a correr para un negocio: `sinIAPropia` tiene que volver a decir qué le pasó');
+  // (2) Y TODOS sus llamadores corren sólo cuando el workspace en curso NO es el del super admin: la condición contraria
+  //     a la de (1). Medido el 6/11: son cuatro (`chatCheapCascade`, el contador `hayRed`, el lector de documentos y
+  //     `transcribirAudio`) y los cuatro están detrás de esa guarda. Se chequean TODOS, no «el único»: la primera versión
+  //     de este test decía «el único llamador» y había cuatro — lo cazó la rotura, no la lectura.
+  const lineas = cheap.split('\n');
+  const DECLARA = /^export async function provsGratisDePlataforma\($/;
+  const RECURSIVA = /conD6bDelPedido\(null, \(\) => provsGratisDePlataforma\(uso\)\)/;
+  const SOLO_FUERA_DEL_SA = /wsActual !== wsSA|\) !== sa\b/;
+  const llamadas = lineas.map((l, i) => [l, i] as const)
+    .filter(([l]) => /provsGratisDePlataforma\(/.test(l) && !DECLARA.test(l) && !RECURSIVA.test(l));
+  assert.ok(llamadas.length >= 1, 'no quedó ningún llamador de la red: `provsGratisDePlataforma` es código muerto entero');
+  /** Los `{` que ENCIERRAN a esa línea, de adentro hacia afuera, por sangría (no por distancia: la guarda de
+   *  `chatCheapCascade` está 50 líneas arriba, detrás de un bloque de comentarios y del crédito de la plataforma). */
+  const sangria = (l: string) => /^\s*/.exec(l)![0].length;
+  const encierran = (i: number): string[] => {
+    const out: string[] = [];
+    let objetivo = sangria(lineas[i]!);
+    for (let j = i - 1; j >= 0 && objetivo > 0; j--) {
+      const l = lineas[j]!;
+      if (!l.trim() || sangria(l) >= objetivo) continue;
+      if (/\{\s*$/.test(l)) { out.push(l); objetivo = sangria(l); }
+    }
+    return out;
+  };
+  for (const [l, i] of llamadas) {
+    // Las dos líneas de arriba entran porque la guarda puede ser parte de la MISMA expresión y no un `if` que encierra
+    // (el contador `hayRed`: `sa != null && (await getWorkspaceActual()…) !== sa` y recién en el renglón siguiente la red).
+    const cadena = [l, ...lineas.slice(Math.max(0, i - 2), i), ...encierran(i)].join('\n');
+    assert.ok(SOLO_FUERA_DEL_SA.test(cadena),
+      `la red gratis se llama SIN la guarda «no es el super admin» en lib/ai-cheap.ts:${i + 1} (${l.trim().slice(0, 60)}…): ahora PUEDE correr, y los cuatro textos de «La IA gratis de MaKo…» hacen falta de vuelta`);
+  }
+  // (3) Lo único que todavía puede llegar en `red` es el crédito de Claude de la plataforma, y no para el armador de flujos.
+  const veto = leer('lib/veto-claude.ts');
+  const lista = veto.slice(veto.indexOf('export const CREDITO_HABILITADO_PARA'), veto.indexOf('];', veto.indexOf('export const CREDITO_HABILITADO_PARA')));
+  assert.doesNotMatch(lista, /chatbot-crear-ia/,
+    'el armador de flujos entró a CREDITO_HABILITADO_PARA: un fallo del crédito de MaKo ahora llega al aviso y hay que decirlo con sus palabras, no «no tienes una IA conectada»');
+});
+
 // ── Probado rompiéndolo (22/10/2026, romper.mjs) ───────────────────────────────────────────────────────────────────
 // Los números son «tests / fallan» de ESTE archivo con cada rotura.
 //   R1. `falloDeIA` sin la red (vuelve «No tienes ninguna IA gratis conectada»)   → 5 / 1
@@ -102,3 +161,13 @@ test('el camino real: `generar` le pasa los errores de la red, y el aviso nombra
 //   R8. entra el IA6 (la cascada usa `PROVS_SU_IA`) y el texto no cambia            → 5 / 1
 //   R9. un texto pierde «conecta tu Claude»                                         → 5 / 2
 //   R10. (25/10/2026) SU_IA vuelve a ofrecer «tu Gemini»                            → 2 / 3
+//
+// ── Probado rompiéndolo (6/11/2026, el arnés del scratchpad; base 6 / 0) ───────────────────────────────────────────
+// Las 9 cayeron: vuelve «llegó a su tope de hoy» 4/2 · vuelve «está saturada, prueba en un rato» 4/2 · se cae el
+// marcador de «usa su propia IA» 4/2 · se cae el de «datos de clientes» 5/1 · la red gratis vuelve a correr para un
+// negocio (guarda 1 de `provsGratisDePlataforma`) 5/1 · la cascada llama la red FUERA de su guarda (guarda 2) 5/1 · el
+// armador de flujos entra a `CREDITO_HABILITADO_PARA` 5/1 · el aviso vuelve a ofrecer Gemini 3/3 · `generar` deja de
+// pasarle `erroresRed` 5/1.
+// ⚠️ La PRIMERA versión del ancla de las guardas afirmaba que la red tenía UN llamador y tiene CUATRO; lo mostró la
+// rotura, no la lectura. Y el cuarto no está detrás de un `if` que lo encierre sino de una condición de la MISMA
+// expresión (`hayRed`), así que la cadena se mide por SANGRÍA más las dos líneas de arriba, no por distancia.

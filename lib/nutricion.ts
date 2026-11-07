@@ -6258,9 +6258,16 @@ async function avisarTopesSociales(ws: number | null, topes: readonly TopeDeLaCo
  * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
  * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
  */
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null; atencion?: { contestada: boolean } }): Promise<number> {
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial | 'email'; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null; atencion?: { contestada: boolean } }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
+  // ⚠️ POR EMAIL SE PAUSA Y NO SE CONTESTA (6/11/2026, lo llama `recibirEmailEntrante`). Un email del lead
+  // es una respuesta como cualquier otra —se anota 'respondio', destraba un `requiere` y corre «Contestó»—
+  // pero NO hay `MedioAIStep` de email: `medio` caería en 'whatsapp' y todo lo de abajo (el AI Step, el
+  // borrador del modo asistido, la charla abierta) le contestaría POR WHATSAPP, AL TELÉFONO, a quien
+  // escribió un mail. Eso es exactamente el bug que se arregló para Instagram el 14/10/2026, y repetirlo
+  // acá sería peor: por Instagram al menos el canal existe. Hasta que haya un AI Step de email, se pausa.
+  const soloPausa = opts?.origen === 'email';
   const supabase = (await getTenantDb());
   // ⚠️ LAS SECUENCIAS SE LEEN ANTES DE MARCAR 'respondio' (revisión del 08/10/2026). Con el deploy
   // adelantado a una migración que agrega una columna que esta lectura pide (la 0223,
@@ -6370,6 +6377,10 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
   // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
   // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
   const respondidas = [...pausadas, ...tardias];
+  if (soloPausa) {
+    if (opts?.atencion) opts.atencion.contestada = false;
+    return respondidas.length;
+  }
   try {
     // Por el MEDIO por el que escribió: una automatización que contesta por WhatsApp no atiende un DM.
     const charla = await charlaDelLead(leadId, medio);

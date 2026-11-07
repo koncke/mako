@@ -15,9 +15,10 @@
 
 import {
   agregarCompetidor, etapaDePieza, guardarAnuncioPegado, leerCompetidor,
-  listarCompetidores, listarPiezas, mirarCompetidor, quitarCanal, quitarCompetidor, resumenDePiezas,
+  listarCompetidores, listarPiezas, mirarCompetidor, ponerPais, quitarCanal, quitarCompetidor, resumenDePiezas,
   type Competidor, type LecturaCanalSpy, type Pieza, type ResumenPiezas,
 } from '@/lib/spy';
+import { juntarCompetidores } from '@/lib/spy-juntar';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { marcarActosSpy } from '@/lib/spy-actos';
 import { anotarPasos, claveLectura, marcaValida, type PasoLectura } from '@/lib/spy-lectura-pasos';
@@ -157,6 +158,14 @@ export async function quitarCanalAction(id: number, red: 'instagram' | 'youtube'
   try { return await quitarCanal(id, red); } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
+/** De qué país es (ISO-2), o `null` para borrarlo: decide si la Biblioteca de Meta puede traer sus anuncios. */
+export async function ponerPaisAction(id: number, pais: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'No encontré a ese competidor.' };
+  try { return await ponerPais(id, pais); } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
 /** Le suma un canal al competidor que ya está: el upsert por nombre escribe sobre la MISMA fila. */
 export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = await soloMiembro();
@@ -211,6 +220,21 @@ export async function guardarAnuncioAction(id: number, enlace: string, copy?: st
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try { return await guardarAnuncioPegado(id, enlace, copy); } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+/**
+ * Junta dos cargas de la misma persona: las piezas del que se va se MUDAN al que queda y recién después se lo quita
+ * (lib/spy-juntar.ts dice por qué ese orden). Del administrador, como borrar: se lleva una fila del negocio.
+ */
+export async function juntarCompetidoresAction(quedaId: number, seVaId: number): Promise<{ ok: true; mudadas: number } | { ok: false; error: string }> {
+  const no = await soloAdmin();
+  if (no) return { ok: false, error: no };
+  try {
+    const r = await juntarCompetidores(quedaId, seVaId);
+    return r.ok ? { ok: true, mudadas: r.mudadas } : r;
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 export async function quitarCompetidorAction(id: number): Promise<{ ok: true } | { ok: false; error: string }> {

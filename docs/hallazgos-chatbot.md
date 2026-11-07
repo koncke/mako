@@ -27,6 +27,68 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
+
+**El diagnóstico obvio era el equivocado.** Para avisarle al equipo de un pago rechazado, lo natural es copiar la tarjeta de
+«Entró un Pago», que dice `{{pago_monto}}` y `{{pago_concepto}}`. No se resuelven: esos datos tienen `alcance: 'pago'`
+(lib/variables-aviso.ts) y `alcanzaPara` los da sólo con `conPago`, que lo pone `datosDelEvento('pago_recibido')` — el
+**Evento de MaKo**, cuyo emisor (`avisarPagoRecibido`, lib/cobros.ts) los pasa en `datos`. El **CRON «Pagos»** es otra
+puerta: `enrolarPorPago` (lib/pago-entrante.ts) manda `{ subtipo }` y nada más, así que una tarjeta de ese CRON se
+resuelve con `{ destino: 'equipo', conLead: true }` y nunca ve el pago. Medido: `problemasDeTokens(…, TRIGGER_PAGO)`
+devuelve «No existe: {{pago_monto}}, {{pago_concepto}}», y con el evento `pago_recibido`, vacío. **Regla:** dos CRON
+distintos hablan del mismo hecho con datos distintos; antes de copiar un texto de una plantilla vecina, mirá si su CRON es
+el mismo. Lo frena Publicar (`problemasDeTokens`), no el compilador.
+
+**SIN HACER:** para que una plantilla del CRON «Pagos» pueda citar monto y concepto hay que pasar los datos del pago por
+`enrolarPorPago` → `enrolarPorEvento` (lib/nutricion.ts: `CtxEvento` hoy no tiene dónde ponerlos) y que `alcanzaPara('pago')`
+dé true en ese contexto. Mientras no esté, el aviso manda a la ficha: el concepto y el motivo ya quedan escritos ahí por el
+`logLeadEvent('Pago rechazado', …)` que corre al lado del disparo.
+
+**⚠️ `{{link_pago}}` tampoco sirve para un rechazo.** Resuelve el cobro **PENDIENTE** más nuevo del lead
+(`cobroPendienteDelLead`, lib/cobros.ts) y `aplicarPagoFallido` deja el cobro en `fallido` (o lo deja `pagado`, si lo que
+falló fue la renovación). Y como «no tiene link» es un HECHO, no queda crudo: sale el texto «sin link de pago pendiente»
+justo en el mensaje de la persona que tiene que pagar. El link vuelve a existir recién cuando alguien aprieta «Volver a
+intentar» (`urlParaPagar` devuelve el cobro a `pendiente`). **Regla:** un dato que no queda crudo igual puede mentir.
+
+**⚠️ La condición «Pagó» silencia justo el caso más común.** `aplicarPagoFallido` dispara `rechazado` por TRES caminos
+(lib/cobros.ts): el cobro pendiente, el reintento de una prueba autorizada y la renovación de una suscripción. En el tercero
+el lead YA pagó, así que una plantilla de rechazo filtrada por «no pagó» no le llega nunca a un suscriptor.
+
+**⚠️ Un aviso al equipo que cuelga del canal del lead se pierde ENTERO.** Un WhatsApp a quien no tiene teléfono cancela la
+INSCRIPCIÓN completa (lib/nutricion.ts), no ese mensaje: lo que cuelga de esa rama no sale, y el aviso al grupo se va con
+él. Medido en la galería de hoy: **siete** avisos cuelgan de «Tiene WhatsApp» / «Tiene email» (`le_mk`, `la_mk1`, `la_mk2`,
+`la_mk3`, `ln_mk`, `lt_mk`, `lc_mk`), todos de plantillas de etapa, donde a quien sólo tiene email le corre el camino de
+email. **Regla (medida sólo en el CRON «Pagos», que es el de la plata):** el aviso al equipo va ARRIBA de la condición que
+pregunta el canal. **SIN HACER:** decidir si los siete de etapa suben — es otro pedido, y cambia qué recibe el equipo hoy.
+
+**⚠️ «La plata y lo sensible, para aprobar» no se medía en los mensajes.** La regla está en la cabecera de
+lib/plantillas-automatizaciones.ts y el test sólo la chequeaba en los escenarios del AI Step: un mensaje al lead que habla de
+pago con «Sale sola» salía sin que nadie lo leyera. Ahora se mide con el MISMO regex (`/precio|cuesta|pago|descuento/i`);
+hoy la cumplen las dos únicas que la tocan (`lc_w1` y `rp_w1`).
+
+**⚠️ La plantilla nueva pagó 17 caracteres del turno de WhatsApp.** El id entra al `enum` de
+`crear_automatizacion_desde_plantilla` (`IDS_PLANTILLAS`, lib/api-mako/areas/chatbot.def.ts): el margen de
+`cambiar_crons_secuencia` bajó de 336 a **319** (piso 300, tests/ops-center-bateria.test.ts, el 4). Quedan 19: la próxima
+plantilla con un id de más de ~16 caracteres cruza el piso y paga texto de otra descripción.
+
+**⚠️ Las tablas a mano del test son DOS, pero los lugares son CUATRO.** `LAS_13` (id, nombre, objetivo) y `CANALES` (por
+dónde sale) son las que avisan con un mensaje claro; además, `filtrarPlantillas` fija a mano la lista de
+`{ canal: 'whatsapp', objetivo: 'cobrar' }` y la de `{ objetivo: 'cobrar' }`, así que una plantilla de cobrar que sale por
+WhatsApp mueve las cuatro. Y `LAS_13` ya son 19 (el nombre quedó viejo, igual que el «Son 13» de la cabecera de la lib).
+
+**⚠️ Y el archivo es CRLF, con dos trampas que lo tapan.** `sed -n '…p' archivo | cat -A` muestra `$` y no `^M` —`sed` se come
+el CR— así que parece LF y un reemplazo escrito con `\n` da «0 ocurrencias». Y el heredoc del Bash de esta máquina se come
+un backslash: un `\\n` escrito en un heredoc llega como `\n` y te parte el string literal del TS. Los parches a este
+archivo se escriben con un script Python que lee con `newline=''` y pone los `\n` literales por sustitución, no escritos.
+
+**Probado rompiéndolo:** 8 roturas sobre tests/plantillas-automatizaciones.test.ts (base 40 pass / 0 fail), las 8 CAYERON.
+Dos salieron VERDES en la primera pasada y por eso están los dos tests nuevos: el WhatsApp al lead puesto ARRIBA del aviso
+al equipo, y el mensaje de plata con `revisar: false`.
+
+**Vive en:** lib/plantillas-automatizaciones.ts · lib/variables-aviso.ts (`alcanzaPara`) · lib/pago-entrante.ts ·
+lib/cobros.ts (`aplicarPagoFallido`, `cobroPendienteDelLead`) · tests/plantillas-automatizaciones.test.ts ·
+*6/11/2026, pendiente 288.*
+
 ## «No reprodujo el VSL» se cumplía para TODOS con la base caída (6/11/2026, barrido de pendientes, nube)
 
 `getVslEngagementMap` (lib/leads.ts) atrapaba cualquier error y devolvía el mapa VACÍO. Lo lee el motor en tres lugares
@@ -2577,9 +2639,10 @@ porque su fila tenía `null`.
 
 ### Lo que quedó sin hacer (parte «canales») [canales]
 
-- **Una respuesta por Instagram NO pausa la salida**: `pausarPorRespuesta` pausa y además contesta (asistido,
-  «Si responde», la charla) POR WHATSAPP. Hace falta que el motor conteste por el canal donde le escribieron.
-  `lib/nutricion.ts` · `lib/zernio-entrante.ts`
+- ~~**Una respuesta por Instagram NO pausa la salida**~~ *(hecho el 14/10/2026, «TikTok fase 0»: `pausarPorRespuesta`
+  toma `origen: canal`, `medio = social ?? 'whatsapp'`, y contesta con el AI Step de ESE medio por Zernio. Lo llama
+  `pausarRespuestaSocial`, lib/zernio-entrante.ts. El renglón quedó dos semanas pidiendo algo ya hecho y el barrido
+  del 6/11 lo reabrió desde acá.)* `lib/nutricion.ts` · `lib/zernio-entrante.ts`
 - **El tinte de la tarjeta** (`CanalTarjeta` e `identidadDeTarjeta`, de la parte «lienzo») y el rótulo de
   «Probar» con varios canales (`SecuenciaPerfil`). Los colores están en `IDENTIDAD_SOCIAL`.
   `lib/lienzo-grafo.ts` · `app/_components/Lienzo.tsx` · `app/automations/SecuenciaPerfil.tsx`
@@ -2984,8 +3047,9 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
 - **Que llegue un mail de verdad**: prender «Receiving» en el dominio en Resend + el MX del cliente, y
   sumar `email.received` a la ruta nueva (un webhook con `RESEND_INBOUND_WEBHOOK_SECRET`) o delegarlo
   desde /api/webhooks/resend (`case 'email.received'` → `recibirEmailEntrante`). Lo decide Martín.
-- **Un email del lead no PAUSA la automatización que le está escribiendo** (una respuesta de WhatsApp
-  sí). Es del motor: `lib/nutricion.ts` (`pausarPorRespuesta` del lado del webhook).
+- ~~**Un email del lead no PAUSA la automatización que le está escribiendo**~~ *(hecho el 6/11/2026:
+  `pausarPorEmailRecibido`, y el porqué del orden y de que no conteste, más abajo en «Un email del lead
+  pausa, pero no puede CONTESTAR»).*
 - `email_entrantes` tiene que entrar a `TABLAS_DE_INQUILINO` (`lib/tablas-de-inquilino.ts`) y el
   servicio `'email'` a `ServicioRuteo` (`lib/webhook-ruteo-huella.ts`) para anotar los fallos de ruteo
   en el super admin como los demás webhooks.
@@ -3237,6 +3301,56 @@ ese mensaje no sale, sin caer a la de por default. Ahora es una función pura co
 
 **Vive en:** `lib/clonar-pasos.ts` · `lib/clonar-config.ts`
 
+### El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo [motor]
+
+«Copio la configuración de un cliente a otro y los mensajes no salen» (pendiente id=524). La mitad era
+la `linea` por mensaje (arriba); la otra, que `cols` no pedía `disparadores` (mig 0241): una
+automatización con varios CRON llegaba con UNO —el de las columnas— y un primer CRON de Instagram
+llegaba sin su evento, porque el `subtipo` vive SÓLO en la lista.
+
+⚠️ **El pendiente pedía «una línea» y esa línea sola era un bug nuevo, del mismo tipo que el que
+`traducirEtiquetasEnSecuencia` vino a arreglar**: cada `Disparador` lleva ids del workspace del DUEÑO.
+Y las dos trampas, que son lo que cuesta ver:
+
+- **Nulear el ámbito y dejar la etapa habría sido PEOR que copiar el id del dueño.** En
+  `leadsDeCohorte` un `producto_id` NULL es «la entrega de CUALQUIER producto»: la cohorte se abre a
+  MÁS gente que la del dueño. El criterio correcto es el de la fila de `crm_etiquetas` llevado un paso
+  más: se va el ámbito Y se va la etapa que colgaba de él (una etapa de OTRO embudo, o del kanban de
+  ESE producto, acá no significa nada). Sin etapas la cohorte es vacía (`if (!keys.length) return []`)
+  y el CRON llega visible y sin elegir. Lo mismo con `ignorar`: una etiqueta que no se traduce se SACA,
+  porque dejarla con el id del dueño hace que el CRON del destino ignore a una etiqueta CUALQUIERA.
+- **La verdad del primer CRON son las COLUMNAS, así que copiar la lista obliga a copiar `cron`.** Con
+  `disparadores` copiado y la columna `cron` no, el d1 de un Recurrente llegaba sin horario mientras el
+  d2 llegaba con el suyo — y sin `cron` `decidirAgenda` devuelve `toca: true` en CADA corrida: un «todos
+  los lunes a las 9» al grupo de MaKo pasaba a salir cada hora. Por lo mismo hay que reescribir las
+  columnas del d1 (`columnasParaElDestino`): lo que no se reescriba queda con el ámbito y la ocurrencia
+  del dueño que la fila trae copiados tal cual. Y `etapa` es NOT NULL con default `'nutri'`: un CRON sin
+  etapa va con la cadena VACÍA, porque omitirla le inventa una etapa que nadie eligió.
+
+`cron_proxima_at` NO viaja (es un instante de la grilla y del huso del dueño) y en null el motor no
+dispara: SIEMBRA. `disparadores_rev` tampoco: no es configuración, es el compare-and-set de la lista, y
+su default 0 es el correcto. `cron`, `subtipo`, `palabras`, `publicacion` y `grupo` sí: `grupo` es «el
+grupo de MaKo DEL NEGOCIO», que `mandarRecurrenteAlGrupo` resuelve con el workspace del contexto.
+
+⚠️ **Y pedir una columna de una migración que puede faltar rompe la copia ENTERA**: PostgREST rechaza la
+consulta completa con 42703, y la 0241 estaba SIN APLICAR en la medición del 09/10/2026. Sin tolerarla
+(`colsOpcionales` + `leerOrigen`, la misma regla que `leerFilasDeSecuencias`), sumar `disparadores` a
+`cols` dejaba la copia de TODAS las automatizaciones en 0 filas. Y lo que el origen no trajo tampoco se
+escribe: origen y destino son la MISMA base, así que la columna ausente en el select es la que no
+existe, y escribirla es un PGRST204.
+
+**Lo que queda sin hacer, y es LA MISMA TRAMPA EN EL OTRO CAMINO:** `lib/datos-mau.ts` copia las
+secuencias con `select('*')` y `omitir: ['id']`, así que la lista `disparadores` viaja CRUDA —con las
+etiquetas, el embudo, el producto y la próxima ocurrencia del DUEÑO adentro— y `disparadores_rev`
+también. Su `remapEtiquetas` traduce los `pasos` y la COLUMNA `etiqueta_id`, nada de la lista, y tampoco
+usa `pasosParaElDestino` (la `linea` por mensaje, pendiente de antes): le falta
+`disparadoresParaElDestino`. Y los AVISOS vuelven en el JSON de `action: 'clonar-dueno'`
+(app/api/onboarding/route.ts): ninguna pantalla los muestra todavía, se leen en la respuesta HTTP.
+Nada de esto se vio con clics: se fijó con tests puros.
+
+**Vive en:** `lib/clonar-disparadores.ts` · `lib/clonar-config.ts` · `tests/clonar-disparadores.test.ts` ·
+`tests/etiquetas-contrato.test.ts` (datos-6)
+
 ### Los datos «{ }»: lo que se ofrece se resuelve, en la tarjeta MAKO y en «Probar» [motor]
 
 La tarjeta MAKO EN WHATSAPP resolvía los cinco del motor y la parte «flujo» le monta el árbol del equipo:
@@ -3274,13 +3388,13 @@ ANTES del deploy. La tabla que falta contesta `PGRST205`, no `42P01`: ver
 - **`setTriggerSecuencia` acepta los seis por `TRIGGERS`**: hay que rechazar `SOLO_DESDE_EL_CRON` ahí
   también (`lib/setting-secuencias.ts`, otra parte). Hoy lo llaman /email (cerrado en su puerta), la API
   de email (cerrada) y la ruta del CRON de antes (`action: 'trigger'`).
-- **Un email del lead no pausa** lo que le escriben (una respuesta de WhatsApp sí). Es una decisión de
-  producto: con `origen: 'email'` sería una línea en `recibirEmailEntrante`. `lib/email-entrante.ts`
+- ~~**Un email del lead no pausa** lo que le escriben~~ *(hecho el 6/11/2026; y NO era una línea: ver
+  «Un email del lead pausa, pero no puede CONTESTAR» más abajo).* `lib/email-entrante.ts`
 - **`cambiar_crons_secuencia` por HTTP**: es una decisión (el snapshot y su fila en `lib/api-mako/rest.ts`).
-- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino`.
-- **El clon no copia `disparadores`** (la lista de CRON): una automatización con varios llega con uno, y
-  un primer CRON de Instagram llega sin su evento. `lib/clonar-config.ts` (`TABLAS`, la fila de
-  `nutricion_secuencias`).
+- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino` **ni `disparadoresParaElDestino`: copia con `select('*')`, así que la lista `disparadores` viaja CRUDA, con los ids del dueño y su próxima ocurrencia adentro** (6/11/2026).
+- ~~**El clon no copia `disparadores`**~~ hecho el 6/11/2026 (id=524): la lista viaja con las etiquetas
+  traducidas, sin los ámbitos del dueño y sin su próxima ocurrencia (`lib/clonar-disparadores.ts`). Ver
+  «El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo», arriba.
 - **`noExiste` de `lib/reset-workspace.ts` mira sólo `42P01`** (ver infra).
 - **Verlo con clics y con un evento real**: nada de esto recibió un webhook de verdad.
 ## Sexta tanda, segunda pasada, parte «datos» (09/10/2026, noche): el «{ }» montado, MaKo en WhatsApp en Notificaciones, los grabadores
@@ -4052,8 +4166,17 @@ Pedidos literales en la bitácora (hitos del 10 oct 10:21-11:25). Lo que se apre
 - **El aviso de 30 min al dueño sólo corre con Calendly** (`app/api/cron/reunion-recordatorio/route.ts`,
   `correrPorWorkspace('calendly', …)`): ws13 (Cal.com) no lo recibe. Extenderlo es mandar avisos nuevos a clientes.
 - **`/api/chat-agent/onboarding/resumen` sin llamadores**; retirarla pide `npx next typegen` en el clon.
-- **El reporte semanal no sale por WhatsApp** desde que se borró Chatwoot (`despacharReporte`, `lib/notify.ts`).
-- **El store de mensajes del ws9 es el default de todos los clientes** (`leerPar`, `lib/plantillas.ts`).
+- **El reporte semanal no sale por WhatsApp**, y el «dónde» de este renglón está viejo *(revisado el 6/11/2026)*:
+  no se rompió al borrar Chatwoot, está **APAGADO POR DECISIÓN** de Martín del 10/10/2026 —`wa: 'no'` cableado en
+  `despacharReporte` (lib/notify.ts) y `REPORTE_POR_WHATSAPP = false` (lib/mensaje-canales.ts)—, y además el semanal
+  ya no pasa por ahí: sale por `emitirEventoDePlataforma('reporte-semanal')`
+  (app/api/cron/reporte-semanal/route.ts), que no importa `despacharReporte`. Re-enchufarlo arreglaría el DIARIO y el
+  HORARIO, no el semanal. El semanal sale por WhatsApp sumando la tarjeta «MaKo en WhatsApp» a su fila de SuperAdmin
+  (el camino vivo a Evolution es `enviarAlGrupoMaKo`, lib/mako-grupo.ts), y **prenderlo es decisión de Martín**:
+  revierte la del 10/10.
+- ~~**El store de mensajes del ws9 es el default de todos los clientes**~~ *(hecho el 10/10/2026: la base de la
+  herencia es `KEY_BASE` en el workspace de la PLATAFORMA (`wsSuperAdmin()`), que sólo se edita desde /mensajes
+  (`conLaBaseDeLaPlataforma`); el ws9 hereda como cualquier negocio. Ver `leerPar`, lib/plantillas.ts.)*
 
 **Vive en:** `lib/flujo-conversacion.ts` (`huecoHacia`, la flecha de la que escucha) · `lib/flujo-grafo.ts`
 (`rotuloSiNoDeRespuesta`) · `app/automations/PanelProbar.tsx` · `app/automations/SecuenciaPerfil.tsx`
@@ -6664,6 +6787,7 @@ imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta 
   escrita en el pedido, se respeta, salvo que hable de un cliente («no es lead entrante, es un cliente entrante»).
 - **El link que escribió el dueño se borraba** («que les mande el link https://sprint.mauriciobustos.com/»): se queda si
   está tal cual en el pedido (`linksDelPedido`); el que inventa el modelo se sigue borrando, y otra ruta del mismo sitio también.
+  ⚠️ Eso dejó afuera el link que la TARJETA YA TENÍA: ver «El link que la tarjeta ya tenía», abajo (#287, 6/11/2026).
 - **`{{empresa_del_lead}}` se borraba y dejaba «¿Sigues al frente de?» al lead:** una llave que nombra un dato que existe
   pasa a la del catálogo (`aliasDeVariable`: empresa, apellido, nombre_completo, nombre), con aviso.
 - **Un pedido de 8.304 caracteres se cortaba a 2.000 en silencio** y MaKo armaba otra cosa: ahora la ruta lo rechaza
@@ -6679,6 +6803,37 @@ imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta 
 
 **Vive en:** lib/flujo-ia.ts · lib/flujo-ia-intencion.ts · lib/flujo-ia-crear-core.ts · tests:
 tests/chat-mako-prueba-de-chats.test.ts, tests/flujo-ia.test.ts («en el medio»), tests/flujo-ia-arreglos.test.ts (alias).
+
+### El link que la tarjeta YA tenía: el `deja` del pedido no alcanzaba (#287, 6/11/2026)
+
+**Síntoma:** se le pide un cambio por chat y MaKo reescribe una tarjeta que nadie nombró, dejándola sin el
+link que ese mensaje ya llevaba. El lead lo recibe sin link y NADA FALLA: ni un error, ni un aviso rojo.
+
+**Causa:** el arreglo del 22/10 puso `deja` en `limpiarTexto`, pero alimentado sólo con `linksDelPedido`
+— los links del PEDIDO. Al editar, el link no está en el pedido («hacé el primer mensaje más corto»):
+está en la tarjeta. Y `limpiarTexto` borra toda URL por diseño, porque los links los pone el código
+desde `ctx.links`. Así que al reescribir el texto, el link se iba.
+
+⚠️ **El diagnóstico obvio —«pasá todos los links del flujo»— era el equivocado:** revive el link que
+una persona borró a propósito en OTRA tarjeta. El `deja` se arma POR TARJETA, emparejada por su id, que
+es con lo que `cambiar` la nombra (la misma forma que `protegidasPorElPedido` y que el `previo?.url` de
+los botones, que ya conservaba así el link de un botón). Lo arma `deIAEdicion` desde `base`, que son los
+pasos de ANTES; crear no lleva nada, porque no hay «antes». **Y hay un caso en que son NINGUNO:** el
+parche que CAMBIA el link (`"link"` sin texto nuevo). Ahí el viejo se va porque eso es lo que se pidió;
+conservarlo dejaba el mensaje con los DOS — y sólo se nota con un link sin protocolo, porque el que
+tiene `https://` ya lo saca `RX_URL` del cuerpo (una rotura con `https://` da VERDE y no prueba nada).
+
+**No era sólo el cuerpo.** `limpiarTexto` lo llaman tres lugares y los tres borraban: el cuerpo, el
+asunto y la vista previa de un email (`textoLimpio`), el mensaje de la tarjeta «MaKo en WhatsApp»
+(`resolverAccion`, donde además el parche sin tocar `mensaje` restaura el viejo y tapa el agujero) y el
+objetivo de un AI Step (`objetivoDeIA`). Los links se juntan de todos esos textos (`linksDeLaTarjeta`).
+
+**Lo que queda sin hacer:** pasarlo por el arnés con IA REAL (`scripts/probar-chats/automations.mts`, el
+caso `creame-otra` y uno de editar) — gasta IA de verdad y es decisión de Martín. Acá se fijó con tests
+puros sobre `deIAEdicion`, `limpiarTexto` y `objetivoDeIA`, que es como está fijado el resto del archivo.
+
+**Vive en:** `lib/flujo-ia.ts` (`linksDeLaTarjeta`, `dejaDeLaTarjeta`, `textoLimpio`, `resolverAccion`,
+`objetivoDeIA`, `parcheMensaje`) · `tests/chat-mako-prueba-de-chats.test.ts`
 
 ### Sin hacer
 
@@ -8138,3 +8293,89 @@ la línea de WhatsApp por la que sale el recibo es la de por defecto, no la de l
 - **A4** (Mayúscula Inicial en los nombres): sale de las plantillas y de la base; cambiar la regla es suya.
 
 **Vive en:** app/automations/SecuenciaPerfil.tsx; las preguntas, en docs/relevo/nube-recorrido-visual.md
+
+## Un email del lead pausa, pero no puede CONTESTAR (6/11/2026, `punta/chat-pausa-por-email`) [motor, canales]
+
+El síntoma: el lead contestaba el email y la secuencia le mandaba el siguiente igual. Figuraba dos veces
+como pendiente «de una línea» (`origen: 'email'` y listo). **No es una línea, y las dos cosas que faltan
+son las que no se ven.**
+
+**1. LA PAUSA VA ANTES DEL DISPARO, y el orden no es cosmético.** El mismo email que pausa puede ARRANCAR
+una automatización: el CRON «Recibes un email» la inscribe en `enrolarPorEmailRecibido`. Pausando después,
+`pausarPorRespuesta` marca 'respondio' la inscripción que acaba de nacer y esa automatización no manda
+nunca — se prende, se inscribe y queda muda, sin un error en ningún log. El webhook de Zernio ya tenía
+la lección escrita para los DM (`lib/zernio-entrante.ts`, «LA PAUSA VA ANTES DEL DISPARO»); el del email
+la volvió a pagar entera porque nadie la leyó del otro archivo.
+
+**2. NO HAY `MedioAIStep` DE EMAIL, así que pausar «como WhatsApp» CONTESTA POR WHATSAPP.** `MedioAIStep`
+son tres: `whatsapp | instagram | messenger`. En `pausarPorRespuesta`, `medio = social ?? 'whatsapp'`: con
+un origen que no es social —y el email no lo es— cae en `'whatsapp'` y todo lo que viene después
+(`charlaDelLead`, el AI Step, el borrador del modo asistido, la charla abierta) le contesta **al teléfono**
+a quien escribió un mail. Es el bug que se arregló para Instagram el 14/10/2026, y por email sería peor:
+por Instagram al menos el canal existe. Por eso `origen: 'email'` corta con `soloPausa` justo antes de
+contestar: pasa lo que es pausar (el 'respondio', el destrabe de `requiere` y «Contestó» en el acto) y no
+pasa nada que escriba. **La regla que queda: antes de sumar un `origen` nuevo a `pausarPorRespuesta`, mirá
+si ese canal tiene un `MedioAIStep`. Si no lo tiene, el default silencioso es WhatsApp.**
+
+**3. FALLA CERRADA, a propósito.** El fallo de la pausa NO se traga: sin try/catch, la fila queda en
+'error', el webhook contesta 503 y Resend reintenta (la pausa es idempotente — su `update` pide
+`estado='activa'`— y el disparo todavía no corrió). Tragárselo dejaría la secuencia avanzando sobre
+alguien que contestó, que es el daño entero del pendiente.
+
+**Probado rompiéndolo:** 7 roturas en tests/email-entrante.test.ts, base 9 / 0, las 7 cayeron 8 / 1 (la
+pausa después del disparo, sin la pausa, el fallo tragado con try/catch, el origen de vuelta a
+`no_oficial`, sin el corte de `soloPausa`, el corte adelantado comiéndose «Contestó», y `soloPausa`
+comparado contra un valor que no existe). Una trampa del arnés: los archivos son CRLF y un patrón
+escrito con `\n` no empata con nada — las primeras tres roturas dieron «0 ocurrencias» y se leen como
+«no aplica», no como un falso verde. **Y la segunda trampa es del ÍNDICE**: escribir ese mismo literal DENTRO de una celda de
+`docs/hallazgos.md` parte la fila en dos, y una tabla de markdown cortada termina ahí: la tabla pasó de 115
+filas a 36 y se perdieron 79 áreas. Y `grep -c "^| "` sigue contando 115, porque cuenta LÍNEAS y no FILAS, así
+que el chequeo obvio dice que está bien. Lo caza `tests/unir-indice-hallazgos.test.ts` («la tabla tiene 36
+filas»). La regla: en una celda del índice no va ningún literal con barra invertida — se dice con palabras.
+
+**Sin hacer:** no hay AI Step de email, así que un email del lead no se contesta solo (sólo pausa). Si
+alguna vez se quiere que conteste, es un `MedioAIStep` nuevo con su charla, su redactor y su envío —no un
+`origen` más. Y el cuerpo del email no viaja a la pausa: `EmailRecibido` trae asunto y remitente, el cuerpo
+lo baja después `guardarEmailEntrante`.
+
+**Vive en:** lib/email-entrante.ts (`pausarPorEmailRecibido`, paso 4bis) · lib/nutricion.ts
+(`pausarPorRespuesta`, `soloPausa`) · tests/email-entrante.test.ts
+## Triaje de los encargos del 6/11: SIETE de 39 ya estaban hechos, y dos tenían el motivo viejo (6/11/2026, `punta/chat-triaje-pendientes-hechos`)
+
+Los 27 pendientes del área «chat» y los 12 del editor de video, comprobados uno por uno contra
+`origin/main` antes de tocar código. La regla general quedó en [AGENTS.md](../AGENTS.md) → «Un «FALTA» de
+un doc es una MEDICIÓN CON FECHA». Acá, el veredicto de cada uno, que es lo que ahorra la lectura:
+
+| # | El pendiente decía | La verdad | Lo prueba |
+|---|---|---|---|
+| 517 | «Una respuesta por Instagram no pausa, y el motor contesta por WhatsApp» | **HECHO el 14/10** («TikTok fase 0») | `pausarPorRespuesta` toma `origen: canal` y `medio = social ?? 'whatsapp'`; lo llama `pausarRespuestaSocial` (lib/zernio-entrante.ts) |
+| 527 | «El store del ws9 es el default de todos los clientes» | **HECHO el 10/10** | la base es `KEY_BASE` en el ws de la plataforma, no el store del ws9 (`leerPar`, lib/plantillas.ts) |
+| 523 | «El paso "esperar" sigue sin drenador» | **HECHO el 4/10**, y el renglón es de una sección del 28/09 | `flujo_corridas` (mig 0186) + `retomarCorrida` desde `app/api/cron/flujo-corridas/route.ts`, cada 5 min en vercel.json |
+| 294 | «`topeConRampa` sólo rampa el email» | **HECHO el 5/11**, el MISMO día de la auditoría que lo pedía | `topeDeLineaDeHoy(db, canal, …)` con el canal por parámetro; lib/nutricion.ts la llama con `'whatsapp'` |
+| 524 | «Sumar `linea` a la lista que se vacía al clonar» | la mitad de `linea` **ya estaba**; faltaba `disparadores` | `delete o.linea` en lib/clonar-pasos.ts |
+| 530 | «Cinco prompts con la identidad de Mauricio, ninguno en el registry» | el peor **ya estaba** (97f98ba81) y **la lista de los cinco nunca existió** | `email.generar.system` en el registry; barrido el repo, queda uno |
+| 628 | «Cuando IA16 esté en main… retenido hasta el 26/10» | IA16 estaba en main **desde el 22/10** | `3a93065be`; y el motivo era más fuerte: ver [hallazgos-ia.md](hallazgos-ia.md) |
+
+**Dos que NO se hicieron porque el pedido choca con algo posterior, y eso es de Martín:**
+
+- **526, el reporte semanal por WhatsApp.** El renglón dice «se rompió al borrar Chatwoot». No se rompió:
+  está **apagado por decisión** de Martín del 10/10/2026 (`wa: 'no'` cableado en `despacharReporte` y
+  `REPORTE_POR_WHATSAPP = false`, lib/mensaje-canales.ts). Y el «dónde» además está viejo: el semanal ya no
+  pasa por `despacharReporte` —sale por `emitirEventoDePlataforma('reporte-semanal')`—, así que
+  re-enchufarlo arreglaría el diario y el horario, no el semanal. **Prenderlo revierte una decisión suya.**
+- **291, el botón de TikTok en el CRON.** El pedido es «el disparador, al lado del de Instagram». Medido:
+  **TikTok no tiene entrada a MaKo**. `lib/zernio-redes.ts:93` lo dice textual — «Publica tus videos desde
+  el Calendario. Sus mensajes no llegan a MaKo» —, `CanalSocial` son dos (`instagram | messenger`) y
+  `DISPARADORES_SOCIALES` no lo tiene. Poner el botón sin la entrada es ofrecer un disparador **que no
+  puede dispararse nunca**: una automatización que se prende, se guarda y no corre. Y el diseño
+  (docs/diseno-tiktok-linkedin.md) pide además que el tope de 10 mensajes en 48 h **se vea en el lienzo**,
+  no escondido en el motor. Primero la entrada (webhook + ventana de 48 h), después el botón.
+
+**La regla que queda, y es la que más tiempo ahorra:** un pendiente dice **qué se vio una vez**, no qué
+pasa hoy. Antes de trabajarlo, `git log --oneline -5 -- <el archivo que nombra>`. Y cuando lo arreglás,
+tachá el renglón en el mismo commit: mientras el «falta» siga escrito en presente, el próximo barrido lo
+vuelve a levantar — es exactamente cómo estos siete llegaron a la lista del 6/11.
+
+**Vive en:** los renglones corregidos están en este documento, en
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md), en `docs/relevo/automations.md`, en
+`docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` y en `docs/relevo/nube-black-november.md`.

@@ -44,13 +44,32 @@ la fila donde algo no cuadra y el fix mínimo (renombrar la key, agregar/quitar 
 `variable`, unificar el default, envolver el input). Es read-only: NO cambies prompts
 sin confirmar, un texto es load-bearing para el JSON de salida de varios analistas.
 
-## Barrido de arranque
+## El barrido ya lo hace una guarda: NO lo repitas a mano (6/11/2026)
 
-- Listá las `key:` del `REGISTRY` y grepeá cada una en `lib/` y `app/api/` para hallar
-  su call-site (o su ausencia).
-- Grep de `renderPrompt(` / `getPromptText(` → verificá que su primer argumento exista
-  como Entry.
-- Por cada template `*_TEMPLATE`, extraé los `{{...}}` y compará con la Entry.
+`scripts/prompts-registro-sincronizado.mjs` corre en cada push (`guardas-push.sh`),
+EJECUTA el registro y cubre los modos **1 y 2** de arriba sobre las 173 entradas:
+key huérfana, Entry `override` muerta, el call-site que pasa una clave que el template no
+tiene, la `variable` declarada que no existe, el slot vivo sin declarar, una `storeKey`
+que `MODOS` no tiene, y la key que no se puede seguir hasta un literal. Arrancá por:
+
+    node --import tsx scripts/prompts-registro-sincronizado.mjs --listar
+
+⚠️ **Y no grepees cada key en `lib/` y `app/api/` como decía esta skill hasta el 6/11**:
+ese barrido daba ~45 falsos positivos (muchas keys llegan por indirección en tabla,
+`PROMPTS_X.campo.key`) y además juzgaba mal las 167 entradas que NO son `source:
+'override'`, donde la key del registro no es el identificador de lectura — ésas resuelven
+por `storeKey`. El porqué, en `docs/hallazgos-ia.md` → «La guarda del registro de prompts».
+
+## Lo que sigue siendo tuyo (la guarda NO lo mide)
+
+- **Modo 3, default a la deriva**: que el `default:` de la Entry y el fallback del
+  call-site sean la MISMA constante. La guarda tiene el TEXTO del default, no el nombre de
+  la constante del call-site, así que no los puede cruzar; hoy lo fija a mano el test de
+  cada feature (el molde: `tests/offer-ia-cableado.test.ts`).
+- **Modo 4, `contenidoNoConfiable` faltante**: es un juicio sobre qué dato es externo.
+- **Y el `{{slot}}` que nadie llena**: la guarda avisa y no bloquea, porque `{{...}}` tiene
+  dos dueños y los placeholders de lead y de WhatsApp viajan literales a propósito. Decidir
+  cuál de los dos es cada uno te toca a vos.
 
 Relacionado: `lib/prompt-registry.ts` (REGISTRY, source routing),
 `lib/prompt-render.ts` (renderPrompt/getPromptText/contenidoNoConfiable),

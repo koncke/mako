@@ -21,7 +21,7 @@ import 'server-only';
 import { wsEnContexto, getWorkspace, getTenantDb } from '@/lib/workspace';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { listPlanBoard } from '@/lib/plan-board';
-import { listTareas, listCategorias } from '@/lib/todo';
+import { listTareasConTope, listCategorias } from '@/lib/todo';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
@@ -180,7 +180,10 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS,
     };
   }
-  const [tareas, cats] = await Promise.all([listTareas(), listCategorias()]);
+  // El mismo tablero que /plan, con el mismo filtro (#507): lo que MaKo llama «el tablero» es el Plan,
+  // no lo que propuso una Retro. Buscar una tarea por id (plan.run.ts) sigue viendo todo. Y `recortado`
+  // se mide con las filas LEÍDAS: el filtro le sacaría el aviso a una lectura cortada en 1000.
+  const [{ tareas, leidas }, cats] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
   return {
     board: 'todo',
     tareas: tareas.map((t) => ({
@@ -209,7 +212,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       repeticion: textoRepeticion(c.recurrencia),
     })),
     deps: [],
-    recortado: tareas.length >= TOPE_FILAS || cats.length >= TOPE_FILAS,
+    recortado: leidas >= TOPE_FILAS || cats.length >= TOPE_FILAS,
   };
 }
 

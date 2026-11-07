@@ -1,5 +1,11 @@
 # Top Carousels: la interfaz que Martín pidió copiar (6/11/2026)
 
+⚠️ **Estas capturas NO sirven para comparar medidas** (7/11/2026). Están redimensionadas a 768 px de ancho (cinco de las seis a
+768×480), no traen EXIF con el tamaño original y **nadie anotó el ancho del navegador**: con la misma imagen, la pastilla del
+múltiplo mide 26 px si la ventana era de 1440 y 22 px si era de 1207. Lo que sí se puede leer de acá son PROPORCIONES (la
+fracción del ancho de una tarjeta que ocupa cada cosa), y eso está medido en `docs/hallazgos-carruseles.md` → «Las capturas de
+referencia no sirven para comparar medidas». Si en algún momento se vuelven a sacar, **el ancho del navegador va escrito acá**.
+
 Capturas de seis vistas, tomadas una vez y a mano en el navegador. **Sólo se copia la interfaz.** No se recorre ni se baja su biblioteca, ni con su sesión, y no se copian sus puntajes: el número de MaKo es nuestro múltiplo de rendimiento, medido con nuestros datos. Las caras y los textos de las capturas son de terceros y no van a la app.
 
 - **`explorar.jpg`:** título centrado grande, «Find your next outlier», con la última palabra en azul. Buscador ancho debajo. Luego «All outliers» a la izquierda y, a la derecha, «Save search», «Saved searches» y «Filters». Debajo: chip del filtro activo, cantidad de resultados, orden (más nuevo, más viejo, mayor múltiplo, más interacción, recién cargado) y el cambio de tamaño de tarjeta.

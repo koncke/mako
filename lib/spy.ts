@@ -53,6 +53,7 @@ import {
   type CanalSpy, type FuentePieza, type TipoPieza,
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
+import { esPaisConocido } from './paises';
 import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
 import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
@@ -61,10 +62,10 @@ import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { faltaLaColumnaDeMedio, gruposDeMedio, medioDeInstagram, type Medio } from './spy-medio';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
-import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, esperaMasVieja, leerRegistro } from './spy-caricatura-reglas';
 import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
-import { FORMATOS, GUIA_DE_FORMATOS, formatoDe } from './spy-detalle';
+import { FORMATOS, GUIA_DE_FORMATOS, VERSION_FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
@@ -160,7 +161,7 @@ export type AnalisisPieza = {
   formato?: string;
 };
 
-const COLUMNAS_COMPETIDOR =
+export const COLUMNAS_COMPETIDOR =
   'id, nombre, instagram, youtube_id, tiktok, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
 
 /**
@@ -178,7 +179,12 @@ export const AUN_SIN_TABLAS = 'Competitors Spy todavía no tiene sus tablas en l
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Los competidores del negocio, el que se miró más tarde primero. */
-export async function listarCompetidores(): Promise<{ ok: true; competidores: Competidor[] } | { ok: false; error: string }> {
+/**
+ * ⚠️ `caricaturasDesde` es para el SUPER ADMIN: desde cuándo espera la caricatura pendiente más vieja de este negocio. Si
+ * crece, el Runner no está generando (la causa conocida: su cuenta de Claude sin Canva, que no anota ningún error), y hasta
+ * el 6/11/2026 eso no se veía en NINGUNA pantalla: sólo corriendo `scripts/spy-caricaturas-pendientes.mjs` a mano.
+ */
+export async function listarCompetidores(): Promise<{ ok: true; competidores: Competidor[]; caricaturasDesde: string | null } | { ok: false; error: string }> {
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
@@ -186,13 +192,15 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const registro = leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null));
   const caricaturas = caricaturasListas(registro);
   const ahora = Date.now();
+  const filas = (data ?? []) as Competidor[];
   return {
     ok: true,
-    competidores: ((data ?? []) as Competidor[]).map((c) => ({
+    competidores: filas.map((c) => ({
       ...c,
       caricatura: caricaturas.get(c.id) ?? null,
       caricaturaPendiente: caricaturaEnCamino(registro[String(c.id)], { avatar: c.avatar, referente: !!referenteDeCompetidor(c) }, ahora),
     })),
+    caricaturasDesde: esperaMasVieja(registro, filas.map((c) => ({ id: c.id, avatar: c.avatar, referente: !!referenteDeCompetidor(c) })), ahora),
   };
 }
 
@@ -327,6 +335,23 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   await borrarSetting(claveLectura(id)).catch(() => undefined);
   // Y los guiones de sus reels (lib/spy-transcripcion.ts), por su prefijo.
   await borrarSettingsConPrefijo(prefijoTranscripciones(id)).catch((e) => console.warn(`[spy] no pude borrar los guiones del competidor ${id}:`, e instanceof Error ? e.message : e));
+  return { ok: true };
+}
+
+/**
+ * De qué país es (ISO-2), o `null` para borrarlo. Lo pregunta la ficha, y hoy es el ÚNICO que escribe `spy_competidores.pais`:
+ * desde que la columna existe (migración 0359) llegaba siempre `null`, así que `adLibraryCubreComercial` nunca decía nada y el
+ * enlace a la Biblioteca iba con `country=ALL`.
+ *
+ * ⚠️ Se valida contra `PAISES` ANTES de escribir: la columna tiene un `check` de dos letras, y un valor cualquiera no vuelve
+ * como «no válido» sino como un error de Postgres en medio de una acción.
+ */
+export async function ponerPais(id: number, pais: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const iso = pais === null ? null : pais.trim().toUpperCase();
+  if (iso !== null && !esPaisConocido(iso)) return { ok: false, error: 'No conozco ese país.' };
+  const db = await getTenantDb();
+  const { error } = await db.from('spy_competidores').update({ pais: iso, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude guardar su país: ${error.message}` };
   return { ok: true };
 }
 
@@ -1067,7 +1092,10 @@ async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: read
     const ref = original.get(p.ref.trim().toLowerCase());
     if (!ref) continue;
     await db.from('spy_piezas')
-      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro' }, texto_leido_en: ahora, updated_at: ahora })
+      // `formatosV`: con qué catálogo de formatos se clasificó (lib/spy-detalle.ts). Sin esta marca, lo analizado con los
+      // once formatos viejos y dejado en `otro` no se puede distinguir de lo analizado hoy, y los dos criterios conviven
+      // sin que nada lo avise.
+      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, texto_leido_en: ahora, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
   const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));

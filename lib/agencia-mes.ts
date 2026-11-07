@@ -39,11 +39,12 @@ import { ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
 import { CLAVE_CORTE, leerCorte, type CorteGuardado } from './plan-acceso-reglas';
 import { pdfDelCobro, nombreDelPdf } from './agencia-mes-pdf';
 import { revisarPausas, type DepsPausas, type EstadoDeCuenta, type LecturaParaPausas, type ResultadoPausas } from './agencia-mes-pausas';
+import { reclamarYMandar } from './agencia-mes-avisos';
 import {
   conceptoDeLinea, cubre, cuentaDelMes, cuentaDesde, diaCorto, diaLimite, diasEntre, entradaCompleta, entradasPorAvisar, esDia, esMes,
   leerConfigMensualidad, leerEntrada, leerPagoDelMes, mesDe, mesQueSeAvisa, mesesEntre, nombreDelMes, periodoDelCiclo, planQueSeCobra,
   preciosDelCatalogo, situacion, arrancaElReloj, sumarDias, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes,
-  textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
+  textoDeMesImpago, textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
   NOMBRE_PLAN,
   type ClienteDeAgencia, type ConfigMensualidad, type CuentaDelMes, type Dia, type Diferencial, type EntradaGuardada, type Mes,
   type PagoDelMes, type Pendiente, type Precios, type Situacion,
@@ -58,6 +59,8 @@ const KEY_ORDEN = (ag: number, orden: string) => `${PREFIJO(ag)}orden.${orden}`;
 const KEY_AVISO = (ag: number, mes: Mes) => `${PREFIJO(ag)}aviso.${mes}`;
 const KEY_AVISO_ENTRADA = (ag: number, cliente: number, dia: Dia) => `${PREFIJO(ag)}avisoentrada.${cliente}.${dia}`;
 const KEY_PAUSA = (ag: number, cuenta: number, causa: string) => `${PREFIJO(ag)}pausa.${cuenta}.${causa.replace(':', '-')}`;
+/** El aviso al super admin de un mes que no se pagó: uno por agencia y por mes (#498, 6/11/2026). */
+const KEY_IMPAGO = (ag: number, mes: Mes) => `${PREFIJO(ag)}impago.${mes}`;
 /** Lo que contesta todo lo que corrige una fecha mientras la migración no esté aplicada. */
 export const FALTA_LA_0402 = 'Aplica la migración 0402 (agencia_clientes.cobra_desde) para poder corregir una fecha.';
 /** El tipo de aviso en el grupo de la app: lo de la mensualidad, escondido a los invitados (como el recibo). */
@@ -666,13 +669,19 @@ export async function textoAlGrupoDeLaAgencia(agenciaWs: number, texto: string):
   return r.ok;
 }
 
-/** A Martín, por el grupo de SuperAdmin (y la campanita de la plataforma): lo que no se decide solo. Nunca tira. */
-export async function avisarAMartin(texto: string): Promise<void> {
-  await enviarAlGrupoSuperAdmin(texto).catch((e) => console.error(`[agencia-mes] no pude avisar a Martín: ${msg(e)}`));
-  await crearNotificacion({
+/**
+ * A Martín, por el grupo de SuperAdmin (y la campanita de la plataforma): lo que no se decide solo. Nunca tira.
+ *
+ * Devuelve si LLEGÓ por algún lado (6/11/2026): el aviso del mes impago se marca «ya avisado» una sola vez por mes, y
+ * marcarlo cuando no salió por ninguno de los dos canales es perder el único aviso de que una agencia no pagó.
+ */
+export async function avisarAMartin(texto: string): Promise<boolean> {
+  const grupo = await enviarAlGrupoSuperAdmin(texto).then(() => true).catch((e) => { console.error(`[agencia-mes] no pude avisar a Martín: ${msg(e)}`); return false; });
+  const campanita = await crearNotificacion({
     ws: await wsSuperAdmin(), tipo: 'agencia-mensualidad', severidad: 'warn', titulo: 'Mensualidad de una agencia: revisar', descripcion: texto.slice(0, 280),
     link: '/admin/cobros', entityType: 'agencia-mensualidad', payload: {}, origen: 'sistema:agencia-mensualidad',
-  }).catch(() => null);
+  }).then(() => true).catch(() => false);
+  return grupo || campanita;
 }
 
 /** Reclama un aviso (compare-and-set: de dos corridas a la vez gana UNA) y lo manda; si no salió, suelta el reclamo. */
@@ -777,20 +786,24 @@ async function corridaDeUnaAgencia(agenciaWs: number, ahora: Date, o: { dry?: bo
     const texto = textoDelAvisoDeEntradas({ tabla, medio: config.medio, entradas: lista });
     if (o.dry) saldrian.push(`${tabla.titulo}: ${usd(tabla.totalUsd)}`);
     else {
-      // Se reclaman todas antes de mandar; si no sale, se sueltan todas.
-      const claves = porAvisar.map((e) => KEY_AVISO_ENTRADA(agenciaWs, e.ws, e.entrada.limite));
-      const valores = porAvisar.map((e) => JSON.stringify({ at: new Date().toISOString(), montoUsd: e.entrada.montoUsd }));
-      const ganadas: number[] = [];
-      for (let i = 0; i < claves.length; i++) if (await enLaPlataforma(() => cambiarSettingSi(claves[i], null, valores[i]))) ganadas.push(i);
-      if (ganadas.length) {
-        const pdf = await pdfDelCobro(tabla, m.hoy, m.agencia);
-        const r = await mandarPdfAlGrupoDeLaAgencia(agenciaWs, { texto, pdf, nombrePdf: nombreDelPdf(tabla) });
-        if (r.ok) entradas = ganadas.length;
-        else {
-          ok = false;
-          for (const i of ganadas) await enLaPlataforma(() => borrarSettingSi(claves[i], valores[i])).catch(() => false);
-        }
-      }
+      // ⚠️ EL PDF ANTES DE RECLAMAR, Y SE SUELTA TAMBIÉN SI ALGO TIRA (6/11/2026): la marca `avisoentrada.*` no es sólo «no
+      // lo repitas» — `lecturaParaPausas` la lee como «ya se le avisó» y `quienVaEnPausa` sólo pausa al que se le avisó.
+      // Una marca puesta sin que el PDF saliera deja al cliente sin aviso PARA SIEMPRE (queda filtrado) y lo pausa el día
+      // de su vencimiento por una entrada que nadie le mandó. Ver lib/agencia-mes-avisos.ts.
+      const pdf = await pdfDelCobro(tabla, m.hoy, m.agencia);
+      const r = await reclamarYMandar(
+        porAvisar.map((e) => ({
+          clave: KEY_AVISO_ENTRADA(agenciaWs, e.ws, e.entrada.limite),
+          valor: JSON.stringify({ at: new Date().toISOString(), montoUsd: e.entrada.montoUsd }),
+        })),
+        () => mandarPdfAlGrupoDeLaAgencia(agenciaWs, { texto, pdf, nombrePdf: nombreDelPdf(tabla) }),
+        {
+          reclamar: (clave, valor) => enLaPlataforma(() => cambiarSettingSi(clave, null, valor)),
+          soltar: (clave, valor) => enLaPlataforma(() => borrarSettingSi(clave, valor)),
+        },
+      );
+      entradas = r.mandadas;
+      if (!r.ok) ok = false;
     }
   }
 
@@ -803,6 +816,22 @@ async function corridaDeUnaAgencia(agenciaWs: number, ahora: Date, o: { dry?: bo
     await avisarPausasNuevas(m, pausas.cambios).catch((e) => console.warn(`[agencia-mes] agencia ${agenciaWs}: aviso de las pausas: ${msg(e)}`));
   }
   if (pausas.cambios.some((c) => !c.ok)) ok = false;
+
+  // 4. PASADO EL DÍA 5, SI UN MES NO ENTRÓ, SE LE AVISA A MARTÍN (#498, 6/11/2026). Lo que va al grupo de la agencia es
+  //    otra cosa (`textoDePausaDelMes`, arriba): esto es para que nadie tenga que entrar a mirar la pantalla. Sin él, una
+  //    agencia podía quedar meses sin pagar y no enterarse nadie. Uno por agencia y por mes; si el aviso no sale por
+  //    ningún canal, `avisarUnaVez` suelta la marca y mañana se reintenta.
+  //    ⚠️ En seco no se avisa: `?dry=1` no manda nada.
+  if (!o.dry) {
+    for (const p of m.pendientes) {
+      if (p.tipo !== 'mes' || m.hoy <= p.limite) continue;
+      await avisarUnaVez(
+        KEY_IMPAGO(agenciaWs, p.mes), { mes: p.mes, debeUsd: p.debeUsd },
+        async () => ({ ok: await avisarAMartin(textoDeMesImpago({ agencia: m.agencia, mes: p.mes, debeUsd: p.debeUsd, diasDeAtraso: diasEntre(p.limite, m.hoy) })) }),
+      ).catch((e) => { console.warn(`[agencia-mes] agencia ${agenciaWs}: no pude avisar el impago de ${p.mes}: ${msg(e)}`); return 'fallo' as const; });
+    }
+  }
+
   return { agenciaWs, ok, mes: estadoMes, entradas, pausas: pausas.cambios, ...(o.dry ? { saldrian } : {}) };
 }
 

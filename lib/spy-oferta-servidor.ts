@@ -24,9 +24,13 @@ import { fetchSeguro } from './fetch-seguro';
 import { enlacesDeHtml, paginasQueEnlaza } from './spy-otras-redes-reglas';
 import {
   MAX_ENLACES,
-  claveOfertaSpy, leerOferta, leerSuOferta, reclamarLectura, vistaDeOferta, websDelCompetidor,
+  claveOfertaSpy, leerOferta, leerSuOferta, reclamarLectura, sinEspera, vistaDeOferta, websDelCompetidor,
   type DepsOferta, type PaginaLeida, type VistaOferta,
 } from './spy-oferta';
+// ⚠️ DEL MÓDULO PURO, NO DE `spy-pagina-capturada-servidor`: ese importa `ofertaGuardada` de ESTE archivo, y la vuelta
+// cerraría un ciclo de imports. Leer el registro son dos líneas (`getSettingEstricto` + `leerPaginasCapturadas`) y no hace
+// falta nada del otro lado.
+import { capturaDe, claveDePaginasCapturadas, leerPaginasCapturadas } from './spy-pagina-capturada';
 
 const hostDe = (u: string): string => { try { return new URL(u).host; } catch { return u; } };
 
@@ -62,6 +66,29 @@ async function enlacesDe(url: string): Promise<string[]> {
   }
 }
 
+/**
+ * La página que la persona ya guardó con la extensión, si es ésta. Sin `fetch`: ya está en la base (`spy.paginas.<id>`), y el
+ * texto se arma como el de una bajada (`bajarWeb`) para que la IA reciba lo mismo de los dos lados.
+ */
+async function capturadaDe(competidorId: number, url: string): Promise<PaginaLeida | null> {
+  const reg = leerPaginasCapturadas(await getSettingEstricto(claveDePaginasCapturadas(competidorId)));
+  const c = capturaDe(reg, url);
+  if (!c || !c.texto.trim()) return null;
+  const donde = c.final || c.url;
+  return { url: donde, titulo: c.titulo, texto: [`Página: ${donde}`, c.titulo ? `# ${c.titulo}` : '', c.texto].filter(Boolean).join('\n\n') };
+}
+
+/**
+ * Una página capturada le borra a su oferta la espera del fallo anterior, para que se lea al abrirlo y no mañana. Lo llama
+ * `guardarPaginaCapturada` (lib/spy-pagina-capturada-servidor.ts). Si lo último no fue un «no pude», no toca nada.
+ */
+export async function reintentarOfertaYa(competidorId: number): Promise<void> {
+  const clave = claveOfertaSpy(competidorId);
+  const crudo = await getSettingEstricto(clave);
+  const listo = sinEspera(leerOferta(crudo));
+  if (listo) await cambiarSettingSi(clave, crudo, JSON.stringify(listo));
+}
+
 function depsDe(competidorId: number, inicio: number): DepsOferta {
   const clave = claveOfertaSpy(competidorId);
   return {
@@ -69,6 +96,7 @@ function depsDe(competidorId: number, inicio: number): DepsOferta {
     cambiarSi: (version, nuevo) => cambiarSettingSi(clave, version, nuevo),
     bajar: bajarWeb,
     enlacesDe,
+    capturada: (url) => capturadaDe(competidorId, url),
     diagnosticar: async ({ nombre, paginas }) => {
       const at = new Date().toISOString();
       const r = await diagnosticoOffer({

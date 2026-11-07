@@ -6,9 +6,14 @@
 // (lib/ai-avatar/plantillas.ts). Con esa imagen se anima el video.
 //
 // ⚠️ VIVEN APARTE DEL HISTORIAL DEL VIDEO GENERATOR, y es a propósito. El
-// historial tiene tope de 10 anuncios (`MAX_HISTORIAL`, video-datos.ts): meter
-// cada look ahí como un plan empujaría afuera anuncios reales, con el único
+// historial tiene un CUPO POR TIPO de 10 (`CUPOS`, app/video-generator/historial-cupos.ts):
+// meter cada look ahí como un plan empujaría afuera anuncios reales, con el único
 // puntero a sus clips pagados. Acá van en su propia clave, con su propio tope.
+//
+// ⚠️ Y un cupo propio para los avatares NO cambia esto: un look no es un plan.
+// Lo que el cupo arregló (item 558, 6/11/2026) es el VIDEO de avatar, que sí es un
+// plan y sí se guarda allá. Un look es una imagen, no tiene clips colgando, y su
+// tope de 40 no tiene nada que ver con el de los planes.
 //
 // La escritura lee con `getSettingEstricto`: «no pude leer» no puede escribirse
 // como «no había nada» (docs/hallazgos-generativa.md → «Leer el Video Generator
