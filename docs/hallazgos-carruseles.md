@@ -644,3 +644,36 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 
+
+## DECISIÓN de Martín: la IA replica, y lo único full editable es el TEXTO (7/11/2026)
+
+**Lo que dijo, y es el norte de la tab:** «tiene que ser todo con IA… le vamos a pasar la referencia a la IA
+para que haga algo similar. Es muy complicado que todo sea editable, las imágenes, los personajes, las
+personas… lo más fácil es pedirle a alguien que lo replique, y de última concéntrate en que lo que sí sea full
+editable sea el tema de los textos. Eso sí tiene que ser editable, porque cambia de dueño de negocio a dueño de
+negocio: puedo tener un carrusel con la misma estética, con las mismas fotos, pero le cambio el texto, el CTA.»
+
+**NO se construye:** edición por partes de la imagen. Nada de quitar o mantener personas una por una, elegir
+qué paisaje queda, ni reemplazar a alguien por el avatar del cliente con un editor de elementos. Es trabajo
+grande y está descartado. Si un encargo pide algo de eso, se vuelve a preguntar antes de escribir una línea.
+
+**Al 7/11/2026 YA ESTÁ ASÍ, verificado contra el código** — esta entrada existe para que nadie lo rehaga ni se
+desvíe, no porque falte algo:
+
+- `lib/carruseles/replica-servidor.ts` lee las láminas, carga el Second Brain del negocio, su voz, su kit de
+  marca y la foto del cliente, y **la IA DEL NEGOCIO** (su Claude, su GPT o su Gemini, nunca la de la
+  plataforma) devuelve el diseño con sus textos.
+- Son hasta **12 láminas con 8 textos cada una, en JSON**, que quedan editables en el Image Editor. No es una
+  imagen plana: el texto vuelve como texto.
+- Sin IA conectada igual sale un diseño editable, con la estructura del ejemplo y una guía por lámina.
+- Busqué edición de personas, fondos o avatares en `app/image-editor/carruseles/` y `lib/carruseles/`: **no
+  existe y nadie la está construyendo.** Los únicos «avatar» son la foto de perfil del competidor en los filtros.
+
+⚠️ **Lo que a propósito NO hace, y conviene no «arreglarlo»:** la réplica **no reusa las fotos del original**.
+Martín dijo «con las mismas fotos», pero las fotos del ejemplo son de un competidor, y ponerlas en el anuncio
+de otro negocio es un problema de derechos, no una función que falte. Lo que se replica es **la estética y la
+estructura**, con la marca y el avatar del negocio. Si alguna vez se decide reusarlas, es una decisión legal,
+no técnica.
+
+**Vive en:** `lib/carruseles/replica-servidor.ts` · `lib/carruseles/replica.ts` ·
+`app/image-editor/carruseles/EditarCarrusel.tsx` · memoria `carruseles-ia-replica-solo-textos-editables`.

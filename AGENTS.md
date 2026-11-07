@@ -117,6 +117,41 @@ modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hiz
 **La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
 hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
 
+# Un «FALTA» de un doc es una MEDICIÓN CON FECHA, no un estado: comprobalo antes de trabajarlo
+
+**Antes de escribir una línea por un pendiente, abrí el código que nombra.** Los pendientes salen de
+las secciones «Lo que quedó sin hacer» de `docs/hallazgos-*.md`, de los relevos y de las auditorías,
+y **nadie los tacha cuando el trabajo entra**: el que arregla algo commitea el código y la cosecha, y
+el renglón de tres meses atrás que lo pedía sigue ahí, idéntico, listo para que el próximo barrido lo
+levante como nuevo.
+
+Medido el 6/11/2026 sobre los encargos de ese día: de los 27 del área de chat y los 12 de video,
+**SIETE ya estaban hechos** (una respuesta por Instagram pausa desde el 14/10; el store del ws9 dejó
+de ser el default el 10/10; el paso «esperar» tiene drenador desde el 4/10; la rampa de WhatsApp
+entró el 5/11, el mismo día que la auditoría que la pedía; la curva de retención por video se ve por
+otro camino; Deshacer está en el editor de video; `linea` ya no viaja en el clon) y **dos más tenían
+el motivo viejo**: uno estaba desbloqueado hacía dos semanas y otro pedía re-enchufar algo que Martín
+había apagado a propósito. El mismo día, otro chat midió lo mismo en la Ticketera
+([hallazgos-ticketera.md](docs/hallazgos-ticketera.md) → «Un pendiente FANTASMA»): el pedido estaba
+hecho el mismo día en que se anotó que faltaba.
+
+Son dos comandos y cuestan menos que media lectura:
+
+```sh
+git log --oneline -5 -- <el archivo que nombra el pendiente>
+grep -n "<la función que nombra>" <ese archivo>
+```
+
+Y **la fecha del renglón contra la fecha del trabajo es el primer dato**: un «A MEDIAS» escrito el
+5/11 puede estar describiendo la mañana de un arreglo que entró esa tarde.
+
+⚠️ **Y al revés, cuando lo arreglás vos: tachá el renglón en el MISMO commit.** No alcanza con
+cosechar lo nuevo — mientras el «falta» siga escrito en presente, el pendiente vuelve. Va tachado con
+`~~…~~`, la fecha y dónde quedó, no borrado: borrarlo pierde el rastro de que alguna vez faltó.
+⚠️ **Si el motivo del renglón era equivocado, decilo ahí.** «La red no corre fuera del ws9» y «la
+rampa sólo es del email» eran las dos premisas de dos pendientes del 6/11, y las dos eran falsas o
+incompletas: el que las lea sin medir repite el diagnóstico.
+
 # Cómo se sube lo terminado: a su punta, y GitHub la lleva a main (todas las cuentas, 4/11/2026)
 
 Martín, 3/11: «Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar
