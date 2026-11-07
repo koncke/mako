@@ -17,6 +17,50 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🛑 NADA LLEGA A MAIN DESDE LAS 02:08 UTC DEL 7/11 — y no es el código de nadie
+
+**El síntoma, que engaña:** cada punta da rojo y el aviso dice «sin detalle». Al abrirla, **el trabajo
+`chequear-y-llevar` figura como fallado SIN UN SOLO PASO EJECUTADO**, y el registro ni siquiera existe
+(`BlobNotFound`). O sea: el trabajo nunca arrancó. Un chat que mire su propio rojo va a buscar en su código un
+error que no está. **Le pasó a tres ramas distintas la misma noche.**
+
+**Cómo se reconoce en treinta segundos, y es lo que vale de esta entrada:**
+
+```
+node pasos-rojos.mjs <id>     # si dice «sin paso», no es el código
+```
+
+Y la confirmación definitiva es mirar el reloj de las corridas: **todo verde hasta las 01:51, todo rojo desde
+las 02:08.** Un corte así de limpio no lo produce el código de nadie.
+
+**Qué NO es:** GitHub Actions está operativo, sin incidentes abiertos ni mantenimiento (consultado el 7/11 en
+su página de estado).
+
+**Qué es, casi con seguridad: se llegó al tope de gasto de Actions.** Cuando se agota, los trabajos fallan
+exactamente así: sin pasos y sin registro.
+
+⚠️ **Y por qué no lo puedo confirmar desde acá, que es un hallazgo en sí mismo.**
+`scripts/minutos-actions.mjs` dice «Facturable REAL de GitHub: **0 min** → US$0,00 de un tope de US$30 (0 %)».
+**Ese 0 no es «no gastamos»: es «no pude leer».** El token de Actions no tiene permiso sobre el panel de
+facturación, y la API devuelve 0 en vez de un error. Es el mismo engaño que ya está anotado para
+`/actions/runs/{id}/timing`. **Un cero de esa fuente nunca es un dato.**
+
+Lo estimado por duración, que sí se puede leer: **10.993 minutos facturables en lo que va del mes** y un ritmo
+de 2.864 min/día. La estimación sobre-cuenta ~1,9x, pero aun dividida por dos pasa cualquier tope de US$30.
+**El 4/11 solo fueron 870 corridas**, y el 6/11 otras 342.
+
+**LO QUE LO DESTRABA, Y ES DE MARTÍN** (es su cuenta de GitHub, no se puede hacer desde un chat):
+
+1. Entrar a **Settings → Billing → Spending limits** en GitHub y mirar el número de verdad.
+2. Si está en el tope: subirlo, o esperar al cierre del ciclo.
+3. Mientras tanto, **se puede seguir trabajando y pusheando**: las ramas suben bien. Lo que no pasa es que
+   lleguen solas a `main`. Cuando Actions vuelva, se relanzan y entran.
+
+**Lo urgente igual se puede desplegar**, porque ese camino no usa Actions:
+`node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs` (US$0,33-0,42).
+
+---
+
 ## 🔓 DESTRABADO: la guardia negaba los commits por su MENSAJE, no por la RAM (6/11/2026 ~21:10)
 
 **El diagnóstico obvio era el equivocado, y es el que está escrito varias veces más abajo en este
