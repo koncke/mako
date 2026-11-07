@@ -15,6 +15,79 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### El país del competidor: la columna existía, nadie la escribía, y el único que preguntaba se tapaba solo (6/11/2026)
+
+**Lo medido.** `spy_competidores.pais` está desde la migración 0359 con su comentario escrito («El país en que se lo
+mira, en ISO-2. Decide si se le pueden prometer anuncios o no») y un `check` de dos letras. Barrido completo: cinco
+lugares la leen (`lib/spy.ts:93` el tipo, `:164` el select, `lib/spy-reglas.ts:353`, `lib/spy-funnel.ts:399`,
+`lib/api-mako/areas/spy.run.ts:218`) y **cero la escriben**. Llegaba `null` siempre, desde el día uno.
+
+**La parte que no se ve.** `adLibraryCubreComercial` existe justamente para «que la pantalla prometa lo que hay en vez
+de mostrar una lista vacía que parece *este competidor no pauta*». Y su ÚNICO llamador la tapa con un cortocircuito:
+
+```
+if (… && c.c.pais && !adLibraryCubreComercial(c.c.pais)) out.push(SIN_ANUNCIOS_EN_ESTE_PAIS);
+```
+
+Con `pais` null —o sea siempre— ese `&&` se come el aviso honesto. **Una guarda contra el dato ausente, puesta bien,
+desactiva la función entera cuando el dato nunca llega.** Y no hay forma de notarlo leyendo el código del aviso: está
+correcto. Hay que ir a ver quién escribe la columna. En `app/` `adLibraryCubreComercial` no tenía ni un llamador.
+
+**Lo que costaba.** La Biblioteca de Meta sólo entrega anuncios comerciales de la UE y el Reino Unido (28 países);
+fuera de ahí devuelve sólo política, con HTTP 200 y lista vacía. Para un competidor mexicano la ficha decía **«Sin
+anuncios activos en Meta · lo miré el …»**, que es una afirmación sobre él, cuando el hecho es que nunca se pudo
+mirar. Y el enlace a la Biblioteca iba con `country=ALL`.
+
+**La regla que queda.** «Se miró y no había» y «nunca se pudo mirar» son **dos frases distintas**, y la segunda nombra
+el país. Lo pregunta la ficha en «⋯ Más acciones» (un HECHO suyo, no una acción), no el alta —que es un campo y un
+Enter— y **no se pide por su cuenta**: sin el dato se sigue diciendo lo de antes, nunca un «falta». `null` se puede
+volver a poner («No lo sé»): un país equivocado hace más daño que ninguno.
+
+**Dos trampas del entorno:**
+
+- **Lo que se guarda en una columna ISO-2 se valida contra `PAISES` ANTES del `update`.** El `check` de la base no
+  vuelve como «no válido»: vuelve como un error de Postgres en medio de la acción, con su texto en la pantalla.
+- **Las banderas son IMÁGENES, no emoji** (`flagUrl`, lib/paises.ts): en Windows el emoji de bandera se dibuja como
+  las dos letras, porque Segoe UI Emoji nunca las incluyó.
+
+**Y un guard propio que se puso rojo contra código correcto.** `tests/spy-anuncios-apify.test.ts` caso 5 buscaba el
+texto JSX literal `Sin anuncios activos en Meta · lo miré el {fechaCorta(…)}`. La frase sigue diciéndose, pero ahora
+dentro de una plantilla (`${…}`), porque arriba hay un ternario: el guard medía la FORMA del JSX, no el hecho. Es la
+tercera vez que pasa en esta tab: un guard de fuente afirma lo que el código HACE, y al cambiar la forma de alrededor
+hay que releerlo, no relajarlo.
+### «Spy mira sólo 50 por vez» eran TRES topes distintos, y el que sobraba cortaba datos ya bajados (6/11/2026)
+
+**Lo medido.** `TOPES.piezasPorVuelta` (50, lib/spy-reglas.ts) tiene cuatro usos, y el barrido completo muestra que
+**ninguno toca Meta**:
+
+| Camino | Tope | Dónde | Qué cuesta subirlo |
+|---|---|---|---|
+| YouTube Data API | `piezasPorVuelta` | lib/spy-youtube.ts:386,390 · lib/spy.ts:769 | una llamada por página; y YA tiene su camino largo (`VIDEOS_POR_LECTURA_COMPLETA`) |
+| Meta / Business Discovery | **`PIEZAS_A_LEER` = 25** | lib/instagram-perfil.ts:105 | la credencial, y un límite que Meta no acepte tira la consulta ENTERA |
+| Apify | **`PIEZAS_DE_APIFY` = 100** | lib/instagram-perfil.ts:130 | nada: «el actor YA DEVUELVE todas las que trajo» |
+| Lo que la persona CAPTURÓ en su navegador | `piezasPorVuelta` | lib/spy-captura-db.ts:79 | **nada: ya está bajado** |
+
+**El que importaba era el cuarto, y no estaba en el pedido.** En «Guardar en Spy», los anuncios ya están dibujados en
+la pestaña de la persona y el servidor los interpreta; cortar en 50 es **pérdida pura**, y encima silenciosa: el
+desplegable decía «50 anuncios en la ficha de Ana» sin decir «de 213». La captura tiene su techo de verdad mucho más
+arriba (`TOPE_TOKENS` = 20.000 tokens, ~2.800 anuncios).
+
+**La regla que queda.** Un tope de «traer de afuera» y un tope de «quedarme con lo que ya tengo» **no pueden ser la
+misma constante**: el primero tiene precio y el segundo no. Son dos campos de `TOPES`
+(`piezasPorVuelta` / `piezasDeUnaCaptura`), cada uno con su comentario diciendo qué cuesta subirlo. Y si el segundo
+igual corta, **se dice cuántos quedaron afuera** (`sinGuardar`), con la misma forma que ya tenía `otros` («N de otros
+anunciantes no se guardaron»).
+
+**Dos cosas que NO se tocaron, y por qué:**
+
+- **Meta sigue en 25 y es un trámite, no código**: sin la credencial de Business Discovery no se puede medir, y en la
+  Graph API un límite que no acepta no devuelve «no acepto»: falla la consulta entera.
+- **YouTube sigue en 50 por vuelta a propósito**: el competidor que publica mucho ya está cubierto por la lectura
+  completa (`VIDEOS_POR_LECTURA_COMPLETA`, el camino de «traer todo»). Subir la vuelta de rutina pagaría más llamadas
+  en TODAS las lecturas para resolver un caso que ya tiene su camino.
+
+**Y un dato del barrido:** el 50 **no tenía ni un test**. `grep piezasPorVuelta` sobre `tests/` daba cero: se podía
+cambiar sin que nada se quejara, en las dos direcciones.
 ### La cola de caricaturas frenada: «falta un cron» era el diagnóstico equivocado (6/11/2026)
 
 **El síntoma.** Si el Runner no genera —la causa conocida: su cuenta de Claude sin Canva conectado, que **no anota
@@ -124,6 +197,40 @@ del `-servidor`, porque el ciclo no da error: rompe al inicializar, y sólo en a
 **Sin hacer:** cambiar de fuente cambia `huellaDe`, así que el primer competidor que se lea de lo capturado **vuelve
 a pagar la IA una vez** (es el mismo precio que una web que cambió). Y el desafío de un antibots **no se evade**: se
 usa lo que la persona ya miró en su navegador.
+
+### Lo que de Spy NO es código, y el número de migración del relevo ya está tomado (6/11/2026)
+
+**El número de migración del relevo está vencido.** `docs/relevo/nube-spy.md` dice «hace falta un bucket privado, o sea
+una migración: **pido el número**» y los encargos repiten «el número libre es 0410». Medido el 6/11 en disco:
+**0410 y 0411 ya existen** (`0410_correo_bajas.sql`, `0411_carruseles_revisada.sql`). Es la segunda vez que pasa en
+esta tab —el 31/10 el relevo decía 0306 y en disco el más alto era 0357—, así que vale como regla y no como anécdota:
+**el número de la próxima migración no se lee de un relevo ni de un pendiente**; se barre el disco de todos los
+worktrees y, con coordinador, se le pide a él (AGENTS.md → «El próximo número de migración es un recurso COMPARTIDO»).
+
+**Y lo de Spy que no se destraba escribiendo código**, con lo que lo destraba y dónde vive. Trece de los treinta y tres
+encargos del 6/11 son éstos: no tiene sentido volver a triarlos.
+
+| Qué | Qué lo destraba | Dónde vive |
+|---|---|---|
+| El guion de un video de YouTube (7 pruebas, 503) y su costo por minuto | la IA del negocio contra el servicio real, y una decisión de Martín: ¿un negocio SIN su Gemini transcribe con la clave de la plataforma? Hoy AGENTS lo prohíbe | `lib/spy-transcripcion-servidor.ts` (`tramoDeYoutube`) |
+| La primera lectura real de anuncios por Apify (¿trae `pageID`?) | una clave de Apify con crédito, desde la PC: la nube no llega a Apify | `scripts/probar-anuncios-apify.mjs` · `lib/spy-todo-reglas.ts` |
+| El competidor 13 del ws 11 con 12 piezas, y el YouTube de Leila | la base de producción desde la PC (son 6 consultas de LECTURA, ya escritas) | `docs/relevo/nube-spy.md:99-107` y `:191-208` |
+| ¿Compartir las lecturas ahorra algo? | leer `spy_lecturas_canal.ahorros` en producción | `lib/spy-compartido-db.ts` (`anotarAhorro`) |
+| La cola de caricaturas contra la base real | el Runner en la PC, con Canva conectado en su cuenta de Claude | `scripts/spy-caricaturas-pendientes.mjs` y `spy-caricatura-guardar.mjs` |
+| Que el fin de crédito de Apify diga lo que se supuso | una corrida real que se quede sin crédito | `lib/spy-todo-reglas.ts` (`esFaltaDeCredito`) |
+| «Capturar» en un Chrome de verdad, y publicar la extensión | la tienda de Chrome (es un trámite de Martín) y una persona que pase la barrera | `public/mako-puente-0.77.0.zip` · `extension/spy-pagina.js` |
+| Media docena de pantallas con un competidor real, y cuánto tarda la ficha | mirar producción con Den Borg: la vista de prueba no tiene el CDN de Meta | `app/competitor-spy/` |
+| «Sugeridos», la oferta de un competidor y el guion de un reel, con un negocio real | un negocio con su IA y su Apify | `/api/competitor-spy/oferta` · `lib/spy-transcripcion-servidor.ts` |
+| Guardar el diseño de «Copiar su sitio» | un bucket PRIVADO: una migración (número por pedir) y cambiar el lado que lee, porque hoy todo asume una URL pública | `lib/spy-miniaturas.ts` · `supabase/migrations/0361_spy_miniaturas_guardadas.sql` |
+| Las 50 piezas por vuelta de Meta | la credencial de Business Discovery: un límite que la Graph API no acepta tira la consulta ENTERA, y sin credencial no se mide | `lib/instagram-perfil.ts` (`PIEZAS_A_LEER`) |
+
+**El código de todos está escrito** (lo verifiqué uno por uno: `tramoDeYoutube`, `ver_sugeridos`/`sumar_sugerido`,
+`bloqueOfertaDeOtro`, `ANUNCIOS_POR_APIFY = true`, el cron `spy-todo` en `vercel.json:236`, los dos scripts del
+Runner). Lo único que falta es correrlos donde se puede.
+
+**Y un pendiente FANTASMA menos:** «los formatos nuevos del catálogo en el análisis de piezas» ya estaba hecho — el
+prompt recibe los 19 con su definición (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`, `lib/spy.ts`), con su test. Lo que
+faltaba de verdad era otra cosa, y está arriba en «Los 19 formatos».
 
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 

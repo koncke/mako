@@ -62,7 +62,8 @@ import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import type { NombreIconoMenu } from '../_ui/iconos-menu';
-import { dibujarContador } from '@/lib/spy-reglas';
+import { adLibraryCubreComercial, dibujarContador, sinAnunciosEnEstePais } from '@/lib/spy-reglas';
+import { PAISES, flagUrl, nombreDePais } from '@/lib/paises';
 import { iniciales } from '@/lib/unicode-seguro';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
@@ -83,7 +84,7 @@ import { avisoDeTraida } from '@/lib/spy-todo-reglas';
 import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
-  competidoresAction, guardarAnuncioAction, piezasAction, quitarCanalAction, quitarCompetidorAction,
+  competidoresAction, guardarAnuncioAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
   revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
@@ -665,6 +666,41 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
   );
 }
 
+/**
+ * «¿De qué país es?»: un hecho, no una acción. Decide si la Biblioteca de Anuncios de Meta puede traer sus anuncios
+ * (`adLibraryCubreComercial`) y con qué país se abre la Biblioteca. Las banderas son IMÁGENES: en Windows el emoji de bandera
+ * se dibuja como dos letras (lib/paises.ts).
+ */
+function ModalPais({ nombre, actual, ocupado, error, onClose, onElegir }: {
+  nombre: string; actual: string | null; ocupado: boolean; error: string | null;
+  onClose: () => void; onElegir: (iso2: string | null) => void;
+}) {
+  const [iso, setIso] = useState(actual ?? '');
+  return (
+    <ModalShell w={460} label="Su país" onClose={onClose}>
+      <div className="spy-modal">
+        <div className="spy-modal-cabecera">
+          <h2>¿De qué país es {nombre}?</h2>
+          <button type="button" className="spy-x" aria-label="Cerrar" onClick={onClose}><Icon name="x" size={15} /></button>
+        </div>
+        <Dropdown
+          ariaLabel="Su país" value={iso} width="100%" search
+          options={PAISES.map((p) => ({ value: p.iso2, label: p.nombre, avatar: flagUrl(p.iso2), avatarCuadrado: true }))}
+          onChange={setIso}
+        />
+        {error && <p className="spy-aviso spy-error">{error}</p>}
+        <div className="spy-modal-pie">
+          {/* Borrarlo es parte de poder contestarlo: un país equivocado hace más daño que ninguno. */}
+          {actual && <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onElegir(null)}>No lo sé</button>}
+          <button type="button" className="spy-boton spy-boton-primario" disabled={!iso || iso === actual || ocupado} onClick={() => onElegir(iso)}>
+            {ocupado ? 'Un momento…' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 /** El ícono de cada opción del desplegable de tipos (AGENTS.md: cada opción de un desplegable lleva el suyo). */
 const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
   todo: 'ver', reels: 'video', carruseles: 'imagen', largos: 'video', shorts: 'video', anuncios: 'anuncio',
@@ -960,7 +996,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [orden, setOrden] = useState<OrdenSpy>('mas-vistas');
   /** El piso del «3,7×» (0 = cualquiera): los mismos que el explorador de carruseles. */
   const [minimo, setMinimo] = useState(0);
-  const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
+  const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'pais' | 'quitar' | null>(null);
   /** «Agregar su YouTube» busca sólo en YouTube; el «Agregar un canal» del menú, en todas sus redes. */
   const [redCanal, setRedCanal] = useState<'instagram' | 'youtube' | null>(null);
   const abrirCanal = (red: 'instagram' | 'youtube' | null) => { setErrorModal(null); setRedCanal(red); setModal('canal'); };
@@ -1450,6 +1486,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     }
   };
 
+  /**
+   * Su país. Se recarga la lista porque la ficha lee de ahí (`competidores`), y con el país cambia lo que dice el lugar de
+   * sus anuncios y a qué país abre la Biblioteca. No se relee nada de afuera: no cuesta una lectura.
+   */
+  const guardarPais = async (id: number, iso: string | null) => {
+    setOcupado(true); setErrorModal(null);
+    try {
+      const r = await ponerPaisAction(id, iso);
+      if (!r.ok) { setErrorModal(r.error); return; }
+      setModal(null);
+      await recargarLista();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const guardarAnuncio = async (valor: string) => {
     if (elegido == null) return;
     setOcupado(true); setErrorModal(null);
@@ -1647,6 +1699,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
             options={[
               { value: 'canal', label: 'Agregar un canal' },
               { value: 'anuncio', label: 'Guardar un anuncio' },
+              // Un HECHO suyo, no una acción: de qué país es. Acá y no en el alta, que es un campo y un Enter
+              // («un paso por pantalla»), y no se pide por su cuenta: sin el dato no se dibuja un «falta».
+              { value: 'pais', label: c.pais ? `Su país: ${nombreDePais(c.pais)}` : 'Su país' },
               // Mismo criterio que el botón de la lista: borrar es del admin, y lo
               // que no se puede hacer no se ofrece.
               ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
@@ -1656,7 +1711,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
               if (v === 'canal') { abrirCanal(null); return; }
               setErrorModal(null);
-              setModal(v as 'anuncio' | 'quitar');
+              setModal(v as 'anuncio' | 'pais' | 'quitar');
             }}
             buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
           />
@@ -1902,9 +1957,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                         {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
                         {/* ⚠️ NO PAUTAR ES UN DATO, NO UN ERROR (el Cerebro, 4/11/2026): se probaron todas sus búsquedas y no hay anuncios
                             suyos. Se dice en el lugar de sus anuncios, con la Biblioteca a un clic, sin cartel. */}
+                        {/* ⚠️ Y «SIN ANUNCIOS» NO ES LO MISMO QUE «NO SE PUDO MIRAR» (6/11/2026): la Biblioteca de Meta sólo entrega
+                            anuncios comerciales de la UE y el Reino Unido, así que para un competidor de México la lista viene vacía
+                            SIEMPRE, con HTTP 200. Con su país sabido (`Su país`, en «⋯») se dice eso; sin el dato, lo de antes. */}
                         {!anuncios.length && sinAnuncios[c.id] && (
                           <p className="spy-aviso spy-aviso--suave spy-sin-anuncios">
-                            <Icon name="ads" size={14} />Sin anuncios activos en Meta · lo miré el {fechaCorta(sinAnuncios[c.id])}
+                            <Icon name="ads" size={14} />
+                            {c.pais && !adLibraryCubreComercial(c.pais)
+                              ? sinAnunciosEnEstePais(nombreDePais(c.pais))
+                              : `Sin anuncios activos en Meta · lo miré el ${fechaCorta(sinAnuncios[c.id])}`}
                             <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener">Ver la Biblioteca</a>
                           </p>
                         )}
@@ -2021,6 +2082,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           confirmLabel="Dejar de mirarlo"
           onOk={() => void quitarDeLaLista(aBorrar.id)}
           onCancel={() => setABorrar(null)}
+        />
+      )}
+      {modal === 'pais' && c && (
+        <ModalPais nombre={c.nombre} actual={c.pais} ocupado={ocupado} error={errorModal}
+          onClose={() => setModal(null)} onElegir={(iso) => void guardarPais(c.id, iso)}
         />
       )}
       {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${c.nombre}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}

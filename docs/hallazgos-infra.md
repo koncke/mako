@@ -6,6 +6,22 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una rotura que sólo toca el DISCO no la ve un test que lee de git (6/11/2026, claude1).**
+
+**Síntoma.** Probando rompiéndolo `tests/proxy-matcher-completo.test.ts`: se deja un archivo en `public/cv/` con
+`cv` fuera de la lista de carpetas exentas de `proxy.ts` —el caso que tiene que cazar, porque esos archivos se comen
+el login— y el test da **verde**. La conclusión obvia, que el test sólo cubre la otra dirección (una carpeta en la
+lista sin archivos), **era falsa**.
+
+**Causa.** Ese test lista `public/` con `git ls-files` (`deGit('public')`), no con `readdir`: un archivo nuevo sin
+`git add` no existe para él. Con el archivo en el índice da 4/1, como debe. Pasa lo mismo con cualquier test que
+recorra el repo por git —los barridos de rutas, los índices de documentos— y es justo lo que una rotura de prueba
+hace: escribir un archivo y borrarlo sin tocar el índice.
+
+**Regla.** Al medir una rotura que AGREGA un archivo, se la agrega al índice (`git add -- <ruta>` y después
+`git rm --cached -- <ruta>`) antes de creerle al verde. Y una rotura que no cambia el resultado se mira dos veces
+antes de anotarla como «el test no lo cubre»: casi siempre la rotura no llegó a donde el test mira.
+
 **`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
 
 **Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
@@ -100,6 +116,41 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+## Tocar `extension/` desde una PC con Windows deja el zip imposible de poner al día (6/11/2026)
+
+**El síntoma.** Cambié una línea de `extension/popup.js`, el pre-push dijo «public/mako-puente.zip quedó viejo: la
+extensión cambió. Corré: node scripts/zip-extension.mjs», lo corrí, volví a pushear… y dijo exactamente lo mismo.
+Regenerar no lo arregla **nunca**.
+
+**La causa, medida.** `scripts/zip-extension.mjs` calcula la huella de dos formas distintas según el modo, y lo
+documenta: `leer()` en `--check` hace `git show HEAD:extension/<f>` (**el blob**) y al generar hace `readFileSync`
+(**el disco**). En este repo `core.autocrlf=true`, así que el checkout convierte los LF del blob en CRLF: **el disco y
+el blob no tienen los mismos bytes.** Medido con `extension/popup.js`: blob 74.398 B, disco 75.877 B. Así que generar
+escribe en `public/mako-puente.sha` la huella del disco (CRLF) y el `--check` compara contra la del blob (LF). No
+pueden coincidir.
+
+**Por qué nadie lo había visto.** La huella que está commiteada en el repo SÍ coincide con los blobs (`--check` pasa
+en cualquier worktree que no toque `extension/`): la generó alguien cuyo disco tenía los mismos bytes que el blob, o
+sea **desde la nube o desde Linux**, no desde una PC con Windows. El guard viene funcionando porque nadie había
+editado la extensión desde la PC.
+
+**El mismo bug ya estaba cazado dos líneas más abajo, para el otro archivo.** El propio script normaliza los `\r`
+antes de comparar `lib/extension-version.ts`, con este comentario: «`moduloVersion` se arma con `\n` y git deja el
+archivo en CRLF al sacarlo, así que la comparación exacta pasa SOLO en el clon donde el script corrió alguna vez. **Es
+el cuarto guard de esta familia con el mismo bug** — los otros tres son sync-contrato-detalle, sync-gramatica-doc y
+generar-plugin». Es el QUINTO: la huella de la extensión tiene el mismo agujero y quedó sin arreglar, porque el `\r`
+se normalizó en la comparación del `.ts` y no en el cálculo del hash.
+
+**Cómo se sale hoy** (lo que hice, y es un parche a mano, no un arreglo): después de commitear el cambio de
+`extension/`, recalcular la huella **como la calcula `--check`** —sobre los blobs de HEAD— y escribirla en
+`public/mako-puente.sha`. El zip se genera del disco: lo que lleva adentro es el mismo JavaScript con otro fin de
+línea, que a Chrome le da igual. Con eso `--check` pasa y lo que se despliega es el commit.
+
+**El arreglo de verdad, SIN hacer** (vive en `scripts/zip-extension.mjs`): que el cálculo del hash normalice los
+`\r\n` a `\n` antes de `h.update`, en los dos modos. Es una línea y cierra la familia entera. No lo hice acá porque
+cambia la huella de TODOS los clones a la vez: entra con el commit que la regenera, y el que lo haga tiene que correr
+el `--check` en un worktree limpio antes y después.
 
 ## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
 
