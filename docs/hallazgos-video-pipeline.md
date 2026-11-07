@@ -1144,11 +1144,20 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
   a Flow, no una medición del material que volvió (`worker/montar-cola.mjs`,
   `lib/montaje/pipeline.ts`); la API ya lo rotula (`segundos_antes_estimados`) y la pantalla no
   (`app/video-generator/PasoMontaje.tsx`).
-- **Deshacer.** No hay `Ctrl+Z`: un arrastre equivocado se arregla arrastrando de vuelta.
-  Con las operaciones puras en `editor-cortes.ts`, es una pila de planes en un `useRef`.
-- **La música**, esperando Epidemic. Una fila en `PISTAS` y anda.
-- **Reordenar tomas.** El editor recorta y parte; mover un tramo de lugar no está. El plan
-  lo soporta (es un array ordenado), lo que falta es el arrastre.
+- ~~**Deshacer.** No hay `Ctrl+Z`~~ — **HECHO** (y este renglón quedó afirmando lo
+  contrario hasta el 6/11). La pila vive en un `useRef` con tope de 30, se apila una vez
+  por GESTO, y el atajo está: `app/video-generator/EditorAnuncio.tsx`. El otro editor
+  también lo tiene (`app/video-editor/_opencut/actions/definitions.ts`).
+- ~~**La música**, esperando Epidemic~~ — **el código está HECHO; lo que falta es
+  COMERCIAL.** `lib/musica-catalogo.ts` es `PISTAS: Pista[] = []` con el porqué escrito
+  arriba: falta el alta de **Epidemic Sound Connect**, que la firma Martín. El selector
+  de la pantalla ni se dibuja mientras la lista esté vacía (`hayMusica()`), el worker ya
+  baja `musica` y el montaje ya la mezcla con `loudnorm`. Una fila y anda — pero la fila
+  no se pone sin la licencia.
+- ~~**Reordenar tomas.** El editor recorta y parte; mover un tramo de lugar no está~~ —
+  **HECHO el 6/11** (`moverTramo` y `destinoDeMover` en `editor-cortes.ts`, el arrastre
+  horizontal y los dos botones en `EditorAnuncio.tsx`). ⚠️ Y la frase «el plan lo soporta
+  (es un array ordenado)» era FALSA: ver §16.
 - **El worker sigue sin contenedor**, así que nada de esto se probó de punta a punta contra
   un montaje real.
 
@@ -1415,3 +1424,92 @@ avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
   hacen lo mismo con el mismo default (10,005). No se comparte porque el worker no puede
   importar TypeScript: se copia suelto en la imagen. Si aparece un tercer consumidor, el
   default deja de ser un número repetido y pasa a ser un dato del pedido.
+
+---
+
+## §16 — Reordenar tomas: el array estaba ordenado y NO era reordenable (6/11/2026)
+
+`app/video-generator/editor-cortes.ts` · `app/video-generator/EditorAnuncio.tsx` ·
+`app/video-generator/plan-montaje.ts` · `tests/editor-cortes.test.ts`
+
+### ⚠️ El diagnóstico obvio era el equivocado, y lo afirmaba el pendiente
+
+**Lo que decía:** «mover un tramo de lugar no está. **El plan lo soporta (es un array
+ordenado)**, lo que falta es el arrastre». La primera mitad es cierta y la segunda es falsa:
+el array está ordenado y **no es libremente reordenable**.
+
+`porQueNoSirveElPlan` (`plan-montaje.ts`) tiene un control que nadie había leído como una
+restricción de ORDEN:
+
+```js
+for (const [toma, tramos] of porToma) {          // porToma se llena EN EL ORDEN DEL ARRAY
+  for (let i = 1; i < tramos.length; i++) {
+    if (tramos[i].ini < tramos[i - 1].fin) return `En la toma ${toma} hay dos tramos que se pisan.`;
+```
+
+O sea: **los tramos de una misma toma tienen que aparecer en el array en orden
+cronológico.** Cruzar los dos pedazos de una toma partida —que es el caso CENTRAL de este
+editor: partir una toma y sacarle un bache del medio— produce un plan que el server rechaza.
+Y el mensaje **miente**: dice que se pisan cuando no se pisan, están al revés.
+
+Un `splice` ingenuo lo produce sin esfuerzo, y el rojo habría aparecido en la persona, al
+apretar «Montar», sobre un anuncio que ya había terminado de acomodar.
+
+**La cura, en la forma que el módulo ya tenía escrita** («ACOTA, no rechaza»): `moverTramo`
+hace el movimiento, comprueba el cruce, y si cruza devuelve **el mismo plan** —la identidad
+es la señal, y la pantalla la lee con `===`—. El tramo se frena contra su hermano y se ve,
+igual que un borde se frena contra el vecino. Reordenar tramos de tomas DISTINTAS no tiene
+tope: es para lo que existe.
+
+**La regla que queda:** antes de reordenar una colección, buscar quién la VALIDA y leer su
+validador como un contrato sobre el orden, no sobre los elementos. Un array cuyos índices se
+pueden permutar sin consecuencia y uno cuyo orden codifica una invariante se ven exactamente
+igual en el tipo —acá los dos son `Tramo[]`— y el segundo no lo dice en ningún lado más que
+en el cuerpo de una función de otro archivo.
+
+### El arrastre que oscila (y por qué la decisión salió del manejador)
+
+Mover al tramo que está **debajo del dedo** tiembla: si el tramo agarrado es más angosto que
+el que desplaza, después del salto el dedo queda otra vez sobre el vecino y el
+`pointermove` siguiente lo manda de vuelta — un bloque vibrando, sin un error en ningún
+log. Se mueve **un paso por vez y contra la MITAD del vecino**: dado el paso, el dedo quedó
+más allá de la mitad del tramo que ahora tiene detrás, y el paso de vuelta pide menos que
+eso. Medido con medio segundo al lado de ocho, que es el caso que tiembla.
+
+Y por eso esa aritmética vive en `destinoDeMover` (`editor-cortes.ts`) y no en el
+`pointermove`: adentro de un manejador de puntero sólo se prueba arrastrando el mouse, que
+es exactamente lo que ese módulo existe para evitar.
+
+### Lo que YA estaba y el pendiente afirmaba que no
+
+- **`Ctrl+Z`**: la pila con tope de 30, el apilado una vez por gesto y el botón con su
+  `title` estaban desde antes. El reorden se enchufó a esa disciplina en vez de traer una
+  propia: `apilar()` en el `pointerdown` del bloque, y el `soltar` compartido saca la entrada
+  muda con `mismoPlan` cuando el gesto volvió al mismo lugar (un clic que sólo selecciona
+  también apila, y también se limpia).
+- **La música**: hecha en código, **bloqueada por licencia** (Epidemic Sound Connect, lo
+  firma Martín). No se tocó.
+
+### Lo que quedó SIN hacer
+
+- **El gesto NO se arrastró en un navegador.** Es la regla de la casa («un GESTO no se
+  verifica leyendo el handler») y no se cumplió: el editor se abre sobre el plan de un
+  montaje real, que hoy sale del cron del worker. Lo ejecutado son las operaciones puras y la
+  secuencia del gesto simulada con ellas (`tests/editor-cortes.test.ts`); el cableado de la
+  pantalla está fijado por fuente, que no es lo mismo.
+- **No hay reorden por TECLADO sobre el bloque enfocado.** Los dos botones «← Mover» /
+  «Mover →» son el camino accesible, y existen porque un arrastre no se anuncia solo; un
+  bloque con `tabIndex` y flechas sería mejor.
+- **Nada avisa POR QUÉ un tramo no pasa a su hermano.** Se frena y se ve, que es la regla del
+  módulo, pero alguien que insiste no tiene cómo saber que el tope es el otro pedazo de la
+  misma toma.
+- ⚠️ **Con la pila de deshacer LLENA, un clic que sólo selecciona tira la entrada más vieja.**
+  Es de la mecánica que ya estaba, no del reorden: `apilar()` corre en el `pointerdown` y hace
+  `[...pila.slice(-29), ahora]`, así que con 30 entradas la primera se cae; el `soltar` saca la
+  del final con `mismoPlan` y la vieja ya no vuelve. Pasaba igual tocando un borde, y ahora
+  también tocando un bloque — un camino más al mismo agujero. Queda en 29 de 30, así que no
+  duele, pero es un tope que recorta EN SILENCIO. El arreglo limpio no es mover el tope: es
+  apilar en el PRIMER cambio real del gesto y no al agarrarlo (guardar el plan de antes en un
+  ref y empujarlo cuando el plan de verdad cambia), y eso toca el camino del borde, así que
+  pide su propia vuelta de roturas. Vive en `app/video-generator/EditorAnuncio.tsx`
+  (`apilar`, y el `soltar` del efecto del arrastre).

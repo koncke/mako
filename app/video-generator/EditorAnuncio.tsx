@@ -36,7 +36,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Button, Modal, Alert } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
-import { moverBorde, quitarTramo, partirTramo, inicios, enSegundo, mismoPlan } from './editor-cortes';
+import {
+  moverBorde, moverTramo, quitarTramo, partirTramo, destinoDeMover, inicios, enSegundo, mismoPlan,
+} from './editor-cortes';
 import type { Plan } from './plan-montaje';
 import { PISTAS, hayMusica } from '@/lib/musica-catalogo';
 
@@ -54,14 +56,33 @@ function reloj(seg: number): string {
 const COLORES = ['#4C7DF0', '#F2B01E', '#3FB27F', '#C86BE0', '#E86A5C', '#3FA9C9'];
 const colorDe = (toma: number) => COLORES[(toma - 1) % COLORES.length];
 
-type Arrastre = {
-  i: number;
-  borde: 'ini' | 'fin';
-  /** Dónde empezó el dedo y qué valor tenía el borde. Se acumula contra esto y
-   *  no de a pasos: sumar incrementos deriva y el borde se va quedando atrás. */
-  x0: number;
-  v0: number;
-};
+/**
+ * Los DOS gestos de la línea de tiempo, y son distintos.
+ *
+ * Un borde RECORTA (cambia lo que se ve de una toma); el tramo entero REORDENA
+ * (cambia en qué orden se dicen las cosas, sin tocar ninguna duración). Van como
+ * unión discriminada y no como un `borde?: ...` opcional para que el compilador no
+ * deje leer `v0` en el gesto que no lo tiene.
+ */
+type Arrastre =
+  | {
+    modo: 'borde';
+    i: number;
+    borde: 'ini' | 'fin';
+    /** Dónde empezó el dedo y qué valor tenía el borde. Se acumula contra esto y
+     *  no de a pasos: sumar incrementos deriva y el borde se va quedando atrás. */
+    x0: number;
+    v0: number;
+  }
+  /**
+   * El tramo entero. ⚠️ **SIN `i` A PROPÓSITO**: el índice del tramo agarrado CAMBIA
+   * durante el gesto (es lo que el gesto hace), y vive en `movidoRef`. Ponerlo
+   * también acá sería un segundo dueño del mismo dato, y el de abajo —el estado—
+   * llega un cuadro tarde: `pointermove` dispara decenas de veces por segundo y el
+   * paso siguiente se calcularía contra un índice que ya no es el del tramo que uno
+   * tiene agarrado.
+   */
+  | { modo: 'tramo' };
 
 export function EditorAnuncio({
   clips, segundosPorToma, plan: planInicial, musica: musicaInicial,
@@ -129,6 +150,14 @@ export function EditorAnuncio({
   arranquesRef.current = arranques;
   /** En qué tramo iba el bucle. Es lo que detecta el salto de un corte. */
   const tramoRef = useRef(-1);
+  /**
+   * Qué índice tiene AHORA el tramo que el dedo está moviendo.
+   *
+   * ⚠️ En un ref por la misma razón que el reloj y el plan: el `pointermove` corre
+   * fuera de React y leería el de hace un cuadro. Y acá el dato no es cosmético —es
+   * el que decide el paso siguiente—, así que uno viejo movería el tramo equivocado.
+   */
+  const movidoRef = useRef(0);
   const foco = useMemo(() => enSegundo(plan, t), [plan, t]);
   const tomaViva = foco?.toma ?? 1;
 
@@ -192,12 +221,37 @@ export function EditorAnuncio({
     return () => { vivo = false; cancelAnimationFrame(raf); videosRef.current.forEach((v) => v?.pause()); };
   }, [reproduciendo, ponerT]);
 
-  // ── Arrastrar un borde ──────────────────────────────────────────────────
+  // ── Arrastrar: un borde (recortar) o el tramo entero (reordenar) ────────
   useEffect(() => {
     if (!arrastre || !escala) return;
+    const a = arrastre;
     const mover = (e: PointerEvent) => {
-      const d = (e.clientX - arrastre.x0) / escala;
-      setPlan((p) => moverBorde(p, arrastre.i, arrastre.borde, arrastre.v0 + d, duraLaToma(p.segs[arrastre.i]?.toma ?? 1)));
+      if (a.modo === 'borde') {
+        const d = (e.clientX - a.x0) / escala;
+        setPlan((p) => moverBorde(p, a.i, a.borde, a.v0 + d, duraLaToma(p.segs[a.i]?.toma ?? 1)));
+        return;
+      }
+      // Reordenar. Se mide contra la POSICIÓN ABSOLUTA del dedo sobre la tira, igual
+      // que el borde se mide contra su `x0`: acumular pasos deriva.
+      const caja = tiraRef.current?.getBoundingClientRect();
+      if (!caja) return;
+      const p = planRef.current;
+      const i = movidoRef.current;
+      const destino = destinoDeMover(p, i, (e.clientX - caja.left) / escala);
+      if (destino === i) return;
+      const nuevo = moverTramo(p, i, destino);
+      // ⚠️ RECHAZADO: `moverTramo` devuelve EL MISMO plan cuando el paso cruzaría dos
+      // tramos de la misma toma —un plan que el server rechaza—. El tramo se frena
+      // contra su hermano y se ve, como un borde se frena contra el vecino. Se
+      // compara por identidad, no con `mismoPlan`: es la señal que el módulo da.
+      if (nuevo === p) return;
+      movidoRef.current = destino;
+      // ⚠️ EL REF SE ESCRIBE ACÁ Y NO SE ESPERA AL RENDER. Dos `pointermove` seguidos
+      // antes de que React repinte leerían el plan viejo, y el segundo paso se
+      // calcularía sobre un orden que ya cambió.
+      planRef.current = nuevo;
+      setPlan(nuevo);
+      setSel(destino);
     };
     const soltar = () => {
       setArrastre(null);
@@ -221,8 +275,12 @@ export function EditorAnuncio({
 
   // Mientras se arrastra, el cabezal se pega al borde que se está moviendo: es
   // lo que hace que recortar sea mirar el cuadro y no calcular segundos.
+  // ⚠️ SÓLO EN EL GESTO DE BORDE. Recortar es mirar el cuadro; reordenar es mirar la
+  // tira, y mover el cabezal en cada paso del reorden haría saltar la previsión de
+  // toma en toma debajo del dedo — ruido, justo donde hay que mirar dónde cae el
+  // bloque.
   useEffect(() => {
-    if (!arrastre) return;
+    if (arrastre?.modo !== 'borde') return;
     const s = plan.segs[arrastre.i];
     if (!s) return;
     const en = arrastre.borde === 'ini' ? arranques[arrastre.i] : arranques[arrastre.i] + (s.fin - s.ini) - 0.01;
@@ -277,7 +335,9 @@ export function EditorAnuncio({
     return () => window.removeEventListener('keydown', alTeclado);
   }, [deshacer]);
 
-  const editar = (f: (p: Plan) => Plan) => {
+  // Devuelve si CAMBIÓ algo: quien mueve un tramo necesita saberlo para que la
+  // selección siga al bloque, y no quedarse señalando el lugar de donde salió.
+  const editar = (f: (p: Plan) => Plan): boolean => {
     setReproduciendo(false);
     // ⚠️ SE CALCULA AFUERA DEL UPDATER. Un updater de `setState` tiene que ser
     // PURO —React lo puede llamar dos veces, y en StrictMode lo hace siempre— así
@@ -288,15 +348,30 @@ export function EditorAnuncio({
     // Si la operación se abstuvo —partir donde no se puede, quitar el último
     // tramo— no hay nada que apilar ni que aplicar. Una pila con entradas mudas
     // hace que deshacer parezca roto.
-    if (mismoPlan(nuevo, antes)) return;
+    if (mismoPlan(nuevo, antes)) return false;
     apilar();
     setPlan(nuevo);
+    return true;
   };
 
   const partirAqui = () => {
     if (!foco) return;
     editar((p) => partirTramo(p, foco.i, foco.dentro));
     setSel(null);
+  };
+
+  /**
+   * Mover el tramo seleccionado un lugar, con un botón.
+   *
+   * ⚠️ EXISTE PORQUE UN GESTO NO SE ANUNCIA SOLO. El arrastre horizontal es lo
+   * natural con el dedo, y es invisible: nada en la pantalla dice que un bloque se
+   * puede llevar a otro lado. Estos dos botones son el MISMO reorden por un camino
+   * que se ve, se puede tocar con el teclado, y no pide precisión de píxel.
+   */
+  const moverSel = (paso: -1 | 1) => {
+    if (sel == null) return;
+    const destino = sel + paso;
+    if (editar((p) => moverTramo(p, sel, destino))) setSel(destino);
   };
 
   const quitar = (i: number) => {
@@ -327,6 +402,15 @@ export function EditorAnuncio({
         && Math.abs(o.ini - s.ini) < 0.005 && Math.abs(o.fin - s.fin) < 0.005;
     });
   const sinCambios = mismosCortes && musica === musicaInicial;
+
+  /**
+   * Cuál es el bloque que el dedo está llevando, para pintarlo levantado.
+   *
+   * Sale de `sel` y no de `movidoRef` a propósito: lo que se PINTA se decide con
+   * estado —un ref leído en el render no repinta cuando cambia— y `sel` sigue al
+   * tramo en cada paso del reorden, que es justo el dato que hace falta.
+   */
+  const moviendo = arrastre?.modo === 'tramo' ? sel : null;
 
   return (
     <Modal
@@ -428,12 +512,29 @@ export function EditorAnuncio({
               return (
                 <div
                   key={i}
-                  onPointerDown={(e) => { e.stopPropagation(); setSel(i); }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setSel(i);
+                    setReproduciendo(false);
+                    // El gesto entero es UNA entrada de deshacer, así que se apila cuando
+                    // EMPIEZA. Un simple clic para seleccionar deja una entrada muda, y la
+                    // saca `soltar` con `mismoPlan` — es lo mismo que ya hace un borde.
+                    apilar();
+                    movidoRef.current = i;
+                    setArrastre({ modo: 'tramo' });
+                  }}
+                  title="Arrastra para cambiar el orden"
                   style={{
                     position: 'relative', width: w, flex: '0 0 auto',
                     background: colorDe(s.toma),
                     opacity: activo ? 1 : 0.82,
                     borderRadius: 6,
+                    // ⚠️ EL TAMAÑO DEL BLOQUE NO SE TOCA AL ARRASTRARLO (regla de la casa):
+                    // el ancho ES la duración del tramo, y agrandarlo mientras se mueve
+                    // diría que el gesto cambió lo que dura. Lo que cambia es la sombra.
+                    cursor: moviendo === i ? 'grabbing' : 'grab',
+                    boxShadow: moviendo === i ? '0 6px 14px rgba(0,0,0,.45)' : 'none',
+                    zIndex: moviendo === i ? 2 : undefined,
                     // ⚠️ EL SEPARADOR VA ADENTRO DEL BLOQUE, NO COMO `margin`.
                     // Con `marginRight: 2` cada corte corre 2 px a la derecha
                     // todo lo que viene después, y el cabezal —que se posiciona
@@ -462,7 +563,7 @@ export function EditorAnuncio({
                         // El gesto entero es UNA entrada de deshacer, y por eso
                         // se apila acá y no en cada `pointermove`.
                         apilar();
-                        setArrastre({ i, borde, x0: e.clientX, v0: borde === 'ini' ? s.ini : s.fin });
+                        setArrastre({ modo: 'borde', i, borde, x0: e.clientX, v0: borde === 'ini' ? s.ini : s.fin });
                       }}
                       title={borde === 'ini' ? 'Recortar el principio' : 'Recortar el final'}
                       style={{
@@ -509,13 +610,33 @@ export function EditorAnuncio({
               <Icon name="regenerar" size={15} />Deshacer
             </button>
             {sel != null && plan.segs.length > 1 && (
-              <button
-                type="button"
-                onClick={() => quitar(sel)}
-                style={botonPista}
-              >
-                <IconoBorrar size={15} />Quitar este tramo
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => moverSel(-1)}
+                  disabled={sel === 0}
+                  title="Mover este tramo un lugar antes"
+                  style={{ ...botonPista, opacity: sel === 0 ? 0.4 : 1, cursor: sel === 0 ? 'default' : 'pointer' }}
+                >
+                  ← Mover
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moverSel(1)}
+                  disabled={sel === plan.segs.length - 1}
+                  title="Mover este tramo un lugar después"
+                  style={{ ...botonPista, opacity: sel === plan.segs.length - 1 ? 0.4 : 1, cursor: sel === plan.segs.length - 1 ? 'default' : 'pointer' }}
+                >
+                  Mover →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quitar(sel)}
+                  style={botonPista}
+                >
+                  <IconoBorrar size={15} />Quitar este tramo
+                </button>
+              </>
             )}
             <div style={{
               marginLeft: 'auto', fontSize: 'var(--fs-meta)',

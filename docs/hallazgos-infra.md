@@ -164,6 +164,47 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El pre-push del clon de la PC es del 22/10 y NO corre el filtro de puntas (7/11/2026)
+
+**El síntoma.** Push a `punta/video-historial-avatar` desde `C:/dev/wt-video-historial`: las guardas corrieron y
+dieron verde, y **el filtro chico no apareció en la salida**. AGENTS.md promete que un push a `punta/*` corre
+`scripts/filtro-punta.mjs` —los tests y los tipos de lo tocado, 90 s como tope— antes de subir.
+
+**La causa.** El hook **no se versiona**: se copia a mano, **por CLON**, y el de este clon es del **22/10/2026**:
+
+```
+$ diff -q scripts/claude-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+Files ... differ          # instalado: 133 líneas, mtime 2026-10-22 11:40
+                          # versionado: 129 líneas, último commit 2026-11-04
+```
+
+El hook del 22/10 no conoce `punta/*`: trata todo lo que no sea `main` ni `integracion` como «otra rama» y corre
+sólo las guardas baratas. Y **tampoco rechaza `integracion`**, que es lo que AGENTS.md dice que hace desde el
+4/11 — un push ahí, desde este clon, sale sin un cartel.
+
+⚠️ **Y hoy eso deja la punta SIN NINGÚN chequeo automático**, porque la otra mitad también está caída: Actions se
+quedó sin el tope de US$30 el 6/11 ~23:08, así que la punta ni corre ni llega a main. Las dos redes fallaron a la
+vez y ninguna de las dos avisa: el push sale «verde» (las guardas), y la ausencia de un `ci-rojo/<punta>` se lee
+igual que un verde.
+
+**La cura, una sola línea por clon** (está en `docs/relevo/nube-metodologia.md`, §1):
+
+```bash
+cp scripts/claude-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+```
+
+**Regla que queda:** lo que **no se versiona** no se puede dar por instalado, y una guarda que falta **no da
+error: da silencio**. Antes de confiar en el pre-push de un clon —sobre todo cuando es la única red, como con
+Actions caído— se corre el `diff -q` de arriba. Un worktree NO alcanza: el hook vive en el `git-common-dir`, así
+que los ~100 worktrees de esta PC comparten el mismo hook viejo. Y la guarda de esto no puede ser otro hook: tiene
+que ser un test del ÁRBOL que compare el instalado con el versionado, o un renglón en el relevo que alguien mire.
+
+**Vive en:** `scripts/claude-hooks/pre-push` · `scripts/filtro-punta.mjs` ·
+`docs/relevo/nube-metodologia.md` · **SIN HACER:** nada comprueba que el hook instalado sea el del repo (el
+`diff -q` está documentado y no lo corre nadie), y la instalación toca configuración del clon: **la hace Martín**.
+
+---
+
 ## Tocar `extension/` desde una PC con Windows deja el zip imposible de poner al día (6/11/2026)
 
 **El síntoma.** Cambié una línea de `extension/popup.js`, el pre-push dijo «public/mako-puente.zip quedó viejo: la
@@ -314,6 +355,50 @@ dos causas fueron del índice, y las dos son del archivo, no del código:
 
 **La regla: ante un `ci-rojo/*`, lo primero es ver QUÉ PASO falló, no leer el código.** Un rojo en «Mezclar main en la
 punta», «Main está rojo» o «Guardas del push» no dice nada de lo que escribiste.
+
+#### Y el más engañoso de todos es el ÚLTIMO paso: «Llevar a main (sin forzar)» (7/11/2026)
+
+`punta/video-reordenar-tomas` quedó en `ci-rojo/` con **todo verde**. Medido en el run 42346626806, paso por paso:
+
+| Paso | | |
+|---|---|---|
+| 7 | Mezclar main en la punta | ✓ |
+| 12 | Guardas del push | ✓ |
+| 14 | Tipos (el `tsc` ENTERO) | ✓ |
+| 16 | Tests afectados por lo que cambió (todos, sin cortar) | ✓ |
+| **23** | **Llevar a main (sin forzar)** | **✗** |
+| 26 | Dejar la marca del rojo en `ci-rojo/<punta>` | ✓ |
+
+El mensaje, al final del log del paso 23:
+
+```
+Mientras corrían los tests main se movió, y ahora la punta choca en: docs/hallazgos.md .
+Mezcla origin/main en la punta, resuelve y vuelve a subir.
+```
+
+**O sea: el código está CHEQUEADO y NO llegó a main** — justo lo contrario de lo que el nombre `ci-rojo` sugiere, y la
+única de las variantes en que el veredicto sí vale. El paso 23 vuelve a mezclar main antes del fast-forward, y entre el
+paso 7 y el 23 pasan ~17 minutos de chequeos: lo que entró a main en esa ventana se mezcla de nuevo, sin el único paso
+que configura los drivers (el 6). Reintenta 5 veces y se rinde.
+
+⚠️ **Y el archivo que pierde esta carrera es SIEMPRE el mismo, por diseño: `docs/hallazgos.md`.** Lo toca toda punta
+que cosecha, y su driver sólo acepta lo que va ADELANTE de la celda de main (`prefijoNuevo`). Dos puntas que cosechan en
+la celda de la MISMA área dentro de esa ventana de 17 minutos chocan: acá fue la celda de «Infraestructura», que otra
+punta de la misma tanda también estaba tocando.
+
+**La cura está en el propio log y son tres comandos:** `git merge origin/main`, resolver el índice con
+`python -I scripts/unir-indice-hallazgos.py .` (dice cuántos choques resolvió, cuántas entradas se perdieron —tiene que
+ser 0— y cuántos cierres quedaron rotos), y push a la MISMA punta. El veredicto de la corrida anterior queda en caché
+(paso 21), así que la vuelta no repite lo que ya pasó.
+
+**Lo obvio era el equivocado, otra vez, y lo dijo otro chat:** los dos candidatos que llegó a sugerir fueron «rompiste el
+índice» y «te faltaron las barredoras». Las dos eran falsas —el test del índice daba verde en el árbol de la punta, y el
+paso 16 había corrido las barredoras y pasado—. **Esta misma sección ya decía qué hacer primero y así y todo se empezó
+por el código.** Mirar el paso cuesta dos `curl` (abajo) y dos minutos.
+
+**Lo que baja la probabilidad, para la próxima:** una cosecha que se agrega DESPUÉS, sobre una punta que ya tiene
+código, va en su propia punta de sólo documentación — ésas corren las guardas y la de mails, ~1,5 min, así que la
+ventana de carrera es diez veces más corta. Empujarla encima de la punta con código reinicia los 17 minutos completos.
 
 **Y cómo se lee desde la PC, que es lo que faltaba:** no hay `gh` instalado y los `GITHUB_PAT_*` del `.env.local` son de
 OTRAS cuentas (dan 404 en `koncke/mako`, que parece «no existe»). El token bueno es el del credential manager de
@@ -1415,6 +1500,89 @@ de Actions a un cuelgue de verdad. `MAKO_TESTS_SIN_AVANCE_MIN` ya permite moverl
 **`rm -rf` sobre una carpeta con el junction de `node_modules`.** Los worktrees usan un junction al `node_modules` del clon: borrar la carpeta temporal con `rm -rf` puso en riesgo el compartido de todos los chats. Esa vez quedó entero (745 paquetes contados después), y eso no prueba que sea seguro. **La regla:** primero se saca el junction, con `[IO.Directory]::Delete(ruta)` desde PowerShell, que quita el enlace y no lo que apunta; recién después se borra la carpeta. `rmdir /s` en Git Bash ni corre («Invalid switch»).
 
 ---
+
+## `.git/info/attributes` le gana a `.gitattributes`, y tenía el glob viejo: toda mezcla local duplicaba el índice (6/11/2026, noche)
+
+⚠️ **Es el PASO ANTERIOR al de «Por qué hay que CONTAR el índice aunque el driver esté configurado»**, más
+arriba: esa entrada mide la duplicación **con el atributo en efecto**; acá el atributo NO estaba en efecto y el
+driver no se llamó nunca. Antes de culpar al camino limpio del driver, comprobá que el atributo sea el suyo.
+
+**El síntoma.** Mezclar o rebasar `origin/main` en una punta que había cosechado dejaba el índice
+(`docs/hallazgos.md`) con **una fila por área REPETIDA** —115 filas de main pasaban a 117, con dos
+«Automations» y dos «Infraestructura»— y el `git merge` salía con **código 0 y sin una palabra**. Se
+leía como «el driver no sirve» o «mi punta trae el índice sucio».
+
+⚠️ **El diagnóstico que circulaba era el equivocado**: «los atributos se leen del árbol de tu punta,
+que todavía dice `merge=union`». No era el árbol. La punta y main tenían los dos el glob CON guion
+(`docs/hallazgos-*.md merge=union`) y el driver del índice declarado
+(`docs/hallazgos.md merge=indice-hallazgos`). La causa era **`.git/info/attributes`**, que no está
+versionado, **GANA sobre `.gitattributes`** y seguía con el glob viejo, `docs/hallazgos*.md` SIN guion:
+atrapaba también el índice y lo mezclaba con `union`, que para una tabla de una fila por área
+duplica la fila en vez de unir la celda.
+
+**Cómo se comprueba en un segundo, y es lo único que hay que mirar antes de culpar al driver:**
+
+    git check-attr merge -- docs/hallazgos.md     # tiene que decir «indice-hallazgos», no «union»
+    cat "$(git rev-parse --git-common-dir)/info/attributes"
+
+Con el glob corregido ahí (o el archivo borrado: `.gitattributes` ya declara las dos reglas) y el
+driver configurado, la misma mezcla sale limpia, deja 115 filas, una por área, y lo dice:
+«[unir-indice-hallazgos] docs/hallazgos.md: los dos lados cosecharon en la tabla; quedan las dos
+entradas». El `git config merge.indice-hallazgos.driver` y el de las bitácoras siguen siendo
+necesarios: sin ellos el atributo no tiene a quién llamar.
+
+**Vive en:** `.git/info/attributes` (por clon, sin versionar) · `.gitattributes` ·
+`scripts/unir-indice-hallazgos.mjs` · `tests/unir-indice-hallazgos.test.ts`
+
+## Un `ci-rojo` de «Tipos: SIN TIEMPO» NO se relanza si además hay UN test rojo, y el test puede ser de una celda AJENA (6/11/2026, noche)
+
+**El síntoma.** `ci-rojo/aut-chat-links` sobre una punta que toca un archivo. Leyendo la corrida
+(`git credential fill` para el token, como ya está escrito más arriba): fallaron DOS pasos, «Tipos» y
+«Tests afectados».
+
+- **«Tipos» decía literalmente que no eran tipos**: `Tipos: SIN TIEMPO — NO son errores de tipos. El
+  tsc no terminó en 842 s (tope TIPOS_TOPE_S=840 s)`. Para eso existe el paso «Relanzar si la máquina
+  no llegó a los tipos»… **que exige `steps.afectados.outcome != 'failure'`**. Con un test rojo al lado,
+  el relanzo automático NO ocurre y la punta queda roja por el reloj del runner.
+- **Y el único test rojo era `tests/unir-indice-hallazgos.test.ts`** quejándose de una fila con un `|`
+  sin escapar… **de una entrada AJENA** («Ocho puntas en una tarde»), que estaba en main en el momento
+  de la mezcla y que main arregló veinte minutos después. El árbol mezclado con el main de después pasa
+  la guarda sin tocar nada.
+
+**La regla:** ante un `ci-rojo`, primero QUÉ PASO falló y después QUÉ archivo; si el rojo es la guarda
+del índice, mirá de quién es la fila antes de buscar en lo tuyo, y volvé a mezclar main. Un rojo de
+«Tipos» que dice SIN TIEMPO no se arregla cambiando código: se vuelve a pushear (el relanzo solo no
+sale si hay otro rojo).
+
+**Vive en:** `.github/workflows/punta.yml` (pasos «Tipos» y «Relanzar si la máquina no llegó a los
+tipos») · `tests/unir-indice-hallazgos.test.ts`
+
+## Otro rojo falso con la lista alfabética: una dependencia que está en `package.json` y NO en `node_modules` (6/11/2026)
+
+**El síntoma.** `node scripts/tests-afectados.mjs --base origin/main` sobre una punta que toca UN archivo
+(`lib/flujo-ia.ts`) devolvió **ROJO · 3.379 tests de 563 archivos · 38 min · RAM libre mínima 0,4 GB**, con
+~230 archivos rojos que arrancan en la «a» (`admin-polar-*`, `video-editor-*`, `curso-*`): nada que ver con
+el cambio. Y **exit 1, no 99**, así que la regla «99 es "no pude chequear"» no lo cubría.
+
+**La causa, que estaba en el log de la tanda y no en el veredicto:** `Cannot find module
+'@tanstack/react-table'`. Está en el `package.json` de `main` (`^9.3.1`) y **no está instalada en ningún
+`node_modules` de la máquina** — ni en el del clon ni en el del worktree al que apuntan los junctions. Una
+punta que no la toca arrastra el rojo de todo lo que importa, directa o transitivamente, una pantalla de
+`app/admin/_polar`. Actions no lo ve porque hace `npm ci`.
+
+**Cómo se descarta en dos minutos, sin reinstalar nada** (que acá lo frena la guarda de RAM):
+1. leer el `.log` de una tanda roja en el directorio que el veredicto nombra (`%TEMP%/tests-afectados-*`):
+   si dice `Cannot find module`, no es el código;
+2. `grep <paquete> package.json` y `ls node_modules/<paquete>`: si está declarado y no instalado, es eso;
+3. correr SOLO los rojos que tocan lo que cambiaste, de a dos o tres (`node --import tsx --test tests/a.test.ts
+   tests/b.test.ts`): verdes, confirmado.
+
+**La regla que queda:** un veredicto rojo con una lista alfabética larga de archivos que el cambio no toca se
+LEE en el log de la tanda antes de creerle; con una dependencia declarada y sin instalar, `tests-afectados` no
+puede dar verde en esta PC y el chequeo real es Actions. Un junction de `node_modules` a otro worktree no
+arregla esto: los dos árboles tienen la misma falta.
+
+**Vive en:** `scripts/tests-afectados.mjs` · `package.json` (`@tanstack/react-table`)
 
 ## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
 

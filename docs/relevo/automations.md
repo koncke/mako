@@ -470,7 +470,12 @@ vuelva la extensión de Chrome.
   crear no tiene «Discutir / Editar» (app/api/chat-agent/secuencias/ia/route.ts, rama `crear`).
 - Los días del goteo son los del horario propio de la automatización; no hay un «sólo estos días» aparte del horario
   (lib/config-automatizacion.ts).
-- **AU4 (P2), después de que entre el AU2:** (1) ChatMako pasa a CajaChat + HiloMako (app/_chat) con SU motor
+- **AU4 (P2):** ⚠️ **la pieza (1) YA ESTÁ, y el «Hecho =» de este bullet se cumple en main (comprobado el
+  6/11/2026).** `app/automations/ChatMakoVista.tsx` importa `CajaChat` y `HiloMako` de `app/_chat` —su propio
+  comentario cita el pedido, «únicos (CajaChat y HiloMako)»— y `tests/chat-mako-envio-a-la-vista.test.ts` da 5 / 5
+  sobre `origin/main`. Lo que queda abierto son (2) y (3), y el «después de que entre el AU2» ya no frena nada.
+  El bullet entero seguía escrito como si nada estuviera hecho, y por eso el barrido del 6/11 lo levantó completo
+  (encargo 624). (1) ChatMako pasa a CajaChat + HiloMako (app/_chat) con SU motor
   (/api/chat-agent/secuencias/ia: crear en el lienzo vacío, las fases, el borrador en vivo), y Discutir/Editar va al
   slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); cuidar lo del 22/10 (el mensaje al instante y
   «Reintentar», la capa en toda la pantalla, las fases en una línea: tests/chat-mako-envio-a-la-vista.test.ts). (2) La

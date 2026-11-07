@@ -412,10 +412,36 @@ function formaDeLink(u: string): string {
   return u.trim().replace(/[.,;:!?)»]+$/, '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '').toLowerCase();
 }
 
+/** Los links que hay en un texto (con `http`, con `www.` o un dominio suelto). */
+function linksDeUnTexto(t: unknown): string[] {
+  const s = String(t ?? '');
+  return [...(s.match(RX_URL) ?? []), ...(s.match(RX_DOMINIO) ?? [])];
+}
+
 /** Los links que el dueño escribió en su pedido (con `http`, con `www.` o un dominio suelto). */
 export function linksDelPedido(pedido: string | null | undefined): string[] {
-  const t = String(pedido ?? '');
-  return [...(t.match(RX_URL) ?? []), ...(t.match(RX_DOMINIO) ?? [])];
+  return linksDeUnTexto(pedido);
+}
+
+/**
+ * LOS LINKS QUE UNA TARJETA YA TIENE EN SUS TEXTOS (#287, 6/11/2026): el cuerpo y sus variantes, el
+ * asunto y la vista previa de un email, el texto de cada parte de un mensaje de varias, el mensaje de
+ * la tarjeta «MaKo en WhatsApp» y el objetivo de un AI Step. De acá sale el `deja` de ESA tarjeta
+ * (`dejaDeLaTarjeta`): un texto que el modelo REESCRIBE no puede perder el link que ya llevaba.
+ */
+export function linksDeLaTarjeta(p: unknown): string[] {
+  if (!p || typeof p !== 'object') return [];
+  const o = p as Record<string, unknown>;
+  const textos: unknown[] = [o.cuerpo, o.asunto, o.preheader, o.objetivo];
+  if (Array.isArray(o.variantes)) textos.push(...o.variantes);
+  const dePartes = (x: unknown) => {
+    if (!Array.isArray(x)) return;
+    for (const y of x) if (y && typeof y === 'object') textos.push((y as Record<string, unknown>).cuerpo);
+  };
+  dePartes(o.partes);
+  const params = (o.accion as { params?: Record<string, unknown> } | null | undefined)?.params;
+  if (params) { textos.push(params.mensaje); dePartes(params.partes); }
+  return linksDeUnTexto(textos.filter((t) => typeof t === 'string' && t).join('\n'));
 }
 
 /** El host de una URL o de un dominio suelto, sin `www.` y en minúsculas. */
@@ -534,7 +560,12 @@ function refs(v: unknown): string[] {
   return out;
 }
 
-type Card = { tmp: string; tipo: TipoTarjeta; raw: Record<string, unknown> };
+/**
+ * `deAntes` (EDITAR, #287): el id de la tarjeta que se está cambiando, para no borrarle los links que YA
+ * tenía (`dejaDeLaTarjeta`). Crear no lo lleva (no hay «antes»), y `null` es «ninguno» a propósito: lo
+ * pasa así el parche que CAMBIA el link, donde el viejo se va porque eso es lo que se pidió.
+ */
+type Card = { tmp: string; tipo: TipoTarjeta; raw: Record<string, unknown>; deAntes?: string | null };
 
 /** Las tarjetas crudas, con un id temporal único cada una. */
 function tarjetasDe(lista: unknown, avisos: string[]): Card[] {
@@ -608,6 +639,11 @@ type Estado = {
   casosPedidos?: Array<{ titulo: string; cuando: string; sigue?: string | null }>;
   /** EDITAR: la tarjeta NUEVA que el modelo pidió para «Otra cosa» de ese «Si responde» (`otra_cosa` en «cambiar»). */
   otraCosaPedida?: string | null;
+  /**
+   * EDITAR (#287, 6/11/2026): los links que cada tarjeta YA tenía, por su id (`linksDeLaTarjeta`). Lo
+   * arma `deIAEdicion` desde `base`; crear lo deja vacío, porque no hay «antes».
+   */
+  linksDeAntes?: ReadonlyMap<string, string[]>;
 };
 
 /**
@@ -879,7 +915,7 @@ function valorDeParam(p: ParamIA, v: unknown): unknown {
  * flujo: el modelo no los escribe. Los productos y las etapas se resuelven por nombre. Devuelve la
  * acción o el motivo por el que se saca.
  */
-function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { accion: NonNullable<PasoIA['accion']>; rotulo: string } | { quitar: string } {
+function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado, deAntes?: string | null): { accion: NonNullable<PasoIA['accion']>; rotulo: string } | { quitar: string } {
   const op = normNombre(opCruda).replace(/[\s-]+/g, '_');
   const datos = datosCrudos && typeof datosCrudos === 'object' && !Array.isArray(datosCrudos) ? datosCrudos as Record<string, unknown> : {};
   const def = est.ctx.acciones.find((a) => a.id === op);
@@ -925,7 +961,7 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
     // El MENSAJE del aviso al equipo SÍ completa sus datos (lib/api-mako/areas/chatbot.run.ts → `textoDelAviso`, con el
     // catálogo para el equipo): se limpia como un texto, dejando los datos del equipo.
     if (def.id === OP_MAKO && p.nombre === 'mensaje' && typeof crudo === 'string') {
-      const l = limpiarTexto(crudo.slice(0, 2000), { destino: 'equipo' });
+      const l = limpiarTexto(crudo.slice(0, 2000), { destino: 'equipo', deja: dejaDeLaTarjeta(est, deAntes) });
       for (const q of l.quitado) est.avisos.push(AVISO_QUITADO[q]);
       dato = l.texto;
     } else if (p.tipo === 'string' && typeof crudo === 'string') {
@@ -1024,8 +1060,25 @@ const repartoParejo = (n: number): number[] => {
 
 const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], botones: [], abRamas: [], quitar: false });
 
-function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
-  const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: linksDelPedido(est.ctx.pedido) });
+/**
+ * LOS LINKS QUE NO SE BORRAN DE UN TEXTO QUE ESCRIBIÓ EL MODELO: los que están tal cual en el PEDIDO
+ * (`linksDelPedido`, 22/10/2026) y, AL EDITAR, los que ESA MISMA TARJETA ya tenía (#287, 6/11/2026).
+ * El síntoma del segundo: pedirle un cambio por chat y que reescriba una tarjeta que nadie nombró,
+ * dejándola sin el link que el mensaje ya llevaba — el lead lo recibe sin link y nada falla.
+ *
+ * ⚠️ LOS DE ESA TARJETA, NO LOS DEL FLUJO. Con todos los del flujo se REVIVE el link que la persona
+ * borró a propósito en OTRA tarjeta. Se empareja por id, que es con lo que `cambiar` la nombra — la
+ * misma forma que `protegidasPorElPedido` y que el `previo?.url` de los botones (`botonesDelParche`).
+ * Un link que el modelo INVENTA no está ni en el pedido ni en la tarjeta de antes: sigue cayéndose.
+ */
+function dejaDeLaTarjeta(est: Estado, deAntes?: string | null): string[] {
+  const delPedido = linksDelPedido(est.ctx.pedido);
+  const propios = deAntes ? est.linksDeAntes?.get(deAntes) ?? [] : [];
+  return propios.length ? [...delPedido, ...propios] : delPedido;
+}
+
+function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje, deAntes?: string | null): string {
+  const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: dejaDeLaTarjeta(est, deAntes) });
   for (const q of r.quitado) est.avisos.push(AVISO_QUITADO[q]);
   return r.texto.slice(0, tope).trim();
 }
@@ -1079,13 +1132,13 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       // `canalAGuardar` respeta): texto hasta `TOPE_TEXTO_SOCIAL` y link; ni nota de voz, ni archivo, ni IA.
       const social = esCanalSocial(canal) ? canal : null;
       const tope = canal === 'email' ? 5000 : social ? TOPE_TEXTO_SOCIAL : 1500;
-      let cuerpo = textoLimpio(raw.texto ?? raw.cuerpo ?? raw.mensaje, est, tope, 'lead');
+      let cuerpo = textoLimpio(raw.texto ?? raw.cuerpo ?? raw.mensaje, est, tope, 'lead', c.deAntes);
       const paso: Partial<PasoIA> = { canal };
       if (canal === 'email') {
-        const asunto = textoLimpio(raw.asunto, est, 120, 'lead');
+        const asunto = textoLimpio(raw.asunto, est, 120, 'lead', c.deAntes);
         if (!asunto) { avisos.push('Saqué un email sin asunto'); n.quitar = true; return n; }
         paso.asunto = asunto;
-        const pre = textoLimpio(raw.vista_previa ?? raw.preheader, est, 150);
+        const pre = textoLimpio(raw.vista_previa ?? raw.preheader, est, 150, undefined, c.deAntes);
         if (pre) paso.preheader = pre;
       }
       // Nota de voz y archivo: sólo por WhatsApp (por email no salen: `problemaDeMedia`).
@@ -1185,7 +1238,7 @@ function nodoDe(c: Card, est: Estado): NodoIA {
     case 'accion': {
       const n = vacio(c.tmp, 'accion');
       n.sigue = refs(raw.sigue);
-      const r = resolverAccion(raw.operacion ?? raw.accion, raw.datos ?? raw.params, est);
+      const r = resolverAccion(raw.operacion ?? raw.accion, raw.datos ?? raw.params, est, c.deAntes);
       if ('quitar' in r) { avisos.push(r.quitar); n.quitar = true; return n; }
       // Un aviso al equipo que el pedido no pidió se saca (lo que colgaba sigue en su lugar) y queda como sugerencia.
       if (r.accion.operacion === OP_MAKO && est.ctx.soloLoPedido && !pidioAviso(est.ctx.pedido)) {
@@ -1875,7 +1928,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   // (`objetivoDeIA`): sin él, Publicar no lo deja pasar y `validarIA` lo dice para que el modelo lo corrija. Si algo
   // no entra (una condición, un texto fijo), queda como «Si responde» de los de siempre (que no lleva objetivo).
   if (pasos.some((p) => claseDe(p) === 'respuesta')) {
-    const objetivo = objetivoDeIA(respuestas.map((c) => c.raw.objetivo), est.avisos);
+    const objetivo = objetivoDeIA(respuestas.map((c) => c.raw.objetivo), est.avisos, dejaDeLaTarjeta(est));
     // CREAR (20/10/2026, #284): un «Otra cosa» que CONTESTA (un «MaKo contesta») no entra en un AI Step, cuyo «Lo demás»
     // sólo avisa, y dejaba el «Si responde» con tres tarjetas de IA colgando. Pasa a ser un escenario más, «Otra cosa»,
     // con la misma respuesta: contesta igual, y queda UN AI Step con el objetivo (memoria «UN AI Step por objetivo»).
@@ -1938,12 +1991,14 @@ function conElArchivoDelPedido(pasos: PasoIA[], est: Estado): PasoIA[] {
  * EL OBJETIVO DEL AI STEP que escribió el modelo en la tarjeta `si_responde` (undécima tanda): el primero que no está
  * vacío (con varias «Si responde», la que queda es la primera), limpio como cualquier texto del modelo (`limpiarTexto`:
  * sin links, corchetes ni variables), en un renglón y hasta `TOPE_OBJETIVO`. Lo que se saca, a `avisos`.
+ * `deja` son los links que NO se borran (`dejaDeLaTarjeta`): los del pedido y, al editar, los que ese AI
+ * Step ya tenía — sin eso, pedirle otra cosa le borraba el link del objetivo (#287).
  */
-export function objetivoDeIA(valores: readonly unknown[], avisos: string[]): string {
+export function objetivoDeIA(valores: readonly unknown[], avisos: string[], deja: readonly string[] = []): string {
   for (const v of valores) {
     const crudo = str(v).trim();
     if (!crudo) continue;
-    const l = limpiarTexto(crudo);
+    const l = limpiarTexto(crudo, { deja });
     for (const q of l.quitado) avisos.push(AVISO_QUITADO[q]);
     const t = l.texto.replace(/\s+/g, ' ').trim().slice(0, TOPE_OBJETIVO).trim();
     if (t) return t;
@@ -2445,7 +2500,9 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, exist
     // Una nota de voz o un archivo sin texto, por un canal que no los lleva: queda vacío (y se deja como estaba).
     if (!tocaTexto && !tocaLink && !cuerpoAntes.trim()) raw.texto = '';
   }
-  const n = nodoDe({ tmp: p.id!, tipo: canal === 'email' ? 'email' : 'mensaje', raw }, est);
+  // ⚠️ CON «link» Y SIN TEXTO NUEVO, NINGUNO (#287): el parche está CAMBIANDO el link, el viejo ya salió
+  // del cuerpo (arriba) y conservarlo lo dejaría con los dos. Con texto nuevo sí: ahí el modelo reescribe.
+  const n = nodoDe({ tmp: p.id!, tipo: canal === 'email' ? 'email' : 'mensaje', raw, deAntes: tocaLink && !tocaTexto ? null : p.id }, est);
   if (n.quitar) return null;
   const np = n.paso;
   const q: PasoIA = { ...p, canal: np.canal ?? canal };
@@ -2585,7 +2642,7 @@ function parcheAccion(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoI
   if (['etiqueta', 'nombre', 'etiquetaId'].some((k) => k in datosX)) delete previos.etiquetaId;
   const montos = Object.entries(previos).filter(([k, v]) => RX_PARAM_PLATA.test(k) && v != null && Number.isFinite(Number(v))).map(([, v]) => Number(v));
   const conMontos: Estado = { ...est, ctx: { ...est.ctx, numerosPermitidos: [...(est.ctx.numerosPermitidos ?? []), ...montos] } };
-  const r = resolverAccion(a.operacion, { ...previos, ...datosX }, conMontos);
+  const r = resolverAccion(a.operacion, { ...previos, ...datosX }, conMontos, p.id);
   if ('quitar' in r) return null;
   const params: Record<string, unknown> = { ...(a.params ?? {}), ...r.accion.params };
   if (a.operacion === OP_MAKO && !('mensaje' in datosX)) {
@@ -2651,7 +2708,7 @@ function cuandoDeCaso(c: Record<string, unknown>, titulo: string): string {
  */
 function parcheRespuesta(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoIA {
   if (esPasoIA(p) && x.objetivo != null) {
-    const objetivo = objetivoDeIA([x.objetivo], est.avisos);
+    const objetivo = objetivoDeIA([x.objetivo], est.avisos, dejaDeLaTarjeta(est, p.id));
     if (objetivo) return { ...p, objetivo };
   }
   if (!esPasoIA(p) && Array.isArray(x.casos)) {
@@ -2691,7 +2748,7 @@ function cambiarTarjeta(pasos: PasoIA[], x: Record<string, unknown>, ed: Edicion
   const incompleta = (): PasoIA[] => { est.avisos.length = n0; est.avisos.push(AVISO_INCOMPLETA); return pasos; };
   if (nueva) {
     if (!SIMPLES.has(clase) || !SIMPLES.has(nueva)) { est.avisos.push('Esa tarjeta no cambia de tipo: quítala y agrega otra'); return pasos; }
-    const n = nodoDe({ tmp: id, tipo: tipo ?? 'accion', raw: x }, est);
+    const n = nodoDe({ tmp: id, tipo: tipo ?? 'accion', raw: x, deAntes: id }, est);
     if (n.quitar) return incompleta();
     const otroId = nuevoId(pasos, ed.rnd);
     const reemplazo = { ...relleno(), ...n.paso, id: otroId, siguiente: siguienteDe(pasos, i) } as PasoIA;
@@ -2776,6 +2833,11 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   }
   let pasos = base.map((p, i) => ({ ...(p as PasoIA), id: idDe(p, i) })) as PasoIA[];
   const antes = new Map(pasos.map((p) => [p.id!, p]));
+  // Los links que cada tarjeta YA tenía: un texto que el modelo reescribe no los pierde (#287,
+  // `dejaDeLaTarjeta`). Por tarjeta y no del flujo entero: ver ahí.
+  const propios = new Map<string, string[]>();
+  for (const [id, p] of antes) { const l = linksDeLaTarjeta(p); if (l.length) propios.set(id, l); }
+  est.linksDeAntes = propios;
   const ed: Edicion = { est, rnd, cambiadas: new Set(), agregadas: new Set() };
 
   // El CRON primero: de él salen las condiciones que valen (su ámbito) y el canal de un mensaje que no lo dice. En un
