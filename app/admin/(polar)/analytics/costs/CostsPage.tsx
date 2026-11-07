@@ -29,6 +29,15 @@ import {
   type MargenDelMes,
   type VistaCostos,
 } from '@/app/admin/_polar/datos/costos'
+import {
+  PARTIDAS_FIJAS,
+  DIAS_PARA_ENVEJECER,
+  cuestaAMartin,
+  diasSinConfirmar,
+  fijoDeMartin,
+  fijoSiPagaTodo,
+  partidasViejas,
+} from '@/lib/costos-fijos'
 import { mesTxt } from '@/lib/admin-ingresos-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import {
@@ -72,6 +81,11 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
 
   const fmt = formatCurrency('accounting')
   const fmtSub = formatCurrency('subcent')
+  // El fijo: el tuyo y el total son distintos a propósito (hoy Mauricio paga una parte, y las
+  // cuentas de Claude que no son suyas van a medias con Leandro). El equilibrio usa el TUYO.
+  const fijoTuyo = fijoDeMartin()
+  const fijoTotal = fijoSiPagaTodo()
+  const viejas = partidasViejas(vista.hoy)
 
   const tendencia = (r: FilaCosto) =>
     r.pct !== null && prevStart && prevEnd ? (
@@ -197,6 +211,83 @@ export default function ClientPage({ vista }: { vista: VistaCostos }) {
                   />
                 ))}
               </RankedList>
+            )}
+          </section>
+
+          {/* Fixed costs — lo que se paga vaya o no vaya un cliente */}
+          <section>
+            <SectionHeader
+              title="Fixed costs"
+              description="Lo que se paga todos los meses, haya clientes o no. Arriba está el gasto de IA, que es variable; esto no se mueve."
+            />
+            <RankedList>
+              {PARTIDAS_FIJAS.map((p, i) => {
+                const mio = cuestaAMartin(p)
+                const dias = diasSinConfirmar(p, vista.hoy)
+                const viejo = dias >= DIAS_PARA_ENVEJECER
+                return (
+                  <RankedListItem
+                    key={p.id}
+                    itemKey={p.id}
+                    rank={i + 1}
+                    share={fijoTotal > 0 ? p.usdPorMes / fijoTotal : 0}
+                    label={
+                      <Box flex={1} minWidth={0}>
+                        <Text variant="title" truncate>
+                          {p.nombre}
+                        </Text>
+                      </Box>
+                    }
+                    stats={
+                      <>
+                        <Text as="span" variant="caption" color="muted">
+                          {p.quienPaga === 'mauricio'
+                            ? 'lo paga Mauricio'
+                            : p.quienPaga === 'compartido'
+                              ? `a medias con Leandro · tu parte: ${fmt(mio, 'usd')}`
+                              : 'a tu cargo'}
+                        </Text>
+                        <Text as="span" variant="caption" color={viejo ? 'warning' : 'muted'}>
+                          {p.comoSeSabe === 'api'
+                            ? 'consultado a su API'
+                            : p.comoSeSabe === 'panel'
+                              ? 'hay que mirarlo en su panel'
+                              : 'declarado'}
+                          {' · '}
+                          {dias === 0 ? 'confirmado hoy' : `hace ${dias} ${dias === 1 ? 'día' : 'días'}`}
+                        </Text>
+                      </>
+                    }
+                    value={
+                      <Box width={96} justifyContent="end">
+                        <Text as="span" variant="default" tabularNums>
+                          {fmt(p.usdPorMes, 'usd')}
+                        </Text>
+                      </Box>
+                    }
+                  />
+                )
+              })}
+            </RankedList>
+            {/* Los dos totales, que son distintos a propósito: el equilibrio se calcula con el de arriba. */}
+            <Alert
+              variant="info"
+              title="Sale de tu bolsillo"
+              description={
+                `${fmt(fijoTuyo, 'usd')} al mes. El total es ${fmt(fijoTotal, 'usd')}: la diferencia la paga Mauricio hoy. ` +
+                `Con 10 clientes son ${fmt(fijoTuyo / 10, 'usd')} por cliente; con 100, ${fmt(fijoTuyo / 100, 'usd')}.`
+              }
+            />
+            {viejas.length > 0 && (
+              <Alert
+                variant="warning"
+                title="Cifras que nadie confirma hace rato"
+                description={
+                  `${viejas.map((p) => p.nombre).join(', ')}. Estas no se pueden leer por API: hay que ` +
+                  'entrar al panel y actualizarlas en lib/costos-fijos.ts. Mientras tanto la pantalla ' +
+                  'muestra lo ultimo confirmado, no lo de hoy.'
+                }
+              />
             )}
           </section>
 
