@@ -17599,7 +17599,7 @@ curl -L \
 
 ### `GET /api/v1/imagen/plantillas` — Ver las plantillas del Image Editor
 
-Las plantillas del Image Editor. En "reales", las de MaKo con su ejemplo lleno (los textos de un negocio ficticio); en "plantillas", las de diseño libre, primero las sugeridas para este negocio. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`: el id o el slug).
+Las plantillas del Image Editor, en "reales": las de MaKo con su ejemplo lleno (los textos de un negocio ficticio). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`: su id).
 
 - **Ruta por operación:** `GET /api/v1/imagen/listar_plantillas_imagen`
 - **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
@@ -17637,7 +17637,7 @@ Propone crear un diseño en el Image Editor: en blanco, de un tamaño con nombre
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `titulo` | string | no | El título del diseño. Si se omite, «Diseño sin título». |
-| `plantilla` | string | no | El id de una plantilla real o el slug de una de diseño libre (listar_plantillas_imagen). Si viene, manda sobre el tamaño. |
+| `plantilla` | string | no | El id de una plantilla de MaKo (listar_plantillas_imagen, "reales"). Si viene, manda sobre el tamaño. |
 | `tamano` | string (publicacion_instagram \\| publicacion_vertical \\| historia \\| anuncio_facebook \\| miniatura_youtube \\| presentacion) | no | Un tamaño con nombre. Si no viene ni plantilla ni ancho y alto, publicacion_instagram. |
 | `ancho` | number | no | Ancho a medida, en px (con alto). |
 | `alto` | number | no | Alto a medida, en px (con ancho). |

@@ -68,3 +68,24 @@ test('los prompts de análisis no le dicen al modelo a qué se dedica OTRO negoc
   assert.doesNotMatch(leer('lib/closing.ts'), /Eres MaKo[^\n]{0,120}programa de mentoría/);
   assert.doesNotMatch(leer('lib/ads-analyst.ts'), /Eres MaKo[^\n]{0,180}programa de mentoría/);
 });
+
+// 06/11/2026: esta guarda existía y NO cazó el bug de `RE_SERVICIO_EXPLICITO`, que tenía los nombres de los PROGRAMAS de ese
+// cliente decidiendo qué llamada se descartaba para todos los workspaces. Buscaba sólo el nombre de la persona, así que
+// «paddock & pit» o «scaling up» le pasaban por al lado. Lo de un cliente no es sólo cómo se llama: es también cómo llama a lo
+// que vende. Ver docs/hallazgos-closing.md y lib/closing-marcadores.ts.
+test('ninguna pantalla ni decisión nombra los PROGRAMAS de un cliente', () => {
+  // Sólo los distintivos. «Mesa de trabajo» queda afuera a propósito: es castellano corriente y daría falsos rojos en copy
+  // legítimo — ese archivo lo cubre la guarda de tests/closing-marcadores.test.ts, que mira `lib/closing.ts` entero.
+  const PROGRAMAS = /paddock|scaling\s*up|programa\s+v[ií]a/i;
+  const lugares = ['app', 'lib', 'plugin'].flatMap(archivos);
+  const caen: string[] = [];
+  for (const rel of lugares) {
+    if (AFUERA.some((r) => r.test(rel))) continue;
+    const src = /\.tsx?$|\.mjs$/.test(rel) ? sinComentarios(leer(rel)) : leer(rel);
+    for (const linea of src.split('\n')) {
+      const m = PROGRAMAS.exec(linea);
+      if (m) caen.push(`${relative('.', rel)}: …${linea.slice(Math.max(0, m.index - 40), m.index + 40)}…`);
+    }
+  }
+  assert.deepEqual(caen, [], 'el nombre del programa de un cliente no decide ni se muestra a los demás: sale a configuración por workspace');
+});

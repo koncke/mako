@@ -113,6 +113,26 @@ export const apagoLosCorreos = (perfil: unknown): boolean =>
   !!perfil && typeof perfil === 'object' && (perfil as Record<string, unknown>)[CLAVE_PERFIL_CORREOS] === false;
 
 /**
+ * La familia de correos que apaga una fila de `correo_bajas` (mig 0410). Hoy una sola: la baja de los correos de los
+ * tickets no apaga, por ejemplo, un aviso de cambio de plan.
+ */
+export const TIPO_BAJA_TICKETS = 'ticket-avance';
+
+/**
+ * ⚠️ LA BAJA SE PREGUNTA DOS VECES, Y NO ES REDUNDANCIA (6/11/2026).
+ *
+ * `apagoLosCorreos` mira la FILA de `usuarios`, y una fila de `usuarios` no es una persona: es una persona EN UN NEGOCIO
+ * (`usuarios(email)` no es único). Quien trabaja en su cuenta y en la de un cliente de su agencia tiene dos filas con la
+ * misma dirección: apretar «Dejar de recibirlos» en el correo de una no frenaba los de la otra, y para la persona —que ve
+ * una sola casilla de correo— eso es «pedí la baja y me siguen llegando».
+ *
+ * `correo_bajas` lo guarda por DIRECCIÓN, que es lo que la persona reconoce como «a mí». Por eso la pregunta por email va
+ * DESPUÉS de la del perfil y no la reemplaza: la del perfil sigue siendo la que la persona ve en su cuenta.
+ */
+export const pidioLaBaja = (email: string, bajas: ReadonlySet<string> | null | undefined): boolean =>
+  !!bajas && bajas.has(email.trim().toLowerCase());
+
+/**
  * Cuántas horas atrás se mira. Un ticket que no cambió en dos días no manda nada: así, el día que esto se prende no le
  * llega a nadie un correo por tickets viejos que ya se avisaron por el chat o por WhatsApp. Lo que cambia de verdad pone
  * `updated_at` (decidir, cerrar, marcar arreglado) y entra solo en la vuelta siguiente del cron, que es cada 15 minutos.
@@ -129,7 +149,9 @@ export type PersonaDelAvance = { id: number; email: string | null; workspace_id:
 
 /** Por qué NO le sale el correo, en una palabra (va al log de la vuelta, nunca a la persona). */
 export type MotivoSinCorreo =
-  | 'sin_hito' | 'automatico' | 'plataforma' | 'sin_persona' | 'otro_negocio' | 'suspendida' | 'sin_email' | 'apagado';
+  | 'sin_hito' | 'automatico' | 'plataforma' | 'sin_persona' | 'otro_negocio' | 'suspendida' | 'sin_email' | 'apagado'
+  /** Pidió la baja por su DIRECCIÓN (`correo_bajas`, mig 0410): vale para todas sus cuentas, no sólo para esta fila. */
+  | 'baja_email';
 export type DecisionAvance = { manda: true; hito: EstadoCliente; a: string } | { manda: false; motivo: MotivoSinCorreo };
 
 const ESTADOS_DEL_CLIENTE: readonly string[] = ORDEN_AVANCE;
@@ -152,10 +174,11 @@ export function hitoPendiente(t: Pick<TicketDelAvance, 'estado' | 'avance_email'
  *  · la persona tiene cuenta (`usuario_id`), es de ESTE negocio (no el super admin ni una agencia mirando un cliente) y no
  *    está suspendida;
  *  · su email es un email (un ticket por WhatsApp sin cuenta trae `whatsapp:<teléfono>`);
- *  · y no los apagó.
+ *  · no los apagó en ESTA cuenta (`apagoLosCorreos`, su `usuarios.perfil`);
+ *  · y no pidió la baja de su DIRECCIÓN (`correo_bajas`, mig 0410), que vale para todas sus cuentas.
  * La dirección sale de la FILA de la persona (la de hoy), no de la que quedó escrita en el ticket.
  */
-export function decidirAvance(t: TicketDelAvance, persona: PersonaDelAvance | null, wsPlataforma: number | null): DecisionAvance {
+export function decidirAvance(t: TicketDelAvance, persona: PersonaDelAvance | null, wsPlataforma: number | null, bajas?: ReadonlySet<string> | null): DecisionAvance {
   const hito = hitoPendiente(t);
   if (!hito) return { manda: false, motivo: 'sin_hito' };
   if (t.canal === 'sistema' || esRefDelSistema(t.ref)) return { manda: false, motivo: 'automatico' };
@@ -166,6 +189,7 @@ export function decidirAvance(t: TicketDelAvance, persona: PersonaDelAvance | nu
   const a = String(persona.email ?? '').trim().toLowerCase();
   if (!EMAIL_RE.test(a)) return { manda: false, motivo: 'sin_email' };
   if (apagoLosCorreos(persona.perfil)) return { manda: false, motivo: 'apagado' };
+  if (pidioLaBaja(a, bajas)) return { manda: false, motivo: 'baja_email' };
   return { manda: true, hito, a };
 }
 
@@ -191,6 +215,15 @@ export type DepsAvance = {
   /** Los tickets que cambiaron en las últimas `HORAS_DEL_AVANCE` y todavía no avisaron «resuelto». */
   candidatos: () => Promise<TicketDelAvance[]>;
   personas: (ids: number[]) => Promise<PersonaDelAvance[]>;
+  /**
+   * Las direcciones (en minúsculas) que pidieron la baja, de entre las que se les iba a escribir (`correo_bajas`, mig
+   * 0410). Se pregunta por las direcciones de la vuelta y no por toda la tabla: la tabla sólo crece.
+   *
+   * ⚠️ SI NO SE PUEDE LEER, TIRA, y la vuelta entera no manda nada: un correo a quien pidió la baja es peor que un correo
+   * de menos (es la regla de la cabecera de lib/tickets-avance-email.ts). Sin esta función no se pregunta nada, que es
+   * para los tests de la regla pura.
+   */
+  bajas?: (emails: string[]) => Promise<string[]>;
   /** Marca el hito ANTES de mandar, compare-and-set contra el que había. false = otro cron llegó antes. */
   reclamar: (id: number, antes: string | null, hito: EstadoCliente) => Promise<boolean>;
   mandar: (c: CorreoDelAvance) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -216,10 +249,14 @@ export async function avisarAvances(d: DepsAvance): Promise<VueltaAvance> {
   if (!tickets.length) return out;
   const ids = [...new Set(tickets.map((t) => Number(t.usuario_id)).filter((n) => Number.isInteger(n) && n > 0))];
   const personas = new Map((ids.length ? await d.personas(ids) : []).map((p) => [Number(p.id), p]));
+  // Las bajas por dirección, sólo de las direcciones de esta vuelta. Se pregunta UNA vez, antes del lazo: adentro serían
+  // tantas lecturas como tickets. Si falla, `avisarAvances` tira y no se manda nada (ver `DepsAvance.bajas`).
+  const correos = [...new Set([...personas.values()].map((p) => String(p.email ?? '').trim().toLowerCase()).filter(Boolean))];
+  const bajas = d.bajas && correos.length ? new Set(await d.bajas(correos)) : null;
   const tope = d.tope ?? TOPE_POR_VUELTA;
   for (const t of tickets) {
     if (out.enviados + out.fallidos >= tope) break;
-    const dec = decidirAvance(t, t.usuario_id ? personas.get(Number(t.usuario_id)) ?? null : null, d.wsPlataforma);
+    const dec = decidirAvance(t, t.usuario_id ? personas.get(Number(t.usuario_id)) ?? null : null, d.wsPlataforma, bajas);
     if (!dec.manda) { saltear(dec.motivo); continue; }
     if (!(await d.reclamar(t.id, t.avance_email ?? null, dec.hito))) { saltear('ganado'); continue; }
     const correo = armarCorreoDelAvance(dec.hito, t, dec.a, d.base, d.bajaDe(Number(t.usuario_id)));

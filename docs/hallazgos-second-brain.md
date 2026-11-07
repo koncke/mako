@@ -28,6 +28,44 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Un arreglo que entra con un `if` del modo en que se descubrió deja el otro modo roto, y en silencio (6/11/2026)
+
+El 4/11 el mapa de un CURSO cortaba el título de una sección pegado al borde («…HOP RECORDINGS»): el
+encuadre mide los PUNTOS, y la etiqueta de una carpeta madre va centrada en su punto y en versalitas
+(`.cbg-et-n1`: mono 13,5 px, `letter-spacing: .16em`), así que es mucho más ancha que el punto. El
+arreglo fue dejar a los costados la mitad del título más largo. Y entró así:
+
+```ts
+const mitadTitulo = curso ? Math.min(120, …) : 0;   // «Sólo en un curso: el mapa del negocio no cambia»
+```
+
+El comentario decía la verdad y la conclusión era falsa. El mapa del NEGOCIO **también** tiene carpetas
+madre con etiqueta (`NIVEL1`: NEGOCIO, OFERTA, MERCADO, MENSAJE, FUNNEL), dibujadas con la **misma
+clase CSS** por el **mismo componente**, así que se cortaban igual. Un mes largo así.
+
+**Why, y es lo que vale guardar:** el `curso ?` no es una regla, es la huella del caso en que se
+descubrió el bug. Se pone por prudencia —«no quiero cambiarle el encuadre al otro modo»— y el efecto
+real es dejar el otro modo roto sin que nada lo diga: no hay error, no hay test rojo, y el comentario
+le promete al que lo lea que ahí no pasa nada. Y encima se refuerza solo: en el negocio los títulos son
+cortos (7 letras → ~26 px de aire contra el tope de 120), así que sacar el `if` casi no mueve el
+encuadre. Eso es lo que hacía que el `if` pareciera inofensivo **y** lo que hacía que el título se
+cortara: 26 px es poco para un encuadre y es exactamente lo que sobresale de la etiqueta.
+
+**How to apply:**
+
+- Cuando un arreglo de dibujo se descubre en un modo, la pregunta es **qué propiedad del dibujo** lo
+  causa, no en qué modo apareció. Acá era «una etiqueta más ancha que su punto», que es de la clase CSS
+  y del componente, no del curso. Si la causa es compartida, el arreglo no lleva `if`.
+- La regla pasó a ser pura y sin modo: `airePorTitulosN1` en `lib/cerebro-modelo.ts` (que no lleva
+  `server-only` justamente para que se pueda correr). `Grafo.tsx` la llama con las etiquetas, y ya no
+  sabe si vienen de un curso o de un negocio.
+- ⚠️ **Y un test de la regla pura NO alcanza: el bug estaba en el call-site.** Medido rompiéndolo:
+  volviendo a poner el `curso ? … : 0` en `Grafo.tsx`, `tests/cerebro-layout.test.ts` quedó en **VERDE
+  9/9** — la regla seguía siendo correcta y el componente la llamaba mal. Por eso el test tiene las dos
+  mitades: la regla se EJECUTA, y la llamada se lee como texto (`Grafo.tsx` mide el DOM con
+  `getBoundingClientRect` y no se puede montar desde un test), con el patrón puesto sobre que la llamada
+  no lleve un condicional adelante. Con las dos: rotura de la regla 8/1, rotura del call-site 8/1.
+
 ## «Second Brain» tardaba en entrar, y la columna del grafo pasó a ser un chat con MaKo (23/10/2026)
 
 - **«Primero se va al chat de "Cerebro" y luego de unos segundos recién entra»** (Martín). El diagnóstico obvio era la velocidad
@@ -3030,3 +3068,63 @@ mostraba devolvía el índice del negocio.
 va en un bloque propio que elige los TRAMOS pertinentes con su presupuesto (`cursoParaElTurno`,
 `lib/cerebro-referente.ts`). Y si se ofrece «pídelo por id», la herramienta tiene que poder resolver ese id
 (`conLosCursosDe` cuelga el curso cuando el id empieza con `ref:`).
+
+## «Absolutamente todos los datos del cliente» incluye sus CREDENCIALES (7/11/2026)
+
+**El pedido, textual:** «el Second Brain tiene que tomar **absolutamente todos** los datos del cliente». Está
+pendiente desde hace semanas y el inventario lo resumía así: «`construirCerebro()` hace 21 lecturas sobre ~70
+tablas».
+
+### Primero, el número real, porque el del pendiente no lo era
+
+Contar `.from(` en `lib/cerebro-grafo.ts` da **2**, y es falso: el cerebro delega en ~22 lectores que viven en
+otros módulos. Siguiendo sus imports tres saltos (198 archivos), lo medido el 7/11 es:
+
+**46 de 187 tablas del cliente — el 25 %.** No 21 de 70.
+
+Las 187 salen de `lib/tablas-de-inquilino.ts`, que es la lista de lo que ES de cada negocio: la misma que
+recorre `vaciarTablas` al borrarlo. Si una tabla está ahí, tiene datos de ese negocio.
+
+### ⚠️ Y por eso mismo, la forma obvia de cumplir el pedido filtra las claves del cliente
+
+La manera natural de hacer «todos los datos» es recorrer esa lista y leer todo. **Esa lista incluye
+`credenciales`.** Hacerlo así pone las claves API del negocio en el prompt de un modelo.
+
+Y no alcanza con «van cifradas»: `credenciales.valor_enc` es AES-256-GCM que **esta misma app descifra**
+(`lib/cripto-credenciales.ts`). Un prompt tampoco es un lugar del que se pueda sacar algo después: viaja al
+proveedor, puede quedar en sus logs, y lo que el modelo conteste lo lee cualquiera que abra ese chat.
+
+Las cuatro que no pueden entrar, con lo que guardan de verdad (leído en las migraciones, no supuesto):
+
+| tabla | qué guarda |
+|---|---|
+| `credenciales` | `valor_enc`: las claves API del negocio, descifrables por la app |
+| `credenciales_auditoria` | quién tocó cada credencial y cuándo: el mapa de qué tiene conectado y quién entra |
+| `ia_pc_codigos` | `codigo_hash` del emparejamiento de su PC — hash de un código corto, o sea minutos de fuerza bruta |
+| `shares` | `token_hash` y `token_prefijo` de lo que compartió por link |
+
+### La distinción que decide, y que no es «sensible / no sensible»
+
+Los mensajes de WhatsApp, las llamadas grabadas y los emails **también** son sensibles, y ésos **sí** tienen
+que entrar: son el contenido del negocio, que es exactamente lo que el cerebro necesita conocer. Prohibirlos
+por «sensibles» lo dejaría sin la mitad de su material.
+
+**Lo que está prohibido es material de AUTENTICACIÓN:** lo que sirve para hacerse pasar por el cliente o entrar
+a sus cuentas. Ésa, y no otra, es la pregunta para una tabla nueva.
+
+### Dónde quedó, y por qué en código y no sólo acá
+
+`lib/cerebro-nunca-lee.ts`, con el porqué de cada una al lado, y `tests/cerebro-no-lee-secretos.test.ts`, que
+recorre los imports del cerebro de verdad y falla en el momento exacto en que alguien cablee la lectura
+completa sin filtrar. En un documento, el que implemente el pedido no lo va a leer; en el módulo que tiene que
+importar, sí.
+
+**Y la función se pregunta en POSITIVO** (`puedeEntrarAlCerebro`), no «¿está prohibida?». Con la negativa, lo
+natural es escribir `if (!prohibida) leer()`, y ahí una tabla NUEVA con credenciales entra sola porque todavía
+no está en la lista. Preguntando «¿puede?», el default sigue siendo leer —que es lo que se quiere para las 183
+restantes— y el que agrega una tabla de secretos tiene un único lugar donde anotarla.
+
+**La trampa de medición, de paso:** el primer número que saqué fue «el cerebro toca 2 tablas», contando un solo
+archivo. Si me hubiera quedado ahí, el test habría dado verde por el motivo equivocado —«no lee credenciales»
+porque no lee casi nada— y habría dejado de servir el día que alguien agregue el lector. Por eso el test
+empieza comprobando su propio denominador: que recorrió más de 50 archivos y encontró más de 20 tablas.

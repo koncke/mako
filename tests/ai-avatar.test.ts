@@ -29,7 +29,7 @@ import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
 import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
 import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
-import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, type PuenteVisto } from '../lib/ai-avatar/requisitos';
+import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, avisoDeCosto, resumenDeRequisitos, type PuenteVisto, type PasoRequisito, type IdPaso } from '../lib/ai-avatar/requisitos';
 import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
@@ -285,4 +285,148 @@ test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo
 test('refrescar no se traga lo recién creado: el server gana en cada id y lo nuevo local queda arriba', () => {
   const r = mezclarPorId([{ id: 'nuevo', v: 1 }, { id: 'a', v: 1 }], [{ id: 'a', v: 2 }, { id: 'b', v: 2 }]);
   assert.deepEqual(r, [{ id: 'nuevo', v: 1 }, { id: 'a', v: 2 }, { id: 'b', v: 2 }]);
+});
+
+// =============================================================================
+// Las DOS ramas de AI Avatar: la de Flow y la de MaKo (7/11/2026)
+// =============================================================================
+// Martín, 7/11: «que ahí se pueda elegir tanto la rama de Flow como la rama de APIs directamente, es decir,
+// los créditos de MaKo en este caso». Lo que sigue prueba que elegir una rama CAMBIA lo que se le pide a la
+// persona — que es lo único que hace que la elección signifique algo.
+
+/** Un puente roto a propósito: por la rama de MaKo no tiene que importar nada de esto. */
+const PUENTE_ROTO: PuenteVisto = { estado: 'sin_conectar', vivo: false, actualizada: false };
+
+test('por la rama de MaKo no se le pide NI UNA cosa de Flow', () => {
+  // ⚠️ ES EL TEST QUE IMPORTA. Pedirle a alguien que eligió MaKo que instale una extensión, conecte un
+  // navegador y abra una cuenta de Google es mandarlo a hacer cuatro cosas que no va a usar — y un aviso
+  // falso no confunde sólo sobre ese punto: hace desconfiar de todos los demás.
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 1, para: 'avatar', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  const ids = r.pasos.map((x) => x.id);
+  for (const deFlow of ['extension', 'conectar', 'actualizar', 'flow'] as const) {
+    assert.ok(!ids.includes(deFlow), `la rama de MaKo pide «${deFlow}», que es de Flow`);
+  }
+  assert.equal(r.listo, true, 'con foto y saldo, la rama de MaKo tendría que estar lista');
+});
+
+test('la rama de Flow sigue intacta: sin motor, el camino es el de siempre', () => {
+  // La guarda de que no rompí a nadie que ya estaba generando.
+  const sinMotor = requisitosAvatar({ puente: PUENTE_ROTO, instalada: false, enTelefono: false, fotos: 1, para: 'avatar' });
+  const conFlow = requisitosAvatar({ motor: 'flow', puente: PUENTE_ROTO, instalada: false, enTelefono: false, fotos: 1, para: 'avatar' });
+  assert.deepEqual(sinMotor.pasos.map((x) => x.id), conFlow.pasos.map((x) => x.id));
+  assert.ok(sinMotor.pasos.some((x) => x.id === 'extension'), 'la rama de Flow dejó de pedir la extensión');
+  assert.equal(sinMotor.listo, false, 'con el puente sin conectar, Flow no puede estar listo');
+});
+
+test('sin saldo no se genera, y el motivo NO manda a instalar nada', () => {
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 1, para: 'avatar', saldoMt: 10, cuestaMt: 1_200,
+  });
+  assert.equal(r.listo, false, 'con 10 MT y un costo de 1.200 se dejó generar');
+  assert.equal(r.falta?.id, 'saldo');
+  assert.ok(!/extensi|chrome|google|flow/i.test(r.falta?.ayuda ?? ''),
+    `el motivo manda a Flow cuando el problema es el saldo: «${r.falta?.ayuda}»`);
+});
+
+test('el saldo de la rama de MaKo falla CERRADO, igual que el del medidor', () => {
+  // Un saldo que no se pudo leer no habilita. Si acá dijera que sí y el server frenara, la persona ve el
+  // paso en verde y un error al apretar — que es el aviso que se contradice con el de al lado.
+  for (const saldo of [null, undefined]) {
+    const r = requisitosAvatar({
+      motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+      fotos: 1, para: 'avatar', saldoMt: saldo, cuestaMt: 1_200,
+    });
+    assert.equal(r.listo, false, `un saldo ${String(saldo)} dejó generar`);
+  }
+});
+
+test('para el VIDEO no se vuelve a pedir la foto: el avatar ya la tiene', () => {
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 0, para: 'video', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  assert.ok(!r.pasos.some((x) => x.id === 'foto'), 'se pidió la foto otra vez para el video');
+  assert.equal(r.listo, true);
+});
+
+test('lo que se le dice que va a gastar cambia con la rama, y ninguna de las dos miente', () => {
+  const flow = avisoDeCosto('flow');
+  const mako = avisoDeCosto('mako');
+  assert.notEqual(flow, mako, 'las dos ramas avisan lo mismo y una de las dos está mintiendo');
+  assert.ok(/Flow/.test(flow), 'la rama de Flow no nombra de dónde salen los créditos');
+  assert.ok(/MaKo Tokens/.test(mako), 'la rama de MaKo no nombra los MaKo Tokens');
+  assert.ok(!/Google Flow/.test(mako), 'la rama de MaKo le dice que gasta créditos de Google Flow: es falso');
+  assert.equal(avisoDeCosto(), flow, 'sin motor, el aviso tiene que ser el de siempre');
+});
+
+test('la rama de MaKo pide una foto DE VERDAD, no una imagen generada', () => {
+  // Medido el 7/11 y pagado cuatro veces: una generación usada como referencia de identidad da una cara que
+  // no es la de la persona, y no lo arregla ningún prompt. Si el texto no lo dice, nadie lo sabe.
+  const r = requisitosAvatar({
+    motor: 'mako', puente: PUENTE_ROTO, instalada: false, enTelefono: false,
+    fotos: 0, para: 'avatar', saldoMt: 10_000, cuestaMt: 1_200,
+  });
+  const foto = r.pasos.find((x) => x.id === 'foto');
+  assert.ok(foto, 'no hay paso de foto');
+  assert.ok(/IA|generad/i.test(foto.ayuda), `el paso de la foto no avisa que no sirve una imagen de IA: «${foto.ayuda}»`);
+});
+
+// =============================================================================
+// «Antes de generar» plegado: cuánto falta y qué sigue (7/11/2026, plan.md T15)
+// =============================================================================
+// El plan pedía que la tarjeta se plegara a «Te falta 1 de 4». El número que lo justifica es una medición: a
+// 1024 × 820 el bloque pegado al pie ocupaba 452 px de 820 —el 55 % de la pantalla— con 240 de esta tarjeta, y
+// quedaba desplegada TODO el tiempo que faltara un paso, que es justo cuando la persona mira los 33 presets.
+//
+// Al plegar, lo único que no se puede perder son las dos cosas por las que alguien la miraría: **cuánto falta
+// y qué sigue**. Eso es lo que esto fija.
+
+const PASO = (id: IdPaso, hecho: boolean, titulo = `paso ${id}`): PasoRequisito => ({ id, titulo, hecho, ayuda: '' });
+
+test('el resumen dice cuánto falta Y qué sigue, no sólo un número', () => {
+  const r = resumenDeRequisitos([PASO('extension', true), PASO('conectar', false, 'conéctala a tu negocio'), PASO('flow', false), PASO('foto', false)]);
+  assert.equal(r.faltan, 3);
+  assert.equal(r.total, 4);
+  assert.equal(r.siguiente?.id, 'conectar', 'el siguiente tiene que ser el PRIMERO sin hacer, no cualquiera');
+  assert.match(r.linea, /3 de 4/, `la línea no dice cuánto falta: «${r.linea}»`);
+  assert.match(r.linea, /conéctala a tu negocio/, `la línea no dice qué sigue: «${r.linea}»`);
+});
+
+test('el plural está bien escrito: lo lee un cliente', () => {
+  // «Te falta 2 de 4» está mal y se ve. Es el texto más corto de la pantalla y el que más se mira.
+  const uno = resumenDeRequisitos([PASO('extension', true), PASO('conectar', true), PASO('flow', true), PASO('foto', false)]);
+  const dos = resumenDeRequisitos([PASO('extension', true), PASO('conectar', true), PASO('flow', false), PASO('foto', false)]);
+  assert.match(uno.linea, /Te falta 1 de 4/, `singular mal: «${uno.linea}»`);
+  assert.match(dos.linea, /Te faltan 2 de 4/, `plural mal: «${dos.linea}»`);
+});
+
+test('con todo hecho no dice que falta algo', () => {
+  const r = resumenDeRequisitos([PASO('extension', true), PASO('foto', true)]);
+  assert.equal(r.faltan, 0);
+  assert.equal(r.siguiente, null);
+  assert.ok(!/falta/i.test(r.linea), `con todo listo la línea igual dice que falta algo: «${r.linea}»`);
+});
+
+test('el total es el de ESTA rama, no un 4 fijo', () => {
+  // ⚠️ Por la rama de MaKo son DOS pasos, no cuatro. Un «de 4» hardcodeado le mentiría a quien eligió esa
+  // rama — le diría que le faltan cosas que su camino no pide.
+  const flow = requisitosAvatar({ puente: { estado: 'sin_conectar', vivo: false, actualizada: false }, instalada: false, enTelefono: false, fotos: 0, para: 'avatar' });
+  const mako = requisitosAvatar({ motor: 'mako', puente: { estado: 'sin_conectar', vivo: false, actualizada: false }, instalada: false, enTelefono: false, fotos: 0, para: 'avatar', saldoMt: 0, cuestaMt: 100 });
+  const rf = resumenDeRequisitos(flow.pasos);
+  const rm = resumenDeRequisitos(mako.pasos);
+  assert.ok(rf.total > rm.total, `Flow pide ${rf.total} pasos y MaKo ${rm.total}: la rama de MaKo tendría que pedir menos`);
+  assert.match(rm.linea, new RegExp(`de ${rm.total}`), `la rama de MaKo dice un total que no es el suyo: «${rm.linea}»`);
+  assert.ok(!/extensi|chrome/i.test(rm.linea), `la rama de MaKo nombra algo de Flow en su resumen: «${rm.linea}»`);
+});
+
+test('la tarjeta arranca PLEGADA: ése era el punto', () => {
+  // Si alguien la deja abierta por defecto, vuelve a comerse el 55 % de la pantalla y ningún otro test lo nota.
+  const src = readFileSync(join(import.meta.dirname, '..', 'app/ai-avatar/Estudio.tsx'), 'utf8');
+  assert.match(src, /const \[abierta, setAbierta\] = useState\(false\)/,
+    'la tarjeta de «Antes de generar» dejó de arrancar plegada');
+  assert.match(src, /aria-expanded=\{abierta\}/, 'la cabecera no declara si está abierta: un lector de pantalla no lo sabe');
 });

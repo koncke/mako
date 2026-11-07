@@ -13,7 +13,11 @@ body{font:600 14px Urbanist,system-ui,sans-serif;background:#111;display:flex;fl
   align-items:center;gap:6px;cursor:pointer;font-size:12.5px;border:0;font-family:inherit;font-weight:600}
 .tb:hover{background:#ffffff1f}
 .tb.on{background:#f0f0ee;color:#111}
-.tb.pend{opacity:.38;cursor:not-allowed}
+/* Una pendiente ya no está muerta: abre la COPIA de su referencia, que es lo único que hay de ella.
+   Antes quedaba atenuada y sin click, así que la referencia copiada no se podía ver desde acá. */
+.tb.pend{opacity:.5}
+.tb.pend::after{content:'copia';font-size:9.5px;opacity:.75;background:#ffffff1f;border-radius:999px;padding:1px 6px}
+.tb.sinnada{opacity:.3;cursor:not-allowed}
 .tb small{font-size:10.5px;opacity:.6;font-weight:600}
 .nota{margin-left:auto;font-size:11.5px;color:#777e86;font-weight:500}
 iframe{flex:1;width:100%;border:0;background:#efefed}
@@ -22,36 +26,53 @@ iframe{flex:1;width:100%;border:0;background:#efefed}
 <div class="barra" id="b">
   <span class="et">Hechos</span>
 </div>
-<iframe id="v" src="general.html" title="vista del template"></iframe>
+<iframe id="v" src="general-orvel/mako.html" title="vista del template"></iframe>
 <script>
 /* Las 20 hojas decididas el 1/11/2026 (docs/templates-dashboard-propuesta.md §7.3).
-   Cada una dice de qué referencia sale, porque es lo que hay que poder revisar. */
+   Cada una dice de qué referencia sale, porque es lo que hay que poder revisar.
+
+   ⚠️ ESTA LISTA ESTUVO MINTIENDO Y ERA EL PEOR LUGAR PARA HACERLO (corregido el 7/11/2026).
+   Decía «6 de 21» y mostraba quince atenuadas como si no existieran. En el disco había DIECIOCHO
+   construidas: cada una se fue haciendo en su carpeta (`<hoja>/mako.html`) y nadie volvió acá a
+   actualizar el índice. Y esta galería es justo donde Martín las aprueba «antes de que nada vaya al
+   código» (README.md), así que doce hojas terminadas eran invisibles para la única persona que tiene
+   que verlas.
+   Peor todavía: las seis que sí se veían apuntaban a los archivos SUELTOS de la raíz, que son los del
+   lote 1 y quedaron viejos — la de Landing pesa 12 KB contra los 46 KB de `landing-corbel/mako.html`.
+   O sea que de las seis visibles se estaba mirando la versión anterior.
+
+   LA REGLA QUE QUEDA: un índice que se escribe a mano se desincroniza en silencio, y el síntoma es
+   «falta trabajo que en realidad está hecho». Al terminar una hoja se toca ESTA lista en el mismo
+   commit — igual que `docs/hallazgos.md` con su índice. */
 const HOJAS = [
-  ['general.html',      'General',            'Orvel · Corbel',              1],
-  ['comercial.html',    'Comercial',          'Coffer · Corbel · Prism',     1],
-  ['cobranza.html',     'Cobranza',           'Coffer · Corvane · Talvo',    1],
-  ['landing.html',      'Landing',            'Corbel · Kestrel',            1],
-  ['focus-pane.html',   'Focus · A',          'Pane',                        1],
-  ['focus-lumora.html', 'Focus · B',          'Lumora',                      1],
-  ['',                  'Operación diaria',   'Moorly · Torque',             0],
-  ['',                  'Marketing',          'Kestrel · Ondra',             0],
-  ['',                  'Anuncio ganador',    'Vitrea · Prism',              0],
-  ['',                  'Hooks y retención',  'Vitrea · Murmura',            0],
-  ['',                  'VSL y YouTube',      'por definir',                 0],
-  ['',                  'Instagram y redes',  'Murmura · Kestrel',           0],
-  ['',                  'Chat Analyst',       'Parley · Tend',               0],
-  ['',                  'Closing',            'Halden · Moorly · Tandem',    0],
-  ['',                  'Automatizaciones',   'Noria',                       0],
-  ['',                  'CS Analyst',         'Mender · Vitrea',             0],
-  ['',                  'Agencia o servicio', 'Sunrow · Torque',             0],
-  ['',                  'Curso o comunidad',  'Lumora · Vitrea',             0],
-  ['',                  'Productividad',      'Fernly · Sunrow',             0],
-  ['',                  'Contenido e IA',     'Orrery',                      0],
-  ['',                  'Inmobiliaria',       'Lintel',                      0],
+  /* [ la adaptación de MaKo, nombre, referencia, hecha, la copia de la referencia ] */
+  ['general-orvel/mako.html',          'General',            'Orvel · Corbel',           1, 'general-orvel/copia.html'],
+  ['comercial-selvar/mako.html',       'Comercial',          'Coffer · Corbel · Prism',  1, 'comercial-selvar/copia.html'],
+  ['cobranza/cobranza.html',           'Cobranza',           'Coffer · Corvane · Talvo', 1, 'cobranza/copia.html'],
+  ['landing-corbel/mako.html',         'Landing',            'Corbel · Kestrel',         1, 'landing-corbel/copia.html'],
+  ['focus-pane/focus.html',            'Focus · A',          'Pane',                     1, 'focus-pane/copia.html'],
+  ['focus-lumora/mako.html',           'Focus · B',          'Lumora',                   1, 'focus-lumora/copia.html'],
+  ['operacion-moorly/mako.html',       'Operación diaria',   'Moorly · Torque',          1, 'operacion-moorly/copia.html'],
+  ['marketing-kestrel/mako.html',      'Marketing',          'Kestrel · Ondra',          1, 'marketing-kestrel/copia.html'],
+  ['anuncio-prism/mako.html',          'Anuncio ganador',    'Vitrea · Prism',           1, 'anuncio-prism/copia.html'],
+  ['',                                 'Hooks y retención',  'Vitrea · Murmura',         0, 'hooks-ondra/copia.html'],
+  ['',                                 'VSL y YouTube',      'Pelago',                   0, 'vsl-pelago/copia.html'],
+  ['instagram-murmura/mako.html',      'Instagram y redes',  'Murmura · Kestrel',        1, 'instagram-murmura/copia.html'],
+  ['chat-parley/mako.html',            'Chat Analyst',       'Parley · Tend',            1, 'chat-parley/copia.html'],
+  ['closing/closing.html',             'Closing',            'Halden · Moorly · Tandem', 1, 'closing/copia.html'],
+  ['automatizaciones-noria/mako.html', 'Automatizaciones',   'Noria',                    1, 'automatizaciones-noria/copia.html'],
+  ['cs-mender/mako.html',              'CS Analyst',         'Mender · Vitrea',          1, 'cs-mender/copia.html'],
+  ['servicio-sunrow/mako.html',        'Agencia o servicio', 'Sunrow · Torque',          1, 'servicio-sunrow/copia.html'],
+  ['curso-vitrea/mako.html',           'Curso o comunidad',  'Lumora · Vitrea',          1, 'curso-vitrea/copia.html'],
+  ['productividad-fernly/mako.html',   'Productividad',      'Fernly · Sunrow',          1, 'productividad-fernly/copia.html'],
+  ['contenido-orrery/mako.html',       'Contenido e IA',     'Orrery',                   1, 'contenido-orrery/copia.html'],
+  ['',                                 'Inmobiliaria',       'Lintel · Torque',          0, 'inmobiliaria-torque/copia.html'],
+  /* No está entre las 20 decididas, pero su carpeta existe y sin esta fila no se podía ver desde acá. */
+  ['',                                 'Cold calling',       'Corvane',                  0, 'cold-calling-corvane/copia.html'],
 ];
 const b = document.getElementById('b'), v = document.getElementById('v');
 let pendienteAbierto = false;
-HOJAS.forEach(([src, nombre, ref, hecha], i) => {
+HOJAS.forEach(([src, nombre, ref, hecha, copia]) => {
   if (!hecha && !pendienteAbierto) {
     const s = document.createElement('span');
     s.className = 'et'; s.style.marginLeft = '10px';
@@ -59,13 +80,19 @@ HOJAS.forEach(([src, nombre, ref, hecha], i) => {
     b.appendChild(s);
     pendienteAbierto = true;
   }
+  // Una pendiente CON copia se puede abrir igual: se ve la referencia, que es lo que hay de ella.
+  const destino = hecha ? src : copia;
   const el = document.createElement('button');
-  el.className = 'tb' + (hecha ? '' : ' pend') + (src === 'general.html' ? ' on' : '');
+  el.className = 'tb' + (hecha ? '' : (destino ? ' pend' : ' sinnada')) + (src === HOJAS[0][0] ? ' on' : '');
   el.innerHTML = nombre + ' <small>' + ref + '</small>';
-  el.title = hecha ? ('Referencia: ' + ref) : ('Todavía no construida · referencia: ' + ref);
-  if (hecha) el.addEventListener('click', () => {
+  el.title = hecha
+    ? ('Referencia: ' + ref)
+    : destino
+      ? ('Todavía sin la versión de MaKo — esto es la COPIA de la referencia: ' + ref)
+      : ('Todavía no construida · referencia: ' + ref);
+  if (destino) el.addEventListener('click', () => {
     document.querySelectorAll('.tb').forEach(x => x.classList.toggle('on', x === el));
-    v.src = src;
+    v.src = destino;
   });
   b.appendChild(el);
 });

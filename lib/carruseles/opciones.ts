@@ -1,5 +1,5 @@
 // =============================================================================
-// carruseles/opciones — las opciones del explorador de carruseles (orden, outlier, período, largo, vista)
+// carruseles/opciones — las opciones del explorador de carruseles (orden, outlier, período, vista, de dónde, qué ver)
 // =============================================================================
 // Datos puros SIN dependencias: los importan el explorador (./explorar.ts, que los re-exporta) y la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts, que no puede arrastrar más que tipos y datos: AGENTS.md, «Una .def.ts no importa VALORES
@@ -28,13 +28,21 @@ export const PERIODOS_CARRUSEL = [
 ] as const;
 export type PeriodoCarrusel = (typeof PERIODOS_CARRUSEL)[number]['value'];
 
-export const LARGOS_CARRUSEL = [
-  { value: 'todos', label: 'Cualquier largo' },
-  { value: 'cortos', label: '2 a 4 láminas' },
-  { value: 'medios', label: '5 a 7 láminas' },
-  { value: 'largos', label: '8 o más láminas' },
+/**
+ * ⚠️ `largo` NO ES UN FILTRO: es un ALIAS DE ENTRADA para los links viejos (6/11/2026). Hasta esa tarde había dos formas de
+ * pedir lo mismo —este desplegable («2 a 4 láminas») y el deslizador de láminas del modal «Filtros» (`lamMin`/`lamMax`)— con
+ * DOS lógicas distintas: el desplegable descartaba lo que no dice cuántas láminas tiene y el deslizador lo dejaba (la regla
+ * del área: «sin dato no es "no"», docs/hallazgos-carruseles.md). La pantalla ya usa sólo el deslizador, así que el
+ * desplegable se fue y `?largo=cortos` de un link que anda por ahí se TRADUCE acá a un mínimo y un máximo de láminas
+ * (./explorar.ts, `filtrosDeQuery`): una sola fuente de verdad, y el link viejo sigue dando un resultado sensato.
+ *
+ * `lamMax: 0` = sin tope (como el deslizador en su último paso). «todos» no está: es no filtrar, que es el valor inicial.
+ */
+export const ALIAS_LARGO_CARRUSEL = [
+  { value: 'cortos', label: '2 a 4 láminas', lamMin: 2, lamMax: 4 },
+  { value: 'medios', label: '5 a 7 láminas', lamMin: 5, lamMax: 7 },
+  { value: 'largos', label: '8 o más láminas', lamMin: 8, lamMax: 0 },
 ] as const;
-export type LargoCarrusel = (typeof LARGOS_CARRUSEL)[number]['value'];
 
 /**
  * Qué conjunto se mira: todos o lo guardado. «semana» queda por la API y los links viejos: desde el 6/11/2026 la pantalla no

@@ -18,13 +18,16 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { marcasDeVoseo } from '../lib/voseo';
 import { altoEstimado, documentoDeCarrusel } from '../lib/carruseles/documento';
 import { estiloSinSerif } from '../lib/carruseles/marca-kit';
 import { fuenteDelEditorDeImagen } from '../lib/image-editor/fuente-del-editor';
 import {
   ALTO_MINIATURA, ANCHO_MINIATURA, CONECTAR_IA, FAMILIAS_DE_LA_REPLICA, LAMINAS_MAX, ajustarTextos, avisoSinIA, documentoDeReplica, documentoGuiaMiniatura,
-  esCdnPermitido, eventosDe, leerReplica, lineaDeEvento, medidasDe, medidasDeImagen, notasDeReplica, promptDeReplica, proveedorDelError, vuelveASinVer, type Replica,
+  conElArrobaDelNegocio, esCdnPermitido, eventosDe, fasesSegunLaIA, leerReplica, lineaDeEvento, medidasDe, medidasDeImagen, notasDeReplica, promptDeReplica, proveedorDelError,
+  vuelveASinVer, type Replica,
 } from '../lib/carruseles/replica';
 import { tipoCarrusel } from '../lib/carruseles/tipos';
 
@@ -328,4 +331,80 @@ test('si la IA que mira falla, se prueba UNA vez sin mirar; salvo que sea la cue
   for (const no of ['gemini: HTTP 429 RESOURCE_EXHAUSTED', 'anthropic: Your credit balance is too low', 'openai: HTTP 401 Incorrect API key provided',
     'gemini: The operation was aborted due to timeout', 'gemini: HTTP 503 high demand', 'No hay ninguna IA que pueda mirar esto. Conecta tu Claude, tu GPT o tu Gemini en Integraciones.'])
     assert.equal(vuelveASinVer(no), false, no);
+});
+
+test('el @ del negocio se queda y el que inventó el modelo se va; un mail no es un @', () => {
+  // La segunda capa de «una regla en un prompt no es una regla»: el prompt pide no poner un @ y el modelo pone el del cliente.
+  // Medido el 6/11/2026 con la IA real (ws9): las 10 láminas firmadas «@martinkoncke», un usuario que nadie cargó nunca.
+  assert.equal(conElArrobaDelNegocio('Sonrisa Llena @sonrisallena', null), 'Sonrisa Llena');
+  assert.equal(conElArrobaDelNegocio('Sígueme en @otrocreador hoy', null), 'Sígueme en hoy');
+  // Con el @ del negocio cargado (hoy `marcaDelNegocio` devuelve siempre null, pero el día que se llene esta rama manda).
+  assert.equal(conElArrobaDelNegocio('Sonrisa Llena @sonrisallena', 'sonrisallena'), 'Sonrisa Llena @sonrisallena');
+  assert.equal(conElArrobaDelNegocio('Escríbeme a @SonrisaLlena', '@sonrisallena'), 'Escríbeme a @SonrisaLlena');
+  assert.equal(conElArrobaDelNegocio('Nos ve @ajeno, no @sonrisallena', 'sonrisallena'), 'Nos ve, no @sonrisallena');
+  // Un mail no se toca: ahí el `@` viene pegado a una letra.
+  assert.equal(conElArrobaDelNegocio('hola@sonrisallena.com', null), 'hola@sonrisallena.com');
+  assert.equal(conElArrobaDelNegocio('Escribe a hola@mako.com o a @nadie', null), 'Escribe a hola@mako.com o a');
+  // Un texto que era SÓLO el @ queda vacío, y `leerReplica` descarta un texto vacío (no deja una capa fantasma).
+  assert.equal(conElArrobaDelNegocio('@sonrisallena', null), '');
+  const r = leerReplica(JSON.stringify({ proporcion: '4:5', titulo: 'x', laminas: [{ fondo: '#000000', textos: [
+    { rol: 'titulo', texto: 'TU TITULAR', x: 0.1, y: 0.2, ancho: 0.8, tamano: 0.1, color: '#FFFFFF' },
+    { rol: 'firma', texto: '@sonrisallena', x: 0.1, y: 0.9, ancho: 0.8, tamano: 0.03, color: '#FFFFFF' },
+  ], foto: null }] }), { laminas: 1 });
+  assert.ok(!('error' in r));
+  assert.deepEqual((r as Replica).laminas[0].textos.map((t) => t.texto), ['TU TITULAR']);
+});
+
+// =============================================================================
+// El tilde verde que decía «con tu IA» sin IA (7/11/2026, medido en producción)
+// =============================================================================
+// Se replicó un carrusel en un workspace sin IA conectada. Las tres fases quedaron en verde —incluida
+// «Escribo tu versión con tu IA»— y en el MISMO cuadro, debajo, el aviso decía «Conecta tu Claude, tu GPT o
+// tu Gemini… Por ahora, cada lámina trae una guía». El servidor ya mandaba `sinIA: true`: el dato estaba y la
+// pantalla no lo usaba.
+
+const FASES_REALES = [
+  { id: 'leer', texto: 'Leo sus láminas' },
+  { id: 'escribir', texto: 'Escribo tu versión con tu IA' },
+  { id: 'armar', texto: 'Armo el diseño editable' },
+] as const;
+
+test('sin IA conectada, ninguna fase afirma haber escrito con la IA', () => {
+  const fases = fasesSegunLaIA(FASES_REALES, true);
+  for (const f of fases) {
+    assert.ok(!/con tu IA/i.test(f.texto),
+      `la fase «${f.texto}» dice que escribió con la IA y no hay IA conectada`);
+  }
+});
+
+test('sin IA, la fase dice lo que SÍ pasó: una guía en cada lámina', () => {
+  // No alcanza con borrar la mentira: si el texto queda vago, la persona igual va a buscar en el diseño unos
+  // textos suyos que nadie escribió. Tiene que decir qué hay y por qué.
+  const escribir = fasesSegunLaIA(FASES_REALES, true).find((f) => f.id === 'escribir');
+  assert.ok(escribir, 'desapareció la fase de escribir');
+  assert.match(escribir.texto, /guía/i, `la fase no dice qué quedó en las láminas: «${escribir.texto}»`);
+  assert.match(escribir.texto, /IA/, `la fase no dice que falta conectar la IA: «${escribir.texto}»`);
+});
+
+test('CON IA, los textos quedan tal cual: esto no cambia el camino bueno', () => {
+  assert.deepEqual(
+    fasesSegunLaIA(FASES_REALES, false),
+    FASES_REALES.map((f) => ({ id: f.id, texto: f.texto })),
+  );
+});
+
+test('las otras fases no se tocan: ésas SÍ pasaron', () => {
+  // Leer las láminas y armar el diseño ocurren con IA o sin ella. Cambiarles el texto seria la mentira
+  // opuesta: decir que no se hizo algo que sí se hizo.
+  const fases = fasesSegunLaIA(FASES_REALES, true);
+  assert.equal(fases.find((f) => f.id === 'leer')?.texto, 'Leo sus láminas');
+  assert.equal(fases.find((f) => f.id === 'armar')?.texto, 'Armo el diseño editable');
+});
+
+test('la pantalla usa `sinIA` del servidor, no lo adivina', () => {
+  // El bug no era que faltara el dato: era que la pantalla no lo leía. Si alguien saca ese `fin?.sinIA` del
+  // call-site, el tilde verde vuelve y ningún otro test lo nota.
+  const src = readFileSync(join(import.meta.dirname, '..', 'app/image-editor/carruseles/EditarCarrusel.tsx'), 'utf8');
+  assert.match(src, /fasesSegunLaIA\(ej\.fases,\s*!!fin\?\.sinIA\)/,
+    'el diálogo dejó de pasarle `sinIA` a las fases: vuelve el tilde que dice «con tu IA» sin IA');
 });

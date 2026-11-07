@@ -193,6 +193,18 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida.' };
   },
 
+  async apimart(v) {
+    // Mismo patrón que OpenAI: /v1/models con Bearer, y NO cuesta nada — sólo lista el catálogo (319 modelos
+    // medidos el 7/11). Importa que el ping sea gratis: acá cada generación se cobra y el tilde del campo
+    // corre ANTES de guardar, o sea cada vez que alguien toca la clave.
+    const { status } = await fetchJson('https://api.apimart.ai/v1/models', {
+      headers: { Authorization: `Bearer ${v.APIMART_API_KEY}` },
+    });
+    if (status === 401) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `ApiMart respondió ${status}.` };
+    return { ok: true, detalle: 'Key válida.' };
+  },
+
   async groq(v) {
     // Groq es OpenAI-compatible: /openai/v1/models con Bearer.
     const { status } = await fetchJson('https://api.groq.com/openai/v1/models', {

@@ -563,7 +563,7 @@ El matcher exime de la sesión sólo algunas extensiones. Sin cookie, cualquier 
 - Los `.json` y `.avif` de `public/` (atlas de fuentes, banderas, formas): el `.json()` explotaba. Se
   eximió `public/ve/` por RUTA en el matcher. **`video-editor/` no se puede eximir**: el proxy es el
   único que valida el `?ws=` de la página.
-- Los `.mp4` de `/anuncios/` y `/formatos/` (medido con curl contra `hola-mako.com/anuncios/anuncio-1.mp4`).
+- Los `.mp4` de `/anuncios/` y `/formatos/` (medido con curl contra `hola-mako.com/anuncios/<el que haya>.mp4`).
   Al bajar un medio se valida el `content-type` (`video/*`), no el status.
 
 Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás del login».

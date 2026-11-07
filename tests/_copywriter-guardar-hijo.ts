@@ -16,6 +16,7 @@ const TOPE_URL = 8_000;
 const pg = crearPostgrest({ tablas: ['app_settings', 'workspaces'] });
 let urlMasLarga = 0;
 let fallarIndice = 0;
+let cortarTrasEscribirIndice = 0;
 const red: string[] = [];
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -29,6 +30,13 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (fallarIndice > 0 && metodo !== 'GET' && u.searchParams.get('key') === 'eq.mako.copywriter.indice') {
     fallarIndice -= 1;
     return new Response(JSON.stringify({ code: 'XX000', message: 'falla de mentira', details: null, hint: null }), { status: 500, headers: { 'content-type': 'application/json' } });
+  }
+  // Una escritura del ÍNDICE que LLEGA y que el cliente no ve (un timeout después del PATCH): la fila queda puesta y
+  // `cambiarSettingSi` tira. Es el caso B7: antes, `crear` leía ese fallo como «no se escribió» y borraba el documento.
+  if (cortarTrasEscribirIndice > 0 && metodo !== 'GET' && u.searchParams.get('key') === 'eq.mako.copywriter.indice') {
+    cortarTrasEscribirIndice -= 1;
+    await pg.responder(u, init);
+    throw new TypeError('fetch failed');
   }
   return pg.responder(u, init);
 }) as typeof fetch;
@@ -85,6 +93,20 @@ async function main() {
     const h = await crear({ tipo: 'ad', titulo: 'Huérfano' });
     const docsDespues = pg.db.app_settings.filter((f) => String(f.key).startsWith('mako.copywriter.doc.')).length;
     out.huerfano = { ok: h.ok, docsAntes, docsDespues };
+
+    // 5. B7 (6/11/2026): la escritura del índice LLEGA y el cliente ve un corte. La fila queda en el árbol, así que el
+    //    documento NO es un huérfano y no se puede borrar: antes se borraba y la página de la lista abría «No existe»
+    //    sobre un texto recién escrito. Hecho = la fila está, el documento está, y se puede abrir.
+    cortarTrasEscribirIndice = 1;
+    const b7 = await crear({ tipo: 'ad', titulo: 'Llegó igual' });
+    const l3 = await listar();
+    const fila = l3.ok ? l3.paginas.filter((p) => p.titulo === 'Llegó igual') : [];
+    const ab = fila.length === 1 ? await abrir(fila[0].id) : null;
+    out.cortado = {
+      crear: b7.ok ? 'ok' : String(b7.status),
+      filas: fila.length,
+      abre: ab == null ? 'sin fila' : ab.ok ? 'abre' : `${ab.status} ${ab.error}`,
+    };
   });
   out.urlMasLarga = urlMasLarga;
   out.red = red;

@@ -44,8 +44,12 @@ const NUTRI = sinComentarios(leer('lib/nutricion.ts'));
 // El detalle se fija en tests/ai-step-redes.test.ts.
 test('una RESPUESTA social se anota y la atiende el AI Step de SU medio, nunca lo del WhatsApp', () => {
   const p = bloque(NUTRI, 'export async function pausarPorRespuesta(', '\n}\n');
-  assert.match(p, /origen\?: 'no_oficial' \| 'oficial' \| CanalSocial; cuenta\?: string \| null/);
+  // ⚠️ 6/11/2026: la unión lleva `'email'` (un email del lead PAUSA, `pausarPorEmailRecibido`), y por eso la pausa de
+  // email tiene que cortar ANTES de contestar: sin `MedioAIStep` de email, `social ?? 'whatsapp'` le contestaría al
+  // teléfono a quien escribió un mail. Lo fija tests/email-entrante.test.ts; acá se fija que la unión siga EXPLÍCITA.
+  assert.match(p, /origen\?: 'no_oficial' \| 'oficial' \| CanalSocial \| 'email'; cuenta\?: string \| null/);
   assert.match(p, /const medio: MedioAIStep = social \?\? 'whatsapp';/);
+  assert.match(p, /const soloPausa = opts\?\.origen === 'email';/, 'se fue el corte del email: contestaría por WhatsApp un mail');
   assert.doesNotMatch(p, /if \(social\) return/, 'volvió el corte: una respuesta por Instagram no la contesta nadie');
   // El destrabe lineal (del WhatsApp) no corre con lo social.
   assert.match(p, /if \(pausadas\.length && !social\) \{/);

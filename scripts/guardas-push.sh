@@ -184,6 +184,20 @@ if ! sh scripts/hooks-en-orden.sh "$1"; then
   exit 1
 fi
 
+echo "[pre-push] Chequeando que el registro de prompts este sincronizado..."
+if ! node --import tsx scripts/prompts-registro-sincronizado.mjs; then
+  echo ""
+  echo "  X PUSH BLOQUEADO: lib/prompt-registry.ts y los call-sites dicen cosas distintas (arriba, cual)."
+  echo "  Nada mas lo iba a avisar: getPromptText hace \`override ?? fallback\`, asi que una key fuera del"
+  echo "  registro ANDA y solo queda invisible en /configuraciones; y renderTemplate reemplaza SOLO los slots"
+  echo "  declarados, asi que un dato que no coincide se tira sin error. El compilador no ve ninguna de las dos."
+  echo ""
+  echo "  Para ver el estado completo sin juzgar nada:"
+  echo "      node --import tsx scripts/prompts-registro-sincronizado.mjs --listar"
+  echo ""
+  exit 1
+fi
+
 echo "[pre-push] Chequeando que la referencia de la API de MaKo este al dia..."
 if ! node --import tsx scripts/generar-api-doc.mjs --check; then
   echo ""

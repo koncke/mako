@@ -34,7 +34,7 @@ import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
 import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
-import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify } from './instagram-perfil';
+import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify, TOPE_LECTURAS_SPY_POR_DIA } from './instagram-perfil';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -147,6 +147,17 @@ export type ServicioMetodo = {
      */
     capturas?: ReadonlyArray<string | null>;
   };
+  /**
+   * true → ALCANZA UNA de sus claves secretas para estar conectada (6/11/2026).
+   *
+   * Para qué: una integración que acepta VARIAS claves tiene una requerida (la 1) y las demás `opcional`, porque pedirlas
+   * rompería el alta. `integracionConectada` mide los campos REQUERIDOS, así que medía la 1 y nada más: el cliente que
+   * borraba la 1 y dejaba la 2 veía «Sin conectar» con la integración andando, y volvía a configurar al vicio.
+   *
+   * ⚠️ «Una» se cuenta sobre los campos SECRETOS. El campo con el nombre que la persona le pone a cada clave no es secreto,
+   * es una etiqueta: guardado solo, sin su clave, no sirve para leer nada y no es una conexión.
+   */
+  conUnaAlcanza?: boolean;
   /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
    *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
    *  infra de la plataforma, no una integración del cliente). Se mantiene el flag
@@ -379,6 +390,28 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'En "Settings" → "Billing" toca "Add credit" y carga saldo (mínimo 5 dólares): sin saldo la key no responde.',
         'En "API keys" toca "Create new secret key" y copia la key (sk-…, se ve UNA vez).',
         'Pégala en "API key" y guarda.',
+      ],
+    },
+  },
+  {
+    key: 'apimart',
+    nombre: 'ApiMart (generación)',
+    categoria: 'Inteligencia',
+    // El guard de app/api/integraciones/credencial lee ESTE flag: sin él, un negocio puede escribir la clave
+    // de generación de la plataforma. Ver el comentario de la misma fila en integraciones-catalogo.ts.
+    soloPlataforma: true,
+    paraQue: 'Generar video e imagen para los negocios que NO usan Google Flow. ⚠️ La paga MaKo y se mide en MaKo Tokens: esta clave es de la PLATAFORMA, no de un cliente.',
+    campos: [
+      { env: 'APIMART_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-…', nota: 'Es la de api.apimart.ai. El saldo se carga por adelantado; sin saldo la generación falla sin cobrar.' },
+    ],
+    tutorial: {
+      url: 'https://api.apimart.ai',
+      urlLabel: 'ApiMart → API keys',
+      pasos: [
+        'Entra a apimart.ai y carga saldo: se paga por adelantado y cada generación lo descuenta.',
+        'En la sección de API keys crea una y cópiala (empieza con sk-).',
+        'Pégala en "API key" y guarda. Va en el workspace de la plataforma, no en el de un negocio.',
+        'Medido el 7/11/2026: un video vertical de 5 s sale US$0,19 con seedance-2.0-mini.',
       ],
     },
   },
@@ -849,9 +882,23 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'apify-instagram',
     nombre: 'Apify',
     categoria: 'Datos',
+    // Acepta hasta cinco claves y anda con cualquiera (la 1 es la requerida; las demás, opcionales): ver `conUnaAlcanza`.
+    conUnaAlcanza: true,
     paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
     campos: [
-      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+      // ⚠️ EL TOPE SALE DE LA CONSTANTE, no escrito a mano (6/11/2026). La nota decía «40 lecturas por día», y 40 es
+      // `APIFY_TOPE_POR_DIA`: el tope de la OTRA lectura de Instagram, la del buscador del alta del CRM. El tope de lo que
+      // hace ESTA clave en Spy es `TOPE_LECTURAS_SPY_POR_DIA`, que subió de 40 a 150 el 4/11/2026 y dejó la nota mintiendo —
+      // el cliente creía que podía casi cuatro veces menos de lo que podía y no usaba Spy todo lo que podría. El día en que
+      // los dos números coincidían fue el último en que la nota estuvo bien. Interpolado, no se vuelve a desfasar.
+      //
+      // ⚠️ Y se le sacó el «sólo para Competitors Spy», que ya era falso: desde el 2/11/2026 el buscador de @ del alta del
+      // CRM lee UN perfil por @ exacto con esta misma clave (la decisión está en tests/leads-scraper-retirado.test.ts). No
+      // se pone su tope acá porque es otro, y dos números en una nota de una línea no se entienden.
+      //
+      // El tope de BÚSQUEDAS tampoco va, a propósito: `TOPE_BUSQUEDAS_SPY_POR_DIA` cuenta CORRIDAS, y una búsqueda por
+      // nombre gasta dos (Google y el buscador de Instagram), así que «60 búsquedas» sería otro número mal.
+      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: `Es TU cuenta: Apify cobra por perfil leído. Competitors Spy lee hasta ${TOPE_LECTURAS_SPY_POR_DIA} perfiles por día con ella.` },
       // VARIAS CLAVES (5/11/2026, Martín: «Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones
       // de cargar más api»). El patrón de Zernio y de las cuentas de IA: la 1 sigue siendo la que conecta la tarjeta; las extra son
       // `opcional`, de OTRA cuenta de Apify del negocio, y MaKo pasa a la siguiente cuando una se queda sin crédito

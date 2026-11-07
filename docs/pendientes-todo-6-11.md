@@ -8,6 +8,24 @@ y lo que ya estaba hecho.
 
 **634 pendientes**, de 641 crudos (se juntaron los repetidos por título).
 
+> ## ⚠️ VERIFICÁ CONTRA EL CÓDIGO ANTES DE TOMAR UN ÍTEM, incluso uno 🟢 abierto
+>
+> **Medido el 7/11/2026:** de los primeros ~14 ítems que se tomaron de esta lista, **siete ya estaban
+> hechos**. No es que los 🟢 estén mal clasificados: es que **el barrido corrió el 6/11 mientras ese mismo
+> día seguía entrando trabajo**, así que fotografió un estado que cambió en horas. Casos: la cuenta
+> regresiva y la escasez de las landings (hechas el 5/11), el arrastre de bloques del Copywriter (el 6/11,
+> commit `8b384b9e5`), el documento de high ticket (el 6/11), el índice de hallazgos (el 6/11), f30 y f34 de
+> la llamada con Leandro, y `lib/aperturas/` —que la lista dice que tiene 3 archivos y tiene 11—.
+>
+> **Y varios números de esta lista están al revés o mal contados**, porque salieron de leer documentos y no
+> de medir: «401 recursos faltan» eran 171 (401 es el TOTAL); «`| Ads |` aparece 5 veces» aparece 1;
+> «`construirCerebro` hace 21 lecturas sobre ~70 tablas» son 46 sobre 187. **Un número de esta lista es una
+> pista, no un dato.**
+>
+> **Lo que cuesta cinco minutos y ahorra una hora:** antes de tocar, buscar en el código lo que el ítem dice
+> que falta, y `git log` del archivo que nombra. Si ya está, se marca ✅ con su commit y se sigue — eso
+> también es avanzar.
+
 | Estado | Cuántos | Qué significa |
 |---|---:|---|
 | 🟢 Abiertos | 343 | se pueden hacer ya |
@@ -43,9 +61,11 @@ perder más tiempo que uno olvidado.
 - **Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers** · _grande_
   - Qué falta: El esqueleto está construido y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build): 7 módulos por tema, capa del Second Brain, índice en el prompt de todos los chats, dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. Falta destilar los cursos en fichas —Martín decidió hacerlo AFUERA de la app por los créditos de IA— y las «plantillas de influencers» del pedido del 30/10, de las que no hay análisis en ninguna parte y cuyos links scrapeados no están en el repo. OJO: una ficha cargada desde la pantalla sale con `fuente: 'manual'` y NO le llega a ningún negocio; la curación escribe `fuente: 'mako'`. Se ve en Classroom › Methodology, no es una tab nueva.
   - Dónde: `lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app» · docs/pendientes.md:69-79`
-- **Falta la página propia de «no encontrado»** · _chico_
-  - Qué falta: No existe app/not-found.tsx, así que un 404 se ve como app rota. Está sin hacer a propósito: una pantalla nueva se copia de una app que la resolvió (AGENTS.md) y desde la nube no se abre ninguna. Queda para un chat con navegador.
-  - Dónde: `app/not-found.tsx (no existe) · docs/relevo/pendientes-barrido.md C12 · docs/hallazgos-seguridad.md`
+- **Falta la página propia de «no encontrado»** · _chico_ · ✅ **HECHO el 7/11/2026 — `0d3cbb056`**
+  - Qué era: No existía app/not-found.tsx. Medido en producción el 7/11 contra `hola-mako.com/esta-ruta-no-existe-7nov`: lo que se veía NO era «app rota», era **el 404 por defecto de Next, en inglés** («404 · This page could not be found»), adentro del layout de MaKo, con la sidebar dibujada. O sea que la persona no quedaba varada — quedaba leyendo inglés en una app que está entera en español, sin saber qué había pasado.
+  - Qué quedó: `app/not-found.tsx` (cliente, estilos en línea con `var(--token, fallback)` para que se vea igual en el layout de escritorio, en el de `/m` y sin layout, en claro y en oscuro), `lib/no-encontrado.ts` con lo puro y `tests/no-encontrado.test.ts` (7 tests, los 4 mutantes caen). Ofrece la dirección que falló, «Ir al Dashboard» **conservando el `?ws=`** y el atajo del buscador escrito como lo tiene ESE teclado (⌘ K en Mac). No lista links: adentro de la app la sidebar ya está a la vista.
+  - ⚠️ Lo que NO se arregló y es otro ítem: el TÍTULO de la pestaña sigue derivando del slug («MaKo - Esta ruta no existe 7nov», `lib/titulo-tab.ts:78` → `desdeLaRuta`). Escribirlo desde el 404 no alcanza: `TituloTab` (app/_components/TituloTab.tsx:36) monta un `MutationObserver` sobre el `<head>` que reafirma su título cada vez que alguien lo pisa. Arreglarlo pide que `TituloTab` sepa que está en un 404, y eso toca el camino de TODAS las rutas.
+  - Dónde: `app/not-found.tsx · lib/no-encontrado.ts · tests/no-encontrado.test.ts · docs/relevo/pendientes-barrido.md C12`
 - **Las fotos huérfanas del bucket público `avatars` siguen ahí** · _chico_
   - Qué falta: El script en seco ya está: `node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/avatars-huerfanas.mts` (sin `--borrar` sólo lista; cuenta como nombrado lo de los leads vivos, la papelera y los contactos). Falta correrlo desde la PC y, mirando lo que lista, otra vez con `--borrar`. Las viejas tienen nombre adivinable.
   - Dónde: `scripts/avatars-huerfanas.mts · lib/avatars-huerfanas.ts · docs/relevo/pendientes-barrido.md P16 · docs/pendientes.md:266`
@@ -54,71 +74,107 @@ perder más tiempo que uno olvidado.
   - Qué falta: Leer `curso_sesiones` en producción y reintentarlas. Son del 05 al 12/10, cuando la IA de Google daba error, y nadie las volvió a pedir: Customer Success deja esperando esas sesiones.
   - Dónde: `docs/relevo/pendientes-barrido.md P13 · docs/pendientes.md:518 · curso_sesiones del ws 1`
   - ⛔ Lo frena: Cuesta crédito de IA: pide el sí de Martín
-- **Medir qué funciones de `public` puede ejecutar la clave pública** · _chico_
-  - Qué falta: Correr `node scripts/medir-funciones-publicas.mjs`. Es una medición de seguridad que nunca se hizo.
-  - Dónde: `scripts/medir-funciones-publicas.mjs · docs/relevo/pendientes-barrido.md P12`
+- **Medir qué funciones de `public` puede ejecutar la clave pública** · _chico_ · ✅ **HECHO el 7/11/2026 — `369d962d3`**
+  - El resultado: **las 25 funciones de `public` (las de MaKo) están CERRADAS** — 0 ejecutables por `anon`, 0 por `authenticated`, 0 SECURITY DEFINER alcanzables, 0 que toquen tablas con `workspace_id`. La 0319 hizo lo que decía. Las 49 que `anon` sí ejecuta están todas FUERA de `public` (auth, extensions, graphql_public, realtime, storage): es la plomería de Supabase, pensada para llamarse sin sesión, y ninguna toca datos de clientes. Extensiones alcanzables por anon: `pgcrypto`, `pg_stat_statements`, `uuid-ossp` — **ninguna de red ni de archivos**, así que no hay SSRF por `/rest/v1/rpc`.
+  - ⚠️ La trampa, anotada en `docs/hallazgos-seguridad.md`: el `--json` del script escribe `{defaults, filas}` con filas PLANAS, no `{app, extensiones}` como está organizada la salida de texto. Leerlo mal da «0 funciones, 0 expuestas» — un informe de seguridad perfecto construido sobre nada. **Un cero no es un resultado hasta que se ve el denominador**: hay que poder decir «0 de 25».
+  - Dónde: `scripts/medir-funciones-publicas.mjs · docs/hallazgos-seguridad.md · docs/relevo/pendientes-barrido.md P12`
 - **Las fuentes de pedidos que NADIE leyo (lo mas grande que falta)** · _grande_
   - Qué falta: El reparto del 27/10 (workflow wf_1f30be35-c5e, con los MAU-xx, MK-xx y las llamadas de Leandro, Leila y Aaron), `docs/feedback-22-10.md` (76 lineas, nadie), la llamada con Mauricio del 22/10 (C3, C4, C5), el WhatsApp personal de Martin con los clientes, los chats de clientes dentro de la app que no terminaron en ticket, los mensajes del Ops Center que el Runner no levanto el 27/10, las capturas y el correo equipo@hola-mako.com. Hecho = cada fuente leida y sus pedidos repartidos.
   - Dónde: `docs/relevo/pedidos-perdidos-2810.md:59-69,199-225,291-292 · docs/feedback-22-10.md · C:/dev/cerebro-herramientas/llamada-mau-22-10.txt`
   - ⛔ Lo frena: Varias viven solo en la PC o en side-session-notes; el WhatsApp personal pide su telefono
-- **Los items f11, f18, f19, f22, f30 y f34 de la llamada con Leandro, sin repartir** · _mediano_
-  - Qué falta: f11 que la opcion de completar datos se descubra sola; f18 que en «Editar» MaKo responda una pregunta de «Discutir»; f19 el icono equivocado; f22 MaKo inventa un bloque de Instagram que no existe; f30 el contexto dice «Customer Success > Curso»; f34 la criatura se esconde detras de la sidebar. Mas el punto 16 y el link de la tarjeta de feedback-25-10-tarde.
-  - Dónde: `docs/relevo/pedidos-perdidos-2810.md:204-213 · docs/feedback-24-10.md · docs/feedback-25-10-tarde.md · lib/api-mako/areas/curso.def.ts · cs.def.ts`
-- **MaKo toma la iniciativa: faltan el primer ingreso y las aperturas por tab** · _grande_
-  - Qué falta: `lib/aperturas/` solo tiene `ops.ts`, `comunes.ts` y `reglas.ts`. Faltan bienvenida, cargar la oferta, elegir funnel, y las aperturas de CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image, Classroom, AI Avatar y Mobile: un archivo por tab.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:127 · lib/aperturas/ · app/api/aperturas/route.ts · docs/mako-iniciativa/plan.md`
-- **El Second Brain no toma «absolutamente todos» los datos del cliente** · _grande_
-  - Qué falta: `construirCerebro()` hace 21 lecturas sobre ~70 tablas y el brief sale de 4 listas fijas. Y el Second Brain de SuperAdmin tiene que conocer todas las funciones (capa en `lib/cerebro-para-chat.ts:146`, cobertura sin verificar). Ademas, el Second Brain bien en el telefono.
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:191-192 · app/admin/dev/second-brain/bitacora.ts:33 · lib/cerebro-para-chat.ts:146 · docs/relevo/pedidos-perdidos-2810.md:103`
-- **Los cursos completos en Conocimientos: 401 recursos faltan en 10 cursos** · _grande_
-  - Qué falta: Y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazo diez clases sanas. Pedido textual: «No quiero que quede nada. Todas las clases, todos los recursos».
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41`
-- **El indice de hallazgos tiene filas duplicadas** · _chico_
-  - Qué falta: `\| Ads \|` aparece 5 veces (145, 163, 164, 180, 303) y `\| AI Avatar \|` 3 veces (181, 188, 302). Se hace en una pasada.
-  - Dónde: `docs/hallazgos.md:145,163,164,180,181,188,302,303 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:230-231`
-- **Hook generator (backlog explicito de Martin)** · _mediano_
-  - Qué falta: «Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.
+- **Los items f11, f18, f19, f22, f30 y f34 de la llamada con Leandro, sin repartir** · _mediano_ · 🟡 **DOS YA ESTABAN HECHOS (verificado el 7/11/2026 — `9b90b89d4`)**
+  - ✅ **f34 — la criatura detrás de la sidebar: ARREGLADO el 24/10/2026.** No sólo está escrito: se MIDIÓ en producción. La estrella es `position: fixed` con `left: bordeVisible + 16` (`app/_chat/MakoEnLaTab.tsx:258`), o sea que sigue el borde de lo que SE VE. Con el panel de la barra desplegado con el cursor de verdad —los eventos sintéticos NO disparan el `:hover` de CSS—, el panel llega a x=244 y la criatura salta de x=84 a **x=260**: queda a su derecha. El propio `useBordeDeLaBarra` cita f34 y el minuto de la llamada (59:33). ⚠️ Queda latente: su `z-index` es 55 y el de la barra 60, así que **si alguna vez se tocaran, la criatura va detrás**. Hoy no pasa porque la posición los separa; es un margen, no una garantía.
+  - ✅ **f30 — «Customer Success › Curso» en el contexto de MaKo: YA NO EXISTE.** Buscado en todo `app/` y `lib/` fuera de comentarios: las únicas menciones que quedan son tableros INTERNOS (`app/admin/dev/areas.ts`, `app/admin/runway/`) y comentarios históricos en `curso.def.ts`. Ni un texto que vea el cliente ni que lea MaKo. La tab se llama Classroom (`app/_components/nav.ts:376`) y los títulos de las operaciones de `cs.def.ts` son limpios.
+  - 🟡 **f22 — la premisa CAMBIÓ.** El 24/10 Leandro dijo «no me aparece ninguna configuración de Instagram en todo eso» y MaKo lo mandaba a un bloque inventado. Hoy Instagram SÍ se configura: por Zernio (`lib/metodo-catalogo.ts:284-297`, que conecta Facebook, Instagram y los anuncios de Meta) y hay `app/instagram/page.tsx`. Si MaKo apunta al lugar CORRECTO no se puede cerrar sin reproducir la conversación.
+  - ⬜ **Siguen abiertos: f11** (que la opción de completar datos se descubra sola), **f18** (que en «Editar» MaKo conteste una pregunta de «Discutir») y **f19** (el ícono equivocado en la respuesta de MaKo). Los tres piden reproducir el caso: el reporte original no dice qué ícono ni en qué respuesta.
+  - Dónde: `docs/feedback-24-10.md:163 (f22) · app/_chat/MakoEnLaTab.tsx:75-108,258 (f34) · lib/api-mako/areas/cs.def.ts (f30) · docs/relevo/pedidos-perdidos-2810.md:204-213`
+- **MaKo toma la iniciativa: faltan el primer ingreso y las aperturas por tab** · _grande_ · 🟡 **EL CONTEO ESTABA VIEJO (revisado el 7/11/2026 — `5d2d98f7a`)**
+  - ⚠️ **Lo de arriba decía «sólo tiene ops.ts, comunes.ts y reglas.ts»: hoy hay ONCE archivos.** Ya están `calendario`, `clients`, `crm`, `dashboard`, `image`, `plan`, `video` y `web` — o sea T11, T12, T13, T14 y T17 del plan. Se construyeron después del barrido del 6/11 y nadie volvió a actualizar esta línea.
+  - **Faltan CINCO superficies**, no diez: **Copywriter**, **Offer**, **Automations**, **AI Avatar** (T15) y **Mobile** (T16). Más los tres del primer ingreso (bienvenida, cargar la oferta, elegir funnel).
+  - **T15 (AI Avatar), avanzado el 7/11:** de sus tres partes, dos están. ✅ «Antes de generar» ahora **se pliega** a «Te falta 1 de 4 · lo que sigue» — medido a 1024 × 820, el bloque pegado al pie ocupaba 452 px de 820 (el **55 %** de la pantalla) con 240 de esa tarjeta, y quedaba desplegada justo cuando la persona está mirando los 33 presets. ✅ «Usar el ejemplo» **ya no filma con créditos**: `usarVenta` (Estudio.tsx:184) sólo precarga preset y detalle.
+  - ⛔ **Lo que falta de T15 está TRABADO, y es el plan el que lo traba:** la apertura (`lib/aperturas/avatar.ts`) «va recién cuando el motor genere un look en producción». **Medido el 7/11: no hay ni un look.** La clave `ai-avatar.looks` no existe en NINGUNA fila de `app_settings` en producción (las `mako.avatares` de los ws 10, 11, 13, 14 y 20 son otra cosa: el contexto de los avatares de MaKo). Escribir la apertura hoy es trabajo que no se puede encender.
+  - Dónde: `lib/aperturas/ (11 archivos) · docs/mako-iniciativa/plan.md:334,387 (T15/T16) · app/ai-avatar/Estudio.tsx · lib/ai-avatar/requisitos.ts → resumenDeRequisitos`
+- **El Second Brain no toma «absolutamente todos» los datos del cliente** · _grande_ · 🟡 **MEDIDO Y ACOTADO el 7/11/2026 — `87a02320d`**
+  - **El número de arriba era otro.** «21 lecturas sobre ~70 tablas» salía de contar `.from(` en UN archivo, y eso da **2**: el cerebro delega en ~22 lectores que viven en otros módulos. Siguiendo sus imports tres saltos (198 archivos), lo real es **46 de 187 tablas del cliente — el 25 %**.
+  - ⚠️ **ANTES DE IMPLEMENTARLO, LEER ESTO.** La forma obvia de cumplir el pedido es recorrer `lib/tablas-de-inquilino.ts` —lo que ES de cada negocio— y leer todo. **Esa lista incluye `credenciales`**, así que hacerlo así mete las claves API del cliente en el prompt de un modelo. Y «van cifradas» no protege: `valor_enc` es AES-256-GCM que **esta misma app descifra**. Tampoco pueden entrar `credenciales_auditoria`, `ia_pc_codigos` ni `shares`.
+  - **La distinción NO es «sensible / no sensible»:** los mensajes de WhatsApp, las llamadas grabadas y los emails también son sensibles y **sí** tienen que entrar — son el contenido del negocio, que es lo que el cerebro necesita. Lo prohibido es material de **AUTENTICACIÓN**.
+  - ✅ **Ya está la guarda**, en código y no sólo en un documento (el que implemente el pedido importa el módulo, no lee el doc): `lib/cerebro-nunca-lee.ts` + `tests/cerebro-no-lee-secretos.test.ts`, que recorre los imports de verdad y falla en el momento en que alguien cablee la lectura completa sin filtrar.
+  - ⬜ **Sigue pendiente lo de fondo:** ampliar la cobertura más allá del 25 %, el brief que sale de 4 listas fijas, la cobertura de funciones del Second Brain de SuperAdmin (`lib/cerebro-para-chat.ts:146`) y el Second Brain en el teléfono. Con el gap ya listado tabla por tabla en `docs/hallazgos-second-brain.md`.
+  - Dónde: `lib/cerebro-grafo.ts:326 · lib/cerebro-nunca-lee.ts · tests/cerebro-no-lee-secretos.test.ts · docs/hallazgos-second-brain.md · lib/cerebro-para-chat.ts:146`
+- **Los cursos completos en Conocimientos** · _grande_ · ⛔ **TRABADO — pide Chrome conectado (revisado el 7/11/2026 — `9a617e8aa`)**
+  - ⚠️ **El título de arriba decía «401 recursos faltan» y está al revés.** El 401 es el TOTAL de lecciones de la plataforma: **233 ya publicadas** (230 que matchean + 3 que el autor sacó del curso) y **171 a bajar** (`docs/hallazgos-conocimiento.md:3485-3495`). Faltan 171, no 401.
+  - **Estado medido el 7/11:** el repo ya tiene **131 archivos de curso con 9.684 clases** en `app/conocimientos/`. No es un área vacía.
+  - ⛔ **Lo que lo traba:** bajar las que faltan corre por `scripts/curso-api.mjs`, que necesita **sesión viva en la plataforma externa** — saca el token del `localStorage` de la página y la anon key de los headers de una request real, por CDP. O sea: Chrome conectado y con la sesión de Martín abierta. Desde un chat sin navegador no sale.
+  - ⚠️ **Y la trampa de conteo que ya está escrita, para el que lo retome:** «contar los hijos de un nodo no es contar su subárbol». Un chequeo de completitud tiene que recorrer `parent_module_id` hasta el fondo; mirando un solo nivel, 16 de 28 módulos llenos contestan «vacío» (`docs/hallazgos-conocimiento.md:2550-2558`).
+  - Dónde: `scripts/curso-api.mjs · app/conocimientos/catalogo.ts · docs/hallazgos-conocimiento.md:2550,3485-3495 · app/admin/dev/conocimientos/bitacora.ts:41`
+- **El indice de hallazgos tiene filas duplicadas** · _chico_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — `8cd255a3c`)**
+  - **No reproduce.** `| Ads |` aparece **1** vez y `| AI Avatar |` **1**, no 5 y 3. La tabla principal tiene **exactamente 77 filas**, que es el número que declara su propia cabecera, y **ninguna área repetida**.
+  - **Lo arregló la limpieza del 6/11** (217 filas → 77) y, sobre todo, lo que la sostiene: `docs/hallazgos.md` tiene su PROPIO driver de merge (`scripts/unir-indice-hallazgos.mjs`, configurado en `.gitattributes` y en `punta.yml`), porque `merge=union` sobre una TABLA deja las dos filas y la punta siguiente duplica la duplicada. Lo vigila `tests/unir-indice-hallazgos.test.ts` — 10 tests, incluido «una fila por área», los 10 en verde el 7/11. El inventario se escribió con la foto anterior a esa limpieza.
+  - ⚠️ **Y lo que NO es un bug, para que nadie lo «arregle»:** 17 áreas comparten documento con otra (lo dice la cabecera: 77 filas, 60 documentos). Que `hallazgos-seguridad.md` aparezca en «Aislamiento» y en «Seguridad» es correcto. Al cosechar, el texto va en la fila del ÁREA que corresponde, no en la primera que enlace ese documento.
+  - ⚠️ **La trampa en la que caí al verificarlo:** conté 81 filas tomando «de la cabecera de una tabla a la cabecera de la siguiente», y entre las dos hay prosa. Llegué a juntar 4 filas que estaban bien antes de darme cuenta (revertido sin pérdida: 124 trozos largos del original, 0 faltantes). **Una tabla se cuenta hasta la primera línea que no es fila, no hasta la tabla siguiente.**
+  - Dónde: `docs/hallazgos.md:22-100 · scripts/unir-indice-hallazgos.mjs · tests/unir-indice-hallazgos.test.ts`
+- **Hook generator (backlog explicito de Martin)** · _mediano_ · ⏸️ **LO APARCÓ MARTÍN, no está trabado (confirmado el 7/11/2026)**
+  - Sigue sin existir: lo único que lo nombra son dos bitácoras de `app/admin/dev/` (ads-writer y onboarding), que son registros, no código.
+  - **No se toca por decisión suya, textual: «Lo dejo como backlog».** Está acá para que no se confunda con los que esperan algo: éste espera que él lo pida.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173`
-- **Generar anuncios «en cantidad»: 100 en menos de una hora** · _grande_
-  - Qué falta: Sin codigo en `lib/image-editor`, `lib/video-generator`, `app/image-generator`, `app/video-generator` ni `app/image-editor`. Solo figura en `docs/como-venden-otros.md:146`.
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:151-153 · docs/como-venden-otros.md:146`
+- **Generar anuncios «en cantidad»: 100 en menos de una hora** · _grande_ · ⬜ **CONFIRMADO SIN EMPEZAR, pero ya tiene cimiento (7/11/2026)**
+  - Verificado: ni «lote», ni «masivo», ni nada equivalente en los cinco lugares.
+  - **Lo que ahora SÍ existe y es su cimiento** (7/11): el medidor de MaKo Tokens con descuento atómico (`lib/mako-tokens-reglas.ts`, migración 0412, probado con 200 pedidos simultáneos sin regalar ni perder un token) y el cliente de generación por API (`lib/apimart.ts`, con su clave ya cargada en el workspace de plataforma). Cien piezas de un tirón son exactamente el caso que el medidor vino a cuidar.
+  - ⬜ **Lo que falta es lo de arriba:** la cola, el **tope de concurrencia contra el proveedor —que hoy NO existe—** y la pantalla. No se empieza en un turno.
+  - Dónde: `docs/como-venden-otros.md:146 · lib/mako-tokens-reglas.ts · lib/apimart.ts`
 - **VSL Generator completo (y VSL Analyst)** · _grande_
   - Qué falta: 5 entradas en 'cola' en la bitacora y `app/_components/nav.ts:474` con `comingSoon`. Prioridad BAJA segun la medicion.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:165-167 · app/admin/dev/vsl-generator/bitacora.ts:28-32 · app/_components/nav.ts:474`
-- **Conectar Google Drive para que MaKo lea los links que pasan los clientes** · _mediano_
-  - Qué falta: Solo existe bajar un link publico (`lib/api-mako/areas/ads.run.ts:896`) y los scopes de Google son solo Calendar y el vigia. Pedido repetido (26/10 y antes).
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:169-170 · lib/google-calendar.ts:37,43 · docs/relevo/pedidos-perdidos-2810.md:151`
+- **Conectar Google Drive para que MaKo lea los links que pasan los clientes** · _mediano_ · ⛔ **TRABADO — lo decide Martín, no es una tarea (medido el 7/11/2026)**
+  - Confirmado que no hay nada: los únicos scopes son `calendar.readonly` y `calendar.events` (`lib/google-calendar.ts:37,43`); ni una mención de `auth/drive` en todo `lib/` ni `app/`.
+  - ⛔ **Lo que lo traba, y está escrito en el propio archivo (`lib/google-calendar.ts:49`):** «los refresh_token YA EMITIDOS conservan el scope con el que se otorgaron». Sumar Drive **no** le da acceso a quien ya conectó: **todos los que tienen su agenda conectada tendrían que reconectar**. Eso se le avisa a los clientes; no es cambiar una constante.
+  - ⛔ **Y la otra mitad es la consola de Google de Martín:** el scope va en la pantalla de consentimiento del proyecto de Google Cloud, y uno de Drive es de los que Google revisa antes de habilitar en producción. Desde el repo no se destraba.
+  - Dónde: `lib/google-calendar.ts:37,43,45-54 · lib/api-mako/areas/ads.run.ts:896`
 - **Historial de decisiones de Martin en «progreso», con aviso si cambia de opinion** · _mediano_
   - Qué falta: «Se manda como un prompt que el usuario cambio de opinion». Grep sin resultados en `app/admin/operaciones`, `lib/operaciones*` ni `lib/centro*`.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:159-160`
 - **Focus Tracker (Toggl por BYOK) y Productivity Analyst** · _grande_
   - Qué falta: `git grep` de «Focus Tracker» y «toggl» sin resultados en app, lib ni docs. Puede estar como tarea en la base del /plan.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:162-163`
-- **Cuenta regresiva, pops de prueba social y escasez en las landings** · _mediano_
-  - Qué falta: No hay nada en `app/web-generator/` ni `lib/editor-landing/`. Martin lo marco «super importante» y lo necesitaba la landing de Black November. Van bloques nuevos en `BloqueWeb.tsx`.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:65 (2.10/5.14) · app/web-generator/BloqueWeb.tsx · lib/editor-landing/`
-- **El logo real de Meet (y los logos dibujados a mano)** · _chico_
-  - Qué falta: «Muchos logos no son los logos reales»: `LogoMeet` esta dibujado a mano. Hecho = el logo real en su lugar.
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55`
-- **C12: no hay pagina propia de «no encontrado»** · _chico_
-  - Qué falta: No existe `app/not-found.tsx`. Se dejo sin hacer a proposito: una pantalla nueva se copia de una app que la resolvio y desde la nube no se abre ninguna. Queda para un chat con navegador.
-  - Dónde: `docs/relevo/pendientes-barrido.md:111 · app/not-found.tsx`
-  - ⛔ Lo frena: Pide un navegador para copiar la referencia
-- **Ops Center: ocho restos sin dueno** · _mediano_
-  - Qué falta: Muniecos y «Renombrar» por fila, chat del grupo en la barra, riel «Lo que hizo», retirar `/api/mako-doer`, las funciones del limbo sin pantalla, `CARTERO_VIVO_MS` derivado del intervalo real (pide columna y cartero nuevo), adjuntos solo foto y PDF, y la purga de adjuntos que nunca se mandaron.
-  - Dónde: `docs/relevo/pendientes-barrido.md:121-124 · app/admin/operaciones · lib/operaciones-reglas.ts:37`
-- **Los patrones de email nunca se comprobaron en uso** · _mediano_
-  - Qué falta: El documento esta en produccion (70 remitentes, ~5.050 emails) pero no se verifico que Copywriter, Newsletter, Automations y WhatsApp los usen. Y quedaron sin ficha ~59 posteos de Razzetti en Skool y ~120 emails de un autor en ingles.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:130 · docs/conocimiento/patrones-email.md · docs/relevo/pendientes-pc/por-repartir.md:377`
-- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_
-  - Qué falta: Martin cree que no. Se investiga desde la PC porque transcribir YouTube pide la clave de Gemini, y va a `docs/conocimiento/anuncios-high-ticket.md`.
-  - Dónde: `docs/relevo/cerebro.md:51 · docs/conocimiento/anuncios-high-ticket.md`
+- **Cuenta regresiva, pops de prueba social y escasez en las landings** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — `9a617e8aa`)**
+  - **Los tres existen desde el 5/11**, commit `9bfa14326` — «Black November: el número arranca de a poco, el horario del negocio manda y **tres bloques de venta en las landings**», o sea el mismo pedido y la misma landing que lo motivó. Son los nodos `CuentaRegresiva`, `PruebaSocial` y `Escasez` (`app/web-generator/editor/extensiones/nodos.ts:533-535`), cada uno con su panel de configuración (`PanelCuenta`, `PanelPrueba`, `PanelEscasez`) y su ícono, en `app/web-generator/editor/nodos/BloqueVentaVista.tsx`.
+  - ⚠️ **Por qué el barrido no los vio, y es una trampa de nombres que va a repetirse:** buscó en `app/web-generator/BloqueWeb.tsx` y en `lib/editor-landing/`. **`BloqueWeb` NO es un bloque de la landing**: son las tarjetas de landing que MaKo muestra EN EL CHAT (`lib/editor-landing/bloques-web.ts` → `BloqueLanding`, `BloqueElegir`, `BloquePublicada`…). Los bloques de la página viven en `app/web-generator/editor/extensiones/nodos.ts` y `editor/nodos/`. Dos cosas distintas llamadas «bloque» en la misma área.
+  - Dónde: `app/web-generator/editor/extensiones/nodos.ts:533-535 · app/web-generator/editor/nodos/BloqueVentaVista.tsx · app/web-generator/editor/insertar.ts:41,219`
+- **El logo real de Meet (y los logos dibujados a mano)** · _chico_ · ✅ **HECHO el 7/11/2026 — `d607c3951`**
+  - `LogoMeet` eran cuatro formas sueltas —tres rectángulos y un triángulo— armando «una cámara en los verdes de Meet». Se parecía y no era: a 40 px se ve que son piezas sueltas, y a 16 px es una mancha verde. Ahora es el trazo **OFICIAL** (simple-icons `googlemeet`, un solo path) en el verde de marca `#00897B`, que simple-icons toma del brand resource center de Google.
+  - **Y lo pedía el propio archivo:** `app/_components/ServicioVisual.tsx:19` dice, textual, «REGLA: acá solo van logos OFICIALES, copiados tal cual de la fuente de la marca». El dibujo a mano la violaba desde el 16/10.
+  - **Va monocromo y no en los cuatro colores del logotipo**, por dos motivos: es la convención de ese archivo (todos los símbolos de `<BrandDefs>` son un trazo de un color, como Instagram, Messenger y Facebook) y a 16 px —el tamaño al que se usa, junto a «Asignar evento»— el multicolor se vuelve una mancha. Verificado dibujando viejo contra nuevo a 16 y 40 px, en claro y en oscuro.
+  - Dónde: `app/_components/ServicioVisual.tsx:219-238`
+- **C12: no hay pagina propia de «no encontrado»** · _chico_ · ✅ **HECHO el 7/11/2026 — `0d3cbb056`** (es el MISMO ítem que «Falta la página propia de "no encontrado"», más arriba: estaba dos veces en el inventario)
+  - Ya existe `app/not-found.tsx`, en español, con la dirección que falló, «Ir al Dashboard» conservando el `?ws=` y el atajo del buscador según el teclado. Lo que había NO era «app rota»: era el 404 por defecto de Next **en inglés**, dentro del layout de MaKo.
+  - Dónde: `app/not-found.tsx · lib/no-encontrado.ts · tests/no-encontrado.test.ts`
+- **Ops Center: ocho restos sin dueno** · _mediano_ · ⚠️ **NINGUNO DICE SU MOTIVO — no se toca a ciegas (revisado el 7/11/2026 — `60e608d44`)**
+  - Los ocho salen de una línea de barrido (`docs/relevo/pendientes-barrido.md:121-124`), sin el porqué de cada uno. Dos los miré a fondo y los dos resultaron más delicados de lo que la línea sugiere:
+  - **«retirar `/api/mako-doer`» — la ruta ESTÁ huérfana, y aun así no es un borrado.** Medido: su pantalla ya se retiró el 16/10 (`app/mako-doer/page.tsx` redirige a `/second-brain`), y `/second-brain` llama a `/api/mako` y `/api/second-brain`, **no** a ésta. Nadie en el repo le hace `fetch`. **Pero son 308 líneas de backend de chat con tool-use, vigiladas por CUATRO archivos de test** —`mako-doer-plazo` (que fija que es SÓLO LECTURA y su plazo de 300, y de paso cubre el webhook de Evolution, `/api/m/mako`, `/mako/pendientes` y `/api/crm/mako`), `adjuntos-chats-de-texto`, `agenda-sin-ia` y `copywriter-charla-puerta`—. Retirarla obliga a editar esos cuatro sin perder lo que cuidan, y **el repo no tiene convención para retirar una API** (la de AGENTS.md, «se redirige, no se borra», es para rutas de pantalla). O sea: hay que decidir la convención primero.
+  - **«adjuntos sólo foto y PDF» — la nota dice lo contrario de lo que pasa.** Hoy el Ops Center acepta bastante más: Word, Excel, PowerPoint, `.txt`, `.md` y `.csv`, con verificación por FIRMA de los bytes y no por lo que declara el navegador (`ACCEPT_ADJUNTOS_CENTRO`, `lib/operaciones-reglas.ts:119`). Sin el motivo original no se sabe si lo pendiente es restringir o ampliar.
+  - **Lo que hace falta antes de tomar este ítem:** que alguien diga POR QUÉ de cada resto. Tal como está, cerrarlo «a ojo» es cómo se borra código mantenido.
+  - Dónde: `docs/relevo/pendientes-barrido.md:121-124 · app/api/mako-doer/route.ts · app/mako-doer/page.tsx · lib/operaciones-reglas.ts:119`
+- **Los patrones de email nunca se comprobaron en uso** · _mediano_ · ✅ **COMPROBADO el 7/11/2026 — `60e608d44` · LA RESPUESTA ES QUE NO SE USAN**
+  - ⚠️ **Y la premisa estaba mal: el documento NO está en producción.** `docs/conocimiento/patrones-email.md` son **1.147 líneas** destiladas de ~5.050 emails de 70 remitentes, y **no lo lee NINGÚN código**: cero referencias en `app/`, `lib/` y `scripts/`.
+  - **Lo que sí llegó a producción son 737 caracteres.** En `mako_knowledge` hay UNA sola fila de patrones de email —«Asuntos y preheader (email): que se abra», categoría `Email`, `fuente: mako`, activa— en los workspaces 1 y 4. De 1.147 líneas entró eso.
+  - **Lo que Copywriter y Newsletter usan de verdad es otra cosa:** `lib/copywriting-metodo.ts`, un método **escrito a mano en el código** (Fundamentos, Estructura, Email, Psicología, Secuencias, CTA), que importan `app/admin/copywriting`, `app/api/mako/copywriting`, `lib/mako-knowledge.ts` y `lib/nutricion-generator.ts`. No sale del documento.
+  - **O sea: la pregunta del ítem («¿los usan?») tiene respuesta y es NO.** No porque alguien se olvidara de cablearlos, sino porque el destilado nunca se cargó. Lo que falta no es verificar: es decidir si esas 1.147 líneas entran a `mako_knowledge` (y con qué `area`, para que las lean los cuatro lugares) o si el método a mano ya alcanza.
+  - ⬜ Sigue abierto lo otro del ítem: ~59 posteos de Razzetti en Skool y ~120 emails de un autor en inglés, sin ficha.
+  - Dónde: `docs/conocimiento/patrones-email.md · lib/copywriting-metodo.ts · lib/mako-knowledge.ts · tabla mako_knowledge (ws 1 y 4)`
+- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — `bb8127eb2`)**
+  - `docs/conocimiento/anuncios-high-ticket.md` existe y son **201 líneas**, «armado el 6/11/2026 con videos de YouTube y sesiones de nuestros cursos»: qué funnel según la situación, presupuesto de arranque, cuándo cortar un creativo, y una columna de «cuánto creerle» por fuente.
+  - **Y contesta lo que Martín preguntaba:** los cursos lo cubren flojo. Textual, línea 142: «Evidencia flaca: sesiones de 2023 de nuestros cursos y dos fuentes de Brasil». Por eso se completó con YouTube.
+  - **No quedó en un cajón: lo lee el código** — `lib/media-buyer/copiloto-conocimiento.ts`, `copiloto.ts` y `campanas-grupos.ts`.
+  - ⬜ El propio documento deja escrito lo que le falta (línea 176): Google, YouTube y LinkedIn Ads para ticket alto; costos recientes en LATAM y datos con método de España; y una clase de 57 minutos de Haynes sin transcribir.
+  - Dónde: `docs/conocimiento/anuncios-high-ticket.md:142,176,201 · lib/media-buyer/copiloto-conocimiento.ts`
 - **Classroom y cursos armados desde el Segundo Cerebro** · _grande_
   - Qué falta: Que MaKo diga, segun la promesa de valor, que capsulas o modulos necesita el curso y los ordene segun la oferta. Marcado FALTA en la auditoria.
   - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.17) · docs/relevo/pendientes-pc/pendientes-30-10.md:125`
-- **Arrastrar un bloque en el Copywriter deja su contenido atras** · _mediano_
-  - Qué falta: BlockNote mueve solo el bloque arrastrado: hay que arrastrar con sus hijos (`DragHandleMenu`/`SideMenu`). Marcado FALTA y «sin hacer» en el recorrido visual.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:54 (1.8) · app/copywriter/editor/CuerpoNotion.tsx`
+- **Arrastrar un bloque en el Copywriter deja su contenido atras** · _mediano_ · ✅ **ARREGLADO el 6/11/2026 — commit `8b384b9e5`** (verificado el 7/11)
+  - «Copywriter: arrastrar un título se lleva lo que tiene debajo». Arrastrar un TÍTULO ahora se lleva su sección —lo que cuelga hasta el próximo título de su nivel—: antes del arrastre de BlockNote, **en fase de captura para que corra primero**, se selecciona la sección entera y BlockNote mueve la selección.
+  - La regla pura vive en `lib/copywriter/seccion-arrastre.ts` (`seccionDe`) y la vigila `tests/copywriter-arrastrar-seccion.test.ts` — **6 tests, los 6 en verde el 7/11**.
+  - El código cita la misma fuente que el pendiente: la llamada con Leila del 5/11. El barrido es del 6/11 y agarró el estado de unas horas antes.
+  - Dónde: `app/copywriter/editor/CuerpoNotion.tsx:239-241 · lib/copywriter/seccion-arrastre.ts · tests/copywriter-arrastrar-seccion.test.ts`
 - **QA con Claude simulando usuarios dentro de MaKo** · _mediano_
   - Qué falta: Martin iba a pedirle a su Claude que simule muchas experiencias de usuario para detectar errores. La auditoria dice «sin script».
   - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.8) · docs/relevo/pendientes-pc/pendientes-30-10.md:107,159`
@@ -1560,9 +1616,10 @@ perder más tiempo que uno olvidado.
 - **El store de mensajes del ws9 es el default de todos los clientes** · _chico_
   - Qué falta: Que leerPar no caiga al par del ws9 para un negocio sin el suyo. Hecho = un negocio sin plantillas propias no lee las de MaKo.
   - Dónde: `C:/dev/wt-puntas/lib/plantillas.ts (leerPar) · pendiente en C:/dev/wt-puntas/docs/hallazgos-chatbot.md:4037`
-- **Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces** · _mediano_
-  - Qué falta: El peor: app/api/email/generar/route.ts mete el Calendly de Mauricio como CTA de cualquier cliente. Ninguno está en el registry. Hecho = cada prompt toma la identidad del negocio.
-  - Dónde: `C:/dev/wt-puntas/app/api/email/generar/route.ts:18-24 (y los otros cuatro) · pendiente en C:/dev/wt-puntas/docs/hallazgos-comunicacion.md:4316`
+- **~~Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces~~** · _CERRADO el 6/11/2026_
+  - Qué pasó: eran **dos**, no cinco — la lista de los cinco nunca existió (un renglón sin enumerarlos). `/email` se arregló en `97f98ba81`; `SYSTEM_ANALISIS` de `lib/closing.ts` el 6/11 (taxonomía a slots que leen el brief y los rótulos del embudo, fallback NEUTRO). Y «ninguno está en el registry» era falso: el del closing ya estaba, y el bug seguía entero — editable ≠ por-negocio.
+  - Lo que SÍ queda, y es otra cosa: **`RE_SERVICIO_EXPLICITO` (`lib/closing.ts:141`) es el mismo bug en una regex**, no en un prompt: `paddock & pit|programa via|scaling up|mesa de trabajo` descarta como entrega de servicio, en la pre-clasificación y para todos los clientes, una llamada de venta titulada así. Hecho = esos marcadores salen a configuración por workspace, como salieron los internos.
+  - Dónde: `lib/closing.ts:141 (RE_SERVICIO_EXPLICITO) · cosechado en docs/hallazgos-closing.md`
 - **AU4: ChatMako de Automations tiene que pasar a CajaChat + HiloMako y la estrella CONVIVE, no reemplaza** · _grande_
   - Qué falta: De `docs/relevo/automations.md` §Sin hacer, que ninguna familia leyo. Tres piezas: (1) ChatMako pasa a `CajaChat` + `HiloMako` (app/_chat) con su propio motor (`/api/chat-agent/secuencias/ia`: crear en el lienzo vacio, las fases, el borrador en vivo) y «Discutir/Editar» va al slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); (2) la «Pideselo a MaKo» de la galeria (CajaPedido) pasa a CajaChat; (3) la estrella (`MakoEnLaTab`) CONVIVE con tab=«Automations» y entidad de tipo 'automatizacion', NO la reemplaza. Cuidar lo del 22/10: el mensaje al instante, «Reintentar», la capa en toda la pantalla y las fases en una linea. Que la estrella edite el lienzo en vivo es otra pieza y se decide con Martin antes. Va DESPUES de que entre AU2. Hecho = `tests/chat-mako-envio-a-la-vista.test.ts` verde con la caja nueva.
   - Dónde: `C:/dev/wt-puntas/docs/relevo/automations.md:451-485 (§Sin hacer, bloque AU4) · C:/dev/wt-puntas/app/_chat/ · C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts`

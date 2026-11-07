@@ -83,9 +83,25 @@ Con el `.env.local` de producción, desde la raíz del clon. **En seco por defec
    node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts sumar @canal --nicho ventas --idioma es --de-verdad
    ```
 
-5. **Cada mes:** `leer` de nuevo y `podar --de-verdad` (borra lo leído hace más de 30 días).
+5. **La renovación ya no es a mano:** la hace `/api/cron/thumbnails-renovar` (`lib/thumbnails/renovar.ts`), los **domingos 06:55 UTC**.
+   Relee los canales activos y después poda lo vencido, con la clave de la plataforma. Los comandos de abajo siguen sirviendo para
+   forzarla desde la PC — llaman la misma función que el cron:
 
-## ✅ Cargada el 6/11/2026: 85 canales, 1.643 miniaturas
+   ```bash
+   node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts leer --max 120 --de-verdad
+   node --env-file=.env.local --conditions=react-server --import tsx scripts/thumbnails-biblioteca.mts podar --de-verdad
+   ```
+
+   ⚠️ **Semanal, no mensual, aunque el vencimiento sea de 30 días.** Un cron mensual el día 1 deja 31 días entre enero y febrero: lo
+   leído el 1 de enero vence el 31 y la galería queda vacía un día antes de que el cron la salve; y con una sola oportunidad por
+   vencimiento, cualquier corrida fallida la vacía igual. Lo fija `tests/thumbnails-renovar.test.ts` contra `vercel.json`.
+   ⚠️ **El cron NO descubre canales nuevos** (`search.list` y su balde de 100 por día lo comparte toda la app, Spy incluido): el paso 2
+   sigue siendo a mano.
+
+## ✅ Cargada el 6/11/2026: 79 canales activos, 1.520 miniaturas (14 canales excluidos)
+
+> Medido con `estado` contra producción el 6/11 a la noche. Los números de más abajo (85 y 1.643, 8 excluidos) son del momento de la
+> carga: la curaduría siguió después. Antes de repetir un número de este documento, corré `estado`.
 
 Corrido desde la PC con los pasos de abajo: `descubrir --por-par 8 --dias 180 --de-verdad` (12 búsquedas,
 93 canales) y `leer --max 120 --de-verdad` (1.784 videos). La 0409 ya estaba aplicada.

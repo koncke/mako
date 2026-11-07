@@ -6,7 +6,7 @@
 //   1. la lista (app/image-editor/plantillas-crear.ts): los tamaños con nombre en blanco, con su marco y su medida; el
 //      carrusel de Instagram de varias páginas; ids únicos. Desde el 6/11/2026 las plantillas con diseño de «Nuevo diseño»
 //      son las REALES (lib/image-editor/plantillas-reales.ts, las cuida tests/image-plantillas-reales-crear.test.ts): las
-//      10 de Doory (bodas, conciertos, currículums) siguen en el panel «Diseño» del editor y en la API, no aquí;
+//      10 de Doory (bodas, conciertos, currículums) se BORRARON de todo el producto ese mismo día, por su licencia;
 //   2. los tamaños son los de la lista ÚNICA del editor (Redimensionar, _doory/editor/dialogs/resizeSizes.ts): uno
 //      inventado acá abriría un diseño de una medida que el editor no conoce por nombre;
 //   3. el documento en blanco trae una página por id (el carrusel, cinco) y lo acepta la regla del server;
@@ -34,7 +34,7 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 // En blanco: ni carrusel por tipo ni plantilla real (esas traen su estructura).
-const enBlanco = PLANTILLAS_NUEVO_DISENO.filter((p) => !p.plantilla && !p.carrusel && !p.real);
+const enBlanco = PLANTILLAS_NUEVO_DISENO.filter((p) => !p.carrusel && !p.real);
 
 test('1: los tamaños en blanco, con su marco «ancho / alto» y su medida «ancho × alto», y una página', () => {
   for (const [id, t] of Object.entries(TAMANOS_API)) {
@@ -54,13 +54,17 @@ test('1: el carrusel de Instagram: 1080 × 1350, varias páginas, en blanco y al
   assert.equal(c.nombre, 'Carrusel de Instagram');
   assert.deepEqual([c.ancho, c.alto], [1080, 1350]);
   assert.ok(c.paginas > 1 && c.paginas === PAGINAS_CARRUSEL, 'un carrusel trae varias páginas');
-  assert.equal(c.plantilla, undefined);
+  // En blanco: ni un carrusel de MaKo por tipo ni una plantilla real (ésas traen su estructura). El campo `plantilla`,
+  // que apuntaba a una de Doory, se fue con ellas el 6/11/2026.
+  assert.deepEqual([c.carrusel, c.real], [undefined, undefined], 'el carrusel de «Nuevo diseño» nace vacío');
   const i = PLANTILLAS_NUEVO_DISENO.indexOf(c);
   assert.equal(PLANTILLAS_NUEVO_DISENO[i - 1]?.id, 'publicacion_vertical', 'va después de la publicación 4:5, que es su tamaño');
 });
 
-test('1: en «Nuevo diseño» no quedan las de Doory (bodas, conciertos, currículums): las reales van antes que los tamaños', () => {
-  assert.equal(PLANTILLAS_NUEVO_DISENO.filter((p) => p.plantilla).length, 0, 'una plantilla de Doory volvió a «Nuevo diseño»');
+test('1: las plantillas reales van antes que los tamaños en blanco', () => {
+  // El campo `plantilla` de la tarjeta (el slug de una de Doory) se fue con ellas el 6/11/2026: una tarjeta sólo puede
+  // traer una plantilla real, un carrusel por tipo, o nada (en blanco). Que no vuelva ninguna de Doory a ningún lado lo
+  // guarda el test 3 de tests/api-mako-imagen.test.ts.
   const ultimaReal = PLANTILLAS_NUEVO_DISENO.map((p) => !!p.real).lastIndexOf(true);
   const primeraEnBlanco = PLANTILLAS_NUEVO_DISENO.findIndex((p) => enBlanco.includes(p));
   assert.ok(ultimaReal >= 0 && ultimaReal < primeraEnBlanco, 'las reales, antes de los marcos en blanco');
@@ -95,7 +99,8 @@ test('4: la acción busca el id en la lista, arma el documento sin el motor y lo
   assert.match(src, /^'use server';/);
   assert.match(src, /const p = await puerta\(\);\s*if \(p instanceof Response\)/, 'la puerta del editor antes que nada');
   assert.match(src, /const pl = plantillaNueva\(id\);\s*if \(!pl\) return/, 'el id se busca en la lista; uno de afuera no entra');
-  assert.match(src, /pl\.plantilla\s*\?\s*await documentoDePlantilla\(pl\.plantilla\)\s*:\s*documentoEnBlanco\(pl\.ancho, pl\.alto, Array\.from\(\{ length: Math\.max\(1, pl\.paginas\) \}/);
+  assert.match(src, /:\s*documentoEnBlanco\(pl\.ancho, pl\.alto, Array\.from\(\{ length: Math\.max\(1, pl\.paginas\) \}/, 'la última rama: en blanco, una página por id');
+  assert.doesNotMatch(src, /documentoDePlantilla/, 'volvió la rama de las plantillas de Doory, borradas el 6/11/2026');
   // El nombre sale de la tarjeta (o del que ella declara para el diseño: «Carrusel · Lista o tips»), nunca del navegador.
   assert.match(src, /crearDiseno\(p\.ws, p\.quien, \{ titulo: pl\.tituloDiseno \?\? pl\.nombre, doc \}\)/);
   assert.doesNotMatch(src, /_doory/, 'el motor es sólo de cliente');

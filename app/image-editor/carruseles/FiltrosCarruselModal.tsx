@@ -89,7 +89,7 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
                 <span className={s.etiqueta}>Láminas</span>
                 <Deslizador nombre="Las láminas" pasos={PASOS_LAMINAS} desde={lams[0]} hasta={lams[1]}
                   rotulo={(v, ultimo) => `${v}${ultimo ? '+' : ''}`}
-                  onCambio={(a, b) => poner({ lamMin: a === 0 ? 0 : PASOS_LAMINAS[a], lamMax: b === PASOS_LAMINAS.length - 1 ? 0 : PASOS_LAMINAS[b], largo: 'todos' })} />
+                  onCambio={(a, b) => poner({ lamMin: a === 0 ? 0 : PASOS_LAMINAS[a], lamMax: b === PASOS_LAMINAS.length - 1 ? 0 : PASOS_LAMINAS[b] })} />
               </div>
             )}
             <label className={s.campo}>
@@ -119,6 +119,14 @@ export function FiltrosCarruselModal({ filtros, carruseles, formatos, dosOrigene
               <label className={s.casilla}>
                 <input type="checkbox" checked={f.conImagenes} onChange={(e) => poner({ conImagenes: e.target.checked })} />
                 <span>Incluir imágenes sueltas</span>
+              </label>
+            )}
+            {/* De los anuncios guardados antes del 6/11/2026 no se sabe el formato (lib/carruseles/anuncios.ts): se muestran,
+                y quien mira decide si prefiere ver sólo los que sí lo dicen. */}
+            {anuncios && (
+              <label className={s.casilla}>
+                <input type="checkbox" checked={!!f.soloConfirmados} onChange={(e) => poner({ soloConfirmados: e.target.checked })} />
+                <span>Sólo los que dicen su formato</span>
               </label>
             )}
           </div>

@@ -24,8 +24,18 @@
 //      con `after()`, DESPUÉS de contestar: leer el cuerpo y bajar adjuntos tarda, y un webhook lento Resend lo reintenta.
 //
 // ⚠️ NO MANDA NADA NI TOCA LA FICHA DEL LEAD: inscribe en las automatizaciones de ese evento, y lo que
-// salga después lo manda el motor con sus frenos. Que un email del lead PAUSE una automatización que
-// le está escribiendo (como una respuesta de WhatsApp) es del motor: queda en docs/hallazgos-chatbot.md.
+// salga después lo manda el motor con sus frenos.
+//
+// ⚠️ Y PAUSA LO QUE LE ESTABA ESCRIBIENDO, ANTES DE INSCRIBIR (6/11/2026, paso 4bis). Un email del lead es
+// una respuesta igual que una de WhatsApp: hasta este cambio el lead contestaba el email y la secuencia le
+// seguía mandando el siguiente, así que parecía que nadie lo leía. Dos cosas que no son obvias:
+//   · EL ORDEN. Pausar DESPUÉS de inscribir pausaría la automatización que este mismo email acaba de
+//     arrancar (el CRON «Recibes un email»): nacería en 'respondio' y no mandaría nunca. Es la misma
+//     lección que el webhook de Zernio ya tenía escrita (lib/zernio-entrante.ts, «LA PAUSA VA ANTES»).
+//   · NO CONTESTA. `pausarPorRespuesta` con `origen: 'email'` sólo pausa: no hay AI Step de email y
+//     contestar caería en WhatsApp, al teléfono de quien escribió un mail (ver ahí el porqué).
+// FALLA CERRADA a propósito: si no se pudo pausar, no se inscribe y el webhook contesta 503 para que
+// Resend reintente. Avanzarle la secuencia a quien contestó es el daño que este paso viene a evitar.
 // =============================================================================
 
 import 'server-only';
@@ -131,6 +141,16 @@ async function falloDeRuteo(e: unknown, identificador: string | null): Promise<R
   return responder(r.status, (await r.json()) as Record<string, unknown>);
 }
 
+/**
+ * 4bis. LA PAUSA: un email del lead es una respuesta (ver la cabecera). Va ANTES del disparo y no contesta.
+ * Devuelve cuántas inscripciones quedaron en 'respondio'. `recibidoAt`: la hora del PROPIO email, para que
+ * la guarda de «entró uno más nuevo» del motor no confunda éste con el siguiente.
+ */
+export async function pausarPorEmailRecibido(leadId: number, recibidoAt: string | null): Promise<number> {
+  const { pausarPorRespuesta } = await import('./nutricion');
+  return pausarPorRespuesta(leadId, { origen: 'email', recibidoAt });
+}
+
 /** 6. La bandeja de Chats, después de contestar y adentro de SU workspace (el contexto no viaja solo a `after`). */
 function aLaBandeja(ws: number, resendId: string, leadId: number | null): void {
   after(() => runWithWorkspace(ws, () => guardarEmailEntrante({ ws, resendId, leadId })));
@@ -185,10 +205,12 @@ export async function recibirEmailEntrante(
         aLaBandeja(ws, email.emailId, null);
         return responder(200, { ok: true, ignorado: lead.motivo });
       }
+      // 4bis. LA PAUSA, ANTES DEL DISPARO (ver la cabecera): si tira, no se inscribe y Resend reintenta.
+      const pausadas = await pausarPorEmailRecibido(lead.leadId, email.recibidoAt);
       const inscripciones = await enrolarPorEmailRecibido(lead.leadId);
       await marcar(email.emailId, { estado: 'disparado', lead_id: lead.leadId, inscripciones });
       aLaBandeja(ws, email.emailId, lead.leadId);
-      return responder(200, { ok: true, leadId: lead.leadId, inscripciones });
+      return responder(200, { ok: true, leadId: lead.leadId, inscripciones, pausadas });
     });
   } catch (e) {
     // La fila queda en 'error' para que el reintento de Resend la pueda reclamar.

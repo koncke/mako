@@ -105,6 +105,10 @@ export const TABLAS_DE_INQUILINO = [
   // llamada (on delete cascade), y van igual acá: tienen su `workspace_id`.
   'llamadas_grabadas', 'llamadas_grabadas_partes',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
+  // MaKo Tokens (mig 0412, 7/11/2026): el saldo de generación del negocio y su ledger. Van acá porque son SUYOS —si
+  // se vacía o se borra el negocio, su saldo y sus movimientos se van con él—. ⚠️ El ledger guarda lo que gastó y
+  // cuándo: dejarlo huérfano no sería sólo basura, sería el registro de consumo de un negocio que ya no existe.
+  'mako_tokens_saldo', 'mako_tokens_movimientos',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
   // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en
   // TENANT_TABLES: las lee y escribe lib/media-buyer/store.ts con el cliente de servicio y el ws explícito (corre en un cron).

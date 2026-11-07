@@ -211,7 +211,17 @@ export function veredictoDeIA(p: { fila: boolean; propia: boolean; delEntorno?: 
  * `wsDelEntorno`; Martín: «separá el ws1 de las claves de la plataforma... para que Mauricio pueda conectar su propia
  * IA»). Las del crédito de Claude (`ANTHROPIC_CREDITO_CUENTA*`) no entran: ya se leen sólo de la plataforma (veto).
  */
-const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set(['OPENAI_API_KEY', 'ANTHROPIC_API_KEY']);
+const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set([
+  'OPENAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  // ⚠️ APIMART: la GENERACIÓN (video e imagen) la paga MaKo, medida en MaKo Tokens — Martín, 7/11: «muchos
+  // clientes no tienen Flow… quiero poder ofrecerles otra API» y «para que nosotros costeemos eso». Si esta
+  // clave NO estuviera en este set, `wsDelEntorno` la resolvería contra `OWNER_WS`, **que vale 1 y el 1 es
+  // Mauricio, un CLIENTE**: la clave de generación de la plataforma saldría de la fila de un cliente, y el día
+  // que él pegue algo ahí, todo MaKo generaría con su cuenta. Es exactamente la trampa que `lib/elevenlabs.ts`
+  // dejó escrita y la misma que se pagó con `RESEND_API_KEY` el 4/11.
+  'APIMART_API_KEY',
+]);
 export function esClaveDeIA(clave: string): boolean {
   const c = esClaveDeCuenta(clave) ? clave.slice(0, -SUFIJO_CUENTA.length) : clave;
   return IA_DE_UNA_CUENTA.has(c) || PROVS_MULTIKEY.some((p) => clavesDe(p).includes(c));

@@ -86,7 +86,9 @@ cambia al implementar:
   «Anton 260» cae a la del sistema y el texto se sale del marco: la miniatura las pide al catálogo del editor
   (`mako/fuentes.ts`) y las suma a `document.fonts` una vez por familia y peso.
 - **Image: las 10 de Doory salieron de «Nuevo diseño», no del repo.** Bodas, conciertos y currículums no le sirven a un
-  negocio; borrarlas toca el panel del editor y la API, que trabaja otro chat (relevo).
+  negocio; borrarlas toca el panel del editor y la API, que trabaja otro chat (relevo). **Hecho el 6/11/2026** (encargos
+  155 y 548): tocó siete archivos de test, y los dos que este documento nombraba ya estaban adaptados — el detalle y las
+  reglas, en [hallazgos-editor-imagen.md](hallazgos-editor-imagen.md), «Sacar las de Doory tocó SIETE archivos de test».
 - **AI Avatar:** los 5 presets nuevos entran a la galería al final de `PLANTILLAS_AVATAR`, desde su módulo (import de valor
   en una dirección, de tipo en la otra: sin ciclo en runtime).
 - **Un bug que quedó sin arreglar en Offer:** `precioDe` no lee «USD 1,200 al mes» (devuelve null, y `nivelDeOferta` con
@@ -125,6 +127,7 @@ cambia al implementar:
 - **Offer:** el experto `offer.experto`, «Ver ejemplo» adentro de la conversación y el teléfono (`app/m/offer`).
 - **Video:** los 6 templates nuevos, retirar dos, los clips de Pexels y la miniatura dibujada (chat de Video).
 - **AI Avatar:** el Director (AV-3), los retratos, pósters y loops, y la guarda de `crearVideoAction` con las marcas.
-- **Image:** borrar las 10 de Doory del editor y la API, las fotos de muestra del ejemplo y las preguntas al crear
-  (docs/relevo/nube-plantillas.md).
+- **Image:** las fotos de muestra del ejemplo y las preguntas al crear (docs/relevo/nube-plantillas.md). Borrar las 10
+  de Doory del editor y la API se hizo el 6/11/2026; el bloque «creado» del chat quedó sin miniatura (eran las únicas
+  con WebP) y el panel «Diseño» quedó vacío a propósito, esperando las plantillas propias.
 - **La migración 0407, sin aplicar.**

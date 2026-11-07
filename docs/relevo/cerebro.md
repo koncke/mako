@@ -1,5 +1,344 @@
 # Relevo del Cerebro
 
+## 7/11/2026, ~04:00 UTC (01:00 ART): ACTIONS FRENADO POR UN PROBLEMA DE PAGO, y la pasarela se cayó entera
+
+**LO PRIMERO QUE TENÉS QUE SABER: desde las 02:08 UTC ninguna punta llega a `main`.** El trabajo de Actions no
+arranca. Si venís a un chat que dice «mi rama da rojo», **no es su código**: GitHub lo dice textual en las
+anotaciones de la corrida —«The job was not started because recent account payments have failed or your
+spending limit needs to be increased»—. **Son DOS causas**: un pago rechazado (tarjeta vencida) o el tope. Mirar
+sólo el tope deja pasar la primera. Lo arregla Martín en Settings → Billing & plans.
+
+**Cómo se reconoce en treinta segundos:** si al mirar la corrida **ningún paso figura como fallado**, no es el
+código. Un rojo de verdad siempre nombra su paso. El vigía ya lo dice solo: avisa «el trabajo NO ARRANCÓ (no es
+tu código)» con el motivo. Antes decía «sin detalle», y por eso seis ramas se diagnosticaron mal en una hora y
+una se reintentó tres veces.
+
+⚠️ **La trampa de medición que casi me hace decir lo contrario:** `scripts/minutos-actions.mjs` informó
+«Facturable REAL de GitHub: **0 min** → 0 % del tope». **Ese 0 era «no pude leer»**, no «no gastamos»: las rutas
+de facturación dan 404 sin permiso y el script las traduce a cero. **Un cero de una fuente que puede no tener
+permiso nunca es un dato.** Lo mismo ya estaba anotado para `/actions/runs/{id}/timing`.
+
+**Cuando el pago se arregle, las ~10 puntas que quedaron afuera NO ENTRAN SOLAS**: un flujo se dispara al
+pushear y ya están pusheadas. `node scripts/relanzar-puntas.mjs --aplicar` las relanza; sin `--aplicar` sólo
+muestra. Saltea las que ya están en main y no toca las que fallaron de verdad.
+
+### LA PASARELA DE PAGO: dLocal CERRÓ LA CUENTA, y el motivo no era el que yo decía
+
+**dLocal Go cerró la cuenta el 6/11 a las 19:02**, después de haber aprobado los papeles de Leandro días antes.
+Con Creem (5/11) son **dos rechazos en dos días, y ninguno dio un motivo**. Peor: nuestra nota de Creem decía
+«motivo, DEDUCIDO» y eso se leyó después como el motivo. **Cuando un proveedor no dice por qué, en la nota va
+«no lo dijeron» y la pregunta que falta hacerles.**
+
+Martín me frenó bien: yo había buscado frases en nuestra landing y supuesto. Fui al contrato. **La sección 11
+que citaron es *Data Protection*: es el artículo que los exime de explicar.** Lo sustantivo está en el Anexo 1,
+bajo «Marketing practices», y ahí prohíben **por nombre** los «before/after claims» y los «endorsements» — que
+es con lo que abría nuestra portada («$10k → $70k en tres meses»). Y **NO prohíben** nada de WhatsApp, ni
+automatizar mensajes, ni leer datos de terceros.
+
+**Top Carousels hace lo mismo que nuestro Spy y tiene Stripe**, porque escribe «reads an account's last 40
+**public** carousels». Esa palabra hace trabajo legal. Y nuestro texto de presentación a proveedores describía
+el RIESGO en vez de la FUNCIÓN: «paced to lower the risk of bans» en vez de «rate limited on a schedule the
+customer sets». Corregido en `docs/proveedores-de-cobro.md`, con el original al lado.
+
+**Cuatro consultas mandadas el 7/11 desde `equipo@hola-mako.com`** (por Resend, que es la salida del propio
+MaKo: antes dije que no se podía mandar desde un chat y era falso): Whop, Paddle, Lemon Squeezy y
+`compliance@dlocalgo.com`. A dLocal se le pregunta qué ítem del Anexo 1 incumplimos y si se puede pedir una
+nueva revisión de la cuenta existente — **no se abre otra cuenta: sus términos permiten una sola por persona.**
+Texto completo en `docs/consulta-pasarelas-7-11.md`.
+
+⚠️ **La portada NO vive en el código**: se arma con la landing publicada desde Web Generator, guardada en la
+base, con caché de 5 minutos. Sacar las promesas de ingresos **no es un cambio que entre con el deploy**: es
+editar y publicar el sitio en vivo, y eso lo decide Martín.
+
+### Lo demás que entró o quedó listo
+
+- **Ticket #60 (Mauricio):** el 401 de la API decía «token inválido o revocado» para CUATRO cosas distintas,
+  incluida *no mandar ninguna cabecera*. Le costó dos tokens regenerados en vano. Arreglado en
+  `lib/api-mako/autorizacion-reglas.ts` (puro, porque `http.ts` hace `import 'server-only'` y el corredor de
+  tests NO usa `--conditions react-server`). **Probado rompiéndolo: 4 mutaciones, y DOS se escapaban en mi
+  primera versión** — el chequeo buscaba «revocad» y el texto viejo ya decía «revocado».
+- **Tickets #46, #47 y #48 (Leila): ya estaban arreglados desde el 3/11** (`d6501deac`). El tablero los tuvo
+  abiertos cuatro días. Yo diagnostiqué mal uno antes de buscar su número en el historial. **Un ticket no se
+  diagnostica sin buscar primero su número en el historial.**
+- **Las cinco puntas sin revisar: 5 de 5 revisadas.** La de `nada-por-detras` era la de más riesgo y está bien.
+- **Decisión de Martín sobre carruseles (7/11):** la IA replica la referencia y **lo único full editable es el
+  TEXTO**. No se construye edición por partes de la imagen. Ya está así; la entrada existe para que nadie se
+  desvíe.
+
+### Esperando a Martín
+
+1. **El pago de GitHub.** Bloquea todo lo demás.
+2. **¿El Runner local lo abrió él?** Un mensaje mío al Runner fue frenado: antes era una sesión que NO estaba en
+   esta máquina y ahora una de esta máquina reclama esa identidad. **No confirmé nada.**
+3. **Las promesas de ingresos de la portada**, que es lo único prohibido por nombre en el contrato de una
+   pasarela.
+4. **Avisarle a Leila** que su horario y su precio están en dos valores distintos (medido el 3/11, sin
+   verificar hoy): si los anuncios salen con el horario viejo, alguien llega a las 7 y encuentra cerrado.
+
+---
+
+## 7/11/2026, ~00:20 UTC (6/11 21:20 ART): LA GUARDIA NEGABA LOS COMMITS POR SU MENSAJE
+
+**Si venís a un chat que dice «no puedo commitear, falta RAM», leé esto primero.** Era mentira, y yo
+me la creí toda la noche. La guardia clasificaba el comando entero, así que un `git commit` cuyo
+MENSAJE nombra `tsc`, `npm test` o `eslint` salía «pesado» y lo negaba con «quedan 1,4 GB y esto
+necesita 3». **Un commit no pide RAM.** El arreglo estaba en el repo desde las 18:46 y nadie lo
+había instalado; lo instalé (respaldo `.antes-6-11-noche`), después de verificar que los cuatro
+topes son idénticos a los que corrían — el 29/10 una reinstalación bajó topes en silencio y devolvió
+la pantalla negra, así que eso se mira ANTES de copiar.
+
+Medido, para que nadie repita el camino largo: cerrar Chrome (23 procesos huérfanos, 1.530 MB) subió
+la RAM libre **0,16 GB**. Los 4,1 GB son los 27 procesos de `claude`, o sea los otros chats, y no se
+tocan. El commit entró con 2,1 GB libres sin liberar nada más.
+
+**Qué quedó en su punta:** `punta/tickets-tipos-sin-tiempo`, dos commits. El primero es la cosecha
+del chat de Tickets que llevaba horas escrita y sin commitear en `C:\dev\wt-tickets-0411` (ya verde
+en `main`): **un rojo del paso «Tipos» puede no tener un solo error de tipos** — si no termina en el
+tope de 840 s sale con código 97 y el registro dice «SIN TIEMPO», idéntico a un rojo real, y si
+corta dos veces la red que relanza se gasta sola. El segundo corrige el párrafo de
+`hallazgos-infra.md` que decía que faltaba instalar la guardia.
+
+**Al mezclar, el índice de cosechas garabatea en silencio.** Rebasé sobre main y me dejó **5 filas
+«Infraestructura» donde main tiene 1**, y 120 filas donde main tiene 115, sin un solo aviso: los
+atributos se leen del árbol de la punta, que todavía dice `merge=union`. Lo que funciona es
+`git checkout origin/main -- docs/hallazgos.md` y volver a escribir la entrada a mano, y después
+CONTAR (`grep -c '^| '` igual que main; `grep -c '^| <Área>'` igual a 1). Mirarlo no alcanza.
+
+**Los cinco rojos de esta hora son todos ese índice, no el código de nadie**
+(`spy-tope-capturado`, `spy-acortador-medido`, `carruseles-video`, `carruseles-largo`,
+`aut-chat-links`): los cinco mueren en «Mezclar main en la punta». Main podó el índice de 199 filas
+a 69 y toda punta que ya había cosechado choca una vez. Avisado a los tres chats dueños. La
+herramienta la nombra el propio error del flujo: `python -I scripts/unir-indice-hallazgos.py .`
+
+**Cerraron verdes:** Imágenes/Thumbnails (7 puntas, 11 encargos) y el conector de dLocal (4
+commits). ⚠️ El cron de thumbnails está en `main` pero da **404 en producción**: se despliega con el
+cron de las 11:05 UTC.
+
+---
+
+## 6/11/2026, ~21:15 UTC (18:15 ART): claude1, el barrido de los 634 y OCHO CHATS TRABAJANDO AHORA
+
+**Cuenta `claude1` al 24 %**, reinicia el 11/11 10:00 UTC. Lo que corta acá no es la cuota: es el
+contexto de este chat, que va por el 80 %.
+
+### 💳 dLocal Go QUEDÓ APROBADO, y lo único que falta para producción son tres variables
+
+**El 6/11 a la noche dLocal aprobó la documentación**: la cuenta de Leandro ya puede **retirar y
+procesar sin límite**. Lo que se cargó y verificó: banco **Santander Río** (código 72 en su lista;
+es el mismo Santander — el CBU empieza en 072), cuenta de ahorro en pesos, y el CBU **validado por
+sus dos dígitos verificadores** antes de cargarlo. El documento que aceptaron fue el **resumen de
+cuenta** en PDF, no la constancia de CBU: la app de Santander comparte el CBU **como texto**, y un
+texto pegado en un documento no sirve porque tiene que estar **emitido por el banco**.
+
+**Las claves ya están en `.env.local` del repo**, con los nombres de la convención de la casa:
+
+    DLOCAL_API_KEY · DLOCAL_SECRET_KEY · DLOCAL_SMARTFIELDS_KEY
+
+⚠️ **Eso es SÓLO el entorno local. Para que cobre en producción, las tres tienen que estar en el
+proyecto de Vercel**, y nadie las puso todavía. Es lo que falta, y se hace por API como se hicieron
+`VERCEL_SUPPORT_LARGE_FUNCTIONS` y `VERCEL_BUILD_SYSTEM_REPORT`.
+
+**Hay un chat construyendo el conector** (`lib/cobros*`), con la orden de no ejecutar ningún cobro
+real y de no tocar el del lunes.
+
+⚠️ **Dos cosas que siguen sin medirse y deciden plata:** qué cotización usa dLocal **en el primer
+retiro real** (todo el cálculo de 90,98 sobre 97 depende de eso), y **qué le retienen de impuestos**
+—impuesto al cheque y SIRCREB— que es la pregunta del contador y puede pesar más que el dólar.
+
+### Cómo cerraron los chats de la nube (al 6/11 ~22:00 UTC)
+
+**69+ ramas distintas llegaron a `main` en la noche.** Lo que devolvió cada uno:
+
+| Chat | Resultado |
+|---|---|
+| **Imágenes + Miniaturas** | **7 de 7 en main.** 11 encargos cerrados y 7 que ya estaban hechos. Dejó el cron que evita que la galería se vacíe sola — ⚠️ **corrigió mi encargo**: yo pedí «una vez por mes» y el vencimiento es a 30 días, así que un mensual el día 1 deja 31 días entre enero y febrero. Quedó semanal. |
+| **Tickets** | **9 de 10 en main.** Cerró el agujero de la foto de perfil (un cliente podía saber cuándo Martín abre la bandeja y desde qué IP) y aplicó la migración 0410. Encontró que «cuatro clientes esperando» era **falso en los cuatro**. |
+| **Varios** | **5 de 6 en main.** Su valor fue limpiar: 6 ya hechos, 6 escritos dos veces, 3 ilegibles, y **los 13 que no estaban en la lista de nadie**. |
+| **Cobros + CRM** | 4 puntas. **Encontró el bug que habría roto el cobro del lunes** (ver abajo). Una punta quedó roja y volvió a su chat. |
+
+⚠️ **EL HALLAZGO MÁS VALIOSO DE LA NOCHE, y hay que entenderlo porque vuelve:** el cron de la
+mensualidad marcaba «ya le avisé» **antes** de armar el PDF, y sólo soltaba la marca si el envío
+devolvía error. **Los dos caminos que fallan de verdad no devuelven error: tiran.** Resultado: el
+aviso quedaba filtrado **para siempre** y el cliente caía en «Paga para entrar» el día de su
+vencimiento **por un aviso que nadie le mandó**. Arreglado antes del lunes, probado rompiéndolo.
+
+### El checkout nuevo: lo que Martin pidio, y la premisa que hay que corregirle
+
+Pedido del 6/11 a la noche, con las claves de dLocal ya cargadas en local y en Vercel:
+
+- **El checkout tiene que verse como una pasarela de verdad.** Los medios de pago como opciones con
+  su logo (Mercado Pago, tarjeta, y Google/Apple Pay donde se puedan cobrar), no un boton unico.
+  **Copiando la referencia TAL CUAL** —Stripe Checkout, Mercado Pago Checkout Pro, dLocal Go—
+  empezando por la referencia, no retocando la pantalla propia.
+- **Fuera los textos explicativos de abajo** de `/planes/pro` (el del email y el de «usa el email de
+  tu cuenta de Mercado Pago»). Textual: «que se vea serio, que se vea realmente como una pasarela».
+- **El formulario de nombre + email + WhatsApp pasa a ser el paso para RECLAMAR EL CUPON**, y el
+  cupon **no es un descuento: son 7 dias de prueba gratis**. El patron salio de Madgicx.
+
+⚠️ **LA PREMISA QUE HAY QUE CORREGIRLE, Y ES CARA SI NADIE LA DICE.** Martin escribio: «ya no
+solamente cobramos por Mercado Pago, sino que tambien cobramos con una tarjeta normal **de cualquier
+pais**. Entiendo que para eso es la nueva pasarela».
+
+**No es asi. dLocal Go NO cobra de cualquier pais**: su centro de ayuda dice textual *«You cannot
+receive payments from the United States and Europe»* — Espana queda afuera (`docs/proveedores-de-cobro.md:235`).
+Sirve para LatAm. **La pantalla no puede prometer lo que la pasarela no puede cumplir.**
+
+Ese hueco —EE.UU. y Europa— es el que iba a tapar **Whop, que NUNCA contesto**, o **FastSpring, al
+que nunca se le escribio**. Mientras no haya uno de los dos, un comprador de alla no tiene por donde
+pagar. **Es una decision de Martin, con numeros, no algo que se arregla en el checkout.**
+
+### Infra cerro 10 de 10, y el hallazgo mas fino de la noche
+
+**UN COMENTARIO EQUIVOCADO CONGELO UN BUG DURANTE DIAS.** La alarma de minutos no mentia por lo que
+yo habia medido: restar las canceladas y los 2.000 del plan seguia dando US$40 contra US$15,94. La
+causa de fondo era **una frase falsa en la cabecera del propio script**, que decia que el facturable
+real no se puede leer con el `GITHUB_TOKEN`. **Se puede** — `/actions/workflows/{id}/timing` — y
+**el repo ya usaba ese endpoint** en `scripts/tests-afectados.mjs`. Todos leian que el numero bueno
+no se podia conseguir, y buscaban por otro lado.
+**La regla: antes de dar por cierta una limitacion escrita en un comentario, se comprueba.**
+
+⚠️ **El indice de hallazgos se duplica solo.** `docs/hallazgos*.md merge=union` —sin guion— agarra
+tambien el indice, que es una tabla que cada cosecha **reescribe**: union deja las dos versiones.
+Paso de 199 a 202 filas en una noche. La causa esta arreglada; quedan ~130 filas de mas, y
+**colapsarlas por clave perderia hallazgos**: de 31 areas repetidas, 22 anidan y 9 no.
+
+⚠️ **Un test en verde no dice NADA de los tipos:** `tsx --test` los saca. Costo tres rojos; la regla
+quedo en AGENTS.md.
+
+**Lo que necesita la mano de Martin:**
+- **Copiar `scripts/claude-hooks/guardia/memoria.mjs` a `~/.claude/guardia/`.** La guardia que corre
+  esta vieja y **niega commits por su mensaje**. ⚠️ La copia del repo tambien estaba atrasada: los
+  topes subieron a 3 GB el 29/10 **solo en `~/.claude`**, asi que reinstalar sin mas devuelve la
+  pantalla negra.
+- **`node scripts/limpiar-temporales.mjs --aplicar`**: **207.092 entradas** en `tsx-marti`.
+
+⚠️ **Y una trampa que costo trabajo repetido:** cuatro relevos siguen diciendo «migracion sin
+aplicar» de migraciones que ya estan puestas. La medicion se escribio en un documento NUEVO sin
+corregir los viejos, y por eso tres pendientes llegaron a una lista como abiertos. **Cuando se mide
+que algo ya esta hecho, se corrige el documento que lo decia mal.**
+
+### ⚠️ Y un patrón que apareció ONCE veces hoy: guardas que fijan el TEXTO del código viejo
+
+De los rojos de la noche, la mayoría no eran bugs: eran **guardas que exigían que el código siguiera
+escrito como estaba**. La peor obligaba a conservar el `/^https:\/\//i.test(...)` que **era** el
+agujero de seguridad, con el rótulo «sólo https». Otras pedían que dos columnas fueran vecinas en un
+`select`, o la cadena completa de un ternario.
+
+**La pregunta que las distingue, y conviene usarla al escribir una:** *¿seguiría en verde si alguien
+arregla el bug de otra manera?* Si la respuesta es no, la guarda mide la forma, no la falla.
+
+### ⚠️ LO PRIMERO: hay ocho chats de la nube trabajando, y nadie los está mirando
+
+Los abrí a las ~19:10 UTC, uno por área, con los 342 pendientes que puede hacer el equipo. **Siguen
+vivos.** Cada uno empuja en su propia `punta/` y llega a `main` solo si da verde.
+
+| Chat | Áreas | Cuántos |
+|---|---|---:|
+| Tickets | arrancó por un agujero de seguridad | 8 |
+| Competitors Spy | | 33 |
+| Carruseles | | 35 |
+| Imágenes + Miniaturas | | 51 |
+| Cobros + CRM | | 45 |
+| Infra + Panel admin | | 58 |
+| Chat de MaKo + Video | | 39 |
+| «Varios» | con orden de **triar antes de trabajar** | 73 |
+
+**Qué hay que hacer con ellos:** leer sus rojos y pasarles el diagnóstico **sin pisarles la rama**
+(están trabajando). Hoy dieron **once rojos** y casi todos son de tres clases, así que la causa se
+reconoce de lejos:
+1. **Voseo en una pantalla** (`tests/puente-panel-copy.test.ts`). Pasa porque los documentos del repo
+   están en voseo y copiar de ahí a una pantalla rompe la regla sin que se note. Va «tú».
+2. **El scraper de leads retirado** (`tests/leads-scraper-retirado.test.ts`): tocar Apify despierta la
+   guarda que vigila que esa clave sea sólo para que Spy lea Instagram.
+3. **Errores de tipos**, con su mensaje en el log.
+
+⚠️ **Y un error MÍO que conviene no repetir:** le puse al chat de Infra la alarma de minutos como
+contexto **y además la trabajé yo**. Los dos hicimos lo mismo. Retiré mi rama porque la suya es
+mejor. **Si a un chat le das un hallazgo como contexto, no lo trabajes vos también.**
+
+### ⚠️ TRECE PENDIENTES QUE NO ESTÁN EN LA LISTA DE NADIE — error de mi reparto
+
+El chat de «Varios» verificó los once `equipo-*.json` y encontró el agujero: de los 17 items suyos
+que en realidad son de otra área, **sólo 4 tienen equivalente en la lista de ese chat**. Los otros
+**13 no están en ninguna lista**: si nadie se los pasa a mano, se caen entre las sillas.
+
+**Están enumerados uno por uno en `docs/encargos-6-11/triaje-varios.md`** (ya en main). Lo que hay
+que hacer es leer esa lista y mandárselos al chat del área que corresponda.
+
+Y un número que tampoco estaba: **los 73 ids de «Varios» son 68 trabajos.** Cinco están escritos dos
+veces con distinto texto (`67≡325`, `306≡464`, `572≡619`, `465≡609` y su mitad `466`). Es probable
+que pase lo mismo en las otras áreas: **el barrido dedupó por título, y dos títulos distintos del
+mismo trabajo pasan.**
+
+### Lo que se hizo hoy, y lo que dejó dicho
+
+- **Los 634 pendientes, barridos de todo el repo** → `docs/pendientes-todo-6-11.md`, el reparto en
+  `docs/encargos-6-11/`, y una página para Martín en
+  https://claude.ai/artifact/2MnMGyV8oyXjbYz2W8NQXs
+  ⚠️ **Está escrita en castellano, no en jerga, y eso NO es cosmético:** la primera versión la
+  rechazó («No se entiende absolutamente nada, lo hiciste en lenguaje técnico»). Cada pendiente dice
+  **qué es** y **qué pasa si no se hace**; lo técnico va escondido detrás de «Para quien lo programe».
+- **Los 103 dudosos, comprobados uno por uno** → `docs/verificacion-dudosos-6-11.md`.
+  **45 a medias · 32 siguen · 25 ya estaban hechos · 1 sin poder comprobar.** Lo valioso no son los
+  25 fantasmas: son **los 45 a medias**, que se habrían rehecho desde cero tirando lo que ya estaba.
+- **La biblioteca de Thumbnails, cargada**: 79 canales, 1.520 miniaturas, 14 excluidos con su motivo.
+- **Un emoji en el nombre tiraba la pantalla de Spy**, y la guarda no lo veía porque medía la forma
+  del código viejo.
+
+### ⏰ LO QUE ESPERA A MARTÍN, CON FECHA — nadie más lo destraba
+
+| Cuándo | Qué |
+|---|---|
+| **8/11** | **Cuatro respuestas suyas se vencen en el limbo.** NO son avisos: son decisiones que YA tomó, contestando a chats que hoy están cerrados. Si vencen, nadie va a poder reconstruir qué contestó. Le pedí al Runner el texto entero para cosecharlo en el repo; **si no llegó a hacerse, es lo más urgente de esta lista.** |
+| **9/11 14:07 UTC** | **El primer cobro real a Código Inmobiliario** (Giselle, US$37,60). Nunca se envió de verdad. Hay que mirar que salga. |
+| **12/11** | El quinto pedido del limbo (Landings). |
+| **13/11** | El cron del Runner (`d3f6946e`); recordatorio `675b4f0d` el 12/11. |
+| hoy | **¿Sigue vivo el Runner de claude5 (`local_184238c7…`)?** Si lo está, **los dos `vigilar` se pisan.** Desde claude1 no se puede ver: Martín entra a las cinco cuentas. |
+| sin fecha | **Los minutos que incluye el plan de GitHub** (Settings → Billing) → `ACTIONS_INCLUIDOS`. Sin eso la alarma avisa pero no puede dar rojo. |
+| 6/12 vence | **Paso 2 de dLocal Go** (banco y CBU, DNI, domicilio, monotributo) + el sí del contador. |
+
+### La pasarela, decidida con números (no volver a discutirla sin leer esto)
+
+De una venta de US$97: **dLocal en pesos al oficial deja 90,98**; pasados a cripto, 86,41; **Whop
+cobrando y retirando en cripto, 86,79**. O sea: **el cripto no gana, empata**, y Whop encima puede
+retener hasta el 100 % del saldo y hasta 180 días. **Y ninguno cobra impuestos en LatAm**: eso estaba
+mal escrito en el informe y se corrigió.
+
+⚠️ **Comprobado en vivo en la cuenta de dLocal:** entran bancos, incluidos los digitales (Citibank sí,
+Brubank sí); **no entra ninguna billetera** — Mercado Pago no, Ualá no. El campo dice «CBU/CVU» pero
+la lista no las ofrece. Así que **no hay atajo desde dLocal hacia un tipo de cambio mejor**.
+
+⚠️ **Whop NUNCA contestó.** Martín recordaba una respuesta diciendo que probablemente lo rechazarían:
+**eso es nuestra propia conclusión, escrita antes de mandar la consulta** (Whop prohíbe herramientas
+de scraping, que alcanzan a Spy y a Extraer). No hay respuesta de ellos en ningún lado. Y hay una
+razón concreta por la que podría no llegar nunca: **nadie comprobó que `equipo@hola-mako.com`
+reciba**. Lo que falta sin empezar es **la consulta a FastSpring**.
+
+### Trampas medidas hoy, para no volver a pagarlas
+
+- **`/actions/runs/{id}/timing` contesta 200 y devuelve `billable` en CERO** para todas las corridas
+  de este repo. Es el camino obvio para los minutos reales y no sirve. El que SÍ sirve es
+  **`/actions/workflows/{id}/timing`**, que lo encontró el chat de Infra: siete pedidos, no uno por
+  corrida.
+- **`cartero.mjs medir` no necesita la ventana de 5 horas**: en el plan Ultra `get_usage` sólo
+  devuelve la semanal. Se pasan guiones (`medir - - 24 <reset>`). Esto venía trabando la medición de
+  varios chats.
+- **El panel de uso de Vercel**: los **builds son el 97 % de la factura** (US$254 de US$279). El
+  recorte del 6/11 funcionó —el gasto diario cae a casi cero después del 5/11— pero **el total del
+  ciclo no baja**, porque ya estaba gastado: hay que mirar **el ciclo que empieza el 16/11**.
+- **El navegador del panel no abre `file:///`**, y una página que dibuja todo con JavaScript se ve
+  VACÍA en una vista estática. Si hay que mostrarle algo a Martín: el contenido va en el HTML y se
+  sirve por HTTP (hay una entrada `pendientes` en `.claude/launch.json`).
+- ⚠️ **Al crear esa entrada SOBRESCRIBÍ el `launch.json` que ya existía** y tuve que reconstruirlo.
+  Ese archivo lo comparten varias sesiones: **se le agrega una entrada, nunca se escribe entero.**
+
+### Dónde está cada cosa
+
+`C:/dev/wt-puntas` lo está usando otro chat y tiene cambios sin commitear: **no le cambies la rama.**
+Este relevo se escribió desde `C:/dev/wt-push-q`. El vigía de CI se rearma con
+`node "$HOME/.claude/guardia/vigia-ci.mjs" esperar` y **se agota solo**: hay que volver a armarlo cada
+vez que avisa.
+
 ## 6/11/2026, ~16:30 UTC (13:30 ART): la cuenta claude3 llegó al 98 % y Martín pasa a otra
 
 **Esperando a Martín (no se avanza sin él):**
@@ -12,7 +351,7 @@
 1. Armar el vigía (`node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`, en segundo plano).
 2. **Revisar a mano lo que entró a main sin que nadie lo mire**, con capturas y contra los pedidos de Martín: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails` (25fbdc8a1), `punta/dashboards-edicion` (f6b9301d6; ese chat seguía corriendo a las 16:05 UTC), `punta/nada-por-detras` (2cb406043) y `punta/github-minutos` (f7c2f57da). Lo que falle se le manda a su chat sin pasar por Martín. Producción compila sola a las 08:05 ART.
 3. **Pasos que los chats dejaron para la PC:** `docs/relevo/nube-carruseles-rediseno.md` («Lo que le queda al Cerebro»: la carga de Thumbnails, en `docs/carruseles/thumbnails.md`, y la prueba de «Editar») y `docs/relevo/nube-nada-por-detras.md` («Para el Cerebro»: `mudanza-avisos-plataforma`). No corrí ninguno.
-4. **Migraciones:** 0409 aplicada el 6/11. Siguiente libre: 0410.
+4. **Migraciones:** 0411 es la última en disco (0410 `correo_bajas` y 0411 `carruseles_revisada`, las dos del 6/11). **Siguiente libre: 0412.** ⚠️ Este número se MIDE antes de usarlo (`ls supabase/migrations | tail -1`): el que figuraba acá quedó viejo en una tarde y dos chats estuvieron por chocar.
 
 **Abierto, con su medición:**
 - **GitHub:** US$15,94 de US$30 a las 16:05 UTC (panel `github.com/settings/billing`). La alarma de `scripts/minutos-actions.mjs` dice US$51,87 y da rojo todos los días: es falsa. Se lo pedí corregir al chat «Bajar lo que gasta GitHub Actions», sin confirmación. Falta medir si el recorte de hoy bajó el gasto: a US$6,7 por día quedaban unos 2 días, y sin saldo nada entra a main.

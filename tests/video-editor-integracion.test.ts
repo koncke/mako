@@ -92,11 +92,11 @@ test('1c: las dos pages del editor pasan por el guard del editor, que es el de t
 
 test('2a: la ref del `?desde=` nombra el video; una url o un id con barras no es una ref', () => {
   assert.deepEqual(leerRefDesde('montaje:12'), { origen: 'creativo', ref: { origen: 'montaje', id: 12 } });
-  assert.deepEqual(leerRefDesde('anuncio:anuncio-1'), { origen: 'anuncio', id: 'anuncio-1' });
+  assert.deepEqual(leerRefDesde('anuncio:ejemplo'), { origen: 'anuncio', id: 'ejemplo' });
   assert.equal(leerRefDesde('toma:abc-123:2:op_9')?.origen, 'creativo');
   for (const malo of [
     'https://otro.tld/video.mp4',
-    '/anuncios/anuncio-1.mp4',
+    '/anuncios/ejemplo.mp4',
     'anuncio:../x',
     'anuncio:a/b',
     'montaje:abc',
@@ -107,7 +107,7 @@ test('2a: la ref del `?desde=` nombra el video; una url o un id con barras no es
     assert.equal(leerRefDesde(malo), null, `«${malo}» no puede ser una ref`);
   }
   // Ida y vuelta: lo que el botón arma es lo que la page lee.
-  for (const ref of ['montaje:12', 'anuncio:anuncio-1', 'toma:abc-123:2:op_9']) {
+  for (const ref of ['montaje:12', 'anuncio:ejemplo', 'toma:abc-123:2:op_9']) {
     const r = leerRefDesde(ref);
     assert.ok(r);
     assert.equal(refDesdeTexto(r), ref);

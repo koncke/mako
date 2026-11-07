@@ -300,6 +300,18 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
     const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, esValorReal(await credWs(e, w))] as const)));
     return metaConectadaConCampos((e) => tiene.get(e) === true);
   }
+  // UNA INTEGRACIÓN QUE ACEPTA VARIAS CLAVES SE MIDE POR CUALQUIERA (6/11/2026, `conUnaAlcanza` del catálogo).
+  // De las N claves, sólo la 1 es requerida (las demás nacen `opcional`, porque pedirlas rompería el alta), así que lo de
+  // arriba medía la 1 y nada más: el cliente que borraba la 1 y dejaba la 2 veía «Sin conectar» con la integración andando.
+  // ⚠️ La pregunta la decide el CATÁLOGO, no una lista de nombres acá: este archivo no tiene que saber de qué servicio se
+  // trata ni cómo se llaman sus claves. Es el mismo patrón que las pasarelas con sufijo de acá abajo.
+  // ⚠️ Y se cuenta sobre los campos SECRETOS: el campo con el nombre de cada clave es una etiqueta, y guardado solo no sirve
+  // para leer nada.
+  if (!principal && s.conUnaAlcanza) {
+    const secretos = s.campos.filter((c) => c.secreto);
+    const vals2 = await Promise.all(secretos.map((c) => credWs(c.env, w)));
+    return vals2.some(esValorReal);
+  }
   // Igual que arriba: por la constante. Con los dos nombres a mano, una pasarela nueva que viviera sólo en una cuenta
   // con sufijo (`__C2`, la principal desconectada) se reportaba DESCONECTADA aunque estuviera cobrando.
   if (principal || !PASARELAS.includes(servicioKey as Pasarela)) return principal;
@@ -725,6 +737,11 @@ const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
   'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
+  // dLocal Go (06/11/2026): mismo motivo que las otras tres, y con un corolario que se paga al desplegar — una
+  // `DLOCAL_*` cargada en el entorno de Vercel «para la plataforma» NO hace funcionar nada (la pasarela se lee sólo con
+  // `credDelCliente`, de la base) y encima, migrada a la fila del ws1, le daría a Mauricio la cuenta de cobro de MaKo
+  // con cara de conexión propia. Las pega una persona en /integraciones, y la de MaKo en el ws de la plataforma.
+  'DLOCAL_API_KEY', 'DLOCAL_SECRET_KEY', 'DLOCAL_MERCHANT_ID',
   'RESEND_FROM',
 ]);
 
@@ -810,6 +827,11 @@ const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
   // lectura con `credWs` de otro camino cobraría con la cuenta de Creem de Mauricio. La de la plataforma vive en la fila del
   // ws de la plataforma (desde el 5/11/2026 no hay: Creem cerró la tienda de MaKo, docs/creem-retiros.md).
   'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
+  // Las tres de dLocal Go (06/11/2026). ⚠️ LAS DOS QUE SE PEGAN SON DE COBRO, Y LAS DOS SON SECRETAS: la `secret key` no
+  // es «el secreto del aviso» como el `whsec_` de Stripe o el `CREEM_WEBHOOK_SECRET`, es la mitad del header de
+  // autenticación (`Bearer <API_KEY>:<SECRET_KEY>`) Y la clave del HMAC con que se verifica cada aviso
+  // (lib/pasarela-firma.ts, `manifiestoDlocal`). Por eso no hay un cuarto campo de firma: no existe.
+  'DLOCAL_API_KEY', 'DLOCAL_SECRET_KEY', 'DLOCAL_MERCHANT_ID',
 ]);
 // Por el nombre base: `STRIPE_SECRET_KEY__C2` y el nombre de la cuenta (`STRIPE_ALIAS`, `…__C2`) también son de la pasarela.
 export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(baseDeClave(clave)) || /^(STRIPE|MERCADOPAGO|CREEM)_ALIAS$/.test(baseDeClave(clave));

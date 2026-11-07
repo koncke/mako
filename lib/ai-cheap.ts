@@ -1130,6 +1130,16 @@ type DocOpts = {
   dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number; redDePlataforma?: boolean;
   /** El tope de la respuesta con su Claude (4096 si no se dice). «Editar» un carrusel de 10 láminas pide más (6/11/2026). */
   maxTokens?: number;
+  /**
+   * SIN GEMINI, igual que en `chatCheapCascade` — pero acá había que escribirlo aparte y faltaba (6/11/2026).
+   * `model-catalogo.ts` ya declaraba `marca-leer` con `deSuIA: true` y la nota «nunca con Gemini»; el camino de TEXTO lo
+   * cumplía (`sinGemini` filtra la cascada) y el de VISIÓN no lo miraba, así que leer la IMAGEN de un manual de marca
+   * seguía usando el Gemini del negocio si era lo único que tenía. La promesa del catálogo y el código decían cosas
+   * distintas, y la que corre es la segunda.
+   * Saca a Gemini de `VISION_CASCADE` **y** de la red gratis de la plataforma, que es Gemini: una feature «de su IA» no
+   * puede caer en la cuenta gratis de MaKo, que es justo lo contrario de su IA.
+   */
+  sinGemini?: boolean;
 };
 
 /** Una data URL (imagen o PDF) como bloque de Claude. Lo que no es base64 o no es un tipo que Claude mira, afuera. */
@@ -1191,7 +1201,8 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     }
   }
 
-  for (const prov of VISION_CASCADE) {
+  const visionCascade = VISION_CASCADE.filter((p) => !opts.sinGemini || p !== 'gemini');
+  for (const prov of visionCascade) {
     // Todas las CUENTAS del proveedor: leer un contrato con la key 1 agotada y
     // rendirse teniendo la key 2 cargada era perder el documento por nada.
     const instancias = await provsDe(prov);
@@ -1212,7 +1223,10 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       const erroresPlataforma: string[] = [];
       const red = await provsGratisDePlataforma().catch(() => []);
       // Sólo los que MIRAN (Gemini).
-      for (const r of red.filter((x) => VISION_CASCADE.includes(x.provider))) {
+      // ⚠️ `VISION_CASCADE.includes(x.provider)` va LITERAL: tests/onboarding-red-plataforma.test.ts lo busca en el fuente
+      //    («la red sólo prueba los que MIRAN: trae gemini y groq, y groq no tiene visión»). El filtro de `sinGemini` se
+      //    suma al lado en vez de reemplazarlo — son dos preguntas distintas y el guard pregunta por la primera.
+      for (const r of red.filter((x) => VISION_CASCADE.includes(x.provider) && (!opts.sinGemini || x.provider !== 'gemini'))) {
         const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);
         if (!p) continue;
         const res = await probarCon(r.provider, [p], erroresPlataforma, {
@@ -1277,7 +1291,11 @@ async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: o.prompt }, ...partesImagen] }],
-      generationConfig: { temperature: 0, ...(o.json ? { response_mime_type: 'application/json' } : {}) },
+      // ⚠️ El tope de salida que pidió quien llama VIAJA. Hasta el 6/11/2026 este endpoint no lo mandaba nunca: «Editar» un
+      // carrusel pedía 8.000 tokens (`TOKENS_DE_SALIDA`, lib/carruseles/replica-servidor.ts) para que el JSON de 12 láminas
+      // entrara, el camino de visión es el PRINCIPAL y el pedido salía sin `maxOutputTokens` — valía el default del modelo, y
+      // una respuesta cortada no se distingue de «la IA no contestó». Sin `maxTokens` sigue yendo sin nada, como antes.
+      generationConfig: { temperature: 0, ...(o.maxTokens ? { maxOutputTokens: o.maxTokens } : {}), ...(o.json ? { response_mime_type: 'application/json' } : {}) },
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(o.timeoutMs ?? 100000),

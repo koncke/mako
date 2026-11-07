@@ -113,7 +113,10 @@ Con las capturas de Top Carousels ya en el repo (`docs/carruseles/referencia-top
 - **¿Cada botón hace algo?** Sí, uno por uno en el banco: abrir (imagen y título), Editar (arma), guardar, parecidos (banda), flechas y contador, creadores parecidos (filtra a ese creador), ver original, Filtros (aplica, quita), CTA, Cuentas y Orden.
 - **Lo que se encontró y se cambió en la pasada:** el visor del carrusel abierto dejaba franjas negras a los costados y las flechas bajo el pliegue; «Editar» en el teléfono quedaba debajo de todo (ahora va en el pie fijo de la caja); la etiqueta «6 láminas» se partía en dos renglones; «gritado» del CTA por letras tapaba una palabra clave en pies cortos.
 - **Lo que NO está probado:** el flujo de «Editar» con una IA real (la nube y la PC no la gastaron); el diseño se miró con lo que devolvería un modelo, armado a mano (`scripts/banco-carruseles/replica-html.mts`), no con una respuesta real. Tampoco el `tsc` (la PC no tenía memoria: lo corre GitHub).
-- **Qué sobra todavía:** el parámetro `largo` (2 a 4, 5 a 7, 8+ láminas) sigue en la API y en los links viejos aunque la pantalla usa el deslizador de láminas; el «tema» de la referencia no existe (sólo el tipo).
+- **Qué sobra todavía:** el «tema» de la referencia no existe (sólo el tipo). ~~El parámetro `largo`~~ **hecho el 6/11 a la
+  noche:** no estaba en la API de MaKo (`buscar_carruseles` nunca lo ofreció), sólo en la URL y en las búsquedas guardadas,
+  y quedó como ALIAS DE ENTRADA que se traduce a `lmin`/`lmax` (`ALIAS_LARGO_CARRUSEL`, `lib/carruseles/opciones.ts`). Por
+  qué no se borró, y las dos lógicas distintas que tenía, en `docs/hallazgos-carruseles.md` → «Dos formas de pedir lo mismo».
 
 ### Lo que le queda al Cerebro desde la PC
 
@@ -156,8 +159,12 @@ Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404
 5. **Anuncios, sólo imágenes:** un video no entra ni cuenta en «Anuncios N» (`esAnuncioEnVideo`, lib/carruseles/anuncios.ts).
    La señal: el `medio` que ahora se guarda también para los anuncios (`displayFormat` de Apify, lib/spy-todo-reglas.ts →
    `guardarMedios`), o la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`). ⚠️ Lo que ya está guardado no
-   tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video: **se corrige en la
-   próxima lectura de Spy de cada cuenta** (ver abajo).
+   tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video. ⚠️ **Y lo de «se
+   corrige en la próxima lectura de Spy» quedó desmentido esa misma tarde, medido contra producción:** los 300 anuncios
+   guardados entraron por la EXTENSIÓN, no por Apify; la pista del `/t15.` acierta en 0 de 300; y 279 ya tienen
+   `dejo_de_verse_en`, así que una lectura nueva completa 21. **Hoy el filtro no saca ningún video de la pantalla**: lo
+   destraba otro recorrido de la Biblioteca de Anuncios con la extensión (gratis). Ver docs/hallazgos-carruseles.md → «El
+   arreglo cubrió la fuente que NO trajo ni un anuncio».
 6. **Las flechas de las láminas:** se ven siempre en el teléfono (con `hover: none` y con `data-telefono`), en la tarjeta y en el
    carrusel abierto. Sin láminas guardadas no hay flechas (no hay nada que pasar): la etiqueta dice cuántas tiene.
 7. **«Editar» con un carrusel sin láminas** (lo que Martín vio: «Tu IA no contestó ahora»). Dos causas: (a) la portada era de la

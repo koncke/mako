@@ -68,6 +68,16 @@ export const DEFS: Def[] = [
   { key: 'openai', nombre: 'OpenAI API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu GPT: con tu clave, MaKo trabaja solo con tu cuenta, escucha audios, mira fotos y busca en tu conocimiento.', envs: ['OPENAI_API_KEY'] },
   { key: 'groq', nombre: 'Groq API', oculto: true, categoria: 'Inteligencia', descripcion: 'Pasa a texto tus notas de voz. Con tu Claude, tu GPT o tu Gemini conectado, no se usa.', envs: ['GROQ_API_KEY'] },
   { key: 'gemini', nombre: 'Gemini API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu Gemini: con tu clave de AI Studio, MaKo trabaja solo con tu cuenta, lee documentos largos y busca en tu conocimiento.', envs: ['GEMINI_API_KEY'] },
+  // ⚠️ APIMART ES LA EXCEPCIÓN DE ESTE BLOQUE: no es BYOK. La generación de video e imagen la paga MaKo y se
+  // mide en MaKo Tokens (Martín, 7/11: «muchos clientes no tienen Flow… para que nosotros costeemos eso»). A un
+  // negocio no se le puede pedir que salga a sacar una clave de un modelo de video. Por eso su clave vive en el
+  // workspace de la PLATAFORMA (`esClaveDeIA` → `wsDelEntorno` → `wsSuperAdmin()`), nunca en la fila de un cliente.
+  // `soloPlataforma` y NO `oculto`: `oculto` la esconde de TODOS —incluido el superadmin, que es el único que
+  // tiene que pegarla—. `soloPlataforma` hace las dos cosas que hacen falta: la muestra sólo en el workspace de
+  // la plataforma y, sobre todo, activa el guard de `app/api/integraciones/credencial` que impide que un
+  // negocio la escriba. Sin ese guard, un cliente podría pegar SU clave y pagar una generación que MaKo ya le
+  // cobró en MaKo Tokens: cobrarle dos veces por lo mismo.
+  { key: 'apimart', nombre: 'ApiMart (generación)', soloPlataforma: true, categoria: 'Inteligencia', descripcion: 'La generación que paga MaKo: video e imagen para los negocios que no usan Google Flow. Se mide en MaKo Tokens.', envs: ['APIMART_API_KEY'] },
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (0, 0 y 12 llamadas útiles en 30 días). Sus filas
   // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.
   // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.

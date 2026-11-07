@@ -25,7 +25,8 @@ import { getTenantDb } from './workspace';
 export type ResultadoCaptura =
   | { ok: true; tipo: 'alta'; competidor: { id: number; nombre: string } }
   | { ok: true; tipo: 'sitio'; competidor: { id: number; nombre: string }; lineas: string[] }
-  | { ok: true; tipo: 'anuncios'; competidor: { id: number; nombre: string }; guardados: number; nuevos: number; otros: number }
+  /** `sinGuardar`: cuantos de los SUYOS no entraron por el tope de una captura. Ausente = entraron todos. */
+  | { ok: true; tipo: 'anuncios'; competidor: { id: number; nombre: string }; guardados: number; nuevos: number; otros: number; sinGuardar?: number }
   | { ok: false; motivo: 'sin-anuncios' | 'de-otro' | 'sin-competidor' | 'falla'; error: string };
 
 const quien = (c: Competidor) => ({ id: c.id, nombre: c.nombre });
@@ -76,7 +77,11 @@ async function guardarBiblioteca(c: CapturaBiblioteca, competidorId: number | nu
   if ('error' in yo) return { ok: false, motivo: 'sin-competidor', error: yo.error };
   const { suyos, otros } = anunciosDeQuien(anuncios, yo, !!c.pagina || !!c.id);
   if (!suyos.length) return { ok: false, motivo: 'de-otro', error: `Estos anuncios no son de ${yo.nombre}. Abre su Página en la Biblioteca y vuelve a tocar.` };
-  const aGuardar = suyos.slice(0, TOPES.piezasPorVuelta);
+  // ⚠️ LO CAPTURADO NO SE CORTA CON EL TOPE DE LAS LECTURAS DE AFUERA (6/11/2026). Acá los anuncios ya están bajados en
+  // la pestaña de la persona: cortar en 50 era pérdida pura, y además silenciosa (el desplegable decía «50 anuncios» sin
+  // decir «de 213»). Con su tope propio, y si igual sobran, se dice cuántos quedaron afuera.
+  const aGuardar = suyos.slice(0, TOPES.piezasDeUnaCaptura);
+  const sinGuardar = suyos.length - aGuardar.length;
   const g = await guardarVistas(yo.id, aGuardar.map(piezaDeAnuncio));
   if (g.error) return { ok: false, motivo: 'falla', error: g.error };
   // Su Página: el id si la pestaña lo dice, y si no, el nombre que tiene en la dirección. Un id nunca se
@@ -86,7 +91,7 @@ async function guardarBiblioteca(c: CapturaBiblioteca, competidorId: number | nu
     const db = await getTenantDb();
     await db.from('spy_competidores').update({ pagina_anuncios: pagina.slice(0, 200), updated_at: new Date().toISOString() }).eq('id', yo.id);
   }
-  return { ok: true, tipo: 'anuncios', competidor: quien(yo), guardados: aGuardar.length, nuevos: g.nuevas, otros };
+  return { ok: true, tipo: 'anuncios', competidor: quien(yo), guardados: aGuardar.length, nuevos: g.nuevas, otros, ...(sinGuardar > 0 ? { sinGuardar } : {}) };
 }
 
 export function guardarCaptura(c: Captura, competidorId: number | null): Promise<ResultadoCaptura> {

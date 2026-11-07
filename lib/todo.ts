@@ -17,6 +17,9 @@ import { quarterDeFecha } from '@/app/plan/board/cuando';
 // compartido —el MISMO que usa la mitad del dueño— y no se reescriben acá: dos saneos son
 // dos listas de valores válidos, y la segunda se queda vieja el día que se agregue uno.
 import { recurrenciaDe } from '@/lib/plan-recurrentes';
+// Qué es una tarea del PLAN y qué de la Retro o de un experimento. La MISMA función que usa
+// «Re-priorizar todo» para dejarlas afuera (ver `listTareas`, #507): una regla, un lugar.
+import { esDelPlanCliente } from '@/lib/plan-repriorizar-nucleo';
 // La lista blanca del detalle y las notas al GUARDAR (ver `sanearDetalle`). Puro y sin `server-only`:
 // es la misma que corre en el navegador al dibujar.
 import { sanearHtmlEmail } from './email-html-seguro';
@@ -404,7 +407,40 @@ export async function listTareasDeRetro(retroId: number): Promise<Tarea[]> {
   return ((data ?? []) as Record<string, unknown>[]).map(rowTo);
 }
 
-export async function listTareas(): Promise<Tarea[]> {
+/**
+ * Las tareas de `experimento_tareas` de ESTE negocio (getTenantDb scopea), en el orden del tablero.
+ *
+ * ⚠️ `soloDelPlan`: ESTA TABLA NO ES SÓLO EL PLAN (6/11/2026, #507). Mezcla tres cosas —el plan del
+ * negocio, lo que propuso una Retro y los pasos de un experimento (`origen`, `retro_id`,
+ * `experimento_id`)— y las otras dos tienen su propia pantalla y su propia rendición de cuentas. Sin
+ * filtrar, el kanban del cliente le mostraba tareas de la Retro y de experimentos mezcladas con las
+ * suyas. La regla es la MISMA que ya usa «Re-priorizar todo» (`esDelPlanCliente`): una sola función
+ * decide qué es del Plan, en los dos lugares.
+ *
+ * El default es `false` —todo, como siempre— a propósito: hay lectores que necesitan la tabla ENTERA y
+ * un filtro a ciegas los rompe en silencio. El cierre por señales (`autocompletarPorSenales`, el cron
+ * `tareas-verificar`), buscar una tarea por id para editarla o cerrarla (lib/plan-cerrar.ts,
+ * plan.run.ts), la deduplicación de lo que se propone (lib/plan-propuesta.ts, lib/reunion-cruce.ts), el
+ * contexto del Perro y de la Retro, y los gráficos siguen viendo todo. Lo pide quien PRESENTA el
+ * tablero: /plan, su GET, «Hoy»/«Semana», el escalón «Plan» del foco, y lo que MaKo llama tablero.
+ *
+ * No se filtra en SQL (un `.or(...)` con tres columnas y nulls) sino en memoria y con la función
+ * compartida: esta lectura ya trae el tablero entero sin paginar (ver lib/plan-hoy.ts) y dos reglas
+ * distintas para «qué es del Plan» serían dos respuestas distintas el día que cambie una.
+ */
+export async function listTareas(opts?: { soloDelPlan?: boolean }): Promise<Tarea[]> {
+  return (await listTareasConTope(opts)).tareas;
+}
+
+/**
+ * Lo mismo, diciendo también CUÁNTAS filas trajo la consulta ANTES de filtrar.
+ *
+ * ⚠️ Esta lectura no pagina y PostgREST corta en 1000 filas SIN avisar (ver lib/plan-hoy.ts), y quien
+ * presenta el tablero avisa «recortado» comparando el largo contra ese tope. Con `soloDelPlan` el largo
+ * ya no sirve para eso: de 1000 filas leídas, las de la Retro se van y quedan 800 — «no se recortó»
+ * cuando sí, que es el límite que corta en silencio otra vez. `leidas` es el número que hay que mirar.
+ */
+export async function listTareasConTope(opts?: { soloDelPlan?: boolean }): Promise<{ tareas: Tarea[]; leidas: number }> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('experimento_tareas')
@@ -412,7 +448,8 @@ export async function listTareas(): Promise<Tarea[]> {
     .order('orden', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw new Error(`listTareas: ${error.message}`);
-  return (data ?? []).map(rowTo);
+  const todas = (data ?? []).map(rowTo);
+  return { tareas: opts?.soloDelPlan ? todas.filter(esDelPlanCliente) : todas, leidas: todas.length };
 }
 
 export type NuevaTarea = {

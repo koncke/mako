@@ -51,6 +51,16 @@ export const FORMATOS = [
   { value: 'otro', label: 'Otro' },
 ] as const;
 
+/**
+ * CON QUÉ CATÁLOGO SE CLASIFICÓ una pieza. Queda guardado en `spy_piezas.analisis.formatosV`, y lo lee
+ * `faltaAnalisis` (lib/spy-analisis-reglas.ts) para releer UNA vez lo que se marcó con un catálogo más chico.
+ *   · 1 = los ONCE formatos de la mañana del 4/11/2026, y todo lo analizado antes (sin la marca).
+ *   · 2 = los DIECINUEVE del catálogo (docs/catalogo-funnels-y-formatos.md), desde el 4/11/2026.
+ * ⚠️ SUBIRLO CUESTA PLATA: hace que la IA del negocio vuelva a leer piezas ya leídas. Se sube sólo cuando entran
+ * formatos NUEVOS, y lo que se relee es nada más lo que quedó en `otro` (ver `faltaAnalisis`).
+ */
+export const VERSION_FORMATOS = 2;
+
 /** Qué es cada formato, una línea por formato, del catálogo: lo lee la IA al clasificar (`{{formatosQueSon}}` del analista). */
 export const GUIA_DE_FORMATOS = FORMATOS.map((f) => `- ${f.value}: ${FORMATOS_DEL_CATALOGO.find((e) => e.id === f.value)?.que ?? f.label}`).join('\n');
 

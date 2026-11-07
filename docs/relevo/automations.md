@@ -470,7 +470,12 @@ vuelva la extensión de Chrome.
   crear no tiene «Discutir / Editar» (app/api/chat-agent/secuencias/ia/route.ts, rama `crear`).
 - Los días del goteo son los del horario propio de la automatización; no hay un «sólo estos días» aparte del horario
   (lib/config-automatizacion.ts).
-- **AU4 (P2), después de que entre el AU2:** (1) ChatMako pasa a CajaChat + HiloMako (app/_chat) con SU motor
+- **AU4 (P2):** ⚠️ **la pieza (1) YA ESTÁ, y el «Hecho =» de este bullet se cumple en main (comprobado el
+  6/11/2026).** `app/automations/ChatMakoVista.tsx` importa `CajaChat` y `HiloMako` de `app/_chat` —su propio
+  comentario cita el pedido, «únicos (CajaChat y HiloMako)»— y `tests/chat-mako-envio-a-la-vista.test.ts` da 5 / 5
+  sobre `origin/main`. Lo que queda abierto son (2) y (3), y el «después de que entre el AU2» ya no frena nada.
+  El bullet entero seguía escrito como si nada estuviera hecho, y por eso el barrido del 6/11 lo levantó completo
+  (encargo 624). (1) ChatMako pasa a CajaChat + HiloMako (app/_chat) con SU motor
   (/api/chat-agent/secuencias/ia: crear en el lienzo vacío, las fases, el borrador en vivo), y Discutir/Editar va al
   slot de modo de la pieza (Discutir = 'analizar', Editar = 'editar'); cuidar lo del 22/10 (el mensaje al instante y
   «Reintentar», la capa en toda la pantalla, las fases en una línea: tests/chat-mako-envio-a-la-vista.test.ts). (2) La
@@ -479,7 +484,9 @@ vuelva la extensión de Chrome.
   `modo="analizar"` (lo general con la automatización de contexto; su turno es el del Cerebro, por la API de MaKo, sin las
   fases ni el borrador). Que la estrella edite el lienzo en vivo sería otra pieza (el Cerebro llamando a esta ruta): se
   decide con Martín antes. Las charlas del lienzo ya se ven en el Ops Center (OC5), de sólo lectura.
-- Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
-  tope / está al tope / está saturada / no contestó» (con IA16 la red no corre fuera del ws9) y dejar «No tienes una IA
-  conectada: conecta {SU_IA}» y los dos marcadores de red salteada (lib/flujo-ia.ts; su test,
-  tests/ia-aviso-sin-ia-propia.test.ts). IA16 está retenido hasta que el ws1 conecte su IA o el lunes 26/10.
+- ~~Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
+  tope / está al tope / está saturada / no contestó»~~ *(hecho el 6/11/2026, `punta/chat-avisos-ia-imposibles`. Dos
+  correcciones al renglón: IA16 ya estaba en main —el «retenido hasta el 26/10» venció— y el motivo era MÁS fuerte que
+  «la red no corre fuera del ws9»: tampoco corre ADENTRO. Son dos guardas incompatibles, una en
+  `provsGratisDePlataforma` y otra en su único llamador. El porqué medido está en `sinIAPropia`, lib/flujo-ia.ts, y en
+  docs/hallazgos-ia.md → «La red gratis de la plataforma no corre para NADIE».)*

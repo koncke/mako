@@ -14,7 +14,7 @@ import {
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
-import { hoyEnWorkspace } from './timezone';
+import { hoyEnWorkspace, hoyEnWorkspaceEstricto } from './timezone';
 // Las columnas CRUDAS de Meta y el rastro del descarte: puro y sin `server-only`
 // para que la decisión de "no pisar con vacío" tenga test. Ver lib/meta-leads-campos.ts.
 import {
@@ -3051,7 +3051,19 @@ export type AportadoAlMover = {
   motivo?: string | null;
   asistioJ1?: boolean | null;
   asistioJ2?: boolean | null;
-  hoyISO?: string;
+  /**
+   * QUÉ DÍA ES HOY, y lo pide SIEMPRE (6/11/2026, #510). Acá vivía `hoyISO ?? hoyEnTijuana()`, y como el
+   * llamador real (`setPipelineStage`) no lo pasaba, el default mandaba siempre: el corte del día era el
+   * de Tijuana para TODOS los negocios. No es display — decide si una reunión «ya pasó» y, con eso, si se
+   * exige la asistencia y el link de Fathom para mover (Ganado incluido). A un negocio de otro país le
+   * pedía la asistencia un día antes, o lo dejaba avanzar sin pedirla.
+   *
+   * Esta función es PURA y así se queda (no sale a la base): el día lo resuelve quien llama, con la zona
+   * del NEGOCIO (AGENTS.md → «"Hoy" es el día del NEGOCIO»: `hoyEnWorkspaceEstricto()` en el corte que
+   * decide, `tzDeWorkspace(ws)` donde el ws viaja explícito). Obligatorio a propósito: con un default,
+   * el call site que falta no se nota — es exactamente cómo entró este defecto.
+   */
+  hoyISO: string;
   /** ¿Se espera grabación de este encuentro? De `encuentroGrabable()`. Sin esto,
    *  quien cierra en persona no puede mover un lead sin inventar un link de Fathom. */
   grabable?: boolean;
@@ -3077,8 +3089,8 @@ export type AportadoAlMover = {
 export function faltantesParaMover(
   lead: Lead,
   stageKey: string,
-  pipeline?: readonly Stage[] | null,
-  aportado: AportadoAlMover = {},
+  pipeline: readonly Stage[] | null | undefined,
+  aportado: AportadoAlMover,
 ): Step[] {
   const stages = pipeline && pipeline.length ? pipeline : undefined;
   const info = stages ? funnelReqInfo(stages as Stage[], stageKey) : undefined;
@@ -3107,7 +3119,7 @@ export function faltantesParaMover(
     // la misma que usa la ficha. Con el override crudo, los cientos de leads
     // apuntando a etapas que su funnel ya no tiene se evalúan contra un fantasma.
     etapaActual: etapaVigenteDe(lead, stages),
-    hoyISO: aportado.hoyISO ?? hoyEnTijuana(),
+    hoyISO: aportado.hoyISO,
     atJ1: lead.junta_1_at,
     atJ2: lead.junta_2_at,
     sinR1: !!lead.sin_r1,
@@ -3202,9 +3214,16 @@ export async function setPipelineStage(
     // DEL LEAD: lo que se valida son los requisitos de SU recorrido, no los del
     // funnel que el negocio tenga por defecto.
     const stages = await getPipelineStagesDeLead(antes).catch(() => generateFunnel(DEFAULT_PIPELINE, []).stages);
+    // ⚠️ «HOY» ES EL DÍA DEL NEGOCIO, Y SE LEE ESTRICTO (6/11/2026, #510). Este es el CORTE: decide si la
+    // reunión ya pasó y, con eso, si se exige su asistencia y su Fathom para mover (Ganado incluido).
+    // Antes lo resolvía `faltantesParaMover` con `hoyEnTijuana()` y este llamador no lo pasaba nunca: el
+    // día era el de Tijuana para todos los negocios. Estricto y no `hoyEnWorkspace()` porque caer al
+    // default falla ABIERTO (el día de Tijuana va atrás: la reunión parece futura y no se pide nada), y es
+    // la misma regla que la línea de arriba — validar con un dato que no se pudo leer es mover a ciegas.
     const faltan = faltantesParaMover(antes, stageKey, stages, {
       monto: opts.monto, motivo: opts.motivo,
       asistioJ1: opts.asistio_j1, asistioJ2: opts.asistio_j2,
+      hoyISO: await hoyEnWorkspaceEstricto(),
     });
     if (faltan.length) throw new RequisitosFaltantesError(id, stageKey, faltan);
   }

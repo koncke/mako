@@ -98,6 +98,12 @@ jobs:
       # ⚠️ EL AUTOR. La mezcla no puede salir firmada por github-actions[bot]: Vercel puede bloquear el despliegue de
       # un autor que no es del equipo, y main avanzaría sin que nada llegue a producción. Autor y committer de la
       # mezcla son los del último commit de la punta. Si ese commit ya es de un bot, se frena acá.
+      #
+      # ⚠️ `noreply@anthropic.com` TAMBIÉN SE FRENA (6/11/2026). Es con lo que firma la nube por default, y Vercel bloquea
+      # esos deploys igual que los de un bot (build-deploy, 17/08). No se frenaba, y la mezcla de `punta/spy-busqueda` entró
+      # a main firmada así (9202c22d2): main avanzó y a producción no llegó nada. El síntoma es el peor de todos — verde en
+      # Actions, nada en producción — así que se frena ANTES de la mezcla, con el arreglo a la vista: volver a firmar el
+      # commit con el correo del equipo. Contexto: docs/relevo/nube-ramas.md.
       - name: Lo que cambió la punta
         id: punta
         run: |
@@ -119,8 +125,8 @@ jobs:
             exit 1
           fi
           case "$nombre $correo" in
-            *'[bot]'*|*noreply@github.com*)
-              echo "::error::El último commit de la punta es de «$nombre»: Vercel puede no desplegar a ese autor. Sube un commit de una persona del equipo."
+            *'[bot]'*|*noreply@github.com*|*noreply@anthropic.com*)
+              echo "::error::El último commit de la punta es de «$nombre <$correo>»: Vercel no despliega a ese autor, así que main avanzaría sin que nada llegue a producción. Volvé a firmar el commit con el correo del equipo (git commit --amend --author=…) y subí la punta otra vez."
               exit 1
               ;;
           esac
@@ -148,6 +154,18 @@ jobs:
           git config merge.bitacora.name "las bitácoras: dos hitos al final, los dos"
           git config merge.bitacora.driver "node $driver %O %A %B %P"
           echo 'app/admin/dev/*/bitacora.ts merge=bitacora' >> "$attrs"
+
+          # ── Y EL ÍNDICE DE HALLAZGOS SE UNE POR CELDA (6/11/2026; scripts/unir-indice-hallazgos.mjs) ───────────
+          # `docs/hallazgos*.md merge=union` también agarraba el ÍNDICE, que es una tabla con una fila por área que cada
+          # cosecha REESCRIBE: union dejaba las dos filas. 130 filas de más en main el 6/11. Mismo patrón que arriba.
+          indice="$RUNNER_TEMP/unir-indice-hallazgos.mjs"
+          if git show origin/main:scripts/unir-indice-hallazgos.mjs > "$indice" 2>/dev/null || cp scripts/unir-indice-hallazgos.mjs "$indice" 2>/dev/null; then
+            git config merge.indice-hallazgos.name "el índice de hallazgos: una fila por área, las dos entradas"
+            git config merge.indice-hallazgos.driver "node $indice %O %A %B %P"
+            echo 'docs/hallazgos.md merge=indice-hallazgos' >> "$attrs"
+          else
+            echo "::warning::Sin scripts/unir-indice-hallazgos.mjs: un choque en el índice de hallazgos queda como choque."
+          fi
 
       # ── MEZCLAR EL MAIN DE ESTE MOMENTO ──────────────────────────────────────────────────────
       # Lo que se chequea es lo que va a quedar en main, no la punta como salió de su chat.
@@ -244,8 +262,10 @@ jobs:
         if: steps.mezcla.outputs.nada != 'true'
         run: npx next typegen
 
-      # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~10 s, y son lo único que ve una
+      # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~20 s, y son lo único que ve una
       # clave pegada en un documento (claves-en-el-diff) o una referencia generada que quedó vieja (docs/api-mako.md).
+      # (La mitad de esos 20 s es `prompts-registro-sincronizado.mjs`, que arranca tsx e IMPORTA el registro de prompts
+      # para leer sus 173 entradas como datos; agregada el 6/11/2026.)
       - name: Guardas del push
         id: guardas
         if: steps.mezcla.outputs.nada != 'true'

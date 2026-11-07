@@ -8,6 +8,7 @@
 // acá: sin avance positivo el resultado es hayDatos:false, nunca 0%.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   avanceDe,
   avancePorPersona,
@@ -145,18 +146,75 @@ test('los eventos sin visitor_id se descartan (inflarían el denominador)', () =
   assert.equal(avancePorPersona(eventos, 1800).size, 0);
 });
 
-test('dos videos distintos no se mezclan en la misma curva', () => {
+// ── Dos videos son dos curvas, y el corte se hace AGRUPANDO AFUERA ──────────
+// Hasta el 6/11/2026 estas tres funciones tomaban un `videoId` y filtraban adentro.
+// Nadie se lo pasó nunca en app/ ni en lib/ —sólo este test— y además filtraba MAL.
+// El corte por video vive en `videosDelPeriodo` (lib/graficos-datos-extra.ts), que es
+// lo que lee el VSL Analyst; el test de abajo usa SU agrupado.
+//
+// PROBADO ROMPIÉNDOLO (6/11/2026; base 18 / 0, cayeron las SEIS). Pasan / fallan:
+//   R1 vuelve el `videoId` muerto a `avancePorPersona`            → 17 / 1
+//   R2 `videosDelPeriodo` deja de agrupar por `video_id`          → 17 / 1
+//   R3 se va el selector de video del VSL Analyst                 → 17 / 1
+//   R4 la curva «Dónde se van» deja de leer `retencion_vsl/corte` → 17 / 1
+//   R5 la tabla «Por video» deja de desglosar por video           → 17 / 1
+//   R6 `arrancaron` deja de contar la gente que arrancó           → 16 / 2
+// R6 es la que mide el test de abajo y no el guard: sin ella, el «1 → 2 personas» que
+// deja ver el agujero del parámetro viejo podría estar midiendo nada.
+
+test('dos videos no se mezclan, y el evento sin video_id va a su PROPIO grupo', () => {
   const eventos = [
     ev({ visitor_id: 'a', porcentaje: 90, video_id: 'vsl-A' }),
     ev({ visitor_id: 'b', porcentaje: 10, video_id: 'vsl-B' }),
+    // ⚠️ EL CASO QUE EL PARÁMETRO VIEJO NO VEÍA: un evento que no dice de qué video es.
+    ev({ visitor_id: 'c', porcentaje: 100, video_id: null }),
   ];
-  const a = curvaRetencion(eventos, 1800, 'vsl-A');
+  // El agrupado del único camino vivo: la clave es el `video_id` o '' (lib/graficos-datos-extra.ts).
+  const porVideo = new Map<string, EventoVsl[]>();
+  for (const e of eventos) {
+    const k = (e.video_id ?? '').trim();
+    (porVideo.get(k) ?? porVideo.set(k, []).get(k)!).push(e);
+  }
+  assert.deepEqual([...porVideo.keys()].sort(), ['', 'vsl-A', 'vsl-B'], 'el que no dice su video tiene que tener grupo propio');
+
+  const a = curvaRetencion(porVideo.get('vsl-A')!, 1800);
   assert.equal(a.arrancaron, 1, 'solo la gente del video A');
   assert.equal(a.curva.find((p) => p.corte === 90)?.vivos, 1, 'llegó al 90%');
   assert.equal(a.curva.find((p) => p.corte === 95)?.vivos, 0, 'pero no al 95%');
-  const b = curvaRetencion(eventos, 1800, 'vsl-B');
+  const b = curvaRetencion(porVideo.get('vsl-B')!, 1800);
   assert.equal(b.arrancaron, 1);
   assert.equal(b.curva.find((p) => p.corte === 10)?.vivos, 1, 'el de B llegó al 10%');
+  // Cada persona aparece en UNA curva, y la suma cierra con la gente que hubo.
+  assert.equal([...porVideo.values()].reduce((s, es) => s + curvaRetencion(es, 1800).arrancaron, 0), 3);
+
+  // ⚠️ Y ESTO ES LO QUE MEDÍA MAL EL `videoId` QUE SE FUE, con su condición textual
+  // (`if (videoId && ev.video_id && ev.video_id !== videoId) continue`): el evento sin
+  // `video_id` no se descartaba, así que «c» entraba en la curva de los DOS videos y su
+  // 100% se contaba dos veces. Queda medido para que nadie lo reponga creyendo que filtra.
+  const comoAntes = (vid: string) => curvaRetencion(eventos.filter((e) => !(vid && e.video_id && e.video_id !== vid)), 1800);
+  assert.equal(comoAntes('vsl-A').arrancaron, 2, 'el parámetro viejo metía a «c» en la curva de A');
+  assert.equal(comoAntes('vsl-B').arrancaron, 2, 'y en la de B también: el mismo 100% contado dos veces');
+});
+
+test('CABLEADO: la curva por video la agrupa videosDelPeriodo, y el videoId muerto no vuelve', () => {
+  const leer = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  // ⚠️ SIN COMENTARIOS, y las líneas antes que los bloques: el comentario de
+  // `avancePorPersona` explica por qué el parámetro se fue, así que NOMBRA lo que este
+  // assert prohíbe. Un `doesNotMatch` sobre el archivo entero se acusaría a sí mismo.
+  const sinComentarios = (x: string) => x.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(sinComentarios(leer('../lib/vsl-retencion.ts')), /videoId/,
+    'volvió el parámetro que nadie pasa y que deja entrar los eventos sin video_id en la curva de cualquier video');
+
+  // El que SÍ agrupa, con la clave que les da grupo propio a los eventos sin video.
+  const extra = leer('../lib/graficos-datos-extra.ts');
+  assert.match(extra, /export async function videosDelPeriodo/, 'sin esto no hay curva por video en ningún lado');
+  assert.match(sinComentarios(extra), /const k = \(r\.video_id \?\? ''\)\.trim\(\);/, 'sin esa clave, los eventos sin video no tienen grupo propio');
+
+  // Y la pantalla, que es donde se ve: el selector, la curva y la tabla por video.
+  const plant = sinComentarios(leer('../lib/graficos-plantillas-analysts.ts'));
+  assert.match(plant, /lista\(id\('vs-video'\), 'video'\)/, 'sin el selector no se puede elegir de qué video es la curva');
+  assert.match(plant, /id: id\('vs-curva'\)[^}]*fuente: 'retencion_vsl', dimension: 'corte'/, 'falta la curva «Dónde se van»');
+  assert.match(plant, /id: id\('vs-videos'\)[^}]*dimension: 'video'/, 'falta la tabla «Por video»');
 });
 
 // ── Invariantes de la curva ─────────────────────────────────────────────────

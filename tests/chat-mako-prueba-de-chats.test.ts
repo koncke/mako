@@ -6,7 +6,8 @@
 //   · «Mover de etapa» busca la etapa en el CRM del CRON y guarda ese CRM (si-responde-mover-avisar, 3 de 3);
 //   · el verbo «arranque» no pisa la etapa de venta que el pedido nombra (mau-pega-con-disparador, 3 de 3);
 //   · un «cambiar» sin cambio real no dice «Cambié» (agrega-estos-textos y esperar-2-dias);
-//   · el link que escribió el dueño se queda en el texto (creame-otra, 3 de 3).
+//   · el link que escribió el dueño se queda en el texto (creame-otra, 3 de 3);
+//   · y (#287, 6/11/2026) el link que la TARJETA YA TENÍA tampoco se va cuando el modelo la reescribe.
 // (La espera EN EL MEDIO está en tests/flujo-ia.test.ts; las variables que se renombran, en tests/flujo-ia-arreglos.test.ts.)
 // =============================================================================
 import { test } from 'node:test';
@@ -101,6 +102,64 @@ test('el link que escribió el dueño se queda; el que inventa el modelo, no', (
   assert.match(String((r.pasos as PasoIA[]).find((p) => claseDe(p) === 'mensaje')?.cuerpo), /https:\/\/sprint\.mauriciobustos\.com\//);
   const sin = deIA({ disparador: clave('venta:44:st0'), inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola {{nombre}}, aquí va: https://sprint.mauriciobustos.com/' }] }, ctxDe(), rndDe());
   assert.doesNotMatch(String((sin.pasos as PasoIA[]).find((p) => claseDe(p) === 'mensaje')?.cuerpo), /https?:/, 'sin pedido que lo nombre, se va');
+});
+
+// ── #287 (6/11/2026): el link que la TARJETA YA TENÍA ──────────────────────────────────────────────
+// El síntoma: pedirle un cambio por chat y que reescriba una tarjeta que nadie nombró, dejándola sin el
+// link que el mensaje ya llevaba. El lead lo recibe sin link y nada falla. `deja` sólo tenía los links
+// del PEDIDO (22/10/2026), y el que la tarjeta ya tenía no estaba ahí.
+//
+// PROBADO ROMPIÉNDOLO (arnés del scratchpad: rompe UNA, corre este archivo, restaura y verifica por
+// md5). Base: 7 / 0. Once roturas, las once cazadas: `textoLimpio` con el `deja` de antes (sólo el
+// pedido) → 5 / 2; el parche del mensaje sin pasar la tarjeta → 5 / 2; el mapa vacío → 5 / 2; todos los
+// links del FLUJO en vez de los de la tarjeta → 6 / 1; con «link» conservando igual los de antes →
+// 6 / 1; `linksDeLaTarjeta` sin el asunto y la vista previa → 6 / 1, y sin el mensaje del aviso →
+// 6 / 1; el aviso al equipo y el objetivo del AI Step limpiados sin `deja` → 6 / 1 cada uno; sus dos
+// parches sin pasar la tarjeta → 6 / 1 cada uno. Restaurado: 7 / 0.
+const LINK287 = 'https://sprint.mauriciobustos.com/';
+const msg287 = (id: string, cuerpo: string, extra: Record<string, unknown> = {}): PasoIA => ({
+  id, orden: 1, canal: 'whatsapp', delay_horas: 0, asunto: null, preheader: null, cuerpo,
+  template_wa: null, proveedor: 'no_oficial', siguiente: null, ...extra,
+} as PasoIA);
+
+test('editar una tarjeta NO le borra el link que YA tenía, y el que inventa el modelo sigue cayéndose', () => {
+  const base: PasoIA[] = [msg287('m1', `Hola {{nombre}}, aquí va el material: ${LINK287}`, { siguiente: 'm2' }), msg287('m2', 'Te escribo de nuevo')];
+  const ctx = ctxDe({ pedido: 'Haz los mensajes más cortos' });
+  const cuerpoDe = (r: { pasos: readonly unknown[] }, id: string) => String((r.pasos as PasoIA[]).find((p) => p.id === id)?.cuerpo);
+  // 1. El modelo reescribe la tarjeta y repite el link que ya estaba: se queda.
+  const r = deIAEdicion({ cambiar: [{ id: 'm1', texto: `Hola {{nombre}}, te dejo el material: ${LINK287}` }] }, base, ctx, rndDe());
+  assert.match(cuerpoDe(r, 'm1'), /sprint\.mauriciobustos\.com/, 'el link que la tarjeta ya tenía se borró: el lead recibe el mensaje sin link');
+  // 2. Uno que el modelo INVENTA en esa misma tarjeta se sigue cayendo.
+  const inv = deIAEdicion({ cambiar: [{ id: 'm1', texto: 'Hola {{nombre}}, mirá https://otro-sitio.com/oferta' }] }, base, ctx, rndDe());
+  assert.doesNotMatch(cuerpoDe(inv, 'm1'), /otro-sitio\.com/, 'un link inventado por el modelo tiene que seguir cayéndose');
+  // 3. El link de OTRA tarjeta no revive acá: con todos los del flujo se recupera el que alguien borró a propósito.
+  const otra = deIAEdicion({ cambiar: [{ id: 'm2', texto: `Te escribo de nuevo: ${LINK287}` }] }, base, ctx, rndDe());
+  assert.doesNotMatch(cuerpoDe(otra, 'm2'), /sprint\.mauriciobustos\.com/, 'ese link vivía en OTRA tarjeta: revivirlo deshace lo que una persona borró');
+  // 4. Y cambiar EL LINK no deja los dos: el viejo (acá sin protocolo) se va, que es lo que se pidió.
+  const conLink = ctxDe({ pedido: 'Cambia el link', links: { material: { url: 'https://hola-mako.com/material', para: 'el material' } } });
+  const cb = deIAEdicion({ cambiar: [{ id: 'm3', link: 'material' }] }, [msg287('m3', 'Hola, mirá sprint.mauriciobustos.com/material')], conLink, rndDe());
+  assert.match(cuerpoDe(cb, 'm3'), /hola-mako\.com\/material/, 'el link nuevo no entró');
+  assert.doesNotMatch(cuerpoDe(cb, 'm3'), /sprint\.mauriciobustos\.com/, 'cambiar el link no puede dejar los dos');
+});
+
+test('el asunto y la vista previa de un email, y el mensaje del aviso al equipo, tampoco pierden su link', () => {
+  const base: PasoIA[] = [
+    { ...msg287('e1', 'Hola', { siguiente: 'a1' }), canal: 'email', asunto: `Tu acceso: ${LINK287}`, preheader: `Entrá por ${LINK287}` } as PasoIA,
+    { ...msg287('a1', ''), accion: { operacion: 'avisar_al_equipo', params: { mensaje: `Pasale esto al lead: ${LINK287}` } } } as PasoIA,
+  ];
+  const r = deIAEdicion({ cambiar: [
+    { id: 'e1', asunto: `Ya tenés acceso: ${LINK287}`, vista_previa: `Entrá acá: ${LINK287}` },
+    { id: 'a1', datos: { mensaje: `Mandale esto: ${LINK287}` } },
+  ] }, base, ctxDe({ pedido: 'Mejora el email y el aviso' }), rndDe());
+  const e1 = (r.pasos as PasoIA[]).find((p) => p.id === 'e1');
+  assert.match(String(e1?.asunto), /sprint\.mauriciobustos\.com/, 'el asunto perdió su link');
+  assert.match(String(e1?.preheader), /sprint\.mauriciobustos\.com/, 'la vista previa perdió su link');
+  const a1 = (r.pasos as PasoIA[]).find((p) => p.accion?.operacion === 'avisar_al_equipo');
+  assert.match(String(a1?.accion?.params?.mensaje), /sprint\.mauriciobustos\.com/, 'el aviso al equipo iba a salir sin el link');
+  // Y el objetivo de un AI Step, que lo limpia `objetivoDeIA`.
+  const ia: PasoIA[] = [{ ...msg287('r1', ''), nodo: 'respuesta', paso_ia: true, objetivo: `Que entre a ${LINK287}` } as PasoIA];
+  const o = deIAEdicion({ cambiar: [{ id: 'r1', objetivo: `Que entre por ${LINK287} y conteste` }] }, ia, ctxDe({ pedido: 'Ajusta el objetivo del AI Step' }), rndDe());
+  assert.match(String((o.pasos as PasoIA[]).find((p) => p.id === 'r1')?.objetivo), /sprint\.mauriciobustos\.com/, 'el objetivo del AI Step perdió su link');
 });
 
 // (Hasta el 23/10/2026 este test fijaba que una espera corta entre dos WhatsApp avisaba «la línea espera las horas de «Misma persona»».

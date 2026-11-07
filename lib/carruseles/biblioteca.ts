@@ -85,7 +85,75 @@ export type PiezaBiblioteca = {
   publicada_en: string | null;
   visto_primera_vez: string;
   dejo_de_verse_en: string | null;
+  /**
+   * Cuándo una persona la miró y la dejó pasar (mig 0411). **Ausente o null = nadie la miró y no se muestra**: lo que trae
+   * una lectura nueva espera a que alguien la vea (`estaRevisada`). Sin la columna, se muestra como antes.
+   */
+  revisada_en?: string | null;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Que nadie vea un ejemplo que nadie miró (mig 0411, 6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ¿Esta publicación ya la miró una persona? La biblioteca muestra sólo las que sí.
+ *
+ * ⚠️ Mira si la fila TRAE la columna, no si su valor es null: con la 0411 sin aplicar, PostgREST no devuelve `revisada_en` y
+ * todo tiene que verse como antes (si no, el día que se despliegue el código la vidriera se vacía). Por eso el filtro vive
+ * acá y NO en un `filtros` de PostgREST: una columna que todavía no existe haría fallar la lectura ENTERA, que es la misma
+ * trampa de la 0373 y de la 0391 (ver `guardarMedios`, lib/spy.ts).
+ *
+ * Y por eso el upsert de la lectura NUNCA manda esta columna: así una pieza ya revisada no se vuelve «sin mirar» porque
+ * Spy la leyó de nuevo (`filasDeLectura`), igual que `dejo_de_verse_en`.
+ */
+export function estaRevisada(p: Partial<PiezaBiblioteca> | Record<string, unknown>): boolean {
+  if (!('revisada_en' in p)) return true;
+  const v = (p as { revisada_en?: unknown }).revisada_en;
+  return typeof v === 'string' && v.trim() !== '';
+}
+
+/** Lo que una persona tiene que mirar: lo que está a la vista (no escondido) y todavía no revisó nadie, lo más nuevo primero. */
+export function sinRevisar<T extends Partial<PiezaBiblioteca>>(piezas: readonly T[]): T[] {
+  return piezas.filter((p) => !p.dejo_de_verse_en && !estaRevisada(p)).sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+}
+
+const escapar = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * La hoja para mirar a ojo lo que está sin revisar: las miniaturas con su id a la vista y los comandos ya escritos. Una
+ * persona decide; el código sólo le prepara el trabajo.
+ *
+ * ⚠️ Cada tarjeta lleva SU id escrito encima, no la posición: la posición contada dentro de una hoja se puede correr, y es
+ * el error que ya pasó una vez (docs/hallazgos-carruseles.md → «Mirar hojas de miniaturas con un agente»).
+ */
+export function hojaDeRevision(piezas: readonly PiezaBiblioteca[], cuentas: readonly CuentaBiblioteca[]): string {
+  const nombre = new Map(cuentas.map((c) => [c.id, c.instagram]));
+  const tarjetas = piezas.map((p) => {
+    const pie = (p.texto ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    const foto = p.miniatura ? `<img src="${escapar(p.miniatura)}" alt="" loading="lazy">` : '<div class="sinfoto">sin portada</div>';
+    const link = p.url ? `<a href="${escapar(p.url)}" target="_blank" rel="noreferrer noopener">abrir</a>` : '';
+    return `<figure><b>${p.id}</b> @${escapar(nombre.get(p.cuenta_id) ?? '?')} · ${escapar(p.formato ?? 'sin tipo')} ${link}
+${foto}<figcaption>${escapar(pie)}</figcaption></figure>`;
+  });
+  const ids = piezas.map((p) => p.id).join(',');
+  return `<!doctype html><html lang="es"><meta charset="utf-8"><title>Carruseles sin mirar (${piezas.length})</title>
+<style>body{font:14px system-ui;margin:16px;background:#111;color:#eee}h1{font-size:18px}
+pre{background:#000;padding:10px;border-radius:8px;overflow:auto;font-size:12px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+figure{margin:0;background:#1b1b1b;border-radius:10px;padding:8px}
+img{width:100%;border-radius:6px;display:block}.sinfoto{aspect-ratio:1;display:grid;place-items:center;background:#000;border-radius:6px;color:#888}
+figcaption{font-size:12px;color:#aaa;margin-top:6px}b{color:#7cf}a{color:#7cf}</style>
+<h1>${piezas.length} publicacion(es) que nadie miro todavia</h1>
+<p>Cada tarjeta lleva SU id arriba. Las que sirven se aprueban; las que no, se esconden con el motivo:</p>
+<pre>node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts revisar --aprobar &lt;ids&gt; --de-verdad
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts revisar --esconder &lt;ids&gt; --motivo "por que" --de-verdad
+
+Todas las de esta hoja: --aprobar ${ids || 'todas'}</pre>
+<div class="g">${tarjetas.join('\n')}</div>
+</html>`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los ids
@@ -364,6 +432,143 @@ export function techoConCredito(pedido: number, credito: { usado: number; tope: 
   return Math.max(0, Math.min(pedido, libre));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Por qué una corrida se detuvo (6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Síntoma medido el 6/11/2026: `laminas` paró diciendo «Llega al techo» con US$0,54 gastados de un tope pedido de US$1,50, y
+// de la salida no se podía saber si faltaba crédito o si era un límite nuestro. Eran las DOS cosas y ninguna se decía: el
+// techo efectivo venía del crédito (no del tope pedido) y la suma que se comparaba contra él era de RESERVAS, no de gasto.
+// De acá sale el porqué, con el número, para que la corrida nunca corte en silencio.
+
+const usdTexto = (n: number) => `US$${n.toFixed(2)}`;
+const centavos = (n: number) => Math.round(n * 100) / 100;
+
+/** De dónde sale el techo de una corrida: lo pedido, lo que deja el crédito, o nada. */
+export type MotivoDelTecho = 'sin-saber' | 'sin-credito' | 'credito' | 'pedido';
+
+/**
+ * El techo de una corrida Y DE DÓNDE SALE. `techoConCredito` devuelve el número solo: con eso, un techo de 0 (no hay crédito)
+ * y un techo chico (el crédito no llega a lo pedido) se ven iguales que «llegué a tu tope».
+ *   · 'sin-saber'   Apify no dijo su crédito: no se gasta a ciegas (techo null).
+ *   · 'sin-credito' lo libre no pasa la reserva de Spy: la corrida no puede gastar nada (techo 0).
+ *   · 'credito'     alcanza para algo, pero menos que lo pedido.
+ *   · 'pedido'      el techo es el que se pidió.
+ * `porque` es el renglón para una persona, con los números. Nunca una clave ni un token.
+ */
+export function motivoDelTecho(
+  pedido: number, credito: { usado: number; tope: number } | null, reserva: number,
+): { techo: number | null; motivo: MotivoDelTecho; libre: number | null; porque: string } {
+  const techo = techoConCredito(pedido, credito, reserva);
+  if (techo == null || !credito) {
+    return { techo: null, motivo: 'sin-saber', libre: null, porque: 'Apify no dijo cuánto crédito queda y no se gasta a ciegas' };
+  }
+  const quedan = centavos(Math.max(0, credito.tope - credito.usado));
+  const libre = Math.floor((credito.tope - credito.usado - reserva) * 100) / 100;
+  if (libre <= 0) {
+    return { techo: 0, motivo: 'sin-credito', libre, porque: `no hay crédito libre: quedan ${usdTexto(quedan)} en Apify y la reserva de Spy es ${usdTexto(reserva)}` };
+  }
+  if (libre < pedido) {
+    return { techo, motivo: 'credito', libre, porque: `el crédito libre alcanza para ${usdTexto(libre)}, menos que los ${usdTexto(pedido)} que pediste (quedan ${usdTexto(quedan)} y se dejan ${usdTexto(reserva)} para Spy)` };
+  }
+  return { techo, motivo: 'pedido', libre, porque: `el tope que pediste: ${usdTexto(pedido)}` };
+}
+
+/**
+ * El margen del techo de CADA corrida de Apify (`maxTotalChargeUsd`) sobre el precio de lista. Sin margen, Apify corta la
+ * tanda a mitad: cobra lo que LLEGA y el precio real por publicación es más alto que el de la tienda (ver `USD_POR_LINK_MEDIDO`).
+ * ⚠️ Este margen es para el techo DE LA TANDA y nada más. Acumularlo para medir el techo de la CORRIDA es lo que hacía cortar
+ * de más: con 40 links por tanda reservaba US$0,14 cuando lo que Apify cobraba eran US$0,11 (28 % de reserva de más, una tanda
+ * entera antes de tiempo).
+ */
+export const MARGEN_TECHO_TANDA = 1.5;
+/**
+ * Lo que costó DE VERDAD cada publicación pedida por su link. Medido el 5/11/2026 (244 de 245 links, ~US$0,0025 cada uno) y el
+ * 6/11/2026 (840 links, US$2,27: US$0,0027 cada uno). Se usa el más caro de los dos: el precio de lista (`USD_POR_PUBLICACION`,
+ * US$0,0023) subestima la factura, y un techo que subestima lo que cobran no es un techo.
+ */
+export const USD_POR_LINK_MEDIDO = 0.0027;
+/** Cuántos links lleva cada corrida de Apify (la receta medida de docs/hallazgos-carruseles.md). */
+export const LINKS_POR_TANDA = 40;
+
+/** El techo en dólares de UNA tanda de links (`maxTotalChargeUsd`): el precio de lista con su margen. */
+export const techoDeTanda = (cuantos: number): number =>
+  Math.max(0.01, Math.ceil(Math.max(0, cuantos) * USD_POR_PUBLICACION * MARGEN_TECHO_TANDA * 100) / 100);
+
+export type TandaDeLinks = { desde: number; cuantos: number; techoUsd: number };
+/**
+ * Por qué no se leyó más: se leyó todo, se llegó al techo, no había techo con que empezar, o fue APIFY el que dijo que no
+ * queda crédito a mitad de la corrida.
+ * ⚠️ `'apify'` no es `'techo'`: el techo podía tener lugar de sobra. Contarlo como techo hace que el renglón final diga
+ * «llegué al tope que me pediste» sobre un tope que no se tocó, que es la clase de mensaje que estas funciones existen para
+ * no escribir.
+ */
+export type CorteDeTandas = 'todo' | 'techo' | 'sin-techo' | 'apify';
+export type PlanDeTandas = { tandas: TandaDeLinks[]; probableUsd: number; quedanFuera: number; corte: CorteDeTandas };
+
+/**
+ * La tanda que sigue: cuántos links entran en lo que QUEDA del techo y con qué `maxTotalChargeUsd` va. null = no entra ni uno.
+ *
+ * ⚠️ Es LA regla, y la usan los dos lados: el plan en seco (con el gasto probable) y la corrida de verdad (con lo que Apify ya
+ * cobró). Por eso el techo de la tanda se recorta a `quedaUsd`: el margen del 1,5× sirve para que Apify no corte una tanda a
+ * mitad, pero nunca puede hacer que la corrida gaste más de lo que se le dejó.
+ */
+export function siguienteTanda(cuantosQuedan: number, quedaUsd: number, deA = LINKS_POR_TANDA): { cuantos: number; techoUsd: number } | null {
+  const porTanda = Math.max(1, Math.round(deA));
+  const quedan = Math.max(0, Math.floor(cuantosQuedan));
+  const queda = centavos(Math.max(0, quedaUsd));
+  if (!quedan || queda <= 0) return null;
+  // Cuántos links paga lo que queda, al precio MEDIDO (el de lista subestima la factura y un techo que subestima no es techo).
+  const caben = Math.floor(queda / USD_POR_LINK_MEDIDO + 1e-9);
+  const cuantos = Math.min(porTanda, quedan, caben);
+  if (cuantos <= 0) return null;
+  return { cuantos, techoUsd: Math.min(techoDeTanda(cuantos), queda) };
+}
+
+/**
+ * En cuántas tandas se leen `cuantos` links sin pasarse del techo de la corrida, y cuántos quedan afuera.
+ *
+ * ⚠️ Lo que se compara contra el techo es el GASTO probable al precio medido, no la suma de los techos de cada tanda: Apify
+ * cobra lo que LLEGA, y el techo de una tanda lleva margen a propósito. La última tanda se RECORTA a los links que caben (antes
+ * se descartaba entera: con un techo de US$0,70 leía 200 de 400 en vez de 254).
+ */
+export function planDeTandas(cuantos: number, o: { techoUsd: number; deA?: number }): PlanDeTandas {
+  const total = Math.max(0, Math.floor(cuantos));
+  const techo = Math.max(0, o.techoUsd);
+  const tandas: TandaDeLinks[] = [];
+  let probable = 0;
+  for (let desde = 0; desde < total; ) {
+    const t = siguienteTanda(total - desde, centavos(techo - probable), o.deA);
+    if (!t) break;
+    tandas.push({ desde, ...t });
+    probable = centavos(probable + t.cuantos * USD_POR_LINK_MEDIDO);
+    desde += t.cuantos;
+  }
+  const leidos = tandas.reduce((n, t) => n + t.cuantos, 0);
+  return { tandas, probableUsd: probable, quedanFuera: total - leidos, corte: leidos >= total ? 'todo' : techo <= 0 ? 'sin-techo' : 'techo' };
+}
+
+/**
+ * El renglón que dice POR QUÉ la corrida no siguió, con el número y qué lo destraba. Nunca un «al techo» mudo: «no hay
+ * crédito», «el crédito no llega a lo que pediste», «llegué a tu tope» y «se terminaron las tandas» son cuatro cosas distintas
+ * y se arreglan de maneras distintas (cargar crédito, esperar el mes, subir `--techo-usd`, nada).
+ */
+export function porQueParo(o: {
+  corte: CorteDeTandas; motivo: MotivoDelTecho; porque: string; techo: number | null; quedanFuera: number; gastado?: number | null;
+}): string {
+  const gasto = typeof o.gastado === 'number' ? ` Se gastó ${usdTexto(o.gastado)}.` : '';
+  if (o.corte === 'todo') return `Paró porque se terminaron las tandas: se pidieron todos los de esta corrida, no fue el techo.${gasto}`;
+  const faltan = `Quedan ${o.quedanFuera} sin leer: `;
+  // Lo que dijo Apify gana sobre lo que decía el techo al empezar: el crédito se puede agotar a mitad de la corrida.
+  if (o.corte === 'apify') return `${faltan}Apify dijo que no queda crédito en ninguna clave. Carga crédito y vuelve a correrlo.${gasto}`;
+  if (o.motivo === 'sin-saber') return `${faltan}${o.porque}.${gasto}`;
+  if (o.motivo === 'sin-credito' || o.motivo === 'credito') {
+    return `${faltan}${o.porque}. Lo destraba cargar crédito en Apify (o esperar el mes que viene), no un \`--techo-usd\` más alto.${gasto}`;
+  }
+  // ⚠️ En español NEUTRO, como todo el repo: el guard de `tests/puente-panel-copy.test.ts` barre TODOS los archivos, también
+  // la salida de un script de consola que sólo lee Martín. Un «cargá» acá deja la punta roja.
+  return `${faltan}llegué al tope que me pediste (${usdTexto(o.techo ?? 0)}). Hay crédito para más: sube \`--techo-usd\`.${gasto}`;
+}
+
 /** El creador de un ítem del actor: su @ y su nombre (en una lectura por tema, cada publicación es de alguien distinto). */
 export function creadorDelItem(item: unknown): { instagram: string; nombre: string } | null {
   const o = item && typeof item === 'object' ? (item as Record<string, unknown>) : null;
@@ -515,4 +720,67 @@ export function parecidoConNombre(c: { usuario: string; nombre?: string | null }
   if (!palabras.length) return 0;
   if (nombreCoincide(c.nombre, completo)) return 2;
   return palabras.some((w) => plano(c.usuario).includes(w)) ? 1 : 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sumar carruseles por su LINK (6/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín manda el link de un carrusel que quiere en la biblioteca y hasta hoy no había con qué cargarlo: el comando vivió en
+// una copia temporal del script, ya borrada (docs/hallazgos-carruseles.md, «Sin hacer»).
+//
+// MEDIDO el 5/11/2026 («Traer un carrusel puntual: por su link, nunca por el perfil»): por link salieron 244 de 245 a unos
+// US$0,0025 cada uno; leyendo a sus creadores POR PERFIL, US$4,71 y 1 solo de los 245. Un carrusel que funcionó suele ser
+// viejo: no está entre los últimos posts de su cuenta, y subir el tope del perfil compra carruseles ajenos, no el buscado.
+//
+// El creador de un link suelto queda con `fuente: 'tema'` —o sea, NO se lee entero— porque de su cuenta no se midió nada: sin
+// su mediana no hay outlier, y lo que no se midió no se dice (`carruselesDeBiblioteca`).
+
+/** De dónde puede venir un link de una publicación de Instagram: `/p/`, `/reel/`, `/reels/` o `/tv/`, con o sin `@usuario` antes. */
+const LINK_DE_PUBLICACION = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?instagram\.com\/(?:[^/\s?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]{3,30})(?:[/?#]|$)/i;
+
+/**
+ * El link de una publicación de Instagram, normalizado: su `ref` (el shortcode, que es la identidad de la pieza, igual que en
+ * `piezasDeApify`) y la dirección con que se le pide al actor. null si no es un link de una publicación.
+ *
+ * ⚠️ La dirección sale siempre como `/p/<ref>/`: el shortcode es único en Instagram y el actor lo resuelve igual venga de un
+ * reel o de un tv. La `url` que se GUARDA no es ésta, es el `permalink` que devuelve el actor (`filasDeLectura`).
+ * ⚠️ Un shortcode suelto NO cuenta: sin el dominio no se puede saber si es un link, un nombre de cuenta o cualquier palabra.
+ */
+export function linkDeInstagram(texto: string | null | undefined): { ref: string; url: string } | null {
+  const m = String(texto ?? '').trim().match(LINK_DE_PUBLICACION);
+  return m ? { ref: m[1], url: `https://www.instagram.com/p/${m[1]}/` } : null;
+}
+
+export type PlanDeLinks = PlanDeTandas & {
+  /** Los links que se van a pedir, en orden y sin repetidos. */
+  links: Array<{ ref: string; url: string }>;
+  /** Lo que no era un link de una publicación de Instagram, tal como se escribió (para que se vea el error de tipeo). */
+  noSonLinks: string[];
+  /** Cuántos venían dos veces en el pedido, y cuántos ya estaban en la biblioteca (ésos no se vuelven a pagar). */
+  repetidos: number;
+  yaEstaban: number;
+};
+
+/**
+ * Qué links se van a pedir y cuánto puede costar. Lo que no es un link se DICE (no se adivina), los repetidos y los que ya
+ * están guardados no se pagan de nuevo, y lo que entra en el techo lo decide la misma regla que el resto del script
+ * (`planDeTandas`). Puro: el script lo imprime en seco antes de gastar un centavo.
+ */
+export function planDeLinks(
+  textos: readonly string[], o: { techoUsd: number; yaGuardados?: ReadonlySet<string>; deA?: number },
+): PlanDeLinks {
+  const noSonLinks: string[] = [];
+  const links: Array<{ ref: string; url: string }> = [];
+  const vistos = new Set<string>();
+  let repetidos = 0;
+  let yaEstaban = 0;
+  for (const t of textos) {
+    const l = linkDeInstagram(t);
+    if (!l) { const crudo = String(t ?? '').trim(); if (crudo) noSonLinks.push(crudo.slice(0, 120)); continue; }
+    if (vistos.has(l.ref)) { repetidos += 1; continue; }
+    vistos.add(l.ref);
+    if (o.yaGuardados?.has(l.ref)) { yaEstaban += 1; continue; }
+    links.push(l);
+  }
+  return { links, noSonLinks, repetidos, yaEstaban, ...planDeTandas(links.length, { techoUsd: o.techoUsd, deA: o.deA }) };
 }

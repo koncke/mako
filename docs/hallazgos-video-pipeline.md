@@ -1139,14 +1139,25 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
 ### Lo que quedó SIN hacer
 
 - **Mirar el editor en un navegador hidratado**, arriba.
-- **Pasarle al script `segundosPorToma` entero** y que `plan-cortes-anuncio.mjs` tope cada toma
-  con la suya (`worker/montar-cola.mjs:132`, `scripts/plan-cortes-anuncio.mjs:78`); y medir
-  `segundosAntes` del audio real o rotularlo estimado en `PasoMontaje.tsx`.
-- **Deshacer.** No hay `Ctrl+Z`: un arrastre equivocado se arregla arrastrando de vuelta.
-  Con las operaciones puras en `editor-cortes.ts`, es una pila de planes en un `useRef`.
-- **La música**, esperando Epidemic. Una fila en `PISTAS` y anda.
-- **Reordenar tomas.** El editor recorta y parte; mover un tramo de lugar no está. El plan
-  lo soporta (es un array ordenado), lo que falta es el arrastre.
+- ~~**Pasarle al script `segundosPorToma` entero**~~ — cerrado el 6/11 por las dos rutas (§15).
+  Lo que sigue abierto de este punto: `segundosAntes` es la SUMA NOMINAL de lo que se le pidió
+  a Flow, no una medición del material que volvió (`worker/montar-cola.mjs`,
+  `lib/montaje/pipeline.ts`); la API ya lo rotula (`segundos_antes_estimados`) y la pantalla no
+  (`app/video-generator/PasoMontaje.tsx`).
+- ~~**Deshacer.** No hay `Ctrl+Z`~~ — **HECHO** (y este renglón quedó afirmando lo
+  contrario hasta el 6/11). La pila vive en un `useRef` con tope de 30, se apila una vez
+  por GESTO, y el atajo está: `app/video-generator/EditorAnuncio.tsx`. El otro editor
+  también lo tiene (`app/video-editor/_opencut/actions/definitions.ts`).
+- ~~**La música**, esperando Epidemic~~ — **el código está HECHO; lo que falta es
+  COMERCIAL.** `lib/musica-catalogo.ts` es `PISTAS: Pista[] = []` con el porqué escrito
+  arriba: falta el alta de **Epidemic Sound Connect**, que la firma Martín. El selector
+  de la pantalla ni se dibuja mientras la lista esté vacía (`hayMusica()`), el worker ya
+  baja `musica` y el montaje ya la mezcla con `loudnorm`. Una fila y anda — pero la fila
+  no se pone sin la licencia.
+- ~~**Reordenar tomas.** El editor recorta y parte; mover un tramo de lugar no está~~ —
+  **HECHO el 6/11** (`moverTramo` y `destinoDeMover` en `editor-cortes.ts`, el arrastre
+  horizontal y los dos botones en `EditorAnuncio.tsx`). ⚠️ Y la frase «el plan lo soporta
+  (es un array ordenado)» era FALSA: ver §16.
 - **El worker sigue sin contenedor**, así que nada de esto se probó de punta a punta contra
   un montaje real.
 
@@ -1219,12 +1230,16 @@ sin que nadie lo tomara». No «no se pudo montar», que haría pensar que el an
 mal. Seis horas y no menos porque el peor reintento vivo (tres rescates de 20 minutos) ronda
 la hora. La espera se dice en horas pasados los 60 minutos.
 
-### La duración de la primera toma para todas: arreglado
+### La duración de la primera toma para todas: arreglado EN LA RUTA DE VERCEL (ver §15)
 
 El pendiente anotado el 16/09 (arriba) seguía en el port: el plan recibía un solo número,
 el de la primera toma, y topeaba ahí a todas. Ahora `<durvid>` acepta una lista
 («10,8,10»), y el pipeline pasa una por toma. Un número solo sigue valiendo para todas (el
 bash). `segundosAntes` es la suma de las duraciones, no N × la primera.
+
+⚠️ **Y así quedó medio año: «arreglado» acá significaba `lib/montaje/pipeline.ts`, la ruta de
+la función. La del contenedor (`worker/montar-cola.mjs`) siguió mandando un solo número hasta
+el 6/11.** El dato pasa por DOS caminos y este renglón nombraba uno. Ver §15.
 
 ### Un test que busca basura en `/tmp` puede tropezar con la de otra corrida
 
@@ -1319,3 +1334,434 @@ montaje real de un cliente: `video-generator.historial` no se toca desde el 08/0
   que en §13.
 - **Un deploy sin ffmpeg** (la descarga de GitHub falló): el build sigue y el cron avisa a la
   Ticketera en cada corrida hasta que se redespliegue. Nadie lo reinstala solo.
+
+---
+
+## §15 — La ruta del contenedor perdía la toma larga ENTERA (6/11/2026)
+
+`worker/montar-cola.mjs` · `worker/duraciones.mjs` · `worker/Dockerfile` ·
+`scripts/montar-anuncio-sin-silencios.sh` · `scripts/plan-cortes-anuncio.mjs` ·
+`tests/montaje-worker-tomas.test.ts`
+
+### ⚠️ El diagnóstico obvio era el equivocado, dos veces
+
+**Lo que decían los pendientes:** «pasarle `segundosPorToma` entero al script **y que
+`plan-cortes-anuncio` tope cada toma con la suya**». Las dos mitades estaban escritas como si
+faltaran las dos. El script ya lo hacía desde el 20/10 (`DURS` / `durDe`), y la ruta de Vercel
+ya le mandaba la lista entera. **Lo único que faltaba era el eslabón del medio**, y estaba a
+una línea: `DURVID: String(seg[0] ?? 10.005)`.
+
+**Y el renglón que lo tapaba era el de «arreglado»** (§14, arriba): decía que la duración por
+toma estaba resuelta, y era cierto para la función y falso para el contenedor. Un arreglo que
+toca uno de dos caminos no se anota como cerrado sin nombrar cuál.
+
+**La regla que queda:** cuando el mismo dato viaja por DOS rutas —la función de Vercel y el
+contenedor—, un arreglo en una no cierra el pendiente, y la entrada de la cosecha dice POR
+CUÁL. El caso hermano ya estaba enumerado en este documento («un arreglo de "un escalar donde
+van N valores" se busca en TODOS los que reciben ese dato»): se escribió la regla y la segunda
+ruta igual quedó afuera, porque el único lugar donde se leía decía «arreglado».
+
+### No se perdía el final de la toma larga: se perdía la toma ENTERA
+
+Medido el 6/11 corriendo `scripts/plan-cortes-anuncio.mjs` sobre tres voces sintéticas (3 s,
+4,5 s y 3 s, la del medio hablando de 3,0 a 4,2 s):
+
+| lo que recibe el script | tramos de la toma 2 | total del plan |
+|---|---|---|
+| `3,4.5,3` (la lista) | 1, de 3,00 a 4,27 s | 3,81 s |
+| `3` (lo que mandaba el worker) | **ninguno** | 2,54 s |
+
+El tope no recorta el tramo: lo **descarta**. `tramos()` corta en
+`TOPE = min(DURVID, duración del audio)`, así que si el habla de una toma empieza después del
+tope, la toma no aporta ni un tramo y desaparece del anuncio sin un error y sin una línea en el
+log. Lo que se creía «se pierde lo que se dice al final» era, en el caso que importa —una toma
+larga que habla al final—, «se va la toma completa».
+
+### El miedo al bash era infundado; el real era otro
+
+`scripts/montar-anuncio-sin-silencios.sh` pasaba `$DURVID` **sin comillas** como argv[4], y la
+sospecha razonable era que una lista con comas se partiera. No se parte: el `IFS` por defecto
+es espacio/tab/salto, y `10,8,10` viaja como un solo argumento (verificado corriendo el bash de
+verdad, no leyéndolo). Lo que sí lo partía era un **espacio** —`10, 8, 10` daban tres
+argumentos y el script leía `10,` → `NaN`, topeando TODAS las tomas en nada—, y `set -u` no
+avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
+
+### Tres trampas del entorno, de las que dan verde
+
+- **`ffmpeg-static` es una dependencia OPCIONAL y en esta máquina no está**, así que el único
+  test que corre el montaje de verdad (`tests/montaje-cola.test.ts`, «el montaje corre de
+  verdad hasta los subtítulos») se **saltea** en local: `node --test` lo cuenta en `skipped`,
+  no en `fail`, y el resumen se lee como verde. Un test que mide ffmpeg prueba también el
+  binario del `PATH` antes de rendirse (`ffmpegDePrueba` en
+  `tests/montaje-worker-tomas.test.ts`).
+- **El bash de Git en Windows reescribe los argumentos que parecen rutas POSIX.** Pasarle
+  `T=/trabajo` por entorno y leerlo con `"$T"` devuelve `C:/Program Files/Git/trabajo`: el
+  proceso nunca ve la cadena que se le mandó. Un test que corre bash usa valores sin barra
+  adelante, o mide otra cosa.
+- **La guarda del `maxBuffer` no la alcanza el pre-push, y el rojo lo da Actions.** Un test que
+  lanza un hijo y parsea su salida necesita `maxBuffer: 64 * 1024 * 1024` (node corta el stdout en
+  1 MB y el JSON llega partido). Lo exige `tests/tanda-no-la-mata-un-test-lento.test.ts`, que tarda
+  ~54 s y puede no entrar en el tope de 90 s del filtro local: el push sale, y el rojo llega 14
+  minutos después. La regla ya estaba cosechada en cinco `docs/hallazgos-*.md` **y en ninguno de
+  los archivos que se leen antes de escribir** — por eso ahora está en AGENTS.md.
+
+### Lo que quedó SIN hacer
+
+- **El verificador de palabras, que es la parte (b) del pendiente y la DECIDE Martín.**
+  `scripts/verificar-corte-anuncio.mjs` está en `worker/Dockerfile:48` y no lo invoca nadie, así
+  que `palabrasPerdidas` —que el route ya acepta, `app/api/montaje/worker/route.ts:43`— nunca
+  llega. Enchufarlo pide dos cosas que no son código: qué hace la pantalla con un veredicto
+  rojo (¿no entrega el video? ¿lo entrega con un aviso?) y gastar `GROQ_API_KEY` en cada
+  montaje. **Hasta entonces, «Se fue el silencio, no una palabra»
+  (`app/video-generator/PasoMontaje.tsx:154`) sigue siendo una afirmación sin medición** — el
+  tope por toma saca la causa que se conocía, no la promesa.
+- **`segundosAntes` es nominal.** Es la suma de lo que se le PIDIÓ a Flow, no lo que midió el
+  material que volvió (`worker/duraciones.mjs`, `lib/montaje/pipeline.ts`). La API lo rotula
+  `segundos_antes_estimados`; la pantalla dice «De X a Y» sin rótulo.
+- **El worker del contenedor sigue sin desplegarse** (§14): todo esto se midió eslabón por
+  eslabón —la cuenta, el bash, el script—, nunca contra un contenedor corriendo.
+- **La cuenta está en dos lugares.** `worker/duraciones.mjs` y `lib/montaje/pipeline.ts:133`
+  hacen lo mismo con el mismo default (10,005). No se comparte porque el worker no puede
+  importar TypeScript: se copia suelto en la imagen. Si aparece un tercer consumidor, el
+  default deja de ser un número repetido y pasa a ser un dato del pedido.
+
+---
+
+## §16 — Reordenar tomas: el array estaba ordenado y NO era reordenable (6/11/2026)
+
+`app/video-generator/editor-cortes.ts` · `app/video-generator/EditorAnuncio.tsx` ·
+`app/video-generator/plan-montaje.ts` · `tests/editor-cortes.test.ts`
+
+### ⚠️ El diagnóstico obvio era el equivocado, y lo afirmaba el pendiente
+
+**Lo que decía:** «mover un tramo de lugar no está. **El plan lo soporta (es un array
+ordenado)**, lo que falta es el arrastre». La primera mitad es cierta y la segunda es falsa:
+el array está ordenado y **no es libremente reordenable**.
+
+`porQueNoSirveElPlan` (`plan-montaje.ts`) tiene un control que nadie había leído como una
+restricción de ORDEN:
+
+```js
+for (const [toma, tramos] of porToma) {          // porToma se llena EN EL ORDEN DEL ARRAY
+  for (let i = 1; i < tramos.length; i++) {
+    if (tramos[i].ini < tramos[i - 1].fin) return `En la toma ${toma} hay dos tramos que se pisan.`;
+```
+
+O sea: **los tramos de una misma toma tienen que aparecer en el array en orden
+cronológico.** Cruzar los dos pedazos de una toma partida —que es el caso CENTRAL de este
+editor: partir una toma y sacarle un bache del medio— produce un plan que el server rechaza.
+Y el mensaje **miente**: dice que se pisan cuando no se pisan, están al revés.
+
+Un `splice` ingenuo lo produce sin esfuerzo, y el rojo habría aparecido en la persona, al
+apretar «Montar», sobre un anuncio que ya había terminado de acomodar.
+
+**La cura, en la forma que el módulo ya tenía escrita** («ACOTA, no rechaza»): `moverTramo`
+hace el movimiento, comprueba el cruce, y si cruza devuelve **el mismo plan** —la identidad
+es la señal, y la pantalla la lee con `===`—. El tramo se frena contra su hermano y se ve,
+igual que un borde se frena contra el vecino. Reordenar tramos de tomas DISTINTAS no tiene
+tope: es para lo que existe.
+
+**La regla que queda:** antes de reordenar una colección, buscar quién la VALIDA y leer su
+validador como un contrato sobre el orden, no sobre los elementos. Un array cuyos índices se
+pueden permutar sin consecuencia y uno cuyo orden codifica una invariante se ven exactamente
+igual en el tipo —acá los dos son `Tramo[]`— y el segundo no lo dice en ningún lado más que
+en el cuerpo de una función de otro archivo.
+
+### El arrastre que oscila (y por qué la decisión salió del manejador)
+
+Mover al tramo que está **debajo del dedo** tiembla: si el tramo agarrado es más angosto que
+el que desplaza, después del salto el dedo queda otra vez sobre el vecino y el
+`pointermove` siguiente lo manda de vuelta — un bloque vibrando, sin un error en ningún
+log. Se mueve **un paso por vez y contra la MITAD del vecino**: dado el paso, el dedo quedó
+más allá de la mitad del tramo que ahora tiene detrás, y el paso de vuelta pide menos que
+eso. Medido con medio segundo al lado de ocho, que es el caso que tiembla.
+
+Y por eso esa aritmética vive en `destinoDeMover` (`editor-cortes.ts`) y no en el
+`pointermove`: adentro de un manejador de puntero sólo se prueba arrastrando el mouse, que
+es exactamente lo que ese módulo existe para evitar.
+
+### Lo que YA estaba y el pendiente afirmaba que no
+
+- **`Ctrl+Z`**: la pila con tope de 30, el apilado una vez por gesto y el botón con su
+  `title` estaban desde antes. El reorden se enchufó a esa disciplina en vez de traer una
+  propia: `apilar()` en el `pointerdown` del bloque, y el `soltar` compartido saca la entrada
+  muda con `mismoPlan` cuando el gesto volvió al mismo lugar (un clic que sólo selecciona
+  también apila, y también se limpia).
+- **La música**: hecha en código, **bloqueada por licencia** (Epidemic Sound Connect, lo
+  firma Martín). No se tocó.
+
+### Lo que quedó SIN hacer
+
+- **El gesto NO se arrastró en un navegador.** Es la regla de la casa («un GESTO no se
+  verifica leyendo el handler») y no se cumplió: el editor se abre sobre el plan de un
+  montaje real, que hoy sale del cron del worker. Lo ejecutado son las operaciones puras y la
+  secuencia del gesto simulada con ellas (`tests/editor-cortes.test.ts`); el cableado de la
+  pantalla está fijado por fuente, que no es lo mismo.
+- **No hay reorden por TECLADO sobre el bloque enfocado.** Los dos botones «← Mover» /
+  «Mover →» son el camino accesible, y existen porque un arrastre no se anuncia solo; un
+  bloque con `tabIndex` y flechas sería mejor.
+- **Nada avisa POR QUÉ un tramo no pasa a su hermano.** Se frena y se ve, que es la regla del
+  módulo, pero alguien que insiste no tiene cómo saber que el tope es el otro pedazo de la
+  misma toma.
+- ⚠️ **Con la pila de deshacer LLENA, un clic que sólo selecciona tira la entrada más vieja.**
+  Es de la mecánica que ya estaba, no del reorden: `apilar()` corre en el `pointerdown` y hace
+  `[...pila.slice(-29), ahora]`, así que con 30 entradas la primera se cae; el `soltar` saca la
+  del final con `mismoPlan` y la vieja ya no vuelve. Pasaba igual tocando un borde, y ahora
+  también tocando un bloque — un camino más al mismo agujero. Queda en 29 de 30, así que no
+  duele, pero es un tope que recorta EN SILENCIO. El arreglo limpio no es mover el tope: es
+  apilar en el PRIMER cambio real del gesto y no al agarrarlo (guardar el plan de antes en un
+  ref y empujarlo cuando el plan de verdad cambia), y eso toca el camino del borde, así que
+  pide su propia vuelta de roturas. Vive en `app/video-generator/EditorAnuncio.tsx`
+  (`apilar`, y el `soltar` del efecto del arrastre).
+## Un reel NO son 60 segundos de video generado, y costearlo así da 100 veces de más (7/11/2026)
+
+**El síntoma.** Martín preguntó qué cobrar por planes de 2, 4 y 7 posteos de video por semana. Costeé un reel
+de 60 s como 60 segundos de video generado —8 clips de 8 s— y me dio **US$4,80 a US$27,50 por pieza**, o sea
+**US$144 a US$600 al mes** en la cadencia diaria. Con eso le dije que los planes tenían que salir **US$480** y
+que el video «no era un plan de MaKo, era otro producto». Él contestó «me parece muy caro» y me mandó a mirar
+el curso de Avatar Hype, que está **en nuestro propio portal**.
+
+**Lo que dice la clase de producción, textual** (`curso-creativos-ugc-realistas`, «UGC sin producto ·
+Producción»):
+
+> «hemos cogido **una captura de pantalla de un reel de Instagram**… una vez que tenéis ya la referencia en
+> imagen… ir a este **agente de prompts con el método 6C**, le cargáis la imagen y os devuelve el prompt lo más
+> similar posible a esa imagen de referencia… listo para copiar en **los modelos de generación de imagen**»
+
+**Generan IMÁGENES. El reel se arma editando, en CapCut.** El minuto de video generado no existe en su método.
+
+**Medido en las 9.719 transcripciones del portal**, qué nombra el ecosistema entero:
+
+| | menciones |
+|---|---:|
+| Midjourney | 1.788 |
+| CapCut | 1.483 |
+| Canva | 1.177 |
+| Sora | 649 |
+| Kling | 546 |
+| Veo 3 | **216** |
+
+Las tres primeras son generar imágenes y **editar**. Generar video con Veo es lo que menos se enseña.
+
+**El costo real, con su método:** 3 a 6 imágenes por pieza. **US$0,05 a US$2 por reel**, contra los US$4,80 a
+27,50 que yo había calculado. A 30 piezas por mes son **US$2 a 15**, no US$144 a 600. **Cabe de sobra en un
+plan de US$47**, y no hace falta inventar uno de US$480.
+
+**LA REGLA QUE QUEDA, y es más general que el video:** antes de costear una pieza hay que medir **cuánto de
+ella sale del modelo caro**. Yo asumí que «video de 60 segundos» = «60 segundos de modelo de video», y esa sola
+suposición movió el precio de un plan de US$47 a US$480. **El costo de un producto no se estima por su
+duración: se estima por sus llamadas.**
+
+**Y dónde estaba la respuesta:** en nuestro propio portal de conocimientos, que tiene 130 cursos y 9.719
+transcripciones. **Antes de estimar algo que alguien ya hace, se busca ahí.** Lo mismo para precios,
+herramientas y método.
+
+### Los precios verificados, por si sirven igual (7/11/2026)
+
+Imagen, por imagen: **FLUX.2 klein US$0,001** (Replicate) · GPT Image 2 low US$0,006 (fal) · FLUX.2 dev
+US$0,012 · Imagen 4 Fast US$0,02 (Vertex) · GPT Image 2 medium US$0,047 (Replicate) · Nano Banana 2 US$0,067.
+
+Video, por segundo: Veo 3.1 Lite US$0,03 · Veo 3.1 Fast US$0,10 · Kling v3 estándar US$0,084 (fal, el más
+barato para Kling) · Wan 3.0 US$0,10 · Veo 3.1 completo US$0,40 con audio.
+
+⚠️ **Muapi cobra por GENERACIÓN y los demás por SEGUNDO**, así que un clip de 4 s en Muapi cuesta lo mismo que
+uno de 8. Como las puestas de MaKo van de 4 a 10 s (`lib/puestas-data.ts`, `segundosClip`), lo correcto es
+**clips cortos por fal, clips de 8 o más por Muapi**: ~20% de ahorro sin cambiar nada de lo que ve el cliente.
+
+⚠️ **Y los endpoints se mueven:** Sora 2 cerró el 24/09/2026 y **los de Veo 3.1 en fal se apagan el 17/11/2026**.
+El proveedor tiene que ser **una fila de un catálogo**, no una ruta cableada, o en un mes hay clientes viendo
+errores. Ver [open-generative-ai-investigacion-7-11.md](open-generative-ai-investigacion-7-11.md).
+
+**Vive en:** el portal (`app/conocimientos/curso-creativos-ugc-realistas.ts`, clases «ApiMart», «Catálogo de
+modelos IA» y las cuatro de UGC) · `public/cono-tx/` · `lib/curso-avatar.ts` (el método 6C ya está acá) ·
+`lib/puestas-data.ts`.
+
+## ApiMart: las tres trampas de su API, y una te cobra dos veces (7/11/2026)
+
+Se eligió ApiMart como proveedor de generación (US$20 cargados el 7/11, 319 modelos, 51 de video). Lo que sigue
+es lo que **sólo se descubre llamándola** — nada de esto está en su documentación.
+
+### 1. ⚠️ La que cuesta plata: el `task_id` viene en DOS formas distintas según el modelo
+
+`POST /v1/videos/generations` devuelve, según el modelo:
+
+```
+{ "data": { "task_id": "task_…" } }        ← unos
+{ "data": [ { "task_id": "task_…" } ] }    ← otros (MiniMax-Hailuo-2.3-Fast)
+```
+
+Un extractor que sólo lee `data.task_id` devuelve `undefined` con el segundo y **el código concluye que la
+llamada falló**. No falló: **arrancó y se está cobrando.** El reintento genera otra vez, y se paga dos veces por
+una sola pieza. Esto pasó en esta misma sesión: la tarea se dio por no arrancada y estaba corriendo.
+
+**La regla:** cuando una respuesta trae un id de trabajo, se lee tolerando las dos formas
+(`data?.task_id ?? data?.[0]?.task_id`) y, si igual no aparece, **el fallo NO se trata como «no arrancó»**: se
+registra como *estado desconocido* y **no se reintenta solo**. Con un proveedor que cobra por generación, «no sé
+si arrancó» y «no arrancó» son cosas distintas y la diferencia es dinero. Esto es la otra cara del índice único
+de `mako_tokens_movimientos` (migración 0412): el ledger impide acreditar dos veces, pero **no impide generar
+dos veces** — eso se impide acá.
+
+### 2. `/v1/videos/generations` NO acepta `data:` URLs
+
+Rechaza con 400: *«Only http/https URLs or asset:// private asset URLs are supported»*. La ruta de imágenes sí
+las acepta, así que una prueba que anda en imágenes no prueba nada sobre video.
+
+**Lo que funciona, y es además el camino de producción:** URL **firmada** del bucket privado. El `archivero` es
+privado y `POST /storage/v1/object/sign/archivero/<ruta>` con el service role devuelve una URL https temporal
+que el proveedor acepta. No hay que exponer el bucket ni subir la foto a ningún lado.
+
+### 3. El catálogo NO trae precios, y los parámetros cambian por modelo
+
+`GET /v1/models` devuelve 319 modelos con la forma `{id, object, created, owned_by, supported_endpoint_types}`
+— **sin precio, sin categoría y sin parámetros**. El costo real sólo aparece en `GET /v1/tasks/{id}` **después**
+de que la tarea termina, en `data.cost`. O sea: **el precio de un modelo nuevo se averigua gastando.**
+
+Y el nombre del parámetro de la imagen de entrada cambia: `image_urls: [...]` en seedance y wan,
+`first_frame_image: "..."` en MiniMax (que además contesta *«only supports image-to-video; first_frame_image is
+required»*, que es el único lugar donde está documentado).
+
+**Consecuencia para el medidor:** el costo no se puede saber antes de llamar. El chequeo pre-vuelo
+(`alcanzaElSaldo`) tiene que trabajar con una **estimación por segundo** y el ledger ajustar con el `cost` real
+al cerrar. Por eso `mtDeUsd` redondea **hacia arriba**: la estimación tiene que ir siempre a favor del negocio,
+porque la diferencia se descubre tarde.
+
+### Lo bueno: un fallo no se cobra
+
+`wan2.6-i2v-flash` falló y quedó en `cost: 0`. Verificado, no supuesto.
+
+**Vive en:** la integración todavía NO está en `lib/` — esto se midió con scripts sueltos. Cuando se escriba el
+cliente, las tres trampas van resueltas ahí. Precios medidos en `docs/hallazgos-ai-avatar.md`.
+
+## Validar el MÉTODO con el modelo caro: US$ 13 para un clip de US$ 1,40 (7/11/2026)
+
+**Cómo empezó.** Martín pidió un clip: Mauricio le da la mano a Heisenberg y dice una frase. Ocho
+generaciones de video después, su mensaje fue: *«ya te vas gastando casi todos los créditos… algo
+estás haciendo muy mal»*. Y el golpe: *«cuando te pido que sigas el método de AvatarHype, **que lo
+pensaron para ahorrar**, ahora de pronto me gastaste todos los créditos»*.
+
+Medido contra la cuenta real: **US$ 12,96 gastados, US$ 1,45 sirvieron. El 89% se tiró.**
+
+### La causa, y NO era la que yo creía
+
+Yo creía que el problema era elegir mal el modelo. El clip que Martín rechazó salió de `wan2.5` y
+se veía de plástico, así que subí de gama: `seedance-2.5` (**US$ 5,37** por 10 s) y `kling-v4`
+(**US$ 1,40**). Pero el clip que finalmente sirvió salió de kling-v4 **por US$ 1,40**, con el mismo
+modelo que ya había fallado antes. Lo que cambió fue el PROMPT, no el modelo.
+
+**La pregunta que yo estaba contestando —¿se mueven los labios?, ¿aguanta la cara?, ¿se rompe el
+texto?— NO DEPENDE DEL MODELO.** Hailuo contesta las tres por **US$ 0,15**: 36 veces más barato que
+seedance-2.5. Validé con el caro un método que se valida con el barato.
+
+**LA REGLA: el método se prueba con el modelo más barato del catálogo. El caro se usa UNA vez, al
+final, cuando el método ya está probado.** Y su corolario: **disparar dos modelos «para elegir» es
+pagar dos veces una decisión que una medición barata resuelve.** Lo hice cinco veces.
+
+### Precios medidos el 7/11 (el catálogo NO los trae: sólo aparecen en `/v1/tasks/{id}` al terminar)
+
+| modelo | 10 s | lo que devolvió con una entrada 4:5 |
+|---|---|---|
+| MiniMax-Hailuo-2.3-Fast | **0,149** | 4:5 (768×960). Fotográfico, pero NO abrió la boca |
+| seedance-2.0-mini | 0,234 | 3:4. **Rompió el texto del encuadre** |
+| wan2.5-preview | 0,664 | 4:5 (858×1072). Habla y sincroniza, pero cara de plástico |
+| kling-v3-omni | 0,896 | 16:9 |
+| **kling-v4** | **1,400** | **4:5 (852×1064). El que sirvió** |
+| skyreels-v4-std | 1,400 | cobró con la URL de entrada ROTA |
+| seedance-2.5 | **5,368** | 16:9 (1920×1080). Calidad altísima, encuadre equivocado |
+
+### ⚠️ Y la corrección a `lib/apimart-reglas.ts`, que tenía los formatos al revés
+
+La tabla declara `seedance-2.0-mini: '9:16'` y `MiniMax-Hailuo-2.3-Fast: '3:4'`. **Medido con una
+entrada 4:5, Hailuo devolvió 4:5 y seedance devolvió 3:4.** O sea que `formato` no es una propiedad
+fija del modelo: **la proporción la pone la imagen de entrada, y cada modelo la respeta o la
+ignora**. Lo dice el propio error de wan, textual:
+
+> `image-to-video does not support aspect_ratio; ratio is determined by input image`
+
+Pedir `aspect_ratio` o `size` en image-to-video **hace fallar la tarea entera**.
+
+### Las trampas de la API que costaron plata
+
+**1. ApiMart acepta CUALQUIER parámetro inventado, devuelve 200 y arranca la tarea.** Probé siete
+nombres distintos para una pista de audio (`audio_url`, `input_audio`, `ref_audio`…): los siete
+devolvieron `task_id`. No valida nombres, los ignora. **Conclusión doble: la API no se puede
+descubrir sondeando, y sondear parámetros CUESTA.** De ahí salieron US$ 1,40 tirados en una tarea de
+`skyreels` con una URL de imagen rota — que cobró igual. Consultar `/v1/tasks/{id}` es gratis;
+**hacer POST a `/v1/videos/generations` NO**.
+
+**2. `audio` es un BOOLEANO, no una pista.** El error lo dice: `cannot unmarshal string into Go
+struct field Alias.audio of type bool`. `audio: true` significa «generá también el audio», no «usá
+este audio». **No hay en el catálogo ningún modelo de lipsync que acepte una pista de audio propia**
+(319 modelos revisados uno por uno, no por grep de palabras que yo supusiera).
+
+**3. veo3.1 rechaza por contenido** (`did not pass content safety review`) cuando la referencia tiene
+una cara de actor reconocible. Es política, no error: no se reintenta.
+
+### El texto del cuadro: generar desde la PLANCHA y pegarlo después
+
+`seedance` escribió **«CREATIVE STRATEGER»** y **«GROWTHALEX»** donde la referencia decía «CREATIVE
+STRATEGIST» y «GROWITHALEX». Es la misma falla que ya estaba anotada para imagen, y pasa igual en
+video.
+
+**La solución es estructural, no de prompt: se genera desde la imagen SIN letras («la plancha») y el
+texto se superpone después con ffmpeg. Lo que no está en el cuadro, ningún modelo lo puede romper.**
+
+Y la capa de texto **no se reconstruye: se extrae.** Teniendo la imagen con letras y la plancha sin
+letras, la diferencia entre las dos ES el texto, con la tipografía ORIGINAL exacta y su antialias.
+Sale con una resta pixel a pixel (umbral 26 para el ruido de JPEG, alfa proporcional a la
+diferencia). Ventaja sobre redibujarla con webfonts: no hay que adivinar la familia comercial y no
+puede fallar en silencio porque una fuente no cargó. **Verificación obligatoria: plancha + capa
+tiene que reconstruir la original** (dio 7,5 de diferencia media sobre 255).
+
+⚠️ Sólo sirve si las dos imágenes están ALINEADAS. Se mide ANTES: la diferencia media en la zona
+SIN texto tiene que ser ruido de compresión (dio 4,3). Si la gente también cambió, la resta marca
+personas y no letras.
+
+### Lo que el curso del repo ya decía y yo no leí hasta el final
+
+`lib/curso-avatar.ts` — «Avatares de IA que se parecen», 23 lecciones hechas con los anuncios reales
+de Mauricio — tenía escritas las dos causas de que el video se viera mal:
+
+- **Lección 3:** *«El texto describe la ESCENA y la CÁMARA. La foto define la CARA.»* Mis prompts
+  decían «dark hair greying at the temples, glasses, black t-shirt». Esa descripción **compite con
+  la foto y el modelo prefiere el texto**: por eso la cara salía alisada.
+- **Lección 6:** *«si la persona es de sonrisa fácil, la foto de referencia tiene que ser
+  sonriendo»*, con la línea textual para sostenerla mientras habla. Yo animaba desde una cara en
+  reposo, que es exactamente lo que el curso dice que entrega «una versión neutra y estirada».
+- **Lección 19:** *«Todo lo que sale mal por el input se puede detectar ANTES de gastar un
+  crédito… ¿Está sonriendo? Preguntarle al usuario si su cara funciona mejor sonriendo, **que es un
+  dato que él sabe y nosotros no**.»* Martín me dio ese dato dos veces mandándome la foto sonriendo.
+
+**LA REGLA: antes de la PRIMERA generación de un área, se lee el curso de esa área.** Está en el
+repo, en `lib/curso-avatar.ts` y en `app/conocimientos/`. Ocho generaciones antes de abrirlo es el
+error más caro del día, y no fue de criterio: fue de orden.
+
+### ElevenLabs: el clon existe, está listado, y el plan no lo deja hablar
+
+`/v1/voices` devuelve **7 clones de Mauricio** con sus nombres y su material. Al pedir audio,
+HTTP 401: *«Instantly cloned voices are not available on your current plan»*. El plan lo dice en
+claro: `can_use_instant_voice_cloning: false` (tier `payg`).
+
+**El listado no miente, pero tampoco avisa: el único momento en que se entera es al generar.** Antes
+de prometerle a alguien la voz de su clon, se consulta `/v1/user/subscription` y se mira esa bandera.
+
+⚠️ **Y hay un segundo filo independiente, latente en el repo:** `lib/elevenlabs.ts` usa
+`FORMATO_STS = 'mp3_44100_192'` en `decirConVoz`, y ese formato **exige el tier Creator**. Debajo de
+eso la API contesta 403 hablando del FORMATO, no de la voz — así que el día que le falle a un
+cliente con BYOK, el problema se va a buscar en el lugar equivocado. La Voz de MaKo NO está
+afectada: usa `mp3_44100_128` y una voz profesional (probado, anda).
+
+**Lo que SÍ se rescata: las muestras de un clon se pueden BAJAR aunque el clon no pueda hablar.**
+`GET /v1/voices/{id}` con `show_legacy=true` lista `samples[]`, y
+`/v1/voices/{id}/samples/{sid}/audio` devuelve el audio original. Así se recuperaron los 7 audios
+reales de Mauricio (11 minutos de celular, una junta, los anuncios). El material está; falta dónde
+clonarlo.
+
+### Lo que quedó SIN hacer
+
+- **La voz propia.** `ref-voicestudio` y `ref-localai-studio` están clonados en `C:/dev/` (el segundo
+  se describe como «tu propio HeyGen + ElevenLabs, 100% en tu PC»). La máquina tiene una RTX 4060 de
+  **8 GB** de VRAM; LocalAI Studio pide 16 GB, pero clonar voz entra en 8. Sin probar todavía.
+- **El clip definitivo con la voz de Mauricio.** El camino que conserva la sincronía es
+  *speech-to-speech* sobre el audio ya generado, porque preserva el tiempo y los labios siguen
+  coincidiendo (lección 11 del curso).
+- **Corregir `formato` en `lib/apimart-reglas.ts`**, que hoy afirma lo contrario de lo medido.

@@ -4,7 +4,6 @@
  */
 import { animationStrings } from './animation/strings'
 import { audioStrings } from './audio/strings'
-import { collab } from './collab/strings'
 import { print } from './dialogs/print/strings'
 import { videoStrings } from './dialogs/video/strings'
 
@@ -1308,7 +1307,9 @@ export const t = {
     loading: 'Cargando plantillas',
     loadingMore: 'Cargando más…',
     noMatch: (q: string) => `Ninguna plantilla coincide con “${q}”.`,
-    empty: 'Aún no hay plantillas.',
+    // Desde el 6/11/2026 el panel está vacío a propósito (las 10 de Doory se borraron): las plantillas de MaKo se
+    // eligen al crear el diseño, en «Nuevo diseño» (app/image-editor/plantillas-crear.ts).
+    empty: 'Las plantillas están en «Nuevo diseño».',
     use: (title: string) => `Usar plantilla ${title}`,
     /** MaKo: next to a template suggested for the business (its reason goes in the tooltip). */
     suggested: 'Sugerido',
@@ -1501,7 +1502,6 @@ export const t = {
       modeOff: 'Modo comentario desactivado',
     },
   },
-  collab,
   print,
   video: videoStrings,
   animation: animationStrings,

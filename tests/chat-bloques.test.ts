@@ -21,7 +21,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
@@ -38,7 +38,9 @@ const dibujar = async (b: Bloque, onResponder?: (t: string) => void) => {
   return renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder }));
 };
 
-const G5: Bloque = { t: 'creado', titulo: 'Promo', estado: 'Nuevo', miniatura: '/cv/plantillas/x.webp', ancho: 1080, alto: 1350, abrir: { titulo: 'Abrir en Image Editor', href: '/image-editor/abc' } };
+// La miniatura es la que guarda el editor en Storage: desde el 6/11/2026 ninguna plantilla trae una (las 10 de Doory,
+// las únicas con un WebP en `/cv/plantillas/`, se borraron).
+const G5: Bloque = { t: 'creado', titulo: 'Promo', estado: 'Nuevo', miniatura: 'https://abc.supabase.co/storage/v1/object/public/image-editor/3/promo.webp', ancho: 1080, alto: 1350, abrir: { titulo: 'Abrir en Image Editor', href: '/image-editor/abc' } };
 
 test('1. el saneo: sólo rutas de la app; lo que no calza no se dibuja', () => {
   assert.deepEqual(sanearBloque(G5), G5, 'un G5 bien armado pasa entero');
@@ -61,12 +63,13 @@ test('1. el saneo: sólo rutas de la app; lo que no calza no se dibuja', () => {
   assert.equal(proporcion({ ancho: 1080, alto: 5000 }), '9 / 16', 'una tira larguísima no ocupa toda la pantalla');
 });
 
-test('2. confirmar crear_diseno_imagen: la miniatura llega al hilo sin recargar, y vuelve al recargar', async () => {
+test('2. confirmar crear_diseno_imagen: lo creado llega al hilo sin recargar, y vuelve al recargar', async () => {
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_bloques-tarjeta-hijo.ts')], {
     cwd: RAIZ, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
   });
   const r = JSON.parse(salida) as {
-    enBlanco: ResultadoTarjeta; dePlantilla: ResultadoTarjeta; slug: string; disenos: string[]; red: string[];
+    enBlanco: ResultadoTarjeta; dePlantilla: ResultadoTarjeta; slug: string; medida: [number, number];
+    disenos: string[]; red: string[];
     guardados: { session_id: number; role: string; content: string; bloques: unknown }[];
   };
   assert.deepEqual(r.red, [], 'nada sale a la red');
@@ -80,9 +83,14 @@ test('2. confirmar crear_diseno_imagen: la miniatura llega al hilo sin recargar,
   if (blanco?.t !== 'creado') return;
   assert.equal(blanco.abrir.href, `/image-editor/${r.disenos[0]}`, 'abre ESE diseño (la ruta sola: el `?ws=` lo pone el Link)');
   assert.deepEqual([blanco.ancho, blanco.alto], [1080, 1350], 'sin plantilla, el marco tiene la forma del diseño');
+  // De una plantilla de MaKo, el marco con SU forma y sin miniatura: las plantillas reales se generan por código y no
+  // tienen un WebP (6/11/2026, al borrar las 10 de Doory, que eran las únicas con `/cv/plantillas/<slug>.webp`). El
+  // bloque dibuja entonces «ancho × alto» (app/_chat/BloqueHilo.tsx, `Creado`), no un ícono roto.
   const [plantilla] = r.dePlantilla.bloques ?? [];
-  assert.ok(plantilla?.t === 'creado' && plantilla.miniatura === `/cv/plantillas/${r.slug}.webp`, 'de una plantilla, su miniatura');
-  assert.ok(existsSync(join(RAIZ, 'public', 'cv', 'plantillas', `${r.slug}.webp`)), 'y la miniatura existe');
+  assert.ok(plantilla?.t === 'creado', 'de una plantilla, su bloque');
+  if (plantilla?.t !== 'creado') return;
+  assert.equal(plantilla.miniatura, undefined, 'una plantilla real no tiene WebP: sin miniatura, va el marco');
+  assert.deepEqual([plantilla.ancho, plantilla.alto], r.medida, 'el marco tiene la forma de la plantilla');
 
   // Sin recargar: la pantalla suma el bloque al hilo, y la pieza lo dibuja con la miniatura y el botón.
   const items = itemsTrasTarjeta(r.dePlantilla);
@@ -90,7 +98,8 @@ test('2. confirmar crear_diseno_imagen: la miniatura llega al hilo sin recargar,
   assert.ok(suyo && suyo.k === 'bloque', 'el bloque entra al hilo');
   if (!suyo || suyo.k !== 'bloque') return;
   const html = await dibujar(suyo.b);
-  assert.match(html, new RegExp(`<img src="/cv/plantillas/${r.slug}\\.webp"`), 'la miniatura, a la vista');
+  assert.match(html, new RegExp(`${r.medida[0]} × ${r.medida[1]}`), 'sin miniatura, el marco con la medida a la vista');
+  assert.doesNotMatch(html, /<img src="\/cv\/plantillas\//, 'volvió a pedir el WebP de una plantilla borrada');
   assert.match(html, new RegExp(`href="/image-editor/${r.disenos[1]}[^"]*"[^>]*>Abrir en Image Editor<`), '«Abrir en Image Editor»');
 
   // Guardado con el «Hecho: …»: al recargar, vuelve debajo del mensaje.

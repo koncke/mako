@@ -27,7 +27,8 @@ import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
 import { conVariedad } from './variedad';
-import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
+import { sinRepetidos } from './duplicados';
+import { ALIAS_LARGO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
 export type Carrusel = {
@@ -170,11 +171,11 @@ export const imagenesDe = (c: Pick<Carrusel, 'laminasImagenes' | 'miniatura'>): 
 // Filtros, orden y búsqueda
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Las opciones (orden, outlier, período, largo, vista) viven en ./opciones.ts: sin dependencias, para que la API de MaKo
+// Las opciones (orden, outlier, período, vista) y el alias `largo` de los links viejos viven en ./opciones.ts: sin dependencias, para que la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts) las importe sin arrastrar Spy. Acá se re-exportan.
 export {
-  LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL,
-  type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel,
+  ALIAS_LARGO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL,
+  type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel,
 } from './opciones';
 export { rotuloCta, type CtaCarrusel };
 
@@ -187,7 +188,6 @@ export type FiltrosCarrusel = {
   origen: OrigenFiltro;
   outlierMin: number;
   periodo: PeriodoCarrusel;
-  largo: LargoCarrusel;
   formato: Formato | '';
   /** Con las imágenes sueltas (que se sabe que no son carrusel). Por defecto, no. */
   conImagenes: boolean;
@@ -204,17 +204,27 @@ export type FiltrosCarrusel = {
   /** Me gusta + comentarios, entre un mínimo y un máximo. */
   interMin?: number;
   interMax?: number;
-  /** Cuántas láminas, entre un mínimo y un máximo (los que no dicen cuántas tienen no se descartan: sin dato no es «no»). */
+  /**
+   * Cuántas láminas, entre un mínimo y un máximo (0 = sin tope). Los que no dicen cuántas tienen NO se descartan: sin dato no
+   * es «no» (docs/hallazgos-carruseles.md). Es el ÚNICO filtro de largo: el `?largo=cortos` de un link viejo se traduce acá al
+   * entrar (`filtrosDeQuery` con `ALIAS_LARGO_CARRUSEL`), no es un segundo filtro con su propia lógica.
+   */
   lamMin?: number;
   lamMax?: number;
   /** Los tipos que no se quieren ver (los chips de «Ocultar tipos»). */
   ocultar?: Formato[];
+  /**
+   * Sólo en «Anuncios» (6/11/2026): dejar afuera los que no dicen si son video. De lo guardado antes del 6/11 no se sabe
+   * (ver ./anuncios.ts), y la pantalla no puede decidir sola: mostrarlos todos esconde videos entre las imágenes, y
+   * esconderlos todos tira 298 anuncios buenos por falta de un dato. Lo elige quien mira; por defecto se muestran.
+   */
+  soloConfirmados?: boolean;
   // ⛔ Sin «Tamaño de la tarjeta» (6/11/2026; Martín: «eso no lo quiero, solo grande»): un link viejo con `tam=chico` abre grande.
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
-  q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
-  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [],
+  q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
+  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [], soloConfirmados: false,
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -240,13 +250,6 @@ export function coincide(c: Carrusel, q: string): boolean {
 }
 
 export const interaccion = (c: Carrusel): number | null => (c.megusta == null && c.comentarios == null ? null : (c.megusta ?? 0) + (c.comentarios ?? 0));
-
-const enLargo = (c: Carrusel, largo: LargoCarrusel): boolean => {
-  if (largo === 'todos') return true;
-  if (c.laminas == null) return false;
-  return largo === 'cortos' ? c.laminas <= 4 : largo === 'medios' ? c.laminas >= 5 && c.laminas <= 7 : c.laminas >= 8;
-};
-
 
 /**
  * Los niveles del múltiplo, con su color (la leyenda del modal «Filtros» y la etiqueta de la tarjeta). Cinco, como los de la
@@ -323,6 +326,9 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (f.vista === 'guardados' && !guardados.has(c.id)) return false;
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
     if (!anuncios && !f.conImagenes && c.medio === 'imagen') return false;
+    // En «Anuncios», lo que no dice si es video se muestra salvo que se pida lo contrario (./anuncios.ts: de lo guardado
+    // antes del 6/11/2026 no se sabe, y «no sé» no es «es video»).
+    if (anuncios && f.soloConfirmados && c.medio == null) return false;
     if (creadores.size && !creadores.has(c.competidorId)) return false;
     if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
@@ -338,13 +344,17 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (f.ocultar?.length && c.formato && f.ocultar.includes(c.formato)) return false;
     if (f.periodo !== 'todo' && !enRango(c.publicada, Number(f.periodo), ahora)) return false;
     if (f.formato && c.formato !== f.formato) return false;
-    if (!enLargo(c, f.largo)) return false;
     return coincide(c, f.q);
   });
   // Un anuncio no tiene outlier: «Mayor outlier» es, para ellos, el que más días lleva al aire.
   const ordenados = ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
-  // Que un creador no llene la pantalla (./variedad.ts), salvo que se haya pedido ver a uno: por cuenta o por @.
-  return porCuenta(f) ? ordenados : conVariedad(ordenados, (c) => c.competidorId);
+  // Se pidió ver una cuenta (por la lista o por @): va entera, sin repartir ni juntar contenido repetido.
+  if (porCuenta(f)) return ordenados;
+  // Dos partes del mismo contenido no ocupan dos lugares de la grilla (./duplicados.ts): queda la que mejor rindió. En
+  // «Guardados» no se junta nada: lo que el negocio guardó se ve entero. Y recién después se reparte por cuenta
+  // (./variedad.ts), para que el reparto sea sobre contenidos distintos.
+  const unaVezCadaContenido = f.vista === 'guardados' ? ordenados : sinRepetidos(ordenados);
+  return conVariedad(unaVezCadaContenido, (c) => c.competidorId);
 }
 
 /** ¿Se está mirando a una cuenta en particular? (ahí no se reparte: se pidió ver a ésa). */
@@ -403,6 +413,14 @@ export function formatosDe(todos: readonly Carrusel[]): Array<{ value: Formato; 
 
 export const rotuloFormato = (v: Formato | ''): string => (v ? FORMATOS.find((f) => f.value === v)?.label ?? '' : '');
 
+/** «2 a 4 láminas», «5 láminas o más», «hasta 7 láminas»: el tramo del deslizador, como se lee (0 = sin tope). */
+export function rotuloLaminas(min: number, max: number): string {
+  if (min && max) return min === max ? `${min} láminas` : `${min} a ${max} láminas`;
+  if (min) return `${min} láminas o más`;
+  if (max) return `hasta ${max} láminas`;
+  return '';
+}
+
 /** «4,2×»: el outlier como se lee. Es el de toda la app (lib/multiplo-rendimiento.ts). */
 export const rotuloOutlier = rotuloMultiplo;
 
@@ -437,13 +455,17 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
   const formato = formatoDe(get('formato') ?? '');
   // «Esta semana» era una pestaña; desde el 6/11/2026 es «Publicado: últimos 7 días». Un link viejo abre lo mismo.
   const semana = get('vista') === 'semana';
+  // El largo de un link viejo (`?largo=cortos`), traducido a láminas: un alias de ENTRADA, no un filtro (./opciones.ts).
+  // Lo que diga el deslizador gana; el alias sólo entra si el link no trae ni `lmin` ni `lmax`.
+  const lmin = Math.round(numero('lmin', 20));
+  const lmax = Math.round(numero('lmax', 20));
+  const alias = lmin || lmax ? undefined : ALIAS_LARGO_CARRUSEL.find((l) => l.value === get('largo'));
   return {
     q: (get('q') ?? '').slice(0, 120),
     creadores,
     origen: unoDe(get('origen'), ORIGENES_CARRUSEL, 'todos'),
     outlierMin: (PASOS_MULTIPLO as readonly number[]).includes(min) ? min : 0,
     periodo: semana ? '7' : unoDe(get('periodo'), PERIODOS_CARRUSEL, 'todo'),
-    largo: unoDe(get('largo'), LARGOS_CARRUSEL, 'todos'),
     formato,
     conImagenes: get('imagenes') === '1',
     orden: unoDe(get('orden'), ORDENES_CARRUSEL, 'outlier'),
@@ -452,9 +474,10 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     outlierMax: (PASOS_MULTIPLO as readonly number[]).includes(Number(get('omax'))) ? Number(get('omax')) : 0,
     interMin: numero('imin', 1e9),
     interMax: numero('imax', 1e9),
-    lamMin: Math.round(numero('lmin', 20)),
-    lamMax: Math.round(numero('lmax', 20)),
+    lamMin: alias?.lamMin ?? lmin,
+    lamMax: alias?.lamMax ?? lmax,
     ocultar,
+    soloConfirmados: get('conf') === '1',
   };
 }
 
@@ -469,9 +492,9 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.origen !== 'todos') q.set('origen', f.origen);
   if (f.outlierMin) q.set('min', String(f.outlierMin));
   if (f.periodo !== 'todo') q.set('periodo', f.periodo);
-  if (f.largo !== 'todos') q.set('largo', f.largo);
   if (f.formato) q.set('formato', f.formato);
   if (f.conImagenes) q.set('imagenes', '1');
+  if (f.soloConfirmados) q.set('conf', '1');
   if (f.orden !== 'outlier') q.set('orden', f.orden);
   if (f.vista !== 'todos') q.set('vista', f.vista);
   if (f.que !== 'carruseles') q.set('que', f.que);
@@ -559,7 +582,7 @@ export function nombreDeBusqueda(f: FiltrosCarrusel, creadores: ReadonlyArray<{ 
   if (f.vista === 'guardados') partes.push('Guardados');
   if (f.outlierMin) partes.push(`${f.outlierMin}×+`);
   if (f.formato) partes.push(rotuloFormato(f.formato));
-  if (f.largo !== 'todos') partes.push(LARGOS_CARRUSEL.find((l) => l.value === f.largo)?.label ?? '');
+  if (f.lamMin || f.lamMax) partes.push(rotuloLaminas(f.lamMin ?? 0, f.lamMax ?? 0));
   if (f.periodo !== 'todo') partes.push(PERIODOS_CARRUSEL.find((p) => p.value === f.periodo)?.label ?? '');
   return partes.filter(Boolean).join(' · ').slice(0, 60) || 'Mi búsqueda';
 }

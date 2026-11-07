@@ -29,6 +29,14 @@ export function contenidoNoConfiable(texto: string | null | undefined, etiqueta 
   const tag = etiqueta.replace(/[^a-z0-9_]/gi, '') || 'contenido_no_confiable';
   const limpio = (texto ?? '')
     .replace(/\{\{/g, '{ {').replace(/\}\}/g, '} }')          // desarma {{slots}} embebidos
-    .replace(new RegExp(`<\\/?${tag}>`, 'gi'), `[${tag}]`);    // no puede cerrar el bloque
+    .replace(cierreDe(tag), `[${tag}]`);                      // no puede cerrar (ni reabrir) el bloque
   return `<${tag}>\n${limpio}\n</${tag}>`;
 }
+
+/**
+ * La etiqueta en cualquiera de las formas que un parser —y el modelo que lee el prompt— acepta como la misma:
+ * `</tag>`, `</tag >`, `< / tag >`, `<tag\n>`, `<tag attr="x">`. El patrón de antes era `<\/?tag>` exacto, así que
+ * **un solo espacio antes del `>` cerraba el bloque** y lo que viniera después se leía como instrucción.
+ * `\b` evita comerse una etiqueta que sólo EMPIEZA igual (`<contenido_no_confiable_otro>` no es ésta).
+ */
+const cierreDe = (tag: string): RegExp => new RegExp(`<\\s*\\/?\\s*${tag}\\b[^>]*>`, 'gi');
