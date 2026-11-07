@@ -95,18 +95,23 @@ perder más tiempo que uno olvidado.
   - ⚠️ **Y lo que NO es un bug, para que nadie lo «arregle»:** 17 áreas comparten documento con otra (lo dice la cabecera: 77 filas, 60 documentos). Que `hallazgos-seguridad.md` aparezca en «Aislamiento» y en «Seguridad» es correcto. Al cosechar, el texto va en la fila del ÁREA que corresponde, no en la primera que enlace ese documento.
   - ⚠️ **La trampa en la que caí al verificarlo:** conté 81 filas tomando «de la cabecera de una tabla a la cabecera de la siguiente», y entre las dos hay prosa. Llegué a juntar 4 filas que estaban bien antes de darme cuenta (revertido sin pérdida: 124 trozos largos del original, 0 faltantes). **Una tabla se cuenta hasta la primera línea que no es fila, no hasta la tabla siguiente.**
   - Dónde: `docs/hallazgos.md:22-100 · scripts/unir-indice-hallazgos.mjs · tests/unir-indice-hallazgos.test.ts`
-- **Hook generator (backlog explicito de Martin)** · _mediano_
-  - Qué falta: «Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.
+- **Hook generator (backlog explicito de Martin)** · _mediano_ · ⏸️ **LO APARCÓ MARTÍN, no está trabado (confirmado el 7/11/2026)**
+  - Sigue sin existir: lo único que lo nombra son dos bitácoras de `app/admin/dev/` (ads-writer y onboarding), que son registros, no código.
+  - **No se toca por decisión suya, textual: «Lo dejo como backlog».** Está acá para que no se confunda con los que esperan algo: éste espera que él lo pida.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173`
-- **Generar anuncios «en cantidad»: 100 en menos de una hora** · _grande_
-  - Qué falta: Sin codigo en `lib/image-editor`, `lib/video-generator`, `app/image-generator`, `app/video-generator` ni `app/image-editor`. Solo figura en `docs/como-venden-otros.md:146`.
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:151-153 · docs/como-venden-otros.md:146`
+- **Generar anuncios «en cantidad»: 100 en menos de una hora** · _grande_ · ⬜ **CONFIRMADO SIN EMPEZAR, pero ya tiene cimiento (7/11/2026)**
+  - Verificado: ni «lote», ni «masivo», ni nada equivalente en los cinco lugares.
+  - **Lo que ahora SÍ existe y es su cimiento** (7/11): el medidor de MaKo Tokens con descuento atómico (`lib/mako-tokens-reglas.ts`, migración 0412, probado con 200 pedidos simultáneos sin regalar ni perder un token) y el cliente de generación por API (`lib/apimart.ts`, con su clave ya cargada en el workspace de plataforma). Cien piezas de un tirón son exactamente el caso que el medidor vino a cuidar.
+  - ⬜ **Lo que falta es lo de arriba:** la cola, el **tope de concurrencia contra el proveedor —que hoy NO existe—** y la pantalla. No se empieza en un turno.
+  - Dónde: `docs/como-venden-otros.md:146 · lib/mako-tokens-reglas.ts · lib/apimart.ts`
 - **VSL Generator completo (y VSL Analyst)** · _grande_
   - Qué falta: 5 entradas en 'cola' en la bitacora y `app/_components/nav.ts:474` con `comingSoon`. Prioridad BAJA segun la medicion.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:165-167 · app/admin/dev/vsl-generator/bitacora.ts:28-32 · app/_components/nav.ts:474`
-- **Conectar Google Drive para que MaKo lea los links que pasan los clientes** · _mediano_
-  - Qué falta: Solo existe bajar un link publico (`lib/api-mako/areas/ads.run.ts:896`) y los scopes de Google son solo Calendar y el vigia. Pedido repetido (26/10 y antes).
-  - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:169-170 · lib/google-calendar.ts:37,43 · docs/relevo/pedidos-perdidos-2810.md:151`
+- **Conectar Google Drive para que MaKo lea los links que pasan los clientes** · _mediano_ · ⛔ **TRABADO — lo decide Martín, no es una tarea (medido el 7/11/2026)**
+  - Confirmado que no hay nada: los únicos scopes son `calendar.readonly` y `calendar.events` (`lib/google-calendar.ts:37,43`); ni una mención de `auth/drive` en todo `lib/` ni `app/`.
+  - ⛔ **Lo que lo traba, y está escrito en el propio archivo (`lib/google-calendar.ts:49`):** «los refresh_token YA EMITIDOS conservan el scope con el que se otorgaron». Sumar Drive **no** le da acceso a quien ya conectó: **todos los que tienen su agenda conectada tendrían que reconectar**. Eso se le avisa a los clientes; no es cambiar una constante.
+  - ⛔ **Y la otra mitad es la consola de Google de Martín:** el scope va en la pantalla de consentimiento del proyecto de Google Cloud, y uno de Drive es de los que Google revisa antes de habilitar en producción. Desde el repo no se destraba.
+  - Dónde: `lib/google-calendar.ts:37,43,45-54 · lib/api-mako/areas/ads.run.ts:896`
 - **Historial de decisiones de Martin en «progreso», con aviso si cambia de opinion** · _mediano_
   - Qué falta: «Se manda como un prompt que el usuario cambio de opinion». Grep sin resultados en `app/admin/operaciones`, `lib/operaciones*` ni `lib/centro*`.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:159-160`
