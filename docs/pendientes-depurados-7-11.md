@@ -43,7 +43,14 @@ guardia). De las 232 seguramente sobren más.
 
 ## Un cliente lo está sufriendo (4)
 
-- **Las fotos de personas que no son el cliente quedan como un recuadro con su guía** · _Carruseles, grande_ · ⟳ estaba anotado 4 veces
+- **Las fotos de personas que no son el cliente quedan como un recuadro con su guía**
+  - ⚠️ **VERIFICADO el 7/11: el recuadro YA NO EXISTE.** Se sacó el 6/11, por un pedido textual de Martín mirando el
+    resultado. En `documentoDeReplica` (`lib/carruseles/replica.ts:363`) lo único que se dibuja donde el original tiene una
+    persona es la foto del cliente, y **no hay rama `else`**: sin foto del cliente la lámina queda en tipografía y color.
+    Los `Tu foto` que quedan en `replica-servidor.ts` son el NOMBRE del archivo, y uno ya sale de AI Avatar.
+  - **Lo que queda es una DECISIÓN, no trabajo:** hoy, donde el original muestra una persona, va la cara del cliente, así que
+    en un carrusel con dos personas distintas el cliente aparece dos veces. Generar una segunda persona con IA de imagen es
+    plata por lámina y lo decide Martín. Ver docs/hallazgos-carruseles.md. · _Carruseles, grande_ · ⟳ estaba anotado 4 veces
   - Cuando el ejemplo tiene una persona que no es el cliente, «Editar» deja un recuadro con una guía en vez de una imagen. El paso siguiente es generarla con la IA de imagen del avatar del cliente (Flow). Hecho = la lámina sale con una persona generada y no con un recuadro.
   - Dónde: `lib/carruseles/replica.ts y lib/carruseles/documento.ts (`documentoDeReplica`); docs/hallazgos-carruseles.md:218-219`
 - **El primer envío real del cobro a Código Inmobiliario: Pablo vence el 9/11 14:07 UTC** · _Cobros y planes, chico_ · ⟳ estaba anotado 3 veces
