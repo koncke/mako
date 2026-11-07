@@ -402,7 +402,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     soloPlataforma: true,
     paraQue: 'Generar video e imagen para los negocios que NO usan Google Flow. ⚠️ La paga MaKo y se mide en MaKo Tokens: esta clave es de la PLATAFORMA, no de un cliente.',
     campos: [
-      { env: 'APIMART_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-…', nota: 'Es la de api.apimart.ai. Se carga saldo por adelantado (US$20 = 200 créditos); sin saldo las generaciones fallan sin cobrar.' },
+      { env: 'APIMART_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-…', nota: 'Es la de api.apimart.ai. El saldo se carga por adelantado; sin saldo la generación falla sin cobrar.' },
     ],
     tutorial: {
       url: 'https://api.apimart.ai',
@@ -411,7 +411,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entra a apimart.ai y carga saldo: se paga por adelantado y cada generación lo descuenta.',
         'En la sección de API keys crea una y cópiala (empieza con sk-).',
         'Pégala en "API key" y guarda. Va en el workspace de la plataforma, no en el de un negocio.',
-        'Medido el 7/11/2026: un video vertical de 5 s con seedance-2.0-mini sale US$0,19; la misma pieza con un modelo «-face» sale 2,2× más y NO se ve mejor.',
+        'Medido el 7/11/2026: un video vertical de 5 s sale US$0,19 con seedance-2.0-mini.',
       ],
     },
   },

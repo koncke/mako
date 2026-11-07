@@ -52,6 +52,10 @@ export const ICON: Record<string, IconDef> = {
   email: { sym: 'ic-resend', bg: '#000000' },      // Resend brand: negro
   anthropic: { sym: 'ic-anthropic', bg: '#CC785C' },
   openai: { sym: 'ic-openai', bg: '#000000' },
+  // ApiMart: letter-mark EXPLÍCITO, no un símbolo prestado. No tenemos su logo, y el repo ya pagó una vez
+  // poner el de otra marca (abajo, el caso de Supabase). La tarjeta es `soloPlataforma`: sólo la ve el
+  // superadmin que pega la clave, así que una «A» sobria dice lo justo.
+  apimart: { letter: 'A', bg: '#2B3A46' },
   // Groq: el RAYO, que es su marca de verdad (groq.com/favicon.svg). Hasta el 01/11/2026 iba una «G»
   // dibujada a mano, y encima sobre un rojo que no es el suyo (#F55036; el de su propio ícono es #F43E01).
   groq: { sym: 'ic-groq', bg: '#F43E01' },
