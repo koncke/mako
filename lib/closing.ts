@@ -30,9 +30,13 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { credWs } from './credenciales';
 import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
+import { taxonomiaDe, TAXONOMIA_NEUTRA, type Taxonomia } from './closing-taxonomia';
+import { perfilNegocioTexto } from './onboarding';
+import { getPipelineStagesDefault } from './funnels';
+import { reunionesDe } from './funnel-etapas';
 import { chatClaude, conClaveDelNegocio, permisoDeLaClaveDelNegocio } from './anthropic';
 import { CLAUDE_PERMITIDO } from './veto-claude';
-import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
+import { contenidoNoConfiable, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
 import { listarTodasLasReuniones, leerReunion, type FalloGrabador } from './grabadores';
 import { duracionMin, emailsExternos, gemelasDe, leTocaA, mapaDeGemelas, transcripcionConSegundos, type Reunion, type TurnoReunion } from './grabadores/reunion';
@@ -316,22 +320,55 @@ export async function conQueAnalizaElClosing(): Promise<'su-clave' | 'plataforma
   return (await credWs('ANTHROPIC_API_KEY').catch(() => null)) ? 'plataforma' : 'no';
 }
 
+/**
+ * La taxonomía del negocio EN CURSO para el prompt del analista: qué vende y entrega, y cómo llama a sus dos reuniones
+ * de venta. Alimenta los slots {{servicio}} / {{reunion1}} / {{reunion2}} de `SYSTEM_ANALISIS`.
+ *
+ * Las dos fuentes ya existían y ya leen el negocio actual: el brief + la oferta principal (`perfilNegocioTexto`,
+ * lib/onboarding.ts) y los rótulos de las etapas de reunión de su embudo (`reunionesDe` sobre el funnel default, la
+ * misma fuente ÚNICA que usa el CRM automático).
+ *
+ * ⚠️ SI ALGO FALLA, TAXONOMÍA NEUTRA — nunca la de otro negocio. Las razones de la dirección del error están en
+ * lib/closing-taxonomia.ts: en un cron, no analizar deja una fila en `error` que se reintenta para siempre y que nadie
+ * mira, así que se analiza con palabras genéricas y se le dice al modelo que no suponga un rubro.
+ *
+ * ⚠️ SIN CACHÉ, a propósito. Son 4 lecturas al lado de una llamada a Claude de hasta 120 s que se paga: cachear no
+ * ahorra nada medible y sí introduce el bug de que el dueño corrija su brief y el analista siga leyendo el viejo
+ * mientras el proceso viva.
+ */
+async function taxonomiaDelNegocio(): Promise<Taxonomia> {
+  try {
+    if ((await getWorkspaceActual()) == null) return TAXONOMIA_NEUTRA; // sin negocio resuelto no se adivina
+    const [perfil, stages] = await Promise.all([perfilNegocioTexto(), getPipelineStagesDefault()]);
+    // Un rótulo vacío NO cae a la key ('agenda' es un nombre interno nuestro): queda ausente y
+    // `nombreDeReunion` dice «Reunión 1»/«Reunión 2», el texto de siempre.
+    const [k1, k2] = reunionesDe(stages);
+    const rotulo = (k: string | undefined) => (k ? stages.find((x) => x.key === k)?.label?.trim() || undefined : undefined);
+    return taxonomiaDe(perfil, { j1: rotulo(k1), j2: rotulo(k2) });
+  } catch (e) {
+    console.error(`[closing] no pude leer el negocio para la taxonomía: ${e instanceof Error ? e.message : String(e)}`);
+    return TAXONOMIA_NEUTRA;
+  }
+}
+
 export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de este negocio. Analizas grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distingue con cuidado:
 
-• VENTA — el objetivo es vender el programa a un prospecto que todavía NO es cliente:
-  - R1 (Reunión 1 / diagnóstico / calificación): primera llamada. Se mapea la situación, se detecta el dolor, se califica fit (presupuesto, decisor, timing). Aún no se presenta precio formal (o recién al final).
-  - R2 (Reunión 2 / propuesta / cierre): se presenta la propuesta y el precio, se manejan objeciones y se busca el cierre / primer pago.
+• VENTA — el objetivo es vender a un prospecto que todavía NO es cliente:
+  - R1 ({{reunion1}} / diagnóstico / calificación): primera llamada. Se mapea la situación, se detecta el dolor, se califica fit (presupuesto, decisor, timing). Aún no se presenta precio formal (o recién al final).
+  - R2 ({{reunion2}} / propuesta / cierre): se presenta la propuesta y el precio, se manejan objeciones y se busca el cierre / primer pago.
 
-• ENTREGA DE SERVICIO — NO es venta. Es trabajo CON un cliente que YA compró: sesiones de coaching/mentoría, accountability, 4DX, OKRs, tableros, planeación estratégica, sprints, seguimiento de compromisos, "Sesión 2/3/4", "Programa", etc. Aunque el título diga "Junta X", si el contenido es ejecutar/acompañar (no vender), es entrega de servicio.
+• ENTREGA DE SERVICIO — NO es venta. Es trabajo CON un cliente que YA compró.
+{{servicio}}
+  Aunque el título diga "Junta X", si el contenido es ejecutar/acompañar (no vender), es entrega de servicio.
 
 • INTERNA / OTRO — reunión de equipo, estrategia interna, demo, prueba, o algo que no es ni venta ni entrega a un cliente.
 
 Pistas fuertes:
 - Si el lead ya está 'ganado' / tiene fecha de cierre o de inicio de servicio ANTERIOR a esta llamada → casi seguro es ENTREGA DE SERVICIO.
 - Si se discute precio/propuesta/condiciones y la persona aún decide si contratar → VENTA.
-- Si se ejecutan tareas, OKRs, métricas, accountability de un negocio ya en programa → ENTREGA DE SERVICIO.
+- Si se ejecutan o revisan tareas, métricas o avances de alguien que YA es cliente → ENTREGA DE SERVICIO.
 
 Si el transcript dice "(sin transcript)": pon has_transcript=false y NO inventes análisis (arrays vacíos, score null).
 
@@ -501,7 +538,12 @@ export type AnalyzeResult =
 /** Corre Claude sobre una meeting con contenido. PURA: nunca tira, devuelve {ok}. */
 export async function analyzeMeeting(m: Reunion, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
-    const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
+    // Los slots van EXPLÍCITOS (no `...tax`): el registro los declara con estos mismos nombres y ningún chequeo del
+    // pre-push compara los dos lados — que se lean juntos acá es lo único que lo hace revisable a ojo.
+    const tax = await taxonomiaDelNegocio();
+    const system = await renderPrompt('closing.analyze.system', SYSTEM_ANALISIS, {
+      servicio: tax.servicio, reunion1: tax.reunion1, reunion2: tax.reunion2,
+    });
     const user = await buildUserPrompt(m, lead, feedback);
     // ── PRIMERO, EL CLAUDE DEL NEGOCIO (IA12, 22/10/2026) ──────────────────────────────────────────────────────────────
     // El closing de un cliente lo pagaba MaKo: 123 llamadas por US$13,22 en 30 días, y la clave del ws1 es una copia de la de

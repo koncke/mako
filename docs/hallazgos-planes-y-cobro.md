@@ -2398,3 +2398,284 @@ lib/vigia-aprobaciones.ts
 comparación, en [proveedores-de-cobro.md](proveedores-de-cobro.md)); qué hacer con las claves de Creem que queden guardadas en la
 plataforma; si la próxima pasarela pide moderación, enchufarla y volver a nombrarla en las legales; la sección de AGENTS.md
 «Lo que genera imagen o video pasa por `encolar`, que lo modera con Creem», que quedó vieja.
+
+## dLocal Go (06/11/2026): el conector, la cuenta que NO cobra, y un clon dos semanas viejo
+
+### Lo primero, porque invalidó medio diagnóstico: el clon de la PC tenía `main` del 23/10
+
+`refs/heads/main` de `C:\…\dashboard-marketing` estaba en **23/10/2026** y `refs/remotes/origin/main`
+en **6/11/2026**: **6217 commits de diferencia**, con el merge-base el 16/10. O sea que todo lo que se
+lee de ese árbol —`lib/cobros.ts`, `lib/cobros-tipos.ts`, `AGENTS.md`, los catálogos, este mismo
+documento— contesta sobre un repo de hace dos semanas.
+
+**Lo que eso produjo, antes de darse cuenta:** dos hallazgos escritos con total seguridad y **falsos**.
+Que `docs/proveedores-de-cobro.md` «no estaba en `main`» (está), y que los tres commits de Creem
+«nunca llegaron a `main`», con `git merge-base --is-ancestor` como prueba (llegaron: en `origin/main`
+están `lib/creem-api.ts`, `app/api/webhooks/creem/route.ts` y la migración
+`0358_cobros_pasarela_creem.sql`, y `Pasarela` ya es `'stripe' | 'mercadopago' | 'creem'`).
+
+**El diagnóstico obvio era el equivocado, y en los dos sentidos.** `git ls-tree main` y
+`git merge-base --is-ancestor X main` son comandos correctos que contestan con autoridad: no fallan,
+no avisan, y la respuesta es cierta **sobre el `main` que ese clon tiene**. Y la conclusión que
+producen —«esto no está en main»— es exactamente la forma de un hallazgo valioso, así que se escribe
+con confianza y viaja.
+
+**La regla, y son dos comandos antes de leer el árbol:**
+
+```sh
+git fetch origin
+git rev-list --count refs/heads/main..refs/remotes/origin/main   # 0 = al día
+```
+
+Y cuando la pregunta es «¿esta ruta existe en main?», se pregunta a **`origin/main`**, no a `main`:
+`git cat-file -e origin/main:<ruta>`. AGENTS.md ya tiene la regla hermana («un `status` sucio puede
+no ser de nadie: puede ser el árbol VIEJO»), pero esa cubre un `git reset` sin `--hard` — otro
+mecanismo, y el síntoma de éste es un árbol **limpio**, que es el que no despierta ninguna sospecha.
+
+⚠️ **Y no se arregla con un `git pull` a lo bruto:** ese clon tiene 10 commits locales que no están en
+`origin/main` y trabajo sin commitear de otras sesiones. El trabajo de esta tanda se hizo en un
+worktree limpio (`git worktree add --detach … origin/main` + junction a `node_modules`), que es lo
+que AGENTS.md ya recomienda para pushear y vale igual para **leer**.
+
+### La cuenta de dLocal Go NO cobra, y el encargo decía lo contrario
+
+Medido con las claves reales, de sólo lectura, el 06/11/2026. `GET /v1/me` sobre `api.dlocalgo.com`:
+
+```
+merchant_id: 248551      kyc_level: 2      kyc_level_status: "PENDING"
+is_in_fraud_review: true      is_limit_exceeded: false      currency: "USD"
+available_balance: 0      current_balance: 0      in_transit_balance: 0
+```
+
+El encargo decía «hoy dLocal Go aprobó la documentación» y «ya puede retirar y procesar sin límite».
+**No es lo que contesta la cuenta.** `kyc_level: 2` y «el paso 2 está aprobado» se leen igual y no son
+lo mismo: `kyc_level_status` es el estado DE ese nivel, así que nivel 2 + `PENDING` significa «lo pedí
+y no está aprobado». Y encima está en revisión de fraude.
+
+**Y no hay un `charges_enabled` como el de Stripe:** la cuenta contesta **200 a todo**, publica sus 32
+monedas y acepta cualquier lectura. Unas claves válidas sobre una cuenta que no cobra son exactamente
+el caso en que un «Conectada» manda al primer comprador a un checkout que lo rechaza, y el síntoma se
+lee «dLocal no funciona» en vez de «la cuenta no está aprobada». Por eso `cuentaPuedeCobrar` mira los
+**tres** campos (`kyc_level_status`, `is_in_fraud_review`, `is_limit_exceeded`), con test.
+
+**Se vuelve a medir con un `GET /v1/me`; no hace falta tocar código.**
+
+### `soloEnSuPais` es un booleano de dos valores, y dLocal Go no es ninguno de los dos
+
+Esto es lo más importante que encontré para el producto, y es la premisa equivocada de Martín
+—«cobramos con una tarjeta normal de cualquier país»— escrita en el código.
+
+`CapacidadesPasarela.soloEnSuPais` (`lib/cobros-tipos.ts`) tiene dos lecturas y las dos están
+documentadas ahí: `true` = «sólo le cobra a quien está en el país de su cuenta» (Mercado Pago),
+`false` = «cobra en todo el mundo» (Stripe, Creem). **dLocal Go no es ninguna:** cobra en LatAm y
+**no recibe pagos de Estados Unidos ni de Europa** («You cannot receive payments from the United
+States and Europe», su centro de ayuda; `docs/proveedores-de-cobro.md:235`).
+
+**Y la consecuencia no es un rótulo, es a quién se le ofrece.** `pasarelasDelPais`
+(`lib/compra-plan-reglas.ts`) hace, en este orden:
+
+```ts
+const internacionales = opciones.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais);
+const suyas = internacionales.filter((o) => CAPACIDADES_PASARELA[o.pasarela].merchantOfRecord === enLatam);
+```
+
+dLocal Go es **procesador, no merchant of record** (sus términos: «actúa como procesador, y los
+impuestos son del comerciante»). Así que agregarlo con `soloEnSuPais: false, merchantOfRecord: false`
+—los dos valores correctos campo por campo— lo deja:
+
+- **ofrecido a quien está FUERA de LatAm** (`enLatam === false` y `merchantOfRecord === false`
+  coinciden), que es justo donde **no puede cobrar**; y
+- **escondido para quien está EN LatAm**, que es el único lugar donde sirve.
+
+**Exactamente al revés, sin un solo ternario de dos ramas y sin que nada falle.** Es la misma familia
+que el `!== 'mercadopago'` que ese archivo existe para contar: un booleano cuyo `false` significa «el
+otro caso» es correcto mientras haya dos casos.
+
+**Lo que hay que cambiar antes de sumar dLocal a `Pasarela`:** un campo que diga de dónde cobra, no
+un booleano —`paisesQueCobra: readonly string[] | null` (null = todo el mundo)— y que
+`pasarelasDelPais` filtre por él **antes** de mirar `merchantOfRecord`. Con eso, `soloEnSuPais` pasa a
+ser derivable (`paisesQueCobra` = el país de su cuenta) y deja de haber dos fuentes para la misma
+pregunta. Es una decisión de diseño sobre el camino de la plata, y por eso quedó anotada y no hecha.
+
+### El barrido de las claves de cobro es por PREFIJO, y quedó ciego DOS veces
+
+`tests/pasarela-sin-env.test.ts` impide que alguien lea una clave de pasarela con
+`process.env`/`envCred`/`credWs`, los tres caminos que caen al ws1 (**Mauricio, un cliente**). El
+barrido se arma con una regex de prefijos.
+
+- **31/10/2026, Creem:** el comentario del test lo dice solo — «el guardia estaba ciego a las tres
+  claves de la tercera pasarela, **y no rojo**». Se arregló a mano.
+- **06/11/2026, dLocal:** lo mismo. Medido: con `(?:STRIPE_|MERCADOPAGO_|MP_|CREEM_)`, un
+  `credWs('DLOCAL_API_KEY')` **pasa el barrido en verde** y le cobra a la cuenta de Mauricio.
+
+**Dos veces seguidas es un patrón, no un descuido.** Un barrido por prefijo es tan ancho como su
+lista, la lista no crece sola, y un guardia que no mira **no da rojo**: da un cero perfectamente
+correcto sobre la pregunta equivocada. Lo mismo tenía el otro test del archivo, que comprobaba
+`NO_MIGRAR_A_WS` con las **seis** claves de Stripe y Mercado Pago escritas a mano: las tres de Creem
+llevaban una semana en la lista sin que nada lo verificara.
+
+**Lo que queda:** los dos tests derivan las claves de `CLAVES_DE_PASARELA` leyendo el fuente, y el
+nuevo (`la lista de prefijos cubre TODAS las pasarelas`) falla nombrando la que el barrido no mira.
+Probado rompiéndolo: con el prefijo viejo da 3 pases / 1 fallo y lista las tres `DLOCAL_*`.
+
+⚠️ **Y la skill de la casa empuja al error:** `add-provider-integration` dice «per-cliente →
+`credWs('CLAVE')`», que es correcto para una integración normal y es **exactamente lo prohibido** para
+una pasarela. Las dos reglas son ciertas y la segunda no está en esa skill.
+
+### Una clave de pasarela en el entorno es INERTE: ni `.env.local` ni Vercel
+
+El relevo del checkout dice «con las claves de dLocal ya cargadas en local **y en Vercel**». Para una
+pasarela, eso **no hace nada**, y conviene saberlo antes de que falle en producción:
+
+- Se leen **sólo** con `credDelCliente(clave, ws)`, y `credDeBase` va a la tabla `credenciales`
+  **sin respaldo del entorno**.
+- `aplicarAEnv` se niega explícitamente a copiar al `process.env` cualquier clave de
+  `CLAVES_DE_PASARELA`, y `NO_MIGRAR_A_WS` impide que una env de Vercel migre a la fila de un
+  workspace. AGENTS.md ya lo dice para `STRIPE_*`/`MERCADOPAGO_*`.
+
+**No falla con un error:** `credDelCliente` devuelve null y el conector dice «falta la credencial»,
+que es correcto y se lee como «el código está roto». **Van en /integraciones → Pagos**, y la de MaKo
+en el workspace de la plataforma, igual que la de cualquier cliente.
+
+Los tres nombres: **`DLOCAL_API_KEY`** (32 caracteres), **`DLOCAL_SECRET_KEY`** (40) y
+**`DLOCAL_MERCHANT_ID`** (derivado: lo completa MaKo, no se tipea). `DLOCAL_SMARTFIELDS_KEY` **no es
+una credencial de esta integración** (ver abajo).
+
+### Cinco trampas de la API de dLocal Go, y la que se copia de Creem
+
+Las cinco dan un error que apunta a otro lado.
+
+- **La firma del aviso mete la API key ADENTRO del mensaje:**
+  `HMAC-SHA256(secretKey, apiKey + cuerpoCrudo)`, hex, en el header `Authorization` con el prefijo
+  `V2-HMAC-SHA256, Signature: `. Es el único de los cuatro proveedores que lo hace (Stripe firma
+  `t.raw`, MP un manifiesto de ids, Creem el cuerpo pelado). **La consecuencia: verificar un aviso de
+  dLocal necesita las DOS claves del negocio**, no un secreto de webhook aparte — y es justo el error
+  que se comete copiando la forma de Creem, que sí tiene su `CREEM_WEBHOOK_SECRET` separado. Un
+  receptor con una sola clave nunca va a poder verificar nada. Pegarlas con un `.` en el medio (la
+  analogía con Stripe) o al revés da «no coincide» en el **100%** de los avisos, indistinguible de una
+  clave mal pegada: por eso el test fija el vector oficial de la doc.
+- **El reembolso NO es `/v1/payments/{id}/refund`.** Es `POST /v1/refunds` con `payment_id` en el
+  **cuerpo**. La forma anidada es la que uno escribe copiando a Stripe —se escribió así antes de abrir
+  la página— y da **404**, que se lee como «ese pago no existe» en vez de «esa ruta no existe». Y una
+  devolución tiene **su propio id y sus propios cuatro estados** (`PENDING`/`SUCCESS`/`REJECTED`/
+  `CANCELLED`), que no son los cinco del pago.
+- **La notificación trae UN campo**, `{"payment_id": "..."}`: ni el estado, ni el monto, ni de qué
+  cuenta es. Y ese id **puede ser el de una devolución** («the ID of the payment or refund», dice su
+  doc): releerlo como pago da 404. Hay que probar las dos lecturas, no suponer.
+- **403 «Invalid Credentials» significa tres cosas distintas:** clave equivocada, header mal armado
+  (`Bearer <API_KEY>:<SECRET_KEY>`, dos valores con dos puntos, no un token) y **claves del otro
+  entorno**. El sandbox es una CUENTA aparte con claves aparte (medido: 200 en `api.dlocalgo.com`,
+  403 en `api-sbx.dlocalgo.com` con las mismas claves), y las claves **no tienen prefijo** que diga de
+  qué entorno son, al revés de `sk_live_`/`rk_test_`. El modo sólo se sabe preguntando, y por eso
+  `leerCuentaDlocal` prueba producción y después sandbox antes de decir «esa clave no sirve».
+- **No encontré ningún endpoint que liste los medios de pago.** Su índice de documentación
+  (`docs.dlocalgo.com/integration-api/llms.txt`) **no tiene una página de payment methods** —sí de
+  pagos, devoluciones, suscripciones, links recurrentes y currency exchange—, y las cuatro rutas
+  plausibles que probé contra la cuenta dieron 404, 404, 400 y 404 (`/v1/payments-methods`,
+  `/v1/payment-methods`, `/v1/payments/methods`, `/v1/countries`). ⚠️ **Es una ausencia medida, no una
+  confirmación de dLocal:** cuatro rutas adivinadas que no están no prueban que no exista ninguna, y
+  conviene preguntárselo por escrito antes de apoyarse en esto. Mientras tanto, un checkout que
+  muestre medios por país tiene que hacerlo con una tabla escrita a mano — de las que quedan viejas
+  **en silencio**—, así que lleva fecha y la fuente de donde salió.
+
+### Una tasa de cambio no es un permiso de país (y Google Pay / Apple Pay: NO)
+
+`GET /v1/currency-exchanges` de la cuenta devuelve **32 monedas** contra el dólar (ARS 1675,48, BRL
+6,0085, MXN 19,5574, CLP, COP, PEN, UYU, PYG, BOB, DOP, GTQ, CRC, NIO, HNL… **y también EUR, GBP**,
+INR, HKD, SGD, CNY, CAD, AED, PHP, TRY, ZAR, MYR, IDR, KES, NGN, XOF, XAF, MAD).
+
+**EUR y GBP tienen tasa publicada y dLocal Go no cobra de Europa.** Derivar los países cobrables de la
+lista de monedas abre un camino que **rebota en el checkout** y se lee como un bug. Por eso
+`PAISES_DLOCAL` es una lista **blanca** de 17 países de LatAm, separada de las monedas, con test.
+
+**Y la moneda del cobro no es la del encargo:** «sólo cobra y paga en pesos argentinos» es falso para
+el **cobro**. La moneda de la cuenta es **USD** y `currency` y `country` son campos independientes: se
+puede cobrar en USD —que es como están los planes, US$47 y US$97— y dLocal convierte en el checkout.
+Lo que se liquida al banco es otra pregunta.
+
+**Google Pay y Apple Pay: no se dibujan.** Google Pay está documentado para el **gateway empresarial**
+de dLocal (`docs.dlocal.com/docs/google-pay`), que es **otro producto**; de dLocal **Go**
+(`docs.dlocalgo.com`) no hay documentación de billeteras, y de Apple Pay no hay nada en ninguno de los
+dos. Sin confirmación, un logo que no cobra es peor que no tenerlo.
+
+### El link y no SmartFields, escrito como decisión
+
+dLocal Go tiene dos caminos y MaKo usa **el link** (`redirect_url` de `POST /v1/payments`).
+SmartFields —el formulario de tarjeta embebido, para el que sirve la tercera clave que se pasó,
+`DLOCAL_SMARTFIELDS_KEY`— **no se usa**, y por eso esa clave no es una credencial de la integración.
+
+El link reusa `/pagar/<token>` tal como está (el link estable de MaKo que crea la sesión del proveedor
+al abrirse, que ya existe porque la de Stripe vence a las 24 h — **la de dLocal también vence a las
+24 h y además es de un solo uso**). SmartFields pondría el formulario de tarjeta adentro de MaKo: otra
+pantalla, 3DS y tokenización propias, y MaKo en alcance de PCI, sin ganar nada para vender un plan. Si
+algún día se usa Transparent Checkout, entra como campo nuevo y **opcional**.
+
+### El copy de un mensaje de error se escribe con «tú», y el repo entero empuja al voseo
+
+La punta salió **roja** por una palabra: `'…copialas de nuevo…'` en un mensaje de error del conector
+(`lib/dlocal-api.ts`). Lo caza `tests/puente-panel-copy.test.ts` («ninguna pantalla del repo le habla
+al cliente de vos»), que barre los 6.014 archivos del repo y **dice la corrección**: «copialas» →
+«cópialas».
+
+**El mecanismo, que es lo que vale:** todo lo interno de este repo —los comentarios, `AGENTS.md`, los
+`docs/hallazgos-*`, los relevos, los mensajes entre chats— está escrito **en voseo**, y el copy que
+lee un cliente va en castellano neutro con «tú». Así que redactar un mensaje de usuario mientras se
+escribe el comentario que lo explica arrastra la forma sin que se note: la frase se lee perfecta.
+Esa misma noche la guarda frenó **cuatro ramas** por lo mismo.
+
+**La regla:** un string que termina en pantalla se revisa aparte del comentario que lo rodea, y no se
+copia una frase de un documento interno a un mensaje de usuario. Y si la guarda se equivoca —confunde
+«podé» de *podar* con el «vos» de *poder*—, va a `FUERA_DE_ALCANCE` **con el porqué escrito**, nunca
+reescribiendo bien un texto que ya estaba bien.
+
+### Para el rediseño del checkout: dos cosas que NO son un cambio de copy
+
+El pedido del 6/11 incluye sacar los dos textos de abajo de `/planes/<plan>` y convertir el
+formulario de nombre + email + WhatsApp en «reclamá tus 7 días gratis». Dos avisos para quien lo haga,
+medidos sobre `app/planes/[plan]/CompraPlan.tsx` (153 líneas) en `origin/main`:
+
+- **La prueba de 7 días YA EXISTE, y es CON tarjeta.** El botón dice «Empezar mis N días gratis» y el
+  texto explica que no se cobra nada hoy y que el primer cobro es el día N+1
+  (`pruebaConTarjeta: true` en las tres pasarelas). «Reclamar» los 7 días **sin pagar** no es
+  reescribir ese texto: es una prueba **sin medio de pago**, que cambia el alta (entra alguien sin
+  tarjeta), la conversión al día 8 y la exposición al abuso. Es una decisión de producto de Martín,
+  no una copia de la referencia.
+- **La nota de Mercado Pago (línea 150) es LOAD-BEARING: borrarla crea un fallo.** Dice «Con Mercado
+  Pago, usa el email de tu cuenta de Mercado Pago», y el comentario de al lado explica por qué: la
+  suscripción de MP va a nombre de ESE email (`payer_email`) y **con otro, MP no deja autorizarla**
+  (revisión del 23/10/2026). O sea que es un aviso que evita una compra que no se puede completar. Lo
+  correcto no es borrarla con las demás, es resolverla en el flujo (pedir ese email en el paso de MP,
+  o rotular el campo cuando MP está elegido). La otra nota —la del email y el acceso— sí es
+  explicativa y se va.
+
+### Lo que quedó SIN hacer, y por qué
+
+**El conector habla con dLocal y verifica sus avisos; NO cobra.** `Pasarela` sigue siendo
+`'stripe' | 'mercadopago' | 'creem'`. Las razones, en orden:
+
+1. **La cuenta no cobra** (KYC `PENDING` + revisión de fraude): nada del camino del cobro se puede
+   ejercitar, ni de sólo lectura.
+2. **`CAPACIDADES_PASARELA` es un `Record<Pasarela, …>` TOTAL de 14 campos** —y está bien que lo sea:
+   «la pasarela #4 no compila hasta que alguien decida qué hace». De esos 14, cuatro **no se saben** y
+   no se inventan: `descuentoDeUnCiclo`, `bajaAlFinDelPeriodo`, `cobraAnual` y `huellaDeTarjeta`
+   dependen de la API de suscripciones de dLocal, cuya referencia pública **lista los endpoints por
+   nombre y no publica método ni ruta**. Rellenarlos a ojo es el «default que inventa un dato».
+3. **`soloEnSuPais` lo dejaría al revés** (arriba): hay que agregar `paisesQueCobra` primero.
+4. **dLocal Go no cobra suscripciones por el camino implementado.** `POST /v1/payments` es un pago
+   ÚNICO; las suscripciones son otra API (crear un *Plan* y mandar al comprador a
+   `checkout.dlocalgo.com/validate/subscription/{token}`). El producto de MaKo es una suscripción de
+   US$47/97 al mes: una pasarela con sólo pagos únicos **no vende el plan**.
+
+| Qué falta | Dónde vive |
+|---|---|
+| **`paisesQueCobra` en `CapacidadesPasarela`** y el filtro en `pasarelasDelPais` ANTES de `merchantOfRecord`. Sin esto, dLocal se ofrece a quien no puede pagar y se esconde de quien sí | `lib/cobros-tipos.ts`, `lib/compra-plan-reglas.ts` |
+| **dLocal como cuarta `Pasarela`**: la unión y los 14 campos de capacidades (cuatro sin respuesta: pedírselos por escrito a dLocal con la API de suscripciones) | `lib/cobros-tipos.ts`, `lib/cobros.ts` |
+| **La conexión desde /integraciones**: deriva el `merchant_id`, lo reclama en `webhook_routing` y guarda. ⚠️ `lib/cuentas-integracion.ts` asume **UNA** clave pegada por servicio (`{ clave, identificador, secretoAviso, alias }`) y dLocal pega **dos**: es una decisión de estructura, no un campo más. Y los DOS catálogos (`metodo-catalogo` + `integraciones-catalogo`) van en el mismo commit que esto, no antes: registrados sin la conexión, la tarjeta aparece y **nunca puede completarse** | `lib/cuentas-integracion.ts`, `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `lib/integraciones-catalogo.ts` |
+| **El receptor del aviso** (`/api/webhooks/dlocal?m=<merchant_id>`): la firma ya está y es fail-closed; falta la ruta, el ruteo por `merchant_id`, la fila de `pasarela_eventos` y probar las DOS lecturas. ⚠️ **NO hace falta tocar `middleware.ts`**: en este repo no existe —el gate es `proxy.ts` + `lib/rutas-publicas.ts`— y `/api/webhooks` ya está como PREFIJO en `PUBLICOS`. La skill `add-webhook-receiver` manda a un archivo que no existe | `app/api/webhooks/dlocal/route.ts` |
+| **Las legales**: hoy nombran a Stripe, Mercado Pago y Creem con el texto a mano (no sale de `pasarelasConectadas`). Entra el día que empiece a cobrar, no antes; y suma que **no procesa de EE.UU. ni de Europa**, que es una limitación del proveedor y no un detalle | `app/terminos/page.tsx` §8, `app/reembolsos/page.tsx` |
+
+**Tres decisiones de Martín, anotadas y sin tocar:** si la comisión de dLocal se le traslada al cliente
+o la absorbe MaKo; si dLocal se ofrece **junto con** Mercado Pago o **en vez de**; y la grande —**EE.UU.
+y Europa siguen sin pasarela**. Ese hueco lo iba a tapar Whop (nunca contestó) o FastSpring (nunca se
+le escribió), y no se resuelve dibujando el checkout: hoy un comprador de allá **no tiene por dónde
+pagar**.

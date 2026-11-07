@@ -101,6 +101,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
+
+- **Sintoma:** `tests/newsletter.test.ts` da 1 rojo en la PC, en la prueba de la tab de newsletters. El
+  mensaje no ayuda: dice «recargarAction no abre con la puerta de la tab» y el valor que muestra es un
+  trozo de la FIRMA de la funcion, no una linea del cuerpo.
+- **Causa:** su helper es `const leer = (p) => readFileSync(..., 'utf8')` — **sin** el
+  `.replace(/\r\n/g, '\n')` que usan los demas tests que leen fuente. Despues busca el inicio del cuerpo
+  con `t.search(/[>)] \{\n/)`, que no empata contra `> {\r\n`: `search` devuelve **-1**, el `+3` corta a
+  mitad de la firma y la primera «linea del cuerpo» es basura.
+- **Medido:** con el archivo como esta en disco (CRLF) fallan **16 de 16** funciones; con el mismo
+  contenido en LF, **0 de 16**. O sea: el test es rojo en cualquier Windows (git lo checkoutea con
+  `core.autocrlf=true`) y verde en Actions, que corre en Linux con LF.
+- **Lo obvio que era equivocado:** aparecio corriendo los tests afectados de otra punta —
+  `tests/newsletter.test.ts` lee `lib/prompt-registry.ts`, asi que lo elige cualquier cambio en el
+  registro de prompts— y lo primero que se piensa es «lo rompi yo». No: `app/newsletters/actions.ts` no
+  estaba tocado. **Un rojo local que Actions no ve cuesta el mismo rato que uno de verdad**, y hace dudar
+  de un veredicto que estaba bien.
+- **Regla:** todo test que compare TEXTO de un archivo fuente normaliza los `\r\n` al leer, como ya manda
+  AGENTS.md para las guardas de sincronia. Un patron de test con `\n` se escribe `\r?\n`. Y al reves
+  tambien vale: **un rojo que solo pasa en la PC se confirma en LF antes de perseguirlo.**
+- **Sin hacer:** el `leer` de `tests/newsletter.test.ts:20` (una linea). Va aparte: es de newsletters.
+
 ## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
 
 Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el
@@ -312,6 +334,29 @@ El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazg
 `docs/hallazgos.md` tiene su **driver**, que une **celda por celda** y deja las dos entradas (primero la de main). Lo que no
 entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
 persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
+
+### Y la primera hora del driver: la PODA de las filas duplicadas choca con toda punta en vuelo (6/11/2026, medido)
+
+**Síntoma:** `punta/carruseles-largo` (una cosecha de carruseles, con su fila del índice reescrita) dio rojo a los 51 s en
+«Mezclar main en la punta»: `CONFLICT (content): Merge conflict in docs/hallazgos.md`.
+
+**Lo obvio era que el driver no estaba configurado en el runner, y estaba mal.** El driver corrió y **se negó a propósito**:
+`[unir-indice-hallazgos] docs/hallazgos.md: no es sólo «los dos cosecharon en su celda»; queda el choque para resolver a
+mano`. Del lado de main no había una cosecha: había la **poda** que dejó 199 filas en 69, o sea filas BORRADAS, que es
+justamente lo que el driver manda a una persona. O sea: no es un bug del driver, es el costo de la primera hora. Cualquier
+punta que hubiera cosechado en el índice antes de la poda choca una vez, y una sola vez.
+
+⚠️ **Y la trampa que de verdad cuesta: en la PC, `git merge origin/main` resuelve ese mismo choque SOLO, y mal.** Los
+atributos de la mezcla se leen del árbol de la punta, y una punta anterior a la poda todavía tiene
+`docs/hallazgos*.md merge=union` (sin guion). Entonces en la máquina no hay choque: `union` junta los dos lados y **devuelve
+las 130 filas duplicadas que main acababa de borrar**, con la mezcla en verde y sin una palabra. Lo único que lo cazó fue el
+test nuevo (`tests/unir-indice-hallazgos.test.ts`), que enumeró 4 áreas repetidas. **Una mezcla LIMPIA no es una mezcla
+correcta cuando el atributo que gobierna el archivo está del otro lado.**
+
+**La receta, para la punta que le toque:** mezclar main, y después tirar la resolución de `union` y rehacerla sobre la
+versión de main — `git checkout origin/main -- docs/hallazgos.md`, volver a meter la entrada en la celda de tu área y
+`git commit --amend`. Y antes de subir, correr `node --test --import tsx tests/unir-indice-hallazgos.test.ts`: es el único
+control que distingue «se mezcló» de «se mezcló bien».
 
 ### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
 
