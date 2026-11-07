@@ -161,7 +161,7 @@ perder más tiempo que uno olvidado.
   - **O sea: la pregunta del ítem («¿los usan?») tiene respuesta y es NO.** No porque alguien se olvidara de cablearlos, sino porque el destilado nunca se cargó. Lo que falta no es verificar: es decidir si esas 1.147 líneas entran a `mako_knowledge` (y con qué `area`, para que las lean los cuatro lugares) o si el método a mano ya alcanza.
   - ⬜ Sigue abierto lo otro del ítem: ~59 posteos de Razzetti en Skool y ~120 emails de un autor en inglés, sin ficha.
   - Dónde: `docs/conocimiento/patrones-email.md · lib/copywriting-metodo.ts · lib/mako-knowledge.ts · tabla mako_knowledge (ws 1 y 4)`
-- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — COMMIT_AQUI)**
+- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — `bb8127eb2`)**
   - `docs/conocimiento/anuncios-high-ticket.md` existe y son **201 líneas**, «armado el 6/11/2026 con videos de YouTube y sesiones de nuestros cursos»: qué funnel según la situación, presupuesto de arranque, cuándo cortar un creativo, y una columna de «cuánto creerle» por fuente.
   - **Y contesta lo que Martín preguntaba:** los cursos lo cubren flojo. Textual, línea 142: «Evidencia flaca: sesiones de 2023 de nuestros cursos y dos fuentes de Brasil». Por eso se completó con YouTube.
   - **No quedó en un cajón: lo lee el código** — `lib/media-buyer/copiloto-conocimiento.ts`, `copiloto.ts` y `campanas-grupos.ts`.
