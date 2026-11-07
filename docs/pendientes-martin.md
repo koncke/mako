@@ -182,6 +182,30 @@ frase…». El Runner lo tiene y lo pasa cuando se le pida.
 
 ---
 
+## ✅ META: APROBADA EL 4/11 — este bloque decía lo contrario (corregido el 7/11)
+
+**Lo que decía y es falso:** «Revisión de la app: Sin enviar. Nunca se mandó» y «Martín decidió el
+26/10 NO mandar la revisión». Medido en la consola el 7/11: **se envió el 21/10 y Meta la aprobó el
+4 de noviembre**, junto con la renovación del acceso a los datos. El negocio está verificado y la
+app publicada desde el 7/10.
+
+Aprobados: `pages_show_list`, `pages_read_engagement`, `public_profile` y **`leads_retrieval`** —
+los leads de los formularios ya se pueden traer por nuestra propia app.
+
+⚠️ **Pero esto NO suelta a Zernio.** `ads_management`, `ads_read`, `business_management` y
+`pages_manage_ads` están en **acceso estándar**: andan para quien tiene un rol en la app, no para la
+cuenta de un cliente. Y el **Marketing API Access Tier sigue en «Acceso limitado»** (462 llamadas),
+que es el techo real. Los DM de Instagram y Messenger no están en ningún caso de uso.
+
+**Y el mecanismo de Meta cambió:** «Listo para prueba» es una prueba que hay que PASAR, con llamadas
+reales y exitosas, que tardan 24 h en registrarse y valen 30 días. **Un permiso que el código
+todavía no llama no se puede pedir**, por bien escrita que esté la justificación.
+
+El plan completo, con qué permiso necesita cada módulo y por qué «pedir todo» haría fallar el lote:
+[meta-permisos-plan-7-11.md](meta-permisos-plan-7-11.md).
+
+---
+
 ## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — ✅ 5 de 5 revisadas (7/11)
 
 El relevo del 6/11 las dejó pedidas: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails`
