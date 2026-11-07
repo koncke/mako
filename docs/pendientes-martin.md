@@ -113,19 +113,33 @@ cosas… Pero sí, también con servidor de MaKo».
 O sea: **las dos, con la app de escritorio como el lugar natural para el render del cliente.** La
 pregunta estaba mal planteada —ofrecía elegir— y la app de escritorio no existía cuando se escribió.
 
-### 3. ⚠️ UN PEDIDO NUEVO que no tiene nadie: avisar al activar una automatización
+### 3. ✅ Avisar al activar una automatización — YA ESTÁ HECHO (verificado el 7/11)
 
-Pregunta D3b del 21/10: ¿los borradores de la regla anti-baneo se mandan todos de un toque o de a
-uno? **Martín contestó que eso ya está resuelto, y en su lugar planteó otra cosa**, textual:
+Este bloque decía «esto no estaba en ninguna lista» y «no lo tiene nadie». **Lo tiene
+`lib/ritmo-al-activar.ts`**, que cita el pedido de Martín del 25/10 textual en su cabecera y está
+cableado en la pantalla (`app/automations/AvisoRitmoConfirm.tsx`, `SecuenciaPerfil.tsx`,
+`SimuladorWhatsApp.tsx`, `app/api/whatsapp/secuencias/route.ts`).
 
-> «lo que me preocupa es que alguien esté creando una automatización y como está muy escondido el
-> "goteo" se manden muchos mensajes de una… Tal vez al activar la automatización podríamos darle una
-> advertencia.»
+Y no es un cartel genérico: **dice un HECHO, no «ojo que puede salir mucho»**. De su cabecera, que
+es lo que lo hace útil:
 
-**Esto no estaba en ninguna lista.** Y no es cosmético: la línea de WhatsApp **ya se baneó una vez**.
-El goteo existe pero está escondido, así que alguien puede prender una automatización sin verlo y
-disparar un lote. Lo que pide es una **advertencia en el momento de activar**, que diga cómo va a
-salir el goteo.
+- **WhatsApp sin goteo no son «200 de una»**: los frena el tope de la línea por hora y por día
+  (`lib/limites-envio.ts`), y sale la tanda de cada hora junta. Por eso dice ese número.
+- **Instagram y Messenger sin goteo SÍ salen todos juntos**, y lo dice.
+- El tiempo se da como PISO («al menos»): el horario del negocio sólo lo alarga.
+- **Un aviso que miente es peor que ninguno**: si el primer mensaje lo escribe la IA y queda para
+  aprobar, nunca dice «sale».
+- Y suma dos cosas que nadie había pedido y muerden igual: **cuántos mensajes de TODO el flujo
+  quedan para aprobar**, y **los borradores viejos de OTRAS automatizaciones que van a frenar a esas
+  personas** (27 borradores del 20/10 iban a frenar a 27 leads de otra automatización, en silencio).
+
+`tests/ritmo-al-activar.test.ts` tiene **29 tests** sobre esa conducta («sin goteo, WhatsApp: no son
+200 de una…», «Instagram no tiene tope de línea: todos juntos», «el primer mensaje queda para
+aprobar: nunca dice sale»).
+
+⚠️ **Lo verifiqué LEYENDO la implementación, los llamadores y los nombres de los tests: no los pude
+CORRER.** La guardia de RAM los bloqueó (1,8 GB libres de los 3 que pide). Si alguien quiere el
+verde, es `node --import tsx --test tests/ritmo-al-activar.test.ts`.
 
 ### 4. La captura del ws3 (Offer): ya resuelto, sin acción
 
