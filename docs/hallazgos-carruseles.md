@@ -185,6 +185,58 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 **Vive en:** `lib/carruseles/variedad.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`), `lib/thumbnails/explorar.ts`.
 
+## Dos partes del mismo carrusel ocupaban dos lugares de la grilla (6/11/2026)
+
+**Síntoma:** «El cliente ve el mismo contenido repetido y pierde lugares de la grilla que podrían traer ejemplos nuevos»: las
+partes de una misma serie, una abajo de la otra.
+
+**Lo que NO lo arregla:** el reparto por variedad (la entrada de arriba). Reparte por CUENTA, y dos partes de un mismo carrusel
+son de la misma cuenta **y** del mismo contenido: entran las dos igual, una en cada tramo.
+
+**Lo obvio era comparar el pie, y está mal.** Medido sobre las 990 piezas visibles: agrupar por «las primeras 8 palabras de
+contenido del pie, del mismo creador» daba 7 grupos y **5 eran falsos**. Lo que se repite no es el contenido: es el pie de
+fábrica del creador — su pitch fijo (@thesenuka lo pega igual en 4 carruseles distintos), su CTA de siempre («Comment "WIN" to
+get a free scaling roadmap», @hormozi, en dos carruseles de 13 y de 9 láminas), su firma de entrada (@vilmanunez abre todos los
+pies con «Sígueme y haz clic en el link de la bio») o un «Save this!» con hashtags. Sacarle la oración del CTA antes de
+comparar tampoco alcanza: quedan los pitch y las firmas. **Y los pies de dos partes de la misma serie no se parecen entre sí**:
+«Part 1 broke the internet… so here's Part 2» y «You thought you understood the coffee menu. Then part 3 happened» son la misma
+serie y no comparten una frase. O sea: el pie se parece cuando NO es el mismo contenido, y no se parece cuando SÍ lo es.
+
+**La regla** (`lib/carruseles/duplicados.ts`, con su «qué cubre y qué no» como `clasificar.ts`). Mismo creador y una de dos:
+
+- **La serie numerada:** los dos pies traen una marca de parte (`parte|part|pt|teil` + número). La clave es el CREADOR, no el
+  texto. ⚠️ Con una excepción medida: **dos partes con el MISMO número son series distintas** (una serie tiene una sola parte
+  2) y las dos se quedan — @heygurlceo tiene dos «pt 2» al mismo tiempo, apps y carreras, y sin eso se comía una.
+- **El mismo pie entero, las mismas láminas y el mismo día:** la misma publicación dos veces. Las tres condiciones juntas, por
+  lo de arriba.
+
+**Medido con el código que subió:** de 912 carruseles en la grilla hoy saca **4** (3 por serie, 1 por el mismo pie); si
+volvieran las 598 escondidas, **8 de 1.470** (5 por serie, 3 por el mismo pie), entre ellas las partes 8 y 9 de «meals you
+should make instead of eating out» de @success.recipes, que es uno de los ejemplos del pedido.
+
+**«Día 3», «Week 1», «Episodio 2» se probaron como marca de serie y se descartaron:** en los pies reales casi nunca marcan una
+serie, marcan un plan adentro del texto («Days 1-3: no running», «Week 2: …») o un repaso («week 1: greet people, week 2: …»).
+Aportaban 3 falsos y CERO duplicados. ⚠️ **Y la trampa al medirlo: la marca se lee con la PUNTUACIÓN puesta.** Normalizando
+primero (que es lo natural para comparar textos), «First marathon done. Days 1-3» y «…la parte. 2 cosas que aprendí» quedan
+como «days 1» y «parte 2», y aparecieron 4 series de mentira que no existen.
+
+**Lo que NO cubre:** el mismo TEMA de un creador (las de meal prep de una misma cuenta son carruseles distintos del mismo
+rubro: eso lo acota la variedad), dos series numeradas distintas y a la vez (se toman como una, salvo lo del número), y lo que
+no tiene pie (Spy lo borra a los 30 días: sin texto no se afirma nada).
+
+**No esconde nada de la base** (eso es `dejo_de_verse_en` y lo decide una pasada a ojo): es de la PRESENTACIÓN, como la
+variedad. Se aplica a la grilla ya ordenada —queda la que mejor rindió— y **no** se aplica cuando se pidió ver una cuenta (por
+la lista o por @) ni en «Guardados», así que la parte que se corrió se ve entera tocando a su creador.
+
+⚠️ **Y lo primero que cazó la regla fue una fixture de nuestro propio test.** `tests/carruseles-pantalla.test.ts` contaba
+«Ver 2 carruseles» en el modal de filtros con dos tarjetas que eran el MISMO carrusel con otro id y otro tipo: mismo pie,
+mismas láminas, mismo día. El rojo era correcto y el arreglo fue darle su propio pie al segundo, no aflojar la regla. Una
+fixture copiada con `{...base, id: otro}` es un duplicado perfecto, y de ahora en más una pantalla que CUENTA tarjetas se
+prueba con contenidos distintos.
+
+**Vive en:** `lib/carruseles/duplicados.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`: juntar y después repartir, en
+ese orden, para que el reparto sea sobre contenidos distintos), con `tests/carruseles-duplicados.test.ts`.
+
 ## Anuncios en video en una pantalla de imágenes: la fuente lo decía y se tiraba (6/11/2026)
 
 **Síntoma:** en «Anuncios» había muchos videos, y la pantalla es para copiar imágenes.
@@ -284,6 +336,47 @@ Martín: «solo quiero carruseles que le sirvan a dueños de negocio». Se escon
 - **Primero limpiar, después leer láminas.** El comando `laminas` saltea lo escondido. Se hizo al revés y 169 de las 770 láminas pagadas eran de carruseles que después se escondieron. Costo medido: US$2,27 por 840 links, unos US$0,0027 cada uno.
 - **El modelo:** `gemini-3.5-flash-lite` contesta 400 si se le manda `thinkingConfig`. Los otros cortes de Gemini están en `docs/hallazgos-ia.md`.
 - **Para deshacer:** `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any(<ids>)`, con los `piezas[].id` de `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`, que trae el motivo de cada una.
+
+## Un ejemplo nuevo no se ve hasta que alguien lo mira (6/11/2026)
+
+**El agujero, que estaba anotado en «Sin hacer» y nadie había cerrado:** la biblioteca la curó una persona a mano (598
+escondidas de 1.588 entre el 5 y el 6/11), pero **lo que trajera la próxima lectura iba a aparecerle al cliente sin que nadie
+lo mirara**. Medido el 6/11: las 1.588 entraron el 4 y el 5/11, así que el agujero todavía no se había materializado.
+
+**Lo obvio era filtrar automático, y ya estaba medido dos veces que no sirve** (las dos en este documento): el modelo barato
+se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true`
+tiraba 457 piezas de las que 363 servían. Así que no hay filtro: hay un **estado**, y decide una persona.
+
+**La regla:** `revisada_en` (mig 0411) en null = nadie la miró, y la biblioteca NO la muestra. El comando `revisar` del
+script deja una hoja HTML con las miniaturas y sus ids, y aplica lo que la persona decida: `--aprobar`, o `--esconder` con su
+motivo, que queda escrito en un JSON al lado de la hoja (la tabla no tiene columna para el motivo, y sin motivo no se puede
+deshacer). GRATIS: no le pide nada a Apify.
+
+**Cinco decisiones que no se ven en el diff:**
+
+- **Es un estado APARTE de `dejo_de_verse_en`, no el mismo.** «La miramos y no sirve» y «nadie la miró» no son lo mismo, y
+  los dos SQL de deshacer que viven en este documento salen de la FECHA de `dejo_de_verse_en`: mezclarlos los rompería.
+- ⚠️ **El backfill de la migración no es opcional: sin él, aplicarla vacía la vidriera de golpe** (las 990 que hoy se ven
+  pasarían a «sin mirar»). Las que ya están pasaron por la curaduría, así que la migración las marca. Una columna nueva con
+  la regla «sólo se muestra lo que la tiene» siempre tiene que decidir qué pasa con lo que ya existe, y el default (null) es
+  justo el que esconde todo.
+- **El filtro va en memoria, NO en un `filtros` de PostgREST.** Una columna que todavía no existe haría fallar la lectura
+  ENTERA (la misma trampa de la 0373 y de la 0391), y `estaRevisada` mira si la fila **trae** la columna, no si su valor es
+  null: con la 0411 sin aplicar, todo se ve como antes. Verificado contra producción con el código nuevo y la migración sin
+  aplicar: `carruselesDeLaBiblioteca()` devuelve los mismos 800 y una pieza suelta se abre igual.
+- **El upsert de la lectura NUNCA manda `revisada_en`,** como tampoco manda `dejo_de_verse_en`: si lo mandara, releer una
+  pieza ya aprobada la volvería a esconder. Lo fija un test sobre `filasDeLectura`.
+- **`laminas` no paga lo que nadie miró.** Es el mismo error de «primero limpiar, después leer láminas» (169 de las 770
+  láminas pagadas eran de carruseles que después se escondieron), sólo que ahora hay con qué filtrarlo.
+
+**Vive en:** `supabase/migrations/0411_carruseles_revisada.sql` (**sin aplicar**: la aplica Martín o el Cerebro),
+`lib/carruseles/biblioteca.ts` (`estaRevisada`, `sinRevisar`, `hojaDeRevision`), `lib/carruseles/biblioteca-servidor.ts`,
+`scripts/carruseles-biblioteca.mts` (`revisar`; `estado` dice cuántas faltan), con `tests/carruseles-biblioteca.test.ts`.
+
+⚠️ **Y una trampa del arnés de «probarlo rompiéndolo»:** el contador de rojos leía el resumen de `node --test` de la salida
+capturada, y una aserción que falla comparando dos objetos grandes imprime un diff que **desborda el `maxBuffer` de
+`execFileSync`** (1 MB): la salida vuelve cortada, sin el resumen, y la rotura se anota como «0 rojos» cuando el test la cazó
+perfecto. Un «0 rojos» se confirma corriendo ESA rotura a mano antes de creerle.
 
 ## Top Carousels: su biblioteca no se recorre, ni con la sesión de Martín (5/11/2026)
 
@@ -391,11 +484,19 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **El tipo de 1.213 carruseles** sigue vacío: sólo las láminas (o la portada leída) lo dirían. `lib/carruseles/clasificar.ts`.
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
-- **Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire. El filtro no puede ser el de arriba.
+- ~~**Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire.~~
+  **Cerrado el 6/11/2026** con `revisada_en` (mig 0411) y el comando `revisar` (ver la entrada de arriba). **Lo que queda:**
+  la migración **sin aplicar** (la aplica Martín o el Cerebro: `node scripts/apply-migration.mjs
+  supabase/migrations/0411_carruseles_revisada.sql`) y que la pantalla de «Editar la biblioteca» todavía no muestra ni
+  aprueba lo que está sin mirar — hoy eso se hace con el script (`app/image-editor/carruseles/`,
+  `lib/carruseles/biblioteca-servidor.ts` → `bibliotecaParaEditar`).
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
   correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
-- Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
+- **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). Lo que queda: el mismo TEMA de un
+  creador (las de meal prep) NO se junta, porque son carruseles distintos del mismo rubro; juntarlos pide clasificar el tema, y
+  eso no existe todavía. Y «you can find anything on the internet» ya no está en la base (0 piezas el 6/11): el ejemplo del
+  pedido se fue con la curaduría del 6/11, no con esto.
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
 - **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
 - **«Editar» con la IA real: probado y funcionando** (6/11, cinco corridas; ver la entrada de arriba). Lo que quedó abierto es

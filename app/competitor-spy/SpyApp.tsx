@@ -62,7 +62,8 @@ import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import type { NombreIconoMenu } from '../_ui/iconos-menu';
-import { dibujarContador } from '@/lib/spy-reglas';
+import { adLibraryCubreComercial, dibujarContador, sinAnunciosEnEstePais } from '@/lib/spy-reglas';
+import { PAISES, flagUrl, nombreDePais } from '@/lib/paises';
 import { iniciales } from '@/lib/unicode-seguro';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
@@ -83,7 +84,7 @@ import { avisoDeTraida } from '@/lib/spy-todo-reglas';
 import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
-  competidoresAction, guardarAnuncioAction, piezasAction, quitarCanalAction, quitarCompetidorAction,
+  competidoresAction, guardarAnuncioAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
   revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
@@ -205,6 +206,8 @@ button.spy-campo:hover{color:var(--dim)}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
 .spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.spy-cola-frenada{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spy-cola-frenada small{color:var(--dim)}
 .spy-sin-anuncios a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
 .spy-volver__grupo{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
@@ -663,6 +666,41 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
   );
 }
 
+/**
+ * «¿De qué país es?»: un hecho, no una acción. Decide si la Biblioteca de Anuncios de Meta puede traer sus anuncios
+ * (`adLibraryCubreComercial`) y con qué país se abre la Biblioteca. Las banderas son IMÁGENES: en Windows el emoji de bandera
+ * se dibuja como dos letras (lib/paises.ts).
+ */
+function ModalPais({ nombre, actual, ocupado, error, onClose, onElegir }: {
+  nombre: string; actual: string | null; ocupado: boolean; error: string | null;
+  onClose: () => void; onElegir: (iso2: string | null) => void;
+}) {
+  const [iso, setIso] = useState(actual ?? '');
+  return (
+    <ModalShell w={460} label="Su país" onClose={onClose}>
+      <div className="spy-modal">
+        <div className="spy-modal-cabecera">
+          <h2>¿De qué país es {nombre}?</h2>
+          <button type="button" className="spy-x" aria-label="Cerrar" onClick={onClose}><Icon name="x" size={15} /></button>
+        </div>
+        <Dropdown
+          ariaLabel="Su país" value={iso} width="100%" search
+          options={PAISES.map((p) => ({ value: p.iso2, label: p.nombre, avatar: flagUrl(p.iso2), avatarCuadrado: true }))}
+          onChange={setIso}
+        />
+        {error && <p className="spy-aviso spy-error">{error}</p>}
+        <div className="spy-modal-pie">
+          {/* Borrarlo es parte de poder contestarlo: un país equivocado hace más daño que ninguno. */}
+          {actual && <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onElegir(null)}>No lo sé</button>}
+          <button type="button" className="spy-boton spy-boton-primario" disabled={!iso || iso === actual || ocupado} onClick={() => onElegir(iso)}>
+            {ocupado ? 'Un momento…' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 /** El ícono de cada opción del desplegable de tipos (AGENTS.md: cada opción de un desplegable lleva el suyo). */
 const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
   todo: 'ver', reels: 'video', carruseles: 'imagen', largos: 'video', shorts: 'video', anuncios: 'anuncio',
@@ -888,7 +926,7 @@ function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false, caricaturasFrenadasDesde = null }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -904,6 +942,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   sugeridosIniciales?: Sugerido[];
   /** La vista previa de sus páginas: la ruta del Diagnóstico del Web Generator pide el admin y esa tab en el plan. */
   conVistaPrevia?: boolean;
+  /**
+   * Desde cuándo espera la caricatura pendiente más vieja, si la cola está FRENADA. Sólo llega al super admin: el Runner
+   * es nuestro. `null` = no hay nada que decir.
+   */
+  caricaturasFrenadasDesde?: string | null;
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
@@ -953,7 +996,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [orden, setOrden] = useState<OrdenSpy>('mas-vistas');
   /** El piso del «3,7×» (0 = cualquiera): los mismos que el explorador de carruseles. */
   const [minimo, setMinimo] = useState(0);
-  const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
+  const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'pais' | 'quitar' | null>(null);
   /** «Agregar su YouTube» busca sólo en YouTube; el «Agregar un canal» del menú, en todas sus redes. */
   const [redCanal, setRedCanal] = useState<'instagram' | 'youtube' | null>(null);
   const abrirCanal = (red: 'instagram' | 'youtube' | null) => { setErrorModal(null); setRedCanal(red); setModal('canal'); };
@@ -1004,6 +1047,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // debería»). Mientras alguna está en camino, se pregunta por una RUTA (no una action: haría fila detrás de una lectura) cada
   // pocos segundos, y la nueva entra sola en su tarjeta con un fundido. Llegadas todas, deja de preguntar. Con la pestaña
   // escondida no pregunta; a los ~40 minutos se rinde (la próxima apertura la trae).
+  // La cola frenada: llega del server al abrir, y el refresco de las caricaturas la mantiene al día (se apaga sola
+  // cuando el Runner vuelve a generar, porque la ruta deja de mandarla).
+  const [frenadaDesde, setFrenadaDesde] = useState<string | null>(caricaturasFrenadasDesde);
   const enCamino = competidores.filter((x) => x.caricaturaPendiente && !x.caricatura).map((x) => x.id).join(',');
   useEffect(() => {
     if (!enCamino) return;
@@ -1013,11 +1059,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const vuelta = async () => {
       if (!vivo) return;
       if (document.visibilityState === 'visible') {
-        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }> };
+        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }>; frenadaDesde?: string };
         const r: R | null = await fetch('/api/competitor-spy/caricaturas', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
           .then((x) => x.json() as Promise<R>).catch(() => null);
         if (!vivo) return;
         if (r?.ok && r.caras) {
+          setFrenadaDesde(r.frenadaDesde ?? null);
           const caras = new Map(r.caras.map((k) => [k.id, k]));
           setCompetidores((v) => (v.some((x) => { const k = caras.get(x.id); return !!k && (k.caricatura !== (x.caricatura ?? null) || k.pendiente !== !!x.caricaturaPendiente); })
             ? v.map((x) => { const k = caras.get(x.id); return k ? { ...x, caricatura: k.caricatura, caricaturaPendiente: k.pendiente } : x; })
@@ -1439,6 +1486,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     }
   };
 
+  /**
+   * Su país. Se recarga la lista porque la ficha lee de ahí (`competidores`), y con el país cambia lo que dice el lugar de
+   * sus anuncios y a qué país abre la Biblioteca. No se relee nada de afuera: no cuesta una lectura.
+   */
+  const guardarPais = async (id: number, iso: string | null) => {
+    setOcupado(true); setErrorModal(null);
+    try {
+      const r = await ponerPaisAction(id, iso);
+      if (!r.ok) { setErrorModal(r.error); return; }
+      setModal(null);
+      await recargarLista();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const guardarAnuncio = async (valor: string) => {
     if (elegido == null) return;
     setOcupado(true); setErrorModal(null);
@@ -1636,6 +1699,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
             options={[
               { value: 'canal', label: 'Agregar un canal' },
               { value: 'anuncio', label: 'Guardar un anuncio' },
+              // Un HECHO suyo, no una acción: de qué país es. Acá y no en el alta, que es un campo y un Enter
+              // («un paso por pantalla»), y no se pide por su cuenta: sin el dato no se dibuja un «falta».
+              { value: 'pais', label: c.pais ? `Su país: ${nombreDePais(c.pais)}` : 'Su país' },
               // Mismo criterio que el botón de la lista: borrar es del admin, y lo
               // que no se puede hacer no se ofrece.
               ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
@@ -1645,7 +1711,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
               if (v === 'canal') { abrirCanal(null); return; }
               setErrorModal(null);
-              setModal(v as 'anuncio' | 'quitar');
+              setModal(v as 'anuncio' | 'pais' | 'quitar');
             }}
             buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
           />
@@ -1700,6 +1766,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           />
         )}
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
+
+        {/* ⚠️ LA COLA DE CARICATURAS FRENADA SE VE (6/11/2026). Las hace el Runner en la PC con Canva; si su cuenta de
+            Claude no tiene Canva conectado NO se anota ningún error: la pendiente espera, la tarjeta sigue diciendo
+            «Haciendo su caricatura…» y lo único que lo delata es la espera, que crece. Hasta hoy no se veía en NINGUNA
+            pantalla: sólo corriendo `scripts/spy-caricaturas-pendientes.mjs` a mano. Es del SUPER ADMIN (el server
+            sólo se lo manda a él) y dice el hecho, no un reproche: no hay nada que un cliente pueda hacer. */}
+        {!c && frenadaDesde && (
+          <p className="spy-aviso spy-cola-frenada" aria-live="polite">
+            <Icon name="warning" size={14} />
+            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde)} en la cola.
+            <small>Las hace el Runner con Canva.</small>
+          </p>
+        )}
 
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
         {!c && !competidores.length && (
@@ -1878,9 +1957,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                         {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
                         {/* ⚠️ NO PAUTAR ES UN DATO, NO UN ERROR (el Cerebro, 4/11/2026): se probaron todas sus búsquedas y no hay anuncios
                             suyos. Se dice en el lugar de sus anuncios, con la Biblioteca a un clic, sin cartel. */}
+                        {/* ⚠️ Y «SIN ANUNCIOS» NO ES LO MISMO QUE «NO SE PUDO MIRAR» (6/11/2026): la Biblioteca de Meta sólo entrega
+                            anuncios comerciales de la UE y el Reino Unido, así que para un competidor de México la lista viene vacía
+                            SIEMPRE, con HTTP 200. Con su país sabido (`Su país`, en «⋯») se dice eso; sin el dato, lo de antes. */}
                         {!anuncios.length && sinAnuncios[c.id] && (
                           <p className="spy-aviso spy-aviso--suave spy-sin-anuncios">
-                            <Icon name="ads" size={14} />Sin anuncios activos en Meta · lo miré el {fechaCorta(sinAnuncios[c.id])}
+                            <Icon name="ads" size={14} />
+                            {c.pais && !adLibraryCubreComercial(c.pais)
+                              ? sinAnunciosEnEstePais(nombreDePais(c.pais))
+                              : `Sin anuncios activos en Meta · lo miré el ${fechaCorta(sinAnuncios[c.id])}`}
                             <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener">Ver la Biblioteca</a>
                           </p>
                         )}
@@ -1997,6 +2082,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           confirmLabel="Dejar de mirarlo"
           onOk={() => void quitarDeLaLista(aBorrar.id)}
           onCancel={() => setABorrar(null)}
+        />
+      )}
+      {modal === 'pais' && c && (
+        <ModalPais nombre={c.nombre} actual={c.pais} ocupado={ocupado} error={errorModal}
+          onClose={() => setModal(null)} onElegir={(iso) => void guardarPais(c.id, iso)}
         />
       )}
       {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${c.nombre}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}

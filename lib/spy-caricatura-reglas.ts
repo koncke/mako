@@ -181,6 +181,41 @@ export function estadoEnCola(
 }
 
 /**
+ * Cuánto puede esperar una pendiente antes de que la cola cuente como FRENADA. Son 6 horas: el Runner la hace en ~30 s
+ * y corre seguido, así que media jornada esperando no es «tardón», es que no está generando (la causa conocida: la cuenta
+ * de Claude del Runner sin Canva conectado, que NO deja ningún error anotado). Más corto daría falsos mientras trabaja;
+ * más largo que un día se lo come `ESPERA_TRAS_FALLO_MS` y la pendiente ya habría pasado a «esperando».
+ */
+export const COLA_FRENADA_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Desde cuándo espera la caricatura pendiente más vieja de ESTE negocio, o `null` si ninguna espera. Es la mitad por
+ * negocio de `masVieja` (`colaDeCaricaturas`, que recorre todos y sólo la ve el Runner): con el registro del negocio
+ * alcanza para decirlo en su pantalla, sin clave de servicio y sin leer otros negocios.
+ */
+export function esperaMasVieja(
+  registro: RegistroCaricaturas,
+  competidores: readonly { id: number; avatar?: string | null; referente: boolean }[],
+  ahora: number,
+): string | null {
+  let masVieja: string | null = null;
+  for (const c of competidores) {
+    const e = registro[String(c.id)];
+    if (!e?.desde || estadoEnCola(e, c, ahora) !== 'pendiente') continue;
+    if (!masVieja || e.desde < masVieja) masVieja = e.desde;
+  }
+  return masVieja;
+}
+
+/**
+ * ¿La cola está frenada? Devuelve DESDE CUÁNDO espera la más vieja si ya pasó `COLA_FRENADA_MS`, y `null` si no hay nada
+ * que decir. ⚠️ Es para el SUPER ADMIN: el Runner es nuestro, y a un cliente «la cola está frenada» no le dice nada que
+ * pueda hacer (su tarjeta ya muestra su foto, sin cartel).
+ */
+export const colaFrenadaDesde = (masVieja: string | null, ahora: number): string | null =>
+  masVieja && ahora - Date.parse(masVieja) >= COLA_FRENADA_MS ? masVieja : null;
+
+/**
  * ¿Su caricatura se está haciendo AHORA? (4/11/2026; Martín: «si aun no la generó un placeholder que se note que lo está
  * generando»). Sólo `pendiente`: entró a la cola y nadie falló. Una que falló y espera su reintento, o que se rindió, no dice
  * «Haciendo…»: muestra su foto, como siempre.

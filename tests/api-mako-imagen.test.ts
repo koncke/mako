@@ -68,6 +68,17 @@ test('2: cambiar textos respeta las mayúsculas del motor, entra en grupos y dic
   assert.deepEqual(textosDe(r.doc), [{ pagina: 1, nombre: null, textos: ['Chau', 'LIQUIDACIÓN', 'Cambiado'] }]);
 });
 
+// PROBADO ROMPIÉNDOLO (6/11/2026, base 7/0; de a una y restaurando):
+//   · un .json de Doory de vuelta en app/image-editor/mako/plantillas/  -> 6/1;
+//   · un .webp de Doory de vuelta en public/cv/plantillas/              -> 6/1;
+//   · el panel sirviendo una plantilla otra vez (list)                  -> 6/1;
+//   · `get` abriendo una de Doory en vez de negarla                     -> 6/1;
+//   · la API armando `/cv/plantillas/${slug}.webp`                      -> 6/1;
+//   · `documentoDePlantilla` de vuelta en imagen.run.ts                 -> 5/2: también se cae el test 7, que carga
+//     el runner en un node suelto y lo importa. El guard no está solo.
+// ⚠️ Lee `imagen.run.ts` SIN sacar los comentarios: nombrar `catalogoPlantillas` o `documentoDePlantilla` en un
+// comentario de ESE archivo lo pone rojo. Falla cerrado y se deja así: hablar ahí de traerlas de vuelta es,
+// justamente, lo que no tiene que pasar desapercibido.
 test('3: no quedó ninguna de las 10 plantillas de Doory: ni en el panel «Diseño», ni en la API, ni en disco', async () => {
   // Eran material ajeno adentro del producto: la Attribution Assurance License del código portado aplica «in whole or
   // part, with or without modification», así que sacar el crédito visible (29/10/2026, `editor/CreditoDoory.tsx`) no la

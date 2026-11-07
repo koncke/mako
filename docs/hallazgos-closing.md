@@ -195,3 +195,88 @@ Una entrada por tema; lo que quedó sin hacer dice dónde vive.
 - **Regla:** `GrabadorSinRespuestaError` al leer = «todavía no está»: no se analiza ni se escribe fila (el
   barrido la toma cuando esté). Otro error de lectura sigue como antes, con la metadata. El seguimiento que
   esperaba esa transcripción lo redacta el cron (docs/hallazgos-integraciones.md, los grabadores).
+
+## El nombre del programa de un cliente descartaba las ventas de los demás (06/11/2026)
+
+- **Síntoma: no hubo síntoma, y es el punto.** `RE_SERVICIO_EXPLICITO` (`lib/closing.ts`) traía
+  `paddock & pit`, `programa via`, `scaling up` y `mesa de trabajo` —nombres de programas de UN
+  cliente— y `preClassify` se los aplicaba a TODOS los workspaces. Para otro negocio, una llamada de
+  VENTA titulada «Mesa de trabajo» o «Scaling Up» (que es un libro de metodología, no la marca de
+  nadie) se clasificaba `entrega_servicio` ANTES de que el modelo la leyera: sin error, sin aviso y
+  sin dejar ni la fila que el análisis sí deja. Una venta descartada así no aparece en ninguna
+  pantalla y nadie vuelve a mirarla.
+- ⚠️ **EL DIAGNÓSTICO OBVIO ESTABA MAL: «aflojar este detector sube el gasto».** El dato que lo dice
+  es real y está en el repo: el 77% del gasto de closing fue para que el modelo dijera «esto no es
+  una venta» (`docs/api-mako-inventario.md`). Pero hay un SEGUNDO dato medido, sobre el mismo cliente
+  y las mismas llamadas, que dice qué parte de eso evita este detector: **caza 0 de 28 entregas**
+  (`docs/hallazgos-crm.md`, 06/10/2026). Cero. Los títulos reales de las entregas son «Junta X y Y» y
+  «X y Mauricio» —nombres de personas—, no nombres de programa. Los dos datos no se contradicen:
+  miden cosas distintas. Así que esto nunca fue corrección contra plata; era corrección gratis, y la
+  discusión de costo se venía teniendo sin mirar el rendimiento del detector del que se hablaba.
+- **La causa real, y por qué nadie la vio:** es el TERCER mecanismo del MISMO módulo que le aplicaba
+  la identidad de un cliente a los demás, y cada vez el que vino después no lo vio porque buscaba el
+  mecanismo anterior: los correos (14/08, `closing-internos.ts`), la taxonomía del prompt (06/11,
+  `closing-taxonomia.ts`) y ahora el vocabulario de un regex. Una guarda de prompts no lo iba a
+  encontrar, porque no es un prompt. La regla general quedó en `AGENTS.md` («El vocabulario de UN
+  negocio no se escribe en el código»), con la tabla de los tres y su fallback.
+- **Regla (`lib/closing-marcadores.ts`, sin `server-only`, con test):** los nombres salen de lo que el
+  negocio tiene cargado —sus ofertas y sus productos, **activos e inactivos**, porque las entregas de
+  hoy son las del programa que se dejó de vender— y se filtran tres veces antes de poder descartar
+  nada: fuera los hechos sólo de palabras que usaría cualquiera (`PALABRAS_GENERICAS`), fuera los de
+  menos de 6 caracteres, y fuera los que además rotulan una reunión de VENTA de ese mismo negocio
+  (`reunionesDe` sobre su embudo, la fuente única del CRM). Fallback `SIN_MARCADORES`: si no se pudo
+  leer, no se descarta. Los prefijos `SERVICIO:` / `COACHING:` se quedaron en el código porque son
+  convención de la app, y la diferencia con lo que se fue es la frase que conviene recordar: **un
+  prefijo es una declaración; una subcadena es una adivinanza.**
+- **El desempate, escrito al lado del código: ante la duda, VENTA.** El prefijo alcanza solo. El
+  nombre de un programa NO descarta si el título trae además una señal fuerte de venta («propuesta»,
+  «diagnóstico», «primera llamada», «Junta 1»), porque ese mismo nombre aparece en la llamada donde
+  se VENDE el programa. Cuesta un análisis que el modelo cierra bien, y lo paga la clave del propio
+  negocio desde IA12; la duda al revés cuesta una venta que nadie vuelve a mirar.
+- ⚠️ **Y la guarda que tenía que cazarlo existía: buscaba el nombre de la PERSONA, no los de sus
+  programas.** `tests/sin-nombre-de-un-cliente.test.ts` (ticket #41, 03/11/2026) barre `app`, `lib` y
+  `plugin` buscando «mbustos» y «Mauricio Bustos», así que «paddock & pit» y «scaling up» le pasaron
+  por al lado. Lo de un cliente no es sólo cómo se llama: es también **cómo llama a lo que vende**.
+  Esa guarda ahora barre los tres nombres distintivos de programa además del nombre propio («mesa de
+  trabajo» queda afuera: es castellano corriente y daría rojos en copy legítimo). Y de paso encontró
+  uno vivo: el copy de la landing (`app/vsl/_detalle/features.ts`) le contaba al público que el
+  triage descarta «weeklies, Scaling Up», con el nombre del programa de un cliente y describiendo un
+  comportamiento que ya no existe.
+- ⚠️ **Trampa: mudarlo a configuración NO alcanza.** Si la config admite una palabra genérica, el bug
+  vuelve por ahí: un producto llamado «Programa» o «Consultoría» descarta las ventas de su propio
+  dueño. De ahí los tres filtros, y no son decoración — son la mitad del arreglo.
+- ⚠️ **Trampa: que una función esté `export`ada no la hace testeable.** `preClassify` lo estaba, y
+  `lib/closing.ts` importa `server-only` en la línea 27, así que ningún test la podía ejecutar. Por
+  eso la decisión se MUDA a un módulo sin `server-only`; testearla donde estaba no era una opción.
+- ⚠️ **Trampa: un test que busca una llamada por su texto se rompe cuando la firma crece.**
+  `tests/grabadores-revision-tren-m.test.ts` chequeaba el ORDEN del triage con el needle
+  `'preClassify(m, internos)'`; con un tercer argumento, `indexOf` da -1 y la comparación de orden se
+  vuelve falsa por un motivo que no tiene nada que ver con el orden. El needle quedó sin el
+  paréntesis de cierre.
+
+### Lo que sigue sin hacer, acá
+
+- **Lo que de verdad separa la entrega no es el título: es el CIERRE del lead.**
+  `esGrabacionDeEntrega` (`lib/insights-llamada-reparto.ts`, pura y con test) midió 28 de 28 entregas
+  y 19 de 19 ventas. `preClassify` no la puede llamar porque el match contra el lead
+  (`matchMeetingToLead`) corre DESPUÉS, en el mismo loop de `syncClosingCalls`. Adelantar el match
+  antes de la pre-clasificación es la punta que puede bajar ese 77% de verdad; ningún detector por
+  título lo va a lograr, y está medido.
+- **Nadie midió si algún workspace tiene sus programas cargados como ofertas o productos.** Si no los
+  tiene, su lista de marcadores queda vacía y lo único que descarta por título son los prefijos. Se
+  ve con una lectura de `ofertas` y `productos` por workspace; hasta entonces, el alcance real de
+  esto es una suposición.
+- **La señal de duda no tiene «demo», ni «cotización», ni «presupuesto».** `RE_VENTA_FUERTE` es lo que
+  le gana al nombre de un programa, así que «<su programa> — demo con Juan» se sigue descartando. Se
+  reusa esa lista a propósito: es la definición de la casa de «esto grita venta» y la usan también el
+  rescate de `preClassify` y el puntaje de `syncClosingCalls`, así que ensancharla sólo para este
+  desempate crearía una segunda definición —`AGENTS.md` ya cuenta lo que pasó con las DOS de «es
+  R2»—. Ensancharla para los tres es su propia punta, y pide medir antes.
+- **El embudo se lee dos veces por corrida, y queda así A PROPÓSITO.** `taxonomiaDelNegocio` y
+  `marcadoresDelWorkspace` llaman las dos a `getPipelineStagesDefault()` —las dos puntas aterrizaron el
+  mismo día—, y parece «una cosa, un lugar» sin hacer. No lo es: corren en momentos distintos (los
+  marcadores UNA vez por corrida, en `syncClosingCalls`; la taxonomía una vez por llamada analizada, en
+  `analyzeMeeting`, y sin caché a propósito) y cada una tiene su propio `catch` con su propio fallback
+  —`TAXONOMIA_NEUTRA` y `SIN_MARCADORES`—, elegidos por separado. Compartir la lectura acoplaría las dos
+  direcciones de error: un embudo que no se puede leer degradaría a la vez el prompt y el detector. Son
+  dos consultas al lado de llamadas a Claude de 120 s. Si alguien las une, que una a los fallbacks también.
