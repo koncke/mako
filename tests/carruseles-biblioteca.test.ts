@@ -17,8 +17,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CARRUSELES_POR_DEFECTO, DIAS_ENTRE_LECTURAS, PUBLICACIONES_POR_TEMA, RESERVA_CREDITO_USD, TECHO_USD_POR_DEFECTO, TEMAS_INICIALES,
-  carruselesDeBiblioteca, creadorDelItem, cuentaDeInstagram, decidirCambio, entradaDeTema, esDeBiblioteca, filaDeBiblioteca,
-  filasDeLectura, hashtagDe, idDeBiblioteca, planDeLectura, recortarBiblioteca, referentesSinCuenta, techoConCredito, techoDeCorrida, unirConBiblioteca,
+  carruselesDeBiblioteca, creadorDelItem, cuentaDeInstagram, decidirCambio, entradaDeTema, esDeBiblioteca, estaRevisada,
+  filaDeBiblioteca, filasDeLectura, hashtagDe, hojaDeRevision, idDeBiblioteca, planDeLectura, recortarBiblioteca,
+  referentesSinCuenta, sinRevisar, techoConCredito, techoDeCorrida, unirConBiblioteca,
   type CuentaBiblioteca, type PiezaBiblioteca, type TemaBiblioteca,
 } from '../lib/carruseles/biblioteca';
 import { carruselesDe, type Carrusel } from '../lib/carruseles/explorar';
@@ -36,6 +37,41 @@ const pieza = (p: Partial<PiezaBiblioteca>): PiezaBiblioteca => ({
   id: ++n, ref: `r${n}`, cuenta_id: 1, tema_id: null, url: `https://www.instagram.com/p/r${n}/`, miniatura: null, texto: null, formato: null,
   cierre: null, medio: 'carrusel', laminas: 7, megusta: 100, comentarios: 5, vistas: null, publicada_en: hace(10), visto_primera_vez: hace(2),
   dejo_de_verse_en: null, ...p,
+});
+
+test('un ejemplo que nadie miró no se ve, y el que ya se miró no vuelve atrás por una relectura (6/11/2026, 0411)', () => {
+  // Encargo 110: «cualquier cosa que traiga una lectura nueva le aparece al cliente, y el filtro automático no sirve».
+  // Sin la columna (0411 sin aplicar) TODO se ve como antes: si no, desplegar el código vaciaría la vidriera.
+  assert.equal(estaRevisada({ id: 1 }), true, 'sin la columna, como antes');
+  assert.equal(estaRevisada({ id: 1, revisada_en: null }), false, 'con la columna en null: nadie la miró');
+  assert.equal(estaRevisada({ id: 1, revisada_en: '  ' }), false, 'una cadena vacía no es una fecha');
+  assert.equal(estaRevisada({ id: 1, revisada_en: '2026-11-06T10:00:00Z' }), true);
+
+  const vieja = pieza({ revisada_en: hace(1) });
+  const nueva = pieza({ revisada_en: null, texto: 'Recién leída' });
+  const masNueva = pieza({ revisada_en: null });
+  const escondida = pieza({ revisada_en: null, dejo_de_verse_en: hace(0) });
+  const pend = sinRevisar([vieja, nueva, masNueva, escondida]);
+  assert.deepEqual(pend.map((p) => p.id), [masNueva.id, nueva.id], 'sólo las que nadie miró, lo más nuevo primero');
+
+  // La hoja: cada tarjeta lleva SU id (la posición dentro de una hoja se puede correr) y el texto ajeno va escapado.
+  const malicia = pieza({ revisada_en: null, texto: '<script>alert(1)</script>', miniatura: 'https://x/y.jpg' });
+  const hoja = hojaDeRevision([malicia, nueva], [cuenta({ id: 1 })]);
+  assert.ok(hoja.includes(`<b>${malicia.id}</b>`) && hoja.includes(`<b>${nueva.id}</b>`), 'el id de cada una, a la vista');
+  assert.ok(hoja.includes('&lt;script&gt;'), 'el pie ajeno va escapado');
+  assert.equal(hoja.includes('<script>alert'), false);
+  assert.ok(hoja.includes('--aprobar') && hoja.includes('--esconder'), 'los comandos, ya escritos');
+  assert.ok(hoja.includes('@estudio.lumen'));
+  assert.deepEqual(marcasDeVoseo(hoja), [], 'la hoja la lee Martín, pero el copy va en neutro igual');
+
+  // ⚠️ El upsert de una lectura NUNCA manda `revisada_en`: si lo mandara, releer una pieza ya aprobada la volvería a
+  // esconder (es la misma regla que `dejo_de_verse_en`, que tampoco se toca al releer).
+  const [fila] = filasDeLectura([{
+    ref: 'NUEVA', fecha: hace(1), tipo: 'Sidecar', formato: 'FEED', audio: null, texto: 'Tres ideas', permalink: 'https://www.instagram.com/p/NUEVA/',
+    miniatura: 'https://cdn/p.jpg', vistas: null, megusta: 5, comentarios: 1, laminas: 3, imagenes: [], creador: 'estudio.lumen',
+  }], { tema: null });
+  assert.equal('revisada_en' in fila, false);
+  assert.equal('dejo_de_verse_en' in fila, false);
 });
 
 test('los ids de la biblioteca van en negativo y vuelven a su fila; el cero y los de Spy no son de la biblioteca', () => {
