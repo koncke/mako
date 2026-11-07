@@ -17,61 +17,33 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
-## 🛑 NADA LLEGA A MAIN DESDE LAS 02:08 UTC DEL 7/11 — y no es el código de nadie
+## ✅ YA LLEGA A MAIN — el tope de Actions se destrabó (comprobado el 7/11 ~17:00 UTC)
 
-**El síntoma, que engaña:** cada punta da rojo y el aviso dice «sin detalle». Al abrirla, **el trabajo
-`chequear-y-llevar` figura como fallado SIN UN SOLO PASO EJECUTADO**, y el registro ni siquiera existe
-(`BlobNotFound`). O sea: el trabajo nunca arrancó. Un chat que mire su propio rojo va a buscar en su código un
-error que no está. **Le pasó a tres ramas distintas la misma noche.**
+Este bloque decía «nada llega a main desde las 02:08 UTC» y **ya no es cierto**. Comprobado con tres
+señales, no con una:
 
-**Cómo se reconoce en treinta segundos, y es lo que vale de esta entrada:**
+1. **Cuatro puntas entraron a main hoy**, entre las 12:42 y las 16:45:
+   `carrusel-tipografia-por-texto`, `video-proporcion-y-precios`, `tablero-minutos-github` y
+   `tablero-copilot-revisada`. Verificado con `git merge-base --is-ancestor` contra `origin/main`,
+   no mirando el color de una corrida.
+2. **`scripts/relanzar-puntas.mjs` encuentra CERO varadas.** Las 20 puntas en rojo fallaron **de
+   verdad**: todas tienen un paso ejecutado que falló («Tests afectados», «Tipos», «Mezclar main en
+   la punta», «Llevar a main»). La huella del tope era fallar **sin un solo paso**, y no hay ninguna así.
+3. No hizo falta `--aplicar`: no había nada que relanzar.
 
-```
-node pasos-rojos.mjs <id>     # si dice «sin paso», no es el código
-```
-
-Y la confirmación definitiva es mirar el reloj de las corridas: **todo verde hasta las 01:51, todo rojo desde
-las 02:08.** Un corte así de limpio no lo produce el código de nadie.
-
-**Qué NO es:** GitHub Actions está operativo, sin incidentes abiertos ni mantenimiento (consultado el 7/11 en
-su página de estado).
-
-**Qué es, casi con seguridad: se llegó al tope de gasto de Actions.** Cuando se agota, los trabajos fallan
-exactamente así: sin pasos y sin registro.
-
-⚠️ **Y por qué no lo puedo confirmar desde acá, que es un hallazgo en sí mismo.**
-`scripts/minutos-actions.mjs` dice «Facturable REAL de GitHub: **0 min** → US$0,00 de un tope de US$30 (0 %)».
-**Ese 0 no es «no gastamos»: es «no pude leer».** El token de Actions no tiene permiso sobre el panel de
-facturación, y la API devuelve 0 en vez de un error. Es el mismo engaño que ya está anotado para
-`/actions/runs/{id}/timing`. **Un cero de esa fuente nunca es un dato.**
-
-Lo estimado por duración, que sí se puede leer: **10.993 minutos facturables en lo que va del mes** y un ritmo
-de 2.864 min/día. La estimación sobre-cuenta ~1,9x, pero aun dividida por dos pasa cualquier tope de US$30.
-**El 4/11 solo fueron 870 corridas**, y el 6/11 otras 342.
-
-**LO QUE LO DESTRABA, Y ES DE MARTÍN** (es su cuenta de GitHub, no se puede hacer desde un chat):
-
-1. Entrar a **Settings → Billing → Spending limits** en GitHub y mirar el número de verdad.
-2. Si está en el tope: subirlo, o esperar al cierre del ciclo.
-3. Mientras tanto, **se puede seguir trabajando y pusheando**: las ramas suben bien. Lo que no pasa es que
-   lleguen solas a `main`. Cuando Actions vuelva, se relanzan y entran.
-
-⚠️ **Y cuando el pago se arregle, esas ramas NO ENTRAN SOLAS.** Un flujo se dispara al PUSHEAR, y ya están
-pusheadas: quedan ahí, rojas, hasta que alguien las vuelva a lanzar. Al 7/11 son **10**. Para eso está
-`scripts/relanzar-puntas.mjs`: busca las corridas que fallaron **sin ejecutar un solo paso** —la huella de un
-trabajo que no arrancó—, saltea las que ya entraron a main y no toca las que fallaron de verdad (ésas tienen un
-paso fallado y son trabajo de su chat).
+**Lo que queda de esta entrada, y es lo que vale:** la forma de distinguir un rojo que NO es tuyo.
 
 ```
-node scripts/relanzar-puntas.mjs            # muestra cuáles, sin tocar nada
-node scripts/relanzar-puntas.mjs --aplicar  # con el pago YA arreglado
+node pasos-rojos.mjs <id>     # si dice «sin paso», no es el código de nadie
 ```
 
-Sin `--aplicar` no relanza nada, a propósito: correrlo antes de que el pago esté arreglado gasta minutos para
-volver a fallar igual.
+⚠️ **Y el engaño que sigue vivo**, porque es del token y no del tope:
+`scripts/minutos-actions.mjs` puede decir «Facturable REAL de GitHub: **0 min**» y **ese cero no es
+«no gastamos»: es «no pude leer»**. La API devuelve 0 en vez de un error cuando el token no alcanza.
+**Un cero de esa fuente nunca es un dato.**
 
-**Lo urgente igual se puede desplegar**, porque ese camino no usa Actions:
-`node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs` (US$0,33-0,42).
+**Las 20 rojas son trabajo de cada chat, no de la infraestructura.** Quien las dejó las arregla; acá
+no se tocan.
 
 ---
 
