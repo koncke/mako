@@ -737,6 +737,11 @@ const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
   'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
+  // dLocal Go (06/11/2026): mismo motivo que las otras tres, y con un corolario que se paga al desplegar — una
+  // `DLOCAL_*` cargada en el entorno de Vercel «para la plataforma» NO hace funcionar nada (la pasarela se lee sólo con
+  // `credDelCliente`, de la base) y encima, migrada a la fila del ws1, le daría a Mauricio la cuenta de cobro de MaKo
+  // con cara de conexión propia. Las pega una persona en /integraciones, y la de MaKo en el ws de la plataforma.
+  'DLOCAL_API_KEY', 'DLOCAL_SECRET_KEY', 'DLOCAL_MERCHANT_ID',
   'RESEND_FROM',
 ]);
 
@@ -822,6 +827,11 @@ const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
   // lectura con `credWs` de otro camino cobraría con la cuenta de Creem de Mauricio. La de la plataforma vive en la fila del
   // ws de la plataforma (desde el 5/11/2026 no hay: Creem cerró la tienda de MaKo, docs/creem-retiros.md).
   'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
+  // Las tres de dLocal Go (06/11/2026). ⚠️ LAS DOS QUE SE PEGAN SON DE COBRO, Y LAS DOS SON SECRETAS: la `secret key` no
+  // es «el secreto del aviso» como el `whsec_` de Stripe o el `CREEM_WEBHOOK_SECRET`, es la mitad del header de
+  // autenticación (`Bearer <API_KEY>:<SECRET_KEY>`) Y la clave del HMAC con que se verifica cada aviso
+  // (lib/pasarela-firma.ts, `manifiestoDlocal`). Por eso no hay un cuarto campo de firma: no existe.
+  'DLOCAL_API_KEY', 'DLOCAL_SECRET_KEY', 'DLOCAL_MERCHANT_ID',
 ]);
 // Por el nombre base: `STRIPE_SECRET_KEY__C2` y el nombre de la cuenta (`STRIPE_ALIAS`, `…__C2`) también son de la pasarela.
 export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(baseDeClave(clave)) || /^(STRIPE|MERCADOPAGO|CREEM)_ALIAS$/.test(baseDeClave(clave));
