@@ -741,3 +741,54 @@ no mueve el porcentaje.** La palanca son las 196 cuentas. Apagarlos sería perde
   carruseles que cuestan **US$0,45**. Subir el `--techo-usd` no sirve: no hay de dónde. Es plata, aunque sea
   poca, y es de él.
 - **Los colores y el logo**: atados al brand board, que es decisión de diseño suya.
+
+## Un tilde verde que decía «con tu IA» sin IA, y el camino medido de punta a punta (7/11/2026)
+
+**Se probó en producción**, que es la única forma de contestar «¿funciona?». Resultado corto: **el clonado de
+imágenes funciona de punta a punta y los textos quedan editables de verdad** — y en el camino apareció un
+éxito falso.
+
+### Lo que funciona, medido
+
+Se replicó un carrusel real de la biblioteca (`@growithalex`, 9 láminas, tipografía enorme sobre foto) en el
+ws de la plataforma, que tiene IA conectada:
+
+- **~90 segundos** de punta a punta, con la ruta `/api/image-editor/carruseles/replicar` en streaming.
+- Salió un documento del Image Editor de **8 páginas a 1080 × 1350** (4:5), con la **estructura del original**
+  —la fila de encabezado con el handle, la tipografía apilada enorme con una palabra destacada— y el
+  contenido escrito para el negocio.
+- El texto es una **capa editable**: al tocarlo aparece la tipografía (Playfair Display), el cuerpo (162), el
+  color y la negrita, y el chat ofrece «Centra lo elegido». No es una imagen pegada.
+
+Eso cierra lo que pidió Martín: **la IA replica la referencia y lo full editable es el texto.** Y ya cubre los
+tres formatos: carrusel, **anuncio** (`anuncio: true`) y **miniatura de YouTube** (`miniatura: true`, 1280 × 720).
+
+### ⚠️ El éxito falso, que sólo aparece en el workspace SIN IA
+
+La misma prueba en un workspace sin IA conectada terminó con las **tres fases en verde** —«Leo sus láminas»,
+**«Escribo tu versión con tu IA»**, «Armo el diseño editable»— y, en el mismo cuadro, tres centímetros más
+abajo, el aviso: «Conecta tu Claude, tu GPT o tu Gemini y MaKo escribe los textos con lo de tu negocio. **Por
+ahora, cada lámina trae una guía**».
+
+Un tilde afirmando que escribió con la IA, encima del texto que dice que no hay IA.
+
+**El dato estaba y la pantalla no lo leía:** el servidor ya mandaba `sinIA: true` en el evento `fin`
+(`lib/carruseles/replica-servidor.ts`). Lo que lo tapaba es que `fasesDesde(..., { terminado: true })` pone
+**TODAS** las fases en verde — no tiene forma de decir «ésta no pasó».
+
+**Por qué es caro y no cosmético:** un aviso que contradice a otro no confunde sólo sobre ese punto, hace
+desconfiar de todos los demás. Y acá además manda a la persona a buscar en el diseño unos textos suyos que
+nadie escribió.
+
+**El arreglo cambia el TEXTO, no el estado**, a propósito: la fase sí terminó y sí produjo láminas; lo único
+falso era el «con tu IA». Marcarla como fallo diría otra mentira, y tocar el estado obligaría a cambiar
+`fasesDesde`, que comparten Replicar, Automations, los editores y los dashboards. Vive en
+`fasesSegunLaIA` (`lib/carruseles/replica.ts`), con un test que vigila el call-site: si alguien saca el
+`fin?.sinIA` de `EditarCarrusel.tsx`, el tilde vuelve y ningún otro test lo nota.
+
+**La regla:** cuando una pantalla declara pasos de un trabajo, cada paso tiene que poder decir **«no pasé»**.
+Un componente de progreso que sólo sabe «pendiente / ahora / hecha / fallo» va a mentir el día que un paso se
+saltee — y saltear un paso es lo normal cuando hay un camino degradado.
+
+**Vive en:** `lib/carruseles/replica.ts` (`fasesSegunLaIA`) · `app/image-editor/carruseles/EditarCarrusel.tsx`
+· `tests/carruseles-replica.test.ts`.
