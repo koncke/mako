@@ -10,6 +10,13 @@
 // Y la biblioteca de ejemplos (4/11/2026), base 11/0:
 //   · el filtro «De dónde» que no mira el origen → 1 rojo;
 //   · `sanearGuardados` que tira los ids en negativo (los de la biblioteca) → 1 rojo.
+// Y el alias `largo` (6/11/2026), base 16/0:
+//   · `cortos` traducido a un mínimo de 0 láminas en vez de 2 → 1 rojo;
+//   · el alias aplicado aunque el link traiga `lmin` → 1 rojo;
+//   · `lamMin` que ignora el alias → 1 rojo;
+//   · el filtro de láminas que descarta lo que no dice cuántas tiene (lo que hacía el desplegable viejo) → 3 rojos;
+//   · el nombre de la búsqueda sin el tramo de láminas → 1 rojo; `rotuloLaminas` sin el «o más» → 1 rojo;
+//   · y el cambio SIN efecto (renombrar la variable local `lmin` en sus tres usos) → 0 rojos, 16 verdes.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,7 +83,7 @@ test('la búsqueda: con @ es por creador; sin @, TODAS las palabras, sin tildes'
   assert.equal(coincide(x, ''), true);
 });
 
-test('los filtros: piso de outlier, sin imágenes sueltas por defecto, esta semana, guardados y largo', () => {
+test('los filtros: piso de outlier, sin imágenes sueltas por defecto, esta semana, guardados y láminas', () => {
   const todos = [
     c({ outlier: 4, laminas: 8 }), c({ outlier: 0.5, laminas: 3 }), c({ outlier: null }),
     c({ medio: 'imagen', laminas: null, outlier: 9 }), c({ medio: null, laminas: null, outlier: 2 }), c({ publicada: dia(30), outlier: 7 }),
@@ -89,7 +96,7 @@ test('los filtros: piso de outlier, sin imágenes sueltas por defecto, esta sema
   assert.deepEqual(ids(con({ outlierMin: 2 })), [todos[5].id, todos[0].id, todos[4].id]);
   assert.ok(!ids(con({ vista: 'semana' })).includes(todos[5].id), 'esta semana = publicado en los últimos 7 días');
   assert.deepEqual(ids(con({ vista: 'guardados' }, [todos[1].id])), [todos[1].id]);
-  assert.deepEqual(ids(con({ largo: 'largos' })), [todos[0].id], 'sin láminas sabidas no entra a un filtro de largo');
+  assert.deepEqual(ids(con({ lamMin: 8 })), [todos[0].id, todos[4].id], 'de 8 láminas en adelante; el que no dice cuántas tiene QUEDA (sin dato no es «no»)');
   const ej = c({ origen: 'biblioteca', outlier: null });
   const mix = [todos[0], ej];
   const deDonde = (origen: typeof FILTROS_INICIALES.origen) => ids(filtrarCarruseles(mix, { ...FILTROS_INICIALES, origen }, new Set(), AHORA));
@@ -114,7 +121,7 @@ test('las tendencias de la semana: lo de los últimos 7 días por outlier, con t
 });
 
 test('los filtros viajan en la URL y vuelven iguales; lo que no se entiende vuelve al inicial', () => {
-  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'guardados' as const };
+  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'guardados' as const };
   const q = queryDeFiltros(f);
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(q)), f);
   // Los anuncios (6/11/2026) también viajan; y un link viejo con la pestaña «Esta semana» abre «Publicado: últimos 7 días».
@@ -128,6 +135,30 @@ test('los filtros viajan en la URL y vuelven iguales; lo que no se entiende vuel
   assert.deepEqual(filtrosDeQuery({ q: ['tips'], min: '3' }), { ...FILTROS_INICIALES, q: 'tips', outlierMin: 3 });
   // Un link viejo con `cta=1`, `tam=chico` o `ver=carruseles` (6/11/2026: Martín sacó el filtro y el tamaño) abre los ejemplos sin nada.
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('ver=carruseles&cta=1&tam=chico')), FILTROS_INICIALES);
+});
+
+test('el `largo` de un link viejo es un ALIAS: da EXACTAMENTE lo mismo que el deslizador de láminas', () => {
+  // 6/11/2026: la pantalla tiene un solo largo (el deslizador, `lamMin`/`lamMax`). `?largo=cortos` de un link que anda por
+  // ahí se traduce al entrar. El que NO dice cuántas láminas tiene queda de los dos lados: antes el desplegable lo tiraba.
+  const xs = [c({ laminas: 3 }), c({ laminas: 4 }), c({ laminas: 6 }), c({ laminas: 9 }), c({ laminas: null, medio: null })];
+  const ids = (f: typeof FILTROS_INICIALES) => filtrarCarruseles(xs, f, new Set(), AHORA).map((x) => xs.indexOf(x)).sort();
+  const deLink = (q: string) => ids(filtrosDeQuery(new URLSearchParams(q)));
+  const conDeslizador = (lamMin: number, lamMax: number) => ids({ ...FILTROS_INICIALES, lamMin, lamMax });
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('largo=cortos')), { ...FILTROS_INICIALES, lamMin: 2, lamMax: 4 }, 'cortos = el deslizador en 2 a 4');
+  assert.deepEqual(deLink('largo=cortos'), conDeslizador(2, 4));
+  assert.deepEqual(deLink('largo=medios'), conDeslizador(5, 7));
+  assert.deepEqual(deLink('largo=largos'), conDeslizador(8, 0));
+  assert.deepEqual(deLink('largo=cortos'), [0, 1, 4], 'y el que no dice cuántas láminas tiene sigue estando');
+  // Lo que diga el deslizador gana: un link con los dos no aplica el alias dos veces.
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('largo=cortos&lmin=9')), { ...FILTROS_INICIALES, lamMin: 9, lamMax: 0 });
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('largo=cortos&lmax=12')), { ...FILTROS_INICIALES, lamMin: 0, lamMax: 12 });
+  // «todos» y lo que no se entiende no filtran nada, y la query ya no lleva `largo`: una búsqueda guardada se re-sanea al único filtro.
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('largo=todos')), FILTROS_INICIALES);
+  assert.deepEqual(filtrosDeQuery(new URLSearchParams('largo=gigantes')), FILTROS_INICIALES);
+  assert.equal(queryDeFiltros(filtrosDeQuery(new URLSearchParams('largo=cortos'))), 'lmin=2&lmax=4');
+  assert.equal(nombreDeBusqueda(filtrosDeQuery(new URLSearchParams('largo=medios')), []), '5 a 7 láminas', 'la búsqueda guardada se sigue leyendo');
+  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, lamMin: 8 }, []), '8 láminas o más');
+  assert.equal(nombreDeBusqueda({ ...FILTROS_INICIALES, lamMax: 4 }, []), 'hasta 4 láminas');
 });
 
 test('guardar es idempotente, sacar también; lo roto de la base se descarta', () => {

@@ -54,6 +54,12 @@ test('el plan nuevo lleva el avatar en TODAS sus tomas, ya confirmado y con su m
   const item = conAvatar(recien, avatar);
   assert.deepEqual(item.escenas, [{ n: 1, desde: 1, hasta: 3, lugar: 'Oficina', prompt: 'prompt Oficina', fondo: 'fondo Oficina' }]);
   assert.deepEqual(item.imagenes, { '1': { elegida: 'u', elegidaId: 'm-1', confirmada: true, reusadaDe: 'Viejo' } });
+  // ⚠️ Y LO SELLA COMO AVATAR (item 558, 6/11/2026). El historial del Video Generator
+  // tiene un cupo por tipo desde entonces: sin este campo el plan cuenta como anuncio y
+  // hacer avatares vuelve a empujar afuera anuncios con clips pagados. `conAvatar` es el
+  // ÚNICO que lo escribe — la regla y el cupo, en app/video-generator/historial-cupos.ts,
+  // con su test en tests/video-historial-cupos.test.ts.
+  assert.equal(item.tipo, 'avatar');
 });
 
 test('una frase de avatar no se cobra como un anuncio: con piso de UNA toma entra en una', () => {

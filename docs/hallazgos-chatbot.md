@@ -2639,9 +2639,10 @@ porque su fila tenía `null`.
 
 ### Lo que quedó sin hacer (parte «canales») [canales]
 
-- **Una respuesta por Instagram NO pausa la salida**: `pausarPorRespuesta` pausa y además contesta (asistido,
-  «Si responde», la charla) POR WHATSAPP. Hace falta que el motor conteste por el canal donde le escribieron.
-  `lib/nutricion.ts` · `lib/zernio-entrante.ts`
+- ~~**Una respuesta por Instagram NO pausa la salida**~~ *(hecho el 14/10/2026, «TikTok fase 0»: `pausarPorRespuesta`
+  toma `origen: canal`, `medio = social ?? 'whatsapp'`, y contesta con el AI Step de ESE medio por Zernio. Lo llama
+  `pausarRespuestaSocial`, lib/zernio-entrante.ts. El renglón quedó dos semanas pidiendo algo ya hecho y el barrido
+  del 6/11 lo reabrió desde acá.)* `lib/nutricion.ts` · `lib/zernio-entrante.ts`
 - **El tinte de la tarjeta** (`CanalTarjeta` e `identidadDeTarjeta`, de la parte «lienzo») y el rótulo de
   «Probar» con varios canales (`SecuenciaPerfil`). Los colores están en `IDENTIDAD_SOCIAL`.
   `lib/lienzo-grafo.ts` · `app/_components/Lienzo.tsx` · `app/automations/SecuenciaPerfil.tsx`
@@ -4165,8 +4166,17 @@ Pedidos literales en la bitácora (hitos del 10 oct 10:21-11:25). Lo que se apre
 - **El aviso de 30 min al dueño sólo corre con Calendly** (`app/api/cron/reunion-recordatorio/route.ts`,
   `correrPorWorkspace('calendly', …)`): ws13 (Cal.com) no lo recibe. Extenderlo es mandar avisos nuevos a clientes.
 - **`/api/chat-agent/onboarding/resumen` sin llamadores**; retirarla pide `npx next typegen` en el clon.
-- **El reporte semanal no sale por WhatsApp** desde que se borró Chatwoot (`despacharReporte`, `lib/notify.ts`).
-- **El store de mensajes del ws9 es el default de todos los clientes** (`leerPar`, `lib/plantillas.ts`).
+- **El reporte semanal no sale por WhatsApp**, y el «dónde» de este renglón está viejo *(revisado el 6/11/2026)*:
+  no se rompió al borrar Chatwoot, está **APAGADO POR DECISIÓN** de Martín del 10/10/2026 —`wa: 'no'` cableado en
+  `despacharReporte` (lib/notify.ts) y `REPORTE_POR_WHATSAPP = false` (lib/mensaje-canales.ts)—, y además el semanal
+  ya no pasa por ahí: sale por `emitirEventoDePlataforma('reporte-semanal')`
+  (app/api/cron/reporte-semanal/route.ts), que no importa `despacharReporte`. Re-enchufarlo arreglaría el DIARIO y el
+  HORARIO, no el semanal. El semanal sale por WhatsApp sumando la tarjeta «MaKo en WhatsApp» a su fila de SuperAdmin
+  (el camino vivo a Evolution es `enviarAlGrupoMaKo`, lib/mako-grupo.ts), y **prenderlo es decisión de Martín**:
+  revierte la del 10/10.
+- ~~**El store de mensajes del ws9 es el default de todos los clientes**~~ *(hecho el 10/10/2026: la base de la
+  herencia es `KEY_BASE` en el workspace de la PLATAFORMA (`wsSuperAdmin()`), que sólo se edita desde /mensajes
+  (`conLaBaseDeLaPlataforma`); el ws9 hereda como cualquier negocio. Ver `leerPar`, lib/plantillas.ts.)*
 
 **Vive en:** `lib/flujo-conversacion.ts` (`huecoHacia`, la flecha de la que escucha) · `lib/flujo-grafo.ts`
 (`rotuloSiNoDeRespuesta`) · `app/automations/PanelProbar.tsx` · `app/automations/SecuenciaPerfil.tsx`
@@ -8298,3 +8308,42 @@ lo baja después `guardarEmailEntrante`.
 
 **Vive en:** lib/email-entrante.ts (`pausarPorEmailRecibido`, paso 4bis) · lib/nutricion.ts
 (`pausarPorRespuesta`, `soloPausa`) · tests/email-entrante.test.ts
+## Triaje de los encargos del 6/11: SIETE de 39 ya estaban hechos, y dos tenían el motivo viejo (6/11/2026, `punta/chat-triaje-pendientes-hechos`)
+
+Los 27 pendientes del área «chat» y los 12 del editor de video, comprobados uno por uno contra
+`origin/main` antes de tocar código. La regla general quedó en [AGENTS.md](../AGENTS.md) → «Un «FALTA» de
+un doc es una MEDICIÓN CON FECHA». Acá, el veredicto de cada uno, que es lo que ahorra la lectura:
+
+| # | El pendiente decía | La verdad | Lo prueba |
+|---|---|---|---|
+| 517 | «Una respuesta por Instagram no pausa, y el motor contesta por WhatsApp» | **HECHO el 14/10** («TikTok fase 0») | `pausarPorRespuesta` toma `origen: canal` y `medio = social ?? 'whatsapp'`; lo llama `pausarRespuestaSocial` (lib/zernio-entrante.ts) |
+| 527 | «El store del ws9 es el default de todos los clientes» | **HECHO el 10/10** | la base es `KEY_BASE` en el ws de la plataforma, no el store del ws9 (`leerPar`, lib/plantillas.ts) |
+| 523 | «El paso "esperar" sigue sin drenador» | **HECHO el 4/10**, y el renglón es de una sección del 28/09 | `flujo_corridas` (mig 0186) + `retomarCorrida` desde `app/api/cron/flujo-corridas/route.ts`, cada 5 min en vercel.json |
+| 294 | «`topeConRampa` sólo rampa el email» | **HECHO el 5/11**, el MISMO día de la auditoría que lo pedía | `topeDeLineaDeHoy(db, canal, …)` con el canal por parámetro; lib/nutricion.ts la llama con `'whatsapp'` |
+| 524 | «Sumar `linea` a la lista que se vacía al clonar» | la mitad de `linea` **ya estaba**; faltaba `disparadores` | `delete o.linea` en lib/clonar-pasos.ts |
+| 530 | «Cinco prompts con la identidad de Mauricio, ninguno en el registry» | el peor **ya estaba** (97f98ba81) y **la lista de los cinco nunca existió** | `email.generar.system` en el registry; barrido el repo, queda uno |
+| 628 | «Cuando IA16 esté en main… retenido hasta el 26/10» | IA16 estaba en main **desde el 22/10** | `3a93065be`; y el motivo era más fuerte: ver [hallazgos-ia.md](hallazgos-ia.md) |
+
+**Dos que NO se hicieron porque el pedido choca con algo posterior, y eso es de Martín:**
+
+- **526, el reporte semanal por WhatsApp.** El renglón dice «se rompió al borrar Chatwoot». No se rompió:
+  está **apagado por decisión** de Martín del 10/10/2026 (`wa: 'no'` cableado en `despacharReporte` y
+  `REPORTE_POR_WHATSAPP = false`, lib/mensaje-canales.ts). Y el «dónde» además está viejo: el semanal ya no
+  pasa por `despacharReporte` —sale por `emitirEventoDePlataforma('reporte-semanal')`—, así que
+  re-enchufarlo arreglaría el diario y el horario, no el semanal. **Prenderlo revierte una decisión suya.**
+- **291, el botón de TikTok en el CRON.** El pedido es «el disparador, al lado del de Instagram». Medido:
+  **TikTok no tiene entrada a MaKo**. `lib/zernio-redes.ts:93` lo dice textual — «Publica tus videos desde
+  el Calendario. Sus mensajes no llegan a MaKo» —, `CanalSocial` son dos (`instagram | messenger`) y
+  `DISPARADORES_SOCIALES` no lo tiene. Poner el botón sin la entrada es ofrecer un disparador **que no
+  puede dispararse nunca**: una automatización que se prende, se guarda y no corre. Y el diseño
+  (docs/diseno-tiktok-linkedin.md) pide además que el tope de 10 mensajes en 48 h **se vea en el lienzo**,
+  no escondido en el motor. Primero la entrada (webhook + ventana de 48 h), después el botón.
+
+**La regla que queda, y es la que más tiempo ahorra:** un pendiente dice **qué se vio una vez**, no qué
+pasa hoy. Antes de trabajarlo, `git log --oneline -5 -- <el archivo que nombra>`. Y cuando lo arreglás,
+tachá el renglón en el mismo commit: mientras el «falta» siga escrito en presente, el próximo barrido lo
+vuelve a levantar — es exactamente cómo estos siete llegaron a la lista del 6/11.
+
+**Vive en:** los renglones corregidos están en este documento, en
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md), en `docs/relevo/automations.md`, en
+`docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` y en `docs/relevo/nube-black-november.md`.

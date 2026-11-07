@@ -30,6 +30,7 @@ import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { rateLimitEstado, rateLimitVer, clientIp, type EstadoLimite } from '@/lib/rate-limit';
+import { casoDeAutorizacion, mensajeDeAutorizacion } from './autorizacion-reglas';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { negocioPausado } from '@/lib/workspace';
 import { alcanceDeToken } from './alcance';
@@ -94,8 +95,10 @@ const MSG_503 = 'No pude verificar el token: la base de datos no contestó. Rein
 
 /** El token del header `authorization`. Como GitHub, acepta `Bearer <token>` y `token <token>`. */
 export function tokenDeAutorizacion(h: Headers): string {
-  const m = /^(?:bearer|token)\s+(.+)$/i.exec((h.get('authorization') ?? '').trim());
-  return m ? m[1].trim() : '';
+  // La forma de la cabecera la decide `autorizacion-reglas` (puro y probado): acá no se repite el patrón, porque si
+  // los dos se separan, uno aceptaría un esquema que el otro llama «otro esquema» y el error diría cualquier cosa.
+  const c = casoDeAutorizacion(h.get('authorization'));
+  return c.caso === 'bearer' ? c.token : '';
 }
 
 /** El token de un pedido, mirando SOLO `authorization`. `null` = no autorizado. */
@@ -134,7 +137,17 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
     console.error(`[api-v1] no pude verificar el token: ${e instanceof Error ? e.message : String(e)}`);
     return NextResponse.json({ ...cuerpoError(503, MSG_503), reintentar: true }, { status: 503 });
   }
-  if (!auth) return errorJson(401, 'Token inválido o revocado.');
+  // ⚠️ TRES COSAS DISTINTAS DABAN EL MISMO MENSAJE (ticket #60, 7/11/2026, Mauricio desde el móvil): no mandar la
+  // cabecera, mandarla con otro esquema (o con el token pelado, sin «Bearer»), y mandar un token que no existe.
+  // Con los tres diciendo «Token inválido o revocado», el camino natural es REGENERAR EL TOKEN una y otra vez, que
+  // es lo único que NO arregla dos de los tres casos. Mauricio probó dos tokens recién generados antes de darse
+  // cuenta —solo— de que el mensaje salía igual sin mandar ninguno. El mensaje tiene que decir cuál de los tres es.
+  // La cabecera llegó bien armada («bearer») sólo si el problema es que el token no existe: ése es el único caso en
+  // el que regenerarlo sirve, y el mensaje lo dice. Los otros tres mandan a arreglar la CABECERA.
+  if (!auth) {
+    const c = casoDeAutorizacion(req.headers.get('authorization'));
+    return errorJson(401, mensajeDeAutorizacion(c, c.caso === 'bearer'));
+  }
   const r = auth.resuelto;
   if (r.clase === 'detallado' && r.vencido) {
     const dia = r.expira ? r.expira.slice(0, 10) : '';
