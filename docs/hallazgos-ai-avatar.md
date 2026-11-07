@@ -367,3 +367,54 @@ persona, sin que nada avise.
 
 **Vive en:** `archivero/1/persona/` · `app_settings.flow.caras` (ws 1) ·
 `app/conocimientos/curso-avatar-app.ts` (clase 1, «nunca referencies IA con IA») · `lib/curso-avatar.ts`.
+
+## La identidad no la preserva el MODELO: la preserva el MÉTODO. Medido (7/11/2026)
+
+Continúa la entrada de arriba («HeyGen no REPLICA el avatar: ANIMA la foto real»). Aquella explicaba por qué
+tres intentos salieron con otra cara. Ésta mide qué hay que hacer, y **tira el modelo caro**.
+
+**La hipótesis que había que probar:** si la clave es *animar* y no *generar*, entonces no hace falta un modelo
+caro de la familia `-face`: cualquier **image-to-video** debería servir, porque ahí la foto **es el cuadro 0** y
+la cara no se genera — se arrastra.
+
+**Se midió, no se supuso.** Cuatro generaciones pagadas contra ApiMart, todas partiendo de la MISMA foto real de
+Mauricio (`archivero/1/persona/…`, la que nombra `app_settings.flow.caras`), mismo prompt, y comparando el
+**ÚLTIMO cuadro** de cada video, que es donde la deriva se nota:
+
+| modelo                  | US$/s medido | formato que devolvió | ¿es Mauricio en el último cuadro? |
+|-------------------------|--------------|----------------------|-----------------------------------|
+| MiniMax-Hailuo-2.3-Fast | **0,0253**   | 768×1024 (3:4) ✗     | **sí**                            |
+| **seedance-2.0-mini**   | **0,0384**   | **720×1280 (9:16)** ✓| **sí** ← el default               |
+| seedance-2.0-fast-face  | 0,0836       | 720×1280 (9:16) ✓    | sí                                |
+| wan2.6-i2v-flash        | —            | falló, **sin cargo** | —                                 |
+
+**El resultado: la familia `-face` cuesta 2,2× y no compra nada.** Un modelo barato de i2v conserva la cara
+igual de bien. Lo que fallaba antes no era el modelo: era pedirle al modelo que **redibujara** a la persona.
+
+**El default es `seedance-2.0-mini`, no el más barato.** Hailuo sale un tercio menos pero devolvió **3:4**, y un
+reel es 9:16. Un formato equivocado no se arregla recortando: recorta la cara. Hasta medir que Hailuo acepte el
+formato, el default es el que ya lo devuelve bien.
+
+**Qué cambió en el código:** `lib/mako-tokens-reglas.ts` → `USD_POR_SEGUNDO.normal` pasó de `0.030` a `0.0384`.
+El 0,030 salía del **tarifario de un proveedor**, no de una medición nuestra: el medidor cobraba **28 % menos**
+de lo que la generación costaba, y esa diferencia salía del margen en cada llamada.
+
+### ⚠️ Y el agujero de método, que es lo que más vale de todo esto
+
+**Ningún test lo cachó, y había 13.** Con `normal` mentido hacia abajo a `0,001` —38 veces por debajo del costo
+real— los 13 seguían en verde: los que existían miraban que `normal < premium` (se cumple igual) y que el cupo
+alcanzara para competir (alcanza de sobra, justamente porque el número es falso). **Un número mentido hacia
+abajo no rompe ninguna invariante: hace que todo cierre mejor.**
+
+La guarda que faltaba no puede ser «este precio es el correcto» —un test no lo sabe sin llamar al proveedor, y
+entonces cuesta plata y se cae sin red—. Es **«este número está donde viven los precios de verdad»**: piso 0,010
+y techo 0,200. Si el proveedor baja de golpe, se pone rojo y obliga a **medirlo y anotar la fecha**, que es
+exactamente lo que faltó. Vive en `tests/mako-tokens.test.ts`.
+
+**La regla que queda:** un precio copiado de un tarifario es un dato sin fecha y sin medición. Es el mismo error
+que el `TOPE_REFERENCIAS = 14` sacado del README de un proveedor (`lib/carruseles/clon-reglas.ts`): **lo que una
+API acepta no es lo que funciona, y lo que un tarifario publica no es lo que te cobran.** Las dos veces el
+número venía de leer, no de medir, y las dos veces la realidad estaba peor.
+
+**Vive en:** `lib/mako-tokens-reglas.ts` · `tests/mako-tokens.test.ts` · las piezas medidas quedaron en el
+scratchpad de la sesión del 7/11.

@@ -1575,3 +1575,59 @@ errores. Ver [open-generative-ai-investigacion-7-11.md](open-generative-ai-inves
 **Vive en:** el portal (`app/conocimientos/curso-creativos-ugc-realistas.ts`, clases «ApiMart», «Catálogo de
 modelos IA» y las cuatro de UGC) · `public/cono-tx/` · `lib/curso-avatar.ts` (el método 6C ya está acá) ·
 `lib/puestas-data.ts`.
+
+## ApiMart: las tres trampas de su API, y una te cobra dos veces (7/11/2026)
+
+Se eligió ApiMart como proveedor de generación (US$20 cargados el 7/11, 319 modelos, 51 de video). Lo que sigue
+es lo que **sólo se descubre llamándola** — nada de esto está en su documentación.
+
+### 1. ⚠️ La que cuesta plata: el `task_id` viene en DOS formas distintas según el modelo
+
+`POST /v1/videos/generations` devuelve, según el modelo:
+
+```
+{ "data": { "task_id": "task_…" } }        ← unos
+{ "data": [ { "task_id": "task_…" } ] }    ← otros (MiniMax-Hailuo-2.3-Fast)
+```
+
+Un extractor que sólo lee `data.task_id` devuelve `undefined` con el segundo y **el código concluye que la
+llamada falló**. No falló: **arrancó y se está cobrando.** El reintento genera otra vez, y se paga dos veces por
+una sola pieza. Esto pasó en esta misma sesión: la tarea se dio por no arrancada y estaba corriendo.
+
+**La regla:** cuando una respuesta trae un id de trabajo, se lee tolerando las dos formas
+(`data?.task_id ?? data?.[0]?.task_id`) y, si igual no aparece, **el fallo NO se trata como «no arrancó»**: se
+registra como *estado desconocido* y **no se reintenta solo**. Con un proveedor que cobra por generación, «no sé
+si arrancó» y «no arrancó» son cosas distintas y la diferencia es dinero. Esto es la otra cara del índice único
+de `mako_tokens_movimientos` (migración 0412): el ledger impide acreditar dos veces, pero **no impide generar
+dos veces** — eso se impide acá.
+
+### 2. `/v1/videos/generations` NO acepta `data:` URLs
+
+Rechaza con 400: *«Only http/https URLs or asset:// private asset URLs are supported»*. La ruta de imágenes sí
+las acepta, así que una prueba que anda en imágenes no prueba nada sobre video.
+
+**Lo que funciona, y es además el camino de producción:** URL **firmada** del bucket privado. El `archivero` es
+privado y `POST /storage/v1/object/sign/archivero/<ruta>` con el service role devuelve una URL https temporal
+que el proveedor acepta. No hay que exponer el bucket ni subir la foto a ningún lado.
+
+### 3. El catálogo NO trae precios, y los parámetros cambian por modelo
+
+`GET /v1/models` devuelve 319 modelos con la forma `{id, object, created, owned_by, supported_endpoint_types}`
+— **sin precio, sin categoría y sin parámetros**. El costo real sólo aparece en `GET /v1/tasks/{id}` **después**
+de que la tarea termina, en `data.cost`. O sea: **el precio de un modelo nuevo se averigua gastando.**
+
+Y el nombre del parámetro de la imagen de entrada cambia: `image_urls: [...]` en seedance y wan,
+`first_frame_image: "..."` en MiniMax (que además contesta *«only supports image-to-video; first_frame_image is
+required»*, que es el único lugar donde está documentado).
+
+**Consecuencia para el medidor:** el costo no se puede saber antes de llamar. El chequeo pre-vuelo
+(`alcanzaElSaldo`) tiene que trabajar con una **estimación por segundo** y el ledger ajustar con el `cost` real
+al cerrar. Por eso `mtDeUsd` redondea **hacia arriba**: la estimación tiene que ir siempre a favor del negocio,
+porque la diferencia se descubre tarde.
+
+### Lo bueno: un fallo no se cobra
+
+`wan2.6-i2v-flash` falló y quedó en `cost: 0`. Verificado, no supuesto.
+
+**Vive en:** la integración todavía NO está en `lib/` — esto se midió con scripts sueltos. Cuando se escriba el
+cliente, las tres trampas van resueltas ahí. Precios medidos en `docs/hallazgos-ai-avatar.md`.
