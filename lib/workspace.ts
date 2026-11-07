@@ -93,6 +93,13 @@ const TENANT_TABLES = new Set<string>([
   // La tarjeta «Pagos» de Automations (5/11/2026): las lecturas de comprobantes (mig 0400) y los recibos que emite cada negocio
   // a sus clientes (mig 0399). Son de UN negocio: getTenantDb les pone el workspace al leer y al escribir.
   'comprobantes_leidos', 'recibos_negocio',
+  // El saldo de MaKo Tokens y su ledger (mig 0412). ⚠️ SIN ESTO LA TABLA ES PASSTHROUGH y un negocio podría leer
+  // —o gastar— el saldo de otro: es plata, así que es el peor lugar donde dejar una tabla sin scopear.
+  // ⚠️ Y OJO con el descuento: `getTenantDb` le pone el workspace a un `update`, pero el descuento atómico
+  // (`update … where saldo >= :cuesta`) tiene que seguir llevando su propio `where`, porque lo que lo hace
+  // seguro no es el scope sino la CONDICIÓN sobre el saldo. El scope evita tocar a otro; la condición evita
+  // gastar de más. Hacen falta las dos.
+  'mako_tokens_saldo', 'mako_tokens_movimientos',
   // La cola del resumen diario de avisos (mig 0161): una fila por aviso pospuesto. Va acá
   // porque las filas son de un workspace y el cron las manda por el grupo de ESE workspace.
   'avisos_cola',
