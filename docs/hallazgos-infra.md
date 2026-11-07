@@ -164,6 +164,47 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## El pre-push del clon de la PC es del 22/10 y NO corre el filtro de puntas (7/11/2026)
+
+**El síntoma.** Push a `punta/video-historial-avatar` desde `C:/dev/wt-video-historial`: las guardas corrieron y
+dieron verde, y **el filtro chico no apareció en la salida**. AGENTS.md promete que un push a `punta/*` corre
+`scripts/filtro-punta.mjs` —los tests y los tipos de lo tocado, 90 s como tope— antes de subir.
+
+**La causa.** El hook **no se versiona**: se copia a mano, **por CLON**, y el de este clon es del **22/10/2026**:
+
+```
+$ diff -q scripts/claude-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+Files ... differ          # instalado: 133 líneas, mtime 2026-10-22 11:40
+                          # versionado: 129 líneas, último commit 2026-11-04
+```
+
+El hook del 22/10 no conoce `punta/*`: trata todo lo que no sea `main` ni `integracion` como «otra rama» y corre
+sólo las guardas baratas. Y **tampoco rechaza `integracion`**, que es lo que AGENTS.md dice que hace desde el
+4/11 — un push ahí, desde este clon, sale sin un cartel.
+
+⚠️ **Y hoy eso deja la punta SIN NINGÚN chequeo automático**, porque la otra mitad también está caída: Actions se
+quedó sin el tope de US$30 el 6/11 ~23:08, así que la punta ni corre ni llega a main. Las dos redes fallaron a la
+vez y ninguna de las dos avisa: el push sale «verde» (las guardas), y la ausencia de un `ci-rojo/<punta>` se lee
+igual que un verde.
+
+**La cura, una sola línea por clon** (está en `docs/relevo/nube-metodologia.md`, §1):
+
+```bash
+cp scripts/claude-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+```
+
+**Regla que queda:** lo que **no se versiona** no se puede dar por instalado, y una guarda que falta **no da
+error: da silencio**. Antes de confiar en el pre-push de un clon —sobre todo cuando es la única red, como con
+Actions caído— se corre el `diff -q` de arriba. Un worktree NO alcanza: el hook vive en el `git-common-dir`, así
+que los ~100 worktrees de esta PC comparten el mismo hook viejo. Y la guarda de esto no puede ser otro hook: tiene
+que ser un test del ÁRBOL que compare el instalado con el versionado, o un renglón en el relevo que alguien mire.
+
+**Vive en:** `scripts/claude-hooks/pre-push` · `scripts/filtro-punta.mjs` ·
+`docs/relevo/nube-metodologia.md` · **SIN HACER:** nada comprueba que el hook instalado sea el del repo (el
+`diff -q` está documentado y no lo corre nadie), y la instalación toca configuración del clon: **la hace Martín**.
+
+---
+
 ## Tocar `extension/` desde una PC con Windows deja el zip imposible de poner al día (6/11/2026)
 
 **El síntoma.** Cambié una línea de `extension/popup.js`, el pre-push dijo «public/mako-puente.zip quedó viejo: la

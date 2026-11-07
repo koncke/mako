@@ -1,5 +1,5 @@
 // =============================================================================
-// Las operaciones del editor — mover un borde, quitar un tramo, partirlo
+// Las operaciones del editor — mover un borde, quitar un tramo, partirlo, moverlo
 // =============================================================================
 // SIN `server-only` y sin React a propósito: son las que deciden qué se renderiza
 // después, así que son lo que hay que poder testear. Un editor cuyo recorte vive
@@ -97,6 +97,88 @@ export function partirTramo(plan: Plan, i: number, a: number): Plan {
   const segs = plan.segs.map((x) => ({ ...x }));
   segs.splice(i, 1, { toma: s.toma, ini: s.ini, fin: p }, { toma: s.toma, ini: p, fin: s.fin });
   return con(segs);
+}
+
+/**
+ * Mueve un TRAMO ENTERO a otra posición. Es el reorden: cambia el orden en que se
+ * dicen las cosas, no lo que se dice ni cuánto dura (`total` no se mueve).
+ *
+ * ⚠️ **EL PLAN ES UN ARRAY ORDENADO, Y NO ES LIBREMENTE REORDENABLE.** El pendiente
+ * daba por hecho que sí —«el plan lo soporta (es un array ordenado)»— y no:
+ * `porQueNoSirveElPlan` (plan-montaje.ts) exige que los tramos de UNA MISMA TOMA
+ * aparezcan en el array en orden cronológico. Su control es
+ * `tramos[i].ini < tramos[i - 1].fin` sobre los de esa toma **en el orden del
+ * array**, así que cruzar los dos pedazos de una toma partida —que es el caso
+ * CENTRAL de este editor: partir una toma y sacarle un bache del medio— produce un
+ * plan que el server rechaza. Y con un mensaje que miente: dice «hay dos tramos que
+ * se pisan» cuando no se pisan, están al revés.
+ *
+ * Por eso ese movimiento se RECHAZA acá, y se devuelve **el mismo plan** —la
+ * identidad es la señal: quien llama compara con `===`—. Es la regla del módulo
+ * (acota, no rechaza) aplicada a un reorden: el tramo se frena contra su hermano y
+ * se ve, igual que un borde se frena contra el vecino. Reordenar tramos de tomas
+ * DISTINTAS no tiene tope: es justamente para lo que existe.
+ */
+export function moverTramo(plan: Plan, desde: number, hasta: number): Plan {
+  const n = plan.segs.length;
+  if (!Number.isFinite(desde) || !Number.isFinite(hasta)) return plan;
+  if (desde < 0 || desde >= n) return plan;
+  const destino = Math.min(Math.max(Math.round(hasta), 0), n - 1);
+  if (destino === desde) return plan;
+  const segs = plan.segs.map((x) => ({ ...x }));
+  const [s] = segs.splice(desde, 1);
+  segs.splice(destino, 0, s);
+  if (cruzaUnaToma(segs)) return plan;
+  return con(segs);
+}
+
+/**
+ * Dos tramos de la MISMA toma, al revés en el array.
+ *
+ * Es, a propósito, el mismo control que hace `porQueNoSirveElPlan`: acá para no
+ * producirlo, allá para no renderizarlo si llega de cualquier otro lado.
+ */
+function cruzaUnaToma(segs: Tramo[]): boolean {
+  const finAnterior = new Map<number, number>();
+  for (const s of segs) {
+    const previo = finAnterior.get(s.toma);
+    if (previo != null && s.ini < previo) return true;
+    finAnterior.set(s.toma, s.fin);
+  }
+  return false;
+}
+
+/**
+ * A qué posición quiere llevar el dedo el tramo `i`, **UN PASO POR VEZ**. `segundo`
+ * es el de la LÍNEA DE TIEMPO, no el del clip. Devuelve `i` cuando no hay que mover
+ * nada —el dedo sigue sobre el tramo que agarró—.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN EL `pointermove`. Es una decisión con aritmética y con un caso
+ * borde que oscila; adentro de un manejador de puntero sólo se puede probar
+ * arrastrando el mouse, que es exactamente lo que este módulo existe para evitar.
+ *
+ * ⚠️ UN PASO, Y CONTRA LA MITAD DEL VECINO. Saltar directo al tramo que está debajo
+ * del dedo OSCILA: si el tramo agarrado es más angosto que el que desplaza, después
+ * del salto el dedo queda otra vez sobre el vecino y el `pointermove` siguiente lo
+ * manda de vuelta — un bloque temblando debajo del dedo, sin nada en ningún log. Con
+ * la mitad del vecino como umbral no puede pasar: dado el paso, el dedo quedó más
+ * allá de la mitad del tramo que ahora tiene detrás, y el paso de vuelta pide menos
+ * que eso.
+ */
+export function destinoDeMover(plan: Plan, i: number, segundo: number): number {
+  const segs = plan.segs;
+  if (i < 0 || i >= segs.length || !Number.isFinite(segundo)) return i;
+  const ini = inicios(plan);
+  const dura = (k: number) => segs[k].fin - segs[k].ini;
+  if (segundo < ini[i]) {
+    const v = i - 1;
+    return v >= 0 && segundo < ini[v] + dura(v) / 2 ? v : i;
+  }
+  if (segundo > ini[i] + dura(i)) {
+    const v = i + 1;
+    return v < segs.length && segundo > ini[v] + dura(v) / 2 ? v : i;
+  }
+  return i;
 }
 
 // ── La línea de tiempo ──────────────────────────────────────────────────────
