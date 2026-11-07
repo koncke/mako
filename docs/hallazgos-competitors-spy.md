@@ -15,6 +15,47 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### El país del competidor: la columna existía, nadie la escribía, y el único que preguntaba se tapaba solo (6/11/2026)
+
+**Lo medido.** `spy_competidores.pais` está desde la migración 0359 con su comentario escrito («El país en que se lo
+mira, en ISO-2. Decide si se le pueden prometer anuncios o no») y un `check` de dos letras. Barrido completo: cinco
+lugares la leen (`lib/spy.ts:93` el tipo, `:164` el select, `lib/spy-reglas.ts:353`, `lib/spy-funnel.ts:399`,
+`lib/api-mako/areas/spy.run.ts:218`) y **cero la escriben**. Llegaba `null` siempre, desde el día uno.
+
+**La parte que no se ve.** `adLibraryCubreComercial` existe justamente para «que la pantalla prometa lo que hay en vez
+de mostrar una lista vacía que parece *este competidor no pauta*». Y su ÚNICO llamador la tapa con un cortocircuito:
+
+```
+if (… && c.c.pais && !adLibraryCubreComercial(c.c.pais)) out.push(SIN_ANUNCIOS_EN_ESTE_PAIS);
+```
+
+Con `pais` null —o sea siempre— ese `&&` se come el aviso honesto. **Una guarda contra el dato ausente, puesta bien,
+desactiva la función entera cuando el dato nunca llega.** Y no hay forma de notarlo leyendo el código del aviso: está
+correcto. Hay que ir a ver quién escribe la columna. En `app/` `adLibraryCubreComercial` no tenía ni un llamador.
+
+**Lo que costaba.** La Biblioteca de Meta sólo entrega anuncios comerciales de la UE y el Reino Unido (28 países);
+fuera de ahí devuelve sólo política, con HTTP 200 y lista vacía. Para un competidor mexicano la ficha decía **«Sin
+anuncios activos en Meta · lo miré el …»**, que es una afirmación sobre él, cuando el hecho es que nunca se pudo
+mirar. Y el enlace a la Biblioteca iba con `country=ALL`.
+
+**La regla que queda.** «Se miró y no había» y «nunca se pudo mirar» son **dos frases distintas**, y la segunda nombra
+el país. Lo pregunta la ficha en «⋯ Más acciones» (un HECHO suyo, no una acción), no el alta —que es un campo y un
+Enter— y **no se pide por su cuenta**: sin el dato se sigue diciendo lo de antes, nunca un «falta». `null` se puede
+volver a poner («No lo sé»): un país equivocado hace más daño que ninguno.
+
+**Dos trampas del entorno:**
+
+- **Lo que se guarda en una columna ISO-2 se valida contra `PAISES` ANTES del `update`.** El `check` de la base no
+  vuelve como «no válido»: vuelve como un error de Postgres en medio de la acción, con su texto en la pantalla.
+- **Las banderas son IMÁGENES, no emoji** (`flagUrl`, lib/paises.ts): en Windows el emoji de bandera se dibuja como
+  las dos letras, porque Segoe UI Emoji nunca las incluyó.
+
+**Y un guard propio que se puso rojo contra código correcto.** `tests/spy-anuncios-apify.test.ts` caso 5 buscaba el
+texto JSX literal `Sin anuncios activos en Meta · lo miré el {fechaCorta(…)}`. La frase sigue diciéndose, pero ahora
+dentro de una plantilla (`${…}`), porque arriba hay un ternario: el guard medía la FORMA del JSX, no el hecho. Es la
+tercera vez que pasa en esta tab: un guard de fuente afirma lo que el código HACE, y al cambiar la forma de alrededor
+hay que releerlo, no relajarlo.
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).

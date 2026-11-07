@@ -357,6 +357,13 @@ export const adLibraryCubreComercial = (pais: string): boolean =>
  * Lo que se le dice a quien pide los anuncios de un competidor de un país que la API no cubre. Dice
  * la verdad y ofrece el camino que SÍ existe (pegar el link del anuncio), en vez de callarse.
  */
+/**
+ * Lo MISMO, en una línea, para la pantalla (el de abajo es para la API y el chat, donde hay lugar para el porqué entero).
+ * ⚠️ No es lo mismo que «sin anuncios activos»: ahí se miró y no había; acá NUNCA se pudo mirar.
+ */
+export const sinAnunciosEnEstePais = (pais: string): string =>
+  `En ${pais}, la Biblioteca de Meta sólo entrega anuncios de política: de él no hay nada que traer solo.`;
+
 export const SIN_ANUNCIOS_EN_ESTE_PAIS =
   'La Biblioteca de Anuncios de Meta sólo entrega anuncios comerciales de la Unión Europea y el Reino Unido. En el resto del mundo devuelve únicamente anuncios de política, así que de este competidor no hay nada que traer solo. Si ves uno suyo, pega su enlace y lo guardo en su ficha.';
 

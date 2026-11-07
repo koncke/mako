@@ -53,6 +53,7 @@ import {
   type CanalSpy, type FuentePieza, type TipoPieza,
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
+import { esPaisConocido } from './paises';
 import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
 import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
@@ -327,6 +328,23 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   await borrarSetting(claveLectura(id)).catch(() => undefined);
   // Y los guiones de sus reels (lib/spy-transcripcion.ts), por su prefijo.
   await borrarSettingsConPrefijo(prefijoTranscripciones(id)).catch((e) => console.warn(`[spy] no pude borrar los guiones del competidor ${id}:`, e instanceof Error ? e.message : e));
+  return { ok: true };
+}
+
+/**
+ * De qué país es (ISO-2), o `null` para borrarlo. Lo pregunta la ficha, y hoy es el ÚNICO que escribe `spy_competidores.pais`:
+ * desde que la columna existe (migración 0359) llegaba siempre `null`, así que `adLibraryCubreComercial` nunca decía nada y el
+ * enlace a la Biblioteca iba con `country=ALL`.
+ *
+ * ⚠️ Se valida contra `PAISES` ANTES de escribir: la columna tiene un `check` de dos letras, y un valor cualquiera no vuelve
+ * como «no válido» sino como un error de Postgres en medio de una acción.
+ */
+export async function ponerPais(id: number, pais: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const iso = pais === null ? null : pais.trim().toUpperCase();
+  if (iso !== null && !esPaisConocido(iso)) return { ok: false, error: 'No conozco ese país.' };
+  const db = await getTenantDb();
+  const { error } = await db.from('spy_competidores').update({ pais: iso, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude guardar su país: ${error.message}` };
   return { ok: true };
 }
 
