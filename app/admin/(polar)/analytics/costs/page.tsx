@@ -30,7 +30,7 @@ export default async function Page(props: {
     const vista = await leerCostos(periodo, hoy)
     // El gasto de IA del mes sale de los mismos días que pinta el gráfico, para que no haya dos
     // números distintos en la misma pantalla.
-    const iaDelMes = vista.porDia.length ? vista.porDia.reduce((a, d) => a + d.usd, 0) : null
+    const iaDelMes = vista.porDia.length ? vista.porDia.reduce((a, d) => a + d.costUsd, 0) : null
     const economia = await leerEconomia(iaDelMes)
     return <CostsPage vista={vista} economia={economia} />
   } catch (e) {
