@@ -20,6 +20,8 @@ import type { ResumenPeriodo } from '../lib/costos-ia'
 import { propsDeMetricas, recortarMetricas, vistaDeMetricas, type VistaDeMetricas } from '../app/admin/_polar/datos/metricas'
 import { armarCostos, metricasDeCostos, rangoDelMes, type VistaCostos } from '../app/admin/_polar/datos/costos'
 import { usoDelNegocio } from '../app/admin/_polar/datos/cliente'
+import { economiaDelMes } from '../lib/economia-unitaria'
+import { fijoDeMartin } from '../lib/costos-fijos'
 import { fechaDeEje, filasCsvDeMetricas, getTimestampFormatter } from '../app/admin/_polar/web/utils/metrics'
 
 const HOY = '2026-11-06'
@@ -97,7 +99,10 @@ async function enElNavegador(s: DelServer) {
       createElement(PathnameContext.Provider, { value: ruta },
         createElement(SearchParamsContext.Provider, { value: new URLSearchParams() as never },
           createElement(TooltipProvider, null, el)))))
-  const html = dibujar(createElement(CostsPage, { vista: c }), '/admin/analytics/costs')
+  // CostsPage tambien recibe la economia por cliente (Unit economics). Se arma aca con numeros fijos: lo que este
+  // archivo mira es la ZONA HORARIA, y la economia no tiene fechas — pero sin ella la pagina no dibuja.
+  const economia = economiaDelMes({ clientesQuePagan: 12, mrrUsd: 864, iaDelMesUsd: 89, fijoMensualUsd: fijoDeMartin() })
+  const html = dibujar(createElement(CostsPage, { vista: c, economia }), '/admin/analytics/costs')
   const htmlMetrics = dibujar(createElement(MetricsPage, { vista: s.metricas as VistaDeMetricas }), '/admin/analytics/metrics')
   const { default: EventsPage } = await import('../app/admin/(polar)/analytics/events/EventsPage')
   const htmlEvents = dibujar(createElement(EventsPage, {
