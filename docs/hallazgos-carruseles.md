@@ -185,6 +185,58 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 **Vive en:** `lib/carruseles/variedad.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`), `lib/thumbnails/explorar.ts`.
 
+## Dos partes del mismo carrusel ocupaban dos lugares de la grilla (6/11/2026)
+
+**Síntoma:** «El cliente ve el mismo contenido repetido y pierde lugares de la grilla que podrían traer ejemplos nuevos»: las
+partes de una misma serie, una abajo de la otra.
+
+**Lo que NO lo arregla:** el reparto por variedad (la entrada de arriba). Reparte por CUENTA, y dos partes de un mismo carrusel
+son de la misma cuenta **y** del mismo contenido: entran las dos igual, una en cada tramo.
+
+**Lo obvio era comparar el pie, y está mal.** Medido sobre las 990 piezas visibles: agrupar por «las primeras 8 palabras de
+contenido del pie, del mismo creador» daba 7 grupos y **5 eran falsos**. Lo que se repite no es el contenido: es el pie de
+fábrica del creador — su pitch fijo (@thesenuka lo pega igual en 4 carruseles distintos), su CTA de siempre («Comment "WIN" to
+get a free scaling roadmap», @hormozi, en dos carruseles de 13 y de 9 láminas), su firma de entrada (@vilmanunez abre todos los
+pies con «Sígueme y haz clic en el link de la bio») o un «Save this!» con hashtags. Sacarle la oración del CTA antes de
+comparar tampoco alcanza: quedan los pitch y las firmas. **Y los pies de dos partes de la misma serie no se parecen entre sí**:
+«Part 1 broke the internet… so here's Part 2» y «You thought you understood the coffee menu. Then part 3 happened» son la misma
+serie y no comparten una frase. O sea: el pie se parece cuando NO es el mismo contenido, y no se parece cuando SÍ lo es.
+
+**La regla** (`lib/carruseles/duplicados.ts`, con su «qué cubre y qué no» como `clasificar.ts`). Mismo creador y una de dos:
+
+- **La serie numerada:** los dos pies traen una marca de parte (`parte|part|pt|teil` + número). La clave es el CREADOR, no el
+  texto. ⚠️ Con una excepción medida: **dos partes con el MISMO número son series distintas** (una serie tiene una sola parte
+  2) y las dos se quedan — @heygurlceo tiene dos «pt 2» al mismo tiempo, apps y carreras, y sin eso se comía una.
+- **El mismo pie entero, las mismas láminas y el mismo día:** la misma publicación dos veces. Las tres condiciones juntas, por
+  lo de arriba.
+
+**Medido con el código que subió:** de 912 carruseles en la grilla hoy saca **4** (3 por serie, 1 por el mismo pie); si
+volvieran las 598 escondidas, **8 de 1.470** (5 por serie, 3 por el mismo pie), entre ellas las partes 8 y 9 de «meals you
+should make instead of eating out» de @success.recipes, que es uno de los ejemplos del pedido.
+
+**«Día 3», «Week 1», «Episodio 2» se probaron como marca de serie y se descartaron:** en los pies reales casi nunca marcan una
+serie, marcan un plan adentro del texto («Days 1-3: no running», «Week 2: …») o un repaso («week 1: greet people, week 2: …»).
+Aportaban 3 falsos y CERO duplicados. ⚠️ **Y la trampa al medirlo: la marca se lee con la PUNTUACIÓN puesta.** Normalizando
+primero (que es lo natural para comparar textos), «First marathon done. Days 1-3» y «…la parte. 2 cosas que aprendí» quedan
+como «days 1» y «parte 2», y aparecieron 4 series de mentira que no existen.
+
+**Lo que NO cubre:** el mismo TEMA de un creador (las de meal prep de una misma cuenta son carruseles distintos del mismo
+rubro: eso lo acota la variedad), dos series numeradas distintas y a la vez (se toman como una, salvo lo del número), y lo que
+no tiene pie (Spy lo borra a los 30 días: sin texto no se afirma nada).
+
+**No esconde nada de la base** (eso es `dejo_de_verse_en` y lo decide una pasada a ojo): es de la PRESENTACIÓN, como la
+variedad. Se aplica a la grilla ya ordenada —queda la que mejor rindió— y **no** se aplica cuando se pidió ver una cuenta (por
+la lista o por @) ni en «Guardados», así que la parte que se corrió se ve entera tocando a su creador.
+
+⚠️ **Y lo primero que cazó la regla fue una fixture de nuestro propio test.** `tests/carruseles-pantalla.test.ts` contaba
+«Ver 2 carruseles» en el modal de filtros con dos tarjetas que eran el MISMO carrusel con otro id y otro tipo: mismo pie,
+mismas láminas, mismo día. El rojo era correcto y el arreglo fue darle su propio pie al segundo, no aflojar la regla. Una
+fixture copiada con `{...base, id: otro}` es un duplicado perfecto, y de ahora en más una pantalla que CUENTA tarjetas se
+prueba con contenidos distintos.
+
+**Vive en:** `lib/carruseles/duplicados.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`: juntar y después repartir, en
+ese orden, para que el reparto sea sobre contenidos distintos), con `tests/carruseles-duplicados.test.ts`.
+
 ## Anuncios en video en una pantalla de imágenes: la fuente lo decía y se tiraba (6/11/2026)
 
 **Síntoma:** en «Anuncios» había muchos videos, y la pantalla es para copiar imágenes.
@@ -441,7 +493,10 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
   correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
-- Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
+- **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). Lo que queda: el mismo TEMA de un
+  creador (las de meal prep) NO se junta, porque son carruseles distintos del mismo rubro; juntarlos pide clasificar el tema, y
+  eso no existe todavía. Y «you can find anything on the internet» ya no está en la base (0 piezas el 6/11): el ejemplo del
+  pedido se fue con la curaduría del 6/11, no con esto.
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
 - **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
 - **«Editar» con la IA real: probado y funcionando** (6/11, cinco corridas; ver la entrada de arriba). Lo que quedó abierto es
