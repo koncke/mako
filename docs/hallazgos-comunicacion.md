@@ -7160,7 +7160,11 @@ placeholder en vez de mostrar un campo vacío sin explicación.
 
 ### Lo que sigue sin hacer
 
-- **`esperar` sigue sin drenador**: el paso existe, la UI lo ofrece y corta la ejecución.
+- ~~**`esperar` sigue sin drenador**~~ *(hecho el 4/10/2026, y este renglón es de la sección del 28/09, anterior: el
+  paso duerme la corrida en `flujo_corridas` (mig 0186) y la retoma `retomarCorrida` desde el cron
+  `app/api/cron/flujo-corridas/route.ts`, cada 5 min por vercel.json, con compare-and-set para que dos ticks no
+  repitan el paso. Para un aviso de evento usa `filaDeIdCorrida` + `pasosParaRetomar`, así que la rama de avisos
+  está cubierta.)*
 - **El disparador no se edita desde el cliente**, a propósito: los 15 avisos en vivo tienen
   su enganche cableado en el webhook. Si el pedido crece a «quiero un aviso nuevo con mi
   propio disparador», eso es un FLUJO y hoy sólo se arma desde `/agencia`.
