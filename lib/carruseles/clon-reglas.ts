@@ -79,14 +79,17 @@ export function porQueNoSirveElClon(prompt: string, referencias: number): string
     return `Son ${referencias} referencias y el tope es ${TOPE_REFERENCIAS}: con más, el modelo promedia estéticas en vez de copiar una.`;
   }
   if (p.length < PISO_PROMPT) {
-    return 'El pedido está vacío: decí qué querés distinto del ejemplo, o el modelo improvisa.';
+    // ⚠️ Los mensajes de este archivo los LEE EL CLIENTE: van en español neutro con «tú», nunca en voseo.
+    // Lo fija `tests/puente-panel-copy.test.ts`, y me lo cazó a mí el 7/11: la prosa del repo es toda voseo y se
+    // arrastra sin darse cuenta, porque la frase suena perfecta igual.
+    return 'El pedido está vacío: indica qué quieres distinto del ejemplo, o el modelo improvisa.';
   }
   // ⚠️ ACÁ VIVE LA LECCIÓN. No se buscan palabras —eso ya se probó y marcaba de más—: se mide el TEXTO, que es
   // lo que compite con la referencia.
   if (p.length > TOPE_PROMPT_CON_REFERENCIA) {
     return `El pedido tiene ${p.length} caracteres y el tope con una referencia es ${TOPE_PROMPT_CON_REFERENCIA}. `
       + 'Con una imagen enfrente, el texto largo compite con ella y el resultado se parece menos, no más: '
-      + 'escribí sólo lo que querés DISTINTO del ejemplo.';
+      + 'escribe sólo lo que quieres DISTINTO del ejemplo.';
   }
   return null;
 }

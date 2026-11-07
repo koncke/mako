@@ -347,12 +347,13 @@ export async function GET(req: NextRequest) {
       // CON «@» ES SÓLO EL EXACTO (Martín: «si busco el @ exacto, no me puede traer sin tardar esos 20 segundos directamente la
       // foto?»): quien escribe el @ ya sabe a quién busca, y esperar la búsqueda por nombre era el tiempo de sobra.
       const [l, hallados] = await Promise.all([
-        // ⚠️ `variasClaves` (7/11/2026). Sin esto el alta del CRM usaba SÓLO la clave 1 de Apify, así que cuando esa
-        // se agotaba dejaba de leer el @ **mientras Spy seguía andando con las otras**, y desde afuera parecía que
-        // Instagram no contestaba. No gasta un centavo más: `porApify` usa `conLaPrimeraConCredito`, que es una
-        // CASCADA —prueba la siguiente sólo si la anterior no tiene crédito—, no un abanico. El pendiente estaba
-        // frenado como «es plata del negocio»; el código dice que no lo es.
-        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'], variasClaves: true }),
+        // ⚠️ SIN `variasClaves`, A PROPÓSITO, y lo intenté cambiar el 7/11/2026: el alta del CRM usa SÓLO la clave 1.
+        // Mi razonamiento fue que no costaba nada —`porApify` usa `conLaPrimeraConCredito`, que es una CASCADA y no un
+        // abanico, así que la segunda clave sólo se toca si la primera no tiene crédito—. **Eso es cierto y no alcanza.**
+        // Lo que me faltó preguntar no es cuánto cuesta la llamada, sino DE QUIÉN ES EL PRESUPUESTO: las claves extra
+        // las cargó el cliente **para Spy y para la biblioteca** (Martín, 5/11), y el alta del CRM gastándolas le come
+        // a Spy el crédito del día. Lo cazó `tests/spy-varias-claves.test.ts` (caso 10), que fija esto a propósito.
+        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
         texto.startsWith('@') ? Promise.resolve<PerfilIg[]>([]) : buscarConApify(u, ws),
       ]);
       const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
