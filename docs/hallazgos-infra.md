@@ -178,6 +178,21 @@ hay que saberlo: **el documento del área de una punta rehecha puede traer de m�
 celda y no se contamina igual). Si eso molesta, el documento del área se restaura de main antes del cherry-pick, como
 se hace con el índice.
 
+### Y el `|` de un comando citado parte la FILA del indice (6/11/2026)
+
+La entrada de arriba cita el comando de control y **su `|` parte la fila de la tabla del índice**: la deja en cuatro
+celdas y pone ROJO a main (`tests/unir-indice-hallazgos.test.ts`: «esta fila no tiene tres columnas: un `|` sin escapar
+en el texto», 6 !== 5). Se escapa con una barra invertida.
+
+**Y lo que importa más que el arreglo: la punta que lo metió salió VERDE.** Era una punta de sólo documentos, y para
+ésas el flujo corre «los tests que la leen, sin tipos» — y `unir-indice-hallazgos` **no quedó entre los afectados por un
+cambio en `docs/hallazgos.md`**, que es justo el archivo que vigila. Lo habría cazado `sobre-main.yml` al día siguiente,
+con main rojo toda la noche y cada punta yendo a `espera-main/`.
+
+**La regla: después de escribir en el índice se corre su test a mano** (`node --import tsx --test
+tests/unir-indice-hallazgos.test.ts`, tres segundos). El filtro de la punta no lo elige solo, y una cosecha es
+justo lo último que se hace antes de subir, cuando ya nadie mira.
+
 **Y lo que sí funciona, en cuatro líneas** (es lo que dejó ocho puntas verdes): rehacer la punta sobre `origin/main`
 con `cherry-pick -n`, `git checkout origin/main -- docs/hallazgos.md`, volver a escribir la entrada **adelante en la
 celda de su área** (una fila por área desde el 6/11) y controlarlo CONTANDO: `grep -c '^| '` igual que main y la fila
