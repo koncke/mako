@@ -8,6 +8,24 @@ y lo que ya estaba hecho.
 
 **634 pendientes**, de 641 crudos (se juntaron los repetidos por título).
 
+> ## ⚠️ VERIFICÁ CONTRA EL CÓDIGO ANTES DE TOMAR UN ÍTEM, incluso uno 🟢 abierto
+>
+> **Medido el 7/11/2026:** de los primeros ~14 ítems que se tomaron de esta lista, **siete ya estaban
+> hechos**. No es que los 🟢 estén mal clasificados: es que **el barrido corrió el 6/11 mientras ese mismo
+> día seguía entrando trabajo**, así que fotografió un estado que cambió en horas. Casos: la cuenta
+> regresiva y la escasez de las landings (hechas el 5/11), el arrastre de bloques del Copywriter (el 6/11,
+> commit `8b384b9e5`), el documento de high ticket (el 6/11), el índice de hallazgos (el 6/11), f30 y f34 de
+> la llamada con Leandro, y `lib/aperturas/` —que la lista dice que tiene 3 archivos y tiene 11—.
+>
+> **Y varios números de esta lista están al revés o mal contados**, porque salieron de leer documentos y no
+> de medir: «401 recursos faltan» eran 171 (401 es el TOTAL); «`| Ads |` aparece 5 veces» aparece 1;
+> «`construirCerebro` hace 21 lecturas sobre ~70 tablas» son 46 sobre 187. **Un número de esta lista es una
+> pista, no un dato.**
+>
+> **Lo que cuesta cinco minutos y ahorra una hora:** antes de tocar, buscar en el código lo que el ítem dice
+> que falta, y `git log` del archivo que nombra. Si ya está, se marca ✅ con su commit y se sigue — eso
+> también es avanzar.
+
 | Estado | Cuántos | Qué significa |
 |---|---:|---|
 | 🟢 Abiertos | 343 | se pueden hacer ya |
@@ -143,15 +161,20 @@ perder más tiempo que uno olvidado.
   - **O sea: la pregunta del ítem («¿los usan?») tiene respuesta y es NO.** No porque alguien se olvidara de cablearlos, sino porque el destilado nunca se cargó. Lo que falta no es verificar: es decidir si esas 1.147 líneas entran a `mako_knowledge` (y con qué `area`, para que las lean los cuatro lugares) o si el método a mano ya alcanza.
   - ⬜ Sigue abierto lo otro del ítem: ~59 posteos de Razzetti en Skool y ~120 emails de un autor en inglés, sin ficha.
   - Dónde: `docs/conocimiento/patrones-email.md · lib/copywriting-metodo.ts · lib/mako-knowledge.ts · tabla mako_knowledge (ws 1 y 4)`
-- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_
-  - Qué falta: Martin cree que no. Se investiga desde la PC porque transcribir YouTube pide la clave de Gemini, y va a `docs/conocimiento/anuncios-high-ticket.md`.
-  - Dónde: `docs/relevo/cerebro.md:51 · docs/conocimiento/anuncios-high-ticket.md`
+- **High ticket: medir si los cursos cubren anuncios para servicios caros** · _mediano_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — COMMIT_AQUI)**
+  - `docs/conocimiento/anuncios-high-ticket.md` existe y son **201 líneas**, «armado el 6/11/2026 con videos de YouTube y sesiones de nuestros cursos»: qué funnel según la situación, presupuesto de arranque, cuándo cortar un creativo, y una columna de «cuánto creerle» por fuente.
+  - **Y contesta lo que Martín preguntaba:** los cursos lo cubren flojo. Textual, línea 142: «Evidencia flaca: sesiones de 2023 de nuestros cursos y dos fuentes de Brasil». Por eso se completó con YouTube.
+  - **No quedó en un cajón: lo lee el código** — `lib/media-buyer/copiloto-conocimiento.ts`, `copiloto.ts` y `campanas-grupos.ts`.
+  - ⬜ El propio documento deja escrito lo que le falta (línea 176): Google, YouTube y LinkedIn Ads para ticket alto; costos recientes en LATAM y datos con método de España; y una clase de 57 minutos de Haynes sin transcribir.
+  - Dónde: `docs/conocimiento/anuncios-high-ticket.md:142,176,201 · lib/media-buyer/copiloto-conocimiento.ts`
 - **Classroom y cursos armados desde el Segundo Cerebro** · _grande_
   - Qué falta: Que MaKo diga, segun la promesa de valor, que capsulas o modulos necesita el curso y los ordene segun la oferta. Marcado FALTA en la auditoria.
   - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.17) · docs/relevo/pendientes-pc/pendientes-30-10.md:125`
-- **Arrastrar un bloque en el Copywriter deja su contenido atras** · _mediano_
-  - Qué falta: BlockNote mueve solo el bloque arrastrado: hay que arrastrar con sus hijos (`DragHandleMenu`/`SideMenu`). Marcado FALTA y «sin hacer» en el recorrido visual.
-  - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:54 (1.8) · app/copywriter/editor/CuerpoNotion.tsx`
+- **Arrastrar un bloque en el Copywriter deja su contenido atras** · _mediano_ · ✅ **ARREGLADO el 6/11/2026 — commit `8b384b9e5`** (verificado el 7/11)
+  - «Copywriter: arrastrar un título se lleva lo que tiene debajo». Arrastrar un TÍTULO ahora se lleva su sección —lo que cuelga hasta el próximo título de su nivel—: antes del arrastre de BlockNote, **en fase de captura para que corra primero**, se selecciona la sección entera y BlockNote mueve la selección.
+  - La regla pura vive en `lib/copywriter/seccion-arrastre.ts` (`seccionDe`) y la vigila `tests/copywriter-arrastrar-seccion.test.ts` — **6 tests, los 6 en verde el 7/11**.
+  - El código cita la misma fuente que el pendiente: la llamada con Leila del 5/11. El barrido es del 6/11 y agarró el estado de unas horas antes.
+  - Dónde: `app/copywriter/editor/CuerpoNotion.tsx:239-241 · lib/copywriter/seccion-arrastre.ts · tests/copywriter-arrastrar-seccion.test.ts`
 - **QA con Claude simulando usuarios dentro de MaKo** · _mediano_
   - Qué falta: Martin iba a pedirle a su Claude que simule muchas experiencias de usuario para detectar errores. La auditoria dice «sin script».
   - Dónde: `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:153 (3.8) · docs/relevo/pendientes-pc/pendientes-30-10.md:107,159`
