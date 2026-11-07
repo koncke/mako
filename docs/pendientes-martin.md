@@ -292,7 +292,32 @@ veo», la respuesta es ésta, y no hay que volver a tocar el código de Spy para
   del catálogo. El arreglo es el del #45: que la respuesta ofrezca ese camino en vez de negar.
   Y MaKo marcó sola una inconsistencia de datos que hay que resolver con ella: su perfil dice
   **800 MXN/mes** y el producto «LíderMente» del catálogo dice **USD 49/mes**.
-- **#47 y #48 — entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55**, sin leer todavía (la
+- **#47 y #48 — LEÍDOS el 7/11, después de cuatro días.** Los dos son de **Leila Fittipaldi (ws 11, plan
+  Completo)**, los dos los levantó MaKo sola, y **ninguno de los dos es un bug**: los dos son MaKo diciendo
+  «esto no lo puedo hacer». La Ticketera los clasificó «bug» por eso, y conviene saberlo: **«MaKo no pudo» no
+  es «MaKo se rompió»**.
+
+  **#47 — no puede CREAR una secuencia de nutrición**, sólo prender o pausar las que existen. Su respuesta
+  estuvo bien: explicó los dos disparadores que sirven, recomendó el de etiqueta y dijo dónde se arma
+  (Automations). **No hay nada que arreglar acá**, salvo que se decida que MaKo pueda crearlas.
+
+  **#48 — MaKo no sabe en qué pantalla de su propia app se editan los datos del negocio.** Textual: «la ruta
+  exacta para editar esos datos no la tengo confirmada, y prefiero no inventarte un menú que no existe».
+  **Que no invente está bien.** Lo que está mal es que no lo sepa.
+
+  🔧 **El arreglo está al alcance y lo verifiqué: el mapa YA EXISTE en el código.** `MAKO_NAV`
+  (`app/_components/nav.ts`) tiene todas las pantallas, y `lib/buscador-nav.ts` hasta entiende los nombres
+  viejos y en castellano para el buscador de Ctrl+K («configuracion» → configuraciones, «second brain» → Ops
+  Center). **MaKo no lo tiene en su contexto.** Pasárselo filtrado por lo que esa persona ve es chico y
+  convierte «no sé dónde» en «andá a tal pantalla».
+
+  🔴 **Y lo que de verdad puede romper a un cliente, que MaKo destapó sola:** el mismo dato de Leila vive en
+  varios lugares y están desfasados. El producto «LíderMente» dice **miércoles 7:30-9:30 pm** y **USD 49/mes**;
+  el campo «Qué incluye» de la oferta sigue en **7-9 pm** y el de precio en **800 MXN/mes**. La advertencia es
+  de MaKo y es correcta: **si los anuncios o el WhatsApp salen con el horario viejo, alguien llega a las 7 y se
+  encuentra con la puerta cerrada.** Son datos de Leila: los corrige ella, pero hay que avisarle.
+
+- ~~#47 y #48 entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55, sin leer (la
   guardia de RAM dejó la PC por debajo de 3 GB y Bash quedó bloqueado). Se leen con
   `node --import tsx scripts/tickets.ts ver 47` y `… ver 48` desde el clon.
 
