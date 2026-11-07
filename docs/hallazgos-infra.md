@@ -11838,3 +11838,37 @@ con costo de minutos, no de un chat. Hasta entonces, un «SIN TIEMPO» aislado s
 
 **Vive en:** `.github/workflows/punta.yml` (el paso «Tipos», `TIPOS_TOPE_S`, y «Relanzar si la máquina no llegó a los
 tipos») · `scripts/typecheck-lock.mjs`
+
+## Un job que NO ARRANCA no tiene pasos ni registro, y el aviso decía «sin detalle» (7/11/2026)
+
+**El síntoma.** Desde las 02:08 UTC toda punta daba rojo. El vigía avisaba `sin detalle`; al abrir la corrida, el
+job `chequear-y-llevar` figuraba **fallado con CERO pasos**, y pedir su registro devolvía `BlobNotFound`. Seis
+ramas distintas en una hora, y una se reintentó **tres veces seguidas** porque su chat creyó que era su código.
+
+**La causa real, textual de GitHub:** «The job was not started because recent account payments have failed or
+your spending limit needs to be increased.» Son **dos** cosas y conviene no confundirlas: un **pago rechazado**
+(tarjeta vencida) o el **tope de gasto**. Mirar sólo el tope deja pasar la primera.
+
+**Dónde vive ese texto, que es lo que no sabíamos: en las ANOTACIONES del check**
+(`GET /repos/{o}/{r}/check-runs/{job_id}/annotations`), no en el registro — que literalmente no existe. Todas
+nuestras herramientas leían el registro, así que todas decían «sin detalle».
+
+**Cómo se reconoce en treinta segundos, sin abrir nada:** si **ningún paso figura como fallado**, no es el
+código. Un rojo de verdad siempre nombra su paso.
+
+⚠️ **Y una trampa de medición que casi me hace decir lo contrario.** `scripts/minutos-actions.mjs` informó
+«Facturable REAL de GitHub: **0 min** → US$0,00 de un tope de US$30 (0 %)». **Ese 0 no es «no gastamos»: es «no
+pude leer».** Las rutas de facturación (`/users/{u}/settings/billing/actions`) contestan **404** sin el permiso,
+y el script las traduce a 0. Es el mismo engaño ya anotado para `/actions/runs/{id}/timing`. **Un cero de una
+fuente que puede no tener permiso nunca es un dato**: hay que distinguir «leí 0» de «no leí».
+
+**Arreglado:** el vigía ahora lee las anotaciones cuando no hay ningún paso fallado y avisa **«el trabajo NO
+ARRANCÓ (no es tu código)»** con el motivo de GitHub. Probado contra las corridas 564, 567 y 568.
+
+⚠️ **De paso, el vigía NO estaba versionado**: vivía sólo en `~/.claude/guardia/vigia-ci.mjs`. Es exactamente lo
+que ya estaba escrito para `memoria.mjs` y volvió a pasar. Ahora tiene copia en
+`scripts/claude-hooks/guardia/vigia-ci.mjs`, y la regla sigue siendo: **se cambia en la copia del repo y después
+se reinstala**; al revés se pierde en la próxima máquina.
+
+**Vive en:** `scripts/claude-hooks/guardia/vigia-ci.mjs` (instalado en `~/.claude/guardia/`, respaldo
+`.antes-anotaciones`) · `scripts/minutos-actions.mjs`.

@@ -159,8 +159,12 @@ Con el `.env.local` de producción, desde la raíz del clon. Los de arriba (0404
 5. **Anuncios, sólo imágenes:** un video no entra ni cuenta en «Anuncios N» (`esAnuncioEnVideo`, lib/carruseles/anuncios.ts).
    La señal: el `medio` que ahora se guarda también para los anuncios (`displayFormat` de Apify, lib/spy-todo-reglas.ts →
    `guardarMedios`), o la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`). ⚠️ Lo que ya está guardado no
-   tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video: **se corrige en la
-   próxima lectura de Spy de cada cuenta** (ver abajo).
+   tiene `medio`, y si su miniatura ya se copió a nuestro bucket no hay forma de saber que era un video. ⚠️ **Y lo de «se
+   corrige en la próxima lectura de Spy» quedó desmentido esa misma tarde, medido contra producción:** los 300 anuncios
+   guardados entraron por la EXTENSIÓN, no por Apify; la pista del `/t15.` acierta en 0 de 300; y 279 ya tienen
+   `dejo_de_verse_en`, así que una lectura nueva completa 21. **Hoy el filtro no saca ningún video de la pantalla**: lo
+   destraba otro recorrido de la Biblioteca de Anuncios con la extensión (gratis). Ver docs/hallazgos-carruseles.md → «El
+   arreglo cubrió la fuente que NO trajo ni un anuncio».
 6. **Las flechas de las láminas:** se ven siempre en el teléfono (con `hover: none` y con `data-telefono`), en la tarjeta y en el
    carrusel abierto. Sin láminas guardadas no hay flechas (no hay nada que pasar): la etiqueta dice cuántas tiene.
 7. **«Editar» con un carrusel sin láminas** (lo que Martín vio: «Tu IA no contestó ahora»). Dos causas: (a) la portada era de la
