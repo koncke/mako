@@ -4124,15 +4124,28 @@ export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
 export const SU_IA = 'tu Claude o tu GPT';
 export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
 
-/** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
-const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
-
 /**
- * SIN IA PROPIA: QUÉ LE PASÓ A LA IA GRATIS DE MaKo, Y CONECTAR SU CLAUDE (AU3, 22/10/2026). Hasta acá decía «No tienes
- * ninguna IA gratis conectada» con el link a Gemini, y era falso dos veces: el ws1 no conecta IA gratis (la red de la
- * plataforma va sola) y lo que había pasado es que esa red llegó a su tope de hoy (el 429 por día de Gemini). Mauricio lo
- * leyó en el chat de su automatización el 22/10. La salida es SU Claude: la clave de Anthropic del negocio es lo primero
- * que prueba esta cascada.
+ * SIN IA PROPIA: CONECTAR SU CLAUDE (AU3, 22/10/2026). Hasta ese día decía «No tienes ninguna IA gratis conectada» con el
+ * link a Gemini, y era falso dos veces: el ws1 no conecta IA gratis (la red de la plataforma iba sola) y lo que había
+ * pasado es que esa red llegó a su tope de hoy. Mauricio lo leyó en el chat de su automatización el 22/10. La salida es SU
+ * Claude: la clave de Anthropic del negocio es lo primero que prueba esta cascada.
+ *
+ * ⚠️ Y DESDE EL 6/11/2026 NO SE DICE MÁS QUÉ LE PASÓ A LA IA GRATIS DE MaKo, porque NO PUEDE PASARLE NADA. Eran cuatro
+ * ramas («llegó a su tope de hoy», «está al tope», «está saturada», «no contestó»), y las cuatro leían `intentos`: los
+ * errores de la red de la plataforma que `erroresPlataformaOut` trae. Esa red ya no corre para NADIE, y no por una razón
+ * sino por DOS guardas que se excluyen entre sí (lib/ai-cheap.ts, medido el 6/11):
+ *   · `provsGratisDePlataforma()` devuelve `[]` salvo que el workspace en curso SEA el del super admin (la decisión de
+ *     Martín del 22/10: «Cada usuario debe poder pagar su token»; las keys de la plataforma son sólo para lo interno);
+ *   · y el único lugar que la llama está adentro de `if (wsSA != null && wsActual !== wsSA)`, o sea sólo cuando el
+ *     workspace en curso NO es el del super admin («el super admin ya probó SUS keys arriba»).
+ * Las dos condiciones no pueden ser verdad a la vez: `red` queda siempre vacía y el `push` del error de la red es código
+ * muerto. Lo único que puede llegar en `intentos` es un fallo del CRÉDITO de Claude de la plataforma, y sólo para las
+ * features de `CREDITO_HABILITADO_PARA` (lib/veto-claude.ts), que NO incluye `chatbot-crear-ia` — el único llamador que
+ * pasa `red` (lib/flujo-ia-crear.ts). Así que esas cuatro frases no podían salir, y dejarlas es peor que un texto de más:
+ * **le decían al cliente que esperara un rato por un tope que no existe para él, en vez de conectar su IA.**
+ *
+ * ⚠️ SI LA RED VUELVE, VUELVEN LAS CUATRO. `tests/ia-aviso-sin-ia-propia.test.ts` fija que las dos guardas sigan siendo
+ * incompatibles: el día que alguien las haga compatibles, el test se pone rojo y pide los textos de vuelta — no al revés.
  */
 export function sinIAPropia(red: readonly string[]): FalloIA {
   const link = LINK_CONECTA_CLAUDE;
@@ -4141,16 +4154,7 @@ export function sinIAPropia(red: readonly string[]): FalloIA {
     return { error: `Con tu propia IA, para armar el flujo necesito ${SU_CLAVE}.`, link };
   }
   if (sinRedPorDatos(red)) return { error: `${CONECTA_TU_CLAUDE}.`, link };
-  const intentos = red.filter((e) => !e.startsWith('red gratis salteada:'));
-  if (!intentos.length) return { error: `No tienes una IA conectada: conecta ${SU_IA}.`, link };
-  const veredictos = intentos.map(veredictoDe);
-  if (veredictos.includes('cuota')) {
-    return intentos.some((e) => veredictoDe(e) === 'cuota' && TOPE_DEL_DIA.test(e))
-      ? { error: `La IA gratis de MaKo llegó a su tope de hoy. Conecta ${SU_IA} para seguir.`, link }
-      : { error: `La IA gratis de MaKo está al tope. Prueba en un rato o conecta ${SU_IA}.`, link };
-  }
-  if (veredictos.includes('saturado')) return { error: `La IA gratis de MaKo está saturada. Prueba en un rato o conecta ${SU_IA}.`, link };
-  return { error: `La IA gratis de MaKo no contestó. Prueba de nuevo o conecta ${SU_IA}.`, link };
+  return { error: `No tienes una IA conectada: conecta ${SU_IA}.`, link };
 }
 
 /** Un error de la revisión sin lo que le habla al modelo: la instrucción de después de «: usa…» y las comillas de claves. */

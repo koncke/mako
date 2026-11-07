@@ -479,7 +479,9 @@ vuelva la extensión de Chrome.
   `modo="analizar"` (lo general con la automatización de contexto; su turno es el del Cerebro, por la API de MaKo, sin las
   fases ni el borrador). Que la estrella edite el lienzo en vivo sería otra pieza (el Cerebro llamando a esta ruta): se
   decide con Martín antes. Las charlas del lienzo ya se ven en el Ops Center (OC5), de sólo lectura.
-- Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
-  tope / está al tope / está saturada / no contestó» (con IA16 la red no corre fuera del ws9) y dejar «No tienes una IA
-  conectada: conecta {SU_IA}» y los dos marcadores de red salteada (lib/flujo-ia.ts; su test,
-  tests/ia-aviso-sin-ia-propia.test.ts). IA16 está retenido hasta que el ws1 conecte su IA o el lunes 26/10.
+- ~~Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
+  tope / está al tope / está saturada / no contestó»~~ *(hecho el 6/11/2026, `punta/chat-avisos-ia-imposibles`. Dos
+  correcciones al renglón: IA16 ya estaba en main —el «retenido hasta el 26/10» venció— y el motivo era MÁS fuerte que
+  «la red no corre fuera del ws9»: tampoco corre ADENTRO. Son dos guardas incompatibles, una en
+  `provsGratisDePlataforma` y otra en su único llamador. El porqué medido está en `sinIAPropia`, lib/flujo-ia.ts, y en
+  docs/hallazgos-ia.md → «La red gratis de la plataforma no corre para NADIE».)*
