@@ -284,40 +284,35 @@ veo», la respuesta es ésta, y no hay que volver a tocar el código de Spy para
    el deploy cierre en verde**, y eso hay que hacerlo a mano: nada lo prende solo.
 
 **Tickets nuevos, leídos y SIN empezar:**
-- **#46 — Leila Fittipaldi (ws 11, plan Completo).** Quiere pasar el precio de su oferta de MXN a USD
-  «para abrir el programa a Latam» y MaKo le contestó que no puede cambiar el precio desde el chat.
-  ⚠️ **Es el mismo error que el #45: MaKo niega algo que SÍ puede hacer.** Medido:
-  `lib/api-mako/areas/negocio.def.ts:652` PROPONE crear o editar una oferta —el precio incluido— y
-  devuelve un link para confirmarla en una pantalla; `crm.def.ts:1063` hace lo mismo con un producto
-  del catálogo. El arreglo es el del #45: que la respuesta ofrezca ese camino en vez de negar.
-  Y MaKo marcó sola una inconsistencia de datos que hay que resolver con ella: su perfil dice
-  **800 MXN/mes** y el producto «LíderMente» del catálogo dice **USD 49/mes**.
-- **#47 y #48 — LEÍDOS el 7/11, después de cuatro días.** Los dos son de **Leila Fittipaldi (ws 11, plan
-  Completo)**, los dos los levantó MaKo sola, y **ninguno de los dos es un bug**: los dos son MaKo diciendo
-  «esto no lo puedo hacer». La Ticketera los clasificó «bug» por eso, y conviene saberlo: **«MaKo no pudo» no
-  es «MaKo se rompió»**.
+- **#46, #47 y #48 (Leila Fittipaldi, ws 11) — ✅ LOS TRES HECHOS desde el 3/11, commit `d6501deac`,
+  verificado en `origin/main` el 7/11.** El tablero los tenía abiertos cuatro días de más.
 
-  **#47 — no puede CREAR una secuencia de nutrición**, sólo prender o pausar las que existen. Su respuesta
-  estuvo bien: explicó los dos disparadores que sirven, recomendó el de etiqueta y dijo dónde se arma
-  (Automations). **No hay nada que arreglar acá**, salvo que se decida que MaKo pueda crearlas.
+  ⚠️ **Y me corrijo a mí mismo**: hace una hora escribí acá que el arreglo del #48 era pasarle `MAKO_NAV`
+  a MaKo en su contexto. **Era equivocado**, y habría mandado a alguien a construir algo que ya existe.
+  Lo escribí después de leer los tickets y mirar el código por mi cuenta, sin buscar antes si ya había un
+  commit que los nombrara. **Un ticket no se diagnostica sin buscar primero su número en el historial.**
 
-  **#48 — MaKo no sabe en qué pantalla de su propia app se editan los datos del negocio.** Textual: «la ruta
-  exacta para editar esos datos no la tengo confirmada, y prefiero no inventarte un menú que no existe».
-  **Que no invente está bien.** Lo que está mal es que no lo sepa.
+  **La causa real de los tres (y del #45) eran DOS cosas, no una:** la palabra que escribe la persona no era
+  la del nombre de la herramienta, **y la herramienta no viajaba al turno de la app**. Lo segundo es lo que yo
+  no podía ver leyendo el catálogo.
 
-  🔧 **El arreglo está al alcance y lo verifiqué: el mapa YA EXISTE en el código.** `MAKO_NAV`
-  (`app/_components/nav.ts`) tiene todas las pantallas, y `lib/buscador-nav.ts` hasta entiende los nombres
-  viejos y en castellano para el buscador de Ctrl+K («configuracion» → configuraciones, «second brain» → Ops
-  Center). **MaKo no lo tiene en su contexto.** Pasárselo filtrado por lo que esa persona ve es chico y
-  convierte «no sé dónde» en «andá a tal pantalla».
+  - **#46** «paso el precio de pesos a dólares»: ahora viajan `guardar_oferta` y `guardar_producto`, que
+    proponen el precio con un link para confirmarlo.
+  - **#47** «el WhatsApp del diagnóstico tiene que disparar una secuencia»: `crear_automatizacion_con_ia` la
+    crea con disparador por etiqueta; ahora viaja, y su descripción dice *secuencia*, *disparador* y *etiqueta*.
+  - **#48** «¿dónde actualizo mis datos?»: crearon `DATOS_DEL_NEGOCIO` (`lib/secciones-negocio.ts`), que dice
+    **la pantalla de cada dato con el nombre que se lee en ella**, y cuatro capacidades lo devuelven con su link.
+  - Un cuarto del mismo tipo que encontraron de paso: `guardar_campo_perfil` y `guardar_oferta` mandaban a
+    corregir el precio a Documentos; se corrige en «La oferta» → «El brief».
 
-  🔴 **Y lo que de verdad puede romper a un cliente, que MaKo destapó sola:** el mismo dato de Leila vive en
-  varios lugares y están desfasados. El producto «LíderMente» dice **miércoles 7:30-9:30 pm** y **USD 49/mes**;
-  el campo «Qué incluye» de la oferta sigue en **7-9 pm** y el de precio en **800 MXN/mes**. La advertencia es
-  de MaKo y es correcta: **si los anuncios o el WhatsApp salen con el horario viejo, alguien llega a las 7 y se
-  encuentra con la puerta cerrada.** Son datos de Leila: los corrige ella, pero hay que avisarle.
+  **Los tests están probados rompiéndolos**: `mako-no-puedo-falsos` 14-17, ocho mutaciones, cada una roja.
 
-- ~~#47 y #48 entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55, sin leer (la
+  🔴 **Lo que NO arregla ningún commit, y sigue abierto:** el mismo dato de Leila vive en varios lugares y
+  estaban desfasados. Medido el 3/11 por MaKo: el producto «LíderMente» decía **miércoles 7:30-9:30 pm** y
+  **USD 49/mes**, mientras «Qué incluye» seguía en **7-9 pm** y el precio en **800 MXN/mes**. **No lo verifiqué
+  hoy**: pueden estar corregidos. Son datos de ella, los corrige ella, pero la advertencia de MaKo es correcta y
+  es del tipo que rompe a un cliente: si los anuncios o el WhatsApp salen con el horario viejo, alguien llega a
+  las 7 y encuentra la puerta cerrada. **Hay que avisarle a Leila**, y eso lo hace Martín.
   guardia de RAM dejó la PC por debajo de 3 GB y Bash quedó bloqueado). Se leen con
   `node --import tsx scripts/tickets.ts ver 47` y `… ver 48` desde el clon.
 
