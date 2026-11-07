@@ -8285,7 +8285,11 @@ pausa después del disparo, sin la pausa, el fallo tragado con try/catch, el ori
 `no_oficial`, sin el corte de `soloPausa`, el corte adelantado comiéndose «Contestó», y `soloPausa`
 comparado contra un valor que no existe). Una trampa del arnés: los archivos son CRLF y un patrón
 escrito con `\n` no empata con nada — las primeras tres roturas dieron «0 ocurrencias» y se leen como
-«no aplica», no como un falso verde.
+«no aplica», no como un falso verde. **Y la segunda trampa es del ÍNDICE**: escribir ese mismo literal DENTRO de una celda de
+`docs/hallazgos.md` parte la fila en dos, y una tabla de markdown cortada termina ahí: la tabla pasó de 115
+filas a 36 y se perdieron 79 áreas. Y `grep -c "^| "` sigue contando 115, porque cuenta LÍNEAS y no FILAS, así
+que el chequeo obvio dice que está bien. Lo caza `tests/unir-indice-hallazgos.test.ts` («la tabla tiene 36
+filas»). La regla: en una celda del índice no va ningún literal con barra invertida — se dice con palabras.
 
 **Sin hacer:** no hay AI Step de email, así que un email del lead no se contesta solo (sólo pausa). Si
 alguna vez se quiere que conteste, es un `MedioAIStep` nuevo con su charla, su redactor y su envío —no un
