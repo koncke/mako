@@ -566,3 +566,38 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 
+
+---
+
+## «Editar» una miniatura, probado con la IA de verdad: el ws 3 NO TIENE IA (6/11/2026, noche)
+
+**Qué se corrió**, desde la PC con el `.env.local` de producción (lo que la nube no puede: no llega a la base ni a las claves):
+
+```bash
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --que thumbnail --id 1
+```
+
+**Lo que SÍ quedó verificado** (11,4 s, sin una sola excepción):
+
+- La portada **llega a la IA**: «1 de 1 láminas llegaron a la IA · 1 imágenes miradas». Es exactamente el primero de los dos
+  arreglos del 6/11 (la portada se pedía al CDN de la biblioteca y no a nuestro bucket, así que la IA no recibía ninguna
+  imagen): ahora se baja con `fetchSeguro` y se mira. **Esa mitad del encargo 143 está comprobada.**
+- La lámina sale **1280 × 720**, que es la medida que pedía el encargo.
+- Y el camino de falla es limpio y accionable: «**Conecta tu Claude, tu GPT o tu Gemini** y MaKo escribe los textos con lo de
+  tu negocio», con su link a `/integraciones?abrir=ia`. **No** el viejo «Tu IA no contestó ahora», que es la otra mitad de 143.
+
+⚠️ **Lo que NO se pudo probar, y el motivo es el hallazgo: el ws 3 (Cliente de Prueba) no tiene NINGUNA clave de IA.**
+Medido contra `credenciales` (sólo los NOMBRES de las claves, nunca los valores): tienen alguna de
+`ANTHROPIC`/`OPENAI`/`GEMINI` los ws **1, 9, 10, 11, 13, 14, 15, 17, 18, 19 y 20**; el **3 no tiene ninguna**. Y
+`image-editor-ia` está declarada `deSuIA` con `fallback: []` (`lib/model-catalogo.ts`), o sea que **sin clave del negocio no
+hay camino de IA, a propósito**: cae a las guías («TU GANCHO EN 3 A 5 PALABRAS»), que es lo que contestó.
+
+**Por qué importa más que este encargo:** los encargos 142 y 380 decían «gasta unos centavos de la IA del ws3» — y esa IA
+no existe. El encargo era **inaccionable como estaba escrito**, y la única forma de descubrirlo era correrlo. Lo que falta no
+es programar nada: es **cargarle una clave de IA al ws 3** (una vez), y ahí el mismo comando cierra 142, 380 y la mitad que
+queda de 143. La alternativa —probarlo en un ws que sí tenga clave— gasta la IA de un cliente real (el 1 es Mauricio) o la
+de la plataforma (el 9), y ninguna de las dos es «el workspace de prueba».
+
+**La regla que queda:** un encargo que dice «gasta unos centavos de la IA del ws N» está suponiendo que el ws N tiene IA.
+Antes de agendar una prueba que necesita una credencial, se comprueba que la credencial exista — es una consulta, y lo otro
+es descubrirlo después de montar todo el andamio.
