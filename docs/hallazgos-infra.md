@@ -152,6 +152,37 @@ línea, que a Chrome le da igual. Con eso `--check` pasa y lo que se despliega e
 cambia la huella de TODOS los clones a la vez: entra con el commit que la regenera, y el que lo haga tiene que correr
 el `--check` en un worktree limpio antes y después.
 
+## Ocho puntas en una tarde: tres rojos que NO eran del código, y una punta que se llevó la cosecha de otra (6/11/2026)
+
+Medido subiendo ocho puntas de Competitors Spy la tarde que main podó el índice de hallazgos. Los tres rojos que
+costaron tiempo tienen causas distintas y ninguna es el código:
+
+**1. «Llevar a main (sin forzar)» rojo = una carrera perdida, no un problema tuyo.** `punta/spy-juntar-repetidos` pasó
+las guardas, los tests y el tsc, y murió en el ÚLTIMO paso: main se movió mientras la corrida chequeaba. Se lee en el
+nombre del paso rojo, y **relanzar la corrida no alcanza** (ver el punto 2): hay que rehacer la punta sobre el main de
+ahora.
+
+**2. Un `ci-rojo/<punta>` NO siempre significa «arreglá tu código», y el paso rojo lo dice en una palabra.** De mis
+tres rojos: uno fue tipos de verdad (un miembro que faltaba en una unión), uno fue la carrera de arriba y uno fue
+`Tipos: SIN TIEMPO` **con salida 97**, que el propio log aclara: «NO son errores de tipos… el tsc estaba en swap:
+esperaba al disco. Es la MÁQUINA (el runner sin RAM libre), no el código». Antes de tocar una línea: leer el nombre
+del paso rojo y, si es «Tipos», mirar si la salida fue 1 (errores) o 97 (sin tiempo).
+
+**3. Y la que no se ve: `merge=union` sobre `docs/hallazgos-*.md` hace que una punta se lleve la cosecha de OTRA.**
+Rehice cinco puntas con `git cherry-pick` sobre el main nuevo, en un worktree donde las cinco se habían escrito una
+detrás de la otra. El `union` del documento del área no mezcla «main contra la punta»: mezcla los dos árboles que
+tiene, y el mío ya traía las entradas de las puntas anteriores. Resultado medido: el commit de la punta de la oferta
+(`4f80f5247`) metió en `docs/hallazgos-competitors-spy.md` la entrada del acortador, que es de OTRA punta — y así una
+entrada llegó a main **sin su código**. No rompe nada (la entrada es verdadera y vive en el documento correcto), pero
+hay que saberlo: **el documento del área de una punta rehecha puede traer de más, y el índice no** (tiene driver por
+celda y no se contamina igual). Si eso molesta, el documento del área se restaura de main antes del cherry-pick, como
+se hace con el índice.
+
+**Y lo que sí funciona, en cuatro líneas** (es lo que dejó ocho puntas verdes): rehacer la punta sobre `origin/main`
+con `cherry-pick -n`, `git checkout origin/main -- docs/hallazgos.md`, volver a escribir la entrada **adelante en la
+celda de su área** (una fila por área desde el 6/11) y controlarlo CONTANDO: `grep -c '^| '` igual que main y la fila
+del área, una sola. Relanzar con `workflow_dispatch` no sirve para esto: la mezcla vuelve a chocar igual.
+
 ## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
 
 - **Sintoma:** `tests/newsletter.test.ts` da 1 rojo en la PC, en la prueba de la tab de newsletters. El

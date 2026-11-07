@@ -3299,6 +3299,56 @@ ese mensaje no sale, sin caer a la de por default. Ahora es una función pura co
 
 **Vive en:** `lib/clonar-pasos.ts` · `lib/clonar-config.ts`
 
+### El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo [motor]
+
+«Copio la configuración de un cliente a otro y los mensajes no salen» (pendiente id=524). La mitad era
+la `linea` por mensaje (arriba); la otra, que `cols` no pedía `disparadores` (mig 0241): una
+automatización con varios CRON llegaba con UNO —el de las columnas— y un primer CRON de Instagram
+llegaba sin su evento, porque el `subtipo` vive SÓLO en la lista.
+
+⚠️ **El pendiente pedía «una línea» y esa línea sola era un bug nuevo, del mismo tipo que el que
+`traducirEtiquetasEnSecuencia` vino a arreglar**: cada `Disparador` lleva ids del workspace del DUEÑO.
+Y las dos trampas, que son lo que cuesta ver:
+
+- **Nulear el ámbito y dejar la etapa habría sido PEOR que copiar el id del dueño.** En
+  `leadsDeCohorte` un `producto_id` NULL es «la entrega de CUALQUIER producto»: la cohorte se abre a
+  MÁS gente que la del dueño. El criterio correcto es el de la fila de `crm_etiquetas` llevado un paso
+  más: se va el ámbito Y se va la etapa que colgaba de él (una etapa de OTRO embudo, o del kanban de
+  ESE producto, acá no significa nada). Sin etapas la cohorte es vacía (`if (!keys.length) return []`)
+  y el CRON llega visible y sin elegir. Lo mismo con `ignorar`: una etiqueta que no se traduce se SACA,
+  porque dejarla con el id del dueño hace que el CRON del destino ignore a una etiqueta CUALQUIERA.
+- **La verdad del primer CRON son las COLUMNAS, así que copiar la lista obliga a copiar `cron`.** Con
+  `disparadores` copiado y la columna `cron` no, el d1 de un Recurrente llegaba sin horario mientras el
+  d2 llegaba con el suyo — y sin `cron` `decidirAgenda` devuelve `toca: true` en CADA corrida: un «todos
+  los lunes a las 9» al grupo de MaKo pasaba a salir cada hora. Por lo mismo hay que reescribir las
+  columnas del d1 (`columnasParaElDestino`): lo que no se reescriba queda con el ámbito y la ocurrencia
+  del dueño que la fila trae copiados tal cual. Y `etapa` es NOT NULL con default `'nutri'`: un CRON sin
+  etapa va con la cadena VACÍA, porque omitirla le inventa una etapa que nadie eligió.
+
+`cron_proxima_at` NO viaja (es un instante de la grilla y del huso del dueño) y en null el motor no
+dispara: SIEMBRA. `disparadores_rev` tampoco: no es configuración, es el compare-and-set de la lista, y
+su default 0 es el correcto. `cron`, `subtipo`, `palabras`, `publicacion` y `grupo` sí: `grupo` es «el
+grupo de MaKo DEL NEGOCIO», que `mandarRecurrenteAlGrupo` resuelve con el workspace del contexto.
+
+⚠️ **Y pedir una columna de una migración que puede faltar rompe la copia ENTERA**: PostgREST rechaza la
+consulta completa con 42703, y la 0241 estaba SIN APLICAR en la medición del 09/10/2026. Sin tolerarla
+(`colsOpcionales` + `leerOrigen`, la misma regla que `leerFilasDeSecuencias`), sumar `disparadores` a
+`cols` dejaba la copia de TODAS las automatizaciones en 0 filas. Y lo que el origen no trajo tampoco se
+escribe: origen y destino son la MISMA base, así que la columna ausente en el select es la que no
+existe, y escribirla es un PGRST204.
+
+**Lo que queda sin hacer, y es LA MISMA TRAMPA EN EL OTRO CAMINO:** `lib/datos-mau.ts` copia las
+secuencias con `select('*')` y `omitir: ['id']`, así que la lista `disparadores` viaja CRUDA —con las
+etiquetas, el embudo, el producto y la próxima ocurrencia del DUEÑO adentro— y `disparadores_rev`
+también. Su `remapEtiquetas` traduce los `pasos` y la COLUMNA `etiqueta_id`, nada de la lista, y tampoco
+usa `pasosParaElDestino` (la `linea` por mensaje, pendiente de antes): le falta
+`disparadoresParaElDestino`. Y los AVISOS vuelven en el JSON de `action: 'clonar-dueno'`
+(app/api/onboarding/route.ts): ninguna pantalla los muestra todavía, se leen en la respuesta HTTP.
+Nada de esto se vio con clics: se fijó con tests puros.
+
+**Vive en:** `lib/clonar-disparadores.ts` · `lib/clonar-config.ts` · `tests/clonar-disparadores.test.ts` ·
+`tests/etiquetas-contrato.test.ts` (datos-6)
+
 ### Los datos «{ }»: lo que se ofrece se resuelve, en la tarjeta MAKO y en «Probar» [motor]
 
 La tarjeta MAKO EN WHATSAPP resolvía los cinco del motor y la parte «flujo» le monta el árbol del equipo:
@@ -3339,10 +3389,10 @@ ANTES del deploy. La tabla que falta contesta `PGRST205`, no `42P01`: ver
 - **Un email del lead no pausa** lo que le escriben (una respuesta de WhatsApp sí). Es una decisión de
   producto: con `origen: 'email'` sería una línea en `recibirEmailEntrante`. `lib/email-entrante.ts`
 - **`cambiar_crons_secuencia` por HTTP**: es una decisión (el snapshot y su fila en `lib/api-mako/rest.ts`).
-- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino`.
-- **El clon no copia `disparadores`** (la lista de CRON): una automatización con varios llega con uno, y
-  un primer CRON de Instagram llega sin su evento. `lib/clonar-config.ts` (`TABLAS`, la fila de
-  `nutricion_secuencias`).
+- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino` **ni `disparadoresParaElDestino`: copia con `select('*')`, así que la lista `disparadores` viaja CRUDA, con los ids del dueño y su próxima ocurrencia adentro** (6/11/2026).
+- ~~**El clon no copia `disparadores`**~~ hecho el 6/11/2026 (id=524): la lista viaja con las etiquetas
+  traducidas, sin los ámbitos del dueño y sin su próxima ocurrencia (`lib/clonar-disparadores.ts`). Ver
+  «El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo», arriba.
 - **`noExiste` de `lib/reset-workspace.ts` mira sólo `42P01`** (ver infra).
 - **Verlo con clics y con un evento real**: nada de esto recibió un webhook de verdad.
 ## Sexta tanda, segunda pasada, parte «datos» (09/10/2026, noche): el «{ }» montado, MaKo en WhatsApp en Notificaciones, los grabadores
