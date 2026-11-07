@@ -17,6 +17,39 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🔓 DESTRABADO: la guardia negaba los commits por su MENSAJE, no por la RAM (6/11/2026 ~21:10)
+
+**El diagnóstico obvio era el equivocado, y es el que está escrito varias veces más abajo en este
+archivo.** Cada vez que un chat no pudo commitear y la negativa dijo «quedan 1,4 GB de RAM
+disponibles y esto necesita 3», se anotó como falta de RAM. Para lo que de verdad pide memoria (el
+chequeo de tipos, la suite de tests) es cierto. **Para un commit no lo era nunca: un commit no pide
+RAM.** La guardia clasificaba el comando ENTERO, así que un `git commit` cuyo MENSAJE nombra `tsc`,
+`npm test` o `eslint` quedaba clasificado «pesado» y lo negaba — justo cuando la máquina está
+cargada, que es cuando más importa guardar el trabajo.
+
+**Cómo se reconoce en diez segundos:** ¿el MENSAJE del commit nombra `tsc`, `npm test` o `eslint`?
+Si sí, es esto y no es la RAM.
+
+**HECHO** — la guardia arreglada ya estaba en el repo desde el 6/11 18:46 y nadie la había
+instalado. Copiada a `~/.claude/guardia/memoria.mjs`, con respaldo `.antes-6-11-noche`, y verificado
+ANTES de copiar que los cuatro topes son idénticos a los que corrían (3,0 / 3,0 / 1,0 / 0,6 GB):
+eso era lo único que hacía peligrosa la reinstalación, porque el 29/10 una ya bajó topes en
+silencio. Cosechado en `docs/hallazgos-infra.md`, en el mismo párrafo que decía que faltaba hacerlo.
+
+**Qué destraba:** cualquier ítem de más abajo cuyo bloqueo era «no pude commitear». Lo que pide
+tipos o tests sigue necesitando los 3 GB de verdad.
+
+**Qué NO destraba, medido:** cerrar Chrome (23 procesos huérfanos, 1.530 MB) subió la RAM libre
+**0,16 GB**. Los 4,1 GB se los llevan los 27 procesos de `claude`, que son los otros chats y no se
+tocan. La máquina sigue en ~2 GB libres de 15,7.
+
+**Lo que permitió en el acto:** la cosecha del chat de Tickets, horas escrita y sin commitear en
+`C:devwt-tickets-0411`, quedó en `punta/tickets-tipos-sin-tiempo` — primer commit ya verde en
+`main`. Enseña que **un rojo del paso «Tipos» puede no tener un solo error de tipos**: si no termina
+en el tope de 840 s sale con código 97 y el registro dice «SIN TIEMPO», idéntico a un rojo real.
+
+---
+
 ## 🛟 RESCATADO DEL LIMBO: tres decisiones de Martín que vencían el 8/11 (6/11/2026)
 
 **Qué era esto.** En la cola del Ops Center había cinco «pedidos» por vencer. No eran avisos

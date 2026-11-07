@@ -1,5 +1,44 @@
 # Relevo del Cerebro
 
+## 7/11/2026, ~00:20 UTC (6/11 21:20 ART): LA GUARDIA NEGABA LOS COMMITS POR SU MENSAJE
+
+**Si venís a un chat que dice «no puedo commitear, falta RAM», leé esto primero.** Era mentira, y yo
+me la creí toda la noche. La guardia clasificaba el comando entero, así que un `git commit` cuyo
+MENSAJE nombra `tsc`, `npm test` o `eslint` salía «pesado» y lo negaba con «quedan 1,4 GB y esto
+necesita 3». **Un commit no pide RAM.** El arreglo estaba en el repo desde las 18:46 y nadie lo
+había instalado; lo instalé (respaldo `.antes-6-11-noche`), después de verificar que los cuatro
+topes son idénticos a los que corrían — el 29/10 una reinstalación bajó topes en silencio y devolvió
+la pantalla negra, así que eso se mira ANTES de copiar.
+
+Medido, para que nadie repita el camino largo: cerrar Chrome (23 procesos huérfanos, 1.530 MB) subió
+la RAM libre **0,16 GB**. Los 4,1 GB son los 27 procesos de `claude`, o sea los otros chats, y no se
+tocan. El commit entró con 2,1 GB libres sin liberar nada más.
+
+**Qué quedó en su punta:** `punta/tickets-tipos-sin-tiempo`, dos commits. El primero es la cosecha
+del chat de Tickets que llevaba horas escrita y sin commitear en `C:devwt-tickets-0411` (ya verde
+en `main`): **un rojo del paso «Tipos» puede no tener un solo error de tipos** — si no termina en el
+tope de 840 s sale con código 97 y el registro dice «SIN TIEMPO», idéntico a un rojo real, y si
+corta dos veces la red que relanza se gasta sola. El segundo corrige el párrafo de
+`hallazgos-infra.md` que decía que faltaba instalar la guardia.
+
+**Al mezclar, el índice de cosechas garabatea en silencio.** Rebasé sobre main y me dejó **5 filas
+«Infraestructura» donde main tiene 1**, y 120 filas donde main tiene 115, sin un solo aviso: los
+atributos se leen del árbol de la punta, que todavía dice `merge=union`. Lo que funciona es
+`git checkout origin/main -- docs/hallazgos.md` y volver a escribir la entrada a mano, y después
+CONTAR (`grep -c '^| '` igual que main; `grep -c '^| <Área>'` igual a 1). Mirarlo no alcanza.
+
+**Los cinco rojos de esta hora son todos ese índice, no el código de nadie**
+(`spy-tope-capturado`, `spy-acortador-medido`, `carruseles-video`, `carruseles-largo`,
+`aut-chat-links`): los cinco mueren en «Mezclar main en la punta». Main podó el índice de 199 filas
+a 69 y toda punta que ya había cosechado choca una vez. Avisado a los tres chats dueños. La
+herramienta la nombra el propio error del flujo: `python -I scripts/unir-indice-hallazgos.py .`
+
+**Cerraron verdes:** Imágenes/Thumbnails (7 puntas, 11 encargos) y el conector de dLocal (4
+commits). ⚠️ El cron de thumbnails está en `main` pero da **404 en producción**: se despliega con el
+cron de las 11:05 UTC.
+
+---
+
 ## 6/11/2026, ~21:15 UTC (18:15 ART): claude1, el barrido de los 634 y OCHO CHATS TRABAJANDO AHORA
 
 **Cuenta `claude1` al 24 %**, reinicia el 11/11 10:00 UTC. Lo que corta acá no es la cuota: es el
