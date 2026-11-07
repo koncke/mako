@@ -136,6 +136,13 @@ tiene código.
 cualquier guarda sobre todo el repo: **antes de dar por imposible un cruce por indirección, probá buscar el
 literal en todo el árbol** — el valor suele estar escrito en algún archivo, aunque el call-site no lo tenga.
 
+**Lo que la guarda NO mide, dicho para que nadie lo suponga cubierto:** de los cuatro modos de falla que
+describe la skill `verify-prompt-registry-sync`, cubre el 1 y el 2. El **3** —que el `default:` de la Entry y
+el fallback del call-site sean la MISMA constante— no: la guarda tiene el TEXTO del default, no el nombre de la
+constante que el call-site pasa, así que no los puede cruzar sin volver a regexear el fuente del registro; hoy
+lo fija a mano el test de cada feature. El **4** —`contenidoNoConfiable` faltante— es un juicio sobre qué dato
+es externo. La skill quedó apuntada a la guarda y con esos dos marcados como suyos.
+
 **Sin hacer, y a propósito:**
 
 - **Las 29 huérfanas siguen afuera del registro** (lista `HUERFANAS_CONOCIDAS` en la guarda, con fecha). Se
