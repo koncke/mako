@@ -122,10 +122,46 @@ export function soloLoQueCorre(cmd) {
   }
   // 3. Los que BUSCAN texto: su patrón nunca se ejecuta, y puede venir sin bandera (`grep -rn "npx tsc" .`). Se vacían las
   //    comillas de ESE tramo solamente, no de todo el comando: `sh -c "npx tsc"` sí ejecuta y tiene que seguir contándose.
-  out = out.split(/(\||;|&&|&)/).map((tramo) => (
+  out = partirFueraDeComillas(out).map((tramo) => (
     /^\s*(sudo\s+)?(grep|rg|egrep|fgrep|findstr|ack|ag)\b/.test(tramo) ? tramo.replace(/(['"])[\s\S]*?\1/g, '""') : tramo
   )).join('');
   return out;
+}
+
+/**
+ * Parte por los separadores de shell (`|`, `;`, `&&`, `&`) que están FUERA de comillas, devolviendo también los
+ * separadores para poder volver a pegar el comando igual.
+ *
+ * ⚠️ ANTES ESTO ERA UN `.split(/(\||;|&&|&)/)` Y FRENÓ TRABAJO DE VERDAD (7/11/2026). El `|` de la alternancia
+ * BRE de grep va ADENTRO de las comillas: `grep -n '"typecheck"\|"tsc"' package.json` se partía justo ahí, así
+ * que `"tsc"' package.json` quedaba en un tramo que ya NO empieza con `grep` — y «tsc» sobrevivía y contaba
+ * como si se fuera a correr. Un grep y nada más quedaba clasificado como pesado y la guardia lo bloqueaba.
+ *
+ * Es la misma familia que las dos trampas anotadas arriba —texto que viaja adentro de un comando no es el
+ * comando—, con la vuelta de tuerca de que acá **el separador estaba adentro del texto**.
+ *
+ * Una comilla que no cierra se traga el resto a propósito: sin saber dónde termina, lo seguro es NO partir, y
+ * entonces lo pesado que venga después se sigue contando (que es el lado por el que conviene equivocarse).
+ */
+export function partirFueraDeComillas(txt) {
+  const tramos = [];
+  let actual = '';
+  let comilla = null;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (comilla) { actual += c; if (c === comilla) comilla = null; continue; }
+    if (c === "'" || c === '"') { comilla = c; actual += c; continue; }
+    if (c === '|' || c === ';' || c === '&') {
+      const doble = txt[i + 1] === c;        // `&&` y `||` son UN separador, no dos
+      tramos.push(actual, doble ? c + c : c);
+      if (doble) i++;
+      actual = '';
+      continue;
+    }
+    actual += c;
+  }
+  tramos.push(actual);
+  return tramos;
 }
 
 const libreGb = () => os.freemem() / GB;

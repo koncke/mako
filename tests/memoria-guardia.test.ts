@@ -96,3 +96,34 @@ test('la copia versionada tiene los topes que de verdad corren (3 GB, no 2,5)', 
   // Y no arranca al importarse: si no, cualquier test que lo lea se queda esperando RAM.
   assert.match(FUENTE, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
 });
+
+test('un patrón de grep con `\\|` adentro no se parte: el pedazo de después también es TEXTO', () => {
+  // ⚠️ ESTO FRENÓ TRABAJO DE VERDAD el 7/11: `grep -n '"typecheck"\|"tsc"' package.json` — un grep y nada
+  // más — quedó clasificado como pesado y la guardia lo bloqueó por falta de RAM.
+  //
+  // La causa es sutil y es de ESTE archivo: el tramo se parte con `.split(/(\||;|&&|&)/)`, y el `|` de la
+  // alternancia BRE de grep está ADENTRO de las comillas. Se parte ahí, así que `grep -n '"typecheck"\`
+  // queda en un tramo (se le vacían las comillas) y `"tsc"' package.json` queda en OTRO, que ya no empieza
+  // con `grep` — y ahí «tsc» sobrevive y cuenta como si se fuera a correr.
+  //
+  // Es la MISMA familia que las dos trampas que este archivo ya tenía anotadas arriba (el patrón
+  // `typecheck` agarrando el nombre de un test, el mensaje de commit que nombraba un tsc): **texto que
+  // viaja adentro de un comando no es el comando.** La diferencia es que acá el separador estaba adentro
+  // del texto, que es lo que ninguna de las dos anteriores cubría.
+  const soloGrep = String.raw`grep -n '"typecheck"\|"tsc"\|"lint"' package.json`;
+  assert.equal(soloLoQueCorre(soloGrep).includes('tsc'), false,
+    'el patrón de grep con alternancia dejó pasar «tsc» como si se fuera a correr');
+  assert.notEqual(bash(soloGrep), 'pesado', 'un grep solo quedó clasificado como pesado');
+
+  // Y con varios tramos, que es como salen en la práctica.
+  const encadenado = String.raw`cd /x && grep -rn 'npx tsc\|npm test' . | head -5`;
+  assert.equal(soloLoQueCorre(encadenado).includes('tsc'), false);
+
+  // ⚠️ La otra mitad, que es la que no se puede romper al arreglar esto: un `|` que SÍ separa comandos
+  // tiene que seguir separando, y lo que viene después tiene que seguir contándose.
+  assert.equal(soloLoQueCorre('grep -rn "hola" . | npx tsc --noEmit').includes('tsc'), true,
+    'se perdió un tsc REAL que venía después de un pipe: la guardia dejaría pasar lo pesado');
+  // Y una comilla que no cierra no puede tragarse el resto del comando.
+  assert.equal(soloLoQueCorre(`grep -rn "sin cerrar . | npx tsc`).includes('tsc'), true,
+    'una comilla sin cerrar se tragó un tsc real');
+});
