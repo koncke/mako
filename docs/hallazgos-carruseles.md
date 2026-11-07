@@ -569,7 +569,7 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 
 ---
 
-## «Editar» una miniatura, probado con la IA de verdad: el ws 3 NO TIENE IA (6/11/2026, noche)
+## «Editar» una miniatura, probado con la IA de verdad: el ws 3 no tenía IA, y NO era el bloqueo (6-7/11/2026)
 
 **Qué se corrió**, desde la PC con el `.env.local` de producción (lo que la nube no puede: no llega a la base ni a las claves):
 
@@ -586,18 +586,56 @@ node --env-file=.env.local --conditions=react-server --import tsx scripts/carrus
 - Y el camino de falla es limpio y accionable: «**Conecta tu Claude, tu GPT o tu Gemini** y MaKo escribe los textos con lo de
   tu negocio», con su link a `/integraciones?abrir=ia`. **No** el viejo «Tu IA no contestó ahora», que es la otra mitad de 143.
 
-⚠️ **Lo que NO se pudo probar, y el motivo es el hallazgo: el ws 3 (Cliente de Prueba) no tiene NINGUNA clave de IA.**
-Medido contra `credenciales` (sólo los NOMBRES de las claves, nunca los valores): tienen alguna de
-`ANTHROPIC`/`OPENAI`/`GEMINI` los ws **1, 9, 10, 11, 13, 14, 15, 17, 18, 19 y 20**; el **3 no tiene ninguna**. Y
-`image-editor-ia` está declarada `deSuIA` con `fallback: []` (`lib/model-catalogo.ts`), o sea que **sin clave del negocio no
-hay camino de IA, a propósito**: cae a las guías («TU GANCHO EN 3 A 5 PALABRAS»), que es lo que contestó.
+⚠️ **El ws 3 (Cliente de Prueba) no tiene NINGUNA clave de IA**, y eso es cierto: medido contra `credenciales` (sólo los
+NOMBRES, nunca los valores), el ws 3 tiene **0 filas** y el ws 9 tiene 43. Corrido en el ws 3, «Editar» cae a las guías
+(«TU GANCHO EN 3 A 5 PALABRAS»), que es lo que contestó.
 
-**Por qué importa más que este encargo:** los encargos 142 y 380 decían «gasta unos centavos de la IA del ws3» — y esa IA
-no existe. El encargo era **inaccionable como estaba escrito**, y la única forma de descubrirlo era correrlo. Lo que falta no
-es programar nada: es **cargarle una clave de IA al ws 3** (una vez), y ahí el mismo comando cierra 142, 380 y la mitad que
-queda de 143. La alternativa —probarlo en un ws que sí tenga clave— gasta la IA de un cliente real (el 1 es Mauricio) o la
-de la plataforma (el 9), y ninguna de las dos es «el workspace de prueba».
+🔴 **Pero el diagnóstico de esa noche estaba equivocado en las dos cosas que decidían, y por eso el encargo quedó trabado
+esperando a Martín** (corregido y cerrado el 7/11/2026 de madrugada):
 
-**La regla que queda:** un encargo que dice «gasta unos centavos de la IA del ws N» está suponiendo que el ws N tiene IA.
-Antes de agendar una prueba que necesita una credencial, se comprueba que la credencial exista — es una consulta, y lo otro
-es descubrirlo después de montar todo el andamio.
+**1. La entrada del catálogo que lo gobierna NO es `image-editor-ia`.** Ésa es el CHAT del editor de imágenes
+(`FEATURE_CHAT_IMAGEN`, `lib/image-editor/chat/ia.ts:39`), que sí es `deSuIA` con `fallback: []` y nunca usa Gemini. El botón
+«Editar» de una miniatura corre **`carrusel-replica`** (`FEATURE_REPLICA`, `lib/carruseles/replica-servidor.ts:51`), adentro
+de `conSuIADelNegocio`, y ahí sirve **cualquiera** de `CLAVES_SU_IA = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY',
+'GEMINI_API_KEY']` (`lib/ia-del-negocio.ts:36`). O sea: **una Gemini gratis de AI Studio alcanzaba**. El «sin clave del
+negocio no hay camino de IA, a propósito» era de la otra feature.
+
+**2. No hacía falta ninguna clave, ni ninguna decisión: hacía falta el workspace correcto.** `negocioConSuIA` abre con
+`if (ws === await wsSuperAdmin()) return { suIA: false }` (`lib/ia-del-negocio.ts:146`): **el espacio de MaKo no entra en
+«sólo su IA»**, así que corre con la red gratis de la plataforma — que es exactamente el carril que Martín autorizó el 22/10
+(«la Gemini de MaKo queda sólo para lo interno (ws9)»). Cero plata y cero IA de un cliente, sin pedirle nada.
+
+**CERRADO el 7/11/2026 en el ws 9**, dos corridas, sin una sola excepción:
+
+| corrida | tiempo | resultado |
+|---|---|---|
+| en seco | 138,6 s | ✓ con la IA · «Miniatura · Cierra ventas en silencio» · «EL ARTE / DE CERRAR / SIN HABLAR / MARTIN KONCKE» |
+| `--guardar` | 59,8 s | ✓ diseño `b987352a-02e0-49a5-a8d6-3116f7076d03` · «Miniatura · Vender por chat» |
+
+El diseño guardado, leído de `image_disenos` y no a ojo: **1280 × 720**, una página, cuatro textos — «CONSIGUE / CLIENTES /
+POR CHAT / SIN LLAMADAS», que es la oferta de MaKo y no el texto del ejemplo —, fuentes **Anton 147 px** e **Inter 45 px**
+(las del editor), fondo sólido `#111622` y **ningún `rect` ni `image`**: sin un solo recuadro gris. Eso es el «Hecho =»
+textual de los encargos 142 y 380, y la mitad de 143 que faltaba.
+
+**Lo que sigue SIN probar** (y conviene no confundirlo con lo cerrado):
+
+- **El camino BYOK**, el de un negocio con SU clave adentro de `conSoloSuIA`: el ws 9 se lo saltea justamente por ser el del
+  super admin. Para ése sí hace falta un ws con clave propia, o cargarle una al 3.
+- **La foto.** Ni el ws 3 ni el ws 9 tienen cara de marca (0 filas de `mako.persona` en `app_settings`), así que
+  `fotoDelCliente` devolvió `null` y el pedido salió sin avatar. El recuadro gris que teme el 142 vive en el caso CON foto
+  (`lib/carruseles/replica-servidor.ts:88`: «el diseño sale con el lugar de la foto marcado»), y ése no se tocó.
+- **La pantalla en producción**, con una sesión que no sea de un cliente: el script prueba la función del server, no el build
+  desplegado. ⚠️ El diseño que nombra el encargo 143, `b31f62ec-5727-4ac7-bde7-2bb141bf0727`, es la foto del ANTES: un
+  carrusel de 8 páginas con las guías crudas («3. Tu punto número 3», «Una pregunta para los comentarios»), no una miniatura.
+- Un diseño hecho por el script queda **sin `miniatura`** (la vista previa la sube la pantalla al dibujar el lienzo), así que
+  en la lista de Image aparece sin imagen. Es esperado, no un defecto.
+
+**Las reglas que quedan:**
+
+1. **Antes de culpar a una entrada del catálogo, buscar el `feature` que viaja en la llamada**, no el que se parece al nombre
+   de la pantalla. `image-editor-ia` y `carrusel-replica` viven en el mismo editor y tienen políticas opuestas (una prohíbe
+   Gemini, la otra la acepta): elegir la equivocada convirtió un «falta una clave» en un «falta una decisión de Martín».
+2. **Para medir una feature de IA sin gastar la de un cliente, el workspace es el 9**, no el 3: el del super admin corre con
+   la red de la plataforma (`negocioConSuIA`). El ws 3 sirve para lo determinista hasta que tenga clave.
+3. Un encargo que dice «gasta unos centavos de la IA del ws N» está suponiendo que el ws N tiene IA. Comprobar que la
+   credencial exista antes de montar el andamio es una consulta; descubrirlo después cuesta una noche.
