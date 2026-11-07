@@ -4101,3 +4101,53 @@ La cuenta regresiva tiene UNA fecha para todos: nunca un reloj por visitante que
 - **Trampa 3:** el acento de arriba de la tarjeta (`gm-tarjeta`) se come el alto de una vertical: la 4:5 no lo lleva.
 
 **Vive en:** lib/editor-landing/api-tipos.ts, lib/editor-landing/css.ts, lib/editor-landing/exportar-pptx.ts, app/web-generator/editor/Presentar.tsx, app/web-generator/MiniaturaLanding.tsx, tests/editor-landing-carrusel-45.test.ts
+
+---
+
+## La cadena de pago en dominio propio: de cuatro puntas quedó UNA, y tiene dos pasos (7/11/2026)
+
+El pendiente decía «cuatro puntas atadas» y estaba marcado _grande_. **Verificado contra el código
+el 7/11, dos ya están hechas y una casi:**
+
+| Punta | Estado real |
+|---|---|
+| 1 · servir el paso de pago EN el dominio propio | ✅ **hecho**: `SUBRUTA_PAGO` + `decidirHost → { tipo: 'pago' }`, con la reescritura a `RUTA_DOMINIO?ruta=pagar&bloque=<producto>` |
+| 2 · base de retorno del host que sirvió la landing | ⛔ **lo único que falta** |
+| 3 · atribución (utm, fbclid) en el enlace y hasta `createLead` | ✅ **casi**: la campaña sale del `Referer` del GET (sólo del MISMO host) y viaja en inputs saneados (`atribucion`, Paquete 3 de la tanda 6). Falta `visitor_id` |
+| 4 · los rechazos del POST no dejan rastro | ✅ **hecho**: `anotarRechazoDePago` (mig 0282) suma el rechazo de esa landing al contador del día |
+
+### Qué pasa hoy, exactamente
+
+1. El comprador está en `sunegocio.com/pagar/<producto>` — **bien, es su dominio**.
+2. El POST contesta **303 a `linkDelCobro(token)`**, que es
+   `` `${APP_BASE_URL}/pagar/${token}` `` (lib/cobros.ts:91). **Ahí se va a hola-mako.com.**
+3. Va al checkout de la pasarela.
+4. Vuelve a `linkDeRetorno(token)` = `` `${linkDelCobro(token)}/listo` `` — otra vez hola-mako.com.
+   Lo usan `successUrl` de Stripe (`:620`, `:656`) y `volverUrl` de Mercado Pago (`:676`, `:687`).
+
+**El comprador sale del dominio del cliente justo antes de pagar y no vuelve nunca.**
+
+### ⚠️ Y no alcanza con pasarle una base a `linkDelCobro`
+
+Es lo que parece desde afuera y es la trampa. `decidirHost` tiene el caso `{ tipo: 'pago'; producto }`
+para `/pagar/<producto>` y **ninguno para `/pagar/<token>`**: en un dominio propio esa ruta cae hoy en
+`{ tipo: 'no-existe' }`, o sea **404**. Si sólo se cambia la base, el 303 manda al comprador a una
+página que no existe, **con el cobro ya creado**. Es peor que hoy.
+
+Hacen falta las dos cosas:
+1. un caso nuevo en `decidirHost` para `/pagar/<token>` (y su `/listo`), con su reescritura;
+2. `linkDelCobro` y `linkDeRetorno` tomando la base del host que sirvió la landing, con
+   `APP_BASE_URL` como default para que los otros diez llamadores no cambien.
+
+### ⚠️ Y hay una tercera cosa, ya medida en otro pendiente
+
+La política `form-action` **nombra sólo `checkout.stripe.com`**: si Chrome corta un 302 hacia
+`pay.sunegocio.com`, queda **una página en blanco con el cobro creado**. Hay que ampliarla y medirlo
+en Chrome y en Safari antes de dar esto por hecho.
+
+**Hecho =** un pago que empieza en `sunegocio.com` termina en `sunegocio.com`, con su atribución, y
+probado en los dos navegadores.
+
+**La regla que queda:** un pendiente que enumera «N puntas atadas» envejece punta por punta, no
+entero. Acá tres de cuatro estaban hechas y el título seguía diciendo lo mismo del primer día;
+leerlo como estaba escrito habría mandado a rehacer trabajo ya hecho.
