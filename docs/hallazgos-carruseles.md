@@ -7,6 +7,72 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+## Revisar lo que entró sin que nadie lo mire: el banco no mide ancho y la referencia no mide píxeles (7/11/2026)
+
+Dos revisiones encargadas: el paquete del 6/11 contra lo que Martín pidió, y la pantalla contra las capturas de Top Carousels.
+Las dos chocaron con el mismo problema: **el material con el que se dio por verificado no podía verificar eso.**
+
+### «Cuatro columnas en 1440» era del banco, no de la app
+
+**Síntoma:** el pendiente decía «ya ajustado: 4 columnas en 1440» y `docs/carruseles/capturas-2026-11-06/01-portada-1440.png` lo
+muestra. En la app real, con la barra lateral desplegada, son **tres**.
+
+**Lo obvio era que el CSS estaba mal, y no: el CSS está bien y lo que miente es el BANCO.**
+`scripts/banco-carruseles/capturar.mjs` dibuja la pieza SOLA (sin la barra lateral de 244 px) y arranca Chrome con
+`--hide-scrollbars`. Son dos descuentos de ancho que la app sí tiene, y ninguno se ve en la captura.
+
+**Medido** (Chrome 152, con `getComputedStyle` sobre la grilla real): `scrollbar-width: thin` ocupa **10 px** (`auto`, 15).
+A 1440 con la barra fija quedan `1440 − 244 (barra) − 10 (scroll de .raiz) − 64 (padding de .col)` = **1122 px** de contenido,
+y cuatro columnas de `minmax(268px, 1fr)` con 20 px de gap piden **1132**. Faltaban **10 px: justo la barra de scroll**. Con la
+barra plegada (68 px, que es el default desde `mk-nav-fija-v2`) sí entran cuatro de 299 px, y en el banco también: por eso
+nadie lo vio. A 1366 y a 1280 con la barra fija eran tres desde siempre; de 1536 para arriba, cuatro.
+
+**Las reglas:**
+- **Una captura del banco no mide ancho.** Lo que depende del ancho —cuántas columnas entran, qué se corta, qué se apila— se
+  mide con el ancho REAL: viewport − barra lateral (244 desplegada, 68 plegada) − la barra de scroll del contenedor que
+  scrollea − el padding de la columna. El banco sirve para el aspecto, no para el calce.
+- **Un `auto-fill` que entra JUSTO no entra.** 1132 de 1132 es cero margen: una barra de scroll, un borde o 2 px más de padding
+  lo bajan una columna entera. El mínimo se elige con lugar de sobra.
+
+**Arreglo:** `minmax(258px, 1fr)` (`app/image-editor/carruseles/explorar.module.css`, `.grilla`). A 1440 con la barra quedan
+cuatro de 265 px —que es, además, la proporción de la referencia— y **no cambia nada en el resto**: a 1920, con la barra
+plegada y sin barra siguen siendo cuatro de 299, y a 1280 con la barra siguen siendo tres.
+
+### Las capturas de referencia no sirven para comparar medidas
+
+**Síntoma:** el pendiente pide «los detalles de tamaño, letras y espacios» contra `docs/carruseles/referencia-top-carousels/`.
+
+**Lo obvio era medir las dos capturas y comparar píxel contra píxel, y no se puede.** Las de la referencia están
+**redimensionadas a 768 px de ancho** (cinco de las seis a 768×480) y **nadie anotó el ancho del navegador**. Los JPG no traen
+EXIF con el tamaño original, sólo un perfil ICC. Con la MISMA imagen, la pastilla del múltiplo mide 26 px si la ventana era de
+1440 y 22 px si era de 1207, y las dos lecturas son igual de defendibles.
+
+**Lo que sí se puede, y es lo que quedó medido** (sobre `tarjetas.jpg`, en fracción del ancho de la tarjeta, que es
+escala-invariante; de MaKo, en píxeles reales de `01-portada-1440.png`, que es 1:1):
+
+| | Referencia | MaKo (tarjeta de 299 px) | A la proporción de la referencia |
+|---|---|---|---|
+| Portada | 142 × 177 px = 4:5 | 4:5 | ✔ igual |
+| Gap entre columnas | 7,4 % de la tarjeta | 20 px = 6,7 % | 22 px |
+| Pastilla del múltiplo (alto) | 14 px = 9,9 % | 22 px = 7,4 % | ~30 px |
+| Cap del titular | 7 px = 4,9 % | 10 px (fuente 13,5) = 3,3 % | cap ~15 px → fuente **~20 px** |
+
+O sea: **la tarjeta de MaKo es más ancha en relación con su texto**, y es lo único grueso que separa las dos pantallas.
+Subir el titular es decisión de diseño (no se tocó).
+
+**La regla: una captura de referencia se guarda con el ancho del navegador escrito al lado** (en el LEEME o en el nombre del
+archivo). Sin ese número no es una referencia de medidas, es un dibujo. Lo mismo vale para las nuestras: las de
+`capturas-2026-11-06/` dicen 1440 en el nombre y por eso se pudieron medir 1:1.
+
+### Y dos de los diez pedidos no se podían ver en las capturas
+
+- **`09-anuncios-1440.png` es el cartel de vacío**: el banco no tiene anuncios, así que «en anuncios trajiste un montón de
+  videos» nunca se miró con datos. Lo que pasa en producción ya está medido más abajo («El arreglo cubrió la fuente que NO
+  trajo ni un anuncio»): el filtro de video **saca 0 de los 300 anuncios guardados**, así que lo que Martín vio sigue ahí.
+- **«Muchos no tengo el botón para desplazar a la derecha»** quedó arreglado para el teléfono (las flechas ya no dependen de
+  pasar el mouse), pero la causa de «muchos» es otra: sin láminas guardadas no hay nada que pasar, y eran 168 de 912 el 6/11.
+  Esa tarjeta muestra una etiqueta «N láminas» cuyo texto flotante repetía la etiqueta; ahora dice por qué no hay flecha.
+
 ## «Llega al techo» con un tercio gastado: el techo lo ponía el crédito y la cuenta era de reservas (6/11/2026)
 
 **Síntoma:** `laminas` paró diciendo «Llega al techo: corta acá» con **US$0,54 gastados de un tope pedido de US$1,50**. De la
@@ -557,6 +623,18 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 
 ## Sin hacer
 
+- **De la pasada contra la referencia (7/11/2026), lo que quedó anotado y NO se tocó** (es decisión de diseño o de producto):
+  - **El chip del filtro activo.** La referencia muestra cuál filtro está prendido en una pastilla debajo de la barra («Outlier
+    score 1×+»); MaKo sólo muestra cuántos hay, en el número del botón «Filtros». Sin abrir el modal no se sabe cuál es.
+    `app/image-editor/carruseles/ExplorarCarruseles.tsx` (`filtrosActivos`).
+  - **El tamaño del titular de la tarjeta:** 13,5 px; a la proporción de la referencia serían ~20 px (tabla de arriba).
+  - **El modal de filtros:** 900 px de ancho y `min(88vh, 720px)` de alto, o sea 62,5 % × 80 % de una pantalla de 1440×900;
+    la referencia usa ~80 % × ~96 %. `FiltrosCarruselModal.tsx`.
+  - **Los deslizadores** muestran el valor DEBAJO de las puntas; la referencia lo muestra DENTRO de cada punta, y agrega un
+    «Exact values» para escribirlo a mano. `Deslizador.tsx`.
+  - **El orden de la fila que se desliza en el teléfono:** «Filtros» queda detrás del segmento y de las cuatro pastillas, o sea
+    fuera de la pantalla a 390 px (se ve en `capturas-2026-11-06/10-portada-390.png`). Se puso así a propósito el 6/11 (la
+    autocrítica: el segmento es lo que cambia la pantalla), pero deja el filtro escondido.
 - **El tipo de 1.213 carruseles** sigue vacío: sólo las láminas (o la portada leída) lo dirían. `lib/carruseles/clasificar.ts`.
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
@@ -594,3 +672,36 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 
+
+## DECISIÓN de Martín: la IA replica, y lo único full editable es el TEXTO (7/11/2026)
+
+**Lo que dijo, y es el norte de la tab:** «tiene que ser todo con IA… le vamos a pasar la referencia a la IA
+para que haga algo similar. Es muy complicado que todo sea editable, las imágenes, los personajes, las
+personas… lo más fácil es pedirle a alguien que lo replique, y de última concéntrate en que lo que sí sea full
+editable sea el tema de los textos. Eso sí tiene que ser editable, porque cambia de dueño de negocio a dueño de
+negocio: puedo tener un carrusel con la misma estética, con las mismas fotos, pero le cambio el texto, el CTA.»
+
+**NO se construye:** edición por partes de la imagen. Nada de quitar o mantener personas una por una, elegir
+qué paisaje queda, ni reemplazar a alguien por el avatar del cliente con un editor de elementos. Es trabajo
+grande y está descartado. Si un encargo pide algo de eso, se vuelve a preguntar antes de escribir una línea.
+
+**Al 7/11/2026 YA ESTÁ ASÍ, verificado contra el código** — esta entrada existe para que nadie lo rehaga ni se
+desvíe, no porque falte algo:
+
+- `lib/carruseles/replica-servidor.ts` lee las láminas, carga el Second Brain del negocio, su voz, su kit de
+  marca y la foto del cliente, y **la IA DEL NEGOCIO** (su Claude, su GPT o su Gemini, nunca la de la
+  plataforma) devuelve el diseño con sus textos.
+- Son hasta **12 láminas con 8 textos cada una, en JSON**, que quedan editables en el Image Editor. No es una
+  imagen plana: el texto vuelve como texto.
+- Sin IA conectada igual sale un diseño editable, con la estructura del ejemplo y una guía por lámina.
+- Busqué edición de personas, fondos o avatares en `app/image-editor/carruseles/` y `lib/carruseles/`: **no
+  existe y nadie la está construyendo.** Los únicos «avatar» son la foto de perfil del competidor en los filtros.
+
+⚠️ **Lo que a propósito NO hace, y conviene no «arreglarlo»:** la réplica **no reusa las fotos del original**.
+Martín dijo «con las mismas fotos», pero las fotos del ejemplo son de un competidor, y ponerlas en el anuncio
+de otro negocio es un problema de derechos, no una función que falte. Lo que se replica es **la estética y la
+estructura**, con la marca y el avatar del negocio. Si alguna vez se decide reusarlas, es una decisión legal,
+no técnica.
+
+**Vive en:** `lib/carruseles/replica-servidor.ts` · `lib/carruseles/replica.ts` ·
+`app/image-editor/carruseles/EditarCarrusel.tsx` · memoria `carruseles-ia-replica-solo-textos-editables`.

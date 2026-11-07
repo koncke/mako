@@ -17,6 +17,64 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🛑 NADA LLEGA A MAIN DESDE LAS 02:08 UTC DEL 7/11 — y no es el código de nadie
+
+**El síntoma, que engaña:** cada punta da rojo y el aviso dice «sin detalle». Al abrirla, **el trabajo
+`chequear-y-llevar` figura como fallado SIN UN SOLO PASO EJECUTADO**, y el registro ni siquiera existe
+(`BlobNotFound`). O sea: el trabajo nunca arrancó. Un chat que mire su propio rojo va a buscar en su código un
+error que no está. **Le pasó a tres ramas distintas la misma noche.**
+
+**Cómo se reconoce en treinta segundos, y es lo que vale de esta entrada:**
+
+```
+node pasos-rojos.mjs <id>     # si dice «sin paso», no es el código
+```
+
+Y la confirmación definitiva es mirar el reloj de las corridas: **todo verde hasta las 01:51, todo rojo desde
+las 02:08.** Un corte así de limpio no lo produce el código de nadie.
+
+**Qué NO es:** GitHub Actions está operativo, sin incidentes abiertos ni mantenimiento (consultado el 7/11 en
+su página de estado).
+
+**Qué es, casi con seguridad: se llegó al tope de gasto de Actions.** Cuando se agota, los trabajos fallan
+exactamente así: sin pasos y sin registro.
+
+⚠️ **Y por qué no lo puedo confirmar desde acá, que es un hallazgo en sí mismo.**
+`scripts/minutos-actions.mjs` dice «Facturable REAL de GitHub: **0 min** → US$0,00 de un tope de US$30 (0 %)».
+**Ese 0 no es «no gastamos»: es «no pude leer».** El token de Actions no tiene permiso sobre el panel de
+facturación, y la API devuelve 0 en vez de un error. Es el mismo engaño que ya está anotado para
+`/actions/runs/{id}/timing`. **Un cero de esa fuente nunca es un dato.**
+
+Lo estimado por duración, que sí se puede leer: **10.993 minutos facturables en lo que va del mes** y un ritmo
+de 2.864 min/día. La estimación sobre-cuenta ~1,9x, pero aun dividida por dos pasa cualquier tope de US$30.
+**El 4/11 solo fueron 870 corridas**, y el 6/11 otras 342.
+
+**LO QUE LO DESTRABA, Y ES DE MARTÍN** (es su cuenta de GitHub, no se puede hacer desde un chat):
+
+1. Entrar a **Settings → Billing → Spending limits** en GitHub y mirar el número de verdad.
+2. Si está en el tope: subirlo, o esperar al cierre del ciclo.
+3. Mientras tanto, **se puede seguir trabajando y pusheando**: las ramas suben bien. Lo que no pasa es que
+   lleguen solas a `main`. Cuando Actions vuelva, se relanzan y entran.
+
+⚠️ **Y cuando el pago se arregle, esas ramas NO ENTRAN SOLAS.** Un flujo se dispara al PUSHEAR, y ya están
+pusheadas: quedan ahí, rojas, hasta que alguien las vuelva a lanzar. Al 7/11 son **10**. Para eso está
+`scripts/relanzar-puntas.mjs`: busca las corridas que fallaron **sin ejecutar un solo paso** —la huella de un
+trabajo que no arrancó—, saltea las que ya entraron a main y no toca las que fallaron de verdad (ésas tienen un
+paso fallado y son trabajo de su chat).
+
+```
+node scripts/relanzar-puntas.mjs            # muestra cuáles, sin tocar nada
+node scripts/relanzar-puntas.mjs --aplicar  # con el pago YA arreglado
+```
+
+Sin `--aplicar` no relanza nada, a propósito: correrlo antes de que el pago esté arreglado gasta minutos para
+volver a fallar igual.
+
+**Lo urgente igual se puede desplegar**, porque ese camino no usa Actions:
+`node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs` (US$0,33-0,42).
+
+---
+
 ## 🔓 DESTRABADO: la guardia negaba los commits por su MENSAJE, no por la RAM (6/11/2026 ~21:10)
 
 **El diagnóstico obvio era el equivocado, y es el que está escrito varias veces más abajo en este
@@ -284,40 +342,35 @@ veo», la respuesta es ésta, y no hay que volver a tocar el código de Spy para
    el deploy cierre en verde**, y eso hay que hacerlo a mano: nada lo prende solo.
 
 **Tickets nuevos, leídos y SIN empezar:**
-- **#46 — Leila Fittipaldi (ws 11, plan Completo).** Quiere pasar el precio de su oferta de MXN a USD
-  «para abrir el programa a Latam» y MaKo le contestó que no puede cambiar el precio desde el chat.
-  ⚠️ **Es el mismo error que el #45: MaKo niega algo que SÍ puede hacer.** Medido:
-  `lib/api-mako/areas/negocio.def.ts:652` PROPONE crear o editar una oferta —el precio incluido— y
-  devuelve un link para confirmarla en una pantalla; `crm.def.ts:1063` hace lo mismo con un producto
-  del catálogo. El arreglo es el del #45: que la respuesta ofrezca ese camino en vez de negar.
-  Y MaKo marcó sola una inconsistencia de datos que hay que resolver con ella: su perfil dice
-  **800 MXN/mes** y el producto «LíderMente» del catálogo dice **USD 49/mes**.
-- **#47 y #48 — LEÍDOS el 7/11, después de cuatro días.** Los dos son de **Leila Fittipaldi (ws 11, plan
-  Completo)**, los dos los levantó MaKo sola, y **ninguno de los dos es un bug**: los dos son MaKo diciendo
-  «esto no lo puedo hacer». La Ticketera los clasificó «bug» por eso, y conviene saberlo: **«MaKo no pudo» no
-  es «MaKo se rompió»**.
+- **#46, #47 y #48 (Leila Fittipaldi, ws 11) — ✅ LOS TRES HECHOS desde el 3/11, commit `d6501deac`,
+  verificado en `origin/main` el 7/11.** El tablero los tenía abiertos cuatro días de más.
 
-  **#47 — no puede CREAR una secuencia de nutrición**, sólo prender o pausar las que existen. Su respuesta
-  estuvo bien: explicó los dos disparadores que sirven, recomendó el de etiqueta y dijo dónde se arma
-  (Automations). **No hay nada que arreglar acá**, salvo que se decida que MaKo pueda crearlas.
+  ⚠️ **Y me corrijo a mí mismo**: hace una hora escribí acá que el arreglo del #48 era pasarle `MAKO_NAV`
+  a MaKo en su contexto. **Era equivocado**, y habría mandado a alguien a construir algo que ya existe.
+  Lo escribí después de leer los tickets y mirar el código por mi cuenta, sin buscar antes si ya había un
+  commit que los nombrara. **Un ticket no se diagnostica sin buscar primero su número en el historial.**
 
-  **#48 — MaKo no sabe en qué pantalla de su propia app se editan los datos del negocio.** Textual: «la ruta
-  exacta para editar esos datos no la tengo confirmada, y prefiero no inventarte un menú que no existe».
-  **Que no invente está bien.** Lo que está mal es que no lo sepa.
+  **La causa real de los tres (y del #45) eran DOS cosas, no una:** la palabra que escribe la persona no era
+  la del nombre de la herramienta, **y la herramienta no viajaba al turno de la app**. Lo segundo es lo que yo
+  no podía ver leyendo el catálogo.
 
-  🔧 **El arreglo está al alcance y lo verifiqué: el mapa YA EXISTE en el código.** `MAKO_NAV`
-  (`app/_components/nav.ts`) tiene todas las pantallas, y `lib/buscador-nav.ts` hasta entiende los nombres
-  viejos y en castellano para el buscador de Ctrl+K («configuracion» → configuraciones, «second brain» → Ops
-  Center). **MaKo no lo tiene en su contexto.** Pasárselo filtrado por lo que esa persona ve es chico y
-  convierte «no sé dónde» en «andá a tal pantalla».
+  - **#46** «paso el precio de pesos a dólares»: ahora viajan `guardar_oferta` y `guardar_producto`, que
+    proponen el precio con un link para confirmarlo.
+  - **#47** «el WhatsApp del diagnóstico tiene que disparar una secuencia»: `crear_automatizacion_con_ia` la
+    crea con disparador por etiqueta; ahora viaja, y su descripción dice *secuencia*, *disparador* y *etiqueta*.
+  - **#48** «¿dónde actualizo mis datos?»: crearon `DATOS_DEL_NEGOCIO` (`lib/secciones-negocio.ts`), que dice
+    **la pantalla de cada dato con el nombre que se lee en ella**, y cuatro capacidades lo devuelven con su link.
+  - Un cuarto del mismo tipo que encontraron de paso: `guardar_campo_perfil` y `guardar_oferta` mandaban a
+    corregir el precio a Documentos; se corrige en «La oferta» → «El brief».
 
-  🔴 **Y lo que de verdad puede romper a un cliente, que MaKo destapó sola:** el mismo dato de Leila vive en
-  varios lugares y están desfasados. El producto «LíderMente» dice **miércoles 7:30-9:30 pm** y **USD 49/mes**;
-  el campo «Qué incluye» de la oferta sigue en **7-9 pm** y el de precio en **800 MXN/mes**. La advertencia es
-  de MaKo y es correcta: **si los anuncios o el WhatsApp salen con el horario viejo, alguien llega a las 7 y se
-  encuentra con la puerta cerrada.** Son datos de Leila: los corrige ella, pero hay que avisarle.
+  **Los tests están probados rompiéndolos**: `mako-no-puedo-falsos` 14-17, ocho mutaciones, cada una roja.
 
-- ~~#47 y #48 entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55, sin leer (la
+  🔴 **Lo que NO arregla ningún commit, y sigue abierto:** el mismo dato de Leila vive en varios lugares y
+  estaban desfasados. Medido el 3/11 por MaKo: el producto «LíderMente» decía **miércoles 7:30-9:30 pm** y
+  **USD 49/mes**, mientras «Qué incluye» seguía en **7-9 pm** y el precio en **800 MXN/mes**. **No lo verifiqué
+  hoy**: pueden estar corregidos. Son datos de ella, los corrige ella, pero la advertencia de MaKo es correcta y
+  es del tipo que rompe a un cliente: si los anuncios o el WhatsApp salen con el horario viejo, alguien llega a
+  las 7 y encuentra la puerta cerrada. **Hay que avisarle a Leila**, y eso lo hace Martín.
   guardia de RAM dejó la PC por debajo de 3 GB y Bash quedó bloqueado). Se leen con
   `node --import tsx scripts/tickets.ts ver 47` y `… ver 48` desde el clon.
 

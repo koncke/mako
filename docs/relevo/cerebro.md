@@ -1,5 +1,82 @@
 # Relevo del Cerebro
 
+## 7/11/2026, ~04:00 UTC (01:00 ART): ACTIONS FRENADO POR UN PROBLEMA DE PAGO, y la pasarela se cayó entera
+
+**LO PRIMERO QUE TENÉS QUE SABER: desde las 02:08 UTC ninguna punta llega a `main`.** El trabajo de Actions no
+arranca. Si venís a un chat que dice «mi rama da rojo», **no es su código**: GitHub lo dice textual en las
+anotaciones de la corrida —«The job was not started because recent account payments have failed or your
+spending limit needs to be increased»—. **Son DOS causas**: un pago rechazado (tarjeta vencida) o el tope. Mirar
+sólo el tope deja pasar la primera. Lo arregla Martín en Settings → Billing & plans.
+
+**Cómo se reconoce en treinta segundos:** si al mirar la corrida **ningún paso figura como fallado**, no es el
+código. Un rojo de verdad siempre nombra su paso. El vigía ya lo dice solo: avisa «el trabajo NO ARRANCÓ (no es
+tu código)» con el motivo. Antes decía «sin detalle», y por eso seis ramas se diagnosticaron mal en una hora y
+una se reintentó tres veces.
+
+⚠️ **La trampa de medición que casi me hace decir lo contrario:** `scripts/minutos-actions.mjs` informó
+«Facturable REAL de GitHub: **0 min** → 0 % del tope». **Ese 0 era «no pude leer»**, no «no gastamos»: las rutas
+de facturación dan 404 sin permiso y el script las traduce a cero. **Un cero de una fuente que puede no tener
+permiso nunca es un dato.** Lo mismo ya estaba anotado para `/actions/runs/{id}/timing`.
+
+**Cuando el pago se arregle, las ~10 puntas que quedaron afuera NO ENTRAN SOLAS**: un flujo se dispara al
+pushear y ya están pusheadas. `node scripts/relanzar-puntas.mjs --aplicar` las relanza; sin `--aplicar` sólo
+muestra. Saltea las que ya están en main y no toca las que fallaron de verdad.
+
+### LA PASARELA DE PAGO: dLocal CERRÓ LA CUENTA, y el motivo no era el que yo decía
+
+**dLocal Go cerró la cuenta el 6/11 a las 19:02**, después de haber aprobado los papeles de Leandro días antes.
+Con Creem (5/11) son **dos rechazos en dos días, y ninguno dio un motivo**. Peor: nuestra nota de Creem decía
+«motivo, DEDUCIDO» y eso se leyó después como el motivo. **Cuando un proveedor no dice por qué, en la nota va
+«no lo dijeron» y la pregunta que falta hacerles.**
+
+Martín me frenó bien: yo había buscado frases en nuestra landing y supuesto. Fui al contrato. **La sección 11
+que citaron es *Data Protection*: es el artículo que los exime de explicar.** Lo sustantivo está en el Anexo 1,
+bajo «Marketing practices», y ahí prohíben **por nombre** los «before/after claims» y los «endorsements» — que
+es con lo que abría nuestra portada («$10k → $70k en tres meses»). Y **NO prohíben** nada de WhatsApp, ni
+automatizar mensajes, ni leer datos de terceros.
+
+**Top Carousels hace lo mismo que nuestro Spy y tiene Stripe**, porque escribe «reads an account's last 40
+**public** carousels». Esa palabra hace trabajo legal. Y nuestro texto de presentación a proveedores describía
+el RIESGO en vez de la FUNCIÓN: «paced to lower the risk of bans» en vez de «rate limited on a schedule the
+customer sets». Corregido en `docs/proveedores-de-cobro.md`, con el original al lado.
+
+**Cuatro consultas mandadas el 7/11 desde `equipo@hola-mako.com`** (por Resend, que es la salida del propio
+MaKo: antes dije que no se podía mandar desde un chat y era falso): Whop, Paddle, Lemon Squeezy y
+`compliance@dlocalgo.com`. A dLocal se le pregunta qué ítem del Anexo 1 incumplimos y si se puede pedir una
+nueva revisión de la cuenta existente — **no se abre otra cuenta: sus términos permiten una sola por persona.**
+Texto completo en `docs/consulta-pasarelas-7-11.md`.
+
+⚠️ **La portada NO vive en el código**: se arma con la landing publicada desde Web Generator, guardada en la
+base, con caché de 5 minutos. Sacar las promesas de ingresos **no es un cambio que entre con el deploy**: es
+editar y publicar el sitio en vivo, y eso lo decide Martín.
+
+### Lo demás que entró o quedó listo
+
+- **Ticket #60 (Mauricio):** el 401 de la API decía «token inválido o revocado» para CUATRO cosas distintas,
+  incluida *no mandar ninguna cabecera*. Le costó dos tokens regenerados en vano. Arreglado en
+  `lib/api-mako/autorizacion-reglas.ts` (puro, porque `http.ts` hace `import 'server-only'` y el corredor de
+  tests NO usa `--conditions react-server`). **Probado rompiéndolo: 4 mutaciones, y DOS se escapaban en mi
+  primera versión** — el chequeo buscaba «revocad» y el texto viejo ya decía «revocado».
+- **Tickets #46, #47 y #48 (Leila): ya estaban arreglados desde el 3/11** (`d6501deac`). El tablero los tuvo
+  abiertos cuatro días. Yo diagnostiqué mal uno antes de buscar su número en el historial. **Un ticket no se
+  diagnostica sin buscar primero su número en el historial.**
+- **Las cinco puntas sin revisar: 5 de 5 revisadas.** La de `nada-por-detras` era la de más riesgo y está bien.
+- **Decisión de Martín sobre carruseles (7/11):** la IA replica la referencia y **lo único full editable es el
+  TEXTO**. No se construye edición por partes de la imagen. Ya está así; la entrada existe para que nadie se
+  desvíe.
+
+### Esperando a Martín
+
+1. **El pago de GitHub.** Bloquea todo lo demás.
+2. **¿El Runner local lo abrió él?** Un mensaje mío al Runner fue frenado: antes era una sesión que NO estaba en
+   esta máquina y ahora una de esta máquina reclama esa identidad. **No confirmé nada.**
+3. **Las promesas de ingresos de la portada**, que es lo único prohibido por nombre en el contrato de una
+   pasarela.
+4. **Avisarle a Leila** que su horario y su precio están en dos valores distintos (medido el 3/11, sin
+   verificar hoy): si los anuncios salen con el horario viejo, alguien llega a las 7 y encuentra cerrado.
+
+---
+
 ## 7/11/2026, ~00:20 UTC (6/11 21:20 ART): LA GUARDIA NEGABA LOS COMMITS POR SU MENSAJE
 
 **Si venís a un chat que dice «no puedo commitear, falta RAM», leé esto primero.** Era mentira, y yo

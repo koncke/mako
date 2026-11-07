@@ -2857,3 +2857,58 @@ SVG nuestro.
 **Vive en:** `lib/foto-perfil.ts` (`fotoDePersonaSegura`, `hostDelStoragePropio`) · `lib/perfil.ts` (`setPerfil`) ·
 `lib/gravatar.ts` (`caraDeUsuario`) · `lib/tickets-db.ts` (`aFila`) · `lib/comunidad-datos.ts` ·
 `tests/foto-persona-origen.test.ts` · `tests/gravatar-cara.test.ts`
+
+## ⛔ EL REPO NO SE PUEDE HACER PÚBLICO: hay credenciales vivas EN EL HISTORIAL (7/11/2026)
+
+**Por qué se preguntó.** GitHub frenó Actions por el tope de gasto, y Actions es **gratis e ilimitado en repos
+públicos**. Martín dijo «ponelo público, no hay problema… después cuando hagamos anuncios lo volvemos a
+privado». Audité antes de tocar nada, y **la premisa era falsa**.
+
+**Lo que hay.** El commit `0575d1f07` (15/10/2026) dice textual: «Seguridad: las transcripciones de docs/chats
+salen del repo (**tenían credenciales vivas**)». Sacaron el archivo. **Sacar un archivo NO lo saca del
+historial**: `docs/chats/chat-conocimientos-cursos-e8ba820e.md` sigue entero en `541184cce` (8/08) y en todo lo
+que hay entre ambos. Adentro están los nombres de:
+
+| | |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | **la llave maestra de la base**: saltea el aislamiento y lee y escribe los datos de TODOS los clientes |
+| `DATABASE_URL` | conexión directa con contraseña |
+| `CREDENCIALES_SECRET` | la clave con la que se cifran las credenciales BYOK de los clientes |
+| `META_APP_SECRET` + 3 tokens de Meta | las cuentas publicitarias |
+| `GEMINI_API_KEY` (×19), `OPENAI_API_KEY` | gasto de IA |
+
+**Y «después lo volvemos a privado» NO revierte nada.** En los minutos que esté público cualquiera clona el
+historial entero, los forks sobreviven al cambio de visibilidad y los buscadores de secretos lo indexan en
+segundos: hay bots dedicados a eso. Con la clave de Supabase, quien la tenga entra a los datos de todos los
+clientes.
+
+**La regla que queda, y vale para cualquier repo:** antes de cambiar la visibilidad de un repositorio se audita
+el HISTORIAL, no el árbol de hoy. Un archivo borrado hace semanas sigue publicándose. El cambio de visibilidad
+es la única acción de este repo que **no se puede deshacer**.
+
+**Cómo se audita, y qué NO alcanza** (hecho el 7/11, 10.130 archivos del árbol + pickaxe sobre todo el
+historial):
+
+```
+# 1. ¿Se commiteó alguna vez un archivo de credenciales?
+git log --all --diff-filter=A --name-only --format='' | sort -u | grep -iE '(^|/)\.env|\.pem$|id_rsa|\.key$'
+# 2. Los prefijos, sobre TODO el historial (no sólo el árbol):
+git log --all --oneline -S"sk-ant-api03"   # y AIzaSy, sk_live_, xoxb-, eyJhbGci...
+```
+
+⚠️ **Lo que el prefijo solo NO distingue:** en el árbol de hoy hay **72 apariciones** de prefijos de clave y
+**las 72 son material de prueba** — viven en `tests/` y en `scripts/claves-en-el-diff.mjs`, que es el detector
+de claves. Un `sk_live_` en `lib/stripe-api.ts` es el patrón que la valida, no una clave. **Contar prefijos da
+una alarma falsa**: hay que mirar la FORMA (largo real, si el cuerpo parece aleatorio, si dice «test» o
+«ejemplo») y DÓNDE vive.
+
+**Sin hacer, y es de Martín, decida lo que decida sobre público/privado:** el commit del 15/10 dice que esas
+credenciales estaban vivas y **nadie dejó escrito si se rotaron**. Si no se rotaron, siguen siendo válidas y
+estuvieron en el historial de un repo privado desde agosto. **Rotarlas no depende de hacerlo público.**
+
+**Si alguna vez se decide hacerlo público de verdad:** hay que reescribir el historial para borrar esos blobs
+(`git filter-repo`). Cambia el identificador de los ~6.000 commits, rompe toda rama en vuelo y obliga a todos
+los clones a rehacerse. No es un atajo para ahorrar minutos de Actions: subir el tope cuesta ~US$30 por mes.
+
+**Vive en:** el historial de `docs/chats/chat-conocimientos-cursos-e8ba820e.md` (`541184cce`, `0575d1f07`) ·
+`scripts/claves-en-el-diff.mjs` · `docs/pendientes-martin.md`.

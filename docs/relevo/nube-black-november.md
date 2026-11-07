@@ -9,8 +9,9 @@
 Leila (negocio 11) lanza en noviembre su campaña Black November por WhatsApp a su base. La auditoría del 5/11 marcó tres
 riesgos, y se pidió, textual:
 
-1. «Rampa de WhatsApp en las secuencias: que `limites.wa` también arranque bajo y suba de a poco (`arranqueDia`,
-   `arranqueSube`). Una línea que ya viene mandando no vuelve a empezar de cero: mirá cómo lo resuelve la difusión.»
+1. ~~«Rampa de WhatsApp en las secuencias: que `limites.wa` también arranque bajo y suba de a poco (`arranqueDia`,
+   `arranqueSube`)…»~~ **CUMPLIDO el 5/11/2026** (`topeDeLineaDeHoy` con el canal por parámetro; ver
+   lib/goteo-db.ts y lib/nutricion.ts).
 2. «Horario de fábrica: las automatizaciones nuevas nacen con 9 a 21, las ya prendidas no tienen horario. Decidí con
    criterio cómo cubrirlas sin frenar a nadie de golpe y sin mandar lo acumulado todo junto. Si hace falta tocar datos, un
    script en seco por defecto que corre el Cerebro: dejá el comando en el relevo. Leila quiere de 10 a 20 h: que se pueda
