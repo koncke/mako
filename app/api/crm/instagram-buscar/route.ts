@@ -347,7 +347,12 @@ export async function GET(req: NextRequest) {
       // CON «@» ES SÓLO EL EXACTO (Martín: «si busco el @ exacto, no me puede traer sin tardar esos 20 segundos directamente la
       // foto?»): quien escribe el @ ya sabe a quién busca, y esperar la búsqueda por nombre era el tiempo de sobra.
       const [l, hallados] = await Promise.all([
-        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
+        // ⚠️ `variasClaves` (7/11/2026). Sin esto el alta del CRM usaba SÓLO la clave 1 de Apify, así que cuando esa
+        // se agotaba dejaba de leer el @ **mientras Spy seguía andando con las otras**, y desde afuera parecía que
+        // Instagram no contestaba. No gasta un centavo más: `porApify` usa `conLaPrimeraConCredito`, que es una
+        // CASCADA —prueba la siguiente sólo si la anterior no tiene crédito—, no un abanico. El pendiente estaba
+        // frenado como «es plata del negocio»; el código dice que no lo es.
+        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'], variasClaves: true }),
         texto.startsWith('@') ? Promise.resolve<PerfilIg[]>([]) : buscarConApify(u, ws),
       ]);
       const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
