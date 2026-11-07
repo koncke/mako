@@ -356,6 +356,50 @@ dos causas fueron del índice, y las dos son del archivo, no del código:
 **La regla: ante un `ci-rojo/*`, lo primero es ver QUÉ PASO falló, no leer el código.** Un rojo en «Mezclar main en la
 punta», «Main está rojo» o «Guardas del push» no dice nada de lo que escribiste.
 
+#### Y el más engañoso de todos es el ÚLTIMO paso: «Llevar a main (sin forzar)» (7/11/2026)
+
+`punta/video-reordenar-tomas` quedó en `ci-rojo/` con **todo verde**. Medido en el run 42346626806, paso por paso:
+
+| Paso | | |
+|---|---|---|
+| 7 | Mezclar main en la punta | ✓ |
+| 12 | Guardas del push | ✓ |
+| 14 | Tipos (el `tsc` ENTERO) | ✓ |
+| 16 | Tests afectados por lo que cambió (todos, sin cortar) | ✓ |
+| **23** | **Llevar a main (sin forzar)** | **✗** |
+| 26 | Dejar la marca del rojo en `ci-rojo/<punta>` | ✓ |
+
+El mensaje, al final del log del paso 23:
+
+```
+Mientras corrían los tests main se movió, y ahora la punta choca en: docs/hallazgos.md .
+Mezcla origin/main en la punta, resuelve y vuelve a subir.
+```
+
+**O sea: el código está CHEQUEADO y NO llegó a main** — justo lo contrario de lo que el nombre `ci-rojo` sugiere, y la
+única de las variantes en que el veredicto sí vale. El paso 23 vuelve a mezclar main antes del fast-forward, y entre el
+paso 7 y el 23 pasan ~17 minutos de chequeos: lo que entró a main en esa ventana se mezcla de nuevo, sin el único paso
+que configura los drivers (el 6). Reintenta 5 veces y se rinde.
+
+⚠️ **Y el archivo que pierde esta carrera es SIEMPRE el mismo, por diseño: `docs/hallazgos.md`.** Lo toca toda punta
+que cosecha, y su driver sólo acepta lo que va ADELANTE de la celda de main (`prefijoNuevo`). Dos puntas que cosechan en
+la celda de la MISMA área dentro de esa ventana de 17 minutos chocán: acá fue la celda de «Infraestructura», que otra
+punta de la misma tanda también estaba tocando.
+
+**La cura está en el propio log y son tres comandos:** `git merge origin/main`, resolver el índice con
+`python -I scripts/unir-indice-hallazgos.py .` (dice cuántos choques resolvió, cuántas entradas se perdieron —tiene que
+ser 0— y cuántos cierres quedaron rotos), y push a la MISMA punta. El veredicto de la corrida anterior queda en caché
+(paso 21), así que la vuelta no repite lo que ya pasó.
+
+**Lo obvio era el equivocado, otra vez, y lo dijo otro chat:** los dos candidatos que llegó a sugerir fueron «rompiste el
+índice» y «te faltaron las barredoras». Las dos eran falsas —el test del índice daba verde en el árbol de la punta, y el
+paso 16 había corrido las barredoras y pasado—. **Esta misma sección ya decía qué hacer primero y así y todo se empezó
+por el código.** Mirar el paso cuesta dos `curl` (abajo) y dos minutos.
+
+**Lo que baja la probabilidad, para la próxima:** una cosecha que se agrega DESPUÉS, sobre una punta que ya tiene
+código, va en su propia punta de sólo documentación — ésas corren las guardas y la de mails, ~1,5 min, así que la
+ventana de carrera es diez veces más corta. Empujarla encima de la punta con código reinicia los 17 minutos completos.
+
 **Y cómo se lee desde la PC, que es lo que faltaba:** no hay `gh` instalado y los `GITHUB_PAT_*` del `.env.local` son de
 OTRAS cuentas (dan 404 en `koncke/mako`, que parece «no existe»). El token bueno es el del credential manager de
 Windows, como en `C:/dev/cerebro-herramientas/esperar-run.sh`:
