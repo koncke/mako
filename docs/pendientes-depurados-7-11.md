@@ -76,7 +76,12 @@ guardia). De las 232 seguramente sobren más.
 - **Mirar /agency?ws=13 y decidir las tres tareas programadas `codigo-diferencial-*`** · _Cobros y planes, chico_
   - Comprobar la tarjeta de diciembre en US$332 proyectado, «Entradas por pagar» con Pablo y Patricia, y «En pausa: Pablo · Patricia». Y decidir si las tres tareas programadas (9/11, 12/11 y 14/11, que avisan y no escriben) quedan o se apagan.
   - Dónde: `C:/dev/wt-puntas/app/agency/Mensualidad.tsx ; pasos 7 y 8 de docs/relevo/nube-agencia-cobro.md:67-70`
-- **`porCobrar` le pone a Codigo 4/12 por US$238 y lo real es 5/12 por US$426** · _Cobros y planes, chico_
+- **`porCobrar` le pone a Codigo 4/12 por US$238 y lo real es 5/12 por US$426**
+  - ⚠️ **DIAGNOSTICADO el 7/11 y está mal enunciado: los dos números son CORRECTOS y de meses distintos.** 238 es
+    noviembre y 426 es diciembre; 4/12 es el fin de la entrada de Pablo. Lo fija tests/agencia-cobro.test.ts con esas
+    cifras. La causa real: **«Por cobrar» no sabe que existe la mensualidad de una agencia** — lib/admin-ingresos-reglas.ts
+    nombra «agencia» UNA sola vez, y el ciclo del 5 al 5 lo calcula otro motor (lib/agencia-mes.ts). No es un arreglo chico:
+    es juntar dos motores, y sumarlos mal duplicaría la plata esperada. Ver docs/hallazgos-agencias.md. · _Cobros y planes, chico_
   - Arreglo chico en la vista de ingresos. Se le paso al chat de la copia de Admin, sin confirmar. Ojo: NO registrar de nuevo los pagos ya cargados.
   - Dónde: `docs/relevo/cerebro.md:85 (vistaDeIngresos)`
 - **Falta la plantilla «Rechazaron un Pago» en la galeria de Automations** · _Chat de MaKo, chico_

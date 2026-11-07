@@ -625,3 +625,47 @@ tests/verificacion-plata-agency-2910.test.ts.
 - ~~Todo lo automático sigue en `punta/agencia-cobro`~~: llegó con `punta/agencia-cobro-2` (6/11/2026, «La segunda vuelta», arriba). Las tres tareas programadas (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) siguen: avisan, no escriben, y pueden apagarse cuando la mensualidad esté prendida.
 - El pago del 5/11 no deja rastro en la base: se apoya en lo que dijo Martín. Marcarlo «Pagado» cuando exista la pantalla.
 - Para armar el PDF con `jspdf`: `maxWidth` parte la línea, pero la altura no se ajusta y se pisa con la de abajo. Medir con `splitTextToSize`, y mirar el PDF dibujado antes de mandarlo.
+
+---
+
+## «Por cobrar» no sabe que existe la mensualidad de una agencia (7/11/2026)
+
+**Síntoma, tal como se anotó:** «`porCobrar` le pone a Código 4/12 por US$238 y lo real es 5/12 por
+US$426», con la etiqueta «arreglo chico en la vista de ingresos».
+
+**Lo primero: los dos números están bien, y son de MESES DISTINTOS.** Lo fija
+`tests/agencia-cobro.test.ts` con esas cifras exactas:
+
+- «noviembre: **US$ 238** (Pro, Brigitte, Natalia y Sergio): Pablo y Patricia están en pausa,
+  Giselle y Marcela entran después del 5»
+- «diciembre: **US$ 426** con los siete, una vez que entraron»
+- «Pablo entra el 9/11: 26 días, US$ 40,73, **hasta el 4/12**»
+
+O sea que la pantalla está mostrando **la fecha de fin de la entrada de Pablo (4/12)** pegada al
+**total de noviembre (US$238)**: dos cosas de dos cálculos distintos, cada una correcta por su lado.
+
+**La causa no es un error de cuentas: es un cable que no existe.** `lib/admin-ingresos-reglas.ts`
+nombra «agencia» **una sola vez** en todo el archivo. La vista de ingresos arma «Por cobrar» desde
+los pagos y los tramos de las suscripciones del CRM (`porCobrarDe`), y la mensualidad de una agencia
+no es una suscripción del CRM: la calcula otro motor entero, `lib/agencia-mes.ts`
+(`mensualidadDeAgencia`, `mensualidadParaMako`, `mesDeLaMensualidad`), con su propio ciclo del 5 al 5.
+
+Entonces, para Código, «Por cobrar» no muestra la mensualidad de la agencia —que no conoce— sino las
+suscripciones sueltas de sus clientes.
+
+**Hecho =** `porCobrarDe` recibe la mensualidad de cada agencia prendida (fecha del ciclo y total del
+mes) y la muestra como UNA línea, en lugar de las entradas de sus clientes.
+
+⚠️ **No es «un arreglo chico en la vista».** Es juntar dos motores que hoy no se hablan, y hay que
+decidir qué pasa con las entradas de los clientes cuando la agencia ya tiene su mensualidad (hoy el
+cobro las cuenta una sola vez: «el 5/12 no se cuenta en sus entradas: lo cubre la mensualidad»).
+Un arreglo que sume las dos cosas duplicaría la plata esperada.
+
+**Lo que SÍ está sano, y era el miedo:** el cobro del lunes 9/11 14:07 UTC no pasa por acá. Sale de
+`/api/cron/agencia-mensualidad` (`vercel.json`: `7 14 * * *`) → `avisarMensualidades`, que tiene
+`?dry=1` para simular sin mandar y está cubierto con esas mismas cifras. **La pantalla miente; el
+cobro no.**
+
+**La regla que queda:** cuando un pendiente dice «el número X está mal y debería ser Y», antes de
+tocar nada hay que preguntarse **si X e Y son del mismo período**. Acá eran dos meses distintos, y
+«arreglar» el 238 para que diera 426 habría roto noviembre.
