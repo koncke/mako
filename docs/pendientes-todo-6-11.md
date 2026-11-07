@@ -82,9 +82,12 @@ perder más tiempo que uno olvidado.
 - **Los cursos completos en Conocimientos: 401 recursos faltan en 10 cursos** · _grande_
   - Qué falta: Y 2.342 sin publicar. Relacionado: las transcripciones que se resumen y el piso de 400 B/s que rechazo diez clases sanas. Pedido textual: «No quiero que quede nada. Todas las clases, todos los recursos».
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:200-201 · docs/hallazgos-conocimiento.md:2555,3489,3525-3533 · app/admin/dev/conocimientos/bitacora.ts:41`
-- **El indice de hallazgos tiene filas duplicadas** · _chico_
-  - Qué falta: `\| Ads \|` aparece 5 veces (145, 163, 164, 180, 303) y `\| AI Avatar \|` 3 veces (181, 188, 302). Se hace en una pasada.
-  - Dónde: `docs/hallazgos.md:145,163,164,180,181,188,302,303 · docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:230-231`
+- **El indice de hallazgos tiene filas duplicadas** · _chico_ · ✅ **YA ESTABA HECHO (verificado el 7/11/2026 — COMMIT_AQUI)**
+  - **No reproduce.** `| Ads |` aparece **1** vez y `| AI Avatar |` **1**, no 5 y 3. La tabla principal tiene **exactamente 77 filas**, que es el número que declara su propia cabecera, y **ninguna área repetida**.
+  - **Lo arregló la limpieza del 6/11** (217 filas → 77) y, sobre todo, lo que la sostiene: `docs/hallazgos.md` tiene su PROPIO driver de merge (`scripts/unir-indice-hallazgos.mjs`, configurado en `.gitattributes` y en `punta.yml`), porque `merge=union` sobre una TABLA deja las dos filas y la punta siguiente duplica la duplicada. Lo vigila `tests/unir-indice-hallazgos.test.ts` — 10 tests, incluido «una fila por área», los 10 en verde el 7/11. El inventario se escribió con la foto anterior a esa limpieza.
+  - ⚠️ **Y lo que NO es un bug, para que nadie lo «arregle»:** 17 áreas comparten documento con otra (lo dice la cabecera: 77 filas, 60 documentos). Que `hallazgos-seguridad.md` aparezca en «Aislamiento» y en «Seguridad» es correcto. Al cosechar, el texto va en la fila del ÁREA que corresponde, no en la primera que enlace ese documento.
+  - ⚠️ **La trampa en la que caí al verificarlo:** conté 81 filas tomando «de la cabecera de una tabla a la cabecera de la siguiente», y entre las dos hay prosa. Llegué a juntar 4 filas que estaban bien antes de darme cuenta (revertido sin pérdida: 124 trozos largos del original, 0 faltantes). **Una tabla se cuenta hasta la primera línea que no es fila, no hasta la tabla siguiente.**
+  - Dónde: `docs/hallazgos.md:22-100 · scripts/unir-indice-hallazgos.mjs · tests/unir-indice-hallazgos.test.ts`
 - **Hook generator (backlog explicito de Martin)** · _mediano_
   - Qué falta: «Otra funcionalidad buena es el Hook generator... Lo dejo como backlog». Grep sin resultados.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:172-173`
@@ -109,10 +112,9 @@ perder más tiempo que uno olvidado.
 - **El logo real de Meet (y los logos dibujados a mano)** · _chico_
   - Qué falta: «Muchos logos no son los logos reales»: `LogoMeet` esta dibujado a mano. Hecho = el logo real en su lugar.
   - Dónde: `docs/relevo/pendientes-pc/pedidos-otras-cuentas-6-11.md:218-219 · docs/hallazgos-integraciones.md:55`
-- **C12: no hay pagina propia de «no encontrado»** · _chico_
-  - Qué falta: No existe `app/not-found.tsx`. Se dejo sin hacer a proposito: una pantalla nueva se copia de una app que la resolvio y desde la nube no se abre ninguna. Queda para un chat con navegador.
-  - Dónde: `docs/relevo/pendientes-barrido.md:111 · app/not-found.tsx`
-  - ⛔ Lo frena: Pide un navegador para copiar la referencia
+- **C12: no hay pagina propia de «no encontrado»** · _chico_ · ✅ **HECHO el 7/11/2026 — `0d3cbb056`** (es el MISMO ítem que «Falta la página propia de "no encontrado"», más arriba: estaba dos veces en el inventario)
+  - Ya existe `app/not-found.tsx`, en español, con la dirección que falló, «Ir al Dashboard» conservando el `?ws=` y el atajo del buscador según el teclado. Lo que había NO era «app rota»: era el 404 por defecto de Next **en inglés**, dentro del layout de MaKo.
+  - Dónde: `app/not-found.tsx · lib/no-encontrado.ts · tests/no-encontrado.test.ts`
 - **Ops Center: ocho restos sin dueno** · _mediano_
   - Qué falta: Muniecos y «Renombrar» por fila, chat del grupo en la barra, riel «Lo que hizo», retirar `/api/mako-doer`, las funciones del limbo sin pantalla, `CARTERO_VIVO_MS` derivado del intervalo real (pide columna y cartero nuevo), adjuntos solo foto y PDF, y la purga de adjuntos que nunca se mandaron.
   - Dónde: `docs/relevo/pendientes-barrido.md:121-124 · app/admin/operaciones · lib/operaciones-reglas.ts:37`

@@ -11999,3 +11999,40 @@ se reinstala**; al revés se pierde en la próxima máquina.
 
 **Vive en:** `scripts/claude-hooks/guardia/vigia-ci.mjs` (instalado en `~/.claude/guardia/`, respaldo
 `.antes-anotaciones`) · `scripts/minutos-actions.mjs`.
+
+## Casi «arreglo» el índice de hallazgos, que no estaba roto (7/11/2026)
+
+Continúa «El índice de hallazgos se duplicaba solo». Aquello contó cómo `merge=union` sobre una TABLA dejaba
+las dos filas; esto es lo que pasó **después**, verificando un pendiente que decía que todavía estaba roto.
+
+**El pendiente decía:** «`| Ads |` aparece 5 veces y `| AI Avatar |` 3 veces. Se hace en una pasada».
+**La realidad:** `| Ads |` aparece **una** vez y `| AI Avatar |` **una**. La limpieza del 6/11 (217 → 77) y el
+driver de merge propio ya lo habían resuelto; el inventario se escribió con la foto anterior.
+
+### El error de medición, que es lo que vale
+
+Conté **81 filas** y la cabecera decía 77, así que fui a «juntar las 4 de más». Las junté. Nada perdido —se
+revirtió y se comprobó: 124 trozos largos del original, 0 faltantes— pero estuvo a punto de entrar un cambio a
+un archivo que editan todas las sesiones, por un número mal contado.
+
+**De dónde salió el 81:** conté «de la cabecera de una tabla a la cabecera de la siguiente». El archivo tiene
+**cuatro tablas** y entre ellas hay prosa; esas líneas se me colaron como filas. La tabla principal va de la
+24 a la 100: **77 filas, exactamente lo que decía la cabecera.**
+
+**La regla:** una tabla de Markdown se cuenta **hasta la primera línea que no es fila**, nunca hasta la tabla
+siguiente. Y, más general: **cuando un número medido contradice un número declarado, lo primero que se
+sospecha es la medición propia** — sobre todo si el declarado lo escribió alguien que acababa de hacer esa
+cuenta a propósito.
+
+### Y lo que NO es un bug, para que nadie lo «arregle»
+
+**17 áreas comparten documento con otra, a propósito** (la cabecera lo dice: 77 filas, 60 documentos). Que
+`hallazgos-seguridad.md` esté en «Aislamiento» y en «Seguridad», o `hallazgos-carruseles.md` en «Carruseles» y
+en «Carruseles (la biblioteca de ejemplos)», es correcto: la fila es del ÁREA, no del documento.
+
+**La consecuencia práctica al cosechar, que sí muerde:** una inserción automática «en la fila que enlaza este
+documento» escribe en DOS filas y duplica la entrada. Pasó dos veces el 7/11. Lo que hay que buscar es el
+**área**, y si hay varias, la que corresponde a dónde vive el código.
+
+Lo vigila `tests/unir-indice-hallazgos.test.ts` (10 tests, incluido «una fila por área»), con el driver en
+`scripts/unir-indice-hallazgos.mjs`, su glob en `.gitattributes` y su paso en `punta.yml`.
