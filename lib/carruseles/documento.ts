@@ -64,12 +64,21 @@ export function tamanoQueLlena(t: string, o: { ancho: number; alto: number; min:
   return lo;
 }
 
+/**
+ * Un texto del documento.
+ *
+ * ⚠️ `italica` (7/11/2026): hasta hoy `fontStyle` estaba CLAVADO en `'normal'`, así que ningún
+ * carrusel podía llevar una itálica aunque el motor sí la sabe pintar (`pickVariant` de
+ * `engine/fonts.ts` resuelve `'normal' | 'italic'`) y el catálogo sí las tiene (Playfair Display
+ * trae itálica en los seis pesos). Al copiar una referencia real eso no es un detalle: el titular
+ * del ejemplo —la palabra «font»— es una itálica serif de alto contraste, y sin esto salía redonda.
+ */
 export function texto(id: string, nombre: string, t: string, o: {
-  left: number; top: number; width: number; tam: number; peso: number; fam: string; color: string; alin?: 'left' | 'center' | 'right'; interlineado?: number; espaciado?: number; mayus?: boolean;
+  left: number; top: number; width: number; tam: number; peso: number; fam: string; color: string; alin?: 'left' | 'center' | 'right'; interlineado?: number; espaciado?: number; mayus?: boolean; italica?: boolean;
 }): Obj {
   const inter = o.interlineado ?? 1.2;
   return {
-    fontSize: o.tam, fontWeight: o.peso, fontFamily: o.fam, fontStyle: 'normal', lineHeight: inter, text: o.mayus ? t.toUpperCase() : t,
+    fontSize: o.tam, fontWeight: o.peso, fontFamily: o.fam, fontStyle: o.italica ? 'italic' : 'normal', lineHeight: inter, text: o.mayus ? t.toUpperCase() : t,
     charSpacing: o.espaciado ?? 0, textAlign: o.alin ?? 'left', styles: [], pathStartOffset: 0, pathSide: 'left', pathAlign: 'baseline',
     underline: false, overline: false, linethrough: false, textBackgroundColor: '', direction: 'ltr', textDecorationThickness: 66.667,
     minWidth: 20, splitByGrapheme: false, id, name: nombre, type: 'textbox', originX: 'left', originY: 'top',
