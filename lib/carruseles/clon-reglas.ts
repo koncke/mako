@@ -49,8 +49,23 @@ export const TOPE_PROMPT_CON_REFERENCIA = 240;
  */
 export const PISO_PROMPT = 4;
 
-/** El tope de referencias por pedido. Más de esto y el modelo promedia estéticas en vez de copiar una. */
-export const TOPE_REFERENCIAS = 14;
+/**
+ * Cuántas referencias conviene mandar. **UNA.**
+ *
+ * ⚠️ ESTE NÚMERO ERA 14 Y ESTABA MAL. Lo saqué del README de un proveedor («upload up to 14 reference images»),
+ * que es lo que su API ACEPTA, no lo que funciona. Nuestra propia producción dice lo contrario, medida y escrita
+ * en el curso del avatar de Mauricio (`app/conocimientos/curso-avatar-app.ts`, clase 1):
+ *
+ *   «**menos referencias es mejor.** Pasarle tres fotos distintas al modelo son tres encuadres distintos entre
+ *   los que elige o promedia — por eso cada toma salía con otro ángulo. **Una sola referencia.**»
+ *
+ * Y de la misma clase, la regla que la explica: «la fuente de identidad es SIEMPRE una foto real de la persona»
+ * y «cualquier flujo que encadene generación sobre generación acumula deriva en cada salto».
+ */
+export const REFERENCIAS_RECOMENDADAS = 1;
+
+/** El tope duro. Entre 2 y esto se avisa; arriba se rechaza. */
+export const TOPE_REFERENCIAS = 4;
 
 const COMO_SE_LLAMA: Record<QueSeClona, string> = {
   carrusel: 'lámina de carrusel',
@@ -76,7 +91,9 @@ export function porQueNoSirveElClon(prompt: string, referencias: number): string
     return 'Para clonar hace falta al menos una imagen de referencia: sin ella esto es generar desde cero.';
   }
   if (referencias > TOPE_REFERENCIAS) {
-    return `Son ${referencias} referencias y el tope es ${TOPE_REFERENCIAS}: con más, el modelo promedia estéticas en vez de copiar una.`;
+    // ⚠️ No es un tope administrativo: con varias referencias el modelo PROMEDIA encuadres. Medido en la
+    // producción de los anuncios de Mauricio: con tres fotos, cada toma salió con otro ángulo.
+    return `Son ${referencias} referencias y lo que funciona es ${REFERENCIAS_RECOMENDADAS}: con varias, el modelo promedia encuadres y cada pieza sale con otro ángulo.`;
   }
   if (p.length < PISO_PROMPT) {
     // ⚠️ Los mensajes de este archivo los LEE EL CLIENTE: van en español neutro con «tú», nunca en voseo.
