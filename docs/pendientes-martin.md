@@ -182,7 +182,29 @@ node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mt
   --env=C:/dev/mako-api/.env.local --eventos=reunion_tareas_al_plan --aplicar
 ```
 
-**Faltan dos**: copilot-feedback y carruseles-thumbnails.
+**✅ `punta/copilot-feedback` — REVISADA el 7/11, está bien y arregló dos bugs que estaban callados.**
+Marketing CoPilot decide por frases qué hacer con lo que escribe el cliente, y eso es frágil. Los dos que
+había, que nadie veía porque no dan error:
+
+- **`^s[ií]` aceptaba cualquier palabra que empiece con «si».** «Sinceramente no me convence» se leía como un
+  SÍ. Ahora pide que sea la palabra entera.
+- **`/no/` sin límites de palabra.** «Bueno, dale» contiene «no» adentro de *bueno*, así que se leía como «más
+  tarde» en vez de como un sí. Lo mismo con «nosotros», «ninguno», «menos».
+
+**Y lo más importante, que es hacia dónde se equivoca:** ahora todo lo dudoso **va a MaKo en vez de actuar**.
+Una pregunta nunca dispara una acción, aceptar la propuesta pide un sí claro **y que la frase no tenga un «no»**
+(«No sé si me sirve» ya no acepta), y «borrar todo» sólo cuenta en un mensaje corto. El lado seguro es el lado
+de preguntar, y es el que eligieron.
+
+**El test que lo cuida es del tipo bueno** (`tests/marketing-copilot-volver.test.ts`): prueba **frases reales
+contra el resultado** —«No sé si me sirve» tiene que ir a MaKo— y **no fija el texto de la solución**. Si mañana
+alguien reemplaza las expresiones por otra cosa, sigue en verde mientras la conducta sea la correcta. Es lo
+contrario de las guardas que esta misma semana congelaron cuatro ramas por pedir que el código dijera lo mismo.
+
+Verificado que caza el bug viejo sin correrlo: «No sé si me sirve» contiene «sirve», y el código anterior
+(`/sirve|empec|ok|dale/`) lo aceptaba, así que con el código de antes ese `assert` falla.
+
+**Falta una**: carruseles-thumbnails.
 
 ---
 
