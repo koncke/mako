@@ -188,6 +188,36 @@ Sin paréntesis ni punto y coma. Sirve para la consulta previa y para el formula
 
 > MaKo is a subscription software product at hola-mako.com for coaches and service businesses that sell high ticket offers in Latin America and Spain. It includes a CRM, a shared inbox for WhatsApp and Instagram, message automations to the customer's own leads, sales pages and advertising recommendations. AI features include copywriting, sales call analysis, and image and video generation from text. One feature, AI Avatar, lets a customer upload their own photo and generate videos of themselves speaking for their own ads, similar to HeyGen or Synthesia. Generation runs in the customer's own Google Flow account. Our acceptable use policy at hola-mako.com/aup only allows the customer's own photo or a photo of someone who gave written permission. WhatsApp connects through an unofficial line using Evolution, not the official WhatsApp Business API, and messages are paced gradually to lower the risk of bans. Customers can import contacts from WhatsApp groups into their CRM. A competitor research feature reads competitors' Instagram accounts. Plans cost US$47 and US$97 per month, or US$470 and US$970 per year. We also sell Acelerador, a program with human support at US$1,500 in 3 payments, which is not charged through this provider. The owner is Leandro Tejado Gonzalvez, an individual registered under the monotributo tax regime in Argentina, with no company. We have had paying customers since October 2026, paid by bank transfer and Binance, with no payments through a card gateway yet and no chargebacks. Mercado Pago is connected for Argentina only. Creem declined our store on November 5, 2026 under its acceptable use policy and risk requirements.
 
+### ⚠️ El texto de arriba es EL QUE MANDAMOS, y describe el riesgo en vez de la función
+
+Lo de arriba se le mandó a Whop el 5/11. Dos frases nuestras le entregan por escrito a un equipo de
+compliance una lectura en contra nuestra: «an **unofficial line** … not the official WhatsApp Business API»
+y «messages are **paced gradually to lower the risk of bans**». La segunda nadie nos la pidió: el código hace
+envío espaciado, que es lo que hace cualquier herramienta de correo y se llama límite de ritmo.
+
+Por qué importa: Top Carousels hace lo mismo que Competitor Spy y tiene Stripe, y se describe como «reads an
+account's last 40 **public** carousels». La palabra «públicas» hace trabajo legal y nosotros no la decíamos.
+
+**CORREGIDO el 6/11 — el texto que habría que mandar.** Dice todo lo mismo, sin editorializar en contra:
+
+> MaKo is a subscription software product at hola-mako.com for coaches and service businesses in Latin America
+> and Spain. It includes a CRM, a shared inbox for WhatsApp and Instagram, scheduled messaging to the
+> customer's own contacts, sales pages and advertising recommendations. AI features include copywriting, sales
+> call analysis, and image and video generation from text. One feature, AI Avatar, lets a customer generate
+> videos from their own photo for their own ads; our acceptable use policy at hola-mako.com/aup allows only the
+> customer's own photo or one with written permission, and generation runs in the customer's own Google account.
+> Outbound messages are rate limited and sent on a schedule set by the customer. WhatsApp connects through
+> Evolution rather than the official WhatsApp Business API. Customers can import contacts from WhatsApp groups
+> they belong to. A competitor research feature reads **public** Instagram accounts. Plans cost US$47 and US$97
+> per month. The owner is Leandro Tejado Gonzalvez, an individual registered under the monotributo regime in
+> Argentina. We have had paying customers since October 2026, by bank transfer, with no chargebacks.
+
+⚠️ **Lo que NO se saca, aunque duela:** la línea no oficial y la importación de contactos de un grupo siguen
+declaradas. Son reales, Whop las marcó por su nombre el 6/11, y esconderlas termina en cierre con fondos
+retenidos. Si un proveedor dice que no a eso, es un no de verdad y no un problema de redacción: ahí la
+decisión es de producto y la toma Martín. La cosecha completa está en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md).
+
 **Ajustar antes de pegar, para que siga siendo cierto:** si el Acelerador sí se cobra por ese proveedor, cambiar esa frase. Si se cambia WhatsApp, Extraer o Spy, cambiar esas frases. Sumar «Prompts are moderated before generation» sólo si la moderación sigue corriendo.
 
 ## 9. Qué cambió desde el 24/10 y qué falta

@@ -53,6 +53,110 @@ Tiene una trampa que hay que resolver antes: el cruce ingenuo da ~45 falsos posi
 llegan por indirección en tabla (`lib/editor-video/chat-prompts.ts:13` → `{ key: 'video_editor.chat.system' }`,
 `lib/editor-landing/ia-reglas.ts:1446`), y hay entradas muertas a propósito y documentadas
 (`mako.modo.*`, `lib/prompt-registry.ts:199`). Vive en `lib/prompt-registry.ts` + `scripts/guardas-push.sh`.
+## La guarda del registro de prompts: el cruce ingenuo no daba 45 falsos positivos, daba 5 (6/11/2026)
+
+Sigue a «Ninguna guarda del pre-push mira el registro de prompts», que midió el agujero. Esto es lo que se
+aprendió al taparlo con `scripts/prompts-registro-sincronizado.mjs`.
+
+**El diagnóstico obvio era el equivocado, y es lo que hacía parecer caro el arreglo.** Se dio por hecho que
+cruzar el `REGISTRY` contra los call-sites era inviable porque muchas keys llegan por INDIRECCIÓN en tabla
+(`PROMPTS_CHAT_VIDEO.system.key`, `PROMPTS_EDITOR.esquemaUser.key`) o por constante (`CLAVE_PROMPT_EDITAR`),
+y que resolver eso pedía seguir el flujo de datos: ~45 keys «sin call-site» que sí están cableadas. **No hace
+falta resolver nada: la tabla escribe el literal igual.** Buscar la key en TODO el árbol (`lib/ app/ scripts/`)
+en vez de en el primer argumento deja **5 candidatos, no 45**. Y de esos 5, cuatro son un bug de verdad y el
+quinto fue lo que enseñó cómo se mide esto:
+
+- `mako.fase.experimentos`: no era un prompt muerto sino un error de la medición. **La `key` del registro es
+  el identificador con el que se LEE un prompt sólo cuando `source: 'override'`** (`overrides[e.key]`): para
+  `persona`, `modo` y `fase` la pantalla resuelve por **`storeKey`** (`modoByKey.get(e.storeKey)`,
+  `fases[e.storeKey]`, lib/prompt-registry.ts:1642-1646) y `lib/mako-fases.ts:21` arma la clave de
+  `app_settings` como `mako.fase.${storeKey}`. Pedirle un literal en el código a la `key` de esas 167 entradas
+  no mide nada: NINGUNA fase se pide por su key, y las otras cinco sólo «aparecían» porque una lista de
+  `app_settings` a copiar las nombra (`lib/datos-mau.ts:346`). El modo (a) se restringió a los `override` —
+  una excepción MENOS y las 4 reales intactas— y la red equivalente para las otras fuentes es que su
+  `storeKey` exista en `MODOS` (`lib/mako-prompts.ts:27`): sin esa fila, `modoByKey.get()` da `undefined`, la
+  pantalla muestra el default como si fuera el valor vigente y guardar escribe donde nadie lee. Hoy: 0.
+  (Y por lo mismo, `mako.modo.*` NO es medible por este modo: que «no esté cableada al chat» es una propiedad
+  del chat, no del registro, y vive donde el repo ya la puso — el `context` de la Entry.)
+- **`campaign.{suggest,adjust}.{system,user}`: muertas de verdad.** `lib/campaign-structurer.ts` exporta los
+  cuatro `CAMPAIGN_*_TEMPLATE` y **el único que los importa es el registro**; la feature `campaign-suggest`
+  está en `lib/model-catalogo.ts` y ningún archivo la llama. Se editan en /configuraciones y no cambian nada,
+  y su `context` promete lo contrario («No borres los slots {{metodologia}}/{{objetivos}} … o el modal de
+  revisión deja de poder leer la propuesta»). Peor que las 29 huérfanas: éstas *parecen* editables.
+
+**El registro se puede EJECUTAR, y nadie lo estaba haciendo.** `lib/prompt-registry.ts` es `server-only`, y
+por eso los cinco tests que lo cruzan hoy lo leen como TEXTO con regex. Con el parche de `Module._load` que ya
+usa medio `tests/` (molde: `tests/alta-cliente.test.ts`) se importa y se leen `key`, `variables` y `default`
+como datos: el cruce de slots pasa de aproximado a exacto, y las 173 entradas salen solas en vez de contarse a
+mano. Cuesta ~10 s de arranque.
+
+**Las cuatro direcciones del cruce de slots NO son simétricas, y mezclarlas es lo que apaga una guarda.**
+Medido sobre las 173 entradas y 89 call-sites legibles:
+
+| Dirección | Hoy | Qué significa |
+|---|---|---|
+| el call-site pasa una clave que el template no tiene | **0** | el dato se tira sin error |
+| el `variables:` declara un slot que ni existe ni se llena | **0** | la pantalla promete lo que no hay |
+| el call-site LLENA un slot que el `variables:` no declara | **5** entradas, 13 slots | el que edita puede borrar un dato vivo sin aviso |
+| un slot que NADIE llena | **6** | **puede estar bien**: viaja literal al modelo |
+
+Las tres primeras bloquean. La cuarta **avisa y deja pasar**, porque `{{...}}` tiene DOS dueños: `renderTemplate`
+y los placeholders de lead y de plantilla de WhatsApp, que el modelo tiene que copiar tal cual
+(`{{nombre}}`, `{{1}}`, `{{lead_nombre}}`; `lib/paso-ia.ts:31` lo dice al lado del prompt). Los 6 casos de hoy
+son todos ésos. Frenar ahí sería frenar por algo correcto, y de un candado sin llave sólo se aprende a saltearlo.
+
+**Tres trampas que cada una fabricó un veredicto falso mientras se escribía la guarda:**
+
+- **El shorthand de propiedad da un VERDE falso.** `renderPrompt(k, TPL, { titulo, contexto })` no tiene ningún
+  `clave:`, así que un parser que busca `(\w+):` lee «no pasa ninguna clave» y **ninguna comparación falla
+  nunca**. La primera medición dio 0 descartadas por eso, no porque estuviera limpio. Las claves se sacan
+  partiendo el objeto por comas a profundidad 0 y aceptando `k:` y `k` solo.
+- **Barrer constantes por el NOMBRE trae otros dominios.** Resolver todo `const CLAVE_*|KEY_* = '…'` del repo
+  metió 60 keys de `app_settings` (`recorridos`, `resend_reply_to`, `vigia.paneles`…) y las contó como prompts
+  huérfanos. Se resuelve SÓLO el identificador que aparece de verdad como primer argumento.
+- **La prosa que nombra `renderPrompt(` cuenta como call-site.** Las bitácoras de `/admin/dev` son documentación
+  escrita en `.ts`: una de ellas menciona la función dentro de un string y el regex la leyó como una llamada con
+  una key opaca. Un argumento que no es un identificador ni un acceso a propiedad no es una llamada.
+- **Y la cuarta la encontró la guarda sola, en su primer pre-push de verdad: se acusó A SÍ MISMA.** Vive en
+  `scripts/`, o sea dentro de lo que barre, y sus listas de excepciones NOMBRAN las keys que persigue: contó sus
+  propias cuatro `campaign.*` como cableadas («excepción vencida» ×4) y leyó el `renderPrompt(p.key…)` escrito
+  dentro de un string de `INDIRECTOS_DECLARADOS` como un call-site opaco. **Ninguna guarda que barra el repo
+  puede juzgar su propio archivo**: su texto habla justo de lo que caza, y el filtro de «esto es prosa, no una
+  llamada» no la salva porque `p.key` sí parece un acceso a propiedad. Se excluye con una ruta DERIVADA de
+  `import.meta.filename`, no escrita a mano: hardcodeada deja de excluir nada el día que el script se renombra.
+  Vale para `claves-en-el-diff.mjs`, `rutas-windows-en-tests.mjs` y cualquier guarda nueva que barra texto.
+
+**Lo que se midió y da 0, para que nadie lo vuelva a sospechar:** el cableado se busca en el fuente SIN
+comentarios, pero una key nombrada dentro de un STRING (las bitácoras de `/admin/dev` son documentación escrita
+en `.ts`) también cuenta como cableada y podría tapar un prompt muerto. **Entradas del registro que sólo una
+bitácora nombra: 0.** No hace falta excluirlas, y excluirlas tendría su propio costo: `app/admin/dev` también
+tiene código.
+
+**La regla que queda:** en AGENTS.md → «Un prompt nuevo se DECLARA en el registro». Y el método, que vale para
+cualquier guarda sobre todo el repo: **antes de dar por imposible un cruce por indirección, probá buscar el
+literal en todo el árbol** — el valor suele estar escrito en algún archivo, aunque el call-site no lo tenga.
+
+**Lo que la guarda NO mide, dicho para que nadie lo suponga cubierto:** de los cuatro modos de falla que
+describe la skill `verify-prompt-registry-sync`, cubre el 1 y el 2. El **3** —que el `default:` de la Entry y
+el fallback del call-site sean la MISMA constante— no: la guarda tiene el TEXTO del default, no el nombre de la
+constante que el call-site pasa, así que no los puede cruzar sin volver a regexear el fuente del registro; hoy
+lo fija a mano el test de cada feature. El **4** —`contenidoNoConfiable` faltante— es un juicio sobre qué dato
+es externo. La skill quedó apuntada a la guarda y con esos dos marcados como suyos.
+
+**Sin hacer, y a propósito:**
+
+- **Las 29 huérfanas siguen afuera del registro** (lista `HUERFANAS_CONOCIDAS` en la guarda, con fecha). Se
+  eligió guarda primero y registro después: registrar 29 prompts no es mecánico (cada uno pide `label`,
+  `context`, `scope` y `sensitive`, que son decisiones de producto que el dueño lee en la pantalla), y sobre
+  todo **sin la guarda puesta la huérfana número 30 nace mañana**; al revés no se gana nada, porque durante esa
+  punta nada la impide. La guarda no puede frenar por 29 prompts que el que empuja no puso.
+- **Las 4 `campaign.*` muertas** (`MUERTAS_CONOCIDAS`): se cablean, se sacan, o su `context` dice que no están
+  cableadas. Las tres salidas son decisión de producto.
+- **Los 13 slots vivos sin declarar** (`SIN_DECLARAR_CONOCIDOS`): `setting.ensayo`, `guardian.debate.system`,
+  `guardian.proj-debate.system`, `plan-fathom.extraer.{system,user}`. Declararlos toca el registro, así que van
+  con las 29.
+- Las tres listas son excepciones que **sólo pueden bajar**: la guarda da rojo si crecen o si una entrada queda
+  vencida (se arregló y nadie la sacó de la lista).
 
 ## «No tengo acceso a Google Calendar» con la agenda conectada: nombrar el LUGAR no traía la herramienta (ticket #42, 3/11/2026)
 
