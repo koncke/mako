@@ -98,7 +98,9 @@ test('9. se procesa UNA copia: la que ya tiene algo hecho; si ninguna, la de Fat
   assert.match(A, /emitirDelCatalogo\('reunion-ocurrio-fathom', \{[^}]*\}[^}]*\}\), dedupKey: claveReunion, dedupTtlMin: 180 \}\)/);
   const C = sinComentarios(leer('../lib/closing.ts'));
   const triage = bloque(C, '  for (const m of meetings) {', 'candidatas.push(m);');
-  assert.ok(triage.indexOf('leTocaA(m, gemelas.get(m.clave)') > 0 && triage.indexOf('leTocaA(m, gemelas.get(m.clave)') < triage.indexOf('preClassify(m, internos)'),
+  // El needle de `preClassify` no lleva el paréntesis de cierre a propósito: lo que se chequea
+  // acá es el ORDEN, y la firma ya creció una vez (`marcadores`, 06/11/2026).
+  assert.ok(triage.indexOf('leTocaA(m, gemelas.get(m.clave)') > 0 && triage.indexOf('leTocaA(m, gemelas.get(m.clave)') < triage.indexOf('preClassify(m, internos'),
     'el barrido pregunta por la gemela ANTES de escribir la fila de la heurística (la de Customer Success también)');
   assert.match(C, /const conFila = new Set\(doneData\.map\(\(r\) => r\.recording_id\)\);/);
   assert.match(bloque(C, 'export async function analizarLlamadasDeLead(', '\n}\n'), /if \(!leTocaA\(meta, gemelasDe\(meta, meetings\), \(x\) => doneByRec\.has\(x\.clave\)\)\) \{ yaEstaban\+\+; continue; \}/);
