@@ -27,6 +27,68 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
+
+**El diagnóstico obvio era el equivocado.** Para avisarle al equipo de un pago rechazado, lo natural es copiar la tarjeta de
+«Entró un Pago», que dice `{{pago_monto}}` y `{{pago_concepto}}`. No se resuelven: esos datos tienen `alcance: 'pago'`
+(lib/variables-aviso.ts) y `alcanzaPara` los da sólo con `conPago`, que lo pone `datosDelEvento('pago_recibido')` — el
+**Evento de MaKo**, cuyo emisor (`avisarPagoRecibido`, lib/cobros.ts) los pasa en `datos`. El **CRON «Pagos»** es otra
+puerta: `enrolarPorPago` (lib/pago-entrante.ts) manda `{ subtipo }` y nada más, así que una tarjeta de ese CRON se
+resuelve con `{ destino: 'equipo', conLead: true }` y nunca ve el pago. Medido: `problemasDeTokens(…, TRIGGER_PAGO)`
+devuelve «No existe: {{pago_monto}}, {{pago_concepto}}», y con el evento `pago_recibido`, vacío. **Regla:** dos CRON
+distintos hablan del mismo hecho con datos distintos; antes de copiar un texto de una plantilla vecina, mirá si su CRON es
+el mismo. Lo frena Publicar (`problemasDeTokens`), no el compilador.
+
+**SIN HACER:** para que una plantilla del CRON «Pagos» pueda citar monto y concepto hay que pasar los datos del pago por
+`enrolarPorPago` → `enrolarPorEvento` (lib/nutricion.ts: `CtxEvento` hoy no tiene dónde ponerlos) y que `alcanzaPara('pago')`
+dé true en ese contexto. Mientras no esté, el aviso manda a la ficha: el concepto y el motivo ya quedan escritos ahí por el
+`logLeadEvent('Pago rechazado', …)` que corre al lado del disparo.
+
+**⚠️ `{{link_pago}}` tampoco sirve para un rechazo.** Resuelve el cobro **PENDIENTE** más nuevo del lead
+(`cobroPendienteDelLead`, lib/cobros.ts) y `aplicarPagoFallido` deja el cobro en `fallido` (o lo deja `pagado`, si lo que
+falló fue la renovación). Y como «no tiene link» es un HECHO, no queda crudo: sale el texto «sin link de pago pendiente»
+justo en el mensaje de la persona que tiene que pagar. El link vuelve a existir recién cuando alguien aprieta «Volver a
+intentar» (`urlParaPagar` devuelve el cobro a `pendiente`). **Regla:** un dato que no queda crudo igual puede mentir.
+
+**⚠️ La condición «Pagó» silencia justo el caso más común.** `aplicarPagoFallido` dispara `rechazado` por TRES caminos
+(lib/cobros.ts): el cobro pendiente, el reintento de una prueba autorizada y la renovación de una suscripción. En el tercero
+el lead YA pagó, así que una plantilla de rechazo filtrada por «no pagó» no le llega nunca a un suscriptor.
+
+**⚠️ Un aviso al equipo que cuelga del canal del lead se pierde ENTERO.** Un WhatsApp a quien no tiene teléfono cancela la
+INSCRIPCIÓN completa (lib/nutricion.ts), no ese mensaje: lo que cuelga de esa rama no sale, y el aviso al grupo se va con
+él. Medido en la galería de hoy: **siete** avisos cuelgan de «Tiene WhatsApp» / «Tiene email» (`le_mk`, `la_mk1`, `la_mk2`,
+`la_mk3`, `ln_mk`, `lt_mk`, `lc_mk`), todos de plantillas de etapa, donde a quien sólo tiene email le corre el camino de
+email. **Regla (medida sólo en el CRON «Pagos», que es el de la plata):** el aviso al equipo va ARRIBA de la condición que
+pregunta el canal. **SIN HACER:** decidir si los siete de etapa suben — es otro pedido, y cambia qué recibe el equipo hoy.
+
+**⚠️ «La plata y lo sensible, para aprobar» no se medía en los mensajes.** La regla está en la cabecera de
+lib/plantillas-automatizaciones.ts y el test sólo la chequeaba en los escenarios del AI Step: un mensaje al lead que habla de
+pago con «Sale sola» salía sin que nadie lo leyera. Ahora se mide con el MISMO regex (`/precio|cuesta|pago|descuento/i`);
+hoy la cumplen las dos únicas que la tocan (`lc_w1` y `rp_w1`).
+
+**⚠️ La plantilla nueva pagó 17 caracteres del turno de WhatsApp.** El id entra al `enum` de
+`crear_automatizacion_desde_plantilla` (`IDS_PLANTILLAS`, lib/api-mako/areas/chatbot.def.ts): el margen de
+`cambiar_crons_secuencia` bajó de 336 a **319** (piso 300, tests/ops-center-bateria.test.ts, el 4). Quedan 19: la próxima
+plantilla con un id de más de ~16 caracteres cruza el piso y paga texto de otra descripción.
+
+**⚠️ Las tablas a mano del test son DOS, pero los lugares son CUATRO.** `LAS_13` (id, nombre, objetivo) y `CANALES` (por
+dónde sale) son las que avisan con un mensaje claro; además, `filtrarPlantillas` fija a mano la lista de
+`{ canal: 'whatsapp', objetivo: 'cobrar' }` y la de `{ objetivo: 'cobrar' }`, así que una plantilla de cobrar que sale por
+WhatsApp mueve las cuatro. Y `LAS_13` ya son 19 (el nombre quedó viejo, igual que el «Son 13» de la cabecera de la lib).
+
+**⚠️ Y el archivo es CRLF, con dos trampas que lo tapan.** `sed -n '…p' archivo | cat -A` muestra `$` y no `^M` —`sed` se come
+el CR— así que parece LF y un reemplazo escrito con `\n` da «0 ocurrencias». Y el heredoc del Bash de esta máquina se come
+un backslash: un `\\n` escrito en un heredoc llega como `\n` y te parte el string literal del TS. Los parches a este
+archivo se escriben con un script Python que lee con `newline=''` y pone los `\n` literales por sustitución, no escritos.
+
+**Probado rompiéndolo:** 8 roturas sobre tests/plantillas-automatizaciones.test.ts (base 40 pass / 0 fail), las 8 CAYERON.
+Dos salieron VERDES en la primera pasada y por eso están los dos tests nuevos: el WhatsApp al lead puesto ARRIBA del aviso
+al equipo, y el mensaje de plata con `revisar: false`.
+
+**Vive en:** lib/plantillas-automatizaciones.ts · lib/variables-aviso.ts (`alcanzaPara`) · lib/pago-entrante.ts ·
+lib/cobros.ts (`aplicarPagoFallido`, `cobroPendienteDelLead`) · tests/plantillas-automatizaciones.test.ts ·
+*6/11/2026, pendiente 288.*
+
 ## «No reprodujo el VSL» se cumplía para TODOS con la base caída (6/11/2026, barrido de pendientes, nube)
 
 `getVslEngagementMap` (lib/leads.ts) atrapaba cualquier error y devolvía el mapa VACÍO. Lo lee el motor en tres lugares
@@ -3238,6 +3300,56 @@ ese mensaje no sale, sin caer a la de por default. Ahora es una función pura co
 
 **Vive en:** `lib/clonar-pasos.ts` · `lib/clonar-config.ts`
 
+### El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo [motor]
+
+«Copio la configuración de un cliente a otro y los mensajes no salen» (pendiente id=524). La mitad era
+la `linea` por mensaje (arriba); la otra, que `cols` no pedía `disparadores` (mig 0241): una
+automatización con varios CRON llegaba con UNO —el de las columnas— y un primer CRON de Instagram
+llegaba sin su evento, porque el `subtipo` vive SÓLO en la lista.
+
+⚠️ **El pendiente pedía «una línea» y esa línea sola era un bug nuevo, del mismo tipo que el que
+`traducirEtiquetasEnSecuencia` vino a arreglar**: cada `Disparador` lleva ids del workspace del DUEÑO.
+Y las dos trampas, que son lo que cuesta ver:
+
+- **Nulear el ámbito y dejar la etapa habría sido PEOR que copiar el id del dueño.** En
+  `leadsDeCohorte` un `producto_id` NULL es «la entrega de CUALQUIER producto»: la cohorte se abre a
+  MÁS gente que la del dueño. El criterio correcto es el de la fila de `crm_etiquetas` llevado un paso
+  más: se va el ámbito Y se va la etapa que colgaba de él (una etapa de OTRO embudo, o del kanban de
+  ESE producto, acá no significa nada). Sin etapas la cohorte es vacía (`if (!keys.length) return []`)
+  y el CRON llega visible y sin elegir. Lo mismo con `ignorar`: una etiqueta que no se traduce se SACA,
+  porque dejarla con el id del dueño hace que el CRON del destino ignore a una etiqueta CUALQUIERA.
+- **La verdad del primer CRON son las COLUMNAS, así que copiar la lista obliga a copiar `cron`.** Con
+  `disparadores` copiado y la columna `cron` no, el d1 de un Recurrente llegaba sin horario mientras el
+  d2 llegaba con el suyo — y sin `cron` `decidirAgenda` devuelve `toca: true` en CADA corrida: un «todos
+  los lunes a las 9» al grupo de MaKo pasaba a salir cada hora. Por lo mismo hay que reescribir las
+  columnas del d1 (`columnasParaElDestino`): lo que no se reescriba queda con el ámbito y la ocurrencia
+  del dueño que la fila trae copiados tal cual. Y `etapa` es NOT NULL con default `'nutri'`: un CRON sin
+  etapa va con la cadena VACÍA, porque omitirla le inventa una etapa que nadie eligió.
+
+`cron_proxima_at` NO viaja (es un instante de la grilla y del huso del dueño) y en null el motor no
+dispara: SIEMBRA. `disparadores_rev` tampoco: no es configuración, es el compare-and-set de la lista, y
+su default 0 es el correcto. `cron`, `subtipo`, `palabras`, `publicacion` y `grupo` sí: `grupo` es «el
+grupo de MaKo DEL NEGOCIO», que `mandarRecurrenteAlGrupo` resuelve con el workspace del contexto.
+
+⚠️ **Y pedir una columna de una migración que puede faltar rompe la copia ENTERA**: PostgREST rechaza la
+consulta completa con 42703, y la 0241 estaba SIN APLICAR en la medición del 09/10/2026. Sin tolerarla
+(`colsOpcionales` + `leerOrigen`, la misma regla que `leerFilasDeSecuencias`), sumar `disparadores` a
+`cols` dejaba la copia de TODAS las automatizaciones en 0 filas. Y lo que el origen no trajo tampoco se
+escribe: origen y destino son la MISMA base, así que la columna ausente en el select es la que no
+existe, y escribirla es un PGRST204.
+
+**Lo que queda sin hacer, y es LA MISMA TRAMPA EN EL OTRO CAMINO:** `lib/datos-mau.ts` copia las
+secuencias con `select('*')` y `omitir: ['id']`, así que la lista `disparadores` viaja CRUDA —con las
+etiquetas, el embudo, el producto y la próxima ocurrencia del DUEÑO adentro— y `disparadores_rev`
+también. Su `remapEtiquetas` traduce los `pasos` y la COLUMNA `etiqueta_id`, nada de la lista, y tampoco
+usa `pasosParaElDestino` (la `linea` por mensaje, pendiente de antes): le falta
+`disparadoresParaElDestino`. Y los AVISOS vuelven en el JSON de `action: 'clonar-dueno'`
+(app/api/onboarding/route.ts): ninguna pantalla los muestra todavía, se leen en la respuesta HTTP.
+Nada de esto se vio con clics: se fijó con tests puros.
+
+**Vive en:** `lib/clonar-disparadores.ts` · `lib/clonar-config.ts` · `tests/clonar-disparadores.test.ts` ·
+`tests/etiquetas-contrato.test.ts` (datos-6)
+
 ### Los datos «{ }»: lo que se ofrece se resuelve, en la tarjeta MAKO y en «Probar» [motor]
 
 La tarjeta MAKO EN WHATSAPP resolvía los cinco del motor y la parte «flujo» le monta el árbol del equipo:
@@ -3278,10 +3390,10 @@ ANTES del deploy. La tabla que falta contesta `PGRST205`, no `42P01`: ver
 - ~~**Un email del lead no pausa** lo que le escriben~~ *(hecho el 6/11/2026; y NO era una línea: ver
   «Un email del lead pausa, pero no puede CONTESTAR» más abajo).* `lib/email-entrante.ts`
 - **`cambiar_crons_secuencia` por HTTP**: es una decisión (el snapshot y su fila en `lib/api-mako/rest.ts`).
-- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino`.
-- **El clon no copia `disparadores`** (la lista de CRON): una automatización con varios llega con uno, y
-  un primer CRON de Instagram llega sin su evento. `lib/clonar-config.ts` (`TABLAS`, la fila de
-  `nutricion_secuencias`).
+- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino` **ni `disparadoresParaElDestino`: copia con `select('*')`, así que la lista `disparadores` viaja CRUDA, con los ids del dueño y su próxima ocurrencia adentro** (6/11/2026).
+- ~~**El clon no copia `disparadores`**~~ hecho el 6/11/2026 (id=524): la lista viaja con las etiquetas
+  traducidas, sin los ámbitos del dueño y sin su próxima ocurrencia (`lib/clonar-disparadores.ts`). Ver
+  «El clon no copiaba los CRON, y copiar la columna y nada más era el bug nuevo», arriba.
 - **`noExiste` de `lib/reset-workspace.ts` mira sólo `42P01`** (ver infra).
 - **Verlo con clics y con un evento real**: nada de esto recibió un webhook de verdad.
 ## Sexta tanda, segunda pasada, parte «datos» (09/10/2026, noche): el «{ }» montado, MaKo en WhatsApp en Notificaciones, los grabadores

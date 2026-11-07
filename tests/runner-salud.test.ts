@@ -68,7 +68,7 @@ function pc() {
     const t = new Date(Date.now() - hace);
     utimesSync(f, t, t);
   };
-  const guardia = (cuenta = 'claude5', uuid = UUID_5) => writeFileSync(join(app, uuid, ORG, 'scheduled-tasks.json'), JSON.stringify({ scheduledTasks: [{ id: `runner-guardia-${cuenta}`, enabled: true }] }));
+  const guardia = (cuenta = 'claude5', uuid = UUID_5, enabled = true) => writeFileSync(join(app, uuid, ORG, 'scheduled-tasks.json'), JSON.stringify({ scheduledTasks: [{ id: `runner-guardia-${cuenta}`, enabled }] }));
   const leerMarcador = () => readFileSync(marcador, 'utf8').trim();
   return { correr, chat, chatVivo, latido, guardia, leerMarcador, dir, app, sesiones };
 }
@@ -170,6 +170,33 @@ test('Runner vivo: chat de esta cuenta y latido fresco, también bajo su jefe', 
   const e = JSON.parse(p.correr('estado'));
   assert.equal(e.runner.vivo, true);
   assert.equal(e.runner.latidoMin, 2);
+});
+
+// 6/11/2026, pendiente «si se vence el reloj del Runner, el vigía se apaga y nada lo avisa». `tareaDeLaCuenta` devolvía
+// `prendida` desde que nació y NADIE la leía: una guardia con `enabled: false` se veía igual que una sana, y la única red que
+// queda sin Runner (entregar de a 20 minutos) no corría sin que nada lo dijera. Y `estado`, que es el JSON que lee la
+// guardia, no decía nada de su propia tarea.
+test('el estado dice si la guardia existe y si está PRENDIDA', () => {
+  const p = pc();
+  p.chatVivo(1, 'Runner'); p.latido(2 * MIN);
+  assert.deepEqual(JSON.parse(p.correr('estado')).tarea, { existe: false, prendida: false }, 'sin tarea, lo dice');
+  p.guardia();
+  assert.deepEqual(JSON.parse(p.correr('estado')).tarea, { existe: true, prendida: true });
+  p.guardia('claude5', UUID_5, false);
+  assert.deepEqual(JSON.parse(p.correr('estado')).tarea, { existe: true, prendida: false }, 'apagada: existe pero no sirve');
+});
+
+test('una guardia APAGADA se avisa al abrir, como si no estuviera', () => {
+  const p = pc();
+  p.chatVivo(1, 'Runner'); p.latido(2 * MIN);
+  p.guardia('claude5', UUID_5, false);
+  const linea = p.correr('al-abrir');
+  assert.match(linea, /LA GUARDIA DEL RUNNER DE ESTA CUENTA \(claude5\) ESTA APAGADA/);
+  assert.match(linea, /runner-guardia-claude5/, 'dice qué tarea prender');
+  // Con el Runner vivo y la guardia PRENDIDA no se avisa nada de la guardia (la línea del marcador es otra cosa y va igual).
+  const q = pc();
+  q.chatVivo(1, 'Runner'); q.latido(2 * MIN); q.guardia();
+  assert.doesNotMatch(q.correr('al-abrir'), /GUARDIA DEL RUNNER|NO HAY RUNNER/, 'sano: el aviso es por lo que está mal');
 });
 
 test('la corrida de la guardia, con su nombre, no se cuenta como el Runner que busca', () => {

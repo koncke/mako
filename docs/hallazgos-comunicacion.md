@@ -4319,9 +4319,20 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
   `app/whatsapp/WhatsAppApp.tsx:227`), ciego a `funnel_config`. Todos los leads de un cliente
   así quedan en «Abierto» para siempre, y ese label es lo único que recibe
   `lib/whatsapp-advisor.ts:175`. Es la pantalla donde vive un cliente que vende por chat.
-- **Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces**, ninguno
-  en el registry. El peor: `app/api/email/generar/route.ts:18-24` mete el Calendly de Mauricio
-  como CTA de cualquier cliente.
+- ~~**Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces**, ninguno
+  en el registry.~~ **CERRADO el 6/11/2026, y el renglón decía dos cosas falsas.** (a) **La lista de los
+  cinco nunca existió**: este renglón fue siempre el único, sin enumerarlos, así que nadie pudo cerrar
+  cuatro de ellos ni comprobar que estuvieran. Barrido el repo (prompts de IA en `lib/` y `app/api/`),
+  los que cableaban identidad de un negocio eran **dos**: `app/api/email/generar/route.ts`
+  (el Calendly de Mauricio como CTA de cualquier cliente), arreglado en `97f98ba81`; y
+  `SYSTEM_ANALISIS` de `lib/closing.ts`, arreglado el 6/11. Queda sólo la clase leve del NOMBRE PROPIO
+  como ejemplo (`REGLA_NOMBRE_PROYECTO` en `lib/plan-proyectos-catalogo.ts:282`, y los few-shot de
+  `lib/plan-fathom.ts`, que están fijados por `tests/plan-fathom-prompt.test.ts` a propósito).
+  (b) **«ninguno en el registry» era falso**: `closing.analyze.system` estaba en el registry desde antes
+  y el bug seguía entero. Estar en el registry hace que el texto se pueda EDITAR; no hace que el dato
+  salga del workspace. El porqué y las tres guardas que estaban en verde, en
+  `docs/hallazgos-closing.md`. **Lo que sí sigue abierto es otra cosa**: `RE_SERVICIO_EXPLICITO`
+  (`lib/closing.ts:141`) es el mismo bug en una regex de pre-clasificación, no en un prompt.
 - `saveFunnelAction` (`app/crm/actions.ts:1771`) **no valida rol**.
 - `/comercial` y las vistas `v_cohortes_*` filtran `fecha_junta_1 IS NOT NULL` **en SQL**
   (`supabase/migrations/0001_initial_schema.sql:159-168,197-207`): para un cliente sin llamadas
@@ -5199,6 +5210,30 @@ El motor es `lib/ig-writer.ts` (`generarPieza`, saneo por formato) sobre
 `contenido_posts` es `lib/ig-contenido.ts` (`crearBorradorPublicacion`, camino borrador
 sin tocar Zernio).
 
+### De las tres tabs no queda ninguna: antes de arreglar algo del motor, buscá quién lo llama (6/11/2026)
+
+**Vive en:** `app/reels/page.tsx`, `app/carousels/page.tsx`, `app/stories/page.tsx`,
+`app/m/stories`, `lib/copywriter/ia.ts`
+
+Los items 26, 129 y 197 del barrido del 6/11 hablaban de «la pantalla de carruseles» y de
+«el chat que se borra al recargar». **Esas pantallas ya no existen.** El 29/10/2026
+`/carousels` pasó a redirigir a Image (un carrusel es un DISEÑO de varias páginas) y
+`/reels` y `/stories` al Copywriter (`?nuevo=reel` / `?nuevo=story`); las tres `page.tsx`
+son tres líneas de `redirect`. Lo que sigue vivo del motor:
+
+- `app/stories/actions.ts` → `generarSecuenciaAction`, que lo lee **`/m/stories`** (el
+  teléfono). La pantalla de escritorio `StoriesApp.tsx` y `OnboardingStories.tsx` quedaron
+  **sin entrada** y esperan que alguien las borre: tocarlas no cambia nada para nadie.
+- **`lib/copywriter/ia.ts`**, que suma la metodología de `lib/ig-formatos.ts` cuando el
+  guion es de tipo Reel o Story. Ése es el camino por el que pasa el cliente hoy.
+
+Y lo que la documentación decía y no era: `docs/api-mako-inventario.md` lista
+`generar_reel`, `generar_carrusel` y `generar_secuencia_stories` como operaciones de la API
+de MaKo apuntando a `app/reels/actions.ts` y `app/carousels/actions.ts` — **esos archivos no
+existen** y ninguna de las tres está en `lib/api-mako`. La regla: antes de arreglar algo de
+un motor compartido, se busca quién lo llama (`grep` del nombre de la función, no del
+nombre de la tab), porque las tabs se retiran y los motores quedan.
+
 ### La doctrina de caption y hashtags es NEGATIVA, y eso también es un dato
 
 **Vive en:** `lib/ig-formatos.ts` (`METODOLOGIA_TRANSVERSAL`)
@@ -5211,14 +5246,43 @@ tabs lo repiten (sin hashtags a propósito, con el porqué en pantalla). Si algu
 
 ### Historial de un writer sin tabla genérica: app_settings con tope chico, nunca la tabla de otro feature
 
-**Vive en:** `app/reels/reels-datos.ts` (`reels.historial`), `app/carousels/CarouselsApp.tsx`, `app/stories/StoriesApp.tsx`
+**Vive en:** `lib/ig-historial.ts`, `app/stories/actions.ts`, `app/m/stories` (antes:
+`app/reels/reels-datos.ts`, `app/carousels/CarouselsApp.tsx`, `app/stories/StoriesApp.tsx`)
 
 No existe tabla genérica de piezas generadas (`landing_drafts` es del Landing Generator;
-`contenido_posts` guarda solo lo enviado a publicación). Reels persiste en `app_settings`
-(tope 10, read-modify-write sin lock, anotado); carousels y stories viven en memoria de
-la sesión de página y lo DICEN en pantalla. Si el producto quiere historial durable o
-cross-formato, es UNA tabla con migración coordinada entre corridas — no subir topes ni
-colonizar la tabla de otro.
+`contenido_posts` guarda solo lo enviado a publicación). La conclusión de la corrida del
+15/08 fue que historial durable = una tabla con migración coordinada, y **eso era de más**:
+el 6/11/2026 se cerró SIN migración, reusando `app_settings` —que ya es por-workspace y ya
+guarda media docena de listas JSON con tope (`lib/razones.ts`, `lib/avatares.ts`,
+`lib/campana-funnel.ts`)— en `lib/ig-historial.ts`, con la clave `ig.historial.<formato>` y
+tope 10. Una tabla recién hace falta para lo que `app_settings` no puede: historial
+cross-formato, búsqueda, o más de diez. **Antes de pedir una migración vale preguntarse si
+la tabla que ya está alcanza: una migración la aplica Martín contra producción, un
+`app_settings` sale con el push.**
+
+**Y el read-modify-write del historial viejo de Reels era un defecto, no una limitación.**
+Dos piezas que terminaban a la vez se pisaban: la segunda leía la lista sin la primera y la
+escribía encima. `guardarEnHistorialIg` usa `cambiarSettingSi` (el compare-and-set de
+lib/settings.ts) con UN reintento, y con eso las dos quedan. Ojo con el detalle que hace que
+funcione: con un `esperado` de más de ~6 KB —y diez secuencias lo pasan— PostgREST no puede
+comparar el valor en la URL, así que `cambiarSettingSi` lee la fila, compara en el server y
+condiciona por `updated_at` (lib/settings-cas.ts, medido el 12/10 en producción: con 8-12 KB
+el PATCH sale «fetch failed» y el valor deja de guardarse EN SILENCIO). Quien guarde una
+lista grande en `app_settings` tiene que pasar por esa función y no por un `setSetting`
+pelado.
+
+**El tope se recorta al ESCRIBIR, no sólo al leer.** Recortar en la lectura deja la pantalla
+perfecta y la fila creciendo para siempre, y eso no se nota hasta que el valor es enorme. El
+test mira lo que quedó ESCRITO en `app_settings`, no lo que devuelve la lectura: con el
+recorte sólo en la lectura, sacarlo del guardado daba verde.
+
+**Quién guarda: la PANTALLA, no el motor.** `generarPieza` no sabe con qué objetivo se pidió
+el día de stories (eso lo compone `app/stories/actions.ts`), y ese rótulo es la mitad de lo
+que se lee en la lista. Así que guarda la action, y guarda el rótulo YA RESUELTO («Venta»)
+en vez del id del objetivo: si mañana el catálogo cambia un texto, la pieza vieja sigue
+diciendo lo que era cierto ese día, y la pantalla no necesita mapeo ni fallback. La
+consecuencia a saber: **una superficie nueva que llame al motor directo no tiene historial
+hasta que llame a `guardarEnHistorialIg`.**
 
 ### Las notas de producción viajan ANEXADAS a la caption, y el total puede superar 2.200
 

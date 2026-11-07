@@ -16,7 +16,8 @@ import { leerPorPaginas } from '../supabase-paginado';
 import { podarVencido } from '../spy-reglas';
 import { getRolWsEfectivo, getWorkspaceActual, wsSuperAdmin } from '../workspace';
 import {
-  carruselesDeBiblioteca, cuentaDeInstagram, cuentaDudosa, decidirCambio, filaDeBiblioteca, hashtagDe, recortarBiblioteca,
+  carruselesDeBiblioteca, cuentaDeInstagram, cuentaDudosa, decidirCambio, estaRevisada, filaDeBiblioteca, hashtagDe,
+  recortarBiblioteca,
   type CambioBiblioteca, type CuentaBiblioteca, type PiezaBiblioteca, type TemaBiblioteca,
 } from './biblioteca';
 import type { Carrusel } from './explorar';
@@ -82,7 +83,10 @@ async function piezasDeLaBiblioteca(): Promise<PiezaBiblioteca[]> {
   if (ya && ya.hasta > Date.now()) return ya.piezas;
   const piezas: PiezaBiblioteca[] = [];
   await leerPorPaginas<Record<string, unknown>>(getSupabaseServer(), T_PIEZAS, '*', (pagina) => {
-    for (const f of pagina) piezas.push(podarVencido(f) as unknown as PiezaBiblioteca);
+    // Lo que nadie miró todavía NO se muestra (mig 0411): el filtro va acá y no en `filtros`, porque una columna que
+    // todavía no existe haría fallar la lectura entera (./biblioteca.ts, `estaRevisada`). Cuestan cupo del tope y es a
+    // propósito: son pocas y se revisan enseguida (`revisar`, scripts/carruseles-biblioteca.mts).
+    for (const f of pagina) if (estaRevisada(f)) piezas.push(podarVencido(f) as unknown as PiezaBiblioteca);
     return piezas.length < PIEZAS_A_LEER;
   }, { orden: [{ col: 'id', asc: false }], filtros: (q) => q.is('dejo_de_verse_en', null) });
   enCache[CACHE] = { hasta: Date.now() + CACHE_PIEZAS_MS, piezas };
@@ -119,6 +123,8 @@ export async function carruselDeLaBiblioteca(id: number): Promise<Carrusel | nul
   const p = await db.from(T_PIEZAS).select('*').eq('id', fila).maybeSingle();
   if (p.error) { if (faltaLaTabla(p.error)) return null; throw new Error(p.error.message); }
   if (!p.data) return null;
+  // La misma puerta que la lista: un link directo no muestra lo que nadie miró todavía (mig 0411).
+  if (!estaRevisada(p.data as Record<string, unknown>)) return null;
   const pieza = podarVencido(p.data as Record<string, unknown>) as unknown as PiezaBiblioteca;
   const c = await db.from(T_CUENTAS).select(COLS_CUENTA).eq('id', pieza.cuenta_id).maybeSingle();
   if (c.error) throw new Error(c.error.message);

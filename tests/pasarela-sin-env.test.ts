@@ -49,7 +49,11 @@ const codigo = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8')
   .replace(/^\s*\/\/.*$/gm, '');
 
 // `CREEM_` desde el 31/10/2026: el guardia estaba ciego a las tres claves de la tercera pasarela, y no rojo.
-const PREFIJO = String.raw`(?:STRIPE_|MERCADOPAGO_|MP_|CREEM_)`;
+// `DLOCAL_` desde el 06/11/2026, por lo MISMO y con la cuarta. ⚠️ DOS VECES SEGUIDAS ES UN PATRÓN, NO UN DESCUIDO: un
+// barrido por prefijo es tan ancho como su lista, la lista no crece sola, y un guardia que no mira NO DA ROJO — da un
+// cero perfectamente correcto sobre la pregunta equivocada. Por eso ya no se audita a ojo: el test «la lista de
+// prefijos cubre TODAS las pasarelas» (abajo) la deriva de `CLAVES_DE_PASARELA` y falla nombrando la que falta.
+const PREFIJO = String.raw`(?:STRIPE_|MERCADOPAGO_|MP_|CREEM_|DLOCAL_)`;
 // La clave de la segunda cuenta (`STRIPE_SECRET_KEY__C2`, 22/10/2026) se ARMA con `claveDeCuenta(`: sin mirar eso, un
 // `credWs(claveDeCuenta('STRIPE_SECRET_KEY', c), ws)` pasaba el barrido (no lleva comilla después del paréntesis).
 const ARMADA = String.raw`claveDeCuenta\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA|CLAVES_BASE)`;
@@ -84,12 +88,36 @@ test('nadie lee una clave de cobro de process.env, envCred ni credWs', () => {
     'Va credDelCliente(clave, ws) — y la de MaKo, con ws = await wsSuperAdmin().');
 });
 
+/** Las claves que `lib/credenciales.ts` declara como «de pasarela», leídas del fuente. */
+function clavesDePasarela(): string[] {
+  const cred = codigo('lib/credenciales.ts');
+  const i = cred.indexOf('const CLAVES_DE_PASARELA');
+  assert.ok(i > 0, 'desapareció CLAVES_DE_PASARELA: si se renombró, este guard hay que reescribirlo');
+  return [...cred.slice(i, cred.indexOf(']);', i)).matchAll(/'([A-Z0-9_]+)'/g)].map((m) => m[1]);
+}
+
 test('las claves de cobro no se migran del entorno ni las copia «Datos de Mau»', () => {
   // El otro lado de la misma trampa: si una STRIPE_SECRET_KEY de Vercel se migrara a la fila del
   // ws1, Mauricio cobraría con la cuenta de MaKo con cara de conexión propia.
   const cred = codigo('lib/credenciales.ts');
   const lista = cred.slice(cred.indexOf('const NO_MIGRAR_A_WS'), cred.indexOf(']);', cred.indexOf('const NO_MIGRAR_A_WS')));
-  for (const k of ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET', 'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET']) {
-    assert.ok(lista.includes(`'${k}'`), `${k} no está en NO_MIGRAR_A_WS`);
+  // ⚠️ DERIVADO de CLAVES_DE_PASARELA y no de una lista a mano (06/11/2026): la versión escrita a mano enumeraba sólo
+  // las seis de Stripe y Mercado Pago, así que las tres de Creem llevaban una semana en `NO_MIGRAR_A_WS` sin que nada
+  // lo comprobara — y la cuarta pasarela habría entrado igual de muda. Así, una pasarela nueva queda cubierta sola.
+  const claves = clavesDePasarela();
+  assert.ok(claves.length >= 12, `esperaba las claves de las cuatro pasarelas y encontré ${claves.length}`);
+  for (const k of claves) {
+    assert.ok(lista.includes(`'${k}'`), `${k} es clave de pasarela y no está en NO_MIGRAR_A_WS`);
   }
+});
+
+test('la lista de prefijos cubre TODAS las pasarelas', () => {
+  // ⚠️ EL GUARD NO ESTABA ROTO: NO MIRABA — y ya pasó DOS VECES. Con Creem (31/10/2026) y con dLocal Go
+  // (06/11/2026): en los dos casos un `credWs('<PREFIJO>_API_KEY')` pasaba el barrido en VERDE y le cobraba a la
+  // cuenta del ws1 (Mauricio, un cliente). Las dos veces se arregló a mano agregando el prefijo, y las dos veces el
+  // arreglo dependió de que alguien se acordara. Esto lo deriva del fuente para que la quinta no dependa de eso.
+  const sinCubrir = clavesDePasarela().filter((k) => !new RegExp(`^${PREFIJO}`).test(k));
+  assert.deepEqual(sinCubrir, [],
+    `estas claves de cobro NO las mira el barrido de arriba:\n${sinCubrir.join('\n')}\n` +
+    `Agregá su prefijo a PREFIJO (hoy: ${PREFIJO}).`);
 });

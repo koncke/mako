@@ -7,6 +7,45 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+## «Llega al techo» con un tercio gastado: el techo lo ponía el crédito y la cuenta era de reservas (6/11/2026)
+
+**Síntoma:** `laminas` paró diciendo «Llega al techo: corta acá» con **US$0,54 gastados de un tope pedido de US$1,50**. De la
+salida no se podía saber si faltaba crédito o si era un límite nuestro, y por eso nadie lo revisó.
+
+**Lo obvio era que el tope de US$1,50 estaba mal puesto, y no.** Eran dos cosas, y ninguna se decía:
+
+1. **El techo efectivo no era el pedido: lo ponía el crédito.** `techoConCredito` devuelve `min(pedido, libre − reserva)` y
+   nada más, así que un techo de US$0,70 (crédito) y un techo de US$0,70 (pedido) se imprimen igual. Medido el 6/11 a la
+   tarde: la clave de Spy tenía **US$1,98 libres de US$10 y la reserva de Spy son US$2 → el techo era US$0,00**, y el script
+   decía «Puede gastar hasta US$0.00» sin agregar que no había con qué.
+2. **Lo que se comparaba contra el techo era la suma de los TECHOS de cada tanda, no el gasto.** Cada tanda de 40 links lleva
+   su `maxTotalChargeUsd` con un margen del 1,5× sobre el precio de lista (US$0,14) para que Apify no la corte a mitad, y ese
+   número inflado se acumulaba como si fuera plata gastada. Apify cobra **lo que LLEGA**, a US$0,0027 por link medido: 40 links
+   son US$0,11, no US$0,14. Con un techo de US$0,70 leía 200 links de 400 cuando pagaba 254 — y **una tanda que no trae nada
+   (carruseles borrados o privados) descontaba su techo igual**: se podía cortar «al techo» sin haber gastado un centavo.
+
+**La regla:**
+- **Cuando una corrida para, dice por qué, con el número, y qué lo destraba.** «No hay crédito libre (quedan US$X, la reserva
+  es US$Y)» se arregla cargando crédito; «llegué al tope que me pediste (US$Z)» se arregla con `--techo-usd`; «se terminaron
+  las tandas» no se arregla, y «Apify dijo que no queda crédito» se arregla cargando crédito. Son cuatro cosas distintas y
+  «al techo» las dice todas iguales. El porqué se imprime también **en seco**, antes de gastar: ahí es donde se revisa.
+- **El margen de un techo por tanda no es gasto.** Contra el techo de la corrida va el precio MEDIDO (`USD_POR_LINK_MEDIDO`,
+  US$0,0027), no el de lista (US$0,0023, que subestima la factura) ni el de lista con margen. El margen vive sólo en el
+  `maxTotalChargeUsd` de la tanda, y ese techo se recorta a lo que queda para que no pueda gastar de más.
+- **La última tanda se recorta a los links que caben**, no se descarta entera.
+- **Una sola regla para el plan y para la corrida** (`siguienteTanda`): en seco se alimenta con el gasto probable y en vivo con
+  lo que Apify ya cobró. Dos cuentas paralelas es cómo se llega a que el seco y lo real no coincidan.
+- ⚠️ **Y un «no queda crédito» que dice APIFY a mitad de la corrida NO es el techo.** Al empezar, el techo podía tener lugar de
+  sobra (motivo `'pedido'`): si ese corte se cuenta como techo, el renglón final dice «llegué al tope que me pediste» sobre un
+  tope que no se tocó — el mismo mensaje equivocado, por el otro lado. Es un corte propio (`'apify'`), y el que decide qué
+  renglón sale es la función pura, no una bandera en el script: una bandera no se puede probar sin gastar crédito.
+
+**Vive en:** `lib/carruseles/biblioteca.ts` (`motivoDelTecho`, `siguienteTanda`, `planDeTandas`, `porQueParo`),
+`scripts/carruseles-biblioteca.mts` (`laminas`), con `tests/carruseles-techo.test.ts`.
+
+⚠️ **Y la trampa del entorno que lo tapaba:** `techoConCredito` devolviendo **0** no es un error, es un número válido. El
+script seguía su curso, entraba al bucle y la primera tanda cortaba «al techo». Un tope que vale cero parece un tope cumplido.
+
 ## Cargar la biblioteca de Thumbnails: el 6% de los canales se quedaba con un tercio de la vidriera (6/11/2026)
 
 **Qué se hizo.** La biblioteca de Thumbnails estaba **vacía en producción** (0 canales, 0 miniaturas: la pestaña decía que no estaba cargada) y se cargó desde la PC con los pasos de [thumbnails.md](../carruseles/thumbnails.md): `descubrir` (12 búsquedas, las 12 permitidas del balde de 100 por día de toda la app) → **93 canales** → `leer` → **1.784 videos**, ~93 unidades de cuota.
@@ -20,6 +59,33 @@ Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-
 ⚠️ **Esto es un parche, no el arreglo.** Excluir a mano no escala: cada `leer` mensual trae videos nuevos del mismo tipo. **El arreglo de fondo es ordenar por el múltiplo** (vistas ÷ la mediana del canal), que es justo lo que normaliza mercados distintos — y es lo que espera la enmienda III.L de YouTube. Mientras no se firme, la vidriera la decide una métrica que no se puede comparar.
 
 ⚠️ **Y dos trampas al medirlo, las dos mías, las dos silenciosas.** (1) `thumbnails_videos.canal_id` es el id **numérico** de `thumbnails_canales`, no el id de YouTube (que en la tabla de canales **también** se llama `canal_id`): unir por el campo equivocado da 0 videos por canal y **no da error**. (2) El tipo `Thumbnail` **no tiene** campo de imagen —la URL se arma del id del video con `imagenDeVideo()`—, así que un chequeo de «¿cuántas saldrían en blanco?» contra un campo inexistente contesta «todas». Casi reporté 1.743 miniaturas en blanco que estaban perfectas.
+
+**Medido de nuevo el 6/11 a la noche, y los totales de arriba ya eran viejos:** `estado` contra producción dice **79 canales activos, 14 excluidos y 1.520 miniaturas visibles** (la curaduría siguió después de escribir esto). El número de un documento es una FOTO: antes de repetirlo, `estado`. Ver [una-medicion-tiene-fecha].
+
+## El cron que no existía: «una vez por mes» es la cadencia equivocada para un vencimiento de 30 días (6/11/2026)
+
+**El síntoma que nadie iba a ver hasta que lo viera un cliente.** Sin la enmienda III.L de YouTube, lo que se guarda de su API (títulos, vistas) **vence a los 30 días**: la pantalla no muestra lo leído hace más (`vigente`, `DIAS_VIGENTE = 30`) y la regla obliga a borrarlo (`podar`). El documento lo dejaba como un paso a mano —«cada mes: `leer` de nuevo y `podar --de-verdad`»— y **no había ningún cron**. La galería no se rompe: se va vaciando, tarjeta por tarjeta, hasta el cartel de «todavía no está cargada».
+
+**Lo que el pendiente pedía estaba mal, y es el hallazgo.** Cuatro de los dieciocho encargos de Thumbnails decían «agendar una vez por mes». Un cron mensual el día 1 **no alcanza**: entre el 1 de enero y el 1 de febrero pasan **31 días**, así que lo leído el 1 de enero vence el 31 y la galería aparece vacía un día entero antes de que el cron la salve. Y con una sola oportunidad por vencimiento, **cualquier** corrida que falle (la cuota de YouTube, un 403, el deploy caído) la vacía igual, sin red. **La regla que queda: una tarea que renueva algo con vencimiento corre al menos DOS veces por vencimiento, no una.** Acá quedó semanal (`55 6 * * 0`): cuatro oportunidades por vencimiento, y releer es barato (~3 unidades de las 10.000 diarias por canal, unas 240 por corrida).
+
+**Dónde vive, y por qué no son dos copias.** `lib/thumbnails/renovar.ts` tiene el trabajo (releer + podar), `app/api/cron/thumbnails-renovar/route.ts` lo llama desde Vercel y `scripts/thumbnails-biblioteca.mts` llama **la misma función** en `leer` y `podar`. Antes el trabajo vivía sólo en el script: un cron que lo copiara habría quedado como la segunda copia que se separa y nadie sabe cuál es la que corre.
+
+**Tres decisiones que no se ven en el diff:**
+
+- **Releer ANTES de podar.** Al revés, una corrida que falla al leer borra lo vencido y deja la galería **más** vacía de lo que estaba. Y sin clave de YouTube no hace nada de las dos cosas (fail-closed): una poda sin lectura es pérdida neta.
+- **El cron NO descubre canales.** `descubrir` usa `search.list`, que tiene un balde de **100 llamadas por día para TODA la app** — el mismo del que come Competitors Spy. Un cron automático se lo comería y dejaría a Spy sin búsquedas. Descubrir sigue siendo a mano.
+- **La clave es la de la PLATAFORMA**, nunca la del negocio: la biblioteca es global (mig 0409, sin `workspace_id`), así que llenarla con la cuota de un cliente es gastarle su balde para la vidriera de todos. Por lo mismo no va por `correrPorWorkspace`: un solo trabajo, como `/api/cron/spy-poda`.
+
+⚠️ **Y una trampa del entorno que costó un run de Actions.** El mensaje de «sin clave» decía «no releí ni **podé** nada»
+— el pretérito de PODAR, que es de lo que habla la función. `tests/puente-panel-copy.test.ts` (el guarda de voseo del repo,
+que barre 6.009 archivos) lo lee como el *vos* de «poder» (→ «puede»), porque son la misma palabra escrita, y da rojo: «El
+producto se usa en México: la interfaz va en español neutro». No es un falso positivo que convenga excepcionar: **un mensaje
+sobre podar no puede usar su propio verbo en primera persona**, y la salida es escribirlo impersonal («no se relee ni se poda
+nada»). La misma colisión existe con «anoté/anotá», «corté/cortá» y «miré/mirá». El guarda no distingue —no puede—, así que
+la regla práctica es: en un texto que sale del repo, el pretérito de primera persona de un verbo de la primera conjugación es
+indistinguible de un imperativo voseante, y conviene evitarlo.
+
+⚠️ **Lo que el cron NO arregla, y conviene no confundirlo:** la cadencia que se arregló acá es la de **que no se vacíe**, no la de la curaduría. Cada relectura trae videos nuevos de los mismos canales **sin que nadie los mire** (el mismo agujero que la biblioteca de carruseles: ver «Sin hacer»). El cron hace que la galería nunca esté vacía; que lo que haya sirva a un dueño de negocio sigue dependiendo del múltiplo y del trámite III.L.
 
 ## «Tu IA no contestó ahora»: el camino de respaldo era más débil que el principal (6/11/2026)
 
@@ -39,6 +105,73 @@ la cascada (cuota, clave, demora, saturación) y de quién es; «no contestó» 
 
 **Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`), `lib/carruseles/replica.ts` (`avisoSinIA`, `vuelveASinVer`).
 
+## «Editar» probado con la IA REAL: el arreglo estaba bien y el que mentía era el ARNÉS (6/11/2026)
+
+**Síntoma:** cuatro encargos distintos del 6/11 (ids 8, 109, 190, 384) decían lo mismo: el arreglo de «Editar» está escrito y
+nunca se probó con una IA de verdad. Se corrió el comando (`scripts/carruseles-probar-editar.mts`) contra la base y las claves
+de producción, cinco veces, con la IA real.
+
+**Funciona.** Un carrusel con sus 10 láminas, uno sin láminas con la portada en el CDN de Instagram (el caso exacto que falló)
+y una miniatura de YouTube: los tres abren el diseño con los textos del negocio, las letras del editor, sin recuadros grises y
+sin el aviso de «no contestó». La portada que sólo vive en `scontent-…cdninstagram.com` llega a la IA (`fetchSeguro`): «1 de 9
+láminas». Lo que no funcionaba era otra cosa, y son tres cosas distintas:
+
+**1. Lo obvio era que faltaba correr el comando, y no: el comando no probaba el arreglo.** El modo EN SECO (el que no gasta ni
+guarda, el que la documentación manda usar) devolvía en el camino de guías **antes** de armar el documento. O sea, justo el
+arreglo del 6/11 —que sin IA las láminas guía se manden a la pantalla, para que el modal no quede en blanco— era invisible
+para el único arnés que existía: la corrida imprimía cero láminas y nadie podía ver si estaban bien. **La regla: un modo de
+prueba sólo puede dejar de ESCRIBIR; si saltea un paso del armado, no prueba ese paso.** Ahora el seco arma el documento igual
+(`crearCarruselDesdeReferencia(..., { seco })`) y la corrida del ws3 imprime sus 7 láminas con sus guías.
+
+**2. El ws 3 NO TIENE NINGUNA IA CONECTADA, así que `--ws 3` no prueba la IA: prueba el camino SIN IA.** Medido: `susClaves(3)`
+devuelve `[]` y `provsDe` da 0 proveedores para los cuatro. Y está bien que no use la de la plataforma (cada negocio paga su
+IA), así que la corrida termina en guías con «Conecta tu Claude, tu GPT o tu Gemini» — correcto, pero no es la prueba. Para
+probar la IA de verdad hay que correr en un workspace que tenga clave propia: el **ws 9** (Martín) tiene las tres. Las claves
+por workspace, medidas el 6/11: ws 1, 9, 10, 11 con Claude; sólo Gemini en 13, 15, 17, 18, 19, 20; **el 3, ninguna**.
+
+**3. El prompt le pedía al modelo no poner el @ del creador, y el modelo lo cumplía inventando el del CLIENTE.** Las 10 láminas
+del ws9 salieron firmadas «Martin Koncke» **y «@martinkoncke»**, un usuario que nadie cargó nunca (`marcaDelNegocio` devuelve
+`usuario: null` siempre). El cliente publica un @ que no existe y nadie lo encuentra. Es el corolario de AGENTS.md → «Una
+regla en un prompt no es una regla»: un handle no tiene redundancia, así que o lo pone el código o no va. La segunda capa es
+`conElArrobaDelNegocio` (`lib/carruseles/replica.ts`), que saca todo `@usuario` que no sea el del negocio y no toca un mail
+(ahí el `@` viene pegado a una letra).
+
+**Y lo que el prompt NO resuelve, medido dos veces con la IA real:** un ejemplo que cuenta una HISTORIA de su autor se replica
+inventándole una historia al cliente. Antes de la regla nueva, el carrusel `-895` salió con el Oscar y el padre muerto del
+creador original firmados «Martin Koncke»; con la regla («sus hechos tampoco pasan»), los detalles ajenos se fueron, pero la
+lámina 1 quedó en «A LOS 22 AÑOS, MARTIN KONCKE ANOTÓ SUS 10 METAS»: ni la edad ni la lista son datos de nadie. Una biografía
+inventada no se puede detectar en el saneo, así que esta regla se queda en una sola capa a propósito y **queda decidir si un
+ejemplo de tipo historia/storytime es replicable** (ver «Sin hacer»).
+
+**El diseño que falló, leído de la base de producción** (`b31f62ec-5727-4ac7-bde7-2bb141bf0727`, el que Martín reportó):
+creado el 6/11 a las 13:46 UTC —una hora y media ANTES del commit del arreglo (`02ce9b6e3`, 15:11)— en el **ws 9, el de
+Martín, que tiene las tres claves cargadas**. Son 8 páginas de GUÍAS («Tu gancho con un número», «Tu punto número 1»…), con
+las letras del editor (Inter y Montserrat) y sin ningún recuadro de «Tu foto». O sea: el aviso «Tu IA no contestó» no salió por
+falta de IA —la tenía— sino porque el camino de respaldo cortaba la respuesta en 512 tokens, que es exactamente lo que se
+arregló. El síntoma reportado y el diagnóstico coinciden, y el mismo caso corrido hoy en el ws 9 devuelve el diseño con los
+textos del negocio.
+
+**Y el arreglo YA ESTÁ EN PRODUCCIÓN, contra lo que decía el encargo** (que se había escrito mirando el deploy de las 11:05
+UTC, anterior al commit). Medido contra la API de Vercel el 6/11: el deploy de producción vigente es `cce171fab` (6/11, 17:57
+UTC) y tiene `02ce9b6e3` —el commit del arreglo, 15:11 UTC— como ancestro; los de las 11:05 y 13:13 UTC no lo tenían. **La
+regla: «está desplegado» no se deduce de la hora de un deploy, se pregunta si el commit es ANCESTRO del que está servido**
+(`git merge-base --is-ancestor <arreglo> <sha del deploy>`, con el sha que da `api.vercel.com/v6/deployments?target=production`
+y el `VERCEL_API_TOKEN` del `.env.local`). La fecha engaña de los dos lados: la del commit es la del autor y la del deploy es
+la de la compilación.
+
+**El tiempo, que es el riesgo que queda:** cinco corridas dieron 21,6 s · 33,4 s · 143,4 s · 149,3 s · **276,9 s**, contra el
+`maxDuration = 300` de la ruta (cuyo comentario decía «de 20 a 90 s»). La causa, con la red instrumentada: `gemini-flash-latest`
+no contesta y **se come el timeout entero de 120 s**, y después el respaldo (`gemini-flash-lite-latest`) contesta en 8 s. Dos
+cuelgues así y el stream de Vercel se corta sin mandar el `fin`: la pantalla queda esperando para siempre, que es exactamente
+el síntoma que Martín reportó. No se tocó el plazo (los pedidos que SÍ contestan tardan 2 a 9 s, pero no hay medición de uno
+con 10 láminas por llamada).
+
+**Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`, el modo seco), `lib/carruseles/crear-servidor.ts`
+(`crearCarruselDesdeReferencia`, `seco`), `lib/carruseles/replica.ts` (`conElArrobaDelNegocio`, el prompt),
+`app/api/image-editor/carruseles/replicar/route.ts` (`maxDuration`). Lo prueba `tests/carruseles-editar.test.ts` con su hijo:
+el PRIMER test que ejecuta el orquestador (los 21 de `tests/carruseles-replica.test.ts` son de las funciones puras, y estaban
+todos en verde mientras «Editar» fallaba en producción).
+
 ## «Puros de DenBorg»: el orden por outlier concentra en una cuenta (6/11/2026)
 
 **Síntoma:** con el filtro CTA y «Mayor outlier», la primera pantalla era toda de una sola creadora.
@@ -52,6 +185,58 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 **Vive en:** `lib/carruseles/variedad.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`), `lib/thumbnails/explorar.ts`.
 
+## Dos partes del mismo carrusel ocupaban dos lugares de la grilla (6/11/2026)
+
+**Síntoma:** «El cliente ve el mismo contenido repetido y pierde lugares de la grilla que podrían traer ejemplos nuevos»: las
+partes de una misma serie, una abajo de la otra.
+
+**Lo que NO lo arregla:** el reparto por variedad (la entrada de arriba). Reparte por CUENTA, y dos partes de un mismo carrusel
+son de la misma cuenta **y** del mismo contenido: entran las dos igual, una en cada tramo.
+
+**Lo obvio era comparar el pie, y está mal.** Medido sobre las 990 piezas visibles: agrupar por «las primeras 8 palabras de
+contenido del pie, del mismo creador» daba 7 grupos y **5 eran falsos**. Lo que se repite no es el contenido: es el pie de
+fábrica del creador — su pitch fijo (@thesenuka lo pega igual en 4 carruseles distintos), su CTA de siempre («Comment "WIN" to
+get a free scaling roadmap», @hormozi, en dos carruseles de 13 y de 9 láminas), su firma de entrada (@vilmanunez abre todos los
+pies con «Sígueme y haz clic en el link de la bio») o un «Save this!» con hashtags. Sacarle la oración del CTA antes de
+comparar tampoco alcanza: quedan los pitch y las firmas. **Y los pies de dos partes de la misma serie no se parecen entre sí**:
+«Part 1 broke the internet… so here's Part 2» y «You thought you understood the coffee menu. Then part 3 happened» son la misma
+serie y no comparten una frase. O sea: el pie se parece cuando NO es el mismo contenido, y no se parece cuando SÍ lo es.
+
+**La regla** (`lib/carruseles/duplicados.ts`, con su «qué cubre y qué no» como `clasificar.ts`). Mismo creador y una de dos:
+
+- **La serie numerada:** los dos pies traen una marca de parte (`parte|part|pt|teil` + número). La clave es el CREADOR, no el
+  texto. ⚠️ Con una excepción medida: **dos partes con el MISMO número son series distintas** (una serie tiene una sola parte
+  2) y las dos se quedan — @heygurlceo tiene dos «pt 2» al mismo tiempo, apps y carreras, y sin eso se comía una.
+- **El mismo pie entero, las mismas láminas y el mismo día:** la misma publicación dos veces. Las tres condiciones juntas, por
+  lo de arriba.
+
+**Medido con el código que subió:** de 912 carruseles en la grilla hoy saca **4** (3 por serie, 1 por el mismo pie); si
+volvieran las 598 escondidas, **8 de 1.470** (5 por serie, 3 por el mismo pie), entre ellas las partes 8 y 9 de «meals you
+should make instead of eating out» de @success.recipes, que es uno de los ejemplos del pedido.
+
+**«Día 3», «Week 1», «Episodio 2» se probaron como marca de serie y se descartaron:** en los pies reales casi nunca marcan una
+serie, marcan un plan adentro del texto («Days 1-3: no running», «Week 2: …») o un repaso («week 1: greet people, week 2: …»).
+Aportaban 3 falsos y CERO duplicados. ⚠️ **Y la trampa al medirlo: la marca se lee con la PUNTUACIÓN puesta.** Normalizando
+primero (que es lo natural para comparar textos), «First marathon done. Days 1-3» y «…la parte. 2 cosas que aprendí» quedan
+como «days 1» y «parte 2», y aparecieron 4 series de mentira que no existen.
+
+**Lo que NO cubre:** el mismo TEMA de un creador (las de meal prep de una misma cuenta son carruseles distintos del mismo
+rubro: eso lo acota la variedad), dos series numeradas distintas y a la vez (se toman como una, salvo lo del número), y lo que
+no tiene pie (Spy lo borra a los 30 días: sin texto no se afirma nada).
+
+**No esconde nada de la base** (eso es `dejo_de_verse_en` y lo decide una pasada a ojo): es de la PRESENTACIÓN, como la
+variedad. Se aplica a la grilla ya ordenada —queda la que mejor rindió— y **no** se aplica cuando se pidió ver una cuenta (por
+la lista o por @) ni en «Guardados», así que la parte que se corrió se ve entera tocando a su creador.
+
+⚠️ **Y lo primero que cazó la regla fue una fixture de nuestro propio test.** `tests/carruseles-pantalla.test.ts` contaba
+«Ver 2 carruseles» en el modal de filtros con dos tarjetas que eran el MISMO carrusel con otro id y otro tipo: mismo pie,
+mismas láminas, mismo día. El rojo era correcto y el arreglo fue darle su propio pie al segundo, no aflojar la regla. Una
+fixture copiada con `{...base, id: otro}` es un duplicado perfecto, y de ahora en más una pantalla que CUENTA tarjetas se
+prueba con contenidos distintos.
+
+**Vive en:** `lib/carruseles/duplicados.ts`, `lib/carruseles/explorar.ts` (`filtrarCarruseles`: juntar y después repartir, en
+ese orden, para que el reparto sea sobre contenidos distintos), con `tests/carruseles-duplicados.test.ts`.
+
 ## Anuncios en video en una pantalla de imágenes: la fuente lo decía y se tiraba (6/11/2026)
 
 **Síntoma:** en «Anuncios» había muchos videos, y la pantalla es para copiar imágenes.
@@ -61,9 +246,57 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 **La regla:** ahora se guarda `medio` también en los anuncios (`medioDeAnuncio`), y el explorador no muestra ni cuenta un video
 (`esAnuncioEnVideo`). Sin `medio`, la única pista es la miniatura del CDN de Meta en la carpeta de cuadros de video (`/t15.`).
-⚠️ Una miniatura ya copiada a nuestro bucket pierde esa pista: lo guardado antes se corrige en la próxima lectura de Spy.
 
 **Vive en:** `lib/spy-todo-reglas.ts`, `lib/spy-medio.ts`, `lib/spy.ts` (`guardarMedios`), `lib/carruseles/anuncios.ts`.
+
+### El arreglo cubrió la fuente que NO trajo ni un anuncio (6/11/2026, tarde)
+
+**Lo obvio era que el dato llega por Apify y que «se corrige en la próxima lectura de Spy». Las dos cosas estaban mal**, y
+medirlo contra producción lo dio vuelta. De los **300 anuncios guardados** (`spy_piezas`, canal «anuncios»):
+
+| Lo que se creía | Lo medido el 6/11/2026 |
+|---|---|
+| El `medio` lo trae el `displayFormat` de Apify | **Los 300 entraron con `fuente: 'recorrido'`**: los leyó la EXTENSIÓN de Chrome (`lib/spy-captura.ts`), que nunca llenó `medio`. Por Apify no entró ninguno. |
+| La miniatura del CDN (`/t15.`) delata al video | **La regla acierta en 0 de 300.** 297 ya tienen la miniatura copiada a nuestro bucket (la del CDN vence: mig 0361), 2 quedaron en `/t39.` (imagen) y 1 sin miniatura. |
+| Se corrige solo en la próxima lectura de cada cuenta | **279 de los 300 ya tienen `dejo_de_verse_en`**: un anuncio que bajó no vuelve a aparecer en una lectura de la Biblioteca. Una lectura nueva completa 21, no 300. |
+
+**Y no hay ninguna otra pista**, buscada campo por campo: 0 con `analisis`, 0 con `duracion`, 0 con `plataformas`, 0 con
+`laminas`, 0 con un `m:ss` en el texto (el reloj del video lo saca `RE_TIEMPO_DE_VIDEO` antes de guardar el copy), y la
+lectura cruda tampoco quedó: `spy_lecturas_canal` acepta el canal «anuncios» en su `check` pero **nadie escribe ahí** —
+`lib/spy-captura-db.ts` lo dice en su cabecera («lo leído de Meta es de quien lo leyó»). Son 0 filas. Así que de 300
+anuncios guardados, **de 298 no se sabe y hoy no hay forma de saberlo sin volver a leer**.
+
+**Lo que SÍ decía la fuente y se tiraba, otra vez.** `extension/spy-leer.js` manda un token `['v', poster]` por cada
+`<video>` dibujado, y la Biblioteca escribe el reloj del video sobre el creativo («0:15», «0:00 / 1:28»). El servidor usaba
+el token `'v'` sólo como miniatura de respaldo y el reloj sólo para limpiarlo del copy: las dos señales se leían, ninguna se
+anotaba. Ahora `anuncioDe` devuelve `medio: 'video'` con cualquiera de las dos (`medioDeLaTarjeta`).
+
+**Las reglas que quedan:**
+- **Antes de decir «lo arregla la próxima lectura», mirar POR DÓNDE entraron las filas que ya están.** `fuente` lo dice en una
+  consulta. Arreglar la fuente equivocada se ve igual en el diff y no cambia nada en la pantalla.
+- **«Se corrige en la próxima lectura» sólo vale para lo que la próxima lectura va a volver a traer.** Con `dejo_de_verse_en`
+  escrito, no vuelve: hay que contar cuántas filas están vivas antes de prometerlo.
+- **Un «no sé» no se muestra como «es imagen».** `anunciosDe` ponía `medio: 'imagen'` fijo en cada tarjeta: ésa era la
+  mentira del contador del encargo. Ahora la tarjeta lleva el medio que SE SABE (`medioGuardadoDeAnuncio`, `null` incluido),
+  el contador dice «N sin saber si son video» (`anunciosSinSaber`) y hay un filtro para dejarlos afuera
+  (`soloConfirmados`, `?conf=1`) — pero **apagado por defecto**, porque esconderlos sería el error simétrico (ver «Sin dato
+  no es "no"»): 298 anuncios buenos tirados por un dato que falta.
+- **No se afirma «imagen» por ausencia de señal de video.** Una tarjeta cuyo `<video>` todavía no se dibujó muestra sólo su
+  portada como imagen, y ahí «imagen» sería exactamente el bug que esto arregla. Se afirma «video» con señal positiva y lo
+  demás queda en `null`.
+
+**Qué lo destraba, y no cuesta un centavo:** otro recorrido de la Biblioteca de Anuncios de esos competidores con la
+extensión (que ahora sí guarda el medio). **No necesita crédito de Apify** — que además es US$0,00 libre contra la reserva de
+Spy. Con el filtro «Activos e inactivos» de Meta también vuelven los 279 que bajaron.
+
+**Vive en:** `lib/spy-captura.ts` (`medioDeLaTarjeta`, `anuncioDe`), `lib/carruseles/anuncios.ts`
+(`medioGuardadoDeAnuncio`, `anunciosSinSaber`), `lib/carruseles/explorar.ts` (`soloConfirmados`),
+`lib/carruseles/explorar-servidor.ts`, `app/image-editor/carruseles/{ExplorarCarruseles,FiltrosCarruselModal}.tsx`, con
+`tests/spy-captura.test.ts` y `tests/carruseles-anuncios.test.ts`.
+
+⚠️ **Y la trampa al PROBARLO:** el anuncio del fixture de `tests/spy-captura.test.ts` trae las dos señales a la vez (el reloj
+y el token del `<video>`), así que **sacar la línea del token `'v'` daba CERO rojos**. Cuando dos señales alcanzan por
+separado, el caso que prueba cada una tiene que traer una sola.
 
 ## Thumbnails: la YouTube Data API sí, y el múltiplo espera el trámite (6/11/2026)
 
@@ -93,6 +326,39 @@ cuenta elegida no se reparte» tiene que elegir DOS cuentas: con una sola, repar
 
 El perfil queda para explorar a un creador, no para encontrar una pieza.
 
+**Y desde el 6/11/2026 es un comando del script oficial: `links`** (antes vivía en una copia temporal, ya borrada). Toma uno
+o varios links en la línea de comandos o con `--archivo lista.txt` (uno por renglón), y en seco dice cuántos son, cuáles no
+entendió, cuáles ya están y cuánto puede costar. Lo que apareció armándolo, y que no es obvio:
+
+- **Un link se reduce a su `ref` (el shortcode), y ese ref tiene que ser EL MISMO que saca `piezasDeApify`** del permalink que
+  devuelve el actor: si no, la misma pieza se guarda dos veces (el upsert va por `ref`). Por eso `linkDeInstagram` normaliza
+  `/p/`, `/reel/`, `/reels/`, `/tv/`, con o sin `www`, con o sin protocolo y con la cola `?igsh=…` del botón «Copiar enlace».
+  ⚠️ **Y la trampa al probarlo:** con la barra antes del `?` (`…/p/XXX/?igsh=1`) un ref mal recortado se corta igual en la
+  barra. El caso que de verdad prueba la regla es el link **sin** barra (`…/p/XXX?igsh=1`); con el otro, romper el recorte a
+  propósito daba 0 rojos.
+- **Un shortcode suelto no se acepta.** Sin el dominio no hay forma de saber si «DAbC_1-xyz» es un link, un nombre de cuenta o
+  una palabra: adivinarlo es gastar plata en una corrida que no trae nada.
+- **El creador de un link suelto va con `fuente: 'tema'`,** o sea no se lee entero: de su cuenta no se midió nada, sin su
+  mediana no hay outlier, y lo que no se midió no se dice.
+- **Si el actor no dice de quién es la publicación (`ownerUsername`), la fila no se puede guardar:** sin creador no hay
+  `cuenta_id`. Antes eso quedaba como un número en un total; ahora se dice link por link, junto con los que el actor no
+  devolvió (borrados, privados, o el link mal copiado).
+- **Un link ya guardado no se vuelve a pagar** (se dice cuántos eran; `--de-nuevo` lo fuerza). Y si está **escondido**
+  (`dejo_de_verse_en`), el comando avisa que **leerlo de nuevo no lo revive** y deja el SQL para que se vea: el upsert por
+  `ref` no toca esa columna.
+
+**Vive en:** `lib/carruseles/biblioteca.ts` (`linkDeInstagram`, `planDeLinks`), `scripts/carruseles-biblioteca.mts`
+(`links`, y `guardarLeidas`, que es el guardado que ahora comparte con `leer`: una sola copia de las seis cosas que hay que
+hacer bien para que PostgREST no rechace la fila entera), con `tests/carruseles-por-link.test.ts`.
+
+⚠️ **Y la regla de método que dejó: en el camino que no se puede EJECUTAR, el único control es el tipado.** El comando sólo
+corre de verdad gastando crédito de Apify, y con el techo en US$0,00 ese camino no se ejecutó ni una vez: un `TS2552` (usar
+`entradaDeUnaPublicacion` en `links` sin traerlo) pasó todas las pruebas en seco y todos los tests. En este script **cada
+comando trae sus piezas por dentro** (`const { … } = await imp(…)`), y eso **no es un import del módulo**: lo que usan dos
+comandos se trae en los dos. Lo cazó el `tsc` entero de la punta; el acotado de la PC no corrió (la guardia de RAM lo negó
+cinco veces, con 0,8 a 2,1 GB libres de los 3 que pide) y **el pre-push, cuando no tiene RAM, avisa y deja subir** a propósito.
+**O sea: un comando nuevo que no se puede correr no está probado hasta que la punta da verde.** No se da por hecho antes.
+
 ## Sin dato no es «no»: el filtro gratis tiraba a Hormozi y a Leila (5/11/2026)
 
 **Síntoma:** el filtro `(laminas ?? 0) >= 3 && parece_contenido === true` descartó 582 de 1.344 piezas, entre ellas 11 de las 13 de `leilahormozi` y 6 de las 11 de `hormozi`.
@@ -118,6 +384,47 @@ Martín: «solo quiero carruseles que le sirvan a dueños de negocio». Se escon
 - **Primero limpiar, después leer láminas.** El comando `laminas` saltea lo escondido. Se hizo al revés y 169 de las 770 láminas pagadas eran de carruseles que después se escondieron. Costo medido: US$2,27 por 840 links, unos US$0,0027 cada uno.
 - **El modelo:** `gemini-3.5-flash-lite` contesta 400 si se le manda `thinkingConfig`. Los otros cortes de Gemini están en `docs/hallazgos-ia.md`.
 - **Para deshacer:** `update carruseles_biblioteca_piezas set dejo_de_verse_en = null where id = any(<ids>)`, con los `piezas[].id` de `C:/dev/cerebro-herramientas/tickets/carruseles-escondidos-2026-11-06.json`, que trae el motivo de cada una.
+
+## Un ejemplo nuevo no se ve hasta que alguien lo mira (6/11/2026)
+
+**El agujero, que estaba anotado en «Sin hacer» y nadie había cerrado:** la biblioteca la curó una persona a mano (598
+escondidas de 1.588 entre el 5 y el 6/11), pero **lo que trajera la próxima lectura iba a aparecerle al cliente sin que nadie
+lo mirara**. Medido el 6/11: las 1.588 entraron el 4 y el 5/11, así que el agujero todavía no se había materializado.
+
+**Lo obvio era filtrar automático, y ya estaba medido dos veces que no sirve** (las dos en este documento): el modelo barato
+se pasó de estricto (35 de 388 escondidos volvieron) y el filtro gratis `(laminas ?? 0) >= 3 && parece_contenido === true`
+tiraba 457 piezas de las que 363 servían. Así que no hay filtro: hay un **estado**, y decide una persona.
+
+**La regla:** `revisada_en` (mig 0411) en null = nadie la miró, y la biblioteca NO la muestra. El comando `revisar` del
+script deja una hoja HTML con las miniaturas y sus ids, y aplica lo que la persona decida: `--aprobar`, o `--esconder` con su
+motivo, que queda escrito en un JSON al lado de la hoja (la tabla no tiene columna para el motivo, y sin motivo no se puede
+deshacer). GRATIS: no le pide nada a Apify.
+
+**Cinco decisiones que no se ven en el diff:**
+
+- **Es un estado APARTE de `dejo_de_verse_en`, no el mismo.** «La miramos y no sirve» y «nadie la miró» no son lo mismo, y
+  los dos SQL de deshacer que viven en este documento salen de la FECHA de `dejo_de_verse_en`: mezclarlos los rompería.
+- ⚠️ **El backfill de la migración no es opcional: sin él, aplicarla vacía la vidriera de golpe** (las 990 que hoy se ven
+  pasarían a «sin mirar»). Las que ya están pasaron por la curaduría, así que la migración las marca. Una columna nueva con
+  la regla «sólo se muestra lo que la tiene» siempre tiene que decidir qué pasa con lo que ya existe, y el default (null) es
+  justo el que esconde todo.
+- **El filtro va en memoria, NO en un `filtros` de PostgREST.** Una columna que todavía no existe haría fallar la lectura
+  ENTERA (la misma trampa de la 0373 y de la 0391), y `estaRevisada` mira si la fila **trae** la columna, no si su valor es
+  null: con la 0411 sin aplicar, todo se ve como antes. Verificado contra producción con el código nuevo y la migración sin
+  aplicar: `carruselesDeLaBiblioteca()` devuelve los mismos 800 y una pieza suelta se abre igual.
+- **El upsert de la lectura NUNCA manda `revisada_en`,** como tampoco manda `dejo_de_verse_en`: si lo mandara, releer una
+  pieza ya aprobada la volvería a esconder. Lo fija un test sobre `filasDeLectura`.
+- **`laminas` no paga lo que nadie miró.** Es el mismo error de «primero limpiar, después leer láminas» (169 de las 770
+  láminas pagadas eran de carruseles que después se escondieron), sólo que ahora hay con qué filtrarlo.
+
+**Vive en:** `supabase/migrations/0411_carruseles_revisada.sql` (**sin aplicar**: la aplica Martín o el Cerebro),
+`lib/carruseles/biblioteca.ts` (`estaRevisada`, `sinRevisar`, `hojaDeRevision`), `lib/carruseles/biblioteca-servidor.ts`,
+`scripts/carruseles-biblioteca.mts` (`revisar`; `estado` dice cuántas faltan), con `tests/carruseles-biblioteca.test.ts`.
+
+⚠️ **Y una trampa del arnés de «probarlo rompiéndolo»:** el contador de rojos leía el resumen de `node --test` de la salida
+capturada, y una aserción que falla comparando dos objetos grandes imprime un diff que **desborda el `maxBuffer` de
+`execFileSync`** (1 MB): la salida vuelve cortada, sin el resumen, y la rotura se anota como «0 rojos» cuando el test la cazó
+perfecto. Un «0 rojos» se confirma corriendo ESA rotura a mano antes de creerle.
 
 ## Top Carousels: su biblioteca no se recorre, ni con la sesión de Martín (5/11/2026)
 
@@ -199,6 +506,10 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
   CJS. El reemplazo va en un archivo de verdad (`tests/_carruseles-acciones-de-mentira.ts`).
 - **El guard del voseo frena al detector del CTA** («mandame», «envíanos» son lo que escribe el creador): va en
   `FUERA_DE_ALCANCE` de `tests/puente-panel-copy.test.ts` con su porqué.
+  ⚠️ **Y barre TODOS los archivos, también la salida de un script de la PC que sólo lee Martín** (6/11/2026: un «Cargá crédito
+  y volvé a correrlo» en `porQueParo` dejó la punta roja en «Tests afectados», 7 min 28 s después). El copy va en neutro
+  siempre, aunque el único lector sea argentino. ⚠️ Y no caza todas las formas: «subí `--techo-usd`» pasó, porque «subí» es
+  también el pretérito de «yo subir». Un verde del guard no es «está en neutro».
 
 ## El pulido del 6/11/2026: lo que no era lo obvio
 
@@ -221,14 +532,37 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **El tipo de 1.213 carruseles** sigue vacío: sólo las láminas (o la portada leída) lo dirían. `lib/carruseles/clasificar.ts`.
 - **El «tema»** (finanzas, salud…) no se clasifica. Pedirá una pasada de IA por carrusel.
 - **Las capturas de Top Carousels ya llegaron** (`docs/carruseles/referencia-top-carousels/`) y los valores gruesos (4 columnas, modal en dos partes, filtros con deslizadores, colores del múltiplo) se ajustaron; faltan los finos (medidas exactas) contra un monitor real.
-- **Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire. El filtro no puede ser el de arriba.
-- **La lectura por links no está en el script oficial:** vivió en una copia temporal, ya borrada. La entrada de arriba es lo que hay que sumarle a `scripts/carruseles-biblioteca.mts`.
-- 1 de los 245 links sin leer, y 26 creadores de la lista sin leer.
+- ~~**Lo que entre de ahora en adelante no pasa por esta curaduría:** una lectura nueva queda visible sin que nadie la mire.~~
+  **Cerrado el 6/11/2026** con `revisada_en` (mig 0411) y el comando `revisar` (ver la entrada de arriba). **Lo que queda:**
+  la migración **sin aplicar** (la aplica Martín o el Cerebro: `node scripts/apply-migration.mjs
+  supabase/migrations/0411_carruseles_revisada.sql`) y que la pantalla de «Editar la biblioteca» todavía no muestra ni
+  aprueba lo que está sin mirar — hoy eso se hace con el script (`app/image-editor/carruseles/`,
+  `lib/carruseles/biblioteca-servidor.ts` → `bibliotecaParaEditar`).
+- 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
+  correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
 - Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
-- Series y duplicados sin marcar (por ejemplo, las partes de «you can find anything on the internet», o muchas de meal prep de una misma cuenta).
+- **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). Lo que queda: el mismo TEMA de un
+  creador (las de meal prep) NO se junta, porque son carruseles distintos del mismo rubro; juntarlos pide clasificar el tema, y
+  eso no existe todavía. Y «you can find anything on the internet» ya no está en la base (0 piezas el 6/11): el ejemplo del
+  pedido se fue con la curaduría del 6/11, no con esto.
 - **Salud y nutrición, café y déficit de atención** quedaron a la vista por la duda. Si Martín lo quiere más estricto, es lo próximo en esconder.
 - **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
-- **«Editar» de punta a punta con un carrusel real** se probó en producción el 6/11: abre el diseño de 8 páginas, pero «Tu IA no contestó ahora» y sale la guía con miniaturas vacías. Causa sin encontrar (`lib/carruseles/replica.ts:387`), encargada al chat de Carruseles.
+- **«Editar» con la IA real: probado y funcionando** (6/11, cinco corridas; ver la entrada de arriba). Lo que quedó abierto es
+  el **plazo**: una corrida llegó a 276,9 s contra el `maxDuration = 300` de `app/api/image-editor/carruseles/replicar/route.ts`,
+  porque el modelo principal de Gemini se cuelga 120 s enteros. Si se pasa, el stream se corta sin `fin` y la pantalla espera
+  para siempre. Las palancas: un presupuesto de tiempo para toda la cascada (hoy el plazo es por llamada, `lib/ai-cheap.ts`) o
+  un plazo más corto para el primer modelo. Falta medir cuánto tarda un pedido de 10 láminas que SÍ contesta.
+- **Un ejemplo que cuenta la historia de su autor no se puede replicar sin inventarle una historia al cliente** (medido con la
+  IA real, carrusel `-895`): el prompt ya prohíbe copiar sus hechos y el modelo igual le arma una biografía al negocio. Es
+  decisión de producto: o esos ejemplos no ofrecen «Editar» (el tipo ya se clasifica, `lib/carruseles/clasificar.ts`), o se le
+  pide al dueño el dato que falta antes de escribir. No se puede tapar en el saneo.
+- **El ws 3 («Cliente de Prueba») no tiene ninguna clave de IA**, así que el comando de prueba con `--ws 3` sólo ejercita el
+  camino sin IA. Conectarle una es escribir en producción: pendiente del sí de Martín. Mientras tanto, la prueba con IA real va
+  con `--ws 9`.
+- **Del orquestador falta cubrir el camino de la MINIATURA** (`replicarEjemplo` con `que: 'thumbnail'`):
+  `tests/carruseles-editar.test.ts` corre los seis casos del carrusel, y la miniatura sólo se probó a mano con la IA real
+  (21,6 s, una lámina de 1280 × 720 con el gancho del negocio). Su camino en seco ya armaba el documento, así que ahí no vivía
+  el bug, pero es la mitad del orquestador sin arnés.
 - **Las fotos de la gente en una lámina** (que no son el cliente) quedan como un recuadro con su guía: generarlas con la IA de
   imagen del avatar es el paso siguiente.
 

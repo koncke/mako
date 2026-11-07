@@ -158,35 +158,6 @@ export interface EditorServices {
   } | null
 }
 
-/**
- * How the editor joins the live room of a design. Offered by the account and edit-link adapters when
- * the server has real-time editing; everyone in a room is signed in, so guests never get one.
- */
-export interface RealtimeConnection {
-  /** Absolute `ws://` or `wss://` address of the design's room. */
-  url: string
-  /** Share-link credentials, sent in the first frame; absent for the owner. */
-  auth?: { token: string; password?: string }
-  /** Renames the design without touching its document; `null` when this user may not rename it. */
-  setTitle: ((title: string) => Promise<void>) | null
-  /** The room needs a session. Resolves `true` once the user is signed in again (the shell shows its sign-in flow). */
-  requireSignIn(): Promise<boolean>
-  /** A cheap authenticated request that repairs a stale session; resolves `true` when the user is still signed in. */
-  refreshSession?(): Promise<boolean>
-  /** The server saved the design at this revision; keeps REST saves (the fallback) in step. */
-  onRevision?(revision: number): void
-  /** Stores the first page's thumbnail of the design (owner only; the room does not draw one). */
-  uploadThumbnail?(image: Blob): Promise<void>
-  /** Set by the editor while a room is connected: stores the live state in the design and resolves once it is stored. */
-  flushRef: { current: (() => Promise<void>) | null }
-  /**
-   * Opens the room's connection ahead of the editor: the shell calls `start()` while the design and the editor are still
-   * loading, so the server's copy is on its way by the time the editor mounts, which adopts it from `room`. `release()`
-   * closes it again if the editor never did.
-   */
-  early: { room: { close(): void } | null; start(): void; release(): void }
-}
-
 export interface EditorAdapter {
   save(input: SaveInput): Promise<SaveResult>
   /**
@@ -198,8 +169,6 @@ export interface EditorAdapter {
   /** Turn a stored `src` (`idb://…`, `/media/…`, `https://…`) into a URL Fabric can load. */
   resolveSrc(src: string): Promise<string>
   services: EditorServices
-  /** The design's live room; absent or `null` when real-time editing is not available (the editor saves over REST). */
-  realtime?: RealtimeConnection | null
   /**
    * «Copiar y redimensionar» de Canva: guarda `document` como un diseño NUEVO (el actual no cambia) y lo abre.
    * Absent → «Redimensionar» sólo ofrece cambiar este diseño.

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Button, Modal, Toast, useToast } from '@/app/_ui';
 import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
+import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import type { CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { textoCupo } from '@/lib/media-buyer/plan';
@@ -88,8 +89,9 @@ export function Automatizaciones({ config: inicial, decisiones, cupo, abrir = nu
           </dl>
         </GrupoAjustes>
 
+        {/* El cupo del plan: al cliente de una agencia el piloto se lo habilita ELLA (6/11/2026, #494), no se le ofrece comprarlo. */}
         <GrupoAjustes titulo="Tácticas" descripcion={cupo.piloto ? `${prendidas} de ${ORDEN_TACTICAS.length} prendidas`
-          : <>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'Las automáticas son de MaKo Pro.'} <Link href={RUTA_CAMBIAR_PLAN} className="aa-link">Pasar a Pro</Link></>}>
+          : <>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'Las automáticas son de MaKo Pro.'} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} className="aa-link">Pasar a Pro</Link></CtaPasarAPro></>}>
           {ORDEN_TACTICAS.map((t) => {
             const r = resueltas[t];
             const ultima = decisiones.filter((d) => d.tactica === t).map((d) => d.creada).sort().pop() ?? null;

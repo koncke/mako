@@ -7,6 +7,24 @@ del código.
 
 ---
 
+## «Escribe a Chat nuevo»: un texto armado con un nombre tiene que preguntar si el nombre existe (6/11/2026)
+
+**Vive en:** `app/admin/operaciones/Conversacion.tsx` (el `placeholder` de la caja) · `lib/chat-mako-reglas.ts`
+(`SIN_TITULO`). Lo fija `tests/centro-caja.test.ts` (caso 7).
+
+**Síntoma:** la caja de un chat recién abierto del Ops Center decía **«Escribe a Chat nuevo»**, como si «Chat nuevo» fuera
+alguien a quien se le escribe.
+
+**La causa:** el placeholder era `` `Escribe a ${chat.titulo}` ``, y `chat.titulo` es `SIN_TITULO` (`'Chat nuevo'`) hasta que
+el modelo le pone un nombre **después del primer turno**. O sea que el único momento en que esa caja se ve vacía —antes del
+primer mensaje— es justo el momento en que el título todavía no existe: **el caso roto era el único caso visible.**
+
+⚠️ **La regla que queda: un texto de pantalla armado con un nombre tiene que preguntar si el nombre existe.** Un placeholder
+de «valor por defecto» interpolado dentro de una frase deja de ser un valor por defecto y se vuelve una afirmación.
+
+Sin título no se nombra a nadie: va **«Escribe lo que necesitas»**, el mismo texto que la caja de al lado
+(`CajaChatNuevo.tsx`) ya usaba para un chat nuevo — una sola voz, no un sinónimo nuevo.
+
 ## Un Runner muerto no se revive con un mensaje, y una tarea programada no lo reemplaza: entrega de a una vuelta (4/11/2026, Runner)
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` · `scripts/operaciones/guardia-runner.md` · `scripts/claude-hooks/bitacora-sesion.sh` · la tarea `runner-guardia-<cuenta>` (una por cuenta, en la app)

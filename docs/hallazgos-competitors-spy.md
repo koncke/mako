@@ -15,6 +15,321 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### Un anuncio en video se guardaba sin decir que lo era, y el arreglo había ido a la otra fuente (6/11/2026, tarde)
+
+**Síntoma:** el explorador de Image mostraba videos en «Anuncios», que es una pantalla para copiar imágenes. El arreglo de
+la mañana leyó el `displayFormat` del actor de Apify (`anuncioDeApify`, lib/spy-todo-reglas.ts) y dio por hecho que lo viejo
+se iba a completar en la próxima lectura.
+
+**Lo obvio era que el dato viene de Apify, y los 300 anuncios guardados no vinieron de ahí.** Medido contra producción: los
+300 tienen `fuente: 'recorrido'`, o sea los leyó la EXTENSIÓN (`lib/spy-captura.ts`) desde el Chrome de Martín; por Apify no
+entró ninguno. La extensión también lo decía, dos veces, y las dos se tiraban: `extension/spy-leer.js` manda un token
+`['v', poster]` por cada `<video>` dibujado (acá se usaba sólo como miniatura de respaldo) y la Biblioteca escribe el reloj
+del video sobre el creativo («0:15», «0:00 / 1:28»), que `RE_TIEMPO_DE_VIDEO` sacaba del copy sin anotar qué significaba.
+
+**Lo que gobierna código nuevo:**
+- `anuncioDe` devuelve `medio: 'video'` con cualquiera de las dos señales (`medioDeLaTarjeta`), y el token `'v'` se exige del
+  CDN de Meta igual que la miniatura: lo que llega lo manda un navegador.
+- **Nunca «imagen» por ausencia de señal de video:** una tarjeta cuyo `<video>` todavía no se dibujó muestra sólo su portada
+  como imagen. Sin señal queda `null`, y quien lo muestra decide (lib/carruseles/anuncios.ts).
+- **Antes de prometer «lo arregla la próxima lectura», contar por dónde entraron las filas que ya están (`fuente`) y cuántas
+  siguen vivas.** Acá 279 de 300 ya tenían `dejo_de_verse_en`: un anuncio que bajó no vuelve en una lectura nueva.
+
+⚠️ **Y la lectura cruda de Meta NO queda en ninguna parte.** `spy_lecturas_canal` (mig 0363) acepta el canal «anuncios» en
+su `check`, pero **nadie escribe ahí**: `lib/spy-captura-db.ts` lo dice en su cabecera («lo leído de Meta es de quien lo
+leyó», no se comparte entre negocios). Son 0 filas. Lo que la lectura no copió a `spy_piezas` se perdió, y un `check` que
+permite un valor no es prueba de que alguien lo escriba.
+
+El detalle (qué se midió campo por campo, y qué hace el explorador con un «no sé») está en
+[hallazgos-carruseles.md](hallazgos-carruseles.md) → «El arreglo cubrió la fuente que NO trajo ni un anuncio».
+### El país del competidor: la columna existía, nadie la escribía, y el único que preguntaba se tapaba solo (6/11/2026)
+
+**Lo medido.** `spy_competidores.pais` está desde la migración 0359 con su comentario escrito («El país en que se lo
+mira, en ISO-2. Decide si se le pueden prometer anuncios o no») y un `check` de dos letras. Barrido completo: cinco
+lugares la leen (`lib/spy.ts:93` el tipo, `:164` el select, `lib/spy-reglas.ts:353`, `lib/spy-funnel.ts:399`,
+`lib/api-mako/areas/spy.run.ts:218`) y **cero la escriben**. Llegaba `null` siempre, desde el día uno.
+
+**La parte que no se ve.** `adLibraryCubreComercial` existe justamente para «que la pantalla prometa lo que hay en vez
+de mostrar una lista vacía que parece *este competidor no pauta*». Y su ÚNICO llamador la tapa con un cortocircuito:
+
+```
+if (… && c.c.pais && !adLibraryCubreComercial(c.c.pais)) out.push(SIN_ANUNCIOS_EN_ESTE_PAIS);
+```
+
+Con `pais` null —o sea siempre— ese `&&` se come el aviso honesto. **Una guarda contra el dato ausente, puesta bien,
+desactiva la función entera cuando el dato nunca llega.** Y no hay forma de notarlo leyendo el código del aviso: está
+correcto. Hay que ir a ver quién escribe la columna. En `app/` `adLibraryCubreComercial` no tenía ni un llamador.
+
+**Lo que costaba.** La Biblioteca de Meta sólo entrega anuncios comerciales de la UE y el Reino Unido (28 países);
+fuera de ahí devuelve sólo política, con HTTP 200 y lista vacía. Para un competidor mexicano la ficha decía **«Sin
+anuncios activos en Meta · lo miré el …»**, que es una afirmación sobre él, cuando el hecho es que nunca se pudo
+mirar. Y el enlace a la Biblioteca iba con `country=ALL`.
+
+**La regla que queda.** «Se miró y no había» y «nunca se pudo mirar» son **dos frases distintas**, y la segunda nombra
+el país. Lo pregunta la ficha en «⋯ Más acciones» (un HECHO suyo, no una acción), no el alta —que es un campo y un
+Enter— y **no se pide por su cuenta**: sin el dato se sigue diciendo lo de antes, nunca un «falta». `null` se puede
+volver a poner («No lo sé»): un país equivocado hace más daño que ninguno.
+
+**Dos trampas del entorno:**
+
+- **Lo que se guarda en una columna ISO-2 se valida contra `PAISES` ANTES del `update`.** El `check` de la base no
+  vuelve como «no válido»: vuelve como un error de Postgres en medio de la acción, con su texto en la pantalla.
+- **Las banderas son IMÁGENES, no emoji** (`flagUrl`, lib/paises.ts): en Windows el emoji de bandera se dibuja como
+  las dos letras, porque Segoe UI Emoji nunca las incluyó.
+
+**Y un guard propio que se puso rojo contra código correcto.** `tests/spy-anuncios-apify.test.ts` caso 5 buscaba el
+texto JSX literal `Sin anuncios activos en Meta · lo miré el {fechaCorta(…)}`. La frase sigue diciéndose, pero ahora
+dentro de una plantilla (`${…}`), porque arriba hay un ternario: el guard medía la FORMA del JSX, no el hecho. Es la
+tercera vez que pasa en esta tab: un guard de fuente afirma lo que el código HACE, y al cambiar la forma de alrededor
+hay que releerlo, no relajarlo.
+### «Spy mira sólo 50 por vez» eran TRES topes distintos, y el que sobraba cortaba datos ya bajados (6/11/2026)
+
+**Lo medido.** `TOPES.piezasPorVuelta` (50, lib/spy-reglas.ts) tiene cuatro usos, y el barrido completo muestra que
+**ninguno toca Meta**:
+
+| Camino | Tope | Dónde | Qué cuesta subirlo |
+|---|---|---|---|
+| YouTube Data API | `piezasPorVuelta` | lib/spy-youtube.ts:386,390 · lib/spy.ts:769 | una llamada por página; y YA tiene su camino largo (`VIDEOS_POR_LECTURA_COMPLETA`) |
+| Meta / Business Discovery | **`PIEZAS_A_LEER` = 25** | lib/instagram-perfil.ts:105 | la credencial, y un límite que Meta no acepte tira la consulta ENTERA |
+| Apify | **`PIEZAS_DE_APIFY` = 100** | lib/instagram-perfil.ts:130 | nada: «el actor YA DEVUELVE todas las que trajo» |
+| Lo que la persona CAPTURÓ en su navegador | `piezasPorVuelta` | lib/spy-captura-db.ts:79 | **nada: ya está bajado** |
+
+**El que importaba era el cuarto, y no estaba en el pedido.** En «Guardar en Spy», los anuncios ya están dibujados en
+la pestaña de la persona y el servidor los interpreta; cortar en 50 es **pérdida pura**, y encima silenciosa: el
+desplegable decía «50 anuncios en la ficha de Ana» sin decir «de 213». La captura tiene su techo de verdad mucho más
+arriba (`TOPE_TOKENS` = 20.000 tokens, ~2.800 anuncios).
+
+**La regla que queda.** Un tope de «traer de afuera» y un tope de «quedarme con lo que ya tengo» **no pueden ser la
+misma constante**: el primero tiene precio y el segundo no. Son dos campos de `TOPES`
+(`piezasPorVuelta` / `piezasDeUnaCaptura`), cada uno con su comentario diciendo qué cuesta subirlo. Y si el segundo
+igual corta, **se dice cuántos quedaron afuera** (`sinGuardar`), con la misma forma que ya tenía `otros` («N de otros
+anunciantes no se guardaron»).
+
+**Dos cosas que NO se tocaron, y por qué:**
+
+- **Meta sigue en 25 y es un trámite, no código**: sin la credencial de Business Discovery no se puede medir, y en la
+  Graph API un límite que no acepta no devuelve «no acepto»: falla la consulta entera.
+- **YouTube sigue en 50 por vuelta a propósito**: el competidor que publica mucho ya está cubierto por la lectura
+  completa (`VIDEOS_POR_LECTURA_COMPLETA`, el camino de «traer todo»). Subir la vuelta de rutina pagaría más llamadas
+  en TODAS las lecturas para resolver un caso que ya tiene su camino.
+
+**Y un dato del barrido:** el 50 **no tenía ni un test**. `grep piezasPorVuelta` sobre `tests/` daba cero: se podía
+cambiar sin que nada se quejara, en las dos direcciones.
+### La cola de caricaturas frenada: «falta un cron» era el diagnóstico equivocado (6/11/2026)
+
+**El síntoma.** Si el Runner no genera —la causa conocida: su cuenta de Claude sin Canva conectado, que **no anota
+ningún error**—, la pendiente espera, la tarjeta del competidor sigue diciendo «Haciendo su caricatura…» para siempre
+y no hay nada en ninguna pantalla. `masVieja` tenía **un solo lector en todo el repo**:
+`scripts/spy-caricaturas-pendientes.mjs`, que corre a mano.
+
+**El diagnóstico obvio, y por qué era el equivocado.** «No hay cron ni pantalla que lea `masVieja`» lleva derecho a
+un cron: `listarCola` recorre TODOS los negocios, así que hace falta la clave de servicio, unas `DepsTodos` nuevas del
+lado del servidor (las de `lib/spy-caricatura-servidor.ts` son de UN negocio e ignoran su argumento `ws`), una ruta
+`/api/cron/…` y una fila en `vercel.json` — **que una corrida no puede tocar desde un worktree** (la agrega quien
+integra: `tests/cron-registrado.test.ts`). Es decir: el camino obvio no estaba disponible, y es cinco veces más
+grande.
+
+**Lo que ya estaba.** `masVieja` tiene dos mitades y se habían confundido: la de **todos** los negocios (la que
+necesita el Runner, para elegir a quién le pide la próxima) y la de **este** negocio, que es la que una pantalla
+necesita. Y la segunda ya estaba a mano: el registro vive en `app_settings` del negocio, y `listarCompetidores`
+(lib/spy.ts) **ya lo lee en cada pedido** para decidir qué tarjeta dice «Haciendo su caricatura…». Faltaba quedarse
+con la fecha, no con el booleano. Cero claves de servicio, cero crons, cero migraciones.
+
+**La regla que queda.** Un número que no debería crecer se dibuja **donde vive la cosa que mide**, con el dato que ya
+llega en el pedido, y **sólo para quien puede hacer algo con él**: el Runner es nuestro, así que `frenadaDesde` lo
+manda el server sólo al super admin (en la página y en la ruta del refresco, las dos). A un cliente «la cola está
+frenada» no le dice nada que pueda hacer, y su tarjeta ya muestra su foto sin cartel. El agregado por negocio es
+`esperaMasVieja`; el de todos los negocios se queda donde estaba, en el Runner.
+
+**El umbral tiene techo, y no es una opinión.** `COLA_FRENADA_MS` = 6 h, y tiene que quedar **por debajo de
+`ESPERA_TRAS_FALLO_MS`** (24 h): pasada esa espera, una pendiente que falló deja de estar «pendiente» y la frase no
+se diría nunca. El test lo fija con un `assert` sobre las dos constantes, no con un número escrito a mano.
+
+**Y lo que no cuenta como «frenada»**, porque Canva sí contestó: la que falló y espera su reintento, la que se
+rindió a los tres fallos, la que ya está, un referente dibujado y una foto que no es nuestra. Una cola «frenada» es
+sólo la que **nadie tocó**.
+
+**Sin hacer:** la vista de TODOS los negocios juntos sigue siendo del Runner (un comando). Si alguna vez se quiere en
+el tablero del super admin, ahí sí hace falta la clave de servicio y la fila de `vercel.json`.
+### El acortador se resolvía a su propia página de «link expirado», y nadie lo habría visto (6/11/2026)
+
+**Lo que se medía.** El 4/11 quedó pedido «correr los dos curl de `linktw.in/pywydg` desde la PC» con tres
+hipótesis: redirige por HTTP, redirige por JavaScript, o es una página de «continuar» con botón. Se corrió.
+**Las tres estaban equivocadas, y la respuesta era peor que cualquiera de ellas.**
+
+**Lo medido** (`curl`, 6/11/2026, 71.859 B):
+
+- HTTP **200**, cero redirecciones, sin cabecera `Location` (cabecera propia: `X-Short-Link: true`).
+- **Ninguna** etiqueta `<meta http-equiv="refresh">`.
+- 140 caracteres de texto a la vista: «Redirecting… · Open in YouTube · Open in app · Open in browser».
+- Su JS se manda a **diez** lugares distintos: la app de Android, la de iOS, TikTok, X, Chrome por
+  `googlechrome://navigate?url=`, y el destino calculado — todos a través de una **variable**.
+- El destino de verdad (`https://youtu.be/99n0XhdDq0Y`) está **sólo en el `href` de un botón**.
+
+**La falla.** `redireccionDelCliente` (lib/pagina-real.ts) se queda con el primer `location` que tenga la
+dirección **escrita a la vista**, y en un acortador de verdad la única escrita así es su **rama de error**:
+`location.replace('/expired')`. Resultado medido: devolvía **`https://linktw.in/expired`** y la pantalla
+mostraba esa página —«link expirado»— como si fuera la del competidor, con `estado: 'abierta'` y el marco
+verificado. El cliente toca la página del competidor y llega a un cartel de link vencido.
+
+**Por qué no se iba a ver nunca.** No hay error, ni log, ni vacío: hay una página que carga bien y dice algo
+razonable. La prueba que existía usaba HTML inventado con **un solo** `location.href = "https://…"`, que es
+justo la forma que un acortador real no tiene. Un acortador de verdad no escribe su destino: lo calcula.
+
+**La regla que queda.** **Una página que puede mandar a más de un lado no se sigue a ninguno.** Si en su JS hay
+más de una asignación a `location`, no se sabe cuál corre, y acá «no sé» se dibuja «Abrir», nunca un destino
+inventado. Y la otra mitad: `soloRedirige(html)` dice «esto es un acortador o un “continuar en…”, no la página
+que se quería ver» — la ruta lo deja en «Abrir» en vez de mostrar su «Redirecting…» adentro del marco.
+`tests/spy-paginas-verificadas.test.ts` caso 7 lo vigila con la FORMA medida (diez asignaciones, una sola
+escrita, y ésa es `/expired`): sacar el corte devuelve literalmente `https://linktw.in/expired`.
+
+**Sin hacer:** el destino de verdad está en el `href` de «Open in browser». Leerlo es otra cosa que seguir una
+redirección —un `href` de una página ajena puede ser cualquier cosa— y hoy no se hace: queda «Abrir».
+
+### Cablear lo capturado a su oferta no alcanzaba: la espera del fallo lo dejaba invisible 24 horas (6/11/2026)
+
+**El pedido** era chico: una página que la extensión ya capturó tiene que alimentar la lectura de su oferta, porque
+una web con barrera (el «comprueba que eres una persona» de Cloudflare en el Beacons de Den Borg) no se baja desde el
+servidor y Offer se quedaba sin leerla. El cambio obvio es un plan B en `leerSuOferta` (lib/spy-oferta.ts). **Y con
+eso solo, la función anda y la pantalla sigue sin mostrar nada.**
+
+**Por qué.** Cuando la bajada falla, la oferta queda en `no-pudo` con `fallos: 1`, y `hayQueLeer` no la vuelve a
+mirar hasta `ESPERA_TRAS_FALLO_MS` — **24 horas**, y una semana entera con tres fallos (`FALLOS_HASTA_ESPERAR`). El
+recorrido real es: la persona abre al competidor, lee «No pude leer su web.», **va y la captura** con la extensión,
+vuelve a abrirlo… y ve lo mismo. Hoy, mañana y —con tres fallos encima— los siete días siguientes. La espera está
+bien pensada para lo que la puso (no reintentar en cadena contra una web que no contesta), y es exactamente lo
+contrario de lo que hace falta cuando aparece **información nueva**.
+
+**La regla que queda.** Una fuente nueva para algo que ya falló **le borra la espera a ese algo**. Acá:
+`sinEspera()` (lib/spy-oferta.ts) devuelve lo guardado con `fallos: 0` y `desde` en la época, y
+`reintentarOfertaYa()` (lib/spy-oferta-servidor.ts) lo escribe con compare-and-set; lo llama
+`guardarPaginaCapturada` **después** de guardar la página. Si lo último SALIÓ bien, no toca nada: no se vuelve a
+pagar la IA por una lectura que ya está.
+
+**Y la trampa de imports, que es un ciclo.** El camino natural —importar `paginasCapturadas` de
+`lib/spy-pagina-capturada-servidor.ts`— **cierra un ciclo**: ese archivo ya importa `ofertaGuardada` de
+`lib/spy-oferta-servidor.ts`. Se lee del módulo **puro** (`lib/spy-pagina-capturada.ts`:
+`claveDePaginasCapturadas` + `leerPaginasCapturadas` + `capturaDe`) con el `getSettingEstricto` que ese archivo ya
+tenía: dos líneas y ningún ciclo. `tests/spy-oferta.test.ts` caso 8 lo fija con un `doesNotMatch` sobre el import
+del `-servidor`, porque el ciclo no da error: rompe al inicializar, y sólo en algunos órdenes de carga.
+
+**Dos cosas más, medidas:**
+
+- **La bajada del servidor le GANA a la capturada**, no al revés: una captura es de cuando se capturó y lo que el
+  servidor puede bajar hoy está más fresco. La capturada entra sólo si la bajada falló o trajo menos de `MIN_TEXTO`.
+- **Una página guardada por su FOTO no alimenta la oferta, y es correcto**: `juzgarCaptura` acepta una captura con
+  poco texto si trae foto, y `MIN_TEXTO` (200) la rechaza después. No es un error — una foto no es una oferta — pero
+  es silencioso: en la pantalla la página está guardada y su oferta sigue diciendo que no la pudo leer.
+
+**Sin hacer:** cambiar de fuente cambia `huellaDe`, así que el primer competidor que se lea de lo capturado **vuelve
+a pagar la IA una vez** (es el mismo precio que una web que cambió). Y el desafío de un antibots **no se evade**: se
+usa lo que la persona ya miró en su navegador.
+
+### Los 19 formatos: lo que faltaba era una MARCA, no una repasada (6/11/2026)
+
+**El pendiente decía** «falta decidir y correr una repasada» de todo lo ya analizado con los 11 formatos viejos. Medido
+contra el código, la repasada no hacía falta y era lo caro:
+
+- **Los 19 ids son un SUPERCONJUNTO de los 11.** Lo medido (`git show` del commit de los formatos): los viejos eran
+  `pov, storytime, antes-despues, tutorial, lista, opinion, resena, testimonio, detras, entrevista, otro`, y los ocho
+  que entraron son `caso-de-exito, mito, recap-evento, preguntas, reaccion, tendencia, frase, promo`. **Ningún valor
+  guardado quedó inválido**, así que no hay nada que migrar en `spy_piezas.analisis`: un `tutorial` de entonces sigue
+  siendo un `tutorial`, y releerlo lo paga el negocio para no cambiar nada.
+- **Lo que SÍ quedó mal es lo que cayó en `otro`**, porque el formato que de verdad era podía no existir cuando se lo
+  leyó. Esas son las piezas que dejaron «¿Qué formatos le funcionan?» más vacío de lo que corresponde.
+- **Y «los formatos nuevos no se usan al analizar» ya estaba HECHO**: el prompt recibe los 19 con su definición
+  (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`), con su test. El pendiente de la lista era un fantasma.
+
+**Por qué no se arreglaba solo.** `faltaAnalisis` relee una vez lo que no tiene la CLAVE `formato` (lo de antes del
+4/11), y un `otro` ya la tiene: pasaba el filtro y no se volvía a leer nunca. Los dos criterios convivían sin que nada
+lo avisara, que es justo lo que decía el pendiente.
+
+**La regla que queda.** Un análisis que la IA hizo **lleva escrito con qué catálogo lo hizo** (`analisis.formatosV`,
+`VERSION_FORMATOS` en lib/spy-detalle.ts), y lo que se marcó con un catálogo más chico **y quedó en el cajón de sastre**
+se relee UNA vez. Sin esa marca no hay forma de distinguir un `otro` de hoy de un `otro` de los 11 viejos, y cualquier
+intento de arreglarlo o relee todo (caro) o no relee nada (el estado anterior).
+
+**Dos cortes que la marca hace posibles, y que importan porque la IA es del NEGOCIO:**
+
+- Se relee **sólo** lo que quedó en `otro`, no todo lo viejo.
+- Es **una** vez: `ANALISIS_SIN_DATOS` —lo que se guarda de una pieza que la IA no devolvió— también lleva la marca. Sin
+  eso, esa pieza pediría lectura para siempre, que es exactamente la trampa que el comentario de `faltaAnalisis` ya
+  avisaba para el caso anterior.
+
+**Sin hacer, y es un agujero silencioso:** el system prompt pasa por `renderPrompt('spy.analisis.system', …)`, así que un
+negocio que **guardó su propio prompt antes del 4/11** sigue con su texto, que no tiene el hueco `{{formatosQueSon}}`:
+su IA recibe los 19 ids **sin saber qué es cada uno**. El test de los formatos mira la plantilla por defecto, no los
+prompts guardados. Vive en `lib/prompt-registry.ts` (la ranura declarada) y en `lib/spy.ts` (el `renderPrompt`).
+### Lo que de Spy NO es código, y el número de migración del relevo ya está tomado (6/11/2026)
+
+**El número de migración del relevo está vencido.** `docs/relevo/nube-spy.md` dice «hace falta un bucket privado, o sea
+una migración: **pido el número**» y los encargos repiten «el número libre es 0410». Medido el 6/11 en disco:
+**0410 y 0411 ya existen** (`0410_correo_bajas.sql`, `0411_carruseles_revisada.sql`). Es la segunda vez que pasa en
+esta tab —el 31/10 el relevo decía 0306 y en disco el más alto era 0357—, así que vale como regla y no como anécdota:
+**el número de la próxima migración no se lee de un relevo ni de un pendiente**; se barre el disco de todos los
+worktrees y, con coordinador, se le pide a él (AGENTS.md → «El próximo número de migración es un recurso COMPARTIDO»).
+
+**Y lo de Spy que no se destraba escribiendo código**, con lo que lo destraba y dónde vive. Trece de los treinta y tres
+encargos del 6/11 son éstos: no tiene sentido volver a triarlos.
+
+| Qué | Qué lo destraba | Dónde vive |
+|---|---|---|
+| El guion de un video de YouTube (7 pruebas, 503) y su costo por minuto | la IA del negocio contra el servicio real, y una decisión de Martín: ¿un negocio SIN su Gemini transcribe con la clave de la plataforma? Hoy AGENTS lo prohíbe | `lib/spy-transcripcion-servidor.ts` (`tramoDeYoutube`) |
+| La primera lectura real de anuncios por Apify (¿trae `pageID`?) | una clave de Apify con crédito, desde la PC: la nube no llega a Apify | `scripts/probar-anuncios-apify.mjs` · `lib/spy-todo-reglas.ts` |
+| El competidor 13 del ws 11 con 12 piezas, y el YouTube de Leila | la base de producción desde la PC (son 6 consultas de LECTURA, ya escritas) | `docs/relevo/nube-spy.md:99-107` y `:191-208` |
+| ¿Compartir las lecturas ahorra algo? | leer `spy_lecturas_canal.ahorros` en producción | `lib/spy-compartido-db.ts` (`anotarAhorro`) |
+| La cola de caricaturas contra la base real | el Runner en la PC, con Canva conectado en su cuenta de Claude | `scripts/spy-caricaturas-pendientes.mjs` y `spy-caricatura-guardar.mjs` |
+| Que el fin de crédito de Apify diga lo que se supuso | una corrida real que se quede sin crédito | `lib/spy-todo-reglas.ts` (`esFaltaDeCredito`) |
+| «Capturar» en un Chrome de verdad, y publicar la extensión | la tienda de Chrome (es un trámite de Martín) y una persona que pase la barrera | `public/mako-puente-0.77.0.zip` · `extension/spy-pagina.js` |
+| Media docena de pantallas con un competidor real, y cuánto tarda la ficha | mirar producción con Den Borg: la vista de prueba no tiene el CDN de Meta | `app/competitor-spy/` |
+| «Sugeridos», la oferta de un competidor y el guion de un reel, con un negocio real | un negocio con su IA y su Apify | `/api/competitor-spy/oferta` · `lib/spy-transcripcion-servidor.ts` |
+| Guardar el diseño de «Copiar su sitio» | un bucket PRIVADO: una migración (número por pedir) y cambiar el lado que lee, porque hoy todo asume una URL pública | `lib/spy-miniaturas.ts` · `supabase/migrations/0361_spy_miniaturas_guardadas.sql` |
+| Las 50 piezas por vuelta de Meta | la credencial de Business Discovery: un límite que la Graph API no acepta tira la consulta ENTERA, y sin credencial no se mide | `lib/instagram-perfil.ts` (`PIEZAS_A_LEER`) |
+
+**El código de todos está escrito** (lo verifiqué uno por uno: `tramoDeYoutube`, `ver_sugeridos`/`sumar_sugerido`,
+`bloqueOfertaDeOtro`, `ANUNCIOS_POR_APIFY = true`, el cron `spy-todo` en `vercel.json:236`, los dos scripts del
+Runner). Lo único que falta es correrlos donde se puede.
+
+**Y un pendiente FANTASMA menos:** «los formatos nuevos del catálogo en el análisis de piezas» ya estaba hecho — el
+prompt recibe los 19 con su definición (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`, `lib/spy.ts`), con su test. Lo que
+faltaba de verdad era otra cosa, y está arriba en «Los 19 formatos».
+### Juntar repetidos: la rama de los nombres de varias palabras estaba MUERTA, y lo dijo la rotura (6/11/2026)
+
+**El cambio** era ofrecer «Juntarlos» para las cargas repetidas de la misma persona, mudando las piezas en vez de
+borrar una (borrar se las lleva por `on delete cascade` y no se deshace).
+
+**Lo que encontró el probar rompiéndolo.** `mismoNombre` tenía dos ramas: una palabra metida en el otro nombre
+(«hormozi» ⊂ «@AlexHormozi») y varias palabras que tienen que estar TODAS («Sofia Contreras» ⊂ «Sofia Contreras
+Coach»). Cambiar el `every` de la segunda por un `some` —el bug clásico, que haría emparejar «Marcos Pérez» con «Ana
+Pérez»— **no ponía NADA en rojo**. La rama no se ejecutaba nunca: las palabras se contaban sobre el nombre ya pasado
+por `nombreComparable`, **que saca los espacios**, así que «Ana Pérez» era UNA palabra («anaperez») y el `if` de
+«varias» era inalcanzable. Se cuenta sobre el nombre crudo y la rotura ya cae.
+
+**La regla que queda.** Un test que no cae al romper lo que vigila no vale, **y «no cae» puede querer decir que el
+código que vigila no corre**. Es el caso contrario al de un guard que mide la forma equivocada: acá el guard estaba
+bien y el código estaba muerto. Hay que romper CADA rama, no el caso de más arriba.
+
+**Dos cosas más que el pedido fijó y conviene no redescubrir:**
+
+- **Un DOMINIO no se empareja con una persona**, a propósito: «acquisition.com» y «@AlexHormozi» pueden ser lo mismo o
+  pueden ser su empresa y él. En el código no existe ninguna comparación nombre-contra-dominio, así que la aserción
+  que lo dice **documenta la decisión, no la vigila**: ningún cambio de una línea la pone en rojo. Está para que no se
+  agregue.
+- **Quién queda lo decide la cantidad de PIEZAS, nunca el nombre.** «sofiacontreras» puede ser la fila con 200 piezas
+  leídas: el nombre se arregla, las piezas no se recuperan. Después empatan por cuentas conocidas, por última mirada y
+  por id (el que se cargó primero, que es el que el cliente tiene enlazado).
+
+**El orden en el servidor NO es cosmético** (lib/spy-juntar.ts): mudar y DESPUÉS borrar. `spy_piezas` tiene
+`on delete cascade`, así que borrar primero se lleva todo lo leído de esa persona sin vuelta atrás; si la mudanza se
+corta, no se borra nada y quedan los dos repetidos, que es el estado de antes. Y las piezas que el que queda YA tiene
+no se pueden mudar: la tabla es única por (negocio, competidor, canal, ref) y la mudanza entera se caería — se van con
+la copia, que es la misma pieza leída dos veces.
+
+**Sin hacer:** la oferta leída, los guiones y las páginas capturadas del que se va se van con él. Sale gratis porque
+al completarse con su web el que queda tiene una web nueva y `hayQueLeer` lee su oferta sola al abrir su ficha; pero
+los guiones de sus reels se vuelven a pedir (una lectura de Apify por reel que se abra). Y los pares se ofrecen de a
+UNO: con tres cargas de la misma persona, la tercera aparece después de juntar las dos primeras.
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).

@@ -11,7 +11,9 @@
 //   4. una página de error se reconoce por su título o su principio, y «500 personas compraron» es una página;
 //   5. la pantalla: el marco escondido con su esqueleto hasta que ÉL avisa (sólo sus mensajes cuentan), sin aviso a tiempo queda
 //      «Abrir», y si se va a otra página tiene que volver a avisar;
-//   6. la ruta: el destino viaja (`final`) y una página que contesta con su error no está abierta.
+//   6. la ruta: el destino viaja (`final`) y una página que contesta con su error no está abierta;
+//   7. un acortador de VERDAD (medido el 6/11/2026 contra `linktw.in/pywydg`) manda a diez lados y sólo escribe su página de
+//      «expirado»: no se sigue a ninguna, y la ruta lo deja en «Abrir» en vez de mostrar el «Redirecting…» del acortador.
 //
 // Verificado rompiéndolo (cada línea, el test que cae):
 //   · `redireccionDelCliente` sin el tope de texto                          → 1
@@ -22,6 +24,8 @@
 //   · la pantalla sin comparar el que manda el mensaje con su marco           → 5
 //   · el marco a la vista antes de verificar                                 → 5
 //   · la ruta sin `paginaFinal`                                              → 6
+//   · `redireccionDelCliente` sin el corte de «manda a más de un lado»        → 7 (devuelve `linktw.in/expired`)
+//   · `soloRedirige` que no mira el `refresh`, o la ruta sin `soloRedirige`   → 7
 //
 // Correr: node --import tsx --test tests/spy-paginas-verificadas.test.ts
 
@@ -29,7 +33,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { esPaginaDeError, marcoVerificado, paginaFinal, redireccionDelCliente, SALTOS_DEL_CLIENTE, TEXTO_MINIMO_PINTADO } from '../lib/pagina-real';
+import { esPaginaDeError, marcoVerificado, paginaFinal, redireccionDelCliente, SALTOS_DEL_CLIENTE, soloRedirige, TEXTO_MINIMO_PINTADO } from '../lib/pagina-real';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const leer = (r: string) => readFileSync(`${RAIZ}${r}`, 'utf8').replace(/\r\n/g, '\n');
@@ -114,10 +118,46 @@ test('6. la ruta: sigue el acortador, la página de error no está abierta, y el
   const r = sinComentarios(leer('app/api/competitor-spy/pagina/route.ts'));
   assert.match(r, /const pagina = await paginaFinal\(url, paginaParaVer\);/);
   assert.match(r, /if \(esPaginaDeError\(texto\.slice\(0, 240\), titulo\)\) \{[\s\S]{0,200}?estado: 'no-pudo'/);
+  assert.match(r, /if \(soloRedirige\(pagina\.html\)\) \{[\s\S]{0,260}?estado: 'no-pudo'/, 'un acortador sin destino no se muestra en el marco');
   assert.match(r, /estado: 'abierta', \.\.\.\(final \? \{ final \} : \{\}\)/);
   assert.match(r, /soloAdminDeTab\('market-an'\)/, 'la misma puerta');
   assert.match(r, /if \(!suyas\.some\(/, 'sólo sus páginas: no es un lector de cualquier dirección');
   // El marco avisa la muestra y el título (lib/editor-landing/diagnostico.ts), con los que se reconoce su página de error.
   const d = leer('lib/editor-landing/diagnostico.ts');
   assert.equal((d.match(/muestra: ULTIMO\.slice\(0, 240\), titulo: tituloDe\(\)/g) ?? []).length, 2, 'en «listo» y en «pinto»');
+});
+
+// El acortador de verdad, medido desde la PC el 6/11/2026 (`curl https://linktw.in/pywydg`, 71.859 B, HTTP 200 y 0 saltos):
+// 140 caracteres de texto a la vista («Redirecting… Open in YouTube · Open in app · Open in browser») y DIEZ asignaciones a
+// `location` en su JS —la app de Android, la de iOS, TikTok, X, Chrome por `googlechrome://`, el destino calculado— de las
+// que la ÚNICA escrita con la dirección a la vista es `location.replace('/expired')`. Su destino de verdad
+// (`https://youtu.be/99n0XhdDq0Y`) está sólo en el `href` de un botón. Esto es su forma, no su HTML entero.
+const ACORTADOR_DE_VERDAD = `<!DOCTYPE html><html><head><title>Redirecting...</title></head><body>
+<p>Tap the ··· button and then "Open in browser"</p>
+<a href="https://youtu.be/99n0XhdDq0Y">Open in YouTube</a><a href="#">Open in app</a><a href="#">Open in browser</a>
+<script>
+  const params = new URLSearchParams(location.search);
+  if (!redirectUrl) location.replace('/expired');
+  if (isAndroid) location = androidLoadUrl;
+  if (isX) location = xAppUrl;
+  if (isTikTok) location = ttAppUrl;
+  if (wantsChrome) location = 'googlechrome://navigate?url=' + appendIncomingParams(originalUrl);
+  location.replace(appendIncomingParams(redirectUrl));
+</script></body></html>`;
+
+test('7. un acortador de verdad no se sigue a su página de «expirado», y queda «Abrir»', () => {
+  // Antes de esto devolvía 'https://linktw.in/expired': la última dirección escrita a la vista era su rama de error.
+  assert.equal(redireccionDelCliente(ACORTADOR_DE_VERDAD, BASE), null, 'manda a más de un lado: no se sabe a cuál');
+  assert.equal(soloRedirige(ACORTADOR_DE_VERDAD), true, 'pero ES un acortador: no es la página del competidor');
+
+  // Y lo de siempre sigue andando: uno solo, con su dirección escrita, se sigue igual.
+  assert.equal(redireccionDelCliente(`<script>location.href = "${DESTINO}"</script>`, BASE), DESTINO, 'un solo destino escrito');
+  assert.equal(soloRedirige(`<script>location.href = "${DESTINO}"</script>`), true);
+  assert.equal(soloRedirige(`<meta http-equiv="refresh" content="0;url=${DESTINO}">`), true, 'la etiqueta también');
+
+  // Una página de verdad no es un acortador, aunque tenga botones que naveguen.
+  const deVerdad = `<html><body><h1>Curso de marca personal</h1><p>${'Aprende a construir tu marca con un método probado. '.repeat(10)}</p>`
+    + `<button onclick="x()">Comprar</button><script>function x(){ location.href = "${DESTINO}"; }</script></body></html>`;
+  assert.equal(soloRedirige(deVerdad), false, 'tiene contenido propio: es la página');
+  assert.equal(soloRedirige('<html><body><p>Hola</p></body></html>'), false, 'sin mandarse a ninguna parte');
 });

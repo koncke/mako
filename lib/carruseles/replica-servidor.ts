@@ -195,9 +195,11 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
       if (!r.ok) return { ok: false, error: r.error, falla: true };
       return fin({ id: r.id, titulo, doc });
     }
-    if (o.seco) return { ok: true, id: '(seco)', titulo: 'Carrusel · guías', sinIA: true, aviso: motivo?.aviso ?? null, conectar: motivo?.conectar ?? null, vistas: imagenes.length, errores };
+    // ⚠️ En seco se arma el documento igual y se muestra: hasta el 6/11/2026 esto devolvía acá mismo, sin `doc` ni láminas, así
+    // que el comando de prueba NO podía ver justo lo que se había arreglado ese día (que el camino de guías mande sus láminas
+    // a la pantalla, en vez de dejar el modal en blanco). Un modo de prueba que saltea un paso no prueba ese paso.
     const est = estructuraDe(c as Carrusel);
-    const r = await crearCarruselDesdeReferencia(ws, quien, ej.id, est.tipo ?? 'lista', anuncio ? 3 : total);
+    const r = await crearCarruselDesdeReferencia(ws, quien, ej.id, est.tipo ?? 'lista', anuncio ? 3 : total, { seco: o.seco });
     if (!r.ok) return { ok: false, error: r.error, falla: r.falla };
     return fin(r);
   };
@@ -228,7 +230,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
       const x = await conSuIADelNegocio(ws, () => chatCheapCascade({
         system: 'Eres diseñador de carruseles de Instagram y miniaturas de YouTube para negocios. Respondes sólo con el JSON pedido.', user: sinVer, json: true,
         maxTokens: TOKENS_DE_SALIDA, temperature: 0.4, feature: FEATURE_REPLICA, motivo, timeoutMs: o.timeoutMs ?? 120_000, erroresOut: errores,
-        validar: (y) => !('error' in leerReplica(y, { laminas: total, miniatura })),
+        validar: (y) => !('error' in leerReplica(y, { laminas: total, miniatura, usuario: marca.usuario })),
       }));
       if (!x.trim()) throw new Error(errores.length ? errores.join(' · ') : 'sin_keys: no hay ninguna IA del negocio conectada');
       return x;
@@ -258,7 +260,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
     return conGuias(avisoSinIA(m), errores);
   }
-  const replica = leerReplica(crudo, { laminas: total, miniatura });
+  const replica = leerReplica(crudo, { laminas: total, miniatura, usuario: marca.usuario });
   if ('error' in replica) {
     console.warn(`[carruseles] «Editar»: la IA contestó algo que no se pudo leer (ws=${ws}): ${crudo.slice(0, 300)}`);
     return conGuias({ aviso: `${replica.error} Por ahora, cada lámina trae una guía.`, conectar: null }, [...errores, replica.error]);

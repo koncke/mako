@@ -1139,9 +1139,11 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
 ### Lo que quedó SIN hacer
 
 - **Mirar el editor en un navegador hidratado**, arriba.
-- **Pasarle al script `segundosPorToma` entero** y que `plan-cortes-anuncio.mjs` tope cada toma
-  con la suya (`worker/montar-cola.mjs:132`, `scripts/plan-cortes-anuncio.mjs:78`); y medir
-  `segundosAntes` del audio real o rotularlo estimado en `PasoMontaje.tsx`.
+- ~~**Pasarle al script `segundosPorToma` entero**~~ — cerrado el 6/11 por las dos rutas (§15).
+  Lo que sigue abierto de este punto: `segundosAntes` es la SUMA NOMINAL de lo que se le pidió
+  a Flow, no una medición del material que volvió (`worker/montar-cola.mjs`,
+  `lib/montaje/pipeline.ts`); la API ya lo rotula (`segundos_antes_estimados`) y la pantalla no
+  (`app/video-generator/PasoMontaje.tsx`).
 - **Deshacer.** No hay `Ctrl+Z`: un arrastre equivocado se arregla arrastrando de vuelta.
   Con las operaciones puras en `editor-cortes.ts`, es una pila de planes en un `useRef`.
 - **La música**, esperando Epidemic. Una fila en `PISTAS` y anda.
@@ -1219,12 +1221,16 @@ sin que nadie lo tomara». No «no se pudo montar», que haría pensar que el an
 mal. Seis horas y no menos porque el peor reintento vivo (tres rescates de 20 minutos) ronda
 la hora. La espera se dice en horas pasados los 60 minutos.
 
-### La duración de la primera toma para todas: arreglado
+### La duración de la primera toma para todas: arreglado EN LA RUTA DE VERCEL (ver §15)
 
 El pendiente anotado el 16/09 (arriba) seguía en el port: el plan recibía un solo número,
 el de la primera toma, y topeaba ahí a todas. Ahora `<durvid>` acepta una lista
 («10,8,10»), y el pipeline pasa una por toma. Un número solo sigue valiendo para todas (el
 bash). `segundosAntes` es la suma de las duraciones, no N × la primera.
+
+⚠️ **Y así quedó medio año: «arreglado» acá significaba `lib/montaje/pipeline.ts`, la ruta de
+la función. La del contenedor (`worker/montar-cola.mjs`) siguió mandando un solo número hasta
+el 6/11.** El dato pasa por DOS caminos y este renglón nombraba uno. Ver §15.
 
 ### Un test que busca basura en `/tmp` puede tropezar con la de otra corrida
 
@@ -1319,3 +1325,93 @@ montaje real de un cliente: `video-generator.historial` no se toca desde el 08/0
   que en §13.
 - **Un deploy sin ffmpeg** (la descarga de GitHub falló): el build sigue y el cron avisa a la
   Ticketera en cada corrida hasta que se redespliegue. Nadie lo reinstala solo.
+
+---
+
+## §15 — La ruta del contenedor perdía la toma larga ENTERA (6/11/2026)
+
+`worker/montar-cola.mjs` · `worker/duraciones.mjs` · `worker/Dockerfile` ·
+`scripts/montar-anuncio-sin-silencios.sh` · `scripts/plan-cortes-anuncio.mjs` ·
+`tests/montaje-worker-tomas.test.ts`
+
+### ⚠️ El diagnóstico obvio era el equivocado, dos veces
+
+**Lo que decían los pendientes:** «pasarle `segundosPorToma` entero al script **y que
+`plan-cortes-anuncio` tope cada toma con la suya**». Las dos mitades estaban escritas como si
+faltaran las dos. El script ya lo hacía desde el 20/10 (`DURS` / `durDe`), y la ruta de Vercel
+ya le mandaba la lista entera. **Lo único que faltaba era el eslabón del medio**, y estaba a
+una línea: `DURVID: String(seg[0] ?? 10.005)`.
+
+**Y el renglón que lo tapaba era el de «arreglado»** (§14, arriba): decía que la duración por
+toma estaba resuelta, y era cierto para la función y falso para el contenedor. Un arreglo que
+toca uno de dos caminos no se anota como cerrado sin nombrar cuál.
+
+**La regla que queda:** cuando el mismo dato viaja por DOS rutas —la función de Vercel y el
+contenedor—, un arreglo en una no cierra el pendiente, y la entrada de la cosecha dice POR
+CUÁL. El caso hermano ya estaba enumerado en este documento («un arreglo de "un escalar donde
+van N valores" se busca en TODOS los que reciben ese dato»): se escribió la regla y la segunda
+ruta igual quedó afuera, porque el único lugar donde se leía decía «arreglado».
+
+### No se perdía el final de la toma larga: se perdía la toma ENTERA
+
+Medido el 6/11 corriendo `scripts/plan-cortes-anuncio.mjs` sobre tres voces sintéticas (3 s,
+4,5 s y 3 s, la del medio hablando de 3,0 a 4,2 s):
+
+| lo que recibe el script | tramos de la toma 2 | total del plan |
+|---|---|---|
+| `3,4.5,3` (la lista) | 1, de 3,00 a 4,27 s | 3,81 s |
+| `3` (lo que mandaba el worker) | **ninguno** | 2,54 s |
+
+El tope no recorta el tramo: lo **descarta**. `tramos()` corta en
+`TOPE = min(DURVID, duración del audio)`, así que si el habla de una toma empieza después del
+tope, la toma no aporta ni un tramo y desaparece del anuncio sin un error y sin una línea en el
+log. Lo que se creía «se pierde lo que se dice al final» era, en el caso que importa —una toma
+larga que habla al final—, «se va la toma completa».
+
+### El miedo al bash era infundado; el real era otro
+
+`scripts/montar-anuncio-sin-silencios.sh` pasaba `$DURVID` **sin comillas** como argv[4], y la
+sospecha razonable era que una lista con comas se partiera. No se parte: el `IFS` por defecto
+es espacio/tab/salto, y `10,8,10` viaja como un solo argumento (verificado corriendo el bash de
+verdad, no leyéndolo). Lo que sí lo partía era un **espacio** —`10, 8, 10` daban tres
+argumentos y el script leía `10,` → `NaN`, topeando TODAS las tomas en nada—, y `set -u` no
+avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
+
+### Tres trampas del entorno, de las que dan verde
+
+- **`ffmpeg-static` es una dependencia OPCIONAL y en esta máquina no está**, así que el único
+  test que corre el montaje de verdad (`tests/montaje-cola.test.ts`, «el montaje corre de
+  verdad hasta los subtítulos») se **saltea** en local: `node --test` lo cuenta en `skipped`,
+  no en `fail`, y el resumen se lee como verde. Un test que mide ffmpeg prueba también el
+  binario del `PATH` antes de rendirse (`ffmpegDePrueba` en
+  `tests/montaje-worker-tomas.test.ts`).
+- **El bash de Git en Windows reescribe los argumentos que parecen rutas POSIX.** Pasarle
+  `T=/trabajo` por entorno y leerlo con `"$T"` devuelve `C:/Program Files/Git/trabajo`: el
+  proceso nunca ve la cadena que se le mandó. Un test que corre bash usa valores sin barra
+  adelante, o mide otra cosa.
+- **La guarda del `maxBuffer` no la alcanza el pre-push, y el rojo lo da Actions.** Un test que
+  lanza un hijo y parsea su salida necesita `maxBuffer: 64 * 1024 * 1024` (node corta el stdout en
+  1 MB y el JSON llega partido). Lo exige `tests/tanda-no-la-mata-un-test-lento.test.ts`, que tarda
+  ~54 s y puede no entrar en el tope de 90 s del filtro local: el push sale, y el rojo llega 14
+  minutos después. La regla ya estaba cosechada en cinco `docs/hallazgos-*.md` **y en ninguno de
+  los archivos que se leen antes de escribir** — por eso ahora está en AGENTS.md.
+
+### Lo que quedó SIN hacer
+
+- **El verificador de palabras, que es la parte (b) del pendiente y la DECIDE Martín.**
+  `scripts/verificar-corte-anuncio.mjs` está en `worker/Dockerfile:48` y no lo invoca nadie, así
+  que `palabrasPerdidas` —que el route ya acepta, `app/api/montaje/worker/route.ts:43`— nunca
+  llega. Enchufarlo pide dos cosas que no son código: qué hace la pantalla con un veredicto
+  rojo (¿no entrega el video? ¿lo entrega con un aviso?) y gastar `GROQ_API_KEY` en cada
+  montaje. **Hasta entonces, «Se fue el silencio, no una palabra»
+  (`app/video-generator/PasoMontaje.tsx:154`) sigue siendo una afirmación sin medición** — el
+  tope por toma saca la causa que se conocía, no la promesa.
+- **`segundosAntes` es nominal.** Es la suma de lo que se le PIDIÓ a Flow, no lo que midió el
+  material que volvió (`worker/duraciones.mjs`, `lib/montaje/pipeline.ts`). La API lo rotula
+  `segundos_antes_estimados`; la pantalla dice «De X a Y» sin rótulo.
+- **El worker del contenedor sigue sin desplegarse** (§14): todo esto se midió eslabón por
+  eslabón —la cuenta, el bash, el script—, nunca contra un contenedor corriendo.
+- **La cuenta está en dos lugares.** `worker/duraciones.mjs` y `lib/montaje/pipeline.ts:133`
+  hacen lo mismo con el mismo default (10,005). No se comparte porque el worker no puede
+  importar TypeScript: se copia suelto en la imagen. Si aparece un tercer consumidor, el
+  default deja de ser un número repetido y pasa a ser un dato del pedido.

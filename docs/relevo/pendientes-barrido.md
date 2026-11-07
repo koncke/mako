@@ -128,7 +128,13 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
   Zernio anuncios (`ZERNIO_ANUNCIOS_PROBADO`); `mb.css` en Ajustes y Automatizaciones; Ads Manager sin entrada en el catálogo de
   onboarding (#801); la tanda C de Zernio (editar público, crear campaña).
 - **Cobro de agencias**: el precio en pesos del cliente de agencia y Mercado Pago de MaKo en el ws 9 (`/admin/cobros`).
-- **Carruseles / Stories**: prompts de `lib/ig-writer.ts` hardcodeados (skill `add-editable-prompt`); historial en memoria.
+- **Carruseles / Stories**: ~~prompts de `lib/ig-writer.ts` hardcodeados; historial en memoria~~ — HECHO el 6/11/2026 (items 26, 129 y 197).
+  Los prompts del motor y los cuatro bloques de metodología están en /configuraciones (`PROMPTS_IG` en lib/ig-writer.ts,
+  `PROMPTS_METODOLOGIA_IG` en lib/ig-metodologia.ts) y el historial vive en `app_settings` por workspace, tope 10
+  (lib/ig-historial.ts), sembrado por `app/m/stories/page.tsx`. **Sin migración.** Queda: `app/stories/StoriesApp.tsx` y
+  `OnboardingStories.tsx` siguen SIN ENTRADA desde el 29/10 (su `page.tsx` redirige al Copywriter) y su historial sigue en
+  memoria — van a la tanda que las borre; y `buildContenidoBrief` (lib/ig-writer.ts) no envuelve las etiquetas del funnel ni el
+  conocimiento con `contenidoNoConfiable`, sólo el perfil.
 - **Automations** (medido en la tanda 7, no tocado: es su galería y su motor):
   - **El aviso al negocio cuando le rechazan un pago** (decidido el 15/10, docs/relevo/landing-generator.md «Lo que sigue» 5): el
     motor ya tiene el CRON «Pagos: Se rechaza un pago» (`alCron(c, 'rechazado')` en `aplicarPagoFallido`, lib/cobros.ts) y el

@@ -4,6 +4,205 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Un prompt «hardcodeado» puede tener el default en un archivo que la UI importa — y entonces el registro no alcanza (6/11/2026)
+
+**Síntoma (items 26, 129 y 197 del barrido del 6/11):** «Las instrucciones de carruseles y stories están fijas y no se pueden
+tocar: para cambiar cómo escribe MaKo un carrusel hay que pedirle un cambio de código a alguien del equipo». Los tres items
+apuntaban al mismo archivo, `lib/ig-writer.ts`, y los tres decían lo mismo: pasar sus prompts al patrón editable.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+
+1. **Los prompts de `lib/ig-writer.ts` NO son las instrucciones de cómo se escribe un carrusel.** Sus dos templates son el
+   andamio (quién sos, qué formato, devolvé JSON); lo que de verdad dice cómo se escribe un carrusel es
+   `METODOLOGIA_CARRUSEL` / `METODOLOGIA_STORY` / `METODOLOGIA_REEL` + `METODOLOGIA_TRANSVERSAL`, y **esos viven en otro
+   archivo** (`lib/ig-formatos.ts`), entran por el slot `{{metodologia}}` y eran lo que el item pedía poder tocar. Registrar
+   sólo los dos templates cumple la letra del pendiente y no el pedido: seguirías necesitando un commit para cambiar la
+   doctrina del carrusel.
+2. **La pantalla que usa esa metodología no es la que decía el item.** `/carousels` y `/reels` se retiraron el 29/10/2026 y
+   `/stories` de escritorio quedó deprecada el mismo día: las tres redirigen (a Image y al Copywriter). El único consumidor
+   del motor es hoy `app/stories/actions.ts` → `generarSecuenciaAction`, que lo lee `/m/stories` (el teléfono, por URL).
+   Pero la metodología tiene **un segundo call site, y ése sí es el camino del cliente**: `lib/copywriter/ia.ts` la suma
+   cuando el guion es de tipo Reel o Story. Haber tocado sólo `lib/ig-writer.ts` habría dejado al Copywriter —la pantalla
+   real— escribiendo con el texto hardcodeado, con el registro diciendo «editable».
+
+**La regla:** cuando el DEFAULT de un prompt vive en un módulo que la UI también importa (sin `server-only`, porque la
+pantalla necesita otra cosa del mismo archivo), **la resolución editable va en un módulo server aparte y TODOS los call
+sites pasan por ahí**. Acá: el default queda en `lib/ig-formatos.ts` (una cosa, un lugar) y `lib/ig-metodologia.ts`
+(`metodologiaIgVigente`) resuelve lo vigente. Un call site que se quede con la constante queda **mudo**: el usuario edita en
+/configuraciones y esa pantalla sigue escribiendo igual, sin un error, sin un tipo roto y sin que el registro lo note. La
+forma de que no vuelva a pasar es contar los usos de la constante en un test (`tests/ig-writer-prompts.test.ts` fija que
+`lib/ig-writer.ts` tenga CERO y que el único del Copywriter sea el respaldo del `.catch`).
+
+**Y el orden de los bloques vive en UNA función.** Al existir dos caminos (el default `metodologiaDe` y el editable
+`metodologiaIgVigente`) aparece una forma de drift que nada chequea: que el prompt sin editar y el mismo prompt editado le
+lleguen al modelo en distinto orden. Por eso `componerMetodologia` (lib/ig-formatos.ts) es la única que decide «primero la
+del formato, después la transversal», y el test compara las dos salidas con nada editado: tienen que ser idénticas,
+carácter por carácter.
+
+**Lo que a propósito NO se registró:** los tres contratos JSON (`REEL_JSON_SHAPE`, `CARRUSEL_JSON_SHAPE`,
+`STORY_JSON_SHAPE`, lib/ig-writer.ts). Los lee el saneo determinista del MISMO archivo: editarlos desde /configuraciones
+sería editar el parser, y el síntoma sería «la pieza vino sin escenas» en toda pieza. Es el mismo criterio que el grupo
+«Creador de campañas», donde `{{jsonShape}}` es un slot y no una entrada.
+
+**Sin hacer, y dónde vive:** `buildContenidoBrief` (lib/ig-writer.ts) envuelve el perfil del negocio con
+`contenidoNoConfiable` pero **no** las etiquetas de las etapas del funnel ni los trozos de conocimiento, que también los
+escribe gente (`getFunnelDefault`, `formatKnowledge`). Es el mismo tenant, así que el riesgo es bajo, pero el archivo
+declara la regla y no la cumple entera. Se dejó porque cerrarla cambia el texto que se le manda al modelo y eso es una
+decisión aparte de la editabilidad.
+## Ninguna guarda del pre-push mira el registro de prompts: un prompt mal cableado entra en silencio (medido el 6/11/2026)
+
+**Síntoma:** ninguno. Un prompt que no está en `lib/prompt-registry.ts` funciona igual en runtime
+(`getPromptText` hace `override ?? fallback`); lo único que pasa es que no aparece en /configuraciones y
+editarlo no hace nada. Y un slot `{{x}}` que el `variables:` de la Entry no declara viaja LITERAL al modelo,
+porque `renderTemplate` reemplaza sólo los slots declarados — a propósito, por anti-inyección.
+
+**Lo medido, para que nadie lo vuelva a estimar:**
+
+- `lib/prompt-registry.ts` tiene **165 `key:` literales** (más 6 que genera `mako.fase.*` y 2 de
+  `PROMPTS_NEWSLETTER`: ~173 entradas en runtime).
+- **2.307 archivos `*.test.ts`, y ninguno importaba el `REGISTRY`.** Medición exacta: antes de este commit,
+  `grep -rln '\bREGISTRY\b' tests/` devolvía **0 archivos**.
+- **`scripts/guardas-push.sh` tiene 0 ocurrencias de la palabra «prompt».** Las ~17 guardas que corre miran
+  tipos de bitácoras, claves en el diff, rutas de Windows en tests, módulos `.ts`, hooks de React y seis
+  sincronías de texto generado. Ninguna mira un prompt. `scripts/tests-afectados.mjs` elige tests por
+  archivo tocado, no por key de prompt.
+- **Y hay 29 keys huérfanas HOY**: llamadas con `renderPrompt(...)`/`getPromptText(...)` y ausentes del
+  REGISTRY, o sea no editables, violando la regla «todo prompt de MaKo es editable»:
+  `archivero.preguntas.system`, `avatares.{system,user}`, `avatares.siguiente.{system,user}`,
+  `chatagent.handoff`, `checklist.batch.{system,user}`, `entregable.{system,user}`,
+  `entregable.siguiente.{system,user}`, `guardian.audiencia.{system,user}`,
+  `guardian.fecha-debate.{system,user}`, `guardian.nuevas.{system,user}`,
+  `guardian.proy-nuevos.{system,user}`, `guardian.proyectos.{system,user}`, `plan.seed.{system,user}`,
+  `razones.{system,user,sugerir,guion}`, `setting.guion_audio`.
+  Es un PISO: sólo cuenta keys literales en el primer argumento, así que una key armada en una tabla no la ve.
+
+**La causa:** el chequeo existe, pero copiado a mano y por feature. `tests/offer-ia-cableado.test.ts:167-203`
+hace las tres comparaciones bien (call-sites ↔ registro ↔ slots) **para las 9 keys de `offer.*` listadas a
+mano en `:151-161`**. `tests/closing-entrega.test.ts`, `tests/copywriter-ia.test.ts` y
+`tests/editor-landing-ia.test.ts` hacen versiones parciales, cada una con su lista. Una lista a mano no cubre
+lo que se agrega después: por eso las 29 huérfanas entraron sin que nada se pusiera rojo, y el propio repo ya
+lo tenía anotado para cuatro de ellas (`app/admin/dev/ads-writer/bitacora.ts:218`: «no aparecen, no se pueden
+editar, y el compilador no lo ve»).
+
+**Lo obvio que no alcanza:** la skill `verify-prompt-registry-sync` ya describe los cuatro modos de falla
+exactos. Es MANUAL: corre cuando alguien se acuerda de invocarla, y nada la dispara al pushear. Una skill no
+es una guarda.
+
+**La regla que queda:** después de tocar un prompt, los slots de la plantilla, el `variables:` de la Entry y
+las keys del objeto que recibe `renderPrompt` se comparan a mano (la skill), **y el test de ese prompt los
+compara solo** — como hacen `tests/offer-ia-cableado.test.ts` y, desde el 6/11,
+`tests/closing-taxonomia.test.ts`. Un prompt nuevo sin ese test entra mudo y nadie se entera.
+
+**Sin hacer:** el chequeo que falta es uno que recorra el `REGISTRY` entero en vez de una lista por feature.
+Tiene una trampa que hay que resolver antes: el cruce ingenuo da ~45 falsos positivos porque muchas keys
+llegan por indirección en tabla (`lib/editor-video/chat-prompts.ts:13` → `{ key: 'video_editor.chat.system' }`,
+`lib/editor-landing/ia-reglas.ts:1446`), y hay entradas muertas a propósito y documentadas
+(`mako.modo.*`, `lib/prompt-registry.ts:199`). Vive en `lib/prompt-registry.ts` + `scripts/guardas-push.sh`.
+## La guarda del registro de prompts: el cruce ingenuo no daba 45 falsos positivos, daba 5 (6/11/2026)
+
+Sigue a «Ninguna guarda del pre-push mira el registro de prompts», que midió el agujero. Esto es lo que se
+aprendió al taparlo con `scripts/prompts-registro-sincronizado.mjs`.
+
+**El diagnóstico obvio era el equivocado, y es lo que hacía parecer caro el arreglo.** Se dio por hecho que
+cruzar el `REGISTRY` contra los call-sites era inviable porque muchas keys llegan por INDIRECCIÓN en tabla
+(`PROMPTS_CHAT_VIDEO.system.key`, `PROMPTS_EDITOR.esquemaUser.key`) o por constante (`CLAVE_PROMPT_EDITAR`),
+y que resolver eso pedía seguir el flujo de datos: ~45 keys «sin call-site» que sí están cableadas. **No hace
+falta resolver nada: la tabla escribe el literal igual.** Buscar la key en TODO el árbol (`lib/ app/ scripts/`)
+en vez de en el primer argumento deja **5 candidatos, no 45**. Y de esos 5, cuatro son un bug de verdad y el
+quinto fue lo que enseñó cómo se mide esto:
+
+- `mako.fase.experimentos`: no era un prompt muerto sino un error de la medición. **La `key` del registro es
+  el identificador con el que se LEE un prompt sólo cuando `source: 'override'`** (`overrides[e.key]`): para
+  `persona`, `modo` y `fase` la pantalla resuelve por **`storeKey`** (`modoByKey.get(e.storeKey)`,
+  `fases[e.storeKey]`, lib/prompt-registry.ts:1642-1646) y `lib/mako-fases.ts:21` arma la clave de
+  `app_settings` como `mako.fase.${storeKey}`. Pedirle un literal en el código a la `key` de esas 167 entradas
+  no mide nada: NINGUNA fase se pide por su key, y las otras cinco sólo «aparecían» porque una lista de
+  `app_settings` a copiar las nombra (`lib/datos-mau.ts:346`). El modo (a) se restringió a los `override` —
+  una excepción MENOS y las 4 reales intactas— y la red equivalente para las otras fuentes es que su
+  `storeKey` exista en `MODOS` (`lib/mako-prompts.ts:27`): sin esa fila, `modoByKey.get()` da `undefined`, la
+  pantalla muestra el default como si fuera el valor vigente y guardar escribe donde nadie lee. Hoy: 0.
+  (Y por lo mismo, `mako.modo.*` NO es medible por este modo: que «no esté cableada al chat» es una propiedad
+  del chat, no del registro, y vive donde el repo ya la puso — el `context` de la Entry.)
+- **`campaign.{suggest,adjust}.{system,user}`: muertas de verdad.** `lib/campaign-structurer.ts` exporta los
+  cuatro `CAMPAIGN_*_TEMPLATE` y **el único que los importa es el registro**; la feature `campaign-suggest`
+  está en `lib/model-catalogo.ts` y ningún archivo la llama. Se editan en /configuraciones y no cambian nada,
+  y su `context` promete lo contrario («No borres los slots {{metodologia}}/{{objetivos}} … o el modal de
+  revisión deja de poder leer la propuesta»). Peor que las 29 huérfanas: éstas *parecen* editables.
+
+**El registro se puede EJECUTAR, y nadie lo estaba haciendo.** `lib/prompt-registry.ts` es `server-only`, y
+por eso los cinco tests que lo cruzan hoy lo leen como TEXTO con regex. Con el parche de `Module._load` que ya
+usa medio `tests/` (molde: `tests/alta-cliente.test.ts`) se importa y se leen `key`, `variables` y `default`
+como datos: el cruce de slots pasa de aproximado a exacto, y las 173 entradas salen solas en vez de contarse a
+mano. Cuesta ~10 s de arranque.
+
+**Las cuatro direcciones del cruce de slots NO son simétricas, y mezclarlas es lo que apaga una guarda.**
+Medido sobre las 173 entradas y 89 call-sites legibles:
+
+| Dirección | Hoy | Qué significa |
+|---|---|---|
+| el call-site pasa una clave que el template no tiene | **0** | el dato se tira sin error |
+| el `variables:` declara un slot que ni existe ni se llena | **0** | la pantalla promete lo que no hay |
+| el call-site LLENA un slot que el `variables:` no declara | **5** entradas, 13 slots | el que edita puede borrar un dato vivo sin aviso |
+| un slot que NADIE llena | **6** | **puede estar bien**: viaja literal al modelo |
+
+Las tres primeras bloquean. La cuarta **avisa y deja pasar**, porque `{{...}}` tiene DOS dueños: `renderTemplate`
+y los placeholders de lead y de plantilla de WhatsApp, que el modelo tiene que copiar tal cual
+(`{{nombre}}`, `{{1}}`, `{{lead_nombre}}`; `lib/paso-ia.ts:31` lo dice al lado del prompt). Los 6 casos de hoy
+son todos ésos. Frenar ahí sería frenar por algo correcto, y de un candado sin llave sólo se aprende a saltearlo.
+
+**Tres trampas que cada una fabricó un veredicto falso mientras se escribía la guarda:**
+
+- **El shorthand de propiedad da un VERDE falso.** `renderPrompt(k, TPL, { titulo, contexto })` no tiene ningún
+  `clave:`, así que un parser que busca `(\w+):` lee «no pasa ninguna clave» y **ninguna comparación falla
+  nunca**. La primera medición dio 0 descartadas por eso, no porque estuviera limpio. Las claves se sacan
+  partiendo el objeto por comas a profundidad 0 y aceptando `k:` y `k` solo.
+- **Barrer constantes por el NOMBRE trae otros dominios.** Resolver todo `const CLAVE_*|KEY_* = '…'` del repo
+  metió 60 keys de `app_settings` (`recorridos`, `resend_reply_to`, `vigia.paneles`…) y las contó como prompts
+  huérfanos. Se resuelve SÓLO el identificador que aparece de verdad como primer argumento.
+- **La prosa que nombra `renderPrompt(` cuenta como call-site.** Las bitácoras de `/admin/dev` son documentación
+  escrita en `.ts`: una de ellas menciona la función dentro de un string y el regex la leyó como una llamada con
+  una key opaca. Un argumento que no es un identificador ni un acceso a propiedad no es una llamada.
+- **Y la cuarta la encontró la guarda sola, en su primer pre-push de verdad: se acusó A SÍ MISMA.** Vive en
+  `scripts/`, o sea dentro de lo que barre, y sus listas de excepciones NOMBRAN las keys que persigue: contó sus
+  propias cuatro `campaign.*` como cableadas («excepción vencida» ×4) y leyó el `renderPrompt(p.key…)` escrito
+  dentro de un string de `INDIRECTOS_DECLARADOS` como un call-site opaco. **Ninguna guarda que barra el repo
+  puede juzgar su propio archivo**: su texto habla justo de lo que caza, y el filtro de «esto es prosa, no una
+  llamada» no la salva porque `p.key` sí parece un acceso a propiedad. Se excluye con una ruta DERIVADA de
+  `import.meta.filename`, no escrita a mano: hardcodeada deja de excluir nada el día que el script se renombra.
+  Vale para `claves-en-el-diff.mjs`, `rutas-windows-en-tests.mjs` y cualquier guarda nueva que barra texto.
+
+**Lo que se midió y da 0, para que nadie lo vuelva a sospechar:** el cableado se busca en el fuente SIN
+comentarios, pero una key nombrada dentro de un STRING (las bitácoras de `/admin/dev` son documentación escrita
+en `.ts`) también cuenta como cableada y podría tapar un prompt muerto. **Entradas del registro que sólo una
+bitácora nombra: 0.** No hace falta excluirlas, y excluirlas tendría su propio costo: `app/admin/dev` también
+tiene código.
+
+**La regla que queda:** en AGENTS.md → «Un prompt nuevo se DECLARA en el registro». Y el método, que vale para
+cualquier guarda sobre todo el repo: **antes de dar por imposible un cruce por indirección, probá buscar el
+literal en todo el árbol** — el valor suele estar escrito en algún archivo, aunque el call-site no lo tenga.
+
+**Lo que la guarda NO mide, dicho para que nadie lo suponga cubierto:** de los cuatro modos de falla que
+describe la skill `verify-prompt-registry-sync`, cubre el 1 y el 2. El **3** —que el `default:` de la Entry y
+el fallback del call-site sean la MISMA constante— no: la guarda tiene el TEXTO del default, no el nombre de la
+constante que el call-site pasa, así que no los puede cruzar sin volver a regexear el fuente del registro; hoy
+lo fija a mano el test de cada feature. El **4** —`contenidoNoConfiable` faltante— es un juicio sobre qué dato
+es externo. La skill quedó apuntada a la guarda y con esos dos marcados como suyos.
+
+**Sin hacer, y a propósito:**
+
+- **Las 29 huérfanas siguen afuera del registro** (lista `HUERFANAS_CONOCIDAS` en la guarda, con fecha). Se
+  eligió guarda primero y registro después: registrar 29 prompts no es mecánico (cada uno pide `label`,
+  `context`, `scope` y `sensitive`, que son decisiones de producto que el dueño lee en la pantalla), y sobre
+  todo **sin la guarda puesta la huérfana número 30 nace mañana**; al revés no se gana nada, porque durante esa
+  punta nada la impide. La guarda no puede frenar por 29 prompts que el que empuja no puso.
+- **Las 4 `campaign.*` muertas** (`MUERTAS_CONOCIDAS`): se cablean, se sacan, o su `context` dice que no están
+  cableadas. Las tres salidas son decisión de producto.
+- **Los 13 slots vivos sin declarar** (`SIN_DECLARAR_CONOCIDOS`): `setting.ensayo`, `guardian.debate.system`,
+  `guardian.proj-debate.system`, `plan-fathom.extraer.{system,user}`. Declararlos toca el registro, así que van
+  con las 29.
+- Las tres listas son excepciones que **sólo pueden bajar**: la guarda da rojo si crecen o si una entrada queda
+  vencida (se arregló y nadie la sacó de la lista).
+
 ## «No tengo acceso a Google Calendar» con la agenda conectada: nombrar el LUGAR no traía la herramienta (ticket #42, 3/11/2026)
 
 **Síntoma (Código Inmobiliario, en su grupo):** MaKo dijo «no tengo acceso a crear eventos en tu Google Calendar» y dos renglones
@@ -1614,6 +1813,45 @@ inofensiva.
 ---
 
 ## Topes
+
+### ⚠️ El `maxTokens` que se le pide a `leerDocumentoIA` NO llegaba a Gemini, que es el camino de VISIÓN (6/11/2026)
+
+`leerConGemini` armaba el pedido al endpoint nativo con `generationConfig: { temperature: 0, response_mime_type }` y **nunca
+`maxOutputTokens`**: el tope que pidiera quien llama se perdía en silencio y valía el default del modelo. Y ése es el camino
+PRINCIPAL de todo lo que mira una imagen o un PDF: «Editar» un carrusel pide 8.000 tokens de salida para que el JSON de hasta
+12 láminas entre (`TOKENS_DE_SALIDA`, lib/carruseles/replica-servidor.ts) y el pedido salía sin pedir nada. El día que algo
+pida más de lo que el modelo da por defecto, la respuesta vuelve cortada —y una respuesta cortada no se distingue de «la IA no
+contestó»: `leerReplica` da «no pude leerlo» y el cliente ve la guía.
+
+Lo mismo al revés vale para la capa barata, donde el default sí existe y es chico: `chatCheap` manda
+`(opts.maxTokens ?? 512)`, así que **el que no pide tope pide 512**. Por eso el camino de respaldo de «Editar» cortaba un
+carrusel entero (docs/hallazgos-carruseles.md, «el camino de respaldo era más débil que el principal»).
+
+**La regla:** un tope de salida que el llamador pide tiene que VIAJAR en el pedido, y se comprueba leyendo el cuerpo que sale,
+no el argumento que entra (`tests/carruseles-editar.test.ts` lo hace con la red de mentira: la cascada corre de verdad y el
+test mira el JSON que le llega al proveedor). Sin `maxTokens` se sigue mandando sin nada, como antes.
+
+**Por qué esto se puede tocar sin miedo, medido:** de los 16 llamadores de `leerDocumentoIA` (El Archivero, contratos, recibos,
+fiscales, el manual de marca, avatares, anuncios…) **el único que pasa `maxTokens` es «Editar» un carrusel**. Para todos los
+demás el pedido sale igual que antes, porque no piden tope. O sea que el campo estuvo muerto todo este tiempo: el primer
+llamador que lo usó fue el primero en descubrir que no servía.
+
+**Vive en:** lib/ai-cheap.ts (`leerConGemini`, `chatCheap` → `paramsDeSalida`) · 6/11/2026
+
+### ⚠️ Un modelo de Gemini que se cuelga se come el plazo ENTERO, y el plazo es por llamada, no por pedido (6/11/2026)
+
+Medido con la red instrumentada en «Editar» un carrusel, dos veces el mismo día: `gemini-flash-latest` no contesta y aborta a
+los **120,0 s** (el `timeoutMs` que pasó quien llamó), y recién entonces `gemini-flash-lite-latest` contesta en **8,4 s**. En
+otra corrida el principal devolvió 503 en 8,1 s y el respaldo contestó en 8,7 s: el mismo pedido salió en 33 s o en 277 s según
+si el primer modelo se colgaba o rebotaba rápido. La cascada funciona —siempre contestó alguien—, pero **el presupuesto de
+tiempo no existe como concepto: cada escalón arranca con su propio plazo completo**, y el total puede pasar el `maxDuration` de
+la ruta que lo llamó (300 s en `app/api/image-editor/carruseles/replicar/route.ts`). Cuando eso pasa, el stream se corta sin
+mandar el final y la pantalla espera para siempre: no hay error, hay silencio.
+
+Un comentario que dice «tarda de 20 a 90 s» al lado de un `maxDuration = 300` es lo que hace que nadie vea el riesgo. Las
+mediciones de una ruta que llama a una cascada van con el PEOR caso medido, no con el típico.
+
+**Vive en:** lib/ai-cheap.ts (el plazo por intento) · app/api/image-editor/carruseles/replicar/route.ts (`maxDuration`) · 6/11/2026
 
 ### ⚠️ `effort: 'low'` NO apaga el razonamiento de Claude: el único knob es `thinking: false`
 
@@ -7517,3 +7755,53 @@ que falte el autor en la memoria.
   el guard.
  / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
   es tocar el veto: es de Martín.
+
+---
+
+## El catálogo prometía «nunca con Gemini» y la VISIÓN no lo miraba (6/11/2026, `punta/marca-sin-gemini`)
+
+**Vive en:** `lib/ai-cheap.ts` (`DocOpts.sinGemini`, `leerDocumentoIA`) · `lib/archivo-a-texto.ts` (`OpcionesLectura.sinGemini`) ·
+`lib/marca/leer-manual.ts` · `lib/model-catalogo.ts` (`marca-leer`, `deSuIA: true`)
+
+**El síntoma: una promesa escrita que el código no cumplía.** `model-catalogo.ts` declara la feature `marca-leer` con
+`deSuIA: true`, `fallback: []` y la nota, textual, «Corre con la IA del negocio (su Claude o su GPT), **nunca con Gemini**»
+—la decisión de Martín del 22/10 para Image—. El camino de TEXTO lo cumplía: `chatClaude` lee el catálogo y pasa `sinGemini`,
+que filtra `gemini` de la cascada. El camino de **VISIÓN** no: `leerDocumentoIA` recorre `VISION_CASCADE`
+(`['gemini', 'openai']`) y **no tenía la opción**, así que leer la IMAGEN de un brand board seguía usando el Gemini del
+negocio cuando era lo único que tenía. Era la última excepción de Image, declarada como inconsistencia D6b y nunca cerrada.
+
+**La causa de fondo, que es la parte reutilizable:** `sinGemini` se implementó donde se necesitaba —la cascada de texto— y
+no como una propiedad de «pedirle algo a una IA». Quedó una función (`chatCheapCascade`) que la respeta y otra
+(`leerDocumentoIA`) que no, con el mismo catálogo detrás. **Una decisión sobre QUÉ IA puede correr una feature tiene que
+valer en TODOS los caminos que llaman a una IA, o la promesa del catálogo es decorativa.** Y lo que se lee es el catálogo:
+la nota del `marca-leer` es lo que un chat futuro va a citar como verdad.
+
+⚠️ **Y la puerta tenía un segundo lado, que es el que no se ve.** Un manual de marca **escaneado** no entra por el camino de
+visión directo: entra por `archivoATexto`, que llama a `leerDocumentoIA` dos veces (PDF e imagen) por su cuenta. Arreglar
+sólo el primero dejaba la misma fuga para el PDF escaneado, que es el caso más probable de un manual de marca de verdad.
+`sinGemini` va enhebrado por los dos. Es «enumerá los caminos que no pasan por ahí» de AGENTS.md: un `grep` de
+`leerDocumentoIA` los lista en un segundo, y sin ese grep el arreglo queda a medias y se lee como completo.
+
+Y la red gratis de la plataforma (que es Gemini) se filtra con la misma lista: una feature «de su IA» que cae en la cuenta
+gratis de MaKo es exactamente lo contrario de su IA.
+
+⚠️ **Y DOS GUARDAS LEEN ESTE FUENTE PALABRA POR PALABRA: el orden de las propiedades de la llamada es parte del
+contrato.** Las dos dieron rojo en Actions con el arreglo puesto, y ninguna es un test del comportamiento:
+
+- `tests/onboarding-red-plataforma.test.ts` exige, con un `assert.match` sobre el fuente, que la red de plataforma filtre
+  con el texto literal **`VISION_CASCADE.includes(x.provider)`** («la red sólo prueba los que MIRAN: trae gemini y groq, y
+  groq no tiene visión»). Reemplazarlo por la lista ya filtrada —que es lo natural— lo rompe. La salida es **sumar** la
+  condición al lado (`&& (!opts.sinGemini || x.provider !== 'gemini')`) en vez de reemplazar el término: son dos preguntas
+  distintas y el guard pregunta por la primera.
+- `tests/adjuntos-chats-de-texto.test.ts` cuenta **exactamente dos** apariciones de
+  `redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs })` en `lib/archivo-a-texto.ts` («el plazo no llega a la
+  visión»). Agregar la propiedad nueva DESPUÉS de `timeoutMs` deja la cuenta en cero. Va **antes**.
+
+**La regla:** cuando un guard afirma algo leyendo el fuente, su assert es una API tan real como la firma de la función — y
+no aparece en ningún `import`, así que `tsc` no la ve y el editor no la autocompleta. Antes de reordenar o reescribir una
+llamada en un archivo caliente (`ai-cheap.ts`, `archivo-a-texto.ts`), un `grep` del nombre del archivo en `tests/` dice
+quién lo está mirando. Son dos segundos, y el rojo cuesta un run de Actions de diez minutos.
+
+**Lo que cambia para un negocio que sólo tiene Gemini:** su manual de marca ya no se lee, y se le dice
+(`errorDeCascada` / «conecta tu IA»). No es una regresión encubierta: es lo que `fallback: []` del catálogo ya decidía, y
+antes el código lo desobedecía en silencio.

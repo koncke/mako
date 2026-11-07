@@ -9,11 +9,19 @@
 //   · `imagenesValidas` dejando pasar un http o un repetido → 1 rojo;
 //   · `anunciosDe` dejando pasar un video (sin `esAnuncioEnVideo`) → 1 rojo;
 //   · `carruselesDeBiblioteca` sin las láminas ni el CTA guardados → 1 rojo.
+//
+// Probado rompiéndolo otra vez (6/11/2026, tarde — que un «no sé» no se cuente como imagen), base 9/0:
+//   · `medioGuardadoDeAnuncio` sin la pista `/t39.` → 1 rojo; sin la del `/t15.` → 2 rojos;
+//   · `medioGuardadoDeAnuncio` devolviendo «imagen» cuando no se sabe → 1 rojo;
+//   · `anunciosDe` con `medio: 'imagen'` fijo (el bug que tenía) → 1 rojo;
+//   · `anunciosSinSaber` contando también los carruseles → 1 rojo;
+//   · `filtrarCarruseles` sin el filtro `soloConfirmados` → 1 rojo;
+//   · `queryDeFiltros` sin escribir `conf` en el link → 1 rojo, y `filtrosDeQuery` sin leerlo → 1 rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { anunciosDe, diasAlAire, esAnuncioEnVideo, rotuloAire, type PiezaAnuncio } from '../lib/carruseles/anuncios';
-import { FILTROS_INICIALES, carruselesDe, filtrarCarruseles, imagenesDe, imagenesValidas, type PiezaParaCarrusel } from '../lib/carruseles/explorar';
+import { anunciosDe, anunciosSinSaber, diasAlAire, esAnuncioEnVideo, medioGuardadoDeAnuncio, rotuloAire, type PiezaAnuncio } from '../lib/carruseles/anuncios';
+import { FILTROS_INICIALES, carruselesDe, filtrarCarruseles, filtrosDeQuery, imagenesDe, imagenesValidas, queryDeFiltros, type PiezaParaCarrusel } from '../lib/carruseles/explorar';
 import { carruselesDeBiblioteca, filasDeLectura, reclasificacion, type CuentaBiblioteca, type PiezaBiblioteca } from '../lib/carruseles/biblioteca';
 import { imagenesDeLaminas } from '../lib/instagram-perfil';
 
@@ -67,6 +75,35 @@ test('en Anuncios sólo entran imágenes: un video no se ve, ni cuenta (6/11/202
   assert.equal(esAnuncioEnVideo({ medio: null, miniatura: null }), false, 'sin señal no se esconde: no se sabe');
   assert.equal(esAnuncioEnVideo({ medio: null, miniatura: 'https://x.supabase.co/storage/v1/object/public/spy-miniaturas/t15.jpg' }), false, 'nuestro bucket no es el CDN de Meta');
   assert.equal(esAnuncioEnVideo({ medio: null, miniatura: 'https://evil.tld/fbcdn.net/v/t15.x.jpg' }), false);
+});
+
+test('un anuncio que no dice si es video NO se cuenta como imagen (6/11/2026)', () => {
+  // Medido contra producción el 6/11/2026: de los 300 anuncios guardados, 298 no tienen ninguna señal (297 con la miniatura
+  // ya copiada a nuestro bucket, 1 sin miniatura) y 2 quedaron en `/t39.`. La regla del `/t15.` acierta en CERO. Antes todas
+  // esas tarjetas salían con `medio: 'imagen'`: ésa era la mentira del contador.
+  const T15 = 'https://scontent.xx.fbcdn.net/v/t15.5256-10/123_n.jpg';
+  const T39 = 'https://scontent.xx.fbcdn.net/v/t39.35426-6/9_n.jpg';
+  const NUESTRA = 'https://x.supabase.co/storage/v1/object/public/spy-miniaturas/spy/anuncios/944000681777058.jpg';
+  assert.equal(medioGuardadoDeAnuncio({ medio: null, miniatura: NUESTRA }), null, 'la copia en nuestro bucket perdió la pista');
+  assert.equal(medioGuardadoDeAnuncio({ medio: null, miniatura: null }), null);
+  assert.equal(medioGuardadoDeAnuncio({ medio: null, miniatura: T15 }), 'video');
+  assert.equal(medioGuardadoDeAnuncio({ medio: null, miniatura: T39 }), 'imagen');
+  assert.equal(medioGuardadoDeAnuncio({ medio: 'carrusel', miniatura: T15 }), 'carrusel', 'lo que guardó la lectura gana sobre la pista');
+
+  const xs = anunciosDe([anuncio({ id: 1, medio: null, miniatura: NUESTRA }), anuncio({ id: 2, medio: 'imagen' }), anuncio({ id: 3, medio: null, miniatura: T39 })], competidores, AHORA);
+  assert.deepEqual(xs.map((x) => x.medio), [null, 'imagen', 'imagen'], 'la tarjeta lleva el medio que SE SABE, null incluido');
+  assert.equal(anunciosSinSaber(xs), 1);
+  assert.equal(anunciosSinSaber([{ clase: 'carrusel', medio: null }]), 0, 'un carrusel sin medio no es un anuncio sin saber');
+
+  // El filtro: por defecto se ven (sin dato no es «es video»); quien mira puede pedir sólo los que dicen su formato.
+  const f = { ...FILTROS_INICIALES, que: 'anuncios' as const };
+  assert.deepEqual(filtrarCarruseles(xs, f, new Set(), AHORA).map((x) => x.id).sort(), [1, 2, 3]);
+  assert.deepEqual(filtrarCarruseles(xs, { ...f, soloConfirmados: true }, new Set(), AHORA).map((x) => x.id).sort(), [2, 3]);
+  // Y viaja en el link, como todos los demás.
+  assert.match(queryDeFiltros({ ...f, soloConfirmados: true }), /(^|&)conf=1(&|$)/);
+  assert.equal(queryDeFiltros(f).includes('conf='), false);
+  assert.equal(filtrosDeQuery(new URLSearchParams('que=anuncios&conf=1')).soloConfirmados, true);
+  assert.equal(filtrosDeQuery(new URLSearchParams('que=anuncios')).soloConfirmados, false);
 });
 
 test('los filtros: carruseles y anuncios no se mezclan; los anuncios se ordenan por días al aire', () => {

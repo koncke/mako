@@ -24,7 +24,8 @@ import assert from 'node:assert/strict';
 import { CAPACIDADES_PASARELA } from '../lib/cobros-tipos';
 import { readFileSync } from 'node:fs';
 import {
-  PRECIO_CLIENTE_AGENCIA_DEFAULT, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion, sanearPrecioClienteAgencia, unMesDespues,
+  PRECIO_CLIENTE_AGENCIA_DEFAULT, clienteDeAgenciaTocable, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion,
+  sanearPrecioClienteAgencia, unMesDespues,
   type CobroDeCliente,
 } from '../lib/agencia-cobro-reglas';
 
@@ -140,4 +141,34 @@ test('la renovación nace del cron al terminar el onboarding, con su inicio, y e
   assert.match(s, /\.\.\.\(CAPACIDADES_PASARELA\[f\.proveedor\]\.difiereElPrimerCobro \? \{ inicioAt: inicio \} : \{\}\)/, 'la renovación tiene que llevar su inicio donde la pasarela lo acepta');
   assert.match(s, /!CAPACIDADES_PASARELA\[f\.proveedor\]\.difiereElPrimerCobro && !abreRenovacionStripe\(/, 'la que cobra al pagar se abriría un mes antes');
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /agencia = await renovacionesDeAgencia\(\)\.catch\(\(e\) => \(\{ error: msg\(e\) \}\)\);/);
+});
+
+// ── La plataforma no es cliente de ninguna agencia (#495, 6/11/2026) ─────────────────────────────────────────────
+// Lo único que había entre una agencia y la cuenta de la plataforma era que no existiera su fila en `agencia_clientes`.
+// Con la fila puesta, dar de baja llegaba a cancelar SUS suscripciones y anular SUS links, y la dejaba pausada.
+
+test('la plataforma no se puede dar de baja ni cambiar de plan como cliente de una agencia', () => {
+  const P = 9;
+  assert.deepEqual(clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: 25, plataformaWs: P }), { ok: true }, 'un cliente de verdad sí');
+  assert.equal(clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: P, plataformaWs: P }).ok, false, 'la plataforma NUNCA');
+  assert.equal(clienteDeAgenciaTocable({ agenciaWs: P, clienteWs: 25, plataformaWs: P }).ok, true, 'la plataforma SÍ puede ser la agencia');
+  // La agencia no se toca a sí misma por este camino, y un id que no es un ws tampoco pasa.
+  assert.equal(clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: 13, plataformaWs: P }).ok, false);
+  for (const malo of [0, -1, 1.5, Number.NaN]) {
+    assert.equal(clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: malo, plataformaWs: P }).ok, false, `cliente ${malo}`);
+    assert.equal(clienteDeAgenciaTocable({ agenciaWs: malo, clienteWs: 25, plataformaWs: P }).ok, false, `agencia ${malo}`);
+  }
+  // El que no se puede tocar no se distingue del que no es de la agencia: no se le dice a una agencia cuál es el ws de la plataforma.
+  assert.equal(clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: P, plataformaWs: P }).ok === false
+    && (clienteDeAgenciaTocable({ agenciaWs: 13, clienteWs: P, plataformaWs: P }) as { error: string }).error, 'Esa cuenta no es de tu agencia.');
+});
+
+test('los dos caminos que cancelan plata llaman a la guarda ANTES de leer la cartera', () => {
+  // La guarda de adentro, la que vale aunque la fila exista. Si alguien la mueve después del `select`, esto cae.
+  for (const f of ['lib/agencia-baja.ts', 'lib/agencia-plan.ts']) {
+    const s = fuente(f);
+    assert.match(s, /clienteDeAgenciaTocable\(\{/, `${f} tiene que preguntar`);
+    assert.match(s, /if \(!tocable\.ok\) return \{ ok: false, error: tocable\.error \};/, `${f} tiene que cortar`);
+    assert.ok(s.indexOf('clienteDeAgenciaTocable({') < s.indexOf("from('agencia_clientes')"), `${f}: la guarda va antes de leer la cartera`);
+  }
 });

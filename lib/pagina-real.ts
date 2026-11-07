@@ -34,6 +34,13 @@ export function esPaginaDeError(muestra: string, titulo = ''): boolean {
 /** Lo que una página sin contenido propio puede tener como texto y seguir siendo «sólo una redirección». */
 const TEXTO_DE_UN_ACORTADOR = 300;
 
+/**
+ * Las veces que el JS de una página se manda a otra parte: `location = …`, `location.href = …`, `location.replace(…)` o
+ * `location.assign(…)`. Cuenta las ASIGNACIONES, también las que mandan a una variable: `location.search` o
+ * `locationTargeting` no son mandarse a ninguna parte.
+ */
+const MANDA_A_OTRA_PARTE = /\blocation(?:\.href)?\s*=(?!=)|\blocation\.(?:replace|assign)\s*\(/gi;
+
 /** El texto que se ve de un HTML, sin scripts, estilos ni etiquetas. Aproximado a propósito: sólo decide «tiene contenido o no». */
 function textoVisible(html: string): string {
   return html
@@ -83,6 +90,12 @@ export function redireccionDelCliente(html: string, base: string): string | null
   }
 
   const js = (html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) ?? []).join('\n');
+  // ⚠️ MEDIDO contra `linktw.in/pywydg` el 6/11/2026, el acortador de verdad: su JS se manda a DIEZ lugares distintos (la app
+  // de Android, la de iOS, Chrome por `googlechrome://`, el destino calculado) y el ÚNICO escrito con la dirección a la vista es
+  // su rama de error, `location.replace('/expired')`. Seguir el primero literal devolvía `linktw.in/expired` —su página de «link
+  // expirado»— como si fuera la página del competidor. Una página que puede mandar a más de un lado no se sigue: no se sabe
+  // cuál corre, y acá «no sé» se dibuja «Abrir», nunca un destino inventado.
+  if ((js.match(MANDA_A_OTRA_PARTE) ?? []).length > 1) return null;
   const patrones = [
     /\blocation(?:\.href)?\s*=\s*(["'])(https?:\/\/[^"']+|\/[^"']*)\1/i,
     /\blocation\.(?:replace|assign)\(\s*(["'])(https?:\/\/[^"']+|\/[^"']*)\1\s*\)/i,
@@ -95,6 +108,19 @@ export function redireccionDelCliente(html: string, base: string): string | null
     }
   }
   return null;
+}
+
+/**
+ * ¿Esta página no tiene contenido propio y sólo manda a otra parte, sin que se pueda saber a dónde? Es un acortador o un
+ * «continuar en…»: NO es la página que se quería ver, así que no se muestra en un marco (queda «Abrir»). `redireccionDelCliente`
+ * responde la otra mitad: a dónde manda, cuando se puede saber.
+ */
+export function soloRedirige(html: string): boolean {
+  if (!html) return false;
+  if (textoVisible(html).length > TEXTO_DE_UN_ACORTADOR) return false;
+  if ((html.match(/<meta\b[^>]*>/gi) ?? []).some((e) => /http-equiv\s*=\s*["']?refresh["']?/i.test(e))) return true;
+  const js = (html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) ?? []).join('\n');
+  return (js.match(MANDA_A_OTRA_PARTE) ?? []).length > 0;
 }
 
 /** Cuántas redirecciones hechas en el navegador se siguen: un acortador que manda a otro acortador, y no más. */

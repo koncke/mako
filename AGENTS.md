@@ -156,6 +156,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+- **Un test que lanza un hijo y PARSEA su salida lleva `maxBuffer: 64 * 1024 * 1024` desde la primera línea.** Sin él, node corta el stdout en 1 MB y el JSON llega partido: el error es «Unterminated string in JSON», que no se parece a la causa, y aparece cuando la salida crece — o sólo en el runner. Lo exige una guarda (`tests/tanda-no-la-mata-un-test-lento.test.ts`) y el filtro del pre-push puede no alcanzar a correrla por su tope de 90 s, así que el rojo llega de Actions 14 minutos después: la regla estaba cosechada en cinco `docs/hallazgos-*.md` y en ninguno de los archivos que se leen ANTES de escribir, y volvió a costar una corrida el 6/11/2026.
 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
@@ -606,6 +607,22 @@ build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mj
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
 segundos.
 
+⚠️ **UN TEST EN VERDE NO DICE NADA DE LOS TIPOS, y por ahí se van las puntas rojas (6/11/2026).** `node --import tsx --test`
+**saca** los tipos, no los chequea: un test con 14 casos en verde puede tener errores de tipos que sólo aparecen en el `tsc`
+de la punta, diez minutos después. Costó **tres rojos en una tanda**, todos en archivos de test nuevos y todos invisibles
+para `tsx`:
+
+- un `@ts-expect-error` sobre un `import` de un `.mjs`. El tsconfig resuelve `.mjs` con `allowJs`, así que **no hay error que
+  esperar** y un directivo sin usar ES un error (TS2578). **Ningún test del repo usa ese directivo**: si te hace falta para
+  importar un script, no te hace falta.
+- un argumento en la posición equivocada de un helper con parámetros opcionales (`correr('al-abrir', 'startup')` donde el
+  segundo es el `env`). Corre perfecto: el helper ignora lo que no entiende.
+- un `.find(...)` usado sin comprobar que encontró (`undefined` posible) y una propiedad que el tipo declarado no tenía.
+
+**La regla: un archivo de test NUEVO, o uno que importa un `.mjs`, se pasa por el acotado antes de pushear.** Es un comando y
+segundos: `node scripts/tsc-acotado.mjs tests/lo-nuevo.test.ts`. Y si la guardia de RAM lo niega (pasa, y entonces el único
+que chequea es la punta), al menos sabé que lo que estás pusheando no está chequeado.
+
 **UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
 acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
 lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:
@@ -756,6 +773,85 @@ Reglas que salen de eso:
   sobre cualquier modificado que no reconozcas: `git show HEAD:<ruta> | tr -d '\r' |
   md5sum` contra el archivo (si el disco es el PADRE de un commit reciente, es esto) y
   `ls -l` (una mtime vieja dice que nadie lo editó). La cura es `git checkout -- <rutas>`.
+- ⚠️ **Y EL ÁRBOL VIEJO TIENE UNA SEGUNDA FORMA, Y ES PEOR: `main` NO SE MOVIÓ NUNCA, y el
+  `status` puede estar LIMPIO.** Lo de arriba deja rastro —archivos «modificados»—; esto no
+  deja ninguno. Medido el 06/11/2026 en el clon principal: `refs/heads/main` en `136ef8baa`,
+  del **23/10**, contra un `origin/main` del 6/11: **6.230 commits** de diferencia, merge-base
+  `b51d22388` del 16/10. Ningún comando lo grita y el árbol se lee igual de bien que siempre —
+  **contesta correctamente sobre el repo de hace dos semanas**, que es justo lo que no despierta
+  sospecha. Ese día se escribió con confianza que `docs/proveedores-de-cobro.md` no estaba en
+  main y que los commits de Creem nunca habían llegado: las dos cosas eran FALSAS en
+  `origin/main`, donde ya vivían `lib/creem-api.ts`, el webhook de Creem, la migración 0358,
+  `app/planes/` y `lib/compra-plan-reglas.ts`. El `git log` del clon tampoco avisa: muestra
+  commits reales, prolijos y viejos.
+
+  **Antes de leer el árbol para contestar algo sobre «main», dos comandos:**
+
+  ```bash
+  git fetch origin
+  git rev-list --count refs/heads/main..refs/remotes/origin/main   # 0 = al día
+  ```
+
+  **Y cuando la pregunta es «¿esta ruta existe en main?», se le pregunta a `origin/main`, nunca
+  a `main` ni al disco:** `git cat-file -e refs/remotes/origin/main:<ruta>` para saber si está y
+  `git show refs/remotes/origin/main:<ruta>` para leerla. El disco contesta por el checkout, y
+  el checkout puede ser de cualquier fecha.
+
+- ⚠️ **Y EN UN CLON ATRASADO, UN `status` SUCIO TAMPOCO ES «TRABAJO DE OTRA SESIÓN»: puede ser
+  trabajo QUE YA ESTÁ ARRIBA.** La regla de más arriba —«si no es tuyo, dejalo donde está»—
+  supone un árbol al día. En ese mismo clon, las **14** rutas sin commitear (9 «modificadas» y
+  5 «sin trackear») no eran trabajo en curso de nadie: **las 14 ya estaban en `origin/main`.**
+  Siete, byte a byte idénticas; las otras siete coincidían EXACTO con una versión histórica de
+  arriba (`5178a7d46` del 27/10, `b9d0e22c5` y `be19b8c91` del 26/10, `0edc850a6` del 24/10):
+  son las sobras del trabajo que se pusheó desde un worktree mientras el `main` del clon se
+  quedaba quieto. Y aparecen como «sin trackear» sólo porque esos archivos NACIERON después del
+  commit del clon. Acá «commiteá por ruta explícita» es lo que hace daño: commitear una de esas
+  rutas arma un commit con la versión del 27/10 sobre un main del 23/10, y el día que eso se
+  mezcle con `origin/main` entra como un revert de dos semanas.
+
+  **Se distingue por ruta, y son dos preguntas distintas:**
+
+  ```bash
+  git hash-object <ruta>                            # el blob del disco
+  git rev-parse refs/remotes/origin/main:<ruta>     # iguales → ya está arriba, no es WIP
+  # y si difieren, ¿el disco es una versión VIEJA de arriba?
+  d=$(git hash-object <ruta>); for c in $(git rev-list refs/remotes/origin/main -- <ruta>); do
+    [ "$(git rev-parse $c:<ruta> 2>/dev/null)" = "$d" ] && echo "foto vieja: $c"; done
+  ```
+
+  Si el blob del disco aparece en la historia de arriba, no hay nada que salvar. Si no aparece
+  en ninguna, ahí sí es trabajo que no está en ningún lado.
+
+  ⚠️ **Y LA PREGUNTA QUE LO DISTINGUE ES UNA SOLA, Y NO SE HACE SOLA: ¿los archivos son más
+  NUEVOS, o el árbol es más VIEJO?** Las dos cosas pintan el mismo ` M` y la primera es la única
+  que se piensa. Medido el 07/11/2026 **con esta regla ya escrita y en main**: otra sesión midió
+  el mismo clon una hora después, vio los nueve modificados de `extension/` y concluyó «trabajo
+  sin guardar de la extensión», con el plan de commitearlo en una punta propia — o sea publicar
+  la versión del 27/10 encima de la de hoy. No lo frenó la regla: lo frenó que la medición
+  llegara antes que el commit. Su propio diagnóstico, después: «vi `status` sucio y concluí
+  "trabajo sin guardar" sin preguntarme si los archivos eran más NUEVOS o si el árbol era más
+  VIEJO».
+  - **Y un `stash` NO corre riesgo con un `reset --hard`**: vive en `refs/stash`, que un reset no
+    mueve; sólo lo borran `git stash drop` y `git stash clear`. Que haya stashes no es un
+    argumento contra poner el clon al día — aunque conviene mirar qué tienen adentro, porque en
+    un clon atrasado también suelen estar vencidos: los tres de ése lo estaban (uno lo decía en
+    su propio mensaje, «superada por 35eb66fc7/f94d9bf5b», y los otros dos eran la conversión
+    voseo→tuteo de la interfaz, de agosto, ya aplicada arriba).
+  - ⚠️ **Y una lista de rutas que se cortó para leerla no se reporta como completa.** Ese mismo
+    reporte decía «3 sin rastrear» sobre 5, porque salió de una salida cortada a 12 líneas de 14.
+    Un número de menos en una lista de lo que hay que salvar se lee igual de prolijo que el
+    verdadero.
+
+- ⚠️ **Y PONER `main` AL DÍA «SIN TOCAR EL ÁRBOL DE TRABAJO» ES LA PEOR OPCIÓN DE TODAS.** Un
+  `git update-ref` o un `git branch -f` mueven la rama y dejan el disco como está: el `status`
+  pasa a comparar el árbol viejo contra el commit nuevo y aparecen **9.090 archivos
+  «modificados»** con contenido de hace dos semanas — el revert disfrazado de la regla anterior,
+  multiplicado por el repo entero, en el `.git` que comparten ~90 worktrees y varias sesiones a
+  la vez. El fast-forward tampoco está disponible si el clon tiene commits propios (ahí eran 10:
+  seis merges viejos de `origin/main` y cuatro con trabajo que ya había llegado arriba por la
+  punta, con otro sha). Lo que corresponde es medir las rutas sin commitear UNA POR UNA con los
+  comandos de arriba y recién después mover el árbol — **y avisarle a Martín antes**, porque de
+  ese clon leen todas las demás sesiones.
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
@@ -2239,6 +2335,40 @@ Y donde haya un guard así, dos cosas más:
 - **Esconder el botón no protege nada.** El que decide es el server; la UI solo pinta lo
   que él contesta.
 
+# El vocabulario de UN negocio no se escribe en el código: ni nombres, ni correos, ni programas
+
+Un literal que nombra a un cliente —su dominio, su rubro, el nombre de su programa— se le
+aplica a TODOS. Y cuando lo que gobierna es descartar algo, falla del lado invisible: la
+fila no se escribe, no hay error, no hay aviso, y nadie vuelve a mirar.
+
+El mismo bug salió **tres veces del mismo módulo** (`lib/closing.ts`), por tres mecanismos
+distintos, y cada vez el que vino después no lo vio porque buscaba el mecanismo anterior:
+
+| | Qué estaba cableado | Se fue a | Fallback |
+|---|---|---|---|
+| 14/08/2026 | los correos y el dominio del dueño | `lib/closing-internos.ts` | `SIN_INTERNOS`: nadie es interno |
+| 06/11/2026 | la taxonomía del rubro, en el prompt | `lib/closing-taxonomia.ts` | `TAXONOMIA_NEUTRA`: sin rubro |
+| 06/11/2026 | los nombres de sus programas, en un regex | `lib/closing-marcadores.ts` | `SIN_MARCADORES`: ningún nombre |
+
+Lo que queda como regla para código nuevo:
+
+1. **Se resuelve por workspace, por el lector de siempre de ese dato** (el embudo por
+   `reunionesDe`, la oferta por `listarOfertas`, el perfil por `perfilNegocioTexto`). Un
+   `.from` propio para esto es una segunda fuente de verdad.
+2. **El fallback es el que NO destruye**, y se elige escribiendo los dos costos al lado:
+   analizar de más se ve en la pantalla y en la factura; descartar de más no se ve en ningún
+   lado. Nunca se cae a los valores del cliente de antes: es el mismo agujero servido por el
+   camino de error.
+3. **La decisión vive en un módulo SIN `server-only`.** Que una función esté `export`ada no
+   la hace testeable: `preClassify` lo estaba, y `lib/closing.ts` importa `server-only` en la
+   línea 27, así que ningún test la podía ejecutar.
+4. **Mudarlo a configuración no alcanza si la configuración admite una palabra genérica.** Un
+   producto llamado «Programa» o «Consultoría» descarta las ventas de su propio dueño: el
+   mismo bug, servido por la config. Hace falta el filtro (`PALABRAS_GENERICAS`, un mínimo de
+   largo, y excluir lo que ya rotula una etapa de venta de ese negocio).
+5. **Un detector así se mide antes de defenderlo.** El de los programas cazaba **0 de 28**
+   entregas reales y nadie lo sabía mientras discutía cuánto ahorraba.
+
 # `OWNER_WS` NO es la plataforma: es un cliente. Lo de MaKo va en `wsSuperAdmin()`
 
 `OWNER_WS` vale 1 y el 1 es **Mauricio, un cliente**. El nombre engaña y ya se llevó
@@ -2332,6 +2462,14 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
   componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
   `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+  ⚠️ **Y un default tapa el call site que falta** (6/11/2026, #510): `faltantesParaMover` tenía `?? hoyEnTijuana()` y su
+  llamador real no pasaba el día NUNCA, así que el corte del día de todo negocio era el de Tijuana — y ese corte decide si
+  se exige la asistencia a la reunión para mover un lead (Ganado incluido). En una función PURA el día es **obligatorio**
+  (que lo frene el compilador) y lo resuelve quien llama, con el ws que tenga a mano (`hoyDelWorkspace(ctx.ws)`,
+  `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
+  va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
+  eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
+  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
@@ -2384,6 +2522,45 @@ botones mal». No faltaba nada: no se veía nada.
 
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
+
+# Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
+
+De esto depende cada `.maybeSingle()` del repo: sobre una columna que puede repetirse, con dos filas PostgREST
+contesta **PGRST116** y el lector tira (es lo que ya tiró el webhook de Calendly, y lo que fija
+`tests/crm-fathom-links.test.ts`). Así que «¿esta columna es única?» es una pregunta que se contesta **antes** de
+elegir el lector — y hay dos formas de contestarla mal, las dos con un resultado plausible:
+
+1. **Leyendo un `create index` y creyendo que es EL índice de la columna.** Una tabla puede tener los dos. La 0053
+   declara `email text not null unique` en la línea 27 y, catorce líneas más abajo,
+   `create index if not exists idx_usuarios_email on usuarios (email)`: un índice de **MÁS**, no único, al lado de la
+   constraint. Un `grep` de «index» + «email» encuentra el segundo, que es el que se parece a la pregunta. Eso mandó la
+   tanda de la mig 0410 entera: se escribió «`usuarios(email)` tiene un índice NO único (0053)» en una migración, en un
+   `docs/hallazgos-*` y en la cabecera de un módulo, y de ahí salió un bug que **no podía pasar**.
+2. **Midiendo las filas repetidas y leyendo el 0 como «todavía no pasó».** Un `count` de 0 es igual de compatible con
+   «no puede pasar»: no distingue las dos cosas, y confirma la hipótesis falsa en vez de romperla. El 6/11/2026 se midió
+   «direcciones con más de una fila = 0» y se anotó como «el esquema lo permite pero no hubo víctimas».
+
+**Lo que sí contesta, en un comando, y contra la base que está CORRIENDO** (un archivo de migración dice lo que se
+quiso aplicar, no lo que está aplicado):
+
+```sql
+select i.relname, ix.indisunique, pg_get_indexdef(ix.indexrelid)
+  from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_class t on t.oid = ix.indrelid
+ where t.relname = '<tabla>';
+```
+
+Y antes de inventar un criterio de desempate para «cuál de las N filas es la que vale», **buscá quién ya depende de
+que no haya N**: acá la 0178 construye `agencia_altas` entera sobre que «el email es LA identidad: `usuarios.email` es
+único», y el caso que parecía necesitar dos filas —alguien que trabaja en su cuenta y en la de un cliente de su
+agencia— el producto lo modela con la cookie firmada de agencia y su cartera (`agencia_clientes`, 0175). El detalle,
+en [docs/hallazgos-ajustes.md](docs/hallazgos-ajustes.md) → «El índice de MÁS que se leyó como el único».
+
+⚠️ **Y el `error` de esa lectura no se funde con «no hay fila».** Son tres estados (hay fila / no hay / no pude leer) y
+el que escribe necesita los tres: `if (error || !data) return null` salía por /perfil/notificaciones como
+«Esta sesión no tiene cuenta propia» sobre una persona que sí la tiene. El criterio: el que **ESCRIBE** corta con un
+motivo que la pantalla pueda decir; el que **LEE** puede caer al default (fail-open de una preferencia), y eso se
+decide a propósito, no por tener un `catch` de más. Moldes: `filaPropia` (lib/perfil.ts), `filaDeLaSesion`
+(app/api/recorridos/route.ts) y el `sinLeer` de `usuarioDelPerfil`.
 
 # Cuando algo «no aparece», el orden es datos → server → navegador, y no se saltea
 
@@ -3604,6 +3781,15 @@ cualquier proceso que recorra el tablero entero en segundo plano:
   historial es lo único que deja volver a mano.
 - **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
   Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+  ⚠️ **Y la LECTURA del tablero también** (6/11/2026, #507): `listTareas({ soloDelPlan: true })` (lib/todo.ts). El
+  filtro es un parámetro con el default de hoy —todo— porque hay lectores que necesitan la tabla ENTERA y romperlos es
+  silencioso: el cierre por señales (`autocompletarPorSenales` y su cron), buscar una por id para editarla o cerrarla, y
+  la deduplicación de lo que se propone. Lo pide quien PRESENTA el tablero, y son SIETE puertas: /plan, su GET,
+  «Hoy»/«Semana», el foco de /general, `leerTablero` de la API, `ver_plan` y /api/agente/plan. La que se olvida devuelve
+  las tareas de la Retro al tablero. ⚠️ **Y filtrar le rompe el aviso de «se cortó» a quien lo mide**: la lectura no
+  pagina (PostgREST corta en 1000 filas sin avisar) y `recortado` se calculaba con el largo de la lista.
+  De 1000 leídas quedan 800 y el aviso desaparece: se mide con `listTareasConTope().leidas`, las filas ANTES
+  de filtrar. Toda lectura que filtra en memoria lo que vino de un tope mide el tope con lo LEÍDO.
 - **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
   foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
   prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
@@ -4165,8 +4351,24 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   «no agendaste» al que pagó.
 - **La clave de una pasarela se lee con `credDelCliente(clave, ws)`**, nunca `credWs`/`envCred`/`process.env`: esos
   caen al ws1 (Mauricio, un cliente). La de MaKo es la del workspace `wsSuperAdmin()`, conectada desde
-  /integraciones como la de cualquiera. Y **ninguna clave `STRIPE_*`/`MERCADOPAGO_*` va al entorno de Vercel**
-  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
+  /integraciones como la de cualquiera. Y **ninguna clave de pasarela va al entorno de Vercel**
+  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts). ⚠️ Y una que se cargue ahí igual no es un error que
+  avise: `credDelCliente` lee SÓLO la base y `aplicarAEnv` se niega a copiarla, así que queda **inerte** y el conector
+  dice «falta la credencial» (06/11/2026, con las de dLocal Go cargadas en `.env.local` y en Vercel). Ojo también con la
+  skill `add-provider-integration`: dice «per-cliente → `credWs('CLAVE')`», que es correcto para una integración normal
+  y es **exactamente lo prohibido** para una pasarela.
+- ⚠️ **UNA PASARELA NUEVA SE AGREGA A SU LISTA DE PREFIJOS EN EL MISMO COMMIT QUE SU LIB.** El barrido de
+  `tests/pasarela-sin-env.test.ts` es por PREFIJO, así que es tan ancho como su lista — y **quedó ciego dos veces**: con
+  Creem (31/10/2026) y con dLocal Go (06/11/2026), las dos con un `credWs('<X>_API_KEY')` pasando **en verde** y
+  cobrándole a la cuenta del ws1. Un guardia que no mira no da rojo: da un cero correcto sobre la pregunta equivocada.
+  Desde el 06/11 los dos tests del archivo derivan las claves de `CLAVES_DE_PASARELA` leyendo el fuente, así que la
+  quinta pasarela ya no depende de que alguien se acuerde.
+- ⚠️ **Y UNA CAPACIDAD DE PASARELA QUE ES UNA REGIÓN NO ENTRA EN UN BOOLEANO.** `soloEnSuPais` tiene dos valores («sólo
+  el país de su cuenta» y «todo el mundo») y dLocal Go no es ninguno: cobra en LatAm y **no recibe pagos de EE.UU. ni de
+  Europa**. Agregarlo con los dos valores correctos campo por campo (`soloEnSuPais: false`, `merchantOfRecord: false`) lo
+  deja **ofrecido a quien está fuera de LatAm y escondido para quien está dentro** — al revés, sin un ternario de dos
+  ramas y sin que nada falle. Antes de sumar una pasarela regional va `paisesQueCobra` en `CapacidadesPasarela`, y
+  `pasarelasDelPais` filtra por él ANTES de mirar `merchantOfRecord` (docs/hallazgos-planes-y-cobro.md → «dLocal Go»).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
   ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
@@ -7376,6 +7578,15 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
+- ⚠️ **UN CANDADO EN MEMORIA NO ES UN CANDADO** (6/11/2026, #514). Un `Set` a nivel de módulo contra el
+  doble clic funciona en desarrollo (un proceso) y no en producción (N instancias): dos pestañas
+  atendidas por dos instancias pasan las dos. El que decide es la BASE — se reclama con
+  compare-and-set (`cambiarSettingSi`) **antes** de calcular nada, y el `Set` queda como primer filtro
+  barato. Y todo candado así: **VENCE** (si no, el proceso que muere con él puesto deja la acción
+  muerta para siempre; el plazo se elige contra el `maxDuration` de SU ruta, no «un rato»), **se suelta
+  siempre** (`finally`) **y sólo si sigue siendo el propio** (`borrarSettingSi`, que compara el valor:
+  si venció y otro lo tomó, borrarlo es soltarle el de él), y **se lee estricto** («no pude leer» no es
+  «no lo tiene nadie»). Moldes: `hacerSugerencia` (lib/sugerencias-crm-server.ts) y `crearDifusion`.
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
@@ -7622,6 +7833,17 @@ el hallazgo cruza áreas, va donde vive el código y se enlaza desde la otra.
 Si el área todavía no tiene documento, se crea. `docs/hallazgos.md` es el índice: una
 línea por documento, y se actualiza en el mismo commit.
 
+⚠️ **En el índice se REESCRIBE la celda de tu área metiendo tu entrada adelante — nunca
+se agrega una fila.** Es una tabla con **una fila por área**, y una fila nueva la duplica.
+Tu entrada arranca con `**Título (fecha)**:`, que es el límite que después permite
+juntarlas sin partir una oración al medio. Y un `|` en el texto va escapado (`\|`): sin
+escapar le inventa columnas a la fila y markdown deja de mostrarla. Lo mira una guarda
+(`tests/unir-indice-hallazgos.test.ts`), que también chequea que el link de cada fila
+exista en disco. El 6/11/2026 el índice tenía 217 filas para 77 áreas porque
+`merge=union` agarraba también la tabla: el porqué, en
+[docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El índice de hallazgos se
+duplicaba solo».
+
 Qué va ahí:
 
 | Sí | No |
@@ -7843,6 +8065,25 @@ el producto miente.
 mismo barrido, **una era falsa alarma** y recortarla habría empobrecido una descripción
 correcta.
 
+## Y su CONTENIDO no entra al producto aunque su CÓDIGO sí: sacarle el crédito no desactiva la licencia
+
+Portar un editor trae dos cosas distintas, y se tratan distinto: **su motor** puede quedarse
+con su crédito en el `LICENSE-*` del repo; **su contenido** (plantillas, assets, textos de
+ejemplo) es material ajeno adentro del producto y sale. El editor de imágenes vino con las 10
+plantillas de Doory —bodas, conciertos, currículums— y encima no le servían a ningún negocio:
+se borraron el 6/11/2026, con sus JSON, sus WebP y sus etiquetas (hallazgos-editor-imagen.md).
+
+**Que el crédito visible ya no esté no cambia nada.** La Attribution Assurance License de
+Doory aplica «in whole or part, with or without modification»: borrar `CreditoDoory.tsx`
+(29/10/2026) dejó de mostrarla, no de deberla. Traducir el contenido al español tampoco: eso
+ES la modificación que la licencia nombra.
+
+**Para código nuevo:** una plantilla, una foto de muestra o un texto de ejemplo que entre al
+producto se genera o se escribe acá. En el editor de imágenes van a
+`lib/image-editor/plantillas-reales.ts` (generadas por código, estructura y ejemplo de la
+misma función) o a las plantillas propias del negocio
+(`app/creaciones/usePlantillasPropias.ts`), nunca al panel que servía las de Doory.
+
 ## Y para leerlos: grepeá la ruta, no abras el documento
 
 **Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro
@@ -7939,6 +8180,14 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
   versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
   GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
+
+- **Y el primo del default: el valor que se pone PARA QUE NO QUEDE CRUDO.** `{{link_pago}}`, sin cobro pendiente, no
+  sale como `{{link_pago}}`: sale «sin link de pago pendiente», a propósito, porque un token crudo en el WhatsApp de un
+  cliente parece un mensaje roto (`valoresDelCobro`, lib/variables-del-lead.ts). Está bien **donde la ausencia es un
+  hecho** y es una trampa donde no lo es: un pago rechazado deja el cobro en `fallido`, así que una plantilla que le
+  dijera «pagá acá: {{link_pago}}» le manda esa frase justo a quien tiene que pagar, sin un solo error (6/11/2026,
+  el pendiente 288; docs/hallazgos-chatbot.md). **Antes de usar un dato así en un texto que SALE, preguntá en qué
+  estado está la entidad de la que se lee**, no sólo si el token existe.
 
 # Dos escritores con dos ritmos son dos claves
 
@@ -10143,6 +10392,64 @@ número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro
 Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
 de siempre: era la tercera escritura de la misma regla y la única que faltaba.
 
+# Un prompt nuevo se DECLARA en el registro, y lo exige una guarda del push (6/11/2026)
+
+«Todo prompt de MaKo es editable desde /configuraciones» no lo chequeaba nada: `guardas-push.sh` no decía
+la palabra «prompt» y de los 2.307 `tests/*.test.ts` **ninguno recorría el `REGISTRY`**. Así entraron
+**29 prompts que la app usa y la pantalla no muestra**, y **4 que la pantalla muestra y nadie lee**
+(`campaign.*`: el override se guarda y el texto no llega a ningún modelo).
+
+Nada lo iba a avisar, porque los dos lados fallan en silencio **a propósito**: `getPromptText` hace
+`override ?? fallback`, así que una key fuera del registro ANDA; y `renderTemplate`
+(lib/prompt-render-pure.ts) reemplaza SÓLO los slots declarados —defensa anti-inyección—, así que un dato
+que no coincide con un `{{slot}}` se tira sin error y un `{{slot}}` que nadie llena viaja literal al modelo.
+
+Lo exige **`scripts/prompts-registro-sincronizado.mjs`** (en `guardas-push.sh`, ~10 s), que EJECUTA el
+registro —`server-only` neutralizado con el parche de `Module._load`— y barre `lib/ app/ scripts/`:
+
+- **Un prompt nuevo va al `REGISTRY` con su Entry**, o la guarda frena. Si todavía no está cableado, se dice
+  en su `context` (el molde: `mako.modo.*`).
+- **La `key` de la Entry sólo es el identificador de lectura con `source: 'override'`.** Las otras tres
+  fuentes resuelven por `storeKey` (`modoByKey.get(e.storeKey)`, `fases[e.storeKey]`), así que ahí la red es
+  que esa `storeKey` exista en `MODOS` (lib/mako-prompts.ts) — sin la fila, la pantalla muestra el default
+  como si fuera el valor vigente y guardar escribe donde nadie lee.
+- **Los `{{slots}}` del template, el `variables:` de la Entry y las claves que recibe `renderPrompt` son el
+  mismo conjunto.** Un slot vivo que el `variables:` no declara es un dato que el que edita puede borrar sin
+  que nada se lo diga.
+- **La key va LITERAL en el call-site**, o por una tabla `PROMPTS_* = { campo: { key: '…' } }` o una constante
+  `CLAVE_*`/`KEY_*`. Otra indirección frena el push: por ahí entra una huérfana que nada ve.
+- Las excepciones viven en el propio script, cada una con su motivo y su fecha, **y la guarda falla si la
+  lista crece o si una entrada ya no corresponde**: es un contador que sólo puede bajar.
+- Para ver el estado sin juzgar nada: `node --import tsx scripts/prompts-registro-sincronizado.mjs --listar`.
+
+⚠️ **Un test de un prompt NO necesita regexear el fuente del registro.** Los cinco que lo cruzan hoy
+(`tests/offer-ia-cableado.test.ts` y los parciales de closing, copywriter y editor-landing) leen
+`lib/prompt-registry.ts` como texto porque es `server-only`; con el stub se importa y se leen `key`,
+`variables` y `default` como datos.
+⚠️ **Y la guarda mira el CABLEADO, no si la pantalla correcta lo lee.** Lo medido el 6/11 pasando los
+prompts del escritor de Instagram al registro:
+
+- **Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro.**
+  Uno que se quedó con la constante queda **mudo**: el usuario edita, guarda, ve su texto en pantalla — y
+  esa pantalla sigue escribiendo con el default. Sin error, sin tipo roto, y con la key perfecta (así que la
+  guarda da verde). Lo que lo fija es **contar los usos de la constante en un test**
+  (`tests/ig-writer-prompts.test.ts`: 0 en el motor, 1 en el Copywriter y sólo como respaldo del `.catch`).
+- **Si el DEFAULT vive en un módulo que la UI también importa** —y por eso no puede llevar `server-only`:
+  las `METODOLOGIA_*` de `lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo
+  archivo— el default se queda ahí y la resolución editable va en un **módulo server aparte**
+  (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan todos.
+- **Si el prompt se arma de VARIOS bloques, el orden vive en UNA función** (`componerMetodologia`). Con dos
+  caminos —el default y el editable— el prompt sin editar y el editado le pueden llegar al modelo en distinto
+  orden y nada lo chequea: el test compara las dos salidas con nada editado, y tienen que ser idénticas.
+- **Un contrato JSON que lee un parser determinista del mismo archivo NO se registra** (`REEL_JSON_SHAPE` y
+  compañía): editarlo desde /configuraciones es editar el parser, y el síntoma sería «la pieza vino sin
+  escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del prompt que sí se edita, con el aviso en su
+  `context`.
+- **La key «por tabla» que la guarda acepta es `PROMPTS_X.campo.key` con el campo LITERAL.** Un
+  `PROMPTS_X[formato].key` no se puede seguir y frena el push: la resolución por formato se escribe como un
+  `switch` exhaustivo con los tres accesos a la vista, que además hace que un formato nuevo no compile hasta
+  tener su Entry.
+
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 
 En este repo, sobre el mismo mensaje, el ROUTER contesta «¿cuánto gastar?» (el tier) y
@@ -10880,6 +11187,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Y una pieza de escritorio que se MONTA en /m trae menos de lo que parece (6/11/2026, Competitor Spy).** Antes de
+  reusarla se miran tres cosas en SU archivo: (1) si trae su CSS (`<style>{CSS}</style>`) o si vive en el `const CSS` de
+  la pantalla que la monta —la mitad de las de Spy—, porque sin él se dibuja sin una sola regla y en la computadora
+  nadie lo nota; (2) si usa tokens declarados en la clase RAÍZ de su tab (`.spy` declara `--t1..--t4`, `--t-ink`,
+  `--ig`…), que fuera de ella resuelven a nada; (3) si es dueña de su CAJA —un `Modal`, que /m no usa—, y entonces la
+  caja se vuelve una prop con el `Modal` como default y el teléfono le pasa su `SheetM` (molde: `marco` /
+  `MarcoDetalle`, app/competitor-spy/DetallePieza.tsx). Lo que se viste en /m va como DESCENDIENTE del prefijo entero de
+  la carpeta, que es lo que además permite destilarla (una columna, no cinco) sin tocar el escritorio.
+  Lo que costó: docs/hallazgos-mobile.md, «Montar una pieza de escritorio en /m».
 - **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
   Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
   que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes

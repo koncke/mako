@@ -25,6 +25,7 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { duracionesDeTomas } from './duraciones.mjs';
 
 const MAKO = process.env.MAKO_URL || 'https://hola-mako.com';
 const TOKEN = process.env.MONTAJE_WORKER_TOKEN || '';
@@ -123,13 +124,21 @@ async function montar(t) {
       await bajar(t.musica, musica);
     }
 
-    const seg = t.segundosPorToma || [];
+    // ⚠️ LA DURACIÓN DE CADA TOMA, NO LA DE LA PRIMERA PARA TODAS. Las tomas de un
+    // anuncio no duran lo mismo (medido: 10, 8 y 10) y el plan de cortes topea cada
+    // toma en el número que recibe: con el de la primera, lo que se decía al final de
+    // una toma más larga no entraba en ningún tramo y se perdía SIN UN ERROR, mientras
+    // la pantalla afirmaba «Se fue el silencio, no una palabra». El porqué y la cuenta,
+    // en worker/duraciones.mjs; la ruta de Vercel ya mandaba la lista entera.
+    //
+    // `$DURVID` viaja SIN comillas como argv[4] de montar-anuncio-sin-silencios.sh: una
+    // lista separada por comas y sin espacios llega como UN argumento (verificado
+    // corriendo el bash en tests/montaje-worker-tomas.test.ts).
+    const durs = duracionesDeTomas(t.segundosPorToma, t.clips.length);
     const env = {
       ...process.env,
       NTOMAS: String(t.clips.length),
-      // Todas las tomas de un anuncio duran lo mismo hoy. Si dejan de durarlo,
-      // esto pasa a ser una lista y el montaje tiene que leerla.
-      DURVID: String(seg[0] ?? 10.005),
+      DURVID: durs.join(','),
       CLIPS: clips,
       // Sin música, el paso NO se saltea: hace loudnorm sobre la voz sola. El
       // env queda como escape para probar una pista en el contenedor sin pasar
@@ -160,7 +169,9 @@ async function montar(t) {
     // Los dos números que ve la persona. Salen del log del montaje, que ya los
     // imprime; si no se pudieron leer, se devuelven ausentes y la pantalla no
     // inventa ninguno.
-    const antes = (t.clips.length * (seg[0] ?? 10.005));
+    // El «antes» es la SUMA de las duraciones reales, no las tomas por el largo de la
+    // primera: con tomas de 10, 8 y 10 ese producto decía 30 s de un anuncio de 28.
+    const antes = durs.reduce((a, b) => a + b, 0);
     const mDur = /duration=?\s*([\d.]+)/i.exec(out);
 
     // ⚠️ EL PLAN VUELVE CON EL RESULTADO, y sin esto el editor no tendria que

@@ -6,8 +6,10 @@
 // UNA acción para los dos lados (../m/image-editor/InicioImagenM.tsx y ./ImageEditorCliente.tsx), con la lista de
 // ./plantillas-crear.ts: el id que llega del navegador se busca ahí (no se confía en medidas que vengan de afuera).
 // El documento se arma en el server, sin el motor (que es sólo de cliente: test 4 de tests/image-editor-integracion.test.ts):
-// en blanco con `documentoEnBlanco` (una página por id: el carrusel trae varias) o el de la plantilla con
-// `documentoDePlantilla`, lo MISMO que usa la API de MaKo para `crear_diseno_imagen` (lib/api-mako/areas/imagen.run.ts).
+// la estructura de una plantilla real, un carrusel por tipo, o en blanco con `documentoEnBlanco` (una página por id: el
+// carrusel trae varias). Lo MISMO que usa la API de MaKo para `crear_diseno_imagen` (lib/api-mako/areas/imagen.run.ts).
+// Desde el 6/11/2026 no hay una cuarta rama: las 10 plantillas de Doory se borraron (eran material ajeno) y `plantilla`
+// salió de la tarjeta (./plantillas-crear.ts).
 // La puerta, la validación y la tabla son las de /api/image-editor/disenos (lib/image-editor/server.ts).
 // Un carrusel de MaKo por tipo (4/11/2026) sale de su estructura (lib/carruseles/documento.ts), con el nombre del negocio en
 // la cabecera; «Hacer el mío» (./carruseles/actions.ts) usa el mismo armado con la estructura de una referencia.
@@ -22,7 +24,6 @@ import { tipoCarrusel } from '@/lib/carruseles/tipos';
 import { estiloConKit } from '@/lib/carruseles/marca-kit';
 import { kitParaUsar } from '@/lib/marca/kits-server';
 import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
-import { documentoDePlantilla } from './mako/plantillas';
 import { plantillaNueva } from './plantillas-crear';
 import { plantillaImagen } from '@/lib/image-editor/plantillas-reales';
 
@@ -43,9 +44,7 @@ export async function crearDisenoNuevoAction(id: string): Promise<Resultado> {
     ? real.estructura(randomUUID)
     : tipo
     ? documentoDeCarrusel({ laminas: tipo.estructura(tipo.laminas.def), estilo: estiloConKit(tipo.estilo, kit, fuenteDelEditorDeImagen), marca: await marcaDelNegocio(p.ws, kit), nuevoId: randomUUID })
-    : pl.plantilla
-      ? await documentoDePlantilla(pl.plantilla)
-      : documentoEnBlanco(pl.ancho, pl.alto, Array.from({ length: Math.max(1, pl.paginas) }, () => randomUUID()));
+    : documentoEnBlanco(pl.ancho, pl.alto, Array.from({ length: Math.max(1, pl.paginas) }, () => randomUUID()));
   if (!doc) return { ok: false, error: 'Esa plantilla no existe.' };
   const r = await crearDiseno(p.ws, p.quien, { titulo: pl.tituloDiseno ?? pl.nombre, doc });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };

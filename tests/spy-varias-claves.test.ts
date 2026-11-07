@@ -188,6 +188,31 @@ test('12. ninguna clave sale en ninguna respuesta', () => {
   assert.match(script, /B\.techoConCredito\(techoPedido, c0, B\.RESERVA_CREDITO_USD\)/, 'el techo sale del total de todas las claves');
 });
 
+// 6/11/2026: la nota de la tarjeta decía «40 lecturas por día», que es `APIFY_TOPE_POR_DIA` — el tope de OTRA clave
+// (`APIFY_TOKEN`, el buscador del alta del CRM). El de ESTA subió a 150 el 4/11 y la nota quedó mintiendo: el cliente creía
+// que podía casi cuatro veces menos de lo que podía. Se interpola la constante para que no se vuelva a desfasar.
+// ⚠️ `lib/metodo-catalogo.ts` lleva `import 'server-only'`: acá se lee como TEXTO, igual que el resto de este archivo.
+test('14. la nota de la clave de Apify dice el tope de ESTA clave, sacado de la constante', () => {
+  const fuente = sinComentarios(leer('lib/metodo-catalogo.ts'));
+  assert.match(fuente, /lee hasta \$\{TOPE_LECTURAS_SPY_POR_DIA\} perfiles por día/, 'el tope va interpolado, no escrito a mano');
+  // ⚠️ Y el catálogo NO nombra la clave del scraper retirado: `tests/leads-scraper-retirado.test.ts` barre ese nombre por
+  // app, lib, tests y scripts, y la primera versión del comentario de arriba lo escribió — rojo, con razón. Un COMENTARIO
+  // también es texto que un guard lee. El nombre va partido acá para que este test no se acuse a sí mismo.
+  // ⚠️ SOBRE EL FUENTE CRUDO, no sobre `fuente`: ése pasa por `sinComentarios`, que borra justo lo que hay que vigilar.
+  // (Lo escribí con `fuente` y la rotura de prueba no lo cazó: el test no puede mirar comentarios si se los saca antes.)
+  const laDelScraper = new RegExp(`${'APIFY'}_${'TOKEN'}\\b`);
+  assert.doesNotMatch(leer('lib/metodo-catalogo.ts'), laDelScraper, 'ni en un comentario: el guard del scraper retirado barre ese nombre');
+  assert.match(fuente, /TOPE_LECTURAS_SPY_POR_DIA \} from '\.\/instagram-perfil'/, 'importado de donde vive el tope');
+  assert.doesNotMatch(fuente, /tope de 40 lecturas por día/, 'volvió el tope de la otra clave, escrito a mano');
+  assert.doesNotMatch(fuente, /APIFY_TOPE_POR_DIA/, 'el catálogo no tiene que nombrar el tope del buscador del alta');
+  // Y que el tope de ESTA clave siga siendo el que guarda la lectura de Spy: si cambia de nombre, esto se entera.
+  const perfil = sinComentarios(leer('lib/instagram-perfil.ts'));
+  assert.match(perfil, /export const TOPE_LECTURAS_SPY_POR_DIA = \d+;/);
+  const server = sinComentarios(leer('lib/instagram-perfil-server.ts'));
+  assert.match(server, /if \(!claveDeSpy\) continue;/, 'la fuente apify-spy es la que usa la clave de la tarjeta');
+  assert.match(server, /usadas >= TOPE_LECTURAS_SPY_POR_DIA - reserva/, 'y la topea con la constante de la nota');
+});
+
 test('13. la tarjeta: «Agregar otra clave de Apify» abre la clave y su nombre juntos, y muestra el crédito', () => {
   const form = sinComentarios(leer('app/integraciones/ServicioConfigForm.tsx'));
   assert.match(form, /const esApify = servicio\.key === 'apify-instagram';/);
