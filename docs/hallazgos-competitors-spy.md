@@ -266,6 +266,42 @@ Runner). Lo único que falta es correrlos donde se puede.
 **Y un pendiente FANTASMA menos:** «los formatos nuevos del catálogo en el análisis de piezas» ya estaba hecho — el
 prompt recibe los 19 con su definición (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`, `lib/spy.ts`), con su test. Lo que
 faltaba de verdad era otra cosa, y está arriba en «Los 19 formatos».
+### Juntar repetidos: la rama de los nombres de varias palabras estaba MUERTA, y lo dijo la rotura (6/11/2026)
+
+**El cambio** era ofrecer «Juntarlos» para las cargas repetidas de la misma persona, mudando las piezas en vez de
+borrar una (borrar se las lleva por `on delete cascade` y no se deshace).
+
+**Lo que encontró el probar rompiéndolo.** `mismoNombre` tenía dos ramas: una palabra metida en el otro nombre
+(«hormozi» ⊂ «@AlexHormozi») y varias palabras que tienen que estar TODAS («Sofia Contreras» ⊂ «Sofia Contreras
+Coach»). Cambiar el `every` de la segunda por un `some` —el bug clásico, que haría emparejar «Marcos Pérez» con «Ana
+Pérez»— **no ponía NADA en rojo**. La rama no se ejecutaba nunca: las palabras se contaban sobre el nombre ya pasado
+por `nombreComparable`, **que saca los espacios**, así que «Ana Pérez» era UNA palabra («anaperez») y el `if` de
+«varias» era inalcanzable. Se cuenta sobre el nombre crudo y la rotura ya cae.
+
+**La regla que queda.** Un test que no cae al romper lo que vigila no vale, **y «no cae» puede querer decir que el
+código que vigila no corre**. Es el caso contrario al de un guard que mide la forma equivocada: acá el guard estaba
+bien y el código estaba muerto. Hay que romper CADA rama, no el caso de más arriba.
+
+**Dos cosas más que el pedido fijó y conviene no redescubrir:**
+
+- **Un DOMINIO no se empareja con una persona**, a propósito: «acquisition.com» y «@AlexHormozi» pueden ser lo mismo o
+  pueden ser su empresa y él. En el código no existe ninguna comparación nombre-contra-dominio, así que la aserción
+  que lo dice **documenta la decisión, no la vigila**: ningún cambio de una línea la pone en rojo. Está para que no se
+  agregue.
+- **Quién queda lo decide la cantidad de PIEZAS, nunca el nombre.** «sofiacontreras» puede ser la fila con 200 piezas
+  leídas: el nombre se arregla, las piezas no se recuperan. Después empatan por cuentas conocidas, por última mirada y
+  por id (el que se cargó primero, que es el que el cliente tiene enlazado).
+
+**El orden en el servidor NO es cosmético** (lib/spy-juntar.ts): mudar y DESPUÉS borrar. `spy_piezas` tiene
+`on delete cascade`, así que borrar primero se lleva todo lo leído de esa persona sin vuelta atrás; si la mudanza se
+corta, no se borra nada y quedan los dos repetidos, que es el estado de antes. Y las piezas que el que queda YA tiene
+no se pueden mudar: la tabla es única por (negocio, competidor, canal, ref) y la mudanza entera se caería — se van con
+la copia, que es la misma pieza leída dos veces.
+
+**Sin hacer:** la oferta leída, los guiones y las páginas capturadas del que se va se van con él. Sale gratis porque
+al completarse con su web el que queda tiene una web nueva y `hayQueLeer` lee su oferta sola al abrir su ficha; pero
+los guiones de sus reels se vuelven a pedir (una lectura de Apify por reel que se abra). Y los pares se ofrecen de a
+UNO: con tres cargas de la misma persona, la tercera aparece después de juntar las dos primeras.
 
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
