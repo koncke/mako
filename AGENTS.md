@@ -822,6 +822,26 @@ Reglas que salen de eso:
   Si el blob del disco aparece en la historia de arriba, no hay nada que salvar. Si no aparece
   en ninguna, ahí sí es trabajo que no está en ningún lado.
 
+  ⚠️ **Y LA PREGUNTA QUE LO DISTINGUE ES UNA SOLA, Y NO SE HACE SOLA: ¿los archivos son más
+  NUEVOS, o el árbol es más VIEJO?** Las dos cosas pintan el mismo ` M` y la primera es la única
+  que se piensa. Medido el 07/11/2026 **con esta regla ya escrita y en main**: otra sesión midió
+  el mismo clon una hora después, vio los nueve modificados de `extension/` y concluyó «trabajo
+  sin guardar de la extensión», con el plan de commitearlo en una punta propia — o sea publicar
+  la versión del 27/10 encima de la de hoy. No lo frenó la regla: lo frenó que la medición
+  llegara antes que el commit. Su propio diagnóstico, después: «vi `status` sucio y concluí
+  "trabajo sin guardar" sin preguntarme si los archivos eran más NUEVOS o si el árbol era más
+  VIEJO».
+  - **Y un `stash` NO corre riesgo con un `reset --hard`**: vive en `refs/stash`, que un reset no
+    mueve; sólo lo borran `git stash drop` y `git stash clear`. Que haya stashes no es un
+    argumento contra poner el clon al día — aunque conviene mirar qué tienen adentro, porque en
+    un clon atrasado también suelen estar vencidos: los tres de ése lo estaban (uno lo decía en
+    su propio mensaje, «superada por 35eb66fc7/f94d9bf5b», y los otros dos eran la conversión
+    voseo→tuteo de la interfaz, de agosto, ya aplicada arriba).
+  - ⚠️ **Y una lista de rutas que se cortó para leerla no se reporta como completa.** Ese mismo
+    reporte decía «3 sin rastrear» sobre 5, porque salió de una salida cortada a 12 líneas de 14.
+    Un número de menos en una lista de lo que hay que salvar se lee igual de prolijo que el
+    verdadero.
+
 - ⚠️ **Y PONER `main` AL DÍA «SIN TOCAR EL ÁRBOL DE TRABAJO» ES LA PEOR OPCIÓN DE TODAS.** Un
   `git update-ref` o un `git branch -f` mueven la rama y dejan el disco como está: el `status`
   pasa a comparar el árbol viejo contra el commit nuevo y aparecen **9.090 archivos
