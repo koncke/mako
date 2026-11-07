@@ -705,3 +705,39 @@ no técnica.
 
 **Vive en:** `lib/carruseles/replica-servidor.ts` · `lib/carruseles/replica.ts` ·
 `app/image-editor/carruseles/EditarCarrusel.tsx` · memoria `carruseles-ia-replica-solo-textos-editables`.
+
+## Decisiones tomadas por el Cerebro el 7/11/2026 (Martín delegó: «respondé por tu cuenta, confío en tu criterio»)
+
+### ✅ `punta/carruseles-persona` ENTRA. No choca con la decisión del 7/11.
+
+El chat de Carruseles la marcó como «choca con que lo único full editable sea el texto». **Lo verifiqué y no
+choca**, y la diferencia importa porque si no la rama se descarta por un malentendido.
+
+Lo que Martín descartó es **que el usuario edite la imagen por partes**: elegir a mano qué persona se queda,
+qué paisaje va, reemplazar a alguien por su avatar con un editor de elementos. Esa rama **no hace nada de eso**:
+es la IA la que decide, en la réplica, y el usuario no elige nada. Es exactamente «pasale la referencia a la IA
+para que haga algo similar», que es el norte que él fijó.
+
+Y arregla un error vivo: el prompt preguntaba `foto.persona: true|false`, y **un booleano no sabe contestar
+QUIÉN**, así que la cara del dueño se pegaba encima de un paciente o de un alumno. Ahora la IA contesta
+`quien` (`dueno`/`otra`/`cosa`) y la foto del cliente va sólo donde el ejemplo muestra a su autor.
+
+**La regla para no volver a confundirlo:** lo descartado es **que el usuario edite la imagen por partes**, no
+que la IA complete una lámina. Si la decisión la toma el modelo durante la réplica, está dentro del norte.
+
+### ✅ Los 32 temas se QUEDAN. No son la palanca.
+
+Estaba abierto apagarlos para bajar el ruido del clasificador. **El propio chat lo midió y se desmintió solo**:
+por cuenta son 1.190 piezas con 83% sin tipo; por tema, 280 con 82%. **Apagar los 32 temas saca 280 de 1.470 y
+no mueve el porcentaje.** La palanca son las 196 cuentas. Apagarlos sería perder material a cambio de nada.
+
+### ⏸️ Lo que NO decido yo, y por qué
+
+- **Aplicar la migración 0411 y su backfill**: es una escritura en producción. La regla de la casa manda que
+  eso vuelva a Martín, y acá con más razón — **el backfill no es opcional: sin él, aplicarla vacía la
+  vidriera.**
+- **`reclasificar --de-verdad`**: gratis, pero escribe en producción. Misma regla.
+- **Crédito de Apify**: quedan **US$1,97 y la reserva de Spy es US$2**, o sea **US$0,00 libres**. Traba 168
+  carruseles que cuestan **US$0,45**. Subir el `--techo-usd` no sirve: no hay de dónde. Es plata, aunque sea
+  poca, y es de él.
+- **Los colores y el logo**: atados al brand board, que es decisión de diseño suya.
