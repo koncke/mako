@@ -7,6 +7,87 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+## El cron de las fotos de lámina: la cadencia no sale del vencimiento, y el test obvio no veía el barrido (7/11/2026)
+
+**El síntoma que nadie iba a ver hasta que lo viera un cliente.** La foto que la IA de imagen del negocio genera para una
+lámina se asentaba en el diseño SÓLO en el GET del diseño (`app/api/image-editor/disenos/[id]/route.ts`): si nadie volvía
+a abrirlo, no entraba nunca. Y la pantalla de «Editar» tampoco sondea, así que quien se quedó mirando tampoco la veía —
+el aviso prometía «aparece en el diseño en unos minutos» y después no pasaba nada.
+
+⚠️ **Y lo importante es que eso no era una demora: era una PÉRDIDA.** El pendiente **vence a las 6 h** (`VENCE_MS`), así
+que quien cerró la pestaña y volvió al día siguiente abría el diseño con el hueco **y sin nada anotado**. La foto estaba
+lista a los tres minutos, la generó SU navegador con SU cuenta de Google y ya se le había contado contra su prueba — y la
+tiró el reloj. Volver a abrir DENTRO de las 6 h sí funcionaba, y por eso el agujero no se veía mirando la pantalla: el
+caso que se perdía es el que vuelve mañana. Y mientras el pendiente vivía, cualquier otra cosa que LEYERA el documento
+(la lista de diseños, una miniatura, un export) lo veía con el hueco igual, porque sólo ese GET asentaba. Lo que faltaba
+es `app/api/cron/carruseles-fotos-lamina/route.ts`.
+
+**La cadencia NO sale de `VENCE_MS`, y confundirlo es el error fácil.** Los dos números del módulo tientan:
+`VENCE_MS` son 6 h y `flow-abandono` cierra los abandonados a los 12 min. El vencimiento es el **techo**, no la
+cadencia: un cron más lento que 6 h llegaría a encontrar el pendiente vencido y soltaría una foto que estaba lista (y por
+la regla de «dos oportunidades por vencimiento» —ver «El cron que no existía», más abajo— el techo real son 3 h). **El
+piso lo pone la promesa de la pantalla, no la base:** «aparece en el diseño en unos minutos» vuelve mentira a un cron por
+hora. Y el otro piso lo pone lo que se está esperando: a los 12 minutos `flow-abandono` ya le puso estado terminal a
+todo trabajo que nadie tomó, y el que sí tomaron vuelve en minutos, así que un pendiente llega a su final dentro de los
+~15 minutos de pedido; más rápido que eso no hace que el navegador del cliente genere antes, y las invocaciones de Vercel
+se pagan. Quedó cada 10 minutos **desplazada 5** (`5,15,25,35,45,55`): corre DESPUÉS de la pasada de `flow-abandono`
+(que va cada 10 en punto), así el `fallido` que ese cron escribe en el minuto 12 ya está cuando éste pregunta y el
+pendiente se suelta en la misma vuelta en vez de esperar diez minutos más.
+
+**La clave de `app_settings` ES el índice, y por eso no hay barrido.** Los pendientes viven en una fila por negocio bajo
+`carruseles.fotos-de-lamina` (`KEY_FOTOS_LAMINA`): **una** lectura con la service key dice exactamente qué negocios
+tienen algo en vuelo, y en el caso de casi todas las corridas la respuesta es «ninguno» y termina ahí. Es la misma
+decisión que la llamada única de `flow-abandono`: iterar los workspaces son N lecturas para enterarse de que casi todos
+no tienen nada, y encima se saltea a cualquier negocio nuevo que nadie haya listado. Cada negocio corre adentro de
+`runWithWorkspace` — sin eso, un cron SIN cookie resuelve al ws1, que es Mauricio, un cliente, y asentaría las fotos de
+uno adentro de los diseños de otro.
+
+### ⚠️ Lo que más tiempo va a ahorrar: el test obvio NO veía el barrido
+
+Romper el cron para que itere `listarWorkspaces()` en vez de buscar por la clave deja **todos los conteos iguales**:
+contra una base de mentira, iterar todos los workspaces asienta exactamente las mismas fotos, así que los asserts sobre
+`puestas`, `caidas`, los pendientes y los diseños pasan **en verde con la rotura puesta**. Lo único que lo delata es
+la TABLA que aparece: por eso el hijo anota cada consulta a la base (`consultas`, en
+`tests/_carruseles-cron-fotos-lamina-hijo.ts`) y el test exige que `workspaces` no esté y que la búsqueda sea UNA sola.
+
+**La regla que queda: cuando lo que se arregla es el COSTO de una consulta, el test tiene que mirar las consultas, no los
+resultados.** Los resultados son idénticos con y sin el arreglo — que es exactamente por qué nadie lo nota en producción
+hasta la factura.
+
+⚠️ **Y una trampa al escribir ese assert:** en PostgREST el filtro de una ESCRITURA no viaja en la URL (el
+`workspace_id` del upsert va en el cuerpo), así que «las consultas a `app_settings` que no llevan `workspace_id` en
+la query» cuenta también los `POST` que re-anotan los pendientes. La búsqueda se pide por `GET`.
+
+**Medido:** base 23 / 0 (`tests/carruseles-cron-fotos-lamina.test.ts` + `cron-registrado` + `seguridad-crons-y-publicas`),
+trece roturas de a una, y los rojos de cada una están en la cabecera del test. Las dos que enseñan algo: el barrido de
+workspaces deja los conteos intactos (sus 3 rojos son los dos asserts de las consultas más el del 500, que deja de poder
+inyectar el fallo de base), y **sacar el `try/catch` del loop da CERO rojos** — hoy nada de `asentarFotosDeLamina` tira
+por negocio (`pendientesDeFoto`, `bajar` y `anotar` tienen el suyo adentro, `subirAlEditor` se llama con `.catch`, y
+`leerDiseno`/`guardarDiseno` devuelven `{ ok: false }`), así que ese guard es una afirmación y no un test. Queda puesto
+porque en un cron CIEGO un negocio que tire mañana se lleva a los que vienen detrás, y queda escrito que el arnés no lo
+cubre.
+
+**Dos decisiones que no se ven en el diff:**
+
+- **El hook del GET SE QUEDA.** Ya no es lo único que asienta, y los dos hacen trabajos distintos: el cron cubre el caso
+  en que nadie vuelve a abrir el diseño, y el GET asienta EN EL ACTO cuando alguien está mirando —esperar diez minutos
+  con el hueco a la vista es justo el síntoma del que salió todo esto—. Y sigue con `await`: sin eso `leerDiseno`
+  devuelve el documento viejo y la foto aparecería recién la próxima vez que lo abran.
+- **No filtra por workspace activo.** La generación ya pasó y ya se le cobró a la cuenta de Flow del cliente; lo que
+  queda es copiar un archivo a un diseño que ya es suyo. Un negocio pausado un día perdería sus fotos (vencen a las 6 h)
+  para no ahorrar nada, y `listarWorkspaces` sería una lectura cada diez minutos para no enterarse de nada.
+
+**Una foto cuyo diseño ya no existe queda en «Subidos» del negocio.** `asentarFotosDeLamina` COPIA la foto antes de
+leer el diseño, así que si el diseño se borró entre medio la copia ya está hecha y el pendiente se suelta igual. No es
+basura ni una fuga: es su foto, en su biblioteca, y la puede usar en cualquier diseño. Queda fijado en el test para que
+nadie lo lea como un bug la próxima vez que lo vea.
+
+⚠️ **Y la trampa del entorno que costó una corrida.** El paso de un cron escrito literal (asterisco, barra, número)
+adentro de un bloque `/** */` **cierra el comentario ahí mismo**. esbuild tira `Expected ";" but found "a"`
+apuntando a una columna en medio de la prosa, que no se lee como «se cerró el comentario» sino como un error de sintaxis
+del código de abajo. En un comentario de línea (`//`) no pasa, y es donde va. La misma colisión vive con cualquier
+cierre de bloque adentro de un bloque: una ruta, un glob, una expresión regular.
+
 ## La lámina con una persona: el recuadro ya no estaba, y lo que faltaba era la FOTO (6/11/2026)
 
 **Síntoma:** cuatro encargos del 6/11 (ids 25, 120, 193 y 387) decían lo mismo: «cuando el ejemplo tiene una persona, la
@@ -676,10 +757,12 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
     fondo genérico no afirman nada, y ésos sí se podrían armar. **Es una decisión de producto** (`fotosAGenerar`,
     `lib/carruseles/replica.ts`): o se generan las `cosa` que son fondo, o se buscan en el stock que ya existe
     (`lib/imagenes-stock.ts`, Openverse y Picsum, que ya se usa en las landings).
-  - **Nadie asienta la foto si nadie abre el diseño.** Hoy la asienta el GET del diseño
-    (`app/api/image-editor/disenos/[id]/route.ts`); un cron que la asiente a ciegas —como `flow-abandono` hace con la cola—
-    no está, y la pantalla de «Editar» tampoco sondea: el aviso dice «aparece en el diseño en unos minutos» y hay que volver
-    a abrirlo.
+  - ~~**Nadie asienta la foto si nadie abre el diseño.**~~ **Cerrado el 7/11/2026** con
+    `app/api/cron/carruseles-fotos-lamina/route.ts` (ver la entrada de arriba): un cron cada 10 minutos la asienta a ciegas,
+    y el hook del GET se queda para el caso en que alguien está mirando. **Lo que queda: la pantalla de «Editar» no
+    sondea.** El aviso dice «aparece en el diseño en unos minutos» y ahora es verdad para el DOCUMENTO, pero quien se quedó
+    en el editor no la ve aparecer: tiene que volver a abrir el diseño. Es lo próximo acá, y no es el cron — es la pantalla
+    (`app/image-editor/`).
   - **Una lámina `dueno` SIN su foto cargada queda sin nada** (y con el aviso de que la suba). Generar «al dueño» sin una cara
     de referencia sería inventarle una, que es justo lo que el método de `lib/flow-imagen.ts` existe para no hacer.
   - **El camino de Flow no se pudo ver de punta a punta desde la PC**: el ws 9 no tiene foto de cara de marca ni la sesión de

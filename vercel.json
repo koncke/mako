@@ -193,6 +193,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/carruseles-fotos-lamina",
+      "schedule": "5,15,25,35,45,55 * * * *"
+    },
+    {
       "path": "/api/cron/replay-purga",
       "schedule": "*/10 * * * *"
     },
