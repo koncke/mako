@@ -2912,3 +2912,44 @@ los clones a rehacerse. No es un atajo para ahorrar minutos de Actions: subir el
 
 **Vive en:** el historial de `docs/chats/chat-conocimientos-cursos-e8ba820e.md` (`541184cce`, `0575d1f07`) ·
 `scripts/claves-en-el-diff.mjs` · `docs/pendientes-martin.md`.
+
+## La medición que nunca se había hecho: qué puede ejecutar la clave pública (7/11/2026)
+
+El inventario la tenía desde hacía semanas como «una medición de seguridad que nunca se hizo». Se hizo:
+`node --env-file=… scripts/medir-funciones-publicas.mjs`, que corre dentro de una transacción `read only`
+—Postgres rechaza cualquier escritura— y lee sólo el catálogo.
+
+**El resultado, y es bueno:**
+
+| | funciones | ejecuta `anon` | ejecuta `authenticated` | DEFINER alcanzable por anon | tocan datos de clientes |
+|---|---|---|---|---|---|
+| **`public` (las de MaKo)** | 25 | **0** | **0** | **0** | **0** |
+| auth, extensions, graphql_public, realtime, storage (de Supabase) | — | 49 | — | 0 | **0** |
+
+O sea: **la 0319 hizo lo que decía.** Las 25 funciones propias quedan en `--S` (sólo `service_role`), que es el
+estado objetivo que el propio script define. Las 49 que `anon` sí ejecuta son la plomería de Supabase
+(`auth.uid()`, `auth.jwt()`, el endpoint de `graphql_public`, `realtime.*`, `storage.*`): están pensadas para
+llamarse sin sesión, ninguna es SECURITY DEFINER y **ninguna menciona una tabla con `workspace_id`**.
+
+**Extensiones alcanzables por `anon`:** `pgcrypto`, `pg_stat_statements` y `uuid-ossp`, las tres en el esquema
+`extensions`. **Ninguna de red ni de archivos** —`http`, `pg_net`, `dblink`, `postgres_fdw`, `file_fdw`,
+`plpython3u`, `plperlu`, `adminpack`—, que es lo que convertiría `/rest/v1/rpc` en un SSRF. No hay ese camino.
+
+### La trampa de método, que es lo que vale guardar
+
+**El JSON del script NO tiene la forma que uno supone.** Leyendo la salida de texto se entiende todo; pero el
+`--json` escribe `{ defaults, filas }`, y cada fila es plana (`esquema`, `firma`, `definer`, `anon`,
+`authenticated`, `service_role`, `extension`, `tablas`, `tocaClientes`). Un lector que asuma `{ app, extensiones }`
+—que es como está ORGANIZADA la salida de texto— obtiene arrays vacíos y calcula **«0 funciones, 0 expuestas»**:
+un informe de seguridad perfecto, construido sobre nada. Pasó acá, y el único motivo por el que no se publicó es
+que «0 funciones de public» era imposible y obligó a mirar la forma real.
+
+**La regla: un cero no es un resultado hasta que el denominador se ve.** Antes de reportar «0 expuestas» hay que
+poder decir «0 de 25». Si el total también da cero, no se midió nada — se leyó mal.
+
+**Y la de siempre, confirmada otra vez:** esto se mide con `has_function_privilege('anon', …)` contra la base,
+nunca leyendo la migración. El 21/10 la revisión de la 0318 ya había probado que «desde la 0280 nacen cerradas»
+era falso; la única forma de saberlo es preguntándole al catálogo.
+
+**Vive en:** `scripts/medir-funciones-publicas.mjs` · la medición de hoy quedó en el scratchpad de la sesión del
+7/11 (no se versiona: es una foto, y lo que vale es el número con su fecha).
