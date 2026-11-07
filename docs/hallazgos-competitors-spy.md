@@ -198,6 +198,41 @@ del `-servidor`, porque el ciclo no da error: rompe al inicializar, y sólo en a
 a pagar la IA una vez** (es el mismo precio que una web que cambió). Y el desafío de un antibots **no se evade**: se
 usa lo que la persona ya miró en su navegador.
 
+### Los 19 formatos: lo que faltaba era una MARCA, no una repasada (6/11/2026)
+
+**El pendiente decía** «falta decidir y correr una repasada» de todo lo ya analizado con los 11 formatos viejos. Medido
+contra el código, la repasada no hacía falta y era lo caro:
+
+- **Los 19 ids son un SUPERCONJUNTO de los 11.** Lo medido (`git show` del commit de los formatos): los viejos eran
+  `pov, storytime, antes-despues, tutorial, lista, opinion, resena, testimonio, detras, entrevista, otro`, y los ocho
+  que entraron son `caso-de-exito, mito, recap-evento, preguntas, reaccion, tendencia, frase, promo`. **Ningún valor
+  guardado quedó inválido**, así que no hay nada que migrar en `spy_piezas.analisis`: un `tutorial` de entonces sigue
+  siendo un `tutorial`, y releerlo lo paga el negocio para no cambiar nada.
+- **Lo que SÍ quedó mal es lo que cayó en `otro`**, porque el formato que de verdad era podía no existir cuando se lo
+  leyó. Esas son las piezas que dejaron «¿Qué formatos le funcionan?» más vacío de lo que corresponde.
+- **Y «los formatos nuevos no se usan al analizar» ya estaba HECHO**: el prompt recibe los 19 con su definición
+  (`{{formatosQueSon}}` ← `GUIA_DE_FORMATOS`), con su test. El pendiente de la lista era un fantasma.
+
+**Por qué no se arreglaba solo.** `faltaAnalisis` relee una vez lo que no tiene la CLAVE `formato` (lo de antes del
+4/11), y un `otro` ya la tiene: pasaba el filtro y no se volvía a leer nunca. Los dos criterios convivían sin que nada
+lo avisara, que es justo lo que decía el pendiente.
+
+**La regla que queda.** Un análisis que la IA hizo **lleva escrito con qué catálogo lo hizo** (`analisis.formatosV`,
+`VERSION_FORMATOS` en lib/spy-detalle.ts), y lo que se marcó con un catálogo más chico **y quedó en el cajón de sastre**
+se relee UNA vez. Sin esa marca no hay forma de distinguir un `otro` de hoy de un `otro` de los 11 viejos, y cualquier
+intento de arreglarlo o relee todo (caro) o no relee nada (el estado anterior).
+
+**Dos cortes que la marca hace posibles, y que importan porque la IA es del NEGOCIO:**
+
+- Se relee **sólo** lo que quedó en `otro`, no todo lo viejo.
+- Es **una** vez: `ANALISIS_SIN_DATOS` —lo que se guarda de una pieza que la IA no devolvió— también lleva la marca. Sin
+  eso, esa pieza pediría lectura para siempre, que es exactamente la trampa que el comentario de `faltaAnalisis` ya
+  avisaba para el caso anterior.
+
+**Sin hacer, y es un agujero silencioso:** el system prompt pasa por `renderPrompt('spy.analisis.system', …)`, así que un
+negocio que **guardó su propio prompt antes del 4/11** sigue con su texto, que no tiene el hueco `{{formatosQueSon}}`:
+su IA recibe los 19 ids **sin saber qué es cada uno**. El test de los formatos mira la plantilla por defecto, no los
+prompts guardados. Vive en `lib/prompt-registry.ts` (la ranura declarada) y en `lib/spy.ts` (el `renderPrompt`).
 ### Lo que de Spy NO es código, y el número de migración del relevo ya está tomado (6/11/2026)
 
 **El número de migración del relevo está vencido.** `docs/relevo/nube-spy.md` dice «hace falta un bucket privado, o sea
