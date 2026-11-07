@@ -1582,8 +1582,16 @@ subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unrespo
 negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
 `~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
 
-**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
-`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
+**HECHO el 6/11/2026 ~21:10** (el Cerebro, cuenta 1): copiada a `~/.claude/guardia/memoria.mjs`, con respaldo
+`.antes-6-11-noche`. Antes de copiarla verifiqué que los cuatro topes son IDÉNTICOS a los que ya corrían (3,0 / 3,0 / 1,0 /
+0,6 GB), que es lo único que hacía peligrosa la reinstalación según el párrafo de arriba.
+
+⚠️ **Cómo se reconoce el síntoma, que es la parte que cuesta.** La negativa dice `quedan 1.4 GB de RAM disponibles y esto
+necesita 3`, así que se lee como un problema de memoria y uno sale a cerrar programas. No lo es: **un commit no pide RAM.**
+La pregunta de diez segundos es si el MENSAJE del commit nombra `tsc`, `npm test` o `eslint`; si lo nombra, es esto.
+Medido la noche del 6/11 intentando rescatar una cosecha titulada «Un rojo del paso Tipos…»: cerré Chrome (23 procesos,
+1.530 MB) y la RAM libre subió **0,16 GB**, porque los 4,1 GB se los llevaban los 27 procesos de Claude, que son los otros
+chats y no se tocan. El commit entró después con 2,1 GB libres, sin liberar nada más: nunca había sido la RAM.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
