@@ -161,7 +161,7 @@ export type AnalisisPieza = {
   formato?: string;
 };
 
-const COLUMNAS_COMPETIDOR =
+export const COLUMNAS_COMPETIDOR =
   'id, nombre, instagram, youtube_id, tiktok, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
 
 /**
