@@ -52,7 +52,13 @@ guardia). De las 232 seguramente sobren más.
 - **Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers** · _Varios, grande_
   - El esqueleto está construido y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build): 7 módulos por tema, capa del Second Brain, índice en el prompt de todos los chats, dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. Falta destilar los cursos en fichas —Martín decidió hac
   - Dónde: `lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app» · docs/pendientes.md:69-79`
-- **El Web Generator: la cadena de pago sale del dominio del cliente y pierde la atribución** · _Varios, grande_
+- **El Web Generator: la cadena de pago sale del dominio del cliente y pierde la atribución**
+  - ⚠️ **VERIFICADO el 7/11: de las cuatro puntas, DOS ya están hechas y una casi.** Servir el pago en el dominio propio
+    está (`SUBRUTA_PAGO` + `decidirHost`), contar los rechazos está (`anotarRechazoDePago`, mig 0282), y la
+    atribución viaja en inputs saneados (falta `visitor_id`). **Queda UNA: la base de retorno.** Y no es cambiar
+    `linkDelCobro`: `decidirHost` no tiene caso para `/pagar/<token>`, así que en un dominio propio esa ruta da
+    404 hoy — cambiar sólo la base manda al comprador a una página que no existe CON EL COBRO YA CREADO.
+    Ver docs/hallazgos-editor-landing.md. · _Varios, grande_
   - Cuatro puntas atadas: 1) servir el paso de pago EN el dominio propio (reescribir el GET /pagar/<id> a app/l/[slug]/pagar/[bloque]); 2) darle a crearCobro una base de retorno del host que sirvió la landing (hoy el 303 y el regreso de Stripe salen de APP_BASE_URL, así que el comprador sale del dominio del cliente y no vu
   - Dónde: `C:/dev/wt-puntas/lib/editor-landing/dominios-reglas.ts (decidirHost, conEnlacesDelDominio) · proxy.ts · lib/cobros.ts:62-64 · lib/landing-token.ts · lib/editor-landing/pago-pagina.ts (responderPagoPost) · pendiente en C:`
 
