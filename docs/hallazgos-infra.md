@@ -335,6 +335,29 @@ El arreglo es el patrón que el repo ya usaba para las bitácoras: `docs/hallazg
 entiende —una fila nueva, una borrada, una celda reescrita de punta a punta— queda como el choque de siempre, para una
 persona. Y en los dos caminos tira las filas byte a byte idénticas, que sólo pueden ser daño de `union`.
 
+### Y la primera hora del driver: la PODA de las filas duplicadas choca con toda punta en vuelo (6/11/2026, medido)
+
+**Síntoma:** `punta/carruseles-largo` (una cosecha de carruseles, con su fila del índice reescrita) dio rojo a los 51 s en
+«Mezclar main en la punta»: `CONFLICT (content): Merge conflict in docs/hallazgos.md`.
+
+**Lo obvio era que el driver no estaba configurado en el runner, y estaba mal.** El driver corrió y **se negó a propósito**:
+`[unir-indice-hallazgos] docs/hallazgos.md: no es sólo «los dos cosecharon en su celda»; queda el choque para resolver a
+mano`. Del lado de main no había una cosecha: había la **poda** que dejó 199 filas en 69, o sea filas BORRADAS, que es
+justamente lo que el driver manda a una persona. O sea: no es un bug del driver, es el costo de la primera hora. Cualquier
+punta que hubiera cosechado en el índice antes de la poda choca una vez, y una sola vez.
+
+⚠️ **Y la trampa que de verdad cuesta: en la PC, `git merge origin/main` resuelve ese mismo choque SOLO, y mal.** Los
+atributos de la mezcla se leen del árbol de la punta, y una punta anterior a la poda todavía tiene
+`docs/hallazgos*.md merge=union` (sin guion). Entonces en la máquina no hay choque: `union` junta los dos lados y **devuelve
+las 130 filas duplicadas que main acababa de borrar**, con la mezcla en verde y sin una palabra. Lo único que lo cazó fue el
+test nuevo (`tests/unir-indice-hallazgos.test.ts`), que enumeró 4 áreas repetidas. **Una mezcla LIMPIA no es una mezcla
+correcta cuando el atributo que gobierna el archivo está del otro lado.**
+
+**La receta, para la punta que le toque:** mezclar main, y después tirar la resolución de `union` y rehacerla sobre la
+versión de main — `git checkout origin/main -- docs/hallazgos.md`, volver a meter la entrada en la celda de tu área y
+`git commit --amend`. Y antes de subir, correr `node --test --import tsx tests/unir-indice-hallazgos.test.ts`: es el único
+control que distingue «se mezcló» de «se mezcló bien».
+
 ### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
 
 **Vive en:** `docs/hallazgos.md` (217 filas → **77, una por área**) · la guarda nueva, al final de
