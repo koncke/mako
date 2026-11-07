@@ -10,7 +10,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { getSettingEstricto, setSetting } from './settings';
 import { getTenantDb, wsObligatorio } from './workspace';
-import { ofertaGuardada } from './spy-oferta-servidor';
+import { ofertaGuardada, reintentarOfertaYa } from './spy-oferta-servidor';
 import { webComparable } from './spy-oferta';
 import { subirFotoDePagina, tipoDeImagen } from './spy-miniaturas';
 import {
@@ -92,6 +92,9 @@ export async function guardarPaginaCapturada(competidorId: number, url: string, 
     texto: c.texto.replace(/\s+/g, ' ').trim().slice(0, TEXTO_GUARDADO), capturadaEn: new Date().toISOString(),
   };
   await setSetting(claveDePaginasCapturadas(competidorId), JSON.stringify(conPaginaCapturada(await paginasCapturadas(competidorId), nueva)));
+  // Lo capturado alimenta la lectura de su oferta (`capturada` en lib/spy-oferta.ts): una web con barrera que no se podía
+  // bajar ahora SE PUEDE leer, así que no espera el día de castigo del fallo anterior. Si falla, la captura ya quedó.
+  await reintentarOfertaYa(competidorId).catch((e) => console.warn(`[spy-pagina] no pude destrabar su oferta: ${e instanceof Error ? e.message : String(e)}`));
   return { ok: true, titulo: nueva.titulo, paginas: paginas.length };
 }
 

@@ -15,6 +15,80 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ## El diagnóstico obvio era el equivocado
 
+### El acortador se resolvía a su propia página de «link expirado», y nadie lo habría visto (6/11/2026)
+
+**Lo que se medía.** El 4/11 quedó pedido «correr los dos curl de `linktw.in/pywydg` desde la PC» con tres
+hipótesis: redirige por HTTP, redirige por JavaScript, o es una página de «continuar» con botón. Se corrió.
+**Las tres estaban equivocadas, y la respuesta era peor que cualquiera de ellas.**
+
+**Lo medido** (`curl`, 6/11/2026, 71.859 B):
+
+- HTTP **200**, cero redirecciones, sin cabecera `Location` (cabecera propia: `X-Short-Link: true`).
+- **Ninguna** etiqueta `<meta http-equiv="refresh">`.
+- 140 caracteres de texto a la vista: «Redirecting… · Open in YouTube · Open in app · Open in browser».
+- Su JS se manda a **diez** lugares distintos: la app de Android, la de iOS, TikTok, X, Chrome por
+  `googlechrome://navigate?url=`, y el destino calculado — todos a través de una **variable**.
+- El destino de verdad (`https://youtu.be/99n0XhdDq0Y`) está **sólo en el `href` de un botón**.
+
+**La falla.** `redireccionDelCliente` (lib/pagina-real.ts) se queda con el primer `location` que tenga la
+dirección **escrita a la vista**, y en un acortador de verdad la única escrita así es su **rama de error**:
+`location.replace('/expired')`. Resultado medido: devolvía **`https://linktw.in/expired`** y la pantalla
+mostraba esa página —«link expirado»— como si fuera la del competidor, con `estado: 'abierta'` y el marco
+verificado. El cliente toca la página del competidor y llega a un cartel de link vencido.
+
+**Por qué no se iba a ver nunca.** No hay error, ni log, ni vacío: hay una página que carga bien y dice algo
+razonable. La prueba que existía usaba HTML inventado con **un solo** `location.href = "https://…"`, que es
+justo la forma que un acortador real no tiene. Un acortador de verdad no escribe su destino: lo calcula.
+
+**La regla que queda.** **Una página que puede mandar a más de un lado no se sigue a ninguno.** Si en su JS hay
+más de una asignación a `location`, no se sabe cuál corre, y acá «no sé» se dibuja «Abrir», nunca un destino
+inventado. Y la otra mitad: `soloRedirige(html)` dice «esto es un acortador o un “continuar en…”, no la página
+que se quería ver» — la ruta lo deja en «Abrir» en vez de mostrar su «Redirecting…» adentro del marco.
+`tests/spy-paginas-verificadas.test.ts` caso 7 lo vigila con la FORMA medida (diez asignaciones, una sola
+escrita, y ésa es `/expired`): sacar el corte devuelve literalmente `https://linktw.in/expired`.
+
+**Sin hacer:** el destino de verdad está en el `href` de «Open in browser». Leerlo es otra cosa que seguir una
+redirección —un `href` de una página ajena puede ser cualquier cosa— y hoy no se hace: queda «Abrir».
+
+### Cablear lo capturado a su oferta no alcanzaba: la espera del fallo lo dejaba invisible 24 horas (6/11/2026)
+
+**El pedido** era chico: una página que la extensión ya capturó tiene que alimentar la lectura de su oferta, porque
+una web con barrera (el «comprueba que eres una persona» de Cloudflare en el Beacons de Den Borg) no se baja desde el
+servidor y Offer se quedaba sin leerla. El cambio obvio es un plan B en `leerSuOferta` (lib/spy-oferta.ts). **Y con
+eso solo, la función anda y la pantalla sigue sin mostrar nada.**
+
+**Por qué.** Cuando la bajada falla, la oferta queda en `no-pudo` con `fallos: 1`, y `hayQueLeer` no la vuelve a
+mirar hasta `ESPERA_TRAS_FALLO_MS` — **24 horas**, y una semana entera con tres fallos (`FALLOS_HASTA_ESPERAR`). El
+recorrido real es: la persona abre al competidor, lee «No pude leer su web.», **va y la captura** con la extensión,
+vuelve a abrirlo… y ve lo mismo. Hoy, mañana y —con tres fallos encima— los siete días siguientes. La espera está
+bien pensada para lo que la puso (no reintentar en cadena contra una web que no contesta), y es exactamente lo
+contrario de lo que hace falta cuando aparece **información nueva**.
+
+**La regla que queda.** Una fuente nueva para algo que ya falló **le borra la espera a ese algo**. Acá:
+`sinEspera()` (lib/spy-oferta.ts) devuelve lo guardado con `fallos: 0` y `desde` en la época, y
+`reintentarOfertaYa()` (lib/spy-oferta-servidor.ts) lo escribe con compare-and-set; lo llama
+`guardarPaginaCapturada` **después** de guardar la página. Si lo último SALIÓ bien, no toca nada: no se vuelve a
+pagar la IA por una lectura que ya está.
+
+**Y la trampa de imports, que es un ciclo.** El camino natural —importar `paginasCapturadas` de
+`lib/spy-pagina-capturada-servidor.ts`— **cierra un ciclo**: ese archivo ya importa `ofertaGuardada` de
+`lib/spy-oferta-servidor.ts`. Se lee del módulo **puro** (`lib/spy-pagina-capturada.ts`:
+`claveDePaginasCapturadas` + `leerPaginasCapturadas` + `capturaDe`) con el `getSettingEstricto` que ese archivo ya
+tenía: dos líneas y ningún ciclo. `tests/spy-oferta.test.ts` caso 8 lo fija con un `doesNotMatch` sobre el import
+del `-servidor`, porque el ciclo no da error: rompe al inicializar, y sólo en algunos órdenes de carga.
+
+**Dos cosas más, medidas:**
+
+- **La bajada del servidor le GANA a la capturada**, no al revés: una captura es de cuando se capturó y lo que el
+  servidor puede bajar hoy está más fresco. La capturada entra sólo si la bajada falló o trajo menos de `MIN_TEXTO`.
+- **Una página guardada por su FOTO no alimenta la oferta, y es correcto**: `juzgarCaptura` acepta una captura con
+  poco texto si trae foto, y `MIN_TEXTO` (200) la rechaza después. No es un error — una foto no es una oferta — pero
+  es silencioso: en la pantalla la página está guardada y su oferta sigue diciendo que no la pudo leer.
+
+**Sin hacer:** cambiar de fuente cambia `huellaDe`, así que el primer competidor que se lea de lo capturado **vuelve
+a pagar la IA una vez** (es el mismo precio que una web que cambió). Y el desafío de un antibots **no se evade**: se
+usa lo que la persona ya miró en su navegador.
+
 ### Un emoji en el nombre tiraba la pantalla de Spy, y lo encontramos buscando OTRA cosa (6/11/2026)
 
 **Cómo apareció.** Buscando la causa del ticket #39 («la pantalla CRM se rompió», React #418, ws 15).
