@@ -6,6 +6,22 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una rotura que sólo toca el DISCO no la ve un test que lee de git (6/11/2026, claude1).**
+
+**Síntoma.** Probando rompiéndolo `tests/proxy-matcher-completo.test.ts`: se deja un archivo en `public/cv/` con
+`cv` fuera de la lista de carpetas exentas de `proxy.ts` —el caso que tiene que cazar, porque esos archivos se comen
+el login— y el test da **verde**. La conclusión obvia, que el test sólo cubre la otra dirección (una carpeta en la
+lista sin archivos), **era falsa**.
+
+**Causa.** Ese test lista `public/` con `git ls-files` (`deGit('public')`), no con `readdir`: un archivo nuevo sin
+`git add` no existe para él. Con el archivo en el índice da 4/1, como debe. Pasa lo mismo con cualquier test que
+recorra el repo por git —los barridos de rutas, los índices de documentos— y es justo lo que una rotura de prueba
+hace: escribir un archivo y borrarlo sin tocar el índice.
+
+**Regla.** Al medir una rotura que AGREGA un archivo, se la agrega al índice (`git add -- <ruta>` y después
+`git rm --cached -- <ruta>`) antes de creerle al verde. Y una rotura que no cambia el resultado se mira dos veces
+antes de anotarla como «el test no lo cubre»: casi siempre la rotura no llegó a donde el test mira.
+
 **`tests/unir-bitacora.test.ts` da CUATRO rojos en cualquier Windows, y no es el código (6/11/2026).**
 
 **Síntoma.** «CONFLICT (content)» donde el test espera una mezcla limpia, y debajo un
