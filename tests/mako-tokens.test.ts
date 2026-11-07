@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MT_POR_USD, mtDeUsd, usdDeMt, CUPO_MENSUAL, USD_POR_SEGUNDO, USD_POR_IMAGEN,
-  mtDeVideo, mtDeImagenes, segundosQueEntran, alcanzaElSaldo, type Plan,
+  mtDeVideo, mtDeImagenes, segundosQueEntran, alcanzaElSaldo, alcanzaParaVideo, VIDEOS_POR_MES, type Plan,
 } from '../lib/mako-tokens-reglas';
 
 test('la conversión redondea SIEMPRE a favor del negocio', () => {
@@ -86,4 +86,72 @@ test('el cupo de Growth no regala margen: su costo tiene que ser una fracción d
   const costoMaximo = usdDeMt(CUPO_MENSUAL.growth);
   assert.ok(costoMaximo <= PRECIO_GROWTH * 0.30,
     `el cupo de Growth permite gastar US$${costoMaximo} sobre un precio de US$${PRECIO_GROWTH}: más del 30 % no deja margen`);
+});
+
+test('el escalón entre planes existe: el de US$47 no da el video del de US$97', () => {
+  // ⚠️ LA GUARDA DEL PRECIO. El cupo solo NO alcanza: topea gasto, no cantidad. Sin VIDEOS_POR_MES, un Pro
+  // se gastaba el cupo entero en video (~9 reels) y los dos planes daban lo MISMO por dólar — los dos cupos
+  // son el 25 % del precio. Martín, 7/11: «el de 47 sólo le ofreceremos 1 video de prueba al mes».
+  assert.ok(VIDEOS_POR_MES.pro < VIDEOS_POR_MES.growth,
+    'Pro y Growth dan la misma cantidad de video: no hay razón para subir de plan');
+  assert.ok(VIDEOS_POR_MES.free < VIDEOS_POR_MES.pro,
+    'el Free da tanto video como el Pro: el primer video es lo que se paga al pasar a Pro');
+});
+
+test('con el tope del mes agotado no se dispara la generación, por más saldo que sobre', () => {
+  const caro = mtDeVideo(30, 'normal');
+  // Saldo de sobra a propósito: lo que frena acá NO es la plata.
+  const v = alcanzaParaVideo('pro', 1, 999_999, caro);
+  assert.equal(v.alcanza, false, 'un Pro que ya usó su video del mes pudo generar otro');
+});
+
+test('al que se le acabaron los videos NO se le dice que le falta saldo', () => {
+  // Mandarlo a comprar tokens que no le van a servir es peor que no dejarlo pasar: le cobra por nada.
+  const v = alcanzaParaVideo('pro', 1, 999_999, mtDeVideo(30));
+  assert.equal(v.alcanza, false);
+  if (!v.alcanza) {
+    assert.ok(!/token|saldo/i.test(v.motivo), `el motivo habla de saldo cuando el problema es el tope: «${v.motivo}»`);
+    assert.ok(/plan|growth|pro/i.test(v.motivo), `el motivo no dice qué hacer: «${v.motivo}»`);
+  }
+});
+
+test('el tope de videos falla CERRADO: un conteo que no se pudo leer no habilita', () => {
+  // Misma regla que el saldo. Si un error de base dejara pasar la generación, el tope no protege nada
+  // justo el día que la base anda mal.
+  for (const conteo of [null, NaN, Infinity]) {
+    const v = alcanzaParaVideo('pro', conteo as number | null, 999_999, 10);
+    assert.equal(v.alcanza, false, `un conteo ${String(conteo)} dejó generar`);
+  }
+});
+
+test('el Growth no se frena por el tope: ahí el límite es el cupo', () => {
+  const cuesta = mtDeVideo(30, 'normal');
+  assert.equal(alcanzaParaVideo('growth', 50, CUPO_MENSUAL.growth, cuesta).alcanza, true,
+    'un Growth con saldo no pudo generar su video número 51');
+  // …pero el cupo SÍ lo frena, que es lo que protege el margen.
+  assert.equal(alcanzaParaVideo('growth', 50, cuesta - 1, cuesta).alcanza, false,
+    'un Growth sin saldo igual generó: el cupo no está frenando nada');
+});
+
+test('el precio del video vive en el rango de lo real: un número inventado se pone rojo', () => {
+  // ⚠️ ESTE TEST EXISTE POR UN BUG QUE YA PASÓ. `normal` decía 0,030 porque lo copié del tarifario de un
+  // proveedor en vez de medirlo; lo real era 0,0384, un 28 % más — y salía del margen en CADA generación.
+  // Ningún test lo cachó: los otros miran que normal < premium y que el cupo alcance, y las dos cosas se
+  // cumplen igual con un número mentido HACIA ABAJO. Con 0,001 pasaban los 13.
+  //
+  // Un test no puede saber el precio de hoy sin llamar al proveedor (y entonces cuesta plata y se cae sin red).
+  // Lo que SÍ puede es exigir que el número esté donde viven los precios de verdad. Si el proveedor baja de
+  // golpe, este test se pone rojo y obliga a MEDIRLO y a anotar la fecha, que es justo lo que faltó.
+  const PISO = 0.010;   // más barato que esto en 2026 no existe: es un número tipeado, no medido
+  const TECHO = 0.200;  // más caro que esto no lo podemos poner de default sin fundir el plan
+  for (const [calidad, usd] of Object.entries(USD_POR_SEGUNDO)) {
+    assert.ok(usd >= PISO,
+      `US$${usd}/s para «${calidad}» está por debajo de cualquier precio real: medilo contra el proveedor y anotá la fecha`);
+    assert.ok(usd <= TECHO,
+      `US$${usd}/s para «${calidad}» es demasiado caro para un default: 480 s saldrían US$${(usd * 480).toFixed(2)}`);
+  }
+  // Y las imágenes, por lo mismo: a US$0 el medidor deja pasar generaciones gratis que sí se pagan.
+  for (const [calidad, usd] of Object.entries(USD_POR_IMAGEN)) {
+    assert.ok(usd > 0, `una imagen «${calidad}» no puede costar US$${usd}: el medidor la dejaría pasar gratis`);
+  }
 });

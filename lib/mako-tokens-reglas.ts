@@ -54,22 +54,37 @@ export const CUPO_MENSUAL: Record<Plan, number> = {
 /**
  * Qué modelo se usa por defecto. **Acá vive el margen.**
  *
- * Medido el 7/11: un reel de 60 s se arma con ~32 s de video generado (8 clips de 4 s, transiciones entre
- * imágenes consecutivas: es el método del curso de Avatar Hype, que está en nuestro portal). A 15 reels por mes:
+ * Un reel de 60 s se arma con ~32 s de video generado (8 clips de 4 s, transiciones entre imágenes consecutivas:
+ * es el método del curso de Avatar Hype, que está en nuestro portal). A 15 reels por mes son 480 s.
  *
- * | modelo            | US$/s | 480 s  | margen sobre US$97 |
- * |-------------------|-------|--------|--------------------|
- * | Veo 3.1 Lite      | 0,030 | US$14  | **82 %**           |
- * | Kling v3 estándar | 0,084 | US$40  | 48 %               |
- * | Wan 3.0           | 0,100 | US$48  | 44 %               |
+ * ⚠️ ESTOS PRECIOS ESTÁN **MEDIDOS**, no leídos de una lista. La versión anterior de esta tabla decía «Veo 3.1
+ * Lite 0,030» y salía del tarifario de un proveedor; la medición contra ApiMart con la foto real de Mauricio
+ * (7/11/2026, cuatro generaciones pagadas) da otra cosa:
  *
- * Por eso el barato es el DEFAULT y el bueno se paga con tokens: el cliente elige dónde gastar su cupo, y el
- * margen no depende de que no lo use.
+ * | modelo                  | US$/s medido | formato que devuelve | ¿sale la persona? |
+ * |-------------------------|--------------|----------------------|-------------------|
+ * | MiniMax-Hailuo-2.3-Fast | 0,0253       | 768×1024 (3:4) ✗     | sí                |
+ * | **seedance-2.0-mini**   | **0,0384**   | **720×1280 (9:16)** ✓| **sí** ← default  |
+ * | seedance-2.0-fast-face  | 0,0836       | 720×1280 (9:16) ✓    | sí                |
+ * | wan2.6-i2v-flash        | —            | falló, sin cargo     | —                 |
+ *
+ * **Y EL HALLAZGO QUE PAGA EL MARGEN: la familia `-face` cuesta 2,2× y no compra nada.** La identidad no la
+ * preserva el modelo: la preserva el MÉTODO. En image-to-video la foto **es el cuadro 0**, así que la cara no se
+ * genera, se arrastra — y un modelo barato la conserva igual de bien. Verificado en el ÚLTIMO cuadro de cada
+ * video, que es donde la deriva se nota. Ver `docs/hallazgos-ai-avatar.md`.
+ *
+ * Hailuo es más barato todavía pero devolvió 3:4, y un reel es 9:16: no sirve de default hasta medir que acepte
+ * el formato. Por eso el default es `seedance-2.0-mini`.
  */
 export type Calidad = 'normal' | 'premium';
 
-/** US$ por segundo de video generado, por calidad. Verificado el 7/11/2026. */
-export const USD_POR_SEGUNDO: Record<Calidad, number> = { normal: 0.030, premium: 0.084 };
+/**
+ * US$ por segundo de video generado, por calidad. **Medido el 7/11/2026 contra ApiMart**, no estimado.
+ *
+ * ⚠️ `normal` era 0,030 y estaba 28 % por debajo del costo real: eso salía directo del margen en cada
+ * generación. Si se cambia de modelo, este número se vuelve a MEDIR; no se copia del tarifario.
+ */
+export const USD_POR_SEGUNDO: Record<Calidad, number> = { normal: 0.0384, premium: 0.084 };
 
 /** US$ por imagen, por calidad. FLUX.2 dev y GPT Image 2 medium. */
 export const USD_POR_IMAGEN: Record<Calidad, number> = { normal: 0.012, premium: 0.047 };
@@ -85,6 +100,21 @@ export const mtDeImagenes = (cuantas: number, calidad: Calidad = 'normal'): numb
 /** Cuántos segundos de video entran en un cupo, con esa calidad. Para decirlo en la pantalla. */
 export const segundosQueEntran = (mt: number, calidad: Calidad = 'normal'): number =>
   Math.floor(usdDeMt(Math.max(0, mt)) / USD_POR_SEGUNDO[calidad]);
+
+/**
+ * Cuántos VIDEOS por mes deja cada plan, aparte del cupo.
+ *
+ * ⚠️ EL CUPO SOLO NO ALCANZA, y es un agujero de precio, no un detalle. El cupo topea GASTO, así que un Pro
+ * podía gastarse los 11.750 MT enteros en video: 306 s ≈ 9 reels. Martín, 7/11: «**el de 47 sólo le ofreceremos
+ * 1 video de prueba al mes** y las imágenes generosas». Sin este tope, el plano de US$47 daba lo mismo por dólar
+ * que el de US$97 (los dos cupos son el 25 % del precio) — o sea, ninguna razón para subir de plan.
+ *
+ * `free` en 0 es a propósito: las imágenes son baratas y ahí el Free puede ser generoso, pero el primer video es
+ * exactamente lo que se paga al pasar a Pro. Un Free con video regalado vuelve a borrar el escalón.
+ *
+ * `growth` es `Infinity` porque ahí el límite ES el cupo: el video es el punto del plan.
+ */
+export const VIDEOS_POR_MES: Record<Plan, number> = { free: 0, pro: 1, growth: Infinity };
 
 /** El veredicto de un chequeo PRE-VUELO. `alcanza: false` NUNCA se interpreta como «seguí igual». */
 export type Veredicto =
@@ -113,4 +143,37 @@ export function alcanzaElSaldo(saldo: number | null, cuesta: number): Veredicto 
     };
   }
   return { alcanza: true, cuesta, queda: saldo - cuesta };
+}
+
+/**
+ * ¿Se puede generar ESTE video? Chequea las DOS cosas: el tope de videos del plan y el saldo.
+ *
+ * ⚠️ El orden importa para lo que ve el cliente. Si se le acabaron los videos del mes, el problema NO es el
+ * saldo — decirle «te faltan tokens» lo manda a comprar algo que no le va a servir. Primero el tope, después
+ * la plata.
+ *
+ * ⚠️ Y falla cerrado igual que `alcanzaElSaldo`: un conteo que no se pudo leer (`null`) NO habilita.
+ */
+export function alcanzaParaVideo(
+  plan: Plan,
+  videosEsteMes: number | null,
+  saldo: number | null,
+  cuesta: number,
+): Veredicto {
+  const tope = VIDEOS_POR_MES[plan];
+  if (videosEsteMes == null || !Number.isFinite(videosEsteMes)) {
+    return {
+      alcanza: false, cuesta, saldo: saldo ?? 0, falta: 0,
+      motivo: 'No pude verificar cuántos videos llevas este mes. Vuelve a intentarlo en un momento.',
+    };
+  }
+  if (videosEsteMes >= tope) {
+    return {
+      alcanza: false, cuesta, saldo: saldo ?? 0, falta: 0,
+      motivo: tope === 0
+        ? 'Tu plan incluye imágenes, no video. Pasa a Pro para generar tu primer video.'
+        : `Ya usaste los ${tope} video${tope === 1 ? '' : 's'} de este mes. Pasa a Growth para generar sin ese tope.`,
+    };
+  }
+  return alcanzaElSaldo(saldo, cuesta);
 }
