@@ -350,6 +350,34 @@ rotura medida. Queda anotado con el archivo.
 
 ---
 
+## ✅ LAS 634 ESTÁN DEPURADAS — de trabajo real hay 232 (7/11/2026)
+
+Martín: «depurá con criterio las 600 y pico. Estoy seguro que hay duplicados, otras que no sirven,
+otras que ya se resolvieron». **Tenía razón.**
+
+| | |
+|---|---:|
+| Anotadas el 6/11 | 634 |
+| Temas distintos, juntando las repetidas | **533** |
+| → **trabajo real** | **232** |
+| → lo esperan a Martín (decisión, plata, trámite) | 229 |
+| → de octubre, verificar antes de tocar | 61 |
+| → ya hechas | 11 |
+
+Lo que más achicó la lista **no fueron los duplicados** (101): fue separar las **229 que no son
+tareas sino decisiones de Martín**. Mezcladas hacían que la lista pareciera el doble de larga.
+
+El detalle, con el método y las dos trampas en que caí midiéndolo:
+[pendientes-depurados-7-11.md](pendientes-depurados-7-11.md). La versión navegable, con los 232
+ordenados por «cliente roto > plata > traba > features»:
+https://claude.ai/artifact/2MnMGyV8oyXjbYz2W8NQXs
+
+⚠️ **Lo que quedó SIN hacer:** verificar uno por uno si ya se resolvieron. Pide leer el código de
+cada pendiente, y la guardia de RAM bloqueó repartirlo en agentes (1,67 GB de los 3 que exige).
+**De las 232 seguramente sobren más.**
+
+---
+
 ## 📋 LA LISTA COMPLETA, BARRIDA EL 6/11/2026 → [pendientes-todo-6-11.md](pendientes-todo-6-11.md)
 
 Martín la pidió entera («no solamente de lo que se hizo en la última sesión»). Siete agentes leyeron
