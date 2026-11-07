@@ -10392,31 +10392,63 @@ número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro
 Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
 de siempre: era la tercera escritura de la misma regla y la única que faltaba.
 
-# Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro
+# Un prompt nuevo se DECLARA en el registro, y lo exige una guarda del push (6/11/2026)
 
-Agregar la entrada a `lib/prompt-registry.ts` es la mitad. Un call site que se quedó con la
-constante queda **mudo**: el usuario edita en /configuraciones, guarda, ve su texto en
-pantalla — y esa pantalla sigue escribiendo con el default. No hay error, no hay tipo roto y
-el registro dice «editable». Es la misma familia que el key drift, con la diferencia de que
-acá la key está perfecta.
+«Todo prompt de MaKo es editable desde /configuraciones» no lo chequeaba nada: `guardas-push.sh` no decía
+la palabra «prompt» y de los 2.307 `tests/*.test.ts` **ninguno recorría el `REGISTRY`**. Así entraron
+**29 prompts que la app usa y la pantalla no muestra**, y **4 que la pantalla muestra y nadie lee**
+(`campaign.*`: el override se guarda y el texto no llega a ningún modelo).
 
-Pasa sobre todo cuando **el DEFAULT vive en un módulo que la UI también importa** y por eso
-no puede llevar `server-only` (el caso medido el 6/11/2026: las `METODOLOGIA_*` de
-`lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo archivo).
-Ahí el default se queda donde está —una cosa, un lugar— y la resolución editable va en un
-módulo server aparte (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan
-todos. Lo que lo fija es **contar los usos de la constante en un test** (0 en el motor, 1 en
-el Copywriter y sólo como respaldo del `.catch`): el compilador no tiene nada que decir.
+Nada lo iba a avisar, porque los dos lados fallan en silencio **a propósito**: `getPromptText` hace
+`override ?? fallback`, así que una key fuera del registro ANDA; y `renderTemplate`
+(lib/prompt-render-pure.ts) reemplaza SÓLO los slots declarados —defensa anti-inyección—, así que un dato
+que no coincide con un `{{slot}}` se tira sin error y un `{{slot}}` que nadie llena viaja literal al modelo.
 
-Y si el prompt se arma de VARIOS bloques, **el orden de los bloques vive en UNA función**
-(`componerMetodologia`). Con dos caminos —el default y el editable— aparece un drift que
-nada chequea: el prompt sin editar y el mismo prompt editado le llegan al modelo en distinto
-orden. El test compara las dos salidas con nada editado y tienen que ser idénticas.
+Lo exige **`scripts/prompts-registro-sincronizado.mjs`** (en `guardas-push.sh`, ~10 s), que EJECUTA el
+registro —`server-only` neutralizado con el parche de `Module._load`— y barre `lib/ app/ scripts/`:
 
-**Lo que NO se registra**: un contrato JSON que lee un parser determinista del mismo archivo
-(`REEL_JSON_SHAPE` y compañía). Editarlo desde /configuraciones es editar el parser, y el
-síntoma sería «la pieza vino sin escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del
-prompt que sí se edita, con el aviso en su `context`.
+- **Un prompt nuevo va al `REGISTRY` con su Entry**, o la guarda frena. Si todavía no está cableado, se dice
+  en su `context` (el molde: `mako.modo.*`).
+- **La `key` de la Entry sólo es el identificador de lectura con `source: 'override'`.** Las otras tres
+  fuentes resuelven por `storeKey` (`modoByKey.get(e.storeKey)`, `fases[e.storeKey]`), así que ahí la red es
+  que esa `storeKey` exista en `MODOS` (lib/mako-prompts.ts) — sin la fila, la pantalla muestra el default
+  como si fuera el valor vigente y guardar escribe donde nadie lee.
+- **Los `{{slots}}` del template, el `variables:` de la Entry y las claves que recibe `renderPrompt` son el
+  mismo conjunto.** Un slot vivo que el `variables:` no declara es un dato que el que edita puede borrar sin
+  que nada se lo diga.
+- **La key va LITERAL en el call-site**, o por una tabla `PROMPTS_* = { campo: { key: '…' } }` o una constante
+  `CLAVE_*`/`KEY_*`. Otra indirección frena el push: por ahí entra una huérfana que nada ve.
+- Las excepciones viven en el propio script, cada una con su motivo y su fecha, **y la guarda falla si la
+  lista crece o si una entrada ya no corresponde**: es un contador que sólo puede bajar.
+- Para ver el estado sin juzgar nada: `node --import tsx scripts/prompts-registro-sincronizado.mjs --listar`.
+
+⚠️ **Un test de un prompt NO necesita regexear el fuente del registro.** Los cinco que lo cruzan hoy
+(`tests/offer-ia-cableado.test.ts` y los parciales de closing, copywriter y editor-landing) leen
+`lib/prompt-registry.ts` como texto porque es `server-only`; con el stub se importa y se leen `key`,
+`variables` y `default` como datos.
+⚠️ **Y la guarda mira el CABLEADO, no si la pantalla correcta lo lee.** Lo medido el 6/11 pasando los
+prompts del escritor de Instagram al registro:
+
+- **Un prompt es editable cuando TODOS sus call sites leen el registro, no cuando está en el registro.**
+  Uno que se quedó con la constante queda **mudo**: el usuario edita, guarda, ve su texto en pantalla — y
+  esa pantalla sigue escribiendo con el default. Sin error, sin tipo roto, y con la key perfecta (así que la
+  guarda da verde). Lo que lo fija es **contar los usos de la constante en un test**
+  (`tests/ig-writer-prompts.test.ts`: 0 en el motor, 1 en el Copywriter y sólo como respaldo del `.catch`).
+- **Si el DEFAULT vive en un módulo que la UI también importa** —y por eso no puede llevar `server-only`:
+  las `METODOLOGIA_*` de `lib/ig-formatos.ts`, que la pantalla necesita por los límites técnicos del mismo
+  archivo— el default se queda ahí y la resolución editable va en un **módulo server aparte**
+  (`lib/ig-metodologia.ts` → `metodologiaIgVigente`), por el que pasan todos.
+- **Si el prompt se arma de VARIOS bloques, el orden vive en UNA función** (`componerMetodologia`). Con dos
+  caminos —el default y el editable— el prompt sin editar y el editado le pueden llegar al modelo en distinto
+  orden y nada lo chequea: el test compara las dos salidas con nada editado, y tienen que ser idénticas.
+- **Un contrato JSON que lee un parser determinista del mismo archivo NO se registra** (`REEL_JSON_SHAPE` y
+  compañía): editarlo desde /configuraciones es editar el parser, y el síntoma sería «la pieza vino sin
+  escenas» en TODA pieza. Va como slot (`{{jsonShape}}`) del prompt que sí se edita, con el aviso en su
+  `context`.
+- **La key «por tabla» que la guarda acepta es `PROMPTS_X.campo.key` con el campo LITERAL.** Un
+  `PROMPTS_X[formato].key` no se puede seguir y frena el push: la resolución por formato se escribe como un
+  `switch` exhaustivo con los tres accesos a la vista, que además hace que un formato nuevo no compile hasta
+  tener su Entry.
 
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 

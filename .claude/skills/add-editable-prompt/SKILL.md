@@ -48,6 +48,11 @@ registro queda MUDO a la edición (key drift = el usuario edita y no pasa nada).
   `export const PROMPTS_X = { system: { key: 'x.system', tpl: X_SYSTEM } } as const;`
   y en el registro `key: PROMPTS_X.system.key, default: PROMPTS_X.system.tpl`
   (patrón de `lib/copywriter/experto.ts`, `lib/ig-writer.ts`).
+  ⚠️ **El campo va LITERAL**: `scripts/prompts-registro-sincronizado.mjs` (guarda del
+  push) sigue `PROMPTS_X.campo.key`, pero un `PROMPTS_X[algo].key` no se puede
+  seguir y FRENA el push. Si la key depende de un valor, se escribe un `switch`
+  exhaustivo con un acceso literal por caso (molde: `bloqueDelFormato` en
+  `lib/ig-metodologia.ts`) — y de paso un caso nuevo no compila sin su Entry.
 - **Registrarlo no alcanza: tienen que pasar por el registro TODOS los call sites.**
   Uno que se quedó con la constante queda MUDO (el usuario edita, guarda, y esa
   pantalla sigue escribiendo igual: sin error, sin tipo roto). Buscá los usos de la

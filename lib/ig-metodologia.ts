@@ -42,6 +42,23 @@ export const PROMPTS_METODOLOGIA_IG = {
 } as const;
 
 /**
+ * El bloque del formato, con lo editado en /configuraciones si alguien lo editó.
+ *
+ * ⚠️ Los tres accesos van ESCRITOS, no `PROMPTS_METODOLOGIA_IG[formato]`: la guarda del push
+ * (`scripts/prompts-registro-sincronizado.mjs`) sigue la key por una tabla sólo con el campo
+ * LITERAL (`PROMPTS_X.campo.key`), y con el campo calculado no sabe a qué key resuelve —
+ * «por ahí entra una huérfana sin que nada la vea», así que frena. El `switch` exhaustivo es
+ * además lo que hace que un formato nuevo NO compile hasta tener su entrada en el registro.
+ */
+function bloqueDelFormato(formato: FormatoIg): Promise<string> {
+  switch (formato) {
+    case 'reel': return getPromptText(PROMPTS_METODOLOGIA_IG.reel.key, PROMPTS_METODOLOGIA_IG.reel.tpl);
+    case 'carrusel': return getPromptText(PROMPTS_METODOLOGIA_IG.carrusel.key, PROMPTS_METODOLOGIA_IG.carrusel.tpl);
+    case 'story': return getPromptText(PROMPTS_METODOLOGIA_IG.story.key, PROMPTS_METODOLOGIA_IG.story.tpl);
+  }
+}
+
+/**
  * La metodología que le llega al modelo para `formato`: lo editado en /configuraciones
  * (bloque transversal y bloque del formato, cada uno por su lado) o el default.
  *
@@ -49,9 +66,8 @@ export const PROMPTS_METODOLOGIA_IG = {
  * separador: el cambio no mueve una coma de lo que ya salía.
  */
 export async function metodologiaIgVigente(formato: FormatoIg): Promise<string> {
-  const propio = PROMPTS_METODOLOGIA_IG[formato];
   const [propia, transversal] = await Promise.all([
-    getPromptText(propio.key, propio.tpl),
+    bloqueDelFormato(formato),
     getPromptText(PROMPTS_METODOLOGIA_IG.transversal.key, PROMPTS_METODOLOGIA_IG.transversal.tpl),
   ]);
   return componerMetodologia(propia, transversal);

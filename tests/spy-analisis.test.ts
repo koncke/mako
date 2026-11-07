@@ -23,6 +23,7 @@ import { resolve } from 'node:path';
 import {
   ANALISIS_SIN_DATOS, PIEZAS_POR_ANALISIS, cuantasFaltan, faltaAnalisis, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta,
 } from '../lib/spy-analisis-reglas';
+import { VERSION_FORMATOS } from '../lib/spy-detalle';
 import { opcionesDeContenido } from '../lib/spy-vista';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -35,8 +36,23 @@ test('1. falta el análisis sólo si nunca se leyó; uno vacío ya cuenta como l
   assert.equal(faltaAnalisis(pieza('a', 10)), true);
   assert.equal(faltaAnalisis(pieza('a', 10, ANALISIS_SIN_DATOS)), false);
   assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'pov' })), false);
-  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'otro' })), false, 'la IA no vio el formato: no se vuelve a pedir');
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'otro', formatosV: VERSION_FORMATOS })), false, 'la IA no vio el formato: no se vuelve a pedir');
   assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x' })), true, 'lo analizado antes del formato se lee una vez más');
+
+  // ⚠️ LO MARCADO `otro` CON LOS ONCE FORMATOS VIEJOS SE LEE UNA VEZ MÁS (6/11/2026). Hasta hoy no: la línea de arriba
+  // decía que un `otro` ya estaba listo, y así lo analizado antes del catálogo de 19 se quedaba en el formato viejo para
+  // siempre, con los dos criterios conviviendo sin que nada lo avisara. De los 19 de hoy, OCHO entraron después de los
+  // 11 primeros, así que un `otro` de entonces puede ser un `promo` o un `mito` de ahora.
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'otro' })), true, 'sin la marca del catálogo, un `otro` es de los 11 viejos');
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'otro', formatosV: 1 })), true);
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'Otro', formatosV: 1 })), true, 'el nombre y el id son lo mismo (`formatoDe`)');
+  // Pero SÓLO los `otro`: los ids del catálogo nuevo son un superconjunto de los viejos, así que releer un `tutorial`
+  // no cambiaría nada y lo pagaría el negocio.
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'tutorial' })), false, 'un tutorial sigue siendo un tutorial');
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'pov', formatosV: 1 })), false);
+  // Y es UNA vez: lo que se guarda desde ahora lleva la marca, también lo que la IA no devolvió.
+  assert.equal(ANALISIS_SIN_DATOS.formatosV, VERSION_FORMATOS, 'sin esto, una pieza que la IA no devuelve pide lectura para siempre');
+  assert.equal(faltaAnalisis(pieza('a', 10, ANALISIS_SIN_DATOS)), false);
   // La web se lee aparte (su funnel): no es una pieza que lea esta IA.
   assert.equal(faltaAnalisis(pieza('https://x.com', null, null, 'landing')), false);
 });
