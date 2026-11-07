@@ -24,9 +24,17 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { getSchema, getAnswers } from '@/lib/onboarding';
 import type { PlanVideo } from '@/lib/video-planner';
 import type { Escena } from '@/lib/escenas-core';
+import { CUPOS, clipsPagados, recortarPorCupo, tipoDePlan, tirados, type TipoPlan } from './historial-cupos';
 
 export const KEY_HISTORIAL_VIDEO = 'video-generator.historial';
-const MAX_HISTORIAL = 10;
+
+// ⚠️ EL TOPE YA NO ES UNO: es un CUPO POR TIPO (./historial-cupos.ts).
+//
+// Era `MAX_HISTORIAL = 10` compartido, y el pedido 558 lo rompió: las dos
+// acciones de «AI Avatar» escriben ACÁ, así que cada avatar empujaba un anuncio
+// afuera —y con él el único puntero a sus clips pagados—. La regla, los dos
+// números y el porqué de cada uno viven en ese módulo, que no es `server-only`
+// para que lo pueda ejecutar un test.
 
 /**
  * Lo que se guarda por ESCENARIO.
@@ -143,6 +151,41 @@ export type MarcaImagen = {
 
 export type PlanGuardado = {
   id: string;
+  /**
+   * Qué CLASE de plan es. Ausente = `'anuncio'`, y eso no es un descuido.
+   *
+   * ⚠️ **Existe porque «AI Avatar» escribe en ESTE historial.** Las dos acciones
+   * de avatar (`app/ai-avatar/actions.ts`, `app/video-editor/avatar/actions.ts`)
+   * llaman a `guardarEnHistorial`, y con un tope compartido cada avatar empujaba
+   * un anuncio afuera: con el anuncio se iba el único puntero a sus clips, que
+   * están PAGADOS. Hasta esto NADA distinguía un avatar de un anuncio — las
+   * únicas marcas eran indirectas (una sola `escena` de la toma 1 a la última,
+   * `imagenes['1'].reusadaDe`, `clipsMinimos: 1`) y las tres las produce también
+   * un anuncio normal que reusa un escenario (`reusarEscenariosAction`).
+   *
+   * ⚠️ **Y LOS PLANES YA GUARDADOS NO LO TIENEN: cuentan como anuncios, y se
+   * acabó.** Se evaluó inferirlos por esas marcas indirectas y se descartó:
+   *
+   *   1. **La inferencia no distingue.** Un anuncio real de una toma que reusó su
+   *      escenario tiene las tres marcas idénticas a un avatar. Y el error no es
+   *      simétrico: marcar un ANUNCIO como avatar lo muda al cupo de los avatares,
+   *      donde una tanda de avatares nuevos lo evicta — justo el daño que esto
+   *      viene a arreglar. Al revés no pasa nada: el avatar viejo se queda donde
+   *      ya estaba, compitiendo con los anuncios como competía ayer.
+   *   2. **Un historial guardado no se altera al desplegar.** Con el default en
+   *      `'anuncio'` el cambio es invisible para lo que ya está en `app_settings`:
+   *      misma lista, mismo orden, mismo largo. Cualquier inferencia reparticiona
+   *      la lista de alguien el día del deploy, y una repartición es un recorte en
+   *      cuanto un cupo queda corto.
+   *
+   * Consecuencia dicha: un avatar viejo FILMADO sigue ocupando un lugar del cupo
+   * de los anuncios (lo protege la regla de los clips pagados, igual que hoy). La
+   * cura corta la hemorragia; no reescribe el pasado.
+   *
+   * Lo escribe UN solo lugar —`conAvatar` (`app/video-editor/avatar/avatares.ts`)—,
+   * que es por donde pasan las dos acciones de avatar y ninguna otra.
+   */
+  tipo?: TipoPlan;
   /** El tema que pidió el usuario (para el rótulo del historial). */
   pedido: string;
   /**
@@ -415,21 +458,14 @@ export async function leerHistorial(): Promise<PlanGuardado[]> {
     if (!raw) return [];
     const arr = JSON.parse(raw) as unknown;
     if (!Array.isArray(arr)) return [];
-    return arr.filter(esEntrada).slice(0, MAX_HISTORIAL).map(limpiarUrlsMuertas);
+    // Sin `protegido`: en una lectura nadie está trabajando sobre ninguna entrada.
+    // Y el recorte DEVUELVE EL ORDEN DE ENTRADA, así que un historial ya guardado
+    // se lee igual que antes de este cambio (toda entrada vieja es `'anuncio'`, y
+    // el cupo de los anuncios sigue siendo 10: la lista no se reordena ni se acorta).
+    return recortarPorCupo(arr.filter(esEntrada).map(limpiarUrlsMuertas));
   } catch {
     return [];
   }
-}
-
-/**
- * Cuántos clips PAGADOS tiene un anuncio. Es lo que decide si se puede tirar.
- *
- * No es «cuántas tomas» ni «está terminado»: es cuántos costaron créditos. Un
- * anuncio a medio filmar con tres clips vale tanto como uno completo a la hora de
- * decidir si desaparece.
- */
-function clipsPagados(e: PlanGuardado): number {
-  return Object.values(e.video ?? {}).filter((v) => v?.url).length;
 }
 
 /** Agrega (o reemplaza por id) y recorta al tope. Devuelve el historial nuevo. */
@@ -437,40 +473,25 @@ export async function guardarEnHistorial(item: PlanGuardado): Promise<PlanGuarda
   const actual = await leerHistorial();
   const todos = [item, ...actual.filter((e) => e.id !== item.id)];
 
-  // ⚠️ EL TOPE SACA PRIMERO LO QUE NO SE PAGÓ, y antes recortaba por fecha a
-  // secas.
-  //
-  // Los .mp4 viven en storage colgados de un `planId` que sólo existía en esta
-  // fila: cuando el tope evictaba un anuncio TERMINADO, sus siete clips quedaban
-  // en el bucket sin nadie que supiera que existen. Ni una pantalla, ni un error,
-  // ni forma de volver — sólo espacio ocupado y ~105 créditos que nadie puede
-  // mirar.
-  //
-  // El orden nuevo: se conservan los que tienen clips pagados (los más recientes
-  // primero) y recién después se llena con los que no costaron nada. Un anuncio
-  // sin un solo clip filmado no le cuesta nada a nadie perderlo: el guion se
-  // vuelve a escribir.
-  //
-  // ⚠️ El que se acaba de guardar NUNCA se cae, tenga clips o no: recortar el
-  // anuncio en el que la persona está trabajando sería el peor momento posible.
-  const nuevo = todos.length <= MAX_HISTORIAL
-    ? todos
-    : [
-      todos[0],
-      ...todos.slice(1).filter((e) => clipsPagados(e) > 0),
-      ...todos.slice(1).filter((e) => clipsPagados(e) === 0),
-    ].slice(0, MAX_HISTORIAL);
+  // ⚠️ EL RECORTE ES POR CUPO DE TIPO, Y DENTRO DEL CUPO SACA PRIMERO LO QUE NO SE
+  // PAGÓ. Las dos reglas, los dos números y el porqué de cada uno viven en
+  // ./historial-cupos.ts; acá sólo se dice quién es el protegido —el que se está
+  // guardando, que nunca se cae— y se registra lo que igual se fue.
+  const nuevo = recortarPorCupo(todos, { protegido: item.id });
 
-  if (todos.length > nuevo.length) {
-    const tirados = todos.filter((e) => !nuevo.some((x) => x.id === e.id));
-    const conClips = tirados.filter((e) => clipsPagados(e) > 0);
+  const seFueron = tirados(todos, nuevo);
+  if (seFueron.length) {
+    const conClips = seFueron.filter((e) => clipsPagados(e) > 0);
     // Se REGISTRA lo que se tira, y sobre todo si tenía clips: un recorte
     // silencioso se lee como «no había nada», que es justo lo que no se puede
-    // saber después.
+    // saber después. Y se dice el TIPO de cada uno: «el cupo de los avatares tiró
+    // un avatar» y «el de los anuncios tiró un anuncio» son dos problemas
+    // distintos, y el mensaje viejo decía «anuncio(s)» para los dos.
     if (conClips.length) {
       console.warn(
-        `[video] el tope de ${MAX_HISTORIAL} tiró ${conClips.length} anuncio(s) CON clips pagados: `
-        + conClips.map((e) => `${e.id} (${clipsPagados(e)})`).join(', '),
+        `[video] el cupo por tipo (anuncio ${CUPOS.anuncio}, avatar ${CUPOS.avatar}) tiró `
+        + `${conClips.length} plan(es) CON clips pagados: `
+        + conClips.map((e) => `${e.id} ${tipoDePlan(e)} (${clipsPagados(e)})`).join(', '),
       );
     }
   }

@@ -75,11 +75,23 @@ export function avataresDelHistorial(historial: readonly PlanGuardado[]): Avatar
  * misma escritura que hace `reusarEscenariosAction` (elegida + elegidaId +
  * confirmada + reusadaDe). ⚠️ `elegidaId` es el campo que importa: la url vence
  * y el id no, y sin él la toma no se puede filmar.
+ *
+ * ⚠️ **Y ES EL ÚNICO LUGAR QUE SELLA `tipo: 'avatar'`** (item 558, 6/11/2026). El
+ * historial del Video Generator tiene un CUPO POR TIPO desde entonces
+ * (`app/video-generator/historial-cupos.ts`) para que hacer avatares no empuje
+ * afuera anuncios con clips pagados. Se sella acá y no en las dos acciones de
+ * avatar a propósito: las dos pasan por esta función, y un sello escrito dos veces
+ * se queda viejo en una de las dos — que en este caso significa un avatar que
+ * vuelve a competir por el lugar de un anuncio, sin que nada avise.
+ *
+ * Y es `conAvatar` quien lo sabe: lo que convierte un plan en un avatar es
+ * justamente lo que hace esta función. Las acciones sólo lo guardan.
  */
 export function conAvatar(item: PlanGuardado, avatar: AvatarIA): PlanGuardado {
   const total = item.plan.clips.length;
   return {
     ...item,
+    tipo: 'avatar',
     escenarioId: avatar.escenarioId ?? item.escenarioId,
     escenas: [{ ...avatar.escena, n: 1, desde: 1, hasta: Math.max(1, total) }],
     imagenes: {
