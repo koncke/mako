@@ -1582,8 +1582,16 @@ subieron de 2,5 a 3 GB (la ventana de Claude en negro, «Main webview is unrespo
 negra, en silencio.** Ya sincronizado, y un test afirma que no hay ningún `minGb: 2.5`. La regla: un hook que vive en
 `~/.claude` y tiene copia en el repo se cambia **en la copia del repo** y después se reinstala; al revés se pierde.
 
-**Sin hacer, y lo tiene que hacer Martín** (es configuración de su máquina, no del repo): copiar este archivo a
-`~/.claude/guardia/memoria.mjs`. Hasta que no se copie, **la guardia que corre sigue negando commits por su mensaje**.
+**HECHO el 6/11/2026 ~21:10** (el Cerebro, cuenta 1): copiada a `~/.claude/guardia/memoria.mjs`, con respaldo
+`.antes-6-11-noche`. Antes de copiarla verifiqué que los cuatro topes son IDÉNTICOS a los que ya corrían (3,0 / 3,0 / 1,0 /
+0,6 GB), que es lo único que hacía peligrosa la reinstalación según el párrafo de arriba.
+
+⚠️ **Cómo se reconoce el síntoma, que es la parte que cuesta.** La negativa dice `quedan 1.4 GB de RAM disponibles y esto
+necesita 3`, así que se lee como un problema de memoria y uno sale a cerrar programas. No lo es: **un commit no pide RAM.**
+La pregunta de diez segundos es si el MENSAJE del commit nombra `tsc`, `npm test` o `eslint`; si lo nombra, es esto.
+Medido la noche del 6/11 intentando rescatar una cosecha titulada «Un rojo del paso Tipos…»: cerré Chrome (23 procesos,
+1.530 MB) y la RAM libre subió **0,16 GB**, porque los 4,1 GB se los llevaban los 27 procesos de Claude, que son los otros
+chats y no se tocan. El commit entró después con 2,1 GB libres, sin liberar nada más: nunca había sido la RAM.
 
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
@@ -11509,3 +11517,56 @@ costumbre (`git status`, mirar el archivo en el editor) lo puede ver.
    listas largas (el índice de hallazgos, un catálogo), una cuenta de filas de los dos lados
    (`git show "$BASE:<x>" | grep -c '^| '` contra el mismo del commit). Son dos comandos y es lo único que caza una línea
    que desapareció sin que nadie la borrara.
+
+## Un rojo del paso «Tipos» NO significa que haya errores de tipos (6/11/2026)
+
+**Lo primero, porque es lo que ahorra las vueltas:** cuando `punta.yml` deja la punta roja en el paso **«Tipos»**, leé la
+PRIMERA línea del paso antes de tocar una coma. Si dice **SIN TIEMPO**, o el paso sale con **código 97**, no hay ningún
+error de tipos: es el runner que no llegó a medir. **Un veredicto que no se pudo medir no es un veredicto**, y el 97 es
+justamente el código que el flujo usa para «no pude medir», no para «está mal».
+
+Medido con `punta/tickets-casilla-correos`. El paso lo dice textual:
+
+> «Tipos: SIN TIEMPO — NO son errores de tipos. El tsc no terminó en 843 s (tope `TIPOS_TOPE_S=840 s`; tope de heap
+> 12.288 MB, RAM del runner 7.933 MB, 2 CPU) y lo corté. Al cortarlo, la máquina tenía **143 MB disponibles** y 4.608 MB de
+> swap usado; el tsc, 1.979 MB en swap. **El tsc estaba en swap: esperaba al disco. Es la MÁQUINA, no el código.**»
+
+Y en esa MISMA corrida roja, los tests dieron `✔ VERDE · 5355 tests de 531 archivos`. O sea: todo verde, cero errores de
+tipos, punta roja.
+
+**Lo que no estaba escrito: si pega DOS veces, se gasta el relanzador.** `punta.yml` ya trata el tope de tiempo como lo que
+es y relanza la corrida una vez («Relanzar si la máquina no llegó a los tipos»). Pero la corrida relanzada lleva
+`relanzo=maquina`, y ese paso está condicionado a `inputs.relanzo != 'maquina'` para no entrar en loop: la segunda vez se
+**saltea** y la punta queda ROJA con su marca `ci-rojo/<punta>`. No hay nada que corregir.
+
+**El remedio, que es lo que el flujo pide («Volvé a subir la punta tal cual»):** relanzar con `relanzo` **vacío**, para que
+la corrida nueva vuelva a tener su propio relanzador. Dos caminos:
+
+- **Un commit más y `git push`** a la misma punta: lo más simple, y además le toca un runner nuevo.
+- **Un `workflow_dispatch`**, para no agregarle un commit:
+
+      TOK=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+      curl -X POST -H "Authorization: Bearer $TOK" \
+        https://api.github.com/repos/koncke/mako/actions/workflows/punta.yml/dispatches \
+        -d '{"ref":"punta/<nombre>","inputs":{"relanzo":""}}'      # -> 204
+
+**⚠️ Y de paso, cómo se diagnostica cualquier rojo de Actions desde la PC**, que es la mitad del tiempo perdido acá: `gh`
+**no está instalado**, y los PAT de `.env.local` (`GITHUB_PAT_MAURICIO`, `GITHUB_PAT_MBUSTOS`) son de Mauricio y dan **404**
+contra `koncke/mako`. El token que sirve es el del push, y sale con `git credential fill` (arriba). Con él:
+
+- `/actions/runs?branch=punta%2F<nombre>` → las corridas y su `conclusion`;
+- `/actions/runs/<id>/jobs` → **qué paso falló** (es la llamada que hay que hacer primero);
+- `/actions/runs/<id>/logs` → el zip con el log completo.
+
+**Lo que más caro salió, y no es técnico:** esa punta tuvo **tres causas distintas** de rojo —un test que fijaba el texto
+del código viejo, un snapshot de rutas que pedía una decisión, y este tope de tiempo— y las dos primeras las encontré
+corriendo tests en local. **Reproducir un rojo en local prueba que encontraste UNA causa, no LA causa.** Leer el paso rojo
+del log cuesta dos llamadas a la API y lo dice en una línea.
+
+**SIN HACER, y esto sí es un arreglo de verdad:** **el tope de 840 s se fijó cuando el repo era más chico.** Si el «SIN
+TIEMPO» empieza a aparecer en otras ramas, el tope quedó corto y lo que hay que revisar es ése y por qué el tsc entra en
+swap en un runner de 8 GB (el paso ya se arma un swapfile de 6 GB y el tope de heap es 12.288 MB). Es una decisión de infra
+con costo de minutos, no de un chat. Hasta entonces, un «SIN TIEMPO» aislado se relanza y listo.
+
+**Vive en:** `.github/workflows/punta.yml` (el paso «Tipos», `TIPOS_TOPE_S`, y «Relanzar si la máquina no llegó a los
+tipos») · `scripts/typecheck-lock.mjs`
