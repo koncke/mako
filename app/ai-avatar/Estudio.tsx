@@ -52,7 +52,7 @@ import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
 import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useExtensionInstalada } from '@/app/video-generator/extension-instalada';
-import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
+import { requisitosAvatar, resumenDeRequisitos, avisoDeCosto, type PasoRequisito, type Motor } from '@/lib/ai-avatar/requisitos';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -449,10 +449,23 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
  * necesita un cliente para generar lo dice la pantalla clara y paso a paso, antes de que apriete Generar»). Los pasos y cuáles
  * están hechos los decide lib/ai-avatar/requisitos.ts; acá sólo se dibujan, arriba de la barra, mientras falte alguno.
  */
-function Requisitos({ pasos }: { pasos: readonly PasoRequisito[] }) {
+function Requisitos({ pasos, motor }: { pasos: readonly PasoRequisito[]; motor?: Motor }) {
+  // ⚠️ ARRANCA PLEGADA, y el número que lo justifica está en `resumenDeRequisitos`: medido a 1024 × 820, el
+  // bloque pegado al pie ocupaba 452 px de 820 —el 55 % de la pantalla— con 240 de esta tarjeta, y estaba
+  // desplegada todo el tiempo que faltara un paso, que es justo cuando la persona está mirando los presets.
+  // Plegada deja la única información por la que alguien la miraría: cuánto falta y qué sigue.
+  const [abierta, setAbierta] = useState(false);
+  const r = resumenDeRequisitos(pasos);
   return (
     <section className="hf-requisitos" aria-label="Antes de generar">
-      <p className="hf-requisitos-titulo">Antes de generar</p>
+      <button type="button" className="hf-requisitos-cabecera" aria-expanded={abierta} onClick={() => setAbierta((v) => !v)}>
+        <span className="hf-requisitos-titulo">Antes de generar</span>
+        <span className="hf-requisitos-resumen">{r.linea}</span>
+        {/* Un solo `chevron`, girado por CSS: es la convención del set (app/_components/icons.tsx:127).
+            Un nombre inventado NO falla —dibuja un punto—, así que esto se descubriría mirando la pantalla. */}
+        <span className="hf-requisitos-flecha" aria-hidden="true"><Icon name="chevron" size={14} /></span>
+      </button>
+      {abierta && (<>
       <ol className="hf-requisitos-lista">
         {pasos.map((x, i) => (
           <li key={x.id} className={x.hecho ? 'hf-paso hf-paso--hecho' : 'hf-paso'} aria-label={`${x.titulo}: ${x.hecho ? 'listo' : 'falta'}`}>
@@ -464,7 +477,8 @@ function Requisitos({ pasos }: { pasos: readonly PasoRequisito[] }) {
           </li>
         ))}
       </ol>
-      <p className="hf-requisitos-nota">{CREDITOS}</p>
+      <p className="hf-requisitos-nota">{avisoDeCosto(motor)}</p>
+      </>)}
     </section>
   );
 }

@@ -175,3 +175,36 @@ export function requisitosAvatar(p: {
   const falta = pasos.find((x) => !x.hecho) ?? null;
   return { pasos, listo: !falta, falta };
 }
+
+/**
+ * El resumen de una línea, para cuando la lista va PLEGADA.
+ *
+ * ⚠️ POR QUÉ SE PLIEGA, con el número que lo justifica. Medido en producción el 7/11 a 1024 × 820: el bloque
+ * pegado al pie (la tarjeta de «Antes de generar» + la barra de crear) mide **452 px de 820**, o sea el 55 %
+ * de la pantalla, y 240 de esos son esta tarjeta. Con 33 presets para mirar, a la persona le quedan ~370 px.
+ * Y la tarjeta está desplegada TODO el tiempo que falte un paso, que es justo cuando la persona está
+ * explorando — no cuando ya sabe qué quiere.
+ *
+ * Lo que no se puede perder al plegarla es **cuánto falta y qué sigue**: ésas son las dos cosas por las que
+ * alguien la miraría. Van en la línea. El resto se abre con un toque.
+ *
+ * El plural importa: «Te falta 2 de 4» está mal escrito y lo lee un cliente.
+ */
+export function resumenDeRequisitos(pasos: readonly PasoRequisito[]): {
+  /** La línea de la cabecera plegada. */
+  linea: string;
+  faltan: number;
+  total: number;
+  /** El primer paso sin hacer: lo que sigue. `null` si no falta ninguno. */
+  siguiente: PasoRequisito | null;
+} {
+  const total = pasos.length;
+  const pendientes = pasos.filter((x) => !x.hecho);
+  const faltan = pendientes.length;
+  const siguiente = pendientes[0] ?? null;
+  if (faltan === 0) return { linea: 'Ya está todo listo', faltan: 0, total, siguiente: null };
+  const cuenta = faltan === 1 ? `Te falta ${faltan} de ${total}` : `Te faltan ${faltan} de ${total}`;
+  // El título del paso empieza en minúscula en varios casos («instala la extensión…»): va después del «·»,
+  // que es separador y no principio de oración, así que no hay que capitalizarlo.
+  return { linea: siguiente ? `${cuenta} · ${siguiente.titulo}` : cuenta, faltan, total, siguiente };
+}

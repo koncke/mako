@@ -29,7 +29,7 @@ import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
 import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
 import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
-import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, avisoDeCosto, type PuenteVisto } from '../lib/ai-avatar/requisitos';
+import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, avisoDeCosto, resumenDeRequisitos, type PuenteVisto, type PasoRequisito, type IdPaso } from '../lib/ai-avatar/requisitos';
 import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
@@ -373,4 +373,60 @@ test('la rama de MaKo pide una foto DE VERDAD, no una imagen generada', () => {
   const foto = r.pasos.find((x) => x.id === 'foto');
   assert.ok(foto, 'no hay paso de foto');
   assert.ok(/IA|generad/i.test(foto.ayuda), `el paso de la foto no avisa que no sirve una imagen de IA: «${foto.ayuda}»`);
+});
+
+// =============================================================================
+// «Antes de generar» plegado: cuánto falta y qué sigue (7/11/2026, plan.md T15)
+// =============================================================================
+// El plan pedía que la tarjeta se plegara a «Te falta 1 de 4». El número que lo justifica es una medición: a
+// 1024 × 820 el bloque pegado al pie ocupaba 452 px de 820 —el 55 % de la pantalla— con 240 de esta tarjeta, y
+// quedaba desplegada TODO el tiempo que faltara un paso, que es justo cuando la persona mira los 33 presets.
+//
+// Al plegar, lo único que no se puede perder son las dos cosas por las que alguien la miraría: **cuánto falta
+// y qué sigue**. Eso es lo que esto fija.
+
+const PASO = (id: IdPaso, hecho: boolean, titulo = `paso ${id}`): PasoRequisito => ({ id, titulo, hecho, ayuda: '' });
+
+test('el resumen dice cuánto falta Y qué sigue, no sólo un número', () => {
+  const r = resumenDeRequisitos([PASO('extension', true), PASO('conectar', false, 'conéctala a tu negocio'), PASO('flow', false), PASO('foto', false)]);
+  assert.equal(r.faltan, 3);
+  assert.equal(r.total, 4);
+  assert.equal(r.siguiente?.id, 'conectar', 'el siguiente tiene que ser el PRIMERO sin hacer, no cualquiera');
+  assert.match(r.linea, /3 de 4/, `la línea no dice cuánto falta: «${r.linea}»`);
+  assert.match(r.linea, /conéctala a tu negocio/, `la línea no dice qué sigue: «${r.linea}»`);
+});
+
+test('el plural está bien escrito: lo lee un cliente', () => {
+  // «Te falta 2 de 4» está mal y se ve. Es el texto más corto de la pantalla y el que más se mira.
+  const uno = resumenDeRequisitos([PASO('extension', true), PASO('conectar', true), PASO('flow', true), PASO('foto', false)]);
+  const dos = resumenDeRequisitos([PASO('extension', true), PASO('conectar', true), PASO('flow', false), PASO('foto', false)]);
+  assert.match(uno.linea, /Te falta 1 de 4/, `singular mal: «${uno.linea}»`);
+  assert.match(dos.linea, /Te faltan 2 de 4/, `plural mal: «${dos.linea}»`);
+});
+
+test('con todo hecho no dice que falta algo', () => {
+  const r = resumenDeRequisitos([PASO('extension', true), PASO('foto', true)]);
+  assert.equal(r.faltan, 0);
+  assert.equal(r.siguiente, null);
+  assert.ok(!/falta/i.test(r.linea), `con todo listo la línea igual dice que falta algo: «${r.linea}»`);
+});
+
+test('el total es el de ESTA rama, no un 4 fijo', () => {
+  // ⚠️ Por la rama de MaKo son DOS pasos, no cuatro. Un «de 4» hardcodeado le mentiría a quien eligió esa
+  // rama — le diría que le faltan cosas que su camino no pide.
+  const flow = requisitosAvatar({ puente: { estado: 'sin_conectar', vivo: false, actualizada: false }, instalada: false, enTelefono: false, fotos: 0, para: 'avatar' });
+  const mako = requisitosAvatar({ motor: 'mako', puente: { estado: 'sin_conectar', vivo: false, actualizada: false }, instalada: false, enTelefono: false, fotos: 0, para: 'avatar', saldoMt: 0, cuestaMt: 100 });
+  const rf = resumenDeRequisitos(flow.pasos);
+  const rm = resumenDeRequisitos(mako.pasos);
+  assert.ok(rf.total > rm.total, `Flow pide ${rf.total} pasos y MaKo ${rm.total}: la rama de MaKo tendría que pedir menos`);
+  assert.match(rm.linea, new RegExp(`de ${rm.total}`), `la rama de MaKo dice un total que no es el suyo: «${rm.linea}»`);
+  assert.ok(!/extensi|chrome/i.test(rm.linea), `la rama de MaKo nombra algo de Flow en su resumen: «${rm.linea}»`);
+});
+
+test('la tarjeta arranca PLEGADA: ése era el punto', () => {
+  // Si alguien la deja abierta por defecto, vuelve a comerse el 55 % de la pantalla y ningún otro test lo nota.
+  const src = readFileSync(join(import.meta.dirname, '..', 'app/ai-avatar/Estudio.tsx'), 'utf8');
+  assert.match(src, /const \[abierta, setAbierta\] = useState\(false\)/,
+    'la tarjeta de «Antes de generar» dejó de arrancar plegada');
+  assert.match(src, /aria-expanded=\{abierta\}/, 'la cabecera no declara si está abierta: un lector de pantalla no lo sabe');
 });
