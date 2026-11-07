@@ -199,6 +199,56 @@ línea, que a Chrome le da igual. Con eso `--check` pasa y lo que se despliega e
 cambia la huella de TODOS los clones a la vez: entra con el commit que la regenera, y el que lo haga tiene que correr
 el `--check` en un worktree limpio antes y después.
 
+## El SEGUNDO test rojo en toda PC con Windows: una ruta absoluta dentro de un `git config` pierde los separadores (6/11/2026)
+
+Hermano del de `tests/newsletter.test.ts` (más abajo): dos rojos locales que Actions no ve, encontrados la
+misma tarde persiguiendo el mismo veredicto, sobre 65 tests afectados.
+
+- **Síntoma:** `tests/unir-bitacora.test.ts` da **4 rojos de 11** en la PC, siempre, y el mensaje no habla
+  de bitácoras: `Cannot find module 'C:\Users\…\Temp\unir-bitacora-UtmJdF\devwt-carr-promptsscriptsunir-bitacora.mjs'`.
+- **Causa:** el test arma un repo de git de juguete y configura el driver con una ruta ABSOLUTA de Windows
+  (`node C:\dev\…\scripts\unir-bitacora.mjs %O %A %B %P`, tests/unir-bitacora.test.ts:149). Git guarda ese
+  valor y después lo corre por un shell: los `\` se comen como escapes y la ruta queda **sin separadores**.
+  El driver no existe, git no puede mezclar, y el test acusa «la mezcla no salió limpia».
+- **Lo obvio que era equivocado:** lo elige cualquier punta que toque una bitácora de `/admin/dev`, así que
+  lo primero que se piensa es «rompí el driver» o «rompí la bitácora». El valor que falla no es del repo:
+  es la ruta de la PC.
+- **Regla:** una ruta que viaja DENTRO del valor de un `git config` —o de cualquier cosa que después pase
+  por un shell— va con `/`, no con `\` (git acepta barras en Windows). Y la general, que éste y el de
+  newsletters confirman: **un rojo local se confirma en LF/Linux antes de perseguirlo**; el camino barato es
+  leer la ruta del mensaje, o convertir a LF el archivo que el test LEE y volver a correr.
+- **Sin hacer:** el `.replace(/\\/g, '/')` en `tests/unir-bitacora.test.ts:149` (una línea). Va aparte: es
+  un test ajeno a la corrida que lo encontró.
+
+## Por qué hay que CONTAR el índice aunque el driver esté configurado: su camino limpio no ve la duplicación (6/11/2026)
+
+Completa la entrada de arriba sobre las ocho puntas (punto 3) y la de «La poda del índice choca con toda
+punta en vuelo». Las dos dicen que el índice se controla contando. **Esto es por qué contar no es opcional
+ni siquiera cuando todo está bien configurado.**
+
+- **Medido el 6/11 a la noche**, con `docs/hallazgos.md merge=indice-hallazgos` en el `.gitattributes` del
+  árbol Y `merge.indice-hallazgos.driver` configurado en el clon: `git merge origin/main` **no reportó
+  ningún choque** y dejó el índice en **74 filas para 70 áreas**. Peor: la entrada que la punta acababa de
+  cosechar quedó en una de las filas REPETIDAS, no en la del área.
+- **Causa, en el código:** `scripts/unir-indice-hallazgos.mjs` tiene dos caminos. Si `git merge-file` sale
+  0, confía en él y sólo tira las filas **byte a byte idénticas** (`sinFilasRepetidas`). La unión por CELDA
+  (`unirPorCelda`), que es la que arregla esto, corre **sólo cuando `merge-file` choca**. Con main
+  reescribiendo la tabla entera (la poda de 217 filas a 115), el 3-way de líneas sale «limpio»
+  intercalando la fila vieja de la punta con la nueva de main: dos líneas DISTINTAS para la misma área, que
+  `sinFilasRepetidas` no puede ver.
+- **Y `--consolidar` tampoco lo ve:** `node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md`
+  contesta «70 filas, ninguna repetida» sobre un índice con cuatro filas de más, porque mira lo mismo: filas
+  idénticas. Para controlarlo hay que agrupar por la CLAVE del área (las dos primeras celdas).
+- **El arreglo de fondo, SIN hacer:** que el camino limpio del driver (la rama `m.status === 0` de
+  `scripts/unir-indice-hallazgos.mjs`) junte también las filas con la misma clave de área uniendo sus
+  celdas, y no sólo las idénticas. Hoy eso lo hace únicamente `unirPorCelda`, que nunca se llama cuando el
+  3-way sale limpio.
+- **Trampa del shell, de paso, y cuesta el archivo entero:** reescribir el índice con un heredoco de bash
+  SIN comillas (`python - <<PY`) **ejecuta lo que está entre backticks** del texto que se escribe — y el
+  índice está lleno de `` `lib/…` ``. El archivo queda con la salida de `ls` adentro y **nada avisa**. Va
+  `<<'PY'` (y entonces `$VAR` no se expande: la ruta se pasa como argumento), o un `.py` aparte con
+  `python -I`.
+
 ## Ocho puntas en una tarde: tres rojos que NO eran del código, y una punta que se llevó la cosecha de otra (6/11/2026)
 
 Medido subiendo ocho puntas de Competitors Spy la tarde que main podó el índice de hallazgos. Los tres rojos que
