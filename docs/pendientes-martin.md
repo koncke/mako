@@ -36,6 +36,14 @@ de adquisición de US$97, un cliente no es rentable el primer mes**, y su condic
 contenido), **4179/estrategia** (las tres fases y la cadena). Detalle en
 [docs/tableros/LEEME.md](tableros/LEEME.md).
 
+### ✅ EL TICKET DE LEANDRO, CERRADO (8/11) — pero 17 personas quedaron inalcanzables
+
+Cambió el ajuste de Meta y desde las 00:00 de hoy entrega bien, incluidos los dos pasos que antes se
+caían. ⚠️ **Lo caro:** de los 19 leads que se quedaron sin su recurso, a **17 ya no se les puede
+escribir** — se pasó la ventana de 24 h de Meta. **Un envío roto no cuesta el mensaje: cuesta la
+gente, porque para cuando te enterás ya no hay cómo alcanzarlos.** La lista se la pasé a él para que
+los escriba a mano. Detalle en [ticket-63-diagnostico.md](ticket-63-diagnostico.md).
+
 ### ⛔⛔ LO MÁS GRAVE, y no es el ticket #63: EN TU WORKSPACE EL ESLABÓN 4 NO EXISTE (8/11)
 
 Medido contra producción: el **ws 9 tiene CERO secuencias que escuchen comentarios de Instagram**.
