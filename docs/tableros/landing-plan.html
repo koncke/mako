@@ -1,0 +1,152 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Le das el objetivo y se hace cargo — MaKo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{--fondo:#f6f5f2;--panel:#fff;--borde:#ddd9d1;--texto:#221f1a;--tenue:#56514a;--apagado:#938c80;--acento:#8a4b2a;--suave:#f3e7df;--bien:#1d6b3a;--mal:#9c2c2c;--sombra:0 1px 3px rgba(34,31,26,.08);--titulo:'Bitter',Georgia,serif;--cuerpo:'Source Sans 3',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#bdb5a8;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--sombra:0 1px 3px rgba(0,0,0,.5);color-scheme:dark}}
+:root[data-theme="dark"]{--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#bdb5a8;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--sombra:0 1px 3px rgba(0,0,0,.5);color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--cuerpo);font-size:17px;line-height:1.6}
+.env{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));max-width:760px;margin:0 auto}
+.ancho{max-width:960px}
+section{padding-block:52px}
+.hero{padding-block:62px 48px;text-align:center}
+.ante{font-size:.88rem;font-weight:600;color:var(--acento);text-transform:uppercase;letter-spacing:.07em;margin:0 0 14px}
+h1{font-family:var(--titulo);font-size:clamp(2rem,1.5rem + 2.6vw,3.1rem);font-weight:700;line-height:1.12;margin:0 0 18px;letter-spacing:-.02em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--acento)}
+.bajada{font-size:clamp(1.05rem,1rem + .4vw,1.22rem);color:var(--tenue);margin:0 auto 30px;max-width:54ch;text-wrap:pretty}
+h2{font-family:var(--titulo);font-size:clamp(1.4rem,1.2rem + .9vw,1.9rem);font-weight:700;margin:0 0 10px;letter-spacing:-.012em;text-wrap:balance}
+h3{font-family:var(--titulo);font-size:1.12rem;font-weight:600;margin:0 0 6px}
+.sec-sub{color:var(--tenue);margin:0 0 26px;max-width:58ch}
+.centro{text-align:center}.centro .sec-sub{margin-left:auto;margin-right:auto}
+.btn{display:inline-block;background:var(--acento);color:#fff;text-decoration:none;font-weight:700;font-size:1.05rem;padding:14px 32px;border-radius:10px;box-shadow:var(--sombra);transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}
+.bajo-btn{font-size:.88rem;color:var(--apagado);margin-top:12px}
+.franja{background:var(--panel);border-block:1px solid var(--borde)}
+.chat{max-width:440px;margin:0 auto;background:var(--panel);border:1px solid var(--borde);border-radius:16px;padding:18px;box-shadow:var(--sombra)}
+.msj{max-width:84%;padding:10px 14px;border-radius:14px;margin-bottom:9px;font-size:.96rem;line-height:1.45}
+.ellos{background:var(--suave);color:var(--texto);border-bottom-left-radius:4px}
+.mako{background:var(--acento);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.hora{font-size:.74rem;color:var(--apagado);display:block;margin-top:3px;font-family:var(--mono)}
+.mako .hora{color:rgba(255,255,255,.75)}
+.pie-chat{font-size:.84rem;color:var(--apagado);text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--borde)}
+.cajas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.caja{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:18px 20px;box-shadow:var(--sombra)}
+.caja p{margin:0;color:var(--tenue);font-size:.97rem}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;background:var(--panel);border:1px solid var(--borde);border-radius:12px;overflow:hidden;box-shadow:var(--sombra)}
+.vs>div{padding:20px 22px}
+.vs .medio{background:var(--borde);width:1px;padding:0}
+.vs h3{margin-bottom:10px}
+.vs .precio{font-family:var(--titulo);font-size:1.7rem;font-weight:700;display:block;margin-bottom:4px}
+.vs .n-mal{color:var(--mal)}.vs .n-bien{color:var(--bien)}
+.vs ul{margin:12px 0 0;padding-left:20px;color:var(--tenue);font-size:.95rem}
+.vs li{margin-bottom:5px}
+.vs .chico{color:var(--apagado);font-size:.9rem}
+.q{border-bottom:1px solid var(--borde);padding:16px 0}
+.q:last-child{border-bottom:0}
+.q summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.q summary::-webkit-details-marker{display:none}
+.q summary::after{content:"+";color:var(--acento);font-weight:700;font-size:1.3rem;line-height:1}
+.q[open] summary::after{content:"\2212"}
+.q p{margin:10px 0 0;color:var(--tenue);font-size:.97rem}
+.no-es{background:var(--panel);border:1px solid var(--borde);border-left:4px solid var(--mal);border-radius:12px;padding:20px 22px}
+.no-es ul{margin:10px 0 0;padding-left:20px;color:var(--tenue)}
+.precio-caja{background:var(--panel);border:2px solid var(--acento);border-radius:16px;padding:28px;text-align:center;box-shadow:var(--sombra);max-width:420px;margin:0 auto}
+.precio-caja .n{font-family:var(--titulo);font-size:3rem;font-weight:700;color:var(--acento);line-height:1;display:block}
+.precio-caja .mes{color:var(--apagado);font-size:.95rem;display:block;margin-bottom:18px}
+.precio-caja ul{text-align:left;color:var(--tenue);font-size:.96rem;margin:0 0 22px;padding-left:20px}
+.precio-caja li{margin-bottom:6px}
+footer{border-top:1px solid var(--borde);padding-block:28px;color:var(--apagado);font-size:.88rem;text-align:center}
+.marca{font-family:var(--titulo);font-weight:700;color:var(--texto)}
+@media (max-width:620px){.vs{grid-template-columns:1fr}.vs .medio{width:auto;height:1px}}
+</style>
+
+<section class="hero env">
+  <p class="ante">Para quien tiene demasiadas cosas abiertas</p>
+  <h1>No te falta información.<br>Te falta <em>saber qué sigue</em>.</h1>
+  <p class="bajada">Le dices a MaKo a dónde quieres llegar este mes y arma el plan: qué hacer, en qué orden y para cuándo. Cada mañana te dice las tres cosas de hoy.</p>
+  <a class="btn" href="#precio">Empezar ahora</a>
+  <p class="bajo-btn">Cancelas cuando quieras · Usas tu propia IA</p>
+</section>
+
+<section class="franja">
+  <div class="env">
+  <div class="centro"><h2>Cómo se usa</h2><p class="sec-sub">La idea es no abrir nada: lo que hay que hacer te llega.</p></div>
+  <div class="cajas">
+    <div class="caja"><h3>Le dices el objetivo</h3><p>En una frase, como se lo dirías a alguien. «Quiero diez clientes nuevos este mes.»</p></div>
+    <div class="caja"><h3>Arma el plan</h3><p>Lo parte en tareas con su orden y su fecha, mirando lo que ya tienes empezado en vez de arrancar de cero.</p></div>
+    <div class="caja"><h3>Y te dice qué sigue</h3><p>Cada mañana, las pocas cosas que de verdad mueven el objetivo. No la lista entera.</p></div>
+  </div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Por qué las listas de tareas no alcanzan</h2></div>
+  <div class="cajas">
+    <div class="caja"><h3>Anotar no es decidir</h3><p>Una lista de cuarenta cosas no te dice cuál importa. Y la que importa casi nunca es la más fácil.</p></div>
+    <div class="caja"><h3>Lo urgente se come lo importante</h3><p>Lo que mueve el negocio no tiene fecha límite, y por eso siempre pierde contra lo que sí la tiene.</p></div>
+    <div class="caja"><h3>Y a la semana nadie la abre</h3><p>La lista que hay que mantener a mano deja de mantenerse, y entonces miente.</p></div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Qué lo hace distinto de una lista</h2></div>
+  <div class="cajas">
+    <div class="caja"><h3>Sabe cómo va tu negocio</h3><p>El plan sale de tus números y tus conversaciones, que ya están adentro. No le tienes que explicar el contexto cada vez.</p></div>
+    <div class="caja"><h3>Se reacomoda solo</h3><p>Si una semana no pudiste, no te quedas con un plan vencido: se recalcula con lo que de verdad pasó.</p></div>
+    <div class="caja"><h3>Lo decides tú</h3><p>Lo que propone es un borrador. Lo cambias, lo pospones o lo tiras, y aprende de eso.</p></div>
+  </div>
+</section>
+
+<section class="franja">
+  <div class="env">
+    <div class="centro"><h2>Y la parte que nadie te cuenta</h2></div>
+    <div class="caja" style="border-left:4px solid var(--acento)">
+      <h3>La inteligencia artificial la pones tú, y por eso el precio es este</h3>
+      <p>Casi todas las herramientas de este tipo te revenden la IA con su margen encima y lo cargan al plan. MaKo se conecta a <b>tu</b> cuenta de Claude, de GPT o de Gemini: pagas el consumo real al proveedor, sin intermediario. Si ya tienes una cuenta, está listo. Si no, se conecta pegando una clave.</p>
+    </div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Preguntas que siempre aparecen</h2></div>
+  <details class="q"><summary>¿Tengo que cargar mis tareas a mano?</summary><p>No hace falta. Lo que hablas por WhatsApp o lo que surge de una reunión puede entrar como tarea propuesta, que tú confirmas.</p></details>
+  <details class="q"><summary>¿Y si mi objetivo cambia a mitad de mes?</summary><p>Se lo dices y rehace el plan. Es lo normal, no la excepción.</p></details>
+  <details class="q"><summary>¿Me va a llenar de notificaciones?</summary><p>Es un resumen al día. La gracia es que puedas no abrir nada el resto del tiempo.</p></details>
+  <details class="q"><summary>¿Me ata a algo?</summary><p>No. Es mes a mes y lo cancelas cuando quieras.</p></details>
+</section>
+
+<section class="franja">
+  <div class="env">
+    <div class="no-es">
+      <h3>Para quién NO es</h3>
+      <ul>
+        <li>Si ya tienes un método que sigues y te funciona, no lo cambies por esto.</li>
+        <li>Si lo que buscas es una herramienta de gestión para un equipo grande, esto está pensado para el que decide, no para repartir trabajo.</li>
+        <li>Si no piensas contarle cómo te fue, va a planificar a ciegas y vas a tener razón en desconfiar.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="env centro" id="precio">
+  <h2>MaKo Pro</h2>
+  <p class="sec-sub">Un objetivo, y las tres cosas de hoy.</p>
+  <div class="precio-caja">
+    <span class="n">US$97</span>
+    <span class="mes">al mes · sin permanencia</span>
+    <ul>
+      <li>WhatsApp e Instagram en una sola bandeja</li>
+      <li>Un tablero para ver en qué paso está cada cliente</li>
+      <li>Seguimientos automáticos, sin tope</li>
+      <li>Tu agenda, tus tareas y tus cobros</li>
+      <li>Soporte en español, con personas</li>
+    </ul>
+    <a class="btn" href="https://hola-mako.com/planes/pro?landing=plan&amp;funcionalidad=plan&amp;utm_source=instagram&amp;utm_medium=organico&amp;utm_campaign=plan">Empezar ahora</a>
+    <p class="bajo-btn">Cancelas cuando quieras · Usas tu propia IA</p>
+  </div>
+</section>
+
+<footer class="env">
+  <p><span class="marca">MaKo</span> · hola-mako.com</p>
+</footer>

@@ -1,0 +1,183 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cobra sin comisión — MaKo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{--fondo:#f6f5f2;--panel:#fff;--borde:#ddd9d1;--texto:#221f1a;--tenue:#56514a;--apagado:#938c80;--acento:#8a4b2a;--suave:#f3e7df;--bien:#1d6b3a;--mal:#9c2c2c;--sombra:0 1px 3px rgba(34,31,26,.08);--titulo:'Bitter',Georgia,serif;--cuerpo:'Source Sans 3',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#bdb5a8;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--sombra:0 1px 3px rgba(0,0,0,.5);color-scheme:dark}}
+:root[data-theme="dark"]{--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#bdb5a8;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--sombra:0 1px 3px rgba(0,0,0,.5);color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--cuerpo);font-size:17px;line-height:1.6}
+.env{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));max-width:760px;margin:0 auto}
+.ancho{max-width:960px}
+section{padding-block:52px}
+.hero{padding-block:62px 48px;text-align:center}
+.ante{font-size:.88rem;font-weight:600;color:var(--acento);text-transform:uppercase;letter-spacing:.07em;margin:0 0 14px}
+h1{font-family:var(--titulo);font-size:clamp(2rem,1.5rem + 2.6vw,3.1rem);font-weight:700;line-height:1.12;margin:0 0 18px;letter-spacing:-.02em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--acento)}
+.bajada{font-size:clamp(1.05rem,1rem + .4vw,1.22rem);color:var(--tenue);margin:0 auto 30px;max-width:54ch;text-wrap:pretty}
+h2{font-family:var(--titulo);font-size:clamp(1.4rem,1.2rem + .9vw,1.9rem);font-weight:700;margin:0 0 10px;letter-spacing:-.012em;text-wrap:balance}
+h3{font-family:var(--titulo);font-size:1.12rem;font-weight:600;margin:0 0 6px}
+.sec-sub{color:var(--tenue);margin:0 0 26px;max-width:58ch}
+.centro{text-align:center}.centro .sec-sub{margin-left:auto;margin-right:auto}
+.btn{display:inline-block;background:var(--acento);color:#fff;text-decoration:none;font-weight:700;font-size:1.05rem;padding:14px 32px;border-radius:10px;box-shadow:var(--sombra);transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}
+.bajo-btn{font-size:.88rem;color:var(--apagado);margin-top:12px}
+.franja{background:var(--panel);border-block:1px solid var(--borde)}
+.chat{max-width:440px;margin:0 auto;background:var(--panel);border:1px solid var(--borde);border-radius:16px;padding:18px;box-shadow:var(--sombra)}
+.msj{max-width:84%;padding:10px 14px;border-radius:14px;margin-bottom:9px;font-size:.96rem;line-height:1.45}
+.ellos{background:var(--suave);color:var(--texto);border-bottom-left-radius:4px}
+.mako{background:var(--acento);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.hora{font-size:.74rem;color:var(--apagado);display:block;margin-top:3px;font-family:var(--mono)}
+.mako .hora{color:rgba(255,255,255,.75)}
+.pie-chat{font-size:.84rem;color:var(--apagado);text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--borde)}
+.cajas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.caja{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:18px 20px;box-shadow:var(--sombra)}
+.caja p{margin:0;color:var(--tenue);font-size:.97rem}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;background:var(--panel);border:1px solid var(--borde);border-radius:12px;overflow:hidden;box-shadow:var(--sombra)}
+.vs>div{padding:20px 22px}
+.vs .medio{background:var(--borde);width:1px;padding:0}
+.vs h3{margin-bottom:10px}
+.vs .precio{font-family:var(--titulo);font-size:1.7rem;font-weight:700;display:block;margin-bottom:4px}
+.vs .n-mal{color:var(--mal)}.vs .n-bien{color:var(--bien)}
+.vs ul{margin:12px 0 0;padding-left:20px;color:var(--tenue);font-size:.95rem}
+.vs li{margin-bottom:5px}
+.vs .chico{color:var(--apagado);font-size:.9rem}
+.q{border-bottom:1px solid var(--borde);padding:16px 0}
+.q:last-child{border-bottom:0}
+.q summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.q summary::-webkit-details-marker{display:none}
+.q summary::after{content:"+";color:var(--acento);font-weight:700;font-size:1.3rem;line-height:1}
+.q[open] summary::after{content:"\2212"}
+.q p{margin:10px 0 0;color:var(--tenue);font-size:.97rem}
+.no-es{background:var(--panel);border:1px solid var(--borde);border-left:4px solid var(--mal);border-radius:12px;padding:20px 22px}
+.no-es ul{margin:10px 0 0;padding-left:20px;color:var(--tenue)}
+.precio-caja{background:var(--panel);border:2px solid var(--acento);border-radius:16px;padding:28px;text-align:center;box-shadow:var(--sombra);max-width:420px;margin:0 auto}
+.precio-caja .n{font-family:var(--titulo);font-size:3rem;font-weight:700;color:var(--acento);line-height:1;display:block}
+.precio-caja .mes{color:var(--apagado);font-size:.95rem;display:block;margin-bottom:18px}
+.precio-caja ul{text-align:left;color:var(--tenue);font-size:.96rem;margin:0 0 22px;padding-left:20px}
+.precio-caja li{margin-bottom:6px}
+footer{border-top:1px solid var(--borde);padding-block:28px;color:var(--apagado);font-size:.88rem;text-align:center}
+.marca{font-family:var(--titulo);font-weight:700;color:var(--texto)}
+@media (max-width:620px){.vs{grid-template-columns:1fr}.vs .medio{width:auto;height:1px}}
+</style>
+
+<section class="hero env">
+  <p class="ante">Para quien vende cursos o comunidad</p>
+  <h1>Vendiste US$10.000.<br>La plataforma <em>se quedó con una parte</em>.</h1>
+  <p class="bajada">En MaKo el cobro va a tu cuenta de Mercado Pago o de Stripe. Nosotros te cobramos el plan y nada más: de cada venta que haces, no nos llevamos nada.</p>
+  <a class="btn" href="#precio">Empezar ahora</a>
+  <p class="bajo-btn">Cancelas cuando quieras · Usas tu propia IA</p>
+</section>
+
+<section class="franja">
+  <div class="env">
+  <div class="centro"><h2>Cómo funciona el cobro</h2><p class="sec-sub">La diferencia está en de quién es la cuenta que recibe el dinero.</p></div>
+  <div class="cajas">
+    <div class="caja"><h3>La cuenta es tuya</h3><p>El cobro sale por tu propia cuenta de la pasarela, con tus datos. El dinero no pasa por nosotros en ningún momento.</p></div>
+    <div class="caja"><h3>Cero comisión por venta</h3><p>Pagas el plan y listo. Vendas uno o vendas mil, el precio del plan es el mismo.</p></div>
+    <div class="caja"><h3>Y el alumno entra solo</h3><p>Quien paga queda dentro del curso y dentro de tu CRM, sin que tengas que darlo de alta a mano.</p></div>
+  </div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Lo que te cuesta la comisión</h2></div>
+  <div class="cajas">
+    <div class="caja"><h3>Crece justo cuando te va bien</h3><p>Un porcentaje por venta es una cuenta que sube cuanto mejor vendes. Es el peor momento para estar pagándola.</p></div>
+    <div class="caja"><h3>No es sólo el porcentaje</h3><p>Al porcentaje de la plataforma se le suma el de la pasarela. Son dos mordidas sobre el mismo pago.</p></div>
+    <div class="caja"><h3>Y tus alumnos no son tuyos</h3><p>En varias plataformas el contacto de quien te compró vive del lado de ellos. El día que te vas, no te lo llevas.</p></div>
+  </div>
+</section>
+
+<section class="franja">
+  <div class="env ancho">
+    <div class="centro"><h2>Contra una plataforma de cursos</h2><p class="sec-sub">A igual venta, lo que cambia es cuánto de eso llega a tu cuenta.</p></div>
+    <div class="vs">
+      <div>
+        <h3>Plataforma con comisión</h3>
+        <span class="precio n-mal">US$99 + 2,9%</span>
+        <span class="chico">al mes más un corte por venta (Skool); Hotmart cobra por venta</span>
+        <ul>
+          <li>Pagas más cuanto más vendes</li>
+          <li>El cobro pasa por su cuenta</li>
+          <li>Tus alumnos viven en su sistema</li>
+          <li>El marketing es otra herramienta</li>
+</ul>
+      </div>
+      <div class="medio"></div>
+      <div>
+        <h3>MaKo</h3>
+        <span class="precio n-bien">US$97</span>
+        <span class="chico">al mes, sin permanencia</span>
+        <ul>
+          <li>El plan es el mismo vendas lo que vendas</li>
+          <li>Cobras con tu propia cuenta</li>
+          <li>Tus alumnos están en tu CRM</li>
+          <li>Las páginas y el seguimiento, adentro</li>
+</ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Lo que viene con el curso</h2></div>
+  <div class="cajas">
+    <div class="caja"><h3>La comunidad, al lado</h3><p>El curso y el espacio donde preguntan no son dos productos distintos que hay que conectar.</p></div>
+    <div class="caja"><h3>El que no terminó, se recupera</h3><p>Quien se quedó en la clase tres puede recibir un mensaje por eso, y no por estar en una lista genérica.</p></div>
+    <div class="caja"><h3>Y el que no compró también</h3><p>El que vio la página y no pagó entra a los seguimientos en vez de desaparecer.</p></div>
+  </div>
+</section>
+
+<section class="franja">
+  <div class="env">
+    <div class="centro"><h2>Y la parte que nadie te cuenta</h2></div>
+    <div class="caja" style="border-left:4px solid var(--acento)">
+      <h3>La inteligencia artificial la pones tú, y por eso el precio es este</h3>
+      <p>Casi todas las herramientas de este tipo te revenden la IA con su margen encima y lo cargan al plan. MaKo se conecta a <b>tu</b> cuenta de Claude, de GPT o de Gemini: pagas el consumo real al proveedor, sin intermediario. Si ya tienes una cuenta, está listo. Si no, se conecta pegando una clave.</p>
+    </div>
+  </div>
+</section>
+
+<section class="env">
+  <div class="centro"><h2>Preguntas que siempre aparecen</h2></div>
+  <details class="q"><summary>¿Qué pasarelas puedo usar?</summary><p>Mercado Pago y Stripe, con tu propia cuenta. El dinero llega directo ahí.</p></details>
+  <details class="q"><summary>¿De verdad no se llevan nada de mis ventas?</summary><p>No. Lo que pagas es el plan mensual. La pasarela sí te cobra lo suyo, como le cobra a cualquiera.</p></details>
+  <details class="q"><summary>¿Puedo traer un curso que ya tengo en otra plataforma?</summary><p>Sí. Los videos y el material se suben, y tus alumnos actuales se importan.</p></details>
+  <details class="q"><summary>¿Me ata a algo?</summary><p>No. Es mes a mes y lo cancelas cuando quieras.</p></details>
+</section>
+
+<section class="franja">
+  <div class="env">
+    <div class="no-es">
+      <h3>Para quién NO es</h3>
+      <ul>
+        <li>Si vendes muy poco al mes, una plataforma que sólo cobra comisión te va a salir más barata. Haz la cuenta antes.</li>
+        <li>Si lo que quieres es que alguien te traiga alumnos, esto no es un mercado: el tráfico lo traes tú.</li>
+        <li>Si tu curso vive en una plataforma que te funciona y no te molesta la comisión, no muevas nada.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="env centro" id="precio">
+  <h2>MaKo Pro</h2>
+  <p class="sec-sub">De cada venta que hagas, no nos llevamos nada.</p>
+  <div class="precio-caja">
+    <span class="n">US$97</span>
+    <span class="mes">al mes · sin permanencia</span>
+    <ul>
+      <li>WhatsApp e Instagram en una sola bandeja</li>
+      <li>Un tablero para ver en qué paso está cada cliente</li>
+      <li>Seguimientos automáticos, sin tope</li>
+      <li>Tu agenda, tus tareas y tus cobros</li>
+      <li>Soporte en español, con personas</li>
+    </ul>
+    <a class="btn" href="https://hola-mako.com/planes/pro?landing=cursos&amp;funcionalidad=cursos&amp;utm_source=instagram&amp;utm_medium=organico&amp;utm_campaign=cursos">Empezar ahora</a>
+    <p class="bajo-btn">Cancelas cuando quieras · Usas tu propia IA</p>
+  </div>
+</section>
+
+<footer class="env">
+  <p><span class="marca">MaKo</span> · hola-mako.com</p>
+</footer>

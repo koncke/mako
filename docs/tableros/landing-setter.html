@@ -41,12 +41,13 @@ h3{font-family:var(--titulo);font-size:1.12rem;font-weight:600;margin:0 0 6px}
 .vs .n-mal{color:var(--mal)}.vs .n-bien{color:var(--bien)}
 .vs ul{margin:12px 0 0;padding-left:20px;color:var(--tenue);font-size:.95rem}
 .vs li{margin-bottom:5px}
+.vs .chico{color:var(--apagado);font-size:.9rem}
 .q{border-bottom:1px solid var(--borde);padding:16px 0}
 .q:last-child{border-bottom:0}
 .q summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
 .q summary::-webkit-details-marker{display:none}
 .q summary::after{content:"+";color:var(--acento);font-weight:700;font-size:1.3rem;line-height:1}
-.q[open] summary::after{content:"−"}
+.q[open] summary::after{content:"\2212"}
 .q p{margin:10px 0 0;color:var(--tenue);font-size:.97rem}
 .no-es{background:var(--panel);border:1px solid var(--borde);border-left:4px solid var(--mal);border-radius:12px;padding:20px 22px}
 .no-es ul{margin:10px 0 0;padding-left:20px;color:var(--tenue)}
@@ -99,25 +100,25 @@ footer{border-top:1px solid var(--borde);padding-block:28px;color:var(--apagado)
       <div>
         <h3>Un setter</h3>
         <span class="precio n-mal">US$800 – 2.000</span>
-        <span style="color:var(--apagado);font-size:.9rem">al mes</span>
+        <span class="chico">al mes</span>
         <ul>
           <li>Dos o tres meses hasta que rinde</li>
           <li>Contesta en su horario</li>
           <li>Se va, y empiezas de nuevo</li>
           <li>Hay que escucharlo y corregirlo</li>
-        </ul>
+</ul>
       </div>
       <div class="medio"></div>
       <div>
         <h3>MaKo</h3>
         <span class="precio n-bien">US$97</span>
-        <span style="color:var(--apagado);font-size:.9rem">al mes, sin permanencia</span>
+        <span class="chico">al mes, sin permanencia</span>
         <ul>
           <li>Funciona el primer día</li>
           <li>Contesta a las 3 de la mañana</li>
           <li>No se va ni se olvida de nadie</li>
           <li>Le cambias el guion tú, cuando quieras</li>
-        </ul>
+</ul>
       </div>
     </div>
   </div>

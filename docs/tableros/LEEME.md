@@ -14,7 +14,27 @@ node docs/tableros/servir-numeros.mjs
 | `http://localhost:4179/` | **Los números**: lo que queda por cantidad de clientes, quién paga qué, los cupos por plan |
 | `http://localhost:4179/plan` | **Las landings y el contenido**: las 8 landings con su ángulo, y el calendario de 21 piezas |
 | `http://localhost:4179/estrategia` | **La estrategia de adquisición**: las tres fases y la cadena eslabón por eslabón |
-| `http://localhost:4179/l/setter` | **La primera landing**, entera, como la ve un visitante — no una especificación |
+| `http://localhost:4179/l/<slug>` | **Las landings**, enteras, como las ve un visitante. Siete: `setter`, `paginas`, `anuncios`, `numeros`, `llamadas`, `cursos`, `plan` |
+
+## Las landings: un molde, siete contenidos
+
+```
+node docs/tableros/landings-contenido.mjs docs/tableros
+```
+
+`generar-landings.mjs` tiene **el diseño, una sola vez**. `landings-contenido.mjs` tiene **sólo
+datos**: una entrada por landing. Así las siete son literalmente la misma página con otro texto, y
+un cambio de diseño sale en las siete a la vez. El servidor sirve `/l/<slug>` →
+`landing-<slug>.html` sin lista a mano.
+
+⚠️ **Falta la octava, `/l/avatar`, a propósito:** `AI_AVATAR_SE_VENDE = false`
+(`lib/planes-comparacion.ts`). La tab está abierta en los tres planes desde el 29/10, pero el avatar
+**no se vende** y se paga con los créditos de Google Flow de la persona. Venderlo en una landing es
+prometer algo que el checkout no da. **Es una decisión de producto de Martín**, no un olvido.
+
+⚠️ **Y `/l/llamadas` NO usa los números del plan** («de 18% a 31% de cierre, −40% de ausencias»):
+ésos son resultados de **CloseOS**, un competidor. Ponerlos como prueba en una página de MaKo los
+hace pasar por nuestros. La landing dice lo que MaKo hace, que sale del `incluye` del plan.
 
 (Los pendientes depurados van aparte, en `servir-pendientes.mjs`, puerto 4178.)
 
