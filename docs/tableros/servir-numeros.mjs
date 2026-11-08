@@ -8,6 +8,7 @@ const PAGINAS = {
   '/': './numeros-mako.html',
   '/plan': './plan-lanzamiento.html',
   '/estrategia': './estrategia-adquisicion.html',
+  '/l/setter': './landing-setter.html',
 };
 createServer((req, res) => {
   const ruta = (req.url || '/').split('?')[0].replace(/\/+$/, '') || '/';
