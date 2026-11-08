@@ -6,6 +6,46 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Mirar una pantalla de esta app en un worktree: el junction frena a Turbopack, y el editor se come 2,5 GB (8/11/2026, claude1).**
+
+**Síntoma.** Para mirar el editor de imagen sin la co-edición (encargo 146), `next dev` desde `C:/dev/wt-collab-fuera`
+murió dos veces, cada una por su motivo, y ninguno dice «falta RAM» en la primera línea.
+
+**Primera muerte: Turbopack rechaza el junction.** `FATAL: An unexpected Turbopack error occurred` →
+`Symlink [project]/node_modules is invalid, it points out of the filesystem root`. El `node_modules` del worktree es un
+junction al del clon, que vive en otro árbol (OneDrive), y Turbopack no sale de la raíz del proyecto. La nota del 29/10
+proponía copiarlo de verdad con robocopy (~3 min, ~1,5 GB); **no hace falta: `next dev --webpack` lo levanta igual**
+(`▲ Next.js 16.2.6 (webpack)`, listo en 2 s), porque el bundler viejo sí resuelve el junction. Vale para `next build`
+también: el parser del flag es el mismo (`parseBundlerArgs`, `lib/bundler.js`, con `Bundler.Webpack`).
+
+**Segunda muerte: el vigía, y esta vez con el número.** Con webpack el server arrancó, y al compilar la primera ruta el
+proceso llegó a **2.478 MB privados**: la PC cayó a **621 MB libres** y el vigía lo mató («MATO pid … (dev, 2478 MB
+privados) por zona-roja», `~/.claude/guardia/guardia.log`). El umbral del vigía son **1.200 MB** libres (`$ROJA_MB`,
+`vigia.ps1`), no 3 GB: el «≥3 GB» de las notas viejas es el margen para que el compilado quepa, no el umbral. Con ocho
+sesiones sobre el clon y ~2,5 GB libres, `next dev` de una pantalla pesada no entra, y no es algo que se reintente.
+
+**Y `localhost` no es `127.0.0.1`.** `package.json` corre `next dev -H 127.0.0.1`, así que el server escucha SÓLO en
+IPv4, y `http://localhost:3200` resuelve a `::1`: la navegación falla con «denied or failed», que suena a permiso
+denegado y es un puerto cerrado. `preview_start` abre la pestaña justo en `localhost:<puerto>`, así que la primera
+navegación falla SIEMPRE; se arregla navegando a `http://127.0.0.1:<puerto>`.
+
+**Para entrar sin login ya no hace falta firmar nada.** La receta del 16/10 (cookie `mako_session` armada con
+`crearToken`) quedó vieja, y la `mako_auth` compartida se fue del código. Hoy alcanza con comentar `AUTH_SECRET` y
+agregar `MAKO_DEV_SIN_LOGIN=1` en el `.env.local` del worktree: `sinLoginPermitido` (`lib/auth-session.ts`) pide gate
+sin configurar + host local + ese permiso explícito, y `getUsuarioActual` devuelve un dev-admin del workspace del
+dueño. El `.env.local` no viaja al worktree solo: hay que copiarlo del clon (está en `.gitignore`, así que no ensucia
+el `git status`).
+
+**La salida del build parcial NO se arregla con separadores.** Pasarle a `--debug-build-paths` las rutas con `\` no
+sirve: el patrón pasa por `glob` (`lib/resolve-build-paths.js`), que devuelve siempre `/`, y recién después
+`applyDebugFilter` (`build/route-discovery.js`) compara con `Set.has` contra lo que devuelve `collectAppFiles`. O sea
+que el parche en ese `node_modules` sigue siendo obligatorio en Windows (28/10), y con el junction el parche caería en
+el `node_modules` del CLON, que comparten ocho sesiones: para el build parcial hay que copiarlo de verdad primero.
+
+**Regla:** mirar una pantalla de esta app en un worktree son cuatro cosas en este orden — copiar el `.env.local` con
+esas dos líneas cambiadas, `--webpack`, abrir por `127.0.0.1`, y tener ~4 GB libres de VERDAD. Si la RAM no está, no se
+insiste: se anota en la bitácora del área DÓNDE se prueba y se prueba en producción (precedente del 17/10).
+
 **Una rotura que sólo toca el DISCO no la ve un test que lee de git (6/11/2026, claude1).**
 
 **Síntoma.** Probando rompiéndolo `tests/proxy-matcher-completo.test.ts`: se deja un archivo en `public/cv/` con
