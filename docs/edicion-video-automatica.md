@@ -754,3 +754,45 @@ La ventana de habla la marca **el audio que generó Omni**, no el guion: es cont
 que movió la boca. Se saca con `silencedetect` sobre el clip de Omni (en el de Walter:
 1,115 a 5,898 s) y se le ajusta la voz nueva con `atempo`, que conserva el tono.
 Receta completa: `scratchpad/walter/armar2.mjs`.
+
+## ⚠️ VOICE-TO-VOICE NO TIENE V4 — y por eso no se puede tener todo (8/11/2026)
+
+Al reemplazar la voz de un clip de Omni por TTS v4, **los labios no calzan**: Omni dice la línea en
+**3,49 s de habla repartidos en 3 bloques** con pausas, y el clon la dice de corrido en 4,44 s.
+Calzar sólo el arranque y el largo total no alcanza — Martín lo notó enseguida.
+
+**Voice-to-speech (STS) lo resuelve de raíz**: convierte el timbre sin generar de nuevo, así que el
+ritmo es el del original. Medido contra Omni, bloque por bloque: **2 ms, 15 ms, 2 ms, 26 ms, 30 ms,
+23 ms.** Los labios no se pueden despegar.
+
+⚠️ **PERO el catálogo de la cuenta sólo tiene DOS modelos de conversión, y los dos son v2:**
+`eleven_english_sts_v2` y `eleven_multilingual_sts_v2`. **No existe un STS v4.** O sea:
+
+| | voz | labios |
+|---|---|---|
+| TTS `eleven_v4` | **suena a él** ✅ | se despegan ❌ |
+| STS `eleven_multilingual_sts_v2` | motor v2, el que sonaba mexicanizado ❌ | **exactos** ✅ |
+
+**No es un error de configuración: es una limitación del catálogo.** Lo que lo destraba es subir la
+fidelidad del clon (clonado profesional), que es lo que le falta al motor v2 — no seguir probando
+ajustes.
+
+⚠️ Y dos cosas que v4 **ignora** y que parecen palancas: las etiquetas `<break time="0.44s" />` (el
+audio sale de una sola tirada) y el parámetro `speed` (1,15 y 1,2 dieron el MISMO largo, 4,88 s).
+Si hacen falta pausas, hay que generar **un pedazo por bloque** y colocarlos a mano.
+
+### ⚠️ Subir muestras al clonado profesional desde el navegador: dos trampas
+
+1. **`.m4a` se rechaza aunque el `accept` del input lo liste.** El `file_upload` de la extensión no
+   le infiere el tipo y llega como `application/octet-stream`; la web contesta
+   «*X is not supported. Please choose an audio file*». **Van en `.mp3`** (que llega como
+   `audio/mpeg`), que además es lo que piden los docs: 192 kbps o más.
+2. **Cada archivo entra DOS VECES si uno dispara el `change` a mano.** El `file_upload` ya dispara
+   el suyo: con el segundo, la página suma la misma muestra otra vez. Se nota en el contador
+   («1 hour 20 minutes» con 37 min subidos). Hay que **contar las filas reales** — los botones
+   `aria-label="Remove audio sample"` — y borrar las repetidas antes de seguir.
+3. El tope del puente del navegador es **10 MB por llamada, sumando todos los archivos**: un archivo
+   de 7 MB va solo. Los tramos de 5 minutos a 192 kbps dan 7,2 MB y entran de a uno.
+
+**El paso que NUNCA se va a poder automatizar:** «Verify your voice» pide grabar al dueño leyendo
+líneas en pantalla, con su micrófono. Todo lo anterior —nombre, idioma, acento, muestras— sí.
