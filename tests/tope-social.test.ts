@@ -77,6 +77,34 @@ test('⚠️ un tope NO es «Meta no deja»: antes cerraba el hilo y el mensaje 
   assert.match(z, /res\.headers\.get\('x-ratelimit-remaining'\)/);
 });
 
+test('⚠️ «otra app es la dueña» NO es «Meta no deja»: cerrarlo costó 17 leads (tickets #63 y #64)', () => {
+  const z = leer('lib/zernio.ts');
+  // La pieza nueva: sólo el código de Meta, y sólo sobre un ZernioError.
+  const otra = funcion(z, 'export function esDeOtraApp(');
+  assert.match(otra, /e instanceof ZernioError && e\.code === 'not_thread_owner'/);
+
+  // Sale ANTES de la regla que cierra, igual que el tope. Sin esto, el 409 se daba por permanente,
+  // la inscripción se cancelaba y para cuando el negocio arreglaba el ajuste ya se había pasado la
+  // ventana de 24 h de Meta: 17 de 19 leads quedaron inalcanzables (8/11/2026).
+  const lim = funcion(z, 'export function esLimiteDeMeta(');
+  const iOtra = lim.indexOf('if (esDeOtraApp(e)) return false;');
+  assert.ok(iOtra > 0, 'esLimiteDeMeta tiene que dejar pasar «otra app es la dueña»');
+  assert.ok(iOtra < lim.indexOf("e.code === 'not_thread_owner'"), 'sale antes de la regla que cierra');
+
+  // Y el envío lo reintenta en vez de cerrar: los tres catch caen en su backoff, no en `terminal: true`.
+  const c = leer('lib/canal-zernio.ts');
+  const envio = funcion(c, 'export async function enviarPasoSocial(');
+  for (const b of envio.split('} catch (e) {').slice(1)) {
+    assert.match(b, /backoffHoras: 4 \}|backoffHoras: reintento \}/, 'el que no es terminal vuelve a salir');
+  }
+  // ⚠️ Y NO se marca la respuesta privada como gastada: no se gastó, la rechazó el dueño del hilo.
+  // Marcarla quemaba para siempre la única privada que Meta da por comentario.
+  const privada = envio.split('} catch (e) {')[2] ?? '';
+  const iMarca = privada.indexOf('marcarComentarioRespondido');
+  assert.ok(iMarca < 0 || privada.slice(0, iMarca).includes('esLimiteDeMeta'),
+    'la privada sólo se marca usada cuando Meta DE VERDAD la rechazó');
+});
+
 test('el aviso: la corrida resumida, y lo que dice (frenado, cerca, por dónde)', () => {
   assert.equal(resumirTopes([]), null);
   const r = resumirTopes([
