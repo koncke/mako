@@ -86,7 +86,22 @@ const DE_A = 40;
  * `largo`, `cta`, `tam` y `ver` ya no son filtros (6/11/2026) y siguen acá para que un link viejo que los traiga quede limpio
  * al cambiar un filtro o al apretar «Quitar filtros»; `largo` se traduce a `lmin`/`lmax` al entrar (lib/carruseles/opciones.ts).
  */
-const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'conf', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
+// ⚠️⚠️ ACÁ VAN LAS DOS FAMILIAS DE CLAVES, O UN FILTRO QUE SE LIMPIA QUEDA PEGADO EN LA URL.
+// `escribirEnLaUrl` BORRA estas y después pone las de la query nueva. Si una clave no está en la
+// lista, no se borra: y entonces un filtro de Thumbnails que el cliente sacó sigue en el link que
+// copia, y la pestaña se abre filtrada por algo que ya no eligió.
+// Las de Thumbnails llevan prefijo `t` desde el 8/11/2026 (`CLAVE` en lib/thumbnails/explorar.ts),
+// justo para no pisar a las de carruseles — y al separarlas me olvidé de sumarlas acá, que es el
+// otro lado de la misma moneda.
+const CLAVES_FILTRO = [
+  // Carruseles y Anuncios
+  'q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo',
+  'formato', 'imagenes', 'conf', 'orden', 'vista', 'cta', 'tam', 'nicho', 'idioma',
+  // Thumbnails (las mismas, con prefijo)
+  'tq', 'tde', 'tmin', 'tomax', 'tperiodo', 'torden', 'tvista', 'tnicho', 'tidioma',
+  // Compartidas: el selector de pestaña y el link viejo
+  'que', 'ver',
+] as const;
 
 /** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`): un link copiado abre lo mismo. */
 function escribirEnLaUrl(query: string) {
