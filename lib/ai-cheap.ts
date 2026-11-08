@@ -1887,6 +1887,16 @@ export type GuionDeYoutube =
  */
 export const PISO_GUION_YT_CPM = 600;
 
+/** Plazo de UN pedido de guion a Gemini. */
+const PLAZO_PEDIDO_YT_MS = 170_000;
+/**
+ * Lo que puede gastar UN tramo, en reloj. La ruta (`app/api/competitor-spy/transcribir/route.ts`)
+ * da `maxDuration = 800` para hasta TRES tramos: 260 s por tramo deja margen y alcanza para un
+ * pedido completo más el arranque del siguiente. ⚠️ Si alguien sube los tramos o baja el
+ * `maxDuration`, esto se mueve con ellos: son el mismo presupuesto visto de dos lados.
+ */
+export const PRESUPUESTO_GUION_YT_MS = 260_000;
+
 /** Cuántos caracteres tiene que tener, como mínimo, el guion de un tramo de `segundos`. Sin duración, no hay piso. */
 export function pisoDeGuionYt(segundos: number | null | undefined): number {
   if (segundos == null || !Number.isFinite(segundos) || segundos <= 0) return 0;
@@ -1922,9 +1932,26 @@ export async function guionDeYoutubeConGemini(
   const piso = pisoDeGuionYt(tramo ? tramo.hastaS - tramo.desdeS : opts.duracionS);
   // El mejor guion que no llegó al piso: si ninguno lo pasa, es lo que se devuelve (con `corto`).
   let mejorCorto: { texto: string; tokens: number } | null = null;
+  // ⚠️⚠️ PRESUPUESTO DE RELOJ (8/11/2026). La ruta que llama tiene `maxDuration = 800` y pide hasta
+  // tres tramos, así que un tramo no puede gastar más que su tercio. Sin esto, un video de poca voz
+  // recorría 2 modelos × N cuentas a 170 s cada uno —1020 s con UNA cuenta, 2040 con dos— y **la
+  // función se moría a mitad de camino**. Nadie escribía el final, así que el guion quedaba en
+  // `transcribiendo` los 15 minutos de `TRANSCRIBIENDO_YT_VENCE_MS` con el cliente mirando el
+  // spinner; al vencer, el siguiente que abría el detalle lo reclamaba de nuevo, gastaba OTRA de las
+  // 20 del día y volvía a quemar el plazo entero. El guion no aparecía nunca.
+  // Lo confirmó la revisión de `punta/nada-por-detras`. El comentario de la ruta todavía dice
+  // «hasta 3 × 170 s», que era verdad cuando se escribió: un pedido por tramo.
+  const finDelPlazo = Date.now() + PRESUPUESTO_GUION_YT_MS;
+  // «Vino corto» con todos los modelos de una cuenta: no se prueba con OTRA cuenta (abajo, el porqué).
+  let cortoEnEstaCuenta = false;
   for (const p of provs) {
     const base = p.base.replace(/\/openai\/?$/, '');
     for (const model of modelosSttGemini()) {
+      if (Date.now() + PLAZO_PEDIDO_YT_MS > finDelPlazo) {
+        ultimo = ultimo || `se acabó el plazo del tramo (${Math.round(PRESUPUESTO_GUION_YT_MS / 1000)} s)`;
+        cortoEnEstaCuenta = true;
+        break;
+      }
       intentos += 1;
       let res: Response;
       try {
@@ -1977,7 +2004,14 @@ export async function guionDeYoutubeConGemini(
       if (limpio.length >= piso) return { ok: true, texto: limpio, tokens: u?.totalTokenCount ?? 0 };
       ultimo = `el guion vino corto (${limpio.length} caracteres de ${piso} como mínimo, ${model})`;
       if (!mejorCorto || limpio.length > mejorCorto.texto.length) mejorCorto = { texto: limpio, tokens: u?.totalTokenCount ?? 0 };
+      cortoEnEstaCuenta = true;
     }
+    // ⚠️ «VINO CORTO» NO SE REINTENTA CON OTRA CUENTA. Probar el otro MODELO tiene sentido —uno
+    // corta y el otro no, está medido—, pero la cuenta siguiente es la MISMA pregunta al MISMO
+    // modelo con otra clave: duplica el gasto del negocio para recibir, casi siempre, la misma
+    // respuesta. El salto de cuenta queda para lo que sí lo necesita: saturación y errores duros,
+    // que son los `continue` y los `break` de arriba y fallan rápido.
+    if (cortoEnEstaCuenta) break;
   }
   if (mejorCorto) return { ok: true, texto: mejorCorto.texto, tokens: mejorCorto.tokens, corto: true };
   if (saturados > 0 && saturados === intentos) return { ok: false, motivo: 'saturado', error: ultimo };

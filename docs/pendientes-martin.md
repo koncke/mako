@@ -489,8 +489,22 @@ para devolver lo mismo marcado `corto`. Ahora `(vacío)` corta y devuelve.
 el mismo origen: el cliente recibía «el guion puede estar incompleto» sobre un video donde no se
 dice nada. `tests/guion-yt-vacio-corta.test.ts` 4/4, probado rompiéndolo tres veces.
 
-**🔴 SIGUE ABIERTO el otro de plata:** el Spy **se come el plazo de su propia ruta** y el cliente
-queda 15 minutos en «Transcribiendo», y el reintento vuelve a gastar (`lib/ai-cheap.ts:1922`).
+**✅ Y el otro de plata también**: el Spy **se comía el plazo de su propia ruta**. Un video de poca
+voz da 2-3 tramos, y cada tramo debajo del piso recorría 2 modelos × N cuentas a 170 s cada uno:
+1020 s con UNA cuenta, 2040 con dos, contra el `maxDuration = 800` de la ruta. La función se moría
+a mitad, nadie escribía el final y el guion quedaba en `transcribiendo` **los 15 minutos** de
+`TRANSCRIBIENDO_YT_VENCE_MS` con el cliente mirando el spinner; al vencer, el siguiente que abría
+el detalle lo reclamaba otra vez, **gastaba OTRA de las 20 del día** y volvía a quemar el plazo
+entero. El guion no aparecía nunca.
+
+Dos cosas lo cierran: un **presupuesto de reloj** por tramo (`PRESUPUESTO_GUION_YT_MS`, atado al
+`maxDuration` de la ruta y con un test que los compara), y que **«vino corto» ya no salte a otra
+cuenta** — probar el otro modelo sirve, pero la cuenta siguiente es la misma pregunta al mismo
+modelo con otra clave: duplica el gasto del negocio para recibir casi siempre lo mismo. El salto de
+cuenta queda para lo que sí lo necesita, saturación y errores duros, que fallan rápido.
+`tests/guion-yt-plazo.test.ts` 4/4, probado rompiéndolo tres veces.
+
+**Los 4 `rompe-cliente` están cerrados. Quedan 16 abiertos**, en los documentos de área.
 
 ---
 
