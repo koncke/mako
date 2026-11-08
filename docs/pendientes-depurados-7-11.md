@@ -1,5 +1,24 @@
 # Los pendientes, depurados — 7/11/2026
 
+> ## ⚠️ VERIFICADOS 6, SOBRABAN 5
+>
+> Al 7/11 por la noche se verificaron contra el código los primeros seis de esta lista. **Cinco ya**
+> **estaban resueltos**, y casi todos el **6/11** — el mismo día en que se tomó el inventario.
+>
+> | Pendiente | Resultado |
+> |---|---|
+> | La lámina con una persona queda como un recuadro (×4) | ✅ el recuadro se sacó el 6/11 |
+> | La cadena de pago sale del dominio del cliente | ✅ 3 de sus 4 puntas, hechas |
+> | `porCobrar` le pone a Código 4/12 por US$238 | ✅ los dos números eran correctos, de meses distintos |
+> | Apify: la tarjeta dice «Sin conectar» (×2) | ✅ arreglado el 6/11 (`conUnaAlcanza`) |
+> | Tickets abiertos sin cerrar: #38, #39, #43, #58 | ⏳ abierto, y se le armó un vigía |
+> | El primer cobro real a Código Inmobiliario | ⏳ abierto, con fecha: lunes 9/11 14:07 UTC |
+>
+> **Lo que esto significa para el número de arriba:** de las 232 «de trabajo real», una parte grande
+> ya no existe. Con esta muestra el piso está bastante más abajo de los 150-200 que estimé. **Verificar
+> antes de tocar no es un paso previo al trabajo: en esta lista ES el trabajo.**
+
+
 **Pedido de Martín, 7/11:** «depurá con criterio las 600 y pico de tareas. Estoy seguro que hay
 duplicados, otras que no sirven, otras que ya se resolvieron. Quedate con lo más importante».
 
@@ -74,7 +93,12 @@ guardia). De las 232 seguramente sobren más.
 - **Sin probar en Admin: «Cargar pago», devolver y eliminar con datos reales** · _SuperAdmin, chico_ · ⟳ estaba anotado 2 veces
   - El Cerebro lo dejó anotado como «sin probar». La 0408 ya está aplicada, así que «Cargar pago» debería registrar el pago en el CRM; hasta que se pruebe, no se sabe.
   - Dónde: `C:/dev/wt-puntas/app/admin/ ; docs/relevo/cerebro.md:31`
-- **Con la clave 1 de Apify quitada y la 2 puesta, Spy anda y la tarjeta dice «Sin conectar»** · _Infraestructura, chico_ · ⟳ estaba anotado 2 veces
+- **Con la clave 1 de Apify quitada y la 2 puesta, Spy anda y la tarjeta dice «Sin conectar»**
+  - ✅ **VERIFICADO el 7/11: YA ESTÁ ARREGLADO, y es del 6/11** — el mismo día del barrido. `integracionConectada`
+    (`lib/credenciales.ts`) ahora mide con `conUnaAlcanza` del catálogo: si ninguna requerida está, cuenta los campos
+    SECRETOS y alcanza con cualquiera. El comentario del código describe este caso textual («el cliente que borraba la 1
+    y dejaba la 2 veía Sin conectar con la integración andando»), y `apify-instagram` tiene `conUnaAlcanza: true`
+    (`lib/metodo-catalogo.ts:886`). **Nada que hacer.** · _Infraestructura, chico_ · ⟳ estaba anotado 2 veces
   - `integracionConectada` mira solo los campos NO opcionales del servicio, y de Apify el unico obligatorio es `APIFY_INSTAGRAM_TOKEN` (la clave 1); las extra son `opcional`. Asi que un negocio que borro la 1 y dejo la 2 ve la tarjeta desconectada aunque Spy este leyendo perfectamente con la 2. Hecho = el estado de la tarj
   - Dónde: `C:/dev/wt-puntas/lib/credenciales.ts:285-307 (integracionConectada) — OJO: el relevo dice `lib/integraciones.ts`, pero la funcion vive en credenciales.ts; el catalogo de las claves extra en C:/dev/wt-puntas/lib/metodo-ca`
 - **Admin: Runway con la foto del 3/10, el mazo viejo sin borrar y el historial congelado** · _SuperAdmin, mediano_ · ⟳ estaba anotado 2 veces
