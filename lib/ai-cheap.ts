@@ -1956,6 +1956,9 @@ export async function guionDeYoutubeConGemini(
   // imagen» era inalcanzable con piso. Confirmado por la revisión de `punta/nada-por-detras`.
   let vacios = 0;
   let bajoElPiso = 0;
+  // ⚠️ Intentos que NO CONTESTARON: un error duro, un corte de red o de plazo, o un guion que volvió
+  // cortado (`finishReason` distinto de STOP). Los saturados se cuentan aparte, en `saturados`.
+  let noContestaron = 0;
   // «Vino corto» con todos los modelos de una cuenta: no se prueba con OTRA cuenta (abajo, el porqué).
   let cortoEnEstaCuenta = false;
   for (const p of provs) {
@@ -1982,6 +1985,7 @@ export async function guionDeYoutubeConGemini(
       } catch (e) {
         // Un corte por plazo (un video largo) se repetiría con el otro modelo: otra cuenta, si hay.
         ultimo = e instanceof Error ? e.message : String(e);
+        noContestaron += 1;
         break;
       }
       const data = await res.json().catch(() => ({}));
@@ -1990,10 +1994,11 @@ export async function guionDeYoutubeConGemini(
         ultimo = detalle;
         if (dijoSaturado(detalle)) { anotarSaturado('gemini', model); saturados += 1; continue; }
         // Otro error (un video privado, uno que Gemini no puede abrir, una clave mala) no cambia con otro modelo: otra cuenta.
+        noContestaron += 1;
         break;
       }
       const fin = data.candidates?.[0]?.finishReason;
-      if (fin && fin !== 'STOP') { ultimo = `el guion se cortó (finishReason=${fin})`; break; }
+      if (fin && fin !== 'STOP') { ultimo = `el guion se cortó (finishReason=${fin})`; noContestaron += 1; break; }
       const partes = (data.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>;
       const texto = partes.map((x) => x.text ?? '').join('').trim();
       const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
@@ -2019,8 +2024,20 @@ export async function guionDeYoutubeConGemini(
   }
   // Todos los que contestaron coincidieron en «(vacío)»: no es un guion incompleto, es que no hay voz.
   if (bajoElPiso > 0 && vacios === bajoElPiso) return { ok: true, texto: '', tokens: mejorCorto?.tokens ?? 0 };
+  // ⚠️⚠️ UN GUION CORTO SÓLO VALE SI TODOS LOS INTENTOS CONTESTARON (8/11/2026).
+  // Antes `mejorCorto` ganaba SIEMPRE, también sobre un 503 o un error duro. Camino concreto: un
+  // tramo de 10 minutos donde el primer modelo devuelve dos frases y el segundo contesta «high
+  // demand» — volvía el guion de dos frases marcado `corto`, y `transcribirYoutube` lo escribe
+  // `listo` con `fallos: 0`, **así que ese tramo no se vuelve a pedir nunca**. El cliente se queda
+  // con un guion de dos frases para siempre. Sin el corto adelante, ese mismo 503 devuelve
+  // `saturado` y el guion queda pendiente, que es lo correcto: el modelo que podía traerlo entero
+  // no llegó a contestar. Es el bug que esta función vino a matar —un guion cortado guardado como
+  // entero— entrando por la puerta de atrás del modelo que ni contestó.
+  // Lo confirmó la revisión de `punta/nada-por-detras`.
+  const contestaronTodos = saturados === 0 && noContestaron === 0;
+  if (mejorCorto && contestaronTodos) return { ok: true, texto: mejorCorto.texto, tokens: mejorCorto.tokens, corto: true };
+  if (saturados > 0) return { ok: false, motivo: 'saturado', error: ultimo };
   if (mejorCorto) return { ok: true, texto: mejorCorto.texto, tokens: mejorCorto.tokens, corto: true };
-  if (saturados > 0 && saturados === intentos) return { ok: false, motivo: 'saturado', error: ultimo };
   return { ok: false, motivo: 'fallo', error: ultimo || 'Gemini no contestó.' };
 }
 
