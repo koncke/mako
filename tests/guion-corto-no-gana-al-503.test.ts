@@ -43,7 +43,10 @@ test('⚠️ lo que NO contestó se cuenta: error duro, corte de red y guion cor
   // Si alguno deja de contarse, vuelve el bug por ese camino.
   const n = (src.match(/noContestaron \+= 1;/g) ?? []).length;
   assert.ok(n >= 3, `tienen que contarse los tres caminos que no son respuesta, hay ${n}`);
-  const iFin = src.indexOf("finishReason=${fin}");
-  assert.match(src.slice(iFin, iFin + 90), /noContestaron \+= 1;/,
+  // ⚠️ `finishReason=` aparece en DOS funciones de este archivo: hay que anclar en la del guion,
+  // no en la primera que aparezca. Mi primera versión de este test cayó en la otra y dio rojo.
+  const iFin = src.indexOf('el guion se cortó (finishReason=');
+  assert.ok(iFin > 0, 'desapareció el corte por finishReason del guion');
+  assert.match(src.slice(iFin, iFin + 120), /noContestaron \+= 1;/,
     'un guion con finishReason != STOP no es una respuesta: es un corte');
 });
