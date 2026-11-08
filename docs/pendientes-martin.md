@@ -36,6 +36,25 @@ de adquisición de US$97, un cliente no es rentable el primer mes**, y su condic
 contenido), **4179/estrategia** (las tres fases y la cadena). Detalle en
 [docs/tableros/LEEME.md](tableros/LEEME.md).
 
+### ⏰ TE ESPERA A VOS, Y VENCE ESTA NOCHE: el ticket #65 de Leandro (8/11 14:59)
+
+**Una palabra tuya y sale.** Pide que le mandemos el recurso a **`@jealoficial` y
+`@bigmouse_oficial`**, los 2 de los 19 perdidos cuya ventana de 24 h sigue abierta. **Se cierra esta
+noche**; después ya no se puede por automatización. A los otros 17 los escribe él desde el teléfono y
+ya tiene el texto y los tres links.
+
+**Por qué no salió solo:** el triage lo dejó en `esperando_decision` porque lo pidió desde el grupo un
+número que **no figura como admin de ese negocio** en MaKo, y además manda mensajes a personas
+reales. Los tickets de Leandro pasan sin tu aprobación, pero éste el propio sistema lo frenó.
+
+**Y pregunta por dos cosas que prometimos:**
+- **El reintento: HECHO** (`punta/otra-app-no-es-terminal`, en main). ⚠️ **Sin desplegar**: el deploy
+  de hoy corrió a las 06:14, antes del cambio. Sale mañana 11:05 UTC, o a mano por US$ 0,33-0,42.
+- **La alerta: sin empezar.** ⚠️ Y no es un cable: `registrarError` clasifica el 2534037 como
+  configuración del negocio y lo **descarta sin avisar a nadie**, justamente para no mandar tickets de
+  cosas que no están rotas de nuestro lado. Hace falta un **aviso al grupo del negocio**
+  (`lib/avisos.ts`, `CATALOGO_AVISOS`), que es otro mecanismo.
+
 ### ✅ EL TICKET DE LEANDRO, CERRADO (8/11) — pero 17 personas quedaron inalcanzables
 
 Cambió el ajuste de Meta y desde las 00:00 de hoy entrega bien, incluidos los dos pasos que antes se
