@@ -1,8 +1,8 @@
 # Los pendientes, depurados — 7/11/2026
 
-> ## ⚠️ VERIFICADOS 8, SOBRABAN 7
+> ## ⚠️ VERIFICADOS 10, SOBRABAN 9
 >
-> Al 7/11 por la noche se verificaron los primeros seis; el 8/11, dos más. **Siete de los ocho ya**
+> Al 7/11 por la noche se verificaron los primeros seis; el 8/11, cuatro más. **Nueve de los diez ya**
 > **estaban resueltos o listos**, casi todos el **6/11** — el mismo día en que se tomó el inventario.
 >
 > | Pendiente | Resultado |
@@ -14,6 +14,8 @@
 > | Tickets abiertos sin cerrar: #38, #39, #43, #58 | ⏳ abierto, y se le armó un vigía |
 > | El primer cobro real a Código Inmobiliario | ✅ **8/11: verificado de punta a punta, sale solo mañana** |
 > | Terminar el cobro de agencias (0402/0403, Giselle, mensualidad, «Paga para entrar») | ✅ **8/11: los cuatro pasos, hechos** |
+> | La cadena de pago del Web Generator | 🔵 **8/11: 0 clientes con dominio propio — mal clasificado** |
+> | La ficha cuenta «hoy» en UTC | ✅ **arreglado el 20/10**, en las dos pantallas |
 >
 > ### El cobro del 9/11, medido el 8/11 eslabón por eslabón
 >
@@ -93,6 +95,7 @@ guardia). De las 232 seguramente sobren más.
 - **Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers** · _Varios, grande_
   - El esqueleto está construido y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build): 7 módulos por tema, capa del Second Brain, índice en el prompt de todos los chats, dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. Falta destilar los cursos en fichas —Martín decidió hac
   - Dónde: `lib/knowledge-modulos.ts · etiqueta nube/knowledge-3110 · docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app» · docs/pendientes.md:69-79`
+- 🔵 **8/11: MEDIDO — NO hay ningún cliente sufriéndolo, y conviene sacarlo de esta sección.** En producción hay **73 landings y CERO con dominio propio** (`landing_docs.dominio` nulo en todas). Y el comprador no ve ningún 404: `linkDelCobro` arma **siempre** `APP_BASE_URL/pagar/<token>` (lib/cobros.ts:91), o sea hola-mako.com, que existe y funciona. Lo real es más chico de lo que decía el título: **el comprador sale del dominio del cliente justo al pagar**, que es un problema de marca y de atribución, no de cobro roto. ⚠️ **La trampa sigue armada para el día que alguien conecte un dominio:** cambiar sólo la base de retorno al dominio del cliente manda al comprador a una ruta que `decidirHost` contesta `no-existe`, **con el cobro ya creado**. Primero la ruta, después la base.
 - **El Web Generator: la cadena de pago sale del dominio del cliente y pierde la atribución**
   - ⚠️ **VERIFICADO el 7/11: de las cuatro puntas, DOS ya están hechas y una casi.** Servir el pago en el dominio propio
     está (`SUBRUTA_PAGO` + `decidirHost`), contar los rechazos está (`anotarRechazoDePago`, mig 0282), y la
@@ -122,7 +125,7 @@ guardia). De las 232 seguramente sobren más.
 - **Tickets abiertos sin cerrar ni contestar: #38, #39, #43, #58** · _Tickets, chico_
   - #38 (Fastlane): sólo se hizo la investigación (docs/funnel-coach.md §9, 2a31f80c5); antes de cerrar, ver si el «link de Fastlane» del reparto es el mismo pedido. #39 (Brigitte, ws 15): 8f19b1229 arregló la alarma, no la causa; leer `errores_app` de ese ticket antes de mandar la respuesta, y no se sabe si ese negocio ti
   - Dónde: `docs/relevo/pendientes-0311.md §«Tickets a cerrar y avisar» (con los textos ya redactados) · docs/relevo/cerebro.md:152 · scripts/tickets.ts`
-- **La ficha cuenta «hoy» en UTC: de 18 a 24 h de México una cuota que vence hoy sale vencida** · _Cobros y planes, chico_
+- ✅ **YA ESTABA HECHO (verificado el 8/11).** Las DOS pantallas que nombra usan `hoyEnTz(useTzWorkspace())`: la ficha (`FichaPorBloques.tsx:151`) y la de Customer Success (`PagosCliente.tsx:74`). El arreglo es del **20/10/2026** y está comentado en el código con el síntoma exacto. El hook arranca en Tijuana y después trae la zona del negocio: nunca cuenta en UTC. **La ficha cuenta «hoy» en UTC: de 18 a 24 h de México una cuota que vence hoy sale vencida** · _Cobros y planes, chico_
   - Sumar la zona del negocio a LeadFullData en getLeadFullAction y usar hoyEnTz en las dos pantallas. Hecho = la ficha, General y lo que dice MaKo coinciden sobre qué cuota está vencida.
   - Dónde: `C:/dev/wt-puntas/app/crm/lead-view/ficha/FichaPorBloques.tsx:135 · app/customer-success/PagosCliente.tsx · pendiente en C:/dev/wt-puntas/docs/hallazgos-pagos.md:379`
 - **Mirar /agency?ws=13 y decidir las tres tareas programadas `codigo-diferencial-*`** · _Cobros y planes, chico_
