@@ -875,3 +875,38 @@ sincroniza nada». Y el catálogo de ApiMart, consultado en vivo el 8/11, **no t
 lipsync** que tome video + audio: de 319 modelos, los únicos con «face» son `seedance-2.0-face` y
 `seedance-2.0-fast-face`, que son de referencia de cara, no de sincronizar un audio. Las
 herramientas que sí lo hacen (sync lipsync-2, Kling lip-sync) están en Replicate y fal.ai, afuera.
+
+## El orden correcto es AL REVÉS: la boca se sincroniza al audio, no la voz al video (8/11/2026)
+
+Todo el día peleé el problema por el lado equivocado: tomar el audio que generó Omni y **convertirle
+la voz** (STS), peleando con el tono, los bloques y las pausas. **La industria lo hace al revés y es
+obvio una vez que se ve:** se genera la voz buena por TTS y después se **re-anima la boca a ese
+audio** con una herramienta de lipsync. Así la voz no se toca nunca y el calce es exacto.
+
+⚠️ **Eso da vuelta todo el problema**: con lipsync de verdad ya no hay que calzar la voz a los
+bloques de Omni, ni estirar, ni acortar el copy. La boca va donde esté el audio.
+
+**Lo que hay y lo que no, medido el 8/11:**
+
+| | |
+|---|---|
+| ApiMart | **ningún modelo de lipsync**: de 319, los únicos con «face» son `seedance-2.0-face` y `seedance-2.0-fast-face`, que son referencia de cara, no sincronizar un audio |
+| fal.ai (`fal-ai/sync-lipsync/v2`) | existe y la clave está en `.env.local`, pero **sin saldo**: «User is locked. Reason: Exhausted balance» |
+| Replicate (`sync/lipsync-2`) | existe, la cuenta es `hx-mkoncke` y responde 200, pero **sin crédito**: 402 «Insufficient credit» |
+
+⚠️ **Replicate acepta la subida de archivos ANTES de cobrar.** Los 3 MB de video y el audio subieron
+bien (`POST /v1/files` → 200) y el 402 llegó recién al crear la predicción. **Preguntar primero por
+`GET /v1/account` no alcanza: contesta 200 con la cuenta sin crédito.** Lo único que dice la verdad
+es intentar la corrida.
+
+### Mientras no haya saldo: la voz intacta, el calce aproximado
+
+Se genera la línea con TTS `eleven_v4` sobre el clon profesional —lo único que Martín aprobó— y se
+la ubica en el tiempo con **`atempo` solamente**, que cambia la duración sin tocar ni el tono ni los
+formantes. Para que el `atempo` quede cerca de 1 y no suene acelerado, **se acorta el copy**: la
+boca de Omni habla 3,49 s repartidos en tres bloques (0,57 / 1,86 / 1,06 s) y la línea larga tarda
+4,44 s. Con «Che Walter, / tus anuncios no funcionan / si no usás MaKo» el bloque largo queda en
+**atempo 0,98**, o sea intacto. Receta: `scratchpad/walter/v4-calzado.mjs`.
+
+**Lo que esto NO resuelve, y hay que decirlo:** quedan ~140-200 ms de deriva dentro de los bloques,
+porque sin lipsync sólo se puede mover el audio, no la boca. Es el techo de este camino.
