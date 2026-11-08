@@ -697,3 +697,60 @@ caracteres (`scratchpad/walter/recortar.mjs`), no a ojo.
 y la corta 134 Hz, o sea que la corta está «más cerca» de los 128 reales y suena peor. El tono
 sirve para **descartar** material y clones fuera de registro, no para elegir entre dos que ya
 están en banda. Eso lo decide Martín escuchando.
+
+## ⚠️ EL ACENTO LO DECIDE EL MODELO, NO EL CLON: era V4, no V3 (8/11/2026)
+
+**El hallazgo más caro de toda la sesión.** Martín rechazó la voz **siete veces**. Las siete
+veces busqué la causa en el **clon**: cambié el material, lo nivelé, dejé de recomprimirlo,
+pasé de 110 segundos a 6,2 minutos, probé STS contra TTS, medí tonos. Nada de eso era.
+
+Lo destrabó una sola frase suya: **«siento que mi voz está mexicanizada»**. Martín es
+rioplatense (che, voseo) y el clon salía en español neutro.
+
+**La causa:** `eleven_v3` **prioriza la lectura emocional por encima de respetar la voz
+clonada**. Cuando se le va, cae en el prior de español de base del modelo, que es neutro/
+mexicano. Era el modelo que yo venía usando para todo.
+
+**El fix:** `eleven_v4`. Los docs de ElevenLabs lo dicen explícito: **con V4, si se genera en
+el MISMO idioma de las muestras, se conserva el acento original.** Es exactamente el caso
+(muestras en español, destino en español). Con el mismo clon, misma línea, mismos ajustes,
+V4 pasó de rechazado a aprobado. `eleven_multilingual_v2` quedó peor que los dos.
+
+| modelo | veredicto de Martín |
+|---|---|
+| `eleven_v4` stability 0.5 y 0.3 | **«Ahora sí me gusta»** ✅ |
+| `eleven_v3` (7 intentos, todo tipo de material) | «mexicanizada», «robótico», «no se parece» ❌ |
+| `eleven_multilingual_v2` | «no me gusta, no se parece en nada» ❌ |
+
+**La regla que queda: para clonar una voz con acento marcado, el modelo es `eleven_v4`.**
+No V3, aunque sea el más nuevo en expresividad y aunque el curso de AvatarHype diga «con voz
+clonada por vos, V3» — ese curso es de antes de V4. Está en `lib/` donde se genere voz.
+
+⚠️ **El tono (Hz) no detecta esto.** V4 midió 148 Hz contra sus 128 reales y es el que suena
+bien; V3 medía 134 y sonaba mexicano. El acento no está en la frecuencia fundamental. La
+autocorrelación sirve para **descartar material y hablantes**, no para juzgar un clon.
+
+### Para el clonado profesional (PVC), cuando se haga
+- Mínimo **30 min**; recomendado 30–180, en archivos de ~30 min.
+- ⚠️ **Pide que el dueño de la voz lea líneas de verificación.** Ese paso no se puede
+  automatizar: siempre va a necesitar a la persona.
+- Entrenamiento **3 a 24 h**. Ranura por plan: Creator y Pro = 1.
+- ⚠️ **Clone Strength va en 50%, no en el 0% por defecto**, para acentos marcados.
+- ⚠️ **El acento no se puede cambiar después de creado el clon.** Se cambian las muestras.
+- Material de Martín ya medido y separado: `WhatsApp Audio 2026-10-08 at 22.58.39.mp4`,
+  **27,5 min, un solo hablante, 122–126 Hz parejo**. NO sirven `2026-10-10 at 15.54.50`
+  (140 Hz) ni `2026-10-25 at 12.27.32` (**188 Hz, es otra persona**).
+
+### ⚠️ Dos trampas de ffmpeg al pegar la voz al clip
+
+1. **`adelay` no corrió el audio** en la cadena
+   `atempo,adelay,apad,atrim,loudnorm` — la voz quedaba en 0 s y nadie avisó. Se pega
+   **silencio explícito** con `anullsrc` + `concat`, que es determinístico, y se **mide**
+   después con `volumedetect` por tramos (silencio real da −91 dB; si da −15, no se aplicó).
+2. **`loudnorm` tiene que ir sobre la voz SOLA**, antes de pegarle el silencio. Si ve los
+   ~5 s de silencio del final calcula mal la sonoridad integrada y mete una ganancia enorme.
+
+La ventana de habla la marca **el audio que generó Omni**, no el guion: es contra ESE audio
+que movió la boca. Se saca con `silencedetect` sobre el clip de Omni (en el de Walter:
+1,115 a 5,898 s) y se le ajusta la voz nueva con `atempo`, que conserva el tono.
+Receta completa: `scratchpad/walter/armar2.mjs`.
