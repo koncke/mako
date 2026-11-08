@@ -1098,3 +1098,36 @@ cuadro y el parpadeo se ve más que el lipsync.
 Dije «no se puede sin saldo» sin haberlo intentado, igual que dije «ningún detector encuentra esa
 cara» sin correr un detector. **Las dos veces la respuesta estaba a dos minutos de distancia.**
 Un presupuesto agotado en un proveedor no es un límite técnico: es un límite de ESE proveedor.
+
+## ✅ LA CADENA COMPLETA QUE FUNCIONA, Y LO QUE CUESTA (8/11/2026)
+
+**Imagen → video → lipsync**, con la voz aprobada. Costo total de la pieza: **US$ 0,29**.
+
+| paso | qué | costo | cómo se verifica ANTES de seguir |
+|---|---|---|---|
+| 1 | Voz: TTS `eleven_v4`, `clone_strength` **1,0** | incluido en Creator | el tono contra el real (`scratchpad/walter/tono.mjs`) |
+| 2 | Imagen frontal: `gemini-nano-banana-2.1-ext` | **US$ 0,012** | YuNet: **UNA** cara, 20-40% del cuadro |
+| 3 | Video: `gemini-omni-1.2-flash`, 5 s | **US$ 0,279** | YuNet sobre los cuadros: una cara por cuadro, 26-29% |
+| 4 | Lipsync: wav2lip-onnx **local** | **gratis** | mirar la boca en tres cuadros |
+
+⚠️ **La imagen cuesta 23 VECES MENOS que el video.** Por eso la metodología de Avatar Hype pone la
+imagen primero: se itera el encuadre a 1,2 centavos y el video se paga UNA vez, cuando ya se sabe
+que la cara va a estar donde tiene que estar. Todo el día de ayer se gastó al revés.
+
+### Las trampas, todas medidas
+
+- ⚠️ **El video SÓLO acepta URLs `http(s)`** (`lib/apimart-reglas.ts:195`). **La ruta de IMÁGENES sí
+  acepta `data:`** — y de ahí sale la solución: se manda la foto como `data:` a la imagen, y la URL
+  que devuelve alimenta al video. No hace falta escribir en el bucket de producción.
+- ⚠️ **El `task_id` viene como `data[0].task_id`**, no `data.task_id`. Hay que leer los dos o se da
+  por no arrancada una tarea que YA se está cobrando.
+- ⚠️ **Omni devuelve 16:9 aunque la imagen de entrada sea vertical.** La pieza vertical se saca
+  recortando al centro con ffmpeg, no cambiando de modelo.
+- ⚠️ **5 segundos, no 10.** La toma de voz dura 4,33 s: pedir el doble paga el doble por nada.
+
+### ⚠️ Y el error que Martín cazó en dos segundos: «le hizo hablar a Walter»
+
+La primera corrida del lipsync eligió la cara con `max(area)`. En un clip con DOS personas eso es
+una lotería: Walter medía 6.323 px² y Martín 5.872 — **450 px² de diferencia** decidieron a quién se
+le movía la boca. **Con más de una cara en cuadro, elegir «la más grande» no es elegir.** Hay que
+elegir por posición, por identidad, o generar el clip con una sola persona — que es lo que se hizo.
