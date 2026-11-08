@@ -2011,5 +2011,37 @@ que muestra una biblioteca de anuncios no es un handle, y sin handle no hay comp
 guarda.** Y si la fuente no lo trae, hay que resolverlo ANTES de insertar — no después, porque
 después queda una fila que el cliente ve rota.
 
-**Pendiente, y es decisión de Martín** (son escrituras en producción): o se completan los 17 con su
-`instagram`, o se borran. Dejarlos como están es dejarle 17 fichas vacías en la pantalla.
+### ⚠️ CORRECCIÓN: lo de arriba estaba A MEDIAS. Martín los trajo por sus ANUNCIOS
+
+«Habíamos traído esos competidores para scrapear su biblioteca de anuncios.» Para eso **el nombre
+alcanza**: `busquedasDeSusAnuncios` (lib/spy-funnel.ts:384) ya busca **por nombre, por @ y por el
+dominio de la web**, en ese orden — se agregó el 4/11 con Víctor Heras. Así que un competidor con
+sólo el nombre NO es una fila muerta para anuncios. Para *contenido* sí (sin @ no hay de dónde leer).
+
+### 🔴 LA CAUSA REAL: EL CRON SIEMPRE EMPIEZA POR EL MISMO LADO Y LA COLA NUNCA SE LEE
+
+`app/api/cron/spy-todo/route.ts` recorre los competidores con **`.order('id')`** —del más viejo al
+más nuevo— y corta cuando se le acaba el plazo:
+
+```js
+for (const c of data) { if (Date.now() + UN_PASO_MS > deadline) break; await avanzarTodo(ws, c.id); }
+```
+
+**Los últimos de la lista nunca se alcanzan.** En el ws 9 hay 23 competidores: los 6 viejos tienen
+entre 134 y 772 piezas, y **los 17 que se dieron de alta después están los 17 en cero**, con
+`mirado_en` en NUNCA, veinte horas y ~20 corridas después. No es que fallen: **no les llega el
+turno**. Y como el orden es fijo, no les va a llegar nunca mientras los de adelante sigan dando
+trabajo.
+
+⚠️ **Un recorrido con plazo y orden FIJO no es un recorrido: es una ventana.** Lo que entra después
+del corte no se procesa tarde — no se procesa. Tiene que rotar el punto de arranque, o pedir por
+«el que hace más que no se lee» (`mirado_en` ascendente, nulls primero), para que la cola avance.
+
+**Y una consecuencia que se ve en pantalla:** Leila Hormozi tiene 789 piezas de Instagram y YouTube
+pero **cero anuncios y `pagina_anuncios` vacío**, porque su paso de anuncios tampoco llegó. El
+único con anuncios es @AlexHormozi (64), que es el que se probó a mano el 4/11.
+
+⚠️ **Lo que NO hay que tocar: los anuncios YA están dentro de Contenido**, como un formato más y con
+el logo de Meta (`LogoRed.tsx`, `SpyApp.tsx:1595`, por pedido de Martín del 4/11). El botón «Ver sus
+anuncios en Meta» del Funnel es el camino de respaldo para cuando no hay ninguno. Lo que falta no es
+moverlos de lugar: es que lleguen.
