@@ -17,11 +17,11 @@ primer DM. Una hora después, **siempre a los `:00:25`**, la inscripción figura
 
 ## Lo que establecí leyendo el código (sin tocar producción)
 
-### 1. Los «:00:25» son el cron de nutrición
+### 1. Los «:00:25» son el cron de nutrición — ⚠️ PERO NO SON LA CANCELACIÓN
 
-`/api/cron/nutricion` corre `0 * * * *` (`vercel.json`). La cancelación la hace **esa corrida**, 25
-segundos adentro. No es un timeout del lead ni nada inmediato. **Eso contesta la pregunta 2 de
-Leandro** para los nueve casos del 5 al 7/11.
+`/api/cron/nutricion` corre `0 * * * *` (`vercel.json`), y el `:00:25` es esa corrida. **Pero lo que
+hace ahí es SELLAR una inscripción que ya estaba cancelada, no cancelarla** — ver la corrección al
+final de este documento. La hora que se ve en `updated_at` no es la hora del hecho.
 
 ### 2. El camino de «el DM falló» a «cancelada», y por qué no se ve el motivo
 
@@ -47,17 +47,76 @@ no se inscribe dos veces»), **pero ésa IMPIDE inscribir, no cancela una inscri
 
 Sin embargo, encaja con la **segunda** prueba en vivo: Martín comentó «Guia» a las 23:53 teniendo
 otra inscripción viva de las 23:41, y quedó cancelada **en el acto**, con `ultimo_envio` y `tarjeta`
-en `null`. **Son dos fallas distintas y conviene no mezclarlas:** nueve cancelaciones por el cron
-tras un envío fallido, y una cancelación inmediata por colisión de inscripciones.
+en `null`.
 
-## Lo que falta, y necesita producción
+⚠️ **ESTO QUEDÓ DESMENTIDO (8/11).** Acá escribí «son dos fallas distintas y conviene no
+mezclarlas». No lo son: con el hilo ya tomado por el receptor primario de Meta, también falla el
+PRIMER mensaje, y la inscripción muere igual. Es una sola causa — ver la sección de la causa, abajo.
+La guarda `en_curso` existe y es real, pero no es lo que pasó.
 
-**La pregunta 1: qué error devolvió el envío de `nem81on` / `n4wu86y`.** Está en los logs. Todo lo de
-arriba explica **cómo** un envío fallido termina en «cancelada», pero no **por qué** falla el envío
-de Instagram justo después del toque del botón.
+## ✅ LA CAUSA, leída en producción el 8/11/2026
 
-**La pista más corta:** el único al que SÍ le llegó el mensaje fue **@jarredramirrez (lead 5940,
-secuencia 709)**. Comparar esa inscripción con las otras nueve es probablemente el camino.
+**Está en `nutricion_envios.error`** —una columna que existe desde siempre y que nadie había mirado—
+y es **idéntica en los 22 fallos**:
 
-⚠️ **Y un dato del reporte que descarta la sospecha fácil:** apagaron ManyChat y el problema siguió.
-No es otra app contestando en la misma conversación.
+> `Instagram: Zernio 409: This conversation is controlled by another receiver in Meta's conversation
+> routing, so it can't be replied to from here right now (Meta subcode 2534037). Make this app the
+> default receiver: for Instagram, open https://www.facebook.com/settings/?tab=ig_conversation_routing
+> while acting as the Facebook Page linked to the Instagram account, not from your personal profile…`
+
+**Meta subcode 2534037: otra app es el «receptor primario» de esa conversación.** No es un bug de
+MaKo ni de Zernio: es el *handover protocol* de Meta. La conversación tiene dueño, y no somos
+nosotros.
+
+### Por qué falla justo después del botón, y no antes
+
+| nodo | enviado | fallo | |
+|---|---:|---:|---|
+| `nlcjml0` — el primer DM, respondiendo al comentario | 73 | 2 | **3%** |
+| `nem81on` — la entrega del recurso | 15 | 11 | **42%** |
+| `n4wu86y` — la entrega del recurso | 9 | 9 | **50%** |
+
+El primer DM sale porque es una **respuesta privada a un comentario**, que Meta permite sin importar
+de quién sea el hilo. En cuanto la persona **contesta** (tocar el botón ES contestar), la
+conversación pasa a ser un hilo vivo y manda el receptor primario. Ahí empieza a rebotar.
+
+Los 2 fallos del primer DM son los casos donde el hilo **ya estaba vivo** de una vuelta anterior —
+la segunda prueba de Martín de las 23:53 es uno de ellos.
+
+### Lo que esto corrige del reporte
+
+- **No son dos fallas distintas.** La «colisión de inscripciones» que parecía un segundo problema es
+  la misma causa: con el hilo ya tomado, también falla el primer mensaje, y la inscripción muere
+  igual. Una sola causa explica todo.
+- **Apagar ManyChat no alcanza, y por eso «apagarlo y que siguiera» despistó.** Apagar la app no la
+  saca de **conversation routing**: el receptor primario es una *configuración de la página*, no un
+  interruptor de la app. Mientras siga configurada, el hilo sigue siendo suyo aunque no conteste.
+- **Empezó el 30/10/2026 04:31**, no el 5/11. Son **22 fallos**, no 9.
+- **Es el ÚNICO error de envío de Instagram que existe en toda la base**: cero filas de cualquier
+  otro tipo. El 100% de lo que no se entrega por Instagram es esto.
+
+### El arreglo (no es de código, y no lo puedo hacer yo)
+
+En https://www.facebook.com/settings/?tab=ig_conversation_routing, **actuando como la Página de
+Facebook vinculada a la cuenta de Instagram** (no desde el perfil personal), poner la app de
+Zernio/MaKo como receptor primario — o sacar de ahí a la que esté puesta.
+
+Es de Leandro, en su cuenta (ws 10).
+
+## ⚠️ Y dos cosas que mi propio diagnóstico anterior decía MAL
+
+**1. «Los :00:25 son el cron, y la cancelación la hace esa corrida» — es falso.** Ese timestamp es
+el `updated_at` que escribe el **evaluador de desenlaces** al sellar una inscripción que YA estaba
+cancelada (`lib/nutricion-desenlace.ts:219`), y su `const ahora` se calcula **una sola vez** en la
+línea 137, antes del bucle de la 214. Por eso cuatro inscripciones de cuatro leads distintos
+comparten el timestamp **al milisegundo**, que es lo que lo hacía parecer una cancelación en lote.
+**El `:00:25` dice cuándo se SELLÓ, no cuándo se canceló.** Un `updated_at` que comparten muchas
+filas no es una operación de lote: puede ser un reloj leído una vez.
+
+**2. Queda abierto por qué se cancela en vez de reintentar.** Un 409 de Zernio está clasificado
+como **NO terminal, con reintento a 4 horas** (`lib/canal-zernio.ts:323`, que excluye explícitamente
+el 409 del backoff de 24 h), y un fallo no terminal escribe `proximo_envio_at = +4 h`
+(`lib/nutricion.ts:6105`). Pero las inscripciones terminan `cancelada` sin un tercer intento. No es
+la rama terminal, ni las de email, ni la del emisor, ni `cortaPorCompra`: quedan descartadas.
+**Importa aunque se arregle Meta:** significa que un fallo que el código considera pasajero igual
+mata al lead para siempre.

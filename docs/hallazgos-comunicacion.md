@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Un DM de Instagram que no sale trae su propio diagnóstico, y muere en una columna que nadie mira** (8/11/2026).
+  Nueve días entregando cero recursos, un ticket a mano, y la causa estaba escrita entera —con el link para
+  arreglarla— en `nutricion_envios.error`. Ver «El recurso que nunca llegó», abajo.
 - **MaKo no le escribe primero a nadie, y una línea que WhatsApp frena se calla sola** (4/11/2026). El código del onboarding lo manda la
   persona por `wa.me`; la invitación por DM y el mensaje a una persona salen sólo a quien escribió; y un «rate-overlimit», 463 o 403
   frena la línea y avisa por mail. Ver «Para que no nos vuelvan a banear», abajo, con la tabla de cada envío.
@@ -12914,3 +12917,70 @@ sé, no es 13, entonces sale», y el motor hace exactamente lo contrario.
 **Vive en:** `lib/aviso-evento.ts` (`datosDeLaPlataforma`) · `lib/variables-aviso.ts` (`negocio_numero`) · `lib/plantillas-automatizaciones.ts`
 (`mako-reunion-tareas-al-plan`) · tests: `tests/dato-evento.test.ts` (5), `tests/reunion-tareas-al-plan-evento.test.ts`
 
+
+## El recurso que nunca llegó: Instagram y el receptor primario de Meta (8/11/2026)
+
+Nueve días —del 30/10 al 7/11— el ws 10 entregó **cero** recursos por Instagram. La persona comenta
+en un reel, recibe el primer DM, toca «Obtener recurso», y no le llega nada. 22 envíos fallidos.
+Leandro tuvo que levantar un ticket a mano (#63) para que alguien se enterara.
+
+**La causa estaba escrita entera, en inglés, con el link para arreglarla, en `nutricion_envios.error`:**
+
+> `Instagram: Zernio 409: This conversation is controlled by another receiver in Meta's conversation
+> routing … (Meta subcode 2534037). Make this app the default receiver: open
+> https://www.facebook.com/settings/?tab=ig_conversation_routing …`
+
+**Nadie la había mirado.** El proveedor diagnostica perfecto y dice qué tocar; el texto se guarda en
+una columna que ninguna pantalla muestra y ninguna alerta lee.
+
+### Por qué falla el segundo mensaje y no el primero
+
+| nodo | enviado | fallo |
+|---|---:|---:|
+| el primer DM (respuesta al comentario) | 73 | 2 (3%) |
+| la entrega del recurso | 24 | 20 (45%) |
+
+El primer DM es una **respuesta privada a un comentario**, y Meta la permite sin importar de quién
+sea el hilo. **Tocar el botón ES contestar**: ahí la conversación pasa a ser un hilo vivo y manda el
+*receptor primario* del handover protocol. Si ese no es tu app, todo lo que mandes después rebota.
+
+**Ésta es la trampa que vale para cualquier integración de Instagram:** el permiso para abrir una
+conversación y el permiso para seguirla son cosas distintas, y una prueba que sólo manda el primer
+mensaje sale verde.
+
+### Las tres cosas que despistaron, que es lo que conviene recordar
+
+1. **«Apagamos ManyChat y siguió igual.»** Apagar la app **no la saca de conversation routing**: el
+   receptor primario es una configuración de la PÁGINA, no un interruptor de la app. Esto mandó la
+   investigación a buscar otra cosa, y era eso.
+2. **«Siempre se cancela a los `:00:25`, así que lo cancela el cron de esa hora.»** Falso. Ese
+   `updated_at` lo escribe el evaluador de desenlaces al SELLAR algo ya cancelado
+   (`lib/nutricion-desenlace.ts:219`), y su `const ahora` se calcula **una vez** (línea 137) antes
+   del bucle (línea 214). Por eso cuatro inscripciones de cuatro leads distintos comparten el
+   timestamp **al milisegundo**. ⚠️ **Un `updated_at` idéntico en muchas filas no prueba una
+   operación de lote: puede ser un reloj leído una sola vez.** Y una hora de `updated_at` dice
+   cuándo se tocó la fila por última vez, nunca cuándo pasó el hecho que se está investigando.
+3. **«Son dos fallas distintas.»** Parecían dos (nueve canceladas por el cron, y una cancelación
+   inmediata por «colisión de inscripciones»). Es una sola: con el hilo ya tomado también falla el
+   primer mensaje.
+
+### Lo que el sistema NO hizo, y es lo que hay que arreglar de nuestro lado
+
+- **No avisó.** `registrarError` (lib/errores-app.ts) existe desde el 17/10 justamente para esto
+  —agrupa por huella, abre ticket solo, nunca tira—, y el fallo de un envío **no está cableado ahí**.
+  Nueve días de pérdida total y el único que se enteró fue el cliente.
+  ⚠️ Cuando se cablee, va como **configuración del negocio**, no como bug: el patrón ya existe
+  (`CONFIGURACION` en lib/errores-app-reglas.ts, con el comentario «el arreglo no es de código, es
+  que el negocio conecte lo suyo; un ticket de bug manda al Cerebro a arreglar algo que no está
+  roto»). El 2534037 es exactamente eso.
+- **Reintentar está dicho y no pasa.** Un 409 queda **no terminal con 4 h de espera**
+  (`lib/canal-zernio.ts:323`, que excluye el 409 del backoff largo a propósito) y un fallo no
+  terminal escribe `proximo_envio_at = +4 h` (`lib/nutricion.ts:6105`). Pero las inscripciones
+  terminan `cancelada` sin un tercer intento. **Quedan descartadas** la rama terminal, las de email,
+  la del emisor y `cortaPorCompra`. Sin resolver, y vale aunque se arregle Meta: un fallo que el
+  código considera pasajero igual mata al lead para siempre.
+
+### Antes de confiar en un flujo de Instagram
+
+Mirar `nutricion_envios` por nodo, no en total. Un 97% de éxito global tapaba un 45% de fallo en el
+único paso que importaba.

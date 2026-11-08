@@ -36,7 +36,37 @@ de adquisición de US$97, un cliente no es rentable el primer mes**, y su condic
 contenido), **4179/estrategia** (las tres fases y la cadena). Detalle en
 [docs/tableros/LEEME.md](tableros/LEEME.md).
 
-### ⛔ LO QUE FRENA TODO: el eslabón 4 está roto
+### ✅ EL ESLABÓN 4: CAUSA ENCONTRADA (8/11) — el arreglo es de Leandro, en Meta
+
+**No es código.** Meta subcode **2534037**: otra app figura como **receptor primario** de la
+conversación de Instagram, y en cuanto la persona toca el botón (tocar el botón es contestar), el
+hilo pasa a tener dueño y todo lo que MaKo manda rebota. El primer DM sí sale porque es una
+respuesta a un comentario, que Meta permite igual: **3% de fallo en el primer paso, 45% en el que
+entrega el recurso.**
+
+Empezó el **30/10**, son **22 fallos** (no 9 desde el 5/11), y es el **único** error de envío de
+Instagram que existe en toda la base.
+
+**Qué hay que hacer, y lo tiene que hacer Leandro en su cuenta:** entrar a
+`facebook.com/settings/?tab=ig_conversation_routing` **actuando como la Página de Facebook vinculada
+a su Instagram** (no desde el perfil personal) y poner a Zernio/MaKo como receptor primario, o sacar
+de ahí a la app que esté puesta. ⚠️ **Apagar ManyChat no alcanza** —y por eso despistó—: apagar la
+app no la saca de conversation routing.
+
+Todo en [ticket-63-diagnostico.md](ticket-63-diagnostico.md) y
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md).
+
+**⚠️ Y esto toca el lanzamiento de Martín directamente:** su cadena orgánica es exactamente este
+flujo, y **el ws 9 no mandó NUNCA un solo DM de Instagram** (sólo el ws 10 usa el canal). Antes de
+publicar el primer reel hay que mirar ese mismo ajuste en la cuenta de Instagram de MaKo.
+
+**Dos cosas nuestras que quedan abiertas:**
+1. **Nadie se enteró en nueve días.** `registrarError` existe desde el 17/10 para esto y el fallo de
+   un envío no está cableado ahí. Va como *configuración del negocio*, no como bug.
+2. **Un 409 está marcado para reintentar a 4 h y sin embargo la inscripción se cancela** sin tercer
+   intento. Vale aunque se arregle Meta.
+
+### ⛔ (histórico) el eslabón 4 estaba roto
 
 La cadena del orgánico tiene 7 eslabones. El 4 —«tocan el botón y reciben el link»— **está roto
 hoy** (ticket #63 de Leandro: del 5 al 7/11, **9 de 10 personas tocaron y no recibieron nada**).
@@ -46,9 +76,9 @@ que se invierta en grabar y publicar se tira ahí**. Y peor que perder la venta:
 comentarios sin respuesta **se quema dos veces**, porque el comentario es la señal que le dice a
 Instagram que vale la pena mostrarlo.
 
-**Lo que falta para cerrarlo:** leer en los logs de producción qué error devuelve el envío de
-Instagram. Todo lo demás está diagnosticado en [ticket-63-diagnostico.md](ticket-63-diagnostico.md).
-**Pedido a Martín dos veces, sin respuesta todavía.**
+**CERRADO el 8/11.** Acá decía que faltaba permiso de Martín para leer los logs de producción, y se
+lo pedí tres veces. ⚠️ **Nunca hizo falta: leer producción no es escribirla**, y el error estaba a
+una consulta de distancia, en `nutricion_envios.error`. Tres días de espera que me puse yo solo.
 
 ### Los números que cambiaron el 7/11
 
