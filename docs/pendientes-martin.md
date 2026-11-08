@@ -534,7 +534,14 @@ era peor: poner el número de la agencia apagaba el aviso para **todos sus clien
 que se viera. El dato calculado pisaba al que el emisor ponía a propósito; ahora es un default y lo
 explícito gana. `tests/aviso-agencia-numero-del-cliente.test.ts` 3/3 probado rompiéndolo.
 
-**Los 4 `rompe-cliente` están cerrados, y 4 `promete-y-no-hace` también. Quedan 12 abiertos**, en
+**✅ Y uno más**: los filtros de Thumbnails y los de Carruseles escribían **las mismas claves** en
+la URL, con valores que se solapan. Un link de Thumbnails con «Últimos 90 días» y «Guardados» dejaba
+la pestaña Carruseles filtrada igual, sin que nadie la hubiera tocado. Ahora las de Thumbnails llevan
+prefijo, **sacadas de una sola tabla** para que el lector y el escritor no se puedan separar — `que`
+no lleva prefijo a propósito, es el selector de pestaña. `tests/thumbnails-claves-propias.test.ts`
+3/3 probado rompiéndolo.
+
+**Los 4 `rompe-cliente` están cerrados, y 5 `promete-y-no-hace` también. Quedan 11 abiertos**, en
 los documentos de área.
 
 ---

@@ -224,6 +224,26 @@ export function filtrarThumbnails(todos: readonly Thumbnail[], f: FiltrosThumbna
   return canales.size || plano(f.q).startsWith('@') ? ordenados : conVariedad(ordenados, (t) => t.canalId);
 }
 
+/**
+ * ⚠️⚠️ LAS CLAVES DE THUMBNAILS VAN CON PREFIJO `t`, Y SALEN DE ACÁ LAS DOS VECES (8/11/2026).
+ *
+ * Antes se escribían `q`, `periodo`, `min`, `omax`, `orden`, `de` y `vista` — **exactamente las
+ * mismas que lee el explorador de carruseles** (`lib/carruseles/explorar.ts`, `filtrosDeQuery`), y
+ * con valores que se solapan: `periodo` 30 y 90 existen en los dos, `vista=guardados` también, y
+ * `PASOS_MULTIPLO` y `PASOS_MULTIPLO_THUMBNAIL` son la MISMA lista. Las dos pantallas leen la misma
+ * query con las DOS funciones, así que el usuario ponía «Últimos 90 días» y «Guardados» en
+ * Thumbnails, copiaba el link, y al abrirlo la pestaña Carruseles aparecía filtrada por 90 días y
+ * por Guardados sin que nadie la hubiera tocado. Lo confirmó la revisión de
+ * `punta/carruseles-thumbnails`.
+ *
+ * La tabla es UNA para que el lector y el escritor no se puedan separar: renombrar acá los mueve a
+ * los dos. `que` NO lleva prefijo a propósito — es el selector de pestaña y es compartido de verdad.
+ */
+const CLAVE = {
+  q: 'tq', nicho: 'tnicho', idioma: 'tidioma', periodo: 'tperiodo',
+  min: 'tmin', omax: 'tomax', orden: 'torden', de: 'tde', vista: 'tvista',
+} as const;
+
 /** Los filtros que dice una URL (lo que no se entiende vuelve al valor inicial). */
 export function filtrosThumbnailDeQuery(q: URLSearchParams | Record<string, string | string[] | undefined>): FiltrosThumbnail {
   const get = (k: string): string | null => {
@@ -232,32 +252,32 @@ export function filtrosThumbnailDeQuery(q: URLSearchParams | Record<string, stri
     return Array.isArray(v) ? v[0] ?? null : v ?? null;
   };
   const paso = (k: string) => { const n = Number(get(k)); return (PASOS_MULTIPLO_THUMBNAIL as readonly number[]).includes(n) ? n : 0; };
-  const canales = (get('de') ?? '').split(',').filter((x) => x.trim() !== '').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 25);
+  const canales = (get(CLAVE.de) ?? '').split(',').filter((x) => x.trim() !== '').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 25);
   return {
-    q: (get('q') ?? '').slice(0, 120),
-    nicho: unoDe(get('nicho'), NICHOS_THUMBNAIL) ?? '',
-    idioma: unoDe(get('idioma'), IDIOMAS_THUMBNAIL) ?? '',
-    periodo: unoDe(get('periodo'), PERIODOS_THUMBNAIL) ?? 'todo',
-    outlierMin: paso('min'),
-    outlierMax: paso('omax'),
-    orden: unoDe(get('orden'), ORDENES_THUMBNAIL) ?? ORDEN_INICIAL_THUMBNAIL,
+    q: (get(CLAVE.q) ?? '').slice(0, 120),
+    nicho: unoDe(get(CLAVE.nicho), NICHOS_THUMBNAIL) ?? '',
+    idioma: unoDe(get(CLAVE.idioma), IDIOMAS_THUMBNAIL) ?? '',
+    periodo: unoDe(get(CLAVE.periodo), PERIODOS_THUMBNAIL) ?? 'todo',
+    outlierMin: paso(CLAVE.min),
+    outlierMax: paso(CLAVE.omax),
+    orden: unoDe(get(CLAVE.orden), ORDENES_THUMBNAIL) ?? ORDEN_INICIAL_THUMBNAIL,
     canales,
-    vista: get('vista') === 'guardados' ? 'guardados' : 'todos',
+    vista: get(CLAVE.vista) === 'guardados' ? 'guardados' : 'todos',
   };
 }
 
 /** La query, sólo con lo que no es el valor inicial, más `que=thumbnails` (es la tercera opción del explorador). */
 export function queryDeThumbnails(f: FiltrosThumbnail): string {
   const q = new URLSearchParams({ que: 'thumbnails' });
-  if (f.q.trim()) q.set('q', f.q.trim());
-  if (f.nicho) q.set('nicho', f.nicho);
-  if (f.idioma) q.set('idioma', f.idioma);
-  if (f.periodo !== 'todo') q.set('periodo', f.periodo);
-  if (f.outlierMin) q.set('min', String(f.outlierMin));
-  if (f.outlierMax) q.set('omax', String(f.outlierMax));
-  if (f.orden !== ORDEN_INICIAL_THUMBNAIL) q.set('orden', f.orden);
-  if (f.canales.length) q.set('de', f.canales.join(','));
-  if (f.vista !== 'todos') q.set('vista', f.vista);
+  if (f.q.trim()) q.set(CLAVE.q, f.q.trim());
+  if (f.nicho) q.set(CLAVE.nicho, f.nicho);
+  if (f.idioma) q.set(CLAVE.idioma, f.idioma);
+  if (f.periodo !== 'todo') q.set(CLAVE.periodo, f.periodo);
+  if (f.outlierMin) q.set(CLAVE.min, String(f.outlierMin));
+  if (f.outlierMax) q.set(CLAVE.omax, String(f.outlierMax));
+  if (f.orden !== ORDEN_INICIAL_THUMBNAIL) q.set(CLAVE.orden, f.orden);
+  if (f.canales.length) q.set(CLAVE.de, f.canales.join(','));
+  if (f.vista !== 'todos') q.set(CLAVE.vista, f.vista);
   return q.toString();
 }
 
