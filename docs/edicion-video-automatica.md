@@ -993,6 +993,26 @@ estaba en el audio. Y ninguna pasada de lipsync lo habría arreglado tampoco: lo
 descartan esa toma por tres motivos a la vez (perfil, dos caras en cuadro, poco movimiento de boca),
 y la guía de encuadre pide que la cara ocupe **20-40% del cuadro**.
 
+### ⚠️ CORRECCIÓN: «ningún detector encuentra esa cara» ERA FALSO, y lo dije sin probarlo
+
+Afirmé que el clip de perfil no se podía sincronizar porque ningún detector encontraría la cara.
+**Lo dije citando los docs de sync.so, no midiendo.** Martín lo dudó y tenía razón. Corrí **YuNet**
+—el detector DNN moderno, de la familia que usan las herramientas de hoy— sobre el clip:
+
+```
+cuadros mirados: 30 | con cara detectada: 30 (100%)
+la caja más grande: 69x100 px = 0,8% del cuadro, confianza 0,86
+```
+
+**Encuentra la cara en el 100% de los cuadros, de perfil y todo.** Lo que es cierto es el TAMAÑO:
+69×100 px contra el 20-40% del cuadro que piden las guías. Pero eso es un límite de **resolución de
+la boca**, no de detección — y juega parcialmente a favor, porque un lipsync hecho sobre un recorte
+ampliado se pega de vuelta a 69×100, donde las imperfecciones se achican hasta no verse.
+
+⚠️ **La lección: una limitación leída en la documentación de un proveedor NO es una medición.**
+sync.so describe lo que SU servicio hace bien, no lo que es posible. Correr el detector costó dos
+minutos y contradijo la afirmación.
+
 **LA REGLA QUE QUEDA: antes de tocar el audio de un clip, SACAR UN CUADRO Y MIRARLO.**
 `ffmpeg -i clip.mp4 -vf "select='eq(n\,30)'" -frames:v 1 cuadro.jpg`. Treinta segundos. Si la cara
 no está de frente o en 3/4 y no ocupa 20-40% del cuadro, **no hay nada que sincronizar** y cualquier
@@ -1001,3 +1021,23 @@ trabajo sobre la voz es tiempo tirado.
 Y el orden correcto queda invertido para siempre: **audio primero, video después, labios al final.**
 Con un modelo de voz nativa como Omni, la voz y los labios salen fundidos en una sola pasada, así
 que cambiar la voz desincroniza **por construcción**.
+
+
+## ⚠️ El voice-to-voice SÍ acepta `clone_strength`, y con `stability` en 1,0 da 127 Hz (8/11/2026)
+
+Se había descartado el STS porque sonaba grave **cuando el clon era instantáneo**. `clone_strength`
+apareció después —sólo existe para clones profesionales— y **nadie probó la combinación**. Medido
+sobre el audio de Omni, con la voz profesional:
+
+| ajustes | tono |
+|---|---|
+| `clone_strength` 1,0 · `stability` 0,5 | 120 Hz |
+| **`clone_strength` 1,0 · `stability` 1,0** | **127 Hz** |
+| `clone_strength` 0,0 · `stability` 0,5 | 126 Hz |
+
+Su voz real mide **128 Hz**: es lo más cerca que llegó nada. Y al ser conversión de timbre, **el
+ritmo es el de Omni**, así que los labios calzan por construcción (medido antes: 2-30 ms por bloque).
+
+⚠️ **La lección: cuando aparece un parámetro nuevo, hay que volver a probar lo que se había
+descartado antes de conocerlo.** El STS estaba descartado por una medición hecha con un clon peor y
+sin este ajuste. Un camino cerrado con información vieja no está cerrado.
