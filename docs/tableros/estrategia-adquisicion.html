@@ -1,0 +1,136 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Estrategia de adquisición</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{--fondo:#f6f5f2;--panel:#fff;--borde:#ddd9d1;--texto:#221f1a;--tenue:#6b655b;--apagado:#938c80;--acento:#8a4b2a;--suave:#f3e7df;--bien:#1d6b3a;--mal:#9c2c2c;--ojo:#a35a10;--sombra:0 1px 2px rgba(34,31,26,.07);--titulo:'Bitter',Georgia,serif;--cuerpo:'Source Sans 3',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}}
+:root[data-theme="dark"]{--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--cuerpo);font-size:16px;line-height:1.55}
+.env{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1020px;margin:0 auto}
+header{background:var(--panel);border-bottom:1px solid var(--borde)}.cab{padding-block:26px 20px}
+h1{font-family:var(--titulo);font-size:clamp(1.6rem,1.3rem + 1.4vw,2.2rem);font-weight:700;margin:0 0 6px;letter-spacing:-.015em}
+.sub{color:var(--tenue);margin:0;max-width:70ch}.sub b{color:var(--texto);font-weight:600}
+.links{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+.links a{font-size:.9rem;text-decoration:none;color:var(--acento);border:1px solid var(--borde);border-radius:999px;padding:5px 13px;background:var(--panel)}
+.links a:hover{border-color:var(--acento)}
+h2{font-family:var(--titulo);font-size:1.22rem;font-weight:600;margin:0 0 4px}
+.leyenda{margin:0 0 16px;font-size:.93rem;color:var(--tenue);max-width:78ch}
+section{margin-bottom:40px}main{padding-block:24px 64px}
+
+/* La cadena */
+.cadena{display:flex;flex-direction:column;gap:0}
+.paso{display:grid;grid-template-columns:auto 1fr auto;gap:0 16px;align-items:start;background:var(--panel);border:1px solid var(--borde);border-left:4px solid var(--marca);border-radius:10px;padding:14px 16px;box-shadow:var(--sombra)}
+.p-ok{--marca:var(--bien)}.p-roto{--marca:var(--mal)}.p-falta{--marca:var(--ojo)}.p-duda{--marca:var(--apagado)}
+.paso .num{font-family:var(--titulo);font-size:1.5rem;font-weight:700;color:var(--marca);line-height:1;min-width:1.4em}
+.paso .que{font-weight:600;font-size:1.02rem;margin:0 0 3px}
+.paso .det{margin:0;font-size:.93rem;color:var(--tenue)}
+.paso .est{font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap;background:var(--suave);color:var(--marca);border:1px solid var(--marca)}
+.flecha{text-align:center;color:var(--apagado);font-size:1.2rem;line-height:1;padding:3px 0}
+.rompe{background:var(--panel);border:1px dashed var(--mal);border-radius:10px;padding:10px 14px;margin:4px 0;font-size:.9rem;color:var(--mal);font-weight:600;text-align:center}
+
+table{width:100%;border-collapse:collapse;font-size:.92rem;background:var(--panel);border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--borde);vertical-align:top}
+thead th{background:var(--suave);color:var(--acento);font-size:.85rem;font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+td.c{text-align:center;white-space:nowrap}
+.e{font-size:.76rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;border:1px solid}
+.e-roto{color:var(--mal);border-color:var(--mal)}.e-falta{color:var(--ojo);border-color:var(--ojo)}
+.e-ok{color:var(--bien);border-color:var(--bien)}.e-duda{color:var(--apagado);border-color:var(--apagado)}
+.e-vos{color:var(--acento);border-color:var(--acento)}
+code{font-family:var(--mono);font-size:.87em;background:var(--fondo);padding:1px 5px;border-radius:4px}
+.aviso{border:1px solid var(--borde);border-left:4px solid var(--marca,var(--acento));border-radius:10px;background:var(--panel);padding:14px 16px;font-size:.95rem;color:var(--tenue);line-height:1.65;margin-top:14px}
+.aviso b{color:var(--texto)}.a-mal{--marca:var(--mal)}.a-ojo{--marca:var(--ojo)}.a-bien{--marca:var(--bien)}
+.aviso h3{font-family:var(--titulo);font-size:1.02rem;margin:0 0 6px;color:var(--texto);font-weight:600}
+.fases{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.fase{background:var(--panel);border:1px solid var(--borde);border-top:3px solid var(--marca);border-radius:10px;padding:14px 16px;box-shadow:var(--sombra)}
+.fase .t{font-family:var(--titulo);font-weight:600;font-size:1.05rem;margin:0 0 2px}
+.fase .cuando{font-size:.8rem;color:var(--apagado);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;display:block}
+.fase .cac{font-family:var(--mono);font-size:1.5rem;font-weight:600;color:var(--marca);display:block;margin-bottom:6px}
+.fase p{margin:0;font-size:.9rem;color:var(--tenue)}
+.f1{--marca:var(--bien)}.f2{--marca:var(--ojo)}.f3{--marca:var(--acento)}
+ul{margin:8px 0 0;padding-left:20px}li{margin-bottom:4px}
+</style>
+<header><div class="env cab">
+<h1>Estrategia de adquisición</h1>
+<p class="sub">Cómo conseguís los primeros 50 clientes sin poner plata adelante, y <b>todo lo que tiene que funcionar</b> para que la cadena no se corte. Estado medido el 7 de noviembre.</p>
+<div class="links"><a href="http://localhost:4179/">Los números →</a><a href="http://localhost:4179/plan">Las landings y el contenido →</a><a href="http://localhost:4178/">Los pendientes →</a></div>
+</div></header>
+
+<main class="env">
+
+<section>
+  <h2>Las tres fases</h2>
+  <p class="leyenda">La idea de fondo: no pagás por aprender. Descubrís qué convierte gratis, y recién cuando lo sabés comprás volumen.</p>
+  <div class="fases">
+    <div class="fase f1"><span class="cuando">Ahora · semanas 1-4</span><p class="t">Orgánico</p><span class="cac">US$0</span>
+      <p>2 reels + 1 carrusel por día. Acá no vendés: <b>aprendés</b> qué avatar, qué ángulo y qué funcionalidad hacen comentar. Cada cliente que entra es rentable el primer mes por definición.</p></div>
+    <div class="fase f2"><span class="cuando">Después · cuando sepas</span><p class="t">Pauta con lo aprendido</p><span class="cac">US$50</span>
+      <p>Los reels que funcionaron orgánicamente se convierten en anuncios. El costo por cliente es bajo <b>porque el creativo ya está probado</b>, no por suerte.</p></div>
+    <div class="fase f3"><span class="cuando">En paralelo</span><p class="t">MaKo Partner</p><span class="cac">US$97</span>
+      <p>Pagás el primer mes entero. Es el más caro y por eso va último: con el techo de US$92 por cliente, deja casi nada el primer mes.</p></div>
+  </div>
+  <div class="aviso a-bien">
+    <h3>Por qué esto da más que salir el lunes con US$1.700</h3>
+    A US$97 por cliente, esos US$1.700 traen <b>17 clientes</b> y cada uno arranca perdiendo. Con el creativo ya probado a US$50, los mismos US$1.700 traen <b>34</b> y cada uno deja plata el primer mes.
+    <b>Esperar dos semanas duplica lo que compra esa misma plata.</b>
+  </div>
+</section>
+
+<section>
+  <h2>La cadena, eslabón por eslabón</h2>
+  <p class="leyenda">Desde que alguien ve el reel hasta que paga. <b>Si un eslabón falla, todo lo de arriba se desperdicia.</b> Dos están rotos hoy y uno no existe.</p>
+  <div class="cadena">
+    <div class="paso p-duda"><span class="num">1</span><div><p class="que">Grabás y publicás</p><p class="det">14 videos y 7 carruseles. Flow con tus cuentas (gratis), o vos a cámara. El editor de carruseles anda: el recuadro gris que lo rompía se sacó el 6/11.</p></div><span class="est">a hacer</span></div>
+    <div class="flecha">↓</div>
+    <div class="paso p-ok"><span class="num">2</span><div><p class="que">La persona comenta la palabra</p><p class="det">El reel dice «comentá SETTER». Instagram avisa y MaKo lo toma. Esta parte funciona.</p></div><span class="est">anda</span></div>
+    <div class="flecha">↓</div>
+    <div class="paso p-ok"><span class="num">3</span><div><p class="que">MaKo manda el primer DM</p><p class="det">«¿Cómo va? … por el que comentaste», con el botón «Obtener recurso». Medido: este mensaje sí llega.</p></div><span class="est">anda</span></div>
+    <div class="flecha">↓</div>
+    <div class="paso p-roto"><span class="num">4</span><div><p class="que">Tocan el botón y reciben el link</p><p class="det">Acá se corta. Del 5 al 7 de noviembre, <b>9 de 10 personas tocaron el botón y no recibieron nada</b>; su inscripción se canceló sola a la hora. En tres días no se entregó un solo recurso.</p></div><span class="est">ROTO</span></div>
+    <div class="rompe">⚠️ Todo lo que gastes en los pasos 1-3 se pierde acá</div>
+    <div class="flecha">↓</div>
+    <div class="paso p-falta"><span class="num">5</span><div><p class="que">Caen en la landing de ESA razón de compra</p><p class="det">Una por funcionalidad, con el mismo mensaje del reel. El Web Generator tiene la plantilla «Venta directa» y el código ya trae la atribución (<code>landing</code>, <code>avatar</code>, <code>funcionalidad</code>). Falta escribirlas: las 8 están especificadas.</p></div><span class="est">falta</span></div>
+    <div class="flecha">↓</div>
+    <div class="paso p-falta"><span class="num">6</span><div><p class="que">Pagan</p><p class="det">Mercado Pago para Argentina, 1,80% a 35 días. Para afuera no hay pasarela aprobada: transferencia o Binance mientras contestan Whop, Paddle y Lemon Squeezy (lunes o martes).</p></div><span class="est">a medias</span></div>
+    <div class="flecha">↓</div>
+    <div class="paso p-ok"><span class="num">7</span><div><p class="que">Entran a MaKo sabiendo de dónde vinieron</p><p class="det">El onboarding lee la landing, el avatar y la funcionalidad, así que podés medir qué reel trajo qué cliente. Ya está construido.</p></div><span class="est">anda</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Todo lo que hay que hacer, en orden</h2>
+  <p class="leyenda">Ordenado por lo que rompe la cadena primero. «Vos» = necesita una decisión o un trámite tuyo.</p>
+  <table><thead><tr><th>Qué</th><th>Por qué ahora</th><th>Quién</th><th class="c">Estado</th></tr></thead><tbody>
+    <tr><td><b>Arreglar el flujo de comentarios</b><br><span style="font-size:.88em;color:var(--tenue)">ticket #63</span></td><td>Es el eslabón 4. Sin esto, cada peso y cada hora de los pasos 1-3 se tiran. <b>Falta leer en los logs qué error da el envío de Instagram</b> — el resto ya está diagnosticado.</td><td>yo, con tu permiso para leer producción</td><td class="c"><span class="e e-roto">ROTO</span></td></tr>
+    <tr><td><b>Las 8 landings</b></td><td>Es el eslabón 5 y no existe. El contenido ya está escrito (ángulo, prueba, contra qué, CTA); falta armarlas.</td><td>yo — decidí si en el Web Generator o a mano</td><td class="c"><span class="e e-falta">falta</span></td></tr>
+    <tr><td><b>Probar Mercado Pago con un cobro real</b></td><td>Un cobro de US$1 de punta a punta. Para no descubrir el lunes que algo falla con gente mirando.</td><td>vos + yo</td><td class="c"><span class="e e-falta">falta</span></td></tr>
+    <tr><td><b>Decidir cómo cobrás afuera</b></td><td>El Stripe prestado de Leila la expone a que se lo congelen: Stripe prohíbe procesar para un negocio que no es el titular, y pasó con Creem. Transferencia o Binance no expone a nadie.</td><td>vos</td><td class="c"><span class="e e-vos">decidís</span></td></tr>
+    <tr><td><b>Grabar 14 videos y 7 carruseles</b></td><td>Es el eslabón 1. Flow con tus cuentas sale gratis; ApiMart, US$0,41 el clip de 10 s.</td><td>vos + yo</td><td class="c"><span class="e e-falta">mañana</span></td></tr>
+    <tr><td><b>Aplicar los cupos nuevos</b><br><span style="font-size:.88em;color:var(--tenue)">1 clip en el de 47, 4 min en el de 97</span></td><td>Baja el techo de IA de US$24,25 a US$11,09 por cliente. Cambia lo que reciben los que ya pagan, así que necesita tu sí.</td><td>vos</td><td class="c"><span class="e e-vos">decidís</span></td></tr>
+    <tr><td><b>Probar que «Editar» de carruseles anda con IA real</b></td><td>Nunca se probó con una IA de verdad. Si falla, lo ve un cliente — o vos, mañana, cuando necesites los 7 carruseles.</td><td>yo</td><td class="c"><span class="e e-duda">sin probar</span></td></tr>
+    <tr><td><b>Los 8 tickets trabados</b></td><td>Dos son de Leandro y son de ayer. El más viejo lleva 7 días y el cliente lo ve «Recibido».</td><td>vos</td><td class="c"><span class="e e-vos">decidís</span></td></tr>
+  </tbody></table>
+
+  <div class="aviso a-mal">
+    <h3>El orden importa y no es negociable</h3>
+    Si salís a publicar antes de arreglar el eslabón 4, <b>la gente comenta, no le llega nada y no vuelve</b>. No perdés sólo esa venta: perdés el comentario, que es lo que le dice a Instagram que el reel vale la pena mostrar. <b>Un reel que genera comentarios sin respuesta se quema dos veces.</b>
+  </div>
+</section>
+
+<section>
+  <h2>Qué medir desde el primer día</h2>
+  <p class="leyenda">En orgánico el número que importa no es la venta: es cuál de las ocho razones de compra hace comentar. Eso es lo que después comprás con pauta.</p>
+  <table><thead><tr><th>Por cada reel</th><th>Qué te dice</th></tr></thead><tbody>
+    <tr><td>Comentarios con la palabra</td><td>Si el ángulo prende. Es la única señal honesta del orgánico: un «me gusta» no cuesta nada, comentar sí.</td></tr>
+    <tr><td>Tocaron «Obtener recurso»</td><td>Si el DM está bien escrito. Entre comentar y tocar se cae gente.</td></tr>
+    <tr><td>Llegaron a la landing</td><td>Si el link sobrevive. Hoy acá se pierde el 90%.</td></tr>
+    <tr><td>Compraron</td><td>Si la landing sostiene lo que prometió el reel.</td></tr>
+    <tr><td><b>Cuál funcionalidad ganó</b></td><td><b>El dato que vale.</b> Con eso elegís qué pautar a US$50, y de paso qué construir primero en el producto.</td></tr>
+  </tbody></table>
+  <div class="aviso a-bien">
+    Esto no hay que construirlo: el onboarding ya guarda de qué landing, qué avatar y qué funcionalidad vino cada alta. Sale solo cuando las landings existan.
+  </div>
+</section>
+
+</main>

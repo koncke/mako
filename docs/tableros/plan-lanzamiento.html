@@ -1,0 +1,120 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plan de lanzamiento orgánico</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{--fondo:#f6f5f2;--panel:#fff;--borde:#ddd9d1;--texto:#221f1a;--tenue:#6b655b;--apagado:#938c80;--acento:#8a4b2a;--suave:#f3e7df;--bien:#1d6b3a;--mal:#9c2c2c;--ojo:#a35a10;--sombra:0 1px 2px rgba(34,31,26,.07);--titulo:'Bitter',Georgia,serif;--cuerpo:'Source Sans 3',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}}
+:root[data-theme="dark"]{--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--cuerpo);font-size:16px;line-height:1.55}
+.env{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1020px;margin:0 auto}
+header{background:var(--panel);border-bottom:1px solid var(--borde)}.cab{padding-block:26px 20px}
+h1{font-family:var(--titulo);font-size:clamp(1.6rem,1.3rem + 1.4vw,2.2rem);font-weight:700;margin:0 0 6px;letter-spacing:-.015em}
+.sub{color:var(--tenue);margin:0;max-width:70ch}.sub b{color:var(--texto);font-weight:600}
+.links{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+.links a{font-size:.9rem;text-decoration:none;color:var(--acento);border:1px solid var(--borde);border-radius:999px;padding:5px 13px;background:var(--panel)}
+.links a:hover{border-color:var(--acento)}
+h2{font-family:var(--titulo);font-size:1.22rem;font-weight:600;margin:0 0 4px}
+.leyenda{margin:0 0 14px;font-size:.93rem;color:var(--tenue);max-width:76ch}
+section{margin-bottom:38px}main{padding-block:24px 64px}
+table{width:100%;border-collapse:collapse;font-size:.92rem;background:var(--panel);border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--borde);vertical-align:top}
+thead th{background:var(--suave);color:var(--acento);font-size:.85rem;font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+code{font-family:var(--mono);font-size:.87em;background:var(--fondo);padding:1px 5px;border-radius:4px;white-space:nowrap}
+.cta{font-family:var(--mono);font-weight:600;color:var(--acento);text-transform:uppercase;font-size:.9em}
+.aviso{border:1px solid var(--borde);border-left:4px solid var(--marca,var(--acento));border-radius:10px;background:var(--panel);padding:14px 16px;font-size:.95rem;color:var(--tenue);line-height:1.65;margin-bottom:14px}
+.aviso b{color:var(--texto)}.a-mal{--marca:var(--mal)}.a-ojo{--marca:var(--ojo)}.a-bien{--marca:var(--bien)}
+.aviso h3{font-family:var(--titulo);font-size:1.02rem;margin:0 0 6px;color:var(--texto);font-weight:600}
+ol,ul{margin:8px 0 0;padding-left:22px}li{margin-bottom:5px}
+.dia{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:14px 16px;font-size:.93rem}
+.dia dt{font-family:var(--mono);font-weight:600;color:var(--acento);white-space:nowrap}
+.dia dd{margin:0}
+</style>
+<header><div class="env cab">
+<h1>Plan de lanzamiento orgánico</h1>
+<p class="sub">Lo que hace falta para salir a prospectar: <b>las landings esta noche</b>, <b>el contenido mañana</b>. Los ángulos no son inventados: salen de <code>docs/como-venden-otros.md</code>, donde ya está medido qué usa cada competidor y qué hueco nadie ocupa.</p>
+<div class="links"><a href="http://localhost:4179/estrategia">La estrategia →</a><a href="http://localhost:4179/">Los números →</a><a href="http://localhost:4178/">Los pendientes →</a></div>
+</div></header>
+
+<main class="env">
+
+<section>
+  <h2>Primero: tres cosas que te pueden arruinar el lanzamiento</h2>
+
+  <div class="aviso a-mal">
+    <h3>1. El CTA de «comentá una palabra» está roto HOY</h3>
+    Es el ticket #63 de Leandro. Del 5 al 7 de noviembre, <b>de 10 personas que comentaron y tocaron «Obtener recurso», nueve no recibieron nada</b> y su inscripción se canceló sola a la hora. Tu plan entero de orgánico cuelga de ese mecanismo.
+    <br><br><b>Qué se sabe:</b> las cancelaciones las hace el cron de nutrición (corre en punto, por eso los <code>:00:25</code>), y un envío que falla «para siempre» cierra la inscripción como cancelada sin dejar el motivo — por eso desde la API parece que el lead recibió el mensaje.
+    <br><b>Lo que falta:</b> leer en los logs qué error dio el envío de Instagram. <b>Es lo primero que hay que arreglar, antes que las landings.</b>
+  </div>
+
+  <div class="aviso a-ojo">
+    <h3>2. Cobrar con el Stripe de Leila es un riesgo real, no un atajo</h3>
+    Stripe prohíbe procesar pagos de un negocio que no es el titular de la cuenta. Si lo detectan —y lo detectan por el descriptor, el sitio y los reclamos— <b>congelan la cuenta y retienen los fondos</b>, y le pasa a ella, no a vos. Acabás de vivir exactamente eso con Creem.
+    <br><br><b>La alternativa que no te frena:</b> Mercado Pago para Argentina ya anda, y para afuera <b>cobrar por transferencia o Binance con una página de pago propia</b> mientras se resuelve la pasarela, declarándolo. Es lo que ya venís haciendo con los clientes actuales y no pone la cuenta de nadie en riesgo. Las tres consultas (Whop, Paddle, Lemon Squeezy) contestan entre lunes y martes.
+  </div>
+
+  <div class="aviso a-bien">
+    <h3>3. Lo bueno: la máquina de landings ya está, y el código ya la esperaba</h3>
+    El Web Generator tiene <b>12 plantillas</b>, una es «Venta directa — producto con precio, garantía y objeciones». Y el código de compra ya trae <code>OrigenCompra</code> con <code>landing</code>, <code>avatar</code> y <code>funcionalidad</code>: <b>una landing por feature, con atribución, y el onboarding la lee</b>. No hay que inventar la arquitectura, hay que llenarla.
+  </div>
+</section>
+
+<section>
+  <h2>Las 8 landings, una por razón de compra</h2>
+  <p class="leyenda">Cada una con su ángulo medido, la prueba que convence y contra qué se compara. La palabra del CTA es la que decís en el reel y la que la persona comenta.</p>
+  <table><thead><tr><th>Landing</th><th>El ángulo</th><th>La prueba</th><th>Contra qué</th><th>CTA</th></tr></thead><tbody>
+    <tr><td><b>Landings</b><br><code>/l/paginas</code></td><td>De lo que vendés a la página armada, en minutos</td><td>Un sitio de ejemplo en vivo, hecho delante de la cámara</td><td>Un constructor suelto</td><td class="cta">PÁGINA</td></tr>
+    <tr><td><b>Setter / automatizaciones</b><br><code>/l/setter</code></td><td>Ningún lead sin respuesta, y contra el setter humano</td><td>Una conversación de 3 mensajes que termina en un horario agendado. La demo te escribe a vos</td><td>Un setter humano: US$800-2.000/mes</td><td class="cta">SETTER</td></tr>
+    <tr><td><b>Media buyer</b><br><code>/l/anuncios</code></td><td>Un media buyer que respeta tus límites y mira agendas y ventas, no clics</td><td>Auditoría gratis de la cuenta; qué esperar en 30 días</td><td>Media buyers IA US$79-349; agencia US$2.000-5.000</td><td class="cta">PAUTA</td></tr>
+    <tr><td><b>Avatares y creativos</b><br><code>/l/avatar</code></td><td>Cuando un anuncio se cansa, ya tenés los siguientes</td><td>Galería de anuncios reales con su métrica</td><td>100ads US$57; un diseñador ~US$1.500/mes</td><td class="cta">AVATAR</td></tr>
+    <tr><td><b>Dashboards</b><br><code>/l/numeros</code></td><td>La venta que la plataforma no ve</td><td>Qué contenido trae ventas; un resumen cada mañana</td><td>Tableros de agencia y planillas</td><td class="cta">NÚMEROS</td></tr>
+    <tr><td><b>Closing</b><br><code>/l/llamadas</code></td><td>Saber por qué se cae cada venta</td><td>De 18% a 31% de cierre, −40% de ausencias (CloseOS)</td><td>Casi no hay competencia con datos</td><td class="cta">CIERRE</td></tr>
+    <tr><td><b>Cursos y comunidad</b><br><code>/l/cursos</code></td><td><b>Sin comisión de plataforma:</b> cobrás con tu Mercado Pago o tu Stripe</td><td>Cifra de plata cobrada por los clientes</td><td>Hotmart (comisión por venta) y Skool (US$99 + 2,9%)</td><td class="cta">CURSO</td></tr>
+    <tr><td><b>Plan</b><br><code>/l/plan</code></td><td>Le das el objetivo y se hace cargo; el resumen de la mañana</td><td>Plan de 30 días</td><td>Es un hueco: casi nadie compite</td><td class="cta">PLAN</td></tr>
+  </tbody></table>
+
+  <div class="aviso a-bien" style="margin-top:14px">
+    <h3>El hueco más grande, y tu titular de portada</h3>
+    Del estudio: <b>nadie usa «traé tu IA» como argumento de precio</b>, y <b>no existe un media buyer IA nativo en español para pymes de Latinoamérica</b> (el único latino arranca en US$574). Las dos cosas son tuyas y ninguna está ocupada. Esa es la landing madre, de la que cuelgan las ocho.
+  </div>
+</section>
+
+<section>
+  <h2>El contenido: 21 piezas para una semana</h2>
+  <p class="leyenda">2 videos + 1 carrusel por día. Cada pieza es una landing, así sabés cuál convierte.</p>
+  <table><thead><tr><th>Día</th><th>Reel 1</th><th>Reel 2</th><th>Carrusel</th></tr></thead><tbody>
+    <tr><td><b>Lunes</b></td><td>Setter — «le contestó al lead a las 3 de la mañana»</td><td>Landings — armo una página en vivo</td><td>Lo que pagás por mes en herramientas sueltas</td></tr>
+    <tr><td><b>Martes</b></td><td>Avatar — «este video no lo grabé yo»</td><td>Números — la venta que Meta no te muestra</td><td>7 cosas que tu setter humano no hace</td></tr>
+    <tr><td><b>Miércoles</b></td><td>Anuncios — el media buyer que mira agendas</td><td>Cursos — cobrá sin comisión</td><td>Cuánto cuesta un setter y cuánto MaKo</td></tr>
+    <tr><td><b>Jueves</b></td><td>Setter — la demo te escribe a vos</td><td>Plan — le das el objetivo y se hace cargo</td><td>El anuncio se cansa: por qué necesitás volumen</td></tr>
+    <tr><td><b>Viernes</b></td><td>Llamadas — por qué se te cae cada venta</td><td>Avatar — 10 anuncios en una tarde</td><td>Traé tu propia IA: por qué eso te abarata todo</td></tr>
+    <tr><td><b>Sábado</b></td><td>Landings — una página por cada cosa que vendés</td><td>Números — el resumen de la mañana</td><td>Para quién NO es MaKo</td></tr>
+    <tr><td><b>Domingo</b></td><td>El fundador — por qué lo construí</td><td>Setter — 3 mensajes y queda agendado</td><td>De la pila de herramientas a una sola</td></tr>
+  </tbody></table>
+</section>
+
+<section>
+  <h2>Cómo se graban los 14 videos</h2>
+  <dl class="dia">
+    <dt>Flow</dt><dd><b>Es lo que conviene y es tuyo.</b> El puente que lo automatiza es una extensión que corre en tu Chrome con tu cuenta, y hoy no está conectada — pero para 14 videos <b>generás a mano en Flow y listo</b>: no cuesta nada extra y usás las cuentas que ya pagás.</dd>
+    <dt>ApiMart</dt><dd>Para lo que Flow no cubra. Un clip de 10 s sale <b>US$0,412</b>: los 14 videos, si fueran todos de ApiMart y de 30 s, son <b>~US$17</b>. Es poco y no cambia la ecuación.</dd>
+    <dt>Vos</dt><dd>Lo más rápido para arrancar y lo que más convierte al principio: el fundador hablando a cámara. El avatar sirve para <b>escalar</b> lo que ya sabés que funciona, no para descubrirlo.</dd>
+  </dl>
+  <div class="aviso a-ojo" style="margin-top:14px">
+    <b>El orden importa.</b> Grabar primero con avatar es testear dos cosas a la vez: el mensaje y el formato. Si no convierte, no sabés cuál falló. <b>Los primeros días grabate vos</b>, encontrá los 3 ángulos que funcionan, y recién ahí ponelos en avatar para multiplicarlos.
+  </div>
+</section>
+
+<section>
+  <h2>El orden de esta noche y mañana</h2>
+  <dl class="dia">
+    <dt>Ahora</dt><dd><b>Arreglar el CTA de comentarios</b> (#63). Sin eso, el resto no sirve: la gente comenta y no le llega nada. Necesito que me habilites leer los logs de producción.</dd>
+    <dt>Esta noche</dt><dd><b>Las 8 landings.</b> El contenido ya está en la tabla de arriba; falta armarlas. Decime si las hacemos dentro del Web Generator (probamos el producto de paso) o a mano acá.</dd>
+    <dt>Esta noche</dt><dd><b>Mercado Pago conectado y probado con un cobro real de US$1</b>, para no descubrir el lunes que algo falla.</dd>
+    <dt>Mañana</dt><dd><b>Los 14 videos y 7 carruseles.</b> Pasame tus fotos para los avatares cuando quieras.</dd>
+  </dl>
+</section>
+
+</main>

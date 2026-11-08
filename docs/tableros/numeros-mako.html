@@ -1,0 +1,291 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Los números de MaKo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{--fondo:#f6f5f2;--panel:#fff;--borde:#ddd9d1;--texto:#221f1a;--tenue:#6b655b;--apagado:#938c80;--acento:#8a4b2a;--suave:#f3e7df;--bien:#1d6b3a;--mal:#9c2c2c;--ojo:#a35a10;--sombra:0 1px 2px rgba(34,31,26,.07);--titulo:'Bitter',Georgia,serif;--cuerpo:'Source Sans 3',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}}
+:root[data-theme="dark"]{--fondo:#16140f;--panel:#201d17;--borde:#37332a;--texto:#ece7dd;--tenue:#aaa295;--apagado:#827a6d;--acento:#d98f62;--suave:#322319;--bien:#6fc08c;--mal:#e08585;--ojo:#e3a35c;--sombra:0 1px 2px rgba(0,0,0,.45);color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--cuerpo);font-size:16px;line-height:1.55}
+.env{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:980px;margin:0 auto}
+header{background:var(--panel);border-bottom:1px solid var(--borde)}.cab{padding-block:26px 20px}
+h1{font-family:var(--titulo);font-size:clamp(1.6rem,1.3rem + 1.4vw,2.2rem);font-weight:700;margin:0 0 6px;letter-spacing:-.015em}
+.sub{color:var(--tenue);margin:0;max-width:66ch}.sub b{color:var(--texto);font-weight:600}
+h2{font-family:var(--titulo);font-size:1.2rem;font-weight:600;margin:0 0 4px}
+.leyenda{margin:0 0 14px;font-size:.93rem;color:var(--tenue);max-width:72ch}
+section{margin-bottom:34px}main{padding-block:24px 64px}
+.mandos{background:var(--panel);border:1px solid var(--borde);border-radius:12px;padding:16px 18px;margin-bottom:26px;box-shadow:var(--sombra)}
+.mando{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline;margin-bottom:14px}
+.mando:last-child{margin-bottom:0}
+.mando label{font-weight:600;font-size:.95rem}
+.mando .val{font-family:var(--mono);font-weight:600;font-size:1.05rem;color:var(--acento);font-variant-numeric:tabular-nums}
+.mando .pie{grid-column:1/-1;font-size:.84rem;color:var(--apagado);margin-top:-2px}
+.mando input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--acento);margin-top:6px}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.t{border:1px solid var(--borde);border-left:4px solid var(--marca,var(--apagado));border-radius:10px;background:var(--panel);padding:14px 16px;box-shadow:var(--sombra)}
+.t .r{font-size:.9rem;font-weight:600;display:block;margin-bottom:2px}
+.t .n{font-family:var(--titulo);font-size:1.9rem;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums;color:var(--marca,var(--texto));display:block}
+.t .c{font-size:.84rem;color:var(--tenue);display:block;margin-top:4px;line-height:1.4}
+.m-bien{--marca:var(--bien)}.m-mal{--marca:var(--mal)}.m-ojo{--marca:var(--ojo)}.m-neutro{--marca:var(--apagado)}
+table{width:100%;border-collapse:collapse;font-size:.94rem;background:var(--panel);border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--borde)}
+th:first-child,td:first-child{text-align:left}
+thead th{background:var(--suave);color:var(--acento);font-size:.86rem;font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr.hito{background:var(--suave)}tr.hito td{font-weight:600}
+.pos{color:var(--bien)}.neg{color:var(--mal)}
+.aviso{border:1px solid var(--borde);border-left:4px solid var(--marca,var(--acento));border-radius:10px;background:var(--panel);padding:14px 16px;font-size:.95rem;color:var(--tenue);line-height:1.6;margin-top:14px}
+.aviso b{color:var(--texto)}.a-bien{--marca:var(--bien)}.a-mal{--marca:var(--mal)}.a-ojo{--marca:var(--ojo)}
+code{font-family:var(--mono);font-size:.88em;background:var(--fondo);padding:1px 5px;border-radius:4px}
+.cuenta{font-family:var(--mono);font-size:.9rem;background:var(--fondo);border:1px solid var(--borde);border-radius:8px;padding:12px 14px;line-height:1.9;white-space:pre-wrap}
+.cuenta .et{color:var(--tenue)}
+@media (max-width:560px){th,td{padding:7px 8px;font-size:.88rem}}
+</style>
+<header><div class="env cab">
+<h1>Los números de MaKo</h1>
+<p class="sub">Todo en una pantalla, con los cambios del <b>7 de noviembre</b>: el plan de US$47 da <b>un solo clip</b>, el de US$97 da <b>4 minutos</b>, el costo de adquisición baja de US$97 a la mitad empezando por orgánico, y <b>la pasarela se separa del impuesto</b>. Movés los controles y todo lo de abajo se recalcula.</p>
+<div class="links" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><a href="/estrategia" style="font-size:.9rem;text-decoration:none;color:var(--acento);border:1px solid var(--borde);border-radius:999px;padding:5px 13px;background:var(--panel)">La estrategia →</a><a href="/plan" style="font-size:.9rem;text-decoration:none;color:var(--acento);border:1px solid var(--borde);border-radius:999px;padding:5px 13px;background:var(--panel)">Las landings →</a><a href="http://localhost:4178/" style="font-size:.9rem;text-decoration:none;color:var(--acento);border:1px solid var(--borde);border-radius:999px;padding:5px 13px;background:var(--panel)">Los pendientes →</a></div>
+</div></header>
+
+<main class="env">
+
+<div class="mandos">
+  <div class="mando">
+    <label for="cli">Clientes que pagan</label><span class="val" id="v-cli">50</span>
+    <span class="pie">Todos en el plan de US$97. La meta que te pusiste son 50.</span>
+    <input type="range" id="cli" min="0" max="200" value="50" step="1">
+  </div>
+  <div class="mando">
+    <label for="cac">Costo de adquisición</label><span class="val" id="v-cac">US$0</span>
+    <span class="pie">Orgánico es casi cero. Meta tenía US$97 y ése es el que no cerraba.</span>
+    <input type="range" id="cac" min="0" max="120" value="0" step="5">
+  </div>
+  <div class="mando">
+    <label for="uso">Cuánto del cupo de video usan</label><span class="val" id="v-uso">25%</span>
+    <span class="pie">Hoy casi nadie genera video. Si nadie lo usa, el costo de IA es cero.</span>
+    <input type="range" id="uso" min="0" max="100" value="25" step="5">
+  </div>
+  <div class="mando">
+    <label for="pas">Por dónde cobrás</label><span class="val" id="v-pas">1,80%</span>
+    <span class="pie">Esto es lo que te cobra la pasarela y sale sí o sí. El impuesto va aparte, abajo.</span>
+    <select id="pas" style="grid-column:1/-1;width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;background:var(--fondo);color:var(--texto);font:inherit">
+      <option value="1.8" selected>Mercado Pago, acreditación a 35 días — 1,80%</option>
+      <option value="7.61">Mercado Pago, la plata al instante — 7,61%</option>
+      <option value="5.75">Creem / Paddle, si alguna aprueba — 5,75%</option>
+      <option value="0">Transferencia o Binance — 0%</option>
+    </select>
+  </div>
+  <div class="mando">
+    <label for="imp">¿Contar el impuesto?</label><span class="val" id="v-imp">no</span>
+    <span class="pie">Monotributo H: 8,36%. Hoy lo paga Leandro al 100%, y se puede diferir o entrar en un plan de pagos. No es lo mismo que la pasarela.</span>
+    <select id="imp" style="grid-column:1/-1;width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;background:var(--fondo);color:var(--texto);font:inherit">
+      <option value="0" selected>No — hoy lo paga Leandro</option>
+      <option value="8.36">Sí, contarlo — 8,36%</option>
+    </select>
+  </div>
+  <div class="mando">
+    <label for="altas">Altas nuevas este mes</label><span class="val" id="v-altas">10</span>
+    <span class="pie">El costo de adquisición se paga una vez, por cada alta nueva del mes.</span>
+    <input type="range" id="altas" min="0" max="50" value="10" step="1">
+  </div>
+  <div class="mando">
+    <label for="fijo">Gasto fijo que pagás vos</label><span class="val" id="v-fijo">US$438</span>
+    <span class="pie">Hoy US$438. El total es US$1.144: la diferencia la paga Mauricio.</span>
+    <input type="range" id="fijo" min="0" max="1200" value="438" step="1">
+  </div>
+</div>
+
+<section>
+  <h2>El mes, de una mirada</h2>
+  <p class="leyenda">Con los clientes, el costo de adquisición y el uso de video que elegiste arriba.</p>
+  <div class="tarjetas" id="resumen"></div>
+  <div class="aviso" id="veredicto"></div>
+</section>
+
+<section>
+  <h2>¿Es rentable el PRIMER mes?</h2>
+  <p class="leyenda">Tu condición: cada cliente tiene que dejar plata el mes en que entra, no en el mes doce. Acá el costo de adquisición se paga entero ese mes, sin repartir.</p>
+  <div class="cuenta" id="primermes"></div>
+  <div class="aviso a-ojo" id="techo"></div>
+</section>
+
+<section>
+  <h2>Cuántos clientes hacen falta</h2>
+  <p class="leyenda">Lo que queda en el bolsillo, mes a mes, ya con los clientes adentro (el costo de adquisición ya pagado).</p>
+  <table><thead><tr><th>Clientes</th><th>Entra</th><th>Cobrar</th><th>IA</th><th>Fijo</th><th>Queda</th></tr></thead><tbody id="tabla"></tbody></table>
+  <div class="aviso" id="equilibrio"></div>
+</section>
+
+<section>
+  <h2>Quién paga qué, hoy</h2>
+  <p class="leyenda">Los US$1.144 al mes, desarmados: qué es cada cosa, para qué sirve y de qué bolsillo sale. Lo de Claude va a mitad con Leandro.</p>
+  <div class="tarjetas" id="quienes"></div>
+  <table style="margin-top:14px"><thead><tr><th>Qué</th><th>Para qué sirve</th><th>Por mes</th><th>Vos</th><th>Leandro</th><th>Mauricio</th></tr></thead><tbody id="gastos"></tbody></table>
+  <div class="aviso a-ojo" id="notagastos"></div>
+</section>
+
+<section>
+  <h2>Qué da cada plan, con los cambios de hoy</h2>
+  <p class="leyenda">Y cuánto tiene que traer de MaKo Tokens cada uno para que alcance.</p>
+  <table><thead><tr><th>Plan</th><th>Video incluido</th><th>Cuesta el video</th><th>Imágenes</th><th>Cupo en MT</th><th>Techo de IA</th></tr></thead><tbody id="planes"></tbody></table>
+  <div class="aviso" id="cupos"></div>
+</section>
+
+<section>
+  <h2>Llegar a 50 clientes: qué hay que invertir</h2>
+  <p class="leyenda">Lo que cuesta construir la cartera, según por dónde vengan.</p>
+  <table><thead><tr><th>Por dónde</th><th>Costo por cliente</th><th>Llegar a 50 cuesta</th><th>Se recupera en</th></tr></thead><tbody id="inversion"></tbody></table>
+  <div class="aviso a-bien" id="plan"></div>
+</section>
+
+</main>
+
+<script>
+(function(){
+// ── Lo medido, que no se toca con los controles ──────────────────────────────
+var PLAN97=97, PLAN47=47;
+// ⚠️ SEPARADO A PROPÓSITO (Martín, 7/11): la pasarela sale sí o sí; el impuesto se puede diferir,
+// entrar en un plan de pagos, y HOY lo paga Leandro al 100%. Juntarlos en un 15% hacía que el
+// negocio pareciera mucho peor de lo que es: por Mercado Pago a 35 días la pasarela es 1,80%.
+var COBRAR=0.018;                // se recalcula con los dos selectores
+var USD_CLIP=0.412;              // un clip de 10 s con su imagen de referencia (medido 7/11)
+var USD_IMAGEN=0.012;            // una imagen normal
+var CLIPS_MIN=6;                 // seis clips de 10 s = un minuto
+var MESES_VIDA=22.2;             // lo que dura un cliente (churn 4,5%/mes)
+
+// Los cambios del 7/11
+var MIN_97=4, CLIPS_97=MIN_97*CLIPS_MIN;   // 4 minutos = 24 clips
+var CLIPS_47=1;                            // un solo clip de 10 s, para probar
+var IMG_97=100, IMG_47=50;                 // aire para imágenes
+var TECHO_IA_97=CLIPS_97*USD_CLIP+IMG_97*USD_IMAGEN;
+var TECHO_IA_47=CLIPS_47*USD_CLIP+IMG_47*USD_IMAGEN;
+
+var $=function(i){return document.getElementById(i)};
+var usd=function(n,d){var s=n<0?'-':'';return s+'US$'+Math.abs(n).toLocaleString('es-AR',{minimumFractionDigits:d===undefined?2:d,maximumFractionDigits:d===undefined?2:d})};
+var ent=function(n){return n.toLocaleString('es-AR')};
+var signo=function(n){return n>=0?'pos':'neg'};
+
+function pintar(){
+  var cli=+$('cli').value, cac=+$('cac').value, uso=+$('uso').value/100, altas=+$('altas').value, fijo=+$('fijo').value;
+  var pas=+$('pas').value/100, imp=+$('imp').value/100;
+  COBRAR=pas+imp;
+  $('v-pas').textContent=(pas*100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+  $('v-imp').textContent=imp>0?(imp*100).toFixed(2)+'%':'no';
+  $('v-cli').textContent=ent(cli);
+  $('v-cac').textContent=usd(cac,0);
+  $('v-uso').textContent=Math.round(uso*100)+'%';
+  $('v-altas').textContent=ent(altas);
+  $('v-fijo').textContent=usd(fijo,0);
+
+  var iaPorCliente=TECHO_IA_97*uso;
+  var dejaUno=PLAN97-PLAN97*COBRAR-iaPorCliente;        // sin adquisición: el cliente ya está
+  var entra=PLAN97*cli;
+  var costoCobrar=entra*COBRAR;
+  var costoIa=iaPorCliente*cli;
+  var costoAltas=cac*altas;
+  var queda=entra-costoCobrar-costoIa-fijo-costoAltas;
+  var margen=entra>0?queda/entra*100:0;
+
+  // ── Resumen ──
+  $('resumen').innerHTML=[
+    ['m-neutro','Entra por mes',usd(entra,0),ent(cli)+' clientes de US$97'],
+    ['m-neutro','Cada cliente deja',usd(dejaUno),'ya sin cobrar ni IA, antes del fijo'],
+    [queda>=0?'m-bien':'m-mal','Queda en el bolsillo',usd(queda,0),queda>=0?Math.round(margen)+'% de lo que entra':'estás perdiendo'],
+    [costoAltas>0?'m-ojo':'m-bien','Adquirir este mes',usd(costoAltas,0),altas+' altas x '+usd(cac,0)]
+  ].map(function(t){return '<div class="t '+t[0]+'"><span class="r">'+t[1]+'</span><span class="n">'+t[2]+'</span><span class="c">'+t[3]+'</span></div>'}).join('');
+
+  var v=$('veredicto');
+  if(queda>=0){v.className='aviso a-bien';v.innerHTML='<b>Con estos números ganás '+usd(queda,0)+' al mes.</b> El gasto fijo ya está cubierto y te sobra. Cada cliente nuevo suma '+usd(dejaUno)+' limpios a partir del mes siguiente.'}
+  else{v.className='aviso a-mal';v.innerHTML='<b>Con estos números perdés '+usd(Math.abs(queda),0)+' al mes.</b> Te faltan '+Math.max(0,Math.ceil((fijo+costoAltas)/dejaUno)-cli)+' clientes para dar vuelta el mes, o bajar el gasto.'}
+
+  // ── El primer mes ──
+  var pm=PLAN97-PLAN97*COBRAR-iaPorCliente-cac;
+  $('primermes').innerHTML=
+    '<span class="et">entra el primer mes      </span>'+usd(PLAN97)+'\n'+
+    '<span class="et">− cobrar           </span>'+usd(-PLAN97*COBRAR)+'\n'+
+    '<span class="et">− su IA ('+Math.round(uso*100)+'% del cupo)   </span>'+usd(-iaPorCliente)+'\n'+
+    '<span class="et">− adquirirlo (una vez)   </span>'+usd(-cac)+'\n'+
+    '<span class="et">──────────────────────────────────</span>\n'+
+    '<span class="et">QUEDA                    </span><b class="'+signo(pm)+'">'+usd(pm)+'</b>';
+
+  var techo=PLAN97-PLAN97*COBRAR-iaPorCliente;
+  var t=$('techo');
+  t.innerHTML='<b>El techo del costo de adquisición es '+usd(techo)+'.</b> Por arriba de eso, un cliente entra perdiendo plata y recién la recupera en meses siguientes — que es exactamente lo que no querés. '+
+    'Con los US$97 que proyectábamos para Meta, cada alta arrancaba en <b class="neg">'+usd(techo-97)+'</b>. '+
+    'Con US$50 arranca en <b class="pos">'+usd(techo-50)+'</b>, y por orgánico en <b class="pos">'+usd(techo)+'</b>.';
+
+  // ── Tabla de clientes ──
+  var filas='';
+  [5,7,10,15,20,25,30,40,50,75,100].forEach(function(n){
+    var e=PLAN97*n, c=e*COBRAR, i=iaPorCliente*n, q=e-c-i-fijo;
+    var hito=(n===50)?' class="hito"':'';
+    filas+='<tr'+hito+'><td>'+ent(n)+(n===50?' ← tu meta':'')+'</td><td class="num">'+usd(e,0)+'</td><td class="num">'+usd(-c,0)+'</td><td class="num">'+usd(-i,0)+'</td><td class="num">'+usd(-fijo,0)+'</td><td class="num '+signo(q)+'">'+usd(q,0)+'</td></tr>';
+  });
+  $('tabla').innerHTML=filas;
+
+  var eq=dejaUno>0?Math.ceil(fijo/dejaUno):null;
+  var eqTodo=dejaUno>0?Math.ceil(1144/dejaUno):null;
+  $('equilibrio').className='aviso a-ojo';
+  $('equilibrio').innerHTML='<b>Punto de equilibrio: '+(eq!==null?ent(eq)+' clientes':'no alcanza con ninguna cantidad')+'</b> con el gasto fijo de '+usd(fijo,0)+'. '+
+    'Si en algún momento pagás también lo de Mauricio (US$1.144 en total), hacen falta <b>'+(eqTodo!==null?ent(eqTodo):'—')+'</b>. '+
+    'Y con tu meta de 50 clientes, el fijo representa sólo el '+Math.round(fijo/(PLAN97*50)*100)+'% de lo que entra.';
+
+  // ── Quién paga qué (de lib/costos-fijos.ts, 7/11) ────────────────────────
+  // [qué, para qué, US$/mes, vos, leandro, mauricio, nota]
+  var GASTOS=[
+    ['Claude × 4','Las cuentas que construyen MaKo. Cada plan Max 20x trae además US$200/mes de crédito de API',800,400,400,0,'a mitad con Leandro'],
+    ['Claude de Mauricio','La cuenta claude1, con su propio crédito de API',200,0,0,200,''],
+    ['Vercel','Donde corre la app',60,0,0,60,'piso medido US$54 + ~1 build/día; NO es la factura disparada de este mes'],
+    ['Supabase Pro','La base de datos',25,0,0,25,'⚠️ es el plan de la organización ENTERA, con 7 proyectos que no son MaKo'],
+    ['Railway','Evolution: el WhatsApp no oficial',21,0,0,21,''],
+    ['GitHub Actions','Los chequeos automáticos de cada punta',30,30,0,0,'⚠️ es el TOPE configurado, no el gasto real'],
+    ['App Store','La app de iPhone (US$99 al año, prorrateado)',8.25,8.25,0,0,'Google Play son US$25 UNA vez y ya están pagos']
+  ];
+  var sVos=0,sLea=0,sMau=0,sTot=0;
+  GASTOS.forEach(function(g){sVos+=g[3];sLea+=g[4];sMau+=g[5];sTot+=g[2]});
+  $('quienes').innerHTML=[
+    ['m-mal','Vos',usd(sVos,0),Math.round(sVos/sTot*100)+'% del total'],
+    ['m-ojo','Leandro',usd(sLea,0),Math.round(sLea/sTot*100)+'% — la mitad de las cuentas de Claude'],
+    ['m-neutro','Mauricio',usd(sMau,0),Math.round(sMau/sTot*100)+'% — su Claude y la infraestructura'],
+    ['m-neutro','Total',usd(sTot,0),'lo que cuesta MaKo por mes, en total']
+  ].map(function(t){return '<div class="t '+t[0]+'"><span class="r">'+t[1]+'</span><span class="n">'+t[2]+'</span><span class="c">'+t[3]+'</span></div>'}).join('');
+  $('gastos').innerHTML=GASTOS.map(function(g){
+    var c=function(v){return v>0?'<td class="num">'+usd(v,0)+'</td>':'<td class="num" style="color:var(--apagado)">—</td>'};
+    return '<tr><td><b>'+g[0]+'</b></td><td style="font-size:.9em;color:var(--tenue)">'+g[1]+(g[6]?'<br><span style="color:var(--apagado)">'+g[6]+'</span>':'')+'</td><td class="num">'+usd(g[2],0)+'</td>'+c(g[3])+c(g[4])+c(g[5])+'</tr>';
+  }).join('')+'<tr class="hito"><td>Total</td><td></td><td class="num">'+usd(sTot,0)+'</td><td class="num">'+usd(sVos,0)+'</td><td class="num">'+usd(sLea,0)+'</td><td class="num">'+usd(sMau,0)+'</td></tr>';
+  $('notagastos').innerHTML='<b>Lo que esto significa para el equilibrio.</b> Hoy pagás '+usd(sVos,0)+' y te alcanza con <b>'+(dejaUno>0?ent(Math.ceil(sVos/dejaUno)):'—')+' clientes</b>. '+
+    'Si en algún momento también pagaras lo de Mauricio ('+usd(sMau,0)+'), subís a <b>'+(dejaUno>0?ent(Math.ceil((sVos+sMau)/dejaUno)):'—')+'</b>. Y si además pagaras la parte de Leandro, a <b>'+(dejaUno>0?ent(Math.ceil(sTot/dejaUno)):'—')+'</b>. '+
+    'Con tu meta de 50 clientes, ninguno de los tres escenarios es un problema: el peor son '+usd(sTot,0)+' contra '+usd(PLAN97*50,0)+' que entran.';
+
+  // ── Planes ──
+  $('planes').innerHTML=[
+    ['US$47 — Pro',CLIPS_47+' clip de 10 s',usd(CLIPS_47*USD_CLIP),ent(IMG_47),ent(Math.ceil(TECHO_IA_47*1000/500)*500),usd(TECHO_IA_47)],
+    ['US$97 — Growth',MIN_97+' minutos ('+CLIPS_97+' clips)',usd(CLIPS_97*USD_CLIP),ent(IMG_97),ent(Math.ceil(TECHO_IA_97*1000/500)*500),usd(TECHO_IA_97)]
+  ].map(function(p){return '<tr><td><b>'+p[0]+'</b></td><td class="num">'+p[1]+'</td><td class="num">'+p[2]+'</td><td class="num">'+p[3]+'</td><td class="num">'+p[4]+' MT</td><td class="num">'+p[5]+'</td></tr>'}).join('');
+
+  $('cupos').className='aviso';
+  $('cupos').innerHTML='<b>Qué cambia respecto de hoy.</b> El cupo del plan de US$97 baja de 24.250 MT (US$24,25) a <b>'+ent(Math.ceil(TECHO_IA_97*1000/500)*500)+' MT ('+usd(TECHO_IA_97)+')</b>, '+
+    'y el de US$47 de 11.750 MT a <b>'+ent(Math.ceil(TECHO_IA_47*1000/500)*500)+' MT ('+usd(TECHO_IA_47)+')</b>. '+
+    'Con 50 clientes de US$97 eso son <b>'+usd((24.25-TECHO_IA_97)*50,0)+' menos de techo de gasto al mes</b>. '+
+    'Por arriba del cupo se compra con MaKo Tokens, a US$2 el clip suelto (US$12 el minuto), que deja 79% de margen.';
+
+  // ── Inversión ──
+  $('inversion').innerHTML=[
+    ['Orgánico (Instagram)',usd(0,0),usd(0,0),'en el acto'],
+    ['Meta a US$50 ← tu meta',usd(50,0),usd(50*50,0),(50/(techo)).toFixed(1)+' meses de un cliente'],
+    ['Meta a US$97 (lo viejo)',usd(97,0),usd(97*50,0),(97/(techo)).toFixed(1)+' meses de un cliente'],
+    ['MaKo Partner (1er mes)',usd(97,0),usd(97*50,0),(97/(techo)).toFixed(1)+' meses de un cliente']
+  ].map(function(r){return '<tr><td>'+r[0]+'</td><td class="num">'+r[1]+'</td><td class="num">'+r[2]+'</td><td class="num">'+r[3]+'</td></tr>'}).join('');
+
+  $('plan').innerHTML='<b>Por qué no salir el lunes con los US$1.700.</b> A US$97 por cliente, esos US$1.700 traen <b>17 clientes</b> '+
+    'y cada uno arranca en <b class="neg">'+usd(techo-97)+'</b>: el primer mes perdés <b>'+usd(Math.abs((techo-97)*17),0)+'</b> y recién lo recuperás con el tiempo. '+
+    'Empezando por orgánico cada cliente arranca en <b class="pos">'+usd(techo)+'</b> desde el día uno, y de paso medís qué avatar, qué razón de compra y qué funcionalidad convierten. '+
+    'Cuando sepas eso, los mismos US$1.700 a US$50 traen <b>34 clientes</b> en vez de 17, y cada uno rentable el primer mes.';
+}
+
+['cli','cac','uso','altas','fijo'].forEach(function(i){$(i).addEventListener('input',pintar)});
+['pas','imp'].forEach(function(i){$(i).addEventListener('change',pintar)});
+pintar();
+})();
+</script>

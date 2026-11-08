@@ -24,6 +24,53 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🚀 EL LANZAMIENTO ORGÁNICO — lo decidido el 7/11 y lo que lo frena
+
+Martín, 7/11: sale a prospectar con **orgánico primero** (2 reels + 1 carrusel por día), no con los
+US$1.700 de pauta que iba a poner el lunes. El motivo es aritmético y lo encontró él: **con un costo
+de adquisición de US$97, un cliente no es rentable el primer mes**, y su condición es serlo.
+
+### Los tres tableros, en el panel del costado
+
+`node docs/tableros/servir-numeros.mjs` → **4179** (los números), **4179/plan** (las landings y el
+contenido), **4179/estrategia** (las tres fases y la cadena). Detalle en
+[docs/tableros/LEEME.md](tableros/LEEME.md).
+
+### ⛔ LO QUE FRENA TODO: el eslabón 4 está roto
+
+La cadena del orgánico tiene 7 eslabones. El 4 —«tocan el botón y reciben el link»— **está roto
+hoy** (ticket #63 de Leandro: del 5 al 7/11, **9 de 10 personas tocaron y no recibieron nada**).
+
+Está justo después de los tres que cuestan trabajo y justo antes de los dos que dan plata: **todo lo
+que se invierta en grabar y publicar se tira ahí**. Y peor que perder la venta: un reel que genera
+comentarios sin respuesta **se quema dos veces**, porque el comentario es la señal que le dice a
+Instagram que vale la pena mostrarlo.
+
+**Lo que falta para cerrarlo:** leer en los logs de producción qué error devuelve el envío de
+Instagram. Todo lo demás está diagnosticado en [ticket-63-diagnostico.md](ticket-63-diagnostico.md).
+**Pedido a Martín dos veces, sin respuesta todavía.**
+
+### Los números que cambiaron el 7/11
+
+| | Antes | Ahora |
+|---|---:|---:|
+| Costo de cobrar | 15% (todo junto) | **1,80%** por Mercado Pago a 35 días — el impuesto va aparte y hoy lo paga Leandro |
+| Techo de IA por cliente de US$97 | US$24,25 | **US$11,09** con los cupos nuevos (4 min en vez de 36 clips) |
+| Deja cada cliente | US$79,68 | **US$92,48** |
+| Techo del costo de adquisición | — | **US$92,48** para ser rentable el primer mes |
+
+### Lo que espera a Martín
+
+1. **Permiso para leer los logs de producción** y cerrar el eslabón 4. Es lo único que lo separa.
+2. **Cómo cobra afuera.** El Stripe prestado de Leila la expone a que se lo congelen (Stripe prohíbe
+   procesar para un negocio que no es el titular, y acaba de pasar con Creem). Transferencia o
+   Binance no expone a nadie, hasta que conteste Whop, Paddle o Lemon Squeezy.
+3. **Aplicar los cupos nuevos** (1 clip en el de US$47, 4 minutos en el de US$97): cambia lo que
+   reciben los clientes que ya pagan.
+4. **Los 8 tickets trabados**, dos de Leandro y de ayer.
+
+---
+
 ## ✅ YA LLEGA A MAIN — el tope de Actions se destrabó (comprobado el 7/11 ~17:00 UTC)
 
 Este bloque decía «nada llega a main desde las 02:08 UTC» y **ya no es cierto**. Comprobado con tres
