@@ -221,3 +221,40 @@ comercial, la licencia de salida viene con el plan, y clona en el momento sin in
 ⚠️ **La foto tiene que estar en una URL http(s):** `/v1/videos/generations` de ApiMart rechaza
 `data:`. La ruta de imágenes sí las acepta, así que una prueba hecha con imágenes no prueba nada
 sobre video.
+
+## ✅✅ LO QUE FALTABA, VISTO EN FLOW EL 8/11: el avatar captura CARA Y VOZ juntas
+
+Martín: «no me termina de convencer el clip que hiciste con la voz… debe haber alguna metodología que
+no estemos utilizando». **La hay, y está adentro de Flow.**
+
+En el selector de recursos de un proyecto, pestaña **Avatars**, dice textual: **«Your face, your
+voice, your story»**. Graba un **video selfie** diciendo unas palabras y **captura el parecido y la
+voz en el mismo paso**.
+
+**Por qué esto es mejor que lo que veníamos haciendo, y no es una opinión:** nosotros generábamos el
+clip con la voz del modelo y después CONVERTÍAMOS el timbre (ElevenLabs STS, freevc24, knnvc). Eso
+parte de audio **sintético**, y convertir de sintético a una voz real tiene un techo que ningún
+conversor rompe — está medido más arriba en este mismo documento. Con el avatar de Flow **no hay paso
+de conversión**: el video se genera ya con la voz capturada.
+
+⚠️ **Dos límites que avisa la propia pantalla:**
+- Es **experimental** y «might take a few attempts».
+- **La captura es SÓLO en inglés.** Las palabras de la captura van en inglés; eso no impide que el
+  avatar después hable en español, pero el paso de captura no se puede hacer en otro idioma.
+
+⚠️ **Lo tiene que grabar la persona**: necesita su cámara y su voz. No se puede automatizar ni
+reemplazar con un video viejo subido.
+
+### Lo demás que se vio en Flow el 8/11
+
+- **«Voices» NO clona**: es un catálogo de voces sintéticas con nombre (Achernar, Achird, Algenib…),
+  cada una con su descripción, más un campo libre para describir la interpretación. Sirve para una voz
+  en off, no para la propia.
+- El modelo de imagen de Flow es **🍌 Nano Banana 2.1**, el mismo que usamos por ApiMart
+  (`MODELO_QUE_CONSERVA`). O sea que la imagen sale igual por los dos lados.
+- **Omni 1.2 Flash** es de Flow, y de ahí viene el nombre que usa Martín. Su changelog menciona
+  extensión de video con **referencias de imagen, personaje Y VOZ**.
+- ⚠️ **La cuenta avisa que queda poco crédito de Flow.**
+- ⚠️ **Subir archivos a Flow necesita el clic de la persona**: el `input[type=file]` no existe hasta
+  que se toca el botón, y simular `drop` con un `DataTransfer` **no lo toma** (probado el 8/11 con las
+  dos referencias ya en URLs públicas). Para una prueba con material propio, lo sube Martín.
