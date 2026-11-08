@@ -52,7 +52,27 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
             filtros: filtrosDeQuery(q),
             filtrosThumbnails: filtrosThumbnailDeQuery(q),
           }
-          : explorador ? { error: true } : null} />
+          // ⚠️ SI FALLA LA LECTURA DE CARRUSELES, LAS MINIATURAS NO SE TIRAN (8/11/2026).
+          // Antes un `!ok` del explorador devolvía `{ error: true }` y con eso se descartaba TODO,
+          // incluidas unas miniaturas que se habían leído bien. Y no tienen por qué caer juntas:
+          // los carruseles salen de los datos de Spy DEL NEGOCIO y las miniaturas son una
+          // biblioteca GLOBAL de la plataforma. Un problema con lo primero dejaba inalcanzable una
+          // pestaña sana. Lo encontró la revisión de `punta/carruseles-thumbnails`.
+          // Se arma un explorador vacío con el aviso: la pantalla ya sabe dibujar «no hay nada»
+          // con su selector de pestañas y «Crear desde cero».
+          : explorador && thumbnails && thumbnails.ok
+            ? {
+              datos: {
+                carruseles: [], guardados: [], busquedas: [], paso: 'listo' as const,
+                frase: 'No pude leer los carruseles de ejemplo.', accion: null, ejemplos: 0,
+                avisoBiblioteca: 'No pude leer los carruseles de ejemplo. Las miniaturas de YouTube sí están.',
+                anuncios: 0,
+                thumbnails: { ok: true as const, lista: thumbnails.thumbnails, guardados: thumbnails.guardados, sinTablas: thumbnails.sinTablas },
+              },
+              filtros: filtrosDeQuery(q),
+              filtrosThumbnails: filtrosThumbnailDeQuery(q),
+            }
+            : explorador ? { error: true } : null} />
     </Pagina>
   );
 }
