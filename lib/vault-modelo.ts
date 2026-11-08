@@ -141,6 +141,9 @@ export function archivoDeNodo(n: NodoCerebro, cerebro: Cerebro, nombres?: Map<st
       area: area?.nombre ?? n.area,
       origen: AUTORIA_TEXTO[n.autoria],
       fuente: n.fuente || undefined,
+      // Dónde se edita, cuando no es en el propio cerebro. Mismo hueco que tenía la búsqueda de
+      // MaKo (lib/api-mako/areas/negocio.run.ts): el dato estaba y no salía por ningún lado.
+      se_edita_en: n.abrirEn || (n.href ? n.href : undefined),
       conexiones: vecinos.length,
     }) + cuerpo + '\n',
   };

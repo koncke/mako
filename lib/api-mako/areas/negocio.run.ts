@@ -648,6 +648,15 @@ export const RUNNERS: Runners = {
         resultados: hallados.slice(0, TOPE_RESULTADOS_CEREBRO).map((n) => ({
           id: n.id, area: nombreArea(n.area), etiqueta: n.etiqueta, detalle: recorte(n.detalle, 600), fuente: n.fuente || null,
           quien: n.autoria === 'mako' ? 'lo dedujo MaKo' : n.autoria === 'usuario' ? 'lo escribió el dueño' : 'todavía no existe',
+          // ⚠️ DÓNDE SE EDITA ESTE DATO. El nodo YA lo trae (`href`/`abrirEn`,
+          // lib/cerebro-modelo.ts:193) y la barra lateral del grafo lo usa desde siempre, pero esta
+          // proyección lo tiraba: MaKo leía el dato y no veía la pantalla que lo edita. Por eso le
+          // contestó a Leila «la ruta exacta para editar esos datos no la tengo confirmada, y
+          // prefiero no inventarte un menú que no existe» (ticket #48, 3/11/2026) sobre algo que
+          // tenía en la mano. Sus tickets #46, #47 y #48 —treinta minutos— salen todos de acá.
+          // Un dato sin su pantalla obliga a MaKo a elegir entre inventar una ruta o decir «no sé»,
+          // y las dos respuestas son malas.
+          se_edita_en: n.href ? { pantalla: n.abrirEn ?? null, link: n.href } : null,
           datos: (n.datos ?? []).filter((d) => d.v?.trim()).map((d) => ({ [d.k]: recorte(d.v, 300) })),
         })),
         total: hallados.length,

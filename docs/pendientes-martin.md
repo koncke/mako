@@ -530,6 +530,38 @@ que hay que verificar antes de tocar).
 
 ---
 
+### 🎫 Tickets #46, #47 y #48 (Leila) — ✅ HECHO: era UN hueco, no tres (8/11/2026)
+
+Los tres los levantó MaKo sola, de Leila Fittipaldi (ws 11, plan Completo), **en treinta minutos**
+la noche del 3/11. Los tres dicen «MaKo no pudo». El peor es el #48: Leila preguntó *«¿y dónde
+actualizo mis datos?, porque hay varios datos que se modificaron, como por ejemplo el 7 a 9 es
+7.30 a 9.30pm»* y MaKo contestó *«la ruta exacta para editar esos datos no la tengo confirmada, y
+prefiero no inventarte un menú que no existe»*.
+
+**El dato estaba y MaKo no lo veía.** `NodoCerebro` trae `href` y `abrirEn` —dónde se edita— desde
+siempre (`lib/cerebro-modelo.ts:193`), y la barra lateral del grafo los usa para su «Abrir en
+<abrirEn>». Lo que fallaba eran **las dos proyecciones por las que MaKo lee el cerebro**, que los
+tiraban: la búsqueda (`lib/api-mako/areas/negocio.run.ts`) y el vault (`lib/vault-modelo.ts`).
+MaKo veía el VALOR del dato y no la pantalla que lo edita, así que le quedaban dos salidas y las
+dos son malas: inventar una ruta, o decir que no sabe. Eligió bien, pero la pregunta se queda sin
+responder igual.
+
+Arreglado: las dos proyecciones llevan `se_edita_en`, sacado del nodo y no cableado.
+`tests/cerebro-donde-se-edita.test.ts` **3/3**, probado rompiéndolo tres veces (cada rotura lo pone
+en rojo y el test vuelve a verde al restaurar).
+
+⚠️ **Lo que NO arregla esto, y hay que mirarlo aparte:** el #46 (cambiar el precio de MXN a USD) y
+el #47 (crear una secuencia de nutrición con disparador por etiqueta) son pedidos de **hacer**, no
+de saber dónde. `negocio.def.ts:652` ya PROPONE crear o editar una oferta con su precio y devuelve
+un link para confirmarla; `crm.def.ts:1063` hace lo mismo con un producto del catálogo. Falta que
+la respuesta ofrezca ese camino en vez de negar — es el mismo arreglo que pedía el ticket #45.
+
+⚠️ Y Leila tiene **un dato desfasado de verdad**, que ningún código arregla: su perfil dice
+**800 MXN/mes** y el producto «LíderMente» del catálogo dice **USD 49/mes**; «Qué incluye» dice
+7-9 pm y el producto dice 7:30-9:30. Lo marcó MaKo sola. Hay que resolverlo CON ella.
+
+---
+
 ## 🚨 LO PRIMERO AL ENTRAR — 3/11/2026 ~03:45, cuenta claude1 al 100 %
 
 > ✅ **RESUELTO. Lo de abajo es del 3/11 y queda por lo que enseña, no porque siga pasando.** El
