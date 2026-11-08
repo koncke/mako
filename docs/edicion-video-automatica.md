@@ -796,3 +796,36 @@ Si hacen falta pausas, hay que generar **un pedazo por bloque** y colocarlos a m
 
 **El paso que NUNCA se va a poder automatizar:** «Verify your voice» pide grabar al dueño leyendo
 líneas en pantalla, con su micrófono. Todo lo anterior —nombre, idioma, acento, muestras— sí.
+
+## El clonado profesional, hecho de punta a punta (8/11/2026) — `I2d6BR9P2dAopVw1khNv`
+
+**Resuelve el dilema de arriba: con el clon PROFESIONAL el voice-to-voice suena a él Y los labios
+calzan.** Medido contra los bloques de Omni: **0 ms, 10 ms y 110 ms**. Es el camino bueno para
+poner la voz de alguien sobre un clip generado.
+
+| | |
+|---|---|
+| Voz | `I2d6BR9P2dAopVw1khNv` — «Martin Koncke», categoría `professional` |
+| Muestras | 10 archivos, **37 min**: el monólogo de WhatsApp del 8/10 22:58 en tramos de 5 min + las 4 notas en registro |
+| Idioma / acento | **Spanish / Argentine** (venía en English, que es el default) |
+
+### ⚠️ Lo que NO coincide con los docs, medido
+
+1. **Tardó ~25 minutos, no «3 a 24 horas».** Los docs dicen 3-6 h (FAQ) o 6-24 h (estado). No hay
+   que planificar la tarde alrededor de eso: se mide.
+2. **La web MIENTE mientras entrena.** `/app/create-voice` sigue diciendo «No slots available ·
+   1 draft voice» con el clon ya entrenando y después entrenado. **El estado real es
+   `fine_tuning.state` de `GET /v1/voices/<id>`**, y es lo único que hay que mirar.
+3. ⚠️ **`eleven_multilingual_sts_v2` arranca en la lista de modelos y DESAPARECE.** Al crear la voz
+   estaba en `fine_tuning.state` con `fine_tuning`; al terminar, los 14 modelos quedaron
+   `fine_tuned` y **ése ya no figura en la lista**. No da error ni queda en «fallido»: se va.
+   **Y sin embargo el STS anda igual con la voz profesional** — se probó, no se supuso. O sea que
+   un modelo ausente del estado NO significa que no se pueda usar. El estado no alcanza: hay que
+   llamar a la API y escuchar.
+4. **La verificación se puede vencer por tiempo.** El primer intento de Martín falló con
+   `Time limit for voice verification exceeded`; el segundo entró. `verification_attempts_count`
+   y `verification_failures` lo cuentan, y los docs dicen que tras varios fallos hay que esperar
+   24 h. **Conviene mirar esos dos campos antes de dar la verificación por hecha.**
+
+Para vigilar el entrenamiento sin preguntarle a nadie: `scratchpad/walter/vigilar-pvc.mjs`
+—consulta cada 10 min y termina sola cuando los modelos que importan quedan `fine_tuned`—.
