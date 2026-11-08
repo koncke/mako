@@ -1041,3 +1041,28 @@ ritmo es el de Omni**, así que los labios calzan por construcción (medido ante
 ⚠️ **La lección: cuando aparece un parámetro nuevo, hay que volver a probar lo que se había
 descartado antes de conocerlo.** El STS estaba descartado por una medición hecha con un clon peor y
 sin este ajuste. Un camino cerrado con información vieja no está cerrado.
+
+### ⚠️ Y faltaba el más tonto: TODO salía a 128 kbps
+
+Barrí `stability` y `clone_strength` en el voice-to-voice y di por agotado el endpoint. **No lo
+estaba**: nunca había mandado `output_format`, así que todo salió en el default `mp3_44100_128`.
+El plan Creator habilita **`mp3_44100_192`**, y en una voz CONVERTIDA —que ya pasó por un modelo—
+esos 64 kbps de más se escuchan.
+
+**La lista completa de lo que acepta `/v1/speech-to-speech`, leída de la referencia y probada:**
+
+| | |
+|---|---|
+| `output_format` | `mp3_44100_192` anda con Creator (PCM y WAV a 44,1 kHz piden **Pro**) |
+| `voice_settings` | `stability`, `similarity_boost`, `clone_strength` y también **`style`**, que no está documentado para STS pero el endpoint lo acepta |
+| `seed` | lo acepta (0 a 4.294.967.295), «best-effort», igual que en TTS |
+| `remove_background_noise` | anda, pero no cambió nada: el origen es sintético, no tiene ruido |
+| `file_format: pcm_s16le_16` | exige PCM 16 bits / **16 kHz** mono: es BAJAR el origen, no subirlo |
+| `optimize_streaming_latency` | deprecado, y cambia calidad por latencia: no tocar |
+
+Con `clone_strength` 1,0, `stability` 0,8 y `similarity_boost` 0,8 a 192 kbps, la salida mide
+**128 Hz** — el tono real de Martín, clavado.
+
+⚠️ **LA REGLA: antes de decir «no queda nada que tocar», traer la lista de parámetros del endpoint
+y marcar cuáles se probaron.** Barrí los dos que ya conocía y conté el resto como inexistente. El
+que faltaba no era sutil: era el que gobierna la calidad del archivo.
