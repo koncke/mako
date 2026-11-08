@@ -1909,7 +1909,7 @@ export function pisoDeGuionYt(segundos: number | null | undefined): number {
  */
 export async function guionDeYoutubeConGemini(
   url: string,
-  tramo: { desdeS: number; hastaS: number } | null,
+  tramo: { desdeS: number; hastaS: number; tope?: boolean } | null,
   opts: { feature: string; motivo: string; idioma?: string; duracionS?: number | null },
 ): Promise<GuionDeYoutube> {
   await exigirPermisoIa();
@@ -1929,7 +1929,12 @@ export async function guionDeYoutubeConGemini(
   let saturados = 0;
   let intentos = 0;
   // Lo que dura lo que se pidió: el tramo, o el video entero si quien llama sabe cuánto dura.
-  const piso = pisoDeGuionYt(tramo ? tramo.hastaS - tramo.desdeS : opts.duracionS);
+  // ⚠️ UN TRAMO «tope» NO TIENE PISO. Cuando YouTube no da la duración se pide una ventana de 10
+  // minutos como TECHO (lib/spy-transcripcion.ts, `tramosDeYoutube`), pero el video puede durar dos:
+  // calcularle el piso a la ventana le exige 6.000 caracteres a un guion que ya está completo.
+  const piso = tramo
+    ? (tramo.tope ? 0 : pisoDeGuionYt(tramo.hastaS - tramo.desdeS))
+    : pisoDeGuionYt(opts.duracionS);
   // El mejor guion que no llegó al piso: si ninguno lo pasa, es lo que se devuelve (con `corto`).
   let mejorCorto: { texto: string; tokens: number } | null = null;
   // ⚠️⚠️ PRESUPUESTO DE RELOJ (8/11/2026). La ruta que llama tiene `maxDuration = 800` y pide hasta

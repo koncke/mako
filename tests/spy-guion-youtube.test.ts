@@ -106,7 +106,11 @@ test('1. un video de YouTube tiene guion, con su enlace; los tramos salen de su 
   assert.deepEqual(tramosDeYoutube('PT2H'), {
     tramos: [{ desdeS: 0, hastaS: 600 }, { desdeS: 600, hastaS: 1200 }, { desdeS: 1200, hastaS: 1800 }], cortado: true,
   }, 'uno de dos horas: los primeros 30 minutos');
-  assert.deepEqual(tramosDeYoutube(null), { tramos: [{ desdeS: 0, hastaS: 600 }], cortado: null }, 'sin duración: un tramo, sin afirmar que sigue');
+  // ⚠️ `tope: true` — la ventana de 10 minutos acá es un TECHO, no un largo medido, y eso cambia el
+  // piso: sin la marca, un video de dos minutos ya transcripto entero quedaba debajo de un piso
+  // calculado sobre diez, volvía marcado `corto` («puede faltar parte» sobre un guion completo) y
+  // se reintentaba con cada modelo (8/11/2026, revisión de `punta/nada-por-detras`).
+  assert.deepEqual(tramosDeYoutube(null), { tramos: [{ desdeS: 0, hastaS: 600, tope: true }], cortado: null }, 'sin duración: un tramo TECHO, sin afirmar que sigue');
 });
 
 test('2. la primera vez: una del tope, los tramos de a uno, el guion entero y hasta dónde llegó', async () => {

@@ -100,10 +100,17 @@ export function segundosDeDuracion(d: string | null | undefined): number | null 
  * Los tramos que se le piden a Gemini. Uno corto, entero: `[null]`. Uno largo, de a `TRAMO_YT_S` hasta `MAX_YT_S`, y `cortado` dice
  * que hay más. Sin la duración, el primer tramo: no se paga un video de horas a ciegas.
  */
-export function tramosDeYoutube(duracion: string | null | undefined): { tramos: Array<{ desdeS: number; hastaS: number } | null>; cortado: boolean | null } {
+export function tramosDeYoutube(duracion: string | null | undefined): { tramos: Array<{ desdeS: number; hastaS: number; tope?: true } | null>; cortado: boolean | null } {
   const s = segundosDeDuracion(duracion);
   // Sin la duración no se sabe si sigue: `cortado` null (y se dice hasta dónde se transcribió, que es verdad igual).
-  if (s == null) return { tramos: [{ desdeS: 0, hastaS: TRAMO_YT_S }], cortado: null };
+  // ⚠️⚠️ `tope: true` — ESTA VENTANA ES UN TECHO, NO UN LARGO MEDIDO. Es la diferencia que faltaba:
+  // sin la duración se pide «de 0 a 10 minutos» para no pagar un video de horas a ciegas, pero el
+  // video puede durar DOS minutos. Sin esta marca, `guionDeYoutubeConGemini` le calculaba el piso a
+  // los 10 minutos —6.000 caracteres— y entonces un guion COMPLETO de un video corto quedaba debajo
+  // del piso: volvía marcado `corto` (el cliente leía «puede faltar parte» sobre un guion entero) y
+  // encima se reintentaba con cada modelo, 2 a 4 pedidos de más a Gemini por un video que ya estaba
+  // transcripto. Tres hallazgos de la revisión de `punta/nada-por-detras`, un solo origen.
+  if (s == null) return { tramos: [{ desdeS: 0, hastaS: TRAMO_YT_S, tope: true }], cortado: null };
   if (s <= TRAMO_YT_S) return { tramos: [null], cortado: false };
   const fin = Math.min(s, MAX_YT_S);
   const tramos: Array<{ desdeS: number; hastaS: number }> = [];
@@ -178,7 +185,7 @@ export type ResultadoTramoYt =
 /** El trabajo de un video de YouTube: no hay video que bajar, lo transcribe Gemini desde su enlace. */
 export type DepsGuionYoutube = Pick<DepsGuion, 'leer' | 'cambiarSi' | 'nuevoIntento'> & {
   /** UN tramo (null = el video entero, que dura `duracionS` si se sabe), con el Gemini del negocio. */
-  youtube: (url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null) => Promise<ResultadoTramoYt>;
+  youtube: (url: string, tramo: { desdeS: number; hastaS: number; tope?: true } | null, duracionS?: number | null) => Promise<ResultadoTramoYt>;
   /** Una del tope del día del negocio (`GUIONES_YT_POR_DIA`, contado en la base). false = se acabó por hoy. */
   reservarDia: () => Promise<boolean>;
 };

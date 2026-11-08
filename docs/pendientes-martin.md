@@ -518,7 +518,16 @@ La regla que queda: **un solo «(vacío)» es una sospecha; todos de acuerdo es 
 cambiar el comportamiento que un test afirma, hay que leer POR QUÉ lo afirma — estaba escrito en su
 propio comentario.
 
-**Los 4 `rompe-cliente` están cerrados. Quedan 16 abiertos**, en los documentos de área.
+**✅ Y tres más, de un solo origen** (`promete-y-no-hace`, los tres unánimes): cuando YouTube no da
+la duración se pide una ventana de 10 minutos **como techo**, para no pagar un video de horas a
+ciegas — pero el video puede durar dos. El piso se calculaba sobre la ventana (6.000 caracteres),
+así que un guion **COMPLETO** de un video corto quedaba debajo: el cliente leía «puede faltar parte»
+sobre un guion entero, y encima se reintentaba con cada modelo, 2 a 4 pedidos de más a Gemini por un
+video que ya estaba transcripto. Ahora el tramo lleva `tope: true` y un tramo techo no tiene piso.
+`tests/guion-yt-tramo-tope.test.ts` 3/3, probado rompiéndolo tres veces.
+
+**Los 4 `rompe-cliente` están cerrados, y 3 `promete-y-no-hace` también. Quedan 13 abiertos**, en
+los documentos de área.
 
 ---
 
