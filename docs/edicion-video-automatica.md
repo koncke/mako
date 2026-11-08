@@ -932,28 +932,39 @@ profesional sin estirar, arrancando en 1,115. Quedan diferencias en las pausas I
 frasea distinto que Omni— y eso sólo lo arregla una pasada de lipsync, que necesita saldo.
 Receta: `scratchpad/walter/v4-entero.mjs`.
 
-## ⚠️⚠️ `clone_strength` VIENE EN 0 Y ES LO QUE DECIDE SI SUENA A LA PERSONA (8/11/2026)
+## ⚠️ `clone_strength` existe, pero NO gobierna el registro — y cómo me engañé solo (8/11/2026)
 
-**El parámetro que faltaba en todo el día de intentos.** Existe **sólo para clones profesionales
-fine-tuneados**, va en `voice_settings` de CADA pedido de `/v1/text-to-speech`, y **su default es 0**.
-Medido sobre la voz profesional de Martín (`I2d6BR9P2dAopVw1khNv`), misma línea, misma seed:
+**Esta sección corrige lo que yo mismo escribí acá una hora antes.** Había anunciado que
+`clone_strength` era «el parámetro que faltaba». **No lo es**, y la forma en que me equivoqué vale
+más que el dato.
 
-| `clone_strength` | tono de salida |
-|---|---|
-| **1,0** | **128 Hz — su voz real, clavada** |
-| 0,7 | 139 Hz |
-| **0,0 (el default)** | **150 Hz** |
-| `use_pvc_as_ivc: true` | 148 Hz |
+Lo que es cierto: el parámetro **existe**, va en `voice_settings` de CADA pedido de
+`/v1/text-to-speech`, aplica **sólo a clones profesionales fine-tuneados para v4** (en v3,
+multilingual_v2, flash y turbo da HTTP 400 duro), y **no se puede guardar** en
+`/v1/voices/{id}/settings/edit`: ese endpoint devuelve ok y lo **descarta en silencio**.
 
-Es monótono y limpio: **el parámetro gobierna el registro entero.** Todo lo que generé antes salía
-20 Hz arriba porque corría con el default.
+Lo que NO es cierto: que baje el tono. **Medí UNA toma por valor** y salió una escalera preciosa
+—1,0 → 128 Hz, 0,7 → 139, 0,0 → 150— que conté como un hecho. Con **tres tomas por valor**:
 
-⚠️ **No se puede guardar en `/v1/voices/{id}/settings/edit`**: ese endpoint devuelve ok y lo
-**descarta en silencio**. Va en el body de cada generación.
+| `clone_strength` | las tres tomas | mediana |
+|---|---|---|
+| 1,0 | 133, 137, **152** | 137 |
+| 0,5 | **155**, 140, 147 | 147 |
+| 0,0 | **154**, 142, 143 | 143 |
 
-⚠️ **Y por eso nunca apareció antes:** sólo existe para PVC, y el clon profesional se entrenó hoy.
-Con un clon instantáneo el parámetro no hace nada, así que ninguna de las pruebas de la mañana podía
-encontrarlo.
+**La variación DENTRO de un mismo valor (133-152) es mayor que la diferencia ENTRE valores.** El
+128 Hz que festejé era el extremo bajo del ruido. Queda una tendencia leve a bajar, pero está
+adentro del error con n=3.
+
+⚠️⚠️ **LA REGLA, que es lo que de verdad se aprende acá: una generación de IA es ALEATORIA, así que
+UNA medición no mide un parámetro, mide una tirada.** Antes de decir que un ajuste hace algo, hay
+que repetirlo al menos tres veces por valor y comparar la dispersión interna contra la diferencia
+entre valores. Si la interna es más grande, no hay efecto que reportar. Esto vale para cualquier
+parámetro de cualquier modelo generativo, no sólo para la voz.
+
+(Lo cazó la fase de refutación de la investigación: tres refutadores independientes contra cada
+afirmación del plan. **Cuatro de cinco afirmaciones cayeron**, incluida ésta. Sin esa fase, le
+habría pasado a Martín cuatro datos falsos con cara de medidos.)
 
 ### ⚠️⚠️ Y LO MÁS CARO DEL DÍA: EL CLIP NO TENÍA LABIOS
 
@@ -961,6 +972,10 @@ Pasé el día entero peleando la voz y el calce de labios de `scratchpad/walter/
 **Miré los cuadros recién al final.** El clip no es un avatar hablando: es el póster «best font
 Pairings» animado — **dos personas de PERFIL** dándose la mano en un desierto, con el título encima.
 La cabeza del que habla ocupa **~2,3% del cuadro** y la boca cae sobre el borde del silueteado.
+
+⚠️ **Lo que SÍ salió bien, y conviene no perderlo:** el pelirrojo del clip **es Martín** —mismo
+pelo rulo rojo, mismos lentes negros rectangulares que en su foto—. El reemplazo de Mauricio por él
+funcionó. El problema es el ENCUADRE, no el parecido.
 
 **No había labios que sincronizar.** Las nueve pruebas de audio de ese día —STS, stability, pitch
 del origen, pitch de la salida, partir por bloques, acortar el copy— atacaban un problema que no
