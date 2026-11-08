@@ -504,6 +504,20 @@ modelo con otra clave: duplica el gasto del negocio para recibir casi siempre lo
 cuenta queda para lo que sí lo necesita, saturación y errores duros, que fallan rápido.
 `tests/guion-yt-plazo.test.ts` 4/4, probado rompiéndolo tres veces.
 
+⚠️ **Y una corrección mía, que costó tres corridas rojas y vale más que el arreglo.** Para que «No
+tiene voz» fuera alcanzable, lo primero que hice fue lo obvio: *si Gemini contesta `(vacío)`,
+devolvé en el acto*. **Está mal, y el repo ya lo sabía**: con piso, un solo `(vacío)` NO se cree
+—está medido que Gemini lo contesta de más— y preguntarle al otro modelo recupera el guion de
+verdad. Eso lo fijaba el caso M de `tests/spy-guion-youtube.test.ts`, que mi versión puso en rojo.
+
+**Lo roto era el otro lado:** cuando TODOS los modelos coinciden en `(vacío)`, el guion volvía
+marcado `corto` igual, y el cliente leía «puede faltar parte» sobre un video donde no se dice nada.
+La regla que queda: **un solo «(vacío)» es una sospecha; todos de acuerdo es un hecho.**
+
+⚠️ **Y la lección de método: un test que estorba suele estar defendiendo algo medido.** Antes de
+cambiar el comportamiento que un test afirma, hay que leer POR QUÉ lo afirma — estaba escrito en su
+propio comentario.
+
 **Los 4 `rompe-cliente` están cerrados. Quedan 16 abiertos**, en los documentos de área.
 
 ---

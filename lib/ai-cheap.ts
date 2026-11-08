@@ -1942,6 +1942,15 @@ export async function guionDeYoutubeConGemini(
   // Lo confirmó la revisión de `punta/nada-por-detras`. El comentario de la ruta todavía dice
   // «hasta 3 × 170 s», que era verdad cuando se escribió: un pedido por tramo.
   const finDelPlazo = Date.now() + PRESUPUESTO_GUION_YT_MS;
+  // ⚠️ TODOS LOS MODELOS DE ACUERDO EN «(vacío)» ES «NO TIENE VOZ»; UNO SOLO, NO (8/11/2026).
+  // La instrucción le pide a Gemini esa palabra exacta cuando el video no tiene voz. Pero está medido
+  // que también la contesta de más, así que con piso no se le cree al primero: el otro modelo lo
+  // recupera (el caso M de tests/spy-guion-youtube.test.ts). Lo que estaba roto era el OTRO lado: si
+  // TODOS contestaban «(vacío)», el guion volvía marcado `corto` igual, y entonces el cliente leía
+  // «puede faltar parte» sobre un video donde no se dice nada — «No tiene voz: es sólo música o
+  // imagen» era inalcanzable con piso. Confirmado por la revisión de `punta/nada-por-detras`.
+  let vacios = 0;
+  let bajoElPiso = 0;
   // «Vino corto» con todos los modelos de una cuenta: no se prueba con OTRA cuenta (abajo, el porqué).
   let cortoEnEstaCuenta = false;
   for (const p of provs) {
@@ -1986,24 +1995,14 @@ export async function guionDeYoutubeConGemini(
       void recordUsage(opts.feature, model,
         { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
         opts.motivo, 'gemini', nroCuenta(p));
-      // ⚠️⚠️ «(vacío)» ES UNA RESPUESTA COMPLETA, NO UNA CORTA — Y SE CORTA ACÁ (8/11/2026).
-      // La instrucción le pide a Gemini exactamente esa palabra cuando el video no tiene voz («sólo
-      // música o imagen»). Antes se traducía a `''` y caía en la comparación con el piso: como el piso
-      // es > 0 para cualquier video del que se sepa la duración, `0 >= piso` siempre daba falso, así que
-      // un video MUDO seguía probando **cada modelo y después cada cuenta**, pagando todas, para
-      // terminar devolviendo lo mismo marcado `corto`. Dos cosas rotas de un solo origen, las dos
-      // confirmadas por la revisión de `punta/nada-por-detras`:
-      //   · el costo se multiplicaba por modelos × cuentas, y el tope del día no lo frena;
-      //   · «No tiene voz: es sólo música o imagen» quedaba INALCANZABLE: el cliente recibía
-      //     «el guion puede estar incompleto» sobre un video donde no hay nada que transcribir.
-      // Un modelo que contesta la palabra convenida ya contestó. Preguntarle a otro es gastar por
-      // desconfiar de una respuesta correcta.
-      if (texto === '(vacío)') return { ok: true, texto: '', tokens: u?.totalTokenCount ?? 0 };
-      const limpio = texto;
-      // ⚠️ `finishReason=STOP` NO PRUEBA QUE TERMINÓ: debajo del piso, el otro modelo (y si no, otra cuenta).
+      const limpio = texto === '(vacío)' ? '' : texto;
+      // ⚠️ `finishReason=STOP` NO PRUEBA QUE TERMINÓ: debajo del piso, el otro modelo (y si no, otra cuenta). «(vacío)» también:
+      // con piso, UN solo «(vacío)» no se cree —está medido que Gemini lo contesta de más— y el otro modelo lo recupera.
       if (limpio.length >= piso) return { ok: true, texto: limpio, tokens: u?.totalTokenCount ?? 0 };
       ultimo = `el guion vino corto (${limpio.length} caracteres de ${piso} como mínimo, ${model})`;
       if (!mejorCorto || limpio.length > mejorCorto.texto.length) mejorCorto = { texto: limpio, tokens: u?.totalTokenCount ?? 0 };
+      bajoElPiso += 1;
+      if (texto === '(vacío)') vacios += 1;
       cortoEnEstaCuenta = true;
     }
     // ⚠️ «VINO CORTO» NO SE REINTENTA CON OTRA CUENTA. Probar el otro MODELO tiene sentido —uno
@@ -2013,6 +2012,8 @@ export async function guionDeYoutubeConGemini(
     // que son los `continue` y los `break` de arriba y fallan rápido.
     if (cortoEnEstaCuenta) break;
   }
+  // Todos los que contestaron coincidieron en «(vacío)»: no es un guion incompleto, es que no hay voz.
+  if (bajoElPiso > 0 && vacios === bajoElPiso) return { ok: true, texto: '', tokens: mejorCorto?.tokens ?? 0 };
   if (mejorCorto) return { ok: true, texto: mejorCorto.texto, tokens: mejorCorto.tokens, corto: true };
   if (saturados > 0 && saturados === intentos) return { ok: false, motivo: 'saturado', error: ultimo };
   return { ok: false, motivo: 'fallo', error: ultimo || 'Gemini no contestó.' };
