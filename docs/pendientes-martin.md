@@ -36,7 +36,30 @@ de adquisición de US$97, un cliente no es rentable el primer mes**, y su condic
 contenido), **4179/estrategia** (las tres fases y la cadena). Detalle en
 [docs/tableros/LEEME.md](tableros/LEEME.md).
 
-### ✅ EL ESLABÓN 4: CAUSA ENCONTRADA (8/11) — el arreglo es de Leandro, en Meta
+### ⛔⛔ LO MÁS GRAVE, y no es el ticket #63: EN TU WORKSPACE EL ESLABÓN 4 NO EXISTE (8/11)
+
+Medido contra producción: el **ws 9 tiene CERO secuencias que escuchen comentarios de Instagram**.
+Leandro tiene 10 (siete activas); vos, ninguna. Instagram está conectado y el webhook de Zernio
+anda (`webhook_ok: true` desde el 1/11): lo que falta es la automatización.
+
+**Hoy, si alguien comenta «SETTER» en un reel de MaKo, no pasa nada.** No falla: no hay nada
+escuchando. Todo el plan de 2 reels por día cuelga de esto.
+
+Hay que crear una secuencia por palabra del CTA (siete; la octava depende de si el avatar se
+vende). El molde medido, las palabras con sus faltas de ortografía —Leandro pone `lizta` junto a
+`lista`, y sin eso el comentario mal escrito no dispara— y **las dos decisiones previas** están en
+[lanzamiento-ws9-que-falta.md](lanzamiento-ws9-que-falta.md).
+
+**Las dos decisiones, en corto:**
+1. **A dónde lleva el botón del DM.** Las siete landings están escritas pero viven en `localhost`.
+   O se publican, o el botón va directo al checkout (`/planes/pro?landing=…`), **que ya funciona
+   hoy**. El segundo camino no bloquea nada y se puede cambiar después.
+2. **¿El recurso va detrás de seguir la cuenta?** Leandro lo condiciona a eso. Es una decisión de
+   embudo, no técnica.
+
+**No las creé yo:** son automatizaciones que le mandan mensajes a gente real, y eso pide tu sí.
+
+### ✅ EL ESLABÓN 4 EN LA CUENTA DE LEANDRO: CAUSA ENCONTRADA (8/11) — el arreglo es suyo, en Meta
 
 **No es código.** Meta subcode **2534037**: otra app figura como **receptor primario** de la
 conversación de Instagram, y en cuanto la persona toca el botón (tocar el botón es contestar), el
