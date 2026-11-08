@@ -526,7 +526,15 @@ sobre un guion entero, y encima se reintentaba con cada modelo, 2 a 4 pedidos de
 video que ya estaba transcripto. Ahora el tramo lleva `tope: true` y un tramo techo no tiene piso.
 `tests/guion-yt-tramo-tope.test.ts` 3/3, probado rompiéndolo tres veces.
 
-**Los 4 `rompe-cliente` están cerrados, y 3 `promete-y-no-hace` también. Quedan 13 abiertos**, en
+**✅ Y uno más**: en los dos avisos de agencia, «Es el negocio número N» contestaba por la
+**AGENCIA** y no por el cliente del que habla el aviso. En concreto: a MaKo le piden dejar de
+reportarle a una agencia la cuenta frenada de UN cliente, el admin escribe «No es el negocio número
+<el del cliente>», la pantalla lo acepta, **y la condición no se cumple nunca**. El error simétrico
+era peor: poner el número de la agencia apagaba el aviso para **todos sus clientes de una**, sin
+que se viera. El dato calculado pisaba al que el emisor ponía a propósito; ahora es un default y lo
+explícito gana. `tests/aviso-agencia-numero-del-cliente.test.ts` 3/3 probado rompiéndolo.
+
+**Los 4 `rompe-cliente` están cerrados, y 4 `promete-y-no-hace` también. Quedan 12 abiertos**, en
 los documentos de área.
 
 ---

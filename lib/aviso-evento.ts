@@ -510,7 +510,10 @@ async function avisoALasAgencias(
   if (!agencias.length) return null;
   const rs: ResultadoEvento[] = [];
   for (const a of agencias) {
-    rs.push(await emitirPorEvento(aviso, a.ws, { ...opts, datos: { ...opts.datos, ...a.datos } }, deps));
+    // ⚠️ El `negocio_numero` que viaja es el DEL CLIENTE, no el de la agencia: el aviso habla de él.
+    // Va explícito porque `emitirPorEvento` corre con el ws de la agencia y, sin esto, calcularía el
+    // de ella. Los datos de la agencia (`a.datos`) van aparte, con sus propios nombres.
+    rs.push(await emitirPorEvento(aviso, a.ws, { ...opts, datos: { ...opts.datos, ...datosDeLaPlataforma(ws), ...a.datos } }, deps));
   }
   return {
     ok: rs.some((r) => r.ok), feedId: null, wa: rs.some((r) => r.wa), deduped: rs.every((r) => r.deduped),
@@ -619,7 +622,15 @@ export async function emitirPorEvento(
       ...(opts.cuotaId != null ? { cuotaId: opts.cuotaId } : {}),
       // ⚠️ DE QUÉ NEGOCIO ES (6/11/2026): lo pone acá y no el emisor, así lo trae TODO evento de la plataforma sin que nadie se
       // acuerde. Es lo que pregunta «Es el negocio número N» (lib/variables-aviso.ts): «a este negocio no», como CONDITION.
-      ...(dePlataforma ? { datos: { ...(opts.datos ?? {}), ...datosDeLaPlataforma(ws) } } : opts.datos ? { datos: opts.datos } : {}),
+      // ⚠️ EL ORDEN IMPORTA Y ESTABA AL REVÉS (8/11/2026). `datosDeLaPlataforma(ws)` es un DEFAULT
+      // —«de qué negocio es», para que lo traiga todo evento de la plataforma sin que nadie se
+      // acuerde—, pero pisaba lo que el emisor hubiera puesto a propósito. En los avisos de agencia
+      // eso hacía que «Es el negocio número N» contestara por la AGENCIA y no por el cliente del que
+      // habla el aviso: el admin escribía «No es el negocio número <el del cliente>», la pantalla lo
+      // aceptaba, y la condición no se cumplía nunca. El error simétrico era peor: poner el número de
+      // la agencia apagaba el aviso para TODOS sus clientes de una, sin que se viera.
+      // Ahora el calculado va primero y lo explícito gana.
+      ...(dePlataforma ? { datos: { ...datosDeLaPlataforma(ws), ...(opts.datos ?? {}) } } : opts.datos ? { datos: opts.datos } : {}),
       ...(opts.texto != null ? { texto: opts.texto } : {}),
       aviso: { id: cat.id, titulo: fila.nombre?.trim() || cat.titulo },
       // Qué tarjeta es cada paso: viaja dormida con la corrida y `retomarCorrida` la compara (`pasosParaRetomar`).
