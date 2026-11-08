@@ -1884,3 +1884,38 @@ el original.
 
 **Sin medir:** en producción, con qué frecuencia el respaldo (`gemini-flash-lite-latest`) pasa el piso; si es el que corta, la nota
 va a salir seguido y el arreglo de fondo es otro modelo de respaldo para el STT de video.
+
+## Dar de alta muchos competidores de una, SIN gastar Apify (8/11/2026)
+
+Martín mandó un reel de @growwithevelyn con 18 referentes («TOP CREATORS TO STEAL AD IDEAS FROM») y
+pidió meterlos todos en Spy para ver sus anuncios. Dos cosas que conviene saber antes de repetirlo:
+
+**1. Con `nombre` alcanza, y por eso no hace falta quemar el cupo.** `enlaceSusAnuncios`
+(lib/spy-funnel.ts) arma el enlace a la Biblioteca con `keyword_exact_phrase` sobre el nombre cuando
+no hay `pagina_anuncios`. O sea que un `insert` de `(workspace_id, nombre)` ya deja al competidor
+**mirable** en la Biblioteca. Las lecturas de perfil (el @, el avatar, los seguidores) las pide la
+app después, de a una, cuando alguien lo abre.
+
+⚠️ **El camino de «agregar» de la app es el que cuesta:** `RESERVA_DEL_ALTA = 30` lecturas por alta
+(lib/spy-alta-reglas.ts) sobre un tope diario, y **si se agota nadie del negocio puede agregar a
+nadie hasta mañana**. Dar de alta 17 por ahí hubiera dejado el cupo del día en cero. Por SQL, cero.
+
+La tabla tiene `unique (workspace_id, nombre)`, así que el `insert … on conflict do nothing` es
+seguro. ⚠️ Pero **el único que ya estaba no chocó**: figuraba como `@AlexHormozi` y el nuevo venía
+como `Alex Hormozi`. El índice compara el texto, no la persona: la deduplicación hay que hacerla
+a mano antes, mirando la lista.
+
+**2. UNA LISTA VACÍA MIENTE, Y HAY QUE MEDIRLA UNA POR UNA.** El propio código lo avisa («una lista
+vacía se lee como *no pauta*»), y pasó: de los 17, **16 tienen anuncios activos y 1 da CERO**
+(Madeleine Rascan, también con `keyword_unordered`, que es la búsqueda más laxa). O el nombre del
+reel está mal escrito, o no pautea. Sin medirlo, Martín abría esa ficha y concluía lo segundo.
+
+Medido el 8/11 con `country=ALL`: MasterClass >50.000 · Mindvalley ~2.800 · Dave Ramsey ~1.600 ·
+Marisa Peer ~740 · Maria Wendt ~730 · School of Mentors ~540 · VShred ~510 · Cole Gordon ~480 ·
+Sarah Tran ~360 · Shelby Sapp ~320 · Jenna Kutcher ~190 · Jeremy Miner ~170 · Tina Ghazi Digital
+~140 · Daniel Iles ~58 · YogaBody ~42 · Jun Yuh ~35 · **Madeleine Rascan 0**.
+
+⚠️ **Y el número depende muchísimo del filtro:** el reel mostraba «Shelby Sapp ~9 resultados» y con
+`country=ALL` son ~320. Treinta y cinco veces más. Un conteo de la Biblioteca **no significa nada sin
+decir con qué país y qué tipo de búsqueda se sacó**, y dos conteos de distinta procedencia no se
+comparan.
