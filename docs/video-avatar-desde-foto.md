@@ -4,7 +4,54 @@ Martín pidió, a partir de una foto suya y un video de 110 s para clonar la voz
 «Che Walter, obvio que tus anuncios no van a funcionar si aún no usas MaKo». Esto es lo que se midió
 haciéndolo. Sirve igual para **los 14 videos del lanzamiento**, que necesitan exactamente lo mismo.
 
-## La cadena, y por qué tiene ese orden
+## ✅ LA CADENA QUE FUNCIONA (hecha de punta a punta el 8/11), y el orden importa
+
+**El orden lo corrigió Martín, y yo lo tenía al revés.** Es la metodología de Avatar Hype:
+
+1. **PRIMERO el clip**, con el modelo poniendo su propia voz. ApiMart, `wan2.5-preview`, foto + prompt
+   con la frase entre comillas. **US$ 0,664** por 10 s, 124 s de espera. Salió 830×1108 vertical.
+2. **DESPUÉS se reemplaza el timbre** sobre el audio que YA trae el clip (speech-to-speech), y por eso
+   los labios no se desarman: el ritmo lo puso el video y la conversión no lo toca.
+3. Remux con `-c:v copy`: la imagen no se recomprime.
+
+⚠️ **Mi error, que casi mata el trabajo:** leí la nota de `lib/apimart-reglas.ts` («montar un audio
+encima de un video mudo NO sincroniza nada») como si prohibiera esto, y armé la cadena generando la
+voz primero. **No es lo mismo.** Esa nota habla de pegar audio NUEVO sobre un video mudo. Acá el audio
+de salida es una conversión de timbre del audio ORIGINAL del clip: misma duración, mismas pausas.
+**Medido: 10,0417 s contra 10,0540 s del original — 12 ms de diferencia.** Coincide con lo que ya
+decía [[voz-elevenlabs-sts]] desde el 18/08: desfase mediano 0 ms sobre 100 s.
+
+**Y con ese orden alcanza el saldo que hay**: no hace falta crédito en Replicate ni plan de ElevenLabs,
+porque el reemplazo corre local y gratis.
+
+### El reemplazo de voz, local
+
+`pip install torch torchaudio coqui-tts six` (⚠️ `coqui-tts` **no arrastra** `torchaudio` ni `six`:
+sin ellos tira `ImportError` y `ModuleNotFoundError` recién al importar). Trae cuatro conversores:
+`freevc24`, `knnvc`, `openvoice_v1` y **`openvoice_v2`**, que es el que se usa — y es de los limpios.
+
+```python
+vc = TTS('voice_conversion_models/multilingual/multi-dataset/openvoice_v2').to(dev)
+vc.voice_conversion_to_file(source_wav=<audio del clip>, target_wav=<voz de Martin>, file_path=<salida>)
+```
+
+⚠️ **El audio de referencia hay que normalizarlo antes** (ver abajo): el del teléfono vino a −36,6 dB.
+
+### Las tres trampas de ApiMart, medidas pagando cero
+
+Las tres fallaron **sin costo** — ApiMart devuelve la cuota cuando la tarea falla:
+
+1. **No se le pasa `aspect_ratio`**: «image-to-video does not support `aspect_ratio`; ratio is
+   determined by input image». Confirma lo que ya decía el catálogo: **la proporción la pone la foto**.
+2. **La duración no es libre**: con `duration: 6` contestó «The requested option is not supported».
+   Con **10** anduvo, que es con lo que el repo lo había medido el 7/11.
+3. **La foto tiene que estar en una URL pública de verdad.** `data:` lo rechaza, y las de
+   `api.replicate.com/v1/files` **piden credencial** (401), así que tampoco sirven. Se resolvió
+   subiéndola al bucket público `image-editor` de nuestro propio storage, bajo `9/`.
+
+⚠️ Y el estado se consulta en **`GET /v1/tasks/<id>`**, no en `/v1/videos/generations/<id>`.
+
+## La cadena vieja (la que yo había escrito mal), y por qué tiene ese orden
 
 1. **HEIC → JPG.** `ffmpeg -i foto.HEIC foto.jpg` funciona (ffmpeg 9.0 full está instalado). No hace
    falta nada de Apple.
