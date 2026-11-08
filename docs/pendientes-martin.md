@@ -453,6 +453,38 @@ Verificado que caza el bug viejo sin correrlo: «No sé si me sirve» contiene �
 que promete (`deshacerEmpezar`, `app/ads-manager/PrimeraEntrada.tsx:178`: devuelve el perfil **y** las notas
 de la charla), pero es estado de React y el test de node no lo toca. Se prueba en el navegador o no se prueba.
 
+⚠️⚠️ **CORRECCIÓN DEL 8/11/2026: «está bien» era optimista. Una segunda revisión encontró 24
+problemas confirmados en las dos puntas, 4 de ellos `rompe-cliente`.**
+
+No es que la revisión del 7/11 estuviera mal hecha —lo que dice es cierto y sirve—: es que **miró
+el diff y no al cliente**. Comprobó que nada quedara colgando, que el route handler estuviera
+cerrado y que los tests pasaran. Ninguna de esas tres cosas ve que **un negocio nuevo, en el
+teléfono, entra a Image y no tiene ningún botón para crear nada**.
+
+La diferencia de método, para la próxima:
+
+| revisión del 7/11 | revisión del 8/11 |
+|---|---|
+| leyó el diff | leyó el diff Y el código como quedó, con tres lentes: ¿hace lo que dice?, ¿qué le rompe a un cliente?, ¿qué no cubre ningún test? |
+| una pasada | **tres refutadores independientes por hallazgo**, tirando lo dudoso: de 33 crudos sobrevivieron 24 |
+| «los tests pasan» | **qué camino del cliente NO ejercita ningún test** — ahí estaban los 4 peores |
+
+⚠️ **Y la primera trampa fue el propio tablero: los commits que manda a revisar NO son los de
+contenido.** `25fbdc8a1` **no toca ni un archivo** (es un veredicto de tests) y `2cb406043` son
+**6 líneas de tipos**. El contenido real estaba en `02ce9b6e3` + `48b690ae0` y en `925ef1c9f` +
+`f27ef1a4e`. Ya había pasado con copilot-feedback. **Antes de revisar una punta: `git show --stat`.
+Si no toca archivos, el commit no es ése.**
+
+Los 20 que siguen abiertos quedaron escritos por área: [carruseles](hallazgos-carruseles.md) (9),
+[competitors-spy](hallazgos-competitors-spy.md) (9), [avisos](hallazgos-avisos.md) (2). Los dos
+peores —el mismo origen— **ya están arreglados** (`ExplorarCarruseles.tsx`, con
+`tests/image-vacio-con-salida.test.ts` probado rompiéndolo). **Siguen abiertos los dos de plata:**
+el costo que se multiplica por modelos × cuentas sin que el tope del día lo frene
+(`lib/ai-cheap.ts:1964`) y el plazo que el Spy se come dejando al cliente 15 minutos en
+«Transcribiendo» (`lib/ai-cheap.ts:1922`).
+
+---
+
 **✅ `punta/carruseles-thumbnails` — REVISADA el 7/11, está bien.** Lo que arreglaba era un crash: el link
 viejo `?ver=carruseles` —que viajó en avisos y en la API— hacía un `redirect()` **debajo del loader**, y eso
 en Next va adentro del stream y tira **React #310**. Es la misma familia que el crash de Spy de esta noche:
