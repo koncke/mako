@@ -18,14 +18,19 @@ Todo en [video-avatar-desde-foto.md](../video-avatar-desde-foto.md).
 
 1. **Ticket #65 de Leandro, vence esta noche:** mandarle el recurso a @jealoficial y
    @bigmouse_oficial, los 2 de 19 con la ventana de 24 h abierta. El triage lo dejo en
-    porque lo pidio un numero que no figura como admin del negocio.
+   `esperando_decision` porque lo pidio un numero que no figura como admin del negocio.
 2. **Grabar el selfie del avatar** en Flow → Avatars → Get started. No lo toque para no dispararle
    el permiso de camara sin avisar.
-3. **Subir las dos imagenes a Flow** (la portada de Mauricio y su foto): ⚠️ el  no
+3. **Subir las dos imagenes a Flow** (la portada de Mauricio y su foto): ⚠️ el `input[type=file]` no
    existe hasta que se toca el boton y **el drop simulado NO lo toma** (probado con las dos ya en
    URLs publicas). Sin su clic no hay forma.
-4. **Desplegar o no el reintento** (, en main; el deploy de hoy corrio
+4. **Desplegar o no el reintento** (`punta/otra-app-no-es-terminal`, en main; el deploy de hoy corrio
    06:14, antes del cambio).
+
+⚠️ **Y este mismo relevo casi sale con agujeros:** lo escribi con `node -e` dentro de comillas dobles
+de bash, y **bash se comio los tres terminos entre backticks** — los ejecuto como comandos y los dejo
+vacios. Sin error y con el commit hecho. Es lo que ya esta anotado en [[heredoc-come-backslash]] y
+igual caí: **un texto con backticks se escribe con la herramienta de archivos, nunca por `node -e`.**
 
 ### Dos saldos que frenan solos
 
