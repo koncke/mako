@@ -17,6 +17,7 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **«Otra app es la dueña del hilo» NO es permanente, y tratarlo así costó 17 leads** (8/11/2026). Es la MISMA forma que el bug del tope del 28/10: cuando Meta dice que no, hay que preguntarse si dice «no nunca» o «no ahora». Y un envío que falla **quema la ventana de 24 h**: el daño no es el mensaje, es la persona. Ver «Otra app es la dueña del hilo», abajo.
 - **Un DM de Instagram que no sale trae su propio diagnóstico, y muere en una columna que nadie mira** (8/11/2026).
   Nueve días entregando cero recursos, un ticket a mano, y la causa estaba escrita entera —con el link para
   arreglarla— en `nutricion_envios.error`. Ver «El recurso que nunca llegó», abajo.
@@ -12984,3 +12985,61 @@ mensaje sale verde.
 
 Mirar `nutricion_envios` por nodo, no en total. Un 97% de éxito global tapaba un 45% de fallo en el
 único paso que importaba.
+
+## «Otra app es la dueña del hilo»: nueve días rotos y 17 leads perdidos (8/11/2026)
+
+Tickets #63 y #64 de Leandro. Del 30/10 al 7/11, **22 envíos de Instagram fallaron con el mismo
+error** y el ws10 no entregó un solo recurso. La causa no era nuestra: Meta subcode **2534037**, otra
+app (ManyChat) figuraba como **receptor primario** del handover de su Página. El arreglo fue suyo, en
+Meta. Pero lo que esto dejó al descubierto de NUESTRO lado es lo que importa.
+
+### ⚠️⚠️ Lo que de verdad cuesta: un envío que falla QUEMA LA VENTANA DE 24 HORAS
+
+**19 leads reales comentaron, recibieron el primer DM, tocaron el botón y no recibieron nada.** Cuando
+Leandro arregló el ajuste, **sólo a 2 se les podía volver a escribir**: a los otros 17 se les había
+pasado la ventana de 24 h de Meta (`ig_conversaciones.ventana_expira_at`) y la API ya no deja.
+
+**El daño de un envío roto no es el mensaje: es la persona.** Para cuando te enterás, no hay forma de
+alcanzarla. Eso convierte «avisar que un envío falló» de una comodidad en lo que decide si se
+recupera a la gente o no. Lo único que queda después es que el dueño de la cuenta les escriba **a
+mano desde su teléfono**, que no está sujeto a esa ventana.
+
+### El bug nuestro, y es el MISMO que ya habíamos arreglado el 28/10
+
+`esLimiteDeMeta` (lib/zernio.ts) daba `not_thread_owner` por **terminal**: el envío cerraba el hilo,
+la inscripción quedaba `cancelada` (`estadoDeCierrePermanente`) y **no se reintentaba nunca**.
+
+**Pero el dueño del hilo es una CONFIGURACIÓN de la Página: cambia.** Y cambió. Con reintento, esos
+19 leads se habrían recuperado solos dentro de su ventana y nadie se habría enterado del fallo.
+
+⚠️ **Es exactamente la misma forma que el bug del 28/10** («un tope no es *Meta no deja*»: un 400
+`platform_error` por muchos pedidos caía en la misma regla y cerraba el hilo). Dos veces el mismo
+error, así que la regla general vale escribirla: **cuando Meta dice que no, preguntarse si dice «no
+NUNCA» o «no AHORA».** Lo permanente (`privateReplyConsumed`, `PLATFORM_LIMITATION`) cierra; lo
+transitorio (el tope, el dueño del hilo) **reintenta**. Arreglado en `esDeOtraApp`, con el test en
+`tests/tope-social.test.ts` y probado sacando la línea (1 rojo de 9).
+
+### Y un segundo daño que el primero tapaba: la respuesta privada se marcaba gastada
+
+En el catch de la respuesta privada a un comentario, `esLimiteDeMeta` también disparaba
+`marcarComentarioRespondido`. **Meta da UNA sola respuesta privada por comentario**, así que cada
+fallo no perdía el mensaje: **quemaba la única oportunidad de volver a escribirle a esa persona**, aun
+después de arreglar el ajuste. Con `not_thread_owner` fuera de `esLimiteDeMeta`, ya no se marca.
+
+### Lo que hay que saber para configurarlo (ticket #64), y ahorra una tarde
+
+- ⚠️ **El desplegable de «app de enrutamiento predeterminada» VACÍO no es un error.** Meta sólo pide
+  elegir receptor cuando hay **más de una app disputándose** la conversación. Sacada la rival, no hay
+  nada que elegir y los hilos quedan para la única con permiso: **ya funciona sin ese paso**. Leandro
+  estuvo trabado creyendo que le faltaba lo último, con todo andando.
+- ⚠️ **Nuestra app NO se llama «MaKo» en Meta.** Figura como **«Social Media Connector»**
+  (`1387147079198980`), que es la de Zernio. Quien la busque por «MaKo» no la encuentra.
+- ⚠️ **ManyChat sigue figurando aunque lo deshabilites**, porque entra por **login de Instagram**, otra
+  puerta que las apps de la Página. Sin permisos no molesta, pero conviene sacarlo desde Instagram →
+  Configuración → Apps y sitios web, para que no vuelva a reclamar los hilos.
+
+### Cómo se diagnostica esto la próxima vez, en una consulta
+
+El motivo está entero —con el link para arreglarlo— en **`nutricion_envios.error`**, y **no lo mira
+nadie**: ninguna pantalla lo muestra y ninguna alerta lo lee. Mirarlo **por nodo, no en total**: un
+97% de éxito global tapaba un 45% de fallo en el único paso que importaba (el que entrega el recurso).
