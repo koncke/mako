@@ -932,39 +932,49 @@ profesional sin estirar, arrancando en 1,115. Quedan diferencias en las pausas I
 frasea distinto que Omni— y eso sólo lo arregla una pasada de lipsync, que necesita saldo.
 Receta: `scratchpad/walter/v4-entero.mjs`.
 
-## ⚠️ `clone_strength` existe, pero NO gobierna el registro — y cómo me engañé solo (8/11/2026)
+## `clone_strength` SÍ funciona — y cómo me equivoqué DOS veces antes de medirlo bien (8/11/2026)
 
-**Esta sección corrige lo que yo mismo escribí acá una hora antes.** Había anunciado que
-`clone_strength` era «el parámetro que faltaba». **No lo es**, y la forma en que me equivoqué vale
-más que el dato.
+**Esta sección se escribió tres veces el mismo día.** Las dos primeras estaban mal, y el recorrido
+enseña más que el resultado.
 
-Lo que es cierto: el parámetro **existe**, va en `voice_settings` de CADA pedido de
-`/v1/text-to-speech`, aplica **sólo a clones profesionales fine-tuneados para v4** (en v3,
-multilingual_v2, flash y turbo da HTTP 400 duro), y **no se puede guardar** en
-`/v1/voices/{id}/settings/edit`: ese endpoint devuelve ok y lo **descarta en silencio**.
+**El resultado, medido bien:** `clone_strength` tiene un efecto **real y reproducible**, y
+**no es lineal** — 0,5 es el PEOR valor:
 
-Lo que NO es cierto: que baje el tono. **Medí UNA toma por valor** y salió una escalera preciosa
-—1,0 → 128 Hz, 0,7 → 139, 0,0 → 150— que conté como un hecho. Con **tres tomas por valor**:
-
-| `clone_strength` | las tres tomas | mediana |
+| `clone_strength` | seed 4242 | seed 777 |
 |---|---|---|
-| 1,0 | 133, 137, **152** | 137 |
-| 0,5 | **155**, 140, 147 | 147 |
-| 0,0 | **154**, 142, 143 | 143 |
+| 0,0 (el default) | 140 Hz | 139 Hz |
+| 0,5 | **152 Hz** | **151 Hz** |
+| **1,0** | **136 Hz** | **133 Hz** |
 
-**La variación DENTRO de un mismo valor (133-152) es mayor que la diferencia ENTRE valores.** El
-128 Hz que festejé era el extremo bajo del ruido. Queda una tendencia leve a bajar, pero está
-adentro del error con n=3.
+Replica en dos seeds independientes con 1-3 Hz de diferencia. La voz real de Martín mide 128 Hz.
 
-⚠️⚠️ **LA REGLA, que es lo que de verdad se aprende acá: una generación de IA es ALEATORIA, así que
-UNA medición no mide un parámetro, mide una tirada.** Antes de decir que un ajuste hace algo, hay
-que repetirlo al menos tres veces por valor y comparar la dispersión interna contra la diferencia
-entre valores. Si la interna es más grande, no hay efecto que reportar. Esto vale para cualquier
-parámetro de cualquier modelo generativo, no sólo para la voz.
+**Lo demás que es cierto del parámetro:** va en `voice_settings` de CADA pedido, aplica **sólo a
+clones profesionales fine-tuneados para v4** (en v3, multilingual_v2, flash y turbo da HTTP 400), y
+**no se puede guardar** en `/v1/voices/{id}/settings/edit`: ese endpoint devuelve ok y lo descarta
+en silencio.
 
-(Lo cazó la fase de refutación de la investigación: tres refutadores independientes contra cada
-afirmación del plan. **Cuatro de cinco afirmaciones cayeron**, incluida ésta. Sin esa fase, le
-habría pasado a Martín cuatro datos falsos con cara de medidos.)
+### ⚠️⚠️ LAS DOS EQUIVOCACIONES, QUE SON LA LECCIÓN
+
+**Primera: una toma por valor.** Medí 1,0 → 128, 0,7 → 139, 0,0 → 150. Una escalera perfecta, y la
+conté como un hecho. Pero cada toma salió con **una seed distinta**, así que lo que vi fue una
+coincidencia.
+
+**Segunda: tres tomas por valor, con seeds distintas.** Salió 133/137/152 contra 154/142/143 — la
+dispersión interna más grande que la diferencia entre valores— y concluí que el parámetro **no
+hacía nada**. También estaba mal: lo que medí fue la varianza ENTRE SEEDS (22 Hz), que tapaba el
+efecto.
+
+**Lo que faltaba era una sola pregunta: ¿cuánta varianza tiene la MISMA seed?** Se contesta
+generando dos veces con la misma seed: **2 Hz**. Con eso, el experimento correcto es obvio — **seed
+fija, mover un solo parámetro, y replicar con una segunda seed.**
+
+⚠️⚠️ **LA REGLA: antes de medir el efecto de un parámetro en un modelo generativo, medí primero el
+RUIDO DE BASE con todo fijo.** Sin ese número no se puede saber si una diferencia es señal o
+azar, y se cae en los dos errores opuestos: ver un efecto que no existe, o descartar uno que sí.
+
+⚠️ **Y la seed NO reproduce bit a bit**: dos pedidos con seed 4242 dieron shas distintos (mismo
+largo en bytes, 136 Hz y 134 Hz). Fija la estructura y casi todo el timbre, no el archivo. Así que
+«guardar la seed de la toma aprobada» **conserva la toma a ±2 Hz, no idéntica**.
 
 ### ⚠️⚠️ Y LO MÁS CARO DEL DÍA: EL CLIP NO TENÍA LABIOS
 
