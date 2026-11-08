@@ -618,6 +618,10 @@ Martín dudó de que hiciera falta pagar más, con razón, y se verificó contra
 En la API se ve igual de claro: `can_use_professional_voice_cloning: false` y
 `professional_voice_limit: 0` — cero ranuras, no es un tope que se pueda estirar.
 
+✅ **MARTÍN YA PASÓ A CREATOR el 8/11/2026.** Verificado en la API: `tier: creator`,
+`can_use_professional_voice_cloning: true`, **1 ranura profesional libre**, 30 voces instantáneas
+(usaba 10) y 160.449 caracteres. **NO hay que volver a recomendarle que suba de plan.**
+
 ⚠️⚠️ **PERO EL PLAN NO ES EL COSTO REAL. El profesional pide un MÍNIMO de 30 MINUTOS de audio**, y
 recomienda entre 1 y 3 horas (docs oficiales). Los 110 segundos de un video de teléfono no alcanzan
 ni de cerca. **Pagar Creator sin grabar esos 30 minutos no cambia nada.** El entrenamiento además

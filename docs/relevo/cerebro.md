@@ -1,5 +1,28 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~18:00 UTC: LA VOZ — Martín ya pagó **Creator**, y lo que falta es GRABAR
+
+✅ **Creator activo y verificado** (`tier: creator`, profesional habilitado, 1 ranura libre, 30 voces
+instantáneas, 160.449 caracteres). **NO volver a recomendarle que suba de plan.**
+
+⚠️ **Lo que falta NO es el plan: son 30 MINUTOS de audio suyo** (mínimo del clonado profesional;
+recomendado 1-3 h). Tiene 110 segundos. Sin eso no se puede entrenar, y el entrenamiento tarda de
+3 a 24 h.
+
+**Lo que hay que pedirle, y es lo que decide el resultado:** 30 min mínimo, él solo, sin ruido ni
+eco, y **en el registro del DESTINO** (vendiendo, con chicana — no leyendo tranquilo). La doc de
+ElevenLabs lo dice igual que nuestra regla: «the speaking style in your samples is replicated in the
+output». El caso de Mauricio ya lo probó: 11 min de charla salieron PEOR que 97 s de sus anuncios.
+
+**Mientras tanto quedó el mejor clon instantáneo posible** con sus 110 s: nivelado a la banda que
+pide ElevenLabs (−23 a −18 dB RMS, pico −3) **y sin recomprimir** (WAV). Tono 124 Hz contra sus 131
+reales, el más cercano de seis intentos. ⚠️ **Nivelar NO estaba mal** —la doc lo pide—; el error era
+**recomprimir**. Son dos cosas distintas y las mezclé.
+
+Detalle en [edicion-video-automatica.md](../edicion-video-automatica.md).
+
+---
+
 ## 8/11/2026, ~17:00 UTC: LA VOZ ERA **V3**, Y ESTABA EN NUESTRO PROPIO CURSO
 
 Martin rechazo CUATRO versiones de la voz. La respuesta estaba en **AvatarHype**, el primer curso de
