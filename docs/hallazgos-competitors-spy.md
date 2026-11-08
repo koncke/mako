@@ -1981,3 +1981,35 @@ La instrucción le pide a Gemini devolver exactamente «(vacío)» si no se dice
 **sin-cubrir** · 0/3 refutan · `C:/dev/wt-push-q/tests/_spy-guion-yt-hijo.ts:57` · de `punta/nada-por-detras`
 
 El hijo le pone UNA sola clave al ws 13, así que las vueltas del piso (J/K/L/M) sólo prueban los dos modelos de una cuenta: el `for (const p of provs)` que el commit promete («se prueba con el otro modelo y con otra cuenta») nunca corre bajo el piso. Con dos claves, un tramo de poca voz legítima (una demo, un unboxing, un reel con música) cuesta 4 pedidos a Google y 4 filas de Uso POR TRAMO, y un video de 30 minutos son 3 tramos: 12 pedidos pagados por el negocio para terminar igual con el guion marcado `corto`. No hay tope ni test que lo fije.
+
+## 🔴 DAR DE ALTA UN COMPETIDOR SIN SU @ LO DEJA MUERTO PARA SIEMPRE (8/11/2026)
+
+Martín: «agregaste un montón de competidores, como Maria Wendt o Tina Ghazi Digital, pero está
+vacío al entrar en detalles. No tiene tampoco la caricatura de la miniatura. No tiene nada».
+
+**Tenía razón y el error fue mío.** Medido en producción, ws 9:
+
+```
+23 competidores | 17 SIN NINGUNA PIEZA | 18 sin foto
+```
+
+Los 17 que cargué el 8/11 a las 03:11 están **SIN NINGÚN CANAL**: `instagram`, `youtube_id`,
+`tiktok` y `landing_url` los cuatro en null. Sólo el nombre. Los que sí funcionan —Federico
+Cristofari, Leila Hormozi, Víctor Heras, Den Borg, Sofia Contreras— **todos tienen su `instagram`**
+y tienen entre 134 y 772 piezas.
+
+⚠️ **UN COMPETIDOR SIN CANAL NO ES UN COMPETIDOR A MEDIAS: ES UNA FILA MUERTA.** No hay de dónde
+leer, así que nunca va a tener piezas, ni avatar, ni miniatura, ni caricatura — y la pantalla no
+tiene cómo decir por qué: muestra el detalle vacío, que se lee como «se rompió».
+
+**De dónde salió:** los nombres venían de la biblioteca de anuncios del reel que Martín mandó, que
+da el NOMBRE del anunciante y no su usuario. Los inserté igual. Es la misma trampa que ya estaba
+anotada para Apify («6 de 7 candidatos vienen SIN `username` y el @ sale de la `url`»): **el nombre
+que muestra una biblioteca de anuncios no es un handle, y sin handle no hay competidor.**
+
+**LA REGLA: el alta de un competidor exige al menos un canal. Un nombre solo se rechaza, no se
+guarda.** Y si la fuente no lo trae, hay que resolverlo ANTES de insertar — no después, porque
+después queda una fila que el cliente ve rota.
+
+**Pendiente, y es decisión de Martín** (son escrituras en producción): o se completan los 17 con su
+`instagram`, o se borran. Dejarlos como están es dejarle 17 fichas vacías en la pantalla.
