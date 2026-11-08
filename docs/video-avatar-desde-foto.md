@@ -4,7 +4,76 @@ Martín pidió, a partir de una foto suya y un video de 110 s para clonar la voz
 «Che Walter, obvio que tus anuncios no van a funcionar si aún no usas MaKo». Esto es lo que se midió
 haciéndolo. Sirve igual para **los 14 videos del lanzamiento**, que necesitan exactamente lo mismo.
 
-## ✅ LA CADENA QUE FUNCIONA (hecha de punta a punta el 8/11), y el orden importa
+## ✅✅ LA RECETA FINAL, ENTREGADA Y COBRADA (8/11/2026) — US$ 0,81 en total
+
+**Es la metodología Avatar Hype, y el orden lo exige Martín: IMAGEN → VIDEO → VOZ.** Lo de más abajo
+en este documento es cómo lo hice MAL primero; esto es lo que salió.
+
+| paso | modelo | US$ | salida |
+|---|---|---:|---|
+| 1. La imagen | `gemini-nano-banana-2.1-ext` (`MODELO_QUE_CONSERVA`) | **0,012** | la portada con la cara de Martín, todo lo demás intacto |
+| 2. El video | **`Omni-Flash-Ext`**, `generation_type: 'frame'`, `aspect_ratio: '9:16'`, `duration: 10` | **0,40** | 720×1280 con voz del modelo y labios sincronizados |
+| 3. La voz | `freevc24` de coqui-tts, **local y gratis** | 0 | el mismo audio con el timbre de Martín |
+
+### ⛔ SÓLO OMNI PARA UNA CARA QUE HABLA
+
+Regla de Martín, textual: **«TENÉS PROHIBIDO USAR OTRO MODELO QUE NO SEA OMNI… Es el único que podemos
+usar, porque el resto NO sale bien.»** Lo dijo mirando un clip que hice con `wan2.5-preview` para
+ahorrar: mueve la boca «como si» hablara pero **no sincroniza fonemas**, y se ve mal antes incluso de
+tocarle la voz. Está escrito también en `lib/apimart-reglas.ts`, arriba del catálogo.
+
+### ⚠️ Omni acepta SÓLO 16:9 o 9:16, y eso te come el título
+
+Medido, con su propio mensaje: *«aspect_ratio=4:5 is unsupported; use 16:9 or 9:16»*. Y **sin pedirle
+nada devuelve 16:9**: con una portada 4:5 de entrada, la primera corrida salió 1280×720 **cortada —
+se perdió «best» y el encabezado entero**.
+
+**La salida NO es cambiar de modelo** (eso está prohibido): se **acolcha la imagen a 9:16 antes**, con
+el fondo desenfocado, y así no se pierde nada:
+
+```
+ffmpeg -i portada.jpg -filter_complex \
+ "[0:v]scale=1080:-2[fg];[0:v]scale=1080:1920,boxblur=40:2[bg];[bg][fg]overlay=(W-w)/2:(H-h)/2" \
+ portada-916.jpg
+```
+
+### Las otras trampas, todas medidas pagando CERO
+
+ApiMart **devuelve la cuota cuando la tarea falla**, así que probar un parámetro no cuesta. Fallaron:
+
+- `aspect_ratio` en un image-to-video de `wan2.5` → «ratio is determined by input image».
+- `duration: 6` → «The requested option is not supported». Van **10**.
+- `gemini-omni-1.2-flash-ext` para la imagen → **«did not pass content safety review»**. El que sí pasa
+  es el medido, `gemini-nano-banana-2.1-ext`.
+- ⚠️ **`Omni-Flash-Ext` es de VIDEO, no de imagen.** Mandarle 2 imágenes lo delata: «use
+  generation_type=frame with 1 image for first-frame mode, 0 image for text-to-video, or 3+ for reference».
+- El estado se consulta en **`GET /v1/tasks/<id>`**, no en `/v1/videos/generations/<id>`.
+- La foto tiene que estar en una **URL pública de verdad**: `data:` lo rechaza y las de
+  `api.replicate.com/v1/files` **piden credencial** (401). Se resolvió con el bucket público
+  `image-editor` de nuestro propio storage (⚠️ el bucket `video-clips` **rechaza imágenes**:
+  «mime type image/jpeg is not supported»).
+
+### El reemplazo de voz — ElevenLabs STS es el bueno
+
+**Lo que se usa: `POST /v1/speech-to-speech/<voice_id>` con `model_id=eleven_multilingual_sts_v2`.** Con la
+clave de Martín (Starter, clona). Conservó el ritmo mejor que todo lo local: **10,031 s contra 10,027 s
+del clip, 4 ms**. Su voice_id y el detalle, en la memoria `voz-elevenlabs-sts`.
+
+⚠️ **La clave de ElevenLabs se copia mal muy fácil:** el panel muestra la ID al lado de la clave, y la
+ID da «API key ID used as API key». **Las buenas empiezan con `sk_`**, y el valor se ve UNA sola vez.
+
+### Los conversores locales, y por qué no alcanzaron
+
+`pip install torch torchaudio coqui-tts six` — ⚠️ **`coqui-tts` no arrastra `torchaudio` ni `six`**, y
+los dos fallan recién al importar. Cuatro conversores disponibles; **`freevc24` es el que se usa**:
+
+⚠️ **`openvoice_v2` NO sirve para esto.** Fue el primero que probé y Martín: **«la voz no se parece en
+nada»**. Transfiere muy poco timbre. `freevc24` sí.
+
+**La prueba de que el ritmo no se tocó:** 10,000 s de salida contra 10,027 s del clip. Los labios
+siguen donde estaban, que es TODA la razón por la que la voz va al final y no al principio.
+
+## La cadena del 8/11 a la mañana, antes de que Martín corrigiera el orden
 
 **El orden lo corrigió Martín, y yo lo tenía al revés.** Es la metodología de Avatar Hype:
 
@@ -24,7 +93,16 @@ decía [[voz-elevenlabs-sts]] desde el 18/08: desfase mediano 0 ms sobre 100 s.
 **Y con ese orden alcanza el saldo que hay**: no hace falta crédito en Replicate ni plan de ElevenLabs,
 porque el reemplazo corre local y gratis.
 
-### El reemplazo de voz, local
+### El reemplazo de voz — ElevenLabs STS es el bueno
+
+**Lo que se usa: `POST /v1/speech-to-speech/<voice_id>` con `model_id=eleven_multilingual_sts_v2`.** Con la
+clave de Martín (Starter, clona). Conservó el ritmo mejor que todo lo local: **10,031 s contra 10,027 s
+del clip, 4 ms**. Su voice_id y el detalle, en la memoria `voz-elevenlabs-sts`.
+
+⚠️ **La clave de ElevenLabs se copia mal muy fácil:** el panel muestra la ID al lado de la clave, y la
+ID da «API key ID used as API key». **Las buenas empiezan con `sk_`**, y el valor se ve UNA sola vez.
+
+### Los conversores locales, y por qué no alcanzaron
 
 `pip install torch torchaudio coqui-tts six` (⚠️ `coqui-tts` **no arrastra** `torchaudio` ni `six`:
 sin ellos tira `ImportError` y `ModuleNotFoundError` recién al importar). Trae cuatro conversores:

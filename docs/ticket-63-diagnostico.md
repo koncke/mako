@@ -1,5 +1,34 @@
 # Ticket #63 — los flujos de comentarios de Instagram no entregan nada (7/11/2026)
 
+## ✅ CERRADO el 8/11/2026: Leandro cambió el ajuste de Meta y quedó andando
+
+Medido contra la base: **el último fallo fue el 7/11 a las 23:53**, y desde las 00:00 del 8/11 los
+cuatro envíos salieron bien — **incluidos `nem81on` y `n4wu86y`, los dos que entregaban el recurso y
+que fallaban el 42-50% de las veces**. La causa era la que se diagnosticó: el receptor primario de
+Meta (subcode 2534037), y el arreglo fue el ajuste de `conversation_routing` de su Página.
+
+### ⚠️⚠️ LA LECCIÓN QUE DEJA, Y ES LA CARA: UN ENVÍO QUE FALLA QUEMA LA VENTANA DE 24 HORAS
+
+**19 leads reales comentaron, recibieron el primer DM, tocaron el botón y no recibieron nada.** Al
+arreglarlo, **sólo a 2 se les podía volver a escribir**: a los otros 17 ya se les había pasado la
+ventana de 24 horas de Meta (`ig_conversaciones.ventana_expira_at`), y la API no deja.
+
+**O sea que el daño de un envío roto NO es el mensaje perdido: es que para cuando te enterás, ya no
+hay forma de alcanzarlos.** Nueve días rotos = 17 personas que levantaron la mano y quedaron
+inalcanzables por automatización. Eso convierte «que el sistema avise solo cuando un envío falla» de
+una mejora cómoda en la que decide si se recupera o no a la gente.
+
+Lo único que queda es que el dueño de la cuenta les escriba **a mano desde su teléfono**, que no está
+sujeto a esa ventana. La lista se le pasó a Leandro el 8/11.
+
+### Las dos mejoras que siguen abiertas de nuestro lado
+
+1. **Nadie se entera.** El fallo de un envío no está cableado a `registrarError` (lib/errores-app.ts),
+   que existe desde el 17/10 justamente para esto. Va como **configuración del negocio**, no como bug.
+2. **Un 409 está marcado para reintentar a 4 h y sin embargo la inscripción se cancela** sin tercer
+   intento (ver abajo). Con el reintento andando, estos 19 se habrían recuperado solos.
+
+
 **Lo reportó Leandro Tejado (ws 10, plan Completo) el 8/11 00:01**, con evidencia de base. Está
 clasificado «esperando decisión de Martín» porque toca envíos.
 
