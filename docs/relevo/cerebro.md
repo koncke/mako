@@ -1,5 +1,30 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~17:00 UTC: LA VOZ ERA **V3**, Y ESTABA EN NUESTRO PROPIO CURSO
+
+Martin rechazo CUATRO versiones de la voz. La respuesta estaba en **AvatarHype**, el primer curso de
+`/conocimientos` (`app/conocimientos/curso.ts`, clases transcriptas), dicho textual: **voz de
+biblioteca → Eleven Multilingual V2; voz clonada por vos → V3**.
+
+**Era un error de METODO, no de modelo ni de ajustes.** Yo hacia *speech-to-speech* sobre V2 (que es
+el modelo de las voces de biblioteca) y ademas partiendo de audio **sintetico**, que tiene un techo
+que ningun conversor rompe. Lo correcto: **TTS directo desde la voz clonada con `eleven_v3`**
+— verificado, responde 200. Se le mandaron los dos audios (V3 y V2) para que compare; **falta su
+veredicto**.
+
+⚠️ **La leccion que vale mas que el arreglo:** antes de investigar afuera, **buscar en los cursos del
+propio portal**. La respuesta estaba adentro y tarde cuatro intentos en mirarla.
+
+⚠️ El JSON a ElevenLabs va por archivo o script, **nunca inline en bash**: la `ú` de «aún» se rompe y
+devuelve `invalid_unicode`.
+
+El resto del stack que prescribe el curso (APImart ~5 centimos contra Kie ~9; **2K cuesta igual que
+1K**; Veo 3 en modo primer-y-ultimo-frame a 4 s) quedo en
+[video-avatar-desde-foto.md](../video-avatar-desde-foto.md), ⚠️ con el aviso de que esos parametros
+**no estan verificados** contra la clase original — la transcripcion lo dice. Lo de la voz si.
+
+---
+
 ## 8/11/2026, ~16:00 UTC: FLOW CAPTURA CARA Y VOZ — era la metodologia que faltaba
 
 **Lo mas importante de la vuelta, y responde a por que la voz nunca convencia.** En Flow, selector
