@@ -2034,8 +2034,17 @@ turno**. Y como el orden es fijo, no les va a llegar nunca mientras los de adela
 trabajo.
 
 ⚠️ **Un recorrido con plazo y orden FIJO no es un recorrido: es una ventana.** Lo que entra después
-del corte no se procesa tarde — no se procesa. Tiene que rotar el punto de arranque, o pedir por
-«el que hace más que no se lee» (`mirado_en` ascendente, nulls primero), para que la cola avance.
+del corte no se procesa tarde — no se procesa.
+
+✅ **ARREGLADO**: el arranque **rota por hora del día** y el recorrido da la vuelta completa
+(`[...lista.slice(desde), ...lista.slice(0, desde)]`). El cron corre una vez por hora, así que en un
+día cada competidor arranca primero al menos una vez. `tests/cron-spy-rota-el-arranque.test.ts` 3/3,
+probado rompiéndolo tres veces.
+
+⚠️ **Por qué por HORA y no por `mirado_en`:** `mirado_en` **no lo toca el cron** — sólo lo escribe
+`lib/spy-sugeridos-server.ts`. Ordenar por él habría parecido correcto y no habría rotado nada. Lo
+verifiqué antes de usarlo, no después. Y tampoco por un cursor guardado: eso suma estado nuevo que
+se puede desincronizar, para resolver algo que la hora ya resuelve sin guardar nada.
 
 **Y una consecuencia que se ve en pantalla:** Leila Hormozi tiene 789 piezas de Instagram y YouTube
 pero **cero anuncios y `pagina_anuncios` vacío**, porque su paso de anuncios tampoco llegó. El

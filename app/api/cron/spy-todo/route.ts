@@ -38,7 +38,22 @@ export async function GET(req: NextRequest) {
     let enMarcha = 0;
     let nuevas = 0;
     const porques: string[] = [];
-    for (const c of (data ?? []) as Array<{ id: number }>) {
+    // ⚠️⚠️ EL ARRANQUE ROTA, O LA COLA NO SE LEE NUNCA (8/11/2026).
+    // Esto recorría con `.order('id')` —siempre del más viejo al más nuevo— y corta por plazo. Los
+    // últimos de la lista no se leían TARDE: no se leían. Medido en el ws 9: los 6 competidores
+    // viejos tenían entre 134 y 772 piezas y los 17 dados de alta después estaban los 17 en CERO,
+    // veinte horas y unas veinte corridas más tarde. No fallaban — no les llegaba el turno, y con
+    // orden fijo no les iba a llegar nunca mientras los de adelante siguieran dando trabajo.
+    // Lo reportó Martín viendo las fichas vacías en la pantalla.
+    //
+    // La rotación va por HORA del día, no por un cursor guardado: el cron corre una vez por hora
+    // (`23 * * * *`), así que en un día cada competidor arranca primero al menos una vez, y no hay
+    // estado nuevo que se pueda desincronizar. Es la misma idea que `rotacion: 'spy-todo'` ya usa
+    // para repartir entre WORKSPACES, aplicada adentro de uno.
+    const lista = (data ?? []) as Array<{ id: number }>;
+    const desde = lista.length ? new Date().getUTCHours() % lista.length : 0;
+    const enOrden = [...lista.slice(desde), ...lista.slice(0, desde)];
+    for (const c of enOrden) {
       if (Date.now() + UN_PASO_MS > deadline) break;
       const r = await avanzarTodo(ws, c.id);
       pasos += 1;
