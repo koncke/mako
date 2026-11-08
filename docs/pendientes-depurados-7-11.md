@@ -1,8 +1,8 @@
 # Los pendientes, depurados — 7/11/2026
 
-> ## ⚠️ VERIFICADOS 10, SOBRABAN 9
+> ## ⚠️ VERIFICADOS 12, SOBRABAN 11
 >
-> Al 7/11 por la noche se verificaron los primeros seis; el 8/11, cuatro más. **Nueve de los diez ya**
+> Al 7/11 por la noche se verificaron los primeros seis; el 8/11, seis más. **Once de los doce ya**
 > **estaban resueltos o listos**, casi todos el **6/11** — el mismo día en que se tomó el inventario.
 >
 > | Pendiente | Resultado |
@@ -139,10 +139,10 @@ guardia). De las 232 seguramente sobren más.
     es juntar dos motores, y sumarlos mal duplicaría la plata esperada. Ver docs/hallazgos-agencias.md. · _Cobros y planes, chico_
   - Arreglo chico en la vista de ingresos. Se le paso al chat de la copia de Admin, sin confirmar. Ojo: NO registrar de nuevo los pagos ya cargados.
   - Dónde: `docs/relevo/cerebro.md:85 (vistaDeIngresos)`
-- **Falta la plantilla «Rechazaron un Pago» en la galeria de Automations** · _Chat de MaKo, chico_
+- ✅ **YA ESTABA HECHO (verificado el 8/11).** La plantilla existe desde el 6/11 (`pago-rechazado`, «Le Rechazaron el Pago», objetivo `cobrar`, en `lib/plantillas-automatizaciones.ts:627`) **y está sumada a la lista del test** (`LAS_13`). Las dos mitades del pendiente, hechas. **Falta la plantilla «Rechazaron un Pago» en la galeria de Automations** · _Chat de MaKo, chico_
   - El motor ya tiene el CRON («Pagos: Se rechaza un pago», `alCron(c,'rechazado')`) y el evento del lead; falta la plantilla con objetivo `cobrar` y una tarjeta MaKo al equipo, y sumarla a la lista escrita a mano `LAS_13`.
   - Dónde: `docs/relevo/pendientes-barrido.md:134-136 · lib/cobros.ts · tests/plantillas-automatizaciones.test.ts`
-- **El comentario de cabecera de las plantillas miente dos veces** · _Editor de imágenes, chico_
+- ✅ **YA NO MIENTE (verificado el 8/11).** El comentario se reescribió ENTERO el 6/11, cuando se borraron las 10 plantillas de Doory por licencia. Las dos frases falsas que denunciaba el pendiente ya no existen, y el texto de hoy explica además por qué no vuelve a entrar una plantilla ajena. **El comentario de cabecera de las plantillas miente dos veces** · _Editor de imágenes, chico_
   - En plantillas.ts, el comentario de cabecera dice «el credito ya se muestra» (falso: Martin lo saco el 29/10) y «el TEXTO del lienzo sigue en ingles porque la miniatura lo muestra asi» (falso desde el 14/10: b9a7dae2f lo paso a espanol y redibujo las miniaturas; bold-sale-announcement.json dice «FIN DE TEMPORADA»). Ese 
   - Dónde: `C:/dev/wt-puntas/app/image-editor/mako/plantillas.ts:4-13 · C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:553-557 · docs/plantillas-reales/image.md 5.1`
 - **Nadie miró por qué `laminas` cortó «al techo» con US$0,54 de un tope de US$1,50** · _Carruseles, chico_
