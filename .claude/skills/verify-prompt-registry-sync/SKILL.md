@@ -54,6 +54,10 @@ que `MODOS` no tiene, y la key que no se puede seguir hasta un literal. Arrancá
 
     node --import tsx scripts/prompts-registro-sincronizado.mjs --listar
 
+Sus parsers viven aparte, en `scripts/prompts-parseo.mjs`, y `tests/guarda-registro-prompts.test.ts` los
+rompe: si dudás de un número de la guarda, ese test dice qué sabe leer y qué no (por ejemplo, un objeto de
+vars cuyo valor es un template con coma adentro NO se puede leer, y el call-site sale como NO MEDIBLE).
+
 ⚠️ **Y no grepees cada key en `lib/` y `app/api/` como decía esta skill hasta el 6/11**:
 ese barrido daba ~45 falsos positivos (muchas keys llegan por indirección en tabla,
 `PROMPTS_X.campo.key`) y además juzgaba mal las 167 entradas que NO son `source:

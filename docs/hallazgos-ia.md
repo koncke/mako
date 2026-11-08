@@ -203,6 +203,54 @@ es externo. La skill quedó apuntada a la guarda y con esos dos marcados como su
 - Las tres listas son excepciones que **sólo pueden bajar**: la guarda da rojo si crecen o si una entrada queda
   vencida (se arregló y nadie la sacó de la lista).
 
+## La prueba de una guarda no puede vivir en el scratchpad: dos días después no existía (8/11/2026)
+
+**El síntoma.** La guarda del registro de prompts se entregó el 6/11 «probada rompiéndola: 17 roturas, las
+17 cazadas». El 8/11, `git grep -l prompts-registro-sincronizado -- tests/` daba **0**: el arnés vivía en el
+scratchpad de la sesión, y el scratchpad se borra. Quedaron los `.log` con el resultado, que no prueban nada
+— son la palabra de un agente sobre un archivo que ya no está.
+
+**Por qué en una guarda duele más que en otro código.** Una guarda falla en silencio hacia el lado bueno: si
+alguien «simplifica» un parser, deja de ver call-sites y sigue dando EXIT 0. Verde midiendo nada, que es
+exactamente la falla que ella existe para cazar. Un pase no distingue «está sincronizado» de «no miré», y el
+6/11 eso ya había pasado una vez (la primera medición dio 0 porque el parser no veía el shorthand).
+
+**La regla que queda.** Los parsers de una guarda van en un módulo aparte y puro
+(`scripts/prompts-parseo.mjs`) y un test del repo los ROMPE: `tests/guarda-registro-prompts.test.ts`, 18
+casos, cada uno una rotura que de verdad pasó. Dos de los 18 no son del parser sino del cableado, y son los
+que impiden que el test se vuelva decorativo: que la guarda **importe** esos parsers y no tenga una copia
+propia adentro, y que `guardas-push.sh` siga llamándola y cortando el push. Apagarla ahora obliga a borrar un
+test. Corre en milisegundos y no necesita `tsx` ni el registro, porque los parsers no leen disco ni git.
+
+**El diagnóstico obvio que estaba mal.** Escribiendo el test, ``clavesDeVars('{ a: `${x}, ${y}`, b: 1 }')``
+devolvió `['a','…','b']` y pareció un bug: el contador de profundidad cuenta `{` y `}`, y en
+`` `${x}, ${y}` `` el `${x}` ya cerró cuando llega la coma, así que parte el objeto por el medio. **No es un
+bug**: el `…` manda TODO el call-site al tercer estado (NO MEDIBLE, aviso visible) en vez de inventar una
+clave o de callarse. El límite es real y ahora está escrito en el test. Lo que **sí** estaba mal era el
+aviso: decía «spread o clave computada» y mandaba a buscar un spread que puede no existir. Ahora nombra las
+tres causas. Un aviso que miente sobre la causa gasta el tiempo de quien lo lee, que es como se apaga una
+guarda.
+
+**La trampa del entorno, y es silenciosa.** Mover las funciones con un heredoc de Bash les comió los
+backslashes: `\\b` quedó `\b`, y dentro de un **template literal** `\b` no es un borde de palabra, es un
+backspace. Los regexes quedaron basura, `node --check` pasó igual (es sintaxis válida) y la guarda arrancó y
+dio rojo con 28 «KEY QUE NO SE PUEDE SEGUIR» falsas. Para mover código entre archivos se copian los BYTES
+con `git show HEAD:<archivo>` y se compara función por función contra el original; no se transcribe por
+heredoc. Hecho así, la guarda volvió a dar los mismos números exactos.
+
+**Lo que la guarda midió sola, sin que nadie la tocara (8/11).** 226 commits ajenos después de su merge,
+sobre el árbol de `origin/main`: verde, cero falsos positivos, y el registro creció de 173 a **179 entradas
+en 36 grupos** (keys que el código pide: 177 → 183). Seis prompts nuevos de otras puntas, bien declarados y
+medidos sin ayuda. Era la pregunta del pedido —«una guarda que no resuelva eso es ruido y la van a apagar»—
+y la respuesta, medida: no se volvió ruido.
+
+**Sin verificar en esta máquina.** Las 259 barredoras corrieron y dieron `✖ ROJO · 354 tests · RAM libre
+mínima 0.0 GB`, con ~230 archivos en rojo. Es la RAM, no el código: correr 259 archivos juntos en esta PC
+agota la memoria y los mata en masa, así que ese rojo no dice nada sobre el código (ver
+[hallazgos-pruebas.md](hallazgos-pruebas.md) y el «0 tests» de la memoria). Los que sí podrían ser por estos
+archivos pasan de a uno: `git-lista-entera-buffer`, `ls-files-con-tope`, `rutas-windows-en-tests`.
+`tipos-ci` no se corre acá —es el `tsc`, lo mata la guarda de RAM— y lo corre GitHub.
+
 ## «No tengo acceso a Google Calendar» con la agenda conectada: nombrar el LUGAR no traía la herramienta (ticket #42, 3/11/2026)
 
 **Síntoma (Código Inmobiliario, en su grupo):** MaKo dijo «no tengo acceso a crear eventos en tu Google Calendar» y dos renglones

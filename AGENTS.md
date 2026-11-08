@@ -10492,6 +10492,18 @@ prompts del escritor de Instagram al registro:
   `PROMPTS_X[formato].key` no se puede seguir y frena el push: la resolución por formato se escribe como un
   `switch` exhaustivo con los tres accesos a la vista, que además hace que un formato nuevo no compile hasta
   tener su Entry.
+- **Los parsers de la guarda se tocan en `scripts/prompts-parseo.mjs`, y `tests/guarda-registro-prompts.test.ts`
+  los rompe (8/11/2026).** Están afuera de la guarda a propósito: la guarda es un CLI que corre al importarse y
+  termina en `process.exit`, así que nadie la puede importar para probarla. Vale para CUALQUIER guarda del
+  pre-push: una guarda falla en silencio hacia el lado bueno —si deja de ver, sigue dando EXIT 0— así que su
+  prueba va en el repo y no en el scratchpad de una sesión. El test también fija que la guarda IMPORTE esos
+  parsers (no una copia propia) y que `guardas-push.sh` siga llamándola: apagarla obliga a borrar un test.
+- **Para mover una función de un archivo a otro se copian los BYTES, con `git show HEAD:<archivo>`, y se
+  comparan uno a uno contra el original.** No se transcribe por heredoc de Bash: come los backslashes, y un
+  `\\b` que queda `\b` dentro de un template literal no es un borde de palabra, es un backspace. El regex
+  queda basura, `node --check` pasa igual porque la sintaxis es válida, y el script arranca y miente (28
+  falsos positivos la primera vez). Si el archivo movido tiene regexes, la comparación byte a byte no es
+  opcional.
 
 # Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
 

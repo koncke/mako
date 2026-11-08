@@ -69,6 +69,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { slotsDe, nombraLiteral, clavesDeVars, resolverIndirecto, argumentosDe, esBitacora } from './prompts-parseo.mjs';
 
 const RAIZ = join(import.meta.dirname, '..');
 const LISTAR = process.argv.includes('--listar');
@@ -193,73 +194,9 @@ for (const f of archivos) {
   } catch { /* un archivo listado y borrado en el medio */ }
 }
 
-const slotsDe = (s) => [...new Set([...String(s ?? '').matchAll(/\{\{(\w+)\}\}/g)].map((x) => x[1]))].sort();
-const nombraLiteral = (src, key) => src.includes(`'${key}'`) || src.includes(`"${key}"`) || src.includes(`\`${key}\``);
-
-// ── El primer argumento de cada llamada, resuelto ────────────────────────────────────
-
-/** Corta el objeto literal que empieza en `i` balanceando llaves. */
-function objetoEn(src, i) {
-  let d = 0;
-  for (let j = i; j < src.length; j++) {
-    if (src[j] === '{') d++;
-    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
-  }
-  return null;
-}
-
-/**
- * Las claves de NIVEL 1 del objeto de vars. Acepta `k: v` Y el shorthand `{ titulo,
- * contexto }` — un parser que sólo busca `k:` no ve el shorthand, lee "no pasa ninguna
- * clave" y deja pasar todo en silencio (así di 0 en la primera medición del 6/11/2026).
- * Un spread o una clave computada devuelve '…': el objeto no es medible.
- */
-function clavesDeVars(obj) {
-  const out = [];
-  let d = 0, buf = '';
-  const cerrar = () => {
-    const t = buf.trim(); buf = '';
-    if (!t) return;
-    if (t.startsWith('...') || t.startsWith('[')) { out.push('…'); return; }
-    const c = t.match(/^['"`]?([A-Za-z_$][\w$]*)['"`]?\s*(?::|$)/);
-    out.push(c ? c[1] : '…');
-  };
-  for (const ch of obj.slice(1, -1)) {
-    if ('{[('.includes(ch)) d++;
-    else if ('}])'.includes(ch)) d--;
-    if (ch === ',' && d === 0) { cerrar(); continue; }
-    buf += ch;
-  }
-  cerrar();
-  return [...new Set(out)];
-}
-
-// Las dos formas de indirección del repo, y las dos dejan el literal escrito:
-//   · tabla:     `export const PROMPTS_X = { campo: { key: '…' } }` → `PROMPTS_X.campo.key`
-//   · constante: `export const CLAVE_X = '…'`                       → `CLAVE_X`
-// Se resuelve SÓLO lo que aparece de verdad como primer argumento, buscando su
-// declaración. Barrer a ciegas todas las constantes de nombre parecido traía keys de
-// OTROS dominios (`app_settings`: `recorridos`, `resend_reply_to`, `vigia.paneles`…) y
-// las contaba como prompts huérfanos: 60 falsos positivos (6/11/2026).
-function resolverIndirecto(arg) {
-  const tabla = arg.match(/^(PROMPTS_[A-Za-z_]+)\.(\w+)\.key$/);
-  if (tabla) {
-    for (const [, src] of fuentes) {
-      const i = src.search(new RegExp(`\\bconst ${tabla[1]}\\s*=\\s*\\{`));
-      if (i < 0) continue;
-      const obj = objetoEn(src, src.indexOf('{', i));
-      const campo = obj?.match(new RegExp(`\\b${tabla[2]}:\\s*\\{[^}]*?\\bkey:\\s*['"]([\\w.\\-]+)['"]`));
-      if (campo) return campo[1];
-    }
-    return null;
-  }
-  if (!/^[A-Z][A-Z0-9_]*$/.test(arg)) return null;
-  for (const [, src] of fuentes) {
-    const c = src.match(new RegExp(`\\bconst ${arg}\\s*(?::\\s*\\w+\\s*)?=\\s*['"]([\\w.\\-]+)['"]`));
-    if (c) return c[1];
-  }
-  return null;
-}
+// Los parsers (slotsDe, clavesDeVars, argumentosDe, resolverIndirecto, esBitacora…) viven
+// en scripts/prompts-parseo.mjs, afuera, para que tests/guarda-registro-prompts.test.ts los
+// pueda ROMPER: esta guarda es un CLI que corre al importarse y nadie la puede importar.
 
 const pedidas = new Set();
 const opacos = [];
@@ -268,31 +205,6 @@ const medibles = new Set();   // keys con al menos un call-site de objeto legibl
 const nomedibles = [];        // el TERCER ESTADO: un call-site que no se pudo leer
 const descartadas = [];
 
-/**
- * Los argumentos de NIVEL 1 de la llamada que abre en `i`, balanceando `( [ {`. Un regex
- * con `[^,]*?` no sirve: un argumento que contenga una coma (`renderPrompt(elegir(a, b),
- * …)`, o un objeto de vars con dos claves) hace que la llamada no matchee y no se vea EN
- * ABSOLUTO — un silencio, que es peor que un aviso.
- */
-function argumentosDe(src, i) {
-  const out = [];
-  let d = 0, desde = i + 1;
-  for (let j = i; j < src.length; j++) {
-    const ch = src[j];
-    if ('([{'.includes(ch)) d++;
-    else if (')]}'.includes(ch)) {
-      d--;
-      if (d === 0) { out.push(src.slice(desde, j).trim()); return out; }
-    } else if (ch === ',' && d === 1) { out.push(src.slice(desde, j).trim()); desde = j + 1; }
-  }
-  return null;   // la llamada no cierra
-}
-
-// Las bitácoras de /admin/dev son DOCUMENTACIÓN escrita en `.ts`, y varias nombran
-// `renderPrompt(…)` dentro de un string: leídas como call-sites dan una key opaca que no
-// existe. Se saltean sólo acá, no en el barrido de literales de más abajo — medido el
-// 6/11/2026: entradas del registro que sólo una bitácora nombra, 0, así que no tapan nada.
-const esBitacora = (f) => /(^|\/)bitacora\.ts$/.test(f);
 
 for (const [f, src] of fuentes) {
   if (esBitacora(f)) continue;
@@ -307,7 +219,7 @@ for (const [f, src] of fuentes) {
       // pareciera un identificador para no tragarse la prosa de las bitácoras, y así una
       // llamada se descartaba en silencio: lo cazó la rotura 15 del arnés. Con las
       // bitácoras afuera, no hace falta adivinar qué es código.
-      const resuelta = resolverIndirecto(arg);
+      const resuelta = resolverIndirecto(arg, fuentes);
       if (resuelta) pedidas.add(resuelta);
       else if (!(f in INDIRECTOS_DECLARADOS)) opacos.push({ archivo: f, arg: arg.slice(0, 60) || '(vacío)' });
       continue;
@@ -325,7 +237,10 @@ for (const [f, src] of fuentes) {
     if (obj === undefined) continue;                   // renderPrompt sin objeto de vars: no hay nada que cruzar
     if (!obj.startsWith('{')) { nomedibles.push({ key, archivo: f, por: `las vars no son un objeto literal (\`${obj.slice(0, 40)}\`)` }); continue; }
     const pasa = clavesDeVars(obj);
-    if (pasa.includes('…')) { nomedibles.push({ key, archivo: f, por: 'spread o clave computada' }); continue; }
+    // El motivo se nombra completo a propósito: decir sólo «spread» manda a buscar un spread
+    // que puede no estar. Un valor template con coma (`` { a: `${x}, ${y}` } ``) también cae
+    // acá, porque partir por comas de nivel 0 lo rompe (medido el 8/11/2026).
+    if (pasa.includes('…')) { nomedibles.push({ key, archivo: f, por: 'spread, clave computada o un valor con coma que no se pudo partir' }); continue; }
     medibles.add(key);
     llenadas.set(key, [...new Set([...(llenadas.get(key) ?? []), ...pasa])]);
     const tpl = slotsDe(e.default);
