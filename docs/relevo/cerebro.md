@@ -1,5 +1,47 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~16:00 UTC: FLOW CAPTURA CARA Y VOZ — era la metodologia que faltaba
+
+**Lo mas importante de la vuelta, y responde a por que la voz nunca convencia.** En Flow, selector
+de recursos de un proyecto, pestana **Avatars**: «Your face, your voice, your story». Graba un
+**video selfie** y captura parecido Y voz en el mismo paso.
+
+**El error era de metodo, no de modelo:** nosotros generabamos el clip con la voz del modelo y
+despues CONVERTIAMOS el timbre. Eso parte de audio sintetico y tiene un techo que ningun conversor
+rompe (probados: openvoice_v2, freevc24, knnvc y ElevenLabs STS con similitud al maximo). Con el
+avatar de Flow no hay paso de conversion.
+
+⚠️ Es **experimental**, la **captura es solo en ingles**, y **la graba Martin** (camara y voz suyas).
+Todo en [video-avatar-desde-foto.md](../video-avatar-desde-foto.md).
+
+### Lo que ESPERA A MARTIN, y son minutos suyos
+
+1. **Ticket #65 de Leandro, vence esta noche:** mandarle el recurso a @jealoficial y
+   @bigmouse_oficial, los 2 de 19 con la ventana de 24 h abierta. El triage lo dejo en
+    porque lo pidio un numero que no figura como admin del negocio.
+2. **Grabar el selfie del avatar** en Flow → Avatars → Get started. No lo toque para no dispararle
+   el permiso de camara sin avisar.
+3. **Subir las dos imagenes a Flow** (la portada de Mauricio y su foto): ⚠️ el  no
+   existe hasta que se toca el boton y **el drop simulado NO lo toma** (probado con las dos ya en
+   URLs publicas). Sin su clic no hay forma.
+4. **Desplegar o no el reintento** (, en main; el deploy de hoy corrio
+   06:14, antes del cambio).
+
+### Dos saldos que frenan solos
+
+- **ApiMart en US$ 0,26** — y es la clave de la PLATAFORMA: con eso generan video todos los clientes.
+- **Flow avisa que queda poco credito.**
+
+### De paso, medido en Flow
+
+- «Voices» de Flow **NO clona**: catalogo de voces sinteticas con nombre, para voz en off.
+- Su modelo de imagen es **Nano Banana 2.1**, el MISMO que usamos por ApiMart: la imagen sale igual
+  por los dos lados, asi que la que ya existe no hay que rehacerla.
+- **Omni 1.2 Flash** es de Flow, y de ahi viene el nombre que usa Martin.
+
+---
+
+
 ## 8/11/2026, ~15:00 UTC: LO DE LEANDRO, CERRADO — y el bug que le costó 17 leads, arreglado
 
 **Los dos tickets de Leandro están resueltos y él ya lo sabe** (respondidos en su grupo, los dos con
