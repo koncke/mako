@@ -856,6 +856,41 @@ Dos causas:
   los seis que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs
   «acquisition.com») hay que borrarlos a mano, que ahora se puede desde la tarjeta.
 
+### 🔴 EL PUENTE DE FLOW NO CONECTA, Y ES LA EXTENSIÓN VIEJA (8/11/2026)
+
+Martín pidió usar la tab de **AI Avatar** con su Flow. **Falta 1 de 4** y no se destraba abriendo
+Flow a mano. Diagnosticado contra la base, no adivinado — `flow_puentes` del ws 1:
+
+```
+estado:          sin_sesion
+estado_detalle:  «Abre Google Flow desde el ícono de MaKo e inicia sesión.»
+version:         0.74.4          ← el repo va por 0.77.0
+ultimo_visto:    hace 13 s       ← el puente ESTÁ VIVO, late bien
+project_id:      9973383e-…      ← viejo, da 404; NO se actualiza aunque la pestaña esté en otro
+```
+
+**La frase de `estado_detalle` sale de la rama VIEJA** (`else if (!bearer)`, el camino REST por
+`labs.google`). O sea: su extensión **no reconoce `flow.google.com` como «Flow nuevo»**, cae al
+camino que pide un *bearer* que esa página nunca le va a dar, y por eso reporta `sin_sesion` para
+siempre. La prueba cruzada: puse la pestaña en un proyecto VÁLIDO de su cuenta y el `project_id` de
+la base **no cambió** — el código que lo aprende de la URL entró en `96441e002` (6/9/2026) y su
+0.74.4 es anterior.
+
+⚠️ **No es un problema de sesión, de cookies ni de cuenta.** Flow está abierto, logueado y con PRO.
+Es la versión.
+
+**Lo que SÍ se pudo hacer sin él:** la foto quedó cargada en «Personaje» (paso 4 ✅). Quedan los
+pasos 1 y 2 en verde de antes. **El único que falta es el 3, y depende de actualizar la extensión.**
+
+**Las dos salidas, las dos necesitan a Martín:**
+1. **Publicar la 0.77.0** — trabado en lo de abajo (el cliente OAuth de Google Cloud fue borrado).
+2. **Cargarla desempaquetada**: `chrome://extensions` → Modo de desarrollador → «Cargar
+   descomprimida» → `C:/dev/wt-push-q/extension`. Dos clics, y no depende de Google. ⚠️ Un asistente
+   no puede: `chrome://` no lo alcanzan ni las herramientas de página ni las de escritorio (Chrome
+   entra como «sólo lectura»).
+
+---
+
 ### ⛔ #20 · Publicar la versión nueva de la extensión
 
 **«Descargar» ya no sale (3/11):** toda pantalla lleva a «Agregar a Chrome», también con la tienda
