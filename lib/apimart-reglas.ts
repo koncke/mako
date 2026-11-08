@@ -53,6 +53,17 @@ export type ModeloVideo = {
  * en image-to-video la foto es el cuadro 0 y la cara se arrastra. La familia `-face` cuesta 2,2× y no compra
  * nada — medido comparando el ÚLTIMO cuadro de cada video, que es donde la deriva aparece.
  */
+// ⛔⛔ REGLA DE MARTÍN (8/11/2026), TEXTUAL: «TENÉS PROHIBIDO USAR OTRO MODELO QUE NO SEA OMNI… Es el
+// único que podemos usar, porque el resto NO sale bien.»
+//
+// Es sobre **una persona hablando a cámara** (avatar, testimonial, pieza con cara). Lo dijo mirando un
+// clip hecho con `wan2.5-preview`: la boca se mueve «como si» hablara, pero no sincroniza fonemas, así
+// que se ve mal ANTES de tocarle la voz. Los de abajo que NO son Omni sirven para plano sin habla
+// (producto, paisaje, b-roll); para una cara que habla, **no se eligen aunque sean más baratos o
+// respeten mejor la proporción**. Ese ahorro es el que produjo el clip que él rechazó.
+//
+// ⚠️ `kling-v3-omni` devuelve **16:9**: una pieza vertical sale recortada. Eso NO habilita volver a
+// `wan2.5` ni a `kling-v4` — se resuelve con el encuadre o se le pide a Martín, no cambiando de modelo.
 export const MODELOS_VIDEO = {
   // ⚠️ `formato` y `respetaLaEntrada` se RE-MIDIERON el 7/11 con una entrada 4:5, y estaban al revés:
   // Hailuo devolvió 4:5 (respetó la entrada) y seedance la cambió a 3:4. Ver el tipo de arriba.
