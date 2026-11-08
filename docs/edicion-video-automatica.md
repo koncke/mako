@@ -1131,3 +1131,30 @@ La primera corrida del lipsync eligió la cara con `max(area)`. En un clip con D
 una lotería: Walter medía 6.323 px² y Martín 5.872 — **450 px² de diferencia** decidieron a quién se
 le movía la boca. **Con más de una cara en cuadro, elegir «la más grande» no es elegir.** Hay que
 elegir por posición, por identidad, o generar el clip con una sola persona — que es lo que se hizo.
+
+## ⛔ CANCELADO POR MARTÍN, Y POR QUÉ (8/11/2026)
+
+El hilo del clip de Walter se cerró con **«cancelemos esto»**, y las dos razones valen más que el
+resultado:
+
+1. ⚠️ **«El avatar no se parece.»** Toda la cadena —imagen frontal, video, lipsync— puede estar
+   técnicamente bien y no servir si el parecido se pierde. El modelo de imagen conserva la escena
+   entera (tipografía, encabezado, fondo, la otra persona) pero **al girar la cabeza reconstruye la
+   cara, y ahí el parecido se va**. Girar a alguien de perfil a frontal NO es una edición menor: es
+   inventar la mitad de una cara que no estaba.
+2. ⚠️ **«Lo que no podés hacer es salirte de lo que estamos haciendo.»** Me pidió sincronizar los
+   labios de UN clip y generé una escena nueva, con otra persona en otro cuarto. Aunque hubiera
+   salido perfecta, no era lo pedido.
+
+**La regla que queda: cuando una pieza ya existe y el pedido es arreglarla, la salida tiene que ser
+ESA pieza.** Generar una alternativa «mejor» es cambiar el pedido sin permiso, y cuesta plata ajena.
+Si la pieza no se puede arreglar, se dice y se pregunta — no se reemplaza por otra.
+
+**El techo real, medido:** wav2lip sobre la cara original (69×100 px **de perfil**) reconstruye la
+boca pero queda blanda, y el modelo sin GAN sale peor (hasta con un artefacto verde). Con recorte
+ajustado (1,15× la caja en vez de 1,6×) mejora, porque la boca ocupa más de los 96 px del modelo.
+Eso es todo lo que da ese clip.
+
+**Lo gastado en toda la exploración: US$ 0,30.** Dos imágenes a US$ 0,012 y un video de 5 s a
+US$ 0,279. El segundo video falló por revisión de contenido y **no se cobró** (`cost: 0`) — un fallo
+de ApiMart devuelve la cuota, ya estaba medido.
