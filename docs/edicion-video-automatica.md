@@ -931,3 +931,48 @@ los labios ya no perdonan.
 profesional sin estirar, arrancando en 1,115. Quedan diferencias en las pausas INTERNAS —el clon
 frasea distinto que Omni— y eso sólo lo arregla una pasada de lipsync, que necesita saldo.
 Receta: `scratchpad/walter/v4-entero.mjs`.
+
+## ⚠️⚠️ `clone_strength` VIENE EN 0 Y ES LO QUE DECIDE SI SUENA A LA PERSONA (8/11/2026)
+
+**El parámetro que faltaba en todo el día de intentos.** Existe **sólo para clones profesionales
+fine-tuneados**, va en `voice_settings` de CADA pedido de `/v1/text-to-speech`, y **su default es 0**.
+Medido sobre la voz profesional de Martín (`I2d6BR9P2dAopVw1khNv`), misma línea, misma seed:
+
+| `clone_strength` | tono de salida |
+|---|---|
+| **1,0** | **128 Hz — su voz real, clavada** |
+| 0,7 | 139 Hz |
+| **0,0 (el default)** | **150 Hz** |
+| `use_pvc_as_ivc: true` | 148 Hz |
+
+Es monótono y limpio: **el parámetro gobierna el registro entero.** Todo lo que generé antes salía
+20 Hz arriba porque corría con el default.
+
+⚠️ **No se puede guardar en `/v1/voices/{id}/settings/edit`**: ese endpoint devuelve ok y lo
+**descarta en silencio**. Va en el body de cada generación.
+
+⚠️ **Y por eso nunca apareció antes:** sólo existe para PVC, y el clon profesional se entrenó hoy.
+Con un clon instantáneo el parámetro no hace nada, así que ninguna de las pruebas de la mañana podía
+encontrarlo.
+
+### ⚠️⚠️ Y LO MÁS CARO DEL DÍA: EL CLIP NO TENÍA LABIOS
+
+Pasé el día entero peleando la voz y el calce de labios de `scratchpad/walter/clip-916.mp4`.
+**Miré los cuadros recién al final.** El clip no es un avatar hablando: es el póster «best font
+Pairings» animado — **dos personas de PERFIL** dándose la mano en un desierto, con el título encima.
+La cabeza del que habla ocupa **~2,3% del cuadro** y la boca cae sobre el borde del silueteado.
+
+**No había labios que sincronizar.** Las nueve pruebas de audio de ese día —STS, stability, pitch
+del origen, pitch de la salida, partir por bloques, acortar el copy— atacaban un problema que no
+estaba en el audio. Y ninguna pasada de lipsync lo habría arreglado tampoco: los docs de sync.so
+descartan esa toma por tres motivos a la vez (perfil, dos caras en cuadro, poco movimiento de boca),
+y la guía de encuadre pide que la cara ocupe **20-40% del cuadro**.
+
+**LA REGLA QUE QUEDA: antes de tocar el audio de un clip, SACAR UN CUADRO Y MIRARLO.**
+`ffmpeg -i clip.mp4 -vf "select='eq(n\,30)'" -frames:v 1 cuadro.jpg`. Treinta segundos. Si la cara
+no está de frente o en 3/4 y no ocupa 20-40% del cuadro, **no hay nada que sincronizar** y cualquier
+trabajo sobre la voz es tiempo tirado.
+
+Y el orden correcto queda invertido para siempre: **audio primero, video después, labios al final.**
+Con un modelo de voz nativa como Omni, la voz y los labios salen fundidos en una sola pasada, así
+que cambiar la voz desincroniza **por construcción**.
