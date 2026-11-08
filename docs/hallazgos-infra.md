@@ -204,6 +204,29 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Los errores de tipos de una corrida roja se leen con la credencial del vigía, sin `gh` (8/11/2026)
+
+**El síntoma.** El aviso del hook dice el paso y cuántos errores («paso «Tipos» — 6 errores de tipos») y nada
+más. En esta máquina no hay `gh` CLI, y el `leer` del vigía **no toma un id**: `vigia-ci.mjs leer 42491311153`
+devuelve vacío, que parece «no hay nada» y es «ese comando no existe» (la firma es
+`leer | aviso | esperar | visto <id> | estado`). Sin los errores en la mano, el arreglo es a ciegas.
+
+**Cómo se leen.** La función `token()` de `~/.claude/guardia/vigia-ci.mjs` saca el token con
+`git credential fill` sobre `protocol=https / host=github.com`. Con ese token, dos llamadas a la API:
+`/actions/runs/<id>/jobs` para encontrar el job con `conclusion === 'failure'` (y los pasos rojos), y
+`/actions/jobs/<jobId>/logs` para el log entero, que se filtra por `error TS`. Salen las 6 líneas con archivo,
+línea y código. Un script de ~15 líneas y no hace falta instalar nada.
+
+**Por qué importa acá y no en cualquier repo.** El repo prohíbe correr `tsc` o `npm run typecheck` en la PC
+(los mata la guardia de RAM, y con la RAM agotada se cae la app con todos los chats abiertos), así que para
+un archivo `.ts` nuevo **CI es el primer lugar donde se ven los tipos**. Si además no se puede leer el log,
+cada rojo de tipos cuesta un push de prueba. Caso concreto: `tests/guarda-registro-prompts.test.ts` usaba
+`args.length` sobre `argumentosDe(...)`, que devuelve `string[] | null`, y con `strict: true` eso son 6
+TS18047. La cura, que además mejora el test: `assert.ok(args, '<qué significa que sea null>')` antes del
+primer acceso — el `ok` de `node:assert/strict` está declarado `asserts value` (`ok: typeof ok` dentro de
+`namespace strict`, en `@types/node/assert.d.ts`), así que estrecha el tipo Y deja el mensaje que explica la
+rotura en vez de un «cannot read length of null». Eso se verifica leyendo el `.d.ts`, sin correr `tsc`.
+
 ## El pre-push del clon de la PC es del 22/10 y NO corre el filtro de puntas (7/11/2026)
 
 **El síntoma.** Push a `punta/video-historial-avatar` desde `C:/dev/wt-video-historial`: las guardas corrieron y

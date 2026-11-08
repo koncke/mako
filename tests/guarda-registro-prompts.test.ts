@@ -85,6 +85,9 @@ test('argumentosDe lee una llamada cuyo PRIMER argumento tiene una coma', () => 
   // aviso, porque no deja rastro de que algo quedó sin chequear.
   const src = 'renderPrompt(elegir(a, b), TPL, { x: 1 })';
   const args = argumentosDe(src, src.indexOf('('));
+  // `null` acá ES la rotura que este test persigue, así que se nombra en vez de dejar que
+  // reviente con «cannot read length of null»: el mensaje tiene que decir qué pasó.
+  assert.ok(args, 'argumentosDe no pudo leer la llamada: volvió el silencio de la rotura 15');
   assert.equal(args.length, 3);
   assert.equal(args[0], 'elegir(a, b)');
   assert.equal(args[2], '{ x: 1 }');
@@ -93,6 +96,7 @@ test('argumentosDe lee una llamada cuyo PRIMER argumento tiene una coma', () => 
 test('argumentosDe balancea llaves, corchetes y paréntesis', () => {
   const src = "getPromptText('k', DEF, { a: [1, 2], b: f(g(3, 4)) })";
   const args = argumentosDe(src, src.indexOf('('));
+  assert.ok(args, 'argumentosDe no pudo leer una llamada con corchetes y paréntesis anidados');
   assert.equal(args.length, 3);
   assert.equal(args[0], "'k'");
   assert.equal(args[2], '{ a: [1, 2], b: f(g(3, 4)) }');
