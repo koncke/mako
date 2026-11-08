@@ -733,6 +733,13 @@ versión de main — `git checkout origin/main -- docs/hallazgos.md`, volver a m
 `git commit --amend`. Y antes de subir, correr `node --test --import tsx tests/unir-indice-hallazgos.test.ts`: es el único
 control que distingue «se mezcló» de «se mezcló bien».
 
+⚠️ **Corrección de la misma noche, y vale leer las dos versiones juntas: «es el costo de la primera hora» era sólo medio
+cierto.** En el RUNNER el choque ya no existe: el driver aprendió a mezclar la tabla **por área** cuando los dos lados
+tienen tablas distintas (más abajo, «cuatro puntas en rojo a la vez»), así que una punta vieja se mezcla sola y en verde.
+**Lo de la PC sigue tal cual**, porque eso no lo arregla el driver: el atributo que gobierna el archivo se lee del árbol
+de TU punta, y si todavía dice `docs/hallazgos*.md merge=union` git nunca llama al driver. O sea que la receta de arriba
+sigue siendo la receta — para la máquina. Y el test sigue siendo el único control que distingue las dos cosas.
+
 ### Y juntar el daño ya acumulado: contar FILAS medía menos de la mitad (6/11/2026, misma noche)
 
 **Vive en:** `docs/hallazgos.md` (217 filas → **77, una por área**) · la guarda nueva, al final de
@@ -780,6 +787,77 @@ el primer match se come el carácter de antes del segundo `|`, así que el segun
 `auditoria-aislamiento-workspace.md`, borrado el 17/10/2026 por viejo —su material vive en `hallazgos-seguridad.md`, que
 se declara «la ÚNICA fuente del área»—. Repuntada. La guarda nueva mira en disco que cada link exista, que haya una sola
 fila por clave, que ninguna fila tenga columnas de más y que una línea en blanco no haya partido la tabla.
+
+⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
+documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,
+«Customer Success» y «Customer Success (Clients)». Son claves distintas, así que la guarda las deja pasar; juntarlas o no
+es una decisión sobre cómo se busca en el índice, y no se tomó acá.
+
+### Y arreglarlo abrió el agujero siguiente: una mezcla LIMPIA devuelve las filas que main ya había juntado
+
+**Vive en:** `scripts/unir-indice-hallazgos.mjs` (`entradasDeCelda`, `unirCeldas`, `unaFilaPorClave`).
+
+⚠️ **La guarda nueva se puso en rojo en una punta ajena media hora después, y la punta no había hecho nada mal.**
+`punta/spy-oferta-capturada` se había cortado ANTES de que main tuviera una fila por área, así que tenía las filas
+viejas; al mezclar el main nuevo, **git las devolvió** — un lado las borró y el otro las conservó, y eso se resuelve
+conservando. Quedó en 85 filas para 77 áreas. **Le va a pasar a toda punta abierta de antes del 6/11.**
+
+⚠️ **Y el driver no lo veía porque la mezcla salía LIMPIA.** Los dos lados tocaron renglones distintos, así que
+`git merge-file` devolvía 0 y el único filtro de ese camino era «tirar las filas byte a byte idénticas» — que era *lo
+único seguro a ciegas* mientras el índice estaba duplicado, y dejó de alcanzar el día que main quedó con una fila por
+área. **Un filtro que se justifica por «es lo único seguro» hay que volver a mirarlo cuando cambia lo que había antes.**
+
+⚠️ **Y tirarlas por clave perdía hallazgos: de las 8 filas de más, sólo 2 estaban contenidas en la de main.** Las otras 6
+traían la cosecha propia de la punta (la de MaKo (IA), 24.218 caracteres). Así que el driver une **por entrada**, con la
+misma mecánica de la pasada a mano, y con su red: si alguna entrada no aparece textual en el resultado, esa clave **no se
+toca** y quedan las dos filas. Mejor un rojo de la guarda, que lo mira una persona, que una entrada perdida en silencio.
+
+Probado con el caso real, llamando al driver como lo llama git (base, ours, theirs): 123 filas → **77 para 77 áreas**,
+1.625 títulos, los mismos. Y `--consolidar` ahora hace el trabajo de verdad, no sólo las idénticas: es el comando que le
+queda a quien se encuentre el rojo.
+
+### Y el de abajo: cuatro puntas en rojo a la vez, y el driver decía «resolvelo a mano» sobre algo nada ambiguo
+
+⚠️ **Media hora después: cuatro puntas en rojo al mismo tiempo, todas en el paso «Mezclar main en la punta».** Las
+cuatro se habían cortado antes de que main juntara la tabla, así que el choque era «la tabla entera (216 filas) contra la
+tabla entera (77)». **`unirPorCelda` pide el MISMO esqueleto en los tres lados** —misma cantidad de líneas, misma fila en
+cada renglón—, que era razonable mientras las dos partes sólo metieran su entrada adelante, y dejó de serlo ese día.
+Devolvía null, el driver contestaba «no es sólo los dos cosecharon en su celda; queda el choque para resolver a mano», y
+Actions moría ahí. **Una regla de aplicabilidad escrita cuando el archivo tenía una forma caduca con el archivo.**
+
+El arreglo: cuando el esqueleto no coincide, la tabla **no se mezcla por renglón sino por ÁREA** (`unirPorFilas`). Las
+filas de los dos lados se juntan por clave con `unirCeldas`, el orden lo manda main y las áreas que sólo existen en la
+punta van detrás. Lo de fuera de la tabla sigue la regla de siempre: se acepta que UN lado lo haya cambiado.
+
+⚠️ **Y para eso hubo que dejar de usar `filaDelIndice`, que es ciega a 7 de las 77 filas.** Pide `](hallazgos-` en la
+2.ª celda, y hay filas que mandan a `recorrido-visual-30-10.md`, `promesas/…`, `mako-iniciativa/`. Están EN EL MEDIO de
+la tabla, así que el tramo parecía cortado ahí y la mezcla se daba por vencida. Peor: con el tramo cortado, lo que venía
+detrás se iba con «lo de después de la tabla», que se resuelve tomando un lado entero — **un área que sólo tenía la punta
+se perdía sin ruido**. El lector nuevo (`filaDeLaTabla`) ve toda fila del tramo, sin pedir el patrón, porque el tramo ya
+está acotado por el encabezado; y tolera la fila sin su `|` de cierre, que también existía.
+
+⚠️ **Y el `|` escapado hacía que la misma entrada fuera dos entradas.** Main escapa (`number \| null`) y la punta vieja
+lo trae pelado: comparadas así, la unión dejaba las dos y la fila salía con columnas de más. Se compara y se une en
+**pelado**, y se escapa recién al final — que de paso repara el escapado de cualquier punta.
+
+Probado con las CINCO puntas que tenían el problema, llamando al driver como lo llama git: las cinco salen `exit=0` y
+**77 filas para 77 áreas**, sin perder una entrada de ninguno de los dos lados.
+
+⚠️ **Y el peaje: una función nueva SIN ANOTAR en un `.mjs` llena de TS7006 el test que lo importa, en líneas que nadie
+tocó.** Los tipos de `scripts/unir-indice-hallazgos.mjs` los INFIERE tsc, y de ahí salen los del test.
+`unaFilaPorClave` recibía `lineas` sin anotar → `any`, y eso subió por `unirPorCelda` —que ahora la llama— hasta el test:
+cinco «Parameter 'l' implicitly has an 'any' type» en un `.filter(l => …)` que estaba igual desde antes. **El error
+aparece donde no se tocó nada, y el archivo que hay que arreglar es el otro.** Costó una corrida del paso «Tipos» —20
+minutos— con cinco puntas esperando justamente esta rama. Toda función exportada de ese script lleva ahora su
+`@param`/`@returns`, y el control de antes de subir es `node scripts/tsc-acotado.mjs tests/<el test>.ts`: **el test en
+verde no mira los tipos**, y acá los 14 pasaban con los cinco errores puestos. Verificado: con los arreglos fuera, el
+acotado da los cinco TS7006; con ellos, verde.
+
+⚠️ **Y la trampa de medir eso: hay DOS arreglos para el mismo error y cada uno TAPA al otro.** El `@param` del `.mjs` y
+el `(l: string)` del test alcanzan solos, así que sacar uno y probar da verde las dos veces — y de ahí casi salió una
+corrección FALSA a este mismo documento («el acotado no ve este error, no sirve como control»). **Cuando un error tiene
+más de un arreglo posible, probar rompiendo UNO no prueba nada: hay que sacarlos todos a la vez.** Vale para cualquier
+«probado rompiéndolo» donde la red esté puesta dos veces.
 
 ⚠️ **SIN HACER, y es una decisión de taxonomía, no daño de la mezcla: 77 áreas para 60 documentos.** 17 rótulos comparten
 documento con otro — «Infra» y «Infraestructura», «Landing» y «VSL», «Image Editor» y «Image Editor (copia de Canva)»,

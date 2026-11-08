@@ -700,11 +700,30 @@ export async function estadosDeSeguimiento(
  * reloj de acá (la ventana se cerró, la respuesta privada ya se gastó, otra app atiende la charla):
  * reintentar no lo arregla.
  */
+/**
+ * OTRA APP ES LA DUEÑA DEL HILO AHORA MISMO (Meta subcode 2534037, `not_thread_owner`).
+ *
+ * ⚠️ **No es permanente, y tratarlo como permanente costó 17 leads** (tickets #63 y #64 de Leandro,
+ * 8/11/2026). El dueño del hilo es una CONFIGURACIÓN de la Página —el receptor primario del handover
+ * de Meta—: cambia en cuanto el negocio saca la app rival, y de hecho cambió. Pero para entonces el
+ * motor ya había cancelado las inscripciones, y a 17 de los 19 leads se les había pasado la ventana
+ * de 24 h, así que quedaron inalcanzables para siempre.
+ *
+ * Con esto fuera de `esLimiteDeMeta`, el envío vuelve a intentarse: si el negocio arregla el ajuste
+ * dentro de la ventana, el lead recibe lo suyo solo y nadie se entera de que falló.
+ */
+export function esDeOtraApp(e: unknown): boolean {
+  return e instanceof ZernioError && e.code === 'not_thread_owner';
+}
+
 export function esLimiteDeMeta(e: unknown): boolean {
   if (!(e instanceof ZernioError)) return false;
   // ⚠️ UN TOPE NO ES «META NO DEJA» (28/10/2026): pasa solo. Sin esto, un «muchos pedidos» de Meta (un 400 `platform_error`)
   // caía en la última regla y CERRABA el hilo: el mensaje se perdía. Lo decide `topeDe`, y quien llama reintenta.
   if (topeDe(e)) return false;
+  // ⚠️ NI «OTRA APP ES LA DUEÑA» (8/11/2026): se destraba solo cuando el negocio cambia el ajuste. Misma forma que el
+  // tope, y el mismo daño si se cierra: el mensaje se pierde, y acá además se pierde al lead con la ventana de 24 h.
+  if (esDeOtraApp(e)) return false;
   const d = e.body?.details as { privateReplyConsumed?: unknown } | undefined;
   return e.code === 'PLATFORM_LIMITATION' || e.code === 'not_thread_owner' || d?.privateReplyConsumed === true
     || (e.status === 400 && e.type === 'platform_error');
