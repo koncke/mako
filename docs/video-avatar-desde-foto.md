@@ -63,9 +63,35 @@ Para el paso 4, de `lib/apimart-reglas.ts` (medido el 7/11):
 | `wan2.5-preview` | 0,0664 | 0,66 | **sí** | sí |
 | `kling-v4` | 0,1400 | 1,40 | **sí** | sí |
 
-Y en Replicate, para la cadena con voz propia (cuando tenga crédito): `lucataco/xtts-v2` para clonar
-(acepta español y el audio de referencia directo) y **`bytedance/omni-human`**, que toma **foto +
-audio** y devuelve el video hablando — es el que resuelve el paso 4 en una sola llamada.
+Y en Replicate, **`bytedance/omni-human`** toma **foto + audio** y devuelve el video hablando: resuelve
+el paso 4 en una sola llamada.
+
+## ⛔⛔ LA LICENCIA DECIDE ANTES QUE EL PRECIO, Y CASI ME LA COMO
+
+La primera versión de este documento recomendaba `lucataco/xtts-v2` para clonar. **Está mal:**
+XTTS-v2 es **CPML — no comercial, «y sus salidas»**, igual que F5-TTS (pesos CC-BY-NC). Un video de
+venta hecho con eso no se puede usar. Lo salvó de casualidad que Replicate no tuviera crédito.
+
+⚠️ **Que Replicate o fal hospeden un modelo NO limpia su licencia.** Está medido y escrito en
+[hallazgos-ai-avatar.md](hallazgos-ai-avatar.md) → «Licencias: lo que muerde aunque el repo diga MIT».
+**Antes de elegir un modelo de voz o de avatar, se lee esa sección.** No es trámite: ahí están los dos
+que yo iba a usar.
+
+**Y «replicar ElevenLabs» con `ref-voicestudio` tampoco sirve:** VoiceStudio es **AGPL-3.0** y su motor
+por defecto (OmniVoice) tiene pesos **CC-BY-NC**. Está clonado para copiar el MÉTODO y su inventario de
+licencias (`backend/config/model_licenses.json`), **no el código**. Sus binarios de `bin/` además están
+en 0 bytes: no hay nada ejecutable ahí.
+
+**Lo que SÍ está limpio para uso comercial** (relevado el 17/10, código y pesos):
+
+- **Voz:** Chatterbox Multilingual (MIT, español), Qwen3-TTS (Apache), Kokoro, OpenVoice V2, GPT-SoVITS.
+- **Avatar por audio:** InfiniteTalk, StableAvatar, EchoMimicV3, LongCat-Avatar, HuMo, Wan2.2-S2V.
+- ⚠️ De los de avatar, **en 8 GB sólo StableAvatar tiene chance** (y sin medir). La PC de Martín tiene
+  16 GB y hoy corre con ~1,4 GB libres.
+- ApiMart **no revende ninguno de los limpios de voz**: no hay Chatterbox ni Qwen3-TTS en su catálogo.
+
+**Por eso el camino más barato y limpio sigue siendo pagar ElevenLabs Starter:** es un servicio
+comercial, la licencia de salida viene con el plan, y clona en el momento sin instalar nada.
 
 ⚠️ **La foto tiene que estar en una URL http(s):** `/v1/videos/generations` de ApiMart rechaza
 `data:`. La ruta de imágenes sí las acepta, así que una prueba hecha con imágenes no prueba nada
