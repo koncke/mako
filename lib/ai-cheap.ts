@@ -1959,8 +1959,21 @@ export async function guionDeYoutubeConGemini(
       void recordUsage(opts.feature, model,
         { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
         opts.motivo, 'gemini', nroCuenta(p));
-      const limpio = texto === '(vacío)' ? '' : texto;
-      // ⚠️ `finishReason=STOP` NO PRUEBA QUE TERMINÓ: debajo del piso, el otro modelo (y si no, otra cuenta). «(vacío)» también.
+      // ⚠️⚠️ «(vacío)» ES UNA RESPUESTA COMPLETA, NO UNA CORTA — Y SE CORTA ACÁ (8/11/2026).
+      // La instrucción le pide a Gemini exactamente esa palabra cuando el video no tiene voz («sólo
+      // música o imagen»). Antes se traducía a `''` y caía en la comparación con el piso: como el piso
+      // es > 0 para cualquier video del que se sepa la duración, `0 >= piso` siempre daba falso, así que
+      // un video MUDO seguía probando **cada modelo y después cada cuenta**, pagando todas, para
+      // terminar devolviendo lo mismo marcado `corto`. Dos cosas rotas de un solo origen, las dos
+      // confirmadas por la revisión de `punta/nada-por-detras`:
+      //   · el costo se multiplicaba por modelos × cuentas, y el tope del día no lo frena;
+      //   · «No tiene voz: es sólo música o imagen» quedaba INALCANZABLE: el cliente recibía
+      //     «el guion puede estar incompleto» sobre un video donde no hay nada que transcribir.
+      // Un modelo que contesta la palabra convenida ya contestó. Preguntarle a otro es gastar por
+      // desconfiar de una respuesta correcta.
+      if (texto === '(vacío)') return { ok: true, texto: '', tokens: u?.totalTokenCount ?? 0 };
+      const limpio = texto;
+      // ⚠️ `finishReason=STOP` NO PRUEBA QUE TERMINÓ: debajo del piso, el otro modelo (y si no, otra cuenta).
       if (limpio.length >= piso) return { ok: true, texto: limpio, tokens: u?.totalTokenCount ?? 0 };
       ultimo = `el guion vino corto (${limpio.length} caracteres de ${piso} como mínimo, ${model})`;
       if (!mejorCorto || limpio.length > mejorCorto.texto.length) mejorCorto = { texto: limpio, tokens: u?.totalTokenCount ?? 0 };
