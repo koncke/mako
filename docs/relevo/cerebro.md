@@ -1,5 +1,63 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~15:00 UTC: LO DE LEANDRO, CERRADO — y el bug que le costó 17 leads, arreglado
+
+**Los dos tickets de Leandro están resueltos y él ya lo sabe** (respondidos en su grupo, los dos con
+id de WhatsApp). El #64 quedó `arreglado`.
+
+- **#63:** los flujos de comentarios de Instagram no entregaban nada. Causa: Meta subcode **2534037**,
+  otra app (ManyChat) era el **receptor primario** del handover de su Página. **Lo arregló él.**
+  Verificado contra la base: último fallo el 7/11 23:53; desde las 00:00 del 8/11, **cuatro envíos y
+  cero fallos**, incluidos los dos nodos que entregan el recurso.
+- **#64:** se trabó creyendo que le faltaba el último paso (el desplegable de enrutamiento le salía
+  vacío). **No era un error:** Meta sólo pide elegir receptor cuando hay dos apps en disputa. Ya
+  funcionaba.
+
+### ⚠️ Lo que queda abierto de esto, y no es técnico
+
+**17 de los 19 leads perdidos quedaron inalcanzables**: se les pasó la ventana de 24 h de Meta. Le
+pasé a Leandro la lista de arrobas para que les escriba **a mano desde el teléfono**, que no tiene esa
+restricción. Si vuelve a preguntar, es eso.
+
+### Lo que se arregló en código (punta/otra-app-no-es-terminal)
+
+`not_thread_owner` ya **no es terminal**: cae en el backoff de 4 h y vuelve a salir solo. Antes
+cancelaba la inscripción para siempre. Y en la respuesta privada a un comentario **ya no se marca
+gastada** — no se gastaba, la rechazaba el dueño del hilo, y marcarla quemaba la única privada que
+Meta da por comentario. Test en `tests/tope-social.test.ts`, probado sacando la línea (1 rojo de 9).
+
+⚠️ **Es el MISMO bug que el del 28/10 con los topes.** La regla, ya ganada dos veces: **cuando Meta
+dice que no, preguntarse si dice «no NUNCA» o «no AHORA».** Todo en
+[hallazgos-comunicacion.md](../hallazgos-comunicacion.md) → «Otra app es la dueña del hilo».
+
+### Lo que sigue abierto de nuestro lado
+
+1. **Nadie se entera cuando un envío falla.** Nueve días rotos y el único que lo notó fue el cliente.
+   ⚠️ Cablearlo a `registrarError` **no alcanza**: el 2534037 es configuración del negocio, y esa rama
+   devuelve sin escribir ni avisar. Lo que hace falta es un **aviso al grupo del negocio**
+   (`lib/avisos.ts`, `CATALOGO_AVISOS`), no un ticket de bug al Cerebro. Sin empezar.
+2. **El avatar de Martín:** la metodología Avatar Hype quedó entera y medida en
+   [video-avatar-desde-foto.md](../video-avatar-desde-foto.md) — imagen → video → voz, **sólo Omni**.
+   Su voz está clonada (`ELEVENLABS_VOICE_MARTIN`, plan Starter, clave suya en `.env.local`). Quedó
+   pendiente que le guste: probó openvoice, freevc24, knnvc y ElevenLabs STS con similitud al máximo.
+   La palanca que falta es **grabar 2-3 min de referencia limpia**, que es lo que más mueve.
+3. **Los pendientes depurados:** van **12 verificados y 11 ya estaban resueltos**. La sección «un
+   cliente lo está sufriendo» quedó triada entera; el único vivo es Knowledge, que espera a Martín.
+4. **ApiMart quedó en US$ 0,26** y es la clave de la PLATAFORMA: con ese saldo generan video todos los
+   clientes. **Conviene recargarla antes de que la encuentre un cliente.**
+5. **El lanzamiento de Martín:** en su workspace **no hay ninguna secuencia que escuche comentarios**
+   ([lanzamiento-ws9-que-falta.md](../lanzamiento-ws9-que-falta.md)), y hay que mirarle el mismo
+   ajuste de Meta antes del primer reel.
+
+### El Runner
+
+Se cayó con la app a las 02:24 y volvió a las 14:42 con el relevo. **Está vivo.** La guardia
+(`runner-guardia-claude1`, cada 20 min) entregó durante las 9 h que no hubo Runner: nada se perdió.
+⚠️ **Este chat no puede abrir el Runner**: `start_session` no está en esta sesión.
+
+---
+
+
 ## 7/11/2026, ~04:00 UTC (01:00 ART): ACTIONS FRENADO POR UN PROBLEMA DE PAGO, y la pasarela se cayó entera
 
 **LO PRIMERO QUE TENÉS QUE SABER: desde las 02:08 UTC ninguna punta llega a `main`.** El trabajo de Actions no
