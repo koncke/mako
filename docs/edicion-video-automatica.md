@@ -568,3 +568,68 @@ no se puede firmar el trabajo se suelta en vez de entregarse condenado.
 2. **Provisionar el contenedor.** Necesita la cuenta de Martín.
 3. **Epidemic Sound Connect.** Hoy `MUSICA` vacío es el camino normal.
 4. **`NTOMAS`/`DURVID` por workspace** y **BYOK de ElevenLabs**.
+
+### El clon de Martín (8/11/2026): el tono estaba BIEN, y aun así no se parecía
+
+Martín rechazó seis versiones. Se midió el tono con autocorrelación, igual que en el caso de
+Mauricio, y **descartó la hipótesis obvia**:
+
+| | tono mediano |
+|---|---|
+| Su voz real (el video crudo) | **131 Hz** |
+| Lo que genera el clon (V3, tres ajustes) | **125-128 Hz** |
+
+**3-4% de diferencia: el clon lo agarró en registro.** No es el caso de Mauricio (105 contra 139).
+⚠️ **Por eso conviene medir antes de teorizar:** yo iba a repetir «es el registro» y no era.
+
+**Lo que quedó como causa, y la primera es un error mío:**
+
+1. **Le subí el audio RECOMPRIMIDO Y NORMALIZADO.** Extraje la pista a mp3 y le apliqué
+   `loudnorm` + `highpass`. La regla ya estaba escrita arriba: **se sube el archivo tal cual llega,
+   recomprimir no agrega nada y puede restar.** La normalización además comprime el rango dinámico,
+   que es justo lo que define el énfasis de una voz.
+2. **El registro de INTERPRETACIÓN no coincide con el destino.** Su material es él **explicando a
+   cámara, tranquilo**; la línea de destino es una **chicana de anuncio** («Che Walter, obvio
+   que…»). El tono en Hz coincide, pero la entrega no. Es la misma regla del caso de Mauricio vista
+   desde el otro lado: no alcanza con la altura, hay que igualar **cómo se dice**.
+3. **El plan sólo da clonado INSTANTÁNEO** (`is_allowed_to_fine_tune: false`). El profesional —el que
+   de verdad suena idéntico— pide plan superior.
+
+⚠️ **Y mi consejo también estaba mal:** le dije «grabá 2-3 minutos limpios leyendo cualquier cosa».
+**Eso es exactamente lo que falló con Mauricio.** Lo que hay que pedirle son **tomas cortas en el
+registro del destino** —frases de anuncio, con chicana y CTA—, no lectura tranquila.
+
+⚠️ **La cuenta está en 10/10 voces** (siete son clones viejos de Mauricio, de los experimentos del
+21-22/08). Para probar otro clon hay que borrar alguno primero, y eso lo decide Martín.
+
+### El clonado PROFESIONAL: qué pide de verdad (verificado el 8/11/2026)
+
+Martín dudó de que hiciera falta pagar más, con razón, y se verificó contra la fuente.
+
+**Los planes, de la página de precios de ElevenLabs:**
+
+| Plan | US$/mes | Instantáneo | **Profesional** |
+|---|---:|---|---|
+| Starter (el de Martín) | 6 | sí | **NO** |
+| **Creator** | **22** (11 el primer mes) | sí | **sí, 1 ranura** |
+| Pro | 99 | sí | sí, 1 |
+| Scale | 299 | sí | sí, 3 |
+
+En la API se ve igual de claro: `can_use_professional_voice_cloning: false` y
+`professional_voice_limit: 0` — cero ranuras, no es un tope que se pueda estirar.
+
+⚠️⚠️ **PERO EL PLAN NO ES EL COSTO REAL. El profesional pide un MÍNIMO de 30 MINUTOS de audio**, y
+recomienda entre 1 y 3 horas (docs oficiales). Los 110 segundos de un video de teléfono no alcanzan
+ni de cerca. **Pagar Creator sin grabar esos 30 minutos no cambia nada.** El entrenamiento además
+tarda de 3-6 h a 24 h.
+
+**Y lo que piden esos 30 minutos, textual de la doc, reconcilia con la regla de la casa:**
+
+- **Un solo estilo.** «It is better to just include one style in the uploaded samples.» Y «the
+  speaking style in your samples is replicated in the output». Es exactamente «el registro del
+  material tiene que ser el del destino», dicho por ellos.
+- **Un solo hablante**, sin música ni ruido de fondo, sin reverb ni eco.
+- ⚠️ **Nivel: −23 a −18 dB RMS y pico real −3 dB.** O sea que **nivelar NO está mal** — mi
+  `loudnorm=I=-19:TP=-3` cae justo adentro de esa banda. **El error fue RECOMPRIMIR** (pasar la
+  pista a mp3), que es otra cosa y es lo que la regla de arriba prohíbe. Conviene no mezclar las dos:
+  **nivelar sí, recodificar no.**
