@@ -978,3 +978,24 @@ El cliente abre /image-editor (o /m/image-editor). La página es `force-dynamic`
 **menor** · 0/3 refutan · `C:/dev/wt-push-q/app/image-editor/page.tsx:55` · de `punta/carruseles-thumbnails`
 
 Las dos páginas leen `leerExplorador()` y `leerThumbnails()` en paralelo, pero si el explorador vuelve `!ok` se descarta todo: la computadora manda `{ error: true }` (page.tsx:55 → ImageEditorCliente dibuja «No pude leer los carruseles de ejemplo») y el teléfono dibuja `<ErrorM frase="No pude leer los ejemplos…">` (app/m/image-editor/page.tsx:51). Las miniaturas son una biblioteca GLOBAL de la plataforma que no depende de los datos de Spy del negocio, así que un problema al leer los carruseles del negocio deja inalcanzable una tab que estaba sana. Además en el teléfono eso pasa también cuando `ctx.ws == null` (línea 42), que no es un error de lectura.
+
+## ⏳ ABIERTO: cada entrada a Image lee la biblioteca ENTERA de miniaturas (8/11/2026)
+
+Hallazgo unánime de la revisión. `app/image-editor/page.tsx` pide `leerThumbnails()` dentro del
+mismo `Promise.all` que todo lo demás, y la página es `force-dynamic`. `lib/thumbnails/servidor.ts`
+lee hasta **`VIDEOS_A_LEER = 8000` filas en páginas de 1000** — ocho viajes a la base — **aunque el
+cliente nunca abra la pestaña Thumbnails.** Se lo come entero el TTFB.
+
+**Por qué NO lo arreglé en la misma pasada, con el camino exacto para el que siga:** el arreglo
+obvio —leer sólo cuando `que === 'thumbnails'`— rompe el selector de pestañas, porque la pantalla
+usa `hayThumbs` (¿la biblioteca tiene algo?) para decidir si dibuja «Ver miniaturas de YouTube».
+Hacerlo bien pide tres cosas juntas:
+
+1. un **conteo barato** (`select id, { count: 'exact', head: true }`) para `hayThumbs`, en vez de
+   traer las filas;
+2. la lectura completa **sólo** cuando la pestaña activa es Thumbnails;
+3. que el cliente las pida al cambiar de pestaña — hoy `irA('thumbnails')` sólo cambia la vista, no
+   trae nada.
+
+⚠️ Media reforma acá deja la pestaña vacía para quien sí la abre, que es peor que el TTFB lento.
+Es `menor` en gravedad: no rompe nada, cuesta tiempo de carga.
