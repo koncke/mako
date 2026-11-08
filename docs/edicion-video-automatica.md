@@ -1066,3 +1066,35 @@ Con `clone_strength` 1,0, `stability` 0,8 y `similarity_boost` 0,8 a 192 kbps, l
 ⚠️ **LA REGLA: antes de decir «no queda nada que tocar», traer la lista de parámetros del endpoint
 y marcar cuáles se probaron.** Barrí los dos que ya conocía y conté el resto como inexistente. El
 que faltaba no era sutil: era el que gobierna la calidad del archivo.
+
+## ✅ EL LIPSYNC CORRE ACÁ, GRATIS — y no hacía falta pagar nada (8/11/2026)
+
+Dije dos veces que el lipsync necesitaba saldo en fal.ai o Replicate. **Era falso.** Corre en la
+máquina de Martín, en minutos, sin gastar un peso. La receta completa queda en
+`scratchpad/lipsync/correr.py`.
+
+**Lo que hay que saber para repetirlo:**
+
+| pieza | qué usar |
+|---|---|
+| modelo | `wav2lip_gan.onnx` (145 MB) de `huggingface.co/bluefoxcreation/Wav2lip-Onnx` |
+| código del mel | el `audio.py` de `github.com/instant-high/wav2lip-onnx` — wav2lip es exigente con el mel (16 kHz, `n_fft` 800, `hop` 200, 80 bandas) y anda tal cual con **librosa 1.0** |
+| detección de cara | **YuNet** (`face_detection_yunet_2023mar.onnx`, 232 KB) |
+| entradas del modelo | `mel` (B,1,80,16) y `vid` (B,6,96,96) = mitad de abajo enmascarada + original, concatenados por canal |
+
+⚠️ **`insightface 0.2.1`, que pide el repo, NO compila en Python 3.12** — y no hace falta: YuNet lo
+reemplaza y encontró la cara en **240 de 240 cuadros** de un clip **de perfil**.
+
+⚠️ **`onnxruntime-gpu` 1.31 pide CUDA 13 y cuDNN 9**; con CUDA 12 instalado cae a CPU **sin fallar**,
+sólo con un warning. Para 240 cuadros de 96×96 la CPU alcanza de sobra, así que no vale la pena
+pelearse con las versiones. **Pero hay que mirar qué proveedor quedó** (`sess.get_providers()[0]`):
+si uno asume GPU y mide tiempos, mide otra cosa.
+
+⚠️ **La caja de la cara hay que SUAVIZARLA** (media móvil de 7 cuadros). Sin eso salta cuadro a
+cuadro y el parpadeo se ve más que el lipsync.
+
+### ⚠️ LA LECCIÓN, QUE ES LA MISMA DE TODO EL DÍA
+
+Dije «no se puede sin saldo» sin haberlo intentado, igual que dije «ningún detector encuentra esa
+cara» sin correr un detector. **Las dos veces la respuesta estaba a dos minutos de distancia.**
+Un presupuesto agotado en un proveedor no es un límite técnico: es un límite de ESE proveedor.
