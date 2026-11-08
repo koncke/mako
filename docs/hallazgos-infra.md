@@ -16,13 +16,28 @@ murió dos veces, cada una por su motivo, y ninguno dice «falta RAM» en la pri
 junction al del clon, que vive en otro árbol (OneDrive), y Turbopack no sale de la raíz del proyecto. La nota del 29/10
 proponía copiarlo de verdad con robocopy (~3 min, ~1,5 GB); **no hace falta: `next dev --webpack` lo levanta igual**
 (`▲ Next.js 16.2.6 (webpack)`, listo en 2 s), porque el bundler viejo sí resuelve el junction. Vale para `next build`
-también: el parser del flag es el mismo (`parseBundlerArgs`, `lib/bundler.js`, con `Bundler.Webpack`).
+también: el parser del flag es el mismo (`parseBundlerArgs`, `lib/bundler.js`, con `Bundler.Webpack`). **Pero sirve
+para MIRAR, no para juzgar un build:** con webpack el hook de instrumentación tira dos veces
+`Module not found: Can't resolve 'http'` por la cadena `instrumentation.ts → lib/credenciales.ts → … → lib/push.ts →
+web-push → https-proxy-agent → agent-base`, que pide un builtin de node. No frena el arranque y no pasa con el
+bundler de verdad; es ruido del camino de atrás.
 
 **Segunda muerte: el vigía, y esta vez con el número.** Con webpack el server arrancó, y al compilar la primera ruta el
 proceso llegó a **2.478 MB privados**: la PC cayó a **621 MB libres** y el vigía lo mató («MATO pid … (dev, 2478 MB
 privados) por zona-roja», `~/.claude/guardia/guardia.log`). El umbral del vigía son **1.200 MB** libres (`$ROJA_MB`,
 `vigia.ps1`), no 3 GB: el «≥3 GB» de las notas viejas es el margen para que el compilado quepa, no el umbral. Con ocho
 sesiones sobre el clon y ~2,5 GB libres, `next dev` de una pantalla pesada no entra, y no es algo que se reintente.
+
+**Y el techo es más alto de lo que esa primera muerte decía: ~4 GB, y acotar el heap no lo arregla (8/11, segundo y
+tercer intento).** Los 2.478 MB eran dónde estaba el proceso cuando OTRA sesión —un `tsc` de 3.970 MB— arrastró la
+máquina a la zona roja, no su techo. Con 4.910 MB libres esperados a propósito, el mismo compilado llegó a **3.909 MB
+privados** y volvió a morir, con otro `tsc` de 3.970 MB corriendo al mismo tiempo. Y acotarlo con
+`--max-old-space-size=1800` NO lo hace entrar: sale `FATAL ERROR: Reached heap limit`, exit 134 — o sea que los 4 GB
+son necesidad, no GC perezoso. Dos cosas que se aprenden de ahí: el tope hay que pasarlo por **`NODE_OPTIONS`**, no
+por la línea de comandos, porque `next` lanza un hijo (`server/lib/start-server`) y el hijo es el que crece; y una
+espera de RAM para esto tiene que apuntar a **~6 GB** y además a que no haya un `tsc` de otra sesión, que pide lo
+mismo. **Tres intentos, tres muertes, tres causas distintas: `next dev` no es el camino en esta máquina.** El camino
+es el build parcial, que el 17/10 compiló con 1,9 GB libres.
 
 **Y `localhost` no es `127.0.0.1`.** `package.json` corre `next dev -H 127.0.0.1`, así que el server escucha SÓLO en
 IPv4, y `http://localhost:3200` resuelve a `::1`: la navegación falla con «denied or failed», que suena a permiso
@@ -34,7 +49,9 @@ navegación falla SIEMPRE; se arregla navegando a `http://127.0.0.1:<puerto>`.
 agregar `MAKO_DEV_SIN_LOGIN=1` en el `.env.local` del worktree: `sinLoginPermitido` (`lib/auth-session.ts`) pide gate
 sin configurar + host local + ese permiso explícito, y `getUsuarioActual` devuelve un dev-admin del workspace del
 dueño. El `.env.local` no viaja al worktree solo: hay que copiarlo del clon (está en `.gitignore`, así que no ensucia
-el `git status`).
+el `git status`). Y el boot de este arranque **no escribió en producción**: los logs dicen «10 credencial(es) del
+dueño hidratadas» —base → entorno, lectura— y ninguna «migradas», que es el renglón que hay que mirar cada vez
+(ver la memoria boot-local-escribe-prod).
 
 **La salida del build parcial NO se arregla con separadores.** Pasarle a `--debug-build-paths` las rutas con `\` no
 sirve: el patrón pasa por `glob` (`lib/resolve-build-paths.js`), que devuelve siempre `/`, y recién después

@@ -1234,3 +1234,9 @@ producción, en el workspace de prueba (ws3), después del despliegue diario.** 
 abrir y guardar: el borrado tocó el HISTORIAL del motor, así que se prueba **deshacer y rehacer** sobre un diseño nuevo
 — ahí vivía la rama `if (this.live)` de los dos push, de `sealHistory` y de `undo`/`redo`. Precedente del 17/10: cuando
 la máquina no da, el recorrido se pasa a producción y se anota acá dónde.
+
+**Y el verde de los tests NO cubre eso, aunque lo parezca (8/11/2026):** los cuatro tests del editor de imagen dan
+69/69 en local, y el único que nombra `undo` —`tests/image-editor-chat.test.ts`— le **inyecta un motor falso**
+(`undo: async () => { log.push('deshacer') }`): mide que el paso del chat llame a deshacer UNA vez, no que la
+historia del motor ande. El `this.history` que quedó después de sacar la costura no lo prueba nada automático. Por eso
+el recorrido en pantalla no es un trámite.
