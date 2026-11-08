@@ -103,6 +103,20 @@ Instagram que vale la pena mostrarlo.
 lo pedí tres veces. ⚠️ **Nunca hizo falta: leer producción no es escribirla**, y el error estaba a
 una consulta de distancia, en `nutricion_envios.error`. Tres días de espera que me puse yo solo.
 
+### ✅ EL PRIMER COBRO REAL A CÓDIGO SALE SOLO MAÑANA (verificado el 8/11)
+
+Nunca se había enviado uno, así que lo medí eslabón por eslabón. **Están los siete:** las migraciones
+0402 y 0403 aplicadas en producción, el código en main **y desplegado** (el último deploy, 7/11 20:16
+UTC, incluye el arreglo del 6/11), la fecha de Giselle corregida, la mensualidad del 13 prendida,
+Pablo y Patricia en «Paga para entrar» con la cuenta pausada y la persona activa, el cron registrado
+a las 14:07 UTC y el grupo de WhatsApp de Código existente.
+
+**La corrida en seco contra la base real, puesta en la fecha de mañana, devuelve exactamente
+«Entrada de Giselle Belanti: US$ 37,60».** El 11/11 daría US$ 72,07 y el 13/11 la de Marcela,
+US$ 34,47. Y que WhatsApp entrega lo vi aparte: el mensaje que le mandé hoy a Leandro salió con id.
+
+**No tenés que hacer nada.** Sólo cuando MaKo te mande un comprobante para revisar.
+
 ### Los números que cambiaron el 7/11
 
 | | Antes | Ahora |

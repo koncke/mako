@@ -1,9 +1,9 @@
 # Los pendientes, depurados — 7/11/2026
 
-> ## ⚠️ VERIFICADOS 6, SOBRABAN 5
+> ## ⚠️ VERIFICADOS 8, SOBRABAN 7
 >
-> Al 7/11 por la noche se verificaron contra el código los primeros seis de esta lista. **Cinco ya**
-> **estaban resueltos**, y casi todos el **6/11** — el mismo día en que se tomó el inventario.
+> Al 7/11 por la noche se verificaron los primeros seis; el 8/11, dos más. **Siete de los ocho ya**
+> **estaban resueltos o listos**, casi todos el **6/11** — el mismo día en que se tomó el inventario.
 >
 > | Pendiente | Resultado |
 > |---|---|
@@ -12,7 +12,22 @@
 > | `porCobrar` le pone a Código 4/12 por US$238 | ✅ los dos números eran correctos, de meses distintos |
 > | Apify: la tarjeta dice «Sin conectar» (×2) | ✅ arreglado el 6/11 (`conUnaAlcanza`) |
 > | Tickets abiertos sin cerrar: #38, #39, #43, #58 | ⏳ abierto, y se le armó un vigía |
-> | El primer cobro real a Código Inmobiliario | ⏳ abierto, con fecha: lunes 9/11 14:07 UTC |
+> | El primer cobro real a Código Inmobiliario | ✅ **8/11: verificado de punta a punta, sale solo mañana** |
+> | Terminar el cobro de agencias (0402/0403, Giselle, mensualidad, «Paga para entrar») | ✅ **8/11: los cuatro pasos, hechos** |
+>
+> ### El cobro del 9/11, medido el 8/11 eslabón por eslabón
+>
+> Siete cosas tenían que estar bien para que mañana salga el primer cobro real, y **están las siete**:
+> migraciones 0402 y 0403 aplicadas en producción · el código en main **y desplegado** (el último
+> deploy, 7/11 20:16 UTC, incluye el arreglo del 6/11) · la fecha de Giselle corregida al 2026-10-28 ·
+> la mensualidad del 13 prendida el 6/11 · Pablo (ws18) y Patricia (ws22) en «Paga para entrar», con
+> la cuenta pausada y la persona activa · el cron registrado `7 14 * * *` · y el grupo de WhatsApp de
+> Código existe. **La corrida en seco contra la base real, puesta en la fecha de mañana, devuelve
+> exactamente «Entrada de Giselle Belanti: US$ 37,60».** El 11/11 daría US$ 72,07 y el 13/11 la de
+> Marcela, US$ 34,47.
+>
+> ⚠️ Lo que NO prueba: que WhatsApp entregue. Eso se vio aparte, mandando un mensaje real al grupo de
+> Leandro el 8/11, que salió con id de WhatsApp.
 >
 > **Lo que esto significa para el número de arriba:** de las 232 «de trabajo real», una parte grande
 > ya no existe. Con esta muestra el piso está bastante más abajo de los 150-200 que estimé. **Verificar
@@ -72,7 +87,7 @@ guardia). De las 232 seguramente sobren más.
     plata por lámina y lo decide Martín. Ver docs/hallazgos-carruseles.md. · _Carruseles, grande_ · ⟳ estaba anotado 4 veces
   - Cuando el ejemplo tiene una persona que no es el cliente, «Editar» deja un recuadro con una guía en vez de una imagen. El paso siguiente es generarla con la IA de imagen del avatar del cliente (Flow). Hecho = la lámina sale con una persona generada y no con un recuadro.
   - Dónde: `lib/carruseles/replica.ts y lib/carruseles/documento.ts (`documentoDeReplica`); docs/hallazgos-carruseles.md:218-219`
-- **El primer envío real del cobro a Código Inmobiliario: Pablo vence el 9/11 14:07 UTC** · _Cobros y planes, chico_ · ⟳ estaba anotado 3 veces
+- ✅ **VERIFICADO 8/11 — SALE SOLO MAÑANA.** La corrida en seco contra la base real, puesta en el 9/11 14:07 UTC, devuelve «Entrada de Giselle Belanti: US$ 37,60». Los siete eslabones, medidos: ver el encabezado. **El primer envío real del cobro a Código Inmobiliario: Pablo vence el 9/11 14:07 UTC** · _Cobros y planes, chico_ · ⟳ estaba anotado 3 veces
   - Mirar que el cron salga de verdad (nunca se envió): Giselle US$37,60 el 9/11 14:07 UTC, Pablo máximo el 9/11, Marcela el 13/11. Al llegar el comprobante, devolver el acceso a los usuarios 15 y 19; sin pago el 11/11 suspender a Giselle (13, 25, 26) y el 13/11 a Marcela (27, 28). Hecho = el envío salió y el acceso quedó 
   - Dónde: `docs/relevo/nube-agencia-cobro.md · docs/relevo/cerebro.md:57,115-120 · tareas programadas codigo-diferencial-pablo-9-11, -giselle-12-11, -marcela-14-11`
 - **Knowledge: falta la CURACIÓN de los cursos y las plantillas de influencers** · _Varios, grande_
@@ -169,13 +184,13 @@ guardia). De las 232 seguramente sobren más.
 - **Reemplazar `_doory/` de a poco para que la licencia deje de aplicar** · _Editor de imágenes, grande_
   - Martin saco el credito visible de Doory el 29/10 a su riesgo, pero la Attribution Assurance License sigue aplicando mientras quede codigo suyo, y «in whole or part, with or without modification»: un archivo adaptado alcanza. Hoy `_doory/` son 444 archivos y ~39 mil lineas. El orden medido esta en la tabla: 1) editor/ch
   - Dónde: `C:/dev/wt-puntas/docs/hallazgos-editor-imagen.md:45-63 (la tabla con el orden) · C:/dev/wt-puntas/app/image-editor/_doory/ · C:/dev/wt-puntas/app/image-editor/_doory/LICENSE-DOORY`
-- **Nada del cobro de agencias está verificado contra la base ni producción** · _Cobros y planes, mediano_
+- 🟡 **8/11: DOS de las seis, medidas.** El grupo de MaKo de Código existe (`mako.grupo_jid` del 13), y la línea de WhatsApp entrega (probado mandando un mensaje real al grupo de Leandro el 8/11). Faltan las otras cuatro: un comprobante real de Binance, un PDF de comprobante, jsPDF en el bundle y el comprobante que llega por el grupo de la APP. **Nada del cobro de agencias está verificado contra la base ni producción** · _Cobros y planes, mediano_
   - Seis cosas sin medir: un comprobante real de Binance leído; la lectura de un PDF de comprobante (WhatsApp lo guarda como documento, sólo se probó foto); jsPDF dentro del bundle de Next con este PDF; que el grupo de MaKo de Código exista (`mako.grupo_jid` del 13); un comprobante que llega por el grupo de la APP no se le
   - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md:100-108 ; lib/agencia-mes-comprobante.ts ; lib/agencia-mes-pdf.ts`
 - **La suscripción mes a mes no existe en el teléfono** · _Cobros y planes, mediano_
   - En /m la ficha dibuja el estado de cuenta viejo, no el bloque «Mes a mes». Además quedaron sin hacer: el prorrateo del diferencial (hoy lo calcula Martín y se registra como ajuste), una suscripción cobrada por la pasarela (su monto sale del lead, no del cobro) y cambiar el medio de un pago cobrado (sin botón ni operaci
   - Dónde: `C:/dev/wt-puntas/app/m/ (ficha del lead) ; lib/cobros.ts ; docs/relevo/nube-suscripciones.md:98-104`
-- **Terminar el cobro de agencias: 0402/0403, fecha de Giselle, mensualidad del 13 y tres «Paga para entrar»** · _Cobros y planes, mediano_
+- ✅ **HECHO, verificado el 8/11: los cuatro pasos están.** 0402 y 0403 aplicadas; Giselle (ws17) con `cobra_desde` 2026-10-28; la mensualidad del 13 prendida el 6/11 (desde 2026-12, entradas desde 2026-11-06, Binance); Pablo (ws18) y Patricia (ws22) en «Paga para entrar» con la cuenta pausada y la persona activa. **Terminar el cobro de agencias: 0402/0403, fecha de Giselle, mensualidad del 13 y tres «Paga para entrar»** · _Cobros y planes, mediano_
   - Seguir el orden de docs/relevo/nube-agencia-cobro.md: aplicar la 0402 (si falta) y la 0403, corregir la fecha de Giselle (17) al 2026-10-28, prender la mensualidad del 13 desde 2026-12 y pasar a 19, 22 y 15 a «Paga para entrar». Hecho = la pantalla de cartera muestra las mensualidades correctas con la cartera real.
   - Dónde: `C:/dev/wt-puntas/docs/relevo/nube-agencia-cobro.md · supabase/migrations/ (0402, 0403) · lib/agencia-cobro.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agencias.md:74`
 - **anularCobro cierra el link viejo con mejor esfuerzo: un link anulado puede seguir cobrable** · _Cobros y planes, mediano_
