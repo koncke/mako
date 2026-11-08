@@ -1,5 +1,57 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~20:00 UTC: LA VOZ ESTÁ RESUELTA — clon PROFESIONAL `I2d6BR9P2dAopVw1khNv`
+
+✅ **Hecho de punta a punta.** Martín grabó la verificación, el clon entrenó y quedan **14 modelos
+`fine_tuned`**. Lo que sigue abajo (del mismo día, ~18:00) es de ANTES y queda sólo por lo que enseña.
+
+**Usar siempre `I2d6BR9P2dAopVw1khNv`** («Martin Koncke», profesional). 37 min de muestras, idioma
+Spanish, acento **Argentine**. Con ella el **voice-to-voice** suena a él Y los labios calzan
+(**0, 10 y 110 ms** contra los bloques de Omni) — eso es justo lo que el clon instantáneo no podía,
+donde había que elegir entre la voz (v4) o el calce (sts v2, que es un motor viejo).
+
+⚠️ **Lo que más tiempo costó, para no repetirlo: el acento lo decide el MODELO, no el clon.**
+Martín rechazó la voz **siete veces** y las siete busqué la causa en el material. La destrabó él
+diciendo «siento que mi voz está mexicanizada»: `eleven_v3` prioriza la lectura emocional por
+encima de respetar la voz y cae en el español neutro de base. **`eleven_v4` conserva el acento** si
+se genera en el mismo idioma de las muestras. El tono en Hz NO detecta esto (v4 mide 148 contra sus
+128 reales y es el bueno).
+
+Todo medido en `docs/edicion-video-automatica.md`, con las trampas de ffmpeg, las de subir muestras
+y las cuatro cosas en que el clonado profesional NO coincide con sus propios docs (tardó 25 min, no
+3-24 h; la web dice «1 draft voice» con el clon ya listo; `eleven_multilingual_sts_v2` desaparece
+del estado y aun así anda; la verificación se vence por tiempo).
+
+---
+
+## Tablero, 8/11 ~20:00: cinco puntas en main
+
+`punta/cerebro-donde-se-edita` · `punta/caricatura-destrabada` · `punta/voz-es-v4-no-v3` ·
+`punta/cosecha-voz-notas` · `punta/voz-sts-sin-v4` · `punta/clon-profesional-medido`.
+
+- **Tickets #46, #47 y #48 (Leila) eran UN hueco**: las dos proyecciones por las que MaKo lee el
+  cerebro tiraban `href`/`abrirEn`, así que veía el valor del dato y no la pantalla que lo edita.
+  Por eso contestó «la ruta exacta no la tengo confirmada». Arreglado con test probado rompiéndolo.
+- **La caricatura del competidor está DESTRABADA**: Flow corre sobre la cuenta del CLIENTE, no la
+  de Martín (`supabase/migrations/0145_flow_cola.sql:40`, y `flow_puentes.workspace_id` es PK).
+  Estaba escrito en el esquema desde siempre.
+- ⚠️ **Ojo con el tablero: los commits que manda a revisar pueden no ser los de contenido.**
+  `25fbdc8a1` (carruseles-thumbnails) **no toca ni un archivo** —es un veredicto de tests— y
+  `2cb406043` (nada-por-detras) son 6 líneas de tipos. El contenido real estaba en `02ce9b6e3` +
+  `48b690ae0` y en `925ef1c9f` + `f27ef1a4e`. Ya había pasado con copilot-feedback. **Antes de
+  revisar una punta, mirar `git show --stat`: si no toca archivos, el commit no es ése.**
+- ⚠️ **Y «entregado» en el reparto del 2/11 NO es «hecho»**: significa que el mensaje llegó al
+  buzón de otra sesión. Medido contra main, el **#15 (tab de gurús + el modal roto en prod) tiene
+  CERO commits**. Los demás no se pueden medir por palabra clave (grep de «spy» da 210 commits):
+  hay que verificar el código, no el mensaje del commit.
+
+**Lo que espera a Martín y no es código:** publicar la extensión (el cliente OAuth de Google Cloud
+fue BORRADO; hay que crear uno nuevo y poner `CWS_CLIENT_ID`/`CWS_CLIENT_SECRET` en
+`C:/dev/mako-api/.env.local`), avisarle a Leila del desfase de su horario y su precio, y borrar los
+6 competidores duplicados de Spy (escribe en producción).
+
+---
+
 ## 8/11/2026, ~18:00 UTC: LA VOZ — Martín ya pagó **Creator**, y lo que falta es GRABAR
 
 ✅ **Creator activo y verificado** (`tier: creator`, profesional habilitado, 1 ranura libre, 30 voces
