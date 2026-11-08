@@ -53,8 +53,31 @@ que lo que importa no es el HTML sino de dónde sale cada frase:
 | «dos o tres meses hasta que rinde», «se va» | ídem, Setterflo (rotación del 34%) |
 | «no usa la API oficial, sale con tu número» | Evolution — es cómo está construido, no un argumento de venta inventado |
 | «la IA la ponés vos» | BYOK: el negocio conecta y paga **su** cuenta. Es lo que explica el precio |
-| «4 minutos de video por mes» | el cupo nuevo del plan de US$97, ver más arriba |
-| «7 días, sin tarjeta» | **lo decidió Martín, no está construido todavía** |
+| «para aprobar» / «sólo te avisa» | `lib/nutricion-grafo-motor.ts` ~1554: son los tres ajustes reales por escenario |
+| «nunca sola con dinero» | ídem, `libertadesPermitidas` — un caso con plata no se puede poner en «Sola» |
+| «cancelas cuando quieras», sin prueba gratis | `LINEA_SIN_PRUEBA`, porque `PRUEBA_GRATIS_PRENDIDA = false` |
+| lo que incluye el plan | el `incluye` de `pro` en `lib/planes-mako.ts`, textual |
+
+## ⚠️ Lo que la primera versión de la landing decía y era FALSO
+
+La escribí entera antes de abrir el código, y de las afirmaciones «obvias» **tres estaban mal**.
+Sirve de aviso para las 7 que faltan, porque son errores que no da ninguna herramienta:
+
+1. **«7 días gratis, sin tarjeta»**, tres veces, incluido el botón. `PRUEBA_GRATIS_PRENDIDA =
+   false` desde el 30/10: **no existe**. Hay hasta una constante puesta para este caso,
+   `LINEA_SIN_PRUEBA` («Cancela cuando quieras · Usas tu propia IA»), con el comentario «una
+   landing publicada no puede seguir prometiendo días gratis». La inventé yo: nadie la pidió.
+2. **«4 minutos de video con avatar por mes».** El avatar con IA **no se vende** todavía
+   (`AI_AVATAR_SE_VENDE`), y `lib/planes-mako.ts` lo dice en un comentario al lado del
+   `incluye` justamente para que no se cuele. Y el cupo nuevo tampoco está aplicado.
+3. **Toda la página estaba escrita de vos** («vos entrás», «cerrás», «anda el primer día»).
+   **La audiencia es México**: el copy va en español neutro, y el `incluye` del propio plan
+   ya estaba escrito así («¿Ya vendes?», «tú decides»).
+
+**La regla que queda:** el `incluye` del plan y las constantes de `lib/planes-mako.ts` son la
+oferta; la landing las copia, no las propone. Y antes de publicar, el voseo se mide con el
+diccionario del repo (`voseoEn` de `lib/voseo.ts`), no a ojo — el test que lo vigila barre
+`app/`, `lib/` y `components/`, así que un HTML en `docs/` **pasa en verde estando mal**.
 
 **La regla al escribir las otras 7: ninguna frase sin fuente.** Las dos que más tentación dan de
 inventar son el número contra el que se compara (el sueldo del humano) y el resultado prometido.
