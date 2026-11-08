@@ -39,6 +39,20 @@ espera de RAM para esto tiene que apuntar a **~6 GB** y además a que no haya un
 mismo. **Tres intentos, tres muertes, tres causas distintas: `next dev` no es el camino en esta máquina.** El camino
 es el build parcial, que el 17/10 compiló con 1,9 GB libres.
 
+**El diagnóstico obvio era el equivocado: no era `instrumentation.ts` (8/11, cuarto intento).** El server moría
+mientras compilaba `/instrumentation`, y ese hook arrastra media app por imports (`instrumentation.ts` →
+`lib/credenciales.ts` → `lib/agenda-evento-etapa-server.ts` → `lib/leads.ts` → `lib/avisos.ts` → `lib/push.ts` →
+web-push), así que parecía EL costo. Apartado el archivo, el compilado pasa de largo y llega a
+`○ Compiling /image-editor` — y muere igual, con **3.252 MB privados**. O sea que el hook costaba ~650 MB de 3.909:
+la ruta del editor es el costo. Sacarlo no sirve para que entre, sólo para ver cuánto era de quién.
+
+**Cuánta RAM libre hace falta, entonces, y si vale esperarla.** Con el hook: ~5.100 MB (3.909 de compilado + los
+1.200 de la zona roja). Sin el hook: ~4.500. Y una espera de una hora en día hábil, con las otras sesiones
+trabajando sobre el clon, vio un máximo de **5.070 MB** y nunca llegó a 6.000: la ventana existe, es breve y es cara
+de cazar, porque un `tsc` de otra sesión pide los mismos 4 GB. La espera se arma a la medida medida (no a 3.800 como
+el 8/11 a la mañana, que se gastó la ventana en un intento muerto) y con la condición de que no haya un `tsc`
+corriendo. Si no aparece, **no se insiste**: se anota dónde se prueba y se prueba en producción.
+
 **Y `localhost` no es `127.0.0.1`.** `package.json` corre `next dev -H 127.0.0.1`, así que el server escucha SÓLO en
 IPv4, y `http://localhost:3200` resuelve a `::1`: la navegación falla con «denied or failed», que suena a permiso
 denegado y es un puerto cerrado. `preview_start` abre la pestaña justo en `localhost:<puerto>`, así que la primera
