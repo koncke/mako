@@ -117,7 +117,12 @@ test('los filtros viajan en la URL con `que=thumbnails`; lo que no se entiende v
   assert.deepEqual(filtrosThumbnailDeQuery(new URLSearchParams(q)), f);
   assert.equal(queryDeThumbnails(FILTROS_THUMBNAIL), 'que=thumbnails');
   assert.equal(sinFiltrosThumbnail(FILTROS_THUMBNAIL), true);
-  assert.deepEqual(filtrosThumbnailDeQuery(new URLSearchParams('nicho=musica&idioma=fr&periodo=2&orden=x&de=a,-1,0,7&min=7')), { ...FILTROS_THUMBNAIL, canales: [7] });
+  // ⚠️ Las claves de Thumbnails llevan prefijo `t` desde el 8/11/2026 (`CLAVE` en lib/thumbnails/
+  // explorar.ts): antes eran las MISMAS que las de carruseles y un link de acá dejaba filtrada la
+  // otra pestaña. Los nombres sin prefijo ya no se leen, que es justo lo que se quería.
+  assert.deepEqual(filtrosThumbnailDeQuery(new URLSearchParams('tnicho=musica&tidioma=fr&tperiodo=2&torden=x&tde=a,-1,0,7&tmin=7')), { ...FILTROS_THUMBNAIL, canales: [7] });
+  // Y las viejas, sin prefijo, NO contaminan: es la mitad que protege a la otra pestaña.
+  assert.deepEqual(filtrosThumbnailDeQuery(new URLSearchParams('periodo=90&vista=guardados&de=3,4')), FILTROS_THUMBNAIL);
 });
 
 test('la imagen es la de YouTube, el link abre en YouTube, y la duración se lee como allá', () => {
