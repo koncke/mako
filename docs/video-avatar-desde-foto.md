@@ -258,3 +258,44 @@ reemplazar con un video viejo subido.
 - ⚠️ **Subir archivos a Flow necesita el clic de la persona**: el `input[type=file]` no existe hasta
   que se toca el botón, y simular `drop` con un `DataTransfer` **no lo toma** (probado el 8/11 con las
   dos referencias ya en URLs públicas). Para una prueba con material propio, lo sube Martín.
+
+## ⚠️⚠️ LA VOZ: ERA V3, Y ESTABA EN NUESTRO PROPIO CURSO (8/11/2026)
+
+Martín rechazó cuatro versiones de la voz («la voz no se parece en nada», «se escucha robótico»,
+«aún no me gusta»). La respuesta estaba en **AvatarHype**, el primer curso de `/conocimientos`
+(`app/conocimientos/curso.ts`, con las clases transcriptas). Dice **textual**:
+
+> **Voz — ElevenLabs**, 10.000 créditos gratis/mes. Con voz de biblioteca usás **Eleven Multilingual
+> V2**; **con voz clonada por vos, V3**.
+
+**El error era de MÉTODO, no de modelo ni de ajustes.** Yo venía haciendo **speech-to-speech** sobre
+`eleven_multilingual_sts_v2`: tomaba el audio sintético del clip y le convertía el timbre. Eso tiene
+dos problemas encima:
+
+1. **V2 es el modelo de las voces de BIBLIOTECA.** Para una voz clonada va **`eleven_v3`**, que es el
+   más expresivo y el que el curso prescribe.
+2. **Convertir parte de audio sintético**, y eso tiene un techo que ningún conversor rompe (probados
+   `openvoice_v2`, `freevc24`, `knnvc` y el propio STS con `similarity_boost` al máximo).
+
+**Lo correcto es generar directo con TTS desde la voz clonada**, no convertir. Verificado el 8/11:
+`POST /v1/text-to-speech/<voice_id>` con `model_id: 'eleven_v3'` responde 200 y devuelve el audio.
+
+⚠️ **Y el JSON va por archivo o por script, nunca inline en bash:** el primer intento murió con
+`invalid_unicode` porque la `ú` de «aún» se rompió en el shell. Mismo pariente que
+[[heredoc-come-backslash]].
+
+### El resto del stack que prescribe AvatarHype, textual
+
+- **Imágenes:** Nano Banana Pro por **Kie (~9 céntimos)** o **APImart (~5 céntimos)** — APImart es
+  casi la mitad. Siempre **9:16** y **2K, que cuesta lo mismo que 1K**. El producto va como imagen de
+  referencia, y se abren varias pestañas en paralelo.
+- **Video:** APImart con **Veo 3**, calidad **720**, **9:16**, en modo **primer y último frame**
+  (subís la primera y la última imagen y él arma la transición). Duración **4 s**. Todo se guarda
+  como P1, P2, P3… para no perderse.
+- **Lipsync:** «lo resuelve el propio modelo de video o herramientas dedicadas».
+- **Montaje:** CapCut.
+
+⚠️ **Lo de Veo y los costos NO está verificado contra la clase original:** la propia transcripción
+trae una nota del sistema aclarando que parte de eso es contexto del stack del curso y no un resumen
+verificado de esa clase. **Lo de la voz sí está dicho directo.** Antes de apoyarse en los parámetros
+de Veo, confirmarlos contra la clase.
