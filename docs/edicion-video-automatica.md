@@ -637,3 +637,63 @@ tarda de 3-6 h a 24 h.
   `loudnorm=I=-19:TP=-3` cae justo adentro de esa banda. **El error fue RECOMPRIMIR** (pasar la
   pista a mp3), que es otra cosa y es lo que la regla de arriba prohíbe. Conviene no mezclar las dos:
   **nivelar sí, recodificar no.**
+
+## De dónde sale el material: las notas de voz de WhatsApp (8/11/2026)
+
+El clon de Martín con 110 segundos sacados de un video se rechazó **seis veces**. Lo que lo
+movió no fue cambiar de modelo ni de ajustes: fue **conseguir más material del registro
+correcto**. En `~/Downloads` había 8 archivos `WhatsApp Ptt …` (notas de voz, push-to-talk).
+
+**Las notas de voz son la mejor fuente que hay para clonar.** Un solo hablante por
+definición, sin música, sin otra voz encima, y en el mismo registro conversacional que
+después se le va a pedir al clon. Es el equivalente a los anuncios de Mauricio: material del
+destino, no material de estudio.
+
+⚠️ **Hay que medirle el tono a CADA archivo antes de usarlo, nunca subirlos todos.** De los 8
+de Martín, sólo 4 eran de él en registro:
+
+| archivo | tono | |
+|---|---|---|
+| `Ptt 2026-10-15 at 23.21.16` | **131 Hz** | suyo |
+| `Ptt 2026-10-21 at 18.00.22` | **127 Hz** | suyo |
+| `Ptt 2026-10-22 at 18.29.37` | **124 Hz** | suyo |
+| `Ptt 2026-10-22 at 18.31.07` | **123 Hz** | suyo |
+| `Ptt 2026-10-08 at 02.43.02` | 148 Hz | fuera de registro — excluido |
+| `Ptt 2026-10-25 at 12.27.32` | 188 Hz | **otra persona** |
+| `Ptt 2026-10-23 at 09.32.00` | 90 Hz | excluido |
+| `Ptt 2026-11-05 at 12.21.12` | 110 Hz | excluido |
+
+Su voz real, medida del video original, da **128 Hz**. La medición es
+`scratchpad/walter/tono.mjs` (autocorrelación, banda 70–300 Hz). Sin medir, los 8 archivos
+parecen igual de válidos y dos de ellos arruinan el clon: uno es de otra persona.
+Quedaron **6,2 minutos en registro**, contra los 110 segundos de antes.
+
+### ⚠️ El tope de 11 MB por archivo: se CORTA, no se baja la calidad
+
+`POST /v1/voices/add` rechaza cualquier archivo de más de 11 MB
+(`upload_file_size_exceeded`). Un WAV 48 kHz 16-bit mono son ~96 KB/s, así que una nota de
+4 minutos ya son 23 MB. FLAC sin pérdida baja un 40% — **no alcanza**, el tramo más largo
+quedaba en 14 MB.
+
+**La salida NO es bajar la calidad** (ni el sample rate ni pasar a mp3): es **cortar en
+tramos** y subirlos como muestras separadas, que ElevenLabs acepta hasta 25.
+`-f segment -segment_time 90` da tramos de ~5 MB a 48 kHz FLAC. Script:
+`scratchpad/walter/clon-notas2.mjs`. Las 4 notas salieron como 8 muestras, 36 MB en total,
+sin perder un bit.
+
+### ⚠️ V3 con texto corto sale robótico — no es el clon, es la falta de pista
+
+Martín venía diciendo «se escucha robótico en algunas partes» con una línea de **70
+caracteres**. ElevenLabs pide **+250 caracteres** para que `eleven_v3` asiente la voz: con
+una frase corta el modelo no tiene pista para entrar en registro y los primeros fonemas
+salen sintéticos. **Diagnóstico equivocado el obvio**: parecía problema del clon o de los
+ajustes, y era el largo del texto.
+
+La receta: **generar con un arranque largo descartable y recortar sólo la línea**. El corte
+se hace buscando el silencio más cercano a donde arranca la línea por proporción de
+caracteres (`scratchpad/walter/recortar.mjs`), no a ojo.
+
+⚠️ **El tono NO predice si suena parecido.** Las versiones con pista larga midieron 137–147 Hz
+y la corta 134 Hz, o sea que la corta está «más cerca» de los 128 reales y suena peor. El tono
+sirve para **descartar** material y clones fuera de registro, no para elegir entre dos que ya
+están en banda. Eso lo decide Martín escuchando.
