@@ -1,5 +1,91 @@
 # Relevo del Cerebro
 
+## 8/11/2026, ~21:00 UTC — EL PUENTE DE FLOW ANDA, y lo que sigue del video
+
+✅ **`ws9 · listo · v0.77.0`.** Costó media tarde y la causa nunca fue la sesión ni las cookies: la
+extensión instalada era **0.74.4** y no reconocía `flow.google.com`, así que caía al camino REST de
+`labs.google` y pedía un token que esa página no da. Se cargó la 0.77.0 descomprimida desde
+`Escritorio/mako-puente` (que es un **enlace** a `dashboard-marketing/extension`, no a una copia
+suelta — ojo con eso) y hubo que **volver a Conectar**: una extensión descomprimida tiene id nuevo
+y almacenamiento vacío, así que pierde el emparejamiento.
+
+⚠️ **`chrome://extensions` no lo alcanza ningún asistente.** `navigate` lo reescribe a `https://`,
+y con el control del escritorio **Chrome se concede sólo en modo lectura**. Probado, no supuesto.
+Esa parte siempre la hace Martín.
+
+**El checklist de AI Avatar está en 4 de 4** (su foto ya está en «Personaje»).
+
+### Dónde quedó el video del reel
+
+Martín quiere replicar el reel de **Josep Casas** (@tachocream, «planto pistachos»): tomas
+caminando en un lugar real + planos heroicos a contraluz con el nombre en tipografía gigante,
+subtítulos palabra por palabra, y **lore** (personaje con frases que se repiten).
+
+**Frenado a propósito, por él:** ningún preset del catálogo es ese formato, y
+⚠️ **AI Avatar no deja crear ni guardar uno propio** — el catálogo está cableado en
+`lib/ai-avatar/plantillas.ts` y esa tab **no está en `lib/creaciones-enchufes.ts`**, así que no
+tiene `usePlantillasPropias` ni el modal de guardar que Copywriter e Image sí tienen. **No hay que
+construir nada nuevo: hay que enchufarla.** No se gastó un crédito.
+
+⚠️ **La metodología es siempre la de Avatar Hype: IMAGEN primero, después video.** Las imágenes en
+MaKo **no gastan créditos**; cada toma de video sí (hasta 18 de Flow).
+
+### 📋 NUEVO Y PERMANENTE: `docs/feedback-usando-mako.md`
+
+Martín: «todo lo que no se puede hacer dentro de MaKo, anotalo para corregirlo después». Cada vez
+que usando MaKo hay que salirse de MaKo, **va ahí en el momento**. Ya tiene cinco huecos de hoy.
+
+---
+
+## Lo que cerré del tablero hoy (13 de 24 hallazgos de la revisión)
+
+Los **4 `rompe-cliente`** y 9 más, cada uno con test propio probado rompiéndolo. Lo más caro:
+
+- **El cron de Spy recorría con `.order('id')` y cortaba por plazo**, así que la cola **no se leía
+  nunca**: 17 competidores en cero veinte horas después. Ahora el arranque **rota por hora**.
+  ⚠️ Lo obvio era ordenar por `mirado_en` — **el cron no toca ese campo**, lo verifiqué antes de
+  usarlo. Habría parecido correcto y no habría rotado nada.
+- Un guion corto **le ganaba a un 503** y se guardaba como final: el tramo no se reintentaba nunca.
+- Sin la duración, la ventana de 10 min es un **techo** y no lleva piso (cerraba 3 hallazgos).
+- «Es el negocio número N» contestaba por la **agencia**, no por el cliente.
+
+⚠️ **Y dos bugs que metí yo y tuve que arreglar**: pushé un test en rojo sin mirarlo (`finishReason=`
+aparece en DOS funciones y mi ancla cayó en la otra), y al ponerles prefijo a los filtros de
+Thumbnails **me olvidé de sumarlos a `CLAVES_FILTRO`**, así que un filtro limpiado quedaba pegado
+en la URL.
+
+---
+
+## La voz, resuelta — **usar esta configuración y no inventar otra**
+
+```
+POST /v1/speech-to-speech/I2d6BR9P2dAopVw1khNv?output_format=mp3_44100_192
+model_id: eleven_multilingual_sts_v2
+voice_settings: { stability: 1.0, similarity_boost: 1.0, clone_strength: 1.0 }
+```
+
+Guardada en `scratchpad/walter/LA-CONFIG.json`, y el script **la lee de ahí**. Da 127 Hz contra sus
+128 reales. ⚠️ `output_format` **no es opcional** (el default son 128 kbps) y `clone_strength` va en
+**cada pedido**, no en los ajustes guardados de la voz.
+
+⚠️ **Y la lección más cara del día, que vale para cualquier modelo generativo:** una generación es
+**aleatoria**, así que **una medición no mide un parámetro, mide una tirada**. Hay que medir primero
+el **ruido de base con todo fijo** (acá: 2 Hz con la misma seed, 22 Hz entre seeds) y recién ahí
+comparar. Sin ese número vi un efecto que no existía y después descarté uno que sí.
+
+---
+
+## Lo que espera a Martín
+
+| | |
+|---|---|
+| Decidir el preset del reel | o se enchufa AI Avatar a `creaciones-enchufes.ts`, o se cablea una escena nueva |
+| Publicar la extensión | el cliente OAuth de Google Cloud fue **borrado**; mientras tanto va descomprimida |
+| Avisarle a **Leila** | su horario y su precio están desfasados entre pantallas |
+| Los 6 competidores duplicados de Spy | se borran a mano desde la tarjeta (escribe en producción) |
+
+---
+
 ## 8/11/2026, ~20:00 UTC: LA VOZ ESTÁ RESUELTA — clon PROFESIONAL `I2d6BR9P2dAopVw1khNv`
 
 ✅ **Hecho de punta a punta.** Martín grabó la verificación, el clon entrenó y quedan **14 modelos
