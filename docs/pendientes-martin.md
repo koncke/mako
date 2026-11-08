@@ -478,10 +478,19 @@ Si no toca archivos, el commit no es ése.**
 Los 20 que siguen abiertos quedaron escritos por área: [carruseles](hallazgos-carruseles.md) (9),
 [competitors-spy](hallazgos-competitors-spy.md) (9), [avisos](hallazgos-avisos.md) (2). Los dos
 peores —el mismo origen— **ya están arreglados** (`ExplorarCarruseles.tsx`, con
-`tests/image-vacio-con-salida.test.ts` probado rompiéndolo). **Siguen abiertos los dos de plata:**
-el costo que se multiplica por modelos × cuentas sin que el tope del día lo frene
-(`lib/ai-cheap.ts:1964`) y el plazo que el Spy se come dejando al cliente 15 minutos en
-«Transcribiendo» (`lib/ai-cheap.ts:1922`).
+`tests/image-vacio-con-salida.test.ts` probado rompiéndolo).
+
+**✅ Y el primero de los dos de plata también** (`5a6349498`): el costo que se multiplicaba por
+modelos × cuentas. La instrucción le pide a Gemini la palabra `(vacío)` cuando el video no tiene
+voz; el código la traducía a `''` y la comparaba contra el piso, que es > 0 para cualquier duración
+conocida, así que **un video MUDO seguía probando cada modelo y después cada cuenta, pagando todas**,
+para devolver lo mismo marcado `corto`. Ahora `(vacío)` corta y devuelve.
+**Cierra de paso el hallazgo «*No tiene voz: es sólo música o imagen* quedó inalcanzable»**, que era
+el mismo origen: el cliente recibía «el guion puede estar incompleto» sobre un video donde no se
+dice nada. `tests/guion-yt-vacio-corta.test.ts` 4/4, probado rompiéndolo tres veces.
+
+**🔴 SIGUE ABIERTO el otro de plata:** el Spy **se come el plazo de su propia ruta** y el cliente
+queda 15 minutos en «Transcribiendo», y el reintento vuelve a gastar (`lib/ai-cheap.ts:1922`).
 
 ---
 
