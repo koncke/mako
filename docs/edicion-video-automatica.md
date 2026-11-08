@@ -910,3 +910,24 @@ boca de Omni habla 3,49 s repartidos en tres bloques (0,57 / 1,86 / 1,06 s) y la
 
 **Lo que esto NO resuelve, y hay que decirlo:** quedan ~140-200 ms de deriva dentro de los bloques,
 porque sin lipsync sólo se puede mover el audio, no la boca. Es el techo de este camino.
+
+### ⚠️ El umbral con que se mide la ventana de habla decide todo el trabajo
+
+Medí los bloques de Omni a **−30 dB** y me dieron tres, arrancando en **1,63 s**. Con esa ventana
+el audio del clon (4,80 s) no entraba en los 3,49 s de habla y la conclusión «obvia» era **acortar
+el copy**. Lo hice, y Martín lo cazó en un segundo: *«le cambió el guión, obviamente no están igual
+los labios»*. **Cambiar el copy cambia las palabras, y ahí los labios ya no pueden pegar nunca.**
+
+A **−35 dB** aparece lo que el umbral grueso tapaba: un arranque de **94 ms en 1,115-1,209 s** que a
+−30 dB se lee como silencio. **La ventana real es 1,115 → 5,898, o sea 4,78 s**, y el audio del clon
+dura 4,80: entra **entero, con `atempo` 1,0036** — que es no tocarlo.
+
+**La regla: antes de concluir que el audio no entra, medir la ventana a −35 dB y también a −40.** Un
+umbral grueso corta los arranques suaves, y lo que se pierde ahí no son milisegundos: es la decisión
+de si hay que rehacer el guión o no. Y **el copy es lo último que se toca**, porque es lo único que
+los labios ya no perdonan.
+
+**Estado del clip de Walter (8/11):** guion original completo, voz `eleven_v4` sobre el clon
+profesional sin estirar, arrancando en 1,115. Quedan diferencias en las pausas INTERNAS —el clon
+frasea distinto que Omni— y eso sólo lo arregla una pasada de lipsync, que necesita saldo.
+Receta: `scratchpad/walter/v4-entero.mjs`.
