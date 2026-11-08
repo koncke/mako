@@ -21,6 +21,25 @@ una mejora cómoda en la que decide si se recupera o no a la gente.
 Lo único que queda es que el dueño de la cuenta les escriba **a mano desde su teléfono**, que no está
 sujeto a esa ventana. La lista se le pasó a Leandro el 8/11.
 
+### ⚠️ Y el ticket #64: NO hace falta elegir receptor primario. Sacar la app rival ES el arreglo
+
+Leandro abrió el #64 trabado en el último paso: entró como la Página a `ig_conversation_routing`,
+tocó «Selecciona una app de enrutamiento predeterminada» y **el desplegable salió VACÍO**.
+
+**No es un error y no hay que arreglarlo: Meta sólo pide elegir receptor cuando hay más de una app
+disputándose la conversación.** Al quitarle los permisos a ManyChat dejó de haber disputa, así que no
+hay nada que elegir y los hilos quedan para la única app con permiso. **Por eso ya funcionaba
+mientras él creía que le faltaba un paso.**
+
+La app nuestra aparece en «Mensajes avanzados» de la Página como **«Social Media Connector»
+(1387147079198980)** — es la de Zernio. ⚠️ **Nadie va a encontrar una que diga «MaKo»**, y esa
+confusión es la que lo frenó: conviene decirlo antes de que lo busque.
+
+⚠️ **ManyChat sigue figurando aunque lo deshabilites**, porque entra por **login de Instagram**, que
+es otra puerta que las apps de la Página. No molesta mientras no tenga permisos, pero conviene
+sacarlo del todo desde Instagram → Configuración → Apps y sitios web, para que no vuelva a reclamar
+los hilos más adelante.
+
 ### Las dos mejoras que siguen abiertas de nuestro lado
 
 1. **Nadie se entera.** El fallo de un envío no está cableado a `registrarError` (lib/errores-app.ts),
