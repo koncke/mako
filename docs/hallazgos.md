@@ -186,3 +186,4 @@ El registro de qué se corrió y cuándo está en
 evidencia de por qué existe la regla de la cosecha: sin una fase final que escriba en el
 repo, más de la mitad del trabajo de los agentes se evapora.
 - [avisos](hallazgos-avisos.md) — hallazgos del área
+- [Lo que NO se puede hacer dentro de MaKo](feedback-usando-mako.md) — el registro de huecos del producto, visto usándolo
