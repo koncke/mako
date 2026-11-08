@@ -1158,3 +1158,19 @@ Eso es todo lo que da ese clip.
 **Lo gastado en toda la exploración: US$ 0,30.** Dos imágenes a US$ 0,012 y un video de 5 s a
 US$ 0,279. El segundo video falló por revisión de contenido y **no se cobró** (`cost: 0`) — un fallo
 de ApiMart devuelve la cuota, ya estaba medido.
+
+## ✅ LA CONFIGURACIÓN DE VOZ APROBADA (8/11/2026)
+
+```
+POST /v1/speech-to-speech/I2d6BR9P2dAopVw1khNv?output_format=mp3_44100_192
+model_id: eleven_multilingual_sts_v2
+voice_settings: { stability: 1.0, similarity_boost: 1.0, clone_strength: 1.0 }
+```
+
+**127 Hz** contra los 128 reales de Martín. Queda guardada en
+`scratchpad/walter/LA-CONFIG.json`, y `la-config.mjs` la LEE de ahí en vez de repetirla: una
+configuración aprobada que se vuelve a escribir a mano es una configuración que se va a escribir
+distinta.
+
+⚠️ `output_format` no es opcional — el default son 128 kbps. ⚠️ `clone_strength` sólo existe para
+clones profesionales y va en cada pedido, no en los ajustes guardados de la voz.
