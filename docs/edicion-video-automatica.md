@@ -829,3 +829,37 @@ poner la voz de alguien sobre un clip generado.
 
 Para vigilar el entrenamiento sin preguntarle a nadie: `scratchpad/walter/vigilar-pvc.mjs`
 —consulta cada 10 min y termina sola cuando los modelos que importan quedan `fine_tuned`—.
+
+## ⚠️ El voice-to-voice rinde la MISMA voz 20 Hz más grave que el TTS (8/11/2026)
+
+Martín aprobó los audios sueltos del clon profesional y después dijo del video: **«suena
+increíblemente mal, muy grave»**. Los dos salen de la MISMA voz (`I2d6BR9P2dAopVw1khNv`). Medido:
+
+| | tono |
+|---|---|
+| Su voz real | 128 Hz |
+| El audio que generó Omni (el origen del STS) | 123 Hz |
+| **La salida del STS** | **123 Hz** |
+| **El TTS `eleven_v4`, misma voz** | **143 Hz** |
+
+**No es configuración: son dos motores.** El STS corre en `eleven_multilingual_sts_v2` y rinde la
+voz unos **20 Hz (≈2,6 semitonos) más grave** que `eleven_v4`. Es la misma pared de siempre —no hay
+STS en v4— asomando por otro lado: antes se notaba en el acento, acá en el registro.
+
+### ⚠️ Subirle el tono AL ORIGEN no sirve. Hay que subírselo a la SALIDA
+
+Lo primero que parece razonable es subir el tono del audio de Omni antes de convertir, para que el
+STS salga más agudo. **Se probó y no mueve nada**: con el origen llevado a 143 Hz, la salida dio
+**120 Hz** — *más grave todavía*— y encima el estirado le metió silencios falsos que partieron los
+bloques de habla (aparecieron cortes en 3,96 / 4,08 / 4,12 / 4,25 s donde no había ninguno). El STS
+**reconstruye el tono desde el modelo de la voz y descarta el del origen**; del origen se queda con
+el ritmo, que es justamente para lo que sirve.
+
+**Lo que sí funciona:** `rubberband=pitch=<destino/123>` sobre la SALIDA. Cambia el tono sin tocar
+la duración, así que **el calce de labios no se mueve**: medido contra los bloques de Omni, 10 ms,
+10 ms, 0 ms, 0 ms, 50 ms y 0 ms. Receta: `scratchpad/walter/subir-salida.mjs`.
+
+⚠️ **Y no hay un camino que evite todo esto**: `lib/apimart-reglas.ts:73` ya lo dice — los modelos
+de voz nativa «generan el habla Y los labios juntos: montar un audio encima de un video mudo NO
+sincroniza nada». O sea que no se puede manejar a Omni con el audio bueno de v4. Reemplazar la voz
+por STS y corregirle el tono es la única vía.
