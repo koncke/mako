@@ -916,3 +916,65 @@ problema de fondo y **lo decide Martín**, no el código.
 más urgente, es uno que **se contó muchas veces**. Las cuatro entradas describían el mismo síntoma
 del mismo día, y el arreglo las apagó a las cuatro de una. Al depurar, **el número de repeticiones
 mide cuánta gente lo vio, no cuánto falta**.
+
+## Image y carruseles: lo que dejó `punta/carruseles-thumbnails` (revisada el 8/11/2026)
+
+Las dos puntas entraron a `main` **sin que nadie las mirara**. La revisión las leyó con tres lentes
+(¿hace lo que dice?, ¿qué le rompe a un cliente?, ¿qué no cubre ningún test?) y **refutó cada
+hallazgo con tres refutadores independientes**, con la regla de tirar lo dudoso. De 33 crudos
+sobrevivieron 24; 4 de ésos ya los había arreglado un commit posterior. Los de abajo **siguen
+abiertos**. «0/3 refutan» quiere decir que ninguno de los tres pudo tumbarlo.
+
+### 🔴 En el teléfono, el cliente sin carruseles queda encerrado en Image: no hay «Crear desde cero» ni sus diseños, sólo un link a Spy
+
+**rompe-cliente** · 0/3 refutan · `app/image-editor/carruseles/ExplorarCarruseles.tsx:319` · de `punta/carruseles-thumbnails`
+
+Un negocio que todavía no sigue a nadie en Competitors Spy (o al que le falló la lectura de la biblioteca global) abre Image en el celular. Desde este commit /m/image-editor ya no muestra sus diseños: muestra los ejemplos. Con `datos.carruseles.length === 0` entra la rama `!hayAlgo`, que dibuja SÓLO la frase y el link a /competitor-spy. El bloque `botones` —que es donde viven «Crear desde cero», «Guardados» y «+ Seguir cuentas»— se dibuja con `{telefono ? null : botones}` en el encabezado y con `{telefono ? botones : null}` adentro de la fila de filtros, y esa fila no se dibuja en esta rama. El `segmento` (Carruseles · Anuncios · Thumbnails) tampoco. Resultado en el teléfono: ni un botón par
+
+### 🔴 En el teléfono, un negocio sin carruseles no tiene «Crear desde cero»: la portada de Image queda sin ninguna salida al editor
+
+**rompe-cliente** · 0/3 refutan · `C:/dev/wt-push-q/app/image-editor/carruseles/ExplorarCarruseles.tsx:291` · de `punta/carruseles-thumbnails`
+
+Negocio recién abierto (no sigue a nadie en Competitors Spy → leerExplorador devuelve ok con carruseles: []) que abre /m/image-editor en el celular. `hayAlgo` es false, así que entra la rama `!hayAlgo` (línea 319), que dibuja sólo la frase y el link a Spy. Las pastillas (`botones`: Guardados, + Seguir cuentas y «＋ Crear desde cero») están en el header bajo `{telefono ? null : botones}` (291) y vuelven a aparecer SÓLO dentro de la fila de filtros de la rama con carruseles (331) o dentro de PanelThumbnails. Resultado: en el celular no se dibuja ninguna. Y el único link a `?ver=crear` de toda la app en el teléfono es ese `rutaCrear` (grep de `ver=crear`: app/m/image-editor/page.tsx:46 lo pasa c
+
+### 🟠 «?ver=carruseles redirige» era el patrón que el propio repo prohíbe: un redirect debajo del loader, con dos tests en rojo pusheados a main
+
+**promete-y-no-hace** · 1/3 refutan · `app/image-editor/page.tsx:35-37 (en 02ce9b6e3)` · de `punta/carruseles-thumbnails`
+
+Alguien abre el link viejo /image-editor?ver=carruseles (el que, dice el propio commit, «viajó en avisos y en la API») -> no redirige: el `redirect()` vive dentro de una página que está debajo de app/image-editor/loading.tsx, así que sale en el stream (200 + meta refresh, no 307) y en una carga directa tira «Minified React error #310» en el router de Next. Y app/m/image-editor/page.tsx:26 importaba `@/app/image-editor/ruta`, que el test trata como puerta del motor del editor. El bullet del commit 1 presenta la redirección como comportamiento que funciona; el commit 48b690ae0, once minutos después, la lista entre «los 5 rojos del veredicto» y la saca.
+
+### 🟠 Los filtros de Thumbnails y de Carruseles escriben las MISMAS claves en la URL: un link de Thumbnails deja la pestaña Carruseles filtrada por 90 días y por «Guardados»
+
+**promete-y-no-hace** · 0/3 refutan · `C:/dev/wt-push-q/lib/thumbnails/explorar.ts:250` · de `punta/carruseles-thumbnails`
+
+`queryDeThumbnails` escribe `q`, `periodo`, `min`, `omax`, `orden`, `de` y `vista`, que son exactamente las claves que lee `filtrosDeQuery` de los carruseles (lib/carruseles/explorar.ts:444), y los valores se solapan (`periodo` 30 y 90 están en PERIODOS_CARRUSEL y en PERIODOS_THUMBNAIL; `vista=guardados` y `orden=nuevos/viejos` en los dos; PASOS_MULTIPLO y PASOS_MULTIPLO_THUMBNAIL son la MISMA lista). Las dos páginas (app/image-editor/page.tsx:52-53 y app/m/image-editor/page.tsx:46) leen la misma query con las DOS funciones. Camino concreto: el usuario está en Thumbnails, pone «Últimos 90 días» y aprieta «Guardados» → la URL queda que=thumbnails&periodo=90&vista=guardados; copia el link (o r
+
+### 🟠 Sin carruseles no se dibuja el selector «Carruseles · Anuncios · Thumbnails»: la tab que pidió Martín depende de un único botón de texto que sólo existe si la biblioteca ya tiene filas
+
+**promete-y-no-hace** · 1/3 refutan · `C:/dev/wt-push-q/app/image-editor/carruseles/ExplorarCarruseles.tsx:319` · de `punta/carruseles-thumbnails`
+
+`segmento` (los tres radios) vive dentro de la rama con carruseles (línea 330) y dentro de PanelThumbnails; la rama `!hayAlgo` no lo dibuja. La única puerta a Thumbnails desde ahí es `{hayThumbs ? <button>Ver miniaturas de YouTube</button> : null}` (línea 323), y `hayThumbs` exige `datos.thumbnails.lista.length > 0` (línea 254). Con la migración 0409 sin aplicar —el estado que declara el propio commit— `leerThumbnails` devuelve `{ok:true, thumbnails: [], sinTablas: true}`, así que `hayThumbs` es false y Thumbnails es inalcanzable para cualquier negocio sin carruseles, también en la computadora. Y el día que la biblioteca se cargue, queda alcanzable sólo por ese botón de texto, no por el sele
+
+### 🟡 «Editar» una miniatura nunca se ejecuta en ningún test: el orquestador corre sólo con que:'carrusel' y lib/thumbnails/servidor.ts no lo importa ni un test
+
+**sin-cubrir** · 0/3 refutan · `C:/dev/wt-push-q/lib/carruseles/replica-servidor.ts:154` · de `punta/carruseles-thumbnails`
+
+La rama `que: 'thumbnail'` de `replicarEjemplo` decide cosas que no están en ninguna función pura: leer la fila con `thumbnailPorId` (que vuelve a filtrar por `vigente` de 30 días y por `esCorto`, así que una miniatura que la grilla SÍ muestra puede volver null y contestar «Esa miniatura ya no está: elige otra»), bajar la imagen de i.ytimg.com con `fetchSeguro` y la cascada maxresdefault → hqdefault (línea 171: `(await comoDataUrl(urls[0])) ?? (await comoDataUrl(urls[1]))`, dos esperas de 8 s en serie para los videos sin maxres, que son la mayoría), y el camino de guías que llama `crearDiseno` directo con `documentoGuiaMiniatura` en vez de `crearCarruselDesdeReferencia`. Si cualquiera de esa
+
+### 🟡 «La pantalla saca el ver= de la barra sin navegar» no lo prueba nada: el useEffect del replaceState no corre en ningún test
+
+**sin-cubrir** · 0/3 refutan · `C:/dev/wt-push-q/app/image-editor/carruseles/ExplorarCarruseles.tsx:157` · de `punta/carruseles-thumbnails`
+
+El commit 48b690ae0 cambia el redirect de `?ver=carruseles` por un `window.history.replaceState` en un useEffect, con un `catch` que se come cualquier error («sin URL que tocar (un test)»). Los tests de este repo dibujan con `renderToStaticMarkup`, que no corre useEffect ni tiene DOM: si ese bloque no limpia la barra (o tira), nadie se entera y un link copiado sigue llevando `ver=carruseles`. De lo prometido por el commit sólo está cubierta la mitad pura: que `vistaDeImage` ya no redirige y que `filtrosDeQuery` ignora el `ver`. De paso, `escribirEnLaUrl` (línea 93) reescribe con `u.pathname + u.search` y se come el `#hash`.
+
+### ⚪ Cada entrada a Image lee y le manda al navegador la biblioteca entera de miniaturas, aunque el cliente nunca abra la tab
+
+**menor** · 0/3 refutan · `lib/thumbnails/servidor.ts:38` · de `punta/carruseles-thumbnails`
+
+El cliente abre /image-editor (o /m/image-editor). La página es `force-dynamic`/`revalidate = 0` y espera `leerThumbnails()` en el mismo `Promise.all` que todo lo demás, así que el TTFB se come: hasta `VIDEOS_A_LEER = 8000` filas en páginas de 1000 (8 viajes a PostgREST), más hasta 2000 canales, más `multiplosDe` sobre todas. Y la lista COMPLETA viaja en el payload RSC (`thumbnails: { lista: thumbnails.thumbnails, ... }`), esté el cliente mirando Carruseles o no; en el navegador, `filtrarThumbnails` + `conVariedad` corren sobre esas 8000 en cada tecla del buscador. La biblioteca de carruseles sí tiene caché de módulo con TTL (`piezasDeLaBiblioteca`); la de miniaturas no tiene ninguna. En un
+
+### ⚪ Si falla la lectura de carruseles, Thumbnails se tira a la basura aunque se haya leído bien
+
+**menor** · 0/3 refutan · `C:/dev/wt-push-q/app/image-editor/page.tsx:55` · de `punta/carruseles-thumbnails`
+
+Las dos páginas leen `leerExplorador()` y `leerThumbnails()` en paralelo, pero si el explorador vuelve `!ok` se descarta todo: la computadora manda `{ error: true }` (page.tsx:55 → ImageEditorCliente dibuja «No pude leer los carruseles de ejemplo») y el teléfono dibuja `<ErrorM frase="No pude leer los ejemplos…">` (app/m/image-editor/page.tsx:51). Las miniaturas son una biblioteca GLOBAL de la plataforma que no depende de los datos de Spy del negocio, así que un problema al leer los carruseles del negocio deja inalcanzable una tab que estaba sana. Además en el teléfono eso pasa también cuando `ctx.ws == null` (línea 42), que no es un error de lectura.

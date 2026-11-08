@@ -317,11 +317,25 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
               ahora={ahora} telefono={telefono} segmento={segmento} botones={botones} />
           </>
         ) : !hayAlgo ? (
-          <div className={s.vacio}>
-            <p>{datos.frase}</p>
-            {datos.accion ? <Link href={datos.accion.ruta} className={s.boton}>{datos.accion.texto}</Link> : null}
-            {hayThumbs ? <button type="button" className={s.texto} onClick={() => irA('thumbnails')}>Ver miniaturas de YouTube</button> : null}
-          </div>
+          <>
+            {/* ⚠️ EL SELECTOR Y LAS PASTILLAS TAMBIÉN VAN CUANDO NO HAY NADA. Vivían sólo en la rama de
+                abajo —la que pide `hayAlgo`—, así que un negocio que todavía no sigue a nadie en Spy, o
+                al que le falló la lectura de la biblioteca, entraba a Image y no tenía NI «Crear desde
+                cero» NI las otras pestañas: la única salida era el link a Spy. En el TELÉFONO era peor,
+                porque ahí las pastillas tampoco están en la cabecera (`telefono ? null : botones`, arriba),
+                así que la pantalla quedaba sin ninguna puerta al editor — justo el cliente nuevo, que es
+                el que más la necesita. Lo encontró la revisión de `punta/carruseles-thumbnails`
+                (8/11/2026): dos hallazgos distintos que eran el mismo origen. */}
+            <div className={s.filtros}>
+              {segmento}
+              {telefono ? botones : null}
+            </div>
+            <div className={s.vacio}>
+              <p>{datos.frase}</p>
+              {datos.accion ? <Link href={datos.accion.ruta} className={s.boton}>{datos.accion.texto}</Link> : null}
+              {hayThumbs ? <button type="button" className={s.texto} onClick={() => irA('thumbnails')}>Ver miniaturas de YouTube</button> : null}
+            </div>
+          </>
         ) : (
           <>
             <div className={s.filtros}>

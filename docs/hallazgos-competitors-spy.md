@@ -1919,3 +1919,65 @@ Sarah Tran ~360 · Shelby Sapp ~320 · Jenna Kutcher ~190 · Jeremy Miner ~170 �
 `country=ALL` son ~320. Treinta y cinco veces más. Un conteo de la Biblioteca **no significa nada sin
 decir con qué país y qué tipo de búsqueda se sacó**, y dos conteos de distinta procedencia no se
 comparan.
+
+## Transcripción de Spy: lo que dejó `punta/nada-por-detras` (revisada el 8/11/2026)
+
+Las dos puntas entraron a `main` **sin que nadie las mirara**. La revisión las leyó con tres lentes
+(¿hace lo que dice?, ¿qué le rompe a un cliente?, ¿qué no cubre ningún test?) y **refutó cada
+hallazgo con tres refutadores independientes**, con la regla de tirar lo dudoso. De 33 crudos
+sobrevivieron 24; 4 de ésos ya los había arreglado un commit posterior. Los de abajo **siguen
+abiertos**. «0/3 refutan» quiere decir que ninguno de los tres pudo tumbarlo.
+
+### 🔴 El Spy se come el plazo de su propia ruta: el cliente queda con «Transcribiendo» 15 minutos y el reintento vuelve a gastar
+
+**rompe-cliente** · 1/3 refutan · `lib/ai-cheap.ts:1922` · de `punta/nada-por-detras`
+
+El cliente abre en Competitors Spy un video de YouTube de 20-40 min con poca voz (una demo, un webinar con silencios, una entrevista con música). `tramosDeYoutube` da 2-3 tramos. Cada tramo que no llega al piso ya no corta: recorre `modelosSttGemini()` (2 modelos) × `provsDe('gemini')` (las cuentas del negocio), y cada pedido lleva `AbortSignal.timeout(170_000)`. Con UNA cuenta son 3 tramos × 2 × 170 s = 1020 s; con dos, 2040 s. La ruta tiene `maxDuration = 800` y su propio comentario todavía dice «hasta 3 × 170 s». La función se muere a mitad de camino. `reclamarGuion` ya escribió `transcribiendo` ANTES del `after()`, y como nadie escribe el final, el guion queda en `transcribiendo`: la pan
+
+### 🔴 El costo se multiplica por modelos × cuentas y el tope del día ya no lo frena: el negocio paga su propio Gemini
+
+**rompe-cliente** · 0/3 refutan · `lib/ai-cheap.ts:1964` · de `punta/nada-por-detras`
+
+Un tramo abajo del piso se vuelve a pedir en TODOS los modelos y TODAS las cuentas de Gemini del negocio, con el MISMO prompt y `temperature: 0` — la segunda cuenta repite los mismos dos modelos, así que es plata tirada casi segura. Medido con dos cuentas: 4 pedidos pagos y 4 filas de Uso de 19.500 tokens por UN tramo, donde antes era 1. Y `reservarDia()` se reclama una vez por VIDEO, no por pedido: `GUIONES_YT_POR_DIA = 20` deja pasar 20 videos × 3 tramos × 4 = 240 pedidos de video pagos por día donde antes eran 60. El negocio paga SU Gemini (BYOK), así que esto sale de su cuota y de su factura, y lo único que ve es el Uso lleno.
+
+### 🟠 «Un video corto se pide con su duración para tener piso»: cuando YouTube no da la duración, el piso sale de la ventana de 10 minutos y pide 6.000 caracteres
+
+**promete-y-no-hace** · 0/3 refutan · `lib/spy-transcripcion.ts:272` · de `punta/nada-por-detras`
+
+Un video de YouTube cuya duración la API no devuelve legible (duracion null, o «P0D», que es lo que YouTube devuelve en un vivo o un estreno) -> tramosDeYoutube NO devuelve [null] sino [{desdeS:0,hastaS:600}], así que transcribirGuionYoutube pasa duracionS=null (`tramo ? null : duracionS`) y guionDeYoutubeConGemini calcula el piso sobre 600 segundos: 6.000 caracteres. Un video real de 40 segundos habla ~400 caracteres y NUNCA puede pasar ese piso: se gastan los dos modelos y TODAS las cuentas de Gemini del negocio (el doble o más de cuota y de plata por cada video así), y después el guion COMPLETO se guarda marcado `corto` con la nota falsa «Puede faltar parte: Gemini devolvió menos texto de
+
+### 🟠 Un guion COMPLETO se guarda diciéndole al cliente que puede estar incompleto, cuando YouTube no dio la duración
+
+**promete-y-no-hace** · 0/3 refutan · `lib/spy-transcripcion.ts:106` · de `punta/nada-por-detras`
+
+`spy_piezas.duracion` puede venir null (la API de YouTube sin `contentDetails.duration`). Con duración desconocida, `tramosDeYoutube(null)` NO devuelve `[null]`: devuelve un tramo inventado `[0, 600]`, y el piso se calcula de ese tramo -> 6000 caracteres, sin importar que el video dure 40 segundos. El guion completo de un anuncio de 40 s (~400 caracteres, que es exactamente lo que el Spy mira) queda abajo del piso, se reintenta en todos los modelos y cuentas, y vuelve con `corto: true`. El cliente abre el detalle de la pieza y lee, debajo de un guion que está entero: «Hasta el minuto 10. Puede faltar parte: Gemini devolvió menos texto del que suele decirse en ese tiempo.» Las dos frases son
+
+### 🟠 El reel sin voz perdió la respuesta honesta que estaba medida, y encima cuesta 4 veces más
+
+**promete-y-no-hace** · 1/3 refutan · `lib/spy-transcripcion.ts:280` · de `punta/nada-por-detras`
+
+Un reel o video que de verdad es sólo música devuelve «(vacío)» en todos los modelos. `limpio = ''` nunca llega al piso, así que ahora quema todos los intentos de todas las cuentas y vuelve con `corto: true`. En `transcribirGuionYoutube`, `algunoCorto` hace que el motivo deje de ser «No tiene voz: es sólo música o imagen.» y pase a «Gemini no devolvió texto: puede ser sólo música o imagen, o que no lo transcribió.» El caso legítimo más común del Spy (el reel de música de un competidor) pasó de una respuesta medida y barata a una respuesta ambigua y 4× más cara.
+
+### 🟠 El `corto` gana al «high demand» y al error duro: un tramo corto + un 503 se guarda como FINAL y no se reintenta nunca
+
+**promete-y-no-hace** · 1/3 refutan · `C:/dev/wt-push-q/lib/ai-cheap.ts:1969` · de `punta/nada-por-detras`
+
+Tramo de 10 min: gemini-flash-latest devuelve dos frases con finishReason=STOP (por debajo del piso) y gemini-flash-lite-latest devuelve 503 «high demand». `if (mejorCorto) return {ok:true, corto:true}` está ANTES del `return motivo:'saturado'` (1970) y del `motivo:'fallo'` (1971), así que vuelve el guion de dos frases como bueno. `transcribirGuionYoutube` lo escribe estado=listo, fallos=0, y ese tramo no se vuelve a pedir jamás. Sin el tramo corto delante, el MISMO 503 devuelve 'saturado' y el guion queda pendiente (ESPERA_SATURADO_MS). Igual con finishReason=MAX_TOKENS y con HTTP 400: devuelve corto en vez de 'fallo' (que reintentaba con fallos+1). Es el bug que el commit vino a matar —un
+
+### 🟠 Un video cuya duración no se puede leer recibe el piso de 10 MINUTOS: cartel falso de «puede faltar parte» y 2–4 pedidos a Gemini
+
+**promete-y-no-hace** · 0/3 refutan · `C:/dev/wt-push-q/lib/spy-transcripcion.ts:106` · de `punta/nada-por-detras`
+
+`tramosDeYoutube(null)` devuelve el tramo NOMINAL {0,600} (no `null`), así que `guionDeYoutubeConGemini` calcula el piso con 600 s: 6.000 caracteres, sea el video de 90 segundos o de una hora. YouTube devuelve `P0D` en los directos y los estrenos, y una pieza traída por otro camino (spy-sugeridos, search.list) viene con `duracion: null`. Un video real de 2 minutos, transcrito ENTERO (~1.200 caracteres), queda debajo del piso: se le pregunta a cada modelo de cada cuenta y el guion se guarda marcado `corto`. El cartel que lee el cliente afirma dos cosas falsas a la vez. El comentario de `pisoDeGuionYt` dice «Sin duración, no hay piso», y en el camino real del Spy eso no pasa nunca: piso 0 es i
+
+### 🟡 «No tiene voz: es sólo música o imagen.» quedó inalcanzable para YouTube: el piso es siempre > 0, así que todo video mudo vuelve marcado `corto` y pagando cada modelo y cada cuenta
+
+**sin-cubrir** · 0/3 refutan · `lib/spy-transcripcion.ts:280` · de `punta/nada-por-detras`
+
+La instrucción le pide a Gemini devolver exactamente «(vacío)» si no se dice nada. Ese caso da limpio='' (length 0), que no pasa el piso para NINGUNA forma de video real: con duración ≤10 min el piso es duracionS*10 (PT40S→400, PT4M→2400), con tramo es 6000, y sin duración legible también 6000. El único piso 0 es «PT0S». Entonces un video que de verdad es sólo música: (1) recorre los dos modelos y todas las cuentas de Gemini en vez de una sola llamada, y (2) siempre vuelve con corto:true, así que algunoCorto es siempre true y el motivo que se guarda es siempre el hedge «Gemini no devolvió texto: puede ser sólo música o imagen, o que no lo transcribió.». La rama `: 'No tiene voz: es sólo músi
+
+### 🟡 La mitad «y con otra cuenta» del piso no la ejercita ningún test, y nada acota los 2 modelos × N cuentas que cuesta un video de poca voz
+
+**sin-cubrir** · 0/3 refutan · `C:/dev/wt-push-q/tests/_spy-guion-yt-hijo.ts:57` · de `punta/nada-por-detras`
+
+El hijo le pone UNA sola clave al ws 13, así que las vueltas del piso (J/K/L/M) sólo prueban los dos modelos de una cuenta: el `for (const p of provs)` que el commit promete («se prueba con el otro modelo y con otra cuenta») nunca corre bajo el piso. Con dos claves, un tramo de poca voz legítima (una demo, un unboxing, un reel con música) cuesta 4 pedidos a Google y 4 filas de Uso POR TRAMO, y un video de 30 minutos son 3 tramos: 12 pedidos pagados por el negocio para terminar igual con el guion marcado `corto`. No hay tope ni test que lo fije.
