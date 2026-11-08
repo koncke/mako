@@ -10,6 +10,10 @@
 //   · la misma entrada de los dos lados → queda una vez;
 //   · una fila nueva, una borrada o una celda reescrita de punta a punta → NO se toca: el choque de siempre;
 //   · las filas byte a byte idénticas se tiran (sólo pueden ser daño de union), también cuando la mezcla salió limpia;
+//   · y las que NO son idénticas se unen por entrada, porque una punta cortada antes del 6/11 trae las filas viejas y
+//     git las devuelve al mezclar main (un lado borró, el otro conservó): tirarlas por clave perdería su cosecha;
+//   · y si las dos TABLAS son distintas (main junta, la punta trae la vieja) se mezcla por ÁREA, no por renglón;
+//   · el índice EN DISCO: una fila por área, tres columnas, ningún link muerto, la tabla sin cortar;
 //   · el glob de .gitattributes lleva el guion, y el índice tiene su propio driver;
 //   · el paso de punta.yml configura el driver copiándolo de main, y va ANTES de la primera mezcla.
 //
@@ -18,6 +22,16 @@
 //   · `prefijoNuevo` devolviendo la celda entera (acepta cualquier cambio)   → 6 / 2
 //   · `sinFilasRepetidas` sin filtrar                                        → 6 / 2
 //   · el glob de .gitattributes de vuelta en `docs/hallazgos*.md`            → 7 / 1
+//
+// Y la mezcla por ÁREA, de la misma noche (base 14 / 0). Pasan / fallan:
+//   · `filaDeLaTabla` pidiendo el link de `hallazgos-*.md` otra vez          → 13 / 1
+//   · las áreas que sólo tiene la punta, tiradas                             → 13 / 1
+//   · el `|` del texto sin escapar a la salida                               → 13 / 1
+//   · `unirPorFilas` apagado (vuelve a ser «resolvelo a mano»)                → 13 / 1
+//   · la línea en blanco de la tabla vuelve a cortar el tramo                → 13 / 1
+//   ⚠️ La red de `unirCeldas` (si una entrada no sobrevive textual, no se junta) NO la mueve ningún test: con el corte
+//   en `**Título (fecha)**:` cada entrada se emite entera, así que no se la pudo hacer fallar. Queda como seguro de un
+//   cambio futuro del corte, no como algo probado.
 // Correr: node --import tsx --test tests/unir-indice-hallazgos.test.ts
 // =============================================================================
 
@@ -28,7 +42,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { filaDelIndice, sinFilasRepetidas, unirPorCelda } from '../scripts/unir-indice-hallazgos.mjs';
+import { entradasDeCelda, filaDelIndice, sinFilasRepetidas, unaFilaPorClave, unirCeldas, unirPorCelda, unirPorFilas } from '../scripts/unir-indice-hallazgos.mjs';
 import { leerWorkflow } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +66,94 @@ const indice = (infra: string, crm: string) => [
 
 const BASE = indice('**Lo viejo de infra**: ya estaba.', '**Lo viejo del CRM**: ya estaba.');
 
+// ── Juntar DOS FILAS de la misma área que NO son idénticas ──────────────────────────────────────────────────────────
+// Desde que main tiene UNA fila por área, una punta cortada antes trae las viejas y git las DEVUELVE al mezclar
+// (un lado borró, el otro conservó). Tirarlas por clave perdería la cosecha propia de la punta: se unen por entrada.
+test('el límite de una entrada es la negrita con DOS PUNTOS, no cualquier negrita', () => {
+  const e = entradasDeCelda('**Uno (6/11)**: con **99** adentro, que es un énfasis. **Dos (5/11)**: lo otro.');
+  assert.equal(e.length, 2, `«**99**» no abre entrada: cortar ahí parte la oración (dio ${e.length})`);
+  assert.match(e[0], /^\*\*Uno \(6\/11\)\*\*: con \*\*99\*\* adentro/);
+  assert.match(e[1], /^\*\*Dos \(5\/11\)\*\*/);
+  // la prosa de antes de la primera entrada no se pierde
+  assert.deepEqual(entradasDeCelda('lo de siempre. **Uno (6/11)**: x'), ['lo de siempre.', '**Uno (6/11)**: x']);
+});
+
+test('dos filas de la misma área se unen por entrada, lo más nuevo adelante y sin repetir', () => {
+  // la de main tiene la entrada del 6/11; la de la punta, la del 4/11. Las dos comparten la del 5/11.
+  const unido = unirCeldas([
+    '**Seis (6/11)**: a. **Cinco (5/11)**: b.',
+    '**Cinco (5/11)**: b. **Cuatro (4/11)**: c.',
+  ]);
+  assert.equal(unido, '**Seis (6/11)**: a. **Cinco (5/11)**: b. **Cuatro (4/11)**: c.');
+
+  // una celda CONTENIDA en otra no aporta nada: queda la larga
+  assert.equal(unirCeldas(['**Seis (6/11)**: a. **Cinco (5/11)**: b.', '**Cinco (5/11)**: b.']),
+    '**Seis (6/11)**: a. **Cinco (5/11)**: b.');
+
+  // y una entrada que la celda ya traía DOS VECES queda una sola (daño viejo de las cosechas sobre una fila duplicada)
+  const larga = `**Una entrada bien larga para que pase el piso de los cuarenta caracteres (6/11)**: el cuerpo.`;
+  assert.equal(unirCeldas([`${larga} ${larga}`]), larga);
+});
+
+test('⚠️ si una entrada no sobrevive textual, NO se junta: quedan las dos filas y lo mira una persona', () => {
+  // unirCeldas devuelve null cuando no puede verificarse; unaFilaPorClave entonces deja las filas como estaban.
+  const sinTitulos = ['prosa sin ninguna entrada', 'otra prosa distinta sin ninguna entrada'];
+  const unido = unirCeldas(sinTitulos);
+  if (unido != null) for (const c of sinTitulos) assert.ok(unido.includes(c), `se perdió «${c}»`);
+
+  const dos = [
+    '| Área | Documento | Qué cubre |', '|---|---|---|',
+    '| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **A (6/11)**: x. |',
+    '| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **B (5/11)**: y. |',
+  ];
+  // el script es un .mjs sin tipos, así que lo que devuelve llega como `any`: los parámetros se anotan a mano o es TS7006
+  const r: { lineas: string[]; juntadas: number } = unaFilaPorClave(dos);
+  assert.equal(r.juntadas, 1, 'las dos filas de infra quedan en una');
+  assert.equal(r.lineas.filter((l: string) => filaDelIndice(l)).length, 1);
+  assert.match(r.lineas.find((l: string) => filaDelIndice(l))!, /\*\*A \(6\/11\)\*\*: x\. \*\*B \(5\/11\)\*\*: y\./);
+  // la fila queda DONDE ESTABA la primera, para no revolver el orden de la tabla
+  assert.equal(r.lineas.indexOf(r.lineas.find((l: string) => filaDelIndice(l))!), 2);
+});
+
+// ── El choque de verdad: main tiene la tabla JUNTA y la punta la vieja ──────────────────────────────────────────────
+test('tablas distintas: se mezcla por ÁREA, no por renglón', () => {
+  // main junta las dos filas de infra en una y cosecha; la punta sigue teniendo las dos y cosechó en la suya.
+  const tabla = (...filas: string[]) => ['# x', '', '| Área | Documento | Qué cubre |', '|---|---|---|', ...filas, '', 'prosa de abajo', ''].join('\n');
+  const infra = (c: string) => `| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | ${c} |`;
+  const otra = `| Mauricio | [recorrido-visual-30-10.md](recorrido-visual-30-10.md) | lo que cubre |`;
+  // ⚠️ la fila que manda a otro documento va EN EL MEDIO, como en el índice de verdad, y DETRÁS de ella un área que
+  // sólo tiene la punta: si el lector de filas no ve la del medio, el tramo parece cortado ahí y lo de atrás —el área
+  // nueva de la punta— se va con «lo de después de la tabla», que lo resuelve el otro lado. Se pierde sin ruido.
+  const nueva = `| Nueva | [hallazgos-nueva.md](hallazgos-nueva.md) | **N (6/11)**: sólo la trae la punta. |`;
+  const base = tabla(infra('**Vieja (1/11)**: a.'), otra, infra('**Otra vieja (2/11)**: b.'));
+  // y la punta vieja trae la LÍNEA EN BLANCO en medio de la tabla, que es otro pedazo del daño de `union`
+  const ours = tabla(infra('**De la punta (6/11)**: nuevo. **Vieja (1/11)**: a.'), otra, '', infra('**Otra vieja (2/11)**: b.'), nueva);
+  const theirs = tabla(infra('**De main (6/11)**: otro. **Vieja (1/11)**: a. **Otra vieja (2/11)**: b.'), otra);
+
+  const unido = unirPorFilas(base, ours, theirs);
+  assert.ok(unido, 'el choque «la tabla entera contra la tabla entera» se resuelve: es por área');
+  const deInfra = unido!.split('\n').filter((l) => filaDelIndice(l)?.clave.startsWith('Infraestructura|'));
+  assert.equal(deInfra.length, 1, `UNA fila de infra (quedaron ${deInfra.length})`);
+  for (const t of ['**De main (6/11)**', '**De la punta (6/11)**', '**Vieja (1/11)**', '**Otra vieja (2/11)**']) {
+    assert.ok(unido!.includes(t), `se perdió ${t}`);
+  }
+  // ⚠️ la fila que NO apunta a hallazgos-*.md también viaja, y el área que sólo tiene la punta no se tira
+  assert.ok(unido!.includes('recorrido-visual-30-10.md'), 'la fila que manda a otro documento sigue en la tabla');
+  assert.ok(unido!.includes('hallazgos-nueva.md'), 'el área que sólo tiene la punta sigue, detrás de las de main');
+  assert.ok(unido!.includes('prosa de abajo'), 'lo de después de la tabla sigue');
+  // y la tabla queda de una pieza: entre sus filas no se cuela una línea en blanco ni prosa
+  const tramo = unido!.split('\n');
+  const ini = tramo.findIndex((l) => /^\|\s*-+\s*\|/.test(l));
+  const fin = tramo.length - 1 - [...tramo].reverse().findIndex((l) => l.startsWith('|'));
+  assert.deepEqual(tramo.slice(ini + 1, fin + 1).filter((l) => !l.startsWith('|')), [], 'la tabla no quedó cortada');
+
+  // y el `|` del texto queda escapado aunque un lado lo trajera pelado (si no, la fila se parte en markdown)
+  const conPipe = unirPorFilas(base, tabla(infra('**P (6/11)**: un number | null. **Vieja (1/11)**: a.'), otra, infra('**Otra vieja (2/11)**: b.')), theirs);
+  assert.ok(conPipe?.includes('number \\| null'), 'el | del texto sale escapado');
+  assert.equal(conPipe!.split('\n').filter((l) => filaDelIndice(l) && l.split('\\|').join('\u0001').split('|').length !== 5).length, 0,
+    'ninguna fila con columnas de más');
+});
+
 test('una fila del índice se reconoce por sus dos primeras celdas; una línea cualquiera no', () => {
   const f = filaDelIndice('| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | lo que cubre |');
   assert.equal(f?.clave, 'Infraestructura|[hallazgos-infra.md](hallazgos-infra.md)');
@@ -68,9 +170,9 @@ test('dos cosechas en la celda de la misma área: quedan las dos, primero la de 
   const theirs = indice('**De main**: lo otro. **Lo viejo de infra**: ya estaba.', '**Lo viejo del CRM**: ya estaba.');
   const r = unirPorCelda(BASE, ours, theirs);
   assert.ok(r, 'tendría que unirse');
-  const celda = r!.split('\n').find((l) => l.includes('hallazgos-infra'))!;
+  const celda = (r! as string).split('\n').find((l: string) => l.includes('hallazgos-infra'))!;
   assert.match(celda, /\*\*De main\*\*: lo otro\. \*\*De la punta\*\*: lo nuevo\. \*\*Lo viejo de infra\*\*: ya estaba\./);
-  assert.equal(r!.split('\n').filter((l) => l.includes('hallazgos-infra')).length, 1, 'UNA fila, no dos');
+  assert.equal((r! as string).split('\n').filter((l: string) => l.includes('hallazgos-infra')).length, 1, 'UNA fila, no dos');
   assert.ok(r!.includes('**Lo viejo del CRM**'), 'la fila que nadie tocó queda igual');
 });
 
@@ -208,5 +310,9 @@ test('el índice en disco: una fila por área, tres columnas y ningún link muer
     assert.ok(existsSync(join(RAIZ, 'docs', ruta!)), `el índice manda a \`docs/${ruta}\`, que no existe: la cosecha va al documento del área, y si se borró, se repunta`);
   }
   const repetidas = [...claves.entries()].filter(([, v]) => v > 1);
-  assert.deepEqual(repetidas, [], `una entrada nueva va ADELANTE en la celda de su área, no en una fila nueva: ${repetidas.map(([k, v]) => `${k} x${v}`).join(', ')}`);
+  assert.deepEqual(repetidas, [], `hay ${repetidas.length} área(s) con más de una fila: ${repetidas.map(([k, v]) => `${k} x${v}`).join(', ')}.
+Si cosechaste: la entrada nueva va ADELANTE en la celda de tu área, no en una fila nueva.
+Si NO cosechaste en el índice, es la mezcla: una punta cortada antes del 6/11/2026 trae las filas viejas y git las devuelve
+al mezclar main (un lado borró, el otro conservó). Se arregla con:
+  node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md --aplicar`);
 });
