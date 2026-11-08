@@ -1224,3 +1224,13 @@ ajena»: 18 archivos y 4.396 líneas de `editor/collab/`, con 20 archivos de afu
 `package.json` sin el lock rompe el `npm ci` de Vercel, y regenerar el lock desde un worktree es justo la trampa de la
 decisión 8 (el `node_modules` compartido tiene paquetes puestos a mano). Se saca con `npm install --package-lock-only`
 en el CLON, mirando antes `npm ls --depth=0 | grep extraneous`, y en un commit propio que se pueda revertir solo.
+
+**Lo que quedó SIN MIRAR, y DÓNDE se prueba (8/11/2026):** que el editor abre, guarda y deshace igual **no se vio en
+pantalla**, y no por no intentarlo: `next dev` desde el worktree murió dos veces y la segunda la mató el vigía de RAM
+con 621 MB libres (el detalle, y la receta que sí funciona, en `docs/hallazgos-infra.md` → «Mirar una pantalla de esta
+app en un worktree»). Producción todavía no sirve para mirarlo: despliega UNA vez por día a las 11:05 UTC
+(`lib/desplegar-main.ts`), y a la hora del merge estaba sirviendo un build de tres horas antes. **Se prueba en
+producción, en el workspace de prueba (ws3), después del despliegue diario.** Y lo que hay que ejercitar no es sólo
+abrir y guardar: el borrado tocó el HISTORIAL del motor, así que se prueba **deshacer y rehacer** sobre un diseño nuevo
+— ahí vivía la rama `if (this.live)` de los dos push, de `sealHistory` y de `undo`/`redo`. Precedente del 17/10: cuando
+la máquina no da, el recorrido se pasa a producción y se anota acá dónde.
