@@ -5,6 +5,31 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 00 · CAMBIO DE PLAN, 9/11 ~12:15 UTC: los clips 1 y 2 se REGENERAN delante del pizarrón nuevo
+
+Martín, textual: «veo que ya salió bien. Creo que lo mejor sería regenerar tanto el clip 1 como el clip 2 con este
+nuevo fondo. Así lo mantenemos durante todo el video.» → **el clip de enlace ya NO hace falta**, y el fondo del reel
+es este pizarrón, no la oficina. También dijo: «Todo siempre en la calidad original, también los videos» (memoria
+`descargar-calidad-original`): en Flow se baja «1K · Tamaño original», nunca el 2K reescalado.
+
+| pieza | estado | archivo (en `C:\dev\reel-mentores\`) |
+|---|---|---|
+| Imagen inicial: él delante del pizarrón v3 | ✅ aprobada («ya salió bien») | `finalizar\persona-delante-v1-2k.jpg` (en Flow es la 4.ª del selector de marcos) |
+| **Clip 1 nuevo** | hecho, falta el OK | `clips\CLIP1-NUEVO-CON-TU-VOZ.mp4` (de Flow: `clips\clip1-nuevo-flow.mp4`) |
+| **Clip 2 nuevo** | generándose | arranca de `clips\clip1-nuevo-ULTIMO.png` (último fotograma del clip 1) |
+
+- **Configuración de los dos, igual a la aprobada:** Video · **Fotogramas** · Omni 1.2 Flash · 720p · 9:16 · 8 s · x1
+  · 24 créditos. Pegar una imagen en la caja con el modo Fotogramas puesto la deja de fotograma INICIAL (además de
+  subirla).
+- **Prompt del clip 1:** «Habla con acento argentino de Buenos Aires. El cuerpo queda quieto, sostiene la foto a cámara
+  y dice: "Este es un mensaje para todos los mentores high ticket."»
+- **Prompt del clip 2:** «Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo:
+  "Me llamo Martín, tengo 25 años y me estudié a todos los gurús que conoces." Al principio abre la mano y deja caer la
+  foto.»
+- **La voz:** `bash voz\poner-voz.sh <clip de Flow> <salida>` aplica `LA-CONFIG.json` tal cual: el clon PROFESIONAL
+  `I2d6BR9P2dAopVw1khNv`, stability 0, sin speaker boost, loudnorm −14 y `-c:v copy`. ⚠️ La §8 de abajo, con el clon
+  normal y un «antes», está VIEJA: gana LA-CONFIG.json. Clip 1: 38 ms de diferencia, 143 Hz (los reales son 128).
+
 ## 0 · AL 9/11 ~12:00 UTC (claude4): el PIZARRÓN SOLO, versión 3, esperando el OK de Martín
 
 - **Flow está en la cuenta `mbustos@elevate.com.mx`**, que en el Chrome de Claude es `/u/2/`:
