@@ -17,6 +17,12 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Una línea puede MANDAR, contestar la sonda y estar SORDA** (9/11/2026). La de MaKo (…2605) y la de Martín (…3479) dejaron de
+  recibir a las 12:06-12:11 UTC y nadie se enteró en 10 horas: `fetchBusinessProfile` daba 200, los avisos salían, y no entraba nada.
+  Reiniciar la instancia no alcanzó; volver a escanear el QR sí. Ver «La línea sorda», abajo.
+- **«MaKo no le responde» puede ser que contestó TODO y no resolvió nada** (9/11/2026, Leandro). La línea estaba `open`, cada
+  mensaje tuvo reacción y texto, y aun así Martín lo vio mudo: la pregunta quedaba en un ticket que nadie tomaba. Antes de mirar
+  Evolution, mirar qué se contestó. Ver «MaKo no le responde a Leandro», abajo.
 - **«Otra app es la dueña del hilo» NO es permanente, y tratarlo así costó 17 leads** (8/11/2026). Es la MISMA forma que el bug del tope del 28/10: cuando Meta dice que no, hay que preguntarse si dice «no nunca» o «no ahora». Y un envío que falla **quema la ventana de 24 h**: el daño no es el mensaje, es la persona. Ver «Otra app es la dueña del hilo», abajo.
 - **Un DM de Instagram que no sale trae su propio diagnóstico, y muere en una columna que nadie mira** (8/11/2026).
   Nueve días entregando cero recursos, un ticket a mano, y la causa estaba escrita entera —con el link para
@@ -62,6 +68,61 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
 
 ---
+
+## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
+
+**El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
+
+**Lo medido:** la línea de MaKo (`mako_superadmin_muylqv8r`) y la de Martín (`mako_ws9`) estaban `open`, `fetchBusinessProfile` daba
+200 (la sonda de `socketVivo`, la que separó las vivas de las zombis el 11/09) y MaKo seguía MANDANDO (el PDF de un cobro a las 19:02
+UTC). Pero `_count.Message` de las dos no se movía: el último entrante, 12:11 y 12:06 UTC. Las líneas que IGNORAN grupos (ws10, ws11,
+ws19) recibían normal. Con la línea sorda no llega nada ni a Evolution, así que ni el webhook ni el despachante tienen qué hacer.
+- **Cómo se ve en un minuto:** `GET /instance/fetchInstances` dos veces, con unos minutos de diferencia, y comparar `_count.Message`
+  contra las otras líneas. Una línea de grupos sin un solo mensaje nuevo en horas, con las demás recibiendo, está sorda.
+- **Lo que NO la arregló:** `POST /instance/restart` (devuelve `open` y la sesión sigue sorda; en el número de Martín, cero
+  mensajes en 12 minutos de un lunes a la tarde).
+- **Lo que SÍ:** volver a escanear el QR (Martín, 22:36 UTC). La instancia se rehizo con el mismo nombre, el webhook quedó puesto
+  solo, y la sincronización trajo lo perdido (el «listo» de Joan, la pregunta de Leandro, un reclamo de Mauricio).
+- ⚠️ **Lo que trae la sincronización NO pasa por el despachante:** entra como historial, no como mensaje nuevo, así que MaKo no lo
+  contesta. Después de reconectar una línea hay que leer los grupos y contestar lo que quedó a mano (`enviarAlGrupoMaKo`, como equipo).
+
+**La causa de fondo, sin saber:** WhatsApp dejó de entregarle mensajes a esas dos sesiones a la vez, y las dos son las únicas que
+leen grupos. No se pudo mirar el log de Evolution (Railway, sin acceso desde el repo).
+
+**Sin hacer:** el vigilante del canal (`lib/canal-vigilante.ts`) mira si el socket contesta, y una línea sorda contesta. Falta la
+alarma por lo que NO llega: horas sin un mensaje entrante en la línea de grupos mientras las otras líneas reciben, por EMAIL (la
+alarma de un canal no viaja por ese canal). La línea de Martín (`mako_ws9`) quedó sorda: necesita su propio QR.
+
+## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
+
+**El síntoma:** Martín, 9/11: «Leandro le está escribiendo a MaKo en WhatsApp y no responde».
+
+**El diagnóstico obvio era el equivocado.** Con la línea …2605 baneada el 3/11, lo primero que se piensa es la línea. Medido: `open`,
+recibiendo (Joan escribió a las 12:00 UTC y tuvo respuesta en 1 s), sin frenos en `mako.grupos.*` ni `mako.bot.*`. Y MaKo le
+contestó a Leandro CADA mensaje, con reacción y texto. Lo que no hubo fue una respuesta que sirviera:
+- **«¿Puedo cargarle variantes a esa tarjeta? ¿Cómo se hace?»** (un turno PREGUNTA, en Opus) → MaKo **inventó** que el «{ }» carga
+  variantes. No existía para Instagram. Leandro lo probó, no anduvo, y volvió a preguntar.
+- **Las dos repreguntas** salieron clase TICKET con una pregunta adentro → sólo «Lo sumé al ticket #67… Lo toma el equipo». Es a
+  propósito (lib/mako-intencion-ia.ts: un TICKET principal no lo contesta el modelo, lo contesta el equipo), y por eso depende de que
+  el equipo lo tome: el #67 estaba esperando a Martín por el triage (hallazgos-ticketera.md, «"Tarjeta" no es una tarjeta de crédito»).
+- **El pedido #65** (mandar el recurso a dos leads) → «sigue en la fila» → «pídemelo otra vez y lo hago» → «ahora? hacelo» → «no lo
+  tengo en esta sesión: .». El pedido delegado esperaba a Martín, y la ventana de 24 h de esos dos leads se cerró el 8/11 a la noche.
+
+**Las demoras de 2-3 horas no eran nuestras.** «ahora? hacelo» lleva `messageTimestamp` 21:54 UTC y llegó al webhook a las 01:11:06;
+la línea de Martín (…3479, en el mismo grupo) lo guardó a las 01:11:05. Dos líneas que lo reciben en el mismo segundo, tres horas
+después de escrito, es el teléfono del que lo MANDA (sin red, o la app cerrada), no Evolution ni el despachante.
+⚠️ **El id de Evolution (cuid) NO sirve para fecharlo**: los registros se rehacen en cada resincronización (la línea de Martín tenía
+filas «guardadas» 12 horas después de recibidas). La hora de llegada real es `mako_doer_buffer.created_at`.
+
+**Cómo se mide un «no responde», en este orden (todo lectura):**
+1. `mako_doer_buffer` del grupo (`grupo_jid` = `mako.grupo_jid` del negocio): si llegó y cuándo.
+2. `mako_doer_conv`: qué se le contestó, completo.
+3. `anthropic_usage` con `feature = 'clase-doer'`: la clase de cada turno y por qué.
+4. Si la respuesta fue «Lo sumé al ticket #N»: el `estado` y el `triage` de ese ticket. Ahí estaba la causa.
+
+**Sin hacer:** que el turno PREGUNTA no invente cómo se usa la app. Contestó un paso a paso de una función que no existía; no hay una
+guía del lienzo que el doer lea, y la regla del prompt no alcanza (AGENTS.md, «Una regla en un prompt no es una regla»). Vive en
+lib/mako-doer-in.ts y lib/hechos-mako.ts.
 
 ## Tres avisos que mentían o se podían duplicar, cerrados en el barrido de pendientes (6/11/2026, nube)
 

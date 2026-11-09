@@ -116,7 +116,7 @@ test('el texto de un DM: solo, con botones, y lo que no se puede', () => {
   assert.ok(los2.ok && los2.pasos.find((p) => p.id === 'm3')!.cuerpo === 'Síguenos y vuelve a tocar.', los2.ok ? '' : los2.error);
   assert.match(los2.ok ? los2.resumen : '', /^Texto \(«Síguenos y vuelve a tocar\.»\) y botones del mensaje m3/);
   const err = (t: string, l: unknown[] | null, x?: string, pasos = GATE) => { const r = botonesParaGuardar(pasos, t, l as never, 'Recurso', x); return r.ok ? '' : r.error; };
-  assert.match(err('m1', null), /Pasa los botones, el texto o «en_comentario»/);
+  assert.match(err('m1', null), /Pasa los botones, el texto, «en_comentario» o «variantes»/);
   assert.match(err('m1', null, '   '), /no puede quedar vacío/);
   assert.match(err('w1', null, 'Hola'), /un mensaje de Instagram o Messenger/, 'el texto de WhatsApp va por editar_pasos');
   // Con botones, Instagram corta en 640: un texto más largo no se publica.

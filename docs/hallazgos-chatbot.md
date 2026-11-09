@@ -27,6 +27,31 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Instagram y Messenger rotan entre varias formas de decirlo, también la respuesta pública (9/11/2026, ticket #67 de Leandro)
+
+**El pedido:** Leandro, 9/11: que la respuesta pública de su tarjeta «no sea siempre igual: que rote entre «¡Enviado! Revisá tus DMs
+✨», «¡Listo! Te lo mandé por privado 🎵» y «¡Ahí va! Fijate en tus mensajes 📩»». Y después: «la ficha muestra la cantidad de
+variantes de cada tarjeta (todas en 0), pero no hay ninguna operación para cargarlas. Y la Prueba A/B termina mandando a todos a la
+rama A».
+
+**Lo que no se deduce del código:**
+- **Las variantes ya existían, sólo en el WhatsApp por QR.** El paso guarda `variantes` para cualquier canal (`setSecuenciaPasos` las
+  conserva por nodo), pero sólo `textoDelPaso` las sorteaba, y nadie lo llamaba para Instagram: «un DM no sortea» (lib/botones-api.ts).
+  Ahora `partesParaEnviar` (lib/mensaje-partes.ts) sortea una por persona en los DOS envíos sociales del motor (el CRON y «Si
+  responde»); la respuesta pública sale de las mismas partes, así que rota igual.
+- **La Prueba A/B no es una rotación**: reparte para MEDIR y termina mandando a todos a la ganadora. Para «que no salga siempre igual»
+  son las variantes.
+- **El «↻» del lienzo es UNA pieza** (`OtrasFormasDeDecirlo`, EditorMensajeWhatsApp.tsx), la usan el WhatsApp y el editor social.
+  Sólo en un mensaje de UN texto: con varios seguidos no hay qué sortear.
+- **Por la API:** `variantes` en `cambiar_botones_mensaje` (reemplaza; `[]` las saca: `vaciaEsValor`). Se descartan las vacías,
+  las repetidas y la igual al texto. Cambiar el texto sin mandar variantes las suelta, como siempre.
+- **El sorteo es al azar por envío**, como el WhatsApp. La clave de idempotencia es por tarjeta y pasada: un reintento de Zernio
+  devuelve lo que ya salió, no manda otra versión.
+
+**Sin hacer / sin medir:** «Probar» del lienzo muestra el texto, no una versión al azar. Sin verificar con un comentario real en
+Instagram (es la cuenta de un cliente: la prueba va con «pruebafm» y se coordina, memoria instagram-prueba-fiesta-music).
+Test: tests/leandro-whatsapp-0911.test.ts (4 a 6).
+
 ## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
 
 **El diagnóstico obvio era el equivocado.** Para avisarle al equipo de un pago rechazado, lo natural es copiar la tarjeta de

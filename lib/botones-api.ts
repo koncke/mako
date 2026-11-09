@@ -25,7 +25,7 @@
 
 import { claseDe, idDe, validarGrafo, type PasoGrafo } from './flujo-grafo';
 import { botonesDe, normalizarTitulo, urlValida, TOPE_BOTONES, TOPE_TITULO_BOTON, type BotonSocial } from './botones-social';
-import { esCanalSocial } from './canal-social';
+import { esCanalSocial, TOPE_TEXTO_SOCIAL } from './canal-social';
 import { partesExplicitas } from './mensaje-partes';
 import { proveedorDelPaso } from './nutricion-canal';
 
@@ -51,21 +51,24 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
  * cuelga de «btn:<id>» de uno que se quedó sigue colgado). `lista` null deja los botones como están; `texto`, si viene,
  * es el texto nuevo del mensaje.
  */
-export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string, lista: readonly BotonPedido[] | null, nombre: string, texto?: string, enComentario?: boolean):
+export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string, lista: readonly BotonPedido[] | null, nombre: string, texto?: string, enComentario?: boolean, variantes?: readonly unknown[]):
   { ok: true; pasos: PasoGrafo[]; botones: BotonSocial[]; resumen: string } | { ok: false; error: string } {
   const i = pasos.findIndex((p, k) => idDe(p, k) === tarjeta);
   if (i < 0) return { ok: false, error: `«${nombre}» no tiene una tarjeta «${tarjeta}». Pide los ids con ficha_secuencia_mensajes.` };
   const p = pasos[i];
   if (claseDe(p) !== 'mensaje' || !esCanalSocial(p.canal)) return { ok: false, error: 'Por aquí se cambia un mensaje de Instagram o Messenger: esa tarjeta no lo es.' };
   const cuerpo = texto?.trim();
-  if (lista == null && texto === undefined && enComentario === undefined) return { ok: false, error: 'Pasa los botones, el texto o «en_comentario».' };
+  if (lista == null && texto === undefined && enComentario === undefined && variantes === undefined) return { ok: false, error: 'Pasa los botones, el texto, «en_comentario» o «variantes».' };
   if (texto !== undefined && !cuerpo) return { ok: false, error: 'El texto del mensaje no puede quedar vacío.' };
   if (cuerpo && partesExplicitas(p)) return { ok: false, error: `El mensaje ${tarjeta} son varios mensajes seguidos: su texto se edita en el lienzo de Automations.` };
+  const vs = variantes === undefined ? undefined : variantesPedidas(variantes, cuerpo || String(p.cuerpo ?? '').trim());
+  if (typeof vs === 'string') return { ok: false, error: vs };
+  if (vs?.length && partesExplicitas(p)) return { ok: false, error: `El mensaje ${tarjeta} son varios mensajes seguidos: las otras formas de decirlo son de UN texto.` };
   if (lista == null) {
     const botones = botonesDe(p);
     const c = cuerpo ? conCuerpo(p, cuerpo) : { paso: p, sueltas: 0 };
     const que = cuerpo ? `Texto del mensaje ${tarjeta} de «${nombre}»: «${corto(cuerpo)}»${yVariantes(c.sueltas)}` : `Mensaje ${tarjeta} de «${nombre}»`;
-    return conTexto(pasos, i, conComentario(c.paso, enComentario), botones, `${que}${yComentario(enComentario)}`);
+    return conTexto(pasos, i, conVariantes(conComentario(c.paso, enComentario), vs), botones, `${que}${yComentario(enComentario)}${yRota(vs)}`);
   }
   if (lista.length > TOPE_BOTONES) return { ok: false, error: `Instagram muestra hasta ${TOPE_BOTONES} botones.` };
   const ids = new Set(pasos.map((q, k) => idDe(q, k)));
@@ -99,8 +102,8 @@ export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string,
     ? botones.map((b) => (b.url ? `«${b.titulo}» abre ${b.url}` : `«${b.titulo}» sigue en ${b.siguiente}`)).join(' · ')
     : 'sin botones';
   const c = cuerpo ? conCuerpo(paso, cuerpo) : { paso, sueltas: 0 };
-  return conTexto(pasos, i, conComentario(c.paso, enComentario), botones,
-    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}${yComentario(enComentario)}`);
+  return conTexto(pasos, i, conVariantes(conComentario(c.paso, enComentario), vs), botones,
+    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}${yComentario(enComentario)}${yRota(vs)}`);
 }
 
 /**
@@ -113,6 +116,31 @@ function conComentario(p: PasoGrafo, enComentario: boolean | undefined): PasoGra
   void _antes;
   return (enComentario ? { ...resto, en_comentario: true } : resto) as PasoGrafo;
 }
+/**
+ * LAS OTRAS FORMAS DE DECIRLO de un DM o de la respuesta pública (9/11/2026, el ticket #67 de Leandro: «la ficha muestra la cantidad
+ * de variantes de cada tarjeta (todas en 0), pero no hay ninguna operación para cargarlas»). La lista REEMPLAZA a las de antes; []
+ * las saca. El motor sortea una por persona entre el texto y ellas (`partesParaEnviar`, lib/mensaje-partes.ts). Hasta 8, como el
+ * lienzo y `setSecuenciaPasos`. El error en palabras, o la lista limpia (sin vacías ni repetidas).
+ */
+export const TOPE_VARIANTES = 8;
+function variantesPedidas(x: readonly unknown[], texto: string): string[] | string {
+  const limpias: string[] = [];
+  for (const v of x) {
+    const t = typeof v === 'string' ? v.trim() : '';
+    if (!t) return 'Cada forma de decirlo necesita su texto.';
+    if (t.length > TOPE_TEXTO_SOCIAL) return `Una forma de decirlo pasa de ${TOPE_TEXTO_SOCIAL} caracteres.`;
+    if (t !== texto && !limpias.includes(t)) limpias.push(t);
+  }
+  if (limpias.length > TOPE_VARIANTES) return `Hasta ${TOPE_VARIANTES} formas de decirlo.`;
+  return limpias;
+}
+/** [] (las saca) se guarda EXPLÍCITO: `setSecuenciaPasos` lee la clave ausente como «se quedan las de antes». */
+function conVariantes(p: PasoGrafo, vs: string[] | undefined): PasoGrafo {
+  if (vs === undefined) return p;
+  return { ...p, variantes: vs } as PasoGrafo;
+}
+const yRota = (vs: string[] | undefined): string =>
+  (vs === undefined ? '' : vs.length ? ` · rota entre ${vs.length + 1} formas de decirlo` : ' · sin otras formas de decirlo');
 const yComentario = (v: boolean | undefined): string =>
   (v === true ? ' · responde en público, debajo del comentario' : v === false ? ' · va por mensaje privado' : '');
 
