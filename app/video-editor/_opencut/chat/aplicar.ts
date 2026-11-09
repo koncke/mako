@@ -299,11 +299,20 @@ export async function aceptarPropuesta(
 		if (r.op === "edicion_automatica") {
 			// Los agentes (enjambre/correr.ts) dejan su propio registro a la vista y cuentan cuántos pasos del historial
 			// dejaron: «Restaurar» los deshace todos. Se carga al usarse: la edición automática usa este mismo «Aceptar».
-			const { correrEnjambre } = await import("@/app/video-editor/_opencut/enjambre/correr");
-			const hecho = await correrEnjambre(editor);
-			if (!hecho.ok) descartes.push(hecho.texto.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase()));
-			else if (hecho.pasos) pasos += hecho.pasos;
-			else descartes.push("los agentes no encontraron nada que cambiar");
+			try {
+				const { correrEnjambre } = await import("@/app/video-editor/_opencut/enjambre/correr");
+				const hecho = await correrEnjambre(editor, { desdeElChat: true });
+				if (!hecho.ok) descartes.push(hecho.texto.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase()));
+				else {
+					if (hecho.pasos) pasos += hecho.pasos;
+					else descartes.push(hecho.detenido ? "se detuvo antes de cambiar algo" : "los agentes no encontraron nada que cambiar");
+					// Lo que la persona hizo mientras trabajaban queda mezclado en esos pasos: «Restaurar» también lo desharía.
+					if (hecho.pasos && hecho.tocado) descartes.push("tocaste el editor mientras trabajaban: «Restaurar» desharía también lo tuyo; mejor Ctrl+Z");
+				}
+			} catch (error) {
+				console.error("[edición automática]", error);
+				descartes.push("la edición automática se cortó por un error");
+			}
 			continue;
 		}
 		const avisos = await correrLarga(editor, r, op.alProgreso);

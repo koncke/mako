@@ -45,7 +45,7 @@ corte de 9,5 s, no formantes de voz).
 | Cursores con nombre que van a donde trabajan | No estaba | Un cursor por agente, al segundo del video o a su panel |
 | «SWARM ACTIVITY» con la hora y «52 ops/s» | No estaba | Panel «Edición automática» en Multimedia: agentes con barras y registro |
 | «editing live · autosaved» · «16 agents live» | «Guardado automático» | Pastilla «N agentes en vivo» arriba mientras trabajan |
-| Deshacer | Ctrl+Z, de a un paso | «Deshacer todo» (si nadie tocó nada después) |
+| Deshacer | Ctrl+Z, de a un paso | «Deshacer todo» (si nadie tocó el editor mientras trabajaban ni después; desde el chat, «Restaurar») |
 
 Por chat: «edítalo todo» → `edicion_automatica`. Por la API de MaKo: `editar_video_automatico` (propone; se acepta en el editor).
 
@@ -58,7 +58,13 @@ Por chat: «edítalo todo» → `edicion_automatica`. Por la API de MaKo: `edita
    línea de tiempo con `data-ce-pps`.
 3. **Hecha — los estilos del reel y la prueba de estilos.** Tres plantillas en `subtitles/estilos.ts`, «minúsculas» en los presets,
    el agente subs-03.
-4. **Sin hacer** (lo del reel que todavía no está, en orden de cuánto se ve):
+4. **Hecha — la revisión adversarial.** Un lector que no escribió el código encontró doce cosas; las arreglé con su test (detalle en
+   `docs/hallazgos-video-editor.md`, «Lo que encontró la revisión adversarial»): no cortar pausas debajo de subtítulos que ya estaban,
+   no renormalizar a −14 lo que la persona puso en otro objetivo, distinguir «no había nada» de una falla, marcar lo propuesto sin
+   decidir, no ofrecer «Deshacer todo» si la persona tocó el editor en el medio (ni cuando la corrió el chat), vaciar «Rehacer» después
+   de cada prueba de estilos, no guardar el estilo elegido como la plantilla de la persona, el `try` del chat y el panel.
+5. **Sin hacer** (lo del reel que todavía no está, en orden de cuánto se ve):
+   - el medio del B-roll que se bajó queda en Multimedia después de «Deshacer todo» (sin usar; no rompe nada);
    - el subtítulo ESCALONADO («Stagger Stack»: cada renglón corrido): pide medir y dibujar renglón por renglón en `text/dibujar.ts`;
    - el agente de color (exposición, grano, sombras): hace falta MEDIR la luz de un cuadro antes de tocar nada;
    - el «whoosh» en los cortes: no hay una biblioteca de efectos de sonido con licencia elegida;
@@ -75,7 +81,7 @@ quede en el historial, «Deshacer todo», y por el chat «edítalo todo» → Ac
 
 ## Tests
 
-`tests/video-editor-enjambre.test.ts`: 13 casos, 25 roturas (la tabla está al final del archivo). Se tocaron por «foto»:
+`tests/video-editor-enjambre.test.ts`: 14 casos, 33 roturas (la tabla está al final del archivo). Se tocaron por «foto»:
 `tests/video-editor-clips.test.ts` (la última operación de la API) y `tests/doer-recetas-video-imagen.test.ts` (40 escrituras).
 
 ## El VERDE

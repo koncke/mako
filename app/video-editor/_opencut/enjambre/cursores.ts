@@ -2,7 +2,7 @@
 // enjambre/cursores — adónde va el cursor de cada agente (puro)
 // =============================================================================
 // En el reel cada agente tiene su cursor con su nombre («broll-01», «caps-02») y se lo ve ir a donde trabaja: a un
-// clip de la línea de tiempo, al subtítulo del reproductor, a los controles de color. Acá:
+// clip de la línea de tiempo, al subtítulo del reproductor, a los controles de la derecha. Acá:
 //   · un renglón con hora del video («02:18 corte-01 marca una pausa») lleva el cursor a ESE segundo de la línea de
 //     tiempo, a la altura de la franja de su agente;
 //   · uno sin hora, al panel de su agente: los subtítulos, los planos y la revisión al reproductor; el B-roll a la

@@ -60,7 +60,8 @@ export function CursoresAgentes() {
 	const fase = useEnjambre((s) => s.fase);
 	const agentes = useEnjambre((s) => s.agentes);
 	const lineas = useEnjambre((s) => s.lineas);
-	// Se re-mide con cada renglón y al cambiar el tamaño de la ventana.
+	// Se re-mide con cada renglón, al cambiar el tamaño de la ventana y dos veces por segundo mientras corren (la línea
+	// de tiempo se desplaza o cambia de zoom sin avisar: su escala está en `data-ce-pps`).
 	const [medida, setMedida] = useState<ReturnType<typeof medir> | null>(null);
 	const [quieto, setQuieto] = useState(false);
 	useEffect(() => setQuieto(sinMovimiento()), []);
@@ -69,7 +70,11 @@ export function CursoresAgentes() {
 		const volver = () => setMedida(medir());
 		volver();
 		window.addEventListener("resize", volver);
-		return () => window.removeEventListener("resize", volver);
+		const t = setInterval(volver, 500);
+		return () => {
+			window.removeEventListener("resize", volver);
+			clearInterval(t);
+		};
 	}, [fase, lineas.length]);
 
 	/** El último renglón de cada agente: de ahí sale adónde va su cursor. */

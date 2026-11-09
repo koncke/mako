@@ -20,6 +20,8 @@
 // =============================================================================
 
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
+import { NO_ENCONTRE } from "@/app/video-editor/_opencut/audio/silencios-aviso";
+import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 
 // ── Los agentes ──────────────────────────────────────────────────────────────
 
@@ -87,6 +89,8 @@ export const pasoPorId = (id: PasoId): Paso => PASOS.find((p) => p.id === id) ??
 /** Lo que el plan lee de cada elemento: la forma de `RefElemento` de chat/linea.ts, sin lo que no usa. */
 export type ElementoParaPlan = {
 	ref: string;
+	/** El id del elemento en el motor: no cambia entre una lectura y otra (la ref puede correrse). */
+	elementId?: string;
 	tipo: string;
 	titulo: string;
 	inicio: number;
@@ -99,7 +103,7 @@ export type ElementoParaPlan = {
 	estado: { ruido?: boolean; normalizado?: string | null; sinAudio?: boolean };
 };
 
-export type ClipConVoz = { ref: string; titulo: string; inicio: number; fin: number; ruido: boolean; normalizado: string | null };
+export type ClipConVoz = { ref: string; id: string; titulo: string; inicio: number; fin: number; ruido: boolean; normalizado: string | null };
 
 export type EstadoLinea = {
 	/** Los clips de la pista principal con sonido (video o audio), sin bloquear: sobre ellos trabaja el sonido. */
@@ -117,18 +121,20 @@ export type EstadoLinea = {
 	 * Si la persona eligió una plantilla o un preset de su marca, o ya tenía subtítulos, el estilo es suyo.
 	 */
 	estiloLibre: boolean;
+	/** Dónde empieza cada propuesta de B-roll o de plano que la persona todavía no dejó ni sacó (broll/pistas.ts). */
+	propuestas: number[];
 };
 
 /** Lo que el plan necesita saber de la línea de tiempo de ESTE momento. */
 export function estadoDeLinea(
 	elementos: Iterable<ElementoParaPlan>,
-	{ conPalabras, estiloLibre = false }: { conPalabras: boolean; estiloLibre?: boolean },
+	{ conPalabras, estiloLibre = false, propuestas = [] }: { conPalabras: boolean; estiloLibre?: boolean; propuestas?: number[] },
 ): EstadoLinea {
 	const todos = [...elementos];
 	const conVoz = todos
 		.filter((e) => e.principal && !e.bloqueada && (e.tipo === "video" || e.tipo === "audio") && !e.estado.sinAudio)
 		.sort((a, b) => a.inicio - b.inicio)
-		.map((e) => ({ ref: e.ref, titulo: e.titulo, inicio: e.inicio, fin: e.fin, ruido: e.estado.ruido === true, normalizado: e.estado.normalizado ?? null }));
+		.map((e) => ({ ref: e.ref, id: e.elementId ?? e.ref, titulo: e.titulo, inicio: e.inicio, fin: e.fin, ruido: e.estado.ruido === true, normalizado: e.estado.normalizado ?? null }));
 	const subtitulos = todos
 		.filter((e) => e.subtitulo)
 		.sort((a, b) => a.inicio - b.inicio)
@@ -138,7 +144,7 @@ export function estadoDeLinea(
 		.sort((a, b) => a.inicio - b.inicio)
 		.map((e) => ({ inicio: e.inicio, fin: e.fin }));
 	const duracion = todos.reduce((m, e) => Math.max(m, e.fin), 0);
-	return { conVoz, subtitulos, conPalabras, principal, duracion, estiloLibre };
+	return { conVoz, subtitulos, conPalabras, principal, duracion, estiloLibre, propuestas: [...propuestas].sort((a, b) => a - b) };
 }
 
 /**
@@ -156,14 +162,18 @@ export function decidirPaso(paso: PasoId, e: EstadoLinea): Decision {
 	const voz = e.conVoz.length > 0;
 	switch (paso) {
 		case "pausas":
-			return voz ? { hace: true, operaciones: [{ op: "borrar_silencios" }] } : { hace: false, porque: SIN_VOZ };
+			if (!voz) return { hace: false, porque: SIN_VOZ };
+			// Los tiempos por palabra de los subtítulos no se mueven con un corte de la principal (chat/linea.ts): cortar las
+			// pausas debajo de unos subtítulos que ya estaban los desfasa, y después las muletillas cortarían otra parte.
+			if (e.subtitulos.length) return { hace: false, porque: "ya tiene subtítulos: cortar las pausas los desfasaría (usa «Borrar silencios» antes de subtitular)" };
+			return { hace: true, operaciones: [{ op: "borrar_silencios" }] };
 		case "subtitulos":
 			if (!voz) return { hace: false, porque: SIN_VOZ };
 			if (e.subtitulos.length) return { hace: false, porque: `ya tiene ${cuantos(e.subtitulos.length, "subtítulo", "subtítulos")}` };
 			return { hace: true, operaciones: [{ op: "generar_subtitulos" }] };
 		case "estilo":
 			if (!e.subtitulos.length) return { hace: false, porque: "no hay subtítulos a los que darles estilo" };
-			if (!e.estiloLibre) return { hace: false, porque: "los subtítulos ya tienen su estilo (el tuyo no se cambia)" };
+			if (!e.estiloLibre) return { hace: false, porque: "los subtítulos ya estaban o elegiste su estilo: no se cambia" };
 			return { hace: true, directo: true };
 		case "muletillas":
 			if (!e.subtitulos.length) return { hace: false, porque: "sin subtítulos no se sabe qué se dice" };
@@ -184,8 +194,12 @@ export function decidirPaso(paso: PasoId, e: EstadoLinea): Decision {
 		}
 		case "volumen": {
 			if (!voz) return { hace: false, porque: SIN_VOZ };
-			const sinNormalizar = e.conVoz.filter((c) => c.normalizado !== OBJETIVO_VOLUMEN);
-			if (!sinNormalizar.length) return { hace: false, porque: "ya está a −14 LUFS" };
+			// Un clip que la persona normalizó a otro objetivo (TikTok) queda como lo dejó: sólo van los que no tienen ninguno.
+			const sinNormalizar = e.conVoz.filter((c) => c.normalizado === null);
+			if (!sinNormalizar.length) {
+				const todos14 = e.conVoz.every((c) => c.normalizado === OBJETIVO_VOLUMEN);
+				return { hace: false, porque: todos14 ? "ya está a −14 LUFS" : "ya está normalizado al objetivo que elegiste" };
+			}
 			return { hace: true, operaciones: sinNormalizar.map((c) => ({ op: "normalizar", ref: c.ref, activo: true, objetivo: OBJETIVO_VOLUMEN })) };
 		}
 		case "revision":
@@ -220,6 +234,19 @@ export function elegirEstilo(pruebas: readonly PruebaEstilo[]): { elegido: strin
 	return { elegido: ok?.id ?? null };
 }
 
+// ── «No había nada que hacer» o «no pudo» ────────────────────────────────────
+
+/**
+ * Un error del «Aceptar» del chat que dice que no había nada que hacer, no que algo falló. `aceptarPropuesta` le pone
+ * «No se aplica: » a CUALQUIER motivo, así que eso no distingue nada: se miran los motivos conocidos de «no había»; lo
+ * demás (no bajó el reconocedor de voz, no se pudo leer el audio, estaba ocupado) es una falla y se dice como tal (con
+ * su «Reportar a Soporte»).
+ */
+export function esNadaQueHacer(error: string): boolean {
+	const t = error.replace(/^No se aplica: /, "");
+	return t.startsWith(NO_ENCONTRE) || /^Ya no hay nada que cambiar/.test(t) || /^no se cortó las muletillas/.test(t) || t === MOTIVO_SUBTITULOS["sin-voz"];
+}
+
 // ── La revisión final («QA ✓» del reel) ──────────────────────────────────────
 
 export type Chequeo = { ok: boolean; texto: string; /** Dónde, en segundos de la línea de tiempo. */ en: number | null };
@@ -252,12 +279,18 @@ export function revisionFinal(e: EstadoLinea): Chequeo[] {
 			if (pisados.length) for (const s of pisados.slice(0, 5)) chequeos.push({ ok: false, texto: "dos subtítulos se pisan", en: s.inicio });
 			else chequeos.push({ ok: true, texto: `${cuantos(e.subtitulos.length, "subtítulo", "subtítulos")}, ninguno se pisa`, en: null });
 		}
-		const sinNormalizar = e.conVoz.filter((c) => c.normalizado !== OBJETIVO_VOLUMEN);
+		const sinNormalizar = e.conVoz.filter((c) => c.normalizado === null);
 		chequeos.push(
 			sinNormalizar.length
 				? { ok: false, texto: `${cuantos(sinNormalizar.length, "clip", "clips")} sin normalizar a −14 LUFS`, en: sinNormalizar[0].inicio }
-				: { ok: true, texto: "volumen a −14 LUFS", en: null },
+				: e.conVoz.every((c) => c.normalizado === OBJETIVO_VOLUMEN)
+					? { ok: true, texto: "volumen a −14 LUFS", en: null }
+					: { ok: true, texto: "volumen normalizado (con el objetivo que elegiste)", en: null },
 		);
+	}
+	// Lo propuesto (B-roll, planos) se ve en el reproductor como si ya estuviera: hasta que se deja o se saca, no es el corte final.
+	if (e.propuestas.length) {
+		chequeos.push({ ok: false, texto: `${cuantos(e.propuestas.length, "propuesta", "propuestas")} de B-roll o planos sin decidir: déjalas o sácalas`, en: e.propuestas[0] });
 	}
 	chequeos.push({ ok: true, texto: `dura ${relojLinea(e.duracion)}`, en: null });
 	return chequeos;

@@ -105,6 +105,14 @@ export class CommandManager {
 		return this.history.length;
 	}
 
+	/**
+	 * Vacía «Rehacer». La prueba de estilos de la «Edición automática» aplica un estilo, lo mide y lo deshace: sin esto,
+	 * Ctrl+Y volvía a poner un estilo descartado.
+	 */
+	olvidarRehacer(): void {
+		this.redoStack = [];
+	}
+
 	clear(): void {
 		this.history = [];
 		this.redoStack = [];

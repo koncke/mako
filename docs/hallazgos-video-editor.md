@@ -2308,7 +2308,27 @@ agentes en vivo». Tres plantillas de subtítulo nuevas, las del reel: «Lima» 
 - ⚠️ `tests/doer-recetas-video-imagen.test.ts` da «does not provide an export named MAKO_ACCION_TOOLS» con Node 22 y pasa con Node 24:
   es del entorno (`scripts/node24.sh`), no del cambio.
 
-**Sin hacer (lo que el reel tiene y acá no):** el agente de color (el reel corrige exposición, grano y sombras: hace falta MEDIR la
+**Lo que encontró la revisión adversarial (un lector que no escribió el código), y ya está arreglado con su test:**
+
+- **Cortar las pausas DEBAJO de subtítulos que ya estaban los desfasa**: sus tiempos por palabra no se mueven con el corte. Con
+  subtítulos, corte-01 se saltea y dice por qué («usa "Borrar silencios" antes de subtitular»).
+- **El volumen renormalizaba a −14 un clip que la persona había puesto en TikTok** (−11). mezcla-02 sólo toca los que no tienen
+  NINGÚN objetivo; la revisión dice «normalizado (con el objetivo que elegiste)» y no «sin normalizar».
+- **«No había nada que hacer» se adivinaba por el prefijo «No se aplica: »**, que lleva CUALQUIER motivo de «Aceptar»: un reconocedor
+  de voz que no bajó se anotaba como «salteado» y no como falla. `esNadaQueHacer` (plan.ts) reconoce sólo los textos de las
+  funciones (`NO_ENCONTRE`, «Ya no hay nada que cambiar», las muletillas, `MOTIVO_SUBTITULOS['sin-voz']`).
+- **Lo propuesto sin decidir no es el corte final**: la revisión marca las propuestas de B-roll y planos que nadie dejó ni sacó.
+- **«Deshacer todo» después de que la persona tocó el editor deshacía lo suyo también** (los pasos del historial incluyen sus
+  cambios). Si tocó algo mientras trabajaban (`vigilarToques`: un clic o una tecla fuera de la biblioteca, o la línea de tiempo
+  distinta de la que dejó el último paso), no hay «Deshacer todo» y se dice. Y corrida desde el chat, tampoco: la deshace «Restaurar».
+- **La prueba de estilos dejaba el estilo descartado en «Rehacer»**: Ctrl+Y lo volvía a poner. `olvidarRehacer()` en el historial.
+- **El estilo elegido se guardaba como la plantilla de la persona** para todos sus proyectos: ya no; es de este proyecto.
+- **El chat sin `try`**: un error de la corrida se tragaba la respuesta del chat. Ahora dice «se cortó por un error» y el resto sigue.
+- El panel: el registro se pega abajo sólo si la persona no subió a leer, «ops/s» en 0 cuando no corre, el paso actual con
+  `aria-live`, y «Reportar a Soporte» con el resumen de lo que falló.
+
+**Sin hacer (lo que el reel tiene y acá no):** el medio del B-roll que se BAJÓ no se borra con «Deshacer todo» (queda en
+Multimedia, sin usar); el agente de color (el reel corrige exposición, grano y sombras: hace falta MEDIR la
 luz de un cuadro antes de tocarla); el «whoosh» en los cortes (no hay biblioteca de efectos de sonido con licencia elegida); los
 monitores de forma de onda, vectorscopio y la lectura de LUFS integrados; el subtítulo ESCALONADO (cada renglón corrido, «Stagger
 Stack»: pide medir y dibujar renglón por renglón en `text/dibujar.ts`); la tarjeta flotante con una grabación de pantalla («masked

@@ -31,14 +31,18 @@ herramientasLinea.registrar({
 	lado: "izquierda",
 	Icono: WandSparkles,
 	habilitada: ({ editor }) => editor.timeline.getTotalDuration() > 0,
-	activa: () => useEnjambre.getState().fase === "corriendo",
 	ejecutar: ({ editor }) => {
 		if (useEnjambre.getState().fase === "corriendo") {
 			useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE });
 			return;
 		}
-		void correrEnjambre(editor).then((r) => {
-			if (!r.ok) toast.error(r.texto);
-		});
+		void correrEnjambre(editor)
+			.then((r) => {
+				if (!r.ok) toast.error(r.texto);
+			})
+			.catch((error) => {
+				console.error("[edición automática]", error);
+				toast.error("La edición automática se cortó por un error.");
+			});
 	},
 });

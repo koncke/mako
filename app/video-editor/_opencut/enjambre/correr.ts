@@ -5,13 +5,16 @@
 //   · lo del chat (pausas, subtítulos, muletillas, palabras clave, voz limpia, volumen) va por `aceptarPropuesta`
 //     (../chat/aplicar.ts): la misma revisión contra la línea de tiempo de AHORA, los mismos comandos del motor;
 //   · el B-roll y los cambios de plano, por `proponerBroll` (../broll/proponer.ts): quedan PROPUESTOS, con su borde
-//     punteado, para dejar o sacar cada uno como siempre.
+//     punteado, para dejar o sacar cada uno como siempre;
+//   · el estilo de los subtítulos, con `aplicarEstiloASubtitulos` (el de Subtítulos › Plantillas).
 // Antes de cada paso se vuelve a mirar la línea de tiempo (`decidirPaso`): lo que hizo el anterior cambia lo que ve
-// éste. Lo que va pasando se anota en el registro (./estado.ts), que dibujan el panel y la barra de arriba.
+// éste. Lo que va pasando se anota en el registro (./estado.ts), que dibujan el panel, la barra de arriba y los cursores.
 //
 // Deshacer: cada paso deja su paso en el historial (algunos, más). La corrida cuenta cuántos dejó
 // (`editor.command.profundidad()`) y «Deshacer todo» deshace ésos, SÓLO si nadie tocó la línea de tiempo después
-// (como «Restaurar» del chat, ../chat/aplicar.ts → deshacerPropuesta). Si no, la vuelta es Ctrl+Z.
+// (como «Restaurar» del chat, ../chat/aplicar.ts → deshacerPropuesta). Si la persona tocó el editor MIENTRAS
+// trabajaban, sus cambios están mezclados en esa cuenta: ahí no hay «Deshacer todo» (la vuelta es Ctrl+Z, de a uno), y
+// se dice. Si la corrió el chat, la vuelta es «Restaurar» de su mensaje: no hay dos deshacer para lo mismo.
 //
 // La cadencia (AGENTS.md, «con un pequeño delay»): entre paso y paso, una pausa corta para que se vea el cambio en la
 // línea de tiempo; ninguna con «reducir movimiento» del sistema. El trabajo de cada paso no se frena.
@@ -36,12 +39,13 @@ import {
 	agentePorId,
 	CANDIDATOS_ESTILO,
 	cita,
-	elegirEstilo,
-	evaluarPrueba,
 	conTope,
 	cuantos,
 	decidirPaso,
+	elegirEstilo,
+	esNadaQueHacer,
 	estadoDeLinea,
+	evaluarPrueba,
 	PASOS,
 	revisionFinal,
 	segundosTexto,
@@ -54,7 +58,7 @@ import {
 import { anotar, empezarCorrida, fijarAgente, SECCION_ENJAMBRE, useEnjambre } from "./estado";
 
 export type ResultadoEnjambre =
-	| { ok: true; pasos: number; hechos: number; saltados: number; fallas: number; resumen: string }
+	| { ok: true; pasos: number; hechos: number; saltados: number; fallas: number; detenido: boolean; tocado: boolean; resumen: string }
 	| { ok: false; motivo: "ocupado" | "sin-proyecto" | "vacio"; texto: string };
 
 const NO_ARRANCA: Record<Extract<ResultadoEnjambre, { ok: false }>["motivo"], string> = {
@@ -93,7 +97,8 @@ function leer(editor: EditorCore, estiloLibre = false): { vista: VistaLinea; est
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
 	});
-	return { vista, estado: estadoDeLinea(vista.refs.values(), { conPalabras: datos.conPalabras, estiloLibre }) };
+	const propuestas = pendientesDe(escena.tracks).map((p) => p.element.startTime / TICKS_PER_SECOND);
+	return { vista, estado: estadoDeLinea(vista.refs.values(), { conPalabras: datos.conPalabras, estiloLibre, propuestas }) };
 }
 
 /** Lo que dice cada fase de «Subtítulos automáticos» mientras subs-01 transcribe. */
@@ -104,24 +109,23 @@ const MIRA_SUBTITULOS: Partial<Record<FaseGenerar, string>> = {
 	armando: "arma los subtítulos",
 };
 
-/** Un error de «Aceptar» que dice que no había nada que hacer (no es una falla del agente). */
-const NADA_QUE_HACER = /^No se aplica: |^No encontré|^Ya no hay nada|no se cortó/i;
+type Contexto = { editor: EditorCore; paso: Paso; agente: AgenteId; quietos: boolean; proyectoId: string; escenaId: string };
 
-type Contexto = { editor: EditorCore; paso: Paso; agente: AgenteId; quietos: boolean };
+/** ¿Sigue abierto el proyecto y la escena de la corrida? Entre dos esperas la persona pudo abrir otro. */
+const enSuLugar = ({ editor, proyectoId, escenaId }: Contexto) =>
+	editor.project.getActiveOrNull()?.metadata.id === proyectoId && editor.scenes.getActiveSceneOrNull()?.id === escenaId;
 
 /** Corre operaciones del chat con su «Aceptar». Devuelve si cambió algo, o el porqué. */
 async function conElChat(
-	{ editor, agente }: Contexto,
+	ctx: Contexto,
 	vista: VistaLinea,
 	operaciones: PropuestaChat["operaciones"],
 	alProgreso?: (p: ProgresoChat) => void,
 ): Promise<{ ok: true; avisos: string[] } | { ok: false; nada: boolean; texto: string }> {
-	const proyecto = editor.project.getActiveOrNull();
-	const escena = editor.scenes.getActiveSceneOrNull();
-	if (!proyecto || !escena) return { ok: false, nada: false, texto: "se cerró el proyecto" };
+	if (!enSuLugar(ctx)) return { ok: false, nada: false, texto: "se cerró el proyecto o cambió la escena" };
 	const propuesta: PropuestaChat = {
-		proyectoId: proyecto.metadata.id,
-		escenaId: escena.id,
+		proyectoId: ctx.proyectoId,
+		escenaId: ctx.escenaId,
 		refsPorId: new Map([
 			...[...vista.refs.values()].map((x) => [x.elementId, x.ref] as const),
 			...[...vista.medios.values()].map((m) => [m.mediaId, m.ref] as const),
@@ -130,16 +134,13 @@ async function conElChat(
 		alcance: "video",
 		operaciones,
 	};
-	let r = await aceptarPropuesta(editor, propuesta, { alProgreso });
+	let r = await aceptarPropuesta(ctx.editor, propuesta, { alProgreso });
 	// Sin poder guardar antes, el chat ofrece «Aplicar igual»: acá ya se pidió editar todo, así que se aplica y se dice.
 	if (!r.ok && r.sinVersion) {
-		anotar(agente, "mira", "no se pudo guardar antes de este paso: sigue igual");
-		r = await aceptarPropuesta(editor, propuesta, { alProgreso, sinVersion: true });
+		anotar(ctx.agente, "mira", "no se pudo guardar antes de este paso: sigue igual");
+		r = await aceptarPropuesta(ctx.editor, propuesta, { alProgreso, sinVersion: true });
 	}
-	if (!r.ok) {
-		const nada = NADA_QUE_HACER.test(r.error);
-		return { ok: false, nada, texto: r.error.replace(/^No se aplica: /, "") };
-	}
+	if (!r.ok) return { ok: false, nada: esNadaQueHacer(r.error), texto: r.error.replace(/^No se aplica: /, "") };
 	return { ok: true, avisos: r.descartes };
 }
 
@@ -191,8 +192,7 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 				if (texto) anotar(agente, "mira", texto);
 			});
 			try {
-				const r = await conElChat(ctx, antes.vista, decision.operaciones);
-				const fin = salio(r);
+				const fin = salio(await conElChat(ctx, antes.vista, decision.operaciones));
 				if (fin) return fin;
 			} finally {
 				soltar();
@@ -209,8 +209,16 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 			// momento y se vuelve atrás (no queda en el historial). Al final se aplica el que entra.
 			const lienzo = lienzoDe(editor);
 			const pruebas: PruebaEstilo[] = [];
+			let probadasTodas = true;
 			for (const id of CANDIDATOS_ESTILO) {
-				if (useEnjambre.getState().detener) break;
+				if (useEnjambre.getState().detener) {
+					probadasTodas = false;
+					break;
+				}
+				if (!enSuLugar(ctx)) {
+					anotar(agente, "falla", "se cerró el proyecto o cambió la escena: no sigue probando");
+					return "fallo";
+				}
 				const plantilla = plantillaPorId(id);
 				anotar(agente, "mira", `prueba ${cita(plantilla.nombre)}`);
 				const profundidad = editor.command.profundidad();
@@ -222,18 +230,29 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 				const primero = subtitulosDe(prueba)[0]?.element;
 				anotar(agente, "hace", `${plantilla.nombre}: ${r.porque} ${r.ok ? "✓" : "✗"}`, primero ? primero.startTime / TICKS_PER_SECOND : null);
 				if (!ctx.quietos) await esperar(PAUSA_PRUEBA_MS);
-				if (editor.command.profundidad() === profundidad + 1 && editor.scenes.getActiveSceneOrNull()?.tracks === prueba) editor.command.undo();
+				if (editor.command.profundidad() === profundidad + 1 && editor.scenes.getActiveSceneOrNull()?.tracks === prueba) {
+					editor.command.undo();
+					// La prueba no queda tampoco para «Rehacer»: Ctrl+Y no tiene que volver a poner un estilo descartado.
+					editor.command.olvidarRehacer();
+				}
 			}
 			const { elegido } = elegirEstilo(pruebas);
 			if (!elegido) {
-				anotar(agente, "salta", "ningún estilo entra en dos renglones: los subtítulos quedan como estaban");
+				anotar(
+					agente,
+					"salta",
+					probadasTodas ? "ningún estilo entra en dos renglones: los subtítulos quedan como estaban" : "se detuvo antes de probar todos: los subtítulos quedan como estaban",
+				);
 				return "salteado";
+			}
+			if (!enSuLugar(ctx)) {
+				anotar(agente, "falla", "se cerró el proyecto o cambió la escena: no aplica el estilo");
+				return "fallo";
 			}
 			const plantilla = plantillaPorId(elegido);
 			await aplicarEstiloASubtitulos({ editor, estilo: paramsDePlantilla(plantilla, lienzo) });
-			// Como elegirla en Subtítulos › Plantillas: queda para los próximos subtítulos.
-			usePreferenciasSubtitulos.getState().fijar({ plantilla: elegido });
-			anotar(agente, "listo", `se queda con ${cita(plantilla.nombre)}`);
+			// No se guarda como la plantilla de la persona: es de este proyecto, no de todos los que abra después.
+			anotar(agente, "listo", `se queda con ${cita(plantilla.nombre)}: la primera, en el orden del reel, que entra en dos renglones`);
 			return "hecho";
 		}
 		case "muletillas": {
@@ -296,77 +315,133 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 		case "ruido":
 		case "volumen": {
 			if (!("operaciones" in decision)) return "salteado";
+			const esRuido = paso.id === "ruido";
 			const clips = new Map(antes.estado.conVoz.map((c) => [c.ref, c] as const));
-			for (const op of decision.operaciones) {
-				const ref = "ref" in op ? op.ref : undefined;
-				const c = ref ? clips.get(ref) : undefined;
-				if (c) anotar(agente, "mira", `${paso.id === "ruido" ? "escucha" : "mide"} ${cita(c.titulo, 32)}`, c.inicio);
-			}
+			const pedidos = decision.operaciones.flatMap((op) => {
+				const c = "ref" in op && op.ref ? clips.get(op.ref) : undefined;
+				return c ? [c] : [];
+			});
+			// «Reducir el ruido» prende un ajuste del clip; «Normalizar» sí escucha el clip para medirlo (audio/normalizar.ts).
+			for (const c of pedidos) anotar(agente, "mira", esRuido ? `prende «Reducir el ruido» en ${cita(c.titulo, 32)}` : `mide ${cita(c.titulo, 32)}`, c.inicio);
 			const fin = salio(await conElChat(ctx, antes.vista, decision.operaciones));
 			if (fin) return fin;
-			const n = decision.operaciones.length;
+			// Lo que quedó de verdad, no lo que se pidió (una normalización puede no entrar).
+			const ids = new Set(pedidos.map((c) => c.id));
+			const quedaron = despues().conVoz.filter((c) => ids.has(c.id) && (esRuido ? c.ruido : c.normalizado !== null)).length;
 			anotar(
 				agente,
-				"listo",
-				paso.id === "ruido" ? `redujo el ruido de ${cuantos(n, "clip", "clips")}` : `llevó ${cuantos(n, "clip", "clips")} a −14 LUFS`,
+				quedaron ? "listo" : "falla",
+				esRuido
+					? `redujo el ruido de ${cuantos(quedaron, "clip", "clips")} de ${pedidos.length}`
+					: `llevó ${cuantos(quedaron, "clip", "clips")} de ${pedidos.length} a −14 LUFS`,
 			);
-			return "hecho";
+			return quedaron ? "hecho" : "fallo";
 		}
 		case "revision": {
 			const chequeos = revisionFinal(antes.estado);
 			for (const c of chequeos) anotar(agente, c.ok ? "qa-ok" : "qa-mal", `${c.ok ? "QA ✓" : "QA ✗"} ${c.texto}`, c.en);
 			const mal = chequeos.filter((c) => !c.ok).length;
-			anotar(agente, "listo", mal ? `${cuantos(mal, "cosa", "cosas")} para mirar` : "todo en orden: reproduce el corte final");
-			// Lo que encontró la revisión se lee en sus renglones (QA ✗): no es una falla de la edición.
+			anotar(agente, "listo", mal ? `${cuantos(mal, "cosa", "cosas")} para mirar antes de exportar` : "todo en orden: reproduce el corte final");
+			// Lo que encontró la revisión se lee en sus renglones (QA ✗) y en el resumen: no es una falla de la edición.
 			return "hecho";
 		}
 	}
 }
 
 /**
- * La «Edición automática» entera. Abre su panel (Biblioteca › Multimedia › «Edición automática») para que se vea el
- * registro, corre los pasos en orden y, al final, deja listo «Deshacer todo».
+ * ¿La persona tocó el editor mientras trabajaban? Un toque o una tecla en la línea de tiempo, el reproductor o las
+ * propiedades (no en la biblioteca, donde está este panel) puede ser un cambio suyo, y ese cambio queda mezclado en los
+ * pasos que cuenta la corrida. Se mira por las dudas: un toque para mover el cabezal también cuenta, y el costo es
+ * sólo que «Deshacer todo» no se ofrece (queda Ctrl+Z).
  */
-export async function correrEnjambre(editor: EditorCore, opciones: { pasos?: readonly PasoId[] } = {}): Promise<ResultadoEnjambre> {
+function vigilarToques(): { tocado: () => boolean; soltar: () => void } {
+	let tocado = false;
+	const mirar = (e: Event) => {
+		const el = e.target instanceof Element ? e.target : null;
+		const zona = el?.closest("[data-ce-zona]")?.getAttribute("data-ce-zona");
+		if (zona && zona !== "biblioteca") tocado = true;
+	};
+	try {
+		document.addEventListener("pointerdown", mirar, true);
+		document.addEventListener("keydown", mirar, true);
+	} catch {
+		/* sin documento (no pasa en el editor) */
+	}
+	return {
+		tocado: () => tocado,
+		soltar: () => {
+			try {
+				document.removeEventListener("pointerdown", mirar, true);
+				document.removeEventListener("keydown", mirar, true);
+			} catch {
+				/* idem */
+			}
+		},
+	};
+}
+
+/**
+ * La «Edición automática» entera. Abre su panel (Biblioteca › Multimedia › «Edición automática») para que se vea el
+ * registro, corre los pasos en orden y, al final, deja listo «Deshacer todo» (o, si la corrió el chat, «Restaurar»).
+ */
+export async function correrEnjambre(
+	editor: EditorCore,
+	opciones: { pasos?: readonly PasoId[]; desdeElChat?: boolean } = {},
+): Promise<ResultadoEnjambre> {
 	if (useEnjambre.getState().fase === "corriendo") return { ok: false, motivo: "ocupado", texto: NO_ARRANCA.ocupado };
+	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
-	if (!editor.project.getActiveOrNull() || !escena) return { ok: false, motivo: "sin-proyecto", texto: NO_ARRANCA["sin-proyecto"] };
+	if (!proyecto || !escena) return { ok: false, motivo: "sin-proyecto", texto: NO_ARRANCA["sin-proyecto"] };
 	if (editor.timeline.getTotalDuration() <= 0) return { ok: false, motivo: "vacio", texto: NO_ARRANCA.vacio };
 
-	empezarCorrida();
+	const desdeElChat = opciones.desdeElChat === true;
+	empezarCorrida({ desdeElChat });
 	useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE });
-	const escenaId = escena.id;
+	const lugar = { proyectoId: proyecto.metadata.id, escenaId: escena.id };
 	const tracksIniciales = escena.tracks;
 	const profundidadInicial = editor.command.profundidad();
 	const pasos = opciones.pasos ? PASOS.filter((p) => opciones.pasos?.includes(p.id)) : PASOS;
 	const quietos = sinMovimiento();
+	const toques = vigilarToques();
 	let hechos = 0;
 	let saltados = 0;
 	let fallas = 0;
+	let qaMal = 0;
 	// El estilo es del agente sólo si los subtítulos los puso esta corrida con la plantilla por defecto (./plan.ts).
 	let subtitulosNuevos = false;
+	// La línea de tiempo como la dejó el último paso: si al empezar el siguiente es otra, alguien la tocó en el medio.
+	let esperada = tracksIniciales;
+	let tocadaEntrePasos = false;
+	let tocado = false;
 
 	try {
 		for (const paso of pasos) {
 			if (useEnjambre.getState().detener) break;
-			const estiloLibre = subtitulosNuevos && usePreferenciasSubtitulos.getState().plantilla === PLANTILLA_POR_DEFECTO.id;
-			const antes = leer(editor, estiloLibre);
-			if (!antes || editor.scenes.getActiveSceneOrNull()?.id !== escenaId) {
-				anotar(paso.agente, "falla", "se cerró el proyecto o cambió la escena: aquí paran los agentes");
-				fallas++;
-				break;
-			}
 			useEnjambre.setState({ paso: paso.id });
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
+			const ctx = { editor, paso, agente: paso.agente, quietos, ...lugar };
 			let como: "hecho" | "salteado" | "fallo";
 			try {
-				como = await correrPaso({ editor, paso, agente: paso.agente, quietos }, antes);
+				if (!enSuLugar(ctx)) {
+					anotar(paso.agente, "falla", "se cerró el proyecto o cambió la escena: aquí paran los agentes");
+					fijarAgente(paso.agente, "fallo");
+					fallas++;
+					break;
+				}
+				if (editor.scenes.getActiveSceneOrNull()?.tracks !== esperada) tocadaEntrePasos = true;
+				const estiloLibre = subtitulosNuevos && usePreferenciasSubtitulos.getState().plantilla === PLANTILLA_POR_DEFECTO.id;
+				const antes = leer(editor, estiloLibre);
+				if (!antes) throw new Error("sin escena");
+				const lineasAntes = useEnjambre.getState().lineas.length;
+				como = await correrPaso(ctx, antes);
+				if (paso.id === "revision") qaMal = useEnjambre.getState().lineas.slice(lineasAntes).filter((l) => l.tipo === "qa-mal").length;
 			} catch (error) {
 				console.error(`[enjambre] ${paso.id}`, error);
 				anotar(paso.agente, "falla", "algo se rompió en este paso");
 				como = "fallo";
 			}
+			esperada = editor.scenes.getActiveSceneOrNull()?.tracks ?? esperada;
 			fijarAgente(paso.agente, como === "hecho" ? "listo" : como === "salteado" ? "salteado" : "fallo");
 			if (paso.id === "subtitulos" && como === "hecho") subtitulosNuevos = true;
 			if (como === "hecho") hechos++;
@@ -375,14 +450,20 @@ export async function correrEnjambre(editor: EditorCore, opciones: { pasos?: rea
 			if (!quietos) await esperar(PAUSA_ENTRE_PASOS_MS);
 		}
 	} finally {
+		toques.soltar();
 		const detenido = useEnjambre.getState().detener;
 		const pasosHistorial = editor.command.profundidad() - profundidadInicial;
 		const ahora = editor.scenes.getActiveSceneOrNull();
+		tocado = toques.tocado() || tocadaEntrePasos || (ahora?.tracks ?? null) !== esperada;
+		const puedeDeshacer = !desdeElChat && !tocado && pasosHistorial > 0 && !!ahora && ahora.id === lugar.escenaId;
 		const resumen = [
 			detenido ? "Detenido." : "Listo.",
 			hechos ? `${cuantos(hechos, "agente trabajó", "agentes trabajaron")}` : "Ningún agente cambió nada",
 			saltados ? `${cuantos(saltados, "no tenía", "no tenían")} nada que hacer` : null,
-			fallas ? `${cuantos(fallas, "avisa", "avisan")} algo` : null,
+			fallas ? `${cuantos(fallas, "no pudo", "no pudieron")}` : null,
+			qaMal ? `la revisión marcó ${cuantos(qaMal, "cosa", "cosas")} para mirar` : null,
+			pasosHistorial > 0 && desdeElChat ? "se deshace con «Restaurar» en el chat" : null,
+			pasosHistorial > 0 && !desdeElChat && tocado ? "tocaste el editor mientras trabajaban: para volver atrás, Ctrl+Z" : null,
 		]
 			.filter(Boolean)
 			.join(" · ");
@@ -391,11 +472,20 @@ export async function correrEnjambre(editor: EditorCore, opciones: { pasos?: rea
 			paso: null,
 			resumen,
 			error: fallas > 0,
-			deshacer: pasosHistorial > 0 && ahora && ahora.id === escenaId ? { escenaId, antes: tracksIniciales, despues: ahora.tracks, pasos: pasosHistorial } : null,
+			deshacer: puedeDeshacer && ahora ? { escenaId: lugar.escenaId, antes: tracksIniciales, despues: ahora.tracks, pasos: pasosHistorial } : null,
 		});
 	}
 	const s = useEnjambre.getState();
-	return { ok: true, pasos: s.deshacer?.pasos ?? 0, hechos, saltados, fallas, resumen: s.resumen ?? "" };
+	return {
+		ok: true,
+		pasos: Math.max(0, editor.command.profundidad() - profundidadInicial),
+		hechos,
+		saltados,
+		fallas,
+		detenido: s.detener,
+		tocado,
+		resumen: s.resumen ?? "",
+	};
 }
 
 /** «Detener»: corta la transcripción si es lo que corre; lo demás termina su paso. */
@@ -420,7 +510,8 @@ export function deshacerEnjambre(editor: EditorCore): boolean {
 		for (let i = 0; i < d.pasos; i++) editor.command.redo();
 		return false;
 	}
-	useEnjambre.setState({ deshacer: null, resumen: "Se deshizo la edición automática." });
+	// Vuelve al principio: sin «Reproducir el corte final» de algo que ya no está.
+	useEnjambre.setState({ deshacer: null, fase: "inactivo", error: false, resumen: "Se deshizo la edición automática." });
 	return true;
 }
 

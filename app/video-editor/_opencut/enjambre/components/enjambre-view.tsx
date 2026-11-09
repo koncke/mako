@@ -107,13 +107,15 @@ function Registro() {
 		const t = setInterval(() => setAhora(Date.now()), 250);
 		return () => clearInterval(t);
 	}, [fase]);
-	// El último renglón siempre a la vista, como un registro que corre.
+	// El último renglón a la vista, como un registro que corre; salvo que la persona haya subido a leer lo de antes.
+	const pegado = useRef(true);
 	useEffect(() => {
 		const el = caja.current;
-		if (el) el.scrollTop = el.scrollHeight;
+		if (el && pegado.current) el.scrollTop = el.scrollHeight;
 	}, [visibles]);
 
-	const ops = opsPorSegundo(lineas, ahora);
+	// Terminado, no hay operaciones por segundo: el número no se queda congelado en el último.
+	const ops = fase === "corriendo" ? opsPorSegundo(lineas, ahora) : 0;
 	const vistas = lineas.slice(0, visibles);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-1.5">
@@ -125,7 +127,10 @@ function Registro() {
 			</div>
 			<ol
 				ref={caja}
-				aria-live="polite"
+				onScroll={(e) => {
+					const el = e.currentTarget;
+					pegado.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+				}}
 				className="scrollbar-thin min-h-[120px] flex-1 overflow-y-auto rounded-[5px] bg-(--cc-app) px-2 py-1.5 font-mono text-[11px] leading-[1.6]"
 			>
 				{vistas.length === 0 && <li className="text-(--cc-text-3)">Todavía no trabajó ningún agente.</li>}
@@ -162,6 +167,9 @@ export function EnjambreView() {
 	const error = useEnjambre((s) => s.error);
 	const detener = useEnjambre((s) => s.detener);
 	const deshacer = useEnjambre((s) => s.deshacer);
+	const corrida = useEnjambre((s) => s.corrida);
+	const desdeElChat = useEnjambre((s) => s.desdeElChat);
+	const fallas = useEnjambre((s) => s.lineas.filter((l) => l.tipo === "falla").map((l) => `${l.agente}: ${l.texto}`).join(" · "));
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
 	const corriendo = fase === "corriendo";
 
@@ -178,7 +186,8 @@ export function EnjambreView() {
 			<div className="flex min-h-0 flex-1 flex-col gap-4 px-3 pt-3 pb-3">
 				<p className="text-[12px] text-(--cc-text-2)">Un equipo de agentes edita tu video a la vista: cortes, subtítulos, B-roll y sonido.</p>
 				<FilaAgentes />
-				<Registro />
+				{/* Una corrida nueva arranca su registro de cero (también lo que se reveló con «Ver todo»). */}
+				<Registro key={corrida} />
 			</div>
 			<div className="shrink-0 border-t border-(--cc-line-2) px-3 pt-2.5 pb-3">
 				<div className="flex flex-col gap-2">
@@ -186,7 +195,10 @@ export function EnjambreView() {
 						<div className="flex items-center gap-2">
 							<span className="flex min-w-0 flex-1 items-center gap-1.5 text-[12px] text-(--cc-text-2)">
 								<Spinner className="size-3.5 shrink-0" />
-								<span className="truncate">{detener ? "Termina este paso y para…" : paso ? rotuloDePaso(paso) : "Arrancando…"}</span>
+								{/* Lo que se le lee a un lector de pantalla: el paso de ahora, no cada renglón del registro. */}
+								<span className="truncate" aria-live="polite">
+									{detener ? "Termina este paso y para…" : paso ? rotuloDePaso(paso) : "Arrancando…"}
+								</span>
 							</span>
 							<button
 								type="button"
@@ -211,7 +223,7 @@ export function EnjambreView() {
 							>
 								Reproducir el corte final
 							</button>
-							{deshacer && (
+							{deshacer && !desdeElChat && (
 								<button
 									type="button"
 									onClick={deshacerTodo}
@@ -230,7 +242,7 @@ export function EnjambreView() {
 					{!corriendo && resumen && error && (
 						<p className="text-[11px] text-(--cc-text-2)" role="alert">
 							{resumen}
-							<ReportarASoporte />
+							<ReportarASoporte error={`Edición automática: ${fallas || resumen}`} />
 						</p>
 					)}
 				</div>

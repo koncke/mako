@@ -15,7 +15,9 @@ import {
   revisionFinal, type ElementoParaPlan, type EstadoLinea, type LineaActividad,
 } from '../app/video-editor/_opencut/enjambre/plan';
 import { puntoDeCursor, ZONA_DE } from '../app/video-editor/_opencut/enjambre/cursores';
-import { CANDIDATOS_ESTILO, MAX_RENGLONES, elegirEstilo, evaluarPrueba } from '../app/video-editor/_opencut/enjambre/plan';
+import { CANDIDATOS_ESTILO, MAX_RENGLONES, elegirEstilo, esNadaQueHacer, evaluarPrueba } from '../app/video-editor/_opencut/enjambre/plan';
+import { MOTIVO_SUBTITULOS } from '../app/video-editor/_opencut/subtitles/resultado';
+import { textoSinSilencios } from '../app/video-editor/_opencut/audio/silencios-aviso';
 import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaDeParams, plantillaPorId } from '../app/video-editor/_opencut/subtitles/estilos';
 import { TEXTO } from '../app/video-editor/_opencut/params/extra/texto';
 import { sanearEstilo } from '../lib/editor-video/presets-subtitulos';
@@ -105,6 +107,14 @@ test('3. cada agente decide con la línea de tiempo de SU momento, y lo que pide
   const vol = decidirPaso('volumen', { ...con, conVoz: con.conVoz.map((c, i) => (i === 0 ? { ...c, normalizado: OBJETIVO_VOLUMEN } : c)) });
   assert.ok(vol.hace && 'operaciones' in vol);
   assert.deepEqual(vol.hace && 'operaciones' in vol ? vol.operaciones : null, [{ op: 'normalizar', ref: 'v2', activo: true, objetivo: 'youtube' }]);
+  // Un clip que la persona normalizó a otro objetivo (TikTok) queda como lo dejó.
+  const tiktok = decidirPaso('volumen', { ...con, conVoz: con.conVoz.map((c) => ({ ...c, normalizado: 'tiktok' })) });
+  assert.deepEqual(tiktok, { hace: false, porque: 'ya está normalizado al objetivo que elegiste' });
+  // Cortar las pausas debajo de subtítulos que ya estaban los desfasa (sus tiempos por palabra no se mueven).
+  assert.deepEqual(decidirPaso('pausas', sin), { hace: true, operaciones: [{ op: 'borrar_silencios' }] });
+  const pausasConSubs = decidirPaso('pausas', con);
+  assert.equal(pausasConSubs.hace, false);
+  assert.match(!pausasConSubs.hace ? pausasConSubs.porque : '', /desfasaría/);
   const ruido = decidirPaso('ruido', { ...con, conVoz: con.conVoz.map((c) => ({ ...c, ruido: true })) });
   assert.equal(ruido.hace, false, 'con la voz ya limpia no hay nada que hacer');
   // Sin voz en la principal, todo lo de la voz se saltea (y lo dice).
@@ -133,6 +143,11 @@ test('4. la revisión mide: huecos negros, subtítulos que se pisan y el volumen
 
   const pisados = { ...bien, subtitulos: [{ ref: 't1', texto: 'a', inicio: 0, fin: 3, claves: [] }, { ref: 't2', texto: 'b', inicio: 2, fin: 4, claves: [] }] };
   assert.ok(revisionFinal(pisados).some((c) => !c.ok && c.texto === 'dos subtítulos se pisan' && c.en === 2));
+  // Lo propuesto sin decidir (B-roll, planos) no es el corte final: la revisión lo marca, con la hora de la primera.
+  const conPropuestas = revisionFinal({ ...bien, propuestas: [3, 8] });
+  assert.ok(conPropuestas.some((c) => !c.ok && c.texto === '2 propuestas de B-roll o planos sin decidir: déjalas o sácalas' && c.en === 3));
+  // Normalizado a otro objetivo que eligió la persona: no es «sin normalizar».
+  assert.ok(revisionFinal({ ...bien, conVoz: bien.conVoz.map((c) => ({ ...c, normalizado: 'tiktok' })) }).every((c) => c.ok));
   // Sin voz no se afirma nada de los subtítulos ni del volumen: no se midió.
   const sinVoz = revisionFinal({ ...bien, conVoz: [] });
   assert.ok(!sinVoz.some((c) => /subtítulo|LUFS/.test(c.texto)), JSON.stringify(sinVoz));
@@ -195,7 +210,7 @@ test('7. el panel, la barra y la pastilla «en vivo» están registrados', () =>
 
 test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a los agentes y cuenta sus pasos', () => {
   const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
-  assert.match(correr, /await aceptarPropuesta\(editor, propuesta, \{ alProgreso \}\)/, 'lo del chat, con el «Aceptar» del chat');
+  assert.match(correr, /await aceptarPropuesta\(ctx\.editor, propuesta, \{ alProgreso \}\)/, 'lo del chat, con el «Aceptar» del chat');
   assert.match(correr, /await proponerBroll\(editor, esBroll \? \{ broll: true, planos: false/, 'el B-roll, con la función de su sección');
   assert.match(correr, /const profundidadInicial = editor\.command\.profundidad\(\);/, 'cuenta los pasos que deja para «Deshacer todo»');
   assert.match(correr, /if \(useEnjambre\.getState\(\)\.detener\) break;/, '«Detener» corta entre paso y paso');
@@ -203,7 +218,10 @@ test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a lo
   assert.match(correr, /escena\.tracks !== d\.despues\) return false;/);
   assert.match(correr, /getActiveSceneOrNull\(\)\?\.tracks !== d\.antes\) \{\s*for \(let i = 0; i < d\.pasos; i\+\+\) editor\.command\.redo\(\);/);
   const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
-  assert.match(aplicar, /if \(r\.op === "edicion_automatica"\) \{[\s\S]*?await correrEnjambre\(editor\);[\s\S]*?pasos \+= hecho\.pasos;/, '«Restaurar» del chat deshace todos los pasos de los agentes');
+  assert.match(aplicar, /if \(r\.op === "edicion_automatica"\) \{[\s\S]*?await correrEnjambre\(editor, \{ desdeElChat: true \}\);[\s\S]*?pasos \+= hecho\.pasos;/, '«Restaurar» del chat deshace todos los pasos de los agentes');
+  // Si la persona tocó el editor mientras trabajaban, sus cambios están en esa cuenta: no hay «Deshacer todo», y se dice.
+  assert.match(correr, /const puedeDeshacer = !desdeElChat && !tocado && pasosHistorial > 0/);
+  assert.match(correr, /if \(zona && zona !== "biblioteca"\) tocado = true;/);
   assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.history\.length;/);
 });
 
@@ -250,7 +268,7 @@ test('10. los cursores leen lo que marcan el editor y la línea de tiempo, y van
 test('11. subs-03 prueba los estilos del reel sólo si el estilo es suyo, y elige por renglones MEDIDOS', () => {
   const con = estadoDe(escena({ subtitulos: true }), true);
   assert.equal(decidirPaso('estilo', con).hace, false, 'subtítulos que ya estaban: su estilo es de la persona');
-  assert.match(!decidirPaso('estilo', con).hace ? (decidirPaso('estilo', con) as { porque: string }).porque : '', /el tuyo no se cambia/);
+  assert.match(!decidirPaso('estilo', con).hace ? (decidirPaso('estilo', con) as { porque: string }).porque : '', /no se cambia/);
   assert.deepEqual(decidirPaso('estilo', { ...con, estiloLibre: true }), { hace: true, directo: true });
   assert.equal(decidirPaso('estilo', { ...con, subtitulos: [], estiloLibre: true }).hace, false);
   // El orden de los pasos: el estilo después de subtitular y antes de las palabras clave (que pintan en lima encima).
@@ -284,13 +302,26 @@ test('12. las plantillas del reel existen, «Lima» va en minúsculas, y un pres
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('13. subs-03 aplica cada prueba DE VERDAD, la mide y la vuelve atrás; el elegido queda para los próximos', () => {
+test('13. subs-03 aplica cada prueba DE VERDAD, la mide y la vuelve atrás, sin tocar la plantilla de la persona', () => {
   const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
   assert.match(correr, /await aplicarEstiloASubtitulos\(\{ editor, estilo: paramsDePlantilla\(plantilla, lienzo\) \}\);\s*const prueba = /);
   assert.match(correr, /const renglones = subtitulosDe\(prueba\)\.map\(\(\{ element \}\) => String\(element\.params\.content \?\? ""\)\.split\("\\n"\)\.length\);/, 'los renglones salen de lo que dejó el estilo aplicado');
-  assert.match(correr, /editor\.command\.profundidad\(\) === profundidad \+ 1 && editor\.scenes\.getActiveSceneOrNull\(\)\?\.tracks === prueba\) editor\.command\.undo\(\);/, 'la prueba no queda en el historial, y no se deshace lo de otro');
-  assert.match(correr, /usePreferenciasSubtitulos\.getState\(\)\.fijar\(\{ plantilla: elegido \}\);/);
+  assert.match(correr, /editor\.command\.profundidad\(\) === profundidad \+ 1 && editor\.scenes\.getActiveSceneOrNull\(\)\?\.tracks === prueba\) \{\s*editor\.command\.undo\(\);/, 'la prueba no queda en el historial, y no se deshace lo de otro');
+  assert.doesNotMatch(correr, /usePreferenciasSubtitulos\.getState\(\)\.fijar/, 'el estilo del agente es de este proyecto, no la plantilla de la persona para todos');
+  assert.match(correr, /editor\.command\.undo\(\);\s*editor\.command\.olvidarRehacer\(\);/, 'Ctrl+Y no vuelve a poner un estilo descartado');
+  assert.match(correr, /if \(!enSuLugar\(ctx\)\) \{\s*anotar\(agente, "falla", "se cerró el proyecto o cambió la escena: no sigue probando"\);/, 'no prueba estilos en otro proyecto');
   assert.match(correr, /const estiloLibre = subtitulosNuevos && usePreferenciasSubtitulos\.getState\(\)\.plantilla === PLANTILLA_POR_DEFECTO\.id;/, 'el estilo de la persona no se toca');
+});
+
+test('14. «no había nada que hacer» no es «no pudo»: una falla real se dice como falla', () => {
+  assert.equal(esNadaQueHacer(`No se aplica: no se cortó las muletillas`), true);
+  assert.equal(esNadaQueHacer('No se aplica: Ya no hay nada que cambiar'), true);
+  assert.equal(esNadaQueHacer(`No se aplica: ${MOTIVO_SUBTITULOS['sin-voz']}`), true);
+  assert.equal(esNadaQueHacer(textoSinSilencios({ clips: 1, segundos: 12, minimoS: 0.4, todoElVideo: true })), true);
+  // «No se aplica: » lo lleva CUALQUIER motivo de «Aceptar»: no basta para decir que no había nada.
+  assert.equal(esNadaQueHacer(`No se aplica: ${MOTIVO_SUBTITULOS.descarga}`), false, 'no bajó el reconocedor de voz: es una falla');
+  assert.equal(esNadaQueHacer('No se aplica: no se pudo leer el audio'), false);
+  assert.equal(esNadaQueHacer('No se guardó el proyecto'), false);
 });
 
 // Probado rompiéndolo (base en verde), un cambio por vez y restaurado desde memoria, con su resultado:
@@ -321,3 +352,12 @@ test('13. subs-03 aplica cada prueba DE VERDAD, la mide y la vuelve atrás; el e
 //   · el saneador del preset sin «minúsculas»                          → rojo el 12
 //   · deshacer la prueba sin mirar que nadie tocó la línea de tiempo   → rojo el 13
 //   · el estilo libre también con una plantilla elegida por la persona → rojo el 13
+//   Revisión adversarial (base 14 de 14):
+//   · «pausas» cortando debajo de subtítulos que ya estaban             → rojo el 3
+//   · «volumen» renormalizando a −14 un clip que la persona puso en TikTok → rojo el 3
+//   · la revisión sin marcar lo propuesto que nadie decidió             → rojo el 4
+//   · esNadaQueHacer tomando cualquier «No se aplica: » como «no había nada» → rojo el 14
+//   · «Deshacer todo» también cuando la corrió el chat                  → rojo el 8
+//   · tocar el editor en medio sin marcar la corrida como tocada         → rojo el 8
+//   · el chat corriendo la edición sin decir que viene del chat          → rojo el 8
+//   · la prueba de estilos sin vaciar «Rehacer»                          → rojo el 13

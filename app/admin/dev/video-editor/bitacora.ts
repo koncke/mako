@@ -495,4 +495,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "9 nov", hora: "12:45", chat: "Video Editor: edición del reel (nube)", sesion: "cli_cae9a776-2d98-55b4-aef5-3102e4b201b5", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "Edición automática: lo que encontró la revisión, arreglado",
+    puntos: [
+      "Ya no corta las pausas debajo de subtítulos que ya estaban (los dejaba desfasados) ni vuelve a −14 LUFS lo que pusiste en otro objetivo.",
+      "Si tocas el editor mientras trabajan, no ofrece «Deshacer todo» (se llevaría lo tuyo) y te lo dice; desde el chat, lo deshace «Restaurar».",
+      "Una falla de verdad (el reconocedor de voz que no bajó) ya no se anota como «no había nada que hacer», y la revisión marca el B-roll que quedó propuesto sin decidir.",
+      "La prueba de estilos no deja nada en «Rehacer» y ya no cambia la plantilla de subtítulos de tus otros proyectos.",
+    ],
+    archivos: [
+      "app/video-editor/_opencut/enjambre/plan.ts · correr.ts · estado.ts — las reglas y la corrida",
+      "app/video-editor/_opencut/core/managers/commands.ts — olvidarRehacer()",
+      "app/video-editor/_opencut/chat/aplicar.ts — el chat corre la edición con su try y sin «Deshacer todo»",
+      "tests/video-editor-enjambre.test.ts — 14 casos, 33 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];

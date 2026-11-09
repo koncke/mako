@@ -31,6 +31,10 @@ type Enjambre = {
 	/** El resumen del final, o por qué no arrancó. */
 	resumen: string | null;
 	error: boolean;
+	/** Cada corrida su número: el registro arranca de cero con la siguiente (también lo que se reveló con «Ver todo»). */
+	corrida: number;
+	/** La corrió el chat: la vuelta atrás es «Restaurar» de su mensaje, no «Deshacer todo» (no hay dos deshacer para lo mismo). */
+	desdeElChat: boolean;
 };
 
 const agentesEn = (e: EstadoAgente) => Object.fromEntries(AGENTES.map((a) => [a.id, e])) as Record<AgenteId, EstadoAgente>;
@@ -44,6 +48,8 @@ export const useEnjambre = create<Enjambre>()(() => ({
 	deshacer: null,
 	resumen: null,
 	error: false,
+	corrida: 0,
+	desdeElChat: false,
 }));
 
 let siguienteId = 1;
@@ -59,8 +65,10 @@ export function fijarAgente(agente: AgenteId, estado: EstadoAgente): void {
 }
 
 /** Una corrida nueva arranca de cero: registro vacío, todos esperando. */
-export function empezarCorrida(): void {
-	useEnjambre.setState({
+export function empezarCorrida({ desdeElChat }: { desdeElChat: boolean }): void {
+	useEnjambre.setState((s) => ({
+		corrida: s.corrida + 1,
+		desdeElChat,
 		fase: "corriendo",
 		paso: null,
 		agentes: agentesEn("esperando"),
@@ -69,9 +77,5 @@ export function empezarCorrida(): void {
 		deshacer: null,
 		resumen: null,
 		error: false,
-	});
-}
-
-export function pedirDetener(): void {
-	if (useEnjambre.getState().fase === "corriendo") useEnjambre.setState({ detener: true });
+	}));
 }
