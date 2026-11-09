@@ -285,3 +285,23 @@ se perdieron las caras.
 ⚠️ La 3 es la única que ataca la causa: **el fondo plano saturado viene de las caricaturas del
 repo**, no de Flow. Darle un fondo con grano a cada caricatura en el lote de referencia es más
 barato que pelearla con prompts.
+
+## ⚠️ Lo que está mal en la última imagen (9/11 ~11:30) y cómo se arregla
+
+Martín: *«La cara de Ramiro sigue deformada —la de la tarjeta que estoy sujetando— y se deformaron
+también las caras que están atrás. No veo las caras que más me interesan: Sofía Contreras, Alex
+Hormozi, Francisco Doglio… sí están, pero están como más escondidas.»*
+
+**El camino que él indicó, y es el que hay que seguir** (ver AGENTS.md, «Una cosa al 100 % primero»):
+
+1. **Terminar el PIZARRÓN SOLO, sin la persona**, hasta que esté al 100 %:
+   - caras nítidas, del mismo tamaño, sin repetir;
+   - **que se vean bien las que le importan: Sofía Contreras, Alex Hormozi, Francisco Doglio**
+     — no escondidas detrás de donde va la persona;
+   - con su color y con la luz del cuarto (referencia: `Downloads\image.png_4a780f5f.jpg`).
+2. **Recién ahí meter a la persona**, desde el fotograma del clip 1 (`scratchpad\clip2\CLIP1-ULTIMO.png`),
+   que es donde **la cara de Martín y la de Ramiro en la polaroid se ven bien**, con una sola frase:
+   **«Pon a esta persona, con la misma foto y la misma pose, delante de este pizarrón.»**
+
+⚠️ Las caras que le importan deben quedar en la **mitad izquierda** del corcho: la persona tapa la
+derecha.

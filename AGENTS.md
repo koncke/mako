@@ -12105,3 +12105,27 @@ sin que ninguna de esas ediciones tocara ni la cara ni la foto.
 
 ⚠️ La degradación **no avisa**: aparece en lo que nadie está mirando —una cara de fondo, un ojo, un
 objeto en la mano— mientras la parte que estás corrigiendo mejora vuelta a vuelta.
+
+### Una cosa al 100 % primero, y después se le agrega la otra
+
+**Método de Martín, 9/11/2026, textual:** *«Un truco que yo hago es intentar tener una cosa —que en
+este caso puede ser el personaje sujetando— y luego tener 100% lo otro. Yo lo que haría es tener
+100% el pizarrón sin la persona, y luego metería la persona del clip que ya tenemos… Puedes
+literalmente decirle: ahora que ya tenemos este pizarrón, pon a esta persona con la misma foto y la
+misma pose enfrente.»*
+
+**Por qué funciona:** cuando una sola imagen tiene que resolver dos cosas a la vez (el fondo Y la
+persona), cada corrección de una rompe la otra. El 9/11 pasó cuatro veces: al arreglar las caras del
+corcho se perdió la pose; al arreglar la pose se perdieron las caras; al arreglar el tamaño se
+deformó un ojo y la foto de la mano.
+
+**Cómo se hace:**
+1. **Se termina el fondo solo**, sin la persona, hasta que esté al 100 %. Ahí se puede iterar
+   libremente: no hay nada más que romper.
+2. **La persona entra al final, de una referencia que ya está aprobada** — un fotograma de un clip
+   que salió bien, donde la cara, la pose y lo que sostiene ya se ven correctos.
+3. El pedido es una sola frase: **«Pon a esta persona, con la misma foto y la misma pose, delante
+   de este fondo.»**
+
+Se combina con la regla de no encadenar generaciones: cada pieza se perfecciona en su propia cadena
+corta, y la unión es **una sola** edición.
