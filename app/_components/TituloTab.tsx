@@ -15,11 +15,12 @@
 // que traen su propio título pensado para afuera (SEO, lo que se ve al mandar el
 // link). Pisarlo con el nombre de una sección interna sería peor que no hacer nada.
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { isPublicLandingPath } from './PublicRouteGate';
 import { useRutaInterna, useVistaMovil } from './VistaMovil';
-import { tituloDe } from '@/lib/titulo-tab';
+import { tituloDe, TITULO_NO_ENCONTRADO } from '@/lib/titulo-tab';
+import { hayNoEncontrado, suscribirNoEncontrado } from '@/lib/no-encontrado';
 
 export function TituloTab() {
   const pathname = usePathname() || '';
@@ -28,10 +29,19 @@ export function TituloTab() {
   const movil = useVistaMovil();
   const interna = useRutaInterna();
   const ruta = movil ? interna : pathname;
+  // ⚠️ EN UNA DIRECCIÓN QUE NO EXISTE, LA RUTA NO SIRVE PARA TITULAR (9/11/2026): `tituloDe` cae en
+  // `desdeLaRuta` y convierte el slug en un nombre —«MaKo - Esta ruta no existe 7nov»—, que se lee como una
+  // pantalla real. Quien sabe que no existe es `app/not-found.tsx`, y nos lo avisa (lib/no-encontrado.ts).
+  // `useSyncExternalStore` y no un `useState`: el aviso llega DESPUÉS de que este efecto corrió —son dos
+  // ramas distintas del árbol— y hace falta volver a titular cuando llega, no una sola vez al montar.
+  const noEncontrado = useSyncExternalStore(suscribirNoEncontrado, hayNoEncontrado, () => false);
 
   useEffect(() => {
-    if (pathname === '/' || isPublicLandingPath(pathname) || pathname.startsWith('/compartido')) return;
-    const titulo = tituloDe(ruta);
+    // La landing y lo compartido traen su propio título, pensado para afuera. Un 404 NO: ahí no hay pantalla
+    // que traiga nada, así que el aviso gana también en esas rutas.
+    const trajoElSuyo = pathname === '/' || isPublicLandingPath(pathname) || pathname.startsWith('/compartido');
+    if (trajoElSuyo && !noEncontrado) return;
+    const titulo = noEncontrado ? TITULO_NO_ENCONTRADO : tituloDe(ruta);
     const reafirmar = () => { if (document.title !== titulo) document.title = titulo; };
     document.title = titulo;
     // Al navegar, Next escribe el <title> del layout ("MaKo") con el commit de la
@@ -53,7 +63,7 @@ export function TituloTab() {
     const obs = new MutationObserver(reafirmar);
     obs.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => { cancelAnimationFrame(id); obs.disconnect(); };
-  }, [pathname, ruta]);
+  }, [pathname, ruta, noEncontrado]);
 
   return null;
 }

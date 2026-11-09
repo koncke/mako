@@ -100,6 +100,21 @@ function conMarca(label: string): string {
 }
 
 /**
+ * EL TÍTULO DE LA PESTAÑA EN UN 404 (9/11/2026).
+ *
+ * ⚠️ NO sale de `tituloDe`, y ése es todo el punto. `desdeLaRuta` existe como red de seguridad para una ruta
+ * sin entrada en el nav, y en una ruta que NO EXISTE esa red INVENTA: `hola-mako.com/esta-ruta-no-existe-7nov`
+ * titulaba «MaKo - Esta ruta no existe 7nov», que se lee como el nombre de una pantalla real. Lo dejó anotado
+ * la pantalla que arregló el 404 (`app/not-found.tsx`, 7/11) como «otro ítem», porque arreglarlo toca el
+ * camino de TODAS las rutas y no se cuelga de una pantalla.
+ *
+ * Y un título no es decoración: es lo que queda en el historial, en la lista de pestañas y en lo que alguien
+ * manda por WhatsApp cuando dice «no me anda esto». Un nombre inventado ahí se guarda como si el lugar
+ * existiera, y después nadie puede decir si la dirección estaba mal o si la pantalla se cayó.
+ */
+export const TITULO_NO_ENCONTRADO = conMarca('Esta dirección no existe');
+
+/**
  * Pantallas del teléfono que se titulan como SU URL de escritorio (17/10/2026, «Mobile 2»): una «Coming soon»
  * (/m/pronto/closing-script es «Closing Script») y cada sección de «Configuración del negocio» (/m/configuraciones/equipo
  * es «Equipo», como /equipo). Sin esto caían en el prefijo de su dueño (`/m` → «MaKo» a secas).

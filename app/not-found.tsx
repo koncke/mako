@@ -29,17 +29,21 @@
 // componente cliente. Sin conservarlo, a alguien que está mirando el negocio de un cliente el botón lo sacaría
 // de ese negocio y lo mandaría al suyo, que es un salto que no pidió.
 //
-// ⚠️ EL TÍTULO DE LA PESTAÑA SIGUE MINTIENDO, Y NO SE ARREGLA DESDE ACÁ. Hoy una URL inexistente titula
+// ✅ EL TÍTULO DE LA PESTAÑA — ARREGLADO EL 9/11/2026, y así (lo de abajo quedó como estaba el 7/11). Hoy una URL inexistente titula
 // «MaKo - Esta ruta no existe 7nov»: `tituloDe` (lib/titulo-tab.ts:78, `desdeLaRuta`) titula a partir del
 // slug como red de seguridad para rutas sin entrada en el nav, y no sabe que la ruta no existe. Escribir
 // `document.title` desde acá NO alcanza: `TituloTab` (app/_components/TituloTab.tsx:36) monta un
 // `MutationObserver` sobre el `<head>` que **reafirma su título cada vez que alguien lo pisa**, así que lo
 // revierte en el acto. Arreglarlo pide que `TituloTab` sepa que está en un 404, y eso es un cambio en el
 // camino de TODAS las rutas: va aparte, no colgado de esta pantalla.
+//
+// Se hizo aparte, el 9/11: esta pantalla AVISA (`marcarNoEncontrado`, lib/no-encontrado.ts) y `TituloTab` lee
+// ese aviso con `useSyncExternalStore` y titula `TITULO_NO_ENCONTRADO` en vez de derivarlo del slug. El
+// diagnóstico de arriba era correcto y por eso no se intentó el atajo de escribir `document.title`.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
-import { INICIO, inicioDesde, atajoBuscador } from '@/lib/no-encontrado';
+import { INICIO, inicioDesde, atajoBuscador, marcarNoEncontrado } from '@/lib/no-encontrado';
 
 export default function NoEncontrado() {
   // En el servidor no hay `window`: se completa al montar. Hasta entonces la pantalla se dibuja igual, sin la
@@ -57,6 +61,11 @@ export default function NoEncontrado() {
     // «Volver» sin nada a dónde volver es un botón que no hace nada, que es peor que no tenerlo.
     setHayAtras(window.history.length > 1);
     setAtajo(atajoBuscador(navigator.userAgent || ''));
+    // Le avisa a `TituloTab` que la pestaña está en un 404 (lib/no-encontrado.ts explica por qué es un aviso
+    // y no un `document.title`). ⚠️ El apagado NO es opcional: sin él el título queda diciendo «Esta dirección
+    // no existe» en la pantalla siguiente, que es peor que el nombre inventado que vinimos a arreglar.
+    marcarNoEncontrado(true);
+    return () => { marcarNoEncontrado(false); };
   }, []);
 
   const secundario: React.CSSProperties = {

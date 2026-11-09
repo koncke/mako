@@ -15,7 +15,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { INICIO, inicioDesde, atajoBuscador } from '../lib/no-encontrado';
+import { INICIO, inicioDesde, atajoBuscador, marcarNoEncontrado, suscribirNoEncontrado, hayNoEncontrado } from '../lib/no-encontrado';
+import { tituloDe, TITULO_NO_ENCONTRADO } from '../lib/titulo-tab';
 
 const RAIZ = join(import.meta.dirname, '..');
 
@@ -73,4 +74,94 @@ test('el 404 no promete un botón que no lleva a ningún lado', () => {
   const src = readFileSync(join(RAIZ, 'app/not-found.tsx'), 'utf8');
   assert.match(src, /hayAtras\s*&&/, 'el botón de volver dejó de depender de que haya a dónde volver');
   assert.match(src, /history\.length\s*>\s*1/, 'ya no se comprueba que haya historial');
+});
+
+// =============================================================================
+// EL TÍTULO DE LA PESTAÑA EN UN 404 (9/11/2026)
+// =============================================================================
+// Lo dejó anotado la propia pantalla del 7/11 como «otro ítem»: el 404 ya estaba en español, pero la PESTAÑA
+// seguía diciendo «MaKo - Esta ruta no existe 7nov» —el slug convertido en nombre por `desdeLaRuta`, la red
+// de seguridad de `tituloDe`—. Un título es lo que queda en el historial y en lo que alguien manda cuando
+// dice «no me anda esto»: un nombre inventado ahí se guarda como si el lugar existiera.
+//
+// ROTURAS (9/11/2026, una por vez y restaurada; base 14 / 0):
+//   · titular con `tituloDe(ruta)` en vez de `TITULO_NO_ENCONTRADO`            → 13 / 1
+//   · sacar `noEncontrado` de las dependencias del efecto                      → 13 / 1
+//   · que `marcarNoEncontrado` no avise a los oyentes                          → 12 / 2
+//   · sacar el apagado (`return () => marcarNoEncontrado(false)`) del 404      → 13 / 1
+//   · dejar que la landing y lo compartido salgan antes aunque sea un 404      → 13 / 1
+// =============================================================================
+
+test('⚠️ el título del 404 NO se deriva de la ruta: ahí la ruta es lo que está mal', () => {
+  // Esto es el bug, medido: la red de seguridad de `tituloDe` convierte el slug en un nombre que se lee como
+  // una pantalla real. No está rota —hace lo que tiene que hacer para una ruta sin entrada en el nav—; lo que
+  // no puede es opinar sobre una dirección que NO EXISTE.
+  assert.equal(tituloDe('/esta-ruta-no-existe-7nov'), 'MaKo - Esta ruta no existe 7nov');
+  // Y por eso el 404 tiene su título propio, en español y sin nada del slug.
+  assert.equal(TITULO_NO_ENCONTRADO, 'MaKo - Esta dirección no existe');
+  assert.doesNotMatch(TITULO_NO_ENCONTRADO, /7nov|ruta no existe/i);
+});
+
+test('el aviso llega a quien está escuchando, y se apaga al salir del 404', () => {
+  const avisos: boolean[] = [];
+  const dejar = suscribirNoEncontrado(() => avisos.push(hayNoEncontrado()));
+  try {
+    assert.equal(hayNoEncontrado(), false, 'arranca apagado: en el servidor nunca hay un 404 montado');
+    marcarNoEncontrado(true);
+    marcarNoEncontrado(false);
+    assert.deepEqual(avisos, [true, false], 'tiene que avisar las dos veces, no sólo al prender');
+  } finally {
+    dejar();
+    marcarNoEncontrado(false);
+  }
+});
+
+test('avisar lo mismo dos veces no despierta a nadie, y desuscribirse corta', () => {
+  let veces = 0;
+  const dejar = suscribirNoEncontrado(() => { veces += 1; });
+  try {
+    marcarNoEncontrado(true);
+    marcarNoEncontrado(true);
+    assert.equal(veces, 1, 'el mismo valor dos veces es un aviso, no dos: si no, TituloTab retitula de más');
+    dejar();
+    marcarNoEncontrado(false);
+    assert.equal(veces, 1, 'después de desuscribirse no llega nada');
+  } finally {
+    dejar();
+    marcarNoEncontrado(false);
+  }
+});
+
+test('⚠️ TituloTab usa el título del 404, y lo tiene en sus dependencias', () => {
+  const src = readFileSync(join(RAIZ, 'app/_components/TituloTab.tsx'), 'utf8');
+  assert.match(src, /const titulo = noEncontrado \? TITULO_NO_ENCONTRADO : tituloDe\(ruta\);/,
+    'sin esto el 404 vuelve a titularse con el slug');
+  // La dependencia es lo que hace que SIRVA: el aviso llega después de que el efecto corrió —el 404 y
+  // TituloTab son dos ramas distintas del árbol—, así que sin la dependencia el título nunca se rehace.
+  assert.match(src, /\}, \[pathname, ruta, noEncontrado\]\);/,
+    'el efecto tiene que volver a correr cuando llega el aviso');
+  assert.match(src, /useSyncExternalStore\(suscribirNoEncontrado, hayNoEncontrado, \(\) => false\)/,
+    'en el servidor el valor es false: el 404 avisa al MONTAR');
+});
+
+test('⚠️ en un 404 el título gana también en la landing y en lo compartido', () => {
+  // Esas dos salen antes porque traen SU título, pensado para afuera. Un 404 no trae ninguno: si sale antes,
+  // la pestaña se queda con el título de la pantalla anterior, que es el bug con otro disfraz.
+  const src = readFileSync(join(RAIZ, 'app/_components/TituloTab.tsx'), 'utf8');
+  assert.match(src, /if \(trajoElSuyo && !noEncontrado\) return;/);
+});
+
+test('⚠️ el 404 apaga el aviso al irse: si no, el título queda pegado en la pantalla siguiente', () => {
+  const src = readFileSync(join(RAIZ, 'app/not-found.tsx'), 'utf8');
+  assert.match(src, /marcarNoEncontrado\(true\);/, 'tiene que avisar al montar');
+  assert.match(src, /return \(\) => \{ marcarNoEncontrado\(false\); \};/,
+    'y apagarlo al desmontar: un título pegado es peor que el nombre inventado que vinimos a arreglar');
+});
+
+test('el 404 NO intenta escribir document.title: está medido que el observador lo revierte', () => {
+  // `TituloTab` monta un MutationObserver sobre el <head> que reafirma su título cada vez que alguien lo pisa
+  // (lo necesita por /crm, que llega con su <title> en streaming). Escribirlo desde el 404 es el atajo que no
+  // funciona, y que esta pantalla ya había documentado el 7/11 antes de que existiera el arreglo.
+  const src = readFileSync(join(RAIZ, 'app/not-found.tsx'), 'utf8');
+  assert.doesNotMatch(src, /document\.title\s*=/, 'el 404 avisa, no escribe el título');
 });

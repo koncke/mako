@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { totalDeColumna, textoDelTotal, ayudaDelTotal, plataCorta } from '../app/crm/total-columna';
 import { numeroTecleado, unirTelefono } from '../lib/paises';
-import { tituloDe } from '../lib/titulo-tab';
+import { tituloDe, TITULO_NO_ENCONTRADO } from '../lib/titulo-tab';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -140,7 +140,13 @@ test('el título de la pestaña sale como lo devuelve document.title: si no, el 
   assert.equal(tituloDe('/-'), 'MaKo', 'una ruta sin nombre no deja la marca con un guion colgando');
   // TituloTab compara contra `tituloDe` tal cual, sin otra transformación en el medio. (La ruta es
   // la de la URL, o en el teléfono la interna de /m: LAS MISMAS RUTAS, 13/10/2026.)
-  assert.match(codigo('app/_components/TituloTab.tsx'), /const titulo = tituloDe\(ruta\);/);
+  //
+  // 9/11/2026: ahora hay DOS títulos posibles, porque en un 404 la ruta no sirve para titular —`desdeLaRuta`
+  // convierte el slug en un nombre que se lee como una pantalla real—. Lo que esta prueba cuida vale igual
+  // para los dos: ninguno pasa por otra transformación, y los dos salen de `conMarca`, o sea ya limpios. Si
+  // el del 404 NO estuviera limpio, volvería exactamente el congelamiento de arriba, sólo que en el 404.
+  assert.match(codigo('app/_components/TituloTab.tsx'), /const titulo = noEncontrado \? TITULO_NO_ENCONTRADO : tituloDe\(ruta\);/);
+  assert.equal(comoLoLee(TITULO_NO_ENCONTRADO), TITULO_NO_ENCONTRADO, 'el título del 404 también tiene que leerse como se escribe');
 });
 
 // ── 20 · 27 · 28 · el alta ───────────────────────────────────────────────────
