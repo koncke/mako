@@ -591,3 +591,24 @@ misma habitación. En el corcho van sólo estas seis caras, grandes.» Salió a 
 seis caricaturas reconocibles y la habitación intacta. Es la regla de
 [[la-segunda-referencia-si-sirve-dentro-del-editor]] confirmada otra vez: en una EDICIÓN la
 referencia aporta sin competir, porque la base está fija.
+
+### Tres cosas más del editor de Flow, medidas el 9/11 armando el tablero
+
+- ⚠️⚠️ **En el EDITOR, un clic por coordenadas sobre la caja de texto te cambia de imagen.** Pasó
+  tres veces: el clic cae en la tira de versiones de arriba o en la imagen, y terminás editando otra
+  (la URL cambia de `/edit/<id>` y el título también). **La salida es no hacer clic**: enfocar el
+  `contenteditable` por JavaScript y recién entonces teclear o pegar.
+  ```js
+  const d = document.querySelector('[contenteditable="true"]');
+  d.focus(); const s = getSelection(); s.selectAllChildren(d); s.collapseToEnd();
+  ```
+  Para ENVIAR sí hace falta un clic real sobre la flecha, medida justo antes (`.click()` no sirve).
+  **Antes de enviar, verificar `location.pathname` y el texto de la caja**: es la única forma de
+  saber que seguís en la imagen que creías.
+- **Una imagen pegada queda guardada en el proyecto como «Imagen subida»**, con su propia tarjeta.
+  Pegar tres referencias deja tres tarjetas sueltas; conviene limpiarlas al terminar.
+- **Para borrar una tarjeta el botón es «Enviar lote a la papelera»** (manda la PILA entera, con
+  todas sus versiones). ⚠️ Al buscar el botón subiendo por `parentElement` es muy fácil pasarse y
+  agarrar el contenedor de TODA la lista —el primer intento devolvió once papeleras, una por
+  tarjeta—. **Acotar el bloque por longitud de texto** (`innerText.length < 300`) y confirmar que el
+  botón está dentro de ese bloque antes de hacer clic. Va a la Papelera de Flow, no se pierde.
