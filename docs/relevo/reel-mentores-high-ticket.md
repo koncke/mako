@@ -16,7 +16,7 @@ es este pizarrón, no la oficina. También dijo: «Todo siempre en la calidad or
 |---|---|---|
 | Imagen inicial: él delante del pizarrón v3 | ✅ aprobada («ya salió bien») | `finalizar\persona-delante-v1-2k.jpg` (en Flow es la 4.ª del selector de marcos) |
 | **Clip 1 nuevo** | hecho, falta el OK | `clips\CLIP1-NUEVO-CON-TU-VOZ.mp4` (de Flow: `clips\clip1-nuevo-flow.mp4`) |
-| **Clip 2 nuevo** | generándose | arranca de `clips\clip1-nuevo-ULTIMO.png` (último fotograma del clip 1) |
+| **Clip 2 nuevo** | hecho, falta el OK | `clips\CLIP2-NUEVO-CON-TU-VOZ.mp4` (de Flow: `clips\clip2-nuevo-flow.mp4`; arranca de `clips\clip1-nuevo-ULTIMO.png`). Voz: 38 ms, 131 Hz |
 
 - **Configuración de los dos, igual a la aprobada:** Video · **Fotogramas** · Omni 1.2 Flash · 720p · 9:16 · 8 s · x1
   · 24 créditos. Pegar una imagen en la caja con el modo Fotogramas puesto la deja de fotograma INICIAL (además de
