@@ -262,3 +262,24 @@ mirando la imagen, una por una, antes de que la vea él.**
 ⚠️ **Y cada pedido nuevo tiene que anclar lo ya aprobado**, si no se pierde: «La persona, su pose y
 el cuarto quedan igual» — ya pasó que al arreglar las caras se perdió la pose, y al arreglar la pose
 se perdieron las caras.
+
+### El punto 5 de la checklist («no parecen stickers») sigue abierto — qué se probó
+
+| intento | resultado |
+|---|---|
+| «son papel impreso, con la misma luz que el resto del cuadro» | **nada**, idéntica |
+| «cada foto tiene el fondo claro, como una foto de carnet» | ⛔ **las blanquea** — rechazado por Martín |
+| «el corcho queda un poco desenfocado… las fotos mantienen sus colores» | mejora **sutil**, casi no se nota |
+| «cada foto es un papel que se curva un poco y proyecta su sombra sobre el corcho» | **mejor**: aparece la sombra de contacto y se ven apoyadas. **Sigue sin cerrar del todo.** |
+
+**Lo que queda por probar**, en orden de probabilidad:
+1. Pedir la textura del soporte: «las fotos están impresas en papel mate, con el grano del papel».
+2. Pedir el reflejo: «el papel brillante toma la luz de la ventana en algunas fotos».
+3. Aceptar que una caricatura con fondo plano **siempre** va a leer algo de collage dentro de una
+   foto realista, y resolverlo al revés: que el corcho entero sea parte del mismo dibujo, o que las
+   caricaturas tengan un fondo con textura en vez de color plano (se cambia en `tablero-lotes.py`,
+   que es nuestro, antes de mandarlas como referencia).
+
+⚠️ La 3 es la única que ataca la causa: **el fondo plano saturado viene de las caricaturas del
+repo**, no de Flow. Darle un fondo con grano a cada caricatura en el lote de referencia es más
+barato que pelearla con prompts.
