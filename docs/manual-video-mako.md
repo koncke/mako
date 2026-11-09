@@ -469,6 +469,34 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 
 ---
 
+### 6.11 Tiempos medidos y la pregunta de después
+
+Martín (9/11): «optimizar los tiempos. Sin perder el control y el chequeo de calidad… empezar a medirnos los tiempos… y que nos hagamos la pregunta luego de ya generado de ¿podríamos haberlo hecho de otra forma más rápido sin perder la calidad?» Para qué: que MaKo le avise al usuario cuánto suele tardar lo que está por generar, lo deje corriendo en segundo plano mientras sigue con lo suyo y le mande una notificación cuando esté listo.
+
+**Las dos reglas:**
+1. **Cada paso se mide:** inicio, fin, herramienta e intentos. La planilla del reel es `C:/dev/reel-mentores/tiempos.csv`; si no se anotó en el momento, las horas salen del transcript (el `timestamp` de cada acción).
+2. **Al cerrar cada tanda se pregunta, paso por paso: ¿se podía más rápido sin perder calidad?** Lo que sale se vuelve regla acá.
+
+**Medido el 9/11 (Flow, cuenta `/u/2/`):**
+
+| Paso | Tiempo | Nota |
+|---|---|---|
+| Una imagen (edición en Flow, Nano Banana 2.1) | menos de 30 s; unos 40 s hasta tenerla bajada | 0 créditos |
+| Una vuelta completa por imagen (pegar, escribir, mandar, bajar, revisar lado a lado) | 1 a 2 min | |
+| Revisión con 2 agentes | 6 min | encontró lo que se me pasó |
+| Video Omni 1.2 Flash 720p, 5 s | ≤ 3,5 min | 15 créditos |
+| Video Omni 1.2 Flash 720p, 8 s | ≤ 2,5 min (lanzado en paralelo) | 24 créditos |
+| Voz (ElevenLabs voice-to-voice + loudnorm + montaje) | 3 a 4 s por clip | |
+| Bajar, tira de 5 cuadros y volumedetect de 2 clips | 1,5 min | |
+| **La tanda entera** (notas en español + imágenes de los clips 1 y 2 + videos + voz) | **unos 36 min** | se podía en unos 20 |
+
+**¿Se podía más rápido? (9/11)**
+- **Texto en el fondo: 5 intentos, 9 min.** Se podía en 1: pedir de entrada la lista cerrada de palabras cortas, y símbolos («??») en las notas chicas o inclinadas.
+- **Imagen del clip 2: 4 muestras, 6 min.** Se podía en 1: arrancar con la frase que ya había funcionado («señalando una de las fotos con la mano»).
+- **Esperas fijas de 30 s por imagen.** Mejor esperar a que aparezca la versión nueva (por el DOM) y seguir: unos 10 s menos por imagen.
+- **Revisión, 6 min.** La resta de píxeles contra la versión anterior (`blend=all_mode=difference`) muestra en segundos si una edición tocó algo más; los agentes quedan para los textos y la cara, con los recortes ya hechos.
+- **Lo que ya estaba bien:** los dos videos se lanzaron en paralelo, y la voz va por script.
+
 ## 7. Templates
 
 ### 7.1 «Mensaje para…» (el template actual)
