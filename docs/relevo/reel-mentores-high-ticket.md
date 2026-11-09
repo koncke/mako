@@ -190,3 +190,43 @@ aparece recién cuando la cámara se mueve. Es decisión de Martín.
 - «**estable tiene que ser cero**… tienes que copiarlo idéntico… si tienes otra información, **borra el resto**».
 - «cada clip que salga, que salga con **todas las configuraciones**… que cada generación traiga todo un contexto».
 - «**primero la imagen**. O las imágenes en este caso. Y después el clip.»
+
+## Estado del CLIP DE ENLACE (9/11 ~11:15, cuota al 99 %)
+
+Martín quiere un clip que **una la toma 1 con la toma 2**: arranca en la oficina (último fotograma
+del clip 1), él se levanta, la cámara se mueve y aparece el pizarrón. Se hace con el modo
+**primer y último fotograma** de Omni (Flow: «Fotogramas» + botones Iniciar / Finalizar).
+
+| | archivo | estado |
+|---|---|---|
+| **Iniciar** | `scratchpad\clip2\CLIP1-ULTIMO.png` (720×1280) — él en la oficina, de frente, con la polaroid | **listo**, y ya subido al proyecto de Flow |
+| **Finalizar** | `Downloads\image.png_b69f5e41.jpg` | **casi**: ver abajo |
+
+### Lo que falta de la imagen de llegada
+El pizarrón ya quedó bien —sin la mesa, pared hasta el piso, y con las fotos **chicas y muchas**,
+que es la versión que Martín aprobó— pero **la pose se desvió**: quedó de perfil tocando el hilo
+rojo, sin la polaroid. Para que enganche con el clip 2 (que arranca soltando la foto) tiene que
+estar **de frente a cámara con la polaroid en la mano**.
+
+**El prompt que falta aplicar**, sobre la última versión de la pila `c4f1dd63-aef1-4bce-a6f8-dbc595e679a6`:
+```
+El corcho y el cuarto quedan igual. La persona está de pie mirando a la cámara,
+con una foto polaroid en la mano.
+```
+⚠️ Dos intentos de aplicarlo rebotaron al editor de VIDEO (`458a7843-…`): entrar por URL a la
+imagen y verificar `location.pathname` ANTES de escribir.
+
+### La corrección de Martín que hay que respetar
+> «ahora nuevamente el pizarrón con esas imágenes enormes y gigantescas; **me gustaba como estaba la
+> última versión que habíamos logrado**»
+
+La versión buena del corcho es **`Downloads\image.png_4a780f5f.jpg`** (la del clip 2 aprobado):
+fotos chicas, muchas, con notas, colores conservados. La que Martín adjuntó como `images\2.jpg`
+tiene las caras GRANDES y es anterior — **no usar ésa como referencia de tamaño.**
+
+### El prompt del clip de enlace, para cuando las dos imágenes estén
+```
+La cámara acompaña mientras él se levanta y camina hasta la pared del pizarrón.
+Sigue con la foto en la mano.
+```
+Sin voz: es una transición. Omni 1.2 Flash · Fotogramas · 720p · 9:16 · x1 · 24 créditos.
