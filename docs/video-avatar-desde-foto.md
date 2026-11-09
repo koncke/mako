@@ -867,3 +867,13 @@ instrucción más que el modelo puede cumplir de más (así se blanquearon los f
 - **Material crudo** (`LOTE-*.jpg`) → cuando hace falta decir **qué** entra: las caras, el producto, el logo.
 - **Resultado aprobado** → cuando hace falta decir **cómo se ve**: tamaño, densidad, luz, integración.
 - **Las dos juntas** cuando necesitás las dos cosas.
+
+### ⚠️ «Detectamos actividad inusual»: Flow frena el editor después de muchas ediciones automáticas (9/11/2026)
+
+Después de unas quince ediciones de imagen en una hora, manejadas desde Claude in Chrome, Flow empezó a devolver
+**«No se pudo completar la acción. Detectamos actividad inusual. Ten en cuenta que las extensiones del navegador que
+modifican la página pueden causar problemas.»**, con un «No se te cobró por esta generación».
+- **No es un problema de la imagen ni del prompt.** El mismo pedido, sin cambios, es el que falla.
+- **«Reintentar» enseguida vuelve a fallar.** Hay que dejar pasar unos minutos.
+- **La causa de fondo fueron las vueltas:** ocho variantes del corcho con varias referencias cada una. Con UNA
+  referencia y una frase (AGENTS.md) se hacen muchos menos pedidos, y el freno no llega.
