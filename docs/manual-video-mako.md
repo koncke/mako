@@ -36,7 +36,7 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 | **Avatar** | La persona del video, hecha con IA desde una foto real. Se hace sola, sin el fondo del video. |
 | **Fondo** | El lugar donde está la persona. Se hace solo, sin personas. |
 | **Imagen original** | La versión aprobada y limpia de cada pieza (el fondo solo, cada avatar solo), bajada en «1K · Tamaño original». Es el punto de retorno. Nunca es una imagen combinada, ni una edición encima de otra, ni un reescalado. |
-| **Combinación** | La edición que pone al avatar delante del fondo. Es UNA sola edición: el avatar de base y el fondo de referencia. |
+| **Combinación** | La edición que mete al avatar en el fondo. Es UNA sola edición: el fondo de base y el avatar de referencia. |
 | **Win / estándar** | Lo que al usuario le gustó: su avatar, su fondo, su voz. Se guarda en el momento, con su contexto, y pasa a ser su estándar. Lo siguiente parte de ahí. |
 | **Base** | La imagen que se edita y que tiene que quedar intacta. |
 | **Referencia** | La UNA imagen que muestra cómo tiene que quedar lo que cambia. |
@@ -55,21 +55,21 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
    El video anima una imagen ya aprobada. Nunca se genera un video desde un texto.
 
 2. **Nunca se regenera nada sobre una imagen hecha con IA: ante un feedback, se vuelve a la imagen original.**
-   «Si el usuario tiene un feedback, se tiene que volver a la imagen original», para no perder calidad.
+   «Si el usuario tiene un feedback, se tiene que volver a la imagen original», para no perder calidad. Lo mismo entre clips: «por más de que haya cambios de movimiento, de posición, etcétera, siempre se debe partir desde el avatar original… si no, van a haber discordancias seguro en los avatares». Nunca del fotograma de otro clip ni de otra combinación.
 
 3. **Un win se guarda y pasa a ser el estándar del usuario.**
    Cuando le gusta su avatar o su fondo, «hay que guardarlo»: lo siguiente parte de ahí y no se vuelve a buscar.
 
 4. **El fondo y el avatar se crean en imágenes separadas, nunca juntos.**
-   «Nunca ambas cosas juntas, porque eso confunde a la IA.» Dos personas son tres imágenes (fondo, avatar 1, avatar 2) antes del video.
+   «Nunca ambas cosas juntas, porque eso confunde a la IA.» Primero todo el fondo, después todo el avatar, y recién ahí se combinan: el fondo de base y el avatar de referencia («toma la imagen del fondo sin nadie y le agregas el personaje. No al revés»). Dos personas son tres imágenes (fondo, avatar 1, avatar 2) antes del video.
 
 5. **Un feedback se corrige en la imagen original de ESA pieza, nunca en la combinada.**
    Si es del fondo, se vuelve al fondo solo, se corrige y se combina de nuevo. Si es de un avatar, se vuelve a SU imagen original.
 
-6. **Todo se valida con su checklist antes de mostrárselo al usuario.**
-   Reglas de avatar, de fondo y de combinación, más las del template y las del asset. Recién cuando Claude o MaKo están seguros, se manda para el OK.
+6. **Todo se valida con su checklist antes de mostrárselo al usuario, sobre todo la imagen.**
+   Cada template y cada asset tiene sus parámetros, reglas y estándares. Se recorren las reglas generales de avatar, de fondo y de combinación, más las extra del template (por ejemplo, en «Mensaje para…», el avatar propio con iluminación y fondo blanco) y las del asset. Entre las generales, dos que Martín marcó el 9/11: la escala real («no puede ser posible que el pizarrón sea exageradamente grande… y yo quede así de chiquito») y el rostro idéntico al original («que el rostro y las expresiones y todo sea idéntico al original»). Recién cuando Claude o MaKo están seguros, se manda para el OK.
 
-7. **Los créditos se gastan recién con el OK del usuario a la imagen.**
+7. **Los créditos se gastan recién con el OK del usuario a la imagen. Nunca antes.**
    «Cuando el usuario da el ok, generar el video: ahí recién se pasa a gastar los créditos.» «Para que no sea culpa nuestra casi nunca.»
 
 8. **Una sola referencia y un prompt simple. Siempre.**
@@ -80,6 +80,8 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 
 10. **Lo que se aprende se anota como regla en este manual.**
     «Anótalo todo como regla, que sea nuestro manual.»
+
+Martín también pidió dejar fijas las reglas de ElevenLabs y de la voz (qué modelos se usan y cuáles jamás), las de la generación de video y el proceso de clonado de voz: están en §6.1, §6.3 y §6.4. El video va por Flow, no por ApiMart: «¿por qué usaste ApiMart, si estamos usando Flow para no gastar?» (§6.2). Y pidió investigar si el template actual tiene nombre, quizás por su soundtrack: está en §7.1.
 
 ### Del oficio (medidas)
 
@@ -95,8 +97,8 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 14. **La cara y la pose no se describen con palabras: se pasa la foto.**
     La descripción compite con la foto. Con la referencia y una frase, la pose salió al primer intento después de cuatro fallidos.
 
-15. **Lo que queda intacto va de base; lo que cambia va de referencia.**
-    Para combinar: base = la persona, referencia = el fondo. Al revés, Flow se come el fondo o trae a la persona con su escena pegada.
+15. **Lo que queda intacto va de base; lo que se agrega entra de referencia.**
+    Para combinar: base = el fondo, referencia = la persona. Martín: «toma la imagen del fondo sin nadie y le agregas el personaje. No al revés». Con la persona de base, el corcho salió desfasado y la pared apuntando para otro lado.
 
 16. **Las ediciones no se apilan: dos o tres como mucho, y se vuelve a la versión limpia.**
     La degradación no avisa: a la novena edición había un ojo deformado y la foto de la mano desfigurada, sin que nadie los tocara.
@@ -162,6 +164,7 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 
 ### Paso 2 · Cada avatar solo, al 100 %
 - Base: la foto real de la persona. Receta aprobada: foto real de Martín → imagen de estudio en Flow con la foto pegada como referencia → edición para que sostenga una polaroid (con una foto de referencia).
+- El avatar no sale de una imagen de referencia de look: el que se hizo así (`avatar-delante-v1.jpg`) Martín lo rechazó, «no me gusta el avatar».
 - Una persona por imagen. Dos personas son dos avatares, cada uno en su propia cadena.
 - Un cambio por edición, anclando lo que no cambia: «La persona queda igual, con la misma ropa…».
 - La pose se pide con una foto de referencia y una frase: «que haga la misma pose que la foto que adjunto».
@@ -169,8 +172,11 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 - Win: 1K original guardado como el **avatar original** de esa persona, con su contexto.
 
 ### Paso 3 · La combinación (UNA edición)
-- Base = el avatar original. Referencia = el fondo original. Nada más.
-- Frase probada: «La persona queda igual, con la misma ropa, la misma pose y la misma foto en la mano. Detrás de ella va este cuarto con este corcho.»
+- Base = el fondo original. Referencia = el avatar original. Nada más. Martín: «toma la imagen del fondo sin nadie y le agregas el personaje. No al revés».
+- Frase probada (9/11, perspectiva intacta): «Agrega a esta persona de pie al lado del corcho, mirando a cámara, con las manos vacías. El corcho, la pared y el cuarto quedan igual.»
+- Toda frase que mete o mueve a una persona suma: «Su rostro, sus expresiones, su pelo y su ropa son exactamente iguales a los del original.»
+- Antes de seguir: escala real, perspectiva del fondo y la cara al lado de la original.
+- Si la toma pide otro encuadre (por ejemplo, de pie al lado del corcho), primero se ajusta el fondo solo y después entra la persona. Funcionó: «La misma pared y el mismo corcho, con la cámara un poco más lejos: el corcho se ve más chico, con más pared y piso alrededor.» (`omni/fondo-alejado.jpg`).
 - Si sale mal, no se corrige encima. Se repite la combinación desde los dos originales, o se corrige la pieza que falló en su original (paso 1 o 2).
 - Dos personas: todavía no está probado (§9).
 
@@ -186,11 +192,11 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 - Sin OK no hay video.
 
 ### Paso 6 · El video (acá se gastan los créditos)
-- Omni 1.2 Flash, con la imagen aprobada (original 1K) como fotograma inicial.
-- Prompt: el acento, la frase entre comillas y lo que queda quieto (§6.2 y §7.1).
-- Revisa el panel antes de generar: 720p, 9:16, Fotogramas, x1. Los defaults vienen mal.
+- Omni 1.2 Flash en Flow, no por ApiMart, con la imagen aprobada (original 1K) como fotograma inicial.
+- Prompt: el de la receta aprobada (§6.2): el acento, la frase entre comillas y lo que queda quieto.
+- Revisa el panel antes de generar: 720p, 9:16, Fotogramas, x1, 5 s (15 créditos) u 8 s (24). Los defaults vienen mal.
 - Si hay varios clips con imagen y frase listas, se lanzan en paralelo y después se chequean de a uno.
-- Si el template lo pide, cada clip arranca del último fotograma del anterior.
+- Cada clip parte del avatar original, aunque cambien el movimiento o la posición: nunca del fotograma de otro clip ni de otra combinación (regla 2).
 - El contexto.md se escribe al generar.
 
 ### Paso 7 · El chequeo del clip
@@ -212,13 +218,14 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 
 | El feedback es sobre… | Vuelves a… | Y después… |
 |---|---|---|
-| El fondo | El fondo original, solo | Corriges ahí (dos o tres ediciones como mucho), checklist de fondo, guardas el nuevo original y repites la combinación desde el avatar original. |
+| El fondo | El fondo original, solo | Corriges ahí (dos o tres ediciones como mucho), checklist de fondo, guardas el nuevo original y repites la combinación: el nuevo fondo de base y el avatar original de referencia. |
 | Un avatar | El original de ESE avatar | Corriges ahí, checklist de avatar y combinas de nuevo. |
-| La combinación (se ve pegada, escala, posición) | Los dos originales | Repites la combinación con otra frase o con otra referencia. La combinada no se edita. |
+| La combinación (se ve pegada, escala, perspectiva, posición) | Los dos originales | Repites la combinación desde los dos originales, con otra frase. La combinada no se edita. |
 | El movimiento o la boca del video | La imagen aprobada | Cambias la frase del prompt (qué queda quieto) y generas de nuevo. Gasta créditos otra vez: dile al usuario cuántos antes de generar. |
 | El acento | El prompt del video | El acento se pide en el origen y se regenera el video. ElevenLabs no lo arregla. |
 | La voz («no es mi voz», grave, bajita) | LA-CONFIG.json | Verificas que se usó la configuración exacta. La voz no se procesa (ni tono, ni velocidad). |
 | Algo que estaba bien y se degradó | La última versión limpia | Le vuelves a pasar la referencia de eso. No pidas «que se vea mejor». |
+| Otra foto, o un cambio del avatar a mitad del reel | Se genera lo que pide | Pero antes se le advierte, mostrándole su avatar original, que si no se sigue con esa imagen es muy posible que haya diferencias sutiles entre clips: cada foto trae otra luz (cambia el color del pelo o las facciones), otra sonrisa y otra calidad, y la IA lo copia. |
 
 ---
 
@@ -252,15 +259,19 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 - [ ] Cumple el checklist del asset y el feedback ya dado.
 
 ### 5.3 Combinación
-- [ ] La persona es idéntica a su original: cara, ojos, pelo, ropa, pose y lo que sostiene.
+- [ ] La persona es idéntica a su original: cara, expresión, ojos, pelo, ropa, pose y lo que sostiene. Se compara la cara con la original, lado a lado.
+- [ ] El prompt dijo que el rostro, las expresiones, el pelo y la ropa son exactamente iguales a los del original.
 - [ ] El fondo es idéntico a su original: no cambió, no se perdió, no se recortó.
+- [ ] La perspectiva quedó intacta: la pared y el corcho no se desfasaron ni apuntan para otro lado.
 - [ ] La referencia no se pegó entera: no reemplazó toda la imagen ni impuso su encuadre.
 - [ ] El objeto del fondo conserva su forma (un corcho horizontal no se volvió vertical).
 - [ ] La persona no trae pegada la escena de su foto (el fondo de estudio).
-- [ ] La escala de la persona contra el fondo es creíble y no tapa lo que importa.
+- [ ] La escala es real: una persona es más alta que un corcho de pared y una foto pinchada es más chica que una cara. Si no es real, no se manda.
+- [ ] La persona no tapa lo que importa.
+- [ ] La cara no quedó chica: de cuerpo entero y lejos, la escala es real pero el parecido se pierde.
 - [ ] No se ve recortada: el fondo puede quedar un poco desenfocado, como en una foto de verdad.
 - [ ] Vertical 9:16.
-- [ ] Se hizo en UNA edición, desde los dos originales.
+- [ ] Se hizo en UNA edición: el fondo original de base y el avatar original de referencia.
 - [ ] Se miró al lado de la referencia del template.
 
 ### 5.4 Clip (después de generar)
@@ -275,8 +286,9 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 
 ### 5.5 Voz
 - [ ] Se usó LA-CONFIG.json tal cual: voz, modelo, ajustes y formato.
+- [ ] El origen fue el audio del propio clip, a mp3 192k SIN filtros (ni loudnorm ni highpass antes).
 - [ ] Nivelada a −14 LUFS.
-- [ ] Duración de la voz contra el clip: decenas de milisegundos (el aprobado: 38 ms).
+- [ ] Duración de la voz contra el clip: decenas de milisegundos (el aprobado, CLIP-wavnivel: 5,000 s de video y 5,062 s de voz, 62 ms).
 - [ ] No se le tocó el tono ni la velocidad.
 - [ ] La escuchó el usuario y dijo que es su voz.
 
@@ -289,7 +301,7 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 | Para | Se usa | Jamás |
 |---|---|---|
 | Imágenes | Flow con Nano Banana 2.1 (gratis). Por API: ApiMart `gemini-nano-banana-2.1-ext` (US$ 0,012). Es el mismo modelo, así que sale igual por los dos lados. | Puro prompt. Describir caras con palabras. `gemini-omni-1.2-flash-ext` para imagen (no pasa la revisión de contenido). Una imagen reescalada. |
-| Video de una cara que habla | Omni 1.2 Flash en Flow. En ApiMart, `gemini-omni-1.2-flash` (5 u 8 s) u `Omni-Flash-Ext` (10 s). | Cualquier modelo que no sea Omni. `wan2.5-preview` mueve la boca sin sincronizar. Veo 3.1 Lite (el default de Flow). Dos modelos «para elegir». |
+| Video de una cara que habla | Omni 1.2 Flash en Flow: Fotogramas, 720p, 9:16, 5 u 8 s, x1. Por Flow, no por ApiMart (Martín: «¿por qué usaste ApiMart, si estamos usando Flow para no gastar?»). Lo que corre por API (la app) usa ApiMart: `gemini-omni-1.2-flash` (5 u 8 s) u `Omni-Flash-Ext` (10 s). | Cualquier modelo que no sea Omni. `wan2.5-preview` mueve la boca sin sincronizar. Veo 3.1 Lite (el default de Flow). Dos modelos «para elegir». |
 | Voz sobre un clip | ElevenLabs voice-to-voice, `eleven_multilingual_sts_v2`, clon NORMAL «wav nivelado» `1crLVxcTqcz5I2mDmBlO`. | Un audio de texto a voz pegado encima (despega los labios). El clon profesional en voice-to-voice (Martín: «No es mi voz»). OpenVoice V2. Procesar la voz. |
 | Voz desde texto, sin video | `eleven_v4` con el clon profesional `I2d6BR9P2dAopVw1khNv`. | `eleven_v3` (lo mexicaniza) y `eleven_multilingual_v2`. |
 | Voz o avatar con otro modelo | Sólo con licencia comercial limpia (ver `docs/hallazgos-ai-avatar.md`). | XTTS-v2, F5-TTS y VoiceStudio: no son de uso comercial. Que Replicate o fal los hospeden no limpia la licencia. |
@@ -306,6 +318,8 @@ Martín: «salió impecable».
    ```
 
    Para 8 s, «about 6 seconds».
+
+   **Ese clip salió por ApiMart, pero el video va por Flow.** Martín: «¿por qué usaste ApiMart, si estamos usando Flow para no gastar?». El clip 1 del reel se rehízo en Flow con esta receta (Fotogramas · Omni 1.2 Flash · 720p · 9:16 · 5 s · x1 = 15 créditos, fotograma inicial `C:/dev/reel-mentores/omni/personaje-corcho.jpg`) y Martín lo aprobó el 9/11.
 3. **Voz.** `bash C:/dev/reel-mentores/voz/poner-voz-wavnivel.sh <clip de Omni.mp4> <salida.mp4>`. El origen es el audio del propio clip pasado a mp3 192k SIN filtros → voice-to-voice → loudnorm → montaje con `-c:v copy`.
 
 ### 6.3 ElevenLabs: los ajustes exactos
@@ -326,6 +340,7 @@ montaje         ffmpeg -i <clip> -i <voz> -map 0:v -map 1:a -c:v copy -c:a aac -
 - **output_format es obligatorio.** El default es 128 kbps y se escucha peor. PCM y WAV a 44,1 kHz piden plan Pro.
 - **No existe un voice-to-voice v4.** Los únicos modelos son `eleven_multilingual_sts_v2` y `eleven_english_sts_v2`.
 - **El acento lo pone el origen.** Si Omni habló en español de España, el clon lo arrastra.
+- **El origen va SIN filtros.** El relevo viejo (§8 de `docs/relevo/reel-mentores-high-ticket.md`) y el CLIP2 del 9/11 lo nivelaban antes (`loudnorm=I=-19:TP=-3:LRA=11,highpass=f=70`). La receta aprobada no lo hace.
 - **La voz aprobada no se procesa.** Ni speed, ni atempo, ni corrimiento de tono. Si no entra en el video, se ajusta el video (`setpts`) o se regenera con otra duración.
 - **ElevenLabs entrega a −27 dB de media.** Por eso se nivela a −14 LUFS. Es ganancia: no toca el timbre.
 - **El tono (Hz) sirve para descartar material, no para juzgar.** La voz se le manda al usuario para que escuche, sin un veredicto adelante.
@@ -349,7 +364,7 @@ montaje         ffmpeg -i <clip> -i <voz> -map 0:v -map 1:a -c:v copy -c:a aac -
 ### 6.5 Flow
 
 - **Cuenta:** el proyecto del reel está en `mbustos@elevate.com.mx`, que en el Chrome de Claude es `/u/2/`. Con `/u/0` o `/u/1`, Flow dice que el proyecto no existe.
-- **Panel de video:** Video · **Fotogramas** (no Ingredientes) · **Omni 1.2 Flash** (no Veo 3.1 Lite) · **720p** (no 360p) · **9:16** · **8 s** · **x1** = 24 créditos. Los defaults vienen mal: revísalo siempre.
+- **Panel de video:** Video · **Fotogramas** (no Ingredientes) · **Omni 1.2 Flash** (no Veo 3.1 Lite) · **720p** (no 360p) · **9:16** · **5 s** (15 créditos, el de la receta aprobada) u **8 s** (24) · **x1**. Los defaults vienen mal: revísalo siempre.
 - **Imágenes:** el radio de Imagen es el primero. Al tocarlo, el modelo pasa solo a Nano Banana 2.1. Las imágenes no gastan créditos.
 - **Descargas:** siempre «1K · Tamaño original». Nunca «2K/4K Reescalado». Los videos, en su original.
 - **Referencias propias:** entran por el portapapeles. En PowerShell, `[System.Windows.Forms.Clipboard]::SetDataObject($img, $true)` (no `SetImage`; sin el `$true` se vacía) y después Ctrl+V en la caja. Avísale a Martín que se pisa su portapapeles.
@@ -387,6 +402,7 @@ montaje         ffmpeg -i <clip> -i <voz> -map 0:v -map 1:a -c:v copy -c:a aac -
 | Imagen | Flow (Nano Banana 2.1) | 0 créditos |
 | Imagen | ApiMart `gemini-nano-banana-2.1-ext` | US$ 0,012 |
 | Video 720p, 3 s, x1 | Flow (Omni 1.2 Flash) | 9 créditos |
+| Video 720p, 5 s, x1 | Flow (Omni 1.2 Flash) | 15 créditos |
 | Video 720p, 8 s, x1 | Flow (Omni 1.2 Flash) | 24 créditos |
 | Video 720p, 8 s, x2 | Flow (Omni 1.2 Flash) | 48 créditos |
 | Video 360p, 8 s, x1 | Flow | 8 créditos (no sirve: el precio engaña) |
@@ -429,7 +445,11 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | Todo «muy de IA», piel plástica | Se bajó en 2K reescalado y se volvió a subir | Volver al original de 1K |
 | Las caricaturas se volvieron fotos de personas reales | Se pidió «más realista» | Nombrar la propiedad (nitidez, sombra, escala) y anclar «mantienen sus colores» |
 | Un ojo deformado, la foto de la mano desfigurada | Nueve ediciones encadenadas | Volver a la versión limpia |
-| La persona llega con su fondo de estudio y se come el corcho | Persona como referencia y fondo como base | Al revés: la persona de base |
+| El corcho desfasado, la pared apuntando para otro lado | La persona de base y el fondo de referencia | Al revés: el fondo de base y la persona de referencia («No al revés», Martín) |
+| La persona llega con su fondo de estudio y se come el corcho | La persona de referencia con «la persona es este chico» | Decir dónde va y qué queda: «Agrega a esta persona de pie al lado del corcho… El corcho, la pared y el cuarto quedan igual.» |
+| La persona chiquita delante de un corcho gigante con fotos enormes | No se miró la escala antes de mandar | Escala real (§5.3). Martín: «se ve muy feo» |
+| «No me gusta el avatar» | El avatar salió de una imagen de referencia de look, no de la cadena foto real → estudio | Volver al avatar original (`personaje-bueno-original.jpg`) |
+| «¿Por qué usaste ApiMart?» | El video se mandó por API | Flow |
 | Unas 40 caras repetidas | «Llenándolo» | Dar el número: «estas doce caras, una sola vez cada una» |
 | Relleno de luz o fondo plano de recorte | Negativos en el prompt | Pedir en positivo |
 | Una luz en la cara cuando se quería contraluz | «Que la cara siga legible» | Una frase con el efecto: «a contraluz contra un fondo blanco» |
@@ -447,7 +467,7 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 
 ### 7.1 «Mensaje para…» (el template actual)
 
-**El nombre.** El formato no tiene un nombre establecido. Es el de Josep Casas (@soyjosepcasas, cofundador de Naturitas, hoy en EuroPistachios, Lleida; crema de pistacho Tacho). Su frase de presentación es «Soy Josep y planto pistachos». No va con un soundtrack famoso: usa sonido original, y lo que lo identifica es la voz y la frase.
+**El nombre.** El formato no tiene un nombre establecido. Es el de Josep Casas (@soyjosepcasas, cofundador de Naturitas, hoy en EuroPistachios, Lleida; crema de pistacho Tacho). Su frase de presentación es «Soy Josep y planto pistachos». No se le encontró un soundtrack famoso: en la web no aparece una canción asociada al formato, y la copia que tenemos no tiene pista de audio, así que no se pudo escuchar. Lo que lo identifica es la voz y la frase. Para confirmarlo, hay que mirar el crédito de audio del reel publicado.
 Nombre recomendado: **«Mensaje para…»**, de su propia fórmula («Este es un mensaje para…»). Dice la mecánica (el cliente completa a quién le habla), nombra la estructura y no el insulto, y suena igual en España y en Argentina.
 Otros posibles: «El Pique», «El Zasca» (en Argentina, «El Palito»), «Estilo Pistachero». Falta que Martín elija.
 
@@ -474,8 +494,8 @@ Otros posibles: «El Pique», «El Zasca» (en Argentina, «El Palito»), «Esti
 6. **Palabras en pantalla:** una sola por inserto, roja, con serif, arriba. Sólo tres en toda la parte hablada, más dos carteles al final.
 7. **Subtítulos de la parte hablada:** blancos, centrados, a media altura (no abajo), de 2 a 3 palabras por cartel.
 8. **El mismo fondo durante todo el video.**
-9. **Cada clip hablado arranca del último fotograma del anterior.**
-10. **El prompt de un clip hablado lleva el acento, la frase entre comillas y lo quieto.** Salió a la primera en Flow: «Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo: "…". Al principio abre la mano y deja caer la foto.»
+9. **La imagen de cada clip sale del avatar original y del fondo original, nunca del último fotograma del clip anterior.** La continuidad la dan los mismos originales. Martín: «siempre se debe partir desde el avatar original… si no, van a haber discordancias seguro en los avatares».
+10. **El prompt de un clip hablado lleva el acento, la frase entre comillas y lo quieto.** El vigente es el de la receta aprobada (§6.2): en inglés, con la frase en español entre comillas y «young man from Uruguay». Antes también salió a la primera en Flow, en español: «Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo: "…". Al principio abre la mano y deja caer la foto.»
 11. **El guion del cliente es textual y no se toca.** Además, cambiar el copy despega los labios.
 12. **La duración de cada clip sale del texto:** unas 3 palabras por segundo si habla quieto, 2,1 si hace una acción.
 
@@ -490,7 +510,7 @@ Otros posibles: «El Pique», «El Zasca» (en Argentina, «El Palito»), «Esti
 - [ ] Como mucho tres palabras rojas en la parte hablada, una por inserto.
 - [ ] Subtítulos blancos a media altura, de 2 a 3 palabras.
 - [ ] El guion es el del cliente, textual.
-- [ ] El mismo fondo en todo el video, y cada clip arranca del último cuadro del anterior.
+- [ ] El mismo fondo en todo el video, y la imagen de cada clip sale de los mismos originales (avatar y fondo), no del último cuadro del anterior.
 - [ ] Cada toma se miró al lado de la del molde de Josep.
 - [ ] Unos 30 s en total, 720×1280.
 
@@ -519,7 +539,9 @@ Un tablero de corcho con las caricaturas de los gurús unidas por hilo rojo, en 
 
 - **Aprobado (win):** `C:/dev/reel-mentores/aprobado/corcho-v3-1k.jpg` (en Flow, la última versión de `/edit/05deab67-…`). Elegido por Martín: «Esa, está bien, vamos directamente con esa».
 - **Cómo se hizo:** editando la v1, sin referencia: «Las mismas 32 fotos, en los mismos lugares y del mismo tamaño. Ahora están un poco torcidas, con algunas notas de papel… hilo rojo… como un tablero de investigación.»
-- **Con el avatar delante:** `C:/dev/reel-mentores/aprobado/avatar-delante-v1.jpg`. Es el fotograma inicial de los clips.
+- **Con el avatar delante:** `C:/dev/reel-mentores/omni/personaje-corcho.jpg` (el avatar «Martín con la polaroid» delante del corcho). Es el fotograma inicial del clip 1, que Martín aprobó en Flow el 9/11.
+- **Para el clip 2** («que ya no tenga la foto, y que yo esté parado al lado del cuadro de corcho»): en curso. `omni/clip2-fondo-mas-persona.jpg` (el fondo de base y el avatar de referencia) dejó la perspectiva intacta, pero después Martín marcó la escala («el pizarrón… exageradamente grande… y yo quede así de chiquito»). Ahora: primero el fondo alejado (`omni/fondo-alejado.jpg`), después el avatar original de referencia, de la cintura para arriba.
+- **Rechazado:** `C:/dev/reel-mentores/aprobado/avatar-delante-v1.jpg`, a pesar de la carpeta. Su avatar salió de la imagen de referencia de look y Martín dijo «no me gusta el avatar».
 
 **Reglas.**
 1. **Horizontal, en la pared,** en el mismo cuarto donde se producen los clips. Nunca vertical.
@@ -550,9 +572,9 @@ Un tablero de corcho con las caricaturas de los gurús unidas por hilo rojo, en 
 
 ### 8.2 Avatar «Martín con la polaroid»
 
-- **Aprobado (win):** `C:/Users/marti/Downloads/Young_man_talking_on_phone_9b0328bc.jpg` (1K original) y, delante del corcho, `avatar-delante-v1.jpg`.
+- **Aprobado (win):** `C:/Users/marti/Downloads/Young_man_talking_on_phone_9b0328bc.jpg` (1K original, 768×1376; copia en `C:/dev/reel-mentores/omni/personaje-bueno-original.jpg`) y, delante del corcho, `omni/personaje-corcho.jpg`. De ahí salió CLIP-wavnivel.mp4: «salió impecable».
 - **Cómo se hizo:** foto real del álbum de Google Photos → imagen de estudio en Flow con la foto pegada como referencia → edición para que sostenga una polaroid (con la foto de Ramiro de referencia).
-- **Reglas:** la cara sale siempre de la foto real, nunca de una descripción. Girarlo de perfil a frontal no es una edición menor: el modelo reconstruye la cara y el parecido se va.
+- **Reglas:** la cara sale siempre de la foto real, nunca de una descripción ni de una imagen de referencia de look (el avatar hecho así, `avatar-delante-v1.jpg`, quedó rechazado). Girarlo de perfil a frontal no es una edición menor: el modelo reconstruye la cara y el parecido se va.
 
 ### 8.3 Edición (subtítulos y audio)
 
@@ -580,21 +602,22 @@ Los parámetros completos y sus trampas están en `docs/edicion-video-automatica
 
 ## 9. Lo que todavía no está resuelto
 
-1. **Documentos con la voz vieja.** `docs/video-avatar-desde-foto.md` (§ «En voice-to-voice va el clon PROFESIONAL»), `docs/relevo/reel-mentores-high-ticket.md` (§00) y la memoria `voz-elevenlabs-sts.md` dicen el clon profesional. Este manual sigue a `LA-CONFIG.json`: el clon normal «wav nivelado». Hay que corregirlos. El «119 Hz» de `_medido_9_11` en LA-CONFIG puede ser una medición del profesional.
-2. **Quién pone el acento en voice-to-voice.** LA-CONFIG dice «el ORIGEN» en `_ojo_3` y «el CLON» en `_ojo_5`. Este manual sigue al origen, que es lo que se vio el 9/11. Falta medirlo con los dos clones sobre el mismo origen.
-3. **Cómo se pide el acento.** El clip aprobado por ApiMart dice «young man from Uruguay»; los clips de Flow del reel dicen «Habla con acento argentino de Buenos Aires». CLIP1 y CLIP2-CON-TU-VOZ (`C:/dev/reel-mentores/clips-final/`) esperan el OK de Martín.
-4. **Negativos en el prompt de video.** El prompt aprobado dice «no cuts» y «No on-screen text, no subtitles», contra la regla 13. Funcionó así y no se probó sin ellos.
-5. **Dos personas.** Falta probar cómo se combinan el fondo y dos avatares respetando «una sola referencia». Y con dos caras en cuadro, elegir la más grande para mover la boca no sirve: se elige por posición o se genera el clip con una sola persona.
-6. **Lo más barato contra sólo Omni.** AGENTS.md dice probar el método con el modelo más barato (Hailuo, US$ 0,15). Para una cara que habla, este manual dice sólo Omni, en su opción más barata (5 s).
-7. **El vertical en Omni:** acolchar a 9:16 antes (`docs/video-avatar-desde-foto.md`) o recortar al centro después (`docs/edicion-video-automatica.md`). Este manual dice antes.
-8. **Dónde se consulta el estado en ApiMart.** Los documentos dicen `GET /v1/tasks/<id>`; `omni-clip.mjs` consulta `/v1/videos/generations/<id>` y funcionó.
-9. **`clone_strength` en voice-to-voice.** La guía de edición dice que el voice-to-voice lo acepta; LA-CONFIG no lo usa.
-10. **El tono en voice-to-voice.** Una nota dice que hereda el tono del origen y otra que lo reconstruye desde el clon.
-11. **La memoria `metodologia-avatar-hype.md`** dice `kling-v3-omni` para video y coqui-tts local para la voz. Está desactualizada.
-12. **Imágenes en 2K.** El curso AvatarHype dice generarlas en 2K «porque cuesta lo mismo». No está medido si generar en 2K es distinto de bajar el reescalado. Mientras tanto, 1K original.
-13. **Ediciones encadenadas.** `docs/video-avatar-desde-foto.md` dice volver a pasar la referencia cada 3 o 4; este manual toma el techo de 2 o 3 del relevo y de AGENTS.md.
-14. **El template.** Falta que Martín elija el nombre. La «1 semana gratis» del cierre choca con que la prueba gratis está apagada desde el 30/10. Falta saber si la polaroid tiene que mostrar la misma caricatura del clip 1 (perdió la gorra).
-15. **El reel de mentores.** Faltan el OK de los clips 1 y 2, los clips 3, 4 y 5 (cada uno con su imagen primero), el cierre mudo de 10 s y el montaje. Estado en `docs/relevo/reel-mentores-high-ticket.md`.
-16. **El corcho.** Hay 32 caricaturas para unos 50 huecos: o se baja a 32 fotos o se generan más caricaturas (`lib/asesores/`). Martín pidió las notas en español y eligió la v3, que las tiene en inglés.
-17. **En el producto.** El checklist automático todavía no existe (YuNet sobre la imagen antes de pagar, la comparación al lado). Hoy lo recorren Claude o MaKo a mano. AI Avatar no se probó con un look real (la prueba es de Martín, en el ws3). Del catálogo de avatares falta el experimento de un personaje base contra uno por arquetipo.
-18. **La edición automática.** Falta decidir dónde corre ffmpeg (Vercel no lo trae), la fuente de los subtítulos y la música (la de Pixabay no sirve para el SaaS). −14 LUFS es un default, no un requisito de las plataformas.
+1. **Documentos con la voz vieja.** `docs/video-avatar-desde-foto.md` (§ «En voice-to-voice va el clon PROFESIONAL»), `docs/relevo/reel-mentores-high-ticket.md` (§00) y la memoria `voz-elevenlabs-sts.md` dicen el clon profesional; el §8 del relevo filtra el origen antes del voice-to-voice. Este manual sigue a `LA-CONFIG.json` y a `poner-voz-wavnivel.sh`: el clon normal «wav nivelado», con el origen sin filtros. Hay que corregirlos. El «119 Hz» de `_medido_9_11` en LA-CONFIG puede ser una medición del profesional, y sus 38 ms son del CLIP2, no del clip aprobado.
+2. **Documentos con el orden viejo de la combinación.** `docs/video-avatar-desde-foto.md` («EL ORDEN DE LA COMPOSICIÓN: la PERSONA va de base») y el §0 y «Lo que sigue» del relevo dicen la persona de base. Martín lo dio vuelta el 9/11: el fondo de base. Hay que corregirlos. Falta medir un primer plano con el fondo de base: el clip 1 aprobado (`personaje-corcho.jpg`) se hizo con la persona de base.
+3. **Quién pone el acento en voice-to-voice.** LA-CONFIG dice «el ORIGEN» en `_ojo_3` y «el CLON» en `_ojo_5`. Este manual sigue al origen, que es lo que se vio el 9/11. Falta medirlo con los dos clones sobre el mismo origen.
+4. **Cómo se pide el acento.** La receta aprobada dice «young man from Uruguay»; los clips de Flow de antes decían «Habla con acento argentino de Buenos Aires». Los de `C:/dev/reel-mentores/clips-final/` (CLIP1 y CLIP2-CON-TU-VOZ) quedaron rechazados por el avatar y la voz profesional, no por el acento. Falta que Martín diga cuál es su acento por defecto.
+5. **Negativos en el prompt de video.** El prompt aprobado dice «no cuts» y «No on-screen text, no subtitles», contra la regla 13. Funcionó así y no se probó sin ellos.
+6. **Dos personas.** Falta probar cómo entran dos avatares en el fondo respetando «una sola referencia» por edición: uno por edición son dos ediciones encadenadas. Y con dos caras en cuadro, elegir la más grande para mover la boca no sirve: se elige por posición o se genera el clip con una sola persona.
+7. **Lo más barato contra sólo Omni.** AGENTS.md dice probar el método con el modelo más barato (Hailuo, US$ 0,15). Para una cara que habla, este manual dice sólo Omni, en su opción más barata (5 s).
+8. **El vertical en Omni:** acolchar a 9:16 antes (`docs/video-avatar-desde-foto.md`) o recortar al centro después (`docs/edicion-video-automatica.md`). Este manual dice antes.
+9. **Dónde se consulta el estado en ApiMart.** Los documentos dicen `GET /v1/tasks/<id>`; `omni-clip.mjs` consulta `/v1/videos/generations/<id>` y funcionó.
+10. **`clone_strength` en voice-to-voice.** La guía de edición dice que el voice-to-voice lo acepta; LA-CONFIG no lo usa.
+11. **El tono en voice-to-voice.** Una nota dice que hereda el tono del origen y otra que lo reconstruye desde el clon.
+12. **La memoria `metodologia-avatar-hype.md`** dice `kling-v3-omni` para video y coqui-tts local para la voz. Está desactualizada.
+13. **Imágenes en 2K.** El curso AvatarHype dice generarlas en 2K «porque cuesta lo mismo». No está medido si generar en 2K es distinto de bajar el reescalado. Mientras tanto, 1K original.
+14. **Ediciones encadenadas.** `docs/video-avatar-desde-foto.md` dice volver a pasar la referencia cada 3 o 4; este manual toma el techo de 2 o 3 del relevo y de AGENTS.md.
+15. **El template.** Falta que Martín elija el nombre, y confirmar el audio del reel publicado (la copia no tiene pista). La «1 semana gratis» del cierre choca con que la prueba gratis está apagada desde el 30/10. Falta saber si la polaroid tiene que mostrar la misma caricatura del clip 1 (perdió la gorra).
+16. **El reel de mentores.** El clip 1 está aprobado (Flow, `C:/dev/reel-mentores/omni/CLIP1-CON-TU-VOZ.mp4`). Falta el OK de la imagen del clip 2 (el fondo de base y el avatar de referencia) y, después, su video; los clips 3, 4 y 5 (cada uno con su imagen primero), el cierre mudo de 10 s y el montaje. Estado en `docs/relevo/reel-mentores-high-ticket.md`.
+17. **El corcho.** Hay 32 caricaturas para unos 50 huecos: o se baja a 32 fotos o se generan más caricaturas (`lib/asesores/`). Martín pidió las notas en español y eligió la v3, que las tiene en inglés.
+18. **En el producto.** El checklist automático todavía no existe (YuNet sobre la imagen antes de pagar, la comparación al lado). Hoy lo recorren Claude o MaKo a mano. AI Avatar no se probó con un look real (la prueba es de Martín, en el ws3). Del catálogo de avatares falta el experimento de un personaje base contra uno por arquetipo.
+19. **La edición automática.** Falta decidir dónde corre ffmpeg (Vercel no lo trae), la fuente de los subtítulos y la música (la de Pixabay no sirve para el SaaS). −14 LUFS es un default, no un requisito de las plataformas.
