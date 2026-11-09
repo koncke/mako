@@ -2508,6 +2508,44 @@ Su edad para la toma 2 del guion · cargar créditos de Flow · cerrar las pesta
 guardia de RAM frenó el `tsc` cuatro veces, quedaban 1,3 GB de los 3 que pide) · el **ticket #67**,
 que entró y no llegué a tomar.
 
+## LA VOZ, CERRADA (9/11/2026 06:00) — dos configuraciones para dos caminos
+
+Después de una noche entera de versiones rechazadas, quedó resuelto y **escrito con sus números** en
+`docs/edicion-video-automatica.md` y en `scratchpad/walter/LA-CONFIG.json`:
+
+| camino | voz | modelo | ajustes |
+|---|---|---|---|
+| **TEXTO** (TTS) | `I2d6BR9P2dAopVw1khNv` (profesional) | `eleven_v4` | stability 0 · sim 1 · style 1 · boost true |
+| **VIDEO** (voice-to-voice) | `1crLVxcTqcz5I2mDmBlO` («wav nivelado», clon NORMAL) | `eleven_multilingual_sts_v2` | stability 0 · sim 1 · style 1 · **boost FALSE** |
+
+Y después de cualquiera: `loudnorm=I=-14:TP=-1:LRA=11`. ElevenLabs entrega a −27 dB y suena «bajito»:
+eso era la mitad de los «no suena bien» de la noche.
+
+**Por qué son dos voces y no una:** `GET /v1/voices` muestra que el clon profesional está fine-tuned
+para `eleven_v4` y `eleven_multilingual_v2`, **no para el modelo de STS**. En voice-to-voice se cae a
+un modelo sin ese entrenamiento, y ahí gana el clon normal.
+
+### Los cuatro errores que costaron la noche, para no repetirlos
+
+1. **Un `1` donde iba un `0`.** `LA-CONFIG.json` decía `stability: 1`. Como la regla es LEER ese
+   archivo en vez de retipear, cada corrida devolvía obedientemente una voz que no era la suya.
+   **Un archivo de config aprobado es tan peligroso como útil: si está mal, falla todas las veces.**
+2. **`use_speaker_boost` mueve 55 Hz** (125 con `true`, 250 con `false`). Martín lo sospechó primero;
+   yo buscaba la causa en el clip de Omni y armé una teoría sobre el tono heredado. Él tenía razón.
+3. **La métrica no es el juez.** Medí 250 Hz contra sus 144 reales, escribí «salió agudo, te lo mando
+   para descartarlo» — y era el bueno. **Los archivos se mandan sin el veredicto puesto adelante:**
+   el rótulo sesga lo que va a escuchar.
+4. **Dos descargas truncadas que se escribieron sin mirar.** Los dos STS salieron de 33.452 bytes
+   exactos (1,33 s de 5) y se montaron igual: el audio «empezaba y se cortaba». Ahora el script
+   verifica el tamaño antes de usar nada. **Un archivo corto no da error: aparece al escucharlo.**
+
+### El reel
+
+Clip 1 terminado: Omni por ApiMart (720×1280, `aspect_ratio: '9:16'` — sin ese parámetro vuelve
+horizontal), la frase ESCRITA en el prompt (sin texto la inventa, y en inglés), y la voz por
+voice-to-voice con la config de arriba. Gastado: **US$ 1,40** en ApiMart, cinco generaciones.
+Faltan las tomas 2 a 6 y la edad de Martín para la línea 2.
+
 ## Lo que NO se vuelve a discutir
 
 - **Nunca `--no-verify`.** El 24/10 el hook de pre-push frenó un tren con 5 errores de tipos.
