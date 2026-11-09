@@ -37,7 +37,7 @@ export async function clicsDeLanding(opts: { url?: string | null; dias?: number;
   const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
   const vacio: ClicsDeLanding = {
     url: urlPedida, dias, medido: false, clics: 0, personas: 0, botones: [], recortado: false,
-    nota: 'No se pudo leer: esto NO es un cero. Volvé a pedirlo antes de concluir que nadie tocó nada.',
+    nota: 'No se pudo leer: esto NO es un cero. Vuelve a pedirlo antes de concluir que nadie tocó nada.',
   };
 
   const db = await getTenantDb();
@@ -75,7 +75,7 @@ export async function clicsDeLanding(opts: { url?: string | null; dias?: number;
     ...totalesDe(suyos),
     historial: suyos.slice(0, limite).map((f) => ({ cuando: f.created_at, visitante: f.visitor_id ?? '(sin id)', landing: f.landing_url ?? null })),
     nota: suyos.length === 0
-      ? `Ningún clic de este período coincide con «${boton}». La consulta corrió bien: es un cero de verdad. Mirá los botones sin filtro para ver cómo quedó guardado el texto.`
+      ? `Ningún clic de este período coincide con «${boton}». La consulta corrió bien: es un cero de verdad. Mira los botones sin filtro para ver cómo quedó guardado el texto.`
       : `${suyos.length} clics coinciden con «${boton}». Las horas van en UTC (terminan en Z).${suyos.length > limite ? ` Se devuelven los ${limite} más nuevos.` : ''}`,
   };
 }

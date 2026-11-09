@@ -517,6 +517,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/landing/landings', 'guardar_landing'],
   ['GET', '/landing/landings/cambios', 'ver_cambios_landing'],
   ['GET', '/landing/landings/comportamiento', 'ver_comportamiento_landing'],
+  ['GET', '/landing/landings/clics', 'listar_clics_landing'],
   ['DELETE', '/landing/landings/diagnostico', 'borrar_analisis_landing'],
   ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
   ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],

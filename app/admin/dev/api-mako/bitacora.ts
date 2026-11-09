@@ -574,7 +574,7 @@ export const BITACORA: Hito[] = [
     revisar: '/integraciones?abrir=landing',
   },
   {
-    fecha: '09 nov', hora: '02:10', chat: 'Cerebro', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '09 nov', hora: '02:10', chat: 'Cerebro', sesion: 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'Los clics del Pixel ya estaban guardados: faltaba la puerta para pedirlos',
     pedido: 'Ticket #66 (Mauricio Bustos): «La API no expone conteos ni fechas de clics capturados por el píxel». Pedía conteo por botón filtrado por landing y período, clics y visitantes únicos, fecha y hora de cada clic con zona, historial paginado, y distinguir cero de dato no disponible. Y, sobre todo, confirmar si los clics históricos estaban almacenados.',
     puntos: [

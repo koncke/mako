@@ -162,13 +162,17 @@ export const DEFS: readonly OperacionDef[] = [
   // video y secciones, y `ver_analitica_landing` visitas y leads: ninguna, los botones.
   {
     id: 'listar_clics_landing', area: 'landing', tipo: 'lectura',
-    titulo: 'Clics en los botones de una landing',
-    descripcion: 'Cuántas veces se tocó cada botón o enlace de una landing y cuándo, medido por el Pixel de MaKo. Devuelve los clics y las PERSONAS distintas de cada botón (una persona que toca cinco veces no son cinco), con el primero y el último. Con «boton» devuelve además el historial de ese botón, clic por clic, con fecha y hora en UTC (terminan en Z). Las pruebas del Pixel no cuentan. Úsala para «¿cuántos tocaron mi botón de pago?». ⚠️ Mira «medido»: en false la consulta falló y el cero NO es un cero; en true, un cero es un cero de verdad.',
+    titulo: 'Clics que midió el Pixel',
+    // ⚠️ LA DESCRIPCIÓN VA CORTA A PROPÓSITO (9/11/2026). La primera versión era tres veces más larga
+    // y empujó `acomodar_bloque_landing` fuera del tope de 12.000 caracteres de herramientas: con eso,
+    // «quita el botón de la web» dejó de poder editar nada (tests/mako-intencion-landing.test.ts). Una
+    // operación NUEVA le saca lugar a las que ya estaban, y el precio lo paga otra intención.
+    descripcion: 'Cuántas veces tocaron cada enlace de una página y cuándo, según el Pixel: clics y PERSONAS distintas, con el primero y el último. Las pruebas del Pixel no cuentan. ⚠️ Con «medido» en false la consulta falló: ese cero NO es un cero.',
     parametros: [
-      { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing a mirar (con o sin https). Sin ella, los clics de todas las páginas del negocio.' },
-      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Qué período mirar hacia atrás. Por defecto 30.' },
-      { nombre: 'boton', tipo: 'string', max: 300, descripcion: 'Un pedazo del texto del botón o de su link (por ejemplo «RESERVA TU CUPO» o «buy.stripe.com»). Con esto viene el historial clic por clic.' },
-      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'Cuántos clics del historial devolver, los más nuevos primero. Por defecto 100.' },
+      { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing (con o sin https). Sin ella, todas las del negocio.' },
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás. Por defecto 30.' },
+      { nombre: 'boton', tipo: 'string', max: 300, descripcion: 'Un pedazo del texto del botón o de su link. Con esto viene el historial.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'Cuántos clics del historial, los más nuevos primero. Por defecto 100.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },

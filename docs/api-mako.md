@@ -11249,10 +11249,11 @@ curl -L \
   "https://hola-mako.com/api/v1/landing/pixel/pruebas/PRUEBA/eventos"
 ```
 
-### `GET /api/v1/landing/listar_clics_landing` — Clics en los botones de una landing
+### `GET /api/v1/landing/landings/clics` — Clics que midió el Pixel
 
-Cuántas veces se tocó cada botón o enlace de una landing y cuándo, medido por el Pixel de MaKo. Devuelve los clics y las PERSONAS distintas de cada botón (una persona que toca cinco veces no son cinco), con el primero y el último. Con «boton» devuelve además el historial de ese botón, clic por clic, con fecha y hora en UTC (terminan en Z). Las pruebas del Pixel no cuentan. Úsala para «¿cuántos tocaron mi botón de pago?». ⚠️ Mira «medido»: en false la consulta falló y el cero NO es un cero; en true, un cero es un cero de verdad.
+Cuántas veces tocaron cada enlace de una página y cuándo, según el Pixel: clics y PERSONAS distintas, con el primero y el último. Las pruebas del Pixel no cuentan. ⚠️ Con «medido» en false la consulta falló: ese cero NO es un cero.
 
+- **Ruta por operación:** `GET /api/v1/landing/listar_clics_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -11262,13 +11263,17 @@ Cuántas veces se tocó cada botón o enlace de una landing y cuándo, medido po
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `url` | string | no | La landing a mirar (con o sin https). Sin ella, los clics de todas las páginas del negocio. |
-| `dias` | number | no | Qué período mirar hacia atrás. Por defecto 30. |
-| `boton` | string | no | Un pedazo del texto del botón o de su link (por ejemplo «RESERVA TU CUPO» o «buy.stripe.com»). Con esto viene el historial clic por clic. |
-| `limite` | number | no | Cuántos clics del historial devolver, los más nuevos primero. Por defecto 100. |
+| `url` | string | no | La landing (con o sin https). Sin ella, todas las del negocio. |
+| `dias` | number | no | Período hacia atrás. Por defecto 30. |
+| `boton` | string | no | Un pedazo del texto del botón o de su link. Con esto viene el historial. |
+| `limite` | number | no | Cuántos clics del historial, los más nuevos primero. Por defecto 100. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/landings/clics"
 ```
 
 ### `GET /api/v1/landing/pixel/pruebas/{prueba}/grabaciones` — Grabación de una prueba
