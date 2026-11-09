@@ -42,8 +42,8 @@ https://flow.google.com/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e
 |---|---|---|
 | Clip 1 (él con la polaroid, estudio) | **hecho, aprobado** | `C:\Users\marti\Downloads\Young_man_holding_photo_card_0240f818.mp4` |
 | Piezas sobre fondo blanco (dedo arriba, brazos cruzados, perfil manos) | **hechas** | `Downloads\Person_crossing_arms_*.mp4`, `Man_moving_fingers_*.mp4`, `Brazo_levantado_*.mp4` |
-| **Clip 2 — la imagen** (él con la polaroid delante del corcho de gurús) | **hecha, en revisión** | ver abajo |
-| Clip 2 — el video | **FRENADO: sin créditos** | — |
+| **Clip 2 — la imagen** (él con la polaroid delante del corcho de gurús) | **hecha** | `Downloads\image.png_4a780f5f.jpg` |
+| **Clip 2 — el video, con la voz de Martín** | **HECHO (9/11 07:36)** | `Downloads\CLIP2-CON-VOZ.mp4` |
 
 ### Las versiones de la imagen del clip 2, en orden
 1. `Downloads\image.png_dd69edaa.jpg` — el corcho con las 32 caricaturas, **sin** la persona del clip 1.
@@ -110,10 +110,11 @@ Todo el detalle, con los seis intentos fallidos, está en **`docs/video-avatar-d
    - ajustes del panel: **Omni 1.2 Flash** (regla de Martín: sólo Omni), **720p**, **9:16**, **x1**.
 3. **Las tomas que falten del guión**, que en imagen no cuestan nada.
 
-### ⛔ El freno de verdad
-- **Flow: «You're out of Google Flow credits»** desde el 9/11 ~04:00. Imágenes sí, video no.
-- **ApiMart: US$ 0,26** medido el 8/11 — no alcanza para un clip de 5 s (US$ 0,2795).
-- **Hay que recargar uno de los dos para que el reel avance a video.** Martín lo sabe y no decidió.
+### Los créditos de Flow VOLVIERON (9/11 ~10:30)
+⚠️ **El cartel «You're out of Google Flow credits» de las 04:00 ya no aplica**: a las 10:30 el panel
+decía «La generación usará 24 créditos» y el clip 2 se generó sin problema. **El saldo se verifica
+en el momento, abriendo el panel de configuración con el modo en Video — no se da por perdido
+porque lo dijera un cartel hace seis horas.** (ApiMart sigue con US$ 0,26 del 8/11.)
 
 ### Dos avisos sueltos
 - Le **pisé el portapapeles** con las imágenes de referencia.

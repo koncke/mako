@@ -746,3 +746,34 @@ de nítido. ⚠️ El efecto salió **sutil**; si hace falta más, se insiste so
 - **Y antes de elegir esa propiedad, hay que estar seguro de cuál es.** Acá me jugué por la
   saturación sin comprobarlo y destruí lo que el cliente quería conservar. Ante la duda, **pedir
   el cambio de forma que no pueda tocar lo que ya está aprobado** («…mantienen sus colores»).
+
+## El clip 2 entero, de punta a punta (9/11/2026) — la receta que queda
+
+Imagen → video → voz, con los números medidos. **Costó 24 créditos de Flow y nada más.**
+
+1. **El primer fotograma.** En el proyecto, panel de configuración → **Video**, y ahí mismo
+   **modo «Fotogramas»** (viene en «Ingredientes»), **Omni 1.2 Flash**, **720p**, **9:16**, **x1**.
+   Aparecen los botones **Iniciar / Finalizar**; «Iniciar» abre *Seleccionar una imagen de marco*,
+   se elige la imagen y se confirma con **«Agregar a la instrucción»**.
+   ⚠️ El selector lista todas las imágenes del proyecto con el mismo nombre `image.png`: **hay que
+   mirar la vista previa grande antes de elegir**, porque las referencias que pegaste están ahí
+   mezcladas con los resultados.
+2. **El prompt lleva la frase entre comillas y ancla lo quieto:**
+   «El cuerpo queda quieto y habla a cámara diciendo: "…". Al principio abre la mano y deja caer la
+   foto.» Salió a la primera: suelta la foto en el primer segundo, el cuerpo no se mueve y el fondo
+   queda intacto.
+3. **La voz, con la config aprobada**, que se lee de `scratchpad/walter/LA-CONFIG.json` y se aplica
+   con `la-config.mjs <origen.wav> <salida.mp3>` — **nunca escribiéndola a mano**:
+   clon **normal** `1crLVxcTqcz5I2mDmBlO`, `eleven_multilingual_sts_v2`,
+   `stability 0 · similarity_boost 1 · style 1 · use_speaker_boost false`, `mp3_44100_192`.
+4. **Nivelar y remuxear:** `loudnorm=I=-14:TP=-1:LRA=11` (ElevenLabs entrega a −27 dB y suena
+   bajito) y después `-c:v copy` para no recomprimir la imagen.
+
+**Lo medido:** clip 8,043 s · voz 8,081 s · final 8,000 s → **38 ms de diferencia, los labios no se
+despegan**. Nivel final −17,5 dB de media, −1,0 de pico.
+
+⚠️⚠️ **Y lo que yo daba por perdido no lo estaba: los créditos de video de Flow habían vuelto.**
+Seis horas antes el cartel decía «You're out of Google Flow credits» y yo lo repetí tres veces como
+si fuera el estado actual. **El saldo se mira en el momento** —panel de configuración con el modo
+en Video, dice «La generación usará N créditos»— y no se le dice al cliente «no se puede» por un
+cartel viejo.
