@@ -12085,6 +12085,12 @@ criterioso, mirar y revisar si está bien luego».**
 corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
 mandarla.
 
+### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
+
+- **Escala:** *«no puede ser posible que el pizarrón sea exageradamente grande con esas imágenes exageradamente grandes y yo quede así de chiquito… se ve muy feo».* Se mira la proporción entre la persona y los objetos (una persona es más alta que un corcho de pared; una foto pinchada es más chica que una cara). Si no es real, no se manda.
+- **Rostro:** *«siempre en los prompts indícale que el rostro y las expresiones y todo sea idéntico al original… exactamente igual al original».* Toda frase que meta o mueva a una persona dice: «Su rostro, sus expresiones, su pelo y su ropa son exactamente iguales a los del original». Antes de mandar, se compara la cara con la original lado a lado.
+- **Perspectiva:** cuando manda el escenario, el FONDO va de base y la persona de referencia; se revisa que la pared y el corcho no queden desfasados.
+
 ### ⛔⛔⛔ UNA SOLA REFERENCIA Y UN PROMPT SIMPLE. SIEMPRE. ⛔⛔⛔
 
 **Regla de Martín, repetida el 9/11/2026 después de HORAS de vueltas, textual:** *«No le pases muchas referencias
