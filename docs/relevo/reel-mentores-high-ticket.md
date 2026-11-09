@@ -5,6 +5,28 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 000 · 9/11 ~12:35 UTC: Martín RECHAZÓ los clips nuevos — «muy de IA»; se rehace todo por separado
+
+Martín, textual: «salió tanto la imagen como el pizarrón de atrás muy de IA… quiero que lo vuelvas a hacer todo por
+separado… te adjunto una referencia de que así quiero más o menos el resultado final, que se vea realista». La
+referencia que mandó es `Downloads\image.png_4a780f5f.jpg`: él de cerca con la polaroid, el corcho detrás DESENFOCADO,
+luz cálida, fotos chicas sueltas, notas, chinches e hilo rojo. La causa, en sus palabras: bajar en 2K reescalado y
+volver a meter eso a Flow (ver AGENTS.md, «A Flow jamás le entra una imagen reescalada»). **Los clips nuevos de §00
+quedan DESCARTADOS.**
+
+**Lo hecho después** (todo en 1K original, en `C:\dev\reel-mentores\pizarron-real\`):
+- `a1-original.jpg`: base = el pizarrón limpio de la pared, con los dos lotes y la referencia. Salió la toma lejana con
+  luz fría (lo mismo de antes) y repitió caras. Descartada.
+- `a2-corcho-solo.jpg` → `a3-corcho-32.jpg`: **base = LA REFERENCIA de Martín** + los dos lotes por lado, en una sola
+  edición: «Solo el corcho de esta foto, de frente y llenando todo el cuadro, con la misma luz cálida y el mismo
+  aspecto de foto real. En el corcho hay solo 32 fotos… cada cara aparece una sola vez. El resto lo llenan notas…».
+  **Este es el look que pide.** ⚠️ Pero repite caras (en la a3, unas 44 fotos para 32 caras): el corcho de la
+  referencia tiene más huecos que caricaturas. Esperando que Martín diga si sigue así o si se hacen más caricaturas.
+- **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
+  de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
+  y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
+  `voz\poner-voz.sh`.
+
 ## 00 · CAMBIO DE PLAN, 9/11 ~12:15 UTC: los clips 1 y 2 se REGENERAN delante del pizarrón nuevo
 
 Martín, textual: «veo que ya salió bien. Creo que lo mejor sería regenerar tanto el clip 1 como el clip 2 con este
