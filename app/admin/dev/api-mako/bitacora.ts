@@ -573,4 +573,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/integraciones?abrir=landing',
   },
+  {
+    fecha: '09 nov', hora: '02:10', chat: 'Cerebro', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los clics del Pixel ya estaban guardados: faltaba la puerta para pedirlos',
+    pedido: 'Ticket #66 (Mauricio Bustos): «La API no expone conteos ni fechas de clics capturados por el píxel». Pedía conteo por botón filtrado por landing y período, clics y visitantes únicos, fecha y hora de cada clic con zona, historial paginado, y distinguir cero de dato no disponible. Y, sobre todo, confirmar si los clics históricos estaban almacenados.',
+    puntos: [
+      '**La respuesta a «¿están guardados?» es SÍ, y se midió antes de escribir código.** El Pixel los escribe en `vsl_events` con `tipo_evento` en «click» y el href o el texto del botón en `detalle`, desde la migración 0133. En su negocio: **12 clics de 5 personas sobre el botón de Stripe del ticket**, del 24/10 al 9/11.',
+      '**No había un dato perdido: había una puerta cerrada.** `ver_comportamiento_landing` da visitas, video y secciones; `ver_analitica_landing`, visitas y leads. Ninguna, los botones.',
+      '**`listar_clics_landing`**: conteo por botón con clics Y personas distintas (una que toca cinco veces no son cinco), el primero y el último, e historial clic por clic con `boton`.',
+      '**Un cero que es un error no se devuelve como un cero** (`medido`), que es lo que el ticket pedía con todas las letras. Un cero falso hace que alguien apague una campaña que estaba funcionando.',
+      '**Las pruebas del Pixel no cuentan**: mezclar los toques de quien prueba la instalación infla justo el número que alguien va a mirar para decidir si su botón funciona.',
+    ],
+    archivos: [
+      'lib/landing-clics.ts — lo puro: agrupar por botón, contar personas, comparar la landing normalizada',
+      'lib/landing-clics-server.ts — la lectura, con `medido` y sin las pruebas del Pixel',
+      'lib/api-mako/areas/landing.def.ts · landing.run.ts — la operación',
+      'tests/landing-clics.test.ts — 6/6; cuida lo que no se ve en el conteo',
+    ],
+    revisar: '/integraciones',
+    tickets: [66],
+  },
 ];
