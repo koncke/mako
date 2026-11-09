@@ -109,7 +109,7 @@
 
 ## 9/11/2026 — la entrada de Patricia Contreras (cuenta 22), pedida por Martín
 
-> Lo escribió un chat abierto por el Cerebro (cuenta claude4). Estado al 9/11 22:45 UTC: **cobro mandado; Joan dijo «listo» sin comprobante; esperando el comprobante**.
+> Lo escribió un chat abierto por el Cerebro (cuenta claude4). Estado al 9/11 23:25 UTC: **HECHA. Entrada pagada, cuenta 22 activa, recibo N.º 0003 enviado y avisado en el grupo.**
 
 - **El pedido**, textual: «pasarle al grupo de código inmobiliario el alta para el cliente de Patricia… le cobramos como un diferencial de
   aquí hasta el próximo periodo del 5… cuando pague, ahí ya directamente dale de alta. A esa cuenta». Se leyó como la cuenta de
@@ -138,6 +138,23 @@
   ⚠️ **Mientras el webhook está caído, `grupo_mensajes` no muestra nada y parece que no escribieron.** La verdad la tiene Evolution:
   `POST /chat/findMessages/<instancia>` con `where.key.remoteJid = <grupo>`. El grupo del 13 es `120363429866357487@g.us`, en la línea
   `mako_superadmin_muylqv8r`. Si el comprobante llega otro día, pero la orden es del 9/11, se marca `--el 2026-11-09` con US$ 40,73.
+- **9/11 23:14 UTC, el comprobante** (una foto de Juan Francisco en el grupo): Binance, «Pago completado», **40 USDT** a «Martin-Koncke
+  68725667», orden **464765031875870720**, sin fecha en la captura. MaKo lo mandó a revisar por «no se visualiza la fecha». Lo que se
+  verificó: no hay acceso al Binance de Martín, así que la prueba es el comprobante con la orden, igual que en el camino automático.
+  La fecha sale de la propia orden (ver abajo): 9/11 a las 18:30:54 de Buenos Aires, el mismo minuto del «listo».
+- **Marcado el 9/11 23:20 UTC** con `marcarEntradaPagada` (`pagadoEl` y `ahora` = 2026-11-09), monto 40 USDT. Resultado: entrada
+  pagada (US$ 40,73), `workspaces` 22 y usuaria 22 `activo`, recibo **N.º 0003** (detalle US$ 40,73, recibido 40 USDT; por correo
+  a codigoinmobiliarioia@gmail.com y al grupo) y el «Listo… su cuenta ya está activa» en el grupo.
+- **Faltaron US$ 0,73** (pagaron 40 contra 40,73). Se dio el alta igual: es redondeo, y hay antecedente al revés (21/10 pagaron 146
+  contra 144 y Martín dijo «no lo tomes en cuenta»). No se les dijo nada en el grupo. Si Martín los quiere, van a mano en diciembre: la
+  mensualidad automática no arrastra saldos.
+- 🔎 **La fecha de una orden de Binance Pay está en su número:** `orden / 2^31` = segundos desde el 1/1/2020 UTC. Se midió contra las tres
+  órdenes conocidas de Código (21/10, 4/11 y 5/11), con 0 a 20 s de desvío. Sirve cuando la captura no muestra la fecha (la del lado de
+  quien paga no la muestra): `new Date((Number(BigInt(orden) >> 31n) + 1577836800) * 1000)`.
+- ⚠️ **`marcarEntradaPagada` pierde la foto del comprobante:** arma el pago sin `comprobante` (`lib/agencia-mes.ts`, la llamada a
+  `aplicarPagoDeAgencia`), mientras que `marcarMesPagado` sí lo pasa (`...p.pago`). Por eso el recibo 0003 salió sin la página 2. La foto
+  quedó subida en `plataforma/recibos/comprobantes/a9004e0c-dda6-48db-9cdb-e67a9aea154e.jpg`, sin atar a nada. **Sin hacer:** pasar
+  `comprobante: p.pago?.comprobante ?? null` en `marcarEntradaPagada`.
 - **Sin hacer:** la entrada de Pablo (18) sigue sin pagar y su cuenta en pausa (US$ 40,73 si paga el 9/11). No era parte de este pedido.
 - **Regla de Martín, 9/11: en cobros, PDF y WhatsApp, sólo los dólares, sin pesos ni cotización** («Binance paga una cotización mucho más
   alta»; memoria `cobros-sin-cotizacion`). Medido ese día: el PDF de la mensualidad y de las entradas (`lib/agencia-mes-pdf.ts`), sus
