@@ -612,3 +612,34 @@ referencia aporta sin competir, porque la base está fija.
   agarrar el contenedor de TODA la lista —el primer intento devolvió once papeleras, una por
   tarjeta—. **Acotar el bloque por longitud de texto** (`innerText.length < 300`) y confirmar que el
   botón está dentro de ese bloque antes de hacer clic. Va a la Papelera de Flow, no se pierde.
+
+### ⚠️⚠️ El pegado en Flow sólo adjunta si la imagen es VERTICAL (9/11/2026)
+
+Lo de arriba sobre pegar una referencia con `Ctrl+V` es cierto, **pero tiene una condición que
+costó seis intentos encontrar**: con una referencia **apaisada (1500×1100, 4:3)** Flow NO la
+adjunta — la **sube como imagen nueva y te abre SU editor**, con lo cual perdés la imagen en la que
+estabas y ni te enterás si no mirás la URL. Con la MISMA referencia rearmada **vertical
+(1080×1350, 4:5)** se adjunta como corresponde y `location.pathname` no cambia.
+
+**La secuencia que funciona, y cada paso importa:**
+1. Entrar al editor **por URL** (`/edit/<id>`), nunca por clic en la tarjeta: un clic en la grilla
+   abre la última versión de la pila, que no siempre es la que querés.
+2. **Clic real** en la caja — sobre su borde izquierdo (`rect.x + 25`), porque mide 20 px de alto y
+   el centro cae fácil en la imagen o en la tira de versiones. Con `.focus()` por JavaScript el
+   pegado se comporta como pegado en la página y crea una imagen nueva.
+3. `Ctrl+V`. **Nunca `Ctrl+A` antes**: con la caja vacía se propaga al documento y termina
+   navegando a otra imagen.
+4. **Clic real en la caja OTRA VEZ** — después de pegar, el foco se va, y teclear sin recuperarlo
+   dispara atajos que cambian de imagen.
+5. Escribir, verificar `location.pathname` **y** el texto de la caja, y recién ahí clic en la flecha.
+
+⚠️ Cada pegado deja una tarjeta «Imagen subida» en el proyecto; los intentos fallidos dejan además
+la imagen abierta como pieza nueva. Conviene barrerlas al terminar.
+
+### Recuperar algo borrado por error
+
+`/project/<id>/trash` tiene **«Restaurar todo»** arriba y un **«Restablecer»** por tarjeta (aparece
+al pasar el mouse por encima). Martín pidió borrar la horizontal y un minuto después quiso la
+horizontal: volvió entera desde ahí. **Enviar a la papelera no pierde nada**, así que ante un
+«borrá esto» no hace falta frenar; lo que sí hay que verificar es **cuál** se borra, acotando el
+bloque por el texto de su prompt antes de hacer clic.
