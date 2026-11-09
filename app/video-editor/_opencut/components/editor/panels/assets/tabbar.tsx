@@ -36,6 +36,8 @@ import {
 	CATEGORIAS_BIBLIOTECA,
 	useAssetsPanelStore,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
+import { useModoSimple } from "@/app/video-editor/guia/modo-simple";
+import { categoriaEnSimple } from "@/app/video-editor/guia/modo-simple-reglas";
 
 const icono =
 	(svg: IconSvgElement): ComponentType<{ className?: string }> =>
@@ -78,6 +80,7 @@ export function fundidoDeLaFila(izquierda: boolean, derecha: boolean): string | 
 export function TabBar() {
 	const activeTab = useAssetsPanelStore((s) => s.activeTab);
 	const setActiveTab = useAssetsPanelStore((s) => s.setActiveTab);
+	const simple = useModoSimple();
 	const filaRef = useRef<HTMLDivElement>(null);
 	const [hayIzquierda, setHayIzquierda] = useState(false);
 	const [hayDerecha, setHayDerecha] = useState(false);
@@ -141,7 +144,8 @@ export function TabBar() {
 					}
 				}}
 			>
-				{CATEGORIAS_BIBLIOTECA.map((categoria) => {
+				{/* El modo simple de una plantilla guiada (app/video-editor/guia/modo-simple.ts): sólo las pestañas de su lista. */}
+				{CATEGORIAS_BIBLIOTECA.filter((c) => !simple || categoriaEnSimple(c)).map((categoria) => {
 					const { etiqueta, Icono } = PESTANAS_BIBLIOTECA[categoria];
 					const activa = categoria === activeTab;
 					return (

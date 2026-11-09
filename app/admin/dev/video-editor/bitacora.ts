@@ -513,4 +513,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "9 nov", hora: "19:40", chat: "Tab Video (nube)", sesion: "cli_0c6817ed-9a7f-5be0-bade-2bb8adac6555", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "Una sola tab «Video»: los outliers primero y MaKo guiando la plantilla del reel",
+    pedido: "Tal como en imágenes, que se llame Video… vas a ver tus outliers primero. Replicar contenido como el reel que se hizo hoy de punta a punta. No quiero que sea difícil para el usuario visualizarlo… que MaKo le vaya dando los pasos: crearse un personaje, subir una foto, subir un audio. Simplificar un poco más la edición de video para que no haya exageradamente tantos botones. Súper importante que MaKo pueda ir haciendo toda la animación que ya implementamos en los cursores. Al seleccionar un template tiene que quedar claro qué hacer, como la animación del tutorial que tenemos: se opaca todo el resto de la pantalla y se marca el mensaje con la pregunta de MaKo.",
+    puntos: [
+      "Llegó por el Cerebro, con el proceso del reel de mentores escrito en docs/plantillas-video/mensaje-para/PROCESO.md.",
+      "El diseño, en docs/relevo/nube-tab-video.md.",
+    ],
+  },
+  {
+    fecha: "9 nov", hora: "20:05", chat: "Tab Video (nube)", sesion: "cli_0c6817ed-9a7f-5be0-bade-2bb8adac6555", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tab Video: outliers primero, «Mensaje para…» guiada por MaKo y menos botones",
+    puntos: [
+      "Video abre con «Encuentra tu siguiente OUTLIER», como Image: los videos que funcionan, con «Replicar» si MaKo tiene su plantilla. «Crear desde cero» lleva a las plantillas.",
+      "«Mensaje para…» es la primera plantilla: MaKo pide en el chat del editor la referencia, tu guion de 6 bloques, tu foto o tu personaje (con las fotos que ya subiste para tocar), tu voz y el fondo, con el resto de la pantalla opacado y su pregunta marcada.",
+      "El guion se escribe bloque por bloque y cada uno dice cuántos segundos dura su clip y cuántos créditos cuesta, para que el clip no quede más largo que la frase.",
+      "En un proyecto de plantilla el editor abre simple (menos pestañas y herramientas) y «Todas las herramientas» lo deja como siempre.",
+      "AI Avatar ya no es una fila de la barra: es «Tu personaje con IA» adentro de Video.",
+      "Todavía no: que MaKo filme sola los clips, las tomas blancas y el montaje con sus cursores (docs/relevo/nube-tab-video.md §8). No se miró en un navegador.",
+    ],
+    archivos: [
+      "lib/video-plantillas/ — la plantilla, sus piezas y las medidas (puro)",
+      "lib/video-outliers.ts · lib/video-outliers-servidor.ts — el contrato de los outliers y su lector",
+      "lib/aperturas/video-guia.ts — lo que pide MaKo en cada paso",
+      "app/video-editor/guia/ — el estado del proyecto, el chat guiado, el editor del guion y el modo simple",
+      "app/video-editor/OutliersVideo.tsx · vista.ts — la portada",
+      "app/_ui/guia/VeloGuia.tsx · store.ts · lib/guia/huecos.ts — el velo de la pregunta marcada",
+      "tests/video-tab.test.ts — 9 casos, 13 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];

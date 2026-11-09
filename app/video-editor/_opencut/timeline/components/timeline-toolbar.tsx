@@ -41,6 +41,8 @@ import {
 	type HerramientaLinea,
 } from "@/app/video-editor/ce/ranuras";
 import { TIMELINE_TOOLBAR_HEIGHT_PX } from "./layout";
+import { useModoSimple } from "@/app/video-editor/guia/modo-simple";
+import { herramientaEnSimple } from "@/app/video-editor/guia/modo-simple-reglas";
 
 type Estado = { visible: boolean; habilitada: boolean; activa: boolean };
 
@@ -102,6 +104,7 @@ export function TimelineToolbar() {
 		() => ({ editor, seleccion }),
 		[editor, seleccion],
 	);
+	const simple = useModoSimple();
 	const todas = herramientasLinea.todos();
 	// Re-evaluar habilitada/activa con cada cambio del editor (deshacer
 	// disponible, cabezal sobre un clip…): el selector devuelve los estados y
@@ -122,7 +125,8 @@ export function TimelineToolbar() {
 			},
 		]),
 	);
-	const visibles = todas.filter((h) => estadoPorId.get(h.id)?.visible && (prescindibles || !h.prescindible));
+	// El modo simple de una plantilla guiada (app/video-editor/guia/modo-simple.ts): sólo las de su lista, en positivo.
+	const visibles = todas.filter((h) => estadoPorId.get(h.id)?.visible && (prescindibles || !h.prescindible) && (!simple || herramientaEnSimple(h.id)));
 	const izquierda = armarBloques(visibles.filter((h) => h.lado === "izquierda"));
 	const derecha = armarBloques(visibles.filter((h) => h.lado === "derecha"));
 

@@ -259,9 +259,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['video-editor'],
-    que: 'Video: un editor copiado de CapCut, con MaKo siempre a la izquierda para pedirle cambios; «Nuevo video» trae los formatos, las plantillas y «Generar con IA» (el Video Generator).',
-    hace: ['Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video'],
-    noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)'],
+    que: 'Video: la tab de video de MaKo (9/11/2026 se le sumó AI Avatar). Abre con «Encuentra tu siguiente OUTLIER»: videos que funcionan para replicarlos con tu mensaje. «Crear desde cero» trae las plantillas: «Mensaje para…» (MaKo te guía paso a paso), «Tu personaje con IA», los formatos y «Generar con IA». El editor está copiado de CapCut, con MaKo siempre a la izquierda.',
+    hace: ['Ver los outliers y replicar uno con «Replicar»', 'La plantilla «Mensaje para…»: MaKo pide en el chat la referencia, tu guion de 6 bloques, tu foto o tu personaje, tu voz y el fondo, con lo demás opacado', 'Calcular cuánto dura y cuántos créditos cuesta cada clip según sus palabras', 'Crear tu personaje con tu foto («Tu personaje con IA», el estudio que era AI Avatar)', 'Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Un modo simple con menos botones en las plantillas guiadas, y «Todas las herramientas»', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video'],
+    noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)', 'Todavía no: filmar sola los clips, las tomas blancas y el montaje de «Mensaje para…» (los lleva al estudio del personaje y al Video Generator)', 'Todavía no: traer outliers de tu rubro (hoy, los de las plantillas de MaKo)'],
     reemplaza: 'CapCut',
     alias: ['video editor', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes'],
     conecta: [{ a: 'video-generator', motivo: 'Recibe los anuncios que genera' }],
@@ -330,8 +330,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     // 29/10/2026: el estudio de Higgsfield (una pantalla, sin secciones). La voz propia sobre el video todavía no está.
+    // 9/11/2026: dejó de ser una tab: es «Tu personaje con IA», adentro de Video (docs/relevo/nube-tab-video.md §1).
     keys: ['ai-avatar'],
-    que: 'Tu avatar con tu cara, como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
+    que: 'Tu personaje con IA, adentro de la tab Video («Tu personaje con IA» en «Nuevo video»), como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
     hace: ['Crear tu avatar en una escena de 28 presets', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
     noHace: ['Todavía no: tu voz clonada en el video, copiar el movimiento de otro video, ni diseñar un personaje sin foto'],
     reemplaza: 'Higgsfield y HeyGen',

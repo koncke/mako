@@ -7,12 +7,13 @@
 // acá). La pantalla y lo que copia: ./EstudioM.tsx; el motor es el de escritorio (app/ai-avatar/actions.ts).
 // Quién: `requireMovil` con la key de la sección y la puerta de escritorio (sólo el super admin, ./puerta.ts).
 // La query, como escritorio: `?plantilla=` (el preset de «Nueva») y `?avatar=` (un proyecto).
+// 9/11/2026: sin fila de More (es «Tu personaje con IA» de Video, docs/relevo/nube-tab-video.md §1): la cabecera la pone ella.
 // =============================================================================
 
 import './ai-avatar.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { inicioAvatarAction } from '@/app/ai-avatar/actions';
-import { ErrorM, PantallaM } from '@/app/m/_ui';
+import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { requireAiAvatarM } from './puerta';
 import { EstudioM } from './EstudioM';
 
@@ -28,6 +29,7 @@ export default async function AiAvatarPagina({ searchParams }: { searchParams: P
   const inicio = await inicioAvatarAction();
   return (
     <PantallaM>
+      <CabeceraM titulo="Tu personaje" />
       {inicio.ok
         ? <EstudioM inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} />
         : <ErrorM frase={inicio.error} />}

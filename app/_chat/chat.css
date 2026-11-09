@@ -38,6 +38,17 @@
 .ch-apertura { display: flex; flex-direction: column; }
 .ch-apertura__botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 6px 44px; }
 .ch-apertura__botones a.of-pill { text-decoration: none; }
+/* Las opciones con imagen (9/11/2026, la tab Video: «pásame una foto o selecciona de estas»): miniaturas tocables, alineadas
+   con el globo de MaKo. Del ancho de una foto de carnet: se elige mirando la cara, no leyendo. */
+.ch-apertura__galeria { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px 44px; }
+.ch-apertura__opcion {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 76px; padding: 4px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-meta); cursor: pointer;
+}
+.ch-apertura__opcion:hover { border-color: var(--primary); }
+.ch-apertura__opcion:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ch-apertura__opcion img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; background: var(--surface-2); }
+.ch-apertura__opcion span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .ch-apertura__pieza { display: inline-flex; }
 /* «Instalar MaKo» fuera de la caja (la apertura): la misma píldora azul que en el lugar del micrófono (centro.css), del alto de
    una pastilla. */

@@ -24,13 +24,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { profundidadModales } from '@/app/_components/pila-modales';
 import { Z_PISO_RECORRIDO, necesitaScroll, selectorDe, type Caja, type Medida } from '@/lib/recorridos';
-import { esAngosta, huecosDelVelo, posicionFrase, type Hueco } from '@/lib/guia/huecos';
+import { dibujoDestacado, esAngosta, huecosDelVelo, posicionFrase, type Hueco } from '@/lib/guia/huecos';
 import { ANCHO_ANGOSTO, ESPERA_ANCLA_MS, ESPERA_TRAS_ANTES_MS, anclaASenalar, fraseAntes, fraseDe, queHacerConElToque } from '@/lib/guia/reglas';
 import type { GuiaDeTab } from '@/lib/guia/tipos';
-import { apartarChat, avanzar, fraseEnElChat, guiaAhora, ignorarPrimeraVez, noEsta, pausar, useGuia } from './store';
+import { apartarChat, avanzar, destacarEnElChat, fraseEnElChat, guiaAhora, ignorarPrimeraVez, noEsta, pausar, useGuia } from './store';
 
 const CHAT = '[data-mako-chat]';
 const GLOBO = '[data-guia-globo]';
+const DESTACADO = '[data-mako-destacado]';
 
 const cajaDe = (r: DOMRect): Caja => ({ x: r.left, y: r.top, ancho: r.width, alto: r.height });
 const ventana = (): Medida => ({ ancho: document.documentElement.clientWidth || window.innerWidth, alto: document.documentElement.clientHeight || window.innerHeight });
@@ -143,6 +144,28 @@ export function VeloGuia() {
       apartarChat(false);
     };
   }, [clavePaso]);
+
+  // LA PREGUNTA DE MaKo MARCADA (9/11/2026, la tab Video): sin objetivo de la guía, el velo opaca todo menos los chats y marca el
+  // mensaje `[data-mako-destacado]`. Sin frase y sin avance por toque: se contesta en el chat. Con un modal arriba (el editor del
+  // guion) no se dibuja: el velo vive en el piso de los recorridos, ARRIBA de la pila de modales, y lo taparía.
+  const destacando = !clavePaso && e.destacado;
+  useLayoutEffect(() => {
+    if (!destacando) return;
+    let cuadro = 0;
+    const tick = () => {
+      cuadro = requestAnimationFrame(tick);
+      const marca = profundidadModales() > 0 ? null : Array.from(document.querySelectorAll<HTMLElement>(DESTACADO)).find((el) => visible(el) && !!el.closest(CHAT)) ?? null;
+      const chats = Array.from(document.querySelectorAll<HTMLElement>(CHAT)).filter(visible).map((c) => cajaDe(c.getBoundingClientRect()));
+      const d = dibujoDestacado(marca ? cajaDe(marca.getBoundingClientRect()) : null, chats, ventana());
+      const nuevo: Dibujo | null = d ? { huecos: d.huecos, aro: d.aro, frase: null, angosto: null } : null;
+      setDibujo((x) => (mismo(x, nuevo) ? x : nuevo));
+    };
+    cuadro = requestAnimationFrame(tick);
+    // Usa la tab (un toque fuera de los chats): se le deja usar, y el velo se va hasta la próxima pregunta (el toque llega igual).
+    const alTocar = (ev: PointerEvent) => { if (!(ev.target as Element | null)?.closest(CHAT)) destacarEnElChat(false); };
+    document.addEventListener('pointerdown', alTocar, true);
+    return () => { cancelAnimationFrame(cuadro); document.removeEventListener('pointerdown', alTocar, true); setDibujo(null); };
+  }, [destacando]);
 
   // La primera vez, sin contestar: si usa la tab (un toque fuera del chat), «que lo use» (guia.md §3.3).
   const preguntando = !activo && e.guia != null && e.dice?.id === `guia:${e.guia.key}`;

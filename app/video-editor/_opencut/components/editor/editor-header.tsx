@@ -42,10 +42,18 @@ import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
 import { DISENOS, useDisenoStore } from "./diseno-paneles";
 import { ExportButton, PublicarButton } from "./export-button";
 import { EnVivo } from "@/app/video-editor/_opencut/enjambre/components/en-vivo";
+import { useModoSimple } from "@/app/video-editor/guia/modo-simple";
+import { cambiarGuia, fijarProyectoAbierto, useGuiaVideo } from "@/app/video-editor/guia/estado";
+import { conSimple } from "@/app/video-editor/guia/reglas";
 
 export function EditorHeader() {
 	const [renombrando, setRenombrando] = useState(false);
 	const [atajos, setAtajos] = useState(false);
+	// El modo simple de una plantilla guiada (9/11/2026, app/video-editor/guia/modo-simple.ts): sin «Diseño» ni «Atajos». La
+	// cabecera tiene el motor: fija el proyecto abierto para lo que pregunta por el modo sin importarlo (la fila de pestañas).
+	const abierto = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? null);
+	useEffect(() => { fijarProyectoAbierto(abierto); return () => fijarProyectoAbierto(null); }, [abierto]);
+	const simple = useModoSimple();
 
 	return (
 		<header className="grid h-[43px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 bg-(--cc-app) px-[10px]">
@@ -57,8 +65,9 @@ export function EditorHeader() {
 			<div className="flex min-w-0 items-center justify-end gap-1.5">
 				{/* Mientras trabaja la «Edición automática»: los agentes en vivo (enjambre/components/en-vivo.tsx). */}
 				<EnVivo />
-				<MenuDiseno />
-				<button
+				<BotonHerramientas />
+				{!simple && <MenuDiseno />}
+				{!simple && <button
 					type="button"
 					onClick={() => setAtajos(true)}
 					title="Atajos"
@@ -66,7 +75,7 @@ export function EditorHeader() {
 					className="flex size-[27px] cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--cc-raised)"
 				>
 					<HugeiconsIcon icon={KeyboardIcon} className="size-[18px]" />
-				</button>
+				</button>}
 				<div className="ml-1.5 flex items-center gap-1.5">
 					<PublicarButton />
 					<ExportButton />
@@ -74,6 +83,24 @@ export function EditorHeader() {
 			</div>
 			<ShortcutsDialog isOpen={atajos} onOpenChange={setAtajos} />
 		</header>
+	);
+}
+
+// ── «Todas las herramientas» / «Menos herramientas» ─────────────────────────
+// Sólo en un proyecto de plantilla guiada: el que abre simple (app/video-editor/guia/modo-simple.ts). Lo elegido se recuerda
+// en el proyecto. En uno común no se dibuja: no hay nada que mostrar ni esconder.
+function BotonHerramientas() {
+	const proyecto = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? null);
+	const guia = useGuiaVideo(proyecto);
+	if (!proyecto || !guia) return null;
+	return (
+		<button
+			type="button"
+			onClick={() => cambiarGuia(proyecto, (e) => conSimple(e, !e.simple))}
+			className="h-[27px] cursor-pointer rounded-[4px] px-2.5 text-[12px] text-(--cc-text-2) hover:bg-(--cc-raised) hover:text-(--cc-text)"
+		>
+			{guia.simple ? "Todas las herramientas" : "Menos herramientas"}
+		</button>
 	);
 }
 

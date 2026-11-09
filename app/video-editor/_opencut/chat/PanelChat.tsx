@@ -48,6 +48,8 @@ import { CabeceraDeChat } from "@/app/admin/operaciones/PanelChat";
 import { ASPECTO_MAKO } from "@/lib/centro-munecos";
 import { AperturaMako, useApertura } from "@/app/_chat/AperturaMako";
 import { SUPERFICIE_VIDEO } from "@/lib/aperturas/video";
+import { GuiaEnElChat } from "@/app/video-editor/guia/GuiaEnElChat";
+import { useGuiaVideo } from "@/app/video-editor/guia/estado";
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
 import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
@@ -546,10 +548,13 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	// (lib/aperturas/video.ts). «Sí, en el feed» corre el mismo motor que el botón de Subtítulos (Whisper en el navegador: sin la
 	// app de escritorio también). Mientras habla, las píldoras de siempre se esconden: un paso por pantalla.
 	const conAudio = !!tracksVivos && (tracksVivos.main.elements.some((e) => e.type === "video") || tracksVivos.audio.some((t) => t.elements.length > 0));
+	// UNA PLANTILLA GUIADA (9/11/2026, la tab Video): MaKo lleva sus pasos (../../guia/GuiaEnElChat.tsx) y lo de siempre calla —la
+	// pregunta de los subtítulos y las píldoras—: un paso por pantalla.
+	const guiado = !!useGuiaVideo(proyectoId);
 	const estadoApertura = useApertura({
 		superficie: SUPERFICIE_VIDEO,
 		hechos: { proyecto: proyectoId || null, conAudio, subtitulos: subtitulosDe(tracksVivos).length, charlaVacia: hilo.mensajes.length === 0 },
-		libre: !hilo.corriendo,
+		libre: !hilo.corriendo && !guiado,
 	});
 	const ponerSubtitulos = () => {
 		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
@@ -612,7 +617,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
 		// La tarjeta izquierda de la pantalla de Create (app/_crear/PantallaCrear.tsx): llena su alto y NO se cierra. La «←»
 		// de su cabecera (`volver`) la da vuelta a la lista de proyectos.
-		<section role="complementary" className="cc-chat flex min-h-0 w-full flex-1 flex-col bg-(--surface)" aria-label="Editar con IA">
+		// `data-mako-chat`: el velo de la guía le deja el hueco (app/_ui/guia/VeloGuia.tsx): con una pregunta de MaKo marcada, todo
+		// lo demás se opaca y esta tarjeta queda clara.
+		<section role="complementary" className="cc-chat flex min-h-0 w-full flex-1 flex-col bg-(--surface)" aria-label="Editar con IA" data-mako-chat="">
 			{/* La cabecera de toda tarjeta de Create (29/10/2026): «MaKo» con su estrella (la regla de las criaturas, 21/10) y la «←». */}
 			<CabeceraDeChat clave={`video:${proyectoId}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO}
 				animo={hilo.corriendo ? "trabajando" : "despierto"} antes={volver} />
@@ -622,7 +629,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length === 0 && estadoApertura.apertura && (
 						<AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />
 					)}
-					{hilo.mensajes.length === 0 && !estadoApertura.apertura && (
+					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiado && (
 						<>
 							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
 								Pídeme que edite lo que quieras del video.
@@ -641,7 +648,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							Detener generación
 						</button>
 					)}
-					{hilo.mensajes.length > 0 && !hilo.corriendo && (
+					{proyectoId && <GuiaEnElChat proyectoId={proyectoId} ocupado={hilo.corriendo} quien={QUIEN} />}
+					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiado && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
 								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>

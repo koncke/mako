@@ -25,7 +25,7 @@
 // =============================================================================
 
 import dynamic from 'next/dynamic';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { useRouter } from '@/app/_ui/Link';
 import { TooltipProvider } from './_opencut/components/ui/tooltip';
@@ -36,7 +36,8 @@ import { fijarEspacio } from './espacio';
 import type { DesdeEditor } from './desde/desde';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { SenalesNegocioProvider } from './sugeridas';
-import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla } from './plantillas-crear';
+import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, PERSONAJE_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from './plantillas-crear';
+import { empezarGuia } from './guia/estado';
 import { ejemploDeVideo, type EjemploVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import { EjemploPlantillaVideo } from './EjemploPlantillaVideo';
 import { cargarMotor, useProyectosVideo } from './proyectos';
@@ -63,6 +64,8 @@ type Props = {
   propuesta?: string | null;
   /** Lo que se sabe del negocio: las plantillas sugeridas van primero (./sugeridas.tsx, ./plantillas-crear.ts). */
   senales?: SenalesNegocio | null;
+  /** El «Replicar» de un outlier (`?replicar=`, ya validado en ./vista.ts): arma ese proyecto guiado al abrir. */
+  replicar?: string | null;
 };
 
 export function VideoEditorCliente(props: Props) {
@@ -90,6 +93,19 @@ export function VideoEditorCliente(props: Props) {
   );
 }
 
+/**
+ * Un proyecto nuevo con ese tamaño, guardado, y su id (lo mismo que «Nuevo proyecto» del Menú del editor,
+ * components/editor/editor-header.tsx, más el tamaño). Sin nombre, el de siempre («1011»); con nombre, ése, sin repetir.
+ */
+async function proyectoConLienzo(lienzo: LienzoNuevo, nombre?: string): Promise<string> {
+  const [motor, { nombreProyectoNuevo, nombreProyectoLibre }] = await Promise.all([cargarMotor(), import('./_opencut/inicio/nombre')]);
+  if (motor.project.getActiveOrNull()) await motor.project.prepareExit().catch(() => {});
+  const id = await motor.project.createNewProject({ name: nombre ? await nombreProyectoLibre(nombre) : await nombreProyectoNuevo() });
+  await motor.project.updateSettings({ settings: lienzo, pushHistory: false });
+  await motor.project.saveCurrentProject();
+  return id;
+}
+
 /** El nombre de la copia: «1011 (1)» como CapCut (el motor la nombraría «(1) 1011»). */
 async function duplicar(id: string, nombre: string, nombres: readonly string[]): Promise<void> {
   const [editor, { nombreLibre }] = await Promise.all([cargarMotor(), import('./_opencut/inicio/nombre')]);
@@ -98,7 +114,7 @@ async function duplicar(id: string, nombre: string, nombres: readonly string[]):
   await editor.project.renameProject({ id: nuevo, name: nombreLibre(nombre.replace(/\s\(\d+\)$/, ''), nombres) });
 }
 
-function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null }: Props) {
+function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null }: Props) {
   const router = useRouter();
   const editor = vista === 'editor' && !!proyectoId;
   // El proyecto abierto de verdad: mientras se importa o se arma uno (`?desde=`, `?plantilla=`), la URL dice «nuevo».
@@ -145,17 +161,30 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
     const d = destinoDe(pl.id);
     if (!d) return 'Esa plantilla ya no existe.';
     if (d.tipo === 'ia') { router.push(GENERAR_CON_IA.escritorio); return null; }
+    if (d.tipo === 'personaje') { router.push(PERSONAJE_CON_IA.escritorio); return null; }
     if (d.tipo === 'plantilla') { router.push(rutaDePlantilla(d.id)); return null; }
-    // Un lienzo vacío: el proyecto nuevo con ese tamaño, guardado, y recién ahí el editor (lo mismo que «Nuevo proyecto»
-    // del Menú del editor, components/editor/editor-header.tsx, más el tamaño).
-    const [motor, { nombreProyectoNuevo }] = await Promise.all([cargarMotor(), import('./_opencut/inicio/nombre')]);
-    if (motor.project.getActiveOrNull()) await motor.project.prepareExit().catch(() => {});
-    const id = await motor.project.createNewProject({ name: await nombreProyectoNuevo() });
-    await motor.project.updateSettings({ settings: d.lienzo, pushHistory: false });
-    await motor.project.saveCurrentProject();
-    router.push(`/video-editor/${id}`);
+    if (d.tipo === 'guia') { await crearGuiada(d, false); return null; }
+    router.push(`/video-editor/${await proyectoConLienzo(d.lienzo)}`);
     return null;
   };
+
+  /**
+   * Una plantilla GUIADA (9/11/2026): el proyecto vertical con su nombre, marcado como de esa plantilla ANTES de abrirlo (el
+   * chat del editor lo lee al montar y MaKo arranca con su primer paso: ./guia/GuiaEnElChat.tsx). Desde «Replicar» la URL se
+   * REEMPLAZA: con «Atrás» se volvería a `?replicar=` y se armaría otro.
+   */
+  const crearGuiada = async (d: { id: string; lienzo: LienzoNuevo; nombre: string }, reemplazar: boolean) => {
+    const id = await proyectoConLienzo(d.lienzo, d.nombre);
+    empezarGuia(id, d.id);
+    if (reemplazar) router.replace(`/video-editor/${id}`); else router.push(`/video-editor/${id}`);
+  };
+  const replicado = useRef(false);
+  useEffect(() => {
+    if (!replicar || replicado.current) return;
+    replicado.current = true;
+    const d = destinoDe(`guia:${replicar}`);
+    if (d?.tipo === 'guia') void crearGuiada(d, true);
+  }, [replicar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pieza = !editor ? null
     : desde ? <ImportarDesde desde={desde} />
