@@ -88,6 +88,7 @@ import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { eleccionEnPantalla, esRelectura, lineaDeRetomado, type BorradorReplica, type EleccionReplica } from '@/lib/editor-landing/replica-borrador';
 import { avisarBorradores, descartarBorrador, guardarEleccion, pedirBorrador } from './borradores-replica';
+import { BloqueExtension, useReplicaConExtension, type FotoDeLaExtension } from './ConLaExtension';
 
 /** El ícono de cada formato (lib/editor-landing/iconos.ts): las diapositivas, las secciones y la página. */
 export const ICONO_FORMATO: Record<FormatoReplicar, string> = { presentacion: 'presentar', landing: 'paginas', web: 'globo' };
@@ -191,6 +192,9 @@ export function useReplicar(): {
   return { estado, replicar };
 }
 
+/** De dónde sale la foto de la copia idéntica: la ventana abierta en el clic (el lector) o la que trajo la extensión. */
+export type OpcionesFoto = { ventanaFoto?: VentanaDelClic | null; foto?: Record<string, unknown> };
+
 /**
  * Replicar A LA VISTA (28/10/2026): el mismo pedido que `useReplicar`, con `enVivo`, leyendo el flujo de eventos
  * (`eventos`) mientras el server arma la copia. No abre ventanas (la página ya se leyó en el paso 1). Si sale bien, deja
@@ -201,14 +205,14 @@ export function useReplicarEnVivo(): {
   estado: EstadoReplicar;
   eventos: readonly EventoReplica[];
   lista: { id: number } | null;
-  replicar: (url: string, formato: FormatoReplicar, extra?: Omit<ExtraReplicar, 'ventana'>, op?: { ventanaFoto?: VentanaDelClic | null }) => Promise<void>;
+  replicar: (url: string, formato: FormatoReplicar, extra?: Omit<ExtraReplicar, 'ventana'>, op?: OpcionesFoto) => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoReplicar>({ fase: 'quieto' });
   const [eventos, setEventos] = useState<EventoReplica[]>([]);
   const [lista, setLista] = useState<{ id: number } | null>(null);
   const montado = useRef(true);
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
-  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: Omit<ExtraReplicar, 'ventana'> = {}, op: { ventanaFoto?: VentanaDelClic | null } = {}) => {
+  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: Omit<ExtraReplicar, 'ventana'> = {}, op: OpcionesFoto = {}) => {
     const { adaptar = false, ...dato } = extra;
     setEventos([]);
     setLista(null);
@@ -216,8 +220,9 @@ export function useReplicarEnVivo(): {
     const fallar = (error: string) => setEstado({ fase: 'falla', formato, error, enNavegador: false, pegable: false, probar: 'landing', salida: null });
     // La copia idéntica (28/10/2026): la FOTO de la página ya armada, en el navegador de la persona (lector-script.ts), en
     // la ventana que se abrió en el clic de «Replicar». Sin ventana (`ventanaFoto` ausente), la «Página web» de antes.
-    let foto: unknown;
-    if (formato === 'web' && op.ventanaFoto !== undefined) {
+    // O la foto que ya trajo la extensión de MaKo desde la pestaña real de la persona (ConLaExtension.tsx): sin ventana.
+    let foto: unknown = formato === 'web' ? op.foto : undefined;
+    if (formato === 'web' && foto === undefined && op.ventanaFoto !== undefined) {
       setEventos([{ fase: 'leer' }]);
       const v = op.ventanaFoto;
       const l = await leerEnNavegador(url, { foto: true, ...(v && v !== 'bloqueada' ? { ventana: v } : {}) });
@@ -507,8 +512,10 @@ export function temaInicialDeReplica(propios: readonly TemaPropio[], guardado: s
  * tema (sin el diseño de la original), el formato y «Replicar». Con `auto` (el link pegado en la caja con «Replica esta
  * landing») LEE sola, UNA vez: el clic ya fue el ↑ de la caja. Replicar sigue siendo un clic: es lo que se paga.
  */
-export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, adaptar: adaptarInicial = false, auto = false, propios = [] }: {
+export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, adaptar: adaptarInicial = false, auto = false, propios = [], entrega }: {
   url?: string;
+  /** La foto que ya está en la extensión de MaKo (Replicar abierto por ella, `?extension=`): se toma en vez de leer. */
+  entrega?: string;
   formato?: FormatoReplicar;
   /** «Replica y adapta a tu oferta» (la pastilla del link): arranca con diseño + estructura + ángulos. */
   adaptar?: boolean;
@@ -545,6 +552,24 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
     const t = setTimeout(abrirCopia, 8_000);
     return () => clearTimeout(t);
   }, [lista, abrirCopia]);
+  // «Copiar con la extensión» (9/11/2026): la página que el servidor no baja, copiada en la pestaña real de la persona. La
+  // foto queda acá (por su dirección) y es la que usa «Replicar» en «Página web», sin abrir ninguna ventana.
+  const [fotoExt, setFotoExt] = useState<{ url: string; foto: Record<string, unknown> } | null>(null);
+  const lecturaViva = useRef(lectura);
+  lecturaViva.current = lectura;
+  const alTomarDeExtension = useCallback((f: FotoDeLaExtension) => {
+    setFotoExt({ url: f.url, foto: f.foto });
+    const l = lecturaViva.current;
+    // Ya se había leído (falló la foto de la ventana al replicar «Página web»): se replica con ésta.
+    if (l.fase === 'leida' && l.url === f.url) { void replicar(f.url, 'web', {}, { foto: f.foto }); return; }
+    const t = f.texto.trim();
+    // Con su texto, el paso «Leer» (la estructura de la página) sale de él, sin bajarla; sin texto (una página de imágenes),
+    // la copia idéntica directo.
+    if (t.length >= 40) void leer(f.url, { texto: t, eleccion: eleccionViva.current, ...(sonTodas(partesVivas.current) ? { sinAngulos: true } : {}) });
+    else void replicar(f.url, 'web', {}, { foto: f.foto });
+  }, [leer, replicar]);
+  const ext = useReplicaConExtension(alTomarDeExtension);
+  const recibirDeExtension = ext.recibir;
   const campo = useRef<HTMLInputElement>(null);
   const url = urlParaAnalizar(texto);
   const leyendo = lectura.fase === 'leyendo';
@@ -630,9 +655,10 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
     if (arrancado.current) return;
     arrancado.current = true;
     const u = urlParaAnalizar(urlInicial);
-    if (auto && u) leerPagina(u, tomarVentanaReservada(u));
+    if (entrega && u) recibirDeExtension(entrega, u);
+    else if (auto && u) leerPagina(u, tomarVentanaReservada(u));
     else campo.current?.focus();
-  }, [auto, urlInicial, leerPagina]);
+  }, [auto, urlInicial, leerPagina, entrega, recibirDeExtension]);
 
   /**
    * Replicar lo leído como `f`, con las partes elegidas. La copia idéntica («Página web») lleva la ventana abierta EN EL CLIC
@@ -640,7 +666,12 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
    */
   const replicarLeida = (f: FormatoReplicar, ventanaFoto?: VentanaDelClic | null) => {
     if (lectura.fase !== 'leida') return;
-    if (f === 'web') { void replicar(lectura.url, f, {}, { ventanaFoto: ventanaFoto ?? null }); return; }
+    if (f === 'web') {
+      // Con la foto de la extensión, ésa (la ventana del lector bajaría la página por el servidor, que no puede).
+      if (fotoExt && fotoExt.url === lectura.url) { if (ventanaFoto && ventanaFoto !== 'bloqueada') cerrarVentana(ventanaFoto); void replicar(lectura.url, f, {}, { foto: fotoExt.foto }); return; }
+      void replicar(lectura.url, f, {}, { ventanaFoto: ventanaFoto ?? null });
+      return;
+    }
     guardarLocal(CLAVE_PARTES, listaDePartes(partes));
     if (!partes.diseno) guardarLocal(CLAVE_TEMA, tema);
     const tuOferta = partes.texto ? '' : oferta.trim().slice(0, TOPE_OFERTA_PANTALLA);
@@ -655,6 +686,11 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
       ...(tuOferta ? { oferta: tuOferta } : {}),
     });
   };
+  /** ¿«Página web» ya tiene su foto (la de la extensión)? Entonces el clic de Replicar no abre ninguna ventana. */
+  const conFotoExt = lectura.fase === 'leida' && !!fotoExt && fotoExt.url === lectura.url;
+  const bloqueExt = (u: string, primario: boolean) => (
+    <BloqueExtension estado={ext.estado} onEmpezar={() => ext.empezar(u)} onVolver={ext.volver} onCancelar={ext.cancelar} primario={primario} />
+  );
   const cambiarPartes = (p: PartesReplica) => {
     setPartes(p);
     if (sonTodas(p)) setFormato('web');
@@ -701,6 +737,11 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
           salida={lectura.salida}
           onLectura={(l) => void leer(lectura.url, { lectura: l, eleccion, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
           onTexto={(t) => void leer(lectura.url, { texto: t, eleccion, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
+          extension={fotoExt && fotoExt.url === lectura.url ? (
+            <button type="button" className="gp-btn gp-btn-primario" disabled={replicando} onClick={() => void replicar(lectura.url, 'web', {}, { foto: fotoExt.foto })}>
+              <Ico n="copiar" t={14} /> Replicar la copia tal cual
+            </button>
+          ) : bloqueExt(lectura.url, true)}
         />
       ) : lectura.fase === 'falla' ? (
         <p className="gp-error" role="alert">{lectura.error}<ReportarASoporte /></p>
@@ -708,6 +749,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
       {buscando && (
         <p className="gp-analizar-sub gp-replicar-estado" role="status"><span className="gp-giro" aria-hidden /> Buscando lo que ya leíste…</p>
       )}
+      {/* La foto que trajo la extensión, mientras se toma (o si no se pudo tomar), cuando la pantalla no leyó nada todavía. */}
+      {lectura.fase === 'quieta' && ext.estado.fase !== 'quieta' && ext.estado.fase !== 'lista' && <div className="gp-replicar-ext">{bloqueExt(urlParaAnalizar(urlInicial) ?? url ?? '', true)}</div>}
       {lectura.fase === 'leida' && (
         <>
           {retomado && (
@@ -746,7 +789,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             <div className="gp-replicar-formato">
               <SelectorFormato valor={formato} onCambio={setFormato} deshabilitado={replicando} partes={partes} />
             </div>
-            <button type="button" className="gp-btn gp-btn-primario gp-rp-replicar" data-tam="lg" disabled={replicando} onClick={() => replicarLeida(formato, formato === 'web' ? abrirEnElClic() : undefined)}>
+            <button type="button" className="gp-btn gp-btn-primario gp-rp-replicar" data-tam="lg" disabled={replicando} onClick={() => replicarLeida(formato, formato === 'web' && !conFotoExt ? abrirEnElClic() : undefined)}>
               {replicando ? <span className="gp-giro" aria-hidden /> : <Ico n="copiar" t={14} />} Replicar
             </button>
           </section>
@@ -765,9 +808,11 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             <FallaReplicar
               error={estado.error}
               probar={estado.probar}
-              onProbar={(f) => { setFormato(f); replicarLeida(f, f === 'web' ? abrirEnElClic() : undefined); }}
+              onProbar={(f) => { setFormato(f); replicarLeida(f, f === 'web' && !conFotoExt ? abrirEnElClic() : undefined); }}
             />
           )}
+          {/* La foto no salió en la ventana (una app de Vite en módulos, una página que no corre aislada): desde la pestaña real. */}
+          {estado.fase === 'falla' && estado.formato === 'web' && !conFotoExt && <div className="gp-replicar-ext">{bloqueExt(lectura.url, false)}</div>}
         </>
       )}
     </section>
@@ -777,6 +822,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
 /** La hoja de la vista (el resto es de la del Panel: `.gp-analizar`, Inicio.tsx). */
 const CSS_REPLICAR = `
 .gp .gp-replicar-formato { margin-top: 14px; }
+.gp .gp-replicar-ext { margin-top: 12px; }
 .gp .gp-replicar .gp-tipos { justify-content: flex-start; }
 .gp .gp-replicar > .gp-leer, .gp .gp-replicar > .gp-error, .gp .gp-replicar > [role="status"] { margin-top: 14px; }
 .gp .gp-replicar-estado { display: flex; align-items: center; gap: 8px; }

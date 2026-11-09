@@ -61,7 +61,7 @@
 // =============================================================================
 
 import 'server-only';
-import { paginaConDireccion } from '../landing-fetch';
+import { esDesafioDeBot, paginaConDireccion } from '../landing-fetch';
 import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
@@ -228,6 +228,10 @@ async function replicarIdentica(url: string, fotoCruda: unknown, receta: ConfigR
   avisar({ fase: 'leer' });
   const foto = sanearInstantanea(fotoCruda);
   if (!foto) return falla('No llegó la foto de la página. Vuelve a intentar.', 400);
+  // La foto de la extensión sale en la pestaña real (9/11/2026, replica-extension-script.ts): si lo que se veía era la
+  // verificación de un antibots («Just a moment...»), eso no es la página. La pantalla ya lo mira antes de mandarla
+  // (`juzgarEntrega`); esto es la red por si llega igual. La ventana del lector nunca la trae: el servidor no la baja.
+  if (esDesafioDeBot(`<title>${foto.titulo}</title>${foto.cuerpo.slice(0, 30_000)}`)) return falla('Lo que se copió era la verificación de la página, no la página. Pásala y vuelve a copiarla.', 422);
   const hoja = await hojaDeLaFoto(foto, bajarHoja);
   const crudas = partirParaCopia(foto);
   // Una sección que pasa el tope de un «Diseño editable» no entra entera: se dice, no se corta a medias.

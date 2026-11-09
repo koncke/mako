@@ -347,3 +347,74 @@ chrome.runtime.onMessage.addListener((msg) => {
   }));
   return false;
 });
+
+// ── «Replicar con la extensión» desde Replicar del Web Generator (0.79.0, 9/11/2026) ─────────────────
+// La pantalla pide abrir la página a la vista (`MAKO_REPLICA_PIDO`, contesta `MAKO_REPLICA` con el mismo `id`). Cuando la
+// persona toca el ícono de MaKo en esa pestaña, la extensión saca la foto y avisa (`MAKO_REPLICA_ESTADO`: leyendo, fallo,
+// cerrada; `MAKO_REPLICA_LISTA` con la entrega). La pantalla la toma (`MAKO_REPLICA_TOMAR` → `MAKO_REPLICA_FOTO`) y, si era
+// la página, la suelta (`MAKO_REPLICA_SOLTAR`: la pestaña se cierra); si era la verificación de un antibots, vuelve a ella
+// (`MAKO_REPLICA_VOLVER`). Todo con su `id` o su `pedido`: dos pedidos en vuelo no se pisan. Sólo de esta página.
+const textoCorto = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+window.addEventListener('MAKO_REPLICA_PIDO', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  const id = textoCorto(d.id, 80);
+  const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_REPLICA', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+  try {
+    chrome.runtime.sendMessage({ tipo: 'REPLICA_ABRIR', pedido: id, url: textoCorto(d.url, 2000) }, (r) => {
+      if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+      contestar(r);
+    });
+  } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+// Pedidos que esperan una respuesta del worker con su `id` (tomar la foto, volver a la pestaña).
+for (const [pide, tipo, contesta] of [['MAKO_REPLICA_TOMAR', 'REPLICA_TOMAR', 'MAKO_REPLICA_FOTO'], ['MAKO_REPLICA_VOLVER', 'REPLICA_VOLVER', 'MAKO_REPLICA_VUELTA']]) {
+  window.addEventListener(pide, (ev) => {
+    if (!ev || ev.target !== window || huerfano()) return;
+    const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+    const id = textoCorto(d.id, 80);
+    const contestar = (r) => window.dispatchEvent(new CustomEvent(contesta, { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+    try {
+      chrome.runtime.sendMessage({ tipo, entrega: textoCorto(d.entrega, 80), pedido: textoCorto(d.pedido, 80) }, (r) => {
+        if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+        contestar(r);
+      });
+    } catch { contestar({ ok: false, motivo: 'extension' }); }
+  });
+}
+// Sin respuesta que esperar: soltar la foto (se cierra la pestaña) y cancelar el pedido.
+window.addEventListener('MAKO_REPLICA_SOLTAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  try { chrome.runtime.sendMessage({ tipo: 'REPLICA_SOLTAR', entrega: textoCorto(d.entrega, 80) }, () => void chrome.runtime.lastError); } catch { /* nada */ }
+});
+window.addEventListener('MAKO_REPLICA_CANCELAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  try { chrome.runtime.sendMessage({ tipo: 'REPLICA_CANCELAR', pedido: textoCorto(d.pedido, 80) }, () => void chrome.runtime.lastError); } catch { /* nada */ }
+});
+// Del worker a la pantalla. `REPLICA_LISTA` contesta si alguien la estaba esperando (`MAKO_REPLICA_RECIBIDA` con su pedido):
+// si la persona se fue a otra pantalla, el worker abre Replicar en una pestaña nueva con la entrega.
+chrome.runtime.onMessage.addListener((msg, _s, responder) => {
+  if (msg && msg.tipo === 'REPLICA_ESTADO') {
+    window.dispatchEvent(new CustomEvent('MAKO_REPLICA_ESTADO', {
+      detail: { pedido: textoCorto(msg.pedido, 80), fase: textoCorto(msg.fase, 20), hecho: typeof msg.hecho === 'number' ? msg.hecho : 0, motivo: textoCorto(msg.motivo, 20) },
+    }));
+    return false;
+  }
+  if (!msg || msg.tipo !== 'REPLICA_LISTA') return false;
+  const pedido = textoCorto(msg.pedido, 80);
+  let listo = false;
+  const fin = (recibida) => {
+    if (listo) return;
+    listo = true;
+    clearTimeout(reloj);
+    window.removeEventListener('MAKO_REPLICA_RECIBIDA', al);
+    responder({ recibida });
+  };
+  const al = (ev) => { const d = (ev && ev.detail) || {}; if (d.pedido === pedido) fin(true); };
+  window.addEventListener('MAKO_REPLICA_RECIBIDA', al);
+  const reloj = setTimeout(() => fin(false), 1500);
+  window.dispatchEvent(new CustomEvent('MAKO_REPLICA_LISTA', { detail: { pedido, entrega: textoCorto(msg.entrega, 80) } }));
+  return true;
+});

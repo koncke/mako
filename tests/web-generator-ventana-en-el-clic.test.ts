@@ -325,10 +325,11 @@ test('el window.open corre en el CLIC, antes de cualquier await: el Diagnóstico
   assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) leerPagina\(url, abrirEnElClic\(\)\); \}\}/);
   // 28/10/2026, la copia idéntica: «Replicar» en «Página web» abre la ventana EN ESE CLIC, primera cosa (ahí el lector saca
   // la foto) y se la pasa a la réplica; la réplica por bloques no abre ninguna: usa la lectura.
-  assert.match(REPLICAR, /onClick=\{\(\) => replicarLeida\(formato, formato === 'web' \? abrirEnElClic\(\) : undefined\)\}/);
+  // 9/11/2026: con la foto que ya trajo la extensión (`conFotoExt`) no hace falta ninguna ventana; sin ella, se abre en el clic.
+  assert.match(REPLICAR, /onClick=\{\(\) => replicarLeida\(formato, formato === 'web' && !conFotoExt \? abrirEnElClic\(\) : undefined\)\}/);
   const replicarLeida = bloque(REPLICAR, 'const replicarLeida = (f: FormatoReplicar, ventanaFoto?: VentanaDelClic | null) => {', '\n  };');
   assert.doesNotMatch(replicarLeida, /abrirEnElClic\(/, 'la réplica no abre otra ventana: la de la foto viene del clic');
-  assert.match(replicarLeida, /if \(f === 'web'\) \{ void replicar\(lectura\.url, f, \{\}, \{ ventanaFoto: ventanaFoto \?\? null \}\); return; \}/);
+  assert.match(replicarLeida, /if \(f === 'web'\) \{[\s\S]*?void replicar\(lectura\.url, f, \{\}, \{ ventanaFoto: ventanaFoto \?\? null \}\);\n\s*return;\n\s*\}/, 'la «Página web» lleva la ventana del clic');
   assert.match(replicarLeida, /lectura\.leidaEnNavegador \? \{ lectura: lectura\.leidaEnNavegador \}/);
 });
 
@@ -363,7 +364,7 @@ test('los arranques automáticos TOMAN la ventana reservada (y la sueltan si no 
   const montaje = bloque(PANEL, 'const reservada = ', 'else sinUsar();');
   assert.match(montaje, /const reservada = !deNuestra && url \? tomarVentanaReservada\(url\) : null;/);
   assert.match(montaje, /if \(!lista\.sugerencias\.length && !lista\.resumen\) void analizar\(\{ ventana: reservada \}\);\s*else sinUsar\(\);/);
-  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, leerPagina]);');
+  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, leerPagina');
   assert.match(auto, /if \(auto && u\) leerPagina\(u, tomarVentanaReservada\(u\)\);/, '28/10/2026: arranca LEYENDO, con la ventana reservada');
 });
 

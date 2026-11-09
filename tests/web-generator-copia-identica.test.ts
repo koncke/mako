@@ -210,7 +210,8 @@ test('12. la foto: compila, respeta las reglas de lo que se sirve, y el lector l
   assert.ok(s && s.includes(JS_INSTANTANEA), 'el lector lleva la misma foto que mide el arnés');
   assert.doesNotThrow(() => new Function(s as string));
   assert.match(s as string, /conFoto = d\.foto === true;/);
-  const foto = (s as string).indexOf('foto = (function () {');
+  // La instantánea que corre el lector es la del fuente (desde el 9/11/2026 recibe `op`: «Replicar con la extensión»).
+  const foto = (s as string).indexOf('foto = (' + JS_INSTANTANEA + ')();');
   assert.ok(foto > 0 && foto < (s as string).indexOf('tocando = true;\n      inicioToques'), 'la foto sale antes de los toques');
   // La cara de cada elemento ANTES de bajar (un header fijo cambia al bajar: Astra en reportei.com, la barra de respond.io).
   const antes = (s as string).indexOf('if (conFoto) { try { (' + JS_ANTES_DE_BAJAR + ')(); } catch (e) {} }');
@@ -246,7 +247,8 @@ test('13. los enchufes: la ruta y replicar llevan la foto, la pantalla arranca e
   const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
   assert.match(pantalla, /useState<PartesReplica>\(\(\) => \(adaptarInicial \? PARTES_ADAPTAR : PARTES_TODAS\)\)/);
   assert.match(pantalla, /useState<FormatoReplicar>\(\(\) => \(sonTodas\(partes\) \? 'web' :/);
-  assert.match(pantalla, /replicarLeida\(formato, formato === 'web' \? abrirEnElClic\(\) : undefined\)/);
+  // Sin la foto de la extensión (9/11/2026, `conFotoExt`), la ventana de la foto se abre en el clic de «Replicar».
+  assert.match(pantalla, /replicarLeida\(formato, formato === 'web' && !conFotoExt \? abrirEnElClic\(\) : undefined\)/);
   assert.match(pantalla, /leerEnNavegador\(url, \{ foto: true,/);
   assert.match(fuente('lib/editor-landing/lector-navegador.ts'), /fase: 'dale', \.\.\.\(opciones\.foto \? \{ foto: true \} : \{\}\)/);
   const vista = fuente('app/web-generator/editor/nodos/HtmlEditableVista.tsx');

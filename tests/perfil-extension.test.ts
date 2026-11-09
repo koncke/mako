@@ -24,6 +24,7 @@ import { runInNewContext } from 'node:vm';
 import { leerCapturaPerfil, leerPerfil, linkedinComparable, nombreDeInstagram, nombreDeLinkedin, nombreParaGuardar, perfilDeDireccion, type CapturaPerfil } from '../lib/perfil-captura';
 import { canalDeEntrada } from '../app/crm/lead-view/ficha/resumen/logica';
 import { esPublica } from '../lib/rutas-publicas';
+import { esMasVieja } from '../lib/version-comparar';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -305,8 +306,10 @@ test('el desplegable lee la pestaña con el toque, en el mundo aislado, y sin pe
   assert.match(pop, /addEventListener\('click', \(\) => void guardarPerfil\(/);
   assert.match(leer('extension/popup.html'), /<script src="perfil-reglas\.js"><\/script>/);
   const m = JSON.parse(leer('extension/manifest.json'));
-  assert.equal(m.version, '0.78.0');
-  assert.match(leer('extension/injected.js'), /const VERSION_ESPEJO = '0\.78\.0';/, 'el espejo dice la misma versión');
+  // «Guardar en MaKo» llegó con la 0.78.0: el paquete es ésa o una más nueva, y el espejo dice la misma que el paquete.
+  // (Fijaba '0.78.0' literal: cada versión nueva lo ponía rojo con todo bien, 9/11/2026.)
+  assert.ok(!esMasVieja(m.version, '0.78.0'), `el paquete (${m.version}) no trae «Guardar en MaKo»`);
+  assert.ok(leer('extension/injected.js').includes(`const VERSION_ESPEJO = '${m.version}';`), 'el espejo dice la misma versión');
   assert.equal(m.content_scripts.flatMap((c: { js: string[] }) => c.js).includes('perfil-leer.js'), false, 'no es un content script: corre sólo con el toque');
   const pol = leer('app/privacidad/extension/page.tsx');
   assert.match(pol, /<H>Al guardar un perfil en tu CRM<\/H>/);
