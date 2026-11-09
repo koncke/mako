@@ -219,6 +219,10 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 ### Paso 9 · La edición y el montaje
 - Según el template: orden de tomas, insertos, subtítulos, música y cierre.
 - Se monta sin recomprimir donde se pueda (`-c:v copy`).
+- Template «Mensaje para…»: `reel-mentores/montaje/montar.mjs` arma todo de una (cortes, subtítulos de 2-3 palabras desde los
+  tiempos de cada palabra, palabras rojas, cierre mudo, música, loudnorm) y se vuelve a correr cuando cambia una toma.
+  Las duraciones van en cuadros enteros: si no, los subtítulos se corren al acumular redondeos.
+  Antes de entregar, transcribir el reel entero con `chequear-guion.mjs` (un recorte puede comerse una palabra).
 
 ### Paso 10 · La entrega
 - Clip más su contexto.md. Lo que el usuario aprueba se guarda como win.
@@ -465,6 +469,10 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | Unas 40 caras repetidas | «Llenándolo» | Dar el número: «estas doce caras, una sola vez cada una» |
 | Relleno de luz o fondo plano de recorte | Negativos en el prompt | Pedir en positivo |
 | Una luz en la cara cuando se quería contraluz | «Que la cara siga legible» | Una frase con el efecto: «a contraluz contra un fondo blanco» |
+| El cuarto de la referencia se metió en la toma (se perdió el fondo blanco) | Una referencia con su escena (la polaroid en la mano, delante del corcho) | Recortar la referencia al objeto solo: la polaroid, el celular |
+| «Gurú» en el prompt dio gurús de la India | La palabra | Darle las caricaturas reales: un abanico armado a mano con las de `public/asesores/grandes/` (`reel-mentores/blancas/abanico.py`) |
+| «A contraluz» casi no cambia la imagen | Nano Banana no reilumina a la persona | La silueta la da el video (las tomas blancas de la noche salieron así) |
+| Una «risa» o un «gruñido» en un hueco sin voz | El voice-to-voice pasó el soplido del efecto (humo) por la voz | En el montaje se calla la pista de voz entre la última palabra y la siguiente; la música sostiene. La transcripción lo marca como «[gruñido]» |
 | «Detectamos actividad inusual» | Unas 15 ediciones en una hora | Esperar unos minutos |
 | «No es mi voz» | Clon profesional en voice-to-voice | Clon «wav nivelado» |
 | Voz «súper grave» | `use_speaker_boost` en true | false |
@@ -620,6 +628,12 @@ Un tablero de corcho con las caricaturas de los gurús unidas por hilo rojo, en 
 
 Los parámetros completos y sus trampas están en `docs/edicion-video-automatica.md`. Lo central:
 - Música medida y llevada a −33 LUFS, con fade in de 0,8 s y fade out de 2,5 s. Nunca un «−20 dB» a ojo.
+- **Con cierre mudo (template «Mensaje para…»)** la música no puede ir fija a −33: el cierre quedaría en silencio. Base
+  −19 LUFS y `sidechaincompress` con la voz (threshold 0.02, ratio 10, attack 15, release 350): queda ~−30 bajo la
+  voz y sube sola en los insertos, en los huecos y en el cierre. Se entrega también una versión sin música, para
+  ponerle un audio de Instagram.
+- Si no hay música elegida: UNA pista de ElevenLabs Music (`reel-mentores/voz/musica.mjs`, `music_v1`, instrumental;
+  48 s tardaron 7 s). El archivo arranca con ~2 s de silencio: se entra en el segundo 2.
 - Mezcla con `amix=inputs=2:normalize=0`, y loudnorm de dos pasadas sobre la mezcla (I=-14:TP=-1:LRA=11, linear) forzando `-ar 48000`.
 - Fuente de los subtítulos: Anton o Montserrat ExtraBold. libass no falla si falta la fuente: cae a Arial en silencio.
 - Se recortan los «eh» y espasmos del modelo: es la diferencia entre «un video con IA» y un anuncio.

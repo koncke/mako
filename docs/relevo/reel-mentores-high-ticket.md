@@ -5,6 +5,38 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 0000 · 9/11 ~19:40 UTC (claude4): MONTAJE v1 HECHO y mandado; faltan 2 videos de fondo blanco
+
+**Dónde está:** `C:/dev/reel-mentores/montaje/REEL-v1.mp4` (44,7 s, con música) y `REEL-v1-SIN-MUSICA.mp4` (para
+ponerle un audio de Instagram). Copias en Descargas › «Reel mentores high ticket (9-11)» › «5 - Montaje».
+**Se rearma con** `node C:/dev/reel-mentores/montaje/montar.mjs v2` (30 s): ahí están los cortes, los carteles, las
+palabras rojas y la mezcla. Si existen `blancas/VIDEO-abanico.mp4` y `blancas/VIDEO-celular.mp4` los usa solos; si no,
+pone la imagen quieta con zoom lento (así está el v1).
+
+**Orden:** clip 1 → (blanca perfil «HIGH TICKET») → clip 2 hasta «Martín,» → (blanca brazos «MARTÍN») → resto del
+clip 2 → (abanico «GURÚS») → clip 3 → (celular) → clip 4 → (dedo) → clip 5 (humo 0,35–6,10 y 7,15–11,90: en esos dos
+cuadros coincide el encuadre) → cierre mudo: brazos 3 s, celular «COMENTÁ "APP"», dedo «1 SEMANA GRATIS», abanico,
+perfil. Transcripción del reel entero: guion exacto (sólo «25» → «veinticinco»).
+
+**Tomas blancas nuevas (pedido de Martín):** el **plano detalle del celular con MaKo** (`blancas/celular-detalle.jpg`)
+y **él con un abanico de polaroids de los gurús del corcho, que suelta de a una** (`blancas/abanico-frente.jpg`;
+Martín: «con las dos manos… como un abanico… como si fueran cartas»). Reemplaza a los pistachos que tira Josep.
+La de Hormozi sobre blanco **no va** (Martín: «con esa me sobrarían»). Las dos imágenes están **mandadas, esperando su
+OK** para hacer UN video de cada una (abanico 5 s: «suelta las polaroids de a una»; celular 4 s, quieto).
+Ambas salieron del editor de Flow `/edit/70132b4d-…` (base = `blancas/CEL-paso2-contraluz.jpg`, la blanca de la noche).
+
+**Música:** no estaba decidida en ningún lado (el catálogo de la app está vacío hasta Epidemic). Se generó UNA pista con
+ElevenLabs Music (`voz/musica.mjs`, `montaje/musica-eleven.mp3`, 48 s). Martín preguntó «¿tienes en claro ya la
+música?»: se le contestó eso; si quiere otra, se cambia el archivo y se rearma.
+
+**La risa del clip 5:** era el soplido del humo pasado por el cambio de voz (sonaba a risa/gruñido). En el montaje se
+calla la pista de voz entre «PDF» y «Mejor»; ya no aparece en la transcripción.
+
+**Sin hacer:** los dos videos de fondo blanco (esperan el OK), el v2 del montaje, y el «1 semana de prueba» contra la
+prueba gratis apagada el 30/10 (sigue sin respuesta).
+
+---
+
 ## 000 · 9/11 ~12:35 UTC: Martín RECHAZÓ los clips nuevos — «muy de IA»; se rehace todo por separado
 
 Martín, textual: «salió tanto la imagen como el pizarrón de atrás muy de IA… quiero que lo vuelvas a hacer todo por
