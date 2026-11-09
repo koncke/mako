@@ -133,3 +133,7 @@
   PDF de su entrada**: `avisarPausasNuevas` sólo avisa las pausas que hace el cron, y en el libro no hay ningún `pausa.18.*` ni
   `pausa.22.*`. Lo único que se les dijo fue el mensaje a mano del 5/11 («Patricia: US$1,5667 por día, desde el día que entre»).
 - **Sin hacer:** la entrada de Pablo (18) sigue sin pagar y su cuenta en pausa (US$ 40,73 si paga el 9/11). No era parte de este pedido.
+- **Regla de Martín, 9/11: en cobros, PDF y WhatsApp, sólo los dólares, sin pesos ni cotización** («Binance paga una cotización mucho más
+  alta»; memoria `cobros-sin-cotizacion`). Medido ese día: el PDF de la mensualidad y de las entradas (`lib/agencia-mes-pdf.ts`), sus
+  textos (`lib/agencia-mes-reglas.ts`) y el recibo (`lib/recibo-pdf.ts`, cada pago en su moneda: «238 USDT») no agregan ninguna. Un
+  cambio que la sume en esos tres lugares rompe la regla.
