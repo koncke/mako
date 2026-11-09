@@ -2589,3 +2589,67 @@ Faltan las tomas 2 a 6 y la edad de Martín para la línea 2.
 
 **El lanzamiento es el domingo 25/10.** La campaña de Mauricio va del 24/10 al 13/11 (50 leads por día). Su Sprint es el
 24, 25 y 26 de noviembre.
+
+---
+
+## 9/11/2026 ~05:00 UTC — el reel, cuatro reglas nuevas de generación, y el aviso del envío trabado
+
+### Lo que quedó HECHO y en su punta
+
+- **El envío trabado ya avisa** (el ítem 1 de «lo que sigue abierto»): `lib/envio-trabado.ts` (puro,
+  el criterio) + `lib/envio-trabado-aviso.ts` (el envío, con su `catch`) + el aviso
+  `envio-trabado-otra-app` en el catálogo + el enganche en la rama social de `nutricion.ts`.
+  9 tests. Puntas: `punta/aviso-envio-trabado` (roja, foto del estado viejo) y
+  **`punta/aviso-envio-trabado-verde` (con el arreglo)**.
+- ⚠️ **TRES puntas quedan ROJAS a propósito y no se tocan**: `aviso-envio-trabado`,
+  `chequear-antes-de-entregar` y `animar-en-flow-numeros` son commits anteriores al arreglo. Lo
+  bueno entra a main por `aviso-envio-trabado-verde` y `movimiento-por-lo-quieto`.
+
+### Los tres rojos que GitHub cazó y acá no se veían
+
+1. **Voseo** en el copy del aviso («lo arreglas vos»): el producto se usa en México.
+   `tests/puente-panel-copy.test.ts` lo barre en 6.021 archivos.
+2. **El tope de 3.000 caracteres de la rama social de `nutricion.ts`** (`tests/canal-social.test.ts`):
+   el bloque inline la dejó en 3.245. **Esa guarda existe para que la rama se lea de una sentada**:
+   lo que el motor tiene que hacer sale a una función con nombre, no se apila ahí.
+3. **Un aviso nuevo sin ÁREA declarada** caería en `'sistema'` por default, y ese default es para los
+   que crea el dueño, no para tapar olvidos del catálogo (`tests/avisos-reunion-link.test.ts`).
+
+### Las CUATRO reglas de generación que dictó Martín (todas en `AGENTS.md`)
+
+1. **Siempre se parte de una imagen de referencia, nunca de puro prompt.** Describir una pose con
+   palabras costó 4 intentos; con la foto adjunta y una frase salió al primero.
+2. **El prompt va CORTO Y HUMANO**, también el que MaKo le manda a Flow/ApiMart cuando un usuario
+   dice que algo no salió como esperaba. Nada de recetas técnicas ni de medir bordes del pelo.
+   **Lo que no se quiere no se nombra**: lo negativo se cumple al revés.
+3. **Lo generado SE CHEQUEA antes de entregar** — con la misma referencia y la misma frase, dos
+   corridas dan resultados distintos y el modelo no avisa. En el producto: no se muestra como
+   terminado sin su chequeo.
+4. **El movimiento se pide por lo que SE QUEDA QUIETO.** «Mueve los dedos» bajó el brazo entero;
+   «los brazos quedan cruzados todo el tiempo, sólo respira» salió al primero.
+
+Y dos de operación: **las ediciones NO se apilan** (se vuelve a la última versión que él aprobó) y
+**las generaciones se lanzan en paralelo**, en Flow y en ApiMart.
+
+### El reel: dónde está
+
+**Proyecto NUEVO, en la cuenta de Mauricio** (`mbustos@elevate.com.mx`) — **Martín lo puso ahí a
+propósito y dijo que se gaste ahí**: `flow.google.com/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e`.
+El proyecto viejo (`73afb881…`) está en otra cuenta y **no se alcanza desde este Chrome**.
+
+**Tres tomas listas**, 720×1280, 8 s, **sin pista de audio**: brazos cruzados (sólo respira),
+perfil con las manos arriba, y el dedo índice arriba. Faltan: animar la del estudio con la pizarra
+de detective, y generar dos imágenes (él frente a la compu, él con el teléfono).
+
+⚠️ **El panel de video de Flow viene mal por default**: Veo 3.1 Lite (y la regla es SÓLO Omni), la
+imagen como «Ingredientes» en vez de «Fotogramas», y **360p** —por eso decía 8 créditos cuando a
+720p son **24**—. **Recargar la página borra el primer fotograma.** Gastados 96 de 1.050.
+
+⚠️ **Omni devuelve pista de audio aunque nadie hable** (−42 a −62 dB, ambiente). Un clip que va mudo
+se entrega con `ffmpeg -an -c:v copy`.
+
+### Trabado esperando a Martín
+
+- **Su edad**, para la línea de la credencial del guion, y la palabra en rojo del segundo 3.
+- **El guion entero de Josep NO se transcribe** (es su pieza): se le pasó el esqueleto con los
+  tiempos medidos y el guion propio completo.
