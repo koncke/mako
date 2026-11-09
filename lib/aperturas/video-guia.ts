@@ -38,7 +38,10 @@ export type HechosVideoGuia = {
   /** Las fotos que ya subió y sus personajes aprobados: las opciones del paso del personaje. */
   fotos: readonly { id: string; url: string }[];
   personajes: readonly { id: string; url: string; nombre: string }[];
-  /** ¿Tiene su voz clonada? null = todavía no se sabe (no se pregunta a ciegas). */
+  /**
+   * ¿Tiene su voz clonada? null = no se pudo saber: el paso de la voz se SALTEA (no se pregunta a ciegas) y MaKo sigue con el
+   * fondo. Saltearlo y no callar: con la voz sin leer, la guía entera se quedaba muda en ese paso para siempre.
+   */
   vozClonada: boolean | null;
   /** MaKo está trabajando o hay algo en el chat: el paso espera. */
   ocupado: boolean;
@@ -55,7 +58,7 @@ export const PASO = {
 } as const;
 
 /** Lo que se contesta en cada paso (los valores que el proyecto guarda). */
-export const VALOR = { vista: 'vista', vozClonada: 'clonada', sinVoz: 'sin-voz', corcho: 'corcho', otroLugar: 'otro' } as const;
+export const VALOR = { vista: 'vista', vozClonada: 'clonada', sinVoz: 'sin-voz', corcho: 'corcho', otroLugar: 'otro', alcanzan: 'alcanzan' } as const;
 
 /** El id del proyecto como entra en la clave de la memoria (`[A-Za-z0-9_-]`, 60 como mucho). */
 const entidadDe = (id: string): string => id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
@@ -114,8 +117,7 @@ export function aperturaVideoGuia(h: HechosVideoGuia, r: Respuestas): Apertura<A
     };
   }
 
-  if (!h.voz && !r[PASO.voz]) {
-    if (h.vozClonada == null) return null;
+  if (!h.voz && !r[PASO.voz] && h.vozClonada != null) {
     return h.vozClonada
       ? {
         ...base, id: PASO.voz,
@@ -155,8 +157,9 @@ export function aperturaVideoGuia(h: HechosVideoGuia, r: Respuestas): Apertura<A
     const creditos = clips.reduce((s, c) => s + c.duracion.creditos, 0);
     return {
       ...base, id: PASO.clips,
-      texto: `Tus ${clips.length} clips suman ${segundos} s y ${creditos} créditos de Flow, y cada uno se filma después de tu OK a su imagen. ¿Tienes ese saldo?`,
+      texto: `Tus ${clips.length} clips suman ${segundos} s y ${creditos} créditos de Flow, y cada uno se filma después de tu OK a su imagen. ¿Te alcanzan?`,
       botones: [
+        { tipo: 'respuesta', rotulo: 'Sí, me alcanzan', valor: VALOR.alcanzan },
         { tipo: 'hacer', rotulo: 'Ver cada clip', accion: 'ver-clips' },
         { tipo: 'callar', rotulo: 'Lo hago yo' },
       ],
@@ -199,7 +202,7 @@ export const EJEMPLOS: readonly { nombre: string; h: HechosVideoGuia; r: Respues
   { nombre: 'sin guion', h: { ...BASE, vioReferencia: true }, r: {}, espera: PASO.guion, primerPaso: true },
   { nombre: 'con guion y sin fotos', h: { ...BASE, vioReferencia: true, guion: GUION_COMPLETO, guionListo: true }, r: {}, espera: PASO.personaje, primerPaso: true },
   { nombre: 'con guion y con una foto', h: { ...BASE, vioReferencia: true, guion: GUION_COMPLETO, guionListo: true, fotos: [FOTO] }, r: {}, espera: PASO.personaje, primerPaso: true },
-  { nombre: 'sin saber si tiene voz', h: LISTO_HASTA_VOZ, r: {}, espera: null },
+  { nombre: 'sin saber si tiene voz: se saltea, sigue el fondo', h: LISTO_HASTA_VOZ, r: {}, espera: PASO.fondo },
   { nombre: 'con su voz clonada', h: { ...LISTO_HASTA_VOZ, vozClonada: true }, r: {}, espera: PASO.voz, primerPaso: true },
   { nombre: 'sin voz clonada', h: { ...LISTO_HASTA_VOZ, vozClonada: false }, r: {}, espera: PASO.voz, primerPaso: true },
   { nombre: 'falta el fondo', h: { ...LISTO_HASTA_VOZ, vozClonada: true, voz: VALOR.vozClonada }, r: {}, espera: PASO.fondo, primerPaso: true },

@@ -163,6 +163,14 @@ test('5. el estado guiado: se sanea lo leído y lo contestado vuelve como hecho 
   assert.equal(SUPERFICIE_VIDEO_GUIA.apertura(hechos, {})?.id, PASO.personaje);
   const conFoto = hechosDelProyecto(conEleccion(x, PASO.personaje, 'foto:f1'));
   assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...hechos, ...conFoto }, {})?.id, PASO.voz);
+  // Sin saber si tiene voz, el paso se saltea y MaKo sigue (antes la guía se quedaba muda ahí para siempre).
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...hechos, ...conFoto, vozClonada: null }, {})?.id, PASO.fondo);
+  // La pregunta de los clips se contesta con un botón (una pregunta con botones que no la contestan no sirve).
+  const listo = { ...hechos, ...conFoto, voz: 'clonada', fondo: 'corcho' };
+  const clips = SUPERFICIE_VIDEO_GUIA.apertura(listo, {});
+  assert.equal(clips?.id, PASO.clips);
+  assert.ok(clips?.botones.some((b) => b.tipo === 'respuesta'), 'la pregunta de los clips sin un botón que la conteste');
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura(listo, { [PASO.clips]: 'alcanzan' }), null, 'contestada la última, MaKo calla');
 });
 
 test('6. la galería de la apertura: las fotos y los personajes cliqueables, con sus reglas', () => {

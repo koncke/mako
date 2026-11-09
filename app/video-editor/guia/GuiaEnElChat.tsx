@@ -72,8 +72,9 @@ export function GuiaEnElChat({ proyectoId, ocupado, quien }: { proyectoId: strin
   }, [guiado]);
 
   const hechos = useMemo((): HechosVideoGuia | null => {
-    if (!estadoGuia || !datos) return null;
-    return { proyecto: proyectoId, ...hechosDelProyecto(estadoGuia), fotos: datos.fotos, personajes: datos.personajes, vozClonada: voz?.clonada ?? null, ocupado };
+    // Espera las DOS lecturas: con la voz todavía en camino, el paso de la voz se saltearía y volvería al llegar (un parpadeo).
+    if (!estadoGuia || !datos || !voz) return null;
+    return { proyecto: proyectoId, ...hechosDelProyecto(estadoGuia), fotos: datos.fotos, personajes: datos.personajes, vozClonada: voz.clonada, ocupado };
   }, [estadoGuia, datos, voz, proyectoId, ocupado]);
 
   const estado = useApertura({ superficie: SUPERFICIE_VIDEO_GUIA, hechos, libre: !ocupado && !guionAbierto && !clonando, entidad: proyectoId });
