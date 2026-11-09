@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Una línea puede MANDAR, contestar la sonda y estar SORDA** (9/11/2026). La de MaKo (…2605) y la de Martín (…3479) dejaron de
+  recibir a las 12:06-12:11 UTC y nadie se enteró en 10 horas: `fetchBusinessProfile` daba 200, los avisos salían, y no entraba nada.
+  Reiniciar la instancia no alcanzó; volver a escanear el QR sí. Ver «La línea sorda», abajo.
 - **«MaKo no le responde» puede ser que contestó TODO y no resolvió nada** (9/11/2026, Leandro). La línea estaba `open`, cada
   mensaje tuvo reacción y texto, y aun así Martín lo vio mudo: la pregunta quedaba en un ticket que nadie tomaba. Antes de mirar
   Evolution, mirar qué se contestó. Ver «MaKo no le responde a Leandro», abajo.
@@ -65,6 +68,30 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
 
 ---
+
+## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
+
+**El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
+
+**Lo medido:** la línea de MaKo (`mako_superadmin_muylqv8r`) y la de Martín (`mako_ws9`) estaban `open`, `fetchBusinessProfile` daba
+200 (la sonda de `socketVivo`, la que separó las vivas de las zombis el 11/09) y MaKo seguía MANDANDO (el PDF de un cobro a las 19:02
+UTC). Pero `_count.Message` de las dos no se movía: el último entrante, 12:11 y 12:06 UTC. Las líneas que IGNORAN grupos (ws10, ws11,
+ws19) recibían normal. Con la línea sorda no llega nada ni a Evolution, así que ni el webhook ni el despachante tienen qué hacer.
+- **Cómo se ve en un minuto:** `GET /instance/fetchInstances` dos veces, con unos minutos de diferencia, y comparar `_count.Message`
+  contra las otras líneas. Una línea de grupos sin un solo mensaje nuevo en horas, con las demás recibiendo, está sorda.
+- **Lo que NO la arregló:** `POST /instance/restart` (devuelve `open` y la sesión sigue sorda; en el número de Martín, cero
+  mensajes en 12 minutos de un lunes a la tarde).
+- **Lo que SÍ:** volver a escanear el QR (Martín, 22:36 UTC). La instancia se rehizo con el mismo nombre, el webhook quedó puesto
+  solo, y la sincronización trajo lo perdido (el «listo» de Joan, la pregunta de Leandro, un reclamo de Mauricio).
+- ⚠️ **Lo que trae la sincronización NO pasa por el despachante:** entra como historial, no como mensaje nuevo, así que MaKo no lo
+  contesta. Después de reconectar una línea hay que leer los grupos y contestar lo que quedó a mano (`enviarAlGrupoMaKo`, como equipo).
+
+**La causa de fondo, sin saber:** WhatsApp dejó de entregarle mensajes a esas dos sesiones a la vez, y las dos son las únicas que
+leen grupos. No se pudo mirar el log de Evolution (Railway, sin acceso desde el repo).
+
+**Sin hacer:** el vigilante del canal (`lib/canal-vigilante.ts`) mira si el socket contesta, y una línea sorda contesta. Falta la
+alarma por lo que NO llega: horas sin un mensaje entrante en la línea de grupos mientras las otras líneas reciben, por EMAIL (la
+alarma de un canal no viaja por ese canal). La línea de Martín (`mako_ws9`) quedó sorda: necesita su propio QR.
 
 ## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
 
