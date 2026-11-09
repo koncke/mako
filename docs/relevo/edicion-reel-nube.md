@@ -86,4 +86,9 @@ quede en el historial, «Deshacer todo», y por el chat «edítalo todo» → Ac
 
 ## El VERDE
 
-(se completa al subir)
+**VERDE 7c3dfbb1a** (9/11/2026): 7193 tests de 718 archivos y el tsc entero, con Node 24, sobre el árbol `e2e8fc95f6` (las tandas 1
+a 4, con `origin/main` mezclado). Es el commit que quedó en `punta/edicion-reel-0911`: el renglón `Veredicto:` va en su mensaje, así
+que GitHub no repite lo que ya pasó. Esta línea del relevo va en un commit aparte, encima.
+
+⚠️ En la nube el pre-push hay que correrlo con Node 24 (`export PATH="$(sh scripts/node24.sh):$PATH"` en el MISMO comando que el
+`git push`): con el 22 el filtro dio 12 tests rojos en 24 s que no existen.
