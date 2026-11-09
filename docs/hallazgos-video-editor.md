@@ -44,6 +44,8 @@ HTTP con precio público); Shazam (`shazamio`) sólo reconoce en ventanas SIN vo
   cortes: muestrea el cuadro equivocado. Se mide con `select` por número de cuadro.
 - El voice-to-voice convierte el soplido de un efecto (humo) en un zumbido con tono (f0 142 Hz) que suena a risa: en los
   huecos sin voz se calla la pista de voz y va el golpe.
+- `python -I` ignora los paquetes de `pip install --user`: `shazamio` daba ModuleNotFoundError estando instalado. Se
+  arregla con `sys.path.append(site.getusersitepackages())`.
 - La palabra roja pintada encima tapa el pelo y el celular; Josep pone al sujeto DELANTE del texto. Se compone con una
   máscara «donde el cuadro es blanco» (`maskedmerge`); y en el cierre la toma se corre hacia abajo para que el texto
   quede libre (achicarla deja costuras duras a los costados).
