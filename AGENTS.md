@@ -12085,6 +12085,11 @@ criterioso, mirar y revisar si está bien luego».**
 corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
 mandarla.
 
+### ⛔ Cada clip parte del AVATAR ORIGINAL, aunque cambien el movimiento o la posición (Martín, 9/11/2026)
+
+*«por más de que haya cambios de movimiento, de posición, etcétera, siempre se debe partir desde el avatar original… si no, van a haber discordancias seguro en los avatares».* Cada imagen de cada clip del reel se hace desde la MISMA imagen original del avatar, nunca desde el fotograma de otro clip ni desde otra combinación.
+- **Si a mitad del reel el usuario manda otra foto** o pide cambiar algo del avatar: se genera, pero se le ADVIERTE que, si no se sigue con la imagen original (se le muestra cuál es), es muy posible que haya diferencias sutiles entre clips. Cada foto trae otra luz, que cambia el color del pelo o las facciones, otra sonrisa y otra calidad, y la IA lo copia.
+
 ### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
 
 - **Escala:** *«no puede ser posible que el pizarrón sea exageradamente grande con esas imágenes exageradamente grandes y yo quede así de chiquito… se ve muy feo».* Se mira la proporción entre la persona y los objetos (una persona es más alta que un corcho de pared; una foto pinchada es más chica que una cara). Si no es real, no se manda.
