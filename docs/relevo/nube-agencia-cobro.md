@@ -109,7 +109,7 @@
 
 ## 9/11/2026 — la entrada de Patricia Contreras (cuenta 22), pedida por Martín
 
-> Lo escribió un chat abierto por el Cerebro (cuenta claude4). Estado al 9/11 19:10 UTC: **cobro mandado, esperando el pago**.
+> Lo escribió un chat abierto por el Cerebro (cuenta claude4). Estado al 9/11 22:45 UTC: **cobro mandado; Joan dijo «listo» sin comprobante; esperando el comprobante**.
 
 - **El pedido**, textual: «pasarle al grupo de código inmobiliario el alta para el cliente de Patricia… le cobramos como un diferencial de
   aquí hasta el próximo periodo del 5… cuando pague, ahí ya directamente dale de alta. A esa cuenta». Se leyó como la cuenta de
@@ -132,6 +132,12 @@
 - **Hallazgo:** Pablo y Patricia pasaron a «Paga para entrar» con `scripts/agencia-paga-para-entrar.mts` el 6/11, y **nunca les salió el
   PDF de su entrada**: `avisarPausasNuevas` sólo avisa las pausas que hace el cron, y en el libro no hay ningún `pausa.18.*` ni
   `pausa.22.*`. Lo único que se les dijo fue el mensaje a mano del 5/11 («Patricia: US$1,5667 por día, desde el día que entre»).
+- **9/11 21:31 UTC, Joan: «listo», sin comprobante.** No entró ninguna imagen ni documento a la línea ese día (medido en el store de
+  Evolution). Y la base tampoco lo vio, porque el webhook de la línea estuvo caído de 12:10 a 22:35 UTC. A las 22:40 UTC el equipo le
+  pidió el comprobante con la orden a la vista. **Un «listo» no es el pago:** la cuenta 22 sigue en pausa hasta ver el comprobante.
+  ⚠️ **Mientras el webhook está caído, `grupo_mensajes` no muestra nada y parece que no escribieron.** La verdad la tiene Evolution:
+  `POST /chat/findMessages/<instancia>` con `where.key.remoteJid = <grupo>`. El grupo del 13 es `120363429866357487@g.us`, en la línea
+  `mako_superadmin_muylqv8r`. Si el comprobante llega otro día, pero la orden es del 9/11, se marca `--el 2026-11-09` con US$ 40,73.
 - **Sin hacer:** la entrada de Pablo (18) sigue sin pagar y su cuenta en pausa (US$ 40,73 si paga el 9/11). No era parte de este pedido.
 - **Regla de Martín, 9/11: en cobros, PDF y WhatsApp, sólo los dólares, sin pesos ni cotización** («Binance paga una cotización mucho más
   alta»; memoria `cobros-sin-cotizacion`). Medido ese día: el PDF de la mensualidad y de las entradas (`lib/agencia-mes-pdf.ts`), sus
