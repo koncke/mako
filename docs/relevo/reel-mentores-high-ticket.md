@@ -381,3 +381,9 @@ Eso fue lo que destrabó el clip 2.
        Al principio abre la mano y deja caer la foto.
 
 - **(~14:25) Martín: «toma la imagen del fondo sin nadie y le agregas el personaje. No al revés».** Con el personaje de base, el corcho salió desfasado y la pared apuntando para otro lado. Base = `aprobado/corcho-v3-1k.jpg`, referencia = `omni/personaje-bueno-original.jpg`, frase: «Agrega a esta persona de pie al lado del corcho, mirando a cámara, con las manos vacías. El corcho, la pared y el cuarto quedan igual.» → `omni/clip2-fondo-mas-persona.jpg`: perspectiva intacta. **Regla: cuando el que manda es el escenario, el FONDO va de base y la persona entra de referencia. Antes de mandar, revisar la perspectiva del fondo y de la pared.** Esperando su OK para el video.
+
+- **(~14:40) Clip 2, pruebas con el método nuevo de Martín** (primero ALEJAR el fondo solo, después agregar a la persona; rostro «exactamente igual al original» en cada frase; revisar escala, rostro y perspectiva ANTES de mandar):
+  - `omni/fondo-alejado.jpg` ✅: el corcho elegido, más chico en la pared, con más pared, piso y la ventana (frase: «La misma pared y el mismo corcho, con la cámara un poco más lejos: el corcho se ve más chico, con más pared y piso alrededor.»).
+  - `omni/clip2-v4.jpg`: base = fondo alejado + avatar original. Escala REAL, pero de cuerpo entero y lejos: la cara es chica y pierde el parecido. No mandada.
+  - v5 (en Flow, `/edit/52bc9f7a-…`, sin bajar): «cerca de la cámara, de la cintura para arriba, a un costado del corcho» → quedó cortado en el borde izquierdo y de costado. No mandada.
+  - **Próximo intento:** base = `omni/fondo-alejado.jpg`, ref = `omni/personaje-bueno-original.jpg`, con la persona del lado DERECHO del cuadro, de la cintura para arriba, de frente a cámara, y el corcho a su izquierda, entero. Revisar escala y cara lado a lado (ffmpeg hstack) antes de mandar.
