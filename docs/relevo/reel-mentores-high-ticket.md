@@ -36,6 +36,17 @@ quedan DESCARTADOS.**
     encontré repetidas. Notas en español, con errores («¿Socpechoeo?»).
   - `b3`: lo mismo, con las palabras exactas de las notas entre comillas → **repitió** a Hormozi y a la rubia, y las
     notas siguieron con errores. Las palabras entre comillas no arreglan la ortografía de Nano Banana.
+- **Martín (~12:50):** «mira la imagen que te pasé de referencia… las fotografías están más chiquitas y más realistas».
+  `c1` (base + 2 lotes + un recorte de las fotos de su referencia + párrafo) **copió las tarjetas grandes de los LOTES**:
+  el lote manda sobre la muestra. Y ahí Martín: **«No le pases muchas referencias… Los prompts simples, con una sola
+  referencia»** → regla ⛔ en AGENTS.md y en la memoria `una-referencia-prompt-simple`.
+- **Con su método (base = `b2-horizontal.jpg`, subida de nuevo · UNA referencia · una frase):**
+  - con el corcho SOLO de referencia (`a3`), Flow **reemplazó la imagen entera** por ese corcho vertical: una
+    referencia que es «toda la imagen» se copia entera;
+  - con la referencia COMPLETA de Martín y «Mantén el cuarto, el corcho y las fotos de los personajes, pero quiero que
+    las tarjetas se vean como en esta referencia. Más realista.» → **`d1-tarjetas-reales.jpg`**: cuarto, corcho
+    horizontal y distribución intactos, pero las caricaturas pasaron a FOTOS DE PERSONAS REALES y las tarjetas no se
+    achicaron. Mostrada a Martín, esperando su veredicto.
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
