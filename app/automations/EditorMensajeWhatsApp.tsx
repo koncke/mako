@@ -546,8 +546,36 @@ const juntarAudios = (xs: readonly AudioSetting[], nuevas: readonly AudioSetting
 
 /** Las que guarda `setSecuenciaPasos`. */
 const TOPE_VERSIONES = 8;
-const chip: CSSProperties = { height: 28, padding: '0 10px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+/** La píldora del «↻ N» (la usa también el editor de Instagram y Messenger, EditorMensajeSocial.tsx). */
+export const chip: CSSProperties = { height: 28, padding: '0 10px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const cajaPopover: CSSProperties = { width: 280, maxHeight: 340, overflowY: 'auto', padding: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 12px 34px rgba(18,21,27,.18)', fontFamily: "'Geist', sans-serif", display: 'flex', flexDirection: 'column', gap: 8 };
+
+/**
+ * OTRAS FORMAS DE DECIRLO («↻ N»): las versiones del texto que el motor sortea, una por persona (`textoDelPaso`,
+ * lib/nutricion-canal.ts). UNA pieza para los dos editores: el de WhatsApp y, desde el 9/11/2026, el de Instagram y Messenger
+ * (Leandro: «que esa respuesta pública no sea siempre igual: que rote entre…»). `agrega`: deja sumar una versión a mano.
+ */
+export function OtrasFormasDeDecirlo({ variantes, agrega, onCambio, onVacio }: {
+  variantes: readonly string[]; agrega: boolean; onCambio: (variantes: string[]) => void; onVacio: () => void;
+}) {
+  return (
+    <div style={cajaPopover}>
+      {variantes.map((v, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+          <textarea value={v} rows={3} aria-label={`Versión ${i + 2}`}
+            onChange={(e) => onCambio(variantes.map((x, j) => (j === i ? e.target.value : x)))}
+            style={{ flex: 1, minWidth: 0, padding: '7px 9px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, lineHeight: 1.45, resize: 'vertical', outline: 'none' }} />
+          <button type="button" title="Quitar esta versión" aria-label="Quitar esta versión"
+            onClick={() => { const resto = variantes.filter((_, j) => j !== i); onCambio(resto); if (!resto.length) onVacio(); }}
+            style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '5px 2px' }}>✕</button>
+        </div>
+      ))}
+      {agrega && variantes.length < TOPE_VERSIONES && (
+        <button type="button" onClick={() => onCambio([...variantes, ''])} style={{ ...chip, alignSelf: 'flex-start' }}>＋ Otra forma de decirlo</button>
+      )}
+    </div>
+  );
+}
 const accionBurbuja: CSSProperties = { width: 28, height: 28, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 };
 
 function IconLapiz() {
@@ -1498,21 +1526,7 @@ export function EditorMensajeWhatsApp({
       )}
       {abierto === 'variantes' && (
         <PopoverWA ancla={btnVariantes} etiqueta="Otras formas de decirlo" onCerrar={() => setAbierto(null)}>
-          <div style={cajaPopover}>
-            {variantes.map((v, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <textarea value={v} rows={3} aria-label={`Versión ${i + 2}`}
-                  onChange={(e) => onChange({ variantes: variantes.map((x, j) => (j === i ? e.target.value : x)) })}
-                  style={{ flex: 1, minWidth: 0, padding: '7px 9px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, lineHeight: 1.45, resize: 'vertical', outline: 'none' }} />
-                <button type="button" title="Quitar esta versión" aria-label="Quitar esta versión"
-                  onClick={() => { const resto = variantes.filter((_, j) => j !== i); onChange({ variantes: resto }); if (!resto.length) setAbierto(null); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '5px 2px' }}>✕</button>
-              </div>
-            ))}
-            {agregaVersiones && variantes.length < TOPE_VERSIONES && (
-              <button type="button" onClick={() => onChange({ variantes: [...variantes, ''] })} style={{ ...chip, alignSelf: 'flex-start' }}>＋ Otra forma de decirlo</button>
-            )}
-          </div>
+          <OtrasFormasDeDecirlo variantes={variantes} agrega={agregaVersiones} onCambio={(vs) => onChange({ variantes: vs })} onVacio={() => setAbierto(null)} />
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />

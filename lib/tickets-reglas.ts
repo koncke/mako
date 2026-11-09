@@ -351,7 +351,13 @@ const URGENTE = [/\b(urgente|no puedo (trabajar|entrar|ingresar|vender|cobrar)|n
  */
 const ZONA_SENSIBLE_RUTA = /^\/(pagos|cobros|reembolsos|planes|perfil\/seguridad|login|admin|integraciones|api-mako|equipo|configuraciones\/(integraciones|equipo))(\/|\?|$)/;
 const ZONA_SENSIBLE_HERRAMIENTA = /(pago|cobr|reembols|factur|borrar|eliminar|token|credencial|clave|2fa|mfa|login|enviar_(campana|masivo|newsletter)|difusion)/;
-const ZONA_SENSIBLE_TEXTO = [/\b(cobr\w*|pago|pagos|factura\w*|reembols\w*|tarjeta|contrasena|2fa|segundo factor|no puedo entrar|borr\w+ (todo|los|mis)|se borr\w+|perdi (todo|los datos|mis datos)|token|clave de api|mensaje masivo|difusion)\b/];
+// ⚠️ «TARJETA» A SECAS NO ES UNA TARJETA DE PAGO (9/11/2026, los tickets #62, #63 y #67 de Leandro): en Automations cada paso
+// del lienzo es una TARJETA («la tarjeta de Instagram con "Responder en público"», «la tarjeta nem81on»). Con `tarjeta` suelta en
+// esta lista, TODO reporte de una automatización caía en «cobros» y esperaba a Martín, aunque Leandro tiene la vía libre: sus
+// problemas con Automations quedaron días en `esperando_decision` sin que nadie los tomara. Cuenta sólo la de PAGO, nombrada como
+// tal o junto a lo que se hace con ella; «cobr…» y «pago» ya entran solos.
+const TARJETA_DE_PAGO = /\b(tarjetas? de (credito|debito|pago)|tarjetas? (rechazad|vencid|declinad|bloquead)\w*|(numero|datos|vencimiento|codigo de seguridad) de (la |mi |una |su )?tarjeta|cvv|cvc|(pag\w*|abon\w*|debit\w*|suscrib\w*|compr\w*) (con|en|a|de) (la |mi |una |su )?tarjeta)\b/;
+const ZONA_SENSIBLE_TEXTO = [/\b(cobr\w*|pago|pagos|factura\w*|reembols\w*|contrasena|2fa|segundo factor|no puedo entrar|borr\w+ (todo|los|mis)|se borr\w+|perdi (todo|los datos|mis datos)|token|clave de api|mensaje masivo|difusion)\b/, TARJETA_DE_PAGO];
 export function zonaSensible(e: Pick<EntradaTriage, 'titulo' | 'descripcion' | 'contexto'>): string | null {
   if (e.contexto.ruta && ZONA_SENSIBLE_RUTA.test(e.contexto.ruta)) return `pasó en ${e.contexto.ruta.split('?')[0]}`;
   if (e.contexto.herramienta && ZONA_SENSIBLE_HERRAMIENTA.test(norm(e.contexto.herramienta))) return `falló «${e.contexto.herramienta}»`;
@@ -485,6 +491,29 @@ export function estadoInicial(t: Pick<Triage, 'autoArreglo'>): EstadoTicket {
   return t.autoArreglo ? 'en_curso' : 'esperando_decision';
 }
 
+/**
+ * LO QUE LA PERSONA SUMA A UN TICKET QUE ABRIÓ MaKo SOLO (9/11/2026, el #67 de Leandro). MaKo abre un ticket automático cuando no
+ * pudo hacer algo (lib/no-pude.ts), y un automático no entra por la regla del negocio: no lo pidió nadie. Pero cuando la PERSONA
+ * escribe en el grupo sobre ese mismo tema, MaKo le contesta «Lo sumé al ticket #N» y lo suma como un comentario: el ticket seguía
+ * siendo automático y esperando a Martín, con Leandro preguntando dos veces «¿cómo se hace?» y nadie del equipo que lo tomara.
+ * Desde que la persona lo reporta, el ticket es SUYO: se vuelve a clasificar como de ella, con la regla de su negocio.
+ *
+ * Devuelve el triage nuevo sólo si ahora va al arreglo; si no (sin regla, algo delicado, el interruptor apagado, uno que ya no
+ * espera), null: queda como estaba. Puro: lo prueba tests/leandro-whatsapp-0911.test.ts.
+ */
+export function triageAlSumarLaPersona(
+  t: { ref: string | null; estado: string; titulo: string; descripcion: string; contexto: ContextoTicket },
+  comentario: string,
+  opts: { aprobadoPorRegla: string | null; hastaUnDia?: boolean; apagado?: boolean; arreglosHoy?: number },
+): Triage | null {
+  if (!opts.aprobadoPorRegla?.trim() || !esRefDelSistema(t.ref) || t.estado !== 'esperando_decision') return null;
+  const triage = clasificar(
+    { tipoDeclarado: null, declaradoPor: 'persona', titulo: t.titulo, descripcion: `${t.descripcion}\n\n${comentario}`.slice(0, TOPES.descripcion * 2), contexto: t.contexto },
+    { aprobadoPorRegla: opts.aprobadoPorRegla, hastaUnDia: opts.hastaUnDia, apagado: opts.apagado, arreglosHoy: opts.arreglosHoy },
+  );
+  return triage.autoArreglo ? { ...triage, porque: ['Lo reportó la persona por el grupo: ya no es sólo lo que MaKo no pudo.', ...triage.porque] } : null;
+}
+
 /** Lee el triage guardado; lo que no cierra es null (un jsonb viejo o roto no inventa un veredicto). */
 export function leerTriage(x: unknown): Triage | null {
   if (!x || typeof x !== 'object') return null;
@@ -559,6 +588,29 @@ export function mismoTelefono(a: string | null | undefined, b: string | null | u
   const y = String(b ?? '').replace(/\D/g, '');
   if (x.length < 8 || y.length < 8) return false;
   return x.slice(-8) === y.slice(-8);
+}
+
+/** Lo que `emailDelTelefono` mira de cada persona del negocio. */
+export type PersonaDelNegocio = { email: string; rol_ws: string | null; created_at?: string | null; id?: number | string | null; perfil?: { telefono?: string | null } | null };
+
+/**
+ * DE QUIÉN ES ESTE TELÉFONO EN EL NEGOCIO (9/11/2026, Leandro): el email de UNA persona, o null (nadie, o dos con el mismo).
+ *
+ * Primero el teléfono de un PERFIL. Si ningún perfil lo tiene y es el NÚMERO DEL DUEÑO que cargó el negocio
+ * (`mako.numero_dueno`, con el que se armó su grupo de MaKo), es el dueño: el primer admin del negocio, el que lo abrió.
+ *
+ * ⚠️ POR QUÉ: medido el 9/11, 10 de 13 negocios tienen el número del dueño y NINGÚN perfil con ese teléfono (el perfil se
+ * llena aparte, y casi nadie lo llena). El dueño escribiendo en SU grupo quedaba «por WhatsApp», sin permiso: cada acción que
+ * MaKo delegaba esperaba a Martín por «no es admin de ese negocio» (el pedido #65 de Leandro). El bot ya lo tomaba como admin
+ * (`negociosDelTelefono`, lib/mako-bot.ts): la Ticketera y el bot contestaban distinto a «¿quién es este teléfono?».
+ */
+export function emailDelTelefono(personas: readonly PersonaDelNegocio[], telefono: string, numeroDueno: string | null | undefined): string | null {
+  const iguales = personas.filter((u) => mismoTelefono(u.perfil?.telefono ?? null, telefono));
+  if (iguales.length === 1) return iguales[0].email;
+  if (iguales.length > 1 || !mismoTelefono(numeroDueno ?? null, telefono)) return null;
+  const antes = (a: PersonaDelNegocio, b: PersonaDelNegocio) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')) || Number(a.id ?? 0) - Number(b.id ?? 0);
+  const fundador = personas.filter((u) => (u.rol_ws ?? 'admin') === 'admin' && u.email).sort(antes)[0];
+  return fundador?.email ?? null;
 }
 
 /** El número que ven las personas: «#12». */

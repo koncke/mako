@@ -2864,6 +2864,14 @@ guardado y no la rearma del estado de hoy. Lo que se arma después, para quien p
 onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
 preguntas del arranque, guardadas»).
 
+# Una lista de palabras «sensibles» se prueba con el vocabulario del PRODUCTO
+
+Un regex que decide «esto es delicado» (cobros, envíos, borrados) se escribe pensando en el mundo, y en la app las mismas palabras
+nombran otra cosa. El 9/11/2026, «tarjeta» en la zona sensible del triage (lib/tickets-reglas.ts) mandaba a esperar a Martín TODO
+reporte de Automations, donde cada paso del lienzo es una tarjeta: los tickets de Leandro, con la vía libre, quedaron días sin que nadie
+los tomara. Antes de sumar una palabra, se busca en los rótulos de la app (`grep -ri "<palabra>" app/`); si nombra una pieza, va con su
+contexto («tarjeta de crédito», «pagar con tarjeta»), y el test lleva una frase real de esa pieza. Detalle: docs/hallazgos-ticketera.md.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres

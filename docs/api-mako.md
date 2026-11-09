@@ -8648,14 +8648,14 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}` — Botones de un DM de Instagram
 
-SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
+SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. Con «variantes», otras formas de decir ese texto: a cada persona le toca una al azar (el texto o una de ellas), también en la respuesta pública; la lista reemplaza a las de antes y [] las saca. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_botones_mensaje`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** reemplaza el texto, los botones o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)
+- **Escribe:** reemplaza el texto, los botones, las otras formas de decirlo o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -8671,6 +8671,7 @@ SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos
 | `botones.link` | string | no | o la dirección https que abre. |
 | `texto` | string | no | opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}. |
 | `en_comentario` | boolean | no | opcional: true = su texto se publica debajo del comentario que disparó el flujo, a la vista de todos (con un CRON de comentario; sólo texto, sin botones); false = vuelve a ir por mensaje privado. |
+| `variantes` | string[] | no | opcional: hasta 8 otras formas de decir el texto (cada una hasta 1000 caracteres); a cada persona le toca una al azar, el texto o una de ellas. Reemplaza a las de antes; [] las saca. Sólo en un mensaje de UN texto. |
 
 ```bash
 curl -L \
