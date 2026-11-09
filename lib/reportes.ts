@@ -9,7 +9,9 @@
 import 'server-only';
 import { getMetaAccountHealth } from './meta-health';
 import { montoCuenta } from './presupuesto-cambio';
-import { getMarketingWindow, getObjetivoProgreso, getPendientesDeMarcar, getFatigaAdsets } from './queries';
+import { getMarketingWindow, getPendientesDeMarcar, getFatigaAdsets } from './queries';
+import { metasDelQuarter } from './objectives';
+import { lineasDeMetas } from './objetivos-reporte';
 import { getCashCollectedPeriodo, getCuotasPendientes } from './pagos';
 import {
   hoyEnTijuana, ayerEnTijuana, diasAntes, lunesActualEnTijuana,
@@ -64,10 +66,13 @@ export async function buildReporteDiario(prefs: NotifPrefs): Promise<Reporte> {
 
   if (prefs.secciones.wins) {
     try {
-      const o = await getObjetivoProgreso(hoy);
+      // ⚠️ LA MISMA FUENTE QUE LA PANTALLA (9/11/2026): `objectives`, no los tres settings viejos.
+      // Hasta acá el cliente podía cambiar su meta en la pantalla y seguir recibiendo la vieja por
+      // WhatsApp, con las dos pantallas sanas y sin un error en ningún lado.
+      const metas = await metasDelQuarter(hoy);
       const cashMes = await getCashCollectedPeriodo(primerDiaDelMesEnTijuana(), hoy);
       L.push('', '*Wins*');
-      L.push(`   Cierres ${o.cierres_actual}${o.cierres_meta != null ? '/' + o.cierres_meta : ''} · Cash ${fmtUsd(o.cash_actual)}${o.cash_meta != null ? ' de ' + fmtUsd(o.cash_meta) : ''}`);
+      L.push(...lineasDeMetas(metas, fmtUsd));
       L.push(`   Cash del mes: ${fmtUsd(cashMes)}`);
     } catch { L.push('', '🔻 Wins: no disponibles.'); }
   }
@@ -172,12 +177,13 @@ export async function buildReporteSemanal(prefs: NotifPrefs): Promise<Reporte> {
 
   if (prefs.secciones.wins) {
     try {
-      const o = await getObjetivoProgreso(hoy);
+      // Misma fuente que la pantalla (ver el reporte diario). Acá SÍ va el ritmo: en el semanal el
+      // dato cambió lo suficiente como para decir algo; en el diario sería ruido.
+      const metas = await metasDelQuarter(hoy);
       const cashSem = await getCashCollectedPeriodo(start, end);
       L.push('', '*Wins*');
       L.push(`   Cash de la semana: ${fmtUsd(cashSem)}`);
-      L.push(`   Objetivo global: ${o.cierres_actual}${o.cierres_meta != null ? '/' + o.cierres_meta : ''} cierres · ${fmtUsd(o.cash_actual)}${o.cash_meta != null ? ' de ' + fmtUsd(o.cash_meta) : ''}`);
-      if (o.semanas_estimadas != null) L.push(`   Ritmo: ~${o.semanas_estimadas} semanas para la meta`);
+      L.push(...lineasDeMetas(metas, fmtUsd, { conRitmo: true }));
     } catch { L.push('', '🔻 Wins: no disponibles.'); }
   }
 

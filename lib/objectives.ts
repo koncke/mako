@@ -15,6 +15,7 @@
 // =============================================================================
 
 import 'server-only';
+import type { MetaParaReporte } from './objetivos-reporte';
 import { getTenantDb } from './workspace';
 import { getSetting, getSettingNum, setSetting } from './settings';
 import { getFunnelDefault } from './funnels';
@@ -619,6 +620,38 @@ export async function migrarSettingsAObjectives(): Promise<{ creados: number; ya
  * Devuelve '' cuando no hay nada cargado: un bloque vacío en un prompt es ruido, y
  * decir «este negocio no tiene objetivos» invita al modelo a inventarlos.
  */
+/**
+ * Las metas del trimestre, en la forma que necesita un REPORTE (lib/objetivos-reporte.ts).
+ *
+ * Gemela de `objetivosContextoTexto()` y hay que no confundirlas: aquélla devuelve prosa para
+ * meterle a un modelo en un prompt; ésta devuelve los números para una línea de WhatsApp. El ítem
+ * del tablero pedía usar la primera en los reportes, y eso hubiera metido un párrafo de contexto
+ * adentro del mensaje del cliente.
+ *
+ * Devuelve [] cuando no hay objetivos cargados: el reporte lo dice, y NO se cae a los tres settings
+ * viejos — caer ahí es volver a tener las dos fuentes que este cambio vino a terminar.
+ */
+export async function metasDelQuarter(hoy: string): Promise<MetaParaReporte[]> {
+  try {
+    const { qt } = await quarterActual();
+    const base = await listObjectives(qt);
+    if (base.length === 0) return [];
+    const conAvance = await Promise.all(base.map((o) => avanceDeObjetivo(o, hoy)));
+    return conAvance.map((o) => ({
+      titulo: o.titulo,
+      metaValor: o.metaValor,
+      unidad: o.unidad,
+      actual: o.actual,
+      error: o.error,
+      ritmo: o.ritmo ? { alDia: o.ritmo.alDia, llegadaEstimada: o.ritmo.llegadaEstimada } : null,
+    }));
+  } catch {
+    // Sin objetivos legibles el reporte dice «sin meta cargada», que es lo mismo que diría con cero
+    // objetivos. No inventa un número ni se cae al origen viejo.
+    return [];
+  }
+}
+
 export async function objetivosContextoTexto(): Promise<string> {
   try {
     const { qt, hoy, progreso } = await quarterActual();
