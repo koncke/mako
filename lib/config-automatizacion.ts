@@ -31,7 +31,7 @@
 // =============================================================================
 
 import { arranqueLlega, ARRANQUE_MAX_DIAS } from './goteo';
-import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio } from './horario-envio';
+import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, relojEnZona, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio, type DiaSemana } from './horario-envio';
 import { RANGOS_LIMITES } from './limites-envio';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 
@@ -67,7 +67,19 @@ export type ConfigAutomatizacion = {
    * El goteo de sus mensajes, en TODOS los canales (lib/goteo.ts; 24/10/2026, f21): minutos entre dos envíos y tope en 24 h,
    * cada canal con su cuenta. Ausente = sin goteo propio. (El `goteoEmail` de antes se lee como éste si no hay uno.)
    */
-  goteo?: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } };
+  goteo?: {
+    minutos?: number;
+    dia?: number;
+    arranque?: { dia: number; sube: number };
+    /**
+     * ⚠️ LOS DÍAS DEL GOTEO SON APARTE DEL HORARIO (9/11/2026). Hasta acá los días en que goteaba una
+     * automatización eran los de su horario, así que quien quería gotear sólo de lunes a jueves tenía
+     * que **achicar el horario entero** — y con eso dejaba de contestar los viernes, que no es lo que
+     * pidió. Son dos cosas distintas: el horario es CUÁNDO está abierta; esto es en qué días SALE a
+     * buscar. Ausente o vacío = los del horario, que es lo de siempre.
+     */
+    dias?: DiaSemana[];
+  };
   /**
    * LAS COLUMNAS DEL CRM QUE SIGUEN A LOS EMAILS (4/11/2026, la campaña de Mauricio: «si ya lo abrió me lo pones aquí», el
    * clic a otra y una para el que compró): la key de la columna del CRM de esta automatización a la que pasa la tarjeta
@@ -109,6 +121,30 @@ const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
 
 /** Un goteo guardado, saneado: sus campos en rango, o undefined si no queda ninguno. */
+/**
+ * Los días propios del goteo, saneados: 0 a 6, sin repetidos y en orden. Lo que no se entiende queda
+ * AUSENTE (= los del horario), nunca una lista a medias — media lista es peor que ninguna, porque
+ * manda los días equivocados sin que nada lo diga.
+ */
+export function diasDeGoteo(raw: unknown): DiaSemana[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const limpios = [...new Set(raw.filter((d): d is DiaSemana => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6))].sort((x, y) => x - y);
+  return limpios.length ? limpios : undefined;
+}
+
+/**
+ * ¿HOY ES UN DÍA DE GOTEO de esta automatización? Sin días propios, sí: manda el horario.
+ * ⚠️ El día se lee en la zona del NEGOCIO, no en la del servidor: un cron que corre a las 23:30 UTC
+ * ya está en el día siguiente para medio mundo, y ahí «sólo de lunes a jueves» empezaría los domingos.
+ */
+export function hoyGotea(c: ConfigAutomatizacion, ahoraMs: number, tz: string | null): boolean {
+  const dias = c.goteo?.dias;
+  if (!dias || !dias.length) return true;
+  // Sin zona no se sabe qué día es ahí, y el criterio del motor para eso ya es «no mandes».
+  if (tz == null) return false;
+  return dias.includes(relojEnZona(ahoraMs, tz).dia);
+}
+
 function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
   const g = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
   if (!g) return undefined;
@@ -117,7 +153,13 @@ function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
   // El arranque sube hasta el tope: sin tope no hay nada que suba.
   const a = g.arranque && typeof g.arranque === 'object' ? g.arranque as Record<string, unknown> : null;
   const arranque = dia !== undefined && a && enRango(a.dia, RANGOS_GOTEO.dia) && enRango(a.sube, RANGOS_GOTEO.dia) ? { dia: a.dia, sube: a.sube } : undefined;
-  return min !== undefined || dia !== undefined ? { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}), ...(arranque ? { arranque } : {}) } : undefined;
+  // ⚠️ VACÍO NO SE GUARDA, igual que en el horario: una lista de días vacía sería «no goteés nunca»,
+  // que nadie quiere elegir y que además no se distingue de no haber elegido. Ausente = los del horario.
+  const dias = diasDeGoteo(g.dias);
+  const hayAlgo = min !== undefined || dia !== undefined || dias !== undefined;
+  return hayAlgo
+    ? { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}), ...(arranque ? { arranque } : {}), ...(dias ? { dias } : {}) }
+    : undefined;
 }
 
 /** Lo guardado, saneado: lo que no se entiende queda AUSENTE (= el del negocio). Nunca tira. */
@@ -281,7 +323,12 @@ export function cerradasAhora(
 ): Set<number> {
   const out = new Set<number>();
   for (const id of secuencias) {
-    const h = horarioDeLaAutomatizacion(configs.get(id) ?? {}, delNegocio);
+    const c = configs.get(id) ?? {};
+    // ⚠️ LOS DÍAS DEL GOTEO SE MIRAN ANTES QUE EL HORARIO, y antes del `continue` de abajo: una
+    // automatización SIN horario propio nunca está cerrada, así que si esto fuera después, sus días
+    // de goteo no se aplicarían nunca — justo en el caso más común, que es no tener horario propio.
+    if (!hoyGotea(c, ahoraMs, tz)) { out.add(id); continue; }
+    const h = horarioDeLaAutomatizacion(c, delNegocio);
     if (!h) continue;
     if (tz == null || !dentroDelHorario(ahoraMs, tz, h)) out.add(id);
   }
