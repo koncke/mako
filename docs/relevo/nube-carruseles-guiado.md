@@ -139,6 +139,8 @@ d) **Lo editable viene después de lo fiel:** primero la imagen, encima el texto
   7/11, pero «sacar el texto» no se probó. El caso de prueba es el de @growithalex (`instagram.com/p/DYfVqEmk_to`, 9 láminas),
   que Martín está haciendo a mano: cuando su paso a paso esté en `docs/plantillas-carrusel/` (rama `punta/creator-activo`), se
   copian de ahí las frases que funcionaron.
+  Lo que ya está (9/11, en main): `docs/relevo/carrusel-mako-growithalex.md` (la cuenta leída, el diseño de la referencia lámina
+  por lámina y el mismo consejo de tipografía). Todavía no trae frases de Flow medidas.
 - **Compartir con la tab Video.** El chat «Tab Video» arma el mismo patrón; la pieza que se puede compartir es la máquina de
   preguntas: una lista de pasos con su condición y sus botones, y un estado que avanza con cada toque (`lib/carruseles/guiado.ts`
   tiene esa forma a propósito). Si la de video sale primero en otra pieza, se muda acá a la suya; si no, la de video puede
