@@ -409,3 +409,34 @@ salieron después del cartel—, pero no sale ningún video más. Un clip de **3
 créditos** (contra 48 de 8 s x2: la duración y las variantes son casi todo el costo). Para animar
 queda ApiMart con Omni, y el saldo medido el 8/11 era **US$ 0,26** — no alcanza para un clip de 5 s
 (US$ 0,2795). **Hay que recargar.**
+
+### Animar en Flow: los números y las dos trampas del panel (9/11/2026)
+
+Las dos tomas de fondo blanco salieron **a la primera**, con la imagen aprobada como PRIMER FOTOGRAMA
+y una frase corta. Lo que costó fue el panel, no el modelo.
+
+| ajuste | lo que venía puesto | lo que hay que poner |
+|---|---|---|
+| modelo | **Veo 3.1 - Lite** | **Omni 1.2 Flash** (regla de Martín: sólo Omni) |
+| modo de la imagen | **Ingredientes** | **Fotogramas** — «ingrediente» es una referencia de estilo; «fotograma» es el cuadro 0 |
+| resolución | **360p** | **720p** |
+| variantes | **x2** | x1 |
+
+⚠️ **El default de resolución es 360p y por eso el precio engaña:** 8 s x1 a 360p decía **8 créditos**
+y a 720p son **24**. Un «qué barato» es, casi siempre, un ajuste que no miraste.
+⚠️ **Recargar la página BORRA el primer fotograma** (y puede resetear el panel): se vuelve a pegar y
+se vuelve a revisar todo antes de generar.
+
+**Lo que se pide, en una frase:** «La boca cerrada y quieta. Descruza los brazos muy despacio y los
+vuelve a cruzar.» / «La boca cerrada y quieta. Mueve apenas los dedos de las manos.»
+
+### ⚠️ Omni DEVUELVE PISTA DE AUDIO AUNQUE NADIE HABLE
+
+Los dos clips vinieron con un `aac` adentro: **−42,5 dB** de media el primero y **−62,2** el segundo.
+No es voz —es ambiente—, pero un clip que tiene que ir mudo **no se entrega con pista**: se saca con
+`ffmpeg -an -c:v copy`, que además no recomprime el video. Medir el nivel antes es lo que distingue
+«trae ambiente» de «se puso a hablar solo», y lo segundo ya pasó.
+
+**El chequeo que se hizo antes de entregar** (la regla de Martín): duración y tamaño con `ffprobe`,
+nivel de audio con `volumedetect`, y una tira de 5 fotogramas con `hstack` para ver el movimiento, la
+boca y que la cara siga siendo la misma.
