@@ -53,7 +53,26 @@ ApiMart **devuelve la cuota cuando la tarea falla**, así que probar un parámet
   `image-editor` de nuestro propio storage (⚠️ el bucket `video-clips` **rechaza imágenes**:
   «mime type image/jpeg is not supported»).
 
-### El reemplazo de voz — ElevenLabs STS es el bueno
+### ⛔ La voz NO se configura desde este documento
+
+**Hay UN solo lugar y se copia idéntico:** `scratchpad/walter/LA-CONFIG.json`, aplicado con
+`la-config.mjs <origen.wav> <salida.mp3>`. Martín, 9/11/2026: *«Tienes que copiarlo idéntico… si
+tienes otra información, borra el resto y que quede solamente eso, si no se confunde siempre.»*
+
+```
+voz:      I2d6BR9P2dAopVw1khNv   <- el clon PROFESIONAL (37 min, acento Argentine)
+model_id: eleven_multilingual_sts_v2   ·   output_format mp3_44100_192
+settings: { stability: 0, similarity_boost: 1, style: 1, use_speaker_boost: false }
+después:  loudnorm=I=-14:TP=-1:LRA=11   y montar con -c:v copy
+```
+
+**`stability` es 0.** **El boost va en `false`.** **La voz es la profesional.** Los tres se
+escribieron mal alguna vez y las tres veces hubo que rehacer la entrega.
+
+<!-- lo que seguía acá eran versiones viejas de estos parámetros; se sacaron a pedido de Martín
+     porque elegir entre ellas es justamente lo que hacía fallar la voz. -->
+
+### (histórico, no usar para configurar) El camino hasta esa configuración
 
 **Lo que se usa: `POST /v1/speech-to-speech/<voice_id>` con `model_id=eleven_multilingual_sts_v2`.** Con la
 clave de Martín (Starter, clona). Conservó el ritmo mejor que todo lo local: **10,031 s contra 10,027 s
