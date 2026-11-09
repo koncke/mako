@@ -329,6 +329,39 @@ descarga, el editor se cerró, y el texto que escribí después cayó en la caja
 menú se hace clic en un lugar vacío. Si la caja dice «What do you want to **create**?», estás en el
 lugar equivocado.
 
+### ⚠️⚠️ EL PROMPT CORTO LE GANA AL PROMPT TÉCNICO, Y NO POR POCO (9/11/2026)
+
+**Martín lo sacó él en un intento, con una frase, después de que yo quemara cuatro con párrafos.**
+Su regla, textual: «el prompt tiene que ser **SIMPLE**, mientras más simple y humano, mejor te
+entiende».
+
+Yo le escribía la receta de un director de fotografía: «expuesto para la pared», «un diafragma y
+medio más oscuro», «borde cálido en el pelo y los hombros», «la cara sigue legible», «NO es una
+silueta». **Cada una de esas frases es una instrucción más que el modelo cumple literal**, y todas
+juntas no reconstruyen la foto: reconstruyen un RETRATO DE ESTUDIO, con luz de pelo y relleno
+frontal. Medido contra el fotograma del reel, mi resultado tenía esto:
+
+| | el reel | el mío (prompt largo) |
+|---|---:|---:|
+| borde del pelo | 108 | **213** (casi quemado) |
+| pelo (medio) | 49 | 36 |
+| **cara** | **37** | **49** |
+| borde del hombro | 176 | 89 |
+| hombro (centro) | 25 | 12 |
+
+**La prueba está en la cara.** En el reel la cara (37) es **más oscura que el pelo** (49): no le pega
+nada de frente, está toda en sombra. En el mío la cara (49) quedó **más clara** que el pelo (36),
+porque pedí «que la cara siga legible» y el modelo, obediente, le puso una luz. Lo mismo con el
+«borde cálido en el pelo»: lo leyó como una lámpara de contra y la clavó a 213.
+
+**Pedir el efecto, no la receta.** Nombrar el resultado en una frase («que esté a contraluz contra un
+fondo blanco») trae el paquete entero —el contorno, la caída, el color— porque es UN concepto que el
+modelo ya tiene. Enumerar las partes lo obliga a construirlo pieza por pieza, y cada pieza que
+agregás es una oportunidad más de que arme otra cosa.
+
+⚠️ **Y lo que se escribe en negativo se cumple al revés.** «NO es una silueta» metió relleno; «sin
+sombra proyectada» antes había metido un fondo plano de recorte. Si no lo querés, no lo nombres.
+
 ### La segunda referencia SÍ sirve — pero sólo dentro del editor
 
 En una GENERACIÓN, dos referencias compiten y gana el estilo: con el personaje + un fotograma de luz
