@@ -45,7 +45,7 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp } from './EditorMensajeWhatsApp';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp, OtrasFormasDeDecirlo, chip } from './EditorMensajeWhatsApp';
 import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -119,8 +119,9 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const [adjunto, setAdjunto] = useState<number | null>(null);
   const [editando, setEditando] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [abierto, setAbierto] = useState<'datos' | 'clip' | null>(null);
+  const [abierto, setAbierto] = useState<'datos' | 'clip' | 'variantes' | null>(null);
   const [btnDatos, setBtnDatos] = useState<HTMLButtonElement | null>(null);
+  const [btnVariantes, setBtnVariantes] = useState<HTMLButtonElement | null>(null);
   const [btnClip, setBtnClip] = useState<HTMLButtonElement | null>(null);
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
@@ -314,9 +315,18 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   // (`filaDeBurbuja`, EditorMensajeWhatsApp.tsx): la burbuja va al 100% (`maxAncho`) y el tope lo pone la caja de la fila
   // (`flex: 0 1 auto` y el ancho menos los botones). Con el 78% de BurbujaSocial, la caja se ajustaba a la burbuja y la
   // burbuja se encogía al 78% de eso: el hueco quedaba entre los botones y el mensaje.
+  // OTRAS FORMAS DE DECIRLO («↻ N», 9/11/2026, el ticket #67 de Leandro: «que esa respuesta pública no sea siempre igual: que rote
+  // entre…»). Las mismas del WhatsApp: sólo en UN mensaje de texto, y el motor sortea una por persona (`partesParaEnviar`,
+  // lib/mensaje-partes.ts), también la respuesta pública debajo del comentario.
+  const variantes = esUnTexto(partes) ? (paso.variantes ?? []) : [];
+  const agregaVersiones = esUnTexto(partes) && !!(paso.cuerpo ?? '').trim();
   const vista = partes.length ? partes.map((p, i) => (
     <div key={i} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
+        {partes.length === 1 && (variantes.length > 0 || agregaVersiones) && (
+          <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-label="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
+            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chip}>↻{variantes.length > 0 ? ` ${variantes.length}` : ''}</button>
+        )}
         <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
           style={{ ...accionBurbuja, ...(editando === i ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
         <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
@@ -438,6 +448,11 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       {abierto === 'clip' && (
         <PopoverWA ancla={btnClip} etiqueta="Adjuntar" onCerrar={() => setAbierto(null)}>
           <MenuWA alElegir={() => setAbierto(null)} opciones={menuClip} />
+        </PopoverWA>
+      )}
+      {abierto === 'variantes' && (
+        <PopoverWA ancla={btnVariantes} etiqueta="Otras formas de decirlo" onCerrar={() => setAbierto(null)}>
+          <OtrasFormasDeDecirlo variantes={variantes} agrega={agregaVersiones} onCambio={(vs) => onChange({ variantes: vs })} onVacio={() => setAbierto(null)} />
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />

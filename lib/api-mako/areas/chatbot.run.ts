@@ -1636,8 +1636,10 @@ export const RUNNERS: Runners = {
       const nuevoTexto = typeof input.texto === 'string' ? input.texto : undefined;
       // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): true la prende, false la apaga.
       const enComentario = typeof input.en_comentario === 'boolean' ? input.en_comentario : undefined;
-      if (!lista && nuevoTexto === undefined && enComentario === undefined) return { error: 'Pasa los botones ([] los saca), el texto o «en_comentario».', faltan: ['botones'] };
-      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario);
+      // Las otras formas de decirlo (9/11/2026, el ticket #67 de Leandro): la lista reemplaza a las de antes; [] las saca.
+      const variantes = Array.isArray(input.variantes) ? (input.variantes as unknown[]) : undefined;
+      if (!lista && nuevoTexto === undefined && enComentario === undefined && variantes === undefined) return { error: 'Pasa los botones ([] los saca), el texto, «en_comentario» o «variantes».', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario, variantes);
       if (!r.ok) return { error: r.error };
       return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
     },
