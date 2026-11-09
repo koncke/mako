@@ -440,3 +440,23 @@ No es voz —es ambiente—, pero un clip que tiene que ir mudo **no se entrega 
 **El chequeo que se hizo antes de entregar** (la regla de Martín): duración y tamaño con `ffprobe`,
 nivel de audio con `volumedetect`, y una tira de 5 fotogramas con `hstack` para ver el movimiento, la
 boca y que la cara siga siendo la misma.
+
+### El movimiento se pide por lo que SE QUEDA QUIETO, no por lo que se mueve (9/11/2026)
+
+«Mueve apenas los dedos de las manos» le bastó para bajar el brazo entero; «descruza los brazos muy
+despacio y los vuelve a cruzar» lo cumplió al pie de la letra y Martín no quería que los descruzara.
+En las dos, el modelo se quedó con el VERBO y se olvidó del resto del cuerpo.
+
+**Lo que funciona es nombrar primero lo que no se mueve**, en positivo y como estado:
+
+| mal | bien |
+|---|---|
+| «Mueve apenas el dedo índice, muy despacio.» | «**El dedo queda levantado todo el tiempo y el brazo no baja.** Sólo un movimiento muy sutil del torso.» |
+| «Descruza los brazos muy despacio y los vuelve a cruzar.» | «**Los brazos quedan cruzados todo el tiempo**; sólo respira y mueve apenas la cabeza.» |
+
+Las dos versiones buenas salieron al primer intento. Es la misma regla del prompt corto, con el
+matiz que faltaba: corto **no** es «decí sólo el movimiento» — el ancla es la parte quieta.
+
+⚠️ **Y las generaciones se lanzan EN PARALELO** (Martín, 9/11): Flow acepta varias a la vez y ApiMart
+también. Esperar a que una termine para empezar la siguiente es tiempo regalado — se encola todo lo
+que ya tiene su imagen y su frase, y después se bajan y se chequean de a una.
