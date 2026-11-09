@@ -95,7 +95,11 @@ test('⚠️ «otra app es la dueña» NO es «Meta no deja»: cerrarlo costó 1
   const c = leer('lib/canal-zernio.ts');
   const envio = funcion(c, 'export async function enviarPasoSocial(');
   for (const b of envio.split('} catch (e) {').slice(1)) {
-    assert.match(b, /backoffHoras: 4 \}|backoffHoras: reintento \}/, 'el que no es terminal vuelve a salir');
+    // ⚠️ SE MIRA EL BACKOFF, NO LA LLAVE QUE LO SIGUE (9/11/2026). Esto pedía `backoffHoras: 4 }` con
+    // la llave pegada, así que agregarle OTRO campo al mismo return —`causaDelNegocio`, el aviso al
+    // negocio— lo ponía rojo sin que nada del comportamiento cambiara. Un test que se rompe cuando
+    // se suma un campo no está cuidando la regla, está cuidando la puntuación.
+    assert.match(b, /backoffHoras: (4|reintento)[,\s}]/, 'el que no es terminal vuelve a salir');
   }
   // ⚠️ Y NO se marca la respuesta privada como gastada: no se gastó, la rechazó el dueño del hilo.
   // Marcarla quemaba para siempre la única privada que Meta da por comentario.

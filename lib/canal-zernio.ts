@@ -29,7 +29,8 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, estadosDeSeguimiento, topeDe, ZernioError, type TopeSocial } from './zernio';
+import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, esDeOtraApp, estadosDeSeguimiento, topeDe, ZernioError, type TopeSocial } from './zernio';
+import type { CausaDelNegocio } from './envio-trabado';
 import {
   decidirSalida, decidirRespuestaPublica, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
@@ -58,6 +59,14 @@ export type ResultadoSocial = {
   /** A quién: `@usuario` o el id de la persona en esa plataforma. */
   destino: string | null;
   error?: string;
+  /**
+   * ⚠️ ESTO NO LO ARREGLA EL MOTOR: LO ARREGLA EL NEGOCIO (9/11/2026, tickets #63 y #64 de Leandro).
+   * El envío se reintenta igual —el ajuste se destraba solo y tratarlo como terminal ya costó 17
+   * leads—, pero reintentar en silencio fue el daño: nueve días rotos y el único que lo notó fue el
+   * cliente. Con esta marca, el motor le avisa al negocio en SU grupo (`lib/envio-trabado.ts`),
+   * que es el único que puede tocar la configuración de la Página.
+   */
+  causaDelNegocio?: CausaDelNegocio;
   /** Reintentar no lo arregla (Meta dijo que no, o no hay conversación). */
   terminal?: boolean;
   /**
@@ -247,7 +256,7 @@ export async function enviarPasoSocial(input: {
       const t = topeDe(e);
       if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
       if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, omitir: true };
-      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
+      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4, ...(esDeOtraApp(e) ? { causaDelNegocio: 'otra_app' as const } : {}) };
     }
   }
 
@@ -281,7 +290,7 @@ export async function enviarPasoSocial(input: {
       if (botones.length && !comoTexto && esRechazoDeBotones(e)) await anotarRechazoDeBotones(salida.cuentaId);
       // Gastada o rechazada por Meta: la respuesta privada de ESE comentario ya no existe.
       if (esLimiteDeMeta(e) || esRechazoDeBotones(e)) { await marcarComentarioRespondido(fila!.id); return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true }; }
-      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
+      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4, ...(esDeOtraApp(e) ? { causaDelNegocio: 'otra_app' as const } : {}) };
     }
   }
 
@@ -321,7 +330,7 @@ export async function enviarPasoSocial(input: {
       if (t) return porTope(t, { salieron, textos, destino }, e);
       if (esLimiteDeMeta(e)) return { ok: false, salieron, textos, destino, error: `${nombre}: ${msg(e)}`, terminal: true };
       const reintento = e instanceof ZernioError && e.status >= 400 && e.status < 500 && e.status !== 409 && e.status !== 429 ? 24 : 4;
-      return { ok: false, salieron, textos, destino, error: msg(e), backoffHoras: reintento };
+      return { ok: false, salieron, textos, destino, error: msg(e), backoffHoras: reintento, ...(esDeOtraApp(e) ? { causaDelNegocio: 'otra_app' as const } : {}) };
     }
   }
   return { ok: true, salieron, textos, destino, ...(conBotones ? { botones: 'botones' as const } : botones.length ? { nota: 'los botones no salieron: el mensaje termina en un archivo' } : {}) };

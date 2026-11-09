@@ -548,6 +548,17 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     ejemplo: `🟡 Tu saldo en Meta está en *$3 USD*. Al ritmo de hoy se agota antes de la noche y se corta la entrega a mitad de campaña.\n\nCarga saldo o revisa el método de pago para no perder el envión. — MaKo`,
   },
   {
+    id: 'envio-trabado-otra-app', titulo: 'Tus mensajes no salen: otra app atiende tus conversaciones', categoria: 'aviso', porDefecto: 'siempre',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ `porDefecto: 'siempre'` a propósito: NO se está entregando lo que el negocio pagó, y nueve
+    // días así (tickets #63 y #64) dejaron 17 leads inalcanzables. Un aviso apagable acá vuelve al
+    // silencio que causó el daño. Se espacia 12 h (lib/envio-trabado.ts), no se apaga.
+    disparador: 'El motor recibe `not_thread_owner` de Meta (subcode 2534037) al mandar por Instagram o Messenger: otra app es el receptor primario del handover de la Página.',
+    ejemplo: `🔴 *Tus mensajes no están saliendo por Instagram.* Meta dice que otra aplicación figura como la que atiende las conversaciones de tu Página, así que no me deja escribirle a tus leads.
+
+Lo arreglas vos: entra a la configuración de la Página y saca esa otra app (o bájala de prioridad). Yo sigo reintentando y en cuanto se destrabe salen solos — pero cada lead tiene 24 h desde que escribió, y pasadas esas horas ya no se le puede escribir. — MaKo`,
+  },
+  {
     id: 'meta-token-vencido', titulo: 'Token de Meta vencido (integración caída)', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'graphGet() code 190 → MetaHealthTokenError.',

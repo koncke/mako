@@ -265,10 +265,13 @@ dice que no, preguntarse si dice «no NUNCA» o «no AHORA».** Todo en
 
 ### Lo que sigue abierto de nuestro lado
 
-1. **Nadie se entera cuando un envío falla.** Nueve días rotos y el único que lo notó fue el cliente.
-   ⚠️ Cablearlo a `registrarError` **no alcanza**: el 2534037 es configuración del negocio, y esa rama
-   devuelve sin escribir ni avisar. Lo que hace falta es un **aviso al grupo del negocio**
-   (`lib/avisos.ts`, `CATALOGO_AVISOS`), no un ticket de bug al Cerebro. Sin empezar.
+1. ✅ **HECHO** — **Nadie se enteraba cuando un envío fallaba.** Nueve días rotos y el único que lo
+   notó fue el cliente. El envío marca la causa (`causaDelNegocio: 'otra_app'` en los tres catch de
+   `enviarPasoSocial`), el motor emite `envio-trabado-otra-app` al grupo del negocio y el criterio
+   vive puro en `lib/envio-trabado.ts` (9 tests, con sus mutantes). **Sigue reintentando**: lo que
+   se agregó es que alguien se entere, no que se cierre. El aviso es `porDefecto: 'siempre'` —no se
+   apaga, se espacia 12 h— y la clave de dedup lleva la causa y el canal, **no el lead**: cien leads
+   trabados son UN problema de la cuenta.
 2. **El avatar de Martín:** la metodología Avatar Hype quedó entera y medida en
    [video-avatar-desde-foto.md](../video-avatar-desde-foto.md) — imagen → video → voz, **sólo Omni**.
    Su voz está clonada (`ELEVENLABS_VOICE_MARTIN`, plan Starter, clave suya en `.env.local`). Quedó
