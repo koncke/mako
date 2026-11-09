@@ -277,6 +277,7 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 - [ ] La cara no quedó chica: de cuerpo entero y lejos, la escala es real pero el parecido se pierde.
 - [ ] No se ve recortada: el fondo puede quedar un poco desenfocado, como en una foto de verdad.
 - [ ] Vertical 9:16.
+- [ ] **Continuidad con el clip anterior:** lo que tiene en la mano, lo que tiró, dónde está parado, la ropa, el encuadre y hacia dónde mira siguen como terminó el clip anterior. Martín (9/11): «si yo ya había tirado la tarjeta, la Polaroid, no debería tenerla otra vez. Y eso justamente se hace a raíz de la imagen… siempre tienes que tú estar presente para hacerte preguntas y tener criterio a ver si todo está bien.»
 - [ ] Se hizo en UNA edición: el fondo original de base y el avatar original de referencia.
 - [ ] Se miró al lado de la referencia del template.
 
