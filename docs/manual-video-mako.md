@@ -478,6 +478,7 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | «A contraluz» casi no cambia la imagen | Nano Banana no reilumina a la persona | La silueta la da el video (las tomas blancas de la noche salieron así) |
 | Una «risa» o un «gruñido» en un hueco sin voz | El voice-to-voice pasó el soplido del efecto (humo) por la voz | En el montaje se calla la pista de voz entre la última palabra y la siguiente; la música sostiene. La transcripción lo marca como «[gruñido]» |
 | «No se parece a mí» en una toma nueva (el perfil) | La base fue una toma ya generada (la blanca de la noche), no su personaje | Base = SIEMPRE `omni/personaje-bueno-original.jpg`. De a un cambio: 1) «Sin la foto en la mano y sobre un fondo blanco liso, con todo lo demás igual»; 2) la pose y la luz con una referencia que tenga su misma ropa (la de Josep le copió la camisa). Tres cuartos se parece más que perfil puro |
+| La luz de las tomas blancas no queda como las otras («no tiene la iluminación que estábamos teniendo») | Se cambió pose y fondo sin pasar la luz | Una edición más: «Copiá SÓLO la luz y la exposición de la referencia; no cambies ni la persona ni la pose ni el encuadre», con una toma NUESTRA ya aprobada como referencia (el abanico). Con el cuadro de Josep, Flow reemplazó la imagen entera por la de él |
 | «Detectamos actividad inusual» | Unas 15 ediciones en una hora | Esperar unos minutos |
 | «No es mi voz» | Clon profesional en voice-to-voice | Clon «wav nivelado» |
 | Voz «súper grave» | `use_speaker_boost` en true | false |
