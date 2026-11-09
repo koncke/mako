@@ -12044,3 +12044,30 @@ avisa**. Martín lo vio dos veces seguidas en la misma toma, y las dos las cazó
 
 ⚠️ El costo de no chequear no es una vuelta más: es que **el usuario descubra el error**, que es
 exactamente lo que pasó acá y lo que el producto no puede hacerle a un cliente.
+
+## Todo clip generado sale con su contexto de generación al lado
+
+**Regla de Martín, 9/11/2026:** *«cada clip que salga, que salga con todas las configuraciones,
+tanto de Flow o la IA generativa como también la imagen de referencia que se le juntó, como
+también qué modelo se utilizó… que cada generación traiga todo un contexto, pues si no estamos
+dando vueltas.»*
+
+Junto a cada `<clip>.mp4` va un **`<clip>.contexto.md`** con, como mínimo:
+
+1. **La imagen de partida** — archivo, medidas, herramienta y modelo, y **la cadena completa de
+   prompts** que la produjo (una edición por línea, en orden), más **cada referencia que se le
+   adjuntó**, con su ruta.
+2. **El video** — herramienta, **modelo**, modo (fotogramas / ingredientes), resolución, formato,
+   variantes, **costo en créditos**, y el **prompt exacto entre comillas**.
+3. **La voz** — servicio, `voice_id` **y de qué clon es**, `model_id`, los `voice_settings`
+   completos, `output_format`, el **pre-proceso del audio de origen** y el post-proceso.
+4. **Lo medido** — duración del video, de la voz, el desfase entre ambas, y lo que se haya medido
+   para decidir.
+5. **Lo que falta decidir.**
+
+**Por qué:** el 9/11 se perdieron horas porque el clip aprobado se llamaba `CLIP-wavnivel` y el
+nombre era todo el contexto que había. Para saber con qué se había hecho hubo que abrir scripts
+viejos, medir tonos y comparar archivos — y aun así quedaron dudas. Un nombre no es documentación.
+
+⚠️ **El contexto se escribe al generar, no después.** Reconstruirlo más tarde es exactamente el
+trabajo que esta regla existe para evitar.
