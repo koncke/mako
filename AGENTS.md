@@ -11969,3 +11969,30 @@ ApiMart no trae precios —sólo aparecen en `/v1/tasks/{id}` al terminar— y l
 formato de salida: `lib/apimart-reglas.ts` declaraba `formato` como propiedad fija del modelo y
 está al revés de lo medido, porque **la proporción la pone la imagen de entrada** y cada modelo la
 respeta o la ignora. Ver `docs/hallazgos-video-pipeline.md`.
+
+## Un feedback de un usuario de MaKo se traduce a un prompt CORTO Y HUMANO, nunca a una receta técnica (9/11/2026)
+
+**Regla de Martín, para TODOS los feedbacks.** Cuando alguien en MaKo dice que una imagen o un video
+no salió como esperaba, el prompt que MaKo le manda a Flow —o a ApiMart— se arma de **una** de estas
+dos maneras, nunca de otra:
+
+1. **Una referencia** (la imagen anterior, la imagen que le gustó), o
+2. **una frase simple y humana** que diga lo que la persona quiere.
+
+**Nunca una receta técnica.** Nada de «un diafragma y medio más oscuro», «borde cálido en el pelo y
+los hombros», «la cara sigue legible», «sin sombra proyectada». Tampoco medir bordes del pelo,
+detalles de la cara ni números de luminancia para después describirlos: eso es exactamente lo que no
+hay que hacer.
+
+**Por qué, medido el 9/11/2026.** Cada frase técnica es una instrucción más que el modelo cumple
+**literal**, y todas juntas no reconstruyen la foto: reconstruyen otra. Pedí «que la cara siga
+legible» y le puso una luz a la cara; pedí «borde cálido en el pelo» y le clavó una lámpara de
+contra. Contra el original: borde del pelo **213 contra 108**, y la cara salió **más clara que el
+pelo** cuando en el original es más oscura. Martín lo sacó en **un** intento con una frase, después
+de que yo quemara cuatro con párrafos. Textual: «mientras más simple y humano, mejor te entiende».
+
+⚠️ **Y lo que no se quiere NO SE NOMBRA:** «NO es una silueta» mete relleno; «sin sombra proyectada»
+mete un fondo plano de recorte. Lo escrito en negativo se cumple al revés.
+
+Vale para el ida y vuelta de Create, para el generador de avatares y para cualquier pantalla donde
+el usuario corrija una generación. Los números y la tabla: [docs/video-avatar-desde-foto.md](docs/video-avatar-desde-foto.md).
