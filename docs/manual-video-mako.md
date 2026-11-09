@@ -477,6 +477,7 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | «Gurú» en el prompt dio gurús de la India | La palabra | Darle las caricaturas reales: un abanico armado a mano con las de `public/asesores/grandes/` (`reel-mentores/blancas/abanico.py`) |
 | «A contraluz» casi no cambia la imagen | Nano Banana no reilumina a la persona | La silueta la da el video (las tomas blancas de la noche salieron así) |
 | Una «risa» o un «gruñido» en un hueco sin voz | El voice-to-voice pasó el soplido del efecto (humo) por la voz | En el montaje se calla la pista de voz entre la última palabra y la siguiente; la música sostiene. La transcripción lo marca como «[gruñido]» |
+| «No se parece a mí» en una toma nueva (el perfil) | La base fue una toma ya generada (la blanca de la noche), no su personaje | Base = SIEMPRE `omni/personaje-bueno-original.jpg`. De a un cambio: 1) «Sin la foto en la mano y sobre un fondo blanco liso, con todo lo demás igual»; 2) la pose y la luz con una referencia que tenga su misma ropa (la de Josep le copió la camisa). Tres cuartos se parece más que perfil puro |
 | «Detectamos actividad inusual» | Unas 15 ediciones en una hora | Esperar unos minutos |
 | «No es mi voz» | Clon profesional en voice-to-voice | Clon «wav nivelado» |
 | Voz «súper grave» | `use_speaker_boost` en true | false |
@@ -637,9 +638,14 @@ Los parámetros completos y sus trampas están en `docs/edicion-video-automatica
   canción, desde el «1» de una frase (808 + hats), con el corte de imagen en el golpe o un cuadro antes, cortado en seco
   al volver la voz; la palabra roja aparece en el cuadro del corte. Inserto corto = 1,3 beats (0,6 s, 15 cuadros a 24 fps);
   el largo, 2,1 beats (1,0 s). El cierre mudo arranca con la canción en su 0:00 y sigue continua; ahí los cortes siguen la
-  acción. La música suena ~4,5 LU por encima de la voz. Tramos hablados de ~3 s, ningún hueco sin voz ni música de más de
-  0,52 s. Una animación sin voz (humo) lleva el golpe debajo, como un inserto. Detalle: `docs/hallazgos-video-editor.md`
-  → «Cortar al ritmo de una referencia».
+  acción. La música suena ~4,5 LU por encima de la voz. Detalle: `docs/hallazgos-video-editor.md` → «Cortar al ritmo de
+  una referencia».
+- **Cuántos golpes y dónde (Martín, 9/11: «pusiste demasiadas partes de música»):** los MISMOS que la referencia. Josep pone
+  5 en lo hablado, uno al CERRAR cada bloque del guion (disparo, nombre, credencial, producto, beneficio), ninguno adentro
+  de un bloque ni en el remate. El v3 tenía 8 (partía bloques y le ponía golpe al humo) y se sentía recargado.
+- **Efectos, de a uno (Martín, 9/11: «no seas exagerado»):** el v4 sumó zoom «punch-in» + whoosh en la transformación,
+  whoosh de vuelta y dos efectos en el humo; quedó sólo el del humo al desvanecerse (ElevenLabs Sound Effects,
+  `reel-mentores/voz/efecto.mjs`). Un efecto que suene a soplido pegado a la voz se lee como un suspiro del personaje.
 - El v1 del 9/11 ponía la música bajo la voz con `sidechaincompress`: es la gramática de un anuncio, no la de este template.
 - Se entrega siempre también una versión SIN música, para ponerle el audio desde Instagram (la canción de Josep es «WE ON GO»,
   de BIA; no se verificó que esté en la biblioteca de Instagram de una cuenta de empresa).

@@ -5,6 +5,16 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 000000 · 9/11 ~23:30 UTC (claude4): v5 mandado; la toma de perfil nueva espera el OK
+
+- **v5** (`montaje/REEL-v5.mp4`): 5 golpes en lo hablado, como Josep (HIGH TICKET, MARTÍN, GURÚS, celular al cerrar el clip 3,
+  dedo al cerrar el clip 4); el humo sin golpe y con UN efecto (al desvanecerse). Sin zoom ni efectos en Hormozi: Martín los
+  probó en el v4 y no le gustaron.
+- **Perfil nuevo:** `blancas/perfil-C-personaje.jpg` (Flow `/edit/fe70beec-…`): base = su personaje original, 1) sin la foto
+  sobre blanco, 2) tres cuartos con la pose y la luz de `blancas/perfil-B-tres-cuartos.jpg`. Mandado; con el OK: un video de
+  4 s («La boca cerrada y quieta. Mueve apenas los dedos de las manos.»), guardarlo como `blancas/CLIP-perfil-manos.mp4`
+  (el viejo se renombra) y rearmar con `node montaje/montar-v2.mjs v6`. Va en dos lugares: HIGH TICKET y el final del cierre.
+
 ## 00000 · 9/11 ~22:30 UTC (claude4): MONTAJE v3 al ritmo de Josep, mandado
 
 **Lo vigente es el v3:** `C:/dev/reel-mentores/montaje/REEL-v3.mp4` (38,25 s) y `REEL-v3-SIN-MUSICA.mp4`; copias en Descargas ›
