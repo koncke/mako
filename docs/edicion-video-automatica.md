@@ -822,6 +822,29 @@ líneas en pantalla, con su micrófono. Todo lo anterior —nombre, idioma, acen
 > es así. Se nivela a **−14 LUFS** con `loudnorm=I=-14:TP=-1:LRA=11`. Es ganancia, no toca el timbre.
 > La mitad de las veces que algo «no sonaba bien» era esto.
 >
+> ### ✅ LA GANADORA DE VOICE-TO-VOICE (9/11/2026) — «salió muy bien», dicho por Martín
+>
+> ```
+> voz        1crLVxcTqcz5I2mDmBlO   «Martin Koncke (wav nivelado)» — clon NORMAL, no el profesional
+> model_id   eleven_multilingual_sts_v2
+> settings   stability 0 · similarity_boost 1 · style 1 · use_speaker_boost FALSE
+> después    loudnorm=I=-14:TP=-1:LRA=11
+> ```
+>
+> ⚠️ **NO es el clon profesional, y hay una razón técnica.** `GET /v1/voices` muestra que el
+> profesional (`I2d6BR9P...`) está fine-tuned para `eleven_v4` y `eleven_multilingual_v2`, **no para
+> el modelo de STS**. Cuando se hace voice-to-voice se cae a un modelo donde ese entrenamiento no
+> existe, y ahí el clon normal gana. **Son dos voces para dos caminos:** el profesional con
+> `eleven_v4` para TEXTO, el «wav nivelado» con STS para VIDEO.
+>
+> ⚠️ **El `use_speaker_boost` mueve 55 Hz.** Con `true`: 125 Hz y «salió súper grave». Con `false`:
+> 250. Es el parámetro de mayor efecto de los cuatro, y el que Martín sospechó primero.
+>
+> ⚠️⚠️ **LA MÉTRICA NO ES EL JUEZ, Y CASI TIRO LA BUENA POR ESO.** Medí 250 Hz contra sus 144 reales,
+> escribí «ése salió agudo, te lo mando para descartarlo» — y él contestó «salió muy bien». Un número
+> lejos del objetivo no prueba que suene mal. Los archivos se mandan para que escuche, **sin el
+> veredicto puesto adelante**: un rótulo mío sesga lo que va a oír.
+>
 > ### ⚠️⚠️ EL VOICE-TO-VOICE HEREDA EL TONO DEL AUDIO DE ORIGEN (9/11/2026)
 >
 > Martín: «salió súper grave la voz… no sé si es el speaker boost o algo mal». **No era ningún
