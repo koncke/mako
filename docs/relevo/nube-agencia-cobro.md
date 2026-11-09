@@ -141,7 +141,7 @@
 - **9/11 23:14 UTC, el comprobante** (una foto de Juan Francisco en el grupo): Binance, «Pago completado», **40 USDT** a «Martin-Koncke
   68725667», orden **464765031875870720**, sin fecha en la captura. MaKo lo mandó a revisar por «no se visualiza la fecha». Lo que se
   verificó: no hay acceso al Binance de Martín, así que la prueba es el comprobante con la orden, igual que en el camino automático.
-  La fecha sale de la propia orden (ver abajo): 9/11 a las 18:30:54 de Buenos Aires, el mismo minuto del «listo».
+  La fecha sale de la propia orden (ver abajo): 9/11 a las 18:31:23 de Buenos Aires, el mismo minuto del «listo».
 - **Marcado el 9/11 23:20 UTC** con `marcarEntradaPagada` (`pagadoEl` y `ahora` = 2026-11-09), monto 40 USDT. Resultado: entrada
   pagada (US$ 40,73), `workspaces` 22 y usuaria 22 `activo`, recibo **N.º 0003** (detalle US$ 40,73, recibido 40 USDT; por correo
   a codigoinmobiliarioia@gmail.com y al grupo) y el «Listo… su cuenta ya está activa» en el grupo.
@@ -149,7 +149,7 @@
   contra 144 y Martín dijo «no lo tomes en cuenta»). No se les dijo nada en el grupo. Si Martín los quiere, van a mano en diciembre: la
   mensualidad automática no arrastra saldos.
 - 🔎 **La fecha de una orden de Binance Pay está en su número:** `orden / 2^31` = segundos desde el 1/1/2020 UTC. Se midió contra las tres
-  órdenes conocidas de Código (21/10, 4/11 y 5/11), con 0 a 20 s de desvío. Sirve cuando la captura no muestra la fecha (la del lado de
+  órdenes conocidas de Código (21/10, 4/11 y 5/11): da la hora exacta al segundo (la del 5/11 sale 12:20:19, como en su captura). Sirve cuando la captura no muestra la fecha (la del lado de
   quien paga no la muestra): `new Date((Number(BigInt(orden) >> 31n) + 1577836800) * 1000)`.
 - ⚠️ **`marcarEntradaPagada` pierde la foto del comprobante:** arma el pago sin `comprobante` (`lib/agencia-mes.ts`, la llamada a
   `aplicarPagoDeAgencia`), mientras que `marcarMesPagado` sí lo pasa (`...p.pago`). Por eso el recibo 0003 salió sin la página 2. La foto
