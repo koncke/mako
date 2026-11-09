@@ -299,3 +299,36 @@ dos problemas encima:
 trae una nota del sistema aclarando que parte de eso es contexto del stack del curso y no un resumen
 verificado de esa clase. **Lo de la voz sí está dicho directo.** Antes de apoyarse en los parámetros
 de Veo, confirmarlos contra la clase.
+
+## Cómo se cambia de escena SIN perder la cara: el editor y un cambio por vez (9/11/2026)
+
+Lo dictó Martín después de que le mandara cuatro intentos y en ninguno se reconociera:
+«lo mejor que puedes hacer es partir de la imagen original y simplemente pedirle que no tenga fondo…
+y que la persona ya no esté sujetando la foto y que esté de brazos cruzados. Entonces ahí ya tienes
+un avance. Una vez que ya te dé eso, le pides…».
+
+**El error que esto corrige:** yo venía pidiendo la escena nueva como una GENERACIÓN, con la imagen
+aprobada «de referencia». Generar vuelve a dibujar a la persona, y la persona vuelve a dibujarse
+distinta. Encima la pedí de cuerpo entero: a ese tamaño la cara ocupa cuatro píxeles y el parecido
+se pierde entero. Martín: «¿quién es esa persona?».
+
+**Lo que funciona —probado hoy, dos pasos, 0 créditos:**
+
+1. Se abre **la imagen aprobada en el editor** de Flow (se le hace clic a la tarjeta; la URL queda
+   en `/project/<id>/edit/<imageId>`). La caja de abajo ya no dice «What do you want to create?»
+   sino **«What do you want to change?»**: eso es lo que hay que ver antes de escribir nada.
+2. **Un cambio por vez**, nombrando primero todo lo que NO cambia («same face, same features, same
+   hair, same expression, same t-shirt») y después el cambio, chiquito y concreto.
+   - Paso 1: brazos cruzados + fondo blanco liso. Salió la misma persona, idéntica.
+   - Paso 2, sobre el resultado del paso 1: la luz (blanco quemado detrás, él a contraluz ~1,5
+     diafragmas más oscuro, borde cálido en pelo y hombros, **y la cara legible**).
+
+⚠️ **`Escape` en el editor NO cierra un menú: SALE del editor.** Lo apreté para cerrar el menú de
+descarga, el editor se cerró, y el texto que escribí después cayó en la caja del PROYECTO —donde
+«generar» habría vuelto a inventar a la persona, sin referencia ni imagen de base—. Para cerrar un
+menú se hace clic en un lugar vacío. Si la caja dice «What do you want to **create**?», estás en el
+lugar equivocado.
+
+⚠️ **La estética nunca va antes que el parecido.** Pedir que la toma lea «oscura» para copiar un
+reel es pedir que la cara desaparezca; en el original de referencia el cuerpo se recorta contra el
+blanco pero la cara se sigue leyendo. Primero la persona, después la luz, y siempre en pasos.
