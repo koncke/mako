@@ -12085,6 +12085,21 @@ criterioso, mirar y revisar si está bien luego».**
 corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
 mandarla.
 
+### ⛔⛔⛔ UNA SOLA REFERENCIA Y UN PROMPT SIMPLE. SIEMPRE. ⛔⛔⛔
+
+**Regla de Martín, repetida el 9/11/2026 después de HORAS de vueltas, textual:** *«No le pases muchas referencias
+porque ahí lo hace mal la inteligencia artificial… eso ya lo teníamos anotado como regla, vuélvelo a anotar y
+subráyalo enorme por todos lados. Los prompts simples, con una sola referencia. Si no, lo hace mal».*
+
+**Cómo se pide un cambio en Flow:** la imagen que ya está bien va de BASE · se adjunta **UNA** referencia de cómo
+tiene que quedar lo que cambia · y una frase corta: lo que se mantiene y lo que cambia. Nada más.
+> Ejemplo de Martín: *«Mantén la foto de los personajes, pero quiero que las tarjetas se vean de esta manera. Más
+> realista.»*
+
+⛔ **No** dos lotes de caras + una muestra de estilo + un párrafo de seis condiciones: el 9/11 eso dio, una y otra vez,
+caras repetidas, el corcho vertical y las tarjetas copiadas del lote en vez de la referencia. Cada referencia de más
+compite con las otras, y el modelo mezcla de cada una lo que se le ocurre.
+
 ### ⛔ No se genera encima de una generación: se vuelve atrás
 
 **Regla de Martín, 9/11/2026:** *«súper importante que no generes sobre otro generador, que vuelvas
