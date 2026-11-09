@@ -61,6 +61,19 @@ quedan DESCARTADOS.**
   configuración y prompts que §00. Voz: 38 ms de diferencia en los dos; 136 y 134 Hz (los reales son 128). Mandados a
   Martín, esperando su OK. **Sigue:** clips 3, 4 y 5 (cada uno desde el último fotograma del anterior), cierre mudo y
   montaje con subtítulos (§9).
+- **⛔ (~13:40) Martín RECHAZÓ los clips del avatar «de la referencia» y la voz profesional:** «no me gusta el avatar,
+  fíjate cómo se generó este [CLIP-wavnivel.mp4]… salió impecable» y «No es mi voz». La receta de ese clip (9/11 madrugada):
+  - personaje = una foto REAL suya del álbum → imagen de estudio en Flow → edición con la polaroid →
+    `Downloads\Young_man_talking_on_phone_9b0328bc.jpg` (copia en `C:\dev\reel-mentores\omni\personaje-bueno-original.jpg`);
+  - video = Omni 1.2 Flash, 9:16, 720p, 5 s, con el prompt en inglés y «young man from Uruguay» (texto exacto en
+    `omni\omni-clip.mjs`);
+  - voz = clon NORMAL «wav nivelado» `1crLVxcTqcz5I2mDmBlO`, origen = el audio del clip a mp3 SIN filtros, loudnorm −14
+    (`voz\poner-voz-wavnivel.sh`). LA-CONFIG.json ya quedó así.
+  - **⛔ El video va por FLOW, no por ApiMart** (Martín: «¿por qué usaste ApiMart, si estamos usando Flow para no
+    gastar?»). Se lanzó UNA tarea por ApiMart antes de su mensaje (`omni\clip1-omni.mp4.task.txt`); no se relanza nada.
+- **✅ (~14:05) clip 1 rehecho en Flow con esa receta:** base = `omni\personaje-corcho.jpg` (el personaje bueno + el
+  corcho elegido, con una referencia y una frase), Fotogramas · Omni 1.2 Flash · 720p · 9:16 · 5 s · x1 = 15 créditos →
+  `omni\CLIP1-CON-TU-VOZ.mp4`. Mandado a Martín. Sigue el clip 2 igual, desde el último fotograma.
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
