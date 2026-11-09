@@ -322,7 +322,7 @@ Martín: «salió impecable».
 
    Para 8 s, «about 6 seconds».
 
-   **Ese clip salió por ApiMart, pero el video va por Flow.** Martín: «¿por qué usaste ApiMart, si estamos usando Flow para no gastar?». El clip 1 del reel se rehízo en Flow con esta receta (Fotogramas · Omni 1.2 Flash · 720p · 9:16 · 5 s · x1 = 15 créditos, fotograma inicial `C:/dev/reel-mentores/omni/personaje-corcho.jpg`) y Martín lo aprobó el 9/11.
+   Martín: «¿por qué usaste ApiMart, si estamos usando Flow para no gastar?». El clip 1 del reel se rehízo en Flow con esta receta (Fotogramas · Omni 1.2 Flash · 720p · 9:16 · 5 s · x1 = 15 créditos, fotograma inicial `C:/dev/reel-mentores/omni/personaje-corcho.jpg`) y Martín lo aprobó el 9/11.
 3. **Voz.** `bash C:/dev/reel-mentores/voz/poner-voz-wavnivel.sh <clip de Omni.mp4> <salida.mp4>`. El origen es el audio del propio clip pasado a mp3 192k SIN filtros → voice-to-voice → loudnorm → montaje con `-c:v copy`.
 
 ### 6.3 ElevenLabs: los ajustes exactos
