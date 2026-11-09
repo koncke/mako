@@ -18,9 +18,11 @@ antibots.
 
 | Punta | Qué lleva | Veredicto |
 |---|---|---|
-| `punta/web-replicar-0911` | Replicar por la extensión (0.79.0), «Copiar su sitio» de Spy a Replicar, el anillo en «Leer» (tanda 2), `VERSION_EN_TIENDA` a 0.74.5, la revisión adversarial y la autocrítica | ver el último commit de la punta (renglón `Veredicto:`) |
+| `punta/web-replicar-0911` | Replicar por la extensión (0.79.0), «Copiar su sitio» de Spy a Replicar, el anillo en «Leer» (tanda 2), `VERSION_EN_TIENDA` a 0.74.5, la revisión adversarial y la autocrítica | **VERDE en `b8893945b`**: 6254 tests de 621 archivos y el tsc entero (Node 24), sobre el árbol `1aa6e96bae`. Subida el 9/11 |
 
-El Cerebro la re-firma y la sube (`docs/relevo/nube-metodologia.md`).
+El Cerebro la re-firma y la sube (`docs/relevo/nube-metodologia.md`). Este relevo con el sha va en un commit de sólo
+documentación ENCIMA, en la rama `claude/magical-planck-pvt26t`: no está en la punta para no mover el árbol que firmó el
+veredicto.
 
 ## Hecho
 
