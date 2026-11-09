@@ -654,6 +654,9 @@ Los parámetros completos y sus trampas están en `docs/edicion-video-automatica
   48 s tardaron 7 s). El archivo arranca con ~2 s de silencio: se entra en el segundo 2.
 - Mezcla con `amix=inputs=2:normalize=0`, y loudnorm de dos pasadas sobre la mezcla (I=-14:TP=-1:LRA=11, linear) forzando `-ar 48000`.
 - Fuente de los subtítulos: Anton o Montserrat ExtraBold. libass no falla si falta la fuente: cae a Arial en silencio.
+- **Los subtítulos nunca tapan la cara (Martín, 9/11):** van justo debajo del mentón, y el mentón se mide en CADA clip
+  porque cambia con la distancia a cámara (en el reel de mentores: ~615-630 en los clips 1-3, ~765 en el 4 y después del
+  humo, la barba de Hormozi hasta ~795; sobre 1280). A la altura de Josep (610) le tapaban la boca. `SUB_Y` en `montar-v2.mjs`.
 - Se recortan los «eh» y espasmos del modelo: es la diferencia entre «un video con IA» y un anuncio.
 - Los subtítulos del template mandan sobre los del pipeline de anuncios (en «Mensaje para…», blancos y a media altura).
 
