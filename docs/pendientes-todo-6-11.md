@@ -337,7 +337,20 @@ perder más tiempo que uno olvidado.
 - **Pruebas A/B: falta la dimensión «rama» en los gráficos y la primera prueba real** · _mediano_
   - Qué falta: La dimensión «rama» en los gráficos del Dashboard (Métricas la muestra en una franja fija), verla en pantalla, y la primera prueba real en el Cliente de Prueba (la migración ya está aplicada). Además el plan de una prueba de «Agendó» usa la tasa de «Respondió», así que el n del plan queda corto. Y Landings tiene las firmas y el store pero sus medidores no están en MEDIDORES.landing del cron. Hecho = los tres cerrados y una prueba corriendo en el ws3.
   - Dónde: `C:/dev/wt-puntas/lib/pruebas/automatizacion.ts (historiaDe) · lib/pruebas/ (MEDIDORES) · app/dashboard/ · pendiente en C:/dev/wt-puntas/docs/hallazgos-pruebas.md:98`
-- **Objectives: getObjetivoProgreso y tres settings viejos siguen alimentando los reportes** · _chico_
+- **Objectives: getObjetivoProgreso y tres settings viejos siguen alimentando los reportes** · _chico_ · ✅ **HECHO el 9/11/2026 — `71d97602f`**
+  - Qué quedó: los dos call-sites de `lib/reportes.ts` leen `metasDelQuarter()` (la MISMA fuente que la
+    pantalla: `objectives`, mig 0155) y el formato vive en `lib/objetivos-reporte.ts`, puro y con test.
+    Sin objetivos cargados el reporte lo DICE y no se cae al origen viejo — caer ahí es volver a tener
+    las dos fuentes. `tests/objetivos-reporte.test.ts` 5/5; los cuatro vecinos, verdes.
+  - ⚠️ **EL "HECHO =" DE ESTE ÍTEM ESTABA MAL, y es lo que más vale anotar**: decía «mover esos dos
+    call-sites a `objetivosContextoTexto()`». Esa función devuelve **prosa para meterle a un modelo en
+    un prompt** («llevas 12 de 20.000, vas atrasado»), no números para una línea de WhatsApp. Seguirlo
+    al pie de la letra metía un párrafo de contexto adentro del mensaje del cliente. La fuente que
+    servía era `listObjectives` + `avanceDeObjetivo`. Y la ruta que daba el «Dónde» tampoco era:
+    la función no está en `lib/objectives-fuentes.ts` sino en `lib/objectives.ts`.
+  - Los tres settings viejos (`objetivo_cierres`, `objetivo_cash_usd`, `objetivo_desde`) **siguen vivos
+    a propósito**: son el ORIGEN de `migrarSettingsAObjectives`, y está escrito en
+    `app/general/actions.ts:212-217`. Lo que se cortó es que ALIMENTEN un reporte.
   - Qué falta: Mientras existan hay dos fuentes para «cuál es la meta»: la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es mover esos dos call-sites a objetivosContextoTexto(). Hecho = una sola fuente de la meta.
   - Dónde: `C:/dev/wt-puntas/lib/reportes.ts:66 y :174 · lib/objectives-fuentes.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-objectives.md:928`
 - **El plugin del agente: nada reporta desde una instalación real** · _mediano_
