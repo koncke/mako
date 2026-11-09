@@ -5,6 +5,29 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 0 · AL 9/11 ~12:00 UTC (claude4): el PIZARRÓN SOLO, versión 3, esperando el OK de Martín
+
+- **Flow está en la cuenta `mbustos@elevate.com.mx`**, que en el Chrome de Claude es `/u/2/`:
+  https://flow.google.com/u/2/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e. Con /u/0 o /u/1, Flow dice que el proyecto
+  no existe.
+- **El material ya NO vive en scratchpads**, porque se borran. Está en `C:\dev\reel-mentores\`:
+  - `voz\`: LA-CONFIG.json, la-config.mjs (que ahora apunta ahí) y la clave;
+  - `clip2\`: CLIP1-ULTIMO, LOTE-1 y LOTE-2;
+  - `clip2\izq-der\`: los lotes por lado; el izquierdo empieza con Sofía Contreras, Hormozi y Doglio;
+  - `pizarron\`: v1, v2 y v3 en 2K.
+- **Cómo salió el paso 1:**
+  - **v1** = la base `image.png_07353b02.jpg`, subida (editor `/edit/dabd6171-…`), más los dos lotes por lado:
+    «En el corcho hay 32 fotos chicas, una por cada una de estas caras… las de la primera referencia van en la mitad
+    izquierda». Salieron las 32, sin repetir, del mismo tamaño y con su color, pero en una GRILLA prolija.
+  - **v2** = v1 más la referencia del corcho del clip 2. Se ve igual al clip 2, pero REPITE caras y cambia los tamaños:
+    descartada. **La referencia de look trae su densidad: si tiene más huecos que caras, repite.**
+  - **v3** = v1 subida de nuevo (editor `/edit/05deab67-…`), SIN referencia: «Las mismas 32 fotos, en los mismos
+    lugares y del mismo tamaño. Ahora están un poco torcidas, con algunas notas de papel… hilo rojo… como un tablero de
+    investigación.» Pasa los puntos 1 a 7 y el 11. Las notas salieron en inglés (CONNECTION?, SUSPECT): lo decide Martín.
+- **Paso 2, con el orden que funciona** (docs/video-avatar-desde-foto.md): base = `CLIP1-ULTIMO.png` (la persona) y
+  referencia = el pizarrón aprobado, con «La persona queda igual, con la misma ropa y la misma foto en la mano. Detrás
+  de ella va este corcho.» Al revés, falla.
+
 ## 1 · QUÉ ESTAMOS HACIENDO Y PARA QUÉ
 
 Un **reel vertical de ~30 s para vender MaKo a mentores y coaches high ticket**, calcado en
