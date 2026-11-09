@@ -7,6 +7,9 @@
 //
 // `que: 'thumbnail'` (6/11/2026): una miniatura de YouTube de la biblioteca de Thumbnails, en una lámina de 1280 × 720.
 //
+// `guiado` (9/11/2026): lo que contestó el dueño en la pestaña guiada (la oferta, la foto que va en lugar de la persona y qué
+// cambia; lib/carruseles/guiado.ts → `PedidoGuiado`). Sin oferta no se genera: es lo primero que pregunta MaKo.
+//
 // Lo que corre (las láminas, la IA DEL NEGOCIO con visión, su foto, el diseño): lib/carruseles/replica-servidor.ts. La IA va
 // adentro de `conSuIADelNegocio` (allá), nunca con la de la plataforma.
 //
@@ -19,6 +22,7 @@ import { puerta } from '@/lib/image-editor/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { replicarEjemplo } from '@/lib/carruseles/replica-servidor';
 import { lineaDeEvento } from '@/lib/carruseles/replica';
+import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,18 +40,21 @@ export async function POST(req: NextRequest) {
   const p = await puerta();
   if (p instanceof Response) return p;
   if (!rateLimit(`image-editor:replicar:${p.ws}`, 12, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
-  const body = (await req.json().catch(() => null)) as { id?: unknown; pedido?: unknown; que?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { id?: unknown; pedido?: unknown; que?: unknown; guiado?: unknown } | null;
   const id = Number(body?.id);
   const que = body?.que === 'thumbnail' ? 'thumbnail' : 'carrusel';
   if (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0)) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
   const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
+  // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
+  const guiado = body?.guiado != null ? leerPedidoGuiado(body.guiado) : null;
+  if (guiado && !guiado.ofertaId && !guiado.ofertaLibre) return fallo('Falta elegir la oferta.', 400);
 
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(ctrl) {
       const mandar = (linea: string) => { try { ctrl.enqueue(enc.encode(linea)); } catch { /* se cerró */ } };
       try {
-        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, { que, id }, { pedido, alEvento: (e) => mandar(lineaDeEvento(e)) }));
+        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, { que, id }, { pedido, guiado, alEvento: (e) => mandar(lineaDeEvento(e)) }));
         if (!r.ok) mandar(lineaDeEvento({ fase: 'fin', ok: false, error: r.error, conectar: r.conectar ?? null }));
       } catch (e) {
         console.error('[carruseles] replicar:', e instanceof Error ? e.message : e);
