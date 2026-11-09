@@ -696,3 +696,25 @@ rellena repitiendo y además ignora las que no llegó a leer.
 ⚠️ **Pero el techo es real:** mientras el corcho tenga más huecos que caricaturas tengamos, va a
 repetir. Para que no repita hay que **bajar la cantidad de fotos del corcho a 32** o **generar más
 caricaturas** (`lib/asesores/`, hay 130 cursos en Knowledge de donde salen fichas nuevas).
+
+## ⚠️⚠️ EL ORDEN DE LA COMPOSICIÓN: la PERSONA va de base, el FONDO de referencia (9/11/2026)
+
+Para poner al chico del clip 1 delante del corcho probé las dos direcciones. **Sólo una funciona.**
+
+| cómo lo pedí | qué pasó |
+|---|---|
+| Base = el corcho · referencia = el fotograma del chico · «la persona es este chico» | **«No se pudo completar la acción»**. Al reintentar, trajo al chico **con su fondo de estudio entero** y se comió el corcho. |
+| Base = el fotograma del chico · referencia = el corcho · **«La persona queda igual, con la misma ropa y la misma foto en la mano. Detrás de ella va este corcho.»** | **Salió a la primera**: misma cara, mismo pelo, misma remera, la misma polaroid en la mano, y el corcho detrás. |
+
+**La regla: lo que tiene que quedar INTACTO va de imagen base; lo que se cambia entra como
+referencia.** Una persona metida como referencia llega con su escena pegada, porque el modelo lee
+la referencia entera y no sabe qué parte querés. Es el mismo principio de «la segunda referencia
+sirve dentro del editor»: la base está fija, la referencia sólo aporta.
+
+⚠️ **Y el fotograma de origen se elige mirando varios.** Saqué seis con `-ss` a lo largo del clip y
+los puse en una tira (`tile=6x1`): el primero que había elegido tenía **los ojos cerrados** por un
+parpadeo. Martín eligió otro. **Un solo fotograma al azar de un clip hablado es casi siempre un
+parpadeo o una boca a mitad de palabra.**
+
+⚠️ **«No se pudo completar la acción» tiene botón de reintentar** y el reintento corre distinto: no
+es un error definitivo, pero tampoco repite lo mismo.
