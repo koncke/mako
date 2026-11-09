@@ -21,7 +21,7 @@
 import { esMasVieja } from '../version-comparar';
 import { esDesafioDeBot } from '../landing-extraer';
 import { esPaginaDeError } from '../pagina-real';
-import { VERSION_REPLICA, type MotivoReplica } from './replica-extension-script';
+import { MOTIVOS_REPLICA, VERSION_REPLICA, type MotivoReplica } from './replica-extension-script';
 
 export { VERSION_REPLICA };
 
@@ -38,6 +38,23 @@ export type VentanaReplica = {
 export function extensionReplica(version: string | null | undefined): 'si' | 'vieja' | 'no' {
   if (!version) return 'no';
   return esMasVieja(version, VERSION_REPLICA) ? 'vieja' : 'si';
+}
+
+/**
+ * Qué se ofrece ANTES de tocar nada (autocrítica del 9/11/2026). Con la tienda en una versión que no sabe replicar, un
+ * «Copiar con la extensión» le contestaba a todo cliente «llega con la próxima versión» DESPUÉS del clic: un botón que no
+ * puede hacer nada se lee como que la app está rota. Así:
+ *   · 'copiar': la extensión instalada sabe replicar → el botón;
+ *   · 'instalar' / 'actualizar': no la tiene, o es de antes, y la tienda SÍ trae una que sabe → cómo conseguirla;
+ *   · 'nada': la tienda todavía no la trae (instalar o actualizar no la traería) → no se dibuja nada. Publicar la versión
+ *     y subir `VERSION_EN_TIENDA` (lib/extension-tienda.ts) lo prende para todos.
+ * `tienda` es la versión que sirve la tienda: un parámetro para que el test cubra los dos lados.
+ */
+export type OfertaExtension = 'copiar' | 'instalar' | 'actualizar' | 'nada';
+export function ofertaDeExtension(instalada: 'si' | 'vieja' | 'no', tienda: string): OfertaExtension {
+  if (instalada === 'si') return 'copiar';
+  if (esMasVieja(tienda, VERSION_REPLICA)) return 'nada';
+  return instalada === 'no' ? 'instalar' : 'actualizar';
 }
 
 /**
@@ -116,6 +133,8 @@ export type AvisoReplica =
   | { fase: 'leyendo'; hecho: number }
   | { fase: 'fallo'; motivo: MotivoReplica | 'otro' }
   | { fase: 'cerrada' }
+  /** La pestaña se fue a OTRO sitio (la persona la usó para otra cosa): la extensión soltó la copia. */
+  | { fase: 'se_fue' }
   | { fase: 'lista'; entrega: string };
 
 /**
@@ -127,8 +146,9 @@ export function alEstadoDeReplica(v: Pick<VentanaReplica, 'addEventListener' | '
     const d = (e as CustomEvent).detail as { pedido?: unknown; fase?: unknown; hecho?: unknown; motivo?: unknown } | null;
     if (!d || d.pedido !== pedido) return;
     if (d.fase === 'leyendo') fn({ fase: 'leyendo', hecho: typeof d.hecho === 'number' && Number.isFinite(d.hecho) ? Math.max(0, Math.min(100, Math.round(d.hecho))) : 0 });
-    else if (d.fase === 'fallo') fn({ fase: 'fallo', motivo: (['vacia', 'pesada', 'excepcion', 'ocupada'] as const).find((m) => m === d.motivo) ?? 'otro' });
+    else if (d.fase === 'fallo') fn({ fase: 'fallo', motivo: MOTIVOS_REPLICA.find((m) => m === d.motivo) ?? 'otro' });
     else if (d.fase === 'cerrada') fn({ fase: 'cerrada' });
+    else if (d.fase === 'se_fue') fn({ fase: 'se_fue' });
   };
   const alLista = (e: Event) => {
     const d = (e as CustomEvent).detail as { pedido?: unknown; entrega?: unknown } | null;
@@ -200,9 +220,14 @@ export function juzgarEntrega(e: Pick<EntregaReplica, 'titulo' | 'foto' | 'texto
 
 /** Lo que dice la pantalla de cada cosa que puede salir mal (corto: una línea, que arranca con lo que se hace). */
 export const MENSAJE_REPLICA = {
-  sinExtension: 'Instala la extensión de MaKo para copiar esta página desde tu navegador.',
-  vieja: 'Actualiza la extensión de MaKo para copiar esta página desde tu navegador.',
+  sinExtension: 'Agrega la extensión de MaKo y recarga esta página para copiarla desde tu navegador, aunque bloquee a MaKo.',
+  vieja: 'Actualiza la extensión de MaKo para copiarla desde tu navegador: Chrome lo hace solo en unas horas.',
+  /** Mientras copia, el anillo ya dice cuánto lleva: el renglón dice lo que falta saber. */
+  copiando: 'No cierres esa pestaña hasta que termine.',
   noAbrio: 'No pude abrir la página con la extensión. Recarga MaKo y vuelve a intentar.',
+  destino: 'Esa dirección no se puede copiar: sólo páginas web públicas que no sean de MaKo.',
+  seFue: 'Esa pestaña se fue a otra página antes de copiarla. Vuelve a intentar.',
+  prohibida: 'Chrome no deja copiar esa página (la tienda de Chrome, un PDF o una página del navegador).',
   abierta: 'Se abrió en otra pestaña. Cuando la veas entera, toca el ícono de MaKo.',
   cerrada: 'Cerraste la pestaña antes de copiarla. Vuelve a intentar.',
   cortada: 'La copia se cortó (la página se recargó o se fue). Toca el ícono de MaKo otra vez en esa pestaña.',

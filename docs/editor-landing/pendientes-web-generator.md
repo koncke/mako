@@ -9,7 +9,7 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 
 ## En corto
 
-1. **«Replicar con la extensión» no existe.** Lo acordado el 4/11 se construyó sólo para Spy: «Capturar» guarda una foto JPEG, el título, el texto y los enlaces, pero no el diseño. El Web Generator no nombra a la extensión en ningún archivo.
+1. ~~**«Replicar con la extensión» no existe.**~~ **Hecho en código el 9/11/2026 (nube, extensión 0.79.0):** «Copiar con la extensión» en Replicar y «Replicar esta página» en el desplegable. Falta publicarla (3.3) y probarla en la PC (docs/relevo/web-pendientes-nube.md).
 2. **Por qué las mismas páginas fallan en Replicar y en Spy:** las dos dependen de que el SERVIDOR de MaKo baje la página. «Leer en tu navegador» no abre la página real, sino la copia que bajó el servidor, servida aislada en hola-mako.com. **El diagnóstico obvio («hay que arreglar Replicar») era el equivocado.**
 3. **Cómo se cubre cualquier landing:** la extensión corre la bajada y la foto de la copia idéntica en la pestaña real de la persona, con su toque en el ícono, y se la manda a Replicar. El servidor ya acepta esa foto. Después hay que publicar la extensión.
 4. **La tienda sirve la 0.74.5** (medido hoy; el código todavía dice 0.74.3). El repo va por la 0.78.0 y «Capturar» pide la 0.76.0, así que hoy ningún cliente de la tienda lo tiene.
@@ -33,7 +33,7 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
   - **Medido hoy, Beacons:** de 4 pedidos, 3 trajeron la página (200, 311 KB, título «@denborg | De Instagram al Escenario: Paso a Paso») y 1 trajo el desafío (403, «Just a moment...»). La barrera no es fija: depende de quién pide y cómo. Un navegador real la pasa, o la pasa la persona; un fetch del servidor no tiene cómo.
   - **Medido hoy, los otros dos:** https://lovable.dev/ dio 403 «Just a moment...». https://www.vidalytics.com/ dio 429 «Vercel Security Checkpoint».
 - **La regla que vale:** un antibots no se evade. La barrera la pasa la persona en su navegador, y el navegador de Apify con proxy lo frenó el clasificador (memoria lead-magnets-y-competitor-spy).
-- **Cómo se cierra:** sección 3.
+- **Cómo se cierra:** sección 3. **9/11/2026:** cerrado en código con «Copiar con la extensión» (3.1); llega a los clientes cuando se publique la 0.79.0 (3.3).
 - **Fuente.** lector-pagina.ts:238-300, app/api/landing-generator/diagnostico/pagina/route.ts, lib/landing-fetch.ts:255-285, docs/hallazgos-competitors-spy.md:1705-1730, chat del Cerebro 0ee425c6.
 
 ### 1.2 Las apps de Vite o Lovable partidas en módulos no corren en la ventana (P1, pendiente)
@@ -44,7 +44,7 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
   - El límite está explicado en lector-pagina.ts:14-23.
   - `TOPES_MODULOS = { cantidad: 3, bytes: 6_000_000 }` (:39), y sólo entra lo que pasa `esModuloSuelto` (:286).
   - Hoy, para esas páginas, quedan el Pixel (si la landing es propia) o pegar el texto. Según los hallazgos, «Página web» no ofrece pegar texto: propone «Landing».
-  - Leyendo la pestaña real con la extensión, esto deja de pasar.
+  - Leyendo la pestaña real con la extensión, esto deja de pasar. **9/11/2026: hecho en código (3.1)**: en la pestaña real los módulos corren. Sin medir en un Chrome de verdad con gsap.com.
 - **Fuente.** docs/hallazgos-editor-landing.md:1106-1141, :1242-1270 y :1718-1735.
 
 ### 1.3 «No pude sacar la foto de la página» con 100ads.ai (P2, hecho; falta verlo en producción)
@@ -184,7 +184,10 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 
 ## 2. Competitor Spy
 
-### 2.1 «Copiar su sitio» abre el Diagnóstico, no Replicar (P1, pendiente)
+### 2.1 ~~«Copiar su sitio» abre el Diagnóstico, no Replicar (P1, pendiente)~~ Hecho el 9/11/2026 (nube)
+
+- **Cómo quedó:** «Copiar su sitio» lleva a `/web-generator?replicar=<url>` (`hrefReplicar`, lib/editor-landing/replica-extension-cliente.ts), que abre Replicar arrancando solo (`derechaDeQuery`). Si el servidor no la baja, Replicar ofrece «Copiar con la extensión».
+
 
 - **Qué es.** El botón vuelve a bajar la página por el servidor, así que una página bloqueada falla otra vez, y encima no replica.
 - **Estado real:**
@@ -234,7 +237,10 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 
 ## 3. Replicar desde la extensión de MaKo
 
-### 3.1 Replicar por la extensión: no existe (P1, pendiente)
+### 3.1 ~~Replicar por la extensión: no existe (P1, pendiente)~~ Hecho en código el 9/11/2026 (nube, 0.79.0)
+
+- **Cómo quedó:** `extension/replica-leer.js` (generado por `scripts/sync-replica-extension.mjs` desde `lib/editor-landing/replica-extension-script.ts`, con chequeo en las guardas del pre-push), «Replicar esta página» en el desplegable, `REPLICA_*` en el worker, `MAKO_REPLICA_*` en el puente, «Copiar con la extensión» en Replicar y en `LeerOPegar`, la regla propia en AGENTS.md y la política actualizada. Pasó una revisión adversarial el mismo día (dos altas: la pendiente atada al SITIO y no a la pestaña, y de un campo sólo el placeholder porque React escribe lo tipeado en el atributo `value`). El botón sale sólo con una extensión que sabe copiar: hasta que la tienda tenga la 0.79.0, los clientes no lo ven. El detalle: docs/hallazgos-extension.md y docs/hallazgos-editor-landing.md (9/11). Falta publicar (3.3).
+
 
 - **Martín:**
   - 4/11, 16:13 UTC: «Pero podemos hacerlo con la extension de mako... Muchas extensiones capturan sitios web... Yo no quiero vulnerar a nadie, solo quiero capturar el diseño».
@@ -261,7 +267,10 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 - **Un paso intermedio más barato:** para los formatos «Landing» y «Presentación», la ruta ya acepta `lectura` o `texto` en vez de la bajada (route.ts:11-12). El texto que «Capturar» ya trae alcanzaría para esos dos formatos, no para la copia idéntica.
 - **Fuente.** extension/manifest.json, extension/spy-pagina.js, extension/popup.js:1164-1196, lib/spy-pagina-capturada.ts:1-33, lib/editor-landing/copia-identica-script.ts, app/api/landing-generator/replicar/route.ts, memoria lead-magnets-y-competitor-spy.md, chats del Cerebro 0ee425c6 y 6ea62e88.
 
-### 3.2 Lo capturado no guarda el diseño y no llega a Replicar (P1, pendiente)
+### 3.2 Lo capturado no guarda el diseño y no llega a Replicar (P1 → ya no bloquea, 9/11/2026)
+
+- **9/11/2026:** la réplica ya no depende de lo capturado: se saca en la pestaña real cuando se pide («Copiar su sitio» → Replicar → «Copiar con la extensión»). Guardar el HTML ajeno en un bucket privado sólo serviría para replicar sin volver a abrir la página: **no se hizo y no se escribió la migración** (no hace falta para replicar; si se decide, el número lo da el Cerebro).
+
 
 - **Estado real:**
   - lib/spy-pagina-capturada.ts:18-20 dice que el diseño todavía no se guarda: `spy-miniaturas` es público, sólo acepta imágenes (mig 0361) y un HTML ajeno no va ahí.
@@ -277,7 +286,7 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 - **Ejemplo.** https://chromewebstore.google.com/detail/mako/gapbemdaaghomjbnggechglkpmbgplle
 - **Estado real:**
   - **Medido hoy en la ficha pública:** «Versión 0.74.5», actualizada el 3/11/2026 a las 19:52 UTC.
-  - **Constante vieja:** el código sigue diciendo `VERSION_EN_TIENDA = '0.74.3'` (lib/extension-tienda.ts:51), y con esa constante se decide qué se le ofrece a cada uno.
+  - ~~**Constante vieja:** el código sigue diciendo `VERSION_EN_TIENDA = '0.74.3'` (lib/extension-tienda.ts:51), y con esa constante se decide qué se le ofrece a cada uno.~~ Corregida a '0.74.5' el 9/11/2026 (nube).
   - El repo va por la 0.78.0 (lib/extension-version.ts:8). «Capturar» pide la 0.76.0 (`VERSION_CAPTURA`, lib/spy-pagina-capturada.ts:33). La que Martín tenía instalada el 8/11 era la 0.74.4 (`07cc0a8b2`).
   - La subida por API está muerta (`deleted_client`). El panel pide que Martín vuelva a verificar su cuenta en el Chrome aparte (scripts/cdp-tienda.mjs), y después Google tarda en aprobar.
   - «Capturar» nunca se probó en un Chrome de verdad.
@@ -296,9 +305,12 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
   - Desde su base (`6ad8c0202`, 9/11 04:54), main avanzó 58 commits. El único archivo que tocan los dos es docs/hallazgos.md.
   - Falta firmarla con martinkoncke@gmail.com (docs/relevo/cerebro.md:1426) y verla en la app con una réplica de punta a punta.
 
-### 4.2 Tanda 2: el anillo en el paso «Leer» (P3, sin empezar)
+### 4.2 ~~Tanda 2: el anillo en el paso «Leer» (P3, sin empezar)~~ Hecha el 9/11/2026 (nube)
 
-- **Estado real:** hoy se ve el giro de siempre (Replicar.tsx:690). `useLeerParaReplicar` (:444) sólo da «leyendo» y «leída», sin progreso.
+- **Cómo quedó:** el paso «Leer» monta `EscenarioReplica` sólo con el anillo del reel (`EVENTOS_LEER`, prop `leyendo` con lo que
+  dice el anillo y la barra), y el mismo anillo sale mientras la extensión copia en la pestaña real, con el porcentaje. La
+  lectura sigue sin dar progreso: el anillo gira hasta que llega la estructura. Lo fija el test 8 de tests/replicar-extension.test.ts.
+- ~~**Estado real:** hoy se ve el giro de siempre (Replicar.tsx:690). `useLeerParaReplicar` (:444) sólo da «leyendo» y «leída», sin progreso.~~
 
 ### 4.3 Tanda 3: la página real adentro de cada caja (P3, sin empezar)
 

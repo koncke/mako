@@ -5,6 +5,86 @@ lo que la página de MaKo le pide a la extensión (`lib/wa-fichas-cliente.ts`). 
 es de la extensión en sí (la API, los créditos, el motor) está en [hallazgos-generativa.md](hallazgos-generativa.md). El índice
 es [hallazgos.md](hallazgos.md).
 
+## «Replicar esta página»: la única lectura que baja por una página ajena, y su contrato (9/11/2026, 0.79.0, nube)
+
+**Vive en:** `lib/editor-landing/replica-extension-script.ts` (el fuente), `scripts/sync-replica-extension.mjs` (lo genera),
+`extension/replica-leer.js` (generado), `extension/popup.js` («Replicar esta página»), `extension/background.js` (`REPLICA_*`),
+`extension/mako-puente.js` (`MAKO_REPLICA_*`), `lib/editor-landing/replica-extension-cliente.ts`, `app/privacidad/extension/page.tsx`,
+`tests/replicar-extension.test.ts`. Martín (9/11, 15:48 UTC): «habíamos quedado en actualizar la extensión de Mako para que se
+pueda replicar por allí. Y de esa manera siempre vamos a poder replicar cualquier landing».
+
+- **El código viaja EN EL PAQUETE, y por eso se genera.** Manifest V3 no deja correr código bajado de afuera: la foto de la copia
+  idéntica (las mismas cuatro piezas del lector, `copia-identica-script.ts`) se escribe en `extension/replica-leer.js` con un
+  script y el pre-push falla si quedó vieja. A diferencia de `sync-boq-respuesta`, el fuente se IMPORTA con tsx (son strings
+  exportados): no hay tipos que borrar a mano. **Cada cambio a la instantánea es una versión nueva en la tienda**, así que lo que
+  corre en la pestaña es tonto y lo que se juzga lo decide MaKo: si lo copiado es la verificación de un antibots lo mira la
+  pantalla (`juzgarEntrega`) y, como red, el servidor (`replicarIdentica`).
+- **Bajar por la página choca con la regla de «no mover la pantalla» del sitio de un tercero, y se escribió aparte** (AGENTS.md,
+  «La extensión en el sitio de un tercero»): es la única lectura que hace `window.scrollTo`, después del toque, y vuelve a donde
+  estaba la persona; ni clics, ni foco, ni red. El test lo fija corriéndola, no leyéndola: el último `scrollTo` es la posición
+  de la persona.
+- **La foto no vuelve por el resultado de `executeScript`: vuelve por un mensaje con su nonce.** La lectura dura hasta ~60 s, el
+  desplegable se cierra apenas la persona toca la página y el worker de MV3 se duerme a los 30 s sin eventos: una promesa
+  esperando 60 s en cualquiera de los dos se pierde. La función contesta en el acto (`{ empezo }`) y sigue sola; el avance
+  (`REPLICA_AVANCE`) y el final (`REPLICA_FOTO`) son mensajes, y cada uno despierta al worker. El worker sólo los acepta de ESA
+  pestaña y con el nonce que acuñó él (`REPLICA_EMPEZAR`, que sólo puede pedir el desplegable): la página, en el mundo principal,
+  no tiene `chrome.runtime`.
+- **Se inyecta con `func`, no con `files`.** `files` no lleva argumentos, y el nonce tendría que viajar por un global de otro
+  `executeScript`. El desplegable carga `replica-leer.js` (un `var MakoReplicaLeer = function …`) y lo pasa como `func` con
+  `args: [{ nonce }]`: Chrome serializa la función con su texto, que es el del archivo generado.
+- **En la pestaña real un campo trae lo que la persona escribió.** La ventana del lector no tenía ese caso (nadie tipea ahí) y la
+  instantánea copiaba `o.value`. Con `op.soloDeLaPagina` de un campo de texto sale sólo su placeholder, el texto de un botón
+  (es de la página), la opción marcada de fábrica, y una caja editable vacía. ⚠️ La primera versión copiaba el ATRIBUTO
+  `value` creyendo que era «lo de la página»: React escribe ahí lo tipeado en un input controlado (también de contraseña) y en
+  el `defaultValue` de un textarea. Lo encontró la revisión adversarial; el atributo no distingue y por eso no se copia.
+- **La foto pesa megas, y va en `chrome.storage.session` con SU clave** (`replicaEntrega:<id>`; 10 MB para toda la extensión
+  desde Chrome 112). Si no entra, se tiran las demás fotos guardadas y se prueba otra vez; se borra cuando la réplica sale o
+  cuando se vuelve a la pestaña. La pestaña ajena se cierra recién cuando la RÉPLICA salió (`REPLICA_SOLTAR`, que la pantalla
+  manda con el `lista` de la réplica): si el servidor dice que lo copiado era la verificación, la pestaña tiene que seguir ahí.
+- **El acuse lo da la pantalla, no el puente.** `REPLICA_LISTA` espera `MAKO_REPLICA_RECIBIDA` del pedido (1,5 s): un mensaje a
+  una pestaña de MaKo que se fue a /crm llega igual (el puente está en toda la app) y no lo lee nadie. Sin acuse, el worker abre
+  `/web-generator?replicar=…&extension=…` (con el `?ws=` de la pestaña que pidió), que toma la foto.
+- ⚠️ **Un test que recorta `background.js` entre dos marcadores ve TODO lo que caiga en el medio.** El código nuevo se escribió
+  primero entre los marcadores de «Capturar» de Spy, y su `chrome.tabs.onRemoved.addListener` pisaba el oyente falso que ese test
+  guarda (`reg.alCerrar`): su prueba de «la cierran sin capturar» habría llamado al oyente de Replicar. Se movió afuera de los
+  recortes de los otros tests (`tests/spy-captura-pagina.test.ts`, `wa-*`). Antes de agregar un bloque al worker, `grep` de
+  `bg.indexOf(` en `tests/`.
+- **`VERSION_EN_TIENDA` estaba vieja**: decía 0.74.3 y la ficha pública dice «Versión 0.74.5» (medido el 9/11 desde la PC de
+  Martín; la nube no llega a chromewebstore.google.com). Con esa constante se decide qué se le ofrece a cada uno y si una
+  función «llega con la próxima versión». Se corrigió a mano: `node scripts/version-en-tienda.mjs` es lo que la mide.
+- **Y un test que fijaba la versión exacta del paquete volvió a romper con la subida** (`tests/perfil-extension.test.ts`, que
+  pedía '0.78.0'; la misma trampa que ya está cosechada abajo para la 0.77). Ahora pide «la 0.78 o más nueva» y que el espejo
+  diga la del paquete.
+
+- **La revisión adversarial del mismo día encontró dos altas, y las dos eran de la PRIMERA versión que se dio por buena:**
+  - **La pendiente era de la PESTAÑA y tenía que ser del SITIO.** Una pestaña que abrió MaKo quedaba «pedida» toda la sesión: si
+    la persona pasaba la verificación, se rendía y usaba esa pestaña para Gmail o WhatsApp, tocar el ícono la copiaba y la
+    mandaba a MaKo rotulada como la página pedida, y al final la cerraba. Ahora la pendiente lleva su `sitio`
+    (`pendienteVigente`), `tabs.onUpdated` la suelta si la pestaña se va a otro sitio (MaKo recibe `se_fue`), vence a la media
+    hora, el desplegable le PREGUNTA al worker si esta pestaña es la pedida (`REPLICA_PENDIENTE`), y SOLTAR/CANCELAR cierran sólo
+    si sigue en el sitio. El salto de una redirección al cargar (beacons.page → beacons.ai) se adopta: hasta 10 s después de la
+    primera carga un cambio de sitio cuenta como redirección (`ASIENTA_REPLICA_MS`).
+  - **«Lo que trae la página» no se puede leer de un campo.** React escribe lo tipeado en el ATRIBUTO `value` de un input
+    controlado (también de contraseña) y en el `defaultValue` de un textarea, que era justo lo que la primera versión copiaba.
+    Ahora de un campo de texto sale sólo el placeholder, una caja `contenteditable` sale vacía, y el texto visible se arma sin lo
+    escrito en un textarea o una caja editable.
+  - Y medias: la dirección desde el inicio viajaba con su consulta; un segundo toque a los 20 s acuñaba otro nonce y la foto se
+    perdía (ahora la lectura late cada 3 s y una segunda inyección ADOPTA el nonce nuevo en vez de contestar «ocupada»); el
+    desplegable decía «Copiada» con el `ok` de la pestaña aunque el worker no la hubiera podido guardar (ahora espera
+    `REPLICA_GUARDADA`) y no le avisaba al worker si no había podido inyectar (`REPLICA_FALLO`, motivo `prohibida`); un mapa
+    entero en `replicas` que cada aviso reescribía (ahora una clave y una cola POR PESTAÑA); un `?replicar=` armado podía llevar
+    a copiar el router o una intranet (`destinoReplicable` rechaza la red local, MaKo, WhatsApp y Flow en ABRIR y EMPEZAR); y
+    el `--check` del sync leía el disco (ahora arma el archivo desde los fuentes de HEAD y lo compara con el de HEAD).
+  - ⚠️ **Del lado de la pantalla**: la foto de una página casi sin texto se replicaba sin que nada se dibujara (el avance y el
+    error vivían adentro de «leída»), y «Volver a intentar» abría una segunda pestaña sin cerrar la del intento anterior.
+
+**Sin hacer:** publicar la 0.79.0 (hace falta que Martín vuelva a verificar su cuenta: la subida por API está muerta, ver abajo);
+una pestaña de MaKo congelada (el acuse tiene 1,5 s y el worker espera 4 s: puede abrir otra pestaña y las dos tomar la foto);
+una lectura en una pestaña de fondo (los relojes de Chrome se estiran a 1 s: una página muy larga sale `parcial`, y la pantalla
+todavía no lo dice); el tope del pedido cuenta caracteres y Vercel corta por bytes (ya pasaba con el lector);
+probarla en un Chrome de verdad con las páginas de `docs/relevo/web-pendientes-nube.md` («Pruebas para la PC»); y medir si una
+hoja de estilos de un CDN detrás de la misma barrera falla en `hojaDeLaFoto` (las del mismo sitio vienen adentro de la foto).
+
 ## «Guardar en MaKo» sobre un perfil de Instagram o LinkedIn: dos toques, y lo de la página no se cree (6/11/2026, 0.77.0, nube)
 
 **Vive en:** `extension/perfil-reglas.js`, `extension/perfil-leer.js`, `extension/popup.js` («Guardar en MaKo»),

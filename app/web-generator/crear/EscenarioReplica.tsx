@@ -30,10 +30,11 @@ import {
   tiemposFinales, type CajaEscena, type Escena, type EtapaEscena, type Tiempos,
 } from '@/lib/editor-landing/replicar-escena';
 
-/** Lo que dice la barra en cada etapa (la del reel decía «12 AGENTS LIVE»; acá, la fase real). */
-export function textoDeEtapa(escena: Escena): string {
+/** Lo que dice la barra en cada etapa (la del reel decía «12 AGENTS LIVE»; acá, la fase real). `leyendo`: lo que dice el
+ * arranque, si el que lee lo sabe mejor (el paso «Leer» de Replicar, la extensión copiando en la pestaña real). */
+export function textoDeEtapa(escena: Escena, leyendo?: string): string {
   const etapas: Record<EtapaEscena, string> = {
-    arranque: 'Leyendo la página',
+    arranque: leyendo || 'Leyendo la página',
     secciones: `Escribiendo · ${escena.escritas} de ${escena.total}`,
     diseno: 'Aplicando el diseño',
     lista: 'Lista',
@@ -83,8 +84,14 @@ function Caja({ c, refCaja, quieto }: {
   );
 }
 
-export function EscenarioReplica({ eventos, visibles, llegadas, saltear, moldes, colores }: {
+export function EscenarioReplica({ eventos, visibles, llegadas, saltear, moldes, colores, leyendo }: {
   eventos: readonly EventoReplica[];
+  /**
+   * Tanda 2 (9/11/2026): lo que dice el anillo mientras todavía no hay estructura. El paso «Leer» de Replicar monta el
+   * escenario sólo con el anillo (no hay eventos de la lectura: sólo «leyendo» y «leída»), y la extensión dice cuánto
+   * lleva copiado en la pestaña real.
+   */
+  leyendo?: string;
   /** Cuántas secciones armadas ya se ven (useRevelado de ArmadoEnVivo: la misma cadencia que la cuenta). */
   visibles: number;
   /** Cuántas secciones llegaron armadas. */
@@ -207,7 +214,7 @@ export function EscenarioReplica({ eventos, visibles, llegadas, saltear, moldes,
               {AGENTES.map((a, i) => <i key={a.id} style={{ background: a.color, transform: `rotate(${i * 30}deg) translateY(-22px)` }} />)}
               <b className="wr-centro" />
             </div>
-            <span className="wr-anillo-texto">Leyendo la página</span>
+            <span className="wr-anillo-texto">{leyendo || 'Leyendo la página'}</span>
           </div>
         )}
         <div className="wr-pagina" ref={pagina} style={{ height: escena.alto, transform: final ? `translate3d(0, ${-camaraQuieta}px, 0)` : undefined }}>
@@ -236,7 +243,7 @@ export function EscenarioReplica({ eventos, visibles, llegadas, saltear, moldes,
       <div className="wr-barra">
         <span className="wr-vivo"><i aria-hidden /><span className="wr-vivo-texto">MaKo en vivo</span></span>
         <span className="wr-sep" aria-hidden />
-        <span className="wr-fase">{textoDeEtapa(escena)}</span>
+        <span className="wr-fase">{textoDeEtapa(escena, leyendo)}</span>
         {visibles < llegadas && <button type="button" className="wr-ver-todo" onClick={saltear}>Ver todo</button>}
       </div>
     </div>

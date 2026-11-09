@@ -13,11 +13,12 @@
 // verificación de un antibots) y la pantalla sigue con ella como con la del lector. `BloqueExtension`: lo que se dibuja.
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { EXTENSION_URL_TIENDA, lineaDeVersion } from '@/lib/extension-tienda';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { EXTENSION_URL_TIENDA, VERSION_EN_TIENDA } from '@/lib/extension-tienda';
 import {
-  MENSAJE_REPLICA, SILENCIO_LECTURA_MS, VERSION_REPLICA, alEstadoDeReplica, cancelarReplica, extensionReplica, juzgarEntrega,
-  mensajeDeFallo, nuevoPedido, pedirReplica, soltarEntrega, tomarEntrega, volverAEntrega,
+  MENSAJE_REPLICA, SILENCIO_LECTURA_MS, alEstadoDeReplica, cancelarReplica, extensionReplica, juzgarEntrega,
+  mensajeDeFallo, nuevoPedido, ofertaDeExtension, pedirReplica, soltarEntrega, tomarEntrega, volverAEntrega,
+  type OfertaExtension,
 } from '@/lib/editor-landing/replica-extension-cliente';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Ico } from '../Ico';
@@ -30,16 +31,27 @@ export type EstadoExtension =
   | { fase: 'tomando' }
   | { fase: 'lista' }
   /** `aviso`: algo que la persona resuelve (la verificación, la pestaña cerrada); si no, un error nuestro. `entrega`: se
-   * puede volver a la pestaña. `instalar`: falta la extensión, o es de antes. */
-  | { fase: 'falla'; mensaje: string; aviso: boolean; entrega?: string; instalar?: boolean };
+   * puede volver a la pestaña. */
+  | { fase: 'falla'; mensaje: string; aviso: boolean; entrega?: string };
 
 /** Lo que vuelve de la extensión, ya juzgado: la foto de la copia idéntica y el texto que se veía. */
 export type FotoDeLaExtension = { url: string; foto: Record<string, unknown>; texto: string; titulo: string };
 
 const versionDelPuente = (): string | null => (typeof document === 'undefined' ? null : document.documentElement.getAttribute('data-mako-puente'));
 
+/** El atributo del puente aparece al cargar, o al recargar después de instalar: la pantalla se entera sola (molde: SusPaginas). */
+function suscribirPuente(avisar: () => void): () => void {
+  const mo = new MutationObserver(avisar);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mako-puente'] });
+  window.addEventListener('focus', avisar);
+  return () => { mo.disconnect(); window.removeEventListener('focus', avisar); };
+}
+const instaladaAhora = () => extensionReplica(versionDelPuente());
+
 export function useReplicaConExtension(alTomar: (f: FotoDeLaExtension) => void): {
   estado: EstadoExtension;
+  /** Qué se ofrece antes de tocar nada (`ofertaDeExtension`): el botón sólo si la extensión instalada sabe replicar. */
+  oferta: OfertaExtension;
   /** Abrir `url` con la extensión. */
   empezar: (url: string) => void;
   /** Tomar una entrega que ya está en la extensión (Replicar abierto por la extensión, `?extension=`). */
@@ -47,15 +59,32 @@ export function useReplicaConExtension(alTomar: (f: FotoDeLaExtension) => void):
   /** Volver a la pestaña (lo que se vio era la verificación). */
   volver: () => void;
   cancelar: () => void;
+  /**
+   * La réplica salió: la extensión borra la foto y cierra la pestaña que abrió. Se llama recién ahí (y al salir de la
+   * pantalla): con la pestaña cerrada antes, un «era la verificación» del servidor no tenía adónde volver.
+   */
+  soltar: () => void;
 } {
   const [estado, setEstado] = useState<EstadoExtension>({ fase: 'quieta' });
+  // En el servidor no hay extensión que mirar: 'no' (con la tienda atrás, eso es 'nada' y no se dibuja; al hidratar, se mira).
+  const instalada = useSyncExternalStore(suscribirPuente, instaladaAhora, () => 'no' as const);
+  const oferta = ofertaDeExtension(instalada, VERSION_EN_TIENDA);
   const alTomarVivo = useRef(alTomar);
   useEffect(() => { alTomarVivo.current = alTomar; }, [alTomar]);
   const pedido = useRef<string | null>(null);
   const url = useRef<string | null>(null);
   const dejar = useRef<(() => void) | null>(null);
+  /** La foto que se tomó y todavía no se soltó (la pestaña sigue abierta hasta que la réplica sale). */
+  const tomada = useRef<string | null>(null);
+  const soltar = useCallback(() => {
+    if (tomada.current) soltarEntrega(window, tomada.current);
+    tomada.current = null;
+  }, []);
   const montado = useRef(true);
-  useEffect(() => { montado.current = true; return () => { montado.current = false; dejar.current?.(); dejar.current = null; }; }, []);
+  useEffect(() => {
+    montado.current = true;
+    return () => { montado.current = false; dejar.current?.(); dejar.current = null; soltar(); };
+  }, [soltar]);
   const poner = useCallback((e: EstadoExtension) => { if (montado.current) setEstado(e); }, []);
 
   const recibir = useCallback((entrega: string, urlPedida?: string) => {
@@ -66,13 +95,14 @@ export function useReplicaConExtension(alTomar: (f: FotoDeLaExtension) => void):
       if (!e) { poner({ fase: 'falla', mensaje: MENSAJE_REPLICA.vencida, aviso: false }); return; }
       const j = juzgarEntrega(e);
       if (j !== 'ok') { poner({ fase: 'falla', mensaje: MENSAJE_REPLICA[j], aviso: true, entrega }); return; }
-      soltarEntrega(window, entrega);
+      soltar();
+      tomada.current = entrega;
       dejar.current?.();
       dejar.current = null;
       poner({ fase: 'lista' });
       alTomarVivo.current({ url: urlPedida ?? url.current ?? e.url, foto: e.foto, texto: e.texto, titulo: e.titulo });
     })();
-  }, [poner]);
+  }, [poner, soltar]);
 
   /** Escuchar lo que pasa con `p` (la lectura en la pestaña, la foto lista, la pestaña cerrada). */
   const escuchar = useCallback((p: string) => {
@@ -82,25 +112,36 @@ export function useReplicaConExtension(alTomar: (f: FotoDeLaExtension) => void):
       if (a.fase === 'leyendo') poner({ fase: 'leyendo', hecho: a.hecho });
       // La pestaña sigue abierta: tocar el ícono otra vez vuelve a «leyendo» (seguimos escuchando).
       else if (a.fase === 'fallo') poner({ fase: 'falla', mensaje: mensajeDeFallo(a.motivo), aviso: a.motivo !== 'excepcion' });
-      else if (a.fase === 'cerrada') { dejar.current?.(); dejar.current = null; poner({ fase: 'falla', mensaje: MENSAJE_REPLICA.cerrada, aviso: true }); }
+      else if (a.fase === 'cerrada' || a.fase === 'se_fue') {
+        dejar.current?.();
+        dejar.current = null;
+        pedido.current = null;
+        poner({ fase: 'falla', mensaje: a.fase === 'cerrada' ? MENSAJE_REPLICA.cerrada : MENSAJE_REPLICA.seFue, aviso: true });
+      }
       else recibir(a.entrega);
     });
   }, [poner, recibir]);
 
   const empezar = useCallback((u: string) => {
-    const ext = extensionReplica(versionDelPuente());
-    if (ext !== 'si') {
-      const frase = ext === 'no' ? MENSAJE_REPLICA.sinExtension : MENSAJE_REPLICA.vieja;
-      // Si la tienda todavía no publica una versión que sepa replicar, instalar o actualizar no la traería: se dice eso.
-      const linea = lineaDeVersion(VERSION_REPLICA, frase);
-      poner({ fase: 'falla', mensaje: linea, aviso: true, instalar: linea === frase });
-      return;
-    }
+    // El botón sólo se dibuja con la extensión que sabe replicar; si se fue en el medio (se desinstaló), se vuelve a quieta y
+    // el bloque dice qué hacer según `oferta`.
+    if (extensionReplica(versionDelPuente()) !== 'si') { poner({ fase: 'quieta' }); return; }
+    // «Volver a intentar»: la pestaña del intento anterior se cierra (si la abrió la extensión). Sin esto quedaba anotada, y
+    // tocar el ícono en ella le entregaba la foto a un pedido que ya nadie escuchaba.
+    if (pedido.current) cancelarReplica(window, pedido.current);
+    dejar.current?.();
+    dejar.current = null;
+    pedido.current = null;
     url.current = u;
     poner({ fase: 'pidiendo' });
     void pedirReplica(window, u).then((r) => {
       if (!montado.current) return;
-      if (!r.ok) { poner({ fase: 'falla', mensaje: MENSAJE_REPLICA.noAbrio, aviso: false }); return; }
+      if (!r.ok) {
+        poner(r.motivo === 'destino'
+          ? { fase: 'falla', mensaje: MENSAJE_REPLICA.destino, aviso: true }
+          : { fase: 'falla', mensaje: MENSAJE_REPLICA.noAbrio, aviso: false });
+        return;
+      }
       escuchar(r.pedido);
       poner({ fase: 'abierta' });
     });
@@ -133,7 +174,7 @@ export function useReplicaConExtension(alTomar: (f: FotoDeLaExtension) => void):
     return () => clearTimeout(t);
   }, [estado, poner]);
 
-  return { estado, empezar, recibir, volver, cancelar };
+  return { estado, oferta, empezar, recibir, volver, cancelar, soltar };
 }
 
 /** El rótulo del botón (corto: lo que hace). */
@@ -143,14 +184,32 @@ export const BOTON_EXTENSION = 'Copiar con la extensión';
  * Lo que se dibuja: el botón y, mientras tanto, en qué va. `primario`: el botón es la acción principal (la página no se
  * pudo leer de ninguna otra forma).
  */
-export function BloqueExtension({ estado, onEmpezar, onVolver, onCancelar, primario = false }: {
+export function BloqueExtension({ estado, oferta, onEmpezar, onVolver, onCancelar, primario = false }: {
   estado: EstadoExtension;
+  oferta: OfertaExtension;
   onEmpezar: () => void;
   onVolver: () => void;
   onCancelar: () => void;
   primario?: boolean;
 }) {
   if (estado.fase === 'lista') return null;
+  // Sin una extensión que sepa replicar, no hay botón: se dice cómo conseguirla, o nada si la tienda todavía no la trae.
+  if (estado.fase === 'quieta' && oferta !== 'copiar') {
+    if (oferta === 'nada') return null;
+    return (
+      <div className="gp-ext" role="group" aria-label="Copiar con la extensión de MaKo">
+        <style href="gp-ext" precedence="medium">{CSS_EXT}</style>
+        {oferta === 'instalar' && (
+          <div className="gp-ext-acciones">
+            <a className="gp-btn gp-btn-contorno" href={EXTENSION_URL_TIENDA} target="_blank" rel="noreferrer noopener">
+              <Ico n="descargar" t={14} /> Agregar a Chrome
+            </a>
+          </div>
+        )}
+        <p className="gp-ext-nota">{oferta === 'instalar' ? MENSAJE_REPLICA.sinExtension : MENSAJE_REPLICA.vieja}</p>
+      </div>
+    );
+  }
   const esperando = estado.fase === 'pidiendo' || estado.fase === 'abierta' || estado.fase === 'leyendo' || estado.fase === 'tomando';
   return (
     <div className="gp-ext" role="group" aria-label="Copiar con la extensión de MaKo">
@@ -165,24 +224,22 @@ export function BloqueExtension({ estado, onEmpezar, onVolver, onCancelar, prima
               <Ico n="globo" t={14} /> Ir a la pestaña
             </button>
           )}
-          {estado.fase === 'falla' && estado.instalar && (
-            <a className="gp-btn gp-btn-contorno" href={EXTENSION_URL_TIENDA} target="_blank" rel="noreferrer noopener">
-              <Ico n="descargar" t={14} /> Agregar a Chrome
-            </a>
-          )}
         </div>
       )}
       {estado.fase === 'quieta' && <p className="gp-ext-nota">Abre la página en tu navegador y la copia tal cual, aunque bloquee a MaKo.</p>}
       {esperando && (
         <p className="gp-ext-estado" role="status">
           <span className="gp-giro" aria-hidden />
-          {estado.fase === 'pidiendo' ? 'Abriendo la página…'
-            : estado.fase === 'abierta' ? MENSAJE_REPLICA.abierta
-              : estado.fase === 'leyendo' ? `Copiando la página en tu navegador… ${estado.hecho} %`
-                : 'Trayendo la copia…'}
-          {(estado.fase === 'abierta' || estado.fase === 'leyendo') && (
-            <button type="button" className="gp-ext-cancelar" onClick={onCancelar}>Cancelar</button>
-          )}
+          {/* El texto en su propia caja: suelto, al no entrar en el renglón bajaba entero y dejaba el giro solo arriba (390 px). */}
+          <span className="gp-ext-texto">
+            {estado.fase === 'pidiendo' ? 'Abriendo la página…'
+              : estado.fase === 'abierta' ? MENSAJE_REPLICA.abierta
+                : estado.fase === 'leyendo' ? MENSAJE_REPLICA.copiando
+                  : 'Trayendo la copia…'}
+            {(estado.fase === 'abierta' || estado.fase === 'leyendo') && (
+              <> <button type="button" className="gp-ext-cancelar" onClick={onCancelar}>Cancelar</button></>
+            )}
+          </span>
         </p>
       )}
       {estado.fase === 'falla' && (estado.aviso
@@ -198,7 +255,10 @@ const CSS_EXT = `
 .gp .gp-ext-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
 .gp .gp-ext-nota { margin: 0; font-size: 13px; color: var(--gp-tenue, #66666b); }
 .gp .gp-ext-error { margin: 0; font-size: 13px; font-weight: 600; color: var(--gp-titulo, #002253); }
-.gp .gp-ext-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: var(--gp-texto, #1f2937); }
+.gp .gp-ext-estado { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--gp-texto, #1f2937); }
+.gp .gp-ext-estado > .gp-giro { flex: none; margin-top: 2px; }
+.gp .gp-ext-texto { flex: 1 1 auto; min-width: 0; }
+.gp .gp-ext a.gp-btn { text-decoration: none; }
 .gp .gp-ext-cancelar { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--gp-tenue, #66666b); text-decoration: underline; cursor: pointer; }
 .gp .gp-ext-cancelar:hover { color: var(--gp-texto, #1f2937); }
 `;

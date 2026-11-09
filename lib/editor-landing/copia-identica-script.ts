@@ -113,19 +113,21 @@ export const JS_HIJOS_JUNTOS = String.raw`function (el) {
 
 /**
  * La foto. `op.soloDeLaPagina` (9/11/2026, «Replicar con la extensión»): la foto sale en la PESTAÑA REAL de la persona, donde
- * un campo puede traer lo que ella escribió. Ahí de un campo se copia sólo lo que trae la PÁGINA (su atributo `value`, la
- * opción marcada de fábrica, el texto de un botón), nunca lo tipeado. En la ventana del lector (sin `op`) nadie escribió nada.
+ * un campo puede traer lo que ella escribió. Ahí de un campo de texto se copia SÓLO su placeholder: React escribe lo tipeado
+ * en el atributo `value` de un input controlado (también en uno de contraseña) y en el `defaultValue` de un textarea, así que
+ * ni el atributo distingue lo de la página de lo escrito (lo encontró la revisión adversarial del mismo día). De un botón,
+ * su texto; de un select, la opción marcada de fábrica; y una caja editable (`contenteditable`) sale vacía. En la ventana
+ * del lector (sin `op`) nadie escribió nada y se copia como antes.
  */
 export const JS_INSTANTANEA = String.raw`function (op) {
   var d = document;
   var base = d.baseURI;
   var soloDeLaPagina = !!(op && op.soloDeLaPagina);
-  // Lo que se copia de un campo: el texto de un botón siempre; de lo demás, con soloDeLaPagina, lo que trae el HTML.
+  // Lo que se copia de un campo: el texto de un botón siempre; de lo demás, con soloDeLaPagina, nada (queda el placeholder).
   var valorDe = function (o, tag, tipo) {
     if (tipo === 'submit' || tipo === 'button' || tipo === 'reset') return o.value || o.getAttribute('value') || '';
-    if (!soloDeLaPagina) return o.value || '';
-    if (tag === 'textarea') return o.defaultValue || '';
-    return o.getAttribute('value') || '';
+    if (soloDeLaPagina) return '';
+    return o.value || '';
   };
   var opcionDe = function (o) {
     if (!o.options || !o.options.length) return null;
@@ -192,6 +194,11 @@ export const JS_INSTANTANEA = String.raw`function (op) {
   for (var i = 0; i < orig.length && i < cop.length; i++) {
     var o = orig[i], c = cop[i];
     var tag = o.tagName.toLowerCase();
+    // Una caja editable de la pestaña real (un chat, un editor) puede traer lo que escribió la persona: sale vacía.
+    if (soloDeLaPagina && o.isContentEditable && o.hasAttribute('contenteditable')) {
+      while (c.firstChild) c.removeChild(c.firstChild);
+      c.removeAttribute('contenteditable');
+    }
     try { if (esJunta(o)) c.setAttribute('data-gm-junto', ''); } catch (e) {}
     // Lo FIJO (el aviso de cookies, un encabezado fijo): el server lo pega a la primera sección (partirParaCopia).
     try { if (getComputedStyle(o).position === 'fixed') c.setAttribute('data-gm-fijo', ''); } catch (e) {}

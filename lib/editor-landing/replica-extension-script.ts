@@ -23,7 +23,8 @@
 // aparece al bajar. Así que ésta es la única lectura de la extensión que MUEVE LA PANTALLA de un sitio ajeno, y sólo así:
 //   · corre después del toque de la persona en el ícono de MaKo, en la pestaña que eligió, y una vez;
 //   · sólo baja (`window.scrollTo`) y al terminar vuelve a donde estaba la persona. Ni clics, ni foco, ni teclas;
-//   · de un campo copia sólo lo que trae la página, nunca lo tipeado (`soloDeLaPagina` de JS_INSTANTANEA);
+//   · de un campo de texto copia sólo su placeholder, nunca su valor (React escribe lo tipeado en el atributo `value`), y una
+//     caja editable sale vacía (`soloDeLaPagina` de JS_INSTANTANEA);
 //   · no lee cookies ni almacenamiento, no pide nada a la red y no escribe en la página. Lo que saca se lo da a la extensión
 //     (`chrome.runtime.sendMessage`), y la extensión se lo pasa a la pestaña de MaKo de la persona;
 //   · corre en el mundo AISLADO: no ve las variables de la página ni la página ve las suyas;
@@ -52,22 +53,32 @@ export const TOPE_REPLICA_MS = 60_000;
 export const TOPE_TEXTO_REPLICA = 60_000;
 
 /** Por qué no salió la foto en la pestaña (lo dice la pantalla, `mensajeDeReplica` en replica-extension-cliente.ts). */
-export const MOTIVOS_REPLICA = ['vacia', 'pesada', 'excepcion', 'ocupada'] as const;
+// 'ocupada' ya no sale de la lectura (adopta el nonce nuevo): queda por una extensión de antes. 'prohibida': Chrome no deja
+// inyectar en esa pestaña (la tienda, un PDF), y lo manda el desplegable (`REPLICA_FALLO`).
+export const MOTIVOS_REPLICA = ['vacia', 'pesada', 'excepcion', 'ocupada', 'prohibida'] as const;
 export type MotivoReplica = (typeof MOTIVOS_REPLICA)[number];
 
 /**
- * La función que corre en la pestaña: `(op: { nonce }) => { ok, empezo } | { ok: false, motivo: 'ocupada' }`. Contesta en el
+ * La función que corre en la pestaña: `(op: { nonce }) => { ok, empezo, adoptada? }`. Contesta en el
  * acto y sigue sola: el desplegable puede cerrarse (la persona toca la página) y el worker puede dormirse; lo que se va
  * leyendo y el final llegan como mensajes (`REPLICA_AVANCE`, `REPLICA_FOTO`), con su `nonce`, que es lo que el worker mira.
  */
 export const JS_REPLICA_EN_LA_PESTANA = String.raw`function (op) {
   var NONCE = String((op && op.nonce) || '');
+  // Una lectura en curso (la persona volvió a tocar el ícono y el worker no la oía hacía rato): sigue la que ya corre, con el
+  // nonce nuevo. Contestar «ocupada» dejaba la foto con el nonce viejo, que el worker ya no acepta.
+  if (window.__mkReplica) { window.__mkReplicaNonce = NONCE; return { ok: true, empezo: false, adoptada: true }; }
+  window.__mkReplica = 1;
+  window.__mkReplicaNonce = NONCE;
   var mandar = function (m) {
-    m.nonce = NONCE;
+    m.nonce = String(window.__mkReplicaNonce || NONCE);
     try { chrome.runtime.sendMessage(m, function () { void chrome.runtime.lastError; }); } catch (e) {}
   };
-  if (window.__mkReplica) return { ok: false, motivo: 'ocupada' };
-  window.__mkReplica = 1;
+  // El latido: cada 3 s dice cómo va, también mientras espera que la página cargue (hasta ~18 s sin otro aviso). Sin él, un
+  // segundo toque en el ícono a los 20 s acuñaba otro nonce y la foto se perdía.
+  var cuenta = { fase: 'cargando', hecho: 0 };
+  var avance = function (fase, hecho) { cuenta.fase = fase; cuenta.hecho = hecho; mandar({ tipo: 'REPLICA_AVANCE', fase: fase, hecho: hecho }); };
+  var latido = setInterval(function () { mandar({ tipo: 'REPLICA_AVANCE', fase: cuenta.fase, hecho: cuenta.hecho }); }, 3000);
   var T0 = Date.now();
   var tarde = function () { return Date.now() - T0 > ` + TOPE_REPLICA_MS + String.raw`; };
   var esperar = function (ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); };
@@ -95,8 +106,17 @@ export const JS_REPLICA_EN_LA_PESTANA = String.raw`function (op) {
   };
   // Una dirección sin su consulta ni su ancla: ahí viajan los datos de quien la visita (un utm, un correo, un fbclid).
   var sinConsulta = function (u) { try { var x = new URL(String(u)); return x.origin + x.pathname; } catch (e) { return ''; } };
+  // El texto que se ve, sin lo que escribió la persona: lo de un textarea y lo de una caja editable se saca.
   var textoVisible = function () {
-    try { return String((document.body && document.body.innerText) || '').replace(/[ \t ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim().slice(0, ` + TOPE_TEXTO_REPLICA + String.raw`); } catch (e) { return ''; }
+    try {
+      var t = String((document.body && document.body.innerText) || '');
+      var escrito = document.querySelectorAll('textarea, [contenteditable]');
+      for (var q = 0; q < escrito.length; q++) {
+        var v = String((escrito[q].tagName === 'TEXTAREA' ? escrito[q].value : escrito[q].innerText) || '').trim();
+        if (v.length >= 3) t = t.split(v).join(' ');
+      }
+      return t.replace(/[ \t ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim().slice(0, ` + TOPE_TEXTO_REPLICA + String.raw`);
+    } catch (e) { return ''; }
   };
   var alto = function () { return Math.max(document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight || 0 : 0); };
   var antesDeBajar = ` + JS_ANTES_DE_BAJAR + String.raw`;
@@ -107,7 +127,7 @@ export const JS_REPLICA_EN_LA_PESTANA = String.raw`function (op) {
     var x0 = window.scrollX || 0, y0 = window.scrollY || 0;
     var final = { tipo: 'REPLICA_FOTO', ok: false };
     try {
-      mandar({ tipo: 'REPLICA_AVANCE', fase: 'cargando', hecho: 0 });
+      avance('cargando', 0);
       await cargado(10000);
       await esperarQuieto(800, 8000);
       // Lo de una vuelta anterior (la persona tocó el ícono otra vez) no cuenta para esta.
@@ -125,12 +145,12 @@ export const JS_REPLICA_EN_LA_PESTANA = String.raw`function (op) {
         irA(0, y);
         await esperar(250);
         try { mirarVisibles(); } catch (e) {}
-        if (n % 4 === 3) mandar({ tipo: 'REPLICA_AVANCE', fase: 'bajando', hecho: Math.min(95, Math.round((y / Math.max(1, h)) * 100)) });
+        if (n % 4 === 3) avance('bajando', Math.min(95, Math.round((y / Math.max(1, h)) * 100)));
       }
       await esperar(1000);
       irA(0, 0);
       await esperarQuieto(300, 1500);
-      mandar({ tipo: 'REPLICA_AVANCE', fase: 'foto', hecho: 98 });
+      avance('foto', 98);
       var url = sinConsulta(location.href);
       var foto = instantanea({ soloDeLaPagina: true });
       final.url = url;
@@ -153,6 +173,7 @@ export const JS_REPLICA_EN_LA_PESTANA = String.raw`function (op) {
       final.motivo = 'excepcion';
       final.detalle = String((e && e.message) || e).slice(0, 200);
     }
+    clearInterval(latido);
     irA(x0, y0);
     window.__mkReplica = 0;
     mandar(final);

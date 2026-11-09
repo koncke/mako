@@ -336,9 +336,13 @@ test('9. sin movimiento: cada caja en su estado final y cada cursor en su lugar,
 
 test('10. el enchufe: Replicar dibuja el escenario con los eventos, la lectura y la cadencia de ArmadoEnVivo', () => {
   const src = readFileSync(join(__dirname, '..', 'app/web-generator/crear/Replicar.tsx'), 'utf8').replace(/\r\n/g, '\n');
-  const bloque = src.slice(src.indexOf('<ArmadoEnVivo'), src.indexOf('/>\n          )}', src.indexOf('<ArmadoEnVivo')));
-  assert.ok(bloque.length > 100 && bloque.length < 2_000, `el bloque de ArmadoEnVivo (${bloque.length})`);
-  assert.match(bloque, /escena=\{\(\{ visibles, llegadas, saltear \}\) => \(/);
-  assert.match(bloque, /<EscenarioReplica\s+eventos=\{eventos\}\s+visibles=\{visibles\}\s+llegadas=\{llegadas\}\s+saltear=\{saltear\}/);
-  assert.match(bloque, /moldes=\{lectura\.lectura\.secciones\}/);
+  // Hay dos armados (9/11/2026): el de la página leída y el de una foto de la extensión sin lectura (una página casi sin
+  // texto). Los dos dibujan el escenario con los eventos y la cadencia; el de la leída, además, con sus moldes.
+  const bloques = [...src.matchAll(/<ArmadoEnVivo[\s\S]*?\n\s*\/>/g)].map((m) => m[0]);
+  assert.ok(bloques.length >= 1 && bloques.every((b) => b.length > 100 && b.length < 2_000), `los bloques de ArmadoEnVivo (${bloques.map((b) => b.length)})`);
+  for (const bloque of bloques) {
+    assert.match(bloque, /escena=\{\(\{ visibles, llegadas, saltear \}\) => \(?/);
+    assert.match(bloque, /<EscenarioReplica\s+eventos=\{eventos\}\s+visibles=\{visibles\}\s+llegadas=\{llegadas\}\s+saltear=\{saltear\}/);
+  }
+  assert.ok(bloques.some((b) => /moldes=\{lectura\.lectura\.secciones\}/.test(b)), 'el de la página leída lleva sus moldes');
 });

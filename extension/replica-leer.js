@@ -7,12 +7,20 @@
 
 var MakoReplicaLeer = function (op) {
   var NONCE = String((op && op.nonce) || '');
+  // Una lectura en curso (la persona volvió a tocar el ícono y el worker no la oía hacía rato): sigue la que ya corre, con el
+  // nonce nuevo. Contestar «ocupada» dejaba la foto con el nonce viejo, que el worker ya no acepta.
+  if (window.__mkReplica) { window.__mkReplicaNonce = NONCE; return { ok: true, empezo: false, adoptada: true }; }
+  window.__mkReplica = 1;
+  window.__mkReplicaNonce = NONCE;
   var mandar = function (m) {
-    m.nonce = NONCE;
+    m.nonce = String(window.__mkReplicaNonce || NONCE);
     try { chrome.runtime.sendMessage(m, function () { void chrome.runtime.lastError; }); } catch (e) {}
   };
-  if (window.__mkReplica) return { ok: false, motivo: 'ocupada' };
-  window.__mkReplica = 1;
+  // El latido: cada 3 s dice cómo va, también mientras espera que la página cargue (hasta ~18 s sin otro aviso). Sin él, un
+  // segundo toque en el ícono a los 20 s acuñaba otro nonce y la foto se perdía.
+  var cuenta = { fase: 'cargando', hecho: 0 };
+  var avance = function (fase, hecho) { cuenta.fase = fase; cuenta.hecho = hecho; mandar({ tipo: 'REPLICA_AVANCE', fase: fase, hecho: hecho }); };
+  var latido = setInterval(function () { mandar({ tipo: 'REPLICA_AVANCE', fase: cuenta.fase, hecho: cuenta.hecho }); }, 3000);
   var T0 = Date.now();
   var tarde = function () { return Date.now() - T0 > 60000; };
   var esperar = function (ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); };
@@ -40,8 +48,17 @@ var MakoReplicaLeer = function (op) {
   };
   // Una dirección sin su consulta ni su ancla: ahí viajan los datos de quien la visita (un utm, un correo, un fbclid).
   var sinConsulta = function (u) { try { var x = new URL(String(u)); return x.origin + x.pathname; } catch (e) { return ''; } };
+  // El texto que se ve, sin lo que escribió la persona: lo de un textarea y lo de una caja editable se saca.
   var textoVisible = function () {
-    try { return String((document.body && document.body.innerText) || '').replace(/[ \t ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim().slice(0, 60000); } catch (e) { return ''; }
+    try {
+      var t = String((document.body && document.body.innerText) || '');
+      var escrito = document.querySelectorAll('textarea, [contenteditable]');
+      for (var q = 0; q < escrito.length; q++) {
+        var v = String((escrito[q].tagName === 'TEXTAREA' ? escrito[q].value : escrito[q].innerText) || '').trim();
+        if (v.length >= 3) t = t.split(v).join(' ');
+      }
+      return t.replace(/[ \t ]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim().slice(0, 60000);
+    } catch (e) { return ''; }
   };
   var alto = function () { return Math.max(document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight || 0 : 0); };
   var antesDeBajar = function () {
@@ -73,12 +90,11 @@ var MakoReplicaLeer = function (op) {
   var d = document;
   var base = d.baseURI;
   var soloDeLaPagina = !!(op && op.soloDeLaPagina);
-  // Lo que se copia de un campo: el texto de un botón siempre; de lo demás, con soloDeLaPagina, lo que trae el HTML.
+  // Lo que se copia de un campo: el texto de un botón siempre; de lo demás, con soloDeLaPagina, nada (queda el placeholder).
   var valorDe = function (o, tag, tipo) {
     if (tipo === 'submit' || tipo === 'button' || tipo === 'reset') return o.value || o.getAttribute('value') || '';
-    if (!soloDeLaPagina) return o.value || '';
-    if (tag === 'textarea') return o.defaultValue || '';
-    return o.getAttribute('value') || '';
+    if (soloDeLaPagina) return '';
+    return o.value || '';
   };
   var opcionDe = function (o) {
     if (!o.options || !o.options.length) return null;
@@ -167,6 +183,11 @@ var MakoReplicaLeer = function (op) {
   for (var i = 0; i < orig.length && i < cop.length; i++) {
     var o = orig[i], c = cop[i];
     var tag = o.tagName.toLowerCase();
+    // Una caja editable de la pestaña real (un chat, un editor) puede traer lo que escribió la persona: sale vacía.
+    if (soloDeLaPagina && o.isContentEditable && o.hasAttribute('contenteditable')) {
+      while (c.firstChild) c.removeChild(c.firstChild);
+      c.removeAttribute('contenteditable');
+    }
     try { if (esJunta(o)) c.setAttribute('data-gm-junto', ''); } catch (e) {}
     // Lo FIJO (el aviso de cookies, un encabezado fijo): el server lo pega a la primera sección (partirParaCopia).
     try { if (getComputedStyle(o).position === 'fixed') c.setAttribute('data-gm-fijo', ''); } catch (e) {}
@@ -328,7 +349,7 @@ var MakoReplicaLeer = function (op) {
     var x0 = window.scrollX || 0, y0 = window.scrollY || 0;
     var final = { tipo: 'REPLICA_FOTO', ok: false };
     try {
-      mandar({ tipo: 'REPLICA_AVANCE', fase: 'cargando', hecho: 0 });
+      avance('cargando', 0);
       await cargado(10000);
       await esperarQuieto(800, 8000);
       // Lo de una vuelta anterior (la persona tocó el ícono otra vez) no cuenta para esta.
@@ -346,12 +367,12 @@ var MakoReplicaLeer = function (op) {
         irA(0, y);
         await esperar(250);
         try { mirarVisibles(); } catch (e) {}
-        if (n % 4 === 3) mandar({ tipo: 'REPLICA_AVANCE', fase: 'bajando', hecho: Math.min(95, Math.round((y / Math.max(1, h)) * 100)) });
+        if (n % 4 === 3) avance('bajando', Math.min(95, Math.round((y / Math.max(1, h)) * 100)));
       }
       await esperar(1000);
       irA(0, 0);
       await esperarQuieto(300, 1500);
-      mandar({ tipo: 'REPLICA_AVANCE', fase: 'foto', hecho: 98 });
+      avance('foto', 98);
       var url = sinConsulta(location.href);
       var foto = instantanea({ soloDeLaPagina: true });
       final.url = url;
@@ -374,6 +395,7 @@ var MakoReplicaLeer = function (op) {
       final.motivo = 'excepcion';
       final.detalle = String((e && e.message) || e).slice(0, 200);
     }
+    clearInterval(latido);
     irA(x0, y0);
     window.__mkReplica = 0;
     mandar(final);

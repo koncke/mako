@@ -174,8 +174,9 @@ export default function Page() {
         vez: <strong>baja por la página</strong> para que se cargue entera, la vuelve a dejar donde
         estabas y copia lo que se ve, con sus estilos y su texto. Es lo único
         que hace en la página: no la toca, no escribe y no envía nada desde ella. De un campo de un
-        formulario copia sólo lo que trae la página, nunca lo que escribiste tú, y la dirección viaja sin
-        lo que trae en la consulta. No envía cookies ni lo que el sitio guarda en tu navegador.
+        formulario copia sólo su indicación (lo que dice cuando está vacío), nunca lo que escribiste tú, y
+        lo que escribiste en una caja de texto de la página tampoco viaja. La dirección va sin lo que trae
+        en la consulta. No envía cookies ni lo que el sitio guarda en tu navegador.
       </p>
       <p>
         La copia pasa a tu pestaña de MaKo, que la convierte en una landing de tu espacio de trabajo;

@@ -124,6 +124,10 @@ export type ExtraReplicar = {
   oferta?: string;
 };
 
+/** El escenario del paso «Leer»: sólo el arranque (el anillo). Constantes del módulo: la escena no se recalcula por render. */
+const EVENTOS_LEER: readonly EventoReplica[] = [{ fase: 'leer' }];
+const NADA = (): void => {};
+
 /** Lo que puede medir el pedido de la copia idéntica: por arriba, la plataforma lo corta (4,5 MB) sin decir por qué. */
 const TOPE_PEDIDO_FOTO = 4_200_000;
 const sonTodas = (p: PartesReplica): boolean => p.diseno && p.estructura && p.angulos && p.texto;
@@ -577,6 +581,10 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   }, [leer, replicar]);
   const ext = useReplicaConExtension(alTomarDeExtension);
   const recibirDeExtension = ext.recibir;
+  // La réplica salió: recién ahí la extensión cierra la pestaña que abrió (si el servidor dice que era la verificación, la
+  // pestaña sigue para pasarla).
+  const soltarExtension = ext.soltar;
+  useEffect(() => { if (lista) soltarExtension(); }, [lista, soltarExtension]);
   const campo = useRef<HTMLInputElement>(null);
   const url = urlParaAnalizar(texto);
   const leyendo = lectura.fase === 'leyendo';
@@ -695,9 +703,12 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   };
   /** ¿«Página web» ya tiene su foto (la de la extensión)? Entonces el clic de Replicar no abre ninguna ventana. */
   const conFotoExt = lectura.fase === 'leida' && !!fotoExt && fotoExt.url === lectura.url;
-  const bloqueExt = (u: string, primario: boolean) => (
-    <BloqueExtension estado={ext.estado} onEmpezar={() => ext.empezar(u)} onVolver={ext.volver} onCancelar={ext.cancelar} primario={primario} />
-  );
+  /** ¿Hay algo de la extensión que dibujar? Con la tienda en una versión que no sabe replicar y nada en curso, no: sin esto,
+   * «Leer en tu navegador» se pintaba de contorno al lado de un bloque vacío. */
+  const hayExt = ext.oferta !== 'nada' || ext.estado.fase !== 'quieta';
+  const bloqueExt = (u: string, primario: boolean) => (hayExt ? (
+    <BloqueExtension estado={ext.estado} oferta={ext.oferta} onEmpezar={() => ext.empezar(u)} onVolver={ext.volver} onCancelar={ext.cancelar} primario={primario} />
+  ) : undefined);
   const cambiarPartes = (p: PartesReplica) => {
     setPartes(p);
     if (sonTodas(p)) setFormato('web');
@@ -728,10 +739,20 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
           {leyendo ? <span className="gp-giro" aria-hidden /> : <Ico n="reporte" t={14} />} {lectura.fase === 'leida' ? 'Leer de nuevo' : 'Leer'}
         </button>
       </form>
+      {/* Tanda 2 de los varios mouse (9/11/2026): el paso «Leer» arranca con el anillo del reel, no con el giro de siempre. La
+          lectura no da progreso (sólo «leyendo» y «leída»): el anillo gira hasta que llega la estructura, y la línea de abajo
+          es la que lee un lector de pantalla (el escenario es aria-hidden). */}
       {leyendo && (
-        <p className="gp-analizar-sub gp-replicar-estado" role="status">
-          <span className="gp-giro" aria-hidden /> {lectura.enVentana ? 'Leyendo la página en tu navegador…' : 'Leyendo la página: su estructura, sus ángulos y su diseño…'}
-        </p>
+        <>
+          <EscenarioReplica eventos={EVENTOS_LEER} visibles={0} llegadas={0} saltear={NADA} leyendo={lectura.enVentana ? 'Leyendo en tu navegador' : 'Leyendo la página'} />
+          <p className="gp-analizar-sub gp-replicar-estado" role="status">
+            {lectura.enVentana ? 'Leyendo la página en tu navegador…' : 'Leyendo la página: su estructura, sus ángulos y su diseño…'}
+          </p>
+        </>
+      )}
+      {/* Y mientras la extensión copia la página en la pestaña real, el mismo anillo con lo que lleva. */}
+      {!leyendo && ext.estado.fase === 'leyendo' && (
+        <EscenarioReplica eventos={EVENTOS_LEER} visibles={0} llegadas={0} saltear={NADA} leyendo={`Copiando en tu navegador · ${ext.estado.hecho} %`} />
       )}
       {lectura.fase === 'falla' && (lectura.enNavegador || lectura.pegable) ? (
         <LeerOPegar
@@ -758,6 +779,20 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
       )}
       {/* La foto que trajo la extensión, mientras se toma (o si no se pudo tomar), cuando la pantalla no leyó nada todavía. */}
       {lectura.fase === 'quieta' && ext.estado.fase !== 'quieta' && ext.estado.fase !== 'lista' && <div className="gp-replicar-ext">{bloqueExt(urlParaAnalizar(urlInicial) ?? url ?? '', true)}</div>}
+      {/* La copia de la extensión sin lectura (una página casi sin texto): se replica directo, y esto es lo que se ve. */}
+      {lectura.fase !== 'leida' && replicando && (
+        <ArmadoEnVivo
+          titulo={lista ? 'Lista: abriendo el editor' : 'Replicando… puede tardar unos minutos'}
+          fases={vista.fases}
+          piezas={vista.piezas}
+          total={vista.total}
+          unidad="secciones"
+          terminado={vista.terminado}
+          onTodoVisible={() => setTimeout(abrirCopia, ESPERA_FINAL_MS)}
+          escena={({ visibles, llegadas, saltear }) => <EscenarioReplica eventos={eventos} visibles={visibles} llegadas={llegadas} saltear={saltear} />}
+        />
+      )}
+      {lectura.fase !== 'leida' && estado.fase === 'falla' && <p className="gp-error" role="alert">{estado.error}<ReportarASoporte /></p>}
       {lectura.fase === 'leida' && (
         <>
           {retomado && (
@@ -829,7 +864,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             />
           )}
           {/* La foto no salió en la ventana (una app de Vite en módulos, una página que no corre aislada): desde la pestaña real. */}
-          {estado.fase === 'falla' && estado.formato === 'web' && !conFotoExt && <div className="gp-replicar-ext">{bloqueExt(lectura.url, false)}</div>}
+          {estado.fase === 'falla' && estado.formato === 'web' && !conFotoExt && hayExt && <div className="gp-replicar-ext">{bloqueExt(lectura.url, false)}</div>}
         </>
       )}
     </section>

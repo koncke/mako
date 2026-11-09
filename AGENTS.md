@@ -11646,7 +11646,7 @@ Lo hace cumplir tests/spy-captura.test.ts.
 **«Replicar esta página» es la ÚNICA lectura que baja por una página ajena** (9/11/2026, 0.79.0; Martín: «siempre vamos a poder
 replicar cualquier landing»). La copia idéntica necesita que se cargue lo perezoso, así que `extension/replica-leer.js` hace
 `window.scrollTo` hacia abajo y, al terminar, **vuelve a donde estaba la persona**; nada más: ni clics, ni foco, ni teclas, ni red, ni
-cookies, y de un campo copia lo que trae la página, nunca lo tipeado (`soloDeLaPagina`). Corre en el mundo aislado, tras el toque en el
+cookies, y de un campo de texto copia sólo su placeholder, nunca su valor: React escribe lo tipeado en el atributo `value` (`soloDeLaPagina`). Corre en el mundo aislado, tras el toque en el
 ícono. **No se escribe a mano**: lo genera `scripts/sync-replica-extension.mjs` desde `lib/editor-landing/replica-extension-script.ts`,
 con las mismas piezas que el lector de la ventana, y el pre-push falla si quedó viejo. Cada cambio ahí es una versión nueva en la tienda:
 lo que se juzga (si es la página o la verificación de un antibots) lo decide MaKo (`juzgarEntrega`). Una lectura nueva que quiera mover

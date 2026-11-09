@@ -2519,33 +2519,104 @@ function esperarCarga(tabId) {
 // vamos a poder replicar cualquier landing». Replicar en MaKo depende de que el SERVIDOR baje la página, y un antibots o un
 // 403 lo frena. Acá la página se abre a la vista (o la persona ya la tiene abierta), la persona pasa la barrera si la hay,
 // toca el ícono de MaKo y el desplegable inyecta `replica-leer.js` (sólo `activeTab`): esa función baja por la página, saca
-// la foto de la copia idéntica, vuelve a donde estaba y la manda acá. Acá se GUARDA la foto (una sola, en
-// `chrome.storage.session`) y se le avisa a la pestaña de MaKo que la pidió; si ya no está, se abre una que la toma.
+// la foto de la copia idéntica, vuelve a donde estaba y la manda acá. Acá se GUARDA la foto (`chrome.storage.session`) y se
+// le avisa a la pestaña de MaKo que la pidió; si ya no está, se abre una que la toma.
 //
-// La pestaña ajena se cierra recién cuando MaKo dice que tomó la foto (`REPLICA_SOLTAR`), y sólo si la abrió la extensión:
-// si lo que se vio era la verificación de un antibots, la pestaña tiene que seguir ahí para pasarla y volver a tocar el ícono.
+// La pestaña ajena se cierra recién cuando MaKo dice que tomó la foto (`REPLICA_SOLTAR`), y sólo si la abrió la extensión y
+// sigue en el sitio que se pidió: si lo que se vio era la verificación de un antibots, la pestaña tiene que seguir ahí para
+// pasarla y volver a tocar el ícono.
+//
+// Lo que costó la revisión adversarial del mismo día (docs/hallazgos-extension.md):
+//   · la pendiente es de ESE SITIO, no de la pestaña: si la persona se va a otro (Gmail, WhatsApp), se suelta y MaKo se
+//     entera (`se_fue`). Sin esto, tocar el ícono en Gmail copiaba Gmail rotulado como la página pedida. Un salto de
+//     redirección al cargar (beacons.page → beacons.ai) no cuenta: se adopta hasta ASIENTA_REPLICA_MS después de la carga;
+//   · una CLAVE POR PESTAÑA (`replica:<id>`) y una cola por pestaña: con un mapa entero que todos reescribían, el aviso de
+//     una pestaña pisaba lo que otra acababa de anotar;
+//   · nunca una página de la red de la persona (su router, una intranet) ni de MaKo: un `?replicar=` armado no lleva ahí.
 // Lo pendiente vive en `storage.session` y no en una variable: el worker se duerme.
-async function replicasPendientes() {
-  const { replicas } = await chrome.storage.session.get('replicas').catch(() => ({}));
-  return replicas && typeof replicas === 'object' ? replicas : {};
+const CLAVE_REPLICA = 'replica:';
+const CLAVE_ENTREGA = 'replicaEntrega:';
+/** Una pendiente que nadie tocó en media hora ya no es de nadie (la persona se olvidó de esa pestaña). */
+const VENCE_REPLICA_MS = 30 * 60 * 1000;
+/** Después de la primera carga, cuánto se adopta un cambio de sitio como redirección y no como «se fue». */
+const ASIENTA_REPLICA_MS = 10000;
+const MOTIVOS_REPLICA = ['vacia', 'pesada', 'excepcion', 'ocupada', 'prohibida'];
+
+/** El sitio de una dirección (sin www): la pendiente es de ESTE sitio. */
+function sitioDe(url) {
+  try { return new URL(String(url)).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; }
 }
-async function guardarReplicas(todas) { await chrome.storage.session.set({ replicas: todas }).catch(() => {}); }
-async function replicaDeTab(tabId) { return (await replicasPendientes())[String(tabId)] || null; }
-async function anotarReplica(tabId, p) {
-  const todas = await replicasPendientes();
-  todas[String(tabId)] = p;
-  await guardarReplicas(todas);
+/**
+ * ¿Se puede copiar esta dirección? Una página web pública que no sea de MaKo ni de una de sus herramientas, y nunca de la red
+ * de la persona (su router, una intranet): un `?replicar=` armado más dos clics no puede mandar eso al servidor.
+ */
+function destinoReplicable(url) {
+  let u;
+  try { u = new URL(String(url)); } catch { return false; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+  const h = u.hostname.toLowerCase();
+  if (!h.includes('.') || h.startsWith('[')) return false;
+  if (h === 'hola-mako.com' || h.endsWith('.hola-mako.com')) return false;
+  if (h === 'web.whatsapp.com' || h === 'flow.google.com' || h === 'labs.google' || h.endsWith('.labs.google')) return false;
+  if (h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.lan') || h.endsWith('.home.arpa')) return false;
+  const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (ip) {
+    const a = Number(ip[1]), b = Number(ip[2]);
+    if (a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return false;
+  }
+  return true;
 }
+/** La dirección sin su consulta ni su ancla (ahí viajan los datos de quien la visita). */
+function sinConsultaReplica(url) {
+  try { const u = new URL(String(url)); return u.origin + u.pathname; } catch { return ''; }
+}
+/** Una cola por pestaña: lo que llega de una misma pestaña se aplica en orden (el aviso tardío no pisa la foto). */
+const colaReplica = new Map();
+function enColaReplica(tabId, fn) {
+  const k = String(tabId);
+  const sig = (colaReplica.get(k) || Promise.resolve()).then(fn, fn);
+  const fin = sig.catch(() => {});
+  colaReplica.set(k, fin);
+  void fin.then(() => { if (colaReplica.get(k) === fin) colaReplica.delete(k); });
+  return sig;
+}
+async function replicaDeTab(tabId) {
+  const k = CLAVE_REPLICA + tabId;
+  const r = await chrome.storage.session.get(k).catch(() => ({}));
+  const p = r && r[k];
+  return p && typeof p === 'object' ? p : null;
+}
+async function anotarReplica(tabId, p) { await chrome.storage.session.set({ [CLAVE_REPLICA + tabId]: p }).catch(() => {}); }
 async function sacarReplica(tabId) {
-  const todas = await replicasPendientes();
-  const p = todas[String(tabId)] || null;
-  if (p) { delete todas[String(tabId)]; await guardarReplicas(todas); }
+  const p = await replicaDeTab(tabId);
+  if (p) await chrome.storage.session.remove(CLAVE_REPLICA + tabId).catch(() => {});
   return p;
 }
-/** La foto que espera que MaKo la tome: UNA (pesa megas, y `storage.session` tiene 10 MB para todo). */
-async function entregaGuardada() {
-  const { replicaEntrega } = await chrome.storage.session.get('replicaEntrega').catch(() => ({}));
-  return replicaEntrega && typeof replicaEntrega === 'object' ? replicaEntrega : null;
+/** ¿La pendiente sigue valiendo para lo que hoy muestra la pestaña? El mismo sitio, y no vencida. */
+function pendienteVigente(p, urlDeAhora) {
+  if (!p) return false;
+  if (p.estado !== 'leyendo' && Date.now() - (Number(p.ultimo || p.desde) || 0) > VENCE_REPLICA_MS) return false;
+  const s = sitioDe(urlDeAhora);
+  return !!s && s === (p.sitio || sitioDe(p.url));
+}
+/** La foto que espera que MaKo la tome, por su id (pesa megas: `storage.session` tiene 10 MB para todo). */
+async function entregaGuardada(id) {
+  if (!/^[0-9a-f]{24}$/.test(String(id || ''))) return null;
+  const k = CLAVE_ENTREGA + id;
+  const r = await chrome.storage.session.get(k).catch(() => ({}));
+  const e = r && r[k];
+  return e && typeof e === 'object' ? e : null;
+}
+async function borrarEntrega(id) { if (id) await chrome.storage.session.remove(CLAVE_ENTREGA + id).catch(() => {}); }
+/** Guarda la foto; sin lugar, tira las demás fotos guardadas (la que importa es la nueva) y prueba otra vez. */
+async function guardarEntrega(e) {
+  try { await chrome.storage.session.set({ [CLAVE_ENTREGA + e.entrega]: e }); return true; } catch { /* sin lugar */ }
+  const claves = chrome.storage.session.getKeys
+    ? await chrome.storage.session.getKeys().catch(() => [])
+    : Object.keys(await chrome.storage.session.get(null).catch(() => ({})) || {});
+  const otras = claves.filter((k) => k.startsWith(CLAVE_ENTREGA));
+  if (otras.length) await chrome.storage.session.remove(otras).catch(() => {});
+  try { await chrome.storage.session.set({ [CLAVE_ENTREGA + e.entrega]: e }); return true; } catch { return false; }
 }
 /** Un id que no se adivina (el nonce de una lectura, el de una entrega). */
 function idAzar() {
@@ -2558,10 +2629,14 @@ function wsDeUrl(url) {
   const m = /[?&]ws=(\d{1,9})(?:&|#|$)/.exec(String(url || ''));
   return m ? m[1] : '';
 }
-/** Le dice a la pestaña de MaKo que pidió cómo va (`fase`: leyendo, fallo, cerrada). Sin pestaña, nada. */
+/** Le dice a la pestaña de MaKo que pidió cómo va (`fase`: leyendo, fallo, cerrada, se_fue). Sin pestaña, nada. */
 async function avisarReplica(p, estado) {
   if (!p?.makoTabId || !p.pedido) return;
   await chrome.tabs.sendMessage(p.makoTabId, { tipo: 'REPLICA_ESTADO', pedido: p.pedido, ...estado }).catch(() => {});
+}
+/** Le dice al desplegable (si sigue abierto) si la foto quedó guardada: «Copiada» se dice recién con esto. */
+function avisarDesplegable(nonce, r) {
+  try { void chrome.runtime.sendMessage({ tipo: 'REPLICA_GUARDADA', nonce, ...r }).catch?.(() => {}); } catch { /* sin desplegable */ }
 }
 /**
  * La foto llegó: se le avisa a la pestaña de MaKo que pidió, que la toma con `REPLICA_TOMAR`. Si esa pestaña ya no está, o
@@ -2583,9 +2658,35 @@ async function entregarReplica(p, e) {
   if (p.ws) q.set('ws', p.ws);
   await chrome.tabs.create({ url: `https://hola-mako.com/web-generator?${q.toString()}`, active: true }).catch(() => {});
 }
-// Si la persona cierra la pestaña sin replicar, la pantalla de MaKo deja de esperar.
+// Si la persona cierra la pestaña sin replicar, la pantalla de MaKo deja de esperar (y la foto que no sirvió se tira). Una
+// foto ya entregada se deja: MaKo la está tomando.
 chrome.tabs?.onRemoved?.addListener((tabId) => {
-  void sacarReplica(tabId).then((p) => { if (p && p.estado !== 'lista') void avisarReplica(p, { fase: 'cerrada' }); });
+  void enColaReplica(tabId, async () => {
+    const p = await sacarReplica(tabId);
+    if (!p || p.estado === 'lista') return;
+    await borrarEntrega(p.entrega);
+    void avisarReplica(p, { fase: 'cerrada' });
+  });
+});
+// Si la pestaña se va a OTRO sitio, la pendiente se suelta (ver la cabecera): tocar el ícono ahí ya no copia nada para MaKo.
+chrome.tabs?.onUpdated?.addListener((tabId, info, tab) => {
+  if (!info || (!info.url && info.status !== 'complete')) return;
+  void enColaReplica(tabId, async () => {
+    const p = await replicaDeTab(tabId);
+    if (!p) return;
+    const ahora = Date.now();
+    const s = sitioDe(info.url || tab?.url || '');
+    if (s && s !== p.sitio) {
+      const asentada = p.cargoAt && ahora - p.cargoAt > ASIENTA_REPLICA_MS;
+      if (!asentada) { await anotarReplica(tabId, { ...p, sitio: s }); return; }
+      await sacarReplica(tabId);
+      if (p.estado === 'lista') return;
+      await borrarEntrega(p.entrega);
+      void avisarReplica(p, { fase: 'se_fue' });
+      return;
+    }
+    if (info.status === 'complete' && !p.cargoAt) await anotarReplica(tabId, { ...p, cargoAt: ahora });
+  });
 });
 
 // ── WhatsApp Web, lista para leer (25/10/2026, 0.71.0) ─────────────────────────
@@ -3416,46 +3517,89 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false, motivo: 'origen' }); return false; }
     const pedido = typeof msg.pedido === 'string' && /^[A-Za-z0-9_.-]{4,80}$/.test(msg.pedido) ? msg.pedido : '';
     let url = null;
-    try { const u = new URL(String(msg.url)); if (u.protocol === 'https:' || u.protocol === 'http:') url = u.toString(); } catch { url = null; }
+    try { url = new URL(String(msg.url)).toString(); } catch { url = null; }
     if (!pedido || !url) { responder({ ok: false, motivo: 'pedido' }); return false; }
+    if (!destinoReplicable(url)) { responder({ ok: false, motivo: 'destino' }); return false; }
     void (async () => {
       try {
         const t = await chrome.tabs.create({ url, active: true, openerTabId: _s.tab.id, index: (_s.tab.index ?? 0) + 1 });
-        await anotarReplica(t.id, { pedido, url, makoTabId: _s.tab.id, ws: wsDeUrl(_s.tab.url || _s.url), nuestra: true, estado: 'abierta', desde: Date.now() });
+        await enColaReplica(t.id, () => anotarReplica(t.id, {
+          pedido, url, sitio: sitioDe(url), cargoAt: null, makoTabId: _s.tab.id, ws: wsDeUrl(_s.tab.url || _s.url), nuestra: true,
+          estado: 'abierta', desde: Date.now(),
+        }));
         responder({ ok: true });
       } catch { responder({ ok: false, motivo: 'abrir' }); }
     })();
     return true;
   }
+  // El desplegable pregunta si ESTA pestaña es la que MaKo pidió (tocar el ícono ahí es copiarla). Lo decide el worker:
+  // mismo sitio y no vencida (`pendienteVigente`). Y si una dirección se puede copiar desde el inicio.
+  if (msg?.tipo === 'REPLICA_PENDIENTE' || msg?.tipo === 'REPLICA_PUEDE') {
+    if (_s?.tab || _s?.id !== chrome.runtime.id) { responder(null); return false; }
+    const tabId = Number(msg.tabId);
+    if (!Number.isInteger(tabId) || tabId < 0) { responder(null); return false; }
+    void (async () => {
+      const t = await chrome.tabs.get(tabId).catch(() => null);
+      if (!t || !destinoReplicable(t.url)) { responder(null); return; }
+      if (msg.tipo === 'REPLICA_PUEDE') { responder({ tabId, url: sinConsultaReplica(t.url) }); return; }
+      const p = await replicaDeTab(tabId);
+      responder(p && p.pedido && pendienteVigente(p, t.url) ? { tabId, url: p.url, pedida: true } : null);
+    })();
+    return true;
+  }
   // El desplegable va a inyectar la lectura en esta pestaña: la pendiente pasa a «leyendo» con un nonce nuevo, y si la persona
-  // la abrió por su cuenta («Replicar esta página» del inicio), se anota recién acá, sin pantalla de MaKo esperando.
+  // la abrió por su cuenta («Replicar esta página» del inicio), se anota recién acá, sin pantalla de MaKo esperando. Una
+  // pendiente de OTRO sitio (la persona navegó) o vencida no cuenta: MaKo se entera y esta copia es del inicio.
   if (msg?.tipo === 'REPLICA_EMPEZAR') {
     if (_s?.tab || _s?.id !== chrome.runtime.id) { responder({ ok: false, motivo: 'origen' }); return false; }
     const tabId = Number(msg.tabId);
     if (!Number.isInteger(tabId) || tabId < 0) { responder({ ok: false, motivo: 'pedido' }); return false; }
     void (async () => {
       const t = await chrome.tabs.get(tabId).catch(() => null);
-      if (!t || !/^https?:/.test(String(t.url || '')) || esUrlDeMaKo(t.url)) { responder({ ok: false, motivo: 'pestana' }); return; }
-      const antes = await replicaDeTab(tabId);
-      // Ya se está copiando (la persona volvió a tocar el ícono): el mismo nonce, sin inyectar otra vez. Una lectura sin
-      // noticias hace 20 s se cortó (la página se fue, o se recargó): se arranca de nuevo.
-      if (antes?.estado === 'leyendo' && antes.nonce && Date.now() - (Number(antes.ultimo) || 0) < 20000) {
-        responder({ ok: true, nonce: antes.nonce, yaLeyendo: true });
-        return;
-      }
-      const nonce = idAzar();
-      const p = antes || { pedido: null, url: String(t.url), makoTabId: null, ws: '', nuestra: false, desde: Date.now() };
-      await anotarReplica(tabId, { ...p, estado: 'leyendo', nonce, avance: 0, motivo: null, ultimo: Date.now() });
-      await avisarReplica(p, { fase: 'leyendo', hecho: 0 });
-      responder({ ok: true, nonce });
+      if (!t || !destinoReplicable(t.url)) { responder({ ok: false, motivo: 'destino' }); return; }
+      await enColaReplica(tabId, async () => {
+        let antes = await replicaDeTab(tabId);
+        if (antes && !pendienteVigente(antes, t.url)) {
+          if (antes.estado !== 'lista') { await borrarEntrega(antes.entrega); void avisarReplica(antes, { fase: 'se_fue' }); }
+          antes = null;
+        }
+        // Ya se está copiando (la persona volvió a tocar el ícono): el mismo nonce, sin inyectar otra vez. Una lectura sin
+        // noticias hace 20 s se cortó (la lectura late cada 3 s): se arranca de nuevo, y la que siga viva adopta el nonce.
+        if (antes?.estado === 'leyendo' && antes.nonce && Date.now() - (Number(antes.ultimo) || 0) < 20000) {
+          responder({ ok: true, nonce: antes.nonce, yaLeyendo: true });
+          return;
+        }
+        const nonce = idAzar();
+        const base = antes || {
+          pedido: null, url: sinConsultaReplica(t.url), sitio: sitioDe(t.url), cargoAt: Date.now(), makoTabId: null, ws: '',
+          nuestra: false, desde: Date.now(),
+        };
+        await anotarReplica(tabId, { ...base, estado: 'leyendo', nonce, avance: 0, motivo: null, ultimo: Date.now() });
+        await avisarReplica(base, { fase: 'leyendo', hecho: 0 });
+        responder({ ok: true, nonce });
+      });
     })();
     return true;
+  }
+  // El desplegable no pudo inyectar la lectura (Chrome no deja en esa página): MaKo deja de esperar, con el motivo.
+  if (msg?.tipo === 'REPLICA_FALLO') {
+    if (_s?.tab || _s?.id !== chrome.runtime.id) return false;
+    const tabId = Number(msg.tabId);
+    if (!Number.isInteger(tabId) || tabId < 0) return false;
+    void enColaReplica(tabId, async () => {
+      const p = await replicaDeTab(tabId);
+      if (!p || p.estado !== 'leyendo' || !p.nonce || msg.nonce !== p.nonce) return;
+      const motivo = MOTIVOS_REPLICA.includes(msg.motivo) ? msg.motivo : 'excepcion';
+      await anotarReplica(tabId, { ...p, estado: 'fallo', motivo, nonce: null });
+      await avisarReplica(p, { fase: 'fallo', motivo });
+    });
+    return false;
   }
   // Lo que manda la lectura desde la pestaña (replica-leer.js): sólo si viene de ESA pestaña y con SU nonce.
   if (msg?.tipo === 'REPLICA_AVANCE' || msg?.tipo === 'REPLICA_FOTO') {
     const tabId = _s?.tab?.id;
     if (tabId == null || _s?.id !== chrome.runtime.id) return false;
-    void (async () => {
+    void enColaReplica(tabId, async () => {
       const p = await replicaDeTab(tabId);
       if (!p || p.estado !== 'leyendo' || !p.nonce || msg.nonce !== p.nonce) return;
       if (msg.tipo === 'REPLICA_AVANCE') {
@@ -3464,10 +3608,13 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         await avisarReplica(p, { fase: 'leyendo', hecho });
         return;
       }
-      if (msg.ok !== true || !msg.foto || typeof msg.foto !== 'object') {
-        const motivo = ['vacia', 'pesada', 'excepcion', 'ocupada'].includes(msg.motivo) ? msg.motivo : 'excepcion';
+      const fallar = async (motivo) => {
         await anotarReplica(tabId, { ...p, estado: 'fallo', motivo, nonce: null });
         await avisarReplica(p, { fase: 'fallo', motivo });
+        avisarDesplegable(msg.nonce, { ok: false, motivo });
+      };
+      if (msg.ok !== true || !msg.foto || typeof msg.foto !== 'object') {
+        await fallar(MOTIVOS_REPLICA.includes(msg.motivo) ? msg.motivo : 'excepcion');
         return;
       }
       const entrega = idAzar();
@@ -3476,81 +3623,92 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         titulo: typeof msg.titulo === 'string' ? msg.titulo.slice(0, 300) : '', foto: msg.foto,
         texto: typeof msg.texto === 'string' ? msg.texto.slice(0, 60000) : '', parcial: msg.parcial === true, desde: Date.now(),
       };
-      const vieja = await entregaGuardada();
-      if (vieja && vieja.tabId !== tabId) {
-        const otra = await replicaDeTab(vieja.tabId);
-        if (otra?.estado === 'lista') await anotarReplica(vieja.tabId, { ...otra, estado: 'abierta' });
-      }
-      try { await chrome.storage.session.set({ replicaEntrega: e }); } catch {
-        await anotarReplica(tabId, { ...p, estado: 'fallo', motivo: 'pesada', nonce: null });
-        await avisarReplica(p, { fase: 'fallo', motivo: 'pesada' });
-        return;
-      }
+      await borrarEntrega(p.entrega);
+      if (!(await guardarEntrega(e))) { await fallar('pesada'); return; }
       await anotarReplica(tabId, { ...p, estado: 'lista', nonce: null, entrega });
+      avisarDesplegable(msg.nonce, { ok: true });
       await entregarReplica(p, e);
-    })();
+    });
     return false;
   }
-  // La pantalla de MaKo toma la foto (no se borra todavía: si era la verificación de un antibots, vuelve a la pestaña).
+  // La pantalla de MaKo toma la foto (no se borra todavía: si era la verificación de un antibots, vuelve a la pestaña; y la
+  // pestaña sigue abierta hasta que la réplica sale bien).
   if (msg?.tipo === 'REPLICA_TOMAR') {
     if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false, motivo: 'origen' }); return false; }
     void (async () => {
-      const e = await entregaGuardada();
-      if (!e || e.entrega !== msg.entrega) { responder({ ok: false, motivo: 'vencida' }); return; }
+      const e = await entregaGuardada(msg.entrega);
+      if (!e) { responder({ ok: false, motivo: 'vencida' }); return; }
       responder({ ok: true, url: e.url, leida: e.leida, titulo: e.titulo, foto: e.foto, texto: e.texto, parcial: e.parcial });
     })();
     return true;
   }
-  // MaKo se quedó con la foto: se borra, y la pestaña ajena se cierra si la abrió la extensión.
+  // MaKo se quedó con la foto (la réplica salió): se borra, y la pestaña ajena se cierra si la abrió la extensión y sigue en
+  // el sitio que se pidió (nunca una pestaña que la persona ya usa para otra cosa).
   if (msg?.tipo === 'REPLICA_SOLTAR') {
     if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false }); return false; }
     void (async () => {
-      const e = await entregaGuardada();
-      if (!e || e.entrega !== msg.entrega) { responder({ ok: false }); return; }
-      await chrome.storage.session.remove('replicaEntrega').catch(() => {});
-      const p = await sacarReplica(e.tabId);
-      if (p?.nuestra) await chrome.tabs.remove(e.tabId).catch(() => {});
+      const e = await entregaGuardada(msg.entrega);
+      if (!e) { responder({ ok: false }); return; }
+      await borrarEntrega(e.entrega);
+      await enColaReplica(e.tabId, async () => {
+        const p = await replicaDeTab(e.tabId);
+        if (!p || p.entrega !== e.entrega) return;
+        await sacarReplica(e.tabId);
+        const t = await chrome.tabs.get(e.tabId).catch(() => null);
+        if (p.nuestra && t && sitioDe(t.url) === p.sitio) await chrome.tabs.remove(e.tabId).catch(() => {});
+      });
       responder({ ok: true });
     })();
     return true;
   }
   // Lo que se vio era la verificación (o la persona quiere volver a intentar): la foto se tira, la pestaña vuelve a «abierta»
-  // y se pone al frente, para pasarla y volver a tocar el ícono.
+  // y se pone al frente, para pasarla y volver a tocar el ícono. Sólo si sigue en el sitio que se pidió.
   if (msg?.tipo === 'REPLICA_VOLVER') {
     if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false }); return false; }
     void (async () => {
-      const e = await entregaGuardada();
-      const tabId = e && e.entrega === msg.entrega ? e.tabId : null;
-      if (tabId == null) { responder({ ok: false }); return; }
-      await chrome.storage.session.remove('replicaEntrega').catch(() => {});
-      const p = await replicaDeTab(tabId);
-      const t = await chrome.tabs.get(tabId).catch(() => null);
-      if (!p || !t) { responder({ ok: false }); return; }
-      const pedido = typeof msg.pedido === 'string' && /^[A-Za-z0-9_.-]{4,80}$/.test(msg.pedido) ? msg.pedido : null;
-      await anotarReplica(tabId, { ...p, pedido: pedido || p.pedido, estado: 'abierta', entrega: null, makoTabId: _s.tab.id, ws: p.ws || wsDeUrl(_s.tab.url) });
-      await chrome.tabs.update(t.id, { active: true }).catch(() => {});
-      if (t.windowId != null) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
-      responder({ ok: true });
+      const e = await entregaGuardada(msg.entrega);
+      if (!e) { responder({ ok: false }); return; }
+      await borrarEntrega(e.entrega);
+      const tabId = e.tabId;
+      const ok = await enColaReplica(tabId, async () => {
+        const p = await replicaDeTab(tabId);
+        const t = await chrome.tabs.get(tabId).catch(() => null);
+        if (!p || !t || !pendienteVigente({ ...p, estado: 'leyendo' }, t.url)) return false;
+        const pedido = typeof msg.pedido === 'string' && /^[A-Za-z0-9_.-]{4,80}$/.test(msg.pedido) ? msg.pedido : null;
+        await anotarReplica(tabId, { ...p, pedido: pedido || p.pedido, estado: 'abierta', entrega: null, makoTabId: _s.tab.id, ws: p.ws || wsDeUrl(_s.tab.url), ultimo: Date.now() });
+        await chrome.tabs.update(t.id, { active: true }).catch(() => {});
+        if (t.windowId != null) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+        return true;
+      });
+      responder({ ok: ok === true });
     })();
     return true;
   }
-  // La persona canceló desde MaKo: la pestaña que abrió la extensión para ese pedido se cierra.
+  // La persona canceló desde MaKo (o vuelve a intentar): la pestaña que abrió la extensión para ese pedido se cierra, si sigue
+  // en el sitio que se pidió.
   if (msg?.tipo === 'REPLICA_CANCELAR') {
     if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false }); return false; }
     void (async () => {
-      const todas = await replicasPendientes();
-      const par = Object.entries(todas).find(([, p]) => p && p.pedido === msg.pedido && p.makoTabId === _s.tab.id);
-      if (!par) { responder({ ok: false }); return; }
-      delete todas[par[0]];
-      await guardarReplicas(todas);
-      const e = await entregaGuardada();
-      if (e && String(e.tabId) === par[0]) await chrome.storage.session.remove('replicaEntrega').catch(() => {});
-      if (par[1].nuestra) await chrome.tabs.remove(Number(par[0])).catch(() => {});
-      responder({ ok: true });
+      const claves = chrome.storage.session.getKeys
+        ? await chrome.storage.session.getKeys().catch(() => [])
+        : Object.keys(await chrome.storage.session.get(null).catch(() => ({})) || {});
+      let hecho = false;
+      for (const k of claves.filter((x) => x.startsWith(CLAVE_REPLICA))) {
+        const tabId = Number(k.slice(CLAVE_REPLICA.length));
+        await enColaReplica(tabId, async () => {
+          const p = await replicaDeTab(tabId);
+          if (!p || p.pedido !== msg.pedido || p.makoTabId !== _s.tab.id) return;
+          await sacarReplica(tabId);
+          await borrarEntrega(p.entrega);
+          const t = await chrome.tabs.get(tabId).catch(() => null);
+          if (p.nuestra && t && sitioDe(t.url) === p.sitio) await chrome.tabs.remove(tabId).catch(() => {});
+          hecho = true;
+        });
+      }
+      responder({ ok: hecho });
     })();
     return true;
   }
-
   // «Capturar» desde «Sus páginas» de Spy (0.76.0, 4/11/2026). La pantalla de MaKo pide abrir ESA página a la vista; acá se abre
   // y se anota para qué. No se lee nada: la lee el desplegable cuando la persona toca el ícono en esa pestaña (`activeTab`). Si la
   // página pide comprobar que es una persona, lo hace ella.
