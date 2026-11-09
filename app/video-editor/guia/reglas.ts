@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { plantillaGuiada } from '@/lib/video-plantillas';
-import { BLOQUES_HABLADOS, guionCompleto, type GuionMensajePara } from '@/lib/video-plantillas/mensaje-para';
+import { BLOQUES_HABLADOS, guionCompleto, problemasDelGuion, type GuionMensajePara } from '@/lib/video-plantillas/mensaje-para';
 import { PASO, VALOR, type HechosVideoGuia } from '@/lib/aperturas/video-guia';
 
 export const VERSION_ESTADO_GUIA = 1;
@@ -57,6 +57,14 @@ export function sanearEstadoGuia(x: unknown): EstadoGuiaVideo | null {
 export const conEleccion = (e: EstadoGuiaVideo, paso: string, valor: string): EstadoGuiaVideo =>
   ELECCION.test(paso) ? { ...e, elecciones: { ...e.elecciones, [paso]: valor.slice(0, 200) } } : e;
 
+/** «Retomar» un paso: se borra lo contestado (o el `saltado`) y MaKo lo vuelve a preguntar. */
+export const sinEleccion = (e: EstadoGuiaVideo, paso: string): EstadoGuiaVideo => {
+  if (!(paso in e.elecciones)) return e;
+  const resto = { ...e.elecciones };
+  delete resto[paso];
+  return { ...e, elecciones: resto };
+};
+
 export const conGuion = (e: EstadoGuiaVideo, guion: GuionMensajePara): EstadoGuiaVideo => {
   const s = sanearEstadoGuia({ ...e, guion });
   return s ?? e;
@@ -65,15 +73,25 @@ export const conGuion = (e: EstadoGuiaVideo, guion: GuionMensajePara): EstadoGui
 export const conSimple = (e: EstadoGuiaVideo, simple: boolean): EstadoGuiaVideo => ({ ...e, simple });
 
 /** Lo que el proyecto ya tiene, como lo lee la apertura (lo que no es del proyecto llega aparte: fotos, voz, ocupado). */
-export function hechosDelProyecto(e: EstadoGuiaVideo | null): Pick<HechosVideoGuia, 'plantilla' | 'vioReferencia' | 'guion' | 'guionListo' | 'personaje' | 'voz' | 'fondo'> {
-  if (!e) return { plantilla: null, vioReferencia: false, guion: null, guionListo: false, personaje: null, voz: null, fondo: null };
+export type HechosDelProyecto = Pick<HechosVideoGuia, 'plantilla' | 'vioReferencia' | 'guion' | 'guionListo' | 'personaje' | 'voz' | 'fondo' | 'clips' | 'saltados'>;
+
+export function hechosDelProyecto(e: EstadoGuiaVideo | null): HechosDelProyecto {
+  if (!e) return { plantilla: null, vioReferencia: false, guion: null, guionListo: false, personaje: null, voz: null, fondo: null, clips: null, saltados: [] };
+  // Un `saltado` NO es un valor del paso: el paso sigue sin hacerse (la lista lo muestra para retomarlo).
+  const valor = (paso: string): string | null => {
+    const v = e.elecciones[paso];
+    return v && v !== VALOR.saltado ? v : null;
+  };
   return {
     plantilla: e.plantilla,
-    vioReferencia: e.elecciones[PASO.referencia] === VALOR.vista,
+    vioReferencia: valor(PASO.referencia) === VALOR.vista,
     guion: e.guion,
-    guionListo: guionCompleto(e.guion),
-    personaje: e.elecciones[PASO.personaje] ?? null,
-    voz: e.elecciones[PASO.voz] ?? null,
-    fondo: e.elecciones[PASO.fondo] ?? null,
+    // Listo = completo Y filmable: un bloque que no entra en 10 s (`partir`) deja el guion sin cerrar, y los clips no se suman.
+    guionListo: guionCompleto(e.guion) && problemasDelGuion(e.guion).length === 0,
+    personaje: valor(PASO.personaje),
+    voz: valor(PASO.voz),
+    fondo: valor(PASO.fondo),
+    clips: valor(PASO.clips),
+    saltados: Object.entries(e.elecciones).filter(([, v]) => v === VALOR.saltado).map(([k]) => k),
   };
 }

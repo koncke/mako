@@ -8,14 +8,17 @@
 //   2. la plantilla: sus 6 bloques en orden, los 5 golpes, el guion completo y lo que le falta antes de filmar;
 //   3. los outliers: lo inválido afuera, sin repetidos, una fuente caída se dice, una plantilla que no existe no se ofrece;
 //   4. la portada: sin `ver`, outliers; con `ver=crear` o `replicar`, las plantillas; `replicar` se valida;
-//   5. el estado guiado del proyecto: se sanea lo leído, lo contestado vuelve como hecho de la apertura;
+//   5. el estado guiado del proyecto: se sanea lo leído, lo contestado vuelve como hecho de la apertura, y un paso salteado se
+//      saltea (sigue el siguiente) y se retoma desde la lista de pasos: la memoria es el proyecto, no la de las aperturas;
 //   6. la galería de la apertura (las fotos cliqueables) tiene sus reglas;
 //   7. el velo de la pregunta: sólo con la marca ADENTRO de un chat, y con el aro en ella;
-//   8. el modo simple es EN POSITIVO, y la barra y la fila de pestañas lo leen;
-//   9. el cableado: el chat del editor lleva el hueco del velo y monta la guía; AI Avatar ya no es una fila de Create.
+//   8. el modo simple es EN POSITIVO, la barra y la fila de pestañas lo leen, y la pestaña abierta no se esconde;
+//   9. el cableado: el chat del editor lleva el hueco del velo y monta la guía; lo de siempre calla sólo MIENTRAS MaKo pregunta;
+//      AI Avatar sigue como fila de Create mientras Video sea sólo de Pro (Esencial no tiene otra puerta al personaje);
+//  10. «el inicio» del editor es la lista de proyectos (`?ver=crear`), no los outliers, y «Replicar» no arma dos proyectos.
 //
 // Correr: node --import tsx --test tests/video-tab.test.ts
-// PROBADO ROMPIÉNDOLO (base 9/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 10/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,13 +30,16 @@ import { BLOQUES, GOLPES, clipsDelGuion, creditosDelGuion, guionCompleto, proble
 import { CARPETAS, IDS_PIEZA, PIEZAS } from '../lib/video-plantillas/piezas';
 import { FUENTE_MAKO, OUTLIERS_CON_PLANTILLA, juntarOutliers, outlierValido, type FuenteOutliersVideo, type OutlierVideo } from '../lib/video-outliers';
 import { replicarDe, rutaReplicar, vistaDeVideo } from '../app/video-editor/vista';
-import { conEleccion, conGuion, estadoNuevo, hechosDelProyecto, sanearEstadoGuia } from '../app/video-editor/guia/reglas';
-import { PASO, SUPERFICIE_VIDEO_GUIA, opcionesDePersonaje, type HechosVideoGuia } from '../lib/aperturas/video-guia';
+import { conEleccion, conGuion, estadoNuevo, hechosDelProyecto, sanearEstadoGuia, sinEleccion } from '../app/video-editor/guia/reglas';
+import { PASO, SUPERFICIE_VIDEO_GUIA, VALOR, opcionesDePersonaje, pasosDeLaGuia, type HechosVideoGuia } from '../lib/aperturas/video-guia';
 import { problemasDeApertura, type Apertura } from '../lib/aperturas/reglas';
 import { dibujoDestacado } from '../lib/guia/huecos';
-import { CATEGORIAS_SIMPLES, HERRAMIENTAS_SIMPLES, categoriaEnSimple, herramientaEnSimple } from '../app/video-editor/guia/modo-simple-reglas';
+import { CATEGORIAS_SIMPLES, HERRAMIENTAS_SIMPLES, categoriaEnSimple, herramientaEnSimple, pestanasVisibles } from '../app/video-editor/guia/modo-simple-reglas';
 import { CATEGORIAS_BIBLIOTECA } from '../app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store';
-import { FAMILIAS, SIN_FILA } from '../app/_components/nav';
+import { FAMILIAS } from '../app/_components/nav';
+import { NAV_SOLO_PRO } from '../lib/plan-esencial-reglas';
+import { RUTA_INICIO } from '../app/video-editor/_opencut/chat/pedidos';
+import { RUTA_CREAR_VIDEO } from '../app/video-editor/vista';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -138,7 +144,7 @@ test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y �
   assert.doesNotMatch(sinComentarios(portada), /_opencut/, 'la portada no carga el motor');
 });
 
-test('5. el estado guiado: se sanea lo leído y lo contestado vuelve como hecho de la apertura', () => {
+test('5. el estado guiado: se sanea lo leído, lo contestado vuelve como hecho, y lo salteado se saltea y se retoma', () => {
   assert.equal(sanearEstadoGuia(null), null);
   assert.equal(sanearEstadoGuia({ v: 1, plantilla: 'inventada' }), null, 'una plantilla que no existe no es un estado');
   assert.equal(sanearEstadoGuia({ v: 2, plantilla: 'mensaje-para' }), null, 'otra versión no se lee a ciegas');
@@ -158,7 +164,7 @@ test('5. el estado guiado: se sanea lo leído y lo contestado vuelve como hecho 
   assert.equal(h.plantilla, 'mensaje-para');
   assert.deepEqual(hechosDelProyecto(null).plantilla, null, 'un proyecto sin estado no es de plantilla: MaKo no guía');
   // De punta a punta: lo contestado mueve a MaKo al paso siguiente.
-  const hechos: HechosVideoGuia = { proyecto: 'p1', ...h, fotos: [{ id: 'f1', url: 'https://x.supabase.co/f1.jpg' }], personajes: [], vozClonada: true, ocupado: false };
+  const hechos: HechosVideoGuia = { proyecto: 'p1', ...h, fotos: [{ id: 'f1', url: 'https://x.supabase.co/f1.jpg' }], personajes: [], fotosLeidas: true, vozClonada: true, ocupado: false };
   assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...hechos, guion: {}, guionListo: false }, {})?.id, PASO.guion, 'sin guion, MaKo pide el guion antes que la foto');
   assert.equal(SUPERFICIE_VIDEO_GUIA.apertura(hechos, {})?.id, PASO.personaje);
   const conFoto = hechosDelProyecto(conEleccion(x, PASO.personaje, 'foto:f1'));
@@ -171,6 +177,27 @@ test('5. el estado guiado: se sanea lo leído y lo contestado vuelve como hecho 
   assert.equal(clips?.id, PASO.clips);
   assert.ok(clips?.botones.some((b) => b.tipo === 'respuesta'), 'la pregunta de los clips sin un botón que la conteste');
   assert.equal(SUPERFICIE_VIDEO_GUIA.apertura(listo, { [PASO.clips]: 'alcanzan' }), null, 'contestada la última, MaKo calla');
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...listo, clips: VALOR.alcanzan }, {}), null, 'contestada en el proyecto, también');
+  // ⚠️ La memoria es el PROYECTO (la revisión del 9/11): «Ahora no» saltea ESE paso y MaKo sigue con el siguiente. Con la memoria
+  // de las aperturas, callar el primer paso que faltaba callaba la guía entera.
+  let s = conEleccion(x, PASO.personaje, VALOR.saltado);
+  const hs = { ...hechos, ...hechosDelProyecto(s) };
+  assert.equal(hs.personaje, null, 'un «saltado» no es un personaje elegido');
+  assert.deepEqual(hs.saltados, [PASO.personaje]);
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura(hs, {})?.id, PASO.voz, 'salteado el personaje, sigue la voz');
+  const lista = pasosDeLaGuia(hs);
+  assert.equal(lista.find((p) => p.id === PASO.personaje)?.estado, 'saltado', 'la lista lo muestra para retomarlo');
+  assert.equal(lista.find((p) => p.id === PASO.guion)?.estado, 'listo');
+  s = sinEleccion(s, PASO.personaje);
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...hechos, ...hechosDelProyecto(s) }, {})?.id, PASO.personaje, '«Retomar» lo vuelve a preguntar');
+  // Sin voz leída, el paso de la voz ni se lista (no se pregunta a ciegas).
+  assert.ok(!pasosDeLaGuia({ ...hechos, vozClonada: null }).some((p) => p.id === PASO.voz));
+  // Un guion con un bloque que no entra en 10 s NO está listo, y los clips esperan al guion.
+  const largo = { ...GUION, beneficio: Array.from({ length: 40 }, (_, i) => `palabra${i}`).join(' ') };
+  assert.equal(hechosDelProyecto(conGuion(x, largo)).guionListo, false, 'un bloque que pide partirse deja el guion sin cerrar');
+  assert.equal(SUPERFICIE_VIDEO_GUIA.apertura({ ...listo, guionListo: false, saltados: [PASO.guion] }, {}), null, 'sin guion listo, los clips no se suman');
+  // «No pude leer tus fotos» no es «no tienes fotos».
+  assert.match(SUPERFICIE_VIDEO_GUIA.apertura({ ...hechos, fotos: [], fotosLeidas: false }, {})?.texto ?? '', /No pude leer tus fotos/);
 });
 
 test('6. la galería de la apertura: las fotos y los personajes cliqueables, con sus reglas', () => {
@@ -217,7 +244,11 @@ test('8. el modo simple es EN POSITIVO, y la barra y las pestañas lo leen', () 
   const barra = sinComentarios(leer('app/video-editor/_opencut/timeline/components/timeline-toolbar.tsx'));
   assert.match(barra, /\(!simple \|\| herramientaEnSimple\(h\.id\)\)/);
   const fila = sinComentarios(leer('app/video-editor/_opencut/components/editor/panels/assets/tabbar.tsx'));
-  assert.match(fila, /CATEGORIAS_BIBLIOTECA\.filter\(\(c\) => !simple \|\| categoriaEnSimple\(c\)\)/);
+  assert.match(fila, /pestanasVisibles\(CATEGORIAS_BIBLIOTECA, simple, activeTab\)\.map/);
+  // La abierta no se esconde (otro panel abre «Efectos»): sin eso, el panel mostraba una pestaña que la fila no tenía.
+  assert.deepEqual(pestanasVisibles(['multimedia', 'efectos', 'stickers'], true, 'efectos'), ['multimedia', 'efectos']);
+  assert.deepEqual(pestanasVisibles(['multimedia', 'efectos', 'stickers'], true, 'multimedia'), ['multimedia']);
+  assert.deepEqual(pestanasVisibles(['multimedia', 'efectos', 'stickers'], false, 'multimedia'), ['multimedia', 'efectos', 'stickers']);
   // El modo simple no importa el motor (la fila de pestañas se arma en un test con esbuild).
   assert.doesNotMatch(sinComentarios(leer('app/video-editor/guia/modo-simple.ts')), /_opencut/);
   const cabecera = sinComentarios(leer('app/video-editor/_opencut/components/editor/editor-header.tsx'));
@@ -225,27 +256,55 @@ test('8. el modo simple es EN POSITIVO, y la barra y las pestañas lo leen', () 
   assert.match(cabecera, /guia\.simple \? "Todas las herramientas" : "Menos herramientas"/);
 });
 
-test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guía; AI Avatar ya no es una fila de Create', () => {
+test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guía; lo de siempre calla sólo mientras MaKo pregunta', () => {
   const chat = sinComentarios(leer('app/video-editor/_opencut/chat/PanelChat.tsx'));
   assert.match(chat, /aria-label="Editar con IA" data-mako-chat="">/);
-  assert.match(chat, /<GuiaEnElChat proyectoId=\{proyectoId\} ocupado=\{hilo\.corriendo\} quien=\{QUIEN\} \/>/);
-  assert.match(chat, /libre: !hilo\.corriendo && !guiado,/, 'con la guía, la pregunta de los subtítulos calla: un paso por pantalla');
+  assert.match(chat, /<GuiaEnElChat proyectoId=\{proyectoId\} ocupado=\{hilo\.corriendo\} quien=\{QUIEN\} onHablando=\{setGuiaHablando\} \/>/);
+  // MIENTRAS PREGUNTA (no «el proyecto es guiado»): con todo contestado, vuelven las sugerencias de siempre.
+  assert.match(chat, /libre: !hilo\.corriendo && !guiaHablando,/, 'con MaKo preguntando, la pregunta de los subtítulos calla');
+  assert.doesNotMatch(chat, /useGuiaVideo/, 'lo de siempre no calla por ser un proyecto guiado');
   const guia = sinComentarios(leer('app/video-editor/guia/GuiaEnElChat.tsx'));
   assert.match(guia, /<div data-mako-destacado="" /);
   assert.match(guia, /destacarEnElChat\(!!idActual\)/);
-  // Lo contestado queda en el PROYECTO.
-  assert.match(guia, /if \(b\.tipo === 'respuesta' && estado\.apertura\) cambiarGuia\(proyectoId, \(x\) => conEleccion\(x, estado\.apertura!\.id, b\.valor\)\);/);
+  assert.match(guia, /if \(idActual\) desplegarCrear\(TAB_CREAR\)/, 'con la tarjeta plegada, la pregunta no se veía');
+  // Lo contestado Y lo salteado quedan en el PROYECTO, no en la memoria de las aperturas.
+  assert.doesNotMatch(guia, /useApertura\(/, 'la memoria de las aperturas calla la guía entera');
+  assert.match(guia, /\.tipo === 'respuesta'\) \{\s*cambiarGuia\(proyectoId, \((\w+)\) => conEleccion\(\1, apertura\.id, \w+\.valor\)\);/);
+  assert.match(guia, /\.tipo === 'callar'\) \{\s*cambiarGuia\(proyectoId, \((\w+)\) => conEleccion\(\1, apertura\.id, VALOR\.saltado\)\);/);
+  assert.match(guia, /onRetomar=\{\((\w+)\) => cambiarGuia\(proyectoId, \((\w+)\) => sinEleccion\(\2, \1\)\)\}/);
+  // La foto nueva es la que no estaba antes (no la última de la lista), y lo que la ruta salteó se dice.
+  assert.match(guia, /\.find\(\((\w+)\) => !\w+\.has\(\1\.id\)\)/);
+  assert.match(guia, /for \(const (\w+) of \w+\.warnings \?\? \[\]\) toast\.error\(\1\)/);
+  // AI Avatar sigue como fila de Create MIENTRAS Video sea sólo de Pro: sacarla deja a un Esencial sin su personaje (la revisión del
+  // 9/11). Cuando Martín decida que Video entra en los tres planes, esta condición cambia y la fila se puede ir.
   const create = FAMILIAS.find((f) => f.key === 'create');
   const keys = new Set((create?.bloques ?? []).flat().map((it) => it.key));
   assert.ok(keys.has('video-editor'));
-  assert.ok(!keys.has('ai-avatar'), 'AI Avatar volvió a ser una fila de Create: es «Tu personaje con IA» de Video');
-  assert.ok(SIN_FILA.some((it) => it.key === 'ai-avatar' && it.href === '/ai-avatar'), 'la key de AI Avatar se perdió: la piden su pantalla, la API y las capas');
+  if (NAV_SOLO_PRO.has('video-editor')) assert.ok(keys.has('ai-avatar'), 'Video es sólo de Pro: AI Avatar es la única puerta de un Esencial a su personaje');
 });
 
-// ── PROBADO ROMPIÉNDOLO (9/11/2026), base 9/0. Cada rotura, 1 fallo y 8 pases ─────────────────────────────────────────────
+test('10. «el inicio» del editor es la lista de proyectos, y «Replicar» no arma dos', () => {
+  // `/video-editor` a secas son los outliers: «Volver al inicio» y borrar el proyecto abierto llevan a la lista.
+  assert.equal(RUTA_INICIO, RUTA_CREAR_VIDEO);
+  const cabecera = sinComentarios(leer('app/video-editor/_opencut/components/editor/editor-header.tsx'));
+  assert.match(cabecera, /const volverAlInicio = \(\) => void salir\(RUTA_CREAR_VIDEO\);/);
+  assert.doesNotMatch(cabecera, /rutaEditor\("\/video-editor"\)/);
+  assert.doesNotMatch(sinComentarios(leer('app/video-editor/_opencut/actions/use-editor-actions.ts')), /rutaEditor\("\/video-editor"\)/);
+  const cliente = sinComentarios(leer('app/video-editor/VideoEditorCliente.tsx'));
+  assert.match(cliente, /if \(p\.id === actual\) router\.push\(RUTA_CREAR_VIDEO\);/);
+  assert.match(cliente, /if \(creando\.current\) return null;\s*creando\.current = true;/, 'un doble clic armaba dos proyectos');
+  assert.match(cliente, /if \(!montado\.current\) return null;/);
+});
+
+// ── PROBADO ROMPIÉNDOLO (9/11/2026), base 9/0 → 10/0 con la revisión. Cada rotura, 1 fallo y el resto pases ─────────────────
 // R1 un clip que no entra en 10 s ya no pide partirse · R2 la palabra repetida pasa a «de más» · R3 el guion completo sin el
 // pedido del cierre · R4 sin el repetido por link · R5 «Replicar» con una plantilla que no existe · R6 `replicar` sin validar ·
 // R7 un estado de una plantilla inventada · R8 dos opciones de la galería con el mismo valor · R9 el velo marca fuera del chat ·
 // R10 «stickers» en el modo simple · R11 el chat del editor sin `data-mako-chat` · R12 lo contestado no queda en el proyecto ·
 // R13 MaKo saltea el paso del guion (antes de sumar su caso al test 5, esta rotura daba 0/9: la cubría sólo tests/aperturas).
+// Con la revisión (base 10/0, cada rotura 1/9): R14 «Ahora no» no deja el paso salteado · R15 la pestaña abierta se esconde en
+// simple · R16 «el inicio» vuelve a los outliers · R17 sin el candado de «crear» · R18 un «saltado» cuenta como valor del paso ·
+// R19 MaKo no saltea lo salteado · R20 un guion con un bloque que no entra en 10 s cuenta como listo · R21 lo de siempre calla por
+// ser un proyecto guiado (no mientras MaKo pregunta). Y en sus tests: sin `!estadoApertura.apertura` en las píldoras →
+// tests/iniciativa-video 1/1; sin <EnVivo /> en la barra → tests/video-editor-enjambre 1/13.
 // Renombrar una variable local del código (`entero` → `enteroDeSegundos` en medidas.ts) lo deja 9/0.

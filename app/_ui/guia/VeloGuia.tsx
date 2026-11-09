@@ -32,6 +32,8 @@ import { apartarChat, avanzar, destacarEnElChat, fraseEnElChat, guiaAhora, ignor
 const CHAT = '[data-mako-chat]';
 const GLOBO = '[data-guia-globo]';
 const DESTACADO = '[data-mako-destacado]';
+/** Cada cuánto se vuelve a buscar la pregunta marcada cuando no está a la vista (en vez de cada cuadro). */
+const ESPERA_SIN_MARCA_MS = 250;
 
 const cajaDe = (r: DOMRect): Caja => ({ x: r.left, y: r.top, ancho: r.width, alto: r.height });
 const ventana = (): Medida => ({ ancho: document.documentElement.clientWidth || window.innerWidth, alto: document.documentElement.clientHeight || window.innerHeight });
@@ -152,19 +154,28 @@ export function VeloGuia() {
   useLayoutEffect(() => {
     if (!destacando) return;
     let cuadro = 0;
+    let espera: ReturnType<typeof setTimeout> | null = null;
     const tick = () => {
-      cuadro = requestAnimationFrame(tick);
       const marca = profundidadModales() > 0 ? null : Array.from(document.querySelectorAll<HTMLElement>(DESTACADO)).find((el) => visible(el) && !!el.closest(CHAT)) ?? null;
       const chats = Array.from(document.querySelectorAll<HTMLElement>(CHAT)).filter(visible).map((c) => cajaDe(c.getBoundingClientRect()));
       const d = dibujoDestacado(marca ? cajaDe(marca.getBoundingClientRect()) : null, chats, ventana());
       const nuevo: Dibujo | null = d ? { huecos: d.huecos, aro: d.aro, frase: null, angosto: null } : null;
       setDibujo((x) => (mismo(x, nuevo) ? x : nuevo));
+      // Con la pregunta a la vista, cuadro por cuadro (sigue al hilo cuando scrollea); sin ella (un modal arriba, el chat plegado),
+      // se vuelve a mirar cada `ESPERA_SIN_MARCA_MS`: dos `querySelectorAll` por cuadro, indefinidamente, para no encontrar nada.
+      if (d) cuadro = requestAnimationFrame(tick);
+      else espera = setTimeout(() => { espera = null; cuadro = requestAnimationFrame(tick); }, ESPERA_SIN_MARCA_MS);
     };
     cuadro = requestAnimationFrame(tick);
     // Usa la tab (un toque fuera de los chats): se le deja usar, y el velo se va hasta la próxima pregunta (el toque llega igual).
     const alTocar = (ev: PointerEvent) => { if (!(ev.target as Element | null)?.closest(CHAT)) destacarEnElChat(false); };
     document.addEventListener('pointerdown', alTocar, true);
-    return () => { cancelAnimationFrame(cuadro); document.removeEventListener('pointerdown', alTocar, true); setDibujo(null); };
+    return () => {
+      cancelAnimationFrame(cuadro);
+      if (espera) clearTimeout(espera);
+      document.removeEventListener('pointerdown', alTocar, true);
+      setDibujo(null);
+    };
   }, [destacando]);
 
   // La primera vez, sin contestar: si usa la tab (un toque fuera del chat), «que lo use» (guia.md §3.3).

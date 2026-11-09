@@ -258,8 +258,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
   // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
   // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
-  // 9/11/2026: sin fila propia (es «Tu personaje con IA» de Video, docs/relevo/nube-tab-video.md §1): oculta, con su pantalla viva.
-  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create', oculta: true },
+  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
   // Web Generator pasó a Create el 6/11/2026 (Martín), como en escritorio.
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'create' },
   // Lead Magnet (5/11/2026): la lista de lead magnets y las plantillas (app/m/lead-magnet-generator). Por ahora sólo la plataforma

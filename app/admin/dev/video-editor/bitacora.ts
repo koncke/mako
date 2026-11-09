@@ -532,7 +532,8 @@ export const BITACORA: Hito[] = [
       "«Mensaje para…» es la primera plantilla: MaKo pide en el chat del editor la referencia, tu guion de 6 bloques, tu foto o tu personaje (con las fotos que ya subiste para tocar), tu voz y el fondo, con el resto de la pantalla opacado y su pregunta marcada.",
       "El guion se escribe bloque por bloque y cada uno dice cuántos segundos dura su clip y cuántos créditos cuesta, para que el clip no quede más largo que la frase.",
       "En un proyecto de plantilla el editor abre simple (menos pestañas y herramientas) y «Todas las herramientas» lo deja como siempre.",
-      "AI Avatar ya no es una fila de la barra: es «Tu personaje con IA» adentro de Video.",
+      "Tu personaje con IA se abre desde Video. AI Avatar sigue en la barra mientras Video sea sólo de Pro: decide Martín si Video pasa a los tres planes.",
+      "Si salteas un paso, MaKo sigue con el siguiente, y la lista «Tu video» te deja retomarlo.",
       "Todavía no: que MaKo filme sola los clips, las tomas blancas y el montaje con sus cursores (docs/relevo/nube-tab-video.md §8). No se miró en un navegador.",
     ],
     archivos: [
@@ -542,7 +543,7 @@ export const BITACORA: Hito[] = [
       "app/video-editor/guia/ — el estado del proyecto, el chat guiado, el editor del guion y el modo simple",
       "app/video-editor/OutliersVideo.tsx · vista.ts — la portada",
       "app/_ui/guia/VeloGuia.tsx · store.ts · lib/guia/huecos.ts — el velo de la pregunta marcada",
-      "tests/video-tab.test.ts — 9 casos, 13 roturas",
+      "tests/video-tab.test.ts — 10 casos, 21 roturas",
     ],
     revisar: "/video-editor",
   },

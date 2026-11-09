@@ -20,3 +20,13 @@ export const HERRAMIENTAS_SIMPLES: ReadonlySet<string> = new Set([
 
 export const categoriaEnSimple = (c: string): boolean => CATEGORIAS_SIMPLES.has(c);
 export const herramientaEnSimple = (id: string): boolean => HERRAMIENTAS_SIMPLES.has(id);
+
+/**
+ * Las pestañas que dibuja la fila: en simple, las de la lista MÁS la que está abierta. Otro panel puede abrir una que no está en la
+ * lista («Agregar efecto» abre Efectos), o la persona venía de ahí al prender el modo simple: escondida, el panel mostraba una
+ * pestaña que la fila no tenía, y no había cómo volver a ella (la revisión del 9/11/2026). Forzarla a «Multimedia» rompería la
+ * acción que la abrió.
+ */
+export function pestanasVisibles<T extends string>(todas: readonly T[], simple: boolean, activa: string): T[] {
+  return simple ? todas.filter((c) => categoriaEnSimple(c) || c === activa) : [...todas];
+}

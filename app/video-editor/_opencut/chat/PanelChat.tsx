@@ -49,7 +49,6 @@ import { ASPECTO_MAKO } from "@/lib/centro-munecos";
 import { AperturaMako, useApertura } from "@/app/_chat/AperturaMako";
 import { SUPERFICIE_VIDEO } from "@/lib/aperturas/video";
 import { GuiaEnElChat } from "@/app/video-editor/guia/GuiaEnElChat";
-import { useGuiaVideo } from "@/app/video-editor/guia/estado";
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
 import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
@@ -548,13 +547,15 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	// (lib/aperturas/video.ts). «Sí, en el feed» corre el mismo motor que el botón de Subtítulos (Whisper en el navegador: sin la
 	// app de escritorio también). Mientras habla, las píldoras de siempre se esconden: un paso por pantalla.
 	const conAudio = !!tracksVivos && (tracksVivos.main.elements.some((e) => e.type === "video") || tracksVivos.audio.some((t) => t.elements.length > 0));
-	// UNA PLANTILLA GUIADA (9/11/2026, la tab Video): MaKo lleva sus pasos (../../guia/GuiaEnElChat.tsx) y lo de siempre calla —la
-	// pregunta de los subtítulos y las píldoras—: un paso por pantalla.
-	const guiado = !!useGuiaVideo(proyectoId);
+	// UNA PLANTILLA GUIADA (9/11/2026, la tab Video): MaKo lleva sus pasos (../../guia/GuiaEnElChat.tsx) y, MIENTRAS PREGUNTA, lo de
+	// siempre calla —la pregunta de los subtítulos y las píldoras—: un paso por pantalla. Cuando la guía no tiene nada que preguntar
+	// (todo contestado o salteado), vuelve lo de siempre: con «el proyecto es guiado» a secas, el chat quedaba sin sugerencias para
+	// siempre (la revisión del 9/11/2026).
+	const [guiaHablando, setGuiaHablando] = useState(false);
 	const estadoApertura = useApertura({
 		superficie: SUPERFICIE_VIDEO,
 		hechos: { proyecto: proyectoId || null, conAudio, subtitulos: subtitulosDe(tracksVivos).length, charlaVacia: hilo.mensajes.length === 0 },
-		libre: !hilo.corriendo && !guiado,
+		libre: !hilo.corriendo && !guiaHablando,
 	});
 	const ponerSubtitulos = () => {
 		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
@@ -629,7 +630,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length === 0 && estadoApertura.apertura && (
 						<AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />
 					)}
-					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiado && (
+					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiaHablando && (
 						<>
 							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
 								Pídeme que edite lo que quieras del video.
@@ -648,8 +649,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							Detener generación
 						</button>
 					)}
-					{proyectoId && <GuiaEnElChat proyectoId={proyectoId} ocupado={hilo.corriendo} quien={QUIEN} />}
-					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiado && (
+					{proyectoId && <GuiaEnElChat proyectoId={proyectoId} ocupado={hilo.corriendo} quien={QUIEN} onHablando={setGuiaHablando} />}
+					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
 								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>

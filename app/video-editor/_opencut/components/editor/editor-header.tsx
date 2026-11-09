@@ -24,6 +24,8 @@ import { ArrowDown01Icon, KeyboardIcon, Layout01Icon, Tick02Icon } from "@hugeic
 import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 import { useRouter } from "@/app/_ui/Link";
 import { rutaEditor } from "@/app/video-editor/ruta";
+// «El inicio» del editor es la lista de proyectos (`?ver=crear`): `/video-editor` a secas son los outliers (9/11/2026).
+import { RUTA_CREAR_VIDEO } from "@/app/video-editor/vista";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -128,7 +130,7 @@ function MenuApp({ onRenombrar, onAtajos }: { onRenombrar: () => void; onAtajos:
 		}
 	};
 
-	const volverAlInicio = () => void salir("/video-editor");
+	const volverAlInicio = () => void salir(RUTA_CREAR_VIDEO);
 
 	const nuevoProyecto = async () => {
 		if (saliendo.current) return;
@@ -155,7 +157,7 @@ function MenuApp({ onRenombrar, onAtajos }: { onRenombrar: () => void; onAtajos:
 		if (!proyecto) return;
 		setBorrar(false);
 		await editor.project.deleteProjects({ ids: [proyecto.metadata.id] });
-		router.push(rutaEditor("/video-editor"));
+		router.push(rutaEditor(RUTA_CREAR_VIDEO));
 	};
 
 	// Ctrl+Alt+Q: «Volver a la página de inicio» del preset CapCut. Mismas reglas

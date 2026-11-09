@@ -37,7 +37,7 @@ import {
 	useAssetsPanelStore,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import { useModoSimple } from "@/app/video-editor/guia/modo-simple";
-import { categoriaEnSimple } from "@/app/video-editor/guia/modo-simple-reglas";
+import { pestanasVisibles } from "@/app/video-editor/guia/modo-simple-reglas";
 
 const icono =
 	(svg: IconSvgElement): ComponentType<{ className?: string }> =>
@@ -144,8 +144,8 @@ export function TabBar() {
 					}
 				}}
 			>
-				{/* El modo simple de una plantilla guiada (app/video-editor/guia/modo-simple.ts): sólo las pestañas de su lista. */}
-				{CATEGORIAS_BIBLIOTECA.filter((c) => !simple || categoriaEnSimple(c)).map((categoria) => {
+				{/* El modo simple de una plantilla guiada (app/video-editor/guia/modo-simple.ts): las pestañas de su lista y la abierta. */}
+				{pestanasVisibles(CATEGORIAS_BIBLIOTECA, simple, activeTab).map((categoria) => {
 					const { etiqueta, Icono } = PESTANAS_BIBLIOTECA[categoria];
 					const activa = categoria === activeTab;
 					return (

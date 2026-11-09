@@ -17,7 +17,7 @@ migraciones: todo lo de esta tanda vive en el navegador o en módulos puros.
 | Hoy | Queda |
 |---|---|
 | Fila «Video» (`video-editor`, la copia de CapCut) | **La tab «Video»**, la única de video de Create. Misma key, misma ruta (`/video-editor`): la miran las capas, la API y el teléfono. |
-| Fila «AI Avatar» (`ai-avatar`, la réplica de Higgsfield) | **Sale de la barra.** Su key pasa a `SIN_FILA` (la piden su ruta, `ver_plantillas_avatar`, las capas y el teléfono) y su fila de More queda `oculta`. Su estudio sigue en `/ai-avatar` como **la pieza «Tu personaje»** de Video: lo abre la plantilla «Tu personaje con IA» de «Nuevo video» y el paso del personaje de una plantilla guiada. No se redirige todavía: 18 tests leen sus archivos y su teléfono es propio; se muda adentro de Video en la tanda 2. |
+| Fila «AI Avatar» (`ai-avatar`, la réplica de Higgsfield) | **Se queda en la barra, por ahora.** Su estudio también se abre desde Video («Tu personaje con IA» en «Nuevo video» y el paso del personaje de una plantilla guiada). La primera versión la sacaba de la barra y la revisión lo frenó: Video es sólo de Pro (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts) y AI Avatar es de los tres planes, así que un Esencial se quedaba sin ninguna puerta a su personaje. **Decide Martín:** ¿Video entra en los tres planes (y la fila se va), o AI Avatar sigue como fila para Esencial? `tests/video-tab.test.ts` (9) lo ata a esa condición. |
 | «Generar con IA» (Video Generator) | Sigue como plantilla de «Nuevo video» (ya lo era). |
 
 Lo que NO se depreca en esta tanda (y por qué): los lienzos vacíos y las plantillas de anuncio de «Nuevo video» siguen; son la
@@ -152,9 +152,23 @@ automática»: el «Aceptar» del chat, «Deshacer todo» por el historial). Est
   de su clip, y lo que falta antes de filmar.
 - **El modo simple**: biblioteca con Multimedia · Audio · Texto · Subtítulos; línea de tiempo con elegir, deshacer, dividir,
   borrar, zoom y subtítulos; sin «Diseño» ni «Atajos»; «Todas las herramientas» lo apaga (se recuerda por proyecto).
-- **AI Avatar** fuera de la barra (key en `SIN_FILA`, fila de More oculta, su página del teléfono con su cabecera).
+- **AI Avatar** sigue en la barra (ver §1: la revisión lo frenó por el plan Esencial; la decisión es de Martín).
 - **El catálogo de funciones** (lib/funciones-mako.ts) dice lo nuevo y lo que todavía no hace.
-- **Probado**: `tests/video-tab.test.ts` (9 casos, 13 roturas, un cambio sin efecto en verde) y los tests que fijaban lo de
-  antes, actualizados (el orden de «Nuevo video», las filas de More, la lista de tabs sin guía). Tipos acotados sin errores en
-  los 36 archivos tocados. **No se miró en un navegador**: la nube no corre el editor (docs/hallazgos-video-editor.md, «SIN
+- **La revisión adversarial (9/11) y lo que se cambió por ella:**
+  - **La memoria de la guía es el PROYECTO.** Con la de las aperturas, «Ahora no» en un paso callaba la guía entera (MaKo sólo
+    muestra el primer paso que falta). Ahora un paso salteado se saltea, sigue el siguiente, y la lista «Tu video» deja
+    «Retomar» lo salteado y «Editar» el guion. Con todo hecho, dice que los clips se filman en «Tu personaje con IA».
+  - **Lo de siempre calla sólo MIENTRAS MaKo pregunta** (`onHablando`): con «el proyecto es guiado» a secas, el chat quedaba
+    sin sugerencias para siempre.
+  - **Un guion «listo» es completo Y filmable**: un bloque que no entra en 10 s ya no cuenta como listo, y los clips esperan.
+  - **La tarjeta del chat se abre sola** si estaba plegada y MaKo pregunta.
+  - **La foto nueva es la que no estaba** (no la última de la lista), y lo que la ruta saltea (no es una imagen, pasa de 15 MB)
+    se dice. «No pude leer tus fotos» no es «no tienes fotos».
+  - **«Volver al inicio» y borrar el proyecto abierto** llevan a la lista de proyectos (`?ver=crear`), no a los outliers.
+  - **«Replicar» no arma dos proyectos** con un doble clic, y si falla lo dice.
+  - **En modo simple, la pestaña abierta no se esconde** (otro panel abre «Efectos»).
+  - **El velo** vuelve a buscar la pregunta cada 250 ms cuando no está a la vista, no en cada cuadro.
+- **Probado**: `tests/video-tab.test.ts` (10 casos, 21 roturas, un cambio sin efecto en verde) y los tests que fijaban lo de
+  antes, actualizados (el orden de «Nuevo video»; en iniciativa-video y enjambre, dos guardas que citaban una línea pasaron a
+  afirmar lo que cuidan). Tipos acotados sin errores en los archivos tocados. **No se miró en un navegador**: la nube no corre el editor (docs/hallazgos-video-editor.md, «SIN
   RESOLVER: el editor no carga en un Chrome sin ventana»).

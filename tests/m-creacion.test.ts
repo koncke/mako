@@ -81,10 +81,9 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
 // `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1;
 // la de Copy Method sin `getSesionAdmin()` → 5/1.
 test('la puerta del teléfono es la de escritorio: la misma key, que existe, y la de AI Avatar', () => {
-  // AI Avatar tuvo su fila VISIBLE en More desde que era de Pro (29/10/2026). Desde el 9/11/2026 es «Tu personaje con IA» de
-  // Video (docs/relevo/nube-tab-video.md §1): fila OCULTA, con su pantalla viva y su puerta.
+  // AI Avatar tiene su fila VISIBLE en More desde que es de Pro (29/10/2026), como Video: la cabecera y la puerta salen de ahí.
   const filaAvatar = SECCIONES_MAS.find((x) => x.navKey === 'ai-avatar');
-  assert.ok(filaAvatar && filaAvatar.oculta && filaAvatar.href === '/m/ai-avatar', 'AI Avatar volvió a ser una fila de More: es una plantilla de Video');
+  assert.ok(filaAvatar && !filaAvatar.oculta && filaAvatar.href === '/m/ai-avatar', 'AI Avatar sin su fila de More');
   for (const s of SECCIONES_CREACION) {
     assert.equal(s.oculta, true, `${s.id}: es una fila oculta (lib/movil-creacion.ts dice por qué)`);
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
@@ -127,10 +126,9 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y l
     assert.ok(src.includes(`requireMovil({ navKey: '${key}' })`), `${p}: sin su key`);
     assert.ok(src.includes('await requireAiAvatarM()'), `${p}: sin la puerta del super admin`);
   }
-  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield), y las tres secciones de HeyGen redirigen a ella
-  // DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce). Desde el 9/11/2026 su fila es oculta, así
-  // que la cabecera la dibuja ella (el shell no la pone para una fila oculta).
-  assert.ok(leer('app/m/ai-avatar/page.tsx').includes('<CabeceraM titulo="Tu personaje" />'), 'la base sin su cabecera (su fila es oculta)');
+  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield), con su fila de More (la cabecera la pone el shell),
+  // y las tres secciones de HeyGen redirigen a ella DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce).
+  assert.ok(!leer('app/m/ai-avatar/page.tsx').includes('<CabeceraM'), 'la base dibuja su cabecera Y la del shell (tiene fila)');
   for (const sub of ['avatares', 'voces', 'plantillas']) {
     const src = leer(`app/m/ai-avatar/${sub}/page.tsx`);
     assert.match(src, /redirect\(await rutaConWs\([^;]*\/m\/ai-avatar/, `${sub}: no redirige al estudio`);

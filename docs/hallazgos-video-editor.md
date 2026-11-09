@@ -18,10 +18,17 @@ marcada), menos botones y los cursores de MaKo. El diseño y lo que queda: [rele
   siempre («`_opencut/wasm` no carga en node») mordió por un import de un hook. **Lo que sólo pregunta un dato del proyecto no
   importa el motor**: la cabecera del editor (que ya lo tiene) fija el proyecto abierto (`fijarProyectoAbierto`, guia/estado.ts)
   y el modo simple lo lee de ahí. Las listas del modo simple van aparte (`guia/modo-simple-reglas.ts`), en POSITIVO.
-- **La memoria de las aperturas no sirve de estado de un proyecto.** `respuestasDeMemoria` (lib/aperturas/reglas.ts) descarta a
-  propósito las claves con entidad (`|`): un paso contestado de un proyecto no vuelve como respuesta, sólo calla esa clave.
-  Lo que la persona eligió (su foto, su voz, el fondo) se guarda en el PROYECTO (`app/video-editor/guia/estado.ts`, en el
-  navegador con el workspace en la clave) envolviendo el `elegir` de `useApertura`, y la apertura lo lee como hecho.
+- **La memoria de las aperturas no sirve de estado de un proyecto, ni para callar.** `respuestasDeMemoria` (lib/aperturas/reglas.ts)
+  descarta a propósito las claves con entidad (`|`): un paso contestado de un proyecto no vuelve como respuesta, sólo calla esa
+  clave. Y callar también rompía: la primera versión envolvía `useApertura`, y como la guía muestra sólo el primer paso que
+  falta, «Ahora no» en ese paso (14 días, el segundo para siempre) o tres vistas sin respuesta **callaban la guía entera**.
+  Lo cazó la revisión adversarial, no un test: los EJEMPLOS de la superficie no pueden ver la memoria. **Una superficie que
+  lleva pasos de UNA cosa (un proyecto) guarda en esa cosa lo contestado Y lo salteado** (`app/video-editor/guia/estado.ts`,
+  con el workspace en la clave), arma su `EstadoApertura` sin `useApertura`, saltea lo salteado y deja retomarlo
+  (`pasosDeLaGuia`, la lista «Tu video»).
+- **«Mientras MaKo pregunta» no es «el proyecto es guiado».** Las píldoras y la pregunta de los subtítulos callaban con la marca
+  del proyecto: con todo contestado, el chat quedaba sin sugerencias para siempre. Calla sólo con la pregunta a la vista
+  (`onHablando`). Y la tarjeta del chat plegada escondía la pregunta: quien pregunta la despliega (`desplegarCrear`).
 - **El velo de la guía vive ARRIBA de la pila de modales** (z 400 contra 130). Su modo nuevo, la pregunta marcada
   (`destacarEnElChat`, `dibujoDestacado` en lib/guia/huecos.ts), no se dibuja con un modal abierto: si no, opacaba el editor
   del guion que la misma pregunta acababa de abrir. Y nunca marca algo que no está ADENTRO de un chat.
@@ -38,15 +45,20 @@ marcada), menos botones y los cursores de MaKo. El diseño y lo que queda: [rele
   `useSubirFoto` no está exportado y la llamada se copió en guia/GuiaEnElChat.tsx: si cambia la respuesta, cambian las dos),
   clonar la voz es `ModalClonar` (app/automations/VozAIStep.tsx, exportado para esto) y las fotos y personajes salen de
   `inicioAvatarAction`.
-- **AI Avatar salió de la barra sin perder su key**: va a `SIN_FILA` (la piden su pantalla, `ver_plantillas_avatar`, las capas
-  y el teléfono) y su fila de More queda oculta; en el teléfono la cabecera la pone su página.
+- **Sacar AI Avatar de la barra dejaba a un Esencial sin su personaje, y nada lo marcaba.** Video es sólo de Pro
+  (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts) y AI Avatar es de los tres planes: unificarlas es también una decisión de qué
+  ve cada plan, que es de Martín. La fila se quedó; el test la ata a esa condición. **Antes de mudar una tab adentro de otra,
+  se mira si las dos las ven los mismos planes y roles.**
+- **Un link «al inicio» cambia de destino cuando la portada cambia.** `/video-editor` pasó a ser los outliers, y «Volver al
+  inicio», borrar el proyecto abierto y el link «Ir al inicio» del chat seguían yendo ahí, lejos de la lista de proyectos. Van a
+  `RUTA_CREAR_VIDEO` (`?ver=crear`), como Image con su `RUTA_CREAR`.
 
 **Sin hacer** (docs/relevo/nube-tab-video.md §8): MaKo no filma sola los clips, las tomas blancas ni el montaje (lleva al
 estudio y al Video Generator); la corrida del montaje con los cursores del enjambre (los `agentes` de cada paso ya están en la
 plantilla); las carpetas en Multimedia (definidas en `lib/video-plantillas/piezas.ts`, sin dibujar); la voz voice-to-voice
 (`convertirVoz` en lib/elevenlabs.ts no tiene llamador en la app); la fuente de outliers del chat «Outliers de reels y
-anuncios» (se enchufa en `FUENTES_OUTLIERS_VIDEO`); el teléfono no ofrece la plantilla guiada; las píldoras del chat se
-esconden en todo un proyecto guiado, aun después del último paso. Nada se miró en un navegador.
+anuncios» (se enchufa en `FUENTES_OUTLIERS_VIDEO`); el teléfono no ofrece la plantilla guiada; si AI Avatar sale de la barra
+(decide Martín, por los planes). Nada se miró en un navegador.
 
 **Vive en:** `lib/video-plantillas/` · `lib/video-outliers.ts` · `lib/video-outliers-servidor.ts` · `lib/aperturas/video-guia.ts` ·
 `app/video-editor/guia/` · `app/video-editor/OutliersVideo.tsx` · `app/video-editor/vista.ts` · `app/_ui/guia/VeloGuia.tsx` ·

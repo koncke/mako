@@ -460,6 +460,15 @@ export const FAMILIAS: NavFamilia[] = [
           key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
           match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p),
         },
+        {
+          // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a
+          // higgsfield tal cual», con el diseño único de Create: UNA pantalla (app/ai-avatar/Estudio.tsx), SIN secciones (las
+          // cuatro de HeyGen —Create video · Avatars · Voices · Templates— se fueron; sus rutas redirigen al estudio).
+          // Para todos los planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»): sin `adminOnly`
+          // ni candado de Pro; la puerta, app/ai-avatar/acceso.ts.
+          key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
+          match: starts('/ai-avatar'),
+        },
         // 6/11/2026, Martín: «Web Generator debería estar en la sección de "Create"». Es una pieza que se produce (la web), no algo que se ejecuta.
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         {
@@ -696,12 +705,6 @@ export const SIN_FILA: NavItem[] = [
   // «Generar con IA» de «Nuevo video». La pantalla sigue viva y su key es la puerta de la API (`gating.tab`), de las
   // creaciones (`formato_video`) y del teléfono (/m/video).
   { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-  // AI Avatar desde el 9/11/2026 (Martín: «unificar las tabs… en UNA tab llamada Video»): deja de ser una fila de Create y su
-  // estudio es «Tu personaje con IA», una plantilla de «Nuevo video» y el paso del personaje de una plantilla guiada
-  // (docs/relevo/nube-tab-video.md §1). La key queda viva: la piden su pantalla (app/ai-avatar/acceso.ts), la API
-  // (`ver_plantillas_avatar`), las capas y el teléfono. La historia de la fila: 17/10 HeyGen, 29/10 «replica a higgsfield tal
-  // cual» para todos los planes.
-  { key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil', match: starts('/ai-avatar') },
   // Las que eran secciones de Copywriting hasta el 29/10/2026 (ver la fila de Copywriting en FAMILIAS): sin fila, con su key
   // viva. El Ads Writer sigue andando por su ruta (la matriz, «Analizar guion» y los links de MaKo); Stories y YouTube
   // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.

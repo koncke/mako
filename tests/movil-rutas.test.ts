@@ -111,7 +111,7 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
     ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
-    ['ai-avatar', 'ai-avatar', 'create', true], ['landing', 'landing-writer', 'create', false],
+    ['ai-avatar', 'ai-avatar', 'create', false], ['landing', 'landing-writer', 'create', false],
     // Lead Magnet (5/11/2026): sólo de la plataforma por ahora, oculta como Admin (More le arma la fila desde la sidebar).
     ['lead-magnet', 'lead-magnet-generator', null, true],
     ['mako', 'mako', null, false],
@@ -141,7 +141,7 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
     // Competitor Spy (6/11/2026): fila de Marketing, debajo del CoPilot.
     ['plan'], ['calendario', 'automations', 'cs'], ['offer', 'ads', 'competitor-spy'],
     // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
-    ['video', 'image', 'copywriting', 'landing'],
+    ['video', 'image', 'copywriting', 'ai-avatar', 'landing'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);
