@@ -643,3 +643,16 @@ al pasar el mouse por encima). Martín pidió borrar la horizontal y un minuto d
 horizontal: volvió entera desde ahí. **Enviar a la papelera no pierde nada**, así que ante un
 «borrá esto» no hace falta frenar; lo que sí hay que verificar es **cuál** se borra, acotando el
 bloque por el texto de su prompt antes de hacer clic.
+
+### «Llenándolo» multiplica y repite: hay que dar el NÚMERO (9/11/2026)
+
+Con la referencia de 15 caras y la consigna **«van estas caras, llenándolo»**, Nano Banana devolvió
+**unas cuarenta**, repitiendo varias. Martín: «son muchos… se repitieron algunos».
+
+Lo que lo bajó fue **decir cuántas y que no se repitan, en positivo**:
+**«En el corcho van estas doce caras, una sola vez cada una.»** Un adverbio de cantidad («llenándolo»,
+«muchas», «varias») lo deja estimar, y estima de más.
+
+⚠️ Y al reducir, las fotos quedaron **amontonadas en media tabla**, con la otra mitad vacía. Se
+arregla con una edición corta que ancla lo que no cambia: **«Las mismas caras, repartidas por todo
+el corcho.»** No hace falta volver a adjuntar la referencia: las caras ya están en la imagen base.
