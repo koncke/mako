@@ -418,3 +418,30 @@ número venía de leer, no de medir, y las dos veces la realidad estaba peor.
 
 **Vive en:** `lib/mako-tokens-reglas.ts` · `tests/mako-tokens.test.ts` · las piezas medidas quedaron en el
 scratchpad de la sesión del 7/11.
+
+## ⚠️ FLOW NO CLONA VOCES — y aun así el paso de sincronizar labios desaparece (9/11/2026)
+
+Martín preguntó si Flow se conecta con ElevenLabs, para ahorrarse pasos. **Medido abriendo el
+selector de assets de Flow → «Voices»: no.** Lo que hay es un **catálogo cerrado de voces sintéticas
+de Google** (Achernar, Achird, Algenib, Algieba, Alnilam, Aoede, Autonoe, Callirrhoe, Charon,
+Despina, Enceladus…), cada una con su timbre fijo descrito en una línea («Male, informative, lower
+pitch»), un campo de «Sample dialogue» de 100 caracteres para escucharla y otro de «Customize
+performance» para describir la interpretación. **No hay dónde subir una voz propia ni enlazar una de
+ElevenLabs.** Así que el clon profesional sigue viviendo en ElevenLabs.
+
+**Pero lo importante es lo otro, y cambia el orden del método:** Omni **genera audio** y dice la
+frase que le escribas, **con los labios sincronizados**. O sea que el paso que más dolor costó —
+sincronizar labios sobre un clip ya hecho, que es lo que llevó a wav2lip, a YuNet y a toda la noche
+del 8/11 — **ya no hace falta**: se le escribe la frase, Omni la actúa, y después esa pista se pasa
+por **voice-to-voice** a ElevenLabs con el clon profesional (`eleven_multilingual_sts_v2`, la config
+de `scratchpad/walter/LA-CONFIG.json`). Como las palabras y los tiempos son los mismos, los labios
+siguen coincidiendo.
+
+⚠️ **Y LA TRAMPA QUE COSTÓ UN CLIP: SI NO LE ESCRIBÍS LA FRASE, LA INVENTA — Y EN INGLÉS.** El primer
+clip se pidió con «speaks one short sentence» y Omni habló en inglés diciendo cualquier cosa. No es
+un bug: es que a un modelo que genera audio hay que **darle el texto y el idioma**, igual que se le
+da el encuadre. La frase va entre comillas en el prompt, con «IN SPANISH, exactly this and nothing
+else», y conviene además describir el acento (rioplatense) y pedir «no subtitles».
+
+Costo medido en Flow: un clip de **8 s, 720p, 9:16, Omni 1.2 Flash** sale **24 créditos en x1** y 48
+en x2. Las imágenes, en cambio, dicen «Generating will use 0 credits»: son gratis de verdad.
