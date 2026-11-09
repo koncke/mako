@@ -341,6 +341,21 @@ perder más tiempo que uno olvidado.
   - Qué falta: Todo lo verificado es contra un servidor de mentira y con los tests; falta un cliente con el hook puesto de verdad. Los nombres de los eventos (UserPromptSubmit, SessionEnd) y los campos del stdin son la parte a confirmar. Y el reporte de sesiones sigue siendo sólo de Claude Code (el hook es un Stop de .claude/settings.json): desde la app de Claude la skill funciona pero no reporta. Hecho = un acta escrita desde una instalación real.
   - Dónde: `C:/dev/wt-puntas/lib/agente-plugin.ts (AGENTE_HOOK_SETTINGS) · lib/agente-consentimiento-texto.ts · pendiente en C:/dev/wt-puntas/docs/hallazgos-agente.md:129 y C:/dev/wt-puntas/docs/hallazgos-second-brain.md:1654`
 - **Plantillas propias: faltan los enchufes de Video, Offer, AI Avatar, Web Generator y Dashboard** · _grande_
+  - 🔎 **MEDIDO EL 9/11/2026: ESTO NO NECESITA MIGRACIÓN, Y ES LO QUE LO HACÍA PARECER GRANDE.** El almacén ya es
+    genérico: `creaciones` guarda `tipo` + `definicion`, y la columna es **`text` con `check (tipo ~ '^[a-z_]{3,40}$')`**
+    (`supabase/migrations/0273_creaciones.sql:44`), o sea que un tipo nuevo entra sin tocar la base. Y
+    `usePlantillasPropias(tipo)` (`app/creaciones/usePlantillasPropias.ts:22`) ya acepta cualquier `TipoCreacion`.
+    Lo que falta es sólo cableado, y el contrato está escrito en `lib/creaciones-enchufes.ts:4-15`: (1) sacar el tipo
+    de `POR_ENCHUFAR` y ponerlo en `ENCHUFADOS` (`lib/creaciones-reglas.ts:45,47`) —el compilador pide el enchufe—,
+    (2) escribir sus cuatro funciones, (3) poner `<PublicarCreacion>` en su pantalla.
+  - ⚠️ **Pero AI Avatar tiene una pregunta de producto que hay que contestar ANTES, y no es de código:** hoy no es un
+    `TipoCreacion` (los cinco son automatizacion, dashboard, formato_video, formato_imagen, guion;
+    `lib/creaciones-reglas.ts:24`) y sus presets están cableados en `lib/ai-avatar/plantillas.ts`, sin nada por negocio.
+    O sea que `opciones()` —«lo que ESTE negocio puede publicar»— **no tiene de dónde salir**: hay que decidir si lo que
+    se publica es el LOOK (`lib/ai-avatar/proyectos.ts`, que ya es por negocio) o la ESCENA que la persona escribió.
+    Eso lo decide Martín; el cableado son un par de horas después.
+  - 📌 **Esto es lo que frenó el reel de Martín la noche del 8/11** (ver `docs/feedback-usando-mako.md`): quiso guardar
+    la escena que estaba usando y no se pudo. No es un bug nuevo: es este ítem, sin tomar.
   - Qué falta: Más «Tus plantillas» en el teléfono (hoy sólo en la computadora), el ítem en la barra de /creaciones, y en el super admin una vista para moderar lo publicado (retirar ya existe en el server con puedeRetirar) y sembrar las «de MaKo». El detalle está en docs/relevo/nube-plantillas.md. Hecho = las cinco tabs guardan y usan plantillas propias.
   - Dónde: `C:/dev/wt-puntas/app/_crear/ · app/admin/ · C:/dev/wt-puntas/docs/relevo/nube-plantillas.md · pendiente en C:/dev/wt-puntas/docs/hallazgos-plantillas.md:119`
 - **`dashboard` tambien sigue sin enchufe en creaciones, no solo `formato_video`** · _mediano_
@@ -353,6 +368,20 @@ perder más tiempo que uno olvidado.
   - Qué falta: Del §Sin hacer de `docs/relevo/automations.md`, sin leer por ninguna familia: el boton «Probar» es un simulador y no manda nada, pero igual pide una linea de WhatsApp conectada, asi que un negocio que todavia no conecto no puede ni simular su automatizacion. Hecho = «Probar» corre sin linea conectada y solo Publicar la pide.
   - Dónde: `C:/dev/wt-puntas/docs/relevo/automations.md:451-470 · C:/dev/wt-puntas/app/automations/ (`ConectarMedio`, `PanelProbar.tsx`)`
 - **Automations: al CREAR, el modelo inventa el texto de una tarjeta de audio que la persona graba ella** · _chico_
+  - 🔎 **HASTA ACÁ LLEGUÉ EL 9/11/2026, y lo dejo escrito para que el próximo no lo vuelva a buscar.** El bug NO está
+    donde el ítem lo manda. `app/api/chat-agent/secuencias/ia/route.ts` sólo despacha: la rama `crear` llama a
+    `crearFlujoConIA` (`lib/flujo-ia-crear.ts:63`), y lo que arma el paso vive en **`lib/flujo-ia.ts`**.
+  - Lo que medí ahí: un paso de audio es `tipo: 'audio'` + `audio_id` de la biblioteca del negocio
+    (`lib/flujo-ia.ts:1147-1150`), y el modelo **no puede inventar un audio_id** —la validación lo rechaza
+    (`:3430`, «un mensaje usa un audio que no está en la biblioteca»)—. Lo que SÍ pasa es que el `cuerpo` que escribió
+    el modelo se guarda igual: `:1204` deja pasar un paso de audio sin cuerpo, pero `:1205` (`paso.cuerpo = cuerpo`)
+    escribe el que haya. Y el prompt se lo pide: `:3985` dice «"mensaje": lo que le llega al lead … Opcional: "audio"»,
+    o sea el texto es obligatorio y el audio un agregado.
+  - ⚠️ **Lo que falta medir antes de tocar nada, y es el motivo de que lo deje acá:** si el MOTOR manda ese `cuerpo`
+    además de la nota de voz (entonces el lead recibe un texto que nadie escribió, y es grave) o si sólo se ve en la
+    tarjeta del editor (molesto, no grave). Y por qué al EDITAR no pasa: la diferencia entre las dos ramas ES el
+    arreglo. `lib/flujo-ia.ts` son ~4.000 líneas y gobierna las automatizaciones de TODOS los clientes: no se cambia
+    a la adivinanza.
   - Qué falta: Otro punto del §Sin hacer de automations.md que nadie trajo: en la rama `crear` de `/api/chat-agent/secuencias/ia`, el modelo escribe el texto de una tarjeta de audio que la persona tiene que grabar con su voz, y crear no ofrece «Discutir / Editar» (editar si lo tiene). Hecho = al crear, una tarjeta de audio sale vacia pidiendo la grabacion, y crear ofrece Discutir/Editar como editar.
   - Dónde: `C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts (rama `crear`) · C:/dev/wt-puntas/docs/relevo/automations.md:451-475`
 - **Automations: no hay «solo estos dias» del goteo aparte del horario de la automatizacion** · _chico_
