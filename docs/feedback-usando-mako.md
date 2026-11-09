@@ -89,3 +89,34 @@ se abre **vacía y sin decir por qué**: se lee como «se rompió». Pasó con 1
 
 **Qué hace falta.** O exigir un canal en el alta, o que la ficha vacía diga qué le falta a ese
 competidor para poder leerse.
+
+## El reel de Instagram: todo el trabajo terminó fuera de MaKo (8/11/2026)
+
+Martín pidió replicar un reel con la metodología Avatar Hype (foto → imagen → video). **Ni una sola
+imagen se pudo generar desde MaKo.** Lo que frenó, en orden:
+
+1. **El puente de Flow se cuelga en `tomado` y nadie lo marca fallido.** El trabajo #688
+   (`subir_imagen`, ws9) quedó `tomado` con `intentos = 0` y nunca volvió. La pantalla repite «MaKo
+   está subiendo tu foto a Google. En unos segundos vuelve a intentar» **para siempre**, porque el
+   mensaje sale del trabajo pendiente y no hay plazo que lo pase a `fallido`. Un trabajo sin plazo
+   no es un trabajo lento: es un cartel que miente. Falta un vencimiento en `flow_trabajos`.
+2. **El arreglo de la extensión no subió la versión.** El commit `93e3f29b6` arregló el matcher de
+   íconos de Material, pero `extension/manifest.json` siguió en **0.77.0**, igual que el que está
+   cargado en Chrome. Con eso **no hay forma de saber si el navegador corre el build con el
+   arreglo** — ni mirando la extensión, ni desde el aviso de «tu extensión quedó vieja», ni desde
+   `flow_puentes.version`, que informa 0.77.0 en los dos casos. Todo cambio de `extension/` tiene
+   que subir la versión; es la misma lección del zip con nombre fijo, un paso antes.
+3. **MaKo manda a subir la foto por el menú «Upload» de Flow, que abre el selector nativo.** Medido
+   el 8/11: **pegar la imagen en la caja de prompt de Flow funciona** (`ctrl+V` con la foto en el
+   portapapeles) y deja la foto como ingrediente, sin selector de archivos y sin menú. El puente
+   debería pegar en vez de pelearse con el menú.
+4. **«Tu cara» guarda una sola foto y no hay galería.** Para elegir una buena referencia hubo que
+   abrir el álbum de Google Photos de Martín por fuera ([[fotos-de-martin-album]]) y subirla a mano.
+5. **«Diseñar un personaje» está en la pantalla y dice «No disponible todavía».** Una opción muerta
+   a la vista es peor que no tenerla.
+6. **No hay formato ni escena fuera del catálogo** (ya anotado arriba): el reel pedía cuatro
+   escenarios que no son ninguno de los presets, y el 9:16 hubo que ponerlo en Flow.
+
+**Lo que sí quedó medido y sirve:** en Flow las imágenes dicen **«Generating will use 0 credits»** —
+son gratis de verdad, y el ajuste de formato (16:9 / 4:3 / 1:1 / 3:4 / 9:16) vive en el panel del
+botón de modelo, no en el prompt: pedirle «vertical 9:16» al texto **no alcanza**, sale horizontal.
