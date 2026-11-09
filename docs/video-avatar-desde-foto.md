@@ -678,3 +678,21 @@ Resultado: la cara, el pelo, la remera y la pose intactas; el corcho con las car
 notas amarillas y los chinches de colores del original conservados. **No hace falta regenerar a la
 persona para cambiarle el fondo** — eso es lo que veníamos haciendo mal cuando el parecido se
 perdía.
+
+### Si el material no alcanza para los huecos, el modelo repite (9/11/2026)
+
+Martín: **«repitió a muchas y no usó a otras, asegúrate de pasarles las suficientes para que tengan
+material»**. El corcho del clip 1 tiene del orden de **cincuenta huecos** y nosotros tenemos **32
+caricaturas**: con una sola referencia de 32 caras chicas (150 px en un lienzo de 1080), el modelo
+rellena repitiendo y además ignora las que no llegó a leer.
+
+**Lo que sube la variedad:**
+- **Varias referencias, no una.** Flow adjunta varias imágenes pegadas una tras otra (`Ctrl+V`,
+  esperar a que cargue la miniatura, repetir). Dos lotes de **16 caras a 225 px** se leen mucho
+  mejor que 32 a 150 px en una sola.
+- **Decir el número y la correspondencia:** «En el corcho hay **32 fotos, una por cada una de estas
+  caras**» — ata la cantidad de huecos al material disponible, en vez de dejarlo rellenar.
+
+⚠️ **Pero el techo es real:** mientras el corcho tenga más huecos que caricaturas tengamos, va a
+repetir. Para que no repita hay que **bajar la cantidad de fotos del corcho a 32** o **generar más
+caricaturas** (`lib/asesores/`, hay 130 cursos en Knowledge de donde salen fichas nuevas).
