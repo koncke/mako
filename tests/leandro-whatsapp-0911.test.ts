@@ -46,25 +46,25 @@ test('1. una TARJETA del lienzo no es una tarjeta de pago: el reporte de Automat
 });
 
 test('2. el número del dueño es el dueño: el primer admin del negocio, aunque su perfil no tenga teléfono', () => {
-  // Como el ws 10 el 9/11: dos admins, ninguno con el teléfono en el perfil; el número del dueño es el de Leandro.
+  // Como el ws 10 el 9/11 (datos inventados): dos admins, ninguno con el teléfono en el perfil; el número del dueño es el del fundador.
   const ws10 = [
-    { id: 24, email: 'labelmanager@fiestamusic.es', rol_ws: 'admin', created_at: '2026-10-25T01:00:31Z', perfil: {} },
-    { id: 8, email: 'tejadomartin@gmail.com', rol_ws: 'admin', created_at: '2026-07-29T00:54:51Z', perfil: { telefono: '' } },
+    { id: 24, email: 'equipo.fiesta@example.com', rol_ws: 'admin', created_at: '2026-10-25T01:00:31Z', perfil: {} },
+    { id: 8, email: 'fundador.fiesta@example.com', rol_ws: 'admin', created_at: '2026-07-29T00:54:51Z', perfil: { telefono: '' } },
   ];
-  assert.equal(emailDelTelefono(ws10, '5491171342056', '5491171342056'), 'tejadomartin@gmail.com', 'el dueño en su grupo no es nadie');
+  assert.equal(emailDelTelefono(ws10, '5491155550123', '5491155550123'), 'fundador.fiesta@example.com', 'el dueño en su grupo no es nadie');
   // El 9 de Argentina que agrega WhatsApp no cambia nada (se compara por los últimos 8).
-  assert.equal(emailDelTelefono(ws10, '541171342056', '5491171342056'), 'tejadomartin@gmail.com');
+  assert.equal(emailDelTelefono(ws10, '541155550123', '5491155550123'), 'fundador.fiesta@example.com');
   // Otro teléfono sigue sin ser nadie, y sin número del dueño también.
-  assert.equal(emailDelTelefono(ws10, '5491199998888', '5491171342056'), null, 'cualquiera del grupo pasó a ser el dueño');
-  assert.equal(emailDelTelefono(ws10, '5491171342056', null), null);
+  assert.equal(emailDelTelefono(ws10, '5491199998888', '5491155550123'), null, 'cualquiera del grupo pasó a ser el dueño');
+  assert.equal(emailDelTelefono(ws10, '5491155550123', null), null);
   // El de un perfil gana; dos perfiles con el mismo teléfono no son nadie (no se elige uno al azar).
-  const conPerfil = [...ws10, { id: 30, email: 'closer@fiestamusic.es', rol_ws: 'closer', created_at: '2026-11-01T00:00:00Z', perfil: { telefono: '+54 9 11 7134-2056' } }];
-  assert.equal(emailDelTelefono(conPerfil, '5491171342056', '5491171342056'), 'closer@fiestamusic.es');
-  const dos = [...conPerfil, { id: 31, email: 'otro@fiestamusic.es', rol_ws: 'admin', created_at: '2026-11-02T00:00:00Z', perfil: { telefono: '1171342056' } }];
-  assert.equal(emailDelTelefono(dos, '5491171342056', '5491171342056'), null);
+  const conPerfil = [...ws10, { id: 30, email: 'closer.fiesta@example.com', rol_ws: 'closer', created_at: '2026-11-01T00:00:00Z', perfil: { telefono: '+54 9 11 5555-0123' } }];
+  assert.equal(emailDelTelefono(conPerfil, '5491155550123', '5491155550123'), 'closer.fiesta@example.com');
+  const dos = [...conPerfil, { id: 31, email: 'otro.fiesta@example.com', rol_ws: 'admin', created_at: '2026-11-02T00:00:00Z', perfil: { telefono: '1155550123' } }];
+  assert.equal(emailDelTelefono(dos, '5491155550123', '5491155550123'), null);
   // Un closer nunca es «el dueño» por el número: el dueño es un admin (`rol_ws` nulo también es admin).
   const sinAdmin = [{ id: 40, email: 'setter@x.com', rol_ws: 'setter', created_at: '2026-07-01T00:00:00Z', perfil: {} }, { id: 41, email: 'dueno@x.com', rol_ws: null, created_at: '2026-08-01T00:00:00Z', perfil: {} }];
-  assert.equal(emailDelTelefono(sinAdmin, '5491171342056', '5491171342056'), 'dueno@x.com');
+  assert.equal(emailDelTelefono(sinAdmin, '5491155550123', '5491155550123'), 'dueno@x.com');
 });
 
 test('3. lo que la persona suma a un ticket que abrió MaKo solo lo hace suyo: con la regla, va al arreglo', () => {
@@ -120,7 +120,7 @@ test('5. la API carga las formas de decirlo de un DM o de la respuesta pública;
   const guardado = (r as { pasos: Array<{ id: string; variantes?: string[] }> }).pasos.find((p) => p.id === 'pub')!;
   assert.deepEqual(guardado.variantes, OTRAS, 'no quedaron las otras formas, o quedó repetido el texto');
   assert.match((r as { resumen: string }).resumen, /rota entre 3 formas de decirlo/);
-  const sin = botonesParaGuardar((r as { pasos: never[] }).pasos, 'pub', null, 'IG - GUIA', undefined, undefined, []);
+  const sin = botonesParaGuardar((r as unknown as { pasos: never[] }).pasos, 'pub', null, 'IG - GUIA', undefined, undefined, []);
   assert.deepEqual((sin as { pasos: Array<{ id: string; variantes?: string[] }> }).pasos.find((p) => p.id === 'pub')!.variantes, [], '[] no las sacó');
   const err = (vs: unknown[]) => { const x = botonesParaGuardar(pasos, 'pub', null, 'IG - GUIA', undefined, undefined, vs); return x.ok ? '' : x.error; };
   assert.match(err(['']), /necesita su texto/);

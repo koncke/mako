@@ -86,7 +86,8 @@ test('1. el motor: ningún envío pone los datos «crudos»; sólo el asunto y e
   // Instagram y Messenger: Zernio recibe el texto FINAL (`partesConDatos`) y ningún dato más (`vars: {}`), así no se
   // ponen dos veces.
   const social = bloque(NUT, '} else if (esCanalSocial(paso.canal)) {', "} else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {", 3_000);
-  assert.match(social, /partes: partesConDatos\(partesDe\(paso\), varsSocial\),\s*vars: \{\},/);
+  // `partesParaEnviar` (9/11/2026): las partes del paso con UNA forma de decirlo sorteada (tests/leandro-whatsapp-0911.test.ts).
+  assert.match(social, /partes: partesConDatos\(partesParaEnviar\(paso\), varsSocial\),\s*vars: \{\},/);
   const pcd = bloque(NUT, 'function partesConDatos(', '\n}\n', 600);
   assert.equal((pcd.match(/textoConDatos\(p\.cuerpo, vars\)/g) ?? []).length, 2, 'el texto y el pie de un archivo');
   // Un mensaje que quedó vacío (cada renglón nombraba un dato sin valor) no sale en blanco: se omite.

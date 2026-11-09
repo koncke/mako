@@ -45,7 +45,7 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp, OtrasFormasDeDecirlo, chip } from './EditorMensajeWhatsApp';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp, OtrasFormasDeDecirlo, chip as chipVariantes } from './EditorMensajeWhatsApp';
 import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -325,7 +325,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
         {partes.length === 1 && (variantes.length > 0 || agregaVersiones) && (
           <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-label="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
-            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chip}>↻{variantes.length > 0 ? ` ${variantes.length}` : ''}</button>
+            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={chipVariantes}>↻{variantes.length > 0 ? ` ${variantes.length}` : ''}</button>
         )}
         <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
           style={{ ...accionBurbuja, ...(editando === i ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>

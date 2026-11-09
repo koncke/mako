@@ -198,7 +198,9 @@ test('el cableado: el motor, aprobar, la hoja, Configuraciones, el editor y MaKo
   const e = leer('app/automations/EditorMensajeWhatsApp.tsx');
   assert.match(e, /const agregaVersiones = !!conVersiones && unTexto && !vozMako && paso\.tipo !== 'ia' && !!\(paso\.cuerpo \?\? ''\)\.trim\(\);/, 'ni en el aviso al equipo, ni en la IA, ni sin texto');
   assert.match(e, /conVariantes && \(variantes\.length > 0 \|\| agregaVersiones\) &&/, 'sin ninguna, igual hay dónde tocar');
-  assert.match(e, /onClick=\{\(\) => onChange\(\{ variantes: \[\.\.\.variantes, ''\] \}\)\}/);
+  // Desde el 9/11/2026 el panel es UNA pieza que comparte con Instagram y Messenger (`OtrasFormasDeDecirlo`, el ticket #67 de Leandro).
+  assert.match(e, /<OtrasFormasDeDecirlo variantes=\{variantes\} agrega=\{agregaVersiones\} onCambio=\{\(vs\) => onChange\(\{ variantes: vs \}\)\}/);
+  assert.match(e, /onClick=\{\(\) => onCambio\(\[\.\.\.variantes, ''\]\)\}/);
   assert.match(e, /variantes\.length < TOPE_VERSIONES/);
   // Corregir el texto las suelta: se dice en los tres caminos, y «Deshacer» las devuelve a la vista.
   assert.match(e, /avisarSiSeVan\(r\.cuerpo\);/);
