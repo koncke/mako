@@ -6,6 +6,28 @@ Code, el hook que reporta sus sesiones, y lo que MaKo hace con eso.
 
 ---
 
+## El token EQUIVOCADO: la skill decía «inválido o revocado» a un token vigente de otra pantalla (ticket #60, 9/11/2026)
+
+**Vive en:** `lib/api-mako/autorizacion-reglas.ts` (`mensajeDeAutorizacionAgente`) · `lib/agente-token.ts`
+(`rechazoAgente`, `bearerDe`) · las siete rutas de `app/api/agente/*` · la prueba, tests/agente-token-equivocado.test.ts.
+
+**El síntoma:** Mauricio (ws1) no pudo conectar su Claude. Generó dos tokens y los dos daban «token inválido o revocado».
+
+**El diagnóstico obvio era el equivocado.** El 6/11 (`fa029686e`) se arregló el 401 de `/api/v1`, que decía lo mismo sin
+cabecera, sin «Bearer» y con un token inexistente. Pero su Claude no le pegaba a `/api/v1`: le pegaba a `/api/agente/*`,
+las rutas de la skill, que tenían su propio 401 sin tocar. Y sus tokens no estaban revocados: eran **detallados**
+(`mako_pat_`, de API → Tokens), que la skill no acepta a propósito; ella sólo acepta el **clásico** (`mkoag_`, de
+Integraciones → Claude). En la llamada del 8/11 se le dijo además que era «el mismo» token. Con el 401 diciendo «inválido»,
+regenerar en API → Tokens era el paso natural, y nunca iba a andar. Reproducido en el ws3 contra producción con un
+`mako_pat_` real: `/api/v1` 200; `/api/agente/contexto`, `/plan` y `/skill` 401.
+
+**La regla que queda:** la frontera NO se abre (la skill sigue sin aceptar el detallado: tests/api-mako-tokens.test.ts).
+Lo que cambia es que **el 401 de cada puerta dice qué token espera esa puerta y de dónde sale.** Un token vigente de otra
+pantalla no es un token inválido, y decírselo así manda a regenerar, que es lo único que no lo arregla. Las siete rutas
+contestan con `rechazoAgente(req)` y no con un texto suelto, y `bearerDe` lee la cabecera con la misma regla que arma el
+mensaje (con dos patrones, uno acepta lo que el otro llama «otro esquema»). Por qué no se abrió la frontera:
+[feedback-llamada-8-11.md](feedback-llamada-8-11.md) § 1.
+
 ## La telemetría no puede vivir en la skill, y no es una cuestión de estilo
 
 **Vive en:** `lib/agente-plugin.ts`

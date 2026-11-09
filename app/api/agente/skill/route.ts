@@ -22,7 +22,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsDelBearer } from '@/lib/agente-token';
+import { bearerDe, rechazoAgente, wsDelBearer } from '@/lib/agente-token';
 import { agenteSkillMarkdown, AGENTE_SKILL_ARCHIVO } from '@/lib/agente-skill';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const ws = await wsDelBearer(token);
   if (ws instanceof Response) return ws;
   if (ws == null) {
-    return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
+    return rechazoAgente(req);
   }
 
   // El archivo lleva el bearer PRESENTADO. `wsDelBearer` sólo deja pasar el token PRINCIPAL

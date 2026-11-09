@@ -593,4 +593,22 @@ export const BITACORA: Hito[] = [
     revisar: '/integraciones',
     tickets: [66],
   },
+  {
+    fecha: '09 nov', hora: '12:30', chat: 'feedback-llamada-0911', sesion: 'local_12aca94a-a8ef-4bd3-9d23-a70470304bfd', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Tu Claude usa el token de Integraciones → Claude (empieza con «mkoag_»), no el de API → Tokens, y ahora MaKo te avisa si le das el otro',
+    puntos: [
+      '**El diagnóstico obvio era el equivocado.** El 6/11 se arregló el 401 de `/api/v1`, pero el Claude de Mauricio le pegaba a `/api/agente/*`, las rutas de la skill, que seguían diciendo «token inválido o revocado» a todo. Y sus tokens no estaban revocados: eran detallados (`mako_pat_`, de API → Tokens), que la skill no acepta a propósito.',
+      '**Reproducido en el ws3 contra producción** con un `mako_pat_` real, revocado al terminar: `/api/v1` 200; `/api/agente/contexto`, `/plan` y `/skill` 401. Sin cabecera y sin «Bearer», el mismo texto.',
+      '**La frontera no se abre** (la skill mete en su archivo el token que recibe, el plugin ata su consentimiento al clásico y sus rutas no tienen permiso por área): lo que cambia es que el 401 de cada puerta dice qué token espera y de dónde sale.',
+      '**Las pantallas también:** el token nuevo de API → Tokens dice «No sirve para la skill de Claude», y la tarjeta de Integraciones → Claude, que es ése el que va.',
+    ],
+    archivos: [
+      'lib/api-mako/autorizacion-reglas.ts — `mensajeDeAutorizacionAgente`, la regla pura del 401 de la skill',
+      'lib/agente-token.ts — `rechazoAgente(req)` (el 401 de las siete rutas) y `bearerDe` con la misma regla',
+      'app/api-mako/Tokens.tsx · app/_components/TutorialAgente.tsx — cuál token va, en las dos pantallas',
+      'tests/agente-token-equivocado.test.ts — 7 pruebas, probado rompiéndolo (5 mutaciones, las 5 rojas)',
+    ],
+    revisar: '/integraciones?abrir=agente',
+    tickets: [60],
+  },
 ];
