@@ -1418,6 +1418,13 @@ marcados y el cliente no los puede borrar — sólo dejar de verlos.
   desplegado**, así que lo que Martín vio es la versión vieja. Hay que mirarlo DESPUÉS de recargar;
   si sigue roto es otro problema y hace falta la captura.
 
+## ⏩ AL 9/11/2026 ~14:15 ART (claude4, Cerebro): lo que está EN CURSO
+
+- **El reel de mentores:** todo en docs/relevo/reel-mentores-high-ticket.md (§000 a §00). El clip 1 se rehizo en FLOW con la receta exacta de CLIP-wavnivel; Martín tiene que aprobarlo, y después va el clip 2 igual. ⛔ Video por Flow, nunca ApiMart (una tarea ya lanzada espera en `C:/dev/reel-mentores/omni/clip1-omni.mp4.task.txt`; no se relanza).
+- **El manual de video de MaKo** (pedido de Martín, 9/11): workflow `wf_894b64a7-9f6` → `docs/manual-video-mako.md` + `C:/dev/reel-mentores/manual/manual-video-mako.html`. Al terminar: corregir donde diga ApiMart (es Flow), publicarlo como Artifact y mandárselo.
+- **El ticket de la conexión de Claude de Mauricio:** `b5f621c6f` YA está en main (acepta de más el esquema «token»); la corrección `22c544886` está en `punta/token-agente-0911`, y la reverificación corre en `wf_6ddc9fe4-f0e` (árbol `C:/dev/verif-22c544886`). Si da BIEN, la punta entra sola; con el deploy confirmado, decirle al chat feedback-llamada (`local_12aca94a…`) que mande el aviso a Mauricio con --enviar. Informe de la primera revisión: `C:/dev/revisiones/2911-verificacion-token-agente-b5f621c6f.json`.
+- **Chats de la nube:** Web Replicate (los varios mouse, + extensión «Swarm rebuild») y Edición en MaKo. Sus puntas dieron rojo por el autor noreply; ya se les pidió firmar con martinkoncke@gmail.com.
+
 ## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 90 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
