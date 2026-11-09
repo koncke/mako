@@ -30,6 +30,7 @@ import { MAX_SECCIONES, esquemaDelPedido, pedidoDeTanda, quitarPruebaDeLaOrigina
 import { configDeReplica } from '../lib/editor-landing/replicar-reglas';
 import { copyDeHtml, sinLetrasDobles } from '../lib/landing-extraer';
 import { leerEventos, lineaDeEvento, vistaDeEventos } from '../lib/editor-landing/replicar-progreso';
+import { ESPERA_FINAL_MS, PINTA_MS, TOPE_PINTURA_MS } from '../lib/editor-landing/replicar-escena';
 
 const RAIZ = join(__dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
@@ -380,7 +381,12 @@ test('7. en vivo: las líneas del flujo, una línea rota que no rompe, y lo que 
   // La pantalla replica en vivo y abre el editor cuando YA se vio todo.
   const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
   assert.match(pantalla, /const \{ estado, eventos, lista, replicar \} = useReplicarEnVivo\(\);/);
-  assert.match(pantalla, /onTodoVisible=\{\(\) => setTimeout\(abrirCopia, 600\)\}/);
+  // 9/11/2026 (el reel de Web Replicate): la espera dejó de ser 600 ms fijos. Lo que se cuida es que el editor se abra
+  // DESPUÉS de que se vio todo (por `onTodoVisible`), y que esa espera alcance para que termine de pintarse el diseño sin
+  // pasar de unos segundos.
+  assert.match(pantalla, /onTodoVisible=\{\(\) => setTimeout\(abrirCopia, ESPERA_FINAL_MS\)\}/, 'el editor se abre cuando ya se vio todo');
+  assert.ok(ESPERA_FINAL_MS >= TOPE_PINTURA_MS + PINTA_MS, `la espera (${ESPERA_FINAL_MS} ms) deja terminar la pintura del diseño`);
+  assert.ok(ESPERA_FINAL_MS <= 5_000, `segundos, no minutos (${ESPERA_FINAL_MS} ms)`);
   assert.match(pantalla, /enVivo: true/);
 });
 

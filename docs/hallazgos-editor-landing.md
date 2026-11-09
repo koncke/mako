@@ -6,6 +6,33 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Los varios mouse de Replicar, copiados del reel y atados a los eventos (9/11/2026, nube)
+
+- **Pedido de Martín:** «PARA WEB REPLICATE, COPIAR ESTO: [un reel] … Sobre todo la animación de los multiples mouse
+  actuando». El reel, cuadro por cuadro, y lo que se hizo: [relevo/web-replicate-nube.md](relevo/web-replicate-nube.md).
+- **La regla que lo hace honesto:** todo lo que AVANZA en el escenario sale de los eventos de la réplica
+  (`replicar-progreso.ts`) y de la cadencia de `ArmadoEnVivo`: una caja aparece con el `esquema`, se escribe sólo si su sección
+  llegó y se reveló, se pinta con el `diseno`, se juntan con el `fin`. Los tirones de los cursores sin tarea no miden nada.
+  Por eso la barra no dice «12 agentes» (dice la fase real) y el botón naranja no es «STOP»: la réplica sigue en el servidor
+  y se paga, así que un STOP que no frena miente; va «Ver todo».
+- **El diagnóstico obvio era el equivocado (la cámara):** «que la cámara siga lo último que empezó» bajaba hasta el final con
+  los trazos (el esquema llega entero y se trazan todas) mientras arriba se escribían los títulos, y después volvía. Medido en
+  el navegador. Los trazos NO mueven la cámara: manda lo que se escribe y lo que se pinta.
+- **Trampa de los tests de una pieza dibujada en el server:** React 19 mete el `<style href precedence>` ADENTRO del HTML de
+  `renderToStaticMarkup`, así que un `doesNotMatch(html, /wr-ver-todo/)` encuentra la clase en la hoja y da rojo con la pieza
+  bien. Se busca el elemento (`<button[^>]*wr-ver-todo`, `class="ae-piezas"`), nunca el nombre suelto.
+- **Trampa del suavizado:** el «nunca se pasa del destino» de un suavizado exponencial sólo se rompe con un cuadro LARGO
+  (una pestaña que vuelve): probado con 16 ms, una rotura con 1,6 × el paso daba verde. El test prueba 16, 64, 400 y 5.000 ms.
+- **Trampa de la nube:** el tsc acotado muere con el heap por defecto (2.560 MB) y sale «código undefined»: va `--heap=4096`.
+  Y Playwright está instalado para el `node` del sistema (`/opt/node-tools`), no para el 24 de `scripts/node24.sh`: el arnés
+  del navegador se corre con el `node` de siempre. Para montar una pieza suelta sin la app: esbuild con
+  `NODE_PATH=<repo>/node_modules` y `--tsconfig` del repo (resuelve el `@/`).
+- **Vive en:** app/_ui/enjambre.ts, app/_ui/CursorAgente.tsx, lib/editor-landing/replicar-escena.ts,
+  app/web-generator/crear/EscenarioReplica.tsx, app/_ui/ArmadoEnVivo.tsx (`escena`), app/web-generator/crear/Replicar.tsx.
+  **Lo fija:** tests/web-replicate-agentes.test.ts (22 roturas).
+- **Falta:** el anillo en el paso 1 («Leer»), la página real adentro de cada caja (la foto de la copia idéntica, en un iframe
+  con sandbox) y verlo con una réplica de punta a punta en la app (esta nube no tiene la base).
+
 ## MaKo toma la iniciativa en el Web Generator: «¿Ya está lista para que la vean?» (5/11/2026, nube)
 
 - **Qué hace:** con la página abierta sin publicar y la charla vacía, el chat del editor pregunta un hecho; «Sí, ya está» abre el

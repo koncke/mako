@@ -49,6 +49,8 @@ export type EstiloPresetSubtitulos = {
   fondo?: FondoPreset;
   trazo?: { color: string; grosor: number };
   mayusculas?: boolean;
+  /** En minúsculas (la plantilla «Lima», 9/11/2026). Con las dos, gana mayúsculas, como en la plantilla. */
+  minusculas?: boolean;
   sombra?: boolean;
   resaltado?: { modo: 'palabra' | 'frase'; color: string; noDichasOpacidad?: number };
 };
@@ -129,6 +131,7 @@ export function sanearEstilo(raw: unknown): Resultado<EstiloPresetSubtitulos> {
     estilo.trazo = { color: c, grosor: Math.round(g) };
   }
   if (r.mayusculas === true) estilo.mayusculas = true;
+  else if (r.minusculas === true) estilo.minusculas = true;
   if (r.sombra === true) estilo.sombra = true;
   if (r.resaltado) {
     const s = r.resaltado as Record<string, unknown>;
@@ -253,6 +256,7 @@ export function resumenPreset(p: PresetSubtitulos): string {
   const e = p.estilo;
   const partes = [`${e.fuente}${e.negrita ? ' negrita' : ''}`, `letra ${e.color}`];
   if (e.mayusculas) partes.push('en mayúsculas');
+  else if (e.minusculas) partes.push('en minúsculas');
   if (e.escala && e.escala !== 1) partes.push(`tamaño ×${String(e.escala).replace('.', ',')}`);
   if (e.fondo) partes.push(`fondo ${e.fondo.color}`);
   if (e.trazo) partes.push(`contorno ${e.trazo.color}`);
@@ -287,8 +291,10 @@ export function presetDesdeApi(input: Record<string, unknown>, existente: Preset
   if (input.color !== undefined) estilo.color = input.color;
   if (input.escala !== undefined) estilo.escala = input.escala;
   if (input.mayusculas !== undefined) {
-    if (input.mayusculas === true) estilo.mayusculas = true;
-    else delete estilo.mayusculas;
+    if (input.mayusculas === true) {
+      estilo.mayusculas = true;
+      delete estilo.minusculas;
+    } else delete estilo.mayusculas;
   }
   if (input.sombra !== undefined) {
     if (input.sombra === true) estilo.sombra = true;

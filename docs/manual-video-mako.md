@@ -72,6 +72,7 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 7. **Los créditos se gastan recién con el OK del usuario a la imagen. Nunca antes.**
    «Cuando el usuario da el ok, generar el video: ahí recién se pasa a gastar los créditos.» «Para que no sea culpa nuestra casi nunca.»
 
+   **Duración = palabras, y el clip se transcribe antes de entregar** (Martín, 9/11): «porque elegiste una duración más larga de la que debería… repitió una palabra, eso no debería pasar… contar las palabras para determinar cuántos segundos le vas a mandar a la instrucción. Y de paso también se ahorran tokens». Si el video dura más que la frase, Omni repite palabras («…en vendehumo, en vendehumos», clip 3 con 16 palabras en 8 s). Ritmo real de Omni (transcripción): ~3,3 palabras/s quieto, ~2,8 con un gesto; el habla arranca ~0,8 s. Duración = el valor más chico de Flow (3–10 s, 3 créditos/s) que cubra `0,8 + palabras/ritmo + 0,3`. Antes de entregar: `node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"` (ElevenLabs speech-to-text) marca palabras REPETIDAS, faltantes o cambiadas.
    **Y nunca variaciones de video** (9/11): «no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.» De imagen, todas las muestras que hagan falta; de video, uno por pedido, con el OK a su imagen.
 8. **Una sola referencia y un prompt simple. Siempre.**
    «No le pases muchas referencias porque ahí lo hace mal la inteligencia artificial.» Cada referencia de más compite con las otras.
@@ -168,6 +169,8 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 - El avatar no sale de una imagen de referencia de look: el que se hizo así (`avatar-delante-v1.jpg`) Martín lo rechazó, «no me gusta el avatar».
 - Una persona por imagen. Dos personas son dos avatares, cada uno en su propia cadena.
 - Un cambio por edición, anclando lo que no cambia: «La persona queda igual, con la misma ropa…».
+- **«Tal cual, pero X»: se edita la imagen que le gustó y se pide sólo X.** Si se regenera desde el original con otra descripción, el modelo inventa otro diseño (9/11: el CRM del celular pasado a modo claro). Frase que funcionó: «La pantalla del celular pasa a modo claro: el mismo diseño, las mismas columnas, tarjetas, fotos y etiquetas de colores, pero con fondo blanco y letras oscuras. Todo lo demás, él, su mano y el cuarto, queda exactamente igual.»
+- **Un objeto con pantalla (celular, notebook):** se agrega en el avatar, como la polaroid, describiendo la pantalla por lo que se ve (colores, formas, tipo de app) y sin pedir textos: el modelo los escribe mal. Grabar la pantalla real no hace falta (9/11: el CRM inventado por Flow se reconoce como app).
 - La pose se pide con una foto de referencia y una frase: «que haga la misma pose que la foto que adjunto».
 - Checklist de avatar (§5.1) y el del template (por ejemplo, en «Mensaje para…», el avatar con iluminación y fondo blanco).
 - Win: 1K original guardado como el **avatar original** de esa persona, con su contexto.
@@ -287,6 +290,7 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 - [ ] `volumedetect`, medido apenas baja: el nivel tiene sentido (un clip puede volver mudo, o ponerse a hablar solo).
 - [ ] Tira de 5 fotogramas: la cara sigue siendo la misma de principio a fin.
 - [ ] La boca dice la frase entera, sin pausas raras, y dice exactamente el guion.
+- [ ] **Transcripto y comparado con el guion** (`node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"`): ni una palabra repetida, faltante o cambiada. La duración se eligió contando palabras.
 - [ ] El cuerpo hace sólo lo pedido: lo quieto quedó quieto.
 - [ ] El modelo no inventó texto ni subtítulos.
 - [ ] El acento es el pedido (se escucha).

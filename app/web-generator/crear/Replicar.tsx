@@ -46,6 +46,11 @@
 // y la lista que crece. Cuando terminó Y ya se ve todo, se abre el editor de la copia. La lectura llega entera: su lista
 // de secciones también se revela de a una (`useRevelado`).
 //
+// 9/11/2026, el reel de Web Replicate (Martín: «COPIAR ESTO… Sobre todo la animación de los multiples mouse actuando»): lo
+// armado se ve en un escenario con doce cursores con nombre que trazan una caja por sección, escriben su título y pintan
+// el diseño (./EscenarioReplica.tsx, lib/editor-landing/replicar-escena.ts), atados a los MISMOS eventos y a la misma
+// cadencia. El editor se abre `ESPERA_FINAL_MS` después de que se ve todo: lo que tardan en juntarse al lado del botón.
+//
 // TICKET #54 (4/11/2026, Leandro, ws 10): «quise volver para atrás […] se me borró completamente la página analizada […] lo que
 // haría no sería que se borre, sino de que quede en estado borrador». Lo leído vivía SÓLO en esta pantalla: volver al chat
 // desde la lista del editor (que cierra «Nueva landing»), ir a otra landing o el «atrás» se lo llevaban. Ahora la ruta de
@@ -69,6 +74,8 @@ import { NOMBRE_TIPO_SECCION, type Angulos } from '@/lib/editor-landing/replicar
 import type { LecturaReplica, RespuestaLectura } from '@/lib/editor-landing/replicar-lectura-tipos';
 import { leerEventos, vistaDeEventos, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
 import { ArmadoEnVivo, useRevelado } from '@/app/_ui/ArmadoEnVivo';
+import { ESPERA_FINAL_MS } from '@/lib/editor-landing/replicar-escena';
+import { EscenarioReplica } from './EscenarioReplica';
 import {
   abrirEnElClic, cerrarVentana, leerEnNavegador, mensajeSinFoto, pedirConVentana, tomarVentanaReservada,
   type SalidaSinLectura, type VentanaDelClic,
@@ -801,7 +808,17 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
               total={vista.total || lectura.lectura.secciones.length}
               unidad="secciones"
               terminado={vista.terminado}
-              onTodoVisible={() => setTimeout(abrirCopia, 600)}
+              onTodoVisible={() => setTimeout(abrirCopia, ESPERA_FINAL_MS)}
+              escena={({ visibles, llegadas, saltear }) => (
+                <EscenarioReplica
+                  eventos={eventos}
+                  visibles={visibles}
+                  llegadas={llegadas}
+                  saltear={saltear}
+                  moldes={lectura.lectura.secciones}
+                  colores={lectura.lectura.diseno?.colores}
+                />
+              )}
             />
           )}
           {estado.fase === 'falla' && (

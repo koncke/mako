@@ -260,10 +260,10 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['video-editor'],
     que: 'Video: un editor copiado de CapCut, con MaKo siempre a la izquierda para pedirle cambios; «Nuevo video» trae los formatos, las plantillas y «Generar con IA» (el Video Generator).',
-    hace: ['Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Exportar el video'],
+    hace: ['Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video'],
     noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)'],
     reemplaza: 'CapCut',
-    alias: ['video editor', 'editar video', 'edicion de video', 'capcut'],
+    alias: ['video editor', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes'],
     conecta: [{ a: 'video-generator', motivo: 'Recibe los anuncios que genera' }],
     estado: 'parcial', slugDev: 'video-editor', fuentes: [AREAS, 'AGENTS.md'],
   },

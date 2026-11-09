@@ -170,7 +170,9 @@ export type OperacionChat =
   /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
   | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean }
   /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
-  | { op: 'clips_magicos'; cuantos?: number };
+  | { op: 'clips_magicos'; cuantos?: number }
+  /** «Edición automática» (app/video-editor/_opencut/enjambre): el equipo de agentes edita todo, de una y a la vista. */
+  | { op: 'edicion_automatica' };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -412,6 +414,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     op: 'clips_magicos',
     forma: '{"op":"clips_magicos","cuantos":5}',
     para: 'Clips mágicos, como OpusClip: busca en un video LARGO los mejores momentos (de 15 a 60 s, que se entiendan solos) para hacer Reels o Shorts. "cuantos" (opcional, de 1 a 10; sin él, 5). No elige ni inventa los momentos: los busca al aceptar, y la persona abre cada uno en un proyecto nuevo, vertical y con subtítulos. No cambia este proyecto. Se aplica al final.',
+  },
+  {
+    op: 'edicion_automatica',
+    forma: '{"op":"edicion_automatica"}',
+    para: 'Edición automática con un equipo de agentes, de una y a la vista: quita pausas, subtitula si falta, saca muletillas, resalta lo que pesa en lima, propone fotos de apoyo y acercamientos, limpia la voz, deja el volumen a −14 LUFS y revisa al final. Úsala cuando pidan editarlo todo o dejarlo listo de una. Cada agente sin nada que hacer se saltea. Va SOLA y se aplica al final.',
   },
 ];
 
@@ -933,6 +940,11 @@ export function validarOperacion(crudo: unknown): Validada {
         return { ok: false, motivo: 'unos clips mágicos con «cuantos» fuera de 1 a 10' };
       }
       return { ok: true, op: { op: 'clips_magicos', cuantos: raw.cuantos } };
+    }
+    case 'edicion_automatica': {
+      const extra = sobrantes(raw, []);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de la edición automática (no lleva nada más)` };
+      return { ok: true, op: { op: 'edicion_automatica' } };
     }
   }
 }

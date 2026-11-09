@@ -223,7 +223,10 @@ test('4d. el cableado: el registro, la ruta adentro de «sólo su IA», el chat 
   assert.equal(validarOperacion({ op: 'clips_magicos', cuantos: 50 }).ok, false);
   assert.equal(validarOperacion({ op: 'clips_magicos', desde: 3 }).ok, false, 'el chat no elige los momentos');
   assert.equal(OPERACIONES_API.find((o) => o.op === 'clips_magicos')?.id, 'buscar_clips_video');
-  assert.equal(OPERACIONES_API[OPERACIONES_API.length - 1].op, 'clips_magicos', 'una operación nueva va al final');
+  // «Va al final» es la regla de AGENTS.md, no una foto: una operación nueva de después (editar_video_automatico, 9/11/2026)
+  // no la rompe. Lo que cuida: clips_magicos va DETRÁS de las que ya estaban cuando entró.
+  const posApi = (op: string) => OPERACIONES_API.findIndex((o) => o.op === op);
+  assert.ok(posApi('clips_magicos') > posApi('broll') && posApi('broll') >= 0, 'una operación nueva va detrás de las que ya estaban');
   assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts')), /if \(r\.op === "clips_magicos"\) \{[\s\S]*?buscarClips\(editor, \{ cuantos: r\.cuantos \}\)[\s\S]*?textoDeClips\(hecho\)/);
   const slots = (t: string) => [...t.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]).sort();
   assert.deepEqual(slots(CLIPS_SYSTEM_TEMPLATE), ['cuantos', 'formato']);
