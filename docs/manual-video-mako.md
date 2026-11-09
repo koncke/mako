@@ -72,6 +72,7 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 7. **Los créditos se gastan recién con el OK del usuario a la imagen. Nunca antes.**
    «Cuando el usuario da el ok, generar el video: ahí recién se pasa a gastar los créditos.» «Para que no sea culpa nuestra casi nunca.»
 
+   **Y nunca variaciones de video** (9/11): «no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.» De imagen, todas las muestras que hagan falta; de video, uno por pedido, con el OK a su imagen.
 8. **Una sola referencia y un prompt simple. Siempre.**
    «No le pases muchas referencias porque ahí lo hace mal la inteligencia artificial.» Cada referencia de más compite con las otras.
 

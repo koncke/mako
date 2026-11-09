@@ -12092,6 +12092,8 @@ mandarla.
 
 - **Continuidad entre clips** (Martín, 9/11): *«si yo ya había tirado la tarjeta, la Polaroid, no debería tenerla otra vez. Y eso justamente se hace a raíz de la imagen… siempre tienes que tú estar presente para hacerte preguntas y tener criterio a ver si todo está bien».* Antes de armar la imagen de un clip se repasa cómo TERMINÓ el anterior (qué tiene en la mano, qué tiró, dónde está, ropa, encuadre) y la imagen nueva sale con ese estado. Vale igual dentro de MaKo: MaKo se hace esas preguntas sola, no espera a que el usuario lo note.
 
+- **Video: sin variaciones; imagen: libre** (Martín, 9/11): *«no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.»* De imagen se hacen las muestras que hagan falta (0 créditos). De video, UNO por pedido y recién con el OK del usuario a la imagen de ese clip; nunca dos versiones de video «para elegir». Se anota el saldo de créditos antes y después de cada video.
+
 ### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
 
 - **Escala:** *«no puede ser posible que el pizarrón sea exageradamente grande con esas imágenes exageradamente grandes y yo quede así de chiquito… se ve muy feo».* Se mira la proporción entre la persona y los objetos (una persona es más alta que un corcho de pared; una foto pinchada es más chica que una cara). Si no es real, no se manda.
