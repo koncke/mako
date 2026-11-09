@@ -230,3 +230,35 @@ La cámara acompaña mientras él se levanta y camina hasta la pared del pizarr�
 Sigue con la foto en la mano.
 ```
 Sin voz: es una transición. Omni 1.2 Flash · Fotogramas · 720p · 9:16 · x1 · 24 créditos.
+
+---
+
+# ⛔ CHECKLIST DEL CORCHO — mirar la imagen contra esto ANTES de mandarla
+
+Martín, 9/11: **«el mismo feedback que antes… guarda el contexto, el feedback. Para ser criterioso,
+mirar y revisar si está bien luego.»** Le entregué dos veces una imagen que repetía errores que él
+ya había marcado, porque miré el resultado sin compararlo con lo ya dicho. **Esta lista se recorre
+mirando la imagen, una por una, antes de que la vea él.**
+
+| # | qué tiene que pasar | cómo falló antes |
+|---|---|---|
+| 1 | **El corcho está LLENO**, con muchas fotos chicas | «no hay tantas fotos»; quedó medio vacío (9/11, dos veces) |
+| 2 | **Las fotos son las caricaturas de los gurús**, no caras inventadas | Flow las inventa si no le pasás los lotes |
+| 3 | **Todas del mismo tamaño** | «que tengan evidentemente el mismo tamaño» |
+| 4 | **Ninguna se repite** | «repitió a muchas y no usó a otras» |
+| 5 | **No se ven como stickers**: integradas al cuarto | «vuelven a ser stickers» (9/11, dos veces) |
+| 6 | **Conservan su color de fondo** | ⛔ «no quiero que se les quite el color de fondo a cada foto» — pedir «fondo claro» las BLANQUEA y está rechazado |
+| 7 | **Nítidas y completas**, sin pixelar ni cortar | se degradan solas tras 3-4 ediciones encadenadas |
+| 8 | **La escena es simple y real**, no un set de película | «está muy complejo… se tiene que ver real» |
+
+**Lo que resuelve cada cosa, probado:**
+- **(1) y (4):** adjuntar `LOTE-1.jpg` + `LOTE-2.jpg` y **decir el número**: «van estas 32 caras, una
+  sola vez cada una». Un adverbio («llenándolo») hace que multiplique y repita.
+- **(5) sin romper (6):** la integración se pide por la **profundidad de campo**, no por el color:
+  «El corcho de atrás queda un poco desenfocado, como en una foto de verdad. **Las fotos mantienen
+  sus colores.**» ⚠️ El efecto sale sutil; si no alcanza, se insiste sobre esa misma propiedad.
+- **(7):** volver a adjuntar los lotes cada 3-4 ediciones, aunque no sea lo que estás cambiando.
+
+⚠️ **Y cada pedido nuevo tiene que anclar lo ya aprobado**, si no se pierde: «La persona, su pose y
+el cuarto quedan igual» — ya pasó que al arreglar las caras se perdió la pose, y al arreglar la pose
+se perdieron las caras.

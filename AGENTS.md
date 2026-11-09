@@ -12071,3 +12071,16 @@ viejos, medir tonos y comparar archivos — y aun así quedaron dudas. Un nombre
 
 ⚠️ **El contexto se escribe al generar, no después.** Reconstruirlo más tarde es exactamente el
 trabajo que esta regla existe para evitar.
+
+### Antes de entregar una imagen o un clip, recorrer la lista de lo ya corregido
+
+No alcanza con mirar el resultado y que «se vea bien»: hay que compararlo **contra todo el feedback
+que el cliente ya dio sobre esa pieza**, punto por punto. El 9/11 entregué dos veces seguidas una
+imagen que repetía dos correcciones ya hechas (pocas fotos, y fotos que parecen stickers), porque la
+miré sola en vez de mirarla contra la lista. Martín: **«el mismo feedback que antes… para ser
+criterioso, mirar y revisar si está bien luego».**
+
+**Cada pieza con más de dos vueltas de feedback se lleva su checklist**, en el relevo de esa tarea
+(ejemplo: `docs/relevo/reel-mentores-high-ticket.md`, «CHECKLIST DEL CORCHO»). Una fila por
+corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
+mandarla.
