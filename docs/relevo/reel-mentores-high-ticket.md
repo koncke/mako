@@ -47,6 +47,15 @@ quedan DESCARTADOS.**
     las tarjetas se vean como en esta referencia. Más realista.» → **`d1-tarjetas-reales.jpg`**: cuarto, corcho
     horizontal y distribución intactos, pero las caricaturas pasaron a FOTOS DE PERSONAS REALES y las tarjetas no se
     achicaron. Mostrada a Martín, esperando su veredicto.
+- **✅ EL CORCHO ELEGIDO (Martín, ~13:05): la `v3` de §0** — «Esa, está bien, vamos directamente con esa». Su 1K
+  original está en `C:\dev\reel-mentores\aprobado\corcho-v3-1k.jpg` (en Flow, la última versión de `/edit/05deab67-…`).
+  Las notas quedaron en inglés: así la eligió.
+- **✅ EL AVATAR DELANTE (~13:15):** `C:\dev\reel-mentores\aprobado\avatar-delante-v1.jpg`. Base = la referencia de
+  Martín (`Downloads\image.png_4a780f5f.jpg`, él real), UNA referencia = el corcho elegido, y la frase: «La persona queda
+  igual, con la misma ropa, la misma pose y la misma foto en la mano. Detrás de ella va este cuarto con este corcho.»
+  Cara, pelo y polaroid idénticos. (El primer intento lo frenó Flow por «actividad inusual»; salió a los 5 minutos.)
+  Mostrado a Martín. **Sigue:** los clips 1 y 2 con esta imagen de fotograma inicial (prompts y configuración en
+  §00) y `voz\poner-voz.sh`.
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
