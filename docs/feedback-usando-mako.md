@@ -120,3 +120,44 @@ imagen se pudo generar desde MaKo.** Lo que frenó, en orden:
 **Lo que sí quedó medido y sirve:** en Flow las imágenes dicen **«Generating will use 0 credits»** —
 son gratis de verdad, y el ajuste de formato (16:9 / 4:3 / 1:1 / 3:4 / 9:16) vive en el panel del
 botón de modelo, no en el prompt: pedirle «vertical 9:16» al texto **no alcanza**, sale horizontal.
+
+## ⚠️ EL PROCESO DE AVATAR HYPE NO EXISTE COMO PROCESO DENTRO DE MaKo (9/11/2026)
+
+Martín, mientras hacíamos el primer clip del reel: «para eso hicimos toda una pestaña dentro de MaKo…
+toda esta iteración que hicimos, donde yo te fui dando feedback —esta cara se parece a mí, esta no,
+agregale esto— si eso no hay un proceso en MaKo, o ya de por sí el proceso Avatar Hype no está en
+MaKo, eso es algo que falta».
+
+**Lo que de verdad pasó esa noche, que es el dato:** el clip salió, pero salió **enteramente fuera de
+MaKo**, manejando Flow a mano desde Chrome. MaKo no participó en ningún paso. Y no fue por un bug
+puntual: es que **el proceso no está modelado**.
+
+Lo que hubo que hacer a mano, en orden, y que es exactamente lo que faltaría:
+
+1. **Elegir la foto de referencia.** Abrir su álbum de Google Photos, bajar 300 miniaturas, armar una
+   plancha de contacto, mirarla, elegir una y mostrársela para que la apruebe. En MaKo «Tu cara»
+   guarda UNA foto y no hay galería ni forma de comparar candidatas.
+2. **La iteración con feedback, que es el corazón del método.** «Esta cara se parece a mí, esta no»,
+   «el fondo no tiene protagonismo», «sacale la computadora», «mejor una tarjetita en la mano». Cada
+   vuelta fue: generar → mostrar → él decide → volver a generar. **MaKo no tiene ese ciclo**: tiene un
+   botón que genera y listo. Sin historial de versiones de una toma, sin «esta sí / esta no», sin
+   partir de una aprobada.
+3. **Editar en vez de regenerar.** La lección más cara de la noche: mientras el pedido sea sólo del
+   FONDO, la cara no se vuelve a jugar; si en la misma pasada se pide mover una mano, el modelo
+   redibuja la persona y se pierde el parecido. Flow tiene editor sobre una imagen ya hecha. **MaKo
+   sólo sabe generar de cero**, así que cada ajuste vuelve a arriesgar la cara.
+4. **Encadenar las tomas de un guion.** El reel son 6 tomas con continuidad de persona, luz y lugar.
+   En MaKo cada generación es suelta: no hay «guion» que agrupe tomas ni que herede la referencia.
+5. **Sostener una referencia AJENA además de la cara.** La toma final lleva una polaroid de un gurú en
+   la mano, y su cara salió de `public/asesores/ramiro-cubria.png`. En MaKo no hay forma de sumar una
+   segunda imagen de referencia a una toma.
+6. **Elegir el modelo y el formato.** Omni 1.2 Flash, 9:16, 8 s, x1 o x2 (24 o 48 créditos). En MaKo
+   el formato ni se elige: el 9:16 hubo que ponerlo en Flow, porque **pedirlo en el texto del prompt
+   no alcanza** — sale horizontal igual.
+
+**Lo que ya se sabe y no hay que volver a averiguar:** las imágenes en Flow son gratis de verdad
+(«Generating will use 0 credits»), el video no; pegar una imagen en la caja de prompt funciona y
+evita el selector de archivos nativo; y el editor de Flow se abre por la URL
+`/project/<id>/edit/<imagen>`, que es lo único confiable cuando la grilla no responde.
+
+Ver [[metodologia-avatar-hype]] y la entrada del reel, más arriba.
