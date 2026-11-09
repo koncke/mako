@@ -656,3 +656,25 @@ Lo que lo bajó fue **decir cuántas y que no se repitan, en positivo**:
 ⚠️ Y al reducir, las fotos quedaron **amontonadas en media tabla**, con la otra mitad vacía. Se
 arregla con una edición corta que ancla lo que no cambia: **«Las mismas caras, repartidas por todo
 el corcho.»** No hace falta volver a adjuntar la referencia: las caras ya están en la imagen base.
+
+## ✅ Cambiarle el FONDO a un fotograma que ya existe, sin tocar a la persona (9/11/2026)
+
+El pedido de Martín fue sobre el fotograma del clip 1 —él de remera negra hablando delante de un
+corcho de detective—: **«que lo haga en el cuadro de ahí atrás… que tengan evidentemente el mismo
+tamaño… que no repita influencer»**. Salió a la primera, y el método es el que conviene repetir
+para los 14 videos.
+
+1. **La imagen propia entra a Flow pegándola en la caja del PROYECTO.** Queda como tarjeta
+   «Imagen subida» (se la reconoce por `crop_9_16` en su ficha) y desde ahí se abre en el editor.
+   Es la forma de meter material propio sin el `input[type=file]` que no existe.
+2. **La referencia se arma con TODAS las caricaturas al MISMO tamaño.** `public/asesores/grandes`
+   tiene 32; una grilla 5×7 de 150 px cada una, marco fino igual para todas, sobre corcho — en
+   **vertical 1080×1350**, que es la única proporción que Flow adjunta al pegar.
+3. **El prompt ancla la persona y describe el cambio, con el número y la unicidad explícitos:**
+   **«Misma persona y mismo cuadro. Las fotos del corcho son estas caras, todas del mismo tamaño y
+   cada una una sola vez.»**
+
+Resultado: la cara, el pelo, la remera y la pose intactas; el corcho con las caricaturas, y las
+notas amarillas y los chinches de colores del original conservados. **No hace falta regenerar a la
+persona para cambiarle el fondo** — eso es lo que veníamos haciendo mal cuando el parecido se
+perdía.
