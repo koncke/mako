@@ -2428,6 +2428,33 @@ un agente verificador, `git rev-list --count HEAD..origin/main`: si no da 0, lo 
 pendientes fantasma. Es la misma familia que «en producción sólo cuenta lo desplegado», un piso más
 abajo: **en un worktree sólo cuenta lo que ese worktree tiene.**
 
+## DÓNDE QUEDÓ EL TABLERO (9/11/2026, madrugada — cuenta claude1 al 93 %)
+
+**Los «abiertos» de «Otro» están medidos: 18 de 79 ya estaban hechos** (casi 1 de cada 4 era un
+pendiente fantasma), marcados uno por uno con archivo y línea en `docs/pendientes-todo-6-11.md`.
+Punta: `punta/barrido-abiertos-verificados`.
+
+**Quedan 14 abiertos de verdad y accionables.** Los seis primeros son `grande`. Los cuatro `chico`:
+el `MenuContextual` fuera del barrel y de `/admin/ui`; `getObjetivoProgreso` y tres settings viejos
+alimentando los reportes; el audio inventado al crear en Automations; el goteo sin «sólo estos días».
+
+**Lo cerrado esta noche:** el título de la pestaña en un 404 (`punta/titulo-de-pestana-en-404`) y el
+espejo de versión de la extensión con su guard (`punta/extension-version-visible`, que además
+arregló el rojo de la corrida 745).
+
+**Los dos que medí y NO toqué, con el porqué escrito en el inventario:**
+- El enchufe de plantillas propias **no necesita migración** (`creaciones.tipo` es `text` con un
+  check de regex). Lo frena una pregunta de producto: qué publica AI Avatar, el LOOK o la ESCENA.
+  Es lo que le frenó el reel a Martín el 8/11.
+- El audio inventado al crear: el bug **no está donde el ítem lo manda** (la ruta sólo despacha;
+  vive en `lib/flujo-ia.ts`). Falta medir si el motor manda ese cuerpo además de la nota de voz, y
+  por qué al editar no pasa. Son 4.000 líneas que gobiernan las automatizaciones de todos los
+  clientes: no se cambia sin esa medición.
+
+**El reel de Instagram** quedó con las imágenes aprobadas y el teléfono mostrando MaKo de verdad
+(se le pasó una captura del Dashboard como segunda referencia). Lo que sigue son los videos, que sí
+gastan créditos de Flow — y Flow avisa que están bajos.
+
 ## Lo que NO se vuelve a discutir
 
 - **Nunca `--no-verify`.** El 24/10 el hook de pre-push frenó un tren con 5 errores de tipos.
