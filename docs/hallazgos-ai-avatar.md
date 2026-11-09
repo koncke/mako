@@ -445,3 +445,39 @@ else», y conviene además describir el acento (rioplatense) y pedir «no subtit
 
 Costo medido en Flow: un clip de **8 s, 720p, 9:16, Omni 1.2 Flash** sale **24 créditos en x1** y 48
 en x2. Las imágenes, en cambio, dicen «Generating will use 0 credits»: son gratis de verdad.
+
+## ⚠️ REVISAR LA CONFIGURACIÓN ANTES DE GENERAR (9/11/2026) — y el `aspect_ratio` de ApiMart
+
+Martín, después de que un clip volviera horizontal: **«siempre cuida el gasto y hacer bien las cosas.
+Antes de mandarle el clic al botón de generar, revisa que todas las configuraciones estén bien.»**
+
+El caso concreto: pedí un video a `POST /v1/videos/generations` con `resolution: '720P'` y **di por
+hecho que eso fijaba el formato**. Volvió en **1280×720 horizontal** aunque la imagen de origen era
+vertical. Costó US$ 0,279 y un recorte al centro que perdía los costados.
+
+**La causa era un parámetro que la documentación sí trae: `aspect_ratio`.** Buscarlo —un `grep` en
+los docs que ya estaban bajados— tomó dos minutos. Con `aspect_ratio: '9:16'` el mismo modelo
+devolvió **720×1280 nativo**, sin recorte y sin pérdida.
+
+**La regla, que vale para cualquier proveedor que cobre por generación:** antes de gastar, se mira
+qué parámetros acepta el endpoint y se arma el cuerpo COMPLETO; no se generá «a ver qué sale». Mirar
+la documentación cuesta minutos; generar a ciegas cuesta plata, y la segunda vuelta cuesta lo mismo
+que la primera.
+
+### Lo demás que quedó medido de ApiMart (9/11/2026)
+
+- **Las tareas se consultan en `GET /v1/tasks/{id}`**, NO en `/v1/videos/generations/{id}` —ése
+  devuelve «Invalid URL» con la ruta buena adentro del mensaje—. Mi primer sondeo apuntaba mal y no
+  veía el progreso aunque el video ya estuviera listo.
+- **La URL del resultado viene como ARRAY**: `data.result.videos[0].url` es `[ '...' ]`, no una
+  cadena. Es la misma familia de trampa que el `task_id` en dos formas.
+- `duration` acepta 5, 6 y 8. Un clip de 5 s con Omni 1.2 Flash sale **US$ 0,2795** y tarda ~49 s.
+- La imagen de origen se sube una vez a `/v1/uploads/images` y **se reusa**: la segunda generación
+  no vuelve a subirla ni a pagarla.
+
+### Y lo que hizo que la voz calzara sin tocarla
+
+Pedirle en el prompt que hable **despacio, ocupando casi todo el clip, con una pausa después de una
+palabra concreta**. Sin eso, Omni dice la frase apurada (2,4 s) y ningún audio humano entra ahí. Con
+eso: el clip habla **3,650 s** y la voz aprobada dura **3,680** — treinta milésimas, sin `atempo`,
+sin quitar pausas y sin tocar el archivo que Martín aprobó.
