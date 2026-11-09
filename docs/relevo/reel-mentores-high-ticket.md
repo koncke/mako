@@ -22,6 +22,20 @@ quedan DESCARTADOS.**
   aspecto de foto real. En el corcho hay solo 32 fotos… cada cara aparece una sola vez. El resto lo llenan notas…».
   **Este es el look que pide.** ⚠️ Pero repite caras (en la a3, unas 44 fotos para 32 caras): el corcho de la
   referencia tiene más huecos que caricaturas. Esperando que Martín diga si sigue así o si se hacen más caricaturas.
+- **Martín, sobre la a3 (9/11 ~12:40), textual:** «No solamente tiene que ser sin repetir, sino que tienes que lograr
+  que esté en el escenario horizontal. Porque eso es vertical… que esté en el mismo lugar que estábamos produciendo los
+  clips. Pero con esa nueva distribución, con ese nuevo diseño. Y obviamente sin repetir. Y… que las palabras sean en
+  español.»
+  - `b1`: base = el cuarto de los clips (`Downloads\image.png_07353b02.jpg`) + los lotes + la a3 como referencia de
+    diseño. **El corcho se volvió VERTICAL** y tapó la pared: una referencia vertical le cambia la forma al objeto.
+    No usar la a3 como referencia.
+  - **`b2-horizontal.jpg` ✅ la mejor:** misma base + sólo los dos lotes, con el diseño dicho en palabras: «El mismo
+    cuarto, la misma pared y el mismo corcho horizontal, del mismo tamaño y en el mismo lugar. En el corcho hay solo 32
+    fotos chicas… cada una una sola vez, sueltas y un poco torcidas, entre notas de papel escritas en español, chinches
+    de colores e hilo rojo. Luz cálida de tarde. Las caras de la primera referencia van en la mitad izquierda.» No le
+    encontré repetidas. Notas en español, con errores («¿Socpechoeo?»).
+  - `b3`: lo mismo, con las palabras exactas de las notas entre comillas → **repitió** a Hormozi y a la rubia, y las
+    notas siguieron con errores. Las palabras entre comillas no arreglan la ortografía de Nano Banana.
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
