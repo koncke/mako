@@ -177,6 +177,8 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/_components/MakoChat.tsx': 'panel único',
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
   'app/ads-manager/ArranqueMediaBuyer.tsx': 'panel único',
+  // Replicar un carrusel, guiado (9/11/2026): MaKo pregunta la oferta, el avatar y qué cambiar en la tarjeta de Image.
+  'app/image-editor/carruseles/ReplicarGuiado.tsx': 'panel único',
 };
 const DIBUJA_PANEL = /<PanelDeChat\b/;
 

@@ -52,8 +52,11 @@ qué quiere → la base → generar de a una lámina → que la persona lo vea a
 - «Nuevo carrusel» (el primer renglón de la lista) muestra los outliers, no las plantillas. «¿Qué vas a crear hoy?» se va de
   Image: `PantallaCrear` gana la prop `nueva` (lo que la tab pone en lugar de la caja y las plantillas). Las demás tabs de
   Create no cambian.
-- «Crear desde cero» queda como una pastilla del explorador: crea un carrusel vacío de 1080 × 1350 (`ID_CARRUSEL`) y lo abre.
-- `?ver=crear` (los links viejos, el teléfono, el editor) abre lo mismo que `/image-editor`: nada se rompe.
+- ~~«Crear desde cero» crea un carrusel vacío (`ID_CARRUSEL`) y `?ver=crear` abre lo mismo que `/image-editor`.~~ **Cambió al
+  implementar (9/11/2026):** detrás de «Crear desde cero» (`?ver=crear`) viven las plantillas que guardó el negocio y las plantillas
+  reales; sacarlo las dejaba sin entrada en la computadora. Queda: «Nuevo carrusel» abre SIEMPRE los ejemplos (en la portada suelta el
+  que se replicaba; desde el editor o «Crear desde cero», navega a la portada), y «¿Qué vas a crear hoy?» no sale en ningún camino por
+  defecto. Sacarla del todo pide mudar antes esas plantillas: **lo decide Martín.**
 
 ### 2. El descubrimiento (pedidos 1 y 2)
 
@@ -121,11 +124,11 @@ d) **Lo editable viene después de lo fiel:** primero la imagen, encima el texto
 | Parte | Qué | Estado |
 |---|---|---|
 | 1 | Este diseño | ✅ |
-| 2 | `lib/carruseles/guiado.ts`: las preguntas, el orden, «Lo escribo yo», el resumen y el pedido que sale | ver abajo |
-| 3 | `lib/carruseles/tipografia-medida.ts`: encajar, no superponer, elegir la fuente comparando | ver abajo |
-| 4 | `lib/carruseles/plancha.ts`: los pasos de cada lámina, sus prompts y la capa de lettering | ver abajo |
-| 5 | La oferta en el prompt de la réplica y en la ruta (`ofertaId`, `avatar`, `cambio`) | ver abajo |
-| 6 | La pantalla: la tab con el chat siempre, «Nuevo carrusel» = outliers, la pestaña guiada con el velo | ver abajo |
+| 2 | `lib/carruseles/guiado.ts`: las preguntas, el orden, «Lo escribo yo», el resumen y el pedido que sale | ✅ `tests/carruseles-guiado.test.ts` |
+| 3 | `lib/carruseles/tipografia-medida.ts`: encajar, no superponer, elegir la fuente comparando | ✅ puro (`tests/carruseles-tipografia-medida.test.ts`); el pegamento del navegador que dibuja las candidatas, SIN HACER |
+| 4 | `lib/carruseles/plancha.ts`: los pasos de cada lámina, sus prompts y la capa de lettering | ✅ puro (`tests/carruseles-plancha.test.ts`); «Cambiar la palabra» en el editor, SIN HACER |
+| 5 | La oferta en el prompt de la réplica y en la ruta (`ofertaId`, `avatar`, `cambio`) | ✅ ruta, API de MaKo y orquestador (`tests/carruseles-editar.test.ts`) |
+| 6 | La pantalla: la tab con el chat siempre, «Nuevo carrusel» = outliers, la pestaña guiada con el velo | ✅ computadora (`tests/carruseles-guiado-pantalla.test.ts`); el teléfono sigue con «Editar» directo. **No se miró en un navegador** (la nube no levanta la app con base) |
 | 7 | La orquestación con Flow (subir la lámina, pedir la plancha, esperar, guardar) | SIN HACER (abajo) |
 
 ## Lo que queda anotado
@@ -140,3 +143,29 @@ d) **Lo editable viene después de lo fiel:** primero la imagen, encima el texto
   preguntas: una lista de pasos con su condición y sus botones, y un estado que avanza con cada toque (`lib/carruseles/guiado.ts`
   tiene esa forma a propósito). Si la de video sale primero en otra pieza, se muda acá a la suya; si no, la de video puede
   tomar `avanzarGuiado` tal cual.
+
+## Autocrítica (9/11/2026)
+
+Sin capturas: la nube no levanta la app con su base, así que la pantalla se miró en el HTML que sale (los tests de
+`tests/carruseles-guiado-pantalla.test.ts` la dibujan), no en un navegador. **Lo primero que hay que hacer con la app levantada
+es recorrer el caso de @growithalex a 1440 y a 390 px.**
+
+Lo que se cambió por la revisión:
+- «Nuevo carrusel» desde el editor o desde «Crear desde cero» abría las plantillas: ahora navega a los ejemplos, para que el
+  botón quiera decir lo mismo en todos lados.
+- La tarjeta se podía plegar mientras se replicaba (el editor la pliega a una barra fina): ahí es donde MaKo pregunta, así que sólo
+  se pliega con un diseño abierto (`plegable={!!abierto}`).
+- Empezar a replicar con la tarjeta dada vuelta a la lista dejaba la pregunta escondida: la pantalla se vuelve a montar (la `key`
+  lleva el carrusel) y la tarjeta arranca en el chat.
+- En el teléfono, «Nuevo …» de una tab que lo maneja no cambiaba a la vista del centro: `alNuevo` también pasa a la pieza.
+
+Lo que se descartó, y por qué:
+- **Sacar «Crear desde cero»** (lo decía el diseño): dejaba sin entrada a las plantillas guardadas del negocio. Lo decide Martín.
+- **Guardar las respuestas al volver con «← Elegir otro»**: se pierden (son tres toques y nada se generó todavía). Si molesta,
+  se guardan en el estado de la tab por carrusel.
+
+Lo que queda raro y no se tocó:
+- En `?ver=crear` el renglón «Nuevo carrusel» se marca como el actual mientras el centro muestra las plantillas. Se va el día que
+  las plantillas se muden.
+- El velo opaca el original mientras se contesta; tocarlo pausa el velo (la guía de la casa), pero no se probó que eso alcance para
+  mirar el original antes de decir qué cambiar.
