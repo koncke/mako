@@ -466,4 +466,51 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "9 nov", hora: "08:45", chat: "Video Editor: edición del reel (nube)", sesion: "cli_cae9a776-2d98-55b4-aef5-3102e4b201b5", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "La edición automática del reel de Higgsfield: agentes que editan a la vista",
+    pedido: "PARA LA EDICIÓN EN MAKO, ESTO QUIERO: https://www.instagram.com/reel/DffGz6yu565/",
+    puntos: [
+      "El pedido llegó por el chat de la nube; el reel quedó bajado en la rama referencias/reels-0911 (edicion-mako.mp4).",
+      "El reel muestra un editor donde un enjambre de agentes edita un reel en vivo: cursores con nombre, un registro con la hora del video, subtítulos que se prueban uno por uno y una revisión final.",
+    ],
+  },
+  {
+    fecha: "9 nov", hora: "12:30", chat: "Video Editor: edición del reel (nube)", sesion: "cli_cae9a776-2d98-55b4-aef5-3102e4b201b5", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Edición automática: un equipo de agentes edita tu video a la vista, como en el reel",
+    puntos: [
+      "«Edición automática» en la barra de la línea de tiempo y en Multimedia: diez agentes, uno detrás de otro, quitan las pausas, subtitulan, prueban estilos de subtítulo, sacan las muletillas, resaltan las palabras clave en lima, proponen B-roll y acercamientos, limpian la voz, dejan el volumen a −14 LUFS y revisan al final.",
+      "Se ve trabajar: cada agente con su nombre y su color, su cursor yendo al segundo del video o al panel donde actúa, un registro con la hora del video y las operaciones por segundo, y «N agentes en vivo» arriba.",
+      "Lo que un agente no tiene que hacer lo dice y se saltea; el estilo de subtítulos que elegiste no se cambia. Al final: «Reproducir el corte final» y «Deshacer todo».",
+      "También por el chat del editor («edítalo todo») y por la API de MaKo (editar_video_automatico). No se miró en un navegador (la nube no corre el editor).",
+    ],
+    archivos: [
+      "app/video-editor/_opencut/enjambre/plan.ts — los agentes, qué decide cada uno y la revisión final (puro)",
+      "app/video-editor/_opencut/enjambre/correr.ts — corre los pasos con las mismas funciones del chat y de los botones",
+      "app/video-editor/_opencut/enjambre/components/ — el panel, la pastilla «en vivo» y los cursores",
+      "app/video-editor/_opencut/subtitles/estilos.ts — las plantillas del reel: «Lima», «Recuadro Bebas» y «Marcador»",
+      "tests/video-editor-enjambre.test.ts — 13 casos, 25 roturas",
+    ],
+    revisar: "/video-editor",
+  },
+  {
+    fecha: "9 nov", hora: "12:45", chat: "Video Editor: edición del reel (nube)", sesion: "cli_cae9a776-2d98-55b4-aef5-3102e4b201b5", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "Edición automática: lo que encontró la revisión, arreglado",
+    puntos: [
+      "Ya no corta las pausas debajo de subtítulos que ya estaban (los dejaba desfasados) ni vuelve a −14 LUFS lo que pusiste en otro objetivo.",
+      "Si tocas el editor mientras trabajan, no ofrece «Deshacer todo» (se llevaría lo tuyo) y te lo dice; desde el chat, lo deshace «Restaurar».",
+      "Una falla de verdad (el reconocedor de voz que no bajó) ya no se anota como «no había nada que hacer», y la revisión marca el B-roll que quedó propuesto sin decidir.",
+      "La prueba de estilos no deja nada en «Rehacer» y ya no cambia la plantilla de subtítulos de tus otros proyectos.",
+    ],
+    archivos: [
+      "app/video-editor/_opencut/enjambre/plan.ts · correr.ts · estado.ts — las reglas y la corrida",
+      "app/video-editor/_opencut/core/managers/commands.ts — olvidarRehacer()",
+      "app/video-editor/_opencut/chat/aplicar.ts — el chat corre la edición con su try y sin «Deshacer todo»",
+      "tests/video-editor-enjambre.test.ts — 14 casos, 33 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];

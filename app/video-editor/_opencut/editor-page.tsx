@@ -47,6 +47,7 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
 import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
 import { iniciarPropuestas } from "@/app/video-editor/_opencut/chat/propuestas";
+import { CursoresAgentes } from "@/app/video-editor/_opencut/enjambre/components/cursores";
 import { conEspacio } from "@/app/video-editor/espacio";
 import {
 	createPreviewOverlayControl,
@@ -116,6 +117,8 @@ export function EditorPage({ projectId, propuesta = null }: { projectId: string;
 					<StoragePersistenceDialog />
 					{/* «Reemplazar el clip» / «Sustituir» (reemplazo/): uno solo, lo abre la línea de tiempo. */}
 					<DialogoReemplazar />
+					{/* Los cursores de los agentes de la «Edición automática», mientras trabajan (enjambre/). */}
+					<CursoresAgentes />
 				</div>
 			</EditorProvider>
 		</MobileGate>
@@ -148,9 +151,16 @@ function AvisoRenderDegradado() {
 	);
 }
 
-/** El redondeado, el fondo y el borde de MaKo alrededor de cada panel. */
-function Marco({ children }: { children: React.ReactNode }) {
-	return <div className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel) shadow-[0_0_0_1px_var(--border)]">{children}</div>;
+/**
+ * El redondeado, el fondo y el borde de MaKo alrededor de cada panel. `zona` nombra el panel para lo que tiene que
+ * encontrarlo en la pantalla (los cursores de la «Edición automática», enjambre/cursores.ts).
+ */
+function Marco({ children, zona }: { children: React.ReactNode; zona: "biblioteca" | "reproductor" | "propiedades" | "linea" }) {
+	return (
+		<div data-ce-zona={zona} className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel) shadow-[0_0_0_1px_var(--border)]">
+			{children}
+		</div>
+	);
 }
 
 /** Los divisores son las separaciones de 8 px (7 px entre arriba y la línea de tiempo), sin línea. */
@@ -250,7 +260,7 @@ function EditorLayout() {
 					}}
 				>
 					<ResizablePanel defaultSize={panels.tools} minSize={minimos.tools} maxSize={55} className="min-w-0">
-						<Marco>
+						<Marco zona="biblioteca">
 							<AssetsPanel />
 						</Marco>
 					</ResizablePanel>
@@ -258,7 +268,7 @@ function EditorLayout() {
 					<ResizableHandle className={DIVISOR_VERTICAL} />
 
 					<ResizablePanel defaultSize={panels.preview} minSize={minimos.preview} className="min-h-0 min-w-0 flex-1">
-						<Marco>
+						<Marco zona="reproductor">
 							<PreviewPanel
 								overlayControls={overlayControls}
 								overlayInstances={overlaySource.instances}
@@ -270,7 +280,7 @@ function EditorLayout() {
 					<ResizableHandle className={DIVISOR_VERTICAL} />
 
 					<ResizablePanel defaultSize={panels.properties} minSize={minimos.properties} maxSize={55} className="min-w-0">
-						<Marco>
+						<Marco zona="propiedades">
 							<PropertiesPanel />
 						</Marco>
 					</ResizablePanel>
@@ -285,7 +295,7 @@ function EditorLayout() {
 				maxSize={70}
 				className="min-h-0"
 			>
-				<Marco>
+				<Marco zona="linea">
 					<Timeline />
 				</Marco>
 			</ResizablePanel>

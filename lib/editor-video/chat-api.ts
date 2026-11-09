@@ -202,6 +202,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
   { op: 'clips_magicos', id: 'buscar_clips_video', titulo: 'Buscar los mejores momentos (clips mágicos)', parametros: [
     { nombre: 'cuantos', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 10, descripcion: 'Opcional: cuántos clips (sin esto, 5).' },
   ] },
+  { op: 'edicion_automatica', id: 'editar_video_automatico', titulo: 'Edición automática con agentes', parametros: [] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

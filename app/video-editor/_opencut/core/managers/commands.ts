@@ -97,6 +97,22 @@ export class CommandManager {
 		return this.redoStack.length > 0;
 	}
 
+	/**
+	 * Cuántos pasos hay para deshacer. La «Edición automática» (enjambre/correr.ts) los cuenta antes y después de
+	 * correr: sus agentes dejan un paso cada uno (algunos, más), y «Deshacer todo» deshace exactamente ésos.
+	 */
+	profundidad(): number {
+		return this.history.length;
+	}
+
+	/**
+	 * Vacía «Rehacer». La prueba de estilos de la «Edición automática» aplica un estilo, lo mide y lo deshace: sin esto,
+	 * Ctrl+Y volvía a poner un estilo descartado.
+	 */
+	olvidarRehacer(): void {
+		this.redoStack = [];
+	}
+
 	clear(): void {
 		this.history = [];
 		this.redoStack = [];

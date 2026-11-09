@@ -581,6 +581,10 @@ export function Timeline() {
 						<ScrollArea
 							className="flex-1"
 							ref={tracksScrollRef}
+							// Dónde está cada segundo: los cursores de la «Edición automática» (enjambre/cursores.ts) van a la hora del
+							// video donde actúa cada agente, y el zoom vive en este componente.
+							data-ce-linea=""
+							data-ce-pps={BASE_TIMELINE_PIXELS_PER_SECOND * zoomLevel}
 							onScroll={() => {
 								syncFollowers();
 								saveScrollPosition();
