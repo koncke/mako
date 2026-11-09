@@ -11996,3 +11996,25 @@ mete un fondo plano de recorte. Lo escrito en negativo se cumple al revés.
 
 Vale para el ida y vuelta de Create, para el generador de avatares y para cualquier pantalla donde
 el usuario corrija una generación. Los números y la tabla: [docs/video-avatar-desde-foto.md](docs/video-avatar-desde-foto.md).
+
+## Siempre se parte de una IMAGEN DE REFERENCIA, nunca de puro prompt (9/11/2026)
+
+**Regla de Martín:** «el modelo de Omni entiende muy bien cuando le pasas una imagen de referencia.
+Si estamos creando algún formato nuevo o lo que sea, **siempre intenta partir de una base. Una
+imagen de referencia; nunca con puro prompt, le sale mal**».
+
+Vale para la imagen y para el video, en Flow y en ApiMart: una generación de MaKo arranca de una
+base —la foto del usuario, la toma anterior, la referencia que él eligió— y el texto sólo dice **qué
+cambia**. Un formato nuevo sin ninguna base es la receta del resultado que no se parece a nada.
+
+**Medido el 9/11/2026, en la misma tarde y con el mismo objetivo:** describir una pose con palabras
+—perfil, manos juntas, codos abajo, palmas hacia adelante— costó **cuatro intentos** y ninguno
+quedó: cambió el lado, alejó los brazos, pegó las manos a la boca y en el camino perdió la cara y la
+luz. Con la foto de referencia adjunta y **una sola frase** —«que se ponga de perfil y haga la misma
+pose que la foto que adjunto»— salió al primer intento, con el lado correcto, las manos bien, la
+misma luz y la misma cara.
+
+⚠️ **Y las ediciones NO se apilan.** Cada corrección encima de la corrección anterior arrastra el
+error: así fue como se perdieron la cara y la iluminación. Se vuelve **a la última versión que el
+usuario aprobó** y desde ahí se hace **un** cambio. Va junto con la regla del prompt corto y humano:
+una base, una frase.
