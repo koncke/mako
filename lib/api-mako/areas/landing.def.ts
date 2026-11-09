@@ -156,6 +156,22 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
+  // ⚠️ LOS CLICS YA SE GUARDABAN Y NO HABÍA CÓMO PEDIRLOS (ticket #66, 9/11/2026). El Pixel los
+  // escribe en `vsl_events` con `tipo_evento='click'` y el href o el texto del botón en `detalle`
+  // desde la migración 0133; ninguna operación los devolvía. `ver_comportamiento_landing` da visitas,
+  // video y secciones, y `ver_analitica_landing` visitas y leads: ninguna, los botones.
+  {
+    id: 'listar_clics_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Clics en los botones de una landing',
+    descripcion: 'Cuántas veces se tocó cada botón o enlace de una landing y cuándo, medido por el Pixel de MaKo. Devuelve los clics y las PERSONAS distintas de cada botón (una persona que toca cinco veces no son cinco), con el primero y el último. Con «boton» devuelve además el historial de ese botón, clic por clic, con fecha y hora en UTC (terminan en Z). Las pruebas del Pixel no cuentan. Úsala para «¿cuántos tocaron mi botón de pago?». ⚠️ Mira «medido»: en false la consulta falló y el cero NO es un cero; en true, un cero es un cero de verdad.',
+    parametros: [
+      { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing a mirar (con o sin https). Sin ella, los clics de todas las páginas del negocio.' },
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Qué período mirar hacia atrás. Por defecto 30.' },
+      { nombre: 'boton', tipo: 'string', max: 300, descripcion: 'Un pedazo del texto del botón o de su link (por ejemplo «RESERVA TU CUPO» o «buy.stripe.com»). Con esto viene el historial clic por clic.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'Cuántos clics del historial devolver, los más nuevos primero. Por defecto 100.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
+  },
   // ⚠️ LAS GRABACIONES SON DE MAKO desde el 06/10/2026. Estas dos operaciones
   // devolvían un link al panel de Microsoft Clarity; ahora leen la grabación
   // PROPIA (lib/replay-leer.ts). Lo que NO viaja nunca es el cuerpo de una sesión

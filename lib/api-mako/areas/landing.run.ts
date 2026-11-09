@@ -38,6 +38,7 @@ import { fetchSeguro } from '@/lib/fetch-seguro';
 import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
+import { clicsDeLanding } from '@/lib/landing-clics-server';
 import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
@@ -359,6 +360,19 @@ export const RUNNERS: Runners = {
       const prueba = str(input, 'prueba') ?? '';
       const r = await contarEventosDePrueba(prueba);
       return json({ prueba, eventos: r.eventos, dominio: r.pagina, nota: 'Si la consulta falla también devuelve 0: un cero no prueba que no llegó nada.' });
+    },
+  },
+
+  // Ticket #66: los clics estaban guardados desde la migración 0133 y no había cómo pedirlos.
+  listar_clics_landing: {
+    leer: async (input) => {
+      const r = await clicsDeLanding({
+        url: str(input, 'url'),
+        dias: num(input, 'dias') ?? undefined,
+        boton: str(input, 'boton'),
+        limite: num(input, 'limite') ?? undefined,
+      });
+      return json(r);
     },
   },
 

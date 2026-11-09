@@ -373,6 +373,7 @@ listar_borradores_plantilla
 listar_broadcasts
 listar_campanas_meta
 listar_capacidades_mako
+listar_clics_landing
 listar_cobros
 listar_cohortes_mensuales
 listar_cohortes_semanales
