@@ -12018,3 +12018,29 @@ misma luz y la misma cara.
 error: así fue como se perdieron la cara y la iluminación. Se vuelve **a la última versión que el
 usuario aprobó** y desde ahí se hace **un** cambio. Va junto con la regla del prompt corto y humano:
 una base, una frase.
+
+## Omni se equivoca igual: lo generado SE CHEQUEA ANTES DE ENTREGAR (9/11/2026)
+
+**Regla de Martín, y el matiz importa:** «a veces Omni se equivoca y por más que le demos el clip,
+el prompt simple lo hace mal. Entonces eso **no significa no ser simple**: significa que nosotros,
+una vez que pedimos resultados, tenemos que **chequear**. Y esto también para el producto: **hay que
+chequear antes de entregar**».
+
+No reemplaza a [la regla del prompt corto](#) ni a [la de partir de una base](#): las dos siguen. Lo
+que agrega es el paso que faltaba al final. Con la misma referencia y la misma frase, dos corridas
+dan resultados distintos; en una de ellas la cara deja de parecerse o la luz se va, **y el modelo no
+avisa**. Martín lo vio dos veces seguidas en la misma toma, y las dos las cazó él, no yo.
+
+**Qué significa chequear, en concreto:**
+- **Para MaKo (el producto):** una generación no se le muestra al usuario como terminada sin pasar
+  por la comprobación que corresponda a ese formato. Si el chequeo no se puede automatizar, se le
+  muestran **las dos juntas** —la referencia y el resultado— para que decida en un vistazo, en vez
+  de entregarle una sola imagen como si estuviera bien.
+- **Para una sesión:** antes de mandar una toma que replica una referencia, se miran las dos al lado
+  (`hstack`). Ese chequeo es para MIS ojos y para decidir si hay que volver a pedir — lo que se le
+  escribe al modelo sigue siendo una frase humana.
+- **Y si salió mal, no se apila otra corrección encima:** se vuelve a la última versión aprobada y
+  se pide de nuevo. Apilar fue lo que perdió la cara y la luz.
+
+⚠️ El costo de no chequear no es una vuelta más: es que **el usuario descubra el error**, que es
+exactamente lo que pasó acá y lo que el producto no puede hacerle a un cliente.
