@@ -2455,6 +2455,59 @@ arregló el rojo de la corrida 745).
 (se le pasó una captura del Dashboard como segunda referencia). Lo que sigue son los videos, que sí
 gastan créditos de Flow — y Flow avisa que están bajos.
 
+## DÓNDE QUEDÓ TODO (9/11/2026, 04:30 — claude1 al 95 %)
+
+### El tablero: seis puntas arriba esta noche, todas verdes o entrando
+
+| punta | qué cierra |
+|---|---|
+| `punta/titulo-de-pestana-en-404` | la pestaña de un 404 inventaba el nombre de una pantalla |
+| `punta/extension-version-visible` | la versión de la extensión vive en DOS lugares y el guard miraba uno |
+| `punta/barrido-abiertos-verificados` | **18 de 79 «abiertos» ya estaban hechos** |
+| `punta/menu-contextual-en-la-casa` | la pieza entró al barrel, al catálogo y a ui.css |
+| `punta/una-sola-fuente-de-la-meta` | el WhatsApp decía una meta y la pantalla otra |
+| `punta/ticket-66-clics-del-pixel` | los clics del Pixel ya estaban guardados; faltaba la puerta |
+| `punta/goteo-dias-propios` | gotear de lunes a jueves obligaba a achicar el horario |
+
+**Quedan 10 abiertos verificados.** El próximo chico es el audio inventado al crear en Automations:
+está **medido y sin tocar a propósito** — falta saber si el motor manda ese cuerpo además de la nota
+de voz. Si lo manda, el lead recibe un texto que nadie escribió, y eso es grave. El detalle completo
+está en el ítem del inventario.
+
+### ⚠️ DOS VECES CONFUNDÍ «NO IMPRIMIÓ NADA» CON «ESTÁ BIEN»
+
+Lo más caro de la noche, y no fue un bug: `npx tsc -p tsconfig.json` salía con **código 1 y CERO
+líneas** —se moría por memoria antes de imprimir— y yo miraba sólo la salida. Dije «acá da verde»
+durante tres corridas rojas. Media hora antes me había pasado igual con `gh run view | grep`: **`gh`
+no está instalado en esta máquina**, el comando devolvía vacío, y lo leí como «no hay errores».
+
+**De un chequeo se mira el CÓDIGO DE SALIDA, no la ausencia de texto.** Y el log de Actions se lee
+sin `gh`: con la credencial de git contra la API, igual que `~/.claude/guardia/vigia-ci.mjs`
+(`git credential fill` → `Bearer`).
+
+### El reel: dónde quedó, y lo que se aprendió
+
+El **clip 1 está hecho** (Omni 1.2 Flash, 9:16, 8 s) pero **salió en inglés**: le pedí «habla una
+frase corta» sin decirle cuál ni en qué idioma. **Flow se quedó SIN CRÉDITOS** al generarlo, así que
+la versión corregida espera que Martín cargue.
+
+Tres cosas medidas que cambian el método (`docs/hallazgos-ai-avatar.md`):
+- **Flow NO clona voces** y no se conecta con ElevenLabs: catálogo cerrado de voces de Google.
+- **Omni dice la frase con los labios sincronizados** → el paso de lipsync desaparece; después se
+  pasa esa pista por voice-to-voice a ElevenLabs con el clon.
+- **Editar en vez de regenerar**: mientras el pedido sea sólo del fondo, la cara no se vuelve a
+  jugar. Pedir en la misma pasada que mueva una mano hace que redibuje la persona.
+
+Y lo que Martín marcó y vale más que el clip: **el proceso de Avatar Hype no existe dentro de MaKo**
+(`docs/feedback-usando-mako.md`, `punta/avatar-hype-no-es-proceso`). El clip salió entero fuera de
+MaKo. Falta sobre todo **el ciclo de iteración con feedback**, que es donde estuvo todo el valor.
+
+### Esperando a Martín
+
+Su edad para la toma 2 del guion · cargar créditos de Flow · cerrar las pestañas de Chrome (la
+guardia de RAM frenó el `tsc` cuatro veces, quedaban 1,3 GB de los 3 que pide) · el **ticket #67**,
+que entró y no llegué a tomar.
+
 ## Lo que NO se vuelve a discutir
 
 - **Nunca `--no-verify`.** El 24/10 el hook de pre-push frenó un tren con 5 errores de tipos.
