@@ -823,3 +823,22 @@ que usar el que tiene 37 minutos de muestras con acento Argentine.
 - **En voice-to-voice se prueba primero el clon profesional**, siempre.
 - **Cuando dos notas nuestras se contradicen, gana la que se pueda medir, no la más nueva.** Yo
   seguí al archivo más reciente sin comprobar y entregué una voz que no era la suya.
+
+### Las ediciones encadenadas degradan lo que no estás mirando (9/11/2026)
+
+Después de seis ediciones seguidas sobre la misma imagen, Martín: **«pásale nuevamente la referencia
+de las fotos de los influencers, porque evidentemente lo está tomando muy mal… se están pixeleando,
+se están cortando, están desfigurándose».**
+
+Cada edición **redibuja toda la imagen**, no sólo lo que pediste. Lo que no nombrás se reconstruye a
+partir del resultado anterior, y en una cadena larga eso es una fotocopia de una fotocopia: las
+caricaturas del corcho se fueron empastando aunque ninguna edición las mencionara.
+
+**La salida es volver a adjuntar la referencia original**, no describir el problema:
+`LOTE-1.jpg` + `LOTE-2.jpg` pegados otra vez, con **«Las fotos del corcho son estas caras, nítidas y
+completas»** — y en la misma frase anclar lo que no se toca: «La persona, su pose y el cuarto quedan
+igual». Volvieron limpias de una.
+
+**La regla: cada tres o cuatro ediciones, volver a pasar la referencia de lo que tiene que
+mantenerse fiel** — aunque esa parte no sea lo que estás cambiando. Y si algo se degradó, no se pide
+«que se vea mejor»: se vuelve a dar el material.
