@@ -329,6 +329,22 @@ descarga, el editor se cerró, y el texto que escribí después cayó en la caja
 menú se hace clic en un lugar vacío. Si la caja dice «What do you want to **create**?», estás en el
 lugar equivocado.
 
+### La segunda referencia SÍ sirve — pero sólo dentro del editor
+
+En una GENERACIÓN, dos referencias compiten y gana el estilo: con el personaje + un fotograma de luz
+salió una silueta negra. **En una EDICIÓN no pasa**, porque la imagen base está fija y la segunda
+sólo aporta el estilo. Probado hoy: sobre el paso 1 ya limpio, con el fotograma del reel adjunto por
+el `+` del editor y la consigna «copiá SÓLO la luz y la exposición, no cambies ni la persona ni la
+pose ni el encuadre», salió el contraluz del reel con la cara intacta.
+
+Lo dictó Martín: «pásale nuevamente en el paso 1 la referencia del chico de los pistachos, para que
+entienda cómo lo tiene que hacer, pero pídele que el resto lo mantenga igual».
+
+⚠️ **Dos veces se mandó algo a la papelera sin querer**, por hacerle clic a la barra de arriba del
+editor con un menú viejo abierto (la papelera está pegada al botón de descargar). El aviso «1 item
+moved to trash» trae **Undo** y lo devuelve entero — pero hay que verlo: desaparece solo. Antes de
+hacer clic en esa barra, una captura.
+
 ⚠️ **La estética nunca va antes que el parecido.** Pedir que la toma lea «oscura» para copiar un
 reel es pedir que la cara desaparezca; en el original de referencia el cuerpo se recorta contra el
 blanco pero la cara se sigue leyendo. Primero la persona, después la luz, y siempre en pasos.
