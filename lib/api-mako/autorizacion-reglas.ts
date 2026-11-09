@@ -76,6 +76,38 @@ export function mensajeDeAutorizacion(c: CasoAutorizacion, tokenDesconocido = fa
   }
 }
 
+// ── /api/agente/* (la skill de Claude) ──────────────────────────────────────
+
+/**
+ * El token que la skill lee de la cabecera: SÓLO el esquema «Bearer», como siempre (`/^bearer\s+(.+)$/i`). Es la regla de
+ * `bearerDe` (lib/agente-token.ts) sacada a un lugar puro para poder probarla; no la de `casoDeAutorizacion`, que acepta
+ * también «token».
+ *
+ * ⚠️ NO SE AMPLÍA DE PASO (9/11/2026, la revisión de b5f621c6f): la primera versión del arreglo del #60 hizo que `bearerDe`
+ * delegara en `casoDeAutorizacion`, y con eso `Authorization: token <mkoag_ vigente>` pasó de 401 a autorizar las siete
+ * rutas y /hook. No entraba ninguna credencial nueva, pero la puerta dejó de ser idéntica en un cambio que decía tocar
+ * sólo el texto. Abrir el esquema «token» en la skill es una decisión aparte; acá, «token …» es un esquema equivocado y el
+ * 401 dice cuál va.
+ */
+export function bearerDeCabecera(cruda: string | null | undefined): string {
+  const m = /^bearer\s+(.+)$/i.exec((cruda ?? '').trim());
+  return m ? m[1].trim() : '';
+}
+
+/**
+ * Los casos de la cabecera para /api/agente: los mismos de `casoDeAutorizacion`, salvo que «token …» (que /api/v1 acepta)
+ * acá es un esquema equivocado, porque `bearerDeCabecera` no lo lee. Así el 401 nunca dice «ese token no existe» de un
+ * token que ni siquiera se miró.
+ */
+export function casoDeAutorizacionAgente(cruda: string | null | undefined): CasoAutorizacion {
+  const token = bearerDeCabecera(cruda);
+  if (token) return { caso: 'bearer', token };
+  const c = casoDeAutorizacion(cruda);
+  if (c.caso !== 'bearer') return c;
+  // Llegó con un esquema que /api/v1 acepta y la skill no («token»). Del header se repite sólo esa palabra.
+  return { caso: 'otro-esquema', esquema: ESQUEMA.exec((cruda ?? '').trim())?.[1] ?? 'token' };
+}
+
 /**
  * Lo que contesta el 401 de /api/agente/* (las rutas de la skill de Claude). Sólo se llama cuando el bearer NO resolvió
  * a un workspace, así que `bearer` quiere decir «no es un token de la skill vigente».
@@ -84,17 +116,21 @@ export function mensajeDeAutorizacion(c: CasoAutorizacion, tokenDesconocido = fa
  * bearer que se le presentó y el reporte del plugin tiene su consentimiento atado al clásico (lib/api-mako/tokens-lista.ts).
  * Lo que sí se hace es DECIRLO: «inválido o revocado» sobre un token vigente de otra pantalla mandaba a regenerarlo, que
  * es lo único que nunca lo arregla. Mismo cuidado que arriba: del token no se repite nada.
+ * ⚠️ «PARECE», NO «ES»: esto no mira la base, sólo el prefijo. Un `mako_pat_` revocado o inventado oye lo mismo que uno
+ * vigente, así que no se le afirma que «sirve» para /api/v1: se le dice por dónde van esos tokens.
  */
 export function mensajeDeAutorizacionAgente(c: CasoAutorizacion): string {
+  const deLaSkill = 'con el token de la skill: MaKo → Integraciones → Claude';
   switch (c.caso) {
     case 'sin-cabecera':
-      return 'Falta el header Authorization. Mándalo como «Authorization: Bearer TU_TOKEN», con el token de la skill: MaKo → Integraciones → Claude.';
+      return `Falta el header Authorization. Mándalo como «Authorization: Bearer TU_TOKEN», ${deLaSkill}.`;
     case 'sin-esquema':
+      return `El header Authorization llegó sin esquema: no alcanza con el token solo. Mándalo como «Authorization: Bearer TU_TOKEN», ${deLaSkill}.`;
     case 'otro-esquema':
-      return mensajeDeAutorizacion(c);
+      return `El header Authorization llegó con el esquema «${c.esquema}» y la skill espera «Bearer». Mándalo como «Authorization: Bearer TU_TOKEN», ${deLaSkill}.`;
     case 'bearer':
       return esDeLaPantallaDeApi(c.token)
-        ? `Ese es un token de MaKo → API → Tokens: sirve para la API (/api/v1), pero no para la skill de Claude. La skill usa su propio token, el de MaKo → Integraciones → Claude (empieza con «${PREFIJO_PRINCIPAL}»). Generar otro en API → Tokens no lo arregla.`
+        ? `Ese parece un token de MaKo → API → Tokens: esos van por la API (/api/v1), no por la skill de Claude. La skill usa su propio token, el de MaKo → Integraciones → Claude (empieza con «${PREFIJO_PRINCIPAL}»). Generar otro en API → Tokens no lo arregla.`
         : 'Ese token no existe o fue revocado. La skill de Claude usa el token de MaKo → Integraciones → Claude: genera uno nuevo ahí.';
   }
 }

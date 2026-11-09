@@ -90,16 +90,21 @@ Había dos caminos. El otro era que `/api/agente/*` aceptara los `mako_pat_` con
 
 **Lo que cambió** (en `punta/feedback-llamada-0911`):
 - `lib/api-mako/autorizacion-reglas.ts` → `mensajeDeAutorizacionAgente` (puro). El 401 de la skill separa los casos de la
-  cabecera como `/api/v1`. Ante un `mako_pat_` o un `mako_agt_`, dice que es de API → Tokens, que la skill usa el de
+  cabecera como `/api/v1`. Ante un `mako_pat_` o un `mako_agt_`, dice que PARECE de API → Tokens (sale sólo por el prefijo,
+  sin mirar la base, así que no le afirma que «sirve»), que la skill usa el de
   Integraciones → Claude (`mkoag_`) y que regenerar en API → Tokens no lo arregla. Ante uno que no existe, manda a
   Integraciones → Claude. Y el 401 de `/api/v1` con un `mkoag_` revocado también manda a Integraciones → Claude, no a
   API → Tokens.
 - `lib/agente-token.ts` → `rechazoAgente(req)`, el 401 de las siete rutas (`consultar`, `contexto`, `lead`, `metricas`,
-  `plan`, `skill`, `telemetria`). `bearerDe` lee la cabecera con la misma regla que el mensaje.
+  `plan`, `skill`, `telemetria`). `bearerDe` queda **como en main**: sólo «Bearer». La primera versión lo había ampliado
+  al esquema «token» de paso, y con eso `Authorization: token <mkoag_ vigente>` pasaba de 401 a autorizar. Lo vio la
+  revisión del Cerebro y se volvió atrás: para la skill, «token …» es un esquema equivocado y el 401 dice que va «Bearer».
 - **Las pantallas:** el formulario de un token nuevo en API → Tokens dice «No sirve para la skill de Claude», con el link.
   La tarjeta de Integraciones → Claude dice «A Claude dale este token… Los de API → Tokens… la skill no los acepta».
-- tests/agente-token-equivocado.test.ts: 7 pruebas. Estaba en rojo antes del cambio y probado rompiéndolo con 5
-  mutaciones, las 5 en rojo.
+- tests/agente-token-equivocado.test.ts: 12 pruebas. El grueso pasa por tests/_agente-token-equivocado-hijo.ts, que le
+  pega a las siete rutas REALES con pedidos de verdad, contra un PostgREST de mentira: un `mkoag_` vigente, un `mako_pat_`
+  vigente y cuatro cabeceras malas. Probado rompiéndolo con 13 mutaciones, las 13 en rojo. Entre ellas están las seis que
+  la primera versión del test dejaba pasar.
 
 **Lo que falta:** que llegue a producción. Después, avisarle a Mauricio en su grupo qué token pegar en Claude (es el
 `mkoag_` de Integraciones → Claude), y que vuelva a bajar el JSON de la API para su Codex (§ 3.1). Recién ahí se cierra el

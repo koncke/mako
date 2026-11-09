@@ -24,9 +24,21 @@ regenerar en API → Tokens era el paso natural, y nunca iba a andar. Reproducid
 **La regla que queda:** la frontera NO se abre (la skill sigue sin aceptar el detallado: tests/api-mako-tokens.test.ts).
 Lo que cambia es que **el 401 de cada puerta dice qué token espera esa puerta y de dónde sale.** Un token vigente de otra
 pantalla no es un token inválido, y decírselo así manda a regenerar, que es lo único que no lo arregla. Las siete rutas
-contestan con `rechazoAgente(req)` y no con un texto suelto, y `bearerDe` lee la cabecera con la misma regla que arma el
-mensaje (con dos patrones, uno acepta lo que el otro llama «otro esquema»). Por qué no se abrió la frontera:
+contestan con `rechazoAgente(req)` y no con un texto suelto. `bearerDe` y el 401 leen la cabecera con la MISMA regla,
+`bearerDeCabecera` (sólo «Bearer», igual que antes). Por qué no se abrió la frontera:
 [feedback-llamada-8-11.md](feedback-llamada-8-11.md) § 1.
+
+**Dos cosas que la primera versión hizo mal, y las vio la revisión del Cerebro** (b5f621c6f):
+- **Amplió la puerta de paso.** Para que `bearerDe` y el mensaje «usaran la misma regla», `bearerDe` pasó a delegar en
+  `casoDeAutorizacion`, que es la de `/api/v1` y acepta también «token». Con eso, `Authorization: token <mkoag_ vigente>`
+  pasaba de 401 a autorizar las siete rutas y `/hook`, en un cambio que decía tocar sólo el texto. **La regla:** unificar
+  dos lectores se hace hacia el más ESTRICTO de los dos, nunca hacia el que acepta más; ampliar a quién autoriza es una
+  decisión aparte.
+- **El test no veía el bug.** Probaba la regla pura y buscaba texto en los fuentes, así que seis mutaciones reales
+  quedaban en verde (`rechazoAgente` con el texto del #60, con status 200 o sin mirar la cabecera; `bearerDe`
+  devolviendo siempre ''; una ruta que rechaza siempre). **La regla:** lo que une la regla con las rutas se prueba
+  pasando por las rutas con pedidos de verdad. El molde es tests/_agente-token-equivocado-hijo.ts: un hijo con
+  `--conditions=react-server` y el PostgREST de mentira, que acuña un token de cada clase.
 
 ## La telemetría no puede vivir en la skill, y no es una cuestión de estilo
 

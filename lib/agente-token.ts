@@ -34,7 +34,7 @@ import { getSupabaseServer } from './supabase';
 import { marcarUso } from './api-mako/tokens-uso';
 import { ID_PRINCIPAL } from './api-mako/tokens-lista';
 import { creadorVigente } from './api-mako/tokens-creador-vigente';
-import { casoDeAutorizacion, mensajeDeAutorizacionAgente } from './api-mako/autorizacion-reglas';
+import { bearerDeCabecera, casoDeAutorizacionAgente, mensajeDeAutorizacionAgente } from './api-mako/autorizacion-reglas';
 import {
   AGENTE_SERVICIO, AGENTE_TOKEN_KEY, PREFIJO_PRINCIPAL,
   acunarCon, leerGuardado, revocarCon, revocarSiCreadorSinAcceso, visibleDe, wsDeTokenCon,
@@ -174,13 +174,13 @@ export async function wsDelBearer(token: string): Promise<number | null | Respon
 }
 
 /**
- * Lee el bearer de un request. Acepta `Authorization: Bearer <token>` (y `token <token>`, como /api/v1).
- * ⚠️ La forma de la cabecera la decide `casoDeAutorizacion`, la MISMA regla que arma el 401: con dos patrones, una
- * cabecera que uno acepta el otro la llama «otro esquema» y el mensaje miente (ticket #60).
+ * Lee el bearer de un request. Acepta SÓLO `Authorization: Bearer <token>`, como siempre: la regla vive en
+ * `bearerDeCabecera` (lib/api-mako/autorizacion-reglas.ts), la misma que usa el 401 de abajo para decir qué pasó.
+ * ⚠️ No acepta «token <token>» aunque /api/v1 sí: ampliarlo cambia quién autoriza en la skill, y eso no entra de paso
+ * (9/11/2026, revisión de b5f621c6f).
  */
 export function bearerDe(req: Request): string {
-  const c = casoDeAutorizacion(req.headers.get('authorization'));
-  return c.caso === 'bearer' ? c.token : '';
+  return bearerDeCabecera(req.headers.get('authorization'));
 }
 
 /**
@@ -188,8 +188,9 @@ export function bearerDe(req: Request): string {
  * «token inválido o revocado» a todo, incluso a un token VIGENTE de API → Tokens, que la skill no acepta a propósito:
  * Mauricio regeneró dos y ninguno iba a andar. Ahora dice cuál de los casos es (lib/api-mako/autorizacion-reglas.ts).
  * Mantiene `{ ok:false, error }`: la skill y el plugin instalados leen `error`.
+ * Lo prueba de punta a punta tests/_agente-token-equivocado-hijo.ts, pasando por las siete rutas con pedidos de verdad.
  */
 export function rechazoAgente(req: Request): Response {
-  const error = mensajeDeAutorizacionAgente(casoDeAutorizacion(req.headers.get('authorization')));
+  const error = mensajeDeAutorizacionAgente(casoDeAutorizacionAgente(req.headers.get('authorization')));
   return Response.json({ ok: false, error }, { status: 401 });
 }
