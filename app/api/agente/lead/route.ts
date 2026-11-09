@@ -39,7 +39,7 @@
 
 import { wsEnContexto } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsDelBearer } from '@/lib/agente-token';
+import { bearerDe, rechazoAgente, wsDelBearer } from '@/lib/agente-token';
 import { rechazoPorAlcance } from '@/lib/api-mako/alcance';
 import { limitePorClave } from '@/lib/limite-publico';
 import { crearPropuesta } from '@/lib/propuestas';
@@ -111,7 +111,7 @@ const TOPE = 200;
 export async function POST(req: NextRequest) {
   const ws = await wsDelBearer(bearerDe(req));
   if (ws instanceof Response) return ws;
-  if (ws == null) return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
+  if (ws == null) return rechazoAgente(req);
   // Un token «Solo leer» no deja propuestas (lib/api-mako/alcance.ts → rechazoPorAlcance).
   const fuera = rechazoPorAlcance(bearerDe(req), 'proponer');
   if (fuera) return NextResponse.json({ ok: false, error: fuera }, { status: 403 });

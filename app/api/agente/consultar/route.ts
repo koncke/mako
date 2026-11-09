@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsDelBearer } from '@/lib/agente-token';
+import { bearerDe, rechazoAgente, wsDelBearer } from '@/lib/agente-token';
 import { runWithWorkspace } from '@/lib/workspace';
 import { runMakoTool, MAKO_TOOLS } from '@/lib/mako-tools';
 import { CONSULTAS_AGENTE, consultaPermitida, inputDeConsulta, PARAMS_CONSULTA } from '@/lib/agente-consultas';
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   const ws = await wsDelBearer(bearerDe(req));
   if (ws instanceof Response) return ws;
   if (ws == null) {
-    return NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
+    return rechazoAgente(req);
   }
 
   const q = req.nextUrl.searchParams;

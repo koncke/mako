@@ -12044,3 +12044,129 @@ avisa**. Martín lo vio dos veces seguidas en la misma toma, y las dos las cazó
 
 ⚠️ El costo de no chequear no es una vuelta más: es que **el usuario descubra el error**, que es
 exactamente lo que pasó acá y lo que el producto no puede hacerle a un cliente.
+
+## Todo clip generado sale con su contexto de generación al lado
+
+**Regla de Martín, 9/11/2026:** *«cada clip que salga, que salga con todas las configuraciones,
+tanto de Flow o la IA generativa como también la imagen de referencia que se le juntó, como
+también qué modelo se utilizó… que cada generación traiga todo un contexto, pues si no estamos
+dando vueltas.»*
+
+Junto a cada `<clip>.mp4` va un **`<clip>.contexto.md`** con, como mínimo:
+
+1. **La imagen de partida** — archivo, medidas, herramienta y modelo, y **la cadena completa de
+   prompts** que la produjo (una edición por línea, en orden), más **cada referencia que se le
+   adjuntó**, con su ruta.
+2. **El video** — herramienta, **modelo**, modo (fotogramas / ingredientes), resolución, formato,
+   variantes, **costo en créditos**, y el **prompt exacto entre comillas**.
+3. **La voz** — servicio, `voice_id` **y de qué clon es**, `model_id`, los `voice_settings`
+   completos, `output_format`, el **pre-proceso del audio de origen** y el post-proceso.
+4. **Lo medido** — duración del video, de la voz, el desfase entre ambas, y lo que se haya medido
+   para decidir.
+5. **Lo que falta decidir.**
+
+**Por qué:** el 9/11 se perdieron horas porque el clip aprobado se llamaba `CLIP-wavnivel` y el
+nombre era todo el contexto que había. Para saber con qué se había hecho hubo que abrir scripts
+viejos, medir tonos y comparar archivos — y aun así quedaron dudas. Un nombre no es documentación.
+
+⚠️ **El contexto se escribe al generar, no después.** Reconstruirlo más tarde es exactamente el
+trabajo que esta regla existe para evitar.
+
+### Antes de entregar una imagen o un clip, recorrer la lista de lo ya corregido
+
+No alcanza con mirar el resultado y que «se vea bien»: hay que compararlo **contra todo el feedback
+que el cliente ya dio sobre esa pieza**, punto por punto. El 9/11 entregué dos veces seguidas una
+imagen que repetía dos correcciones ya hechas (pocas fotos, y fotos que parecen stickers), porque la
+miré sola en vez de mirarla contra la lista. Martín: **«el mismo feedback que antes… para ser
+criterioso, mirar y revisar si está bien luego».**
+
+**Cada pieza con más de dos vueltas de feedback se lleva su checklist**, en el relevo de esa tarea
+(ejemplo: `docs/relevo/reel-mentores-high-ticket.md`, «CHECKLIST DEL CORCHO»). Una fila por
+corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
+mandarla.
+
+### ⛔ Cada clip parte del AVATAR ORIGINAL, aunque cambien el movimiento o la posición (Martín, 9/11/2026)
+
+*«por más de que haya cambios de movimiento, de posición, etcétera, siempre se debe partir desde el avatar original… si no, van a haber discordancias seguro en los avatares».* Cada imagen de cada clip del reel se hace desde la MISMA imagen original del avatar, nunca desde el fotograma de otro clip ni desde otra combinación.
+- **Si a mitad del reel el usuario manda otra foto** o pide cambiar algo del avatar: se genera, pero se le ADVIERTE que, si no se sigue con la imagen original (se le muestra cuál es), es muy posible que haya diferencias sutiles entre clips. Cada foto trae otra luz, que cambia el color del pelo o las facciones, otra sonrisa y otra calidad, y la IA lo copia.
+
+- **Continuidad entre clips** (Martín, 9/11): *«si yo ya había tirado la tarjeta, la Polaroid, no debería tenerla otra vez. Y eso justamente se hace a raíz de la imagen… siempre tienes que tú estar presente para hacerte preguntas y tener criterio a ver si todo está bien».* Antes de armar la imagen de un clip se repasa cómo TERMINÓ el anterior (qué tiene en la mano, qué tiró, dónde está, ropa, encuadre) y la imagen nueva sale con ese estado. Vale igual dentro de MaKo: MaKo se hace esas preguntas sola, no espera a que el usuario lo note.
+
+- **Video: sin variaciones; imagen: libre** (Martín, 9/11): *«no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.»* De imagen se hacen las muestras que hagan falta (0 créditos). De video, UNO por pedido y recién con el OK del usuario a la imagen de ese clip; nunca dos versiones de video «para elegir». Se anota el saldo de créditos antes y después de cada video.
+
+### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
+
+- **Escala:** *«no puede ser posible que el pizarrón sea exageradamente grande con esas imágenes exageradamente grandes y yo quede así de chiquito… se ve muy feo».* Se mira la proporción entre la persona y los objetos (una persona es más alta que un corcho de pared; una foto pinchada es más chica que una cara). Si no es real, no se manda.
+- **Rostro:** *«siempre en los prompts indícale que el rostro y las expresiones y todo sea idéntico al original… exactamente igual al original».* Toda frase que meta o mueva a una persona dice: «Su rostro, sus expresiones, su pelo y su ropa son exactamente iguales a los del original». Antes de mandar, se compara la cara con la original lado a lado.
+- **Perspectiva:** cuando manda el escenario, el FONDO va de base y la persona de referencia; se revisa que la pared y el corcho no queden desfasados.
+
+### ⛔⛔⛔ UNA SOLA REFERENCIA Y UN PROMPT SIMPLE. SIEMPRE. ⛔⛔⛔
+
+**Regla de Martín, repetida el 9/11/2026 después de HORAS de vueltas, textual:** *«No le pases muchas referencias
+porque ahí lo hace mal la inteligencia artificial… eso ya lo teníamos anotado como regla, vuélvelo a anotar y
+subráyalo enorme por todos lados. Los prompts simples, con una sola referencia. Si no, lo hace mal».*
+
+**Cómo se pide un cambio en Flow:** la imagen que ya está bien va de BASE · se adjunta **UNA** referencia de cómo
+tiene que quedar lo que cambia · y una frase corta: lo que se mantiene y lo que cambia. Nada más.
+> Ejemplo de Martín: *«Mantén la foto de los personajes, pero quiero que las tarjetas se vean de esta manera. Más
+> realista.»*
+
+⛔ **No** dos lotes de caras + una muestra de estilo + un párrafo de seis condiciones: el 9/11 eso dio, una y otra vez,
+caras repetidas, el corcho vertical y las tarjetas copiadas del lote en vez de la referencia. Cada referencia de más
+compite con las otras, y el modelo mezcla de cada una lo que se le ocurre.
+
+### ⛔ No se genera encima de una generación: se vuelve atrás
+
+**Regla de Martín, 9/11/2026:** *«súper importante que no generes sobre otro generador, que vuelvas
+para atrás. Eso, como regla también, porque provoca que la IA haga estas cosas.»*
+
+Cada edición **redibuja la imagen entera**. Encadenar ediciones es fotocopiar una fotocopia: a la
+novena vuelta, el personaje tenía **un ojo deformado** y la foto que sostenía estaba desfigurada,
+sin que ninguna de esas ediciones tocara ni la cara ni la foto.
+
+**Cómo se trabaja:**
+1. **Se guarda cada versión aprobada** como punto de retorno (bajarla, con su nombre y su contexto).
+2. **Un cambio nuevo se aplica sobre la última versión LIMPIA**, no sobre el resultado de tres
+   correcciones seguidas. Si hace falta, se vuelve a subir esa versión limpia como imagen nueva —
+   eso **resetea la cadena**.
+3. **Dos o tres ediciones seguidas es el techo.** Pasado eso, se vuelve atrás y se aplica el cambio
+   acumulado de una sola vez sobre la base buena.
+4. Si algo se degradó, **no se pide «que se vea mejor»: se vuelve a pasar la referencia** de eso.
+
+⚠️ La degradación **no avisa**: aparece en lo que nadie está mirando —una cara de fondo, un ojo, un
+objeto en la mano— mientras la parte que estás corrigiendo mejora vuelta a vuelta.
+
+### ⛔ A Flow jamás le entra una imagen reescalada: base y referencias, siempre del ORIGINAL
+
+**Regla de Martín, 9/11/2026, textual:** *«estuviste utilizando y descargándote las fotos en alta calidad. Cuando vos
+haces eso, la IA vuelve a regenerar sobre eso y elimina muchos detalles que eran importantes para sumarle la calidad.
+Como regla, jamás que se haga eso.»* Y: *«Todo siempre en la calidad original, también los videos.»*
+
+El «2K/4K Reescalado» del menú de descarga de Flow **es otra pasada de IA**: alisa la piel, empasta la textura y deja
+el look plástico. Ese día el corcho se bajó en 2K, se volvió a subir como base y después como referencia de la persona,
+y el resultado salió «muy de IA». **Se baja «1K · Tamaño original»** (y los videos, en su original) y sólo eso vuelve a
+entrar a Flow, como base o como referencia.
+
+### Una cosa al 100 % primero, y después se le agrega la otra
+
+**Método de Martín, 9/11/2026, textual:** *«Un truco que yo hago es intentar tener una cosa —que en
+este caso puede ser el personaje sujetando— y luego tener 100% lo otro. Yo lo que haría es tener
+100% el pizarrón sin la persona, y luego metería la persona del clip que ya tenemos… Puedes
+literalmente decirle: ahora que ya tenemos este pizarrón, pon a esta persona con la misma foto y la
+misma pose enfrente.»*
+
+**Por qué funciona:** cuando una sola imagen tiene que resolver dos cosas a la vez (el fondo Y la
+persona), cada corrección de una rompe la otra. El 9/11 pasó cuatro veces: al arreglar las caras del
+corcho se perdió la pose; al arreglar la pose se perdieron las caras; al arreglar el tamaño se
+deformó un ojo y la foto de la mano.
+
+**Cómo se hace:**
+1. **Se termina el fondo solo**, sin la persona, hasta que esté al 100 %. Ahí se puede iterar
+   libremente: no hay nada más que romper.
+2. **La persona entra al final, de una referencia que ya está aprobada** — un fotograma de un clip
+   que salió bien, donde la cara, la pose y lo que sostiene ya se ven correctos.
+3. El pedido es una sola frase: **«Pon a esta persona, con la misma foto y la misma pose, delante
+   de este fondo.»**
+
+Se combina con la regla de no encadenar generaciones: cada pieza se perfecciona en su propia cadena
+corta, y la unión es **una sola** edición.

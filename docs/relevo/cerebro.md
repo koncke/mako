@@ -1418,6 +1418,13 @@ marcados y el cliente no los puede borrar — sólo dejar de verlos.
   desplegado**, así que lo que Martín vio es la versión vieja. Hay que mirarlo DESPUÉS de recargar;
   si sigue roto es otro problema y hace falta la captura.
 
+## ⏩ AL 9/11/2026 ~14:15 ART (claude4, Cerebro): lo que está EN CURSO
+
+- **El reel de mentores:** todo en docs/relevo/reel-mentores-high-ticket.md (§000 a §00). El clip 1 se rehizo en FLOW con la receta exacta de CLIP-wavnivel; Martín tiene que aprobarlo, y después va el clip 2 igual. ⛔ Video por Flow, nunca ApiMart (una tarea ya lanzada espera en `C:/dev/reel-mentores/omni/clip1-omni.mp4.task.txt`; no se relanza).
+- **El manual de video de MaKo** (pedido de Martín, 9/11): workflow `wf_894b64a7-9f6` → `docs/manual-video-mako.md` + `C:/dev/reel-mentores/manual/manual-video-mako.html`. Al terminar: corregir donde diga ApiMart (es Flow), publicarlo como Artifact y mandárselo.
+- **El ticket de la conexión de Claude de Mauricio:** `b5f621c6f` YA está en main (acepta de más el esquema «token»); la corrección `22c544886` está en `punta/token-agente-0911`, y la reverificación corre en `wf_6ddc9fe4-f0e` (árbol `C:/dev/verif-22c544886`). Si da BIEN, la punta entra sola; con el deploy confirmado, decirle al chat feedback-llamada (`local_12aca94a…`) que mande el aviso a Mauricio con --enviar. Informe de la primera revisión: `C:/dev/revisiones/2911-verificacion-token-agente-b5f621c6f.json`.
+- **Chats de la nube:** Web Replicate (los varios mouse, + extensión «Swarm rebuild») y Edición en MaKo. Sus puntas dieron rojo por el autor noreply; ya se les pidió firmar con martinkoncke@gmail.com.
+
 ## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 90 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
@@ -2589,3 +2596,67 @@ Faltan las tomas 2 a 6 y la edad de Martín para la línea 2.
 
 **El lanzamiento es el domingo 25/10.** La campaña de Mauricio va del 24/10 al 13/11 (50 leads por día). Su Sprint es el
 24, 25 y 26 de noviembre.
+
+---
+
+## 9/11/2026 ~05:00 UTC — el reel, cuatro reglas nuevas de generación, y el aviso del envío trabado
+
+### Lo que quedó HECHO y en su punta
+
+- **El envío trabado ya avisa** (el ítem 1 de «lo que sigue abierto»): `lib/envio-trabado.ts` (puro,
+  el criterio) + `lib/envio-trabado-aviso.ts` (el envío, con su `catch`) + el aviso
+  `envio-trabado-otra-app` en el catálogo + el enganche en la rama social de `nutricion.ts`.
+  9 tests. Puntas: `punta/aviso-envio-trabado` (roja, foto del estado viejo) y
+  **`punta/aviso-envio-trabado-verde` (con el arreglo)**.
+- ⚠️ **TRES puntas quedan ROJAS a propósito y no se tocan**: `aviso-envio-trabado`,
+  `chequear-antes-de-entregar` y `animar-en-flow-numeros` son commits anteriores al arreglo. Lo
+  bueno entra a main por `aviso-envio-trabado-verde` y `movimiento-por-lo-quieto`.
+
+### Los tres rojos que GitHub cazó y acá no se veían
+
+1. **Voseo** en el copy del aviso («lo arreglas vos»): el producto se usa en México.
+   `tests/puente-panel-copy.test.ts` lo barre en 6.021 archivos.
+2. **El tope de 3.000 caracteres de la rama social de `nutricion.ts`** (`tests/canal-social.test.ts`):
+   el bloque inline la dejó en 3.245. **Esa guarda existe para que la rama se lea de una sentada**:
+   lo que el motor tiene que hacer sale a una función con nombre, no se apila ahí.
+3. **Un aviso nuevo sin ÁREA declarada** caería en `'sistema'` por default, y ese default es para los
+   que crea el dueño, no para tapar olvidos del catálogo (`tests/avisos-reunion-link.test.ts`).
+
+### Las CUATRO reglas de generación que dictó Martín (todas en `AGENTS.md`)
+
+1. **Siempre se parte de una imagen de referencia, nunca de puro prompt.** Describir una pose con
+   palabras costó 4 intentos; con la foto adjunta y una frase salió al primero.
+2. **El prompt va CORTO Y HUMANO**, también el que MaKo le manda a Flow/ApiMart cuando un usuario
+   dice que algo no salió como esperaba. Nada de recetas técnicas ni de medir bordes del pelo.
+   **Lo que no se quiere no se nombra**: lo negativo se cumple al revés.
+3. **Lo generado SE CHEQUEA antes de entregar** — con la misma referencia y la misma frase, dos
+   corridas dan resultados distintos y el modelo no avisa. En el producto: no se muestra como
+   terminado sin su chequeo.
+4. **El movimiento se pide por lo que SE QUEDA QUIETO.** «Mueve los dedos» bajó el brazo entero;
+   «los brazos quedan cruzados todo el tiempo, sólo respira» salió al primero.
+
+Y dos de operación: **las ediciones NO se apilan** (se vuelve a la última versión que él aprobó) y
+**las generaciones se lanzan en paralelo**, en Flow y en ApiMart.
+
+### El reel: dónde está
+
+**Proyecto NUEVO, en la cuenta de Mauricio** (la `/u/2/` del Chrome de Claude) — **Martín lo puso ahí a
+propósito y dijo que se gaste ahí**: `flow.google.com/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e`.
+El proyecto viejo (`73afb881…`) está en otra cuenta y **no se alcanza desde este Chrome**.
+
+**Tres tomas listas**, 720×1280, 8 s, **sin pista de audio**: brazos cruzados (sólo respira),
+perfil con las manos arriba, y el dedo índice arriba. Faltan: animar la del estudio con la pizarra
+de detective, y generar dos imágenes (él frente a la compu, él con el teléfono).
+
+⚠️ **El panel de video de Flow viene mal por default**: Veo 3.1 Lite (y la regla es SÓLO Omni), la
+imagen como «Ingredientes» en vez de «Fotogramas», y **360p** —por eso decía 8 créditos cuando a
+720p son **24**—. **Recargar la página borra el primer fotograma.** Gastados 96 de 1.050.
+
+⚠️ **Omni devuelve pista de audio aunque nadie hable** (−42 a −62 dB, ambiente). Un clip que va mudo
+se entrega con `ffmpeg -an -c:v copy`.
+
+### Trabado esperando a Martín
+
+- **Su edad**, para la línea de la credencial del guion, y la palabra en rojo del segundo 3.
+- **El guion entero de Josep NO se transcribe** (es su pieza): se le pasó el esqueleto con los
+  tiempos medidos y el guion propio completo.

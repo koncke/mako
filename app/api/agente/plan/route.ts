@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { bearerDe, wsDelBearer } from '@/lib/agente-token';
+import { bearerDe, rechazoAgente, wsDelBearer } from '@/lib/agente-token';
 import { rechazoPorAlcance } from '@/lib/api-mako/alcance';
 import { limitePorClave } from '@/lib/limite-publico';
 import { wsEnContexto, runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -30,9 +30,6 @@ import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const noAutorizado = () =>
-  NextResponse.json({ ok: false, error: 'token inválido o revocado' }, { status: 401 });
 
 /** ¿Este workspace usa el board rico (plan_tareas)? Mismo criterio que aplicarPropuesta. */
 async function usaPlanBoard(ws: number): Promise<boolean> {
@@ -54,7 +51,7 @@ async function wsDeReq(req: NextRequest): Promise<number | null | Response> {
 export async function GET(req: NextRequest) {
   const ws = await wsDeReq(req);
   if (ws instanceof Response) return ws;
-  if (ws == null) return noAutorizado();
+  if (ws == null) return rechazoAgente(req);
   try {
     return await runWithWorkspace(ws, async () => {
       if (await usaPlanBoard(ws)) {
@@ -92,7 +89,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ws = await wsDeReq(req);
   if (ws instanceof Response) return ws;
-  if (ws == null) return noAutorizado();
+  if (ws == null) return rechazoAgente(req);
   // Un token «Solo leer» no deja propuestas (lib/api-mako/alcance.ts → rechazoPorAlcance).
   const fuera = rechazoPorAlcance(bearerDe(req), 'proponer');
   if (fuera) return NextResponse.json({ ok: false, error: fuera }, { status: 403 });

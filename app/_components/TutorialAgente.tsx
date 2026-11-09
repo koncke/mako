@@ -251,6 +251,8 @@ export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: Toke
               <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', alignSelf: 'flex-start' }}>{actual!.pista}</code>
             )}
             <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill.</span>
+            {/* Ticket #60 (9/11/2026): los de API → Tokens NO son «el mismo». La skill sólo acepta éste. */}
+            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>A Claude dale <strong style={{ color: 'var(--ink)' }}>este</strong> token (empieza con «mkoag_»). Los de API → Tokens son para n8n, Zapier o un script, y la skill no los acepta.</span>
             <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
               Este token: <strong style={{ color: 'var(--ink)' }}>{TEXTO_ALCANCE[actual!.alcance].titulo}</strong>. Para cambiarlo, elige otra opción y genera otro.
             </span>
@@ -267,7 +269,7 @@ export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: Toke
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {elegirAlcance}
             <button type="button" style={btnPrimario} onClick={() => void generar()} disabled={generando}>{generando ? 'Generando…' : 'Generar token'}</button>
-            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. La primera vez que Claude necesite tus datos te va a pedir este token y te va a decir la ruta exacta donde pegarlo ({AGENTE_TOKEN_ARCHIVO}): no vuelve a preguntarlo.</span>
+            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. La primera vez que Claude necesite tus datos te va a pedir este token y te va a decir la ruta exacta donde pegarlo ({AGENTE_TOKEN_ARCHIVO}): no vuelve a preguntarlo. Es este, no uno de API → Tokens: la skill no acepta esos.</span>
           </div>)
         ))}
 
