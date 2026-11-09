@@ -251,6 +251,7 @@ editar_plantilla_meta
 editar_post_comunidad
 editar_texto_guion_anuncio
 editar_venta_lead
+editar_video_automatico
 elegir_cuenta_meta
 elegir_formato_creativo_anuncio
 elegir_kit_marca

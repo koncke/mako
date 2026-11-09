@@ -742,7 +742,9 @@ export type OperacionResuelta =
 	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
 	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean }
 	/** «Clips mágicos» (clips/buscar.ts): busca los momentos, después del lote; no cambia este proyecto. */
-	| { op: "clips_magicos"; cuantos: number };
+	| { op: "clips_magicos"; cuantos: number }
+	/** «Edición automática» (enjambre/correr.ts): los agentes, cada uno con su paso; SOLA, después del lote. */
+	| { op: "edicion_automatica" };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -929,6 +931,27 @@ export function revisarOperaciones({
 		}
 	}
 
+	// ── edicion_automatica: SOLA (enjambre/correr.ts). Cada agente mira la línea de tiempo de SU momento y
+	// decide; otra operación en el mismo pedido se pisaría con lo que hacen (cortan, subtitulan, normalizan).
+	if (operaciones.some((o) => o.op === "edicion_automatica")) {
+		const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !r.bloqueada);
+		if (!refs.size) {
+			descartes.push("la línea de tiempo está vacía: agrega tu video primero");
+			return { resueltas, cambios, descartes };
+		}
+		resueltas.push({ op: "edicion_automatica" });
+		cambios.push({
+			tipo: "agrega",
+			titulo: "Edición automática",
+			antes: "",
+			despues: conSonido
+				? "los agentes quitan pausas, subtitulan, sacan muletillas, resaltan palabras clave, proponen B-roll y planos, limpian y normalizan la voz, y revisan; lo ves pasar al aceptar"
+				: "no hay un video con sonido: casi todos los agentes se van a saltear",
+		});
+		if (operaciones.length > 1) descartes.push("lo demás va en otro pedido: la edición automática va sola");
+		return { resueltas, cambios, descartes };
+	}
+
 	const resolver = (ref: string): { el: RefElemento } | { motivo: string } => {
 		const el = refs.get(ref);
 		const st = estado.get(ref);
@@ -1057,6 +1080,7 @@ export function revisarOperaciones({
 
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
+		if (op.op === "edicion_automatica") continue; // Ya se resolvió arriba, sola.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
 		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
