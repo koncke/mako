@@ -254,6 +254,9 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
   'wa-desconectado': 'sistema', 'wa-desvinculado': 'sistema', 'wa-reconectado': 'sistema',
+  // Misma familia que los `wa-*`: un canal que dejó de entregar. No es 'lead' —el lead no tiene
+  // nada que ver— ni 'anuncios': es la plomería del negocio la que está trabada.
+  'envio-trabado-otra-app': 'sistema',
   'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -556,7 +559,7 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     disparador: 'El motor recibe `not_thread_owner` de Meta (subcode 2534037) al mandar por Instagram o Messenger: otra app es el receptor primario del handover de la Página.',
     ejemplo: `🔴 *Tus mensajes no están saliendo por Instagram.* Meta dice que otra aplicación figura como la que atiende las conversaciones de tu Página, así que no me deja escribirle a tus leads.
 
-Lo arreglas vos: entra a la configuración de la Página y saca esa otra app (o bájala de prioridad). Yo sigo reintentando y en cuanto se destrabe salen solos — pero cada lead tiene 24 h desde que escribió, y pasadas esas horas ya no se le puede escribir. — MaKo`,
+Lo arreglas tú: entra a la configuración de la Página y saca esa otra app (o bájala de prioridad). Yo sigo reintentando y en cuanto se destrabe salen solos — pero cada lead tiene 24 h desde que escribió, y pasadas esas horas ya no se le puede escribir. — MaKo`,
   },
   {
     id: 'meta-token-vencido', titulo: 'Token de Meta vencido (integración caída)', categoria: 'aviso',

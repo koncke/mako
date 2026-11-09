@@ -5730,20 +5730,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           if (r.omitir) nota = r.error;
           else if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
           else if (r.nota) nota = r.nota;
-          // ⚠️ ESTO NO LO ARREGLA EL MOTOR: SE LO DECIMOS AL NEGOCIO (9/11/2026, tickets #63 y #64).
-          // El envío se sigue reintentando —arriba— porque el ajuste se destraba solo; lo que
-          // faltaba es que alguien se entere. Nueve días en silencio dejaron 17 leads inalcanzables,
-          // y el único que lo notó fue el cliente. El aviso va a SU grupo, una vez cada 12 h por
-          // canal (la clave NO lleva el lead: cien leads trabados son UN problema de la cuenta).
+          // ESTO NO LO ARREGLA EL MOTOR: SE LO DECIMOS AL NEGOCIO (tickets #63 y #64, lib/envio-trabado.ts).
           if (!r.ok && r.causaDelNegocio) {
-            const { avisoDeEnvioTrabado } = await import('@/lib/envio-trabado');
-            const av = avisoDeEnvioTrabado(r.causaDelNegocio, NOMBRE_CANAL[paso.canal as CanalSocial] ?? paso.canal);
-            if (av) {
-              const { emitirDelCatalogo } = await import('@/lib/avisos');
-              // Con `catch`: que el aviso falle NO puede tumbar la corrida del motor ni perder el paso.
-              await emitirDelCatalogo(av.id, { ws: wsCorrida ?? undefined, contexto: av.contexto, dedupKey: av.dedupKey, dedupTtlMin: av.dedupTtlMin })
-                .catch((e) => console.error(`[nutricion] aviso de envío trabado: ${e instanceof Error ? e.message : String(e)}`));
-            }
+            const { avisarEnvioTrabado } = await import('@/lib/envio-trabado-aviso');
+            await avisarEnvioTrabado(r.causaDelNegocio, NOMBRE_CANAL[paso.canal as CanalSocial] ?? paso.canal, wsCorrida);
           }
         }
       } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {

@@ -18,6 +18,7 @@
 //   · el aviso no está en el catálogo                             → 6 / 1
 //   · sacar `causaDelNegocio` del catch del DM                    → 8 / 1
 //   · no emitir el aviso en el motor                              → 8 / 1
+//   · el envoltorio sin `catch` (un aviso roto tumba la corrida)  → 8 / 1
 // =============================================================================
 
 import test from 'node:test';
@@ -84,10 +85,13 @@ test('el envío marca la causa cuando Meta dice que otra app es la dueña', () =
 });
 
 test('y el motor emite el aviso al grupo del negocio', () => {
+  // ⚠️ El motor llama al ENVOLTORIO, no al decisor: la rama social de `nutricion.ts` tiene un tope de
+  // 3.000 caracteres (`tests/canal-social.test.ts`) y el bloque inline lo pasaba. Se sigue la cadena.
   const n = leer('lib/nutricion.ts');
-  assert.ok(n.includes('avisoDeEnvioTrabado'), 'nutricion no llama al decisor: el fallo vuelve a ser silencioso');
-  const i = n.indexOf('avisoDeEnvioTrabado');
-  const bloque = n.slice(i, i + 700);
-  assert.ok(bloque.includes('emitirDelCatalogo'), 'decide el aviso pero no lo manda');
-  assert.ok(bloque.includes('dedupKey'), 'sin la clave de dedup son cien avisos por cien leads');
+  assert.ok(n.includes('avisarEnvioTrabado'), 'nutricion no avisa: el fallo vuelve a ser silencioso');
+  const a = leer('lib/envio-trabado-aviso.ts');
+  assert.ok(a.includes('avisoDeEnvioTrabado'), 'el envoltorio no consulta el criterio: avisaría de todo');
+  assert.ok(a.includes('emitirDelCatalogo'), 'decide el aviso pero no lo manda');
+  assert.ok(a.includes('dedupKey'), 'sin la clave de dedup son cien avisos por cien leads');
+  assert.ok(/catch\s*\(/.test(a), 'un aviso que falla no puede tumbar la corrida del motor');
 });
