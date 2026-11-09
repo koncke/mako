@@ -718,3 +718,24 @@ parpadeo o una boca a mitad de palabra.**
 
 ⚠️ **«No se pudo completar la acción» tiene botón de reintentar** y el reintento corre distinto: no
 es un error definitivo, pero tampoco repite lo mismo.
+
+### Lo que hace que un recorte se vea «pegado» es el FONDO de la foto, no su dibujo (9/11/2026)
+
+Martín, mirando el corcho con las caricaturas: **«que mimetice un poquito más el fondo para que se
+vea un poco más realista… no me refiero a que deje de hacer caricaturas… sino que la foto que puso
+ahí se ven muy diferentes al resto».**
+
+**Lo que NO alcanzó:** «Las fotos del corcho son papel impreso, con la misma luz que el resto del
+cuadro.» Se generó sin error y el resultado fue casi idéntico — el modelo ya creía que eran papel.
+
+**Lo que lo resolvió de una:** **«Cada foto del corcho tiene el fondo claro, como una foto de
+carnet.»**
+
+El culpable no era el trazo de la caricatura ni la luz: era que **cada caricatura trae su fondo de
+color plano saturado** (verde, rosa, amarillo), y veinte rectángulos de color saturado sobre corcho
+leen como stickers por más bien iluminados que estén. Con fondo claro, las mismas caricaturas pasan
+a leerse como fotos de carnet clavadas.
+
+**La regla general: cuando algo «no se integra», mirar qué propiedad lo separa del resto del cuadro
+—casi siempre la saturación o el fondo— y pedir ESA, no «que se vea más realista».** «Realista» no
+es una instrucción: no dice qué cambiar.
