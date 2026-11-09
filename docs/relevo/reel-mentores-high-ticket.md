@@ -305,3 +305,50 @@ Hormozi, Francisco Doglio… sí están, pero están como más escondidas.»*
 
 ⚠️ Las caras que le importan deben quedar en la **mitad izquierda** del corcho: la persona tapa la
 derecha.
+
+---
+
+# TODO LO QUE DIJO MARTÍN, TEXTUAL (9/11/2026)
+
+Para no volver a pedírselo. Lo que está entre comillas son sus palabras.
+
+## El guión (sus cinco líneas, no se tocan)
+1. «Este es un mensaje para todos los **mentores high ticket**.»
+2. «Me llamo Martín, **tengo 25 años** y me **estudié a todos los gurús** que conoces.»
+3. «Por eso creé una app para que **no tengas que gastarte miles de dólares en vendehumos**.»
+4. «Vas a poder **crear y editar videos como el que estás viendo** en minutos.»
+5. «Dejá de comentarle a los que te dan **un triste PDF**. Mejor comentá **"App"** y te regalo **1 semana de prueba**.»
+
+## Sus reglas de método, en orden de aparición
+| | lo que dijo | dónde quedó |
+|---|---|---|
+| Simpleza | «está muy complejo… **se tiene que ver real** también. No se tiene que ver tan complejo» | docs/video-avatar-desde-foto.md |
+| Cantidad | «que sea más simple, que **no tenga tantas imágenes**» · luego «**pásale más**, tenemos más» · luego «**no hay tantas fotos**» | checklist del corcho |
+| Unicidad | «**que no repita influencer**» · «repitió a muchas y no usó a otras, **asegúrate de pasarles las suficientes** para que tengan material» | ídem |
+| Tamaño | «que tengan **evidentemente el mismo tamaño**» · «el pizarrón con esas **imágenes enormes y gigantescas**, me gustaba la última versión que habíamos logrado» | ídem |
+| Integración | «que **mimetice** un poquito más el fondo… **no me refiero a que deje de hacer caricaturas**… se ven muy diferentes al resto» | ídem |
+| Color | ⛔ «**no quiero que se les quite el color de fondo** a cada foto» | ídem |
+| Referencia | «**dale la referencia que ya habíamos logrado**, que son más chiquitas las imágenes y justamente tiene la **iluminación correcta**» | docs/video-avatar-desde-foto.md |
+| Degradación | «**pásale nuevamente la referencia**… se están pixeleando, se están cortando, están desfigurándose» | ídem |
+| Cadena | ⛔ «**no generes sobre otro generador, que vuelvas para atrás**. Eso, como regla, porque provoca que la IA haga estas cosas» | **AGENTS.md** |
+| Armado | «tener **100% el pizarrón sin la persona**, y luego metería la persona del clip que ya tenemos… **pon a esta persona con la misma foto y la misma pose enfrente**» | **AGENTS.md** |
+| Revisión | «el **mismo feedback que antes**… guarda el contexto, el feedback. Para ser **criterioso, mirar y revisar** si está bien luego» | **AGENTS.md** + checklist |
+| Contexto | «cada clip que salga, que salga con **todas las configuraciones**… la imagen de referencia que se le juntó… qué modelo se utilizó… que **cada generación traiga todo un contexto**, pues si no estamos dando vueltas» | **AGENTS.md** |
+| Orden | «**primero la imagen**. O las imágenes en este caso. **Y después el clip**» | metodología Avatar Hype |
+| Voz | «**estable tiene que ser cero**… tienes que **copiarlo idéntico**… si tienes otra información, **borra el resto** y que quede solamente eso, si no se confunde siempre» | LA-CONFIG.json + memoria |
+| Acento | «suena como **español** en lugar de argentino» → se arregla en el **origen** (regenerar el clip con el acento en el prompt), no en ElevenLabs | docs/video-avatar-desde-foto.md |
+| Guardado | «**guarda mis prompts** y guarda esto como regla», «ve guardando todos mis prompts, para que sigamos con la otra cuenta» | este documento |
+
+## Los prompts de Flow que funcionaron
+```
+Un tablero de corcho con fotos unidas por hilo rojo, en la pared de una habitación normal con luz de día.
+En el corcho sólo hay fotos de caras de personas.
+Misma persona y mismo cuadro. En el corcho hay 32 fotos, una por cada una de estas caras.
+Las mismas caras, repartidas por todo el corcho.
+La persona queda igual, con la misma ropa y la misma foto en la mano. Detrás de ella va este corcho.
+El corcho de atrás queda un poco desenfocado, como en una foto de verdad. Las fotos mantienen sus colores.
+El mismo pizarrón y la misma pared. Debajo del pizarrón la pared sigue vacía hasta el piso.
+El corcho queda como el de esta referencia: las fotos de ese tamaño, esa cantidad y esa misma luz.
+Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo: "…".
+   Al principio abre la mano y deja caer la foto.
+```
