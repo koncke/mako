@@ -728,14 +728,21 @@ ahí se ven muy diferentes al resto».**
 **Lo que NO alcanzó:** «Las fotos del corcho son papel impreso, con la misma luz que el resto del
 cuadro.» Se generó sin error y el resultado fue casi idéntico — el modelo ya creía que eran papel.
 
-**Lo que lo resolvió de una:** **«Cada foto del corcho tiene el fondo claro, como una foto de
-carnet.»**
+**⛔ Lo que probé después y MARTÍN RECHAZÓ:** «Cada foto del corcho tiene el fondo claro, como
+una foto de carnet.» El modelo hizo exactamente lo que dice —**les blanqueó el fondo a todas**— y
+Martín: *«ahora todos tienen un fondo de color blanco, no pasó lo que quería… no quiero que se les
+quite el color de fondo a cada foto».* **Mi diagnóstico estaba mal**: yo había decidido que el
+color saturado era el culpable, y el color era justamente lo que él quería conservar.
 
-El culpable no era el trazo de la caricatura ni la luz: era que **cada caricatura trae su fondo de
-color plano saturado** (verde, rosa, amarillo), y veinte rectángulos de color saturado sobre corcho
-leen como stickers por más bien iluminados que estén. Con fondo claro, las mismas caricaturas pasan
-a leerse como fotos de carnet clavadas.
+**Lo que sí va en esa dirección:** **«El corcho de atrás queda un poco desenfocado, como en una
+foto de verdad. Las fotos mantienen sus colores.»** Devuelve los colores y mete algo de
+profundidad de campo — que es lo que de verdad separa un fondo pegado de uno fotografiado: en el
+reel de referencia el corcho está **más desenfocado que la persona**, y en el nuestro estaba igual
+de nítido. ⚠️ El efecto salió **sutil**; si hace falta más, se insiste sobre esa propiedad.
 
-**La regla general: cuando algo «no se integra», mirar qué propiedad lo separa del resto del cuadro
-—casi siempre la saturación o el fondo— y pedir ESA, no «que se vea más realista».** «Realista» no
-es una instrucción: no dice qué cambiar.
+**Dos reglas que deja esto:**
+- «Realista» no es una instrucción: hay que nombrar **qué propiedad** separa el elemento del resto
+  (la nitidez, la sombra, la escala), no el resultado que querés.
+- **Y antes de elegir esa propiedad, hay que estar seguro de cuál es.** Acá me jugué por la
+  saturación sin comprobarlo y destruí lo que el cliente quería conservar. Ante la duda, **pedir
+  el cambio de forma que no pueda tocar lo que ya está aprobado** («…mantienen sus colores»).
