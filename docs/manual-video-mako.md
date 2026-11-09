@@ -169,6 +169,8 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 - El avatar no sale de una imagen de referencia de look: el que se hizo así (`avatar-delante-v1.jpg`) Martín lo rechazó, «no me gusta el avatar».
 - Una persona por imagen. Dos personas son dos avatares, cada uno en su propia cadena.
 - Un cambio por edición, anclando lo que no cambia: «La persona queda igual, con la misma ropa…».
+- **«Tal cual, pero X»: se edita la imagen que le gustó y se pide sólo X.** Si se regenera desde el original con otra descripción, el modelo inventa otro diseño (9/11: el CRM del celular pasado a modo claro). Frase que funcionó: «La pantalla del celular pasa a modo claro: el mismo diseño, las mismas columnas, tarjetas, fotos y etiquetas de colores, pero con fondo blanco y letras oscuras. Todo lo demás, él, su mano y el cuarto, queda exactamente igual.»
+- **Un objeto con pantalla (celular, notebook):** se agrega en el avatar, como la polaroid, describiendo la pantalla por lo que se ve (colores, formas, tipo de app) y sin pedir textos: el modelo los escribe mal. Grabar la pantalla real no hace falta (9/11: el CRM inventado por Flow se reconoce como app).
 - La pose se pide con una foto de referencia y una frase: «que haga la misma pose que la foto que adjunto».
 - Checklist de avatar (§5.1) y el del template (por ejemplo, en «Mensaje para…», el avatar con iluminación y fondo blanco).
 - Win: 1K original guardado como el **avatar original** de esa persona, con su contexto.
