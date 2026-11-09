@@ -822,6 +822,25 @@ líneas en pantalla, con su micrófono. Todo lo anterior —nombre, idioma, acen
 > es así. Se nivela a **−14 LUFS** con `loudnorm=I=-14:TP=-1:LRA=11`. Es ganancia, no toca el timbre.
 > La mitad de las veces que algo «no sonaba bien» era esto.
 >
+> ### ⚠️⚠️ EL VOICE-TO-VOICE HEREDA EL TONO DEL AUDIO DE ORIGEN (9/11/2026)
+>
+> Martín: «salió súper grave la voz… no sé si es el speaker boost o algo mal». **No era ningún
+> ajuste.** Medido con autocorrelación sobre el tramo más fuerte de cada pista:
+>
+> | | tono |
+> |---|---|
+> | TTS `eleven_v4` (la que él aprueba) | **144,1 Hz** |
+> | STS sobre el clip de Omni | **125,0 Hz** |
+> | La voz que generó Omni (el origen del STS) | **117,6 Hz** |
+>
+> El STS conserva la INTERPRETACIÓN del audio de origen, y eso incluye **lo grave que habla**. Omni
+> genera una voz de 117,6 Hz y arrastra el resultado a 125, casi veinte hertz por debajo de su voz
+> natural. No hay `voice_settings` que lo arregle: la causa está río arriba.
+>
+> **Lo que sí lo arregla: pedirle a Omni una voz más aguda en el prompt** («young man with a light,
+> higher-pitched voice, not deep»). El STS parte de ahí y aterriza cerca de los 144. O usar TTS v4 y
+> ajustar el VIDEO, que es la otra rama.
+>
 > ⚠️ **La voz aprobada NO se procesa de ninguna otra forma.** Sin `speed` en el pedido, sin `atempo`,
 > sin quitarle pausas: a 1,19× ya se nota y a 1,35× es otra persona. Si no entra en el video, **el
 > que se ajusta es el VIDEO** (se estira con `setpts`, o se regenera con la duración de la voz).
