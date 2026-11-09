@@ -777,3 +777,30 @@ Seis horas antes el cartel decía «You're out of Google Flow credits» y yo lo 
 si fuera el estado actual. **El saldo se mira en el momento** —panel de configuración con el modo
 en Video, dice «La generación usará N créditos»— y no se le dice al cliente «no se puede» por un
 cartel viejo.
+
+### ⚠️⚠️ En voice-to-voice va el clon PROFESIONAL, y una contradicción se resuelve midiendo (9/11/2026)
+
+Le puse al clip 2 la voz con el clon **normal**, porque `LA-CONFIG.json` —el archivo que Martín
+aprobó esa misma madrugada— trae un `_ojo_3` diciendo que el profesional «no está fine-tuned para
+el modelo de STS». Martín: **«no suena, pero ni de cerca similar… incluso suena como español en
+lugar de argentino».**
+
+**Ese `_ojo_3` es falso, y se comprueba con una sola llamada:**
+```
+GET /v1/voices/I2d6BR9P2dAopVw1khNv → fine_tuning.state incluye "eleven_multilingual_sts_v2": "fine_tuned"
+```
+
+| | clon normal | clon profesional |
+|---|---:|---:|
+| tono medido (real: 128 Hz) | **250 Hz** | **119-123 Hz** |
+| calce con el clip (8,043 s) | 8,081 s | 8,081 s |
+
+Y hay un motivo de fondo: `GET /v1/models` muestra que **sólo dos modelos hacen voice conversion**
+(`eleven_multilingual_sts_v2` y `eleven_english_sts_v2`). No hay un «v4 de STS». Así que en
+voice-to-voice **el acento lo pone el CLON, no el modelo** — al revés que en TTS — y por eso hay
+que usar el que tiene 37 minutos de muestras con acento Argentine.
+
+**Dos reglas:**
+- **En voice-to-voice se prueba primero el clon profesional**, siempre.
+- **Cuando dos notas nuestras se contradicen, gana la que se pueda medir, no la más nueva.** Yo
+  seguí al archivo más reciente sin comprobar y entregué una voz que no era la suya.
