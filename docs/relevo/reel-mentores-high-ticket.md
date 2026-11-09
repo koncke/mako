@@ -5,6 +5,14 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 0000000 · 10/11 ~00:05 UTC (claude4): v6 mandado, con el perfil nuevo
+
+- **Lo vigente es el v6** (`montaje/REEL-v6.mp4`, 37,2 s, guion exacto). Se rearma con `node montaje/montar-v2.mjs v7`.
+- **Perfil nuevo** aprobado por Martín: `blancas/perfil-D-personaje-contraluz.jpg` (base = su personaje original; sobre blanco
+  sin la foto → tres cuartos → la luz copiada del ABANICO, porque con el cuadro de Josep Flow reemplazó la imagen entera) y su
+  video `blancas/CLIP-perfil-manos.mp4` (4 s, 12 cr; el viejo quedó como `CLIP-perfil-manos-NOCHE-viejo.mp4`).
+- Copias en Descargas › «5 - Montaje».
+
 ## 000000 · 9/11 ~23:30 UTC (claude4): v5 mandado; la toma de perfil nueva espera el OK
 
 - **v5** (`montaje/REEL-v5.mp4`): 5 golpes en lo hablado, como Josep (HIGH TICKET, MARTÍN, GURÚS, celular al cerrar el clip 3,
