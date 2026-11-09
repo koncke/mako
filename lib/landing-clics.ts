@@ -83,9 +83,13 @@ export function agruparPorBoton(filas: readonly FilaClic[]): BotonConClics[] {
  * `https://sprint.mauriciobustos.com/` y con `?utm_source=...` según de dónde vino la persona. Un
  * `===` crudo deja afuera a la mayoría y devuelve un cero que parece una respuesta.
  */
-export function esDeLaLanding(fila: FilaClic, urlNormalizada: string | null, normalizar: (s: string) => string): boolean {
+export function esDeLaLanding(fila: FilaClic, urlNormalizada: string | null, normalizar: (s: string) => string | null): boolean {
   if (!urlNormalizada) return true;
-  return normalizar(fila.landing_url ?? '') === urlNormalizada;
+  // ⚠️ `normalizarUrl` DEVUELVE `string | null` —null cuando lo que le llega no es una URL, y a
+  // `landing_url` le llega lo que mande el Pixel—. Un null nunca es igual a una url pedida, así que
+  // esa fila no es de esta landing: se descarta, no se cuenta como coincidencia.
+  const suya = normalizar(fila.landing_url ?? '');
+  return suya !== null && suya === urlNormalizada;
 }
 
 /** El total de clics y de personas distintas de un conjunto ya agrupado. */
