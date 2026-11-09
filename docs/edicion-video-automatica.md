@@ -799,6 +799,34 @@ líneas en pantalla, con su micrófono. Todo lo anterior —nombre, idioma, acen
 
 ## El clonado profesional, hecho de punta a punta (8/11/2026) — `I2d6BR9P2dAopVw1khNv`
 
+> ### ⚠️⚠️ LOS AJUSTES, CORREGIDOS EL 9/11/2026 — `stability` VA EN **0**, SIEMPRE
+>
+> ```
+> voz          I2d6BR9P2dAopVw1khNv      (clon profesional, 37 min, Spanish/Argentine)
+> STS          POST /v1/speech-to-speech/{voz}?output_format=mp3_44100_192
+>              model_id: eleven_multilingual_sts_v2
+> TTS          POST /v1/text-to-speech/{voz}?output_format=mp3_44100_192
+>              model_id: eleven_v4        ← por el ACENTO; v3 lo mexicaniza
+> settings     stability 0 · similarity_boost 1 · style 1 · use_speaker_boost true · clone_strength 1
+> ```
+>
+> **Martín, 9/11/2026: «stability siempre va en cero. No importa si es voice-to-voice».**
+>
+> El archivo de configuración del scratchpad decía `stability: 1`, y como se LEE en vez de
+> retipearse, cada corrida devolvía obedientemente una voz que no era la suya. Pasó cuatro veces
+> seguidas en una noche —«salió mal mi voz otra vez»— y la causa era **un 1 donde iba un 0**, en un
+> archivo que yo trataba como fuente de verdad. Un archivo de config aprobado es tan peligroso como
+> útil: si está mal, el error se repite con disciplina.
+>
+> **Y el nivel: ElevenLabs entrega a −27 dB de media.** Suena «bajito» y no es un ajuste del pedido:
+> es así. Se nivela a **−14 LUFS** con `loudnorm=I=-14:TP=-1:LRA=11`. Es ganancia, no toca el timbre.
+> La mitad de las veces que algo «no sonaba bien» era esto.
+>
+> ⚠️ **La voz aprobada NO se procesa de ninguna otra forma.** Sin `speed` en el pedido, sin `atempo`,
+> sin quitarle pausas: a 1,19× ya se nota y a 1,35× es otra persona. Si no entra en el video, **el
+> que se ajusta es el VIDEO** (se estira con `setpts`, o se regenera con la duración de la voz).
+
+
 **Resuelve el dilema de arriba: con el clon PROFESIONAL el voice-to-voice suena a él Y los labios
 calzan.** Medido contra los bloques de Omni: **0 ms, 10 ms y 110 ms**. Es el camino bueno para
 poner la voz de alguien sobre un clip generado.
