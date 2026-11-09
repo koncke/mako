@@ -5,6 +5,40 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 0000000 · 10/11 ~00:05 UTC (claude4): v6 mandado, con el perfil nuevo
+
+- **Lo vigente es el v6** (`montaje/REEL-v6.mp4`, 37,2 s, guion exacto). Se rearma con `node montaje/montar-v2.mjs v7`.
+- **Perfil nuevo** aprobado por Martín: `blancas/perfil-D-personaje-contraluz.jpg` (base = su personaje original; sobre blanco
+  sin la foto → tres cuartos → la luz copiada del ABANICO, porque con el cuadro de Josep Flow reemplazó la imagen entera) y su
+  video `blancas/CLIP-perfil-manos.mp4` (4 s, 12 cr; el viejo quedó como `CLIP-perfil-manos-NOCHE-viejo.mp4`).
+- Copias en Descargas › «5 - Montaje».
+
+## 000000 · 9/11 ~23:30 UTC (claude4): v5 mandado; la toma de perfil nueva espera el OK
+
+- **v5** (`montaje/REEL-v5.mp4`): 5 golpes en lo hablado, como Josep (HIGH TICKET, MARTÍN, GURÚS, celular al cerrar el clip 3,
+  dedo al cerrar el clip 4); el humo sin golpe y con UN efecto (al desvanecerse). Sin zoom ni efectos en Hormozi: Martín los
+  probó en el v4 y no le gustaron.
+- **Perfil nuevo:** `blancas/perfil-C-personaje.jpg` (Flow `/edit/fe70beec-…`): base = su personaje original, 1) sin la foto
+  sobre blanco, 2) tres cuartos con la pose y la luz de `blancas/perfil-B-tres-cuartos.jpg`. Mandado; con el OK: un video de
+  4 s («La boca cerrada y quieta. Mueve apenas los dedos de las manos.»), guardarlo como `blancas/CLIP-perfil-manos.mp4`
+  (el viejo se renombra) y rearmar con `node montaje/montar-v2.mjs v6`. Va en dos lugares: HIGH TICKET y el final del cierre.
+
+## 00000 · 9/11 ~22:30 UTC (claude4): MONTAJE v3 al ritmo de Josep, mandado
+
+**Lo vigente es el v3:** `C:/dev/reel-mentores/montaje/REEL-v3.mp4` (38,25 s) y `REEL-v3-SIN-MUSICA.mp4`; copias en Descargas ›
+«5 - Montaje». Se rearma con `node C:/dev/reel-mentores/montaje/montar-v2.mjs v4` (~35 s). Gramática medida de Josep en
+`docs/manual-video-mako.md` §8.3 y `docs/hallazgos-video-editor.md` → «Cortar al ritmo de una referencia».
+- **Canción de Josep: «WE ON GO», de BIA** (Shazam en los tramos sin voz + un comentario del reel). El v3 usa ese audio sacado
+  del reel de Josep (`josep/josep-audio.wav`): golpe desde 27,985 s y cierre desde 20,633 s. Para publicar: la versión sin
+  música + la canción desde Instagram (no se verificó que la cuenta de empresa la tenga).
+- **Martín (9/11), regla:** sin silencios muertos, animaciones cortadas o aceleradas, voz acelerada sin ardilla, tramos y
+  velocidad de habla como la referencia (`memory/edicion-ritmo-de-la-referencia.md`).
+- **Tomas blancas nuevas:** el abanico con Ramiro Cubría, Francisco Doglio, Víctor Heras, Hormozi y Razzetti (elegidos por
+  Martín), con la luz de Josep pasada como referencia en una segunda edición («Copiá SÓLO la luz y la exposición…»):
+  `blancas/abanico-5-contraluz.jpg` y su video `blancas/VIDEO-abanico.mp4` (4 s, 12 cr); el celular a contraluz
+  `blancas/celular-contraluz.jpg` (foto quieta en el montaje). Las tres de la noche llevan `curves` en el montaje.
+- **Sin hacer:** el video del celular (12 cr, falta el OK); regenerar las tres de la noche con la luz nueva (si Martín lo pide).
+
 ## 0000 · 9/11 ~19:40 UTC (claude4): MONTAJE v1 HECHO y mandado; faltan 2 videos de fondo blanco
 
 **Dónde está:** `C:/dev/reel-mentores/montaje/REEL-v1.mp4` (44,7 s, con música) y `REEL-v1-SIN-MUSICA.mp4` (para

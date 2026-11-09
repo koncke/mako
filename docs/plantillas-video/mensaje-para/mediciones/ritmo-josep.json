@@ -1,0 +1,1287 @@
+{
+ "fuente": {
+  "video": "C:/dev/reel-mentores/josep/josep-reel.mp4",
+  "audio": "C:/dev/reel-mentores/josep/josep-audio.wav",
+  "fps": 30.0,
+  "dur_video_s": 30.767,
+  "dur_audio_s": 30.784,
+  "sync": "wav = audio del mp4, desfase 0 muestras (correlacion); el mp4 trae skip_samples para el retardo AAC"
+ },
+ "tempo": {
+  "bpm": 130.95,
+  "periodo_beat_s": 0.45821,
+  "corchea_s": 0.2291,
+  "error_estandar_beat_ms": 0.147,
+  "t0_hat_s": 20.6748,
+  "n_hats_ajustados": 44,
+  "residuo_std_ms": 6.1,
+  "residuo_max_ms": 17.0,
+  "corchea_1a_mitad_cierre_ms": 228.93,
+  "corchea_2a_mitad_cierre_ms": 229.35,
+  "metodo": "ataques de hi-hat (7-16 kHz, cruce del 50%) en el cierre mudo, regresion lineal sobre indice de corchea",
+  "claps_residuo_vs_grilla_ms": [
+   -3.2,
+   -22.1,
+   -3.8,
+   -18.1,
+   -5.4
+  ],
+  "librosa_comparacion": [
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "todo",
+    "start_bpm": 90,
+    "bpm": 127.6,
+    "n_beats": 64,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "todo",
+    "start_bpm": 120,
+    "bpm": 127.6,
+    "n_beats": 64,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "todo",
+    "start_bpm": 129,
+    "bpm": 127.6,
+    "n_beats": 64,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "todo",
+    "start_bpm": 140,
+    "bpm": 127.6,
+    "n_beats": 64,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "cierre",
+    "start_bpm": 90,
+    "bpm": 65.42,
+    "n_beats": 10,
+    "primeros": [
+     20.696,
+     21.619,
+     22.525
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "cierre",
+    "start_bpm": 120,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.167,
+     21.619
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "cierre",
+    "start_bpm": 129,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.167,
+     21.619
+    ]
+   },
+   {
+    "envolvente": "mezcla_completa",
+    "zona": "cierre",
+    "start_bpm": 140,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.167,
+     21.619
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "todo",
+    "start_bpm": 90,
+    "bpm": 127.6,
+    "n_beats": 63,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "todo",
+    "start_bpm": 120,
+    "bpm": 127.6,
+    "n_beats": 63,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "todo",
+    "start_bpm": 129,
+    "bpm": 127.6,
+    "n_beats": 63,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "todo",
+    "start_bpm": 140,
+    "bpm": 127.6,
+    "n_beats": 63,
+    "primeros": [
+     0.226,
+     0.679,
+     1.132
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "cierre",
+    "start_bpm": 90,
+    "bpm": 65.42,
+    "n_beats": 10,
+    "primeros": [
+     20.696,
+     21.608,
+     22.519
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "cierre",
+    "start_bpm": 120,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.161,
+     21.608
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "cierre",
+    "start_bpm": 129,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.161,
+     21.608
+    ]
+   },
+   {
+    "envolvente": "percusivo_hpss",
+    "zona": "cierre",
+    "start_bpm": 140,
+    "bpm": 130.83,
+    "n_beats": 19,
+    "primeros": [
+     20.691,
+     21.161,
+     21.608
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "todo",
+    "start_bpm": 90,
+    "bpm": 87.59,
+    "n_beats": 47,
+    "primeros": [
+     0.192,
+     0.882,
+     1.562
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "todo",
+    "start_bpm": 120,
+    "bpm": 129.2,
+    "n_beats": 70,
+    "primeros": [
+     0.197,
+     0.633,
+     1.074
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "todo",
+    "start_bpm": 129,
+    "bpm": 130.83,
+    "n_beats": 70,
+    "primeros": [
+     0.197,
+     0.633,
+     1.074
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "todo",
+    "start_bpm": 140,
+    "bpm": 130.83,
+    "n_beats": 70,
+    "primeros": [
+     0.197,
+     0.633,
+     1.074
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "cierre",
+    "start_bpm": 90,
+    "bpm": 87.59,
+    "n_beats": 14,
+    "primeros": [
+     22.026,
+     22.92,
+     23.645
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "cierre",
+    "start_bpm": 120,
+    "bpm": 130.83,
+    "n_beats": 23,
+    "primeros": [
+     20.662,
+     21.103,
+     21.544
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "cierre",
+    "start_bpm": 129,
+    "bpm": 130.83,
+    "n_beats": 23,
+    "primeros": [
+     20.662,
+     21.103,
+     21.544
+    ]
+   },
+   {
+    "envolvente": "percusivo_graves_40_150Hz",
+    "zona": "cierre",
+    "start_bpm": 140,
+    "bpm": 130.83,
+    "n_beats": 23,
+    "primeros": [
+     20.662,
+     21.103,
+     21.544
+    ]
+   }
+  ]
+ },
+ "compas": {
+  "tipo": "4/4 half-time (clap en el 3)",
+  "primer_downbeat_cierre_s": 20.6748,
+  "downbeats_cierre_s": [
+   20.6748,
+   22.5076,
+   24.3405,
+   26.1733,
+   28.0061,
+   29.839
+  ],
+  "claps_por_fase_de_corchea_mod8": {
+   "0": 0,
+   "1": 0,
+   "2": 0,
+   "3": 0,
+   "4": 5,
+   "5": 0,
+   "6": 0,
+   "7": 0
+  },
+  "clap_db_medio_por_fase_mod8": [
+   -40.7,
+   -40.9,
+   -41.9,
+   -42.3,
+   -21.7,
+   -41.4,
+   -43.6,
+   -41.8
+  ],
+  "margen_fase_clap_db": 19.1,
+  "golpes_808_por_fase_mod16": {
+   "0": 3,
+   "1": 0,
+   "2": 0,
+   "3": 1,
+   "4": 0,
+   "5": 1,
+   "6": 1,
+   "7": 0,
+   "8": 0,
+   "9": 0,
+   "10": 3,
+   "11": 0,
+   "12": 0,
+   "13": 1,
+   "14": 0,
+   "15": 0
+  },
+  "golpes_808_t": [
+   20.675,
+   22.049,
+   22.966,
+   24.34,
+   25.028,
+   26.631,
+   27.319,
+   28.006,
+   29.152,
+   30.297
+  ],
+  "claps_t": [
+   21.591,
+   23.424,
+   25.257,
+   27.09,
+   28.923
+  ]
+ },
+ "beats_grilla_extendida_s": [
+  0.0555,
+  0.5137,
+  0.9719,
+  1.4301,
+  1.8883,
+  2.3465,
+  2.8047,
+  3.2629,
+  3.7211,
+  4.1793,
+  4.6375,
+  5.0957,
+  5.5539,
+  6.0122,
+  6.4704,
+  6.9286,
+  7.3868,
+  7.845,
+  8.3032,
+  8.7614,
+  9.2196,
+  9.6778,
+  10.136,
+  10.5942,
+  11.0524,
+  11.5106,
+  11.9689,
+  12.4271,
+  12.8853,
+  13.3435,
+  13.8017,
+  14.2599,
+  14.7181,
+  15.1763,
+  15.6345,
+  16.0927,
+  16.5509,
+  17.0091,
+  17.4673,
+  17.9256,
+  18.3838,
+  18.842,
+  19.3002,
+  19.7584,
+  20.2166,
+  20.6748,
+  21.133,
+  21.5912,
+  22.0494,
+  22.5076,
+  22.9658,
+  23.424,
+  23.8823,
+  24.3405,
+  24.7987,
+  25.2569,
+  25.7151,
+  26.1733,
+  26.6315,
+  27.0897,
+  27.5479,
+  28.0061,
+  28.4643,
+  28.9225,
+  29.3807,
+  29.839,
+  30.2972,
+  30.7554
+ ],
+ "downbeats_grilla_extendida_s": [
+  0.5137,
+  2.3465,
+  4.1793,
+  6.0122,
+  7.845,
+  9.6778,
+  11.5106,
+  13.3435,
+  15.1763,
+  17.0091,
+  18.842,
+  20.6748,
+  22.5076,
+  24.3405,
+  26.1733,
+  28.0061,
+  29.839
+ ],
+ "downbeats_que_suenan_s": [
+  2.9039,
+  4.5372,
+  8.6372,
+  12.6039,
+  16.4372,
+  20.6748,
+  22.5076,
+  24.3405,
+  26.1733,
+  28.0061,
+  29.839
+ ],
+ "fase_de_los_golpes_de_insertos_en_la_grilla_extendida": [
+  {
+   "toma": 2,
+   "golpe": 2.9039,
+   "fase_en_beats": 0.216
+  },
+  {
+   "toma": 4,
+   "golpe": 4.5372,
+   "fase_en_beats": 0.781
+  },
+  {
+   "toma": 6,
+   "golpe": 8.6372,
+   "fase_en_beats": 0.729
+  },
+  {
+   "toma": 8,
+   "golpe": 12.6039,
+   "fase_en_beats": 0.386
+  },
+  {
+   "toma": 10,
+   "golpe": 16.4372,
+   "fase_en_beats": 0.752
+  }
+ ],
+ "tomas": [
+  {
+   "toma": 1,
+   "inicio": 0.0,
+   "fin": 2.9,
+   "dura_s": 2.9,
+   "cuadros": 87,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.04,
+   "contenido": "NAVE habla (gymbros de pacotilla)",
+   "dura_beats": 6.33
+  },
+  {
+   "toma": 2,
+   "inicio": 2.9,
+   "fin": 3.5,
+   "dura_s": 0.6,
+   "cuadros": 18,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.85,
+   "contenido": "BLANCO perfil manos arriba + FLOJOS",
+   "dura_beats": 1.31
+  },
+  {
+   "toma": 3,
+   "inicio": 3.5,
+   "fin": 4.533,
+   "dura_s": 1.033,
+   "cuadros": 31,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.09,
+   "contenido": "NAVE brazos cruzados (Me llamo Josep)",
+   "dura_beats": 2.25
+  },
+  {
+   "toma": 4,
+   "inicio": 4.533,
+   "fin": 5.133,
+   "dura_s": 0.6,
+   "cuadros": 18,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.76,
+   "contenido": "BLANCO brazos cruzados + JOSEP",
+   "dura_beats": 1.31
+  },
+  {
+   "toma": 5,
+   "inicio": 5.133,
+   "fin": 8.6,
+   "dura_s": 3.467,
+   "cuadros": 104,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.02,
+   "contenido": "MONTANA de pistachos habla (7 anos plantando pistachos)",
+   "dura_beats": 7.57
+  },
+  {
+   "toma": 6,
+   "inicio": 8.6,
+   "fin": 9.6,
+   "dura_s": 1.0,
+   "cuadros": 30,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.81,
+   "contenido": "BLANCO tira pistachos + PISTACHOS",
+   "dura_beats": 2.18
+  },
+  {
+   "toma": 7,
+   "inicio": 9.6,
+   "fin": 12.567,
+   "dura_s": 2.967,
+   "cuadros": 89,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.07,
+   "contenido": "NAVE levanta el bote habla",
+   "dura_beats": 6.48
+  },
+  {
+   "toma": 8,
+   "inicio": 12.567,
+   "fin": 13.2,
+   "dura_s": 0.633,
+   "cuadros": 19,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.99,
+   "contenido": "BLANCO brazo arriba con el bote",
+   "dura_beats": 1.38
+  },
+  {
+   "toma": 9,
+   "inicio": 13.2,
+   "fin": 16.4,
+   "dura_s": 3.2,
+   "cuadros": 96,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.11,
+   "contenido": "NAVE camina habla",
+   "dura_beats": 6.98
+  },
+  {
+   "toma": 10,
+   "inicio": 16.4,
+   "fin": 17.033,
+   "dura_s": 0.633,
+   "cuadros": 19,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.91,
+   "contenido": "BLANCO dedo arriba",
+   "dura_beats": 1.38
+  },
+  {
+   "toma": 11,
+   "inicio": 17.033,
+   "fin": 20.633,
+   "dura_s": 3.6,
+   "cuadros": 108,
+   "fondo_blanco": false,
+   "frac_blanco_arriba": 0.0,
+   "contenido": "PISTACHOS remate habla (Haber plantao pistachos)",
+   "dura_beats": 7.86
+  },
+  {
+   "toma": 12,
+   "inicio": 20.633,
+   "fin": 23.767,
+   "dura_s": 3.133,
+   "cuadros": 94,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.87,
+   "contenido": "BLANCO brazos cruzados quieto (arranca cierre mudo)",
+   "dura_beats": 6.84
+  },
+  {
+   "toma": 13,
+   "inicio": 23.767,
+   "fin": 25.3,
+   "dura_s": 1.533,
+   "cuadros": 46,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.91,
+   "contenido": "BLANCO bote en alto + tachocream.com (titila)",
+   "dura_beats": 3.35
+  },
+  {
+   "toma": 14,
+   "inicio": 25.3,
+   "fin": 26.7,
+   "dura_s": 1.4,
+   "cuadros": 42,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.84,
+   "contenido": "BLANCO dedo arriba + DISPONIBLE EN AMAZON",
+   "dura_beats": 3.06
+  },
+  {
+   "toma": 15,
+   "inicio": 26.7,
+   "fin": 29.133,
+   "dura_s": 2.433,
+   "cuadros": 73,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.96,
+   "contenido": "BLANCO tira pistachos",
+   "dura_beats": 5.31
+  },
+  {
+   "toma": 16,
+   "inicio": 29.133,
+   "fin": 30.767,
+   "dura_s": 1.633,
+   "cuadros": 49,
+   "fondo_blanco": true,
+   "frac_blanco_arriba": 0.93,
+   "contenido": "BLANCO perfil manos arriba",
+   "dura_beats": 3.56
+  }
+ ],
+ "cortes": [
+  {
+   "toma": 2,
+   "t": 2.9,
+   "cuadro": 87,
+   "contenido": "BLANCO perfil manos arriba + FLOJOS",
+   "desvio_grilla_extendida_ms": 95.3,
+   "tipo": "entra inserto blanco (golpe de musica pegado)",
+   "musica": "pedazo de la cancion pegado en el corte",
+   "beat_mas_cercano": 2.9039,
+   "desvio_ms": -3.9,
+   "en_downbeat": true,
+   "dura_beats": 1.31
+  },
+  {
+   "toma": 3,
+   "t": 3.5,
+   "cuadro": 105,
+   "contenido": "NAVE brazos cruzados (Me llamo Josep)",
+   "desvio_grilla_extendida_ms": -221.1,
+   "tipo": "sale del inserto, vuelve la voz",
+   "musica": "se corta la musica en seco",
+   "beat_mas_cercano": 3.3621,
+   "desvio_ms": 137.9,
+   "en_downbeat": false,
+   "posicion_en_beats_desde_el_1": 1.301,
+   "dura_beats": 2.25
+  },
+  {
+   "toma": 4,
+   "t": 4.533,
+   "cuadro": 136,
+   "contenido": "BLANCO brazos cruzados + JOSEP",
+   "desvio_grilla_extendida_ms": -104.2,
+   "tipo": "entra inserto blanco (golpe de musica pegado)",
+   "musica": "pedazo de la cancion pegado en el corte",
+   "beat_mas_cercano": 4.5372,
+   "desvio_ms": -4.2,
+   "en_downbeat": true,
+   "dura_beats": 1.31
+  },
+  {
+   "toma": 5,
+   "t": 5.133,
+   "cuadro": 154,
+   "contenido": "MONTANA de pistachos habla (7 anos plantando pistachos)",
+   "desvio_grilla_extendida_ms": 37.6,
+   "tipo": "sale del inserto, vuelve la voz",
+   "musica": "se corta la musica en seco",
+   "beat_mas_cercano": 4.9954,
+   "desvio_ms": 137.9,
+   "en_downbeat": false,
+   "posicion_en_beats_desde_el_1": 1.3,
+   "dura_beats": 7.57
+  },
+  {
+   "toma": 6,
+   "t": 8.6,
+   "cuadro": 258,
+   "contenido": "BLANCO tira pistachos + PISTACHOS",
+   "desvio_grilla_extendida_ms": -161.4,
+   "tipo": "entra inserto blanco (golpe de musica pegado)",
+   "musica": "pedazo de la cancion pegado en el corte",
+   "beat_mas_cercano": 8.6372,
+   "desvio_ms": -37.2,
+   "en_downbeat": true,
+   "dura_beats": 2.18
+  },
+  {
+   "toma": 7,
+   "t": 9.6,
+   "cuadro": 288,
+   "contenido": "NAVE levanta el bote habla",
+   "desvio_grilla_extendida_ms": -77.8,
+   "tipo": "sale del inserto, vuelve la voz",
+   "musica": "se corta la musica en seco",
+   "beat_mas_cercano": 9.5536,
+   "desvio_ms": 46.4,
+   "en_downbeat": false,
+   "posicion_en_beats_desde_el_1": 2.101,
+   "dura_beats": 6.48
+  },
+  {
+   "toma": 8,
+   "t": 12.567,
+   "cuadro": 377,
+   "contenido": "BLANCO brazo arriba con el bote",
+   "desvio_grilla_extendida_ms": 139.6,
+   "tipo": "entra inserto blanco (golpe de musica pegado)",
+   "musica": "pedazo de la cancion pegado en el corte",
+   "beat_mas_cercano": 12.6039,
+   "desvio_ms": -36.9,
+   "en_downbeat": true,
+   "dura_beats": 1.38
+  },
+  {
+   "toma": 9,
+   "t": 13.2,
+   "cuadro": 396,
+   "contenido": "NAVE camina habla",
+   "desvio_grilla_extendida_ms": -143.5,
+   "tipo": "sale del inserto, vuelve la voz",
+   "musica": "se corta la musica en seco",
+   "beat_mas_cercano": 13.0621,
+   "desvio_ms": 137.9,
+   "en_downbeat": false,
+   "posicion_en_beats_desde_el_1": 1.301,
+   "dura_beats": 6.98
+  },
+  {
+   "toma": 10,
+   "t": 16.4,
+   "cuadro": 492,
+   "contenido": "BLANCO dedo arriba",
+   "desvio_grilla_extendida_ms": -150.9,
+   "tipo": "entra inserto blanco (golpe de musica pegado)",
+   "musica": "pedazo de la cancion pegado en el corte",
+   "beat_mas_cercano": 16.4372,
+   "desvio_ms": -37.2,
+   "en_downbeat": true,
+   "dura_beats": 1.38
+  },
+  {
+   "toma": 11,
+   "t": 17.033,
+   "cuadro": 511,
+   "contenido": "PISTACHOS remate habla (Haber plantao pistachos)",
+   "desvio_grilla_extendida_ms": 24.2,
+   "tipo": "sale del inserto, vuelve la voz",
+   "musica": "se corta la musica en seco",
+   "beat_mas_cercano": 16.8954,
+   "desvio_ms": 137.9,
+   "en_downbeat": false,
+   "posicion_en_beats_desde_el_1": 1.3,
+   "dura_beats": 7.86
+  },
+  {
+   "toma": 12,
+   "t": 20.633,
+   "cuadro": 619,
+   "contenido": "BLANCO brazos cruzados quieto (arranca cierre mudo)",
+   "desvio_grilla_extendida_ms": -41.5,
+   "tipo": "entra el cierre mudo",
+   "musica": "cancion continua",
+   "beat_mas_cercano": 20.6748,
+   "desvio_ms": -41.5,
+   "en_downbeat": true,
+   "corchea_mas_cercana": 20.6748,
+   "desvio_corchea_ms": -41.5,
+   "desvio_semicorchea_ms": -41.5,
+   "beat_numero_desde_downbeat_cierre": -0.09,
+   "golpe_fuerte_mas_cercano": {
+    "t": 20.6748,
+    "tipo": "808",
+    "desvio_ms": -41.5
+   },
+   "dura_beats": 6.84
+  },
+  {
+   "toma": 13,
+   "t": 23.767,
+   "cuadro": 713,
+   "contenido": "BLANCO bote en alto + tachocream.com (titila)",
+   "desvio_grilla_extendida_ms": -115.6,
+   "tipo": "dentro del cierre (musica continua)",
+   "musica": "cancion continua",
+   "beat_mas_cercano": 23.8823,
+   "desvio_ms": -115.6,
+   "en_downbeat": false,
+   "corchea_mas_cercana": 23.6531,
+   "desvio_corchea_ms": 113.5,
+   "desvio_semicorchea_ms": -1.0,
+   "beat_numero_desde_downbeat_cierre": 6.748,
+   "golpe_fuerte_mas_cercano": {
+    "t": 23.424,
+    "tipo": "clap",
+    "desvio_ms": 342.6
+   },
+   "dura_beats": 3.35
+  },
+  {
+   "toma": 14,
+   "t": 25.3,
+   "cuadro": 759,
+   "contenido": "BLANCO dedo arriba + DISPONIBLE EN AMAZON",
+   "desvio_grilla_extendida_ms": 43.1,
+   "tipo": "dentro del cierre (musica continua)",
+   "musica": "cancion continua",
+   "beat_mas_cercano": 25.2569,
+   "desvio_ms": 43.1,
+   "en_downbeat": false,
+   "corchea_mas_cercana": 25.2569,
+   "desvio_corchea_ms": 43.1,
+   "desvio_semicorchea_ms": 43.1,
+   "beat_numero_desde_downbeat_cierre": 10.094,
+   "golpe_fuerte_mas_cercano": {
+    "t": 25.2569,
+    "tipo": "clap",
+    "desvio_ms": 43.1
+   },
+   "dura_beats": 3.06
+  },
+  {
+   "toma": 15,
+   "t": 26.7,
+   "cuadro": 801,
+   "contenido": "BLANCO tira pistachos",
+   "desvio_grilla_extendida_ms": 68.5,
+   "tipo": "dentro del cierre (musica continua)",
+   "musica": "cancion continua",
+   "beat_mas_cercano": 26.6315,
+   "desvio_ms": 68.5,
+   "en_downbeat": false,
+   "corchea_mas_cercana": 26.6315,
+   "desvio_corchea_ms": 68.5,
+   "desvio_semicorchea_ms": -46.0,
+   "beat_numero_desde_downbeat_cierre": 13.149,
+   "golpe_fuerte_mas_cercano": {
+    "t": 26.6315,
+    "tipo": "808",
+    "desvio_ms": 68.5
+   },
+   "dura_beats": 5.31
+  },
+  {
+   "toma": 16,
+   "t": 29.133,
+   "cuadro": 874,
+   "contenido": "BLANCO perfil manos arriba",
+   "desvio_grilla_extendida_ms": 210.8,
+   "tipo": "dentro del cierre (musica continua)",
+   "musica": "cancion continua",
+   "beat_mas_cercano": 28.9225,
+   "desvio_ms": 210.8,
+   "en_downbeat": false,
+   "corchea_mas_cercana": 29.1516,
+   "desvio_corchea_ms": -18.3,
+   "desvio_semicorchea_ms": -18.3,
+   "beat_numero_desde_downbeat_cierre": 18.46,
+   "golpe_fuerte_mas_cercano": {
+    "t": 29.1516,
+    "tipo": "808",
+    "desvio_ms": -18.3
+   },
+   "dura_beats": 3.56
+  }
+ ],
+ "insertos_blancos_hablados": [
+  {
+   "toma": 2,
+   "corte_entrada": 2.9,
+   "corte_salida": 3.5,
+   "r_correlacion": 0.99,
+   "pos_cancion_en_corte": 28.0023,
+   "beat_cancion": 28.0061,
+   "es_downbeat_de_la_cancion": true,
+   "golpe_en_reel": 2.9039,
+   "desvio_corte_vs_golpe_ms": -3.9,
+   "ataque_audio_tras_corte_ms": -1.9,
+   "salida_en_beats_desde_golpe": 1.301,
+   "salida_desde_golpe_s": 0.596,
+   "audio_termina_tras_corte_salida_ms": 23.1,
+   "voz_termina_antes_del_corte_ms": 282,
+   "voz_vuelve_tras_corte_salida_ms": 101,
+   "lufs_momentaneo_max_inserto": -11.7
+  },
+  {
+   "toma": 4,
+   "corte_entrada": 4.533,
+   "corte_salida": 5.133,
+   "r_correlacion": 0.99,
+   "pos_cancion_en_corte": 28.0019,
+   "beat_cancion": 28.0061,
+   "es_downbeat_de_la_cancion": true,
+   "golpe_en_reel": 4.5372,
+   "desvio_corte_vs_golpe_ms": -4.2,
+   "ataque_audio_tras_corte_ms": -1.5,
+   "salida_en_beats_desde_golpe": 1.3,
+   "salida_desde_golpe_s": 0.596,
+   "audio_termina_tras_corte_salida_ms": 23.4,
+   "voz_termina_antes_del_corte_ms": 74,
+   "voz_vuelve_tras_corte_salida_ms": 137,
+   "lufs_momentaneo_max_inserto": -12.6
+  },
+  {
+   "toma": 6,
+   "corte_entrada": 8.6,
+   "corte_salida": 9.6,
+   "r_correlacion": 0.982,
+   "pos_cancion_en_corte": 27.969,
+   "beat_cancion": 28.0061,
+   "es_downbeat_de_la_cancion": true,
+   "golpe_en_reel": 8.6372,
+   "desvio_corte_vs_golpe_ms": -37.2,
+   "ataque_audio_tras_corte_ms": 31.4,
+   "salida_en_beats_desde_golpe": 2.101,
+   "salida_desde_golpe_s": 0.963,
+   "audio_termina_tras_corte_salida_ms": 28.1,
+   "voz_termina_antes_del_corte_ms": 626,
+   "voz_vuelve_tras_corte_salida_ms": 58,
+   "lufs_momentaneo_max_inserto": -11.4
+  },
+  {
+   "toma": 8,
+   "corte_entrada": 12.567,
+   "corte_salida": 13.2,
+   "r_correlacion": 0.99,
+   "pos_cancion_en_corte": 27.9693,
+   "beat_cancion": 28.0061,
+   "es_downbeat_de_la_cancion": true,
+   "golpe_en_reel": 12.6039,
+   "desvio_corte_vs_golpe_ms": -36.9,
+   "ataque_audio_tras_corte_ms": 31.2,
+   "salida_en_beats_desde_golpe": 1.301,
+   "salida_desde_golpe_s": 0.596,
+   "audio_termina_tras_corte_salida_ms": 23.1,
+   "voz_termina_antes_del_corte_ms": 280,
+   "voz_vuelve_tras_corte_salida_ms": 114,
+   "lufs_momentaneo_max_inserto": -11.7
+  },
+  {
+   "toma": 10,
+   "corte_entrada": 16.4,
+   "corte_salida": 17.033,
+   "r_correlacion": 0.99,
+   "pos_cancion_en_corte": 27.9689,
+   "beat_cancion": 28.0061,
+   "es_downbeat_de_la_cancion": true,
+   "golpe_en_reel": 16.4372,
+   "desvio_corte_vs_golpe_ms": -37.2,
+   "ataque_audio_tras_corte_ms": 31.5,
+   "salida_en_beats_desde_golpe": 1.3,
+   "salida_desde_golpe_s": 0.596,
+   "audio_termina_tras_corte_salida_ms": 23.5,
+   "voz_termina_antes_del_corte_ms": 264,
+   "voz_vuelve_tras_corte_salida_ms": 128,
+   "lufs_momentaneo_max_inserto": -11.4
+  }
+ ],
+ "texto_rojo_eventos": [
+  {
+   "cuadro": 87,
+   "t": 2.9,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 105,
+   "t": 3.5,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 136,
+   "t": 4.533,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 154,
+   "t": 5.133,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 258,
+   "t": 8.6,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 288,
+   "t": 9.6,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 713,
+   "t": 23.767,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 715,
+   "t": 23.833,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 717,
+   "t": 23.9,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 719,
+   "t": 23.967,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 721,
+   "t": 24.033,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 723,
+   "t": 24.1,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 725,
+   "t": 24.167,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 727,
+   "t": 24.233,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 729,
+   "t": 24.3,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 731,
+   "t": 24.367,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 733,
+   "t": 24.433,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 735,
+   "t": 24.5,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 737,
+   "t": 24.567,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 739,
+   "t": 24.633,
+   "evento": "desaparece"
+  },
+  {
+   "cuadro": 741,
+   "t": 24.7,
+   "evento": "aparece"
+  },
+  {
+   "cuadro": 801,
+   "t": 26.7,
+   "evento": "desaparece"
+  }
+ ],
+ "estadistica": {
+  "cortes_total": 15,
+  "cortes_con_musica_sonando": 15,
+  "pct_a_50ms_de_un_beat": 53.3,
+  "pct_a_100ms_de_un_beat": 60.0,
+  "desvio_medio_ms": 42.9,
+  "desvio_medio_absoluto_ms": 79.8,
+  "entradas_de_musica_desvios_ms": [
+   -3.9,
+   -4.2,
+   -37.2,
+   -36.9,
+   -37.2,
+   -41.5
+  ],
+  "entradas_pct_antes_del_golpe": 100.0,
+  "entradas_desvio_medio_ms": -26.8,
+  "cierre_cortes_internos_desvio_beat_ms": [
+   -115.6,
+   43.1,
+   68.5,
+   210.8
+  ],
+  "cierre_cortes_internos_desvio_corchea_ms": [
+   113.5,
+   43.1,
+   68.5,
+   -18.3
+  ],
+  "grilla_extendida_todos_los_cortes_pct_50ms": 26.7,
+  "grilla_extendida_todos_los_cortes_pct_100ms": 46.7,
+  "azar_esperado_pct_50ms": 21.8,
+  "azar_esperado_pct_100ms": 43.6
+ },
+ "musica_bajo_la_voz": {
+  "autocorr_hats_corchea_negra_por_tramo": {
+   "0.05-2.85": [
+    -0.2,
+    0.16
+   ],
+   "3.55-4.48": [
+    -0.17,
+    0.19
+   ],
+   "5.18-8.55": [
+    0.02,
+    -0.03
+   ],
+   "9.65-12.52": [
+    0.03,
+    -0.22
+   ],
+   "13.25-16.35": [
+    -0.17,
+    0.03
+   ],
+   "17.08-20.58": [
+    -0.01,
+    -0.1
+   ],
+   "20.70-30.70": [
+    0.83,
+    0.8
+   ]
+  },
+  "rms50ms_p5_habla_dbfs": -49.7,
+  "rms50ms_p50_habla_dbfs": -21.2,
+  "rms50ms_p50_cierre_dbfs": -13.3,
+  "rms50ms_p5_cierre_dbfs": -20.3,
+  "graves_menos100Hz_p50_habla_dbfs": -47.9,
+  "graves_menos100Hz_p50_cierre_dbfs": -15.2,
+  "lufs_momentaneo_mediana_voz": -17.1,
+  "lufs_momentaneo_mediana_cierre": -12.6
+ },
+ "estructura_cierre": {
+  "compases": [
+   {
+    "compas": 1,
+    "desde": 20.675,
+    "hasta": 22.508,
+    "total_db": -12.3,
+    "graves_db": -13.5,
+    "melodia_600_3k_db": -29.6,
+    "hats_db": -32.4,
+    "clap_db": -31.5
+   },
+   {
+    "compas": 2,
+    "desde": 22.508,
+    "hasta": 24.34,
+    "total_db": -14.3,
+    "graves_db": -15.6,
+    "melodia_600_3k_db": -37.2,
+    "hats_db": -31.9,
+    "clap_db": -32.9
+   },
+   {
+    "compas": 3,
+    "desde": 24.34,
+    "hasta": 26.173,
+    "total_db": -10.2,
+    "graves_db": -11.0,
+    "melodia_600_3k_db": -39.8,
+    "hats_db": -35.0,
+    "clap_db": -34.7
+   },
+   {
+    "compas": 4,
+    "desde": 26.173,
+    "hasta": 28.006,
+    "total_db": -12.2,
+    "graves_db": -13.0,
+    "melodia_600_3k_db": -39.1,
+    "hats_db": -33.6,
+    "clap_db": -32.7
+   },
+   {
+    "compas": 5,
+    "desde": 28.006,
+    "hasta": 29.839,
+    "total_db": -12.1,
+    "graves_db": -13.0,
+    "melodia_600_3k_db": -38.7,
+    "hats_db": -33.1,
+    "clap_db": -31.3
+   },
+   {
+    "compas": 6,
+    "desde": 29.839,
+    "hasta": 30.734,
+    "total_db": -12.4,
+    "graves_db": -13.0,
+    "melodia_600_3k_db": -39.3,
+    "hats_db": -33.6,
+    "clap_db": -42.8
+   }
+  ],
+  "ultimo_audio_s": 30.778
+ }
+}

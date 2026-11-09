@@ -219,10 +219,14 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 ### Paso 9 · La edición y el montaje
 - Según el template: orden de tomas, insertos, subtítulos, música y cierre.
 - Se monta sin recomprimir donde se pueda (`-c:v copy`).
-- Template «Mensaje para…»: `reel-mentores/montaje/montar.mjs` arma todo de una (cortes, subtítulos de 2-3 palabras desde los
-  tiempos de cada palabra, palabras rojas, cierre mudo, música, loudnorm) y se vuelve a correr cuando cambia una toma.
-  Las duraciones van en cuadros enteros: si no, los subtítulos se corren al acumular redondeos.
+- Template «Mensaje para…»: `reel-mentores/montaje/montar-v2.mjs` arma todo de una con la gramática MEDIDA del reel de
+  Josep (§8.3) y se vuelve a correr cuando cambia una toma (30-70 s). Las duraciones van en cuadros enteros, y los tiempos
+  del .ass se redondean SIEMPRE hacia abajo: redondeando al más cercano, el subtítulo quedaba un cuadro sobre el inserto.
   Antes de entregar, transcribir el reel entero con `chequear-guion.mjs` (un recorte puede comerse una palabra).
+- **Regla de Martín (9/11): el montaje copia el RITMO de la referencia.** Se mide en la referencia y en lo nuestro: cuánto
+  dura cada tramo hablado antes de cada corte, sílabas/palabras por segundo, huecos entre palabras y entre frases. No
+  quedan silencios muertos: una animación se corta o se acelera (sólo la imagen). La voz se acelera con `atempo`, que
+  conserva el tono (medido: 130,6 → 130,6 Hz); `asetrate` la sube 9,7 %: voz de ardilla.
 
 ### Paso 10 · La entrega
 - Clip más su contexto.md. Lo que el usuario aprueba se guarda como win.
@@ -473,6 +477,8 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | «Gurú» en el prompt dio gurús de la India | La palabra | Darle las caricaturas reales: un abanico armado a mano con las de `public/asesores/grandes/` (`reel-mentores/blancas/abanico.py`) |
 | «A contraluz» casi no cambia la imagen | Nano Banana no reilumina a la persona | La silueta la da el video (las tomas blancas de la noche salieron así) |
 | Una «risa» o un «gruñido» en un hueco sin voz | El voice-to-voice pasó el soplido del efecto (humo) por la voz | En el montaje se calla la pista de voz entre la última palabra y la siguiente; la música sostiene. La transcripción lo marca como «[gruñido]» |
+| «No se parece a mí» en una toma nueva (el perfil) | La base fue una toma ya generada (la blanca de la noche), no su personaje | Base = SIEMPRE `omni/personaje-bueno-original.jpg`. De a un cambio: 1) «Sin la foto en la mano y sobre un fondo blanco liso, con todo lo demás igual»; 2) la pose y la luz con una referencia que tenga su misma ropa (la de Josep le copió la camisa). Tres cuartos se parece más que perfil puro |
+| La luz de las tomas blancas no queda como las otras («no tiene la iluminación que estábamos teniendo») | Se cambió pose y fondo sin pasar la luz | Una edición más: «Copiá SÓLO la luz y la exposición de la referencia; no cambies ni la persona ni la pose ni el encuadre», con una toma NUESTRA ya aprobada como referencia (el abanico). Con el cuadro de Josep, Flow reemplazó la imagen entera por la de él |
 | «Detectamos actividad inusual» | Unas 15 ediciones en una hora | Esperar unos minutos |
 | «No es mi voz» | Clon profesional en voice-to-voice | Clon «wav nivelado» |
 | Voz «súper grave» | `use_speaker_boost` en true | false |
@@ -628,14 +634,29 @@ Un tablero de corcho con las caricaturas de los gurús unidas por hilo rojo, en 
 
 Los parámetros completos y sus trampas están en `docs/edicion-video-automatica.md`. Lo central:
 - Música medida y llevada a −33 LUFS, con fade in de 0,8 s y fade out de 2,5 s. Nunca un «−20 dB» a ojo.
-- **Con cierre mudo (template «Mensaje para…»)** la música no puede ir fija a −33: el cierre quedaría en silencio. Base
-  −19 LUFS y `sidechaincompress` con la voz (threshold 0.02, ratio 10, attack 15, release 350): queda ~−30 bajo la
-  voz y sube sola en los insertos, en los huecos y en el cierre. Se entrega también una versión sin música, para
-  ponerle un audio de Instagram.
+- **Template «Mensaje para…» (medido en el reel de Josep, 9/11): la música NO va bajo la voz.** Josep la apaga del todo
+  mientras habla (piso de −49,7 dBFS). La música entra SÓLO como golpe en cada inserto blanco: el mismo pedazo de la
+  canción, desde el «1» de una frase (808 + hats), con el corte de imagen en el golpe o un cuadro antes, cortado en seco
+  al volver la voz; la palabra roja aparece en el cuadro del corte. Inserto corto = 1,3 beats (0,6 s, 15 cuadros a 24 fps);
+  el largo, 2,1 beats (1,0 s). El cierre mudo arranca con la canción en su 0:00 y sigue continua; ahí los cortes siguen la
+  acción. La música suena ~4,5 LU por encima de la voz. Detalle: `docs/hallazgos-video-editor.md` → «Cortar al ritmo de
+  una referencia».
+- **Cuántos golpes y dónde (Martín, 9/11: «pusiste demasiadas partes de música»):** los MISMOS que la referencia. Josep pone
+  5 en lo hablado, uno al CERRAR cada bloque del guion (disparo, nombre, credencial, producto, beneficio), ninguno adentro
+  de un bloque ni en el remate. El v3 tenía 8 (partía bloques y le ponía golpe al humo) y se sentía recargado.
+- **Efectos, de a uno (Martín, 9/11: «no seas exagerado»):** el v4 sumó zoom «punch-in» + whoosh en la transformación,
+  whoosh de vuelta y dos efectos en el humo; quedó sólo el del humo al desvanecerse (ElevenLabs Sound Effects,
+  `reel-mentores/voz/efecto.mjs`). Un efecto que suene a soplido pegado a la voz se lee como un suspiro del personaje.
+- El v1 del 9/11 ponía la música bajo la voz con `sidechaincompress`: es la gramática de un anuncio, no la de este template.
+- Se entrega siempre también una versión SIN música, para ponerle el audio desde Instagram (la canción de Josep es «WE ON GO»,
+  de BIA; no se verificó que esté en la biblioteca de Instagram de una cuenta de empresa).
 - Si no hay música elegida: UNA pista de ElevenLabs Music (`reel-mentores/voz/musica.mjs`, `music_v1`, instrumental;
   48 s tardaron 7 s). El archivo arranca con ~2 s de silencio: se entra en el segundo 2.
 - Mezcla con `amix=inputs=2:normalize=0`, y loudnorm de dos pasadas sobre la mezcla (I=-14:TP=-1:LRA=11, linear) forzando `-ar 48000`.
 - Fuente de los subtítulos: Anton o Montserrat ExtraBold. libass no falla si falta la fuente: cae a Arial en silencio.
+- **Los subtítulos nunca tapan la cara (Martín, 9/11):** van justo debajo del mentón, y el mentón se mide en CADA clip
+  porque cambia con la distancia a cámara (en el reel de mentores: ~615-630 en los clips 1-3, ~765 en el 4 y después del
+  humo, la barba de Hormozi hasta ~795; sobre 1280). A la altura de Josep (610) le tapaban la boca. `SUB_Y` en `montar-v2.mjs`.
 - Se recortan los «eh» y espasmos del modelo: es la diferencia entre «un video con IA» y un anuncio.
 - Los subtítulos del template mandan sobre los del pipeline de anuncios (en «Mensaje para…», blancos y a media altura).
 

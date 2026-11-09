@@ -6,6 +6,55 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Cortar al ritmo de una referencia: lo que mide un reel que funciona (9/11/2026)
+
+**Síntoma.** El reel de mentores (template «Mensaje para…», copiado del de Josep / Tacho, `instagram.com/reel/DdTdIIPDzHU`)
+se sentía lento y «sin tren» al lado del original, con el mismo guion y la misma estructura.
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+- «Le falta música de fondo, bien mezclada»: no. **Josep NO tiene música bajo la voz** (piso de −49,7 dBFS en sus pausas);
+  la música entra SÓLO como golpe pegado en cada inserto blanco y, continua, en el cierre mudo. El v1 la ponía debajo de
+  todo con `sidechaincompress`: es la gramática de un anuncio, no la de este template.
+- «Martín habla lento»: tampoco. A 1,10 (atempo) dice 7,45 sílabas/s contra 7,08 de Josep, con los mismos huecos entre
+  palabras (36 contra 40 ms). La lentitud eran 3 s de silencio digital en las animaciones (Hormozi quieto, el humo) y un
+  tramo de 7,8 s sin ningún golpe (Josep nunca pasa de 3,6 s).
+
+**La gramática medida** (`C:/dev/reel-mentores/josep/analisis/ritmo-josep.json`, verificada por un segundo agente con otro
+método; el montaje que la aplica es `C:/dev/reel-mentores/montaje/montar-v2.mjs`, fuera del repo):
+- 130,95 BPM (beat 0,458 s), 4/4 en half-time de trap. El 129,2 que da librosa por defecto es un escalón de su grilla
+  (hop 512 a 22.050 Hz), no la medición: hay que medir el período por regresión sobre los beats del tramo sin voz.
+- Cada inserto usa el MISMO pedazo de canción (correlación 0,98-0,99), desde el «1» de una frase; el corte de imagen cae en
+  el golpe o hasta un cuadro antes (−4 a −42 ms), nunca después; la palabra roja aparece en ese mismo cuadro y se va con el
+  corte de salida. Inserto corto = 1,30 beats (0,596 s); el largo, 2,1 beats. El audio se corta en seco al volver la voz.
+- Tramos hablados de 2,9 s de media (máximo 3,6); ningún hueco sin voz ni música de más de 0,52 s.
+- Cierre mudo: la canción desde su 0:00, continua, ~4,5 LU por encima de la voz; ahí los cortes siguen la acción, no el beat.
+  El dominio titila 2 cuadros sí / 2 no durante ~0,93 s y queda fijo.
+
+**Herramientas (para el corte automático de MaKo).** `audio/dsp/ritmos.ts` ya marca beats como librosa, pero no sabe dónde
+cae el «1» del compás: su Ritmo 1 («uno cada dos») no es el downbeat. Lo que suma es **Beat This!** (CPJKU, código y pesos
+MIT, el modelo chico pesa 8 MB y corre en CPU: devuelve beats + downbeats) en un paso Python del worker, con **Demucs**
+(htdemucs, MIT) antes cuando hay voz encima (además cubre «Aislar voz»). No: madmom/BeatNet (sus MODELOS son CC BY-NC-SA,
+no comerciales), Essentia (AGPL), Spotify audio-analysis (cerrada desde el 27/11/2024). Para «¿qué música es?»: AudD (API
+HTTP con precio público); Shazam (`shazamio`) sólo reconoce en ventanas SIN voz encima (con voz: 0 de 9).
+
+**Trampas que costaron una vuelta:**
+- Acelerar la voz: `atempo` conserva el tono (130,6 → 130,6 Hz); `asetrate` lo sube 9,7 %, la voz de ardilla.
+- Los .ass van en centésimas: redondear al más cercano (2,708 → 2,71) deja el subtítulo un cuadro sobre el inserto y la
+  palabra roja entra un cuadro tarde. Se redondea hacia abajo. Y una hoja de contacto con `fps=2` no sirve para medir
+  cortes: muestrea el cuadro equivocado. Se mide con `select` por número de cuadro.
+- El voice-to-voice convierte el soplido de un efecto (humo) en un zumbido con tono (f0 142 Hz) que suena a risa: en los
+  huecos sin voz se calla la pista de voz y va el golpe.
+- `python -I` ignora los paquetes de `pip install --user`: `shazamio` daba ModuleNotFoundError estando instalado. Se
+  arregla con `sys.path.append(site.getusersitepackages())`.
+- La palabra roja pintada encima tapa el pelo y el celular; Josep pone al sujeto DELANTE del texto. Se compone con una
+  máscara «donde el cuadro es blanco» (`maskedmerge`); y en el cierre la toma se corre hacia abajo para que el texto
+  quede libre (achicarla deja costuras duras a los costados).
+
+**Sin hacer:** el plano del celular es una foto quieta (falta su video, 12 créditos); las tres tomas blancas de la noche
+llevan la luz corregida en el montaje con `curves`, no regeneradas; no se verificó que «WE ON GO» (BIA) esté en la
+biblioteca de Instagram de una cuenta de empresa; a 1,10 queda un micro-tirón cada 10 cuadros (`fps=24` descarta uno de
+cada 11).
+
 ## `toast.error` lleva «Reportar a Soporte»: se envuelve UNA vez, en el Toaster (23/10/2026)
 
 Los ~45 archivos del editor llaman `toast.error` de sonner, que dibuja su toast con su propia librería (no es un `role="alert"`
