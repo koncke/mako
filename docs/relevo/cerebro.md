@@ -2409,6 +2409,25 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - el editor, con el ticket 23.
   - Zernio puso su relevo en `8b3af7652` (`zernio-2510`). Replicar espera su turno para medir el blanco.
 
+## ⚠️ EL CRON DEL TABLERO APUNTA A UN WORKTREE VIEJO (9/11/2026)
+
+**El worktree que nombra el cron del tablero está 484 commits atrás de `origin/main`, y sucio.**
+El recordatorio dice `C:/dev/wt-puntas/docs/pendientes-martin.md`; ese clon está en
+`punta/verificacion-dudosos`, nunca se puso al día, y **su copia del inventario es más vieja que la
+de main** (2379 líneas contra 2436).
+
+**Lo que eso hace, y ya pasó hoy:** el primer abierto del inventario era «falta la página propia de
+*no encontrado*». En `wt-puntas` el archivo **no existe** y el ítem se lee como pendiente. En main
+`app/not-found.tsx` existe desde el 7/11 (`0d3cbb056`), con su `lib/no-encontrado.ts` y sus 7 tests.
+Seguir el cron al pie de la letra era **volver a escribir una pantalla que ya estaba**, y encima
+pisarla con una peor.
+
+**La regla:** el tablero se lee de donde está el cron, pero **todo lo que se MIDE se mide en un
+worktree que esté a 0 de `origin/main`** (hoy `C:/dev/wt-push-q`). Antes de darle de comer un repo a
+un agente verificador, `git rev-list --count HEAD..origin/main`: si no da 0, lo que vuelva son
+pendientes fantasma. Es la misma familia que «en producción sólo cuenta lo desplegado», un piso más
+abajo: **en un worktree sólo cuenta lo que ese worktree tiene.**
+
 ## Lo que NO se vuelve a discutir
 
 - **Nunca `--no-verify`.** El 24/10 el hook de pre-push frenó un tren con 5 errores de tipos.
