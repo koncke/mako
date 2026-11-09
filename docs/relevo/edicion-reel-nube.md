@@ -88,7 +88,15 @@ quede en el historial, «Deshacer todo», y por el chat «edítalo todo» → Ac
 
 **VERDE 7c3dfbb1a** (9/11/2026): 7193 tests de 718 archivos y el tsc entero, con Node 24, sobre el árbol `e2e8fc95f6` (las tandas 1
 a 4, con `origin/main` mezclado). Es el commit que quedó en `punta/edicion-reel-0911`: el renglón `Veredicto:` va en su mensaje, así
-que GitHub no repite lo que ya pasó. Esta línea del relevo va en un commit aparte, encima.
+que GitHub no repite lo que ya pasó. Esta línea del relevo va en un commit aparte, encima (sólo en
+`claude/exciting-mccarthy-9rqrau`: en la punta haría correr todo otra vez).
+
+⚠️ **GitHub frenó la punta a los 38 s por el AUTOR, sin correr un test** (corrida 42621502295, marca
+`ci-rojo/edicion-reel-0911`): los commits de la nube salen como `Claude <noreply@anthropic.com>` (lo que pide
+`docs/relevo/nube-metodologia.md`) y `punta.yml` rechaza ese autor porque Vercel no le despliega. No los volví a firmar con el
+correo del equipo: eso deja que la punta llegue sola a main, y acá a main lo sube el Cerebro. Para integrar: volver a firmar
+`7c3dfbb1a` (`git commit --amend --no-edit --author=…` sobre ese commit: el árbol no cambia, así que el `Veredicto:` sigue valiendo)
+y subirlo a `punta/edicion-reel-0911`; este relevo, después, como una punta sólo de documentación.
 
 ⚠️ En la nube el pre-push hay que correrlo con Node 24 (`export PATH="$(sh scripts/node24.sh):$PATH"` en el MISMO comando que el
 `git push`): con el 22 el filtro dio 12 tests rojos en 24 s que no existen.
