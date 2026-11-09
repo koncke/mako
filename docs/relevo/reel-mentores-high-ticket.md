@@ -379,3 +379,5 @@ Eso fue lo que destrabó el clip 2.
     El corcho queda como el de esta referencia: las fotos de ese tamaño, esa cantidad y esa misma luz.
     Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo: "…".
        Al principio abre la mano y deja caer la foto.
+
+- **(~14:25) Martín: «toma la imagen del fondo sin nadie y le agregas el personaje. No al revés».** Con el personaje de base, el corcho salió desfasado y la pared apuntando para otro lado. Base = `aprobado/corcho-v3-1k.jpg`, referencia = `omni/personaje-bueno-original.jpg`, frase: «Agrega a esta persona de pie al lado del corcho, mirando a cámara, con las manos vacías. El corcho, la pared y el cuarto quedan igual.» → `omni/clip2-fondo-mas-persona.jpg`: perspectiva intacta. **Regla: cuando el que manda es el escenario, el FONDO va de base y la persona entra de referencia. Antes de mandar, revisar la perspectiva del fondo y de la pared.** Esperando su OK para el video.
