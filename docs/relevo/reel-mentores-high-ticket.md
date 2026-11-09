@@ -56,6 +56,11 @@ quedan DESCARTADOS.**
   Cara, pelo y polaroid idénticos. (El primer intento lo frenó Flow por «actividad inusual»; salió a los 5 minutos.)
   Mostrado a Martín. **Sigue:** los clips 1 y 2 con esta imagen de fotograma inicial (prompts y configuración en
   §00) y `voz\poner-voz.sh`.
+- **✅ CLIPS 1 Y 2 (~13:35), desde el avatar aprobado:** `C:\dev\reel-mentores\clips-final\CLIP1-CON-TU-VOZ.mp4` y
+  `CLIP2-CON-TU-VOZ.mp4` (de Flow: `clip1-flow.mp4`, `clip2-flow.mp4`; el 2 arranca de `clip1-ULTIMO.png`). Misma
+  configuración y prompts que §00. Voz: 38 ms de diferencia en los dos; 136 y 134 Hz (los reales son 128). Mandados a
+  Martín, esperando su OK. **Sigue:** clips 3, 4 y 5 (cada uno desde el último fotograma del anterior), cierre mudo y
+  montaje con subtítulos (§9).
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
