@@ -1,0 +1,71 @@
+{
+ "cancion": "WE ON GO",
+ "artista": "BIA",
+ "sello": "Epic (Sony Music)",
+ "shazam_key": "820795175",
+ "shazam_url": "https://www.shazam.com/track/820795175/we-on-go",
+ "apple_music": "https://music.apple.com/ar/album/we-on-go/1846224824?i=1846225056",
+ "duracion_tema_deezer": "2:48",
+ "metodo": "shazamio 0.9.0 sobre recortes de C:/dev/reel-mentores/josep/josep-audio.wav",
+ "timeskew_freqskew": "~0 (misma velocidad y tono que el original, no es sped up)",
+ "ventanas_con_match": {
+  "cierre (inicio_s, offset_shazam_s)": [
+   [
+    16,
+    -4.603
+   ],
+   [
+    18.5,
+    -2.104
+   ],
+   [
+    20,
+    -0.674
+   ],
+   [
+    20.6,
+    -0.076
+   ],
+   [
+    21,
+    0.335
+   ],
+   [
+    24,
+    3.336
+   ],
+   [
+    26,
+    5.332
+   ]
+  ],
+  "bajo la voz (inicio_s, offset_shazam_s)": [
+   [
+    4,
+    112.591
+   ],
+   [
+    8,
+    116.598
+   ]
+  ]
+ },
+ "ventanas_sin_match": [
+  "0-5",
+  "0-7",
+  "2-7",
+  "10-15",
+  "12-16",
+  "12-19",
+  "13.5-17.5",
+  "15-19",
+  "17-21 (voz encima)"
+ ],
+ "lectura": {
+  "cierre": "desde el reel ~20,65 s la cancion arranca en su 0:00 (coincide con el corte 20,63)",
+  "bajo_la_voz": "reel 4-15 s = cancion ~1:52,6-2:03,6 (cancion = reel + 108,6 s)",
+  "salto": "entre 15 y 20,6 s hay un empalme de la musica; el punto exacto no se pudo medir (la voz tapa)"
+ },
+ "segunda_fuente": "comentario en el reel de @prosperocapital360: \"Canciones: we on go\" (josep-reel.info.json)",
+ "instagram": "el reel figura como \"Original audio\" de tachocream (audio 28280838074860415); no se pudo verificar desde la web si el tema esta en la biblioteca de musica de Instagram"
+}
