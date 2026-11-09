@@ -71,6 +71,8 @@ baja sola y, al terminar, los 12 juntos abajo al lado de la barra. El editor se 
   se paga: un STOP que no frena miente) sino «Ver todo», que muestra de una lo que ya llegó. El «⏸ / AGENTS ON» tampoco.
 - **«Reducir movimiento» del sistema:** sin bucle; cada caja y cada cursor quietos en su estado final.
 - **Teléfono (390 px):** la barra se queda con el punto, la fase y el botón (`@container`); al final, tres por fila.
+- **En la API de MaKo:** nada nuevo, y no corresponde. Es cómo se VE una réplica en la pantalla; replicar ya está declarado
+  (`replicar_landing`, en los tres formatos) y no cambió.
 
 **Autocrítica (lo que cambié mirándolo en el navegador):**
 1. La cámara seguía los trazos: bajaba hasta el final mientras arriba se escribía, y volvía. Ahora los trazos no la mueven;
