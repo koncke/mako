@@ -107,7 +107,7 @@ es este pizarrón, no la oficina. También dijo: «Todo siempre en la calidad or
 
 ## 0 · AL 9/11 ~12:00 UTC (claude4): el PIZARRÓN SOLO, versión 3, esperando el OK de Martín
 
-- **Flow está en la cuenta `mbustos@elevate.com.mx`**, que en el Chrome de Claude es `/u/2/`:
+- **Flow está en la cuenta de Google que en el Chrome de Claude es `/u/2/`**:
   https://flow.google.com/u/2/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e. Con /u/0 o /u/1, Flow dice que el proyecto
   no existe.
 - **El material ya NO vive en scratchpads**, porque se borran. Está en `C:\dev\reel-mentores\`:

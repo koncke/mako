@@ -2640,7 +2640,7 @@ Y dos de operación: **las ediciones NO se apilan** (se vuelve a la última vers
 
 ### El reel: dónde está
 
-**Proyecto NUEVO, en la cuenta de Mauricio** (`mbustos@elevate.com.mx`) — **Martín lo puso ahí a
+**Proyecto NUEVO, en la cuenta de Mauricio** (la `/u/2/` del Chrome de Claude) — **Martín lo puso ahí a
 propósito y dijo que se gaste ahí**: `flow.google.com/project/4c7f36b5-74aa-4a7b-876e-e8097775ec6e`.
 El proyecto viejo (`73afb881…`) está en otra cuenta y **no se alcanza desde este Chrome**.
 

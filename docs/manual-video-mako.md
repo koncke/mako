@@ -369,7 +369,7 @@ montaje         ffmpeg -i <clip> -i <voz> -map 0:v -map 1:a -c:v copy -c:a aac -
 
 ### 6.5 Flow
 
-- **Cuenta:** el proyecto del reel está en `mbustos@elevate.com.mx`, que en el Chrome de Claude es `/u/2/`. Con `/u/0` o `/u/1`, Flow dice que el proyecto no existe.
+- **Cuenta:** el proyecto del reel está en la cuenta de Google que en el Chrome de Claude es `/u/2/`. Con `/u/0` o `/u/1`, Flow dice que el proyecto no existe.
 - **Panel de video:** Video · **Fotogramas** (no Ingredientes) · **Omni 1.2 Flash** (no Veo 3.1 Lite) · **720p** (no 360p) · **9:16** · **5 s** (15 créditos, el de la receta aprobada) u **8 s** (24) · **x1**. Los defaults vienen mal: revísalo siempre.
 - **Imágenes:** el radio de Imagen es el primero. Al tocarlo, el modelo pasa solo a Nano Banana 2.1. Las imágenes no gastan créditos.
 - **Descargas:** siempre «1K · Tamaño original». Nunca «2K/4K Reescalado». Los videos, en su original.
