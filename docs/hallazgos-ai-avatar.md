@@ -481,3 +481,34 @@ Pedirle en el prompt que hable **despacio, ocupando casi todo el clip, con una p
 palabra concreta**. Sin eso, Omni dice la frase apurada (2,4 s) y ningún audio humano entra ahí. Con
 eso: el clip habla **3,650 s** y la voz aprobada dura **3,680** — treinta milésimas, sin `atempo`,
 sin quitar pausas y sin tocar el archivo que Martín aprobó.
+
+## Flow SUELTA las referencias después de generar, y no avisa (9/11/2026)
+
+**El síntoma:** pedí «the SAME YOUNG MAN as the studio reference» y salió un pelirrojo cualquiera.
+Martín lo cazó en un segundo: «¿quién es esa persona?».
+
+**El diagnóstico obvio era el equivocado.** Lo primero que uno toca es el prompt —más adjetivos,
+«same face», mayúsculas—. No era el prompt: **la referencia no estaba adjunta**. Flow limpia las
+referencias del cuadro de prompt apenas termina una generación, así que la siguiente corre a texto
+pelado. Y a texto pelado el modelo **no falla**: inventa una persona coherente con la descripción y
+la entrega sin una sola advertencia. Es la misma trampa de familia que ya está anotada de ApiMart
+—un resultado plausible no es un resultado correcto—, acá disfrazada de «el prompt no alcanza».
+
+**La regla:** antes de apretar generar, mirar que la **miniatura de la referencia esté en el cuadro
+de prompt**. En la lista de generaciones también se ve: la entrada que llevó referencia muestra su
+miniatura debajo del texto, la que no llevó muestra sólo el texto. Si no hay miniatura, el parecido
+salió por casualidad.
+
+### Y DOS referencias compiten: gana el estilo, pierde la cara
+
+Antes de eso había probado con dos —el personaje aprobado + un fotograma del reel para copiarle la
+luz— y salió una **silueta negra**: la referencia de iluminación se comió a la persona. Martín:
+«no salió pero para nada igual».
+
+**El parecido y el estilo no se piden juntos.** Va **una sola referencia, la del personaje**, y la
+luz se describe con palabras («high-key, fondo blanco quemado, luz frontal suave, sin sombra
+proyectada, NO silueta, NO subexpuesto»). Con eso la cara se sostiene y el fondo igual sale blanco.
+
+⚠️ Y una advertencia que viene de la misma vuelta: pedir que la toma lea **oscura** —aunque sea para
+copiar el reel— es pedir que la cara desaparezca. En el original de referencia el cuerpo se recorta
+contra el blanco **pero la cara se sigue leyendo**. Primero el parecido; la estética después.
