@@ -460,3 +460,45 @@ matiz que faltaba: corto **no** es «decí sólo el movimiento» — el ancla es
 ⚠️ **Y las generaciones se lanzan EN PARALELO** (Martín, 9/11): Flow acepta varias a la vez y ApiMart
 también. Esperar a que una termine para empezar la siguiente es tiempo regalado — se encola todo lo
 que ya tiene su imagen y su frase, y después se bajan y se chequean de a una.
+
+## El reel de referencia, desarmado: qué copiar de «el chico de los pistachos» (9/11/2026)
+
+El reel es `pistachos-video.mp4` (Josep / crema Tacho): **720×1280, 30,8 s, 16 tomas**. Es el molde de
+los 14 videos del lanzamiento, así que acá queda medido y no hay que volver a desarmarlo.
+
+⚠️ **Nuestra copia del archivo NO tiene pista de audio** (`ffprobe -select_streams a` no devuelve
+nada). La transcripción que hay en `trans.json` vino de otra pasada. **La verdad de lo que dice son
+los subtítulos quemados**, y leerlos arregló lo que la transcripción traía mal: no es «haber plantado
+pistachos» sino **«Déjate de polvitos y batiditos. ¡Haber plantao pistachos!»**.
+
+**La estructura, que es lo que se copia:**
+
+| bloque | t | qué hace |
+|---|---|---|
+| DISPARO | 0–3 s | «Este es un mensaje para todos los ___ de pacotilla» — nombra al destinatario y lo pincha |
+| CREDENCIAL | 3,5–8,5 s | nombre, los años, las manos en la materia prima |
+| EL PRODUCTO COMO CONSECUENCIA | 9,5–12,5 s | «Para ahora crear ___» — no se presenta, se deduce |
+| BENEFICIO DEL OTRO | 13–16,5 s | «Una fuente de ___ para todos aquellos que ___» |
+| REMATE | 17–20,5 s | vuelve al insulto de la apertura y cierra el círculo |
+| CIERRE MUDO | 20,5–30,8 s | **10 s sin voz**: insertos + dominio + dónde se compra |
+
+- **Dos mundos alternados**: la nave real y el inserto sobre blanco quemado a contraluz. En la primera
+  mitad nunca van dos seguidas del mismo mundo. **Los insertos blancos son los que estamos generando
+  en Flow** —dedo arriba, brazos cruzados, perfil con las manos—: son el 50% del reel.
+- **Los insertos de la primera mitad son flashes de 0,6–1,0 s**; los del final se estiran a 1,4–3,1 s,
+  cuando ya no hay voz que seguir. Un inserto de 3 s en la apertura rompe el ritmo.
+- **Una sola palabra por inserto**, roja, con serif, arriba. Sólo **tres** en toda la parte hablada
+  (FLOJOS, JOSEP, PISTACHOS) y dos carteles al final. El resto de los insertos van mudos.
+- Subtítulos de la parte hablada: blancos, centrados, **a media altura, no abajo**, 2–3 palabras.
+- **El producto aparece recién a los 9,6 s**, un tercio adentro.
+
+### Dos trampas del ffmpeg de esta PC, medidas desarmándolo
+
+- ⚠️ **`drawtext` no corre**: «Fontconfig error: Cannot load default config file». Para poner el reloj
+  en una grilla de contactos hay que resolverlo por otro lado (o contar las celdas: con `fps=1` y
+  `tile=NxM`, la celda k es el segundo k).
+- ⚠️ **`-pattern_type glob` no existe en este build**: «globbing is not supported by this libavformat
+  build». Las tiras de fotogramas se arman con secuencia numerada (`-i t_%02d.jpg`), no con `t_*.jpg`.
+- La receta que sirvió para sacar la estructura: cortes con
+  `select='gt(scene,0.3)',showinfo`, un fotograma por toma con `-ss <medio>`, y para leer los
+  subtítulos quemados una grilla de la banda recortada (`fps=2,crop=720:230:0:560,tile=4x16`).
