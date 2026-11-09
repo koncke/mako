@@ -98,7 +98,7 @@ const MENU_DEMO: EntradaMenuContextual[] = [
     { id: 'der', label: 'Mover a la derecha', icono: 'flecha-derecha' },
   ] },
   null,
-  { id: 'sin', label: 'No disponible acá', icono: 'copiar', deshabilitado: true },
+  { id: 'sin', label: 'No disponible aquí', icono: 'copiar', deshabilitado: true },
   { id: 'borrar', label: 'Eliminar', icono: 'borrar', peligro: true },
 ];
 
