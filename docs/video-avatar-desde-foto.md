@@ -502,3 +502,57 @@ pistachos» sino **«Déjate de polvitos y batiditos. ¡Haber plantao pistachos!
 - La receta que sirvió para sacar la estructura: cortes con
   `select='gt(scene,0.3)',showinfo`, un fotograma por toma con `-ss <medio>`, y para leer los
   subtítulos quemados una grilla de la banda recortada (`fps=2,crop=720:230:0:560,tile=4x16`).
+
+## Manejar Flow desde la extensión cuando la captura de pantalla se cuelga (9/11/2026)
+
+Trabajando el clip 2 (el tablero de detective) la pestaña de Flow dejó de dar capturas:
+`Page.captureScreenshot timed out after 30000ms`. **La página seguía viva** —`get_page_text`,
+`read_page` y `javascript_tool` contestaban— así que no hay que recargar ni abrir otra pestaña:
+se trabaja por el DOM. Esto es lo que costó, y en este orden.
+
+- ⚠️ **La caja de Flow es un `div[contenteditable]`, no un input.** Se la ubica por
+  `data-placeholder` («¿Qué quieres crear?» en el proyecto, «¿Qué quieres cambiar?» en el editor)
+  y se la enfoca por el centro de su `getBoundingClientRect()`.
+- ⚠️ **Hacer clic en el `ref` que devuelve `find` para esa caja ABRE EL EDITOR de una tarjeta.**
+  Pasó dos veces: el ref apunta a algo que está debajo de una tarjeta. Por coordenadas del rect
+  real cae bien. La señal de que te equivocaste es que la caja pasa a decir «¿Qué quieres cambiar?».
+- ⚠️ **`submit.click()` por JavaScript NO envía nada.** Devuelve sin error, la caja queda con el
+  texto y no se genera. Lo que envía es un clic de verdad sobre la flecha (en 1536×674 quedó en
+  ~(1035, 617) en el proyecto y ~(923, 666) en el editor).
+- ⚠️⚠️ **Escribir sin limpiar MEZCLA los prompts.** El texto entra en la posición del cursor, así
+  que el segundo prompt se insertó en el medio del primero y quedó
+  «…unidas con hilo rojo, co**El cuarto de un investigador**…mo el tablero de un detective.»
+  **Siempre `ctrl+a` + `Delete` antes de escribir**, y verificar el texto antes de enviar.
+- **Los refs se invalidan al abrir el panel de configuración**: lo que se leyó antes de abrirlo ya
+  no sirve. Se vuelve a leer después.
+
+### El panel, de video a imagen
+
+Los radios no tienen etiqueta accesible; se leen con `[role=radio]` + `innerText`. El de **Imagen**
+es el primero, y al tocarlo el modelo cambia solo de `Omni 1.2 Flash` a **🍌 Nano Banana 2.1** y
+aparecen más proporciones. **Las imágenes no gastan créditos de video**, que es lo que permitió
+hacer seis en una tanda con el cartel de «sin créditos» puesto.
+
+### ⛔ Subir un archivo a Flow sigue necesitando el clic de la persona — también desde el editor
+
+Medido hoy otra vez, y ahora también en el `+` **del editor** (que es el que
+[[la-segunda-referencia]] usa para pasar una referencia de estilo): `document.querySelectorAll('input[type=file]')`
+devuelve **0** antes y después de tocar el botón, y el menú que abre no tiene items en el árbol.
+`file_upload` de la extensión necesita el ref de un input que no existe. **Conclusión: una
+referencia propia entra a Flow sólo si Martín toca el `+` y elige el archivo.**
+
+### ⚠️ Un prompt recargado da una escena recargada (y Martín lo frena)
+
+Para el tablero de detective pedí «habitación en penumbra… escritorio, lámpara encendida y toda la
+pared del fondo…». Salieron dos cuartos de película de conspiración, con pilas de papeles, cama y
+estantes. Martín, mirando en vivo: **«está muy complejo… se tiene que ver real también. No se tiene
+que ver tan complejo.»**
+
+Lo que funcionó fue **una sola frase con el objeto y el lugar**, sin adjetivos de ambiente:
+«Un tablero de corcho con fotos unidas por hilo rojo, en la pared de una habitación normal con luz
+de día.» Es la misma regla del prompt corto, aplicada al DECORADO y no sólo a la persona: **cada
+objeto que nombrás, el modelo lo pone, y la suma es un set de cine.**
+
+Y para sacar lo que sobraba, el cambio se pidió **en positivo y como estado**, nunca enumerando lo
+que no se quiere: **«En el corcho sólo hay fotos de caras de personas.»** De una, quedó el corcho
+con puros retratos, sin notas ni recortes, y la habitación intacta.
