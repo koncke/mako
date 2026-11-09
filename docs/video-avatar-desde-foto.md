@@ -842,3 +842,28 @@ igual». Volvieron limpias de una.
 **La regla: cada tres o cuatro ediciones, volver a pasar la referencia de lo que tiene que
 mantenerse fiel** — aunque esa parte no sea lo que estás cambiando. Y si algo se degradó, no se pide
 «que se vea mejor»: se vuelve a dar el material.
+
+### ⚠️⚠️ La mejor referencia es un resultado TUYO ya aprobado, no el material crudo (9/11/2026)
+
+Peleé cuatro vueltas para que las caricaturas del corcho no parecieran stickers: «papel impreso con
+la misma luz» (nada), «fondo claro como foto de carnet» (las blanquea, rechazado), «un poco
+desenfocado» (sutil), «papel curvado con su sombra» (mejor, sin cerrar). Todas eran **descripciones
+del efecto**.
+
+Martín: **«dale la referencia que ya habíamos logrado, que son más chiquitas las imágenes y
+justamente tiene la iluminación correcta».** Le adjunté **la imagen del clip 2 ya aprobada** y:
+**«El corcho queda como el de esta referencia: las fotos de ese tamaño, esa cantidad y esa misma
+luz.»** Salió bien de una.
+
+**La diferencia:** los `LOTE-*.jpg` son **material** —dicen QUÉ caras van, y vienen con su fondo de
+color plano— pero no dicen cómo tienen que verse dentro de la escena. Una toma aprobada dice las dos
+cosas a la vez: tamaño, cantidad, luz e integración, sin que haya que nombrarlas.
+
+**La regla: cuando algo ya salió bien una vez, ESA imagen es la referencia.** Describir con palabras
+un look que ya tenés resuelto en un archivo es trabajo tirado — y encima cada descripción es una
+instrucción más que el modelo puede cumplir de más (así se blanquearon los fondos).
+
+**Cuándo va cada una:**
+- **Material crudo** (`LOTE-*.jpg`) → cuando hace falta decir **qué** entra: las caras, el producto, el logo.
+- **Resultado aprobado** → cuando hace falta decir **cómo se ve**: tamaño, densidad, luz, integración.
+- **Las dos juntas** cuando necesitás las dos cosas.
