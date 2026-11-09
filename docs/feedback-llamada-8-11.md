@@ -23,7 +23,7 @@
 
 | Área | Nuevos | Lo más urgente |
 |---|---|---|
-| Conexión con Claude (la skill) | 0 (1 ABIERTO) | **Ticket #60: REPRODUCIDO y ARREGLADO en la rama el 9/11** (§ 1); falta desplegar, avisarle y cerrar el ticket |
+| Conexión con Claude (la skill) | 0 (el #60, CERRADO) | **Ticket #60: arreglado y en producción el 9/11**, con el ticket cerrado y Mauricio avisado (§ 1) |
 | API de MaKo y tokens | 3, **sin hacer** | Que el agente que recibe el token encuentre la documentación solo |
 | Pixel de MaKo (Landing) | 0 (1 EXISTE, 2 a medir, **sin hacer**) | Avisarle a Mauricio que vuelva a bajar el JSON: el suyo no trae los clics (va con el aviso del § 1) |
 | Ticketera (Soporte) | 1, **sin hacer** | La repregunta «¿siempre o fue una vez?» en lo que no es una falla |
@@ -33,7 +33,7 @@
 
 ---
 
-## 1. Conexión con Claude (la skill): ticket #60, reproducido y arreglado el 9/11 (falta desplegar)
+## 1. Conexión con Claude (la skill): ticket #60, reproducido, arreglado y en producción el 9/11
 
 | Min | Quién | Textual |
 |---|---|---|
@@ -106,9 +106,14 @@ Había dos caminos. El otro era que `/api/agente/*` aceptara los `mako_pat_` con
   vigente y cuatro cabeceras malas. Probado rompiéndolo con 13 mutaciones, las 13 en rojo. Entre ellas están las seis que
   la primera versión del test dejaba pasar.
 
-**Lo que falta:** que llegue a producción. Después, avisarle a Mauricio en su grupo qué token pegar en Claude (es el
-`mkoag_` de Integraciones → Claude), y que vuelva a bajar el JSON de la API para su Codex (§ 3.1). Recién ahí se cierra el
-#60.
+**Cerrado el 9/11/2026.** Entró en dos commits: `b5f621c6f` y la corrección de la revisión del Cerebro, `22c544886`, que
+volvió `bearerDe` a la regla de main y hace que el test pase por las rutas de verdad. Fechas, en UTC:
+- **14:26:41:** en producción (lo desplegó el Cerebro con `desplegar-ya`). Medido con un `mako_pat_` de mentira contra
+  `/api/agente/contexto`, que contestó «parece un token de MaKo → API → Tokens…».
+- **14:30:48:** el cron de tickets cerró el #60 solo, por el hito de la bitácora de api-mako.
+- **14:30:59:** le avisó a Mauricio por donde lo había levantado.
+- **Después:** salió el aviso al grupo de MaKo del ws1, con el token que va en Claude (el `mkoag_` que ya tiene su Mac en
+  `~/.mako-token`) y el JSON que tiene que volver a bajar para Codex (§ 3.1).
 
 ## 2. API de MaKo y tokens: 3 NUEVOS
 
@@ -164,8 +169,8 @@ terminó copiando el texto de Codex en Reportar problema, y así salió el #66.
 
 Es el ticket **#66** (9/11, 01:36 UTC). La operación `listar_clics_landing` entró a main el **8/11 a las 23:21** (`18a7bf5bd`),
 todavía en la llamada, y el ticket quedó `resuelto` el 9/11 a las 11:15 UTC con «Ya está arreglado». La promesa de «una
-hora» se cumplió. **Lo que falta:** que alguien le diga a Mauricio que **vuelva a bajar el JSON** (lo manda la sesión del #60, en el mismo aviso, cuando el arreglo esté en producción) o que Codex lea el índice
-vivo. El que le pasó a Codex es de las 22:25, de antes de la operación nueva, así que su Codex sigue sin verla. Lo que él
+hora» se cumplió. **Avisado el 9/11:** en el aviso del § 1 se le pidió a Mauricio que **vuelva a bajar el JSON** (API →
+Documentación → «OpenAPI (JSON)»). Falta ver si lo hace, o si Codex pasa a leer el índice vivo. El que le pasó a Codex es de las 22:25, de antes de la operación nueva, así que su Codex sigue sin verla. Lo que él
 quería contar son los clics en «RESERVA TU CUPO» de sprint.mauriciobustos.com.
 
 **3.2 A MEDIR: el tope de 1.000 visitas.** **Sin hacer** · área dueña: **Pixel de MaKo** (`lib/api-mako/areas/landing.*`). A los 22:46, Codex (leído por Mauricio): «visitas en 30 días, al menos 1.000,
