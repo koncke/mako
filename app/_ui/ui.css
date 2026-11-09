@@ -2332,3 +2332,14 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
 @media (pointer: coarse) {
   [data-con-menu] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }
+
+/* ── Menú contextual (app/_ui/MenuContextual.tsx, 9/11/2026) ──────────────────
+   Vivían en un <style> adentro de la pieza, con el porqué escrito: «ui.css no era de ese cambio».
+   Era eso y nada más —ninguna medición los defendía—, así que acá están, que es donde los pide la
+   regla de crecimiento 3 del LEEME: lo que necesita `:hover` o `:focus` no puede vivir en un
+   `style={{}}`, y por eso la app llegó a tener 1.158 botones que se veían distinto.
+   Un <style> por pieza además se re-inserta en cada apertura del menú. */
+.mk-mctx__item { background: transparent; }
+.mk-mctx__item:hover:not(:disabled),
+.mk-mctx__item:focus,
+.mk-mctx__item[aria-expanded="true"] { background: var(--surface-2); outline: none; }

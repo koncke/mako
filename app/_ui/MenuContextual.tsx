@@ -36,9 +36,10 @@
 // diferentes, solo que están en la misma linea», Martín, 30/09/2026). Un submenú largo trae buscador
 // con el mismo umbral que el desplegable de la casa (`conBuscador`, app/components/dropdown-reglas.ts).
 //
-// ⚠️ LOS ESTILOS CON `:hover`/`:focus` VAN EN UN <style> PROPIO y no en app/_ui/ui.css, que es donde
-//    los pide app/_ui/LEEME.md («Reglas de crecimiento», 3): ui.css no era de este cambio. Mudarlos es
-//    una línea, y está anotado como pendiente.
+// ✅ SUS `:hover`/`:focus` VIVEN EN app/_ui/ui.css (9/11/2026), que es donde los pide
+//    app/_ui/LEEME.md («Reglas de crecimiento», 3). Hasta acá estaban en un <style> propio y el
+//    motivo escrito era «ui.css no era de este cambio» — o sea una postergación, no una medición.
+//    Un <style> adentro de la pieza además se re-inserta cada vez que el menú se abre.
 // =============================================================================
 
 import {
@@ -135,8 +136,6 @@ export function siguienteFoco(actual: number, total: number, tecla: 'ArrowDown' 
   return tecla === 'ArrowDown' ? (actual + 1) % total : (actual - 1 + total) % total;
 }
 
-const ESTILOS = '.mk-mctx__item{background:transparent}'
-  + '.mk-mctx__item:hover:not(:disabled),.mk-mctx__item:focus,.mk-mctx__item[aria-expanded="true"]{background:var(--surface-2);outline:none}';
 
 const PANEL: CSSProperties = {
   position: 'fixed', minWidth: 216, maxWidth: 320, padding: 5, borderRadius: radius.lg,
@@ -450,7 +449,6 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
 
   return createPortal(
     <>
-      <style>{ESTILOS}</style>
       <div ref={setNodo} role="menu" aria-label={etiqueta} tabIndex={-1} data-menu-contextual=""
         onContextMenu={(e) => e.preventDefault()}
         onClickCapture={frenarClicDelDedo}

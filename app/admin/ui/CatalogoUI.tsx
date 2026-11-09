@@ -19,6 +19,7 @@ import {
   Confirm, useConfirm, Toast, useToast,
   PageHeader, Section, Pagina, Tabs, type Tab,
   MONO, type Tono,
+  ListaMenuContextual, type EntradaMenuContextual,
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
@@ -78,6 +79,27 @@ const ESCALA: { token: string; uso: string; desktop: string; mobile: string }[] 
   { token: '--fs-md', uso: 'Texto base', desktop: '14', mobile: '16' },
   { token: '--fs-sm', uso: 'Texto secundario', desktop: '13', mobile: '14.5' },
   { token: '--fs-meta', uso: 'Metadata', desktop: '12', mobile: '13' },
+];
+
+/**
+ * Los renglones que dibuja el catálogo. Cubren lo que un renglón puede ser y que no se ve en el código:
+ * con ícono del set, con sección, deshabilitado, peligroso, con submenú y la LÍNEA de botones sin rótulo
+ * (`enLinea`: las flechas ← →, el pedido de Martín del 30/09/2026 — «deberían ser 2 botones diferentes,
+ * solo que están en la misma linea»). Un separador es un `null`.
+ */
+const MENU_DEMO: EntradaMenuContextual[] = [
+  { id: 'abrir', label: 'Abrir', icono: 'editar' },
+  { id: 'duplicar', label: 'Duplicar', icono: 'duplicar' },
+  { id: 'mover', label: 'Mover a etapa', icono: 'archivar', hijos: [
+    { id: 'm1', label: 'Nuevo' }, { id: 'm2', label: 'Contactado' }, { id: 'm3', label: 'Agendado' },
+  ] },
+  { id: 'columna', label: '', enLinea: [
+    { id: 'izq', label: 'Mover a la izquierda', icono: 'flecha-izquierda' },
+    { id: 'der', label: 'Mover a la derecha', icono: 'flecha-derecha' },
+  ] },
+  null,
+  { id: 'sin', label: 'No disponible acá', icono: 'copiar', deshabilitado: true },
+  { id: 'borrar', label: 'Eliminar', icono: 'borrar', peligro: true },
 ];
 
 export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
@@ -168,6 +190,17 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
       </>)}
 
       {tab === 'piezas' && (<>
+      {/* ── Menú contextual ──────────────────────────────────────────────── */}
+      <Seccion titulo="Menú contextual" nota="el del clic derecho y el del «⋯»: UNO solo en toda la app">
+        <Fila label="Renglones">
+          {/* La LISTA, no el menú flotante: el flotante necesita un punto de la pantalla y acá lo que
+              hay que poder mirar son los renglones y sus estados. Es la misma pieza. */}
+          <div style={{ width: 252, padding: 6, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <ListaMenuContextual items={MENU_DEMO} onElegir={() => {}} />
+          </div>
+        </Fila>
+      </Seccion>
+
       {/* ── Botones ──────────────────────────────────────────────────────── */}
       <Seccion titulo="Botones" nota="nunca dos primary compitiendo en la misma vista">
         <Fila label="Variantes">

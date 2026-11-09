@@ -53,6 +53,10 @@ export const TRAZOS_BORRAR: ReactNode = (
 /** Los dibujos, por nombre. Agregar uno es sumar una entrada: el tipo `NombreIconoMenu` sale de acá. */
 const TRAZOS = {
   agregar: <path d="M12 5v14M5 12h14" />,
+  // Las ← → de una columna (`enLinea`): hasta el 9/11/2026 cada pantalla las dibujaba a mano porque el
+  // set no las tenía, y un dibujo propio por pantalla es exactamente lo que este set vino a terminar.
+  'flecha-izquierda': <path d="M14.5 6 8.5 12l6 6" />,
+  'flecha-derecha': <path d="M9.5 6l6 6-6 6" />,
   quitar: <><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12h7" /></>,
   editar: <><path d="M4.5 19.5h3.8L19 8.8a2.2 2.2 0 0 0-3.1-3.1L5.2 16.4 4.5 19.5Z" /><path d="m14.3 7.3 3.1 3.1" /></>,
   renombrar: <><path d="M5 7V5.5h14V7" /><path d="M12 5.5v13" /><path d="M9.5 18.5h5" /></>,
