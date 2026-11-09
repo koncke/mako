@@ -556,3 +556,38 @@ objeto que nombrás, el modelo lo pone, y la suma es un set de cine.**
 Y para sacar lo que sobraba, el cambio se pidió **en positivo y como estado**, nunca enumerando lo
 que no se quiere: **«En el corcho sólo hay fotos de caras de personas.»** De una, quedó el corcho
 con puros retratos, sin notas ni recortes, y la habitación intacta.
+
+## ✅✅ SÍ SE LE PUEDE PASAR UNA REFERENCIA PROPIA A FLOW, SIN EL CLIC DE MARTÍN (9/11/2026)
+
+**Por el PORTAPAPELES.** Es la vuelta a todo lo que dice este documento sobre que subir a Flow
+necesita a la persona: **el `input[type=file]` sigue sin existir** —medido hoy en el `+` del
+proyecto y en el `+` del editor, `querySelectorAll('input[type=file]').length === 0` antes y
+después de tocarlos—, pero **Flow acepta `Ctrl+V` de una imagen** y la adjunta igual.
+
+```powershell
+Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
+$img = [System.Drawing.Image]::FromFile("C:\ruta\REFERENCIA.jpg")
+[System.Windows.Forms.Clipboard]::SetDataObject($img, $true)   # el $true es lo que lo deja pegado
+```
+
+Después, con la extensión: clic en la caja y `ctrl+v`. Aparece la miniatura adjunta con su «×», y
+al generar el historial muestra **dos** miniaturas (la imagen base y la referencia).
+
+⚠️ **`SetDataObject($img, $true)`, no `SetImage`**: sin el segundo argumento el portapapeles se
+vacía cuando termina el proceso de PowerShell y el pegado llega vacío.
+⚠️ Esto **pisa el portapapeles de Martín**: avisarle.
+
+### Y la referencia se arma con las caricaturas del repo, no se le pide al modelo
+
+Martín: «que las caras sean de los influencers, te pasé las referencias para que sepa qué cara
+poner». Un prompt no alcanza —Nano Banana inventa caras genéricas, probado— así que la referencia
+se **compone con PIL** a partir de `public/asesores/grandes/*.png` (32 caricaturas aprobadas,
+600×600): seis caras grandes sobre un corcho, con hilo rojo. El script quedó en el scratchpad de
+la sesión; la receta es polaroid + `rotate(expand=True)` + sombra desenfocada + curva Bézier para
+el hilo.
+
+**Y con la referencia adjunta, el cambio se pide anclando lo que NO cambia:** «Mismo corcho y
+misma habitación. En el corcho van sólo estas seis caras, grandes.» Salió a la primera, con las
+seis caricaturas reconocibles y la habitación intacta. Es la regla de
+[[la-segunda-referencia-si-sirve-dentro-del-editor]] confirmada otra vez: en una EDICIÓN la
+referencia aporta sin competir, porque la base está fija.
