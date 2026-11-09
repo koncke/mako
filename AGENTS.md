@@ -12084,3 +12084,24 @@ criterioso, mirar y revisar si está bien luego».**
 (ejemplo: `docs/relevo/reel-mentores-high-ticket.md`, «CHECKLIST DEL CORCHO»). Una fila por
 corrección recibida, con cómo falló y qué la resuelve. Se recorre **mirando la imagen**, antes de
 mandarla.
+
+### ⛔ No se genera encima de una generación: se vuelve atrás
+
+**Regla de Martín, 9/11/2026:** *«súper importante que no generes sobre otro generador, que vuelvas
+para atrás. Eso, como regla también, porque provoca que la IA haga estas cosas.»*
+
+Cada edición **redibuja la imagen entera**. Encadenar ediciones es fotocopiar una fotocopia: a la
+novena vuelta, el personaje tenía **un ojo deformado** y la foto que sostenía estaba desfigurada,
+sin que ninguna de esas ediciones tocara ni la cara ni la foto.
+
+**Cómo se trabaja:**
+1. **Se guarda cada versión aprobada** como punto de retorno (bajarla, con su nombre y su contexto).
+2. **Un cambio nuevo se aplica sobre la última versión LIMPIA**, no sobre el resultado de tres
+   correcciones seguidas. Si hace falta, se vuelve a subir esa versión limpia como imagen nueva —
+   eso **resetea la cadena**.
+3. **Dos o tres ediciones seguidas es el techo.** Pasado eso, se vuelve atrás y se aplica el cambio
+   acumulado de una sola vez sobre la base buena.
+4. Si algo se degradó, **no se pide «que se vea mejor»: se vuelve a pasar la referencia** de eso.
+
+⚠️ La degradación **no avisa**: aparece en lo que nadie está mirando —una cara de fondo, un ojo, un
+objeto en la mano— mientras la parte que estás corrigiendo mejora vuelta a vuelta.

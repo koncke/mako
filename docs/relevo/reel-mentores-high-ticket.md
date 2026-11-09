@@ -250,6 +250,8 @@ mirando la imagen, una por una, antes de que la vea él.**
 | 6 | **Conservan su color de fondo** | ⛔ «no quiero que se les quite el color de fondo a cada foto» — pedir «fondo claro» las BLANQUEA y está rechazado |
 | 7 | **Nítidas y completas**, sin pixelar ni cortar | se degradan solas tras 3-4 ediciones encadenadas |
 | 8 | **La escena es simple y real**, no un set de película | «está muy complejo… se tiene que ver real» |
+| 9 | **La CARA de la persona está bien**: mirar los ojos de cerca | «el personaje tiene el ojo raro» tras 9 ediciones encadenadas |
+| 10 | **Lo que sostiene en la mano está nítido** | «la foto que está subiendo también salió deforme» |
 
 **Lo que resuelve cada cosa, probado:**
 - **(1) y (4):** adjuntar `LOTE-1.jpg` + `LOTE-2.jpg` y **decir el número**: «van estas 32 caras, una
