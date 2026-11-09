@@ -106,3 +106,30 @@
 - **Un comprobante que llega por el grupo de la APP** (no por WhatsApp) no se lee: sólo el de WhatsApp.
 - **El recibo cuando una sola orden completa la entrada de un cliente y la mensualidad a la vez**: sale un recibo con las dos cosas
   (`mensualidad:<ag>:<mes>`); no se probó contra `emitir_recibo` de verdad.
+
+## 9/11/2026 — la entrada de Patricia Contreras (cuenta 22), pedida por Martín
+
+> Lo escribió un chat abierto por el Cerebro (cuenta claude4). Estado al 9/11 19:10 UTC: **cobro mandado, esperando el pago**.
+
+- **El pedido**, textual: «pasarle al grupo de código inmobiliario el alta para el cliente de Patricia… le cobramos como un diferencial de
+  aquí hasta el próximo periodo del 5… cuando pague, ahí ya directamente dale de alta. A esa cuenta». Se leyó como la cuenta de
+  **Patricia Contreras (22)**: es la única Patricia de la cartera del 13 y está en «Paga para entrar» desde el 6/11. En el grupo no había
+  ningún mensaje nuevo sobre ella. (La «Parricia» de `siritpatricia@gmail.com` que agendó el 10/11 es un lead de Código, no una cuenta.)
+- **La cuenta, del sistema** (`diferencialDe('2026-11-09', 47)`, la misma que da `mensualidadDeAgencia(13)`): del 9/11 al 4/12 son
+  **26 días × US$ 1,5667** (47 ÷ 30 días del ciclo del 5/11 al 5/12) = **US$ 40,73**. Se cuenta desde el día que pagan: el 10/11 serían
+  25 días, US$ 39,17.
+- **Mandado el 9/11 a las 19:02 UTC** al grupo «MaKo <> Codigo Inmobiliario», por WhatsApp (`canal: whatsapp`) y al hilo de la app, con
+  el PDF del sistema (`tablaDeEntradas` + `pdfDelCobro`, por `mandarPdfAlGrupoDeLaAgencia`). Se les pidió que aclaren que el comprobante
+  es el de Patricia.
+- ⚠️ **Por qué hay que aclararlo:** Pablo (18) también está en «Paga para entrar» desde el mismo día, así que **los dos deben exactamente
+  lo mismo cada día**. Un comprobante de US$ 40,73 solo es `ambiguo` para `asignarPago`: MaKo contesta «Lo revisa el equipo» y se lo
+  pasa a Martín. Ahí se marca a mano con la orden: `marcar_entrada_pagada` (agenciaWs 13, clienteWs 22, `pagadoEl` = el día de la orden
+  de Binance). Eso reabre la cuenta (`revisarPausasDeAgencia`) y saca el recibo (N.º 0003 en adelante).
+- ⚠️ **Marcarlo otro día que el del pago cuenta desde el día en que se marca**: `marcarEntradaPagada` arma lo pendiente con `ahora`, y
+  la API no le pasa la fecha del pago. Si se marca al día siguiente, la entrada queda desde ese día y por un día menos de lo que pagaron.
+  Hay que pasarle `ahora` = el día de la orden (lo hace el script de uso único de este chat, `C:/dev/wt-codigo-patricia/scripts/_entrada-patricia.mts`,
+  que no está en main).
+- **Hallazgo:** Pablo y Patricia pasaron a «Paga para entrar» con `scripts/agencia-paga-para-entrar.mts` el 6/11, y **nunca les salió el
+  PDF de su entrada**: `avisarPausasNuevas` sólo avisa las pausas que hace el cron, y en el libro no hay ningún `pausa.18.*` ni
+  `pausa.22.*`. Lo único que se les dijo fue el mensaje a mano del 5/11 («Patricia: US$1,5667 por día, desde el día que entre»).
+- **Sin hacer:** la entrada de Pablo (18) sigue sin pagar y su cuenta en pausa (US$ 40,73 si paga el 9/11). No era parte de este pedido.
