@@ -12094,6 +12094,8 @@ mandarla.
 
 - **Video: sin variaciones; imagen: libre** (Martín, 9/11): *«no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.»* De imagen se hacen las muestras que hagan falta (0 créditos). De video, UNO por pedido y recién con el OK del usuario a la imagen de ese clip; nunca dos versiones de video «para elegir». Se anota el saldo de créditos antes y después de cada video.
 
+- **Duración = palabras, y el clip se transcribe antes de entregar** (Martín, 9/11): «porque elegiste una duración más larga de la que debería… repitió una palabra, eso no debería pasar… contar las palabras para determinar cuántos segundos le vas a mandar a la instrucción. Y de paso también se ahorran tokens». Si el video dura más que la frase, Omni repite palabras («…en vendehumo, en vendehumos», clip 3 con 16 palabras en 8 s). Ritmo real de Omni (transcripción): ~3,3 palabras/s quieto, ~2,8 con un gesto; el habla arranca ~0,8 s. Duración = el valor más chico de Flow (3–10 s, 3 créditos/s) que cubra `0,8 + palabras/ritmo + 0,3`. Antes de entregar: `node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"` (ElevenLabs speech-to-text) marca palabras REPETIDAS, faltantes o cambiadas.
+
 ### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
 
 - **Escala:** *«no puede ser posible que el pizarrón sea exageradamente grande con esas imágenes exageradamente grandes y yo quede así de chiquito… se ve muy feo».* Se mira la proporción entre la persona y los objetos (una persona es más alta que un corcho de pared; una foto pinchada es más chica que una cara). Si no es real, no se manda.

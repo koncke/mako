@@ -72,6 +72,7 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 7. **Los créditos se gastan recién con el OK del usuario a la imagen. Nunca antes.**
    «Cuando el usuario da el ok, generar el video: ahí recién se pasa a gastar los créditos.» «Para que no sea culpa nuestra casi nunca.»
 
+   **Duración = palabras, y el clip se transcribe antes de entregar** (Martín, 9/11): «porque elegiste una duración más larga de la que debería… repitió una palabra, eso no debería pasar… contar las palabras para determinar cuántos segundos le vas a mandar a la instrucción. Y de paso también se ahorran tokens». Si el video dura más que la frase, Omni repite palabras («…en vendehumo, en vendehumos», clip 3 con 16 palabras en 8 s). Ritmo real de Omni (transcripción): ~3,3 palabras/s quieto, ~2,8 con un gesto; el habla arranca ~0,8 s. Duración = el valor más chico de Flow (3–10 s, 3 créditos/s) que cubra `0,8 + palabras/ritmo + 0,3`. Antes de entregar: `node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"` (ElevenLabs speech-to-text) marca palabras REPETIDAS, faltantes o cambiadas.
    **Y nunca variaciones de video** (9/11): «no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.» De imagen, todas las muestras que hagan falta; de video, uno por pedido, con el OK a su imagen.
 8. **Una sola referencia y un prompt simple. Siempre.**
    «No le pases muchas referencias porque ahí lo hace mal la inteligencia artificial.» Cada referencia de más compite con las otras.
@@ -287,6 +288,7 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 - [ ] `volumedetect`, medido apenas baja: el nivel tiene sentido (un clip puede volver mudo, o ponerse a hablar solo).
 - [ ] Tira de 5 fotogramas: la cara sigue siendo la misma de principio a fin.
 - [ ] La boca dice la frase entera, sin pausas raras, y dice exactamente el guion.
+- [ ] **Transcripto y comparado con el guion** (`node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"`): ni una palabra repetida, faltante o cambiada. La duración se eligió contando palabras.
 - [ ] El cuerpo hace sólo lo pedido: lo quieto quedó quieto.
 - [ ] El modelo no inventó texto ni subtítulos.
 - [ ] El acento es el pedido (se escucha).
