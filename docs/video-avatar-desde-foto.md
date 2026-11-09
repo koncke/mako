@@ -381,3 +381,31 @@ hacer clic en esa barra, una captura.
 ⚠️ **La estética nunca va antes que el parecido.** Pedir que la toma lea «oscura» para copiar un
 reel es pedir que la cara desaparezca; en el original de referencia el cuerpo se recorta contra el
 blanco pero la cara se sigue leyendo. Primero la persona, después la luz, y siempre en pasos.
+
+### Una toma que replica una referencia se MIRA AL LADO de la referencia antes de mandarla (9/11/2026)
+
+Martín: «**te pido que lo compares con Josep siempre**. ¿Por qué te cuesta tanto?».
+
+Le había mandado la toma de perfil sin ponerla al lado del fotograma. En cuanto las junté, la
+diferencia saltaba en un segundo: en el reel las manos van **juntas, delante de la cara y sin
+tocarla, con los codos abajo y los brazos recogidos**; en la mía los brazos estaban **estirados
+hacia adelante**, como empujando una pared. Dos ediciones cortas y quedó («las dos manos pegadas a
+la cara, codos abajo» → quedaron sobre la boca; «las manos no tocan la cara, quedan un poco
+adelante, palmas hacia adelante» → esa era).
+
+**La regla: antes de mandar, `hstack` de la referencia y la toma.** Un `ffmpeg -i ref -i toma
+-filter_complex "[0]scale=400:716[a];[1]scale=400:716[b];[a][b]hstack=inputs=2"` cuesta un segundo
+y ahorra la vuelta entera. Mirarlas de a una no sirve: el parecido se evalúa por comparación, no de
+memoria.
+
+⚠️ Y esto **no contradice** la regla del prompt corto: la comparación es para MIS ojos, para saber
+qué pedir. Lo que se escribe sigue siendo una frase humana («las manos no tocan la cara»), nunca la
+medición.
+
+### Los créditos de video de Flow se terminaron (9/11/2026 ~04:00)
+
+«You're out of Google Flow credits.» Las **imágenes siguen siendo gratis** —las ediciones de hoy
+salieron después del cartel—, pero no sale ningún video más. Un clip de **3 s a 720p x1 cuesta 9
+créditos** (contra 48 de 8 s x2: la duración y las variantes son casi todo el costo). Para animar
+queda ApiMart con Omni, y el saldo medido el 8/11 era **US$ 0,26** — no alcanza para un clip de 5 s
+(US$ 0,2795). **Hay que recargar.**
