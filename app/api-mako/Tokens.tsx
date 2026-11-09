@@ -284,8 +284,10 @@ function FormToken({ modo, token, indice, workspace, agencia = false, onListo, o
       <div className="gh-subhead">
         <h2 className="gh-subhead-heading">{modo === 'nuevo' ? 'Nuevo token de acceso personal detallado' : `Editar «${token?.nombre}»`}</h2>
         <p className="gh-subhead-description" style={{ margin: 0 }}>
+          {/* ⚠️ Ticket #60 (9/11/2026): Mauricio creó acá dos tokens para conectar su Claude, y la skill no acepta éstos
+              (sólo el clásico, a propósito: lib/api-mako/tokens-lista.ts). Se le avisa ANTES de crearlo, no en el 401. */}
           {modo === 'nuevo'
-            ? 'Crea un token con permisos por área, para una integración o para tus propios scripts.'
+            ? <>Crea un token con permisos por área, para una integración o para tus propios scripts. <strong>No sirve para la skill de Claude</strong>: esa usa su propio token, en <Link href="/integraciones?abrir=agente">Integraciones → Claude</Link>.</>
             : 'Cambia el nombre, la descripción o los permisos. Para cambiar el vencimiento, regenera el token.'}
         </p>
       </div>

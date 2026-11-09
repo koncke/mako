@@ -23,17 +23,17 @@
 
 | Área | Nuevos | Lo más urgente |
 |---|---|---|
-| Conexión con Claude (la skill) | 0 (1 ABIERTO) | **Ticket #60:** Mauricio sigue sin poder conectar su Claude, y la causa probable es otra que la que se arregló el 6/11 |
-| API de MaKo y tokens | 3 | Que el agente que recibe el token encuentre la documentación solo |
-| Pixel de MaKo (Landing) | 0 (1 EXISTE, 2 a medir) | Avisarle a Mauricio que vuelva a bajar el JSON: el suyo no trae los clics |
-| Ticketera (Soporte) | 1 | La repregunta «¿siempre o fue una vez?» en lo que no es una falla |
+| Conexión con Claude (la skill) | 0 (el #60, CERRADO) | **Ticket #60: arreglado y en producción el 9/11**, con el ticket cerrado y Mauricio avisado (§ 1) |
+| API de MaKo y tokens | 3, **sin hacer** | Que el agente que recibe el token encuentre la documentación solo |
+| Pixel de MaKo (Landing) | 0 (1 EXISTE, 2 a medir, **sin hacer**) | Avisarle a Mauricio que vuelva a bajar el JSON: el suyo no trae los clics (va con el aviso del § 1) |
+| Ticketera (Soporte) | 1, **sin hacer** | La repregunta «¿siempre o fue una vez?» en lo que no es una falla |
 | Automations y CRM (los correos del Sprint) | 0 | Ya está armado por la API; falta que Mauricio prenda el envío |
 | IA que escribe correos (Copywriter) | 0 | Las reglas de asunto de Martín chocan con `docs/conocimiento/patrones-email.md` |
 | Anuncios (Media Buyer) | 0 | Mauricio analiza su campaña con Codex y no con MaKo |
 
 ---
 
-## 1. Conexión con Claude (la skill): ABIERTO, ticket #60
+## 1. Conexión con Claude (la skill): ticket #60, reproducido, arreglado y en producción el 9/11
 
 | Min | Quién | Textual |
 |---|---|---|
@@ -43,11 +43,23 @@
 | 1:33:32 | Mauricio | «no pude entrar en Cloud, ¿eh? No sé si es lo mismo. ¿Ibas a arreglar algo?» |
 | 1:39:47 | Mauricio / Martín | «¿Y es el mismo para Cloud?» — «Sí, el mismo.» |
 
-**El estado:** el ticket **#60** (7/11, de Mauricio desde el teléfono) sigue en `esperando_decision`. El arreglo del 6/11
-(`fa029686e`) cambió **sólo el mensaje** del 401 de `/api/v1` (`lib/api-mako/http.ts`): antes decía «token inválido o
-revocado» también cuando no llegaba ninguna cabecera. Con eso el ticket quedó como si estuviera atendido, y no lo está.
+**El estado al escribir esto:** el ticket **#60** (7/11, de Mauricio desde el teléfono) estaba en `esperando_decision`.
+El arreglo del 6/11 (`fa029686e`) cambió **sólo el mensaje** del 401 de `/api/v1` (`lib/api-mako/http.ts`): antes decía
+«token inválido o revocado» también cuando no llegaba ninguna cabecera. Con eso el ticket quedó como si estuviera atendido,
+y no lo estaba.
 
-**La causa probable, medida en el código y SIN reproducir** (no se usó ningún token del ws1):
+**REPRODUCIDO el 9/11 en el ws3 (Cliente de Prueba) contra producción**, con un `mako_pat_` real acuñado para la prueba y
+revocado al terminar (ningún token del ws1):
+
+| Pedido | Cabecera | Respuesta |
+|---|---|---|
+| `/api/v1?compacto=1` | `Bearer mako_pat_…` | **200** |
+| `/api/agente/contexto`, `/plan` y `/skill` | `Bearer mako_pat_…` | **401** «token inválido o revocado» |
+| `/api/agente/contexto` | sin cabecera | **401** «token inválido o revocado» (el caso del 6/11, sin arreglar acá) |
+| `/api/agente/contexto` | el token sin «Bearer» | **401** «token inválido o revocado» |
+| `/api/v1?compacto=1` | el mismo token, ya revocado | 401 |
+
+**La causa, medida en el código:**
 - MaKo tiene **dos tokens** (la tabla de `app/api-mako/Articulos.tsx:174-180`): el **detallado** (`mako_pat_`, se crea en
   API → Tokens, para n8n, Zapier o un script) y el **clásico** (`mkoag_`, se crea en **Integraciones → Claude**, «la skill
   de Claude»).
@@ -61,14 +73,53 @@ revocado» también cuando no llegaba ninguna cabecera. Con eso el ticket quedó
 - Lo que contestó su Claude en el ticket encaja: «es MaKo quien rechaza los dos tokens como "inválido o revocado"», y en la
   llamada (19:00) lee que «el token de aquí sigue rebotando» pero que «el token que usa tu skill» sí conecta.
 
-**Por qué es lo más urgente:** bloquea lo que Mauricio quería hacer con Claude (pasar las reuniones de Fathom a su Plan), y la
-guía de la campaña de email («Una campaña de email con Claude», en API → Documentación → Guías) está escrita para Claude.
-Lo que hay que decidir (lo decide el Cerebro): si la skill acepta también el detallado, o si el 401 de `/api/agente/*`
-dice «este es un token detallado: la skill usa el de Integraciones → Claude».
+**Por qué era lo más urgente:** bloquea lo que Mauricio quería hacer con Claude (pasar las reuniones de Fathom a su Plan), y
+la guía de la campaña de email («Una campaña de email con Claude», en API → Documentación → Guías) está escrita para Claude.
+
+**El camino elegido (9/11): la skill SIGUE sin aceptar el detallado, y cada lugar donde se confunden dice cuál va.**
+Había dos caminos. El otro era que `/api/agente/*` aceptara los `mako_pat_` con sus alcances, y se descartó por esto:
+- **La frontera es a propósito y está fijada por un test** (`lib/api-mako/tokens-lista.ts`, tests/api-mako-tokens.test.ts).
+  `/api/agente/skill` mete en el archivo el bearer que se le presentó, y el reporte del plugin (`/hook`, `/telemetria`) tiene
+  su consentimiento atado al clásico.
+- **Las rutas de la skill no tienen permiso por área.** Aceptar un detallado obligaba a inventar uno por ruta. `consultar`
+  lee varias áreas a la vez, entre ellas conversaciones de WhatsApp, y equivocarse en eso es darle al token más de lo que
+  dice.
+- **Las dos cosas se portan distinto:** el detallado escribe directo y la skill siempre deja propuestas.
+- **Al detallado no le falta nada:** lo que la skill hace por `/api/agente`, un `mako_pat_` lo hace por `/api/v1`.
+  Codex lo probó en la llamada.
+
+**Lo que cambió** (en `punta/feedback-llamada-0911`):
+- `lib/api-mako/autorizacion-reglas.ts` → `mensajeDeAutorizacionAgente` (puro). El 401 de la skill separa los casos de la
+  cabecera como `/api/v1`. Ante un `mako_pat_` o un `mako_agt_`, dice que PARECE de API → Tokens (sale sólo por el prefijo,
+  sin mirar la base, así que no le afirma que «sirve»), que la skill usa el de
+  Integraciones → Claude (`mkoag_`) y que regenerar en API → Tokens no lo arregla. Ante uno que no existe, manda a
+  Integraciones → Claude. Y el 401 de `/api/v1` con un `mkoag_` revocado también manda a Integraciones → Claude, no a
+  API → Tokens.
+- `lib/agente-token.ts` → `rechazoAgente(req)`, el 401 de las siete rutas (`consultar`, `contexto`, `lead`, `metricas`,
+  `plan`, `skill`, `telemetria`). `bearerDe` queda **como en main**: sólo «Bearer». La primera versión lo había ampliado
+  al esquema «token» de paso, y con eso `Authorization: token <mkoag_ vigente>` pasaba de 401 a autorizar. Lo vio la
+  revisión del Cerebro y se volvió atrás: para la skill, «token …» es un esquema equivocado y el 401 dice que va «Bearer».
+- **Las pantallas:** el formulario de un token nuevo en API → Tokens dice «No sirve para la skill de Claude», con el link.
+  La tarjeta de Integraciones → Claude dice «A Claude dale este token… Los de API → Tokens… la skill no los acepta».
+- tests/agente-token-equivocado.test.ts: 12 pruebas. El grueso pasa por tests/_agente-token-equivocado-hijo.ts, que le
+  pega a las siete rutas REALES con pedidos de verdad, contra un PostgREST de mentira: un `mkoag_` vigente, un `mako_pat_`
+  vigente y cuatro cabeceras malas. Probado rompiéndolo con 13 mutaciones, las 13 en rojo. Entre ellas están las seis que
+  la primera versión del test dejaba pasar.
+
+**Cerrado el 9/11/2026.** Entró en dos commits: `b5f621c6f` y la corrección de la revisión del Cerebro, `22c544886`, que
+volvió `bearerDe` a la regla de main y hace que el test pase por las rutas de verdad. Fechas, en UTC:
+- **14:26:41:** en producción (lo desplegó el Cerebro con `desplegar-ya`). Medido con un `mako_pat_` de mentira contra
+  `/api/agente/contexto`, que contestó «parece un token de MaKo → API → Tokens…».
+- **14:30:48:** el cron de tickets cerró el #60 solo, por el hito de la bitácora de api-mako.
+- **14:30:59:** le avisó a Mauricio por donde lo había levantado.
+- **Después:** salió el aviso al grupo de MaKo del ws1, con el token que va en Claude (el `mkoag_` que ya tiene su Mac en
+  `~/.mako-token`) y el JSON que tiene que volver a bajar para Codex (§ 3.1).
 
 ## 2. API de MaKo y tokens: 3 NUEVOS
 
 **2.1 NUEVO: dar «Lectura y escritura» a todas las áreas de un toque.**
+
+**Sin hacer** · área dueña: **API de MaKo** (`lib/api-mako/**`, `app/api-mako/**`). Lo reparte el Cerebro.
 
 | Min | Quién | Textual |
 |---|---|---|
@@ -79,6 +130,8 @@ Hoy `app/api-mako/Tokens.tsx` tiene un selector por área y nada para todas junt
 tarea de Martín en el borrador de su Plan (ver § 7).
 
 **2.2 NUEVO: el agente que recibe el token tiene que encontrar la documentación solo.**
+
+**Sin hacer** · área dueña: **API de MaKo** (`lib/api-mako/**`, `app/api-mako/**`). Lo reparte el Cerebro.
 
 | Min | Quién | Textual |
 |---|---|---|
@@ -92,6 +145,8 @@ que bajar el JSON a mano (API → Documentación). ⚠️ Y una copia bajada **e
 Pixel (§ 3.1). Un agente que lee el índice vivo no tiene ese problema.
 
 **2.3 NUEVO (es una decisión): levantar un ticket por la API.**
+
+**Sin hacer** · área dueña: **API de MaKo** con la **Ticketera** (`lib/api-mako/areas/tickets.def.ts`). Es decisión de Martín; lo reparte el Cerebro.
 
 | Min | Quién | Textual |
 |---|---|---|
@@ -114,22 +169,24 @@ terminó copiando el texto de Codex en Reportar problema, y así salió el #66.
 
 Es el ticket **#66** (9/11, 01:36 UTC). La operación `listar_clics_landing` entró a main el **8/11 a las 23:21** (`18a7bf5bd`),
 todavía en la llamada, y el ticket quedó `resuelto` el 9/11 a las 11:15 UTC con «Ya está arreglado». La promesa de «una
-hora» se cumplió. **Lo que falta:** que alguien le diga a Mauricio que **vuelva a bajar el JSON** o que Codex lea el índice
-vivo. El que le pasó a Codex es de las 22:25, de antes de la operación nueva, así que su Codex sigue sin verla. Lo que él
+hora» se cumplió. **Avisado el 9/11:** en el aviso del § 1 se le pidió a Mauricio que **vuelva a bajar el JSON** (API →
+Documentación → «OpenAPI (JSON)»). Falta ver si lo hace, o si Codex pasa a leer el índice vivo. El que le pasó a Codex es de las 22:25, de antes de la operación nueva, así que su Codex sigue sin verla. Lo que él
 quería contar son los clics en «RESERVA TU CUPO» de sprint.mauriciobustos.com.
 
-**3.2 A MEDIR: el tope de 1.000 visitas.** A los 22:46, Codex (leído por Mauricio): «visitas en 30 días, al menos 1.000,
+**3.2 A MEDIR: el tope de 1.000 visitas.** **Sin hacer** · área dueña: **Pixel de MaKo** (`lib/api-mako/areas/landing.*`). A los 22:46, Codex (leído por Mauricio): «visitas en 30 días, al menos 1.000,
 esa consulta tiene un límite de lectura». Mauricio: «O sea, como que nomás lee 1.000 o qué». La respuesta avisa que es «al
 menos», así que no miente, pero el total de 30 días sale cortado. Huele al techo de 1.000 filas de PostgREST (AGENTS.md, «El
 techo de 1000 filas no da error»). Falta ver cuál operación fue.
 
-**3.3 A MEDIR: el video cuenta también las reproducciones automáticas.** A los 23:52 (grabación de Mauricio), Codex: «Los
+**3.3 A MEDIR: el video cuenta también las reproducciones automáticas.** **Sin hacer** · área dueña: **Pixel de MaKo**. A los 23:52 (grabación de Mauricio), Codex: «Los
 eventos de video incluyen reproducciones automáticas, además MaKo advierte que algunos visitantes entraron a otras páginas
 tuyas por lo que las cifras de avance pueden incluir videos de esas páginas». Le dio 1.618 «visitantes con evento de video»
 sobre 1.790. La marca existe (`auto`, docs/hallazgos-crm.md: «el autoplay no es mirar el VSL»). Falta ver si la operación de
 comportamiento la descuenta.
 
 ## 4. Ticketera (Soporte): 1 NUEVO
+
+**Sin hacer** · área dueña: **Ticketera** (`lib/soporte-chat.ts`, `lib/tickets-reglas.ts`). Lo reparte el Cerebro.
 
 | Min | Quién | Textual |
 |---|---|---|

@@ -53,7 +53,26 @@ ApiMart **devuelve la cuota cuando la tarea falla**, así que probar un parámet
   `image-editor` de nuestro propio storage (⚠️ el bucket `video-clips` **rechaza imágenes**:
   «mime type image/jpeg is not supported»).
 
-### El reemplazo de voz — ElevenLabs STS es el bueno
+### ⛔ La voz NO se configura desde este documento
+
+**Hay UN solo lugar y se copia idéntico:** `scratchpad/walter/LA-CONFIG.json`, aplicado con
+`la-config.mjs <origen.wav> <salida.mp3>`. Martín, 9/11/2026: *«Tienes que copiarlo idéntico… si
+tienes otra información, borra el resto y que quede solamente eso, si no se confunde siempre.»*
+
+```
+voz:      I2d6BR9P2dAopVw1khNv   <- el clon PROFESIONAL (37 min, acento Argentine)
+model_id: eleven_multilingual_sts_v2   ·   output_format mp3_44100_192
+settings: { stability: 0, similarity_boost: 1, style: 1, use_speaker_boost: false }
+después:  loudnorm=I=-14:TP=-1:LRA=11   y montar con -c:v copy
+```
+
+**`stability` es 0.** **El boost va en `false`.** **La voz es la profesional.** Los tres se
+escribieron mal alguna vez y las tres veces hubo que rehacer la entrega.
+
+<!-- lo que seguía acá eran versiones viejas de estos parámetros; se sacaron a pedido de Martín
+     porque elegir entre ellas es justamente lo que hacía fallar la voz. -->
+
+### (histórico, no usar para configurar) El camino hasta esa configuración
 
 **Lo que se usa: `POST /v1/speech-to-speech/<voice_id>` con `model_id=eleven_multilingual_sts_v2`.** Con la
 clave de Martín (Starter, clona). Conservó el ritmo mejor que todo lo local: **10,031 s contra 10,027 s
@@ -460,3 +479,401 @@ matiz que faltaba: corto **no** es «decí sólo el movimiento» — el ancla es
 ⚠️ **Y las generaciones se lanzan EN PARALELO** (Martín, 9/11): Flow acepta varias a la vez y ApiMart
 también. Esperar a que una termine para empezar la siguiente es tiempo regalado — se encola todo lo
 que ya tiene su imagen y su frase, y después se bajan y se chequean de a una.
+
+## El reel de referencia, desarmado: qué copiar de «el chico de los pistachos» (9/11/2026)
+
+El reel es `pistachos-video.mp4` (Josep / crema Tacho): **720×1280, 30,8 s, 16 tomas**. Es el molde de
+los 14 videos del lanzamiento, así que acá queda medido y no hay que volver a desarmarlo.
+
+⚠️ **Nuestra copia del archivo NO tiene pista de audio** (`ffprobe -select_streams a` no devuelve
+nada). La transcripción que hay en `trans.json` vino de otra pasada. **La verdad de lo que dice son
+los subtítulos quemados**, y leerlos arregló lo que la transcripción traía mal: no es «haber plantado
+pistachos» sino **«Déjate de polvitos y batiditos. ¡Haber plantao pistachos!»**.
+
+**La estructura, que es lo que se copia:**
+
+| bloque | t | qué hace |
+|---|---|---|
+| DISPARO | 0–3 s | «Este es un mensaje para todos los ___ de pacotilla» — nombra al destinatario y lo pincha |
+| CREDENCIAL | 3,5–8,5 s | nombre, los años, las manos en la materia prima |
+| EL PRODUCTO COMO CONSECUENCIA | 9,5–12,5 s | «Para ahora crear ___» — no se presenta, se deduce |
+| BENEFICIO DEL OTRO | 13–16,5 s | «Una fuente de ___ para todos aquellos que ___» |
+| REMATE | 17–20,5 s | vuelve al insulto de la apertura y cierra el círculo |
+| CIERRE MUDO | 20,5–30,8 s | **10 s sin voz**: insertos + dominio + dónde se compra |
+
+- **Dos mundos alternados**: la nave real y el inserto sobre blanco quemado a contraluz. En la primera
+  mitad nunca van dos seguidas del mismo mundo. **Los insertos blancos son los que estamos generando
+  en Flow** —dedo arriba, brazos cruzados, perfil con las manos—: son el 50% del reel.
+- **Los insertos de la primera mitad son flashes de 0,6–1,0 s**; los del final se estiran a 1,4–3,1 s,
+  cuando ya no hay voz que seguir. Un inserto de 3 s en la apertura rompe el ritmo.
+- **Una sola palabra por inserto**, roja, con serif, arriba. Sólo **tres** en toda la parte hablada
+  (FLOJOS, JOSEP, PISTACHOS) y dos carteles al final. El resto de los insertos van mudos.
+- Subtítulos de la parte hablada: blancos, centrados, **a media altura, no abajo**, 2–3 palabras.
+- **El producto aparece recién a los 9,6 s**, un tercio adentro.
+
+### Dos trampas del ffmpeg de esta PC, medidas desarmándolo
+
+- ⚠️ **`drawtext` no corre**: «Fontconfig error: Cannot load default config file». Para poner el reloj
+  en una grilla de contactos hay que resolverlo por otro lado (o contar las celdas: con `fps=1` y
+  `tile=NxM`, la celda k es el segundo k).
+- ⚠️ **`-pattern_type glob` no existe en este build**: «globbing is not supported by this libavformat
+  build». Las tiras de fotogramas se arman con secuencia numerada (`-i t_%02d.jpg`), no con `t_*.jpg`.
+- La receta que sirvió para sacar la estructura: cortes con
+  `select='gt(scene,0.3)',showinfo`, un fotograma por toma con `-ss <medio>`, y para leer los
+  subtítulos quemados una grilla de la banda recortada (`fps=2,crop=720:230:0:560,tile=4x16`).
+
+## Manejar Flow desde la extensión cuando la captura de pantalla se cuelga (9/11/2026)
+
+Trabajando el clip 2 (el tablero de detective) la pestaña de Flow dejó de dar capturas:
+`Page.captureScreenshot timed out after 30000ms`. **La página seguía viva** —`get_page_text`,
+`read_page` y `javascript_tool` contestaban— así que no hay que recargar ni abrir otra pestaña:
+se trabaja por el DOM. Esto es lo que costó, y en este orden.
+
+- ⚠️ **La caja de Flow es un `div[contenteditable]`, no un input.** Se la ubica por
+  `data-placeholder` («¿Qué quieres crear?» en el proyecto, «¿Qué quieres cambiar?» en el editor)
+  y se la enfoca por el centro de su `getBoundingClientRect()`.
+- ⚠️ **Hacer clic en el `ref` que devuelve `find` para esa caja ABRE EL EDITOR de una tarjeta.**
+  Pasó dos veces: el ref apunta a algo que está debajo de una tarjeta. Por coordenadas del rect
+  real cae bien. La señal de que te equivocaste es que la caja pasa a decir «¿Qué quieres cambiar?».
+- ⚠️ **`submit.click()` por JavaScript NO envía nada.** Devuelve sin error, la caja queda con el
+  texto y no se genera. Lo que envía es un clic de verdad sobre la flecha (en 1536×674 quedó en
+  ~(1035, 617) en el proyecto y ~(923, 666) en el editor).
+- ⚠️⚠️ **Escribir sin limpiar MEZCLA los prompts.** El texto entra en la posición del cursor, así
+  que el segundo prompt se insertó en el medio del primero y quedó
+  «…unidas con hilo rojo, co**El cuarto de un investigador**…mo el tablero de un detective.»
+  **Siempre `ctrl+a` + `Delete` antes de escribir**, y verificar el texto antes de enviar.
+- **Los refs se invalidan al abrir el panel de configuración**: lo que se leyó antes de abrirlo ya
+  no sirve. Se vuelve a leer después.
+
+### El panel, de video a imagen
+
+Los radios no tienen etiqueta accesible; se leen con `[role=radio]` + `innerText`. El de **Imagen**
+es el primero, y al tocarlo el modelo cambia solo de `Omni 1.2 Flash` a **🍌 Nano Banana 2.1** y
+aparecen más proporciones. **Las imágenes no gastan créditos de video**, que es lo que permitió
+hacer seis en una tanda con el cartel de «sin créditos» puesto.
+
+### ⛔ Subir un archivo a Flow sigue necesitando el clic de la persona — también desde el editor
+
+Medido hoy otra vez, y ahora también en el `+` **del editor** (que es el que
+[[la-segunda-referencia]] usa para pasar una referencia de estilo): `document.querySelectorAll('input[type=file]')`
+devuelve **0** antes y después de tocar el botón, y el menú que abre no tiene items en el árbol.
+`file_upload` de la extensión necesita el ref de un input que no existe. **Conclusión: una
+referencia propia entra a Flow sólo si Martín toca el `+` y elige el archivo.**
+
+### ⚠️ Un prompt recargado da una escena recargada (y Martín lo frena)
+
+Para el tablero de detective pedí «habitación en penumbra… escritorio, lámpara encendida y toda la
+pared del fondo…». Salieron dos cuartos de película de conspiración, con pilas de papeles, cama y
+estantes. Martín, mirando en vivo: **«está muy complejo… se tiene que ver real también. No se tiene
+que ver tan complejo.»**
+
+Lo que funcionó fue **una sola frase con el objeto y el lugar**, sin adjetivos de ambiente:
+«Un tablero de corcho con fotos unidas por hilo rojo, en la pared de una habitación normal con luz
+de día.» Es la misma regla del prompt corto, aplicada al DECORADO y no sólo a la persona: **cada
+objeto que nombrás, el modelo lo pone, y la suma es un set de cine.**
+
+Y para sacar lo que sobraba, el cambio se pidió **en positivo y como estado**, nunca enumerando lo
+que no se quiere: **«En el corcho sólo hay fotos de caras de personas.»** De una, quedó el corcho
+con puros retratos, sin notas ni recortes, y la habitación intacta.
+
+## ✅✅ SÍ SE LE PUEDE PASAR UNA REFERENCIA PROPIA A FLOW, SIN EL CLIC DE MARTÍN (9/11/2026)
+
+**Por el PORTAPAPELES.** Es la vuelta a todo lo que dice este documento sobre que subir a Flow
+necesita a la persona: **el `input[type=file]` sigue sin existir** —medido hoy en el `+` del
+proyecto y en el `+` del editor, `querySelectorAll('input[type=file]').length === 0` antes y
+después de tocarlos—, pero **Flow acepta `Ctrl+V` de una imagen** y la adjunta igual.
+
+```powershell
+Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
+$img = [System.Drawing.Image]::FromFile("C:\ruta\REFERENCIA.jpg")
+[System.Windows.Forms.Clipboard]::SetDataObject($img, $true)   # el $true es lo que lo deja pegado
+```
+
+Después, con la extensión: clic en la caja y `ctrl+v`. Aparece la miniatura adjunta con su «×», y
+al generar el historial muestra **dos** miniaturas (la imagen base y la referencia).
+
+⚠️ **`SetDataObject($img, $true)`, no `SetImage`**: sin el segundo argumento el portapapeles se
+vacía cuando termina el proceso de PowerShell y el pegado llega vacío.
+⚠️ Esto **pisa el portapapeles de Martín**: avisarle.
+
+### Y la referencia se arma con las caricaturas del repo, no se le pide al modelo
+
+Martín: «que las caras sean de los influencers, te pasé las referencias para que sepa qué cara
+poner». Un prompt no alcanza —Nano Banana inventa caras genéricas, probado— así que la referencia
+se **compone con PIL** a partir de `public/asesores/grandes/*.png` (32 caricaturas aprobadas,
+600×600): seis caras grandes sobre un corcho, con hilo rojo. El script quedó en el scratchpad de
+la sesión; la receta es polaroid + `rotate(expand=True)` + sombra desenfocada + curva Bézier para
+el hilo.
+
+**Y con la referencia adjunta, el cambio se pide anclando lo que NO cambia:** «Mismo corcho y
+misma habitación. En el corcho van sólo estas seis caras, grandes.» Salió a la primera, con las
+seis caricaturas reconocibles y la habitación intacta. Es la regla de
+[[la-segunda-referencia-si-sirve-dentro-del-editor]] confirmada otra vez: en una EDICIÓN la
+referencia aporta sin competir, porque la base está fija.
+
+### Tres cosas más del editor de Flow, medidas el 9/11 armando el tablero
+
+- ⚠️⚠️ **En el EDITOR, un clic por coordenadas sobre la caja de texto te cambia de imagen.** Pasó
+  tres veces: el clic cae en la tira de versiones de arriba o en la imagen, y terminás editando otra
+  (la URL cambia de `/edit/<id>` y el título también). **La salida es no hacer clic**: enfocar el
+  `contenteditable` por JavaScript y recién entonces teclear o pegar.
+  ```js
+  const d = document.querySelector('[contenteditable="true"]');
+  d.focus(); const s = getSelection(); s.selectAllChildren(d); s.collapseToEnd();
+  ```
+  Para ENVIAR sí hace falta un clic real sobre la flecha, medida justo antes (`.click()` no sirve).
+  **Antes de enviar, verificar `location.pathname` y el texto de la caja**: es la única forma de
+  saber que seguís en la imagen que creías.
+- **Una imagen pegada queda guardada en el proyecto como «Imagen subida»**, con su propia tarjeta.
+  Pegar tres referencias deja tres tarjetas sueltas; conviene limpiarlas al terminar.
+- **Para borrar una tarjeta el botón es «Enviar lote a la papelera»** (manda la PILA entera, con
+  todas sus versiones). ⚠️ Al buscar el botón subiendo por `parentElement` es muy fácil pasarse y
+  agarrar el contenedor de TODA la lista —el primer intento devolvió once papeleras, una por
+  tarjeta—. **Acotar el bloque por longitud de texto** (`innerText.length < 300`) y confirmar que el
+  botón está dentro de ese bloque antes de hacer clic. Va a la Papelera de Flow, no se pierde.
+
+### ⚠️⚠️ El pegado en Flow sólo adjunta si la imagen es VERTICAL (9/11/2026)
+
+Lo de arriba sobre pegar una referencia con `Ctrl+V` es cierto, **pero tiene una condición que
+costó seis intentos encontrar**: con una referencia **apaisada (1500×1100, 4:3)** Flow NO la
+adjunta — la **sube como imagen nueva y te abre SU editor**, con lo cual perdés la imagen en la que
+estabas y ni te enterás si no mirás la URL. Con la MISMA referencia rearmada **vertical
+(1080×1350, 4:5)** se adjunta como corresponde y `location.pathname` no cambia.
+
+**La secuencia que funciona, y cada paso importa:**
+1. Entrar al editor **por URL** (`/edit/<id>`), nunca por clic en la tarjeta: un clic en la grilla
+   abre la última versión de la pila, que no siempre es la que querés.
+2. **Clic real** en la caja — sobre su borde izquierdo (`rect.x + 25`), porque mide 20 px de alto y
+   el centro cae fácil en la imagen o en la tira de versiones. Con `.focus()` por JavaScript el
+   pegado se comporta como pegado en la página y crea una imagen nueva.
+3. `Ctrl+V`. **Nunca `Ctrl+A` antes**: con la caja vacía se propaga al documento y termina
+   navegando a otra imagen.
+4. **Clic real en la caja OTRA VEZ** — después de pegar, el foco se va, y teclear sin recuperarlo
+   dispara atajos que cambian de imagen.
+5. Escribir, verificar `location.pathname` **y** el texto de la caja, y recién ahí clic en la flecha.
+
+⚠️ Cada pegado deja una tarjeta «Imagen subida» en el proyecto; los intentos fallidos dejan además
+la imagen abierta como pieza nueva. Conviene barrerlas al terminar.
+
+### Recuperar algo borrado por error
+
+`/project/<id>/trash` tiene **«Restaurar todo»** arriba y un **«Restablecer»** por tarjeta (aparece
+al pasar el mouse por encima). Martín pidió borrar la horizontal y un minuto después quiso la
+horizontal: volvió entera desde ahí. **Enviar a la papelera no pierde nada**, así que ante un
+«borrá esto» no hace falta frenar; lo que sí hay que verificar es **cuál** se borra, acotando el
+bloque por el texto de su prompt antes de hacer clic.
+
+### «Llenándolo» multiplica y repite: hay que dar el NÚMERO (9/11/2026)
+
+Con la referencia de 15 caras y la consigna **«van estas caras, llenándolo»**, Nano Banana devolvió
+**unas cuarenta**, repitiendo varias. Martín: «son muchos… se repitieron algunos».
+
+Lo que lo bajó fue **decir cuántas y que no se repitan, en positivo**:
+**«En el corcho van estas doce caras, una sola vez cada una.»** Un adverbio de cantidad («llenándolo»,
+«muchas», «varias») lo deja estimar, y estima de más.
+
+⚠️ Y al reducir, las fotos quedaron **amontonadas en media tabla**, con la otra mitad vacía. Se
+arregla con una edición corta que ancla lo que no cambia: **«Las mismas caras, repartidas por todo
+el corcho.»** No hace falta volver a adjuntar la referencia: las caras ya están en la imagen base.
+
+## ✅ Cambiarle el FONDO a un fotograma que ya existe, sin tocar a la persona (9/11/2026)
+
+El pedido de Martín fue sobre el fotograma del clip 1 —él de remera negra hablando delante de un
+corcho de detective—: **«que lo haga en el cuadro de ahí atrás… que tengan evidentemente el mismo
+tamaño… que no repita influencer»**. Salió a la primera, y el método es el que conviene repetir
+para los 14 videos.
+
+1. **La imagen propia entra a Flow pegándola en la caja del PROYECTO.** Queda como tarjeta
+   «Imagen subida» (se la reconoce por `crop_9_16` en su ficha) y desde ahí se abre en el editor.
+   Es la forma de meter material propio sin el `input[type=file]` que no existe.
+2. **La referencia se arma con TODAS las caricaturas al MISMO tamaño.** `public/asesores/grandes`
+   tiene 32; una grilla 5×7 de 150 px cada una, marco fino igual para todas, sobre corcho — en
+   **vertical 1080×1350**, que es la única proporción que Flow adjunta al pegar.
+3. **El prompt ancla la persona y describe el cambio, con el número y la unicidad explícitos:**
+   **«Misma persona y mismo cuadro. Las fotos del corcho son estas caras, todas del mismo tamaño y
+   cada una una sola vez.»**
+
+Resultado: la cara, el pelo, la remera y la pose intactas; el corcho con las caricaturas, y las
+notas amarillas y los chinches de colores del original conservados. **No hace falta regenerar a la
+persona para cambiarle el fondo** — eso es lo que veníamos haciendo mal cuando el parecido se
+perdía.
+
+### Si el material no alcanza para los huecos, el modelo repite (9/11/2026)
+
+Martín: **«repitió a muchas y no usó a otras, asegúrate de pasarles las suficientes para que tengan
+material»**. El corcho del clip 1 tiene del orden de **cincuenta huecos** y nosotros tenemos **32
+caricaturas**: con una sola referencia de 32 caras chicas (150 px en un lienzo de 1080), el modelo
+rellena repitiendo y además ignora las que no llegó a leer.
+
+**Lo que sube la variedad:**
+- **Varias referencias, no una.** Flow adjunta varias imágenes pegadas una tras otra (`Ctrl+V`,
+  esperar a que cargue la miniatura, repetir). Dos lotes de **16 caras a 225 px** se leen mucho
+  mejor que 32 a 150 px en una sola.
+- **Decir el número y la correspondencia:** «En el corcho hay **32 fotos, una por cada una de estas
+  caras**» — ata la cantidad de huecos al material disponible, en vez de dejarlo rellenar.
+
+⚠️ **Pero el techo es real:** mientras el corcho tenga más huecos que caricaturas tengamos, va a
+repetir. Para que no repita hay que **bajar la cantidad de fotos del corcho a 32** o **generar más
+caricaturas** (`lib/asesores/`, hay 130 cursos en Knowledge de donde salen fichas nuevas).
+
+## ⚠️⚠️ EL ORDEN DE LA COMPOSICIÓN: la PERSONA va de base, el FONDO de referencia (9/11/2026)
+
+Para poner al chico del clip 1 delante del corcho probé las dos direcciones. **Sólo una funciona.**
+
+| cómo lo pedí | qué pasó |
+|---|---|
+| Base = el corcho · referencia = el fotograma del chico · «la persona es este chico» | **«No se pudo completar la acción»**. Al reintentar, trajo al chico **con su fondo de estudio entero** y se comió el corcho. |
+| Base = el fotograma del chico · referencia = el corcho · **«La persona queda igual, con la misma ropa y la misma foto en la mano. Detrás de ella va este corcho.»** | **Salió a la primera**: misma cara, mismo pelo, misma remera, la misma polaroid en la mano, y el corcho detrás. |
+
+**La regla: lo que tiene que quedar INTACTO va de imagen base; lo que se cambia entra como
+referencia.** Una persona metida como referencia llega con su escena pegada, porque el modelo lee
+la referencia entera y no sabe qué parte querés. Es el mismo principio de «la segunda referencia
+sirve dentro del editor»: la base está fija, la referencia sólo aporta.
+
+⚠️ **Y el fotograma de origen se elige mirando varios.** Saqué seis con `-ss` a lo largo del clip y
+los puse en una tira (`tile=6x1`): el primero que había elegido tenía **los ojos cerrados** por un
+parpadeo. Martín eligió otro. **Un solo fotograma al azar de un clip hablado es casi siempre un
+parpadeo o una boca a mitad de palabra.**
+
+⚠️ **«No se pudo completar la acción» tiene botón de reintentar** y el reintento corre distinto: no
+es un error definitivo, pero tampoco repite lo mismo.
+
+### Lo que hace que un recorte se vea «pegado» es el FONDO de la foto, no su dibujo (9/11/2026)
+
+Martín, mirando el corcho con las caricaturas: **«que mimetice un poquito más el fondo para que se
+vea un poco más realista… no me refiero a que deje de hacer caricaturas… sino que la foto que puso
+ahí se ven muy diferentes al resto».**
+
+**Lo que NO alcanzó:** «Las fotos del corcho son papel impreso, con la misma luz que el resto del
+cuadro.» Se generó sin error y el resultado fue casi idéntico — el modelo ya creía que eran papel.
+
+**⛔ Lo que probé después y MARTÍN RECHAZÓ:** «Cada foto del corcho tiene el fondo claro, como
+una foto de carnet.» El modelo hizo exactamente lo que dice —**les blanqueó el fondo a todas**— y
+Martín: *«ahora todos tienen un fondo de color blanco, no pasó lo que quería… no quiero que se les
+quite el color de fondo a cada foto».* **Mi diagnóstico estaba mal**: yo había decidido que el
+color saturado era el culpable, y el color era justamente lo que él quería conservar.
+
+**Lo que sí va en esa dirección:** **«El corcho de atrás queda un poco desenfocado, como en una
+foto de verdad. Las fotos mantienen sus colores.»** Devuelve los colores y mete algo de
+profundidad de campo — que es lo que de verdad separa un fondo pegado de uno fotografiado: en el
+reel de referencia el corcho está **más desenfocado que la persona**, y en el nuestro estaba igual
+de nítido. ⚠️ El efecto salió **sutil**; si hace falta más, se insiste sobre esa propiedad.
+
+**Dos reglas que deja esto:**
+- «Realista» no es una instrucción: hay que nombrar **qué propiedad** separa el elemento del resto
+  (la nitidez, la sombra, la escala), no el resultado que querés.
+- **Y antes de elegir esa propiedad, hay que estar seguro de cuál es.** Acá me jugué por la
+  saturación sin comprobarlo y destruí lo que el cliente quería conservar. Ante la duda, **pedir
+  el cambio de forma que no pueda tocar lo que ya está aprobado** («…mantienen sus colores»).
+
+## El clip 2 entero, de punta a punta (9/11/2026) — la receta que queda
+
+Imagen → video → voz, con los números medidos. **Costó 24 créditos de Flow y nada más.**
+
+1. **El primer fotograma.** En el proyecto, panel de configuración → **Video**, y ahí mismo
+   **modo «Fotogramas»** (viene en «Ingredientes»), **Omni 1.2 Flash**, **720p**, **9:16**, **x1**.
+   Aparecen los botones **Iniciar / Finalizar**; «Iniciar» abre *Seleccionar una imagen de marco*,
+   se elige la imagen y se confirma con **«Agregar a la instrucción»**.
+   ⚠️ El selector lista todas las imágenes del proyecto con el mismo nombre `image.png`: **hay que
+   mirar la vista previa grande antes de elegir**, porque las referencias que pegaste están ahí
+   mezcladas con los resultados.
+2. **El prompt lleva la frase entre comillas y ancla lo quieto:**
+   «El cuerpo queda quieto y habla a cámara diciendo: "…". Al principio abre la mano y deja caer la
+   foto.» Salió a la primera: suelta la foto en el primer segundo, el cuerpo no se mueve y el fondo
+   queda intacto.
+3. **La voz, con la config aprobada**, que se lee de `scratchpad/walter/LA-CONFIG.json` y se aplica
+   con `la-config.mjs <origen.wav> <salida.mp3>` — **nunca escribiéndola a mano**:
+   clon **normal** `1crLVxcTqcz5I2mDmBlO`, `eleven_multilingual_sts_v2`,
+   `stability 0 · similarity_boost 1 · style 1 · use_speaker_boost false`, `mp3_44100_192`.
+4. **Nivelar y remuxear:** `loudnorm=I=-14:TP=-1:LRA=11` (ElevenLabs entrega a −27 dB y suena
+   bajito) y después `-c:v copy` para no recomprimir la imagen.
+
+**Lo medido:** clip 8,043 s · voz 8,081 s · final 8,000 s → **38 ms de diferencia, los labios no se
+despegan**. Nivel final −17,5 dB de media, −1,0 de pico.
+
+⚠️⚠️ **Y lo que yo daba por perdido no lo estaba: los créditos de video de Flow habían vuelto.**
+Seis horas antes el cartel decía «You're out of Google Flow credits» y yo lo repetí tres veces como
+si fuera el estado actual. **El saldo se mira en el momento** —panel de configuración con el modo
+en Video, dice «La generación usará N créditos»— y no se le dice al cliente «no se puede» por un
+cartel viejo.
+
+### ⚠️⚠️ En voice-to-voice va el clon PROFESIONAL, y una contradicción se resuelve midiendo (9/11/2026)
+
+Le puse al clip 2 la voz con el clon **normal**, porque `LA-CONFIG.json` —el archivo que Martín
+aprobó esa misma madrugada— trae un `_ojo_3` diciendo que el profesional «no está fine-tuned para
+el modelo de STS». Martín: **«no suena, pero ni de cerca similar… incluso suena como español en
+lugar de argentino».**
+
+**Ese `_ojo_3` es falso, y se comprueba con una sola llamada:**
+```
+GET /v1/voices/I2d6BR9P2dAopVw1khNv → fine_tuning.state incluye "eleven_multilingual_sts_v2": "fine_tuned"
+```
+
+| | clon normal | clon profesional |
+|---|---:|---:|
+| tono medido (real: 128 Hz) | **250 Hz** | **119-123 Hz** |
+| calce con el clip (8,043 s) | 8,081 s | 8,081 s |
+
+Y hay un motivo de fondo: `GET /v1/models` muestra que **sólo dos modelos hacen voice conversion**
+(`eleven_multilingual_sts_v2` y `eleven_english_sts_v2`). No hay un «v4 de STS». Así que en
+voice-to-voice **el acento lo pone el CLON, no el modelo** — al revés que en TTS — y por eso hay
+que usar el que tiene 37 minutos de muestras con acento Argentine.
+
+**Dos reglas:**
+- **En voice-to-voice se prueba primero el clon profesional**, siempre.
+- **Cuando dos notas nuestras se contradicen, gana la que se pueda medir, no la más nueva.** Yo
+  seguí al archivo más reciente sin comprobar y entregué una voz que no era la suya.
+
+### Las ediciones encadenadas degradan lo que no estás mirando (9/11/2026)
+
+Después de seis ediciones seguidas sobre la misma imagen, Martín: **«pásale nuevamente la referencia
+de las fotos de los influencers, porque evidentemente lo está tomando muy mal… se están pixeleando,
+se están cortando, están desfigurándose».**
+
+Cada edición **redibuja toda la imagen**, no sólo lo que pediste. Lo que no nombrás se reconstruye a
+partir del resultado anterior, y en una cadena larga eso es una fotocopia de una fotocopia: las
+caricaturas del corcho se fueron empastando aunque ninguna edición las mencionara.
+
+**La salida es volver a adjuntar la referencia original**, no describir el problema:
+`LOTE-1.jpg` + `LOTE-2.jpg` pegados otra vez, con **«Las fotos del corcho son estas caras, nítidas y
+completas»** — y en la misma frase anclar lo que no se toca: «La persona, su pose y el cuarto quedan
+igual». Volvieron limpias de una.
+
+**La regla: cada tres o cuatro ediciones, volver a pasar la referencia de lo que tiene que
+mantenerse fiel** — aunque esa parte no sea lo que estás cambiando. Y si algo se degradó, no se pide
+«que se vea mejor»: se vuelve a dar el material.
+
+### ⚠️⚠️ La mejor referencia es un resultado TUYO ya aprobado, no el material crudo (9/11/2026)
+
+Peleé cuatro vueltas para que las caricaturas del corcho no parecieran stickers: «papel impreso con
+la misma luz» (nada), «fondo claro como foto de carnet» (las blanquea, rechazado), «un poco
+desenfocado» (sutil), «papel curvado con su sombra» (mejor, sin cerrar). Todas eran **descripciones
+del efecto**.
+
+Martín: **«dale la referencia que ya habíamos logrado, que son más chiquitas las imágenes y
+justamente tiene la iluminación correcta».** Le adjunté **la imagen del clip 2 ya aprobada** y:
+**«El corcho queda como el de esta referencia: las fotos de ese tamaño, esa cantidad y esa misma
+luz.»** Salió bien de una.
+
+**La diferencia:** los `LOTE-*.jpg` son **material** —dicen QUÉ caras van, y vienen con su fondo de
+color plano— pero no dicen cómo tienen que verse dentro de la escena. Una toma aprobada dice las dos
+cosas a la vez: tamaño, cantidad, luz e integración, sin que haya que nombrarlas.
+
+**La regla: cuando algo ya salió bien una vez, ESA imagen es la referencia.** Describir con palabras
+un look que ya tenés resuelto en un archivo es trabajo tirado — y encima cada descripción es una
+instrucción más que el modelo puede cumplir de más (así se blanquearon los fondos).
+
+**Cuándo va cada una:**
+- **Material crudo** (`LOTE-*.jpg`) → cuando hace falta decir **qué** entra: las caras, el producto, el logo.
+- **Resultado aprobado** → cuando hace falta decir **cómo se ve**: tamaño, densidad, luz, integración.
+- **Las dos juntas** cuando necesitás las dos cosas.
+
+### ⚠️ «Detectamos actividad inusual»: Flow frena el editor después de muchas ediciones automáticas (9/11/2026)
+
+Después de unas quince ediciones de imagen en una hora, manejadas desde Claude in Chrome, Flow empezó a devolver
+**«No se pudo completar la acción. Detectamos actividad inusual. Ten en cuenta que las extensiones del navegador que
+modifican la página pueden causar problemas.»**, con un «No se te cobró por esta generación».
+- **No es un problema de la imagen ni del prompt.** El mismo pedido, sin cambios, es el que falla.
+- **«Reintentar» enseguida vuelve a fallar.** Hay que dejar pasar unos minutos.
+- **La causa de fondo fueron las vueltas:** ocho variantes del corcho con varias referencias cada una. Con UNA
+  referencia y una frase (AGENTS.md) se hacen muchos menos pedidos, y el freno no llega.
