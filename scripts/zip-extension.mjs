@@ -90,10 +90,23 @@ const archivos = CHEQUEO ? listarHead() : readdirSync(ORIGEN).filter((f) => !f.s
 // La huella se calcula sobre el CONTENIDO, no sobre el zip: un zip trae
 // timestamps y no es reproducible byte a byte, así que compararlo consigo mismo
 // daría distinto en cada corrida.
+//
+// ⚠️⚠️ Y SE NORMALIZAN LOS FINALES DE LÍNEA ANTES DE HASHEAR (8/11/2026). En `--check` el
+// contenido sale de **HEAD**, que guarda LF; en el disco de Windows git lo deja en **CRLF**. Sin
+// normalizar, las dos lecturas del MISMO archivo dan huellas distintas y el guard queda
+// **imposible de pasar**: bloqueaba todo push que tocara `extension/` desde esta máquina, pidiendo
+// correr un script que ya se había corrido. Es la misma trampa que ya mordió hoy comparando la
+// extensión del escritorio contra main con `md5sum` — el archivo era idéntico y el hash no.
+// Se deja fuera lo binario (los iconos), que no tiene finales de línea que normalizar.
+const BINARIO = /\.(png|jpg|jpeg|gif|webp|ico|zip)$/i;
+const CR = String.fromCharCode(13);
+const sinCR = (nombre, datos) => (BINARIO.test(nombre)
+  ? datos
+  : Buffer.from(Buffer.from(datos).toString('utf8').split(CR).join(''), 'utf8'));
 const h = createHash('sha256');
 for (const f of archivos) {
   h.update(f);
-  h.update(leer(f));
+  h.update(sinCR(f, leer(f)));
 }
 const huella = h.digest('hex');
 

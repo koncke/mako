@@ -31,6 +31,24 @@ Entonces una escena nueva se guarda y se reusa, en vez de tener que tocar códig
 
 ---
 
+## ✅ AI Avatar: la foto no se subía nunca — un ÍCONO rompía la búsqueda del botón
+
+**Arreglado** (`extension/flow-interfaz.js`). El síntoma era «MaKo está subiendo tu foto a Google,
+vuelve a intentar» para siempre; en `flow_trabajos` quedaban los intentos con
+**«Flow no mostró la opción de subir»**.
+
+La causa, medida contra el DOM real: los items del menú de medios de Flow son
+`<mat-icon class="google-symbols">upload</mat-icon>` + `<span>Upload</span>`, así que `textContent`
+devuelve **«uploadUpload»** — y la extensión compara EXACTO. Pasaba con los cuatro:
+«folderNew collection», «account_circleCreate character», «play_moviesNew scene».
+
+⚠️ **La regla: cuando un rótulo no aparece, imprimir lo que la página devuelve de verdad.** El
+nombre estaba ahí, con basura pegada. Y se excluyen los NODOS de ícono, no se recorta el texto con
+una regex: lo tentador era sacar «la minúscula inicial pegada a una mayúscula», pero eso convierte
+«iPhone» en «Phone».
+
+---
+
 ## 🟠 AI Avatar: «MaKo está subiendo tu foto a Google. Vuelve a intentar»
 
 Al generar la primera imagen, la pantalla pide **reintentar a mano** mientras sube la foto al Flow

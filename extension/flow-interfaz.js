@@ -116,7 +116,32 @@
       if (t) return t.replace(/\s+/g, ' ');
     }
     if (el.labels && el.labels[0]) return el.labels[0].innerText.replace(/\s+/g, ' ').trim();
-    return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    return textoSinIconos(el);
+  }
+
+  /**
+   * El texto de un elemento SIN el de sus iconos.
+   *
+   * ⚠️⚠️ UN ICONO DE MATERIAL METE SU NOMBRE ADENTRO DEL TEXTO (8/11/2026). Los items del menu de
+   * medios de Flow son `<mat-icon class="google-symbols">upload</mat-icon>` + `<span>Upload</span>`,
+   * asi que `textContent` da **«uploadUpload»** — y `porRol` compara EXACTO, de modo que buscar
+   * 'Upload' no encontraba nada. Sintoma: «Flow no mostro la opcion de subir», y la foto del avatar
+   * no se subia nunca. Pasaba con los cuatro: «folderNew collection», «account_circleCreate
+   * character», «play_moviesNew scene».
+   *
+   * ⚠️ Se EXCLUYEN los nodos de icono en vez de recortar el texto con una regex. Lo tentador era
+   * sacar «la minuscula inicial pegada a una mayuscula», pero eso se come etiquetas legitimas:
+   * «iPhone» quedaria en «Phone». Mirar QUIEN pone el texto es exacto; adivinar la forma del texto
+   * no lo es.
+   */
+  function textoSinIconos(el) {
+    const ICONOS = 'mat-icon, .google-symbols, [class*="material-symbols"], [class*="material-icons"]';
+    if (!el.querySelector || !el.querySelector(ICONOS)) {
+      return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+    const copia = el.cloneNode(true);
+    for (const i of copia.querySelectorAll(ICONOS)) i.remove();
+    return (copia.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
   const SELECTOR_ROL = {
