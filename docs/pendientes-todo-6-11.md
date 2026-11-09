@@ -400,7 +400,18 @@ perder más tiempo que uno olvidado.
     a la adivinanza.
   - Qué falta: Otro punto del §Sin hacer de automations.md que nadie trajo: en la rama `crear` de `/api/chat-agent/secuencias/ia`, el modelo escribe el texto de una tarjeta de audio que la persona tiene que grabar con su voz, y crear no ofrece «Discutir / Editar» (editar si lo tiene). Hecho = al crear, una tarjeta de audio sale vacia pidiendo la grabacion, y crear ofrece Discutir/Editar como editar.
   - Dónde: `C:/dev/wt-puntas/app/api/chat-agent/secuencias/ia/route.ts (rama `crear`) · C:/dev/wt-puntas/docs/relevo/automations.md:451-475`
-- **Automations: no hay «solo estos dias» del goteo aparte del horario de la automatizacion** · _chico_
+- **Automations: no hay «solo estos dias» del goteo aparte del horario de la automatizacion** · _chico_ · ✅ **HECHO el 9/11/2026 — `5d3ca51f5`**
+  - Qué quedó: `goteo.dias` en `lib/config-automatizacion.ts`, saneado (0-6, sin repetidos, ordenado) y
+    aplicado en `cerradasAhora`. Ausente o vacío = los del horario, o sea que nada cambia para quien no
+    lo use. `tests/goteo-dias-propios.test.ts` 6/6 con los cinco mutantes cayendo; los seis vecinos del
+    goteo y del horario, verdes.
+  - ⚠️ Dos cosas que no se ven en el código y por eso tienen test: **el chequeo va ANTES del `continue`
+    del horario** —una automatización sin horario propio nunca está «cerrada», así que mirándolo después
+    sus días no se aplicarían nunca, justo en el caso más común—, y **el día se lee en la zona del
+    NEGOCIO**: un cron a las 23:30 UTC ya está en el día siguiente para medio mundo, y ahí «de lunes a
+    jueves» arrancaría los domingos a la noche.
+  - ⏳ Falta la PANTALLA: hoy los días se aceptan y se respetan, pero se cargan por la config, no por la
+    tuerca de la automatización. El «Hecho =» del ítem pedía que la configuración los acepte.
   - Qué falta: Del §Sin hacer de automations.md: los dias del goteo son los del horario propio de la automatizacion, y no existe una eleccion de dias aparte. Quien quiere gotear solo de lunes a jueves tiene que achicar el horario entero. Hecho = la configuracion de una automatizacion acepta dias del goteo distintos de su horario.
   - Dónde: `C:/dev/wt-puntas/lib/config-automatizacion.ts · C:/dev/wt-puntas/docs/relevo/automations.md:451-475`
 
