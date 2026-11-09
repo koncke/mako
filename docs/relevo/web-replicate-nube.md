@@ -15,7 +15,7 @@ El reel está bajado en la rama `referencias/reels-0911` (`web-replicate.mp4`):
 
 | Tanda | Qué | Rama | Estado |
 |---|---|---|---|
-| 1 | Los varios mouse mientras se replica, atados a los eventos reales | `punta/web-replicate-0911` | VERDE sin tipos — sha en el commit de esta tanda (ver `git log origin/punta/web-replicate-0911`) |
+| 1 | Los varios mouse mientras se replica, atados a los eventos reales | `punta/web-replicate-0911` | **VERDE sin tipos 66d4c10f** (9/11, 12:30 UTC): `tests-afectados` 3.261 tests de 321 archivos en verde con Node 24; tsc acotado de los 9 archivos tocados, 0 errores; el tsc entero NO corrió acá. Encima, cf1f2f00 y este renglón (sólo el relevo) |
 | 2 | El anillo y los cursores también en el paso 1 («Leer») | — | sin empezar |
 | 3 | La página real (no un wireframe) dentro de cada caja | — | sin empezar |
 
