@@ -12106,6 +12106,17 @@ sin que ninguna de esas ediciones tocara ni la cara ni la foto.
 ⚠️ La degradación **no avisa**: aparece en lo que nadie está mirando —una cara de fondo, un ojo, un
 objeto en la mano— mientras la parte que estás corrigiendo mejora vuelta a vuelta.
 
+### ⛔ A Flow jamás le entra una imagen reescalada: base y referencias, siempre del ORIGINAL
+
+**Regla de Martín, 9/11/2026, textual:** *«estuviste utilizando y descargándote las fotos en alta calidad. Cuando vos
+haces eso, la IA vuelve a regenerar sobre eso y elimina muchos detalles que eran importantes para sumarle la calidad.
+Como regla, jamás que se haga eso.»* Y: *«Todo siempre en la calidad original, también los videos.»*
+
+El «2K/4K Reescalado» del menú de descarga de Flow **es otra pasada de IA**: alisa la piel, empasta la textura y deja
+el look plástico. Ese día el corcho se bajó en 2K, se volvió a subir como base y después como referencia de la persona,
+y el resultado salió «muy de IA». **Se baja «1K · Tamaño original»** (y los videos, en su original) y sólo eso vuelve a
+entrar a Flow, como base o como referencia.
+
 ### Una cosa al 100 % primero, y después se le agrega la otra
 
 **Método de Martín, 9/11/2026, textual:** *«Un truco que yo hago es intentar tener una cosa —que en
