@@ -85,6 +85,30 @@ const moduloVersion = `// GENERADO por scripts/zip-extension.mjs — no editar a
 export const EXTENSION_VERSION = '${version}';
 `;
 
+/**
+ * ⚠️ LA VERSIÓN VIVE EN DOS LUGARES DE `extension/`, Y ESTE SCRIPT VIGILABA UNO SOLO (9/11/2026).
+ *
+ * `injected.js` lleva `VERSION_ESPEJO`, que es la versión que el puente le reporta a la app (y que la
+ * pantalla compara para decir «tu extensión quedó vieja»). Al subir el manifest a 0.78.0 sin tocar el
+ * espejo, este script dijo «✅» igual: su huella es sobre el CONTENIDO, y cualquier contenido es
+ * válido para una huella. El rojo apareció después, en Actions, en TRES archivos de test a la vez.
+ *
+ * Un guard que te deja subir algo roto y te avisa en la nube no es un guard: es una espera. Acá se
+ * compara contra el manifest, que es la fuente, y se corta antes de empaquetar nada.
+ */
+function versionDelEspejo(crudo) {
+  const m = /const VERSION_ESPEJO = '([^']+)'/.exec(crudo);
+  return m ? m[1] : null;
+}
+const espejo = versionDelEspejo(leer('injected.js').toString('utf8'));
+if (espejo !== version) {
+  console.error('');
+  console.error(`  ✖ extension/injected.js dice VERSION_ESPEJO = '${espejo}' y el manifest dice '${version}'.`);
+  console.error('    Son la misma versión: la del manifest es la fuente. Igualá el espejo y volvé a correr.');
+  console.error('');
+  process.exit(1);
+}
+
 const archivos = CHEQUEO ? listarHead() : readdirSync(ORIGEN).filter((f) => !f.startsWith('.')).sort();
 
 // La huella se calcula sobre el CONTENIDO, no sobre el zip: un zip trae

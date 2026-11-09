@@ -305,8 +305,8 @@ test('el desplegable lee la pestaña con el toque, en el mundo aislado, y sin pe
   assert.match(pop, /addEventListener\('click', \(\) => void guardarPerfil\(/);
   assert.match(leer('extension/popup.html'), /<script src="perfil-reglas\.js"><\/script>/);
   const m = JSON.parse(leer('extension/manifest.json'));
-  assert.equal(m.version, '0.77.0');
-  assert.match(leer('extension/injected.js'), /const VERSION_ESPEJO = '0\.77\.0';/, 'el espejo dice la misma versión');
+  assert.equal(m.version, '0.78.0');
+  assert.match(leer('extension/injected.js'), /const VERSION_ESPEJO = '0\.78\.0';/, 'el espejo dice la misma versión');
   assert.equal(m.content_scripts.flatMap((c: { js: string[] }) => c.js).includes('perfil-leer.js'), false, 'no es un content script: corre sólo con el toque');
   const pol = leer('app/privacidad/extension/page.tsx');
   assert.match(pol, /<H>Al guardar un perfil en tu CRM<\/H>/);
