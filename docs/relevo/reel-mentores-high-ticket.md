@@ -74,6 +74,7 @@ quedan DESCARTADOS.**
 - **✅ (~14:05) clip 1 rehecho en Flow con esa receta:** base = `omni\personaje-corcho.jpg` (el personaje bueno + el
   corcho elegido, con una referencia y una frase), Fotogramas · Omni 1.2 Flash · 720p · 9:16 · 5 s · x1 = 15 créditos →
   `omni\CLIP1-CON-TU-VOZ.mp4`. Mandado a Martín. Sigue el clip 2 igual, desde el último fotograma.
+- **(~14:20) Martín aprobó el clip 1 de Flow.** Clip 2: «que ya no tenga la foto, y que yo esté parado al lado del cuadro de corcho». Imagen hecha desde el avatar ORIGINAL (`omni/personaje-bueno-original.jpg`) + UNA referencia (el corcho) → `omni/clip2-imagen-al-lado.jpg`. Lo que falló antes: «cerca del corcho» lo puso de cuerpo entero y lejos; «plano medio» lo centró delante. Lo que anduvo: «de pie y con las manos vacías, parada al lado de este corcho: el corcho a un costado y él al otro, de la cintura para arriba. Mira a cámara.» Esperando su OK para el video (Flow, misma receta, 5–8 s, frase del bloque 2 y voz wav nivelado).
 - **Lo que sigue:** con el corcho aprobado, la persona entra con la receta que dio la referencia: base = la referencia
   de Martín (él, real) y referencia = el corcho aprobado, en una sola edición: «Misma persona, misma foto en la mano
   y misma luz. Detrás de ella va este corcho, desenfocado como en esta foto.» Después, los clips 1 y 2 con
