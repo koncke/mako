@@ -97,6 +97,14 @@ export class CommandManager {
 		return this.redoStack.length > 0;
 	}
 
+	/**
+	 * Cuántos pasos hay para deshacer. La «Edición automática» (enjambre/correr.ts) los cuenta antes y después de
+	 * correr: sus agentes dejan un paso cada uno (algunos, más), y «Deshacer todo» deshace exactamente ésos.
+	 */
+	profundidad(): number {
+		return this.history.length;
+	}
+
 	clear(): void {
 		this.history = [];
 		this.redoStack = [];

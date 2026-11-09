@@ -41,6 +41,7 @@ import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
 import { DISENOS, useDisenoStore } from "./diseno-paneles";
 import { ExportButton, PublicarButton } from "./export-button";
+import { EnVivo } from "@/app/video-editor/_opencut/enjambre/components/en-vivo";
 
 export function EditorHeader() {
 	const [renombrando, setRenombrando] = useState(false);
@@ -54,6 +55,8 @@ export function EditorHeader() {
 			</div>
 			<NombreProyecto editando={renombrando} onEditando={setRenombrando} />
 			<div className="flex min-w-0 items-center justify-end gap-1.5">
+				{/* Mientras trabaja la «Edición automática»: los agentes en vivo (enjambre/components/en-vivo.tsx). */}
+				<EnVivo />
 				<MenuDiseno />
 				<button
 					type="button"

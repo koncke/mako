@@ -2264,3 +2264,60 @@ fuera de 15-60 s, dos que se pisan o más de los pedidos.
 `tests/video-editor-clips.test.ts` · `scripts/probar-clips-ia.mts` · [investigacion-video-clips.md](investigacion-video-clips.md).
 
 *6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*
+
+
+## Edición automática con agentes, copiada del reel de Higgsfield (9/11/2026, nube)
+
+**El pedido, textual:** «PARA LA EDICIÓN EN MAKO, ESTO QUIERO: https://www.instagram.com/reel/DffGz6yu565/». El reel (12,5 s, bajado
+en la rama `referencias/reels-0911`) es una toma en mano de un monitor con el editor «Higgsfield Shorts»: un enjambre de agentes
+(«razor-02», «caps-01», «broll-01», «mix-01», «16 agents live») edita un reel en vivo, con cursores con nombre, un registro «SWARM
+ACTIVITY» con la hora del video y «52 ops/s», los subtítulos probándose uno por uno («A/B testing caption fonts…») y un «QA ✓» al final.
+
+**Lo que se hizo:** «Edición automática» (barra de la línea de tiempo, Multimedia, chat `edicion_automatica`, API
+`editar_video_automatico`): diez agentes corren en orden lo que el editor YA sabía hacer (pausas, subtítulos, estilo, muletillas,
+palabras clave en lima, B-roll, planos, voz limpia, −14 LUFS, revisión), con el panel del registro, sus cursores y la pastilla «N
+agentes en vivo». Tres plantillas de subtítulo nuevas, las del reel: «Lima» (minúsculas, sin caja), «Recuadro Bebas» y «Marcador».
+
+- **El diagnóstico obvio era el equivocado: el reel no pide su propia edición.** Lo que se ve encima (los dos logos, la placa «Fable
+  5.2 + Higgsfield MCP = 🔥», el cierre «Comment "Shorts"…» y la música con golpes, sin voz) es el promocional; lo que pide es el
+  EDITOR que filma. Copiar las placas habría sido copiar el envoltorio.
+- **Cada agente corre la función de su botón con el «Aceptar» del chat** (`aceptarPropuesta`), no una implementación propia: la misma
+  revisión contra la línea de tiempo de AHORA y los mismos comandos del motor. El B-roll y los planos, con `proponerBroll` (quedan
+  propuestos con su borde punteado). Antes de cada paso se vuelve a leer la línea de tiempo: el orden importa (se corta ANTES de
+  transcribir, así los subtítulos nacen con los tiempos ya cortados; el B-roll lee los subtítulos).
+- **«Deshacer todo» cuenta los pasos del HISTORIAL, no los pasos del plan.** Un paso puede dejar más de uno (o ninguno). El
+  `CommandManager` no tenía cómo contarlos: se le sumó `profundidad()`, y la corrida guarda la diferencia y la línea de tiempo del
+  principio; deshace sólo si nadie tocó nada después y verifica que volvió exactamente a la de antes (si no, rehace).
+- **El «Aceptar» del chat que corre a los agentes es un `aceptarPropuesta` adentro de otro.** El del chat carga la corrida con un
+  `import()` (un ciclo de módulos entre `chat/aplicar.ts` y `enjambre/correr.ts` al cargar) y suma `hecho.pasos` (no `pasos++`):
+  así «Restaurar» del chat deshace todo lo de los agentes.
+- **Una prueba de estilo se aplica DE VERDAD, se mide y se deshace.** Así el A/B del reel se ve en el reproductor y el historial
+  queda sólo con el elegido. Se deshace sólo si el historial creció en uno y la línea de tiempo es la que dejó la prueba: si la
+  persona tocó algo en esos 700 ms, la prueba queda y no se le deshace lo suyo. La medida son los renglones que dejó
+  `partirYUbicar` al aplicar (más de dos no entra), no una opinión («too plain» del reel no se puede medir).
+- **El estilo que eligió la persona no se toca**: subs-03 sólo prueba si los subtítulos los puso esta corrida con la plantilla por
+  defecto. Con un preset de la marca, otra plantilla o subtítulos que ya estaban, se saltea y lo dice.
+- ⚠️ **El saneador de los presets reconstruye el estilo campo por campo**: «minúsculas» (nueva, de «Lima») se perdía en silencio al
+  guardar un preset desde un subtítulo «Lima». Se sumó en `sanearEstilo`, en el resumen y en la edición por la API.
+- ⚠️ **Dos tests fijaban una FOTO**: «clips_magicos es la última operación de la API» y «el editor tiene 39 escrituras». El primero
+  pasó a decir lo que cuida (va detrás de las que ya estaban); el segundo, la cuenta nueva con su porqué.
+- ⚠️ **Un test de «va sola» puede pasar por otra razón**: con `eliminar_muletillas` al lado y la regla borrada, seguía verde porque
+  sin transcripción las muletillas se descartaban igual. Se cambió por un volumen, que sí se resuelve solo. Lo encontró romperlo.
+- ⚠️ **El zoom de la línea de tiempo vive en el estado del componente**, no en un store: los cursores lo leen de `data-ce-pps` en la
+  caja que scrollea (y de `data-ce-zona` cada panel).
+- ⚠️ `tests/doer-recetas-video-imagen.test.ts` da «does not provide an export named MAKO_ACCION_TOOLS» con Node 22 y pasa con Node 24:
+  es del entorno (`scripts/node24.sh`), no del cambio.
+
+**Sin hacer (lo que el reel tiene y acá no):** el agente de color (el reel corrige exposición, grano y sombras: hace falta MEDIR la
+luz de un cuadro antes de tocarla); el «whoosh» en los cortes (no hay biblioteca de efectos de sonido con licencia elegida); los
+monitores de forma de onda, vectorscopio y la lectura de LUFS integrados; el subtítulo ESCALONADO (cada renglón corrido, «Stagger
+Stack»: pide medir y dibujar renglón por renglón en `text/dibujar.ts`); la tarjeta flotante con una grabación de pantalla («masked
+card») y el collage de papel rasgado; los agentes en PARALELO (acá van de a uno: dos comandos sobre la misma línea de tiempo a la vez
+se pisan). Nada se miró en un navegador ni se corrió con la IA real.
+
+**Vive en:** `app/video-editor/_opencut/enjambre/{plan,estado,correr,cursores,registro}.ts` · `enjambre/components/{enjambre-view,en-vivo,cursores}.tsx` ·
+`chat/{aplicar,linea,comandos}.ts` · `core/managers/commands.ts` (`profundidad`) · `subtitles/estilos.ts` · `lib/editor-video/{chat-catalogo,chat-api,presets-subtitulos}.ts` ·
+test `tests/video-editor-enjambre.test.ts` · relevo `docs/relevo/edicion-reel-nube.md`.
+
+*9/11/2026, sesión en la nube (`cli_cae9a776-2d98-55b4-aef5-3102e4b201b5`).*
+

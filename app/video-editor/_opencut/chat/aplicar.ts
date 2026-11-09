@@ -108,7 +108,11 @@ const noSeAplica = (descarte: string | undefined, sinNada: string) =>
  * Una operación larga, contra el elemento de AHORA (el lote pudo moverlo). Devuelve lo que
  * hay que decir de ella (los huecos que quedaron con su muestra, por qué no se armó…).
  */
-async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (p: ProgresoChat) => void): Promise<string[]> {
+async function correrLarga(
+	editor: EditorCore,
+	r: Exclude<OperacionLarga, { op: "edicion_automatica" }>,
+	alProgreso?: (p: ProgresoChat) => void,
+): Promise<string[]> {
 	if (r.op === "borrar_silencios") {
 		// El MISMO trabajo que el botón de la barra, sobre los clips de la propuesta y nunca el del cabezal.
 		const titulos = new Map(r.els.map((el) => [el.elementId, el.titulo] as const));
@@ -192,6 +196,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	usar_preset_subtitulos: "usar el preset",
 	broll: "proponer el B-roll",
 	clips_magicos: "buscar los clips",
+	edicion_automatica: "hacer la edición automática",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */
@@ -291,6 +296,16 @@ export async function aceptarPropuesta(
 	// 4. Lo que tarda, después y aparte: cada uno con su paso.
 	for (const r of largas) {
 		const previo = actuales();
+		if (r.op === "edicion_automatica") {
+			// Los agentes (enjambre/correr.ts) dejan su propio registro a la vista y cuentan cuántos pasos del historial
+			// dejaron: «Restaurar» los deshace todos. Se carga al usarse: la edición automática usa este mismo «Aceptar».
+			const { correrEnjambre } = await import("@/app/video-editor/_opencut/enjambre/correr");
+			const hecho = await correrEnjambre(editor);
+			if (!hecho.ok) descartes.push(hecho.texto.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase()));
+			else if (hecho.pasos) pasos += hecho.pasos;
+			else descartes.push("los agentes no encontraron nada que cambiar");
+			continue;
+		}
 		const avisos = await correrLarga(editor, r, op.alProgreso);
 		descartes.push(...avisos);
 		if (actuales() !== previo) pasos++;

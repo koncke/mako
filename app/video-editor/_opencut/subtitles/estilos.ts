@@ -62,6 +62,8 @@ export type PlantillaSubtitulo = {
 	trazo?: { color: string; grosor: number };
 	/** «May./min.» en Mayúscula. */
 	mayusculas?: boolean;
+	/** «May./min.» en Minúscula (las del reel de la «Edición automática»: «screen recordings appear»). */
+	minusculas?: boolean;
 	/** La «Sombra» de Texto con sus valores por defecto (los de CapCut). */
 	sombra?: boolean;
 	/**
@@ -206,6 +208,44 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		// Lo que falta decir, tenue; la palabra que se dice, blanca como el resto.
 		resaltado: { modo: "palabra", color: "#ffffff", noDichasOpacidad: 35 },
 	},
+	// ── Las del reel que mandó Martín para la «Edición automática» (9/11/2026): el agente de estilo las prueba
+	// una por una sobre los subtítulos (enjambre/correr.ts) y se queda con la primera que entra en dos renglones.
+	{
+		// La que gana en el reel: minúsculas, letra gruesa, sin caja, y la palabra que pesa en lima (la pinta el
+		// agente de palabras clave, que va después).
+		id: "lima",
+		nombre: "Lima",
+		fuente: "Inter",
+		negrita: true,
+		color: "#ffffff",
+		escala: 1.3,
+		espaciado: -1,
+		minusculas: true,
+		sombra: true,
+	},
+	{
+		// La de la caja oscura con la letra alta: «SCREEN RECORDINGS APPEAR».
+		id: "recuadro-bebas",
+		nombre: "Recuadro Bebas",
+		fuente: "Bebas Neue",
+		negrita: false,
+		color: "#ffffff",
+		escala: 1.5,
+		espaciado: 1,
+		mayusculas: true,
+		fondo: { color: "rgba(12, 12, 20, 0.78)", radio: 22, x: 0.3, y: 0.08 },
+	},
+	{
+		// La de marcador que el reel prueba y descarta.
+		id: "marcador",
+		nombre: "Marcador",
+		fuente: "Permanent Marker",
+		negrita: false,
+		color: "#ffffff",
+		escala: 1.15,
+		mayusculas: true,
+		sombra: true,
+	},
 ];
 
 export const PLANTILLA_POR_DEFECTO = PLANTILLAS_SUBTITULO[0];
@@ -246,7 +286,7 @@ export function paramsDePlantilla(
 		[TEXTO.trazoActivo]: Boolean(plantilla.trazo),
 		[TEXTO.sombraActiva]: Boolean(plantilla.sombra),
 		[TEXTO.brilloActivo]: false,
-		[TEXTO.mayusculas]: plantilla.mayusculas ? "mayusculas" : "ninguno",
+		[TEXTO.mayusculas]: plantilla.mayusculas ? "mayusculas" : plantilla.minusculas ? "minusculas" : "ninguno",
 		[PARAM_RESALTAR]: plantilla.resaltado?.modo ?? "ninguno",
 		[PARAM_NO_DICHAS_OPACIDAD]: plantilla.resaltado?.noDichasOpacidad ?? DEFAULTS_RESALTADO.noDichasOpacidad,
 	};
@@ -315,6 +355,7 @@ export function plantillaDeParams(
 		};
 	}
 	if (params[TEXTO.mayusculas] === "mayusculas") salida.mayusculas = true;
+	if (params[TEXTO.mayusculas] === "minusculas") salida.minusculas = true;
 	if (params[TEXTO.sombraActiva] === true) salida.sombra = true;
 	const modo = params[PARAM_RESALTAR];
 	if (modo === "palabra" || modo === "frase") {
