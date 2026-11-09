@@ -120,3 +120,73 @@ porque lo dijera un cartel hace seis horas.** (ApiMart sigue con US$ 0,26 del 8/
 - Le **pisé el portapapeles** con las imágenes de referencia.
 - En la papelera de Flow quedó la versión vertical del tablero (`/project/<id>/trash`,
   «Restaurar todo» la devuelve), y hay varias tarjetas «Imagen subida» de los pegados que conviene barrer.
+
+---
+
+# ACTUALIZACIÓN 9/11/2026 ~11:00 UTC (claude1 al 99 %)
+
+## El clip 2 está APROBADO
+
+`C:\Users\marti\Downloads\CLIP2-v2-CON-TU-VOZ.mp4` — Martín: **«Ahora sí, el segundo salió bien.»**
+
+**Lo que lo destrabó, y es la lección:** la voz sonaba española y yo busqué la causa en ElevenLabs
+durante cuatro vueltas. **No estaba ahí: estaba en el ORIGEN.** El voice-to-voice conserva la
+prosodia del audio que le das, así que si Omni habla en español de España, el clon lo arrastra.
+Se arregló **regenerando el video** con el acento pedido en el prompt, **no tocando ElevenLabs**:
+
+```
+Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara
+diciendo: "Me llamo Martín, tengo 25 años y me estudié a todos los gurús que conoces."
+Al principio abre la mano y deja caer la foto.
+```
+
+⚠️ **El acento va PRIMERO en el prompt.** Y el contexto completo de ese clip está en
+`Downloads\CLIP2-voz-wavnivel.contexto.md` (la regla nueva, ver AGENTS.md).
+
+**Lo otro que estaba mal y era mío:** no nivelaba el audio de origen antes de mandarlo a
+ElevenLabs. Va `loudnorm=I=-19:TP=-3:LRA=11,highpass=f=70` ANTES del STS (de −29 dB a −21).
+
+## Lo que pidió Martín ahora, textual
+
+> «no veo conexión entre la toma número 1 y la toma número 2… el fondo es diferente… Yo creo que lo
+> más sencillo es hacer el clip número 1 con el nuevo fondo. **Pero el problema es que no me gusta
+> mucho este fondo para todo el video**… Sí me gusta, de hecho, el otro fondo de tipo en la oficina.
+> **Tal vez podemos hacer de que este clip comience con el último fotograma y que Martín se levante
+> y se mueva la cámara y ahí está el pizarrón**, que es el que ya habíamos construido en su momento,
+> el que parece que también está en un cuarto… **habría que quitarle la mesa abajo para que Martín
+> se pueda acercar a hablar** ahí. O incluso ponerle el resto de fotos o tratar de replicar cómo
+> está… Obviamente siguiendo la metodología de siempre, **primero la imagen. O las imágenes en este
+> caso. Y después el clip.**»
+
+### Qué hay que hacer con eso
+
+El clip de enlace usa el modo **primer y último fotograma** de Omni (Flow: modo «Fotogramas», botones
+**Iniciar** y **Finalizar**). Hacen falta **dos imágenes**:
+
+| | qué es | estado |
+|---|---|---|
+| **Iniciar** | el **último fotograma del clip 1** (él en la oficina, con los monitores) | extraído: `scratchpad\clip2\CLIP1-ULTIMO.png` (720×1280) |
+| **Finalizar** | **él parado delante del pizarrón**, sin la mesa abajo | **FALTA** |
+
+Para la de **Finalizar**, el pizarrón es el que Martín adjuntó: `scratchpad\...\images\2.jpg`
+(768×1376) — el corcho horizontal con las caricaturas, en una pared de cuarto, con escritorio,
+planta y ventana. **Hay que quitarle el escritorio de abajo** para que entre el cuerpo de Martín, y
+después meterlo a él con el método ya validado: **la persona de BASE, el fondo de REFERENCIA**.
+
+⚠️ **El fondo del corcho NO va en todo el reel**: la oficina se queda para el clip 1 y el pizarrón
+aparece recién cuando la cámara se mueve. Es decisión de Martín.
+
+## Los prompts de Martín, en orden, para no volver a pedírselos
+
+1. `Este es un mensaje para todos los mentores high ticket.` *(hook, bloque 1)*
+2. `Me llamo Martín, tengo 25 años y me estudié a todos los gurús que conoces.` *(bloque 2)*
+3. `Por eso creé una app para que no tengas que gastarte miles de dólares en vendehumos.` *(bloque 3)*
+4. `Vas a poder crear y editar videos como el que estás viendo en minutos.` *(bloque 4)*
+5. `Dejá de comentarle a los que te dan un triste PDF. Mejor comentá "App" y te regalo 1 semana de prueba.` *(bloque 5)*
+
+### Y sus correcciones de método, que valen para todo lo que falta
+- «que sea más simple, que no tenga tantas imágenes» · «que no repita influencer» · «pásale más, tenemos más».
+- «que mimetice un poquito más el fondo… **no quiero que se les quite el color de fondo a cada foto**».
+- «**estable tiene que ser cero**… tienes que copiarlo idéntico… si tienes otra información, **borra el resto**».
+- «cada clip que salga, que salga con **todas las configuraciones**… que cada generación traiga todo un contexto».
+- «**primero la imagen**. O las imágenes en este caso. Y después el clip.»
