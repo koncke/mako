@@ -338,6 +338,7 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
  *   · Cold Calling — ¿cuántas contestan y cuántas agendan? El botón de grabar arriba y el anillo de cómo terminan.
+ *   · Velocidad de llamada — ¿a quién no llamaron? Los leads por día (contactados y sin contactar) al lado del botón de grabar.
  */
 export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>> {
   return {
@@ -375,6 +376,9 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     // Cold Calling (04/11/2026): ¿cuántas contestan? «Grabar llamada» y los tres números de a dos (Moorly), las llamadas por día a lo
     // ancho, y cómo terminan al lado de quién llamó. El botón entra como la primera tarjeta (`arriba` en lib/graficos-acciones.ts).
     'cold-calling': { molde: 'moorly', sube: 'como-terminan', vecino: 'por-dia', par: ['como-terminan', 'quien'] },
+    // Velocidad de llamada (10/11/2026): sus piezas, como en Ledge — los leads por día al lado de «Grabar llamada», los sin contactar en
+    // las 8 con cuánto tardaron al lado, y las listas de cada lead a lo ancho. Mirando se ve el diseño (la copia de Tend).
+    'velocidad-llamada': { molde: 'ledge', sube: 'dias', vecino: 'dias', par: ['tramos', 'carga', 'resumen'] },
   };
 }
 

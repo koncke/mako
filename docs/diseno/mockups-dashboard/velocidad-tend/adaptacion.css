@@ -1,0 +1,29 @@
+/* Lo de la ADAPTACIÓN de la copia de Tend a MaKo (10/11/2026): lo que la copia no necesita porque es una página entera, y el
+   Dashboard sí. Ya va con el prefijo: armar-css.py lo pega tal cual al final de app/dashboard/disenos/velocidad-css.ts. */
+.vt { container: vt / inline-size; min-height: 100%; background-attachment: scroll; }
+.vt .vt-cuerpo { padding: 0; }
+/* Un número que no llegó: «—», apagado. */
+.vt .vt-sin { color: var(--faint); }
+/* La hoja compartida (sin sesión) y la miniatura de «Nueva hoja»: nada se toca. */
+.vt .vt-quieta { pointer-events: none; }
+.vt[data-quieta] * { transition: none !important; }
+/* Una fila o una tarjeta que abre el lead. */
+.vt [role="button"] { cursor: pointer; }
+/* Los carriles de «Flujo de leads» en una tarjeta angosta (el lienzo del Dashboard en una ventana de 1024 mide ~780): corren de costado,
+   como la copia en el teléfono, en vez de partirse en cuatro columnas de 110 px. */
+.vt .vt-td-flow { container: vtflujo / inline-size; }
+@container vtflujo (max-width: 680px) {
+  .vt .vt-td-lanes { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .vt .vt-td-lane { flex: 0 0 200px; scroll-snap-align: start; }
+}
+/* Un carril sin leads, y la lista de chats vacía: el carril queda, vacío, como en la copia. */
+.vt .vt-td-lane:empty { min-height: 120px; }
+/* El ↗ y los links de las tarjetas van con el Link de la casa (un <a>): sin el subrayado del navegador. */
+.vt a.vt-ibtn, .vt a.vt-btn { text-decoration: none; }
+/* Más angosta que cualquier teléfono (la ventana chica de la computadora, con la barra de MaKo: la hoja mide ~256 px): los botones de
+   arriba, uno debajo del otro; las píldoras y las cabeceras de las tarjetas bajan de renglón en vez de salirse de la tarjeta. */
+@container vt (max-width: 300px) {
+  .vt .vt-head__actions { grid-template-columns: minmax(0, 1fr); }
+  .vt .vt-pill { white-space: normal; }
+  .vt .vt-card__h { flex-wrap: wrap; row-gap: 8px; }
+}

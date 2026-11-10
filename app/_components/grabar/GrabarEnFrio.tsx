@@ -26,10 +26,14 @@ const MIN = 2;
 
 type Encontrado = { id: number; nombre: string; segunda: string | null };
 
-export function GrabarEnFrio() {
+/**
+ * `inicial` (10/11/2026, «Velocidad de llamada»): el lead que ya se eligió en la hoja (el «Llamar» de una tarjeta). Si ya se está
+ * grabando a otro, manda la llamada en curso, como siempre.
+ */
+export function GrabarEnFrio({ inicial = null }: { inicial?: { id: number; nombre: string } | null } = {}) {
   const g = useGrabadora();
   const enCurso = g.leadId != null && (g.fase === 'pidiendo' || g.fase === 'grabando' || g.fase === 'cerrando');
-  const [lead, setLead] = useState<{ id: number; nombre: string } | null>(enCurso ? { id: g.leadId!, nombre: g.leadNombre ?? '' } : null);
+  const [lead, setLead] = useState<{ id: number; nombre: string } | null>(enCurso ? { id: g.leadId!, nombre: g.leadNombre ?? '' } : inicial);
   const [q, setQ] = useState('');
   const [filas, setFilas] = useState<Encontrado[] | null>(null);
   const [hayMas, setHayMas] = useState(false);

@@ -772,8 +772,9 @@ una tarjeta de diseño no se podían cambiar (el panel no tenía campos). «No s
   aplicada). La métrica dice la verdad: llaman desde el celular sin grabar, y lo que su línea de WhatsApp manda va a otros chats, no
   a los leads. Sin explicarlo parece que nadie llamó. Ahora la tarjeta «Primer contacto» lo dice cuando la mayoría sale sin contactar
   (`faltaGrabar`, lib/primer-contacto.ts) y trae el botón «Grabar llamada» (la grabadora de la ficha) en el lugar de la lista de los
-  más lentos —cabe en la tarjeta sin agrandarla—. «Velocidad de llamada» suma, a la vista, la tabla «Cada lead nuevo» (conjunto
-  `primer_contacto`, por lead, con el tramo y el canal).
+  más lentos —cabe en la tarjeta sin agrandarla—. ~~«Velocidad de llamada» suma, a la vista, la tabla «Cada lead nuevo» (conjunto
+  `primer_contacto`, por lead, con el tramo y el canal).~~ (10/11/2026: la hoja se rehízo como la copia de Tend, sin esa tabla ni esa
+  explicación, que Tend no tiene; cada lead que espera está en su «Flujo de leads»: §38. La tarjeta con el aviso sigue en Closing.)
 - **El Dashboard es POR PERSONA** (`app_settings`, `graficos.tablero.<sub>`): «instalar una hoja para un cliente» es escribir una fila
   por cada usuario de cada negocio. Lo que nadie guardó se resuelve en el CÓDIGO: `HOJA_DE_AGENCIA` (lib/graficos-plantillas.ts) pone
   «Velocidad de llamada» en el negocio de cada cliente aprobado de la agencia 13, sin escribir nada. Sólo quien ya guardó el suyo
@@ -794,6 +795,51 @@ dashboard-velocidad-codigo.
 **Lo que quedó SIN hacer:** la API de MaKo (lib/api-mako/areas/dashboard.run.ts:167, sin persona) sigue leyendo el inicial sin la hoja
 de la agencia; una vista de la AGENCIA con una fila por cliente (lo literal de Juanfran: «cada inmobiliario») no existe todavía; los
 Dashboards ya guardados en los negocios de Código (los lista docs/relevo/dashboards-codigo.md) reciben la hoja sólo con el sí de Martín.
+
+## 38. «Velocidad de llamada» rehecha como la copia de Tend: una hoja de tarjetas de TRES diseños es una pantalla inventada (10/11/2026, chat en la nube)
+
+**Síntoma:** Martín, 10/11, sobre la hoja que ven los siete clientes de Código Inmobiliario: «se inventó cosas en lugar de copiar los
+templates que ya estábamos copiando… Tiene una cantidad de texto innecesario… cosas flotando sin sentido… el más feo de todos… con
+urgencia rehacer este dashboard. Y que quede como los otros que tenemos».
+
+- **⚠️ El diagnóstico obvio era el equivocado: «cada tarjeta ya es una copia».** Lo era: la cabecera y los números de Cold Calling, el
+  primer contacto de Closing y la tabla de Marketing, cada una copiada a la regla. Juntas eran una pantalla que ningún demo tiene, con
+  una tabla y una explicación propias en el medio. **La copia es de la PÁGINA entera, no de cada tarjeta.** Lo sostiene
+  `tests/dashboard-un-solo-diseno.test.ts`: ninguna plantilla ofrecida (Dashboard, General y la hoja inicial de una agencia) junta
+  bloques de más de un diseño, mirado en el armado crudo y en la hoja instanciada. Con la hoja de antes da 0 / 3.
+- **La fuente es la página «Today» de Tend** (la recepción de una clínica): su sala de espera con los minutos de cada paciente y su
+  «Call in» es un lead esperando que lo llamen, y sus «Clinicians today» son las llamadas de hoy por quién llama. Lo que Tend tiene y
+  MaKo no mide no está: el reloj de la clínica, los recordatorios de mañana, el texto de cada mensaje (MaKo no lo lee), los no leídos, el
+  almuerzo de la agenda, «Finish» y la barra de la consulta. Cada mapeo y cada pieza sacada, en docs/relevo/nube-velocidad-tend.md.
+- **Para que la maqueta de la adaptación y la hoja no puedan decir cosas distintas, la maqueta SE GENERA del componente**
+  (velocidad-tend/armar-velocidad.tsx: dibuja HojaVelocidad con la muestra, le saca el prefijo `vt-` y le pone la hoja de la copia).
+  Escrita a mano, la adaptación es una segunda versión de la pantalla, y la que se aprueba no es la que se despliega.
+- **La hoja con diseño también pasa por su molde** (`conPortadaDe`, como Cold Calling): sus piezas son «Todas las piezas» y la hoja
+  entera si alguien le saca el diseño. El comentario «NO PASA POR `conPortadaDe`» era falso para las demás hojas copiadas.
+  ⚠️ **Sin un solo número, el primer paso de Ledge (`p+2x2`) pone el principal a lo ancho** y `tests/graficos-corbel.test.ts` lo frena
+  («abre con algo a lo ancho»). El botón «Grabar llamada» (`grabar_llamada`, el de Cold Calling) entra como el número de al lado.
+- **⚠️ Una grilla que en el teléfono pasa a flex en columna arrastra el `align-items: start` de la computadora**, y con `start` cada tarjeta
+  mide `fit-content`: la de «Patient flow», con carriles que no se encogen (`flex: 0 0 270px`), medía 1.112 px y la página corría de
+  costado a 390. La de Tend no corre (medido). Va `align-items: stretch` en la regla del teléfono. En el Dashboard pasaba lo mismo
+  adentro del bloque: es la misma hoja de estilos.
+- **Un título que entra letra por letra se parte ADENTRO de una palabra** cuando no entra («Buenos días, An / a», en la ventana angosta del
+  editor): cada letra es su `inline-block`. Cada palabra va entera en una caja `nowrap` y las letras adentro.
+- **Un reemplazo que no encuentra un texto copiado del archivo puede ser un espacio DURO** (U+00A0, en `ch === ' ' ? '\u00a0'`): el
+  ancla se ve idéntica y no aparece. Antes de dudar del archivo: `cat -A` o buscar `\u00a0`.
+- **Lo que le faltaba a los conjuntos, y se sumó lo mínimo:** `conversaciones` por lead con lo que lleva esperando respuesta
+  (`espera_respuesta`, sin total), `primer_contacto` con lo que lleva esperando cada uno y su mediana, y `llamadas_grabadas` con la hora
+  (`horaTj`, en la misma zona que `fechaTj`: la de Tijuana, como todo lo que lee el Dashboard; no es la zona del negocio).
+- **En la nube no hay base:** la hoja se vio en el editor de verdad con un banco temporal (una ruta que monta `EditorInforme` con la
+  muestra), que se borró antes del veredicto junto con `.next/dev` (§36). Editando abre su propio recorrido encima: hay que saltearlo.
+
+**Vive en:** lib/velocidad-diseno.ts, lib/velocidad-diseno-muestra.ts, app/dashboard/disenos/HojaVelocidad.tsx, VelocidadVivo.tsx,
+velocidad-css.ts, lib/disenos-partes.ts (`velocidad`), lib/graficos-plantillas.ts (`VELOCIDAD_LLAMADA`), lib/graficos-portadas.ts,
+lib/graficos-fuentes-extra.ts, lib/graficos-datos-extra.ts, docs/diseno/mockups-dashboard/velocidad-tend/. Tests:
+dashboard-diseno-velocidad (10, con 7 roturas), dashboard-un-solo-diseno (3, con 2), dashboard-velocidad-codigo, dashboard-bloques-diseno.
+
+**Lo que quedó SIN hacer:** la entrada de las tarjetas de «Today» (vive en un chunk que el INFORME no muestra: quedan quietas) y los
+estados vacíos de Tend, sin medir; el resumen de «30D» se cuenta de la serie (Tend no lo muestra en la captura); los Dashboards ya guardados
+de los negocios de Código (ws 15 y 23) siguen con la hoja de antes hasta que el Cerebro, con el sí de Martín, los reescriba.
 
 ## 11. Lo que quedó SIN hacer
 

@@ -81,6 +81,9 @@ const DE_DISENO: Readonly<Record<string, IdEntrada>> = {
   contenido: 'suben',
   // Las que no tienen la entrada de su página medida (el chunk que el INFORME no muestra) quedaban quietas: siguen quietas.
   comercial: 'ninguna', general: 'ninguna', operacion: 'ninguna', 'cold-calling': 'ninguna',
+  // Tend (10/11/2026): la entrada de la cabecera está medida (la `R` de la librería: el título letra por letra) y la dibuja su tarjeta;
+  // la de las tarjetas de «Today» vive en su chunk, que el INFORME no muestra.
+  velocidad: 'ninguna',
 };
 
 /** La entrada que se usa: la elegida, o la de su diseño, o ninguna. */

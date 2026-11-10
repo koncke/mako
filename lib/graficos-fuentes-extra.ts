@@ -307,7 +307,9 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
     id: 'conversaciones', nombre: 'Conversaciones de WhatsApp', area: 'Comunicación',
     descripcion: 'Cada vez que alguien te escribe: si le respondieron y en cuánto tiempo.',
     fechas: [{ id: 'fecha', nombre: 'Mensaje' }, { id: 'actual', nombre: 'Hoy', sinRango: true }],
-    dimensiones: [...TIEMPO, cat('linea', 'Línea'), cat('setter', 'Setter'), cat('etapa', 'Etapa'), escala(cat('con_lead', 'Es lead'), ['Sí', 'No'])],
+    // `lead` (10/11/2026, «Velocidad de llamada»): el NOMBRE del lead de cada chat que hoy espera, con su id en `r.lead` (abre la
+    // ficha). Es una PERSONA: queda fuera de DIMENSIONES_PUBLICAS. Sólo la llenan las filas de «Hoy».
+    dimensiones: [...TIEMPO, cat('linea', 'Línea'), cat('setter', 'Setter'), cat('etapa', 'Etapa'), escala(cat('con_lead', 'Es lead'), ['Sí', 'No']), cat('lead', 'Lead')],
     metricas: [
       m('turnos', 'Mensajes recibidos'), m('respondidos', 'Respondidos'), m('rapidos_15', 'Respondidos en 15 min'), m('rapidos_60', 'Respondidos en 1 hora'),
       r('pct_respondidos', 'Respondidos (%)', 'pct', 'respondidos', 'turnos', 100),
@@ -317,6 +319,9 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       menos(percentil('mediana_respuesta', 'Mediana de respuesta (min)', 'minutos_respuesta', 50)),
       menos(percentil('p90_respuesta', 'Respuesta más lenta, p90 (min)', 'minutos_respuesta', 90)),
       menos(m('sin_responder', 'Esperando respuesta')), dist('chats', 'Chats'),
+      // 10/11/2026: con la fecha «Hoy», hace cuánto escribió la persona si el último mensaje es suyo (sin el umbral de 24 h de
+      // `sin_responder`). En SEGUNDOS, para que se lea como duración. Sin total: sumar esperas no dice nada.
+      { ...menos(m('espera_respuesta', 'Lleva esperando respuesta', 'segundos')), sinTotal: true },
     ],
   },
   // ── El primer contacto (5/11/2026) ───────────────────────────────────────────────────
@@ -347,6 +352,10 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       { ...m('espera', 'Cuánto tardó, o lleva esperando', 'segundos'), sinTotal: true },
       menos(percentil('mediana_contacto', 'Mediana del primer contacto (min)', 'minutos_contacto', 50)),
       menos(percentil('p90_contacto', 'Primer contacto más lento, p90 (min)', 'minutos_contacto', 90)),
+      // 10/11/2026 («Velocidad de llamada», la copia de Tend: «In the waiting room · avg 9 min»): cuánto llevan esperando los que
+      // nadie contactó todavía. La mediana y no el promedio, por lo mismo que arriba.
+      atributo('minutos_esperando', 'Minutos que llevan esperando'),
+      menos(percentil('mediana_espera', 'Mediana de lo que esperan (min)', 'minutos_esperando', 50)),
       m('con_automatico', 'Les escribió primero una automatización'),
     ],
   },
@@ -365,6 +374,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       escala(cat('resultado', 'Cómo terminó'), VALORES_RESULTADO, COLORES_RESULTADO),
       escala(cat('origen', 'Dónde se grabó'), [ROTULO_ORIGEN['cold-calling'], ROTULO_ORIGEN.ficha]),
       cat('autor', 'Quién llamó'), cat('lead', 'Lead'), cat('estado', 'Estado'),
+      // 10/11/2026 («Velocidad de llamada»): la hora del día de la llamada («09» … «23»), para la línea de las llamadas de hoy.
+      cat('hora', 'Hora'),
     ],
     metricas: [
       m('llamadas', 'Llamadas'), m('contestaron', 'Contestaron'), m('agendaron', 'Agendaron'),

@@ -11,7 +11,7 @@ import { getUsuarioActual } from './auth';
 import { tableroActual } from './tablero-actual';
 import { tableroDeCapa, type QueTablero } from './tablero-de-capa';
 import { leerTodo, type ConsultaPaginada, type OrdenPaginado } from './supabase-paginado';
-import { diasAntes, hoyEnTijuana } from './date-utils';
+import { TZ_TIJUANA, diasAntes, hoyEnTijuana } from './date-utils';
 import { tramosDeDias } from './graficos-agregar';
 import { productosCrm } from './api-mako/areas/crm.helpers';
 
@@ -25,6 +25,17 @@ export const fechaTj = (iso: unknown): string | null => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const ms = Date.parse(iso);
   return Number.isFinite(ms) ? hoyEnTijuana(new Date(ms)) : null;
+};
+/**
+ * La HORA del día de un instante («09» … «23»), en la misma zona que `fechaTj` (10/11/2026, «Velocidad de llamada»: la línea de las
+ * llamadas de hoy por quién llama). Una fecha sin hora no tiene: null.
+ */
+export const horaTj = (iso: unknown): string | null => {
+  if (typeof iso !== 'string' || !iso || /^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const h = new Intl.DateTimeFormat('en-GB', { timeZone: TZ_TIJUANA, hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).find((x) => x.type === 'hour')?.value;
+  return h ? (h === '24' ? '00' : h) : null;
 };
 export const lindo = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/[_-]+/g, ' ') : null);
 /** La ruta de una URL sin el dominio ni la query: «/vsl», no «https://hola-mako.com/vsl?fbclid=…». */

@@ -33,14 +33,13 @@
 //     reexportan acá.
 
 import {
-  COLS, MAX_HOJAS, NOMBRE_INICIAL, campoDe, esElemento, esGrafico, hojaVacia, nuevoId, sanearComponente, sanearGrafico, sanearHoja,
+  MAX_HOJAS, NOMBRE_INICIAL, campoDe, esElemento, esGrafico, hojaVacia, nuevoId, sanearComponente, sanearGrafico, sanearHoja,
   type Componente, type Hoja, type Tablero,
 } from './graficos-catalogo';
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
-import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
+import { PLANTILLAS_GENERALES, plantilla } from './graficos-plantillas-generales';
 import { comoDenso, portadasDashboard } from './graficos-portadas';
 import { PLANTILLAS_GENERAL } from './general-plantillas';
-import { bloqueDeDiseno, idDeBloque, parteDe, seccionDePiezas, type DisenoId } from './disenos-partes';
 import type { RolWorkspace } from './auth-session';
 import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
 
@@ -216,77 +215,81 @@ const COMERCIAL: PlantillaHoja = {
 const PORTADAS = portadasDashboard();
 const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoDenso(p.armar(id), PORTADAS[p.id], id) });
 
-// ── «Velocidad de llamada» (6/11/2026): la hoja de los clientes de Código Inmobiliario ──────────────────────────────────────
-// Martín: «investigues la metodología que tiene Código Inmobiliario con sus clientes, lo de que les corren campañas, les obligan
+// ── «Velocidad de llamada»: la hoja de los clientes de Código Inmobiliario (6/11/2026; rehecha el 10/11/2026) ──────────────
+// Martín, 6/11: «investigues la metodología que tiene Código Inmobiliario con sus clientes, lo de que les corren campañas, les obligan
 // a llamar rápido cuando entra un lead, necesitan el botón de grabar… quiero que armes un dashboard especial para ellos». La
-// metodología, con lo dicho, lo medido y las dudas: docs/dashboards/metodologia-codigo-inmobiliario.md. Lo que mira es el CAMINO
-// del lead de un cliente inmobiliario: entra por el formulario de Meta, alguien tiene que llamarlo rápido, la llamada se graba, y
-// el anuncio que lo trajo se paga. Se arma SÓLO con tarjetas que ya existen (copiadas, lib/disenos-partes.ts): la de Cold Calling
-// (el título con «Grabar llamada», sus números, las llamadas, a quién y cómo terminan), la de «Primer contacto» de Closing (cuánto
-// tardaron y los más lentos) y la de anuncios de Marketing. Nada se inventa: sin datos, cada tarjeta lo dice.
-// ⚠️ NOMBRA LEADS (el primer contacto, a quién llamaste): no la ve ni un closer ni un setter, que tienen su hoja única
-//    (`HOJA_DE_ROL`), y el primer contacto lo pide /dashboard sólo para el admin (app/dashboard/page.tsx, `unica`).
-// ⚠️ NO PASA POR `conPortadaDe`: su lugar es el de las tarjetas, no el de una portada de la grilla.
-const LUGARES_VELOCIDAD: ReadonlyArray<readonly [DisenoId, string, number, number, number, number]> = [
-  ['cold-calling', 'cabecera', 0, 0, 12, 3],
-  ['closing', 'contacto', 0, 3, 12, 9],
-  // (y = 12: «Cada lead nuevo», la tabla de abajo, LUGAR_CADA_LEAD)
-  ['cold-calling', 'numeros', 0, 24, 12, 3],
-  ['cold-calling', 'llamadas', 0, 27, 8, 10],
-  ['cold-calling', 'siguen', 8, 27, 4, 10],
-  ['cold-calling', 'llamados', 0, 37, 6, 12],
-  ['cold-calling', 'quien', 6, 37, 3, 12],
-  ['cold-calling', 'terminan', 9, 37, 3, 12],
-  ['marketing', 'tabla', 0, 49, 12, 15],
-];
-/**
- * «Cada lead nuevo» (9/11/2026): la pregunta de Juanfran (Código Inmobiliario) es por CADA lead —«cuánto tarda cada inmobiliario
- * en contactar a un lead desde que ingresa al CRM»—, y la tarjeta de Closing muestra la mediana y los cinco más lentos. Esta tabla
- * los lista a todos, con cuánto tardó (el tramo), por dónde y los minutos; la fila abre la ficha del lead. Es una pieza del
- * catálogo (el conjunto `primer_contacto`, lib/graficos-fuentes-extra.ts): se configura como cualquier gráfico.
- */
-const LUGAR_CADA_LEAD = { x: 0, y: 12, w: 12, h: 12 } as const;
-type Armada = { controles: Array<Record<string, unknown>>; componentes: Array<Componente & { h: number }>; diseno: { piezas: Record<string, string> } };
-
-export const VELOCIDAD_LLAMADA: PlantillaHoja = {
+// metodología: docs/dashboards/metodologia-codigo-inmobiliario.md. Y el 10/11, al verla: «se inventó cosas en lugar de copiar los
+// templates que ya estábamos copiando… comparado con los otros dashboards es el más feo de todos… con urgencia rehacer este dashboard.
+// Y que quede como los otros que tenemos». La de antes juntaba tarjetas de TRES diseños (Cold Calling, Closing y la tabla de
+// Marketing) con una tabla y textos propios. Ésta es la COPIA de UN demo, como las demás: la página «Today» de Tend (la recepción de
+// una clínica: su sala de espera con los minutos de cada paciente y su botón «Call in» es un lead esperando que lo llamen). La copia:
+// docs/diseno/mockups-dashboard/velocidad-tend/; lo que lee cada tarjeta, lib/velocidad-diseno.ts.
+// ⚠️ NOMBRA LEADS: no la ve ni un closer ni un setter, que tienen su hoja única (`HOJA_DE_ROL`).
+// ⚠️ PASA POR `conPortadaDe`, como Cold Calling: mirando se ve el diseño, y sus piezas (plegadas en «Todas las piezas», o la hoja
+//    entera si alguien le saca el diseño) siguen un molde, como las de las demás (tests/graficos-corbel.test.ts).
+// ⚠️ DIEZ piezas y el botón «Grabar llamada» (una plantilla general no pasa de 12, `TOPE_COMPONENTES_IA`), y cada pieza es de los
+//    conjuntos `primer_contacto`, `conversaciones` y `llamadas_grabadas`. El botón es el de Cold Calling (`grabar_llamada`): el de la
+//    cabecera del diseño abre la misma grabadora.
+const SIN_CONTACTAR = { tipo: 'lista', campo: 'primer_contacto.tramo', valores: ['Sin contactar'], fijo: true };
+const COLUMNAS_LEAD = ['dia', 'setter', 'producto'];
+export const VELOCIDAD_LLAMADA: PlantillaHoja = conPortadaDe(plantilla({
   id: 'velocidad-llamada', nombre: 'Velocidad de llamada', emoji: '⏱️',
-  linea: 'Cuánto tardan en llamar a cada lead nuevo, las llamadas grabadas y qué anuncio trae los leads.',
+  linea: 'Cuánto tardan en llamar a cada lead nuevo: quién espera, a quién ya contactaron y las llamadas de hoy.',
   buscar: 'inmobiliaria agencia primer contacto grabar llamada rápido lead nuevo',
-  armar: (id) => {
-    const hojaId = id('hoja');
-    const cc = PLANTILLAS_GENERALES.find((p) => p.id === 'cold-calling')!.armar((l) => id(`cc-${l}`)) as unknown as Armada;
-    const mk = MARKETING.armar((l) => id(`mk-${l}`)) as unknown as Armada;
-    const tabla = parteDe('marketing', 'tabla')!;
-    const deMk = Object.fromEntries(tabla.lee.map((k) => [k, mk.diseno.piezas[k]]));
-    const idsMk = new Set(Object.values(deMk));
-    // Las piezas de donde leen las tarjetas: las de Cold Calling (menos su botón: lo dibuja su tarjeta) y las de la tabla de anuncios.
-    const piezas = [...cc.componentes.filter((c) => c.clase === 'grafico'), ...mk.componentes.filter((c) => idsMk.has(c.id))];
-    const leen: Record<string, Record<string, string>> = { 'cold-calling': cc.diseno.piezas, closing: {}, marketing: deMk };
-    const usados = new Set(piezas.map((c) => c.id));
-    const bloques = LUGARES_VELOCIDAD.map(([d, parte, x, y, w, h]) => ({ ...bloqueDeDiseno(idDeBloque(hojaId, parte, usados), d, parteDe(d, parte)!, leen[d], 0), x, y, w, h }));
-    const cadaLead = sanearComponente({
-      id: id('pc-leads'), clase: 'grafico', controles: [], tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead',
-      metricas: ['espera'], titulo: 'Cada lead nuevo: cuánto tardaron en contactarlo', limite: 100,
-      tabla: { acciones: true, columnas: ['tramo', 'canal'] }, ...LUGAR_CADA_LEAD,
-    })!;
-    const fondo = [...bloques, cadaLead].reduce((m, b) => Math.max(m, b.y + b.h), 0);
-    const seccion = seccionDePiezas(hojaId, fondo, usados);
-    // Plegadas, sin huecos: en filas de 12 columnas, una al lado de la otra mientras entren (los números van de a tres).
-    const plegadas: Array<Componente & { h: number }> = [];
-    let fila = fondo + seccion.h, x = 0, alto = 0;
-    for (const c of piezas) {
-      if (x + c.w > COLS) { fila += alto; x = 0; alto = 0; }
-      plegadas.push({ ...c, x, y: fila });
-      x += c.w; alto = Math.max(alto, c.h);
-    }
-    // El período: el de una semana de Cold Calling queda corto para ver cuántos leads entraron; Código mira 7 y 30 días.
-    const controles = cc.controles.map((k) => (k.tipo === 'periodo' ? { ...k, preset: 'ult30' } : k));
-    return {
-      id: hojaId, nombre: 'Velocidad de llamada', subtitulo: 'Cuánto tardas en llamar a cada lead nuevo, y qué pasa en la llamada.',
-      entrada: 'suben', controles, componentes: [...bloques.slice(0, 2), cadaLead, ...bloques.slice(2), seccion, ...plegadas],
-    };
+  subtitulo: 'Cuánto tardas en llamar a cada lead nuevo.', periodo: 'ult30',
+  acciones: [{ local: 'grabar', accion: 'grabar_llamada', rotulo: 'Grabar llamada' }],
+  piezas: [
+    // Los cuatro números, los números de cada carril y el % contra el período anterior.
+    {
+      local: 'resumen', tipo: 'tramos', fuente: 'primer_contacto', dimension: null, comparar: true, titulo: 'Primer contacto',
+      metricas: ['leads', 'contactados', 'sin_contactar', 'base_1h', 'en_1h', 'mediana_contacto', 'mediana_espera', 'ya_hablaban'],
+    },
+    // «Patient flow»: los sin contactar de la espera más corta a la más larga (los dos primeros carriles), los contactados (del más
+    // rápido) y los que ya hablaban o no se sabe.
+    {
+      local: 'recien', tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead', metricas: ['espera'], ordenAsc: true, limite: 50,
+      titulo: 'Sin contactar, los más nuevos', tabla: { acciones: true, columnas: COLUMNAS_LEAD }, controles: [SIN_CONTACTAR],
+    },
+    {
+      local: 'contactados', tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead', metricas: ['espera'], ordenAsc: true, limite: 50,
+      titulo: 'Contactados', tabla: { acciones: true, columnas: [...COLUMNAS_LEAD, 'canal'] },
+      controles: [{ tipo: 'lista', campo: 'primer_contacto.tramo', valores: ['En la primera hora', 'De 1 a 24 horas', 'De 1 a 3 días', 'Más de 3 días'], fijo: true }],
+    },
+    {
+      local: 'antes', tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead', metricas: ['leads'], limite: 50,
+      titulo: 'Sin medir (ya hablaban o sin dato)', tabla: { acciones: true, columnas: [...COLUMNAS_LEAD, 'tramo'] },
+      controles: [{ tipo: 'lista', campo: 'primer_contacto.tramo', valores: ['Ya hablaban antes', 'No se sabe'], fijo: true }],
+    },
+    // «WhatsApp · waiting on us»: los chats de leads cuyo último mensaje es de la persona, el más reciente primero.
+    {
+      local: 'chats', tipo: 'tabla', fuente: 'conversaciones', fecha: 'actual', dimension: 'lead', metricas: ['espera_respuesta', 'sin_responder'],
+      ordenAsc: true, limite: 50, titulo: 'Esperan respuesta en WhatsApp', tabla: { acciones: true, columnas: ['etapa'] },
+    },
+    // «Clinicians today» y «Team activity»: las llamadas grabadas hoy, con quién llamó, cómo terminó y a qué hora.
+    {
+      local: 'hoy', tipo: 'tabla', fuente: 'llamadas_grabadas', dimension: 'lead', metricas: ['llamadas', 'minutos'], limite: 50,
+      titulo: 'Llamadas de hoy', tabla: { acciones: true, columnas: ['autor', 'resultado', 'hora'] }, controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }],
+    },
+    // «Reminders · Tomorrow»: los contactados por cuánto tardaron.
+    { local: 'tramos', tipo: 'barras', fuente: 'primer_contacto', dimension: 'tramo', metricas: ['leads'], titulo: 'Cuánto tardaron' },
+    // «Visits»: contactados y sin contactar, día por día.
+    { local: 'dias', tipo: 'serie', fuente: 'primer_contacto', dimension: 'dia', metricas: ['contactados', 'sin_contactar'], titulo: 'Leads por día' },
+    // «Recalls due»: los sin contactar, de la espera más larga.
+    {
+      local: 'esperan', tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead', metricas: ['espera'], limite: 10,
+      titulo: 'Los que más esperan', tabla: { acciones: true, columnas: COLUMNAS_LEAD }, controles: [SIN_CONTACTAR],
+    },
+    // «Clinician load»: los leads de cada setter.
+    {
+      local: 'carga', tipo: 'tabla_barras', fuente: 'primer_contacto', dimension: 'setter', metricas: ['leads', 'contactados', 'sin_contactar', 'mediana_contacto'],
+      barra: 'contactados', limite: 10, titulo: 'Carga por setter',
+    },
+  ],
+  diseno: {
+    id: 'velocidad',
+    piezas: { resumen: 'resumen', recien: 'recien', contactados: 'contactados', antes: 'antes', chats: 'chats', hoy: 'hoy', tramos: 'tramos', dias: 'dias', esperan: 'esperan', carga: 'carga' },
   },
-};
+}));
 
 /**
  * La galería de «Nueva hoja», en orden. Marketing y Comercial son las del informe inicial; el resto
