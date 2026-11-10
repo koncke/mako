@@ -526,6 +526,21 @@ export function leerEntrada(raw: unknown): EntradaGuardada | null {
 }
 export const entradaCompleta = (e: EntradaGuardada): boolean => cubre(e.pagadoUsd, e.montoUsd);
 
+/**
+ * Un pago anotado de una orden de Binance (`agencia.mensualidad.<ag>.orden.<ORDEN>`, lo que se manda en el recibo): `montoUsd` es
+ * lo RECIBIDO; `aplicado`, a qué pendiente se sumó cada parte (`mes:<AAAA-MM>` o `entrada:<cliente>`, con lo que se debía).
+ * Lo leen el libro (lib/agencia-mes.ts) y Admin › Revenue (lib/admin-ingresos-libro.ts): vive acá para que sea UN lector.
+ */
+export type OrdenAnotada = { orden: string; monto: number; moneda: string; montoUsd: number; fecha: string; comprobante: string | null; aplicado: Array<{ clave: string; montoUsd: number }> };
+export const leerOrden = (raw: string | undefined): OrdenAnotada | null => {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as Partial<OrdenAnotada>;
+    if (typeof o.orden !== 'string' || typeof o.monto !== 'number' || typeof o.montoUsd !== 'number' || typeof o.fecha !== 'string') return null;
+    return { orden: o.orden, monto: o.monto, moneda: String(o.moneda ?? 'USD'), montoUsd: o.montoUsd, fecha: o.fecha, comprobante: typeof o.comprobante === 'string' ? o.comprobante : null, aplicado: Array.isArray(o.aplicado) ? o.aplicado : [] };
+  } catch { return null; }
+};
+
 /** El corte de «Paga para entrar» (lo que se guarda en `plan.corte_por_pago` con motivo `paga-para-entrar`). */
 export type CortePagaParaEntrar = { agenciaWs: number; rol: 'agencia' | 'cliente'; causas: Causa[]; perdonadas: Causa[] };
 export function leerCortePagaParaEntrar(raw: unknown): CortePagaParaEntrar | null {
