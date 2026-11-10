@@ -226,7 +226,7 @@ function tortaDePlan(clave: string, precio: number, plan: 'pro' | 'growth'): Tor
       { clave: 'conseguir', label: 'Captación', usd: cacPorMes(), cuenta: `CAC ${num(CAC_USD)} (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida` },
       { clave: 'servir', label: 'Servir la cuenta', usd: video + FIJO_POR_CLIENTE, cuenta: `Video con IA ${num(video, 2)} (${num(USO_SUPUESTO * 100)}% del cupo) + gasto fijo ${num(FIJO_POR_CLIENTE, 2)} (US$${num(fijoDeMartin())} ÷ ${num(META_CLIENTES)} clientes)` },
       { clave: 'impuesto', label: 'Impuesto', usd: precio * IMPUESTO, cuenta: `Monotributo ${num(IMPUESTO * 100, 2)}%, hoy lo paga Leandro` },
-      { clave: 'cobro', label: 'Cobro', usd: precio * PASARELA, cuenta: `Mercado Pago ${num(PASARELA * 100, 2)}%, con la plata a 35 días` },
+      { clave: 'cobro', label: 'Cobro', usd: precio * PASARELA, cuenta: `Mercado Pago ${num(PASARELA * 100, 2)}%, con acreditación a 35 días` },
     ]);
 }
 
