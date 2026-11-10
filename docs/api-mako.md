@@ -6450,10 +6450,11 @@ curl -L \
   "https://hola-mako.com/api/v1/ads/media-buyer/copiloto"
 ```
 
-### `GET /api/v1/ads/metodo_campanas_copiloto` — Ver el método de campañas de Meta
+### `GET /api/v1/ads/media-buyer/copiloto/metodo` — Ver el método de campañas de Meta
 
 Cómo se arma y se maneja una campaña de Meta Ads en 2026, por tema (criterio de un curso, no una promesa). Pídelo ANTES de aconsejar cómo configurar una campaña.
 
+- **Ruta por operación:** `GET /api/v1/ads/metodo_campanas_copiloto`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** markdown
@@ -6466,7 +6467,11 @@ Cómo se arma y se maneja una campaña de Meta Ads en 2026, por tema (criterio d
 | `tema` | string (algoritmo \\| estructura \\| presupuesto \\| tracking \\| publicos \\| creativos \\| metricas \\| numeros \\| por-nicho) | sí | algoritmo, estructura (CBO/ABO), presupuesto (aprendizaje, escala), tracking (píxel, API), publicos, creativos, metricas, numeros (break-even, ROAS), por-nicho. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/copiloto/metodo?tema=algoritmo"
 ```
 
 ### `GET /api/v1/ads/media-buyer/biblioteca` — Ver la Biblioteca del Media Buyer
