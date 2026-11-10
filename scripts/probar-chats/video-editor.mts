@@ -161,7 +161,7 @@ for (const c of casos) {
     const t0 = Date.now();
     const r = await runWithWorkspace(WS, async () => editarVideo({ instruccion: c.pedido, linea: JSON.stringify(vista(!!c.subtitulos)), alcance: 'video' }));
     const res = { status: r.ok ? 200 : r.status };
-    const json = r as { ok?: boolean; resumen?: string; operaciones?: Array<Record<string, unknown>>; descartes?: string[]; error?: string } | null;
+    const json = r as unknown as { ok?: boolean; resumen?: string; operaciones?: Array<Record<string, unknown>>; descartes?: string[]; error?: string } | null;
     const ops = json?.operaciones ?? [];
     const resumen = json?.resumen ?? json?.error ?? '';
     const bien = !!json?.ok && c.ok(ops, resumen);
