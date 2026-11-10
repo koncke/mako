@@ -13,6 +13,42 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## Los outliers de video para la tab Video: lo que ya pagamos y tiramos (9/11/2026, nube)
+
+**Pedido** (Martín): conseguir los reels y anuncios que más funcionan, para que sean lo primero de la tab Video. El informe
+entero, con la recomendación, la fórmula y el contrato de datos: [investigacion-outliers-video.md](investigacion-outliers-video.md).
+Acá van las trampas.
+
+- **El diagnóstico obvio («hay que buscar una API de outliers») era el equivocado: la biblioteca de carruseles ya los paga y
+  los tira.** `filasDeLectura` descarta todo `formato === 'REELS'` y `medio === 'video'`. Medido el 4/11: de 40 publicaciones
+  por cuenta quedan 9 carruseles; las otras ~31 se cobraron (US$0,0023 cada una) y se perdieron. Es la misma familia que
+  «el dato más barato es el que ya pagaste y estás tirando» (2/11).
+- **La tabla ya los acepta y el explorador se los comería.** `carruseles_biblioteca_piezas` tiene `vistas` y admite
+  `medio = 'video'`, pero `recortarBiblioteca` filtra `medio !== 'imagen'`: un reel guardado ahí saldría como carrusel. Antes
+  de guardar uno, ese filtro pasa a `medio === 'carrusel'`.
+- **La búsqueda OFICIAL de hashtags de Instagram parece la salida legal y no sirve.** `top_media` no deja pedir `username`:
+  sin autor no hay mediana de su cuenta ni creador que replicar. Además pide App Review, cuyos usos permitidos (campañas
+  propias, sentimiento, concursos) no incluyen descubrir lo viral de un nicho, y topea en 30 hashtags cada 7 días.
+- **El «×» va contra la cuenta; el nicho es el filtro, no el denominador.** Contra la mediana del nicho ganan siempre las
+  cuentas grandes. Y la ayuda de vidIQ dice «promedio», no mediana: la casa se queda con la mediana de `lib/multiplo-rendimiento.ts`,
+  que es la única cuenta y no se duplica.
+- **TikTok no tiene formato para el «×».** `formatoDeMultiplo` devuelve `null` para `canal === 'tiktok'`: un TikTok saldría
+  `sin-formato` sin un error. Y no hay camino legal comercial para TikTok ajeno: Research API es académica, Display API es
+  sólo la cuenta propia, Commercial Content API es de anuncios europeos.
+- **«Tus outliers» ya tiene fuente legal en casa:** `lib/zernio-organico.ts` trae los posts propios con vistas. Su 0 mientras
+  Zernio sincroniza (`sinMetricas: 'pendiente'`) no es «nadie lo vio».
+- **`piezaDeApify` no lee la duración de un reel** (`videoDuration`): la plantilla de video la necesita.
+- **Desde abril de 2026, `view_count` de `business_discovery` suma Facebook** en los reels publicados en los dos lados.
+- ⚠️ **La nube no llega a las fuentes:** el proxy rechaza `api.apify.com`, `graph.facebook.com`, `developers.facebook.com`,
+  `ads.tiktok.com` y `www.tiktok.com`, y `www.googleapis.com` da 403 sin clave. Los precios de afuera salen de buscadores y
+  se verifican antes de pagar; las dos pruebas gratis (el oEmbed de TikTok y la tienda de Apify) están en el informe para
+  correrlas desde la PC.
+
+**Vive en:** `lib/carruseles/biblioteca.ts` (`filasDeLectura`, `recortarBiblioteca`) · `lib/multiplo-rendimiento.ts`
+(`formatoDeMultiplo`) · `lib/instagram-perfil.ts` (`piezaDeApify`) · `lib/zernio-organico.ts` · `docs/investigacion-outliers-video.md`.
+
+---
+
 ## «Copiar su sitio» abría el Diagnóstico, no Replicar (9/11/2026, nube)
 
 **Vive en:** `app/competitor-spy/SusPaginas.tsx` («Copiar su sitio»), `lib/editor-landing/replica-extension-cliente.ts`
