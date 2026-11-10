@@ -667,6 +667,9 @@ export async function validarActivacion(id: number): Promise<void> {
   const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos, instance_name').eq('id', id).maybeSingle();
   if (eLeer) throw new Error(`validarActivacion: ${eLeer.message}`);
   const guardados = (data as { pasos?: unknown } | null)?.pasos;
+  // UNA VACÍA NO SE ACTIVA (10/11/2026): activada no hace nada y queda «Activa». Por acá pasan la pantalla, /email y MaKo.
+  const { sinTarjetas, SIN_TARJETAS_AL_ACTIVAR } = await import('./flujo-conversacion');
+  if (sinTarjetas(Array.isArray(guardados) ? (guardados as PasoGrafo[]) : [])) throw new PasosInvalidosError(`No se activó: ${SIN_TARJETAS_AL_ACTIVAR}`);
   try {
     await setSecuenciaPasos(id, Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], { soloValidar: true });
   } catch (e) {

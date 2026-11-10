@@ -31,7 +31,7 @@ let siguienteId = 7000;
 const TABLAS = [
   'workspaces', 'app_settings', 'credenciales', 'usuarios', 'leads', 'funnels', 'lead_funnel', 'lead_audit', 'lead_events', 'lead_historial',
   'nutricion_secuencias', 'nutricion_inscripciones', 'nutricion_envios', 'email_broadcasts', 'email_broadcast_envios', 'notificaciones',
-  'productos', 'pagos', 'wa_borradores',
+  'productos', 'pagos', 'wa_borradores', 'mako_acciones_pendientes',
 ] as const;
 const pg = crearPostgrest({
   tablas: TABLAS,
@@ -376,6 +376,35 @@ async function escenarioSecuencia(): Promise<Record<string, unknown>> {
   const pv = await en(() => editar.preparar!({ id, funnelId: EMAIL }, ctx(NEGOCIO)));
   out.ejecVolver = await en(() => editar.ejecutar!(pv.payload as Record<string, unknown>, ctx(NEGOCIO)));
   out.filaVuelta = { funnel_id: fila().funnel_id, etapa: fila().etapa };
+  return out;
+}
+
+/**
+ * UNA VACÍA NO SE ACTIVA (10/11/2026, tests/activar-vacia.test.ts): la recién creada (sin tarjetas) no se prende ni por la
+ * puerta del motor ni cuando MaKo propone activarla; con una tarjeta, ese freno ya no es el que contesta.
+ */
+async function escenarioVacia(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const { setSecuenciaActiva } = await import('../lib/nutricion');
+  const crear = runnerDe('crear_secuencia_email') as unknown as Runner;
+  const toggle = runnerDe('proponer_toggle_nutricion') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  sembrarCrm(NEGOCIO);
+  const prep = await en(() => crear.preparar!({ nombre: 'Vacía', funnelId: EMAIL }, ctx(NEGOCIO)));
+  const ejec = await en(() => crear.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  const id = Number((ejec as { datos?: { id?: number } }).datos?.id);
+  const fila = () => db.nutricion_secuencias.find((f) => Number(f.id) === id)!;
+  // La de email nace con una tarjeta en blanco: la vacía es la que queda al borrarla (o la «Nueva» del lienzo, sin nada).
+  fila().pasos = [];
+  const out: Record<string, unknown> = { pasos: fila().pasos };
+  out.motor = await en(() => setSecuenciaActiva(id, true)).then(() => 'activó', (e: unknown) => (e instanceof Error ? e.message : String(e)));
+  out.activaTrasMotor = fila().activa;
+  // Es un proponente de antes (`proponerLegado`): lo que contesta va como texto.
+  out.propuesta = JSON.stringify(await en(() => (toggle as unknown as { proponerLegado: (i: unknown, c: unknown) => Promise<unknown> }).proponerLegado({ secuenciaId: id, activa: true }, ctx(NEGOCIO))));
+  out.pendientes = db.mako_acciones_pendientes.length;
+  Object.assign(fila(), { pasos: [{ id: 'm1', orden: 1, canal: 'email', delay_horas: 0, asunto: 'Hola', cuerpo: 'Uno' }] });
+  out.conTarjeta = await en(() => setSecuenciaActiva(id, true)).then(() => 'activó', (e: unknown) => (e instanceof Error ? e.message : String(e)));
   return out;
 }
 
@@ -773,7 +802,7 @@ async function escenarioWs1(caso: 'antes' | 'despues' | 'caida'): Promise<Record
 async function main() {
   const escenarios: Record<string, () => Promise<Record<string, unknown>>> = {
     dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes,
-    cuenta: escenarioCuenta, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
+    cuenta: escenarioCuenta, vacia: escenarioVacia, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
   };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);

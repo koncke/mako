@@ -65,7 +65,7 @@ import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, renumerar, borradorAlAbrir, errorLegible, tarjetaDelError, estrategiaConLimpieza, disparoDeValor, canalesParaProbar, frenoDelFlujo,
-  motivoParaNoProbar, cronSinElegir,
+  motivoParaNoProbar, motivoParaNoActivar, cronSinElegir,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
@@ -1512,7 +1512,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 ya encendido no decía si estaba activa o si había que activarla). */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Activar'}</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void conRitmo(() => void toggle())), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => {
+                if (activa) { void toggle(); return; }
+                // Vacía o sin CRON no se activa: quedaría «Activa» sin hacer nada (10/11/2026, `motivoParaNoActivar`).
+                const noActivar = motivoParaNoActivar({ cronSinElegir: cronSinElegir(crons.lista), pasos: abiertoPublicado });
+                if (noActivar) { setErr(noActivar); return; }
+                conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void conRitmo(() => void toggle())), abiertoPublicado);
+              }} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>

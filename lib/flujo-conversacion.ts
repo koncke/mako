@@ -2194,6 +2194,20 @@ export function motivoParaNoProbar(o: { cronSinElegir: boolean; pasos: readonly 
   return null;
 }
 
+/**
+ * POR QUÉ NO SE ACTIVA (10/11/2026, la auditoría de Automations para un usuario nuevo): una vacía o sin CRON se activaba y
+ * quedaba «Activa» sin hacer nada, que se lee como que la app está rota. Lo de la pantalla; el server frena la VACÍA
+ * (`validarActivacion`, lib/nutricion.ts), no el CRON sin elegir: la difusión nace `manual` y se activa por código.
+ */
+export function motivoParaNoActivar(o: { cronSinElegir: boolean; pasos: readonly PasoGrafo[] }): string | null {
+  if (!sinTarjetas(o.pasos) && !o.cronSinElegir) return null;
+  return sinTarjetas(o.pasos) ? SIN_TARJETAS_AL_ACTIVAR : 'Elige qué la dispara antes de activarla: sin eso no entra nadie.';
+}
+/** ¿No tiene ni una tarjeta (sólo el CRON)? */
+export const sinTarjetas = (pasos: readonly PasoGrafo[]): boolean => !pasos.some((p) => p && claseDe(p) !== 'inicio');
+/** Lo que dicen la pantalla y el server cuando no hay ninguna tarjeta. */
+export const SIN_TARJETAS_AL_ACTIVAR = 'Todavía no tiene ninguna tarjeta: agrega un mensaje con el ＋ del CRON y vuelve a activarla.';
+
 /** ¿El CRON está sin elegir? Ninguno, o todos «Elige qué la dispara» (`manual` sin horario: `TEXTO_SIN_ELEGIR`). */
 export const cronSinElegir = (lista: ReadonlyArray<{ trigger_tipo: string; cron?: unknown }>): boolean =>
   !lista.length || lista.every((d) => d.trigger_tipo === 'manual' && !d.cron);
