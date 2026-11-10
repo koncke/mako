@@ -264,6 +264,30 @@ export function datosDeDecision(p: PerfilCopiloto): DatosDeDecision | null {
   return datosDe(completar({ ...p, llamadas: p.llamadas ?? (p.vende === 'tienda' ? 'nadie' : undefined) }));
 }
 
+/**
+ * Para comparar funnels y recomendar uno (10/11/2026): SÓLO lo que la persona dijo, sin completar nada. `datosDeDecision` completa lo
+ * que el funnel ELEGIDO no pregunta («orgánico no lleva plata») y eso vale para juzgar ése; para los otros ocho, no. Medido en
+ * producción: con Julián Otálora (enseña sólo orgánico) y el ticket contestado, «Comparar funnels» decía «Con $0 al mes los anuncios no
+ * juntan datos» en cada funnel con anuncios y «MaKo lo recomienda» en Lead magnets, sin que nadie hubiera preguntado el presupuesto.
+ */
+export function datosDichos(p: PerfilCopiloto): DatosDeDecision | null {
+  const llamadas = p.llamadas ?? (p.vende === 'tienda' ? 'nadie' : undefined);
+  if (p.ticket == null || p.presupuestoMes == null || !llamadas) return null;
+  return datosDe({ ...p, llamadas });
+}
+
+/** Cómo se nombra lo que falta: a la persona en el panel (`tu`), o de ella en el contexto del agente (`el`). */
+export type VozFalta = 'tu' | 'el';
+/** Lo que falta para comparar los funnels con sus números. Vacío: ya se puede. */
+export function faltaParaComparar(p: PerfilCopiloto, voz: VozFalta = 'tu'): string[] {
+  const tu = voz === 'tu';
+  return [
+    p.ticket == null ? (tu ? 'cuánto te deja una venta' : 'cuánto le deja una venta') : null,
+    p.presupuestoMes == null ? (tu ? 'cuánto puedes poner en anuncios por mes' : 'cuánto puede poner en anuncios') : null,
+    p.llamadas || p.vende === 'tienda' ? null : (tu ? 'quién atiende a tus clientes' : 'quién atiende'),
+  ].filter((x): x is string => !!x);
+}
+
 /** El aviso pendiente (el funnel elegido no sirve y no contestó), o null. */
 export function avisoPendiente(p: PerfilCopiloto): Veredicto | null {
   const f = funnelDe(p);
@@ -1169,7 +1193,8 @@ export function cuentaDe(p: PerfilCopiloto): { lineas: Array<{ etiqueta: string;
 }
 
 /** Cómo se compara cada funnel para ESTE negocio: si le sirve (las mismas reglas de siempre), qué pide y cuánto tarda. */
-export type Comparacion = { funnel: Funnel; sirve: boolean | null; motivo: string | null; pide: string; tarda: string };
+/** `falta`: con `sirve` null, lo que falta saber para decirlo (el email, la lista; los demás, lo de `faltaParaComparar`). */
+export type Comparacion = { funnel: Funnel; sirve: boolean | null; motivo: string | null; falta: string | null; pide: string; tarda: string };
 const TARDA: Readonly<Record<IdFunnel, string>> = {
   'vsl-llamada': 'semanas, si el presupuesto alcanza', mensajes: 'días a semanas', formulario: 'días a semanas', carrito: 'días a semanas',
   webinar: 'un mes por edición', 'lead-magnet': 'semanas a meses', email: 'días, si la lista existe', youtube: 'meses (de 6 a 24)', organico: 'dos o tres meses',
@@ -1179,11 +1204,17 @@ const PIDE: Readonly<Record<IdFunnel, string>> = {
   carrito: 'presupuesto y una página que venda', webinar: 'preparar la clase y alguien que cierre', 'lead-magnet': 'un regalo útil y una secuencia',
   email: 'una lista que te conozca', youtube: 'horas por semana y paciencia', organico: 'constancia y horas por semana',
 };
-export function compararFunnels(p: PerfilCopiloto): Comparacion[] {
-  const d = datosDeDecision(p);
+export function compararFunnels(p: PerfilCopiloto, voz: VozFalta = 'tu'): Comparacion[] {
+  // Con lo que DIJO (`datosDichos`), nunca con lo que se completa para el funnel elegido.
+  const d = datosDichos(p);
+  const falta = faltaParaComparar(p, voz);
   return FUNNELS.map((f) => {
+    // Un email sin saber si hay lista no «sirve»: depende de esa lista (las reglas sólo lo descartan con una chica).
+    if (f.id === 'email' && p.lista == null && (!d || evaluarFunnel(f.id, d).sirve)) {
+      return { funnel: f, sirve: null, motivo: null, falta: voz === 'tu' ? 'cuántos contactos tienes en tu lista' : 'cuántos contactos tiene en su lista', pide: PIDE[f.id], tarda: TARDA[f.id] };
+    }
     const v = d ? evaluarFunnel(f.id, d) : null;
-    return { funnel: f, sirve: v ? v.sirve : null, motivo: v?.motivo ?? null, pide: PIDE[f.id], tarda: TARDA[f.id] };
+    return { funnel: f, sirve: v ? v.sirve : null, motivo: v?.motivo ?? null, falta: v ? null : falta.join(', ') || null, pide: PIDE[f.id], tarda: TARDA[f.id] };
   });
 }
 

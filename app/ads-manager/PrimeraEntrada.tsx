@@ -25,6 +25,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useRouter } from '@/app/_ui/Link';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { anotarEstrellaPropia } from '@/app/_chat/estrella-propia';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
@@ -120,6 +121,9 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const [busca, setBusca] = useState('');
   const hilo = useRef<HTMLDivElement>(null);
   const appEscritorio = useAppDeEscritorio();
+  // El chat de MaKo está a la vista: la estrella de la barra (app/_chat/EstrellaDeLaApp.tsx) no va, como en Create (lib/estrella-rutas.ts →
+  // CON_CHAT_A_LA_VISTA). La ruta no sirve: /ads-manager también es Hoy, que sí la lleva. En producción (10/11/2026) la estrella tapaba la caja.
+  useEffect(() => anotarEstrellaPropia(), []);
   const paso = pasoDeCopiloto(p);
   const f = funnelElegido(p);
   const ref = p.referente ? asesorPorId(p.referente) : null;

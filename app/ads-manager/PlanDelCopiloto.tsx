@@ -11,8 +11,9 @@
 // =============================================================================
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ConversacionCerebro, MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { anotarEstrellaPropia } from '@/app/_chat/estrella-propia';
 import { CajaDeOrden } from './Hoy';
 import { PanelDelFunnel } from './PanelDelFunnel';
 import { CSS_OFFER } from '@/app/offer/estilos';
@@ -82,6 +83,9 @@ export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
   const f = funnelElegido(perfil);
   const [vista, setVista] = useState<'chat' | 'funnel'>('funnel');
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
+  // El chat de MaKo está a la vista: la estrella de la barra (app/_chat/EstrellaDeLaApp.tsx) no va, como en Create (lib/estrella-rutas.ts →
+  // CON_CHAT_A_LA_VISTA). La ruta no sirve: /ads-manager también es Hoy, que sí la lleva. En producción (10/11/2026) la estrella tapaba la caja.
+  useEffect(() => anotarEstrellaPropia(), []);
   // Lo primero que dice MaKo aquí (si el Cerebro no tiene nada más reciente): las tres cosas que se hacen con un funnel en marcha, como
   // los arranques sugeridos de las referencias (Zapier, HubSpot). Cada una sale al chat tal cual, con el contexto del CoPilot.
   const apertura = (
