@@ -41,6 +41,12 @@
 // y canal distinto (el modelo, ~0,7 ms por cuadro de 10 ms): 8 veces lo de antes.
 //
 // `intensidad` 0–1 (CapCut guarda `denoise_rate 0,85`): el piso va de −12 dB a −48.
+//
+// Desde el 10/11/2026 corre en un WORKER (audio/ruido-hilo/): en el hilo de la pantalla, un estéreo de 10 min
+// trababa el editor ~2 min. Este módulo no sabe dónde corre: cada pausa (`ceder`) es inyectable —el worker suelta
+// su hilo sin la espera mínima de un `setTimeout` encadenado y corta ahí si le cancelan el pedido— y `alAvanzar`
+// cuenta lo hecho.
+// Nada de eso toca las cuentas: el resultado es el mismo byte a byte (tests/video-editor-ruido-hilo.test.ts).
 
 import { Fft, ceder } from "./fft";
 import { CUADRO_RNNOISE, RETARDO_RNNOISE, SR_RNNOISE, type MotorRnnoise } from "./rnnoise";
@@ -70,6 +76,48 @@ const CON_RUIDO_DB = -65;
 
 function tamanoVentana(sampleRate: number): number {
 	return sampleRate >= 32000 ? 1024 : 512;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cuánto falta (para la barra de avance) y dónde se suelta el hilo
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que pesa un cuadro de la red contra uno de los otros pasos (el análisis, la coherencia y la STFT que aplica):
+ * medido el 10/11/2026 con 30 s de voz con ruido, en node 24, ~0,64 ms contra ~0,1 ms. Sólo ordena la barra.
+ */
+const PESO_RED = 6;
+
+type Avance = {
+	/** Suma lo hecho, lo cuenta y suelta el hilo (si `ceder` tira, el trabajo se corta acá). */
+	paso(unidades: number): Promise<void>;
+	fin(): void;
+};
+
+function crearAvance(total: number, alAvanzar: ((hecho: number) => void) | undefined, soltar: () => Promise<void>): Avance {
+	let hecho = 0;
+	return {
+		async paso(unidades) {
+			hecho += unidades;
+			// El 1 lo dice `fin`: una estimación que se pasa no puede anunciar que terminó.
+			alAvanzar?.(total > 0 ? Math.min(0.99, hecho / total) : 0.99);
+			await soltar();
+		},
+		fin() {
+			alAvanzar?.(1);
+		},
+	};
+}
+
+/** Las unidades de todo el trabajo, con los mismos largos que van a recorrer los bucles de abajo. */
+function unidadesDeTrabajo(largo: number, sampleRate: number, distintos: number): number {
+	const largo48 = sampleRate === SR_RNNOISE ? largo : Math.floor(largo / (sampleRate / SR_RNNOISE));
+	const e = Math.max(0, Math.min(Math.round(ESPEJO_S * SR_RNNOISE), largo48 - 1));
+	const red = Math.ceil((2 * e + largo48 + RETARDO_RNNOISE + CUADRO_RNNOISE) / CUADRO_RNNOISE);
+	const cuadros = Math.ceil(largo48 / CUADRO_RNNOISE);
+	const salto = tamanoVentana(sampleRate) / 2;
+	const aplicar = Math.ceil((largo + salto) / salto);
+	return distintos * (red * PESO_RED + cuadros + aplicar) + (distintos === 2 ? cuadros : 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,7 +179,7 @@ type Analisis = {
 };
 
 /** La red sobre el canal a 48 kHz, con el espejo; devuelve la salida ya sin el retardo. */
-async function pasarPorLaRed(motor: MotorRnnoise, x: Float32Array): Promise<Float32Array> {
+async function pasarPorLaRed(motor: MotorRnnoise, x: Float32Array, avance: Avance): Promise<Float32Array> {
 	const e = Math.max(0, Math.min(Math.round(ESPEJO_S * SR_RNNOISE), x.length - 1));
 	const largo = e + x.length + e;
 	const extendida = new Float32Array(largo);
@@ -148,8 +196,8 @@ async function pasarPorLaRed(motor: MotorRnnoise, x: Float32Array): Promise<Floa
 			for (let i = 0; i < CUADRO_RNNOISE; i++) cuadro[i] = (extendida[ini + i] ?? 0) * 32768;
 			estado.procesar(cuadro);
 			for (let i = 0; i < CUADRO_RNNOISE && ini + i < total; i++) y[ini + i] = cuadro[i] / 32768;
-			// ~0,7 ms por cuadro: cada 40 se suelta el hilo (la vista previa corre en él).
-			if (++k % 40 === 0) await ceder();
+			// ~0,7 ms por cuadro: cada 40 se suelta el hilo (la vista previa corre en él, si no hay worker).
+			if (++k % 40 === 0) await avance.paso(40 * PESO_RED);
 		}
 	} finally {
 		estado.liberar();
@@ -166,9 +214,9 @@ function ventanaAnalisis(): Float64Array {
 	return ventana;
 }
 
-async function analizar(motor: MotorRnnoise, canal: Float32Array, sampleRate: number): Promise<Analisis> {
+async function analizar(motor: MotorRnnoise, canal: Float32Array, sampleRate: number, avance: Avance): Promise<Analisis> {
 	const x = a48k(canal, sampleRate);
-	const y = await pasarPorLaRed(motor, x);
+	const y = await pasarPorLaRed(motor, x, avance);
 	const fft = new Fft(FFT_ANALISIS);
 	const ventana = ventanaAnalisis();
 	const cuadros = Math.ceil(x.length / CUADRO_RNNOISE);
@@ -207,7 +255,7 @@ async function analizar(motor: MotorRnnoise, canal: Float32Array, sampleRate: nu
 			ganancia[k * BANDAS + b] = sx > 1e-18 ? Math.min(1, Math.sqrt(sy / sx)) : 1;
 			energiaBanda[k * BANDAS + b] = sx;
 		}
-		if (k % 200 === 199) await ceder();
+		if (k % 200 === 199) await avance.paso(200);
 	}
 	return { cuadros, ganancia, energiaBanda, energiaCuadro, x };
 }
@@ -241,7 +289,7 @@ function pisoDelRuido(energia: Float64Array): Float64Array {
  * sumada en ±COHERENCIA_CUADROS. La misma voz en los dos da cerca de 1; el ruido de un solo lado contra el
  * eco de sala del otro, cerca de 0.
  */
-async function coherencia(a: Analisis, b: Analisis): Promise<Float32Array> {
+async function coherencia(a: Analisis, b: Analisis, avance: Avance): Promise<Float32Array> {
 	const cuadros = Math.min(a.cuadros, b.cuadros);
 	const fft = new Fft(FFT_ANALISIS);
 	const ventana = ventanaAnalisis();
@@ -275,7 +323,7 @@ async function coherencia(a: Analisis, b: Analisis): Promise<Float32Array> {
 				eb[i] += rb[q] * rb[q] + ib[q] * ib[q];
 			}
 		}
-		if (k % 200 === 199) await ceder();
+		if (k % 200 === 199) await avance.paso(200);
 	}
 	const coh = new Float32Array(n);
 	for (let k = 0; k < cuadros; k++) {
@@ -347,7 +395,7 @@ function pesoDelCanal(a: Analisis): Float32Array {
 // Aplicar la ganancia al audio original, a su tasa
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function aplicar(canal: Float32Array, sampleRate: number, g: Float32Array, peso: Float32Array, piso: number): Promise<Float32Array> {
+async function aplicar(canal: Float32Array, sampleRate: number, g: Float32Array, peso: Float32Array, piso: number, avance: Avance): Promise<Float32Array> {
 	const largo = canal.length;
 	const n = tamanoVentana(sampleRate);
 	const salto = n / 2;
@@ -402,7 +450,7 @@ async function aplicar(canal: Float32Array, sampleRate: number, g: Float32Array,
 			const j = ini + i;
 			if (j >= 0 && j < largo) out[j] += re[i] * ventana[i];
 		}
-		if (++trabajados % 200 === 0) await ceder();
+		if (++trabajados % 200 === 0) await avance.paso(200);
 	}
 	return out;
 }
@@ -419,23 +467,33 @@ export async function reducirRuido({
 	sampleRate,
 	intensidad = 0.85,
 	motor,
+	alAvanzar,
+	ceder: soltar = ceder,
 }: {
 	canales: readonly Float32Array[];
 	sampleRate: number;
 	intensidad?: number;
 	motor: MotorRnnoise;
+	/** Lo hecho, de 0 a 1, cada vez que se suelta el hilo (y 1 al terminar). */
+	alAvanzar?: (hecho: number) => void;
+	/** Cómo se suelta el hilo (por defecto, un `setTimeout`). Si tira, el trabajo se corta ahí con ese error. */
+	ceder?: () => Promise<void>;
 }): Promise<Float32Array[]> {
 	const largo = canales[0]?.length ?? 0;
-	if (largo < tamanoVentana(sampleRate) * 2) return canales.map((c) => c.slice());
+	if (largo < tamanoVentana(sampleRate) * 2) {
+		alAvanzar?.(1);
+		return canales.map((c) => c.slice());
+	}
 	const fuerza = Math.max(0, Math.min(1, intensidad));
 	const piso = 10 ** (-(12 + 36 * fuerza) / 20);
 
 	// Un estéreo con los dos lados iguales (el mono de un teléfono) se escucha una vez.
 	const distintos: Float32Array[] = [];
 	for (const c of canales) if (!distintos.some((d) => mismaSenal(d, c))) distintos.push(c);
+	const avance = crearAvance(unidadesDeTrabajo(largo, sampleRate, distintos.length), alAvanzar, soltar);
 	const analisis: Analisis[] = [];
-	for (const c of distintos) analisis.push(await analizar(motor, c, sampleRate));
-	const coh = analisis.length === 2 ? await coherencia(analisis[0], analisis[1]) : null;
+	for (const c of distintos) analisis.push(await analizar(motor, c, sampleRate, avance));
+	const coh = analisis.length === 2 ? await coherencia(analisis[0], analisis[1], avance) : null;
 	const ganancias = gananciasPorCanal(analisis, coh);
 	const pesos = analisis.map(pesoDelCanal);
 
@@ -444,9 +502,10 @@ export async function reducirRuido({
 	for (const c of canales) {
 		const igual = [...hechos.keys()].find((d) => mismaSenal(d, c));
 		const cual = distintos.findIndex((d) => mismaSenal(d, c));
-		const y = igual ? (hechos.get(igual) as Float32Array).slice() : await aplicar(c, sampleRate, ganancias[cual], pesos[cual], piso);
+		const y = igual ? (hechos.get(igual) as Float32Array).slice() : await aplicar(c, sampleRate, ganancias[cual], pesos[cual], piso, avance);
 		if (!igual) hechos.set(c, y);
 		salida.push(y);
 	}
+	avance.fin();
 	return salida;
 }

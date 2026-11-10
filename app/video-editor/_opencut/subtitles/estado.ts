@@ -22,6 +22,8 @@ type Preferencias = {
 	plantilla: string;
 	/** «Resaltar palabras clave automáticamente» (./claves.ts) al generar. */
 	claves: boolean;
+	/** «Emojis automáticos» (./emojis.ts) al generar. */
+	emojis: boolean;
 	/** La última voz elegida en «Texto a voz» (id de ElevenLabs de la cuenta del cliente). */
 	voz: string | null;
 	fijar: (cambio: Partial<Omit<Preferencias, "fijar">>) => void;
@@ -37,18 +39,20 @@ export const usePreferenciasSubtitulos = create<Preferencias>()(
 			eliminarActuales: true,
 			plantilla: PLANTILLA_POR_DEFECTO.id,
 			claves: false,
+			emojis: false,
 			voz: null,
 			fijar: (cambio) => set(cambio),
 		}),
 		{
 			name: "ve-subtitulos",
 			version: 1,
-			partialize: ({ idioma, muletillas, eliminarActuales, plantilla, claves, voz }) => ({
+			partialize: ({ idioma, muletillas, eliminarActuales, plantilla, claves, emojis, voz }) => ({
 				idioma,
 				muletillas,
 				eliminarActuales,
 				plantilla,
 				claves,
+				emojis,
 				voz,
 			}),
 		},

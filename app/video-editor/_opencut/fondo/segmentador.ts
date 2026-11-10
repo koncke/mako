@@ -23,6 +23,10 @@
 //   · Si no carga, el clip se ve SIN recortar y un aviso (el de CapCut): un
 //     cuadro sin recortar es mejor que un cuadro que no sale. Queda en «fallo»
 //     hasta que la persona vuelva a prender el interruptor (`reintentar`).
+//   · Una falla SIN aviso (Clips mágicos carga con `avisar: false`) deja el aviso
+//     PENDIENTE: el próximo que sí avisa («Eliminación automática») lo muestra,
+//     aunque ya no vuelva a cargar. Antes salía sin recortar y sin decir nada
+//     (revisión del 10/11/2026).
 
 import type { ImageSegmenter } from "@mediapipe/tasks-vision";
 import { toast } from "sonner";
@@ -123,11 +127,17 @@ async function crear(): Promise<ImageSegmenter> {
 
 /**
  * Carga el segmentador si hace falta. Nunca rechaza: devuelve si quedó listo.
- * Llamadas simultáneas comparten la misma carga.
+ * Llamadas simultáneas comparten la misma carga. `avisar: false` (Clips mágicos,
+ * que sin persona encuadra al centro): una falla no muestra el aviso de quitar el
+ * fondo, que ahí no se pidió.
  */
-export function cargarSegmentador(): Promise<boolean> {
+export function cargarSegmentador({ avisar = true }: { avisar?: boolean } = {}): Promise<boolean> {
 	if (estado === "listo" && segmentador) return Promise.resolve(true);
-	if (estado === "fallo") return Promise.resolve(false);
+	if (estado === "fallo") {
+		// Una falla que nadie avisó (la de Clips mágicos) se avisa ahora, al que sí lo pide.
+		if (avisar) avisarFallo();
+		return Promise.resolve(false);
+	}
 	if (carga) return carga;
 	fijar("cargando");
 	let vencida = false;
@@ -156,7 +166,7 @@ export function cargarSegmentador(): Promise<boolean> {
 		.catch((error: unknown) => {
 			console.error("[fondo] no se pudo cargar el segmentador", error);
 			fijar("fallo");
-			avisarFallo();
+			if (avisar) avisarFallo();
 			return false;
 		})
 		.finally(() => {
@@ -181,7 +191,9 @@ function avisarFallo(): void {
 export function segmentarPersona(
 	imagen: OffscreenCanvas | HTMLCanvasElement,
 	usar: (mascara: { confianza: Float32Array; esDeFondo: boolean }) => void,
+	{ avisar = true }: { avisar?: boolean } = {},
 ): boolean {
+	if (estado === "fallo" && avisar) avisarFallo();
 	if (estado !== "listo" || !segmentador) return false;
 	let hecho = false;
 	try {
@@ -204,7 +216,7 @@ export function segmentarPersona(
 			fijar("inactivo");
 		} else {
 			fijar("fallo");
-			avisarFallo();
+			if (avisar) avisarFallo();
 		}
 		return false;
 	}

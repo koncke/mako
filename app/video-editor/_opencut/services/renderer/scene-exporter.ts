@@ -40,6 +40,7 @@ import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import type { RootNode } from "./nodes/root-node";
 import type { ExportFormat, ExportQuality } from "@/app/video-editor/_opencut/export";
 import { CanvasRenderer } from "./canvas-renderer";
+import { cuadrosDelTramo, type Tramo } from "@/app/video-editor/_opencut/rango/reglas";
 
 export type CodecVideoExportable = "avc" | "hevc" | "av1" | "vp9";
 
@@ -137,15 +138,22 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 
 	async export({
 		rootNode,
+		tramo = null,
 	}: {
 		rootNode: RootNode;
+		/**
+		 * El rango I / O (rango/reglas.ts): se dibujan sólo sus cuadros y el archivo
+		 * arranca en 0. El `audioBuffer` ya tiene que venir recortado al mismo tramo
+		 * (export/exportar.ts). Sin tramo, la escena entera.
+		 */
+		tramo?: Tramo | null;
 	}): Promise<ArrayBuffer | null> {
 		const fps = this.renderer.fps;
 		const fpsFloat = frameRateToFloat(fps);
 		const ticksPerFrame = Math.round(
 			(TICKS_PER_SECOND * fps.denominator) / fps.numerator,
 		);
-		const frameCount = Math.max(1, Math.floor(rootNode.duration / ticksPerFrame));
+		const { primero, cantidad: frameCount } = cuadrosDelTramo(tramo, rootNode.duration, ticksPerFrame);
 		const { audioBuffer, shouldIncludeAudio, format } = this.params;
 
 		const output = new Output({
@@ -197,7 +205,7 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 				return null;
 			}
 
-			const timeTicks = i * ticksPerFrame;
+			const timeTicks = primero + i * ticksPerFrame;
 			await this.renderer.render({ node: rootNode, time: timeTicks });
 			// El sello del cuadro sale de `i / fps` y no de los ticks redondeados:
 			// así 29,97 y 59,94 no acumulan deriva contra el audio.

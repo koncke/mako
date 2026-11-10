@@ -29,6 +29,7 @@ import { JuntadorDeTrozos, silenciosSinRuido } from '../app/video-editor/_opencu
 import { clipsConSonido } from '../app/video-editor/_opencut/audio/silencios-aviso';
 import type { SceneTracks } from '../app/video-editor/_opencut/timeline/types';
 import { instanciarRnnoise, URL_WASM_RNNOISE, type MotorRnnoise } from '../app/video-editor/_opencut/audio/dsp/rnnoise';
+import { reductorEnEsteHilo } from '../app/video-editor/_opencut/audio/ruido-hilo/cliente';
 import { TRAMOS, db, mezclar, rosa, ventilador, voz } from './_voz-y-ruido';
 
 const SR = 48000;
@@ -229,7 +230,8 @@ const hoy = (x: Float32Array) => {
   m.agregar({ canales: [x], sampleRate: SR, inicio: 0 });
   return rangosDeSilencio(m.resultado());
 };
-const sinRuido = async (x: Float32Array) => silenciosSinRuido({ audio: { canales: [x], sampleRate: SR, inicio: 0 }, motor: await motor() });
+// La cuenta en este hilo: el worker del navegador (audio/ruido-hilo/) da lo mismo byte a byte (tests/video-editor-ruido-hilo.test.ts).
+const sinRuido = async (x: Float32Array) => silenciosSinRuido({ audio: { canales: [x], sampleRate: SR, inicio: 0 }, reducir: reductorEnEsteHilo(motor) });
 /** El nivel más alto de la voz LIMPIA (ventanas de 20 ms) adentro de lo que se corta. */
 const vozCortada = (limpia: Float32Array, cortes: [number, number][]) => {
   const w = Math.round(0.02 * SR);
@@ -290,8 +292,9 @@ test('el juntador pone cada trozo en su lugar de la fuente: un hueco queda en si
 
 test('el cableado: el botón y el chat buscan las pausas en el audio sin ruido, y cortan el original', () => {
   const runner = fuente('audio', 'borrar-silencios.ts');
-  // Con la pausa mínima del pedido (ticket 31); el botón, sin ella, usa la de siempre.
-  assert.match(runner, /const silencios = await silenciosSinRuido\(\{ audio, motor, opciones: \{ minSilencioS: minimoS \} \}\);/);
+  // Con la pausa mínima del pedido (ticket 31); el botón, sin ella, usa la de siempre. Y la red, en el worker (10/11/2026).
+  assert.match(runner, /const silencios = await silenciosSinRuido\(\{ audio, reducir, opciones: \{ minSilencioS: minimoS \} \}\);/);
+  assert.match(runner, /const reducir = reducirRuidoEnSegundoPlano;/, 'Borrar silencios volvió a correr la red en el hilo de la pantalla');
   assert.match(runner, /minimoS = PAUSA_MIN_S,/);
   assert.doesNotMatch(runner, /rangosDeSilencio\(/, 'quedó una búsqueda sobre el original');
   assert.match(runner, /alTrozo: \(trozo\) => juntador\.agregar\(trozo\)/);
@@ -341,3 +344,6 @@ test('el botón dice DÓNDE buscó cuando no hay pausas (ticket 31): sin nada el
 // · R10 la pausa de siempre cambia a 0,3 → 20/1 (la pausa mínima).
 // · R12 la cuenta de clips sin la pista principal → 20/1 (el botón dice DÓNDE buscó). La versión que trataba las pistas
 //   como una lista no la vio ningún test (leían el fuente): la vio el tsc acotado. Por eso la cuenta es una función pura.
+//
+// Rotura del worker (10/11/2026, base 21/0): «Borrar silencios» vuelve a la cuenta en la pantalla
+// (`reductorEnEsteHilo(motorRnnoise)`) → 20/1 (el cableado). Lo demás del worker, en tests/video-editor-ruido-hilo.test.ts.

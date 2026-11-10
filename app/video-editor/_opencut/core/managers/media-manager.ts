@@ -17,9 +17,16 @@ export class MediaManager {
 	async addMediaAsset({
 		projectId,
 		asset,
+		subirFps = true,
 	}: {
 		projectId: string;
 		asset: Omit<MediaAsset, "id">;
+		/**
+		 * Si un archivo con más cuadros por segundo sube los del proyecto (lo que hace importar). `false` para lo que entra
+		 * sin que la persona lo importe (el B-roll de Pexels, broll/red.ts): ese cambio va FUERA del historial, y al chat
+		 * le apagaba «Restaurar» (revisión del 10/11/2026).
+		 */
+		subirFps?: boolean;
 	}): Promise<MediaAsset | null> {
 		const newAsset: MediaAsset = {
 			...asset,
@@ -31,9 +38,11 @@ export class MediaManager {
 
 		try {
 			await storageService.saveMediaAsset({ projectId, mediaAsset: newAsset });
-			this.editor.project.ratchetFpsForImportedMedia({
-				importedAssets: [newAsset],
-			});
+			if (subirFps) {
+				this.editor.project.ratchetFpsForImportedMedia({
+					importedAssets: [newAsset],
+				});
+			}
 			return newAsset;
 		} catch (error) {
 			console.error("Failed to save media asset:", error);

@@ -38,8 +38,10 @@ import type { ElegidoChat } from '@/lib/chat-mako-reglas';
 import {
   RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
   nombreDelReferente, pasoDeCopiloto, pasosRespondidos, plano, preguntaDeCopiloto, propuestaDe, textoDeFuera, volverUnPaso,
-  type PasoCopiloto, type PerfilCopiloto,
+  PREGUNTAS_DE_DATO, esPregunta, fichaDelNegocio, leerDato, opcionesDeCopiloto,
+  type ClaveDato, type IdFunnel, type PasoCopiloto, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
+import { PanelDelFunnel } from './PanelDelFunnel';
 
 const nada = () => {};
 const TRAMOS = ['Funnel', 'Tus números', 'Propuesta'] as const;
@@ -61,7 +63,7 @@ async function leerGuardado(): Promise<PerfilCopiloto | null> {
 }
 
 /** Algo que dijo MaKo (o la persona) fuera del guion, pegado a la pregunta en la que pasó. */
-type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null; deshacer?: boolean }>; visible: boolean };
+type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null; deshacer?: boolean; dato?: true }>; visible: boolean };
 /** Un mensaje para MaKo: sale por el motor, en orden. */
 type Envio = { vez: number; paso: PasoCopiloto; texto: string; enviado: boolean; visible: boolean; fallo?: boolean };
 
@@ -122,6 +124,10 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const ref = p.referente ? asesorPorId(p.referente) : null;
   const tramo = tramoDe(paso);
   const hayAtras = pasosRespondidos(p).length > 0;
+  /** Con la pantalla angosta se ve una columna por vez (el interruptor «MaKo | Tu funnel», aa.css → `.cp-switch`). */
+  const [vistaChica, setVistaChica] = useState<'chat' | 'funnel'>('chat');
+  /** El dato que MaKo acaba de preguntar desde el panel: lo escrito se lee primero como su respuesta, sin IA (`leerDato`). */
+  const [datoPendiente, setDatoPendiente] = useState<ClaveDato | null>(null);
 
   const guardarYa = useCallback((sig: PerfilCopiloto) => {
     guardando.current = guardar(sig).then((ok) => {
@@ -228,7 +234,55 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motor?.enCurso, motor?.tarjeta]);
 
+  /** Un dato que falta, tocado en el panel: MaKo lo pregunta acá, con sus respuestas rápidas, y la respuesta se guarda sin IA. */
+  const preguntarDato = (k: ClaveDato) => {
+    const q = PREGUNTAS_DE_DATO[k];
+    setVistaChica('chat');
+    setDatoPendiente(k);
+    nota({ paso, de: 'mako', texto: q.pregunta, opciones: q.opciones.map((o) => { const c = leerDato(k, o); return { texto: o, perfil: c ? aplicarCambio(p, c) : null, dato: true as const }; }) });
+  };
+  /**
+   * Guardar un DATO (la meta, el país…): no mueve la charla, así que NO pasa por `ir`. `ir` esconde lo hablado en el paso al que se
+   * «vuelve», y un dato no cambia el paso: con `ir`, contestar el país borraba la pregunta y lo que se había charlado en ese paso.
+   */
+  const fijarDato = (sig: PerfilCopiloto, dijo: string) => {
+    setDatoPendiente(null);
+    setP(sig);
+    setError(null);
+    void guardarYa(sig);
+    nota({ paso, de: 'yo', texto: dijo });
+    nota({ paso, de: 'mako', texto: 'Anotado en tu funnel.' });
+  };
+  /** Otro funnel, elegido en la comparación del panel: se cambia como si lo hubiera elegido en la charla, y MaKo sigue con lo que falte. */
+  const cambiarFunnel = (id: IdFunnel) => {
+    const nuevo = funnelPorId(id);
+    if (!nuevo) return;
+    setVistaChica('chat');
+    const sig = aplicarCambio(p, { entrada: p.entrada ?? 'funnel', funnel: id, ajuste: undefined, antesDelAjuste: undefined, aceptado: undefined });
+    // Primero el cambio (que esconde lo de los pasos que se vuelven a preguntar) y DESPUÉS el acuse, en el paso nuevo: al revés, lo escondía.
+    const pasoNuevo = pasoDeCopiloto(sig);
+    ir(sig);
+    nota({ paso: pasoNuevo, de: 'yo', texto: `Quiero probar con ${nuevo.nombre.toLowerCase()}` });
+    nota({ paso: pasoNuevo, de: 'mako', texto: `Listo, cambiado: ${nuevo.nombre}.${pasoNuevo === 'propuesta' ? '' : ' Te pregunto lo que cambia con este funnel.'}` });
+  };
+  /** «Usar este funnel» del panel: lo mismo que la pastilla de la propuesta. */
+  const usarElFunnel = () => { if (paso === 'propuesta') responderPastilla(opcionesDeCopiloto('propuesta', p)[0]); };
+
   const escribir = (t: string) => {
+    // La respuesta al dato que MaKo preguntó desde el panel (un número, un país): sin IA. Una pregunta va a MaKo, como siempre.
+    // Lo escrito se CONFIRMA antes de guardarse (AGENTS.md, «Leer texto libre con reglas falla en lo obvio: la red es que la persona
+    // CONFIRME»): «Entendí México. ¿Lo anoto?». Una pastilla ya es el toque y se guarda directo.
+    if (datoPendiente && !esPregunta(t)) {
+      const c = leerDato(datoPendiente, t);
+      if (c) {
+        const sig = aplicarCambio(p, c);
+        const valor = fichaDelNegocio(sig).sabe.find((d) => d.clave === datoPendiente)?.valor ?? t;
+        nota({ paso, de: 'yo', texto: t });
+        nota({ paso, de: 'mako', texto: `Entendí: ${valor}. ¿Lo anoto?`, opciones: [{ texto: 'Sí, anótalo', perfil: sig, dato: true }, { texto: 'No, es otra cosa', perfil: null, dato: true }] });
+        return;
+      }
+    }
+    setDatoPendiente(null);
     const r = interpretarEscrito(p, t);
     if (r.tipo === 'nada') { nota({ paso, de: 'yo', texto: t }); nota({ paso, de: 'mako', texto: 'Estamos en la primera pregunta: no hay nada antes.' }); return; }
     if (r.tipo === 'empezar') { empezarDeNuevo(t); return; }
@@ -347,7 +401,13 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
                 onClick={() => {
                   if (o.deshacer) { deshacerEmpezar(); return; }
                   setNotas((ns) => ns.map((x) => (x.id === n.id ? { ...x, opciones: undefined } : x)));
-                  if (o.perfil) ir(o.perfil);
+                  // Una respuesta rápida a un DATO se guarda sin mover la charla (`fijarDato`); «Otro» (sin perfil) lo deja abierto
+                  // para escribirlo. Las demás (fuera del referente, «Deshacer») mueven la charla, como siempre.
+                  if (o.dato) {
+                    if (o.perfil) fijarDato(o.perfil, o.texto);
+                    else { nota({ paso, de: 'yo', texto: o.texto }); nota({ paso, de: 'mako', texto: 'Escríbelo abajo y lo anoto.' }); }
+                  }
+                  else if (o.perfil) { setDatoPendiente(null); ir(o.perfil); }
                 }}>{o.texto}</button>
             ))}
           </div>
@@ -360,16 +420,20 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const onMotor = useCallback((m: Motor) => setMotor(m), []);
   const enCurso = terminando || !!motor?.enCurso || envios.some((e) => !e.enviado && !e.fallo && e.visible);
 
+  // LAS DOS COLUMNAS (9/11/2026): la charla a la izquierda —la de siempre, con sus pastillas, «Volver» y su motor— y a la derecha el
+  // funnel que se arma con lo que se va contestando (PanelDelFunnel.tsx). El panel lee `p`: cada pastilla, cada dato y cada cambio que
+  // guarda MaKo se ve ahí en el acto. Arriba del panel, los tres tramos; el «inspirado en» va debajo del título del funnel.
+  const inspirado = ref && f && queEnsena(ref.id)?.funnels.includes(f.id) ? inspiradoEn(ref) : null;
   return (
-    <div className="aa aa-arranque aa-copiloto">
+    <div className="aa aa-dos aa-copiloto">
       <style>{CSS_OFFER}</style>
-      <header className="aa-arranque-cab">
-        <h1>Marketing CoPilot</h1>
-        {ref && f && queEnsena(ref.id)?.funnels.includes(f.id) ? <p className="aa-insp">{inspiradoEn(ref)}</p> : <p>Armemos tu plan para conseguir clientes, paso a paso.</p>}
-        <ol className="aa-tramos" aria-label="Para empezar">
-          {TRAMOS.map((t, i) => <li key={t} data-estado={i < tramo ? 'hecho' : i === tramo ? 'ahora' : 'falta'}><span aria-hidden>{i < tramo ? '✓' : i + 1}</span>{t}</li>)}
-        </ol>
-      </header>
+      <h1 className="cp-oculto">Marketing CoPilot</h1>
+      <div className="cp" data-vista={vistaChica}>
+        <div className="cp-switch" role="group" aria-label="Qué ver">
+          <button type="button" aria-pressed={vistaChica === 'chat'} onClick={() => setVistaChica('chat')}>MaKo</button>
+          <button type="button" aria-pressed={vistaChica === 'funnel'} onClick={() => setVistaChica('funnel')}>Tu funnel</button>
+        </div>
+      <div className="cp-chat">
       <div className="aa-arranque-hilo">
         <PanelDeChat hilo={hilo} estado={error ?? ''}
           cabecera={{ clave: 'marketing-copilot-entrada', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: enCurso ? 'trabajando' : 'despierto' }}
@@ -400,6 +464,15 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
             </div>
           )}
         </PanelDeChat>
+      </div>
+      </div>
+        <PanelDelFunnel perfil={p} modo="charla" inspirado={inspirado} onPreguntar={preguntarDato} onFunnel={cambiarFunnel} onUsar={usarElFunnel}
+          puedeUsar={paso === 'propuesta'} ocupado={enCurso}
+          arriba={
+            <ol className="aa-tramos" aria-label="Para empezar">
+              {TRAMOS.map((t, i) => <li key={t} data-estado={i < tramo ? 'hecho' : i === tramo ? 'ahora' : 'falta'}><span aria-hidden>{i < tramo ? '✓' : i + 1}</span>{t}</li>)}
+            </ol>
+          } />
       </div>
       {conMotor && <MotorDelCopiloto pantalla={pantalla} onMotor={onMotor} />}
     </div>

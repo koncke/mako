@@ -14,6 +14,7 @@ import type { RootNode } from "@/app/video-editor/_opencut/services/renderer/nod
 import { CanvasRenderer } from "@/app/video-editor/_opencut/services/renderer/canvas-renderer";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { GIF_FPS, RESOLUCIONES_GIF, type ResolucionGifId } from "./opciones";
+import type { Tramo } from "@/app/video-editor/_opencut/rango/reglas";
 
 export async function exportarGif({
 	escena,
@@ -22,6 +23,7 @@ export async function exportarGif({
 	fps,
 	onProgreso,
 	cancelado,
+	tramo = null,
 }: {
 	escena: RootNode;
 	lienzo: { width: number; height: number };
@@ -29,6 +31,8 @@ export async function exportarGif({
 	fps: FrameRate;
 	onProgreso: (p: number) => void;
 	cancelado: () => boolean;
+	/** El rango I / O (rango/reglas.ts): el GIF es sólo ese tramo. Sin él, la escena entera. */
+	tramo?: Tramo | null;
 }): Promise<Blob | null> {
 	const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
 	const lado = RESOLUCIONES_GIF.find((r) => r.id === resolucion)?.lado ?? 320;
@@ -45,13 +49,14 @@ export async function exportarGif({
 	ctx.imageSmoothingQuality = "high";
 
 	const gif = GIFEncoder();
-	const segundos = escena.duration / TICKS_PER_SECOND;
+	const desde = tramo?.desde ?? 0;
+	const segundos = ((tramo?.hasta ?? escena.duration) - desde) / TICKS_PER_SECOND;
 	const cuadros = Math.max(1, Math.floor(segundos * GIF_FPS));
 	const retardoMs = 1000 / GIF_FPS;
 
 	for (let i = 0; i < cuadros; i++) {
 		if (cancelado()) return null;
-		const tiempo = Math.round((i / GIF_FPS) * TICKS_PER_SECOND);
+		const tiempo = desde + Math.round((i / GIF_FPS) * TICKS_PER_SECOND);
 		await renderer.renderToCanvas({ node: escena, time: tiempo, targetCanvas: destino });
 		const { data } = ctx.getImageData(0, 0, ancho, alto);
 		const paleta = quantize(data, 256);

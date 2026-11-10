@@ -38,7 +38,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { clasificarIntencion, RELEVANCIA_AGENDA } from '../lib/mako-intencion';
+import { AREA_KEYWORDS, clasificarIntencion, RELEVANCIA_AGENDA } from '../lib/mako-intencion';
 import { pideHacerAlApp, familiasDe, pideQuitar, sinVerboAlArranque } from '../lib/mako-intencion-app';
 import { herramientasDelChat, entraAlChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
@@ -388,6 +388,11 @@ const VIDEO: Caso[] = [
   ["usá la plantilla de anuncio para armar el video", ["usar_plantilla_video"]],
   ["mostrame mis proyectos de video", ["listar_proyectos_video"]],
   ["¿cuántos créditos de Flow me quedan?", ["ver_saldo_flow"]],
+  // Los motion graphics (10/11/2026): «motion» no nombraba el área video y agregar_motion_video no viajaba.
+  ["agrega un motion graphic que diga Vende más", ["agregar_motion_video"]],
+  ["agregá un motion graphic que diga Vende más", ["agregar_motion_video"]],
+  ["cambia el título del motion a Vende más", ["editar_motion_video"]],
+  ["cambiá el título del motion a Vende más", ["editar_motion_video"]],
 ];
 
 const IMAGEN: Caso[] = [
@@ -698,8 +703,23 @@ test('Calendario: las 8 frases (tuteo y voseo) llegan a su operación por la app
 test('Dashboard: las 28 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(DASHBOARD), []);
 });
-test('video: las 37 frases (tuteo y voseo) llegan a su operación por la app', () => {
+test('video: las 41 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(VIDEO), []);
+});
+
+test('video: «motion» nombra el área video, salvo en una frase de la landing (ahí es una animación de la landing)', () => {
+  // Sin la excepción, las herramientas del editor de video le sacaban el lugar a las de la landing en el presupuesto
+  // (medido el 10/11/2026: «agrega un motion graphic a la landing…» perdía guardar_landing y listar_landings).
+  assert.ok(AREA_KEYWORDS.video.test('agrega un motion graphic que diga Vende más'));
+  assert.ok(AREA_KEYWORDS.video.test('pon unos motion graphics al inicio'));
+  for (const f of ['agrega un motion graphic a la landing con el título Vende más', 'en mi landing pon un motion graphic', 'agrégale una animación motion al hero de mi landing', 'quiero un motion graphics en mi página']) {
+    assert.equal(AREA_KEYWORDS.video.test(f), false, `«${f}»: es de la landing`);
+  }
+  // «promotion» no es un motion.
+  assert.equal(AREA_KEYWORDS.video.test('la promotion de noviembre'), false);
+  const landing = turnoApp('agrégale una animación motion al hero de mi landing');
+  assert.ok(landing.nombres.includes('cambiar_animacion_landing'), 'la animación de la landing llega');
+  assert.ok(!landing.nombres.includes('agregar_motion_video'), 'y no la del editor de video');
 });
 test('imagen: las 10 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(IMAGEN), []);
@@ -1166,3 +1186,5 @@ test('completar o abrir de nuevo una tarea llega a cerrarla o reabrirla aunque �
 //   22/10/2026, al traer main (las herramientas de Chats 2.1): «mandale a Juan el link de Calendly» se quedaba sin
 //   `link_agenda_calendly`. Lo nombrado por una palabra de pocas operaciones entra primero (relevancia-app.ts → porSuNombre);
 //   apagarlo da 47/1 (CRM y Chats). Darle el doble a lo que escribió la persona lo arreglaba, pero rompía seis grupos: se descartó.
+//   10/11/2026, los motion graphics (lib/mako-intencion.ts, el área video, base 49/0): sin «motion» en el área -> 47/2 (video y
+//   «motion»); sin la excepción de la landing -> 48/1; sin el borde (caza «promotion») -> 48/1.

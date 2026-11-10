@@ -30,6 +30,8 @@
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { BatchCommand } from "@/app/video-editor/_opencut/commands/batch-command";
 import type { SceneTracks, TimelineElement, TScene } from "@/app/video-editor/_opencut/timeline/types";
+import type { TProjectSettings } from "@/app/video-editor/_opencut/project/types";
+import { PLANTILLAS_TEXTO } from "@/app/video-editor/_opencut/text/estilos-predefinidos";
 import { plantillaPorId } from "@/lib/editor-video/plantillas";
 import { usarPlantilla, type ResultadoUsar } from "@/app/video-editor/_opencut/plantillas/instanciar";
 import { leerAncla } from "@/app/video-editor/_opencut/plantillas/huecos";
@@ -39,9 +41,13 @@ import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
+import { aplicarEstiloASubtitulos } from "@/app/video-editor/_opencut/subtitles/insert";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
+import { ponerEmojisEnSubtitulos } from "@/app/video-editor/_opencut/subtitles/emojis-poner";
+import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
-import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
+import { cambiarBroll } from "@/app/video-editor/_opencut/broll/cambiar";
+import { avisoFaltaPexels, textoDeBroll, textoDeCambioBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { buscarClips } from "@/app/video-editor/_opencut/clips/buscar";
 import { textoDeClips } from "@/app/video-editor/_opencut/clips/resultado";
 import { SECCION_CLIPS } from "@/app/video-editor/_opencut/clips/secciones";
@@ -58,6 +64,7 @@ import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from "./line
 import { armarLote, esLarga, type OperacionLarga } from "./comandos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import type { ProgresoChat } from "./armado";
+import { mismoFondo } from "./fondo-proyecto";
 
 /** Lo que propuso la IA, con lo necesario para aplicarlo en la línea de tiempo correcta. */
 export type PropuestaChat = {
@@ -75,8 +82,17 @@ export type PropuestaChat = {
 	operaciones: OperacionChat[];
 };
 
-/** Lo necesario para deshacer un cambio aplicado: `pasos` son los del historial (el lote, y uno por cada operación larga). */
-export type AplicadaChat = { escenaId: string; antes: SceneTracks; despues: SceneTracks; pasos: number };
+/**
+ * Lo necesario para deshacer un cambio aplicado: `pasos` son los del historial (el lote, y uno por cada operación larga).
+ * `ajustes`: los del proyecto antes y después, si el cambio tocó alguno (el fondo del lienzo no cambia las pistas).
+ */
+export type AplicadaChat = {
+	escenaId: string;
+	antes: SceneTracks;
+	despues: SceneTracks;
+	pasos: number;
+	ajustes?: { antes: TProjectSettings; despues: TProjectSettings };
+};
 
 export type ResultadoAceptar =
 	| { ok: true; aplicada: AplicadaChat; descartes: string[] }
@@ -145,12 +161,29 @@ async function correrLarga(
 		if (n > 0) usePreferenciasSubtitulos.getState().fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
 		return n > 0 ? [] : ["no hay subtítulos"];
 	}
+	if (r.op === "estilo_subtitulos") {
+		// El MISMO de «Aplicar en todos los subtítulos» (subtitles/insert.ts): el estilo y los renglones vueltos a partir con la
+		// fuente nueva, en un paso de deshacer. Sólo los que nombró el pedido.
+		const n = await aplicarEstiloASubtitulos({ editor, estilo: r.params, solo: new Set(r.els.map((e) => e.elementId)) });
+		return n > 0 ? [] : ["esos subtítulos ya no están"];
+	}
 	if (r.op === "broll") {
 		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
-		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos });
+		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos, medio: r.videos ? "videos" : "fotos" });
 		if (!hecho.ok) return [textoDeBroll(hecho)];
-		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
+		const avisos = [hecho.aviso, hecho.faltaPexels ? avisoFaltaPexels(r.videos ? "videos" : "fotos") : null].filter((x): x is string => !!x);
 		return avisos;
+	}
+	if (r.op === "cambiar_broll") {
+		// El MISMO de «Otra» en la sección «B-roll de MaKo»: la siguiente de la misma búsqueda, en un paso de deshacer.
+		const hecho = await cambiarBroll(editor, { trackId: r.el.trackId, elementId: r.el.elementId });
+		return hecho.ok ? [] : [textoDeCambioBroll(hecho)];
+	}
+	if (r.op === "emojis_subtitulos") {
+		// El MISMO de la sección «Emojis» de la pestaña Subtítulos: un paso de deshacer.
+		const n = ponerEmojisEnSubtitulos({ editor, activar: r.activar });
+		if (!r.activar) return [];
+		return n > 0 ? [] : [subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks ?? null).length ? "ningún subtítulo dice algo con emoji" : "no hay subtítulos para ponerles emojis"];
 	}
 	if (r.op === "clips_magicos") {
 		// El MISMO de «Clips mágicos»: los busca y abre la sección, donde se abre cada uno en un proyecto nuevo.
@@ -194,9 +227,12 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	usar_plantilla: "usar la plantilla",
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
+	estilo_subtitulos: "cambiar el estilo de los subtítulos",
 	broll: "proponer el B-roll",
+	cambiar_broll: "traer otra imagen o video del B-roll",
 	clips_magicos: "buscar los clips",
 	edicion_automatica: "hacer la edición automática",
+	emojis_subtitulos: "poner los emojis",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */
@@ -245,6 +281,11 @@ export async function aceptarPropuesta(
 			o.op === "estilo_texto" && o.estilo.fuente ? [disponibles.fuentes.todas.get(o.estilo.fuente.toLowerCase()) ?? o.estilo.fuente] : [],
 		),
 		...fuentesDeHuecos(editor, p),
+		// La fuente de una «Plantilla de texto», como su tarjeta antes de agregarla (text/components/biblioteca-estilos.tsx).
+		...p.operaciones.flatMap((o) => {
+			const familia = o.op === "agregar_texto" && o.plantilla ? PLANTILLAS_TEXTO.find((x) => x.id === o.plantilla)?.params.fontFamily : undefined;
+			return typeof familia === "string" ? [familia] : [];
+		}),
 	];
 	if (fuentes.length) await loadFonts({ families: [...new Set(fuentes)] }).catch(() => {});
 
@@ -264,6 +305,7 @@ export async function aceptarPropuesta(
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 	const { resueltas, descartes } = revisarOperaciones({ operaciones: p.operaciones, vista, alcance: p.alcance, transcripcion: datos.transcripcion });
 	if (!resueltas.length) return { ok: false, error: noSeAplica(descartes[0], "Ya no hay nada que cambiar") };
@@ -272,11 +314,15 @@ export async function aceptarPropuesta(
 	const lote = armarLote(resueltas, { idioma: datos.transcripcion.idioma });
 	const largas = resueltas.filter(esLarga);
 	const actuales = () => editor.scenes.getActiveSceneOrNull()?.tracks;
+	// El fondo del lienzo vive en los ajustes del proyecto, no en las pistas: cambiarlo también es un paso. Sólo el FONDO
+	// (./fondo-proyecto.ts): los fps que sube un archivo nuevo no son del chat ni están en el historial.
+	const ajustesDe = () => editor.project.getActiveOrNull()?.settings;
+	const ajustesAntes = ajustesDe();
 	let pasos = 0;
 	if (lote.comandos.length) {
 		const comandos = lote.comandos;
 		editor.command.execute({ command: comandos.length === 1 ? comandos[0] : new BatchCommand(comandos) });
-		if (actuales() !== antes) pasos++;
+		if (actuales() !== antes || !mismoFondo(ajustesDe(), ajustesAntes)) pasos++;
 		for (const { que, comando } of lote.cortes) {
 			const hecho = comando.resumen();
 			if (!hecho) descartes.push(`no se cortó ${que}`);
@@ -321,9 +367,15 @@ export async function aceptarPropuesta(
 		else if (!avisos.length) descartes.push(`no se pudo ${QUE_NO_SE_PUDO[r.op]}${"el" in r ? ` ${r.el.titulo}` : ""}`);
 	}
 	const despues = actuales();
-	// Si la línea de tiempo no cambió, no se aplicó: decir «Aplicado» sería mentir.
-	if (!despues || despues === antes || pasos === 0) return { ok: false, error: noSeAplica(descartes[0], "No se aplicó el cambio") };
-	return { ok: true, aplicada: { escenaId: p.escenaId, antes, despues, pasos }, descartes };
+	const ajustesDespues = ajustesDe();
+	const cambiaronAjustes = !!ajustesAntes && !!ajustesDespues && !mismoFondo(ajustesAntes, ajustesDespues);
+	// Si nada cambió (ni la línea de tiempo ni el fondo), no se aplicó: decir «Aplicado» sería mentir.
+	if (!despues || (despues === antes && !cambiaronAjustes) || pasos === 0) return { ok: false, error: noSeAplica(descartes[0], "No se aplicó el cambio") };
+	return {
+		ok: true,
+		aplicada: { escenaId: p.escenaId, antes, despues, pasos, ...(cambiaronAjustes ? { ajustes: { antes: ajustesAntes, despues: ajustesDespues } } : {}) },
+		descartes,
+	};
 }
 
 /**
@@ -334,8 +386,12 @@ export async function aceptarPropuesta(
 export function deshacerPropuesta(editor: EditorCore, a: AplicadaChat): boolean {
 	const escena = editor.scenes.getActiveSceneOrNull();
 	if (!escena || escena.id !== a.escenaId || escena.tracks !== a.despues) return false;
+	// Lo mismo con el fondo: si alguien lo cambió después, deshacer desharía lo suyo. Sólo el fondo: unos fps que subió
+	// un archivo (fuera del historial) no apagan «Restaurar».
+	const ajustes = () => editor.project.getActiveOrNull()?.settings;
+	if (a.ajustes && !mismoFondo(ajustes(), a.ajustes.despues)) return false;
 	for (let i = 0; i < a.pasos; i++) editor.command.undo();
-	if (editor.scenes.getActiveSceneOrNull()?.tracks === a.antes) return true;
+	if (editor.scenes.getActiveSceneOrNull()?.tracks === a.antes && (!a.ajustes || mismoFondo(ajustes(), a.ajustes.antes))) return true;
 	for (let i = 0; i < a.pasos; i++) editor.command.redo();
 	return false;
 }

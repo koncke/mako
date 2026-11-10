@@ -670,6 +670,10 @@ export function fmtValor(v: number | null, formato: Formato, compacto = false): 
   if (formato === 'pct') return `${v.toLocaleString('es-AR', { maximumFractionDigits: compacto ? 0 : 1 })}%`;
   if (formato === 'veces') return `${v.toLocaleString('es-AR', { maximumFractionDigits: 2 })}x`;
   if (formato === 'segundos' && !compacto && Math.abs(v) >= 60) {
+    // Desde una hora, horas y días (9/11/2026, «Cada lead nuevo»: un lead esperando 26 días decía «37790 min 0 s»).
+    const s = Math.round(Math.abs(v)), signo = v < 0 ? '-' : '';
+    if (s >= 86_400) { const d = Math.floor(s / 86_400), h = Math.floor((s % 86_400) / 3600); return `${signo}${d} ${d === 1 ? 'día' : 'días'}${h ? ` ${h} h` : ''}`; }
+    if (s >= 3600) { const h = Math.floor(s / 3600), mi = Math.floor((s % 3600) / 60); return `${signo}${h} h${mi ? ` ${mi} min` : ''}`; }
     const min = Math.floor(v / 60);
     return `${min} min ${Math.round(v % 60)} s`;
   }

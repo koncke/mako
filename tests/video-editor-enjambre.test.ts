@@ -16,6 +16,13 @@ import {
 } from '../app/video-editor/_opencut/enjambre/plan';
 import { puntoDeCursor, ZONA_DE } from '../app/video-editor/_opencut/enjambre/cursores';
 import { CANDIDATOS_ESTILO, MAX_RENGLONES, elegirEstilo, esNadaQueHacer, evaluarPrueba } from '../app/video-editor/_opencut/enjambre/plan';
+import { comoTerminaFalla, cuentaComoToque, gruposPorFuente, textoPastilla } from '../app/video-editor/_opencut/enjambre/plan';
+import { NO_HAY_MULETILLAS, type ParrafoTx } from '../app/video-editor/_opencut/transcripcion/modelo';
+import { MedidorIntensidad } from '../app/video-editor/_opencut/audio/dsp/intensidad';
+import { dbNormalizacion, INTENSIDAD_MEDIDA, medidaDePedazos, NORMALIZAR, NORMALIZAR_OBJETIVO, TOLERANCIA_PEDAZO_LU } from '../app/video-editor/_opencut/audio/claves';
+import { OBJETIVOS_NORMALIZAR } from '../lib/editor-video/chat-catalogo';
+import { cajaDePlantilla, textoConCaja } from '../app/video-editor/_opencut/subtitles/estilos';
+import { presetDesdeApi } from '../lib/editor-video/presets-subtitulos';
 import { MOTIVO_SUBTITULOS } from '../app/video-editor/_opencut/subtitles/resultado';
 import { textoSinSilencios } from '../app/video-editor/_opencut/audio/silencios-aviso';
 import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaDeParams, plantillaPorId } from '../app/video-editor/_opencut/subtitles/estilos';
@@ -211,7 +218,7 @@ test('7. el panel, la barra y la pastilla «en vivo» están registrados', () =>
 test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a los agentes y cuenta sus pasos', () => {
   const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
   assert.match(correr, /await aceptarPropuesta\(ctx\.editor, propuesta, \{ alProgreso \}\)/, 'lo del chat, con el «Aceptar» del chat');
-  assert.match(correr, /await proponerBroll\(editor, esBroll \? \{ broll: true, planos: false/, 'el B-roll, con la función de su sección');
+  assert.match(correr, /await proponerBroll\(editor, \{\s*broll: esBroll,\s*planos: !esBroll,/, 'el B-roll, con la función de su sección');
   assert.match(correr, /const profundidadInicial = editor\.command\.profundidad\(\);/, 'cuenta los pasos que deja para «Deshacer todo»');
   assert.match(correr, /if \(useEnjambre\.getState\(\)\.detener\) break;/, '«Detener» corta entre paso y paso');
   // «Deshacer todo» sólo si nadie tocó después, y vuelve exactamente a lo de antes.
@@ -221,7 +228,7 @@ test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a lo
   assert.match(aplicar, /if \(r\.op === "edicion_automatica"\) \{[\s\S]*?await correrEnjambre\(editor, \{ desdeElChat: true \}\);[\s\S]*?pasos \+= hecho\.pasos;/, '«Restaurar» del chat deshace todos los pasos de los agentes');
   // Si la persona tocó el editor mientras trabajaban, sus cambios están en esa cuenta: no hay «Deshacer todo», y se dice.
   assert.match(correr, /const puedeDeshacer = !desdeElChat && !tocado && pasosHistorial > 0/);
-  assert.match(correr, /if \(zona && zona !== "biblioteca"\) tocado = true;/);
+  assert.match(correr, /if \(cuentaComoToque\(\{[\s\S]*?\}\)\)\s*tocado = true;/, 'el toque de la persona marca la corrida');
   assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.history\.length;/);
 });
 
@@ -324,6 +331,144 @@ test('14. «no había nada que hacer» no es «no pudo»: una falla real se dice
   assert.equal(esNadaQueHacer('No se guardó el proyecto'), false);
 });
 
+// ─── Los arreglos de la revisión del 9/11/2026 (tanda del 10/11) ─────────────
+
+test('15. un video SIN muletillas no es una falla: el texto REAL de «sacar las muletillas» se lee como «no había nada»', () => {
+  const p = (id: string, texto: string, inicio: number, fin: number) => ({ id, elementId: id.split('#')[0], texto, inicio, fin, muletilla: false });
+  // Un video grabado con guion: palabras limpias, ninguna marcada ni reconocible como muletilla.
+  const parrafos: ParrafoTx[] = [
+    { elementId: 's1', trackId: 'ps', inicio: 0, fin: 2, texto: 'las grabaciones de pantalla', bloqueado: false, palabras: [p('s1#0', 'las', 0, 0.3), p('s1#1', 'grabaciones', 0.3, 1), p('s1#2', 'de', 1, 1.2), p('s1#3', 'pantalla', 1.2, 2)] },
+    { elementId: 's2', trackId: 'ps', inicio: 2, fin: 4, texto: 'aparecen solas', bloqueado: false, palabras: [p('s2#0', 'aparecen', 2, 3), p('s2#1', 'solas', 3, 4)] },
+  ];
+  const vista = vistaDeLinea({ tracks: escena({ subtitulos: true }), tps: TPS, cabezal: 0, elegidos: [], conPalabras: true });
+  const r = revisarOperaciones({ operaciones: [{ op: 'eliminar_muletillas' }], vista, alcance: 'video', transcripcion: { parrafos, idioma: 'es' } });
+  assert.equal(r.resueltas.length, 0, 'no hay nada que cortar');
+  assert.equal(r.descartes[0], NO_HAY_MULETILLAS, 'el motivo es el texto compartido');
+  // Así lo arma «Aceptar» (chat/aplicar.ts → noSeAplica) y así lo lee el agente de las muletillas.
+  assert.equal(esNadaQueHacer(`No se aplica: ${r.descartes[0]}`), true, 'un video con guion terminaba con «1 no pudo» y «Reportar a Soporte»');
+});
+
+test('16. «Detener» no es una falla, y una falla de verdad sigue siendo falla', () => {
+  assert.equal(comoTerminaFalla({ nada: false, detener: true, cancelado: true }), 'detenido', 'detener los subtítulos contaba como «no pudo»');
+  assert.equal(comoTerminaFalla({ nada: false, detener: false, cancelado: false }), 'fallo');
+  assert.equal(comoTerminaFalla({ nada: false, detener: true, cancelado: false }), 'fallo', 'una falla real con «Detener» apretado sigue siendo falla');
+  assert.equal(comoTerminaFalla({ nada: true, detener: true, cancelado: false }), 'salteado', 'no había nada que hacer, aunque se haya detenido');
+  // El loop no suma un «detenido» a las fallas, y el texto de la cancelación es el de los subtítulos.
+  const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
+  assert.match(correr, /else if \(como === "fallo"\) fallas\+\+;/, 'un «detenido» no se cuenta como falla');
+  assert.match(correr, /comoTerminaFalla\(\{ nada: r\.nada, detener: useEnjambre\.getState\(\)\.detener, cancelado: r\.texto === MOTIVO_SUBTITULOS\.cancelado \}\)/);
+});
+
+test('17. el B-roll y los planos leen lo que se dice UNA vez, y no transcriben si los subtítulos ya fallaron', () => {
+  const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
+  // La lectura la hace proponerBroll (con su candado: Whisper no corre dos veces a la vez), y el segundo agente la reusa.
+  assert.equal((correr.match(/frasesDelVideo\(/g) ?? []).length, 0, 'leer afuera del candado de proponerBroll pisaba el Whisper del botón');
+  assert.match(correr, /\.\.\.\(ctx\.frases\.lista \? \{ frases: ctx\.frases\.lista \} : \{\}\),\s*alLeerFrases: \(f\) => \{\s*ctx\.frases\.lista = f;/);
+  assert.match(correr, /if \(!r\.ok && r\.motivo === "red" && !ctx\.frases\.lista\) ctx\.frases\.fallo = true;/, 'un fallo leyendo no se repite en el agente siguiente');
+  assert.match(correr, /if \(ctx\.frases\.fallo\) \{/);
+  assert.match(correr, /if \(ctx\.subtitulosNoSalieron && !antes\.estado\.subtitulos\.length\) \{/, 'con los subtítulos caídos, no vuelve a transcribir');
+  assert.match(correr, /if \(paso\.id === "subtitulos" && como !== "hecho"\) subtitulosNoSalieron = true;/, 'también si no se reconoció la voz');
+  // proponerBroll usa lo que le pasan y avisa lo que leyó; y sin Pexels no le paga a la IA.
+  const proponer = sinComentarios(leer('app/video-editor/_opencut/broll/proponer.ts'));
+  assert.match(proponer, /const frases = opciones\.frases \?\? \(await frasesDelVideo\([^;]*;\s*opciones\.alLeerFrases\?\.\(frases\);/);
+  const iPexels = proponer.indexOf('accion: "pexels"');
+  const iElegir = proponer.indexOf('accion: "elegir"');
+  assert.ok(iPexels > 0 && iElegir > 0, 'están las dos preguntas');
+  assert.ok(iPexels < iElegir, 'se pregunta por Pexels ANTES de pedirle a la IA que elija');
+  const ruta = sinComentarios(leer('app/api/video-editor/broll/route.ts'));
+  assert.match(ruta, /if \(body\.accion === 'pexels'\) \{[\s\S]*?if \(clave\.falta\) return responder\(\{ ok: true, conectado: false \}\);/);
+});
+
+test('18. el volumen: los pedazos del MISMO video se miden juntos y les toca la misma ganancia', () => {
+  // Después de «Borrar silencios», un video son muchos pedazos: van en UN grupo; uno de otro video, aparte.
+  const pedazos = [
+    { inicio: 3, fuente: 'video-a', id: 'p2' },
+    { inicio: 0, fuente: 'video-a', id: 'p1' },
+    { inicio: 5, fuente: 'video-b', id: 'otro' },
+    { inicio: 7, fuente: null, id: 'sin-fuente' },
+    { inicio: 9, fuente: 'video-a', id: 'p3' },
+  ];
+  assert.deepEqual(gruposPorFuente(pedazos).map((g) => g.map((c) => c.id)), [['p1', 'p2', 'p3'], ['otro'], ['sin-fuente']]);
+  // Por qué importa: medido de a uno, un pedazo con la voz fuerte y uno casi todo respiración salen con ganancias
+  // distintas y el volumen salta en cada corte. Medidos juntos, la misma medida → la misma ganancia.
+  const sr = 48_000;
+  const tono = (amp: number, s: number) => Float32Array.from({ length: Math.round(sr * s) }, (_, i) => amp * Math.sin((2 * Math.PI * 440 * i) / sr));
+  const fuerte = tono(0.5, 2);
+  const suave = tono(0.05, 2);
+  const medir = (...trozos: Float32Array[]) => {
+    const m = new MedidorIntensidad(sr);
+    for (const t of trozos) m.agregar([t]);
+    return m.resultado();
+  };
+  const objetivo = OBJETIVOS_NORMALIZAR.youtube;
+  const db = (lufs: number) => dbNormalizacion({ [NORMALIZAR]: true, [INTENSIDAD_MEDIDA]: lufs, [NORMALIZAR_OBJETIVO]: objetivo });
+  const separadas = [db(medir(fuerte)), db(medir(suave))];
+  assert.ok(Math.abs(separadas[0] - separadas[1]) > 15, 'medidos de a uno, cada pedazo sube distinto (así saltaba el volumen)');
+  // Dos pedazos de la misma toma (uno 3 dB más flojo): van con la medida del conjunto, la misma ganancia.
+  const parejo = tono(0.35, 2);
+  const conjunta = medir(fuerte, parejo);
+  const [a, b] = medidaDePedazos([medir(fuerte), medir(parejo)], conjunta);
+  assert.equal(a, conjunta);
+  assert.equal(b, conjunta, 'el pedazo apenas más flojo lleva la misma ganancia: no salta en el corte');
+  // Otra toma, 20 dB abajo (lejos del micrófono): con la ganancia del conjunto quedaría casi muda. Va con la suya.
+  const conSuave = medir(fuerte, suave);
+  const [c, d] = medidaDePedazos([medir(fuerte), medir(suave)], conSuave);
+  assert.equal(c, conSuave);
+  assert.equal(d, medir(suave), 'la toma floja queda con su propia medida');
+  assert.ok(Math.abs(medir(suave) - conSuave) > TOLERANCIA_PEDAZO_LU);
+  // Sin medida del conjunto, cada uno la suya; un pedazo mudo, la del conjunto.
+  assert.deepEqual(medidaDePedazos([-20, null], null), [-20, null]);
+  assert.deepEqual(medidaDePedazos([null], -18), [-18]);
+  // El agente usa la medida conjunta por video, no la operación de a un clip.
+  const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
+  assert.match(correr, /const grupos = gruposPorFuente\(clips\);/);
+  assert.match(correr, /quedaron \+= await normalizarJuntos\(\{/);
+  const normalizar = sinComentarios(leer('app/video-editor/_opencut/audio/normalizar.ts'));
+  assert.match(normalizar, /const medidas = medidaDePedazos\(propias, conjunta\);/, 'la medida de cada pedazo sale de la regla');
+});
+
+test('19. «Lima» se ve en minúsculas en su tarjeta y la API la puede guardar; la pastilla dice qué agente va', () => {
+  const lima = plantillaPorId('lima');
+  assert.equal(cajaDePlantilla(lima), 'lowercase', 'la tarjeta mostraba «Lima» con la caja de lo escrito');
+  assert.equal(textoConCaja('Así Se Ve', lima), 'así se ve');
+  assert.equal(cajaDePlantilla(plantillaPorId('recuadro-bebas')), 'uppercase');
+  assert.equal(textoConCaja('así', { mayusculas: false }), 'así');
+  // La API: minúsculas sí, y saca las mayúsculas (y al revés).
+  const conMinus = presetDesdeApi({ nombre: 'Reel', minusculas: true }, null) as { estilo: Record<string, unknown> };
+  assert.equal(conMinus.estilo.minusculas, true, 'presetDesdeApi no dejaba poner «minúsculas»');
+  const saneado = sanearEstilo(conMinus.estilo);
+  assert.ok(saneado.ok && saneado.valor.minusculas === true);
+  const vuelta = presetDesdeApi({ mayusculas: true }, { id: 'x', actualizado: '', nombre: 'Reel', marca: null, estilo: { fuente: 'Inter', negrita: true, color: '#ffffff', minusculas: true }, claves: { auto: false, color: '#c8f53c', siempre: [] } }) as { estilo: Record<string, unknown> };
+  assert.equal(vuelta.estilo.mayusculas, true);
+  assert.equal(vuelta.estilo.minusculas, undefined, 'las dos no van juntas');
+  const def = DEFS_VIDEO.find((d) => d.id === 'guardar_preset_subtitulos');
+  assert.ok(def?.parametros.some((p) => p.nombre === 'minusculas'), 'la API ofrece «minúsculas»');
+  // La pastilla: trabajan de a uno.
+  assert.equal(textoPastilla('subtitulos'), `en vivo · Subtítulos · paso 2 de ${PASOS.length}`);
+  assert.equal(textoPastilla(null), 'en vivo');
+  assert.doesNotMatch(leer('app/video-editor/_opencut/enjambre/components/en-vivo.tsx'), /agentes"\)\} en vivo/, 'decía «10 agentes en vivo»');
+});
+
+test('20. tocar el editor: reproducir no saca «Deshacer todo»; lo que cambia la línea, aunque sea un botón, sí cuenta', () => {
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: null, tecla: ' ' }), false, 'la barra espaciadora reproduce');
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: 'reproductor', soloMira: true }), false, 'el botón de reproducir sacaba «Deshacer todo»');
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: 'reproductor' }), true, 'las manijas de escalar y el menú «Relación» son botones que SÍ cambian');
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: null, tecla: 'Delete' }), true, 'Supr con el foco en la página no contaba');
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: 'biblioteca', tecla: 'Delete' }), true, 'Supr con el foco en un renglón del registro también borra el clip elegido');
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: 'linea', tecla: 'z' }), true);
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: 'linea' }), true);
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: 'biblioteca' }), false, 'el panel de la edición está en la biblioteca');
+  assert.equal(cuentaComoToque({ tipo: 'soltar', zona: 'linea' }), true, 'arrastrar un medio de la biblioteca a la línea');
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: null }), true, '«Aceptar» del chat o un menú en un portal');
+  assert.equal(cuentaComoToque({ tipo: 'puntero', zona: null, enEditable: true }), false, 'tocar la caja del chat para escribir');
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: 'biblioteca', tecla: 'a', enEditable: true }), false, 'escribir en un buscador no cambia la línea');
+  assert.equal(cuentaComoToque({ tipo: 'tecla', zona: 'propiedades', tecla: '5', enEditable: true }), true, 'un campo de las propiedades sí');
+  const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
+  assert.match(correr, /document\.addEventListener\("drop", mirar, true\);/);
+  assert.match(correr, /soloMira: !!el\?\.closest\("\[data-ce-solo-mira\]"\)/);
+  assert.match(leer('app/video-editor/_opencut/preview/components/toolbar.tsx'), /aria-label=\{isPlaying \? "Pausar" : "Reproducir"\}\s*\/\/[^\n]*\n\s*data-ce-solo-mira=""/, 'el botón de reproducir lleva la marca');
+});
+
 // Probado rompiéndolo (base en verde), un cambio por vez y restaurado desde memoria, con su resultado:
 //   Tanda 1 (base 8 de 8):
 //   · PASOS con «subtitulos» antes de «pausas»                        → rojo el 1
@@ -361,3 +506,23 @@ test('14. «no había nada que hacer» no es «no pudo»: una falla real se dice
 //   · tocar el editor en medio sin marcar la corrida como tocada         → rojo el 8
 //   · el chat corriendo la edición sin decir que viene del chat          → rojo el 8
 //   · la prueba de estilos sin vaciar «Rehacer»                          → rojo el 13
+//   Tanda del 10/11/2026 (los arreglos de la revisión, base 20 de 20):
+//   · esNadaQueHacer sin «no se identificaron muletillas»              → rojo el 15
+//   · linea.ts con otro texto para «no hay muletillas»                 → rojo el 15
+//   · «Detener» contado como falla                                     → rojo el 16
+//   · proponerBroll preguntando por Pexels después de pagar la IA      → rojo el 17
+//   · el volumen sin juntar los pedazos del mismo video                → rojo el 18
+//   · la tarjeta de «Lima» sin minúsculas                              → rojo el 19
+//   · presetDesdeApi sin «minúsculas»                                  → rojo el 19
+//   · la pastilla «10 agentes en vivo»                                 → rojo el 19
+//   · «Reproducir» contado como un toque que cambia la línea           → rojo el 20
+//   · un atajo con el foco fuera de los paneles sin contar             → rojo el 20
+//   Revisión adversarial de la tanda del 10/11 (base 20 de 20):
+//   · «Detener» con cualquier falla, no sólo la cancelación              → rojo el 16
+//   · los botones del reproductor (manijas, «Relación») sin contar       → rojo el 20
+//   · una tecla con el foco en la biblioteca sin contar                  → rojo el 20
+//   · sin mirar el `drop` (arrastrar un medio a la línea)                 → rojo el 20
+//   · la toma floja con la medida del conjunto (queda casi muda)          → rojo el 18
+//   · cada pedazo con la suya (el volumen vuelve a saltar en los cortes)  → rojo el 18
+//   · sin recordar que leer lo que se dice falló                         → rojo el 17
+//   · «no se reconoció la voz» sin contar como subtítulos que no salieron → rojo el 17

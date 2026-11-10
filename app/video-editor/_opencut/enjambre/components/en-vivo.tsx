@@ -9,7 +9,7 @@
 // tiempo. Tocarla lleva al panel con el registro.
 
 import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
-import { AGENTES, LIMA, PASOS, cuantos } from "../plan";
+import { AGENTES, LIMA, textoPastilla } from "../plan";
 import { SECCION_ENJAMBRE, useEnjambre } from "../estado";
 
 export function EnVivo() {
@@ -17,8 +17,7 @@ export function EnVivo() {
 	const agentes = useEnjambre((s) => s.agentes);
 	const paso = useEnjambre((s) => s.paso);
 	if (fase !== "corriendo") return null;
-	// Trabajan de a uno (dos comandos a la vez sobre la misma línea de tiempo se pisan): se dice cuál va.
-	const n = paso ? PASOS.findIndex((p) => p.id === paso) + 1 : 0;
+	// Trabajan de a uno (dos comandos a la vez sobre la misma línea de tiempo se pisan): se dice cuál va (plan.ts).
 	return (
 		<button
 			type="button"
@@ -40,7 +39,7 @@ export function EnVivo() {
 				style={{ color: LIMA, backgroundColor: `${LIMA}1f` }}
 			>
 				<span className="size-1.5 animate-pulse rounded-full" style={{ backgroundColor: LIMA }} aria-hidden />
-				{cuantos(AGENTES.length, "agente", "agentes")} en vivo{n ? ` · paso ${n} de ${PASOS.length}` : ""}
+				{textoPastilla(paso)}
 			</span>
 		</button>
 	);

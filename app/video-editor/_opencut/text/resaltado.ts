@@ -31,12 +31,17 @@
 // va por el camino de siempre.
 
 import {
+	ANIMS_PALABRA,
 	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
+	PARAM_ANIM_PALABRA,
 	PARAM_CLAVES_COLOR,
+	PARAM_CLAVES_TAMANO,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
+	TOPES_CLAVES_TAMANO,
+	type AnimPalabra,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import {
 	coincidenConTexto,
@@ -70,7 +75,119 @@ export type ResaltadoTexto = {
 	claves: readonly number[];
 	/** El color de las palabras clave (hex). */
 	claveColor: string;
+	/** «Animación de la palabra» (params/extra/subtitulos.ts): cómo se mueve la que se está diciendo. */
+	anim: AnimPalabra;
+	/** El tamaño de la que se está diciendo en ESTE instante (1 = igual), de la tabla de la animación: cuantizado. */
+	escalaActual: number;
+	/** Cuánto más abajo va la que se está diciendo, en veces el tamaño de la letra (el «de abajo hacia arriba»). */
+	subidaActual: number;
+	/** El tamaño de las palabras clave (1 = igual; «Tamaño de las palabras clave» / 100). */
+	clavesEscala: number;
 };
+
+// ── La animación de la palabra (Submagic, estilo Hormozi) ────────────────────
+// Submagic no publica sus números (docs/editor-video/relevo-submagic.md: «resaltan, rebotan y se desvanecen
+// palabra por palabra» y, para el Hormozi nuevo, «pop-in de abajo hacia arriba»). Éstos son NUESTROS, elegidos para
+// leerse a 30 fps: la palabra entra un poco más chica y más abajo, se pasa y se asienta apenas más grande mientras se
+// dice. ⚠️ Es una TABLA y no una curva continua: el resultado cambia sólo al pasar de un renglón al siguiente (cuatro
+// veces por palabra), así la textura del texto no se vuelve a dibujar en cada cuadro (ver CUANTIZADO arriba).
+
+export const CURVA_POP: ReadonlyArray<{ ms: number; escala: number; subida: number }> = [
+	{ ms: 0, escala: 0.82, subida: 0.18 },
+	{ ms: 40, escala: 1.02, subida: 0.06 },
+	{ ms: 80, escala: 1.16, subida: 0 },
+	{ ms: 130, escala: 1.1, subida: 0 },
+];
+
+/** «Crece»: la que se dice queda así de grande, sin moverse. */
+export const ESCALA_CRECER = 1.15;
+
+/** La forma de la palabra que se dice, `ms` después de empezar a decirse. */
+export function formaDeAnim(anim: AnimPalabra, ms: number): { escala: number; subida: number } {
+	if (anim === "crecer") return { escala: ESCALA_CRECER, subida: 0 };
+	if (anim !== "pop") return { escala: 1, subida: 0 };
+	let paso = CURVA_POP[0];
+	for (const p of CURVA_POP) if (ms >= p.ms) paso = p;
+	return { escala: paso.escala, subida: paso.subida };
+}
+
+function leerAnim(v: unknown): AnimPalabra {
+	return ANIMS_PALABRA.includes(v as AnimPalabra) ? (v as AnimPalabra) : "ninguna";
+}
+
+function leerClavesEscala(v: unknown): number {
+	if (typeof v !== "number" || !Number.isFinite(v)) return DEFAULTS_CLAVES.tamano / 100;
+	return Math.min(TOPES_CLAVES_TAMANO.max, Math.max(TOPES_CLAVES_TAMANO.min, v)) / 100;
+}
+
+/**
+ * El tamaño más grande que puede llegar a tener `palabra` (la animación en su pico, una clave con su tamaño). El
+ * renglón le reserva ese lugar (./measure-element.ts → `reservas`, ./dibujar.ts → armarPiezas): sin la reserva, la
+ * palabra agrandada se comía el espacio y tapaba a las vecinas («HOYDINEROYA», revisión del 10/11/2026). La reserva
+ * es la del pico y no la del instante: así el renglón no baila cuando una palabra crece.
+ */
+export function escalaMaximaDePalabra(r: ResaltadoTexto, palabra: number): number {
+	const anim = r.anim === "pop" ? Math.max(...CURVA_POP.map((p) => p.escala)) : r.anim === "crecer" ? ESCALA_CRECER : 1;
+	return Math.max(anim, r.claves.includes(palabra) ? r.clavesEscala : 1);
+}
+
+/**
+ * Lo que se le reserva a cada renglón: Σ (escala máxima − 1) × ancho de cada palabra, medido con `anchoDe` (el
+ * `measureText` con la fuente y el interletrado del texto). Puro: lo usan la medición y el test.
+ */
+export function reservasDeRenglones(r: ResaltadoTexto, renglones: readonly string[], anchoDe: (texto: string) => number): number[] {
+	const primeras = primerasPalabras(renglones);
+	return renglones.map((renglon, i) => {
+		let total = 0;
+		for (const p of palabrasDeRenglon(renglon, primeras[i] ?? 0)) {
+			const m = escalaMaximaDePalabra(r, p.palabra);
+			if (m > 1) total += (m - 1) * anchoDe(p.texto);
+		}
+		return total;
+	});
+}
+
+/**
+ * Dónde va cada palabra de un renglón recto: donde caería en el renglón entero (el ancho de lo que la precede,
+ * medido como «hasta el fin de la palabra − la palabra», así da igual si el navegador cuenta el espaciado de la
+ * última letra) más las reservas de las de antes, y centrada en la suya. `x0` es el inicio del renglón CON su reserva.
+ * Puro (el dibujo pasa el `measureText` del lienzo): lo usa ./dibujar.ts → armarPiezas y lo prueba el test.
+ */
+export function ubicarPalabras({
+	renglon,
+	primera,
+	x0,
+	anchoDe,
+	escalaMax,
+}: {
+	renglon: string;
+	primera: number;
+	x0: number;
+	anchoDe: (texto: string) => number;
+	/** La escala máxima de cada palabra; sin ella, sin reserva. */
+	escalaMax?: (palabra: number) => number;
+}): Array<{ texto: string; palabra: number; x: number; ancho: number }> {
+	const salida: Array<{ texto: string; palabra: number; x: number; ancho: number }> = [];
+	let corrido = 0;
+	for (const p of palabrasDeRenglon(renglon, primera)) {
+		const ancho = anchoDe(p.texto);
+		const antes = p.desde === 0 ? 0 : anchoDe(renglon.slice(0, p.desde + p.texto.length)) - ancho;
+		const reserva = escalaMax ? Math.max(0, escalaMax(p.palabra) - 1) * ancho : 0;
+		salida.push({ texto: p.texto, palabra: p.palabra, x: x0 + antes + corrido + reserva / 2, ancho });
+		corrido += reserva;
+	}
+	return salida;
+}
+
+/**
+ * La forma con que se dibuja la palabra `palabra`: la que se dice, con su animación; una clave, con su tamaño (si es
+ * la que se dice, gana la más grande); las demás, como siempre. `subida` va en veces el tamaño de la letra.
+ */
+export function formaDePalabra(r: ResaltadoTexto, palabra: number): { escala: number; subida: number } {
+	const clave = r.claves.includes(palabra) ? r.clavesEscala : 1;
+	if (palabra === r.actual && r.anim !== "ninguna") return { escala: Math.max(r.escalaActual, clave), subida: r.subidaActual };
+	return { escala: clave, subida: 0 };
+}
 
 /**
  * Margen para dar una palabra por empezada: los tiempos se guardan a la centésima y
@@ -140,14 +257,29 @@ export function resaltadoDe({
 	const claves = indicesDeClaves(contenido, params[PARAM_CLAVES]);
 	const colorClave = params[PARAM_CLAVES_COLOR];
 	const claveColor = typeof colorClave === "string" && colorClave ? colorClave : DEFAULTS_CLAVES.color;
+	const clavesEscala = leerClavesEscala(params[PARAM_CLAVES_TAMANO]);
 	const crudo = params[PARAM_RESALTAR];
 	const modo = crudo === "palabra" || crudo === "frase" ? crudo : null;
-	const inicios = modo ? iniciosDePalabras(contenido, params[PARAM_PALABRAS]) : null;
-	if (!modo || !inicios || inicios.length === 0) {
+	// La animación de la palabra también necesita saber cuál se dice, aunque no la pinte de otro color.
+	const anim = leerAnim(params[PARAM_ANIM_PALABRA]);
+	const inicios = modo || anim !== "ninguna" ? iniciosDePalabras(contenido, params[PARAM_PALABRAS]) : null;
+	if (!inicios || inicios.length === 0) {
 		if (claves.length === 0) return null;
 		// Sólo las claves: todo cuenta como dicho (nada se atenúa) y ninguna es «la que se dice».
 		const total = palabrasDelTexto(contenido).length;
-		return { modo: "ninguno", actual: -1, dichas: total, color: DEFAULTS_RESALTADO.color, noDichas: 1, claves, claveColor };
+		return {
+			modo: "ninguno",
+			actual: -1,
+			dichas: total,
+			color: DEFAULTS_RESALTADO.color,
+			noDichas: 1,
+			claves,
+			claveColor,
+			anim: "ninguna",
+			escalaActual: 1,
+			subidaActual: 0,
+			clavesEscala,
+		};
 	}
 
 	// Cuántas ya empezaron: se cuentan en ORDEN y se corta en la primera que falta,
@@ -155,20 +287,28 @@ export function resaltadoDe({
 	const t = tiempo + recorteInicio + MARGEN_S;
 	let dichas = 0;
 	while (dichas < inicios.length && inicios[dichas] <= t) dichas++;
+	const actual = dichas - 1;
+	const forma = actual >= 0 ? formaDeAnim(anim, (t - inicios[actual]) * 1000) : { escala: 1, subida: 0 };
 
 	const color = params[PARAM_RESALTAR_COLOR];
 	const opacidad = params[PARAM_NO_DICHAS_OPACIDAD];
 	return {
-		modo,
-		actual: dichas - 1,
-		dichas,
+		modo: modo ?? "ninguno",
+		actual,
+		// Sin karaoke (sólo la animación), nada se atenúa: todo cuenta como dicho.
+		dichas: modo ? dichas : palabrasDelTexto(contenido).length,
 		color: typeof color === "string" && color ? color : DEFAULTS_RESALTADO.color,
-		noDichas:
-			typeof opacidad === "number" && Number.isFinite(opacidad)
+		noDichas: !modo
+			? 1
+			: typeof opacidad === "number" && Number.isFinite(opacidad)
 				? Math.min(1, Math.max(0, opacidad / 100))
 				: DEFAULTS_RESALTADO.noDichasOpacidad / 100,
 		claves,
 		claveColor,
+		anim,
+		escalaActual: forma.escala,
+		subidaActual: forma.subida,
+		clavesEscala,
 	};
 }
 

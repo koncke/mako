@@ -26,6 +26,7 @@ import { paramsDePlantilla, plantillaPorId } from "./estilos";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "./estado";
 import { insertarSubtitulos, lienzoDe, type ModoClaves } from "./insert";
 import { estiloDePreset, modoClavesDePreset, presetDeId, usePresetsSubtitulos } from "./presets";
+import { ponerEmojisEnSubtitulos } from "./emojis-poner";
 import { motivoDeLaFalla, textoDeSubtitulos, type MotivoSubtitulos, type ResultadoSubtitulos } from "./resultado";
 
 // Cada «Generar» lleva un número; cancelar lo cambia. Un trabajo que vuelve de
@@ -132,6 +133,8 @@ export async function generarSubtitulos(editor: EditorCore): Promise<ResultadoSu
 		});
 		// Con subtítulos para poner, 0 es que la escena ya no estaba.
 		if (puestos === 0) return falla("sin-proyecto");
+		// «Emojis automáticos»: después de poner los subtítulos (los lee para elegir), en su propio paso de deshacer.
+		if (prefs.emojis) ponerEmojisEnSubtitulos({ editor, activar: true });
 		fijar({ fase: "inactivo", progreso: 0 });
 		// `pc_copywriting_split`.
 		toast.success("Subtítulos generados");

@@ -1169,6 +1169,14 @@ aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bo
 GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
 para que nadie lo "arregle" de más.
 
+**Desde que la guarda frena (9-10/11/2026): siete puntas de la nube rojas por lo mismo**: tab-video, carruseles-guiado, outliers-video,
+automations-manychat, editor-tanda4-0911, motion-0911 y subtitulos-submagic-0911. El chat de la nube termina, nadie re-firma, y la
+punta queda roja días. **Se previene** con `git config user.email martinkoncke@gmail.com` (y `user.name Claude`) antes del primer
+commit: la regla está en `AGENTS.md`. **Se repara sin checkout**, porque la guarda mira sólo el ÚLTIMO commit: se rehace ese commit
+con el mismo árbol, el mismo padre y el mismo mensaje (`git commit-tree <árbol> -p <padre> -F msg`, con `GIT_AUTHOR_*` y
+`GIT_COMMITTER_*` del equipo y la fecha de autor original), se comprueba que el árbol es el mismo y se sube con
+`--force-with-lease=refs/heads/punta/<x>:<sha viejo>`. La punta se relanza sola.
+
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
 **Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
@@ -1448,7 +1456,7 @@ quedó duplicado lo junta `scripts/unir-indice-hallazgos.py`, pero el arreglo de
 - **`tests/grupo-leandro-2910.test.ts` no corre en ninguna punta, aunque la punta lo afecte:** `LENTOS_FUERA_DE_LA_FASE_RAPIDA` (scripts/tests-afectados.mjs) lo saca de los afectados contando con `--resto`, y en `punta.yml` no hay `--resto`. Sólo lo ve la semanal.
 - **Un rojo de la semanal sólo manda un mail:** no deja marca en git como `ci-rojo/*`, así que un vigía hecho con git no lo ve.
 - **Con varias puntas a la vez, la mezcla sin tests es lo normal:** cada corrida tarda ~28 min y terminan juntas, así que casi todas hacen su última mezcla sin tests ni tipos (avisan con el `::warning::`). Y la última no tiene «punta siguiente» que la cace.
-- **`--first-parent` de main ya no es la línea de main:** la mezcla deja a la punta de primer padre. `scripts/avisar-arreglo-al-grupo.mts` recorre así los últimos commits; falla cerrado (dice NO) mientras se construye el commit de arriba.
+- **`--first-parent` de main ya no es la línea de main:** la mezcla deja a la punta de primer padre. **Mordió el 10/11 y quedó arreglado en `scripts/avisar-arreglo-al-grupo.mts`.** Producción servía 082a832c4, con el arreglo de Leandro y en main, pero main había avanzado a 0a31eab2f («Merge origin/main en punta/curso-thenet-lab»), y ahí 082a832c4 es el SEGUNDO padre. La guarda dijo «no es de ningún commit de main» con el despliegue sano, diez minutos después de haber dicho que sí. No fallaba sólo «mientras se construye»: falla cada vez que main avanza con una de esas mezclas. Ahora busca entre los commits que contienen el arreglo (`git rev-list --ancestry-path <arreglo>..origin/main`). **Regla: para «¿el commit X está en lo que se despliega?» se pregunta `git merge-base --is-ancestor X <sha desplegado>`; nunca se recorre `--first-parent` de main.**
 - **«Sólo docs» de `integracion.yml` sigue con `grep -v '^docs/'`:** ahí un `docs/x.ts` todavía cuenta como documentación.
 
 ## Sin RAM para el tipado, el camino es `integracion`, sin `--no-verify` (3/11/2026)

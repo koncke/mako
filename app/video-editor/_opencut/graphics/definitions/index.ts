@@ -3,12 +3,15 @@ import { ellipseGraphicDefinition } from "./ellipse";
 import { polygonGraphicDefinition } from "./polygon";
 import { rectangleGraphicDefinition } from "./rectangle";
 import { starGraphicDefinition } from "./star";
+import { motionGraphicDefinitions } from "./motion";
 
 const defaultGraphicDefinitions = [
 	rectangleGraphicDefinition,
 	ellipseGraphicDefinition,
 	polygonGraphicDefinition,
 	starGraphicDefinition,
+	// Los motion graphics (lib/motion): un `graphic` animado por plantilla.
+	...motionGraphicDefinitions,
 ];
 
 export function registerDefaultGraphics(): void {

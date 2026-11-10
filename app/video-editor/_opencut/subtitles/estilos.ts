@@ -32,7 +32,10 @@ import type { ParamValue } from "@/app/video-editor/_opencut/params";
 import { FONT_SIZE_SCALE_REFERENCE } from "@/app/video-editor/_opencut/text/typography";
 import { DEFAULTS_TEXTO, TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 import {
+	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
+	PARAM_ANIM_PALABRA,
+	PARAM_CLAVES_TAMANO,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
@@ -71,6 +74,10 @@ export type PlantillaSubtitulo = {
 	 * todo lo dicho) y la opacidad 0–100 de lo que todavía no se dijo (100 si no va).
 	 */
 	resaltado?: { modo: "palabra" | "frase"; color: string; noDichasOpacidad?: number };
+	/** «Animación de la palabra» (Submagic, estilo Hormozi): la que se dice salta («pop») o crece. */
+	animPalabra?: "pop" | "crecer";
+	/** El tamaño de las palabras clave, en % (100 = igual). */
+	clavesTamano?: number;
 };
 
 export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
@@ -235,6 +242,37 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		mayusculas: true,
 		fondo: { color: "rgba(12, 12, 20, 0.78)", radio: 22, x: 0.3, y: 0.08 },
 	},
+	// ── Las de Submagic (10/11/2026): el blog de Submagic describe los dos subtítulos de Hormozi, y son los únicos
+	// que se pueden copiar con datos (docs/editor-video/relevo-submagic.md). Los nombres son de la persona, no de
+	// Submagic («Hormozi» es cómo le dice todo el mundo al estilo); los valores de la animación, nuestros (no los publica).
+	{
+		// El nuevo: Anton, mayúsculas, sombra leve, contorno amarillo y la palabra que entra de abajo hacia arriba.
+		id: "hormozi",
+		nombre: "Hormozi",
+		fuente: "Anton",
+		negrita: false,
+		color: "#ffffff",
+		escala: 1.35,
+		mayusculas: true,
+		trazo: { color: "#ffe14d", grosor: 18 },
+		sombra: true,
+		animPalabra: "pop",
+		clavesTamano: 120,
+	},
+	{
+		// El de antes: letra gruesa en mayúsculas, con sombra, sin contorno; la palabra que se dice, amarilla y más
+		// grande. Su fuente (TheBoldFont) no está en Google Fonts: va la más parecida que sí.
+		id: "hormozi-clasico",
+		nombre: "Hormozi clásico",
+		fuente: "Montserrat",
+		negrita: true,
+		color: "#ffffff",
+		escala: 1.3,
+		mayusculas: true,
+		sombra: true,
+		resaltado: { modo: "palabra", color: "#ffe14d" },
+		animPalabra: "crecer",
+	},
 	{
 		// La de marcador que el reel prueba y descarta.
 		id: "marcador",
@@ -249,6 +287,21 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 ];
 
 export const PLANTILLA_POR_DEFECTO = PLANTILLAS_SUBTITULO[0];
+
+/**
+ * Cómo se ve la caja de letra de una plantilla en su tarjeta: la MISMA regla que el render (`paramsDePlantilla`:
+ * mayúsculas gana). Hasta el 10/11/2026 la tarjeta sólo miraba `mayusculas`, y «Lima» —que va en minúsculas— se
+ * mostraba con la caja de lo escrito.
+ */
+export function cajaDePlantilla(p: Pick<PlantillaSubtitulo, "mayusculas" | "minusculas">): "uppercase" | "lowercase" | undefined {
+	return p.mayusculas ? "uppercase" : p.minusculas ? "lowercase" : undefined;
+}
+
+/** El texto de muestra de una tarjeta con la caja de su plantilla (para medir la fuente con lo que se dibuja). */
+export function textoConCaja(texto: string, p: Pick<PlantillaSubtitulo, "mayusculas" | "minusculas">): string {
+	const caja = cajaDePlantilla(p);
+	return caja === "uppercase" ? texto.toUpperCase() : caja === "lowercase" ? texto.toLowerCase() : texto;
+}
 
 export function plantillaPorId(id: string | null | undefined): PlantillaSubtitulo {
 	return PLANTILLAS_SUBTITULO.find((p) => p.id === id) ?? PLANTILLA_POR_DEFECTO;
@@ -289,6 +342,9 @@ export function paramsDePlantilla(
 		[TEXTO.mayusculas]: plantilla.mayusculas ? "mayusculas" : plantilla.minusculas ? "minusculas" : "ninguno",
 		[PARAM_RESALTAR]: plantilla.resaltado?.modo ?? "ninguno",
 		[PARAM_NO_DICHAS_OPACIDAD]: plantilla.resaltado?.noDichasOpacidad ?? DEFAULTS_RESALTADO.noDichasOpacidad,
+		// Como el resaltado: SIEMPRE, así «Clásico» después de «Hormozi» no deja la palabra saltando.
+		[PARAM_ANIM_PALABRA]: plantilla.animPalabra ?? "ninguna",
+		[PARAM_CLAVES_TAMANO]: plantilla.clavesTamano ?? DEFAULTS_CLAVES.tamano,
 	};
 	if (plantilla.resaltado) params[PARAM_RESALTAR_COLOR] = plantilla.resaltado.color;
 	if (plantilla.trazo) {
@@ -365,6 +421,10 @@ export function plantillaDeParams(
 			noDichasOpacidad: num(params[PARAM_NO_DICHAS_OPACIDAD], DEFAULTS_RESALTADO.noDichasOpacidad),
 		};
 	}
+	const anim = params[PARAM_ANIM_PALABRA];
+	if (anim === "pop" || anim === "crecer") salida.animPalabra = anim;
+	const tamanoClaves = num(params[PARAM_CLAVES_TAMANO], DEFAULTS_CLAVES.tamano);
+	if (tamanoClaves !== DEFAULTS_CLAVES.tamano) salida.clavesTamano = tamanoClaves;
 	return salida;
 }
 
