@@ -4,6 +4,7 @@ import { buildDefaultParamValues } from "@/app/video-editor/_opencut/params/regi
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import { graphicsRegistry } from "./registry";
 import { tamanoDeFuente } from "./fuente-grafico";
+import { definicionOAusente } from "./ausente";
 import {
 	registerDefaultGraphics,
 	ellipseGraphicDefinition,
@@ -46,7 +47,8 @@ export function getGraphicDefinition({
 	definitionId: string;
 }): GraphicDefinition {
 	registerDefaultGraphics();
-	return graphicsRegistry.get(definitionId);
+	// Una definición que ya no existe no tira: es un gráfico vacío (graphics/ausente.ts).
+	return definicionOAusente(graphicsRegistry, definitionId);
 }
 
 export function buildDefaultGraphicInstance({

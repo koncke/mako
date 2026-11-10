@@ -263,16 +263,14 @@ const sacable = (v: unknown): unknown => {
  * Un valor de motion de la API a su tipo: todo llega como texto (`valor` es un string declarado), y la clave dice qué
  * es (una clave tiene el mismo tipo en todas las plantillas: `TIPO_CAMPO_MOTION`). Lo que no se puede leer va tal cual,
  * y `normalizarMotion` lo rechaza con su motivo.
+ * ⚠️ Un NÚMERO va como texto, tal cual: lo lee `normalizarMotion` con el lector de lib/motion/numeros.ts, el mismo del
+ * chat y del panel. Hasta el 10/11/2026 se leía acá con `replace(',', '.')` y «1.250» llegaba como 1,25.
  */
 function valorMotion(campo: string, valor: unknown): unknown {
   if (typeof valor !== 'string') return valor ?? '';
   const t = valor.trim().toLowerCase();
   const tipo = TIPO_CAMPO_MOTION.get(campo);
   if (tipo === 'si-no') return t === 'true' || t === 'si' || t === 'sí' ? true : t === 'false' || t === 'no' ? false : valor;
-  if (tipo === 'numero') {
-    const n = Number(t.replace(',', '.'));
-    return t !== '' && Number.isFinite(n) ? n : valor;
-  }
   return valor;
 }
 

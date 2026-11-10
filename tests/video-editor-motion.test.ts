@@ -24,6 +24,8 @@ import {
   PREFIJO_MOTION, idDefinicionMotion, motionGraphicDefinitions, plantillaDeDefinicion, valoresDeParams,
 } from '../app/video-editor/_opencut/graphics/definitions/motion';
 import { claveDeFuente, reusaLienzo, tamanoDeFuente } from '../app/video-editor/_opencut/graphics/fuente-grafico';
+import { definicionOAusente, graficoAusente } from '../app/video-editor/_opencut/graphics/ausente';
+import { CAMPOS_DE_ESTILO, conDeslizador, motivoParaElCampo } from '../app/video-editor/_opencut/motion/components/pestana-motion-reglas';
 import { DEFAULT_GRAPHIC_SOURCE_SIZE } from '../app/video-editor/_opencut/graphics/types';
 import { formasNuevasDelRegistro } from '../app/video-editor/_opencut/stickers/providers/formas-reglas';
 import { PLANTILLAS, camposDe, valoresPorDefecto } from '../lib/motion/plantillas';
@@ -179,6 +181,89 @@ test('V11: el cableado: registrado, en la biblioteca «Motion» y con su pestañ
   assert.match(bib, /editor\.timeline\.insertElement\(\{ placement: \{ mode: "auto" \}, element \}\)/);
 });
 
+test('V12: un `graphic` cuya definición ya no existe no tira: no se dibuja y lo demás sigue', () => {
+  const registro = new Map(motionGraphicDefinitions.map((d) => [d.id, d] as const));
+  const como = { has: (k: string) => registro.has(k), get: (k: string) => { const d = registro.get(k); if (!d) throw new Error(`Unknown graphic: ${k}`); return d; } };
+  assert.equal(definicionOAusente(como, 'motion-titular'), registro.get('motion-titular'));
+  const ausente = definicionOAusente(como, 'motion-carrusel');
+  assert.deepEqual([ausente.id, ausente.params, ausente.animado], ['motion-carrusel', [], undefined]);
+  const a = ctxAnotador();
+  graficoAusente('x').render({ ctx: a.ctx, params: {}, width: 100, height: 100 });
+  assert.deepEqual(a.textos, [], 'no dibuja nada');
+  // El cableado: la definición, el render (no arma el nodo) y el panel (no dibuja una pestaña) preguntan antes.
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/graphics/index.ts')), /return definicionOAusente\(graphicsRegistry, definitionId\);/);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/services/renderer/resolve.ts')), /if \(!graphicsRegistry\.has\(node\.params\.definitionId\)\) return null;\s*\/?\/?[^\n]*\n\s*const tamano = tamanoFuenteGrafico/);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/graphics/components/graphic-tab.tsx')), /if \(!graphicsRegistry\.has\(element\.definitionId\)\) return null;\s*const definition = graphicsRegistry\.get\(element\.definitionId\);/);
+});
+
+test('V13: la pestaña Motion valida al confirmar, muestra el número como el video y pide el color sin transparencia', () => {
+  // El número de una cifra va sin deslizador (de -999.999.999 a 999.999.999 no se elige con la mano); los decimales y las
+  // estrellas, con.
+  const campo = (p: (typeof PLANTILLAS_MOTION)[number], k: string) => camposDe(p).find((c) => c.clave === k)!;
+  const num = (p: (typeof PLANTILLAS_MOTION)[number], k: string) => { const c = campo(p, k); assert.equal(c.tipo, 'numero'); return c as Extract<typeof c, { tipo: 'numero' }>; };
+  assert.equal(conDeslizador(num('cifra', 'numero')), false);
+  assert.equal(conDeslizador(num('cifra', 'decimales')), true);
+  assert.equal(conDeslizador(num('testimonio', 'estrellas')), true);
+  assert.equal(motivoParaElCampo('Nombre: no puede quedar vacío'), 'no puede quedar vacío');
+  assert.equal(motivoParaElCampo('Datos: en «Ventas», «1.250» puede ser 1250 o 1,25'), 'en «Ventas», «1.250» puede ser 1250 o 1,25');
+  assert.equal(motivoParaElCampo('«x» no es'), '«x» no es', 'sin rótulo, queda igual');
+  for (const p of PLANTILLAS_MOTION) for (const c of camposDe(p)) {
+    const estilo = ['tono', 'fuente', 'conFondo'].includes(c.clave) || c.tipo === 'color';
+    assert.equal(CAMPOS_DE_ESTILO.has(c.clave), estilo, `${p}.${c.clave}: ${estilo ? 'Estilo' : 'Textos'}`);
+  }
+  // El cableado de la pestaña (los componentes no corren fuera del navegador: se lee el fuente).
+  const tab = sinComentarios(leer('app/video-editor/_opencut/motion/components/pestana-motion.tsx'));
+  const bloque = (desde: string, hasta: string) => tab.slice(tab.indexOf(desde), tab.indexOf(hasta, tab.indexOf(desde)));
+  const texto = bloque('function CampoTextoMotion', 'function CampoNumeroMotion');
+  // (Las regex no nombran variables locales: renombrar una no puede ponerlas en rojo.)
+  assert.match(tab, /function validar\(\{ plantilla, param, element, aspecto \}: PropsCampo, (\w+): unknown\) \{\s*return validarCampoDelPanel\(plantilla, param\.key, \1, \{ valores: valoresDeParams\(plantilla, element\.params\), aspecto \}\);/,
+    'se valida con los valores del elemento y la proporción del proyecto');
+  assert.match(tab, /aspecto=\{\w+\} campo=\{\w+\.get\(\w+\.key\)\}/, 'y la proporción llega a cada campo');
+  const confirmaValidado = /const (\w+) = validar\(props, [^;]+\);\s*if \(\1\.ok\) \{\s*(\w+)\.previsualizar\(\{ \[param\.key\]: \1\.valor \}\);\s*\2\.confirmar\(\);/;
+  assert.match(texto, confirmaValidado, 'el texto se valida antes de confirmar');
+  assert.match(texto, /\} else \{[^}]*\w+\.timeline\.discardPreview\(\);\s*set\w+\(/, 'y si no vale, no se guarda');
+  // «¿Cambió algo?» se pregunta contra lo GUARDADO (el elemento confirmado), nunca contra el vivo: la vista previa ya
+  // escribió lo tipeado en el vivo, y comparado con él lo recién escrito era «igual» y se descartaba.
+  assert.match(tab, /confirmado: element\.params\[param\.key\] \?\? param\.default/);
+  assert.match(texto, /const \{ grupo, confirmado \} = useCampoMotion\(props\);/);
+  assert.match(texto, /const (\w+) = String\(confirmado\);[\s\S]*if \(\w+ === \1\) \{\s*\w+\.timeline\.discardPreview\(\);/);
+  const numero = bloque('function CampoNumeroMotion', 'function CampoColorMotion');
+  assert.match(numero, /const (\w+) = numeroParaMostrar\([\s\S]*value=\{\w+ \?\? \1\}/, 'el número se muestra como lo dibuja el video');
+  assert.match(numero, confirmaValidado);
+  assert.match(numero, /if \(\w+\.trim\(\) === numeroParaMostrar\(\w+\(confirmado\)\)\) \{/, 'el número también compara contra lo guardado');
+  assert.match(numero, /const (\w+) = conDeslizador\(campo\);[\s\S]*\{\1 && \(\s*<Slider/, 'el deslizador, sólo si `conDeslizador`');
+  assert.doesNotMatch(numero, /replace\(","|parseFloat/, 'ningún lector de números propio');
+  const color = bloque('function CampoColorMotion', 'function CampoMotionDe');
+  assert.match(color, /<ColorPicker\s+className="w-full"\s+sinTransparencia/);
+  assert.match(color, /const (\w+) = validar\(props, `#\$\{\w+\}`\);\s*if \(\1\.ok\) \{\s*\w+\.aplicar/);
+  // Y el ColorPicker sin transparencia devuelve siempre 6 cifras y esconde la barra de opacidad.
+  const cp = sinComentarios(leer('app/video-editor/_opencut/components/ui/color-picker.tsx'));
+  const recorta = /const (\w+) = \((\w+): string\) => \(sinTransparencia \? \2\.slice\(0, 6\) : \2\);/.exec(cp);
+  assert.ok(recorta, 'recorta a 6 cifras');
+  for (const k of ['onChange', 'onChangeEnd']) {
+    assert.match(cp, new RegExp(`const ${k} = (\\w+) && \\(\\((\\w+): string\\) => \\1\\(${recorta[1]}\\(\\2\\)\\)\\);`), `${k} pasa por el recorte`);
+  }
+  assert.match(cp, /value=\{\w+\(value\)\}\s*onChange=\{onChange\}\s*onChangeEnd=\{onChangeEnd\}/, 'el panel desplegable recibe lo recortado');
+  assert.match(cp, /sinTransparencia && "hidden"/);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/graphics/components/graphic-tab.tsx')), /import \{ MotionTab \} from "@\/app\/video-editor\/_opencut\/motion\/components\/pestana-motion";/);
+});
+
+test('V14: en el tramo quieto del medio el nodo no redibuja (el instante que dibuja es uno)', () => {
+  const d = def('titular');
+  const params = valoresPorDefecto('titular');
+  const instante = (t: number) => d.instanteDeDibujo!({ params, tiempo: t, duracion: 20, width: 1920, height: 1080 });
+  assert.equal(instante(5), instante(15), 'quieto: el mismo instante');
+  assert.equal(instante(0.4), 0.4, 'entrando: cada cuadro');
+  const clave = (t: number) => claveDeFuente({ definitionId: d.id, params, width: 1920, height: 1080, animado: true, tiempo: instante(t), duracion: 20 });
+  assert.equal(clave(5), clave(15));
+  const nodo = sinComentarios(leer('app/video-editor/_opencut/services/renderer/nodes/graphic-node.ts'));
+  // (Sin nombrar la local: renombrarla no puede ponerlo en rojo.)
+  const m = /const (\w+) =\s*animado && tiempo !== undefined && definition\.instanteDeDibujo\s*\?\s*definition\.instanteDeDibujo\(\{ params: resolvedParams, tiempo, duracion, width, height \}\)\s*:\s*tiempo;/.exec(nodo);
+  assert.ok(m, 'el nodo pregunta el instante que dibuja');
+  assert.match(nodo, new RegExp(`claveDeFuente\\(\\{[^}]*tiempo: ${m[1]},\\s*duracion,\\s*\\}\\);`), 'la clave lleva el instante');
+  assert.match(nodo, new RegExp(`\\{ tiempo: ${m[1]} \\?\\? 0, duracion \\}`), 'y el dibujo también');
+});
+
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 11/0):
 //   · el número de la cifra con `step: 1` en el panel                         -> 10/1 (V1)
 //   · los motion fuera del registro (definitions/index.ts)                    -> 10/1 (V11)
@@ -192,3 +277,14 @@ test('V11: el cableado: registrado, en la biblioteca «Motion» y con su pestañ
 //   · la pestaña «Formas» también para un motion                              -> 10/1 (V11)
 //   · el nodo sin `versionFuente++`                                           -> 10/1 (V10)
 //   · sin efecto: renombrar las locales `previo` (graphic-node.ts) y `listo` (frame-descriptor.ts) -> 11/0
+//   · 10/11/2026, la revisión adversarial (base 14/0):
+//     · `getGraphicDefinition` con `graphicsRegistry.get` directo / `definicionOAusente` sin el `has` -> 13/1 (V12)
+//     · `resolve.ts` / `graphic-tab.tsx` sin preguntar si la definición existe                         -> 13/1 (V12)
+//     · el número de la cifra con deslizador                                                         -> 13/1 (V13)
+//     · el texto confirma sin validar / el número con su lector propio / el color con transparencia   -> 13/1 (V13)
+//     · el ColorPicker sin recortar el alfa / sin esconder la barra / la validación sin la proporción -> 13/1 (V13)
+//     · la definición sin `instanteDeDibujo` / el nodo con el tiempo en la clave                      -> 13/1 (V14)
+//     · «¿cambió?» contra el valor VIVO (lo tipeado ya está en la vista previa y se descartaba), en el texto o en el
+//       número                                                                                         -> 13/1 (V13)
+//     · sin efecto: renombrar la local del instante (graphic-node.ts), la del recorte (color-picker.tsx) y la del
+//       resultado del texto (pestana-motion.tsx)                                                      -> 14/0

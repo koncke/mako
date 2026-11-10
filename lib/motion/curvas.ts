@@ -14,8 +14,10 @@
 //   · `rebote` (backOut) se pasa y vuelve: sólo en los tonos enérgico y juguetón, nunca en un número;
 //   · `sale` (quartIn) y `acelera` (0.4, 0, 1, 1) son para irse: una salida acelera, una entrada frena.
 //
-// El evaluador es el de WebKit (UnitBezier): Newton y, si no converge, bisección. Con eso el cuadro que dibuja el
-// lienzo en el tiempo t es el mismo que el navegador pinta para `cubic-bezier(...)` en ese tiempo.
+// El evaluador (`bezier`, abajo) es un port de UnitBezier.h de WebKit: Newton y, si no converge, bisección. Con eso el
+// cuadro que dibuja el lienzo en el tiempo t es el mismo que el navegador pinta para `cubic-bezier(...)` en ese tiempo.
+// ⚠️ WebKit es BSD, «Copyright (C) 2008 Apple Inc.»: su aviso viaja entero en ./LICENSE-WEBKIT (la licencia pide que la
+// redistribución del fuente lo conserve). Sin él, el port no tenía permiso (revisión del 10/11/2026).
 // =============================================================================
 
 export const CURVAS = {
@@ -39,6 +41,7 @@ export function cssDeCurva(c: Curva): string {
   return `cubic-bezier(${a}, ${b}, ${d}, ${e})`;
 }
 
+/** Port de WebCore/platform/graphics/UnitBezier.h (BSD, Copyright (C) 2008 Apple Inc.): el aviso, en ./LICENSE-WEBKIT. */
 function bezier(x1: number, y1: number, x2: number, y2: number) {
   const cx = 3 * x1;
   const bx = 3 * (x2 - x1) - cx;

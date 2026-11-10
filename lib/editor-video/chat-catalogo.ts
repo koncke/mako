@@ -55,6 +55,7 @@ import {
   PLANTILLAS as DEF_MOTION, ROTULO_TONO, camposDe, catalogoMotionParaPrompt, esPlantilla, normalizarMotion, valoresPorDefecto,
 } from '../motion/plantillas';
 import { PLANTILLAS_MOTION, type CampoMotion, type IdPlantilla, type Tono, type ValoresMotion } from '../motion/tipos';
+import { numeroParaMostrar } from '../motion/numeros';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
@@ -805,7 +806,8 @@ export function textoValoresMotion(valores: ValoresMotion, plantilla?: IdPlantil
     }
     if (c?.tipo === 'opcion') return `${rotulo} ${c.clave === 'tono' ? (ROTULO_TONO[v as Tono] ?? String(v)) : String(v)}`;
     if (typeof v === 'boolean') return `${rotulo} ${v ? 'sí' : 'no'}`;
-    return `${rotulo} ${typeof v === 'number' ? String(v).replace('.', ',') : String(v)}`;
+    // El número como lo dibuja el video («1.250», «4,5»): lib/motion/numeros.ts, el mismo del panel.
+    return `${rotulo} ${typeof v === 'number' ? numeroParaMostrar(v) : String(v)}`;
   }).join(' · ');
 }
 

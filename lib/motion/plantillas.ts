@@ -15,7 +15,8 @@
 // Puro, sin DOM y sin server-only: lo leen el editor de video, el de la landing, la ruta de la IA y los tests.
 // =============================================================================
 
-import { PLANTILLAS_MOTION, TONOS_MOTION, type CampoMotion, type IdPlantilla, type MotionSpec, type Tono, type ValoresMotion } from './tipos';
+import { leerNumero } from './numeros';
+import { PLANTILLAS_MOTION, TONOS_MOTION, type CampoMotion, type IdPlantilla, type MotionSpec, type Tono, type ValorCampo, type ValoresMotion } from './tipos';
 
 /**
  * Las fuentes que el motor sabe cargar en los dos lados (Google Fonts), con los pesos que EXISTEN: pedirle a Google un
@@ -41,6 +42,9 @@ export function pesoDisponible(familia: string, pedido: number): number {
 }
 
 const COLOR = /^#[0-9a-f]{6}$/i;
+/** Un color con transparencia («#rrggbbaa»): el motor no la dibuja (el contraste de un botón la ignora), y el panel no la
+ * ofrece. Uno que ya quedó guardado así se DIBUJA con su color sin la transparencia, nunca con el de fábrica. */
+const COLOR_CON_ALFA = /^#[0-9a-f]{8}$/i;
 
 export const ROTULO_TONO: Record<Tono, string> = {
   premium: 'Premium',
@@ -101,7 +105,9 @@ export const PLANTILLAS: Record<IdPlantilla, DefPlantilla> = {
       // ⚠️ Paso 0,01, no 1 (10/11/2026): con paso 1, `normalizarMotion` redondeaba 4,5 a 5 antes de que `decimales`
       // pudiera decir nada, y la cifra mostraba un número que la persona no dio. Lo que se muestra lo decide
       // `decimalesAMostrar` (./escena.ts): los del número, y `decimales` como mínimo.
-      { clave: 'numero', tipo: 'numero', rotulo: 'Número', min: -999_999_999, max: 999_999_999, paso: 0.01, porDefecto: 1250, ayuda: 'Hasta 2 decimales, con coma: 4,5.' },
+      // ⚠️ «1.250» y «1,250» son 1250 (10/11/2026): el separador con 3 cifras detrás es de miles (./numeros.ts). Antes el
+      // saneo, la API y el panel hacían `replace(',', '.')` y el video dibujaba «+1,25».
+      { clave: 'numero', tipo: 'numero', rotulo: 'Número', min: -999_999_999, max: 999_999_999, paso: 0.01, porDefecto: 1250, ayuda: 'Coma para los decimales (4,5) y punto para los miles (1.250). Hasta 2 decimales.' },
       { clave: 'decimales', tipo: 'numero', rotulo: 'Decimales', min: 0, max: 2, paso: 1, porDefecto: 0, ayuda: 'Los que se muestran como mínimo: un número con decimales nunca se redondea.' },
       txt('sufijo', 'Después del número', 8, ''),
       txt('etiqueta', 'Etiqueta', 60, 'clientes felices', { obligatorio: true }),
@@ -202,17 +208,30 @@ function alPaso(n: number, paso: number): number {
 /** Un número para un motivo, con coma decimal y sin separador de miles (4.567 → «4,567»). */
 const formatoPlano = (n: number): string => String(n).replace('.', ',');
 
+/** «Estrellas (0 = sin estrellas)» → «Estrellas»: el rótulo de un campo, para un motivo. */
+const rotuloCorto = (c: CampoMotion): string => c.rotulo.replace(/ \(.*$/, '');
+
 export type ResultadoMotion = { spec: MotionSpec; descartes: string[] };
+
+/**
+ * Cómo se lee lo que llega:
+ *   · estricto (lo de fábrica): la IA, el chat y la API. Cada texto respeta su tope (el layout está pensado para eso), un
+ *     número que se puede leer de dos maneras («1.250») se rechaza y uno que no va en el paso no se redondea.
+ *   · `estricto: false`: lo que la persona escribe a mano en el panel. No se rechaza por largo (Martín: nunca cortar un
+ *     texto por caracteres) hasta un tope duro, y el motor achica la letra para que entre; un número se lleva al paso.
+ *   · `dibujo`: el render (`armarEscena`). Dibuja lo que hay: un texto obligatorio vacío o más largo que el tope duro
+ *     queda TAL CUAL (vacío, la capa vacía), nunca con el texto de ejemplo de la plantilla —que sería un nombre, una cita o
+ *     unos datos que nadie dio—, y un color con transparencia se dibuja sin ella.
+ */
+export type ModoMotion = { estricto?: boolean; dibujo?: boolean };
 
 /**
  * Lo que llegue (de la IA, de la API, de un atributo guardado) → un spec válido y COMPLETO. Lo que no se puede usar
  * se descarta con su motivo y queda el valor por defecto; nada se recorta en silencio: un texto largo se rechaza.
  */
-export function normalizarMotion(raw: unknown, op: { estricto?: boolean } = {}): ResultadoMotion {
-  // Lo que escribe la IA o llega por la API respeta el tope de cada campo (el layout está pensado para eso). Lo que la
-  // persona escribe a mano en el panel no se rechaza ni se corta (Martín: nunca cortar un texto por caracteres): pasa
-  // hasta un tope duro y el motor achica la letra para que entre.
-  const estricto = op.estricto !== false;
+export function normalizarMotion(raw: unknown, op: ModoMotion = {}): ResultadoMotion {
+  const dibujo = op.dibujo === true;
+  const estricto = !dibujo && op.estricto !== false;
   const descartes: string[] = [];
   const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   let plantilla: IdPlantilla = 'titular';
@@ -226,39 +245,48 @@ export function normalizarMotion(raw: unknown, op: { estricto?: boolean } = {}):
   for (const c of campos) {
     if (!(c.clave in entrada)) continue;
     const v = entrada[c.clave];
+    const rot = rotuloCorto(c);
     switch (c.tipo) {
       case 'texto': {
-        if (typeof v !== 'string') { descartes.push(`${c.rotulo}: no es un texto`); break; }
+        if (typeof v !== 'string') { descartes.push(`${rot}: no es un texto`); break; }
         const s = limpiarTexto(v, c.clave === 'datos').trim();
-        const tope = estricto ? c.max : Math.max(c.max * 4, 240);
-        if (s.length > tope) { descartes.push(`${c.rotulo}: tiene ${s.length} caracteres y el tope es ${tope}`); break; }
-        if (!s && c.obligatorio) { descartes.push(`${c.rotulo}: no puede quedar vacío`); break; }
+        if (dibujo) { valores[c.clave] = s; break; }
+        const tope = estricto ? c.max : topeDuro(c.max);
+        if (s.length > tope) { descartes.push(`${rot}: tiene ${s.length} caracteres y el tope es ${tope}`); break; }
+        if (!s && c.obligatorio) { descartes.push(`${rot}: no puede quedar vacío`); break; }
+        if (c.clave === 'datos' && s) {
+          const d = leerDatosDeBarras(s, { estricto });
+          if (!d.ok) { descartes.push(`${rot}: ${d.motivo}`); break; }
+        }
         valores[c.clave] = s;
         break;
       }
       case 'numero': {
-        const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v.replace(',', '.')) : NaN;
-        if (!Number.isFinite(n)) { descartes.push(`${c.rotulo}: no es un número`); break; }
-        if (n < c.min || n > c.max) { descartes.push(`${c.rotulo}: ${n} está fuera de ${c.min} a ${c.max}`); break; }
+        const leido = leerNumero(v, { estricto });
+        if (!leido.ok) { descartes.push(`${rot}: ${leido.motivo}`); break; }
+        const n = leido.n;
+        if (n < c.min || n > c.max) { descartes.push(`${rot}: ${formatoPlano(n)} está fuera de ${formatoPlano(c.min)} a ${formatoPlano(c.max)}`); break; }
         const redondo = alPaso(n, c.paso);
         // Lo que escribe la IA o llega por la API no se redondea en silencio: 4,567 en un campo de 2 decimales, o 4,3
         // estrellas (van de a media), se rechazan con su motivo. Lo de la persona en el panel sí se lleva al paso.
-        if (estricto && Math.abs(redondo - n) > 1e-9) { descartes.push(`${c.rotulo}: ${formatoPlano(n)} no va de a ${formatoPlano(c.paso)}`); break; }
+        if (estricto && Math.abs(redondo - n) > 1e-9) { descartes.push(`${rot}: ${formatoPlano(n)} no va de a ${formatoPlano(c.paso)}`); break; }
         valores[c.clave] = redondo;
         break;
       }
       case 'color': {
-        if (typeof v !== 'string' || !COLOR.test(v.trim())) { descartes.push(`${c.rotulo}: «${String(v).slice(0, 20)}» no es un color #RRGGBB`); break; }
-        valores[c.clave] = v.trim().toLowerCase();
+        const t = typeof v === 'string' ? v.trim() : '';
+        if (dibujo && COLOR_CON_ALFA.test(t)) { valores[c.clave] = t.slice(0, 7).toLowerCase(); break; }
+        if (!COLOR.test(t)) { descartes.push(`${rot}: «${String(v).slice(0, 20)}» no es un color #RRGGBB`); break; }
+        valores[c.clave] = t.toLowerCase();
         break;
       }
       case 'opcion': {
-        if (typeof v !== 'string' || !c.opciones.some((op) => op.valor === v)) { descartes.push(`${c.rotulo}: «${String(v).slice(0, 30)}» no es una opción`); break; }
+        if (typeof v !== 'string' || !c.opciones.some((op) => op.valor === v)) { descartes.push(`${rot}: «${String(v).slice(0, 30)}» no es una opción`); break; }
         valores[c.clave] = v;
         break;
       }
       case 'si-no': {
-        if (typeof v !== 'boolean') { descartes.push(`${c.rotulo}: no es sí o no`); break; }
+        if (typeof v !== 'boolean') { descartes.push(`${rot}: no es sí o no`); break; }
         valores[c.clave] = v;
         break;
       }
@@ -267,28 +295,77 @@ export function normalizarMotion(raw: unknown, op: { estricto?: boolean } = {}):
   return { spec: { plantilla, valores }, descartes };
 }
 
+/** El tope de un texto escrito a mano en el panel: el de la plantilla por 4, con un mínimo de 240. */
+export const topeDuro = (max: number): number => Math.max(max * 4, 240);
+
+/**
+ * Un campo de una plantilla como lo valida el PANEL del Video Editor al confirmarlo (la misma `normalizarMotion`, sin
+ * lo estricto): el valor ya normalizado, o el motivo para mostrarlo debajo del campo.
+ */
+export function validarCampoMotion(plantilla: IdPlantilla, clave: string, valor: unknown): { ok: true; valor: ValorCampo } | { ok: false; motivo: string } {
+  const { spec, descartes } = normalizarMotion({ plantilla, valores: { [clave]: valor } }, { estricto: false });
+  return descartes.length ? { ok: false, motivo: descartes[0] } : { ok: true, valor: spec.valores[clave] };
+}
+
 /** Lee un valor ya normalizado con su tipo (el spec viene de `normalizarMotion`, nunca de afuera). */
 export const texto = (v: ValoresMotion, k: string): string => (typeof v[k] === 'string' ? (v[k] as string) : '');
 export const numero = (v: ValoresMotion, k: string): number => (typeof v[k] === 'number' ? (v[k] as number) : 0);
 export const color = (v: ValoresMotion, k: string, def: string): string => (typeof v[k] === 'string' && COLOR.test(v[k] as string) ? (v[k] as string) : def);
 
-/** Los datos de las barras: «Etiqueta: valor», uno por línea (también «Etiqueta = valor» o separados por «;»). */
-export function datosDeBarras(s: string): Array<{ etiqueta: string; valor: number }> {
-  return s
-    .split(/[\n;]+/)
-    .map((linea) => linea.trim())
-    .filter(Boolean)
-    .map((linea) => {
-      const m = /^(.*?)[:=]\s*(-?[\d.,]+)\s*$/.exec(linea);
-      if (!m) return null;
-      const crudo = m[2];
-      // «1.250» y «1,5»: el último separador con 1-2 cifras detrás es el decimal; con 3, de miles.
-      const dec = /[.,](\d{1,2})$/.exec(crudo);
-      const n = dec ? Number(crudo.slice(0, dec.index).replace(/[.,]/g, '') + '.' + dec[1]) : Number(crudo.replace(/[.,]/g, ''));
-      return Number.isFinite(n) && m[1].trim() ? { etiqueta: m[1].trim().slice(0, 24), valor: n } : null;
-    })
-    .filter((x): x is { etiqueta: string; valor: number } => x !== null)
-    .slice(0, 6);
+/** Lo que entra en un gráfico de barras: hasta 6 datos, con una etiqueta de hasta 24 caracteres cada uno. */
+export const TOPE_DATOS_BARRAS = 6;
+export const TOPE_ETIQUETA_BARRA = 24;
+
+type DatoBarra = { etiqueta: string; valor: number };
+
+/** Una línea «Etiqueta: valor» (también «Etiqueta = valor»), o su motivo. */
+function leerLineaBarra(linea: string, estricto: boolean, conTope = true): { ok: true; dato: DatoBarra } | { ok: false; motivo: string } {
+  const i = linea.search(/[:=]/);
+  if (i < 0) return { ok: false, motivo: `«${linea.slice(0, 40)}» no tiene «:» (escribe «Etiqueta: valor», uno por línea)` };
+  const etiqueta = linea.slice(0, i).trim();
+  const resto = linea.slice(i + 1).trim();
+  if (/[:=]/.test(resto)) return { ok: false, motivo: `«${linea.slice(0, 40)}» tiene más de un dato: va uno por línea` };
+  if (!etiqueta) return { ok: false, motivo: `«${linea.slice(0, 40)}» no tiene etiqueta antes de «:»` };
+  if (conTope && etiqueta.length > TOPE_ETIQUETA_BARRA) {
+    return { ok: false, motivo: `la etiqueta «${etiqueta.slice(0, 40)}» tiene ${etiqueta.length} caracteres y el tope es ${TOPE_ETIQUETA_BARRA}` };
+  }
+  const n = leerNumero(resto, { estricto });
+  if (n.ok) return { ok: true, dato: { etiqueta, valor: n.n } };
+  if (n.ambiguo) return { ok: false, motivo: `en «${etiqueta}», ${n.motivo}` };
+  const simbolo = /\d/.test(resto) && /[%$€]/.test(resto) ? ' (un «%» o un «$» va en Unidad)' : '';
+  return { ok: false, motivo: `el valor de «${etiqueta}» tiene que ser sólo un número${simbolo}` };
+}
+
+const lineasDeBarras = (s: string): string[] => s.split(/[\n;]+/).map((l) => l.trim()).filter(Boolean);
+
+/**
+ * Los datos de las barras, VALIDADOS: «Etiqueta: valor», uno por línea (también «Etiqueta = valor» o separados por «;»),
+ * de 1 a 6, cada línea legible, y el número con el MISMO lector que la cifra (./numeros.ts). Lo que no entra se rechaza
+ * con su motivo: hasta el 10/11/2026 «Enero: 30%» daba cero barras, «Enero: 120, Febrero: 180» una barra mal, y lo que
+ * pasaba de 6 datos o de 24 letras se cortaba sin avisar.
+ */
+export function leerDatosDeBarras(s: string, { estricto = true }: { estricto?: boolean } = {}): { ok: true; datos: DatoBarra[] } | { ok: false; motivo: string } {
+  const lineas = lineasDeBarras(s);
+  if (!lineas.length) return { ok: false, motivo: 'no tiene ningún dato (escribe «Etiqueta: valor», uno por línea)' };
+  if (lineas.length > TOPE_DATOS_BARRAS) return { ok: false, motivo: `tiene ${lineas.length} datos y el tope es ${TOPE_DATOS_BARRAS}` };
+  const datos: DatoBarra[] = [];
+  for (const l of lineas) {
+    const r = leerLineaBarra(l, estricto);
+    if (!r.ok) return r;
+    datos.push(r.dato);
+  }
+  return { ok: true, datos };
+}
+
+/**
+ * Los datos de las barras para DIBUJAR: las líneas legibles, enteras (sin cortar la etiqueta ni la cantidad: lo que no
+ * entra lo frena antes `leerDatosDeBarras`, al validar). Una línea ilegible guardada de antes no se dibuja.
+ */
+export function datosDeBarras(s: string): DatoBarra[] {
+  return lineasDeBarras(s).flatMap((l) => {
+    const r = leerLineaBarra(l, false, false);
+    return r.ok ? [r.dato] : [];
+  });
 }
 
 /** El catálogo para el texto que lee la IA: una línea por plantilla, con sus campos y topes. */
@@ -300,5 +377,7 @@ export function catalogoMotionParaPrompt(): string {
       .join(', ');
     return `- ${id} — ${d.nombre}: ${d.para} Campos: ${campos}.`;
   }).join('\n') +
-    `\nComunes a todas: tono (${TONOS_MOTION.join(' | ')}), colorFondo, colorTexto, colorAcento (#RRGGBB), conFondo (true/false), fuente (${Object.keys(FUENTES_MOTION).join(', ')}).`;
+    `\nComunes a todas: tono (${TONOS_MOTION.join(' | ')}), colorFondo, colorTexto, colorAcento (#RRGGBB), conFondo (true/false), fuente (${Object.keys(FUENTES_MOTION).join(', ')}).` +
+    // «1.250» como texto se puede leer de dos maneras y se rechaza (./numeros.ts): el número va como número del JSON.
+    `\nUn número (la cifra, las estrellas) va como número del JSON: 1250, 4.5; en los datos de las barras, sin separador de miles («Enero: 1250»).`;
 }

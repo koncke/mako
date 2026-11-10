@@ -13,6 +13,8 @@ import { effectsRegistry, resolveEffectPasses } from "@/app/video-editor/_opencu
 import type { Effect, EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import {
+	graphicsRegistry,
+	registerDefaultGraphics,
 	resolveGraphicElementParamsAtTime,
 	tamanoFuenteGrafico,
 } from "@/app/video-editor/_opencut/graphics";
@@ -339,6 +341,10 @@ function resolveGraphicNode({
 	node: GraphicNode;
 	context: ResolveContext;
 }): ResolvedGraphicNodeState | null {
+	// Un gráfico cuya definición ya no existe (un `motion-<x>` que se sacó) no se dibuja, y el resto sigue
+	// (graphics/ausente.ts): `graphicsRegistry.get` tiraba y se llevaba el cuadro entero.
+	registerDefaultGraphics();
+	if (!graphicsRegistry.has(node.params.definitionId)) return null;
 	// Un motion graphic es del tamaño del lienzo; una forma, el cuadrado de 512 (graphics/index.ts).
 	const tamano = tamanoFuenteGrafico({
 		definitionId: node.params.definitionId,

@@ -35,6 +35,9 @@
 //   · `!alAgregar && !claves.length` INVERTIDO (27/10)                               -> NO lo ve ningún test, y no
 //     puede: un editar_motion sin valores ya lo rechaza la forma (`valoresMotionDeForma`) antes de llegar ahí, y un
 //     agregar sin valores lo rechaza el obligatorio. Esa rama es una red de más, no una regla.
+//   · 10/11/2026, M15 (base 15/0): la API con su `replace(',', '.')` de antes (`valorMotion`)    -> 14/1 (M15); la
+//     tarjeta con `String(v)` en vez de `numeroParaMostrar` -> 14/1 (M15); renombrar la local `t` de `valorMotion` -> 15/0.
+//     (La línea de arriba, «la API sin pasar "4,5" a número», ya no aplica: ahora el número va como texto a propósito.)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -284,6 +287,32 @@ test('M14: una cifra con decimales viaja como se pidió por el chat y por la API
   assert.deepEqual(rev.descartes, []);
   assert.deepEqual((rev.resueltas[0] as Params).params, { numero: 4.5 });
   assert.equal(rev.cambios[0].despues, 'Número 4,5');
+});
+
+test('M15: «1.250» por el chat y por la API: el MISMO lector del motor, y lo ambiguo se rechaza con qué escribir', () => {
+  const op = OPERACIONES_API.find((o) => o.id === 'agregar_motion_video')!;
+  const api = (valor: string) => operacionDesdeInput(op, {
+    proyecto: 'p', plantilla: 'cifra', inicio: 0, valores: [{ campo: 'numero', valor }, { campo: 'etiqueta', valor: 'clientes' }],
+  });
+  // Hasta el 10/11/2026 la API hacía `replace(',', '.')`: «1.250» llegaba como 1,25 y el video dibujaba «+1,25».
+  for (const valor of ['1.250', '1,250']) {
+    const r = api(valor);
+    assert.ok(!r.ok && r.motivo.includes(`«${valor}» puede ser 1250 o 1,25: escribe 1250 (sin separador) o 1,25`), r.ok ? 'pasó' : r.motivo);
+  }
+  for (const [valor, n] of [['1250', 1250], ['1.234,5', 1234.5], ['4,5', 4.5], ['-3', -3]] as const) {
+    const r = api(valor);
+    assert.ok(r.ok && r.op.op === 'agregar_motion' && r.op.valores.numero === n, `${valor}: ${r.ok ? JSON.stringify(r.op) : r.motivo}`);
+  }
+  for (const valor of ['1e3', '0x10']) assert.ok(!api(valor).ok, `${valor}: no es un número`);
+  // El chat igual: un número en el JSON pasa, un texto ambiguo no.
+  assert.match(motivo(v({ op: 'agregar_motion', plantilla: 'cifra', valores: { numero: '1.250', etiqueta: 'x' }, inicio: 0 })), /puede ser 1250 o 1,25/);
+  assert.ok(v({ op: 'agregar_motion', plantilla: 'cifra', valores: { numero: 1250, etiqueta: 'x' }, inicio: 0 }).ok);
+  // Y las barras con lo que no se dibuja: se rechazan, no se cortan.
+  assert.match(motivo(v({ op: 'agregar_motion', plantilla: 'barras', valores: { datos: 'Enero: 30%' }, inicio: 0 })), /el valor de «Enero» tiene que ser sólo un número/);
+  assert.match(motivo(v({ op: 'agregar_motion', plantilla: 'barras', valores: { datos: 'Enero: 120, Febrero: 180' }, inicio: 0 })), /va uno por línea/);
+  // La tarjeta de la propuesta dice el número como lo dibuja el video.
+  assert.equal(lineaDeOperacion('Agregar un motion graphic', { op: 'agregar_motion', plantilla: 'cifra', valores: { numero: 1250, etiqueta: 'años' }, inicio: 0 }, null),
+    'Agregar un motion graphic → Cifra: Número 1.250 · Etiqueta «años»');
 });
 
 test('M13: aplicar usa el comando de la biblioteca (agregar) y el `updateElements` del panel (editar), en el lote', () => {
