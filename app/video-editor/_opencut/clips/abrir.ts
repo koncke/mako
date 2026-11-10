@@ -24,10 +24,10 @@ import { sinSubtitulos } from "@/app/video-editor/_opencut/subtitles/insert";
 import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { tramoDeCorte, type ClipElegido } from "@/lib/editor-video/clips";
-import { principalCubriendo } from "./cubrir";
+import { clipsConAnimacionDelEncuadre, principalCubriendo } from "./cubrir";
 import { animarEncuadre, encuadresQueSiguen } from "./seguir-en-editor";
 import { useTrabajoClips } from "./estado";
-import type { ResultadoAbrir } from "./resultado";
+import { avisoDeAnimaciones, type ResultadoAbrir } from "./resultado";
 
 let abriendo = false;
 
@@ -77,6 +77,8 @@ export async function abrirClip(editor: EditorCore, clip: ClipElegido): Promise<
 		trabajo.fijar({ fase: "abriendo", progreso: 0 });
 		// Después de mirar (unos segundos): el comando parte de la escena de ahora, no de la de antes de esperar.
 		const before = editor.scenes.getActiveScene().tracks;
+		// Lo animado de la posición o la escala era del cuadro horizontal: se saca (./cubrir.ts), y se dice.
+		const sinAnimar = clipsConAnimacionDelEncuadre(before, tamanoDe, encuadres);
 		editor.command.execute({
 			command: new BatchCommand([
 				new UpdateProjectSettingsCommand({ relacion: "9:16", canvasSize, canvasSizeMode: "preset" }),
@@ -92,7 +94,9 @@ export async function abrirClip(editor: EditorCore, clip: ClipElegido): Promise<
 		const sinSubs = sinSubtitulos(conSubs);
 		if (sinSubs !== conSubs) editor.command.execute({ command: new TracksSnapshotCommand({ before: conSubs, after: sinSubs }) });
 		const subs = await generarSubtitulos(editor);
-		const aviso = subs.ok ? null : `El clip quedó sin subtítulos: ${textoDeSubtitulos(subs.motivo)}`;
+		const aviso = [avisoDeAnimaciones(sinAnimar), subs.ok ? null : `El clip quedó sin subtítulos: ${textoDeSubtitulos(subs.motivo)}`]
+			.filter((x): x is string => !!x)
+			.join(" ") || null;
 
 		// 5. Arranca limpio, guardado y con su título.
 		editor.command.clear();

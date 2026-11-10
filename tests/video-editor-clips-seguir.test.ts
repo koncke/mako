@@ -19,15 +19,22 @@ import { readFileSync } from 'node:fs';
 import {
   SEGUIR,
   caminoDelEncuadre,
+  dibujoDelClip,
   encuadreQueSigue,
+  encuadresDeLosClips,
   momentosAMuestrear,
   paramsDelEncuadre,
   perfilDePersona,
   simplificarCamino,
   type EncuadreSeguido,
+  type Mirada,
   type MuestraPersona,
 } from '../app/video-editor/_opencut/clips/seguir';
-import { principalCubriendo } from '../app/video-editor/_opencut/clips/cubrir';
+import { clipsConAnimacionDelEncuadre, principalCubriendo } from '../app/video-editor/_opencut/clips/cubrir';
+import { avisoDeAnimaciones } from '../app/video-editor/_opencut/clips/resultado';
+// El gancho de «Reflejar» de VERDAD (se registra al importar): lo que dibuja un clip reflejado sale de ahí, no de una cuenta copiada.
+import '../app/video-editor/_opencut/recorte/ganchos';
+import { aplicarGanchosVisual } from '../app/video-editor/_opencut/services/renderer/ganchos-ce';
 
 const ANCHO = 128;
 const ALTO = 72;
@@ -52,13 +59,23 @@ const centroDe = (cajas: Parameters<typeof mascara>[0], deFondo = false) =>
 const muestras = (n: number, centro: (t: number, i: number) => number | null): MuestraPersona[] =>
   momentosAMuestrear(n).map((t, i) => ({ t, centro: centro(t, i) }));
 
-/** Dónde cae en el lienzo el punto `c` (0–1 del ancho de la fuente), como lo dibuja el compositor. */
-function enElLienzo(e: EncuadreSeguido, c: number, x = e.x) {
+/**
+ * Dónde cae en el lienzo el punto `c` (0–1 del ancho de la fuente), como lo dibuja el compositor. La transformación pasa
+ * por los ganchos visuales de VERDAD (el de «Reflejar» invierte la escala en X); después, la cuenta de
+ * services/renderer/compositor/frame-descriptor.ts: el ancho es fuente × contain × escala (negativo = `flipX`), el centro
+ * es lienzo/2 + la posición, y el espejo es alrededor de ese centro (`ctx.scale(-1, 1)` en él).
+ */
+function enElLienzo(e: EncuadreSeguido, c: number, x = e.x, params: Record<string, unknown> = {}) {
   const contain = Math.min(LIENZO.width / FUENTE.width, LIENZO.height / FUENTE.height);
-  const ancho = FUENTE.width * contain * e.escala;
-  const alto = FUENTE.height * contain * e.escala;
-  const centroX = LIENZO.width / 2 + x;
-  return { px: centroX + (c - 0.5) * ancho, cubreAncho: centroX - ancho / 2 <= 0 && centroX + ancho / 2 >= LIENZO.width, cubreAlto: alto >= LIENZO.height };
+  const visto = aplicarGanchosVisual(
+    { transform: { scaleX: e.escala, scaleY: e.escala, position: { x, y: 0 }, rotate: 0 }, opacity: 1 } as never,
+    { params: params as never, elementoId: 'clip', localTime: 0, duration: 30, lienzo: LIENZO },
+  ).transform;
+  const ancho = FUENTE.width * contain * visto.scaleX;
+  const alto = Math.abs(FUENTE.height * contain * visto.scaleY);
+  const centroX = LIENZO.width / 2 + visto.position.x;
+  const lado = Math.abs(ancho);
+  return { px: centroX + Math.sign(ancho) * (c - 0.5) * lado, cubreAncho: centroX - lado / 2 <= 0 && centroX + lado / 2 >= LIENZO.width, cubreAlto: alto >= LIENZO.height, reflejado: ancho < 0 };
 }
 
 /** El valor de `transform.positionX` en `t`, interpolando las claves como una recta (y quieto antes y después). */
@@ -122,6 +139,17 @@ test('3: persona a la IZQUIERDA o a la DERECHA: encuadre fijo, con ella en el me
   assert.equal(p['transform.scaleY'], izq.escala);
   assert.equal(p['transform.positionX'], izq.x);
   assert.equal(p['transform.positionY'], 0);
+  // REFLEJADO («Reflejar»): lo que la máscara ve a la izquierda se dibuja a la derecha. Con el encuadre de siempre la
+  // persona quedaba afuera del vertical; con el que sabe del reflejo, en el medio.
+  const REFLEJO = { 'reflejo.horizontal': true };
+  const sinSaber = enElLienzo(izq, 0.2, izq.x, REFLEJO);
+  assert.ok(sinSaber.reflejado, 'el gancho de «Reflejar» no espejó');
+  assert.ok(sinSaber.px > LIENZO.width || sinSaber.px < 0, `sin saber del reflejo, la persona cae en ${sinSaber.px.toFixed(1)} px (adentro)`);
+  const ref = encuadreQueSigue({ muestras: muestras(30, () => 0.2), fuente: FUENTE, lienzo: LIENZO, dibujo: dibujoDelClip({ params: REFLEJO }) })!;
+  assert.equal(ref.x, -izq.x, 'reflejado se corre al revés');
+  const enRef = enElLienzo(ref, 0.2, ref.x, REFLEJO);
+  assert.ok(Math.abs(enRef.px - LIENZO.width / 2) < 1, `reflejado, la persona cae en ${enRef.px.toFixed(1)} px, no en el medio`);
+  assert.ok(enRef.cubreAncho && enRef.cubreAlto, 'reflejado, quedó una banda sin video');
 });
 
 test('4: persona que SE MUEVE de izquierda a derecha: fotogramas clave que la siguen, pocos, y sin salir del cuadro', () => {
@@ -197,10 +225,77 @@ test('8: principalCubriendo con lo seguido: el clip con encuadre se agranda y se
   // El que no tiene encuadre: el recorte al centro de siempre (tests/video-editor-clips.test.ts, 4b).
   assert.ok((b.params['recorte.izquierda'] as number) > 0.3 && b.params['transform.positionX'] === 0);
   assert.equal(b.animations, undefined);
+
+  // Lo animado de la posición y la escala (del cuadro horizontal) se saca en LOS DOS caminos; lo demás animado queda.
+  const animado = (id: string) => ({ ...el(id, 'h'), animations: { 'transform.positionX': { k: 1 }, 'transform.scaleY': { k: 2 }, opacity: { k: 3 } } });
+  const conClaves = { ...tracks, main: { ...tracks.main, elements: [animado('a'), animado('b'), el('c', 'h')] } };
+  assert.equal(clipsConAnimacionDelEncuadre(conClaves as never, () => FUENTE), 2, 'se cuentan para avisar');
+  // Con la MISMA pregunta que cubrir: sin tamaño de la fuente (ni encuadre), el clip queda como estaba y no se cuenta.
+  assert.equal(clipsConAnimacionDelEncuadre(conClaves as never, () => null), 0);
+  assert.equal(clipsConAnimacionDelEncuadre(conClaves as never, () => null, new Map([['a', encuadre]])), 1);
+  const sinTamano = principalCubriendo(conClaves as never, LIENZO, () => null) as unknown as typeof tracks;
+  assert.deepEqual((sinTamano.main.elements[0] as { animations?: unknown }).animations, animado('a').animations, 'sin tamaño no se toca');
+  const r2 = principalCubriendo(conClaves as never, LIENZO, () => FUENTE, {
+    encuadres: new Map([['a', encuadre]]),
+    animar: (e) => e,
+  }) as unknown as typeof tracks;
+  const [a2, b2] = r2.main.elements as Array<{ animations?: Record<string, unknown> }>;
+  assert.deepEqual(a2.animations, { opacity: { k: 3 } }, 'el que sigue a la persona');
+  assert.deepEqual(b2.animations, { opacity: { k: 3 } }, 'el que queda al centro (antes no se tocaba: la animación tapaba el recorte)');
+  assert.equal(avisoDeAnimaciones(0), null);
+  assert.match(avisoDeAnimaciones(1)!, /^Saqué las animaciones de posición y escala del video: eran del cuadro horizontal\./);
+  assert.match(avisoDeAnimaciones(2)!, /de 2 clips del video/);
 });
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('10: lo que el clip ya hace con su fuente: reflejado se sigue al revés (también moviéndose); girado no se sigue', () => {
+  assert.deepEqual(dibujoDelClip({ params: {} }), { reflejado: false, girado: false });
+  assert.deepEqual(dibujoDelClip({ params: { 'reflejo.horizontal': true } }), { reflejado: true, girado: false });
+  assert.deepEqual(dibujoDelClip({ params: { 'reflejo.vertical': true } }), { reflejado: false, girado: false }, 'voltear de arriba abajo no cambia los costados');
+  assert.equal(dibujoDelClip({ params: { 'transform.rotate': 15 } }).girado, true);
+  assert.equal(dibujoDelClip({ params: { 'transform.rotate': 360 } }).girado, false, 'una vuelta entera es no girar');
+  assert.equal(dibujoDelClip({ params: {}, animations: { 'transform.rotate': { tipo: 'algo' } } }).girado, true, 'con fotogramas clave de giro');
+  assert.equal(dibujoDelClip({ params: {}, animations: { 'transform.positionX': {} } }).girado, false);
+  // Girado: sin encuadre (el recorte al centro de siempre).
+  assert.equal(encuadreQueSigue({ muestras: muestras(30, () => 0.2), fuente: FUENTE, lienzo: LIENZO, dibujo: { reflejado: false, girado: true } }), null);
+  // Reflejado y moviéndose: cada fotograma clave al revés del de siempre, y la persona en el medio en cada segundo.
+  const ida = (t: number) => 0.3 + 0.4 * (t / 30);
+  const REFLEJO = { 'reflejo.horizontal': true };
+  const comun = encuadreQueSigue({ muestras: muestras(30, ida), fuente: FUENTE, lienzo: LIENZO })!;
+  const ref = encuadreQueSigue({ muestras: muestras(30, ida), fuente: FUENTE, lienzo: LIENZO, dibujo: dibujoDelClip({ params: REFLEJO }) })!;
+  assert.deepEqual(ref.claves!.map((k) => k.x), comun.claves!.map((k) => -k.x + 0));
+  for (const t of momentosAMuestrear(30).slice(2, -2)) {
+    const donde = enElLienzo(ref, ida(t), xEn(ref, t), REFLEJO);
+    assert.ok(Math.abs(donde.px - LIENZO.width / 2) < LIENZO.width * 0.1, `reflejado, en ${t} s la persona cae en ${donde.px.toFixed(0)} px`);
+  }
+});
+
+test('11: los clips uno por uno: uno que no se lee queda al centro y se sigue con el próximo; sin segmentador se corta', async () => {
+  const visto: Mirada = { tipo: 'visto', muestras: muestras(30, () => 0.2) };
+  const clip = (id: string, dibujo = { reflejado: false, girado: false }) => ({ id, fuente: FUENTE, dibujo });
+  const mirados: string[] = [];
+  const fallas: unknown[] = [];
+  const r = await encuadresDeLosClips({
+    clips: [clip('a'), clip('roto'), clip('tira'), clip('girado', { reflejado: false, girado: true }), clip('b'), clip('sin-seg'), clip('c')],
+    lienzo: LIENZO,
+    alFallar: (e) => fallas.push(e),
+    mirar: async (c) => {
+      mirados.push(c.id);
+      if (c.id === 'roto') return { tipo: 'no-se-lee' };
+      if (c.id === 'tira') throw new Error('mediabunny');
+      if (c.id === 'sin-seg') return { tipo: 'sin-segmentador' };
+      return visto;
+    },
+  });
+  assert.deepEqual([...r.keys()], ['a', 'b'], 'el que no se lee no corta a los que siguen');
+  assert.deepEqual(mirados, ['a', 'roto', 'tira', 'b', 'sin-seg'], 'el girado ni se mira, y sin segmentador no se mira nada más');
+  assert.equal(fallas.length, 1);
+  // Reflejado: el encuadre de ese clip, al revés.
+  const ref = await encuadresDeLosClips({ clips: [clip('r', { reflejado: true, girado: false })], lienzo: LIENZO, mirar: async () => visto });
+  assert.equal(ref.get('r')!.x, -r.get('a')!.x);
+});
 
 test('9: el cableado: abrir mira a la persona ANTES de pasar a vertical, con el segmentador de la pestaña y en silencio', () => {
   const abrir = sinComentarios(leer('app/video-editor/_opencut/clips/abrir.ts'));
@@ -213,13 +308,25 @@ test('9: el cableado: abrir mira a la persona ANTES de pasar a vertical, con el 
   const editor = sinComentarios(leer('app/video-editor/_opencut/clips/seguir-en-editor.ts'));
   assert.match(editor, /cargarSegmentador\(\{ avisar: false \}\)/, 'si no carga, sale el aviso de quitar el fondo');
   assert.match(editor, /Promise\.race\(\[cargarSegmentador\(\{ avisar: false \}\), esperar\(TOPE_SEGMENTADOR_MS\)\]\)/, 'abrir un clip espera los 2 min del recorte');
-  assert.match(editor, /\{ avisar: false \},\s*\);\s*if \(!ok\) return null;/, 'un segmentador caído no deja el clip al centro');
+  assert.match(editor, /\{ avisar: false \},\s*\);\s*if \(!ok\) return \{ tipo: "sin-segmentador" \};/, 'un segmentador caído no deja el clip al centro');
   assert.match(editor, /sink\.canvasesAtTimestamps\(/);
   assert.match(editor, /propertyPath: "transform\.positionX",/);
   assert.match(editor, /time: roundMediaTime\(\{ time: clave\.t \* TICKS_PER_SECOND \}\)/);
   assert.match(editor, /desde \+ getSourceTimeAtClipTime\(\{ clipTime: t, retime: el\.retime, clipDuration: duracion \}\)/, 'se mira la fuente sin su recorte ni su velocidad');
-  // Lo que el clip traía animado de su posición o su escala mandaría sobre el encuadre.
-  assert.match(editor, /const ANIMADO_DEL_ENCUADRE = \["transform\.positionX", "transform\.positionY", "transform\.scaleX", "transform\.scaleY"\];/);
+  // Lo que el clip traía animado de su posición o su escala mandaría sobre el encuadre: lo saca ./cubrir.ts (lo corre
+  // el 8), y abrir lo dice.
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/clips/cubrir.ts')), /export const ANIMADO_DEL_ENCUADRE = \["transform\.positionX", "transform\.positionY", "transform\.scaleX", "transform\.scaleY"\] as const;/);
+  assert.match(editor, /let animations = \(sinAnimacionDelEncuadre\(elemento\)\.animations/);
+  const sinAnimar = abrir.indexOf('const sinAnimar = clipsConAnimacionDelEncuadre(before, tamanoDe, encuadres);');
+  assert.ok(sinAnimar > 0 && sinAnimar < abrir.indexOf('principalCubriendo(before'), 'se cuenta antes de sacarlas');
+  assert.match(abrir, /avisoDeAnimaciones\(sinAnimar\)/);
+  // Un archivo que no se decodifica no es un segmentador caído (lo corre el 11), y lo que el clip hace con su fuente
+  // llega al encuadre (el 10).
+  assert.match(editor, /if \(!pista \|\| !\(await pista\.canDecode\(\)\)\) return \{ tipo: "no-se-lee" \};/);
+  assert.match(editor, /if \(!ok\) return \{ tipo: "sin-segmentador" \};/);
+  assert.match(editor, /return encuadresDeLosClips\(\{/);
+  assert.match(editor, /const dibujo = dibujoDelClip\(el\);/);
+  assert.match(editor, /\[\{ id: el\.id, el, file: asset\.file, fuente, dibujo \}\]/);
   // La máscara se lee con la MISMA rampa que el recorte de «Eliminación automática».
   assert.match(sinComentarios(leer('app/video-editor/_opencut/fondo/mascara.ts')), /let previo = confianzaDePersona\(confianza\[fila\], esDeFondo\);/);
 });
@@ -240,4 +347,18 @@ test('9: el cableado: abrir mira a la persona ANTES de pasar a vertical, con el 
 //   C12 abrir sin lo seguido                                         → el 9
 //   C13 el segmentador con el aviso de quitar el fondo y sin su tope → el 9
 //   C14 el encuadre sin sacar lo que el clip traía animado           → el 9
+//   (la revisión del 10/11/2026, base 11/0, cada una sola y restaurada de memoria)
+//   C15 el encuadre sin el reflejo (`centro = visto`)                → 3, 10 y 11
+//   C16 el encuadre de un clip girado                                → el 10
+//   C17 el giro con fotogramas clave no cuenta                       → el 10
+//   C17b una vuelta entera (360°) cuenta como girado                 → el 10
+//   C18 un clip que no se lee corta a los que siguen                 → el 11
+//   C19 se mira (y se sigue) un clip girado                          → el 11
+//   C19b el bucle no le pasa el dibujo al encuadre                   → el 11
+//   C20 el camino al centro sin sacar lo animado                     → el 8
+//   C20b el camino que sigue sin sacar lo animado                    → el 8
+//   C21 abrir sin el aviso de lo que se sacó                         → el 9
+//   C21b contar sin la pregunta de cubrir (también los sin tamaño)   → el 8
+//   C22 un archivo que no se decodifica vuelve a cortar todo         → el 9
+//   un cambio sin efecto (un `void 0` al lado del reflejo)           → 11/0
 //   NO lo ve node: los cuadros de mediabunny, MediaPipe en el navegador y los fotogramas clave del motor (ver el relevo).

@@ -81,6 +81,8 @@ export function datosDelProyecto(editor: EditorCore) {
 export class Exportacion {
 	private cancelada = false;
 	private exportador: SceneExporter | null = null;
+	/** Corta la mezcla del audio (y la reducción de ruido que esté corriendo) apenas se cancela. */
+	private corte = new AbortController();
 
 	constructor(
 		private editor: EditorCore,
@@ -92,6 +94,7 @@ export class Exportacion {
 
 	cancelar(): void {
 		this.cancelada = true;
+		this.corte.abort();
 		this.exportador?.cancel();
 	}
 
@@ -142,7 +145,8 @@ export class Exportacion {
 			let mezcla: AudioBuffer | null = null;
 			if ((opciones.video.activo || opciones.audio.activo) && timelineHasAudio({ tracks, mediaAssets })) {
 				avance("audio", 0);
-				mezcla = await createTimelineAudioBuffer({ tracks, mediaAssets, duration: duracion });
+				// Con un rango, sólo lo que suena en él: un clip de afuera no se decodifica ni se le reduce el ruido.
+				mezcla = await createTimelineAudioBuffer({ tracks, mediaAssets, duration: duracion, tramo, signal: this.corte.signal });
 				if (mezcla && tramo) mezcla = recortarAudio(mezcla, tramo);
 			}
 			cerrarEtapa("audio");
@@ -228,6 +232,8 @@ export class Exportacion {
 			const video = archivos.find((a) => a.blob.type.startsWith("video/")) ?? null;
 			return { estado: "listo", archivos: archivos.map((a) => a.nombre), video };
 		} catch (error) {
+			// Cancelar corta la mezcla con un AbortError: no es una falla.
+			if (this.cancelada) return { estado: "cancelado" };
 			console.error("[exportar] falló", error);
 			// El crudo ya quedó en la consola (arriba): acá va la frase para la persona.
 			return { estado: "error", mensaje: mensajeDeExport(error) };

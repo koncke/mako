@@ -837,7 +837,9 @@ export class AudioManager {
 					claveProcesado(element.params) !== null,
 			),
 		);
-		if (!conProceso) return;
+		// Sin nada que procesar igual se poda (revisión del 10/11/2026): lo que se estaba preparando —un «Reducir el
+		// ruido» que se acaba de apagar— se corta. Antes salía antes de podar y el worker seguía con lo viejo.
+		if (!conProceso && this.cortarPreparacion.size === 0 && this.preparedClipBuffers.size === 0) return;
 		const clips = await collectAudioClips({
 			tracks,
 			mediaAssets: this.editor.media.getAssets(),
@@ -845,6 +847,7 @@ export class AudioManager {
 		// Lo de una perilla anterior ya no sirve: sin podar acá, mover el Tono
 		// cinco veces dejaría cinco copias del clip procesado en memoria.
 		if (!this.editor.playback.getIsPlaying()) this.podarCaches(clips);
+		if (!conProceso) return;
 		for (const clip of clips) {
 			if (this.editor.playback.getIsPlaying()) return;
 			if (clip.muted || claveProcesado(clip.timelineElement.params) === null) continue;

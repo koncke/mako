@@ -18,6 +18,13 @@
 //
 // Si no se encontró a nadie en ningún cuadro, o la fuente no es más ancha que el vertical (no hay costados que
 // elegir), no hay encuadre: queda el recorte al centro de siempre.
+//
+// Lo que el clip YA hace con su fuente (revisión adversarial del 10/11/2026, `dibujoDelClip`):
+//   · REFLEJADO de lado («Reflejar», `reflejo.horizontal`: el gancho `ce-reflejo` de ../recorte/ganchos.ts invierte la
+//     escala en X y el compositor espeja alrededor del centro del clip): lo que la máscara ve a la izquierda se dibuja a
+//     la derecha, así que el encuadre se arma con `1 - centro`. Sin esto, la persona quedaba afuera del vertical;
+//   · GIRADO (`transform.rotate` distinto de 0, o con fotogramas clave): no se sigue. Correr en X a una fuente girada
+//     no la lleva a donde dice la cuenta: queda el recorte al centro de siempre.
 
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import {
@@ -27,6 +34,7 @@ import {
 	RECORTE_IZQUIERDA,
 } from "@/app/video-editor/_opencut/params/extra/recorte";
 import { confianzaDePersona } from "@/app/video-editor/_opencut/fondo/mascara";
+import { REFLEJO_HORIZONTAL } from "@/app/video-editor/_opencut/params/extra/reflejo";
 
 export type Tamano = { width: number; height: number };
 
@@ -176,11 +184,15 @@ export function encuadreQueSigue({
 	muestras,
 	fuente,
 	lienzo,
+	dibujo = DIBUJO_COMUN,
 }: {
 	muestras: readonly MuestraPersona[];
 	fuente: Tamano;
 	lienzo: Tamano;
+	/** Lo que el clip ya hace con su fuente (`dibujoDelClip`): reflejada, se sigue al revés; girada, no se sigue. */
+	dibujo?: DibujoDelClip;
 }): EncuadreSeguido | null {
+	if (dibujo.girado) return null;
 	if (!(fuente.width > 0 && fuente.height > 0 && lienzo.width > 0 && lienzo.height > 0)) return null;
 	const propFuente = fuente.width / fuente.height;
 	const propLienzo = lienzo.width / lienzo.height;
@@ -191,8 +203,10 @@ export function encuadreQueSigue({
 	if (!camino) return null;
 	const anchoDibujado = lienzo.width * escala;
 	const tope = Math.floor(((anchoDibujado - lienzo.width) / 2) * 100) / 100;
-	// Para que el punto `centro` de la fuente quede en el medio del lienzo, la fuente se corre al revés.
-	const xDe = (centro: number) => {
+	// Para que el punto `centro` de la fuente quede en el medio del lienzo, la fuente se corre al revés. Reflejada, ese
+	// punto se dibuja en `1 - centro` (el espejo es alrededor del centro del clip: la posición no se espeja).
+	const xDe = (visto: number) => {
+		const centro = dibujo.reflejado ? 1 - visto : visto;
 		const x = r2(-(centro - 0.5) * anchoDibujado);
 		// `+ 0`: un −0 se guardaría como «-0» y se leería distinto del 0 del centro.
 		return Math.min(tope, Math.max(-tope, x)) + 0;
@@ -204,6 +218,21 @@ export function encuadreQueSigue({
 	}
 	const claves = simplificarCamino(camino).map((p) => ({ t: p.t, x: xDe(p.centro) }));
 	return { escala, x: claves[0].x, claves };
+}
+
+/** Cómo dibuja el clip su fuente, en lo que le importa a seguir a la persona (ver la cabecera). */
+export type DibujoDelClip = { reflejado: boolean; girado: boolean };
+
+export const DIBUJO_COMUN: DibujoDelClip = { reflejado: false, girado: false };
+
+export function dibujoDelClip(el: { params?: ParamValues | null; animations?: object | null }): DibujoDelClip {
+	const p = el.params ?? {};
+	const giro = Number(p["transform.rotate"] ?? 0);
+	const animado = (el.animations as Record<string, unknown> | null | undefined)?.["transform.rotate"] !== undefined;
+	return {
+		reflejado: p[REFLEJO_HORIZONTAL] === true,
+		girado: animado || (Number.isFinite(giro) && Math.abs(giro % 360) > 0.01),
+	};
 }
 
 /** Los params del clip para un encuadre que sigue: sin recorte (lo que sobra lo tapa el borde del lienzo), agrandado y corrido. */
@@ -218,4 +247,47 @@ export function paramsDelEncuadre(e: EncuadreSeguido): ParamValues {
 		"transform.positionX": e.x,
 		"transform.positionY": 0,
 	};
+}
+
+// ── Los clips de la pista principal, uno por uno ─────────────────────────────
+
+/** Lo que dio mirar los cuadros de UN clip (lo hace ./seguir-en-editor.ts, con mediabunny y el segmentador). */
+export type Mirada =
+	| { tipo: "visto"; muestras: MuestraPersona[] }
+	/** El archivo no se pudo decodificar: ESE clip queda al centro; el próximo se mira igual. */
+	| { tipo: "no-se-lee" }
+	/** El segmentador dejó de andar: ese y los que siguen quedan al centro. */
+	| { tipo: "sin-segmentador" };
+
+/**
+ * El encuadre de cada clip donde se encontró a alguien, por id. Un clip girado no se mira (no se seguiría); uno que
+ * no se pudo leer, o que tiró, queda al centro y se sigue con el próximo; sin segmentador, se corta.
+ */
+export async function encuadresDeLosClips<C extends { id: string; fuente: Tamano; dibujo: DibujoDelClip }>({
+	clips,
+	lienzo,
+	mirar,
+	alFallar,
+}: {
+	clips: readonly C[];
+	lienzo: Tamano;
+	mirar: (clip: C) => Promise<Mirada>;
+	alFallar?: (error: unknown) => void;
+}): Promise<Map<string, EncuadreSeguido>> {
+	const encuadres = new Map<string, EncuadreSeguido>();
+	for (const clip of clips) {
+		if (clip.dibujo.girado) continue;
+		let mirada: Mirada;
+		try {
+			mirada = await mirar(clip);
+		} catch (error) {
+			alFallar?.(error);
+			continue;
+		}
+		if (mirada.tipo === "sin-segmentador") break;
+		if (mirada.tipo === "no-se-lee") continue;
+		const encuadre = encuadreQueSigue({ muestras: mirada.muestras, fuente: clip.fuente, lienzo, dibujo: clip.dibujo });
+		if (encuadre) encuadres.set(clip.id, encuadre);
+	}
+	return encuadres;
 }

@@ -38,11 +38,13 @@ import {
   type MensajeDelHilo,
 } from '../app/video-editor/_opencut/audio/ruido-hilo/protocolo';
 import {
+  TEXTO_SIN_MOTOR,
   crearReductorEnHilo,
   reductorEnEsteHilo,
   type HiloRuido,
   type ReductorRuido,
 } from '../app/video-editor/_opencut/audio/ruido-hilo/cliente';
+import { mensajeDeExport, MENSAJE_EXPORT_GENERICO } from '../app/video-editor/_opencut/export/mensaje-error';
 import { mezclar, rosa, voz } from './_voz-y-ruido';
 
 const RAIZ = process.cwd();
@@ -97,14 +99,14 @@ class HiloDePrueba implements HiloRuido {
   terminado = false;
   private escuchas: Record<string, Array<(e: never) => void>> = { message: [], error: [], messageerror: [] };
   private atender: (m: MensajeAlHilo) => Promise<void>;
-  constructor({ cargarMotor = motor, retocar }: { cargarMotor?: () => Promise<MotorRnnoise>; retocar?: (m: MensajeDelHilo) => MensajeDelHilo } = {}) {
+  constructor({ cargarMotor = motor, retocar, soltar = dormir }: { cargarMotor?: () => Promise<MotorRnnoise>; retocar?: (m: MensajeDelHilo) => MensajeDelHilo; soltar?: () => Promise<void> } = {}) {
     this.atender = crearAtendedor({
       cargarMotor,
       enviar: (m, t) => {
         const copia = structuredClone(m, { transfer: t ?? [] });
         setTimeout(() => this.emitir('message', { data: retocar ? retocar(copia) : copia }), 0);
       },
-      soltar: dormir,
+      soltar,
     });
   }
   postMessage(mensaje: MensajeAlHilo, transferir: Transferable[]) {
@@ -311,6 +313,47 @@ test('6: el respaldo: sin worker, un worker que no carga, uno que no pudo bajar 
   }
 });
 
+test('8: los topes: un worker que no contesta se deja y lo suyo se hace acá; uno que avanza, no; y un motor que no carga se dice', { timeout: 60_000 }, async () => {
+  const m = await motor();
+  const pedido = { canales: [sucia(44100, 71)], sampleRate: 44100, intensidad: 0.85 };
+  const directo = await reducirRuido({ ...pedido, motor: m });
+  // a) Un worker COLGADO (la bajada del .wasm que nunca contesta, sin evento `error`): pasado el tope, acá.
+  {
+    const { enEsteHilo, usos } = respaldoContado();
+    const hilo = new HiloDePrueba({ cargarMotor: () => new Promise(() => {}) });
+    const reducir = crearReductorEnHilo({ crearHilo: () => hilo, enEsteHilo, topeSilencioMs: 80 });
+    const inicio = Date.now();
+    mismosBytes(await reducir(pedido), directo, 'worker colgado');
+    assert.ok(Date.now() - inicio < 20_000, 'esperó de más');
+    assert.ok(hilo.terminado, 'el worker colgado no se terminó');
+    assert.equal(usos.n, 1);
+    await reducir(pedido);
+    assert.equal(usos.n, 2, 'después de colgarse, todo acá');
+    assert.equal(hilo.recibidos.length, 1, 'le siguió mandando al worker colgado');
+  }
+  // b) Un worker que tarda pero AVANZA (cada avance vuelve a armar el tope): termina en el worker.
+  {
+    const { enEsteHilo, usos } = respaldoContado();
+    // Más lento que el tope en total, con cada paso más corto que él (la pausa de la cuenta, cada ~28 ms de trabajo).
+    const hilo = new HiloDePrueba({ soltar: () => new Promise<void>((r) => setTimeout(r, 30)) });
+    const reducir = crearReductorEnHilo({ crearHilo: () => hilo, enEsteHilo, topeSilencioMs: 400 });
+    const inicio = Date.now();
+    mismosBytes(await reducir(pedido), directo, 'worker lento');
+    assert.ok(Date.now() - inicio > 400, `tardó ${Date.now() - inicio} ms: no prueba el tope`);
+    assert.equal(usos.n, 0, 'un worker que avanza no se deja');
+    assert.ok(!hilo.terminado);
+  }
+  // c) Acá, un motor que no termina de cargar rechaza con un texto que dice qué hacer (y el export lo cuenta así).
+  {
+    const colgado = reductorEnEsteHilo(() => new Promise(() => {}), { topeCargaMs: 50 });
+    await assert.rejects(colgado(pedido), (e: Error) => e.message === TEXTO_SIN_MOTOR);
+    assert.match(TEXTO_SIN_MOTOR, /Revisa tu conexión y vuelve a intentar\.$/);
+    const enExport = mensajeDeExport(new Error(TEXTO_SIN_MOTOR));
+    assert.notEqual(enExport, MENSAJE_EXPORT_GENERICO);
+    assert.match(enExport, /apágala en el clip/);
+  }
+});
+
 test('7: la dirección del .wasm se arma contra el origen (en un worker de Turbopack, `location` es un `blob:`)', () => {
   const blob = 'blob:https://hola-mako.com/7f3c0f0e-5d3a-4a9c-9d4e-2f6b1c0a1e11';
   // La trampa: contra un `blob:` una ruta no se resuelve (es lo que hacía `fetch("/ve/…")` adentro del worker).
@@ -338,4 +381,11 @@ test('7: la dirección del .wasm se arma contra el origen (en un worker de Turbo
 //   R13 el worker cambia la intensidad (la cuenta deja de ser la misma)   → 1, 2 y 6 (no es el mismo byte a byte)
 //   R14 «Borrar silencios» con la cuenta en la pantalla                   → el cableado
 //   R15 sin respaldo cuando no hay worker (un pedido que nunca contesta)  → el 6 (por su tope de 60 s)
+//   (10/11/2026, la revisión del worker; base 8/0, una rotura por vez, restaurada de memoria):
+//   R16 sin el vigía (el tope de silencio)                                → el 8 (a: cancelado por su tope de 60 s, colgado)
+//   R17 un avance no vuelve a armar el vigía                              → el 8 (b: el lento se deja)
+//   R18 dejar el worker no pasa lo pendiente al respaldo                  → 6 y 8 (cancelados por su tope: quedan colgados)
+//   R19 el motor de acá sin tope                                          → el 8 (c: cancelado por su tope de 60 s)
+//   R20 el export sin la frase del motor que no cargó                     → el 8 (c)
+//   R21 (sin efecto) renombrar `vigilar`                                  → 8 / 0
 //   NO lo ve node: que Turbopack empaquete el worker y que en el navegador corra (eso se mira en el editor: ver el relevo).

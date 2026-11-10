@@ -25,11 +25,14 @@ import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import { TICKS_PER_SECOND, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
 import { cargarSegmentador, segmentarPersona } from "@/app/video-editor/_opencut/fondo/segmentador";
 import { tamanoSegmentacion } from "@/app/video-editor/_opencut/fondo/mascara";
+import { sinAnimacionDelEncuadre } from "./cubrir";
 import {
-	encuadreQueSigue,
+	dibujoDelClip,
+	encuadresDeLosClips,
 	momentosAMuestrear,
 	perfilDePersona,
 	type EncuadreSeguido,
+	type Mirada,
 	type MuestraPersona,
 	type Tamano,
 } from "./seguir";
@@ -39,7 +42,10 @@ const TOPE_SEGMENTADOR_MS = 25_000;
 
 const esperar = (ms: number) => new Promise<false>((r) => setTimeout(() => r(false), ms));
 
-/** Qué se ve de la persona en cada momento (segundos del clip), o `null` si el segmentador dejó de andar en el medio. */
+/**
+ * Qué se ve de la persona en cada momento (segundos del clip). Un archivo que no se decodifica no es un segmentador
+ * caído: ese clip queda al centro y el próximo se mira igual (`Mirada`, ./seguir.ts).
+ */
 async function muestrasDePersona({
 	file,
 	momentos,
@@ -50,11 +56,11 @@ async function muestrasDePersona({
 	momentos: number[];
 	enLaFuente: (t: number) => number;
 	alCuadro: () => void;
-}): Promise<MuestraPersona[] | null> {
+}): Promise<Mirada> {
 	const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
 	try {
 		const pista = await input.getPrimaryVideoTrack();
-		if (!pista || !(await pista.canDecode())) return null;
+		if (!pista || !(await pista.canDecode())) return { tipo: "no-se-lee" };
 		const { ancho, alto } = tamanoSegmentacion(pista.displayWidth, pista.displayHeight);
 		const sink = new CanvasSink(pista, { width: ancho, height: alto, fit: "fill", poolSize: 1 });
 		const primero = await pista.getFirstTimestamp().catch(() => 0);
@@ -71,12 +77,12 @@ async function muestrasDePersona({
 					},
 					{ avisar: false },
 				);
-				if (!ok) return null;
+				if (!ok) return { tipo: "sin-segmentador" };
 			}
 			muestras.push({ t, centro: visto.centro });
 			alCuadro();
 		}
-		return muestras;
+		return { tipo: "visto", muestras };
 	} finally {
 		input.dispose();
 	}
@@ -104,47 +110,46 @@ export async function encuadresQueSiguen({
 		.flatMap((el) => {
 			const asset = assets.find((a) => a.id === el.mediaId);
 			const fuente = asset?.width && asset.height ? { width: asset.width, height: asset.height } : null;
+			// Reflejado se sigue al revés; girado no se sigue, así que ni se mira (./seguir.ts → `dibujoDelClip`).
+			const dibujo = dibujoDelClip(el);
 			// Sólo lo que es más ancho que el vertical tiene costados que elegir.
-			return asset?.file && fuente && fuente.width / fuente.height > lienzo.width / lienzo.height ? [{ el, file: asset.file, fuente }] : [];
+			return asset?.file && fuente && !dibujo.girado && fuente.width / fuente.height > lienzo.width / lienzo.height
+				? [{ id: el.id, el, file: asset.file, fuente, dibujo }]
+				: [];
 		});
 	if (clips.length === 0) return encuadres;
 	const listo = await Promise.race([cargarSegmentador({ avisar: false }), esperar(TOPE_SEGMENTADOR_MS)]);
 	if (!listo) return encuadres;
 
-	const porClip = clips.map(({ el }) => momentosAMuestrear(el.duration / TICKS_PER_SECOND));
-	const total = porClip.reduce((s, m) => s + m.length, 0) || 1;
+	const porClip = new Map(clips.map(({ el }) => [el.id, momentosAMuestrear(el.duration / TICKS_PER_SECOND)] as const));
+	const total = [...porClip.values()].reduce((s, m) => s + m.length, 0) || 1;
 	let hechos = 0;
-	for (const [k, { el, file, fuente }] of clips.entries()) {
-		const duracion = el.duration / TICKS_PER_SECOND;
-		const desde = el.trimStart / TICKS_PER_SECOND;
-		try {
-			const muestras = await muestrasDePersona({
+	// Uno por uno (./seguir.ts → `encuadresDeLosClips`): uno que no se lee queda al centro y se sigue con el próximo;
+	// sin segmentador, el resto también queda al centro.
+	return encuadresDeLosClips({
+		clips,
+		lienzo,
+		alFallar: (error) => console.warn("[clips] no se pudo seguir a la persona en un clip; queda al centro", error),
+		mirar: ({ el, file }) => {
+			const duracion = el.duration / TICKS_PER_SECOND;
+			const desde = el.trimStart / TICKS_PER_SECOND;
+			return muestrasDePersona({
 				file,
-				momentos: porClip[k],
+				momentos: porClip.get(el.id) ?? [],
 				enLaFuente: (t) => desde + getSourceTimeAtClipTime({ clipTime: t, retime: el.retime, clipDuration: duracion }),
 				alCuadro: () => alAvanzar?.(Math.min(1, ++hechos / total)),
 			});
-			// El segmentador dejó de andar: el resto también queda al centro.
-			if (!muestras) break;
-			const encuadre = encuadreQueSigue({ muestras, fuente, lienzo });
-			if (encuadre) encuadres.set(el.id, encuadre);
-		} catch (error) {
-			console.warn("[clips] no se pudo seguir a la persona en un clip; queda al centro", error);
-		}
-	}
-	return encuadres;
+		},
+	});
 }
 
 /**
- * Lo que el clip traía animado de su posición o su escala MANDARÍA sobre el encuadre (una animación le gana al valor de
- * base): se saca. Y si el encuadre se mueve, un fotograma clave de `transform.positionX` por punto.
+ * Si el encuadre se mueve, un fotograma clave de `transform.positionX` por punto. Lo que el clip traía animado de su
+ * posición o su escala ya lo sacó ./cubrir.ts (`sinAnimacionDelEncuadre`, en los dos caminos); se vuelve a sacar acá
+ * por si alguien llama a esta función suelta: mandaría sobre el encuadre.
  */
-const ANIMADO_DEL_ENCUADRE = ["transform.positionX", "transform.positionY", "transform.scaleX", "transform.scaleY"];
-
 export function animarEncuadre(elemento: TimelineElement, encuadre: EncuadreSeguido): TimelineElement {
-	const resto: ElementAnimations = { ...(elemento.animations ?? {}) };
-	for (const camino of ANIMADO_DEL_ENCUADRE) delete resto[camino];
-	let animations: ElementAnimations | undefined = Object.keys(resto).length ? resto : undefined;
+	let animations = (sinAnimacionDelEncuadre(elemento).animations as ElementAnimations | undefined) ?? undefined;
 	const param = encuadre.claves ? getElementParam({ element: elemento, key: "transform.positionX" }) : null;
 	if (encuadre.claves && param) {
 		for (const clave of encuadre.claves) {

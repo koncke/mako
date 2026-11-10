@@ -41,8 +41,23 @@ test('el cableado: la cadena y «Borrar silencios» le piden al worker, con el c
   assert.deepEqual(llaman(/\bmotorRnnoise\b/), ['_opencut/audio/dsp/rnnoise.ts', '_opencut/audio/ruido-hilo/cliente.ts', '_opencut/audio/ruido-hilo/worker.ts']);
 });
 
+test('la vista previa poda lo que se estaba preparando también cuando ya ningún clip pide procesar', () => {
+  const am = sinComentarios(fs.readFileSync(path.join(RAIZ, 'app/video-editor/_opencut/core/managers/audio-manager.ts'), 'utf8'));
+  const ini = am.indexOf('private async prepararProcesados(): Promise<void> {');
+  const cuerpo = am.slice(ini, am.indexOf('private async getAudioSink(', ini));
+  assert.ok(ini > 0 && cuerpo.length > 200 && cuerpo.length < 2_000, `el cuerpo mide ${cuerpo.length}`);
+  // Sale temprano sólo si no hay NADA que soltar; si no, poda (corta la preparación en curso) antes de salir.
+  assert.match(cuerpo, /if \(!conProceso && this\.cortarPreparacion\.size === 0 && this\.preparedClipBuffers\.size === 0\) return;/);
+  const poda = cuerpo.indexOf('this.podarCaches(clips);');
+  const sale = cuerpo.indexOf('if (!conProceso) return;');
+  assert.ok(poda > 0 && sale > poda, 'poda antes de salir');
+  assert.match(am, /this\.cortarPreparacion\.get\(clave\)\?\.abort\(\);/, 'podar corta la preparación (el pedido al worker)');
+});
+
 // ── Roturas (10/11/2026, base 1/0), cada una sola y restaurada desde la copia en memoria ──
 //   la cadena vuelve a `reducirRuido` con `motorRnnoise()`  → rojo (la regex de la cadena y, si compilara, la lista de quién llama)
 //   el worker suelta con `setTimeout`                        → rojo
 //   «Borrar silencios» con `reductorEnEsteHilo(motorRnnoise)` → rojo
+//   (la revisión del 10/11/2026, base 2/0) salir antes de podar (el `return` viejo)  → rojo
+//   (la revisión) sin el `abort()` de la preparación al podar                 → rojo
 //   (la tabla completa, con los de la parte que se ejecuta, en tests/video-editor-ruido-hilo.test.ts)

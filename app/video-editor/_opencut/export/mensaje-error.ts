@@ -27,6 +27,8 @@ const CASOS: readonly [RegExp, string][] = [
   [/Canvas 2D no disponible/i, 'El navegador no pudo preparar el lienzo. Cierra otras pestañas pesadas e intenta de nuevo.'],
   // Un efecto o pase propio que no compila en el GLSL real del navegador.
   [/\[pases-ce\]/, 'Un efecto no se pudo renderizar. Quítalo del clip e intenta de nuevo.'],
+  // «Reducir el ruido» no cargó su motor a tiempo (audio/ruido-hilo/cliente.ts → TEXTO_SIN_MOTOR).
+  [/reducción de ruido no terminó de cargar/i, 'La reducción de ruido no cargó a tiempo. Revisa tu conexión e intenta de nuevo, o apágala en el clip.'],
   // El audio no se pudo codificar.
   [/AAC vac[ií]o/i, 'No se pudo codificar el audio. Prueba exportar sin audio o con otro formato.'],
   // Lo que el navegador dice por su cuenta.

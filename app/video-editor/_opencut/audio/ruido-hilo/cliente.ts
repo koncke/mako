@@ -17,6 +17,13 @@
 //
 // Cancelar (un `AbortSignal`) rechaza enseguida con el motivo del signal y le avisa al worker, que corta en su próxima
 // pausa (~28 ms de trabajo). Sin worker, la cuenta de acá corta en su próxima pausa.
+//
+// LOS TOPES (revisión del 10/11/2026): un worker colgado (la bajada del .wasm que no contesta, un worker trabado) dejaba
+// el clip mudo y el export esperando para siempre. Ahora:
+//   · un pedido sin NINGÚN mensaje del worker en `TOPE_SILENCIO_HILO_MS` (el worker manda un avance cada 1 %) da al
+//     worker por colgado: se termina, y lo que estaba en él se rehace acá (como un worker caído);
+//   · acá, el motor que no termina de cargar en `TOPE_CARGA_MOTOR_MS` rechaza con un error que se dice
+//     (`TEXTO_SIN_MOTOR`): el export lo cuenta, y la vista previa lo vuelve a probar con el próximo cambio.
 
 import { ceder } from "../dsp/fft";
 import { motorRnnoise, type MotorRnnoise } from "../dsp/rnnoise";
@@ -30,6 +37,12 @@ import {
 } from "./protocolo";
 
 export type { PedidoRuido } from "./protocolo";
+
+/** Sin un mensaje del worker en este tiempo, el worker está colgado (un avance sale cada 1 % del clip). */
+export const TOPE_SILENCIO_HILO_MS = 45_000;
+/** Lo que se espera a que el motor cargue en este hilo (1,4 MB del mismo origen). */
+export const TOPE_CARGA_MOTOR_MS = 60_000;
+export const TEXTO_SIN_MOTOR = "La reducción de ruido no terminó de cargar. Revisa tu conexión y vuelve a intentar.";
 
 export type OpcionesReduccion = {
 	/** Lo hecho, de 0 a 1 (el 1, al terminar). */
@@ -52,11 +65,23 @@ function motivoDeCancelar(signal: AbortSignal | undefined): unknown {
 	return signal?.reason ?? new DOMException("Se canceló la reducción de ruido", "AbortError");
 }
 
+/** El motor, o el error que se dice si no carga en `topeMs` (una bajada que nunca contesta). */
+function conTope<T>(promesa: Promise<T>, topeMs: number): Promise<T> {
+	let vencer: ReturnType<typeof setTimeout> | undefined;
+	const tope = new Promise<never>((_, rechazar) => {
+		vencer = setTimeout(() => rechazar(new Error(TEXTO_SIN_MOTOR)), topeMs);
+	});
+	return Promise.race([promesa, tope]).finally(() => clearTimeout(vencer));
+}
+
 /** La cuenta en este hilo, con un motor ya cargado o por cargar: el respaldo, y lo que usan los tests. */
-export function reductorEnEsteHilo(cargarMotor: () => Promise<MotorRnnoise>): ReductorRuido {
+export function reductorEnEsteHilo(
+	cargarMotor: () => Promise<MotorRnnoise>,
+	{ topeCargaMs = TOPE_CARGA_MOTOR_MS }: { topeCargaMs?: number } = {},
+): ReductorRuido {
 	return async (pedido, { alAvanzar, signal } = {}) => {
 		if (signal?.aborted) throw motivoDeCancelar(signal);
-		const motor = await cargarMotor();
+		const motor = await conTope(cargarMotor(), topeCargaMs);
 		if (signal?.aborted) throw motivoDeCancelar(signal);
 		return reducirRuido({
 			canales: pedido.canales,
@@ -78,23 +103,45 @@ type Pendiente = {
 	rechazar: (error: unknown) => void;
 	/** Rehacerlo en este hilo, con los canales del que llamó (al worker le fue una copia). */
 	respaldo: () => void;
+	/** Lo vuelve a armar cada mensaje del worker; si vence, el worker está colgado. */
+	vigia?: ReturnType<typeof setTimeout>;
 };
 
 export function crearReductorEnHilo({
 	crearHilo,
 	enEsteHilo,
+	topeSilencioMs = TOPE_SILENCIO_HILO_MS,
 }: {
 	crearHilo: () => HiloRuido;
 	enEsteHilo: ReductorRuido;
+	topeSilencioMs?: number;
 }): ReductorRuido {
 	let hilo: HiloRuido | null = null;
 	let sinHilo = false;
 	let siguienteId = 1;
 	const pendientes = new Map<number, Pendiente>();
 
+	/** El worker no anda (se cayó o no contesta): se termina, y lo que estaba en él se rehace acá. Desde ahí, todo acá. */
+	const dejarElHilo = (cual: HiloRuido, porque: string, detalle?: unknown) => {
+		if (hilo !== cual) return;
+		console.warn(`[ruido] ${porque}; sigo en este hilo`, detalle ?? "");
+		sinHilo = true;
+		hilo = null;
+		cual.terminate();
+		const enElAire = [...pendientes.values()];
+		pendientes.clear();
+		for (const p of enElAire) p.respaldo();
+	};
+
+	const vigilar = (p: Pendiente, cual: HiloRuido) => {
+		clearTimeout(p.vigia);
+		p.vigia = setTimeout(() => dejarElHilo(cual, `el worker no contestó en ${Math.round(topeSilencioMs / 1000)} s`), topeSilencioMs);
+	};
+
 	const atender = (mensaje: MensajeDelHilo) => {
 		const p = pendientes.get(mensaje.id);
 		if (!p) return; // cancelado (ya se rechazó) o pasado al respaldo
+		if (hilo) vigilar(p, hilo);
 		switch (mensaje.tipo) {
 			case "avance":
 				p.alAvanzar?.(mensaje.hecho);
@@ -129,16 +176,7 @@ export function crearReductorEnHilo({
 			sinHilo = true;
 			return null;
 		}
-		const caer = (evento: Event) => {
-			if (hilo !== nuevo) return;
-			console.warn("[ruido] el worker no anda; sigo en este hilo", evento);
-			sinHilo = true;
-			hilo = null;
-			nuevo.terminate();
-			const enElAire = [...pendientes.values()];
-			pendientes.clear();
-			for (const p of enElAire) p.respaldo();
-		};
+		const caer = (evento: Event) => dejarElHilo(nuevo, "el worker no anda", evento);
 		nuevo.addEventListener("message", (evento) => atender(evento.data));
 		nuevo.addEventListener("error", caer);
 		nuevo.addEventListener("messageerror", caer);
@@ -155,11 +193,15 @@ export function crearReductorEnHilo({
 			const id = siguienteId++;
 			const alCancelar = () => {
 				if (!pendientes.delete(id)) return;
+				clearTimeout(pendiente.vigia);
 				h.postMessage({ tipo: "cancelar", id }, []);
 				rechazar(motivoDeCancelar(signal));
 			};
-			const soltarSignal = () => signal?.removeEventListener("abort", alCancelar);
-			pendientes.set(id, {
+			const soltarSignal = () => {
+				signal?.removeEventListener("abort", alCancelar);
+				clearTimeout(pendiente.vigia);
+			};
+			const pendiente: Pendiente = {
 				alAvanzar,
 				resolver: (canales) => {
 					soltarSignal();
@@ -173,7 +215,9 @@ export function crearReductorEnHilo({
 					soltarSignal();
 					enEsteHilo(pedido, opciones).then(resolver, rechazar);
 				},
-			});
+			};
+			pendientes.set(id, pendiente);
+			vigilar(pendiente, h);
 			signal?.addEventListener("abort", alCancelar, { once: true });
 			const canales = canalesParaMandar(pedido.canales);
 			try {

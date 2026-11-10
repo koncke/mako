@@ -36,6 +36,7 @@ import {
   marcarSalida,
   marcasDeClips,
   muestrasDelTramo,
+  seCruzaConElTramo,
   segundosAExportar,
   subtitulosDelTramo,
   tiempoDeRango,
@@ -359,6 +360,31 @@ test('10: el cableado (manejadores, la regla y Exportar)', () => {
   assert.ok(dialogo.includes('data-exportar-rango'), 'se ve que se exporta el rango');
 });
 
+test('11: exportar un rango mezcla sólo lo que suena en él (los clips enteros), y Cancelar corta la mezcla', () => {
+  const T = { desde: 10_000, hasta: 20_000 };
+  const clip = (ini: number, dur: number) => ({ startTime: ini, duration: dur });
+  assert.equal(seCruzaConElTramo(clip(0, 5_000), T), false, 'termina antes');
+  assert.equal(seCruzaConElTramo(clip(0, 10_000), T), false, 'termina justo donde empieza el tramo');
+  assert.equal(seCruzaConElTramo(clip(0, 10_001), T), true);
+  assert.equal(seCruzaConElTramo(clip(12_000, 1_000), T), true, 'adentro');
+  assert.equal(seCruzaConElTramo(clip(5_000, 30_000), T), true, 'lo cubre');
+  assert.equal(seCruzaConElTramo(clip(20_000, 5_000), T), false, 'empieza justo donde termina');
+  assert.equal(seCruzaConElTramo(clip(19_999, 5_000), T), true);
+  assert.equal(seCruzaConElTramo(clip(30_000, 5_000), null), true, 'sin tramo, todos');
+  // El cableado: la mezcla saltea lo de afuera ANTES de decodificar, mira la cancelación antes de cada clip y se la
+  // pasa a la reducción de ruido; Exportar le pasa el tramo y el corte, y un corte no es una falla.
+  const audio = sinComentarios(leer('app/video-editor/_opencut/media/audio.ts'));
+  const salteo = audio.indexOf('if (!seCruzaConElTramo(element, tramo)) continue;');
+  assert.ok(salteo > 0 && salteo < audio.indexOf('resolveAudioBufferForElement({\n\t\t\t\t\telement,'), 'lo de afuera no se decodifica');
+  assert.match(audio, /audioContext: context,\s*tramo,\s*\}\);\s*signal\?\.throwIfAborted\(\);/);
+  assert.match(audio, /for \(const element of audioElements\) \{\s*signal\?\.throwIfAborted\(\);/);
+  assert.match(audio, /procesarClip\(\{ buffer: enSuTiempo, params, signal \}\)/);
+  const exportar = sinComentarios(leer('app/video-editor/_opencut/export/exportar.ts'));
+  assert.ok(exportar.includes('createTimelineAudioBuffer({ tracks, mediaAssets, duration: duracion, tramo, signal: this.corte.signal })'));
+  assert.match(exportar, /cancelar\(\): void \{\s*this\.cancelada = true;\s*this\.corte\.abort\(\);/);
+  assert.match(exportar, /\} catch \(error\) \{\s*if \(this\.cancelada\) return \{ estado: "cancelado" \};/);
+});
+
 // ── Roturas (10/11/2026; base en verde: 10 pasan, 0 fallan). Las corrió un script que rompe, corre este
 // archivo y devuelve el original desde memoria ──
 //   R1  marcarEntrada sin soltar la salida que cruza                         -> 9 / 1 (el 1)
@@ -377,3 +403,10 @@ test('10: el cableado (manejadores, la regla y Exportar)', () => {
 //   R14 la migración pisa la tecla que la persona usó                         -> 9 / 1 (el 9)
 //   R15 el video se exporta sin el tramo                                      -> 9 / 1 (el 10)
 //   R16 (sin efecto) renombrar la variable local de tramoEfectivo             -> 10 / 0
+//   (10/11/2026, la revisión: base 11/0, una rotura por vez, restaurada de memoria)
+//   R17 seCruzaConElTramo con <= (cuenta el que termina justo en el borde)    -> 10 / 1 (el 11)
+//   R18 la mezcla sin saltear lo de afuera                                    -> 10 / 1 (el 11)
+//   R19 la mezcla no mira la cancelación antes de cada clip                    -> 10 / 1 (el 11)
+//   R20 la reducción de ruido del export sin el corte                          -> 10 / 1 (el 11)
+//   R21 Exportar no le pasa el tramo a la mezcla                               -> 10 / 1 (el 11)
+//   R22 un corte de Cancelar se cuenta como falla                              -> 10 / 1 (el 11)

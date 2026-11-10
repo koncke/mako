@@ -90,6 +90,16 @@ export function tramoEfectivo(m: MarcasRango | null | undefined, duracion: numbe
 	return { desde, hasta };
 }
 
+/**
+ * ¿El clip (en ticks) suena en el tramo? Lo usa la mezcla del export (media/audio.ts): un clip fuera del rango no se
+ * decodifica ni se le reduce el ruido; uno que se cruza va ENTERO (la reducción de ruido necesita su contexto). Sin
+ * tramo, todos.
+ */
+export function seCruzaConElTramo(clip: { startTime: number; duration: number }, tramo: Tramo | null | undefined): boolean {
+	if (!tramo) return true;
+	return clip.startTime < tramo.hasta && clip.startTime + clip.duration > tramo.desde;
+}
+
 /** El tramo en segundos. */
 export function tramoEnSegundos(t: Tramo, ticksPorSegundo: number): { desde: number; hasta: number } {
 	return { desde: t.desde / ticksPorSegundo, hasta: t.hasta / ticksPorSegundo };
