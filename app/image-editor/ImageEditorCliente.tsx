@@ -257,6 +257,9 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       // El lienzo necesita el ancho, como el Video Editor (29/10/2026): el chat se pliega a una barra fina. Mientras se replica,
       // NO: la tarjeta es donde MaKo pregunta.
       plegable={!!abierto}
+      // En una ventana angosta, el guiado abre en el chat: ahí está la pregunta (10/11/2026). La key cambia con el guiado, así que
+      // esto vale al entrar a cada uno.
+      movilDeEntrada={g ? 'mako' : undefined}
     >
       {abierto ? (
         <div className="cv" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

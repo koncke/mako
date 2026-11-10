@@ -11,6 +11,8 @@
 //   3. un carrusel sin persona no pregunta el avatar: después de la oferta va «qué cambiar»;
 //   4. el centro es el original con su salida («← Elegir otro»), y nada se arma antes de «Generar»;
 //   5. `PantallaCrear` con `nueva` dibuja eso EN LUGAR de «¿Qué vas a crear hoy?», y sin `nueva` se ve como siempre.
+//   6. en una ventana angosta (≤ 760 px), el guiado abre en el CHAT (`movilDeEntrada`, 10/11/2026): a 551 px abría en las láminas,
+//      con la pregunta escondida detrás de «MaKo». Rompiéndolo (`useState('pieza')` fijo) → 1 rojo (6).
 //
 // PROBADO ROMPIÉNDOLO (9/11/2026, node --test con tsx, base 5/0):
 //   · sacar `{...ancla('image-editor-outliers')}` de la grilla                            → 1 rojo (1);
@@ -146,4 +148,14 @@ test('5. PantallaCrear con `nueva`: los ejemplos EN LUGAR de «¿Qué vas a crea
   assert.match(con, /className="cr-tarjeta"|class="cr-tarjeta"/, 'la tarjeta de MaKo sigue a la izquierda');
   const sin = renderToStaticMarkup(createElement(PantallaCrear, base));
   assert.ok(sin.includes(TITULO_CAJA), 'las demás tabs se ven igual');
+});
+
+test('6. en una ventana angosta, el guiado abre en el chat de MaKo (donde está la pregunta); lo demás, en la pieza', async () => {
+  const { PantallaCrear } = await import('@/app/_crear/PantallaCrear');
+  const base = { tab: 'Image', nuevo: 'Nuevo carrusel', proyectos: [], plantillas: [], onPlantilla: () => null, ejemplos: [], chat: () => createElement('p', null, '¿Este carrusel es para tu oferta?') };
+  const pieza = createElement('div', { id: 'el-original' });
+  const guiado = renderToStaticMarkup(createElement(PantallaCrear, { ...base, movilDeEntrada: 'mako' }, pieza));
+  assert.match(guiado, /data-movil="mako"/, 'el guiado tiene que abrir en el chat: ahí se contesta');
+  const comun = renderToStaticMarkup(createElement(PantallaCrear, base, pieza));
+  assert.match(comun, /data-movil="pieza"/, 'sin pedirlo, como siempre: la pieza');
 });

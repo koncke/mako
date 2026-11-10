@@ -145,6 +145,16 @@ la computadora, no una pantalla nueva (memoria «disenar-escritorio-y-celular»)
 app/image-editor/guiado-base.ts, que leen las dos pantallas. ⚠️ Las hojas del chat (centro.css, chat.css) en la computadora llegan
 con el panel de MaKo de la tab; el teléfono no las carga solo, así que van con la pieza. Lo fija tests/image-movil-guiado.test.ts.
 
+**La prueba de punta a punta (10/11, noche; docs/pruebas/image-10-11.md):** 33 casos y 12 fallas, de las que se arreglaron 10. Dos
+de esta tanda:
+- **En una ventana angosta (≤ 760 px), el guiado abría en las láminas** y la pregunta de MaKo quedaba detrás de la pestaña
+  «MaKo». Sin el chat a la vista, el velo no tenía qué señalar. Ahora abre en el chat (`movilDeEntrada` de `PantallaCrear`,
+  lo fija tests/carruseles-guiado-pantalla.test.ts).
+- **⚠️ El arreglo de «Quitar filtros» en Anuncios lo empeoraba entrando por el link.** `?que=anuncios` trae el orden de entrada
+  de Carruseles (`outlier`), y en Anuncios «outlier» e «interacción» SON «días al aire»: lo dibuja así el desplegable y así
+  ordena `filtrarCarruseles`. Comparando el orden crudo, ese Anuncios «tenía filtros» y mostraba los dos botones. `sinFiltrosDe`
+  compara el orden que de verdad se usa (`ordenEfectivo`). Un filtro se mide contra lo que la pantalla HACE, no contra el campo.
+
 **Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
 se muestra sin revisar.
 
