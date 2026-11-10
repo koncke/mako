@@ -54,6 +54,7 @@ import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
+import { useImagenesVivas } from './imagenes-vivas';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
@@ -466,7 +467,8 @@ const pastilla = (activo: boolean, telefono = false) => ({ ...chip(activo), heig
 
 /** Las láminas dentro de la tarjeta: se pasan con las flechas o deslizando (el dedo en el teléfono). */
 function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
-  const imagenes = imagenesDe(c);
+  // Una que no carga (un 403 de Instagram) se saca: sin ninguna, el respaldo de «sin portada», nunca el ícono roto.
+  const { vivas: imagenes, alFallar } = useImagenesVivas(imagenesDe(c));
   const pista = useRef<HTMLDivElement | null>(null);
   const [i, setI] = useState(0);
   const total = imagenes.length;
@@ -487,14 +489,14 @@ function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
         onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); ir(i + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); ir(i - 1); } }}>
         {imagenes.map((src, k) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={src} src={src} alt={k === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${k + 1}`} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
+          <img key={src} src={src} alt={k === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${k + 1}`} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => alFallar(src)} />
         ))}
       </div>
       {total > 1 && (
         <>
           {i > 0 && <button type="button" className={s.ant} onClick={() => ir(i - 1)} aria-label="Lámina anterior"><Flecha izq /></button>}
           {i < total - 1 && <button type="button" className={s.sig} onClick={() => ir(i + 1)} aria-label="Lámina siguiente"><Flecha /></button>}
-          <span className={s.indice}>{i + 1}/{total}</span>
+          <span className={s.indice}>{Math.min(i, total - 1) + 1}/{total}</span>
         </>
       )}
     </>

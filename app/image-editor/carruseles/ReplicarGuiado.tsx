@@ -38,6 +38,7 @@ import type { Boton } from '@/lib/aperturas/reglas';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { GUIA_IMAGE } from '../guia-image';
 import { EditarCarrusel } from './EditarCarrusel';
+import { useImagenesVivas } from './imagenes-vivas';
 import s from './explorar.module.css';
 
 /** Lo que el server sabe del negocio para las preguntas (app/image-editor/page.tsx): sus ofertas, sus fotos y su kit. */
@@ -155,7 +156,9 @@ export function ChatReplica({ g, volver }: { g: Guiado; volver: ReactNode }) {
 
 /** El centro mientras se replica: el original, y con «Generar» el armado en vivo, al lado de cada lámina original. */
 export function ReplicarGuiado({ g, onSalir }: { g: Guiado; onSalir: () => void }) {
-  const imagenes = imagenesDe(g.c);
+  const todas = imagenesDe(g.c);
+  // Una que no carga (un 403 de Instagram) no se dibuja: nunca el ícono roto (./imagenes-vivas.ts).
+  const { vivas: imagenes, alFallar } = useImagenesVivas(todas);
   const armando = g.r.listo && g.pedido;
   return (
     <div className={s.raiz}>
@@ -172,15 +175,19 @@ export function ReplicarGuiado({ g, onSalir }: { g: Guiado; onSalir: () => void 
             {imagenes.map((src, i) => (
               <li key={`${src}-${i}`} style={{ listStyle: 'none' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- una imagen del CDN de la fuente o de nuestro bucket */}
-                <img src={src} alt={`Lámina ${i + 1} del original`} loading="lazy" style={{ width: '100%', aspectRatio: g.c.clase === 'anuncio' ? '1 / 1' : '4 / 5', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+                <img src={src} alt={`Lámina ${i + 1} del original`} loading="lazy" referrerPolicy="no-referrer" onError={() => alFallar(src)} style={{ width: '100%', aspectRatio: g.c.clase === 'anuncio' ? '1 / 1' : '4 / 5', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
               </li>
             ))}
           </ol>
         ) : (
           <p className={s.aviso}>Todavía no tengo sus láminas guardadas: MaKo arma tu versión mirando su portada y su texto.</p>
         )}
+        {/* @lifeofarjav (10/11/2026): 6 láminas en Instagram y sólo la portada guardada; se veía una sola, sin decir por qué. La
+            misma nota que el carrusel abierto (./CarruselAbierto.tsx). */}
+        {imagenes.length === 1 && (g.c.laminas ?? 0) > 1 ? <p className={s.aviso}>Tiene {g.c.laminas} láminas; todavía sólo está guardada la portada.</p> : null}
       </div>
-      {armando ? <EditarCarrusel key={`${g.c.id}:armado`} carrusel={g.c} guiado={g.pedido} originales={imagenes} onCerrar={g.volverDelArmado} /> : null}
+      {/* Todas, también las rotas: el armado pone cada original AL LADO de su lámina, y sacar una del medio correría el par. */}
+      {armando ? <EditarCarrusel key={`${g.c.id}:armado`} carrusel={g.c} guiado={g.pedido} originales={todas} onCerrar={g.volverDelArmado} /> : null}
     </div>
   );
 }
