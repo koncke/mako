@@ -17,7 +17,8 @@
 //  10. al aceptar el funnel que propuso MaKo, su aviso pasaba a «¿Seguimos?» y la respuesta a «Sí, cambiemos»;
 //  11. la propuesta de mensajes contaba agendas «por llamada calificada»; 12. «Llamada de venta contigo» antes de preguntar quién llama;
 //  13. sin Meta conectada, «¿En qué te ayudo hoy?» tapaba la barra (Plan, Ajustes) de un negocio que ya tenía su estrategia;
-//  14. una tienda no tenía su ticket ($50, $100) entre las opciones; 15. Nueva campaña sin Meta: «ni su Zernio» y ningún botón.
+//  14. una tienda no tenía su ticket ($50, $100) entre las opciones; 15. Nueva campaña sin Meta: «ni su Zernio» y ningún botón;
+//  16. tras «Empezar de nuevo» quedaba sólo «Deshacer», sin cómo empezar (y sin la app no se puede escribir).
 //
 // Correr: node --import tsx --test tests/marketing-copilot-produccion.test.ts
 // PROBADO ROMPIÉNDOLO, ver el pie.
@@ -163,6 +164,10 @@ test('15. Nueva campaña sin Meta ofrece conectar, en palabras de producto (no �
   assert.equal((ruta.match(/SinCuentaParaOperar\) return J\(\{ ok: false, error: e\.message, sinCuenta: true \}, 409\)/g) ?? []).length, 2);
   const nc = leer('app/ads-manager/NuevaCampana.tsx');
   assert.match(nc, /if \(sinCuenta\) return <div className="mb"><div className="mba-ajustes">\{cab\}\{conectar\}<\/div><\/div>;/);
+});
+
+test('16. tras «Empezar de nuevo» están los botones para empezar, no sólo «Deshacer»', () => {
+  assert.match(leer('app/ads-manager/PrimeraEntrada.tsx'), /const conOpcionesDeNota = !!ultimaNota\?\.opciones && ultimoItem\?\.id === ultimaNota\.id && !ultimaNota\.opciones\.every\(\(o\) => o\.deshacer\);/);
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):
