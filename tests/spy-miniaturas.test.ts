@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BUCKET_MINIATURAS, esNuestra, rutaDeMiniatura, tipoDeImagen } from '../lib/spy-miniaturas';
+import { BUCKET_MINIATURAS, achicarImagen, esNuestra, rutaDeMiniatura, tipoDeImagen } from '../lib/spy-miniaturas';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const bytes = (...n: number[]) => new Uint8Array([...n, ...Array(16).fill(0)]);
@@ -86,4 +86,24 @@ test('bajar una miniatura NUNCA puede romper la lectura del competidor', () => {
   // que no convergería nunca.
   assert.match(spy, /yaBajada/, 'spy.ts dejó de reusar la miniatura ya bajada: la vuelve a bajar en cada lectura');
   assert.match(spy, /select\('ref, canal, miniatura'\)/, 'sin traer `miniatura` no se puede saber cuál ya está bajada');
+});
+
+// LA QUE PASA EL TOPE SE ACHICA (10/11/2026). Instagram sirve láminas de hasta 3277×4096 y 3,7 MB; con el tope del bucket como tope
+// de bajada se tiraban en silencio, y 37 carruseles del lote pago quedaron sin láminas. Verificado rompiéndolo: `achicarImagen`
+// devolviendo la imagen tal cual → cae este test.
+test('una imagen de más de 2 MB se sube achicada: JPEG, menos de 2 MB, 1440 de ancho y la misma proporción', async () => {
+  const { default: sharp } = await import('sharp');
+  const ancho = 2600, alto = 3250;
+  const ruido = Buffer.alloc(ancho * alto * 3);
+  for (let i = 0; i < ruido.length; i++) ruido[i] = (i * 2654435761) >>> 24;
+  const grande = new Uint8Array(await sharp(ruido, { raw: { width: ancho, height: alto, channels: 3 } }).jpeg({ quality: 97 }).toBuffer());
+  assert.ok(grande.length > 2 * 1024 * 1024, `la de prueba tiene que pasar el tope (pesa ${grande.length})`);
+  const chica = await achicarImagen(grande);
+  assert.ok(chica, 'no la achicó');
+  assert.ok(chica.length <= 2 * 1024 * 1024, `achicada pesa ${chica.length}`);
+  assert.equal(tipoDeImagen(chica)?.mime, 'image/jpeg');
+  const m = await sharp(Buffer.from(chica)).metadata();
+  assert.equal(m.width, 1440);
+  assert.equal(m.height, Math.round(1440 * alto / ancho), 'la misma proporción');
+  assert.equal(await achicarImagen(new TextEncoder().encode('<html>no es una imagen</html>')), null, 'lo que no es imagen no se achica: null');
 });
