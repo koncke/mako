@@ -19,7 +19,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIN_CAMBIOS, sinRepetir, textoSinCambios } from '../app/video-editor/_opencut/chat/respuesta';
-import { rotuloProgresoSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
+import { readFileSync } from 'node:fs';
+import { partesProgresoSubtitulos, rotuloProgresoSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
 import { resumenParaTickets } from '../lib/editor-video/marcas-chat';
 
 test('con operaciones propuestas y ninguna aplicable, el titular no afirma: «No cambié nada.»', () => {
@@ -41,6 +42,12 @@ test('mientras se generan los subtítulos, la tarjeta del chat dice qué hace (l
   assert.equal(rotuloProgresoSubtitulos('modelo', 40), 'Descargando… 40 %');
   assert.equal(rotuloProgresoSubtitulos('transcribiendo', 75), 'Generando subtítulos… 75 %');
   assert.equal(rotuloProgresoSubtitulos('audio', 10), 'Generando subtítulos…');
+  // En el panel (~220 px con «Cancelar» al lado) se cortaba el porcentaje: «Generando subtítulos… 0…» (medido el
+  // 10/11/2026). Va en dos partes y el porcentaje no se corta.
+  assert.deepEqual(partesProgresoSubtitulos('transcribiendo', 0), { que: 'Generando subtítulos…', cuanto: '0 %' });
+  assert.deepEqual(partesProgresoSubtitulos('armando', 100), { que: 'Generando subtítulos…', cuanto: null });
+  const panel = readFileSync('app/video-editor/_opencut/subtitles/components/assets-view.tsx', 'utf8');
+  assert.match(panel, /<span className="truncate">\{rotulo\.que\}<\/span>\s*\{rotulo\.cuanto && <span className="shrink-0 tabular-nums">\{rotulo\.cuanto\}<\/span>\}/);
 });
 
 test('con operaciones propuestas, un «no pude» no levanta ticket; «no existe» sí (lib/editor-video/marcas-chat.ts)', () => {

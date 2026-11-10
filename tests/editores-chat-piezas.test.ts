@@ -33,7 +33,9 @@ test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo
 });
 
 test('el Video Editor: igual, con el foco del link en el hueco y los colores de MaKo', () => {
-  assert.match(video, /const QUIEN = \{ nombre: "Video Editor" \};/);
+  // Desde el 10/11/2026 el hilo lo firma MaKo con su estrella, como la cabecera de la tarjeta (Martín, 21/10/2026: «los
+  // iconos de las criaturas siempre debe ser el icono de MaKo»; medido en producción: un triángulo rosa debajo de la estrella).
+  assert.match(video, /const QUIEN = \{ nombre: "MaKo", aspecto: ASPECTO_MAKO \};/);
   assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);

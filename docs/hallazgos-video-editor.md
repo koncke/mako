@@ -6,6 +6,35 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## El recorrido de la tab en producción, con dos clips de 24 fps (10/11/2026)
+
+Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueba: ws9 «1110», dos clips del teléfono con voz.
+
+- **«Los textos se ajustan automáticamente a los nuevos tiempos» era falso.** «Un poco más rápido» puso 1,3× en los dos clips y
+  la Vinculación (ripple/iman.ts, copiada de CapCut) **corre** en bloque lo que está encima de cada clip, pero **no lo
+  reescala**: los clips terminaron en 16,6 s y los subtítulos en 18,8 s (2 s de negro con texto), «Por eso creé una app» salía
+  1,3 s después de dicho y dos subtítulos se pisaban. A simple vista parecía que «sí se ajustaban», porque los del segundo clip
+  se habían movido: se movían con el clip, no con la voz. **La regla:** cuando el CHAT cambia la velocidad (constante) de un
+  clip que lleva la voz, sus subtítulos y sus tiempos por palabra pasan por la misma cuenta (`chat/velocidad-subtitulos.ts`);
+  la cola de uno que termina en el clip siguiente se corre con ese clip. Con curva no hay cuenta lineal: no se toca y el
+  catálogo le dice a MaKo que no lo prometa. El panel Velocidad sigue como CapCut.
+- **La regla de la línea de tiempo con 24 fps no mostraba nunca un segundo**: «00:00, 15f, 6f, 21f, 12f, 3f…». El proyecto
+  toma los fps del primer clip, y la serie de rótulos de OpenCut (2, 3, 5, 10, 15 cuadros) está pensada para 30: 15 no divide
+  24 y los rótulos se corren del segundo. **La serie tiene que dividir los fps** (`intervalosDeRotulo`: a 24, 2-3-4-6-8-12), y el
+  rótulo sale del NÚMERO de cuadro, no de `t % 1`: a 23,976 fps el cuadro 24 cae en 1,001 s y decía «0f». El diagnóstico salió
+  de la serie misma: 15, 6, 21, 12, 3, 18, 9 es `15k mod 24`.
+- **«Sí, en el feed» (la apertura de MaKo) corría los subtítulos sin decir nada en el chat**: ~2 min la primera vez (baja el
+  reconocedor) con la pregunta y sus botones quietos. Parecía roto; el progreso estaba en el panel de Subtítulos, que nadie
+  tenía abierto. Mientras corren, el chat dice lo mismo que el panel (`SubtitulandoEnElChat`). Y en el panel, con «Cancelar» al
+  lado, el porcentaje se cortaba («Generando subtítulos… 0…»): el rótulo va en dos partes y lo que se corta es el qué.
+- **El hilo del chat lo firmaba la criatura «Video Editor»** (un triángulo rosa) debajo de la cabecera con la estrella de MaKo.
+  La regla de Martín del 21/10 («los iconos de las criaturas siempre debe ser el icono de MaKo») había llegado a la cabecera
+  (29/10) y no al hilo. **El Image Editor tiene lo mismo** (`app/image-editor/mako/chat/PanelMakoIA.tsx`, `QUIEN`): sin hacer.
+- **SIN HACER — la lista de proyectos es la de ESTE navegador**: en otro Chrome dice «Todavía no hay ninguno» aunque ws9 tenga 6
+  proyectos en `video_editor_proyectos`. El proyecto vive en IndexedDB/OPFS del navegador donde se editó (los medios también);
+  la base sólo tiene la copia de lectura (`vista`). Que se vean en otra computadora es pasar los proyectos y sus medios al
+  servidor: no es un arreglo chico.
+
 ## La tab Video: outliers primero, la plantilla guiada «Mensaje para…» y el modo simple (9/11/2026, nube)
 
 **El pedido** (Martín, 9/11): unificar Video Editor y AI Avatar en UNA tab «Video», con los outliers primero (como Image), la
