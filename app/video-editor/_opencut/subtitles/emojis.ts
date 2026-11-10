@@ -60,7 +60,7 @@ export const DICCIONARIO_EMOJIS: ReadonlyArray<readonly [string, string]> = [
 	["casa", "🏠"], ["hogar", "🏠"], ["propiedad", "🏠"], ["inmobil", "🏠"], ["depart", "🏢"], ["mundo", "🌎"],
 	["viaj", "✈️"], ["auto$", "🚗"], ["autos$", "🚗"], ["coche", "🚗"], ["comid", "🍽️"], ["cafe", "☕"], ["music", "🎵"],
 	["famil", "👨‍👩‍👧"], ["hij", "👶"], ["equipo", "👥"], ["gente", "👥"], ["persona", "👤"],
-	["mirá", "👀"], ["mira", "👀"], ["ojo", "👀"], ["escuch", "👂"], ["habl", "🗣️"],
+	["mira", "👀"], ["ojo", "👀"], ["escuch", "👂"], ["habl", "🗣️"],
 ];
 
 /** Las raíces normalizadas (sin tildes), en orden; `entera` = la palabra tiene que ser ésa. */
