@@ -46,6 +46,11 @@ test('2. el montaje: el mismo motor que el botón, las píldoras se esconden, y 
   assert.match(chat, /void generarSubtitulos\(editorRef\.current\)\.then\(\(r\) => \(r\.ok \? toast\("Subtítulos listos"\) : toast\(textoDeSubtitulos\(r\.motivo\)\)\)\);/,
     'el motor del botón, y el resultado dicho (nunca un «no se pudo» mudo)');
   assert.match(chat, /acciones=\{\{ subtitulos: ponerSubtitulos \}\}/);
+  // Mientras corren (10/11/2026, medido en producción: ~2 min la primera vez con la pregunta y sus botones quietos), en vez de la
+  // pregunta va lo que está haciendo, con la misma frase del panel.
+  assert.match(chat, /estadoApertura\.apertura && \(subtitulando\s*\? <SubtitulandoEnElChat \/>\s*: <AperturaMako /, 'los subtítulos corren sin decir nada en el chat');
+  assert.match(chat, /const subtitulando = useTrabajoSubtitulos\(\(s\) => s\.fase !== "inactivo"\);/);
+  assert.match(chat, /function SubtitulandoEnElChat\(\) \{[\s\S]*?\{rotuloProgresoSubtitulos\(t\.fase, t\.progreso\)\}/);
   // Las píldoras de la charla vacía, sólo sin la apertura (la condición puede sumar otras: la guía de una plantilla, 9/11/2026).
   const pildoras = /\{hilo\.mensajes\.length === 0 && ([^\n]*?) && \(\s*<>\s*<div[^>]*>\s*Pídeme que edite/.exec(chat);
   assert.ok(pildoras, 'las píldoras de la charla vacía no están donde se dibujan');
@@ -54,6 +59,7 @@ test('2. el montaje: el mismo motor que el botón, las píldoras se esconden, y 
   assert.match(chat, /tracksVivos\.main\.elements\.some\(\(e\) => e\.type === "video"\) \|\| tracksVivos\.audio\.some\(\(t\) => t\.elements\.length > 0\)/);
 });
 
+// PROBADO ROMPIÉNDOLO (10/11/2026): la apertura siempre, sin `subtitulando` → rojo el 2.
 // PROBADO ROMPIÉNDOLO (5/11/2026, base 2/0):
 //   · la apertura habla aunque ya haya subtítulos             → 1/1 (1)
 //   · «Sí, en el feed» no dice el resultado (sin el toast)     → 1/1 (2)

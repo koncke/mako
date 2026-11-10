@@ -39,7 +39,7 @@ import {
 	ZonaImportar,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { rotuloProgresoSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
+import { partesProgresoSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { cssFamilia, useFuenteMuestra } from "@/app/video-editor/_opencut/fonts/muestras";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -141,9 +141,6 @@ const OPCIONES_IDIOMA = [
 	...LANGUAGES.map((l) => ({ id: l.code, etiqueta: l.name })),
 ];
 
-// El rótulo vive en ../resultado.ts: lo usa también la tarjeta del chat mientras aplica (9/11/2026).
-const rotuloProgreso = rotuloProgresoSubtitulos;
-
 export function SubtitulosAutomaticosView() {
 	const editor = useEditor();
 	const prefs = usePreferenciasSubtitulos();
@@ -153,6 +150,8 @@ export function SubtitulosAutomaticosView() {
 	);
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
 	const generando = fase !== "inactivo";
+	// El rótulo vive en ../resultado.ts: lo usa también el chat mientras aplica (9/11/2026).
+	const rotulo = partesProgresoSubtitulos(fase, progreso);
 	const sinAudio = diagnosticos.length > 0;
 
 	return (
@@ -172,7 +171,9 @@ export function SubtitulosAutomaticosView() {
 							<div className="flex items-center justify-between gap-2 text-[12px] text-(--cc-text-2)">
 								<span className="flex min-w-0 items-center gap-1.5">
 									<Spinner className="size-3.5 shrink-0" />
-									<span className="truncate">{rotuloProgreso(fase, progreso)}</span>
+									{/* El qué se corta; el porcentaje, no (el panel es angosto: ../resultado.ts). */}
+									<span className="truncate">{rotulo.que}</span>
+									{rotulo.cuanto && <span className="shrink-0 tabular-nums">{rotulo.cuanto}</span>}
 								</span>
 								<button
 									type="button"
