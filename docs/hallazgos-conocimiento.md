@@ -550,6 +550,21 @@ clase que cruza de tramo se corta por partes. Y con `format=yuv420p` el blanco p
 limitado): un destello blanco no se distingue de la página blanca que queda detrás, por eso la marca es MAGENTA (U≈202,
 V≈223), un color que no aparece en una clase.
 
+**Lo que cortó la tanda a las 09:24, y no tiene arreglo desde la máquina:** la extensión de Claude abrió sola una
+pestaña «Claude - Connect Browser» (para emparejar otro cliente) en la ventana de la grabación y la dejó ADELANTE. La
+pestaña grabada siguió sonando, pero la captura de ventana ve la pestaña activa, y en segundo plano Chrome reproduce mal el
+video (una clase de 11 min tardó 10 a 2x, otra «terminó» en 20 s). Ninguna herramienta la trae de vuelta: la extensión no
+activa pestañas, una navegación sólo de ancla (`#…`) no la activa, `window.focus()` con un clic real tampoco, y abrir y
+cerrar una pestaña desde la página tampoco devolvió el foco. La salida es un clic de una persona. **Para la próxima: grabar
+en una ventana DEDICADA que ningún otro chat use**, y que el supervisor avise apenas el título deja de ser el de la grabación.
+
+**Trampas chicas del armado, cada una con su síntoma:** en el tramo de video que se está escribiendo NTFS informa la fecha
+de modificación vieja (la clase «no estaba cubierta» por la captura): para la sesión en curso manda la hora del supervisor ·
+con `-reset_timestamps 0`, Matroska informa como «duración» la marca final (el tramo 2 decía 3601 s y «abarcaba» al 3): el
+fin de un tramo es el inicio del siguiente · `ffprobe -of csv=p=0` a veces deja «0.067000,» con la coma pegada · Python lee
+la salida de node en cp1252 y un «Á» del nombre de la clase rompe el `subprocess` (va `encoding='utf-8'`) · el sitio llegó a
+tardar 100 s en cargar una lección, y en ese rato la captura no recibe cuadros: no es una traba.
+
 **La transcripción:** scribe a 2x sale casi igual que a 1x; a 1x acierta un par de palabras más. Y sale mejor que el
 subtítulo que publicaba la plataforma para las 7 que lo tenían («Mad» por «Meta»): se reemplazó.
 
