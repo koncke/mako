@@ -117,6 +117,18 @@ export type ResumenPrimerContacto = {
   conAutomatico: number;
 };
 
+/**
+ * ¿Hay que decir que las llamadas sin grabar no se ven? (9/11/2026) Medido en los clientes de Código Inmobiliario: casi todos los
+ * leads salían «Sin contactar» (123 de 126, 41 de 41) porque los llaman desde el celular sin grabar, y MaKo sólo ve lo que pasa
+ * por él (un WhatsApp de la línea conectada con el lead, un mail, una llamada grabada). La métrica dice la verdad, pero sin
+ * explicarlo parece que nadie llamó. Se dice cuando los que ya no están a tiempo y nadie contactó son al menos tantos como los
+ * contactados.
+ */
+export function faltaGrabar(r: Pick<ResumenPrimerContacto, 'sinContactar' | 'aTiempo' | 'contactados'>): boolean {
+  const sin = Math.max(0, r.sinContactar - r.aTiempo);
+  return sin > 0 && sin >= r.contactados;
+}
+
 /** El valor en el percentil `p` (0-100) de una lista ya ordenada, por el método del rango más cercano. */
 export function percentilOrdenado(orden: readonly number[], p: number): number | null {
   if (!orden.length) return null;

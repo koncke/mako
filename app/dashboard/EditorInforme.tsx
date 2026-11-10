@@ -161,6 +161,8 @@ import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
 import { DisenoVivo, type ExtrasDisenos } from './disenos/DisenoVivo';
 import { BloqueDeDiseno } from './disenos/BloqueDeDiseno';
+import { TapaDeDiseno } from './disenos/TapaDeDiseno';
+import { conTextoCambiado } from '@/lib/disenos-textos';
 import { BibliotecaBloques } from './disenos/BibliotecaBloques';
 import { DISENOS, insertarBloque, nombreDeBloque, seDibujaMirando, sinBloquesDeDiseno, type DisenoId } from '@/lib/disenos-partes';
 import { ENTRADA_SIN, correrEntrada, entradaDe, entradaEfectiva, type EntradaHoja } from '@/lib/graficos-entradas';
@@ -1385,7 +1387,10 @@ export function EditorInforme({
               onVacio={(v) => alVaciarse(c.id, v)}
             />
           </RedDeBloque>
-          {editando && <div className="lk-diseno-tapa" aria-hidden />}
+          {editando && c.diseno && (
+            <TapaDeDiseno textos={c.diseno.textos}
+              onTexto={(original, nuevo) => { if (c.diseno) cambiar(c.id, { diseno: { ...c.diseno, textos: conTextoCambiado(c.diseno.textos, original, nuevo) } }); }} />
+          )}
         </div>
       );
     }
