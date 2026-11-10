@@ -27,6 +27,13 @@
 import { CUPO_MENSUAL, usdDeMt, type Plan } from './mako-tokens-reglas';
 import { PARTE_DE_COBRAR, cacPorMes } from './economia-unitaria';
 
+/**
+ * El uso del cupo que se SUPONE mientras `tasaDeUsoMedida` no tenga meses: 25%, el valor inicial del deslizador de
+ * docs/tableros/numeros-mako.html. Es un supuesto, no una medición: hoy nadie genera video (sin fila en `mako_tokens` el saldo
+ * es null y falla cerrado). Lo usa la torta de /admin/estrategia.
+ */
+export const USO_SUPUESTO = 0.25;
+
 /** Lo que cuesta, como mucho, la IA de un cliente de ese plan en un mes: su cupo entero. */
 export const techoDeIa = (plan: Plan): number => usdDeMt(CUPO_MENSUAL[plan]);
 

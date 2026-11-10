@@ -22,12 +22,12 @@ test('el cupo del plan de 97 son US$24,25 de IA: ése es el techo, no el costo',
 test('entre no usar nada y agotar el cupo hay US$24,25 por cliente por mes', () => {
   const sinUso = dejaConUso(PLAN_97, 'growth', 0);
   const todo = dejaConUso(PLAN_97, 'growth', 1);
-  assert.ok(Math.abs(sinUso - 78.08) < 0.01, `sin uso deja US$${sinUso.toFixed(2)}`);
-  assert.ok(Math.abs(todo - 53.83) < 0.01, `agotándolo deja US$${todo.toFixed(2)}`);
+  assert.ok(Math.abs(sinUso - 82.78) < 0.01, `sin uso deja US$${sinUso.toFixed(2)}`);
+  assert.ok(Math.abs(todo - 58.53) < 0.01, `agotándolo deja US$${todo.toFixed(2)}`);
   assert.ok(Math.abs(sinUso - todo - 24.25) < 0.01);
 });
 
-test('⚠️ «deja US$78,08» es el TECHO, no lo típico: es el cliente que no genera nada', () => {
+test('⚠️ «deja US$82,78» es el TECHO, no lo típico: es el cliente que no genera nada', () => {
   // dejaUnCliente no resta cupo a propósito (es la cuenta sin IA). Si alguien lo usa como «lo que deja un cliente»
   // sin decir a qué uso, está mostrando el mejor caso como si fuera el normal. Eso pasó el 7/11.
   assert.ok(Math.abs(dejaUnCliente(PLAN_97) - dejaConUso(PLAN_97, 'growth', 0)) < 1e-9);

@@ -488,6 +488,7 @@ const COLOR: Record<ClavePorcion, string> = {
   ganancia: 'var(--est-s-ganancia)',
   conseguir: 'var(--est-s-conseguir)',
   servir: 'var(--est-s-servir)',
+  impuesto: 'var(--est-s-impuesto)',
   reembolso: 'var(--est-s-reembolso)',
   cobro: 'var(--est-s-cobro)',
 };
@@ -496,6 +497,7 @@ const TINTA: Record<ClavePorcion, string> = {
   ganancia: 'var(--est-s-tinta-verde)',
   conseguir: 'var(--est-s-tinta-oro)',
   servir: 'var(--est-s-tinta)',
+  impuesto: 'var(--est-s-tinta)',
   reembolso: 'var(--est-s-tinta)',
   cobro: 'var(--est-s-tinta)',
 };

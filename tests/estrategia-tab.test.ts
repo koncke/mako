@@ -61,6 +61,9 @@ import {
   ANALISIS, FUTURO, DIAG, JAN_GANA, JAN_GANO,
 } from '../app/admin/estrategia/datos';
 import { textoPlazo } from '../app/admin/runway/datos';
+import { PASARELA, IMPUESTO, META_CLIENTES, cacPorMes } from '../lib/economia-unitaria';
+import { techoDeIa, USO_SUPUESTO } from '../lib/uso-del-cupo';
+import { fijoDeMartin } from '../lib/costos-fijos';
 import Estrategia from '../app/admin/estrategia/Estrategia';
 import { ADMIN_NAV, FAMILIAS, itemsDe } from '../app/_components/nav';
 import { puedeVerItem } from '../lib/nav-visibilidad';
@@ -83,21 +86,36 @@ test('cada torta suma su total al centavo, y sus % dan 100,0', () => {
   }
 });
 
-test('las porciones son las que se decidieron el 10/10 (IA de HOY, no la del ruteo)', () => {
+test('las tortas del 47 y del 97 van con el modelo del 7/11 (10/11/2026), y la del grupal no cambió', () => {
+  // 97: ganancia 67,94 · captación 4,37 (97 ÷ 22,2) · servir 14,83 (video 6,06 = 25% de 24,25 + fijo 8,77 = 438,25 ÷ 50)
+  //     · impuesto 8,11 (8,36%) · cobro 1,75 (Mercado Pago 1,80%). La de antes decía Paddle y US$25,18 de IA de MaKo.
   const porTorta = Object.fromEntries(TORTAS.map((t) => [t.clave, t.porciones.map((p) => p.usd)]));
-  assert.deepEqual(porTorta.pro, [19.5, 9.37, 14.9, 3.23]);
-  assert.deepEqual(porTorta.growth, [42.49, 10.2, 38.18, 6.13]);
+  assert.deepEqual(porTorta.pro, [26.15, 4.37, 11.7, 3.93, 0.85]);
+  assert.deepEqual(porTorta.growth, [67.94, 4.37, 14.83, 8.11, 1.75]);
   assert.deepEqual(porTorta.grupal, [890.33, 300, 100, 143.37, 66.3]);
+  // §9 sigue con UNIT_V2 (no se tocó el 10/11): estos dos siguen siendo los del 10/10.
   assert.equal(CONTRIB_PRO, 28.87);
   assert.equal(LTV_PRO, 251.17);
 });
 
-test('la captación de cada torta sale del MISMO techo que dibuja «Lo que cuesta conseguir un cliente»', () => {
-  // Con «un tercio de la contribución», la torta del 97 implicaba un techo de 272,23
-  // mientras la barra del techo, en la misma página, decía 158,07 (payback).
+test('cada porción del 47 y del 97 sale de donde vive su número, no escrita en la tab', () => {
+  // Rotura: la pasarela escrita a mano (0,018) en vez de PASARELA → si cambia en Costs, la torta ya no lo sigue.
+  const de = (clave: string, p: string) => TORTAS.find((t) => t.clave === clave)!.porciones.find((x) => x.clave === p)!.usd;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  for (const [clave, precio, plan] of [['pro', 47, 'pro'], ['growth', 97, 'growth']] as const) {
+    assert.equal(de(clave, 'cobro'), r2(precio * PASARELA), `${clave}: el cobro es la pasarela`);
+    assert.equal(de(clave, 'impuesto'), r2(precio * IMPUESTO), `${clave}: el impuesto va APARTE de la pasarela`);
+    assert.equal(de(clave, 'conseguir'), r2(cacPorMes()), `${clave}: la captación es el CAC repartido, el mismo que usa Costs`);
+    assert.equal(de(clave, 'servir'), r2(techoDeIa(plan) * USO_SUPUESTO + fijoDeMartin() / META_CLIENTES), `${clave}: video + fijo`);
+  }
+  // Lo que ya no existe no se dibuja: ni Paddle ni la IA de texto a cargo de MaKo.
+  const textos = TORTAS.filter((t) => t.clave !== 'grupal').flatMap((t) => t.porciones.map((p) => `${p.label} ${p.cuenta}`)).join(' ');
+  assert.doesNotMatch(textos, /Paddle/);
+  assert.doesNotMatch(textos, /soporte|infra/);
+});
+
+test('la captación del grupal es la comisión del referido, y los nombres y colores son los mismos en las tres tortas', () => {
   const captacion = (clave: string) => TORTAS.find((t) => t.clave === clave)!.porciones.find((p) => p.clave === 'conseguir')!.usd;
-  assert.equal(captacion('pro'), Math.round((TECHO_PRO / VIDA_PRO) * 100) / 100);
-  assert.equal(captacion('growth'), Math.round((TECHO_GROWTH / VIDA_GROWTH) * 100) / 100);
   assert.equal(captacion('grupal'), COMISION_GRUPAL);
   // Mismo color, mismo nombre en las tres tortas.
   for (const t of TORTAS) {

@@ -25,6 +25,10 @@ import {
   FREE_A_PAGO, TOPE_PAUTA,
   type UnitPlan,
 } from '../dev/pricing/modelo';
+// El modelo del 7/11 (las tortas del 47 y del 97). Relativos, como los de arriba: el test lo importa con tsx.
+import { PASARELA, IMPUESTO, META_CLIENTES, CAC_USD, MESES_DE_VIDA, cacPorMes } from '../../../lib/economia-unitaria';
+import { techoDeIa, USO_SUPUESTO } from '../../../lib/uso-del-cupo';
+import { fijoDeMartin } from '../../../lib/costos-fijos';
 
 export { MEDIDO, DESDE, HASTA, HITOS };
 export type { Hito };
@@ -156,7 +160,7 @@ export const PRECIO_1A1 = 10000;
 // ⚠️ SUMAN EXACTO AL CENTAVO: cada porción se redondea a 2 decimales y la
 // PRIMERA (ganancia / lo que queda) se calcula como total − el resto.
 
-export type ClavePorcion = 'ganancia' | 'conseguir' | 'servir' | 'reembolso' | 'cobro';
+export type ClavePorcion = 'ganancia' | 'conseguir' | 'servir' | 'impuesto' | 'reembolso' | 'cobro';
 export type Porcion = { clave: ClavePorcion; label: string; usd: number; cuenta: string };
 export type Torta = { clave: string; nombre: string; total: number; unidad: string; porciones: Porcion[] };
 
@@ -201,21 +205,34 @@ export const TECHO_GROWTH = GROWTH.cacMaxPayback;
 export const VIDA_PRO = PRO.vidaMeses;
 export const VIDA_GROWTH = GROWTH.vidaMeses;
 
+// ⚠️ LAS TORTAS DEL 47 Y DEL 97 VAN CON EL MODELO DEL 7/11 (10/11/2026), no con UNIT_V2. Martín, al ver la del 97: pedía
+// «lo que se va de una suscripción de 97, en adquisición, costos de IA, etc.», y la torta decía Paddle (que nunca se conectó)
+// y US$25,18 de IA a cargo de MaKo, cuando desde el 22/10 la IA de texto la paga cada negocio. Cada porción se IMPORTA de
+// donde vive su número, el mismo que usa Costs (/admin/analytics/costs):
+//   · cobro      PASARELA (Mercado Pago a 35 días, 1,80%)            lib/economia-unitaria.ts
+//   · impuesto   IMPUESTO (monotributo H, 8,36%; hoy lo paga Leandro) ídem. Va APARTE de la pasarela (docs/tableros/LEEME.md)
+//   · servir     el video con IA (USO_SUPUESTO del cupo del plan)    lib/uso-del-cupo.ts + lib/mako-tokens-reglas.ts
+//                + su parte del gasto fijo (lo de Martín ÷ META_CLIENTES) lib/costos-fijos.ts
+//   · conseguir  el CAC repartido en la vida del cliente (cacPorMes)  lib/economia-unitaria.ts
+// La IA de texto NO es una porción: la paga cada negocio con su clave (lib/ia-del-negocio.ts). Si cambia el cupo de video,
+// la pasarela o el fijo, la torta cambia sola.
+// ⚠️ Lo de abajo de la página (§9 «Lo que cuesta conseguir un cliente» y §11 Referidos) sigue con UNIT_V2, el modelo de
+// octubre: ahí todavía hay Paddle y la IA de MaKo. No se tocó en esta vuelta.
+const FIJO_POR_CLIENTE = fijoDeMartin() / META_CLIENTES;
+function tortaDePlan(clave: string, precio: number, plan: 'pro' | 'growth'): Torta {
+  const video = techoDeIa(plan) * USO_SUPUESTO;
+  return torta(clave, `Plan de ${num(precio)}`, precio, 'por mes',
+    { clave: 'ganancia', label: 'Ganancia', cuenta: 'Lo que queda' }, [
+      { clave: 'conseguir', label: 'Captación', usd: cacPorMes(), cuenta: `CAC ${num(CAC_USD)} (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida` },
+      { clave: 'servir', label: 'Servir la cuenta', usd: video + FIJO_POR_CLIENTE, cuenta: `Video con IA ${num(video, 2)} (${num(USO_SUPUESTO * 100)}% del cupo) + gasto fijo ${num(FIJO_POR_CLIENTE, 2)} (US$${num(fijoDeMartin())} ÷ ${num(META_CLIENTES)} clientes)` },
+      { clave: 'impuesto', label: 'Impuesto', usd: precio * IMPUESTO, cuenta: `Monotributo ${num(IMPUESTO * 100, 2)}%, hoy lo paga Leandro` },
+      { clave: 'cobro', label: 'Cobro', usd: precio * PASARELA, cuenta: `Mercado Pago ${num(PASARELA * 100, 2)}%, con la plata a 35 días` },
+    ]);
+}
+
 export const TORTAS: Torta[] = [
-  // 3,23 + 14,90 + 9,37 (81,53 ÷ 8,7) + 19,50 = 47,00
-  torta('pro', `Plan de ${num(PRO.precioListaUsd)}`, PRO.precioListaUsd, 'por mes',
-    { clave: 'ganancia', label: 'Ganancia', cuenta: 'Lo que queda' }, [
-      { clave: 'conseguir', label: 'Captación', usd: TECHO_PRO / VIDA_PRO, cuenta: `Techo de CAC ${num(TECHO_PRO, 2)} ÷ ${num(VIDA_PRO, 1)} meses de vida` },
-      { clave: 'servir', label: 'Servir la cuenta', usd: SERVIR_PRO, cuenta: `IA ${num(IA_POR_PRO.hoyUsd, 2)} + soporte ${num(PRO.soporteUsd)} + infra ${num(PRO.infraUsd)}` },
-      { clave: 'cobro', label: 'Cobro', usd: PRO.precioListaUsd - PRO.netoUsd, cuenta: 'Paddle 5% + 0,50, sobre el precio con IVA' },
-    ]),
-  // 6,13 + 38,18 + 10,20 (158,07 ÷ 15,5) + 42,49 = 97,00
-  torta('growth', `Plan de ${num(GROWTH.precioListaUsd)}`, GROWTH.precioListaUsd, 'por mes',
-    { clave: 'ganancia', label: 'Ganancia', cuenta: 'Lo que queda' }, [
-      { clave: 'conseguir', label: 'Captación', usd: TECHO_GROWTH / VIDA_GROWTH, cuenta: `Techo de CAC ${num(TECHO_GROWTH, 2)} (payback) ÷ ${num(VIDA_GROWTH, 1)} meses de vida` },
-      { clave: 'servir', label: 'Servir la cuenta', usd: SERVIR_GROWTH, cuenta: `IA ${num(GROWTH.iaUsd, 2)} + soporte ${num(GROWTH.soporteUsd)} + infra ${num(GROWTH.infraUsd)}` },
-      { clave: 'cobro', label: 'Cobro', usd: GROWTH.precioListaUsd - GROWTH.netoUsd, cuenta: 'Paddle 5% + 0,50, sobre el precio con IVA' },
-    ]),
+  tortaDePlan('pro', PRO.precioListaUsd, 'pro'),
+  tortaDePlan('growth', GROWTH.precioListaUsd, 'growth'),
   // 66,30 + 143,37 + 300 + 100 + 890,33 = 1.500,00
   // ⚠️ La comisión va entera (300) y el cobro es el de UN pago (66,30): «sin
   // comisión si hay reembolso» (valor esperado 270) y el cobro en 3 cuotas (66,90)

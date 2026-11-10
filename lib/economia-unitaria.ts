@@ -12,7 +12,7 @@
 //   DECLARADO el gasto fijo (`lib/costos-fijos.ts`): Vercel y GitHub NO se pueden leer por API
 //             —403 el primero, el token del segundo no ve facturación— así que van a mano con su
 //             fecha. La pantalla muestra cuándo se confirmó cada uno.
-//   MEDIDO    lo que cuesta cobrar (14,1-15,5% entre pasarela, impuesto y giro) y el CAC.
+//   MEDIDO    lo que cuesta cobrar (1,80% de pasarela + 8,36% de impuesto, `PASARELA` + `IMPUESTO`) y el CAC.
 //
 // ⚠️ NINGÚN NÚMERO SE INVENTA CUANDO FALTA UN DATO. Si no hay clientes, el fijo por cliente es
 // `null`, no 0 ni Infinity; si no se pudo leer el MRR, el resultado es `null` y la pantalla lo dice.
@@ -20,8 +20,22 @@
 // deja de ser un dato. (El «0 min» de GitHub Actions es exactamente ese caso.)
 // =============================================================================
 
-/** Lo que se va en cobrar: pasarela + impuesto + traer la plata. Medido en docs/estrategia-financiera-mako.md. */
-export const PARTE_DE_COBRAR = 0.15;
+/**
+ * La pasarela: Mercado Pago con la plata a 35 días, 1,80% (docs/estrategia-financiera-mako.md §2; Martín, 7/11/2026).
+ * ⚠️ Hasta el 7/11 esto era un 15% único que llevaba adentro a Creem (5,75%) y el giro (0,7-1,1%). Creem rechazó la tienda
+ * el 5/11, y no hay otra pasarela viva: ese 15% no tenía nada detrás (docs/tableros/LEEME.md, «La pasarela NO es el
+ * impuesto»; corregido acá el 10/11).
+ */
+export const PASARELA = 0.018;
+
+/** El impuesto: monotributo H, 8,36% efectivo (estrategia-financiera-mako.md:128). Hoy lo paga Leandro, y es un costo igual. */
+export const IMPUESTO = 0.0836;
+
+/** Lo que se va en cobrar: la pasarela más el impuesto (10,16%). Van separados arriba para poder mostrarlos aparte. */
+export const PARTE_DE_COBRAR = PASARELA + IMPUESTO;
+
+/** La meta de clientes de Martín: «La meta que te pusiste son 50» (docs/tableros/numeros-mako.html). Reparte el fijo. */
+export const META_CLIENTES = 50;
 
 /**
  * Lo que cuesta traer un cliente. Es el 100% del primer mes que cobra un MaKo Partner, y también

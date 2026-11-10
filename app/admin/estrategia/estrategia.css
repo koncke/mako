@@ -30,6 +30,7 @@
   --est-s-ganancia: #0E9F6E;
   --est-s-conseguir: #E09612;
   --est-s-servir: #2F6FED;
+  --est-s-impuesto: #7C5CC4;
   --est-s-reembolso: #D0504A;
   --est-s-cobro: #66707F;
   /* El texto que va ADENTRO de una porción (el % de las grandes). */
@@ -50,6 +51,7 @@
   --est-s-ganancia: #21A473;
   --est-s-conseguir: #C2841A;
   --est-s-servir: #5A87EC;
+  --est-s-impuesto: #9A82D6;
   --est-s-reembolso: #DB615B;
   --est-s-cobro: #8A919C;
   /* En oscuro las porciones bajan de luz: el blanco encima da ~3:1, la tinta oscura ~5:1. */
