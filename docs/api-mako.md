@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
@@ -15837,7 +15837,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 18 lecturas · 42 acciones.
+Tab **Video Generator** (`/video-generator`). 18 lecturas · 44 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -17336,7 +17336,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/palabras-clave` — Resaltar las palabras clave
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta las "palabras" que nombra la persona, cada vez que se dicen; "ninguna" las saca. Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 160, en %) las agranda («más grandes», como las de Hormozi). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.
 
 - **Ruta por operación:** `POST /api/v1/video/resaltar_claves_subtitulos`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -17351,9 +17351,11 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
-| `modo` | string (auto \\| estas \\| ninguna) | sí | «auto» las elige solas; «estas», las de «palabras»; «ninguna» las saca. |
-| `palabras` | string[] | no | Sólo con «estas»: una palabra por elemento, como se dice en los subtítulos. |
+| `modo` | string (auto \\| estas \\| sumar \\| quitar \\| ninguna) | sí | «auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «ninguna» las saca. |
+| `palabras` | string[] | no | Con «estas», «sumar» o «quitar»: una palabra por elemento, como se dice en los subtítulos. |
 | `color` | string | no | Un color #RRGGBB. |
+| `tamano` | number | no | Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 160). |
+| `ref` | string | no | Opcional: la ref de UN subtítulo (de ver_proyecto_video); sin ella, todos. |
 
 ```bash
 curl -L \
@@ -17364,6 +17366,36 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/palabras-clave" \
   -d '{"modo":"auto"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/animar-palabras` — Animar la palabra que se dice
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. La animación de la palabra que se está diciendo, en TODOS los subtítulos (como Submagic y el estilo Hormozi): "pop" la hace saltar de abajo hacia arriba y quedar apenas más grande; "crecer" la deja más grande mientras se dice; "ninguna" la saca. Va con o sin el color del karaoke (resaltar_palabras). Necesita subtítulos con tiempos por palabra ("transcripcion_por_palabra": true).
+
+- **Ruta por operación:** `POST /api/v1/video/animar_palabras_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `animacion` | string (pop \\| crecer \\| ninguna) | sí | «pop» la hace saltar de abajo hacia arriba (estilo Hormozi de Submagic); «crecer» la deja más grande; «ninguna» la saca. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/animar-palabras" \
+  -d '{"animacion":"pop"}'
 ```
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/usar-preset-subtitulos` — Aplicar un preset de la marca
@@ -17480,6 +17512,36 @@ curl -L \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/edicion-automatica"
 ```
 
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/emojis-subtitulos` — Poner o sacar los emojis de los subtítulos
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Emojis automáticos, como Submagic: con "activar": true pone un emoji animado encima de cada subtítulo que dice algo que se puede dibujar (dinero, tiempo, una idea, un error…), en su pista «Emojis», reemplazando los de antes; con false los saca. No elige ni inventa los emojis: los elige el editor al aceptar, con la palabra clave de cada subtítulo. Los de ahora van marcados "emoji_de_subtitulo". Se aplica al final, después de generar los subtítulos.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_emojis_subtitulos`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `activar` | boolean | sí | true los pone (reemplazando los de antes); false los saca. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/emojis-subtitulos" \
+  -d '{"activar":true}'
+```
+
 ### `GET /api/v1/video/presets-subtitulos` — Presets de subtítulos de la marca
 
 Los estilos de subtítulos que este negocio guardó, cada uno con su marca o cliente (si la tiene) y lo que hace en palabras: fuente, colores, contorno, karaoke, palabras clave automáticas y las palabras que resalta siempre. Se aplican a un proyecto con usar_preset_subtitulos; se crean o cambian con guardar_preset_subtitulos.
@@ -17528,6 +17590,8 @@ PROPONE crear un preset de subtítulos de la marca, o cambiar uno (con «preset�
 | `escala` | number | no | Veces el tamaño de siempre (1). |
 | `mayusculas` | boolean | no | Opcional. |
 | `minusculas` | boolean | no | Opcional. Todo en minúsculas (como «Lima»); saca las mayúsculas. |
+| `animacion_palabra` | string (ninguna \\| pop \\| crecer) | no | Opcional. «pop»: la palabra que se dice salta (estilo Hormozi de Submagic); «crecer»: queda más grande. |
+| `tamano_claves` | number | no | Opcional. En %, 100 = igual que el resto. |
 | `contorno` | string | no | Un color #RRGGBB, o «no» para sacarlo. |
 | `grosor_contorno` | number | no | De 0 a 100 (sin esto, 20). |
 | `fondo` | string | no | Un color #RRGGBB detrás del texto, o «no» para sacarlo. |

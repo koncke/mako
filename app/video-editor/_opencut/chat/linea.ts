@@ -55,11 +55,16 @@ import { aceptaDe, aceptaMedio, mediosParaReemplazo, type Acepta } from "@/app/v
 import { ANIM, categoriasPara } from "@/app/video-editor/_opencut/params/extra/animaciones";
 import { DEFAULTS_TEXTO, TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 import {
+	ANIMS_PALABRA,
+	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
+	PARAM_ANIM_PALABRA,
 	PARAM_CLAVES_COLOR,
+	PARAM_CLAVES_TAMANO,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
+	type AnimPalabra,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { REFLEJO_HORIZONTAL, REFLEJO_VERTICAL } from "@/app/video-editor/_opencut/params/extra/reflejo";
 import { ID_NINGUNO, presetAnimacion, type CategoriaAnimacion } from "@/app/video-editor/_opencut/animaciones/catalogo";
@@ -81,8 +86,9 @@ import {
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, NO_HAY_MULETILLAS, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
-import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES } from "@/app/video-editor/_opencut/subtitles/claves";
+import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES, quitarClaves, sumarClaves } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
+import { PARAM_EMOJI_DE } from "@/app/video-editor/_opencut/subtitles/emojis";
 
 export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
 
@@ -92,6 +98,10 @@ export type EstiloLeido = Required<Omit<EstiloTextoChat, "sombra">> & {
 	colores: { trazo: string; sombra: string; fondo: string; resplandor: string };
 	/** El karaoke de un subtítulo (params/extra/subtitulos.ts), como lo pide `resaltar_palabras`. */
 	resaltar: ResaltarLeido;
+	/** «Animación de la palabra» (Submagic), como la pide `animar_palabras`. */
+	animacion_palabra: AnimPalabra;
+	/** El tamaño de las palabras clave en % (100 = igual), como lo pide `palabras_clave`. */
+	tamano_claves: number;
 };
 
 export type ResaltarLeido = { modo: "ninguno" | "palabra" | "frase"; color: string; opacidad_no_dichas: number };
@@ -153,6 +163,8 @@ export type RefElemento = {
 	subtitulo?: boolean;
 	/** Un subtítulo: sus palabras clave (subtitles/claves.ts), normalizadas. */
 	claves?: string[];
+	/** Un sticker que es el emoji automático de un subtítulo (subtitles/emojis.ts). */
+	emojiSubtitulo?: boolean;
 	/** Lo agrega esta misma propuesta (agregar_texto o capa_efecto con "ref"): sus ids se conocen al aplicar. */
 	nuevo?: boolean;
 	/** Un audio que salió de «Extraer audio» de un video: los cortes lo parten como a su video. */
@@ -317,6 +329,8 @@ function leerEstilo(p: ParamValues): EstiloLeido {
 			color: color(p[PARAM_RESALTAR_COLOR], DEFAULTS_RESALTADO.color),
 			opacidad_no_dichas: num(p, PARAM_NO_DICHAS_OPACIDAD, DEFAULTS_RESALTADO.noDichasOpacidad),
 		},
+		animacion_palabra: ANIMS_PALABRA.includes(p[PARAM_ANIM_PALABRA] as AnimPalabra) ? (p[PARAM_ANIM_PALABRA] as AnimPalabra) : "ninguna",
+		tamano_claves: num(p, PARAM_CLAVES_TAMANO, DEFAULTS_CLAVES.tamano),
 	};
 }
 
@@ -437,6 +451,8 @@ function estiloJson(s: EstiloLeido): Record<string, unknown> {
 		...(s.fondo ? { fondo: s.fondo, opacidad_fondo: s.opacidad_fondo } : {}),
 		...(s.resplandor ? { resplandor: s.resplandor } : {}),
 		...(s.resaltar.modo !== "ninguno" ? { resaltar: s.resaltar } : {}),
+		...(s.animacion_palabra !== "ninguna" ? { animacion_palabra: s.animacion_palabra } : {}),
+		...(s.tamano_claves !== DEFAULTS_CLAVES.tamano ? { tamano_claves: s.tamano_claves } : {}),
 	};
 }
 
@@ -604,6 +620,7 @@ export function vistaDeLinea({
 					...(el.type === "text" && el.params?.subtitulo === true && leerClaves(el.params?.[PARAM_CLAVES]).length
 						? { claves: leerClaves(el.params?.[PARAM_CLAVES]) }
 						: {}),
+					...(el.type === "sticker" && typeof el.params?.[PARAM_EMOJI_DE] === "string" && el.params[PARAM_EMOJI_DE] !== "" ? { emojiSubtitulo: true } : {}),
 					...(el.type === "audio" && typeof el.params?.[EXTRAIDO_DE] === "string" ? { extraido: true } : {}),
 					...(el.type === "video" || el.type === "image" ? { mediaId: el.mediaId, acepta: aceptaDe(el.params ?? {}) } : {}),
 					...deHueco(el, leerMarcas(el.params)),
@@ -633,6 +650,7 @@ export function vistaDeLinea({
 			...(r.oculto ? { oculto: true } : {}),
 			...(r.subtitulo ? { subtitulo: true } : {}),
 			...(r.claves?.length ? { palabras_clave: r.claves } : {}),
+			...(r.emojiSubtitulo ? { emoji_de_subtitulo: true } : {}),
 			...(r.hueco ? { hueco: r.hueco } : {}),
 			...(r.muestra ? { muestra: true, ...(r.opcional ? { opcional: true } : {}) } : {}),
 			...(r.acepta && r.acepta !== "ambos" ? { acepta: r.acepta } : {}),
@@ -743,6 +761,8 @@ export type OperacionResuelta =
 	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean }
 	/** «Clips mágicos» (clips/buscar.ts): busca los momentos, después del lote; no cambia este proyecto. */
 	| { op: "clips_magicos"; cuantos: number }
+	/** «Emojis automáticos» (subtitles/emojis-poner.ts): ponerlos o sacarlos, al final de todo (lee los subtítulos de ESE momento). */
+	| { op: "emojis_subtitulos"; activar: boolean }
 	/** «Edición automática» (enjambre/correr.ts): los agentes, cada uno con su paso; SOLA, después del lote. */
 	| { op: "edicion_automatica" };
 
@@ -1082,7 +1102,7 @@ export function revisarOperaciones({
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "edicion_automatica") continue; // Ya se resolvió arriba, sola.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos" || op.op === "emojis_subtitulos") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1130,9 +1150,38 @@ export function revisarOperaciones({
 			cambios.push({ tipo: "cambia", titulo: cuantos === 1 ? "1 subtítulo" : `${cuantos} subtítulos`, antes: textoResaltar(antes), despues: textoResaltar(despues) });
 			continue;
 		}
+		if (op.op === "animar_palabras") {
+			// Como el panel («Animaciones de subtítulos» › «Palabra que se dice»): a TODOS los subtítulos, en el mismo paso.
+			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			if (!subs.length) {
+				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide la animación después" : "no hay subtítulos para animar");
+				continue;
+			}
+			if (op.animacion !== "ninguna" && !(transcripcion?.parrafos ?? []).some((p) => p.palabras.length > 0)) {
+				descartes.push("los subtítulos no tienen el tiempo de cada palabra: genera primero los subtítulos");
+				continue;
+			}
+			const libres = subs.filter((r) => !r.bloqueada);
+			if (!libres.length) { descartes.push("los subtítulos están en una pista bloqueada"); continue; }
+			const antes = estado.get(libres[0].ref)?.e.estilo?.animacion_palabra ?? "ninguna";
+			let cuantos = 0;
+			for (const r of libres) {
+				const st = estado.get(r.ref)!;
+				if ((st.e.estilo?.animacion_palabra ?? "ninguna") === op.animacion) continue;
+				if (st.e.estilo) st.e.estilo = { ...st.e.estilo, animacion_palabra: op.animacion };
+				resueltas.push({ op: "params", de: "animar_palabras", el: r, params: { [PARAM_ANIM_PALABRA]: op.animacion } });
+				cuantos++;
+			}
+			if (!cuantos) continue;
+			const texto = (a: AnimPalabra) => (a === "pop" ? "la palabra que se dice salta" : a === "crecer" ? "la palabra que se dice crece" : "sin animar la palabra");
+			cambios.push({ tipo: "cambia", titulo: cuantos === 1 ? "1 subtítulo" : `${cuantos} subtítulos`, antes: texto(antes), despues: texto(op.animacion) });
+			continue;
+		}
 		if (op.op === "palabras_clave") {
-			// Como el panel («Palabras clave»): a TODOS los subtítulos, en el mismo paso. No necesita tiempos por palabra.
-			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado).sort((a, b) => a.inicio - b.inicio);
+			// Como el panel («Palabras clave»): a TODOS los subtítulos, en el mismo paso (o a uno, con «ref»). No necesita tiempos por palabra.
+			const todos = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado).sort((a, b) => a.inicio - b.inicio);
+			if (op.ref && !todos.some((r) => r.ref === op.ref)) { descartes.push(`${op.ref} no es un subtítulo`); continue; }
+			const subs = op.ref ? todos.filter((r) => r.ref === op.ref) : todos;
 			if (!subs.length) {
 				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide las palabras clave después" : "no hay subtítulos");
 				continue;
@@ -1140,22 +1189,33 @@ export function revisarOperaciones({
 			const libres = subs.filter((r) => !r.bloqueada);
 			if (!libres.length) { descartes.push("los subtítulos están en una pista bloqueada"); continue; }
 			const textos = libres.map((r) => estado.get(r.ref)?.texto ?? r.texto ?? "");
+			const actuales = libres.map((r) => codificarClaves(r.claves ?? []));
 			const elegidas =
 				op.modo === "auto"
 					? elegirClaves(textos, { siempre: d.palabrasDeMarca })
 					: op.modo === "estas"
 						? clavesNombradas(textos, op.palabras ?? [])
-						: textos.map(() => []);
-			if (op.modo === "estas" && elegidas.every((e) => e.length === 0)) {
-				descartes.push(`${(op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ")} no aparece en ningún subtítulo`);
+						: op.modo === "sumar"
+							? textos.map((t, i) => sumarClaves(actuales[i], t, op.palabras ?? []))
+							: op.modo === "quitar"
+								? actuales.map((a) => quitarClaves(a, op.palabras ?? []))
+								: textos.map(() => []);
+			if ((op.modo === "estas" || op.modo === "sumar") && clavesNombradas(textos, op.palabras ?? []).every((e) => e.length === 0)) {
+				descartes.push(`${(op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ")} no aparece en ${op.ref ? "ese subtítulo" : "ningún subtítulo"}`);
 				continue;
 			}
+			const conTamano = op.tamano !== undefined;
 			let cuantos = 0;
 			const ejemplos: string[] = [];
 			libres.forEach((r, i) => {
 				const nuevas = codificarClaves(elegidas[i] ?? []);
-				if (nuevas === codificarClaves(r.claves ?? []) && !op.color) return;
-				const params: ParamValues = { [PARAM_CLAVES]: nuevas, ...(op.color ? { [PARAM_CLAVES_COLOR]: op.color } : {}) };
+				const tamanoIgual = !conTamano || (estado.get(r.ref)?.e.estilo?.tamano_claves ?? DEFAULTS_CLAVES.tamano) === op.tamano;
+				if (nuevas === actuales[i] && !op.color && tamanoIgual) return;
+				const params: ParamValues = {
+					[PARAM_CLAVES]: nuevas,
+					...(op.color ? { [PARAM_CLAVES_COLOR]: op.color } : {}),
+					...(conTamano ? { [PARAM_CLAVES_TAMANO]: op.tamano as number } : {}),
+				};
 				resueltas.push({ op: "params", de: "palabras_clave", el: r, params });
 				cuantos++;
 				for (const w of elegidas[i] ?? []) if (ejemplos.length < 4 && !ejemplos.includes(w)) ejemplos.push(w);
@@ -1169,7 +1229,7 @@ export function revisarOperaciones({
 				despues:
 					op.modo === "ninguna"
 						? "sin palabras clave"
-						: `palabras clave en ${conAlguna}${ejemplos.length ? ` (${ejemplos.map((w) => `«${w}»`).join(", ")}…)` : ""}${op.color ? ` en ${op.color}` : ""}`,
+						: `palabras clave en ${conAlguna}${ejemplos.length ? ` (${ejemplos.map((w) => `«${w}»`).join(", ")}…)` : ""}${op.color ? ` en ${op.color}` : ""}${conTamano ? ` al ${op.tamano} %` : ""}`,
 			});
 			continue;
 		}
@@ -1724,8 +1784,10 @@ export function revisarOperaciones({
 	}
 
 	// ── Lo que tarda: después del lote ─────────────────────────────────────────
-	// «Borrar silencios», el último de todos: corta según el audio, y lo de antes ya quedó donde va.
-	diferidas.sort((a, b) => Number(a.op === "borrar_silencios") - Number(b.op === "borrar_silencios"));
+	// «Borrar silencios» casi al final: corta según el audio, y lo de antes ya quedó donde va. Y los emojis, los últimos
+	// de todos: van con el tiempo de cada subtítulo, así que después de generarlos y de que los silencios los corran.
+	const ultimo = (op: (typeof diferidas)[number]) => (op.op === "emojis_subtitulos" ? 2 : op.op === "borrar_silencios" ? 1 : 0);
+	diferidas.sort((a, b) => ultimo(a) - ultimo(b));
 	for (const op of diferidas) {
 		if (op.op === "borrar_silencios") {
 			if (hayCortes) { descartes.push("borrar los silencios va en un pedido aparte: los otros cortes parten el clip"); continue; }
@@ -1771,6 +1833,26 @@ export function revisarOperaciones({
 				titulo: "B-roll de MaKo",
 				antes: "",
 				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
+			continue;
+		}
+		if (op.op === "emojis_subtitulos") {
+			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			const emojis = [...refs.values()].filter((r) => r.emojiSubtitulo && !estado.get(r.ref)?.borrado);
+			if (!op.activar) {
+				if (!emojis.length) { descartes.push("no hay emojis automáticos para sacar"); continue; }
+				resueltas.push({ op: "emojis_subtitulos", activar: false });
+				cambios.push({ tipo: "quita", titulo: emojis.length === 1 ? "1 emoji" : `${emojis.length} emojis`, antes: "encima de los subtítulos", despues: "" });
+				continue;
+			}
+			// Con «generar_subtitulos» en el mismo pedido, los subtítulos existen al llegar acá (van antes en la cola).
+			if (!subs.length && !subtitulaAhora) { descartes.push("no hay subtítulos para ponerles emojis"); continue; }
+			resueltas.push({ op: "emojis_subtitulos", activar: true });
+			cambios.push({
+				tipo: emojis.length ? "cambia" : "agrega",
+				titulo: "Emojis automáticos",
+				antes: emojis.length ? `${emojis.length === 1 ? "el emoji" : `los ${emojis.length} emojis`} de ahora` : "",
+				despues: "un emoji encima de cada subtítulo que dice algo que se puede dibujar (se eligen al aceptar)",
 			});
 			continue;
 		}

@@ -10,9 +10,10 @@
 //   Agregar subtítulos      «Ingresar manualmente»: el texto se divide solo.
 //
 // Lo que CapCut tiene acá y no se hace en v1 se dibuja APAGADO con su rótulo:
-// «Subtítulos bilingües» (fuera de alcance, docs/diseno-editor-video.md §1) y
-// «Emojis de IA». «Resaltar palabras clave automáticamente» anda desde el 6/11/2026
-// (pedido de Leila, 30/10): elige la palabra que pesa de cada subtítulo (../claves.ts).
+// «Subtítulos bilingües» (fuera de alcance, docs/diseno-editor-video.md §1). «Resaltar palabras clave
+// automáticamente» anda desde el 6/11/2026 (pedido de Leila, 30/10): elige la palabra que pesa de cada subtítulo
+// (../claves.ts). «Emojis automáticos» (era «Emojis de IA», apagado) anda desde el 10/11/2026: un emoji encima de
+// cada subtítulo que dice algo que se puede dibujar (../emojis.ts), sin IA y gratis, como las palabras clave.
 //
 // Plantillas lleva arriba los PRESETS de la marca (los estilos guardados del negocio,
 // ../presets.ts), con su tacho; elegir uno lo aplica a todos, con sus palabras clave.
@@ -245,7 +246,7 @@ export function SubtitulosAutomaticosView() {
 						activo={prefs.claves}
 						onCambio={(v) => prefs.fijar({ claves: v })}
 					/>
-					<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />
+					<FilaInterruptor rotulo="Emojis automáticos" activo={prefs.emojis} onCambio={(v) => prefs.fijar({ emojis: v })} />
 					<FilaInterruptor
 						rotulo="Identificar las muletillas"
 						activo={prefs.muletillas}

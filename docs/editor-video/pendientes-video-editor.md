@@ -54,22 +54,27 @@ Las prioridades se leen así:
   - VidIQ no va en el editor: quedó en Competitor Spy.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2141-2184`; `docs/relevo/nube-video-clips.md`; `docs/relevo/pendientes-pc/pendientes-30-10.md:39,67`; `memory/leila-apps-y-pro-97.md:17-22`.
 
-### 1.2 Que la palabra clave salte o crezca («pop» tipo Hormozi) — P1 · no está
+### ~~1.2 Que la palabra clave salte o crezca («pop» tipo Hormozi) — P1 · no está~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** «Animación de la palabra» (`subtitulo.animPalabra`: «Salta» y «Crece», con o sin karaoke, por una tabla que no redibuja en cada cuadro: `text/resaltado.ts` → `formaDeAnim`) y «Tamaño de las palabras clave» (100 a 160 %). Dos plantillas nuevas, «Hormozi» y «Hormozi clásico», copiadas del blog de Submagic (`docs/editor-video/relevo-submagic.md`). Por chat `animar_palabras` y `palabras_clave` con `tamano`; por la API `animar_palabras_video` y los presets con `animacion_palabra` y `tamano_claves`. Tests: `tests/video-editor-subtitulos-submagic.test.ts`. Falta verlo en Chrome (§13).
 - **Qué es:** la palabra resaltada se agranda o rebota cuando se dice.
-- **Estado real:** en `subtitles/` no hay rebote ni tamaño por palabra. El único «rebote» del editor es la animación de entrada de un texto entero (`text/estilos-predefinidos.ts:176,224`). Para hacerlo hay que medir el renglón con dos tamaños en `text/dibujar.ts`.
+- **Estado real (6/11):** en `subtitles/` no hay rebote ni tamaño por palabra. El único «rebote» del editor es la animación de entrada de un texto entero (`text/estilos-predefinidos.ts:176,224`). Para hacerlo hay que medir el renglón con dos tamaños en `text/dibujar.ts`.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2176`.
 
-### 1.3 Emojis de IA — P1 · apagado
-- **Estado real:** está a la vista pero apagado, con el cartel «Próximamente»: `assets-view.tsx:248`, `<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />`. El «Próximamente» de `:120` es el cartel de ese mismo interruptor, no otra función.
+### ~~1.3 Emojis de IA — P1 · apagado~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** «Emojis automáticos» (`subtitles/emojis.ts`, sin IA y gratis, como las palabras clave): un emoji animado («Rebote») encima de cada subtítulo que dice algo que se puede dibujar, en su pista «Emojis», nunca dos iguales seguidos y separados 2,5 s. Se prenden al generar (el interruptor ya no está en «Próximamente») o en la sección «Emojis» de la pestaña Subtítulos; apagarlos saca sólo los suyos. Por chat `emojis_subtitulos`, por la API `poner_emojis_subtitulos`. El nombre cambió a «Emojis automáticos» porque no los elige una IA: lo dice el relevo de Submagic.
+- **Estado real (6/11):** está a la vista pero apagado, con el cartel «Próximamente»: `assets-view.tsx:248`, `<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />`. El «Próximamente» de `:120` es el cartel de ese mismo interruptor, no otra función.
 
-### 1.4 Relevar Submagic mirando la app — P1 · no se hizo
+### ~~1.4 Relevar Submagic mirando la app — P1 · no se hizo~~ — hecho a medias el 10/11/2026
+- **Hecho:** `docs/editor-video/relevo-submagic.md`, leyendo el sitio, el blog y la documentación de Submagic (la app pide cuenta y no se abrió desde la nube). Ahí están qué se copió con datos (los dos estilos de Hormozi), qué Submagic no publica (los números de sus animaciones, cuántos emojis pone) y qué falta mirar en la app con cuenta.
 - **Qué es:** abrir Submagic y anotar sus estilos con nombre, los emojis, los sonidos y el acercamiento automático antes de seguir copiando. Lo pide la regla de copiar la app tal cual.
 - **Estado real:** en el repo no hay ningún relevamiento hecho mirando la app; la única referencia es el post del blog.
 
-### 1.5 Marcar o desmarcar a mano UNA palabra clave — P2 · no está
+### ~~1.5 Marcar o desmarcar a mano UNA palabra clave — P2 · no está~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** en la sección «Palabras clave» del subtítulo elegido, cada palabra es un botón que la marca o la desmarca (`claves.ts` → `alternarClave`), en un paso de deshacer. Por chat, `palabras_clave` con «sumar» y «quitar».
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2176`. No lo confirmé en el código.
 
 ### 1.6 Subtítulo escalonado («Stagger Stack» del reel) — P3 · no está
+- **10/11/2026, sin hacer:** no hay en el repo una descripción de cómo se ve el «Stagger Stack» y la nube no puede mirar el reel cuadro por cuadro con criterio; copiarlo de memoria es diseñarlo de cero. Para hacerlo: mirar `origin/referencias/reels-0911:edicion-mako.mp4` en el momento del subtítulo escalonado y anotar cómo entra cada renglón.
 - **Estado real:** buscar «stagger» o «escalonad» en las dos ramas no da nada. Pide medir y dibujar renglón por renglón en `text/dibujar.ts`.
 
 ### 1.7 Subtítulos bilingües — P3 · apagado
@@ -116,17 +121,17 @@ Las prioridades se leen así:
 - **Fuente:** `origin/claude/exciting-mccarthy-9rqrau:docs/relevo/edicion-reel-nube.md:60-130`; `origin/main:.github/workflows/punta.yml:98-134`.
 
 ### 2.2 Bugs que encontró la revisión (arreglar antes o junto con la subida)
-- **P1 · Un video sin muletillas termina como «falla».** Comprobado en el código:
+- ~~**P1 · Un video sin muletillas termina como «falla».**~~ — arreglado el 10/11/2026 en `punta/edicion-arreglos-0911` @ `101042780`: `NO_HAY_MULETILLAS` es una constante (`transcripcion/modelo.ts`) que usan `linea.ts` y `esNadaQueHacer`, con el texto real en el test 15. Comprobado en el código:
   - `enjambre/plan.ts:245-247` (`esNadaQueHacer`) reconoce «no se cortó las muletillas».
   - Pero `chat/linea.ts:1720` devuelve «no se identificaron muletillas».
   - Resultado: el resumen dice «1 no pudo» y ofrece «Reportar a Soporte» en cualquier video grabado con guion.
   - Arreglo: sumar `/^no se identificaron muletillas/` y probarlo con el texto real.
-- **P1 · −14 LUFS por pedazo.** El agente del volumen normaliza cada clip por separado, y después de cortar las pausas cada pedazo queda con su propio nivel. Hay que oírlo antes de usarlo con clientes.
-- **P2 · «Detener»** durante los subtítulos cuenta como falla.
-- **P2 · Si los subtítulos fallan,** el B-roll y los planos vuelven a transcribir todo dos veces más, y «Detener» no lo corta. Sin Pexels conectado, igual gasta una llamada a la IA del negocio.
-- **P2 · «Deshacer todo» y los toques de la persona:** sólo se detectan dentro de un panel con `data-ce-zona`. Un atajo con el foco en otra parte queda mezclado en el paso, y apretar play ya saca «Deshacer todo».
-- **P3 · La plantilla «Lima»** se muestra en la tarjeta sin minúsculas, y `presetDesdeApi` no deja poner `minusculas`.
-- **P3 · La pastilla** dice «10 agentes en vivo · paso N de 10» (`en-vivo.tsx:43`), aunque los agentes trabajan de a uno.
+- ~~**P1 · −14 LUFS por pedazo.**~~ — arreglado el 10/11/2026 (`101042780`): `normalizarJuntos` (`audio/normalizar.ts`) mide los pedazos de una misma toma JUNTOS y les pone la misma ganancia; un pedazo casi mudo usa la de su toma (`medidaDePedazos`). Falta OÍRLO en la PC (§13). El agente del volumen normaliza cada clip por separado, y después de cortar las pausas cada pedazo queda con su propio nivel. Hay que oírlo antes de usarlo con clientes.
+- ~~**P2 · «Detener»** durante los subtítulos cuenta como falla.~~ — arreglado el 10/11/2026 (`101042780`, `comoTerminaFalla`).
+- ~~**P2 · Si los subtítulos fallan,** el B-roll y los planos vuelven a transcribir todo dos veces más, y «Detener» no lo corta. Sin Pexels conectado, igual gasta una llamada a la IA del negocio.~~ — arreglado el 10/11/2026 (`101042780`): las frases se leen una vez y se pasan (`alLeerFrases`), y sin Pexels se pregunta ANTES de pedirle nada a la IA (`accion: 'pexels'`).
+- ~~**P2 · «Deshacer todo» y los toques de la persona:**~~ — arreglado el 10/11/2026 (`101042780`, `cuentaComoToque`: un atajo con el foco afuera cuenta, reproducir o pantalla completa no). Antes: sólo se detectan dentro de un panel con `data-ce-zona`. Un atajo con el foco en otra parte queda mezclado en el paso, y apretar play ya saca «Deshacer todo».
+- ~~**P3 · La plantilla «Lima»** se muestra en la tarjeta sin minúsculas, y `presetDesdeApi` no deja poner `minusculas`.~~ — arreglado el 10/11/2026 (`101042780`).
+- ~~**P3 · La pastilla** dice «10 agentes en vivo · paso N de 10» (`en-vivo.tsx:43`), aunque los agentes trabajan de a uno.~~ — arreglado el 10/11/2026 (`101042780`, `textoPastilla`: «en vivo · <agente> · paso N de 10»).
 - **P3 · Tests:** los casos 7, 8, 10 y 13 de `tests/video-editor-enjambre.test.ts` buscan texto en el código, y la corrida en sí no se prueba.
 
 ### 2.3 Lo del reel que todavía no está — P3

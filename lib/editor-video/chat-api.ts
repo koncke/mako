@@ -188,9 +188,14 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     seg('pausa_min', 'Pausa mínima', 'Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4).', false, 0.2, 2),
   ] },
   { op: 'palabras_clave', id: 'resaltar_claves_subtitulos', titulo: 'Resaltar las palabras clave', parametros: [
-    elegir('modo', 'Modo', ['auto', 'estas', 'ninguna'], '«auto» las elige solas; «estas», las de «palabras»; «ninguna» las saca.'),
-    { nombre: 'palabras', rotulo: 'Palabras', tipo: 'string[]', max: 30, descripcion: 'Sólo con «estas»: una palabra por elemento, como se dice en los subtítulos.' },
+    elegir('modo', 'Modo', ['auto', 'estas', 'sumar', 'quitar', 'ninguna'], '«auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «ninguna» las saca.'),
+    { nombre: 'palabras', rotulo: 'Palabras', tipo: 'string[]', max: 30, descripcion: 'Con «estas», «sumar» o «quitar»: una palabra por elemento, como se dice en los subtítulos.' },
     COLOR('color', 'Color', false),
+    seg('tamano', 'Tamaño', 'Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 160).', false, 100, 160),
+    { nombre: 'ref', rotulo: 'Subtítulo', tipo: 'string', max: 6, descripcion: 'Opcional: la ref de UN subtítulo (de ver_proyecto_video); sin ella, todos.' },
+  ] },
+  { op: 'animar_palabras', id: 'animar_palabras_video', titulo: 'Animar la palabra que se dice', parametros: [
+    elegir('animacion', 'Animación', ['pop', 'crecer', 'ninguna'], '«pop» la hace saltar de abajo hacia arriba (estilo Hormozi de Submagic); «crecer» la deja más grande; «ninguna» la saca.'),
   ] },
   { op: 'usar_preset_subtitulos', id: 'usar_preset_subtitulos', titulo: 'Aplicar un preset de la marca', parametros: [
     texto('preset', 'Preset', 'El preset: su nombre o su id (de listar_presets_subtitulos).', true, 80),
@@ -203,6 +208,9 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     { nombre: 'cuantos', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 10, descripcion: 'Opcional: cuántos clips (sin esto, 5).' },
   ] },
   { op: 'edicion_automatica', id: 'editar_video_automatico', titulo: 'Edición automática con agentes', parametros: [] },
+  { op: 'emojis_subtitulos', id: 'poner_emojis_subtitulos', titulo: 'Poner o sacar los emojis de los subtítulos', parametros: [
+    si('activar', 'Poner', 'true los pone (reemplazando los de antes); false los saca.', true),
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

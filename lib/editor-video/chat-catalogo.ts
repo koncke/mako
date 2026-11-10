@@ -164,7 +164,19 @@ export type OperacionChat =
   /** `textos`: hueco → texto; `clips`: hueco → ref de un medio. */
   | { op: 'usar_plantilla'; id: string; textos: Record<string, string>; clips: Record<string, string> }
   /** «Resaltar palabras clave» de TODOS los subtítulos (subtitles/claves.ts): solas, las nombradas, o ninguna. */
-  | { op: 'palabras_clave'; modo: 'auto' | 'estas' | 'ninguna'; palabras?: string[]; color?: string }
+  | {
+      op: 'palabras_clave';
+      /** «sumar» y «quitar» marcan o desmarcan a mano sin tocar las demás (Submagic, 10/11/2026). */
+      modo: 'auto' | 'estas' | 'sumar' | 'quitar' | 'ninguna';
+      palabras?: string[];
+      color?: string;
+      /** El tamaño de las claves en % (100 = igual; hasta 160): «más grandes», como las de Hormozi. */
+      tamano?: number;
+      /** Un subtítulo solo (su ref); sin esto, todos. */
+      ref?: string;
+    }
+  /** «Animación de la palabra» de TODOS los subtítulos (Submagic, estilo Hormozi): la que se dice salta o crece. */
+  | { op: 'animar_palabras'; animacion: 'ninguna' | 'pop' | 'crecer' }
   /** Un preset de subtítulos de la marca (DISPONIBLES.presets_subtitulos), a TODOS los subtítulos. */
   | { op: 'usar_preset_subtitulos'; preset: string }
   /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
@@ -172,7 +184,9 @@ export type OperacionChat =
   /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
   | { op: 'clips_magicos'; cuantos?: number }
   /** «Edición automática» (app/video-editor/_opencut/enjambre): el equipo de agentes edita todo, de una y a la vista. */
-  | { op: 'edicion_automatica' };
+  | { op: 'edicion_automatica' }
+  /** «Emojis automáticos» (Submagic: «Auto emojis», app/video-editor/_opencut/subtitles/emojis.ts): ponerlos o sacarlos. */
+  | { op: 'emojis_subtitulos'; activar: boolean };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -398,7 +412,12 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'palabras_clave',
     forma: '{"op":"palabras_clave","modo":"auto"}',
-    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta las "palabras" que nombra la persona, cada vez que se dicen; "ninguna" las saca. Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
+    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 160, en %) las agranda («más grandes», como las de Hormozi). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
+  },
+  {
+    op: 'animar_palabras',
+    forma: '{"op":"animar_palabras","animacion":"pop"}',
+    para: 'La animación de la palabra que se está diciendo, en TODOS los subtítulos (como Submagic y el estilo Hormozi): "pop" la hace saltar de abajo hacia arriba y quedar apenas más grande; "crecer" la deja más grande mientras se dice; "ninguna" la saca. Va con o sin el color del karaoke (resaltar_palabras). Necesita subtítulos con tiempos por palabra ("transcripcion_por_palabra": true).',
   },
   {
     op: 'usar_preset_subtitulos',
@@ -420,6 +439,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"edicion_automatica"}',
     para: 'Edición automática con un equipo de agentes, de una y a la vista: quita pausas, subtitula si falta, saca muletillas, resalta lo que pesa en lima, propone fotos de apoyo y acercamientos, limpia la voz, deja el volumen a −14 LUFS y revisa al final. Úsala cuando pidan editarlo todo o dejarlo listo de una. Cada agente sin nada que hacer se saltea. Va SOLA y se aplica al final.',
   },
+  {
+    op: 'emojis_subtitulos',
+    forma: '{"op":"emojis_subtitulos","activar":true}',
+    para: 'Emojis automáticos, como Submagic: con "activar": true pone un emoji animado encima de cada subtítulo que dice algo que se puede dibujar (dinero, tiempo, una idea, un error…), en su pista «Emojis», reemplazando los de antes; con false los saca. No elige ni inventa los emojis: los elige el editor al aceptar, con la palabra clave de cada subtítulo. Los de ahora van marcados "emoji_de_subtitulo". Se aplica al final, después de generar los subtítulos.',
+  },
 ];
 
 /**
@@ -427,7 +451,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; emojis encima de los subtítulos, sí: emojis_subtitulos); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -896,11 +920,30 @@ export function validarOperacion(crudo: unknown): Validada {
       const v = valoresDePlantilla(p, raw.textos, raw.clips);
       return v.ok ? { ok: true, op: { op: 'usar_plantilla', id: p.id, textos: v.textos, clips: v.clips } } : v;
     }
+    case 'animar_palabras': {
+      const extra = sobrantes(raw, ['animacion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de la animación de la palabra` };
+      const a = raw.animacion;
+      if (a !== 'ninguna' && a !== 'pop' && a !== 'crecer') return { ok: false, motivo: 'una animación de la palabra sin «animacion» («pop», «crecer» o «ninguna»)' };
+      return { ok: true, op: { op: 'animar_palabras', animacion: a } };
+    }
     case 'palabras_clave': {
-      const extra = sobrantes(raw, ['modo', 'palabras', 'color']);
+      const extra = sobrantes(raw, ['modo', 'palabras', 'color', 'tamano', 'ref']);
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de las palabras clave` };
       const modo = raw.modo;
-      if (modo !== 'auto' && modo !== 'estas' && modo !== 'ninguna') return { ok: false, motivo: 'unas palabras clave sin modo («auto», «estas» o «ninguna»)' };
+      if (modo !== 'auto' && modo !== 'estas' && modo !== 'sumar' && modo !== 'quitar' && modo !== 'ninguna')
+        return { ok: false, motivo: 'unas palabras clave sin modo («auto», «estas», «sumar», «quitar» o «ninguna»)' };
+      let tamano: number | undefined;
+      if (raw.tamano !== undefined) {
+        const t = numero(raw.tamano);
+        if (!enRango(t, 100, 160)) return { ok: false, motivo: 'unas palabras clave con «tamano» fuera de 100 a 160' };
+        tamano = Math.round(t);
+      }
+      let ref: string | undefined;
+      if (raw.ref !== undefined) {
+        if (!esRef(raw.ref)) return { ok: false, motivo: 'unas palabras clave con una «ref» que no es la de un subtítulo (t1, t2…)' };
+        ref = raw.ref;
+      }
       let color: string | undefined;
       if (raw.color !== undefined) {
         const c = colorHex(raw.color);
@@ -908,14 +951,17 @@ export function validarOperacion(crudo: unknown): Validada {
         color = c;
       }
       let palabras: string[] | undefined;
-      if (modo === 'estas') {
+      if (modo === 'estas' || modo === 'sumar' || modo === 'quitar') {
         const lista = Array.isArray(raw.palabras) ? raw.palabras : [];
         palabras = [...new Set(lista.filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter((x) => x && x.length <= 40 && !/\s/.test(x)))].slice(0, 30);
-        if (!palabras.length) return { ok: false, motivo: 'unas palabras clave «estas» sin palabras (una por elemento, sin espacios)' };
+        if (!palabras.length) return { ok: false, motivo: `unas palabras clave «${modo}» sin palabras (una por elemento, sin espacios)` };
       } else if (raw.palabras !== undefined) {
-        return { ok: false, motivo: '«palabras» va sólo con el modo «estas»' };
+        return { ok: false, motivo: '«palabras» va sólo con los modos «estas», «sumar» y «quitar»' };
       }
-      return { ok: true, op: { op: 'palabras_clave', modo, ...(palabras ? { palabras } : {}), ...(color ? { color } : {}) } };
+      return {
+        ok: true,
+        op: { op: 'palabras_clave', modo, ...(palabras ? { palabras } : {}), ...(color ? { color } : {}), ...(tamano !== undefined ? { tamano } : {}), ...(ref ? { ref } : {}) },
+      };
     }
     case 'usar_preset_subtitulos': {
       const extra = sobrantes(raw, ['preset']);
@@ -945,6 +991,12 @@ export function validarOperacion(crudo: unknown): Validada {
       const extra = sobrantes(raw, []);
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de la edición automática (no lleva nada más)` };
       return { ok: true, op: { op: 'edicion_automatica' } };
+    }
+    case 'emojis_subtitulos': {
+      const extra = sobrantes(raw, ['activar']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de los emojis de los subtítulos` };
+      if (typeof raw.activar !== 'boolean') return { ok: false, motivo: 'unos emojis de subtítulos sin «activar» (true o false)' };
+      return { ok: true, op: { op: 'emojis_subtitulos', activar: raw.activar } };
     }
   }
 }

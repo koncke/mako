@@ -953,7 +953,11 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   assert.match(motivos(revisar([{ op: 'cortar_tramo', inicio: 2, fin: 3 }, { op: 'borrar_silencios' }])), /borrar los silencios va en un pedido aparte/);
   assert.match(motivos(revisar([{ op: 'normalizar', ref: 'v1', activo: true }, { op: 'borrar_silencios' }])), /normalizar vid1\.mp4 va en un pedido aparte/);
   // El cableado: larga, por la pieza compartida con el botón y sin caer en el clip del cabezal.
-  assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts')), /"usar_plantilla", "borrar_silencios"\]\)/);
+  // comandos.ts carga el motor (wasm) y no se puede importar: se lee su lista de largas, no su última línea
+  // (la del 10/11 sumaba «emojis_subtitulos» al final y el guard de antes caía con el cableado bien).
+  const largas = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts')).match(/const LARGAS = new Set<[^>]+>\(\[([^\]]+)\]\)/)?.[1] ?? '';
+  assert.ok(largas.length > 20, 'se encontró la lista de largas');
+  assert.match(largas, /"borrar_silencios"/, 'borrar silencios es larga: corre después del lote');
   const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
   assert.match(aplicar, /await quitarSilencios\(editor, \{[\s\S]*?cabezal: false,/);
   assert.match(aplicar, /correrLarga\(editor, r, op\.alProgreso\)/);

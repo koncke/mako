@@ -513,4 +513,54 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "9 nov", hora: "—", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seguir con todos los pendientes del Video Editor",
+    pedido: "continúes sobre todo con absolutamente todos los pendientes que tenemos en Video Editor, porque dentro de poco lo vamos a empezar a utilizar… por ejemplo, duplicar Submagic para el tema de los subtítulos. Y teníamos también otras cosas como Motion Graphics. Yo te había enviado varios ejemplos.",
+    puntos: [
+      "La lista es docs/editor-video/pendientes-video-editor.md, por tandas: los bugs de la edición automática, los subtítulos de Submagic, motion graphics, B-roll, clips mágicos, el ruido y el chat.",
+      "Lo que pide Chrome, la licencia de la música y el render en servidor no se hacen desde la nube: van a la lista de pruebas de la PC del relevo (docs/relevo/editor-pendientes-nube.md).",
+    ],
+  },
+  {
+    fecha: "10 nov", hora: "01:52", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "claude", tipo: "correccion",
+    titulo: "Edición automática: los arreglos de la revisión, con su test",
+    puntos: [
+      "Un video sin muletillas ya no termina como «1 no pudo»: el texto que decide es UNO solo (NO_HAY_MULETILLAS) y el test usa el de verdad.",
+      "El volumen a −14 LUFS se mide por toma y no por pedazo: después de cortar las pausas, los pedazos de la misma toma quedan con la misma ganancia.",
+      "«Detener» ya no cuenta como falla; si los subtítulos fallan, el B-roll y los planos no vuelven a transcribir, y sin Pexels no se gasta la IA.",
+      "«Deshacer todo» ve los atajos aunque el foco esté afuera, y reproducir no lo saca; la pastilla dice qué agente trabaja; «Lima» se ve en minúsculas.",
+    ],
+    commits: [
+      { sha: "e1b7dbe78", msg: "Edición automática: los arreglos de la revisión (muletillas, volumen, Detener, B-roll, Lima, pastilla)", lineas: 534, archivos: 14 },
+      { sha: "101042780", msg: "Edición automática: lo que encontró la revisión de los arreglos, con su test", lineas: 263, archivos: 7 },
+    ],
+    archivos: [
+      "app/video-editor/_opencut/enjambre/plan.ts — esNadaQueHacer, comoTerminaFalla, gruposPorFuente, textoPastilla, cuentaComoToque",
+      "app/video-editor/_opencut/audio/normalizar.ts — normalizarJuntos",
+      "tests/video-editor-enjambre.test.ts — casos 15 a 20",
+    ],
+    revisar: "/video-editor",
+  },
+  {
+    fecha: "10 nov", hora: "—", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Subtítulos de Submagic: la palabra que salta, las claves más grandes y a mano, y los emojis automáticos",
+    puntos: [
+      "«Animación de la palabra»: la que se dice salta de abajo hacia arriba («Salta», el Hormozi nuevo) o queda más grande («Crece»), con o sin el color del karaoke.",
+      "Las palabras clave pueden ir más grandes (100 a 160 %) y se marcan o desmarcan a mano, tocando la palabra en el panel del subtítulo.",
+      "Dos plantillas nuevas: «Hormozi» y «Hormozi clásico», copiadas de lo que publica Submagic.",
+      "«Emojis automáticos»: un emoji animado encima de cada subtítulo que dice algo que se puede dibujar, en su propia pista; apagarlos saca sólo esos. Sin IA y gratis.",
+      "Todo también por el chat del editor y por la API de MaKo. No se miró en un navegador (la nube no corre el editor).",
+    ],
+    archivos: [
+      "docs/editor-video/relevo-submagic.md — qué publica Submagic y qué se copió",
+      "app/video-editor/_opencut/text/resaltado.ts · dibujar.ts — la forma de cada palabra",
+      "app/video-editor/_opencut/subtitles/emojis.ts · emojis-pista.ts · emojis-poner.ts — los emojis",
+      "tests/video-editor-subtitulos-submagic.test.ts — 14 casos, 33 roturas",
+    ],
+    revisar: "/video-editor",
+  },
 ];

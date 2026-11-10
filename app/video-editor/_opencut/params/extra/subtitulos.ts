@@ -40,6 +40,22 @@ export const PARAM_NO_DICHAS_OPACIDAD = "subtitulo.noDichasOpacidad";
  */
 export const PARAM_CLAVES_COLOR = "subtitulo.clavesColor";
 
+/**
+ * «Animación de la palabra» (lo de Submagic y el estilo Hormozi, 10/11/2026): cómo se mueve la palabra que se está
+ * diciendo. `pop`: entra de abajo hacia arriba, crece y se asienta un poco más grande («pop-in» del blog de Submagic
+ * sobre los subtítulos de Hormozi); `crecer`: queda más grande mientras se dice, sin moverse. Necesita los tiempos por
+ * palabra, como el karaoke, pero no el color: va con o sin «Subtítulos pronunciados». Lo calcula text/resaltado.ts.
+ */
+export const PARAM_ANIM_PALABRA = "subtitulo.animPalabra";
+export type AnimPalabra = "ninguna" | "pop" | "crecer";
+export const ANIMS_PALABRA: readonly AnimPalabra[] = ["ninguna", "pop", "crecer"];
+
+/**
+ * «Tamaño de las palabras clave», en % (100 = igual que el resto). El blog de Submagic: las claves de Hormozi van
+ * «con otro color o más grandes». Es estilo, como el color de las claves.
+ */
+export const PARAM_CLAVES_TAMANO = "subtitulo.clavesTamano";
+
 export type ModoResaltar = "ninguno" | "palabra" | "frase";
 export const MODOS_RESALTAR: readonly ModoResaltar[] = ["ninguno", "palabra", "frase"];
 
@@ -51,7 +67,12 @@ export const DEFAULTS_RESALTADO = {
 };
 
 /** Verde y no amarillo: con el karaoke prendido (amarillo), la palabra que se dice y la clave se distinguen. */
-export const DEFAULTS_CLAVES = { color: "#4ade80" };
+export const DEFAULTS_CLAVES = { color: "#4ade80", tamano: 100 };
+
+export const DEFAULTS_ANIM_PALABRA: AnimPalabra = "ninguna";
+
+/** Topes del tamaño de las claves: más de 160 % tapa a las vecinas en un renglón de cuatro palabras. */
+export const TOPES_CLAVES_TAMANO = { min: 100, max: 160 };
 
 const sinFotograma = { keyframable: false } as const;
 
@@ -88,6 +109,28 @@ export const paramsSubtitulos: Partial<Record<ElementType, ElementParamDefinitio
 			label: "Color de las palabras clave",
 			type: "color",
 			default: DEFAULTS_CLAVES.color,
+			...sinFotograma,
+		},
+		{
+			key: PARAM_ANIM_PALABRA,
+			label: "Animación de la palabra",
+			type: "select",
+			default: DEFAULTS_ANIM_PALABRA,
+			options: [
+				{ value: "ninguna", label: "Ninguna" },
+				{ value: "pop", label: "Salta" },
+				{ value: "crecer", label: "Crece" },
+			],
+			...sinFotograma,
+		},
+		{
+			key: PARAM_CLAVES_TAMANO,
+			label: "Tamaño de las palabras clave",
+			type: "number",
+			default: DEFAULTS_CLAVES.tamano,
+			min: TOPES_CLAVES_TAMANO.min,
+			max: TOPES_CLAVES_TAMANO.max,
+			step: 5,
 			...sinFotograma,
 		},
 		{

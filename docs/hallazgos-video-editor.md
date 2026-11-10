@@ -6,6 +6,60 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Subtítulos de Submagic: la palabra que salta, las claves a mano y los emojis automáticos (10/11/2026)
+
+**Vive en:** `app/video-editor/_opencut/text/resaltado.ts` · `text/dibujar.ts` · `subtitles/emojis.ts` · `subtitles/emojis-pista.ts` ·
+`subtitles/emojis-poner.ts` · `lib/editor-video/claves.ts` · `lib/editor-video/presets-subtitulos.ts` · `chat/linea.ts`.
+Pedido de Martín (9/11): «duplicar Submagic para el tema de los subtítulos». Relevo de la fuente: [editor-video/relevo-submagic.md](editor-video/relevo-submagic.md).
+
+- **Submagic no publica sus números.** Su sitio y su blog describen los dos estilos de Hormozi («pop-in de abajo hacia arriba», «más
+  grandes o de otro color») y nada más: ni curvas, ni tamaños, ni cuántos emojis pone. Lo que se copió con datos es eso; las cifras de
+  la animación (`CURVA_POP`, `ESCALA_CRECER`) son nuestras y lo dicen. La app pide cuenta y la nube no la abrió: el relevo lista qué
+  falta mirar con cuenta.
+- **La forma de la palabra va por una TABLA, no por una curva.** La textura del texto se vuelve a dibujar cuando cambia cualquier cosa
+  de lo medido (`collectTextNode`): una escala continua la redibujaba en cada cuadro de la palabra. Con cuatro renglones por palabra,
+  cambia cuatro veces. Es la misma razón de `cuantizarRevelado`.
+- **La animación necesita saber cuál se dice aunque no haya karaoke.** `resaltadoDe` buscaba los tiempos por palabra SÓLO con el modo
+  del karaoke puesto: con «Salta» y sin color, devolvía null y no animaba nada, sin error. Ahora los busca con cualquiera de los dos, y
+  sin karaoke nada se atenúa (`dichas` = todas).
+- **La palabra con otra forma se pinta AL FINAL** (`recorrerPiezas`): agrandada en su lugar, la tapaba el relleno de la de al lado.
+- **Una plantilla escribe SIEMPRE la animación** («ninguna» incluida), igual que el resaltado: si sólo la escribe la que la tiene,
+  «Clásico» después de «Hormozi» deja la palabra saltando.
+- **Los emojis son de su subtítulo por una MARCA** (`subtitulo.emojiDe`) y no por la pista: apagar los saca a ellos y deja el sticker que
+  puso la persona en cualquier pista. Prender dos veces reemplaza, no duplica. El diccionario va por raíz con `$` para la palabra entera
+  («auto$» no agarra «automatizar»; «año$» sin tilde es «ano» y no agarra «anotar») y una lista `NO_SON` («mesa», «planta», «ganas»).
+- **El chat los aplica AL FINAL de todo** (`diferidas`, después de generar los subtítulos y de borrar los silencios): van con el tiempo de
+  cada subtítulo, y antes de un corte quedan en el lugar viejo.
+- **Un guard que pedía la ÚLTIMA línea de `LARGAS`** («"usar_plantilla", "borrar_silencios"])») cayó con el cableado bien al sumar una
+  operación al final. Se volvió una prueba de lo que cuida: que `borrar_silencios` esté en la lista (`tests/video-editor-chat.test.ts`, 51).
+
+**Lo que quedó sin hacer:** el subtítulo escalonado («Stagger Stack», §1.6 de los pendientes: no hay descripción en el repo y copiarlo de
+memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`).
+
+## Edición automática: los arreglos de la revisión (10/11/2026)
+
+**Vive en:** `app/video-editor/_opencut/enjambre/plan.ts` · `audio/normalizar.ts` · `audio/claves.ts` · `broll/proponer.ts` ·
+`transcripcion/modelo.ts`. Punta `punta/edicion-arreglos-0911` @ `101042780` (VERDE con Node 24: 7227 tests y el tsc entero).
+
+- **El «nada que hacer» de un agente salía de comparar TEXTOS escritos en dos archivos.** `esNadaQueHacer` buscaba «no se cortó las
+  muletillas» y `linea.ts` decía «no se identificaron muletillas»: todo video grabado con guion terminaba en «1 no pudo» con «Reportar
+  a Soporte». Ahora es una constante (`NO_HAY_MULETILLAS`) que usan los dos, y el test usa el texto real que devuelve `revisarOperaciones`.
+- **−14 LUFS por pedazo no es −14 LUFS.** Cortar las pausas parte una toma en pedazos, y medir cada uno por separado le da a cada uno su
+  ganancia: una frase baja salía más fuerte que la de al lado. Se mide la toma entera (`normalizarJuntos`) y un pedazo casi mudo, cuya
+  medida propia se dispara, usa la de su toma (`medidaDePedazos`, tolerancia 6 LU).
+- **«Detener» y «falló» son dos desenlaces** (`comoTerminaFalla`): un paso cancelado por la persona no se reporta.
+- **Una falla no puede multiplicar el gasto.** Con los subtítulos caídos, el B-roll y los planos volvían a transcribir cada uno; ahora
+  las frases se leen una vez (`alLeerFrases`) y sin Pexels se pregunta ANTES de gastar la IA del negocio.
+
+## ⚠️ El `npm ci` del veredicto, en un worktree con `node_modules` ENLAZADO, vacía el del clon (10/11/2026)
+
+**Vive en:** `scripts/veredicto.mjs` (corre `npm ci`) y la receta de `docs/relevo/nube-metodologia.md` (worktree limpio para sacarlo).
+El veredicto necesita un árbol limpio, así que se saca en un worktree aparte; si ese worktree tiene `node_modules` como enlace al del
+clon (lo que pide AGENTS.md para pushear desde un worktree), `npm ci` **borra el contenido del destino del enlace** y deja un
+`node_modules` real en el worktree. El clon principal quedó con la carpeta vacía y otro agente que trabajaba sobre él perdió `tsx` a la
+mitad, con errores que no nombraban la causa («Cannot find module»). La regla: **el worktree del veredicto lleva su `node_modules` propio**
+(sin enlace), y si ya pasó, `npm ci` en el clon.
+
 ## `toast.error` lleva «Reportar a Soporte»: se envuelve UNA vez, en el Toaster (23/10/2026)
 
 Los ~45 archivos del editor llaman `toast.error` de sonner, que dibuja su toast con su propia librería (no es un `role="alert"`

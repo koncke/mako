@@ -30,6 +30,7 @@ analisis_negocio
 analizar_cuenta_media_buyer
 analizar_hoja_dashboard
 analizar_llamadas_lead
+animar_palabras_video
 anticipacion_agenda
 anular_link_pago
 apagar_kpi
@@ -509,6 +510,7 @@ plantillas_meta_de_secuencia
 plazo_etapa
 poner_animacion_video
 poner_efecto_video
+poner_emojis_subtitulos
 poner_enlace_landing
 poner_etiqueta_lead
 poner_filtro_video

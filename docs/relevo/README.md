@@ -45,7 +45,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | General (vistas personalizables, pagos de Mauricio y el Calendario) | `Leé docs/relevo/general-y-calendario.md y seguimos desde ahí.` |
 | Offer | `Leé docs/relevo/offer.md y seguimos desde ahí.` |
 | Web Generator (ex Landing Generator) | `Leé docs/relevo/landing-generator.md y seguimos desde ahí.` |
-| Video Editor | `Leé docs/relevo/video-editor.md y seguimos desde ahí.` |
+| Video Editor | `Leé docs/relevo/video-editor.md y docs/relevo/editor-pendientes-nube.md y seguimos desde ahí.` |
 | Video Generator (puente a Flow) y AI Avatar | `Lee docs/relevo/video-generator.md y docs/hallazgos-ai-avatar.md y seguimos desde ahí.` |
 | Image Editor (el Canva de MaKo, sobre Doory) | `Leé docs/relevo/image-editor.md y seguimos desde ahí.` |
 | Pagos (Stripe y Mercado Pago, la pasarela) | `Leé docs/relevo/pagos.md y seguimos desde ahí.` |

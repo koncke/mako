@@ -40,6 +40,8 @@ import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
+import { ponerEmojisEnSubtitulos } from "@/app/video-editor/_opencut/subtitles/emojis-poner";
+import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
 import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { buscarClips } from "@/app/video-editor/_opencut/clips/buscar";
@@ -152,6 +154,12 @@ async function correrLarga(
 		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
 		return avisos;
 	}
+	if (r.op === "emojis_subtitulos") {
+		// El MISMO de la sección «Emojis» de la pestaña Subtítulos: un paso de deshacer.
+		const n = ponerEmojisEnSubtitulos({ editor, activar: r.activar });
+		if (!r.activar) return [];
+		return n > 0 ? [] : [subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks ?? null).length ? "ningún subtítulo dice algo con emoji" : "no hay subtítulos para ponerles emojis"];
+	}
 	if (r.op === "clips_magicos") {
 		// El MISMO de «Clips mágicos»: los busca y abre la sección, donde se abre cada uno en un proyecto nuevo.
 		const hecho = await buscarClips(editor, { cuantos: r.cuantos });
@@ -197,6 +205,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	broll: "proponer el B-roll",
 	clips_magicos: "buscar los clips",
 	edicion_automatica: "hacer la edición automática",
+	emojis_subtitulos: "poner los emojis",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */

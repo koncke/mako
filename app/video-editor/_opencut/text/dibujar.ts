@@ -60,6 +60,7 @@ import { letrasVisibles } from "./curva";
 import { lineasReveladas } from "./revelado";
 import {
 	colorDePalabra,
+	formaDePalabra,
 	palabraDeCadaLetra,
 	palabrasDeRenglon,
 	primerasPalabras,
@@ -164,7 +165,15 @@ function recorrer(
 // ── Las palabras sueltas (resaltado) ─────────────────────────────────────────
 
 /** Lo que se pinta solo con el resaltado: una palabra (recto) o una letra (curvado). */
-type Pieza = { texto: string; x: number; y: number; giro: number | null; palabra: number };
+type Pieza = {
+	texto: string;
+	x: number;
+	y: number;
+	giro: number | null;
+	palabra: number;
+	/** El ancho de la palabra (recto): la animación de la palabra la escala alrededor de su centro. 0 = una letra. */
+	ancho: number;
+};
 
 /**
  * Las piezas de los renglones visibles. Recto, cada palabra va donde caería en el
@@ -183,7 +192,7 @@ function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: 
 			const letras = l.completa ? renglon : letrasVisibles(renglon, Array.from(l.texto).length);
 			const palabras = palabraDeCadaLetra(letras.map((x) => x.letra), primeras[l.indice] ?? 0);
 			letras.forEach((letra, k) => {
-				if (palabras[k] >= 0) piezas.push({ texto: letra.letra, x: letra.x, y: letra.y, giro: letra.giro, palabra: palabras[k] });
+				if (palabras[k] >= 0) piezas.push({ texto: letra.letra, x: letra.x, y: letra.y, giro: letra.giro, palabra: palabras[k], ancho: 0 });
 			});
 		}
 		return piezas;
@@ -194,22 +203,39 @@ function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: 
 	for (const l of lineas) {
 		const x0 = inicioDeLinea(medido.textAlign, l.metrica.width);
 		for (const p of palabrasDeRenglon(l.texto, primeras[l.indice] ?? 0)) {
-			const antes =
-				p.desde === 0 ? 0 : c.measureText(l.texto.slice(0, p.desde + p.texto.length)).width - c.measureText(p.texto).width;
-			piezas.push({ texto: p.texto, x: x0 + antes, y: l.y, giro: null, palabra: p.palabra });
+			const ancho = c.measureText(p.texto).width;
+			const antes = p.desde === 0 ? 0 : c.measureText(l.texto.slice(0, p.desde + p.texto.length)).width - ancho;
+			piezas.push({ texto: p.texto, x: x0 + antes, y: l.y, giro: null, palabra: p.palabra, ancho });
 		}
 	}
 	c.restore();
 	return piezas;
 }
 
-/** Como `recorrer`, pero pieza por pieza (con el número de palabra de cada una). */
+/** La forma de cada palabra (la animación de la que se dice y el tamaño de las claves); sin ella, todas iguales. */
+type FormaDe = (palabra: number) => { escala: number; subida: number };
+
+const esIgual = (f: { escala: number; subida: number }) => f.escala === 1 && f.subida === 0;
+
+/**
+ * Como `recorrer`, pero pieza por pieza (con el número de palabra de cada una). Una palabra con otra forma (la que se
+ * dice, que salta o crece; una clave más grande) se escala alrededor de su centro y va AL FINAL: así queda encima de
+ * sus vecinas y no la tapa el relleno de la de al lado (`fontPx`, el tamaño de la letra, mide la subida).
+ */
 function recorrerPiezas(
 	c: TextCanvasContext,
 	piezas: readonly Pieza[],
 	pintar: (texto: string, x: number, y: number, palabra: number) => void,
+	formaDe?: FormaDe,
+	fontPx = 0,
 ) {
+	const conForma: Array<{ p: Pieza; f: { escala: number; subida: number } }> = [];
 	for (const p of piezas) {
+		const f = formaDe?.(p.palabra);
+		if (f && !esIgual(f)) {
+			conForma.push({ p, f });
+			continue;
+		}
 		if (p.giro === null) {
 			c.textAlign = "left";
 			pintar(p.texto, p.x, p.y, p.palabra);
@@ -222,11 +248,26 @@ function recorrerPiezas(
 		pintar(p.texto, 0, 0, p.palabra);
 		c.restore();
 	}
+	for (const { p, f } of conForma) {
+		c.save();
+		c.textAlign = "center";
+		if (p.giro === null) c.translate(p.x + p.ancho / 2, p.y + f.subida * fontPx);
+		else {
+			c.translate(p.x, p.y);
+			c.rotate(p.giro);
+			c.translate(0, f.subida * fontPx);
+		}
+		c.scale(f.escala, f.escala);
+		pintar(p.texto, 0, 0, p.palabra);
+		c.restore();
+	}
 }
 
 type ConResaltado = {
 	piezas: readonly Pieza[];
 	colorDe: (palabra: number) => string;
+	/** La forma de cada palabra (./resaltado.ts → formaDePalabra). */
+	formaDe?: FormaDe;
 	/** El subrayado va una sola vez (con lo dicho), no en cada grupo. */
 	subrayar: boolean;
 };
@@ -254,7 +295,7 @@ function dibujarLetras(
 		if (!trazo) return;
 		c.strokeStyle = trazo.color;
 		c.lineWidth = lineWidth;
-		if (resaltado) recorrerPiezas(c, resaltado.piezas, (t, x, y) => c.strokeText(t, x, y));
+		if (resaltado) recorrerPiezas(c, resaltado.piezas, (t, x, y) => c.strokeText(t, x, y), resaltado.formaDe, medido.scaledFontSize);
 		else recorrer(c, medido, lineas, (t, x, y) => c.strokeText(t, x, y));
 	};
 
@@ -265,10 +306,16 @@ function dibujarLetras(
 	c.fillStyle = textColor;
 	if (resaltado) {
 		const { colorDe } = resaltado;
-		recorrerPiezas(c, resaltado.piezas, (t, x, y, palabra) => {
-			c.fillStyle = colorDe(palabra);
-			c.fillText(t, x, y);
-		});
+		recorrerPiezas(
+			c,
+			resaltado.piezas,
+			(t, x, y, palabra) => {
+				c.fillStyle = colorDe(palabra);
+				c.fillText(t, x, y);
+			},
+			resaltado.formaDe,
+			medido.scaledFontSize,
+		);
 		c.fillStyle = textColor;
 	} else {
 		recorrer(c, medido, lineas, (t, x, y) => c.fillText(t, x, y));
@@ -324,8 +371,9 @@ function dibujarResaltado(
 ) {
 	const piezas = armarPiezas(d, medido, lineas);
 	const colorDe = (palabra: number) => colorDePalabra(res, palabra, textColor);
+	const formaDe: FormaDe = (palabra) => formaDePalabra(res, palabra);
 	if (res.noDichas >= 1) {
-		dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas, colorDe, subrayar: true });
+		dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas, colorDe, formaDe, subrayar: true });
 		return;
 	}
 	const dichas = piezas.filter((p) => p.palabra < res.dichas);
@@ -335,7 +383,7 @@ function dibujarResaltado(
 		if (g && grupo) {
 			g.setTransform(d.getTransform());
 			// En su lienzo, lo pintado son sólo estas letras: el trazo de adentro recorta bien.
-			dibujarLetras(g, medido, lineas, textColor, textBaseline, true, { piezas: noDichas, colorDe, subrayar: false });
+			dibujarLetras(g, medido, lineas, textColor, textBaseline, true, { piezas: noDichas, colorDe, formaDe, subrayar: false });
 			d.save();
 			d.setTransform(1, 0, 0, 1, 0, 0);
 			d.globalAlpha *= res.noDichas;
@@ -345,11 +393,11 @@ function dibujarResaltado(
 			// Sin lienzo aparte, la opacidad en cada pasada (el trazo asoma por el relleno).
 			d.save();
 			d.globalAlpha *= res.noDichas;
-			dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: noDichas, colorDe, subrayar: false });
+			dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: noDichas, colorDe, formaDe, subrayar: false });
 			d.restore();
 		}
 	}
-	dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: dichas, colorDe, subrayar: true });
+	dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: dichas, colorDe, formaDe, subrayar: true });
 }
 
 // ── La entrada ───────────────────────────────────────────────────────────────

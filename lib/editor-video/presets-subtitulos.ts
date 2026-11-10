@@ -53,6 +53,10 @@ export type EstiloPresetSubtitulos = {
   minusculas?: boolean;
   sombra?: boolean;
   resaltado?: { modo: 'palabra' | 'frase'; color: string; noDichasOpacidad?: number };
+  /** «Animación de la palabra» (Submagic, estilo Hormozi): la que se dice salta («pop») o crece. */
+  animPalabra?: 'pop' | 'crecer';
+  /** El tamaño de las palabras clave en % (100 = igual; hasta 160). */
+  clavesTamano?: number;
 };
 export type ClavesPreset = {
   /** Las palabras clave se eligen solas al aplicar el preset y al generar subtítulos. */
@@ -141,6 +145,15 @@ export function sanearEstilo(raw: unknown): Resultado<EstiloPresetSubtitulos> {
     const o = s.noDichasOpacidad === undefined ? 100 : numero(s.noDichasOpacidad, 0, 100);
     if (o === null) return { ok: false, motivo: 'la opacidad de lo no dicho va de 0 a 100' };
     estilo.resaltado = { modo: s.modo, color: c, ...(o !== 100 ? { noDichasOpacidad: Math.round(o) } : {}) };
+  }
+  if (r.animPalabra !== undefined && r.animPalabra !== null && r.animPalabra !== 'ninguna') {
+    if (r.animPalabra !== 'pop' && r.animPalabra !== 'crecer') return { ok: false, motivo: 'la animación de la palabra es «pop», «crecer» o «ninguna»' };
+    estilo.animPalabra = r.animPalabra;
+  }
+  if (r.clavesTamano !== undefined && r.clavesTamano !== null) {
+    const t = numero(r.clavesTamano, 100, 160);
+    if (t === null) return { ok: false, motivo: 'el tamaño de las palabras clave va de 100 a 160' };
+    if (Math.round(t) !== 100) estilo.clavesTamano = Math.round(t);
   }
   return { ok: true, valor: estilo };
 }
@@ -262,6 +275,8 @@ export function resumenPreset(p: PresetSubtitulos): string {
   if (e.trazo) partes.push(`contorno ${e.trazo.color}`);
   if (e.sombra) partes.push('con sombra');
   if (e.resaltado) partes.push(`${e.resaltado.modo === 'palabra' ? 'la palabra' : 'la frase'} que se dice en ${e.resaltado.color}`);
+  if (e.animPalabra) partes.push(e.animPalabra === 'pop' ? 'la palabra que se dice salta' : 'la palabra que se dice crece');
+  if (e.clavesTamano) partes.push(`palabras clave al ${e.clavesTamano} %`);
   if (p.claves.auto) partes.push(`palabras clave en ${p.claves.color}`);
   if (p.claves.siempre.length) partes.push(`siempre resalta: ${p.claves.siempre.join(', ')}`);
   return partes.join(' · ');
@@ -307,6 +322,12 @@ export function presetDesdeApi(input: Record<string, unknown>, existente: Preset
   if (input.sombra !== undefined) {
     if (input.sombra === true) estilo.sombra = true;
     else delete estilo.sombra;
+  }
+  // Pasa tal cual: el saneo (sanearEstilo) saca «ninguna» y rechaza lo que no existe con su motivo.
+  if (input.animacion_palabra !== undefined) estilo.animPalabra = input.animacion_palabra as EstiloPresetSubtitulos['animPalabra'];
+  if (input.tamano_claves !== undefined) {
+    if (input.tamano_claves === 100) delete estilo.clavesTamano;
+    else estilo.clavesTamano = input.tamano_claves;
   }
   if (esQuitar(input.contorno)) delete estilo.trazo;
   else if (input.contorno !== undefined || (input.grosor_contorno !== undefined && base.estilo.trazo)) {

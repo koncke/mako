@@ -120,11 +120,20 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'borrar_silencios': return 'Sin los silencios (se buscan al aceptar)';
     case 'reemplazar_clip': return `Con el archivo ${els.get(op.medio)?.nombre ?? op.medio}`;
     case 'usar_plantilla': return `La plantilla ${comillas(op.id)}, con ${Object.keys(op.textos).length} textos y ${Object.keys(op.clips).length} clips`;
-    case 'palabras_clave': return op.modo === 'ninguna' ? 'Sin palabras clave' : op.modo === 'auto' ? 'Con las palabras clave de color' : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
+    case 'palabras_clave':
+      return op.modo === 'ninguna'
+        ? 'Sin palabras clave'
+        : op.modo === 'auto'
+          ? 'Con las palabras clave de color'
+          : op.modo === 'quitar'
+            ? `Sin ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`
+            : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
+    case 'animar_palabras': return op.animacion === 'ninguna' ? 'La palabra que se dice, quieta' : op.animacion === 'pop' ? 'La palabra que se dice salta' : 'La palabra que se dice crece';
     case 'usar_preset_subtitulos': return `Con el preset ${comillas(op.preset)}`;
     case 'broll': return op.planos === false ? 'Con B-roll propuesto' : 'Con B-roll y cambios de plano propuestos';
     case 'clips_magicos': return `Los ${op.cuantos ?? 5} mejores momentos, para abrir aparte`;
     case 'edicion_automatica': return 'Editado de una por los agentes (se ve en «Edición automática»)';
+    case 'emojis_subtitulos': return op.activar ? 'Con un emoji encima de los subtítulos que lo piden' : 'Sin los emojis de los subtítulos';
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');
