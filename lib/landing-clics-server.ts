@@ -9,6 +9,9 @@ const TOPE_FILAS = 5000;
 export type ClicsDeLanding = {
   url: string | null;
   dias: number;
+  /** El período leído, en UTC (`hasta` exclusivo). */
+  desde: string;
+  hasta: string;
   /** FALSE = la consulta falló. Un cero con `medido: true` es un cero de verdad. */
   medido: boolean;
   clics: number;
@@ -29,14 +32,16 @@ export type ClicsDeLanding = {
  * `landing_url` devuelve un cero que parece una respuesta. Es el mismo criterio que ya usa
  * lib/landing-token.ts para contar visitas por página.
  */
-export async function clicsDeLanding(opts: { url?: string | null; dias?: number; boton?: string | null; limite?: number }): Promise<ClicsDeLanding> {
+export async function clicsDeLanding(opts: { url?: string | null; dias?: number; boton?: string | null; limite?: number; desde?: string; hasta?: string }): Promise<ClicsDeLanding> {
   const dias = Math.max(1, Math.min(365, Math.round(opts.dias ?? 30)));
   const urlPedida = opts.url?.trim() ? normalizarUrl(opts.url) : null;
   const boton = opts.boton?.trim() || null;
   const limite = Math.max(1, Math.min(500, Math.round(opts.limite ?? 100)));
-  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  // `desde`/`hasta` (ISO, `hasta` exclusivo) mandan sobre `dias` cuando vienen: los arma `periodoDeFechas` (lib/landing-retencion.ts).
+  const desde = opts.desde ?? new Date(Date.now() - dias * 86_400_000).toISOString();
+  const hasta = opts.hasta ?? new Date(Date.now() + 60_000).toISOString();
   const vacio: ClicsDeLanding = {
-    url: urlPedida, dias, medido: false, clics: 0, personas: 0, botones: [], recortado: false,
+    url: urlPedida, dias, desde, hasta, medido: false, clics: 0, personas: 0, botones: [], recortado: false,
     nota: 'No se pudo leer: esto NO es un cero. Vuelve a pedirlo antes de concluir que nadie tocó nada.',
   };
 
@@ -48,6 +53,7 @@ export async function clicsDeLanding(opts: { url?: string | null; dias?: number;
     // Las pruebas del Pixel no cuentan: son los toques de quien está probando la instalación.
     .is('prueba', null)
     .gte('created_at', desde)
+    .lt('created_at', hasta)
     .order('created_at', { ascending: false })
     .limit(TOPE_FILAS);
   if (error) return vacio;
@@ -58,7 +64,7 @@ export async function clicsDeLanding(opts: { url?: string | null; dias?: number;
   const botones = agruparPorBoton(crudas);
 
   const base: ClicsDeLanding = {
-    url: urlPedida, dias, medido: true, clics, personas, botones, recortado,
+    url: urlPedida, dias, desde, hasta, medido: true, clics, personas, botones, recortado,
     nota: clics === 0
       ? 'Cero clics medidos de verdad en el período: la consulta corrió bien y no hubo ninguno.'
       : `Las horas van en UTC (terminan en Z): la zona la pone quien lo lee.${recortado ? ` Se leyeron las ${TOPE_FILAS} más nuevas: hay clics más viejos sin contar, achicá «dias».` : ''}`,

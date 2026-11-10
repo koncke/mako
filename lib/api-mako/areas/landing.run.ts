@@ -39,6 +39,8 @@ import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
 import { clicsDeLanding } from '@/lib/landing-clics-server';
+import { retencionDeLanding } from '@/lib/landing-retencion-server';
+import { periodoDeFechas } from '@/lib/landing-retencion';
 import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
@@ -366,13 +368,26 @@ export const RUNNERS: Runners = {
   // Ticket #66: los clics estaban guardados desde la migración 0133 y no había cómo pedirlos.
   listar_clics_landing: {
     leer: async (input) => {
+      const conFechas = str(input, 'desde') || str(input, 'hasta');
+      const p = conFechas ? periodoDeFechas({ desde: str(input, 'desde'), hasta: str(input, 'hasta') }, Date.now()) : null;
+      if (p && 'error' in p) return errorLectura(p.error);
       const r = await clicsDeLanding({
         url: str(input, 'url'),
         dias: num(input, 'dias') ?? undefined,
+        ...(p ? { desde: p.desde, hasta: p.hasta } : {}),
         boton: str(input, 'boton'),
         limite: num(input, 'limite') ?? undefined,
       });
       return json(r);
+    },
+  },
+
+  // Ticket #74: la retención de cada video de una landing, por minuto (los eventos ya estaban).
+  ver_retencion_video_landing: {
+    leer: async (input) => {
+      const p = periodoDeFechas({ dias: num(input, 'dias'), desde: str(input, 'desde'), hasta: str(input, 'hasta') }, Date.now());
+      if ('error' in p) return errorLectura(p.error);
+      return json(await retencionDeLanding({ url: str(input, 'url') ?? '', desde: p.desde, hasta: p.hasta, video: str(input, 'video') }));
     },
   },
 

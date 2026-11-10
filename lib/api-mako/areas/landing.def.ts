@@ -170,11 +170,30 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Cuántas veces tocaron cada enlace de una página y cuándo, según el Pixel: clics y PERSONAS distintas, con el primero y el último. Las pruebas del Pixel no cuentan. ⚠️ Con «medido» en false la consulta falló: ese cero NO es un cero.',
     parametros: [
       { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing (con o sin https). Sin ella, todas las del negocio.' },
-      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás. Por defecto 30.' },
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás. Por defecto 30. Se ignora si vienen desde o hasta.' },
+      { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'Inicio, inclusive, YYYY-MM-DD (UTC).', ejemplo: '2026-11-01' },
+      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'Fin, inclusive, YYYY-MM-DD (UTC). Sin él, hoy.', ejemplo: '2026-11-10' },
       { nombre: 'boton', tipo: 'string', max: 300, descripcion: 'Un pedazo del texto del botón o de su link. Con esto viene el historial.' },
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'Cuántos clics del historial, los más nuevos primero. Por defecto 100.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
+  },
+  // ⚠️ LA RETENCIÓN POR MINUTO NO SE PODÍA PEDIR (ticket #74, 10/11/2026). Los eventos estaban (lib/vsl-retencion.ts
+  // dibuja la curva de 5 % en el VSL Analyst) y `ver_comportamiento_landing` sólo da el 50 % y el final. Sólo por HTTP, a
+  // propósito: es lo que pidió el equipo de Mauricio para su Codex, y una operación nueva en el chat le saca lugar a las
+  // que ya estaban en el tope de herramientas (ver `listar_clics_landing`).
+  {
+    id: 'ver_retencion_video_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Retención del video de una landing, por minuto',
+    descripcion: 'La retención de CADA video de una landing, minuto a minuto y en cortes de 5 %, según el Pixel: de las personas con avance medido, cuántas llegaron a cada minuto. Viene con todos y sólo con los que le dieron play ellos (el autoplay aparte). Las pruebas del Pixel no cuentan. Con «medido» en false la consulta falló: ese cero NO es un cero.',
+    parametros: [
+      { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La landing (con o sin https; se ignoran los parámetros y el www).' },
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás desde hoy. Por defecto 30. Se ignora si vienen desde o hasta.' },
+      { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'Inicio, inclusive, YYYY-MM-DD (UTC).', ejemplo: '2026-11-01' },
+      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'Fin, inclusive, YYYY-MM-DD (UTC). Sin él, hoy.', ejemplo: '2026-11-10' },
+      { nombre: 'video', tipo: 'string', max: 200, descripcion: 'El id de un video (video_id de la respuesta). Sin él, todos los de la página.' },
+    ],
+    salida: 'json', canales: ['http'], costo: 'gratis', gating: G_ANALYST, lenta: true,
   },
   // ⚠️ LAS GRABACIONES SON DE MAKO desde el 06/10/2026. Estas dos operaciones
   // devolvían un link al panel de Microsoft Clarity; ahora leen la grabación
