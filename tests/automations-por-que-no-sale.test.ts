@@ -69,6 +69,10 @@ test('los demás frenos del motor, en su orden', () => {
   assert.equal(porQueNoSale(fila({ hayLinea: false }), adentro)?.texto, 'No sale: el negocio no tiene una línea de WhatsApp.');
   // El envío apagado no frena un email ni una acción.
   assert.equal(porQueNoSale(fila({ canal: 'email' }), { ...adentro, whatsappPrendido: false }), null);
+  // Y el del EMAIL (10/11/2026): apagado frena sólo al email, y sin saberlo (no se pudo leer) no se afirma nada.
+  assert.equal(porQueNoSale(fila({ canal: 'email' }), { ...adentro, emailPrendido: false })?.corto, 'Email apagado');
+  assert.equal(porQueNoSale(fila({ canal: 'email' }), adentro), null, 'sin el dato del email no se inventa un freno');
+  assert.equal(porQueNoSale(fila(), { ...adentro, emailPrendido: false }), null, 'el email apagado no frena un WhatsApp');
   // Sin «Misma persona» (23/10/2026): un WhatsApp de hace un minuto a ese lead ya no lo frena ni lo dice; adentro del horario y
   // sin tope, sale en la próxima vuelta.
   assert.equal(porQueNoSale({ ...fila(), mismaPersona: { horas: 20, ultimoMs: Date.parse('2026-10-23T17:59:00Z') } } as never, adentro), null, '«Misma persona» volvió a frenar');

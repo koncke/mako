@@ -114,7 +114,7 @@ export type DepsCrearIA = {
   /** Inserta la fila nueva, PAUSADA y vacía, con el nombre (normalizado ahí). */
   insertar: (nombre: string | null) => Promise<{ id: number; nombre: string }>;
   borrar: (id: number) => Promise<void>;
-  pausar: (id: number) => Promise<void>;
+  pausar: (id: number) => Promise<unknown>;
   guardarPasos: (id: number, pasos: PasoGrafo[]) => Promise<void>;
   /** El motivo si el error de guardar es de los pasos (`PasosInvalidosError`); null = otra cosa. */
   motivoDePasos: (e: unknown) => string | null;

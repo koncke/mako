@@ -8,7 +8,7 @@
 // («No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale hoy 9:00.»). Nunca silencio.
 //
 // Puro, con las MISMAS reglas que el motor (lib/nutricion.ts, `procesarEnvios`) y en su orden: la pausa, el envío de
-// WhatsApp del negocio, la línea, el horario de la automatización y los topes de la línea. Sin nada que
+// WhatsApp (y desde el 10/11/2026 el de email) del negocio, la línea, el horario de la automatización y los topes de la línea. Sin nada que
 // lo frene devuelve null: sale en la próxima vuelta del motor (el tick de cada minuto). Lo usan la ficha y la tarjeta del
 // CRM (lib/automatizaciones-del-lead.ts), el historial del lead al inscribirse y la tarjeta del paso en el lienzo.
 // =============================================================================
@@ -27,6 +27,11 @@ export type ContextoDelEnvio = {
   tz: string | null;
   /** El envío de WhatsApp del negocio (lib/envio-flags.ts). */
   whatsappPrendido: boolean;
+  /**
+   * El envío de EMAIL del negocio (10/11/2026). Ausente = no se leyó, y no se afirma nada: el motor marca cada email «canal email
+   * apagado» y lo reintenta cada 24 h, y hasta acá eso no lo decía nadie.
+   */
+  emailPrendido?: boolean;
   /**
    * Lo que salió por WhatsApp en 24 h y en esta hora, con sus topes (lib/limites-envio.ts). `dia` es el de HOY, con la rampa de la
    * línea (5/11/2026, `topeDeHoyDelNegocio`): el mismo que usa el motor. `diaLinea`, el de la línea, si la rampa todavía no llegó.
@@ -86,6 +91,7 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
   // decir «Sale mañana 9:00» de algo que tampoco va a salir a esa hora es mentir.
   if (wa && !c.whatsappPrendido) return freno('No sale: el envío de WhatsApp del negocio está apagado.', 'WhatsApp apagado');
   if (wa && !f.hayLinea) return freno('No sale: el negocio no tiene una línea de WhatsApp.', 'Sin línea de WhatsApp');
+  if (f.canal === 'email' && c.emailPrendido === false) return freno('No sale: el envío de email del negocio está apagado. Se prende en Email › Envío real, o al volver a activar la automatización.', 'Email apagado');
 
   const horario = f.correFueraDeHorario ? null : f.horario;
   /** El primer momento desde `ms` en que el horario deja mandar (sin horario, `ms`). */

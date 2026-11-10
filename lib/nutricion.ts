@@ -758,7 +758,10 @@ async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolea
  * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
  * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
  */
-export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean; ws?: number } = {}): Promise<void> {
+/** Lo que activar prendió solo (el envío de WhatsApp y el de email del negocio): quien responde por la API lo dice. */
+export type PrendidoAlActivar = { whatsapp: boolean; email: boolean };
+
+export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean; ws?: number } = {}): Promise<{ prendio: PrendidoAlActivar }> {
   const supabase = (await getTenantDb());
   // ⚠️ EL TOPE DEL PLAN, ACÁ Y NO EN CADA PUERTA (23/10/2026, el chat de las tabs): «hasta 3 activas» del Esencial, antes de
   // validar nada. Sólo al Esencial de la pasarela; volver a prender una prendida no cuenta (lib/tope-automations.ts). `ws`:
@@ -797,22 +800,38 @@ export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqu
       .update({ proximo_envio_at: ahora, updated_at: ahora })
       .eq('secuencia_id', id).in('estado', ['activa', 'respondio']).lt('proximo_envio_at', ahora);
     if (eV) console.error(`[nutricion] reactivar la ${id}: lo vencido durante la pausa sale en la corrida de la hora (${eV.message})`);
-    // ACTIVAR PRENDE EL ENVÍO DE WHATSAPP DEL NEGOCIO (17/10/2026, #851, decisión de Martín: lib/envio-al-activar.ts).
-    // Un error acá no deshace la activación: el cartel de /automations dice que el envío está apagado.
-    await prenderEnvioAlActivar(supabase, id).catch((e) => console.error(`[nutricion] activar la ${id}: no pude prender el envío de WhatsApp (${e instanceof Error ? e.message : String(e)})`));
+    // ACTIVAR PRENDE EL ENVÍO DE WHATSAPP DEL NEGOCIO (17/10/2026, #851, decisión de Martín: lib/envio-al-activar.ts), y
+    // desde el 10/11/2026 también el de EMAIL, con la misma regla («activar ya es el consentimiento de mandar»). Un error acá
+    // no deshace la activación: cada lead y cada tarjeta dicen «WhatsApp apagado» o «Email apagado» (lib/por-que-no-sale.ts).
+    const prendio = await prenderEnvioAlActivar(supabase, id).catch((e) => {
+      console.error(`[nutricion] activar la ${id}: no pude prender el envío (${e instanceof Error ? e.message : String(e)})`);
+      return { whatsapp: false, email: false };
+    });
+    return { prendio };
   }
+  return { prendio: { whatsapp: false, email: false } };
 }
 
-/** Si la automatización le escribe al lead por WhatsApp y el envío del negocio está apagado, lo prende. Devuelve si lo prendió. */
-async function prenderEnvioAlActivar(supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number): Promise<boolean> {
+/**
+ * Si la automatización le escribe al lead por WhatsApp (o por EMAIL, desde el 10/11/2026) y el envío de ese canal del negocio
+ * está apagado, lo prende (lib/envio-al-activar.ts). Devuelve qué prendió.
+ */
+async function prenderEnvioAlActivar(supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number): Promise<PrendidoAlActivar> {
   const { data, error } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
   const pasos = Array.isArray((data as { pasos?: unknown } | null)?.pasos) ? ((data as { pasos: PasoGrafo[] }).pasos) : [];
-  const [{ leEscribeAlLeadPorWhatsapp }, { envioWhatsappHabilitado, setEnvioWhatsapp }] = await Promise.all([import('./envio-al-activar'), import('./envio-flags')]);
-  if (!leEscribeAlLeadPorWhatsapp(pasos) || (await envioWhatsappHabilitado())) return false;
-  await setEnvioWhatsapp(true);
-  console.log(`[nutricion] activar la ${id}: se prendió el envío de WhatsApp del negocio (decisión del 17/10/2026)`);
-  return true;
+  const [{ enviosQuePrender }, { envioWhatsappHabilitado, setEnvioWhatsapp, envioEmailHabilitado, setEnvioEmail }] = await Promise.all([import('./envio-al-activar'), import('./envio-flags')]);
+  const [whatsapp, email] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
+  const prender = enviosQuePrender(pasos, { whatsapp, email });
+  if (prender.whatsapp) {
+    await setEnvioWhatsapp(true);
+    console.log(`[nutricion] activar la ${id}: se prendió el envío de WhatsApp del negocio (decisión del 17/10/2026)`);
+  }
+  if (prender.email) {
+    await setEnvioEmail(true);
+    console.log(`[nutricion] activar la ${id}: se prendió el envío de email del negocio (la decisión del 17/10/2026, también para el email)`);
+  }
+  return prender;
 }
 
 /**

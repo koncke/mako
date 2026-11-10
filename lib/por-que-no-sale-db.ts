@@ -19,7 +19,7 @@ import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from './limites-
 import { horarioDeLaAutomatizacion } from './config-automatizacion';
 import { configsDelNegocio } from './config-automatizacion-db';
 import { zonaDelNegocioEstricta } from './timezone';
-import { envioWhatsappHabilitado } from './envio-flags';
+import { envioEmailHabilitado, envioWhatsappHabilitado } from './envio-flags';
 import { listarLineas } from './evolution';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
@@ -47,7 +47,7 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
   try {
     const ws = await getWorkspaceActual();
     if (ws == null) return undefined;
-    const [hNeg, limitesCrudos, configs, tz, waOn, lineas, uso] = await Promise.all([
+    const [hNeg, limitesCrudos, configs, tz, waOn, lineas, uso, emailOn] = await Promise.all([
       getSettingEstricto(KEY_HORARIO_ENVIO).then(horarioVigente),
       getSettingEstricto(KEY_LIMITES_ENVIO),
       configsDelNegocio(),
@@ -57,12 +57,14 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
       // Los MISMOS contadores que el motor (lo que salió en 24 h y en esta hora). Import dinámico: lib/nutricion.ts es grande
       // y este módulo lo carga el CRM.
       import('./nutricion').then((m) => m.usoDelCupo()),
+      // El de email (10/11/2026): el mismo interruptor que mira el motor. Sin poder leerlo, no se afirma nada.
+      envioEmailHabilitado().catch(() => undefined),
     ]);
     const limites = limitesVigentes(limitesCrudos, limitesDeFabrica(process.env));
     // El tope de HOY, con la rampa de la línea (5/11/2026): el mismo que el motor, con el mismo piso si no se puede leer.
     const diaHoy = await import('./nutricion').then((m) => m.topeDeHoyDelNegocio('whatsapp', limites.wa));
     const ctx: ContextoDelEnvio = {
-      ahoraMs, tz, whatsappPrendido: waOn,
+      ahoraMs, tz, whatsappPrendido: waOn, ...(emailOn === undefined ? {} : { emailPrendido: emailOn }),
       linea: { dia: diaHoy, usadoDia: uso.waDia, hora: limites.wa.hora, usadoHora: uso.waHora, ...(diaHoy < limites.wa.dia ? { diaLinea: limites.wa.dia } : {}) },
     };
 

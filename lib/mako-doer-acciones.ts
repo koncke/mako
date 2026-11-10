@@ -41,6 +41,7 @@ import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { crearPropuesta } from '@/lib/plan-propuesta';
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 import { linkApp, APP_BASE_URL as APP_URL } from '@/lib/app-url';
+import { textoDeLoQuePrendio } from '@/lib/envio-al-activar';
 const PRIOS: Prioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioOk = (p: unknown): Prioridad => (PRIOS.includes(p as Prioridad) ? (p as Prioridad) : 'media');
 
@@ -164,15 +165,19 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // se aplica en el acto y lo que vuelve es ESTE resumen, no el de la propuesta. Se cuenta ANTES de prenderla (después,
         // los que entran ya no son «los que entrarían»). No poder contarlo no frena.
         const ritmo = activa ? await ritmoAlActivar(id).catch(() => null) : null;
+        let prendio = { whatsapp: false, email: false };
         try {
           // `ws`: MaKo por WhatsApp corre sin sesión; el tope del plan lo pregunta `setSecuenciaActiva` (TopeDelPlanError).
-          await setSecuenciaActiva(id, activa, { aunqueDuplique: payload.aunqueDuplique === true, ws });
+          const activacion = await setSecuenciaActiva(id, activa, { aunqueDuplique: payload.aunqueDuplique === true, ws });
+          prendio = activacion.prendio;
         } catch (e) {
           if (e instanceof TopeDelPlanError) return { ok: false, resumen: `No activé la secuencia #${id}: ${e.message}` };
           if (e instanceof DuplicadaError) return { ok: false, resumen: `No activé la secuencia #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
           throw e;
         }
-        return { ok: true, resumen: `Secuencia de nutrición #${id} ${activa ? 'activada' : 'pausada'}.${ritmo ? ` ${textoEnteroDelAviso(ritmo)}` : ''}` };
+        // Lo que activar prendió solo (#851 y, desde el 10/11/2026, el email) se DICE: por la API no hay otra pantalla que lo muestre.
+        const envio = textoDeLoQuePrendio(prendio);
+        return { ok: true, resumen: `Secuencia de nutrición #${id} ${activa ? 'activada' : 'pausada'}.${envio ? ` ${envio}` : ''}${ritmo ? ` ${textoEnteroDelAviso(ritmo)}` : ''}` };
       }
       case 'meta_nombre':
       case 'meta_presupuesto':
