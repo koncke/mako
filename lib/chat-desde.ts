@@ -99,6 +99,36 @@ export function sinDesde(content: string): { desde: string | null; texto: string
   return m ? { desde: m[1], texto: content.slice(m[0].length) } : { desde: null, texto: content };
 }
 
+/**
+ * Las tabs cuya charla con MaKo ES la pantalla (10/11/2026): el Marketing CoPilot entrevista al negocio y arma su estrategia en
+ * el chat de la tab, con el motor del Cerebro. Martín vio en el panel de MaKo de Image «desde Marketing CoPilot: Volvamos a
+ * empezar» y la respuesta del CoPilot («¿Cuánto te deja una venta, en dólares?»): la conversación es UNA y cada tab la dibujaba
+ * entera. Lo de estas tabs es SU hilo: no se dibuja en las otras tabs, ni el modelo lo lee como historial desde otra. Y en la
+ * tab, sólo lo suyo. El Ops Center (sin tab) sigue viendo todo. Igual a `ORIGEN_COPILOTO` (lib/media-buyer/copiloto.ts; test).
+ */
+export const TABS_CON_HILO_PROPIO: readonly string[] = ['Marketing CoPilot'];
+
+/** «CRM › Ana» → «CRM». */
+const tabDeEtiqueta = (e: string | null | undefined): string | null => (e ? e.split(' › ')[0].trim() || null : null);
+
+/**
+ * Lo de la conversación que va en la tab `tab` (lo que se dibuja y lo que el modelo lee de historial). Un turno es el mensaje de
+ * la persona y lo que le siguió hasta el próximo suyo; es de la tab desde la que escribió. En una tab con hilo propio, sólo sus
+ * turnos; en otra, todo menos los turnos de una tab con hilo propio. Lo de antes del primer mensaje de la persona (una
+ * apertura) es del Cerebro: va en las tabs comunes. Sin tab (el Ops Center), todo.
+ */
+export function delHiloDeLaTab<T>(items: readonly T[], tab: string | null | undefined, origen: (x: T) => { dePersona: boolean; desde: string | null }): T[] {
+  if (!tab) return [...items];
+  const propia = TABS_CON_HILO_PROPIO.includes(tab);
+  let deTurno: string | null = null;
+  return items.filter((x) => {
+    const o = origen(x);
+    if (o.dePersona) deTurno = tabDeEtiqueta(o.desde);
+    if (propia) return deTurno === tab;
+    return !(deTurno && deTurno !== tab && TABS_CON_HILO_PROPIO.includes(deTurno));
+  });
+}
+
 /** Lo que se antepone al texto que se CLASIFICA: «movelo a Ganado» solo no dice que es un lead. */
 export const pistaDesde = (d: Desde | null): string => (d?.entidad ? `${ENTIDADES[d.entidad.tipo].nombre} «${d.entidad.titulo}»: ` : '');
 

@@ -29,14 +29,15 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { CSS_OFFER } from '@/app/offer/estilos';
-import { itemsDeOffer, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { itemsDeOffer, origenDelItem, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { delHiloDeLaTab } from '@/lib/chat-desde';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { queEnsena } from '@/lib/media-buyer/copiloto-referentes';
 import type { ElegidoChat } from '@/lib/chat-mako-reglas';
 import {
-  RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
+  ORIGEN_COPILOTO, RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
   nombreDelReferente, pasoDeCopiloto, pasosRespondidos, plano, preguntaDeCopiloto, propuestaDe, textoDeFuera, volverUnPaso,
   PREGUNTAS_DE_DATO, esPregunta, fichaDelNegocio, leerDato, opcionesDeCopiloto,
   type ClaveDato, type IdFunnel, type PasoCopiloto, type PerfilCopiloto,
@@ -310,7 +311,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const { items, listaEn } = useMemo(() => {
     const guion = itemsDeOffer(mensajesDeCopiloto(p, nombre)).filter((m) => m.k !== 'bloque');
     // Lo del motor, nuevo, partido por cada mensaje que salió de acá (en orden: el motor manda de a uno).
-    const propios = motor && base.current ? motor.items.filter((x) => !base.current!.has(x.id)) : [];
+    // Y sólo los turnos de esta tab (lib/chat-desde.ts → delHiloDeLaTab): lo que llega de otra mientras se charla acá no es de acá.
+    const propios = motor && base.current ? delHiloDeLaTab(motor.items, ORIGEN_COPILOTO, origenDelItem).filter((x) => !base.current!.has(x.id)) : [];
     const grupos: ItemHilo[][] = [];
     for (const x of propios) {
       if (x.k === 'msg' && x.role === 'user') grupos.push([]);

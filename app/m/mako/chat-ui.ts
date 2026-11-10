@@ -117,6 +117,10 @@ export type ItemHilo =
   /** `deTarjeta`: el G6 de un trabajo largo que lanzó esa tarjeta (1.11). */
   | { k: 'bloque'; id: string; b: Bloque; respondida?: string; deTarjeta?: number };
 
+/** De quién es un item del hilo, para `delHiloDeLaTab` (lib/chat-desde.ts): el mensaje de la persona lleva su chip «desde». */
+export const origenDelItem = (x: ItemHilo): { dePersona: boolean; desde: string | null } =>
+  ({ dePersona: x.k === 'msg' && x.role === 'user', desde: x.k === 'msg' ? x.desde ?? null : null });
+
 /** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor: el
  *  modal que abre es el de la que el negocio ya eligió (`iaParaConectar`, lib/mako-turno-app-reglas.ts). */
 const SERVICIOS_DE_IA: ReadonlySet<string> = new Set(['anthropic', 'openai', 'gemini', 'groq']);
