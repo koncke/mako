@@ -30,6 +30,17 @@ Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueb
 - **El hilo del chat lo firmaba la criatura «Video Editor»** (un triángulo rosa) debajo de la cabecera con la estrella de MaKo.
   La regla de Martín del 21/10 («los iconos de las criaturas siempre debe ser el icono de MaKo») había llegado a la cabecera
   (29/10) y no al hilo. **El Image Editor tiene lo mismo** (`app/image-editor/mako/chat/PanelMakoIA.tsx`, `QUIEN`): sin hacer.
+- **Las cabeceras de pista quedaban una pista más arriba que su contenido en CADA apertura** (tres pistas, ventana de 674 px):
+  `useInitialScrollBottom` baja las pistas al fondo (scrollTop 51) y copia ese valor a las cabeceras, que en ese momento
+  medían menos y lo recortaban a 7. Nada volvía a copiarlo hasta que alguien movía la rueda (la sincronización corre en
+  `onScroll` y en la rueda, no cuando cambia el tamaño). **Toda caja que sigue el scroll de otra se realinea también al
+  cambiar de tamaño** (un `ResizeObserver` sobre las dos cajas y lo que tienen adentro, timeline/components/index.tsx).
+- **En «Edición automática» el rol de cada agente se leía «S…», «E…»**: en 212 px, la etiqueta, una barra de 48 px y un estado
+  de 86 px FIJOS le dejaban 8 px al rol. Un ancho fijo para el texto más largo («nada que hacer») se paga en todas las filas.
+  Y con la ventana baja el cuerpo del panel se desbordaba DEBAJO del pie («Editar con MaKo» tapaba el registro): un cuerpo
+  `flex-1 min-h-0` sin `overflow` no se achica, se sale.
+- **El teléfono no se pudo mirar desde acá**: la ventana de la extensión está maximizada (`resize_window` contesta «resized» y
+  no cambia), la app no se deja enmarcar en un iframe y `/m/…` con la computadora redirige al escritorio.
 - **SIN HACER — la lista de proyectos es la de ESTE navegador**: en otro Chrome dice «Todavía no hay ninguno» aunque ws9 tenga 6
   proyectos en `video_editor_proyectos`. El proyecto vive en IndexedDB/OPFS del navegador donde se editó (los medios también);
   la base sólo tiene la copia de lectura (`vista`). Que se vean en otra computadora es pasar los proyectos y sus medios al
