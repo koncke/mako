@@ -22,8 +22,13 @@ test('la primera entrada: quien nunca operó el Media Buyer o tiene la cuenta va
     assert.match(src, /!copilotoListo\(perfil\) && \(nuncaOpero \|\| cuentaVacia\)/, `${f}: la condición cambió`);
     assert.match(src, /<PrimeraEntrada /, f);
     assert.match(src, /conCampanas\(elegido\.id, perfil\.presupuestoMes\)/, `${f}: un funnel sin anuncios no ve Campañas`);
-    assert.match(src, /<SinAnuncios perfil=\{perfil\} \/>/, f);
+    // La computadora, en dos columnas (MaKo y el panel del funnel, 9/11/2026); el teléfono, con su hoja de MaKo.
+    assert.match(src, f === 'app/ads-manager/page.tsx' ? /<EstrategiaCopiloto perfil=\{perfil\} \/>/ : /<SinAnuncios perfil=\{perfil\} \/>/, f);
   }
+  // Las dos pantallas del CoPilot en la computadora dibujan el panel del funnel, y la charla lo deja usar (datos, otro funnel, usar).
+  const pe = sinComentarios(leer('app/ads-manager/PrimeraEntrada.tsx'));
+  assert.match(pe, /<PanelDelFunnel perfil=\{p\} modo="charla"[^>]*onPreguntar=\{preguntarDato\} onFunnel=\{cambiarFunnel\} onUsar=\{usarElFunnel\}/);
+  assert.match(sinComentarios(leer('app/ads-manager/PlanDelCopiloto.tsx')), /<PanelDelFunnel perfil=\{perfil\} modo="listo" \/>/);
   assert.match(leer('app/ads-manager/page.tsx'), /sp\.estrategia === '1'/, '«Cambiar mi estrategia» reabre la charla');
   // En el teléfono también (6/11/2026): el link es el mismo (/ads-manager?estrategia=1) y el desvío lo deja viajar.
   const m = sinComentarios(leer('app/m/ads/page.tsx'));

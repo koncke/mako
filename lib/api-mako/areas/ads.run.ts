@@ -33,7 +33,10 @@ import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
-import { sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
+import {
+  sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision,
+  fichaDelNegocio, compararFunnels, cuentaDe, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
+} from '@/lib/media-buyer/copiloto';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
 import { conjuntosDe as conjuntosDeMB, generadosDelNegocio as generadosDelNegocioMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
@@ -1452,11 +1455,16 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const perfil = await leerPerfilCopiloto(ctx.ws);
       const f = funnelElegido(perfil);
-      const decide = perfil.ticket != null && perfil.llamadas ? { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas } : null;
+      // Sólo con lo que dijo (9/11/2026): antes un presupuesto sin contestar se leía como 0 y todo funnel con anuncios «no le servía».
+      const decide = datosDeDecision(perfil);
+      const ficha = fichaDelNegocio(perfil);
       return J({
         perfil, paso: pasoDeCopiloto(perfil), funnel: f ? { id: f.id, nombre: f.nombre } : null,
         secciones: seccionesDe(f?.id, perfil.presupuestoMes), propuesta: propuestaDe(perfil),
         recomendado: decide ? recomendarFunnel(decide) : null, veredicto: f && decide ? evaluarFunnel(f.id, decide) : null,
+        sabe: ficha.sabe, falta: ficha.falta.map((d) => ({ dato: d.clave, pregunta: d.pregunta, imprescindible: d.imprescindible })),
+        funnels: decide ? compararFunnels(perfil).map((c) => ({ id: c.funnel.id, sirve: c.sirve, motivo: c.motivo, pide: c.pide, tarda: c.tarda })) : null,
+        cuenta: cuentaDe(perfil),
       });
     },
   },
@@ -1464,15 +1472,29 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const actual = await leerPerfilCopiloto(ctx.ws);
       const cambio: Partial<PerfilCopiloto> = {};
-      for (const k of ['funnel', 'referente', 'llamadas', 'objetivo', 'formato'] as const) { const v = str(input, k); if (v) (cambio as Record<string, unknown>)[k] = v; }
-      for (const k of ['ticket', 'presupuestoMes', 'ritmo'] as const) { const v = num(input, k); if (v != null) (cambio as Record<string, unknown>)[k] = v; }
-      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para guardar.', faltan: ['funnel', 'ticket', 'presupuestoMes', 'llamadas'] };
+      for (const k of ['funnel', 'referente', 'llamadas', 'objetivo', 'formato', 'vende', 'casos', 'pais'] as const) { const v = str(input, k); if (v) (cambio as Record<string, unknown>)[k] = v; }
+      for (const k of ['ticket', 'presupuestoMes', 'ritmo', 'meta', 'ventasMes', 'margen', 'lista', 'horas'] as const) { const v = num(input, k); if (v != null) (cambio as Record<string, unknown>)[k] = v; }
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para guardar.', faltan: ['funnel', 'ticket', 'presupuestoMes', 'llamadas', 'meta'] };
       const nuevo = sanearPerfil({ ...actual, ...cambio, entrada: actual.entrada ?? (cambio.referente ? 'referente' : 'funnel') });
       // Cambiar de funnel borra el aviso de antes: el nuevo se evalúa de cero.
       const final = cambio.funnel || cambio.referente ? aplicarPerfil(nuevo, { ajuste: undefined, aceptado: undefined }) : nuevo;
       const f = funnelElegido(final);
-      if (!f) return { error: 'Falta el funnel o un referente (funnel: vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, youtube u organico).', faltan: ['funnel'] };
-      return { payload: { perfil: final }, resumen: `Marketing CoPilot: ${f.nombre}${final.presupuestoMes != null ? `, ${final.presupuestoMes} dólares al mes` : ''}${final.ticket != null ? `, venta de ${final.ticket}` : ''}.` };
+      // Un DATO del negocio (la meta, el margen, la lista…) se guarda aunque todavía no haya funnel (9/11/2026): es lo que el agente
+      // descubre charlando y lo que dibuja el panel. Un cambio de funnel o de referente, sí, tiene que dejar uno.
+      if (!f && (cambio.funnel || cambio.referente)) return { error: 'Falta el funnel o un referente (funnel: vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, email, youtube u organico).', faltan: ['funnel'] };
+      const datos = [
+        final.vende && cambio.vende ? TIPOS_DE_NEGOCIO[final.vende].toLowerCase() : null,
+        cambio.ticket != null ? `venta de ${final.ticket} dólares` : null,
+        cambio.presupuestoMes != null ? `${final.presupuestoMes} dólares al mes en anuncios` : null,
+        cambio.meta != null ? `meta de ${final.meta} por mes` : null,
+        cambio.ventasMes != null ? `hoy ${final.ventasMes} por mes` : null,
+        cambio.margen != null ? `margen de ${final.margen}%` : null,
+        cambio.lista != null ? `lista de ${final.lista} contactos` : null,
+        cambio.casos ? (final.casos === 'si' ? 'con casos reales' : 'sin casos todavía') : null,
+        cambio.pais ? `vende en ${final.pais}` : null,
+        cambio.horas != null ? `${final.horas} horas por semana para contenido` : null,
+      ].filter(Boolean);
+      return { payload: { perfil: final }, resumen: `Marketing CoPilot: ${[f && (cambio.funnel || cambio.referente || !datos.length) ? f.nombre : null, ...datos].filter(Boolean).join(', ') || 'guardar lo que dijiste'}.` };
     },
     ejecutar: async (payload, ctx) => {
       await guardarPerfilCopiloto(ctx.ws, sanearPerfil(payload.perfil));

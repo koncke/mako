@@ -67,9 +67,12 @@ test('cada funnel que se ofrece con alguien tiene un marco en su ficha (el agent
     for (const f of q.funnels) assert.match(marcos(id), MARCO_DE[f], `${id} → ${f}: su ficha no tiene un marco de eso; va en la nota, no en funnels`);
   }
   // La ficha de cada funnel es de alguien que lo enseña.
-  for (const f of FUNNELS) assert.ok(ensenaElFunnel(FICHA_POR_FUNNEL[f.id], f.id), `${f.id}: ${FICHA_POR_FUNNEL[f.id]} no lo enseña`);
-  // Y cada funnel tiene a alguien.
-  for (const f of FUNNELS) assert.ok(quienesEnsenan(f.id).length > 0, `${f.id}: nadie lo enseña`);
+  // Email no tiene ficha (null): ningún curso lo enseña como funnel propio y el agente usa su conocimiento de canales.
+  for (const f of FUNNELS) if (FICHA_POR_FUNNEL[f.id] !== null) assert.ok(ensenaElFunnel(FICHA_POR_FUNNEL[f.id], f.id), `${f.id}: ${FICHA_POR_FUNNEL[f.id]} no lo enseña`);
+  assert.equal(FICHA_POR_FUNNEL.email, null);
+  // Y cada funnel tiene a alguien, salvo el email a la lista (9/11/2026): no se le atribuye a nadie lo que su curso no enseña.
+  for (const f of FUNNELS) if (f.id !== 'email') assert.ok(quienesEnsenan(f.id).length > 0, `${f.id}: nadie lo enseña`);
+  assert.deepEqual(quienesEnsenan('email'), [], 'si algún día un referente lo enseña, va en QUE_ENSENA con su marco y su ficha');
 });
 
 test('Doglio, medido: Instagram con historias (lo que dijo Martín) y también webinars (siete clases de su curso)', () => {

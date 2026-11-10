@@ -6409,7 +6409,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/copiloto` — Elegir o cambiar el funnel del Marketing CoPilot
 
-PROPONE guardar lo que el negocio decidió en el Marketing CoPilot: el funnel (vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, youtube u organico) o un referente, el ticket, el presupuesto mensual en dólares (0 si no hay), quién toma las llamadas y, si es orgánico o YouTube, el objetivo, el ritmo y el formato. Sólo se cambia lo que se pasa. No toca la cuenta de Meta ni gasta nada.
+PROPONE guardar lo que el negocio decidió o contó en el Marketing CoPilot: el funnel (vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, email, youtube u organico) o un referente, el ticket, el presupuesto mensual en dólares (0 si no hay), quién toma las llamadas, si es orgánico o YouTube el objetivo, el ritmo y el formato, y los datos del negocio que se descubren charlando (qué vende, la meta y las ventas de hoy por mes, el margen de una tienda, si tiene casos, el país, la lista de email, las horas para contenido). Sólo se cambia lo que se pasa; un dato se guarda aunque todavía no haya funnel. Es lo que muestra su panel. No toca la cuenta de Meta ni gasta nada.
 
 - **Ruta por operación:** `POST /api/v1/ads/copiloto_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6424,7 +6424,7 @@ PROPONE guardar lo que el negocio decidió en el Marketing CoPilot: el funnel (v
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `funnel` | string (vsl-llamada \\| mensajes \\| formulario \\| carrito \\| webinar \\| lead-magnet \\| youtube \\| organico) | no | el funnel que se arma. |
+| `funnel` | string (vsl-llamada \\| mensajes \\| formulario \\| carrito \\| webinar \\| lead-magnet \\| email \\| youtube \\| organico) | no | el funnel que se arma. |
 | `referente` | string | no | el id de un referente de MaKo que inspira la estrategia (ver_plan_funnel lo nombra), si sigue el de uno. |
 | `ticket` | number | no | lo que deja una venta, en dólares. |
 | `presupuestoMes` | number | no | lo que puede poner en anuncios por mes, en dólares (0 = nada por ahora). |
@@ -6432,6 +6432,14 @@ PROPONE guardar lo que el negocio decidió en el Marketing CoPilot: el funnel (v
 | `objetivo` | string (viralidad \\| ventas \\| mixto) | no | sólo en orgánico: qué busca con el contenido. |
 | `ritmo` | number | no | piezas (o videos en YouTube) por semana. |
 | `formato` | string (reels \\| stories \\| carruseles \\| mezcla \\| largos \\| shorts) | no | el formato con el que empieza. |
+| `vende` | string (servicio \\| curso \\| tienda \\| local) | no | qué vende: un servicio, un curso o programa, productos en una tienda online, o un negocio local. |
+| `meta` | number | no | cuántos clientes o pedidos quiere por mes. |
+| `ventasMes` | number | no | cuántos consigue hoy por mes. |
+| `margen` | number | no | en una tienda: el % de cada venta que le queda. |
+| `casos` | string (si \\| no) | no | si tiene casos reales de clientes para mostrar. |
+| `pais` | string | no | el país (o países) donde vende. |
+| `lista` | number | no | contactos en su lista de email (0 si no tiene). |
+| `horas` | number | no | horas por semana para hacer contenido. |
 
 ```bash
 curl -L \

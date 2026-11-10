@@ -423,3 +423,120 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .aa-pie-mes[data-tono='bien'] { color: var(--good); }
 .aa-pie-mes[data-tono='mal'] { color: var(--bad); }
 .aa-pagina > .aa-orden { margin-bottom: 4px; }
+
+/* ── 7. El CoPilot en dos columnas: el chat a la izquierda y el funnel que se arma a la derecha (9/11/2026) ──
+   Martín: «el chat es primordial… pero me gustaría que tenga algo más». El chat es la tarjeta de MaKo a la izquierda, como en Create
+   (AGENTS.md, «Una tab de CREATE es UNA pantalla»), y el panel (PanelDelFunnel.tsx) se dibuja con lo guardado. Sin fondo propio: las
+   dos son tarjetas sobre var(--bg). Cuando no entran las dos (la caja mide menos de 900 px), se ve una por vez con «MaKo | Tu funnel». */
+.aa.aa-dos { padding: 14px 16px 14px calc(16px + var(--ancho-panel-mako, 0px)); container-type: inline-size; container-name: copiloto; }
+.cp { height: calc(100dvh - 28px); min-height: 560px; display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); gap: 14px; }
+.cp-chat { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.cp-chat .aa-arranque-hilo { flex: 1; border-top-width: 1px; }
+.cp-chat-cerebro { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.cp-chat-cerebro > .co-panel, .cp-chat .aa-arranque-hilo > .co-panel { flex: 1; min-height: 0; }
+/* El hilo y la caja a la medida de la TARJETA, como en Create (app/_crear/crear.css → `.cr-tarjeta`): centro.css les da un aire que
+   mira la VENTANA (hasta 56 px por lado), y en 420 px dejaba la charla en tres palabras por renglón. */
+.cp-chat .co-hilo { padding-inline: 14px; }
+.cp-chat .co-caja-wrap { padding-inline: 12px; }
+.cp-switch { display: none; }
+.cp-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cp-insp { flex-basis: 100%; margin: 0; }
+.cp-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.cp-cab { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.cp-cab-tit { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
+.cp-cab h2 { margin: 0; font-size: 18px; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; }
+.cp-estado { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--mako-bg); color: var(--mako-ink); border: 1px solid var(--mako-border); white-space: nowrap; }
+.cp-estado[data-modo='listo'] { background: var(--good-bg); color: var(--good); border-color: transparent; }
+.cp-cab-der { margin-left: auto; }
+.cp-cab-der .aa-tramos { margin: 0; flex-wrap: nowrap; }
+.cp-vistas { margin-left: auto; display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--bg); }
+.cp-vistas button { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--dim); white-space: nowrap; }
+.cp-vistas button[aria-selected='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+.cp-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 20px; }
+.cp-bloque { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cp-bloque-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cp-eti { margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.cp-link { font-size: 12.5px; font-weight: 600; color: var(--primary); text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .15s ease; }
+.cp-link:hover { text-decoration-color: currentColor; }
+/* Lo que MaKo sabe: fichas chicas; lo que falta, punteado en el dorado de MaKo y se toca (MaKo lo pregunta en el chat). */
+.cp-datos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-datos > li { display: contents; }
+.cp-dato { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 112px; max-width: 260px; padding: 7px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); text-align: left; transition: border-color .2s ease, box-shadow .3s ease; }
+.cp-dato span { font-size: 11px; font-weight: 600; color: var(--faint); }
+.cp-dato b { font-size: 13.5px; font-weight: 650; color: var(--ink); line-height: 1.3; }
+.cp-dato[data-nuevo='1'] { border-color: var(--mako); box-shadow: 0 0 0 3px color-mix(in oklab, var(--mako) 25%, transparent); }
+.cp-falta { border-style: dashed; border-color: var(--mako-border); background: var(--mako-bg); cursor: pointer; }
+.cp-falta b { color: var(--mako-ink); font-size: 12.5px; font-weight: 600; }
+.cp-falta:hover:not(:disabled) { border-color: var(--mako); }
+.cp-falta:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cp-mas { border-style: dashed; }
+.cp-vacio { font-size: 13px; color: var(--faint); }
+/* El recorrido: cuatro etapas unidas por una línea fina. */
+.cp-recorrido { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.cp-etapa { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); min-width: 0; transition: border-color .2s ease, box-shadow .3s ease; }
+.cp-etapa + .cp-etapa::before { content: ''; position: absolute; left: -15px; top: 26px; width: 14px; border-top: 1.5px solid var(--border-strong); }
+.cp-etapa-n { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: var(--bg); font-size: 12px; font-weight: 700; color: var(--dim); }
+.cp-etapa h3 { margin: 2px 0 0; font-size: 14.5px; font-weight: 700; }
+.cp-etapa p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+.cp-etapa-ir { margin-top: auto; padding-top: 4px; font-size: 12.5px; font-weight: 650; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+.cp-etapa-ir:hover { text-decoration-color: currentColor; }
+.cp-etapa[data-nuevo='1'] { border-color: var(--mako); box-shadow: 0 0 0 3px color-mix(in oklab, var(--mako) 25%, transparent); }
+.cp-recorrido--vacio .cp-etapa { border-style: dashed; background: transparent; }
+.cp-recorrido--vacio .cp-etapa h3, .cp-recorrido--vacio .cp-etapa p { color: var(--faint); }
+.cp-aviso { margin: 0; font-size: 13px; color: var(--dim); }
+.cp-aviso b { color: var(--ink); }
+/* La comparación: una fila por funnel, con si le sirve, qué pide y cuánto tarda. */
+.cp-comparar { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cp-comparar li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .8fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); font-size: 12.5px; color: var(--dim); }
+.cp-comparar li[data-elegido='1'] { border-color: var(--ink); }
+.cp-comparar-nombre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cp-comparar-nombre b { color: var(--ink); font-size: 13px; }
+.cp-comparar-nombre em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--mako-ink); }
+.cp-comparar li[data-sirve='1'] .cp-comparar-sirve { color: var(--good); font-weight: 600; }
+.cp-comparar li[data-sirve='0'] .cp-comparar-sirve { color: var(--bad); }
+.cp-comparar-ok { font-size: 12px; font-weight: 700; color: var(--ink); }
+/* Abajo: la cuenta y esta semana. */
+.cp-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cp-caja { padding: 14px; border-radius: 14px; border: 1px solid var(--border); }
+.cp-cuenta { margin: 0; display: grid; gap: 6px; }
+.cp-cuenta div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.cp-cuenta dt { color: var(--dim); }
+.cp-cuenta dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.cp-cuenta div[data-ojo='1'] dd { color: var(--bad); font-weight: 600; }
+.cp-nota { margin: 0; font-size: 12px; line-height: 1.45; color: var(--faint); }
+.cp-semana { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cp-semana li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.cp-semana--grande li { padding: 14px 16px; }
+.cp-semana--grande p { margin: 2px 0 0; font-size: 12.5px; color: var(--dim); }
+.cp-medir ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px; }
+.cp-grande { margin: 4px 0 8px; font-size: 18px; line-height: 1.4; font-weight: 650; }
+.cp-boton, .cp-boton-sec { flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+.cp-boton { padding: 9px 18px; font-size: 13px; background: var(--primary); color: var(--on-primary, #fff); }
+.cp-boton:disabled { opacity: .45; }
+.cp-boton-sec { padding: 4px 11px; font-size: 12px; border: 1px solid var(--border-strong); color: var(--ink); background: var(--surface); }
+.cp-boton-sec:hover:not(:disabled) { border-color: var(--ink); }
+.cp-pie { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.cp-pie p { margin: 0; flex: 1; min-width: 0; font-size: 12.5px; color: var(--faint); }
+@media (prefers-reduced-motion: reduce) { .cp-dato, .cp-etapa { transition: none; } }
+/* Lo que no entra en dos columnas: una por vez, con el interruptor arriba (como el teléfono de Create). */
+@container copiloto (max-width: 900px) {
+  .cp { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .cp-switch { display: flex; justify-self: center; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
+  .cp-switch button { padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .cp-switch button[aria-pressed='true'] { background: var(--ink); color: var(--surface); }
+  .cp[data-vista='chat'] .cp-panel, .cp[data-vista='funnel'] .cp-chat { display: none; }
+  .cp-recorrido { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cp-etapa:nth-child(odd)::before { display: none; }
+  .cp-dos { grid-template-columns: minmax(0, 1fr); }
+  .cp-comparar li { grid-template-columns: minmax(0, 1fr) auto; }
+  .cp-comparar-dato { display: none; }
+  .cp-cab-der { display: none; }
+}
+@container copiloto (max-width: 520px) {
+  .cp-recorrido { grid-template-columns: minmax(0, 1fr); }
+  .cp-etapa::before { display: none; }
+  .cp-cuerpo { padding: 14px; }
+  .cp-cab, .cp-pie { padding: 12px 14px; }
+  .cp-pie { flex-wrap: wrap; }
+  .cp-pie .cp-boton { width: 100%; }
+}
