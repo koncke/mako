@@ -20,6 +20,7 @@
 // =============================================================================
 
 import type { Interpretacion, ObjetoChat } from "@/lib/mako-pedidos";
+import { RUTA_CREAR_VIDEO } from "@/app/video-editor/vista";
 
 export { interpretacionDe, textoActual } from "@/app/web-generator/editor/pedidos-chat";
 
@@ -52,7 +53,8 @@ export const TEXTOS = {
 	inicio: "Ir al inicio",
 } as const;
 
-export const RUTA_INICIO = "/video-editor";
+/** La lista de proyectos (`?ver=crear`): `/video-editor` a secas son los outliers desde el 9/11/2026. */
+export const RUTA_INICIO = RUTA_CREAR_VIDEO;
 export const RUTA_NUEVO = "/video-editor/nuevo";
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** El editor de un proyecto del navegador (el ?ws= lo pega el `Link` de app/_ui/Link al dibujarlo). */

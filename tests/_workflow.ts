@@ -45,7 +45,9 @@ export function correrPaso(yml: string, nombre: string, o: { antes?: string; env
     cwd: o.cwd ?? tmp,
     encoding: 'utf8',
     // NODE_ENV: con los .d.ts de Next, ProcessEnv lo pide obligatorio (lo cazó el filtro de la punta: TS2769).
-    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: tmp, RUNNER_TEMP: tmp, GITHUB_STEP_SUMMARY: resumen, GITHUB_OUTPUT: salidaGh, ...o.env },
+    // RUNNER_TEMP con barras normales: un paso que lo mete en una orden que corre sh (el driver de las bitácoras) pierde las
+    // barras invertidas de Windows. En Linux no cambia nada (10/11/2026).
+    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: tmp, RUNNER_TEMP: tmp.replace(/\\/g, '/'), GITHUB_STEP_SUMMARY: resumen, GITHUB_OUTPUT: salidaGh, ...o.env },
   });
   if (r.error) throw r.error;
   return { codigo: r.status, salida: `${r.stdout}${r.stderr}`, resumen: readFileSync(resumen, 'utf8'), outputs: readFileSync(salidaGh, 'utf8') };

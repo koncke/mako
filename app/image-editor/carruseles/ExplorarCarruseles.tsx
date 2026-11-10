@@ -40,6 +40,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { ancla } from '@/app/_ui/guia/ancla';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
   FILTROS_INICIALES, ORDENES_CARRUSEL, QUE_VER_CARRUSEL,
@@ -140,7 +141,7 @@ const Lupa = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
 
-export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciales, telefono = false, rutaCrear = '/image-editor?ver=crear' }: {
+export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciales, telefono = false, rutaCrear = '/image-editor?ver=crear', onReplicar }: {
   datos: DatosExplorador;
   filtrosIniciales?: FiltrosCarrusel;
   /** Los filtros de las miniaturas que dice la URL (lib/thumbnails/explorar.ts, `filtrosThumbnailDeQuery`). */
@@ -149,6 +150,12 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   telefono?: boolean;
   /** «Crear desde cero»: las plantillas de Image (en el teléfono, su ruta de /m). */
   rutaCrear?: string;
+  /**
+   * «Editar» de un ejemplo, en la computadora (9/11/2026, Martín: «me llevó directamente al editor y no está bueno eso»): la tab
+   * abre el guiado (./ReplicarGuiado.tsx), donde MaKo pregunta la oferta, el avatar y qué cambiar antes de armar nada. Sin esto
+   * (el teléfono), «Editar» arma la versión en el acto, como antes.
+   */
+  onReplicar?: (c: Carrusel) => void;
 }) {
   const [f, setF] = useState<FiltrosCarrusel>(filtrosIniciales ?? FILTROS_INICIALES);
   const [ft, setFt] = useState<FiltrosThumbnail>(thumbnailsIniciales ?? FILTROS_THUMBNAIL);
@@ -159,6 +166,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   const [cuantas, setCuantas] = useState(DE_A);
   const [aviso, setAviso] = useState<string | null>(null);
   const [editando, setEditando] = useState<Carrusel | null>(null);
+  const editar = (c: Carrusel) => (onReplicar ? onReplicar(c) : setEditando(c));
   /** El carrusel abierto (el modal de dos partes), el modal de filtros y «parecidos a…». */
   const [abierto, setAbierto] = useState<Carrusel | null>(null);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
@@ -417,10 +425,10 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
               </div>
             ) : (
               <>
-                <ul className={s.grilla} aria-label={f.que === 'anuncios' ? 'Anuncios' : 'Carruseles'}>
+                <ul className={s.grilla} aria-label={f.que === 'anuncios' ? 'Anuncios' : 'Carruseles'} {...ancla('image-editor-outliers')}>
                   {listos.map((c) => (
                     <TarjetaCarrusel key={c.id} c={c} ahora={ahora} guardado={guardados.has(c.id)} telefono={telefono}
-                      onAbrir={() => setAbierto(c)} onGuardar={() => alternarGuardado(c)} onEditar={() => setEditando(c)} onParecidos={() => abrirParecidos(c)} />
+                      onAbrir={() => setAbierto(c)} onGuardar={() => alternarGuardado(c)} onEditar={() => editar(c)} onParecidos={() => abrirParecidos(c)} />
                   ))}
                 </ul>
                 {listas.length > cuantas && (
@@ -434,7 +442,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
       {abierto ? (
         <CarruselAbierto key={abierto.id} c={abierto} guardado={guardados.has(abierto.id)} telefono={telefono}
           nParecidos={parecidosA(abierto, delLado).length} creadoresParecidos={creadoresParecidos(abierto, delLado)}
-          onGuardar={() => alternarGuardado(abierto)} onEditar={() => { const c = abierto; setAbierto(null); setEditando(c); }}
+          onGuardar={() => alternarGuardado(abierto)} onEditar={() => { const c = abierto; setAbierto(null); editar(c); }}
           onParecidos={() => abrirParecidos(abierto)} onCreador={(id) => { setAbierto(null); setParecidosDe(null); cambiar({ creadores: [id] }); }}
           onCerrar={() => setAbierto(null)} />
       ) : null}
@@ -509,7 +517,8 @@ function TarjetaCarrusel({ c, ahora, guardado, onAbrir, onGuardar, onEditar, onP
   const aire = anuncio ? rotuloAire(c) : null;
   const sinLaminasGuardadas = !anuncio && (c.laminas ?? 0) > 1 && imagenesDe(c).length <= 1;
   return (
-    <li className={s.tarjeta}>
+    // La tarjeta entera es el ancla de «Replicar» de la guía (../guia-image.ts): su «Editar» sólo aparece al pasar el mouse.
+    <li className={s.tarjeta} {...ancla('image-editor-replicar')}>
       {/* Tocar la imagen abre el carrusel; los botones de adentro hacen lo suyo. */}
       <div className={s.mini} data-anuncio={anuncio ? 'si' : undefined}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>

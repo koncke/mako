@@ -12216,3 +12216,26 @@ documento» escribe en DOS filas y duplica la entrada. Pasó dos veces el 7/11. 
 
 Lo vigila `tests/unir-indice-hallazgos.test.ts` (10 tests, incluido «una fila por área»), con el driver en
 `scripts/unir-indice-hallazgos.mjs`, su glob en `.gitattributes` y su paso en `punta.yml`.
+
+## En Windows, el filtro de antes de subir daba rojo en `tests/unir-bitacora.test.ts` sin que nada estuviera roto (10/11/2026)
+
+**Vive en:** `tests/unir-bitacora.test.ts` (`DRIVER`) · `tests/_workflow.ts` (`correrPaso`, `RUNNER_TEMP`).
+
+**Síntoma:** cualquier punta que toca una `app/admin/dev/*/bitacora.ts` quedaba con el push BLOQUEADO desde esta PC, con 4
+casos rojos del test del driver. En GitHub (Linux), verde. Motion graphics y outliers-video sólo subieron con
+`MAKO_SIN_FILTRO=1`.
+
+**La causa:** git corre el driver de mezcla con `sh`, y la ruta salía de `join()` con las barras invertidas de Windows. `sh` se
+las come, node no encuentra el script y la mezcla sale 1. Lo mismo con `RUNNER_TEMP` en el paso de `punta.yml` que corre el test.
+Es la misma trampa de siempre: Git Bash se come las barras invertidas.
+
+**Arreglo:** las dos rutas van con barras normales (en Linux no cambia nada). Quedan 10 de 11 en verde en Windows.
+**PENDIENTE:** «punta.yml configura el driver copiándolo de main…» sigue rojo SÓLO en Windows. Ahora el driver de las bitácoras
+anda, pero `docs/hallazgos.md` choca en la mezcla, como si la regla `merge=union` del `.gitattributes` de main no llegara a
+`.git/info/attributes`. No lo encontré: está en ese mismo test. Mientras tanto, desde Windows: `MAKO_SIN_FILTRO=1` si el ÚNICO
+rojo es ése.
+
+**De paso, las tres puntas rojas eran una sola.** editor-tanda4-0911, motion-0911 y subtitulos-submagic-0911 chocaban en la misma
+línea (`LARGAS` de `app/video-editor/_opencut/chat/comandos.ts`), pero estaban anidadas: la tanda 4 traía motion hasta su
+penúltimo commit, y Submagic entera. `git merge-base` entre las puntas lo muestra en un comando. Se resolvió la de afuera, y las
+otras dos mezclaron limpio. Antes de resolver tres choques iguales, fijate si son el mismo trabajo.

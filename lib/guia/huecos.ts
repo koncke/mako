@@ -61,3 +61,17 @@ export function posicionFrase(o: { ancla: Caja; frase: Medida; ventana: Medida; 
 
 /** ¿La ventana es angosta? Ahí el chat y la tab no conviven: al señalar algo de la tab, el chat se aparta. */
 export const esAngosta = (ancho: number, tope = 760): boolean => ancho <= tope;
+
+/**
+ * El velo de una PREGUNTA de MaKo (9/11/2026, la tab Video: «se opaca todo el resto de la pantalla y se marca el mensaje con la
+ * pregunta de MaKo»). Sin un objetivo de la guía: los huecos son los chats a la vista y el aro va en el mensaje marcado. Nunca se
+ * oscurece para marcar algo que no está ADENTRO de un chat (la pregunta de MaKo vive en su chat; afuera sería otra cosa) ni algo
+ * que no se ve: null y no hay velo.
+ */
+export function dibujoDestacado(marca: Caja | null, chats: readonly Caja[], ventana: Medida): { huecos: Hueco[]; aro: Caja } | null {
+  if (!marca || marca.ancho <= 0 || marca.alto <= 0) return null;
+  const visibles = chats.filter((c) => c.ancho > 0 && c.alto > 0);
+  const adentro = visibles.some((c) => marca.x >= c.x && marca.y >= c.y && marca.x + marca.ancho <= c.x + c.ancho && marca.y + marca.alto <= c.y + c.alto);
+  if (!adentro) return null;
+  return { huecos: huecosDelVelo(marca, visibles, ventana), aro: marca };
+}

@@ -374,4 +374,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor',
   },
+  {
+    fecha: '9 nov', hora: '—', chat: 'Carruseles guiados (nube)', sesion: 'cli_5f4ff1ba-719e-5966-b929-17178ada9614', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Replicar un carrusel tiene que ser un proceso guiado por MaKo, con la oferta, el avatar y la tipografía fiel',
+    pedido: 'Martín, casi textual (llegó en el brief del Cerebro): «Le acabo de dar a crear un carrusel, me llevó directamente al editor y no está bueno eso… lo hizo totalmente mal, no replicó bien el diseño. Sí, son editables las letras, pero se superponen unas con otras, no era la tipografía correcta». «Directamente empieza a replicarlo y dice lo voy a hacer con tu oferta, pero ni siquiera me pregunta qué oferta, si el usuario puede tener muchas ofertas». Al elegir un carrusel, una pestaña donde MaKo pregunta en su chat, «con el tutorial que se opaca la pantalla, que le vaya señalando la pregunta»: qué oferta, qué avatar «si es solo texto, que lo detecte y no le pregunte eso» y qué quiere cambiar. «Hay muchos carruseles que también tienen imágenes… replicarlo con la generación de imágenes que ya tenemos conectada», «copiarle el carrusel de una competencia, pero sacar el avatar de la competencia y reemplazarlo por el mismo». «Nuevo carrusel» muestra los outliers y se elimina «¿Qué vas a crear hoy?». La barra del chat de MaKo nunca desaparece: «si no, yo no tengo forma de entrar, cuando entro a la página de Image, de ver los carruseles que ya estaba creando».',
+    puntos: [
+      'La hora del pedido no se sabe: llegó en el brief de la sesión de la nube.',
+      'El caso de prueba es el carrusel de @growithalex (instagram.com/p/DYfVqEmk_to, 9 láminas), que Martín está haciendo a mano.',
+    ],
+  },
+  {
+    fecha: '9 nov', hora: '—', chat: 'Carruseles guiados (nube)', sesion: 'cli_5f4ff1ba-719e-5966-b929-17178ada9614', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar un carrusel pregunta antes: la oferta, el avatar si tiene persona y qué cambiar',
+    puntos: [
+      'Image abre con el chat de MaKo a la izquierda y los ejemplos en el centro. «Nuevo carrusel» lleva a los ejemplos; las plantillas siguen detrás de «Crear desde cero», donde están las que guardó el negocio.',
+      '«Editar» en un ejemplo ya no abre el editor: abre una pestaña con el original y MaKo pregunta en el chat, con la pantalla opacada y la pregunta señalada.',
+      'MaKo pregunta para cuál oferta es (o la escribes), con qué foto tuya reemplaza a la persona sólo si el carrusel tiene una, y qué cambiar (textos, tu marca o lo que escribas). Si no sabe si tiene persona, lo dice y te deja contestar.',
+      'La oferta elegida va en el pedido con sus datos (qué promete, para quién, qué incluye, garantía y precio) y una oferta de otro negocio se rechaza antes de llamar a la IA. La API de MaKo acepta lo mismo (ofertaId, avatar, cambio).',
+      'Al generar, cada lámina de tu versión sale al lado de su original para juzgarla antes de abrir el editor.',
+      'Quedó escrito, sin pantalla todavía: elegir la fuente comparando el recorte contra fuentes candidatas, ajustar cada texto a su caja sin que se pisen, los pasos de cada lámina para sacar el texto o cambiar a la persona, y el lettering como capa que se regenera sola.',
+    ],
+    archivos: [
+      'lib/carruseles/guiado.ts — las preguntas, el orden y el pedido que sale (puro)',
+      'app/image-editor/carruseles/ReplicarGuiado.tsx — el chat que pregunta y el centro con el original',
+      'app/image-editor/guia-image.ts — la guía de Image (la pregunta señalada con el velo)',
+      'app/_crear/PantallaCrear.tsx — `nueva` y `alNuevo`: lo que la tab pone en lugar de «¿Qué vas a crear hoy?»',
+      'app/api/image-editor/carruseles/leer/route.ts — ¿tiene persona? (con la IA del negocio)',
+      'lib/carruseles/replica.ts y replica-servidor.ts — la oferta, la foto elegida y los colores de la marca en el pedido',
+      'lib/carruseles/tipografia-medida.ts — encajar, no superponer, elegir la fuente comparando',
+      'lib/carruseles/plancha.ts — los pasos de cada lámina y la capa de lettering',
+      'docs/relevo/nube-carruseles-guiado.md — el diseño y lo que falta',
+    ],
+    revisar: '/image-editor',
+  },
 ];

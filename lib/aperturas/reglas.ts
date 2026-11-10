@@ -60,7 +60,18 @@ export type Apertura<A extends string = string> = {
   corto?: string;
   /** Se contesta también escribiendo (una pregunta de texto libre, «¿Qué vas a vender con esto?»). Sin la app no se ofrece. */
   libre?: true;
+  /**
+   * Opciones con IMAGEN, arriba de los botones (9/11/2026, la tab Video: «pásame una foto o selecciona de estas», con las fotos
+   * que ya subió y sus personajes). Cada una es una `respuesta` con su `valor`; la pieza la dibuja como una miniatura tocable.
+   * De 1 a `TOPE_GALERIA`. No cuenta en los botones: la apertura sigue necesitando el suyo que avanza y el de callar.
+   */
+  galeria?: readonly OpcionGaleria[];
 };
+
+/** Una opción con imagen de la apertura: tocarla es contestar `valor`. `imagen`: una URL https o una ruta de la app. */
+export type OpcionGaleria = { valor: string; imagen: string; rotulo: string };
+
+export const TOPE_GALERIA = 6;
 
 /** Las acciones que hace la pieza misma, en toda superficie: «Instalar MaKo» (la de la caja) y «Tus cuentas de IA». */
 export const ACCIONES_COMUNES = ['instalar', 'conectar'] as const;
@@ -137,6 +148,15 @@ export function problemasDeApertura(a: Apertura<string>, o: { primerPaso: boolea
   for (const b of a.botones) if (b.rotulo.length > TOPE_ROTULO) out.push(`el botón «${b.rotulo}» tiene más de ${TOPE_ROTULO} caracteres`);
   const rotulos = a.botones.map((b) => b.rotulo);
   if (new Set(rotulos).size !== rotulos.length) out.push('dos botones dicen lo mismo');
+  if (a.galeria) {
+    if (a.galeria.length < 1 || a.galeria.length > TOPE_GALERIA) out.push(`la galería tiene ${a.galeria.length} opciones (de 1 a ${TOPE_GALERIA})`);
+    for (const o of a.galeria) {
+      if (!o.rotulo.trim() || o.rotulo.length > TOPE_ROTULO) out.push(`la opción «${o.rotulo}» de la galería no tiene rótulo o pasa de ${TOPE_ROTULO}`);
+      if (!/^(https:\/\/|\/)/.test(o.imagen)) out.push(`la opción «${o.rotulo}» no tiene una imagen https ni de la app`);
+    }
+    const valores = a.galeria.map((o) => o.valor);
+    if (new Set(valores).size !== valores.length) out.push('dos opciones de la galería contestan lo mismo');
+  }
   return out;
 }
 

@@ -132,7 +132,7 @@ export function VozAIStep({ voz, onVoz, deshabilitado, textoPrueba }: {
  * CLONAR AHÍ MISMO: subir o grabar las muestras, autorizar y clonar, por /api/onboarding/voz. Para «otra
  * voz», su nombre y SÓLO las muestras que se subieron en este modal (`destino: 'otra'`, `muestras`).
  */
-function ModalClonar({ destino, hayKey, onCerrar, onListo }: {
+export function ModalClonar({ destino, hayKey, onCerrar, onListo }: {
   destino: 'propia' | 'otra'; hayKey: boolean; onCerrar: () => void; onListo: (voz: string) => void;
 }) {
   const [subidas, setSubidas] = useState<Array<{ id: string; nombre: string }>>([]);

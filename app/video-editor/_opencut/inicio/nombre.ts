@@ -31,7 +31,11 @@ export function nombreLibre(base: string, existentes: Iterable<string>): string 
  * guardado automático del proyecto abierto.
  */
 export async function nombreProyectoNuevo(): Promise<string> {
-	const base = nombreSegunFecha();
+	return nombreProyectoLibre(nombreSegunFecha());
+}
+
+/** Un nombre que ningún proyecto de este navegador tiene, a partir de `base` («Mensaje para…», «Mensaje para… (1)»). */
+export async function nombreProyectoLibre(base: string): Promise<string> {
 	try {
 		const proyectos = await storageService.loadAllProjectsMetadata();
 		return nombreLibre(base, proyectos.map((p) => p.name));

@@ -177,6 +177,7 @@ POST /api/ia-pc/modelo → cortada
 POST /api/ia-pc/soltar → pública (no usa la sesión)
 POST /api/ia-pc/turno/1 → pública (no usa la sesión)
 POST /api/ia-permiso → PERMITIDA
+POST /api/image-editor/carruseles/leer → cortada
 POST /api/image-editor/carruseles/replicar → cortada
 POST /api/image-editor/disenos → cortada
 POST /api/image-editor/ia → cortada

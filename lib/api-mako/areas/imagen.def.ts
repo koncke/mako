@@ -185,6 +185,11 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id que dio buscar_carruseles (negativo = de la biblioteca; también un anuncio).' },
       { nombre: 'pedido', tipo: 'string', max: 400, descripcion: 'Lo que el dueño quiere en especial («sobre mi curso de X»), si lo dijo.' },
+      // El guiado de la pantalla (9/11/2026, lib/carruseles/guiado.ts): lo mismo que MaKo pregunta antes de generar. Van en los
+      // PARÁMETROS, que no puntúan (AGENTS.md: una descripción con palabras nuevas le saca el lugar a otra operación).
+      { nombre: 'ofertaId', tipo: 'number', entero: true, minimo: 1, descripcion: 'La oferta para la que es (de listar_ofertas). Pregúntala antes si el negocio tiene varias.' },
+      { nombre: 'avatar', tipo: 'string', enum: ['cara', 'look', 'ninguno'], descripcion: 'Si el ejemplo muestra a una persona: cara (su cara de marca), look (su último look de AI Avatar) o ninguno.' },
+      { nombre: 'cambio', tipo: 'string', enum: ['textos', 'marca'], descripcion: 'textos (por defecto: cambian sólo los textos) o marca (también los colores de su kit de marca).' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: GATING,
     reversible: true,

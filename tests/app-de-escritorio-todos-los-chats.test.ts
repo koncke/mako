@@ -65,6 +65,7 @@ const EXENTAS: Readonly<Record<string, string>> = {
   'app/m/operaciones/ChatsMovil.tsx': 'lo mismo, en el teléfono del super admin',
   'app/admin/operaciones/CajaChatNuevo.tsx': 'el chat nuevo del Ops Center (28/10): su primer mensaje abre un chat de Claude Code en la PC de Martín, no le escribe a la IA de MaKo',
   'app/m/offer/ComposerOfferM.tsx': 'el teléfono: ahí no se instala, así que nunca bloquea (`en-la-computadora`)',
+  'app/image-editor/carruseles/ReplicarGuiado.tsx': 'el guiado de replicar un carrusel (9/11/2026): lo escrito contesta la pregunta de MaKo y no va a ninguna IA; la IA del negocio corre recién al generar, por su ruta',
 };
 
 function archivos(dir: string, fuera: string[] = []): string[] {

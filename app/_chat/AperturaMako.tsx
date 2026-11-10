@@ -192,6 +192,19 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
       <ContextoWA.Provider value={null}>
         <HiloMako items={items} quien={quien} ahora={0} escribiendo={null} tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
       </ContextoWA.Provider>
+      {/* Las opciones con imagen (las fotos que ya subió, sus personajes): tocar una es contestar su valor. */}
+      {a.galeria && a.galeria.length > 0 && (
+        <div className="ch-apertura__galeria" role="group" aria-label={`${a.texto} (opciones)`}>
+          {a.galeria.map((o) => (
+            <button key={o.valor} type="button" className="ch-apertura__opcion" title={o.rotulo} aria-label={o.rotulo}
+              onClick={() => estado.elegir({ tipo: 'respuesta', rotulo: o.rotulo, valor: o.valor })}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={o.imagen} alt="" loading="lazy" />
+              <span>{o.rotulo}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="ch-apertura__botones" role="group" aria-label={a.texto}>
         {a.botones.map((b) => {
           const c = clase(b);

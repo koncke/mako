@@ -390,13 +390,31 @@ export const RUNNERS: Runners = {
       const de = c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre;
       const pedido = str(input, 'pedido');
       const n = c.clase === 'anuncio' ? null : c.laminas;
+      // La oferta (el guiado, 9/11/2026): se lee de la base del negocio AL PROPONER, así el resumen dice cuál es y una que no
+      // existe falla acá, antes del «sí» (AGENTS.md: lo que se puede saber sin escribir falla en `preparar`).
+      const ofertaId = typeof input.ofertaId === 'number' && Number.isSafeInteger(input.ofertaId) && input.ofertaId > 0 ? input.ofertaId : null;
+      let oferta: string | null = null;
+      if (ofertaId) {
+        try {
+          const { listarOfertas } = await import('@/lib/ofertas');
+          oferta = (await listarOfertas(true)).find((x) => x.id === ofertaId)?.nombre ?? null;
+        } catch { return { error: 'No pude leer las ofertas del negocio. Vuelve a intentar.', falla: true }; }
+        if (!oferta) return { error: 'Esa oferta no está entre las activas del negocio: búscala con listar_ofertas.' };
+      }
+      const avatar = input.avatar === 'cara' || input.avatar === 'look' || input.avatar === 'ninguno' ? input.avatar : null;
+      const cambio = input.cambio === 'marca' ? 'marca' : 'textos';
+      const guiado = ofertaId || avatar || input.cambio ? { ofertaId, avatar, cambio } : null;
+      const conQuien = avatar === 'ninguno' ? ', sin persona' : avatar === 'look' ? ', con tu último look' : avatar === 'cara' ? ', con tu cara de marca' : '';
       return {
-        payload: { carruselId: id, ...(pedido ? { pedido: pedido.slice(0, 400) } : {}) },
-        resumen: `Armar tu versión editable del ${c.clase === 'anuncio' ? 'anuncio' : 'carrusel'} de ${de}${n ? ` (${n} láminas)` : ''}: su diseño, con textos escritos para tu negocio por tu IA${pedido ? ` («${pedido.slice(0, 120)}»)` : ''}. Sus palabras no se copian.`,
+        payload: { carruselId: id, ...(pedido ? { pedido: pedido.slice(0, 400) } : {}), ...(guiado ? { guiado } : {}) },
+        resumen: `Armar tu versión editable del ${c.clase === 'anuncio' ? 'anuncio' : 'carrusel'} de ${de}${n ? ` (${n} láminas)` : ''}${oferta ? ` para «${oferta}»` : ''}${conQuien}: su diseño, con textos escritos para tu negocio por tu IA${cambio === 'marca' ? ' y los colores de tu marca' : ''}${pedido ? ` («${pedido.slice(0, 120)}»)` : ''}. Sus palabras no se copian.`,
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const r = await replicarCarrusel(ctx.ws, QUIEN, Number(payload.carruselId), { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });
+      const { leerPedidoGuiado } = await import('@/lib/carruseles/guiado');
+      const g = payload.guiado && typeof payload.guiado === 'object' ? payload.guiado as Record<string, unknown> : null;
+      const guiado = g ? leerPedidoGuiado({ ...g, pedido: typeof payload.pedido === 'string' ? payload.pedido : null }) : null;
+      const r = await replicarCarrusel(ctx.ws, QUIEN, Number(payload.carruselId), { pedido: typeof payload.pedido === 'string' ? payload.pedido : null, guiado });
       if (!r.ok) return { ok: false, resumen: r.error };
       const url = link(r.id, ctx.ws);
       const bloque = bloqueDiseno(r.id, { titulo: r.titulo, estado: 'Nuevo', nota: r.aviso ?? 'Tu versión, lista para editar.' });

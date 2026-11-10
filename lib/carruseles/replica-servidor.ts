@@ -46,6 +46,8 @@ import {
   vuelveASinVer, type EventoReplica, type FotoDelCliente,
 } from './replica';
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
+import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
+import type { OfertaDelPrompt } from './replica';
 
 /** La función de la IA para el registro del uso y la puerta de «sólo su IA» (lib/model-catalogo.ts). */
 export const FEATURE_REPLICA = 'carrusel-replica';
@@ -87,38 +89,41 @@ async function comoDataUrl(url: string): Promise<string | null> {
  * editor (la de la cara de marca vive en uno privado, con un link que vence): así el diseño la guarda y se puede cambiar.
  * null = no tiene foto, o no se pudo copiar (el diseño sale con el lugar de la foto marcado).
  */
-export async function fotoDelCliente(ws: number): Promise<FotoDelCliente | null> {
+export async function fotoDelCliente(ws: number, preferir: 'cara' | 'look' = 'cara'): Promise<FotoDelCliente | null> {
   try {
     let bytes: Uint8Array | null = null;
     let nombre = 'Tu foto';
-    const { getPersona } = await import('../persona');
-    const persona = await getPersona().catch(() => null);
-    const primera = persona?.fotos[0];
-    if (primera) {
+    const deLaCara = async () => {
+      const { getPersona } = await import('../persona');
+      const persona = await getPersona().catch(() => null);
+      const primera = persona?.fotos[0];
+      if (!primera) return;
       const { data } = await getSupabaseServer().storage.from('archivero').download(primera.path);
       if (data) { bytes = new Uint8Array(await data.arrayBuffer()); nombre = 'Tu foto (cara de marca)'; }
-    }
-    if (!bytes) {
+    };
+    const delLook = async () => {
       const { leerLooks } = await import('@/app/ai-avatar/looks');
       const look = (await leerLooks().catch(() => [])).find((l) => /^https:\/\//.test(l.url) && !l.error);
-      if (look) {
-        const r = await fetch(look.url, { signal: AbortSignal.timeout(ESPERA_IMAGEN_MS) }).catch(() => null);
-        if (r?.ok) { bytes = new Uint8Array(await r.arrayBuffer()); nombre = 'Tu foto (AI Avatar)'; }
-      }
-    }
-    if (!bytes || bytes.length > 15 * 1024 * 1024) return null;
-    const tipo = tipoDeImagen(bytes);
-    const medidas = medidasDeImagen(bytes);
+      if (!look) return;
+      const r = await fetch(look.url, { signal: AbortSignal.timeout(ESPERA_IMAGEN_MS) }).catch(() => null);
+      if (r?.ok) { bytes = new Uint8Array(await r.arrayBuffer()); nombre = 'Tu foto (AI Avatar)'; }
+    };
+    // La que eligió el dueño en el guiado va primero (lib/carruseles/guiado.ts); la otra, si la elegida no está.
+    for (const probar of preferir === 'look' ? [delLook, deLaCara] : [deLaCara, delLook]) { if (!bytes) await probar(); }
+    const b = bytes as Uint8Array | null;
+    if (!b || b.length > 15 * 1024 * 1024) return null;
+    const tipo = tipoDeImagen(b);
+    const medidas = medidasDeImagen(b);
     if (!tipo || !medidas || medidas.ancho < 8 || medidas.alto < 8) return null;
     const id = randomUUID();
     const ruta = `${ws}/${id}.${tipo.ext}`;
     const bucket = getSupabaseServer().storage.from(BUCKET_IMAGE);
-    const up = await bucket.upload(ruta, bytes, { contentType: tipo.mime, upsert: false, cacheControl: '31536000' });
+    const up = await bucket.upload(ruta, b, { contentType: tipo.mime, upsert: false, cacheControl: '31536000' });
     if (up.error) return null;
     const url = bucket.getPublicUrl(ruta).data.publicUrl;
     const db = await getTenantDb();
     const ins = await db.from('image_subidos').insert({
-      id, workspace_id: ws, nombre, tipo: tipo.mime, ancho: medidas.ancho, alto: medidas.alto, bytes: bytes.length, ruta, url,
+      id, workspace_id: ws, nombre, tipo: tipo.mime, ancho: medidas.ancho, alto: medidas.alto, bytes: b.length, ruta, url,
     });
     if (ins.error) return null;
     return { id, url, ancho: medidas.ancho, alto: medidas.alto };
@@ -140,6 +145,11 @@ export type OpcionesReplica = {
    * leer lo que devolvió) pero no copia la foto del cliente ni guarda el diseño. El resultado trae el documento y los errores.
    */
   seco?: boolean;
+  /**
+   * Lo que contestó el dueño en el guiado (9/11/2026, lib/carruseles/guiado.ts): la oferta, la foto que va en lugar de la persona y
+   * qué cambia. Sin esto, lo de siempre (la API vieja y el comando de prueba).
+   */
+  guiado?: PedidoGuiado | null;
 };
 
 /** «Editar» el carrusel `id` (o el anuncio) del explorador: lo que llama la API de MaKo. */
@@ -204,16 +214,31 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     return fin(r);
   };
 
+  // La oferta que eligió el dueño en el guiado: se vuelve a leer de SU base (un id de otro negocio no está ahí). Una que ya no
+  // está activa no se cambia por otra en silencio: se dice, y el guiado vuelve a preguntar.
+  const g = o.guiado ?? null;
+  let oferta: OfertaDelPrompt | null = null;
+  if (g?.ofertaId) {
+    try {
+      const { listarOfertas } = await import('../ofertas');
+      oferta = (await listarOfertas(true)).find((x) => x.id === g.ofertaId) ?? null;
+    } catch { return { ok: false, error: 'No pude leer tus ofertas. Vuelve a intentar.', falla: true }; }
+    if (!oferta) return { ok: false, error: 'Esa oferta ya no está activa: elige otra.' };
+  } else if (g?.ofertaLibre) oferta = { nombre: g.ofertaLibre };
+  const pedidoDelDueno = g ? g.pedido : o.pedido ?? null;
+
   const tema = t ? `miniatura de YouTube ${t.titulo ?? ''}` : `carrusel de Instagram ${c?.gancho ?? ''}`;
   const [negocio, voz, foto] = await Promise.all([
-    contextoDelNegocio(`${tema} ${o.pedido ?? ''}`.trim()).catch(() => ''),
+    contextoDelNegocio(`${tema} ${oferta?.nombre ?? ''} ${pedidoDelDueno ?? ''}`.trim()).catch(() => ''),
     vozDelNegocio().catch(() => null),
-    o.seco ? Promise.resolve(null) : fotoDelCliente(ws),
+    // «Sin persona» en el guiado: no se pone ninguna foto (donde el original tenía una persona queda tipografía y color).
+    o.seco || !fotoDelGuiado(g) ? Promise.resolve(null) : fotoDelCliente(ws, fotoDelGuiado(g) ?? 'cara'),
   ]);
+  const coloresDeMarca = g?.cambio === 'marca' && kit?.colores.length ? kit.colores.map((x) => x.hex).filter((x) => /^#[0-9a-f]{6}$/i.test(x)) : null;
   const pedidoBase = {
     laminas: total, vistas: imagenes.length, negocio, voz: voz ?? '', nombreNegocio: marca.nombre, cta: c?.cta?.palabra ?? null,
-    conAvatar: !!foto, pedido: o.pedido ?? null, anuncio, pie: c ? c.texto || c.gancho || null : null,
-    miniatura, tituloOriginal: t?.titulo ?? null,
+    conAvatar: !!foto, pedido: pedidoDelDueno, anuncio, pie: c ? c.texto || c.gancho || null : null,
+    miniatura, tituloOriginal: t?.titulo ?? null, oferta, coloresDeMarca,
   };
   const prompt = promptDeReplica(pedidoBase);
   avisar({ fase: 'escribir', con: 'tu IA' });
@@ -282,4 +307,33 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
 function notasDeMiniatura(t: Thumbnail): string {
   const quien = t.canal.handle || t.canal.nombre;
   return `Diseño tomado de la miniatura de un video de ${quien} (${urlDeVideo(t.video)}). Los textos son tuyos: cámbialos como quieras.`;
+}
+
+/**
+ * La lectura del guiado (9/11/2026): ¿el carrusel muestra a una persona?, ¿tiene un lettering dibujado? La IA DEL NEGOCIO mira
+ * sus primeras láminas (`LAMINAS_DE_LA_LECTURA`). Decide QUÉ se pregunta (el avatar sólo si hay persona: «si es solo texto, que lo
+ * detecte y no le pregunte eso»), no escribe nada. Sin IA, sin láminas o con una respuesta que no se entiende: `null` en cada
+ * campo — «no sé» no es «no»: con `null`, el guiado pregunta el avatar igual (lib/carruseles/guiado.ts → `preguntaAvatar`).
+ * Nunca tira.
+ */
+export async function leerLoQueTiene(ws: number, id: number): Promise<Lectura & { motivo?: string }> {
+  const nada = (motivo: string): Lectura & { motivo: string } => ({ persona: null, lettering: null, motivo });
+  let c: Carrusel | null;
+  try { c = await referenciaDelNegocio(id); } catch { return nada('No pude leer ese carrusel.'); }
+  if (!c) return nada('Ese ejemplo ya no está.');
+  const imagenes = (await Promise.all(imagenesDe(c).slice(0, LAMINAS_DE_LA_LECTURA).map(comoDataUrl))).filter((x): x is string => !!x);
+  if (!imagenes.length) return nada('No tengo sus láminas para mirar.');
+  try {
+    const { leerDocumentoIA } = await import('../ai-cheap');
+    const { conSuIADelNegocio } = await import('../ia-del-negocio');
+    const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+      dataUrl: imagenes[0], dataUrls: imagenes, isPdf: false, nombreArchivo: 'carrusel', prompt: PROMPT_LECTURA, json: true,
+      feature: FEATURE_REPLICA, motivo: 'Ver si un carrusel de ejemplo tiene una persona', timeoutMs: 45_000, maxTokens: 120,
+    }));
+    return leerLectura(r.text);
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    console.warn(`[carruseles] lectura del guiado sin la IA del negocio (ws=${ws}, ${id}): ${m.slice(0, 300)}`);
+    return nada(m.slice(0, 200));
+  }
 }

@@ -19,6 +19,9 @@
 //   · no sanear el `@` que escribió el modelo (`conElArrobaDelNegocio`) → 1 rojo;
 //   · tratar un 429 de su cuenta como un bache y reintentar (`vuelveASinVer`) → 1 rojo;
 //   · y un cambio SIN efecto (renombrar `avisar`) → 8 verdes, como tiene que ser.
+// El guiado (9/11/2026, base 9/0): la oferta elegida fuera del pedido → 8/1; una oferta de otro negocio aceptada → 8/1; lo
+// escrito en el guiado fuera del pedido → 8/1; el prompt sin el bloque de la oferta → 8/1. «Sin persona» no se ve acá (en seco
+// nunca se busca la foto): lo prueba `fotoDelGuiado` en tests/carruseles-guiado.test.ts (11).
 //
 // ⚠️ Dos de esas roturas no daban NINGÚN rojo con la primera versión de este archivo, y las dos enseñan algo:
 //   · `chatCheap` y `chatCheapCascade` salen por el MISMO endpoint, así que con una sola clave cargada el pedido se ve igual.
@@ -33,9 +36,9 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 /** Por dónde salió el pedido: el endpoint de visión de Gemini, su `/chat/completions`, o su Claude (el primero de la cascada). */
-type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: string; imagenes: number; tope: number | null };
+type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: string; imagenes: number; tope: number | null; texto?: string };
 type Salida = {
-  ok: boolean; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
+  ok: boolean; error?: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
   laminasMostradas: number; textos: string[]; pedidos: PedidoIA[]; red: string[]; paginas: number; permitida: boolean;
 };
 
@@ -128,4 +131,19 @@ test('el @ que inventa la IA no llega a la pantalla; el mail del negocio, intact
   const arrobaSuelta = (t: string) => /(^|[^\w.])@sonrisallena\b/.test(t);
   assert.ok(!todos.some(arrobaSuelta), `el @ inventado tiene que salir: «${todos.find(arrobaSuelta)}»`);
   assert.ok(todos.some((t) => t.includes('hola@sonrisallena.com')), 'un mail NO es un @ de Instagram: no se toca');
+});
+
+test('el guiado: la oferta que eligió el dueño LLEGA al pedido de la IA, y una de otro negocio no existe', () => {
+  assert.equal(R.error, undefined, String(R.error));
+  const g = R.guiadoConOferta;
+  assert.equal(g.ok, true, String(g.error));
+  const texto = g.pedidos.map((p) => p.texto ?? '').join('\n');
+  assert.match(texto, /<<<OFERTA[\s\S]*Limpieza dental en una visita[\s\S]*Dientes limpios en 40 minutos[\s\S]*OFERTA>>>/, 'la oferta elegida tiene que viajar al pedido');
+  assert.match(texto, /Que hable de la primera visita/, 'lo que escribió el dueño en el guiado viaja');
+  assert.match(texto, /No pongas fotos ni personas/, '«Sin persona»: no se pone ninguna foto');
+  assert.doesNotMatch(texto, /OTRO negocio/);
+  const ajena = R.guiadoOfertaAjena;
+  assert.equal(ajena.ok, false, 'una oferta de otro negocio no se usa');
+  assert.match(String(ajena.error), /Esa oferta ya no está activa/);
+  assert.equal(ajena.pedidos.length, 0, 'sin la oferta no se le pide nada a la IA');
 });

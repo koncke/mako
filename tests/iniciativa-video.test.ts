@@ -46,7 +46,10 @@ test('2. el montaje: el mismo motor que el botón, las píldoras se esconden, y 
   assert.match(chat, /void generarSubtitulos\(editorRef\.current\)\.then\(\(r\) => \(r\.ok \? toast\("Subtítulos listos"\) : toast\(textoDeSubtitulos\(r\.motivo\)\)\)\);/,
     'el motor del botón, y el resultado dicho (nunca un «no se pudo» mudo)');
   assert.match(chat, /acciones=\{\{ subtitulos: ponerSubtitulos \}\}/);
-  assert.match(chat, /\{hilo\.mensajes\.length === 0 && !estadoApertura\.apertura && \(/, 'las píldoras, sólo sin la apertura');
+  // Las píldoras de la charla vacía, sólo sin la apertura (la condición puede sumar otras: la guía de una plantilla, 9/11/2026).
+  const pildoras = /\{hilo\.mensajes\.length === 0 && ([^\n]*?) && \(\s*<>\s*<div[^>]*>\s*Pídeme que edite/.exec(chat);
+  assert.ok(pildoras, 'las píldoras de la charla vacía no están donde se dibujan');
+  assert.match(pildoras[1], /(^|&& )!estadoApertura\.apertura( &&|$)/, 'las píldoras, sólo sin la apertura');
   assert.match(chat, /subtitulos: subtitulosDe\(tracksVivos\)\.length, charlaVacia: hilo\.mensajes\.length === 0/, 'el detector es subtitulosDe (sinSubtitulos borra)');
   assert.match(chat, /tracksVivos\.main\.elements\.some\(\(e\) => e\.type === "video"\) \|\| tracksVivos\.audio\.some\(\(t\) => t\.elements\.length > 0\)/);
 });

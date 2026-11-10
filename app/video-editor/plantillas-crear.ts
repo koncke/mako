@@ -5,6 +5,10 @@
 // hoy?» y «para todas las secciones de "create" no quiero otras tabs». La tarjeta «Nuevo video» de la pantalla de Create
 // (app/_crear/PantallaCrear.tsx) y la del teléfono (app/m/video-editor/InicioVideoM.tsx) muestran ESTA lista, en este
 // orden:
+//   0. (9/11/2026, la tab Video) «Replicar un outlier»: las plantillas GUIADAS (lib/video-plantillas/: hoy «Mensaje para…»),
+//      que copian un video que funciona y MaKo lleva paso a paso en el chat del editor (app/video-editor/guia/); y «Tu personaje
+//      con IA», el estudio que era la tab AI Avatar (docs/relevo/nube-tab-video.md §1). En el teléfono las guiadas no se ofrecen:
+//      la guía vive en el chat del editor de la computadora;
 //   1. los LIENZOS vacíos (Reel o TikTok 9:16, YouTube 16:9, Cuadrado 1:1, Post 4:5): un proyecto nuevo con ese tamaño;
 //   2. «Generar con IA»: el Video Generator, que dejó de ser una pestaña y es una plantilla más de «Nuevo video»;
 //   3. las plantillas de anuncio del editor (lib/editor-video/plantillas.ts), con las sugeridas para el negocio primero y
@@ -19,6 +23,7 @@ import type { PlantillaCrear } from '@/app/_crear/reglas';
 import { plantillasEnOrden } from '@/lib/editor-video/plantillas';
 import { ejemploDeVideo, insigniaDeVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { PLANTILLAS_GUIADAS, plantillaGuiada } from '@/lib/video-plantillas';
 
 /** Lo que un lienzo vacío le pone al proyecto nuevo (`settings` del motor, como lo guarda «Relación» o «Detalles»). */
 export type LienzoNuevo = {
@@ -45,9 +50,17 @@ export const FORMATOS_VIDEO: readonly Formato[] = [
 
 /** El Video Generator (crear con IA): la ruta de la computadora y la del teléfono. */
 export const GENERAR_CON_IA = { escritorio: '/video-generator', movil: '/m/video' } as const;
+/** «Tu personaje con IA»: el estudio del personaje (la que era la tab AI Avatar), en la computadora y en el teléfono. */
+export const PERSONAJE_CON_IA = { escritorio: '/ai-avatar', movil: '/m/ai-avatar' } as const;
+/** El rótulo de la primera sección de «Nuevo video». */
+export const GRUPO_REPLICAR = 'Replicar un outlier';
 
-const PREFIJO = { lienzo: 'lienzo:', plantilla: 'plantilla:' } as const;
+const PREFIJO = { lienzo: 'lienzo:', plantilla: 'plantilla:', guia: 'guia:' } as const;
 const ID_IA = 'ia:generar';
+const ID_PERSONAJE = 'personaje:nuevo';
+
+/** El lienzo de una plantilla guiada: vertical, como su referencia (un reel). */
+export const LIENZO_GUIADO: LienzoNuevo = { canvasSize: { width: 1080, height: 1920 }, relacion: '9:16', canvasSizeMode: 'preset' };
 
 /** El máximo común divisor, para escribir la proporción de un lienzo («1080 / 1350» → «4 / 5»). */
 const mcd = (a: number, b: number): number => (b === 0 ? a : mcd(b, a % b));
@@ -59,6 +72,16 @@ export function plantillasNuevoVideo(senales?: SenalesNegocio | null): Plantilla
     return { id: PREFIJO.lienzo + f.id, nombre: f.nombre, formato: `${f.ancho / d} / ${f.alto / d}`, rotulo: `${f.ancho} × ${f.alto}` };
   });
   const ia: PlantillaCrear = { id: ID_IA, nombre: 'Generar con IA', formato: '9 / 16', rotulo: 'Desde una idea' };
+  const guiadas = PLANTILLAS_GUIADAS.map((p): PlantillaCrear => ({
+    id: PREFIJO.guia + p.id,
+    nombre: p.nombre,
+    formato: '9 / 16',
+    rotulo: `${p.duracionS} s · ${p.bloques.length} bloques`,
+    grupo: GRUPO_REPLICAR,
+    insignia: 'MaKo te guía',
+    ayuda: p.descripcion,
+  }));
+  const personaje: PlantillaCrear = { id: ID_PERSONAJE, nombre: 'Tu personaje con IA', formato: '3 / 4', rotulo: 'Desde tu foto', grupo: GRUPO_REPLICAR };
   // Las plantillas con su ejemplo (6/11/2026, docs/plantillas-reales/video.md) llevan su insignia, cuándo usarla y «Ver
   // ejemplo» (lib/editor-video/plantillas-ejemplos.ts): la tarjeta es la estructura y el ejemplo lleno se ve aparte. El
   // `rotulo` sigue igual (lo fija tests/video-editor-nuevo-video.test.ts).
@@ -72,17 +95,27 @@ export function plantillasNuevoVideo(senales?: SenalesNegocio | null): Plantilla
       ...(e ? { insignia: insigniaDeVideo(p, porque), ayuda: e.cuando, verEjemplo: true } : {}),
     };
   });
-  return [...lienzos, ia, ...anuncios];
+  return [...guiadas, personaje, ...lienzos, ia, ...anuncios];
 }
+
+/** Cuántas tarjetas van antes de los lienzos (las guiadas y «Tu personaje con IA»). */
+export const ANTES_DE_LOS_LIENZOS = PLANTILLAS_GUIADAS.length + 1;
 
 /** Qué hace una tarjeta de «Nuevo video». */
 export type DestinoNuevoVideo =
   | { tipo: 'lienzo'; lienzo: LienzoNuevo }
   | { tipo: 'plantilla'; id: string }
+  | { tipo: 'guia'; id: string; lienzo: LienzoNuevo; nombre: string }
+  | { tipo: 'personaje' }
   | { tipo: 'ia' };
 
 export function destinoDe(id: string): DestinoNuevoVideo | null {
   if (id === ID_IA) return { tipo: 'ia' };
+  if (id === ID_PERSONAJE) return { tipo: 'personaje' };
+  if (id.startsWith(PREFIJO.guia)) {
+    const p = plantillaGuiada(id.slice(PREFIJO.guia.length));
+    return p ? { tipo: 'guia', id: p.id, lienzo: LIENZO_GUIADO, nombre: p.nombre } : null;
+  }
   if (id.startsWith(PREFIJO.lienzo)) {
     const f = FORMATOS_VIDEO.find((x) => PREFIJO.lienzo + x.id === id);
     if (!f) return null;
@@ -113,3 +146,8 @@ export const EJEMPLOS_NUEVO_VIDEO: readonly string[] = [
   'Un anuncio vertical con un testimonio y una oferta al final',
   'Un TikTok con subtítulos grandes contando cómo empezó mi negocio',
 ];
+
+/** Las tarjetas sin las plantillas GUIADAS (el teléfono: su guía vive en el chat del editor de la computadora). */
+export function sinGuiadas(plantillas: readonly PlantillaCrear[]): PlantillaCrear[] {
+  return plantillas.filter((p) => !p.id.startsWith(PREFIJO.guia));
+}

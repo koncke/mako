@@ -1,6 +1,11 @@
 // =============================================================================
-// /video-editor — la tab Video de Create sin un proyecto abierto: «¿Qué vas a crear hoy?»
+// /video-editor — la tab Video sin un proyecto abierto: los OUTLIERS primero, y «¿Qué vas a crear hoy?» detrás
 // =============================================================================
+// 9/11/2026, Martín: «Tal como en imágenes, que se llame Video… vas a ver tus outliers primero». Como Image (./vista.ts):
+//   · `/video-editor` → «Encuentra tu siguiente OUTLIER» (./OutliersVideo.tsx), a pantalla completa y sin el chat: los videos que
+//     funcionan, de las fuentes enchufadas (lib/video-outliers-servidor.ts), con «Replicar» si MaKo tiene su plantilla guiada;
+//   · `?ver=crear` → lo de abajo, la pantalla de Create con «Nuevo video»; `&replicar=<plantilla>` arma ese proyecto al toque.
+// Lo de abajo, tal cual, es `?ver=crear`:
 // La pantalla de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): el chat de MaKo a la izquierda (su «←» da la lista de
 // proyectos) y al centro la caja con las plantillas de «Nuevo video» (./plantillas-crear.ts). La page aplica el guard
 // (./acceso.ts: hoy, sólo el super admin; adentro, el de toda tab con la key exacta del nav) y lee las señales del negocio
@@ -15,18 +20,29 @@ import { requireEditorVideo } from './acceso';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { VideoEditorCliente } from './VideoEditorCliente';
+import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
+import { OutliersVideo } from './OutliersVideo';
+import { replicarDe, vistaDeVideo } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function VideoEditorPage() {
+export default async function VideoEditorPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireEditorVideo();
+  const q = await searchParams;
+  if (vistaDeVideo(q) === 'outliers') {
+    return (
+      <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+        <OutliersVideo portada={await leerOutliersVideo()} />
+      </Pagina>
+    );
+  }
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} />
+      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} replicar={replicarDe(q)} />
     </Pagina>
   );
 }

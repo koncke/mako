@@ -10,8 +10,11 @@
 //     diseño abierto es el chat de MaKo DEL EDITOR (mako/chat/PanelMakoIA.tsx: edita el diseño abierto), que se monta
 //     adentro del motor y se dibuja en el hueco de la tarjeta (editor/PantallaEditor.tsx). Su «←» da vuelta la tarjeta a
 //     la lista de diseños del negocio, con «Nuevo diseño» y el «⋯» de cada uno (Cambiar nombre, Duplicar, Eliminar);
-//   · en el CENTRO, el editor del diseño o, sin diseño o tocando «Nuevo diseño», «¿Qué vas a crear hoy?» con las
-//     plantillas de ./plantillas-crear.ts (las mismas del teléfono). La home de Canva (el `inicio/` de antes) se borró.
+//   · en el CENTRO, el editor del diseño o, sin diseño o tocando «Nuevo carrusel», los EJEMPLOS que mejor rindieron
+//     (./carruseles/ExplorarCarruseles.tsx; Martín, 9/11/2026: «"Nuevo carrusel" muestra los OUTLIERS… se elimina "¿Qué vas a
+//     crear hoy?"»). Su «Editar» abre el guiado (./carruseles/ReplicarGuiado.tsx): el original en el centro y MaKo preguntando
+//     la oferta, el avatar y qué cambiar en la tarjeta. Las plantillas de ./plantillas-crear.ts quedan detrás de «Crear desde
+//     cero» (`?ver=crear`): ahí viven las plantillas que guardó el negocio. La home de Canva (el `inicio/` de antes) se borró.
 //
 // Monta el motor portado de Doory sin SSR: usa `window`, IndexedDB, fabric.js (canvas) y workers, y nada de eso existe
 // en el server. El `dynamic(..., { ssr: false })` tiene que vivir en un client component, por eso este archivo existe.
@@ -38,10 +41,11 @@ import { crearDisenoNuevoAction } from './actions';
 import { EJEMPLOS_NUEVO_DISENO, PLANTILLAS_NUEVO_DISENO } from './plantillas-crear';
 import { RUTA_CREAR, RUTA_INICIO, rutaDiseno } from './ruta';
 import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarCarruseles';
+import { BASE_SIN_DATOS, ChatReplica, ReplicarGuiado, useGuiado, type BaseGuiado } from './carruseles/ReplicarGuiado';
 import { useCarruselesDeImage } from './carruseles/useCarruselesDeImage';
 import { MiniaturaTarjetaDiseno } from './MiniaturaDiseno';
 import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
-import type { FiltrosCarrusel } from '@/lib/carruseles/explorar';
+import type { Carrusel, FiltrosCarrusel } from '@/lib/carruseles/explorar';
 import type { FiltrosThumbnail } from '@/lib/thumbnails/explorar';
 import chat from './mako/chat/chat.module.css';
 import './_doory/styles/tokens.css';
@@ -70,7 +74,9 @@ function ChatDelEditor({ disenoId, volver, carga, onRanura }: {
 
 const rutaDe = (id: string) => `${RUTA_INICIO}/${encodeURIComponent(id)}`;
 
-export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null, explorador = null, negocio = null, kit = null }: {
+export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null, explorador = null, negocio = null, kit = null, guiado = null }: {
+  /** Lo que el guiado sabe del negocio (sus ofertas, sus fotos, su kit), leído en el server con los ejemplos. */
+  guiado?: BaseGuiado | null;
   /** El kit de marca de por defecto (lib/marca/kits.ts): las miniaturas de los carruseles lo muestran como se va a crear. */
   kit?: KitMarca | null;
   /** El nombre del negocio: va en la cabecera de los carruseles que se crean, y en sus miniaturas. */
@@ -201,31 +207,42 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
   }, [verEjemploCarrusel]);
   const plantillaDelEjemplo = ejemploReal ? plantillaImagen(ejemploReal.real) : null;
 
+  // El ejemplo que se está replicando (9/11/2026): su «Editar» ya no abre el editor solo; abre el guiado, con MaKo preguntando en la
+  // tarjeta de la izquierda (./carruseles/ReplicarGuiado.tsx). Nada se guarda hasta «Generar».
+  const [replicando, setReplicando] = useState<Carrusel | null>(null);
+  const g = useGuiado(abierto ? null : replicando, guiado ?? BASE_SIN_DATOS);
+  const ejemplos = !abierto && vista === 'carruseles' && explorador != null;
+  const salirDelGuiado = useCallback(() => setReplicando(null), []);
+  // «Nuevo carrusel» es SIEMPRE los ejemplos (Martín, 9/11/2026: «"Nuevo carrusel" muestra los OUTLIERS… se elimina "¿Qué vas a
+  // crear hoy?"»). En la portada, es soltar el que se replicaba; desde el editor o «Crear desde cero», ir a la portada, que es
+  // donde están leídos.
+  const irAEjemplos = useCallback(() => router.push(RUTA_INICIO), [router]);
+
   const onTitulo = useCallback((t: string) => { if (abierto) conTitulo(abierto, t); }, [abierto, conTitulo]);
   const alAbrir = useCallback((a: EditorAbierto | null) => { editor.current = a; }, []);
 
-  // Los ejemplos de carruseles (6/11/2026, Martín: «Lo principal al entrar son los ejemplos de carruseles… La barra lateral de
-  // MaKo no se muestra salvo mientras se edita»): la pantalla es SÓLO la grilla, sin la tarjeta del chat. «Editar» arma el
-  // diseño y abre el editor, que sí la tiene (./carruseles/EditarCarrusel.tsx).
-  if (!abierto && vista === 'carruseles' && explorador) {
-    return 'error' in explorador ? (
-      <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
-        No pude leer los carruseles de ejemplo. Vuelve a intentar.<ReportarASoporte />
-      </div>
-    ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} thumbnailsIniciales={explorador.filtrosThumbnails} rutaCrear={RUTA_CREAR} />;
-  }
+  // Los ejemplos (6/11/2026) en el centro de «Nuevo carrusel», con la tarjeta de MaKo a la izquierda (9/11/2026, Martín: «La barra
+  // del chat de MaKo nunca desaparece»; antes la portada era la grilla SOLA y sus diseños no se encontraban).
+  const explorar = !ejemplos || !explorador ? null : 'error' in explorador ? (
+    <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
+      No pude leer los carruseles de ejemplo. Vuelve a intentar.<ReportarASoporte />
+    </div>
+  ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} thumbnailsIniciales={explorador.filtrosThumbnails} rutaCrear={RUTA_CREAR} onReplicar={setReplicando} />;
 
   return (
     <>
     {/* Otro diseño (o la portada) es otra pantalla: la tarjeta vuelve al chat y «Nuevo diseño» se cierra. */}
     <PantallaCrear
-      key={`${ws ?? 0}:${abierto ?? vista}`}
+      // Empezar a replicar es otra pantalla: la tarjeta vuelve al chat (el del guiado) aunque estuviera en la lista.
+      key={`${ws ?? 0}:${abierto ?? vista}:${g?.c.id ?? ''}`}
       tab="Image"
-      nuevo="Nuevo diseño"
+      nuevo="Nuevo carrusel"
       proyectos={proyectos}
       errorProyectos={errorLista}
       onReintentar={cargar}
       actual={abierto}
+      nueva={explorar ?? undefined}
+      alNuevo={ejemplos ? salirDelGuiado : irAEjemplos}
       pieLista={aviso ? <p role="alert" style={{ margin: 0, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></p> : null}
       plantillas={plantillasNuevo}
       onPlantilla={onPlantilla}
@@ -236,15 +253,16 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       // esto es «Crear desde cero».
       chat={abierto && carga !== 'falla'
         ? (volver) => <ChatDelEditor disenoId={abierto} volver={volver} carga={carga} onRanura={setRanura} />
-        : undefined}
-      // El lienzo necesita el ancho, como el Video Editor (29/10/2026): el chat se pliega a una barra fina.
-      plegable
+        : g ? (volver) => <ChatReplica g={g} volver={volver} /> : undefined}
+      // El lienzo necesita el ancho, como el Video Editor (29/10/2026): el chat se pliega a una barra fina. Mientras se replica,
+      // NO: la tarjeta es donde MaKo pregunta.
+      plegable={!!abierto}
     >
       {abierto ? (
         <div className="cv" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <PantallaEditor disenoId={abierto} ws={ws} ranuraChat={ranura} salir={salir} onAbierto={alAbrir} onCarga={setCarga} onTitulo={onTitulo} senales={senales} />
         </div>
-      ) : null}
+      ) : g ? <ReplicarGuiado g={g} onSalir={salirDelGuiado} /> : null}
     </PantallaCrear>
     {carruseles.dialogos}
     {ejemploReal && plantillaDelEjemplo && (

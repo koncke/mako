@@ -51,6 +51,9 @@ export const EXTRA_PROPS: readonly string[] = [
   'link',
   /** Regenerate-able QR code source. */
   'qr',
+  /** Regenerate-able lettering (MaKo, 9/11/2026): an image layer that keeps its words, `{ texto, estilo }`
+   *  (lib/carruseles/plancha.ts). Without this, the words are gone on the first save and the layer is a plain picture. */
+  'lettering',
   /** Logical image src (the live element uses a resolved URL). */
   'docSrc',
   /** Text transforms and list style. */
