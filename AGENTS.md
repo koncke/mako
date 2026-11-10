@@ -2864,6 +2864,14 @@ guardado y no la rearma del estado de hoy. Lo que se arma después, para quien p
 onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
 preguntas del arranque, guardadas»).
 
+# Una lista de palabras «sensibles» se prueba con el vocabulario del PRODUCTO
+
+Un regex que decide «esto es delicado» (cobros, envíos, borrados) se escribe pensando en el mundo, y en la app las mismas palabras
+nombran otra cosa. El 9/11/2026, «tarjeta» en la zona sensible del triage (lib/tickets-reglas.ts) mandaba a esperar a Martín TODO
+reporte de Automations, donde cada paso del lienzo es una tarjeta: los tickets de Leandro, con la vía libre, quedaron días sin que nadie
+los tomara. Antes de sumar una palabra, se busca en los rótulos de la app (`grep -ri "<palabra>" app/`); si nombra una pieza, va con su
+contexto («tarjeta de crédito», «pagar con tarjeta»), y el test lleva una frase real de esa pieza. Detalle: docs/hallazgos-ticketera.md.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
@@ -11643,6 +11651,15 @@ persona toca el botón, y **no interpreta nada**: lo que decide qué es un anunc
 se arregle con un deploy y no con otra revisión de Chrome. Un permiso de sitios nuevo, en cambio, **desactiva la extensión** a cada cliente hasta que lo acepte: no se pide.
 Lo hace cumplir tests/spy-captura.test.ts.
 
+**«Replicar esta página» es la ÚNICA lectura que baja por una página ajena** (9/11/2026, 0.79.0; Martín: «siempre vamos a poder
+replicar cualquier landing»). La copia idéntica necesita que se cargue lo perezoso, así que `extension/replica-leer.js` hace
+`window.scrollTo` hacia abajo y, al terminar, **vuelve a donde estaba la persona**; nada más: ni clics, ni foco, ni teclas, ni red, ni
+cookies, y de un campo de texto copia sólo su placeholder, nunca su valor: React escribe lo tipeado en el atributo `value` (`soloDeLaPagina`). Corre en el mundo aislado, tras el toque en el
+ícono. **No se escribe a mano**: lo genera `scripts/sync-replica-extension.mjs` desde `lib/editor-landing/replica-extension-script.ts`,
+con las mismas piezas que el lector de la ventana, y el pre-push falla si quedó viejo. Cada cambio ahí es una versión nueva en la tienda:
+lo que se juzga (si es la página o la verificación de un antibots) lo decide MaKo (`juzgarEntrega`). Una lectura nueva que quiera mover
+la pantalla no se cuelga de ésta: se decide aparte, con su test. Lo hace cumplir tests/replicar-extension.test.ts.
+
 Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
 tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
 hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.
@@ -12093,6 +12110,8 @@ mandarla.
 - **Continuidad entre clips** (Martín, 9/11): *«si yo ya había tirado la tarjeta, la Polaroid, no debería tenerla otra vez. Y eso justamente se hace a raíz de la imagen… siempre tienes que tú estar presente para hacerte preguntas y tener criterio a ver si todo está bien».* Antes de armar la imagen de un clip se repasa cómo TERMINÓ el anterior (qué tiene en la mano, qué tiró, dónde está, ropa, encuadre) y la imagen nueva sale con ese estado. Vale igual dentro de MaKo: MaKo se hace esas preguntas sola, no espera a que el usuario lo note.
 
 - **Video: sin variaciones; imagen: libre** (Martín, 9/11): *«no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.»* De imagen se hacen las muestras que hagan falta (0 créditos). De video, UNO por pedido y recién con el OK del usuario a la imagen de ese clip; nunca dos versiones de video «para elegir». Se anota el saldo de créditos antes y después de cada video.
+
+- **Duración = palabras, y el clip se transcribe antes de entregar** (Martín, 9/11): «porque elegiste una duración más larga de la que debería… repitió una palabra, eso no debería pasar… contar las palabras para determinar cuántos segundos le vas a mandar a la instrucción. Y de paso también se ahorran tokens». Si el video dura más que la frase, Omni repite palabras («…en vendehumo, en vendehumos», clip 3 con 16 palabras en 8 s). Ritmo real de Omni (transcripción): ~3,3 palabras/s quieto, ~2,8 con un gesto; el habla arranca ~0,8 s. Duración = el valor más chico de Flow (3–10 s, 3 créditos/s) que cubra `0,8 + palabras/ritmo + 0,3`. Antes de entregar: `node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"` (ElevenLabs speech-to-text) marca palabras REPETIDAS, faltantes o cambiadas.
 
 ### ⛔ Antes de mandar una imagen: ESCALA real y ROSTRO idéntico (Martín, 9/11/2026)
 

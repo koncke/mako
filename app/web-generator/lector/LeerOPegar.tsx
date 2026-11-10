@@ -33,7 +33,7 @@
 // Va adentro de `.gp` (CSS_GP de MiniaturaLanding.tsx: los botones y los tokens `--gp-*`).
 // =============================================================================
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { SalidaSinLectura } from '@/lib/editor-landing/lector-navegador';
 import { Ico } from '../Ico';
@@ -46,7 +46,7 @@ export const BOTON_LEER = 'Leer en tu navegador';
 export const BOTON_PEGAR = 'Pega el texto';
 export const SIN_TEXTO_EN_NAVEGADOR = 'Tampoco mostró texto. Pégalo aquí.';
 
-export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, texto, salida = null, onLectura, onTexto }: {
+export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, texto, salida = null, onLectura, onTexto, extension }: {
   /** La página TAL CUAL la pegó la persona (con su www y su query). */
   url: string;
   /** El error del server (se muestra cuando no hay lector que ofrecer). */
@@ -63,6 +63,12 @@ export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, text
   salida?: SalidaSinLectura | null;
   onLectura: (l: Lectura) => void;
   onTexto: (texto: string) => void;
+  /**
+   * «Copiar con la extensión» (9/11/2026, crear/ConLaExtension.tsx): la página que el servidor no baja, copiada en la pestaña
+   * real de la persona. Va PRIMERO: «Leer en tu navegador» abre la copia que bajó el servidor, así que una página que bloquea
+   * al servidor también falla ahí.
+   */
+  extension?: ReactNode;
 }) {
   const { leer, leyendo, aviso } = useLectorEnNavegador({ bloqueadas: salida?.motivo === 'bloqueadas' });
   const [pegar, setPegar] = useState(!enNavegador || salida?.motivo === 'vacia');
@@ -90,9 +96,10 @@ export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, text
     <div className="gp-leer" role="group" aria-label="Leer la página">
       <style href="gp-leer" precedence="medium">{CSS_LEER}</style>
       <p className="gp-leer-error" role="alert">{enNavegador ? texto ?? TEXTO_NO_PUDO : error}<ReportarASoporte /></p>
+      {extension}
       <div className="gp-leer-acciones">
         {enNavegador && (
-          <button type="button" className="gp-btn gp-btn-primario" disabled={ocupado || leyendo} onClick={leerAhora}>
+          <button type="button" className={`gp-btn ${extension ? 'gp-btn-contorno' : 'gp-btn-primario'}`} disabled={ocupado || leyendo} onClick={leerAhora}>
             {leyendo ? <span className="gp-giro" aria-hidden /> : <Ico n="globo" t={14} />} {leyendo ? 'Leyendo…' : BOTON_LEER}
           </button>
         )}

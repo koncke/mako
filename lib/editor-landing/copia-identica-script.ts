@@ -111,9 +111,30 @@ export const JS_HIJOS_JUNTOS = String.raw`function (el) {
   return false;
 }`;
 
-export const JS_INSTANTANEA = String.raw`function () {
+/**
+ * La foto. `op.soloDeLaPagina` (9/11/2026, «Replicar con la extensión»): la foto sale en la PESTAÑA REAL de la persona, donde
+ * un campo puede traer lo que ella escribió. Ahí de un campo de texto se copia SÓLO su placeholder: React escribe lo tipeado
+ * en el atributo `value` de un input controlado (también en uno de contraseña) y en el `defaultValue` de un textarea, así que
+ * ni el atributo distingue lo de la página de lo escrito (lo encontró la revisión adversarial del mismo día). De un botón,
+ * su texto; de un select, la opción marcada de fábrica; y una caja editable (`contenteditable`) sale vacía. En la ventana
+ * del lector (sin `op`) nadie escribió nada y se copia como antes.
+ */
+export const JS_INSTANTANEA = String.raw`function (op) {
   var d = document;
   var base = d.baseURI;
+  var soloDeLaPagina = !!(op && op.soloDeLaPagina);
+  // Lo que se copia de un campo: el texto de un botón siempre; de lo demás, con soloDeLaPagina, nada (queda el placeholder).
+  var valorDe = function (o, tag, tipo) {
+    if (tipo === 'submit' || tipo === 'button' || tipo === 'reset') return o.value || o.getAttribute('value') || '';
+    if (soloDeLaPagina) return '';
+    return o.value || '';
+  };
+  var opcionDe = function (o) {
+    if (!o.options || !o.options.length) return null;
+    if (!soloDeLaPagina) return o.options[o.selectedIndex] || null;
+    for (var q = 0; q < o.options.length; q++) if (o.options[q].defaultSelected) return o.options[q];
+    return o.options[0];
+  };
   // La cara de arriba de todo de lo fijo o pegajoso (JS_ANTES_DE_BAJAR): esos elementos y lo que tienen adentro.
   var antes = window.__mkAntes instanceof Map ? window.__mkAntes : null;
   var enFijo = new Set();
@@ -173,6 +194,11 @@ export const JS_INSTANTANEA = String.raw`function () {
   for (var i = 0; i < orig.length && i < cop.length; i++) {
     var o = orig[i], c = cop[i];
     var tag = o.tagName.toLowerCase();
+    // Una caja editable de la pestaña real (un chat, un editor) puede traer lo que escribió la persona: sale vacía.
+    if (soloDeLaPagina && o.isContentEditable && o.hasAttribute('contenteditable')) {
+      while (c.firstChild) c.removeChild(c.firstChild);
+      c.removeAttribute('contenteditable');
+    }
     try { if (esJunta(o)) c.setAttribute('data-gm-junto', ''); } catch (e) {}
     // Lo FIJO (el aviso de cookies, un encabezado fijo): el server lo pega a la primera sección (partirParaCopia).
     try { if (getComputedStyle(o).position === 'fixed') c.setAttribute('data-gm-fijo', ''); } catch (e) {}
@@ -252,10 +278,12 @@ export const JS_INSTANTANEA = String.raw`function () {
       if (padre && padre.width && Math.abs(r.width - padre.width) < 2) est += ';width:100%';
       est += ';overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
       caja.setAttribute('style', est);
-      var texto = tag === 'select' ? (o.options && o.options[o.selectedIndex] ? o.options[o.selectedIndex].text : '') : (o.value || o.getAttribute('placeholder') || '');
+      var opcion = tag === 'select' ? opcionDe(o) : null;
+      var valor = tag === 'select' ? '' : valorDe(o, tag, tipo);
+      var texto = tag === 'select' ? (opcion ? opcion.text : '') : (valor || o.getAttribute('placeholder') || '');
       if (tipo === 'checkbox' || tipo === 'radio') texto = '';
       caja.textContent = texto;
-      if (!o.value && o.getAttribute('placeholder')) caja.style.color = getComputedStyle(o, '::placeholder').color || cs.color;
+      if (!valor && tag !== 'select' && o.getAttribute('placeholder')) caja.style.color = getComputedStyle(o, '::placeholder').color || cs.color;
       cambios.push([c, caja]);
       medidas.campos++;
     } else if (tag === 'form') {

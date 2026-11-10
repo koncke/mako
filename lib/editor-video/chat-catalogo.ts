@@ -40,10 +40,21 @@
 // la duración, los huecos y sus topes: una plantilla nueva entra sola al prompt. Van en el
 // orden de la pestaña, con las sugeridas para el negocio primero y marcadas
 // (`catalogoParaPrompt(senales)`; las señales las lee ./ia.ts en el server).
+//
+// Los motion graphics (lib/motion; traídos el 10/11/2026 de rescate/motion-imagen-2610): agregar_motion y editar_motion.
+// Su validación es la del motor (`normalizarMotion` estricto, lib/motion/plantillas.ts), envuelta en
+// `valoresMotionValidos`: un campo que no es de la plantilla o un texto más largo que su tope se RECHAZA con su motivo,
+// nunca se recorta. Al AGREGAR desde el chat o la API no quedan los textos de ejemplo de la plantilla («Ana Pérez»,
+// «+1250», cinco estrellas): no son de la persona (`valoresAlAgregar`); la biblioteca sí los pone, porque ahí la persona
+// los edita a mano en el panel.
 // =============================================================================
 
 import { PLANTILLAS, huecosDe, plantillaPorId, plantillasEnOrden, validarValores, type Plantilla } from './plantillas';
 import type { SenalesNegocio } from '../plantillas-sugeridas';
+import {
+  PLANTILLAS as DEF_MOTION, ROTULO_TONO, camposDe, catalogoMotionParaPrompt, esPlantilla, normalizarMotion, valoresPorDefecto,
+} from '../motion/plantillas';
+import { PLANTILLAS_MOTION, type CampoMotion, type IdPlantilla, type Tono, type ValoresMotion } from '../motion/tipos';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
@@ -186,7 +197,14 @@ export type OperacionChat =
   /** «Edición automática» (app/video-editor/_opencut/enjambre): el equipo de agentes edita todo, de una y a la vista. */
   | { op: 'edicion_automatica' }
   /** «Emojis automáticos» (Submagic: «Auto emojis», app/video-editor/_opencut/subtitles/emojis.ts): ponerlos o sacarlos. */
-  | { op: 'emojis_subtitulos'; activar: boolean };
+  | { op: 'emojis_subtitulos'; activar: boolean }
+  /**
+   * Un motion graphic nuevo. `valores`: SÓLO los campos que vinieron, ya normalizados (lo que se inserta lo arma
+   * `valoresAlAgregar`); `duracion` sin poner = la de la plantilla.
+   */
+  | { op: 'agregar_motion'; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion?: number; ref?: string }
+  /** Campos de un motion graphic que ya está (la plantilla no se cambia). */
+  | { op: 'editar_motion'; ref: string; valores: ValoresMotion };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -256,6 +274,49 @@ function paraUsarPlantilla(senales?: SenalesNegocio | null): string {
       + ' Las plantillas ("id" «nombre», duración: qué es · huecos):',
     ...orden.map(({ plantilla, porque }) => plantillaEnRenglon(plantilla, porque)),
   ].join('\n');
+}
+
+/**
+ * Lo que lee la IA de agregar_motion: las reglas de las skills de motion (los textos TAL CUAL, nunca inventar un dato,
+ * UN tono), dichas como el resto del catálogo: una ORDEN al modelo («nunca los inventes», como «no lo inventes» de
+ * usar_plantilla), no una descripción. Las plantillas van aparte (`catalogoMotionChat` en el prompt del chat; en la
+ * API, `catalogoMotionCompacto` en el parámetro "plantilla"): este texto es también la descripción de la API, que tiene
+ * presupuesto (12.000 caracteres por turno) y PUNTÚA por sus palabras contra el pedido (lib/api-mako/registro.ts,
+ * ordenarPorRelevancia): con el catálogo adentro (título, nombre, precio…) le ganaba el lugar a editar_motion en «cambia
+ * el título del motion», y con la palabra «textos» dejaba sin cambiar_estilo_texto a «agrega un texto amarillo» (medido
+ * el 27/10/2026 con scripts/presupuesto-turno-app.mts). Por eso tampoco dice «texto».
+ */
+const PARA_AGREGAR_MOTION =
+  'Agrega un MOTION GRAPHIC (una animación ya diseñada que ocupa el cuadro, en su propia pista): "plantilla", y "valores" {campo: valor} sólo con lo que pones, dentro del tope de cada campo; "inicio" en segundos; "duracion" opcional (la de la plantilla). Lo que dice va TAL CUAL lo dijo la persona: nombres, cifras, precios, citas y calificaciones, nunca los inventes (si falta un obligatorio, pídelo en el resumen). Lo que no pones queda vacío (las estrellas, en 0). UN "tono" para todos los motion del video. "ref" nueva opcional ("n1"…).';
+
+/** Las plantillas de motion para el prompt del chat: el catálogo del motor, como sublista de agregar_motion. */
+function catalogoMotionChat(): string {
+  return catalogoMotionParaPrompt().split('\n').map((l) => `  · ${l.replace(/^- /, '')}`).join('\n');
+}
+
+/** Lo que un motion AGREGADO por el chat o la API necesita de la persona, además de sus textos obligatorios. */
+const DATOS_MOTION: Partial<Record<IdPlantilla, readonly string[]>> = { cifra: ['numero'] };
+
+/** «titulo*≤90»: un campo de motion en pocas letras (la API tiene presupuesto). `*` = tiene que venir al agregar. */
+function campoCompacto(c: CampoMotion, obligatorio: boolean): string {
+  const marca = obligatorio ? '*' : '';
+  if (c.tipo === 'texto') return `${c.clave}${marca}≤${c.max}`;
+  if (c.tipo === 'numero') return `${c.clave}${marca}${c.min < -1000 ? '' : ` ${c.min}-${c.max}`}`;
+  return c.clave;
+}
+
+/**
+ * Las plantillas de motion en un párrafo, para el parámetro "plantilla" de la API (lib/editor-video/chat-api.ts): cada
+ * id con sus campos y topes (* = obligatorio al agregar) y los comunes. Sale del MISMO catálogo del motor que lee el chat.
+ */
+export function catalogoMotionCompacto(): string {
+  const propias = PLANTILLAS_MOTION.map((p) => {
+    const campos = DEF_MOTION[p].campos.map((c) => campoCompacto(c, (c.tipo === 'texto' && !!c.obligatorio) || !!DATOS_MOTION[p]?.includes(c.clave)));
+    return `${p} (${campos.join(', ')})`;
+  }).join('; ');
+  const tono = camposDe('titular').find((c) => c.clave === 'tono');
+  const opciones = tono && tono.tipo === 'opcion' ? tono.opciones.map((o) => o.valor).join('|') : '';
+  return `La plantilla. Sus campos (* = obligatorio): ${propias}. Comunes: tono (${opciones}), colorFondo, colorTexto y colorAcento (#RRGGBB), conFondo (true/false), fuente.`;
 }
 
 /** Las operaciones, para el texto que lee la IA. El orden es el de la lista que se le muestra. */
@@ -444,6 +505,17 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"emojis_subtitulos","activar":true}',
     para: 'Emojis automáticos, como Submagic: con "activar": true pone un emoji animado encima de cada subtítulo que dice algo que se puede dibujar (dinero, tiempo, una idea, un error…), en su pista «Emojis», reemplazando los de antes; con false los saca. No elige ni inventa los emojis: los elige el editor al aceptar, con la palabra clave de cada subtítulo. Los de ahora van marcados "emoji_de_subtitulo". Se aplica al final, después de generar los subtítulos.',
   },
+  // Los motion graphics (10/11/2026), al FINAL (AGENTS.md: una operación nueva no le saca el lugar a las de antes).
+  {
+    op: 'agregar_motion',
+    forma: '{"op":"agregar_motion","plantilla":"titular","valores":{"titulo":"…","tono":"energico"},"inicio":0,"ref":"n1"}',
+    para: PARA_AGREGAR_MOTION,
+  },
+  {
+    op: 'editar_motion',
+    forma: '{"op":"editar_motion","ref":"g1","valores":{"titulo":"…"}}',
+    para: 'Cambia lo que dice (el título, el nombre, la cifra…), el tono, los colores o la fuente de un motion graphic que ya está ("tipo":"motion", con sus "valores" de ahora): "valores" {campo: valor} sólo con lo que cambia, con los campos y topes de SU plantilla (vacío saca uno que no es obligatorio). La plantilla no se cambia.',
+  },
 ];
 
 /**
@@ -451,7 +523,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; emojis encima de los subtítulos, sí: emojis_subtitulos); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -459,7 +531,10 @@ const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 export function catalogoParaPrompt(senales?: SenalesNegocio | null): string {
   return [
     // usar_plantilla se rearma con las señales: sus plantillas van en el orden de la pestaña, con las sugeridas primero.
-    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${o.op === 'usar_plantilla' ? paraUsarPlantilla(senales) : o.para}`),
+    // agregar_motion lleva debajo el catálogo del motor (lib/motion), que no va en su `para` (es también la API).
+    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${
+      o.op === 'usar_plantilla' ? paraUsarPlantilla(senales) : o.op === 'agregar_motion' ? `${o.para} Las plantillas:\n${catalogoMotionChat()}` : o.para
+    }`),
     '',
     `NO SE PUEDE DESDE EL CHAT (dilo en el resumen, no lo simules): ${NO_SE_PUEDE_CHAT}.`,
   ].join('\n');
@@ -661,6 +736,101 @@ function valoresDePlantilla(
     else salida.clips[nombre] = valor.medio;
   }
   return { ok: true, ...salida };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los motion graphics (lib/motion): la validación es la del motor, estricta
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cada campo de motion y su tipo. Una clave tiene el MISMO tipo en todas las plantillas (lo fija el test): de eso viven
+ * editar_motion (que no sabe la plantilla hasta mirar la línea de tiempo) y la API (que recibe todo como texto).
+ */
+export const TIPO_CAMPO_MOTION: ReadonlyMap<string, CampoMotion['tipo']> = new Map(
+  PLANTILLAS_MOTION.flatMap((p) => camposDe(p).map((c) => [c.clave, c.tipo] as const)),
+);
+
+export type ValidaMotion = { ok: true; valores: ValoresMotion } | { ok: false; motivo: string };
+
+/**
+ * Los "valores" de un motion graphic contra SU plantilla, con `normalizarMotion` ESTRICTO (la única validación del
+ * motor): un campo que no es de la plantilla, un texto más largo que su tope, un obligatorio vacío, un color o un número
+ * malos se RECHAZAN con su motivo, nunca se recortan. Devuelve sólo los campos que vinieron, normalizados (validar lo
+ * ya validado da lo mismo). `alAgregar`: además, los textos obligatorios y los datos de la persona tienen que venir.
+ */
+export function valoresMotionValidos(plantilla: IdPlantilla, raw: unknown, { alAgregar = false }: { alAgregar?: boolean } = {}): ValidaMotion {
+  const nombre = DEF_MOTION[plantilla].nombre;
+  if (raw !== undefined && !esObjeto(raw)) return { ok: false, motivo: '"valores" va como {"campo": valor}' };
+  const entrada = (raw ?? {}) as Record<string, unknown>;
+  const claves = Object.keys(entrada);
+  if (!alAgregar && !claves.length) return { ok: false, motivo: 'un cambio de motion graphic sin valores' };
+  if ('plantilla' in entrada) return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+  const { spec, descartes } = normalizarMotion({ plantilla, valores: entrada }, { estricto: true });
+  if (descartes.length) return { ok: false, motivo: `el motion «${nombre}»: ${descartes.slice(0, 3).join('; ')}`.slice(0, 300) };
+  if (alAgregar) {
+    const faltan = camposDe(plantilla).filter(
+      (c) => ((c.tipo === 'texto' && c.obligatorio) || DATOS_MOTION[plantilla]?.includes(c.clave)) && !(c.clave in entrada),
+    );
+    if (faltan.length) {
+      return { ok: false, motivo: `el motion «${nombre}» necesita ${faltan.map((c) => `"${c.clave}"`).join(' y ')}: sale de lo que dijo la persona, no se inventa` };
+    }
+  }
+  return { ok: true, valores: Object.fromEntries(claves.map((k) => [k, spec.valores[k]])) };
+}
+
+/**
+ * Lo que se INSERTA al agregar desde el chat o la API: el estilo de la plantilla (tono, colores, fondo, fuente), sin sus
+ * textos ni sus estrellas de EJEMPLO («Ana Pérez», «+1250», cinco estrellas no son de la persona: las skills de motion,
+ * «nunca inventes un nombre, una cifra o una calificación»), y encima lo pedido.
+ */
+export function valoresAlAgregar(plantilla: IdPlantilla, valores: ValoresMotion): ValoresMotion {
+  const base = valoresPorDefecto(plantilla);
+  for (const c of camposDe(plantilla)) {
+    if (c.tipo === 'texto') base[c.clave] = '';
+    else if (c.clave === 'estrellas') base[c.clave] = 0;
+  }
+  return { ...base, ...valores };
+}
+
+/** «Título «50% off» · Tono Enérgico»: unos campos de motion en palabras (la revisión, la tarjeta de la propuesta). */
+export function textoValoresMotion(valores: ValoresMotion, plantilla?: IdPlantilla | null): string {
+  const campo = (k: string): CampoMotion | undefined =>
+    (plantilla ? camposDe(plantilla) : PLANTILLAS_MOTION.flatMap((p) => camposDe(p))).find((c) => c.clave === k);
+  return Object.entries(valores).map(([k, v]) => {
+    const c = campo(k);
+    const rotulo = (c?.rotulo ?? k).replace(/ \(.*$/, '');
+    if (c?.tipo === 'texto' || (typeof v === 'string' && !c)) {
+      const s = String(v).replace(/\s+/g, ' ').trim();
+      return s ? `${rotulo} «${s.length > 60 ? `${s.slice(0, 59)}…` : s}»` : `${rotulo} vacío`;
+    }
+    if (c?.tipo === 'opcion') return `${rotulo} ${c.clave === 'tono' ? (ROTULO_TONO[v as Tono] ?? String(v)) : String(v)}`;
+    if (typeof v === 'boolean') return `${rotulo} ${v ? 'sí' : 'no'}`;
+    return `${rotulo} ${typeof v === 'number' ? String(v).replace('.', ',') : String(v)}`;
+  }).join(' · ');
+}
+
+/**
+ * La FORMA de los valores de editar_motion, que todavía no sabe de qué plantilla es el elemento (eso lo mira la
+ * revisión contra la línea de tiempo, con `valoresMotionValidos`): cada campo tiene que existir en alguna plantilla y
+ * su valor ser válido para alguna de las que lo tienen. Lo que no, se rechaza con el motivo del motor.
+ */
+function valoresMotionDeForma(raw: unknown): ValidaMotion {
+  if (!esObjeto(raw) || !Object.keys(raw).length) return { ok: false, motivo: 'un cambio de motion graphic sin "valores" ({"campo": valor})' };
+  const valores: ValoresMotion = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === 'plantilla') return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+    const con = PLANTILLAS_MOTION.filter((p) => camposDe(p).some((c) => c.clave === k));
+    if (!con.length) return { ok: false, motivo: `«${k.slice(0, 30)}» no es un campo de ningún motion graphic` };
+    let primera: ValidaMotion | null = null;
+    for (const p of con) {
+      const r = valoresMotionValidos(p, { [k]: v });
+      if (r.ok) { valores[k] = r.valores[k]; primera = r; break; }
+      primera ??= r;
+    }
+    // Sin el nombre de la plantilla: todavía no se sabe de cuál es el elemento.
+    if (primera && !primera.ok) return { ok: false, motivo: primera.motivo.replace(/^el motion «[^»]*»: /, '') };
+  }
+  return { ok: true, valores };
 }
 
 const ENVUELTAS: Record<string, string> = { estilo_texto: 'estilo', transformar: 'cambios', ajustar_color: 'valores' };
@@ -997,6 +1167,33 @@ export function validarOperacion(crudo: unknown): Validada {
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de los emojis de los subtítulos` };
       if (typeof raw.activar !== 'boolean') return { ok: false, motivo: 'unos emojis de subtítulos sin «activar» (true o false)' };
       return { ok: true, op: { op: 'emojis_subtitulos', activar: raw.activar } };
+    }
+    case 'agregar_motion': {
+      const extra = sobrantes(raw, ['plantilla', 'valores', 'inicio', 'duracion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_motion${TIPO_CAMPO_MOTION.has(extra) ? ': los campos van dentro de "valores"' : ''}` };
+      const plantilla = typeof raw.plantilla === 'string' ? raw.plantilla.trim().toLowerCase() : '';
+      if (!esPlantilla(plantilla)) {
+        return { ok: false, motivo: `«${String(raw.plantilla ?? '').slice(0, 30)}» no es un motion graphic (son: ${PLANTILLAS_MOTION.join(', ')})` };
+      }
+      const inicio = numero(raw.inicio);
+      const duracion = raw.duracion === undefined ? undefined : numero(raw.duracion);
+      if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un motion graphic sin inicio válido' };
+      if (duracion !== undefined && !enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un motion graphic sin duración válida' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un motion graphic nuevo con una ref que no es «n1», «n2»…' };
+      const v = valoresMotionValidos(plantilla, raw.valores, { alAgregar: true });
+      if (!v.ok) return v;
+      return {
+        ok: true,
+        op: { op: 'agregar_motion', plantilla, valores: v.valores, inicio: centesima(inicio), ...(duracion != null ? { duracion: centesima(duracion) } : {}), ...(ref ? { ref } : {}) },
+      };
+    }
+    case 'editar_motion': {
+      if (!esRef(ref)) return { ok: false, motivo: 'un cambio de motion graphic sin elemento' };
+      if (raw.plantilla !== undefined) return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+      const extra = sobrantes(raw, ['valores']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de editar_motion${TIPO_CAMPO_MOTION.has(extra) ? ': los campos van dentro de "valores"' : ''}` };
+      const v = valoresMotionDeForma(raw.valores);
+      return v.ok ? { ok: true, op: { op: 'editar_motion', ref, valores: v.valores } } : v;
     }
   }
 }

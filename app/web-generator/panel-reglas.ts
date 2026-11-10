@@ -238,7 +238,8 @@ export type Derecha =
   | { tipo: 'papelera' }
   | { tipo: 'diagnostico'; docId?: number; url?: string }
   | { tipo: 'ia'; doc: TipoCrear; arranque: ArranqueIA }
-  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean; auto?: boolean };
+  /** `entrega` (9/11/2026): la foto que ya trajo la extensión de MaKo (`?extension=`): Replicar la toma en vez de leer. */
+  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean; auto?: boolean; entrega?: string };
 
 /** El modo del cuadro que muestra esa derecha, o null si no es el cuadro (un resultado, una galería). */
 export function modoCajaDe(d: Derecha): ModoCaja | null {
@@ -285,7 +286,8 @@ export function urlConVentanaAlAbrir(d: Derecha, analizadas: readonly Analizada[
     return k && analizadas.some((a) => claveUrl(a.url) === k) ? null : d.url;
   }
   // Desde el 28/10/2026 Replicar arranca LEYENDO la página (qué tiene, antes de elegir qué replicar), en cualquier formato.
-  if (d.tipo === 'replicar') return d.url && d.auto ? d.url : null;
+  // Con la foto de la extensión (`entrega`) no se lee nada: ninguna ventana.
+  if (d.tipo === 'replicar') return d.url && d.auto && !d.entrega ? d.url : null;
   return null;
 }
 
@@ -315,10 +317,16 @@ export type ConsultaDerecha = {
   prompt?: string | null;
   url?: string | null;
   objetivo?: string | null;
+  /**
+   * 9/11/2026: `?replicar=<url>` abre Replicar con esa página, arrancando sola (lo usan «Copiar su sitio» de Competitors Spy y
+   * la extensión). Con `?extension=<entrega>`, la foto ya está en la extensión de MaKo y no se lee nada: se toma.
+   */
+  replicar?: string | null;
+  extension?: string | null;
 };
 
 /** Las claves de la query que la derecha escribe o consume (`queryDeDerecha` las reescribe todas). */
-const CLAVES_DERECHA = ['vista', 'diagnostico', 'analizar', 'paso', 'tipo', 'desde', 'modo', 'prompt', 'url', 'objetivo'] as const;
+const CLAVES_DERECHA = ['vista', 'diagnostico', 'analizar', 'paso', 'tipo', 'desde', 'modo', 'prompt', 'url', 'objetivo', 'replicar', 'extension'] as const;
 
 /** La consulta de la derecha desde los `searchParams` de la página. */
 export function consultaDerecha(sp: Query): ConsultaDerecha {
@@ -380,6 +388,14 @@ export function derechaDeQuery(q: ConsultaDerecha, docs: readonly LandingResumen
     if (!url) return { tipo: 'diagnostico' };
     const propia = docDeUrl(url, docs, bases);
     return propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url };
+  }
+  // Replicar ESA página (9/11/2026): de Spy («Copiar su sitio») o de la extensión (con su foto, `extension`). Sin una dirección
+  // válida, el cuadro en Replicar para pegar una.
+  if (typeof q.replicar === 'string') {
+    const url = urlParaAnalizar(q.replicar);
+    if (!url) return { tipo: 'replicar' };
+    const entrega = typeof q.extension === 'string' && /^[0-9a-f]{24}$/.test(q.extension) ? q.extension : null;
+    return { tipo: 'replicar', url, auto: true, ...(entrega ? { entrega } : {}) };
   }
   const doc = tipoValido(q.tipo);
   const objetivo = q.objetivo?.trim() ? { objetivo: q.objetivo.trim() } : {};

@@ -48,7 +48,9 @@ export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
  */
 // Medido el 2/11/2026 con `node scripts/version-en-tienda.mjs`: decía 0.39.1, o sea TREINTA Y
 // CINCO versiones atrás de lo que Google publica. Medido otra vez el 3/11/2026: 0.74.3.
-export const VERSION_EN_TIENDA = '0.74.3';
+// Medido el 9/11/2026 en la ficha pública desde la PC de Martín (docs/editor-landing/pendientes-web-generator.md §3.3):
+// «Versión 0.74.5», actualizada el 3/11/2026 a las 19:52 UTC. La nube no llega a chromewebstore.google.com: se midió allá.
+export const VERSION_EN_TIENDA = '0.74.5';
 export const EXTENSION_URL_TIENDA = `https://chromewebstore.google.com/detail/mako/${EXTENSION_ID}`;
 
 /**

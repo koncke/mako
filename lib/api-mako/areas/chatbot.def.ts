@@ -604,7 +604,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_botones_mensaje', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Botones de un DM de Instagram',
-    descripcion: 'SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.',
+    descripcion: 'SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. Con «variantes», otras formas de decir ese texto: a cada persona le toca una al azar (el texto o una de ellas), también en la respuesta pública; la lista reemplaza a las de antes y [] las saca. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.',
     parametros: [
       pSecuenciaId,
       { nombre: 'tarjeta', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id del DM (de ficha_secuencia_mensajes).' },
@@ -619,8 +619,10 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'texto', tipo: 'string', max: 1000, descripcion: 'opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}.' },
       // Ticket #17 de Leandro (28/10/2026): la respuesta PÚBLICA al comentario, un dato del mismo DM.
       { nombre: 'en_comentario', tipo: 'boolean', descripcion: 'opcional: true = su texto se publica debajo del comentario que disparó el flujo, a la vista de todos (con un CRON de comentario; sólo texto, sin botones); false = vuelve a ir por mensaje privado.' },
+      // Ticket #67 de Leandro (9/11/2026): que la respuesta pública «rote entre» varios textos. Las mismas del «↻» del lienzo.
+      { nombre: 'variantes', tipo: 'string[]', vaciaEsValor: true, max: 8, descripcion: 'opcional: hasta 8 otras formas de decir el texto (cada una hasta 1000 caracteres); a cada persona le toca una al azar, el texto o una de ellas. Reemplaza a las de antes; [] las saca. Sólo en un mensaje de UN texto.' },
     ],
-    reversible: true, escribe: 'reemplaza el texto, los botones o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
+    reversible: true, escribe: 'reemplaza el texto, los botones, las otras formas de decirlo o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los

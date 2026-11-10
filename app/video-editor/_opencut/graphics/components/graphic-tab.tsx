@@ -26,6 +26,8 @@ import {
 	SeccionCe,
 } from "@/app/video-editor/_opencut/components/editor/panels/properties/components/kit";
 import type { ContextoInspector } from "@/app/video-editor/ce/ranuras";
+import { plantillaDeDefinicion } from "@/app/video-editor/_opencut/graphics/definitions/motion";
+import { camposDe } from "@/lib/motion/plantillas";
 
 registerDefaultGraphics();
 
@@ -78,6 +80,7 @@ export function GraphicTab({
 	trackId: string;
 }) {
 	const definition = graphicsRegistry.get(element.definitionId);
+	if (definition.animado) return <MotionTab element={element} trackId={trackId} params={definition.params} />;
 	const forma = definition.params.filter((p) => p.group !== "stroke");
 	const trazo = definition.params.filter((p) => p.group === "stroke");
 	const relleno = forma.filter((p) => p.key === "fill");
@@ -100,6 +103,49 @@ export function GraphicTab({
 					))}
 				</SeccionCe>
 			)}
+		</div>
+	);
+}
+
+/**
+ * Un motion graphic (lib/motion): «Textos» con el rótulo de cada campo arriba de su caja (son varios y el kit no lo
+ * dibuja) y «Estilo» con el tono, la fuente, los colores y el fondo. Lo largo no se corta: el motor achica la letra, y
+ * la fila avisa cuando un texto pasa el largo pensado para la plantilla.
+ */
+const ESTILO_MOTION = new Set(["tono", "fuente", "colorFondo", "colorTexto", "colorAcento", "colorPanel", "conFondo"]);
+function MotionTab({ element, trackId, params }: { element: GraphicElement; trackId: string; params: ParamDefinition[] }) {
+	const plantilla = plantillaDeDefinicion(element.definitionId);
+	const topes = new Map(
+		plantilla ? camposDe(plantilla).flatMap((c) => (c.tipo === "texto" ? [[c.clave, c.max] as const] : [])) : [],
+	);
+	const textos = params.filter((p) => !ESTILO_MOTION.has(p.key));
+	const estilo = params.filter((p) => ESTILO_MOTION.has(p.key));
+	return (
+		<div className="flex flex-col pt-1" data-motion={plantilla ?? undefined}>
+			<SeccionCe titulo="Textos" clave="ce:motion:textos">
+				{textos.map((p) => {
+					const tope = topes.get(p.key);
+					const largo = String(element.params[p.key] ?? "").length;
+					return (
+						<div key={p.key} className="flex flex-col">
+							{p.type === "text" && (
+								<span className="flex items-baseline justify-between pt-1.5 text-[11px] text-(--cc-text-3)">
+									{p.label}
+									{tope !== undefined && largo > tope && (
+										<span className="text-[10px] text-(--cc-text-2)">Largo: se achica la letra</span>
+									)}
+								</span>
+							)}
+							<Campo element={element} trackId={trackId} param={p} />
+						</div>
+					);
+				})}
+			</SeccionCe>
+			<SeccionCe titulo="Estilo" clave="ce:motion:estilo">
+				{estilo.map((p) => (
+					<Campo key={p.key} element={element} trackId={trackId} param={p} />
+				))}
+			</SeccionCe>
 		</div>
 	);
 }

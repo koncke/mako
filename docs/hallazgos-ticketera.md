@@ -4,6 +4,34 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## «Tarjeta» no es una tarjeta de crédito, y el dueño en su grupo no era nadie (9/11/2026, Leandro)
+
+**El síntoma:** Martín, 9/11: «no está solucionando su problema con Automations hace días». Leandro tiene la vía libre
+(`APROBADOS_POR_REGLA`, 26/10) y aun así #61, #62, #63, #65 y #67 estaban en `esperando_decision`: ninguno llegó al Runner.
+
+**El diagnóstico obvio era el equivocado.** Parecía el Runner caído o el Cerebro sin tomar nada. No: el triage los frenó al
+NACER, y cada uno por una causa distinta, las tres en el código de la Ticketera:
+- **«tarjeta» en `ZONA_SENSIBLE_TEXTO`.** En Automations cada paso del lienzo es una TARJETA («la tarjeta de Instagram», «la
+  tarjeta nem81on»): todo reporte de una automatización caía en «habla de cobros» y esperaba a Martín. #62, #63 y #67. Ahora cuenta
+  sólo la de pago (`TARJETA_DE_PAGO`: «de crédito», «datos de la tarjeta», «pagar con tarjeta», CVV…).
+  **Regla:** una lista de palabras sensibles se prueba con el VOCABULARIO DEL PRODUCTO, no sólo con el del mundo. Antes de sumar una
+  palabra, buscarla en los rótulos de la app (`grep -ri "<palabra>" app/`): si es el nombre de una pieza, va con su contexto.
+- **El dueño escribiendo en SU grupo era «por WhatsApp», sin permiso.** `identidadDelActor` buscaba el teléfono sólo en
+  `usuarios.perfil.telefono`, que casi nadie llena: medido el 9/11, **10 de 13 negocios** tienen `mako.numero_dueno` y ningún
+  perfil con ese número. Cada acción que MaKo delegaba salía «no es admin de ese negocio» (#65). El bot ya contestaba distinto
+  (`negociosDelTelefono`, lib/mako-bot.ts, toma el número del dueño como admin): dos respuestas a «¿quién es este teléfono?».
+  Ahora `emailDelTelefono`: el perfil gana; si no, el número del dueño es el primer admin del negocio.
+- **Lo que la persona sumaba por el grupo a un ticket automático no lo hacía suyo.** MaKo abre uno solo cuando no pudo hacer algo
+  (lib/no-pude.ts) y un automático no entra por la regla del negocio, a propósito. Pero Leandro escribió dos veces sobre el mismo
+  tema, MaKo contestó «Lo sumé al ticket #67» y el ticket siguió automático. Ahora `triageAlSumarLaPersona`: sumado por la persona
+  (sólo desde `abrirTicketDelGrupo`, nunca un invitado), se reclasifica como suyo y, con la regla, pasa a `en_curso` por el Runner.
+
+**Lo que NO cambia, a propósito:** un pedido delegado que manda algo a terceros («mandales el recurso») sigue esperando a Martín
+aunque el que lo pide sea el dueño (`delegadoQueDecideMartin`, decisión del 30/10). El #65 habría esperado igual por eso.
+
+**Sin hacer:** los tickets que ya quedaron frenados por estas causas no se reclasifican solos (la regla vale al escribir). Si aparece
+otro negocio con un reporte de Automations en `esperando_decision`, es esto. Test: tests/leandro-whatsapp-0911.test.ts (1 a 3).
+
 ## El correo de avance: lo difícil no era mandarlo, era a quién NO (4/11/2026, nube)
 
 **El pedido:** Joan, el 2/11: «¿cómo van esos tickets?». Martín: «que se le envíe por email los avances». La regla de qué hito

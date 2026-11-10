@@ -52,10 +52,12 @@ export { respuestaDelTicket, ticketQueAcabaDeNombrar, type TicketAbierto } from 
 export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbierto | null> {
   // Un pedido delegado es otra cosa que el ticket recién nombrado: no se suma.
   const previo = t.delegado || t.invitado ? null : ticketQueAcabaDeNombrar(t.ultimoDeMaKo);
-  if (previo && (await sumarAlPedidoDelNegocio(t.ws, previo, `${t.pedido}\n\n(lo sumó MaKo: ${t.clasificacion.porque})`).catch(() => false))) {
+  const leida = await identidadDelActor(t.ws, t.actor).catch(() => null);
+  // Con quién lo pide (9/11/2026): si el anterior lo abrió MaKo solo, desde que la persona lo reporta es suyo, con la regla de su
+  // negocio (`triageAlSumarLaPersona`, lib/tickets-reglas.ts). Sin esto, el #67 de Leandro siguió esperando a Martín.
+  if (previo && (await sumarAlPedidoDelNegocio(t.ws, previo, `${t.pedido}\n\n(lo sumó MaKo: ${t.clasificacion.porque})`, leida).catch(() => false))) {
     return { id: previo, sumado: true };
   }
-  const leida = await identidadDelActor(t.ws, t.actor).catch(() => null);
   if (!leida) return null;
   const identidad = t.invitado ? { ...leida, rol: 'invitado' } : leida;
   const titulo = t.resumen.trim() || t.pedido.trim().slice(0, 120);

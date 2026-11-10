@@ -84,6 +84,8 @@ test('las operaciones del editor se dicen en palabras, sin «undefined» ni «Na
     activo: true, separado: true, oculto: true, x: 2, id: 'fundido', tipo: 'filtro', valores: { brillo: 10 }, estilo: {}, cambios: {},
     horizontal: true, revertido: true, buscar: 'a', reemplazo: 'b', modo: 'palabra', frase: 'eh', medio: 'm1', textos: {}, clips: {},
     palabras: ['hoy'], preset: 'Hormozi',
+    // agregar_motion (10/11/2026): la plantilla del motion graphic.
+    plantilla: 'titular',
   };
   const ops = new Set(OPERACIONES_API.map((o) => o.op));
   assert.ok(ops.size >= 30, `encontré ${ops.size} operaciones`);

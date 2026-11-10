@@ -652,6 +652,8 @@ export const RUNNERS: Runners = {
   buscar_clips_video: { ...enElEditor('buscar_clips_video') },
   editar_video_automatico: { ...enElEditor('editar_video_automatico') },
   poner_emojis_subtitulos: { ...enElEditor('poner_emojis_subtitulos') },
+  agregar_motion_video: { ...enElEditor('agregar_motion_video') },
+  editar_motion_video: { ...enElEditor('editar_motion_video') },
 
   ver_contexto_video: {
     leer: async () => {

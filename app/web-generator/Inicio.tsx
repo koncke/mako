@@ -606,7 +606,7 @@ export function Inicio(props: PropsInicio) {
       />
     );
   } else if (derecha.tipo === 'replicar') {
-    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} propios={props.propios} />;
+    contenido = <ReplicarUnaPagina key={`${derecha.url ?? ''}|${derecha.entrega ?? ''}`} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} entrega={derecha.entrega} propios={props.propios} />;
   } else if (derecha.tipo === 'plantillas') {
     contenido = (
       <>
