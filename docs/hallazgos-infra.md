@@ -12239,3 +12239,25 @@ rojo es ése.
 línea (`LARGAS` de `app/video-editor/_opencut/chat/comandos.ts`), pero estaban anidadas: la tanda 4 traía motion hasta su
 penúltimo commit, y Submagic entera. `git merge-base` entre las puntas lo muestra en un comando. Se resolvió la de afuera, y las
 otras dos mezclaron limpio. Antes de resolver tres choques iguales, fijate si son el mismo trabajo.
+
+## La PC se quedó sin RAM con cuatro chats revisando su tab: un assert sobre un nodo de jsdom (10/11/2026)
+
+**Síntoma:** a las 21:42 UTC se cayeron los cuatro chats locales a la vez (Image, Video Editor, Marketing CoPilot y el grabador
+de THE NET LAB). Estaban recorriendo su tab en el Chrome de Martín por pedido suyo. El vigía de RAM mató un `node.exe` con
+**26.912 MB privados**, cuando quedaban 91 MB libres, y a las 21:44 otro de 25.460 MB (`~/.claude/guardia/guardia.log`).
+
+**⚠️ El diagnóstico obvio era el equivocado, dos veces:**
+- no fueron «demasiados chats con Chrome»: los cuatro chats con 16 pestañas de Chrome sumaban unos 6 GB;
+- y tampoco la suite de afectados del CoPilot, que fue lo primero que anotó el Cerebro.
+
+Fue el chat Image, rompiendo a propósito `tests/carruseles-imagen-rota.test.ts`. Un `assert.equal(elementoDeJsdom, null)` que
+falla arma el mensaje de la diferencia inspeccionando TODO el grafo de jsdom, y crece hasta agotar la memoria. Al repetirlo con
+7,7 GB libres, dio «Array buffer allocation failed». El detalle está en `docs/hallazgos-pruebas.md`.
+
+**La regla:**
+- un test nunca compara un nodo del DOM (ni un objeto grande) con `assert.equal` o `deepEqual`: compara un dato chico, como su
+  `src`, su `textContent` o si existe (`=== null` dentro de un `assert.ok`);
+- con más de un chat trabajando, en la PC no se corre la suite de afectados: la corre la punta en GitHub.
+
+**Lo que quedó SIN hacer:** ponerle un techo de memoria a cada proceso de test (`--max-old-space-size`) en
+`scripts/tests-afectados.mjs` y en el corredor de un archivo, para que un test así muera solo y no se lleve la PC.
