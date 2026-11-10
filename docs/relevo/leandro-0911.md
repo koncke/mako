@@ -5,14 +5,16 @@ Chat local, rama `punta/leandro-wa-aut-0911` (en main desde 0b8aac821). Cosecha 
 
 ## Estado
 
-- **En main, NO en producción todavía**: producción sirve 22c544886 (9/11 14:23 UTC). Sale con el deploy diario del 10/11
-  a las 08:05 ART, salvo que Martín despliegue antes.
-- **Lo que sigue en este chat (el caso de Leandro):** con el deploy, ver el «↻ Otras formas de decirlo» en la tarjeta de
-  respuesta pública de `?ws=10`, avisarle en su grupo como «Desarrollador» (`scripts/avisar-arreglo-al-grupo.mts`) y probar su
-  automatización de comentarios de punta a punta con «pruebafm». Comentar en Instagram es público: necesita el sí de Martín.
-- Ya se le contestó en su grupo (22:40 UTC) lo que quedó sin respuesta por la línea sorda.
-- **#67 (las variantes) se cierra solo con ese deploy**: el hito de la bitácora de Automations lleva `tickets: [67]`, y el
-  cron le avisa en su grupo («Listo: tu ticket #67… está resuelto. Ya está arreglado: …»).
+- **En producción desde el 10/11 01:36 UTC** (despliegue de 082a832c4). Visto en el Chrome de Martín con `?ws=10&sec=710`: la
+  tarjeta de respuesta pública tiene el «↻» y abre «+ Otra forma de decirlo» (no se cambió nada).
+- **#67 cerrado solo por el cron (01:45 UTC)** y el aviso le llegó a su grupo (01:45:58). El del Desarrollador, con cómo se
+  cargan, que «Probar» muestra siempre la primera y que a @jealoficial y @bigmouse_oficial ya no se les puede escribir, salió a las 01:54
+  (clave `commit:85249b975`).
+- Ya se le contestó en su grupo (9/11 22:40 UTC) lo que quedó sin respuesta por la línea sorda.
+- **Sin hacer, de su caso: medir que rota de verdad.** Sus 7 tarjetas públicas (secuencias 706-712) no tienen variantes
+  cargadas: cargarlas es escribir en producción y Martín no contestó. Cuando Leandro (o quien Martín diga) las cargue, mirar
+  `nutricion_envios.texto_enviado` de los comentarios reales de esas secuencias: tienen que aparecer las distintas versiones.
+  No hace falta comentar en Instagram (público).
 
 ## Para el chat de la nube («Automations: todo lo de ManyChat, y todo en la API», `punta/automations-manychat`)
 
