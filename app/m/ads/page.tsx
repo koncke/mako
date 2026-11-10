@@ -20,7 +20,7 @@ import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { copilotoListo, conCampanas, funnelElegido } from '@/lib/media-buyer/copiloto';
 import { getUsuarioActual } from '@/lib/auth';
 import { PrimeraEntrada } from '@/app/ads-manager/PrimeraEntrada';
-import { SinAnuncios } from '@/app/ads-manager/PlanDelCopiloto';
+import { SinAnunciosM } from './SinAnunciosM';
 import { MediaBuyerM } from './MediaBuyerM';
 import '@/app/ads-manager/aa.css';
 import './mb-m.css';
@@ -50,7 +50,7 @@ export default async function MediaBuyerMovil({ searchParams }: { searchParams: 
   const vista = await vistaMediaBuyer(ctx.ws, config.kpi, config.objetivo).catch(() => null);
   // Un funnel sin anuncios: Esta semana · Plan · Qué medir, como en la computadora.
   const elegido = funnelElegido(perfil);
-  if (elegido && copilotoListo(perfil) && !conCampanas(elegido.id, perfil.presupuestoMes)) return <PantallaM><SinAnuncios perfil={perfil} /></PantallaM>;
+  if (elegido && copilotoListo(perfil) && !conCampanas(elegido.id, perfil.presupuestoMes)) return <PantallaM><SinAnunciosM perfil={perfil} /></PantallaM>;
   const puedeOperar = typeof op === 'number' && op === ctx.ws;
   // Con token, la cuenta está conectada. SIN token no se concluye nada: puede estar conectada por Zernio, y preguntárselo
   // sería una llamada a Zernio al abrir la pantalla del teléfono. Con `null`, el cartel de Hoy no afirma que falte la cuenta
