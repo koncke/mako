@@ -87,11 +87,11 @@ test('cada torta suma su total al centavo, y sus % dan 100,0', () => {
 });
 
 test('las tortas del 47 y del 97 van con el modelo del 7/11 (10/11/2026), y la del grupal no cambió', () => {
-  // 97: ganancia 67,94 · captación 4,37 (97 ÷ 22,2) · servir 14,83 (video 6,06 = 25% de 24,25 + fijo 8,77 = 438,25 ÷ 50)
+  // 97: ganancia 61,53 · captación 10,78 (97 ÷ 9 meses, Martín 10/11; antes 4,37 con 22,2) · servir 14,83 (video 6,06 = 25% de 24,25 + fijo 8,77 = 438,25 ÷ 50)
   //     · impuesto 8,11 (8,36%) · cobro 1,75 (Mercado Pago 1,80%). La de antes decía Paddle y US$25,18 de IA de MaKo.
   const porTorta = Object.fromEntries(TORTAS.map((t) => [t.clave, t.porciones.map((p) => p.usd)]));
-  assert.deepEqual(porTorta.pro, [26.15, 4.37, 11.7, 3.93, 0.85]);
-  assert.deepEqual(porTorta.growth, [67.94, 4.37, 14.83, 8.11, 1.75]);
+  assert.deepEqual(porTorta.pro, [19.74, 10.78, 11.7, 3.93, 0.85]);
+  assert.deepEqual(porTorta.growth, [61.53, 10.78, 14.83, 8.11, 1.75]);
   assert.deepEqual(porTorta.grupal, [890.33, 300, 100, 143.37, 66.3]);
   // §9 sigue con UNIT_V2 (no se tocó el 10/11): estos dos siguen siendo los del 10/10.
   assert.equal(CONTRIB_PRO, 28.87);

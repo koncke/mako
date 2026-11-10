@@ -58,7 +58,8 @@ import { aperturaOps, type HechosOps } from '@/lib/aperturas/ops';
 import { CLAVE_CORTO, claveApertura, claveEstrella, puedeHablar, respuestasDeMemoria } from '@/lib/aperturas/reglas';
 import { ESPERA_PREGUNTA_MS } from '@/lib/guia/reglas';
 import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
-import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
+import { delHiloDeLaTab, etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
+import { origenDelItem } from '@/app/m/mako/chat-ui';
 import { ModosMako } from '@/app/dashboard/ModosMako';
 import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 import { marcarMakoAbierto } from './mako-abierto';
@@ -312,7 +313,10 @@ export function ConversacionCerebro({ tab, apertura: aperturaDeLaTab = null, arr
   const base = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
   // Con `titulo` («MaKo», la tarjeta de Create) la conversación se NOMBRA así en todos lados: la cabecera, «Escribe a MaKo» en
   // la caja (con «Cerebro», en 340 px partía en dos renglones) y lo fijado. Adentro sigue siendo el Cerebro, que reparte.
-  const k = titulo ? { ...base, nombre: titulo } : base;
+  // Y sólo lo de esta tab (10/11/2026, lib/chat-desde.ts → delHiloDeLaTab): la charla del CoPilot no se dibuja en Image, y en el
+  // CoPilot no se dibuja la de las otras tabs. El Ops Center, que no pasa por acá, lo sigue viendo todo.
+  const items = useMemo(() => delHiloDeLaTab(base.items, tab, origenDelItem), [base.items, tab]);
+  const k = { ...base, items, ...(titulo ? { nombre: titulo } : {}) };
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
   useEffect(() => {
     if (!pedido || !k.esJefe) return;
