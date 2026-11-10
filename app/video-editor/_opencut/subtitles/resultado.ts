@@ -49,14 +49,23 @@ export function textoDeSubtitulos(motivo: MotivoSubtitulos): string {
  * chat mostraba sólo un círculo durante el minuto que tarda la primera vez, mientras baja el reconocedor).
  */
 export function rotuloProgresoSubtitulos(fase: FaseGenerar, progreso: number): string {
+	const { que, cuanto } = partesProgresoSubtitulos(fase, progreso);
+	return cuanto ? `${que} ${cuanto}` : que;
+}
+
+/**
+ * Lo mismo en dos partes, para un hueco angosto: el panel de Subtítulos mide ~220 px y con «Cancelar» al lado cortaba el
+ * porcentaje («Generando subtítulos… 0…», medido el 10/11/2026). Lo que se corta es el qué; el cuánto se ve siempre.
+ */
+export function partesProgresoSubtitulos(fase: FaseGenerar, progreso: number): { que: string; cuanto: string | null } {
 	switch (fase) {
 		case "modelo":
 			// La primera vez baja el modelo (~250 MB); después sale de la caché.
-			return `Descargando… ${progreso} %`;
+			return { que: "Descargando…", cuanto: `${progreso} %` };
 		case "transcribiendo":
-			return `Generando subtítulos… ${progreso} %`;
+			return { que: "Generando subtítulos…", cuanto: `${progreso} %` };
 		default:
-			return "Generando subtítulos…";
+			return { que: "Generando subtítulos…", cuanto: null };
 	}
 }
 

@@ -582,6 +582,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		hechos: { proyecto: proyectoId || null, conAudio, subtitulos: subtitulosDe(tracksVivos).length, charlaVacia: hilo.mensajes.length === 0 },
 		libre: !hilo.corriendo && !guiaHablando,
 	});
+	const subtitulando = useTrabajoSubtitulos((s) => s.fase !== "inactivo");
 	const ponerSubtitulos = () => {
 		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
 	};
@@ -652,9 +653,11 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 
 			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
 				<div className="co-hilo__col">
-					{hilo.mensajes.length === 0 && estadoApertura.apertura && (
-						<AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />
-					)}
+					{/* «Sí, en el feed» corre los subtítulos (~2 min la primera vez, baja el reconocedor): mientras tanto, en vez de
+					    la pregunta con sus botones quietos, lo que está haciendo (medido el 10/11/2026: dos minutos sin nada). */}
+					{hilo.mensajes.length === 0 && estadoApertura.apertura && (subtitulando
+						? <SubtitulandoEnElChat />
+						: <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />)}
 					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiaHablando && (
 						<>
 							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
@@ -718,6 +721,21 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	);
 }
 
-/** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
-const QUIEN = { nombre: "Video Editor" };
+/** Los subtítulos corriendo: la misma frase del panel (subtitles/resultado.ts), con su ruedita. */
+function SubtitulandoEnElChat() {
+	const t = useTrabajoSubtitulos();
+	return (
+		<div className="flex items-center gap-2 self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)" aria-live="polite">
+			<span className="size-4 shrink-0 animate-spin rounded-full border-2 border-(--faint) border-t-transparent" aria-hidden />
+			{rotuloProgresoSubtitulos(t.fase, t.progreso)}
+		</div>
+	);
+}
+
+/**
+ * Quien contesta en el hilo: MaKo, con su estrella, como la cabecera de la tarjeta. Hasta el 10/11/2026 era la criatura
+ * «Video Editor» (un triángulo rosa debajo de la estrella de la cabecera); Martín, 21/10/2026 (AGENTS.md, «MaKo EN CADA
+ * TAB»): «los iconos de las criaturas siempre debe ser el icono de MaKo». Como Web Generator (paneles/ChatAgente.tsx).
+ */
+const QUIEN = { nombre: "MaKo", aspecto: ASPECTO_MAKO };
 const nada = () => {};

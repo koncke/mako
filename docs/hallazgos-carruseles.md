@@ -94,6 +94,11 @@ US$0.00» (la clave 1 tiene US$1,92 y la reserva de Spy es US$2). Lo destraba la
 decisión de Martín. El arreglo de datos de un bug nuestro va sin preguntar (memoria «aprobacion-prod-en-el-chat», 30/10), el gasto no.
 @lifeofarjav «01 / 06» es uno de esos 166: `DaZFc_kkttt` tiene 6 láminas en Instagram y ninguna guardada.
 
+**Pagar desde la reserva de Spy (10/11):** `laminas --reserva-usd <n>` baja la reserva SÓLO para esa corrida (por defecto sigue
+en US$2). Es para cuando Martín decide pagar de ahí, como con el lote de las 166 láminas. Medido con `usage/monthly` de Apify: el
+ciclo de la clave 1 va del 22 al 21, y de los US$8,09 del ciclo, US$7,85 fueron un solo día (el 4/11). El resto de la semana, Spy
+gastó US$0,01 a 0,04 por día. Antes de usar la reserva se mira ese ritmo, no el total del mes.
+
 ⚠️ **Trampa: el tope de 2 MB del bucket tira EN SILENCIO las portadas grandes de Instagram.** De las 24 resguardadas, 5 no subieron
 y `portadas` las contaba como «ya no bajan (403 o vencidas)». Pesaban de 2,3 a 3,7 MB porque Instagram sirve algunas portadas a
 2160×2700 o hasta 3277×4096. `subirImagen` devuelve null por `PESO_MAXIMO` y no avisa por qué. Se subieron achicadas a 1440 px
@@ -113,6 +118,18 @@ medía contra los de Carruseles, que ordenan por outlier, y `reiniciar` los pasa
 suyos (`filtrosInicialesDe`, `sinFiltrosDe`, lib/carruseles/explorar.ts; lo fija tests/carruseles-anuncios.test.ts). Guardados
 vacío no tiene filtro que quitar: su botón es «Volver», como «parecidos», y saca de Guardados. Thumbnails, Filtros, el carrusel
 abierto, el editor y el oscuro se vieron bien. El celular no se pudo capturar: con la extensión, la ventana no cambia de ancho.
+
+⚠️ **En el celular, «Editar» se saltea el guiado y arma solo (medido el 10/11 en el navegador de la app, a 375×812).** El guiado
+(MaKo pregunta la oferta, el avatar y qué cambiar ANTES de armar, el pedido de Martín del 9/11) vive sólo en la computadora:
+`ExplorarCarruseles` lo abre si quien la monta le pasa `onReplicar`, y `app/m/image-editor/page.tsx` no se lo pasa. Sin eso cae
+en `EditarCarrusel`, que lee las láminas, escribe con la IA del negocio y arma el diseño de una. En la prueba quedó creado un
+diseño en la cuenta de Martín («Del ejemplo de @reynardlowell», `/image-editor/af5cd5d3-e1ec-4b1e-9e30-294c5e176e96`) y se usó
+su IA (`borrarDiseno` sólo le pone `borrado_at`, pero «Eliminar» dice «No se puede deshacer»: no se tocó).
+**Arreglado el mismo día:** el teléfono monta el MISMO guiado (`useGuiado`, `ChatReplica`, `ReplicarGuiado`), apilado
+(app/m/image-editor/EjemplosM.tsx): MaKo arriba, que es donde se contesta, y el original debajo. La referencia es el guiado de
+la computadora, no una pantalla nueva (memoria «disenar-escritorio-y-celular»). Lo que el guiado sabe del negocio vive en
+app/image-editor/guiado-base.ts, que leen las dos pantallas. ⚠️ Las hojas del chat (centro.css, chat.css) en la computadora llegan
+con el panel de MaKo de la tab; el teléfono no las carga solo, así que van con la pieza. Lo fija tests/image-movil-guiado.test.ts.
 
 **Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
 se muestra sin revisar.
