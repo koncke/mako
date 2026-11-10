@@ -3410,4 +3410,23 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "9 nov", hora: "21:45", chat: "Leandro: WhatsApp y Automations", sesion: "local_cf342628-5b91-406d-9a62-3cd60b971f7b", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La respuesta de una tarjeta de Instagram o Messenger, también la pública, ya puede rotar entre varias formas de decirlo: el botón «↻ Otras formas de decirlo» de la tarjeta",
+    puntos: [
+      "Lo pidió Leandro (Fiesta Music) para la respuesta pública de su tarjeta de comentarios: que no salga siempre «¡Enviado! Revisá tus DMs ✨». Antes, las variantes sólo existían en el WhatsApp por QR.",
+      "En una tarjeta de UN texto, «↻» abre «Otras formas de decirlo» (la misma pieza que el WhatsApp). Cada envío sortea una, y la respuesta pública sale de las mismas partes, así que rota igual.",
+      "Por la API: «variantes» en cambiar_botones_mensaje (reemplaza; [] las saca).",
+      "La Prueba A/B no es esto: reparte para medir y termina mandando a todos a la ganadora.",
+    ],
+    archivos: [
+      "lib/mensaje-partes.ts — partesParaEnviar, la usan los dos envíos sociales de lib/nutricion.ts",
+      "app/automations/EditorMensajeWhatsApp.tsx — OtrasFormasDeDecirlo; app/automations/EditorMensajeSocial.tsx — el «↻»",
+      "lib/botones-api.ts y lib/api-mako/areas/chatbot.def.ts — «variantes» en cambiar_botones_mensaje",
+      "tests/leandro-whatsapp-0911.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations?ws=10",
+    tickets: [67],
+  },
 ];
