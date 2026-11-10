@@ -122,9 +122,22 @@
 - **Trampa de CSS:** `display: contents` en el `<li>` de una ficha le borraba la caja (borde y relleno) y las fichas salían como texto suelto. Se vio en la captura, no en un test.
 - **Lo escrito se confirma:** una respuesta escrita a un dato («Uruguay») se muestra como «Entendí: Uruguay. ¿Lo anoto?» antes de guardarse (AGENTS.md, «la red es que la persona CONFIRME»); una pastilla ya es el toque.
 
+## «¿Y si hago orgánico?» cambiaba el funnel: tres corridas con la regla en el prompt, y la cumplió el código (9/11/2026)
+
+- **Síntoma:** ante «¿Y si en vez de anuncios me enfoco en orgánico?», el agente proponía guardar el funnel orgánico (con US$0 de
+  anuncios que nadie dijo). Pasó en la segunda corrida y otra vez en la tercera, ya con la regla B del prompt («una pregunta "¿y si…?" NO
+  es una decisión»).
+- **El diagnóstico obvio era el equivocado:** «falta decirlo más fuerte en el prompt». El clasificador lee el verbo («me enfoco») como
+  un pedido de actuar, la herramienta viaja, y un modelo chico la usa. Más texto no lo cambia.
+- **Dónde vive:** `esPreguntaHipotetica` (lib/media-buyer/copiloto.ts) y la guarda en el `preparar` de `copiloto_media_buyer`
+  (lib/api-mako/areas/ads.run.ts, mira `ctx.mensajeUsuario`, como ya hacía chats.run.ts): con una pregunta así no se propone cambiar el
+  funnel, y el error le dice al modelo que compare. Un pedido claro («cambiemos», «dale, guardalo», «prefiero») pasa.
+- **Regla:** lo que el agente NO debe hacer en una situación que se puede reconocer en el texto de la persona se pone en el código de la
+  acción, no sólo en el prompt (la misma de AGENTS.md, «Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla»).
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
 - **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
 - **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
-- **Knowledge de anuncios y de orgánico está vacío** (`mako_knowledge`, áreas `ads` y `organico`). El CoPilot ya lleva `leer_modulo_knowledge`: cuando llegue el curso de gestión de campañas, lo usa sin tocar nada acá.
+- **Knowledge de anuncios y de orgánico está vacío** (`mako_knowledge`, áreas `ads` y `organico`). El CoPilot ya lleva `leer_modulo_knowledge`. **Trampa:** el curso de gestión de campañas entró el 9/11 al PORTAL (/conocimientos, `54ded47e5`), que no es Knowledge: los agentes no leen el portal (salvo el curso de un referente al frente). Hasta que se destile en `mako_knowledge` con `area = 'ads'`, el CoPilot no lo ve.

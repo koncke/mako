@@ -91,9 +91,86 @@ CRM (8 leads activos) antes de opinar sobre el email.
 | **El método de los cursos:** `leer_modulo_knowledge` entre sus herramientas. Hoy Knowledge de anuncios y orgánico está vacío; cuando llegue el curso de gestión de campañas que carga otro chat, el CoPilot lo usa sin tocar nada. | `HERRAMIENTAS_DEL_COPILOTO` |
 | **Prompts editables:** las reglas, los otros caminos y los anuncios, en /configuraciones → «Marketing CoPilot». | `PROMPTS_COPILOTO`, lib/media-buyer/copiloto-contexto-vigente.ts, lib/prompt-registry.ts |
 
-## Después
+## Después (sha `884440737`, la misma batería, los mismos siete casos)
 
-_(se completa con la segunda corrida)_
+| Caso | Pregunta | Recomienda | Usa el negocio | Cambio de funnel | Plan | Reglas | Total | Antes |
+|---|---|---|---|---|---|---|---|---|
+| Infoproductor, quiere anuncios | 1 | 2 | 2 | 1 | 1 | 1 | **8** | 4 |
+| Coach, quiere orgánico | 1 | 2 | 2 | 2 | 2 | 1 | **10** | 7 |
+| Nutricionista, quiere YouTube | 0 | 2 | 1 | 2 | 2 | 2 | **9** | 4 |
+| Finanzas, quiere email | 1 | 2 | 1 | 2 | 2 | 1 | **9** | 4 |
+| Inmobiliaria, formularios malos | 1 | 2 | 2 | 1 | 1 | 0 | **7** | 6 |
+| Tienda de cosmética | 0 | 2 | 1 | 2 | 1 | 1 | **7** | 6 |
+| MaKo (datos reales del ws 9) | 2 | 1 | 2 | 2 | 2 | 0 | **9** | 5 |
+| **Promedio** | | | | | | | **8,4 / 12** | 5,1 |
+
+Lo que cambió (bateria-despues.md):
+- **Es un estratega.** Abre con lo que sabe del negocio («Veo que vendes Foto que Vende, un programa de US$497, con unas 4 ventas por
+  mes»; «Veo en tu perfil que el MaKo Acelerador se vende a US$1.500»), recomienda UN funnel y pregunta de a una.
+- **Guarda.** 5 de 7 casos terminaron con su funnel guardado por la tarjeta (antes, 0): la infoproductora en anuncios a mensajes con
+  US$600 y US$497, la nutricionista en YouTube con 6 horas, el coach en orgánico, la tienda en compra directa con US$1.500, MaKo en VSL.
+- **Usa sus herramientas:** `calcular_presupuesto_anuncios` con los 300 € del coach, `leer_modulo_knowledge` para su primer guion,
+  `contar_segmento_email` (los 8 leads reales de MaKo).
+- **Los cambios de funnel se comparan:** YouTube «no te va a dar pacientes esta semana», los cortos como anzuelo del largo; el email
+  antes que el webinar «porque la lista ya existe»; lead magnet con anuncios en dos tiempos; influencers que alimentan los anuncios.
+- **Ningún «inspirado en» de alguien que nadie eligió.**
+
+Lo que esta corrida cazó y se arregló después (`66c110f10`):
+1. «¿Y si en vez de anuncios me enfoco en orgánico?» CAMBIÓ el funnel sin comparar (el clasificador lo leyó como una orden).
+2. «He guardado» y «Actualicé» con la tarjeta sin confirmar; ofrecer guardar en cada mensaje; guardar «US$0 de anuncios» que nadie dijo.
+3. Porcentajes inventados: «un filtro recorta entre 40% y 60%», «la asistencia a un webinar ronda el 20% o 30%» (sobre 3.000
+   contactos fríos, 600 a 900 personas en vivo: imposible), «el costo por llamada calificada suele moverse entre US$100 y 200».
+4. El plan del lunes sin pantallas de MaKo en dos casos.
+5. A MaKo le recomendó VSL con llamada con US$1.500 de ticket y US$1.000 al mes: sin el ticket guardado, las reglas puras no corrían.
+6. Guardó la meta de MaKo («2 o 3 clientes por mes») como ventas de hoy.
+7. Sigue sin preguntar lo imprescindible cuando la persona trae otra pregunta (la meta en 5 de 7, el margen de la tienda).
+
+## Tercera corrida (sha `66c110f10`, los tres casos con esas fallas)
+
+[bateria-tercera.md](../marketing-copilot/bateria-tercera.md).
+
+| Caso | Pregunta | Recomienda | Usa el negocio | Cambio de funnel | Plan | Reglas | Total | 2.ª | Antes |
+|---|---|---|---|---|---|---|---|---|---|
+| Infoproductor | 2 | 2 | 2 | 1 | 2 | 1 | **10** | 8 | 4 |
+| Tienda de cosmética | 1 | 2 | 2 | 2 | 1 | 1 | **9** | 7 | 6 |
+| MaKo (datos reales) | 2 | 2 | 2 | 2 | 2 | 1 | **11** | 9 | 5 |
+
+- **MaKo real:** pregunta el precio ANTES de recomendar, lo encuentra en el Second Brain («MaKo Acelerador, USD 1.500»), aplica los
+  umbrales («con US$1.000 al mes el VSL se queda corto: mensajes o formulario con filtro»), y cuando Martín insiste con el VSL lo respeta
+  avisando lo que cuesta. El plan sale numerado con la pantalla de cada paso, y usa el CRM real (5 sin agendar, 3 clientes).
+- **Infoproductor:** pregunta presupuesto, ventas de hoy y meta, hace la cuenta (15 × US$497 = US$7.450) y arma la semana con Video y
+  Copywriting. **Pero ante «¿y si en vez de anuncios hago orgánico?» volvió a proponer el cambio**, con US$0 que nadie dijo: la regla del
+  prompt no alcanzó. Se pasó al CÓDIGO: `copiloto_media_buyer` no propone cambiar de funnel si el mensaje es una pregunta así
+  (`esPreguntaHipotetica`, lib/media-buyer/copiloto.ts; la guarda en lib/api-mako/areas/ads.run.ts; test en
+  tests/marketing-copilot-descubrir.test.ts).
+- **Tienda:** usa el margen («cada venta te deja US$27»), no inventa presupuesto, enfoca los US$1.500 en anuncios hasta que haya tracción.
+- **Lo que sigue apareciendo:** dice «te dejo la tarjeta» en un turno donde la herramienta no viajó (regla D ajustada: sólo si la
+  llamó en ESE turno), alguna cifra suelta («la prueba social reduce el riesgo a la mitad»), y la meta sólo la pregunta si la charla
+  llega ahí. Son de modelo chico: en el ws 9 contesta gemini-flash-lite.
+
+## Para el Cerebro
+
+- **Rama:** `punta/marketing-copilot-agente`. **Sin migración**: lo nuevo del perfil vive en el mismo `app_settings`
+  (`marketing-copilot.perfil`) y `sanearPerfil` lo valida.
+- **Antes de tocar el agente otra vez:** `node --env-file=<.env.local> --conditions=react-server --import tsx scripts/probar-chats/copiloto.mts`
+  (dos tandas en paralelo con `--casos=`, unos 40 a 90 min por la red del ws 9; `--negocio=real --casos=mako` para el negocio real).
+- **En producción, en el ws 9 (o el 3 con IA):** `/ads-manager?estrategia=1` abre la charla en dos columnas; tocar una ficha «Falta»
+  pregunta en el chat; «Comparar funnels» y «Elegir»; terminar con un funnel sin anuncios abre la pantalla nueva (MaKo + panel «En
+  marcha»); con uno de anuncios, la sección Plan muestra el panel.
+- **El banco** (`scripts/banco-copilot/`): `node scripts/banco-copilot/build.mjs && node scripts/banco-copilot/servir.cjs`, y
+  `?pantalla=estrategia` para la pantalla nueva.
+
+## Lo que quedó sin hacer
+
+- **El curso de gestión de campañas ya está en /conocimientos** («Programa de Meta Ads 2026», THE NET LAB, 94 lecciones, `54ded47e5`),
+  **pero no en Knowledge**: `mako_knowledge` del área `ads` sigue vacío, y es lo que lee `leer_modulo_knowledge`. Falta destilarlo ahí.
+- **Las claves de Gemini del ws 9** (dos vencidas, una sin cuota): el CoPilot de Martín contesta con flash-lite.
+- **El doer no saca `[no-pude: …]` con un corchete** (lib/doer-salida.ts), y el guardia de promesas no cazó «te dejo la tarjeta» sin
+  tarjeta.
+- **Un dato dicho en el chat no aparece solo en el panel**: en una pregunta las herramientas que escriben no viajan (decisión del
+  8/10, «la ofrece»). El panel guarda directo con sus pastillas.
+- **El Funnel Coach y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` y `marketing-copilot.perfil`).
+- **La pantalla Hoy · Campañas · Biblioteca** de un funnel con anuncios sigue con su diseño; sólo su Plan usa el panel.
 
 ## Diseño
 

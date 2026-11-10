@@ -35,7 +35,7 @@ import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/l
 import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import {
   sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision,
-  fichaDelNegocio, compararFunnels, cuentaDe, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
+  fichaDelNegocio, compararFunnels, cuentaDe, esPreguntaHipotetica, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
@@ -1475,6 +1475,11 @@ export const RUNNERS: Runners = {
       for (const k of ['funnel', 'referente', 'llamadas', 'objetivo', 'formato', 'vende', 'casos', 'pais'] as const) { const v = str(input, k); if (v) (cambio as Record<string, unknown>)[k] = v; }
       for (const k of ['ticket', 'presupuestoMes', 'ritmo', 'meta', 'ventasMes', 'margen', 'lista', 'horas'] as const) { const v = num(input, k); if (v != null) (cambio as Record<string, unknown>)[k] = v; }
       if (!Object.keys(cambio).length) return { error: 'No pasaste nada para guardar.', faltan: ['funnel', 'ticket', 'presupuestoMes', 'llamadas', 'meta'] };
+      // Una PREGUNTA por otro funnel («¿y si en vez de anuncios hago orgánico?») no es un pedido de cambiarlo (9/11/2026, la batería: el
+      // modelo lo cambiaba igual, con la regla B del prompt en contra). Lo cumple el código: primero se comparan, después se decide.
+      if (cambio.funnel && cambio.funnel !== actual.funnel && esPreguntaHipotetica(ctx.mensajeUsuario)) {
+        return { error: 'La persona PREGUNTÓ por ese funnel, no pidió cambiarlo. Compárale los dos con sus números (LOS FUNNELS PARA ESTE NEGOCIO), di cuál elegirías y pregúntale si quiere cambiar; no lo propongas todavía.' };
+      }
       const nuevo = sanearPerfil({ ...actual, ...cambio, entrada: actual.entrada ?? (cambio.referente ? 'referente' : 'funnel') });
       // Cambiar de funnel borra el aviso de antes: el nuevo se evalúa de cero.
       const final = cambio.funnel || cambio.referente ? aplicarPerfil(nuevo, { ajuste: undefined, aceptado: undefined }) : nuevo;

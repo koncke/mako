@@ -8,9 +8,11 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   FUNNELS, PREGUNTAS_DE_DATO, compararFunnels, cuentaDe, datosDeDecision, evaluarFunnel, fichaDelNegocio, leerDato, pasoDeCopiloto,
-  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, pasosDeLaSemana, type PerfilCopiloto,
+  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, pasosDeLaSemana, esPreguntaHipotetica, type PerfilCopiloto,
 } from '../lib/media-buyer/copiloto';
 import { REGLAS_DEL_COPILOTO, negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
@@ -128,6 +130,7 @@ test('lo que la segunda corrida de la batería cazó: «¿y si…?» no decide, 
   const R = REGLAS_DEL_COPILOTO;
   assert.match(R, /«¿y si en vez de X hago Y\?» NO es una decisión/);
   assert.match(R, /nunca digas «guardé» ni «cambié»/);
+  assert.match(R, /sólo si en ESTE turno llamaste a copiloto_media_buyer/);
   assert.match(R, /UNA vez; si dice que sí \(aunque agregue otra pregunta\), lo propones en ese turno/);
   assert.match(R, /tampoco un porcentaje de caída, de cierre o de conversión/);
   assert.match(R, /mientras falte algo IMPRESCINDIBLE, terminas con UNA pregunta de LO QUE TE FALTA/);
@@ -139,6 +142,16 @@ test('lo que la segunda corrida de la batería cazó: «¿y si…?» no decide, 
   assert.match(n, /ESTA SEMANA \(lo que ve en su panel[^)]*\): 1\. Escribir el anuncio y las preguntas \(Copywriting\)/);
   // La misma pieza que el panel.
   assert.deepEqual(pasosDeLaSemana({ entrada: 'funnel', funnel: 'organico', ritmo: 3, objetivo: 'ventas' }).map((s) => s.pantalla), ['Copywriting', 'Carruseles', 'Copywriting', 'Calendario']);
+});
+
+test('una PREGUNTA por otro funnel no lo cambia: lo cumple el código, no el prompt (tres corridas lo cambiaban igual)', () => {
+  for (const t of ['¿Y si en vez de anuncios me enfoco en orgánico? Me da miedo quemar plata.', '¿Y si mejor hago un webinar?', '¿Me conviene YouTube?',
+    '¿El email marketing sirve para que vuelvan a comprar?', '¿Y si hago contenido con influencers en vez de anuncios?']) assert.equal(esPreguntaHipotetica(t), true, t);
+  for (const t of ['Cambiemos a orgánico', 'Dale, guardalo como orgánico', 'Prefiero YouTube, ¿cuándo empiezo?', 'Sí, dejalo guardado. ¿Y si el CPA sale caro?',
+    'Quiero cambiar a email, ¿se puede?', 'Puedo poner US$600', '']) assert.equal(esPreguntaHipotetica(t), false, t);
+  const run = readFileSync(join(import.meta.dirname, '..', 'lib/api-mako/areas/ads.run.ts'), 'utf8');
+  const prep = run.slice(run.indexOf('copiloto_media_buyer: {'), run.indexOf('modo_agente_media_buyer: {'));
+  assert.match(prep, /cambio\.funnel && cambio\.funnel !== actual\.funnel && esPreguntaHipotetica\(ctx\.mensajeUsuario\)/, 'la guarda está en el preparar');
 });
 
 test('los datos nuevos se guardan saneados (y basura no entra)', () => {
