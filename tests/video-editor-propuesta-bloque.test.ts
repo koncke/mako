@@ -86,6 +86,8 @@ test('las operaciones del editor se dicen en palabras, sin «undefined» ni «Na
     palabras: ['hoy'], preset: 'Hormozi',
     // agregar_motion (10/11/2026): la plantilla del motion graphic.
     plantilla: 'titular',
+    // fondo_lienzo, agregar_emoji y encuadre (10/11/2026).
+    color: '#000000', emoji: '🔥', proporcion: '9:16',
   };
   const ops = new Set(OPERACIONES_API.map((o) => o.op));
   assert.ok(ops.size >= 30, `encontré ${ops.size} operaciones`);

@@ -34,6 +34,7 @@ import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDE
 import { senalesDelNegocio } from '../plantillas-sugeridas-server';
 import { reglaNoExisteEn } from '../no-existe';
 import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { resumenParaTickets } from './marcas-chat';
 import { bloqueDeMarca } from '../marca/kits';
 import { kitParaUsar } from '../marca/kits-server';
 import { esDiscutir, reglaDiscutir, respuestaDeDiscutir } from '../chat-editor-discutir';
@@ -141,8 +142,9 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
     }
     const { operaciones, descartes } = validarOperaciones(raw.operaciones);
     if (descartes.length) console.warn(`[video-editor:chat] descartes: ${descartes.slice(0, 20).join(' · ')}`);
-    // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera.
-    const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(raw.resumen, { chat: 'video-editor', ruta: '/video-editor', pedido: instruccion }) : null;
+    // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera. Con
+    // operaciones propuestas, un `[[no-pude]]` es ruido (este chat no ejecuta nada): se saca sin ticket (./marcas-chat.ts).
+    const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(resumenParaTickets(raw.resumen, operaciones.length), { chat: 'video-editor', ruta: '/video-editor', pedido: instruccion }) : null;
     const resumenModelo = ne ? [ne.texto.trim().split('\n')[0].slice(0, 300), ne.linea].filter(Boolean).join(' ') : '';
     return { ok: true, resumen: resumenModelo || (operaciones.length ? 'Listo.' : 'Sin cambios.'), operaciones, descartes };
   } catch (err) {

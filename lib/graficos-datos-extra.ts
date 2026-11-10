@@ -926,6 +926,10 @@ async function filasPrimerContacto(rg: Rango): Promise<Fila[]> {
         en_1h: pc.estado === 'contactado' && (pc.minutos ?? Infinity) <= 60 ? 1 : 0, base_1h: cuentaParaLaPrimeraHora(pc) ? 1 : 0,
         con_automatico: pc.automaticoMinutos != null && pc.estado !== 'antes' ? 1 : 0,
         ...(pc.estado === 'contactado' && pc.minutos != null ? { minutos_contacto: pc.minutos } : {}),
+        // 9/11/2026: hasta el contacto, o lo que lleva esperando. Con sólo `minutos_contacto`, un negocio donde nadie contactó a
+        // nadie (los clientes de Código) veía la tabla «Cada lead nuevo» vacía: todas las filas sin valor son «Sin datos».
+        ...(pc.estado === 'contactado' && pc.minutos != null ? { espera: Math.round(pc.minutos) * 60 }
+          : pc.estado === 'sin_contactar' && pc.esperandoMinutos != null ? { espera: Math.round(pc.esperandoMinutos) * 60 } : {}),
       },
     });
   }

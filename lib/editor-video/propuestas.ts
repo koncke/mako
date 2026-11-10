@@ -33,9 +33,11 @@ export function refsDeOperacion(op: OperacionChat): { usa: string[]; medios: str
   const medios: string[] = [];
   const define: string[] = [];
   const o = op as Record<string, unknown>;
-  if (op.op === 'agregar_texto' || op.op === 'capa_efecto' || op.op === 'agregar_motion') {
+  if (op.op === 'agregar_texto' || op.op === 'capa_efecto' || op.op === 'agregar_motion' || op.op === 'agregar_emoji') {
     if (typeof o.ref === 'string') define.push(o.ref);
   } else if (typeof o.ref === 'string') usa.push(o.ref);
+  // La copia de un duplicar es una ref NUEVA (la de "ref" es el original, que existe).
+  if (op.op === 'duplicar' && op.copia) define.push(op.copia);
   if (op.op === 'borrar') usa.push(...op.refs);
   if (op.op === 'reemplazar_clip') medios.push(op.medio);
   if (op.op === 'usar_plantilla') medios.push(...Object.values(op.clips));

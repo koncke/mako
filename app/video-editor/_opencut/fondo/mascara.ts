@@ -65,10 +65,10 @@ export function mascaraPersona({
 	// 1. Rampa, y la pasada horizontal del desenfoque a `tmp`.
 	for (let y = 0; y < alto; y++) {
 		const fila = y * ancho;
-		let previo = valor(confianza[fila], esDeFondo);
+		let previo = confianzaDePersona(confianza[fila], esDeFondo);
 		let actual = previo;
 		for (let x = 0; x < ancho; x++) {
-			const siguiente = x + 1 < ancho ? valor(confianza[fila + x + 1], esDeFondo) : actual;
+			const siguiente = x + 1 < ancho ? confianzaDePersona(confianza[fila + x + 1], esDeFondo) : actual;
 			tmp[fila + x] = (previo + actual + siguiente) / 3;
 			previo = actual;
 			actual = siguiente;
@@ -87,7 +87,11 @@ export function mascaraPersona({
 	}
 }
 
-function valor(c: number, esDeFondo: boolean): number {
+/**
+ * Cuánto es PERSONA un punto de la máscara (0–1), con la rampa de arriba. Lo usan este recorte y «Clips mágicos»
+ * (clips/seguir.ts), que busca dónde está la persona para encuadrar el vertical: los dos leen la máscara igual.
+ */
+export function confianzaDePersona(c: number, esDeFondo: boolean): number {
 	const v = Number.isFinite(c) ? c : 0;
 	return rampa(esDeFondo ? 1 - v : v);
 }

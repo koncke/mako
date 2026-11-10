@@ -212,6 +212,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 4. B-roll y cambios de plano
 
 ### 4.1 B-roll de MaKo: completarlo — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** ~~sólo fotos~~ → «Fotos / Videos cortos» de Pexels (hasta 20 s, de 360 a 1080 de lado corto, sin sonido, sin subir los fps del proyecto); ~~no hay «Cambiar por otra»~~ → «Otra» en cada B-roll (propuesto o dejado), por chat `cambiar_broll` y por la API `otra_imagen_broll`. Sigue faltando: el acercamiento a la cara, correrlo con la IA real y verlo en el navegador; y **no se pudo leer la documentación ni los términos de Pexels de videos** (pexels.com está fuera de la red de la nube): las rutas `/videos/search` y `/videos/videos/:id` salen de cómo se conoce la API, sin probarlas.
 - **Qué es:** Multimedia › «B-roll de MaKo» propone fotos de Pexels (con la clave de cada negocio) donde se dice algo que se puede mostrar. Los cambios de plano son el efecto «Acercar». Por chat es `broll` y por la API `proponer_broll_video`.
 - **Pedido:** Leila, en la llamada del 30/10 (2.15), quería que el editor ubique solo los resaltados y los subtítulos, ponga el B-roll y haga el cambio de plano. Martín: «implementar Submagic, implementar B-roll».
 - **Estado real:** está en main (`app/video-editor/_opencut/broll/`). Lo que falta:
@@ -234,6 +235,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 5. Clips mágicos (tipo Opus Clip)
 
 ### 5.1 Seguir la cara al pasar a vertical — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** ~~seguir la cara: recorta al centro~~ → sigue a la PERSONA con el segmentador de «Eliminación automática» (un cuadro por segundo, centro pesado por área, suavizado, nunca fuera del cuadro; con reflejo, al revés; girado, al centro): `clips/seguir.ts`. Sigue faltando: las fotos y los textos del horizontal, el «Trend», correrlo con la IA real y verlo. ⚠️ El segmentador baja su wasm (13 MB) de jsdelivr la primera vez: ya era así para quitar el fondo y ahora también al abrir un clip.
 - **Qué es:** Multimedia › «Clips mágicos» busca los mejores momentos, les pone puntaje de 0 a 99 y arma cada clip en un proyecto nuevo, en 9:16 y con subtítulos. Por chat es `clips_magicos` y por la API `buscar_clips_video`.
 - **Pedido:** Leila, 30/10 (2.8). Martín no tiene cita propia.
 - **Ejemplos:** https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator (MIT, usado de referencia).
@@ -279,7 +281,8 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 - **Decide:** Martín (D7g).
 - **Fuente:** `origin/main:docs/editor-video/inventario-copia-capcut.md:80`; `docs/pendientes-depurados-7-11.md:781-783,1022`.
 
-### 7.2 Reducción de ruido en un worker — P2 · no está
+### ~~7.2 Reducción de ruido en un worker — P2 · no está~~ — hecho el 10/11/2026 (`punta/editor-tanda4-0911`)
+- **Hecho:** RNNoise corre en un Web Worker (`audio/ruido-hilo/`), con el mismo resultado byte a byte, cancelación, un tope de 45 s sin noticias y el hilo de la pantalla de respaldo. Exportar un rango ya no reduce el ruido de lo que queda afuera. Falta verlo en Chrome.
 - **Estado real:** RNNoise corre en el hilo principal, a unos 6 s por minuto y canal: un clip estéreo de 10 minutos traba el editor unos 2 minutos. En `audio/` no hay `new Worker`, y `audio/dsp/ruido.ts` ya es puro, listo para moverlo. Con un ventilador fuerte, «Borrar silencios» deja alguna pausa al límite.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:1615-1624`.
 
@@ -312,6 +315,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 9. Chat y API: editar todo por prompt
 
 ### 9.1 Lo que el chat todavía no sabe hacer — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** salieron de `NO_SE_PUEDE_CHAT`, con su operación de la API: duplicar elementos, el fondo del lienzo, el efecto y la plantilla de texto al agregar un texto, un emoji como sticker y recortar el cuadro de un clip (y, en tandas anteriores, los emojis de los subtítulos y los motion graphics). Siguen sin poder: pegar atributos, guardar un efecto de texto propio, stickers que no son emojis, música y sonidos (licencia), voz, avatar, fotogramas clave, máscaras y quitar el fondo.
 - **Martín:**
   - 15/10: «En realidad debería saber hacer cualquier cosa que le pido... Si le pido que me subtitule todo, si le pido que me corte los silencios, si le pido que me haga una animación, transiciones específicas que le pida, si le pido corrección de color, corrección de audio, etc...».
   - 15/10: «tienen que pasarle absolutamente todos los botones. Todas las funciones a la API de MaKo».
@@ -360,7 +364,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
   - el pincel de Eliminación personalizada (`fondo/panel-eliminar-fondo.tsx:135`);
   - la portada incrustada (`timeline/components/portada-boton.tsx:315`).
 
-  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J), la marca de agua, exportar un rango, el vúmetro, la cámara lenta fluida y Favoritos.
+  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, ~~atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J)~~ (10/11/2026, `rango/` y `speed/abrir.ts`, sin ver en Chrome; falta Tab, que el relevamiento no dice qué hace), la marca de agua, ~~exportar un rango~~ (10/11/2026, `export/exportar.ts`, sin ver en Chrome), el vúmetro, la cámara lenta fluida y Favoritos.
 - **Fuente:** `origin/main:docs/editor-video/inventario-copia-capcut.md:20-176`; `docs/hallazgos-video-editor.md:1523-1732`.
 
 ### 10.2 Chat fijo, proyectos en la barra del costado y colores de MaKo — P2 · hecho a medias

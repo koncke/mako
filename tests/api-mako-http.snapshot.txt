@@ -14,6 +14,7 @@ agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
 agregar_dependencia_plan
+agregar_emoji_video
 agregar_en_bloque_a_crm
 agregar_escenario_secuencia
 agregar_etapa
@@ -96,6 +97,7 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_fondo_lienzo
 cambiar_icono_landing
 cambiar_imagen_landing
 cambiar_like_comentario_comunidad
@@ -224,6 +226,7 @@ dividir_clip_video
 duplicados_lead
 duplicar_curso
 duplicar_diseno_imagen
+duplicar_elemento_video
 duplicar_hoja_dashboard
 duplicar_landing
 editar_about_comunidad
@@ -267,6 +270,7 @@ eliminar_muletillas_video
 embudo_closing
 empezar_mi_plan_ya
 empezar_prueba_ab
+encuadrar_clip_video
 enlaces_documento_copywriter
 enlazar_email_calendario
 enviar_broadcast
@@ -474,6 +478,7 @@ medicion_experimento
 medir_fuente_kpi
 medir_tramo_r1_r2
 metas_media_buyer
+metodo_campanas_copiloto
 metricas_automatizacion
 metricas_chatbot
 metricas_closers
@@ -500,6 +505,7 @@ opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
+otra_imagen_broll
 pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter
@@ -511,6 +517,7 @@ plan_retro
 plantillas_meta_de_secuencia
 plazo_etapa
 poner_animacion_video
+poner_efecto_texto_video
 poner_efecto_video
 poner_emojis_subtitulos
 poner_enlace_landing

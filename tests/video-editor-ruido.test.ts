@@ -84,7 +84,10 @@ test('1: el binario de public/ve/wasm/ es RNNoise 0.2 de @jitsi/rnnoise-wasm@0.2
   // Nada lo pide a otro dominio: se sirve desde la app.
   const fuente = fs.readFileSync(path.join(RAIZ, 'app/video-editor/_opencut/audio/dsp/rnnoise.ts'), 'utf8');
   assert.doesNotMatch(fuente, /https?:\/\//, 'el cargador nombra una URL de afuera');
-  assert.match(fuente, /fetch\(URL_WASM_RNNOISE\)/);
+  // Desde el 10/11/2026 la ruta se arma contra el ORIGEN de la página (en el worker, `location` es un `blob:`): sigue
+  // siendo la misma app (tests/video-editor-ruido-hilo.test.ts lo prueba con el `blob:` de un worker).
+  assert.match(fuente, /const url = direccionWasmRnnoise\(\);\s*const respuesta = await fetch\(url\);/);
+  assert.match(fuente, /new URL\(URL_WASM_RNNOISE, origen\)\.href : URL_WASM_RNNOISE;/);
 });
 
 test('2: el retardo de la red es el medido (RETARDO_RNNOISE)', async () => {

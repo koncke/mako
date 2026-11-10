@@ -6,7 +6,8 @@
 //   1. se guarda el proyecto abierto y se COPIA («Duplicar proyecto» del inicio: copia también sus archivos);
 //   2. en la copia: se corta todo lo que está fuera del clip (el mismo corte que «Edición basada en la transcripción»,
 //      que corre y recorta los subtítulos), con un poco de aire para no comerse una sílaba;
-//   3. el lienzo pasa a 9:16 y el video principal se agranda y se recorta al centro para llenarlo (./cubrir.ts);
+//   3. el lienzo pasa a 9:16 y el video principal se agranda para llenarlo (./cubrir.ts): siguiendo a la persona si se
+//      la encontró en sus cuadros (./seguir.ts, ./seguir-en-editor.ts), y si no, recortado al centro;
 //   4. los subtítulos de antes se van (estaban ubicados para el cuadro horizontal) y se generan de nuevo para el
 //      vertical, con la plantilla y las palabras clave elegidas en Subtítulos automáticos;
 //   5. el historial de deshacer arranca vacío, se guarda, y la copia lleva el título del clip.
@@ -23,9 +24,10 @@ import { sinSubtitulos } from "@/app/video-editor/_opencut/subtitles/insert";
 import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { tramoDeCorte, type ClipElegido } from "@/lib/editor-video/clips";
-import { principalCubriendo } from "./cubrir";
+import { clipsConAnimacionDelEncuadre, principalCubriendo } from "./cubrir";
+import { animarEncuadre, encuadresQueSiguen } from "./seguir-en-editor";
 import { useTrabajoClips } from "./estado";
-import type { ResultadoAbrir } from "./resultado";
+import { avisoDeAnimaciones, type ResultadoAbrir } from "./resultado";
 
 let abriendo = false;
 
@@ -57,7 +59,7 @@ export async function abrirClip(editor: EditorCore, clip: ClipElegido): Promise<
 		if (tramo.inicio > 0.05) cortes.push([0, tramo.inicio]);
 		if (cortes.length && !cortarTramosEnEditor(editor, cortes)) throw new Error("no se pudo cortar el tramo");
 
-		// 3. Vertical, con el principal llenando el cuadro.
+		// 3. Vertical, con el principal llenando el cuadro: siguiendo a la persona donde se la encontró.
 		const activo = editor.project.getActive();
 		const canvasSize = tamanoDeRelacion({ id: "9:16", settings: activo.settings });
 		const assets = editor.media.getAssets();
@@ -65,11 +67,25 @@ export async function abrirClip(editor: EditorCore, clip: ClipElegido): Promise<
 			const a = assets.find((x) => x.id === id);
 			return a?.width && a?.height ? { width: a.width, height: a.height } : null;
 		};
+		trabajo.fijar({ fase: "encuadrando", progreso: 0 });
+		const encuadres = await encuadresQueSiguen({
+			editor,
+			tracks: editor.scenes.getActiveScene().tracks,
+			lienzo: canvasSize,
+			alAvanzar: (hecho) => trabajo.fijar({ progreso: Math.round(hecho * 100) }),
+		});
+		trabajo.fijar({ fase: "abriendo", progreso: 0 });
+		// Después de mirar (unos segundos): el comando parte de la escena de ahora, no de la de antes de esperar.
 		const before = editor.scenes.getActiveScene().tracks;
+		// Lo animado de la posición o la escala era del cuadro horizontal: se saca (./cubrir.ts), y se dice.
+		const sinAnimar = clipsConAnimacionDelEncuadre(before, tamanoDe, encuadres);
 		editor.command.execute({
 			command: new BatchCommand([
 				new UpdateProjectSettingsCommand({ relacion: "9:16", canvasSize, canvasSizeMode: "preset" }),
-				new TracksSnapshotCommand({ before, after: principalCubriendo(before, canvasSize, tamanoDe) }),
+				new TracksSnapshotCommand({
+					before,
+					after: principalCubriendo(before, canvasSize, tamanoDe, { encuadres, animar: animarEncuadre }),
+				}),
 			]),
 		});
 
@@ -78,7 +94,9 @@ export async function abrirClip(editor: EditorCore, clip: ClipElegido): Promise<
 		const sinSubs = sinSubtitulos(conSubs);
 		if (sinSubs !== conSubs) editor.command.execute({ command: new TracksSnapshotCommand({ before: conSubs, after: sinSubs }) });
 		const subs = await generarSubtitulos(editor);
-		const aviso = subs.ok ? null : `El clip quedó sin subtítulos: ${textoDeSubtitulos(subs.motivo)}`;
+		const aviso = [avisoDeAnimaciones(sinAnimar), subs.ok ? null : `El clip quedó sin subtítulos: ${textoDeSubtitulos(subs.motivo)}`]
+			.filter((x): x is string => !!x)
+			.join(" ") || null;
 
 		// 5. Arranca limpio, guardado y con su título.
 		editor.command.clear();

@@ -14,13 +14,24 @@
 //   · cada cliente de Código la ve PRIMERO sin armarla y sin que se escriba nada en su negocio: es su informe inicial
 //     (`tableroInicialDe`, lib/graficos-plantillas.ts, leído por lib/graficos-tablero.ts con las agencias aprobadas del negocio).
 // Correr: npx tsx --test tests/dashboard-velocidad-codigo.test.ts
+//
+// ── Roturas (9/11/2026, una por vez, con copia y verificada por hash, nunca con git). Base 5 / 0; al final 5 / 0:
+//   · `faltaGrabar` sin descontar a los que están a tiempo                 -> 4 / 1  «el aviso de grabar va…»
+//   · el aviso ADEMÁS de la lista de los más lentos                        -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · el botón «Grabar llamada» también en un link compartido              -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · la tabla con `minutos_contacto` (vacía si nadie contactó)            -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//     (medido con `minutos_espera`, que después pasó a `espera` en segundos: la misma guarda)
+//   · la tabla plegada en «Todas las piezas» (y = 200)                     -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//   · `HOJA_DE_AGENCIA` vacío                                              -> 3 / 2  «cada cliente…», «quien nunca guardó…»
+//   · la página la pasa como `agregar` (se guardaría al abrir)             -> 4 / 1  «quien nunca guardó…»
+//   · la tira sin la hoja de la agencia                                    -> 4 / 1  «quien nunca guardó…»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { faltaGrabar } from '../lib/primer-contacto';
-import { HOJA_DE_AGENCIA, VELOCIDAD_LLAMADA, instanciarPlantilla, tableroInicial, tableroInicialDe } from '../lib/graficos-plantillas';
+import { HOJA_DE_AGENCIA, VELOCIDAD_LLAMADA, esHojaDeAgencia, instanciarPlantilla, tableroInicial, tableroInicialDe } from '../lib/graficos-plantillas';
 import { esElemento, esGrafico, sanearHoja, sanearTablero, type Hoja } from '../lib/graficos-catalogo';
 import { panelesALaVista } from '../lib/graficos-secciones';
 
@@ -58,7 +69,13 @@ test('la hoja trae «Cada lead nuevo» a la vista, debajo del primer contacto, p
   assert.ok(esGrafico(t));
   assert.equal(t.tipo, 'tabla');
   assert.equal(t.dimension, 'lead', 'una fila por lead');
-  assert.deepEqual(t.metricas, ['minutos_contacto']);
+  // Hasta el contacto o esperando (9/11/2026, medido en Giselle, ws 17): con `minutos_contacto`, donde nadie contactó a nadie
+  // todas las filas venían sin valor y la tabla decía «Sin datos en este período».
+  // Y en segundos, para que se lea como duración («26 días 5 h») y no «37790» minutos.
+  assert.deepEqual(t.metricas, ['espera']);
+  const lector = leer('lib/graficos-datos-extra.ts');
+  assert.match(lector, /pc\.estado === 'sin_contactar' && pc\.esperandoMinutos != null \? \{ espera: Math\.round\(pc\.esperandoMinutos\) \* 60 \}/, 'un lead sin contactar trae lo que lleva esperando');
+  assert.match(leer('lib/graficos-fuentes-extra.ts'), /\{ \.\.\.m\('espera', 'Cuánto tardó, o lleva esperando', 'segundos'\), sinTotal: true \}/, 'con formato de duración');
   assert.deepEqual(t.tabla?.columnas, ['tramo', 'canal'], 'cuánto tardó (el tramo) y por dónde');
   assert.equal(t.tabla?.acciones, true, 'la fila abre la ficha del lead');
   const contacto = vista.find((c) => esElemento(c) && c.tipo === 'diseno' && c.diseno?.parte === 'contacto');
@@ -85,4 +102,20 @@ test('cada cliente de Código arranca con «Velocidad de llamada» adelante, sin
   const src = leer('lib/graficos-tablero.ts');
   assert.match(src, /const agencias = await agenciasAprobadasDe\(ws\)\.catch\(\(\) => \[\] as number\[\]\);\n  return tableroInicialDe\(agencias\);/);
   assert.equal((src.match(/tablero: await inicialDe\(informe, ws\)/g) ?? []).length, 2, 'las dos salidas del inicial');
+});
+
+test('quien nunca guardó su Dashboard VE la hoja de su agencia (la pantalla en blanco no la tapa), y abrir no la guarda', () => {
+  // Medido en producción el 9/11/2026 (Giselle, ws 17): con la hoja en el inicial, la pantalla seguía EN BLANCO —desde el 12/10 el
+  // inicial no se muestra («que no le salga ninguna página»)—. La hoja de la agencia es lo único del inicial que se ve.
+  const t = tableroInicialDe([13]);
+  assert.deepEqual(t.hojas.filter(esHojaDeAgencia).map((h) => h.plantilla), ['velocidad-llamada'], 'se reconoce la de la agencia');
+  assert.deepEqual(tableroInicial().hojas.filter(esHojaDeAgencia), [], 'Marketing y Comercial del inicial, no');
+  assert.equal(esHojaDeAgencia(instanciarPlantilla(VELOCIDAD_LLAMADA)), false, 'una que la persona creó desde la galería, no');
+  const pagina = leer('app/dashboard/page.tsx');
+  assert.match(pagina, /const hojasDe = \(l: LecturaTablero\): Hoja\[\] => \(l\.estado === 'inicial' \? l\.tablero\.hojas\.filter\(esHojaDeAgencia\)/,
+    'la tira (también la de Focus) la muestra');
+  assert.match(pagina, /if \(enAgencia\) \{ tablero = \{ \.\.\.tablero, hojas: deAgencia \}; agregar = null; hoja = enAgencia;/,
+    'se muestra sin `agregar`: no se guarda al abrir');
+  const ed = leer('app/dashboard/EditorInforme.tsx');
+  assert.match(ed, /const ultimoGuardado = useRef\(JSON\.stringify\(inicial\)\);/, 'el autoguardado compara contra lo que vino: sin tocar nada, no escribe');
 });

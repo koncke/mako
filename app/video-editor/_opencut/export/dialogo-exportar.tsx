@@ -73,6 +73,9 @@ import { useRouter } from "@/app/_ui/Link";
 import { llevarAlCalendario } from "@/app/calendario/publicar-desde-crear";
 import { prepararUsarEnAnuncio } from "@/app/_crear/usar-en-anuncio";
 import { tipoDeArchivo } from "@/lib/calendario-publicar-reglas";
+import { tiempoDeRango, tramoEnSegundos } from "@/app/video-editor/_opencut/rango/reglas";
+import { atajoDe } from "@/app/video-editor/_opencut/actions/definitions";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 
 const CLAVE_RECUERDO = "ce-exportar-v1";
 
@@ -95,8 +98,9 @@ function leerRecuerdo(): Partial<OpcionesExportar> | null {
 
 function guardarRecuerdo(opciones: OpcionesExportar): void {
 	try {
-		// El nombre NO se recuerda: es el del proyecto de cada vez.
-		const { nombre: _nombre, ...resto } = opciones;
+		// El nombre NO se recuerda: es el del proyecto de cada vez. El rango
+		// tampoco: es de este proyecto y de este momento.
+		const { nombre: _nombre, tramo: _tramo, ...resto } = opciones;
 		localStorage.setItem(CLAVE_RECUERDO, JSON.stringify(resto));
 	} catch {
 		// Sin almacenamiento (ventana privada): el diálogo abre con los valores por defecto.
@@ -238,8 +242,10 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 			...elegidas,
 			video: { ...elegidas.video, codec },
 			audio: { ...elegidas.audio, formato: formatoAudio },
+			// «Solo se exporta ese rango» (I / O): el que estaba marcado al abrir.
+			tramo: datos.tramo,
 		};
-	}, [elegidas, soporte, audioAac]);
+	}, [elegidas, soporte, audioAac, datos.tramo]);
 
 	const v = opciones.video;
 	const fps = valorCuadros(v.cuadros);
@@ -249,7 +255,7 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 	// La portada y el soporte de audio, una vez por apertura.
 	useEffect(() => {
 		let vigente = true;
-		void portada(editor).then((url) => {
+		void portada(editor, 480, datos.tramo?.desde ?? 0).then((url) => {
 			if (vigente) setImagen(url);
 		});
 		void soporteAudio().then((s) => {
@@ -258,7 +264,7 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 		return () => {
 			vigente = false;
 		};
-	}, [editor]);
+	}, [editor, datos.tramo]);
 
 	// El soporte de video depende del tamaño, los fps y la tasa: se vuelve a
 	// preguntar cuando cambian (isConfigSupported es por configuración).
@@ -283,6 +289,13 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 	const cambiar = (parche: (o: OpcionesExportar) => OpcionesExportar) => setOpciones((o) => parche(o));
 
 	const gifLargo = datos.segundos > GIF_MAX_SEGUNDOS;
+	// El rango I / O que se exporta, para el pie: «00:03 – 00:08».
+	const rango = datos.tramo
+		? (() => {
+				const t = tramoEnSegundos(datos.tramo, TICKS_PER_SECOND);
+				return `${tiempoDeRango(t.desde)} – ${tiempoDeRango(t.hasta)}`;
+			})()
+		: null;
 	// Para publicar, SÓLO el video y en MP4 (lo que aceptan todas las redes y el Calendario), con el codec que este navegador puede.
 	const codecMp4 = codecEfectivo(elegidas.video.codec, "mp4", soporte);
 	const paraPublicar: OpcionesExportar = {
@@ -401,7 +414,15 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 				<footer className="flex h-[56px] shrink-0 items-center justify-between gap-4 border-t border-(--cc-line-2) px-5">
 					<div className="flex min-w-0 items-center gap-2 text-[12px] text-(--cc-text-3)">
 						<HugeiconsIcon icon={Film01Icon} className="size-4 shrink-0" />
-						<span className="truncate">
+						<span
+							className="truncate"
+							title={
+								datos.tramo
+									? `Se exporta solo el rango marcado. ${atajoDe("quitar-rango")} lo quita para exportar todo el video.`
+									: undefined
+							}
+						>
+							{rango && <span data-exportar-rango="" className="text-(--cc-accent)">{`Rango: ${rango} | `}</span>}
 							{`Duración: ${formatoDuracion(datos.segundos)} | Tamaño: alrededor de ${formatoTamano(bytes)}`}
 						</span>
 					</div>

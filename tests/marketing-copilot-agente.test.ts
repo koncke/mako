@@ -145,7 +145,13 @@ test('qué fichas viajan: sólo las que vienen al caso (lo que cada referente en
   assert.deepEqual(f('carrito', { entrada: 'referente', referente: 'francisco-doglio' }), ['juan-ads']);
   // Uno que enseña otra parte de la venta (la oferta, la llamada) viaja para esa parte, con la del funnel.
   assert.deepEqual(f('formulario', { entrada: 'referente', referente: 'hormozi' }), ['hormozi', 'marcos-razzetti']);
-  assert.deepEqual(fichasDelCopiloto({}), ['juan-ads'], 'sin funnel, el de anuncios');
+  // Sin funnel ni referente, ninguna (9/11/2026): la de anuncios hacía firmar todo «inspirado en Juan Osorio» (la batería, docs/relevo/marketing-copilot-pruebas.md).
+  assert.deepEqual(fichasDelCopiloto({}), [], 'sin funnel ni referente, ninguna ficha');
+  // La del funnel, cuando nadie la eligió, viaja como APOYO: sin «inspirado en» ni su nombre; la del referente elegido, con su atribución.
+  const apoyo = contextoDelCopiloto({ entrada: 'funnel', funnel: 'organico' });
+  assert.match(apoyo, /MATERIAL DE APOYO PARA ORGÁNICO EN INSTAGRAM/);
+  assert.doesNotMatch(apoyo, /EL REFERENTE DE ESTE CHAT/);
+  assert.match(contextoDelCopiloto({ entrada: 'referente', referente: 'julian-otalora', funnel: 'organico' }), /EL REFERENTE DE ESTE CHAT: Julián Otálora|EL REFERENTE DE ESTE CHAT: /);
   for (const id of ['derek-chamizo', 'julian-otalora', 'guille-collado', 'francisco-doglio', 'sofia-contreras', 'juan-ads']) {
     assert.ok(contextoDelCopiloto({ entrada: 'referente', referente: id as never }).length > 3000, id);
   }
@@ -170,9 +176,11 @@ test('conversación 7 (inmobiliaria con US$20 por día): la cuenta chica achica 
 
 test('conversación 8 (coach sin casos): pregunta lo que falta de a una y no inventa casos', () => {
   const n = negocioDelCopiloto({ entrada: 'funnel', funnel: 'vsl-llamada', ticket: 3000 });
-  assert.match(n, /TODAVÍA NO SABES: cuánto puede poner por mes, quién toma las llamadas\. Pregunta una sola por vez/);
+  // LO QUE TE FALTA (9/11/2026, `fichaDelNegocio`, la misma lista que dibuja el panel): lo imprescindible primero, de a una.
+  assert.match(n, /LO QUE TE FALTA para recomendar \(de a una, en este orden/);
+  assert.match(n, /¿Cuánto puedes poner en anuncios por mes[^/]*\/ ¿Quién atiende a quien se interesa/);
   assert.match(n, /nunca se inventan/);
-  assert.match(n, /no trae el país/);
+  assert.match(n, /¿En qué país vendes\?/);
 });
 
 test('conversación 9 (lead barato, pocos cierres, «súbele el presupuesto»): diagnosticar antes de escalar, con la cuenta leída', () => {
@@ -224,12 +232,14 @@ test('el peso: lo destilado y el contexto entero caben (cada mensaje lo paga)', 
   assert.ok(CONOCIMIENTO_ANUNCIOS.length < 15000, `lo destilado pesa ${CONOCIMIENTO_ANUNCIOS.length}`);
   const peor = Math.max(...['derek-chamizo', 'julian-otalora', 'francisco-doglio', 'sofia-contreras', 'guille-collado', 'juan-ads'].map((id) =>
     contextoDelCopiloto({ entrada: 'referente', referente: id as never, ticket: 3000, presupuestoMes: 2000, llamadas: 'equipo' }).length));
-  assert.ok(peor < 30000, `el contexto más grande pesa ${peor}`);
+  // 30.000 → 33.000 el 9/11/2026: +3.500 de lo que sabe de los otros caminos (tienda, local, orgánico, YouTube, email), que la batería
+  // mostró que faltaba (docs/relevo/marketing-copilot-pruebas.md). Lo que se sume después se paga sacando otra cosa.
+  assert.ok(peor < 33000, `el contexto más grande pesa ${peor}`);
 });
 
 test('está conectado: el chat de la tab usa este contexto y sus herramientas existen en la API', () => {
   assert.match(chat, /desde\?\.tab === ORIGEN_COPILOTO/);
-  assert.match(chat, /contextoDelCopiloto\(perfil\)/);
+  assert.match(chat, /contextoDelCopilotoVigente\(perfil\)/, 'con los prompts editables vigentes (/configuraciones)');
   assert.match(chat, /propias: HERRAMIENTAS_DEL_COPILOTO/);
   assert.equal(ORIGEN_COPILOTO, 'Marketing CoPilot');
   const ids = new Set(REGISTRO.map((d) => d.id));

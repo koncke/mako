@@ -775,9 +775,14 @@ una tarjeta de diseño no se podían cambiar (el panel no tenía campos). «No s
   más lentos —cabe en la tarjeta sin agrandarla—. «Velocidad de llamada» suma, a la vista, la tabla «Cada lead nuevo» (conjunto
   `primer_contacto`, por lead, con el tramo y el canal).
 - **El Dashboard es POR PERSONA** (`app_settings`, `graficos.tablero.<sub>`): «instalar una hoja para un cliente» es escribir una fila
-  por cada usuario de cada negocio. Quien nunca guardó ve el informe inicial, que vive en el CÓDIGO: `HOJA_DE_AGENCIA` (lib/graficos-
-  plantillas.ts) le pone «Velocidad de llamada» adelante en el negocio de cada cliente aprobado de la agencia 13, sin escribir nada.
-  Sólo quien ya guardó el suyo necesita que se le escriba (con el sí de Martín).
+  por cada usuario de cada negocio. Lo que nadie guardó se resuelve en el CÓDIGO: `HOJA_DE_AGENCIA` (lib/graficos-plantillas.ts) pone
+  «Velocidad de llamada» en el negocio de cada cliente aprobado de la agencia 13, sin escribir nada. Sólo quien ya guardó el suyo
+  necesita que se le escriba (con el sí de Martín).
+- **⚠️ El diagnóstico obvio equivocado, otra vez: «alcanza con ponerla en el informe inicial».** Se desplegó así y en producción la
+  pantalla de Giselle (ws 17) siguió EN BLANCO: desde el 12/10 quien nunca guardó no ve el inicial («que no le salga ninguna
+  página», app/dashboard/page.tsx, `sinPaginas`); el inicial viaja por dentro. Lo que la muestra es la página: `esHojaDeAgencia`
+  la saca del inicial y la pone en la tira y como hoja, SIN `agregar` (que guarda al abrir). **Antes de cambiar el informe inicial,
+  mirar si la pantalla lo muestra: el inicial y lo que se ve no son lo mismo.**
 - **Mirar «como el cliente» con `?ws=` NO muestra el Dashboard del cliente:** el superadmin ve SU informe en ese negocio (su `sub`).
   Coinciden sólo mientras ninguno de los dos guardó; para ver el de una persona hay que leer su fila.
 
