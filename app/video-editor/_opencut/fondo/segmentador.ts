@@ -123,9 +123,11 @@ async function crear(): Promise<ImageSegmenter> {
 
 /**
  * Carga el segmentador si hace falta. Nunca rechaza: devuelve si quedó listo.
- * Llamadas simultáneas comparten la misma carga.
+ * Llamadas simultáneas comparten la misma carga. `avisar: false` (Clips mágicos,
+ * que sin persona encuadra al centro): una falla no muestra el aviso de quitar el
+ * fondo, que ahí no se pidió.
  */
-export function cargarSegmentador(): Promise<boolean> {
+export function cargarSegmentador({ avisar = true }: { avisar?: boolean } = {}): Promise<boolean> {
 	if (estado === "listo" && segmentador) return Promise.resolve(true);
 	if (estado === "fallo") return Promise.resolve(false);
 	if (carga) return carga;
@@ -156,7 +158,7 @@ export function cargarSegmentador(): Promise<boolean> {
 		.catch((error: unknown) => {
 			console.error("[fondo] no se pudo cargar el segmentador", error);
 			fijar("fallo");
-			avisarFallo();
+			if (avisar) avisarFallo();
 			return false;
 		})
 		.finally(() => {
@@ -181,6 +183,7 @@ function avisarFallo(): void {
 export function segmentarPersona(
 	imagen: OffscreenCanvas | HTMLCanvasElement,
 	usar: (mascara: { confianza: Float32Array; esDeFondo: boolean }) => void,
+	{ avisar = true }: { avisar?: boolean } = {},
 ): boolean {
 	if (estado !== "listo" || !segmentador) return false;
 	let hecho = false;
@@ -204,7 +207,7 @@ export function segmentarPersona(
 			fijar("inactivo");
 		} else {
 			fijar("fallo");
-			avisarFallo();
+			if (avisar) avisarFallo();
 		}
 		return false;
 	}
