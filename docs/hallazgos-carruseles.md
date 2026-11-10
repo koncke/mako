@@ -114,6 +114,14 @@ suyos (`filtrosInicialesDe`, `sinFiltrosDe`, lib/carruseles/explorar.ts; lo fija
 vacío no tiene filtro que quitar: su botón es «Volver», como «parecidos», y saca de Guardados. Thumbnails, Filtros, el carrusel
 abierto, el editor y el oscuro se vieron bien. El celular no se pudo capturar: con la extensión, la ventana no cambia de ancho.
 
+⚠️ **En el celular, «Editar» se saltea el guiado y arma solo (medido el 10/11 en el navegador de la app, a 375×812).** El guiado
+(MaKo pregunta la oferta, el avatar y qué cambiar ANTES de armar, el pedido de Martín del 9/11) vive sólo en la computadora:
+`ExplorarCarruseles` lo abre si quien la monta le pasa `onReplicar`, y `app/m/image-editor/page.tsx` no se lo pasa. Sin eso cae
+en `EditarCarrusel`, que lee las láminas, escribe con la IA del negocio y arma el diseño de una. En la prueba quedó creado un
+diseño en la cuenta de Martín («Del ejemplo de @reynardlowell», `/image-editor/af5cd5d3-e1ec-4b1e-9e30-294c5e176e96`) y se usó
+su IA. **Sin hacer:** el guiado en el teléfono. Es una pantalla para diseñar, no un arreglo, y sin referencia no se construye
+(AGENTS.md, «PROHIBIDO INVENTAR»). Hasta entonces, no se toca «Editar» en el celular para probar.
+
 **Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
 se muestra sin revisar.
 
