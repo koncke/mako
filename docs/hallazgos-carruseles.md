@@ -45,6 +45,55 @@ mudar primero esas plantillas: lo decide Martín.
 **Lo que quedó sin hacer:** la orquestación con Flow de la plancha (subir la lámina, pedir el cambio, esperar, guardar), el botón
 «Cambiar la palabra» del lettering en el editor, el pegamento del navegador que compara el recorte con las fuentes, y el teléfono
 (`app/m/image-editor`, sigue con «Editar» directo). La pantalla no se miró en un navegador: en la nube no hay base para levantarla.
+## Portadas rotas y carruseles sin flechas: la carga GUARDABA la URL de Instagram (9/11/2026)
+
+**Síntoma:** Martín, con la grilla de outliers de `hola-mako.com/image-editor`: «no podemos no visualizar bien los carruseles, se
+rompe todo el diseño. Y hay muchos que no tienen el botón para desplazar, todos deben tenerlo». En la captura, las tarjetas de
+@reynardlowell y @growithalex mostraban el texto alternativo en vez de la portada.
+
+**Medido en producción (9/11, sólo lectura), de 990 piezas visibles (912 carruseles):**
+- **91 portadas visibles apuntaban al CDN de Instagram** (89 carruseles y 2 imágenes); el resto, en nuestro bucket. De una muestra
+  de 60 de Instagram, **27 ya daban 403**; de 15 del bucket, 15 contestaban 200. Ninguna lámina guardada era de Instagram: o
+  están todas en el bucket, o no hay ninguna.
+- **168 carruseles visibles sin láminas** (`laminas_imagenes` vacío). Sin láminas no hay flechas: eso es el «no tienen el botón».
+- Las dos tarjetas de la captura eran justo eso: portada de Instagram en 403 y ninguna lámina.
+
+**Lo obvio era «las URL vencieron», y era la mitad.** La causa es que la carga las GUARDABA. `guardarMiniaturas`
+(lib/spy-miniaturas.ts) corta a los **9 s** —un tope pensado para una acción de Vercel— y, si una imagen no baja, devuelve la
+URL original para no romper la lectura. Spy converge porque vuelve a leer cada hora (lib/spy-miniaturas-relleno.ts); **la
+biblioteca no vuelve a leer una pieza nunca**, así que lo que no bajó en esa vuelta (de una tanda de 40, las últimas) quedaba
+con la URL de Instagram para siempre. Lo mismo con las láminas: una que no entraba en los 9 s dejaba al carrusel sin ninguna.
+
+**Trampa: el `oe` no dice si la URL sirve.** Las 27 que daban 403 tenían su `oe` (el vencimiento firmado, en hexa) en el día
+siguiente. Una URL del CDN de Meta se baja YA o se pierde; no se espera a que «venza». Medido esa noche: de las 71 portadas
+de Instagram sin láminas nuestras, **42 bajaban a las 22:30 y 24 a las 23:45** (hora de Argentina). Mientras se esperaba el sí para escribir en
+producción, las 24 se resguardaron en la PC (`C:/dev/carrusel-mako/portadas-instagram-0911/`), que no escribe nada, y
+`portadas --carpeta` las sube de ahí. Si hay que esperar un permiso, lo que se pierde se copia primero a un lugar propio.
+
+**La regla (vive en `lib/carruseles/biblioteca-imagenes.ts`, la fija `tests/carruseles-biblioteca-imagenes.test.ts`):**
+1. La biblioteca guarda imágenes NUESTRAS: la portada bajada o, si no bajó, la lámina 1 ya bajada. Si ninguna es nuestra, la fila
+   va **sin** la columna: una nueva queda sin portada y una que ya estaba conserva la suya. Nunca se escribe una URL de Instagram.
+2. El script baja sin el tope de 9 s (`guardarMiniaturas(p, { presupuestoMs: Infinity })`): el tope es para Vercel, no para la PC.
+3. ⚠️ **Un upsert de supabase-js con filas de columnas distintas pone NULL en las que le faltan a cada una** (`defaultToNull`,
+   que viene prendido) y PISA lo guardado. El código viejo omitía `laminas_imagenes` en las filas sin láminas creyendo que así
+   se conservaban: en un lote mezclado se borraban. Ahora va un upsert por grupo de columnas (`gruposParaUpsert`).
+4. `laminas` pone la lámina 1 de portada cuando la portada no es nuestra (si no, se pagaban las láminas y la tarjeta seguía rota),
+   y `--carpeta <dir>` sube las láminas que ya están bajadas en la PC sin pagarlas. `portadas` (gratis) arregla lo que no pide Apify.
+
+**Lo que quedó en los datos (al subir esto, 10/11 de madrugada): todavía nada.** Escribir en producción y gastar crédito esperan
+el sí de Martín. Queda listo para correr desde la PC (`node --env-file=<.env.local> --conditions=react-server --import tsx
+scripts/carruseles-biblioteca.mts …`):
+- **Gratis:** `portadas --de-verdad --carpeta C:/dev/carrusel-mako/portadas-instagram-0911` (20 portadas que salen de la lámina 1,
+  las 24 resguardadas y las que todavía bajen) y `laminas --carpeta C:/dev/carrusel-mako/growithalex --solo-carpeta --de-verdad`
+  (2 carruseles de @growithalex con sus láminas ya bajadas en la PC).
+- **Pago:** `laminas --de-verdad`, unos 166 links a US$0,0027 ≈ **US$0,45**. Con la lámina 1 arregla también las ~45 portadas de
+  carrusel que ya no bajan. La clave de Spy no tiene crédito libre (US$1,92 con US$2 de reserva): hace falta la «clave 2 de
+  Spy» (`APIFY_INSTAGRAM_TOKEN_2`), que Martín pega en MaKo.
+- Las 2 imágenes con la portada muerta: `links <url> --de-nuevo` (una relectura, también paga).
+
+**Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 9/11: la columna no existe, así que todo lo visible se
+muestra sin revisar. La pantalla (que una tarjeta sin portada no rompa la grilla y que todo carrusel tenga flechas) la arregla
+el chat de la nube «Carruseles en MaKo: replicar guiado, outliers primero».
 
 ## Revisar lo que entró sin que nadie lo mire: el banco no mide ancho y la referencia no mide píxeles (7/11/2026)
 
