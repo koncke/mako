@@ -370,13 +370,24 @@ export function tableroInicial(): Tablero {
  */
 export const HOJA_DE_AGENCIA: Readonly<Record<number, string>> = { 13: 'velocidad-llamada' };
 
+/** El prefijo de los ids fijos de la hoja de una agencia en el informe inicial. */
+const PREFIJO_AGENCIA = 'ag-';
+
+/**
+ * ¿Es la hoja de la agencia del informe inicial? ⚠️ La pantalla de quien nunca guardó es EN BLANCO (12/10/2026, Martín: «que no le
+ * salga ninguna página»): el inicial viaja por dentro y no se muestra. La hoja de la agencia SÍ se muestra (app/dashboard/page.tsx),
+ * y por eso se la reconoce: es lo único del inicial que se ve, y no se guarda hasta que la persona toca algo.
+ */
+export const esHojaDeAgencia = (h: Pick<Hoja, 'id' | 'plantilla'>): boolean =>
+  h.id.startsWith(PREFIJO_AGENCIA) && !!h.plantilla && Object.values(HOJA_DE_AGENCIA).includes(h.plantilla);
+
 /** El informe inicial en un negocio que llevan estas agencias (las aprobadas): sus hojas adelante, con ids fijos. */
 export function tableroInicialDe(agencias: readonly number[]): Tablero {
   const base = tableroInicial();
   const ids = [...new Set(agencias.map((a) => HOJA_DE_AGENCIA[a]).filter((x): x is string => !!x))];
   const extra = ids.flatMap((id) => {
     const p = plantillaHojaDe(id);
-    return p ? [sanearHoja({ ...p.armar((local) => `ag-${local}`), plantilla: p.id }, 0)!] : [];
+    return p ? [sanearHoja({ ...p.armar((local) => `${PREFIJO_AGENCIA}${local}`), plantilla: p.id }, 0)!] : [];
   });
   return extra.length ? { ...base, hojas: [...extra, ...base.hojas].slice(0, MAX_HOJAS) } : base;
 }

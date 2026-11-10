@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { faltaGrabar } from '../lib/primer-contacto';
-import { HOJA_DE_AGENCIA, VELOCIDAD_LLAMADA, instanciarPlantilla, tableroInicial, tableroInicialDe } from '../lib/graficos-plantillas';
+import { HOJA_DE_AGENCIA, VELOCIDAD_LLAMADA, esHojaDeAgencia, instanciarPlantilla, tableroInicial, tableroInicialDe } from '../lib/graficos-plantillas';
 import { esElemento, esGrafico, sanearHoja, sanearTablero, type Hoja } from '../lib/graficos-catalogo';
 import { panelesALaVista } from '../lib/graficos-secciones';
 
@@ -85,4 +85,20 @@ test('cada cliente de Código arranca con «Velocidad de llamada» adelante, sin
   const src = leer('lib/graficos-tablero.ts');
   assert.match(src, /const agencias = await agenciasAprobadasDe\(ws\)\.catch\(\(\) => \[\] as number\[\]\);\n  return tableroInicialDe\(agencias\);/);
   assert.equal((src.match(/tablero: await inicialDe\(informe, ws\)/g) ?? []).length, 2, 'las dos salidas del inicial');
+});
+
+test('quien nunca guardó su Dashboard VE la hoja de su agencia (la pantalla en blanco no la tapa), y abrir no la guarda', () => {
+  // Medido en producción el 9/11/2026 (Giselle, ws 17): con la hoja en el inicial, la pantalla seguía EN BLANCO —desde el 12/10 el
+  // inicial no se muestra («que no le salga ninguna página»)—. La hoja de la agencia es lo único del inicial que se ve.
+  const t = tableroInicialDe([13]);
+  assert.deepEqual(t.hojas.filter(esHojaDeAgencia).map((h) => h.plantilla), ['velocidad-llamada'], 'se reconoce la de la agencia');
+  assert.deepEqual(tableroInicial().hojas.filter(esHojaDeAgencia), [], 'Marketing y Comercial del inicial, no');
+  assert.equal(esHojaDeAgencia(instanciarPlantilla(VELOCIDAD_LLAMADA)), false, 'una que la persona creó desde la galería, no');
+  const pagina = leer('app/dashboard/page.tsx');
+  assert.match(pagina, /const hojasDe = \(l: LecturaTablero\): Hoja\[\] => \(l\.estado === 'inicial' \? l\.tablero\.hojas\.filter\(esHojaDeAgencia\)/,
+    'la tira (también la de Focus) la muestra');
+  assert.match(pagina, /if \(enAgencia\) \{ tablero = \{ \.\.\.tablero, hojas: deAgencia \}; agregar = null; hoja = enAgencia;/,
+    'se muestra sin `agregar`: no se guarda al abrir');
+  const ed = leer('app/dashboard/EditorInforme.tsx');
+  assert.match(ed, /const ultimoGuardado = useRef\(JSON\.stringify\(inicial\)\);/, 'el autoguardado compara contra lo que vino: sin tocar nada, no escribe');
 });
