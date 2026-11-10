@@ -6,6 +6,33 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Motion graphics traído por partes, y lo que encontró su revisión (10/11/2026)
+
+**Vive en:** `lib/motion/` (el motor, con `LICENSE-IART` y `LICENSE-WEBKIT`) · `app/video-editor/_opencut/motion/` ·
+`app/video-editor/_opencut/graphics/definitions/motion*` · `lib/editor-video/chat-catalogo.ts` (`agregar_motion`,
+`editar_motion`) · `lib/editor-video/chat-api.ts` (`agregar_motion_video`, `editar_motion_video`). Punta `punta/motion-0911`.
+
+- **Mezclar la rama vieja eran 97 conflictos; traerlo por partes (motor → elemento → chat y API) sobre el código de hoy,
+  ninguno.** El bloque motion del Web Generator, que vivía en la misma etiqueta, no vino: es de otro chat.
+- **Tres lectores de números con `replace(',', '.')` leían «1.250» como 1,25** (la cifra, la API y el panel), mientras
+  las barras leían bien. El motor escribía «1.250» y después no leía lo que había escrito. Ahora hay UNO
+  (`lib/motion/numeros.ts`: un separador seguido de exactamente tres cifras es de miles), y lo ambiguo que manda la IA
+  o la API se rechaza con las dos lecturas y qué escribir.
+- **Un render que normaliza «sin ser estricto» reemplaza en silencio lo que no pasa por el EJEMPLO de la plantilla**: un
+  nombre o una cita inventados en el video de un cliente, o el color de fábrica porque el selector devolvía el alfa.
+  La validación va donde se escribe (la pestaña, al salir del campo, con el motivo) y el render, ante un obligatorio
+  vacío, deja la capa vacía.
+- **Una escena con un tope propio (60 s) dentro de un clip que puede durar 600 s** se vaciaba al minuto con el fondo
+  tapando el video: la escena dura lo que el clip.
+- **El aviso de un port**: `curvas.ts` era el UnitBezier.h de WebKit (BSD, Apple) sin su aviso; va el texto literal.
+- **«motion» no estaba en las palabras del área video**: en el chat de la app, «agrega un motion graphic…» llegaba sin
+  `agregar_motion_video`. Se sumó, salvo en una frase que nombra una landing o una web (ahí se llevaba las
+  herramientas de la landing). El margen del presupuesto quedó en 319 (piso 300).
+
+**Lo que quedó sin hacer:** dividir un motion repite la entrada en la mitad derecha (decisión para Martín, en
+`docs/editor-video/pendientes-video-editor.md` §3.1); marquesina, pasos con íconos, el logo desde un SVG y exportar con
+transparencia; verlo en Chrome.
+
 ## Subtítulos de Submagic: la palabra que salta, las claves a mano y los emojis automáticos (10/11/2026)
 
 **Vive en:** `app/video-editor/_opencut/text/resaltado.ts` · `text/dibujar.ts` · `subtitles/emojis.ts` · `subtitles/emojis-pista.ts` ·
