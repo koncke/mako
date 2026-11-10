@@ -89,6 +89,14 @@ test('si el que sirve es de un commit sin el arreglo, NO', () => {
   assert.match(SCRIPT, /if \(!fila\.lista\) \{ console\.error\([^\n]*\); return null; \}/);
 });
 
+// 10/11/2026: con `--first-parent`, el commit desplegado quedó de segundo padre detrás de una mezcla «origin/main en
+// punta/…» y la guarda dijo NO con el despliegue sano (el aviso de Leandro). Se busca entre los que contienen el arreglo.
+test('los candidatos son los commits de main que contienen el arreglo, sin `--first-parent`', () => {
+  assert.doesNotMatch(SCRIPT, /'--first-parent'/, '`--first-parent` de main saltea el commit desplegado detrás de una mezcla');
+  assert.match(SCRIPT, /git\('rev-list', '--ancestry-path', '-n', '\d+', `\$\{commit\}\.\.origin\/main`\)/);
+  assert.match(SCRIPT, /git\('rev-parse', `\$\{commit\}\^\{commit\}`\)/, 'el arreglo mismo también es candidato (rev-list A..B no lo trae)');
+});
+
 test('la tabla de Vercel se lee de stdout Y stderr', () => {
   assert.match(SCRIPT, /const salida = `\$\{r\.stdout \?\? ''\}\\n\$\{r\.stderr \?\? ''\}`;/);
 });

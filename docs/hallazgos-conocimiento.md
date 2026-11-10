@@ -87,6 +87,9 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 27. **Tres rojos que la compuerta habría elegido en la punta de Knowledge**: operaciones sin
     ruta REST y un test que pedía una línea literal de la página de Methodology.
     [→](#tres-rojos-que-la-compuerta-habría-elegido-en-la-punta-de-knowledge)
+28. **⚠️ «97 de 97 videos sin subtítulo» era MI parser, no la plataforma**: el campo llega como
+    objeto y `String(objeto)` es `[object Object]`. Y un video cifrado no se baja: la lección se
+    publica como documento con su transcripción. [→](#️-the-net-lab-learndash--spotlightr-el-texto-sale-de-la-página-el-video-no-se-baja)
 
 ---
 
@@ -404,6 +407,89 @@ la secuencia se escribe entera en un lugar, que es esto.
 
 **Vive en:** `scripts/curso-pipeline.mjs` (`--drive`) · `scripts/curso-a-drive.mjs` ·
 `scripts/curso-a-portal.mjs` · `app/conocimientos/catalogo.ts` (`CURSOS_TODOS`)
+
+---
+
+## ⚠️ THE NET LAB (LearnDash + Spotlightr): el texto sale de la página, el video no se baja
+
+**9/11/2026, «Programa de Meta Ads 2026» de thenet-lab.com**, pedido por Martín para el Marketing
+CoPilot. La plataforma es WordPress + LearnDash (`sfwd-lms`) + Elementor, con los videos en
+**Spotlightr** (`<iframe src="videos.cdn.spotlightr.com/watch/<id en base64>">`). La sesión vive en el
+Chrome de Martín, así que se recolectó DESDE la página con la extensión de Claude in Chrome: un
+`fetch` same-origin de las 109 páginas (de a tres, con pausa), y el resultado viajó a la PC por un
+POST de formulario a `127.0.0.1` (`scripts/curso-recibir.mjs`). Los tres scripts:
+`thenet-lab-pagina.js` (corre en la página) → `curso-recibir.mjs` → `thenet-lab-plan.mjs`, y de ahí
+los pasos de siempre (`curso-a-drive` → `curso-a-portal` → `curso-al-catalogo`).
+
+**El diagnóstico obvio era el equivocado.** La primera corrida dijo «97 de 97 videos sin
+subtítulo», y se leía como «Spotlightr no transcribe estos videos». Era el parser: el campo
+`translations` de `playerSettings` llega como **objeto** (`{ spanish: 'https://…vtt' }`) y la regex
+corría sobre `String(v.translations)`, que es `[object Object]`. Lo que lo delató fue un `print` de
+Python que lo mostraba con comillas simples — la forma de un dict, no de un string. Arreglado, el
+número real fue **7 de 97**: los videos del módulo de 2026 tienen `.vtt`; los otros 90 (~18 h) tienen
+`translations: null`, `subtitleTracks: []` y `ai` vacío. Ese texto no existe en ningún lado.
+
+**El video no se baja, y es a propósito.** El HLS viene cifrado AES-128 con una clave **ofuscada**:
+el `.key` trae 64 caracteres hex en vez de los 16 bytes del estándar, y la transforma el reproductor.
+Sacarla es romper una protección de contenido de un curso pago. Lo que sí es público, sin sesión, es
+lo que el propio reproductor pide: `api.spotlightr.com/video/playerSettings?videoID=<id>` (nombre,
+duración, subtítulos) con `omitViewGenerate=true` — sin eso cada consulta le suma una vista al dueño.
+
+**Cómo queda en el portal:** cada tema es una clase `soloTexto` con su documento en
+`public/cono-doc/<slug>__<tema>.json`, pestañas «Lección» (el texto escrito de la página, rehecho
+con lista blanca de etiquetas y las clases `ugc-*`) y «Transcripción» (cuando hay `.vtt`), más un
+link a la lección original. La transcripción NO va a `public/cono-tx/`: ese archivo se nombra por el
+`videoId` de Drive y una clase sin video no lo tiene. ⚠️ Consecuencia: el Second Brain de un
+referente (`scripts/generar-clases-de-referentes.mjs`) sólo lee clases con `videoId`, así que este
+curso no le llega por ahí.
+
+⚠️ **Y lo que más importa: subir un curso al PORTAL no lo pone al alcance de ningún agente.** El
+pedido era «para que lo use el Marketing CoPilot», y el portal es para PERSONAS: los agentes leen
+Knowledge con `leer_modulo_knowledge` → `metodoDeModulo` (lib/api-mako/areas/negocio.run.ts:1151),
+que consulta `mako_knowledge` por módulo (el de anuncios es el área `ads`, lib/knowledge-modulos.ts:56)
+y por negocio. Ningún archivo de `lib/` lee `public/cono-doc/` ni la ficha del curso. Según el chat del
+CoPilot (9/11), el área `ads` estaba vacía y sus filas copiadas en ws1 y ws4. El CoPilot lo resolvió
+en su rama (`punta/marketing-copilot-agente`): destiló el texto de `C:\cursos\…\texto\` a
+`lib/media-buyer/copiloto-metodo-anuncios.ts`, más una herramienta de lectura. La regla, que es la
+misma de los 5.050 emails: **un curso está en manos de un agente cuando un archivo de código lo
+nombra, no cuando se ve en `/conocimientos`.**
+
+**Las trampas del camino, cada una con su síntoma:**
+
+- **La herramienta de JavaScript de la extensión corta la respuesta a ~1.000 caracteres**, con un
+  «[TRUNCATED]» y nada más. Un curso pesa ~1 MB: no vuelve por ahí. Una NAVEGACIÓN de formulario
+  a `127.0.0.1` sí (llegaron 1.049.827 caracteres, los mismos que dijo la página). Antes de enviar
+  se guarda en `sessionStorage`, para no recolectar dos veces si el envío falla.
+- **Una evaluación de más de 45 s da «timeout» pero el trabajo sigue en la página.** Se consulta el
+  progreso (`window.__tnD.filter(Boolean).length`) en vez de relanzar: relanzar duplica las requests
+  contra el sitio de otro.
+- **El patrón de la página:** el curso publica «0/N pasos» por módulo. 94 temas contados contra 94
+  publicados; si no da, el script corta.
+- **Las páginas de MÓDULO no traen contenido propio** (sólo la lista de temas) y el examen final
+  carga sus preguntas aparte: quedan afuera, y el plan lo dice en `fuera`.
+- **`fetch` de Node entrega los headers como latin1**: un `filename="Auditoría.pdf"` llega
+  «AuditorÃ­a». Se re-decodifica como UTF-8.
+- **Un Google Sheet nativo que no es público no da 403: da 200 con la página de login en HTML.** Se
+  mira el `content-type`, y si es HTML el material queda como LINK al original.
+- **⚠️ Un slug de WordPress con emoji da 404 en el portal, y sólo en esas lecciones.** El slug llega
+  CODIFICADO (`%f0%9f%9f%a2-auditoria…`) y se usó tal cual como nombre del `cono-doc`: el navegador
+  pide `…%f0%9f…json`, el server lo decodifica a «🟢» y no encuentra el archivo. Eran 4 de 94, todas
+  las que el autor marcó con un emoji. Se vio en el `git status` (nombres con `%`), no en el
+  generador, que reportó 94/94 con archivo. El slug se reduce a `[a-z0-9-]` antes de escribir.
+- **Un link de material colgado de UNA lección perdía su clase en `curso-a-drive.mjs`**: los
+  recursos tipo link no arrastraban `clases` ni `tituloReal`, y se repartían entre todo el módulo
+  con el nombre de archivo como título. Arreglado ahí, para todos los cursos.
+
+**La regla:** con el video protegido, lo que se publica es el texto que la plataforma ya publica
+(la lección escrita y el subtítulo), nunca un video sacado rompiendo su cifrado. Y un «0 de N» que
+contradice lo que se ve en la pantalla es un parser hasta que se demuestre lo contrario.
+
+**Lo que quedó sin hacer:** el texto de los 90 videos sin subtítulo (la única forma sería transcribir
+el audio mientras se reproduce, ~9 h a 2x en el Chrome de Martín: decisión suya) y el examen final.
+
+**Vive en:** `scripts/thenet-lab-pagina.js` · `scripts/curso-recibir.mjs` ·
+`scripts/thenet-lab-plan.mjs` · `scripts/curso-a-drive.mjs` (los links con su clase) ·
+`C:\cursos\programa-meta-ads-the-net-lab\`
 
 ---
 

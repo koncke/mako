@@ -249,7 +249,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'agregar_texto',
     forma: '{"op":"agregar_texto","texto":"…","inicio":0,"duracion":3,"ref":"n1"}',
-    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.',
+    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). Va ENCIMA del video: un título «al inicio» no corre los clips (sólo si pide una placa ANTES del video). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.',
   },
   {
     op: 'cambiar_texto',
@@ -279,7 +279,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'fundido',
     forma: '{"op":"fundido","ref":"a1","entrada":1,"salida":2}',
-    para: 'Aparición y desaparición progresiva del SONIDO de un video o un audio, en segundos (0 = sin fundido; pon uno o los dos). Entre los dos no pueden pasar el largo del clip.',
+    para: 'Aparición y desaparición progresiva del SONIDO de un video o un audio, en segundos (0 = sin fundido; pon uno o los dos). Entre los dos no pueden pasar el largo del clip. Sólo el sonido: para que la IMAGEN empiece desde negro o termine en negro, "animacion" de entrada o de salida (un fundido) del primer o del último clip.',
   },
   { op: 'reducir_ruido', forma: '{"op":"reducir_ruido","ref":"a1","activo":true}', para: 'Prende o apaga «Reducir el ruido» de un video o un audio.' },
   {
@@ -296,12 +296,12 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'velocidad',
     forma: '{"op":"velocidad","ref":"v1","x":2}',
-    para: `Velocidad de un video o un audio. "x": constante, de ${TOPES_CHAT.velocidadMin} a ${TOPES_CHAT.velocidadMax} (1 = normal, 2 = el doble de rápido, 0.5 = cámara lenta); el clip se alarga o se acorta y lo que sigue en la pista se corre si hace falta. Conserva el tono; "cambiar_tono":true lo cambia (como cinta). O en vez de "x", "curva": un id de DISPONIBLES.curvas_velocidad (sólo video; "ninguna" la quita).`,
+    para: `Velocidad de un video o un audio. "x": constante, de ${TOPES_CHAT.velocidadMin} a ${TOPES_CHAT.velocidadMax} (1 = normal, 2 = el doble de rápido, 0.5 = cámara lenta; «un poco más rápido» ≈ 1.2, «más rápido» ≈ 1.5, «el doble» = 2); el clip se alarga o se acorta y lo que sigue en la pista se corre si hace falta. Conserva el tono; "cambiar_tono":true lo cambia (como cinta). O en vez de "x", "curva": un id de DISPONIBLES.curvas_velocidad (sólo video; "ninguna" la quita).`,
   },
   {
     op: 'transicion',
     forma: '{"op":"transicion","ref":"v1","id":"mezclar","duracion":0.5}',
-    para: `Transición en el corte entre un clip de video o imagen ("ref", el de la IZQUIERDA del corte) y el que empieza justo donde termina, en la misma pista. ${IDS('transiciones')}; "ninguna" la quita. "duracion" en segundos (opcional; 0.5 si no tenía), desde ${TOPES_CHAT.efectoMin} y como mucho la mitad del clip más corto del corte. Para todos los cortes, una por corte.`,
+    para: `Transición en el corte entre un clip de video o imagen ("ref", el de la IZQUIERDA del corte) y el que empieza justo donde termina, en la misma pista. ${IDS('transiciones')}; "ninguna" la quita. "duracion" en segundos (opcional; 0.5 si no tenía), desde ${TOPES_CHAT.efectoMin} y como mucho la mitad del clip más corto del corte. Para todos los cortes, una por corte. Va SÓLO entre dos clips: el principio y el final del video no son un corte (para empezar desde negro o terminar en negro, "animacion" de entrada o de salida del primer o del último clip).`,
   },
   {
     op: 'animacion',
@@ -331,7 +331,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'estilo_texto',
     forma: '{"op":"estilo_texto","ref":"t1","color":"#FFD400","tamano":24,"negrita":true}',
-    para: `Estilo de un texto (pon sólo lo que cambia): "fuente" (nombre exacto de una Google Font, p. ej. las de DISPONIBLES.fuentes_sugeridas), "tamano" (${TOPES_CHAT.tamanoMin} a ${TOPES_CHAT.tamanoMax}; el predeterminado es 15), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true/false), "mayusculas" ("ninguno", "mayusculas", "minusculas", "titulo"), "alineacion" ("izquierda", "centro", "derecha"), "espaciado" (entre letras, ${TOPES_CHAT.espaciadoMin} a ${TOPES_CHAT.espaciadoMax}), "interlineado" (${TOPES_CHAT.interlineadoMin} a ${TOPES_CHAT.interlineadoMax}), "trazo" (#RRGGBB lo prende con ese color, false lo apaga) y "grosor_trazo" (0 a 100), "sombra" (true, #RRGGBB o false), "fondo" (#RRGGBB o false) y "opacidad_fondo" (0 a 100), "resplandor" (#RRGGBB o false). En un subtítulo no se cambian fuente, tamaño, negrita, cursiva ni espaciado.`,
+    para: `Estilo de un texto (pon sólo lo que cambia): "fuente" (nombre exacto de una Google Font, p. ej. las de DISPONIBLES.fuentes_sugeridas), "tamano" (${TOPES_CHAT.tamanoMin} a ${TOPES_CHAT.tamanoMax}; el predeterminado es 15), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true/false), "mayusculas" ("ninguno", "mayusculas", "minusculas", "titulo"), "alineacion" ("izquierda", "centro", "derecha"), "espaciado" (entre letras, ${TOPES_CHAT.espaciadoMin} a ${TOPES_CHAT.espaciadoMax}), "interlineado" (${TOPES_CHAT.interlineadoMin} a ${TOPES_CHAT.interlineadoMax}), "trazo" (#RRGGBB lo prende con ese color, false lo apaga) y "grosor_trazo" (0 a 100), "sombra" (true, #RRGGBB o false), "fondo" (#RRGGBB o false) y "opacidad_fondo" (0 a 100), "resplandor" (#RRGGBB o false). En un subtítulo, la fuente, el tamaño, la negrita, la cursiva, el espaciado y las mayúsculas vuelven a partir sus renglones (como «Aplicar en todos los subtítulos»): para todos los subtítulos, una operación por subtítulo con el MISMO estilo.`,
   },
   {
     op: 'transformar',
