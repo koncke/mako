@@ -3098,6 +3098,31 @@ lib/nutricion.ts (el corte y la columna «Enviado» en la rama del email) · app
 lib/api-mako/areas/{email,crm,chatbot}.{def,run}.ts · app/api-mako/Articulos.tsx (la guía) · lib/agente-skill.ts ·
 *2026-11-04 nube, la campaña de email de Mauricio*
 
+### ⚠️ El freno del email con «las últimas 24 h» apagaba un envío sano: parte el envío de ayer por la mitad (10/11/2026, ticket #76)
+
+**Síntoma.** El 10/11 a las 9:01 (Tijuana) el freno apagó el email de Mauricio con «3 de 52 emails de las últimas 24 h
+rebotaron (5,8 %)». Mauricio: «es esperado que reboten algunos, ¿cuál es tu criterio?». Quedaron sin salir 22 de los 100 de
+Piloto B, pasados a las 24 h por «canal apagado».
+
+**La causa real.** Ningún envío estaba mal: Piloto A, 3 de 100 (3 %); Piloto B, 2 de 78 (2,6 %). Piloto A había salido el día
+anterior entre las 9:00:32 y las 9:02:34, y Piloto B arrancó a las 9:01:10. Cuando llegó el primer rebote de B, la ventana de
+24 h tenía la COLA de A (que por azar traía 2 de sus 3 rebotes) y sólo 7 de B: un denominador chico justo en el borde, y por
+encima del mínimo de 50. **Una ventana de TIEMPO parte un envío por la mitad cuando los envíos salen todos los días a la misma
+hora**, que es justo lo que hace el motor con sus horarios.
+
+**La regla.** El freno mira los últimos 100 emails enviados (secuencias y broadcasts juntos, 7 días como mucho), y desde que una
+persona prendió el envío: si no, los rebotes que ya lo apagaron lo vuelven a apagar con el próximo, y «revisa la lista y vuelve a
+prenderlo» no sirve. Los umbrales no cambiaron (50, 5 %, 0,3 %). Para medir un caso: los rebotes están en
+`nutricion_envios.rebotado_at` y el «prendido» es el `updated_at` de `envio_email_enabled` en `app_settings`.
+
+**Lo que choca con el tope.** El tope del email también es de 24 h corridas (`enviosUltimas24h`): 22 que salen hoy a la tarde
+siguen contando mañana a la misma hora. Con 100 por día, «los 22 hoy y los 97 de Piloto A mañana a las 9» no entran juntos
+(119); quedan para el ticket #78 las tres opciones que se le dieron a Mauricio.
+
+**Vive en:** lib/email-freno.ts (`conteoDeLosUltimos`, `desdeDelFreno`) · lib/email-reputacion.ts (`conteoEmailDelFreno`) ·
+tests/email-campana-topes.test.ts (con los envíos reales del 9 y el 10/11)
+*2026-11-10 claude4, chat Tickets*
+
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 
 **Síntoma:** cualquier cliente que toque «generar email» en `/email` recibe copy de OTRO negocio,

@@ -152,9 +152,10 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   /** «Crear desde cero»: las plantillas de Image (en el teléfono, su ruta de /m). */
   rutaCrear?: string;
   /**
-   * «Editar» de un ejemplo, en la computadora (9/11/2026, Martín: «me llevó directamente al editor y no está bueno eso»): la tab
-   * abre el guiado (./ReplicarGuiado.tsx), donde MaKo pregunta la oferta, el avatar y qué cambiar antes de armar nada. Sin esto
-   * (el teléfono), «Editar» arma la versión en el acto, como antes.
+   * «Editar» de un ejemplo (9/11/2026, Martín: «me llevó directamente al editor y no está bueno eso»): la tab abre el guiado
+   * (./ReplicarGuiado.tsx), donde MaKo pregunta la oferta, el avatar y qué cambiar antes de armar nada. Lo pasan la computadora
+   * y, desde el 10/11/2026, el teléfono (app/m/image-editor/EjemplosM.tsx). ⚠️ Sin esto, «Editar» arma la versión EN EL ACTO,
+   * con la IA del negocio: tests/image-movil-guiado.test.ts falla si el teléfono vuelve a montar la grilla sin él.
    */
   onReplicar?: (c: Carrusel) => void;
 }) {
