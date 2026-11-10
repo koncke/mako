@@ -10,17 +10,19 @@
 
 import { pestanasInspector, subpestanasInspector } from "@/app/video-editor/ce/ranuras";
 import { VelocidadCurva, VelocidadEstandar } from "./components/speed-tab";
+// Los ids los usan también Ctrl+R y Shift+B (./abrir.ts).
+import { PESTANA_VELOCIDAD, SUBPESTANA_CURVA, SUBPESTANA_ESTANDAR } from "./abrir";
 
 pestanasInspector.registrar({
-	id: "velocidad",
+	id: PESTANA_VELOCIDAD,
 	etiqueta: "Velocidad",
 	orden: 30,
 	aplica: ({ element }) => element.type === "video" || element.type === "audio",
 });
 
 subpestanasInspector.registrar({
-	pestana: "velocidad",
-	id: "velocidad-estandar",
+	pestana: PESTANA_VELOCIDAD,
+	id: SUBPESTANA_ESTANDAR,
 	etiqueta: "Estándar",
 	orden: 10,
 	aplica: () => true,
@@ -28,8 +30,8 @@ subpestanasInspector.registrar({
 });
 
 subpestanasInspector.registrar({
-	pestana: "velocidad",
-	id: "velocidad-curva",
+	pestana: PESTANA_VELOCIDAD,
+	id: SUBPESTANA_CURVA,
 	etiqueta: "Curva",
 	orden: 20,
 	aplica: ({ element }) => element.type === "video",

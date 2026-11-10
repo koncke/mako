@@ -358,7 +358,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
   - el pincel de Eliminación personalizada (`fondo/panel-eliminar-fondo.tsx:135`);
   - la portada incrustada (`timeline/components/portada-boton.tsx:315`).
 
-  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J), la marca de agua, exportar un rango, el vúmetro, la cámara lenta fluida y Favoritos.
+  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, ~~atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J)~~ (10/11/2026, `rango/` y `speed/abrir.ts`, sin ver en Chrome; falta Tab, que el relevamiento no dice qué hace), la marca de agua, ~~exportar un rango~~ (10/11/2026, `export/exportar.ts`, sin ver en Chrome), el vúmetro, la cámara lenta fluida y Favoritos.
 - **Fuente:** `origin/main:docs/editor-video/inventario-copia-capcut.md:20-176`; `docs/hallazgos-video-editor.md:1523-1732`.
 
 ### 10.2 Chat fijo, proyectos en la barra del costado y colores de MaKo — P2 · hecho a medias
