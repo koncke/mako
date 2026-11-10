@@ -89,6 +89,10 @@ function pruebaDeProduccion(): string | null {
     if (!esShaEntero(sha)) { console.error(`NO: ${sha} no es un sha entero (Vercel no lo encontraría).`); return null; }
     const fila = filaDeProduccion(vercel('ls', '--environment', 'production', '--yes', '--meta', `githubCommitSha=${sha}`));
     if (fila && fila.url === sirve) {
+      if (!contiene(commit, sha)) {
+        console.error(`NO: ${DOMINIO} sirve ${sirve}, de main ${sha.slice(0, 9)}, que todavía NO contiene ${commit.slice(0, 9)}.`);
+        return null;
+      }
       if (!fila.lista) { console.error(`NO: ${DOMINIO} sirve ${sirve} pero Vercel no lo da por Ready.`); return null; }
       return `${DOMINIO} sirve ${sirve} (Ready), de main ${sha.slice(0, 9)}, que contiene ${commit.slice(0, 9)}`;
     }
