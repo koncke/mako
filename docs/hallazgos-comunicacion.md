@@ -13129,3 +13129,21 @@ después de arreglar el ajuste. Con `not_thread_owner` fuera de `esLimiteDeMeta`
 El motivo está entero —con el link para arreglarlo— en **`nutricion_envios.error`**, y **no lo mira
 nadie**: ninguna pantalla lo muestra y ninguna alerta lo lee. Mirarlo **por nodo, no en total**: un
 97% de éxito global tapaba un 45% de fallo en el único paso que importaba (el que entrega el recurso).
+
+## ⚠️ «Lo que faltó de» un pedido ya hecho, y el «sí» que se pierde en el lote (10/11/2026, ticket #77)
+
+**Síntoma.** Giselle (ws 17) pidió dos notas seguidas, una por lead, y contestó «Si» a cada propuesta. En la Ticketera apareció un
+pedido delegado «Lo que faltó de: Agregar nota…; Nota: 'no contestó mi mensaje'», y en el CRM quedó guardada sólo la segunda nota.
+
+**Dos causas, ninguna era la obvia.**
+1. **El dato de una parte no es otra parte.** El clasificador devolvió el pedido como dos «partes» (la acción y el texto de la nota).
+   Con una sola escritura hecha, `faltaAlgunaParte` (lib/despacho-grupo.ts) vio 1 de 2 y delegó «lo que faltó», que era nada.
+   Arreglado en `partesDe` (lib/mako-intencion-ia.ts): una parte que es sólo «Nota: …», «Hora: …», «Asunto: …» va con la anterior.
+2. **El «sí» pegado a un pedido nuevo se pierde** (SIN arreglar). Su primer «Si» (20:56:59 UTC) llegó 12 s después de su segundo
+   pedido; el turno los tomó juntos, propuso la nota nueva y no confirmó la anterior (`mako_acciones_pendientes` 847: «pendiente»
+   hasta vencer a las 22:56). El segundo «Si» confirmó la otra (848). Para medir un caso: `grupo_mensajes` del ws con los
+   `created_at` de los «sí» contra `mako_acciones_pendientes` (estado, `vence_at`, `resuelto_at`). Vive en el armado del lote de
+   WhatsApp y la confirmación del doer (lib/mako-doer-in.ts, lib/mako-doer-acciones.ts).
+
+*2026-11-10 claude4, chat Tickets*
+

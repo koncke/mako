@@ -109,11 +109,24 @@ const aClase = (x: unknown): Clase | null => {
   return (CLASES as readonly string[]).includes(k) ? (k as Clase) : SINONIMOS[k] ?? null;
 };
 
-/** Las partes de un pedido compuesto: sólo con dos o más (una sola no es compuesto), hasta 5, cada una corta. */
+/**
+ * Una «parte» que es sólo el DATO de la anterior: «Nota: 'no contestó mi mensaje'», «Hora: 15:00». Ticket #77 (Giselle, 10/11/2026):
+ * «agrega una nota al lead María Valeria García, la nota dice: "no contestó mi mensaje"» volvió del modelo como DOS partes, MaKo hizo
+ * la única escritura que había (la nota) y `faltaAlgunaParte` delegó «lo que faltó» al equipo: un pedido vacío en la Ticketera.
+ */
+const RX_DATO_DE_LA_ANTERIOR = /^\s*(?:la\s+|el\s+)?(?:nota|texto|mensaje|asunto|hora|fecha|d[ií]a|monto|precio|datos?|detalle|contenido|cuerpo|t[ií]tulo|nombre|tel[eé]fono|e-?mail|correo|link|enlace)\s*(?:dice)?\s*:/i;
+
+/** Las partes de un pedido compuesto: sólo con dos o más (una sola no es compuesto), hasta 5, cada una corta. El dato de una parte va
+ *  con ella (`RX_DATO_DE_LA_ANTERIOR`), no cuenta como otra. */
 const partesDe = (x: unknown): { partes?: string[] } => {
   if (!Array.isArray(x)) return {};
-  const ps = x.filter((p): p is string => typeof p === 'string' && !!p.trim()).slice(0, 5).map((p) => recortar(p, 120));
-  return ps.length >= 2 ? { partes: ps } : {};
+  const ps: string[] = [];
+  for (const p of x.filter((q): q is string => typeof q === 'string' && !!q.trim()).slice(0, 5)) {
+    if (ps.length && RX_DATO_DE_LA_ANTERIOR.test(p)) ps[ps.length - 1] = `${ps[ps.length - 1]} (${p.trim()})`;
+    else ps.push(p);
+  }
+  const cortas = ps.map((p) => recortar(p, 120));
+  return cortas.length >= 2 ? { partes: cortas } : {};
 };
 
 /**
