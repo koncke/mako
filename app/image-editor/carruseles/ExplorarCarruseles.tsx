@@ -44,8 +44,8 @@ import { ancla } from '@/app/_ui/guia/ancla';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
   FILTROS_INICIALES, ORDENES_CARRUSEL, QUE_VER_CARRUSEL,
-  contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
-  parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
+  contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, filtrosInicialesDe, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
+  parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltrosDe,
   type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel, type QueVer,
 } from '@/lib/carruseles/explorar';
 import { FILTROS_THUMBNAIL, queryDeThumbnails, type FiltrosThumbnail, type Thumbnail } from '@/lib/thumbnails/explorar';
@@ -194,7 +194,8 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   const cambiarT = useCallback((cambio: Partial<FiltrosThumbnail>) => {
     setFt((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(queryDeThumbnails(nuevo)); return nuevo; });
   }, []);
-  const reiniciar = () => { const nuevo = { ...FILTROS_INICIALES, que: f.que }; setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A); };
+  // Los de entrada de SU lado: Anuncios vuelve a ordenarse por días al aire, no por outlier (filtrosInicialesDe).
+  const reiniciar = () => { const nuevo = filtrosInicialesDe(f.que); setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A); };
   /** Carruseles · Anuncios · Thumbnails: cada lado con sus filtros (las cuentas y los tipos de uno no son los del otro). */
   const irA = (que: QueVer) => {
     setParecidosDe(null);
@@ -378,8 +379,8 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
                   buttonStyle={chip(f.creadores.length > 0)} />
               )}
               <span className={s.espacio} />
-              {!sinFiltros({ ...f, que: 'carruseles' }) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
-              {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
+              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
               {telefono ? null : (
                 <span className={s.total}>
                   {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
@@ -420,9 +421,11 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
+                  // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
+                  : guardadosVista && !guardados.size ? <button type="button" className={s.boton} onClick={() => cambiar({ vista: 'todos' })}>Volver</button>
                   : f.que === 'anuncios' && !anuncios
                     ? <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
-                    : !sinFiltros({ ...f, que: 'carruseles' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
+                    : !sinFiltrosDe(f) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
               </div>
             ) : (
               <>
