@@ -280,3 +280,13 @@ Una entrada por tema; lo que quedó sin hacer dice dónde vive.
   —`TAXONOMIA_NEUTRA` y `SIN_MARCADORES`—, elegidos por separado. Compartir la lectura acoplaría las dos
   direcciones de error: un embudo que no se puede leer degradaría a la vez el prompt y el detector. Son
   dos consultas al lado de llamadas a Claude de 120 s. Si alguien las une, que una a los fallbacks también.
+
+## El número de un link de Fathom no es el `recording_id`, y Fathom rotula mal a quién habla (10/11/2026)
+
+- **`https://fathom.video/calls/883162834` da 404 en `/recordings/883162834/transcript`.** El número de la URL es el de la llamada,
+  no el de la grabación. Se busca la reunión en `/meetings` por su `url` o `share_url` y se usa su `recording_id`. Las dos claves
+  (`FATHOM_API_KEY_MARTIN` y `FATHOM_API_KEY`) devolvieron 404 con el número de la URL. Con la primera, la reunión apareció en la
+  primera página de `/meetings`.
+- **El `speaker.display_name` de Fathom miente en llamadas de tres personas.** En «Codigo <> Martin» (30/10), frases de Juanfran
+  salen como «Martin Carballo» (por ejemplo, 00:45:33 «Voy a vender una oferta anual…»). Para citar quién dijo qué, se atribuye
+  por el contenido y se dice que se hizo así. Un análisis que confíe en el rótulo le atribuye a Martín lo que pidió el cliente.
