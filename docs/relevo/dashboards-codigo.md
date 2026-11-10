@@ -19,6 +19,16 @@ Código Inmobiliario»: cuánto tarda cada inmobiliario en contactar a un lead d
 - **Cada cliente aprobado de Código (agencia 13) ve «Velocidad de llamada»** si nunca guardó su Dashboard (`HOJA_DE_AGENCIA`, y
   app/dashboard/page.tsx la muestra con `esHojaDeAgencia`): no se escribe nada en su negocio hasta que la persona toca algo.
 
+## Verificado en producción (9/11, noche)
+
+- ws 3 (prueba): el costado agranda la tarjeta (borde de 92 a 330 px) sin crear una flecha; dos toques cambian el título, sobrevive
+  a recargar y «Volver al original» lo devuelve (quedó como estaba).
+- ws 15, 17, 18, 19, 20, 22 y 23, mirando como superadmin (sin escribir nada: la base sigue con las mismas dos filas): la pestaña
+  «Velocidad de llamada» al lado de Focus, con «Grabar llamada», «Primer contacto» y el aviso de grabar donde hay leads sin contactar.
+  ws 18 y 23: sin leads nuevos en 30 días.
+- «Cada lead nuevo»: medida en el server con la misma agregación y el mismo formato (Natalia 50 filas, «26 días 6 h»). La captura
+  de la tabla con días y horas quedó pendiente: esa noche el Chrome de Martín grababa clases y no se podía usar.
+
 ## Producción: qué se escribió y qué no
 
 Los Dashboards YA GUARDADOS en los negocios de Código no reciben la hoja solos (es escribir datos de un cliente). Medido el 9/11:
