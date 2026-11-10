@@ -12,8 +12,9 @@
 //      con el run de GitHub Actions en verde;
 //   2. que hola-mako.com SIRVA un despliegue de un commit de main que lo CONTIENE (24/10/2026: antes bastaba con que
 //      hubiera uno «Ready»). Se pregunta qué despliegue sirve el dominio (`vercel inspect hola-mako.com`) y de qué commit es
-//      (`vercel ls --environment production --meta githubCommitSha=<sha ENTERO>`), de la punta de main hacia atrás (hasta
-//      12): «pushear no es desplegar» — un build fallado o una vuelta atrás dejan producción con el código viejo, sin avisar.
+//      (`vercel ls --environment production --meta githubCommitSha=<sha ENTERO>`), entre los commits de main que
+//      contienen el arreglo (hasta 20, sin `--first-parent`): «pushear no es desplegar» — un build fallado o una vuelta
+//      atrás dejan producción con el código viejo, sin avisar.
 //   Sin las dos, no sale nada: «no pude verificar» no es «está en producción».
 //   ⚠️ El sha va ENTERO: con el corto, Vercel contesta «No deployments found» para un despliegue vivo (lib/vercel-salida.ts).
 // =============================================================================
@@ -76,25 +77,24 @@ function pruebaDeProduccion(): string | null {
     console.error(`NO: no pude saber qué despliegue sirve ${DOMINIO} (vercel inspect no dio su url).`);
     return null;
   }
-  const candidatos = git('rev-list', '--first-parent', '-n', '12', 'origin/main').split('\n').filter(Boolean);
+  // Los candidatos son los commits de main que CONTIENEN el arreglo (`--ancestry-path`), de los más nuevos a los más viejos,
+  // y el arreglo mismo. ⚠️ NO `--first-parent` (10/11/2026): una punta que se trae origin/main con un merge y después main
+  // avanza hasta ella deja el commit DESPLEGADO como segundo padre. Producción servía 082a832c4 (con el arreglo, en main), y la
+  // primera línea de padres de main lo salteaba, así que el aviso de Leandro dio «no es de ningún commit de main».
+  const candidatos = [
+    ...git('rev-list', '--ancestry-path', '-n', '20', `${commit}..origin/main`).split('\n').filter(Boolean),
+    git('rev-parse', `${commit}^{commit}`),
+  ];
   for (const sha of candidatos) {
     if (!esShaEntero(sha)) { console.error(`NO: ${sha} no es un sha entero (Vercel no lo encontraría).`); return null; }
     const fila = filaDeProduccion(vercel('ls', '--environment', 'production', '--yes', '--meta', `githubCommitSha=${sha}`));
     if (fila && fila.url === sirve) {
-      if (!contiene(commit, sha)) {
-        console.error(`NO: ${DOMINIO} sirve ${sirve}, de main ${sha.slice(0, 9)}, que todavía NO contiene ${commit.slice(0, 9)}.`);
-        return null;
-      }
       if (!fila.lista) { console.error(`NO: ${DOMINIO} sirve ${sirve} pero Vercel no lo da por Ready.`); return null; }
       return `${DOMINIO} sirve ${sirve} (Ready), de main ${sha.slice(0, 9)}, que contiene ${commit.slice(0, 9)}`;
     }
-    if (!contiene(commit, sha)) {
-      // De acá para atrás ya no lo contiene, y el que sirve no salió entre los que sí: sirve uno anterior al arreglo.
-      console.error(`NO: ${DOMINIO} sirve ${sirve}, que no es de ningún commit de main con ${commit.slice(0, 9)} (todavía no se desplegó, o falló el build).`);
-      return null;
-    }
   }
-  console.error(`NO: ${DOMINIO} sirve ${sirve} y no es de ninguno de los últimos ${candidatos.length} commits de main.`);
+  // El que sirve no es de ningún commit con el arreglo: es uno anterior (no se desplegó, falló el build o hubo una vuelta atrás).
+  console.error(`NO: ${DOMINIO} sirve ${sirve}, que no es de ninguno de los ${candidatos.length} commits más nuevos de main con ${commit.slice(0, 9)} (todavía no se desplegó, o falló el build).`);
   return null;
 }
 
