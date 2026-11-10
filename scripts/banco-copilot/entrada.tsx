@@ -1,7 +1,7 @@
 import '@/app/ads-manager/aa.css';
 import { createRoot } from 'react-dom/client';
 import { PrimeraEntrada } from '@/app/ads-manager/PrimeraEntrada';
-import { SinAnuncios, SeccionPlan } from '@/app/ads-manager/PlanDelCopiloto';
+import { SinAnuncios, SeccionPlan, EstrategiaCopiloto } from '@/app/ads-manager/PlanDelCopiloto';
 import { LienzoCampanas } from '@/app/ads-manager/Lienzo';
 import { MediaBuyer } from '@/app/ads-manager/MediaBuyer';
 import { Criatura } from '@/app/_components/Criatura';
@@ -10,7 +10,7 @@ import { lienzoDeEjemplo, configDeEjemplo } from './datos';
 
 // Sin base ni red. /?perfil=<json> arranca la charla en ese punto; /?tema=oscuro; /?barra=abierta|plegada|ninguna (la barra de la app,
 // 244 o 68 px: la pantalla vive al lado, como en el layout de verdad, sin un fondo propio del banco); /?sinia=1 (el turno contesta
-// «Conecta tu IA», como un negocio sin su IA); /?pantalla=mb&vista=hoy|campanas|biblioteca|plan (la pantalla de siempre).
+// «Conecta tu IA», como un negocio sin su IA); /?pantalla=estrategia (la de un funnel sin anuncios, en dos columnas); /?pantalla=mb&vista=hoy|campanas|biblioteca|plan (la pantalla de siempre).
 const q = new URLSearchParams(window.location.search);
 document.documentElement.setAttribute('data-tema', q.get('tema') === 'oscuro' ? 'oscuro' : 'claro');
 const json = (o: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } }));
@@ -49,6 +49,8 @@ const arranque = { productos: [], costoMedido: null, cierreMedido: null, avatare
 function Pantalla() {
   const p = q.get('pantalla');
   if (p === 'sin') return <SinAnuncios perfil={{ ...inicial, aceptado: true }} />;
+  // La computadora con un funnel sin anuncios (9/11/2026): MaKo a la izquierda y el panel del funnel «En marcha».
+  if (p === 'estrategia') return <EstrategiaCopiloto perfil={{ ...inicial, aceptado: true }} />;
   if (p === 'lienzo') return <div className="aa"><LienzoCampanas kpi="agenda" objetivo={q.get('sinobj') ? null : 30} abiertas={[]} productoInicial={q.get('producto')} avatar={<Criatura nombre="MaKo" size={18} estrella />} onVerAcciones={() => {}} show={() => {}}
     inicial={lienzoDeEjemplo(q.get('caso') ?? 'mauricio')} mes={{ texto: 'Este mes: $4,820 gastados · 96 agendas · $50 por agenda', tono: null }} fechas={{ hasta: null, hastaCampanas: {} }} /></div>;
   if (p === 'ajustes') return <Ajustes config={configDeEjemplo() as never} cupo={{ piloto: true, recomendacionesDia: null } as never} perfil={{ ...inicial, aceptado: true }} />;

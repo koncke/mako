@@ -93,3 +93,70 @@
 - **Regla (la de AGENTS.md, «Leer texto libre con reglas falla en lo obvio»):** lo que termina algo sin vuelta (aceptar la propuesta) pide una lectura estrecha; lo dudoso va a MaKo, que tiene el contexto. Y lo que se puede deshacer (empezar de nuevo) se puede leer más ancho porque el «Deshacer» devuelve todo.
 - **Trampa repetida:** `\b` después de «sí» no corta (es ASCII): «Sí, investígala» dejó de entenderse con un `^s[ií]\b`. Va `(?![a-záéíóúñ])`.
 - **Y el veredicto cazó lo que el filtro chico no:** «acá» y «cambialo» en archivos nuevos. El guard de voseo barre con `git ls-files`: un archivo sin `git add` es invisible para él.
+
+## La batería con el turno de verdad: los tests miraban el system, no lo que contesta (9/11/2026)
+
+- **Síntoma:** con 21 tests del agente en verde, siete conversaciones reales (`scripts/probar-chats/copiloto.mts`, el `turnoApp` de producción en el ws 9) dieron 5,1 de 12. Hacía de redactor (el anuncio, el post, el guion al segundo mensaje), no preguntaba la meta en ningún caso, a una tienda no le preguntó el presupuesto ni el margen, se contradijo con MaKo (VSL sin saber el precio, y al turno siguiente «con US$1.000 no alcanza»), y en 56 turnos no guardó nada ni usó `calcular_presupuesto_anuncios`. El detalle: `docs/relevo/marketing-copilot-pruebas.md`.
+- **Causa:** los tests probaban que el system TRAE lo correcto (la regla AGENTS.md «El test que fija la regla tal como la escribiste no es una prueba de uso»). El system traía reglas de anuncios de ticket alto y casi nada de cómo descubrir un negocio: ningún orden de trabajo, ninguna lista de lo que falta, y para una tienda, un local o el email, nada.
+- **Regla:** un cambio en el agente del CoPilot corre la batería ANTES de la punta (dos tandas en paralelo, unos 40 min por la red del ws 9). El arnés pone el negocio de cada caso en memoria (perfil del negocio, Second Brain, lecturas de la cuenta), el perfil del CoPilot en memoria, y la persona la hace Haiku con una ficha que tiene MÁS de lo que dice sola: lo que MaKo no pregunta, no aparece.
+- **Trampa del arnés:** `contextoDelCopiloto(perfil)` a secas deja el turno mudo a la edición de /configuraciones: el arnés y la ruta pasan por `contextoDelCopilotoVigente`.
+
+## «Inspirado en Juan Osorio» en cada mensaje: no era el modelo, era la ficha por defecto (9/11/2026)
+
+- **Síntoma:** en cuatro de siete casos el agente firmaba casi cada mensaje «inspirado en la metodología de Juan Osorio», también a una nutricionista que quería YouTube, y a una inmobiliaria «la máquina de selección natural de Marcos Razzetti». Nadie los había elegido.
+- **El diagnóstico obvio era el equivocado:** parecía un modelo chico que no sigue la regla 4. La causa estaba en el código: sin funnel ni referente, `fichasDelCopiloto` mandaba la ficha de Juan ADS, y toda ficha viaja con `reglasDe` (lib/asesores/contexto.ts), que dice «ATRIBUYE SIEMPRE». La regla 4 y la ficha se contradecían, y ganaba la ficha.
+- **Dónde vive:** `lib/media-buyer/copiloto-contexto.ts` → `fichasDelCopiloto` (sin funnel, ninguna) y `fichaDeApoyo` (la del funnel, sin nombre ni «inspirado en»). Sólo el referente ELEGIDO viaja con `contextoDeReferente`. Lo fija `tests/marketing-copilot-agente.test.ts` («qué fichas viajan»).
+- **Regla:** una ficha de lib/asesores que la persona no eligió no viaja con sus reglas de atribución: va como material de apoyo.
+
+## En el ws 9 el CoPilot contesta con gemini-flash-lite, y tarda hasta 4 minutos (9/11/2026)
+
+- **Síntoma:** turnos de 15 a 270 s, y respuestas con errores de modelo chico («ispirado», «expiar» por exprimir, una marca `[no-pude: …]` a la vista).
+- **Causa:** la cascada de la plataforma prueba las cuatro claves de Gemini del ws 9 (`credenciales`, la misma base en local y producción): `GEMINI_API_KEY` y `_4` dan 401 «API key not valid», `_2` da 429 (cuota diaria gratis agotada) y `_3` se pasa de tiempo con flash y rota a flash-lite. Un negocio con su propio Claude o GPT no pasa por acá.
+- **Sin hacer:** renovar o sacar las dos claves vencidas del ws 9 (es de Martín). Y el doer saca `[[no-pude: …]]` pero no `[no-pude: …]` con un corchete (lib/doer-salida.ts): un modelo chico lo escribe mal y queda a la vista.
+
+## El panel y el agente leen la MISMA pieza (9/11/2026)
+
+- **Dónde vive:** `fichaDelNegocio`, `recorridoDe`, `cuentaDe`, `compararFunnels` y `datosDeDecision` (lib/media-buyer/copiloto.ts, puro). El system del agente («LO QUE YA SABES», «LO QUE TE FALTA», «LOS FUNNELS PARA ESTE NEGOCIO», «LA CUENTA») y el panel de la tab (`app/ads-manager/PanelDelFunnel.tsx`) salen de ahí. Lo fija `tests/marketing-copilot-descubrir.test.ts`.
+- **Trampa que se cazó escribiéndolo:** `completar` pone el presupuesto en 0 cuando el funnel no lleva anuncios; sin funnel, eso convertía «no lo dijo» en «no tiene plata», y toda la comparación salía «no le sirve» para los anuncios. `datosDeDecision` decide sólo con lo que la persona dijo.
+- **Trampa de la pantalla:** guardar un DATO (la meta, el país) por `ir` (el camino de la charla) escondía la pregunta y lo hablado en ese paso: `ir` lo toma como «volver al mismo paso». Un dato va por `fijarDato`, y el acuse de un cambio de funnel va DESPUÉS de `ir`, en el paso nuevo. Lo fija `tests/marketing-copilot-pantallas.test.ts`.
+- **Trampa de CSS:** `display: contents` en el `<li>` de una ficha le borraba la caja (borde y relleno) y las fichas salían como texto suelto. Se vio en la captura, no en un test.
+- **Lo escrito se confirma:** una respuesta escrita a un dato («Uruguay») se muestra como «Entendí: Uruguay. ¿Lo anoto?» antes de guardarse (AGENTS.md, «la red es que la persona CONFIRME»); una pastilla ya es el toque.
+
+## «¿Y si hago orgánico?» cambiaba el funnel: tres corridas con la regla en el prompt, y la cumplió el código (9/11/2026)
+
+- **Síntoma:** ante «¿Y si en vez de anuncios me enfoco en orgánico?», el agente proponía guardar el funnel orgánico (con US$0 de
+  anuncios que nadie dijo). Pasó en la segunda corrida y otra vez en la tercera, ya con la regla B del prompt («una pregunta "¿y si…?" NO
+  es una decisión»).
+- **El diagnóstico obvio era el equivocado:** «falta decirlo más fuerte en el prompt». El clasificador lee el verbo («me enfoco») como
+  un pedido de actuar, la herramienta viaja, y un modelo chico la usa. Más texto no lo cambia.
+- **Dónde vive:** `esPreguntaHipotetica` (lib/media-buyer/copiloto.ts) y la guarda en el `preparar` de `copiloto_media_buyer`
+  (lib/api-mako/areas/ads.run.ts, mira `ctx.mensajeUsuario`, como ya hacía chats.run.ts): con una pregunta así no se propone cambiar el
+  funnel, y el error le dice al modelo que compare. Un pedido claro («cambiemos», «dale, guardalo», «prefiero») pasa.
+- **Regla:** lo que el agente NO debe hacer en una situación que se puede reconocer en el texto de la persona se pone en el código de la
+  acción, no sólo en el prompt (la misma de AGENTS.md, «Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla»).
+
+## El curso de campañas: el portal no es Knowledge, y Knowledge es por negocio (9/11/2026)
+
+- **Síntoma:** el curso «Programa de Meta Ads 2026» entró a /conocimientos (`54ded47e5`) «para el Marketing CoPilot», y el CoPilot no lo
+  veía: `leer_modulo_knowledge('anuncios')` contestaba que el módulo no tenía fichas.
+- **Causa:** los agentes no leen el portal (sólo el curso del referente que tiene un chat al frente, `lib/cerebro-para-chat.ts`), y
+  `mako_knowledge` es por NEGOCIO: las fichas están copiadas fila por fila en el ws1 y el ws4, con embeddings de la IA de cada uno.
+  Cargarlo ahí obligaba a escribir en cada negocio de producción, y uno nuevo no lo tendría.
+- **Dónde vive:** destilado por tema en `lib/media-buyer/copiloto-metodo-anuncios.ts` (fuente interna con las lecciones citadas:
+  `docs/conocimiento/meta-ads-gestion.md`), servido por la operación de lectura `metodo_campanas_copiloto` (lib/api-mako/areas/ads.*),
+  que el CoPilot lleva entre sus herramientas. En una herramienta y no en el system: son ~16.000 caracteres y viaja sólo el tema que se
+  pide (el system ya está en 33.000 y las herramientas tienen que dejar 4.000 libres del presupuesto de 12.000; los dos los fijan tests).
+- **Trampa:** 7 de 94 lecciones tienen transcripción (el video está cifrado); casi todas las cifras salen de los PDF y planillas del
+  material. El destilado las cita como «material L44».
+
+## La punta en rojo: cuatro guardas que el filtro local no corrió (9/11/2026)
+
+- **Síntoma:** «punta → main» falló en guardas, tipos y tests; el filtro del pre-push había dicho «a medias» (sin RAM).
+- **Las cuatro, y su regla:** (1) un `Record<IdFunnel, …>` en un test (`MARCO_DE`) quedó sin `email`: al sumar un funnel, `git grep "Record<IdFunnel"` incluyendo `tests/`. (2) `getPromptText(x.key, …)` dentro de un ayudante: la guarda del registro de prompts sigue las keys por nombre; cada call site va con `PROMPTS_X.campo.key` literal. (3) Un script que llama a `turnoApp` tiene que estar en `ENTRADAS_DE_PERSONA` (tests/ia-pc-nunca-a-leads.test.ts) con la prueba de que no manda el turno a la PC de nadie. (4) Un detector del voseo de lo que ESCRIBE la persona («guardalo», «hacelo») va en un archivo propio declarado en `FUERA_DE_ALCANCE` (tests/puente-panel-copy.test.ts), no en el módulo grande, que así sigue barrido.
+
+## Sin hacer (9/11/2026)
+
+- **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
+- **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
+- **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
+- **El curso de campañas lo usa sólo el CoPilot** (por `metodo_campanas_copiloto`). El Ads Writer y los demás leen Knowledge (`mako_knowledge`, área `ads`, vacía); si se quiere que lo usen, hay que resolver antes que Knowledge es por negocio. Y 90 de 97 videos del curso no tienen transcripción.
