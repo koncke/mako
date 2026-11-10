@@ -11,7 +11,8 @@
 //
 // Lo que fija:
 //   1. un pedido que nombra una plantilla llega como acción, con el área chatbot y la herramienta nueva;
-//   2. las dos operaciones: SIN http, crear la ve un admin (no un miembro), y el enum de plantillas es la galería;
+//   2. las dos operaciones: CON http desde el 10/11/2026 (Martín, 9/11: «todo tiene que estar documentado en la API»), crear
+//      la ve un admin (no un miembro), y el enum de plantillas es la galería;
 //   3. el runner: rechaza correr desde un flujo, un id de antes nombra el nuevo, la etapa se resuelve con la MISMA
 //      función que la galería, y ejecutar enchufa las puertas reales y escribe el link con `linkApp`.
 //
@@ -70,12 +71,13 @@ test('un pedido que nombra una plantilla llega como acción, con el área chatbo
 
 // ── 2. Las operaciones ───────────────────────────────────────────────────────────
 
-test('las dos operaciones: sin HTTP, crear la ve un admin (no un miembro) y el enum de plantillas es la galería', () => {
+test('las dos operaciones: con HTTP, crear la ve un admin (no un miembro) y el enum de plantillas es la galería', () => {
   const leerDef = porId(LEER);
   const crear = porId(CREAR);
   assert.ok(leerDef && crear, 'no están en el registro');
   for (const d of [leerDef!, crear!]) {
-    assert.ok(!d.canales.includes('http'), `${d.id} sale por HTTP (ninguna operación nueva de la tanda)`);
+    // Crear desde una plantilla la deja PAUSADA: no le escribe a nadie, así que sale por la API (10/11/2026).
+    assert.ok(d.canales.includes('http'), `${d.id} no sale por HTTP`);
     assert.ok(visible(d, vista), `${d.id}: un admin del grupo no la ve`);
   }
   assert.ok(!visible(crear!, { ...vista, rol: 'miembro' }), 'la ve un miembro: crear es de un admin');
@@ -106,11 +108,11 @@ test('el runner: no corre desde un flujo, un id de antes nombra el nuevo, la eta
   assert.match(b, /crearDesdePlantilla\(payload\.plantilla, \{\s*db: \(await getTenantDb\(\)\) as unknown as DbPlantilla,\s*setPasos: setSecuenciaPasos,\s*setDisparadores: guardarDisparadores,/);
   assert.match(b, /e instanceof TriggerInvalidoError \? e\.message : null/);
   assert.match(b, /linkApp\(`\/automations\?sec=\$\{r\.id\}`, ctx\.ws\)/, 'el link no lo escribe el código');
-  assert.match(b, /datos: \{ secuenciaId: r\.id \}/);
+  assert.match(b, /datos: \{ secuenciaId: r\.id(?:, link)? \}/, 'devuelve el id de lo que creó');
   assert.match(b, /PlantillaInvalidaError \|\| e instanceof PasosInvalidosError\) return \{ ok: false/);
 });
 
 // ROTURAS (11/10/2026, arnés wf-undecima/w3-plantillas/roturas.cjs, una por vez y restaurada de memoria con sha1 igual;
 // base 3 / 0, restaurado 3 / 0):
 //   R17 el runner sin `desdeUnFlujo`                                              → 2 / 1 (el runner)
-//   R18 `crear_automatizacion_desde_plantilla` con 'http' en sus canales          → 2 / 1 (las operaciones)
+//   R18 `crear_automatizacion_desde_plantilla` SIN 'http' en sus canales (desde el 10/11) → 2 / 1 (las operaciones)

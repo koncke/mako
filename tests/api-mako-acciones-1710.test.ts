@@ -199,7 +199,9 @@ test('duplicar_automatizacion: la MISMA función que «Duplicar», con la base d
   assert.equal(d.area, 'chatbot');
   assert.equal(d.confirmacion, 'chat');
   assert.equal(d.reversible, true);
-  assert.deepEqual([...d.canales].sort(), ['app', 'whatsapp'], 'crear automatizaciones no sale por HTTP');
+  // Sale por HTTP desde el 10/11/2026 (Martín, 9/11: «todo tiene que estar documentado en la API»): crea una copia PAUSADA y no
+  // le escribe a nadie. El 17/10 se había dejado sin HTTP sin una decisión de por medio.
+  assert.deepEqual([...d.canales].sort(), ['app', 'http', 'whatsapp'], 'duplicar sale por la app, WhatsApp y la API');
   assert.deepEqual(d.gating, { tab: 'setting', rolMinimo: 'admin' });
   assert.match(d.descripcion, /PAUSADA/);
   const r = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));

@@ -52,7 +52,9 @@ test('la caja de Soporte ofrece adjuntar, y lo adjuntado llega al ticket (comput
   assert.match(acc, /adjuntos: sanearAdjuntosTicket\(entrada\.adjuntos, quien\.ws\),/, 'el alta no valida contra el negocio de la sesión');
   assert.match(acc, /comentarComoCliente\(quien\.ws, quien\.email, id, texto, sanearAdjuntosTicket\(adjuntos, quien\.ws\)\)/);
   const db = leer('lib/tickets-db.ts');
-  assert.match(db, /await anotar\(id, 'cliente', 'comentario', t, adjuntos\.length \? \{ adjuntos \} : undefined\);/, 'la respuesta no guarda sus archivos');
+  // (10/11/2026: los datos del comentario suman la firma de la API, `por`; los archivos siguen yendo adentro.)
+  assert.match(db, /const datos = \{ \.\.\.\(adjuntos\.length \? \{ adjuntos \} : \{\}\)/, 'la respuesta no guarda sus archivos');
+  assert.match(db, /await anotar\(id, 'cliente', 'comentario', t, Object\.keys\(datos\)\.length \? datos : undefined\);/, 'la respuesta no guarda sus archivos');
   assert.match(db, /'creado', null, \{ canal: n\.canal, \.\.\.\(n\.adjuntos\?\.length \? \{ adjuntos: n\.adjuntos \} : \{\}\) \}\);/, 'el ticket no guarda sus archivos');
   assert.match(db, /adjuntos: n\.adjuntos\?\.length \?\? 0 \}/, 'el triage no recibe los adjuntos');
   const ruta = leer('app/api/tickets/adjuntos/route.ts');
