@@ -12,9 +12,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FUNNELS, PREGUNTAS_DE_DATO, compararFunnels, cuentaDe, datosDeDecision, evaluarFunnel, fichaDelNegocio, leerDato, pasoDeCopiloto,
-  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, pasosDeLaSemana, esPreguntaHipotetica, type PerfilCopiloto,
+  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, pasosDeLaSemana, type PerfilCopiloto,
 } from '../lib/media-buyer/copiloto';
-import { REGLAS_DEL_COPILOTO, negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
+import { esPreguntaHipotetica } from '../lib/media-buyer/copiloto-pedido';
+import { HERRAMIENTAS_DEL_COPILOTO as HERRAMIENTAS, REGLAS_DEL_COPILOTO, negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
 test('email es un funnel: sin anuncios ni llamadas, con su propuesta, su semana y su recorrido', () => {
   assert.ok(FUNNELS.some((f) => f.id === 'email'));
@@ -152,6 +153,44 @@ test('una PREGUNTA por otro funnel no lo cambia: lo cumple el código, no el pro
   const run = readFileSync(join(import.meta.dirname, '..', 'lib/api-mako/areas/ads.run.ts'), 'utf8');
   const prep = run.slice(run.indexOf('copiloto_media_buyer: {'), run.indexOf('modo_agente_media_buyer: {'));
   assert.match(prep, /cambio\.funnel && cambio\.funnel !== actual\.funnel && esPreguntaHipotetica\(ctx\.mensajeUsuario\)/, 'la guarda está en el preparar');
+});
+
+test('el método de campañas (el curso que pidió Martín): por tema, en palabras propias, sin nombrar la fuente, y con la herramienta a mano', async () => {
+  const { TEMAS_METODO, METODO_ANUNCIOS, INDICE_METODO } = await import('../lib/media-buyer/copiloto-metodo-anuncios');
+  assert.equal(TEMAS_METODO.length, 9);
+  for (const t of TEMAS_METODO) {
+    const m = METODO_ANUNCIOS[t];
+    assert.ok(m.length >= 900 && m.length <= 2000, `${t}: mide ${m.length}`);
+    assert.ok(INDICE_METODO[t].length > 10, t);
+    assert.doesNotMatch(m, /net ?lab|thenet/i, `${t}: nombra la fuente`);
+    assert.doesNotMatch(m, /\b(vos|podés|tenés|querés|sabés|acá|hacé|mirá)\b/i, `${t}: voseo`);
+  }
+  const { REGISTRO } = await import('../lib/api-mako/registro');
+  const op = REGISTRO.find((d) => d.id === 'metodo_campanas_copiloto');
+  assert.ok(op && op.tipo === 'lectura', 'la operación existe y sólo lee');
+  assert.ok(HERRAMIENTAS.includes('metodo_campanas_copiloto'));
+  assert.match(REGLAS_DEL_COPILOTO, /pide el tema con metodo_campanas_copiloto ANTES de aconsejar/);
+});
+
+test('las herramientas del CoPilot llegan en cada turno, dentro del presupuesto y con margen (el molde del coach)', async () => {
+  const { charsDeTools } = await import('../lib/api-mako/registro');
+  const { PRESUPUESTO_REGISTRO_CHARS, propiasDelChat, escribe } = await import('../lib/doer-herramientas');
+  const { clasificarIntencion } = await import('../lib/mako-intencion');
+  const { herramientasDelChat } = await import('../lib/mako-turno-app-reglas');
+  const vista = { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null } as const;
+  const todas = propiasDelChat(HERRAMIENTAS, vista);
+  assert.deepEqual(todas.map((x) => x.name), [...HERRAMIENTAS], 'todas existen y un admin las puede pedir');
+  const peso = charsDeTools(todas);
+  assert.ok(PRESUPUESTO_REGISTRO_CHARS - peso >= 4_000, `pesan ${peso}: quedan ${PRESUPUESTO_REGISTRO_CHARS - peso} para lo demás`);
+  for (const texto of ['¿Cómo configuro mi primera campaña?', 'Quiero anuncios para vender mi curso', '¿Qué presupuesto pongo por conjunto?', 'guárdalo así']) {
+    const veredicto = clasificarIntencion(texto, { canal: 'app' });
+    const r = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: [], vista, hayPendientes: false, propias: HERRAMIENTAS });
+    const ofrece = veredicto.intencion === 'consultar' || veredicto.intencion === 'pensar';
+    for (const id of HERRAMIENTAS) {
+      if (ofrece && escribe(id)) assert.ok(r.ofrecibles?.includes(id), `«${texto}»: ${id} no se ofrece`);
+      else if (r.tools.length) assert.ok(r.tools.some((x) => x.name === id), `«${texto}» (${veredicto.intencion}): ${id} no llegó`);
+    }
+  }
 });
 
 test('los datos nuevos se guardan saneados (y basura no entra)', () => {

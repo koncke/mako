@@ -151,6 +151,14 @@ Lo que esta corrida cazó y se arregló después (`66c110f10`):
   llamó en ESE turno), alguna cifra suelta («la prueba social reduce el riesgo a la mitad»), y la meta sólo la pregunta si la charla
   llega ahí. Son de modelo chico: en el ws 9 contesta gemini-flash-lite.
 
+## El curso de campañas, en uso (9/11/2026)
+
+El curso que pidió Martín («Programa de Meta Ads 2026», 94 lecciones) va destilado por tema (algoritmo, estructura, presupuesto,
+tracking, públicos, creativos, métricas, números, por nicho) detrás de `metodo_campanas_copiloto`. Probado con un caso nuevo de la
+batería (`campana`, en bateria-tercera.md): a «¿cómo configuro la campaña, cuántos conjuntos, CBO o ABO?» pidió los temas «estructura»
+y «presupuesto» y lo bajó a sus US$20 por día: ABO para probar y CBO para escalar, una campaña con dos conjuntos de US$10 y dos o tres
+anuncios, cinco a siete días sin tocar por la fase de aprendizaje, y el costo por conversación calificada como número que manda.
+
 ## Para el Cerebro
 
 - **Rama:** `punta/marketing-copilot-agente`. **Sin migración**: lo nuevo del perfil vive en el mismo `app_settings`
@@ -165,8 +173,9 @@ Lo que esta corrida cazó y se arregló después (`66c110f10`):
 
 ## Lo que quedó sin hacer
 
-- **El curso de gestión de campañas ya está en /conocimientos** («Programa de Meta Ads 2026», THE NET LAB, 94 lecciones, `54ded47e5`),
-  **pero no en Knowledge**: `mako_knowledge` del área `ads` sigue vacío, y es lo que lee `leer_modulo_knowledge`. Falta destilarlo ahí.
+- **El curso de gestión de campañas ya lo usa el CoPilot**, por `metodo_campanas_copiloto` (destilado por tema en
+  `lib/media-buyer/copiloto-metodo-anuncios.ts`; la fuente interna, `docs/conocimiento/meta-ads-gestion.md`). Los demás agentes no: leen
+  `mako_knowledge`, que es por negocio. 90 de 97 videos no tienen transcripción.
 - **Las claves de Gemini del ws 9** (dos vencidas, una sin cuota): el CoPilot de Martín contesta con flash-lite.
 - **El doer no saca `[no-pude: …]` con un corchete** (lib/doer-salida.ts), y el guardia de promesas no cazó «te dejo la tarjeta» sin
   tarjeta.

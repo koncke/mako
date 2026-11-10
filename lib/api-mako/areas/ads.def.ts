@@ -48,6 +48,7 @@
 import { FUNNELS } from '@/lib/funnel-plan';
 import type { Gating, OperacionDef, Parametro } from '../tipos';
 import { CTAS as CTAS_SUBIDA } from '@/lib/media-buyer/creativos';
+import { TEMAS_METODO } from '@/lib/media-buyer/copiloto-metodo-anuncios';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -942,6 +943,18 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'horas', tipo: 'number', minimo: 0, maximo: 80, descripcion: 'horas por semana para hacer contenido.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  // El método de campañas de Meta (9/11/2026): el curso de gestión de campañas que Martín pidió para el CoPilot, destilado por tema en
+  // lib/media-buyer/copiloto-metodo-anuncios.ts (la fuente, interna: docs/conocimiento/meta-ads-gestion.md). En una herramienta y no en
+  // el system: son ~15.000 caracteres y cada mensaje los pagaría; así viaja sólo el tema que la pregunta pide.
+  {
+    id: 'metodo_campanas_copiloto', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver el método de campañas de Meta',
+    // Corta a propósito: viaja en CADA turno del CoPilot y pesa contra los 12.000 del registro (tests/marketing-copilot-descubrir.test.ts
+    // mide el margen). Lo que trae cada tema está en INDICE_METODO, para quien lo quiera mostrar.
+    descripcion: 'Cómo se arma y se maneja una campaña de Meta Ads en 2026, por tema (criterio de un curso, no una promesa). Pídelo ANTES de aconsejar cómo configurar una campaña.',
+    parametros: [{ nombre: 'tema', tipo: 'string', obligatorio: true, enum: [...TEMAS_METODO], descripcion: 'algoritmo, estructura (CBO/ABO), presupuesto (aprendizaje, escala), tracking (píxel, API), publicos, creativos, metricas, numeros (break-even, ROAS), por-nicho.' }],
+    salida: 'markdown', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
   {
     id: 'ver_biblioteca_media_buyer', area: 'ads', tipo: 'lectura',

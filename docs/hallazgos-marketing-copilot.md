@@ -135,9 +135,28 @@
 - **Regla:** lo que el agente NO debe hacer en una situación que se puede reconocer en el texto de la persona se pone en el código de la
   acción, no sólo en el prompt (la misma de AGENTS.md, «Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla»).
 
+## El curso de campañas: el portal no es Knowledge, y Knowledge es por negocio (9/11/2026)
+
+- **Síntoma:** el curso «Programa de Meta Ads 2026» entró a /conocimientos (`54ded47e5`) «para el Marketing CoPilot», y el CoPilot no lo
+  veía: `leer_modulo_knowledge('anuncios')` contestaba que el módulo no tenía fichas.
+- **Causa:** los agentes no leen el portal (sólo el curso del referente que tiene un chat al frente, `lib/cerebro-para-chat.ts`), y
+  `mako_knowledge` es por NEGOCIO: las fichas están copiadas fila por fila en el ws1 y el ws4, con embeddings de la IA de cada uno.
+  Cargarlo ahí obligaba a escribir en cada negocio de producción, y uno nuevo no lo tendría.
+- **Dónde vive:** destilado por tema en `lib/media-buyer/copiloto-metodo-anuncios.ts` (fuente interna con las lecciones citadas:
+  `docs/conocimiento/meta-ads-gestion.md`), servido por la operación de lectura `metodo_campanas_copiloto` (lib/api-mako/areas/ads.*),
+  que el CoPilot lleva entre sus herramientas. En una herramienta y no en el system: son ~16.000 caracteres y viaja sólo el tema que se
+  pide (el system ya está en 33.000 y las herramientas tienen que dejar 4.000 libres del presupuesto de 12.000; los dos los fijan tests).
+- **Trampa:** 7 de 94 lecciones tienen transcripción (el video está cifrado); casi todas las cifras salen de los PDF y planillas del
+  material. El destilado las cita como «material L44».
+
+## La punta en rojo: cuatro guardas que el filtro local no corrió (9/11/2026)
+
+- **Síntoma:** «punta → main» falló en guardas, tipos y tests; el filtro del pre-push había dicho «a medias» (sin RAM).
+- **Las cuatro, y su regla:** (1) un `Record<IdFunnel, …>` en un test (`MARCO_DE`) quedó sin `email`: al sumar un funnel, `git grep "Record<IdFunnel"` incluyendo `tests/`. (2) `getPromptText(x.key, …)` dentro de un ayudante: la guarda del registro de prompts sigue las keys por nombre; cada call site va con `PROMPTS_X.campo.key` literal. (3) Un script que llama a `turnoApp` tiene que estar en `ENTRADAS_DE_PERSONA` (tests/ia-pc-nunca-a-leads.test.ts) con la prueba de que no manda el turno a la PC de nadie. (4) Un detector del voseo de lo que ESCRIBE la persona («guardalo», «hacelo») va en un archivo propio declarado en `FUERA_DE_ALCANCE` (tests/puente-panel-copy.test.ts), no en el módulo grande, que así sigue barrido.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
 - **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
 - **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
-- **Knowledge de anuncios y de orgánico está vacío** (`mako_knowledge`, áreas `ads` y `organico`). El CoPilot ya lleva `leer_modulo_knowledge`. **Trampa:** el curso de gestión de campañas entró el 9/11 al PORTAL (/conocimientos, `54ded47e5`), que no es Knowledge: los agentes no leen el portal (salvo el curso de un referente al frente). Hasta que se destile en `mako_knowledge` con `area = 'ads'`, el CoPilot no lo ve.
+- **El curso de campañas lo usa sólo el CoPilot** (por `metodo_campanas_copiloto`). El Ads Writer y los demás leen Knowledge (`mako_knowledge`, área `ads`, vacía); si se quiere que lo usen, hay que resolver antes que Knowledge es por negocio. Y 90 de 97 videos del curso no tienen transcripción.

@@ -1,4 +1,4 @@
-# Marketing CoPilot — la tercera corrida (9/11/2026, sha 66c110f10, los casos con las fallas de la segunda)
+# Marketing CoPilot — la tercera corrida y el método de campañas (9/11/2026)
 
 ## Lucía · curso online de fotografía (US$497) · quiere anuncios
 
@@ -262,4 +262,50 @@ _sha 66c110f10 · ws 9 · negocio real (los datos del ws 9) · 2026-11-10 02:04 
 > 3. **Mueve a tus leads actuales**: Escríbele a esos 5 contactos que están en el CRM sin agendar para retomar la conversación antes de que entren los nuevos de pauta. (CRM / Chats)
 > 
 > Te dejé lista la tarjeta para guardar la configuración del embudo con tus USD 1.000 mensuales en tu panel. Confirma los cambios tocando la tarjeta de aquí abajo.
+
+## Lucía · ya eligió anuncios a WhatsApp · pregunta cómo configurar la campaña
+
+_sha 5497802bf · ws 9 · negocio del caso · 2026-11-10 02:47 UTC_
+
+**1. Guion:** ¿Cómo configuro la campaña? ¿Cuántos conjuntos y anuncios pongo, y uso CBO o ABO?
+
+> **MaKo** (20 s · herramientas: metodo_campanas_copiloto, metodo_campanas_copiloto):
+>
+> Para tu presupuesto de unos US$20 diarios y tu funnel de anuncios a mensajes, la estructura ideal es sencilla y directa para no dispersar los datos.
+> 
+> Usa **ABO** (presupuesto por conjunto) para probar tus creativos, y **CBO** (presupuesto de campaña) cuando encuentres los ganadores y quieras escalar.
+> 
+> Con US$20 al día, monta **1 sola campaña**, con **2 conjuntos** como máximo (por ejemplo, dos ángulos distintos o público amplio vs. segmentado), y **2 a 3 anuncios** por conjunto para empezar a medir qué texto y video jalan mejor.
+
+**2. Persona:** Perfecto, eso me queda claro. Empiezo con ABO, 2 conjuntos y 2 anuncios por conjunto. ¿Qué ángulos me recomiendas para los conjuntos, uso los testimonios en video o los antes y después?
+
+> **MaKo** (18 s · herramientas: listar_angulos_guion):
+>
+> Para tu programa de fotografía de producto, la mejor combinación para empezar es enfrentar **un ángulo de dolor/frustración** con **un ángulo de demostración o transformación**.
+> 
+> Usa un conjunto para el dolor (por ejemplo, "tus fotos con el celular se ven oscuras y no venden") y otro para el antes y después o demostración de cómo cambian radicalmente las ventas con una buena foto.
+> 
+> Los testimonios déjalos para el retargeting o para cuando tengas tus primeros datos, ya que al arrancar en frío con poco presupuesto necesitas enganchar primero con el problema que resuelves y la prueba visual de que es posible.
+> 
+> ¿Quieres que veamos cómo redactar los ganchos para cada uno de esos dos conjuntos?
+
+**3. Guion:** ¿Qué presupuesto le pongo por día y cuándo puedo tocar algo?
+
+> **MaKo** (17 s · herramientas: ver_media_buyer):
+>
+> Con tu presupuesto actual de unos US$20 al día, distribúyelos en **US$10 por conjunto** para que cada uno alcance a juntar datos sin asfixiarse.
+> 
+> Y con respecto a tocar algo, la regla de oro es **esperar de 5 a 7 días** antes de mover presupuestos o apagar anuncios, por más tentación que tengas de mirar cada hora. El algoritmo necesita ese tiempo para salir del aprendizaje; si tocas antes, reinicias el proceso y tiras los datos.
+
+**4. Guion:** ¿Qué miro para saber si está funcionando?
+
+> **MaKo** (16 s · herramientas: analisis_negocio):
+>
+> Con tu presupuesto y funnel de mensajes, **el número que manda es el costo por conversación calificada**, no el costo por lead ni los clics baratos.
+> 
+> Mira el semáforo y evalúa estas señales principales:
+> 
+> - **Primeros días:** Fíjate si los anuncios tienen impresiones y si el costo por clic se mantiene en rangos normales; si un anuncio lleva días sin generar ninguna interacción, cámbialo.
+> - **A los 5-7 días:** Cuenta cuántas conversaciones reales se abrieron en WhatsApp y cuánto te costó cada una en relación con tu ticket de US$497.
+> - **La calidad:** Si te escriben muchos curiosos que solo preguntan el precio y desaparecen, el problema no es la plataforma, sino que el ángulo del anuncio no está filtrando bien a tu cliente ideal.
 

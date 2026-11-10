@@ -34,6 +34,9 @@ const MARCO_DE: Record<IdFunnel, RegExp> = {
   'lead-magnet': /lead magnet|regalo|carnada|gratis|a cambio de|contacto|lista propia/i,
   youtube: /youtube|miniatura/i,
   organico: /instagram|reels?\b|historias|stories|carrusel|contenido|video corto|perfil/i,
+  // Email a la lista (9/11/2026): ningún referente lo enseña como funnel propio (FICHA_POR_FUNNEL.email = null); si alguno lo suma, su
+  // ficha tiene que traer esto.
+  email: /correo|e-?mail|newsletter|secuencia|lista/i,
 };
 const marcos = (id: string) => (FICHAS as Record<string, string>)[id].split(/\nMARCOS\n/)[1]?.split(/\nCÓMO PIENSA/)[0] ?? '';
 

@@ -33,9 +33,11 @@ import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { METODO_ANUNCIOS, TEMAS_METODO, type TemaMetodo } from '@/lib/media-buyer/copiloto-metodo-anuncios';
+import { esPreguntaHipotetica } from '@/lib/media-buyer/copiloto-pedido';
 import {
   sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision,
-  fichaDelNegocio, compararFunnels, cuentaDe, esPreguntaHipotetica, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
+  fichaDelNegocio, compararFunnels, cuentaDe, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
@@ -1504,6 +1506,15 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       await guardarPerfilCopiloto(ctx.ws, sanearPerfil(payload.perfil));
       return { ok: true, resumen: 'Guardado en el Marketing CoPilot.' };
+    },
+  },
+  // El método de campañas de Meta, por tema (lib/media-buyer/copiloto-metodo-anuncios.ts): puro, sin base ni IA.
+  metodo_campanas_copiloto: {
+    leer: async (input) => {
+      const t = str(input, 'tema') as TemaMetodo;
+      // El tema equivocado vuelve como REGLA con la lista, no como vacío (el mismo criterio que leer_modulo_knowledge).
+      if (!(TEMAS_METODO as readonly string[]).includes(t)) return `No existe el tema «${t}». Los que hay: ${TEMAS_METODO.join(', ')}.`;
+      return `## Método de campañas de Meta › ${t}\n${METODO_ANUNCIOS[t]}\n\n(Criterio de un curso de 2026, sin auditar: úsalo en tus palabras, sin nombrar de dónde sale, y bájalo a los números de ESTE negocio; si choca con lo que ya sabes, gana lo más parecido a este negocio.)`;
     },
   },
   modo_agente_media_buyer: {

@@ -37,10 +37,12 @@ export { ORIGEN_COPILOTO } from './copiloto';
 
 /**
  * Las operaciones de la API de MaKo que el agente lleva siempre a mano (lib/doer-herramientas.ts → `propias`).
- * `leer_modulo_knowledge` (9/11/2026): el método de los cursos de Knowledge (anuncios, orgánico). Hoy esas áreas están vacías; cuando
- * llegue el curso de gestión de campañas que está cargando otro chat, el CoPilot lo usa solo, sin tocar nada acá.
+ * `metodo_campanas_copiloto` (9/11/2026): el curso de gestión de campañas que pidió Martín, destilado por tema
+ * (./copiloto-metodo-anuncios.ts). El curso entró al PORTAL (/conocimientos), que los agentes no leen, y `mako_knowledge` es por
+ * negocio: por eso el destilado vive en el código, como el de anuncios de ticket alto, y viaja sólo el tema que se pide.
+ * `leer_modulo_knowledge`: el método de los cursos de Knowledge (hoy, el área de orgánico está vacía).
  */
-export const HERRAMIENTAS_DEL_COPILOTO: readonly string[] = ['ver_copiloto_media_buyer', 'copiloto_media_buyer', 'calcular_presupuesto_anuncios', 'ver_media_buyer', 'leer_modulo_knowledge'];
+export const HERRAMIENTAS_DEL_COPILOTO: readonly string[] = ['ver_copiloto_media_buyer', 'copiloto_media_buyer', 'calcular_presupuesto_anuncios', 'ver_media_buyer', 'metodo_campanas_copiloto', 'leer_modulo_knowledge'];
 
 export const REGLAS_DEL_COPILOTO = `ERES EL MARKETING COPILOT DE MAKO, en la tab de Marketing de la persona. Eres un ESTRATEGA: ayudas al dueño de un negocio (servicios, cursos, tiendas online y negocios locales de LATAM y España) a decidir cómo consigue clientes y a sostenerlo: anuncios (VSL con llamada, mensajes, formulario, compra directa), webinar, lead magnets, email a su lista, YouTube y orgánico en Instagram (Reels, Stories, Carruseles). No eres sólo un administrador de anuncios ni un redactor.
 CÓMO TRABAJAS, en este orden:
@@ -61,7 +63,7 @@ LAS REGLAS, que no se negocian:
 8. LANZAR ANUNCIOS, CAMBIAR UN PRESUPUESTO O PRENDER UN PILOTO mueve plata: lo propones y esperas el sí en la pantalla de revisión. Los anuncios nuevos salen en pausa. Guardar el plan (copiloto_media_buyer) no gasta nada. Antes de proponer subir, bajar o apagar algo, lees la cuenta (ver_media_buyer) y dices qué número lo justifica: se escala sólo con el costo por llamada calificada estable Y quien llama con lugar; un costo por lead bajo con pocos cierres no es algo que escalar, es algo que diagnosticar (¿quién entra?, ¿agendan?, ¿asisten?, ¿cierran?). Sin el dato, no hay recomendación de mover plata.
 9. SI NO SABES O NO HAY DATO, lo dices. No inventas costos de una cuenta que no leíste: míralos con ver_media_buyer o pídeselos. Hoy NO tienes cifras ni fuentes de Google Ads ni de LinkedIn Ads (no se investigaron): dices el criterio y que no hay números. Google en búsqueda capta a quien YA busca el servicio (sirve si hay búsquedas con intención, p. ej. un servicio local o una inmobiliaria; no crea demanda); LinkedIn sólo cuando el cliente es una empresa con un decisor al que se llega por cargo, y sale bastante más caro por contacto. Lo sano: probar Meta primero y sumar otro canal cuando Meta tenga costo por llamada calificada estable. Aquí no los administras: no los lanzas ni los lees.
 10. ORGÁNICO, YOUTUBE Y EMAIL: si no hay presupuesto, no hay Campañas: trabajas el qué publicar o escribir, cuánto, con qué objetivo (viralidad o ventas) y en qué formato, y lo bajas al Calendario o a Email. Viralidad atrae gente nueva; ventas convence a quien ya te sigue; y las ventas se cierran por mensaje o llamada, no en la publicación. Para «cuánto publico», usa el reparto que MaKo ya calculó (en EL NEGOCIO) y nunca más piezas de las que la persona dijo que puede sostener: mejor poco y constante.
-11. EL MÉTODO DE LOS CURSOS: para un consejo táctico de anuncios o de contenido, pide el método con leer_modulo_knowledge (anuncios u organico) antes de improvisar. Si dice que no hay material cargado, lo dices como criterio tuyo, sin inventar que viene de un curso.`;
+11. EL MÉTODO DE LOS CURSOS: para armar o manejar una campaña de Meta, pide el tema con metodo_campanas_copiloto ANTES de aconsejar y bájalo a sus números; para orgánico, leer_modulo_knowledge (organico). Sin material, es criterio tuyo: no digas que viene de un curso.`;
 
 /**
  * Los prompts editables del CoPilot (skill add-editable-prompt): key y texto JUNTOS, y el registro (lib/prompt-registry.ts) importa

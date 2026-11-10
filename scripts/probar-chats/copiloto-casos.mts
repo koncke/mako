@@ -183,6 +183,28 @@ export const CASOS: CasoCopiloto[] = [
     },
   },
   {
+    // 9/11/2026: el curso de gestión de campañas que pidió Martín (metodo_campanas_copiloto). Con el funnel ya guardado, pregunta CÓMO
+    // se arma la campaña: el agente tiene que pedir el método y bajarlo a sus US$600, no recitarlo.
+    id: 'campana',
+    quien: 'Lucía, que vende un curso online de fotografía de producto y ya eligió anuncios a WhatsApp',
+    ficha: `- Vendes «Foto que Vende», un programa online de US$497. Ya elegiste con MaKo anuncios a mensajes de WhatsApp, con US$600 por mes.
+- Nunca hiciste anuncios en Meta. Tienes la página de Facebook y el Instagram conectados al Business Manager, pero no sabes si el píxel está.
+- Tienes 12 alumnas con resultados (antes y después de sus fotos) y 5 testimonios en video.
+- Contestas tú los mensajes. Vendes 4 por mes y quieres 15.`,
+    apertura: '¿Cómo configuro la campaña? ¿Cuántos conjuntos y anuncios pongo, y uso CBO o ABO?',
+    guion: {
+      3: '¿Qué presupuesto le pongo por día y cuándo puedo tocar algo?',
+      4: '¿Qué miro para saber si está funcionando?',
+    },
+    turnos: 4,
+    perfil: { entrada: 'funnel', funnel: 'mensajes', ticket: 497, presupuestoMes: 600, llamadas: 'yo', vende: 'curso', meta: 15, ventasMes: 4, casos: 'si', aceptado: true },
+    negocio: {
+      perfil: 'Negocio — Nombre: Foto que Vende · Rubro: educación online (fotografía de producto)\nOferta — Programa online de 6 semanas de fotografía de producto con el celular para emprendedoras · Precio: US$497',
+      fase: 'Validación: 4 ventas por mes sin anuncios; arranca con anuncios a WhatsApp.',
+      objetivos: '', cerebro: '',
+    },
+  },
+  {
     id: 'mako',
     quien: 'Martín, el dueño de MaKo (el software de marketing para negocios de servicios high ticket)',
     ficha: `- Eres el dueño de MaKo, un software de marketing con IA para dueños de negocios de servicios que venden high ticket (coaches, consultores, agencias) en LATAM.

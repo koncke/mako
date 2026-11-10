@@ -85,7 +85,7 @@ if (NEGOCIO === 'caso') {
 
 // ── 3. Lo que ve el modelo y lo que hace, anotado ────────────────────────────────────────
 type Llamada = { herramienta: string; entrada: unknown; salida: string };
-const LECTURAS_QUE_PASAN = new Set(['ver_copiloto_media_buyer', 'leer_modulo_knowledge', 'ver_modulo_knowledge']);
+const LECTURAS_QUE_PASAN = new Set(['ver_copiloto_media_buyer', 'leer_modulo_knowledge', 'ver_modulo_knowledge', 'metodo_campanas_copiloto', 'calcular_presupuesto_anuncios']);
 const registro: { system: string; tools: string[]; llamadas: Llamada[]; modelo: string | null } = { system: '', tools: [], llamadas: [], modelo: null };
 reemplazar('lib/anthropic.ts', (r) => ({
   ...r,
