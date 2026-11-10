@@ -159,7 +159,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     await recargar();
   }, [recargar, show]);
 
-  const pedir = (texto: string) => setPedidoMako({ texto: `Marketing CoPilot: ${texto}`, vez: Date.now() });
+  // Sin «Marketing CoPilot:» delante (10/11/2026): el chip «desde Marketing CoPilot» ya lo dice, y se leía dos veces.
+  const pedir = (texto: string) => setPedidoMako({ texto, vez: Date.now() });
   const avatar = <Criatura nombre="MaKo" size={18} estrella />;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
@@ -268,7 +269,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
 
   return (
     <div className="aa">
-      <nav className="aa-top" aria-label="Media Buyer">
+      <nav className="aa-top" aria-label="Marketing CoPilot">
         <div role="tablist" className="aa-tabs">
           {VISTAS.map(([v, t]) => (
             <button key={v} type="button" role="tab" className="aa-tab" aria-selected={vista === v} onClick={() => setVista(v)}>{t}</button>

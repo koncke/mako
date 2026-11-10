@@ -220,6 +220,25 @@ Y guardar títulos en el repo tampoco sirve: los Developer Policies piden refres
 **Vive en:** lib/asesores/ · app/second-brain/ChatDelCoach.tsx · app/second-brain/ElegirReferente.tsx · app/admin/operaciones/Retratos.tsx ·
 tests/coaches-ops-center.test.ts.
 
+## Una tab cuya charla ES la pantalla tiene su hilo, y su chat a la vista no lleva estrella (10/11/2026)
+
+- **Síntoma:** Martín abrió MaKo en Image y vio «desde Marketing CoPilot: Volvamos a empezar» con la respuesta del CoPilot. Y al revés:
+  el chat del CoPilot mostraba un resumen del Ops Center («68 pendientes de revisar»), y la hoja del teléfono, un «¿qué tengo
+  pendiente hoy?» del 11/10.
+- **Causa:** la conversación del Cerebro es UNA y cada `ConversacionCerebro` la dibujaba entera. El modelo también leía de historial
+  los últimos 12 mensajes de cualquier tab: la entrevista del CoPilot era contexto de Image.
+- **La regla:** `delHiloDeLaTab` (lib/chat-desde.ts). Los turnos de una tab de `TABS_CON_HILO_PROPIO` (hoy el CoPilot) no van en las
+  otras tabs, ni a su historial; en esa tab va sólo lo suyo; el Ops Center, sin tab, ve todo. Un turno es el mensaje de la persona y
+  lo que le siguió; se reconoce por su chip «desde». Regla en AGENTS.md, «MaKo EN CADA TAB».
+- **La estrella de la barra tapaba la caja del chat del CoPilot.** `lib/estrella-rutas.ts` decide por RUTA, y /ads-manager es a la vez
+  la charla (con su chat) y Hoy (sin chat). Una pantalla con el chat a la vista se anota con `anotarEstrellaPropia()` al montar.
+- **La apertura de la tab se dibuja SIEMPRE después del último mensaje** (tests/aperturas.test.ts lo fija para todas). En el CoPilot,
+  «Tu funnel está en marcha. ¿Qué miramos?» quedaba debajo de la respuesta: `aperturaHastaEscribir` (opcional) la saca cuando la
+  persona escribe. **Sin hacer:** CRM, Calendario y Clientes tienen la misma apertura fija; decidir si el default cambia.
+
+**Vive en:** lib/chat-desde.ts · app/_chat/MakoEnLaTab.tsx · app/m/mako/chat-ui.ts (`origenDelItem`) · lib/mako-turno-app.ts ·
+tests/hilo-propio-de-tab.test.ts.
+
 ## La estrella flota otra vez, y en todas las tabs (1/11/2026)
 
 **Pedido** (Martín): *«no me gusta que el botoncito de la estrella de MaKo esté en la sidebar principal. Eso ponerlo como antes que

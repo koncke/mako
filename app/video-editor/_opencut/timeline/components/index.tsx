@@ -330,6 +330,22 @@ export function Timeline() {
 		isReady: tracks.length > 0,
 	});
 
+	// Las cabeceras siguen a las pistas también cuando cambia lo que MIDEN (10/11/2026, medido en producción: ws9, «1110»,
+	// tres pistas). Al abrir el proyecto, `useInitialScrollBottom` baja las pistas al fondo (51 px) y las cabeceras, que en
+	// ese momento medían menos, quedaban en 7 px: cada cabecera al lado de la pista de arriba hasta que alguien movía la
+	// rueda. Con cada cambio de tamaño (al montar, al sumar una pista, al cambiar el alto de la ventana) se realinean.
+	const hayPistas = tracks.length > 0;
+	useEffect(() => {
+		const pistas = tracksScrollRef.current;
+		const etiquetas = trackLabelsScrollRef.current;
+		if (!hayPistas || !pistas || !etiquetas || typeof ResizeObserver === "undefined") return;
+		const observador = new ResizeObserver(() => syncFollowers());
+		for (const el of [pistas, etiquetas, pistas.firstElementChild, etiquetas.firstElementChild]) {
+			if (el) observador.observe(el);
+		}
+		return () => observador.disconnect();
+	}, [hayPistas, syncFollowers]);
+
 	const { dragView, handleElementMouseDown, handleElementClick } =
 		useElementInteraction({
 		zoomLevel,

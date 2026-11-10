@@ -300,6 +300,7 @@ export function mensajeDeHoy(ds: readonly Pick<Decision, 'estado' | 'tactica' | 
 const UNO_RES: Record<KpiMediaBuyer, string> = { lead: 'lead', agenda: 'agenda', venta: 'venta' };
 
 /** La pastilla de Campañas: «6 campañas en 3 productos». */
+/** `productos`: los que TIENEN campañas (10/11/2026: con la cuenta vacía decía «0 campañas en 3 productos», contando los del CRM). */
 export function pildoraDeCampanas(campanas: number, productos: number): string {
   const c = `${campanas} ${campanas === 1 ? 'campaña' : 'campañas'}`;
   return productos > 1 ? `${c} en ${productos} productos` : c;

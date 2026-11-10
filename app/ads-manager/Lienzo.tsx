@@ -158,7 +158,7 @@ export function LienzoCampanas({ kpi, objetivo = null, abiertas, productoInicial
           </select>
         </div>
       )}
-      <Ramas etiqueta="Tus campañas por estado" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
+      <Ramas etiqueta="Tus campañas por estado" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.filter((p) => p.campanas.length).length)}
         columnas={todas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
         pie={<div className="aa-pie-texto">
           {mes && <p className="aa-pie-mes" data-tono={mes.tono ?? undefined}>{mes.texto}</p>}

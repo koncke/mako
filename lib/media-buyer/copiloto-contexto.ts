@@ -29,8 +29,8 @@ import { contextoDeReferente } from '@/lib/asesores/contexto';
 import { fmtDinero } from '@/lib/format';
 import { CONOCIMIENTO_ANUNCIOS, CONOCIMIENTO_CANALES } from './copiloto-conocimiento';
 import {
-  FUNNELS, compararFunnels, conCampanas, cuentaDe, datosDeDecision, evaluarFunnel, fichaDelNegocio, funnelElegido, funnelsDelReferente,
-  nombreDelReferente, pasosDeLaSemana, planOrganico, recomendarFunnel, seccionesDe, usaAnuncios, usaLlamadas, UMBRALES, type PerfilCopiloto,
+  FUNNELS, compararFunnels, conCampanas, cuentaDe, datosDeDecision, datosDichos, evaluarFunnel, faltaParaComparar, fichaDelNegocio, funnelElegido, funnelsDelReferente,
+  nombreDelReferente, pasosDeLaSemana, planOrganico, recomendarFunnel, seccionesDe, usaAnuncios, UMBRALES, type PerfilCopiloto,
 } from './copiloto';
 
 export { ORIGEN_COPILOTO } from './copiloto';
@@ -163,21 +163,24 @@ export function negocioDelCopiloto(p: PerfilCopiloto): string {
   if (f?.id === 'youtube') lineas.push(`YOUTUBE PARA ESTE NEGOCIO: un negocio de servicios lo usa para que lo conozcan y lleguen a su oferta${fichasDelCopiloto(p).includes('derek-chamizo') ? '; la ficha de Derek Chamizo habla de canales automatizados que viven del CPM, así que ignora lo de nichos por CPM, canales sin cara y los 40 videos' : ''}. Con pocas horas por semana: un video bueno por semana (guion, grabación y edición ocupan las tres horas), y dile que el efecto tarda meses (entre 6 y 24 según lo que dicen las fuentes de contenido permanente): si necesita clientes en las próximas semanas, YouTube solo no se los da; que lo acompañe con mensajes directos a quien ya le escribe.`);
   if (f?.id === 'email' && p.lista == null) lineas.push('EMAIL: antes de armar la secuencia, pregunta cuántos contactos tiene y hace cuánto no les escribe: una lista dormida se reconecta antes de vender.');
   if (p.competencia === 'si') lineas.push('Pidió que investigues a su competencia (Competitor Spy).');
-  // Se compara sólo con lo que DIJO (`datosDeDecision`): sin funnel, un presupuesto o un «quién atiende» que no contestó no se supone.
+  // El funnel ELEGIDO se juzga con lo que dijo más lo que ese funnel no pregunta (`datosDeDecision`: orgánico no lleva plata). Recomendar
+  // otro y comparar los nueve, sólo con lo que DIJO (`datosDichos`, 10/11/2026): con el orgánico de un referente y sin presupuesto, las
+  // reglas corrían con un $0 que nadie contestó y el agente recibía «conviene lead-magnet: con $0 al mes un anuncio no junta datos».
   const d = datosDeDecision(p);
-  const dijoLaPlata = p.presupuestoMes != null || (!!f && !usaAnuncios(f.id));
-  const dijoQuien = !!p.llamadas || p.vende === 'tienda' || (!!f && !usaLlamadas(f.id));
-  if (d) {
-    const rec = recomendarFunnel(d);
+  const dichos = datosDichos(p);
+  if (dichos) {
+    const rec = recomendarFunnel(dichos);
     lineas.push(`LO QUE DICEN LAS REGLAS DE MAKO con esos datos: conviene ${rec.funnel === f?.id ? 'justo ése' : `«${rec.funnel}»`}. ${rec.porque}${rec.masAdelante ? ` Más adelante: «${rec.masAdelante}».` : ''}`);
-    if (f) {
-      const v = evaluarFunnel(f.id, d);
-      lineas.push(v.sirve ? `El funnel elegido SÍ le sirve con esos números.` : `EL FUNNEL ELEGIDO NO LE SIRVE: ${v.motivo}${v.mejor ? ` Debes decírselo y proponer «${v.mejor.funnel}».` : ''}${p.ajuste === 'sigo' ? ' Ya se lo dijiste y decidió seguir con el suyo: no insistas, mídelo con sus primeros números.' : ''}`);
-    }
-    lineas.push(`LOS FUNNELS PARA ESTE NEGOCIO (úsalo cuando pida pasar de uno a otro; lo mismo que ve en «Comparar funnels»): ${compararFunnels(p).map((c) => `${c.funnel.corto}: ${c.sirve ? 'le sirve' : `NO (${c.motivo})`}, tarda ${c.tarda}`).join(' · ')}.`);
+  }
+  if (f && d) {
+    const v = evaluarFunnel(f.id, d);
+    lineas.push(v.sirve ? `El funnel elegido SÍ le sirve con esos números.` : `EL FUNNEL ELEGIDO NO LE SIRVE: ${v.motivo}${v.mejor ? ` Debes decírselo y proponer «${v.mejor.funnel}».` : ''}${p.ajuste === 'sigo' ? ' Ya se lo dijiste y decidió seguir con el suyo: no insistas, mídelo con sus primeros números.' : ''}`);
+  }
+  if (dichos) {
+    lineas.push(`LOS FUNNELS PARA ESTE NEGOCIO (úsalo cuando pida pasar de uno a otro; lo mismo que ve en «Comparar funnels»): ${compararFunnels(p, 'el').map((c) => `${c.funnel.corto}: ${c.sirve == null ? `falta saber ${c.falta}` : c.sirve ? 'le sirve' : `NO (${c.motivo})`}, tarda ${c.tarda}`).join(' · ')}.`);
   } else {
-    const faltan = [p.ticket == null ? 'cuánto le deja una venta' : null, dijoLaPlata ? null : 'cuánto puede poner en anuncios', dijoQuien ? null : 'quién atiende'].filter(Boolean);
-    lineas.push(`LOS FUNNELS PARA ESTE NEGOCIO: todavía no se pueden comparar con sus números (falta ${faltan.join(', ')}). Cuánto tarda cada uno: ${compararFunnels(p).map((c) => `${c.funnel.corto}, ${c.tarda}`).join(' · ')}.`);
+    const faltan = faltaParaComparar(p, 'el');
+    lineas.push(`LOS FUNNELS PARA ESTE NEGOCIO: todavía no se pueden comparar con sus números (falta ${faltan.join(', ')}${d ? '; no lo preguntes para el funnel que eligió, sólo si quiere comparar o cambiar' : ''}). Cuánto tarda cada uno: ${compararFunnels(p).map((c) => `${c.funnel.corto}, ${c.tarda}`).join(' · ')}.`);
     // Los umbrales SIEMPRE que las reglas no corrieron (9/11/2026, la batería): con el precio en el perfil del negocio pero sin guardar,
     // al negocio real del ws 9 le recomendó un VSL con llamada con US$1.500 de ticket y US$1.000 al mes, que las reglas descartan.
     lineas.push(UMBRALES_EN_PALABRAS);

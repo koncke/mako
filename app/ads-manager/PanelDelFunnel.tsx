@@ -18,7 +18,7 @@
 import Link from '@/app/_ui/Link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  compararFunnels, cuentaDe, datosDeDecision, fichaDelNegocio, funnelElegido, medirDe, pasosDeLaSemana, recomendarFunnel, recorridoDe,
+  compararFunnels, cuentaDe, datosDichos, faltaParaComparar, fichaDelNegocio, funnelElegido, medirDe, pasosDeLaSemana, recomendarFunnel, recorridoDe,
   funnelPorId, type ClaveDato, type IdFunnel, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 
@@ -57,8 +57,12 @@ export function PanelDelFunnel({ perfil, modo, onPreguntar, onFunnel, onUsar, pu
   const ficha = useMemo(() => fichaDelNegocio(perfil), [perfil]);
   const recorrido = useMemo(() => recorridoDe(perfil), [perfil]);
   const cuenta = useMemo(() => cuentaDe(perfil), [perfil]);
-  const d = datosDeDecision(perfil);
+  // Recomendar uno entre todos, sólo con lo que DIJO (`datosDichos`, 10/11/2026): con el orgánico de un referente y sin presupuesto,
+  // «MaKo lo recomienda» caía en Lead magnets por un $0 que nadie contestó.
+  const d = datosDichos(perfil);
   const recomendado = d ? recomendarFunnel(d) : null;
+  const comparacion = useMemo(() => compararFunnels(perfil), [perfil]);
+  const faltaComparar = faltaParaComparar(perfil);
   const [comparar, setComparar] = useState(false);
   const [vista, setVista] = useState<VistaPanel>('funnel');
 
@@ -131,15 +135,19 @@ export function PanelDelFunnel({ perfil, modo, onPreguntar, onFunnel, onUsar, pu
                 <p className="cp-eti">{comparar ? 'Los funnels para tu negocio' : 'El recorrido de tu cliente'}</p>
                 <button type="button" className="cp-link" onClick={() => setComparar((c) => !c)} aria-pressed={comparar}>{comparar ? 'Volver al recorrido' : 'Comparar funnels'}</button>
               </div>
+              {comparar && faltaComparar.length > 0 && (
+                // Lo que falta, UNA vez (10/11/2026): antes cada fila repetía «Faltan tus números», nueve veces lo mismo.
+                <p className="cp-aviso">Para decirte cuál te sirve me falta saber {faltaComparar.join(', ').replace(/, ([^,]*)$/, ' y $1')}.</p>
+              )}
               {comparar ? (
                 <ul className="cp-comparar">
-                  {compararFunnels(perfil).map((c) => (
+                  {comparacion.map((c) => (
                     <li key={c.funnel.id} data-elegido={c.funnel.id === f?.id ? '1' : undefined} data-sirve={c.sirve == null ? undefined : c.sirve ? '1' : '0'}>
                       <div className="cp-comparar-nombre">
                         <b>{c.funnel.nombre}</b>
                         {recomendado?.funnel === c.funnel.id && <em>MaKo lo recomienda</em>}
                       </div>
-                      <span className="cp-comparar-sirve">{c.sirve == null ? 'Faltan tus números' : c.sirve ? 'Te sirve' : c.motivo}</span>
+                      <span className="cp-comparar-sirve">{c.sirve == null ? (c.falta && c.falta !== faltaComparar.join(', ') ? `Falta saber ${c.falta}` : '') : c.sirve ? 'Te sirve' : c.motivo}</span>
                       <span className="cp-comparar-dato">Pide {c.pide}</span>
                       <span className="cp-comparar-dato">Tarda {c.tarda}</span>
                       {c.funnel.id === f?.id ? <span className="cp-comparar-ok">El tuyo</span>
