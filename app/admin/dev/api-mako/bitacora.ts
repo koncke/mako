@@ -611,4 +611,25 @@ export const BITACORA: Hito[] = [
     revisar: '/integraciones?abrir=agente',
     tickets: [60],
   },
+  {
+    fecha: '10 nov', hora: '00:52', chat: 'Automations › ManyChat', sesion: 'cli_958a4140-0df2-5490-98d6-ce01093ca639', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La Ticketera por la API, y Automations suma plantillas, duplicar, renombrar y quién espera',
+    puntos: [
+      'Levantar, listar, ver y contestar un ticket por /api/v1/mako/tickets. Con un token detallado firma la persona que lo creó y entra por la vía libre de su negocio («Aprobado por regla»).',
+      'Por HTTP, `ctx.actor` es el NOMBRE del token: firmaba con él. Ahora firma `ctx.persona`; con un token clásico queda propuesto y firma quien lo confirma.',
+      'Automations por HTTP: las plantillas, crear desde una, duplicar, renombrar, «volver a probar» y quién espera en cada tarjeta.',
+      'Lo que todavía no sale por la API, en orden, en docs/relevo/nube-automations-manychat.md («Parte 5»).',
+    ],
+    commits: [
+      { sha: 'ff852479', msg: 'La Ticketera por la API de MaKo: levantar, listar, ver y contestar un ticket por /api/v1', lineas: 766, archivos: 11 },
+      { sha: 'a97af785', msg: 'Automations por la API: plantillas, crear desde una, duplicar, renombrar, «volver a probar» y quién espera en cada tarjeta', lineas: 500, archivos: 9 },
+    ],
+    archivos: [
+      'lib/tickets-api.ts — quién pide por cada canal y lo que sale de un ticket',
+      'lib/api-mako/areas/tickets.def.ts y tickets.run.ts — las cuatro operaciones',
+      'lib/api-mako/areas/chatbot.def.ts y chatbot.run.ts — lo de Automations que se abrió por HTTP',
+    ],
+    revisar: '/api-mako',
+  },
 ];

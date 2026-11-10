@@ -3410,4 +3410,42 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: '9 nov', hora: '23:30', chat: 'Automations › ManyChat', sesion: 'cli_958a4140-0df2-5490-98d6-ce01093ca639', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Automations sin trabas, a la par de ManyChat, y todo por la API',
+    pedido: 'soluciones al 100 % y preveas todo lo que pueda llegar a pasar en relación a Automations, porque Leandro lo estuvo intentando utilizar y no lo pudo… que revises que todo lo que se hace en ManyChat se pueda hacer y que nosotros tengamos todo eso… y todo lo anterior documentado en la API: todo tiene que estar documentado en la API. Por ejemplo, hoy en día en la API ni siquiera se pueden levantar tickets, y sí se debería',
+    puntos: [
+      'Llegó por el Cerebro, con el caso de Leandro (ws10): no pudo usar Automations.',
+      'Tres partes: destrabar cada camino de un usuario nuevo, la tabla «ManyChat | MaKo hoy | qué falta», y que cada función (y la Ticketera) salga por /api/v1.',
+    ],
+  },
+  {
+    fecha: '10 nov', hora: '01:22', chat: 'Automations › ManyChat', sesion: 'cli_958a4140-0df2-5490-98d6-ce01093ca639', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cuatro trabas silenciosas cerradas, y palabras clave en DM e historia como en ManyChat',
+    puntos: [
+      'Activar con emails prende el «Envío real» del email (la decisión #851 de WhatsApp, extendida); el lead dice «Email apagado» si sigue apagado.',
+      'Publicar frena «Hola [nombre]» (no salía nunca) y «[tu link …]» (le llegaba literal al lead), con la tarjeta en rojo.',
+      'Un AI Step nuevo nace con el medio del CRON (Instagram o Messenger): antes nacía en WhatsApp y no le contestaba a nadie.',
+      'Una automatización vacía o sin disparador ya no se activa: quedaba «Activa» sin hacer nada.',
+      'Palabras clave en un DM y en la respuesta a una historia, y el CRON «te menciona en su historia».',
+      'Falta lo más grande: WhatsApp como clase del CRON, con palabras clave (el cómo, en docs/relevo/nube-automations-manychat.md).',
+    ],
+    commits: [
+      { sha: '2f96d2fc', msg: 'Automations, paridad con ManyChat: palabras clave en un DM y la mención en una historia', lineas: 227, archivos: 18 },
+      { sha: 'e12cd19c', msg: 'Automations: activar con emails prende el envío real de email, y el lead dice «Email apagado»', lineas: 147, archivos: 8 },
+      { sha: 'd763297d', msg: 'Automations: Publicar frena un texto entre corchetes («Hola [nombre]» no salía nunca)', lineas: 139, archivos: 6 },
+      { sha: 'c9071fc0', msg: 'Automations: un AI Step nuevo nace con el medio del CRON (Instagram o Messenger), no siempre en WhatsApp', lineas: 155, archivos: 9 },
+      { sha: '023a226b', msg: 'Automations: una automatización vacía o sin disparador no se activa', lineas: 114, archivos: 5 },
+    ],
+    archivos: [
+      'lib/envio-al-activar.ts — qué envío prender al activar, y la frase que lo dice por la API',
+      'lib/flujo-relleno.ts — el detector de corchetes, uno solo (lo usan el motor, la API y Publicar)',
+      'lib/medios-automatizacion.ts — `medioIADeLosCron`: con qué medio nace un AI Step',
+      'lib/flujo-conversacion.ts — `motivoParaNoActivar`, `conMedioIA`, el corchete en `faltaEscribir`',
+      'docs/relevo/nube-automations-manychat.md — la tabla de paridad y lo que sigue por impacto',
+    ],
+    revisar: '/automations',
+  },
 ];

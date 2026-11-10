@@ -27,6 +27,43 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Cuatro trabas silenciosas para un usuario nuevo, y la paridad con ManyChat (10/11/2026, nube)
+
+Martín (9/11): «Leandro lo estuvo intentando utilizar y no lo pudo… que revises que todo lo que se hace en ManyChat se pueda
+hacer». Recorriendo lo que hace alguien que arranca de cero aparecieron cuatro trabas, y las cuatro tenían la misma forma: **la
+automatización queda «Activa» y no hace nada, sin un error**. La tabla entera de ManyChat contra MaKo, con lo que falta por
+impacto, está en [relevo/nube-automations-manychat.md](relevo/nube-automations-manychat.md).
+
+- **El email no salía al activar.** El «Envío real» del email (`envio_email_enabled`) es fail-closed para un cliente, y activar
+  sólo prendía el de WhatsApp (#851). Cada email quedaba «canal email apagado», reintentado cada 24 h. Se extendió la misma
+  decisión (`enviosQuePrender`, lib/envio-al-activar.ts), el motivo «Email apagado» entró a `porQueNoSale` y, por la API, la
+  respuesta dice qué se prendió (`textoDeLoQuePrendio`: por HTTP no hay otra pantalla).
+- **«Hola [nombre]» no salía nunca.** Es como mucha gente escribe un dato, y el motor saltea todo `[…]` (es el relleno de las
+  semillas). Y `[tu link …]`, que el detector deja pasar, llegaba LITERAL: el comentario del motor que decía que «se reemplaza
+  al enviar» era falso. El detector es UNO (lib/flujo-relleno.ts, estaba copiado en el motor y en la API) y frena Publicar en
+  `faltaEscribir`. ⚠️ **No en `validarGrafo`**: esa vara la usa `setSecuenciaPasos` para RECHAZAR un guardado, y las semillas
+  nacen con el corchete a propósito.
+- **El AI Step nacía en WhatsApp** en una automatización que dispara Instagram: escuchaba por WhatsApp y Activar pedía conectar
+  un WhatsApp. Nace con el medio de los CRON si es inequívoco (`medioIADeLosCron`), por las cuatro puertas que crean una
+  tarjeta (el ＋, el click derecho, soltar una flecha y los dos menús).
+- **Una vacía o sin CRON se activaba.** Frena la pantalla (`motivoParaNoActivar`); el server frena sólo la VACÍA
+  (`validarActivacion`). ⚠️ **El CRON sin elegir no se puede frenar en el server**: la difusión (lib/difusion.ts) nace
+  `manual` y se activa por código. Lo vi recién después de escribirlo ahí.
+- **Y en paridad con ManyChat**: palabras clave en un DM y en la respuesta a una historia (`SUBTIPOS_CON_PALABRAS`,
+  `queSeComparaConPalabras`: un DM compara el MENSAJE, no un comentario), y el CRON «te menciona en su historia»
+  (`mencion_historia`, que el webhook de Zernio ya mandaba y `zernio-entrante` tiraba con un `return`). ⚠️ La mención le suma
+  ~8 tokens al prompt de Crear con IA, que estaba a 4.000 del techo de Groq: se ofrece sólo si el pedido la nombra
+  (`PIDE_MENCION`), como el anuncio.
+
+**El hueco más grande que queda: WhatsApp no es una clase del CRON.** Un número que ya está en el CRM no puede disparar una
+automatización por una palabra clave, que es lo que más usa quien viene de ManyChat. El cómo, en el relevo.
+
+**Vive en:** lib/envio-al-activar.ts · lib/nutricion.ts (`setSecuenciaActiva`, `validarActivacion`) · lib/por-que-no-sale.ts ·
+lib/flujo-relleno.ts · lib/flujo-conversacion.ts (`faltaEscribir`, `motivoParaNoActivar`, `conMedioIA`) ·
+lib/medios-automatizacion.ts (`medioIADeLosCron`) · lib/disparadores.ts · lib/zernio-entrante.ts · test:
+tests/envio-al-activar.test.ts, tests/flujo-relleno.test.ts, tests/ai-step-medio-del-cron.test.ts, tests/activar-vacia.test.ts,
+tests/instagram-dm-palabras-mencion.test.ts · *10/11/2026, nube.*
+
 ## Instagram y Messenger rotan entre varias formas de decirlo, también la respuesta pública (9/11/2026, ticket #67 de Leandro)
 
 **El pedido:** Leandro, 9/11: que la respuesta pública de su tarjeta «no sea siempre igual: que rote entre «¡Enviado! Revisá tus DMs

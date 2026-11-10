@@ -14,6 +14,31 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## La Ticketera por la API: QUIÉN pide no es un parámetro, y por HTTP `ctx.actor` es el NOMBRE del token (10/11/2026, nube)
+
+Martín (9/11): «hoy en día en la API ni siquiera se pueden levantar tickets, y sí se debería». `levantar_ticket` existía y no
+salía por HTTP; ahora salen levantar, listar, ver (con la conversación) y contestar (`/api/v1/mako/tickets…`).
+
+- **El diagnóstico obvio —«falta declarar `'http'`»— era la mitad.** El runner firmaba el ticket con `ctx.actor`, que en la app
+  es el email de la sesión y por HTTP es el **nombre del token** («API · token «x»»), que escribe una persona y puede traer una
+  «@». Abrirlo tal cual dejaba firmar un ticket con lo que dijera el nombre. Por HTTP firma `ctx.persona` (la persona que creó
+  el token detallado, que `autenticar` sólo pone si sigue administrando el negocio): `quienPideElTicket`, lib/tickets-api.ts.
+- **Con un token clásico no hay persona**: queda propuesto y firma quien lo confirma en /mako/pendientes. Confirmarlo POR HTTP
+  se rechaza en `faltaParaConfirmar` (antes de reclamar la pendiente: si no, quedaba en `error` para el admin que sí podía).
+- **La vía libre sale por la API**: `aprobadoPorRegla` («Leandro») es lo único del triage que sale, porque es del negocio. Lo
+  demás (el porqué, la confianza, la nota de Martín) no (`paraElCliente`).
+- **Automations también**: plantillas, crear desde una, duplicar, renombrar, «volver a probar» y `espera_por_tarjeta` salen por
+  HTTP. Se abrió lo que crea algo PAUSADO o no le escribe a nadie; inscribir, empezar de nuevo y difundir siguen cerrados (le
+  escriben a una persona real) y sacar a un lead también (cancela para siempre). Lo que falta, en orden, en
+  [relevo/nube-automations-manychat.md](relevo/nube-automations-manychat.md) → «Parte 5».
+- **Y activar por la API dice qué prendió** (`textoDeLoQuePrendio`): desde el 10/11 activar con emails prende el envío real de
+  email, y por HTTP no hay otra pantalla que lo diga.
+
+**Vive en:** lib/tickets-api.ts · lib/tickets-db.ts (`ticketsDeLaCuenta`, `comentarComoCliente`) ·
+lib/api-mako/areas/tickets.def.ts y .run.ts · lib/api-mako/areas/chatbot.def.ts y .run.ts · lib/api-mako/rest.ts ·
+lib/mako-doer-acciones.ts (`nutricion_toggle`) · test: tests/tickets-api.test.ts, tests/automations-api.test.ts · *10/11/2026,
+nube.*
+
 ## El token de agencia: uno para la cartera, y el cliente se decide en CADA pedido (6/11/2026, nube)
 
 La promesa a la agencia de Thiago: migrar 27 clientes sin acuñar 27 tokens. En /api-mako → Tokens, una agencia elige como
